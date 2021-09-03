@@ -50351,8 +50351,8 @@ __webpack_require__.r(__webpack_exports__);
 
 
 var Block = /** @class */ (function () {
-    function Block(vec3) {
-        this.vec3 = vec3;
+    function Block(position) {
+        this.position = position;
         this.box = new three__WEBPACK_IMPORTED_MODULE_1__.BoxBufferGeometry(_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE);
     }
     Block.prototype.display = function () {
@@ -50363,17 +50363,17 @@ var Block = /** @class */ (function () {
     Block.prototype.displayBlock = function () {
         var mesh = new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ color: 0x00ff00 });
         var blockMesh = new three__WEBPACK_IMPORTED_MODULE_1__.Mesh(this.box, mesh);
-        blockMesh.position.x = this.vec3.x;
-        blockMesh.position.y = this.vec3.y;
-        blockMesh.position.z = this.vec3.z;
+        blockMesh.position.x = this.position.x;
+        blockMesh.position.y = this.position.y;
+        blockMesh.position.z = this.position.z;
         return blockMesh;
     };
     Block.prototype.displayLine = function () {
         var edges = new three__WEBPACK_IMPORTED_MODULE_1__.EdgesGeometry(this.box);
         var lineSegment = new three__WEBPACK_IMPORTED_MODULE_1__.LineSegments(edges, new three__WEBPACK_IMPORTED_MODULE_1__.LineBasicMaterial({ color: 0xffffff }));
-        lineSegment.position.x = this.vec3.x;
-        lineSegment.position.y = this.vec3.y;
-        lineSegment.position.z = this.vec3.z;
+        lineSegment.position.x = this.position.x;
+        lineSegment.position.y = this.position.y;
+        lineSegment.position.z = this.position.z;
         return lineSegment;
     };
     return Block;
@@ -50392,7 +50392,8 @@ var Block = /** @class */ (function () {
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "BLOCK": () => (/* binding */ BLOCK),
-/* harmony export */   "TERRIAN": () => (/* binding */ TERRIAN)
+/* harmony export */   "TERRIAN": () => (/* binding */ TERRIAN),
+/* harmony export */   "CAMERA": () => (/* binding */ CAMERA)
 /* harmony export */ });
 const BLOCK = {
   SIZE: 5
@@ -50400,7 +50401,14 @@ const BLOCK = {
 
 const TERRIAN = {
   AMPLITUDE: 100,
-  INCREMENT_OFFSET: 0.01
+  INCREMENT_OFFSET: 0.01,
+  WIDTH: 50
+}
+
+const CAMERA = {
+  X: 10,
+  Y: 80,
+  Z: 10
 }
 
 
@@ -51160,17 +51168,17 @@ var renderer = new three__WEBPACK_IMPORTED_MODULE_4__.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 var camera = new three__WEBPACK_IMPORTED_MODULE_4__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.x = 10;
-camera.position.y = 80;
-camera.position.z = 10;
+camera.position.x = _constant__WEBPACK_IMPORTED_MODULE_3__.CAMERA.X;
+camera.position.y = _constant__WEBPACK_IMPORTED_MODULE_3__.CAMERA.Y;
+camera.position.z = _constant__WEBPACK_IMPORTED_MODULE_3__.CAMERA.Z;
 var blocks = [];
 var simplex = new simplex_noise__WEBPACK_IMPORTED_MODULE_0__["default"](Math.random());
 var xoff = 0;
 var zoff = 0;
-for (var x = 0; x < 50; x++) {
+for (var x = 0; x < _constant__WEBPACK_IMPORTED_MODULE_3__.TERRIAN.WIDTH; x++) {
     xoff = 0;
-    for (var z = 0; z < 50; z++) {
-        var y = Math.round(Math.abs(simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_3__.TERRIAN.AMPLITUDE / _constant__WEBPACK_IMPORTED_MODULE_3__.BLOCK.SIZE);
+    for (var z = 0; z < _constant__WEBPACK_IMPORTED_MODULE_3__.TERRIAN.WIDTH; z++) {
+        var y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_3__.TERRIAN.AMPLITUDE) / _constant__WEBPACK_IMPORTED_MODULE_3__.BLOCK.SIZE);
         blocks.push(new _block__WEBPACK_IMPORTED_MODULE_2__["default"](new three__WEBPACK_IMPORTED_MODULE_4__.Vector3(-1 * x * _constant__WEBPACK_IMPORTED_MODULE_3__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_3__.BLOCK.SIZE, -1 * z * _constant__WEBPACK_IMPORTED_MODULE_3__.BLOCK.SIZE)));
         xoff += _constant__WEBPACK_IMPORTED_MODULE_3__.TERRIAN.INCREMENT_OFFSET;
     }
