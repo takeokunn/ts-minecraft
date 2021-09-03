@@ -1,13 +1,13 @@
-name: test and deploy
+name: test
 
 on:
   push:
-    branches:
+    branches-ignore:
       - main
 
 jobs:
-  test-and-deploy:
-    name: test and deploy
+  test:
+    name: test
     runs-on: ubuntu-latest
     steps:
     # setup
@@ -29,7 +29,3 @@ jobs:
       run: npm run test
     - name: Build
       run: npm run build
-
-    # deploy
-    - name: deploy
-      run: npm run deploy

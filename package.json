@@ -11,7 +11,8 @@
     "tsc": "tsc",
     "test": "jest",
     "lint": "eslint src/ --ext .ts",
-    "lint:fix": "eslint src/ --fix --ext .ts && prettier --write 'src/**/*.ts'"
+    "lint:fix": "eslint src/ --fix --ext .ts && prettier --write 'src/**/*.ts'",
+    "deploy": "gh-pages -d dist"
   },
   "repository": {
     "type": "git",
@@ -41,6 +42,7 @@
     "eslint-config-next": "^11.1.2",
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-prettier": "^4.0.0",
+    "gh-pages": "^3.2.3",
     "jest": "^27.1.0",
     "prettier": "^2.3.2",
     "ts-loader": "^9.2.5",
