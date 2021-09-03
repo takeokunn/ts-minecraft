@@ -3,7 +3,7 @@ import SimplexNoise from 'simplex-noise'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 
 import Block from './block'
-import { BLOCK, TERRIAN } from './constant'
+import { BLOCK, TERRIAN, CAMERA } from './constant'
 
 const scene = new THREE.Scene()
 const renderer = new THREE.WebGLRenderer()
@@ -11,9 +11,9 @@ renderer.setSize(window.innerWidth, window.innerHeight)
 document.body.appendChild(renderer.domElement)
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
-camera.position.x = 10
-camera.position.y = 80
-camera.position.z = 10
+camera.position.x = CAMERA.X
+camera.position.y = CAMERA.Y
+camera.position.z = CAMERA.Z
 
 const blocks: Block[] = []
 
@@ -22,10 +22,10 @@ const simplex = new SimplexNoise(Math.random())
 let xoff = 0
 let zoff = 0
 
-for (let x = 0; x < 50; x++) {
+for (let x = 0; x < TERRIAN.WIDTH; x++) {
   xoff = 0
-  for (let z = 0; z < 50; z++) {
-    const y = Math.round(Math.abs(simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE / BLOCK.SIZE)
+  for (let z = 0; z < TERRIAN.WIDTH; z++) {
+    const y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE)
     blocks.push(new Block(new THREE.Vector3(-1 * x * BLOCK.SIZE, y * BLOCK.SIZE, -1 * z * BLOCK.SIZE)))
     xoff += TERRIAN.INCREMENT_OFFSET
   }

@@ -3,12 +3,12 @@ import * as THREE from 'three'
 import { BLOCK } from './constant'
 
 class Block {
-  private vec3: THREE.Vector3
+  private position: THREE.Vector3
 
   private box: THREE.BoxGeometry
 
-  constructor(vec3: THREE.Vector3) {
-    this.vec3 = vec3
+  constructor(position: THREE.Vector3) {
+    this.position = position
     this.box = new THREE.BoxBufferGeometry(BLOCK.SIZE, BLOCK.SIZE, BLOCK.SIZE)
   }
 
@@ -22,9 +22,9 @@ class Block {
     const mesh = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
     const blockMesh = new THREE.Mesh(this.box, mesh)
 
-    blockMesh.position.x = this.vec3.x
-    blockMesh.position.y = this.vec3.y
-    blockMesh.position.z = this.vec3.z
+    blockMesh.position.x = this.position.x
+    blockMesh.position.y = this.position.y
+    blockMesh.position.z = this.position.z
 
     return blockMesh
   }
@@ -33,9 +33,9 @@ class Block {
     const edges = new THREE.EdgesGeometry(this.box)
     const lineSegment = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff }))
 
-    lineSegment.position.x = this.vec3.x
-    lineSegment.position.y = this.vec3.y
-    lineSegment.position.z = this.vec3.z
+    lineSegment.position.x = this.position.x
+    lineSegment.position.y = this.position.y
+    lineSegment.position.z = this.position.z
 
     return lineSegment
   }
