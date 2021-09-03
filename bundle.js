@@ -50347,7 +50347,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
 /* harmony import */ var three__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
-/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./constant */ "./src/constant.js");
+/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
 
 
 var Block = /** @class */ (function () {
@@ -50383,9 +50383,9 @@ var Block = /** @class */ (function () {
 
 /***/ }),
 
-/***/ "./src/constant.js":
+/***/ "./src/constant.ts":
 /*!*************************!*\
-  !*** ./src/constant.js ***!
+  !*** ./src/constant.ts ***!
   \*************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
@@ -50395,21 +50395,65 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "TERRIAN": () => (/* binding */ TERRIAN),
 /* harmony export */   "CAMERA": () => (/* binding */ CAMERA)
 /* harmony export */ });
-const BLOCK = {
-  SIZE: 5
-}
+var BLOCK = {
+    SIZE: 5
+};
+var TERRIAN = {
+    AMPLITUDE: 100,
+    INCREMENT_OFFSET: 0.01,
+    WIDTH: 50
+};
+var CAMERA = {
+    INIT_X: 10,
+    INIT_Y: 80,
+    INIT_Z: 10,
+    MOVING_SPEED: 7
+};
 
-const TERRIAN = {
-  AMPLITUDE: 100,
-  INCREMENT_OFFSET: 0.01,
-  WIDTH: 50
-}
 
-const CAMERA = {
-  X: 10,
-  Y: 80,
-  Z: 10
-}
+/***/ }),
+
+/***/ "./src/keyboard.ts":
+/*!*************************!*\
+  !*** ./src/keyboard.ts ***!
+  \*************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+var __spreadArray = (undefined && undefined.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
+};
+var Keyboard = /** @class */ (function () {
+    function Keyboard(keymaps) {
+        this.keys = ["fdsafda"];
+        this.keys = [];
+        this.keymaps = keymaps;
+    }
+    Keyboard.prototype.handleKeyDown = function (e) {
+        this.keys = __spreadArray(__spreadArray([], this.keys, true), [e.key], false);
+    };
+    Keyboard.prototype.handleKeyUp = function (e) {
+        this.keys = this.keys.filter(function (key) { return key !== e.key; });
+    };
+    Keyboard.prototype.dispatch = function () {
+        var _this = this;
+        this.keymaps.forEach(function (keymap) {
+            if (_this.keys.includes(keymap.key))
+                keymap.callback();
+        });
+    };
+    return Keyboard;
+}());
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (Keyboard);
 
 
 /***/ }),
@@ -51153,36 +51197,47 @@ var __webpack_exports__ = {};
   !*** ./src/main.ts ***!
   \*********************/
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
+/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
 /* harmony import */ var simplex_noise__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/esm/simplex-noise.js");
 /* harmony import */ var three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three/examples/jsm/controls/PointerLockControls */ "./node_modules/three/examples/jsm/controls/PointerLockControls.js");
 /* harmony import */ var _block__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./block */ "./src/block.ts");
-/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./constant */ "./src/constant.js");
+/* harmony import */ var _keyboard__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./keyboard */ "./src/keyboard.ts");
+/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
+var __spreadArray = (undefined && undefined.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
+};
 
 
 
 
 
-var scene = new three__WEBPACK_IMPORTED_MODULE_4__.Scene();
-var renderer = new three__WEBPACK_IMPORTED_MODULE_4__.WebGLRenderer();
+
+var simplex = new simplex_noise__WEBPACK_IMPORTED_MODULE_0__["default"](Math.random());
+var scene = new three__WEBPACK_IMPORTED_MODULE_5__.Scene();
+var renderer = new three__WEBPACK_IMPORTED_MODULE_5__.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
-var camera = new three__WEBPACK_IMPORTED_MODULE_4__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.x = _constant__WEBPACK_IMPORTED_MODULE_3__.CAMERA.X;
-camera.position.y = _constant__WEBPACK_IMPORTED_MODULE_3__.CAMERA.Y;
-camera.position.z = _constant__WEBPACK_IMPORTED_MODULE_3__.CAMERA.Z;
-var blocks = [];
-var simplex = new simplex_noise__WEBPACK_IMPORTED_MODULE_0__["default"](Math.random());
+var camera = new three__WEBPACK_IMPORTED_MODULE_5__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.x = _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INIT_X;
+camera.position.y = _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INIT_Y;
+camera.position.z = _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INIT_Z;
 var xoff = 0;
 var zoff = 0;
-for (var x = 0; x < _constant__WEBPACK_IMPORTED_MODULE_3__.TERRIAN.WIDTH; x++) {
+var blocks = [];
+for (var x = 0; x < _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.WIDTH; x++) {
     xoff = 0;
-    for (var z = 0; z < _constant__WEBPACK_IMPORTED_MODULE_3__.TERRIAN.WIDTH; z++) {
-        var y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_3__.TERRIAN.AMPLITUDE) / _constant__WEBPACK_IMPORTED_MODULE_3__.BLOCK.SIZE);
-        blocks.push(new _block__WEBPACK_IMPORTED_MODULE_2__["default"](new three__WEBPACK_IMPORTED_MODULE_4__.Vector3(-1 * x * _constant__WEBPACK_IMPORTED_MODULE_3__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_3__.BLOCK.SIZE, -1 * z * _constant__WEBPACK_IMPORTED_MODULE_3__.BLOCK.SIZE)));
-        xoff += _constant__WEBPACK_IMPORTED_MODULE_3__.TERRIAN.INCREMENT_OFFSET;
+    for (var z = 0; z < _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.WIDTH; z++) {
+        var y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.AMPLITUDE) / _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE);
+        blocks = __spreadArray(__spreadArray([], blocks, true), [new _block__WEBPACK_IMPORTED_MODULE_2__["default"](new three__WEBPACK_IMPORTED_MODULE_5__.Vector3(-1 * x * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE, -1 * z * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE))], false);
+        xoff += _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.INCREMENT_OFFSET;
     }
-    zoff += _constant__WEBPACK_IMPORTED_MODULE_3__.TERRIAN.INCREMENT_OFFSET;
+    zoff += _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.INCREMENT_OFFSET;
 }
 blocks.forEach(function (block) {
     var _a = block.display(), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
@@ -51197,15 +51252,38 @@ var handleResizeWindow = function () {
 window.addEventListener('resize', handleResizeWindow);
 var controls = new three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__.PointerLockControls(camera, document.body);
 document.body.addEventListener('click', function () { return controls.lock(); });
-controls.addEventListener('lock', function () { return console.log('controls lock'); });
-controls.addEventListener('unlock', function () { return console.log('controls unlock'); });
-// const update = () => {}
+// controls.addEventListener('lock', () => console.log('controls lock'))
+// controls.addEventListener('unlock', () => console.log('controls unlock'))
+var keymaps = [
+    {
+        key: "w",
+        callback: function () { return controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); }
+    },
+    {
+        key: "a",
+        callback: function () { return controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); }
+    },
+    {
+        key: "s",
+        callback: function () { return controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); }
+    },
+    {
+        key: "d",
+        callback: function () { return controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); }
+    },
+];
+var keyboard = new _keyboard__WEBPACK_IMPORTED_MODULE_3__["default"](keymaps);
+document.addEventListener('keyup', function (e) { return keyboard.handleKeyUp(e); });
+document.addEventListener('keydown', function (e) { return keyboard.handleKeyDown(e); });
+var update = function () {
+    keyboard.dispatch();
+};
 var render = function () {
     renderer.render(scene, camera);
 };
 var gameLoop = function () {
     requestAnimationFrame(gameLoop);
-    // update()
+    update();
     render();
 };
 gameLoop();

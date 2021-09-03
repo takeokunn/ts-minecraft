@@ -7,7 +7,8 @@ export var TERRIAN = {
     WIDTH: 50
 };
 export var CAMERA = {
-    X: 10,
-    Y: 80,
-    Z: 10
+    INIT_X: 10,
+    INIT_Y: 80,
+    INIT_Z: 10,
+    MOVING_SPEED: 7
 };
