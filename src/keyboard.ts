@@ -1,5 +1,5 @@
 class Keyboard {
-  public keys: string[] = ["fdsafda"]
+  public keys: string[] = []
   public keymaps: KeyMap[]
 
   constructor(keymaps: KeyMap[]) {
@@ -7,17 +7,17 @@ class Keyboard {
     this.keymaps = keymaps
   }
 
-  handleKeyDown(e: KeyboardEvent) {
+  handleKeyDown(e: KeyboardEvent): void {
     this.keys = [...this.keys, e.key]
   }
 
-  handleKeyUp(e: KeyboardEvent) {
-    this.keys = this.keys.filter(key => key !== e.key)
+  handleKeyUp(e: KeyboardEvent): void {
+    this.keys = this.keys.filter((key) => key !== e.key)
   }
 
-  dispatch() {
-    this.keymaps.forEach(keymap => {
-      if (this.keys.includes(keymap.key)) keymap.callback();
+  dispatch(): void {
+    this.keymaps.forEach((keymap) => {
+      if (this.keys.includes(keymap.key)) keymap.callback()
     })
   }
 }

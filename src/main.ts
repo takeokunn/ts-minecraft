@@ -4,9 +4,13 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 
 import Block from './block'
 import Keyboard from './keyboard'
-import { BLOCK, TERRIAN, CAMERA } from './constant'
+import { BLOCK, TERRIAN, CAMERA, GRAVITY } from './constant'
 
 const simplex = new SimplexNoise(Math.random())
+
+///////////////////////////////////////////////////////////////////////////////
+//                          initialize scene/camera                          //
+///////////////////////////////////////////////////////////////////////////////
 
 const scene = new THREE.Scene()
 const renderer = new THREE.WebGLRenderer()
@@ -17,6 +21,23 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
 camera.position.x = CAMERA.INIT_X
 camera.position.y = CAMERA.INIT_Y
 camera.position.z = CAMERA.INIT_Z
+
+const controls = new PointerLockControls(camera, document.body)
+document.body.addEventListener('click', () => controls.lock())
+// controls.addEventListener('lock', () => console.log('controls lock'))
+// controls.addEventListener('unlock', () => console.log('controls unlock'))
+
+const handleResizeWindow = () => {
+  renderer.setSize(window.innerWidth, window.innerHeight)
+  camera.aspect = window.innerWidth / window.innerHeight
+  camera.updateProjectionMatrix()
+}
+
+window.addEventListener('resize', handleResizeWindow)
+
+///////////////////////////////////////////////////////////////////////////////
+//                              generate terrian                             //
+///////////////////////////////////////////////////////////////////////////////
 
 let xoff = 0
 let zoff = 0
@@ -38,35 +59,46 @@ blocks.forEach((block) => {
   scene.add(lineSegment)
 })
 
-const handleResizeWindow = () => {
-  renderer.setSize(window.innerWidth, window.innerHeight)
-  camera.aspect = window.innerWidth / window.innerHeight
-  camera.updateProjectionMatrix()
+///////////////////////////////////////////////////////////////////////////////
+//                                 collision                                 //
+///////////////////////////////////////////////////////////////////////////////
+
+const isCollideCameraAndBlock = (camera: THREE.PerspectiveCamera, block: Block): boolean => {
+  return (
+    camera.position.x <= block.position.x + BLOCK.SIZE &&
+    camera.position.x >= block.position.x &&
+    camera.position.z <= block.position.z + BLOCK.SIZE &&
+    camera.position.z >= block.position.z &&
+    camera.position.y < block.position.y
+  )
 }
 
-window.addEventListener('resize', handleResizeWindow)
+///////////////////////////////////////////////////////////////////////////////
+//                                 key event                                 //
+///////////////////////////////////////////////////////////////////////////////
 
-const controls = new PointerLockControls(camera, document.body)
-document.body.addEventListener('click', () => controls.lock())
-// controls.addEventListener('lock', () => console.log('controls lock'))
-// controls.addEventListener('unlock', () => console.log('controls unlock'))
+let ySpeed = 0
 
 const keymaps: KeyMap[] = [
   {
-    key: "w",
-    callback: () => controls.moveForward(CAMERA.MOVING_SPEED)
+    key: 'w',
+    callback: () => controls.moveForward(CAMERA.MOVING_SPEED),
   },
   {
-    key: "a",
-    callback: () => controls.moveRight(-1 * CAMERA.MOVING_SPEED)
+    key: 'a',
+    callback: () => controls.moveRight(-1 * CAMERA.MOVING_SPEED),
   },
   {
-    key: "s",
-    callback: () => controls.moveForward(-1 * CAMERA.MOVING_SPEED)
+    key: 's',
+    callback: () => controls.moveForward(-1 * CAMERA.MOVING_SPEED),
   },
   {
-    key: "d",
-    callback: () => controls.moveRight(CAMERA.MOVING_SPEED)
+    key: 'd',
+    callback: () => controls.moveRight(CAMERA.MOVING_SPEED),
+  },
+  {
+    key: ' ',
+    callback: () => (ySpeed = -3),
   },
 ]
 const keyboard = new Keyboard(keymaps)
@@ -74,8 +106,22 @@ const keyboard = new Keyboard(keymaps)
 document.addEventListener('keyup', (e: KeyboardEvent) => keyboard.handleKeyUp(e))
 document.addEventListener('keydown', (e: KeyboardEvent) => keyboard.handleKeyDown(e))
 
+///////////////////////////////////////////////////////////////////////////////
+//                                 game event                                //
+///////////////////////////////////////////////////////////////////////////////
 const update = () => {
+  // keyboard
   keyboard.dispatch()
+
+  // gravity
+  camera.position.y = camera.position.y - ySpeed
+  ySpeed = ySpeed + GRAVITY
+
+  blocks.forEach((block) => {
+    if (!isCollideCameraAndBlock(camera, block)) return
+    camera.position.y = block.position.y
+    ySpeed = 0
+  })
 }
 
 const render = () => {
