@@ -1,5 +1,5 @@
 const Hello = (name: string): string => {
-  return "Hello " + name;
+  return 'Hello ' + name
 }
 
-console.log(Hello('fdsafasfas'));
+console.log(Hello('fdsafasfas'))
