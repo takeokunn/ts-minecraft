@@ -11,8 +11,7 @@
     "tsc": "tsc",
     "test": "jest",
     "lint": "eslint src/ --ext .ts",
-    "lint:fix": "eslint src/ --fix --ext .ts && prettier --write 'src/**/*.ts'",
-    "deploy": "gh-pages -d dist"
+    "lint:fix": "eslint src/ --fix --ext .ts && prettier --write 'src/**/*.ts'"
   },
   "repository": {
     "type": "git",
