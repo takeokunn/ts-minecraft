@@ -28,7 +28,7 @@
   },
   "homepage": "https://github.com/takeokunn/ts-minecraft#readme",
   "dependencies": {
-    "perlin": "^1.0.0",
+    "simplex-noise": "^3.0.0",
     "three": "^0.132.2"
   },
   "devDependencies": {

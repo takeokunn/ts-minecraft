@@ -1,46 +1,66 @@
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+import SimplexNoise from 'simplex-noise'
+import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
+
+import Block from './block'
+import { BLOCK, TERRIAN } from './constant'
 
 const scene = new THREE.Scene()
-
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
-camera.position.z = 2
-
 const renderer = new THREE.WebGLRenderer()
 renderer.setSize(window.innerWidth, window.innerHeight)
 document.body.appendChild(renderer.domElement)
 
-const controls = new OrbitControls(camera, renderer.domElement)
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+camera.position.x = 10
+camera.position.y = 80
+camera.position.z = 10
 
-const geometry = new THREE.BoxGeometry()
-const material = new THREE.MeshBasicMaterial({
-    color: 0x00ff00,
-    wireframe: true,
+const blocks: Block[] = []
+
+const simplex = new SimplexNoise(Math.random())
+
+let xoff = 0
+let zoff = 0
+
+for (let x = 0; x < 50; x++) {
+  xoff = 0
+  for (let z = 0; z < 50; z++) {
+    const y = Math.round(Math.abs(simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE / BLOCK.SIZE)
+    blocks.push(new Block(new THREE.Vector3(-1 * x * BLOCK.SIZE, y * BLOCK.SIZE, -1 * z * BLOCK.SIZE)))
+    xoff += TERRIAN.INCREMENT_OFFSET
+  }
+  zoff += TERRIAN.INCREMENT_OFFSET
+}
+
+blocks.forEach((block) => {
+  const { blockMesh, lineSegment } = block.display()
+  scene.add(blockMesh)
+  scene.add(lineSegment)
 })
 
-const cube = new THREE.Mesh(geometry, material)
-scene.add(cube)
-
-window.addEventListener('resize', onWindowResize, false)
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight
-    camera.updateProjectionMatrix()
-    renderer.setSize(window.innerWidth, window.innerHeight)
-    render()
+const handleResizeWindow = () => {
+  renderer.setSize(window.innerWidth, window.innerHeight)
+  camera.aspect = window.innerWidth / window.innerHeight
+  camera.updateProjectionMatrix()
 }
 
-function animate() {
-    requestAnimationFrame(animate)
+window.addEventListener('resize', handleResizeWindow)
 
-    cube.rotation.x += 0.01
-    cube.rotation.y += 0.01
+const controls = new PointerLockControls(camera, document.body)
+document.body.addEventListener('click', () => controls.lock())
+controls.addEventListener('lock', () => console.log('controls lock'))
+controls.addEventListener('unlock', () => console.log('controls unlock'))
 
-    controls.update()
+// const update = () => {}
 
-    render()
+const render = () => {
+  renderer.render(scene, camera)
 }
 
-function render() {
-    renderer.render(scene, camera)
+const gameLoop = () => {
+  requestAnimationFrame(gameLoop)
+  // update()
+  render()
 }
-animate()
+
+gameLoop()
