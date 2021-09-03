@@ -50364,15 +50364,15 @@ var Block = /** @class */ (function () {
         var mesh = new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ color: 0x00ff00 });
         var blockMesh = new three__WEBPACK_IMPORTED_MODULE_1__.Mesh(this.box, mesh);
         blockMesh.position.x = this.position.x;
-        blockMesh.position.y = this.position.y;
+        blockMesh.position.y = this.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE * 2;
         blockMesh.position.z = this.position.z;
         return blockMesh;
     };
     Block.prototype.displayLine = function () {
         var edges = new three__WEBPACK_IMPORTED_MODULE_1__.EdgesGeometry(this.box);
-        var lineSegment = new three__WEBPACK_IMPORTED_MODULE_1__.LineSegments(edges, new three__WEBPACK_IMPORTED_MODULE_1__.LineBasicMaterial({ color: 0xffffff }));
+        var lineSegment = new three__WEBPACK_IMPORTED_MODULE_1__.LineSegments(edges, new three__WEBPACK_IMPORTED_MODULE_1__.LineBasicMaterial({ color: 0x00000 }));
         lineSegment.position.x = this.position.x;
-        lineSegment.position.y = this.position.y;
+        lineSegment.position.y = this.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE * 2;
         lineSegment.position.z = this.position.z;
         return lineSegment;
     };
@@ -50393,22 +50393,24 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "BLOCK": () => (/* binding */ BLOCK),
 /* harmony export */   "TERRIAN": () => (/* binding */ TERRIAN),
-/* harmony export */   "CAMERA": () => (/* binding */ CAMERA)
+/* harmony export */   "CAMERA": () => (/* binding */ CAMERA),
+/* harmony export */   "GRAVITY": () => (/* binding */ GRAVITY)
 /* harmony export */ });
 var BLOCK = {
-    SIZE: 5
+    SIZE: 5,
 };
 var TERRIAN = {
     AMPLITUDE: 100,
     INCREMENT_OFFSET: 0.01,
-    WIDTH: 50
+    WIDTH: 50,
 };
 var CAMERA = {
-    INIT_X: 10,
+    INIT_X: -50,
     INIT_Y: 80,
-    INIT_Z: 10,
-    MOVING_SPEED: 7
+    INIT_Z: -50,
+    MOVING_SPEED: 7,
 };
+var GRAVITY = 0.3;
 
 
 /***/ }),
@@ -50434,7 +50436,7 @@ var __spreadArray = (undefined && undefined.__spreadArray) || function (to, from
 };
 var Keyboard = /** @class */ (function () {
     function Keyboard(keymaps) {
-        this.keys = ["fdsafda"];
+        this.keys = [];
         this.keys = [];
         this.keymaps = keymaps;
     }
@@ -51219,6 +51221,9 @@ var __spreadArray = (undefined && undefined.__spreadArray) || function (to, from
 
 
 var simplex = new simplex_noise__WEBPACK_IMPORTED_MODULE_0__["default"](Math.random());
+///////////////////////////////////////////////////////////////////////////////
+//                          initialize scene/camera                          //
+///////////////////////////////////////////////////////////////////////////////
 var scene = new three__WEBPACK_IMPORTED_MODULE_5__.Scene();
 var renderer = new three__WEBPACK_IMPORTED_MODULE_5__.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -51227,6 +51232,19 @@ var camera = new three__WEBPACK_IMPORTED_MODULE_5__.PerspectiveCamera(75, window
 camera.position.x = _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INIT_X;
 camera.position.y = _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INIT_Y;
 camera.position.z = _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INIT_Z;
+var controls = new three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__.PointerLockControls(camera, document.body);
+document.body.addEventListener('click', function () { return controls.lock(); });
+// controls.addEventListener('lock', () => console.log('controls lock'))
+// controls.addEventListener('unlock', () => console.log('controls unlock'))
+var handleResizeWindow = function () {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+};
+window.addEventListener('resize', handleResizeWindow);
+///////////////////////////////////////////////////////////////////////////////
+//                              generate terrian                             //
+///////////////////////////////////////////////////////////////////////////////
 var xoff = 0;
 var zoff = 0;
 var blocks = [];
@@ -51244,39 +51262,60 @@ blocks.forEach(function (block) {
     scene.add(blockMesh);
     scene.add(lineSegment);
 });
-var handleResizeWindow = function () {
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
+///////////////////////////////////////////////////////////////////////////////
+//                                 collision                                 //
+///////////////////////////////////////////////////////////////////////////////
+var isCollideCameraAndBlock = function (camera, block) {
+    return (camera.position.x <= block.position.x + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE &&
+        camera.position.x >= block.position.x &&
+        camera.position.z <= block.position.z + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE &&
+        camera.position.z >= block.position.z &&
+        camera.position.y < block.position.y);
 };
-window.addEventListener('resize', handleResizeWindow);
-var controls = new three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__.PointerLockControls(camera, document.body);
-document.body.addEventListener('click', function () { return controls.lock(); });
-// controls.addEventListener('lock', () => console.log('controls lock'))
-// controls.addEventListener('unlock', () => console.log('controls unlock'))
+///////////////////////////////////////////////////////////////////////////////
+//                                 key event                                 //
+///////////////////////////////////////////////////////////////////////////////
+var ySpeed = 0;
 var keymaps = [
     {
-        key: "w",
-        callback: function () { return controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); }
+        key: 'w',
+        callback: function () { return controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); },
     },
     {
-        key: "a",
-        callback: function () { return controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); }
+        key: 'a',
+        callback: function () { return controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); },
     },
     {
-        key: "s",
-        callback: function () { return controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); }
+        key: 's',
+        callback: function () { return controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); },
     },
     {
-        key: "d",
-        callback: function () { return controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); }
+        key: 'd',
+        callback: function () { return controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); },
+    },
+    {
+        key: ' ',
+        callback: function () { return (ySpeed = -3); },
     },
 ];
 var keyboard = new _keyboard__WEBPACK_IMPORTED_MODULE_3__["default"](keymaps);
 document.addEventListener('keyup', function (e) { return keyboard.handleKeyUp(e); });
 document.addEventListener('keydown', function (e) { return keyboard.handleKeyDown(e); });
+///////////////////////////////////////////////////////////////////////////////
+//                                 game event                                //
+///////////////////////////////////////////////////////////////////////////////
 var update = function () {
+    // keyboard
     keyboard.dispatch();
+    // gravity
+    camera.position.y = camera.position.y - ySpeed;
+    ySpeed = ySpeed + _constant__WEBPACK_IMPORTED_MODULE_4__.GRAVITY;
+    blocks.forEach(function (block) {
+        if (!isCollideCameraAndBlock(camera, block))
+            return;
+        camera.position.y = block.position.y;
+        ySpeed = 0;
+    });
 };
 var render = function () {
     renderer.render(scene, camera);

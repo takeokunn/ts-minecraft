@@ -14,15 +14,15 @@ var Block = /** @class */ (function () {
         var mesh = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
         var blockMesh = new THREE.Mesh(this.box, mesh);
         blockMesh.position.x = this.position.x;
-        blockMesh.position.y = this.position.y;
+        blockMesh.position.y = this.position.y - BLOCK.SIZE * 2;
         blockMesh.position.z = this.position.z;
         return blockMesh;
     };
     Block.prototype.displayLine = function () {
         var edges = new THREE.EdgesGeometry(this.box);
-        var lineSegment = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff }));
+        var lineSegment = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x00000 }));
         lineSegment.position.x = this.position.x;
-        lineSegment.position.y = this.position.y;
+        lineSegment.position.y = this.position.y - BLOCK.SIZE * 2;
         lineSegment.position.z = this.position.z;
         return lineSegment;
     };

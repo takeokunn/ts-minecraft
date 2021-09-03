@@ -9,7 +9,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
 };
 var Keyboard = /** @class */ (function () {
     function Keyboard(keymaps) {
-        this.keys = ["fdsafda"];
+        this.keys = [];
         this.keys = [];
         this.keymaps = keymaps;
     }

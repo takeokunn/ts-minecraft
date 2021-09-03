@@ -12,8 +12,11 @@ import SimplexNoise from 'simplex-noise';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import Block from './block';
 import Keyboard from './keyboard';
-import { BLOCK, TERRIAN, CAMERA } from './constant';
+import { BLOCK, TERRIAN, CAMERA, GRAVITY } from './constant';
 var simplex = new SimplexNoise(Math.random());
+///////////////////////////////////////////////////////////////////////////////
+//                          initialize scene/camera                          //
+///////////////////////////////////////////////////////////////////////////////
 var scene = new THREE.Scene();
 var renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -22,6 +25,19 @@ var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHei
 camera.position.x = CAMERA.INIT_X;
 camera.position.y = CAMERA.INIT_Y;
 camera.position.z = CAMERA.INIT_Z;
+var controls = new PointerLockControls(camera, document.body);
+document.body.addEventListener('click', function () { return controls.lock(); });
+// controls.addEventListener('lock', () => console.log('controls lock'))
+// controls.addEventListener('unlock', () => console.log('controls unlock'))
+var handleResizeWindow = function () {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+};
+window.addEventListener('resize', handleResizeWindow);
+///////////////////////////////////////////////////////////////////////////////
+//                              generate terrian                             //
+///////////////////////////////////////////////////////////////////////////////
 var xoff = 0;
 var zoff = 0;
 var blocks = [];
@@ -39,39 +55,60 @@ blocks.forEach(function (block) {
     scene.add(blockMesh);
     scene.add(lineSegment);
 });
-var handleResizeWindow = function () {
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
+///////////////////////////////////////////////////////////////////////////////
+//                                 collision                                 //
+///////////////////////////////////////////////////////////////////////////////
+var isCollideCameraAndBlock = function (camera, block) {
+    return (camera.position.x <= block.position.x + BLOCK.SIZE &&
+        camera.position.x >= block.position.x &&
+        camera.position.z <= block.position.z + BLOCK.SIZE &&
+        camera.position.z >= block.position.z &&
+        camera.position.y < block.position.y);
 };
-window.addEventListener('resize', handleResizeWindow);
-var controls = new PointerLockControls(camera, document.body);
-document.body.addEventListener('click', function () { return controls.lock(); });
-// controls.addEventListener('lock', () => console.log('controls lock'))
-// controls.addEventListener('unlock', () => console.log('controls unlock'))
+///////////////////////////////////////////////////////////////////////////////
+//                                 key event                                 //
+///////////////////////////////////////////////////////////////////////////////
+var ySpeed = 0;
 var keymaps = [
     {
-        key: "w",
-        callback: function () { return controls.moveForward(CAMERA.MOVING_SPEED); }
+        key: 'w',
+        callback: function () { return controls.moveForward(CAMERA.MOVING_SPEED); },
     },
     {
-        key: "a",
-        callback: function () { return controls.moveRight(-1 * CAMERA.MOVING_SPEED); }
+        key: 'a',
+        callback: function () { return controls.moveRight(-1 * CAMERA.MOVING_SPEED); },
     },
     {
-        key: "s",
-        callback: function () { return controls.moveForward(-1 * CAMERA.MOVING_SPEED); }
+        key: 's',
+        callback: function () { return controls.moveForward(-1 * CAMERA.MOVING_SPEED); },
     },
     {
-        key: "d",
-        callback: function () { return controls.moveRight(CAMERA.MOVING_SPEED); }
+        key: 'd',
+        callback: function () { return controls.moveRight(CAMERA.MOVING_SPEED); },
+    },
+    {
+        key: ' ',
+        callback: function () { return (ySpeed = -3); },
     },
 ];
 var keyboard = new Keyboard(keymaps);
 document.addEventListener('keyup', function (e) { return keyboard.handleKeyUp(e); });
 document.addEventListener('keydown', function (e) { return keyboard.handleKeyDown(e); });
+///////////////////////////////////////////////////////////////////////////////
+//                                 game event                                //
+///////////////////////////////////////////////////////////////////////////////
 var update = function () {
+    // keyboard
     keyboard.dispatch();
+    // gravity
+    camera.position.y = camera.position.y - ySpeed;
+    ySpeed = ySpeed + GRAVITY;
+    blocks.forEach(function (block) {
+        if (!isCollideCameraAndBlock(camera, block))
+            return;
+        camera.position.y = block.position.y;
+        ySpeed = 0;
+    });
 };
 var render = function () {
     renderer.render(scene, camera);
