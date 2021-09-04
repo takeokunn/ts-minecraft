@@ -50406,9 +50406,10 @@ var TERRIAN = {
 };
 var CAMERA = {
     INIT_X: -50,
-    INIT_Y: 80,
+    INIT_Y: 100,
     INIT_Z: -50,
-    MOVING_SPEED: 7,
+    MOVING_SPEED: 1,
+    JUMP_HEIGHT: 3,
 };
 var GRAVITY = 0.3;
 
@@ -51243,64 +51244,119 @@ var handleResizeWindow = function () {
 };
 window.addEventListener('resize', handleResizeWindow);
 ///////////////////////////////////////////////////////////////////////////////
+//                                 variables                                 //
+///////////////////////////////////////////////////////////////////////////////
+var blocks = [];
+var canJump = true;
+var autoJump = true;
+var ySpeed = 0;
+///////////////////////////////////////////////////////////////////////////////
 //                              generate terrian                             //
 ///////////////////////////////////////////////////////////////////////////////
-var xoff = 0;
-var zoff = 0;
-var blocks = [];
-for (var x = 0; x < _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.WIDTH; x++) {
-    xoff = 0;
-    for (var z = 0; z < _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.WIDTH; z++) {
-        var y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.AMPLITUDE) / _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE);
-        blocks = __spreadArray(__spreadArray([], blocks, true), [new _block__WEBPACK_IMPORTED_MODULE_2__["default"](new three__WEBPACK_IMPORTED_MODULE_5__.Vector3(-1 * x * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE, -1 * z * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE))], false);
-        xoff += _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.INCREMENT_OFFSET;
+var generateTerrian = function () {
+    var xoff = 0;
+    var zoff = 0;
+    for (var x = 0; x < _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.WIDTH; x++) {
+        xoff = 0;
+        for (var z = 0; z < _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.WIDTH; z++) {
+            var y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.AMPLITUDE) / _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE);
+            blocks = __spreadArray(__spreadArray([], blocks, true), [new _block__WEBPACK_IMPORTED_MODULE_2__["default"](new three__WEBPACK_IMPORTED_MODULE_5__.Vector3(-1 * x * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE, -1 * z * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE))], false);
+            xoff += _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.INCREMENT_OFFSET;
+        }
+        zoff += _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.INCREMENT_OFFSET;
     }
-    zoff += _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.INCREMENT_OFFSET;
-}
-blocks.forEach(function (block) {
-    var _a = block.display(), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
-    scene.add(blockMesh);
-    scene.add(lineSegment);
-});
+    blocks.forEach(function (block) {
+        var _a = block.display(), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
+        scene.add(blockMesh);
+        scene.add(lineSegment);
+    });
+};
 ///////////////////////////////////////////////////////////////////////////////
 //                                 collision                                 //
 ///////////////////////////////////////////////////////////////////////////////
 var isCollideCameraAndBlock = function (camera, block) {
-    return (camera.position.x <= block.position.x + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE &&
-        camera.position.x >= block.position.x &&
-        camera.position.z <= block.position.z + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE &&
-        camera.position.z >= block.position.z &&
-        camera.position.y < block.position.y);
+    return (camera.position.x <= block.position.x + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
+        camera.position.x >= block.position.x - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
+        camera.position.z <= block.position.z + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
+        camera.position.z >= block.position.z - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2);
 };
 ///////////////////////////////////////////////////////////////////////////////
 //                                 key event                                 //
 ///////////////////////////////////////////////////////////////////////////////
-var ySpeed = 0;
 var keymaps = [
     {
         key: 'w',
-        callback: function () { return controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); },
+        callback: (function () {
+            controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
+            if (autoJump)
+                return;
+            blocks.forEach(function (block) {
+                if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
+                    controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
+                }
+            });
+        }).bind(undefined),
     },
     {
         key: 'a',
-        callback: function () { return controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); },
+        callback: (function () {
+            controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
+            if (autoJump)
+                return;
+            blocks.forEach(function (block) {
+                if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
+                    controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
+                }
+            });
+        }).bind(undefined),
     },
     {
         key: 's',
-        callback: function () { return controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); },
+        callback: (function () {
+            controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
+            if (autoJump)
+                return;
+            blocks.forEach(function (block) {
+                if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
+                    controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
+                }
+            });
+        }).bind(undefined),
     },
     {
         key: 'd',
-        callback: function () { return controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED); },
+        callback: (function () {
+            controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
+            if (autoJump)
+                return;
+            blocks.forEach(function (block) {
+                if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
+                    controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
+                }
+            });
+        }).bind(undefined),
     },
     {
         key: ' ',
-        callback: function () { return (ySpeed = -3); },
+        callback: (function () {
+            if (!canJump)
+                return;
+            canJump = false;
+            ySpeed = -1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.JUMP_HEIGHT;
+        }).bind(undefined),
     },
 ];
 var keyboard = new _keyboard__WEBPACK_IMPORTED_MODULE_3__["default"](keymaps);
 document.addEventListener('keyup', function (e) { return keyboard.handleKeyUp(e); });
 document.addEventListener('keydown', function (e) { return keyboard.handleKeyDown(e); });
+///////////////////////////////////////////////////////////////////////////////
+//                                 dom event                                 //
+///////////////////////////////////////////////////////////////////////////////
+var autoJumpButton = document.getElementById('auto-jump');
+autoJumpButton === null || autoJumpButton === void 0 ? void 0 : autoJumpButton.addEventListener('click', function () {
+    autoJump = !autoJump;
+    autoJumpButton.innerHTML = "AutoJump: " + (autoJump ? 'On' : 'Off');
+});
 ///////////////////////////////////////////////////////////////////////////////
 //                                 game event                                //
 ///////////////////////////////////////////////////////////////////////////////
@@ -51311,10 +51367,13 @@ var update = function () {
     camera.position.y = camera.position.y - ySpeed;
     ySpeed = ySpeed + _constant__WEBPACK_IMPORTED_MODULE_4__.GRAVITY;
     blocks.forEach(function (block) {
-        if (!isCollideCameraAndBlock(camera, block))
-            return;
-        camera.position.y = block.position.y;
-        ySpeed = 0;
+        if (isCollideCameraAndBlock(camera, block) &&
+            camera.position.y <= block.position.y + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
+            camera.position.y >= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
+            camera.position.y = block.position.y + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2;
+            ySpeed = 0;
+            canJump = true;
+        }
     });
 };
 var render = function () {
@@ -51325,6 +51384,7 @@ var gameLoop = function () {
     update();
     render();
 };
+generateTerrian();
 gameLoop();
 
 })();

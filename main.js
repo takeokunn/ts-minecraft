@@ -36,64 +36,119 @@ var handleResizeWindow = function () {
 };
 window.addEventListener('resize', handleResizeWindow);
 ///////////////////////////////////////////////////////////////////////////////
+//                                 variables                                 //
+///////////////////////////////////////////////////////////////////////////////
+var blocks = [];
+var canJump = true;
+var autoJump = true;
+var ySpeed = 0;
+///////////////////////////////////////////////////////////////////////////////
 //                              generate terrian                             //
 ///////////////////////////////////////////////////////////////////////////////
-var xoff = 0;
-var zoff = 0;
-var blocks = [];
-for (var x = 0; x < TERRIAN.WIDTH; x++) {
-    xoff = 0;
-    for (var z = 0; z < TERRIAN.WIDTH; z++) {
-        var y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE);
-        blocks = __spreadArray(__spreadArray([], blocks, true), [new Block(new THREE.Vector3(-1 * x * BLOCK.SIZE, y * BLOCK.SIZE, -1 * z * BLOCK.SIZE))], false);
-        xoff += TERRIAN.INCREMENT_OFFSET;
+var generateTerrian = function () {
+    var xoff = 0;
+    var zoff = 0;
+    for (var x = 0; x < TERRIAN.WIDTH; x++) {
+        xoff = 0;
+        for (var z = 0; z < TERRIAN.WIDTH; z++) {
+            var y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE);
+            blocks = __spreadArray(__spreadArray([], blocks, true), [new Block(new THREE.Vector3(-1 * x * BLOCK.SIZE, y * BLOCK.SIZE, -1 * z * BLOCK.SIZE))], false);
+            xoff += TERRIAN.INCREMENT_OFFSET;
+        }
+        zoff += TERRIAN.INCREMENT_OFFSET;
     }
-    zoff += TERRIAN.INCREMENT_OFFSET;
-}
-blocks.forEach(function (block) {
-    var _a = block.display(), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
-    scene.add(blockMesh);
-    scene.add(lineSegment);
-});
+    blocks.forEach(function (block) {
+        var _a = block.display(), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
+        scene.add(blockMesh);
+        scene.add(lineSegment);
+    });
+};
 ///////////////////////////////////////////////////////////////////////////////
 //                                 collision                                 //
 ///////////////////////////////////////////////////////////////////////////////
 var isCollideCameraAndBlock = function (camera, block) {
-    return (camera.position.x <= block.position.x + BLOCK.SIZE &&
-        camera.position.x >= block.position.x &&
-        camera.position.z <= block.position.z + BLOCK.SIZE &&
-        camera.position.z >= block.position.z &&
-        camera.position.y < block.position.y);
+    return (camera.position.x <= block.position.x + BLOCK.SIZE / 2 &&
+        camera.position.x >= block.position.x - BLOCK.SIZE / 2 &&
+        camera.position.z <= block.position.z + BLOCK.SIZE / 2 &&
+        camera.position.z >= block.position.z - BLOCK.SIZE / 2);
 };
 ///////////////////////////////////////////////////////////////////////////////
 //                                 key event                                 //
 ///////////////////////////////////////////////////////////////////////////////
-var ySpeed = 0;
 var keymaps = [
     {
         key: 'w',
-        callback: function () { return controls.moveForward(CAMERA.MOVING_SPEED); },
+        callback: (function () {
+            controls.moveForward(CAMERA.MOVING_SPEED);
+            if (autoJump)
+                return;
+            blocks.forEach(function (block) {
+                if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+                    controls.moveForward(-1 * CAMERA.MOVING_SPEED);
+                }
+            });
+        }).bind(this),
     },
     {
         key: 'a',
-        callback: function () { return controls.moveRight(-1 * CAMERA.MOVING_SPEED); },
+        callback: (function () {
+            controls.moveRight(-1 * CAMERA.MOVING_SPEED);
+            if (autoJump)
+                return;
+            blocks.forEach(function (block) {
+                if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+                    controls.moveRight(CAMERA.MOVING_SPEED);
+                }
+            });
+        }).bind(this),
     },
     {
         key: 's',
-        callback: function () { return controls.moveForward(-1 * CAMERA.MOVING_SPEED); },
+        callback: (function () {
+            controls.moveForward(-1 * CAMERA.MOVING_SPEED);
+            if (autoJump)
+                return;
+            blocks.forEach(function (block) {
+                if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+                    controls.moveForward(CAMERA.MOVING_SPEED);
+                }
+            });
+        }).bind(this),
     },
     {
         key: 'd',
-        callback: function () { return controls.moveRight(CAMERA.MOVING_SPEED); },
+        callback: (function () {
+            controls.moveRight(CAMERA.MOVING_SPEED);
+            if (autoJump)
+                return;
+            blocks.forEach(function (block) {
+                if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+                    controls.moveRight(-1 * CAMERA.MOVING_SPEED);
+                }
+            });
+        }).bind(this),
     },
     {
         key: ' ',
-        callback: function () { return (ySpeed = -3); },
+        callback: (function () {
+            if (!canJump)
+                return;
+            canJump = false;
+            ySpeed = -1 * CAMERA.JUMP_HEIGHT;
+        }).bind(this),
     },
 ];
 var keyboard = new Keyboard(keymaps);
 document.addEventListener('keyup', function (e) { return keyboard.handleKeyUp(e); });
 document.addEventListener('keydown', function (e) { return keyboard.handleKeyDown(e); });
+///////////////////////////////////////////////////////////////////////////////
+//                                 dom event                                 //
+///////////////////////////////////////////////////////////////////////////////
+var autoJumpButton = document.getElementById('auto-jump');
+autoJumpButton === null || autoJumpButton === void 0 ? void 0 : autoJumpButton.addEventListener('click', function () {
+    autoJump = !autoJump;
+    autoJumpButton.innerHTML = "AutoJump: " + (autoJump ? 'On' : 'Off');
+});
 ///////////////////////////////////////////////////////////////////////////////
 //                                 game event                                //
 ///////////////////////////////////////////////////////////////////////////////
@@ -104,10 +159,13 @@ var update = function () {
     camera.position.y = camera.position.y - ySpeed;
     ySpeed = ySpeed + GRAVITY;
     blocks.forEach(function (block) {
-        if (!isCollideCameraAndBlock(camera, block))
-            return;
-        camera.position.y = block.position.y;
-        ySpeed = 0;
+        if (isCollideCameraAndBlock(camera, block) &&
+            camera.position.y <= block.position.y + BLOCK.SIZE / 2 &&
+            camera.position.y >= block.position.y - BLOCK.SIZE / 2) {
+            camera.position.y = block.position.y + BLOCK.SIZE / 2;
+            ySpeed = 0;
+            canJump = true;
+        }
     });
 };
 var render = function () {
@@ -118,4 +176,5 @@ var gameLoop = function () {
     update();
     render();
 };
+generateTerrian();
 gameLoop();

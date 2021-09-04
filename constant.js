@@ -8,8 +8,9 @@ export var TERRIAN = {
 };
 export var CAMERA = {
     INIT_X: -50,
-    INIT_Y: 80,
+    INIT_Y: 100,
     INIT_Z: -50,
-    MOVING_SPEED: 7,
+    MOVING_SPEED: 1,
+    JUMP_HEIGHT: 3,
 };
 export var GRAVITY = 0.3;
