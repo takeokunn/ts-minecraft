@@ -36,28 +36,37 @@ const handleResizeWindow = () => {
 window.addEventListener('resize', handleResizeWindow)
 
 ///////////////////////////////////////////////////////////////////////////////
+//                                 variables                                 //
+///////////////////////////////////////////////////////////////////////////////
+
+let blocks: Block[] = []
+let canJump = true
+let autoJump = true
+let ySpeed = 0
+
+///////////////////////////////////////////////////////////////////////////////
 //                              generate terrian                             //
 ///////////////////////////////////////////////////////////////////////////////
 
-let xoff = 0
-let zoff = 0
-let blocks: Block[] = []
-
-for (let x = 0; x < TERRIAN.WIDTH; x++) {
-  xoff = 0
-  for (let z = 0; z < TERRIAN.WIDTH; z++) {
-    const y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE)
-    blocks = [...blocks, new Block(new THREE.Vector3(-1 * x * BLOCK.SIZE, y * BLOCK.SIZE, -1 * z * BLOCK.SIZE))]
-    xoff += TERRIAN.INCREMENT_OFFSET
+const generateTerrian = () => {
+  let xoff = 0
+  let zoff = 0
+  for (let x = 0; x < TERRIAN.WIDTH; x++) {
+    xoff = 0
+    for (let z = 0; z < TERRIAN.WIDTH; z++) {
+      const y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE)
+      blocks = [...blocks, new Block(new THREE.Vector3(-1 * x * BLOCK.SIZE, y * BLOCK.SIZE, -1 * z * BLOCK.SIZE))]
+      xoff += TERRIAN.INCREMENT_OFFSET
+    }
+    zoff += TERRIAN.INCREMENT_OFFSET
   }
-  zoff += TERRIAN.INCREMENT_OFFSET
-}
 
-blocks.forEach((block) => {
-  const { blockMesh, lineSegment } = block.display()
-  scene.add(blockMesh)
-  scene.add(lineSegment)
-})
+  blocks.forEach((block) => {
+    const { blockMesh, lineSegment } = block.display()
+    scene.add(blockMesh)
+    scene.add(lineSegment)
+  })
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                 collision                                 //
@@ -65,11 +74,10 @@ blocks.forEach((block) => {
 
 const isCollideCameraAndBlock = (camera: THREE.PerspectiveCamera, block: Block): boolean => {
   return (
-    camera.position.x <= block.position.x + BLOCK.SIZE &&
-    camera.position.x >= block.position.x &&
-    camera.position.z <= block.position.z + BLOCK.SIZE &&
-    camera.position.z >= block.position.z &&
-    camera.position.y < block.position.y
+    camera.position.x <= block.position.x + BLOCK.SIZE / 2 &&
+    camera.position.x >= block.position.x - BLOCK.SIZE / 2 &&
+    camera.position.z <= block.position.z + BLOCK.SIZE / 2 &&
+    camera.position.z >= block.position.z - BLOCK.SIZE / 2
   )
 }
 
@@ -77,28 +85,63 @@ const isCollideCameraAndBlock = (camera: THREE.PerspectiveCamera, block: Block):
 //                                 key event                                 //
 ///////////////////////////////////////////////////////////////////////////////
 
-let ySpeed = 0
-
 const keymaps: KeyMap[] = [
   {
     key: 'w',
-    callback: () => controls.moveForward(CAMERA.MOVING_SPEED),
+    callback: (() => {
+      controls.moveForward(CAMERA.MOVING_SPEED)
+
+      if (autoJump) return
+      blocks.forEach((block) => {
+        if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+          controls.moveForward(-1 * CAMERA.MOVING_SPEED)
+        }
+      })
+    }).bind(this),
   },
   {
     key: 'a',
-    callback: () => controls.moveRight(-1 * CAMERA.MOVING_SPEED),
+    callback: (() => {
+      controls.moveRight(-1 * CAMERA.MOVING_SPEED)
+      if (autoJump) return
+      blocks.forEach((block) => {
+        if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+          controls.moveRight(CAMERA.MOVING_SPEED)
+        }
+      })
+    }).bind(this),
   },
   {
     key: 's',
-    callback: () => controls.moveForward(-1 * CAMERA.MOVING_SPEED),
+    callback: (() => {
+      controls.moveForward(-1 * CAMERA.MOVING_SPEED)
+      if (autoJump) return
+      blocks.forEach((block) => {
+        if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+          controls.moveForward(CAMERA.MOVING_SPEED)
+        }
+      })
+    }).bind(this),
   },
   {
     key: 'd',
-    callback: () => controls.moveRight(CAMERA.MOVING_SPEED),
+    callback: (() => {
+      controls.moveRight(CAMERA.MOVING_SPEED)
+      if (autoJump) return
+      blocks.forEach((block) => {
+        if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+          controls.moveRight(-1 * CAMERA.MOVING_SPEED)
+        }
+      })
+    }).bind(this),
   },
   {
     key: ' ',
-    callback: () => (ySpeed = -3),
+    callback: (() => {
+      if (!canJump) return
+      canJump = false
+      ySpeed = -1 * CAMERA.JUMP_HEIGHT
+    }).bind(this),
   },
 ]
 const keyboard = new Keyboard(keymaps)
@@ -107,8 +150,20 @@ document.addEventListener('keyup', (e: KeyboardEvent) => keyboard.handleKeyUp(e)
 document.addEventListener('keydown', (e: KeyboardEvent) => keyboard.handleKeyDown(e))
 
 ///////////////////////////////////////////////////////////////////////////////
+//                                 dom event                                 //
+///////////////////////////////////////////////////////////////////////////////
+
+const autoJumpButton = document.getElementById('auto-jump')
+
+autoJumpButton?.addEventListener('click', () => {
+  autoJump = !autoJump
+  autoJumpButton.innerHTML = `AutoJump: ${autoJump ? 'On' : 'Off'}`
+})
+
+///////////////////////////////////////////////////////////////////////////////
 //                                 game event                                //
 ///////////////////////////////////////////////////////////////////////////////
+
 const update = () => {
   // keyboard
   keyboard.dispatch()
@@ -118,9 +173,15 @@ const update = () => {
   ySpeed = ySpeed + GRAVITY
 
   blocks.forEach((block) => {
-    if (!isCollideCameraAndBlock(camera, block)) return
-    camera.position.y = block.position.y
-    ySpeed = 0
+    if (
+      isCollideCameraAndBlock(camera, block) &&
+      camera.position.y <= block.position.y + BLOCK.SIZE / 2 &&
+      camera.position.y >= block.position.y - BLOCK.SIZE / 2
+    ) {
+      camera.position.y = block.position.y + BLOCK.SIZE / 2
+      ySpeed = 0
+      canJump = true
+    }
   })
 }
 
@@ -134,4 +195,5 @@ const gameLoop = () => {
   render()
 }
 
+generateTerrian()
 gameLoop()
