@@ -1,3 +1,7 @@
+export const color = {
+  sky: 0x00ffff,
+}
+
 export const texture = {
   dart: {
     top: 'assets/dart/top.jpeg',

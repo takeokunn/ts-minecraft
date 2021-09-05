@@ -5,17 +5,14 @@ export const BLOCK = {
 export const TERRIAN = {
   AMPLITUDE: 100,
   INCREMENT_OFFSET: 0.01,
-  WIDTH: 50,
+  WIDTH: 30,
+  CHUNK_SIZE: 20,
 }
 
 export const CAMERA = {
-  INIT_X: -50,
-  INIT_Y: 100,
-  INIT_Z: -50,
-
   MOVING_SPEED: 1,
   JUMP_HEIGHT: 3,
+  RENDER_DISTANCE: 2,
 }
 
-// export const GRAVITY = 0.3
-export const GRAVITY = 0
+export const GRAVITY = 0.3

@@ -3,6 +3,7 @@ import SimplexNoise from 'simplex-noise'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 
 import Block from './block'
+import { color } from './assets'
 import Keyboard from './keyboard'
 import { BLOCK, TERRIAN, CAMERA, GRAVITY } from './constant'
 
@@ -13,14 +14,16 @@ const simplex = new SimplexNoise(Math.random())
 ///////////////////////////////////////////////////////////////////////////////
 
 const scene = new THREE.Scene()
+scene.background = new THREE.Color(color.sky)
+
 const renderer = new THREE.WebGLRenderer()
 renderer.setSize(window.innerWidth, window.innerHeight)
 document.body.appendChild(renderer.domElement)
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
-camera.position.x = CAMERA.INIT_X
-camera.position.y = CAMERA.INIT_Y
-camera.position.z = CAMERA.INIT_Z
+camera.position.x = ((CAMERA.RENDER_DISTANCE * TERRIAN.CHUNK_SIZE) / 2) * BLOCK.SIZE
+camera.position.z = ((CAMERA.RENDER_DISTANCE * TERRIAN.CHUNK_SIZE) / 2) * BLOCK.SIZE
+camera.position.y = 100
 
 const controls = new PointerLockControls(camera, document.body)
 document.body.addEventListener('click', () => controls.lock())
@@ -39,7 +42,7 @@ window.addEventListener('resize', handleResizeWindow)
 //                                 variables                                 //
 ///////////////////////////////////////////////////////////////////////////////
 
-let blocks: Block[] = []
+const chunks: Block[][] = []
 let canJump = true
 let autoJump = true
 let ySpeed = 0
@@ -51,21 +54,28 @@ let ySpeed = 0
 const generateTerrian = () => {
   let xoff = 0
   let zoff = 0
-  for (let x = 0; x < TERRIAN.WIDTH; x++) {
-    xoff = 0
-    for (let z = 0; z < TERRIAN.WIDTH; z++) {
-      const y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE)
-      blocks = [...blocks, new Block(new THREE.Vector3(-1 * x * BLOCK.SIZE, y * BLOCK.SIZE, -1 * z * BLOCK.SIZE))]
-      xoff += TERRIAN.INCREMENT_OFFSET
+  for (let outer = 0; outer < CAMERA.RENDER_DISTANCE; outer++) {
+    const chunk: Block[] = []
+    for (let inner = 0; inner < CAMERA.RENDER_DISTANCE; inner++) {
+      for (let x = outer * TERRIAN.CHUNK_SIZE; x < outer * TERRIAN.CHUNK_SIZE + TERRIAN.CHUNK_SIZE; x++) {
+        for (let z = inner * TERRIAN.CHUNK_SIZE; z < inner * TERRIAN.CHUNK_SIZE + TERRIAN.CHUNK_SIZE; z++) {
+          xoff = TERRIAN.INCREMENT_OFFSET * x
+          zoff = TERRIAN.INCREMENT_OFFSET * z
+          const y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE)
+          chunk.push(new Block(new THREE.Vector3(x * BLOCK.SIZE, y * BLOCK.SIZE, z * BLOCK.SIZE)))
+        }
+      }
     }
-    zoff += TERRIAN.INCREMENT_OFFSET
+    chunks.push(chunk)
   }
 
-  blocks.forEach((block) => {
-    const { blockMesh, lineSegment } = block.display()
-    scene.add(blockMesh)
-    scene.add(lineSegment)
-  })
+  chunks.forEach((chunk) =>
+    chunk.forEach((block) => {
+      const { blockMesh, lineSegment } = block.display()
+      scene.add(blockMesh)
+      scene.add(lineSegment)
+    }),
+  )
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -90,13 +100,14 @@ const keymaps: KeyMap[] = [
     key: 'w',
     callback: (() => {
       controls.moveForward(CAMERA.MOVING_SPEED)
-
       if (autoJump) return
-      blocks.forEach((block) => {
-        if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
-          controls.moveForward(-1 * CAMERA.MOVING_SPEED)
-        }
-      })
+      chunks.forEach((chunk) =>
+        chunk.forEach((block) => {
+          if (isCollideCameraAndBlock(camera, block) && camera.position.y <= block.position.y - BLOCK.SIZE / 2) {
+            controls.moveForward(-1 * CAMERA.MOVING_SPEED)
+          }
+        }),
+      )
     }).bind(this),
   },
   {
@@ -104,11 +115,13 @@ const keymaps: KeyMap[] = [
     callback: (() => {
       controls.moveRight(-1 * CAMERA.MOVING_SPEED)
       if (autoJump) return
-      blocks.forEach((block) => {
-        if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
-          controls.moveRight(CAMERA.MOVING_SPEED)
-        }
-      })
+      chunks.forEach((chunk) =>
+        chunk.forEach((block) => {
+          if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+            controls.moveRight(CAMERA.MOVING_SPEED)
+          }
+        }),
+      )
     }).bind(this),
   },
   {
@@ -116,11 +129,13 @@ const keymaps: KeyMap[] = [
     callback: (() => {
       controls.moveForward(-1 * CAMERA.MOVING_SPEED)
       if (autoJump) return
-      blocks.forEach((block) => {
-        if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
-          controls.moveForward(CAMERA.MOVING_SPEED)
-        }
-      })
+      chunks.forEach((chunk) =>
+        chunk.forEach((block) => {
+          if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+            controls.moveForward(CAMERA.MOVING_SPEED)
+          }
+        }),
+      )
     }).bind(this),
   },
   {
@@ -128,11 +143,13 @@ const keymaps: KeyMap[] = [
     callback: (() => {
       controls.moveRight(CAMERA.MOVING_SPEED)
       if (autoJump) return
-      blocks.forEach((block) => {
-        if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
-          controls.moveRight(-1 * CAMERA.MOVING_SPEED)
-        }
-      })
+      chunks.forEach((chunk) =>
+        chunk.forEach((block) => {
+          if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+            controls.moveRight(-1 * CAMERA.MOVING_SPEED)
+          }
+        }),
+      )
     }).bind(this),
   },
   {
@@ -172,17 +189,19 @@ const update = () => {
   camera.position.y = camera.position.y - ySpeed
   ySpeed = ySpeed + GRAVITY
 
-  blocks.forEach((block) => {
-    if (
-      isCollideCameraAndBlock(camera, block) &&
-      camera.position.y <= block.position.y + BLOCK.SIZE / 2 &&
-      camera.position.y >= block.position.y - BLOCK.SIZE / 2
-    ) {
-      camera.position.y = block.position.y + BLOCK.SIZE / 2
-      ySpeed = 0
-      canJump = true
-    }
-  })
+  chunks.forEach((chunk) =>
+    chunk.forEach((block) => {
+      if (
+        isCollideCameraAndBlock(camera, block) &&
+        camera.position.y <= block.position.y + BLOCK.SIZE / 2 &&
+        camera.position.y >= block.position.y - BLOCK.SIZE / 2
+      ) {
+        camera.position.y = block.position.y + BLOCK.SIZE / 2
+        ySpeed = 0
+        canJump = true
+      }
+    }),
+  )
 }
 
 const render = () => {
