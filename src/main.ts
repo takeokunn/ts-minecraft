@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import SimplexNoise from 'simplex-noise'
+import Stats from 'three/examples/jsm/libs/stats.module';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 
 import Block from './block'
@@ -10,8 +11,11 @@ import { BLOCK, TERRIAN, CAMERA, GRAVITY } from './constant'
 const simplex = new SimplexNoise(Math.random())
 
 ///////////////////////////////////////////////////////////////////////////////
-//                          initialize scene/camera                          //
+//                                 initialize                                //
 ///////////////////////////////////////////////////////////////////////////////
+const stats = Stats()
+stats.showPanel(0)
+document.body.appendChild(stats.dom)
 
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(color.sky)
@@ -210,8 +214,10 @@ const render = () => {
 
 const gameLoop = () => {
   requestAnimationFrame(gameLoop)
+  stats.begin();
   update()
   render()
+  stats.end();
 }
 
 generateTerrian()
