@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 
+import texture from './texture'
 import { BLOCK } from './constant'
 
 class Block {
@@ -18,8 +19,7 @@ class Block {
   }
 
   private displayBlock(): THREE.Mesh {
-    const mesh = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-    const blockMesh = new THREE.Mesh(this.box, mesh)
+    const blockMesh = new THREE.Mesh(this.box, texture.dart)
 
     blockMesh.position.x = this.position.x
     blockMesh.position.y = this.position.y - BLOCK.SIZE * 2

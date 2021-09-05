@@ -17,4 +17,5 @@ export const CAMERA = {
   JUMP_HEIGHT: 3,
 }
 
-export const GRAVITY = 0.3
+// export const GRAVITY = 0.3
+export const GRAVITY = 0
