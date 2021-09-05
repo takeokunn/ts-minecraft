@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import texture from './texture';
 import { BLOCK } from './constant';
 var Block = /** @class */ (function () {
     function Block(position) {
@@ -11,8 +12,7 @@ var Block = /** @class */ (function () {
         return { blockMesh: blockMesh, lineSegment: lineSegment };
     };
     Block.prototype.displayBlock = function () {
-        var mesh = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-        var blockMesh = new THREE.Mesh(this.box, mesh);
+        var blockMesh = new THREE.Mesh(this.box, texture.dart);
         blockMesh.position.x = this.position.x;
         blockMesh.position.y = this.position.y - BLOCK.SIZE * 2;
         blockMesh.position.z = this.position.z;

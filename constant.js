@@ -13,4 +13,5 @@ export var CAMERA = {
     MOVING_SPEED: 1,
     JUMP_HEIGHT: 3,
 };
-export var GRAVITY = 0.3;
+// export const GRAVITY = 0.3
+export var GRAVITY = 0;

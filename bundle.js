@@ -50336,6 +50336,27 @@ if ( typeof window !== 'undefined' ) {
 
 /***/ }),
 
+/***/ "./src/assets.ts":
+/*!***********************!*\
+  !*** ./src/assets.ts ***!
+  \***********************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "texture": () => (/* binding */ texture)
+/* harmony export */ });
+var texture = {
+    dart: {
+        top: 'assets/dart/top.jpeg',
+        side: 'assets/dart/side.jpeg',
+        bottom: 'assets/dart/bottom.jpeg',
+    },
+};
+
+
+/***/ }),
+
 /***/ "./src/block.ts":
 /*!**********************!*\
   !*** ./src/block.ts ***!
@@ -50346,14 +50367,16 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
-/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
-/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
+/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
+/* harmony import */ var _texture__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./texture */ "./src/texture.ts");
+/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
+
 
 
 var Block = /** @class */ (function () {
     function Block(position) {
         this.position = position;
-        this.box = new three__WEBPACK_IMPORTED_MODULE_1__.BoxBufferGeometry(_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE);
+        this.box = new three__WEBPACK_IMPORTED_MODULE_2__.BoxBufferGeometry(_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE);
     }
     Block.prototype.display = function () {
         var blockMesh = this.displayBlock();
@@ -50361,18 +50384,17 @@ var Block = /** @class */ (function () {
         return { blockMesh: blockMesh, lineSegment: lineSegment };
     };
     Block.prototype.displayBlock = function () {
-        var mesh = new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ color: 0x00ff00 });
-        var blockMesh = new three__WEBPACK_IMPORTED_MODULE_1__.Mesh(this.box, mesh);
+        var blockMesh = new three__WEBPACK_IMPORTED_MODULE_2__.Mesh(this.box, _texture__WEBPACK_IMPORTED_MODULE_0__["default"].dart);
         blockMesh.position.x = this.position.x;
-        blockMesh.position.y = this.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE * 2;
+        blockMesh.position.y = this.position.y - _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE * 2;
         blockMesh.position.z = this.position.z;
         return blockMesh;
     };
     Block.prototype.displayLine = function () {
-        var edges = new three__WEBPACK_IMPORTED_MODULE_1__.EdgesGeometry(this.box);
-        var lineSegment = new three__WEBPACK_IMPORTED_MODULE_1__.LineSegments(edges, new three__WEBPACK_IMPORTED_MODULE_1__.LineBasicMaterial({ color: 0x00000 }));
+        var edges = new three__WEBPACK_IMPORTED_MODULE_2__.EdgesGeometry(this.box);
+        var lineSegment = new three__WEBPACK_IMPORTED_MODULE_2__.LineSegments(edges, new three__WEBPACK_IMPORTED_MODULE_2__.LineBasicMaterial({ color: 0x00000 }));
         lineSegment.position.x = this.position.x;
-        lineSegment.position.y = this.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE * 2;
+        lineSegment.position.y = this.position.y - _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE * 2;
         lineSegment.position.z = this.position.z;
         return lineSegment;
     };
@@ -50411,7 +50433,8 @@ var CAMERA = {
     MOVING_SPEED: 1,
     JUMP_HEIGHT: 3,
 };
-var GRAVITY = 0.3;
+// export const GRAVITY = 0.3
+var GRAVITY = 0;
 
 
 /***/ }),
@@ -50457,6 +50480,35 @@ var Keyboard = /** @class */ (function () {
     return Keyboard;
 }());
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (Keyboard);
+
+
+/***/ }),
+
+/***/ "./src/texture.ts":
+/*!************************!*\
+  !*** ./src/texture.ts ***!
+  \************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
+/* harmony import */ var _assets__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./assets */ "./src/assets.ts");
+
+
+var loader = new three__WEBPACK_IMPORTED_MODULE_1__.TextureLoader();
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
+    dart: [
+        new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(_assets__WEBPACK_IMPORTED_MODULE_0__.texture.dart.side) }),
+        new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(_assets__WEBPACK_IMPORTED_MODULE_0__.texture.dart.side) }),
+        new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(_assets__WEBPACK_IMPORTED_MODULE_0__.texture.dart.top) }),
+        new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(_assets__WEBPACK_IMPORTED_MODULE_0__.texture.dart.bottom) }),
+        new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(_assets__WEBPACK_IMPORTED_MODULE_0__.texture.dart.side) }),
+        new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(_assets__WEBPACK_IMPORTED_MODULE_0__.texture.dart.side) }),
+    ],
+});
 
 
 /***/ }),
