@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import SimplexNoise from 'simplex-noise';
+import Stats from 'three/examples/jsm/libs/stats.module';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import Block from './block';
 import { color } from './assets';
@@ -7,8 +8,11 @@ import Keyboard from './keyboard';
 import { BLOCK, TERRIAN, CAMERA, GRAVITY } from './constant';
 var simplex = new SimplexNoise(Math.random());
 ///////////////////////////////////////////////////////////////////////////////
-//                          initialize scene/camera                          //
+//                                 initialize                                //
 ///////////////////////////////////////////////////////////////////////////////
+var stats = Stats();
+stats.showPanel(0);
+document.body.appendChild(stats.dom);
 var scene = new THREE.Scene();
 scene.background = new THREE.Color(color.sky);
 var renderer = new THREE.WebGLRenderer();
@@ -183,8 +187,10 @@ var render = function () {
 };
 var gameLoop = function () {
     requestAnimationFrame(gameLoop);
+    stats.begin();
     update();
     render();
+    stats.end();
 };
 generateTerrian();
 gameLoop();
