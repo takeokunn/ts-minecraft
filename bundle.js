@@ -50344,8 +50344,12 @@ if ( typeof window !== 'undefined' ) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "color": () => (/* binding */ color),
 /* harmony export */   "texture": () => (/* binding */ texture)
 /* harmony export */ });
+var color = {
+    sky: 0x00ffff,
+};
 var texture = {
     dart: {
         top: 'assets/dart/top.jpeg',
@@ -50424,17 +50428,15 @@ var BLOCK = {
 var TERRIAN = {
     AMPLITUDE: 100,
     INCREMENT_OFFSET: 0.01,
-    WIDTH: 50,
+    WIDTH: 30,
+    CHUNK_SIZE: 20,
 };
 var CAMERA = {
-    INIT_X: -50,
-    INIT_Y: 100,
-    INIT_Z: -50,
     MOVING_SPEED: 1,
     JUMP_HEIGHT: 3,
+    RENDER_DISTANCE: 2,
 };
-// export const GRAVITY = 0.3
-var GRAVITY = 0;
+var GRAVITY = 0.3;
 
 
 /***/ }),
@@ -51252,21 +51254,14 @@ var __webpack_exports__ = {};
   !*** ./src/main.ts ***!
   \*********************/
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
+/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
 /* harmony import */ var simplex_noise__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/esm/simplex-noise.js");
 /* harmony import */ var three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three/examples/jsm/controls/PointerLockControls */ "./node_modules/three/examples/jsm/controls/PointerLockControls.js");
 /* harmony import */ var _block__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./block */ "./src/block.ts");
-/* harmony import */ var _keyboard__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./keyboard */ "./src/keyboard.ts");
-/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
-var __spreadArray = (undefined && undefined.__spreadArray) || function (to, from, pack) {
-    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
-        if (ar || !(i in from)) {
-            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
-            ar[i] = from[i];
-        }
-    }
-    return to.concat(ar || Array.prototype.slice.call(from));
-};
+/* harmony import */ var _assets__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./assets */ "./src/assets.ts");
+/* harmony import */ var _keyboard__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./keyboard */ "./src/keyboard.ts");
+/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
+
 
 
 
@@ -51277,14 +51272,15 @@ var simplex = new simplex_noise__WEBPACK_IMPORTED_MODULE_0__["default"](Math.ran
 ///////////////////////////////////////////////////////////////////////////////
 //                          initialize scene/camera                          //
 ///////////////////////////////////////////////////////////////////////////////
-var scene = new three__WEBPACK_IMPORTED_MODULE_5__.Scene();
-var renderer = new three__WEBPACK_IMPORTED_MODULE_5__.WebGLRenderer();
+var scene = new three__WEBPACK_IMPORTED_MODULE_6__.Scene();
+scene.background = new three__WEBPACK_IMPORTED_MODULE_6__.Color(_assets__WEBPACK_IMPORTED_MODULE_3__.color.sky);
+var renderer = new three__WEBPACK_IMPORTED_MODULE_6__.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
-var camera = new three__WEBPACK_IMPORTED_MODULE_5__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.x = _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INIT_X;
-camera.position.y = _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INIT_Y;
-camera.position.z = _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INIT_Z;
+var camera = new three__WEBPACK_IMPORTED_MODULE_6__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.x = ((_constant__WEBPACK_IMPORTED_MODULE_5__.CAMERA.RENDER_DISTANCE * _constant__WEBPACK_IMPORTED_MODULE_5__.TERRIAN.CHUNK_SIZE) / 2) * _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE;
+camera.position.z = ((_constant__WEBPACK_IMPORTED_MODULE_5__.CAMERA.RENDER_DISTANCE * _constant__WEBPACK_IMPORTED_MODULE_5__.TERRIAN.CHUNK_SIZE) / 2) * _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE;
+camera.position.y = 100;
 var controls = new three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__.PointerLockControls(camera, document.body);
 document.body.addEventListener('click', function () { return controls.lock(); });
 // controls.addEventListener('lock', () => console.log('controls lock'))
@@ -51298,7 +51294,7 @@ window.addEventListener('resize', handleResizeWindow);
 ///////////////////////////////////////////////////////////////////////////////
 //                                 variables                                 //
 ///////////////////////////////////////////////////////////////////////////////
-var blocks = [];
+var chunks = [];
 var canJump = true;
 var autoJump = true;
 var ySpeed = 0;
@@ -51308,29 +51304,36 @@ var ySpeed = 0;
 var generateTerrian = function () {
     var xoff = 0;
     var zoff = 0;
-    for (var x = 0; x < _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.WIDTH; x++) {
-        xoff = 0;
-        for (var z = 0; z < _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.WIDTH; z++) {
-            var y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.AMPLITUDE) / _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE);
-            blocks = __spreadArray(__spreadArray([], blocks, true), [new _block__WEBPACK_IMPORTED_MODULE_2__["default"](new three__WEBPACK_IMPORTED_MODULE_5__.Vector3(-1 * x * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE, -1 * z * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE))], false);
-            xoff += _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.INCREMENT_OFFSET;
+    for (var outer = 0; outer < _constant__WEBPACK_IMPORTED_MODULE_5__.CAMERA.RENDER_DISTANCE; outer++) {
+        var chunk = [];
+        for (var inner = 0; inner < _constant__WEBPACK_IMPORTED_MODULE_5__.CAMERA.RENDER_DISTANCE; inner++) {
+            for (var x = outer * _constant__WEBPACK_IMPORTED_MODULE_5__.TERRIAN.CHUNK_SIZE; x < outer * _constant__WEBPACK_IMPORTED_MODULE_5__.TERRIAN.CHUNK_SIZE + _constant__WEBPACK_IMPORTED_MODULE_5__.TERRIAN.CHUNK_SIZE; x++) {
+                for (var z = inner * _constant__WEBPACK_IMPORTED_MODULE_5__.TERRIAN.CHUNK_SIZE; z < inner * _constant__WEBPACK_IMPORTED_MODULE_5__.TERRIAN.CHUNK_SIZE + _constant__WEBPACK_IMPORTED_MODULE_5__.TERRIAN.CHUNK_SIZE; z++) {
+                    xoff = _constant__WEBPACK_IMPORTED_MODULE_5__.TERRIAN.INCREMENT_OFFSET * x;
+                    zoff = _constant__WEBPACK_IMPORTED_MODULE_5__.TERRIAN.INCREMENT_OFFSET * z;
+                    var y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_5__.TERRIAN.AMPLITUDE) / _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE);
+                    chunk.push(new _block__WEBPACK_IMPORTED_MODULE_2__["default"](new three__WEBPACK_IMPORTED_MODULE_6__.Vector3(x * _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE, z * _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE)));
+                }
+            }
         }
-        zoff += _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.INCREMENT_OFFSET;
+        chunks.push(chunk);
     }
-    blocks.forEach(function (block) {
-        var _a = block.display(), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
-        scene.add(blockMesh);
-        scene.add(lineSegment);
+    chunks.forEach(function (chunk) {
+        return chunk.forEach(function (block) {
+            var _a = block.display(), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
+            scene.add(blockMesh);
+            scene.add(lineSegment);
+        });
     });
 };
 ///////////////////////////////////////////////////////////////////////////////
 //                                 collision                                 //
 ///////////////////////////////////////////////////////////////////////////////
 var isCollideCameraAndBlock = function (camera, block) {
-    return (camera.position.x <= block.position.x + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
-        camera.position.x >= block.position.x - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
-        camera.position.z <= block.position.z + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
-        camera.position.z >= block.position.z - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2);
+    return (camera.position.x <= block.position.x + _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE / 2 &&
+        camera.position.x >= block.position.x - _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE / 2 &&
+        camera.position.z <= block.position.z + _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE / 2 &&
+        camera.position.z >= block.position.z - _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE / 2);
 };
 ///////////////////////////////////////////////////////////////////////////////
 //                                 key event                                 //
@@ -51339,52 +51342,60 @@ var keymaps = [
     {
         key: 'w',
         callback: (function () {
-            controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
+            controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_5__.CAMERA.MOVING_SPEED);
             if (autoJump)
                 return;
-            blocks.forEach(function (block) {
-                if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
-                    controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
-                }
+            chunks.forEach(function (chunk) {
+                return chunk.forEach(function (block) {
+                    if (isCollideCameraAndBlock(camera, block) && camera.position.y <= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE / 2) {
+                        controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_5__.CAMERA.MOVING_SPEED);
+                    }
+                });
             });
         }).bind(undefined),
     },
     {
         key: 'a',
         callback: (function () {
-            controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
+            controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_5__.CAMERA.MOVING_SPEED);
             if (autoJump)
                 return;
-            blocks.forEach(function (block) {
-                if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
-                    controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
-                }
+            chunks.forEach(function (chunk) {
+                return chunk.forEach(function (block) {
+                    if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE / 2) {
+                        controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_5__.CAMERA.MOVING_SPEED);
+                    }
+                });
             });
         }).bind(undefined),
     },
     {
         key: 's',
         callback: (function () {
-            controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
+            controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_5__.CAMERA.MOVING_SPEED);
             if (autoJump)
                 return;
-            blocks.forEach(function (block) {
-                if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
-                    controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
-                }
+            chunks.forEach(function (chunk) {
+                return chunk.forEach(function (block) {
+                    if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE / 2) {
+                        controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_5__.CAMERA.MOVING_SPEED);
+                    }
+                });
             });
         }).bind(undefined),
     },
     {
         key: 'd',
         callback: (function () {
-            controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
+            controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_5__.CAMERA.MOVING_SPEED);
             if (autoJump)
                 return;
-            blocks.forEach(function (block) {
-                if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
-                    controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
-                }
+            chunks.forEach(function (chunk) {
+                return chunk.forEach(function (block) {
+                    if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE / 2) {
+                        controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_5__.CAMERA.MOVING_SPEED);
+                    }
+                });
             });
         }).bind(undefined),
     },
@@ -51394,11 +51405,11 @@ var keymaps = [
             if (!canJump)
                 return;
             canJump = false;
-            ySpeed = -1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.JUMP_HEIGHT;
+            ySpeed = -1 * _constant__WEBPACK_IMPORTED_MODULE_5__.CAMERA.JUMP_HEIGHT;
         }).bind(undefined),
     },
 ];
-var keyboard = new _keyboard__WEBPACK_IMPORTED_MODULE_3__["default"](keymaps);
+var keyboard = new _keyboard__WEBPACK_IMPORTED_MODULE_4__["default"](keymaps);
 document.addEventListener('keyup', function (e) { return keyboard.handleKeyUp(e); });
 document.addEventListener('keydown', function (e) { return keyboard.handleKeyDown(e); });
 ///////////////////////////////////////////////////////////////////////////////
@@ -51417,15 +51428,17 @@ var update = function () {
     keyboard.dispatch();
     // gravity
     camera.position.y = camera.position.y - ySpeed;
-    ySpeed = ySpeed + _constant__WEBPACK_IMPORTED_MODULE_4__.GRAVITY;
-    blocks.forEach(function (block) {
-        if (isCollideCameraAndBlock(camera, block) &&
-            camera.position.y <= block.position.y + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
-            camera.position.y >= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
-            camera.position.y = block.position.y + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2;
-            ySpeed = 0;
-            canJump = true;
-        }
+    ySpeed = ySpeed + _constant__WEBPACK_IMPORTED_MODULE_5__.GRAVITY;
+    chunks.forEach(function (chunk) {
+        return chunk.forEach(function (block) {
+            if (isCollideCameraAndBlock(camera, block) &&
+                camera.position.y <= block.position.y + _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE / 2 &&
+                camera.position.y >= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE / 2) {
+                camera.position.y = block.position.y + _constant__WEBPACK_IMPORTED_MODULE_5__.BLOCK.SIZE / 2;
+                ySpeed = 0;
+                canJump = true;
+            }
+        });
     });
 };
 var render = function () {
