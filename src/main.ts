@@ -15,9 +15,7 @@ game.addChunksToScene(terrian.chunks)
 const character = new Character(game, config, terrian)
 const keyboard = new Keyboard(character.keymaps)
 
-const update = () => {
+game.loop(() => {
   keyboard.dispatch()
   character.calcurateGravity()
-}
-
-game.loop(update)
+})
