@@ -9,9 +9,11 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
 };
 var Keyboard = /** @class */ (function () {
     function Keyboard(keymaps) {
-        this.keys = [];
+        var _this = this;
         this.keys = [];
         this.keymaps = keymaps;
+        document.addEventListener('keyup', function (e) { return _this.handleKeyUp(e); });
+        document.addEventListener('keydown', function (e) { return _this.handleKeyDown(e); });
     }
     Keyboard.prototype.handleKeyDown = function (e) {
         this.keys = __spreadArray(__spreadArray([], this.keys, true), [e.key], false);
@@ -22,8 +24,10 @@ var Keyboard = /** @class */ (function () {
     Keyboard.prototype.dispatch = function () {
         var _this = this;
         this.keymaps.forEach(function (keymap) {
-            if (_this.keys.includes(keymap.key))
+            if (_this.keys.includes(keymap.key)) {
+                console.log('fdasfasf');
                 keymap.callback();
+            }
         });
     };
     return Keyboard;

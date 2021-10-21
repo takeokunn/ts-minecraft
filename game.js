@@ -26,7 +26,7 @@ var Game = /** @class */ (function () {
         this.controls = new PointerLockControls(this.camera, document.body);
         document.body.addEventListener('click', function () { return _this.controls.lock(); });
         // resize event
-        window.addEventListener('resize', this.handleResizeWindow);
+        window.addEventListener('resize', this.handleResizeWindow.bind(this));
     }
     Game.prototype.loop = function (update) {
         requestAnimationFrame(this.loop.bind(this, update));
@@ -34,6 +34,16 @@ var Game = /** @class */ (function () {
         update();
         this.render();
         this.stats.end();
+    };
+    Game.prototype.addChunksToScene = function (chunks) {
+        var _this = this;
+        chunks.forEach(function (chunk) {
+            chunk.forEach(function (block) {
+                var _a = block.display(), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
+                _this.scene.add(blockMesh);
+                _this.scene.add(lineSegment);
+            });
+        });
     };
     Game.prototype.render = function () {
         this.renderer.render(this.scene, this.camera);

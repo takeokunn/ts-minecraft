@@ -50347,15 +50347,28 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "color": () => (/* binding */ color),
 /* harmony export */   "texture": () => (/* binding */ texture)
 /* harmony export */ });
+/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
+
 var color = {
     sky: 0x00ffff,
 };
-var texture = {
+var images = {
     dart: {
         top: 'assets/dart/top.jpeg',
         side: 'assets/dart/side.jpeg',
         bottom: 'assets/dart/bottom.jpeg',
     },
+};
+var loader = new three__WEBPACK_IMPORTED_MODULE_0__.TextureLoader();
+var texture = {
+    dart: [
+        new three__WEBPACK_IMPORTED_MODULE_0__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
+        new three__WEBPACK_IMPORTED_MODULE_0__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
+        new three__WEBPACK_IMPORTED_MODULE_0__.MeshBasicMaterial({ map: loader.load(images.dart.top) }),
+        new three__WEBPACK_IMPORTED_MODULE_0__.MeshBasicMaterial({ map: loader.load(images.dart.bottom) }),
+        new three__WEBPACK_IMPORTED_MODULE_0__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
+        new three__WEBPACK_IMPORTED_MODULE_0__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
+    ],
 };
 
 
@@ -50419,7 +50432,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "Dart": () => (/* binding */ Dart)
 /* harmony export */ });
 /* harmony import */ var _block__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./block */ "./src/blocks/block.ts");
-/* harmony import */ var _src_texture__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @src/texture */ "./src/texture.ts");
+/* harmony import */ var _src_assets__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @src/assets */ "./src/assets.ts");
 var __extends = (undefined && undefined.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
@@ -50441,7 +50454,7 @@ var Dart = /** @class */ (function (_super) {
     __extends(Dart, _super);
     function Dart() {
         var _this = _super !== null && _super.apply(this, arguments) || this;
-        _this.texture = _src_texture__WEBPACK_IMPORTED_MODULE_1__["default"].dart;
+        _this.texture = _src_assets__WEBPACK_IMPORTED_MODULE_1__.texture.dart;
         return _this;
     }
     return Dart;
@@ -50463,6 +50476,171 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var _dart__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./dart */ "./src/blocks/dart.ts");
 
+
+
+
+/***/ }),
+
+/***/ "./src/character.ts":
+/*!**************************!*\
+  !*** ./src/character.ts ***!
+  \**************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "Character": () => (/* binding */ Character)
+/* harmony export */ });
+/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
+/* harmony import */ var _collision__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./collision */ "./src/collision.ts");
+
+
+var Character = /** @class */ (function () {
+    function Character(game, config, terrian) {
+        this.ySpeed = 0;
+        this.canJump = true;
+        this.game = game;
+        this.config = config;
+        this.terrian = terrian;
+        this.keymaps = [
+            { key: 'w', callback: this.handleUp.bind(this) },
+            { key: 'a', callback: this.handleLeft.bind(this) },
+            { key: 's', callback: this.handleDown.bind(this) },
+            { key: 'd', callback: this.handleRight.bind(this) },
+            { key: ' ', callback: this.handleJump.bind(this) },
+        ];
+    }
+    Character.prototype.handleUp = function () {
+        var _this = this;
+        this.game.controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
+        if (this.config.autoJump)
+            return;
+        this.terrian.chunks.forEach(function (chunk) {
+            chunk.forEach(function (block) {
+                if ((0,_collision__WEBPACK_IMPORTED_MODULE_1__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                    _this.game.camera.position.y <= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2) {
+                    _this.game.controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
+                }
+            });
+        });
+    };
+    Character.prototype.handleLeft = function () {
+        var _this = this;
+        this.game.controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
+        if (this.config.autoJump)
+            return;
+        this.terrian.chunks.forEach(function (chunk) {
+            chunk.forEach(function (block) {
+                if ((0,_collision__WEBPACK_IMPORTED_MODULE_1__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                    _this.game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2) {
+                    _this.game.controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
+                }
+            });
+        });
+    };
+    Character.prototype.handleDown = function () {
+        var _this = this;
+        this.game.controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
+        if (this.config.autoJump)
+            return;
+        this.terrian.chunks.forEach(function (chunk) {
+            chunk.forEach(function (block) {
+                if ((0,_collision__WEBPACK_IMPORTED_MODULE_1__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                    _this.game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2) {
+                    _this.game.controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
+                }
+            });
+        });
+    };
+    Character.prototype.handleRight = function () {
+        var _this = this;
+        this.game.controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
+        if (this.config.autoJump)
+            return;
+        this.terrian.chunks.forEach(function (chunk) {
+            return chunk.forEach(function (block) {
+                if ((0,_collision__WEBPACK_IMPORTED_MODULE_1__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                    _this.game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2) {
+                    _this.game.controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
+                }
+            });
+        });
+    };
+    Character.prototype.handleJump = function () {
+        if (!this.canJump)
+            return;
+        this.canJump = false;
+        this.ySpeed = -1 * _constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.JUMP_HEIGHT;
+    };
+    Character.prototype.calcurateGravity = function () {
+        var _this = this;
+        this.game.camera.position.y = this.game.camera.position.y - this.ySpeed;
+        this.ySpeed = this.ySpeed + _constant__WEBPACK_IMPORTED_MODULE_0__.GRAVITY;
+        this.terrian.chunks.forEach(function (chunk) {
+            return chunk.forEach(function (block) {
+                if ((0,_collision__WEBPACK_IMPORTED_MODULE_1__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                    _this.game.camera.position.y <= block.position.y + _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2 &&
+                    _this.game.camera.position.y >= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2) {
+                    _this.game.camera.position.y = block.position.y + _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2;
+                    _this.ySpeed = 0;
+                    _this.canJump = true;
+                }
+            });
+        });
+    };
+    return Character;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/collision.ts":
+/*!**************************!*\
+  !*** ./src/collision.ts ***!
+  \**************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "isCollideCameraAndBlock": () => (/* binding */ isCollideCameraAndBlock)
+/* harmony export */ });
+/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
+
+var isCollideCameraAndBlock = function (camera, block) {
+    return (camera.position.x <= block.position.x + _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2 &&
+        camera.position.x >= block.position.x - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2 &&
+        camera.position.z <= block.position.z + _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2 &&
+        camera.position.z >= block.position.z - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2);
+};
+
+
+/***/ }),
+
+/***/ "./src/configure.ts":
+/*!**************************!*\
+  !*** ./src/configure.ts ***!
+  \**************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "Configure": () => (/* binding */ Configure)
+/* harmony export */ });
+var Configure = /** @class */ (function () {
+    function Configure() {
+        this.autoJump = true;
+    }
+    Configure.prototype.renderToggleAutoJump = function () {
+        var _this = this;
+        var autoJumpButton = document.getElementById('auto-jump');
+        autoJumpButton === null || autoJumpButton === void 0 ? void 0 : autoJumpButton.addEventListener('click', function () {
+            _this.autoJump = !_this.autoJump;
+            autoJumpButton.innerHTML = "AutoJump: " + (_this.autoJump ? 'On' : 'Off');
+        });
+    };
+    return Configure;
+}());
 
 
 
@@ -50543,7 +50721,7 @@ var Game = /** @class */ (function () {
         this.controls = new three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__.PointerLockControls(this.camera, document.body);
         document.body.addEventListener('click', function () { return _this.controls.lock(); });
         // resize event
-        window.addEventListener('resize', this.handleResizeWindow);
+        window.addEventListener('resize', this.handleResizeWindow.bind(this));
     }
     Game.prototype.loop = function (update) {
         requestAnimationFrame(this.loop.bind(this, update));
@@ -50551,6 +50729,16 @@ var Game = /** @class */ (function () {
         update();
         this.render();
         this.stats.end();
+    };
+    Game.prototype.addChunksToScene = function (chunks) {
+        var _this = this;
+        chunks.forEach(function (chunk) {
+            chunk.forEach(function (block) {
+                var _a = block.display(), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
+                _this.scene.add(blockMesh);
+                _this.scene.add(lineSegment);
+            });
+        });
     };
     Game.prototype.render = function () {
         this.renderer.render(this.scene, this.camera);
@@ -50588,9 +50776,11 @@ var __spreadArray = (undefined && undefined.__spreadArray) || function (to, from
 };
 var Keyboard = /** @class */ (function () {
     function Keyboard(keymaps) {
-        this.keys = [];
+        var _this = this;
         this.keys = [];
         this.keymaps = keymaps;
+        document.addEventListener('keyup', function (e) { return _this.handleKeyUp(e); });
+        document.addEventListener('keydown', function (e) { return _this.handleKeyDown(e); });
     }
     Keyboard.prototype.handleKeyDown = function (e) {
         this.keys = __spreadArray(__spreadArray([], this.keys, true), [e.key], false);
@@ -50601,8 +50791,10 @@ var Keyboard = /** @class */ (function () {
     Keyboard.prototype.dispatch = function () {
         var _this = this;
         this.keymaps.forEach(function (keymap) {
-            if (_this.keys.includes(keymap.key))
+            if (_this.keys.includes(keymap.key)) {
+                console.log('fdasfasf');
                 keymap.callback();
+            }
         });
     };
     return Keyboard;
@@ -50612,31 +50804,48 @@ var Keyboard = /** @class */ (function () {
 
 /***/ }),
 
-/***/ "./src/texture.ts":
+/***/ "./src/terrian.ts":
 /*!************************!*\
-  !*** ./src/texture.ts ***!
+  !*** ./src/terrian.ts ***!
   \************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */   "Terrian": () => (/* binding */ Terrian)
 /* harmony export */ });
-/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
-/* harmony import */ var _assets__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./assets */ "./src/assets.ts");
+/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
+/* harmony import */ var simplex_noise__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/esm/simplex-noise.js");
+/* harmony import */ var _src_blocks__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @src/blocks */ "./src/blocks/index.ts");
+/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
 
 
-var loader = new three__WEBPACK_IMPORTED_MODULE_1__.TextureLoader();
-/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
-    dart: [
-        new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(_assets__WEBPACK_IMPORTED_MODULE_0__.texture.dart.side) }),
-        new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(_assets__WEBPACK_IMPORTED_MODULE_0__.texture.dart.side) }),
-        new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(_assets__WEBPACK_IMPORTED_MODULE_0__.texture.dart.top) }),
-        new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(_assets__WEBPACK_IMPORTED_MODULE_0__.texture.dart.bottom) }),
-        new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(_assets__WEBPACK_IMPORTED_MODULE_0__.texture.dart.side) }),
-        new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(_assets__WEBPACK_IMPORTED_MODULE_0__.texture.dart.side) }),
-    ],
-});
+
+
+var Terrian = /** @class */ (function () {
+    function Terrian() {
+        this.chunks = [];
+        this.simplex = new simplex_noise__WEBPACK_IMPORTED_MODULE_0__["default"](Math.random());
+    }
+    Terrian.prototype.generate = function (xoff, zoff) {
+        for (var outer = 0; outer < _constant__WEBPACK_IMPORTED_MODULE_2__.CAMERA.RENDER_DISTANCE; outer++) {
+            var chunk = [];
+            for (var inner = 0; inner < _constant__WEBPACK_IMPORTED_MODULE_2__.CAMERA.RENDER_DISTANCE; inner++) {
+                for (var x = outer * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE; x < outer * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE + _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE; x++) {
+                    for (var z = inner * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE; z < inner * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE + _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE; z++) {
+                        xoff = _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.INCREMENT_OFFSET * x;
+                        zoff = _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.INCREMENT_OFFSET * z;
+                        var y = Math.round((Math.abs(this.simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.AMPLITUDE) / _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE);
+                        chunk.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_1__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(x * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE, z * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE)));
+                    }
+                }
+            }
+            this.chunks.push(chunk);
+        }
+    };
+    return Terrian;
+}());
+
 
 
 /***/ }),
@@ -51561,179 +51770,28 @@ var __webpack_exports__ = {};
   !*** ./src/main.ts ***!
   \*********************/
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
-/* harmony import */ var simplex_noise__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/esm/simplex-noise.js");
-/* harmony import */ var _game__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./game */ "./src/game.ts");
+/* harmony import */ var _game__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./game */ "./src/game.ts");
+/* harmony import */ var _terrian__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./terrian */ "./src/terrian.ts");
 /* harmony import */ var _keyboard__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./keyboard */ "./src/keyboard.ts");
-/* harmony import */ var _blocks__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./blocks */ "./src/blocks/index.ts");
-/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
+/* harmony import */ var _configure__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./configure */ "./src/configure.ts");
+/* harmony import */ var _character__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./character */ "./src/character.ts");
 
 
 
 
 
-
-var simplex = new simplex_noise__WEBPACK_IMPORTED_MODULE_0__["default"](Math.random());
-///////////////////////////////////////////////////////////////////////////////
-//                                 initialize                                //
-///////////////////////////////////////////////////////////////////////////////
-var game = new _game__WEBPACK_IMPORTED_MODULE_1__.Game();
-///////////////////////////////////////////////////////////////////////////////
-//                                 variables                                 //
-///////////////////////////////////////////////////////////////////////////////
-var chunks = [];
-var canJump = true;
-var autoJump = true;
-var ySpeed = 0;
-///////////////////////////////////////////////////////////////////////////////
-//                              generate terrian                             //
-///////////////////////////////////////////////////////////////////////////////
-var generateTerrian = function () {
-    var xoff = 0;
-    var zoff = 0;
-    for (var outer = 0; outer < _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.RENDER_DISTANCE; outer++) {
-        var chunk = [];
-        for (var inner = 0; inner < _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.RENDER_DISTANCE; inner++) {
-            for (var x = outer * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE; x < outer * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE + _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE; x++) {
-                for (var z = inner * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE; z < inner * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE + _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE; z++) {
-                    xoff = _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.INCREMENT_OFFSET * x;
-                    zoff = _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.INCREMENT_OFFSET * z;
-                    var y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.AMPLITUDE) / _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE);
-                    chunk.push(new _blocks__WEBPACK_IMPORTED_MODULE_3__.Dart(new three__WEBPACK_IMPORTED_MODULE_5__.Vector3(x * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE, z * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE)));
-                }
-            }
-        }
-        chunks.push(chunk);
-    }
-    chunks.forEach(function (chunk) {
-        return chunk.forEach(function (block) {
-            var _a = block.display(), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
-            game.scene.add(blockMesh);
-            game.scene.add(lineSegment);
-        });
-    });
-};
-///////////////////////////////////////////////////////////////////////////////
-//                                 collision                                 //
-///////////////////////////////////////////////////////////////////////////////
-var isCollideCameraAndBlock = function (camera, block) {
-    return (camera.position.x <= block.position.x + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
-        camera.position.x >= block.position.x - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
-        camera.position.z <= block.position.z + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
-        camera.position.z >= block.position.z - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2);
-};
-///////////////////////////////////////////////////////////////////////////////
-//                                 key event                                 //
-///////////////////////////////////////////////////////////////////////////////
-var keymaps = [
-    {
-        key: 'w',
-        callback: (function () {
-            game.controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
-            if (autoJump)
-                return;
-            chunks.forEach(function (chunk) {
-                return chunk.forEach(function (block) {
-                    if (isCollideCameraAndBlock(game.camera, block) &&
-                        game.camera.position.y <= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
-                        game.controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
-                    }
-                });
-            });
-        }).bind(undefined),
-    },
-    {
-        key: 'a',
-        callback: (function () {
-            game.controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
-            if (autoJump)
-                return;
-            chunks.forEach(function (chunk) {
-                return chunk.forEach(function (block) {
-                    if (isCollideCameraAndBlock(game.camera, block) &&
-                        game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
-                        game.controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
-                    }
-                });
-            });
-        }).bind(undefined),
-    },
-    {
-        key: 's',
-        callback: (function () {
-            game.controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
-            if (autoJump)
-                return;
-            chunks.forEach(function (chunk) {
-                return chunk.forEach(function (block) {
-                    if (isCollideCameraAndBlock(game.camera, block) &&
-                        game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
-                        game.controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
-                    }
-                });
-            });
-        }).bind(undefined),
-    },
-    {
-        key: 'd',
-        callback: (function () {
-            game.controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
-            if (autoJump)
-                return;
-            chunks.forEach(function (chunk) {
-                return chunk.forEach(function (block) {
-                    if (isCollideCameraAndBlock(game.camera, block) &&
-                        game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
-                        game.controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
-                    }
-                });
-            });
-        }).bind(undefined),
-    },
-    {
-        key: ' ',
-        callback: (function () {
-            if (!canJump)
-                return;
-            canJump = false;
-            ySpeed = -1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.JUMP_HEIGHT;
-        }).bind(undefined),
-    },
-];
-var keyboard = new _keyboard__WEBPACK_IMPORTED_MODULE_2__.Keyboard(keymaps);
-document.addEventListener('keyup', function (e) { return keyboard.handleKeyUp(e); });
-document.addEventListener('keydown', function (e) { return keyboard.handleKeyDown(e); });
-///////////////////////////////////////////////////////////////////////////////
-//                                 dom event                                 //
-///////////////////////////////////////////////////////////////////////////////
-var autoJumpButton = document.getElementById('auto-jump');
-autoJumpButton === null || autoJumpButton === void 0 ? void 0 : autoJumpButton.addEventListener('click', function () {
-    autoJump = !autoJump;
-    autoJumpButton.innerHTML = "AutoJump: " + (autoJump ? 'On' : 'Off');
-});
-///////////////////////////////////////////////////////////////////////////////
-//                                 game event                                //
-///////////////////////////////////////////////////////////////////////////////
-var update = function () {
-    // keyboard
+var config = new _configure__WEBPACK_IMPORTED_MODULE_3__.Configure();
+config.renderToggleAutoJump();
+var game = new _game__WEBPACK_IMPORTED_MODULE_0__.Game();
+var terrian = new _terrian__WEBPACK_IMPORTED_MODULE_1__.Terrian();
+terrian.generate(0, 0);
+game.addChunksToScene(terrian.chunks);
+var character = new _character__WEBPACK_IMPORTED_MODULE_4__.Character(game, config, terrian);
+var keyboard = new _keyboard__WEBPACK_IMPORTED_MODULE_2__.Keyboard(character.keymaps);
+game.loop(function () {
     keyboard.dispatch();
-    // gravity
-    game.camera.position.y = game.camera.position.y - ySpeed;
-    ySpeed = ySpeed + _constant__WEBPACK_IMPORTED_MODULE_4__.GRAVITY;
-    chunks.forEach(function (chunk) {
-        return chunk.forEach(function (block) {
-            if (isCollideCameraAndBlock(game.camera, block) &&
-                game.camera.position.y <= block.position.y + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
-                game.camera.position.y >= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
-                game.camera.position.y = block.position.y + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2;
-                ySpeed = 0;
-                canJump = true;
-            }
-        });
-    });
-};
-generateTerrian();
-game.loop(update);
+    character.calcurateGravity();
+});
 
 })();
 

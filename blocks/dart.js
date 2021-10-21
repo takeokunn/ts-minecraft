@@ -14,7 +14,7 @@ var __extends = (this && this.__extends) || (function () {
     };
 })();
 import { Block } from './block';
-import texture from '@src/texture';
+import { texture } from '@src/assets';
 var Dart = /** @class */ (function (_super) {
     __extends(Dart, _super);
     function Dart() {
