@@ -50,7 +50,7 @@ class Game implements GameInterface {
     document.body.addEventListener('click', () => this.controls.lock())
 
     // resize event
-    window.addEventListener('resize', this.handleResizeWindow)
+    window.addEventListener('resize', this.handleResizeWindow.bind(this))
   }
 
   public loop(update: () => void): void {

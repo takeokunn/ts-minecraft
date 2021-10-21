@@ -1,25 +1,38 @@
-class Keyboard {
-  public keys: string[] = []
-  public keymaps: KeyMap[]
+type KeyMap = {
+  key: string
+  callback: () => void
+}
+
+interface KeyboardInterface {
+  dispatch: () => void
+}
+
+class Keyboard implements KeyboardInterface {
+  private keys: string[] = []
+  private keymaps: KeyMap[]
 
   constructor(keymaps: KeyMap[]) {
-    this.keys = []
     this.keymaps = keymaps
+    document.addEventListener('keyup', (e: KeyboardEvent) => this.handleKeyUp(e))
+    document.addEventListener('keydown', (e: KeyboardEvent) => this.handleKeyDown(e))
   }
 
-  handleKeyDown(e: KeyboardEvent): void {
+  private handleKeyDown(e: KeyboardEvent): void {
     this.keys = [...this.keys, e.key]
   }
 
-  handleKeyUp(e: KeyboardEvent): void {
+  private handleKeyUp(e: KeyboardEvent): void {
     this.keys = this.keys.filter((key) => key !== e.key)
   }
 
-  dispatch(): void {
+  public dispatch(): void {
     this.keymaps.forEach((keymap) => {
-      if (this.keys.includes(keymap.key)) keymap.callback()
+      if (this.keys.includes(keymap.key)) {
+        console.log('fdasfasf')
+        keymap.callback()
+      }
     })
   }
 }
 
-export { Keyboard }
+export { Keyboard, KeyboardInterface, KeyMap }
