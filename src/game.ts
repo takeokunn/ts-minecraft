@@ -3,6 +3,7 @@ import Stats from 'three/examples/jsm/libs/stats.module'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 
 import { color } from './assets'
+import { Chunks } from './terrian'
 import { BLOCK, TERRIAN, CAMERA } from './constant'
 
 interface GameInterface {
@@ -13,6 +14,7 @@ interface GameInterface {
   controls: PointerLockControls
 
   loop: (update: () => void) => void
+  addChunksToScene: (chunks: Chunks) => void
 }
 
 class Game implements GameInterface {
@@ -57,6 +59,16 @@ class Game implements GameInterface {
     update()
     this.render()
     this.stats.end()
+  }
+
+  public addChunksToScene(chunks: Chunks): void {
+    chunks.forEach((chunk) => {
+      chunk.forEach((block) => {
+        const { blockMesh, lineSegment } = block.display()
+        this.scene.add(blockMesh)
+        this.scene.add(lineSegment)
+      })
+    })
   }
 
   private render(): void {

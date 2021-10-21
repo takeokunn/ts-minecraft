@@ -1,57 +1,19 @@
 import * as THREE from 'three'
-import SimplexNoise from 'simplex-noise'
 
 import { Game } from './game'
+import { Terrian } from './terrian'
 import { Keyboard } from './keyboard'
-import { Dart, BlockInterface } from './blocks'
-import { BLOCK, TERRIAN, CAMERA, GRAVITY } from './constant'
+import { BlockInterface } from './blocks'
+import { BLOCK, CAMERA, GRAVITY } from './constant'
 
-const simplex = new SimplexNoise(Math.random())
-
-///////////////////////////////////////////////////////////////////////////////
-//                                 initialize                                //
-///////////////////////////////////////////////////////////////////////////////
-const game = new Game()
-
-///////////////////////////////////////////////////////////////////////////////
-//                                 variables                                 //
-///////////////////////////////////////////////////////////////////////////////
-
-const chunks: BlockInterface[][] = []
 let canJump = true
 let autoJump = true
 let ySpeed = 0
 
-///////////////////////////////////////////////////////////////////////////////
-//                              generate terrian                             //
-///////////////////////////////////////////////////////////////////////////////
-
-const generateTerrian = () => {
-  let xoff = 0
-  let zoff = 0
-  for (let outer = 0; outer < CAMERA.RENDER_DISTANCE; outer++) {
-    const chunk: BlockInterface[] = []
-    for (let inner = 0; inner < CAMERA.RENDER_DISTANCE; inner++) {
-      for (let x = outer * TERRIAN.CHUNK_SIZE; x < outer * TERRIAN.CHUNK_SIZE + TERRIAN.CHUNK_SIZE; x++) {
-        for (let z = inner * TERRIAN.CHUNK_SIZE; z < inner * TERRIAN.CHUNK_SIZE + TERRIAN.CHUNK_SIZE; z++) {
-          xoff = TERRIAN.INCREMENT_OFFSET * x
-          zoff = TERRIAN.INCREMENT_OFFSET * z
-          const y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE)
-          chunk.push(new Dart(new THREE.Vector3(x * BLOCK.SIZE, y * BLOCK.SIZE, z * BLOCK.SIZE)))
-        }
-      }
-    }
-    chunks.push(chunk)
-  }
-
-  chunks.forEach((chunk) =>
-    chunk.forEach((block) => {
-      const { blockMesh, lineSegment } = block.display()
-      game.scene.add(blockMesh)
-      game.scene.add(lineSegment)
-    }),
-  )
-}
+const game = new Game()
+const terrian = new Terrian()
+terrian.generate(0, 0)
+game.addChunksToScene(terrian.chunks)
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                 collision                                 //
@@ -76,7 +38,7 @@ const keymaps: KeyMap[] = [
     callback: (() => {
       game.controls.moveForward(CAMERA.MOVING_SPEED)
       if (autoJump) return
-      chunks.forEach((chunk) =>
+      terrian.chunks.forEach((chunk) =>
         chunk.forEach((block) => {
           if (
             isCollideCameraAndBlock(game.camera, block) &&
@@ -93,7 +55,7 @@ const keymaps: KeyMap[] = [
     callback: (() => {
       game.controls.moveRight(-1 * CAMERA.MOVING_SPEED)
       if (autoJump) return
-      chunks.forEach((chunk) =>
+      terrian.chunks.forEach((chunk) =>
         chunk.forEach((block) => {
           if (
             isCollideCameraAndBlock(game.camera, block) &&
@@ -110,7 +72,7 @@ const keymaps: KeyMap[] = [
     callback: (() => {
       game.controls.moveForward(-1 * CAMERA.MOVING_SPEED)
       if (autoJump) return
-      chunks.forEach((chunk) =>
+      terrian.chunks.forEach((chunk) =>
         chunk.forEach((block) => {
           if (
             isCollideCameraAndBlock(game.camera, block) &&
@@ -127,7 +89,7 @@ const keymaps: KeyMap[] = [
     callback: (() => {
       game.controls.moveRight(CAMERA.MOVING_SPEED)
       if (autoJump) return
-      chunks.forEach((chunk) =>
+      terrian.chunks.forEach((chunk) =>
         chunk.forEach((block) => {
           if (
             isCollideCameraAndBlock(game.camera, block) &&
@@ -176,7 +138,7 @@ const update = () => {
   game.camera.position.y = game.camera.position.y - ySpeed
   ySpeed = ySpeed + GRAVITY
 
-  chunks.forEach((chunk) =>
+  terrian.chunks.forEach((chunk) =>
     chunk.forEach((block) => {
       if (
         isCollideCameraAndBlock(game.camera, block) &&
@@ -191,5 +153,4 @@ const update = () => {
   )
 }
 
-generateTerrian()
 game.loop(update)
