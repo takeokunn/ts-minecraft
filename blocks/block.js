@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import texture from './texture';
-import { BLOCK } from './constant';
+import { BLOCK } from '../constant';
 var Block = /** @class */ (function () {
     function Block(position) {
+        this.texture = [];
         this.position = position;
         this.box = new THREE.BoxBufferGeometry(BLOCK.SIZE, BLOCK.SIZE, BLOCK.SIZE);
     }
@@ -12,7 +12,7 @@ var Block = /** @class */ (function () {
         return { blockMesh: blockMesh, lineSegment: lineSegment };
     };
     Block.prototype.displayBlock = function () {
-        var blockMesh = new THREE.Mesh(this.box, texture.dart);
+        var blockMesh = new THREE.Mesh(this.box, this.texture);
         blockMesh.position.x = this.position.x;
         blockMesh.position.y = this.position.y - BLOCK.SIZE * 2;
         blockMesh.position.z = this.position.z;
@@ -28,4 +28,4 @@ var Block = /** @class */ (function () {
     };
     return Block;
 }());
-export default Block;
+export { Block };

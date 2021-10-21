@@ -50361,26 +50361,25 @@ var texture = {
 
 /***/ }),
 
-/***/ "./src/block.ts":
-/*!**********************!*\
-  !*** ./src/block.ts ***!
-  \**********************/
+/***/ "./src/blocks/block.ts":
+/*!*****************************!*\
+  !*** ./src/blocks/block.ts ***!
+  \*****************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */   "Block": () => (/* binding */ Block)
 /* harmony export */ });
-/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
-/* harmony import */ var _texture__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./texture */ "./src/texture.ts");
-/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
-
+/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
+/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../constant */ "./src/constant.ts");
 
 
 var Block = /** @class */ (function () {
     function Block(position) {
+        this.texture = [];
         this.position = position;
-        this.box = new three__WEBPACK_IMPORTED_MODULE_2__.BoxBufferGeometry(_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE);
+        this.box = new three__WEBPACK_IMPORTED_MODULE_1__.BoxBufferGeometry(_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE);
     }
     Block.prototype.display = function () {
         var blockMesh = this.displayBlock();
@@ -50388,23 +50387,83 @@ var Block = /** @class */ (function () {
         return { blockMesh: blockMesh, lineSegment: lineSegment };
     };
     Block.prototype.displayBlock = function () {
-        var blockMesh = new three__WEBPACK_IMPORTED_MODULE_2__.Mesh(this.box, _texture__WEBPACK_IMPORTED_MODULE_0__["default"].dart);
+        var blockMesh = new three__WEBPACK_IMPORTED_MODULE_1__.Mesh(this.box, this.texture);
         blockMesh.position.x = this.position.x;
-        blockMesh.position.y = this.position.y - _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE * 2;
+        blockMesh.position.y = this.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE * 2;
         blockMesh.position.z = this.position.z;
         return blockMesh;
     };
     Block.prototype.displayLine = function () {
-        var edges = new three__WEBPACK_IMPORTED_MODULE_2__.EdgesGeometry(this.box);
-        var lineSegment = new three__WEBPACK_IMPORTED_MODULE_2__.LineSegments(edges, new three__WEBPACK_IMPORTED_MODULE_2__.LineBasicMaterial({ color: 0x00000 }));
+        var edges = new three__WEBPACK_IMPORTED_MODULE_1__.EdgesGeometry(this.box);
+        var lineSegment = new three__WEBPACK_IMPORTED_MODULE_1__.LineSegments(edges, new three__WEBPACK_IMPORTED_MODULE_1__.LineBasicMaterial({ color: 0x00000 }));
         lineSegment.position.x = this.position.x;
-        lineSegment.position.y = this.position.y - _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE * 2;
+        lineSegment.position.y = this.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE * 2;
         lineSegment.position.z = this.position.z;
         return lineSegment;
     };
     return Block;
 }());
-/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (Block);
+
+
+
+/***/ }),
+
+/***/ "./src/blocks/dart.ts":
+/*!****************************!*\
+  !*** ./src/blocks/dart.ts ***!
+  \****************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "Dart": () => (/* binding */ Dart)
+/* harmony export */ });
+/* harmony import */ var _block__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./block */ "./src/blocks/block.ts");
+/* harmony import */ var _src_texture__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @src/texture */ "./src/texture.ts");
+var __extends = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+
+
+var Dart = /** @class */ (function (_super) {
+    __extends(Dart, _super);
+    function Dart() {
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this.texture = _src_texture__WEBPACK_IMPORTED_MODULE_1__["default"].dart;
+        return _this;
+    }
+    return Dart;
+}(_block__WEBPACK_IMPORTED_MODULE_0__.Block));
+
+
+
+/***/ }),
+
+/***/ "./src/blocks/index.ts":
+/*!*****************************!*\
+  !*** ./src/blocks/index.ts ***!
+  \*****************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "Dart": () => (/* reexport safe */ _dart__WEBPACK_IMPORTED_MODULE_0__.Dart)
+/* harmony export */ });
+/* harmony import */ var _dart__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./dart */ "./src/blocks/dart.ts");
+
+
 
 
 /***/ }),
@@ -50449,7 +50508,7 @@ var GRAVITY = 0.3;
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */   "Keyboard": () => (/* binding */ Keyboard)
 /* harmony export */ });
 var __spreadArray = (undefined && undefined.__spreadArray) || function (to, from, pack) {
     if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
@@ -50481,7 +50540,7 @@ var Keyboard = /** @class */ (function () {
     };
     return Keyboard;
 }());
-/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (Keyboard);
+
 
 
 /***/ }),
@@ -51439,9 +51498,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var simplex_noise__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/esm/simplex-noise.js");
 /* harmony import */ var three_examples_jsm_libs_stats_module__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three/examples/jsm/libs/stats.module */ "./node_modules/three/examples/jsm/libs/stats.module.js");
 /* harmony import */ var three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! three/examples/jsm/controls/PointerLockControls */ "./node_modules/three/examples/jsm/controls/PointerLockControls.js");
-/* harmony import */ var _block__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./block */ "./src/block.ts");
-/* harmony import */ var _assets__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./assets */ "./src/assets.ts");
-/* harmony import */ var _keyboard__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./keyboard */ "./src/keyboard.ts");
+/* harmony import */ var _assets__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./assets */ "./src/assets.ts");
+/* harmony import */ var _keyboard__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./keyboard */ "./src/keyboard.ts");
+/* harmony import */ var _blocks__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./blocks */ "./src/blocks/index.ts");
 /* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
 
 
@@ -51459,7 +51518,7 @@ var stats = (0,three_examples_jsm_libs_stats_module__WEBPACK_IMPORTED_MODULE_1__
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
 var scene = new three__WEBPACK_IMPORTED_MODULE_7__.Scene();
-scene.background = new three__WEBPACK_IMPORTED_MODULE_7__.Color(_assets__WEBPACK_IMPORTED_MODULE_4__.color.sky);
+scene.background = new three__WEBPACK_IMPORTED_MODULE_7__.Color(_assets__WEBPACK_IMPORTED_MODULE_3__.color.sky);
 var renderer = new three__WEBPACK_IMPORTED_MODULE_7__.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -51498,7 +51557,7 @@ var generateTerrian = function () {
                     xoff = _constant__WEBPACK_IMPORTED_MODULE_6__.TERRIAN.INCREMENT_OFFSET * x;
                     zoff = _constant__WEBPACK_IMPORTED_MODULE_6__.TERRIAN.INCREMENT_OFFSET * z;
                     var y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_6__.TERRIAN.AMPLITUDE) / _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE);
-                    chunk.push(new _block__WEBPACK_IMPORTED_MODULE_3__["default"](new three__WEBPACK_IMPORTED_MODULE_7__.Vector3(x * _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE, z * _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE)));
+                    chunk.push(new _blocks__WEBPACK_IMPORTED_MODULE_5__.Dart(new three__WEBPACK_IMPORTED_MODULE_7__.Vector3(x * _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE, z * _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE)));
                 }
             }
         }
@@ -51595,7 +51654,7 @@ var keymaps = [
         }).bind(undefined),
     },
 ];
-var keyboard = new _keyboard__WEBPACK_IMPORTED_MODULE_5__["default"](keymaps);
+var keyboard = new _keyboard__WEBPACK_IMPORTED_MODULE_4__.Keyboard(keymaps);
 document.addEventListener('keyup', function (e) { return keyboard.handleKeyUp(e); });
 document.addEventListener('keydown', function (e) { return keyboard.handleKeyDown(e); });
 ///////////////////////////////////////////////////////////////////////////////

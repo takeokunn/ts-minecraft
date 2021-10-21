@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import SimplexNoise from 'simplex-noise';
 import Stats from 'three/examples/jsm/libs/stats.module';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
-import Block from './block';
 import { color } from './assets';
-import Keyboard from './keyboard';
+import { Keyboard } from './keyboard';
+import { Dart } from './blocks';
 import { BLOCK, TERRIAN, CAMERA, GRAVITY } from './constant';
 var simplex = new SimplexNoise(Math.random());
 ///////////////////////////////////////////////////////////////////////////////
@@ -53,7 +53,7 @@ var generateTerrian = function () {
                     xoff = TERRIAN.INCREMENT_OFFSET * x;
                     zoff = TERRIAN.INCREMENT_OFFSET * z;
                     var y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE);
-                    chunk.push(new Block(new THREE.Vector3(x * BLOCK.SIZE, y * BLOCK.SIZE, z * BLOCK.SIZE)));
+                    chunk.push(new Dart(new THREE.Vector3(x * BLOCK.SIZE, y * BLOCK.SIZE, z * BLOCK.SIZE)));
                 }
             }
         }

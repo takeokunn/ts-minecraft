@@ -28,4 +28,4 @@ var Keyboard = /** @class */ (function () {
     };
     return Keyboard;
 }());
-export default Keyboard;
+export { Keyboard };
