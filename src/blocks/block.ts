@@ -1,10 +1,14 @@
 import * as THREE from 'three'
+import { BLOCK } from '../constant'
 
-import texture from './texture'
-import { BLOCK } from './constant'
+interface BlockInterface {
+  position: THREE.Vector3
+  display(): { blockMesh: THREE.Mesh; lineSegment: THREE.LineSegments }
+}
 
-class Block {
-  private box: THREE.BoxGeometry
+abstract class Block implements BlockInterface {
+  protected box: THREE.BoxGeometry
+  protected texture: THREE.MeshBasicMaterial[] = []
   public position: THREE.Vector3
 
   constructor(position: THREE.Vector3) {
@@ -12,14 +16,14 @@ class Block {
     this.box = new THREE.BoxBufferGeometry(BLOCK.SIZE, BLOCK.SIZE, BLOCK.SIZE)
   }
 
-  display(): { blockMesh: THREE.Mesh; lineSegment: THREE.LineSegments } {
+  public display(): { blockMesh: THREE.Mesh; lineSegment: THREE.LineSegments } {
     const blockMesh = this.displayBlock()
     const lineSegment = this.displayLine()
     return { blockMesh, lineSegment }
   }
 
   private displayBlock(): THREE.Mesh {
-    const blockMesh = new THREE.Mesh(this.box, texture.dart)
+    const blockMesh = new THREE.Mesh(this.box, this.texture)
 
     blockMesh.position.x = this.position.x
     blockMesh.position.y = this.position.y - BLOCK.SIZE * 2
@@ -40,4 +44,4 @@ class Block {
   }
 }
 
-export default Block
+export { BlockInterface, Block }

@@ -22,4 +22,4 @@ class Keyboard {
   }
 }
 
-export default Keyboard
+export { Keyboard }

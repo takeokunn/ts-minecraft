@@ -1,32 +1,32 @@
 {
-  "private": true,
   "name": "ts-minecraft",
   "version": "1.0.0",
+  "private": true,
   "description": "",
-  "main": "index.js",
-  "scripts": {
-    "start": "webpack serve",
-    "build": "webpack",
-    "watch": "webpack -w",
-    "tsc": "tsc",
-    "test": "jest",
-    "lint": "eslint src/ --ext .ts",
-    "lint:fix": "eslint src/ --fix --ext .ts && prettier --write 'src/**/*.ts'"
+  "keywords": [
+    "typescript",
+    "minecraft"
+  ],
+  "homepage": "https://github.com/takeokunn/ts-minecraft#readme",
+  "bugs": {
+    "url": "https://github.com/takeokunn/ts-minecraft/issues"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/takeokunn/ts-minecraft.git"
   },
-  "keywords": [
-    "typescript",
-    "minecraft"
-  ],
-  "author": "takeokunn",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/takeokunn/ts-minecraft/issues"
+  "author": "takeokunn",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack",
+    "lint": "eslint src/ --ext .ts",
+    "lint:fix": "eslint src/ --fix --ext .ts && prettier --write 'src/**/*.ts'",
+    "start": "webpack serve",
+    "test": "jest",
+    "tsc": "tsc",
+    "watch": "webpack -w"
   },
-  "homepage": "https://github.com/takeokunn/ts-minecraft#readme",
   "dependencies": {
     "simplex-noise": "^3.0.0",
     "three": "^0.132.2"

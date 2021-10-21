@@ -1,11 +1,11 @@
 import * as THREE from 'three'
 import SimplexNoise from 'simplex-noise'
-import Stats from 'three/examples/jsm/libs/stats.module';
+import Stats from 'three/examples/jsm/libs/stats.module'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 
-import Block from './block'
 import { color } from './assets'
-import Keyboard from './keyboard'
+import { Keyboard } from './keyboard'
+import { Dart, BlockInterface } from './blocks'
 import { BLOCK, TERRIAN, CAMERA, GRAVITY } from './constant'
 
 const simplex = new SimplexNoise(Math.random())
@@ -46,7 +46,7 @@ window.addEventListener('resize', handleResizeWindow)
 //                                 variables                                 //
 ///////////////////////////////////////////////////////////////////////////////
 
-const chunks: Block[][] = []
+const chunks: BlockInterface[][] = []
 let canJump = true
 let autoJump = true
 let ySpeed = 0
@@ -59,14 +59,14 @@ const generateTerrian = () => {
   let xoff = 0
   let zoff = 0
   for (let outer = 0; outer < CAMERA.RENDER_DISTANCE; outer++) {
-    const chunk: Block[] = []
+    const chunk: BlockInterface[] = []
     for (let inner = 0; inner < CAMERA.RENDER_DISTANCE; inner++) {
       for (let x = outer * TERRIAN.CHUNK_SIZE; x < outer * TERRIAN.CHUNK_SIZE + TERRIAN.CHUNK_SIZE; x++) {
         for (let z = inner * TERRIAN.CHUNK_SIZE; z < inner * TERRIAN.CHUNK_SIZE + TERRIAN.CHUNK_SIZE; z++) {
           xoff = TERRIAN.INCREMENT_OFFSET * x
           zoff = TERRIAN.INCREMENT_OFFSET * z
           const y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE)
-          chunk.push(new Block(new THREE.Vector3(x * BLOCK.SIZE, y * BLOCK.SIZE, z * BLOCK.SIZE)))
+          chunk.push(new Dart(new THREE.Vector3(x * BLOCK.SIZE, y * BLOCK.SIZE, z * BLOCK.SIZE)))
         }
       }
     }
@@ -86,7 +86,7 @@ const generateTerrian = () => {
 //                                 collision                                 //
 ///////////////////////////////////////////////////////////////////////////////
 
-const isCollideCameraAndBlock = (camera: THREE.PerspectiveCamera, block: Block): boolean => {
+const isCollideCameraAndBlock = (camera: THREE.PerspectiveCamera, block: BlockInterface): boolean => {
   return (
     camera.position.x <= block.position.x + BLOCK.SIZE / 2 &&
     camera.position.x >= block.position.x - BLOCK.SIZE / 2 &&
@@ -214,10 +214,10 @@ const render = () => {
 
 const gameLoop = () => {
   requestAnimationFrame(gameLoop)
-  stats.begin();
+  stats.begin()
   update()
   render()
-  stats.end();
+  stats.end()
 }
 
 generateTerrian()
