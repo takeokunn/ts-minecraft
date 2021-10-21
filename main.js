@@ -1,8 +1,6 @@
 import * as THREE from 'three';
 import SimplexNoise from 'simplex-noise';
-import Stats from 'three/examples/jsm/libs/stats.module';
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
-import { color } from './assets';
+import { Game } from './game';
 import { Keyboard } from './keyboard';
 import { Dart } from './blocks';
 import { BLOCK, TERRIAN, CAMERA, GRAVITY } from './constant';
@@ -10,28 +8,7 @@ var simplex = new SimplexNoise(Math.random());
 ///////////////////////////////////////////////////////////////////////////////
 //                                 initialize                                //
 ///////////////////////////////////////////////////////////////////////////////
-var stats = Stats();
-stats.showPanel(0);
-document.body.appendChild(stats.dom);
-var scene = new THREE.Scene();
-scene.background = new THREE.Color(color.sky);
-var renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.x = ((CAMERA.RENDER_DISTANCE * TERRIAN.CHUNK_SIZE) / 2) * BLOCK.SIZE;
-camera.position.z = ((CAMERA.RENDER_DISTANCE * TERRIAN.CHUNK_SIZE) / 2) * BLOCK.SIZE;
-camera.position.y = 100;
-var controls = new PointerLockControls(camera, document.body);
-document.body.addEventListener('click', function () { return controls.lock(); });
-// controls.addEventListener('lock', () => console.log('controls lock'))
-// controls.addEventListener('unlock', () => console.log('controls unlock'))
-var handleResizeWindow = function () {
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-};
-window.addEventListener('resize', handleResizeWindow);
+var game = new Game();
 ///////////////////////////////////////////////////////////////////////////////
 //                                 variables                                 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -62,8 +39,8 @@ var generateTerrian = function () {
     chunks.forEach(function (chunk) {
         return chunk.forEach(function (block) {
             var _a = block.display(), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
-            scene.add(blockMesh);
-            scene.add(lineSegment);
+            game.scene.add(blockMesh);
+            game.scene.add(lineSegment);
         });
     });
 };
@@ -83,13 +60,14 @@ var keymaps = [
     {
         key: 'w',
         callback: (function () {
-            controls.moveForward(CAMERA.MOVING_SPEED);
+            game.controls.moveForward(CAMERA.MOVING_SPEED);
             if (autoJump)
                 return;
             chunks.forEach(function (chunk) {
                 return chunk.forEach(function (block) {
-                    if (isCollideCameraAndBlock(camera, block) && camera.position.y <= block.position.y - BLOCK.SIZE / 2) {
-                        controls.moveForward(-1 * CAMERA.MOVING_SPEED);
+                    if (isCollideCameraAndBlock(game.camera, block) &&
+                        game.camera.position.y <= block.position.y - BLOCK.SIZE / 2) {
+                        game.controls.moveForward(-1 * CAMERA.MOVING_SPEED);
                     }
                 });
             });
@@ -98,13 +76,14 @@ var keymaps = [
     {
         key: 'a',
         callback: (function () {
-            controls.moveRight(-1 * CAMERA.MOVING_SPEED);
+            game.controls.moveRight(-1 * CAMERA.MOVING_SPEED);
             if (autoJump)
                 return;
             chunks.forEach(function (chunk) {
                 return chunk.forEach(function (block) {
-                    if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
-                        controls.moveRight(CAMERA.MOVING_SPEED);
+                    if (isCollideCameraAndBlock(game.camera, block) &&
+                        game.camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+                        game.controls.moveRight(CAMERA.MOVING_SPEED);
                     }
                 });
             });
@@ -113,13 +92,14 @@ var keymaps = [
     {
         key: 's',
         callback: (function () {
-            controls.moveForward(-1 * CAMERA.MOVING_SPEED);
+            game.controls.moveForward(-1 * CAMERA.MOVING_SPEED);
             if (autoJump)
                 return;
             chunks.forEach(function (chunk) {
                 return chunk.forEach(function (block) {
-                    if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
-                        controls.moveForward(CAMERA.MOVING_SPEED);
+                    if (isCollideCameraAndBlock(game.camera, block) &&
+                        game.camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+                        game.controls.moveForward(CAMERA.MOVING_SPEED);
                     }
                 });
             });
@@ -128,13 +108,14 @@ var keymaps = [
     {
         key: 'd',
         callback: (function () {
-            controls.moveRight(CAMERA.MOVING_SPEED);
+            game.controls.moveRight(CAMERA.MOVING_SPEED);
             if (autoJump)
                 return;
             chunks.forEach(function (chunk) {
                 return chunk.forEach(function (block) {
-                    if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
-                        controls.moveRight(-1 * CAMERA.MOVING_SPEED);
+                    if (isCollideCameraAndBlock(game.camera, block) &&
+                        game.camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+                        game.controls.moveRight(-1 * CAMERA.MOVING_SPEED);
                     }
                 });
             });
@@ -168,29 +149,19 @@ var update = function () {
     // keyboard
     keyboard.dispatch();
     // gravity
-    camera.position.y = camera.position.y - ySpeed;
+    game.camera.position.y = game.camera.position.y - ySpeed;
     ySpeed = ySpeed + GRAVITY;
     chunks.forEach(function (chunk) {
         return chunk.forEach(function (block) {
-            if (isCollideCameraAndBlock(camera, block) &&
-                camera.position.y <= block.position.y + BLOCK.SIZE / 2 &&
-                camera.position.y >= block.position.y - BLOCK.SIZE / 2) {
-                camera.position.y = block.position.y + BLOCK.SIZE / 2;
+            if (isCollideCameraAndBlock(game.camera, block) &&
+                game.camera.position.y <= block.position.y + BLOCK.SIZE / 2 &&
+                game.camera.position.y >= block.position.y - BLOCK.SIZE / 2) {
+                game.camera.position.y = block.position.y + BLOCK.SIZE / 2;
                 ySpeed = 0;
                 canJump = true;
             }
         });
     });
 };
-var render = function () {
-    renderer.render(scene, camera);
-};
-var gameLoop = function () {
-    requestAnimationFrame(gameLoop);
-    stats.begin();
-    update();
-    render();
-    stats.end();
-};
 generateTerrian();
-gameLoop();
+game.loop(update);

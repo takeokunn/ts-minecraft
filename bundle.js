@@ -50500,6 +50500,73 @@ var GRAVITY = 0.3;
 
 /***/ }),
 
+/***/ "./src/game.ts":
+/*!*********************!*\
+  !*** ./src/game.ts ***!
+  \*********************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "Game": () => (/* binding */ Game)
+/* harmony export */ });
+/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
+/* harmony import */ var three_examples_jsm_libs_stats_module__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! three/examples/jsm/libs/stats.module */ "./node_modules/three/examples/jsm/libs/stats.module.js");
+/* harmony import */ var three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three/examples/jsm/controls/PointerLockControls */ "./node_modules/three/examples/jsm/controls/PointerLockControls.js");
+/* harmony import */ var _assets__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./assets */ "./src/assets.ts");
+/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
+
+
+
+
+
+var Game = /** @class */ (function () {
+    function Game() {
+        var _this = this;
+        // for stats
+        this.stats = (0,three_examples_jsm_libs_stats_module__WEBPACK_IMPORTED_MODULE_0__["default"])();
+        this.stats.showPanel(0);
+        document.body.appendChild(this.stats.dom);
+        // for scene
+        this.scene = new three__WEBPACK_IMPORTED_MODULE_4__.Scene();
+        this.scene.background = new three__WEBPACK_IMPORTED_MODULE_4__.Color(_assets__WEBPACK_IMPORTED_MODULE_2__.color.sky);
+        // for renderer
+        this.renderer = new three__WEBPACK_IMPORTED_MODULE_4__.WebGLRenderer();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(this.renderer.domElement);
+        // for camera
+        this.camera = new three__WEBPACK_IMPORTED_MODULE_4__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.camera.position.x = ((_constant__WEBPACK_IMPORTED_MODULE_3__.CAMERA.RENDER_DISTANCE * _constant__WEBPACK_IMPORTED_MODULE_3__.TERRIAN.CHUNK_SIZE) / 2) * _constant__WEBPACK_IMPORTED_MODULE_3__.BLOCK.SIZE;
+        this.camera.position.z = ((_constant__WEBPACK_IMPORTED_MODULE_3__.CAMERA.RENDER_DISTANCE * _constant__WEBPACK_IMPORTED_MODULE_3__.TERRIAN.CHUNK_SIZE) / 2) * _constant__WEBPACK_IMPORTED_MODULE_3__.BLOCK.SIZE;
+        this.camera.position.y = 100;
+        // for control
+        this.controls = new three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__.PointerLockControls(this.camera, document.body);
+        document.body.addEventListener('click', function () { return _this.controls.lock(); });
+        // resize event
+        window.addEventListener('resize', this.handleResizeWindow);
+    }
+    Game.prototype.loop = function (update) {
+        requestAnimationFrame(this.loop.bind(this, update));
+        this.stats.begin();
+        update();
+        this.render();
+        this.stats.end();
+    };
+    Game.prototype.render = function () {
+        this.renderer.render(this.scene, this.camera);
+    };
+    Game.prototype.handleResizeWindow = function () {
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+    };
+    return Game;
+}());
+
+
+
+/***/ }),
+
 /***/ "./src/keyboard.ts":
 /*!*************************!*\
   !*** ./src/keyboard.ts ***!
@@ -51494,16 +51561,12 @@ var __webpack_exports__ = {};
   !*** ./src/main.ts ***!
   \*********************/
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
+/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
 /* harmony import */ var simplex_noise__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/esm/simplex-noise.js");
-/* harmony import */ var three_examples_jsm_libs_stats_module__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three/examples/jsm/libs/stats.module */ "./node_modules/three/examples/jsm/libs/stats.module.js");
-/* harmony import */ var three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! three/examples/jsm/controls/PointerLockControls */ "./node_modules/three/examples/jsm/controls/PointerLockControls.js");
-/* harmony import */ var _assets__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./assets */ "./src/assets.ts");
-/* harmony import */ var _keyboard__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./keyboard */ "./src/keyboard.ts");
-/* harmony import */ var _blocks__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./blocks */ "./src/blocks/index.ts");
-/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
-
-
+/* harmony import */ var _game__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./game */ "./src/game.ts");
+/* harmony import */ var _keyboard__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./keyboard */ "./src/keyboard.ts");
+/* harmony import */ var _blocks__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./blocks */ "./src/blocks/index.ts");
+/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
 
 
 
@@ -51514,28 +51577,7 @@ var simplex = new simplex_noise__WEBPACK_IMPORTED_MODULE_0__["default"](Math.ran
 ///////////////////////////////////////////////////////////////////////////////
 //                                 initialize                                //
 ///////////////////////////////////////////////////////////////////////////////
-var stats = (0,three_examples_jsm_libs_stats_module__WEBPACK_IMPORTED_MODULE_1__["default"])();
-stats.showPanel(0);
-document.body.appendChild(stats.dom);
-var scene = new three__WEBPACK_IMPORTED_MODULE_7__.Scene();
-scene.background = new three__WEBPACK_IMPORTED_MODULE_7__.Color(_assets__WEBPACK_IMPORTED_MODULE_3__.color.sky);
-var renderer = new three__WEBPACK_IMPORTED_MODULE_7__.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-var camera = new three__WEBPACK_IMPORTED_MODULE_7__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.x = ((_constant__WEBPACK_IMPORTED_MODULE_6__.CAMERA.RENDER_DISTANCE * _constant__WEBPACK_IMPORTED_MODULE_6__.TERRIAN.CHUNK_SIZE) / 2) * _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE;
-camera.position.z = ((_constant__WEBPACK_IMPORTED_MODULE_6__.CAMERA.RENDER_DISTANCE * _constant__WEBPACK_IMPORTED_MODULE_6__.TERRIAN.CHUNK_SIZE) / 2) * _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE;
-camera.position.y = 100;
-var controls = new three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_2__.PointerLockControls(camera, document.body);
-document.body.addEventListener('click', function () { return controls.lock(); });
-// controls.addEventListener('lock', () => console.log('controls lock'))
-// controls.addEventListener('unlock', () => console.log('controls unlock'))
-var handleResizeWindow = function () {
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-};
-window.addEventListener('resize', handleResizeWindow);
+var game = new _game__WEBPACK_IMPORTED_MODULE_1__.Game();
 ///////////////////////////////////////////////////////////////////////////////
 //                                 variables                                 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -51549,15 +51591,15 @@ var ySpeed = 0;
 var generateTerrian = function () {
     var xoff = 0;
     var zoff = 0;
-    for (var outer = 0; outer < _constant__WEBPACK_IMPORTED_MODULE_6__.CAMERA.RENDER_DISTANCE; outer++) {
+    for (var outer = 0; outer < _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.RENDER_DISTANCE; outer++) {
         var chunk = [];
-        for (var inner = 0; inner < _constant__WEBPACK_IMPORTED_MODULE_6__.CAMERA.RENDER_DISTANCE; inner++) {
-            for (var x = outer * _constant__WEBPACK_IMPORTED_MODULE_6__.TERRIAN.CHUNK_SIZE; x < outer * _constant__WEBPACK_IMPORTED_MODULE_6__.TERRIAN.CHUNK_SIZE + _constant__WEBPACK_IMPORTED_MODULE_6__.TERRIAN.CHUNK_SIZE; x++) {
-                for (var z = inner * _constant__WEBPACK_IMPORTED_MODULE_6__.TERRIAN.CHUNK_SIZE; z < inner * _constant__WEBPACK_IMPORTED_MODULE_6__.TERRIAN.CHUNK_SIZE + _constant__WEBPACK_IMPORTED_MODULE_6__.TERRIAN.CHUNK_SIZE; z++) {
-                    xoff = _constant__WEBPACK_IMPORTED_MODULE_6__.TERRIAN.INCREMENT_OFFSET * x;
-                    zoff = _constant__WEBPACK_IMPORTED_MODULE_6__.TERRIAN.INCREMENT_OFFSET * z;
-                    var y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_6__.TERRIAN.AMPLITUDE) / _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE);
-                    chunk.push(new _blocks__WEBPACK_IMPORTED_MODULE_5__.Dart(new three__WEBPACK_IMPORTED_MODULE_7__.Vector3(x * _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE, z * _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE)));
+        for (var inner = 0; inner < _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.RENDER_DISTANCE; inner++) {
+            for (var x = outer * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE; x < outer * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE + _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE; x++) {
+                for (var z = inner * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE; z < inner * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE + _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE; z++) {
+                    xoff = _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.INCREMENT_OFFSET * x;
+                    zoff = _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.INCREMENT_OFFSET * z;
+                    var y = Math.round((Math.abs(simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.AMPLITUDE) / _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE);
+                    chunk.push(new _blocks__WEBPACK_IMPORTED_MODULE_3__.Dart(new three__WEBPACK_IMPORTED_MODULE_5__.Vector3(x * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE, z * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE)));
                 }
             }
         }
@@ -51566,8 +51608,8 @@ var generateTerrian = function () {
     chunks.forEach(function (chunk) {
         return chunk.forEach(function (block) {
             var _a = block.display(), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
-            scene.add(blockMesh);
-            scene.add(lineSegment);
+            game.scene.add(blockMesh);
+            game.scene.add(lineSegment);
         });
     });
 };
@@ -51575,10 +51617,10 @@ var generateTerrian = function () {
 //                                 collision                                 //
 ///////////////////////////////////////////////////////////////////////////////
 var isCollideCameraAndBlock = function (camera, block) {
-    return (camera.position.x <= block.position.x + _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE / 2 &&
-        camera.position.x >= block.position.x - _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE / 2 &&
-        camera.position.z <= block.position.z + _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE / 2 &&
-        camera.position.z >= block.position.z - _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE / 2);
+    return (camera.position.x <= block.position.x + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
+        camera.position.x >= block.position.x - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
+        camera.position.z <= block.position.z + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
+        camera.position.z >= block.position.z - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2);
 };
 ///////////////////////////////////////////////////////////////////////////////
 //                                 key event                                 //
@@ -51587,13 +51629,14 @@ var keymaps = [
     {
         key: 'w',
         callback: (function () {
-            controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_6__.CAMERA.MOVING_SPEED);
+            game.controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
             if (autoJump)
                 return;
             chunks.forEach(function (chunk) {
                 return chunk.forEach(function (block) {
-                    if (isCollideCameraAndBlock(camera, block) && camera.position.y <= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE / 2) {
-                        controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_6__.CAMERA.MOVING_SPEED);
+                    if (isCollideCameraAndBlock(game.camera, block) &&
+                        game.camera.position.y <= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
+                        game.controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
                     }
                 });
             });
@@ -51602,13 +51645,14 @@ var keymaps = [
     {
         key: 'a',
         callback: (function () {
-            controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_6__.CAMERA.MOVING_SPEED);
+            game.controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
             if (autoJump)
                 return;
             chunks.forEach(function (chunk) {
                 return chunk.forEach(function (block) {
-                    if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE / 2) {
-                        controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_6__.CAMERA.MOVING_SPEED);
+                    if (isCollideCameraAndBlock(game.camera, block) &&
+                        game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
+                        game.controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
                     }
                 });
             });
@@ -51617,13 +51661,14 @@ var keymaps = [
     {
         key: 's',
         callback: (function () {
-            controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_6__.CAMERA.MOVING_SPEED);
+            game.controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
             if (autoJump)
                 return;
             chunks.forEach(function (chunk) {
                 return chunk.forEach(function (block) {
-                    if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE / 2) {
-                        controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_6__.CAMERA.MOVING_SPEED);
+                    if (isCollideCameraAndBlock(game.camera, block) &&
+                        game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
+                        game.controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
                     }
                 });
             });
@@ -51632,13 +51677,14 @@ var keymaps = [
     {
         key: 'd',
         callback: (function () {
-            controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_6__.CAMERA.MOVING_SPEED);
+            game.controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
             if (autoJump)
                 return;
             chunks.forEach(function (chunk) {
                 return chunk.forEach(function (block) {
-                    if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE / 2) {
-                        controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_6__.CAMERA.MOVING_SPEED);
+                    if (isCollideCameraAndBlock(game.camera, block) &&
+                        game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
+                        game.controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.MOVING_SPEED);
                     }
                 });
             });
@@ -51650,11 +51696,11 @@ var keymaps = [
             if (!canJump)
                 return;
             canJump = false;
-            ySpeed = -1 * _constant__WEBPACK_IMPORTED_MODULE_6__.CAMERA.JUMP_HEIGHT;
+            ySpeed = -1 * _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.JUMP_HEIGHT;
         }).bind(undefined),
     },
 ];
-var keyboard = new _keyboard__WEBPACK_IMPORTED_MODULE_4__.Keyboard(keymaps);
+var keyboard = new _keyboard__WEBPACK_IMPORTED_MODULE_2__.Keyboard(keymaps);
 document.addEventListener('keyup', function (e) { return keyboard.handleKeyUp(e); });
 document.addEventListener('keydown', function (e) { return keyboard.handleKeyDown(e); });
 ///////////////////////////////////////////////////////////////////////////////
@@ -51672,32 +51718,22 @@ var update = function () {
     // keyboard
     keyboard.dispatch();
     // gravity
-    camera.position.y = camera.position.y - ySpeed;
-    ySpeed = ySpeed + _constant__WEBPACK_IMPORTED_MODULE_6__.GRAVITY;
+    game.camera.position.y = game.camera.position.y - ySpeed;
+    ySpeed = ySpeed + _constant__WEBPACK_IMPORTED_MODULE_4__.GRAVITY;
     chunks.forEach(function (chunk) {
         return chunk.forEach(function (block) {
-            if (isCollideCameraAndBlock(camera, block) &&
-                camera.position.y <= block.position.y + _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE / 2 &&
-                camera.position.y >= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE / 2) {
-                camera.position.y = block.position.y + _constant__WEBPACK_IMPORTED_MODULE_6__.BLOCK.SIZE / 2;
+            if (isCollideCameraAndBlock(game.camera, block) &&
+                game.camera.position.y <= block.position.y + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2 &&
+                game.camera.position.y >= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2) {
+                game.camera.position.y = block.position.y + _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE / 2;
                 ySpeed = 0;
                 canJump = true;
             }
         });
     });
 };
-var render = function () {
-    renderer.render(scene, camera);
-};
-var gameLoop = function () {
-    requestAnimationFrame(gameLoop);
-    stats.begin();
-    update();
-    render();
-    stats.end();
-};
 generateTerrian();
-gameLoop();
+game.loop(update);
 
 })();
 
