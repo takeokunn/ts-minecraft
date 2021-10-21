@@ -1,9 +1,7 @@
 import * as THREE from 'three'
 import SimplexNoise from 'simplex-noise'
-import Stats from 'three/examples/jsm/libs/stats.module'
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 
-import { color } from './assets'
+import { Game } from './game'
 import { Keyboard } from './keyboard'
 import { Dart, BlockInterface } from './blocks'
 import { BLOCK, TERRIAN, CAMERA, GRAVITY } from './constant'
@@ -13,34 +11,7 @@ const simplex = new SimplexNoise(Math.random())
 ///////////////////////////////////////////////////////////////////////////////
 //                                 initialize                                //
 ///////////////////////////////////////////////////////////////////////////////
-const stats = Stats()
-stats.showPanel(0)
-document.body.appendChild(stats.dom)
-
-const scene = new THREE.Scene()
-scene.background = new THREE.Color(color.sky)
-
-const renderer = new THREE.WebGLRenderer()
-renderer.setSize(window.innerWidth, window.innerHeight)
-document.body.appendChild(renderer.domElement)
-
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
-camera.position.x = ((CAMERA.RENDER_DISTANCE * TERRIAN.CHUNK_SIZE) / 2) * BLOCK.SIZE
-camera.position.z = ((CAMERA.RENDER_DISTANCE * TERRIAN.CHUNK_SIZE) / 2) * BLOCK.SIZE
-camera.position.y = 100
-
-const controls = new PointerLockControls(camera, document.body)
-document.body.addEventListener('click', () => controls.lock())
-// controls.addEventListener('lock', () => console.log('controls lock'))
-// controls.addEventListener('unlock', () => console.log('controls unlock'))
-
-const handleResizeWindow = () => {
-  renderer.setSize(window.innerWidth, window.innerHeight)
-  camera.aspect = window.innerWidth / window.innerHeight
-  camera.updateProjectionMatrix()
-}
-
-window.addEventListener('resize', handleResizeWindow)
+const game = new Game()
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                 variables                                 //
@@ -76,8 +47,8 @@ const generateTerrian = () => {
   chunks.forEach((chunk) =>
     chunk.forEach((block) => {
       const { blockMesh, lineSegment } = block.display()
-      scene.add(blockMesh)
-      scene.add(lineSegment)
+      game.scene.add(blockMesh)
+      game.scene.add(lineSegment)
     }),
   )
 }
@@ -103,12 +74,15 @@ const keymaps: KeyMap[] = [
   {
     key: 'w',
     callback: (() => {
-      controls.moveForward(CAMERA.MOVING_SPEED)
+      game.controls.moveForward(CAMERA.MOVING_SPEED)
       if (autoJump) return
       chunks.forEach((chunk) =>
         chunk.forEach((block) => {
-          if (isCollideCameraAndBlock(camera, block) && camera.position.y <= block.position.y - BLOCK.SIZE / 2) {
-            controls.moveForward(-1 * CAMERA.MOVING_SPEED)
+          if (
+            isCollideCameraAndBlock(game.camera, block) &&
+            game.camera.position.y <= block.position.y - BLOCK.SIZE / 2
+          ) {
+            game.controls.moveForward(-1 * CAMERA.MOVING_SPEED)
           }
         }),
       )
@@ -117,12 +91,15 @@ const keymaps: KeyMap[] = [
   {
     key: 'a',
     callback: (() => {
-      controls.moveRight(-1 * CAMERA.MOVING_SPEED)
+      game.controls.moveRight(-1 * CAMERA.MOVING_SPEED)
       if (autoJump) return
       chunks.forEach((chunk) =>
         chunk.forEach((block) => {
-          if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
-            controls.moveRight(CAMERA.MOVING_SPEED)
+          if (
+            isCollideCameraAndBlock(game.camera, block) &&
+            game.camera.position.y === block.position.y - BLOCK.SIZE / 2
+          ) {
+            game.controls.moveRight(CAMERA.MOVING_SPEED)
           }
         }),
       )
@@ -131,12 +108,15 @@ const keymaps: KeyMap[] = [
   {
     key: 's',
     callback: (() => {
-      controls.moveForward(-1 * CAMERA.MOVING_SPEED)
+      game.controls.moveForward(-1 * CAMERA.MOVING_SPEED)
       if (autoJump) return
       chunks.forEach((chunk) =>
         chunk.forEach((block) => {
-          if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
-            controls.moveForward(CAMERA.MOVING_SPEED)
+          if (
+            isCollideCameraAndBlock(game.camera, block) &&
+            game.camera.position.y === block.position.y - BLOCK.SIZE / 2
+          ) {
+            game.controls.moveForward(CAMERA.MOVING_SPEED)
           }
         }),
       )
@@ -145,12 +125,15 @@ const keymaps: KeyMap[] = [
   {
     key: 'd',
     callback: (() => {
-      controls.moveRight(CAMERA.MOVING_SPEED)
+      game.controls.moveRight(CAMERA.MOVING_SPEED)
       if (autoJump) return
       chunks.forEach((chunk) =>
         chunk.forEach((block) => {
-          if (isCollideCameraAndBlock(camera, block) && camera.position.y === block.position.y - BLOCK.SIZE / 2) {
-            controls.moveRight(-1 * CAMERA.MOVING_SPEED)
+          if (
+            isCollideCameraAndBlock(game.camera, block) &&
+            game.camera.position.y === block.position.y - BLOCK.SIZE / 2
+          ) {
+            game.controls.moveRight(-1 * CAMERA.MOVING_SPEED)
           }
         }),
       )
@@ -190,17 +173,17 @@ const update = () => {
   keyboard.dispatch()
 
   // gravity
-  camera.position.y = camera.position.y - ySpeed
+  game.camera.position.y = game.camera.position.y - ySpeed
   ySpeed = ySpeed + GRAVITY
 
   chunks.forEach((chunk) =>
     chunk.forEach((block) => {
       if (
-        isCollideCameraAndBlock(camera, block) &&
-        camera.position.y <= block.position.y + BLOCK.SIZE / 2 &&
-        camera.position.y >= block.position.y - BLOCK.SIZE / 2
+        isCollideCameraAndBlock(game.camera, block) &&
+        game.camera.position.y <= block.position.y + BLOCK.SIZE / 2 &&
+        game.camera.position.y >= block.position.y - BLOCK.SIZE / 2
       ) {
-        camera.position.y = block.position.y + BLOCK.SIZE / 2
+        game.camera.position.y = block.position.y + BLOCK.SIZE / 2
         ySpeed = 0
         canJump = true
       }
@@ -208,17 +191,5 @@ const update = () => {
   )
 }
 
-const render = () => {
-  renderer.render(scene, camera)
-}
-
-const gameLoop = () => {
-  requestAnimationFrame(gameLoop)
-  stats.begin()
-  update()
-  render()
-  stats.end()
-}
-
 generateTerrian()
-gameLoop()
+game.loop(update)
