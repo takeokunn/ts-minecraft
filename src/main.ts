@@ -1,43 +1,27 @@
-import * as THREE from 'three'
-
 import { Game } from './game'
 import { Terrian } from './terrian'
 import { Keyboard } from './keyboard'
-import { BlockInterface } from './blocks'
+import { Configure } from './configure'
 import { BLOCK, CAMERA, GRAVITY } from './constant'
+import { isCollideCameraAndBlock } from './collision'
 
-let canJump = true
-let autoJump = true
 let ySpeed = 0
+let canJump = true
+
+const config = new Configure()
+config.renderToggleAutoJump()
 
 const game = new Game()
 const terrian = new Terrian()
 terrian.generate(0, 0)
 game.addChunksToScene(terrian.chunks)
 
-///////////////////////////////////////////////////////////////////////////////
-//                                 collision                                 //
-///////////////////////////////////////////////////////////////////////////////
-
-const isCollideCameraAndBlock = (camera: THREE.PerspectiveCamera, block: BlockInterface): boolean => {
-  return (
-    camera.position.x <= block.position.x + BLOCK.SIZE / 2 &&
-    camera.position.x >= block.position.x - BLOCK.SIZE / 2 &&
-    camera.position.z <= block.position.z + BLOCK.SIZE / 2 &&
-    camera.position.z >= block.position.z - BLOCK.SIZE / 2
-  )
-}
-
-///////////////////////////////////////////////////////////////////////////////
-//                                 key event                                 //
-///////////////////////////////////////////////////////////////////////////////
-
 const keymaps: KeyMap[] = [
   {
     key: 'w',
     callback: (() => {
       game.controls.moveForward(CAMERA.MOVING_SPEED)
-      if (autoJump) return
+      if (config.autoJump) return
       terrian.chunks.forEach((chunk) =>
         chunk.forEach((block) => {
           if (
@@ -54,7 +38,7 @@ const keymaps: KeyMap[] = [
     key: 'a',
     callback: (() => {
       game.controls.moveRight(-1 * CAMERA.MOVING_SPEED)
-      if (autoJump) return
+      if (config.autoJump) return
       terrian.chunks.forEach((chunk) =>
         chunk.forEach((block) => {
           if (
@@ -71,7 +55,7 @@ const keymaps: KeyMap[] = [
     key: 's',
     callback: (() => {
       game.controls.moveForward(-1 * CAMERA.MOVING_SPEED)
-      if (autoJump) return
+      if (config.autoJump) return
       terrian.chunks.forEach((chunk) =>
         chunk.forEach((block) => {
           if (
@@ -88,7 +72,7 @@ const keymaps: KeyMap[] = [
     key: 'd',
     callback: (() => {
       game.controls.moveRight(CAMERA.MOVING_SPEED)
-      if (autoJump) return
+      if (config.autoJump) return
       terrian.chunks.forEach((chunk) =>
         chunk.forEach((block) => {
           if (
@@ -114,17 +98,6 @@ const keyboard = new Keyboard(keymaps)
 
 document.addEventListener('keyup', (e: KeyboardEvent) => keyboard.handleKeyUp(e))
 document.addEventListener('keydown', (e: KeyboardEvent) => keyboard.handleKeyDown(e))
-
-///////////////////////////////////////////////////////////////////////////////
-//                                 dom event                                 //
-///////////////////////////////////////////////////////////////////////////////
-
-const autoJumpButton = document.getElementById('auto-jump')
-
-autoJumpButton?.addEventListener('click', () => {
-  autoJump = !autoJump
-  autoJumpButton.innerHTML = `AutoJump: ${autoJump ? 'On' : 'Off'}`
-})
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                 game event                                //
