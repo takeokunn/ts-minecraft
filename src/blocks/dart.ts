@@ -1,8 +1,8 @@
 import { Block } from './block'
-import { texture } from '@src/assets'
+import { texture, BlockTexture } from '@src/assets'
 
 class Dart extends Block {
-  protected texture: THREE.MeshBasicMaterial[] = texture.dart
+  protected texture: BlockTexture[] = texture.dart
 }
 
 export { Dart }

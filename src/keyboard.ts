@@ -28,7 +28,6 @@ class Keyboard implements KeyboardInterface {
   public dispatch(): void {
     this.keymaps.forEach((keymap) => {
       if (this.keys.includes(keymap.key)) {
-        console.log('fdasfasf')
         keymap.callback()
       }
     })

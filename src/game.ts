@@ -4,6 +4,7 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 
 import { color } from './assets'
 import { Chunks } from './terrian'
+import { adjustBlockFaces } from './utils'
 import { BLOCK, TERRIAN, CAMERA } from './constant'
 
 interface GameInterface {
@@ -14,7 +15,7 @@ interface GameInterface {
   controls: PointerLockControls
 
   loop: (update: () => void) => void
-  addChunksToScene: (chunks: Chunks) => void
+  addChunksToScene: (chunks: Chunks, isDisplayLineSegment: boolean) => void
 }
 
 class Game implements GameInterface {
@@ -43,7 +44,7 @@ class Game implements GameInterface {
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
     this.camera.position.x = ((CAMERA.RENDER_DISTANCE * TERRIAN.CHUNK_SIZE) / 2) * BLOCK.SIZE
     this.camera.position.z = ((CAMERA.RENDER_DISTANCE * TERRIAN.CHUNK_SIZE) / 2) * BLOCK.SIZE
-    this.camera.position.y = 100
+    this.camera.position.y = CAMERA.INITIAL_POSITION_Y
 
     // for control
     this.controls = new PointerLockControls(this.camera, document.body)
@@ -61,13 +62,11 @@ class Game implements GameInterface {
     this.stats.end()
   }
 
-  public addChunksToScene(chunks: Chunks): void {
-    chunks.forEach((chunk) => {
-      chunk.forEach((block) => {
-        const { blockMesh, lineSegment } = block.display()
-        this.scene.add(blockMesh)
-        this.scene.add(lineSegment)
-      })
+  public addChunksToScene(chunks: Chunks, isDisplayLineSegment: boolean): void {
+    chunks.forEach((block) => {
+      const { blockMesh, lineSegment } = block.display(adjustBlockFaces(block, chunks))
+      this.scene.add(blockMesh)
+      if (isDisplayLineSegment) this.scene.add(lineSegment)
     })
   }
 

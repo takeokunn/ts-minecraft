@@ -1,4 +1,2 @@
-import { Dart } from './dart'
-import { BlockInterface } from './block'
-
-export { Dart, BlockInterface }
+export { Dart } from './dart'
+export { BlockInterface, Block } from './block'

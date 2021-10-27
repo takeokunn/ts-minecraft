@@ -11,8 +11,9 @@ export const TERRIAN = {
 
 export const CAMERA = {
   MOVING_SPEED: 1,
-  JUMP_HEIGHT: 3,
+  JUMP_HEIGHT: 2,
   RENDER_DISTANCE: 2,
+  INITIAL_POSITION_Y: 70
 }
 
-export const GRAVITY = 0.3
+export const GRAVITY = 0.1

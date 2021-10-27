@@ -1,29 +1,37 @@
 import * as THREE from 'three'
-import { BLOCK } from '../constant'
+
+import { BLOCK } from '@src/constant'
+import { DirectionName, BlockTexture } from '@src/assets'
 
 interface BlockInterface {
+  isBottom: boolean
   position: THREE.Vector3
-  display(): { blockMesh: THREE.Mesh; lineSegment: THREE.LineSegments }
+  display(adjustFacesDirection: DirectionName[]): { blockMesh: THREE.Mesh; lineSegment: THREE.LineSegments }
 }
 
+const basicMaterial = new THREE.MeshBasicMaterial()
+
 abstract class Block implements BlockInterface {
+  public isBottom = false
   protected box: THREE.BoxGeometry
-  protected texture: THREE.MeshBasicMaterial[] = []
+  protected texture: BlockTexture[] = []
   public position: THREE.Vector3
 
-  constructor(position: THREE.Vector3) {
+  constructor(position: THREE.Vector3, isBottom: boolean) {
+    this.isBottom = isBottom
     this.position = position
     this.box = new THREE.BoxBufferGeometry(BLOCK.SIZE, BLOCK.SIZE, BLOCK.SIZE)
   }
 
-  public display(): { blockMesh: THREE.Mesh; lineSegment: THREE.LineSegments } {
-    const blockMesh = this.displayBlock()
+  public display(adjustFacesDirection: DirectionName[]): { blockMesh: THREE.Mesh; lineSegment: THREE.LineSegments } {
+    const materials = this.texture.map((t) => (adjustFacesDirection.includes(t.name) ? basicMaterial : t.material))
+    const blockMesh = this.displayBlock(materials)
     const lineSegment = this.displayLine()
     return { blockMesh, lineSegment }
   }
 
-  private displayBlock(): THREE.Mesh {
-    const blockMesh = new THREE.Mesh(this.box, this.texture)
+  private displayBlock(materials: THREE.MeshBasicMaterial[]): THREE.Mesh {
+    const blockMesh = new THREE.Mesh(this.box, materials)
 
     blockMesh.position.x = this.position.x
     blockMesh.position.y = this.position.y - BLOCK.SIZE * 2

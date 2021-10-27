@@ -1,16 +1,18 @@
-import { Game } from './game'
-import { Terrian } from './terrian'
-import { Keyboard } from './keyboard'
-import { Configure } from './configure'
-import { Character } from './character'
+import { Game } from '@src/game'
+import { Terrian } from '@src/terrian'
+import { Keyboard } from '@src/keyboard'
+import { Configure } from '@src/configure'
+import { Character } from '@src/character'
+// import { adjustBlockFaces } from '@src/utils'
 
 const config = new Configure()
 config.renderToggleAutoJump()
 
-const game = new Game()
 const terrian = new Terrian()
 terrian.generate(0, 0)
-game.addChunksToScene(terrian.chunks)
+
+const game = new Game()
+game.addChunksToScene(terrian.chunks, config.isDisplayLineSegment)
 
 const character = new Character(game, config, terrian)
 const keyboard = new Keyboard(character.keymaps)

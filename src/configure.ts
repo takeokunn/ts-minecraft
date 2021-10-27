@@ -5,6 +5,7 @@ interface ConfigureInterface {
 
 class Configure {
   public autoJump = true
+  public isDisplayLineSegment = false
 
   public renderToggleAutoJump(): void {
     const autoJumpButton = document.getElementById('auto-jump')
