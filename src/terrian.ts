@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 import SimplexNoise from 'simplex-noise'
 
+import { BLOCK, TERRIAN } from '@src/constant'
 import { Dart, BlockInterface } from '@src/blocks'
-import { BLOCK, TERRIAN, CAMERA } from './constant'
 
 type Chunks = BlockInterface[]
 
@@ -19,18 +19,14 @@ class Terrian implements TerrianInterface {
     this.simplex = new SimplexNoise(Math.random())
   }
 
-  public generate(xoff: number, zoff: number): void {
-    for (let outer = 0; outer < CAMERA.RENDER_DISTANCE; outer++) {
-      for (let inner = 0; inner < CAMERA.RENDER_DISTANCE; inner++) {
-        for (let x = outer * TERRIAN.CHUNK_SIZE; x < outer * TERRIAN.CHUNK_SIZE + TERRIAN.CHUNK_SIZE; x++) {
-          for (let z = inner * TERRIAN.CHUNK_SIZE; z < inner * TERRIAN.CHUNK_SIZE + TERRIAN.CHUNK_SIZE; z++) {
-            xoff = TERRIAN.INCREMENT_OFFSET * x
-            zoff = TERRIAN.INCREMENT_OFFSET * z
-            const y = Math.round((Math.abs(this.simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE)
-            this.chunks.push(new Dart(new THREE.Vector3(x * BLOCK.SIZE, y * BLOCK.SIZE, z * BLOCK.SIZE), false))
-            this.chunks.push(new Dart(new THREE.Vector3(x * BLOCK.SIZE, (y - 1) * BLOCK.SIZE, z * BLOCK.SIZE), true))
-          }
-        }
+  public generate(centerX: number, centerZ: number): void {
+    for (let x = 0; x < TERRIAN.CHUNK_SIZE * 2; x++) {
+      for (let z = 0; z < TERRIAN.CHUNK_SIZE * 2; z++) {
+        const xoff = TERRIAN.INCREMENT_OFFSET * x
+        const zoff = TERRIAN.INCREMENT_OFFSET * z
+        const y = Math.round((Math.abs(this.simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE)
+        this.chunks.push(new Dart(new THREE.Vector3(centerX + x * BLOCK.SIZE, y * BLOCK.SIZE, centerZ + z * BLOCK.SIZE), false))
+        this.chunks.push(new Dart(new THREE.Vector3(centerX + x * BLOCK.SIZE, (y - 1) * BLOCK.SIZE, centerZ + z * BLOCK.SIZE), true))
       }
     }
   }
