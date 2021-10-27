@@ -20,8 +20,8 @@ var Game = /** @class */ (function () {
         document.body.appendChild(this.renderer.domElement);
         // for camera
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.camera.position.x = ((CAMERA.RENDER_DISTANCE * TERRIAN.CHUNK_SIZE) / 2) * BLOCK.SIZE;
-        this.camera.position.z = ((CAMERA.RENDER_DISTANCE * TERRIAN.CHUNK_SIZE) / 2) * BLOCK.SIZE;
+        this.camera.position.x = TERRIAN.CHUNK_SIZE * BLOCK.SIZE;
+        this.camera.position.z = TERRIAN.CHUNK_SIZE * BLOCK.SIZE;
         this.camera.position.y = CAMERA.INITIAL_POSITION_Y;
         // for control
         this.controls = new PointerLockControls(this.camera, document.body);

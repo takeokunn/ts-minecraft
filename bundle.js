@@ -50690,13 +50690,11 @@ var BLOCK = {
 var TERRIAN = {
     AMPLITUDE: 100,
     INCREMENT_OFFSET: 0.01,
-    WIDTH: 30,
     CHUNK_SIZE: 20,
 };
 var CAMERA = {
     MOVING_SPEED: 1,
     JUMP_HEIGHT: 2,
-    RENDER_DISTANCE: 2,
     INITIAL_POSITION_Y: 70
 };
 var GRAVITY = 0.1;
@@ -50742,8 +50740,8 @@ var Game = /** @class */ (function () {
         document.body.appendChild(this.renderer.domElement);
         // for camera
         this.camera = new three__WEBPACK_IMPORTED_MODULE_5__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.camera.position.x = ((_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.RENDER_DISTANCE * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE) / 2) * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE;
-        this.camera.position.z = ((_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.RENDER_DISTANCE * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE) / 2) * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE;
+        this.camera.position.x = _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE;
+        this.camera.position.z = _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE;
         this.camera.position.y = _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INITIAL_POSITION_Y;
         // for control
         this.controls = new three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__.PointerLockControls(this.camera, document.body);
@@ -50842,8 +50840,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var three__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
 /* harmony import */ var simplex_noise__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/esm/simplex-noise.js");
-/* harmony import */ var _src_blocks__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @src/blocks */ "./src/blocks/index.ts");
-/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
+/* harmony import */ var _src_constant__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @src/constant */ "./src/constant.ts");
+/* harmony import */ var _src_blocks__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @src/blocks */ "./src/blocks/index.ts");
 
 
 
@@ -50853,18 +50851,14 @@ var Terrian = /** @class */ (function () {
         this.chunks = [];
         this.simplex = new simplex_noise__WEBPACK_IMPORTED_MODULE_0__["default"](Math.random());
     }
-    Terrian.prototype.generate = function (xoff, zoff) {
-        for (var outer = 0; outer < _constant__WEBPACK_IMPORTED_MODULE_2__.CAMERA.RENDER_DISTANCE; outer++) {
-            for (var inner = 0; inner < _constant__WEBPACK_IMPORTED_MODULE_2__.CAMERA.RENDER_DISTANCE; inner++) {
-                for (var x = outer * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE; x < outer * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE + _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE; x++) {
-                    for (var z = inner * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE; z < inner * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE + _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE; z++) {
-                        xoff = _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.INCREMENT_OFFSET * x;
-                        zoff = _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.INCREMENT_OFFSET * z;
-                        var y = Math.round((Math.abs(this.simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.AMPLITUDE) / _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE);
-                        this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_1__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(x * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE, z * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE), false));
-                        this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_1__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(x * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE, (y - 1) * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE, z * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE), true));
-                    }
-                }
+    Terrian.prototype.generate = function (centerX, centerZ) {
+        for (var x = 0; x < _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.CHUNK_SIZE * 2; x++) {
+            for (var z = 0; z < _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.CHUNK_SIZE * 2; z++) {
+                var xoff = _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.INCREMENT_OFFSET * x;
+                var zoff = _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.INCREMENT_OFFSET * z;
+                var y = Math.round((Math.abs(this.simplex.noise2D(xoff, zoff)) * _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.AMPLITUDE) / _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE);
+                this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_2__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(centerX + x * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, y * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, centerZ + z * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE), false));
+                this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_2__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(centerX + x * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, (y - 1) * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, centerZ + z * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE), true));
             }
         }
     };
