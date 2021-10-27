@@ -50345,9 +50345,12 @@ if ( typeof window !== 'undefined' ) {
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "color": () => (/* binding */ color),
-/* harmony export */   "texture": () => (/* binding */ texture)
+/* harmony export */   "texture": () => (/* binding */ texture),
+/* harmony export */   "faces": () => (/* binding */ faces)
 /* harmony export */ });
-/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
+/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
+/* harmony import */ var _src_constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @src/constant */ "./src/constant.ts");
+
 
 var color = {
     sky: 0x00ffff,
@@ -50359,17 +50362,61 @@ var images = {
         bottom: 'assets/dart/bottom.jpeg',
     },
 };
-var loader = new three__WEBPACK_IMPORTED_MODULE_0__.TextureLoader();
+var loader = new three__WEBPACK_IMPORTED_MODULE_1__.TextureLoader();
 var texture = {
     dart: [
-        new three__WEBPACK_IMPORTED_MODULE_0__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
-        new three__WEBPACK_IMPORTED_MODULE_0__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
-        new three__WEBPACK_IMPORTED_MODULE_0__.MeshBasicMaterial({ map: loader.load(images.dart.top) }),
-        new three__WEBPACK_IMPORTED_MODULE_0__.MeshBasicMaterial({ map: loader.load(images.dart.bottom) }),
-        new three__WEBPACK_IMPORTED_MODULE_0__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
-        new three__WEBPACK_IMPORTED_MODULE_0__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
+        {
+            name: 'left',
+            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
+        },
+        {
+            name: 'right',
+            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
+        },
+        {
+            name: 'top',
+            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.dart.top) }),
+        },
+        {
+            name: 'bottom',
+            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.dart.bottom) }),
+        },
+        {
+            name: 'back',
+            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
+        },
+        {
+            name: 'front',
+            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
+        },
     ],
 };
+var faces = [
+    {
+        name: 'left',
+        direction: new three__WEBPACK_IMPORTED_MODULE_1__.Vector3(_src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, 0, 0),
+    },
+    {
+        name: 'right',
+        direction: new three__WEBPACK_IMPORTED_MODULE_1__.Vector3(-_src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, 0, 0),
+    },
+    {
+        name: 'top',
+        direction: new three__WEBPACK_IMPORTED_MODULE_1__.Vector3(0, _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, 0),
+    },
+    {
+        name: 'bottom',
+        direction: new three__WEBPACK_IMPORTED_MODULE_1__.Vector3(0, -_src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, 0),
+    },
+    {
+        name: 'back',
+        direction: new three__WEBPACK_IMPORTED_MODULE_1__.Vector3(0, 0, _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE),
+    },
+    {
+        name: 'front',
+        direction: new three__WEBPACK_IMPORTED_MODULE_1__.Vector3(0, 0, -_src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE),
+    },
+];
 
 
 /***/ }),
@@ -50385,24 +50432,28 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "Block": () => (/* binding */ Block)
 /* harmony export */ });
 /* harmony import */ var three__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
-/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../constant */ "./src/constant.ts");
+/* harmony import */ var _src_constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @src/constant */ "./src/constant.ts");
 
 
+var basicMaterial = new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial();
 var Block = /** @class */ (function () {
-    function Block(position) {
+    function Block(position, isBottom) {
+        this.isBottom = false;
         this.texture = [];
+        this.isBottom = isBottom;
         this.position = position;
-        this.box = new three__WEBPACK_IMPORTED_MODULE_1__.BoxBufferGeometry(_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE);
+        this.box = new three__WEBPACK_IMPORTED_MODULE_1__.BoxBufferGeometry(_src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE);
     }
-    Block.prototype.display = function () {
-        var blockMesh = this.displayBlock();
+    Block.prototype.display = function (adjustFacesDirection) {
+        var materials = this.texture.map(function (t) { return (adjustFacesDirection.includes(t.name) ? basicMaterial : t.material); });
+        var blockMesh = this.displayBlock(materials);
         var lineSegment = this.displayLine();
         return { blockMesh: blockMesh, lineSegment: lineSegment };
     };
-    Block.prototype.displayBlock = function () {
-        var blockMesh = new three__WEBPACK_IMPORTED_MODULE_1__.Mesh(this.box, this.texture);
+    Block.prototype.displayBlock = function (materials) {
+        var blockMesh = new three__WEBPACK_IMPORTED_MODULE_1__.Mesh(this.box, materials);
         blockMesh.position.x = this.position.x;
-        blockMesh.position.y = this.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE * 2;
+        blockMesh.position.y = this.position.y - _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE * 2;
         blockMesh.position.z = this.position.z;
         return blockMesh;
     };
@@ -50410,7 +50461,7 @@ var Block = /** @class */ (function () {
         var edges = new three__WEBPACK_IMPORTED_MODULE_1__.EdgesGeometry(this.box);
         var lineSegment = new three__WEBPACK_IMPORTED_MODULE_1__.LineSegments(edges, new three__WEBPACK_IMPORTED_MODULE_1__.LineBasicMaterial({ color: 0x00000 }));
         lineSegment.position.x = this.position.x;
-        lineSegment.position.y = this.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE * 2;
+        lineSegment.position.y = this.position.y - _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE * 2;
         lineSegment.position.z = this.position.z;
         return lineSegment;
     };
@@ -50472,9 +50523,11 @@ var Dart = /** @class */ (function (_super) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "Dart": () => (/* reexport safe */ _dart__WEBPACK_IMPORTED_MODULE_0__.Dart)
+/* harmony export */   "Dart": () => (/* reexport safe */ _dart__WEBPACK_IMPORTED_MODULE_0__.Dart),
+/* harmony export */   "Block": () => (/* reexport safe */ _block__WEBPACK_IMPORTED_MODULE_1__.Block)
 /* harmony export */ });
 /* harmony import */ var _dart__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./dart */ "./src/blocks/dart.ts");
+/* harmony import */ var _block__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./block */ "./src/blocks/block.ts");
 
 
 
@@ -50491,8 +50544,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "Character": () => (/* binding */ Character)
 /* harmony export */ });
-/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
-/* harmony import */ var _collision__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./collision */ "./src/collision.ts");
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./utils */ "./src/utils.ts");
+/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
 
 
 var Character = /** @class */ (function () {
@@ -50510,109 +50563,80 @@ var Character = /** @class */ (function () {
             { key: ' ', callback: this.handleJump.bind(this) },
         ];
     }
+    Character.prototype.calcurateGravity = function () {
+        var _this = this;
+        this.game.camera.position.y = this.game.camera.position.y - this.ySpeed;
+        this.ySpeed = this.ySpeed + _constant__WEBPACK_IMPORTED_MODULE_1__.GRAVITY;
+        this.terrian.chunks.forEach(function (block) {
+            if ((0,_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                _this.game.camera.position.y <= block.position.y + _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2 &&
+                _this.game.camera.position.y >= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
+                _this.game.camera.position.y = block.position.y + _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2;
+                _this.ySpeed = 0;
+                _this.canJump = true;
+            }
+        });
+    };
+    /**
+     * handle key event
+     */
     Character.prototype.handleUp = function () {
         var _this = this;
-        this.game.controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
+        this.game.controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (chunk) {
-            chunk.forEach(function (block) {
-                if ((0,_collision__WEBPACK_IMPORTED_MODULE_1__.isCollideCameraAndBlock)(_this.game.camera, block) &&
-                    _this.game.camera.position.y <= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2) {
-                    _this.game.controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
-                }
-            });
+        this.terrian.chunks.forEach(function (block) {
+            if ((0,_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                _this.game.camera.position.y <= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
+                _this.game.controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
+            }
         });
     };
     Character.prototype.handleLeft = function () {
         var _this = this;
-        this.game.controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
+        this.game.controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (chunk) {
-            chunk.forEach(function (block) {
-                if ((0,_collision__WEBPACK_IMPORTED_MODULE_1__.isCollideCameraAndBlock)(_this.game.camera, block) &&
-                    _this.game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2) {
-                    _this.game.controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
-                }
-            });
+        this.terrian.chunks.forEach(function (block) {
+            if ((0,_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                _this.game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
+                _this.game.controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
+            }
         });
     };
     Character.prototype.handleDown = function () {
         var _this = this;
-        this.game.controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
+        this.game.controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (chunk) {
-            chunk.forEach(function (block) {
-                if ((0,_collision__WEBPACK_IMPORTED_MODULE_1__.isCollideCameraAndBlock)(_this.game.camera, block) &&
-                    _this.game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2) {
-                    _this.game.controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
-                }
-            });
+        this.terrian.chunks.forEach(function (block) {
+            if ((0,_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                _this.game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
+                _this.game.controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
+            }
         });
     };
     Character.prototype.handleRight = function () {
         var _this = this;
-        this.game.controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
+        this.game.controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (chunk) {
-            return chunk.forEach(function (block) {
-                if ((0,_collision__WEBPACK_IMPORTED_MODULE_1__.isCollideCameraAndBlock)(_this.game.camera, block) &&
-                    _this.game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2) {
-                    _this.game.controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.MOVING_SPEED);
-                }
-            });
+        this.terrian.chunks.forEach(function (block) {
+            if ((0,_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                _this.game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
+                _this.game.controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
+            }
         });
     };
     Character.prototype.handleJump = function () {
         if (!this.canJump)
             return;
         this.canJump = false;
-        this.ySpeed = -1 * _constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.JUMP_HEIGHT;
-    };
-    Character.prototype.calcurateGravity = function () {
-        var _this = this;
-        this.game.camera.position.y = this.game.camera.position.y - this.ySpeed;
-        this.ySpeed = this.ySpeed + _constant__WEBPACK_IMPORTED_MODULE_0__.GRAVITY;
-        this.terrian.chunks.forEach(function (chunk) {
-            return chunk.forEach(function (block) {
-                if ((0,_collision__WEBPACK_IMPORTED_MODULE_1__.isCollideCameraAndBlock)(_this.game.camera, block) &&
-                    _this.game.camera.position.y <= block.position.y + _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2 &&
-                    _this.game.camera.position.y >= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2) {
-                    _this.game.camera.position.y = block.position.y + _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2;
-                    _this.ySpeed = 0;
-                    _this.canJump = true;
-                }
-            });
-        });
+        this.ySpeed = -1 * _constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.JUMP_HEIGHT;
     };
     return Character;
 }());
 
-
-
-/***/ }),
-
-/***/ "./src/collision.ts":
-/*!**************************!*\
-  !*** ./src/collision.ts ***!
-  \**************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "isCollideCameraAndBlock": () => (/* binding */ isCollideCameraAndBlock)
-/* harmony export */ });
-/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
-
-var isCollideCameraAndBlock = function (camera, block) {
-    return (camera.position.x <= block.position.x + _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2 &&
-        camera.position.x >= block.position.x - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2 &&
-        camera.position.z <= block.position.z + _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2 &&
-        camera.position.z >= block.position.z - _constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2);
-};
 
 
 /***/ }),
@@ -50630,6 +50654,7 @@ __webpack_require__.r(__webpack_exports__);
 var Configure = /** @class */ (function () {
     function Configure() {
         this.autoJump = true;
+        this.isDisplayLineSegment = false;
     }
     Configure.prototype.renderToggleAutoJump = function () {
         var _this = this;
@@ -50670,10 +50695,11 @@ var TERRIAN = {
 };
 var CAMERA = {
     MOVING_SPEED: 1,
-    JUMP_HEIGHT: 3,
+    JUMP_HEIGHT: 2,
     RENDER_DISTANCE: 2,
+    INITIAL_POSITION_Y: 70
 };
-var GRAVITY = 0.3;
+var GRAVITY = 0.1;
 
 
 /***/ }),
@@ -50688,11 +50714,13 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "Game": () => (/* binding */ Game)
 /* harmony export */ });
-/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
+/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
 /* harmony import */ var three_examples_jsm_libs_stats_module__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! three/examples/jsm/libs/stats.module */ "./node_modules/three/examples/jsm/libs/stats.module.js");
 /* harmony import */ var three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three/examples/jsm/controls/PointerLockControls */ "./node_modules/three/examples/jsm/controls/PointerLockControls.js");
 /* harmony import */ var _assets__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./assets */ "./src/assets.ts");
-/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./utils */ "./src/utils.ts");
+/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
+
 
 
 
@@ -50706,17 +50734,17 @@ var Game = /** @class */ (function () {
         this.stats.showPanel(0);
         document.body.appendChild(this.stats.dom);
         // for scene
-        this.scene = new three__WEBPACK_IMPORTED_MODULE_4__.Scene();
-        this.scene.background = new three__WEBPACK_IMPORTED_MODULE_4__.Color(_assets__WEBPACK_IMPORTED_MODULE_2__.color.sky);
+        this.scene = new three__WEBPACK_IMPORTED_MODULE_5__.Scene();
+        this.scene.background = new three__WEBPACK_IMPORTED_MODULE_5__.Color(_assets__WEBPACK_IMPORTED_MODULE_2__.color.sky);
         // for renderer
-        this.renderer = new three__WEBPACK_IMPORTED_MODULE_4__.WebGLRenderer();
+        this.renderer = new three__WEBPACK_IMPORTED_MODULE_5__.WebGLRenderer();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
         // for camera
-        this.camera = new three__WEBPACK_IMPORTED_MODULE_4__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.camera.position.x = ((_constant__WEBPACK_IMPORTED_MODULE_3__.CAMERA.RENDER_DISTANCE * _constant__WEBPACK_IMPORTED_MODULE_3__.TERRIAN.CHUNK_SIZE) / 2) * _constant__WEBPACK_IMPORTED_MODULE_3__.BLOCK.SIZE;
-        this.camera.position.z = ((_constant__WEBPACK_IMPORTED_MODULE_3__.CAMERA.RENDER_DISTANCE * _constant__WEBPACK_IMPORTED_MODULE_3__.TERRIAN.CHUNK_SIZE) / 2) * _constant__WEBPACK_IMPORTED_MODULE_3__.BLOCK.SIZE;
-        this.camera.position.y = 100;
+        this.camera = new three__WEBPACK_IMPORTED_MODULE_5__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.camera.position.x = ((_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.RENDER_DISTANCE * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE) / 2) * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE;
+        this.camera.position.z = ((_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.RENDER_DISTANCE * _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE) / 2) * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE;
+        this.camera.position.y = _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INITIAL_POSITION_Y;
         // for control
         this.controls = new three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__.PointerLockControls(this.camera, document.body);
         document.body.addEventListener('click', function () { return _this.controls.lock(); });
@@ -50730,14 +50758,13 @@ var Game = /** @class */ (function () {
         this.render();
         this.stats.end();
     };
-    Game.prototype.addChunksToScene = function (chunks) {
+    Game.prototype.addChunksToScene = function (chunks, isDisplayLineSegment) {
         var _this = this;
-        chunks.forEach(function (chunk) {
-            chunk.forEach(function (block) {
-                var _a = block.display(), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
-                _this.scene.add(blockMesh);
+        chunks.forEach(function (block) {
+            var _a = block.display((0,_utils__WEBPACK_IMPORTED_MODULE_3__.adjustBlockFaces)(block, chunks)), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
+            _this.scene.add(blockMesh);
+            if (isDisplayLineSegment)
                 _this.scene.add(lineSegment);
-            });
         });
     };
     Game.prototype.render = function () {
@@ -50792,7 +50819,6 @@ var Keyboard = /** @class */ (function () {
         var _this = this;
         this.keymaps.forEach(function (keymap) {
             if (_this.keys.includes(keymap.key)) {
-                console.log('fdasfasf');
                 keymap.callback();
             }
         });
@@ -50829,23 +50855,57 @@ var Terrian = /** @class */ (function () {
     }
     Terrian.prototype.generate = function (xoff, zoff) {
         for (var outer = 0; outer < _constant__WEBPACK_IMPORTED_MODULE_2__.CAMERA.RENDER_DISTANCE; outer++) {
-            var chunk = [];
             for (var inner = 0; inner < _constant__WEBPACK_IMPORTED_MODULE_2__.CAMERA.RENDER_DISTANCE; inner++) {
                 for (var x = outer * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE; x < outer * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE + _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE; x++) {
                     for (var z = inner * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE; z < inner * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE + _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.CHUNK_SIZE; z++) {
                         xoff = _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.INCREMENT_OFFSET * x;
                         zoff = _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.INCREMENT_OFFSET * z;
                         var y = Math.round((Math.abs(this.simplex.noise2D(xoff, zoff)) * _constant__WEBPACK_IMPORTED_MODULE_2__.TERRIAN.AMPLITUDE) / _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE);
-                        chunk.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_1__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(x * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE, z * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE)));
+                        this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_1__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(x * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE, y * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE, z * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE), false));
+                        this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_1__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(x * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE, (y - 1) * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE, z * _constant__WEBPACK_IMPORTED_MODULE_2__.BLOCK.SIZE), true));
                     }
                 }
             }
-            this.chunks.push(chunk);
         }
     };
     return Terrian;
 }());
 
+
+
+/***/ }),
+
+/***/ "./src/utils.ts":
+/*!**********************!*\
+  !*** ./src/utils.ts ***!
+  \**********************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "isCollideCameraAndBlock": () => (/* binding */ isCollideCameraAndBlock),
+/* harmony export */   "adjustBlockFaces": () => (/* binding */ adjustBlockFaces)
+/* harmony export */ });
+/* harmony import */ var _src_constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @src/constant */ "./src/constant.ts");
+/* harmony import */ var _src_assets__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @src/assets */ "./src/assets.ts");
+
+
+var isCollideCameraAndBlock = function (camera, block) {
+    return (camera.position.x <= block.position.x + _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2 &&
+        camera.position.x >= block.position.x - _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2 &&
+        camera.position.z <= block.position.z + _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2 &&
+        camera.position.z >= block.position.z - _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2);
+};
+var isNeighborhood = function (x, y, z, chunks) {
+    return chunks.reduce(function (accum, block) { return accum || (x === block.position.x && y === block.position.y && z === block.position.z); }, false);
+};
+var adjustBlockFaces = function (block, chunks) {
+    return _src_assets__WEBPACK_IMPORTED_MODULE_1__.faces.filter(function (face) {
+        return (face.name === 'bottom' && block.isBottom) ||
+            isNeighborhood(block.position.x + face.direction.x, block.position.y + face.direction.y, block.position.z + face.direction.z, chunks);
+    })
+        .map(function (face) { return face.name; });
+};
 
 
 /***/ }),
@@ -51770,24 +51830,25 @@ var __webpack_exports__ = {};
   !*** ./src/main.ts ***!
   \*********************/
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var _game__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./game */ "./src/game.ts");
-/* harmony import */ var _terrian__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./terrian */ "./src/terrian.ts");
-/* harmony import */ var _keyboard__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./keyboard */ "./src/keyboard.ts");
-/* harmony import */ var _configure__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./configure */ "./src/configure.ts");
-/* harmony import */ var _character__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./character */ "./src/character.ts");
+/* harmony import */ var _src_game__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @src/game */ "./src/game.ts");
+/* harmony import */ var _src_terrian__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @src/terrian */ "./src/terrian.ts");
+/* harmony import */ var _src_keyboard__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @src/keyboard */ "./src/keyboard.ts");
+/* harmony import */ var _src_configure__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @src/configure */ "./src/configure.ts");
+/* harmony import */ var _src_character__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! @src/character */ "./src/character.ts");
 
 
 
 
 
-var config = new _configure__WEBPACK_IMPORTED_MODULE_3__.Configure();
+// import { adjustBlockFaces } from '@src/utils'
+var config = new _src_configure__WEBPACK_IMPORTED_MODULE_3__.Configure();
 config.renderToggleAutoJump();
-var game = new _game__WEBPACK_IMPORTED_MODULE_0__.Game();
-var terrian = new _terrian__WEBPACK_IMPORTED_MODULE_1__.Terrian();
+var terrian = new _src_terrian__WEBPACK_IMPORTED_MODULE_1__.Terrian();
 terrian.generate(0, 0);
-game.addChunksToScene(terrian.chunks);
-var character = new _character__WEBPACK_IMPORTED_MODULE_4__.Character(game, config, terrian);
-var keyboard = new _keyboard__WEBPACK_IMPORTED_MODULE_2__.Keyboard(character.keymaps);
+var game = new _src_game__WEBPACK_IMPORTED_MODULE_0__.Game();
+game.addChunksToScene(terrian.chunks, config.isDisplayLineSegment);
+var character = new _src_character__WEBPACK_IMPORTED_MODULE_4__.Character(game, config, terrian);
+var keyboard = new _src_keyboard__WEBPACK_IMPORTED_MODULE_2__.Keyboard(character.keymaps);
 game.loop(function () {
     keyboard.dispatch();
     character.calcurateGravity();

@@ -25,7 +25,6 @@ var Keyboard = /** @class */ (function () {
         var _this = this;
         this.keymaps.forEach(function (keymap) {
             if (_this.keys.includes(keymap.key)) {
-                console.log('fdasfasf');
                 keymap.callback();
             }
         });

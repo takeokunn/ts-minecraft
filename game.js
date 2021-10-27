@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import Stats from 'three/examples/jsm/libs/stats.module';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { color } from './assets';
+import { adjustBlockFaces } from './utils';
 import { BLOCK, TERRIAN, CAMERA } from './constant';
 var Game = /** @class */ (function () {
     function Game() {
@@ -21,7 +22,7 @@ var Game = /** @class */ (function () {
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         this.camera.position.x = ((CAMERA.RENDER_DISTANCE * TERRIAN.CHUNK_SIZE) / 2) * BLOCK.SIZE;
         this.camera.position.z = ((CAMERA.RENDER_DISTANCE * TERRIAN.CHUNK_SIZE) / 2) * BLOCK.SIZE;
-        this.camera.position.y = 100;
+        this.camera.position.y = CAMERA.INITIAL_POSITION_Y;
         // for control
         this.controls = new PointerLockControls(this.camera, document.body);
         document.body.addEventListener('click', function () { return _this.controls.lock(); });
@@ -35,14 +36,13 @@ var Game = /** @class */ (function () {
         this.render();
         this.stats.end();
     };
-    Game.prototype.addChunksToScene = function (chunks) {
+    Game.prototype.addChunksToScene = function (chunks, isDisplayLineSegment) {
         var _this = this;
-        chunks.forEach(function (chunk) {
-            chunk.forEach(function (block) {
-                var _a = block.display(), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
-                _this.scene.add(blockMesh);
+        chunks.forEach(function (block) {
+            var _a = block.display(adjustBlockFaces(block, chunks)), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
+            _this.scene.add(blockMesh);
+            if (isDisplayLineSegment)
                 _this.scene.add(lineSegment);
-            });
         });
     };
     Game.prototype.render = function () {

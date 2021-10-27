@@ -1,6 +1,7 @@
 var Configure = /** @class */ (function () {
     function Configure() {
         this.autoJump = true;
+        this.isDisplayLineSegment = false;
     }
     Configure.prototype.renderToggleAutoJump = function () {
         var _this = this;

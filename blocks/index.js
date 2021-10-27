@@ -1,2 +1,2 @@
-import { Dart } from './dart';
-export { Dart };
+export { Dart } from './dart';
+export { Block } from './block';

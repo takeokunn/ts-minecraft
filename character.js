@@ -1,5 +1,5 @@
+import { isCollideCameraAndBlock } from './utils';
 import { BLOCK, CAMERA, GRAVITY } from './constant';
-import { isCollideCameraAndBlock } from './collision';
 var Character = /** @class */ (function () {
     function Character(game, config, terrian) {
         this.ySpeed = 0;
@@ -15,18 +15,33 @@ var Character = /** @class */ (function () {
             { key: ' ', callback: this.handleJump.bind(this) },
         ];
     }
+    Character.prototype.calcurateGravity = function () {
+        var _this = this;
+        this.game.camera.position.y = this.game.camera.position.y - this.ySpeed;
+        this.ySpeed = this.ySpeed + GRAVITY;
+        this.terrian.chunks.forEach(function (block) {
+            if (isCollideCameraAndBlock(_this.game.camera, block) &&
+                _this.game.camera.position.y <= block.position.y + BLOCK.SIZE / 2 &&
+                _this.game.camera.position.y >= block.position.y - BLOCK.SIZE / 2) {
+                _this.game.camera.position.y = block.position.y + BLOCK.SIZE / 2;
+                _this.ySpeed = 0;
+                _this.canJump = true;
+            }
+        });
+    };
+    /**
+     * handle key event
+     */
     Character.prototype.handleUp = function () {
         var _this = this;
         this.game.controls.moveForward(CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (chunk) {
-            chunk.forEach(function (block) {
-                if (isCollideCameraAndBlock(_this.game.camera, block) &&
-                    _this.game.camera.position.y <= block.position.y - BLOCK.SIZE / 2) {
-                    _this.game.controls.moveForward(-1 * CAMERA.MOVING_SPEED);
-                }
-            });
+        this.terrian.chunks.forEach(function (block) {
+            if (isCollideCameraAndBlock(_this.game.camera, block) &&
+                _this.game.camera.position.y <= block.position.y - BLOCK.SIZE / 2) {
+                _this.game.controls.moveForward(-1 * CAMERA.MOVING_SPEED);
+            }
         });
     };
     Character.prototype.handleLeft = function () {
@@ -34,13 +49,11 @@ var Character = /** @class */ (function () {
         this.game.controls.moveRight(-1 * CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (chunk) {
-            chunk.forEach(function (block) {
-                if (isCollideCameraAndBlock(_this.game.camera, block) &&
-                    _this.game.camera.position.y === block.position.y - BLOCK.SIZE / 2) {
-                    _this.game.controls.moveRight(CAMERA.MOVING_SPEED);
-                }
-            });
+        this.terrian.chunks.forEach(function (block) {
+            if (isCollideCameraAndBlock(_this.game.camera, block) &&
+                _this.game.camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+                _this.game.controls.moveRight(CAMERA.MOVING_SPEED);
+            }
         });
     };
     Character.prototype.handleDown = function () {
@@ -48,13 +61,11 @@ var Character = /** @class */ (function () {
         this.game.controls.moveForward(-1 * CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (chunk) {
-            chunk.forEach(function (block) {
-                if (isCollideCameraAndBlock(_this.game.camera, block) &&
-                    _this.game.camera.position.y === block.position.y - BLOCK.SIZE / 2) {
-                    _this.game.controls.moveForward(CAMERA.MOVING_SPEED);
-                }
-            });
+        this.terrian.chunks.forEach(function (block) {
+            if (isCollideCameraAndBlock(_this.game.camera, block) &&
+                _this.game.camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+                _this.game.controls.moveForward(CAMERA.MOVING_SPEED);
+            }
         });
     };
     Character.prototype.handleRight = function () {
@@ -62,13 +73,11 @@ var Character = /** @class */ (function () {
         this.game.controls.moveRight(CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (chunk) {
-            return chunk.forEach(function (block) {
-                if (isCollideCameraAndBlock(_this.game.camera, block) &&
-                    _this.game.camera.position.y === block.position.y - BLOCK.SIZE / 2) {
-                    _this.game.controls.moveRight(-1 * CAMERA.MOVING_SPEED);
-                }
-            });
+        this.terrian.chunks.forEach(function (block) {
+            if (isCollideCameraAndBlock(_this.game.camera, block) &&
+                _this.game.camera.position.y === block.position.y - BLOCK.SIZE / 2) {
+                _this.game.controls.moveRight(-1 * CAMERA.MOVING_SPEED);
+            }
         });
     };
     Character.prototype.handleJump = function () {
@@ -76,22 +85,6 @@ var Character = /** @class */ (function () {
             return;
         this.canJump = false;
         this.ySpeed = -1 * CAMERA.JUMP_HEIGHT;
-    };
-    Character.prototype.calcurateGravity = function () {
-        var _this = this;
-        this.game.camera.position.y = this.game.camera.position.y - this.ySpeed;
-        this.ySpeed = this.ySpeed + GRAVITY;
-        this.terrian.chunks.forEach(function (chunk) {
-            return chunk.forEach(function (block) {
-                if (isCollideCameraAndBlock(_this.game.camera, block) &&
-                    _this.game.camera.position.y <= block.position.y + BLOCK.SIZE / 2 &&
-                    _this.game.camera.position.y >= block.position.y - BLOCK.SIZE / 2) {
-                    _this.game.camera.position.y = block.position.y + BLOCK.SIZE / 2;
-                    _this.ySpeed = 0;
-                    _this.canJump = true;
-                }
-            });
-        });
     };
     return Character;
 }());
