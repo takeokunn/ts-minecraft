@@ -50357,9 +50357,12 @@ var color = {
 };
 var images = {
     dart: {
-        top: 'assets/dart/top.jpeg',
         side: 'assets/dart/side.jpeg',
-        bottom: 'assets/dart/bottom.jpeg',
+    },
+    grass: {
+        top: 'assets/grass/top.jpeg',
+        side: 'assets/grass/side.jpeg',
+        bottom: 'assets/grass/bottom.jpeg',
     },
 };
 var loader = new three__WEBPACK_IMPORTED_MODULE_1__.TextureLoader();
@@ -50375,11 +50378,11 @@ var texture = {
         },
         {
             name: 'top',
-            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.dart.top) }),
+            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
         },
         {
             name: 'bottom',
-            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.dart.bottom) }),
+            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
         },
         {
             name: 'back',
@@ -50388,6 +50391,32 @@ var texture = {
         {
             name: 'front',
             material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
+        },
+    ],
+    grass: [
+        {
+            name: 'left',
+            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.grass.side) }),
+        },
+        {
+            name: 'right',
+            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.grass.side) }),
+        },
+        {
+            name: 'top',
+            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.grass.top) }),
+        },
+        {
+            name: 'bottom',
+            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.grass.bottom) }),
+        },
+        {
+            name: 'back',
+            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.grass.side) }),
+        },
+        {
+            name: 'front',
+            material: new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial({ map: loader.load(images.grass.side) }),
         },
     ],
 };
@@ -50436,13 +50465,13 @@ __webpack_require__.r(__webpack_exports__);
 
 
 var basicMaterial = new three__WEBPACK_IMPORTED_MODULE_1__.MeshBasicMaterial();
+var box = new three__WEBPACK_IMPORTED_MODULE_1__.BoxBufferGeometry(_src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE);
 var Block = /** @class */ (function () {
-    function Block(position, isBottom) {
-        this.isBottom = false;
+    function Block(position, isDisplayable) {
+        this.isDisplayable = true;
         this.texture = [];
-        this.isBottom = isBottom;
+        this.isDisplayable = isDisplayable;
         this.position = position;
-        this.box = new three__WEBPACK_IMPORTED_MODULE_1__.BoxBufferGeometry(_src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE);
     }
     Block.prototype.display = function (adjustFacesDirection) {
         var materials = this.texture.map(function (t) { return (adjustFacesDirection.includes(t.name) ? basicMaterial : t.material); });
@@ -50451,14 +50480,14 @@ var Block = /** @class */ (function () {
         return { blockMesh: blockMesh, lineSegment: lineSegment };
     };
     Block.prototype.displayBlock = function (materials) {
-        var blockMesh = new three__WEBPACK_IMPORTED_MODULE_1__.Mesh(this.box, materials);
+        var blockMesh = new three__WEBPACK_IMPORTED_MODULE_1__.Mesh(box, materials);
         blockMesh.position.x = this.position.x;
         blockMesh.position.y = this.position.y - _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE * 2;
         blockMesh.position.z = this.position.z;
         return blockMesh;
     };
     Block.prototype.displayLine = function () {
-        var edges = new three__WEBPACK_IMPORTED_MODULE_1__.EdgesGeometry(this.box);
+        var edges = new three__WEBPACK_IMPORTED_MODULE_1__.EdgesGeometry(box);
         var lineSegment = new three__WEBPACK_IMPORTED_MODULE_1__.LineSegments(edges, new three__WEBPACK_IMPORTED_MODULE_1__.LineBasicMaterial({ color: 0x00000 }));
         lineSegment.position.x = this.position.x;
         lineSegment.position.y = this.position.y - _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE * 2;
@@ -50515,6 +50544,49 @@ var Dart = /** @class */ (function (_super) {
 
 /***/ }),
 
+/***/ "./src/blocks/grass.ts":
+/*!*****************************!*\
+  !*** ./src/blocks/grass.ts ***!
+  \*****************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "Grass": () => (/* binding */ Grass)
+/* harmony export */ });
+/* harmony import */ var _block__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./block */ "./src/blocks/block.ts");
+/* harmony import */ var _src_assets__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @src/assets */ "./src/assets.ts");
+var __extends = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+
+
+var Grass = /** @class */ (function (_super) {
+    __extends(Grass, _super);
+    function Grass() {
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this.texture = _src_assets__WEBPACK_IMPORTED_MODULE_1__.texture.grass;
+        return _this;
+    }
+    return Grass;
+}(_block__WEBPACK_IMPORTED_MODULE_0__.Block));
+
+
+
+/***/ }),
+
 /***/ "./src/blocks/index.ts":
 /*!*****************************!*\
   !*** ./src/blocks/index.ts ***!
@@ -50524,10 +50596,13 @@ var Dart = /** @class */ (function (_super) {
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "Dart": () => (/* reexport safe */ _dart__WEBPACK_IMPORTED_MODULE_0__.Dart),
-/* harmony export */   "Block": () => (/* reexport safe */ _block__WEBPACK_IMPORTED_MODULE_1__.Block)
+/* harmony export */   "Grass": () => (/* reexport safe */ _grass__WEBPACK_IMPORTED_MODULE_1__.Grass),
+/* harmony export */   "Block": () => (/* reexport safe */ _block__WEBPACK_IMPORTED_MODULE_2__.Block)
 /* harmony export */ });
 /* harmony import */ var _dart__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./dart */ "./src/blocks/dart.ts");
-/* harmony import */ var _block__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./block */ "./src/blocks/block.ts");
+/* harmony import */ var _grass__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./grass */ "./src/blocks/grass.ts");
+/* harmony import */ var _block__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./block */ "./src/blocks/block.ts");
+
 
 
 
@@ -50689,13 +50764,13 @@ var BLOCK = {
 };
 var TERRIAN = {
     AMPLITUDE: 100,
-    INCREMENT_OFFSET: 0.01,
-    CHUNK_SIZE: 20,
+    INCREMENT_OFFSET: 0.008,
+    CHUNK_SIZE: 50,
 };
 var CAMERA = {
     MOVING_SPEED: 1,
     JUMP_HEIGHT: 2,
-    INITIAL_POSITION_Y: 70
+    INITIAL_POSITION_Y: 100,
 };
 var GRAVITY = 0.1;
 
@@ -50739,7 +50814,7 @@ var Game = /** @class */ (function () {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
         // for camera
-        this.camera = new three__WEBPACK_IMPORTED_MODULE_5__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.camera = new three__WEBPACK_IMPORTED_MODULE_5__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
         this.camera.position.x = _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE;
         this.camera.position.z = _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE;
         this.camera.position.y = _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INITIAL_POSITION_Y;
@@ -50759,6 +50834,8 @@ var Game = /** @class */ (function () {
     Game.prototype.addChunksToScene = function (chunks, isDisplayLineSegment) {
         var _this = this;
         chunks.forEach(function (block) {
+            if (!block.isDisplayable)
+                return;
             var _a = block.display((0,_utils__WEBPACK_IMPORTED_MODULE_3__.adjustBlockFaces)(block, chunks)), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
             _this.scene.add(blockMesh);
             if (isDisplayLineSegment)
@@ -50857,8 +50934,8 @@ var Terrian = /** @class */ (function () {
                 var xoff = _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.INCREMENT_OFFSET * x;
                 var zoff = _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.INCREMENT_OFFSET * z;
                 var y = Math.round((Math.abs(this.simplex.noise2D(xoff, zoff)) * _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.AMPLITUDE) / _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE);
-                this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_2__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(centerX + x * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, y * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, centerZ + z * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE), false));
-                this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_2__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(centerX + x * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, (y - 1) * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, centerZ + z * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE), true));
+                this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_2__.Grass(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(centerX + x * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, y * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, centerZ + z * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE), true));
+                this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_2__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(centerX + x * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, (y - 1) * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, centerZ + z * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE), false));
             }
         }
     };
@@ -50895,8 +50972,7 @@ var isNeighborhood = function (x, y, z, chunks) {
 };
 var adjustBlockFaces = function (block, chunks) {
     return _src_assets__WEBPACK_IMPORTED_MODULE_1__.faces.filter(function (face) {
-        return (face.name === 'bottom' && block.isBottom) ||
-            isNeighborhood(block.position.x + face.direction.x, block.position.y + face.direction.y, block.position.z + face.direction.z, chunks);
+        return isNeighborhood(block.position.x + face.direction.x, block.position.y + face.direction.y, block.position.z + face.direction.z, chunks);
     })
         .map(function (face) { return face.name; });
 };
@@ -51834,7 +51910,6 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
-// import { adjustBlockFaces } from '@src/utils'
 var config = new _src_configure__WEBPACK_IMPORTED_MODULE_3__.Configure();
 config.renderToggleAutoJump();
 var terrian = new _src_terrian__WEBPACK_IMPORTED_MODULE_1__.Terrian();

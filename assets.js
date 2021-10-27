@@ -5,9 +5,12 @@ export var color = {
 };
 var images = {
     dart: {
-        top: 'assets/dart/top.jpeg',
         side: 'assets/dart/side.jpeg',
-        bottom: 'assets/dart/bottom.jpeg',
+    },
+    grass: {
+        top: 'assets/grass/top.jpeg',
+        side: 'assets/grass/side.jpeg',
+        bottom: 'assets/grass/bottom.jpeg',
     },
 };
 var loader = new THREE.TextureLoader();
@@ -23,11 +26,11 @@ export var texture = {
         },
         {
             name: 'top',
-            material: new THREE.MeshBasicMaterial({ map: loader.load(images.dart.top) }),
+            material: new THREE.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
         },
         {
             name: 'bottom',
-            material: new THREE.MeshBasicMaterial({ map: loader.load(images.dart.bottom) }),
+            material: new THREE.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
         },
         {
             name: 'back',
@@ -36,6 +39,32 @@ export var texture = {
         {
             name: 'front',
             material: new THREE.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
+        },
+    ],
+    grass: [
+        {
+            name: 'left',
+            material: new THREE.MeshBasicMaterial({ map: loader.load(images.grass.side) }),
+        },
+        {
+            name: 'right',
+            material: new THREE.MeshBasicMaterial({ map: loader.load(images.grass.side) }),
+        },
+        {
+            name: 'top',
+            material: new THREE.MeshBasicMaterial({ map: loader.load(images.grass.top) }),
+        },
+        {
+            name: 'bottom',
+            material: new THREE.MeshBasicMaterial({ map: loader.load(images.grass.bottom) }),
+        },
+        {
+            name: 'back',
+            material: new THREE.MeshBasicMaterial({ map: loader.load(images.grass.side) }),
+        },
+        {
+            name: 'front',
+            material: new THREE.MeshBasicMaterial({ map: loader.load(images.grass.side) }),
         },
     ],
 };

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import SimplexNoise from 'simplex-noise';
 import { BLOCK, TERRIAN } from '@src/constant';
-import { Dart } from '@src/blocks';
+import { Dart, Grass } from '@src/blocks';
 var Terrian = /** @class */ (function () {
     function Terrian() {
         this.chunks = [];
@@ -13,8 +13,8 @@ var Terrian = /** @class */ (function () {
                 var xoff = TERRIAN.INCREMENT_OFFSET * x;
                 var zoff = TERRIAN.INCREMENT_OFFSET * z;
                 var y = Math.round((Math.abs(this.simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE);
-                this.chunks.push(new Dart(new THREE.Vector3(centerX + x * BLOCK.SIZE, y * BLOCK.SIZE, centerZ + z * BLOCK.SIZE), false));
-                this.chunks.push(new Dart(new THREE.Vector3(centerX + x * BLOCK.SIZE, (y - 1) * BLOCK.SIZE, centerZ + z * BLOCK.SIZE), true));
+                this.chunks.push(new Grass(new THREE.Vector3(centerX + x * BLOCK.SIZE, y * BLOCK.SIZE, centerZ + z * BLOCK.SIZE), true));
+                this.chunks.push(new Dart(new THREE.Vector3(centerX + x * BLOCK.SIZE, (y - 1) * BLOCK.SIZE, centerZ + z * BLOCK.SIZE), false));
             }
         }
     };

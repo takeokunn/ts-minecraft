@@ -12,8 +12,7 @@ var isNeighborhood = function (x, y, z, chunks) {
 export var adjustBlockFaces = function (block, chunks) {
     return faces
         .filter(function (face) {
-        return (face.name === 'bottom' && block.isBottom) ||
-            isNeighborhood(block.position.x + face.direction.x, block.position.y + face.direction.y, block.position.z + face.direction.z, chunks);
+        return isNeighborhood(block.position.x + face.direction.x, block.position.y + face.direction.y, block.position.z + face.direction.z, chunks);
     })
         .map(function (face) { return face.name; });
 };

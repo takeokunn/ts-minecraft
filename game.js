@@ -19,7 +19,7 @@ var Game = /** @class */ (function () {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
         // for camera
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
         this.camera.position.x = TERRIAN.CHUNK_SIZE * BLOCK.SIZE;
         this.camera.position.z = TERRIAN.CHUNK_SIZE * BLOCK.SIZE;
         this.camera.position.y = CAMERA.INITIAL_POSITION_Y;
@@ -39,6 +39,8 @@ var Game = /** @class */ (function () {
     Game.prototype.addChunksToScene = function (chunks, isDisplayLineSegment) {
         var _this = this;
         chunks.forEach(function (block) {
+            if (!block.isDisplayable)
+                return;
             var _a = block.display(adjustBlockFaces(block, chunks)), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
             _this.scene.add(blockMesh);
             if (isDisplayLineSegment)
