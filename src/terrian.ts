@@ -2,13 +2,13 @@ import * as THREE from 'three'
 import SimplexNoise from 'simplex-noise'
 
 import { BLOCK, TERRIAN } from '@src/constant'
-import { Dart, BlockInterface } from '@src/blocks'
+import { Dart, Grass, BlockInterface } from '@src/blocks'
 
 type Chunks = BlockInterface[]
 
 interface TerrianInterface {
   chunks: Chunks
-  generate: (xoff: number, zoff: number) => void
+  generate: (centerX: number, centerZ: number) => void
 }
 
 class Terrian implements TerrianInterface {
@@ -25,8 +25,12 @@ class Terrian implements TerrianInterface {
         const xoff = TERRIAN.INCREMENT_OFFSET * x
         const zoff = TERRIAN.INCREMENT_OFFSET * z
         const y = Math.round((Math.abs(this.simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE)
-        this.chunks.push(new Dart(new THREE.Vector3(centerX + x * BLOCK.SIZE, y * BLOCK.SIZE, centerZ + z * BLOCK.SIZE), false))
-        this.chunks.push(new Dart(new THREE.Vector3(centerX + x * BLOCK.SIZE, (y - 1) * BLOCK.SIZE, centerZ + z * BLOCK.SIZE), true))
+        this.chunks.push(
+          new Grass(new THREE.Vector3(centerX + x * BLOCK.SIZE, y * BLOCK.SIZE, centerZ + z * BLOCK.SIZE), true),
+        )
+        this.chunks.push(
+          new Dart(new THREE.Vector3(centerX + x * BLOCK.SIZE, (y - 1) * BLOCK.SIZE, centerZ + z * BLOCK.SIZE), false),
+        )
       }
     }
   }

@@ -8,9 +8,12 @@ export const color = {
 
 const images = {
   dart: {
-    top: 'assets/dart/top.jpeg',
     side: 'assets/dart/side.jpeg',
-    bottom: 'assets/dart/bottom.jpeg',
+  },
+  grass: {
+    top: 'assets/grass/top.jpeg',
+    side: 'assets/grass/side.jpeg',
+    bottom: 'assets/grass/bottom.jpeg',
   },
 }
 
@@ -32,11 +35,11 @@ export const texture: TextureType = {
     },
     {
       name: 'top',
-      material: new THREE.MeshBasicMaterial({ map: loader.load(images.dart.top) }),
+      material: new THREE.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
     },
     {
       name: 'bottom',
-      material: new THREE.MeshBasicMaterial({ map: loader.load(images.dart.bottom) }),
+      material: new THREE.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
     },
     {
       name: 'back',
@@ -47,9 +50,35 @@ export const texture: TextureType = {
       material: new THREE.MeshBasicMaterial({ map: loader.load(images.dart.side) }),
     },
   ],
+  grass: [
+    {
+      name: 'left',
+      material: new THREE.MeshBasicMaterial({ map: loader.load(images.grass.side) }),
+    },
+    {
+      name: 'right',
+      material: new THREE.MeshBasicMaterial({ map: loader.load(images.grass.side) }),
+    },
+    {
+      name: 'top',
+      material: new THREE.MeshBasicMaterial({ map: loader.load(images.grass.top) }),
+    },
+    {
+      name: 'bottom',
+      material: new THREE.MeshBasicMaterial({ map: loader.load(images.grass.bottom) }),
+    },
+    {
+      name: 'back',
+      material: new THREE.MeshBasicMaterial({ map: loader.load(images.grass.side) }),
+    },
+    {
+      name: 'front',
+      material: new THREE.MeshBasicMaterial({ map: loader.load(images.grass.side) }),
+    },
+  ],
 }
 
-export type DirectionName = 'left' | 'right' |  'top' | 'bottom' | 'back' | 'front'
+export type DirectionName = 'left' | 'right' | 'top' | 'bottom' | 'back' | 'front'
 
 export type BlockFace = {
   name: DirectionName

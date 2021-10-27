@@ -4,23 +4,22 @@ import { BLOCK } from '@src/constant'
 import { DirectionName, BlockTexture } from '@src/assets'
 
 interface BlockInterface {
-  isBottom: boolean
+  isDisplayable: boolean
   position: THREE.Vector3
   display(adjustFacesDirection: DirectionName[]): { blockMesh: THREE.Mesh; lineSegment: THREE.LineSegments }
 }
 
 const basicMaterial = new THREE.MeshBasicMaterial()
+const box = new THREE.BoxBufferGeometry(BLOCK.SIZE, BLOCK.SIZE, BLOCK.SIZE)
 
 abstract class Block implements BlockInterface {
-  public isBottom = false
-  protected box: THREE.BoxGeometry
+  public isDisplayable = true
   protected texture: BlockTexture[] = []
   public position: THREE.Vector3
 
-  constructor(position: THREE.Vector3, isBottom: boolean) {
-    this.isBottom = isBottom
+  constructor(position: THREE.Vector3, isDisplayable: boolean) {
+    this.isDisplayable = isDisplayable
     this.position = position
-    this.box = new THREE.BoxBufferGeometry(BLOCK.SIZE, BLOCK.SIZE, BLOCK.SIZE)
   }
 
   public display(adjustFacesDirection: DirectionName[]): { blockMesh: THREE.Mesh; lineSegment: THREE.LineSegments } {
@@ -31,7 +30,7 @@ abstract class Block implements BlockInterface {
   }
 
   private displayBlock(materials: THREE.MeshBasicMaterial[]): THREE.Mesh {
-    const blockMesh = new THREE.Mesh(this.box, materials)
+    const blockMesh = new THREE.Mesh(box, materials)
 
     blockMesh.position.x = this.position.x
     blockMesh.position.y = this.position.y - BLOCK.SIZE * 2
@@ -41,7 +40,7 @@ abstract class Block implements BlockInterface {
   }
 
   private displayLine(): THREE.LineSegments {
-    const edges = new THREE.EdgesGeometry(this.box)
+    const edges = new THREE.EdgesGeometry(box)
     const lineSegment = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x00000 }))
 
     lineSegment.position.x = this.position.x

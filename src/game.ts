@@ -41,7 +41,7 @@ class Game implements GameInterface {
     document.body.appendChild(this.renderer.domElement)
 
     // for camera
-    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200)
     this.camera.position.x = TERRIAN.CHUNK_SIZE * BLOCK.SIZE
     this.camera.position.z = TERRIAN.CHUNK_SIZE * BLOCK.SIZE
     this.camera.position.y = CAMERA.INITIAL_POSITION_Y
@@ -64,6 +64,8 @@ class Game implements GameInterface {
 
   public addChunksToScene(chunks: Chunks, isDisplayLineSegment: boolean): void {
     chunks.forEach((block) => {
+      if (!block.isDisplayable) return
+
       const { blockMesh, lineSegment } = block.display(adjustBlockFaces(block, chunks))
       this.scene.add(blockMesh)
       if (isDisplayLineSegment) this.scene.add(lineSegment)

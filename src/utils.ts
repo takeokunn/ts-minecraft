@@ -30,7 +30,6 @@ export const adjustBlockFaces = (block: BlockInterface, chunks: Chunks): Directi
   return faces
     .filter(
       (face) =>
-        (face.name === 'bottom' && block.isBottom) ||
         isNeighborhood(
           block.position.x + face.direction.x,
           block.position.y + face.direction.y,
