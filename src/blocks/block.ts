@@ -1,7 +1,6 @@
 import * as THREE from 'three'
 
 import { BLOCK } from '@src/constant'
-import { DirectionName, BlockTexture } from '@src/assets'
 
 interface BlockInterface {
   isDisplayable: boolean

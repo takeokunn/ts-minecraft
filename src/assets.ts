@@ -19,10 +19,6 @@ const images = {
 
 const loader = new THREE.TextureLoader()
 
-type TextureType = {
-  [key: string]: BlockTexture[]
-}
-
 export const texture: TextureType = {
   dart: [
     {
@@ -76,18 +72,6 @@ export const texture: TextureType = {
       material: new THREE.MeshBasicMaterial({ map: loader.load(images.grass.side) }),
     },
   ],
-}
-
-export type DirectionName = 'left' | 'right' | 'top' | 'bottom' | 'back' | 'front'
-
-export type BlockFace = {
-  name: DirectionName
-  direction: THREE.Vector3
-}
-
-export type BlockTexture = {
-  name: DirectionName
-  material: THREE.MeshBasicMaterial
 }
 
 export const faces: BlockFace[] = [

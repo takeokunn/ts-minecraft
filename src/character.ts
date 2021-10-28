@@ -1,9 +1,9 @@
-import { KeyMap } from './keyboard'
-import { GameInterface } from './game'
-import { TerrianInterface } from './terrian'
-import { ConfigureInterface } from './configure'
-import { isCollideCameraAndBlock } from './utils'
-import { BLOCK, CAMERA, GRAVITY } from './constant'
+import { KeyMap } from '@src/keyboard'
+import { GameInterface } from '@src/game'
+import { TerrianInterface } from '@src/terrian'
+import { ConfigureInterface } from '@src/configure'
+import { isCollideCameraAndBlock } from '@src/utils'
+import { BLOCK, CAMERA, GRAVITY } from '@src/constant'
 
 interface CharacterInterface {
   keymaps: KeyMap[]

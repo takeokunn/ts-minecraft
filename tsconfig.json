@@ -8,7 +8,7 @@
     "module": "esnext",
     "moduleResolution": "node",
     "types": ["jest"],
-    "typeRoots": ["node_modules/@types"],
+    "typeRoots": ["node_modules/@types", "src/@types"],
     "lib": ["dom", "dom.iterable", "esnext"],
     "paths": {
       "@src/*": ["./src/*"]

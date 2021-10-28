@@ -2,10 +2,10 @@ import * as THREE from 'three'
 import Stats from 'three/examples/jsm/libs/stats.module'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 
-import { color } from './assets'
-import { Chunks } from './terrian'
-import { adjustBlockFaces } from './utils'
-import { BLOCK, TERRIAN, CAMERA } from './constant'
+import { color } from '@src/assets'
+import { Chunks } from '@src/terrian'
+import { adjustBlockFaces } from '@src/utils'
+import { BLOCK, TERRIAN, CAMERA } from '@src/constant'
 
 interface GameInterface {
   stats: Stats
@@ -15,7 +15,12 @@ interface GameInterface {
   controls: PointerLockControls
 
   loop: (update: () => void) => void
-  addChunksToScene: (chunks: Chunks, isDisplayLineSegment: boolean) => void
+
+  addChunksToScene: (chunks: Chunks) => void
+  addLineSegmentBlock: (chunks: Chunks) => void
+  removeLineSegmentBlock: () => void
+
+  setCameraFar: (far: number) => void
 }
 
 class Game implements GameInterface {
@@ -41,16 +46,16 @@ class Game implements GameInterface {
     document.body.appendChild(this.renderer.domElement)
 
     // for camera
-    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200)
-    this.camera.position.x = TERRIAN.CHUNK_SIZE * BLOCK.SIZE
-    this.camera.position.z = TERRIAN.CHUNK_SIZE * BLOCK.SIZE
-    this.camera.position.y = CAMERA.INITIAL_POSITION_Y
+    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, CAMERA.PERSPECTIVE.NEAR)
+    this.camera.position.x = (TERRIAN.CHUNK_SIZE / 2) * BLOCK.SIZE
+    this.camera.position.z = (TERRIAN.CHUNK_SIZE / 2) * BLOCK.SIZE
+    this.camera.position.y = CAMERA.INITIALIZE.POSITION_Y
 
     // for control
     this.controls = new PointerLockControls(this.camera, document.body)
     document.body.addEventListener('click', () => this.controls.lock())
 
-    // resize event
+    // for resize event
     window.addEventListener('resize', this.handleResizeWindow.bind(this))
   }
 
@@ -62,14 +67,26 @@ class Game implements GameInterface {
     this.stats.end()
   }
 
-  public addChunksToScene(chunks: Chunks, isDisplayLineSegment: boolean): void {
+  public addChunksToScene(chunks: Chunks): void {
     chunks.forEach((block) => {
       if (!block.isDisplayable) return
 
-      const { blockMesh, lineSegment } = block.display(adjustBlockFaces(block, chunks))
+      const { blockMesh } = block.display(adjustBlockFaces(block, chunks))
       this.scene.add(blockMesh)
-      if (isDisplayLineSegment) this.scene.add(lineSegment)
     })
+  }
+
+  public addLineSegmentBlock(chunks: Chunks): void {
+    chunks.forEach((block) => {
+      if (!block.isDisplayable) return
+
+      const { lineSegment } = block.display(adjustBlockFaces(block, chunks))
+      this.scene.add(lineSegment)
+    })
+  }
+
+  public removeLineSegmentBlock(): void {
+    this.scene.children.filter((obj) => obj.type === 'LineSegments').forEach((obj) => this.scene.remove(obj))
   }
 
   private render(): void {
@@ -79,6 +96,11 @@ class Game implements GameInterface {
   private handleResizeWindow(): void {
     this.renderer.setSize(window.innerWidth, window.innerHeight)
     this.camera.aspect = window.innerWidth / window.innerHeight
+    this.camera.updateProjectionMatrix()
+  }
+
+  public setCameraFar(far: number): void {
+    this.camera.far = far
     this.camera.updateProjectionMatrix()
   }
 }
