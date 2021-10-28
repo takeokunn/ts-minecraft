@@ -4,16 +4,16 @@ import { Keyboard } from '@src/keyboard';
 import { Configure } from '@src/configure';
 import { Character } from '@src/character';
 var terrian = new Terrian();
-terrian.generate(0, 0);
+terrian.generate();
 var config = new Configure();
 var game = new Game();
 config.render({
     handleClickPerspective: function (far) { return game.setCameraFar(far); },
     handleClickLineSegment: function (isShow) {
-        return isShow ? game.addLineSegmentBlock(terrian.chunks) : game.removeLineSegmentBlock();
+        return isShow ? game.addLineSegmentBlock(terrian.getChunkBlocks()) : game.removeLineSegmentBlock();
     },
 });
-game.addChunksToScene(terrian.chunks);
+game.addChunksToScene(terrian.getChunkBlocks());
 var character = new Character(game, config, terrian);
 var keyboard = new Keyboard(character.keymaps);
 game.loop(function () {

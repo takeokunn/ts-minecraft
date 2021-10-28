@@ -6,13 +6,13 @@ export var isCollideCameraAndBlock = function (camera, block) {
         camera.position.z <= block.position.z + BLOCK.SIZE / 2 &&
         camera.position.z >= block.position.z - BLOCK.SIZE / 2);
 };
-var isNeighborhood = function (x, y, z, chunks) {
-    return chunks.reduce(function (accum, block) { return accum || (x === block.position.x && y === block.position.y && z === block.position.z); }, false);
+var isNeighborhood = function (x, y, z, blocks) {
+    return blocks.reduce(function (accum, block) { return accum || (x === block.position.x && y === block.position.y && z === block.position.z); }, false);
 };
-export var adjustBlockFaces = function (block, chunks) {
+export var adjustBlockFaces = function (block, blocks) {
     return faces
         .filter(function (face) {
-        return isNeighborhood(block.position.x + face.direction.x, block.position.y + face.direction.y, block.position.z + face.direction.z, chunks);
+        return isNeighborhood(block.position.x + face.direction.x, block.position.y + face.direction.y, block.position.z + face.direction.z, blocks);
     })
         .map(function (face) { return face.name; });
 };

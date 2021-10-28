@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import Stats from 'three/examples/jsm/libs/stats.module';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { color } from '@src/assets';
+import { CAMERA } from '@src/constant';
 import { adjustBlockFaces } from '@src/utils';
-import { BLOCK, TERRIAN, CAMERA } from '@src/constant';
 var Game = /** @class */ (function () {
     function Game() {
         var _this = this;
@@ -20,8 +20,8 @@ var Game = /** @class */ (function () {
         document.body.appendChild(this.renderer.domElement);
         // for camera
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, CAMERA.PERSPECTIVE.NEAR);
-        this.camera.position.x = (TERRIAN.CHUNK_SIZE / 2) * BLOCK.SIZE;
-        this.camera.position.z = (TERRIAN.CHUNK_SIZE / 2) * BLOCK.SIZE;
+        this.camera.position.x = 0;
+        this.camera.position.z = 0;
         this.camera.position.y = CAMERA.INITIALIZE.POSITION_Y;
         // for control
         this.controls = new PointerLockControls(this.camera, document.body);
@@ -36,21 +36,21 @@ var Game = /** @class */ (function () {
         this.render();
         this.stats.end();
     };
-    Game.prototype.addChunksToScene = function (chunks) {
+    Game.prototype.addChunksToScene = function (blocks) {
         var _this = this;
-        chunks.forEach(function (block) {
+        blocks.forEach(function (block) {
             if (!block.isDisplayable)
                 return;
-            var blockMesh = block.display(adjustBlockFaces(block, chunks)).blockMesh;
+            var blockMesh = block.display(adjustBlockFaces(block, blocks)).blockMesh;
             _this.scene.add(blockMesh);
         });
     };
-    Game.prototype.addLineSegmentBlock = function (chunks) {
+    Game.prototype.addLineSegmentBlock = function (blocks) {
         var _this = this;
-        chunks.forEach(function (block) {
+        blocks.forEach(function (block) {
             if (!block.isDisplayable)
                 return;
-            var lineSegment = block.display(adjustBlockFaces(block, chunks)).lineSegment;
+            var lineSegment = block.display(adjustBlockFaces(block, blocks)).lineSegment;
             _this.scene.add(lineSegment);
         });
     };

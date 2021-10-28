@@ -50642,7 +50642,7 @@ var Character = /** @class */ (function () {
         var _this = this;
         this.game.camera.position.y = this.game.camera.position.y - this.ySpeed;
         this.ySpeed = this.ySpeed + _src_constant__WEBPACK_IMPORTED_MODULE_1__.GRAVITY;
-        this.terrian.chunks.forEach(function (block) {
+        this.terrian.getChunkBlocks().forEach(function (block) {
             if ((0,_src_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
                 _this.game.camera.position.y <= block.position.y + _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2 &&
                 _this.game.camera.position.y >= block.position.y - _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
@@ -50660,7 +50660,7 @@ var Character = /** @class */ (function () {
         this.game.controls.moveForward(_src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (block) {
+        this.terrian.getChunkBlocks().forEach(function (block) {
             if ((0,_src_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
                 _this.game.camera.position.y <= block.position.y - _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
                 _this.game.controls.moveForward(-1 * _src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
@@ -50672,7 +50672,7 @@ var Character = /** @class */ (function () {
         this.game.controls.moveRight(-1 * _src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (block) {
+        this.terrian.getChunkBlocks().forEach(function (block) {
             if ((0,_src_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
                 _this.game.camera.position.y === block.position.y - _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
                 _this.game.controls.moveRight(_src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
@@ -50684,7 +50684,7 @@ var Character = /** @class */ (function () {
         this.game.controls.moveForward(-1 * _src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (block) {
+        this.terrian.getChunkBlocks().forEach(function (block) {
             if ((0,_src_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
                 _this.game.camera.position.y === block.position.y - _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
                 _this.game.controls.moveForward(_src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
@@ -50696,7 +50696,7 @@ var Character = /** @class */ (function () {
         this.game.controls.moveRight(_src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (block) {
+        this.terrian.getChunkBlocks().forEach(function (block) {
             if ((0,_src_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
                 _this.game.camera.position.y === block.position.y - _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
                 _this.game.controls.moveRight(-1 * _src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
@@ -50710,6 +50710,44 @@ var Character = /** @class */ (function () {
         this.ySpeed = -1 * _src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.JUMP_HEIGHT;
     };
     return Character;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/chunk.ts":
+/*!**********************!*\
+  !*** ./src/chunk.ts ***!
+  \**********************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "Chunk": () => (/* binding */ Chunk)
+/* harmony export */ });
+/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
+/* harmony import */ var _src_constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @src/constant */ "./src/constant.ts");
+/* harmony import */ var _src_blocks__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @src/blocks */ "./src/blocks/index.ts");
+
+
+
+var Chunk = /** @class */ (function () {
+    function Chunk(simplex, centerX, centerZ) {
+        this.blocks = [];
+        for (var x = 0; x < _src_constant__WEBPACK_IMPORTED_MODULE_0__.TERRIAN.CHUNK_SIZE; x++) {
+            for (var z = 0; z < _src_constant__WEBPACK_IMPORTED_MODULE_0__.TERRIAN.CHUNK_SIZE; z++) {
+                var positionX = centerX + x;
+                var positionZ = centerZ + z;
+                var xoff = _src_constant__WEBPACK_IMPORTED_MODULE_0__.TERRIAN.INCREMENT_OFFSET * positionX;
+                var zoff = _src_constant__WEBPACK_IMPORTED_MODULE_0__.TERRIAN.INCREMENT_OFFSET * positionZ;
+                var y = Math.round((simplex.noise2D(xoff, zoff) * _src_constant__WEBPACK_IMPORTED_MODULE_0__.TERRIAN.AMPLITUDE) / _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE);
+                this.blocks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_1__.Grass(new three__WEBPACK_IMPORTED_MODULE_2__.Vector3(positionX * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, y * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, positionZ * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE), true));
+                this.blocks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_1__.Dart(new three__WEBPACK_IMPORTED_MODULE_2__.Vector3(positionX * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, (y - 1) * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, positionZ * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE), false));
+            }
+        }
+    }
+    return Chunk;
 }());
 
 
@@ -50804,7 +50842,7 @@ var BLOCK = {
 var TERRIAN = {
     AMPLITUDE: 100,
     INCREMENT_OFFSET: 0.008,
-    CHUNK_SIZE: 80,
+    CHUNK_SIZE: 50,
 };
 var CAMERA = {
     MOVING_SPEED: 1,
@@ -50842,8 +50880,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var three_examples_jsm_libs_stats_module__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! three/examples/jsm/libs/stats.module */ "./node_modules/three/examples/jsm/libs/stats.module.js");
 /* harmony import */ var three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three/examples/jsm/controls/PointerLockControls */ "./node_modules/three/examples/jsm/controls/PointerLockControls.js");
 /* harmony import */ var _src_assets__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @src/assets */ "./src/assets.ts");
-/* harmony import */ var _src_utils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @src/utils */ "./src/utils.ts");
-/* harmony import */ var _src_constant__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! @src/constant */ "./src/constant.ts");
+/* harmony import */ var _src_constant__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @src/constant */ "./src/constant.ts");
+/* harmony import */ var _src_utils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! @src/utils */ "./src/utils.ts");
 
 
 
@@ -50865,10 +50903,10 @@ var Game = /** @class */ (function () {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
         // for camera
-        this.camera = new three__WEBPACK_IMPORTED_MODULE_5__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, _src_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.PERSPECTIVE.NEAR);
-        this.camera.position.x = (_src_constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE / 2) * _src_constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE;
-        this.camera.position.z = (_src_constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE / 2) * _src_constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE;
-        this.camera.position.y = _src_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INITIALIZE.POSITION_Y;
+        this.camera = new three__WEBPACK_IMPORTED_MODULE_5__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, _src_constant__WEBPACK_IMPORTED_MODULE_3__.CAMERA.PERSPECTIVE.NEAR);
+        this.camera.position.x = 0;
+        this.camera.position.z = 0;
+        this.camera.position.y = _src_constant__WEBPACK_IMPORTED_MODULE_3__.CAMERA.INITIALIZE.POSITION_Y;
         // for control
         this.controls = new three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__.PointerLockControls(this.camera, document.body);
         document.body.addEventListener('click', function () { return _this.controls.lock(); });
@@ -50882,21 +50920,21 @@ var Game = /** @class */ (function () {
         this.render();
         this.stats.end();
     };
-    Game.prototype.addChunksToScene = function (chunks) {
+    Game.prototype.addChunksToScene = function (blocks) {
         var _this = this;
-        chunks.forEach(function (block) {
+        blocks.forEach(function (block) {
             if (!block.isDisplayable)
                 return;
-            var blockMesh = block.display((0,_src_utils__WEBPACK_IMPORTED_MODULE_3__.adjustBlockFaces)(block, chunks)).blockMesh;
+            var blockMesh = block.display((0,_src_utils__WEBPACK_IMPORTED_MODULE_4__.adjustBlockFaces)(block, blocks)).blockMesh;
             _this.scene.add(blockMesh);
         });
     };
-    Game.prototype.addLineSegmentBlock = function (chunks) {
+    Game.prototype.addLineSegmentBlock = function (blocks) {
         var _this = this;
-        chunks.forEach(function (block) {
+        blocks.forEach(function (block) {
             if (!block.isDisplayable)
                 return;
-            var lineSegment = block.display((0,_src_utils__WEBPACK_IMPORTED_MODULE_3__.adjustBlockFaces)(block, chunks)).lineSegment;
+            var lineSegment = block.display((0,_src_utils__WEBPACK_IMPORTED_MODULE_4__.adjustBlockFaces)(block, blocks)).lineSegment;
             _this.scene.add(lineSegment);
         });
     };
@@ -50981,11 +51019,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "Terrian": () => (/* binding */ Terrian)
 /* harmony export */ });
-/* harmony import */ var three__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
 /* harmony import */ var simplex_noise__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/esm/simplex-noise.js");
 /* harmony import */ var _src_constant__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @src/constant */ "./src/constant.ts");
-/* harmony import */ var _src_blocks__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @src/blocks */ "./src/blocks/index.ts");
-
+/* harmony import */ var _src_chunk__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @src/chunk */ "./src/chunk.ts");
 
 
 
@@ -50994,17 +51030,14 @@ var Terrian = /** @class */ (function () {
         this.chunks = [];
         this.simplex = new simplex_noise__WEBPACK_IMPORTED_MODULE_0__["default"](Math.random());
     }
-    Terrian.prototype.generate = function (centerX, centerZ) {
-        for (var x = 0; x < _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.CHUNK_SIZE; x++) {
-            for (var z = 0; z < _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.CHUNK_SIZE; z++) {
-                var xoff = _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.INCREMENT_OFFSET * x;
-                var zoff = _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.INCREMENT_OFFSET * z;
-                var y = Math.round((Math.abs(this.simplex.noise2D(xoff, zoff)) * _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.AMPLITUDE) / _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE);
-                this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_2__.Grass(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(centerX + x * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, y * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, centerZ + z * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE), true));
-                this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_2__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(centerX + x * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, (y - 1) * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, centerZ + z * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE), false));
-                this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_2__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(centerX + x * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, (y - 2) * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, centerZ + z * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE), false));
-            }
-        }
+    Terrian.prototype.generate = function () {
+        this.chunks.push(new _src_chunk__WEBPACK_IMPORTED_MODULE_2__.Chunk(this.simplex, 0, 0));
+        this.chunks.push(new _src_chunk__WEBPACK_IMPORTED_MODULE_2__.Chunk(this.simplex, -_src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.CHUNK_SIZE, 0));
+        this.chunks.push(new _src_chunk__WEBPACK_IMPORTED_MODULE_2__.Chunk(this.simplex, 0, -_src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.CHUNK_SIZE));
+        this.chunks.push(new _src_chunk__WEBPACK_IMPORTED_MODULE_2__.Chunk(this.simplex, -_src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.CHUNK_SIZE, -_src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.CHUNK_SIZE));
+    };
+    Terrian.prototype.getChunkBlocks = function () {
+        return this.chunks.map(function (chunk) { return chunk.blocks; }).flat();
     };
     return Terrian;
 }());
@@ -51034,12 +51067,12 @@ var isCollideCameraAndBlock = function (camera, block) {
         camera.position.z <= block.position.z + _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2 &&
         camera.position.z >= block.position.z - _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2);
 };
-var isNeighborhood = function (x, y, z, chunks) {
-    return chunks.reduce(function (accum, block) { return accum || (x === block.position.x && y === block.position.y && z === block.position.z); }, false);
+var isNeighborhood = function (x, y, z, blocks) {
+    return blocks.reduce(function (accum, block) { return accum || (x === block.position.x && y === block.position.y && z === block.position.z); }, false);
 };
-var adjustBlockFaces = function (block, chunks) {
+var adjustBlockFaces = function (block, blocks) {
     return _src_assets__WEBPACK_IMPORTED_MODULE_0__.faces.filter(function (face) {
-        return isNeighborhood(block.position.x + face.direction.x, block.position.y + face.direction.y, block.position.z + face.direction.z, chunks);
+        return isNeighborhood(block.position.x + face.direction.x, block.position.y + face.direction.y, block.position.z + face.direction.z, blocks);
     })
         .map(function (face) { return face.name; });
 };
@@ -51978,16 +52011,16 @@ __webpack_require__.r(__webpack_exports__);
 
 
 var terrian = new _src_terrian__WEBPACK_IMPORTED_MODULE_1__.Terrian();
-terrian.generate(0, 0);
+terrian.generate();
 var config = new _src_configure__WEBPACK_IMPORTED_MODULE_3__.Configure();
 var game = new _src_game__WEBPACK_IMPORTED_MODULE_0__.Game();
 config.render({
     handleClickPerspective: function (far) { return game.setCameraFar(far); },
     handleClickLineSegment: function (isShow) {
-        return isShow ? game.addLineSegmentBlock(terrian.chunks) : game.removeLineSegmentBlock();
+        return isShow ? game.addLineSegmentBlock(terrian.getChunkBlocks()) : game.removeLineSegmentBlock();
     },
 });
-game.addChunksToScene(terrian.chunks);
+game.addChunksToScene(terrian.getChunkBlocks());
 var character = new _src_character__WEBPACK_IMPORTED_MODULE_4__.Character(game, config, terrian);
 var keyboard = new _src_keyboard__WEBPACK_IMPORTED_MODULE_2__.Keyboard(character.keymaps);
 game.loop(function () {

@@ -19,7 +19,7 @@ var Character = /** @class */ (function () {
         var _this = this;
         this.game.camera.position.y = this.game.camera.position.y - this.ySpeed;
         this.ySpeed = this.ySpeed + GRAVITY;
-        this.terrian.chunks.forEach(function (block) {
+        this.terrian.getChunkBlocks().forEach(function (block) {
             if (isCollideCameraAndBlock(_this.game.camera, block) &&
                 _this.game.camera.position.y <= block.position.y + BLOCK.SIZE / 2 &&
                 _this.game.camera.position.y >= block.position.y - BLOCK.SIZE / 2) {
@@ -37,7 +37,7 @@ var Character = /** @class */ (function () {
         this.game.controls.moveForward(CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (block) {
+        this.terrian.getChunkBlocks().forEach(function (block) {
             if (isCollideCameraAndBlock(_this.game.camera, block) &&
                 _this.game.camera.position.y <= block.position.y - BLOCK.SIZE / 2) {
                 _this.game.controls.moveForward(-1 * CAMERA.MOVING_SPEED);
@@ -49,7 +49,7 @@ var Character = /** @class */ (function () {
         this.game.controls.moveRight(-1 * CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (block) {
+        this.terrian.getChunkBlocks().forEach(function (block) {
             if (isCollideCameraAndBlock(_this.game.camera, block) &&
                 _this.game.camera.position.y === block.position.y - BLOCK.SIZE / 2) {
                 _this.game.controls.moveRight(CAMERA.MOVING_SPEED);
@@ -61,7 +61,7 @@ var Character = /** @class */ (function () {
         this.game.controls.moveForward(-1 * CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (block) {
+        this.terrian.getChunkBlocks().forEach(function (block) {
             if (isCollideCameraAndBlock(_this.game.camera, block) &&
                 _this.game.camera.position.y === block.position.y - BLOCK.SIZE / 2) {
                 _this.game.controls.moveForward(CAMERA.MOVING_SPEED);
@@ -73,7 +73,7 @@ var Character = /** @class */ (function () {
         this.game.controls.moveRight(CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
-        this.terrian.chunks.forEach(function (block) {
+        this.terrian.getChunkBlocks().forEach(function (block) {
             if (isCollideCameraAndBlock(_this.game.camera, block) &&
                 _this.game.camera.position.y === block.position.y - BLOCK.SIZE / 2) {
                 _this.game.controls.moveRight(-1 * CAMERA.MOVING_SPEED);
