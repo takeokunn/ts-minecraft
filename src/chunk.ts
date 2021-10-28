@@ -25,6 +25,9 @@ class Chunk implements ChunkInterface {
         this.blocks.push(
           new Dart(new THREE.Vector3(positionX * BLOCK.SIZE, (y - 1) * BLOCK.SIZE, positionZ * BLOCK.SIZE), false),
         )
+        this.blocks.push(
+          new Dart(new THREE.Vector3(positionX * BLOCK.SIZE, (y - 2) * BLOCK.SIZE, positionZ * BLOCK.SIZE), false),
+        )
       }
     }
   }
