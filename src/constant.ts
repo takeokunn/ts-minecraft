@@ -5,7 +5,7 @@ export const BLOCK = {
 export const TERRIAN = {
   AMPLITUDE: 100,
   INCREMENT_OFFSET: 0.008,
-  CHUNK_SIZE: 80,
+  CHUNK_SIZE: 50,
 }
 
 export const CAMERA = {

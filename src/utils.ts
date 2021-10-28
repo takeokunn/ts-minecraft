@@ -2,7 +2,6 @@ import * as THREE from 'three'
 
 import { faces } from '@src/assets'
 import { BLOCK } from '@src/constant'
-import { Chunks } from '@src/terrian'
 import { BlockInterface } from '@src/blocks'
 
 export const isCollideCameraAndBlock = (camera: THREE.PerspectiveCamera, block: BlockInterface): boolean => {
@@ -18,22 +17,22 @@ const isNeighborhood = (
   x: THREE.Vector3['x'],
   y: THREE.Vector3['y'],
   z: THREE.Vector3['z'],
-  chunks: Chunks,
+  blocks: BlockInterface[],
 ): boolean => {
-  return chunks.reduce<boolean>(
+  return blocks.reduce<boolean>(
     (accum, block) => accum || (x === block.position.x && y === block.position.y && z === block.position.z),
     false,
   )
 }
 
-export const adjustBlockFaces = (block: BlockInterface, chunks: Chunks): DirectionName[] => {
+export const adjustBlockFaces = (block: BlockInterface, blocks: BlockInterface[]): DirectionName[] => {
   return faces
     .filter((face) =>
       isNeighborhood(
         block.position.x + face.direction.x,
         block.position.y + face.direction.y,
         block.position.z + face.direction.z,
-        chunks,
+        blocks,
       ),
     )
     .map((face) => face.name)

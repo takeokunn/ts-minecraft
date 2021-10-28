@@ -1,42 +1,33 @@
-import * as THREE from 'three'
 import SimplexNoise from 'simplex-noise'
 
-import { BLOCK, TERRIAN } from '@src/constant'
-import { Dart, Grass, BlockInterface } from '@src/blocks'
-
-type Chunks = BlockInterface[]
+import { TERRIAN } from '@src/constant'
+import { BlockInterface } from '@src/blocks'
+import { Chunk, ChunkInterface } from '@src/chunk'
 
 interface TerrianInterface {
-  chunks: Chunks
-  generate: (centerX: number, centerZ: number) => void
+  chunks: ChunkInterface[]
+  generate: () => void
+  getChunkBlocks: () => BlockInterface[]
 }
 
 class Terrian implements TerrianInterface {
   private simplex: SimplexNoise
-  public chunks: Chunks = []
+  public chunks: ChunkInterface[] = []
 
   constructor() {
     this.simplex = new SimplexNoise(Math.random())
   }
 
-  public generate(centerX: number, centerZ: number): void {
-    for (let x = 0; x < TERRIAN.CHUNK_SIZE; x++) {
-      for (let z = 0; z < TERRIAN.CHUNK_SIZE; z++) {
-        const xoff = TERRIAN.INCREMENT_OFFSET * x
-        const zoff = TERRIAN.INCREMENT_OFFSET * z
-        const y = Math.round((Math.abs(this.simplex.noise2D(xoff, zoff)) * TERRIAN.AMPLITUDE) / BLOCK.SIZE)
-        this.chunks.push(
-          new Grass(new THREE.Vector3(centerX + x * BLOCK.SIZE, y * BLOCK.SIZE, centerZ + z * BLOCK.SIZE), true),
-        )
-        this.chunks.push(
-          new Dart(new THREE.Vector3(centerX + x * BLOCK.SIZE, (y - 1) * BLOCK.SIZE, centerZ + z * BLOCK.SIZE), false),
-        )
-        this.chunks.push(
-          new Dart(new THREE.Vector3(centerX + x * BLOCK.SIZE, (y - 2) * BLOCK.SIZE, centerZ + z * BLOCK.SIZE), false),
-        )
-      }
-    }
+  public generate(): void {
+    this.chunks.push(new Chunk(this.simplex, 0, 0))
+    this.chunks.push(new Chunk(this.simplex, -TERRIAN.CHUNK_SIZE, 0))
+    this.chunks.push(new Chunk(this.simplex, 0, -TERRIAN.CHUNK_SIZE))
+    this.chunks.push(new Chunk(this.simplex, -TERRIAN.CHUNK_SIZE, -TERRIAN.CHUNK_SIZE))
+  }
+
+  public getChunkBlocks(): BlockInterface[] {
+    return this.chunks.map((chunk) => chunk.blocks).flat()
   }
 }
 
-export { Terrian, TerrianInterface, Chunks }
+export { Terrian, TerrianInterface }

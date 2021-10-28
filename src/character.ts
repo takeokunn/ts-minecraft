@@ -39,7 +39,7 @@ class Character implements CharacterInterface {
     this.game.camera.position.y = this.game.camera.position.y - this.ySpeed
     this.ySpeed = this.ySpeed + GRAVITY
 
-    this.terrian.chunks.forEach((block) => {
+    this.terrian.getChunkBlocks().forEach((block) => {
       if (
         isCollideCameraAndBlock(this.game.camera, block) &&
         this.game.camera.position.y <= block.position.y + BLOCK.SIZE / 2 &&
@@ -58,7 +58,7 @@ class Character implements CharacterInterface {
   private handleUp() {
     this.game.controls.moveForward(CAMERA.MOVING_SPEED)
     if (this.config.autoJump) return
-    this.terrian.chunks.forEach((block) => {
+    this.terrian.getChunkBlocks().forEach((block) => {
       if (
         isCollideCameraAndBlock(this.game.camera, block) &&
         this.game.camera.position.y <= block.position.y - BLOCK.SIZE / 2
@@ -71,7 +71,7 @@ class Character implements CharacterInterface {
   private handleLeft() {
     this.game.controls.moveRight(-1 * CAMERA.MOVING_SPEED)
     if (this.config.autoJump) return
-    this.terrian.chunks.forEach((block) => {
+    this.terrian.getChunkBlocks().forEach((block) => {
       if (
         isCollideCameraAndBlock(this.game.camera, block) &&
         this.game.camera.position.y === block.position.y - BLOCK.SIZE / 2
@@ -84,7 +84,7 @@ class Character implements CharacterInterface {
   private handleDown() {
     this.game.controls.moveForward(-1 * CAMERA.MOVING_SPEED)
     if (this.config.autoJump) return
-    this.terrian.chunks.forEach((block) => {
+    this.terrian.getChunkBlocks().forEach((block) => {
       if (
         isCollideCameraAndBlock(this.game.camera, block) &&
         this.game.camera.position.y === block.position.y - BLOCK.SIZE / 2
@@ -97,7 +97,7 @@ class Character implements CharacterInterface {
   private handleRight() {
     this.game.controls.moveRight(CAMERA.MOVING_SPEED)
     if (this.config.autoJump) return
-    this.terrian.chunks.forEach((block) => {
+    this.terrian.getChunkBlocks().forEach((block) => {
       if (
         isCollideCameraAndBlock(this.game.camera, block) &&
         this.game.camera.position.y === block.position.y - BLOCK.SIZE / 2

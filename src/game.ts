@@ -3,9 +3,9 @@ import Stats from 'three/examples/jsm/libs/stats.module'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 
 import { color } from '@src/assets'
-import { Chunks } from '@src/terrian'
+import { CAMERA } from '@src/constant'
+import { ChunkInterface } from '@src/chunk'
 import { adjustBlockFaces } from '@src/utils'
-import { BLOCK, TERRIAN, CAMERA } from '@src/constant'
 
 interface GameInterface {
   stats: Stats
@@ -16,8 +16,8 @@ interface GameInterface {
 
   loop: (update: () => void) => void
 
-  addChunksToScene: (chunks: Chunks) => void
-  addLineSegmentBlock: (chunks: Chunks) => void
+  addChunksToScene: (blocks: ChunkInterface['blocks']) => void
+  addLineSegmentBlock: (blocks: ChunkInterface['blocks']) => void
   removeLineSegmentBlock: () => void
 
   setCameraFar: (far: number) => void
@@ -47,8 +47,8 @@ class Game implements GameInterface {
 
     // for camera
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, CAMERA.PERSPECTIVE.NEAR)
-    this.camera.position.x = (TERRIAN.CHUNK_SIZE / 2) * BLOCK.SIZE
-    this.camera.position.z = (TERRIAN.CHUNK_SIZE / 2) * BLOCK.SIZE
+    this.camera.position.x = 0
+    this.camera.position.z = 0
     this.camera.position.y = CAMERA.INITIALIZE.POSITION_Y
 
     // for control
@@ -67,20 +67,20 @@ class Game implements GameInterface {
     this.stats.end()
   }
 
-  public addChunksToScene(chunks: Chunks): void {
-    chunks.forEach((block) => {
+  public addChunksToScene(blocks: ChunkInterface['blocks']): void {
+    blocks.forEach((block) => {
       if (!block.isDisplayable) return
 
-      const { blockMesh } = block.display(adjustBlockFaces(block, chunks))
+      const { blockMesh } = block.display(adjustBlockFaces(block, blocks))
       this.scene.add(blockMesh)
     })
   }
 
-  public addLineSegmentBlock(chunks: Chunks): void {
-    chunks.forEach((block) => {
+  public addLineSegmentBlock(blocks: ChunkInterface['blocks']): void {
+    blocks.forEach((block) => {
       if (!block.isDisplayable) return
 
-      const { lineSegment } = block.display(adjustBlockFaces(block, chunks))
+      const { lineSegment } = block.display(adjustBlockFaces(block, blocks))
       this.scene.add(lineSegment)
     })
   }
