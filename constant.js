@@ -4,7 +4,7 @@ export var BLOCK = {
 export var TERRIAN = {
     AMPLITUDE: 100,
     INCREMENT_OFFSET: 0.008,
-    CHUNK_SIZE: 50,
+    CHUNK_SIZE: 40,
 };
 export var CAMERA = {
     MOVING_SPEED: 1,

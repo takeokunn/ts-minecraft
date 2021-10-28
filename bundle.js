@@ -50744,6 +50744,7 @@ var Chunk = /** @class */ (function () {
                 var y = Math.round((simplex.noise2D(xoff, zoff) * _src_constant__WEBPACK_IMPORTED_MODULE_0__.TERRIAN.AMPLITUDE) / _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE);
                 this.blocks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_1__.Grass(new three__WEBPACK_IMPORTED_MODULE_2__.Vector3(positionX * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, y * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, positionZ * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE), true));
                 this.blocks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_1__.Dart(new three__WEBPACK_IMPORTED_MODULE_2__.Vector3(positionX * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, (y - 1) * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, positionZ * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE), false));
+                this.blocks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_1__.Dart(new three__WEBPACK_IMPORTED_MODULE_2__.Vector3(positionX * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, (y - 2) * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE, positionZ * _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE), false));
             }
         }
     }
@@ -50842,7 +50843,7 @@ var BLOCK = {
 var TERRIAN = {
     AMPLITUDE: 100,
     INCREMENT_OFFSET: 0.008,
-    CHUNK_SIZE: 50,
+    CHUNK_SIZE: 40,
 };
 var CAMERA = {
     MOVING_SPEED: 1,
