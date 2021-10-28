@@ -1,5 +1,5 @@
-import { BLOCK } from '@src/constant';
 import { faces } from '@src/assets';
+import { BLOCK } from '@src/constant';
 export var isCollideCameraAndBlock = function (camera, block) {
     return (camera.position.x <= block.position.x + BLOCK.SIZE / 2 &&
         camera.position.x >= block.position.x - BLOCK.SIZE / 2 &&

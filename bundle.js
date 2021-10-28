@@ -50619,8 +50619,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "Character": () => (/* binding */ Character)
 /* harmony export */ });
-/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./utils */ "./src/utils.ts");
-/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
+/* harmony import */ var _src_utils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @src/utils */ "./src/utils.ts");
+/* harmony import */ var _src_constant__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @src/constant */ "./src/constant.ts");
 
 
 var Character = /** @class */ (function () {
@@ -50641,12 +50641,12 @@ var Character = /** @class */ (function () {
     Character.prototype.calcurateGravity = function () {
         var _this = this;
         this.game.camera.position.y = this.game.camera.position.y - this.ySpeed;
-        this.ySpeed = this.ySpeed + _constant__WEBPACK_IMPORTED_MODULE_1__.GRAVITY;
+        this.ySpeed = this.ySpeed + _src_constant__WEBPACK_IMPORTED_MODULE_1__.GRAVITY;
         this.terrian.chunks.forEach(function (block) {
-            if ((0,_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
-                _this.game.camera.position.y <= block.position.y + _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2 &&
-                _this.game.camera.position.y >= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
-                _this.game.camera.position.y = block.position.y + _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2;
+            if ((0,_src_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                _this.game.camera.position.y <= block.position.y + _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2 &&
+                _this.game.camera.position.y >= block.position.y - _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
+                _this.game.camera.position.y = block.position.y + _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2;
                 _this.ySpeed = 0;
                 _this.canJump = true;
             }
@@ -50657,49 +50657,49 @@ var Character = /** @class */ (function () {
      */
     Character.prototype.handleUp = function () {
         var _this = this;
-        this.game.controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
+        this.game.controls.moveForward(_src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
         this.terrian.chunks.forEach(function (block) {
-            if ((0,_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
-                _this.game.camera.position.y <= block.position.y - _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
-                _this.game.controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
+            if ((0,_src_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                _this.game.camera.position.y <= block.position.y - _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
+                _this.game.controls.moveForward(-1 * _src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
             }
         });
     };
     Character.prototype.handleLeft = function () {
         var _this = this;
-        this.game.controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
+        this.game.controls.moveRight(-1 * _src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
         this.terrian.chunks.forEach(function (block) {
-            if ((0,_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
-                _this.game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
-                _this.game.controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
+            if ((0,_src_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                _this.game.camera.position.y === block.position.y - _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
+                _this.game.controls.moveRight(_src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
             }
         });
     };
     Character.prototype.handleDown = function () {
         var _this = this;
-        this.game.controls.moveForward(-1 * _constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
+        this.game.controls.moveForward(-1 * _src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
         this.terrian.chunks.forEach(function (block) {
-            if ((0,_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
-                _this.game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
-                _this.game.controls.moveForward(_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
+            if ((0,_src_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                _this.game.camera.position.y === block.position.y - _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
+                _this.game.controls.moveForward(_src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
             }
         });
     };
     Character.prototype.handleRight = function () {
         var _this = this;
-        this.game.controls.moveRight(_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
+        this.game.controls.moveRight(_src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
         if (this.config.autoJump)
             return;
         this.terrian.chunks.forEach(function (block) {
-            if ((0,_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
-                _this.game.camera.position.y === block.position.y - _constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
-                _this.game.controls.moveRight(-1 * _constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
+            if ((0,_src_utils__WEBPACK_IMPORTED_MODULE_0__.isCollideCameraAndBlock)(_this.game.camera, block) &&
+                _this.game.camera.position.y === block.position.y - _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2) {
+                _this.game.controls.moveRight(-1 * _src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.MOVING_SPEED);
             }
         });
     };
@@ -50707,7 +50707,7 @@ var Character = /** @class */ (function () {
         if (!this.canJump)
             return;
         this.canJump = false;
-        this.ySpeed = -1 * _constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.JUMP_HEIGHT;
+        this.ySpeed = -1 * _src_constant__WEBPACK_IMPORTED_MODULE_1__.CAMERA.JUMP_HEIGHT;
     };
     return Character;
 }());
@@ -50726,17 +50726,55 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "Configure": () => (/* binding */ Configure)
 /* harmony export */ });
+/* harmony import */ var _src_constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @src/constant */ "./src/constant.ts");
+
 var Configure = /** @class */ (function () {
     function Configure() {
-        this.autoJump = true;
-        this.isDisplayLineSegment = false;
+        this.autoJump = _src_constant__WEBPACK_IMPORTED_MODULE_0__.CONSTANT.INITIAL_AUTO_JUMP;
+        this.isShowLineSegment = _src_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.INITIALIZE.IS_SHOW_LINESEGMENT;
+        this.cameraPerspectiveDistance = _src_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.PERSPECTIVE.NEAR;
     }
+    Configure.prototype.render = function (params) {
+        this.renderToggleAutoJump();
+        this.renderChangeCameraDistance(params.handleClickPerspective);
+        this.renderLineSegment(params.handleClickLineSegment);
+    };
     Configure.prototype.renderToggleAutoJump = function () {
         var _this = this;
-        var autoJumpButton = document.getElementById('auto-jump');
-        autoJumpButton === null || autoJumpButton === void 0 ? void 0 : autoJumpButton.addEventListener('click', function () {
+        var button = document.getElementById('auto-jump');
+        button === null || button === void 0 ? void 0 : button.addEventListener('click', function () {
             _this.autoJump = !_this.autoJump;
-            autoJumpButton.innerHTML = "AutoJump: " + (_this.autoJump ? 'On' : 'Off');
+            button.innerHTML = "AutoJump: " + (_this.autoJump ? 'On' : 'Off');
+        });
+    };
+    Configure.prototype.renderChangeCameraDistance = function (handleClickPerspective) {
+        var _this = this;
+        var button = document.getElementById('camera-perspective');
+        button === null || button === void 0 ? void 0 : button.addEventListener('click', function () {
+            switch (_this.cameraPerspectiveDistance) {
+                case _src_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.PERSPECTIVE.NEAR:
+                    _this.cameraPerspectiveDistance = _src_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.PERSPECTIVE.MIDDLE;
+                    button.innerHTML = "Perspective: Middle";
+                    break;
+                case _src_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.PERSPECTIVE.MIDDLE:
+                    _this.cameraPerspectiveDistance = _src_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.PERSPECTIVE.FAR;
+                    button.innerHTML = "Perspective: Far";
+                    break;
+                case _src_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.PERSPECTIVE.FAR:
+                    _this.cameraPerspectiveDistance = _src_constant__WEBPACK_IMPORTED_MODULE_0__.CAMERA.PERSPECTIVE.NEAR;
+                    button.innerHTML = "Perspective: Near";
+                    break;
+            }
+            handleClickPerspective(_this.cameraPerspectiveDistance);
+        });
+    };
+    Configure.prototype.renderLineSegment = function (handleClickLineSegment) {
+        var _this = this;
+        var button = document.getElementById('line-segment');
+        button === null || button === void 0 ? void 0 : button.addEventListener('click', function () {
+            _this.isShowLineSegment = !_this.isShowLineSegment;
+            handleClickLineSegment(_this.isShowLineSegment);
+            button.innerHTML = "LineSegment: " + (_this.isShowLineSegment ? 'Show' : 'Hide');
         });
     };
     return Configure;
@@ -50757,7 +50795,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "BLOCK": () => (/* binding */ BLOCK),
 /* harmony export */   "TERRIAN": () => (/* binding */ TERRIAN),
 /* harmony export */   "CAMERA": () => (/* binding */ CAMERA),
-/* harmony export */   "GRAVITY": () => (/* binding */ GRAVITY)
+/* harmony export */   "GRAVITY": () => (/* binding */ GRAVITY),
+/* harmony export */   "CONSTANT": () => (/* binding */ CONSTANT)
 /* harmony export */ });
 var BLOCK = {
     SIZE: 5,
@@ -50765,14 +50804,26 @@ var BLOCK = {
 var TERRIAN = {
     AMPLITUDE: 100,
     INCREMENT_OFFSET: 0.008,
-    CHUNK_SIZE: 50,
+    CHUNK_SIZE: 80,
 };
 var CAMERA = {
     MOVING_SPEED: 1,
     JUMP_HEIGHT: 2,
-    INITIAL_POSITION_Y: 100,
+    PERSPECTIVE: {
+        FAR: 1000,
+        MIDDLE: 500,
+        NEAR: 200,
+    },
+    INITIALIZE: {
+        POSITION_Y: 100,
+        IS_SHOW_LINESEGMENT: false,
+    },
 };
 var GRAVITY = 0.1;
+var CONSTANT = {
+    INITIAL_AUTO_JUMP: true,
+    INITIAL_IS_DISPLAY_LINESEGMENT: false,
+};
 
 
 /***/ }),
@@ -50790,9 +50841,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var three__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! three */ "./node_modules/three/build/three.module.js");
 /* harmony import */ var three_examples_jsm_libs_stats_module__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! three/examples/jsm/libs/stats.module */ "./node_modules/three/examples/jsm/libs/stats.module.js");
 /* harmony import */ var three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! three/examples/jsm/controls/PointerLockControls */ "./node_modules/three/examples/jsm/controls/PointerLockControls.js");
-/* harmony import */ var _assets__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./assets */ "./src/assets.ts");
-/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./utils */ "./src/utils.ts");
-/* harmony import */ var _constant__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./constant */ "./src/constant.ts");
+/* harmony import */ var _src_assets__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @src/assets */ "./src/assets.ts");
+/* harmony import */ var _src_utils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @src/utils */ "./src/utils.ts");
+/* harmony import */ var _src_constant__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! @src/constant */ "./src/constant.ts");
 
 
 
@@ -50808,20 +50859,20 @@ var Game = /** @class */ (function () {
         document.body.appendChild(this.stats.dom);
         // for scene
         this.scene = new three__WEBPACK_IMPORTED_MODULE_5__.Scene();
-        this.scene.background = new three__WEBPACK_IMPORTED_MODULE_5__.Color(_assets__WEBPACK_IMPORTED_MODULE_2__.color.sky);
+        this.scene.background = new three__WEBPACK_IMPORTED_MODULE_5__.Color(_src_assets__WEBPACK_IMPORTED_MODULE_2__.color.sky);
         // for renderer
         this.renderer = new three__WEBPACK_IMPORTED_MODULE_5__.WebGLRenderer();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
         // for camera
-        this.camera = new three__WEBPACK_IMPORTED_MODULE_5__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
-        this.camera.position.x = _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE;
-        this.camera.position.z = _constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE * _constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE;
-        this.camera.position.y = _constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INITIAL_POSITION_Y;
+        this.camera = new three__WEBPACK_IMPORTED_MODULE_5__.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, _src_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.PERSPECTIVE.NEAR);
+        this.camera.position.x = (_src_constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE / 2) * _src_constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE;
+        this.camera.position.z = (_src_constant__WEBPACK_IMPORTED_MODULE_4__.TERRIAN.CHUNK_SIZE / 2) * _src_constant__WEBPACK_IMPORTED_MODULE_4__.BLOCK.SIZE;
+        this.camera.position.y = _src_constant__WEBPACK_IMPORTED_MODULE_4__.CAMERA.INITIALIZE.POSITION_Y;
         // for control
         this.controls = new three_examples_jsm_controls_PointerLockControls__WEBPACK_IMPORTED_MODULE_1__.PointerLockControls(this.camera, document.body);
         document.body.addEventListener('click', function () { return _this.controls.lock(); });
-        // resize event
+        // for resize event
         window.addEventListener('resize', this.handleResizeWindow.bind(this));
     }
     Game.prototype.loop = function (update) {
@@ -50831,16 +50882,27 @@ var Game = /** @class */ (function () {
         this.render();
         this.stats.end();
     };
-    Game.prototype.addChunksToScene = function (chunks, isDisplayLineSegment) {
+    Game.prototype.addChunksToScene = function (chunks) {
         var _this = this;
         chunks.forEach(function (block) {
             if (!block.isDisplayable)
                 return;
-            var _a = block.display((0,_utils__WEBPACK_IMPORTED_MODULE_3__.adjustBlockFaces)(block, chunks)), blockMesh = _a.blockMesh, lineSegment = _a.lineSegment;
+            var blockMesh = block.display((0,_src_utils__WEBPACK_IMPORTED_MODULE_3__.adjustBlockFaces)(block, chunks)).blockMesh;
             _this.scene.add(blockMesh);
-            if (isDisplayLineSegment)
-                _this.scene.add(lineSegment);
         });
+    };
+    Game.prototype.addLineSegmentBlock = function (chunks) {
+        var _this = this;
+        chunks.forEach(function (block) {
+            if (!block.isDisplayable)
+                return;
+            var lineSegment = block.display((0,_src_utils__WEBPACK_IMPORTED_MODULE_3__.adjustBlockFaces)(block, chunks)).lineSegment;
+            _this.scene.add(lineSegment);
+        });
+    };
+    Game.prototype.removeLineSegmentBlock = function () {
+        var _this = this;
+        this.scene.children.filter(function (obj) { return obj.type === 'LineSegments'; }).forEach(function (obj) { return _this.scene.remove(obj); });
     };
     Game.prototype.render = function () {
         this.renderer.render(this.scene, this.camera);
@@ -50848,6 +50910,10 @@ var Game = /** @class */ (function () {
     Game.prototype.handleResizeWindow = function () {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+    };
+    Game.prototype.setCameraFar = function (far) {
+        this.camera.far = far;
         this.camera.updateProjectionMatrix();
     };
     return Game;
@@ -50929,13 +50995,14 @@ var Terrian = /** @class */ (function () {
         this.simplex = new simplex_noise__WEBPACK_IMPORTED_MODULE_0__["default"](Math.random());
     }
     Terrian.prototype.generate = function (centerX, centerZ) {
-        for (var x = 0; x < _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.CHUNK_SIZE * 2; x++) {
-            for (var z = 0; z < _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.CHUNK_SIZE * 2; z++) {
+        for (var x = 0; x < _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.CHUNK_SIZE; x++) {
+            for (var z = 0; z < _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.CHUNK_SIZE; z++) {
                 var xoff = _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.INCREMENT_OFFSET * x;
                 var zoff = _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.INCREMENT_OFFSET * z;
                 var y = Math.round((Math.abs(this.simplex.noise2D(xoff, zoff)) * _src_constant__WEBPACK_IMPORTED_MODULE_1__.TERRIAN.AMPLITUDE) / _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE);
                 this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_2__.Grass(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(centerX + x * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, y * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, centerZ + z * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE), true));
                 this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_2__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(centerX + x * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, (y - 1) * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, centerZ + z * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE), false));
+                this.chunks.push(new _src_blocks__WEBPACK_IMPORTED_MODULE_2__.Dart(new three__WEBPACK_IMPORTED_MODULE_3__.Vector3(centerX + x * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, (y - 2) * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE, centerZ + z * _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE), false));
             }
         }
     };
@@ -50957,21 +51024,21 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "isCollideCameraAndBlock": () => (/* binding */ isCollideCameraAndBlock),
 /* harmony export */   "adjustBlockFaces": () => (/* binding */ adjustBlockFaces)
 /* harmony export */ });
-/* harmony import */ var _src_constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @src/constant */ "./src/constant.ts");
-/* harmony import */ var _src_assets__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @src/assets */ "./src/assets.ts");
+/* harmony import */ var _src_assets__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @src/assets */ "./src/assets.ts");
+/* harmony import */ var _src_constant__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @src/constant */ "./src/constant.ts");
 
 
 var isCollideCameraAndBlock = function (camera, block) {
-    return (camera.position.x <= block.position.x + _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2 &&
-        camera.position.x >= block.position.x - _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2 &&
-        camera.position.z <= block.position.z + _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2 &&
-        camera.position.z >= block.position.z - _src_constant__WEBPACK_IMPORTED_MODULE_0__.BLOCK.SIZE / 2);
+    return (camera.position.x <= block.position.x + _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2 &&
+        camera.position.x >= block.position.x - _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2 &&
+        camera.position.z <= block.position.z + _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2 &&
+        camera.position.z >= block.position.z - _src_constant__WEBPACK_IMPORTED_MODULE_1__.BLOCK.SIZE / 2);
 };
 var isNeighborhood = function (x, y, z, chunks) {
     return chunks.reduce(function (accum, block) { return accum || (x === block.position.x && y === block.position.y && z === block.position.z); }, false);
 };
 var adjustBlockFaces = function (block, chunks) {
-    return _src_assets__WEBPACK_IMPORTED_MODULE_1__.faces.filter(function (face) {
+    return _src_assets__WEBPACK_IMPORTED_MODULE_0__.faces.filter(function (face) {
         return isNeighborhood(block.position.x + face.direction.x, block.position.y + face.direction.y, block.position.z + face.direction.z, chunks);
     })
         .map(function (face) { return face.name; });
@@ -51910,12 +51977,17 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
-var config = new _src_configure__WEBPACK_IMPORTED_MODULE_3__.Configure();
-config.renderToggleAutoJump();
 var terrian = new _src_terrian__WEBPACK_IMPORTED_MODULE_1__.Terrian();
 terrian.generate(0, 0);
+var config = new _src_configure__WEBPACK_IMPORTED_MODULE_3__.Configure();
 var game = new _src_game__WEBPACK_IMPORTED_MODULE_0__.Game();
-game.addChunksToScene(terrian.chunks, config.isDisplayLineSegment);
+config.render({
+    handleClickPerspective: function (far) { return game.setCameraFar(far); },
+    handleClickLineSegment: function (isShow) {
+        return isShow ? game.addLineSegmentBlock(terrian.chunks) : game.removeLineSegmentBlock();
+    },
+});
+game.addChunksToScene(terrian.chunks);
 var character = new _src_character__WEBPACK_IMPORTED_MODULE_4__.Character(game, config, terrian);
 var keyboard = new _src_keyboard__WEBPACK_IMPORTED_MODULE_2__.Keyboard(character.keymaps);
 game.loop(function () {

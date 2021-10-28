@@ -1,5 +1,5 @@
-import { isCollideCameraAndBlock } from './utils';
-import { BLOCK, CAMERA, GRAVITY } from './constant';
+import { isCollideCameraAndBlock } from '@src/utils';
+import { BLOCK, CAMERA, GRAVITY } from '@src/constant';
 var Character = /** @class */ (function () {
     function Character(game, config, terrian) {
         this.ySpeed = 0;
