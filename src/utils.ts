@@ -13,12 +13,7 @@ export const isCollideCameraAndBlock = (camera: PerspectiveCamera, block: BlockI
   )
 }
 
-const isNeighborhood = (
-  x: Vector3['x'],
-  y: Vector3['y'],
-  z: Vector3['z'],
-  blocks: BlockInterface[],
-): boolean => {
+const isNeighborhood = (x: Vector3['x'], y: Vector3['y'], z: Vector3['z'], blocks: BlockInterface[]): boolean => {
   return blocks.reduce<boolean>(
     (accum, block) => accum || (x === block.position.x && y === block.position.y && z === block.position.z),
     false,
