@@ -7,7 +7,6 @@ import { BLOCK, CAMERA, GRAVITY } from '@src/constant'
 
 interface CharacterInterface {
   keymaps: KeyMap[]
-  ySpeed: number
   calcurateGravity: () => void
 }
 
@@ -16,7 +15,7 @@ class Character implements CharacterInterface {
   private config: ConfigureInterface
   private terrian: TerrianInterface
 
-  public ySpeed = 0
+  private ySpeed = 0
   private canJump = true
 
   public keymaps: KeyMap[]
