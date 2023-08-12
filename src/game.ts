@@ -32,7 +32,7 @@ class Game implements GameInterface {
 
   constructor() {
     // for stats
-    this.stats = Stats()
+    this.stats = new Stats()
     this.stats.showPanel(0)
     document.body.appendChild(this.stats.dom)
 

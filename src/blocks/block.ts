@@ -9,7 +9,7 @@ interface BlockInterface {
 }
 
 const basicMaterial = new THREE.MeshBasicMaterial()
-const box = new THREE.BoxBufferGeometry(BLOCK.SIZE, BLOCK.SIZE, BLOCK.SIZE)
+const box = new THREE.BoxGeometry(BLOCK.SIZE, BLOCK.SIZE, BLOCK.SIZE)
 
 abstract class Block implements BlockInterface {
   public isDisplayable = true
