@@ -54,7 +54,7 @@ class Character implements CharacterInterface {
   /**
    * handle key event
    */
-  private handleUp() {
+  private handleUp(): void {
     this.game.controls.moveForward(CAMERA.MOVING_SPEED)
     if (this.config.autoJump) return
     this.terrian.getChunkBlocks().forEach((block) => {
@@ -67,7 +67,7 @@ class Character implements CharacterInterface {
     })
   }
 
-  private handleLeft() {
+  private handleLeft(): void {
     this.game.controls.moveRight(-1 * CAMERA.MOVING_SPEED)
     if (this.config.autoJump) return
     this.terrian.getChunkBlocks().forEach((block) => {
@@ -80,7 +80,7 @@ class Character implements CharacterInterface {
     })
   }
 
-  private handleDown() {
+  private handleDown(): void {
     this.game.controls.moveForward(-1 * CAMERA.MOVING_SPEED)
     if (this.config.autoJump) return
     this.terrian.getChunkBlocks().forEach((block) => {
@@ -93,7 +93,7 @@ class Character implements CharacterInterface {
     })
   }
 
-  private handleRight() {
+  private handleRight(): void {
     this.game.controls.moveRight(CAMERA.MOVING_SPEED)
     if (this.config.autoJump) return
     this.terrian.getChunkBlocks().forEach((block) => {
@@ -106,7 +106,7 @@ class Character implements CharacterInterface {
     })
   }
 
-  private handleJump() {
+  private handleJump(): void {
     if (!this.canJump) return
     this.canJump = false
     this.ySpeed = -1 * CAMERA.JUMP_HEIGHT
