@@ -27,6 +27,8 @@ class Game implements GameInterface {
   public camera: THREE.PerspectiveCamera
   public controls: PointerLockControls
 
+  private isLock: boolean = false;
+
   constructor() {
     // for stats
     this.stats = new Stats()
@@ -50,7 +52,10 @@ class Game implements GameInterface {
 
     // for control
     this.controls = new PointerLockControls(this.camera, document.body)
-    document.body.addEventListener('click', () => this.controls.lock())
+    document.body.addEventListener('click', () => {
+      this.isLock = !this.isLock;
+      this.isLock ? this.controls.lock() : this.controls.unlock()
+    })
 
     // for resize event
     window.addEventListener('resize', this.handleResizeWindow.bind(this))
