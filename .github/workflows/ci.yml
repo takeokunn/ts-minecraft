@@ -38,9 +38,14 @@ jobs:
         run: npm ci
 
       # test
-      - name: lint
-        run: npm run lint
+      - name: eslint
+        run: npx eslint src/ --ext .ts
+
+      - name: prettier
+        run: npx prettier --check 'src/**/*.ts'
+
       - name: tsc
-        run: npm run tsc
+        run: npx tsc
+
       - name: test
-        run: npm run test
+        run: npx jest
