@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/update-github-pages
 
 jobs:
   ci:
