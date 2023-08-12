@@ -1,10 +1,10 @@
-import * as THREE from 'three'
+import { PerspectiveCamera, Vector3 } from 'three'
 
 import { faces } from '@src/assets'
 import { BLOCK } from '@src/constant'
 import { BlockInterface } from '@src/blocks'
 
-export const isCollideCameraAndBlock = (camera: THREE.PerspectiveCamera, block: BlockInterface): boolean => {
+export const isCollideCameraAndBlock = (camera: PerspectiveCamera, block: BlockInterface): boolean => {
   return (
     camera.position.x <= block.position.x + BLOCK.SIZE / 2 &&
     camera.position.x >= block.position.x - BLOCK.SIZE / 2 &&
@@ -13,12 +13,7 @@ export const isCollideCameraAndBlock = (camera: THREE.PerspectiveCamera, block: 
   )
 }
 
-const isNeighborhood = (
-  x: THREE.Vector3['x'],
-  y: THREE.Vector3['y'],
-  z: THREE.Vector3['z'],
-  blocks: BlockInterface[],
-): boolean => {
+const isNeighborhood = (x: Vector3['x'], y: Vector3['y'], z: Vector3['z'], blocks: BlockInterface[]): boolean => {
   return blocks.reduce<boolean>(
     (accum, block) => accum || (x === block.position.x && y === block.position.y && z === block.position.z),
     false,

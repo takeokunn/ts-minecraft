@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import { Vector3 } from 'three'
 import { NoiseFunction2D } from 'simplex-noise'
 
 import { BLOCK, TERRIAN } from '@src/constant'
@@ -19,14 +19,12 @@ class Chunk implements ChunkInterface {
         const xoff = TERRIAN.INCREMENT_OFFSET * positionX
         const zoff = TERRIAN.INCREMENT_OFFSET * positionZ
         const y = Math.round((noise2D(xoff, zoff) * TERRIAN.AMPLITUDE) / BLOCK.SIZE)
+        this.blocks.push(new Grass(new Vector3(positionX * BLOCK.SIZE, y * BLOCK.SIZE, positionZ * BLOCK.SIZE), true))
         this.blocks.push(
-          new Grass(new THREE.Vector3(positionX * BLOCK.SIZE, y * BLOCK.SIZE, positionZ * BLOCK.SIZE), true),
+          new Dart(new Vector3(positionX * BLOCK.SIZE, (y - 1) * BLOCK.SIZE, positionZ * BLOCK.SIZE), false),
         )
         this.blocks.push(
-          new Dart(new THREE.Vector3(positionX * BLOCK.SIZE, (y - 1) * BLOCK.SIZE, positionZ * BLOCK.SIZE), false),
-        )
-        this.blocks.push(
-          new Dart(new THREE.Vector3(positionX * BLOCK.SIZE, (y - 2) * BLOCK.SIZE, positionZ * BLOCK.SIZE), false),
+          new Dart(new Vector3(positionX * BLOCK.SIZE, (y - 2) * BLOCK.SIZE, positionZ * BLOCK.SIZE), false),
         )
       }
     }

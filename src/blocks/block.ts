@@ -1,35 +1,35 @@
-import * as THREE from 'three'
+import { Vector3, Mesh, LineSegments, MeshBasicMaterial, BoxGeometry, EdgesGeometry, LineBasicMaterial } from 'three'
 
 import { BLOCK } from '@src/constant'
 
 interface BlockInterface {
   isDisplayable: boolean
-  position: THREE.Vector3
-  display(adjustFacesDirection: DirectionName[]): { blockMesh: THREE.Mesh; lineSegment: THREE.LineSegments }
+  position: Vector3
+  display(adjustFacesDirection: DirectionName[]): { blockMesh: Mesh; lineSegment: LineSegments }
 }
 
-const basicMaterial = new THREE.MeshBasicMaterial()
-const box = new THREE.BoxGeometry(BLOCK.SIZE, BLOCK.SIZE, BLOCK.SIZE)
+const basicMaterial = new MeshBasicMaterial()
+const box = new BoxGeometry(BLOCK.SIZE, BLOCK.SIZE, BLOCK.SIZE)
 
 abstract class Block implements BlockInterface {
   public isDisplayable = true
   protected texture: BlockTexture[] = []
-  public position: THREE.Vector3
+  public position: Vector3
 
-  constructor(position: THREE.Vector3, isDisplayable: boolean) {
+  constructor(position: Vector3, isDisplayable: boolean) {
     this.isDisplayable = isDisplayable
     this.position = position
   }
 
-  public display(adjustFacesDirection: DirectionName[]): { blockMesh: THREE.Mesh; lineSegment: THREE.LineSegments } {
+  public display(adjustFacesDirection: DirectionName[]): { blockMesh: Mesh; lineSegment: LineSegments } {
     const materials = this.texture.map((t) => (adjustFacesDirection.includes(t.name) ? basicMaterial : t.material))
     const blockMesh = this.displayBlock(materials)
     const lineSegment = this.displayLine()
     return { blockMesh, lineSegment }
   }
 
-  private displayBlock(materials: THREE.MeshBasicMaterial[]): THREE.Mesh {
-    const blockMesh = new THREE.Mesh(box, materials)
+  private displayBlock(materials: THREE.MeshBasicMaterial[]): Mesh {
+    const blockMesh = new Mesh(box, materials)
 
     blockMesh.position.x = this.position.x
     blockMesh.position.y = this.position.y - BLOCK.SIZE * 2
@@ -38,9 +38,9 @@ abstract class Block implements BlockInterface {
     return blockMesh
   }
 
-  private displayLine(): THREE.LineSegments {
-    const edges = new THREE.EdgesGeometry(box)
-    const lineSegment = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x00000 }))
+  private displayLine(): LineSegments {
+    const edges = new EdgesGeometry(box)
+    const lineSegment = new LineSegments(edges, new LineBasicMaterial({ color: 0x00000 }))
 
     lineSegment.position.x = this.position.x
     lineSegment.position.y = this.position.y - BLOCK.SIZE * 2
