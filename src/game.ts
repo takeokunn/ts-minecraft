@@ -1,14 +1,14 @@
-import { PerspectiveCamera, Scene, WebGLRenderer, Color } from 'three'
+import { Scene, WebGLRenderer, Color } from 'three'
 import Stats from 'three/examples/jsm/libs/stats.module'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 
 import { color } from '@src/assets'
-import { CAMERA } from '@src/constant'
 import { ChunkInterface } from '@src/chunk'
 import { adjustBlockFaces } from '@src/utils'
+import { Camera } from '@src/camera'
 
 interface GameInterface {
-  camera: PerspectiveCamera
+  camera: Camera
   controls: PointerLockControls
 
   loop: (update: () => void) => void
@@ -16,15 +16,13 @@ interface GameInterface {
   addChunksToScene: (blocks: ChunkInterface['blocks']) => void
   addLineSegmentBlock: (blocks: ChunkInterface['blocks']) => void
   removeLineSegmentBlock: () => void
-
-  setCameraFar: (far: number) => void
 }
 
 class Game implements GameInterface {
   private stats: Stats
   private scene: Scene
   private renderer: WebGLRenderer
-  public camera: PerspectiveCamera
+  public camera: Camera
   public controls: PointerLockControls
 
   private isLock: boolean = false
@@ -45,13 +43,10 @@ class Game implements GameInterface {
     document.body.appendChild(this.renderer.domElement)
 
     // for camera
-    this.camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, CAMERA.PERSPECTIVE.NEAR)
-    this.camera.position.x = 0
-    this.camera.position.z = 0
-    this.camera.position.y = CAMERA.INITIALIZE.POSITION_Y
+    this.camera = new Camera()
 
     // for control
-    this.controls = new PointerLockControls(this.camera, document.body)
+    this.controls = new PointerLockControls(this.camera.perspective, document.body)
     document.body.addEventListener('click', () => {
       this.isLock = !this.isLock
       this.isLock ? this.controls.lock() : this.controls.unlock()
@@ -92,18 +87,12 @@ class Game implements GameInterface {
   }
 
   private render(): void {
-    this.renderer.render(this.scene, this.camera)
+    this.renderer.render(this.scene, this.camera.perspective)
   }
 
   private handleResizeWindow(): void {
     this.renderer.setSize(window.innerWidth, window.innerHeight)
-    this.camera.aspect = window.innerWidth / window.innerHeight
-    this.camera.updateProjectionMatrix()
-  }
-
-  public setCameraFar(far: number): void {
-    this.camera.far = far
-    this.camera.updateProjectionMatrix()
+    this.camera.handleResizeWindow()
   }
 }
 
