@@ -4,7 +4,7 @@
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
     "target": "es5",
-    "outDir": "dist",
+    "outDir": "public",
     "module": "esnext",
     "moduleResolution": "node",
     "types": ["jest"],

@@ -5,7 +5,7 @@ module.exports = {
   devtool: "source-map",
   entry: path.join(__dirname, 'src/main.ts'),
   output: {
-    path: path.join(__dirname, 'dist'),
+    path: path.join(__dirname, 'public'),
     filename: "bundle.js"
   },
   module: {
@@ -22,7 +22,7 @@ module.exports = {
   },
   devServer: {
     static: {
-      directory: path.join(__dirname, 'dist'),
+      directory: path.join(__dirname, 'public'),
     },
     open: true,
     hot: true
