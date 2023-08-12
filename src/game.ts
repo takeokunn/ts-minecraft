@@ -1,14 +1,14 @@
 import { Scene, WebGLRenderer, Color } from 'three'
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 
 import { color } from '@src/assets'
 import { ChunkInterface } from '@src/chunk'
 import { adjustBlockFaces } from '@src/utils'
 import { Camera } from '@src/camera'
+import { Controller } from '@src/controller'
 
 interface GameInterface {
   camera: Camera
-  controls: PointerLockControls
+  controls: Controller
 
   loop: (beforeUpdate: () => void, update: () => void, afterUpdate: () => void) => void
 
@@ -21,9 +21,7 @@ class Game implements GameInterface {
   private scene: Scene
   private renderer: WebGLRenderer
   public camera: Camera
-  public controls: PointerLockControls
-
-  private isLock: boolean = false
+  public controls: Controller
 
   constructor() {
     // for scene
@@ -39,11 +37,7 @@ class Game implements GameInterface {
     this.camera = new Camera()
 
     // for control
-    this.controls = new PointerLockControls(this.camera.perspective, document.body)
-    document.body.addEventListener('click', () => {
-      this.isLock = !this.isLock
-      this.isLock ? this.controls.lock() : this.controls.unlock()
-    })
+    this.controls = new Controller(this.camera)
 
     // for resize event
     window.addEventListener('resize', this.handleResizeWindow.bind(this))
