@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import { PerspectiveCamera, Scene, WebGLRenderer, Color } from 'three'
 import Stats from 'three/examples/jsm/libs/stats.module'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 
@@ -8,7 +8,7 @@ import { ChunkInterface } from '@src/chunk'
 import { adjustBlockFaces } from '@src/utils'
 
 interface GameInterface {
-  camera: THREE.PerspectiveCamera
+  camera: PerspectiveCamera
   controls: PointerLockControls
 
   loop: (update: () => void) => void
@@ -22,9 +22,9 @@ interface GameInterface {
 
 class Game implements GameInterface {
   private stats: Stats
-  private scene: THREE.Scene
-  private renderer: THREE.WebGLRenderer
-  public camera: THREE.PerspectiveCamera
+  private scene: Scene
+  private renderer: WebGLRenderer
+  public camera: PerspectiveCamera
   public controls: PointerLockControls
 
   private isLock: boolean = false
@@ -36,16 +36,16 @@ class Game implements GameInterface {
     document.body.appendChild(this.stats.dom)
 
     // for scene
-    this.scene = new THREE.Scene()
-    this.scene.background = new THREE.Color(color.sky)
+    this.scene = new Scene()
+    this.scene.background = new Color(color.sky)
 
     // for renderer
-    this.renderer = new THREE.WebGLRenderer()
+    this.renderer = new WebGLRenderer()
     this.renderer.setSize(window.innerWidth, window.innerHeight)
     document.body.appendChild(this.renderer.domElement)
 
     // for camera
-    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, CAMERA.PERSPECTIVE.NEAR)
+    this.camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, CAMERA.PERSPECTIVE.NEAR)
     this.camera.position.x = 0
     this.camera.position.z = 0
     this.camera.position.y = CAMERA.INITIALIZE.POSITION_Y
