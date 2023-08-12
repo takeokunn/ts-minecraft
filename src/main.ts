@@ -10,7 +10,7 @@ terrian.generate()
 const config = new Configure()
 const game = new Game()
 config.render({
-  handleClickPerspective: (far: number) => game.setCameraFar(far),
+  handleClickPerspective: (far: number) => game.camera.setFar(far),
   handleClickLineSegment: (isShow: boolean) =>
     isShow ? game.addLineSegmentBlock(terrian.getChunkBlocks()) : game.removeLineSegmentBlock(),
 })
