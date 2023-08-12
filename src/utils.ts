@@ -1,8 +1,17 @@
 import { PerspectiveCamera, Vector3 } from 'three'
+import Stats from 'three/examples/jsm/libs/stats.module'
 
 import { faces } from '@src/assets'
 import { BLOCK } from '@src/constant'
 import { BlockInterface } from '@src/blocks'
+
+export const createStats = (): Stats => {
+  const stats = new Stats()
+  stats.showPanel(0)
+  document.body.appendChild(stats.dom)
+
+  return stats
+}
 
 export const isCollideCameraAndBlock = (camera: PerspectiveCamera, block: BlockInterface): boolean => {
   return (

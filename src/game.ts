@@ -1,5 +1,4 @@
 import { Scene, WebGLRenderer, Color } from 'three'
-import Stats from 'three/examples/jsm/libs/stats.module'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 
 import { color } from '@src/assets'
@@ -11,7 +10,7 @@ interface GameInterface {
   camera: Camera
   controls: PointerLockControls
 
-  loop: (update: () => void) => void
+  loop: (beforeUpdate: () => void, update: () => void, afterUpdate: () => void) => void
 
   addChunksToScene: (blocks: ChunkInterface['blocks']) => void
   addLineSegmentBlock: (blocks: ChunkInterface['blocks']) => void
@@ -19,7 +18,6 @@ interface GameInterface {
 }
 
 class Game implements GameInterface {
-  private stats: Stats
   private scene: Scene
   private renderer: WebGLRenderer
   public camera: Camera
@@ -28,11 +26,6 @@ class Game implements GameInterface {
   private isLock: boolean = false
 
   constructor() {
-    // for stats
-    this.stats = new Stats()
-    this.stats.showPanel(0)
-    document.body.appendChild(this.stats.dom)
-
     // for scene
     this.scene = new Scene()
     this.scene.background = new Color(color.sky)
@@ -56,12 +49,12 @@ class Game implements GameInterface {
     window.addEventListener('resize', this.handleResizeWindow.bind(this))
   }
 
-  public loop(update: () => void): void {
-    requestAnimationFrame(this.loop.bind(this, update))
-    this.stats.begin()
+  public loop(beforeUpdate: () => void, update: () => void, afterUpdate: () => void): void {
+    requestAnimationFrame(this.loop.bind(this, beforeUpdate, update, afterUpdate))
+    beforeUpdate()
     update()
     this.render()
-    this.stats.end()
+    afterUpdate()
   }
 
   public addChunksToScene(blocks: ChunkInterface['blocks']): void {

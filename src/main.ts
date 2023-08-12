@@ -1,5 +1,6 @@
 import { Game } from '@src/game'
 import { Terrian } from '@src/terrian'
+import { createStats } from '@src/utils'
 import { Keyboard } from '@src/keyboard'
 import { Configure } from '@src/configure'
 import { Character } from '@src/character'
@@ -19,7 +20,13 @@ game.addChunksToScene(terrian.getChunkBlocks())
 const character = new Character(game, config, terrian)
 const keyboard = new Keyboard(character.keymaps)
 
-game.loop(() => {
-  keyboard.dispatch()
-  character.calcurateGravity()
-})
+const stats = createStats()
+
+game.loop(
+  () => stats.begin(),
+  () => {
+    keyboard.dispatch()
+    character.calcurateGravity()
+  },
+  () => stats.end(),
+)
