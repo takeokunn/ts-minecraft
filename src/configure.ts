@@ -21,7 +21,7 @@ class Configure implements ConfigureInterface {
     this.renderLineSegment(params.handleClickLineSegment)
   }
 
-  private renderToggleAutoJump() {
+  private renderToggleAutoJump(): void {
     const button = document.getElementById('auto-jump')
     button?.addEventListener('click', () => {
       this.autoJump = !this.autoJump
@@ -29,7 +29,7 @@ class Configure implements ConfigureInterface {
     })
   }
 
-  private renderChangeCameraDistance(handleClickPerspective: RenderParams['handleClickPerspective']) {
+  private renderChangeCameraDistance(handleClickPerspective: RenderParams['handleClickPerspective']): void {
     const button = document.getElementById('camera-perspective')
     button?.addEventListener('click', () => {
       switch (this.cameraPerspectiveDistance) {
@@ -50,7 +50,7 @@ class Configure implements ConfigureInterface {
     })
   }
 
-  private renderLineSegment(handleClickLineSegment: RenderParams['handleClickLineSegment']) {
+  private renderLineSegment(handleClickLineSegment: RenderParams['handleClickLineSegment']): void {
     const button = document.getElementById('line-segment')
     button?.addEventListener('click', () => {
       this.isShowLineSegment = !this.isShowLineSegment
