@@ -1,11 +1,11 @@
 {
+  "private": true,
   "name": "ts-minecraft",
   "version": "1.0.0",
-  "private": true,
-  "description": "",
+  "description": "Micraft Clone Written By TypeScript",
   "keywords": [
-    "typescript",
-    "minecraft"
+    "TypeScript",
+    "Minecraft"
   ],
   "homepage": "https://github.com/takeokunn/ts-minecraft#readme",
   "bugs": {
@@ -17,7 +17,6 @@
   },
   "license": "MIT",
   "author": "takeokunn",
-  "main": "index.js",
   "scripts": {
     "build": "webpack",
     "lint": "eslint src/ --ext .ts",
