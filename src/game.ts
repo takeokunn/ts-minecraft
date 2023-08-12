@@ -8,9 +8,6 @@ import { ChunkInterface } from '@src/chunk'
 import { adjustBlockFaces } from '@src/utils'
 
 interface GameInterface {
-  stats: Stats
-  scene: THREE.Scene
-  renderer: THREE.WebGLRenderer
   camera: THREE.PerspectiveCamera
   controls: PointerLockControls
 
@@ -24,9 +21,9 @@ interface GameInterface {
 }
 
 class Game implements GameInterface {
-  public stats: Stats
-  public scene: THREE.Scene
-  public renderer: THREE.WebGLRenderer
+  private stats: Stats
+  private scene: THREE.Scene
+  private renderer: THREE.WebGLRenderer
   public camera: THREE.PerspectiveCamera
   public controls: PointerLockControls
 
