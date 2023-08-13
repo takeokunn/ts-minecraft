@@ -4,6 +4,11 @@ import { Chunk } from '@src/chunk'
 import { Block } from '@src/blocks'
 import { TERRIAN } from '@src/constant'
 
+/**
+ * [1] [2] [3]
+ * [4] [0] [5]
+ * [6] [7] [8]
+ */
 enum Position {
   TopLeft = 1,
   TopCenter = 2,
@@ -23,13 +28,6 @@ interface TerrianInterface {
   generateNewChunk: (positionX: number, positionZ: number) => void
 }
 
-/**
- * generate initalize
- *
- * [1] [2] [3]
- * [4] [0] [5]
- * [6] [7] [8]
- */
 class Terrian implements TerrianInterface {
   private noise2D: NoiseFunction2D
   public chunks: Chunk[] = []
