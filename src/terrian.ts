@@ -25,14 +25,18 @@ type PositionType = (typeof Position)[keyof typeof Position]
 
 interface TerrianInterface {
   chunks: Chunk[]
-  getChunkBlocks: () => Block[]
+  activeChunkIds: string[]
+
   initialize: () => void
+  getChunkBlocks: () => Block[]
   generateNewChunk: (positionX: number, positionZ: number) => void
 }
 
 class Terrian implements TerrianInterface {
   private noise2D: NoiseFunction2D
+
   public chunks: Chunk[] = []
+  public activeChunkIds: string[] = []
 
   constructor() {
     this.noise2D = createNoise2D()
@@ -41,7 +45,10 @@ class Terrian implements TerrianInterface {
   public initialize(): void {
     const chunk = new Chunk(this.noise2D, -TERRIAN.CHUNK_SIZE / 2, -TERRIAN.CHUNK_SIZE / 2)
     this.chunks.push(chunk)
-    Object.values(Position).forEach((pos) => this.generate(chunk, pos))
+
+    Object.values(Position).forEach((pos) => this.generateChunk(chunk, pos))
+
+    this.activeChunkIds = this.getNeighborhoodChunkIds(chunk)
   }
 
   public getChunkBlocks(): Block[] {
@@ -52,17 +59,21 @@ class Terrian implements TerrianInterface {
     const chunk = this.detectCurrentChunkByPosition(positionX / BLOCK.SIZE, positionZ / BLOCK.SIZE)
 
     Object.values(Position).forEach((pos) => {
-      if (!this.hasNeighborhood(chunk, pos)) {
-        this.generate(chunk, pos)
-      }
+      if (!this.hasNeighborhoodChunkByPosition(chunk, pos)) this.generateChunk(chunk, pos)
     })
+
+    this.activeChunkIds = this.getNeighborhoodChunkIds(chunk)
   }
 
   private detectCurrentChunkByPosition(positionX: number, positionZ: number): Chunk {
     return this.chunks.find((chunk: Chunk) => chunk.x1 <= positionX && positionX <= chunk.x2 && chunk.z1 <= positionZ && positionZ <= chunk.z2) as Chunk
   }
 
-  private hasNeighborhood(centerChunk: Chunk, position: PositionType): boolean {
+  private getNeighborhoodChunkIds(centerChunk: Chunk): string[] {
+    return Object.values(Position).map((pos) => this.getNeighborhoodChunkByPosition(centerChunk, pos).id)
+  }
+
+  private hasNeighborhoodChunkByPosition(centerChunk: Chunk, position: PositionType): boolean {
     return match<PositionType, boolean>(position)
       .with(Position.TopLeft, () => this.chunks.some((chunk: Chunk) => chunk.x1 === centerChunk.x1 - TERRIAN.CHUNK_SIZE && chunk.z1 === centerChunk.z2))
       .with(Position.TopCenter, () => this.chunks.some((chunk: Chunk) => chunk.x1 === centerChunk.x1 && chunk.z1 === centerChunk.z2))
@@ -75,7 +86,23 @@ class Terrian implements TerrianInterface {
       .exhaustive()
   }
 
-  private generate(centerChunk: Chunk, position: PositionType): Chunk {
+  private getNeighborhoodChunkByPosition(centerChunk: Chunk, position: PositionType): Chunk {
+    return match<PositionType, Chunk>(position)
+      .with(Position.TopLeft, () => this.chunks.find((chunk: Chunk) => chunk.x1 === centerChunk.x1 - TERRIAN.CHUNK_SIZE && chunk.z1 === centerChunk.z2) as Chunk)
+      .with(Position.TopCenter, () => this.chunks.find((chunk: Chunk) => chunk.x1 === centerChunk.x1 && chunk.z1 === centerChunk.z2) as Chunk)
+      .with(Position.TopRight, () => this.chunks.find((chunk: Chunk) => chunk.x1 === centerChunk.x2 && chunk.z1 === centerChunk.z2) as Chunk)
+      .with(Position.CenterLeft, () => this.chunks.find((chunk: Chunk) => chunk.x1 === centerChunk.x1 - TERRIAN.CHUNK_SIZE && chunk.z1 === centerChunk.z1) as Chunk)
+      .with(Position.CenterRight, () => this.chunks.find((chunk: Chunk) => chunk.x1 === centerChunk.x2 && chunk.z1 === centerChunk.z1) as Chunk)
+      .with(
+        Position.BottomLeft,
+        () => this.chunks.find((chunk: Chunk) => chunk.x1 === centerChunk.x1 - TERRIAN.CHUNK_SIZE && chunk.z1 === centerChunk.z1 - TERRIAN.CHUNK_SIZE) as Chunk,
+      )
+      .with(Position.BottomCenter, () => this.chunks.find((chunk: Chunk) => chunk.x1 === centerChunk.x1 && chunk.z1 === centerChunk.z1 - TERRIAN.CHUNK_SIZE) as Chunk)
+      .with(Position.BottomRight, () => this.chunks.find((chunk: Chunk) => chunk.x1 === centerChunk.x2 && chunk.z1 === centerChunk.z1 - TERRIAN.CHUNK_SIZE) as Chunk)
+      .exhaustive()
+  }
+
+  private generateChunk(centerChunk: Chunk, position: PositionType): Chunk {
     const chunk = match<PositionType, Chunk>(position)
       .with(Position.TopLeft, () => new Chunk(this.noise2D, centerChunk.x1 - TERRIAN.CHUNK_SIZE, centerChunk.z2))
       .with(Position.TopCenter, () => new Chunk(this.noise2D, centerChunk.x1, centerChunk.z2))
