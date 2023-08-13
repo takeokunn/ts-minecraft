@@ -51,12 +51,11 @@ class Terrian implements TerrianInterface {
   public generateNewChunk(positionX: number, positionZ: number): void {
     const chunk = this.detectCurrentChunkByPosition(positionX / BLOCK.SIZE, positionZ / BLOCK.SIZE)
 
-    Object.values(Position)
-      .forEach((pos) => {
-        if (!this.hasNeighborhood(chunk, pos)) {
-          this.generate(chunk, pos)
-        }
-      })
+    Object.values(Position).forEach((pos) => {
+      if (!this.hasNeighborhood(chunk, pos)) {
+        this.generate(chunk, pos)
+      }
+    })
   }
 
   private detectCurrentChunkByPosition(positionX: number, positionZ: number): Chunk {
