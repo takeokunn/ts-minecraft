@@ -1,10 +1,10 @@
-import { WebGLRenderer } from 'three'
-
 import { ChunkInterface } from '@src/chunk'
 import { adjustBlockFaces } from '@src/utils'
 import { Camera } from '@src/camera'
 import { Controller } from '@src/controller'
 import { Scene } from '@src/scene'
+import { Renderer } from '@src/renderer'
+import { windowSize } from '@src/assets'
 
 interface GameInterface {
   camera: Camera
@@ -19,26 +19,16 @@ interface GameInterface {
 
 class Game implements GameInterface {
   private scene: Scene
-  private renderer: WebGLRenderer
+  private renderer: Renderer
   public camera: Camera
   public controls: Controller
 
   constructor() {
-    // for scene
     this.scene = new Scene()
-
-    // for renderer
-    this.renderer = new WebGLRenderer()
-    this.renderer.setSize(window.innerWidth, window.innerHeight)
-    document.body.appendChild(this.renderer.domElement)
-
-    // for camera
+    this.renderer = new Renderer()
     this.camera = new Camera()
-
-    // for control
     this.controls = new Controller(this.camera)
 
-    // for resize event
     window.addEventListener('resize', this.handleResizeWindow.bind(this))
   }
 
@@ -77,7 +67,7 @@ class Game implements GameInterface {
   }
 
   private handleResizeWindow(): void {
-    this.renderer.setSize(window.innerWidth, window.innerHeight)
+    this.renderer.setSize(windowSize.width, windowSize.height)
     this.camera.handleResizeWindow()
   }
 }

@@ -7,6 +7,11 @@ export const color = {
   black: 0x000000,
 }
 
+export const windowSize = {
+  height: window.innerHeight,
+  width: window.innerWidth,
+}
+
 const images = {
   dart: {
     side: 'assets/dart/side.jpeg',
