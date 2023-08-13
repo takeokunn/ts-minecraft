@@ -1,10 +1,11 @@
 import { Chunk } from '@src/chunk'
-import { adjustBlockFaces } from '@src/utils'
-import { Camera } from '@src/camera'
-import { Controller } from '@src/controller'
 import { Scene } from '@src/scene'
-import { Renderer } from '@src/renderer'
+import { Block } from '@src/blocks'
+import { Camera } from '@src/camera'
 import { windowSize } from '@src/assets'
+import { Renderer } from '@src/renderer'
+import { adjustBlockFaces } from '@src/utils'
+import { Controller } from '@src/controller'
 
 interface GameInterface {
   camera: Camera
@@ -12,7 +13,7 @@ interface GameInterface {
 
   loop: (beforeUpdate: () => void, update: () => void, afterUpdate: () => void) => void
 
-  addChunksToScene: (blocks: Chunk['blocks']) => void
+  addChunksToScene: (chunks: Chunk[]) => void
   addLineSegmentBlock: (blocks: Chunk['blocks']) => void
   removeLineSegmentBlock: () => void
 }
@@ -22,6 +23,8 @@ class Game implements GameInterface {
   private renderer: Renderer
   public camera: Camera
   public controls: Controller
+
+  private chunkIds: Chunk['id'][] = []
 
   constructor() {
     this.scene = new Scene()
@@ -40,13 +43,21 @@ class Game implements GameInterface {
     afterUpdate()
   }
 
-  public addChunksToScene(blocks: Chunk['blocks']): void {
-    blocks.forEach((block) => {
-      if (!block.isDisplayable) return
+  public addChunksToScene(chunks: Chunk[]): void {
+    const blocks = chunks.map((chunk: Chunk) => chunk.blocks).flat()
 
-      const { blockMesh } = block.display(adjustBlockFaces(block, blocks))
-      this.scene.add(blockMesh)
-    })
+    chunks
+      .filter((chunk: Chunk) => !this.chunkIds.some((id: string) => chunk.id === id))
+      .map((chunk: Chunk) => chunk.blocks)
+      .flat()
+      .forEach((block: Block) => {
+        if (!block.isDisplayable) return
+
+        const { blockMesh } = block.display(adjustBlockFaces(block, blocks))
+        this.scene.add(blockMesh)
+      })
+
+    this.chunkIds = chunks.map((chunk: Chunk) => chunk.id)
   }
 
   public addLineSegmentBlock(blocks: Chunk['blocks']): void {

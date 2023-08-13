@@ -6,7 +6,7 @@ import { Configure } from '@src/configure'
 import { Character } from '@src/character'
 
 const terrian = new Terrian()
-terrian.generate()
+terrian.initialize()
 
 const config = new Configure()
 const game = new Game()
@@ -15,7 +15,7 @@ config.render({
   handleClickLineSegment: (isShow: boolean) =>
     isShow ? game.addLineSegmentBlock(terrian.getChunkBlocks()) : game.removeLineSegmentBlock(),
 })
-game.addChunksToScene(terrian.getChunkBlocks())
+game.addChunksToScene(terrian.chunks)
 
 const stats = createStats()
 const character = new Character(game, config, terrian)
@@ -26,6 +26,8 @@ game.loop(
   () => {
     keyboard.dispatch()
     character.calcurateGravity()
+    terrian.generateNewChunk(game.camera.perspective.position.x, game.camera.perspective.position.z)
+    game.addChunksToScene(terrian.chunks)
   },
   () => stats.end(),
 )
