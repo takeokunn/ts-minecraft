@@ -3,7 +3,7 @@
     "strict": true,
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
-    "target": "es5",
+    "target": "es6",
     "outDir": "public",
     "module": "esnext",
     "moduleResolution": "node",
@@ -12,7 +12,7 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "paths": {
       "@src/*": ["./src/*"]
-    },
+    }
   },
   "include": ["src/**/*.ts"],
   "exclude": [
