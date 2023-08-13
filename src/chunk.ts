@@ -25,9 +25,9 @@ class Chunk implements ChunkInterface {
   constructor(noise2D: NoiseFunction2D, baseX: number, baseZ: number) {
     this.id = uuidv4()
     this.x1 = baseX
-    this.x2 = baseX + TERRIAN.CHUNK_SIZE * BLOCK.SIZE
+    this.x2 = baseX + TERRIAN.CHUNK_SIZE
     this.z1 = baseZ
-    this.z2 = baseZ + TERRIAN.CHUNK_SIZE * BLOCK.SIZE
+    this.z2 = baseZ + TERRIAN.CHUNK_SIZE
 
     for (let x = 0; x < TERRIAN.CHUNK_SIZE; x++) {
       for (let z = 0; z < TERRIAN.CHUNK_SIZE; z++) {
