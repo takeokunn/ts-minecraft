@@ -6,6 +6,8 @@ import { color } from '@src/assets'
 interface BlockInterface {
   isDisplayable: boolean
   position: Vector3
+  chunkId: string
+
   display(adjustFacesDirection: DirectionName[]): { blockMesh: Mesh; lineSegment: LineSegments }
 }
 
@@ -13,13 +15,16 @@ const basicMaterial = new MeshBasicMaterial()
 const box = new BoxGeometry(BLOCK.SIZE, BLOCK.SIZE, BLOCK.SIZE)
 
 abstract class Block implements BlockInterface {
-  public isDisplayable = true
   protected texture: BlockTexture[] = []
-  public position: Vector3
 
-  constructor(position: Vector3, isDisplayable: boolean) {
+  public position: Vector3
+  public isDisplayable = true
+  public chunkId: string
+
+  constructor(position: Vector3, isDisplayable: boolean, chunkId: string) {
     this.position = position
     this.isDisplayable = isDisplayable
+    this.chunkId = chunkId
   }
 
   public display(adjustFacesDirection: DirectionName[]): { blockMesh: Mesh; lineSegment: LineSegments } {

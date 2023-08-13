@@ -36,8 +36,8 @@ class Chunk implements ChunkInterface {
         const xoff = TERRIAN.INCREMENT_OFFSET * positionX
         const zoff = TERRIAN.INCREMENT_OFFSET * positionZ
         const y = Math.round((noise2D(xoff, zoff) * TERRIAN.AMPLITUDE) / BLOCK.SIZE)
-        this.blocks.push(new Grass(new Vector3(positionX * BLOCK.SIZE, y * BLOCK.SIZE, positionZ * BLOCK.SIZE), true))
-        this.blocks.push(new Dart(new Vector3(positionX * BLOCK.SIZE, (y - 1) * BLOCK.SIZE, positionZ * BLOCK.SIZE), false))
+        this.blocks.push(new Grass(new Vector3(positionX * BLOCK.SIZE, y * BLOCK.SIZE, positionZ * BLOCK.SIZE), true, this.id))
+        this.blocks.push(new Dart(new Vector3(positionX * BLOCK.SIZE, (y - 1) * BLOCK.SIZE, positionZ * BLOCK.SIZE), false, this.id))
       }
     }
   }
