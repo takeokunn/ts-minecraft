@@ -34,4 +34,4 @@ class Keyboard implements KeyboardInterface {
   }
 }
 
-export { Keyboard, KeyboardInterface, KeyMap }
+export { Keyboard, KeyMap }

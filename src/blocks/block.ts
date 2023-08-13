@@ -51,4 +51,4 @@ abstract class Block implements BlockInterface {
   }
 }
 
-export { BlockInterface, Block }
+export { Block }
