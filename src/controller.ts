@@ -28,4 +28,4 @@ class Controller implements ControllerInterface {
   }
 }
 
-export { Controller, ControllerInterface }
+export { Controller }
