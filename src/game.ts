@@ -1,19 +1,17 @@
 import { Chunk } from '@src/chunk'
 import { Scene } from '@src/scene'
 import { Block } from '@src/blocks'
-import { Camera } from '@src/camera'
 import { windowSize } from '@src/assets'
 import { Renderer } from '@src/renderer'
 import { adjustBlockFaces } from '@src/utils'
 import { Controller } from '@src/controller'
 
 interface GameInterface {
-  camera: Camera
   controls: Controller
 
   loop: (beforeUpdate: () => void, update: () => void, afterUpdate: () => void) => void
 
-  addChunksToScene: (chunks: Chunk[]) => void
+  addChunksToScene: (chunks: Chunk[], isShowLineSegment: boolean) => void
   addLineSegmentBlock: (blocks: Chunk['blocks']) => void
   removeLineSegmentBlock: () => void
 }
@@ -21,16 +19,14 @@ interface GameInterface {
 class Game implements GameInterface {
   private scene: Scene
   private renderer: Renderer
-  public camera: Camera
   public controls: Controller
 
-  private chunkIds: Chunk['id'][] = []
+  private renderedChunkIds: Chunk['id'][] = []
 
   constructor() {
     this.scene = new Scene()
     this.renderer = new Renderer()
-    this.camera = new Camera()
-    this.controls = new Controller(this.camera)
+    this.controls = new Controller()
 
     window.addEventListener('resize', this.handleResizeWindow.bind(this))
   }
@@ -43,21 +39,22 @@ class Game implements GameInterface {
     afterUpdate()
   }
 
-  public addChunksToScene(chunks: Chunk[]): void {
+  public addChunksToScene(chunks: Chunk[], isShowLineSegment: boolean): void {
     const blocks = chunks.map((chunk: Chunk) => chunk.blocks).flat()
 
     chunks
-      .filter((chunk: Chunk) => !this.chunkIds.some((id: string) => chunk.id === id))
+      .filter((chunk: Chunk) => !this.renderedChunkIds.some((id: string) => chunk.id === id))
       .map((chunk: Chunk) => chunk.blocks)
       .flat()
       .forEach((block: Block) => {
         if (!block.isDisplayable) return
 
-        const { blockMesh } = block.display(adjustBlockFaces(block, blocks))
+        const { blockMesh, lineSegment } = block.display(adjustBlockFaces(block, blocks))
         this.scene.add(blockMesh)
+        if (isShowLineSegment) this.scene.add(lineSegment)
       })
 
-    this.chunkIds = chunks.map((chunk: Chunk) => chunk.id)
+    this.renderedChunkIds = chunks.map((chunk: Chunk) => chunk.id)
   }
 
   public addLineSegmentBlock(blocks: Chunk['blocks']): void {
@@ -74,12 +71,12 @@ class Game implements GameInterface {
   }
 
   private render(): void {
-    this.renderer.render(this.scene, this.camera.perspective)
+    this.renderer.render(this.scene, this.controls.perspective)
   }
 
   private handleResizeWindow(): void {
     this.renderer.setSize(windowSize.width, windowSize.height)
-    this.camera.handleResizeWindow()
+    this.controls.handleResizeWindow()
   }
 }
 
