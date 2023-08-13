@@ -11,7 +11,7 @@ interface GameInterface {
 
   loop: (beforeUpdate: () => void, update: () => void, afterUpdate: () => void) => void
 
-  addChunksToScene: (chunks: Chunk[]) => void
+  addChunksToScene: (chunks: Chunk[], isShowLineSegment: boolean) => void
   addLineSegmentBlock: (blocks: Chunk['blocks']) => void
   removeLineSegmentBlock: () => void
 }
@@ -21,7 +21,7 @@ class Game implements GameInterface {
   private renderer: Renderer
   public controls: Controller
 
-  private chunkIds: Chunk['id'][] = []
+  private renderedChunkIds: Chunk['id'][] = []
 
   constructor() {
     this.scene = new Scene()
@@ -39,21 +39,22 @@ class Game implements GameInterface {
     afterUpdate()
   }
 
-  public addChunksToScene(chunks: Chunk[]): void {
+  public addChunksToScene(chunks: Chunk[], isShowLineSegment: boolean): void {
     const blocks = chunks.map((chunk: Chunk) => chunk.blocks).flat()
 
     chunks
-      .filter((chunk: Chunk) => !this.chunkIds.some((id: string) => chunk.id === id))
+      .filter((chunk: Chunk) => !this.renderedChunkIds.some((id: string) => chunk.id === id))
       .map((chunk: Chunk) => chunk.blocks)
       .flat()
       .forEach((block: Block) => {
         if (!block.isDisplayable) return
 
-        const { blockMesh } = block.display(adjustBlockFaces(block, blocks))
+        const { blockMesh, lineSegment } = block.display(adjustBlockFaces(block, blocks))
         this.scene.add(blockMesh)
+        if (isShowLineSegment) this.scene.add(lineSegment)
       })
 
-    this.chunkIds = chunks.map((chunk: Chunk) => chunk.id)
+    this.renderedChunkIds = chunks.map((chunk: Chunk) => chunk.id)
   }
 
   public addLineSegmentBlock(blocks: Chunk['blocks']): void {

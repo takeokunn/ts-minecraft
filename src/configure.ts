@@ -7,12 +7,13 @@ type RenderParams = {
 
 interface ConfigureInterface {
   autoJump: boolean
+  isShowLineSegment: boolean
   render: (params: RenderParams) => void
 }
 
 class Configure implements ConfigureInterface {
   public autoJump = CONSTANT.INITIAL_AUTO_JUMP
-  private isShowLineSegment = CAMERA.INITIALIZE.IS_SHOW_LINESEGMENT
+  public isShowLineSegment = CAMERA.INITIALIZE.IS_SHOW_LINESEGMENT
   private cameraPerspectiveDistance = CAMERA.PERSPECTIVE.NEAR
 
   public render(params: RenderParams): void {
