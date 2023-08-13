@@ -12,9 +12,6 @@ interface ChunkInterface {
   z1: number
   z2: number
   blocks: Block[]
-
-  show: () => void
-  hide: () => void
 }
 
 class Chunk implements ChunkInterface {
@@ -28,9 +25,9 @@ class Chunk implements ChunkInterface {
   constructor(noise2D: NoiseFunction2D, baseX: number, baseZ: number) {
     this.id = uuidv4()
     this.x1 = baseX
-    this.x2 = baseX + TERRIAN.CHUNK_SIZE
+    this.x2 = baseX + TERRIAN.CHUNK_SIZE * BLOCK.SIZE
     this.z1 = baseZ
-    this.z2 = baseZ + TERRIAN.CHUNK_SIZE
+    this.z2 = baseZ + TERRIAN.CHUNK_SIZE * BLOCK.SIZE
 
     for (let x = 0; x < TERRIAN.CHUNK_SIZE; x++) {
       for (let z = 0; z < TERRIAN.CHUNK_SIZE; z++) {
@@ -40,19 +37,9 @@ class Chunk implements ChunkInterface {
         const zoff = TERRIAN.INCREMENT_OFFSET * positionZ
         const y = Math.round((noise2D(xoff, zoff) * TERRIAN.AMPLITUDE) / BLOCK.SIZE)
         this.blocks.push(new Grass(new Vector3(positionX * BLOCK.SIZE, y * BLOCK.SIZE, positionZ * BLOCK.SIZE), true))
-        this.blocks.push(
-          new Dart(new Vector3(positionX * BLOCK.SIZE, (y - 1) * BLOCK.SIZE, positionZ * BLOCK.SIZE), false),
-        )
+        this.blocks.push(new Dart(new Vector3(positionX * BLOCK.SIZE, (y - 1) * BLOCK.SIZE, positionZ * BLOCK.SIZE), false))
       }
     }
-  }
-
-  public show(): void {
-    this.blocks.forEach((block: Block) => (block.isDisplayable = true))
-  }
-
-  public hide(): void {
-    this.blocks.forEach((block: Block) => (block.isDisplayable = false))
   }
 }
 
