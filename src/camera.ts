@@ -28,4 +28,4 @@ class Camera implements CameraInterface {
   }
 }
 
-export { Camera, CameraInterface }
+export { Camera }

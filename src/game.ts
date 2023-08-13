@@ -1,4 +1,4 @@
-import { ChunkInterface } from '@src/chunk'
+import { Chunk } from '@src/chunk'
 import { adjustBlockFaces } from '@src/utils'
 import { Camera } from '@src/camera'
 import { Controller } from '@src/controller'
@@ -12,8 +12,8 @@ interface GameInterface {
 
   loop: (beforeUpdate: () => void, update: () => void, afterUpdate: () => void) => void
 
-  addChunksToScene: (blocks: ChunkInterface['blocks']) => void
-  addLineSegmentBlock: (blocks: ChunkInterface['blocks']) => void
+  addChunksToScene: (blocks: Chunk['blocks']) => void
+  addLineSegmentBlock: (blocks: Chunk['blocks']) => void
   removeLineSegmentBlock: () => void
 }
 
@@ -40,7 +40,7 @@ class Game implements GameInterface {
     afterUpdate()
   }
 
-  public addChunksToScene(blocks: ChunkInterface['blocks']): void {
+  public addChunksToScene(blocks: Chunk['blocks']): void {
     blocks.forEach((block) => {
       if (!block.isDisplayable) return
 
@@ -49,7 +49,7 @@ class Game implements GameInterface {
     })
   }
 
-  public addLineSegmentBlock(blocks: ChunkInterface['blocks']): void {
+  public addLineSegmentBlock(blocks: Chunk['blocks']): void {
     blocks.forEach((block) => {
       if (!block.isDisplayable) return
 
@@ -72,4 +72,4 @@ class Game implements GameInterface {
   }
 }
 
-export { Game, GameInterface }
+export { Game }

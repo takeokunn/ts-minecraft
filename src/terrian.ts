@@ -1,18 +1,18 @@
 import { createNoise2D, NoiseFunction2D } from 'simplex-noise'
 
+import { Chunk } from '@src/chunk'
+import { Block } from '@src/blocks'
 import { TERRIAN } from '@src/constant'
-import { BlockInterface } from '@src/blocks'
-import { Chunk, ChunkInterface } from '@src/chunk'
 
 interface TerrianInterface {
-  chunks: ChunkInterface[]
+  chunks: Chunk[]
   generate: () => void
-  getChunkBlocks: () => BlockInterface[]
+  getChunkBlocks: () => Block[]
 }
 
 class Terrian implements TerrianInterface {
   private noise2D: NoiseFunction2D
-  public chunks: ChunkInterface[] = []
+  public chunks: Chunk[] = []
 
   constructor() {
     this.noise2D = createNoise2D()
@@ -25,9 +25,9 @@ class Terrian implements TerrianInterface {
     this.chunks.push(new Chunk(this.noise2D, -TERRIAN.CHUNK_SIZE, -TERRIAN.CHUNK_SIZE))
   }
 
-  public getChunkBlocks(): BlockInterface[] {
+  public getChunkBlocks(): Block[] {
     return this.chunks.map((chunk) => chunk.blocks).flat()
   }
 }
 
-export { Terrian, TerrianInterface }
+export { Terrian }

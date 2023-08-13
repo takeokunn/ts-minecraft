@@ -1,15 +1,15 @@
 import { Vector3 } from 'three'
 import { NoiseFunction2D } from 'simplex-noise'
 
+import { Dart, Grass, Block } from '@src/blocks'
 import { BLOCK, TERRIAN } from '@src/constant'
-import { Dart, Grass, BlockInterface } from '@src/blocks'
 
 interface ChunkInterface {
-  blocks: BlockInterface[]
+  blocks: Block[]
 }
 
 class Chunk implements ChunkInterface {
-  public blocks: BlockInterface[] = []
+  public blocks: Block[] = []
 
   constructor(noise2D: NoiseFunction2D, centerX: number, centerZ: number) {
     for (let x = 0; x < TERRIAN.CHUNK_SIZE; x++) {
@@ -31,4 +31,4 @@ class Chunk implements ChunkInterface {
   }
 }
 
-export { Chunk, ChunkInterface }
+export { Chunk }

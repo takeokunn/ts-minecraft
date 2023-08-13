@@ -1,7 +1,7 @@
+import { Game } from '@src/game'
 import { KeyMap } from '@src/keyboard'
-import { GameInterface } from '@src/game'
-import { TerrianInterface } from '@src/terrian'
-import { ConfigureInterface } from '@src/configure'
+import { Terrian } from '@src/terrian'
+import { Configure } from '@src/configure'
 import { isCollideCameraAndBlock } from '@src/utils'
 import { BLOCK, CAMERA, GRAVITY } from '@src/constant'
 
@@ -11,16 +11,16 @@ interface CharacterInterface {
 }
 
 class Character implements CharacterInterface {
-  private game: GameInterface
-  private config: ConfigureInterface
-  private terrian: TerrianInterface
+  private game: Game
+  private config: Configure
+  private terrian: Terrian
 
   private ySpeed = 0
   private canJump = true
 
   public keymaps: KeyMap[]
 
-  constructor(game: GameInterface, config: ConfigureInterface, terrian: TerrianInterface) {
+  constructor(game: Game, config: Configure, terrian: Terrian) {
     this.game = game
     this.config = config
     this.terrian = terrian
@@ -113,4 +113,4 @@ class Character implements CharacterInterface {
   }
 }
 
-export { Character, CharacterInterface }
+export { Character }

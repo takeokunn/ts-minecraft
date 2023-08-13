@@ -60,4 +60,4 @@ class Configure implements ConfigureInterface {
   }
 }
 
-export { Configure, ConfigureInterface }
+export { Configure }
