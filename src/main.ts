@@ -27,6 +27,7 @@ game.loop(
     character.calcurateGravity()
     terrian.generateNewChunk(game.controls.perspective.position.x, game.controls.perspective.position.z)
     game.addChunksToScene(terrian.chunks, config.isShowLineSegment)
+    game.renderRaycastPlane()
   },
   () => stats.end(),
 )
