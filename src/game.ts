@@ -1,10 +1,14 @@
+import { Intersection } from 'three'
+
 import { Chunk } from '@src/chunk'
 import { Scene } from '@src/scene'
 import { Block } from '@src/blocks'
+import { BLOCK } from '@src/constant'
 import { windowSize } from '@src/assets'
 import { Renderer } from '@src/renderer'
 import { adjustBlockFaces } from '@src/utils'
 import { Controller } from '@src/controller'
+import { Plane } from '@src/plane'
 
 interface GameInterface {
   controls: Controller
@@ -14,10 +18,12 @@ interface GameInterface {
   addChunksToScene: (chunks: Chunk[], isShowLineSegment: boolean) => void
   addLineSegmentBlock: (blocks: Chunk['blocks']) => void
   removeLineSegmentBlock: () => void
+  renderRaycastPlane: () => void
 }
 
 class Game implements GameInterface {
   private scene: Scene
+  private plane: Plane
   private renderer: Renderer
   public controls: Controller
 
@@ -25,6 +31,9 @@ class Game implements GameInterface {
 
   constructor() {
     this.scene = new Scene()
+    this.plane = new Plane()
+    this.scene.add(this.plane)
+
     this.renderer = new Renderer()
     this.controls = new Controller()
 
@@ -72,6 +81,25 @@ class Game implements GameInterface {
 
   private render(): void {
     this.renderer.render(this.scene, this.controls.perspective)
+  }
+
+  public renderRaycastPlane(): void {
+    this.controls.raycaster.setFromCamera(this.controls.mouse, this.controls.perspective)
+
+    const intersects = this.controls.raycaster.intersectObjects(this.scene.children)
+    if (intersects.length === 0) {
+      this.plane.visible = false
+      return
+    }
+
+    const intersect = intersects.reduce<Intersection>((accum: Intersection, intersect: Intersection) => (accum.distance < intersect.distance ? accum : intersect), intersects[0])
+    if (intersect.distance >= BLOCK.SIZE * BLOCK.MAX_PLACE_DISTANCE) {
+      this.plane.visible = false
+      return
+    }
+
+    this.plane.updateCord(intersect)
+    this.plane.visible = true
   }
 
   private handleResizeWindow(): void {

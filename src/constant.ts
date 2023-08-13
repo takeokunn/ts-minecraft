@@ -1,5 +1,6 @@
 export const BLOCK = {
   SIZE: 5,
+  MAX_PLACE_DISTANCE: 8,
 }
 
 export const TERRIAN = {
