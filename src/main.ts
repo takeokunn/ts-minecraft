@@ -17,10 +17,9 @@ config.render({
 })
 game.addChunksToScene(terrian.getChunkBlocks())
 
+const stats = createStats()
 const character = new Character(game, config, terrian)
 const keyboard = new Keyboard(character.keymaps)
-
-const stats = createStats()
 
 game.loop(
   () => stats.begin(),

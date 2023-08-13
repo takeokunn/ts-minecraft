@@ -4,6 +4,12 @@ import { BLOCK } from '@src/constant'
 
 export const color = {
   sky: 0x00ffff,
+  black: 0x000000,
+}
+
+export const windowSize = {
+  height: window.innerHeight,
+  width: window.innerWidth,
 }
 
 const images = {

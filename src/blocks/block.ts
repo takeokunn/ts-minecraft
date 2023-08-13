@@ -1,6 +1,7 @@
 import { Vector3, Mesh, LineSegments, MeshBasicMaterial, BoxGeometry, EdgesGeometry, LineBasicMaterial } from 'three'
 
 import { BLOCK } from '@src/constant'
+import { color } from '@src/assets'
 
 interface BlockInterface {
   isDisplayable: boolean
@@ -40,7 +41,7 @@ abstract class Block implements BlockInterface {
 
   private displayLine(): LineSegments {
     const edges = new EdgesGeometry(box)
-    const lineSegment = new LineSegments(edges, new LineBasicMaterial({ color: 0x00000 }))
+    const lineSegment = new LineSegments(edges, new LineBasicMaterial({ color: color.black }))
 
     lineSegment.position.x = this.position.x
     lineSegment.position.y = this.position.y - BLOCK.SIZE * 2
