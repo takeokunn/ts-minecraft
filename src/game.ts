@@ -1,4 +1,4 @@
-import { WebGLRenderer, Color } from 'three'
+import { WebGLRenderer } from 'three'
 
 import { ChunkInterface } from '@src/chunk'
 import { adjustBlockFaces } from '@src/utils'
