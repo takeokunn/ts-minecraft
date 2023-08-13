@@ -5,7 +5,7 @@ import { BLOCK } from '@src/constant'
 export const color = {
   sky: 0x00ffff,
   black: 0x000000,
-  white: 0xffffff
+  white: 0xffffff,
 }
 
 export const windowSize = {
