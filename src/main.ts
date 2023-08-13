@@ -11,7 +11,7 @@ terrian.initialize()
 const config = new Configure()
 const game = new Game()
 config.render({
-  handleClickPerspective: (far: number) => game.camera.setFar(far),
+  handleClickPerspective: (far: number) => game.controls.setFar(far),
   handleClickLineSegment: (isShow: boolean) => (isShow ? game.addLineSegmentBlock(terrian.getChunkBlocks()) : game.removeLineSegmentBlock()),
 })
 game.addChunksToScene(terrian.chunks)
@@ -25,7 +25,7 @@ game.loop(
   () => {
     keyboard.dispatch()
     character.calcurateGravity()
-    terrian.generateNewChunk(game.camera.perspective.position.x, game.camera.perspective.position.z)
+    terrian.generateNewChunk(game.controls.perspective.position.x, game.controls.perspective.position.z)
     game.addChunksToScene(terrian.chunks)
   },
   () => stats.end(),
