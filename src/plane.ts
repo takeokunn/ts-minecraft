@@ -1,6 +1,9 @@
 import { match } from 'ts-pattern'
 import { DoubleSide, Intersection, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three'
 
+import { color } from '@src/assets'
+import { BLOCK } from '@src/constant'
+
 const FaceIndex = {
   Right: 0,
   Left: 1,
@@ -31,13 +34,8 @@ class Plane extends Mesh implements PlaneInterface {
   constructor() {
     super()
 
-    this.geometry = new PlaneGeometry(3, 3)
-
-    const material = new MeshBasicMaterial({ color: 0xff0000, side: DoubleSide })
-    material.transparent = true
-    material.opacity = 0.5
-
-    this.material = material
+    this.geometry = new PlaneGeometry(BLOCK.SIZE / 2, BLOCK.SIZE / 2)
+    this.material = new MeshBasicMaterial({ color: color.white, side: DoubleSide })
   }
 
   public updateCord(intersect: Intersection): void {
