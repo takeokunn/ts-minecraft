@@ -1,10 +1,10 @@
-import { Scene, WebGLRenderer, Color } from 'three'
+import { WebGLRenderer, Color } from 'three'
 
-import { color } from '@src/assets'
 import { ChunkInterface } from '@src/chunk'
 import { adjustBlockFaces } from '@src/utils'
 import { Camera } from '@src/camera'
 import { Controller } from '@src/controller'
+import { Scene } from '@src/scene'
 
 interface GameInterface {
   camera: Camera
@@ -26,7 +26,6 @@ class Game implements GameInterface {
   constructor() {
     // for scene
     this.scene = new Scene()
-    this.scene.background = new Color(color.sky)
 
     // for renderer
     this.renderer = new WebGLRenderer()
