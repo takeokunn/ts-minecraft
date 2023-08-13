@@ -18,8 +18,8 @@ abstract class Block implements BlockInterface {
   public position: Vector3
 
   constructor(position: Vector3, isDisplayable: boolean) {
-    this.isDisplayable = isDisplayable
     this.position = position
+    this.isDisplayable = isDisplayable
   }
 
   public display(adjustFacesDirection: DirectionName[]): { blockMesh: Mesh; lineSegment: LineSegments } {

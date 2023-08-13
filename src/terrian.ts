@@ -2,8 +2,13 @@ import { createNoise2D, NoiseFunction2D } from 'simplex-noise'
 
 import { Chunk } from '@src/chunk'
 import { Block } from '@src/blocks'
-import { BLOCK, TERRIAN } from '@src/constant'
+import { TERRIAN } from '@src/constant'
 
+/**
+ * [1] [2] [3]
+ * [4] [0] [5]
+ * [6] [7] [8]
+ */
 enum Position {
   TopLeft = 1,
   TopCenter = 2,
@@ -23,13 +28,6 @@ interface TerrianInterface {
   generateNewChunk: (positionX: number, positionZ: number) => void
 }
 
-/**
- * generate initalize
- *
- * [1] [2] [3]
- * [4] [0] [5]
- * [6] [7] [8]
- */
 class Terrian implements TerrianInterface {
   private noise2D: NoiseFunction2D
   public chunks: Chunk[] = []
@@ -56,7 +54,7 @@ class Terrian implements TerrianInterface {
   }
 
   public generateNewChunk(positionX: number, positionZ: number): void {
-    const chunk = this.detectCurrentChunkByPosition(positionX / BLOCK.SIZE, positionZ / BLOCK.SIZE)
+    const chunk = this.detectCurrentChunkByPosition(positionX, positionZ)
     if (!chunk) return
 
     if (!this.hasNeighborhood(chunk, Position.TopLeft)) this.generate(chunk, Position.TopLeft)
@@ -70,41 +68,27 @@ class Terrian implements TerrianInterface {
   }
 
   private detectCurrentChunkByPosition(positionX: number, positionZ: number): Chunk | undefined {
-    return this.chunks.find(
-      (chunk: Chunk) =>
-        chunk.x1 <= positionX && positionX <= chunk.x2 && chunk.z1 <= positionZ && positionZ <= chunk.z2,
-    )
+    return this.chunks.find((chunk: Chunk) => chunk.x1 <= positionX && positionX <= chunk.x2 && chunk.z1 <= positionZ && positionZ <= chunk.z2)
   }
 
   private hasNeighborhood(centerChunk: Chunk, position: Position): boolean {
     switch (position) {
       case Position.TopLeft:
-        return this.chunks.some(
-          (chunk: Chunk) => chunk.x1 === centerChunk.x1 - TERRIAN.CHUNK_SIZE && chunk.z1 === centerChunk.z2,
-        )
+        return this.chunks.some((chunk: Chunk) => chunk.x1 === centerChunk.x1 - TERRIAN.CHUNK_SIZE && chunk.z1 === centerChunk.z2)
       case Position.TopCenter:
         return this.chunks.some((chunk: Chunk) => chunk.x1 === centerChunk.x1 && chunk.z1 === centerChunk.z2)
       case Position.TopRight:
         return this.chunks.some((chunk: Chunk) => chunk.x1 === centerChunk.x2 && chunk.z1 === centerChunk.z2)
       case Position.CenterLeft:
-        return this.chunks.some(
-          (chunk: Chunk) => chunk.x1 === centerChunk.x1 - TERRIAN.CHUNK_SIZE && chunk.z1 === centerChunk.z1,
-        )
+        return this.chunks.some((chunk: Chunk) => chunk.x1 === centerChunk.x1 - TERRIAN.CHUNK_SIZE && chunk.z1 === centerChunk.z1)
       case Position.CenterRight:
         return this.chunks.some((chunk: Chunk) => chunk.x1 === centerChunk.x2 && chunk.z1 === centerChunk.z1)
       case Position.BottomLeft:
-        return this.chunks.some(
-          (chunk: Chunk) =>
-            chunk.x1 === centerChunk.x1 - TERRIAN.CHUNK_SIZE && chunk.z1 === centerChunk.z1 - TERRIAN.CHUNK_SIZE,
-        )
+        return this.chunks.some((chunk: Chunk) => chunk.x1 === centerChunk.x1 - TERRIAN.CHUNK_SIZE && chunk.z1 === centerChunk.z1 - TERRIAN.CHUNK_SIZE)
       case Position.BottomCenter:
-        return this.chunks.some(
-          (chunk: Chunk) => chunk.x1 === centerChunk.x1 && chunk.z1 === centerChunk.z1 - TERRIAN.CHUNK_SIZE,
-        )
+        return this.chunks.some((chunk: Chunk) => chunk.x1 === centerChunk.x1 && chunk.z1 === centerChunk.z1 - TERRIAN.CHUNK_SIZE)
       case Position.BottomRight:
-        return this.chunks.some(
-          (chunk: Chunk) => chunk.x1 === centerChunk.x2 && chunk.z1 === centerChunk.z1 - TERRIAN.CHUNK_SIZE,
-        )
+        return this.chunks.some((chunk: Chunk) => chunk.x1 === centerChunk.x2 && chunk.z1 === centerChunk.z1 - TERRIAN.CHUNK_SIZE)
     }
     return true
   }
@@ -127,9 +111,7 @@ class Terrian implements TerrianInterface {
         this.chunks.push(new Chunk(this.noise2D, centerChunk.x2, centerChunk.z1))
         break
       case Position.BottomLeft:
-        this.chunks.push(
-          new Chunk(this.noise2D, centerChunk.x1 - TERRIAN.CHUNK_SIZE, centerChunk.z1 - TERRIAN.CHUNK_SIZE),
-        )
+        this.chunks.push(new Chunk(this.noise2D, centerChunk.x1 - TERRIAN.CHUNK_SIZE, centerChunk.z1 - TERRIAN.CHUNK_SIZE))
         break
       case Position.BottomCenter:
         this.chunks.push(new Chunk(this.noise2D, centerChunk.x1, centerChunk.z1 - TERRIAN.CHUNK_SIZE))

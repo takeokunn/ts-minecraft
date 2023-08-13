@@ -23,21 +23,11 @@ export const isCollideCameraAndBlock = (camera: PerspectiveCamera, block: Block)
 }
 
 const isNeighborhood = (x: Vector3['x'], y: Vector3['y'], z: Vector3['z'], blocks: Block[]): boolean => {
-  return blocks.reduce<boolean>(
-    (accum, block) => accum || (x === block.position.x && y === block.position.y && z === block.position.z),
-    false,
-  )
+  return blocks.reduce<boolean>((accum, block) => accum || (x === block.position.x && y === block.position.y && z === block.position.z), false)
 }
 
 export const adjustBlockFaces = (block: Block, blocks: Block[]): DirectionName[] => {
   return faces
-    .filter((face) =>
-      isNeighborhood(
-        block.position.x + face.direction.x,
-        block.position.y + face.direction.y,
-        block.position.z + face.direction.z,
-        blocks,
-      ),
-    )
+    .filter((face) => isNeighborhood(block.position.x + face.direction.x, block.position.y + face.direction.y, block.position.z + face.direction.z, blocks))
     .map((face) => face.name)
 }

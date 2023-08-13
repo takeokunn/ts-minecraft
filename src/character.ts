@@ -58,10 +58,7 @@ class Character implements CharacterInterface {
     this.game.controls.moveForward(CAMERA.MOVING_SPEED)
     if (this.config.autoJump) return
     this.terrian.getChunkBlocks().forEach((block) => {
-      if (
-        isCollideCameraAndBlock(this.game.camera.perspective, block) &&
-        this.game.camera.perspective.position.y <= block.position.y - BLOCK.SIZE / 2
-      ) {
+      if (isCollideCameraAndBlock(this.game.camera.perspective, block) && this.game.camera.perspective.position.y <= block.position.y - BLOCK.SIZE / 2) {
         this.game.controls.moveForward(-1 * CAMERA.MOVING_SPEED)
       }
     })
@@ -71,10 +68,7 @@ class Character implements CharacterInterface {
     this.game.controls.moveRight(-1 * CAMERA.MOVING_SPEED)
     if (this.config.autoJump) return
     this.terrian.getChunkBlocks().forEach((block) => {
-      if (
-        isCollideCameraAndBlock(this.game.camera.perspective, block) &&
-        this.game.camera.perspective.position.y === block.position.y - BLOCK.SIZE / 2
-      ) {
+      if (isCollideCameraAndBlock(this.game.camera.perspective, block) && this.game.camera.perspective.position.y === block.position.y - BLOCK.SIZE / 2) {
         this.game.controls.moveRight(CAMERA.MOVING_SPEED)
       }
     })
@@ -84,10 +78,7 @@ class Character implements CharacterInterface {
     this.game.controls.moveForward(-1 * CAMERA.MOVING_SPEED)
     if (this.config.autoJump) return
     this.terrian.getChunkBlocks().forEach((block) => {
-      if (
-        isCollideCameraAndBlock(this.game.camera.perspective, block) &&
-        this.game.camera.perspective.position.y === block.position.y - BLOCK.SIZE / 2
-      ) {
+      if (isCollideCameraAndBlock(this.game.camera.perspective, block) && this.game.camera.perspective.position.y === block.position.y - BLOCK.SIZE / 2) {
         this.game.controls.moveForward(CAMERA.MOVING_SPEED)
       }
     })
@@ -97,10 +88,7 @@ class Character implements CharacterInterface {
     this.game.controls.moveRight(CAMERA.MOVING_SPEED)
     if (this.config.autoJump) return
     this.terrian.getChunkBlocks().forEach((block) => {
-      if (
-        isCollideCameraAndBlock(this.game.camera.perspective, block) &&
-        this.game.camera.perspective.position.y === block.position.y - BLOCK.SIZE / 2
-      ) {
+      if (isCollideCameraAndBlock(this.game.camera.perspective, block) && this.game.camera.perspective.position.y === block.position.y - BLOCK.SIZE / 2) {
         this.game.controls.moveRight(-1 * CAMERA.MOVING_SPEED)
       }
     })
