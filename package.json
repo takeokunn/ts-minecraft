@@ -33,7 +33,7 @@
   "dependencies": {
     "simplex-noise": "^4.0.1",
     "three": "^0.155.0",
-    "ts-pattern": "v4.3",
+    "ts-pattern": "v5.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
