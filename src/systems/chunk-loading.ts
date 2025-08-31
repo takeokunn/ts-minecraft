@@ -1,38 +1,27 @@
 import { Effect } from 'effect';
-import {
-  type Chunk,
-  ChunkSchema,
-  PlayerSchema,
-  type Position,
-  PositionSchema,
-  TerrainBlockSchema,
-} from '../domain/components';
+import { Chunk, Player, Position, TerrainBlock } from '../domain/components';
 import { GameState } from '../runtime/game-state';
-import {
-  deleteEntity,
-  type QueryResult,
-  query,
-  type World,
-} from '../runtime/world';
+import { World } from '../runtime/world';
 import { CHUNK_SIZE, generateChunk } from './generation';
 
 const RENDER_DISTANCE = 2; // Render distance in chunks
 let currentPlayerChunkX: number = Infinity;
 let currentPlayerChunkZ: number = Infinity;
 
+// Note: This system is stateful (`currentPlayerChunkX`, `currentPlayerChunkZ`).
+// A more robust implementation might store this state within a Ref or the GameState service.
 export const chunkLoadingSystem: Effect.Effect<void, never, GameState | World> =
   Effect.gen(function* (_) {
-    const gameState: GameState = yield* _(GameState);
-    const playerQuery: ReadonlyArray<
-      QueryResult<[typeof PlayerSchema, typeof PositionSchema]>
-    > = yield* _(query(PlayerSchema, PositionSchema));
-    const player:
-      | QueryResult<[typeof PlayerSchema, typeof PositionSchema]>
-      | undefined = playerQuery[0];
+    const world = yield* _(World);
+    const gameState = yield* _(GameState);
 
-    if (!player) return;
+    const playerOption = yield* _(world.querySingle(Player, Position));
 
-    const playerPosition: Position = player.get(PositionSchema);
+    if (Option.isNone(playerOption)) {
+      return;
+    }
+
+    const [_id, [_player, playerPosition]] = playerOption.value;
     const playerChunkX: number = Math.floor(playerPosition.x / CHUNK_SIZE);
     const playerChunkZ: number = Math.floor(playerPosition.z / CHUNK_SIZE);
 
@@ -48,37 +37,37 @@ export const chunkLoadingSystem: Effect.Effect<void, never, GameState | World> =
     currentPlayerChunkX = playerChunkX;
     currentPlayerChunkZ = playerChunkZ;
 
-    const chunksToLoad: Set<string> = new Set<string>();
+    const chunksToLoad = new Map<string, { x: number; z: number }>();
 
     // Determine which chunks should be loaded
     for (
-      let x: number = playerChunkX - RENDER_DISTANCE;
+      let x = playerChunkX - RENDER_DISTANCE;
       x <= playerChunkX + RENDER_DISTANCE;
       x++
     ) {
       for (
-        let z: number = playerChunkZ - RENDER_DISTANCE;
+        let z = playerChunkZ - RENDER_DISTANCE;
         z <= playerChunkZ + RENDER_DISTANCE;
         z++
       ) {
-        const key: string = `${x},${z}`;
-        chunksToLoad.add(key);
+        const key = `${x},${z}`;
+        chunksToLoad.set(key, { x, z });
       }
     }
 
-    // Unload old chunks efficiently
-    const terrainEntities: ReadonlyArray<
-      QueryResult<[typeof TerrainBlockSchema, typeof ChunkSchema]>
-    > = yield* _(query(TerrainBlockSchema, ChunkSchema));
+    // Unload old chunks
+    const terrainEntities = yield* _(world.query(TerrainBlock, Chunk));
     const unloadingEffects: Effect.Effect<void, never, World>[] = [];
-    for (const entity of terrainEntities) {
-      const chunk: Chunk = entity.get(ChunkSchema);
-      const key: string = `${chunk.x},${chunk.z}`;
+    const loadedChunks = new Map<string, boolean>();
+
+    for (const [id, [_terrain, chunk]] of terrainEntities) {
+      const key = `${chunk.x},${chunk.z}`;
+      loadedChunks.set(key, true);
       if (!chunksToLoad.has(key)) {
-        unloadingEffects.push(deleteEntity(entity.id));
-        gameState.world.chunkMap.delete(key);
+        unloadingEffects.push(world.removeEntity(id));
       }
     }
+
     if (unloadingEffects.length > 0) {
       console.log(`Unloading ${unloadingEffects.length} entities.`);
       yield* _(
@@ -88,14 +77,9 @@ export const chunkLoadingSystem: Effect.Effect<void, never, GameState | World> =
 
     // Load new chunks
     const loadingEffects: Effect.Effect<void, never, GameState | World>[] = [];
-    for (const key of chunksToLoad) {
-      if (!gameState.world.chunkMap.has(key)) {
-        const [x, z] = key.split(',').map(Number);
-        if (x === undefined || z === undefined) {
-          continue;
-        }
+    for (const [key, { x, z }] of chunksToLoad) {
+      if (!loadedChunks.has(key)) {
         console.log(`Loading chunk: ${x}, ${z}`);
-        gameState.world.chunkMap.set(key, new Set()); // Mark as loading/loaded
         loadingEffects.push(generateChunk(x, z));
       }
     }

@@ -1,13 +1,14 @@
 import { Effect } from 'effect';
 import * as noise from 'perlin-noise';
 import {
-  type DestroyedBlock,
-  type Position,
-  type Renderable,
+  DestroyedBlock,
+  Position,
+  Renderable,
+  TerrainBlock,
 } from '../domain/components';
-import type { EntityId } from '../domain/entity';
-import { type BlockType, GameState } from '../runtime/game-state';
-import { createEntity, type World } from '../runtime/world';
+import { GameState } from '../runtime/game-state';
+import { World } from '../runtime/world';
+import { BlockType } from '../domain/block';
 
 export const CHUNK_SIZE = 10;
 const RENDER_DISTANCE = 4;
@@ -44,12 +45,14 @@ export const generateChunk = (
   chunkZ: number,
 ): Effect.Effect<void, never, GameState | World> =>
   Effect.gen(function* (_) {
-    const gameState: GameState = yield* _(GameState);
-    const { world, biome, trees } = gameState.seeds;
-    const { amplitude } = gameState;
-    const { destroyed, placed } = gameState.editedBlocks;
+    const gameStateService = yield* _(GameState);
+    const world = yield* _(World);
+    const gameState = yield* _(gameStateService.get);
+    const { seeds, amplitude, editedBlocks } = gameState;
+    const { world: worldSeed, biome, trees } = seeds;
+    const { destroyed, placed } = editedBlocks;
 
-    const creations: Effect.Effect<EntityId, never, World>[] = [];
+    const creations: Effect.Effect<void, never, World>[] = [];
     const destroyedSet: Set<string> = new Set(
       destroyed.map((b: DestroyedBlock) => `${b.x},${b.y},${b.z}`),
     );
@@ -63,7 +66,7 @@ export const generateChunk = (
         const xoff: number = inc * x;
         const zoff: number = inc * z;
 
-        noise.seed(world);
+        noise.seed(worldSeed);
         const v: number =
           Math.round((noise.perlin2(xoff, zoff) * amplitude) / 1) * 1;
 
@@ -79,15 +82,11 @@ export const generateChunk = (
           const pos = { x, y: v + h, z };
           if (!destroyedSet.has(`${pos.x},${pos.y},${pos.z}`)) {
             creations.push(
-              createEntity(
-                { _tag: 'TerrainBlock' },
-                pos as Position,
-                {
-                  _tag: 'Renderable',
-                  geometry: 'box',
-                  blockType: 'water',
-                } as Renderable,
-              ),
+              world.createEntity([
+                new TerrainBlock(),
+                new Position(pos),
+                new Renderable({ geometry: 'box', blockType: 'water' }),
+              ]),
             );
           }
           h += 1;
@@ -112,15 +111,14 @@ export const generateChunk = (
                 rule.biomes.includes(currentBiome)
               ) {
                 creations.push(
-                  createEntity(
-                    { _tag: 'TerrainBlock' },
-                    pos as Position,
-                    {
-                      _tag: 'Renderable',
+                  world.createEntity([
+                    new TerrainBlock(),
+                    new Position(pos),
+                    new Renderable({
                       geometry: 'box',
                       blockType: rule.name,
-                    } as Renderable,
-                  ),
+                    }),
+                  ]),
                 );
                 break; // First matching rule wins
               }
@@ -133,15 +131,11 @@ export const generateChunk = (
                 if (d < 0 && d >= -8) {
                   const blockType = d !== -8 ? 'oakLog' : 'oakLeaves';
                   creations.push(
-                    createEntity(
-                      { _tag: 'TerrainBlock' },
-                      pos as Position,
-                      {
-                        _tag: 'Renderable',
-                        geometry: 'box',
-                        blockType,
-                      } as Renderable,
-                    ),
+                    world.createEntity([
+                      new TerrainBlock(),
+                      new Position(pos),
+                      new Renderable({ geometry: 'box', blockType }),
+                    ]),
                   );
                 }
               }
@@ -165,15 +159,14 @@ export const generateChunk = (
               if (d <= -6 && canPutLeaf) {
                 if (parseFloat(treeNoise.toFixed(3)) !== 0.001) {
                   creations.push(
-                    createEntity(
-                      { _tag: 'TerrainBlock' },
-                      pos as Position,
-                      {
-                        _tag: 'Renderable',
+                    world.createEntity([
+                      new TerrainBlock(),
+                      new Position(pos),
+                      new Renderable({
                         geometry: 'box',
                         blockType: 'oakLeaves',
-                      } as Renderable,
-                    ),
+                      }),
+                    ]),
                   );
                 }
               }
@@ -192,20 +185,14 @@ export const generateChunk = (
         block.z < startZ + CHUNK_SIZE
       ) {
         creations.push(
-          createEntity(
-            { _tag: 'TerrainBlock' },
-            {
-              _tag: 'Position',
-              x: block.x,
-              y: block.y,
-              z: block.z,
-            } as Position,
-            {
-              _tag: 'Renderable',
+          world.createEntity([
+            new TerrainBlock(),
+            new Position({ x: block.x, y: block.y, z: block.z }),
+            new Renderable({
               geometry: 'box',
-              blockType: block.blockType as BlockType,
-            } as Renderable,
-          ),
+              blockType: block.blockType,
+            }),
+          ]),
         );
       }
     }

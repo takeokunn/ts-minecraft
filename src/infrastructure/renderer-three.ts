@@ -2,8 +2,11 @@ import { Context, Effect, Layer } from 'effect';
 import Stats from 'stats.js';
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
-import type { Renderer } from '../runtime/services';
-import { Renderer } from '../runtime/services';
+import { Camera, Renderer } from '../runtime/services';
+import type {
+  Camera as CameraType,
+  Renderer as RendererType,
+} from '../runtime/services';
 import type { WorldState } from '../runtime/world';
 
 // --- Service for core Three.js components ---
@@ -27,11 +30,11 @@ export const ThreeJsContextLive: Layer.Layer<ThreeJsContext> = Layer.scoped(
   ThreeJsContext,
   Effect.gen(function* (_) {
     // Create scene and camera
-    const scene = new THREE.Scene();
+    const scene: THREE.Scene = new THREE.Scene();
     scene.background = new THREE.Color(0x00ffff);
     scene.fog = new THREE.Fog(0x00ffff, 10, 150);
 
-    const camera = new THREE.PerspectiveCamera(
+    const camera: THREE.PerspectiveCamera = new THREE.PerspectiveCamera(
       75,
       window.innerWidth / window.innerHeight,
       0.1,
@@ -40,27 +43,37 @@ export const ThreeJsContextLive: Layer.Layer<ThreeJsContext> = Layer.scoped(
     camera.position.y = 50;
 
     // Create renderer and attach to DOM
-    const renderer = new THREE.WebGLRenderer();
+    const renderer: THREE.WebGLRenderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
     // Create PointerLockControls
-    const controls = new PointerLockControls(camera, renderer.domElement);
+    const controls: PointerLockControls = new PointerLockControls(
+      camera,
+      renderer.domElement,
+    );
 
     // Create highlight mesh
-    const highlightGeometry = new THREE.PlaneGeometry(1.01, 1.01); // Slightly larger to avoid z-fighting
-    const highlightMaterial = new THREE.MeshBasicMaterial({
-      color: 0x000000,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.2,
-    });
-    const highlightMesh = new THREE.Mesh(highlightGeometry, highlightMaterial);
+    const highlightGeometry: THREE.PlaneGeometry = new THREE.PlaneGeometry(
+      1.01,
+      1.01,
+    ); // Slightly larger to avoid z-fighting
+    const highlightMaterial: THREE.MeshBasicMaterial =
+      new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.2,
+      });
+    const highlightMesh: THREE.Mesh = new THREE.Mesh(
+      highlightGeometry,
+      highlightMaterial,
+    );
     highlightMesh.visible = false;
     scene.add(highlightMesh);
 
     // Create stats and attach to DOM
-    const stats = new Stats();
+    const stats: Stats = new Stats();
     stats.showPanel(0); // 0:fps, 1:ms, 2:mb
     document.body.appendChild(stats.dom);
 
@@ -101,7 +114,7 @@ export const ThreeJsContextLive: Layer.Layer<ThreeJsContext> = Layer.scoped(
 /**
  * A layer that provides the Renderer service, which depends on the ThreeJsContext.
  */
-export const RendererLive: Layer.Layer<Renderer, never, ThreeJsContext> =
+export const RendererLive: Layer.Layer<RendererType, never, ThreeJsContext> =
   Layer.effect(
     Renderer,
     Effect.gen(function* (_) {
@@ -122,7 +135,7 @@ export const RendererLive: Layer.Layer<Renderer, never, ThreeJsContext> =
             }
 
             // Use the more precise logic from 3dminecraft.html
-            const hitPos = new THREE.Vector3()
+            const hitPos: THREE.Vector3 = new THREE.Vector3()
               .copy(target.point)
               .sub(target.face.normal.multiplyScalar(0.5))
               .round();
@@ -134,6 +147,33 @@ export const RendererLive: Layer.Layer<Renderer, never, ThreeJsContext> =
 
             highlightMesh.visible = true;
           }),
+      });
+    }),
+  );
+
+export const CameraLive: Layer.Layer<CameraType, never, ThreeJsContext> =
+  Layer.effect(
+    Camera,
+    Effect.gen(function* (_) {
+      const { controls } = yield* _(ThreeJsContext);
+      const camera = controls.getObject().children[0];
+
+      return Camera.of({
+        moveRight: (delta) =>
+          Effect.sync(() => {
+            controls.moveRight(delta);
+          }),
+        rotatePitch: (delta) =>
+          Effect.sync(() => {
+            if (!camera) return;
+            const newPitch = camera.rotation.x + delta;
+            camera.rotation.x = Math.max(
+              -Math.PI / 2,
+              Math.min(Math.PI / 2, newPitch),
+            );
+          }),
+        getYaw: () => Effect.succeed(controls.getObject().rotation.y),
+        getPitch: () => Effect.succeed(camera?.rotation.x ?? 0),
       });
     }),
   );

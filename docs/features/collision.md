@@ -1,60 +1,42 @@
-# 機能仕様: 衝突検知 (Collision)
+# Collision System
 
-このドキュメントは、エンティティ（特にプレイヤー）とワールド内の地形ブロックとの衝突検知および解決に関する仕様を定義します。このロジックは `collisionSystem` が担当します。
+The collision system is responsible for moving entities with velocity and resolving any collisions with the terrain. It ensures that entities cannot pass through solid blocks and correctly interact with the ground.
 
-## 1. 責務と役割
+## Core Components
 
-`collisionSystem` は、`physicsSystem` の後に実行され、エンティティがワールドジオメトリを貫通しないようにする最終的な砦です。主な責務は以下の通りです。
+The collision detection and resolution process involves the following components:
 
-1.  エンティティの現在の `Velocity` を `Position` に適用する。
-2.  移動中に地形ブロックと衝突しないか検知する。
-3.  衝突が発生する場合、エンティティの `Position` を適切に補正し、`Velocity` をリセットする。
-4.  プレイヤーの接地状態 (`isGrounded`) を更新する。
+-   **`Position`**: The entity's current `(x, y, z)` coordinates. This component is updated by the collision system after movement and collision resolution.
+-   **`Velocity`**: The entity's current velocity. This is read to determine the intended movement for the current frame.
+-   **`Collider`**: Defines the entity's Axis-Aligned Bounding Box (AABB) with its `width`, `height`, and `depth`. This is used to detect intersections with terrain blocks.
+-   **`Player`**: The `Player` component's `isGrounded` flag is updated by this system based on the collision results.
 
-現在の実装は、プレイヤーと地形ブロック間の衝突のみを扱います。
+## Core System: `collisionSystem`
 
-## 2. アルゴリズム: AABB (Axis-Aligned Bounding Box)
+The entire logic is encapsulated in the `collisionSystem` (`src/systems/collision.ts`).
 
--   **衝突形状**: すべてのエンティティとブロックは、軸に平行な直方体である「AABB」として扱われます。
-    -   プレイヤーのAABBは `Collider` コンポーネントで定義されます（幅、高さ、奥行き）。
-    -   ブロックのAABBは、一辺が1の立方体としてハードコードされています。
--   **交差判定**: `aabbIntersect` 関数が、2つのAABBが空間内で重なっているかどうかを判定します。
+### How It Works
 
-## 3. 衝突解決プロセス
+The system executes the following steps for each entity with `Position`, `Velocity`, and `Collider` components:
 
-衝突解決は、計算の単純化と精度の向上のため、**軸ごと（Y, X, Zの順）に分離して**行われます。これにより、「壁に滑る」ような挙動が自然に実現されます。
+1.  **Query**: It queries the `World` for all relevant entities.
+2.  **Calculate New Position**: It calculates the potential next position by adding the current velocity to the current position.
+3.  **Broad-Phase Collision Check**:
+    -   It determines the AABB of the entity at its *potential* new position.
+    -   It queries the `World` for all nearby `TerrainBlock` entities that could possibly intersect with this AABB. This is a crucial optimization to avoid checking against every block in the world.
+4.  **Narrow-Phase Collision Resolution (Axis by Axis)**:
+    -   The system resolves collisions separately for each axis (X, Y, Z). This is a common and effective technique to handle sliding along walls and floors correctly.
+    -   **For each axis**:
+        -   It checks if the entity's AABB, moved only along that axis, intersects with any of the nearby terrain blocks.
+        -   If an intersection occurs, the entity's velocity on that axis is set to `0`, and its position is adjusted to be just outside the block it collided with.
+        -   If a collision occurs on the **Y-axis** while the entity was moving downwards, the `isGrounded` flag on the `Player` component is set to `true`.
+5.  **Update Components**: After resolving collisions on all three axes, the system updates the entity's `Position` and `Player` components in the `World` with the final, corrected values.
 
-1.  **ブロードフェーズ (Broad Phase)**:
-    -   パフォーマンスを最適化するため、ワールド内のすべてのブロックと衝突判定を行うことは避けます。
-    -   最初に、プレイヤーの周囲の一定範囲内（現在は半径4ブロック）にあるブロックのみを抽出し、これらを「衝突候補」とします。
+## Execution Order
 
-2.  **Y軸の解決**:
-    -   まず、Y軸方向の速度 (`newVel.dy`) のみをプレイヤーの現在位置に加算し、仮の未来位置を計算します。
-    -   衝突候補のブロックとAABB交差判定を行います。
-    -   **衝突した場合**:
-        -   エンティティが下方向に移動中（`newVel.dy < 0`）であれば、エンティティの位置をブロックの上面に接するように補正し、`isGrounded` フラグを `true` に設定します。
-        -   エンティティが上方向に移動中（`newVel.dy > 0`）であれば、エンティティの位置をブロックの下面に接するように補正します（頭をぶつけた場合）。
-        -   Y軸方向の速度 `newVel.dy` を `0` にリセットし、それ以上その方向に進まないようにします。
+The `collisionSystem` runs **after** the `physicsSystem`. This is essential because:
 
-3.  **X軸の解決**:
-    -   次に、X軸方向の速度 (`newVel.dx`) を（Y軸解決後の）位置に加算します。
-    -   衝突候補のブロックと再度AABB交差判定を行います。
-    -   **衝突した場合**:
-        -   エンティティの位置を、衝突したブロックの側面に接するように補正します。
-        -   X軸方向の速度 `newVel.dx` を `0` にリセットします。
+1.  `playerControlSystem` and `physicsSystem` first determine the final "intended" velocity for the frame (including input and gravity).
+2.  `collisionSystem` then takes this final velocity and acts as the arbiter of movement, ensuring the entity adheres to the physical boundaries of the world.
 
-4.  **Z軸の解決**:
-    -   最後に、Z軸方向の速度 (`newVel.dz`) を（X軸解決後の）位置に加算します。
-    -   衝突候補のブロックとAABB交差判定を行います。
-    -   **衝突した場合**:
-        -   エンティティの位置を、衝突したブロックの側面に接するように補正します。
-        -   Z軸方向の速度 `newVel.dz` を `0` にリセットします。
-
-5.  **状態の更新**:
-    -   すべての軸の解決が完了した後、最終的に補正された位置 (`newPos`)、速度 (`newVel`)、および接地状態 (`isGrounded`) をプレイヤーエンティティのコンポーネントに書き込みます。
-
-## 4. `isGrounded` フラグ
-
--   このフラグは、プレイヤーが地面に立っているかどうかを示します。
--   Y軸の衝突解決中に、プレイヤーの下方への移動がブロックによって妨げられた場合に `true` に設定されます。
--   `playerSystem` はこのフラグを参照し、プレイヤーがジャンプ可能かどうかを判断します。
+This ordering guarantees that collision detection is always performed on the most up-to-date state of an entity's motion.

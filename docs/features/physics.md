@@ -1,38 +1,40 @@
-# 機能仕様: 物理 (Physics)
+# Physics System
 
-このドキュメントは、ゲームワールド内のエンティティに作用する物理法則、特に重力に関する仕様を定義します。このロジックは `physicsSystem` が担当します。
+The physics system is responsible for applying universal forces to entities, most notably gravity. It is a simple system that ensures entities behave in a physically plausible way over time.
 
-## 1. 責務
+## Core Components
 
-`physicsSystem` の責務は非常に限定的です。それは、**重力の影響をエンティティの垂直方向の速度に適用すること**、ただそれだけです。
+The physics simulation acts upon entities that possess the following components:
 
-このシステムは、エンティティの位置（`Position`）を直接変更しません。また、水平方向の速度（摩擦や慣性）にも関与しません。あくまで、重力という単一の関心事に特化しています。
+-   **`Velocity`**: Represents the current velocity of an entity. The physics system primarily modifies the `dy` (vertical) component of this.
+-   **`Gravity`**: A component that contains a `value` indicating the strength of the gravitational force to be applied. Entities without this component are ignored by the gravity calculation.
+-   **`Player`**: The `Player` component is also queried to check its `isGrounded` status. Gravity is not applied if the player is currently on the ground.
 
-## 2. 対象コンポーネント
+## Core System: `physicsSystem`
 
-本システムは、以下のコンポーネントを両方持つエンティティを対象とします。
+The logic is contained entirely within the `physicsSystem` (`src/systems/physics.ts`).
 
--   **`Velocity`**: エンティティの現在の速度ベクトル (`dx`, `dy`, `dz`) を保持します。
--   **`Gravity`**: エンティティに適用される重力加速度の強さ (`value`) を定義します。
+### How It Works
 
-## 3. 重力計算プロセス
+The system's execution flow is straightforward:
 
-`physicsSystem` はフレームごとに以下の処理を実行します。
+1.  **Query**: The system queries the `World` for all entities that have a `Velocity`, `Gravity`, and `Player` component.
+    -   *Note: Currently, this system is tightly coupled to the player entity. A more generic implementation would query for entities with `Velocity` and `Gravity`, and separately check for a `Player` component or a more generic `Grounded` component if other entities were to be affected by gravity.*
+2.  **Check Ground State**: For each entity found, it checks the `player.isGrounded` flag.
+3.  **Apply Gravity**: If `isGrounded` is `false`, the system updates the entity's `Velocity` component by subtracting the `gravity.value` from the current `dy`.
 
-1.  **クエリ**: `Velocity` と `Gravity` の両方のコンポーネントを持つすべてのエンティティを `World` から検索します。
-2.  **速度更新**: 対象となる各エンティティに対して、現在のY軸方向の速度 (`vel.dy`) から重力値 (`grav.value`) を減算します。
-    -   `newDy = currentDy - gravity`
-3.  **終端速度 (Terminal Velocity)**:
-    -   落下速度が無限に増加し続けるのを防ぐため、Y軸方向の速度には上限（下限）が設けられています。
-    -   計算後の新しいY軸速度 (`newDy`) は、最大落下速度である `-2` に制限（`Math.max(-2, newDy)`）されます。
-4.  **コンポーネント更新**: 計算後の新しい `Velocity` コンポーネントを `World` に書き戻します。
+    ```typescript
+    // Simplified logic from physicsSystem
+    const newDy = velocity.dy - gravity.value;
+    world.updateComponent(id, new Velocity({ ...velocity, dy: newDy }));
+    ```
 
-## 4. 重要な注意点: `Position` の更新について
+## Relationship with Other Systems
 
-`physicsSystem` は `Velocity` に基づいて `Position` を更新する**わけではありません**。
+The `physicsSystem` runs **after** the `playerControlSystem` but **before** the `collisionSystem`. This execution order is critical:
 
-速度を位置に反映させ、ワールドのジオメトリとの衝突を解決する責務は、この後続の `collisionSystem` が担います。この関心の分離により、各システムはよりシンプルで予測可能になります。
+1.  `playerControlSystem`: Determines the player's *intent* to move (including jumping, which sets an initial upward `dy` velocity).
+2.  **`physicsSystem`**: Modifies the `dy` velocity based on gravity.
+3.  `collisionSystem`: Takes the final, gravity-adjusted velocity and attempts to move the entity, resolving any collisions with the terrain. The `collisionSystem` is also responsible for setting the `isGrounded` flag to `true` if a downward collision is detected.
 
--   `playerControlSystem`: プレイヤーの **意図** を `Velocity` に変換する。
--   `physicsSystem`: 重力という **環境要因** を `Velocity` に適用する。
--   `collisionSystem`: 最終的な `Velocity` を使って `Position` を計算し、**衝突解決** を行う。
+This clear separation of concerns ensures that each system has a single, well-defined responsibility, making the overall simulation easier to understand and debug.

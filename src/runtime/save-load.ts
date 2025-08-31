@@ -6,13 +6,14 @@ import {
   PositionSchema,
   type SaveState,
 } from '../domain/components';
-import { GameState, type GameState as GameStateType } from './game-state';
+import { GameState } from './game-state';
+import type { GameState as GameStateType } from './game-state';
 import { query, type World } from './world';
 
 /**
  * Collects the current game state and saves it to a JSON file.
  */
-export const saveGame: Effect.Effect<void, never, GameState | World> =
+export const saveGame: Effect.Effect<void, never, GameStateType | World> =
   Effect.gen(function* (_) {
     const gameState: GameStateType = yield* _(GameState);
 
@@ -44,7 +45,7 @@ export const saveGame: Effect.Effect<void, never, GameState | World> =
       editedBlocks: gameState.editedBlocks,
     };
 
-    const blob = new Blob([JSON.stringify(currentState, null, 2)], {
+    const blob: Blob = new Blob([JSON.stringify(currentState, null, 2)], {
       type: 'application/json',
     });
     saveAs(blob, 'save.json');
@@ -56,14 +57,14 @@ export const saveGame: Effect.Effect<void, never, GameState | World> =
  */
 export const loadGame = (
   loadedData: SaveState,
-): Effect.Effect<void, never, GameState> =>
+): Effect.Effect<void, never, GameStateType> =>
   Effect.gen(function* (_) {
     const gameState: GameStateType = yield* _(GameState);
     gameState.setSeeds(loadedData.seeds);
     gameState.setAmplitude(loadedData.amplitude);
     gameState.setEditedBlocks({
       placed: [...loadedData.editedBlocks.placed],
-      destroyed: [...loaded.editedBlocks.destroyed],
+      destroyed: [...loadedData.editedBlocks.destroyed],
     });
     // Player position will be handled separately after creation.
   });

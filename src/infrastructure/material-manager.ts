@@ -4,14 +4,16 @@ import type { BlockType } from '../runtime/game-state';
 
 // Defines the texture paths for each face of a block.
 // If a single string is provided, it's used for all faces.
-const blockTexturePaths: Record<
-  BlockType,
-  | string
-  | {
-      side: string;
-      top: string;
-      bottom: string;
-    }
+const blockTexturePaths: Readonly<
+  Record<
+    BlockType,
+    | string
+    | {
+        readonly side: string;
+        readonly top: string;
+        readonly bottom: string;
+      }
+  >
 > = {
   grass: {
     side: '/assets/grass/side.jpeg',
@@ -62,6 +64,9 @@ export const MaterialManagerLive: Layer.Layer<MaterialManager> = Layer.effect(
     for (const key in blockTexturePaths) {
       const blockType = key as BlockType;
       const paths = blockTexturePaths[blockType];
+      if (!paths) {
+        continue;
+      }
 
       if (typeof paths === 'string') {
         const material = new THREE.MeshBasicMaterial({

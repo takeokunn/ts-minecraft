@@ -51,10 +51,10 @@
 - **概要**: TypeScriptで表現力豊かなパターンマッチングを実現します。
 - **採用理由**: `src/infrastructure/input-browser.ts` において、キーボードの入力イベントを処理するために使用されています。`if/else`や`switch`文のネストを避けることができ、どのキーがどのアクションに対応するのかを宣言的かつ可読性高く記述できます。
 
-### [perlin-noise](https://www.npmjs.com/package/perlin-noise) & [alea](https://www.npmjs.com/package/alea)
+### [simplex-noise](httpss://github.com/jwagner/simplex-noise.js) & [alea](https://www.npmjs.com/package/alea)
 - **役割**: プロシージャルな地形生成。
-- **概要**: `perlin-noise`はパーリンノイズを生成するためのライブラリ、`alea`はシード可能な乱数生成器(PRNG)です。
-- **採用理由**: `src/systems/generation.ts` で見られるように、パーリンノイズを用いることで自然で滑らかな地形を生成しています。`alea`のようなシード可能な乱数生成器と組み合わせることで、同じシード値からは常に同じワールドが生成される、再現性のあるワールド生成を実現します。
+- **概要**: `simplex-noise`はシンプレックスノイズを生成するためのライブラリ、`alea`はシード可能な乱数生成器(PRNG)です。パーリンノイズよりもアーティファクトが少ない高品質なノイズを生成します。
+- **採用理由**: `src/systems/generation.ts` で見られるように、シンプレックスノイズを用いることで自然で滑らかな地形を生成しています。`alea`のようなシード可能な乱数生成器と組み合わせることで、同じシード値からは常に同じワールドが生成される、再現性のあるワールド生成を実現します。
 
 ## 3. テスティング
 

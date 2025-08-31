@@ -1,11 +1,13 @@
 import { Effect, Layer, Ref } from 'effect';
 import { match } from 'ts-pattern';
-import { type InputState, PlayerSchema } from '../domain/components';
-import type { GameState } from '../runtime/game-state';
+import type { InputState } from '../domain/components';
+import { PlayerSchema } from '../domain/components';
 import { GameState } from '../runtime/game-state';
-import type { Input } from '../runtime/services';
+import type { GameState as GameStateType } from '../runtime/game-state';
 import { Input } from '../runtime/services';
-import { query, updateComponent, type World } from '../runtime/world';
+import type { Input as InputType } from '../runtime/services';
+import { query, updateComponent } from '../runtime/world';
+import type { World } from '../runtime/world';
 import { ThreeJsContext } from './renderer-three';
 
 type KeyState = Omit<InputState, '_tag'>;
@@ -17,11 +19,11 @@ type MouseState = {
 };
 
 const makeInput: Effect.Effect<
-  Input,
+  InputType,
   never,
-  GameState | World | ThreeJsContext
+  GameStateType | World | ThreeJsContext
 > = Effect.gen(function* (_) {
-  const gameState: GameState = yield* _(GameState);
+  const gameState: GameStateType = yield* _(GameState);
   const { controls } = yield* _(ThreeJsContext);
 
   const keyStateRef: Ref.Ref<KeyState> = yield* _(
@@ -46,12 +48,12 @@ const makeInput: Effect.Effect<
 
   // --- Event Listeners ---
   const onKeyDown = (event: KeyboardEvent): void => {
-    let lastWPress = 0;
-    const sprintThreshold = 300; // ms
+    let lastWPress: number = 0;
+    const sprintThreshold: number = 300; // ms
 
     const effect: Effect.Effect<void> = match(event.code)
       .with('KeyW', () =>
-        Ref.update(keyStateRef, (s) => {
+        Ref.update(keyStateRef, (s: KeyState) => {
           const now = performance.now();
           const isSprinting = now - lastWPress < sprintThreshold;
           lastWPress = now;
@@ -59,19 +61,19 @@ const makeInput: Effect.Effect<
         }),
       )
       .with('KeyS', () =>
-        Ref.update(keyStateRef, (s) => ({ ...s, backward: true })),
+        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, backward: true })),
       )
       .with('KeyA', () =>
-        Ref.update(keyStateRef, (s) => ({ ...s, left: true })),
+        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, left: true })),
       )
       .with('KeyD', () =>
-        Ref.update(keyStateRef, (s) => ({ ...s, right: true })),
+        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, right: true })),
       )
       .with('Space', () =>
-        Ref.update(keyStateRef, (s) => ({ ...s, jump: true })),
+        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, jump: true })),
       )
       .with('KeyQ', () =>
-        Ref.update(keyStateRef, (s) => ({ ...s, place: true })),
+        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, place: true })),
       )
       .with('Digit1', () => Effect.sync(() => gameState.setSelectedSlot(0)))
       .with('Digit2', () => Effect.sync(() => gameState.setSelectedSlot(1)))
@@ -89,26 +91,26 @@ const makeInput: Effect.Effect<
   const onKeyUp = (event: KeyboardEvent): void => {
     const effect: Effect.Effect<void> = match(event.code)
       .with('KeyW', () =>
-        Ref.update(keyStateRef, (s) => ({
+        Ref.update(keyStateRef, (s: KeyState) => ({
           ...s,
           forward: false,
           sprint: false,
         })),
       )
       .with('KeyS', () =>
-        Ref.update(keyStateRef, (s) => ({ ...s, backward: false })),
+        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, backward: false })),
       )
       .with('KeyA', () =>
-        Ref.update(keyStateRef, (s) => ({ ...s, left: false })),
+        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, left: false })),
       )
       .with('KeyD', () =>
-        Ref.update(keyStateRef, (s) => ({ ...s, right: false })),
+        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, right: false })),
       )
       .with('Space', () =>
-        Ref.update(keyStateRef, (s) => ({ ...s, jump: false })),
+        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, jump: false })),
       )
       .with('KeyQ', () =>
-        Ref.update(keyStateRef, (s) => ({ ...s, place: false })),
+        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, place: false })),
       )
       .otherwise(() => Effect.void);
     Effect.runFork(effect);
@@ -117,7 +119,7 @@ const makeInput: Effect.Effect<
   const onMouseMove = (event: MouseEvent): void => {
     if (controls.isLocked) {
       Effect.runFork(
-        Ref.update(mouseStateRef, (s) => ({
+        Ref.update(mouseStateRef, (s: MouseState) => ({
           ...s,
           dx: s.dx + event.movementX,
           dy: s.dy + event.movementY,
@@ -131,13 +133,19 @@ const makeInput: Effect.Effect<
       if (event.button === 0) {
         // Left click
         Effect.runFork(
-          Ref.update(mouseStateRef, (s) => ({ ...s, leftClick: true })),
+          Ref.update(mouseStateRef, (s: MouseState) => ({
+            ...s,
+            leftClick: true,
+          })),
         );
       }
       if (event.button === 2) {
         // Right click
         Effect.runFork(
-          Ref.update(mouseStateRef, (s) => ({ ...s, rightClick: true })),
+          Ref.update(mouseStateRef, (s: MouseState) => ({
+            ...s,
+            rightClick: true,
+          })),
         );
       }
     }
@@ -210,7 +218,7 @@ const makeInput: Effect.Effect<
 });
 
 export const InputLive: Layer.Layer<
-  Input,
-  unknown,
-  GameState | World | ThreeJsContext
+  InputType,
+  never,
+  GameStateType | World | ThreeJsContext
 > = Layer.scoped(Input, makeInput);

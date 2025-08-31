@@ -1,12 +1,14 @@
 import { Effect } from 'effect';
-import { GameState, type BlockType } from '../runtime/game-state';
+import { GameState } from '../runtime/game-state';
+import { BlockType } from '../domain/block';
 
 /**
  * Runs every frame to update UI elements like the hotbar.
  */
 export const uiSystem: Effect.Effect<void, never, GameState> = Effect.gen(
   function* (_) {
-    const gameState: GameState = yield* _(GameState);
+    const gameStateService = yield* _(GameState);
+    const gameState = yield* _(gameStateService.get);
     const { selectedSlot, slots } = gameState.hotbar;
 
     for (let i = 0; i < 9; i++) {

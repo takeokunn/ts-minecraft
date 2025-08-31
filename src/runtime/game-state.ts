@@ -1,215 +1,115 @@
-import { Context, Layer, Ref, type Tag } from 'effect';
-import type { DestroyedBlock, PlacedBlock } from '../domain/components';
+import { Context, Data, Effect, Layer, Ref } from 'effect';
+import { BlockType, blockTypes } from '../domain/block';
+import { DestroyedBlock, PlacedBlock } from '../domain/components';
 
-export const blockTypes = {
-  grass: null,
-  dirt: null,
-  stone: null,
-  cobblestone: null,
-  oakLog: null,
-  oakLeaves: null,
-  sand: null,
-  water: null,
-  glass: null,
-  brick: null,
-  plank: null,
-} as const;
-
-export const hotbarSlots: Array<keyof typeof blockTypes> = Object.keys(
-  blockTypes,
-) as Array<keyof typeof blockTypes>;
-export type BlockType = keyof typeof blockTypes;
-
-export type Chunk = Set<string>; // Set of "x,y,z" strings for blocks in the chunk
-export type ChunkMap = Map<string, Chunk>; // Map of "chunkX,chunkZ" to Chunk
+// --- Service State ---
 
 export type Scene = 'Title' | 'InGame' | 'Paused';
 
-export interface GameState {
-  readonly scene: Ref.Ref<Scene>;
-  seeds: {
-    world: number;
-    biome: number;
-    trees: number;
+export class GameStateData extends Data.Class<{
+  readonly scene: Scene;
+  readonly seeds: {
+    readonly world: number;
+    readonly biome: number;
+    readonly trees: number;
   };
-  amplitude: number;
-  editedBlocks: {
-    placed: PlacedBlock[];
-    destroyed: DestroyedBlock[];
+  readonly amplitude: number;
+  readonly editedBlocks: {
+    readonly placed: readonly PlacedBlock[];
+    readonly destroyed: readonly DestroyedBlock[];
   };
-  hotbar: {
-    slots: readonly BlockType[];
-    selectedSlot: number; // 0-8
+  readonly hotbar: {
+    readonly slots: readonly BlockType[];
+    readonly selectedSlot: number; // 0-8
   };
-  readonly world: {
-    chunkMap: ChunkMap;
-  };
-  setSeeds: (seeds: GameState['seeds']) => void;
-  setAmplitude: (amplitude: number) => void;
-  setEditedBlocks: (blocks: GameState['editedBlocks']) => void;
-  addPlacedBlock: (block: PlacedBlock) => void;
-  addDestroyedBlock: (block: DestroyedBlock) => void;
-  setSelectedSlot: (slot: number) => void;
-  shouldExit: boolean;
-  setShouldExit: (shouldExit: boolean) => void;
-}
+  readonly shouldExit: boolean;
+}> {}
 
-import { Context, Layer, Ref } from 'effect';
-import type { DestroyedBlock, PlacedBlock } from '../domain/components';
-
-export const blockTypes = {
-  grass: null,
-  dirt: null,
-  stone: null,
-  cobblestone: null,
-  oakLog: null,
-  oakLeaves: null,
-  sand: null,
-  water: null,
-  glass: null,
-  brick: null,
-  plank: null,
-} as const;
-
-export const hotbarSlots: Array<keyof typeof blockTypes> = Object.keys(
-  blockTypes,
-) as Array<keyof typeof blockTypes>;
-export type BlockType = keyof typeof blockTypes;
-
-export type Chunk = Set<string>; // Set of "x,y,z" strings for blocks in the chunk
-export type ChunkMap = Map<string, Chunk>; // Map of "chunkX,chunkZ" to Chunk
-
-export type Scene = 'Title' | 'InGame' | 'Paused';
+// --- Service Interface ---
 
 export interface GameState {
-  readonly scene: Ref.Ref<Scene>;
-  seeds: {
-    world: number;
-    biome: number;
-    trees: number;
-  };
-  amplitude: number;
-  editedBlocks: {
-    placed: PlacedBlock[];
-    destroyed: DestroyedBlock[];
-  };
-  hotbar: {
-    slots: readonly BlockType[];
-    selectedSlot: number; // 0-8
-  };
-  readonly world: {
-    chunkMap: ChunkMap;
-  };
-  setSeeds: (seeds: GameState['seeds']) => void;
-  setAmplitude: (amplitude: number) => void;
-  setEditedBlocks: (blocks: GameState['editedBlocks']) => void;
-  addPlacedBlock: (block: PlacedBlock) => void;
-  addDestroyedBlock: (block: DestroyedBlock) => void;
-  setSelectedSlot: (slot: number) => void;
-  shouldExit: boolean;
-  setShouldExit: (shouldExit: boolean) => void;
+  readonly get: Effect.Effect<GameStateData>;
+  readonly setScene: (scene: Scene) => Effect.Effect<void>;
+  readonly setSeeds: (seeds: GameStateData['seeds']) => Effect.Effect<void>;
+  readonly setAmplitude: (amplitude: number) => Effect.Effect<void>;
+  readonly addPlacedBlock: (block: PlacedBlock) => Effect.Effect<void>;
+  readonly addDestroyedBlock: (block: DestroyedBlock) => Effect.Effect<void>;
+  readonly setSelectedSlot: (slot: number) => Effect.Effect<void>;
+  readonly setShouldExit: (shouldExit: boolean) => Effect.Effect<void>;
 }
 
-export const GameState = Context.Tag<GameState>('GameState');
+export const GameState = Context.GenericTag<GameState>('GameState');
 
-export const GameStateLive: Layer.Layer<GameState> = Layer.sync(
-  GameState,
-  (): GameState => {
-    const state: GameState = {
-      scene: Ref.unsafeMake<Scene>('Title'),
-      seeds: {
-        world: Math.random(),
-        biome: Math.random(),
-        trees: Math.random(),
-      },
-      amplitude: 30 + Math.random() * 70,
-      editedBlocks: {
-        placed: [],
-        destroyed: [],
-      },
-      hotbar: {
-        slots: hotbarSlots,
-        selectedSlot: 0,
-      },
-      shouldExit: false,
-      world: {
-        chunkMap: new Map(),
-      },
-      setSeeds(seeds: GameState['seeds']): void {
-        state.seeds = seeds;
-      },
-      setAmplitude(amplitude: number): void {
-        state.amplitude = amplitude;
-      },
-      setEditedBlocks(blocks: GameState['editedBlocks']): void {
-        state.editedBlocks = blocks;
-      },
-      addPlacedBlock(block: PlacedBlock): void {
-        state.editedBlocks.placed.push(block);
-      },
-      addDestroyedBlock(block: DestroyedBlock): void {
-        state.editedBlocks.destroyed.push(block);
-      },
-      setSelectedSlot(slot: number): void {
-        if (slot >= 0 && slot < state.hotbar.slots.length) {
-          state.hotbar.selectedSlot = slot;
-        }
-      },
-      setShouldExit(shouldExit: boolean): void {
-        state.shouldExit = shouldExit;
-      },
-    };
-    return state;
-  },
-);
+// --- Live Implementation ---
 
-export const GameStateLive: Layer.Layer<GameState> = Layer.sync(
+export const GameStateLive: Layer.Layer<GameState> = Layer.effect(
   GameState,
-  (): GameState => {
-    const state: GameState = {
-      scene: Ref.unsafeMake<Scene>('Title'),
-      seeds: {
-        world: Math.random(),
-        biome: Math.random(),
-        trees: Math.random(),
-      },
-      amplitude: 30 + Math.random() * 70,
-      editedBlocks: {
-        placed: [],
-        destroyed: [],
-      },
-      hotbar: {
-        slots: hotbarSlots,
-        selectedSlot: 0,
-      },
-      shouldExit: false,
-      world: {
-        chunkMap: new Map(),
-      },
-      setSeeds(seeds: GameState['seeds']): void {
-        state.seeds = seeds;
-      },
-      setAmplitude(amplitude: number): void {
-        state.amplitude = amplitude;
-      },
-      setEditedBlocks(blocks: GameState['editedBlocks']): void {
-        state.editedBlocks = blocks;
-      },
-      addPlacedBlock(block: PlacedBlock): void {
-        state.editedBlocks.placed.push(block);
-      },
-      addDestroyedBlock(block: DestroyedBlock): void {
-        state.editedBlocks.destroyed.push(block);
-      },
-      setSelectedSlot(slot: number): void {
-        if (slot >= 0 && slot < state.hotbar.slots.length) {
-          state.hotbar.selectedSlot = slot;
-        }
-      },
-      setShouldExit(shouldExit: boolean): void {
-        state.shouldExit = shouldExit;
-      },
+  Effect.gen(function* (_) {
+    const hotbarSlots = Object.keys(blockTypes) as Array<BlockType>;
+
+    const stateRef = yield* _(
+      Ref.make<GameStateData>(
+        new GameStateData({
+          scene: 'Title',
+          seeds: {
+            world: Math.random(),
+            biome: Math.random(),
+            trees: Math.random(),
+          },
+          amplitude: 30 + Math.random() * 70,
+          editedBlocks: {
+            placed: [],
+            destroyed: [],
+          },
+          hotbar: {
+            slots: hotbarSlots,
+            selectedSlot: 0,
+          },
+          shouldExit: false,
+        }),
+      ),
+    );
+
+    
+
+    return {
+      get: Ref.get(stateRef),
+      setScene: (scene) => Ref.update(stateRef, (s) => new GameStateData({ ...s, scene })),
+      setSeeds: (seeds) => Ref.update(stateRef, (s) => new GameStateData({ ...s, seeds })),
+      setAmplitude: (amplitude) =>
+        Ref.update(stateRef, (s) => new GameStateData({ ...s, amplitude })),
+      addPlacedBlock: (block) =>
+        Ref.update(stateRef, (s) =>
+          new GameStateData({
+            ...s,
+            editedBlocks: {
+              ...s.editedBlocks,
+              placed: [...s.editedBlocks.placed, block],
+            },
+          }),
+        ),
+      addDestroyedBlock: (block) =>
+        Ref.update(stateRef, (s) =>
+          new GameStateData({
+            ...s,
+            editedBlocks: {
+              ...s.editedBlocks,
+              destroyed: [...s.editedBlocks.destroyed, block],
+            },
+          }),
+        ),
+      setSelectedSlot: (slot) =>
+        Ref.update(stateRef, (s) => {
+          if (slot >= 0 && slot < s.hotbar.slots.length) {
+            return new GameStateData({
+              ...s,
+              hotbar: { ...s.hotbar, selectedSlot: slot },
+            });
+          }
+          return s;
+        }),
+      setShouldExit: (shouldExit) =>
+        Ref.update(stateRef, (s) => new GameStateData({ ...s, shouldExit })),
     };
-    return state;
-  },
+  }),
 );

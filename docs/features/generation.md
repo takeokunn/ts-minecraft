@@ -1,57 +1,35 @@
-# 機能仕様: ワールド生成 (World Generation)
+# World Generation System
 
-このドキュメントは、ゲームのワールド（地形、バイオーム、構造物）をプロシージャルに生成するアルゴリズムに関する仕様を定義します。このロジックは `generationSystem` と、そのコアとなる `generateChunk` 関数が担当します。
+The world generation system is responsible for creating the initial terrain of the game world. It uses procedural generation techniques to create a varied and interesting landscape for the player to explore.
 
-## 1. 責務と役割
+## Core Components
 
--   **`generationSystem`**: ゲーム開始時に、プレイヤーの周囲の初期チャンクを生成する責務を持つEffect。
--   **`generateChunk`**: 指定されたチャンク座標 (`chunkX`, `chunkZ`) に基づき、そのチャンク内のすべての地形を生成する責務を持つ関数。`generationSystem` と `chunkLoadingSystem` の両方から呼び出される。
+Generated terrain entities are composed of the following components:
 
-## 2. 生成の原則: シードとノイズ
+-   **`Position`**: The `(x, y, z)` coordinates of the block in the world.
+-   **`TerrainBlock`**: A tag component that marks the entity as a solid part of the terrain, making it collidable and interactable.
+-   **`Renderable`**: A component that defines the block's appearance, including its `blockType` (e.g., `grass`, `dirt`, `stone`).
 
-ワールド生成は、シード値に基づいた決定論的なプロセスです。同じシード値を使用すれば、常に同一のワールドが再現されます。生成には `perlin-noise` (パーリンノイズ) を利用して、自然でランダムに見える地形を生成します。
+## Core System: `generationSystem`
 
--   **多層ノイズ**: 各 `(x, z)` 座標のブロックを決定するために、複数のノイズ計算が重ねて行われます。
-    -   **`seeds.world`**: 地形の**基本標高**を決定します。
-    -   **`seeds.biome`**: **バイオーム**（平原か砂漠か）を決定します。
-    -   **`seeds.trees`**: **木**の配置を決定します。
+The entire world generation process is handled by the `generationSystem` (`src/systems/generation.ts`). This system runs once at the beginning of the game when a new world is created.
 
-## 3. `generateChunk` の詳細なプロセス
+### How It Works
 
-チャンクの生成は、そのチャンクに含まれる各 `(x, z)` 座標の垂直な柱（コラム）ごとに行われます。
+The generation process follows these main steps:
 
-1.  **ノイズ値の計算**:
-    -   `world`, `biome`, `trees` の各シードを使って、現在の `(x, z)` 座標に対する3つの異なるパーリンノイズ値を計算します。
+1.  **Configuration**: The system defines constants for the world's dimensions, such as `WORLD_WIDTH`, `WORLD_DEPTH`, and `WORLD_HEIGHT`.
+2.  **Noise Generation**: It initializes a simplex noise generator using a seed. This ensures that the same seed will always produce the identical world, allowing for reproducible landscapes.
+3.  **Iterative Block Placement**: The system iterates through each `(x, z)` coordinate within the world's horizontal boundaries.
+    -   **Height Calculation**: For each `(x, z)` pair, it samples the simplex noise function. The output of the noise function is mapped to a terrain height (`y`). This creates the smooth, rolling hills and valleys of the landscape.
+    -   **Block Type Determination**: Based on the calculated height (`y`), the system determines the type of block to place.
+        -   The top layer is typically `grass`.
+        -   A few layers beneath the grass are `dirt`.
+        -   All layers below the dirt are `stone`.
+    -   **Entity Creation**: The system creates entities in the `World` for each vertical column of blocks, from the bottom of the world up to the calculated height `y`. Each entity is given the appropriate `Position`, `TerrainBlock`, and `Renderable` components.
 
-2.  **基本標高とバイオームの決定**:
-    -   `world`ノイズから、その地点の基本標高 `v` を計算します。
-    -   `biome`ノイズから、`getBiome` 関数を通じて現在のバイオーム (`plains` または `desert`) を決定します。
+## Chunking and Performance
 
-3.  **プレイヤーによる編集の考慮**:
-    -   `GameState` に記録されている `destroyed` ブロックのリストを `Set` に変換します。これにより、後のステップで破壊済みの場所にブロックを再生成しないように、高速なチェックが可能になります。
+While the current `generationSystem` generates the entire world at once, this approach is not scalable for larger, "infinite" worlds. In a more advanced setup, this logic would be integrated with the **Chunk Loading** system.
 
-4.  **水ブロックの生成**:
-    -   基本標高 `v` が `WATER_LEVEL` (水面レベル, 現在はY=0) よりも低い場合、`v` から `WATER_LEVEL` まで水ブロックで満たします。
-
-5.  **地形レイヤーの生成**:
-    -   基本標高 `v` を基準に、地表から地下 `WORLD_DEPTH` (現在: 5ブロック) までのブロックを配置します。
-    -   ブロックの種類は、現在の深さ (`d`) とバイオームに応じて、以下の `blockGenerationRules` に基づいて決定されます。
-
-| ブロック名    | 深さの範囲 | バイオーム       |
-| :------------ | :--------- | :--------------- |
-| `grass`       | `d = 0`    | `plains`         |
-| `dirt`        | `d = 1, 2` | `plains`         |
-| `sand`        | `d = 0, 1, 2` | `desert`         |
-| `stone`       | `d = 3, 4` | `plains`, `desert` |
-| `cobblestone` | `d = 3, 4` | `plains`, `desert` |
-
-6.  **木の生成 (`plains`バイオームのみ)**:
-    -   `trees`ノイズの値が特定の値 (`0.001`) と一致した場合、その地点に幹 (`oakLog`) を生成します。
-    -   幹の周囲のノイズ値をチェックし、葉 (`oakLeaves`) を生成する条件を満たすか判断します。これにより、葉が幹の周りに自然にクラスタリングするように見せます。
-
-7.  **プレイヤー設置ブロックの追加**:
-    -   最後に、`GameState` に記録されている `placed` ブロックのリストを走査します。
-    -   現在のチャンク範囲内にある `placed` ブロックを、ワールドにエンティティとして追加します。
-
-8.  **エンティティの一括生成**:
-    -   ここまでのステップで生成が決定したすべてのブロック（水、地形、木、プレイヤー設置物）を、`Effect.all` を使って並行に `createEntity` し、効率的にワールドへ追加します。
+Instead of generating everything upfront, the generation logic would be invoked by the `chunk-loading` system whenever a new, unexplored chunk enters the player's vicinity. The noise generator would ensure that adjacent chunks are generated seamlessly, creating the illusion of a continuous, infinite world.

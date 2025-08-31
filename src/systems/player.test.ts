@@ -19,7 +19,7 @@ const MockInputLive: Layer.Layer<InputService> = Layer.succeed(
   Input.of({
     getMouseState: () =>
       Effect.succeed({ dx: 0, dy: 0, leftClick: false, rightClick: false }),
-    getKeyboardState: () => Effect.succeed(new Set()),
+    poll: () => Effect.void,
   }),
 );
 

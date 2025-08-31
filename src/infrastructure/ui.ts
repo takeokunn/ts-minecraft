@@ -1,16 +1,51 @@
 import { Chunk, Effect, Layer, Stream } from 'effect';
-import type { BlockType, Hotbar } from '../domain/components';
-import type { Scene } from '../runtime/game-state';
+import type { Hotbar } from '../domain/components';
+import type { BlockType, Scene } from '../runtime/game-state';
 import { UI } from '../runtime/services';
+
+// --- Title Screen Animation ---
+let currentImageIndex = 0;
+let intervalId: NodeJS.Timeout | null = null;
+
+const startTitleAnimation = (): void => {
+  const images: NodeListOf<HTMLElement> =
+    document.querySelectorAll('.titleScreenImage');
+  if (images.length === 0 || intervalId) return;
+
+  // Ensure first image is active
+  images.forEach((img: HTMLElement, index: number) => {
+    if (index === currentImageIndex) {
+      img.classList.add('active');
+    } else {
+      img.classList.remove('active');
+    }
+  });
+
+  intervalId = setInterval(() => {
+    images[currentImageIndex]?.classList.remove('active');
+    currentImageIndex = (currentImageIndex + 1) % images.length;
+    images[currentImageIndex]?.classList.add('active');
+  }, 5000);
+};
+
+const stopTitleAnimation = (): void => {
+  if (intervalId) {
+    clearInterval(intervalId);
+    intervalId = null;
+  }
+};
 
 export const UILive: Layer.Layer<UI> = Layer.succeed(
   UI,
   UI.of({
     setScene: (scene: Scene) =>
       Effect.sync(() => {
-        const titleScreen = document.getElementById('titleScreenGUI');
-        const gameScreen = document.getElementById('gameScreenGUI');
-        const escapeScreen = document.getElementById('escapeScreenGUI');
+        const titleScreen: HTMLElement | null =
+          document.getElementById('titleScreenGUI');
+        const gameScreen: HTMLElement | null =
+          document.getElementById('gameScreenGUI');
+        const escapeScreen: HTMLElement | null =
+          document.getElementById('escapeScreenGUI');
 
         if (!titleScreen || !gameScreen || !escapeScreen) {
           return;
@@ -41,7 +76,7 @@ export const UILive: Layer.Layer<UI> = Layer.succeed(
       Effect.sync(() => {
         const blockToTexture: Record<BlockType, string> = {
           grass: '/assets/grass/top.jpeg',
-          dirt: '/assets/dirt/side.jpeg',
+          dirt: '/assets/dart/side.jpeg',
           cobblestone: '/assets/cobblestone/side.jpeg',
           oakLog: '/assets/oakLog/side.jpeg',
           oakLeaves: '/assets/oakLeaves/side.jpeg',
@@ -50,13 +85,15 @@ export const UILive: Layer.Layer<UI> = Layer.succeed(
           brick: '/assets/brick/side.jpeg',
           plank: '/assets/plank/side.jpeg',
           water: '/assets/water/side.jpeg',
-          stone: '/assets/cobblestone/side.jpeg', // Assuming stone looks like cobblestone for now
+          stone: '/assets/cobblestone/side.jpeg',
         };
 
         for (let i = 0; i < 9; i++) {
-          const slotElement = document.getElementById(`slot-${i}`);
+          const slotElement: HTMLElement | null = document.getElementById(
+            `slot-${i}`,
+          );
           if (slotElement) {
-            const blockType = hotbar.slots[i];
+            const blockType: BlockType | undefined = hotbar.slots[i];
             if (blockType && blockToTexture[blockType]) {
               slotElement.style.backgroundImage = `url(${blockToTexture[blockType]})`;
             } else {
@@ -76,19 +113,19 @@ export const UILive: Layer.Layer<UI> = Layer.succeed(
       newGame: Stream.fromEventListener(
         document.getElementById('newgame')!,
         'click',
-      ).pipe(Stream.asVoid),
+      ).pipe(Stream.as()),
 
-      loadGame: Stream.async<never, File, never>((emit) => {
-        const loadButton = document.getElementById('loadgame')!;
-        const fileInput = document.getElementById(
+      loadGame: Stream.async<never, never, Chunk<File>>((emit) => {
+        const loadButton: HTMLElement = document.getElementById('loadgame')!;
+        const fileInput: HTMLInputElement = document.getElementById(
           'inputFile',
         ) as HTMLInputElement;
 
-        const onButtonClick = () => {
+        const onButtonClick = (): void => {
           fileInput.click();
         };
 
-        const onFileChange = (event: Event) => {
+        const onFileChange = (event: Event): void => {
           const file = (event.target as HTMLInputElement).files?.[0];
           if (file) {
             emit(Effect.succeed(Chunk.of(file)));
@@ -107,43 +144,12 @@ export const UILive: Layer.Layer<UI> = Layer.succeed(
       saveGame: Stream.fromEventListener(
         document.getElementById('titlescreensave')!,
         'click',
-      ).pipe(Stream.asVoid),
+      ).pipe(Stream.as()),
 
       backToGame: Stream.fromEventListener(
         document.getElementById('backtogame')!,
         'click',
-      ).pipe(Stream.asVoid),
+      ).pipe(Stream.as()),
     },
   }),
 );
-
-// --- Title Screen Animation ---
-let currentImageIndex = 0;
-let intervalId: NodeJS.Timeout | null = null;
-
-const startTitleAnimation = (): void => {
-  const images = document.querySelectorAll('.titleScreenImage');
-  if (images.length === 0 || intervalId) return;
-
-  // Ensure first image is active
-  images.forEach((img, index) => {
-    if (index === currentImageIndex) {
-      img.classList.add('active');
-    } else {
-      img.classList.remove('active');
-    }
-  });
-
-  intervalId = setInterval(() => {
-    images[currentImageIndex]?.classList.remove('active');
-    currentImageIndex = (currentImageIndex + 1) % images.length;
-    images[currentImageIndex]?.classList.add('active');
-  }, 5000);
-};
-
-const stopTitleAnimation = (): void => {
-  if (intervalId) {
-    clearInterval(intervalId);
-    intervalId = null;
-  }
-};

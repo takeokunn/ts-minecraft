@@ -1,6 +1,6 @@
-import { Context, type Effect, Stream } from 'effect';
+import { Context, type Effect, Stream, Option } from 'effect';
 import type * as THREE from 'three';
-import type { Hotbar } from '../domain/components';
+import type { Hotbar, Position } from '../domain/components';
 import type { EntityId } from '../domain/entity';
 import { BlockType, Scene } from './game-state';
 import type { WorldState } from './world';
@@ -31,6 +31,7 @@ import type { World } from './world';
 export interface Input {
   readonly poll: () => Effect.Effect<void, never, World>;
   readonly getMouseState: () => Effect.Effect<MouseState>;
+  readonly getKeyboardState: () => Effect.Effect<Set<string>>;
 }
 export const Input: Context.Tag<Input, Input> =
   Context.GenericTag<Input>('@services/Input');
@@ -70,3 +71,29 @@ export interface UI {
   };
 }
 export const UI: Context.Tag<UI, UI> = Context.GenericTag<UI>('@services/UI');
+
+/**
+ * Service for controlling the camera.
+ */
+export interface Camera {
+  readonly moveRight: (delta: number) => Effect.Effect<void>;
+  readonly rotatePitch: (delta: number) => Effect.Effect<void>;
+  readonly getYaw: () => Effect.Effect<number>;
+  readonly getPitch: () => Effect.Effect<number>;
+}
+export const Camera = Context.GenericTag<Camera>('Camera');
+
+export type RaycastResult = {
+  readonly entityId: EntityId;
+  readonly position: Position;
+  readonly face: THREE.Vector3;
+  readonly intersection: unknown; // Opaque type for the renderer
+};
+
+/**
+ * Service for performing raycasts into the scene.
+ */
+export interface RaycastService {
+  readonly cast: () => Effect.Effect<Option.Option<RaycastResult>>;
+}
+export const RaycastService = Context.GenericTag<RaycastService>('RaycastService');
