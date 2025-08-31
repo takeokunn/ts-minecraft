@@ -45,7 +45,11 @@ const MockThreeJsContextLive: Layer.Layer<ThreeJsContext> = Layer.succeed(
   }),
 );
 
-const TestLayer = Layer.mergeAll(WorldLive, MockInputLive, MockThreeJsContextLive);
+const TestLayer = Layer.mergeAll(
+  WorldLive,
+  MockInputLive,
+  MockThreeJsContextLive,
+);
 
 const runTest = <E, A>(
   eff: Effect.Effect<A, E, World | InputService | ThreeJsContext>,

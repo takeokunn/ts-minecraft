@@ -163,7 +163,6 @@ export const GameStateLive: Layer.Layer<GameState> = Layer.sync(
   },
 );
 
-
 export const GameStateLive: Layer.Layer<GameState> = Layer.sync(
   GameState,
   (): GameState => {

@@ -1,9 +1,6 @@
 import { Effect, Layer, Ref } from 'effect';
 import { match } from 'ts-pattern';
-import {
-  type InputState,
-  PlayerSchema,
-} from '../domain/components';
+import { type InputState, PlayerSchema } from '../domain/components';
 import type { GameState } from '../runtime/game-state';
 import { GameState } from '../runtime/game-state';
 import type { Input } from '../runtime/services';
@@ -64,7 +61,9 @@ const makeInput: Effect.Effect<
       .with('KeyS', () =>
         Ref.update(keyStateRef, (s) => ({ ...s, backward: true })),
       )
-      .with('KeyA', () => Ref.update(keyStateRef, (s) => ({ ...s, left: true })))
+      .with('KeyA', () =>
+        Ref.update(keyStateRef, (s) => ({ ...s, left: true })),
+      )
       .with('KeyD', () =>
         Ref.update(keyStateRef, (s) => ({ ...s, right: true })),
       )
@@ -99,7 +98,9 @@ const makeInput: Effect.Effect<
       .with('KeyS', () =>
         Ref.update(keyStateRef, (s) => ({ ...s, backward: false })),
       )
-      .with('KeyA', () => Ref.update(keyStateRef, (s) => ({ ...s, left: false })))
+      .with('KeyA', () =>
+        Ref.update(keyStateRef, (s) => ({ ...s, left: false })),
+      )
       .with('KeyD', () =>
         Ref.update(keyStateRef, (s) => ({ ...s, right: false })),
       )
@@ -192,13 +193,15 @@ const makeInput: Effect.Effect<
   });
 
   // Expose a method to get the mouse state for other systems
-  const getMouseState: Effect.Effect<MouseState, never, never> =
-    Ref.getAndSet(mouseStateRef, {
+  const getMouseState: Effect.Effect<MouseState, never, never> = Ref.getAndSet(
+    mouseStateRef,
+    {
       dx: 0,
       dy: 0,
       leftClick: false,
       rightClick: false,
-    });
+    },
+  );
 
   return Input.of({
     poll: () => poll,

@@ -14,7 +14,9 @@ import type { GameState } from '../runtime/game-state';
 
 // Helper to run tests within the Effect context
 const runTest = <E, A>(eff: Effect.Effect<A, E, World | GameState>): A =>
-  Effect.runSync(eff.pipe(Effect.provide(Layer.merge(WorldLive, GameStateLive))));
+  Effect.runSync(
+    eff.pipe(Effect.provide(Layer.merge(WorldLive, GameStateLive))),
+  );
 
 describe('collisionSystem', () => {
   it('should stop an entity when it collides with a terrain block', () => {

@@ -1,12 +1,4 @@
-import {
-  Effect,
-  Layer,
-  Ref,
-  Schedule,
-  Stream,
-  Exit,
-  Runtime,
-} from 'effect';
+import { Effect, Layer, Ref, Schedule, Stream, Exit, Runtime } from 'effect';
 import {
   CameraStateSchema,
   Hotbar,
@@ -195,11 +187,7 @@ const MainLayer = Layer.mergeAll(
   WorldLive,
   GameStateLive,
   UILive,
-).pipe(
-  Layer.provide(
-    Layer.mergeAll(RendererLive, InputLive),
-  ),
-);
+).pipe(Layer.provide(Layer.mergeAll(RendererLive, InputLive)));
 
 const app = Effect.gen(function* (_) {
   const gameState = yield* _(GameState);
@@ -222,9 +210,7 @@ const app = Effect.gen(function* (_) {
   });
 
   yield* _(handleUIEvents);
-  yield* _(
-    Effect.fork(uiSystem.pipe(Effect.repeat(Schedule.spaced('100ms')))),
-  );
+  yield* _(Effect.fork(uiSystem.pipe(Effect.repeat(Schedule.spaced('100ms')))));
 
   // Main game loop
   yield* _(

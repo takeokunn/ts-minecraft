@@ -16,11 +16,8 @@ import { uiSystem } from './ui';
 /**
  * A one-shot effect to generate the initial world state.
  */
-export const generationSystem: Effect.Effect<
-  void,
-  never,
-  GameState | World
-> = genSystem;
+export const generationSystem: Effect.Effect<void, never, GameState | World> =
+  genSystem;
 
 /**
  * Combines all game systems that run every frame into a single Effect.

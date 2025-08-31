@@ -1,5 +1,3 @@
-
-
 import { Effect } from 'effect';
 import {
   CameraStateSchema,
@@ -9,11 +7,7 @@ import {
 } from '../domain/components';
 import { ThreeJsContext } from '../infrastructure/renderer-three';
 import { Input } from '../runtime/services';
-import {
-  query,
-  updateComponent,
-  type World,
-} from '../runtime/world';
+import { query, updateComponent, type World } from '../runtime/world';
 
 const PLAYER_SPEED = 0.08;
 const SPRINT_MULTIPLIER = 1.6;
@@ -48,18 +42,13 @@ export const playerControlSystem: Effect.Effect<
     camera.rotation.x -= mouseState.dy * 0.002; // Pitch, applied to a child object
     // Clamp pitch
     const pitch = camera.rotation.x;
-    camera.rotation.x = Math.max(
-      -Math.PI / 2,
-      Math.min(Math.PI / 2, pitch),
-    );
+    camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
   }
 
   const yaw = controls.getObject().rotation.y;
 
   // --- Movement ---
-  const speed = input.sprint
-    ? PLAYER_SPEED * SPRINT_MULTIPLIER
-    : PLAYER_SPEED;
+  const speed = input.sprint ? PLAYER_SPEED * SPRINT_MULTIPLIER : PLAYER_SPEED;
 
   let dx = 0;
   let dz = 0;

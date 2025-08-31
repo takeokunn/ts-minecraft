@@ -4,8 +4,6 @@ import { MainLayer } from './main';
 
 // This is the sole entry point of the application.
 // It initializes the UI, which in turn will start the game.
-const main = initializeUI.pipe(
-  Effect.provide(MainLayer),
-);
+const main = initializeUI.pipe(Effect.provide(MainLayer));
 
 Effect.runFork(main);

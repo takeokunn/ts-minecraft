@@ -104,9 +104,7 @@ export const getEntity = (
  * The result of a query for a single entity.
  * Provides a strongly-typed `get` method to retrieve components.
  */
-export type QueryResult<
-  T extends ReadonlyArray<Schema.Schema.Any>,
-> = {
+export type QueryResult<T extends ReadonlyArray<Schema.Schema.Any>> = {
   id: EntityId;
   get: <S extends T[number]>(schema: S) => Schema.Schema.Type<S>;
 };

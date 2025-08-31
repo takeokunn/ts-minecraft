@@ -128,7 +128,9 @@ export const interactionSystem: Effect.Effect<
       .copy(target.point)
       .sub(target.face.normal.multiplyScalar(0.5))
       .round();
-    const newBlockPos = new THREE.Vector3().copy(hitPos).add(target.face.normal);
+    const newBlockPos = new THREE.Vector3()
+      .copy(hitPos)
+      .add(target.face.normal);
 
     const playerPos = playerEntity.get(PositionSchema);
     const playerCol = playerEntity.get(ColliderSchema);

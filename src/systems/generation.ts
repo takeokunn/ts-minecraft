@@ -6,10 +6,7 @@ import {
   type Renderable,
 } from '../domain/components';
 import type { EntityId } from '../domain/entity';
-import {
-  type BlockType,
-  GameState,
-} from '../runtime/game-state';
+import { type BlockType, GameState } from '../runtime/game-state';
 import { createEntity, type World } from '../runtime/world';
 
 export const CHUNK_SIZE = 10;
@@ -71,9 +68,7 @@ export const generateChunk = (
           Math.round((noise.perlin2(xoff, zoff) * amplitude) / 1) * 1;
 
         noise.seed(biome);
-        const currentBiome: Biome = getBiome(
-          noise.perlin2(xoff / 1, zoff / 1),
-        ); // biomeSize = 1
+        const currentBiome: Biome = getBiome(noise.perlin2(xoff / 1, zoff / 1)); // biomeSize = 1
 
         noise.seed(trees);
         const treeNoise: number = noise.perlin2(xoff / 1, zoff / 1); // treeDensity = 1
@@ -217,7 +212,6 @@ export const generateChunk = (
 
     yield* _(Effect.all(creations, { discard: true, concurrency: 'inherit' }));
   });
-
 
 export const generationSystem: Effect.Effect<void, never, GameState | World> =
   Effect.gen(function* (_) {
