@@ -9,6 +9,7 @@
       body {
         margin: 0;
         font-family: sans-serif;
+        overflow: hidden;
       }
       canvas {
         display: block;
@@ -33,34 +34,37 @@
       }
       #cursor {
         position: absolute;
-        width: 3%;
+        width: 3vw;
+        height: 3vw;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
+        image-rendering: pixelated;
       }
       .hotbar {
-        width: 5%;
         position: absolute;
-        top: 85%;
-        border: 1px solid white;
-        opacity: 0.8;
-        background-color: rgba(85, 85, 85, 0.8);
-        box-sizing: border-box;
+        bottom: 2%;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 5px;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 5px;
+        border-radius: 5px;
       }
-      .hotbar.selected {
-        border: 2px solid black;
-        opacity: 1;
+      .slot {
+        width: 50px;
+        height: 50px;
+        background-color: rgba(85, 85, 85, 0.8);
+        border: 2px solid #555;
+        box-sizing: border-box;
+        background-size: cover;
+        image-rendering: pixelated;
+      }
+      .slot.selected {
+        border: 2px solid white;
         transform: scale(1.1);
       }
-      #slot1 { left: calc(50% - 4.5 * 5.5vw); }
-      #slot2 { left: calc(50% - 3.5 * 5.5vw); }
-      #slot3 { left: calc(50% - 2.5 * 5.5vw); }
-      #slot4 { left: calc(50% - 1.5 * 5.5vw); }
-      #slot5 { left: calc(50% - 0.5 * 5.5vw); }
-      #slot6 { left: calc(50% + 0.5 * 5.5vw); }
-      #slot7 { left: calc(50% + 1.5 * 5.5vw); }
-      #slot8 { left: calc(50% + 2.5 * 5.5vw); }
-      #slot9 { left: calc(50% + 3.5 * 5.5vw); }
 
       #gameScreenGUI, #titleScreenGUI, #escapeScreenGUI {
         display: none; /* Initially hidden, controlled by script */
@@ -115,11 +119,6 @@
         width: 50%;
         left: 25%;
         top: 10%;
-        text-align: center;
-        color: white;
-        font-family: "minecraft", sans-serif;
-        font-size: 5vw;
-        text-shadow: 4px 4px #000;
       }
 
       #escapeScreen {
@@ -146,31 +145,23 @@
       .escapeButtons:hover {
         background: rgb(140, 140, 140);
       }
-
-      #stats {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        color: white;
-        font-family: monospace;
-        background: rgba(0,0,0,0.5);
-        padding: 5px;
-      }
     </style>
   </head>
   <body>
     <div id="game-container"></div>
 
     <div id="gameScreenGUI" class="gui">
-      <div class="hotbar" id="slot1"></div>
-      <div class="hotbar" id="slot2"></div>
-      <div class="hotbar" id="slot3"></div>
-      <div class="hotbar" id="slot4"></div>
-      <div class="hotbar" id="slot5"></div>
-      <div class="hotbar" id="slot6"></div>
-      <div class="hotbar" id="slot7"></div>
-      <div class="hotbar" id="slot8"></div>
-      <div class="hotbar" id="slot9"></div>
+      <div class="hotbar">
+        <div class="slot" id="slot-0"></div>
+        <div class="slot" id="slot-1"></div>
+        <div class="slot" id="slot-2"></div>
+        <div class="slot" id="slot-3"></div>
+        <div class="slot" id="slot-4"></div>
+        <div class="slot" id="slot-5"></div>
+        <div class="slot" id="slot-6"></div>
+        <div class="slot" id="slot-7"></div>
+        <div class="slot" id="slot-8"></div>
+      </div>
       <img src="/assets/cursor.png" id="cursor">
     </div>
 
@@ -183,7 +174,7 @@
         <img src="/assets/title/5.jpeg" class="titleScreenImage">
         <img src="/assets/title/6.jpeg" class="titleScreenImage">
       </div>
-      <h1 id="startingLogo">TS Minecraft</h1>
+      <img src="/minecraftlogo.png" id="startingLogo">
       <button id="newgame" class="startingButtons" style="top: 45%;">New Game</button>
       <button id="loadgame" class="startingButtons" style="top: 55%;">Load Game</button>
       <button id="options" class="startingButtons" style="top: 65%;">Options</button>
@@ -197,8 +188,6 @@
       <button id="titlescreensave" class="escapeButtons" style="top: 55%;">Save and Quit to Title</button>
     </div>
 
-    <div id="stats"></div>
-
-    <script type="module" src="/src/index.ts"></script>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

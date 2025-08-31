@@ -14,40 +14,22 @@ import { MaterialManager } from '../infrastructure/material-manager';
 import { ThreeJsContext } from '../infrastructure/renderer-three';
 import type { BlockType } from '../runtime/game-state';
 import { RenderContext } from '../runtime/services';
-import { type QueryResult, query } from '../runtime/world';
+import { type QueryResult, query, type World } from '../runtime/world';
 
 const MAX_INSTANCES = 50000;
 const blockGeometry: THREE.BoxGeometry = new THREE.BoxGeometry();
 
 type InstancedMeshRegistry = Map<BlockType, THREE.InstancedMesh>;
+const InstancedMeshRegistry = Ref.Tag<InstancedMeshRegistry>();
 
-const makeRenderSystem: Effect.Effect<
-  Effect.Effect<
-    void,
-    never,
-    | ThreeJsContext
-    | RenderContext
-    | MaterialManager
-    | Ref.Ref<InstancedMeshRegistry>
-  >,
-  never,
-  ThreeJsContext | RenderContext | MaterialManager
-> = Effect.gen(function* (_: Effect.Adapter) {
-  const {
-    scene,
-  }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera } =
-    yield* _(ThreeJsContext);
+const makeRenderSystem = Effect.gen(function* (_: Effect.Adapter) {
+  const { scene }: { scene: THREE.Scene } = yield* _(ThreeJsContext);
   const renderContext: RenderContext = yield* _(RenderContext);
   const materialManager: MaterialManager = yield* _(MaterialManager);
-  const meshRegistryRef: Ref.Ref<InstancedMeshRegistry> = yield* _(
-    Ref.make<InstancedMeshRegistry>(new Map()),
-  );
+  const meshRegistry: InstancedMeshRegistry = new Map();
 
-  const getOrCreateMesh = (
-    blockType: BlockType,
-    registry: InstancedMeshRegistry,
-  ): THREE.InstancedMesh => {
-    if (!registry.has(blockType)) {
+  const getOrCreateMesh = (blockType: BlockType): THREE.InstancedMesh => {
+    if (!meshRegistry.has(blockType)) {
       const material: THREE.Material | THREE.Material[] =
         materialManager.getMaterial(blockType);
       const mesh: THREE.InstancedMesh = new THREE.InstancedMesh(
@@ -56,16 +38,13 @@ const makeRenderSystem: Effect.Effect<
         MAX_INSTANCES,
       );
       mesh.name = blockType; // Store blockType in mesh name for identification
-      registry.set(blockType, mesh);
+      meshRegistry.set(blockType, mesh);
       scene.add(mesh);
     }
-    return registry.get(blockType)!;
+    return meshRegistry.get(blockType)!;
   };
 
   return Effect.gen(function* (_) {
-    const meshRegistry: InstancedMeshRegistry = yield* _(
-      Ref.get(meshRegistryRef),
-    );
     renderContext.instanceIdToEntityId.clear();
 
     // --- Camera Follow & Rotation Logic ---
@@ -74,11 +53,7 @@ const makeRenderSystem: Effect.Effect<
         [typeof PlayerSchema, typeof PositionSchema, typeof CameraStateSchema]
       >
     > = yield* _(query(PlayerSchema, PositionSchema, CameraStateSchema));
-    const player:
-      | QueryResult<
-          [typeof PlayerSchema, typeof PositionSchema, typeof CameraStateSchema]
-        >
-      | undefined = playerQuery[0];
+    const player = playerQuery[0];
     if (player) {
       const { controls } = yield* _(ThreeJsContext);
       const pos: Position = player.get(PositionSchema);
@@ -86,9 +61,6 @@ const makeRenderSystem: Effect.Effect<
 
       controls.getObject().position.set(pos.x, pos.y + 1.6, pos.z); // Eye level
 
-      // Manually set camera rotation from our state
-      // This overrides PointerLockControls' internal rotation handling,
-      // but allows our ECS state to be the source of truth.
       const camera = controls.getObject();
       camera.rotation.order = 'YXZ';
       camera.rotation.y = camState.yaw;
@@ -110,29 +82,26 @@ const makeRenderSystem: Effect.Effect<
     for (const entity of renderableEntities) {
       const pos: Position = entity.get(PositionSchema);
       const renderable: Renderable = entity.get(RenderableSchema);
+      const blockType = renderable.blockType as BlockType;
 
-      const mesh: THREE.InstancedMesh = getOrCreateMesh(
-        renderable.blockType,
-        meshRegistry,
-      );
-      const count: number = counts.get(renderable.blockType) ?? 0;
+      const mesh: THREE.InstancedMesh = getOrCreateMesh(blockType);
+      const count: number = counts.get(blockType) ?? 0;
 
       if (count < MAX_INSTANCES) {
         matrix.setPosition(pos.x, pos.y, pos.z);
         mesh.setMatrixAt(count, matrix);
 
-        // Populate the render context map
-        if (!renderContext.instanceIdToEntityId.has(renderable.blockType)) {
+        if (!renderContext.instanceIdToEntityId.has(blockType)) {
           renderContext.instanceIdToEntityId.set(
-            renderable.blockType,
+            blockType,
             new Map<number, EntityId>(),
           );
         }
         renderContext.instanceIdToEntityId
-          .get(renderable.blockType)!
+          .get(blockType)!
           .set(count, entity.id);
 
-        counts.set(renderable.blockType, count + 1);
+        counts.set(blockType, count + 1);
       }
     }
 
@@ -147,21 +116,5 @@ const makeRenderSystem: Effect.Effect<
 export const renderSystem: Effect.Effect<
   void,
   never,
-  ThreeJsContext | RenderContext | MaterialManager
-> = Effect.acquireRelease(
-  makeRenderSystem,
-  (
-    _system: Effect.Effect<
-      void,
-      never,
-      | ThreeJsContext
-      | RenderContext
-      | MaterialManager
-      | Ref.Ref<InstancedMeshRegistry>
-    >,
-    _exit: unknown,
-  ) =>
-    Effect.gen(function* (_) {
-      // Cleanup logic if needed
-    }),
-);
+  World | ThreeJsContext | RenderContext | MaterialManager
+> = Effect.flatMap(makeRenderSystem, (system) => system);

@@ -1,10 +1,5 @@
-import { Effect, Layer, Stream } from 'effect';
-import { Hotbar } from '../domain/components';
-import { Scene } from '../runtime/game-state';
-import { UI } from '../runtime/services';
-
 import { Chunk, Effect, Layer, Stream } from 'effect';
-import type { Hotbar } from '../domain/components';
+import type { BlockType, Hotbar } from '../domain/components';
 import type { Scene } from '../runtime/game-state';
 import { UI } from '../runtime/services';
 
@@ -44,11 +39,30 @@ export const UILive: Layer.Layer<UI> = Layer.succeed(
 
     updateHotbar: (hotbar: Hotbar) =>
       Effect.sync(() => {
-        for (let i = 0; i < hotbar.slots.length; i++) {
-          const slotElement = document.getElementById(`slot${i + 1}`);
+        const blockToTexture: Record<BlockType, string> = {
+          grass: '/assets/grass/top.jpeg',
+          dirt: '/assets/dirt/side.jpeg',
+          cobblestone: '/assets/cobblestone/side.jpeg',
+          oakLog: '/assets/oakLog/side.jpeg',
+          oakLeaves: '/assets/oakLeaves/side.jpeg',
+          sand: '/assets/sand/side.jpeg',
+          glass: '/assets/glass/side.jpeg',
+          brick: '/assets/brick/side.jpeg',
+          plank: '/assets/plank/side.jpeg',
+          water: '/assets/water/side.jpeg',
+          stone: '/assets/cobblestone/side.jpeg', // Assuming stone looks like cobblestone for now
+        };
+
+        for (let i = 0; i < 9; i++) {
+          const slotElement = document.getElementById(`slot-${i}`);
           if (slotElement) {
-            // For now, just show the name. Later, we can use images.
-            slotElement.textContent = String(hotbar.slots[i] ?? '');
+            const blockType = hotbar.slots[i];
+            if (blockType && blockToTexture[blockType]) {
+              slotElement.style.backgroundImage = `url(${blockToTexture[blockType]})`;
+            } else {
+              slotElement.style.backgroundImage = 'none';
+            }
+
             if (i === hotbar.selectedSlot) {
               slotElement.classList.add('selected');
             } else {
@@ -102,38 +116,6 @@ export const UILive: Layer.Layer<UI> = Layer.succeed(
     },
   }),
 );
-
-// --- Title Screen Animation ---
-let currentImageIndex = 0;
-let intervalId: NodeJS.Timeout | null = null;
-
-const startTitleAnimation = (): void => {
-  const images = document.querySelectorAll('.titleScreenImage');
-  if (images.length === 0 || intervalId) return;
-
-  // Ensure first image is active
-  images.forEach((img, index) => {
-    if (index === currentImageIndex) {
-      img.classList.add('active');
-    } else {
-      img.classList.remove('active');
-    }
-  });
-
-  intervalId = setInterval(() => {
-    images[currentImageIndex]?.classList.remove('active');
-    currentImageIndex = (currentImageIndex + 1) % images.length;
-    images[currentImageIndex]?.classList.add('active');
-  }, 5000);
-};
-
-const stopTitleAnimation = (): void => {
-  if (intervalId) {
-    clearInterval(intervalId);
-    intervalId = null;
-  }
-};
-
 
 // --- Title Screen Animation ---
 let currentImageIndex = 0;

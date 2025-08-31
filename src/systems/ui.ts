@@ -1,22 +1,24 @@
 import { Effect } from 'effect';
-import { GameState } from '../runtime/game-state';
+import { GameState, type BlockType } from '../runtime/game-state';
 
 /**
  * Runs every frame to update UI elements like the hotbar.
  */
 export const uiSystem: Effect.Effect<void, never, GameState> = Effect.gen(
   function* (_) {
-    const gameState = yield* _(GameState);
+    const gameState: GameState = yield* _(GameState);
     const { selectedSlot, slots } = gameState.hotbar;
 
     for (let i = 0; i < 9; i++) {
-      const slotElement = document.getElementById(`slot${i + 1}`);
+      const slotElement: HTMLElement | null = document.getElementById(
+        `slot${i + 1}`,
+      );
       if (slotElement) {
         // Clear previous content
         slotElement.innerHTML = '';
         slotElement.style.backgroundImage = '';
 
-        const blockType = slots[i];
+        const blockType: BlockType | undefined = slots[i];
         if (blockType) {
           // Display block texture in hotbar.
           // NOTE: This assumes a consistent file structure and naming convention for assets.

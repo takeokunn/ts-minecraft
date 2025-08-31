@@ -6,7 +6,7 @@ import {
   PositionSchema,
   type SaveState,
 } from '../domain/components';
-import { GameState } from './game-state';
+import { GameState, type GameState as GameStateType } from './game-state';
 import { query, type World } from './world';
 
 /**
@@ -14,7 +14,7 @@ import { query, type World } from './world';
  */
 export const saveGame: Effect.Effect<void, never, GameState | World> =
   Effect.gen(function* (_) {
-    const gameState: GameState = yield* _(GameState);
+    const gameState: GameStateType = yield* _(GameState);
 
     const playerQuery = yield* _(
       query(PlayerSchema, PositionSchema, PlayerRotationSchema),
@@ -58,9 +58,12 @@ export const loadGame = (
   loadedData: SaveState,
 ): Effect.Effect<void, never, GameState> =>
   Effect.gen(function* (_) {
-    const gameState: GameState = yield* _(GameState);
+    const gameState: GameStateType = yield* _(GameState);
     gameState.setSeeds(loadedData.seeds);
     gameState.setAmplitude(loadedData.amplitude);
-    gameState.setEditedBlocks(loadedData.editedBlocks);
+    gameState.setEditedBlocks({
+      placed: [...loadedData.editedBlocks.placed],
+      destroyed: [...loaded.editedBlocks.destroyed],
+    });
     // Player position will be handled separately after creation.
   });
