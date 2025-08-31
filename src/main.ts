@@ -106,40 +106,14 @@ import { World, WorldLive } from './runtime/world';
 import { generationSystem } from './systems/generation';
 import { hotbarSlots } from './domain/block';
 
-// --- Game Initialization ---
-const createPlayer = Effect.gen(function* (_) {
-  const world = yield* _(World);
-  yield* _(
-    world.createEntity([
-      new Player({ isGrounded: false }),
-      new Position({ x: 0, y: 80, z: 0 }),
-      new Velocity({ dx: 0, dy: 0, dz: 0 }),
-      new Gravity({ value: 0.01 }),
-      new CameraState({ pitch: 0, yaw: 0 }),
-      new InputState({
-        forward: false,
-        backward: false,
-        left: false,
-        right: false,
-        jump: false,
-        sprint: false,
-        destroy: false,
-        place: false,
-      }),
-      new Collider({ width: 0.6, height: 1.8, depth: 0.6 }),
-      new Hotbar({
-        slots: [...hotbarSlots],
-        selectedSlot: 0,
-      }),
-    ]),
-  );
-});
+import { createPlayer } from './domain/archetypes';
 
+// --- Game Initialization ---
 const initializeGame = Effect.gen(function* (_) {
   // For now, we'll just initialize a new game.
   // The logic for loading a saved game can be re-introduced later.
   yield* _(generationSystem);
-  yield* _(createPlayer);
+  yield* _(createPlayer({ x: 0, y: 80, z: 0 }));
 });
 
 // --- Main Application Layer ---

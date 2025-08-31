@@ -21,7 +21,7 @@
 - [**プレイヤー (Player)**](./features/player.md): プレイヤーの操作、物理挙動に関する仕様をまとめています。
 - [**ワールド (World)**](./features/world.md): ワールドの状態を管理する`World`サービスの仕様について説明しています。
 - **インタラクション**:
-  - [**レイキャスティング (Raycasting)**](./features/raycasting.md): プレイヤーの視線の先のブロックを特定するシステムの仕様です。
+  - [**レイキャスティング (Raycasting)**](./features/update-target.md): プレイヤーの視線の先のブロックを特定するシステムの仕様です。
   - [**ブロックインタラクション (Block Interaction)**](./features/block-interaction.md): ブロックの設置・破壊に関するシステムの仕様です。
 - **レンダリング**:
   - [**カメラ (Camera)**](./features/camera.md): ECSの状態をThree.jsのカメラに同期するシステムの仕様です。

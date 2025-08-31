@@ -1,35 +1,63 @@
-# World Generation System
+# ワールド生成システム (World Generation)
 
-The world generation system is responsible for creating the initial terrain of the game world. It uses procedural generation techniques to create a varied and interesting landscape for the player to explore.
+ワールド生成システムは、プレイヤーが探検するゲーム世界の地形をプロシージャル（手続き的）に生成する責務を担います。ノイズアルゴリズムを利用して、再現可能でありながら無限に広がる、自然で変化に富んだ景観を創造します。
 
-## Core Components
+---
 
-Generated terrain entities are composed of the following components:
+## 責務
 
--   **`Position`**: The `(x, y, z)` coordinates of the block in the world.
--   **`TerrainBlock`**: A tag component that marks the entity as a solid part of the terrain, making it collidable and interactable.
--   **`Renderable`**: A component that defines the block's appearance, including its `blockType` (e.g., `grass`, `dirt`, `stone`).
+`generationSystem` (`src/systems/generation.ts`) の主な責務は、指定されたチャンク座標に対して、構成されるすべてのブロックエンティティを計算し、`World` に配置することです。このシステムは、ゲーム開始時やプレイヤーが新しいエリアに移動した際に `chunkLoadingSystem` によってトリガーされます。
 
-## Core System: `generationSystem`
+---
 
-The entire world generation process is handled by the `generationSystem` (`src/systems/generation.ts`). This system runs once at the beginning of the game when a new world is created.
+## 関連コンポーネント
 
-### How It Works
+生成された地形は、以下のコンポーネントを持つブロックエンティティの集合体です。
 
-The generation process follows these main steps:
+-   **`Position`**: ワールド空間におけるブロックの整数座標 (`x`, `y`, `z`)。
+-   **`Block`**: エンティティがブロックであることを示すコンポーネント。ブロックの種類 (`type`) を保持します（例: `GRASS`, `DIRT`, `STONE`）。
+-   **`Collider`**: エンティティが物理的な当たり判定を持つことを示します。これにより、プレイヤーや他のエンティティが地形を通り抜けるのを防ぎます。
 
-1.  **Configuration**: The system defines constants for the world's dimensions, such as `WORLD_WIDTH`, `WORLD_DEPTH`, and `WORLD_HEIGHT`.
-2.  **Noise Generation**: It initializes a simplex noise generator using a seed. This ensures that the same seed will always produce the identical world, allowing for reproducible landscapes.
-3.  **Iterative Block Placement**: The system iterates through each `(x, z)` coordinate within the world's horizontal boundaries.
-    -   **Height Calculation**: For each `(x, z)` pair, it samples the simplex noise function. The output of the noise function is mapped to a terrain height (`y`). This creates the smooth, rolling hills and valleys of the landscape.
-    -   **Block Type Determination**: Based on the calculated height (`y`), the system determines the type of block to place.
-        -   The top layer is typically `grass`.
-        -   A few layers beneath the grass are `dirt`.
-        -   All layers below the dirt are `stone`.
-    -   **Entity Creation**: The system creates entities in the `World` for each vertical column of blocks, from the bottom of the world up to the calculated height `y`. Each entity is given the appropriate `Position`, `TerrainBlock`, and `Renderable` components.
+---
 
-## Chunking and Performance
+## 生成プロセス
 
-While the current `generationSystem` generates the entire world at once, this approach is not scalable for larger, "infinite" worlds. In a more advanced setup, this logic would be integrated with the **Chunk Loading** system.
+ワールド生成はチャンク単位で行われます。各チャンクは `16x256x16` のブロックの集合です。
 
-Instead of generating everything upfront, the generation logic would be invoked by the `chunk-loading` system whenever a new, unexplored chunk enters the player's vicinity. The noise generator would ensure that adjacent chunks are generated seamlessly, creating the illusion of a continuous, infinite world.
+### 1. ノイズ生成器の初期化
+
+-   **シード値**: ワールド生成は、単一のシード値（ランダムな文字列や数値）に基づいて行われます。
+-   **擬似乱数生成器 (PRNG)**: このシード値から `alea` などのPRNGを初期化します。
+-   **ノイズ関数**: PRNGを使って `simplex-noise` のインスタンスを生成します。
+
+このアプローチにより、**同じシード値からは常に全く同じワールドが生成される**という再現性が保証されます。
+
+### 2. 高さマップの計算
+
+システムは、チャンク内の各 `(x, z)` 座標に対して、地面の高さを決定します。
+
+-   **シンプレックスノイズ**: `noise2D(x, z)` 関数を呼び出して、`x` と `z` 座標に対応するノイズ値を取得します。シンプレックスノイズは、格子状のアーティファクトが少ない、滑らかで自然な値を生成します。
+-   **フラクタルノイズ**: よりリアルな地形を生成するために、異なる周波数と振幅を持つ複数のノイズ関数を足し合わせる「フラクタルノイズ」の手法が用いられます。
+    -   低周波数のノイズが大陸や山脈といった全体的な地形の起伏を決定します。
+    -   高周波数のノイズが表面のざらつきや小さな丘などの細かいディテールを追加します。
+-   **高さへのマッピング**: 最終的なノイズ値は、特定の範囲（例: `64` から `128`）にマッピングされ、その座標の `y` の高さとなります。
+
+### 3. ブロックの配置
+
+計算された高さマップに基づき、チャンク内の各 `(x, z)` 列にブロックを垂直に配置していきます。
+
+1.  **エンティティの生成**: `y = 0` から計算された高さ `y_height` まで、ループ処理でブロックエンティティを `World` に生成します。
+2.  **ブロックタイプの決定**: ブロックの `y` 座標に応じて、その種類を決定します。
+    -   `y == y_height`: 表面は `GRASS` ブロック。
+    -   `y_height - 3 < y < y_height`: 表面直下は `DIRT` ブロック。
+    -   `y <= y_height - 3`: それより下はすべて `STONE` ブロック。
+    -   `y < SEA_LEVEL`: 海水面より低い特定のブロックは `SAND` になる、などのルールも追加できます。
+
+---
+
+## 他のシステムとの連携
+
+-   **`chunkLoadingSystem`**: プレイヤーの周囲を監視し、まだ生成されていない新しいチャンクの範囲に入った場合に `generationSystem` を呼び出します。これにより、無限に広がるワールドの幻想が生まれます。
+-   **`sceneSystem`**: `generationSystem` によって `Block` コンポーネントを持つエンティティが `World` に追加されると、`sceneSystem` はそれを検知し、対応する3Dメッシュをレンダリングシーンに追加します。
+
+この連携により、ワールドの生成と表示が効率的かつ動的に行われます。

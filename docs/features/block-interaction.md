@@ -1,47 +1,40 @@
 # Block Interaction System
 
-The block interaction system allows the player to place and destroy blocks in the world. It connects player input with the world modification logic.
+The block interaction system allows the player to place and destroy blocks in the world. It connects player input with the world modification logic, acting as a bridge between the player's intent and the game state.
 
 ## Core Components
 
-This system primarily interacts with the player entity and the blocks being targeted.
+This system primarily interacts with the player entity, which is expected to have the following components:
 
--   **`Target`**: A component attached to the player entity. It stores information about the block the player is currently looking at, including:
-    -   `id`: The `EntityId` of the targeted block.
-    -   `position`: The coordinates of the targeted block.
-    -   `face`: A vector representing the face of the block that was hit by the raycast (e.g., `[0, 1, 0]` for the top face).
--   **`InputState`**: The player's input component, specifically the `place` and `destroy` (left/right click) flags.
--   **`Hotbar`**: The player's hotbar component, which holds the `slots` of available block types and the `selectedSlot`. This is used to determine which type of block to place.
--   **`TerrainBlock`**: A tag component that identifies an entity as a solid, interactable block in the world.
--   **`Renderable`**: A component on block entities that defines their appearance.
+-   **`Player`**: A tag component identifying the entity as the player.
+-   **`InputState`**: Contains the current state of player inputs, specifically the `place` and `destroy` flags which are checked by this system.
+-   **`Hotbar`**: Holds the inventory slots available to the player, determining which type of block to place based on `slots` and `selectedSlot`.
+-   **`Target`**: Attached to the player by the `updateTargetSystem`. It reliably contains the `entityId` of the targeted block, its position, and the face normal that was hit. The presence of this component indicates the player is looking at a block.
+-   **`Collider`**: The player's collider, used to prevent placing blocks inside the player's own bounding box.
+-   **`Position`**: The player's position, also used for the collision check during block placement.
 
-## Core Systems
+## Core System: `blockInteractionSystem`
 
-The functionality is split between two systems that run in sequence:
-
-1.  **`raycastSystem` (`src/systems/raycast.ts`)**
-    -   **Responsibility**: To determine what block the player is looking at.
-    -   **Process**:
-        1.  It gets the camera's current position and direction from the `Camera` service.
-        2.  It performs a raycast into the scene using the rendering engine's capabilities (abstracted via the `Renderer` service or a similar mechanism).
-        3.  If the ray intersects with a `TerrainBlock`, the system creates a `Target` component containing the block's entity ID and the intersection details.
-        4.  It attaches this `Target` component to the player entity. If no block is targeted, it removes any existing `Target` component.
-
-2.  **`blockInteractionSystem` (`src/systems/block-interaction.ts`)**
-    -   **Responsibility**: To act on the player's input to place or destroy the targeted block.
-    -   **Process**:
-        1.  **Query**: It queries for the player entity that has both an `InputState` and a `Target` component. If no such entity exists (i.e., the player isn't targeting anything), the system does nothing.
-        2.  **Check Input**: It checks the `place` and `destroy` flags in the `InputState`.
-        3.  **Destroy Block**: If the `destroy` action is triggered, it tells the `World` to remove the entity whose ID is stored in the `Target.id`.
-        4.  **Place Block**: If the `place` action is triggered:
-            -   It reads the currently selected `BlockType` from the player's `Hotbar` component.
-            -   It calculates the new block's position by adding the `Target.face` vector to the `Target.position`.
-            -   It tells the `World` to create a new entity with `Position`, `TerrainBlock`, and `Renderable` components at the calculated position.
+-   **Responsibility**: To act on the player's input to place or destroy the targeted block.
+-   **Source**: `src/systems/block-interaction.ts`
+-   **Process**:
+    1.  **Query**: It queries for a single player entity that has all the required components (`InputState`, `Target`, `Hotbar`, etc.). If the player isn't targeting a block (i.e., the `Target` component is absent), the system does nothing for that frame.
+    2.  **Check Input**: It checks the `destroy` and `place` boolean flags in the `InputState` component.
+    3.  **Destroy Block**: If the `destroy` action is triggered:
+        -   It reads the `entityId` of the target block directly from the `Target.id`.
+        -   It instructs the `World` to remove the entity with that ID.
+        -   It notifies the `GameState` service to record the destroyed block's position, ensuring this change can be saved.
+    4.  **Place Block**: If the `place` action is triggered:
+        -   It calculates the new block's position by adding the `Target.face` vector (the normal of the targeted face) to the `Target.position`.
+        -   It performs an AABB collision check to ensure the new block won't be placed inside the player's own `Collider`.
+        -   It reads the currently selected `BlockType` from the player's `Hotbar`.
+        -   It calls the **`createBlock` archetype** (from `domain/archetypes.ts`) to create the new block entity with all necessary components (`Position`, `Block`, `Collider`).
+        -   It notifies the `GameState` service to record the newly placed block's position and type for save purposes.
 
 ## Execution Order
 
-The execution order is critical for responsiveness:
+The system scheduler ensures the following execution order:
 
-`raycastSystem` -> `blockInteractionSystem`
+`updateTargetSystem` -> **`blockInteractionSystem`**
 
-This ensures that on the same frame a player looks at a block, the `Target` component is updated, and any subsequent interaction logic can immediately act upon that fresh target information. Both systems run after the player's position and camera have been updated for the frame.
+This order is crucial. The `updateTargetSystem` first determines what the player is looking at and attaches or updates the `Target` component. Then, in the same frame, the `blockInteractionSystem` can immediately act upon that fresh and reliable target information.

@@ -38,7 +38,9 @@ const makeSceneSystem = Effect.gen(function* (_) {
   return Effect.gen(function* (_) {
     renderContext.instanceIdToEntityId.clear();
 
-    const renderableEntities = yield* _(world.query(Position, Renderable));
+    const { entities, positions, renderables } = yield* _(
+      world.querySoA(Position, Renderable),
+    );
     const counts = new Map<BlockType, number>();
     const matrix = new THREE.Matrix4();
 
@@ -46,7 +48,17 @@ const makeSceneSystem = Effect.gen(function* (_) {
       mesh.count = 0;
     }
 
-    for (const [id, [pos, renderable]] of renderableEntities) {
+    for (let i = 0; i < entities.length; i++) {
+      const id = entities[i];
+      const pos = {
+        x: positions.x[i] as number,
+        y: positions.y[i] as number,
+        z: positions.z[i] as number,
+      };
+      const renderable = {
+        blockType: renderables.blockType[i] as BlockType,
+      };
+
       const blockType = renderable.blockType;
       const mesh = getOrCreateMesh(blockType);
       const count = counts.get(blockType) ?? 0;

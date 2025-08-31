@@ -1,12 +1,12 @@
-import { Effect } from 'effect';
+import { Effect } from "effect";
 import {
   Collider,
   Player,
   Position,
   TerrainBlock,
   Velocity,
-} from '../domain/components';
-import { World } from '../runtime/world';
+} from "../domain/components";
+import { World } from "../runtime/world";
 
 // Axis-Aligned Bounding Box (AABB) intersection test.
 const aabbIntersect = (
@@ -36,17 +36,44 @@ const aabbIntersect = (
 export const collisionSystem: Effect.Effect<void, never, World> = Effect.gen(
   function* (_) {
     const world = yield* _(World);
-    const playerOption = yield* _(
-      world.querySingle(Position, Velocity, Collider, Player),
-    );
+    const {
+      entities: playerEntities,
+      positions: playerPositions,
+      velocitys: playerVelocitys,
+      colliders: playerColliders,
+      players,
+    } = yield* _(world.querySoA(Position, Velocity, Collider, Player));
 
-    if (Option.isNone(playerOption)) {
+    if (playerEntities.length === 0) {
       return;
     }
 
-    const [id, [pos, vel, col, player]] = playerOption.value;
+    const id = playerEntities[0];
+    const pos = {
+      x: playerPositions.x[0] as number,
+      y: playerPositions.y[0] as number,
+      z: playerPositions.z[0] as number,
+    };
+    const vel = {
+      dx: playerVelocitys.dx[0] as number,
+      dy: playerVelocitys.dy[0] as number,
+      dz: playerVelocitys.dz[0] as number,
+    };
+    const col = {
+      width: playerColliders.width[0] as number,
+      height: playerColliders.height[0] as number,
+      depth: playerColliders.depth[0] as number,
+    };
+    const player = {
+      isGrounded: players.isGrounded[0] as boolean,
+    };
 
-    const terrainBlocks = yield* _(world.query(Position, TerrainBlock));
+    const {
+      entities: blockEntities,
+      positions: blockPositions,
+      terrainBlocks,
+    } = yield* _(world.querySoA(Position, TerrainBlock));
+
     const blockCollider = new Collider({
       width: 1,
       height: 1,
@@ -58,20 +85,24 @@ export const collisionSystem: Effect.Effect<void, never, World> = Effect.gen(
     let isGrounded = false;
 
     // --- Broad phase: Get nearby blocks ---
-    const nearbyBlocks: [Position, TerrainBlock][] = [];
-    for (const [_id, components] of terrainBlocks) {
-      const blockPos = components[0];
+    const nearbyBlocks: { x: number; y: number; z: number }[] = [];
+    for (let i = 0; i < blockEntities.length; i++) {
+      const blockPos = {
+        x: blockPositions.x[i] as number,
+        y: blockPositions.y[i] as number,
+        z: blockPositions.z[i] as number,
+      };
       const dx = Math.abs(pos.x - blockPos.x);
       const dy = Math.abs(pos.y - blockPos.y);
       const dz = Math.abs(pos.z - blockPos.z);
       if (dx < 4 && dy < 4 && dz < 4) {
-        nearbyBlocks.push(components);
+        nearbyBlocks.push(blockPos);
       }
     }
 
     // --- Y-axis collision ---
     newPos.y += newVel.dy;
-    for (const [blockPos] of nearbyBlocks) {
+    for (const blockPos of nearbyBlocks) {
       if (
         aabbIntersect(
           newPos.x - col.width / 2,
@@ -103,7 +134,7 @@ export const collisionSystem: Effect.Effect<void, never, World> = Effect.gen(
 
     // --- X-axis collision ---
     newPos.x += newVel.dx;
-    for (const [blockPos] of nearbyBlocks) {
+    for (const blockPos of nearbyBlocks) {
       if (
         aabbIntersect(
           newPos.x - col.width / 2,
@@ -134,7 +165,7 @@ export const collisionSystem: Effect.Effect<void, never, World> = Effect.gen(
 
     // --- Z-axis collision ---
     newPos.z += newVel.dz;
-    for (const [blockPos] of nearbyBlocks) {
+    for (const blockPos of nearbyBlocks) {
       if (
         aabbIntersect(
           newPos.x - col.width / 2,
@@ -166,7 +197,7 @@ export const collisionSystem: Effect.Effect<void, never, World> = Effect.gen(
     yield* _(world.updateComponent(id, new Position(newPos)));
     yield* _(world.updateComponent(id, new Velocity(newVel)));
     yield* _(
-      world.updateComponent(id, new Player({ ...player, isGrounded })),
+      world.updateComponent(id, new Player({ isGrounded })),
     );
   },
-).pipe(Effect.withSpan('collisionSystem'));
+).pipe(Effect.withSpan("collisionSystem"));

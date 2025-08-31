@@ -39,7 +39,7 @@ type ComponentClass<T extends ComponentAny = ComponentAny> = new (
 
 type QueryDescription = {
   all?: ComponentClass[];
-  not?: ComponentClass[];
+  not?: Component_Class[];
 };
 
 type ComponentsOf<T extends ComponentClass[]> = {
@@ -55,6 +55,20 @@ export type QueryResultSingle<T extends ComponentClass[]> = readonly [
   EntityId,
   ComponentsOf<T>,
 ];
+
+// --- SoA Query Types ---
+
+type ComponentSoA<T extends ComponentAny> = Readonly<
+  Record<keyof Omit<T, keyof Component<any>>, readonly unknown[]>
+>;
+
+export type QueryResultSoA<T extends ComponentClass[]> = {
+  readonly entities: readonly EntityId[];
+} & {
+  readonly [K in InstanceType<
+    T[number]
+  > as `${Uncapitalize<K["_tag"]>}s`]: ComponentSoA<K>;
+};
 
 // --- Archetype ---
 
@@ -96,6 +110,9 @@ export interface World {
   readonly query: <T extends ComponentClass[]>(
     ...query: T | [QueryDescription]
   ) => Effect.Effect<QueryResult<T>>;
+  readonly querySoA: <T extends ComponentClass[]>(
+    ...query: T | [QueryDescription]
+  ) => Effect.Effect<QueryResultSoA<T>>;
   readonly querySingle: <T extends ComponentClass[]>(
     ...query: T | [QueryDescription]
   ) => Effect.Effect<Option.Option<QueryResultSingle<T>>>;
@@ -423,6 +440,78 @@ export const WorldLive: Layer.Layer<World> = Layer.sync(World, () => {
         }
 
         return results as QueryResult<T>;
+      }),
+
+    querySoA: <T extends ComponentClass[]>(
+      ...query: T | [QueryDescription]
+    ) =>
+      Effect.gen(function* (_) {
+        const desc: QueryDescription =
+          typeof query[0] === "function"
+            ? { all: query as T }
+            : (query[0] as QueryDescription);
+
+        const allComponents = desc.all ?? [];
+        if (allComponents.length === 0) {
+          const emptyResult: any = { entities: [] };
+          for (const c of allComponents) {
+            const tag = c.getTag();
+            const propName = `${tag.charAt(0).toLowerCase()}${tag.slice(1)}s`;
+            emptyResult[propName] = {};
+          }
+          return emptyResult as QueryResultSoA<T>;
+        }
+
+        const worldState = yield* _(Ref.get(state));
+        const allTags = new Set(allComponents.map((c) => c.getTag()));
+        const notTags = new Set((desc.not ?? []).map((c) => c.getTag()));
+
+        let matchedEntities: EntityId[] = [];
+        const matchedSoAs: { [tag: string]: { [key: string]: any[] } } = {};
+        for (const tag of allTags) {
+          matchedSoAs[tag] = {};
+          const componentClass = (globalThis as any).componentRegistry[tag];
+          const schema = getComponentClassSchema(componentClass).pipe(
+            Option.getOrThrow,
+          );
+          for (const key of Object.keys(schema)) {
+            matchedSoAs[tag][key] = [];
+          }
+        }
+
+        for (const archetype of worldState.archetypes.values()) {
+          const hasAll = Array.from(allTags).every((tag) =>
+            archetype.tags.has(tag),
+          );
+          const hasNone =
+            Array.from(notTags).every((tag) => !archetype.tags.has(tag)) ||
+            notTags.size === 0;
+
+          if (hasAll && hasNone) {
+            matchedEntities = matchedEntities.concat(archetype.entities);
+            for (const tag of allTags) {
+              const soa = HashMap.unsafeGet(worldState.components, tag);
+              const componentClass = (globalThis as any).componentRegistry[
+                tag
+              ];
+              const schema =
+                getComponentClassSchema(componentClass).pipe(
+                  Option.getOrThrow,
+                );
+              for (const key of Object.keys(schema)) {
+                matchedSoAs[tag][key] = matchedSoAs[tag][key].concat(soa[key]);
+              }
+            }
+          }
+        }
+
+        const result: any = { entities: matchedEntities };
+        for (const tag of allTags) {
+          const propName = `${tag.charAt(0).toLowerCase()}${tag.slice(1)}s`;
+          result[propName] = matchedSoAs[tag];
+        }
+
+        return result as QueryResultSoA<T>;
       }),
 
     querySingle: <T extends ComponentClass[]>(

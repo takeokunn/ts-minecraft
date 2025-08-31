@@ -1,18 +1,16 @@
 import { Effect, Option } from "effect";
 import * as THREE from "three";
+import { createBlock } from "@/domain/archetypes";
 import {
   Collider,
+  Hotbar,
   InputState,
   Player,
   Position,
-  Renderable,
   Target,
-  TerrainBlock,
 } from "@/domain/components";
 import { GameState } from "@/runtime/game-state";
-import { Input, RenderContext } from "@/runtime/services";
 import { World } from "@/runtime/world";
-import type { BlockType } from "@/domain/block";
 
 // AABB check for player collision
 const checkPlayerCollision = (
@@ -46,12 +44,10 @@ const checkPlayerCollision = (
 
 export const blockInteractionSystem = Effect.gen(function* (_) {
   const world = yield* _(World);
-  const input = yield* _(Input);
   const gameState = yield* _(GameState);
-  const renderContext = yield* _(RenderContext);
 
   const playerOption = yield* _(
-    world.querySingle(Player, InputState, Position, Collider, Target),
+    world.querySingle(Player, InputState, Position, Collider, Target, Hotbar),
   );
 
   if (Option.isNone(playerOption)) {
@@ -60,46 +56,23 @@ export const blockInteractionSystem = Effect.gen(function* (_) {
 
   const [
     id,
-    [_player, keyState, playerPos, playerCol, target],
+    [_player, input, playerPos, playerCol, target, hotbar],
   ] = playerOption.value;
 
-  const mouseState = yield* _(input.getMouseState());
-
-  if (
-    !mouseState.leftClick &&
-    !mouseState.rightClick &&
-    !keyState.place
-  ) {
-    return;
-  }
-
   // Block Destruction
-  if (mouseState.leftClick) {
-    // This is a simplified version. A robust solution would require
-    // finding the entityId from the raycast result.
-    // We'll approximate by finding an entity at the target position.
-    const entitiesAtTarget = yield* _(world.query(Position, TerrainBlock));
-    for (const [entityId, [pos]] of entitiesAtTarget) {
-      if (
-        pos.x === target.position.x &&
-        pos.y === target.position.y &&
-        pos.z === target.position.z
-      ) {
-        yield* _(
-          gameState.addDestroyedBlock({
-            x: pos.x,
-            y: pos.y,
-            z: pos.z,
-          }),
-        );
-        yield* _(world.removeEntity(entityId));
-        break; // Assume one block per position
-      }
-    }
+  if (input.destroy) {
+    yield* _(
+      gameState.addDestroyedBlock({
+        x: target.position.x,
+        y: target.position.y,
+        z: target.position.z,
+      }),
+    );
+    yield* _(world.removeEntity(target.id));
   }
 
   // Block Placement
-  if (mouseState.rightClick || keyState.place) {
+  if (input.place) {
     const newBlockPos = new THREE.Vector3(
       target.position.x + target.face[0],
       target.position.y + target.face[1],
@@ -110,23 +83,17 @@ export const blockInteractionSystem = Effect.gen(function* (_) {
       return;
     }
 
-    const currentGameState = yield* _(gameState.get);
-    const selectedBlockType =
-      currentGameState.hotbar.slots[currentGameState.hotbar.selectedSlot];
+    const selectedBlockType = hotbar.slots[hotbar.selectedSlot];
 
     if (selectedBlockType) {
       yield* _(
-        world.createEntity(
-          new TerrainBlock(),
-          new Position({
+        createBlock(
+          {
             x: newBlockPos.x,
             y: newBlockPos.y,
             z: newBlockPos.z,
-          }),
-          new Renderable({
-            geometry: "box",
-            blockType: selectedBlockType,
-          }),
+          },
+          selectedBlockType,
         ),
       );
       yield* _(
@@ -138,8 +105,6 @@ export const blockInteractionSystem = Effect.gen(function* (_) {
         }),
       );
     }
-    if (keyState.place) {
-      yield* _(world.updateComponent(id, { ...keyState, place: false }));
-    }
   }
 });
+

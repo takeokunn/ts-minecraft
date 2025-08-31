@@ -1,4 +1,4 @@
-import { Effect, Option } from "effect";
+import { Effect } from "effect";
 import {
   CameraState,
   InputState,
@@ -16,20 +16,35 @@ const MIN_VELOCITY = 0.001;
 export const playerMovementSystem: Effect.Effect<void, never, World> = Effect.gen(
   function* (_) {
     const world = yield* _(World);
-    const playerOption = yield* _(
-      world.querySingle(Player, InputState, Velocity, CameraState),
-    );
-    if (Option.isNone(playerOption)) {
+    const { entities, players, inputStates, velocitys, cameraStates } =
+      yield* _(world.querySoA(Player, InputState, Velocity, CameraState));
+
+    if (entities.length === 0) {
       return;
     }
 
-    const [id, components] = playerOption.value;
-    const {
-      Player: player,
-      InputState: input,
-      Velocity: velocity,
-      CameraState: camera,
-    } = components;
+    const id = entities[0];
+    const player = {
+      isGrounded: players.isGrounded[0] as boolean,
+    };
+    const input = {
+      forward: inputStates.forward[0] as boolean,
+      backward: inputStates.backward[0] as boolean,
+      left: inputStates.left[0] as boolean,
+      right: inputStates.right[0] as boolean,
+      jump: inputStates.jump[0] as boolean,
+      sprint: inputStates.sprint[0] as boolean,
+      place: inputStates.place[0] as boolean,
+    };
+    const velocity = {
+      dx: velocitys.dx[0] as number,
+      dy: velocitys.dy[0] as number,
+      dz: velocitys.dz[0] as number,
+    };
+    const camera = {
+      pitch: cameraStates.pitch[0] as number,
+      yaw: cameraStates.yaw[0] as number,
+    };
 
     const speed = input.sprint
       ? PLAYER_SPEED * SPRINT_MULTIPLIER
@@ -87,7 +102,6 @@ export const playerMovementSystem: Effect.Effect<void, never, World> = Effect.ge
       world.updateComponent(
         id,
         new Player({
-          ...player,
           isGrounded: newIsGrounded,
         }),
       ),

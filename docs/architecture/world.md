@@ -38,39 +38,78 @@
 
 ## 2. クエリAPI
 
-`World`からエンティティとコンポーネントを取得するためのAPIは、シンプルかつ表現力豊かになるように設計されています。
+`World`からエンティティとコンポーネントを取得するためのAPIは、柔軟性とパフォーマンスのバランスを考慮して設計されています。
 
-### 基本的なクエリ
+### `query`: 柔軟なオブジェクトベースのクエリ
 
-1つ以上のコンポーネントクラスを引数として渡すことで、それらすべてのコンポーネントを持つエンティティを検索します。
+`query` APIは、結果を `Map<EntityId, Components>` 形式で返します。各エンティティIDに対して、要求されたコンポーネントのインスタンスがマッピングされます。
+
+-   **長所**:
+    -   返されたコンポーネントはクラスインスタンスであるため、メソッド（もしあれば）を呼び出すことができます。
+    -   特定のエンティティの複数コンポーネントをまとめて扱うのが直感的で容易です。
+-   **短所**:
+    -   クエリを実行するたびに、条件に一致したすべてのエンティティとコンポーネントに対して**新しいオブジェクトが生成されます**。
+    -   これにより、特にエンティティ数が多い場合、ガベージコレクション（GC）の負荷が増大し、パフォーマンスの低下を引き起こす可能性があります。
 
 ```typescript
 // Position と Velocity の両方を持つエンティティを取得
-const queryResult = yield* world.query(Position, Velocity)
+const queryResult = yield* world.query(Position, Velocity);
 
 for (const [id, components] of queryResult.entries()) {
-  const pos = components.Position
-  const vel = components.Velocity
+  // components.Position と components.Velocity は新しいインスタンス
+  const pos = components.Position;
+  const vel = components.Velocity;
   // ...
 }
 ```
 
+### `querySoA`: パフォーマンス最優先のSoAクエリ
+
+`querySoA` APIは、パフォーマンスを最大化するために設計されており、SoAアーキテクチャの利点を直接システムに提供します。
+
+-   **長所**:
+    -   **オブジェクトを一切生成しません**。代わりに、内部ストレージのデータ配列（またはそのビュー）を直接返します。
+    -   データがメモリ上で連続しているため、CPUキャッシュのヒット率が劇的に向上し、ループ処理が非常に高速になります。
+    -   GCの負荷を最小限に抑え、フレームレートの安定に貢献します。
+-   **短所**:
+    -   データがプロパティごとの配列になっているため、扱うのが `query` よりも少し複雑になる場合があります。
+
+```typescript
+// Position と Velocity を持つエンティティのSoAデータを取得
+const { entities, positions, velocitys } = yield* _(
+  world.querySoA(Position, Velocity),
+);
+
+for (let i = 0; i < entities.length; i++) {
+  const entityId = entities[i];
+  // positions.x[i], positions.y[i], positions.z[i] のように直接データにアクセス
+  const posX = positions.x[i];
+  const velY = velocitys.dy[i];
+  // ...
+}
+```
+
+### APIの使い分け
+
+プロジェクトの規約として、以下のようにAPIを使い分けます。
+
+-   **`querySoA`**: `physics`, `collision`, `scene` など、毎フレーム多数のエンティティを処理する**パフォーマンスが重要なシステム**で**必ず使用します**。
+-   **`query`**: デバッグや、エディタ機能、UIの更新など、エンティティ数が少なく、パフォーマンス要件が厳しくない特定のケースでのみ使用が許可されます。
+
 ### 発展的なクエリ
 
-より複雑な条件を指定するために、クエリオブジェクトを渡すこともできます。
+どちらのAPIも、より複雑な条件を指定するためにクエリオブジェクトを渡すことができます。
 
 -   `all`: 指定したすべてのコンポーネントを持つエンティティを検索します。
 -   `not`: 指定したコンポーネントを**持たない**エンティティを検索します。
 
 ```typescript
 // Playerコンポーネントを持つが、Frozenコンポーネントは持たないエンティティを取得
-const queryResult = yield* world.query({
+const queryResult = yield* world.querySoA({
   all: [Player, Position],
   not: [Frozen],
-})
+});
 ```
-
-この柔軟なAPIにより、各システムは必要とするデータを効率的かつ正確に取得できます。
 
 ## 3. ライフサイクルと状態変更
 
