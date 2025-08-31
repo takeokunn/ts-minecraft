@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TS Minecraft</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: sans-serif;
+      }
+      canvas {
+        display: block;
+      }
+      #game-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .gui {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none; /* Allow clicks to pass through to the canvas */
+      }
+      .gui > * {
+        pointer-events: auto; /* Re-enable pointer events for UI elements */
+      }
+      #cursor {
+        position: absolute;
+        width: 3%;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+      .hotbar {
+        width: 5%;
+        position: absolute;
+        top: 85%;
+        border: 1px solid white;
+        opacity: 0.8;
+        background-color: rgba(85, 85, 85, 0.8);
+        box-sizing: border-box;
+      }
+      .hotbar.selected {
+        border: 2px solid black;
+        opacity: 1;
+        transform: scale(1.1);
+      }
+      #slot1 { left: calc(50% - 4.5 * 5.5vw); }
+      #slot2 { left: calc(50% - 3.5 * 5.5vw); }
+      #slot3 { left: calc(50% - 2.5 * 5.5vw); }
+      #slot4 { left: calc(50% - 1.5 * 5.5vw); }
+      #slot5 { left: calc(50% - 0.5 * 5.5vw); }
+      #slot6 { left: calc(50% + 0.5 * 5.5vw); }
+      #slot7 { left: calc(50% + 1.5 * 5.5vw); }
+      #slot8 { left: calc(50% + 2.5 * 5.5vw); }
+      #slot9 { left: calc(50% + 3.5 * 5.5vw); }
+
+      #gameScreenGUI, #titleScreenGUI, #escapeScreenGUI {
+        display: none; /* Initially hidden, controlled by script */
+      }
+
+      .titleScreenBackground {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        z-index: -1;
+      }
+      .titleScreenImage {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity 1.5s ease-in-out;
+      }
+      .titleScreenImage.active {
+        opacity: 1;
+      }
+
+      @font-face {
+        font-family: 'minecraft';
+        src: url('/minecraftfont.woff');
+      }
+
+      .startingButtons {
+        position: absolute;
+        width: 20%;
+        height: 8%;
+        left: 40%;
+        border-radius: 10px;
+        background: rgb(120, 120, 120);
+        border: 2px solid #333;
+        font-size: 1.5vw;
+        font-family: "minecraft", sans-serif;
+        color: white;
+        text-shadow: 2px 2px #000;
+        cursor: pointer;
+      }
+      .startingButtons:hover {
+        background: rgb(140, 140, 140);
+      }
+
+      #startingLogo {
+        position: absolute;
+        width: 50%;
+        left: 25%;
+        top: 10%;
+        text-align: center;
+        color: white;
+        font-family: "minecraft", sans-serif;
+        font-size: 5vw;
+        text-shadow: 4px 4px #000;
+      }
+
+      #escapeScreen {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+      }
+
+      .escapeButtons {
+        position: absolute;
+        width: 20%;
+        height: 8%;
+        left: 40%;
+        border-radius: 10px;
+        background: rgb(120, 120, 120);
+        border: 2px solid #333;
+        font-size: 1.5vw;
+        font-family: "minecraft", sans-serif;
+        color: white;
+        text-shadow: 2px 2px #000;
+        cursor: pointer;
+      }
+      .escapeButtons:hover {
+        background: rgb(140, 140, 140);
+      }
+
+      #stats {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        color: white;
+        font-family: monospace;
+        background: rgba(0,0,0,0.5);
+        padding: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container"></div>
+
+    <div id="gameScreenGUI" class="gui">
+      <div class="hotbar" id="slot1"></div>
+      <div class="hotbar" id="slot2"></div>
+      <div class="hotbar" id="slot3"></div>
+      <div class="hotbar" id="slot4"></div>
+      <div class="hotbar" id="slot5"></div>
+      <div class="hotbar" id="slot6"></div>
+      <div class="hotbar" id="slot7"></div>
+      <div class="hotbar" id="slot8"></div>
+      <div class="hotbar" id="slot9"></div>
+      <img src="/assets/cursor.png" id="cursor">
+    </div>
+
+    <div id="titleScreenGUI" class="gui">
+      <div class="titleScreenBackground">
+        <img src="/assets/title/1.jpeg" class="titleScreenImage active">
+        <img src="/assets/title/2.jpeg" class="titleScreenImage">
+        <img src="/assets/title/3.jpeg" class="titleScreenImage">
+        <img src="/assets/title/4.jpeg" class="titleScreenImage">
+        <img src="/assets/title/5.jpeg" class="titleScreenImage">
+        <img src="/assets/title/6.jpeg" class="titleScreenImage">
+      </div>
+      <h1 id="startingLogo">TS Minecraft</h1>
+      <button id="newgame" class="startingButtons" style="top: 45%;">New Game</button>
+      <button id="loadgame" class="startingButtons" style="top: 55%;">Load Game</button>
+      <button id="options" class="startingButtons" style="top: 65%;">Options</button>
+      <input type="file" id="inputFile" accept=".json" style="display: none;">
+    </div>
+
+    <div id="escapeScreenGUI" class="gui">
+      <div id="escapeScreen"></div>
+      <button id="backtogame" class="escapeButtons" style="top: 35%;">Back to Game</button>
+      <button id="options2" class="escapeButtons" style="top: 45%;">Options</button>
+      <button id="titlescreensave" class="escapeButtons" style="top: 55%;">Save and Quit to Title</button>
+    </div>
+
+    <div id="stats"></div>
+
+    <script type="module" src="/src/index.ts"></script>
+  </body>
+</html>
