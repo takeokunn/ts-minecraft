@@ -1,18 +1,19 @@
 import { Effect, Layer, Option } from "effect";
 import * as THREE from "three";
 import { Position } from "../domain/components";
-import { RenderContext, RaycastService, RaycastResult } from "../runtime/services";
+import { Renderer, RaycastService, RaycastResult } from "../runtime/services";
 import { ThreeJsContext } from "./renderer-three";
 
 const REACH = 8;
 
 const make = Effect.gen(function* (_) {
-  const { camera, scene } = yield* _(ThreeJsContext);
-  const renderContext = yield* _(RenderContext);
+  const { camera } = yield* _(ThreeJsContext);
+  const renderer = yield* _(Renderer);
   const raycaster = new THREE.Raycaster();
 
   const cast = () =>
-    Effect.sync(() => {
+    Effect.gen(function* (_) {
+      const { scene, instanceIdToEntityId } = yield* _(renderer.getRaycastables());
       raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
       const intersects = raycaster.intersectObjects(scene.children, true);
 
@@ -25,7 +26,7 @@ const make = Effect.gen(function* (_) {
         ) {
           const blockType = obj.name;
           const instanceId = intersection.instanceId;
-          const entityIdMap = renderContext.instanceIdToEntityId.get(blockType as any);
+          const entityIdMap = instanceIdToEntityId.get(blockType as any);
 
           if (entityIdMap && entityIdMap.has(instanceId)) {
             const entityId = entityIdMap.get(instanceId)!;
@@ -37,7 +38,11 @@ const make = Effect.gen(function* (_) {
             const result: RaycastResult = {
               entityId,
               position: new Position(hitPos),
-              face: intersection.face!.normal,
+              face: {
+                x: intersection.face!.normal.x,
+                y: intersection.face!.normal.y,
+                z: intersection.face!.normal.z,
+              },
               intersection,
             };
             return Option.some(result);

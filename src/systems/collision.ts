@@ -1,203 +1,147 @@
 import { Effect } from "effect";
+import { Collider, Player, Position, Velocity } from "../domain/components";
+import { playerColliderQuery } from "../domain/queries";
 import {
-  Collider,
-  Player,
-  Position,
-  TerrainBlock,
-  Velocity,
-} from "../domain/components";
-import { World } from "../runtime/world";
+  World,
+  getComponentStore,
+  queryEntities,
+} from "../runtime/world";
+import { AABB, SpatialGrid } from "@/runtime/services";
+import { EntityId } from "@/domain/entity";
 
 // Axis-Aligned Bounding Box (AABB) intersection test.
-const aabbIntersect = (
-  minAx: number,
-  minAy: number,
-  minAz: number,
-  maxAx: number,
-  maxAy: number,
-  maxAz: number,
-  minBx: number,
-  minBy: number,
-  minBz: number,
-  maxBx: number,
-  maxBy: number,
-  maxBz: number,
-): boolean => {
+const aabbIntersect = (a: AABB, b: AABB): boolean => {
   return (
-    minAx <= maxBx &&
-    maxAx >= minBx &&
-    minAy <= maxBy &&
-    maxAy >= minBy &&
-    minAz <= maxBz &&
-    maxAz >= minBz
+    a.minX <= b.maxX &&
+    a.maxX >= b.minX &&
+    a.minY <= b.maxY &&
+    a.maxY >= b.minY &&
+    a.minZ <= b.maxZ &&
+    a.maxZ >= b.minZ
   );
 };
 
-export const collisionSystem: Effect.Effect<void, never, World> = Effect.gen(
-  function* (_) {
-    const world = yield* _(World);
-    const {
-      entities: playerEntities,
-      positions: playerPositions,
-      velocitys: playerVelocitys,
-      colliders: playerColliders,
-      players,
-    } = yield* _(world.querySoA(Position, Velocity, Collider, Player));
+export const collisionSystem: Effect.Effect<
+  void,
+  never,
+  World | SpatialGrid
+> = Effect.gen(function* (_) {
+  const spatialGrid = yield* _(SpatialGrid);
 
-    if (playerEntities.length === 0) {
-      return;
-    }
+  const players = yield* _(queryEntities(playerColliderQuery));
+  if (players.length === 0) {
+    return;
+  }
+  const id = players[0];
 
-    const id = playerEntities[0];
-    const pos = {
-      x: playerPositions.x[0] as number,
-      y: playerPositions.y[0] as number,
-      z: playerPositions.z[0] as number,
-    };
-    const vel = {
-      dx: playerVelocitys.dx[0] as number,
-      dy: playerVelocitys.dy[0] as number,
-      dz: playerVelocitys.dz[0] as number,
-    };
-    const col = {
-      width: playerColliders.width[0] as number,
-      height: playerColliders.height[0] as number,
-      depth: playerColliders.depth[0] as number,
-    };
-    const player = {
-      isGrounded: players.isGrounded[0] as boolean,
-    };
+  const positions = yield* _(getComponentStore(Position));
+  const velocities = yield* _(getComponentStore(Velocity));
+  const colliders = yield* _(getComponentStore(Collider));
+  const playerStates = yield* _(getComponentStore(Player));
 
-    const {
-      entities: blockEntities,
-      positions: blockPositions,
-      terrainBlocks,
-    } = yield* _(world.querySoA(Position, TerrainBlock));
+  const posX = positions.x[id];
+  const posY = positions.y[id];
+  const posZ = positions.z[id];
+  const colWidth = colliders.width[id];
+  const colHeight = colliders.height[id];
+  const colDepth = colliders.depth[id];
 
-    const blockCollider = new Collider({
-      width: 1,
-      height: 1,
-      depth: 1,
+  // --- 1. Broad phase: Get nearby entities from the spatial grid ---
+  const queryAABB: AABB = {
+    minX: posX - colWidth / 2 - 2,
+    maxX: posX + colWidth / 2 + 2,
+    minY: posY - 2,
+    maxY: posY + colHeight + 2,
+    minZ: posZ - colDepth / 2 - 2,
+    maxZ: posZ + colDepth / 2 + 2,
+  };
+  const nearbyEntityIds = yield* _(spatialGrid.query(queryAABB));
+
+  if (nearbyEntityIds.length === 0) {
+    // No need to update anything, physics system already moved the entity
+    return;
+  }
+
+  // --- 2. Create a fast-access list of AABBs for the narrow phase ---
+  const nearbyAABBs: AABB[] = [];
+  for (const nearbyId of nearbyEntityIds) {
+    if (nearbyId === id) continue; // Don't collide with self
+    nearbyAABBs.push({
+      minX: positions.x[nearbyId] - colliders.width[nearbyId] / 2,
+      maxX: positions.x[nearbyId] + colliders.width[nearbyId] / 2,
+      minY: positions.y[nearbyId],
+      maxY: positions.y[nearbyId] + colliders.height[nearbyId],
+      minZ: positions.z[nearbyId] - colliders.depth[nearbyId] / 2,
+      maxZ: positions.z[nearbyId] + colliders.depth[nearbyId] / 2,
     });
+  }
 
-    const newPos = { ...pos };
-    const newVel = { ...vel };
-    let isGrounded = false;
+  // --- 3. Narrow phase: Resolve collisions axis by axis ---
+  let newPosX = posX;
+  let newPosY = posY;
+  let newPosZ = posZ;
+  let velDx = velocities.dx[id];
+  let velDy = velocities.dy[id];
+  let velDz = velocities.dz[id];
+  let isGrounded = false;
 
-    // --- Broad phase: Get nearby blocks ---
-    const nearbyBlocks: { x: number; y: number; z: number }[] = [];
-    for (let i = 0; i < blockEntities.length; i++) {
-      const blockPos = {
-        x: blockPositions.x[i] as number,
-        y: blockPositions.y[i] as number,
-        z: blockPositions.z[i] as number,
-      };
-      const dx = Math.abs(pos.x - blockPos.x);
-      const dy = Math.abs(pos.y - blockPos.y);
-      const dz = Math.abs(pos.z - blockPos.z);
-      if (dx < 4 && dy < 4 && dz < 4) {
-        nearbyBlocks.push(blockPos);
+  // Y-axis
+  newPosY += velDy;
+  let playerSweptAABB: AABB = {
+    minX: newPosX - colWidth / 2, maxX: newPosX + colWidth / 2,
+    minY: newPosY, maxY: newPosY + colHeight,
+    minZ: newPosZ - colDepth / 2, maxZ: newPosZ + colDepth / 2,
+  };
+  for (const blockAABB of nearbyAABBs) {
+    if (aabbIntersect(playerSweptAABB, blockAABB)) {
+      if (velDy > 0) newPosY = blockAABB.minY - colHeight;
+      else {
+        newPosY = blockAABB.maxY;
+        isGrounded = true;
       }
+      velDy = 0;
+      break;
     }
+  }
 
-    // --- Y-axis collision ---
-    newPos.y += newVel.dy;
-    for (const blockPos of nearbyBlocks) {
-      if (
-        aabbIntersect(
-          newPos.x - col.width / 2,
-          newPos.y - col.height / 2,
-          newPos.z - col.depth / 2,
-          newPos.x + col.width / 2,
-          newPos.y + col.height / 2,
-          newPos.z + col.depth / 2,
-          blockPos.x - blockCollider.width / 2,
-          blockPos.y - blockCollider.height / 2,
-          blockPos.z - blockCollider.depth / 2,
-          blockPos.x + blockCollider.width / 2,
-          blockPos.y + blockCollider.height / 2,
-          blockPos.z + blockCollider.depth / 2,
-        )
-      ) {
-        if (newVel.dy > 0) {
-          // Moving up
-          newPos.y = blockPos.y - blockCollider.height / 2 - col.height / 2;
-        } else {
-          // Moving down
-          newPos.y = blockPos.y + blockCollider.height / 2 + col.height / 2;
-          isGrounded = true;
-        }
-        newVel.dy = 0;
-        break;
-      }
+  // X-axis
+  newPosX += velDx;
+  playerSweptAABB = {
+    minX: newPosX - colWidth / 2, maxX: newPosX + colWidth / 2,
+    minY: newPosY, maxY: newPosY + colHeight,
+    minZ: newPosZ - colDepth / 2, maxZ: newPosZ + colDepth / 2,
+  };
+  for (const blockAABB of nearbyAABBs) {
+    if (aabbIntersect(playerSweptAABB, blockAABB)) {
+      if (velDx > 0) newPosX = blockAABB.minX - colWidth / 2;
+      else newPosX = blockAABB.maxX + colWidth / 2;
+      velDx = 0;
+      break;
     }
+  }
 
-    // --- X-axis collision ---
-    newPos.x += newVel.dx;
-    for (const blockPos of nearbyBlocks) {
-      if (
-        aabbIntersect(
-          newPos.x - col.width / 2,
-          newPos.y - col.height / 2,
-          newPos.z - col.depth / 2,
-          newPos.x + col.width / 2,
-          newPos.y + col.height / 2,
-          newPos.z + col.depth / 2,
-          blockPos.x - blockCollider.width / 2,
-          blockPos.y - blockCollider.height / 2,
-          blockPos.z - blockCollider.depth / 2,
-          blockPos.x + blockCollider.width / 2,
-          blockPos.y + blockCollider.height / 2,
-          blockPos.z + blockCollider.depth / 2,
-        )
-      ) {
-        if (newVel.dx > 0) {
-          // Moving right
-          newPos.x = blockPos.x - blockCollider.width / 2 - col.width / 2;
-        } else {
-          // Moving left
-          newPos.x = blockPos.x + blockCollider.width / 2 + col.width / 2;
-        }
-        newVel.dx = 0;
-        break;
-      }
+  // Z-axis
+  newPosZ += velDz;
+  playerSweptAABB = {
+    minX: newPosX - colWidth / 2, maxX: newPosX + colWidth / 2,
+    minY: newPosY, maxY: newPosY + colHeight,
+    minZ: newPosZ - colDepth / 2, maxZ: newPosZ + colDepth / 2,
+  };
+  for (const blockAABB of nearbyAABBs) {
+    if (aabbIntersect(playerSweptAABB, blockAABB)) {
+      if (velDz > 0) newPosZ = blockAABB.minZ - colDepth / 2;
+      else newPosZ = blockAABB.maxZ + colDepth / 2;
+      velDz = 0;
+      break;
     }
+  }
 
-    // --- Z-axis collision ---
-    newPos.z += newVel.dz;
-    for (const blockPos of nearbyBlocks) {
-      if (
-        aabbIntersect(
-          newPos.x - col.width / 2,
-          newPos.y - col.height / 2,
-          newPos.z - col.depth / 2,
-          newPos.x + col.width / 2,
-          newPos.y + col.height / 2,
-          newPos.z + col.depth / 2,
-          blockPos.x - blockCollider.width / 2,
-          blockPos.y - blockCollider.height / 2,
-          blockPos.z - blockCollider.depth / 2,
-          blockPos.x + blockCollider.width / 2,
-          blockPos.y + blockCollider.height / 2,
-          blockPos.z + blockCollider.depth / 2,
-        )
-      ) {
-        if (newVel.dz > 0) {
-          // Moving forward
-          newPos.z = blockPos.z - blockCollider.depth / 2 - col.depth / 2;
-        } else {
-          // Moving backward
-          newPos.z = blockPos.z + blockCollider.depth / 2 + col.depth / 2;
-        }
-        newVel.dz = 0;
-        break;
-      }
-    }
-
-    yield* _(world.updateComponent(id, new Position(newPos)));
-    yield* _(world.updateComponent(id, new Velocity(newVel)));
-    yield* _(
-      world.updateComponent(id, new Player({ isGrounded })),
-    );
-  },
-).pipe(Effect.withSpan("collisionSystem"));
+  // --- 4. Apply the final state to the component stores ---
+  positions.x[id] = newPosX;
+  positions.y[id] = newPosY;
+  positions.z[id] = newPosZ;
+  velocities.dx[id] = velDx;
+  velocities.dy[id] = velDy;
+  velocities.dz[id] = velDz;
+  playerStates.isGrounded[id] = isGrounded ? 1 : 0;
+}).pipe(Effect.withSpan("collisionSystem"));

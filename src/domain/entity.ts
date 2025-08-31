@@ -1,10 +1,7 @@
-import { Brand } from 'effect';
-import { v4 as uuidv4 } from 'uuid';
+import { Brand, Schema } from "effect";
 
-export type EntityId = Brand.Branded<string, 'EntityId'>;
+export type EntityId = Brand.Branded<number, "EntityId">;
 
-const nominal = Brand.nominal<EntityId>();
+export const EntityId = Brand.nominal<EntityId>();
 
-export const Entity = {
-  make: (): EntityId => nominal(uuidv4()),
-};
+export const schema = Schema.Number.pipe(Schema.brand("EntityId"));

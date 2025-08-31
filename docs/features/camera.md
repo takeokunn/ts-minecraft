@@ -1,42 +1,30 @@
 # Camera Systems
 
-The camera's behavior is managed by two distinct systems, each with a clear responsibility. This design creates a clean separation of concerns between handling player input and updating the rendering engine.
-
-1.  **`cameraControlSystem`**: Handles **input -> state**.
-2.  **`cameraSystem`**: Handles **state -> rendering engine**.
+カメラの振る舞いは、責務が明確に分離された複数のシステムによって管理されます。これにより、入力処理、ゲームロジック、レンダリングが疎結合に保たれます。
 
 ---
 
-## `cameraControlSystem`
+## システムの役割分担
 
--   **Responsibility**: To update the player's `CameraState` component based on user mouse input.
--   **Source**: `src/systems/camera-control.ts`
--   **Process**:
-    1.  It polls for mouse movement (`movementX`, `movementY`) via the `InputService`.
-    2.  It calculates the new rotation values for yaw (left/right) and pitch (up/down).
-    3.  It applies constraints, clamping the pitch between -90 and +90 degrees to prevent the camera from flipping over.
-    4.  It updates the player entity's `CameraState` component with the new `yaw` and `pitch` values.
+### 1. [カメラ制御システム](./camera-control.md)
 
-This system ensures that the ECS `CameraState` component is always the single source of truth for the player's intended perspective.
+-   **責務**: **入力 → 状態**
+-   **概要**: ユーザーのマウス入力を受け取り、プレイヤーエンティティの `CameraState` コンポーネント（`yaw`, `pitch`）を更新します。詳細はリンク先のドキュメントを参照してください。
 
-## `cameraSystem`
+### 2. カメラシステム (`camera.ts`)
 
--   **Responsibility**: To synchronize the Three.js camera's position and orientation with the player entity's `Position` and `CameraState` components.
--   **Source**: `src/systems/camera.ts`
--   **Process**:
-    1.  It queries the `World` for the player entity that has `Position` and `CameraState` components.
-    2.  It retrieves the main `THREE.Camera` object from the `RenderContext` service.
-    3.  It sets the camera's position based on the player's `Position` component, typically adding a small offset on the y-axis for eye level.
-    4.  It sets the camera's rotation (using Euler angles) based on the `yaw` and `pitch` values from the `CameraState` component.
+-   **責務**: **状態 → レンダリングエンジン**
+-   **ソース**: `src/systems/camera.ts`
+-   **概要**: プレイヤーの `Position` と `CameraState` コンポーネントを読み取り、その情報を使ってThree.jsのカメラ (`THREE.Camera`) の位置と回転を同期させます。
 
-## Execution Order
+## 実行順序
 
-The system scheduler ensures a critical execution order:
+システムの実行順序は、データの依存関係を正しく反映するようにスケジューリングされています。
 
-`cameraControlSystem` -> ... (e.g., `playerMovementSystem`, `physicsSystem`, `collisionSystem`) ... -> `cameraSystem`
+`cameraControlSystem` -> ... (ゲームロジック) ... -> `cameraSystem`
 
-1.  `cameraControlSystem` runs early in the frame to capture the player's input and update the `CameraState`.
-2.  Other game logic systems run, calculating the player's final, collision-resolved `Position` for the frame.
-3.  `cameraSystem` runs near the end of the frame. This guarantees it uses the most up-to-date player position and camera rotation to update the Three.js camera just before the `renderer` draws the scene.
+1.  `cameraControlSystem` がフレームの早い段階で実行され、プレイヤーの視点に関する「意図」が `CameraState` に反映されます。
+2.  `physicsSystem` や `collisionSystem` などが実行され、プレイヤーの最終的な位置が `Position` コンポーネントに確定します。
+3.  `cameraSystem` がフレームの終わりの方で実行され、確定した `Position` と `CameraState` をもとに、レンダリング直前のThree.jsカメラを正しい位置に設定します。
 
-This division ensures that game logic (input handling) remains decoupled from the rendering engine, improving testability and modularity.
+この設計により、ゲームロジックはレンダリングの詳細から完全に独立し、テストと保守が容易になります。

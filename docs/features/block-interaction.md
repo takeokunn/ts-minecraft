@@ -18,7 +18,7 @@ This system primarily interacts with the player entity, which is expected to hav
 -   **Responsibility**: To act on the player's input to place or destroy the targeted block.
 -   **Source**: `src/systems/block-interaction.ts`
 -   **Process**:
-    1.  **Query**: It queries for a single player entity that has all the required components (`InputState`, `Target`, `Hotbar`, etc.). If the player isn't targeting a block (i.e., the `Target` component is absent), the system does nothing for that frame.
+    1.  **Query**: It uses `world.querySingle` to find the single player entity that has all the required components (`InputState`, `Target`, `Hotbar`, etc.). If the player isn't targeting a block (i.e., the `Target` component is absent), the system does nothing for that frame.
     2.  **Check Input**: It checks the `destroy` and `place` boolean flags in the `InputState` component.
     3.  **Destroy Block**: If the `destroy` action is triggered:
         -   It reads the `entityId` of the target block directly from the `Target.id`.

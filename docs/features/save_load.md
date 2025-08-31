@@ -10,62 +10,48 @@
 
 ## 2. セーブデータ (`SaveState`) の構造
 
-セーブデータの型インターフェースは `src/domain/components.ts` 内の `SaveState` として定義されています。
+セーブデータの型インターフェースは `src/runtime/save-load.ts` 内の `SaveState` スキーマとして定義されています。
 
 ```typescript
-// src/domain/components.ts (抜粋)
-export interface SaveState {
-  readonly seeds: {
-    readonly world: number;
-    readonly biome: number;
-    readonly trees: number;
-  };
-  readonly amplitude: number;
-  readonly cameraPosition: {
-    readonly x: number;
-    readonly y: number;
-    readonly z: number;
-  };
-  readonly playerRotation: {
-    readonly x: number; // Pitch
-    readonly y: number; // Yaw
-    readonly z: number;
-  };
-  readonly editedBlocks: {
-    readonly placed: ReadonlyArray<PlacedBlock>;
-    readonly destroyed: ReadonlyArray<DestroyedBlock>;
-  };
-}
+// src/runtime/save-load.ts (スキーマ定義)
+const SaveState = Schema.Struct({
+  seed: Schema.Number,
+  player: Schema.Struct({
+    position: Position,
+    cameraState: CameraState,
+  }),
+  // ... edited blocks, etc.
+});
 ```
 
--   **`seeds` & `amplitude`**: ワールド生成に使用されたシード値と振幅。これにより、ロード時に全く同じ地形をプロシージャルに再現できます。
--   **`cameraPosition`**: プレイヤーエンティティの `Position` コンポーネントの状態。
--   **`playerRotation`**: プレイヤーエンティティの `CameraState` コンポーネントの状態 (`pitch` と `yaw`)。
--   **`editedBlocks`**: プレイヤーによって変更されたブロックの差分データ。
-    -   **`placed`**: プレイヤーが設置したブロックの `[x, y, z, blockType]` のリスト。
-    -   **`destroyed`**: プレイヤーが破壊したブロックの `[x, y, z]` のリスト。
+-   **`seed`**: ワールド生成に使用されたシード値。これにより、ロード時に全く同じ地形をプロシージャルに再現できます。
+-   **`player`**:
+    -   **`position`**: プレイヤーエンティティの `Position` コンポーネントの状態。
+    -   **`cameraState`**: プレイヤーエンティティの `CameraState` コンポーネントの状態 (`pitch` と `yaw`)。
+-   **`editedBlocks` (将来的な実装)**: プレイヤーによって変更されたブロックの差分データ（設置されたブロック、破壊されたブロック）を記録します。
 
 ## 3. セーブのプロセス (`saveGame` Effect)
 
 1.  **トリガー**: プレイヤーがポーズ画面で "Save and Quit to Title" ボタンなどをクリックします。
 2.  **データ収集**: `saveGame` エフェクトが実行されます。
-    -   `GameState` サービスから、現在の `seeds`, `amplitude`, `editedBlocks` を取得します。
+    -   `GameState` サービスから、現在の `seed` を取得します。
     -   `World` をクエリし、プレイヤーエンティティから `Position` と `CameraState` を取得します。
-3.  **データ整形**: 収集したデータを `SaveState` インターフェースに準拠したオブジェクトに整形します。
-4.  **ダウンロード**: `file-saver` ライブラリを使用し、生成されたオブジェクトを `save.json` ファイルとしてユーザーのローカルマシンにダウンロードさせます。
+3.  **データ整形**: 収集したデータを `SaveState` スキーマに準拠したオブジェクトに整形します。
+4.  **エンコードとダウンロード**:
+    -   `Schema.encode(SaveState)(data)` を使用して、データをJSONに安全にエンコードします。
+    -   `file-saver` ライブラリを使用し、生成されたJSON文字列を `save.json` ファイルとしてユーザーのローカルマシンにダウンロードさせます。
 
-## 4. ロードのプロセス
+## 4. ロードのプロセス (`loadGame` Effect)
 
 1.  **トリガー**: プレイヤーがタイトル画面で "Load Game" ボタンなどをクリックし、有効な `save.json` ファイルを選択します。
 2.  **ファイル読み込みとデコード**:
-    -   選択されたJSONファイルの内容を読み込み、`SaveState` のスキーマを使って検証・デコードします。
-    -   デコードに成功した場合、後続の処理が実行されます。
+    -   選択されたJSONファイルの内容を読み込みます。
+    -   `Schema.decode(SaveState)(jsonData)` を使用して、JSONデータを検証し、`SaveState` 型のオブジェクトにデコードします。デコードに失敗した場合はエラーとして処理されます。
 3.  **ゲーム状態の復元**:
-    -   **`loadGame` Effectの実行**:
-        -   `GameState` サービスの状態を、デコードしたセーブデータの `seeds`, `amplitude`, `editedBlocks` に更新します。
     -   **ワールドの再構築**:
-        -   `generationSystem` を呼び出します。このシステムは `GameState` から更新されたばかりのシードと `editedBlocks` を読み取り、セーブデータに基づいたワールドをプロシージャルに再生成します。
+        -   デコードしたセーブデータの `seed` を `GameState` サービスに設定します。
+        -   `worldUpdateSystem` を呼び出します。このシステムは `GameState` から更新されたばかりのシードを読み取り、セーブデータに基づいたワールドをプロシージャルに再生成します。
     -   **プレイヤーの配置**:
         -   新しいプレイヤーエンティティをワールドに生成します。
-        -   セーブデータの `cameraPosition` と `playerRotation` を使って、生成されたプレイヤーエンティティの `Position` と `CameraState` コンポーネントを更新し、保存された場所と向きに正確に配置します。
+        -   セーブデータの `player.position` と `player.cameraState` を使って、生成されたプレイヤーエンティティの `Position` と `CameraState` コンポーネントを更新し、保存された場所と向きに正確に配置します。
 4.  **ゲーム開始**: ワールドの再構築が完了したら、`GameState` のシーンを `InGame` に変更し、ロードされたワールドでゲームを開始します。

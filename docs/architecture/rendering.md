@@ -6,19 +6,22 @@
 
 レンダリングに関する責務は、以下の3つの主要な部分に分割されています。
 
-1.  **`Renderer` サービス (`src/runtime/services.ts`)**:
-    -   レンダリング機能のインターフェースを定義する `Effect.Tag` です。
-    -   `render` や `setSize` といった、シーンの描画やリサイズを行うための抽象メソッドを提供します。
-    -   これにより、システムのロジックは具体的なレンダリングライブラリ（Three.js）から完全に独立します。
+1.  **`RenderQueue` サービス (`src/runtime/services.ts`)**:
+    -   レンダリングコマンドを非同期に受け取るためのキューです。`Effect.Queue` として実装されています。
+    -   `sceneSystem` は、エンティティの追加・更新・削除といった描画関連の操作を、具体的なコマンドオブジェクト (`UpsertEntity`, `RemoveEntity`) としてこのキューに追加します。
 
 2.  **`RendererThree` 実装 (`src/infrastructure/renderer-three.ts`)**:
-    -   `Renderer` サービスの具体的な実装です。Three.js の `WebGLRenderer`, `Scene`, `Camera` などを内部に保持し、管理します。
+    -   Three.js の `WebGLRenderer`, `Scene`, `Camera` などを管理するサービスです。
+    -   アプリケーションの起動時に `RenderQueue` をリッスンし、キューから受け取ったコマンドに基づいて Three.js のシーンを実際に操作します。
     -   `Effect.Layer` として提供され、`main.ts` でアプリケーション全体に注入されます。
 
-3.  **`renderSystem` (`src/systems/render.ts`)**:
+3.  **`sceneSystem` (`src/systems/scene.ts`)**:
     -   ECSのシステムとして、毎フレーム実行されるレンダリングロジックを担当します。
     -   `World` から `Position` や `Renderable` といった描画に必要なコンポーネントを持つエンティティをクエリします。
-    -   クエリ結果を元に、`Renderer` サービスに対して描画コマンドを発行します。
+    -   前フレームの状態と比較し、どのエンティティが追加/更新/削除されたかを判断します。
+    -   その差分をコマンドとして `RenderQueue` に送信します。
+
+このアーキテクチャにより、ゲームロジック（`sceneSystem`）と実際の描画処理（`RendererThree`）が疎結合になり、関心の分離が徹底されています。
 
 ## 2. ブロックのレンダリングと最適化
 
@@ -29,27 +32,28 @@ Minecraftライクなゲームでは、膨大な数のブロック（キュー�
 -   **概要**: `InstancedMesh` は、同じジオメトリ（形状）とマテリアル（材質）を持つ多数のオブジェクトを、一度の描画命令（ドローコール）でまとめてレンダリングするための Three.js の機能です。
 -   **実装**:
     -   ブロックの種類ごと（現在は色で区別）に `InstancedMesh` を一つ用意します。例えば、「草ブロック用」「土ブロック用」「石ブロック用」の `InstancedMesh` がそれぞれ存在します。
-    -   `renderSystem` は、同じ種類のブロックの位置情報をすべて収集し、対応する `InstancedMesh` のインスタンス行列（`setMatrixAt`）を更新します。
+    -   `RendererThree` は、`RenderQueue` から受け取ったコマンドに基づき、対応する `InstancedMesh` のインスタンス行列（`setMatrixAt`）を更新します。
     -   これにより、ワールド内に数万個のブロックがあっても、ドローコールの回数はブロックの種類数と同じ、ごくわずかな数に抑えられます。
 
 ### チャンク単位での管理
 
 -   描画対象となるブロックは、プレイヤーの周囲にあるチャンク（16x16x16などのブロックの塊）内のものに限定されます。
--   `chunk-loading` システムがプレイヤーの位置に基づいて描画すべきチャンクを決定し、`renderSystem` はその範囲内のブロックのみを描画対象とします。
+-   `chunk-loading` システムがプレイヤーの位置に基づいて描画すべきチャンクを決定し、`sceneSystem` はその範囲内のブロックのみを描画対象とします。
 -   これにより、ワールド全体のブロック数に関わらず、常に一定の描画負荷を維持できます。
 
 ## 3. 描画パイプライン
 
 毎フレームの描画は、以下の流れで実行されます。
 
-1.  **`loop.ts`**: ゲームループが `renderSystem` を呼び出します。
-2.  **`renderSystem`**:
+1.  **`loop.ts`**: ゲームループが `sceneSystem` を呼び出します。
+2.  **`sceneSystem`**:
     -   `World` から、現在ロードされているチャンク内のすべてのブロックエンティティをクエリします。
-    -   ブロックを種類ごとに分類します。
-    -   `Renderer` サービスの `render` メソッドを呼び出し、分類したブロックの位置情報などを渡します。
+    -   前フレームのエンティティリストと比較し、差分（追加・削除されたエンティティ）を検出します。
+    -   差分情報を `UpsertEntity` または `RemoveEntity` コマンドとして `RenderQueue` に送信します。
 3.  **`RendererThree`**:
-    -   受け取ったブロック情報を元に、各 `InstancedMesh` の状態を更新します。
-    -   `three.WebGLRenderer.render(scene, camera)` を実行し、最終的な描画をWebGLキャンバスに行います。
+    -   （バックグラウンドで）`RenderQueue` を継続的に監視しています。
+    -   コマンドを受け取ると、対応する `InstancedMesh` の状態を更新します。
+    -   `three.WebGLRenderer.render(scene, camera)` を `requestAnimationFrame` ループで実行し、最終的な描画をWebGLキャンバスに行います。
 
 ## 4. 今後の展望と課題
 

@@ -1,5 +1,4 @@
 import { Context, Data, Effect, Layer, Ref } from 'effect';
-import { BlockType, blockTypes } from '../domain/block';
 import { DestroyedBlock, PlacedBlock } from '../domain/components';
 
 // --- Service State ---
@@ -18,10 +17,6 @@ export class GameStateData extends Data.Class<{
     readonly placed: readonly PlacedBlock[];
     readonly destroyed: readonly DestroyedBlock[];
   };
-  readonly hotbar: {
-    readonly slots: readonly BlockType[];
-    readonly selectedSlot: number; // 0-8
-  };
   readonly shouldExit: boolean;
 }> {}
 
@@ -34,7 +29,6 @@ export interface GameState {
   readonly setAmplitude: (amplitude: number) => Effect.Effect<void>;
   readonly addPlacedBlock: (block: PlacedBlock) => Effect.Effect<void>;
   readonly addDestroyedBlock: (block: DestroyedBlock) => Effect.Effect<void>;
-  readonly setSelectedSlot: (slot: number) => Effect.Effect<void>;
   readonly setShouldExit: (shouldExit: boolean) => Effect.Effect<void>;
 }
 
@@ -45,8 +39,6 @@ export const GameState = Context.GenericTag<GameState>('GameState');
 export const GameStateLive: Layer.Layer<GameState> = Layer.effect(
   GameState,
   Effect.gen(function* (_) {
-    const hotbarSlots = Object.keys(blockTypes) as Array<BlockType>;
-
     const stateRef = yield* _(
       Ref.make<GameStateData>(
         new GameStateData({
@@ -61,16 +53,10 @@ export const GameStateLive: Layer.Layer<GameState> = Layer.effect(
             placed: [],
             destroyed: [],
           },
-          hotbar: {
-            slots: hotbarSlots,
-            selectedSlot: 0,
-          },
           shouldExit: false,
         }),
       ),
     );
-
-    
 
     return {
       get: Ref.get(stateRef),
@@ -98,16 +84,6 @@ export const GameStateLive: Layer.Layer<GameState> = Layer.effect(
             },
           }),
         ),
-      setSelectedSlot: (slot) =>
-        Ref.update(stateRef, (s) => {
-          if (slot >= 0 && slot < s.hotbar.slots.length) {
-            return new GameStateData({
-              ...s,
-              hotbar: { ...s.hotbar, selectedSlot: slot },
-            });
-          }
-          return s;
-        }),
       setShouldExit: (shouldExit) =>
         Ref.update(stateRef, (s) => new GameStateData({ ...s, shouldExit })),
     };

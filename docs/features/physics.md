@@ -1,15 +1,17 @@
 # 物理システム (Physics System)
 
-物理システムは、ゲームワールド内のエンティティに基本的な物理法則、特に「重力」と「運動」を適用する責務を担います。これにより、エンティティが時間と共にもっともらしく振る舞うようになります。
+物理システムは、ゲームワールド内のエンティティに基本的な物理法則、特に「重力」を適用する責務を担います。
 
 ---
 
 ## 責務
 
-`physicsSystem` (`src/systems/physics.ts`) は、主に2つの役割を果たします。
+`physicsSystem` (`src/systems/physics.ts`) が果たす役割は、**重力の適用と、それに基づく位置の更新**です。
 
-1.  **重力の適用**: `Gravity` コンポーネントを持つエンティティに対して、下向きの加速度を継続的に適用します。
-2.  **運動の実行**: `Velocity` コンポーネントを持つエンティティの速度に基づいて、その `Position` を更新します。
+-   **重力の適用**: `Gravity` コンポーネントを持つエンティティに対して、`Velocity` コンポーネントのY軸方向の値を継続的に減少させます。
+-   **位置の更新**: `Velocity` コンポーネントの値に基づいて、エンティティの `Position` を更新します。
+
+このシステムによって計算された位置は「暫定的な」ものであり、最終的な位置は後続の `collisionSystem` によって衝突解決が行われた後に確定します。
 
 ---
 
@@ -17,28 +19,32 @@
 
 物理シミュレーションは、以下のコンポーネントを持つエンティティに作用します。
 
--   **`Position`**: エンティティの3D空間における現在位置。このシステムによって更新される主要なターゲットです。
--   **`Velocity`**: エンティティの現在の速度ベクトル (`dx`, `dy`, `dz`)。`playerMovementSystem` など他のシステムによって変更され、このシステムによって位置に変換されます。
--   **`Gravity`**: エンティティが重力の影響を受けることを示すタグコンポーネント。重力の加速度 (`-9.8 m/s^2` に相当する値) を保持します。
+-   **`Position`**: エンティティの現在位置。このシステムの主要な更新対象の一つです。
+-   **`Velocity`**: エンティティの現在の速度ベクトル (`dx`, `dy`, `dz`)。このシステムの主要な更新対象の一つです。
+-   **`Gravity`**: エンティティが重力の影響を受けることを示すコンポーネント。Y軸速度から毎フレーム減算される値を保持します。
 
 ---
 
 ## システムのロジック (`physicsSystem`)
 
-システムの実行フローは、パフォーマンスを最大化するために `querySoA` を利用しています。
+システムの実行フローは、パフォーマンスを最大化するために `querySoA` と効率的な並行処理を利用しています。
 
-1.  **クエリ (重力)**: `World` に対して、`Velocity` と `Gravity` の両方を持つエンティティのSoAデータを `querySoA` で直接取得します。これにより、ループ処理前の不要なオブジェクト生成を完全に排除します。
-2.  **重力の計算**: 取得したコンポーネント配列を高速な `for` ループで反復処理します。
-    -   各エンティティの `Velocity` の `dy` 成分に重力値を減算します。
-    -   落下速度が一定値を超えないように、ターミナルベロシティ（終端速度）を適用します。
-    -   計算結果を `world.updateComponent` を使って `World` に書き戻します。
+1.  **クエリ**:
+    -   `src/domain/queries.ts` で定義された共通クエリ `physicsQuery` を使用します。
+    -   `world.querySoA(physicsQuery)` を呼び出し、`Position`, `Velocity`, `Gravity` を持つエンティティのSoAデータを直接取得します。これにより、ループ処理前の不要なオブジェクト生成を完全に排除します。
+2.  **物理計算と更新エフェクトの収集**:
+    -   取得したコンポーネント配列を高速な `for` ループで反復処理します。
+    -   各エンティティの `Velocity` の `dy` 成分に重力値を減算し、落下速度が一定値を超えないようにターミナルベロシティ（終端速度）を適用します。
+    -   現在の速度に基づいて、新しい `Position` (`x`, `y`, `z`) を計算します。
+    -   計算結果を `world.updateComponentData` を使って更新する `Effect` を生成し、配列に収集します。このAPIは新しいコンポーネントインスタンスを生成しないため、GC負荷を最小限に抑えます。
+3.  **並行更新**:
+    -   収集したすべての更新 `Effect` を `Effect.all` でラップし、並行に実行します。これにより、多数のエンティティに対する更新処理を効率的に完了させます。
 
 ```typescript
 // src/systems/physics.ts より (主要部分)
-const { entities, velocitys, gravitys } = yield* _(
-  world.querySoA(Velocity, Gravity),
-);
+const { entities, positions, velocitys, gravitys } = yield* _(world.querySoA(physicsQuery));
 
+const updateEffects = [];
 for (let i = 0; i < entities.length; i++) {
   const id = entities[i];
   const dy = velocitys.dy[i] as number;
@@ -46,16 +52,18 @@ for (let i = 0; i < entities.length; i++) {
 
   // ターミナルベロシティを考慮しつつ重力を適用
   const newDy = Math.max(-2, dy - gravityValue);
-  const newVel = new Velocity({
-    dx: velocitys.dx[i] as number,
-    dy: newDy,
-    dz: velocitys.dz[i] as number,
-  });
-  // world.updateComponent(id, newVel) を実行
+  const newY = (positions.y[i] as number) + newDy;
+
+  updateEffects.push(
+    world.updateComponentData(id, Position, { y: newY }),
+    world.updateComponentData(id, Velocity, { dy: newDy })
+  );
+}
+
+if (updateEffects.length > 0) {
+  yield* _(Effect.all(updateEffects, { discard: true, concurrency: "inherit" }));
 }
 ```
-
-**注意**: `physicsSystem` は運動の計算（`Position`の更新）は行いません。この責務は `collisionSystem` が担います。`physicsSystem` は純粋に `Velocity` を更新することに集中します。
 
 ---
 
@@ -66,12 +74,7 @@ for (let i = 0; i < entities.length; i++) {
 `playerMovementSystem` -> **`physicsSystem`** -> `collisionSystem`
 
 1.  **`playerMovementSystem`**: プレイヤーの移動やジャンプの *意図* を決定し、`Velocity` コンポーネントを更新します。（例: ジャンプ時に上向きの初速を与える）
-2.  **`physicsSystem` (このシステム)**:
-    -   まず、`playerMovementSystem` によって設定された `Velocity` に重力を適用します。
-    -   次に、その最終的な `Velocity` を使って、エンティティが次に *移動しようとする* **暫定的な新しい位置** を計算し、`Position` を更新します。
-3.  **`collisionSystem`**:
-    -   `physicsSystem` によって計算された新しい `Position` が、地形や他のエンティティと衝突していないかをチェックします。
-    -   もし衝突が検出された場合、`collisionSystem` はエンティティが壁や床にめり込まないように `Position` を**補正**します。
-    -   また、下向きの衝突を検出した場合、`Player` コンポーネントの `isGrounded` フラグを `true` に設定します。
+2.  **`physicsSystem` (このシステム)**: `playerMovementSystem` によって設定された `Velocity` に重力を適用し、Y軸の速度を更新し、その結果に基づいて `Position` を暫定的に更新します。
+3.  **`collisionSystem`**: `physicsSystem` によって更新された暫定的な `Position` を検証し、衝突検知と位置の補正を行い、`Position` を最終的な正しい位置に「確定」させます。
 
-この明確な役割分担により、「移動の意図」「物理法則の適用」「衝突解決」という各ステップが、互いに独立しつつも正しく連携するシミュレーションが実現されています。詳細は **[衝突検知システム](./collision.md)** を参照してください。
+この明確な役割分担により、「移動の意図」「物理法則の適用」「衝突解決」という各ステップが、互いに独立しつつも正しく連携するシミュレーションが実現されています。

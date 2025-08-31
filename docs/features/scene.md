@@ -1,40 +1,56 @@
-# Scene Management System
+# sceneSystem: レンダリングパイプライン
 
-The scene management system is the critical link between the abstract, data-oriented ECS world and the visual representation rendered by Three.js. Its primary responsibility is to efficiently synchronize the state of renderable entities in the ECS with corresponding objects in the Three.js scene.
+`sceneSystem` は、抽象的でデータ指向なECSワールドと、Three.jsによって描画される視覚的表現とを結びつける、極めて重要なシステムです。その主な責務は、ECS内の描画可能なエンティティの状態を、Three.jsシーン内の対応するオブジェクトと効率的に同期させることです。
 
-## Core Components
+---
 
--   **`Renderable`**: Any entity with this component is considered visible. It contains:
-    -   `blockType`: The type of block (e.g., `grass`, `dirt`), which determines the material/texture to be used.
-    -   `geometry`: The type of mesh to display (currently "box" for all blocks).
--   **`Position`**: The `(x, y, z)` coordinates of the entity, used to place the object in the Three.js scene.
+## 責務
 
-## Core System: `sceneSystem`
+`sceneSystem` の唯一の責務は、**現在のゲームワールドの状態を `RenderQueue` サービスが理解できる形式に変換し、描画コマンドを発行すること**です。このシステムはゲームロジックには一切関与せず、状態の「可視化」にのみ集中します。
 
--   **Source**: `src/systems/scene.ts`
+---
 
-To achieve the high performance required to render a world made of thousands of blocks, this system is built around **Instanced Rendering**.
+## 関連コンポーレント
+
+-   **`Renderable`**: このコンポーネントを持つエンティティは、すべて可視であると見なされます。
+    -   `blockType`: ブロックの種類（例: `grass`, `dirt`）。使用されるマテリアルやテクスチャを決定します。
+    -   `geometry`: 表示するメッシュの種類（現在はすべてのブロックで "box"）。
+-   **`Position`**: エンティティの `(x, y, z)` 座標。Three.jsシーン内にオブジェクトを配置するために使用されます。
+
+---
+
+## システムのロジック (`sceneSystem`)
+
+-   **ソース**: `src/systems/scene.ts`
+
+何千ものブロックで構成される世界を描画するために要求される高いパフォーマンスを達成するため、このシステムは **Instanced Rendering（インスタンス化レンダリング）** を中心に構築されています。
 
 ### Instanced Rendering
 
-Instead of creating a separate `THREE.Mesh` for every single block (which would be extremely inefficient and lead to thousands of draw calls), the system groups all blocks of the same `blockType` into a single `THREE.InstancedMesh`.
+個々のブロックごとに別々の `THREE.Mesh` を作成する（これは非常に非効率的で、何千ものドローコールにつながる）代わりに、このシステムは同じ `blockType` のすべてのブロックを単一の `THREE.InstancedMesh` にまとめます。
 
-An `InstancedMesh` allows the GPU to render thousands of objects with the same geometry and material in a single draw call, each with a different transformation (position, rotation, scale). This is the key optimization that makes rendering a large voxel world feasible on the web.
+`InstancedMesh` を使うことで、GPUは同じジオメトリとマテリアルを持つ何千ものオブジェクトを、それぞれ異なる変換（位置、回転、スケール）で、単一のドローコールでレンダリングできます。これは、Web上で大規模なボクセルワールドのレンダリングを可能にするための鍵となる最適化です。
 
-### How It Works
+### 動作の仕組み
 
-1.  **Initialization & Mesh Management**:
-    -   The system maintains a registry (`Map`) of `InstancedMesh` objects, one for each `BlockType`.
-    -   When a new type of block needs to be rendered for the first time, the system requests the appropriate material from the `MaterialManager` service and creates a new `InstancedMesh` for it. This mesh is then added to the main Three.js scene.
-2.  **Efficient Querying (SoA)**:
-    -   On each frame, the system performs a highly efficient **Structure of Arrays (SoA)** query (`world.querySoA`) to get all entities with `Position` and `Renderable` components. This query returns component data as contiguous arrays (e.g., one array for all x-coordinates, one for all y-coordinates), which is very cache-friendly for the CPU.
-3.  **Matrix Updates**:
-    -   The system iterates through the queried entities. For each entity, it constructs a `THREE.Matrix4` transformation matrix based on its `Position`.
-    -   It then sets this matrix on the appropriate `InstancedMesh` (based on the block's `blockType`) at the next available instance index.
-4.  **Instance Count & ID Mapping**:
-    -   The system keeps track of how many instances of each block type are being rendered. After processing all entities, it updates the `count` property of each `InstancedMesh` to tell the renderer how many instances to draw.
-    -   Crucially, it also stores a mapping from the `[blockType, instanceId]` to the `EntityId` in the `RenderContext` service. This map is later used by the `raycastSystem` to quickly identify which entity the mouse is pointing at.
-5.  **Resetting and Synchronization**:
-    -   At the beginning of each frame, the `count` for each `InstancedMesh` is reset to zero, and the system rebuilds the entire set of transformations. This stateless, "from-scratch" approach each frame simplifies the logic for handling added or removed blocks, as no complex diffing is required.
+1.  **初期化とメッシュ管理**:
+    -   `RendererThree` サービスは、`BlockType` ごとに一つずつ、`InstancedMesh` オブジェクトのレジストリ（`Map`）を維持します。
+    -   新しい種類のブロックが初めてレンダリングされる必要がある場合、`MaterialManager` サービスから適切なマテリアルを要求し、そのための新しい `InstancedMesh` を作成します。このメッシュは、メインのThree.jsシーンに追加されます。
 
-This process ensures that the Three.js scene is an exact visual replica of the ECS state, updated with maximum efficiency on every single frame.
+2.  **効率的なクエリと差分検出**:
+    -   `sceneSystem` は毎フレーム、`world.querySoA` を使用して `Position` と `Renderable` コンポーネントを持つすべてのエンティティを取得します。
+    -   現在のフレームのエンティティIDのセットと、前のフレームのIDのセットを比較し、どのエンティティが追加・更新・削除されたかの差分を検出します。
+
+3.  **コマンドの送信**:
+    -   検出された差分に基づき、`sceneSystem` は `UpsertEntity`（追加・更新用）または `RemoveEntity`（削除用）コマンドを生成します。
+    -   これらのコマンドは、非同期の `RenderQueue` サービスに送信されます。
+
+4.  **`RendererThree` によるシーンの更新**:
+    -   `RendererThree` サービスは、バックグラウンドで `RenderQueue` をリッスンしています。
+    -   キューからコマンドを受け取ると、`RendererThree` は対応する `InstancedMesh` の変換行列を更新（`setMatrixAt`）したり、インスタンスを非表示にしたりします。
+    -   このアプローチにより、ゲームロジックの実行と実際のレンダリング処理が分離され、アプリケーション全体の応答性が向上します。
+
+5.  **エンティティIDのマッピング**:
+    -   `RendererThree` は、`[blockType, instanceId]` からECSの `EntityId` へのマッピングを `RenderContext` サービスに保存します。このマップは、後に `raycastSystem` がマウスカーソルの下にあるエンティティを迅速に特定するために使用されます。
+
+このプロセスにより、Three.jsシーンがECSの状態を正確に視覚的に複製し、毎フレーム最大限の効率で更新されることが保証されます。

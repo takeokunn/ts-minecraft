@@ -6,28 +6,22 @@
 
 ## 1. コードフォーマット & 静的解析
 
-コードの品質とスタイルは、**BiomeJS** と **Oxlint** によって自動的に維持されます。コミット前には、必ず以下のコマンドを実行してください。
+コードの品質とスタイルは、**BiomeJS** によって自動的に維持されます。コミット前には、必ず以下のコマンドを実行してください。
 
 ```bash
-# BiomeJSによる自動フォーマット
+# BiomeJSによる自動フォーマット・静的解析・自動修正
 npm run format
-
-# Oxlintによる静的解析と自動修正
 npm run lint
 ```
 
-### フォーマッタ: BiomeJS
+### フォーマッタ & リンター: BiomeJS
 
 -   設定ファイル: `biome.json`
 -   主なルール:
     -   インデント: スペース2つ (`"indentStyle": "space", "indentWidth": 2`)
     -   引用符: シングルクォート (`"quoteStyle": "single"`)
     -   末尾のカンマ: 常に付与 (`"trailingCommas": "all"`)
-
-### 静的解析: Oxlint
-
--   設定: `package.json` の `lint` スクリプトで実行
--   役割: パフォーマンスが高く、潜在的なバグやコードの臭いを検出します。設定は最小限に抑え、コミュニティのベストプラクティスに従います。
+-   役割: Biomeはフォーマッタとリンターの機能を兼ね備えており、コードスタイルを統一し、潜在的なバグやコードの臭いを検出します。
 
 ---
 
@@ -79,17 +73,44 @@ npm run lint
 
 この分割により、各システムの理解、テスト、再利用が容易になります。
 
-### クエリAPIは適切に選択する
+### クエリAPIは `queryEntities` を原則とする
 
-`World` サービスは2種類のクエリAPIを提供しており、用途に応じて使い分ける必要があります。
+`World` サービスからエンティティを取得する際のAPIは、パフォーマンス上の理由から `world.queryEntities()` に一本化されています。
 
--   **`world.query()`**:
-    -   **用途**: 結果を `Map<EntityId, Components>` 形式で返し、柔軟なデータアクセスが必要な場合に適しています。デバッグや、エンティティ数が少ないことが保証されているシステムでの使用が推奨されます。
-    -   **注意**: このAPIはクエリのたびに新しいコンポーネントオブジェクトを生成するため、パフォーマンスが重要なシステムでの使用は避けるべきです。
+-   **`world.queryEntities()`**:
+    -   **用途**: パフォーマンスが最優先されるシステム（例: `physics`, `collision`, `scene`）だけでなく、**プロジェクト内のすべてのシステム**で使用します。
+    -   **規約**: ゲームループ内でエンティティを処理するシステムは、**必ず `queryEntities` を使用しなければなりません。**
 
--   **`world.querySoA()`**:
-    -   **用途**: パフォーマンスが最優先されるシステム（例: `physics`, `collision`, `scene`）で使用します。結果をStructure of Arrays (SoA) 形式で直接返し、メモリアロケーションを最小限に抑えます。
-    -   **規約**: ゲームループ内で毎フレーム多数のエンティティを処理するシステムは、**原則として `querySoA` を使用しなければなりません。**
+### コンポーネントストアへの直接アクセス
+
+パフォーマンスを最大化するため、システムは `queryEntities` で取得したエンティティIDを使い、`world.getComponentStore(Component)` で取得したSoA(Structure of Arrays)ストアに直接アクセスしてデータを読み書きします。
+
+```typescript
+// src/systems/physics.ts
+const entities = yield* _(queryEntities(physicsQuery));
+const positions = yield* _(getComponentStore(Position));
+const velocities = yield* _(getComponentStore(Velocity));
+
+for (const id of entities) {
+  positions.y[id] += velocities.dy[id];
+}
+```
+このアプローチは、中間オブジェクトの生成を完全に排除し、GC（ガベージコレクション）の負荷を最小限に抑えます。
+
+### クエリは `domain/queries.ts` で共通化する
+
+システムの可読性と保守性を高めるため、`world.queryEntities` に渡すクエリオブジェクトは `src/domain/queries.ts` で一元管理します。
+
+```typescript
+// src/domain/queries.ts
+export const movableQuery = { all: [Position, Velocity], not: [Frozen] };
+
+// src/systems/physics.ts
+import { movableQuery } from '../domain/queries';
+const entities = yield* queryEntities(movableQuery);
+```
+
+これにより、どのようなデータにアクセスするかの関心が分離され、システムは純粋なロジックに集中できます。
 
 ### エンティティ生成にはArchetype（原型）を使用する
 
@@ -116,3 +137,21 @@ npm run lint
 -   **`chore`**: ビルドプロセスや補助ツールの変更
 
 すべてのコミットメッセージは、この規約に準拠している必要があります。
+
+---
+
+## 6. 継続的インテグレーション (CI)
+
+品質を維持するため、すべてのプルリクエストと `main` 以外のブランチへのプッシュに対して、CIパイプラインが自動的に実行されます。
+
+-   **設定ファイル**: `.github/workflows/ci.yml`
+-   **実行トリガー**:
+    -   `main` 以外のブランチへのプッシュ
+    -   `workflow_call`による外部からの呼び出し
+-   **チェック項目**:
+    1.  **依存関係のインストール**: `pnpm i`
+    2.  **静的解析**: `pnpm lint`
+    3.  **型チェック**: `pnpm exec tsc`
+    4.  **単体テスト**: `pnpm test` (Vitest)
+
+すべてのチェックが成功しなければ、プルリクエストをマージすることはできません。これにより、`main` ブランチの健全性が常に保たれます。

@@ -2,39 +2,31 @@ import { Effect, Option } from "effect";
 import * as THREE from "three";
 import { Player, Target } from "@/domain/components";
 import { Renderer, RaycastService } from "@/runtime/services";
-import { World } from "@/runtime/world";
+import { World, getComponentStore, queryEntities } from "@/runtime/world";
 
 export const updateTargetSystem = Effect.gen(function* (_) {
-  const world = yield* _(World);
   const raycastService = yield* _(RaycastService);
   const renderer = yield* _(Renderer);
 
-  const playerOption = yield* _(world.querySingle(Player));
-  if (Option.isNone(playerOption)) {
+  const players = yield* _(queryEntities({ all: [Player] }));
+  if (players.length === 0) {
     yield* _(renderer.updateHighlight(null));
     return;
   }
-  const [playerId] = playerOption.value;
+  const playerId = players[0];
 
-  // Always remove the old target first
-  yield* _(world.removeComponent(playerId, Target));
-
+  const targets = yield* _(getComponentStore(Target));
   const raycastResult = yield* _(raycastService.cast());
 
   if (Option.isSome(raycastResult)) {
-    const { entityId, position, face, intersection } = raycastResult.value;
-    yield* _(
-      world.addComponent(
-        playerId,
-        new Target({
-          id: entityId,
-          position: position,
-          face: [face.x, face.y, face.z],
-        }),
-      ),
-    );
+    const { entityId, face, intersection } = raycastResult.value;
+    targets.entityId[playerId] = entityId;
+    targets.faceX[playerId] = face.x;
+    targets.faceY[playerId] = face.y;
+    targets.faceZ[playerId] = face.z;
     yield* _(renderer.updateHighlight(intersection as THREE.Intersection));
   } else {
+    targets.entityId[playerId] = -1; // No target
     yield* _(renderer.updateHighlight(null));
   }
 }).pipe(Effect.withSpan("updateTargetSystem"));

@@ -1,41 +1,45 @@
-import { Effect } from 'effect';
-import { GameState } from '../runtime/game-state';
-import { BlockType } from '../domain/block';
+import { Effect } from "effect";
+import { Hotbar, Player } from "../domain/components";
+import { World, getComponentStore, queryEntities } from "@/runtime/world";
+import { BlockType, blockTypeNames } from "@/domain/block";
 
 /**
  * Runs every frame to update UI elements like the hotbar.
  */
-export const uiSystem: Effect.Effect<void, never, GameState> = Effect.gen(
+export const uiSystem: Effect.Effect<void, never, World> = Effect.gen(
   function* (_) {
-    const gameStateService = yield* _(GameState);
-    const gameState = yield* _(gameStateService.get);
-    const { selectedSlot, slots } = gameState.hotbar;
+    const players = yield* _(queryEntities({ all: [Player, Hotbar] }));
+    if (players.length === 0) {
+      return;
+    }
+    const playerId = players[0];
+
+    const hotbars = yield* _(getComponentStore(Hotbar));
+    const selectedSlot = hotbars.selectedSlot[playerId];
 
     for (let i = 0; i < 9; i++) {
       const slotElement: HTMLElement | null = document.getElementById(
         `slot${i + 1}`,
       );
       if (slotElement) {
-        // Clear previous content
-        slotElement.innerHTML = '';
-        slotElement.style.backgroundImage = '';
+        slotElement.innerHTML = "";
+        slotElement.style.backgroundImage = "";
 
-        const blockType: BlockType | undefined = slots[i];
+        const blockTypeIndex = hotbars[`slot${i}` as keyof typeof hotbars][playerId] as number;
+        const blockType: BlockType | undefined = blockTypeNames[blockTypeIndex];
+
         if (blockType) {
-          // Display block texture in hotbar.
-          // NOTE: This assumes a consistent file structure and naming convention for assets.
-          // Not all blocks might have a side.jpeg. This could be improved.
           const textureUrl = `/assets/${blockType}/side.jpeg`;
           slotElement.style.backgroundImage = `url(${textureUrl})`;
-          slotElement.style.backgroundSize = 'cover';
+          slotElement.style.backgroundSize = "cover";
         }
 
         if (i === selectedSlot) {
-          slotElement.classList.add('selected');
+          slotElement.classList.add("selected");
         } else {
-          slotElement.classList.remove('selected');
+          slotElement.classList.remove("selected");
         }
       }
     }
   },
-).pipe(Effect.withSpan('uiSystem'));
+).pipe(Effect.withSpan("uiSystem"));

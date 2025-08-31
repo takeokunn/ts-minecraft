@@ -1,25 +1,25 @@
-import { Effect, Option } from "effect";
+import { Effect } from "effect";
 import { InputState, Player } from "../domain/components";
 import { Input } from "../runtime/services";
-import { World } from "../runtime/world";
+import { World, queryEntities, updateComponentData } from "../runtime/world";
 
 export const inputPollingSystem: Effect.Effect<void, never, World | Input> =
   Effect.gen(function* (_) {
-    const world = yield* _(World);
     const input = yield* _(Input);
 
-    const playerOption = yield* _(world.querySingle(Player));
-    if (Option.isNone(playerOption)) {
+    const players = yield* _(queryEntities({ all: [Player] }));
+    if (players.length === 0) {
       return;
     }
+    const playerId = players[0];
 
-    const [id] = playerOption.value;
     const keyboardState = yield* _(input.getKeyboardState());
 
     yield* _(
-      world.updateComponent(
-        id,
-        new InputState({
+      updateComponentData(
+        playerId,
+        { _tag: "InputState" },
+        {
           forward: keyboardState.has("KeyW"),
           backward: keyboardState.has("KeyS"),
           left: keyboardState.has("KeyA"),
@@ -28,7 +28,7 @@ export const inputPollingSystem: Effect.Effect<void, never, World | Input> =
           sprint: keyboardState.has("ShiftLeft"),
           destroy: keyboardState.has("Mouse0"),
           place: keyboardState.has("Mouse2"),
-        }),
+        },
       ),
     );
   }).pipe(Effect.withSpan("inputPollingSystem"));

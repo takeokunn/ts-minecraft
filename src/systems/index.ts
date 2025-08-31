@@ -1,6 +1,5 @@
 import { createMainSystem, SystemNode } from "@/runtime/scheduler";
 import { blockInteractionSystem } from "./block-interaction";
-import { cameraSystem } from "./camera";
 import { cameraControlSystem } from "./camera-control";
 import { chunkLoadingSystem } from "./chunk-loading";
 import { collisionSystem } from "./collision";
@@ -8,8 +7,9 @@ import { inputPollingSystem } from "./input-polling";
 import { physicsSystem } from "./physics";
 import { playerMovementSystem } from "./player-movement";
 import { updateTargetSystem } from "./update-target-system";
-import { sceneSystem } from "./scene";
 import { uiSystem } from "./ui";
+import { updatePhysicsWorldSystem } from "./update-physics-world";
+import { worldUpdateSystem } from './world-update';
 
 const systems: SystemNode[] = [
   {
@@ -42,29 +42,31 @@ const systems: SystemNode[] = [
     after: ["playerMovement"],
   },
   {
+    name: "updatePhysicsWorld",
+    system: updatePhysicsWorldSystem,
+    after: ["physics"], // Run after positions are updated by physics
+    runEvery: 2, // Reduce frequency as it can be expensive
+  },
+  {
     name: "collision",
     system: collisionSystem,
-    after: ["physics"],
+    after: ["updatePhysicsWorld"], // Run after the spatial grid is populated
   },
   {
     name: "chunkLoading",
     system: chunkLoadingSystem,
     after: ["collision"], // After player has moved
+    runEvery: 10, // No need to check every frame
+  },
+  {
+    name: 'worldUpdate',
+    system: worldUpdateSystem,
+    after: ['chunkLoading'], // Apply generated chunks to the world
   },
   {
     name: "ui",
     system: uiSystem,
     after: ["blockInteraction"], // Reflect inventory changes
-  },
-  {
-    name: "camera",
-    system: cameraSystem,
-    after: ["collision", "cameraControl"], // Use final player position and rotation
-  },
-  {
-    name: "scene",
-    system: sceneSystem,
-    after: ["chunkLoading", "collision"], // Render final world state
   },
 ];
 

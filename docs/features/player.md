@@ -22,33 +22,19 @@
 
 プレイヤーの操作は、単一の巨大なシステムではなく、責務が明確に分離された3つの小さなシステムによって実現されます。これにより、各ロジックの独立性とテスト容易性が高まっています。
 
-### 1. 入力ポーリングシステム (`input-polling.ts`)
+各システムの詳細については、個別のドキュメントを参照してください。
 
--   **責務**: `InputService` を通じてキーボードの現在の状態をポーリングし、その結果をプレイヤーエンティティの `InputState` コンポーネントに反映すること。
--   **ロジック**: 毎フレーム、`W`, `A`, `S`, `D`, `Space`, `Shift` などのキーが押されているかどうかを確認し、`InputState` の真偽値を更新します。このシステムは、他のシステムが常に最新の入力状態を参照できるよう、ゲームループの早い段階で実行されます。
+### 1. [入力ポーリングシステム](./input-polling.md)
 
-### 2. カメラ制御システム (`camera-control.ts`)
+-   **責務**: キーボードとマウスの入力を `InputState` コンポーネントに反映します。
 
--   **責務**: マウスの動きを検知し、プレイヤーの視点を制御する `CameraState` コンポーネントを更新すること。
--   **ロジック**:
-    -   `InputService` からマウスの移動量 (`movementX`, `movementY`) を取得します。
-    -   `yaw` (左右回転) は `movementX` に基づいて更新されます。
-    -   `pitch` (上下回転) は `movementY` に基づいて更新されますが、プレイヤーが真上や真下を通り越して回転しないように、-90度から+90度 ( `-Math.PI / 2` から `Math.PI / 2` ラジアン) の間にクランプ（制限）されます。
+### 2. [カメラ制御システム](./camera-control.md)
 
-### 3. プレイヤー移動システム (`player-movement.ts`)
+-   **責務**: マウスの動きを `CameraState` コンポーネントに反映します。
 
--   **責務**: `InputState` と `CameraState` を読み取り、プレイヤーの移動とジャンプの意図を計算し、それを `Velocity` コンポーネントの変更に変換すること。
--   **ロジック**:
-    1.  **クエリ**: `world.querySoA` を使用して、`Player`, `InputState`, `Velocity`, `CameraState` コンポーネントを持つエンティティ（プレイヤー）のSoAデータを効率的に取得します。
-    2.  **移動方向の計算**:
-        -   `InputState` (`forward`, `left` など) と現在のカメラの `yaw` を元に、プレイヤーが進むべき水平方向のベクトルを計算します。
-        -   例えば、「前進」入力がある場合、プレイヤーはカメラが向いている水平方向（`yaw`）に移動します。
-    3.  **速度の計算**:
-        -   計算された移動方向ベクトルに、基本速度 `PLAYER_SPEED` を乗算します。
-        -   `sprint` が有効な場合は、さらに `SPRINT_MULTIPLIER` を乗算して速度を上げます。
-        -   移動入力がない場合は、現在の水平速度に `DECELERATION` を乗算し、スムーズに減速させます。
-    4.  **ジャンプ**: `jump` 入力が有効かつ `Player` コンポーネントの `isGrounded` フラグが `true` の場合、`Velocity` の `dy` に `JUMP_FORCE` を設定して垂直方向の推進力を与え、`isGrounded` を `false` に設定して連続ジャンプを防ぎます。
-    5.  **コンポーネント更新**: 最終的に計算された新しい速度を `World` の `Velocity` コンポーネントに書き込みます。
+### 3. [プレイヤー移動システム](./player-movement.md)
+
+-   **責務**: `InputState` と `CameraState` を元に `Velocity` コンポーネントを計算します。
 
 ---
 
@@ -57,10 +43,10 @@
 プレイヤー操作のデータは、毎フレーム明確な一方向のフローに従います。
 
 ```
-[InputService] --(キー入力)--> [InputPollingSystem] --(更新)--> [InputState] --+
-                                                                              |
-                                                                              v
-[InputService] --(マウス入力)--> [CameraControlSystem] --(更新)--> [CameraState] --+--> [PlayerMovementSystem] --(更新)--> [Velocity]
+[InputService] --(入力)--> [InputPollingSystem] & [CameraControlSystem]
+      |
+      v
+[InputState] & [CameraState] --(読み取り)--> [PlayerMovementSystem] --(更新)--> [Velocity]
 ```
 
 この分離されたパイプラインにより、各ロジックが独立して機能します。`PlayerMovementSystem` は入力デバイスのことを知る必要がなく、`InputState` と `CameraState` という純粋なデータにのみ依存します。

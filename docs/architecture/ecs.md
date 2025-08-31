@@ -22,7 +22,7 @@
 import { Brand } from 'effect'
 import { v4 as uuidv4 } from 'uuid'
 
-export type EntityId = string & Brand.Brand<'EntityId'>
+export type EntityId = Brand.Brand<"EntityId">
 export const make = () => Brand.nominal<EntityId>()(uuidv4())
 ```
 
@@ -39,7 +39,7 @@ export const make = () => Brand.nominal<EntityId>()(uuidv4())
 // src/domain/components.ts
 import * as Schema from '@effect/schema/Schema'
 
-export class Position extends Schema.Class<Position>('Position')({
+export class Position extends Schema.Class<Position>("Position")({
   x: Schema.Number,
   y: Schema.Number,
   z: Schema.Number,
@@ -59,15 +59,16 @@ export class Position extends Schema.Class<Position>('Position')({
 ```typescript
 // src/systems/physics.ts (リファクタリング後の実装例)
 import { Effect } from "effect";
-import { Gravity, Velocity } from "../domain/components";
+import { Velocity } from "../domain/components";
+import { physicsQuery } from "../domain/queries";
 import { World } from "../runtime/world";
 
 export const physicsSystem = Effect.gen(function* (_) {
   const world = yield* _(World);
 
-  // 1. querySoAでコンポーネントのSoAデータを直接取得
+  // 1. 共通化されたクエリオブジェクトを使い、SoAデータを直接取得
   const { entities, velocitys, gravitys } = yield* _(
-    world.querySoA(Velocity, Gravity),
+    world.querySoA(physicsQuery),
   );
 
   const updateEffects = [];
@@ -80,18 +81,13 @@ export const physicsSystem = Effect.gen(function* (_) {
     // 3. 新しい値を計算
     const newDy = Math.max(-2, dy - gravityValue);
 
-    // 4. コンポーネントを更新 (この部分でのオブジェクト生成は許容)
-    const newVel = new Velocity({
-      dx: velocitys.dx[i] as number,
-      dy: newDy,
-      dz: velocitys.dz[i] as number,
-    });
-    updateEffects.push(world.updateComponent(id, newVel));
+    // 4. 新しいオブジェクトを生成せず、部分的なデータでコンポーネントを更新
+    updateEffects.push(world.updateComponentData(id, Velocity, { dy: newDy }));
   }
 
   // 5. 更新処理を並行実行
   if (updateEffects.length > 0) {
-    yield* _(Effect.all(updateEffects, { discard: true }));
+    yield* _(Effect.all(updateEffects, { discard: true, concurrency: "inherit" }));
   }
 }).pipe(Effect.withSpan("physicsSystem"));
 ```
