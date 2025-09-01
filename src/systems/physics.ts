@@ -1,10 +1,8 @@
-
-import { Effect } from 'effect';
-import { World } from '@/runtime/world';
-import { Position, Velocity } from '@/domain/components';
-
-const TERMINAL_VELOCITY = 50;
-const FRICTION = 0.98;
+import { Position, setPosition, setVelocity, Velocity } from '@/domain/components';
+import { physicsQuery } from '@/domain/queries';
+import { FRICTION, TERMINAL_VELOCITY } from '@/domain/world-constants';
+import { System } from '@/runtime/loop';
+import { query, updateComponent } from '@/runtime/world';
 
 export const integrate = (
   position: Position,
@@ -13,44 +11,49 @@ export const integrate = (
   deltaTime: number,
   gravity: number,
 ): { newPosition: Position; newVelocity: Velocity } => {
-  if (deltaTime === 0) {
-    return {
-      newPosition: { ...position },
-      newVelocity: { ...velocity },
-    };
-  }
+  let newVelocity = { ...velocity };
 
-  let newVel = { ...velocity };
-
+  // Apply gravity if not grounded
   if (!isGrounded) {
-    newVel.y = Math.max(
+    const dy = Math.max(
       -TERMINAL_VELOCITY,
-      newVel.y - gravity * deltaTime,
+      newVelocity.dy - gravity * deltaTime,
     );
-  } else {
-    newVel.y = 0;
-    newVel.x *= FRICTION;
-    newVel.z *= FRICTION;
+    newVelocity = setVelocity(newVelocity, { dy });
   }
 
-  const newPos: Position = {
-    x: position.x + newVel.x * deltaTime,
-    y: position.y + newVel.y * deltaTime,
-    z: position.z + newVel.z * deltaTime,
-  };
+  // Apply friction if grounded
+  if (isGrounded) {
+    newVelocity = setVelocity(newVelocity, {
+      dx: newVelocity.dx * FRICTION,
+      dz: newVelocity.dz * FRICTION,
+    });
+  }
 
-  return { newPosition: newPos, newVelocity: newVel };
+  // Update position based on new velocity
+  const newPosition: Position = setPosition(position, {
+    x: position.x + newVelocity.dx * deltaTime,
+    y: position.y + newVelocity.dy * deltaTime,
+    z: position.z + newVelocity.dz * deltaTime,
+  });
+
+  return { newPosition, newVelocity };
 };
 
-export const physicsSystem = Effect.gen(function* (_) {
-  const world = yield* _(World);
-  const { gravity, simulationRate } = world.globalState.physics;
-  const deltaTime = 1 / simulationRate;
-  const entities = world.queries.physics(world);
+export const physicsSystem: System = (world, { deltaTime }) => {
+  if (deltaTime === 0) {
+    return [world, []];
+  }
 
-  for (const entity of entities) {
-    const { entityId, position, velocity } = entity;
-    const player = world.components.player.get(entityId);
+  const entities = query(world, physicsQuery);
+  if (entities.length === 0) {
+    return [world, []];
+  }
+
+  const newWorld = entities.reduce((currentWorld, entity) => {
+    const { entityId, position, velocity, gravity } = entity;
+    // A physics entity might optionally have a player component (for friction/grounded checks)
+    const player = currentWorld.components.player.get(entityId);
     const isGrounded = player?.isGrounded ?? false;
 
     const { newPosition, newVelocity } = integrate(
@@ -58,10 +61,22 @@ export const physicsSystem = Effect.gen(function* (_) {
       velocity,
       isGrounded,
       deltaTime,
-      gravity,
+      gravity.value,
     );
 
-    world.components.position.set(entityId, newPosition);
-    world.components.velocity.set(entityId, newVelocity);
-  }
-});
+    const worldWithNewPos = updateComponent(
+      currentWorld,
+      entityId,
+      'position',
+      newPosition,
+    );
+    return updateComponent(
+      worldWithNewPos,
+      entityId,
+      'velocity',
+      newVelocity,
+    );
+  }, world);
+
+  return [newWorld, []];
+};

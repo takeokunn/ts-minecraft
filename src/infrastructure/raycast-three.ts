@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ThreeContext, World, EntityId } from '@/domain/types';
+import { ThreeContext, EntityId } from '@/domain/types';
 import { match, P } from 'ts-pattern';
 
 const REACH = 8;
@@ -15,19 +15,23 @@ export type RaycastResult = {
 
 function findHitEntity(
   intersection: THREE.Intersection,
-  terrainBlockMap: Map<string, EntityId>,
-): RaycastResult | undefined {
+  terrainBlockMap: ReadonlyMap<string, EntityId>,
+): RaycastResult | null {
   if (!intersection.face) {
-    return undefined;
+    return null;
   }
 
+  // To reliably find the block position from the intersection point,
+  // we move the point slightly *inside* the block along the face's normal
+  // before flooring the coordinates. This avoids floating-point errors
+  // at the edges of blocks.
   hitPosVec.copy(intersection.point).add(intersection.face.normal.multiplyScalar(-0.5)).floor();
 
   const key = `${hitPosVec.x},${hitPosVec.y},${hitPosVec.z}`;
   const entityId = terrainBlockMap.get(key);
 
   if (entityId === undefined) {
-    return undefined;
+    return null;
   }
 
   return {
@@ -41,17 +45,11 @@ function findHitEntity(
   };
 }
 
-export function castRay(context: ThreeContext, world: World): RaycastResult | undefined {
+export function castRay(
+  context: ThreeContext,
+  terrainBlockMap: ReadonlyMap<string, EntityId>,
+): RaycastResult | null {
   const { scene, camera } = context;
-  const { components, tags } = world;
-
-  const terrainBlockMap = new Map<string, EntityId>();
-  for (const eid of tags.terrainBlock) {
-    const pos = components.position.get(eid);
-    if (pos) {
-      terrainBlockMap.set(`${pos.x},${pos.y},${pos.z}`, eid);
-    }
-  }
 
   raycaster.setFromCamera(centerScreenVec, camera.camera);
   const intersects = raycaster.intersectObjects(scene.children, false);
@@ -65,12 +63,12 @@ export function castRay(context: ThreeContext, world: World): RaycastResult | un
         },
         hit => findHitEntity(hit, terrainBlockMap),
       )
-      .otherwise(() => undefined);
+      .otherwise(() => null);
 
     if (result) {
       return result;
     }
   }
 
-  return undefined;
+  return null;
 }

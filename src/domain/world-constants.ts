@@ -1,0 +1,24 @@
+// World Generation Constants
+export const CHUNK_SIZE = 10;
+export const CHUNK_HEIGHT = 256;
+export const WATER_LEVEL = 0;
+export const WORLD_DEPTH = 5;
+export const MIN_WORLD_Y = -250;
+
+// Internal Constants
+// Y_OFFSET is used to map world Y coordinates (which can be negative)
+// to array indices (which must be positive).
+export const Y_OFFSET = 128;
+
+// Player Physics Constants
+export const PLAYER_SPEED = 5;
+export const SPRINT_MULTIPLIER = 1.6;
+export const JUMP_FORCE = 7;
+export const TERMINAL_VELOCITY = 50;
+export const FRICTION = 0.98;
+export const GRAVITY = 20;
+export const DECELERATION = 0.98;
+export const MIN_VELOCITY_THRESHOLD = 0.001;
+
+// Chunk Loading Constants
+export const RENDER_DISTANCE = 2;

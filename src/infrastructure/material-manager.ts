@@ -1,5 +1,4 @@
 import { TextureLoader, MeshBasicMaterial, type Material, SRGBColorSpace } from 'three';
-import { match } from 'ts-pattern';
 
 export type MaterialManager = {
   get(key: string): Promise<Material>;
@@ -7,15 +6,9 @@ export type MaterialManager = {
 };
 
 function createTextureLoadError(path: string, originalError: unknown): Error {
-  const message =
-    originalError instanceof Error
-      ? `Failed to load texture: ${path}, Error: ${originalError.message}`
-      : `Failed to load texture: ${path}, Error: ${String(originalError)}`;
-  const error = new Error(message);
+  const message = `Failed to load texture: ${path}`;
+  const error = new Error(message, { cause: originalError });
   error.name = 'TextureLoadError';
-  if (originalError instanceof Error) {
-    error.stack = originalError.stack;
-  }
   return error;
 }
 
@@ -27,9 +20,7 @@ export function createMaterialManager(): MaterialManager {
   async function loadAndCreateMaterial(key: string): Promise<Material> {
     try {
       const texture = await textureLoader.loadAsync(key);
-      if (texture) {
-        texture.colorSpace = SRGBColorSpace;
-      }
+      texture.colorSpace = SRGBColorSpace;
       const material = new MeshBasicMaterial({ map: texture });
       materialCache.set(key, material);
       promiseCache.delete(key);
@@ -41,26 +32,27 @@ export function createMaterialManager(): MaterialManager {
   }
 
   function get(key: string): Promise<Material> {
-    return match(materialCache.get(key))
-      .when(
-        material => material !== undefined,
-        material => Promise.resolve(material!),
-      )
-      .otherwise(() => {
-        const cachedPromise = promiseCache.get(key);
-        if (cachedPromise) {
-          return cachedPromise;
-        }
+    const cachedMaterial = materialCache.get(key);
+    if (cachedMaterial) {
+      return Promise.resolve(cachedMaterial);
+    }
 
-        const promise = loadAndCreateMaterial(key);
-        promiseCache.set(key, promise);
-        return promise;
-      });
+    const cachedPromise = promiseCache.get(key);
+    if (cachedPromise) {
+      return cachedPromise;
+    }
+
+    const promise = loadAndCreateMaterial(key);
+    promiseCache.set(key, promise);
+    return promise;
   }
 
   function dispose(): void {
     materialCache.forEach(material => {
-      (material as MeshBasicMaterial).map?.dispose();
+      // Safely access .map property for disposal
+      if (material instanceof MeshBasicMaterial && material.map) {
+        material.map.dispose();
+      }
       material.dispose();
     });
     materialCache.clear();

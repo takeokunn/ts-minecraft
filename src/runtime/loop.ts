@@ -1,96 +1,119 @@
-import {
-  World,
-  ThreeContext,
-  BrowserInputState,
-  RenderQueue,
-  ChunkDataQueue,
-  SystemCommand,
-} from '@/domain/types';
-import {
-  cameraControlSystem,
-  chunkLoadingSystem,
-  collisionSystem,
-  inputPollingSystem,
-  physicsSystem,
-  playerMovementSystem,
-  blockInteractionSystem,
-  uiSystem,
-  updatePhysicsWorldSystem,
-  updateTargetSystem,
-  worldUpdateSystem,
-} from '@/systems';
-import { renderScene } from '@/infrastructure/renderer-three/render';
-import {
-  syncCameraToWorld,
-  updateInstancedMeshes,
-  updateHighlight,
-} from '@/infrastructure/renderer-three/updates';
-import { processRenderQueue } from '@/infrastructure/renderer-three/commands';
-import { castRay, RaycastResult } from '@/infrastructure/raycast-three';
+import type { ThreeContext } from '@/infrastructure/renderer-three';
+import type { BrowserInputState, InputManager } from '@/infrastructure/input-browser';
+import type { World } from './world';
+import type { Material } from 'three';
+import type { ChunkDataQueue, RenderQueue, SystemCommand } from '@/domain/types';
 
-let animationFrameId: number;
+// --- System Types ---
 
-export function tick(
+/**
+ * A System is a function that takes the current World and dependencies,
+ * and returns a tuple containing the new World state and an array of commands to be executed.
+ */
+export type System = (
   world: World,
-  threeContext: ThreeContext,
-  inputState: BrowserInputState,
-  renderQueue: RenderQueue,
-  chunkDataQueue: ChunkDataQueue,
-  handleCommand: (command: SystemCommand) => void,
-  dt: number,
-  // for testing
-  doCastRay: (context: ThreeContext, world: World) => RaycastResult | undefined = castRay,
-  doUpdateHighlight: (
-    context: ThreeContext,
-    world: World,
-    raycastResult: RaycastResult | null,
-  ) => void = updateHighlight,
-): void {
-  inputPollingSystem(world, inputState);
-  cameraControlSystem(world, inputState);
-  playerMovementSystem(world);
-  const raycastResult = doCastRay(threeContext, world);
-  updateTargetSystem(world, raycastResult);
-  doUpdateHighlight(threeContext, world, raycastResult ?? null);
-  blockInteractionSystem(world);
-  physicsSystem(world, dt);
-  updatePhysicsWorldSystem(world);
-  collisionSystem(world);
-  const commands = chunkLoadingSystem(world);
-  for (const command of commands) {
-    handleCommand(command);
-  }
-  worldUpdateSystem(world, chunkDataQueue);
-  uiSystem(world);
+  deps: SystemDependencies,
+) => readonly [World, readonly SystemCommand[]];
 
-  updateInstancedMeshes(threeContext, world);
-  syncCameraToWorld(threeContext, world);
-  processRenderQueue(threeContext, renderQueue);
-  renderScene(threeContext);
-}
+export type SystemDependencies = {
+  readonly deltaTime: number;
+  readonly inputState: BrowserInputState;
+  readonly mouseDelta: { readonly dx: number; readonly dy: number };
+  readonly threeContext: ThreeContext;
+  readonly chunkDataQueue: ChunkDataQueue;
+  readonly renderQueue: RenderQueue;
+};
 
-export function startGameLoop(
-  world: World,
-  threeContext: ThreeContext,
-  inputState: BrowserInputState,
-  renderQueue: RenderQueue,
-  chunkDataQueue: ChunkDataQueue,
-  handleCommand: (command: SystemCommand) => void,
-): void {
+// --- Renderer Types ---
+export type Renderer = {
+  readonly processRenderQueue: (
+    threeContext: ThreeContext,
+    renderQueue: RenderQueue,
+    material: Material,
+  ) => void;
+  readonly syncCameraToWorld: (threeContext: ThreeContext, world: World) => void;
+  readonly updateHighlight: (threeContext: ThreeContext, world: World) => void;
+  readonly updateInstancedMeshes: (threeContext: ThreeContext, world: World) => void;
+  readonly renderScene: (threeContext: ThreeContext) => void;
+};
+
+// --- Game Loop Types ---
+export type GameLoopDependencies = {
+  readonly initialWorld: World;
+  readonly threeContext: ThreeContext;
+  readonly inputManager: InputManager;
+  readonly renderQueue: RenderQueue;
+  readonly chunkDataQueue: ChunkDataQueue;
+  readonly systems: readonly System[];
+  readonly onCommand: (command: SystemCommand, world: World) => World;
+  readonly material: Material;
+  readonly renderer: Renderer;
+};
+
+export type GameLoop = {
+  readonly stop: () => void;
+};
+
+export function startGameLoop(deps: GameLoopDependencies): GameLoop {
+  const {
+    initialWorld,
+    threeContext,
+    inputManager,
+    renderQueue,
+    chunkDataQueue,
+    systems,
+    onCommand,
+    material,
+    renderer,
+  } = deps;
+
+  let animationFrameId: number;
   let lastTime = performance.now();
+  let world = initialWorld;
 
-  function gameLoop() {
-    const now = performance.now();
-    const dt = (now - lastTime) / 1000;
-    lastTime = now;
-
-    tick(world, threeContext, inputState, renderQueue, chunkDataQueue, handleCommand, dt);
+  function gameLoop(currentTime: number) {
     animationFrameId = requestAnimationFrame(gameLoop);
+
+    const deltaTime = (currentTime - lastTime) / 1000;
+    lastTime = currentTime;
+
+    const systemDeps: SystemDependencies = {
+      deltaTime,
+      inputState: inputManager.getState(),
+      mouseDelta: inputManager.getMouseDelta(),
+      threeContext,
+      chunkDataQueue,
+      renderQueue,
+    };
+
+    // Process systems and commands
+    const newWorld = systems.reduce((currentWorld, system) => {
+      const [worldAfterSystem, commands] = system(currentWorld, systemDeps);
+
+      // Execute commands immediately, allowing the world to be updated before the next system runs.
+      const worldAfterCommands = commands.reduce(
+        (w, command) => onCommand(command, w),
+        worldAfterSystem,
+      );
+
+      return worldAfterCommands;
+    }, world);
+
+    world = newWorld;
+
+    // Render
+    renderer.processRenderQueue(threeContext, renderQueue, material);
+    renderer.syncCameraToWorld(threeContext, world);
+    renderer.updateHighlight(threeContext, world);
+    renderer.updateInstancedMeshes(threeContext, world);
+    renderer.renderScene(threeContext);
   }
 
-  gameLoop();
-}
+  animationFrameId = requestAnimationFrame(gameLoop);
 
-export function stopGameLoop(): void {
-  cancelAnimationFrame(animationFrameId);
+  return {
+    stop: () => {
+      cancelAnimationFrame(animationFrameId);
+    },
+  };
 }

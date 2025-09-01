@@ -1,13 +1,12 @@
 import * as THREE from 'three';
-import { RenderQueue, ThreeContext, RenderCommand } from '@/domain/types';
 import { match } from 'ts-pattern';
+import { RenderQueue, ThreeContext, RenderCommand } from '@/domain/types';
 
-const chunkMaterial = new THREE.MeshStandardMaterial({
-  vertexColors: false,
-  map: new THREE.TextureLoader().load('/assets/grass/side.jpeg'),
-});
-
-function handleUpsertChunk(context: ThreeContext, command: Extract<RenderCommand, { _tag: 'UpsertChunk' }>): void {
+function handleUpsertChunk(
+  context: ThreeContext,
+  command: Extract<RenderCommand, { _tag: 'UpsertChunk' }>,
+  material: THREE.Material,
+): void {
   const { scene, chunkMeshes } = context;
   const { chunkX, chunkZ, mesh: meshData } = command;
   const chunkId = `${chunkX},${chunkZ}`;
@@ -16,22 +15,26 @@ function handleUpsertChunk(context: ThreeContext, command: Extract<RenderCommand
     chunkMeshes.get(chunkId) ??
     (() => {
       const newGeometry = new THREE.BufferGeometry();
-      const newMesh = new THREE.Mesh(newGeometry, chunkMaterial);
+      const newMesh = new THREE.Mesh(newGeometry, material);
       newMesh.name = `chunk-${chunkId}`;
+      newMesh.userData = { type: 'chunk' }; // Add type for raycasting
       scene.add(newMesh);
       chunkMeshes.set(chunkId, newMesh);
       return newMesh;
     })();
 
   const geometry = mesh.geometry;
-  geometry.setAttribute('position', new THREE.BufferAttribute(meshData.positions, 3));
-  geometry.setAttribute('normal', new THREE.BufferAttribute(meshData.normals, 3));
-  geometry.setAttribute('uv', new THREE.BufferAttribute(meshData.uvs, 2));
-  geometry.setIndex(new THREE.BufferAttribute(meshData.indices, 1));
+  geometry.setAttribute('position', new THREE.BufferAttribute(meshData.mesh.positions, 3));
+  geometry.setAttribute('normal', new THREE.BufferAttribute(meshData.mesh.normals, 3));
+  geometry.setAttribute('uv', new THREE.BufferAttribute(meshData.mesh.uvs, 2));
+  geometry.setIndex(new THREE.BufferAttribute(meshData.mesh.indices, 1));
   geometry.computeBoundingSphere();
 }
 
-function handleRemoveChunk(context: ThreeContext, command: Extract<RenderCommand, { _tag: 'RemoveChunk' }>): void {
+function handleRemoveChunk(
+  context: ThreeContext,
+  command: Extract<RenderCommand, { _tag: 'RemoveChunk' }>,
+): void {
   const { scene, chunkMeshes } = context;
   const { chunkX, chunkZ } = command;
   const chunkId = `${chunkX},${chunkZ}`;
@@ -44,12 +47,16 @@ function handleRemoveChunk(context: ThreeContext, command: Extract<RenderCommand
   }
 }
 
-export function processRenderQueue(context: ThreeContext, queue: RenderQueue): void {
+export function processRenderQueue(
+  context: ThreeContext,
+  queue: RenderQueue,
+  material: THREE.Material,
+): void {
   const commands = queue.splice(0, queue.length);
 
   for (const command of commands) {
     match(command)
-      .with({ _tag: 'UpsertChunk' }, cmd => handleUpsertChunk(context, cmd))
+      .with({ _tag: 'UpsertChunk' }, cmd => handleUpsertChunk(context, cmd, material))
       .with({ _tag: 'RemoveChunk' }, cmd => handleRemoveChunk(context, cmd))
       .exhaustive();
   }

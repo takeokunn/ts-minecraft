@@ -1,133 +1,115 @@
-
-import { Effect } from 'effect';
-import { World } from '@/runtime/world';
+import { createArchetype } from '@/domain/archetypes';
+import { PlacedBlock } from '@/domain/block';
 import {
-  Collider,
+  createTargetNone,
   Position,
-  type Hotbar,
+  setInputState,
 } from '@/domain/components';
-import { BlockType } from '@/domain/block';
+import { playerTargetQuery } from '@/domain/queries';
+import { System } from '@/runtime/loop';
+import { addArchetype, query, removeEntity, updateComponent, World } from '@/runtime/world';
 import { match } from 'ts-pattern';
 
-export const checkPlayerCollision = (
-  blockPos: Position,
-  playerPos: Position,
-  playerCollider: Collider,
-): boolean => {
-  const minPx = playerPos.x - playerCollider.width / 2;
-  const maxPx = playerPos.x + playerCollider.width / 2;
-  const minPy = playerPos.y;
-  const maxPy = playerPos.y + playerCollider.height;
-  const minPz = playerPos.z - playerCollider.depth / 2;
-  const maxPz = playerPos.z + playerCollider.depth / 2;
+const getNewBlockPosition = (
+  targetPosition: Position,
+  face: { readonly x: number; readonly y: number; readonly z: number },
+): Position => ({
+  x: targetPosition.x + face.x,
+  y: targetPosition.y + face.y,
+  z: targetPosition.z + face.z,
+});
 
-  const minBx = blockPos.x - 0.5;
-  const maxBx = blockPos.x + 0.5;
-  const minBy = blockPos.y - 0.5;
-  const maxBy = blockPos.y + 0.5;
-  const minBz = blockPos.z - 0.5;
-  const maxBz = blockPos.z + 0.5;
+const handleDestroyBlock = (world: World, player: ReturnType<typeof query<['player', 'inputState', 'target', 'hotbar']>>[number]): World => {
+  if (player.target.type !== 'block') return world;
 
-  return (
-    minPx < maxBx &&
-    maxPx > minBx &&
-    minPy < maxBy &&
-    maxPy > minBy &&
-    minPz < maxBz &&
-    maxPz > minBz
-  );
-};
+  const targetPosition = world.components.position.get(player.target.entityId);
+  if (!targetPosition) return world;
 
-const getSelectedBlockType = (hotbar: Hotbar): BlockType | null => {
-  const selectedSlotKey = `slot${hotbar.selectedSlot}` as keyof Hotbar;
-  return (hotbar[selectedSlotKey] as BlockType) ?? null;
-};
+  const blockKey = `${targetPosition.x},${targetPosition.y},${targetPosition.z}`;
 
-const handleDestroyBlock = (
-  world: World,
-  target: {
-    entityId: number;
-    faceX: number;
-    faceY: number;
-    faceZ: number;
-  },
-  targetPos: Position,
-) => {
-  const { x, y, z } = targetPos;
-  const key = `${x},${y},${z}`;
-  (world as any).globalState.editedBlocks.destroyed.add(key);
-  (world as any).globalState.editedBlocks.placed.delete(key);
-  return world.removeEntity(target.entityId);
-};
+  // 1. Remove the entity
+  const worldWithoutEntity = removeEntity(world, player.target.entityId);
 
-const handlePlaceBlock = (
-  world: World,
-  player: any,
-  target: any,
-  targetPos: Position,
-) => {
-  const newBlockPos = {
-    x: targetPos.x + target.faceX,
-    y: targetPos.y + target.faceY,
-    z: targetPos.z + target.faceZ,
+  // 2. Update edited blocks state
+  const newDestroyed = new Set(worldWithoutEntity.globalState.editedBlocks.destroyed).add(blockKey);
+  const newPlaced = { ...worldWithoutEntity.globalState.editedBlocks.placed };
+  delete newPlaced[blockKey];
+
+  const worldWithUpdatedState = {
+    ...worldWithoutEntity,
+    globalState: {
+      ...worldWithoutEntity.globalState,
+      editedBlocks: {
+        placed: newPlaced,
+        destroyed: newDestroyed,
+      },
+    },
   };
 
-  const playerPos = (world as any).components.position.get(player.entityId);
-  const playerCollider = (world as any).components.collider.get(player.entityId);
-
-  if (
-    !playerPos ||
-    !playerCollider ||
-    checkPlayerCollision(newBlockPos, playerPos, playerCollider)
-  ) {
-    return Effect.succeed(undefined);
-  }
-
-  const blockType = getSelectedBlockType(player.hotbar);
-  if (!blockType) {
-    return Effect.succeed(undefined);
-  }
-
-  const newBlockKey = `${newBlockPos.x},${newBlockPos.y},${newBlockPos.z}`;
-  (world as any).globalState.editedBlocks.placed.set(newBlockKey, {
-    ...newBlockPos,
-    blockType,
-  });
-  (world as any).globalState.editedBlocks.destroyed.delete(newBlockKey);
-
-  return (world as any).archetypes.createBlock(newBlockPos, blockType);
+  // 3. Reset player's target
+  return updateComponent(worldWithUpdatedState, player.entityId, 'target', createTargetNone());
 };
 
-export const blockInteractionSystem = Effect.gen(function* ($) {
-  const world = yield* $(World as any);
-  const players = (world as any).queries.playerTarget(world);
+const handlePlaceBlock = (world: World, player: ReturnType<typeof query<['player', 'inputState', 'target', 'hotbar']>>[number]): World => {
+  if (player.target.type !== 'block') return world;
 
-  if (players.length === 0) {
-    return;
-  }
-  const player = players[0];
-  const {
-    inputState: { place, destroy },
-    target,
-  } = player;
+  const targetPosition = world.components.position.get(player.target.entityId);
+  if (!targetPosition) return world;
 
-  if ((!place && !destroy) || target.entityId === -1) {
-    return;
-  }
+  const { hotbar } = player;
+  const newBlockPos = getNewBlockPosition(targetPosition, player.target.face);
+  const selectedBlockType = hotbar.slots[hotbar.selectedIndex];
+  if (!selectedBlockType) return world;
 
-  const targetPos = (world as any).components.position.get(target.entityId);
-  if (!targetPos) {
-    return;
-  }
+  // 1. Create and add the new block entity
+  const newBlockArchetype = createArchetype({
+    type: 'block',
+    pos: newBlockPos,
+    blockType: selectedBlockType,
+  });
+  const [worldWithNewBlock] = addArchetype(world, newBlockArchetype);
 
-  yield* $(
-    match({ place, destroy })
-      .with({ destroy: true }, () =>
-        handleDestroyBlock(world, target, targetPos),
+  // 2. Update edited blocks state
+  const blockKey = `${newBlockPos.x},${newBlockPos.y},${newBlockPos.z}`;
+  const newBlock: PlacedBlock = {
+    position: newBlockPos,
+    blockType: selectedBlockType,
+  };
+  const newPlaced = { ...worldWithNewBlock.globalState.editedBlocks.placed, [blockKey]: newBlock };
+  const newDestroyed = new Set(worldWithNewBlock.globalState.editedBlocks.destroyed);
+  newDestroyed.delete(blockKey);
+
+  const worldWithUpdatedState = {
+    ...worldWithNewBlock,
+    globalState: {
+      ...worldWithNewBlock.globalState,
+      editedBlocks: {
+        placed: newPlaced,
+        destroyed: newDestroyed,
+      },
+    },
+  };
+
+  // 3. Reset place input to prevent placing multiple blocks
+  const newPlayerInput = setInputState(player.inputState, { place: false });
+  return updateComponent(worldWithUpdatedState, player.entityId, 'inputState', newPlayerInput);
+};
+
+export const blockInteractionSystem: System = (world, _deps) => {
+  const players = query(world, playerTargetQuery);
+
+  const newWorld = players.reduce((currentWorld, player) => {
+    return match(player)
+      .with(
+        { target: { type: 'block' }, inputState: { destroy: true } },
+        p => handleDestroyBlock(currentWorld, p),
       )
-      .with({ place: true }, () =>
-        handlePlaceBlock(world, player, target, targetPos),
+      .with(
+        { target: { type: 'block' }, inputState: { place: true } },
+        p => handlePlaceBlock(currentWorld, p),
       )
-      .otherwise(() => Effect.succeed(undefined) as any),
-  );
-});
+      .otherwise(() => currentWorld);
+  }, world);
+
+  return [newWorld, []];
+};

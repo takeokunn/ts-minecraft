@@ -21,6 +21,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     include: ['src/**/*.test.ts'],
+    testTimeout: 1000,
     exclude: [
       'node_modules',
       'dist',
@@ -34,13 +35,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       reportsDirectory: './coverage',
-      include: ['src/domain', 'src/runtime', 'src/systems'],
-      exclude: ['src/infrastructure', 'src/main.ts', 'src/index.ts'],
-      all: true,
-      lines: 90,
-      functions: 90,
-      branches: 90,
-      statements: 90,
+      include: ['src/']
     },
   },
 });

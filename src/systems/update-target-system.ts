@@ -1,34 +1,44 @@
-
-import { Effect } from 'effect';
-import { World } from '@/runtime/world';
-import { Raycast } from '@/domain/types';
+import {
+  createTargetBlock,
+  createTargetNone,
+} from '@/domain/components';
+import { playerTargetQuery } from '@/domain/queries';
+import { System } from '@/runtime/loop';
+import { query, updateComponent } from '@/runtime/world';
 import { match } from 'ts-pattern';
 
-export const updateTargetSystem = Effect.gen(function* (_) {
-  const world = yield* _(World);
-  const raycast = yield* _(Raycast);
-  const players = world.queries.playerTarget(world);
+export const updateTargetSystem: System = (world, _deps) => {
+  const { raycastResult } = world.globalState;
+  const players = query(world, playerTargetQuery);
 
   if (players.length === 0) {
-    return;
+    return [world, []];
   }
-  const player = players[0];
 
-  const raycastResult = raycast.castRay();
-
+  // Determine the new target state based on the raycast result.
   const newTarget = match(raycastResult)
-    .with(undefined, () => ({
-      entityId: -1,
-      faceX: 0,
-      faceY: 0,
-      faceZ: 0,
-    }))
-    .otherwise((result) => ({
-      entityId: result.entityId,
-      faceX: result.face.x,
-      faceY: result.face.y,
-      faceZ: result.face.z,
-    }));
+    .with(null, () => createTargetNone())
+    .otherwise(result => createTargetBlock(result.entityId, result.face));
 
-  world.components.target.set(player.entityId, newTarget);
-});
+  // Filter to find only players whose target needs to be updated.
+  const playersToUpdate = players.filter(
+    p => JSON.stringify(p.target) !== JSON.stringify(newTarget),
+  );
+
+  // If no players need an update, return the original world.
+  if (playersToUpdate.length === 0) {
+    return [world, []];
+  }
+
+  // Use reduce to apply the update to all relevant players.
+  const newWorld = playersToUpdate.reduce((currentWorld, player) => {
+    return updateComponent(
+      currentWorld,
+      player.entityId,
+      'target',
+      newTarget,
+    );
+  }, world);
+
+  return [newWorld, []];
+};

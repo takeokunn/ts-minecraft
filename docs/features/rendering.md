@@ -1,50 +1,72 @@
-# レンダリングの最適化手法
+# レンダリング
 
-広大なボクセルワールドをリアルタイムで描画するには、パフォーマンスを極限まで高めるための最適化が不可欠です。本プロジェクトでは、主に**地形（静的オブジェクト）**と**動的オブジェクト**の2種類に対して、それぞれ異なる最適化手法を適用しています。
-
--   **関連ソース**: [`src/workers/computation.worker.ts`](../../src/workers/computation.worker.ts), [`src/infrastructure/renderer-three.ts`](../../src/infrastructure/renderer-three.ts)
--   **関連アーキテクチャ**: [レンダリングアーキテクチャ](../architecture/rendering.md)
-
----
-
-## 1. 地形の最適化: Greedy Meshing
-
-地形は何百万ものブロックで構成されるため、そのまま描画するとパフォーマンスが破綻します。この問題を解決するのが **Greedy Meshing** アルゴリズムです。
-
-### 課題
-
-単純にブロックをキューブとして描画すると、以下の問題が発生します。
--   **膨大な頂点数**: 1つのキューブは12個の三角形（36頂点）を持ちます。1チャンク（16x256x16）がすべて埋まっていると、約230万頂点にもなります。
--   **不要な内部面の描画**: 地中に埋まっているブロックの面など、プレイヤーから絶対に見えない面も描画してしまい、GPUに多大な負荷がかかります。
-
-### 解決策
-
-Greedy Meshingは、隣接する同じ種類のブロックを検出し、それらを一つの大きな面（ポリゴン）に統合します。
-
--   **仕組み**:
-    1.  チャンクデータを3次元のスライス（XY, YZ, XZ平面）で走査します。
-    2.  各スライスで、同じ種類のブロックが連続する長方形の領域を探索します（これが"Greedy"の名前の由来です）。
-    3.  見つかった最大の長方形を一つの面としてメッシュデータ（頂点、インデックス、UV）を生成します。
-    4.  探索済みの領域にはマークを付け、スキャンを続けます。
--   **効果**:
-    -   **頂点数の劇的な削減**: チャンクの内部面がすべて削除され、表面のメッシュのみが生成されるため、GPUに送信するデータ量が90%以上削減されます。
-    -   **ドローコールの削減**: チャンク全体が単一（または数個）のメッシュになるため、1チャンクあたり1回のドローコールで描画が完了します。
-
-### 実装
-
-この計算は非常に負荷が高いため、メインスレッドのフレームレートに影響を与えないよう、[`computation.worker.ts`](../../src/workers/computation.worker.ts)内のWeb Workerで完全に非同期に実行されます。
+-   **関連ソース**:
+    -   [`src/infrastructure/renderer-three/`](../../src/infrastructure/renderer-three/)
+    -   [`src/systems/world-update.ts`](../../src/systems/world-update.ts)
+    -   [`src/workers/computation.worker.ts`](../../src/workers/computation.worker.ts)
 
 ---
 
-## 2. 動的オブジェクトの最適化: InstancedMesh
+## 1. 設計思想: 関心の分離
 
-プレイヤーやMOBなど、ワールド内を移動するオブジェクトにはGreedy Meshingは適用できません。これらのオブジェクトに対しては **Instanced Rendering** という手法を用います。
+レンダリングパイプラインは、**ゲームロジック**（何を描画すべきか）と**レンダリングエンジン**（どのように描画するか）の責務を明確に分離するように設計されています。これにより、一方の変更が他方に影響を与えにくくなり、コードの保守性とテスト容易性が向上します。
 
--   **課題**: 複数のプレイヤーやMOBを描画する際、それぞれを個別の描画命令（ドローコール）で描画すると、CPUからGPUへの命令発行がボトルネックになります。
--   **解決策**: Three.jsの `InstancedMesh` を使用します。これは、同じ形状と材質を持つ多数のオブジェクトを、**一度のドローコール**でまとめてレンダリングする機能です。
--   **仕組み**:
-    1.  オブジェクトの種類ごと（例: `player`, `item`）に `InstancedMesh` を用意します。
-    2.  各インスタンスの位置、回転、スケール情報を行列 (`Matrix4`) として `InstancedMesh` に設定します。
-    3.  `RendererThree` は、毎フレーム、動的オブジェクトの `Position` コンポーネントなどから最新の行列を計算し、`InstancedMesh` を更新します。
+この分離を実現するため、両者の間には **`ChunkDataQueue`** と **`RenderQueue`** という2つの非同期キューが介在します。ゲームロジック（System）は直接Three.jsのAPIを呼び出すのではなく、描画したい内容をコマンドとして`RenderQueue`に送信し、それ以降の処理を`Renderer`に委任します。
 
-これにより、ワールド内に多数の動的オブジェクトが存在しても、ドローコールの回数をオブジェクトの種類数まで抑えることができ、高いパフォーマンスを維持します。
+## 2. レンダリングパイプライン (地形データフロー)
+
+プレイヤーが新しい領域に移動した際の、チャンク生成から描画までの非同期データフローは以下のようになります。
+
+```mermaid
+sequenceDiagram
+    participant CLS as chunkLoadingSystem
+    participant Worker as computation.worker.ts
+    participant CDQ as ChunkDataQueue
+    participant WUS as worldUpdateSystem
+    participant RQ as RenderQueue
+    participant Renderer as renderer-three
+
+    CLS->>Runtime: GenerateChunk コマンド発行
+    Runtime->>Worker: 地形生成タスクを依頼
+    Note right of Worker: (in Web Worker)
+    Worker-->>Worker: 地形生成 &<br>Greedy Meshing実行
+    Worker->>CDQ: 計算結果 (Meshデータ) を送信
+    Note left of WUS: (in Main Thread)
+    WUS->>CDQ: キューからMeshデータを取得
+    WUS->>World: ブロックエンティティを追加
+    WUS->>RQ: UpsertChunkコマンドを送信
+    Renderer->>RQ: キューからコマンドを取得
+    Renderer-->>Renderer: Three.jsのMeshを生成/更新
+```
+
+### 各ステップの解説
+
+1.  **`chunkLoadingSystem`**: プレイヤーの移動を検知し、新しく必要になったチャンクの `GenerateChunk` コマンドを発行します。
+2.  **`computation.worker.ts` (Web Worker)**: メインスレッドをブロックしないよう、バックグラウンドで重い計算処理（地形生成、Greedy Meshing）を実行し、結果のメッシュデータを `ChunkDataQueue` に送信します。
+3.  **`worldUpdateSystem`**:
+    -   メインスレッドで `ChunkDataQueue` を監視し、データがあれば1フレームに1つだけ取り出します（負荷分散）。
+    -   取り出したデータに基づき、ブロックのエンティティを `World` に追加します。
+    -   メッシュデータをレンダリング可能なコマンド（`UpsertChunk`）に変換し、`RenderQueue` に送信します。
+    -   **注**: このシステムはキューを直接操作するため、副作用を持ちます。
+4.  **`renderer-three`**: `RenderQueue` を監視し、コマンドを受け取って初めてThree.jsのAPIを呼び出し、シーンにメッシュを実際に生成・更新・削除します。
+
+## 3. `renderer-three` の内部アーキテクチャ
+
+Three.jsを用いた具体的なレンダリング処理は `src/infrastructure/renderer-three/` にカプセル化されており、責務に応じてさらにモジュール分割されています。
+
+-   **`context.ts`**: Three.jsの `WebGLRenderer`, `Scene`, `PerspectiveCamera` といった、アプリケーション全体で単一のインスタンスを持つべきコアオブジェクトを管理する `ThreeContext` を提供します。
+-   **`updates.ts`**: `RenderQueue` を監視し、`UpsertChunk` のようなコマンドを受け取って処理する責務を持ちます。コマンドに応じて、Three.jsの `BufferGeometry` や `Mesh` を生成・更新します。
+-   **`render.ts`**: 毎フレームのレンダリング処理そのものを担当します。`requestAnimationFrame` ループの中で、シーンのクリア、カメラとWorldの状態の同期、ハイライト用オブジェクトの更新、`InstancedMesh` の更新、そして最終的なシーンの描画を行います。
+-   **`index.ts`**: 上記のモジュールを統合し、アプリケーションの他レイヤーに対して統一された `Renderer` インターフェースを提供します。
+
+## 4. 最適化手法
+
+広大なボクセルワールドをリアルタイムで描画するため、以下の最適化手法を適用しています。
+
+### Greedy Meshing (地形)
+
+地形は何百万ものブロックで構成されるため、そのまま描画するとパフォーマンスが破綻します。この問題を解決するのが **Greedy Meshing** アルゴリズムです。隣接する同じ種類のブロックを検出し、それらを一つの大きな面（ポリゴン）に統合することで、頂点数とドローコールを劇的に削減します。この計算は非常に負荷が高いため、`computation.worker.ts` 内のWeb Workerで完全に非同期に実行されます。
+
+### Instanced Rendering (動的オブジェクト)
+
+プレイヤーやMOBなど、ワールド内を移動するオブジェクトには **Instanced Rendering** という手法を用います。Three.jsの `InstancedMesh` を使用し、同じ形状と材質を持つ多数のオブジェクトを**一度のドローコール**でまとめてレンダリングします。`render.ts` 内の `updateInstancedMeshes` 関数が、毎フレーム、動的オブジェクトの `Position` コンポーネントなどから最新の状態を行列として `InstancedMesh` に反映させています。

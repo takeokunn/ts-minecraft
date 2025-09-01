@@ -1,59 +1,88 @@
-import { type Query } from './query';
+import { createQuery, Query } from './query';
 
-export const playerQuery: Query = {
-  name: 'player',
-  components: [
-    'player',
-    'position',
-    'velocity',
-    'inputState',
-    'cameraState',
-    'hotbar',
-  ],
-};
+/**
+ * Query for the main player entity, including all components needed for movement and interaction.
+ */
+export const playerQuery: Query = createQuery('playerQuery', [
+  'player',
+  'position',
+  'velocity',
+  'inputState',
+  'cameraState',
+  'hotbar',
+]);
 
-export const physicsQuery: Query = {
-  name: 'physics',
-  components: ['position', 'velocity', 'gravity'],
-};
+/**
+ * Query for the player entity, focusing on components needed for block interaction (targeting).
+ */
+export const playerTargetQuery: Query = createQuery('playerTargetQuery', [
+  'player',
+  'inputState',
+  'target',
+  'hotbar',
+]);
 
-export const playerColliderQuery: Query = {
-  name: 'playerCollider',
-  components: ['player', 'position', 'velocity', 'collider'],
-};
+/**
+ * Query for the player entity, focusing on components needed for collision detection.
+ */
+export const playerColliderQuery: Query = createQuery('playerColliderQuery', [
+  'player',
+  'position',
+  'velocity',
+  'collider',
+]);
 
-export const positionColliderQuery: Query = {
-  name: 'positionCollider',
-  components: ['position', 'collider'],
-};
+/**
+ * Query for any entity that has a position and a collider, used to find potential obstacles.
+ */
+export const positionColliderQuery: Query = createQuery(
+  'positionColliderQuery',
+  ['position', 'collider'],
+);
 
-export const chunkQuery: Query = {
-  name: 'chunk',
-  components: ['chunk'],
-};
+/**
+ * Query for entities affected by physics (gravity).
+ */
+export const physicsQuery: Query = createQuery('physicsQuery', [
+  'position',
+  'velocity',
+  'gravity',
+]);
 
-export const chunkLoaderQuery: Query = {
-  name: 'chunkLoader',
-  components: ['chunkLoaderState'],
-};
+/**
+ * Query for chunk marker entities.
+ */
+export const chunkQuery: Query = createQuery('chunkQuery', ['chunk']);
 
-export const playerTargetQuery: Query = {
-  name: 'playerTarget',
-  components: ['player', 'target'],
-};
+/**
+ * Query for the entity holding the chunk loader state.
+ */
+export const chunkLoaderQuery: Query = createQuery('chunkLoaderQuery', [
+  'chunkLoaderState',
+]);
 
-export const playerMovementQuery: Query = {
-  name: 'playerMovement',
-  components: ['player', 'velocity', 'inputState', 'cameraState'],
-};
+/**
+ * Query for the player entity, focusing on components needed for calculating movement vectors.
+ */
+export const playerMovementQuery: Query = createQuery('playerMovementQuery', [
+  'player',
+  'inputState',
+  'velocity',
+  'cameraState',
+]);
 
-export const queries = [
-  playerQuery,
-  physicsQuery,
-  playerColliderQuery,
-  positionColliderQuery,
-  chunkQuery,
-  chunkLoaderQuery,
-  playerTargetQuery,
-  playerMovementQuery,
-];
+/**
+ * Query for the player entity, focusing on components related to raw input.
+ */
+export const playerInputQuery: Query = createQuery('playerInputQuery', [
+  'player',
+  'inputState',
+]);
+
+/**
+ * Query for all terrain blocks, used for raycasting and world manipulation.
+ */
+export const terrainBlockQuery: Query = createQuery('terrainBlockQuery', [
+  'terrainBlock',
+  'position',
+]);

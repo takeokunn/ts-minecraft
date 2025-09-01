@@ -1,24 +1,36 @@
 import * as THREE from 'three';
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
-import type { ThreeContext as ThreeContextState } from '@/domain/types';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
+import { createThreeCamera, handleCameraResize, ThreeCamera } from '../camera-three';
 
-export type ThreeContextAPI = {
-  context: ThreeContextState;
-  cleanup: () => void;
+// --- Type Definitions ---
+
+export type ThreeContext = {
+  readonly scene: THREE.Scene;
+  readonly camera: ThreeCamera;
+  readonly renderer: THREE.WebGLRenderer;
+  readonly highlightMesh: THREE.Mesh;
+  readonly stats: Stats;
+  readonly chunkMeshes: Map<string, THREE.Mesh>;
+  readonly instancedMeshes: Map<string, THREE.InstancedMesh>;
 };
 
-export function createThreeContext(): ThreeContextAPI {
+export type ThreeContextAPI = {
+  readonly context: ThreeContext;
+  readonly cleanup: () => void;
+};
+
+// --- Functions ---
+
+export function createThreeContext(rootElement: HTMLElement): ThreeContextAPI {
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
+  rootElement.appendChild(renderer.domElement);
 
-  const controls = new PointerLockControls(camera, renderer.domElement);
+  const camera = createThreeCamera(renderer.domElement);
 
   const stats = new Stats();
-  document.body.appendChild(stats.dom);
+  rootElement.appendChild(stats.dom);
 
   const highlightMesh = new THREE.Mesh(
     new THREE.BoxGeometry(1.01, 1.01, 1.01),
@@ -30,12 +42,9 @@ export function createThreeContext(): ThreeContextAPI {
   );
   scene.add(highlightMesh);
 
-  const context: ThreeContextState = {
+  const context: ThreeContext = {
     scene,
-    camera: {
-      camera,
-      controls,
-    },
+    camera,
     renderer,
     highlightMesh,
     stats,
@@ -43,22 +52,17 @@ export function createThreeContext(): ThreeContextAPI {
     instancedMeshes: new Map(),
   };
 
-  const handleResize = () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  };
-
-  window.addEventListener('resize', handleResize);
+  const onResize = () => handleCameraResize(context.camera, context.renderer);
+  window.addEventListener('resize', onResize);
 
   const cleanup = () => {
-    window.removeEventListener('resize', handleResize);
+    window.removeEventListener('resize', onResize);
     renderer.dispose();
-    if (document.body.contains(renderer.domElement)) {
-      document.body.removeChild(renderer.domElement);
+    if (rootElement.contains(renderer.domElement)) {
+      rootElement.removeChild(renderer.domElement);
     }
-    if (document.body.contains(stats.dom)) {
-      document.body.removeChild(stats.dom);
+    if (rootElement.contains(stats.dom)) {
+      rootElement.removeChild(stats.dom);
     }
   };
 

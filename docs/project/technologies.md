@@ -34,6 +34,14 @@
     -   **パフォーマンス**: `src/infrastructure/renderer-three/render.ts`では、多数のブロックを効率的に描画するために`InstancedMesh`を活用しています。
     -   **柔軟性**: レンダリングに関する具体的な実装は`infrastructure`層に完全にカプセル化されており、Three.jsの機能を直接的かつ強力に利用しつつも、他のシステムからは抽象化されています。
 
+### [@react-three/drei](https://github.com/pmndrs/drei)
+
+-   **役割**: Three.jsのためのヘルパーライブラリ。
+-   **概要**: `@react-three/drei`は、Three.jsの一般的なシーンオブジェクトやエフェクト、コントローラーなどを、再利用可能なコンポーネントとして提供するライブラリ群です。Reactコンポーネントとして提供されていますが、本プロジェクトではReactを直接使用していないため、その一部のユーティリティ関数やロジックを参考にしたり、部分的に利用したりしています。
+-   **採用理由**:
+    -   **実績のある実装**: カメラ制御やポインターロックなど、3Dアプリケーションで一般的に必要となる機能について、高品質でテスト済みの実装を提供しており、開発の効率を高めます。
+    -   **学習リソース**: たとえ直接利用しない場合でも、そのソースコードはThree.jsを使った高度な実装の優れた参考資料となります。
+
 ---
 
 ## 2. 開発ツールとユーティリティ
@@ -54,15 +62,20 @@
 -   **役割**: コードフォーマッタ。
 -   **採用理由**: `package.json`の`format`スクリプトで定義されており、コードスタイルをプロジェクト全体で統一するために使用されます。Oxlint同様Rust製で非常に高速であり、フォーマットとリンティングのツールチェーンを高速なものに統一しています。
 
+### [Immer](httpss://immerjs.github.io/immer/)
+-   **役割**: 不変な状態(Immutable State)の操作。
+-   **概要**: `immer`は、状態を変更するロジックを簡潔に書くことで、複雑な不変なデータ構造の更新を容易にするライブラリです。直接オブジェクトを書き換えるようなコード（ミューテーション）を書いても、安全な更新処理に変換してくれます。
+-   **採用理由**: 本プロジェクトでは直接的にコード内で使用されている箇所は少ないですが、`@react-three/drei`のようなUI関連の依存ライブラリの内部で広く活用されています。これにより、UIの状態管理などが安全かつ効率的に行われます。また、テストコード(`src/vitest.setup.ts`)でも`Map`や`Set`を扱えるように設定されており、テストの信頼性を高めています。
+
 ### [ts-pattern](https://github.com/gvergnaud/ts-pattern)
 -   **役割**: パターンマッチングライブラリ。
 -   **概要**: TypeScriptで表現力豊かなパターンマッチングを実現します。
 -   **採用理由**: `src/infrastructure/input-browser.ts`において、キーボードの入力イベントを処理するために使用されています。`if/else`や`switch`文のネストを避けることができ、どのキーがどのアクションに対応するのかを宣言的かつ可読性高く記述できます。
 
-### [simplex-noise](httpss://github.com/jwagner/simplex-noise.js) & [alea](https://www.npmjs.com/package/alea)
+### [simplex-noise](httpss://github.com/jwagner/simplex-noise.js), [perlin-noise](https://www.npmjs.com/package/perlin-noise) & [alea](https://www.npmjs.com/package/alea)
 -   **役割**: プロシージャルな地形生成。
--   **概要**: `simplex-noise`はシンプレックスノイズを生成するためのライブラリ、`alea`はシード可能な乱数生成器(PRNG)です。
--   **採用理由**: `src/workers/computation.worker.ts`の地形生成ロジックで使用されています。シンプレックスノイズを用いることで自然で滑らかな地形を生成し、`alea`と組み合わせることで、同じシード値からは常に同じワールドが生成される、再現性のあるワールド生成を実現しています。
+-   **概要**: `simplex-noise` と `perlin-noise` は、自然な地形を生成するためのノイズ関数ライブラリです。`alea`はシード可能な乱数生成器(PRNG)です。
+-   **採用理由**: `src/workers/computation.worker.ts`の地形生成ロジックで使用されています。これらのノイズ関数を用いることで自然で滑らかな地形を生成し、`alea`と組み合わせることで、同じシード値からは常に同じワールドが生成される、再現性のあるワールド生成を実現しています。
 
 ### [Texture Atlas Script](scripts/create-texture-atlas.cjs)
 -   **役割**: テクスチャアトラスの生成。
@@ -94,6 +107,7 @@
 -   **採用理由**:
     -   **高速性**: Viteのエンジンを活用し、テストの実行とフィードバックが非常に高速です。
     -   **設定の容易さ**: `vite.config.ts`を共有するため、テスト固有の複雑な設定が不要です。
+    -   **DOMテスト環境**: `happy-dom` を利用してNode.js環境内にDOM環境をシミュレートし、ブラウザに依存しない高速なUIロジックのテストを可能にしています。
     -   **Effectとの連携**: `Effect.runPromise`を使用することで、Effectで書かれたプログラムをユニットテスト内で簡単に実行できます（例: `src/runtime/world.test.ts`）。
 
 ### [fast-check](https://fast-check.dev/)

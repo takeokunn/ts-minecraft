@@ -1,64 +1,23 @@
+import * as S from '@effect/schema/Schema';
 import type {
+  InstancedMesh,
+  Mesh,
   PerspectiveCamera,
   Scene,
   WebGLRenderer,
-  Mesh,
-  InstancedMesh,
 } from 'three';
 import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import type Stats from 'three/examples/jsm/libs/stats.module.js';
 
-import { BlockType } from './block';
-import { EntityId } from './entity';
-import type { Components } from './components';
+import { BlockType, PlacedBlockSchema } from './block';
+import { ComponentSchemas } from './components';
 
-export type ComponentStore<T> = Map<EntityId, T>;
-
-export interface World {
-  nextEntityId: EntityId;
-  entities: Set<EntityId>;
-  components: {
-    [K in keyof Components]: ComponentStore<Components[K]>;
-  };
-  tags: {
-    terrainBlock: Set<EntityId>;
-  };
-  globalState: {
-    scene: 'Title' | 'InGame' | 'Paused';
-    seeds: {
-      world: number;
-      biome: number;
-      trees: number;
-    };
-    amplitude: number;
-    editedBlocks: {
-      placed: Map<string, PlacedBlock>;
-      destroyed: Set<string>;
-    };
-  };
-}
-
-export type System = (world: World) => void;
-
-export type AABB = {
-  minX: number;
-  minY: number;
-  minZ: number;
-  maxX: number;
-  maxY: number;
-  maxZ: number;
-};
-export type SpatialGrid = Map<string, Set<EntityId>>;
-export interface BrowserInputState {
-  keyboard: Set<string>;
-  mouse: { dx: number; dy: number };
-}
-export interface ThreeCamera {
+// --- Three.js Related Types (Not using Schema) ---
+export type ThreeCamera = {
   camera: PerspectiveCamera;
   controls: PointerLockControls;
-}
-
-export interface ThreeContext {
+};
+export type ThreeContext = {
   scene: Scene;
   camera: ThreeCamera;
   renderer: WebGLRenderer;
@@ -66,73 +25,187 @@ export interface ThreeContext {
   stats: Stats;
   chunkMeshes: Map<string, Mesh>;
   instancedMeshes: Map<string, InstancedMesh>;
-}
+};
 
-export interface PlacedBlock {
-  x: number;
-  y: number;
-  z: number;
-  blockType: BlockType;
-}
-export interface BlockData {
-  x: number;
-  y: number;
-  z: number;
-  blockType: BlockType;
-}
-export interface ChunkMeshData {
-  positions: Float32Array;
-  normals: Float32Array;
-  uvs: Float32Array;
-  indices: Uint32Array;
-}
-export interface ChunkGenerationResult {
-  blocks: BlockData[];
-  mesh: ChunkMeshData;
-  chunkX: number;
-  chunkZ: number;
-}
+// --- Schemas for Core Data Structures ---
+
+export const ChunkGenerationResultSchema = S.Struct({
+  blocks: S.Array(PlacedBlockSchema),
+  mesh: S.Struct({
+    positions: S.instanceOf(Float32Array),
+    normals: S.instanceOf(Float32Array),
+    uvs: S.instanceOf(Float32Array),
+    indices: S.instanceOf(Uint32Array),
+  }),
+  chunkX: S.Number,
+  chunkZ: S.Number,
+});
+export type ChunkGenerationResult = S.Schema.Type<
+  typeof ChunkGenerationResultSchema
+>;
+
+export const UpsertChunkRenderCommandSchema = S.Struct({
+  _tag: S.Literal('UpsertChunk'),
+  chunkX: S.Number,
+  chunkZ: S.Number,
+  mesh: ChunkGenerationResultSchema.pipe(S.pick('mesh')),
+});
+export type UpsertChunkRenderCommand = S.Schema.Type<
+  typeof UpsertChunkRenderCommandSchema
+>;
+
+export const RemoveChunkRenderCommandSchema = S.Struct({
+  _tag: S.Literal('RemoveChunk'),
+  chunkX: S.Number,
+  chunkZ: S.Number,
+});
+
+export const RenderCommandSchema = S.Union(
+  UpsertChunkRenderCommandSchema,
+  RemoveChunkRenderCommandSchema,
+);
+export type RenderCommand = S.Schema.Type<typeof RenderCommandSchema>;
+
+export const SystemCommandSchema = S.Struct({
+  _tag: S.Literal('GenerateChunk'),
+  chunkX: S.Number,
+  chunkZ: S.Number,
+});
+export type SystemCommand = S.Schema.Type<typeof SystemCommandSchema>;
+
+// --- Mutable Queues (using plain arrays) ---
 export type ChunkDataQueue = ChunkGenerationResult[];
-
-export interface GenerationParams {
-  chunkX: number;
-  chunkZ: number;
-  seeds: {
-    world: number;
-    biome: number;
-    trees: number;
-  };
-  amplitude: number;
-  editedBlocks: {
-    destroyed: { x: number; y: number; z: number }[];
-    placed: PlacedBlock[];
-  };
-}
-
-export type GenerateChunkCommand = {
-  _tag: 'GenerateChunk';
-  chunkX: number;
-  chunkZ: number;
-};
-export type SystemCommand = GenerateChunkCommand;
-
-export type UpsertChunkRenderCommand = {
-  _tag: 'UpsertChunk';
-  chunkX: number;
-  chunkZ: number;
-  mesh: ChunkMeshData;
-};
-export type RemoveChunkRenderCommand = {
-  _tag: 'RemoveChunk';
-  chunkX: number;
-  chunkZ: number;
-};
-export type RenderCommand = UpsertChunkRenderCommand | RemoveChunkRenderCommand;
 export type RenderQueue = RenderCommand[];
 
-export type ComputationPool = Worker[];
+export const BrowserInputStateSchema = S.Struct({
+  keyboard: S.Set(S.String),
+  mouse: S.Struct({ dx: S.Number, dy: S.Number }),
+  isLocked: S.Boolean,
+});
+export type BrowserInputState = S.Schema.Type<typeof BrowserInputStateSchema>;
 
-export type ComputationResult<T> = {
-  result: T;
-  workerId: number;
+const EditedBlockValueSchema = S.Struct({
+  position: ComponentSchemas.position,
+  blockType: BlockType,
+});
+
+import * as S from '@effect/schema/Schema';
+import type {
+  InstancedMesh,
+  Mesh,
+  PerspectiveCamera,
+  Scene,
+  WebGLRenderer,
+} from 'three';
+import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import type Stats from 'three/examples/jsm/libs/stats.module.js';
+
+import { BlockType, PlacedBlockSchema } from './block';
+import { ComponentSchemas } from './components';
+
+// --- Three.js Related Types (Not using Schema) ---
+export type ThreeCamera = {
+  readonly camera: PerspectiveCamera;
+  readonly controls: PointerLockControls;
 };
+export type ThreeContext = {
+  readonly scene: Scene;
+  readonly camera: ThreeCamera;
+  readonly renderer: WebGLRenderer;
+  readonly highlightMesh: Mesh;
+  readonly stats: Stats;
+  readonly chunkMeshes: Map<string, Mesh>;
+  readonly instancedMeshes: Map<string, InstancedMesh>;
+};
+
+// --- Schemas for Core Data Structures ---
+
+export const ChunkGenerationResultSchema = S.Struct({
+  blocks: S.Array(PlacedBlockSchema),
+  mesh: S.Struct({
+    positions: S.instanceOf(Float32Array),
+    normals: S.instanceOf(Float32Array),
+    uvs: S.instanceOf(Float32Array),
+    indices: S.instanceOf(Uint32Array),
+  }),
+  chunkX: S.Number,
+  chunkZ: S.Number,
+});
+export type ChunkGenerationResult = S.Schema.Type<
+  typeof ChunkGenerationResultSchema
+>;
+
+export const UpsertChunkRenderCommandSchema = S.Struct({
+  _tag: S.Literal('UpsertChunk'),
+  chunkX: S.Number,
+  chunkZ: S.Number,
+  mesh: ChunkGenerationResultSchema.pipe(S.pick('mesh')),
+});
+export type UpsertChunkRenderCommand = S.Schema.Type<
+  typeof UpsertChunkRenderCommandSchema
+>;
+
+export const RemoveChunkRenderCommandSchema = S.Struct({
+  _tag: S.Literal('RemoveChunk'),
+  chunkX: S.Number,
+  chunkZ: S.Number,
+});
+
+export const RenderCommandSchema = S.Union(
+  UpsertChunkRenderCommandSchema,
+  RemoveChunkRenderCommandSchema,
+);
+export type RenderCommand = S.Schema.Type<typeof RenderCommandSchema>;
+
+export const SystemCommandSchema = S.Struct({
+  _tag: S.Literal('GenerateChunk'),
+  chunkX: S.Number,
+  chunkZ: S.Number,
+});
+export type SystemCommand = S.Schema.Type<typeof SystemCommandSchema>;
+
+// --- Mutable Queues (using plain arrays) ---
+export type ChunkDataQueue = ChunkGenerationResult[];
+export type RenderQueue = RenderCommand[];
+
+export const BrowserInputStateSchema = S.Struct({
+  keyboard: S.Set(S.String),
+  mouse: S.Struct({ dx: S.Number, dy: S.Number }),
+  isLocked: S.Boolean,
+});
+export type BrowserInputState = S.Schema.Type<typeof BrowserInputStateSchema>;
+
+const EditedBlockValueSchema = S.Struct({
+  position: ComponentSchemas.position,
+  blockType: BlockType,
+});
+
+export const GenerationParamsSchema = S.Struct({
+  chunkX: S.Number,
+  chunkZ: S.Number,
+  seeds: S.Struct({
+    world: S.Number,
+    biome: S.Number,
+    trees: S.Number,
+  }),
+  amplitude: S.Number,
+  editedBlocks: S.Struct({
+    placed: S.Record({ key: S.String, value: EditedBlockValueSchema }),
+    destroyed: S.Set(S.String),
+  }),
+});
+export type GenerationParams = S.Schema.Type<typeof GenerationParamsSchema>;
+
+// --- Re-exports ---
+export * from './block';
+export * from './geometry';
+export * from './entity';
+export * from './components';
+
+export type GenerationParams = S.Schema.Type<typeof GenerationParamsSchema>;
+
+// --- Re-exports ---
+export * from './block';
+export * from './geometry';
+export * from './entity';
+export * from './components';

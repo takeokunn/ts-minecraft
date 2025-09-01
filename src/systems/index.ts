@@ -6,6 +6,7 @@ export { inputPollingSystem } from './input-polling';
 export { physicsSystem } from './physics';
 export { playerMovementSystem } from './player-movement';
 export { updateTargetSystem } from './update-target-system';
-export { uiSystem } from './ui';
+export { createUISystem } from './ui';
 export { updatePhysicsWorldSystem } from './update-physics-world';
 export { worldUpdateSystem } from './world-update';
+export { raycastSystem } from './raycast';

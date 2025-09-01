@@ -1,45 +1,44 @@
-import { Effect } from 'effect';
-import { World } from '@/runtime/world';
-import { Camera, Input } from '@/domain/types';
-import { CameraState } from '@/domain/components';
+import { clampPitch } from '@/domain/camera-logic';
+import { setCameraState } from '@/domain/components';
+import { playerQuery } from '@/domain/queries';
+import { System } from '@/runtime/loop';
+import { query, updateComponent } from '@/runtime/world';
 
-const SENSITIVITY = 0.002;
+const MOUSE_SENSITIVITY = 0.002;
 
-export const calculateCameraState = (
-  currentState: CameraState,
-  mouseDelta: { dx: number; dy: number },
-  sensitivity: number,
-): CameraState => {
-  const newYaw = currentState.yaw - mouseDelta.dx * sensitivity;
-  const newPitch = currentState.pitch - mouseDelta.dy * sensitivity;
-  const clampedPitch = Math.max(
-    -Math.PI / 2,
-    Math.min(Math.PI / 2, newPitch),
-  );
-  return { yaw: newYaw, pitch: clampedPitch };
-};
+export const cameraControlSystem: System = (world, { mouseDelta }) => {
+  const { dx, dy } = mouseDelta;
 
-export const cameraControlSystem = Effect.gen(function* ($) {
-  const world = yield* $(World as any);
-  const input = yield* $(Input as any);
-  const camera = yield* $(Camera as any);
-  const players = (world as any).queries.player(world);
-
-  if (players.length === 0) {
-    return;
+  if (dx === 0 && dy === 0) {
+    return [world, []];
   }
-  const player = players[0];
-  const { entityId, cameraState } = player;
 
-  const mouseDelta = input.getMouseDelta();
-  const newCameraState = calculateCameraState(
-    cameraState,
-    mouseDelta,
-    SENSITIVITY,
-  );
+  const players = query(world, playerQuery);
+  if (players.length === 0) {
+    return [world, []];
+  }
 
-  (world as any).components.cameraState.set(entityId, newCameraState);
+  const deltaPitch = -dy * MOUSE_SENSITIVITY;
+  const deltaYaw = -dx * MOUSE_SENSITIVITY;
 
-  camera.setYaw(newCameraState.yaw);
-  camera.rotatePitch(newCameraState.pitch - cameraState.pitch);
-});
+  const newWorld = players.reduce((currentWorld, player) => {
+    const { entityId, cameraState } = player;
+
+    const newPitch = clampPitch(cameraState.pitch + deltaPitch);
+    const newYaw = cameraState.yaw + deltaYaw;
+
+    const newCameraState = setCameraState(cameraState, {
+      pitch: newPitch,
+      yaw: newYaw,
+    });
+
+    return updateComponent(
+      currentWorld,
+      entityId,
+      'cameraState',
+      newCameraState,
+    );
+  }, world);
+
+  return [newWorld, []];
+};
