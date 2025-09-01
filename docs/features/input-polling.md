@@ -1,6 +1,6 @@
 # 入力ポーリングシステム (Input Polling System)
 
--   **ソース**: `src/systems/input-polling.ts`
+-   **関連ソース**: [`src/systems/input-polling.ts`](../../src/systems/input-polling.ts)
 -   **責務**: 毎フレーム、キーボードとマウスの現在の入力状態を `InputService` から取得し、プレイヤーエンティティの `InputState` コンポーネントを更新すること。
 
 ---

@@ -2,6 +2,8 @@
 
 このドキュメントは、`src/domain/components.ts`で定義されている全てのコンポーネントについて、その役割とプロパティを解説します。コンポーネントはECSアーキテクチャの根幹をなすデータコンテナです。
 
+-   **関連ソース**: [`src/domain/components.ts`](../../src/domain/components.ts)
+
 ---
 
 ## 基本コンポーネント

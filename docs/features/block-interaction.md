@@ -2,6 +2,8 @@
 
 The block interaction system allows the player to place and destroy blocks in the world. It connects player input with the world modification logic, acting as a bridge between the player's intent and the game state.
 
+-   **関連ソース**: [`src/systems/block-interaction.ts`](../../src/systems/block-interaction.ts)
+
 ## Core Components
 
 This system primarily interacts with the player entity, which is expected to have the following components:

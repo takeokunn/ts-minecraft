@@ -1,76 +1,61 @@
-import { Effect, Layer, Ref } from "effect";
-import { AABB, SpatialGrid } from "@/runtime/services";
-import { EntityId } from "@/domain/entity";
+import type { AABB, EntityId } from '@/domain/types';
 
-const CELL_SIZE = 4; // World units
+const CELL_SIZE = 4;
 
-const make = Effect.gen(function* (_) {
-  // The spatial grid is a map where the key is a cell coordinate (e.g., "x,y,z")
-  // and the value is a set of entity IDs in that cell.
-  const grid = Ref.unsafeMake(new Map<string, Set<EntityId>>());
+export type SpatialGrid = {
+  register: (entityId: EntityId, aabb: AABB) => void;
+  query: (aabb: AABB) => EntityId[];
+  clear: () => void;
+};
 
-  const getCellCoords = (x: number, y: number, z: number) => {
-    const cellX = Math.floor(x / CELL_SIZE);
-    const cellY = Math.floor(y / CELL_SIZE);
-    const cellZ = Math.floor(z / CELL_SIZE);
-    return `${cellX},${cellY},${cellZ}`;
-  };
+export function createSpatialGrid(): SpatialGrid {
+  let grid: Map<string, Set<EntityId>> = new Map();
 
-  const self: SpatialGrid = {
-    clear: () => Ref.set(grid, new Map()),
+  const forEachCellInAABB = (aabb: AABB, callback: (key: string) => void): void => {
+    const minCellX = Math.floor(aabb.minX / CELL_SIZE);
+    const maxCellX = Math.floor(aabb.maxX / CELL_SIZE);
+    const minCellY = Math.floor(aabb.minY / CELL_SIZE);
+    const maxCellY = Math.floor(aabb.maxY / CELL_SIZE);
+    const minCellZ = Math.floor(aabb.minZ / CELL_SIZE);
+    const maxCellZ = Math.floor(aabb.maxZ / CELL_SIZE);
 
-    register: (entityId, aabb) =>
-      Ref.update(grid, (g) => {
-        const minCellX = Math.floor(aabb.minX / CELL_SIZE);
-        const maxCellX = Math.floor(aabb.maxX / CELL_SIZE);
-        const minCellY = Math.floor(aabb.minY / CELL_SIZE);
-        const maxCellY = Math.floor(aabb.maxY / CELL_SIZE);
-        const minCellZ = Math.floor(aabb.minZ / CELL_SIZE);
-        const maxCellZ = Math.floor(aabb.maxZ / CELL_SIZE);
-
-        for (let x = minCellX; x <= maxCellX; x++) {
-          for (let y = minCellY; y <= maxCellY; y++) {
-            for (let z = minCellZ; z <= maxCellZ; z++) {
-              const key = `${x},${y},${z}`;
-              if (!g.has(key)) {
-                g.set(key, new Set());
-              }
-              g.get(key)!.add(entityId);
-            }
-          }
+    for (let x = minCellX; x <= maxCellX; x++) {
+      for (let y = minCellY; y <= maxCellY; y++) {
+        for (let z = minCellZ; z <= maxCellZ; z++) {
+          callback(`${x},${y},${z}`);
         }
-        return g;
-      }),
-
-    query: (aabb) =>
-      Ref.get(grid).pipe(
-        Effect.map((g) => {
-          const potentialCollisions = new Set<EntityId>();
-          const minCellX = Math.floor(aabb.minX / CELL_SIZE);
-          const maxCellX = Math.floor(aabb.maxX / CELL_SIZE);
-          const minCellY = Math.floor(aabb.minY / CELL_SIZE);
-          const maxCellY = Math.floor(aabb.maxY / CELL_SIZE);
-          const minCellZ = Math.floor(aabb.minZ / CELL_SIZE);
-          const maxCellZ = Math.floor(aabb.maxZ / CELL_SIZE);
-
-          for (let x = minCellX; x <= maxCellX; x++) {
-            for (let y = minCellY; y <= maxCellY; y++) {
-              for (let z = minCellZ; z <= maxCellZ; z++) {
-                const key = `${x},${y},${z}`;
-                if (g.has(key)) {
-                  for (const entityId of g.get(key)!) {
-                    potentialCollisions.add(entityId);
-                  }
-                }
-              }
-            }
-          }
-          return Array.from(potentialCollisions);
-        }),
-      ),
+      }
+    }
   };
 
-  return self;
-});
+  const register = (entityId: EntityId, aabb: AABB): void => {
+    forEachCellInAABB(aabb, key => {
+      if (!grid.has(key)) {
+        grid.set(key, new Set());
+      }
+      grid.get(key)!.add(entityId);
+    });
+  };
 
-export const SpatialGridLive = Layer.effect(SpatialGrid, make);
+  const query = (aabb: AABB): EntityId[] => {
+    const potentialCollisions = new Set<EntityId>();
+    forEachCellInAABB(aabb, key => {
+      if (grid.has(key)) {
+        for (const entityId of grid.get(key)!) {
+          potentialCollisions.add(entityId);
+        }
+      }
+    });
+    return Array.from(potentialCollisions);
+  };
+
+  const clear = (): void => {
+    grid.clear();
+  };
+
+  return {
+    register,
+    query,
+    clear,
+  };
+}

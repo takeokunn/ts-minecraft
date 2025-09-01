@@ -1,27 +1,96 @@
-import { Effect, Schedule } from 'effect';
-import Stats from 'stats.js';
-import { mainSystem } from '../systems';
+import {
+  World,
+  ThreeContext,
+  BrowserInputState,
+  RenderQueue,
+  ChunkDataQueue,
+  SystemCommand,
+} from '@/domain/types';
+import {
+  cameraControlSystem,
+  chunkLoadingSystem,
+  collisionSystem,
+  inputPollingSystem,
+  physicsSystem,
+  playerMovementSystem,
+  blockInteractionSystem,
+  uiSystem,
+  updatePhysicsWorldSystem,
+  updateTargetSystem,
+  worldUpdateSystem,
+} from '@/systems';
+import { renderScene } from '@/infrastructure/renderer-three/render';
+import {
+  syncCameraToWorld,
+  updateInstancedMeshes,
+  updateHighlight,
+} from '@/infrastructure/renderer-three/updates';
+import { processRenderQueue } from '@/infrastructure/renderer-three/commands';
+import { castRay, RaycastResult } from '@/infrastructure/raycast-three';
 
-// --- Performance Stats ---
-const stats = new Stats();
-stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
-const statsContainer = document.getElementById('stats');
-if (statsContainer) {
-  statsContainer.appendChild(stats.dom);
-} else {
-  document.body.appendChild(stats.dom);
+let animationFrameId: number;
+
+export function tick(
+  world: World,
+  threeContext: ThreeContext,
+  inputState: BrowserInputState,
+  renderQueue: RenderQueue,
+  chunkDataQueue: ChunkDataQueue,
+  handleCommand: (command: SystemCommand) => void,
+  dt: number,
+  // for testing
+  doCastRay: (context: ThreeContext, world: World) => RaycastResult | undefined = castRay,
+  doUpdateHighlight: (
+    context: ThreeContext,
+    world: World,
+    raycastResult: RaycastResult | null,
+  ) => void = updateHighlight,
+): void {
+  inputPollingSystem(world, inputState);
+  cameraControlSystem(world, inputState);
+  playerMovementSystem(world);
+  const raycastResult = doCastRay(threeContext, world);
+  updateTargetSystem(world, raycastResult);
+  doUpdateHighlight(threeContext, world, raycastResult ?? null);
+  blockInteractionSystem(world);
+  physicsSystem(world, dt);
+  updatePhysicsWorldSystem(world);
+  collisionSystem(world);
+  const commands = chunkLoadingSystem(world);
+  for (const command of commands) {
+    handleCommand(command);
+  }
+  worldUpdateSystem(world, chunkDataQueue);
+  uiSystem(world);
+
+  updateInstancedMeshes(threeContext, world);
+  syncCameraToWorld(threeContext, world);
+  processRenderQueue(threeContext, renderQueue);
+  renderScene(threeContext);
 }
 
-const tick = Effect.sync(() => {
-  stats.begin();
-}).pipe(
-  Effect.flatMap(() => mainSystem),
-  Effect.tap(() => {
-    stats.end();
-  }),
-);
+export function startGameLoop(
+  world: World,
+  threeContext: ThreeContext,
+  inputState: BrowserInputState,
+  renderQueue: RenderQueue,
+  chunkDataQueue: ChunkDataQueue,
+  handleCommand: (command: SystemCommand) => void,
+): void {
+  let lastTime = performance.now();
 
-/**
- * The main game loop, which repeats the tick effect for every animation frame.
- */
-export const gameLoop = tick.pipe(Effect.repeat(Schedule.animate));
+  function gameLoop() {
+    const now = performance.now();
+    const dt = (now - lastTime) / 1000;
+    lastTime = now;
+
+    tick(world, threeContext, inputState, renderQueue, chunkDataQueue, handleCommand, dt);
+    animationFrameId = requestAnimationFrame(gameLoop);
+  }
+
+  gameLoop();
+}
+
+export function stopGameLoop(): void {
+  cancelAnimationFrame(animationFrameId);
+}

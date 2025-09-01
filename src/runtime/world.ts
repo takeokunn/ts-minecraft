@@ -1,238 +1,66 @@
-import {
-  AnyComponentSchema,
-  ComponentAny,
-  componentSchemas,
-} from "@/domain/components";
-import { EntityId } from "@/domain/entity";
-import { QueryDescription } from "@/domain/queries";
-import { Schema } from "@effect/schema";
-import { Context, Effect, Layer, Option, Ref } from "effect";
+import { Components, ComponentName, componentNames } from '@/domain/components';
+import { EntityId } from '@/domain/entity';
+import { Query } from '@/domain/query';
 
-// --- Constants ---
-const MAX_ENTITIES = 65536;
-
-// --- World State ---
-
-type TypedArray = Float32Array | Uint8Array | Uint16Array | Int8Array;
-type TypedArrayConstructor =
-  | Float32ArrayConstructor
-  | Uint8ArrayConstructor
-  | Uint16ArrayConstructor
-  | Int8ArrayConstructor;
-
-const storageTypeToConstructor: Record<string, TypedArrayConstructor> = {
-  Float32: Float32Array,
-  Uint8: Uint8Array,
-  Uint16: Uint16Array,
-  Int8: Int8Array,
+type ComponentStore = {
+  [K in ComponentName]: Map<EntityId, Components[K]>;
 };
 
-export type ComponentSoAStore = {
-  [field: string]: TypedArray;
-};
+type QueryResult<T extends Query> = Array<{
+  entityId: EntityId;
+} & {
+  [K in T['components'][number]]: Components[K];
+}>;
 
-export type WorldState = {
-  entityCounter: number;
-  // Map from entity ID to its archetype string ID
-  entityArchetypes: Map<EntityId, string>;
-  // Map from archetype string ID to the list of entities in it
-  archetypeEntities: Map<string, EntityId[]>;
-  // Map from component tag to its SoA store
-  componentStores: Map<string, ComponentSoAStore>;
-};
+export class World {
+  private nextEntityId: EntityId = 0;
+  private entities: Set<EntityId> = new Set();
+  private componentStore: ComponentStore = Object.fromEntries(
+    componentNames.map(name => [name, new Map()]),
+  ) as ComponentStore;
 
-const createSoAStore = (
-  schema: AnyComponentSchema,
-  capacity: number,
-): ComponentSoAStore => {
-  const store: ComponentSoAStore = {};
-  const fields = (schema.ast as any).propertySignatures as Schema.Schema.Fields;
-  for (const key in fields) {
-    if (key === "_tag") continue;
-    const annotation = (fields[key] as any).ast.annotations;
-    const storageType = annotation.storage as string | undefined;
-    const constructor = storageType
-      ? storageTypeToConstructor[storageType]
-      : Float32Array;
-    const buffer = new SharedArrayBuffer(
-      capacity * constructor.BYTES_PER_ELEMENT,
-    );
-    store[key] = new constructor(buffer);
-  }
-  return store;
-};
-
-const createInitialWorldState = (): WorldState => {
-  const componentStores = new Map<string, ComponentSoAStore>();
-  for (const key in componentSchemas) {
-    const schema =
-      componentSchemas[key as keyof typeof componentSchemas];
-    const identifier = Schema.getIdentifier(schema).pipe(Option.getOrThrow);
-    componentStores.set(identifier, createSoAStore(schema, MAX_ENTITIES));
+  createEntity(): EntityId {
+    const eid = this.nextEntityId++;
+    this.entities.add(eid);
+    return eid;
   }
 
-  return {
-    entityCounter: 0,
-    entityArchetypes: new Map(),
-    archetypeEntities: new Map(),
-    componentStores,
-  };
-};
+  removeEntity(eid: EntityId): void {
+    this.entities.delete(eid);
+    for (const name of componentNames) {
+      this.componentStore[name].delete(eid);
+    }
+  }
 
-// --- World Service ---
+  setComponent<C extends ComponentName>(eid: EntityId, componentName: C, data: Components[C]): void {
+    if (this.entities.has(eid)) {
+      this.componentStore[componentName].set(eid, data);
+    }
+  }
 
-export type World = Ref.Ref<WorldState>;
-export const World = Context.GenericTag<World>("World");
+  getComponent<C extends ComponentName>(eid: EntityId, componentName: C): Components[C] | undefined {
+    return this.componentStore[componentName].get(eid);
+  }
 
-// --- Functional API ---
-
-const getArchetypeId = (tags: string[]): string => {
-  return tags.sort().join("-");
-};
-
-export const createEntity = (
-  ...components: ComponentAny[]
-): Effect.Effect<EntityId, never, World> =>
-  Effect.gen(function* (_) {
-    const worldRef = yield* _(World);
-    let entityId!: EntityId;
-
-    yield* _(
-      Ref.updateAndGet(worldRef, (state) => {
-        entityId = state.entityCounter as EntityId;
-        state.entityCounter++;
-
-        const tags = components.map((c) => c._tag);
-        const archetypeId = getArchetypeId(tags);
-
-        if (!state.archetypeEntities.has(archetypeId)) {
-          state.archetypeEntities.set(archetypeId, []);
+  query<T extends Query>(query: T): QueryResult<T> {
+    const results: QueryResult<T> = [];
+    for (const eid of this.entities) {
+      let match = true;
+      for (const componentName of query.components) {
+        if (!this.componentStore[componentName].has(eid)) {
+          match = false;
+          break;
         }
-        state.archetypeEntities.get(archetypeId)!.push(entityId);
-        state.entityArchetypes.set(entityId, archetypeId);
+      }
 
-        for (const component of components) {
-          const store = state.componentStores.get(component._tag)!;
-          for (const key in component) {
-            if (key !== "_tag") {
-              (store as any)[key][entityId] = (component as any)[key];
-            }
-          }
+      if (match) {
+        const components = {} as { [K in T['components'][number]]: Components[K] };
+        for (const componentName of query.components) {
+          components[componentName] = this.componentStore[componentName].get(eid)!;
         }
-        return state;
-      }),
-    );
-    return entityId;
-  });
-
-export const removeEntity = (
-  entityId: EntityId,
-): Effect.Effect<void, never, World> =>
-  Effect.gen(function* (_) {
-    const worldRef = yield* _(World);
-    yield* _(
-      Ref.update(worldRef, (state) => {
-        const archetypeId = state.entityArchetypes.get(entityId);
-        if (!archetypeId) return state;
-
-        const entities = state.archetypeEntities.get(archetypeId)!;
-        const index = entities.indexOf(entityId);
-        if (index === -1) return state;
-
-        // Swap and pop for the entity list
-        const lastEntity = entities.pop()!;
-        if (index < entities.length) {
-          entities[index] = lastEntity;
-        }
-        state.entityArchetypes.delete(entityId);
-
-        // To maintain data integrity in SoA, we must also swap and pop component data.
-        // This is complex and a full implementation would require moving the last entity's
-        // data into the removed entity's slot for all relevant component stores.
-        // For this refactoring, we'll accept the performance hit of not densely packing,
-        // as a full implementation is beyond the scope of a single step.
-        // A proper implementation would look like:
-        // for (const tag of archetypeId.split('-')) {
-        //   const store = state.componentStores.get(tag)!;
-        //   for (const key in store) {
-        //     store[key][index] = store[key][entities.length];
-        //   }
-        // }
-
-        return state;
-      }),
-    );
-  });
-
-export const updateComponentData = <T extends ComponentAny>(
-  entityId: EntityId,
-  component: T,
-  data: Partial<Omit<T, "_tag">>,
-): Effect.Effect<void, never, World> =>
-  Effect.gen(function* (_) {
-    const worldRef = yield* _(World);
-    yield* _(
-      Ref.update(worldRef, (state) => {
-        const store = state.componentStores.get(component._tag)!;
-        for (const key in data) {
-          if (key in store) {
-            (store as any)[key][entityId] = (data as any)[key];
-          }
-        }
-        return state;
-      }),
-    );
-  });
-
-export const queryEntities = (
-  query: QueryDescription<AnyComponentSchema[], AnyComponentSchema[]>,
-): Effect.Effect<EntityId[], never, World> =>
-  Effect.gen(function* (_) {
-    const worldRef = yield* _(World);
-    const state = yield* _(Ref.get(worldRef));
-
-    const allTags = new Set(
-      (query.all ?? []).map((s) =>
-        Schema.getIdentifier(s).pipe(Option.getOrThrow),
-      ),
-    );
-    const notTags = new Set(
-      (query.not ?? []).map((s) =>
-        Schema.getIdentifier(s).pipe(Option.getOrThrow),
-      ),
-    );
-
-    const matchedEntities: EntityId[] = [];
-    for (const [
-      archetypeId,
-      entities,
-    ] of state.archetypeEntities.entries()) {
-      const archetypeTags = new Set(archetypeId.split("-"));
-      if (archetypeId === "") continue;
-
-      const hasAll = Array.from(allTags).every((t) => archetypeTags.has(t));
-      const hasNone = !Array.from(notTags).some((t) => archetypeTags.has(t));
-
-      if (hasAll && hasNone) {
-        matchedEntities.push(...entities);
+        results.push({ entityId: eid, ...components });
       }
     }
-    return matchedEntities;
-  });
-
-export const getComponentStore = <S extends AnyComponentSchema>(
-  schema: S,
-): Effect.Effect<ComponentSoAStore, never, World> =>
-  Effect.gen(function* (_) {
-    const worldRef = yield* _(World);
-    const state = yield* _(Ref.get(worldRef));
-    const identifier = Schema.getIdentifier(schema).pipe(Option.getOrThrow);
-    return state.componentStores.get(identifier)!;
-  });
-
-// --- Live Layer ---
-
-export const WorldLive = Layer.effect(
-  World,
-  Ref.make(createInitialWorldState()),
-);
+    return results;
+  }
+}

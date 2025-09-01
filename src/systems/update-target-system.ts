@@ -1,32 +1,34 @@
-import { Effect, Option } from "effect";
-import * as THREE from "three";
-import { Player, Target } from "@/domain/components";
-import { Renderer, RaycastService } from "@/runtime/services";
-import { World, getComponentStore, queryEntities } from "@/runtime/world";
+
+import { Effect } from 'effect';
+import { World } from '@/runtime/world';
+import { Raycast } from '@/domain/types';
+import { match } from 'ts-pattern';
 
 export const updateTargetSystem = Effect.gen(function* (_) {
-  const raycastService = yield* _(RaycastService);
-  const renderer = yield* _(Renderer);
+  const world = yield* _(World);
+  const raycast = yield* _(Raycast);
+  const players = world.queries.playerTarget(world);
 
-  const players = yield* _(queryEntities({ all: [Player] }));
   if (players.length === 0) {
-    yield* _(renderer.updateHighlight(null));
     return;
   }
-  const playerId = players[0];
+  const player = players[0];
 
-  const targets = yield* _(getComponentStore(Target));
-  const raycastResult = yield* _(raycastService.cast());
+  const raycastResult = raycast.castRay();
 
-  if (Option.isSome(raycastResult)) {
-    const { entityId, face, intersection } = raycastResult.value;
-    targets.entityId[playerId] = entityId;
-    targets.faceX[playerId] = face.x;
-    targets.faceY[playerId] = face.y;
-    targets.faceZ[playerId] = face.z;
-    yield* _(renderer.updateHighlight(intersection as THREE.Intersection));
-  } else {
-    targets.entityId[playerId] = -1; // No target
-    yield* _(renderer.updateHighlight(null));
-  }
-}).pipe(Effect.withSpan("updateTargetSystem"));
+  const newTarget = match(raycastResult)
+    .with(undefined, () => ({
+      entityId: -1,
+      faceX: 0,
+      faceY: 0,
+      faceZ: 0,
+    }))
+    .otherwise((result) => ({
+      entityId: result.entityId,
+      faceX: result.face.x,
+      faceY: result.face.y,
+      faceZ: result.face.z,
+    }));
+
+  world.components.target.set(player.entityId, newTarget);
+});

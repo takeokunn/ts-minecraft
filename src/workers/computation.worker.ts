@@ -1,228 +1,239 @@
-
 import * as noise from 'perlin-noise';
+import { match } from 'ts-pattern';
 import { BlockType } from '../domain/block';
-import { faces, indices as faceIndices, uvs as faceUvs, vertices as cubeVertices } from '../domain/geometry';
+import type {
+  BlockData,
+  ChunkGenerationResult,
+  GenerationParams,
+  ChunkMeshData,
+  PlacedBlock,
+} from '../domain/types';
 
-// --- TYPE DEFINITIONS ---
+// --- Constants and Configuration ---
 
 const CHUNK_SIZE = 10;
+const CHUNK_HEIGHT = 256;
 const WATER_LEVEL = 0;
 const WORLD_DEPTH = 5;
 const MIN_WORLD_Y = -250;
+const Y_OFFSET = 128; // Used to map world Y coordinates to array indices
+
+const ATLAS_CONFIG = {
+  widthInTiles: 4,
+  get tileSize() {
+    return 1 / this.widthInTiles;
+  },
+} as const;
+
+// --- Type Definitions ---
 
 type Biome = 'plains' | 'desert';
+type FaceName = 'top' | 'bottom' | 'side';
+type Position = { readonly x: number; readonly y: number; readonly z: number };
 
-// A simplified version of the component for the worker
-type DestroyedBlock = { x: number; y: number; z: number };
+// --- Texture Atlas Mapping ---
 
-export interface GenerationParams {
-  chunkX: number;
-  chunkZ: number;
-  seeds: {
-    world: number;
-    biome: number;
-    trees: number;
+const textureMap: Record<BlockType, Partial<Record<FaceName, [number, number]>>> =
+  {
+    grass: { top: [0, 0], side: [1, 0], bottom: [2, 0] },
+    dirt: { side: [2, 0] },
+    sand: { side: [0, 1] },
+    stone: { side: [1, 1] },
+    cobblestone: { side: [2, 1] },
+    water: { side: [3, 1] },
+    oakLog: { top: [0, 2], side: [1, 2], bottom: [0, 2] },
+    oakLeaves: { side: [2, 2] },
+    glass: { side: [3, 2] },
+    brick: { side: [0, 3] },
+    plank: { side: [1, 3] },
   };
-  amplitude: number;
-  editedBlocks: {
-    destroyed: DestroyedBlock[];
-    placed: any[]; // Define a proper type for placed blocks
+
+const getUvForFace = (
+  blockType: BlockType,
+  faceName: 'top' | 'bottom' | 'north' | 'south' | 'east' | 'west',
+): [number, number] => {
+  const faces = textureMap[blockType] ?? textureMap.stone;
+  const sideUv = faces.side ?? textureMap.stone.side!;
+
+  return match(faceName)
+    .with('top', () => faces.top ?? sideUv)
+    .with('bottom', () => faces.bottom ?? sideUv)
+    .otherwise(() => sideUv);
+};
+
+// --- Terrain Generation ---
+
+const blockGenerationRules = [
+  { type: 'grass', range: [0], biomes: ['plains'] },
+  { type: 'dirt', range: [1, 2], biomes: ['plains'] },
+  { type: 'sand', range: [0, 1, 2], biomes: ['desert'] },
+  { type: 'stone', range: [3, 4], biomes: ['plains', 'desert'] },
+  { type: 'cobblestone', range: [3, 4], biomes: ['plains', 'desert'] },
+] as const;
+
+const getBiome = (noiseValue: number): Biome =>
+  noiseValue < 0.2 ? 'plains' : 'desert';
+
+const hashPosition = (pos: Position): string => `${pos.x},${pos.y},${pos.z}`;
+
+const createNoiseFunctions = (seeds: GenerationParams['seeds']) => {
+  const createNoise = (seed: number) => (x: number, z: number) => {
+    noise.seed(seed);
+    return noise.perlin2(x, z);
   };
-}
+  return {
+    world: createNoise(seeds.world),
+    biome: createNoise(seeds.biome),
+    trees: createNoise(seeds.trees),
+  };
+};
 
-export interface BlockData {
-  x: number;
-  y: number;
-  z: number;
-  blockType: BlockType;
-}
-
-export interface ChunkMeshData {
-  positions: Float32Array;
-  normals: Float32Array;
-  uvs: Float32Array;
-  indices: Uint32Array;
-}
-
-export interface ChunkGenerationResult {
-  blocks: ReadonlyArray<BlockData>;
-  mesh: ChunkMeshData;
-  chunkX: number;
-  chunkZ: number;
-}
-
-// --- MESH GENERATION LOGIC ---
-
-const blockGenerationRules: ReadonlyArray<{
-  name: BlockType;
-  range: ReadonlyArray<number>;
-  biomes: ReadonlyArray<Biome>;
-}> = [
-  { name: 'grass', range: [0], biomes: ['plains'] },
-  { name: 'dirt', range: [1, 2], biomes: ['plains'] },
-  { name: 'sand', range: [0, 1, 2], biomes: ['desert'] },
-  { name: 'stone', range: [3, 4], biomes: ['plains', 'desert'] },
-  { name: 'cobblestone', range: [3, 4], biomes: ['plains', 'desert'] },
-];
-
-function getBiome(n: number): Biome {
-  if (n < 0.2) {
-    return 'plains';
-  } else {
-    return 'desert';
-  }
-}
-
-// Simple check for transparent blocks
-// Simple check for transparent blocks. In Greedy Meshing, we treat air (undefined)
-// and transparent blocks differently from opaque blocks.
-function isOpaque(blockType: BlockType | undefined): boolean {
-  if (!blockType) return false; // air is not opaque
-  return blockType !== 'water' && blockType !== 'glass';
-}
-
-function generateChunk(params: GenerationParams): ChunkGenerationResult {
-  const { chunkX, chunkZ, seeds, amplitude, editedBlocks } = params;
-  const { world: worldSeed, biome, trees } = seeds;
-  const { destroyed, placed } = editedBlocks;
-
+const generateTerrain = (
+  params: GenerationParams,
+  destroyedBlocks: Set<string>,
+): BlockData[] => {
+  const { chunkX, chunkZ, seeds, amplitude } = params;
+  const noiseFuncs = createNoiseFunctions(seeds);
   const blocks: BlockData[] = [];
-  const destroyedSet: Set<string> = new Set(
-    destroyed.map((b) => `${b.x},${b.y},${b.z}`),
-  );
+  const startX = chunkX * CHUNK_SIZE;
+  const startZ = chunkZ * CHUNK_SIZE;
+  const noiseIncrement = 0.05;
 
-  const startX: number = chunkX * CHUNK_SIZE;
-  const startZ: number = chunkZ * CHUNK_SIZE;
-  const inc = 0.05;
-
-  // --- 1. Generate Block Data (largely the same) ---
   for (let x = startX; x < startX + CHUNK_SIZE; x++) {
     for (let z = startZ; z < startZ + CHUNK_SIZE; z++) {
-      const xoff: number = inc * x;
-      const zoff: number = inc * z;
+      const xOff = noiseIncrement * x;
+      const zOff = noiseIncrement * z;
 
-      noise.seed(worldSeed);
-      const v: number =
-        Math.round((noise.perlin2(xoff, zoff) * amplitude) / 1) * 1;
+      const terrainHeight = Math.round(
+        noiseFuncs.world(xOff, zOff) * amplitude,
+      );
+      const currentBiome = getBiome(noiseFuncs.biome(xOff, zOff));
 
-      noise.seed(biome);
-      const currentBiome: Biome = getBiome(noise.perlin2(xoff / 1, zoff / 1));
-
-      noise.seed(trees);
-      const treeNoise: number = noise.perlin2(xoff / 1, zoff / 1);
-
-      let h = 1;
-      while (v + h <= WATER_LEVEL) {
-        const pos = { x, y: v + h, z };
-        if (!destroyedSet.has(`${pos.x},${pos.y},${pos.z}`)) {
+      // Generate water
+      for (let y = terrainHeight + 1; y <= WATER_LEVEL; y++) {
+        const pos = { x, y, z };
+        if (!destroyedBlocks.has(hashPosition(pos))) {
           blocks.push({ ...pos, blockType: 'water' });
         }
-        h += 1;
       }
-      const waterExistsHere: boolean = v < WATER_LEVEL;
 
-      for (let d = -8; d < WORLD_DEPTH; d++) {
-        const y: number = v - d;
+      // Generate terrain and trees
+      for (let depth = 0; depth < WORLD_DEPTH; depth++) {
+        const y = terrainHeight - depth;
         if (y < MIN_WORLD_Y) continue;
-        const pos = { x, y, z };
-        if (destroyedSet.has(`${pos.x},${pos.y},${pos.z}`)) continue;
 
-        if (d >= 0) {
-          for (const rule of blockGenerationRules) {
-            if (
-              rule.range.includes(d) &&
-              rule.biomes.includes(currentBiome)
-            ) {
-              blocks.push({ ...pos, blockType: rule.name });
-              break;
-            }
-          }
-        } else {
-          if (currentBiome === 'plains' && !waterExistsHere) {
-            if (parseFloat(treeNoise.toFixed(3)) === 0.001) {
-              if (d < 0 && d >= -8) {
-                const blockType = d !== -8 ? 'oakLog' : 'oakLeaves';
-                blocks.push({ ...pos, blockType });
-              }
-            }
-            let canPutLeaf = false;
-            for (let xInc = -1; xInc < 2; xInc += 1) {
-              for (let zInc = -1; zInc < 2; zInc += 1) {
-                if (xInc === 0 && zInc === 0) continue;
-                const treeNoiseAround = noise.perlin2(
-                  inc * (x + xInc),
-                  inc * (z + zInc),
-                );
-                if (parseFloat(treeNoiseAround.toFixed(3)) === 0.001) {
-                  canPutLeaf = true;
-                  break;
-                }
-              }
-              if (canPutLeaf) break;
-            }
-            if (d <= -6 && canPutLeaf) {
-              if (parseFloat(treeNoise.toFixed(3)) !== 0.001) {
-                blocks.push({ ...pos, blockType: 'oakLeaves' });
-              }
-            }
-          }
+        const pos = { x, y, z };
+        if (destroyedBlocks.has(hashPosition(pos))) continue;
+
+        const rule = blockGenerationRules.find(
+          (r) =>
+            r.range.includes(depth) &&
+            (r.biomes as ReadonlyArray<string>).includes(currentBiome),
+        );
+        if (rule) {
+          blocks.push({ ...pos, blockType: rule.type });
         }
       }
     }
   }
+  return blocks;
+};
 
-  // Add placed blocks
-  for (const block of placed) {
-    if (
+const applyUserEdits = (
+  blocks: BlockData[],
+  editedBlocks: GenerationParams['editedBlocks'],
+  chunkX: number,
+  chunkZ: number,
+): BlockData[] => {
+  const startX = chunkX * CHUNK_SIZE;
+  const startZ = chunkZ * CHUNK_SIZE;
+
+  const placedBlocksInChunk = editedBlocks.placed.filter(
+    (block) =>
       block.x >= startX &&
       block.x < startX + CHUNK_SIZE &&
       block.z >= startZ &&
-      block.z < startZ + CHUNK_SIZE
-    ) {
-      blocks.push({
-        x: block.x,
-        y: block.y,
-        z: block.z,
-        blockType: block.blockType,
-      });
-    }
-  }
+      block.z < startZ + CHUNK_SIZE,
+  );
 
-  // --- 2. Generate Mesh using Greedy Meshing ---
+  return [...blocks, ...placedBlocksInChunk];
+};
 
-  // For faster access, convert block data into a 3D array using local chunk coordinates
-  const chunkBlocks = new Array(CHUNK_SIZE)
-    .fill(0)
-    .map(() =>
-      new Array(256)
-        .fill(0)
-        .map(() => new Array(CHUNK_SIZE).fill(undefined)),
-    );
+const generateBlockData = (params: GenerationParams): BlockData[] => {
+  const destroyedBlocks = new Set(
+    params.editedBlocks.destroyed.map(hashPosition),
+  );
+  const terrainBlocks = generateTerrain(params, destroyedBlocks);
+  return applyUserEdits(
+    terrainBlocks,
+    params.editedBlocks,
+    params.chunkX,
+    params.chunkZ,
+  );
+};
+
+// --- Mesh Generation ---
+
+export const isOpaque = (blockType?: BlockType): boolean =>
+  blockType !== undefined && blockType !== 'water' && blockType !== 'glass';
+
+const createChunkDataView = (
+  blocks: ReadonlyArray<BlockData>,
+  startX: number,
+  startZ: number,
+): (BlockType | undefined)[][][] => {
+  const chunkBlocks = Array.from({ length: CHUNK_SIZE }, () =>
+    Array.from({ length: CHUNK_HEIGHT }, () =>
+      Array.from({ length: CHUNK_SIZE }, (): BlockType | undefined => undefined),
+    ),
+  );
 
   for (const block of blocks) {
     const localX = block.x - startX;
-    const localY = block.y; // Assuming y is global for now, adjust if needed
     const localZ = block.z - startZ;
+    const yIndex = block.y + Y_OFFSET;
+
     if (
       localX >= 0 &&
       localX < CHUNK_SIZE &&
       localZ >= 0 &&
-      localZ < CHUNK_SIZE
+      localZ < CHUNK_SIZE &&
+      yIndex >= 0 &&
+      yIndex < CHUNK_HEIGHT
     ) {
-      // A simple way to handle potential negative y values
-      const yIndex = localY + 128;
-      if (yIndex >= 0 && yIndex < 256) {
-        chunkBlocks[localX][yIndex][localZ] = block.blockType;
-      }
+      chunkBlocks[localX]![yIndex]![localZ] = block.blockType;
     }
   }
+  return chunkBlocks;
+};
 
-  const getBlock = (x: number, y: number, z: number) => {
-    if (x < 0 || x >= CHUNK_SIZE || z < 0 || z >= CHUNK_SIZE) return undefined;
-    const yIndex = y + 128;
-    if (yIndex < 0 || yIndex >= 256) return undefined;
-    return chunkBlocks[x][yIndex][z];
-  };
+const getBlockFromChunkView = (
+  chunkView: (BlockType | undefined)[][][],
+  x: number,
+  y: number,
+  z: number,
+): BlockType | undefined => {
+  if (
+    x < 0 ||
+    x >= CHUNK_SIZE ||
+    y < 0 ||
+    y >= CHUNK_HEIGHT ||
+    z < 0 ||
+    z >= CHUNK_SIZE
+  ) {
+    return undefined;
+  }
+  return chunkView[x]?.[y]?.[z];
+};
+
+export const generateGreedyMesh = (
+  blocks: ReadonlyArray<BlockData>,
+  chunkX: number,
+  chunkZ: number,
+): ChunkMeshData => {
+  const startX = chunkX * CHUNK_SIZE;
+  const startZ = chunkZ * CHUNK_SIZE;
+  const chunkBlocks = createChunkDataView(blocks, startX, startZ);
 
   const positions: number[] = [];
   const normals: number[] = [];
@@ -230,132 +241,133 @@ function generateChunk(params: GenerationParams): ChunkGenerationResult {
   const indices: number[] = [];
   let vertexIndex = 0;
 
-  // Iterate over the 6 directions (3 axes, 2 sides per axis)
-  for (let d = 0; d < 3; d++) {
-    for (let s = -1; s <= 1; s += 2) {
-      const u = (d + 1) % 3;
-      const v = (d + 2) % 3;
+  // Iterate over each dimension (x, y, z)
+  for (let dimension = 0; dimension < 3; dimension++) {
+    console.log(`Processing dimension: ${dimension}`);
+    const initialVertexCount = positions.length;
+    // Iterate over each side (positive and negative)
+    for (let side = -1; side <= 1; side += 2) {
+      const u_axis = (dimension + 1) % 3;
+      const v_axis = (dimension + 2) % 3;
+      const pos: [number, number, number] = [0, 0, 0];
+      const dir: [number, number, number] = [0, 0, 0];
+      dir[dimension] = side;
 
-      const x = [0, 0, 0];
-      const q = [0, 0, 0];
-      q[d] = s;
+      const mask = new Array<BlockType | null>(CHUNK_SIZE * CHUNK_HEIGHT).fill(
+        null,
+      );
 
-      const mask = new Array(CHUNK_SIZE * 256).fill(null);
-
-      for (x[d] = -1; x[d] < CHUNK_SIZE; ) {
-        let n = 0;
-        for (x[v] = 0; x[v] < 256; x[v]++) {
-          for (x[u] = 0; x[u] < CHUNK_SIZE; x[u]++) {
-            const block1 = getBlock(x[0], x[1] - 128, x[2]);
-            const block2 = getBlock(
-              x[0] + q[0],
-              x[1] - 128 + q[1],
-              x[2] + q[2],
+      // Iterate over the current dimension
+      for (pos[dimension] = -1; pos[dimension] < CHUNK_SIZE; ) {
+        let mask_idx = 0;
+        // Create a 2D mask of the current slice
+        for (pos[v_axis] = 0; pos[v_axis] < CHUNK_HEIGHT; pos[v_axis]++) {
+          for (pos[u_axis] = 0; pos[u_axis] < CHUNK_SIZE; pos[u_axis]++) {
+            const block1 = getBlockFromChunkView(
+              chunkBlocks,
+              pos[0],
+              pos[1],
+              pos[2],
             );
-
+            const block2 = getBlockFromChunkView(
+              chunkBlocks,
+              pos[0] + dir[0],
+              pos[1] + dir[1],
+              pos[2] + dir[2],
+            );
             const opaque1 = isOpaque(block1);
             const opaque2 = isOpaque(block2);
 
-            if ((opaque1 && !opaque2) || (!opaque1 && block1 && !opaque2)) {
-              mask[n] = block1;
-            } else if (
-              (opaque2 && !opaque1) ||
-              (!opaque2 && block2 && !opaque1)
-            ) {
-              mask[n] = block2;
-            }
-            n++;
+            mask[mask_idx++] =
+              opaque1 === opaque2 ? null : opaque1 ? block1! : block2!;
           }
         }
-        x[d]++;
+        pos[dimension]++;
 
-        n = 0;
-        for (let j = 0; j < 256; j++) {
-          for (let i = 0; i < CHUNK_SIZE; ) {
-            if (mask[n]) {
-              const blockType = mask[n];
-              let w = 1;
+        mask_idx = 0;
+        // Generate mesh from the mask
+        for (let row = 0; row < CHUNK_HEIGHT; row++) {
+          for (let col = 0; col < CHUNK_SIZE; ) {
+            if (mask[mask_idx]) {
+              const blockType = mask[mask_idx]!;
+              // Calculate width of the quad
+              let width = 1;
               while (
-                i + w < CHUNK_SIZE &&
-                mask[n + w] &&
-                mask[n + w] === blockType
-              ) {
-                w++;
-              }
+                col + width < CHUNK_SIZE &&
+                mask[mask_idx + width] === blockType
+              )
+                width++;
 
-              let h = 1;
+              // Calculate height of the quad
+              let height = 1;
               let done = false;
-              while (j + h < 256) {
-                for (let k = 0; k < w; k++) {
-                  if (
-                    !mask[n + k + h * CHUNK_SIZE] ||
-                    mask[n + k + h * CHUNK_SIZE] !== blockType
-                  ) {
+              while (row + height < CHUNK_HEIGHT) {
+                for (let k = 0; k < width; k++) {
+                  if (mask[mask_idx + k + height * CHUNK_SIZE] !== blockType) {
                     done = true;
                     break;
                   }
                 }
                 if (done) break;
-                h++;
+                height++;
               }
 
-              x[u] = i;
-              x[v] = j;
-
-              const du = [0, 0, 0];
-              du[u] = w;
-              const dv = [0, 0, 0];
-              dv[v] = h;
+              pos[u_axis] = col;
+              pos[v_axis] = row;
+              const du: [number, number, number] = [0, 0, 0];
+              du[u_axis] = width;
+              const dv: [number, number, number] = [0, 0, 0];
+              dv[v_axis] = height;
 
               const faceName =
-                d === 0
-                  ? s > 0
+                dimension === 0
+                  ? side > 0
                     ? 'east'
                     : 'west'
-                  : d === 1
-                    ? s > 0
+                  : dimension === 1
+                    ? side > 0
                       ? 'top'
                       : 'bottom'
-                    : s > 0
+                    : side > 0
                       ? 'south'
                       : 'north';
               const tileUv = getUvForFace(blockType, faceName);
 
               positions.push(
-                x[0] + startX,
-                x[1] - 128,
-                x[2] + startZ,
-                x[0] + du[0] + startX,
-                x[1] + du[1] - 128,
-                x[2] + du[2] + startZ,
-                x[0] + du[0] + dv[0] + startX,
-                x[1] + du[1] + dv[1] - 128,
-                x[2] + du[2] + dv[2] + startZ,
-                x[0] + dv[0] + startX,
-                x[1] + dv[1] - 128,
-                x[2] + dv[2] + startZ,
+                pos[0] + startX,
+                pos[1] - Y_OFFSET,
+                pos[2] + startZ,
+                pos[0] + du[0] + startX,
+                pos[1] + du[1] - Y_OFFSET,
+                pos[2] + du[2] + startZ,
+                pos[0] + du[0] + dv[0] + startX,
+                pos[1] + du[1] + dv[1] - Y_OFFSET,
+                pos[2] + du[2] + dv[2] + startZ,
+                pos[0] + dv[0] + startX,
+                pos[1] + dv[1] - Y_OFFSET,
+                pos[2] + dv[2] + startZ,
               );
 
               normals.push(
-                q[0],
-                q[1],
-                q[2],
-                q[0],
-                q[1],
-                q[2],
-                q[0],
-                q[1],
-                q[2],
-                q[0],
-                q[1],
-                q[2],
+                dir[0],
+                dir[1],
+                dir[2],
+                dir[0],
+                dir[1],
+                dir[2],
+                dir[0],
+                dir[1],
+                dir[2],
+                dir[0],
+                dir[1],
+                dir[2],
               );
 
-              const u0 = tileUv[0] * TILE_SIZE;
-              const v0 = 1.0 - (tileUv[1] + 1) * TILE_SIZE;
-              const u1 = (tileUv[0] + w) * TILE_SIZE;
-              const v1 = 1.0 - (tileUv[1] + 1 - h) * TILE_SIZE;
-
+              const u0 = tileUv[0] * ATLAS_CONFIG.tileSize;
+              const v0 = 1.0 - (tileUv[1] + 1) * ATLAS_CONFIG.tileSize;
+              const u1 = (tileUv[0] + width) * ATLAS_CONFIG.tileSize;
+              const v1 =
+                1.0 - (tileUv[1] + 1 - height) * ATLAS_CONFIG.tileSize;
               uvs.push(u0, v1, u1, v1, u1, v0, u0, v0);
 
               indices.push(
@@ -368,69 +380,78 @@ function generateChunk(params: GenerationParams): ChunkGenerationResult {
               );
               vertexIndex += 4;
 
-              for (let l = 0; l < h; l++) {
-                for (let k = 0; k < w; k++) {
-                  mask[n + k + l * CHUNK_SIZE] = null;
+              // Zero out the mask for the processed quad
+              for (let l = 0; l < height; l++) {
+                for (let k = 0; k < width; k++) {
+                  mask[mask_idx + k + l * CHUNK_SIZE] = null;
                 }
               }
-              i += w;
-              n += w;
+              col += width;
+              mask_idx += width;
             } else {
-              i++;
-              n++;
+              col++;
+              mask_idx++;
             }
           }
         }
       }
     }
+    console.log(`Vertices added for dimension ${dimension}: ${(positions.length - initialVertexCount) / 3}`);
   }
 
   return {
-    blocks,
-    mesh: {
-      positions: new Float32Array(positions),
-      normals: new Float32Array(normals),
-      uvs: new Float32Array(uvs),
-      indices: new Uint32Array(indices),
-    },
-    chunkX,
-    chunkZ,
+    positions: new Float32Array(positions),
+    normals: new Float32Array(normals),
+    uvs: new Float32Array(uvs),
+    indices: new Uint32Array(indices),
   };
-}
+};
 
-// --- Task & Result Types ---
+// --- Worker Entry Point ---
+
+export const generateChunk = (
+  params: GenerationParams,
+): ChunkGenerationResult => {
+  const blocks = generateBlockData(params);
+  const mesh = generateGreedyMesh(blocks, params.chunkX, params.chunkZ);
+  return {
+    blocks,
+    mesh,
+    chunkX: params.chunkX,
+    chunkZ: params.chunkZ,
+  };
+};
 
 export type GenerateChunkTask = {
   readonly type: 'generateChunk';
   readonly payload: GenerationParams;
 };
-export type GenerateChunkResult = ChunkGenerationResult;
+export type ComputationTask = GenerateChunkTask;
 
-// Future tasks can be added here
-// export type CalculatePathTask = { type: 'calculatePath', payload: PathParams };
-// export type CalculatePathResult = PathResult;
-
-export type ComputationTask = GenerateChunkTask; // | CalculatePathTask;
-export type ComputationResult = GenerateChunkResult; // | CalculatePathResult;
-
-// --- Worker Logic ---
-
-self.onmessage = (e: MessageEvent<ComputationTask>) => {
-  const task = e.data;
-  let result: ComputationResult;
-
-  switch (task.type) {
-    case 'generateChunk': {
-      result = generateChunk(task.payload);
-      // Post the result, transferring ownership of the large array buffers
-      self.postMessage(result, [
+export const messageHandler = (e: MessageEvent<ComputationTask>) => {
+  match(e.data)
+    .with({ type: 'generateChunk' }, (task) => {
+      const result = generateChunk(task.payload);
+      const transferables = [
         result.mesh.positions.buffer,
         result.mesh.normals.buffer,
         result.mesh.uvs.buffer,
         result.mesh.indices.buffer,
-      ]);
-      break;
-    }
-    // Add other task handlers here
-  }
+      ];
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      self.postMessage(result, { transfer: transferables });
+    })
+    .otherwise(() => {
+      // In a real app, post an error message back to the main thread.
+    });
 };
+
+// Binds the message handler if running in a web worker context.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+if (typeof self !== 'undefined' && 'onmessage' in self) {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  self.onmessage = messageHandler;
+}

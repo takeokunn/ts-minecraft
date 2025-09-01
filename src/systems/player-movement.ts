@@ -1,76 +1,115 @@
-import { Effect } from "effect";
+
+import { Effect } from 'effect';
+import { World } from '@/runtime/world';
 import {
   CameraState,
   InputState,
-  Player,
   Velocity,
-} from "../domain/components";
-import { playerQuery } from "../domain/queries";
-import { World, getComponentStore, queryEntities } from "../runtime/world";
+} from '@/domain/components';
+import { match } from 'ts-pattern';
 
-const PLAYER_SPEED = 0.08;
-const SPRINT_MULTIPLIER = 1.6;
-const JUMP_FORCE = 0.18;
-const DECELERATION = 0.85;
-const MIN_VELOCITY = 0.001;
+export const PLAYER_SPEED = 5;
+export const SPRINT_MULTIPLIER = 1.6;
+export const JUMP_FORCE = 7;
+const DECELERATION = 0.98;
+const MIN_VELOCITY_THRESHOLD = 0.001;
 
-export const playerMovementSystem: Effect.Effect<void, never, World> = Effect.gen(
-  function* (_) {
-    const entities = yield* _(queryEntities(playerQuery));
-    if (entities.length === 0) {
-      return;
-    }
-    const id = entities[0];
+export const calculateHorizontalVelocity = (
+  input: Pick<
+    InputState,
+    'forward' | 'backward' | 'left' | 'right' | 'sprint'
+  >,
+  camera: Pick<CameraState, 'yaw'>,
+): { x: number; z: number } => {
+  const speed = input.sprint
+    ? PLAYER_SPEED * SPRINT_MULTIPLIER
+    : PLAYER_SPEED;
+  let moveX = 0;
+  let moveZ = 0;
 
-    const players = yield* _(getComponentStore(Player));
-    const inputStates = yield* _(getComponentStore(InputState));
-    const velocities = yield* _(getComponentStore(Velocity));
-    const cameraStates = yield* _(getComponentStore(CameraState));
+  if (input.forward) moveZ -= 1;
+  if (input.backward) moveZ += 1;
+  if (input.left) moveX -= 1;
+  if (input.right) moveX += 1;
 
-    const isGrounded = players.isGrounded[id] === 1;
-    const sprint = inputStates.sprint[id] === 1;
-    const yaw = cameraStates.yaw[id];
+  const magnitude = Math.sqrt(moveX * moveX + moveZ * moveZ);
+  if (magnitude > 1) {
+    moveX /= magnitude;
+    moveZ /= magnitude;
+  }
 
-    const speed = sprint ? PLAYER_SPEED * SPRINT_MULTIPLIER : PLAYER_SPEED;
+  const sinYaw = Math.sin(camera.yaw);
+  const cosYaw = Math.cos(camera.yaw);
 
-    let dx = 0;
-    let dz = 0;
+  const x = moveX * cosYaw - moveZ * sinYaw;
+  const z = moveX * sinYaw + moveZ * cosYaw;
 
-    if (inputStates.forward[id] === 1) {
-      dx -= Math.sin(yaw) * speed;
-      dz -= Math.cos(yaw) * speed;
-    }
-    if (inputStates.backward[id] === 1) {
-      dx += Math.sin(yaw) * speed;
-      dz += Math.cos(yaw) * speed;
-    }
-    if (inputStates.left[id] === 1) {
-      dx -= Math.cos(yaw) * speed;
-      dz += Math.sin(yaw) * speed;
-    }
-    if (inputStates.right[id] === 1) {
-      dx += Math.cos(yaw) * speed;
-      dz -= Math.sin(yaw) * speed;
-    }
+  return { x: x * speed, z: z * speed };
+};
 
-    let newDx = dx;
-    let newDz = dz;
+export const calculateVerticalVelocity = (
+  isGrounded: boolean,
+  jumpPressed: boolean,
+  currentY: number,
+): number => {
+  if (jumpPressed && isGrounded) {
+    return JUMP_FORCE;
+  }
+  return currentY;
+};
 
-    if (newDx === 0 && newDz === 0) {
-      newDx = velocities.dx[id] * DECELERATION;
-      newDz = velocities.dz[id] * DECELERATION;
-      if (Math.abs(newDx) < MIN_VELOCITY) newDx = 0;
-      if (Math.abs(newDz) < MIN_VELOCITY) newDz = 0;
-    }
+export const applyDeceleration = (
+  velocity: Pick<Velocity, 'x' | 'z'>,
+): Pick<Velocity, 'x' | 'z'> => {
+  let { x, z } = velocity;
+  x *= DECELERATION;
+  z *= DECELERATION;
 
-    let newDy = velocities.dy[id];
-    if (inputStates.jump[id] === 1 && isGrounded) {
-      newDy = JUMP_FORCE;
-      players.isGrounded[id] = 0; // Set to false
-    }
+  if (Math.abs(x) < MIN_VELOCITY_THRESHOLD) x = 0;
+  if (Math.abs(z) < MIN_VELOCITY_THRESHOLD) z = 0;
 
-    velocities.dx[id] = newDx;
-    velocities.dy[id] = newDy;
-    velocities.dz[id] = newDz;
-  },
-).pipe(Effect.withSpan("playerMovementSystem"));
+  return { x, z };
+};
+
+export const playerMovementSystem = Effect.gen(function* (_) {
+  const world = yield* _(World);
+  const players = world.queries.playerMovement(world);
+
+  if (players.length === 0) {
+    return;
+  }
+  const player = players[0];
+  const {
+    entityId,
+    player: playerData,
+    inputState,
+    velocity,
+    cameraState,
+  } = player;
+
+  const newY = calculateVerticalVelocity(
+    playerData.isGrounded,
+    inputState.jump,
+    velocity.y,
+  );
+
+  const hasHorizontalInput =
+    inputState.forward ||
+    inputState.backward ||
+    inputState.left ||
+    inputState.right;
+
+  const { x, z } = match(hasHorizontalInput)
+    .with(true, () => calculateHorizontalVelocity(inputState, cameraState))
+    .otherwise(() => applyDeceleration(velocity));
+
+  world.components.velocity.set(entityId, {
+    x,
+    y: newY,
+    z,
+  });
+
+  if (inputState.jump && playerData.isGrounded) {
+    world.components.player.set(entityId, { isGrounded: false });
+  }
+});

@@ -1,34 +1,48 @@
-# Chunk Loading System
+# チャンクロードシステム (Chunk Loading System)
 
-The chunk loading system is a performance-critical feature responsible for dynamically loading and unloading sections of the world, known as chunks, based on the player's position. This creates the illusion of an infinite world while keeping memory usage and the number of active entities manageable.
+チャンクロードシステムは、プレイヤーの位置に基づいてワールドの一部（チャンク）を動的にロード・アンロードする、パフォーマンス上極めて重要な機能です。これにより、メモリ使用量とアクティブなエンティティ数を管理可能な範囲に保ちつつ、無限に広がるワールドの幻想を生み出します。
 
-## Core Components & Concepts
+-   **関連ソース**: [`src/systems/chunk-loading.ts`](../../src/systems/chunk-loading.ts)
 
--   **Chunk**: A conceptual vertical section of the world, typically 16x256x16 blocks. The system creates `Chunk` entities to act as markers for which parts of the world are currently active and loaded in memory. Each `Chunk` entity stores its grid coordinates, `x` and `z`.
--   **`Position`**: The player's `Position` component is the focal point used to determine which chunks should be loaded.
--   **`Block`**: The component identifying terrain blocks. These entities are created and destroyed en masse by the chunk loading system.
+---
 
-## Core System: `chunkLoadingSystem`
+## 責務
 
-The logic is managed by the `chunkLoadingSystem` (`src/systems/chunk-loading.ts`).
+`chunkLoadingSystem` の責務は、毎フレームプレイヤーの位置を監視し、以下の2つのタスクを実行することです。
 
-### How It Works
+1.  **チャンクのアンロード**: プレイヤーの描画範囲（`RENDER_DISTANCE`）から外れたチャンクと、それに含まれるすべての地形ブロックを `World` から削除します。
+2.  **チャンクのロード**: プレイヤーが新しく入った描画範囲内の未ロードチャンクに対して、地形生成タスクを `Computation` サービス（Web Worker）に依頼します。
 
-The system runs continuously in the game loop and performs the following steps:
+---
 
-1.  **Get Player Position**: The system first finds the player entity and reads its `Position` component.
-2.  **Determine Current Chunk**: It calculates which chunk the player is currently inside based on their `(x, z)` coordinates (e.g., `floor(x / 16)`).
-3.  **Identify Required Chunks**: It defines a `renderDistance` (e.g., 8 chunks in every direction). It then creates a set of all chunk coordinates that *should* be loaded in a square around the player's current chunk.
-4.  **Query Existing Chunks**: The system queries the `World` for all entities that currently have a `Chunk` component, creating a set of currently loaded chunks.
-5.  **Calculate Difference**: It compares the "required" set with the "loaded" set to determine two things:
-    -   **Chunks to Load**: Chunks that are in the "required" set but not yet in the "loaded" set.
-    -   **Chunks to Unload**: Chunks that are in the "loaded" set but no longer in the "required" set (because the player has moved away).
-6.  **Unload Chunks**: For each chunk marked for unloading:
-    -   The system finds all `Block` entities located within the boundaries of that chunk.
-    -   It removes all of these block entities from the `World`.
-    -   Finally, it removes the `Chunk` marker entity itself.
-7.  **Load Chunks**: For each chunk marked for loading:
-    -   It creates a new `Chunk` marker entity to track the newly loaded area.
-    -   It then invokes the **`generationSystem`** (see [World Generation](./generation.md)), passing the coordinates of the new chunk. The `generationSystem` is responsible for creating all the necessary `Block` entities for that chunk's terrain.
+## 主要なコンポーネントと概念
 
-This continuous process ensures that the world seamlessly streams in and out of existence around the player as they move, providing a smooth and scalable gameplay experience.
+-   **`Chunk`**: ロード済みのチャンクを示すマーカーエンティティが持つコンポーネント。チャンクのグリッド座標 `x`, `z` を保持します。
+-   **`ChunkLoaderState`**: シングルトンエンティティが持つコンポーネント。プレイヤーが最後にいたチャンクの座標 `currentPlayerChunkX`, `currentPlayerChunkZ` を保持し、プレイヤーがチャンクを移動したかどうかを効率的に検知するために使われます。
+-   **`Position`**: プレイヤーの現在位置を特定するために使用します。
+-   **`TerrainBlock`**: アンロード時に削除対象となる、地形を構成するブロックエンティティを識別するためのタグ。
+
+---
+
+## システムのロジック (`chunkLoadingSystem`)
+
+`chunkLoadingSystem` は `Effect` プログラムとして実装されており、以下のステップで実行されます。
+
+1.  **プレイヤーとローダーの取得**: `world.querySoA` を使ってプレイヤーと、`ChunkLoaderState` を持つシングルトンエンティティを取得します。
+2.  **チャンク移動検知**:
+    -   プレイヤーの現在の `Position` から、現在いるチャンクの座標 (`playerChunkX`, `playerChunkZ`) を計算します。
+    -   `ChunkLoaderState` に保存されている前回の座標と比較し、プレイヤーが新しいチャンクに移動していない場合は、何もせず処理を終了します。これにより、不要な計算を毎フレーム行うことを防ぎます。
+    -   移動していた場合は、`ChunkLoaderState` を新しい座標で更新します。
+3.  **必要チャンクとロード済みチャンクの特定**:
+    -   **必要チャンク**: プレイヤーの現在チャンク座標と `RENDER_DISTANCE` から、現在ロードされているべきすべてのチャンク座標のセット (`requiredChunks`) を計算します。
+    -   **ロード済みチャンク**: `World` 内のすべての `Chunk` コンポーネントをクエリし、現在ロード済みのチャンク座標のマップ (`loadedChunks`) を作成します。
+4.  **アンロード処理**:
+    -   `loadedChunks` に存在し、`requiredChunks` には存在しないチャンクを特定します。
+    -   対象チャンクごとに、そのチャンク範囲内に含まれるすべての `TerrainBlock` タグを持つエンティティを `World` から削除します。
+    -   最後に、`Chunk` マーカーエンティティ自体も削除します。
+5.  **ロード処理**:
+    -   `requiredChunks` に存在し、`loadedChunks` には存在しないチャンクを特定します。
+    -   対象チャンクごとに、`Computation` サービスの `generateChunk` メソッドを `Effect.fork` を使って呼び出します。`fork` を使うことで、重い地形生成タスクをワーカースレッドに依頼しつつ、メインスレッドの処理をブロックすることなく次のフレームに進むことができます。
+    -   同時に、新しい `Chunk` マーカーエンティティを `World` に即座に追加し、同じチャンクのロード処理が重複して開始されるのを防ぎます。
+
+この継続的なプロセスにより、プレイヤーがワールドを移動するにつれて、周囲の地形がシームレスにストリーミングされる体験が実現されます。

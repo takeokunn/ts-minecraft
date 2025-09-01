@@ -1,4 +1,4 @@
-import { Schema } from 'effect';
+import { match } from 'ts-pattern';
 
 export const blockTypeNames = [
   'grass',
@@ -13,53 +13,115 @@ export const blockTypeNames = [
   'brick',
   'plank',
 ] as const;
+export type BlockType = (typeof blockTypeNames)[number];
 
-export const BlockTypeSchema = Schema.Union(
-  ...blockTypeNames.map((k) => Schema.Literal(k)),
-);
-export type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>;
+export const hotbarSlots: BlockType[] = [
+  'grass',
+  'dirt',
+  'stone',
+  'cobblestone',
+  'oakLog',
+  'plank',
+  'glass',
+  'brick',
+  'sand',
+];
 
-// --- Texture Atlas Definitions ---
-
-// The atlas is assumed to be composed of 16x16 tiles.
 const ATLAS_SIZE_IN_TILES = 16;
+export const TILE_SIZE = 1 / ATLAS_SIZE_IN_TILES;
 
-// Defines the texture coordinates [x, y] in the atlas for each block type.
-// [0, 0] is the top-left tile.
-const blockTextureCoordinates: Record<
-  BlockType,
-  { top?: [number, number]; bottom?: [number, number]; side: [number, number] }
-> = {
-  grass: { top: [0, 0], bottom: [2, 0], side: [1, 0] },
-  dirt: { side: [2, 0] },
-  stone: { side: [3, 0] },
-  cobblestone: { side: [4, 0] },
-  oakLog: { top: [6, 0], bottom: [6, 0], side: [5, 0] },
-  oakLeaves: { side: [7, 0] },
-  sand: { side: [8, 0] },
-  water: { side: [9, 0] },
-  glass: { side: [10, 0] },
-  brick: { side: [11, 0] },
-  plank: { side: [12, 0] },
+type BlockDefinition = {
+  textures: {
+    top?: [number, number];
+    bottom?: [number, number];
+    side: [number, number];
+  };
+  isTransparent: boolean;
+  isFluid: boolean;
 };
 
-type FaceName = 'top' | 'bottom' | 'north' | 'south' | 'east' | 'west';
+export const blockDefinitions: Record<BlockType, BlockDefinition> = {
+  grass: {
+    textures: { top: [0, 0], bottom: [2, 0], side: [1, 0] },
+    isTransparent: false,
+    isFluid: false,
+  },
+  dirt: {
+    textures: { side: [2, 0] },
+    isTransparent: false,
+    isFluid: false,
+  },
+  stone: {
+    textures: { side: [3, 0] },
+    isTransparent: false,
+    isFluid: false,
+  },
+  cobblestone: {
+    textures: { side: [4, 0] },
+    isTransparent: false,
+    isFluid: false,
+  },
+  oakLog: {
+    textures: { top: [6, 0], bottom: [6, 0], side: [5, 0] },
+    isTransparent: false,
+    isFluid: false,
+  },
+  oakLeaves: {
+    textures: { side: [7, 0] },
+    isTransparent: true,
+    isFluid: false,
+  },
+  sand: {
+    textures: { side: [8, 0] },
+    isTransparent: false,
+    isFluid: false,
+  },
+  water: {
+    textures: { side: [9, 0] },
+    isTransparent: true,
+    isFluid: true,
+  },
+  glass: {
+    textures: { side: [10, 0] },
+    isTransparent: true,
+    isFluid: false,
+  },
+  brick: {
+    textures: { side: [11, 0] },
+    isTransparent: false,
+    isFluid: false,
+  },
+  plank: {
+    textures: { side: [12, 0] },
+    isTransparent: false,
+    isFluid: false,
+  },
+};
 
-// Helper function to get the UV coordinates for a specific block face.
-export function getUvForFace(
-  blockType: BlockType,
-  faceName: FaceName,
-): [number, number] {
-  const definition = blockTextureCoordinates[blockType];
-  let coords: [number, number];
+export type FaceName = 'top' | 'bottom' | 'north' | 'south' | 'east' | 'west';
 
-  if ((faceName === 'top' || faceName === 'bottom') && definition[faceName]) {
-    coords = definition[faceName]!;
-  } else {
-    coords = definition.side;
-  }
+export function getUvForFace(blockType: BlockType, faceName: FaceName): [number, number] {
+  const definition = blockDefinitions[blockType].textures;
 
-  return coords;
+  return match(faceName)
+    .with('top', () => definition.top ?? definition.side)
+    .with('bottom', () => definition.bottom ?? definition.side)
+    .with('north', 'south', 'east', 'west', () => definition.side)
+    .exhaustive();
 }
 
-export const TILE_SIZE = 1 / ATLAS_SIZE_IN_TILES;
+export function isBlockTransparent(blockType: BlockType): boolean {
+  return blockDefinitions[blockType].isTransparent;
+}
+
+export function isBlockFluid(blockType: BlockType): boolean {
+  return blockDefinitions[blockType].isFluid;
+}
+
+export const getBlockUv = (block: BlockType, face: FaceName) => {
+  const [u, v] = getUvForFace(block, face);
+  return {
+    u: u * TILE_SIZE,
+    v: v * TILE_SIZE,
+  };
+};

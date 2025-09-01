@@ -1,126 +1,121 @@
-import { Effect } from "effect";
-import { Chunk, Player, Position, TerrainBlock } from "../domain/components";
-import { playerQuery } from "../domain/queries";
-import { GameState } from "../runtime/game-state";
-import { ChunkDataQueue, ComputationWorker } from "../runtime/services";
-import {
-  World,
-  createEntity,
-  getComponentStore,
-  queryEntities,
-  removeEntity,
-} from "../runtime/world";
-import { GenerateChunkTask } from "@/workers/computation.worker";
-import { EntityId } from "@/domain/entity";
+import { Effect } from 'effect';
+import { World } from '@/runtime/world';
+import { GenerateChunkCommand } from '@/domain/types';
+import { EntityId } from '@/domain/entity';
 
 export const CHUNK_SIZE = 10;
-const RENDER_DISTANCE = 2;
-let currentPlayerChunkX: number = Infinity;
-let currentPlayerChunkZ: number = Infinity;
 
-export const chunkLoadingSystem: Effect.Effect<
-  void,
-  never,
-  GameState | World | ComputationWorker | ChunkDataQueue
-> = Effect.gen(function* (_) {
-  const gameStateService = yield* _(GameState);
-  const computationWorker = yield* _(ComputationWorker);
-  const chunkDataQueue = yield* _(ChunkDataQueue);
+type ChunkCoord = { x: number; z: number };
 
-  const players = yield* _(queryEntities(playerQuery));
-  if (players.length === 0) {
-    return;
-  }
-  const playerId = players[0];
-  const positions = yield* _(getComponentStore(Position));
-  const playerPositionX = positions.x[playerId];
-  const playerPositionZ = positions.z[playerId];
-
-  const playerChunkX = Math.floor(playerPositionX / CHUNK_SIZE);
-  const playerChunkZ = Math.floor(playerPositionZ / CHUNK_SIZE);
-
-  if (
-    playerChunkX === currentPlayerChunkX &&
-    playerChunkZ === currentPlayerChunkZ
-  ) {
-    return;
-  }
-
-  currentPlayerChunkX = playerChunkX;
-  currentPlayerChunkZ = playerChunkZ;
-
-  const gameState = yield* _(gameStateService.get);
+export const calculateChunkUpdates = (
+  currentPlayerChunk: ChunkCoord,
+  loadedChunks: Map<string, EntityId>,
+  renderDistance: number,
+): {
+  toLoad: ChunkCoord[];
+  toUnload: EntityId[];
+} => {
   const requiredChunks = new Set<string>();
-
-  for (let x = playerChunkX - RENDER_DISTANCE; x <= playerChunkX + RENDER_DISTANCE; x++) {
-    for (let z = playerChunkZ - RENDER_DISTANCE; z <= playerChunkZ + RENDER_DISTANCE; z++) {
+  for (
+    let x = currentPlayerChunk.x - renderDistance;
+    x <= currentPlayerChunk.x + renderDistance;
+    x++
+  ) {
+    for (
+      let z = currentPlayerChunk.z - renderDistance;
+      z <= currentPlayerChunk.z + renderDistance;
+      z++
+    ) {
       requiredChunks.add(`${x},${z}`);
     }
   }
 
-  const chunkEntities = yield* _(queryEntities({ all: [Chunk] }));
-  const chunkComponents = yield* _(getComponentStore(Chunk));
-  const loadedChunks = new Map<string, EntityId>();
-  for (const chunkId of chunkEntities) {
-    loadedChunks.set(`${chunkComponents.x[chunkId]},${chunkComponents.z[chunkId]}`, chunkId);
-  }
-
-  // Unload chunks that are no longer required
-  const terrainBlocks = yield* _(queryEntities({ all: [TerrainBlock, Position] }));
-  const terrainPositions = yield* _(getComponentStore(Position));
-  const unloadEffects: Effect.Effect<void>[] = [];
-
-  for (const [key, entityId] of loadedChunks.entries()) {
+  const toUnload: EntityId[] = [];
+  for (const [key, chunkEntityId] of loadedChunks.entries()) {
     if (!requiredChunks.has(key)) {
-      const [xStr, zStr] = key.split(',');
-      const chunkX = parseInt(xStr, 10);
-      const chunkZ = parseInt(zStr, 10);
-
-      // Find and remove all terrain blocks within this chunk
-      for (const blockId of terrainBlocks) {
-        const blockChunkX = Math.floor(terrainPositions.x[blockId] / CHUNK_SIZE);
-        const blockChunkZ = Math.floor(terrainPositions.z[blockId] / CHUNK_SIZE);
-        if (blockChunkX === chunkX && blockChunkZ === chunkZ) {
-          unloadEffects.push(removeEntity(blockId));
-        }
-      }
-      // Remove the chunk marker entity
-      unloadEffects.push(removeEntity(entityId));
+      toUnload.push(chunkEntityId);
     }
   }
 
-  if (unloadEffects.length > 0) {
-    yield* _(Effect.all(unloadEffects, { discard: true, concurrency: "unbounded" }));
-  }
-
-  // Load new chunks
+  const toLoad: ChunkCoord[] = [];
   for (const key of requiredChunks) {
     if (!loadedChunks.has(key)) {
       const [xStr, zStr] = key.split(',');
-      const x = parseInt(xStr, 10);
-      const z = parseInt(zStr, 10);
-
-      // Create a chunk marker entity immediately to prevent duplicate loading
-      yield* _(createEntity({ _tag: "Chunk", x, z }));
-
-      const generationEffect = Effect.gen(function* (_) {
-        const task: GenerateChunkTask = {
-          type: 'generateChunk',
-          payload: {
-            chunkX: x,
-            chunkZ: z,
-            seeds: gameState.seeds,
-            amplitude: gameState.amplitude,
-            editedBlocks: gameState.editedBlocks,
-          },
-        };
-        const chunkData = yield* _(computationWorker.postTask(task));
-        if (chunkData.blocks.length > 0) {
-          yield* _(chunkDataQueue.offer(chunkData));
-        }
-      });
-
-      yield* _(Effect.fork(generationEffect));
+      toLoad.push({ x: parseInt(xStr, 10), z: parseInt(zStr, 10) });
     }
   }
+
+  return { toLoad, toUnload };
+};
+
+const getOrCreateChunkLoader = (world: World) => {
+  const loaders = (world as any).queries.chunkLoader(world);
+  if (loaders.length > 0) {
+    return loaders[0];
+  }
+  const loaderEid = world.createEntity();
+  const loaderState = {
+    currentPlayerChunkX: Infinity,
+    currentPlayerChunkZ: Infinity,
+  };
+  (world as any).components.chunkLoaderState.set(loaderEid, loaderState);
+  return {
+    entityId: loaderEid,
+    chunkLoaderState: loaderState,
+  };
+};
+
+export const chunkLoadingSystem = Effect.gen(function* ($) {
+  const world = yield* $(World as any);
+  const players = (world as any).queries.player(world);
+  if (players.length === 0) {
+    return [];
+  }
+  const player = players[0];
+  const { position: playerPosition } = player;
+
+  const loader = getOrCreateChunkLoader(world);
+  const { entityId: loaderId, chunkLoaderState } = loader;
+
+  const playerChunkX = Math.floor(playerPosition.x / CHUNK_SIZE);
+  const playerChunkZ = Math.floor(playerPosition.z / CHUNK_SIZE);
+
+  if (
+    playerChunkX === chunkLoaderState.currentPlayerChunkX &&
+    playerChunkZ === chunkLoaderState.currentPlayerChunkZ
+  ) {
+    return [];
+  }
+
+  (world as any).components.chunkLoaderState.set(loaderId, {
+    currentPlayerChunkX: playerChunkX,
+    currentPlayerChunkZ: playerChunkZ,
+  });
+
+  const loadedChunks = new Map<string, EntityId>();
+  const chunks = (world as any).queries.chunk(world);
+  for (const chunk of chunks) {
+    loadedChunks.set(
+      `${chunk.chunk.x},${chunk.chunk.z}`,
+      chunk.entityId,
+    );
+  }
+
+  const { toLoad, toUnload } = calculateChunkUpdates(
+    { x: playerChunkX, z: playerChunkZ },
+    loadedChunks,
+    (world as any).globalState.chunk.renderDistance,
+  );
+
+  yield* $(Effect.forEach(toUnload, (id) => world.removeEntity(id)));
+
+  const commands: GenerateChunkCommand[] = toLoad.map(
+    ({ x, z }) => ({
+      _tag: 'GenerateChunk',
+      chunkX: x,
+      chunkZ: z,
+    }),
+  );
+
+  return commands;
 });

@@ -1,6 +1,6 @@
 # カメラ制御システム (Camera Control System)
 
--   **ソース**: `src/systems/camera-control.ts`
+-   **関連ソース**: [`src/systems/camera-control.ts`](../../src/systems/camera-control.ts)
 -   **責務**: ユーザーのマウス入力を `InputService` から受け取り、`CameraService` を通じてカメラの視点を更新し、その結果をプレイヤーの `CameraState` コンポーネントに反映すること。
 
 ---

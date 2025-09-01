@@ -1,32 +1,74 @@
-import { Layer, Effect } from 'effect';
-import * as THREE from 'three';
-import { MaterialManager } from '../runtime/services';
+import { TextureLoader, MeshBasicMaterial, type Material, SRGBColorSpace } from 'three';
+import { match } from 'ts-pattern';
 
-// This is the live implementation of the MaterialManager service.
-// It manages a single material that uses a texture atlas for all blocks.
-export const MaterialManagerLive: Layer.Layer<MaterialManager> = Layer.effect(
-  MaterialManager,
-  Effect.sync(() => {
-    const textureLoader = new THREE.TextureLoader();
+export type MaterialManager = {
+  get(key: string): Promise<Material>;
+  dispose(): void;
+};
 
-    // Load the texture atlas
-    // IMPORTANT: Create a `texture-atlas.png` file in the `public/assets/` directory.
-    const atlasTexture = textureLoader.load('/assets/texture-atlas.png');
-    atlasTexture.magFilter = THREE.NearestFilter;
-    atlasTexture.minFilter = THREE.NearestFilter;
+function createTextureLoadError(path: string, originalError: unknown): Error {
+  const message =
+    originalError instanceof Error
+      ? `Failed to load texture: ${path}, Error: ${originalError.message}`
+      : `Failed to load texture: ${path}, Error: ${String(originalError)}`;
+  const error = new Error(message);
+  error.name = 'TextureLoadError';
+  if (originalError instanceof Error) {
+    error.stack = originalError.stack;
+  }
+  return error;
+}
 
-    const material = new THREE.MeshStandardMaterial({
-      map: atlasTexture,
-      side: THREE.FrontSide,
-      // alphaTest is used to discard fragments with an alpha value below a certain threshold.
-      // This is useful for textures with transparent parts like glass or leaves.
-      alphaTest: 0.1,
-      transparent: true,
+export function createMaterialManager(): MaterialManager {
+  const textureLoader = new TextureLoader();
+  const materialCache = new Map<string, Material>();
+  const promiseCache = new Map<string, Promise<Material>>();
+
+  async function loadAndCreateMaterial(key: string): Promise<Material> {
+    try {
+      const texture = await textureLoader.loadAsync(key);
+      if (texture) {
+        texture.colorSpace = SRGBColorSpace;
+      }
+      const material = new MeshBasicMaterial({ map: texture });
+      materialCache.set(key, material);
+      promiseCache.delete(key);
+      return material;
+    } catch (e) {
+      promiseCache.delete(key);
+      throw createTextureLoadError(key, e);
+    }
+  }
+
+  function get(key: string): Promise<Material> {
+    return match(materialCache.get(key))
+      .when(
+        material => material !== undefined,
+        material => Promise.resolve(material!),
+      )
+      .otherwise(() => {
+        const cachedPromise = promiseCache.get(key);
+        if (cachedPromise) {
+          return cachedPromise;
+        }
+
+        const promise = loadAndCreateMaterial(key);
+        promiseCache.set(key, promise);
+        return promise;
+      });
+  }
+
+  function dispose(): void {
+    materialCache.forEach(material => {
+      (material as MeshBasicMaterial).map?.dispose();
+      material.dispose();
     });
+    materialCache.clear();
+    promiseCache.clear();
+  }
 
-    // The `get` method returns the single, shared material for the atlas.
-    const get = () => Effect.succeed(material);
-
-    return MaterialManager.of({ get });
-  }),
-);
+  return {
+    get,
+    dispose,
+  };
+}

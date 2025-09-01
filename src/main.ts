@@ -1,64 +1,51 @@
-import { Effect, Layer, Schedule } from "effect";
-import { InputLive } from "./infrastructure/input-browser";
-import { MaterialManagerLive } from "./infrastructure/material-manager";
-import { RaycastLive } from "./infrastructure/raycast-three";
+import { Effect, Layer, Scope } from 'effect';
+import { getPlayerArchetype } from './domain/archetypes';
 import {
-  CameraLive,
-  RendererLive,
-  ThreeJsContextLive,
-} from "./infrastructure/renderer-three";
-import { UILive } from "./infrastructure/ui";
-import { GameState, GameStateLive } from "./runtime/game-state";
-import { gameLoop } from "./runtime/loop";
-import { WorldLive } from "./runtime/world";
-import { createPlayer } from "./domain/archetypes";
-import { RenderQueueLive } from "./runtime/render-queue";
-import { SpatialGridLive } from "./infrastructure/spatial-grid";
-import { ComputationServiceLive } from "./runtime/computation";
-import { ChunkDataQueueLive } from "./runtime/chunk-data-queue";
+  createBrowserInputState,
+  registerInputListeners,
+} from './infrastructure/input-browser';
+import {
+  ThreeContextLive,
+  ThreeContext,
+} from './infrastructure/renderer-three/context';
+import { startGameLoop } from './runtime/loop';
+import { World, WorldLive } from './runtime/world';
+import { MaterialManagerLive } from './infrastructure/material-manager';
+import { ComputationWorkerLive } from './infrastructure/computation.worker';
+import { SpatialGridLive } from './infrastructure/spatial-grid';
 
-// --- Game Initialization ---
-const initializeGame = Effect.gen(function* (_) {
-  yield* _(createPlayer({ x: 0, y: 80, z: 0 }));
-});
+export const main = Effect.scoped(
+  Effect.gen(function* (_) {
+    const world = yield* _(World);
+    // --- 1. Initialize Services and State ---
+    const inputState = createBrowserInputState();
+    const threeContext = yield* _(ThreeContext);
 
-// --- Main Application Layer ---
+    // --- 2. Setup Initial Scene ---
+    yield* _(world.createEntity(getPlayerArchetype({ x: 0, y: 50, z: 0 })));
 
-const AppLayer = Layer.mergeAll(
-  ThreeJsContextLive,
-  GameStateLive,
-  UILive,
-  RenderQueueLive,
-  SpatialGridLive,
-  ChunkDataQueueLive,
-  ComputationServiceLive,
-  WorldLive,
-  MaterialManagerLive,
-  RendererLive,
-  InputLive,
-  CameraLive,
-  RaycastLive,
+    // --- 3. Register Event Listeners ---
+    const cleanupInput = registerInputListeners(
+      inputState,
+      threeContext.camera.controls,
+    );
+    yield* _(Scope.addFinalizer(Effect.sync(cleanupInput)));
+
+    // --- 4. Start Game Loop ---
+    const gameLoopFiber = yield* _(
+      Effect.fork(startGameLoop(threeContext, inputState)),
+    );
+    yield* _(Scope.addFinalizer(Effect.interrupt(gameLoopFiber)));
+  }),
 );
 
-// --- Main Application Logic ---
-const app = Effect.gen(function* (_) {
-  const gameState = yield* _(GameState);
+// Create the final program with all the live layers
+export const MainLive = Layer.mergeAll(
+  WorldLive,
+  ThreeContextLive,
+  MaterialManagerLive,
+  ComputationWorkerLive,
+  SpatialGridLive,
+);
 
-  // Initialize the game state
-  yield* _(initializeGame);
-
-  // Start the main game loop, but only run it when the scene is 'InGame'
-  const scheduledGameLoop = gameLoop.pipe(
-    Effect.whenEffect(
-      gameState.get.pipe(Effect.map((s) => s.scene === "InGame")),
-    ),
-    Effect.repeat(Schedule.animate),
-  );
-
-  yield* _(Effect.fork(scheduledGameLoop));
-});
-
-// --- Run ---
-const program = app.pipe(Effect.provide(AppLayer));
-
-Effect.runFork(program);
+export const program = Effect.provide(main, MainLive);

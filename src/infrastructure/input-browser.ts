@@ -1,224 +1,114 @@
-import { Effect, Layer, Ref } from 'effect';
-import { match } from 'ts-pattern';
-import type { InputState } from '../domain/components';
-import { PlayerSchema } from '../domain/components';
-import { GameState } from '../runtime/game-state';
-import type { GameState as GameStateType } from '../runtime/game-state';
-import { Input } from '../runtime/services';
-import type { Input as InputType } from '../runtime/services';
-import { query, updateComponent } from '../runtime/world';
-import type { World } from '../runtime/world';
-import { ThreeJsContext } from './renderer-three';
 
-type KeyState = Omit<InputState, '_tag'>;
-type MouseState = {
-  dx: number;
-  dy: number;
-  leftClick: boolean;
-  rightClick: boolean;
+import { match } from 'ts-pattern';
+import type { BrowserInputState } from '@/domain/types';
+
+// The PointerLockControls interface is complex, but we only need a small subset of its properties.
+// This type definition allows us to use a mock or a real instance without `any`.
+type LockableControls = {
+  isLocked: boolean;
+  lock: () => void;
+  unlock: () => void;
 };
 
-const makeInput: Effect.Effect<
-  InputType,
-  never,
-  GameStateType | World | ThreeJsContext
-> = Effect.gen(function* (_) {
-  const gameState: GameStateType = yield* _(GameState);
-  const { controls } = yield* _(ThreeJsContext);
-
-  const keyStateRef: Ref.Ref<KeyState> = yield* _(
-    Ref.make<KeyState>({
-      forward: false,
-      backward: false,
-      left: false,
-      right: false,
-      jump: false,
-      sprint: false,
-      place: false,
-    }),
-  );
-  const mouseStateRef: Ref.Ref<MouseState> = yield* _(
-    Ref.make<MouseState>({
+/**
+ * Creates an initial, empty state for browser input.
+ */
+export function createBrowserInputState(): BrowserInputState {
+  return {
+    keyboard: new Set(),
+    mouse: {
       dx: 0,
       dy: 0,
-      leftClick: false,
-      rightClick: false,
-    }),
-  );
-
-  // --- Event Listeners ---
-  const onKeyDown = (event: KeyboardEvent): void => {
-    let lastWPress: number = 0;
-    const sprintThreshold: number = 300; // ms
-
-    const effect: Effect.Effect<void> = match(event.code)
-      .with('KeyW', () =>
-        Ref.update(keyStateRef, (s: KeyState) => {
-          const now = performance.now();
-          const isSprinting = now - lastWPress < sprintThreshold;
-          lastWPress = now;
-          return { ...s, forward: true, sprint: isSprinting };
-        }),
-      )
-      .with('KeyS', () =>
-        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, backward: true })),
-      )
-      .with('KeyA', () =>
-        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, left: true })),
-      )
-      .with('KeyD', () =>
-        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, right: true })),
-      )
-      .with('Space', () =>
-        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, jump: true })),
-      )
-      .with('KeyQ', () =>
-        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, place: true })),
-      )
-      .with('Digit1', () => Effect.sync(() => gameState.setSelectedSlot(0)))
-      .with('Digit2', () => Effect.sync(() => gameState.setSelectedSlot(1)))
-      .with('Digit3', () => Effect.sync(() => gameState.setSelectedSlot(2)))
-      .with('Digit4', () => Effect.sync(() => gameState.setSelectedSlot(3)))
-      .with('Digit5', () => Effect.sync(() => gameState.setSelectedSlot(4)))
-      .with('Digit6', () => Effect.sync(() => gameState.setSelectedSlot(5)))
-      .with('Digit7', () => Effect.sync(() => gameState.setSelectedSlot(6)))
-      .with('Digit8', () => Effect.sync(() => gameState.setSelectedSlot(7)))
-      .with('Digit9', () => Effect.sync(() => gameState.setSelectedSlot(8)))
-      .otherwise(() => Effect.void);
-    Effect.runFork(effect);
-  };
-
-  const onKeyUp = (event: KeyboardEvent): void => {
-    const effect: Effect.Effect<void> = match(event.code)
-      .with('KeyW', () =>
-        Ref.update(keyStateRef, (s: KeyState) => ({
-          ...s,
-          forward: false,
-          sprint: false,
-        })),
-      )
-      .with('KeyS', () =>
-        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, backward: false })),
-      )
-      .with('KeyA', () =>
-        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, left: false })),
-      )
-      .with('KeyD', () =>
-        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, right: false })),
-      )
-      .with('Space', () =>
-        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, jump: false })),
-      )
-      .with('KeyQ', () =>
-        Ref.update(keyStateRef, (s: KeyState) => ({ ...s, place: false })),
-      )
-      .otherwise(() => Effect.void);
-    Effect.runFork(effect);
-  };
-
-  const onMouseMove = (event: MouseEvent): void => {
-    if (controls.isLocked) {
-      Effect.runFork(
-        Ref.update(mouseStateRef, (s: MouseState) => ({
-          ...s,
-          dx: s.dx + event.movementX,
-          dy: s.dy + event.movementY,
-        })),
-      );
-    }
-  };
-
-  const onMouseDown = (event: MouseEvent): void => {
-    if (controls.isLocked) {
-      if (event.button === 0) {
-        // Left click
-        Effect.runFork(
-          Ref.update(mouseStateRef, (s: MouseState) => ({
-            ...s,
-            leftClick: true,
-          })),
-        );
-      }
-      if (event.button === 2) {
-        // Right click
-        Effect.runFork(
-          Ref.update(mouseStateRef, (s: MouseState) => ({
-            ...s,
-            rightClick: true,
-          })),
-        );
-      }
-    }
-  };
-
-  const escapeScreen = document.getElementById('escapeScreenGUI');
-
-  const onPointerLockChange = (): void => {
-    if (controls.isLocked) {
-      if (escapeScreen) escapeScreen.style.display = 'none';
-    } else {
-      if (escapeScreen) escapeScreen.style.display = 'block';
-    }
-  };
-
-  controls.addEventListener('lock', onPointerLockChange);
-  controls.addEventListener('unlock', onPointerLockChange);
-
-  document.addEventListener('keydown', onKeyDown);
-  document.addEventListener('keyup', onKeyUp);
-  document.addEventListener('mousemove', onMouseMove);
-  document.addEventListener('mousedown', onMouseDown);
-
-  yield* _(
-    Effect.addFinalizer(() =>
-      Effect.sync(() => {
-        document.removeEventListener('keydown', onKeyDown);
-        document.removeEventListener('keyup', onKeyUp);
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mousedown', onMouseDown);
-        controls.removeEventListener('lock', onPointerLockChange);
-        controls.removeEventListener('unlock', onPointerLockChange);
-        controls.unlock();
-      }),
-    ),
-  );
-
-  // --- Poll Method ---
-  const poll: Effect.Effect<void, never, World> = Effect.gen(function* (_) {
-    const playerEntity = (yield* _(query(PlayerSchema)))[0];
-    if (!playerEntity || !controls.isLocked) {
-      return;
-    }
-
-    // Sync keyboard state
-    const keyState: KeyState = yield* _(Ref.get(keyStateRef));
-    yield* _(
-      updateComponent(playerEntity.id, {
-        _tag: 'InputState',
-        ...keyState,
-      }),
-    );
-  });
-
-  // Expose a method to get the mouse state for other systems
-  const getMouseState: Effect.Effect<MouseState, never, never> = Ref.getAndSet(
-    mouseStateRef,
-    {
-      dx: 0,
-      dy: 0,
-      leftClick: false,
-      rightClick: false,
     },
-  );
+  };
+}
 
-  return Input.of({
-    poll: () => poll,
-    getMouseState: () => getMouseState,
+type EventListenerPair = [string, (event: any) => void];
+
+/**
+ * Registers DOM event listeners to update the input state.
+ * @param state The input state object to be mutated.
+ * @param controls A PointerLockControls-like object to manage mouse lock.
+ * @returns A cleanup function that removes all registered listeners.
+ */
+export function registerInputListeners(state: BrowserInputState, controls: LockableControls): () => void {
+  // The state object is defined as readonly, but this module is responsible for mutating it.
+  // We cast to a mutable type here to reflect this responsibility.
+  const mutableMouse = state.mouse as { dx: number; dy: number };
+  const mutableKeyboard = state.keyboard as Set<string>;
+
+  const getMouseButtonKey = (button: number): string | null =>
+    match(button)
+      .with(0, () => 'Mouse0') // Left click
+      .with(2, () => 'Mouse2') // Right click
+      .otherwise(() => null);
+
+  const handleMouseEvent = (event: MouseEvent, action: 'add' | 'delete') => {
+    if (controls.isLocked) {
+      const key = getMouseButtonKey(event.button);
+      if (key) {
+        mutableKeyboard[action](key);
+      }
+    }
+  };
+
+  const onKeyDown = (event: KeyboardEvent) => mutableKeyboard.add(event.code);
+  const onKeyUp = (event: KeyboardEvent) => mutableKeyboard.delete(event.code);
+
+  const onMouseMove = (event: MouseEvent) => {
+    if (controls.isLocked) {
+      mutableMouse.dx += event.movementX;
+      mutableMouse.dy += event.movementY;
+    }
+  };
+
+  const onMouseDown = (event: MouseEvent) =>
+    match(controls.isLocked)
+      .with(true, () => handleMouseEvent(event, 'add'))
+      .otherwise(() => controls.lock());
+
+  const onMouseUp = (event: MouseEvent) => handleMouseEvent(event, 'delete');
+
+  const listeners: EventListenerPair[] = [
+    ['keydown', onKeyDown],
+    ['keyup', onKeyUp],
+    ['mousemove', onMouseMove],
+    ['mousedown', onMouseDown],
+    ['mouseup', onMouseUp],
+  ];
+
+  listeners.forEach(([event, listener]) => {
+    document.addEventListener(event, listener);
   });
-});
 
-export const InputLive: Layer.Layer<
-  InputType,
-  never,
-  GameStateType | World | ThreeJsContext
-> = Layer.scoped(Input, makeInput);
+  return () => {
+    listeners.forEach(([event, listener]) => {
+      document.removeEventListener(event, listener);
+    });
+    if (controls.isLocked) {
+      controls.unlock();
+    }
+  };
+}
+
+/**
+ * Returns the accumulated mouse delta since the last call and resets it.
+ * @param state The input state object.
+ * @returns The mouse delta { dx, dy }.
+ */
+export function getMouseDelta(state: BrowserInputState): { dx: number; dy: number } {
+  const mutableMouse = state.mouse as { dx: number; dy: number };
+  const delta = { dx: mutableMouse.dx, dy: mutableMouse.dy };
+  mutableMouse.dx = 0;
+  mutableMouse.dy = 0;
+  return delta;
+}
+
+/**
+ * Returns the current set of pressed keys.
+ * @param state The input state object.
+ * @returns A readonly set of key codes.
+ */
+export function getKeyboardState(state: BrowserInputState): ReadonlySet<string> {
+  return state.keyboard;
+}

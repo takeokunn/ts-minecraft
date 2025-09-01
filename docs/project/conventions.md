@@ -6,22 +6,29 @@
 
 ## 1. コードフォーマット & 静的解析
 
-コードの品質とスタイルは、**BiomeJS** によって自動的に維持されます。コミット前には、必ず以下のコマンドを実行してください。
+コードの品質とスタイルは、**Oxlint** (リンター) と **BiomeJS** (フォーマッタ) によって自動的に維持されます。コミット前には、必ず以下のコマンドを実行し、問題を修正してください。
 
 ```bash
-# BiomeJSによる自動フォーマット・静的解析・自動修正
-npm run format
-npm run lint
+# Oxlintによる静的解析・自動修正
+pnpm run lint
+
+# BiomeJSによる自動フォーマット
+pnpm run format
 ```
 
-### フォーマッタ & リンター: BiomeJS
+### リンター: Oxlint
 
--   設定ファイル: `biome.json`
--   主なルール:
+-   **役割**: コードの潜在的なバグ、パフォーマンスの問題、一貫性のないパターンを検出します。CIプロセスにも組み込まれており、品質ゲートとして機能します。
+-   **設定**: `.oxlintrc` (将来的) または `package.json` 内のコマンド引数で管理されます。
+
+### フォーマッタ: BiomeJS
+
+-   **役割**: コードの見た目を統一します。
+-   **設定ファイル**: `biome.json`
+-   **主なルール**:
     -   インデント: スペース2つ (`"indentStyle": "space", "indentWidth": 2`)
     -   引用符: シングルクォート (`"quoteStyle": "single"`)
     -   末尾のカンマ: 常に付与 (`"trailingCommas": "all"`)
--   役割: Biomeはフォーマッタとリンターの機能を兼ね備えており、コードスタイルを統一し、潜在的なバグやコードの臭いを検出します。
 
 ---
 
@@ -33,6 +40,7 @@ npm run lint
 | **変数・関数** | `camelCase` | `playerMovementSystem`, `calculateVelocity` |
 | **クラス・型・インターフェース** | `PascalCase` | `Position`, `EntityId`, `RenderService` |
 | **定数** | `UPPER_SNAKE_CASE` | `MAX_CHUNK_HEIGHT`, `PLAYER_SPEED` |
+| **Effect Layer** | `PascalCase` + `Live` | `RendererLive`, `WorldLive` |
 
 ---
 
@@ -64,42 +72,33 @@ npm run lint
 
 ### システムは単一責任を持つ
 
-`systems/` ディレクトリ内の各システムは、明確に定義された単一の責務を持つべきです。システムの役割は、`World` からコンポーnentを読み取り、計算を行い、結果をコンポーネントに書き戻すことだけです。
+`systems/` ディレクトリ内の各システムは、明確に定義された単一の責務を持つべきです。システムの役割は、`World` からコンポーネントを読み取り、計算を行い、結果をコンポーネントに書き戻すことだけです。
 
-例えば、かつての巨大な `playerControlSystem` は、以下の3つの独立したシステムにリファクタリングされました。
--   `inputPollingSystem`: ユーザー入力をポーリングし、`InputState` コンポーネントを更新する。
--   `cameraControlSystem`: マウスの動きを検知し、`CameraState` コンポーネントを更新する。
--   `playerMovementSystem`: `InputState` と `CameraState` に基づいてプレイヤーの `Velocity` を計算する。
+### クエリAPIは `querySoA` を原則とする
 
-この分割により、各システムの理解、テスト、再利用が容易になります。
+`World` サービスからエンティティを取得する際のAPIは、パフォーマンス上の理由から `world.querySoA()` に一本化されています。
 
-### クエリAPIは `queryEntities` を原則とする
-
-`World` サービスからエンティティを取得する際のAPIは、パフォーマンス上の理由から `world.queryEntities()` に一本化されています。
-
--   **`world.queryEntities()`**:
-    -   **用途**: パフォーマンスが最優先されるシステム（例: `physics`, `collision`, `scene`）だけでなく、**プロジェクト内のすべてのシステム**で使用します。
-    -   **規約**: ゲームループ内でエンティティを処理するシステムは、**必ず `queryEntities` を使用しなければなりません。**
+-   **`world.querySoA()`**:
+    -   **用途**: パフォーマンスが最優先されるシステム（例: `physics`, `collision`）だけでなく、**プロジェクト内のすべてのシステム**で使用します。
+    -   **規約**: ゲームループ内でエンティティを処理するシステムは、**必ず `querySoA` を使用しなければなりません。** このAPIは、コンポーネントデータをオブジェクトの配列としてではなく、内部ストレージ（SoA）への直接の参照として返すため、不要なメモリアロケーションを完全に防ぎます。
 
 ### コンポーネントストアへの直接アクセス
 
-パフォーマンスを最大化するため、システムは `queryEntities` で取得したエンティティIDを使い、`world.getComponentStore(Component)` で取得したSoA(Structure of Arrays)ストアに直接アクセスしてデータを読み書きします。
+パフォーマンスを最大化するため、システムは `querySoA` で取得したSoA(Structure of Arrays)ストアに直接アクセスしてデータを読み書きします。
 
 ```typescript
 // src/systems/physics.ts
-const entities = yield* _(queryEntities(physicsQuery));
-const positions = yield* _(getComponentStore(Position));
-const velocities = yield* _(getComponentStore(Velocity));
+const { entities, positions, velocities } = yield* _(world.querySoA(physicsQuery));
 
-for (const id of entities) {
-  positions.y[id] += velocities.dy[id];
+for (let i = 0; i < entities.length; i++) {
+  positions.y[i] += velocities.dy[i];
 }
 ```
 このアプローチは、中間オブジェクトの生成を完全に排除し、GC（ガベージコレクション）の負荷を最小限に抑えます。
 
 ### クエリは `domain/queries.ts` で共通化する
 
-システムの可読性と保守性を高めるため、`world.queryEntities` に渡すクエリオブジェクトは `src/domain/queries.ts` で一元管理します。
+システムの可読性と保守性を高めるため、`world.querySoA` に渡すクエリオブジェクトは `src/domain/queries.ts` で一元管理します。
 
 ```typescript
 // src/domain/queries.ts
@@ -107,7 +106,7 @@ export const movableQuery = { all: [Position, Velocity], not: [Frozen] };
 
 // src/systems/physics.ts
 import { movableQuery } from '../domain/queries';
-const entities = yield* queryEntities(movableQuery);
+const { entities, ... } = yield* _(world.querySoA(movableQuery));
 ```
 
 これにより、どのようなデータにアクセスするかの関心が分離され、システムは純粋なロジックに集中できます。
@@ -120,7 +119,10 @@ const entities = yield* queryEntities(movableQuery);
 
 ### 依存性の注入 (DI) とサービス
 
-`World`、`Input`、`Renderer`、`RaycastService` といった依存関係は、すべてEffectの `Context` と `Layer` によって管理されます。システムは、自身の `Effect` シグネチャで必要なサービスを宣言的に要求します。これにより、疎結合と高いテスト容易性が実現されます。
+`World`、`Input`、`Renderer` といった依存関係は、すべてEffectの `Context` と `Layer` によって管理されます。
+- **サービス定義**: サービスのインターフェースは `runtime` 層で `Context.Tag` を使って定義します。
+- **サービス実装**: サービスの具体的な実装は `infrastructure` 層に配置し、`PascalCase` + `Live` (例: `RendererLive`) という命名規則で `Layer` としてエクスポートします。
+- **DIコンテナ**: `main.ts` がDIコンテナの役割を担い、すべての `Live` レイヤーを合成してアプリケーションを起動します。
 
 ---
 
@@ -145,12 +147,9 @@ const entities = yield* queryEntities(movableQuery);
 品質を維持するため、すべてのプルリクエストと `main` 以外のブランチへのプッシュに対して、CIパイプラインが自動的に実行されます。
 
 -   **設定ファイル**: `.github/workflows/ci.yml`
--   **実行トリガー**:
-    -   `main` 以外のブランチへのプッシュ
-    -   `workflow_call`による外部からの呼び出し
 -   **チェック項目**:
     1.  **依存関係のインストール**: `pnpm i`
-    2.  **静的解析**: `pnpm lint`
+    2.  **静的解析**: `pnpm lint` (Oxlint)
     3.  **型チェック**: `pnpm exec tsc`
     4.  **単体テスト**: `pnpm test` (Vitest)
 
