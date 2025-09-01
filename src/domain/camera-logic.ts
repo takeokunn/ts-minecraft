@@ -1,6 +1,6 @@
-import { match } from 'ts-pattern';
+import { match } from 'ts-pattern'
 
-const PI_HALF = Math.PI / 2;
+const PI_HALF = Math.PI / 2
 
 /**
  * Clamps a pitch angle (in radians) to the vertical range [-PI/2, PI/2]
@@ -13,12 +13,12 @@ export const clampPitch = (pitch: number): number => {
   return match(pitch)
     .when(Number.isNaN, () => 0)
     .when(
-      p => p > PI_HALF,
+      (p) => p > PI_HALF,
       () => PI_HALF,
     )
     .when(
-      p => p < -PI_HALF,
+      (p) => p < -PI_HALF,
       () => -PI_HALF,
     )
-    .otherwise(p => p);
-};
+    .otherwise((p) => p)
+}

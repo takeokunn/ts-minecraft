@@ -6,30 +6,30 @@
 
 ## `main` ブランチ
 
--   `main` ブランチは、常にデプロイ可能な安定した状態を維持します。
--   直接 `main` ブランチにコミットすることは固く禁じられています。すべての変更は、フィーチャーブランチからのプルリクエストを通じてマージされる必要があります。
+- `main` ブランチは、常にデプロイ可能な安定した状態を維持します。
+- 直接 `main` ブランチにコミットすることは固く禁じられています。すべての変更は、フィーチャーブランチからのプルリクエストを通じてマージされる必要があります。
 
 ## フィーチャーブランチ
 
--   新しい機能の開発、バグ修正、リファクタリングなど、あらゆる変更は `main` ブランチから作成されたフィーチャーブランチで行います。
--   ブランチ名は、その目的が明確にわかるように命名します。
+- 新しい機能の開発、バグ修正、リファクタリングなど、あらゆる変更は `main` ブランチから作成されたフィーチャーブランチで行います。
+- ブランチ名は、その目的が明確にわかるように命名します。
 
 ### 命名規則
 
--   形式: `<type>/<short-description>`
--   `<type>` には、[Conventional Commits](https://www.conventionalcommits.org/) の `type` を使用します。
-    -   `feat`: 新機能 (e.g., `feat/add-new-block-type`)
-    -   `fix`: バグ修正 (e.g., `fix/player-collision-issue`)
-    -   `refactor`: リファクタリング (e.g., `refactor/optimize-rendering-system`)
-    -   `docs`: ドキュメント (e.g., `docs/update-architecture-diagram`)
-    -   `chore`: その他 (e.g., `chore/update-ci-config`)
+- 形式: `<type>/<short-description>`
+- `<type>` には、[Conventional Commits](https://www.conventionalcommits.org/) の `type` を使用します。
+  - `feat`: 新機能 (e.g., `feat/add-new-block-type`)
+  - `fix`: バグ修正 (e.g., `fix/player-collision-issue`)
+  - `refactor`: リファクタリング (e.g., `refactor/optimize-rendering-system`)
+  - `docs`: ドキュメント (e.g., `docs/update-architecture-diagram`)
+  - `chore`: その他 (e.g., `chore/update-ci-config`)
 
 ## プルリクエスト (Pull Request)
 
--   作業が完了したフィーチャーブランチは、`main` ブランチへのプルリクエストを作成します。
--   プルリクエストには、変更の目的、内容、テスト方法などを明確に記述します。
--   CI（継続的インテグレーション）のチェックがすべて成功していることがマージの必須条件です。
--   （将来的には）コードレビューで1人以上から承認 (Approve) を得ることが必須となります。
+- 作業が完了したフィーチャーブランチは、`main` ブランチへのプルリクエストを作成します。
+- プルリクエストには、変更の目的、内容、テスト方法などを明確に記述します。
+- CI（継続的インテグレーション）のチェックがすべて成功していることがマージの必須条件です。
+- （将来的には）コードレビューで1人以上から承認 (Approve) を得ることが必須となります。
 
 ## 開発フローの例
 

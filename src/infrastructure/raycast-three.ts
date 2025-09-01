@@ -1,74 +1,76 @@
-import * as THREE from 'three';
-import { ThreeContext, EntityId } from '@/domain/types';
-import { match, P } from 'ts-pattern';
+import * as THREE from 'three'
+import { match, P } from 'ts-pattern'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import { EntityId } from '@/domain/entity'
+import { ThreeCameraService } from './camera-three'
 
-const REACH = 8;
-const raycaster = new THREE.Raycaster();
-const hitPosVec = new THREE.Vector3();
-const centerScreenVec = new THREE.Vector2(0, 0);
+const REACH = 8
 
 export type RaycastResult = {
-  readonly entityId: EntityId;
-  readonly face: { x: number; y: number; z: number };
-  readonly intersection: THREE.Intersection;
-};
-
-function findHitEntity(
-  intersection: THREE.Intersection,
-  terrainBlockMap: ReadonlyMap<string, EntityId>,
-): RaycastResult | null {
-  if (!intersection.face) {
-    return null;
-  }
-
-  // To reliably find the block position from the intersection point,
-  // we move the point slightly *inside* the block along the face's normal
-  // before flooring the coordinates. This avoids floating-point errors
-  // at the edges of blocks.
-  hitPosVec.copy(intersection.point).add(intersection.face.normal.multiplyScalar(-0.5)).floor();
-
-  const key = `${hitPosVec.x},${hitPosVec.y},${hitPosVec.z}`;
-  const entityId = terrainBlockMap.get(key);
-
-  if (entityId === undefined) {
-    return null;
-  }
-
-  return {
-    entityId,
-    face: {
-      x: intersection.face.normal.x,
-      y: intersection.face.normal.y,
-      z: intersection.face.normal.z,
-    },
-    intersection,
-  };
+  readonly entityId: EntityId
+  readonly face: { x: number; y: number; z: number }
+  readonly intersection: THREE.Intersection
 }
 
-export function castRay(
-  context: ThreeContext,
-  terrainBlockMap: ReadonlyMap<string, EntityId>,
-): RaycastResult | null {
-  const { scene, camera } = context;
+// --- Service Definition ---
 
-  raycaster.setFromCamera(centerScreenVec, camera.camera);
-  const intersects = raycaster.intersectObjects(scene.children, false);
+export interface RaycastService {
+  readonly cast: (scene: THREE.Scene, terrainBlockMap: ReadonlyMap<string, EntityId>) => Effect.Effect<Option.Option<RaycastResult>>
+}
 
-  for (const intersection of intersects) {
-    const result = match(intersection)
-      .with(
-        {
-          distance: P.number.lt(REACH),
-          object: { userData: { type: 'chunk' } },
+export const RaycastService = Context.Tag<RaycastService>()
+
+// --- Live Implementation ---
+
+export const RaycastServiceLive = Layer.effect(
+  RaycastService,
+  Effect.gen(function* () {
+    const cameraService = yield* ThreeCameraService
+    const raycaster = new THREE.Raycaster()
+    const hitPosVec = new THREE.Vector3()
+    const centerScreenVec = new THREE.Vector2(0, 0)
+
+    const findHitEntity = (intersection: THREE.Intersection, terrainBlockMap: ReadonlyMap<string, EntityId>): Option.Option<RaycastResult> => {
+      if (!intersection.face) {
+        return Option.none()
+      }
+      hitPosVec.copy(intersection.point).add(intersection.face.normal.multiplyScalar(-0.5)).floor()
+      const key = `${hitPosVec.x},${hitPosVec.y},${hitPosVec.z}`
+      const entityId = terrainBlockMap.get(key)
+      if (entityId === undefined) {
+        return Option.none()
+      }
+      return Option.some({
+        entityId,
+        face: {
+          x: intersection.face.normal.x,
+          y: intersection.face.normal.y,
+          z: intersection.face.normal.z,
         },
-        hit => findHitEntity(hit, terrainBlockMap),
-      )
-      .otherwise(() => null);
-
-    if (result) {
-      return result;
+        intersection,
+      })
     }
-  }
 
-  return null;
-}
+    const cast = (scene: THREE.Scene, terrainBlockMap: ReadonlyMap<string, EntityId>) =>
+      Effect.sync(() => {
+        raycaster.setFromCamera(centerScreenVec, cameraService.camera.camera)
+        const intersects = raycaster.intersectObjects(scene.children, false)
+
+        for (const intersection of intersects) {
+          const result = match(intersection)
+            .with({ distance: P.number.lt(REACH), object: { userData: { type: 'chunk' } } }, (hit) => findHitEntity(hit, terrainBlockMap))
+            .otherwise(() => Option.none())
+
+          if (Option.isSome(result)) {
+            return result
+          }
+        }
+        return Option.none()
+      })
+
+    return RaycastService.of({ cast })
+  }),
+)

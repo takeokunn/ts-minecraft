@@ -4,4 +4,4 @@
 
 最新のレンダリングに関する包括的な説明は、以下のドキュメントを参照してください。
 
--   [**レンダリング (features/rendering.md)](./../features/rendering.md)**
+- [\*\*レンダリング (features/rendering.md)](./../features/rendering.md)\*\*

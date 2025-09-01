@@ -2,7 +2,7 @@
 
 ワールド更新システムは、バックグラウンドのWeb Worker (`computation.worker.ts`) で生成されたチャンクデータを、メインスレッド上の `World` とレンダリングエンジンに反映させる責務を担います。このシステムは、非同期の計算結果をゲームのメインループに統合するための重要な橋渡し役です。
 
--   **関連ソース**: [`src/systems/world-update.ts`](../../src/systems/world-update.ts)
+- **関連ソース**: [`src/systems/world-update.ts`](../../src/systems/world-update.ts)
 
 ---
 
@@ -21,16 +21,16 @@
 `worldUpdateSystem` は `Effect` プログラムとして実装されており、毎フレーム実行されます。パフォーマンスへの影響を最小限に抑えるため、1フレームにつき最大1つのチャンクデータのみを処理する設計になっています。
 
 1.  **キューからのデータ取得**:
-    -   `ChunkDataQueue` サービスから、完了したチャンク生成結果を1つだけデキュー（取り出し）します。キューが空の場合、システムは何もせずにそのフレームの処理を終了します。
+    - `ChunkDataQueue` サービスから、完了したチャンク生成結果を1つだけデキュー（取り出し）します。キューが空の場合、システムは何もせずにそのフレームの処理を終了します。
 
 2.  **エンティティの生成**:
-    -   取得したチャンク結果に含まれる `blocks` 配列をループ処理します。
-    -   配列内の各 `BlockData` に対して `createBlock` アーキタイプ（`src/domain/archetypes.ts`）を呼び出し、`Position`, `Block`, `Collider`, `TerrainBlock` といった必要なコンポーネントを持つブロックエンティティを `World` に一括で生成します。
+    - 取得したチャンク結果に含まれる `blocks` 配列をループ処理します。
+    - 配列内の各 `BlockData` に対して `createBlock` アーキタイプ（`src/domain/archetypes.ts`）を呼び出し、`Position`, `Block`, `Collider`, `TerrainBlock` といった必要なコンポーネントを持つブロックエンティティを `World` に一括で生成します。
 
 3.  **レンダリングコマンドの送信**:
-    -   取得したチャンク結果に含まれる `mesh` データ（`positions`, `normals`, `uvs`, `indices`）を使って、`UpsertChunk` というレンダリングコマンドを作成します。
-    -   このコマンドを `RenderQueue` にエンキュー（追加）します。後のフレームで `RendererThree` サービスがこのコマンドを処理し、実際にThree.jsの `Mesh` オブジェクトをシーンに追加または更新します。
-    -   メッシュのインデックス数が0の場合（完全に空のチャンクなど）、コマンドは送信されません。
+    - 取得したチャンク結果に含まれる `mesh` データ（`positions`, `normals`, `uvs`, `indices`）を使って、`UpsertChunk` というレンダリングコマンドを作成します。
+    - このコマンドを `RenderQueue` にエンキュー（追加）します。後のフレームで `RendererThree` サービスがこのコマンドを処理し、実際にThree.jsの `Mesh` オブジェクトをシーンに追加または更新します。
+    - メッシュのインデックス数が0の場合（完全に空のチャンクなど）、コマンドは送信されません。
 
 ---
 

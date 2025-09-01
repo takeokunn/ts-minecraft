@@ -18,29 +18,29 @@ pnpm run format
 
 ### リンター: Oxlint
 
--   **役割**: コードの潜在的なバグ、パフォーマンスの問題、一貫性のないパターンを検出します。CIプロセスにも組み込まれており、品質ゲートとして機能します。
--   **設定**: `.oxlintrc` (将来的) または `package.json` 内のコマンド引数で管理されます。
+- **役割**: コードの潜在的なバグ、パフォーマンスの問題、一貫性のないパターンを検出します。CIプロセスにも組み込まれており、品質ゲートとして機能します。
+- **設定**: `.oxlintrc` (将来的) または `package.json` 内のコマンド引数で管理されます。
 
 ### フォーマッタ: BiomeJS
 
--   **役割**: コードの見た目を統一します。
--   **設定ファイル**: `biome.json`
--   **主なルール**:
-    -   インデント: スペース2つ (`"indentStyle": "space", "indentWidth": 2`)
-    -   引用符: シングルクォート (`"quoteStyle": "single"`)
-    -   末尾のカンマ: 常に付与 (`"trailingCommas": "all"`)
+- **役割**: コードの見た目を統一します。
+- **設定ファイル**: `biome.json`
+- **主なルール**:
+  - インデント: スペース2つ (`"indentStyle": "space", "indentWidth": 2`)
+  - 引用符: シングルクォート (`"quoteStyle": "single"`)
+  - 末尾のカンマ: 常に付与 (`"trailingCommas": "all"`)
 
 ---
 
 ## 2. 命名規則
 
-| 対象 | 規則 | 例 |
-| :--- | :--- | :--- |
-| **ファイル** | `kebab-case` | `block-interaction.ts`, `player-movement.ts` |
-| **変数・関数** | `camelCase` | `playerMovementSystem`, `calculateVelocity` |
-| **クラス・型・インターフェース** | `PascalCase` | `Position`, `EntityId`, `RenderService` |
-| **定数** | `UPPER_SNAKE_CASE` | `MAX_CHUNK_HEIGHT`, `PLAYER_SPEED` |
-| **Effect Layer** | `PascalCase` + `Live` | `RendererLive`, `WorldLive` |
+| 対象                             | 規則                  | 例                                           |
+| :------------------------------- | :-------------------- | :------------------------------------------- |
+| **ファイル**                     | `kebab-case`          | `block-interaction.ts`, `player-movement.ts` |
+| **変数・関数**                   | `camelCase`           | `playerMovementSystem`, `calculateVelocity`  |
+| **クラス・型・インターフェース** | `PascalCase`          | `Position`, `EntityId`, `RenderService`      |
+| **定数**                         | `UPPER_SNAKE_CASE`    | `MAX_CHUNK_HEIGHT`, `PLAYER_SPEED`           |
+| **Effect Layer**                 | `PascalCase` + `Live` | `RendererLive`, `WorldLive`                  |
 
 ---
 
@@ -78,9 +78,9 @@ pnpm run format
 
 `World` サービスからエンティティを取得する際のAPIは、パフォーマンス上の理由から `world.querySoA()` に一本化されています。
 
--   **`world.querySoA()`**:
-    -   **用途**: パフォーマンスが最優先されるシステム（例: `physics`, `collision`）だけでなく、**プロジェクト内のすべてのシステム**で使用します。
-    -   **規約**: ゲームループ内でエンティティを処理するシステムは、**必ず `querySoA` を使用しなければなりません。** このAPIは、コンポーネントデータをオブジェクトの配列としてではなく、内部ストレージ（SoA）への直接の参照として返すため、不要なメモリアロケーションを完全に防ぎます。
+- **`world.querySoA()`**:
+  - **用途**: パフォーマンスが最優先されるシステム（例: `physics`, `collision`）だけでなく、**プロジェクト内のすべてのシステム**で使用します。
+  - **規約**: ゲームループ内でエンティティを処理するシステムは、**必ず `querySoA` を使用しなければなりません。** このAPIは、コンポーネントデータをオブジェクトの配列としてではなく、内部ストレージ（SoA）への直接の参照として返すため、不要なメモリアロケーションを完全に防ぎます。
 
 ### コンポーネントストアへの直接アクセス
 
@@ -88,12 +88,13 @@ pnpm run format
 
 ```typescript
 // src/systems/physics.ts
-const { entities, positions, velocities } = yield* _(world.querySoA(physicsQuery));
+const { entities, positions, velocities } = yield * _(world.querySoA(physicsQuery))
 
 for (let i = 0; i < entities.length; i++) {
-  positions.y[i] += velocities.dy[i];
+  positions.y[i] += velocities.dy[i]
 }
 ```
+
 このアプローチは、中間オブジェクトの生成を完全に排除し、GC（ガベージコレクション）の負荷を最小限に抑えます。
 
 ### クエリは `domain/queries.ts` で共通化する
@@ -120,6 +121,7 @@ const { entities, ... } = yield* _(world.querySoA(movableQuery));
 ### 依存性の注入 (DI) とサービス
 
 `World`、`Input`、`Renderer` といった依存関係は、すべてEffectの `Context` と `Layer` によって管理されます。
+
 - **サービス定義**: サービスのインターフェースは `runtime` 層で `Context.Tag` を使って定義します。
 - **サービス実装**: サービスの具体的な実装は `infrastructure` 層に配置し、`PascalCase` + `Live` (例: `RendererLive`) という命名規則で `Layer` としてエクスポートします。
 - **DIコンテナ**: `main.ts` がDIコンテナの役割を担い、すべての `Live` レイヤーを合成してアプリケーションを起動します。
@@ -130,13 +132,13 @@ const { entities, ... } = yield* _(world.querySoA(movableQuery));
 
 本プロジェクトは、明確で追跡しやすいコミット履歴を維持するため、[**Conventional Commits**](https://www.conventionalcommits.org/) 仕様に厳密に従います。
 
--   **`feat`**: 新機能の追加
--   **`fix`**: バグ修正
--   **`docs`**: ドキュメントの変更
--   **`style`**: コードスタイルに関する変更（フォーマット、セミコロンなど）
--   **`refactor`**: パフォーマンスや保守性に影響しないコードのリファクタリング
--   **`test`**: テストの追加・修正
--   **`chore`**: ビルドプロセスや補助ツールの変更
+- **`feat`**: 新機能の追加
+- **`fix`**: バグ修正
+- **`docs`**: ドキュメントの変更
+- **`style`**: コードスタイルに関する変更（フォーマット、セミコロンなど）
+- **`refactor`**: パフォーマンスや保守性に影響しないコードのリファクタリング
+- **`test`**: テストの追加・修正
+- **`chore`**: ビルドプロセスや補助ツールの変更
 
 すべてのコミットメッセージは、この規約に準拠している必要があります。
 
@@ -146,11 +148,11 @@ const { entities, ... } = yield* _(world.querySoA(movableQuery));
 
 品質を維持するため、すべてのプルリクエストと `main` 以外のブランチへのプッシュに対して、CIパイプラインが自動的に実行されます。
 
--   **設定ファイル**: `.github/workflows/ci.yml`
--   **チェック項目**:
-    1.  **依存関係のインストール**: `pnpm i`
-    2.  **静的解析**: `pnpm lint` (Oxlint)
-    3.  **型チェック**: `pnpm exec tsc`
-    4.  **単体テスト**: `pnpm test` (Vitest)
+- **設定ファイル**: `.github/workflows/ci.yml`
+- **チェック項目**:
+  1.  **依存関係のインストール**: `pnpm i`
+  2.  **静的解析**: `pnpm lint` (Oxlint)
+  3.  **型チェック**: `pnpm exec tsc`
+  4.  **単体テスト**: `pnpm test` (Vitest)
 
 すべてのチェックが成功しなければ、プルリクエストをマージすることはできません。これにより、`main` ブランチの健全性が常に保たれます。

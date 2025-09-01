@@ -1,34 +1,33 @@
-import { terrainBlockQuery } from '@/domain/queries';
-import { EntityId } from '@/domain/entity';
-import { query } from '@/runtime/world';
-import { castRay } from '@/infrastructure/raycast-three';
-import { System } from '@/runtime/loop';
+import { Effect, Equivalence, Option } from 'effect'
+import { terrainBlockQuery } from '@/domain/queries'
+import { EntityId } from '@/domain/entity'
+import { RaycastResult } from '@/infrastructure/raycast-three'
+import { RaycastResultService, System, ThreeContextService } from '@/runtime/loop'
+import { World } from '@/runtime/world'
+import { RaycastService } from '@/infrastructure/raycast-three'
 
-export const raycastSystem: System = (world, deps) => {
-  // Create a map of position strings to entity IDs for all terrain blocks.
-  // This is used by the raycaster to quickly find which entity was hit.
-  const terrainEntities = query(world, terrainBlockQuery);
+const optionEq = <A>(eq: Equivalence.Equivalence<A>): Equivalence.Equivalence<Option.Option<A>> => (x, y) => {
+  if (Option.isNone(x) && Option.isNone(y)) return true
+  if (Option.isSome(x) && Option.isSome(y)) return eq(x.value, y.value)
+  return false
+}
+
+export const raycastSystem: System = Effect.gen(function* () {
+  const world = yield* World
+  const threeContext = yield* ThreeContextService
+  const raycastService = yield* RaycastService
+  const raycastResultRef = yield* RaycastResultService
+
+  const terrainEntities = yield* world.query(terrainBlockQuery)
   const terrainBlockMap = new Map<string, EntityId>(
-    terrainEntities.map(e => {
-      const { position, entityId } = e;
-      return [`${position.x},${position.y},${position.z}`, entityId];
-    }),
-  );
+    terrainEntities.map((e) => [`${e.position.x},${e.position.y},${e.position.z}`, e.entityId]),
+  )
 
-  const raycastResult = castRay(deps.threeContext, terrainBlockMap);
+  const newRaycastResult = yield* raycastService.cast(threeContext.scene, terrainBlockMap)
+  const oldRaycastResult = yield* raycastResultRef.get
 
-  // Avoid creating a new world state if the result hasn't changed.
-  if (world.globalState.raycastResult === raycastResult) {
-    return [world, []];
+  const eq = optionEq(Equivalence.strict<RaycastResult>())
+  if (!eq(oldRaycastResult, newRaycastResult)) {
+    yield* raycastResultRef.set(newRaycastResult)
   }
-
-  // Return a new world object with the updated raycast result.
-  const newWorld = {
-    ...world,
-    globalState: {
-      ...world.globalState,
-      raycastResult,
-    },
-  };
-  return [newWorld, []];
-};
+})

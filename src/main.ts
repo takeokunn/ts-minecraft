@@ -1,17 +1,27 @@
-import { createArchetype } from '@/domain/archetypes';
-import { Hotbar, ChunkGenerationResult, SystemCommand } from '@/domain/types';
-import { createInputManager } from '@/infrastructure/input-browser';
-import { createMaterialManager } from '@/infrastructure/material-manager';
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Ref from 'effect/Ref'
+import { pipe } from 'effect/Function'
+import { createArchetype } from '@/domain/archetypes'
+import { SystemCommand } from '@/domain/types'
+import { ComputationWorker, ComputationWorkerLive } from '@/infrastructure/computation.worker'
+import { InputManager, InputManagerLive } from '@/infrastructure/input-browser'
+import { MaterialManager, MaterialManagerLive } from '@/infrastructure/material-manager'
+import { RendererLive, RendererService } from '@/infrastructure/renderer-three'
+import { ThreeCameraLive, ThreeCameraService } from '@/infrastructure/camera-three'
+import { ThreeContextLive, ThreeContextService } from '@/infrastructure/renderer-three/context'
+import { RaycastService, RaycastServiceLive } from '@/infrastructure/raycast-three'
+import { SpatialGridLive, SpatialGridService } from '@/infrastructure/spatial-grid'
 import {
-  createThreeContext,
-  processRenderQueue,
-  renderScene,
-  syncCameraToWorld,
-  updateHighlight,
-  updateInstancedMeshes,
-} from '@/infrastructure/renderer-three';
-import { startGameLoop, System } from '@/runtime/loop';
-import { createWorld, addArchetype, World } from '@/runtime/world';
+  ChunkDataQueueService,
+  gameLoop,
+  OnCommand,
+  RaycastResultService,
+  RenderQueueService,
+  System,
+} from '@/runtime/loop'
+import { World, WorldLive } from '@/runtime/world'
 import {
   blockInteractionSystem,
   cameraControlSystem,
@@ -25,135 +35,78 @@ import {
   updatePhysicsWorldSystem,
   updateTargetSystem,
   worldUpdateSystem,
-} from '@/systems';
-import { ComputationTask } from '@/workers/computation.worker';
+} from '@/systems'
 
-// Simple worker wrapper
-function createComputationWorker() {
-  const worker = new Worker(new URL('../workers/computation.worker.ts', import.meta.url), {
-    type: 'module',
-  });
-
-  const postTask = (task: ComputationTask): Promise<ChunkGenerationResult> => {
-    return new Promise((resolve, reject) => {
-      const handleMessage = (e: MessageEvent) => {
-        resolve(e.data);
-        worker.removeEventListener('message', handleMessage);
-      };
-      const handleError = (e: ErrorEvent) => {
-        reject(e);
-        worker.removeEventListener('error', handleError);
-      };
-      worker.addEventListener('message', handleMessage);
-      worker.addEventListener('error', handleError);
-      worker.postMessage(task);
-    });
-  };
-
-  return {
-    postTask,
-    close: () => worker.terminate(),
-  };
-}
-
-async function main() {
-  const rootElement = document.getElementById('app');
-  if (!rootElement) {
-    throw new Error('Root element #app not found');
-  }
-
-  // --- Initialization ---
-  const inputManager = createInputManager();
-  const { context: threeContext, cleanup: cleanupThree } = createThreeContext(rootElement);
-  const computationWorker = createComputationWorker();
-  const materialManager = createMaterialManager();
-
-  inputManager.registerListeners(threeContext.camera.controls);
-
-  const chunkDataQueue: ChunkGenerationResult[] = [];
-
-  const onCommand = (command: SystemCommand, world: World): World => {
-    const taskPayload = {
-      ...command,
-      seeds: world.globalState.seeds,
-      amplitude: world.globalState.amplitude,
-              editedBlocks: {
-          placed: world.globalState.editedBlocks.placed,
-          destroyed: new Set(world.globalState.editedBlocks.destroyed),
+const main = Effect.gen(function* () {
+  const world = yield* World
+  const computationWorker = yield* ComputationWorker
+  const onCommand = (command: SystemCommand) =>
+    Effect.gen(function* () {
+      const worldState = yield* world.state.get
+      const taskPayload = {
+        ...command,
+        seeds: worldState.globalState.seeds,
+        amplitude: worldState.globalState.amplitude,
+        editedBlocks: {
+          placed: worldState.globalState.editedBlocks.placed,
+          destroyed: new Set(worldState.globalState.editedBlocks.destroyed),
         },
-    };
-    computationWorker
-      .postTask({ type: 'generateChunk', payload: taskPayload })
-      .then(result => {
-        chunkDataQueue.push(result);
-      })
-      .catch(err => console.error('Failed to process chunk:', err));
-    
-    // This command handler doesn't modify the world directly, it just kicks off async work.
-    // So we can return the world as-is.
-    return world;
-  };
+      }
+      const task = { type: 'generateChunk' as const, payload: taskPayload }
+      const result = yield* computationWorker.postTask(task)
+      const chunkDataQueue = yield* ChunkDataQueueService
+      chunkDataQueue.push(result)
+    }).pipe(Effect.catchAll((err) => Effect.logError('Failed to process chunk', err)), Effect.forkDaemon)
 
-  const hotbarUpdater = (_hotbar: Hotbar) => {
-    // In a real app, this would update a UI component (e.g., React, Solid)
-  };
+  yield* world.addArchetype(createArchetype({ type: 'player', pos: { x: 0, y: 20, z: 0 } }))
 
-  // --- System Definition ---
+  const hotbarUpdater = (_hotbar: any) => Effect.void
+
   const systems: ReadonlyArray<System> = [
-    // Input
     inputPollingSystem,
     cameraControlSystem,
     playerMovementSystem,
-    // Physics and Collision
     physicsSystem,
-    updatePhysicsWorldSystem, // Rebuilds spatial grid with new positions
-    collisionSystem, // Resolves collisions using the new grid
-    // Game Logic
+    updatePhysicsWorldSystem,
+    collisionSystem,
     raycastSystem,
     updateTargetSystem,
     blockInteractionSystem,
     chunkLoadingSystem,
-    // World Updates from Worker
     worldUpdateSystem,
-    // UI
     createUISystem(hotbarUpdater),
-  ];
+  ]
 
-  // --- World Setup ---
-  let world = createWorld();
-  [world] = addArchetype(world, createArchetype({ type: 'player', pos: { x: 0, y: 20, z: 0 } }));
+  yield* gameLoop(systems).pipe(Effect.provideService(OnCommand, onCommand))
+})
 
-  const material = await materialManager.get('/assets/atlas.png');
+const AppLayer = (rootElement: HTMLElement) =>
+  Layer.provide(
+    Layer.mergeAll(
+      WorldLive,
+      InputManagerLive,
+      ComputationWorkerLive,
+      MaterialManagerLive,
+      ThreeCameraLive(rootElement),
+      RaycastServiceLive,
+      SpatialGridLive,
+    ),
+    Layer.provide(
+      Layer.mergeAll(ThreeContextLive(rootElement), RendererLive),
+      Layer.effect(RaycastResultService, Ref.make(null)),
+    ),
+  ).pipe(
+    Layer.provide(Layer.sync(ChunkDataQueueService, () => [])),
+    Layer.provide(Layer.sync(RenderQueueService, () => [])),
+  )
 
-  // --- Start Game Loop ---
-  const gameLoop = startGameLoop({
-    initialWorld: world,
-    systems,
-    threeContext,
-    inputManager,
-    chunkDataQueue,
-    renderQueue: [],
-    onCommand,
-    material,
-    renderer: {
-      processRenderQueue,
-      renderScene,
-      syncCameraToWorld,
-      updateHighlight,
-      updateInstancedMeshes,
-    },
-  });
+// --- Bootstrap ---
+document.addEventListener('DOMContentLoaded', () => {
+  const rootElement = document.getElementById('app')
+  if (!rootElement) {
+    throw new Error('Root element #app not found')
+  }
 
-  // --- Cleanup ---
-  window.addEventListener('beforeunload', () => {
-    gameLoop.stop();
-    inputManager.cleanup();
-    cleanupThree();
-    computationWorker.close();
-    materialManager.dispose();
-  });
-}
-
-main().catch(err => {
-  console.error('Failed to initialize game:', err);
-});
+  const runnable = Effect.provide(main, AppLayer(rootElement))
+  Effect.runFork(runnable)
+})

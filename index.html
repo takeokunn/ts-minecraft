@@ -66,7 +66,9 @@
         transform: scale(1.1);
       }
 
-      #gameScreenGUI, #titleScreenGUI, #escapeScreenGUI {
+      #gameScreenGUI,
+      #titleScreenGUI,
+      #escapeScreenGUI {
         display: none; /* Initially hidden, controlled by script */
       }
 
@@ -105,7 +107,7 @@
         background: rgb(120, 120, 120);
         border: 2px solid #333;
         font-size: 1.5vw;
-        font-family: "minecraft", sans-serif;
+        font-family: 'minecraft', sans-serif;
         color: white;
         text-shadow: 2px 2px #000;
         cursor: pointer;
@@ -137,7 +139,7 @@
         background: rgb(120, 120, 120);
         border: 2px solid #333;
         font-size: 1.5vw;
-        font-family: "minecraft", sans-serif;
+        font-family: 'minecraft', sans-serif;
         color: white;
         text-shadow: 2px 2px #000;
         cursor: pointer;
@@ -162,30 +164,30 @@
         <div class="slot" id="slot-7"></div>
         <div class="slot" id="slot-8"></div>
       </div>
-      <img src="/assets/cursor.png" id="cursor">
+      <img src="/assets/cursor.png" id="cursor" />
     </div>
 
     <div id="titleScreenGUI" class="gui">
       <div class="titleScreenBackground">
-        <img src="/assets/title/1.jpeg" class="titleScreenImage active">
-        <img src="/assets/title/2.jpeg" class="titleScreenImage">
-        <img src="/assets/title/3.jpeg" class="titleScreenImage">
-        <img src="/assets/title/4.jpeg" class="titleScreenImage">
-        <img src="/assets/title/5.jpeg" class="titleScreenImage">
-        <img src="/assets/title/6.jpeg" class="titleScreenImage">
+        <img src="/assets/title/1.jpeg" class="titleScreenImage active" />
+        <img src="/assets/title/2.jpeg" class="titleScreenImage" />
+        <img src="/assets/title/3.jpeg" class="titleScreenImage" />
+        <img src="/assets/title/4.jpeg" class="titleScreenImage" />
+        <img src="/assets/title/5.jpeg" class="titleScreenImage" />
+        <img src="/assets/title/6.jpeg" class="titleScreenImage" />
       </div>
-      <img src="/minecraftlogo.png" id="startingLogo">
-      <button id="newgame" class="startingButtons" style="top: 45%;">New Game</button>
-      <button id="loadgame" class="startingButtons" style="top: 55%;">Load Game</button>
-      <button id="options" class="startingButtons" style="top: 65%;">Options</button>
-      <input type="file" id="inputFile" accept=".json" style="display: none;">
+      <img src="/minecraftlogo.png" id="startingLogo" />
+      <button id="newgame" class="startingButtons" style="top: 45%">New Game</button>
+      <button id="loadgame" class="startingButtons" style="top: 55%">Load Game</button>
+      <button id="options" class="startingButtons" style="top: 65%">Options</button>
+      <input type="file" id="inputFile" accept=".json" style="display: none" />
     </div>
 
     <div id="escapeScreenGUI" class="gui">
       <div id="escapeScreen"></div>
-      <button id="backtogame" class="escapeButtons" style="top: 35%;">Back to Game</button>
-      <button id="options2" class="escapeButtons" style="top: 45%;">Options</button>
-      <button id="titlescreensave" class="escapeButtons" style="top: 55%;">Save and Quit to Title</button>
+      <button id="backtogame" class="escapeButtons" style="top: 35%">Back to Game</button>
+      <button id="options2" class="escapeButtons" style="top: 45%">Options</button>
+      <button id="titlescreensave" class="escapeButtons" style="top: 55%">Save and Quit to Title</button>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

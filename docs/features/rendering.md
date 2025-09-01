@@ -1,9 +1,9 @@
 # レンダリング
 
--   **関連ソース**:
-    -   [`src/infrastructure/renderer-three/`](../../src/infrastructure/renderer-three/)
-    -   [`src/systems/world-update.ts`](../../src/systems/world-update.ts)
-    -   [`src/workers/computation.worker.ts`](../../src/workers/computation.worker.ts)
+- **関連ソース**:
+  - [`src/infrastructure/renderer-three/`](../../src/infrastructure/renderer-three/)
+  - [`src/systems/world-update.ts`](../../src/systems/world-update.ts)
+  - [`src/workers/computation.worker.ts`](../../src/workers/computation.worker.ts)
 
 ---
 
@@ -44,20 +44,20 @@ sequenceDiagram
 1.  **`chunkLoadingSystem`**: プレイヤーの移動を検知し、新しく必要になったチャンクの `GenerateChunk` コマンドを発行します。
 2.  **`computation.worker.ts` (Web Worker)**: メインスレッドをブロックしないよう、バックグラウンドで重い計算処理（地形生成、Greedy Meshing）を実行し、結果のメッシュデータを `ChunkDataQueue` に送信します。
 3.  **`worldUpdateSystem`**:
-    -   メインスレッドで `ChunkDataQueue` を監視し、データがあれば1フレームに1つだけ取り出します（負荷分散）。
-    -   取り出したデータに基づき、ブロックのエンティティを `World` に追加します。
-    -   メッシュデータをレンダリング可能なコマンド（`UpsertChunk`）に変換し、`RenderQueue` に送信します。
-    -   **注**: このシステムはキューを直接操作するため、副作用を持ちます。
+    - メインスレッドで `ChunkDataQueue` を監視し、データがあれば1フレームに1つだけ取り出します（負荷分散）。
+    - 取り出したデータに基づき、ブロックのエンティティを `World` に追加します。
+    - メッシュデータをレンダリング可能なコマンド（`UpsertChunk`）に変換し、`RenderQueue` に送信します。
+    - **注**: このシステムはキューを直接操作するため、副作用を持ちます。
 4.  **`renderer-three`**: `RenderQueue` を監視し、コマンドを受け取って初めてThree.jsのAPIを呼び出し、シーンにメッシュを実際に生成・更新・削除します。
 
 ## 3. `renderer-three` の内部アーキテクチャ
 
 Three.jsを用いた具体的なレンダリング処理は `src/infrastructure/renderer-three/` にカプセル化されており、責務に応じてさらにモジュール分割されています。
 
--   **`context.ts`**: Three.jsの `WebGLRenderer`, `Scene`, `PerspectiveCamera` といった、アプリケーション全体で単一のインスタンスを持つべきコアオブジェクトを管理する `ThreeContext` を提供します。
--   **`updates.ts`**: `RenderQueue` を監視し、`UpsertChunk` のようなコマンドを受け取って処理する責務を持ちます。コマンドに応じて、Three.jsの `BufferGeometry` や `Mesh` を生成・更新します。
--   **`render.ts`**: 毎フレームのレンダリング処理そのものを担当します。`requestAnimationFrame` ループの中で、シーンのクリア、カメラとWorldの状態の同期、ハイライト用オブジェクトの更新、`InstancedMesh` の更新、そして最終的なシーンの描画を行います。
--   **`index.ts`**: 上記のモジュールを統合し、アプリケーションの他レイヤーに対して統一された `Renderer` インターフェースを提供します。
+- **`context.ts`**: Three.jsの `WebGLRenderer`, `Scene`, `PerspectiveCamera` といった、アプリケーション全体で単一のインスタンスを持つべきコアオブジェクトを管理する `ThreeContext` を提供します。
+- **`updates.ts`**: `RenderQueue` を監視し、`UpsertChunk` のようなコマンドを受け取って処理する責務を持ちます。コマンドに応じて、Three.jsの `BufferGeometry` や `Mesh` を生成・更新します。
+- **`render.ts`**: 毎フレームのレンダリング処理そのものを担当します。`requestAnimationFrame` ループの中で、シーンのクリア、カメラとWorldの状態の同期、ハイライト用オブジェクトの更新、`InstancedMesh` の更新、そして最終的なシーンの描画を行います。
+- **`index.ts`**: 上記のモジュールを統合し、アプリケーションの他レイヤーに対して統一された `Renderer` インターフェースを提供します。
 
 ## 4. 最適化手法
 

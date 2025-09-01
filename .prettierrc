@@ -3,11 +3,12 @@
   "trailingComma": "all",
   "semi": false,
   "printWidth": 180,
-  "parser": "typescript",
-  "overrides": [{
-    "files": "*.json",
-    "options": {
-      "parser": "json"
+  "overrides": [
+    {
+      "files": "*.json",
+      "options": {
+        "parser": "json"
+      }
     }
-  }]
+  ]
 }

@@ -2,7 +2,7 @@
 
 `updatePhysicsWorldSystem` は、物理エンジン、特に衝突検知システムの効率と正確性を維持するための、フレームごとのハウスキーピング（整理）システムです。
 
--   **ソース**: `src/systems/update-physics-world.ts`
+- **ソース**: `src/systems/update-physics-world.ts`
 
 ---
 
@@ -20,8 +20,8 @@
 
 このシステムは、物理的な実体を持つすべてのエンティティを対象とします。
 
--   **`Position`**: エンティティの現在位置。
--   **`Collider`**: エンティティの衝突境界ボックス（AABB - Axis-Aligned Bounding Box）の寸法（幅、高さ、奥行き）。
+- **`Position`**: エンティティの現在位置。
+- **`Collider`**: エンティティの衝突境界ボックス（AABB - Axis-Aligned Bounding Box）の寸法（幅、高さ、奥行き）。
 
 ---
 
@@ -32,9 +32,9 @@
 1.  **クリア**: まず、`physicsWorld.clear()` を呼び出し、前のフレームの空間グリッド情報をすべて消去します。
 2.  **クエリ**: `world.querySoA` と共通クエリ `colliderQuery` を使用して、`Position` と `Collider` の両方を持つすべてのエンティティの最新データを効率的に一括取得します。
 3.  **再登録**:
-    -   クエリ結果をループ処理し、各エンティティの `Position` と `Collider` の情報から、そのフレームでの正確なAABB（最小・最大のXYZ座標）を計算します。
-    -   計算したAABBとエンティティIDを `physicsWorld.register(entityId, aabb)` に渡して空間グリッドに再登録するための `Effect` を生成し、配列に収集します。
-    -   収集したすべての登録 `Effect` を `Effect.all` を使って並行に実行し、空間グリッドの再構築を高速に完了させます。
+    - クエリ結果をループ処理し、各エンティティの `Position` と `Collider` の情報から、そのフレームでの正確なAABB（最小・最大のXYZ座標）を計算します。
+    - 計算したAABBとエンティティIDを `physicsWorld.register(entityId, aabb)` に渡して空間グリッドに再登録するための `Effect` を生成し、配列に収集します。
+    - 収集したすべての登録 `Effect` を `Effect.all` を使って並行に実行し、空間グリッドの再構築を高速に完了させます。
 
 ---
 

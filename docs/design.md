@@ -17,11 +17,11 @@
 - **関数型プログラミング:** [Effect-TS](https://effect.website/) - アプリケーション全体の制御フロー、副作用管理、依存性注入、並行処理、スキーマ定義など、あらゆる側面で利用する。
 - **レンダリング:** [Three.js](https://threejs.org/) - 3Dグラフィックスの描画。`Effect` を介してラップし、純粋なインターフェースを提供する。
 - **テスト:**
-    - [Vitest](https://vitest.dev/) - テストランナー。
-    - [fast-check](https://fast-check.dev/) - プロパティベーステスト。
+  - [Vitest](https://vitest.dev/) - テストランナー。
+  - [fast-check](https://fast-check.dev/) - プロパティベーステスト。
 - **ユーティリティ:**
-    - [simplex-noise](https://github.com/jwagner/simplex-noise.js) - 地形生成のためのノイズ関数。
-    - [uuid](https://github.com/uuidjs/uuid) - エンティティIDの生成。
+  - [simplex-noise](https://github.com/jwagner/simplex-noise.js) - 地形生成のためのノイズ関数。
+  - [uuid](https://github.com/uuidjs/uuid) - エンティティIDの生成。
 
 ## 4. アーキテクチャ: Effect-TSネイティブなECS
 
@@ -30,9 +30,9 @@ ECSの各要素をEffect-TSの思想に基づいて再定義する。
 - **Entity (エンティティ):** `Branded<string, "EntityId">` のようなブランド型で表現される、一意なID。
 - **Component (コンポーネント):** `Schema.Struct` を用いて定義される、不変なデータレコード。これにより、型安全性とデータのバリデーションが保証される。
 - **System (システム):** `Effect<R, E, void>` として表現される、純粋なプログラム。
-    - `R` (Context): システムが必要とする依存関係（例: `World`, `Renderer`, `Input`）。
-    - `E` (Error): システムが失敗する可能性のあるエラーの型。
-    - `void`: システムは状態を直接変更せず、新しい状態を計算して `World` に反映させる責務を持つ（後述）。
+  - `R` (Context): システムが必要とする依存関係（例: `World`, `Renderer`, `Input`）。
+  - `E` (Error): システムが失敗する可能性のあるエラーの型。
+  - `void`: システムは状態を直接変更せず、新しい状態を計算して `World` に反映させる責務を持つ（後述）。
 
 ### 4.1. World: 唯一の状態（Source of Truth）
 
@@ -46,16 +46,16 @@ ECSの各要素をEffect-TSの思想に基づいて再定義する。
 // 概念コード
 const gameLoop = pipe(
   Effect.sync(() => input.poll()), // 1. 入力状態のポーリング
-  Effect.flatMap(() =>
-    Effect.forEach(systems, (system) => system.run()) // 2. 全システムを並列または直列に実行
+  Effect.flatMap(
+    () => Effect.forEach(systems, (system) => system.run()), // 2. 全システムを並列または直列に実行
   ),
   Effect.flatMap(() => renderer.render(world)), // 3. レンダリング
-  Effect.schedule(Schedule.spaced("16ms")), // 約60FPSでループ
-  Effect.forever
-);
+  Effect.schedule(Schedule.spaced('16ms')), // 約60FPSでループ
+  Effect.forever,
+)
 
 // 起動
-pipe(gameLoop, Effect.provide(initialContext), Effect.runPromise);
+pipe(gameLoop, Effect.provide(initialContext), Effect.runPromise)
 ```
 
 ## 5. 主要なコンポーネントとシステムの再定義
@@ -65,21 +65,21 @@ pipe(gameLoop, Effect.provide(initialContext), Effect.runPromise);
 `@effect/schema` を用いて定義する。
 
 ```typescript
-import { Schema } from "effect";
+import { Schema } from 'effect'
 
 const Position = Schema.Struct({
-  _tag: Schema.Literal("Position"),
+  _tag: Schema.Literal('Position'),
   x: Schema.Number,
   y: Schema.Number,
   z: Schema.Number,
-});
+})
 
 const Velocity = Schema.Struct({
-  _tag: Schema.Literal("Velocity"),
+  _tag: Schema.Literal('Velocity'),
   dx: Schema.Number,
   dy: Schema.Number,
   dz: Schema.Number,
-});
+})
 ```
 
 ### 5.2. システム (System Effects)
@@ -87,18 +87,18 @@ const Velocity = Schema.Struct({
 ```typescript
 // 概念コード
 const physicsSystem = Effect.gen(function* (_) {
-  const world = yield* _(World);
-  const entities = yield* _(world.query([Position, Velocity]));
+  const world = yield* _(World)
+  const entities = yield* _(world.query([Position, Velocity]))
 
   yield* _(
     Effect.forEach(entities, (entity) => {
-      const pos = entity.get(Position);
-      const vel = entity.get(Velocity);
-      const newPos = { ...pos, x: pos.x + vel.dx, y: pos.y + vel.dy };
-      return world.updateComponent(entity.id, newPos);
-    })
-  );
-});
+      const pos = entity.get(Position)
+      const vel = entity.get(Velocity)
+      const newPos = { ...pos, x: pos.x + vel.dx, y: pos.y + vel.dy }
+      return world.updateComponent(entity.id, newPos)
+    }),
+  )
+})
 ```
 
 ## 6. ディレクトリ構造案

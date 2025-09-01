@@ -1,44 +1,37 @@
-import { clampPitch } from '@/domain/camera-logic';
-import { setCameraState } from '@/domain/components';
-import { playerQuery } from '@/domain/queries';
-import { System } from '@/runtime/loop';
-import { query, updateComponent } from '@/runtime/world';
+import { Effect } from 'effect'
+import { clampPitch } from '@/domain/camera-logic'
+import { setCameraState } from '@/domain/components'
+import { playerQuery } from '@/domain/queries'
+import { InputManagerService, System } from '@/runtime/loop'
+import { World } from '@/runtime/world'
 
-const MOUSE_SENSITIVITY = 0.002;
+const MOUSE_SENSITIVITY = 0.002
 
-export const cameraControlSystem: System = (world, { mouseDelta }) => {
-  const { dx, dy } = mouseDelta;
+export const cameraControlSystem: System = Effect.gen(function* () {
+  const world = yield* World
+  const inputManager = yield* InputManagerService
+  const { dx, dy } = yield* inputManager.getMouseDelta
 
   if (dx === 0 && dy === 0) {
-    return [world, []];
+    return
   }
 
-  const players = query(world, playerQuery);
-  if (players.length === 0) {
-    return [world, []];
-  }
+  const players = yield* world.query(playerQuery)
+  const deltaPitch = -dy * MOUSE_SENSITIVITY
+  const deltaYaw = -dx * MOUSE_SENSITIVITY
 
-  const deltaPitch = -dy * MOUSE_SENSITIVITY;
-  const deltaYaw = -dx * MOUSE_SENSITIVITY;
-
-  const newWorld = players.reduce((currentWorld, player) => {
-    const { entityId, cameraState } = player;
-
-    const newPitch = clampPitch(cameraState.pitch + deltaPitch);
-    const newYaw = cameraState.yaw + deltaYaw;
-
-    const newCameraState = setCameraState(cameraState, {
-      pitch: newPitch,
-      yaw: newYaw,
-    });
-
-    return updateComponent(
-      currentWorld,
-      entityId,
-      'cameraState',
-      newCameraState,
-    );
-  }, world);
-
-  return [newWorld, []];
-};
+  yield* Effect.forEach(
+    players,
+    (player) => {
+      const { entityId, cameraState } = player
+      const newPitch = clampPitch(cameraState.pitch + deltaPitch)
+      const newYaw = cameraState.yaw + deltaYaw
+      const newCameraState = setCameraState(cameraState, {
+        pitch: newPitch,
+        yaw: newYaw,
+      })
+      return world.updateComponent(entityId, 'cameraState', newCameraState)
+    },
+    { discard: true },
+  )
+})

@@ -12,67 +12,67 @@ ECSアーキテクチャにおいて、各システムは独立したロジッ�
 
 システムの定義は `src/systems/index.ts` で一元管理されます。各システムは `SystemNode` オブジェクトとして定義され、以下のプロパティを持ちます。
 
--   `name`: システムの一意な名前（文字列）。
--   `system`: 実行されるシステム本体（`Effect`プログラム）。
--   `after`: このシステムが**後に**実行されるべきシステムの`name`の配列（オプション）。
+- `name`: システムの一意な名前（文字列）。
+- `system`: 実行されるシステム本体（`Effect`プログラム）。
+- `after`: このシステムが**後に**実行されるべきシステムの`name`の配列（オプション）。
 
 ```typescript
 // src/systems/index.ts
 const systems: SystemNode[] = [
   {
-    name: "playerControl",
+    name: 'playerControl',
     system: playerControlSystem,
   },
   {
-    name: "raycast",
+    name: 'raycast',
     system: raycastSystem,
-    after: ["playerControl"],
+    after: ['playerControl'],
   },
   {
-    name: "blockInteraction",
+    name: 'blockInteraction',
     system: blockInteractionSystem,
-    after: ["raycast"],
+    after: ['raycast'],
   },
   {
-    name: "physics",
+    name: 'physics',
     system: physicsSystem,
-    after: ["playerControl"],
+    after: ['playerControl'],
   },
   {
-    name: "collision",
+    name: 'collision',
     system: collisionSystem,
-    after: ["physics"],
+    after: ['physics'],
   },
   {
-    name: "chunkLoading",
+    name: 'chunkLoading',
     system: chunkLoadingSystem,
-    after: ["collision"], // プレイヤーの移動が確定した後に実行
+    after: ['collision'], // プレイヤーの移動が確定した後に実行
   },
   {
-    name: "ui",
+    name: 'ui',
     system: uiSystem,
-    after: ["blockInteraction"], // ブロックの設置/破壊をUIに反映するため
+    after: ['blockInteraction'], // ブロックの設置/破壊をUIに反映するため
   },
   {
-    name: "camera",
+    name: 'camera',
     system: cameraSystem,
-    after: ["collision"], // 最終的なプレイヤーの位置をカメラに反映するため
+    after: ['collision'], // 最終的なプレイヤーの位置をカメラに反映するため
   },
   {
-    name: "scene",
+    name: 'scene',
     system: sceneSystem,
-    after: ["chunkLoading", "collision"], // ワールドの最終状態を描画するため
+    after: ['chunkLoading', 'collision'], // ワールドの最終状態を描画するため
   },
-];
+]
 ```
 
 上記の例では、スケジューラは以下のような複雑な依存関係グラフを解決します。
 
--   `playerControl` が最初に実行されるグループに属します。
--   `raycast` と `physics` は `playerControl` の後に実行されます（これら2つは並行実行可能）。
--   `blockInteraction` は `raycast` の後、`collision` は `physics` の後に実行されます。
--   `chunkLoading`, `camera`, `ui` は、それぞれの先行システムが完了した後に実行されます。
--   `scene` は `chunkLoading` と `collision` の両方が完了した後に、最後に実行されます。
+- `playerControl` が最初に実行されるグループに属します。
+- `raycast` と `physics` は `playerControl` の後に実行されます（これら2つは並行実行可能）。
+- `blockInteraction` は `raycast` の後、`collision` は `physics` の後に実行されます。
+- `chunkLoading`, `camera`, `ui` は、それぞれの先行システムが完了した後に実行されます。
+- `scene` は `chunkLoading` と `collision` の両方が完了した後に、最後に実行されます。
 
 これにより、例えば「プレイヤーの入力 -> 物理計算 -> 衝突解決 -> カメラ更新」という一連の処理順序が保証されると同時に、依存関係のない処理はスケジューラによって効率的な順序で実行されます。
 
@@ -89,6 +89,6 @@ const systems: SystemNode[] = [
 
 ## 3. 利点
 
--   **宣言的な依存関係**: 「何をどの順番で」ではなく、「何が何に依存しているか」を記述するだけで済み、コードの意図が明確になります。
--   **高い保守性**: 新しいシステムを追加する際、巨大な実行パイプラインを編集する必要はありません。新しいシステムの`name`と`after`を定義するだけで、スケジューラが自動的に正しい位置に組み込みます。
--   **拡張性**: 将来的には、依存関係のないシステム同士を並列実行する（例: `Effect.forEach(..., { concurrency: "inherit" })`）といった最適化を、スケジューラ自体に実装することも可能です。
+- **宣言的な依存関係**: 「何をどの順番で」ではなく、「何が何に依存しているか」を記述するだけで済み、コードの意図が明確になります。
+- **高い保守性**: 新しいシステムを追加する際、巨大な実行パイプラインを編集する必要はありません。新しいシステムの`name`と`after`を定義するだけで、スケジューラが自動的に正しい位置に組み込みます。
+- **拡張性**: 将来的には、依存関係のないシステム同士を並列実行する（例: `Effect.forEach(..., { concurrency: "inherit" })`）といった最適化を、スケジューラ自体に実装することも可能です。

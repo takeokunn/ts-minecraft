@@ -2,8 +2,8 @@
 
 本プロジェクトでは、コードの品質を維持し、デプロイを自動化するために、GitHub Actionsを用いたCI/CD（継続的インテグレーション/継続的デリバリー）パイプラインを構築しています。
 
--   **CI設定ファイル**: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
--   **CD設定ファイル**: [`.github/workflows/cd.yml`](../../.github/workflows/cd.yml)
+- **CI設定ファイル**: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
+- **CD設定ファイル**: [`.github/workflows/cd.yml`](../../.github/workflows/cd.yml)
 
 ---
 
@@ -11,8 +11,8 @@
 
 CIパイプラインは、コードの品質を自動的に検証するためのプロセスです。以下のタイミングで実行されます。
 
--   `main`ブランチ**以外**のブランチにプッシュされた時
--   CDワークフローから呼び出された時 (`workflow_call`)
+- `main`ブランチ**以外**のブランチにプッシュされた時
+- CDワークフローから呼び出された時 (`workflow_call`)
 
 ### CIのチェック項目
 
@@ -38,9 +38,9 @@ CDパイプラインは、`main`ブランチに新しいコードがマージさ
 2.  **CIの実行**: まず、CDワークフローはCIワークフロー（`ci.yml`）を`uses`キーワードで呼び出し、`main`ブランチのコードがすべての品質チェックを満たしていることを再検証します。
 3.  **ビルド**: CIが成功すると、`pnpm build`コマンドを実行し、本番環境向けの最適化された静的ファイル（HTML, CSS, JS）を`./public`ディレクトリに生成します。
 4.  **デプロイ準備**:
-    -   `actions/configure-pages@v4`: GitHub Pagesへのデプロイを設定します。
-    -   `actions/upload-pages-artifact@v3`: ビルドで生成された`./public`ディレクトリを、デプロイ用のアーティファクトとしてアップロードします。
+    - `actions/configure-pages@v4`: GitHub Pagesへのデプロイを設定します。
+    - `actions/upload-pages-artifact@v3`: ビルドで生成された`./public`ディレクトリを、デプロイ用のアーティファクトとしてアップロードします。
 5.  **デプロイ**:
-    -   `actions/deploy-pages@v4`: アップロードされたアーティファクトをGitHub Pagesにデプロイします。
+    - `actions/deploy-pages@v4`: アップロードされたアーティファクトをGitHub Pagesにデプロイします。
 
 このパイプラインにより、`main`ブランチは常にデプロイ可能な状態に保たれ、マージから公開までのプロセスが迅速かつ安全に自動化されています。

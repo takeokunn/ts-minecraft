@@ -1,7 +1,7 @@
 # カメラ制御システム (Camera Control System)
 
--   **関連ソース**: [`src/systems/camera-control.ts`](../../src/systems/camera-control.ts)
--   **責務**: ユーザーのマウス入力を `InputService` から受け取り、`CameraService` を通じてカメラの視点を更新し、その結果をプレイヤーの `CameraState` コンポーネントに反映すること。
+- **関連ソース**: [`src/systems/camera-control.ts`](../../src/systems/camera-control.ts)
+- **責務**: ユーザーのマウス入力を `InputService` から受け取り、`CameraService` を通じてカメラの視点を更新し、その結果をプレイヤーの `CameraState` コンポーネントに反映すること。
 
 ---
 
@@ -15,11 +15,11 @@
 2.  **サービスの取得**: `InputService` と `CameraService` をEffectのコンテキストから取得します。
 3.  **マウス入力の取得**: `inputService.getMouseState()` を呼び出し、前回のフレームからのマウスの移動量 (`dx`, `dy`) を取得します。
 4.  **カメラの操作**:
-    -   `cameraService.moveRight(-mouseState.dx * SENSITIVITY)` を呼び出し、水平方向の回転（ヨー）を更新します。
-    -   `cameraService.rotatePitch(-mouseState.dy * SENSITIVITY)` を呼び出し、垂直方向の回転（ピッチ）を更新します。`CameraService` 内部で、ピッチが-90度から+90度の範囲にクランプ（制限）されます。
+    - `cameraService.moveRight(-mouseState.dx * SENSITIVITY)` を呼び出し、水平方向の回転（ヨー）を更新します。
+    - `cameraService.rotatePitch(-mouseState.dy * SENSITIVITY)` を呼び出し、垂直方向の回転（ピッチ）を更新します。`CameraService` 内部で、ピッチが-90度から+90度の範囲にクランプ（制限）されます。
 5.  **`CameraState` の更新**:
-    -   `cameraService.getYaw()` と `cameraService.getPitch()` を呼び出し、更新後のカメラの回転角度（ラディアン）を取得します。
-    -   `world.updateComponentData()` を使用して、プレイヤーエンティティの `CameraState` コンポーネントを最新のヨーとピッチの値で更新します。このAPIは、新しいコンポーネントインスタンスを生成しないため、パフォーマンス上のベストプラクティスです。
+    - `cameraService.getYaw()` と `cameraService.getPitch()` を呼び出し、更新後のカメラの回転角度（ラディアン）を取得します。
+    - `world.updateComponentData()` を使用して、プレイヤーエンティティの `CameraState` コンポーネントを最新のヨーとピッチの値で更新します。このAPIは、新しいコンポーネントインスタンスを生成しないため、パフォーマンス上のベストプラクティスです。
 
 ## データフロー
 

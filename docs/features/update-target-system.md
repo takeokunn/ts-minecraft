@@ -6,9 +6,9 @@ This document specifies the `updateTargetSystem`, which is responsible for ident
 
 This feature is designed with a strong emphasis on the **separation of concerns**:
 
--   **`RaycastService` (Infrastructure Layer)**: Knows *how* to perform a raycast against the scene using a specific rendering engine like Three.js. It abstracts away the low-level details of the renderer.
--   **`updateTargetSystem` (System Layer)**: Knows *why* a raycast is needed. It calls the `RaycastService` to get the result and updates the player's `Target` component.
--   **`blockInteractionSystem` (System Layer)**: Reads the `Target` component and performs an *action*, such as placing or destroying a block.
+- **`RaycastService` (Infrastructure Layer)**: Knows _how_ to perform a raycast against the scene using a specific rendering engine like Three.js. It abstracts away the low-level details of the renderer.
+- **`updateTargetSystem` (System Layer)**: Knows _why_ a raycast is needed. It calls the `RaycastService` to get the result and updates the player's `Target` component.
+- **`blockInteractionSystem` (System Layer)**: Reads the `Target` component and performs an _action_, such as placing or destroying a block.
 
 This design ensures that the game logic (`updateTargetSystem`) remains completely decoupled from the details of the rendering engine.
 
@@ -18,12 +18,12 @@ The responsibility of the `updateTargetSystem` is narrowly focused on querying t
 
 1.  **Invoke Raycast**: It calls the `RaycastService` to get the result of a raycast originating from the center of the camera.
 2.  **If a Target is Found**:
-    -   The `RaycastService` returns information about the intersection, including the `instanceId` of the mesh that was hit. Using the map stored in the `RenderContext`, it translates this `instanceId` back to a specific `EntityId`.
-    -   The system then attaches (or updates) a `Target` component on the player entity. This component contains the target block's `EntityId`, its `Position`, and the normal vector of the face that the ray hit.
-    -   It also updates a `TargetHighlight` state within the `RenderContext`, which the `renderer` uses to draw a visual highlight (e.g., an outline) around the targeted block.
+    - The `RaycastService` returns information about the intersection, including the `instanceId` of the mesh that was hit. Using the map stored in the `RenderContext`, it translates this `instanceId` back to a specific `EntityId`.
+    - The system then attaches (or updates) a `Target` component on the player entity. This component contains the target block's `EntityId`, its `Position`, and the normal vector of the face that the ray hit.
+    - It also updates a `TargetHighlight` state within the `RenderContext`, which the `renderer` uses to draw a visual highlight (e.g., an outline) around the targeted block.
 3.  **If No Target is Found**:
-    -   It removes the `Target` component from the player entity.
-    -   It clears the `TargetHighlight` state in the `RenderContext` to remove any visual highlight from the scene.
+    - It removes the `Target` component from the player entity.
+    - It clears the `TargetHighlight` state in the `RenderContext` to remove any visual highlight from the scene.
 
 ## 3. Data Flow
 

@@ -4,4 +4,4 @@
  * @param z The z-coordinate of the chunk.
  * @returns A string in the format "x,z".
  */
-export const getChunkId = (x: number, z: number): string => `${x},${z}`;
+export const getChunkId = (x: number, z: number): string => `${x},${z}`

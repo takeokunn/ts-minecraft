@@ -1,37 +1,32 @@
-import { setInputState } from '@/domain/components';
-import { playerInputQuery } from '@/domain/queries';
-import { System } from '@/runtime/loop';
-import { query, updateComponent } from '@/runtime/world';
+import { Effect } from 'effect'
+import { setInputState } from '@/domain/components'
+import { playerInputQuery } from '@/domain/queries'
+import { InputManagerService, System } from '@/runtime/loop'
+import { World } from '@/runtime/world'
 
-export const inputPollingSystem: System = (world, deps) => {
-  const { keyboard, isLocked } = deps.inputState;
-  const players = query(world, playerInputQuery);
+export const inputPollingSystem: System = Effect.gen(function* () {
+  const world = yield* World
+  const inputManager = yield* InputManagerService
+  const { keyboard, isLocked } = yield* inputManager.getState
 
-  if (players.length === 0) {
-    return [world, []];
-  }
+  const players = yield* world.query(playerInputQuery)
 
-  // Use reduce to thread the world state through the updates, ensuring immutability
-  const newWorld = players.reduce((currentWorld, player) => {
-    const newPlayerInputState = setInputState(player.inputState, {
-      forward: keyboard.has('KeyW'),
-      backward: keyboard.has('KeyS'),
-      left: keyboard.has('KeyA'),
-      right: keyboard.has('KeyD'),
-      jump: keyboard.has('Space'),
-      sprint: keyboard.has('ShiftLeft'),
-      destroy: keyboard.has('Mouse0'), // Left-click
-      place: keyboard.has('Mouse2'), // Right-click
-      isLocked,
-    });
-
-    return updateComponent(
-      currentWorld,
-      player.entityId,
-      'inputState',
-      newPlayerInputState,
-    );
-  }, world);
-
-  return [newWorld, []];
-};
+  yield* Effect.forEach(
+    players,
+    (player) => {
+      const newPlayerInputState = setInputState(player.inputState, {
+        forward: keyboard.has('KeyW'),
+        backward: keyboard.has('KeyS'),
+        left: keyboard.has('KeyA'),
+        right: keyboard.has('KeyD'),
+        jump: keyboard.has('Space'),
+        sprint: keyboard.has('ShiftLeft'),
+        destroy: keyboard.has('Mouse0'), // Left-click
+        place: keyboard.has('Mouse2'), // Right-click
+        isLocked,
+      })
+      return world.updateComponent(player.entityId, 'inputState', newPlayerInputState)
+    },
+    { discard: true },
+  )
+})

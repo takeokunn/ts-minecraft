@@ -11,8 +11,9 @@
 ### Entity Component System (ECS)
 
 ECSアーキテクチャの採用は、データ指向設計を実現するための第一歩です。
--   **Component**: 純粋なデータであり、ロジックを持ちません。
--   **System**: データを処理するロジックです。
+
+- **Component**: 純粋なデータであり、ロジックを持ちません。
+- **System**: データを処理するロジックです。
 
 これにより、データとロジックが明確に分離され、データを効率的に処理するための最適化が可能になります。
 
@@ -20,10 +21,11 @@ ECSアーキテクチャの採用は、データ指向設計を実現するた�
 
 パフォーマンスをさらに追求するため、`World`の実装には**Archetype**と**Structure of Arrays (SoA)**を組み合わせています。
 
--   **Archetype**: 同じコンポーネントの組み合わせを持つエンティティをグループ化します。これにより、クエリの対象となるエンティティを瞬時に絞り込むことができます。
--   **SoA**: コンポーネントのデータをプロパティごとに連続した配列としてメモリ上に配置します。
-    ```typescript
-    # パフォーマンス設計 (Performance Design)
+- **Archetype**: 同じコンポーネントの組み合わせを持つエンティティをグループ化します。これにより、クエリの対象となるエンティティを瞬時に絞り込むことができます。
+- **SoA**: コンポーネントのデータをプロパティごとに連続した配列としてメモリ上に配置します。
+  ```typescript
+  # パフォーマンス設計 (Performance Design)
+  ```
 
 このプロジェクトは、Webブラウザ上で大規模なボクセルの世界を滑らかに描画するという、パフォーマンスが非常に重要な要件を持っています。そのため、アーキテクチャの設計段階から、パフォーマンスを最大化するためのいくつかの重要な原則を取り入れています。
 
@@ -36,8 +38,9 @@ ECSアーキテクチャの採用は、データ指向設計を実現するた�
 ### Entity Component System (ECS)
 
 ECSアーキテクチャの採用は、データ指向設計を実現するための第一歩です。
--   **Component**: 純粋なデータであり、ロジックを持ちません。
--   **System**: データを処理するロジックです。
+
+- **Component**: 純粋なデータであり、ロジックを持ちません。
+- **System**: データを処理するロジックです。
 
 これにより、データとロジックが明確に分離され、データを効率的に処理するための最適化が可能になります。
 
@@ -45,17 +48,17 @@ ECSアーキテクチャの採用は、データ指向設計を実現するた�
 
 パフォーマンスをさらに追求するため、`World`の実装には**Archetype**と**Structure of Arrays (SoA)**を組み合わせています。
 
--   **Archetype**: 同じコンポーネントの組み合わせを持つエンティティをグループ化します。これにより、クエリの対象となるエンティティを瞬時に絞り込むことができます。
--   **SoA**: コンポーネントのデータをプロパティごとに連続した配列（`Float32Array`などの型付き配列）としてメモリ上に配置します。
-    ```typescript
-    // PositionコンポーネントのSoAストレージ
-    {
-      x: [10.1, 20.5, 30.2, ...], // x座標がメモリ上で連続
-      y: [5.0, 6.1, 7.8, ...],  // y座標がメモリ上で連続
-      z: [12.3, 13.4, 14.5, ...]  // z座標がメモリ上で連続
-    }
-    ```
-    このレイアウトにより、システムが特定のデータ（例: 全エンティティの`y`座標）を処理する際に、CPUのSIMD（Single Instruction, Multiple Data）命令が効率的に働き、キャッシュヒット率が劇的に向上します。詳細は [Worldアーキテクチャ](../architecture/world.md) を参照してください。
+- **Archetype**: 同じコンポーネントの組み合わせを持つエンティティをグループ化します。これにより、クエリの対象となるエンティティを瞬時に絞り込むことができます。
+- **SoA**: コンポーネントのデータをプロパティごとに連続した配列（`Float32Array`などの型付き配列）としてメモリ上に配置します。
+  ```typescript
+  // PositionコンポーネントのSoAストレージ
+  {
+    x: [10.1, 20.5, 30.2, ...], // x座標がメモリ上で連続
+    y: [5.0, 6.1, 7.8, ...],  // y座標がメモリ上で連続
+    z: [12.3, 13.4, 14.5, ...]  // z座標がメモリ上で連続
+  }
+  ```
+  このレイアウトにより、システムが特定のデータ（例: 全エンティティの`y`座標）を処理する際に、CPUのSIMD（Single Instruction, Multiple Data）命令が効率的に働き、キャッシュヒット率が劇的に向上します。詳細は [Worldアーキテクチャ](../architecture/world.md) を参照してください。
 
 ---
 
@@ -71,18 +74,21 @@ JavaScript/TypeScriptは自動的にメモリ管理を行いますが、その�
 
 この問題を解決するため、システムは`queryEntities`でエンティティIDのリストを取得した後、`getComponentStore`を通じてSoAストアに直接アクセスし、データを読み書きします。
 
--   **良い例 (Good Practice)**:
-    ```typescript
-    const entities = yield* _(queryEntities(physicsQuery));
-    const positions = yield* _(getComponentStore(Position));
-    const velocities = yield* _(getComponentStore(Velocity));
+- **良い例 (Good Practice)**:
 
-    for (const id of entities) {
-      // 新しいオブジェクトを生成せず、既存の配列データを直接変更
-      positions.y[id] += velocities.dy[id];
-    }
-    ```
-このアプローチは、ループ中のメモリアロケーションを完全にゼロにし、GCのプレッシャーを劇的に削減します。
+  ````typescript
+  const entities = yield* \_(queryEntities(physicsQuery));
+  const positions = yield* _(getComponentStore(Position));
+  const velocities = yield\* _(getComponentStore(Velocity));
+
+      for (const id of entities) {
+        // 新しいオブジェクトを生成せず、既存の配列データを直接変更
+        positions.y[id] += velocities.dy[id];
+      }
+      ```
+
+  このアプローチは、ループ中のメモリアロケーションを完全にゼロにし、GCのプレッシャーを劇的に削減します。
+  ````
 
 ---
 
@@ -92,9 +98,7 @@ JavaScript/TypeScriptは自動的にメモリ管理を行いますが、その�
 
 ```typescript
 // 複数のチャンクを並行してアンロードする
-yield* _(
-  Effect.all(unloadingEffects, { discard: true, concurrency: "unbounded" }),
-);
+yield * _(Effect.all(unloadingEffects, { discard: true, concurrency: 'unbounded' }))
 ```
 
 これにより、マルチコアCPUの性能を最大限に活用し、特にチャンクのロード/アンロードのような重い処理をメインスレッドをブロックすることなく実行できます。
@@ -108,7 +112,8 @@ yield* _(
 Minecraftライクなゲームでは、膨大な数のブロックを描画する必要があります。個別のキューブをレンダリングする代わりに、隣接する同じ種類のブロックを一つの大きなメッシュに統合する**Greedy Meshing**アルゴリズムをWeb Workerで実行します。これにより、頂点数とドローコール数が劇的に削減され、パフォーマンスが大幅に向上します。
 
 詳細は[レンダリング](../architecture/rendering.md)のドキュメントを参照してください。
-    ```
+
+````
     このレイアウトにより、システムが特定のデータ（例: 全エンティティの`y`座標）を処理する際に、CPUのSIMD（Single Instruction, Multiple Data）命令が効率的に働き、キャッシュヒット率が劇的に向上します。詳細は [Worldアーキテクチャ](../architecture/world.md) を参照してください。
 
 ---
@@ -121,22 +126,23 @@ JavaScript/TypeScriptは自動的にメモリ管理を行いますが、その�
 
 毎フレーム実行されるシステムのループ内で、`new MyObject()` のようなオブジェクト生成や `{}` のようなオブジェクトリテラルを使用することは、原則として禁止されています。
 
--   **悪い例 (Bad Practice)**:
-    ```typescript
-    for (let i = 0; i < entities.length; i++) {
-      const newVel = new Velocity({ ... }); // ループごとに新しいオブジェクトが生成される
-      world.updateComponent(id, newVel);
-    }
-    ```
+- **悪い例 (Bad Practice)**:
 
--   **良い例 (Good Practice)**:
-    ```typescript
-    for (let i = 0; i < entities.length; i++) {
-      const newDy = calculateNewVelocityY(...);
-      // 新しいオブジェクトを生成せず、データのみを渡す
-      world.updateComponentData(id, Velocity, { dy: newDy });
-    }
-    ```
+  ```typescript
+  for (let i = 0; i < entities.length; i++) {
+    const newVel = new Velocity({ ... }); // ループごとに新しいオブジェクトが生成される
+    world.updateComponent(id, newVel);
+  }
+````
+
+- **良い例 (Good Practice)**:
+  ```typescript
+  for (let i = 0; i < entities.length; i++) {
+    const newDy = calculateNewVelocityY(...);
+    // 新しいオブジェクトを生成せず、データのみを渡す
+    world.updateComponentData(id, Velocity, { dy: newDy });
+  }
+  ```
 
 ### `querySoA` APIの強制
 
@@ -154,9 +160,7 @@ JavaScript/TypeScriptは自動的にメモリ管理を行いますが、その�
 
 ```typescript
 // 複数のチャンクを並行してアンロードする
-yield* _(
-  Effect.all(unloadingEffects, { discard: true, concurrency: "inherit" }),
-);
+yield * _(Effect.all(unloadingEffects, { discard: true, concurrency: 'inherit' }))
 ```
 
 これにより、マルチコアCPUの性能を最大限に活用し、特にチャンクのロード/アンロードのような重い処理をメインスレッドをブロックすることなく実行できます。
