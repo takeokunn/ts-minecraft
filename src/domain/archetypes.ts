@@ -1,6 +1,6 @@
 import { Schema as S } from 'effect'
 import { match } from 'ts-pattern'
-import { BlockType, BlockTypeSchema, hotbarSlots } from './block'
+import { BlockTypeSchema, hotbarSlots } from './block'
 import {
   Camera,
   CameraState,
@@ -19,6 +19,7 @@ import {
   TerrainBlock,
   Velocity,
 } from './components'
+import { Int } from './common'
 
 // --- Constants ---
 
@@ -53,8 +54,8 @@ const TargetBlockArchetypeBuilderSchema = S.Struct({
 
 const ChunkArchetypeBuilderSchema = S.Struct({
   type: S.Literal('chunk'),
-  chunkX: S.Number,
-  chunkZ: S.Number,
+  chunkX: Int,
+  chunkZ: Int,
 })
 
 export const ArchetypeBuilderSchema = S.Union(

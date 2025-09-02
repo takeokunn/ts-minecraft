@@ -1,5 +1,4 @@
-import * as S from 'effect/Schema'
-import * as Arb from '@effect/schema/Arbitrary'
+import * as Arb from 'effect/Arbitrary'
 import { fc, test } from '@fast-check/vitest'
 import { describe, expect } from 'vitest'
 import {
@@ -9,9 +8,9 @@ import {
   type Archetype,
   type ArchetypeBuilder,
 } from '../archetypes'
-import { type ComponentName, componentNames, Position } from '../components'
+import { type ComponentName, componentNames, Position, Velocity } from '../components'
 
-const archetypeBuilderArb: fc.Arbitrary<ArchetypeBuilder> = Arb.make(ArchetypeBuilderSchema)(fc)
+const archetypeBuilderArb: fc.Arbitrary<ArchetypeBuilder> = Arb.make(ArchetypeBuilderSchema)
 
 const componentKeyArb: fc.Arbitrary<ComponentName> = fc.constantFrom(...componentNames)
 
@@ -82,22 +81,23 @@ describe('createArchetype', () => {
 
 const createDefaultArchetype = (): Archetype => ({
   position: new Position({ x: 0, y: 0, z: 0 }),
-  velocity: { dx: 0, dy: 0, dz: 0 },
+  velocity: new Velocity({ dx: 0, dy: 0, dz: 0 }),
 })
 
 const archetypeArb: fc.Arbitrary<Archetype> = fc.uniqueArray(componentKeyArb).map((keys) => {
-  const archetype: Archetype = {}
+  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+  const archetype: any = {}
   for (const key of keys) {
     // This is a simplified mock component creation for testing `hasComponents`.
     // A more robust implementation would use arbitraries for each component.
     if (key === 'position') {
-      archetype.position = new Position({ x: 0, y: 0, z: 0 })
+      archetype[key] = new Position({ x: 0, y: 0, z: 0 })
     } else {
       // biome-ignore lint/suspicious/noExplicitAny: <explanation>
       ;(archetype as any)[key] = {}
     }
   }
-  return archetype
+  return archetype as Archetype
 })
 
 describe('hasComponents', () => {
@@ -126,7 +126,7 @@ describe('hasComponents', () => {
     if (hasComponents(archetype, ['player', 'position', 'velocity'])) {
       expect(archetype.player.isGrounded).toBe(false)
       expect(archetype.position).toEqual(new Position({ x: 0, y: 0, z: 0 }))
-      expect(archetype.velocity).toEqual({ dx: 0, dy: 0, dz: 0 })
+      expect(archetype.velocity).toEqual(new Velocity({ dx: 0, dy: 0, dz: 0 }))
     } else {
       // This should not be reached
       expect.fail('Type guard failed')

@@ -1,8 +1,8 @@
-import { Effect, Layer, Option, Ref, HashSet, Context } from 'effect'
+import { Effect, Layer, Option, Ref, HashSet } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
 import { Hotbar, Position } from '@/domain/components'
 import { SystemCommand } from '@/domain/types'
-import { ComputationWorker, ComputationWorkerLive } from '@/infrastructure/computation.worker'
+import { ComputationWorkerTag, ComputationWorkerLive, type ComputationWorker } from '@/infrastructure/computation.worker'
 import { InputManager, InputManagerLive } from '@/infrastructure/input-browser'
 import { MaterialManager, MaterialManagerLive } from '@/infrastructure/material-manager'
 import { RendererLive } from '@/infrastructure/renderer-three'
@@ -11,7 +11,13 @@ import { ThreeContextLive } from '@/infrastructure/renderer-three/context'
 import { RaycastService, RaycastServiceLive } from '@/infrastructure/raycast-three'
 import { SpatialGrid, SpatialGridLive } from '@/infrastructure/spatial-grid'
 import { gameLoop } from '@/runtime/loop'
-import { ChunkDataQueueService, OnCommand, RaycastResultService, RenderQueueService, RendererService, DeltaTime, ThreeContextService } from '@/runtime/services'
+import {
+  ChunkDataQueueService,
+  OnCommand,
+  RaycastResultService,
+  RenderQueueService,
+  DeltaTime,
+} from '@/runtime/services'
 import { World, WorldLive } from '@/runtime/world'
 import {
   blockInteractionSystem,
@@ -33,20 +39,20 @@ type SystemRequirements =
   | InputManager
   | OnCommand
   | SpatialGrid
-  | Context.Tag.Service<typeof DeltaTime>
-  | Context.Tag.Service<typeof RaycastResultService>
-  | Context.Tag.Service<typeof ThreeContextService>
+  | typeof DeltaTime
+  | typeof RaycastResultService
+  | typeof ThreeContextService
   | RaycastService
-  | Context.Tag.Service<typeof ChunkDataQueueService>
-  | Context.Tag.Service<typeof RenderQueueService>
+  | typeof ChunkDataQueueService
+  | typeof RenderQueueService
   | ComputationWorker
   | MaterialManager
-  | Context.Tag.Service<typeof RendererService>
+  | typeof RendererService
   | ThreeCameraService
 
-const main = Effect.gen(function* (_) {
-  const world = yield* _(World)
-  yield* _(world.addArchetype(createArchetype({ type: 'player', pos: new Position({ x: 0, y: 20, z: 0 }) })))
+const main = Effect.gen(function* ($) {
+  const world = yield* $(World)
+  yield* $(world.createEntity(createArchetype({ type: 'player', pos: new Position({ x: 0, y: 20, z: 0 }) })))
 
   const hotbarUpdater = (_hotbar: Hotbar) => Effect.void
 
@@ -65,7 +71,7 @@ const main = Effect.gen(function* (_) {
     createUISystem(hotbarUpdater),
   ]
 
-  yield* _(gameLoop(systems))
+  yield* $(gameLoop(systems))
 })
 
 const AppLayer = (rootElement: HTMLElement) => {
@@ -74,32 +80,29 @@ const AppLayer = (rootElement: HTMLElement) => {
     Layer.merge(Layer.succeed(ChunkDataQueueService, [])),
     Layer.merge(Layer.succeed(RenderQueueService, [])),
   )
-  const baseServices = Layer.mergeAll(WorldLive, InputManagerLive, ComputationWorkerLive, MaterialManagerLive, RaycastServiceLive, SpatialGridLive)
+  const baseServices = Layer.mergeAll(
+    WorldLive,
+    InputManagerLive,
+    ComputationWorkerLive,
+    MaterialManagerLive,
+    RaycastServiceLive,
+    SpatialGridLive,
+  )
 
   // Services with dependencies
   const threeContextLayer = ThreeContextLive(rootElement)
   const threeCameraLayer = ThreeCameraLive(rootElement) // Depends on ThreeContext
 
   // Combine context and camera layers
-  const threeServices = Layer.merge(
-    threeContextLayer,
-    Layer.provide(threeContextLayer, threeCameraLayer),
-  )
+  const threeServices = Layer.merge(threeContextLayer, Layer.provide(threeCameraLayer, threeContextLayer))
 
   // Combine all services that Renderer depends on
-  const rendererDependencies = Layer.mergeAll(
-    statefulServices,
-    baseServices,
-    threeServices,
-  )
+  const rendererDependencies = Layer.mergeAll(statefulServices, baseServices, threeServices)
 
   const rendererLayer = RendererLive // Depends on rendererDependencies
 
   // Combine the dependencies with the renderer itself
-  const fullLayer = Layer.merge(
-    rendererDependencies,
-    Layer.provide(rendererDependencies, rendererLayer),
-  )
+  const fullLayer = Layer.merge(rendererDependencies, Layer.provide(rendererLayer, rendererDependencies))
 
   return fullLayer
 }
@@ -110,13 +113,13 @@ document.addEventListener('DOMContentLoaded', () => {
     throw new Error('Root element #app not found')
   }
 
-  const onCommandEffect = Effect.gen(function* (_) {
-    const world = yield* _(World)
-    const computationWorker = yield* _(ComputationWorker)
-    const chunkDataQueue = yield* _(ChunkDataQueueService)
+  const onCommandEffect = Effect.gen(function* ($) {
+    const world = yield* $(World)
+    const computationWorker = yield* $(ComputationWorkerTag)
+    const chunkDataQueue = yield* $(ChunkDataQueueService)
     return (command: SystemCommand) =>
-      Effect.gen(function* (_) {
-        const worldState = yield* _(world.state)
+      Effect.gen(function* ($) {
+        const worldState = yield* $(world.state)
         const taskPayload = {
           ...command,
           seeds: worldState.globalState.seeds,
@@ -127,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
           },
         }
         const task = { type: 'generateChunk' as const, payload: taskPayload }
-        const result = yield* _(computationWorker.postTask(task))
+        const result = yield* $(computationWorker.postTask(task))
         chunkDataQueue.push(result)
       }).pipe(
         Effect.catchAll((err) => Effect.logError('Failed to process chunk', err)),
@@ -138,15 +141,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const onCommandLayer = Layer.effect(OnCommand, onCommandEffect)
   const baseAppLayer = AppLayer(rootElement)
 
-  const combinedLayer = Layer.merge(
-    baseAppLayer,
-    Layer.provide(baseAppLayer, onCommandLayer),
-  )
+  const combinedLayer = Layer.merge(baseAppLayer, Layer.provide(onCommandLayer, baseAppLayer))
 
   const deltaTimeLayer = Layer.succeed(DeltaTime, 0)
   const finalLayer = Layer.merge(combinedLayer, deltaTimeLayer)
 
-  // @ts-expect-error
-  const runnable: Effect.Effect<void, never, never> = main.pipe(Effect.provide(finalLayer))
+  const runnable = main.pipe(Effect.provide(finalLayer))
   Effect.runFork(runnable)
 })
