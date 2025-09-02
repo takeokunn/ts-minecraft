@@ -1,9 +1,8 @@
-import { Schema as S, Class } from 'effect/Schema'
+import { Schema as S, Effect } from 'effect'
+import { Class } from 'effect/Schema'
 import { BlockTypeSchema } from './block'
-import { Float, Int, Vector3IntSchema } from './common'
+import { Float, Int, Vector3Int, Vector3IntSchema } from './common'
 import { EntityId, EntityIdSchema } from './entity'
-
-
 
 // --- Component Schemas ---
 
@@ -34,8 +33,8 @@ export class InputState extends Class<InputState>('InputState')({
   destroy: S.Boolean,
   isLocked: S.Boolean,
 }) {}
-export const createInputState = (): InputState =>
-  new InputState({
+export const createInputState = (): Effect.Effect<InputState> =>
+  Effect.sync(() => new InputState({
     forward: false,
     backward: false,
     left: false,
@@ -45,9 +44,9 @@ export const createInputState = (): InputState =>
     place: false,
     destroy: false,
     isLocked: false,
-  })
-export const setInputState = (state: InputState, changes: Partial<InputState>): InputState => {
-  return new InputState({ ...state, ...changes })
+  }))
+export const setInputState = (state: InputState, changes: Partial<InputState>): Effect.Effect<InputState> => {
+  return Effect.sync(() => new InputState({ ...state, ...changes }))
 }
 
 export class CameraState extends Class<CameraState>('CameraState')({
@@ -71,12 +70,9 @@ export class TargetNone extends Class<TargetNone>('TargetNone')({
 }) {}
 export const Target = S.Union(TargetBlock, TargetNone)
 export type Target = S.Schema.Type<typeof Target>
-export const createTargetNone = (): Target => new TargetNone({ _tag: 'none' })
-export const createTargetBlock = (
-  entityId: EntityId,
-  face: { readonly x: number; readonly y: number; readonly z: number },
-  position: Position,
-): Target => new TargetBlock({ _tag: 'block', entityId, face, position })
+export const createTargetNone = (): Effect.Effect<Target> => Effect.sync(() => new TargetNone({ _tag: 'none' }))
+export const createTargetBlock = (entityId: EntityId, face: Vector3Int, position: Position): Effect.Effect<Target> =>
+  Effect.sync(() => new TargetBlock({ _tag: 'block', entityId, face, position }))
 
 export class Gravity extends Class<Gravity>('Gravity')({
   value: Float,
@@ -141,20 +137,12 @@ export const ComponentSchemas = {
 export const AnyComponent = S.Union(...Object.values(ComponentSchemas).filter((s) => 'ast' in s))
 export type AnyComponent = S.Schema.Type<typeof AnyComponent>
 
-export type ComponentClass<T extends AnyComponent> = S.Schema.Class<T>
 
-export const getComponentId = <T extends AnyComponent>(componentClass: ComponentClass<T>): ComponentName => {
-  // HACK: The component name is stored in the AST.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (componentClass as any).ast.annotations[0].name as ComponentName
-}
 
 export type Components = {
   readonly [K in keyof typeof ComponentSchemas]: S.Schema.Type<(typeof ComponentSchemas)[K]>
 }
 
 export type ComponentName = keyof Components
-export const componentNames: ComponentName[] = Object.keys(ComponentSchemas).filter(
-  (key): key is ComponentName => Object.prototype.hasOwnProperty.call(ComponentSchemas, key),
-)
+export const componentNames: ComponentName[] = Object.keys(ComponentSchemas).filter((key): key is ComponentName => Object.prototype.hasOwnProperty.call(ComponentSchemas, key))
 export const componentNamesSet = new Set<string>(componentNames)

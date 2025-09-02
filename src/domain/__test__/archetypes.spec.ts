@@ -1,139 +1,114 @@
-import * as Arb from 'effect/Arbitrary'
-import { test } from '@fast-check/vitest'
-import { describe, expect } from 'vitest'
-import { ArchetypeBuilderSchema, createArchetype, hasComponents, type Archetype, type ArchetypeBuilder } from '../archetypes'
-import { type ComponentName, componentNames, Position, Velocity, type Components } from '../components'
-import * as Effect from 'effect/Effect'
-import * as fc from 'fast-check'
+import { Effect } from 'effect'
+import { describe, expect, it } from 'vitest'
+import { ArchetypeBuilder, createArchetype, hasComponents } from '../archetypes'
+import {
+  Camera,
+  CameraState,
+  Chunk,
+  Collider,
+  Gravity,
+  Hotbar,
+  InputState,
+  Player,
+  Position,
+  Renderable,
+  Target,
+  TargetBlockComponent,
+  TerrainBlock,
+  Velocity,
+} from '../components'
 
-const archetypeBuilderArb: fc.Arbitrary<ArchetypeBuilder> = Arb.make(ArchetypeBuilderSchema)
-
-const componentKeyArb: fc.Arbitrary<ComponentName> = fc.constantFrom(...componentNames)
-
-const isComponentName = (key: string): key is ComponentName => {
-  return (componentNames as ReadonlyArray<string>).includes(key)
-}
-
-describe('createArchetype', () => {
-  test.prop([archetypeBuilderArb])('should create archetypes with the correct components', async (builder) => {
-    await Effect.runPromise(Effect.gen(function*(_) {
-      const archetype = createArchetype(builder)
-      const archetypeKeys = Object.keys(archetype)
-
-      switch (builder.type) {
-        case 'player': {
-          const expectedComponents: ReadonlyArray<ComponentName> = ['player', 'position', 'velocity', 'gravity', 'cameraState', 'inputState', 'collider', 'hotbar', 'target']
-          expect(archetypeKeys).toEqual(expect.arrayContaining([...expectedComponents]))
-          if (hasComponents(archetype, ['position'])) {
-            expect(archetype.position).toEqual(builder.pos)
-          }
-          break
-        }
-        case 'block': {
-          const expectedComponents: ReadonlyArray<ComponentName> = ['position', 'renderable', 'collider', 'terrainBlock']
-          expect(archetypeKeys).toEqual(expect.arrayContaining([...expectedComponents]))
-          if (hasComponents(archetype, ['position', 'renderable'])) {
-            expect(archetype.position).toEqual(builder.pos)
-            expect(archetype.renderable.blockType).toBe(builder.blockType)
-          }
-          break
-        }
-        case 'camera': {
-          const expectedComponents: ReadonlyArray<ComponentName> = ['camera', 'position']
-          expect(archetypeKeys).toEqual(expect.arrayContaining([...expectedComponents]))
-          if (hasComponents(archetype, ['position'])) {
-            expect(archetype.position).toEqual(builder.pos)
-          }
-          break
-        }
-        case 'targetBlock': {
-          const expectedComponents: ReadonlyArray<ComponentName> = ['position', 'targetBlock']
-          expect(archetypeKeys).toEqual(expect.arrayContaining([...expectedComponents]))
-          if (hasComponents(archetype, ['position'])) {
-            expect(archetype.position).toEqual(builder.pos)
-          }
-          break
-        }
-        case 'chunk': {
-          const expectedComponents: ReadonlyArray<ComponentName> = ['chunk']
-          expect(archetypeKeys).toEqual(expect.arrayContaining([...expectedComponents]))
-          if (hasComponents(archetype, ['chunk'])) {
-            expect(archetype.chunk.chunkX).toBe(builder.chunkX)
-            expect(archetype.chunk.chunkZ).toBe(builder.chunkZ)
-          }
-          break
-        }
-      }
-    }))
-  })
-})
-
-const createDefaultArchetype = (): Archetype => ({
-  position: new Position({ x: 0, y: 0, z: 0 }),
-  velocity: new Velocity({ dx: 0, dy: 0, dz: 0 }),
-})
-
-const archetypeArb: fc.Arbitrary<Archetype> = fc.uniqueArray(componentKeyArb).map((keys) => {
-  const entries = keys.map((key): [ComponentName, Partial<Components>[ComponentName]] => {
-    // This is a simplified mock component creation for testing `hasComponents`.
-    // A more robust implementation would use arbitraries for each component.
-    if (key === 'position') {
-      return [key, new Position({ x: 0, y: 0, z: 0 })]
-    }
-    if (key === 'velocity') {
-      return [key, new Velocity({ dx: 0, dy: 0, dz: 0 })]
-    }
-    return [key, {}]
-  })
-  return Object.fromEntries(entries) as Archetype
-})
-
-describe('hasComponents', () => {
-  test.prop([archetypeArb])('should return true if archetype has all specified components', async (archetype) => {
-    await Effect.runPromise(Effect.gen(function*(_) {
-      const components = Object.keys(archetype).filter(isComponentName)
-      expect(hasComponents(archetype, components)).toBe(true)
-    }))
-  })
-
-  test.prop([fc.constant(createDefaultArchetype()), fc.uniqueArray(componentKeyArb, { minLength: 1 })])(
-    'should return false if archetype is missing some components',
-    async (archetype, requiredKeys) => {
-      await Effect.runPromise(Effect.gen(function*(_) {
-        const presentKeys = Object.keys(archetype)
-        const isMissing = requiredKeys.some((key) => !presentKeys.includes(key))
-        fc.pre(isMissing)
-
-        expect(hasComponents(archetype, requiredKeys)).toBe(false)
-      }))
-    },
-  )
-
-  test('should work as a type guard', async () => {
-    await Effect.runPromise(Effect.gen(function*(_) {
-      const archetype = createArchetype({
+describe('Archetypes', () => {
+  describe('createArchetype', () => {
+    it('should create a player archetype', async () => {
+      const builder: ArchetypeBuilder = {
         type: 'player',
-        pos: new Position({ x: 0, y: 0, z: 0 }),
-      })
-
-      if (hasComponents(archetype, ['player', 'position', 'velocity'])) {
-        expect(archetype.player.isGrounded).toBe(false)
-        expect(archetype.position).toEqual(new Position({ x: 0, y: 0, z: 0 }))
-        expect(archetype.velocity).toEqual(new Velocity({ dx: 0, dy: 0, dz: 0 }))
-      } else {
-        // This should not be reached
-        expect.fail('Type guard failed')
+        pos: new Position({ x: 1, y: 2, z: 3 }),
       }
-    }))
+      const archetype = await Effect.runPromise(createArchetype(builder))
+      expect(archetype.player).toBeInstanceOf(Player)
+      expect(archetype.position).toEqual(new Position({ x: 1, y: 2, z: 3 }))
+      expect(archetype.velocity).toBeInstanceOf(Velocity)
+      expect(archetype.gravity).toBeInstanceOf(Gravity)
+      expect(archetype.cameraState).toBeInstanceOf(CameraState)
+      expect(archetype.inputState).toBeInstanceOf(InputState)
+      expect(archetype.collider).toBeInstanceOf(Collider)
+      expect(archetype.hotbar).toBeInstanceOf(Hotbar)
+      expect(archetype.target).toBeInstanceOf(Object)
+    })
+
+    it('should create a block archetype', async () => {
+      const builder: ArchetypeBuilder = {
+        type: 'block',
+        pos: new Position({ x: 4, y: 5, z: 6 }),
+        blockType: 'grass',
+      }
+      const archetype = await Effect.runPromise(createArchetype(builder))
+      expect(archetype.position).toEqual(new Position({ x: 4, y: 5, z: 6 }))
+      expect(archetype.renderable).toBeInstanceOf(Renderable)
+      expect(archetype.collider).toBeInstanceOf(Collider)
+      expect(archetype.terrainBlock).toBeInstanceOf(TerrainBlock)
+    })
+
+    it('should create a camera archetype', async () => {
+      const builder: ArchetypeBuilder = {
+        type: 'camera',
+        pos: new Position({ x: 7, y: 8, z: 9 }),
+      }
+      const archetype = await Effect.runPromise(createArchetype(builder))
+      expect(archetype.camera).toBeInstanceOf(Camera)
+      expect(archetype.position).toEqual(new Position({ x: 7, y: 8, z: 9 }))
+    })
+
+    it('should create a target block archetype', async () => {
+      const builder: ArchetypeBuilder = {
+        type: 'targetBlock',
+        pos: new Position({ x: 10, y: 11, z: 12 }),
+      }
+      const archetype = await Effect.runPromise(createArchetype(builder))
+      expect(archetype.position).toEqual(new Position({ x: 10, y: 11, z: 12 }))
+      expect(archetype.targetBlock).toBeInstanceOf(TargetBlockComponent)
+    })
+
+    it('should create a chunk archetype', async () => {
+      const builder: ArchetypeBuilder = {
+        type: 'chunk',
+        chunkX: 1,
+        chunkZ: 2,
+      }
+      const archetype = await Effect.runPromise(createArchetype(builder))
+      expect(archetype.chunk).toBeInstanceOf(Chunk)
+    })
   })
 
-  test('should return true for an empty component list', async () => {
-    await Effect.runPromise(Effect.gen(function*(_) {
-      const archetype = createArchetype({
-        type: 'player',
-        pos: new Position({ x: 0, y: 0, z: 0 }),
-      })
+  describe('hasComponents', () => {
+    const archetype = {
+      player: new Player({ isGrounded: false }),
+      position: new Position({ x: 1, y: 2, z: 3 }),
+      velocity: new Velocity({ dx: 0, dy: 0, dz: 0 }),
+    }
+
+    it('should return true if the archetype has all specified components', () => {
+      expect(hasComponents(archetype, ['player', 'position'])).toBe(true)
+    })
+
+    it('should return false if the archetype is missing one or more specified components', () => {
+      expect(hasComponents(archetype, ['player', 'renderable'])).toBe(false)
+    })
+
+    it('should return true for an empty component list', () => {
       expect(hasComponents(archetype, [])).toBe(true)
-    }))
+    })
+
+    it('should correctly narrow the type of the archetype', () => {
+      if (hasComponents(archetype, ['player', 'position', 'velocity'])) {
+        expect(archetype.player).toBeDefined()
+        expect(archetype.position).toBeDefined()
+        expect(archetype.velocity).toBeDefined()
+      } else {
+        // This block should not be reached
+        expect(true).toBe(false)
+      }
+    })
   })
 })

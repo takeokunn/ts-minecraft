@@ -3,7 +3,7 @@ import { describe, it, expect } from '@effect/vitest'
 import { createUISystem, HotbarUpdater } from '../ui'
 import { GameState, GameStateService } from '@/runtime/services'
 import { Hotbar } from '@/domain/components'
-import type { BlockType } from '@/domain/block'
+
 
 describe('uiSystem', () => {
   it('should call the hotbar updater with the GameState hotbar state', () =>

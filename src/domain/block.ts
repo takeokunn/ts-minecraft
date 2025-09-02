@@ -1,5 +1,5 @@
-import { Effect, Match, ParseResult, Schema as S } from 'effect'
-import { Vector3IntSchema } from './common'
+import { Effect, Match, Schema as S } from 'effect'
+import { Vector3Int, Vector3IntSchema } from './common'
 
 // --- Schemas ---
 
@@ -57,12 +57,15 @@ export const blockDefinitions: Readonly<Record<BlockType, BlockDefinition>> = {
  * @param faceName The name of the face.
  * @returns A tuple [u, v] representing the texture coordinates.
  */
-export const getUvForFace = (blockType: BlockType, faceName: FaceName): readonly [number, number] => {
-  const { textures } = blockDefinitions[blockType]
-  return Match.value(faceName).pipe(
-    Match.when('top', () => textures.top ?? textures.side),
-    Match.when('bottom', () => textures.bottom ?? textures.side),
-    Match.orElse(() => textures.side),
+export const getUvForFace = (blockType: BlockType, faceName: FaceName): Effect.Effect<readonly [number, number]> => {
+  return Effect.succeed(blockDefinitions[blockType]).pipe(
+    Effect.map(({ textures }) =>
+      Match.value(faceName).pipe(
+        Match.when('top', () => textures.top ?? textures.side),
+        Match.when('bottom', () => textures.bottom ?? textures.side),
+        Match.orElse(() => textures.side),
+      ),
+    ),
   )
 }
 
@@ -71,8 +74,8 @@ export const getUvForFace = (blockType: BlockType, faceName: FaceName): readonly
  * @param blockType The type of the block.
  * @returns True if the block is transparent, false otherwise.
  */
-export const isBlockTransparent = (blockType: BlockType): boolean => {
-  return blockDefinitions[blockType].isTransparent
+export const isBlockTransparent = (blockType: BlockType): Effect.Effect<boolean> => {
+  return Effect.succeed(blockDefinitions[blockType].isTransparent)
 }
 
 /**
@@ -80,9 +83,9 @@ export const isBlockTransparent = (blockType: BlockType): boolean => {
  * @param blockType The type of the block.
  * @returns True if the block is a fluid, false otherwise.
  */
-export const isBlockFluid = (blockType: BlockType): boolean => blockDefinitions[blockType].isFluid
-
-const decodePlacedBlock = S.decode(PlacedBlockSchema)
+export const isBlockFluid = (blockType: BlockType): Effect.Effect<boolean> => {
+  return Effect.succeed(blockDefinitions[blockType].isFluid)
+}
 
 /**
  * Creates a PlacedBlock object.
@@ -90,11 +93,8 @@ const decodePlacedBlock = S.decode(PlacedBlockSchema)
  * @param blockType The type of the block.
  * @returns A PlacedBlock object.
  */
-export const createPlacedBlock = (
-  position: { readonly x: number; readonly y: number; readonly z: number },
-  blockType: BlockType,
-): Effect.Effect<PlacedBlock, ParseResult.ParseError> => {
-  return decodePlacedBlock({ position, blockType })
+export const createPlacedBlock = (position: Vector3Int, blockType: BlockType): Effect.Effect<PlacedBlock> => {
+  return Effect.succeed({ position, blockType })
 }
 
 export const isBlockType = S.is(BlockTypeSchema)

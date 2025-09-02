@@ -20,10 +20,7 @@ export class RaycastError extends Data.TaggedError('RaycastError')<{
 }> {}
 
 export interface RaycastService {
-  readonly cast: (
-    scene: THREE.Scene,
-    terrainBlockMap: ReadonlyMap<string, EntityId>,
-  ) => Effect.Effect<Option.Option<RaycastResult>, RaycastError>
+  readonly cast: (scene: THREE.Scene, terrainBlockMap: ReadonlyMap<string, EntityId>) => Effect.Effect<Option.Option<RaycastResult>, RaycastError>
 }
 
 export const RaycastService = Context.GenericTag<RaycastService>('app/RaycastService')

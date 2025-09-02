@@ -8,10 +8,7 @@ export { ThreeContextService } from '../types'
 
 // --- Helper ---
 
-const makeWindowEventListener = <K extends keyof WindowEventMap>(
-  type: K,
-  listener: (ev: WindowEventMap[K]) => Effect.Effect<void>,
-) =>
+const makeWindowEventListener = <K extends keyof WindowEventMap>(type: K, listener: (ev: WindowEventMap[K]) => Effect.Effect<void>) =>
   Effect.acquireRelease(
     Effect.sync(() => {
       const handler = (ev: WindowEventMap[K]) => Effect.runFork(listener(ev))

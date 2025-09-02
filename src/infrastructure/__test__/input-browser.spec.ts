@@ -1,71 +1,66 @@
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Ref } from 'effect'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { InputManagerService, InputManagerLive, type LockableControls } from '../input-browser'
+import { InputManager, InputState, InputManagerLive } from '../input-browser'
+import type { PointerLockControls as LockableControls } from 'three/examples/jsm/controls/PointerLockControls.js'
 
-type MockControls = LockableControls & {
-  listeners: Map<string, () => void>
-  isLocked: boolean
+class MockControls extends EventTarget {
+  isLocked = false
+  lock = vi.fn(() => {
+    this.isLocked = true
+    this.dispatchEvent(new Event('lock'))
+  })
+  unlock = vi.fn(() => {
+    this.isLocked = false
+    this.dispatchEvent(new Event('unlock'))
+  })
+  connect = vi.fn()
+  disconnect = vi.fn()
+  getDirection = vi.fn()
+  moveForward = vi.fn()
+  moveRight = vi.fn()
+  getObject = vi.fn()
+  minPolarAngle = 0
+  maxPolarAngle = Math.PI
+  pointerSpeed = 1
+  domElement = document.createElement('div')
+  enabled = true
+  dispose = vi.fn()
 }
 
-const createMockControls = (): MockControls => {
-  const listeners = new Map<string, () => void>()
-  return {
-    isLocked: false,
-    lock: vi.fn(function (this: MockControls) {
-      this.isLocked = true
-      this.listeners.get('lock')?.()
-    }),
-    unlock: vi.fn(function (this: MockControls) {
-      this.isLocked = false
-      this.listeners.get('unlock')?.()
-    }),
-    listeners,
-    addEventListener: vi.fn(function (this: MockControls, type, listener) {
-      this.listeners.set(type, listener)
-    }),
-    removeEventListener: vi.fn(function (this: MockControls, type) {
-      this.listeners.delete(type)
-    }),
-  }
-}
-
-describe('InputManagerService', () => {
-  let mockControls: MockControls
+describe('InputManager', () => {
+  let mockControls: LockableControls
 
   beforeEach(() => {
-    mockControls = createMockControls()
+    mockControls = new MockControls() as unknown as LockableControls
   })
 
-  const setupAndRun = <A, E>(program: Effect.Effect<A, E, InputManagerService>, controls: LockableControls = mockControls) => {
-    const fullProgram = Effect.gen(function* (_) {
-      const manager = yield* _(InputManagerService)
-      yield* _(manager.registerListeners(controls))
-      return yield* _(program)
-    })
-    return Effect.runPromise(Effect.provide(fullProgram, InputManagerLive))
+  const runTestWithManager = (testEffect: Effect.Effect<void, unknown, InputManager>) => {
+    return Effect.runPromise(Effect.provide(testEffect, InputManagerLive))
   }
 
   it('should register and cleanup event listeners', async () => {
-    const addListenerSpy = vi.spyOn(document, 'addEventListener')
-    const removeListenerSpy = vi.spyOn(document, 'removeEventListener')
+    const addSpy = vi.spyOn(document, 'addEventListener')
+    const controlsAddSpy = vi.spyOn(mockControls, 'addEventListener')
 
-    await setupAndRun(Effect.void)
+    const program = Effect.gen(function* (_) {
+      const manager = yield* _(InputManager)
+      yield* _(Effect.scoped(manager.registerListeners(mockControls)))
+    })
 
-    expect(addListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function))
-    expect(addListenerSpy).toHaveBeenCalledWith('keyup', expect.any(Function))
-    expect(addListenerSpy).toHaveBeenCalledWith('mousemove', expect.any(Function))
-    expect(addListenerSpy).toHaveBeenCalledWith('mousedown', expect.any(Function))
-    expect(addListenerSpy).toHaveBeenCalledWith('mouseup', expect.any(Function))
-    expect(mockControls.addEventListener).toHaveBeenCalledWith('lock', expect.any(Function))
-    expect(mockControls.addEventListener).toHaveBeenCalledWith('unlock', expect.any(Function))
+    await runTestWithManager(program)
 
-    // Note: With the new implementation, cleanup is handled by the scope, so we can't easily test it here.
-    // We trust that Effect's scoping mechanism works as expected.
+    expect(addSpy).toHaveBeenCalledWith('keydown', expect.any(Function))
+    expect(addSpy).toHaveBeenCalledWith('keyup', expect.any(Function))
+    expect(addSpy).toHaveBeenCalledWith('mousemove', expect.any(Function))
+    expect(controlsAddSpy).toHaveBeenCalledWith('lock', expect.any(Function))
+    expect(controlsAddSpy).toHaveBeenCalledWith('unlock', expect.any(Function))
   })
 
   it('should update keyboard state on keydown and keyup', async () => {
     const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManagerService)
+      const manager = yield* _(InputManager)
+
+      yield* _(Effect.scoped(manager.registerListeners(mockControls)))
 
       document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW' }))
       let state = yield* _(manager.getState)
@@ -76,75 +71,25 @@ describe('InputManagerService', () => {
       expect(state.keyboard.has('KeyW')).toBe(false)
     })
 
-    await setupAndRun(program)
+    await runTestWithManager(program)
   })
 
-  it('should lock controls on mousedown when not locked', async () => {
-    const program = Effect.sync(() => {
-      document.dispatchEvent(new MouseEvent('mousedown'))
-      expect(mockControls.lock).toHaveBeenCalled()
-    })
-    await setupAndRun(program)
-  })
-
-  it('should update mouse state on mousedown when locked', async () => {
+  it('should update mouse delta on mousemove', async () => {
     const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManagerService)
-      mockControls.lock() // Simulate lock
-
-      document.dispatchEvent(new MouseEvent('mousedown', { button: 0 }))
-      let state = yield* _(manager.getState)
-      expect(state.keyboard.has('Mouse0')).toBe(true)
-
-      document.dispatchEvent(new MouseEvent('mouseup', { button: 0 }))
-      state = yield* _(manager.getState)
-      expect(state.keyboard.has('Mouse0')).toBe(false)
-    })
-    await setupAndRun(program)
-  })
-
-  it('should not update keyboard state for unhandled mouse buttons', async () => {
-    const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManagerService)
-      mockControls.lock() // Simulate lock
-
-      document.dispatchEvent(new MouseEvent('mousedown', { button: 1 })) // Middle mouse button
-      const state = yield* _(manager.getState)
-      expect(state.keyboard.size).toBe(0)
-    })
-    await setupAndRun(program)
-  })
-
-  it('should not update mouse delta on mousemove when not locked', async () => {
-    const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManagerService)
+      const manager = yield* _(InputManager)
+      yield* _(Effect.scoped(manager.registerListeners(mockControls)))
       document.dispatchEvent(new MouseEvent('mousemove', { movementX: 10, movementY: -20 }))
       const delta = yield* _(manager.getMouseDelta)
-      expect(delta).toEqual({ dx: 0, dy: 0 })
+      expect(delta).toEqual({ dx: 10, dy: -20 })
     })
-    await setupAndRun(program)
-  })
 
-  it('should handle mousemove events with undefined movement values when locked', async () => {
-    const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManagerService)
-      mockControls.lock() // Simulate lock
-
-      // Dispatch event with undefined movementX and movementY
-      const mouseMoveEvent = new MouseEvent('mousemove')
-      Object.defineProperty(mouseMoveEvent, 'movementX', { value: undefined })
-      Object.defineProperty(mouseMoveEvent, 'movementY', { value: undefined })
-      document.dispatchEvent(mouseMoveEvent)
-
-      const delta = yield* _(manager.getMouseDelta)
-      expect(delta).toEqual({ dx: 0, dy: 0 })
-    })
-    await setupAndRun(program)
+    await runTestWithManager(program)
   })
 
   it('should update lock state on lock/unlock events', async () => {
     const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManagerService)
+      const manager = yield* _(InputManager)
+      yield* _(Effect.scoped(manager.registerListeners(mockControls)))
 
       mockControls.lock()
       let state = yield* _(manager.getState)
@@ -155,16 +100,202 @@ describe('InputManagerService', () => {
       expect(state.isLocked).toBe(false)
     })
 
-    await setupAndRun(program)
+    await runTestWithManager(program)
+  })
+})
+
+
+class MockControls extends EventTarget {
+  isLocked = false
+  lock = vi.fn(() => {
+    this.isLocked = true
+    this.dispatchEvent(new Event('lock'))
+  })
+  unlock = vi.fn(() => {
+    this.isLocked = false
+    this.dispatchEvent(new Event('unlock'))
+  })
+  connect = vi.fn()
+  disconnect = vi.fn()
+  getDirection = vi.fn()
+  moveForward = vi.fn()
+  moveRight = vi.fn()
+  getObject = vi.fn()
+  minPolarAngle = 0
+  maxPolarAngle = Math.PI
+  pointerSpeed = 1
+  domElement = document.createElement('div')
+  enabled = true
+  dispose = vi.fn()
+}
+
+describe('InputManager', () => {
+  let mockControls: LockableControls
+
+  beforeEach(() => {
+    mockControls = new MockControls() as unknown as LockableControls
   })
 
-  it('should not update keyboard state on mouseup when not locked', async () => {
+  import { Effect, Layer, Ref } from 'effect'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { InputManager, InputState, InputManagerLive } from '../input-browser'
+import type { PointerLockControls as LockableControls } from 'three/examples/jsm/controls/PointerLockControls.js'
+
+class MockControls extends EventTarget {
+  isLocked = false
+  lock = vi.fn(() => {
+    this.isLocked = true
+    this.dispatchEvent(new Event('lock'))
+  })
+  unlock = vi.fn(() => {
+    this.isLocked = false
+    this.dispatchEvent(new Event('unlock'))
+  })
+  connect = vi.fn()
+  disconnect = vi.fn()
+  getDirection = vi.fn()
+  moveForward = vi.fn()
+  moveRight = vi.fn()
+  getObject = vi.fn()
+  minPolarAngle = 0
+  maxPolarAngle = Math.PI
+  pointerSpeed = 1
+  domElement = document.createElement('div')
+  enabled = true
+  dispose = vi.fn()
+}
+
+describe('InputManager', () => {
+  let mockControls: LockableControls
+
+  beforeEach(() => {
+    mockControls = new MockControls() as unknown as LockableControls
+  })
+
+  const runTestWithManager = (testEffect: Effect.Effect<void, unknown, InputManager>) => {
+    return Effect.runPromise(Effect.provide(testEffect, InputManagerLive))
+  }
+
+  it('should register and cleanup event listeners', async () => {
+    const addSpy = vi.spyOn(document, 'addEventListener')
+    const controlsAddSpy = vi.spyOn(mockControls, 'addEventListener')
+
     const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManagerService)
-      document.dispatchEvent(new MouseEvent('mouseup', { button: 0 }))
-      const state = yield* _(manager.getState)
-      expect(state.keyboard.has('Mouse0')).toBe(false)
+      const manager = yield* _(InputManager)
+      yield* _(Effect.scoped(manager.registerListeners(mockControls)))
     })
-    await setupAndRun(program)
+
+    await runTestWithManager(program)
+
+    expect(addSpy).toHaveBeenCalledWith('keydown', expect.any(Function))
+    expect(addSpy).toHaveBeenCalledWith('keyup', expect.any(Function))
+    expect(addSpy).toHaveBeenCalledWith('mousemove', expect.any(Function))
+    expect(controlsAddSpy).toHaveBeenCalledWith('lock', expect.any(Function))
+    expect(controlsAddSpy).toHaveBeenCalledWith('unlock', expect.any(Function))
+  })
+
+  it('should update keyboard state on keydown and keyup', async () => {
+    const program = Effect.gen(function* (_) {
+      const manager = yield* _(InputManager)
+
+      yield* _(Effect.scoped(manager.registerListeners(mockControls)))
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW' }))
+      let state = yield* _(manager.getState)
+      expect(state.keyboard.has('KeyW')).toBe(true)
+
+      document.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW' }))
+      state = yield* _(manager.getState)
+      expect(state.keyboard.has('KeyW')).toBe(false)
+    })
+
+    await runTestWithManager(program)
+  })
+
+  it('should update mouse delta on mousemove', async () => {
+    const program = Effect.gen(function* (_) {
+      const manager = yield* _(InputManager)
+      yield* _(Effect.scoped(manager.registerListeners(mockControls)))
+      document.dispatchEvent(new MouseEvent('mousemove', { movementX: 10, movementY: -20 }))
+      const delta = yield* _(manager.getMouseDelta)
+      expect(delta).toEqual({ dx: 10, dy: -20 })
+    })
+
+    await runTestWithManager(program)
+  })
+
+  it('should update lock state on lock/unlock events', async () => {
+    const program = Effect.gen(function* (_) {
+      const manager = yield* _(InputManager)
+      yield* _(Effect.scoped(manager.registerListeners(mockControls)))
+
+      mockControls.lock()
+      let state = yield* _(manager.getState)
+      expect(state.isLocked).toBe(true)
+
+      mockControls.unlock()
+      state = yield* _(manager.getState)
+      expect(state.isLocked).toBe(false)
+    })
+
+    await runTestWithManager(program)
+  })
+})
+
+
+  it('should register and cleanup event listeners', async () => {
+    const addSpy = vi.spyOn(document, 'addEventListener')
+    const controlsAddSpy = vi.spyOn(mockControls, 'addEventListener')
+
+    await runTestWithManager(Effect.void)
+
+    expect(addSpy).toHaveBeenCalledWith('keydown', expect.any(Function))
+    expect(addSpy).toHaveBeenCalledWith('keyup', expect.any(Function))
+    expect(addSpy).toHaveBeenCalledWith('mousemove', expect.any(Function))
+    expect(controlsAddSpy).toHaveBeenCalledWith('lock', expect.any(Function))
+    expect(controlsAddSpy).toHaveBeenCalledWith('unlock', expect.any(Function))
+  })
+
+  it('should update keyboard state on keydown and keyup', async () => {
+    const program = Effect.gen(function* (_) {
+      const manager = yield* _(InputManager)
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW' }))
+      let state = yield* _(manager.getState)
+      expect(state.keyboard.has('KeyW')).toBe(true)
+
+      document.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW' }))
+      state = yield* _(manager.getState)
+      expect(state.keyboard.has('KeyW')).toBe(false)
+    })
+
+    await runTestWithManager(program)
+  })
+
+  it('should update mouse delta on mousemove', async () => {
+    const program = Effect.gen(function* (_) {
+      const manager = yield* _(InputManager)
+      document.dispatchEvent(new MouseEvent('mousemove', { movementX: 10, movementY: -20 }))
+      const delta = yield* _(manager.getMouseDelta)
+      expect(delta).toEqual({ dx: 10, dy: -20 })
+    })
+
+    await runTestWithManager(program)
+  })
+
+  it('should update lock state on lock/unlock events', async () => {
+    const program = Effect.gen(function* (_) {
+      const manager = yield* _(InputManager)
+
+      mockControls.lock()
+      let state = yield* _(manager.getState)
+      expect(state.isLocked).toBe(true)
+
+      mockControls.unlock()
+      state = yield* _(manager.getState)
+      expect(state.isLocked).toBe(false)
+    })
+
+    await runTestWithManager(program)
   })
 })

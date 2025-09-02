@@ -1,10 +1,9 @@
-import { Effect, Layer, Ref, Scope } from 'effect'
+import { Context, Effect, Layer, Ref, Scope } from 'effect'
 import { LockableControls } from './types'
-import { InputManagerService } from '@/runtime/services'
 
 export interface InputState {
   readonly isLocked: boolean
-  readonly keyboard: Set<string>
+  readonly keyboard: ReadonlySet<string>
   readonly mouse: {
     readonly dx: number
     readonly dy: number
@@ -17,10 +16,10 @@ export interface InputManager {
   readonly registerListeners: (controls: LockableControls) => Effect.Effect<void, never, Scope.Scope>
 }
 
-export const InputManager = Effect.Tag<InputManager>()
+export const InputManager = Context.Tag<InputManager>('InputManager')
 
-const makeInputManager = Effect.gen(function* ($) {
-  const stateRef = yield* $(
+const makeInputManager = Effect.gen(function* (_) {
+  const stateRef = yield* _(
     Ref.make<InputState>({
       isLocked: false,
       keyboard: new Set(),
@@ -28,11 +27,13 @@ const makeInputManager = Effect.gen(function* ($) {
     }),
   )
 
-  const handleKeyDown = (e: KeyboardEvent) => Ref.update(stateRef, (s) => ({ ...s, keyboard: s.keyboard.add(e.code) }))
+  const handleKeyDown = (e: KeyboardEvent) =>
+    Ref.update(stateRef, (s) => ({ ...s, keyboard: new Set([...s.keyboard, e.code]) }))
   const handleKeyUp = (e: KeyboardEvent) =>
     Ref.update(stateRef, (s) => {
-      s.keyboard.delete(e.code)
-      return { ...s, keyboard: s.keyboard }
+      const newKeyboard = new Set(s.keyboard)
+      newKeyboard.delete(e.code)
+      return { ...s, keyboard: newKeyboard }
     })
 
   const handleMouseMove = (e: MouseEvent) =>
@@ -41,15 +42,14 @@ const makeInputManager = Effect.gen(function* ($) {
       mouse: { dx: e.movementX, dy: e.movementY },
     }))
 
-  const handleLockChange = (controls: LockableControls) =>
-    Ref.update(stateRef, (s) => ({ ...s, isLocked: !!controls.isLocked }))
+  const handleLockChange = (controls: LockableControls) => Ref.update(stateRef, (s) => ({ ...s, isLocked: controls.isLocked }))
 
   const registerListeners = (controls: LockableControls) =>
     Effect.acquireRelease(
       Effect.sync(() => {
-        const onKeyDown = (e: KeyboardEvent) => Effect.runSync(handleKeyDown(e))
-        const onKeyUp = (e: KeyboardEvent) => Effect.runSync(handleKeyUp(e))
-        const onMouseMove = (e: MouseEvent) => Effect.runSync(handleMouseMove(e))
+        const onKeyDown = (e: Event) => Effect.runSync(handleKeyDown(e as KeyboardEvent))
+        const onKeyUp = (e: Event) => Effect.runSync(handleKeyUp(e as KeyboardEvent))
+        const onMouseMove = (e: Event) => Effect.runSync(handleMouseMove(e as MouseEvent))
         const onLock = () => Effect.runSync(handleLockChange(controls))
         const onUnlock = () => Effect.runSync(handleLockChange(controls))
 
@@ -59,9 +59,9 @@ const makeInputManager = Effect.gen(function* ($) {
         controls.addEventListener('lock', onLock)
         controls.addEventListener('unlock', onUnlock)
 
-        return { onKeyDown, onKeyUp, onMouseMove, onLock, onUnlock }
+        return { onKeyDown, onKeyUp, onMouseMove, onLock, onUnlock, controls }
       }),
-      ({ onKeyDown, onKeyUp, onMouseMove, onLock, onUnlock }) =>
+      ({ onKeyDown, onKeyUp, onMouseMove, onLock, onUnlock, controls }) =>
         Effect.sync(() => {
           document.removeEventListener('keydown', onKeyDown)
           document.removeEventListener('keyup', onKeyUp)
@@ -78,4 +78,4 @@ const makeInputManager = Effect.gen(function* ($) {
   }
 })
 
-export const InputManagerLive = Layer.scoped(InputManagerService, makeInputManager)
+export const InputManagerLive = Layer.scoped(InputManager, makeInputManager)

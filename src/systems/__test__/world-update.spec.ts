@@ -12,7 +12,7 @@ describe('worldUpdateSystem', () => {
   it('should process a chunk from the queue and add entities to the world', () =>
     Effect.gen(function* ($) {
       const chunkData: ChunkGenerationResult = {
-        blocks: [{ position: { x: 0, y: 0, z: 0 }, blockType: 'dirt' }],
+        blocks: [{ position: [0, 0, 0], blockType: 'dirt' }],
         mesh: { indices: new Uint32Array([1, 2, 3]), positions: new Float32Array(), normals: new Float32Array(), uvs: new Float32Array() },
         chunkX: 0,
         chunkZ: 0,

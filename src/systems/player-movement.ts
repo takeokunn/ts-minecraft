@@ -3,6 +3,7 @@ import { CameraState, InputState, Velocity } from '@/domain/components'
 import { playerMovementQuery } from '@/domain/queries'
 import { DECELERATION, JUMP_FORCE, MIN_VELOCITY_THRESHOLD, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@/domain/world-constants'
 import * as World from '@/domain/world'
+import { QuerySoAResult } from '@/domain/world'
 
 export const calculateHorizontalVelocity = (
   input: Pick<InputState, 'forward' | 'backward' | 'left' | 'right' | 'sprint'>,
@@ -51,7 +52,7 @@ export const applyDeceleration = (velocity: Pick<Velocity, 'dx' | 'dz'>): Pick<V
 }
 
 export const playerMovementSystem = Effect.gen(function* ($) {
-  const soa = yield* $(World.querySoA(playerMovementQuery))
+  const soa: QuerySoAResult<typeof playerMovementQuery['components']> = yield* $(World.querySoA(playerMovementQuery))
 
   if (soa.entities.length === 0) {
     return
@@ -67,11 +68,7 @@ export const playerMovementSystem = Effect.gen(function* ($) {
     const jump = inputState.jump[i] ?? false
     const dy = velocity.dy[i] ?? 0
 
-    const { newDy, newIsGrounded } = calculateVerticalVelocity(
-      isGrounded,
-      jump,
-      dy,
-    )
+    const { newDy, newIsGrounded } = calculateVerticalVelocity(isGrounded, jump, dy)
 
     const forward = inputState.forward[i] ?? false
     const backward = inputState.backward[i] ?? false
@@ -85,12 +82,7 @@ export const playerMovementSystem = Effect.gen(function* ($) {
     const hasHorizontalInput = forward || backward || left || right
 
     const { dx, dz } = Match.value(hasHorizontalInput).pipe(
-      Match.when(true, () =>
-        calculateHorizontalVelocity(
-          { forward, backward, left, right, sprint },
-          { yaw },
-        ),
-      ),
+      Match.when(true, () => calculateHorizontalVelocity({ forward, backward, left, right, sprint }, { yaw })),
       Match.orElse(() => applyDeceleration({ dx: currentDx, dz: currentDz })),
     )
 

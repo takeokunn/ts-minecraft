@@ -6,10 +6,7 @@ import fs from 'fs/promises'
 export class FileSystem extends Context.Tag('FileSystem')<
   FileSystem,
   {
-    readonly readdir: (
-      path: string,
-      options: { withFileTypes: true },
-    ) => Effect.Effect<fs.Dirent[], Error>
+    readonly readdir: (path: string, options: { withFileTypes: true }) => Effect.Effect<fs.Dirent[], Error>
     readonly readdirSimple: (path: string) => Effect.Effect<string[], Error>
   }
 >() {}
@@ -38,10 +35,7 @@ export class ImageProcessor extends Context.Tag('ImageProcessor')<
   {
     readonly createImage: (options: sharp.Create) => Effect.Effect<SharpInstance, Error>
     readonly resizeImage: (path: string, width: number, height: number) => Effect.Effect<Buffer, Error>
-    readonly compositeImages: (
-      baseImage: SharpInstance,
-      composites: readonly sharp.OverlayOptions[],
-    ) => Effect.Effect<SharpInstance, Error>
+    readonly compositeImages: (baseImage: SharpInstance, composites: readonly sharp.OverlayOptions[]) => Effect.Effect<SharpInstance, Error>
     readonly toFile: (image: SharpInstance, path: string) => Effect.Effect<sharp.OutputInfo, Error>
   }
 >() {}

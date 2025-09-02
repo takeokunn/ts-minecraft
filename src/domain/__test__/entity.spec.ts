@@ -1,18 +1,16 @@
-import { describe, it, expect } from 'vitest'
-import { toEntityId, fromEntityId } from '../entity'
-import { Effect } from 'effect'
+import { describe, expect, it } from 'vitest'
+import { EntityId } from '../entity'
 
 describe('EntityId', () => {
-  it('toEntityId should cast a number to an EntityId', async () => {
+  it('should create a branded EntityId from a number', () => {
     const id = 123
-    const entityId = await Effect.runPromise(toEntityId(id))
-    expect(entityId).toBe(id)
+    const entityId = EntityId(id)
+    expect(entityId).toBe(123)
   })
 
-  it('fromEntityId should cast an EntityId back to a number', async () => {
-    const id = 456
-    const entityId = await Effect.runPromise(toEntityId(id))
-    const numberId = await Effect.runPromise(fromEntityId(entityId))
-    expect(numberId).toBe(id)
+  it('should be assignable to a number', () => {
+    const entityId = EntityId(456)
+    const num: number = entityId
+    expect(num).toBe(456)
   })
 })

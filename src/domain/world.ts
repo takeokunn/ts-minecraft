@@ -1,9 +1,9 @@
-import { Schema as S, Data, Effect, HashMap, HashSet, Layer, Option, Record, Ref, ParseResult } from 'effect'
+import { Schema as S, Data, Effect, HashMap, HashSet, Layer, Option, Record, Ref } from 'effect'
 import * as AST from 'effect/SchemaAST'
 import { Archetype } from '@/domain/archetypes'
 import { BlockType, PlacedBlock } from '@/domain/block'
 import { ComponentName, Components, ComponentSchemas, componentNames, componentNamesSet, Position } from '@/domain/components'
-import { EntityId, toEntityId } from '@/domain/entity'
+import { EntityId } from '@/domain/entity'
 import { Query } from '@/domain/query'
 import { WorldContext } from '@/runtime/context'
 import { CHUNK_SIZE } from './world-constants'
@@ -86,8 +86,8 @@ const getArchetypeKey = (componentNames: ReadonlyArray<ComponentName>): string =
   return [...componentNames].sort().join(',')
 }
 
-const getBlockKey = (position: { readonly x: number; readonly y: number; readonly z: number }) => {
-  return `${position.x},${position.y},${position.z}`
+const getBlockKey = (position: readonly [number, number, number]) => {
+  return `${position[0]},${position[1]},${position[2]}`
 }
 
 const isComponentName = (key: string): key is ComponentName => {
@@ -100,9 +100,7 @@ export const createInitialWorld = (): World => ({
   nextEntityId: 0,
   entities: HashMap.empty(),
   archetypes: HashMap.empty(),
-  components: Object.fromEntries(
-    componentNames.map((name) => [name, HashMap.empty()]),
-  ) as ComponentStorage,
+  components: Object.fromEntries(componentNames.map((name) => [name, HashMap.empty()])) as ComponentStorage,
   globalState: {
     scene: 'Title',
     seeds: { world: 1, biome: 2, trees: 3 },
@@ -120,12 +118,12 @@ export const createInitialWorld = (): World => ({
 
 export const worldLayer = Layer.effect(WorldContext, Ref.make(createInitialWorld()).pipe(Effect.map((ref) => ({ world: ref }))))
 
-export const addArchetype = (archetype: Archetype): Effect.Effect<EntityId, ParseResult.ParseError, WorldContext> =>
+export const addArchetype = (archetype: Archetype): Effect.Effect<EntityId, never, WorldContext> =>
   Effect.gen(function* ($) {
     const { world } = yield* $(WorldContext)
 
     const nextId = yield* $(Ref.get(world).pipe(Effect.map((w) => w.nextEntityId)))
-    const entityId = yield* $(toEntityId(nextId))
+    const entityId = EntityId(nextId)
 
     const componentNames = Object.keys(archetype).filter(isComponentName)
     const archetypeKey = getArchetypeKey(componentNames)
@@ -255,11 +253,15 @@ export const query = <T extends ReadonlyArray<ComponentName>>(queryDef: Query): 
 
         if (Option.isSome(componentsTupleOption)) {
           const componentsTuple = componentsTupleOption.value
-          const components = Object.fromEntries(
-            componentsTuple.map((component, index) => [queryDef.components[index], component]),
-          ) as { [K in T[number]]: Components[K] }
+          const components = queryDef.components.reduce(
+            (acc, componentName, index) => {
+              acc[componentName] = componentsTuple[index]
+              return acc
+            },
+            {} as Record<ComponentName, any>,
+          )
 
-          results.push({ entityId, ...components })
+          results.push({ entityId, ...components } as unknown as QueryResult<T>)
         }
       }
     }
@@ -309,7 +311,7 @@ export const querySoA = <T extends ReadonlyArray<ComponentName>>(queryDef: Query
     }),
   )
 
-export const recordBlockDestruction = (position: Position): Effect.Effect<void, never, WorldContext> =>
+export const recordBlockDestruction = (position: readonly [number, number, number]): Effect.Effect<void, never, WorldContext> =>
   Effect.gen(function* ($) {
     const { world } = yield* $(WorldContext)
     const blockKey = getBlockKey(position)
@@ -339,7 +341,10 @@ export const recordBlockPlacement = (block: PlacedBlock): Effect.Effect<void, ne
           ...w.globalState,
           editedBlocks: {
             ...w.globalState.editedBlocks,
-            placed: Record.set(w.globalState.editedBlocks.placed, blockKey, block),
+            placed: Record.set(w.globalState.editedBlocks.placed, blockKey, {
+              position: { x: block.position[0], y: block.position[1], z: block.position[2] },
+              blockType: block.blockType,
+            }),
             destroyed: HashSet.remove(w.globalState.editedBlocks.destroyed, blockKey),
           },
         },
@@ -405,11 +410,7 @@ export const removeLoadedChunk = (chunkX: number, chunkZ: number): Effect.Effect
     )
   })
 
-export const getVoxel = (pos: {
-  readonly x: number
-  readonly y: number
-  readonly z: number
-}): Effect.Effect<BlockType, never, WorldContext> =>
+export const getVoxel = (pos: { readonly x: number; readonly y: number; readonly z: number }): Effect.Effect<BlockType, never, WorldContext> =>
   Effect.gen(function* ($) {
     const { world } = yield* $(WorldContext)
     const worldState = yield* $(Ref.get(world))
@@ -417,18 +418,13 @@ export const getVoxel = (pos: {
     const chunkX = Math.floor(pos.x / CHUNK_SIZE)
     const chunkZ = Math.floor(pos.z / CHUNK_SIZE)
 
-    const chunkEntityId = Option.fromNullable(
-      worldState.globalState.chunkLoading.loadedChunks.get(`${chunkX},${chunkZ}`),
-    )
-    if (Option.isNone(chunkEntityId)) {
+    const chunkEntityIdOption = HashMap.get(worldState.globalState.chunkLoading.loadedChunks, `${chunkX},${chunkZ}`)
+    if (Option.isNone(chunkEntityIdOption)) {
       return 'air'
     }
+    const chunkEntityId = chunkEntityIdOption.value
 
-    const chunkOption = yield* $(
-      getComponent(chunkEntityId.value, 'chunk'),
-      Effect.map(Option.some),
-      Effect.catchAll(() => Effect.succeed(Option.none())),
-    )
+    const chunkOption = yield* $(getComponentOption(chunkEntityId, 'chunk'))
     if (Option.isNone(chunkOption)) {
       return 'air'
     }

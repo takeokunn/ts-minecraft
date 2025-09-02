@@ -13,14 +13,11 @@ export const updateTargetSystem = Effect.gen(function* ($) {
   // TODO: This is a performance bottleneck. The terrainBlockMap should not be created every frame.
   // This requires refactoring RaycastService to not depend on this map.
   const terrainBlocks = yield* $(World.query(terrainBlockQuery))
-  const terrainBlockMap = terrainBlocks.reduce(
-    (map, { entityId, position }) => {
-      const key = `${position.x},${position.y},${position.z}`
-      map.set(key, entityId)
-      return map
-    },
-    new Map<string, EntityId>(),
-  )
+  const terrainBlockMap = terrainBlocks.reduce((map, { entityId, position }) => {
+    const key = `${position.x},${position.y},${position.z}`
+    map.set(key, entityId)
+    return map
+  }, new Map<string, EntityId>())
 
   const raycastResult = yield* $(raycastService.cast(threeContext.scene, terrainBlockMap))
 

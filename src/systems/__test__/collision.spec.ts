@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref } from 'effect'
+import { Effect, Layer } from 'effect'
 import { describe, it, expect } from '@effect/vitest'
 import { createArchetype } from '@/domain/archetypes'
 import { playerColliderQuery } from '@/domain/queries'

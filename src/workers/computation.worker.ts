@@ -1,11 +1,5 @@
 import { ChunkGenerationResult, PlacedBlock } from '@/domain/block'
-import {
-  CHUNK_HEIGHT,
-  CHUNK_SIZE,
-  WATER_LEVEL,
-  WORLD_DEPTH,
-  Y_OFFSET,
-} from '@/domain/world-constants'
+import { CHUNK_HEIGHT, CHUNK_SIZE, WATER_LEVEL, WORLD_DEPTH, Y_OFFSET } from '@/domain/world-constants'
 import { Effect, Match, Option, Data, Schema as S, Cause } from 'effect'
 import Alea from 'alea'
 import { createNoise2D } from 'simplex-noise'
@@ -33,7 +27,7 @@ class WorkerErrorResponse extends S.Class<WorkerErrorResponse>('WorkerErrorRespo
   stack: S.optional(S.String),
 }) {}
 
-const WorkerResponse = S.Union(GenerateChunkResponse, WorkerErrorResponse)
+
 
 // --- Error Types ---
 class GreedyMeshError extends Data.TaggedError('GreedyMeshError')<{
@@ -70,14 +64,7 @@ const getBiome = (x: number, z: number, biomeNoise: Noise2D) => {
   return biomeNoise(x * frequency, z * frequency) > 0 ? 'desert' : 'plains'
 }
 
-const generateTerrainColumn = (
-  chunkX: number,
-  chunkZ: number,
-  localX: number,
-  localZ: number,
-  noise: NoiseFunctions,
-  amplitude: number,
-): PlacedBlock[] => {
+const generateTerrainColumn = (chunkX: number, chunkZ: number, localX: number, localZ: number, noise: NoiseFunctions, amplitude: number): PlacedBlock[] => {
   const blocks: PlacedBlock[] = []
   const worldX = chunkX * CHUNK_SIZE + localX
   const worldZ = chunkZ * CHUNK_SIZE + localZ
@@ -93,12 +80,12 @@ const generateTerrainColumn = (
     } else if (y > height - 4) {
       blockType = biome === 'desert' ? 'sand' : 'dirt'
     }
-    blocks.push({ position: { x: localX, y: worldY, z: localZ }, blockType })
+    blocks.push({ position: [localX, worldY, localZ], blockType })
   }
 
   if (height < WATER_LEVEL) {
     for (let y = height; y < WATER_LEVEL; y++) {
-      blocks.push({ position: { x: localX, y, z: localZ }, blockType: 'water' })
+      blocks.push({ position: [localX, y, localZ], blockType: 'water' })
     }
   }
 
@@ -106,13 +93,13 @@ const generateTerrainColumn = (
   if (biome === 'plains' && height >= WATER_LEVEL && treeNoise > 0.95) {
     const treeHeight = 4 + Math.floor(Math.abs(treeNoise) * 3)
     for (let i = 0; i < treeHeight; i++) {
-      blocks.push({ position: { x: localX, y: height + i, z: localZ }, blockType: 'oakLog' })
+      blocks.push({ position: [localX, height + i, localZ], blockType: 'oakLog' })
     }
     for (let y = height + treeHeight - 2; y < height + treeHeight + 1; y++) {
       for (let x = -2; x <= 2; x++) {
         for (let z = -2; z <= 2; z++) {
           if (x !== 0 || z !== 0) {
-            blocks.push({ position: { x: localX + x, y, z: localZ + z }, blockType: 'oakLeaves' })
+            blocks.push({ position: [localX + x, y, localZ + z], blockType: 'oakLeaves' })
           }
         }
       }
@@ -132,7 +119,7 @@ export const generateBlockData = (params: GenerationParams): Effect.Effect<Place
       for (let z = 0; z < CHUNK_SIZE; z++) {
         const column = generateTerrainColumn(chunkX, chunkZ, x, z, noise, amplitude)
         for (const block of column) {
-          const key = `${block.position.x},${block.position.y},${block.position.z}`
+          const key = `${block.position[0]},${block.position[1]},${block.position[2]}`
           blocksMap.set(key, block)
         }
       }
@@ -150,28 +137,15 @@ export const generateBlockData = (params: GenerationParams): Effect.Effect<Place
 
 type ChunkView = (BlockType | undefined)[][][]
 
-export const createChunkDataView = (
-  blocks: ReadonlyArray<PlacedBlock>,
-  startX: number,
-  startZ: number,
-): ChunkView => {
+export const createChunkDataView = (blocks: ReadonlyArray<PlacedBlock>, startX: number, startZ: number): ChunkView => {
   const view: ChunkView = Array.from({ length: CHUNK_SIZE }, () =>
-    Array.from({ length: CHUNK_HEIGHT }, () =>
-      Array.from({ length: CHUNK_SIZE }).fill(undefined) as (BlockType | undefined)[],
-    ),
+    Array.from({ length: CHUNK_HEIGHT }, () => Array.from({ length: CHUNK_SIZE }).fill(undefined) as (BlockType | undefined)[]),
   )
   for (const { position, blockType } of blocks) {
-    const localX = position.x - startX
-    const localZ = position.z - startZ
-    const yIndex = position.y + Y_OFFSET
-    if (
-      localX >= 0 &&
-      localX < CHUNK_SIZE &&
-      localZ >= 0 &&
-      localZ < CHUNK_SIZE &&
-      yIndex >= 0 &&
-      yIndex < CHUNK_HEIGHT
-    ) {
+    const localX = position[0] - startX
+    const localZ = position[2] - startZ
+    const yIndex = position[1] + Y_OFFSET
+    if (localX >= 0 && localX < CHUNK_SIZE && localZ >= 0 && localZ < CHUNK_SIZE && yIndex >= 0 && yIndex < CHUNK_HEIGHT) {
       const x = view[localX]
       if (x) {
         const y = x[yIndex]
@@ -191,11 +165,7 @@ export const getBlock = (view: ChunkView, x: number, y: number, z: number): Opti
   return Option.fromNullable(view[x]?.[y]?.[z])
 }
 
-export const generateGreedyMesh = (
-  blocks: ReadonlyArray<PlacedBlock>,
-  chunkX: number,
-  chunkZ: number,
-): Effect.Effect<ChunkGenerationResult['mesh'], GreedyMeshError> =>
+export const generateGreedyMesh = (blocks: ReadonlyArray<PlacedBlock>, chunkX: number, chunkZ: number): Effect.Effect<ChunkGenerationResult['mesh'], GreedyMeshError> =>
   Effect.try({
     try: () => {
       const startX = chunkX * CHUNK_SIZE
@@ -225,12 +195,7 @@ export const generateGreedyMesh = (
             for (pos[v] = 0; pos[v] < dims[v]!; ++pos[v]) {
               for (pos[u] = 0; pos[u] < dims[u]!; ++pos[u]) {
                 const b1 = getBlock(chunkView, pos[0], pos[1], pos[2])
-                const b2 = getBlock(
-                  chunkView,
-                  pos[0] + (d === 0 ? s : 0),
-                  pos[1] + (d === 1 ? s : 0),
-                  pos[2] + (d === 2 ? s : 0),
-                )
+                const b2 = getBlock(chunkView, pos[0] + (d === 0 ? s : 0), pos[1] + (d === 1 ? s : 0), pos[2] + (d === 2 ? s : 0))
                 const t1 = Option.getOrElse(
                   Option.map(b1, (b) => !isBlockTransparent(b)),
                   () => false,
@@ -293,20 +258,7 @@ export const generateGreedyMesh = (
                     pos[1] + dv[1] - Y_OFFSET,
                     pos[2] + dv[2] + startZ,
                   )
-                  normals.push(
-                    dir[0],
-                    dir[1],
-                    dir[2],
-                    dir[0],
-                    dir[1],
-                    dir[2],
-                    dir[0],
-                    dir[1],
-                    dir[2],
-                    dir[0],
-                    dir[1],
-                    dir[2],
-                  )
+                  normals.push(dir[0], dir[1], dir[2], dir[0], dir[1], dir[2], dir[0], dir[1], dir[2], dir[0], dir[1], dir[2])
 
                   const u0 = tileUv[0] * TILE_SIZE
                   const v0 = 1.0 - tileUv[1] * TILE_SIZE
@@ -314,14 +266,7 @@ export const generateGreedyMesh = (
                   const v1 = 1.0 - (tileUv[1] + h) * TILE_SIZE
                   uvs.push(u0, v1, u1, v1, u1, v0, u0, v0)
 
-                  indices.push(
-                    vertexIndex,
-                    vertexIndex + 1,
-                    vertexIndex + 2,
-                    vertexIndex,
-                    vertexIndex + 2,
-                    vertexIndex + 3,
-                  )
+                  indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2, vertexIndex, vertexIndex + 2, vertexIndex + 3)
                   vertexIndex += 4
 
                   for (let l = 0; l < h; l++) {
@@ -352,9 +297,7 @@ export const generateGreedyMesh = (
 
 // --- Main Worker Logic ---
 
-export const generateChunk = (
-  params: GenerationParams,
-): Effect.Effect<ChunkGenerationResult, GreedyMeshError> =>
+export const generateChunk = (params: GenerationParams): Effect.Effect<ChunkGenerationResult, GreedyMeshError> =>
   Effect.gen(function* (_) {
     const blocks = yield* _(generateBlockData(params))
     const mesh = yield* _(generateGreedyMesh(blocks, params.chunkX, params.chunkZ))
@@ -390,12 +333,7 @@ const main = Effect.forever(
           Effect.sync(() => {
             const transferables: Transferable[] = []
             if (response._tag === 'generateChunk') {
-              transferables.push(
-                response.result.mesh.positions.buffer,
-                response.result.mesh.normals.buffer,
-                response.result.mesh.uvs.buffer,
-                response.result.mesh.indices.buffer,
-              )
+              transferables.push(response.result.mesh.positions.buffer, response.result.mesh.normals.buffer, response.result.mesh.uvs.buffer, response.result.mesh.indices.buffer)
             }
             self.postMessage(response, { transfer: transferables })
           }),
@@ -416,11 +354,5 @@ const main = Effect.forever(
 )
 
 if (typeof self !== 'undefined' && 'onmessage' in self) {
-  Effect.runFork(
-    main.pipe(
-      Effect.catchAll((err) =>
-        Effect.logError('An unrecoverable error occurred in the computation worker', err),
-      ),
-    ),
-  )
+  Effect.runFork(main.pipe(Effect.catchAll((err) => Effect.logError('An unrecoverable error occurred in the computation worker', err))))
 }

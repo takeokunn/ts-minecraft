@@ -23,8 +23,8 @@ export const cameraControlSystem = Effect.gen(function* ($) {
     Effect.forEach(
       players,
       ({ entityId, cameraState }) => {
-        const newPitch = clampPitch(cameraState.pitch + deltaPitch)
-        const newYaw = cameraState.yaw + deltaYaw
+        const newPitch = clampPitch(player.cameraState.pitch - dy)
+        const newYaw = player.cameraState.yaw - dx
         return World.updateComponent(entityId, 'cameraState', { pitch: newPitch, yaw: newYaw })
       },
       { discard: true, concurrency: 'unbounded' },

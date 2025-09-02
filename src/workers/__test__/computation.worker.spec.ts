@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as ComputationWorker from '../computation.worker'
 import type { ComputationTask, GenerationParams } from '../../domain/types'
 import { PlacedBlock } from '../../domain/block'
-import { CHUNK_HEIGHT, CHUNK_SIZE, Y_OFFSET } from '../../domain/world-constants'
+import { Y_OFFSET } from '../../domain/world-constants'
 import { Effect, Option } from 'effect'
 
 const defaultParams: GenerationParams = {
@@ -21,8 +21,8 @@ const defaultParams: GenerationParams = {
 }
 
 const compareBlocks = (a: PlacedBlock, b: PlacedBlock) => {
-  const { x: ax, y: ay, z: az } = a.position
-  const { x: bx, y: by, z: bz } = b.position
+  const [ax, ay, az] = a.position
+  const [bx, by, bz] = b.position
   if (ay !== by) return ay - by
   if (az !== bz) return az - bz
   if (ax !== bx) return ax - bx
@@ -44,7 +44,7 @@ describe('computation.worker', () => {
 
   describe('createChunkDataView and getBlock', () => {
     it('should create a view and allow retrieving blocks', () => {
-      const blocks: PlacedBlock[] = [{ position: { x: 0, y: 0, z: 0 }, blockType: 'stone' }]
+      const blocks: PlacedBlock[] = [{ position: [0, 0, 0], blockType: 'stone' }]
       const view = ComputationWorker.createChunkDataView(blocks, 0, 0)
       const block = ComputationWorker.getBlock(view, 0, 0 + Y_OFFSET, 0)
       expect(Option.getOrNull(block)).toBe('stone')
@@ -89,8 +89,6 @@ describe('computation.worker', () => {
       const result = postMessageSpy.mock.calls[0][0]
       expect(result.chunkX).toBe(defaultParams.chunkX)
     })
-
-    
 
     it('should handle errors during chunk generation', async () => {
       const error = new Error('Chunk generation failed')

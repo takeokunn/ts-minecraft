@@ -26,7 +26,7 @@ export const updatePhysicsWorldSystem = Effect.gen(function* (_) {
       height: soa.collider.height[i]!,
       depth: soa.collider.depth[i]!,
     }
-    const aabb = createAABB(position, collider)
+    const aabb = createAABB(soa.position[i]!, soa.collider[i]!)
     registrationEffects.push(spatialGridService.register(soa.entities[i]!, aabb))
   }
 

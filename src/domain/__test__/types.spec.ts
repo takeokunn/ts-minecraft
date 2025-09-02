@@ -104,8 +104,6 @@ const schemas: Record<string, { schema: S.Schema<any, any, never>; arbitrary: fc
   SystemCommandSchema: { schema: T.SystemCommandSchema, arbitrary: systemCommandArbitrary },
 }
 
-
-
 describe('Type Schemas', () => {
   for (const [name, { schema, arbitrary }] of Object.entries(schemas)) {
     test.prop([arbitrary])(`${name} should be reversible after encoding and decoding`, (value) => {

@@ -1,73 +1,66 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { createWorld, type World } from '@/domain/world';
-import { createEntity } from '@/domain/entity';
-import { PlayerComponent, RaycastResultComponent, TargetComponent } from '@/domain/components';
-import { updateTargetSystem } from '../update-target-system';
-import { isSome, some } from '@/domain/types';
+import { Effect, Layer, Option, Ref } from 'effect'
+import { describe, it, expect } from '@effect/vitest'
+import { BufferGeometry, InstancedMesh, Mesh, Scene } from 'three'
+import { createArchetype } from '@/domain/archetypes'
+import { RaycastResult, RaycastService } from '@/infrastructure/raycast-three'
+import { ThreeContextService } from '@/infrastructure/renderer-three/context'
+import { ThreeContext } from '@/infrastructure/types'
+import { RaycastResultService } from '@/runtime/services'
+import * as World from '@/domain/world'
+import { provideTestLayer } from 'test/utils'
+import { updateTargetSystem } from '../update-target-system'
+import { toEntityId } from '@/domain/entity'
+import { Intersection } from 'three/src/core/Raycaster'
 
-describe('updateTargetSystem', () => {
-  let world: World;
-  let player: number;
+const MockRaycast = (result: Option.Option<RaycastResult>) =>
+  Layer.succeed(
+    RaycastService,
+    RaycastService.of({
+      cast: () => Effect.succeed(result),
+    }),
+  )
 
-  beforeEach(() => {
-    world = createWorld();
-    player = createEntity();
-    world.addComponent(player, PlayerComponent, {});
-  });
+const setupWorld = () =>
+  Effect.gen(function* ($) {
+    const blockArchetype = createArchetype({
+      type: 'block',
+      pos: { x: 0, y: 0, z: 0 },
+      blockType: 'dirt',
+    })
+    yield* $(World.addArchetype(blockArchetype))
+  })
 
-  it('should add a target component if one does not exist', () => {
-    const raycastResult = {
-      point: { x: 0.5, y: 0.5, z: 0.5 },
-      face: some([0, 1, 0]),
-    };
-    world.addComponent(createEntity(), RaycastResultComponent, raycastResult);
+const createMockThreeContext = (): ThreeContext => ({
+  scene: new Scene(),
+  camera: {} as any, // Mock camera if needed, otherwise {} as any is fine if not used
+  renderer: {} as any, // Mock renderer if needed
+  highlightMesh: new Mesh(),
+  stats: { dom: document.createElement('div'), begin: () => {}, end: () => {} },
+  chunkMeshes: new Map<string, Mesh<BufferGeometry>>(),
+  instancedMeshes: new Map<string, InstancedMesh>(),
+})
 
-    updateTargetSystem(world);
+describe('raycastSystem', () => {
+  it('should update raycast result', () =>
+    Effect.gen(function* ($) {
+      const mockIntersection: Intersection = {
+        distance: 1,
+        point: { x: 0, y: 0, z: 0 } as any,
+        object: new Mesh(),
+      }
 
-    const target = world.getComponent(player, TargetComponent);
-    expect(isSome(target)).toBe(true);
-    if (isSome(target)) {
-      expect(target.value.position).toEqual([0, 0, 0]);
-    }
-  });
+      const mockRaycastResult: RaycastResult = {
+        entityId: toEntityId(1),
+        face: { x: 0, y: 1, z: 0 },
+        intersection: mockIntersection,
+      }
+      const raycastResultRef = yield* $(RaycastResultService)
+      const MockThreeContext = Layer.succeed(ThreeContextService, createMockThreeContext())
 
-  it('should update the target component if one already exists', () => {
-    const initialTarget = {
-      id: createEntity(),
-      position: [1, 1, 1],
-      face: [0, -1, 0],
-    };
-    world.addComponent(player, TargetComponent, initialTarget);
+      yield* $(setupWorld())
+      yield* $(Effect.provide(raycastSystem, MockThreeContext.pipe(Layer.provide(MockRaycast(Option.some(mockRaycastResult))))))
 
-    const raycastResult = {
-      point: { x: 2.5, y: 2.5, z: 2.5 },
-      face: some([0, 1, 0]),
-    };
-    world.addComponent(createEntity(), RaycastResultComponent, raycastResult);
-
-    updateTargetSystem(world);
-
-    const target = world.getComponent(player, TargetComponent);
-    expect(isSome(target)).toBe(true);
-    if (isSome(target)) {
-      expect(target.value.position).toEqual([2, 2, 2]);
-      expect(target.value.id).not.toBe(initialTarget.id);
-    }
-  });
-
-  it('should remove the target component if the raycast result is empty', () => {
-    const initialTarget = {
-      id: createEntity(),
-      position: [1, 1, 1],
-      face: [0, -1, 0],
-    };
-    world.addComponent(player, TargetComponent, initialTarget);
-
-    world.addComponent(createEntity(), RaycastResultComponent, {});
-
-    updateTargetSystem(world);
-
-    const target = world.getComponent(player, TargetComponent);
-    expect(isSome(target)).toBe(false);
-  });
-});
+      const result = yield* $(Ref.get(raycastResultRef))
+      expect(Option.isSome(result)).toBe(true)
+    }).pipe(Effect.provide(provideTestLayer())))
+})

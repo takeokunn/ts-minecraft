@@ -1,7 +1,13 @@
-import type { InstancedMesh, Mesh, PerspectiveCamera, Scene, WebGLRenderer } from 'three'
-import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'
-import type Stats from 'three/examples/jsm/libs/stats.module.js'
-import { Context } from 'effect'
+import { Effect, Scope } from 'effect'
+import { PerspectiveCamera, Scene, WebGLRenderer, Mesh } from 'three'
+import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'
+import Stats from 'three/examples/jsm/libs/stats.module.js'
+
+export interface LockableControls extends EventTarget {
+  readonly isLocked: boolean
+  readonly lock: () => void
+  readonly unlock: () => void
+}
 
 export type ThreeCamera = {
   readonly camera: PerspectiveCamera
@@ -15,7 +21,5 @@ export type ThreeContext = {
   readonly highlightMesh: Mesh
   readonly stats: Stats
   readonly chunkMeshes: Map<string, Mesh>
-  readonly instancedMeshes: Map<string, InstancedMesh>
+  readonly instancedMeshes: Map<string, Mesh>
 }
-
-export const ThreeContextService = Context.GenericTag<ThreeContext>('app/ThreeContextService')

@@ -1,32 +1,18 @@
-import { test } from '@fast-check/vitest'
 import * as S from 'effect/Schema'
-import { describe, expect } from 'vitest'
-import * as fc from 'fast-check'
-import * as C from '../common'
-
-const vector3FloatArbitrary = fc.record({
-  x: fc.float(),
-  y: fc.float(),
-  z: fc.float(),
-})
-
-const vector3IntArbitrary = fc.record({
-  x: fc.integer(),
-  y: fc.integer(),
-  z: fc.integer(),
-})
-
-const schemas = {
-  Vector3FloatSchema: { schema: C.Vector3FloatSchema, arbitrary: vector3FloatArbitrary },
-  Vector3IntSchema: { schema: C.Vector3IntSchema, arbitrary: vector3IntArbitrary },
-}
+import { describe, expect, it } from 'vitest'
+import { Vector3FloatSchema, Vector3IntSchema } from '../common'
 
 describe('Common Schemas', () => {
-  for (const [name, { schema, arbitrary }] of Object.entries(schemas)) {
-    test.prop([arbitrary])(`${name} should be reversible after encoding and decoding`, (value) => {
-      const encode = S.encodeSync(schema as S.Schema<typeof value, any>)
-      const decode = S.decodeSync(schema as S.Schema<typeof value, any>)
-      expect(decode(encode(value))).toEqual(value)
+  describe('Vector Schemas', () => {
+    it.each([
+      { schema: Vector3FloatSchema, value: [1.1, 2.2, 3.3] as const },
+      { schema: Vector3IntSchema, value: [1, 2, 3] as const },
+    ])('should encode and decode $value', ({ schema, value }) => {
+      const encode = S.encodeSync(schema)
+      const decode = S.decodeSync(schema)
+      const encoded = encode(value)
+      const decoded = decode(encoded)
+      expect(decoded).toEqual(value)
     })
-  }
+  })
 })

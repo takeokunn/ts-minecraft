@@ -1,4 +1,4 @@
-import { Schema as S, Match } from 'effect'
+import { Schema as S, Match, Effect } from 'effect'
 import { BlockTypeSchema, hotbarSlots } from './block'
 import {
   Camera,
@@ -8,13 +8,13 @@ import {
   type ComponentName,
   type Components,
   createInputState,
-  createTargetNone,
   Gravity,
   Hotbar,
   Player,
   Position,
   Renderable,
   TargetBlockComponent,
+  TargetNone,
   TerrainBlock,
   Velocity,
 } from './components'
@@ -81,49 +81,53 @@ export type Archetype = Partial<Components>
  * @param builder - The archetype builder specifying the type and parameters.
  * @returns An archetype object (a partial set of components).
  */
-export const createArchetype = (builder: ArchetypeBuilder): Archetype => {
-  return Match.value(builder).pipe(
-    Match.when({ type: 'player' }, ({ pos, cameraState }) => ({
-      player: new Player({ isGrounded: false }),
-      position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
-      velocity: new Velocity({ dx: 0, dy: 0, dz: 0 }),
-      gravity: new Gravity({ value: PLAYER_GRAVITY }),
-      cameraState: cameraState ?? new CameraState({ pitch: 0, yaw: 0 }),
-      inputState: createInputState(),
-      collider: new Collider({
-        width: PLAYER_WIDTH,
-        height: PLAYER_HEIGHT,
-        depth: PLAYER_DEPTH,
-      }),
-      hotbar: new Hotbar({ slots: hotbarSlots, selectedIndex: 0 }),
-      target: createTargetNone(),
-    })),
-    Match.when({ type: 'block' }, ({ pos, blockType }) => ({
-      position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
-      renderable: new Renderable({ geometry: 'box', blockType }),
-      collider: new Collider({
-        width: BLOCK_SIZE,
-        height: BLOCK_SIZE,
-        depth: BLOCK_SIZE,
-      }),
-      terrainBlock: new TerrainBlock({}),
-    })),
-    Match.when({ type: 'camera' }, ({ pos }) => ({
-      camera: new Camera({
+export const createArchetype = (builder: ArchetypeBuilder): Effect.Effect<Archetype> => {
+  return Effect.gen(function* (_) {
+    const inputState = yield* _(createInputState())
+
+    return Match.value(builder).pipe(
+      Match.when({ type: 'player' }, ({ pos, cameraState }) => ({
+        player: new Player({ isGrounded: false }),
+        position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
+        velocity: new Velocity({ dx: 0, dy: 0, dz: 0 }),
+        gravity: new Gravity({ value: PLAYER_GRAVITY }),
+        cameraState: cameraState ?? new CameraState({ pitch: 0, yaw: 0 }),
+        inputState: inputState,
+        collider: new Collider({
+          width: PLAYER_WIDTH,
+          height: PLAYER_HEIGHT,
+          depth: PLAYER_DEPTH,
+        }),
+        hotbar: new Hotbar({ slots: hotbarSlots, selectedIndex: 0 }),
+        target: new TargetNone({ _tag: 'none' }),
+      })),
+      Match.when({ type: 'block' }, ({ pos, blockType }) => ({
+        position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
+        renderable: new Renderable({ geometry: 'box', blockType }),
+        collider: new Collider({
+          width: BLOCK_SIZE,
+          height: BLOCK_SIZE,
+          depth: BLOCK_SIZE,
+        }),
+        terrainBlock: new TerrainBlock({}),
+      })),
+      Match.when({ type: 'camera' }, ({ pos }) => ({
+        camera: new Camera({
+          position: new Position(pos),
+          damping: 0.1,
+        }),
         position: new Position(pos),
-        damping: 0.1,
-      }),
-      position: new Position(pos),
-    })),
-    Match.when({ type: 'targetBlock' }, ({ pos }) => ({
-      position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
-      targetBlock: new TargetBlockComponent({}),
-    })),
-    Match.when({ type: 'chunk' }, ({ chunkX, chunkZ }) => ({
-      chunk: new Chunk({ chunkX, chunkZ, blocks: [] }),
-    })),
-    Match.exhaustive,
-  )
+      })),
+      Match.when({ type: 'targetBlock' }, ({ pos }) => ({
+        position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
+        targetBlock: new TargetBlockComponent({}),
+      })),
+      Match.when({ type: 'chunk' }, ({ chunkX, chunkZ }) => ({
+        chunk: new Chunk({ chunkX, chunkZ, blocks: [] }),
+      })),
+      Match.exhaustive,
+    )
+  })
 }
 
 /**

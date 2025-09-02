@@ -1,0 +1,11 @@
+{
+  "rules": {
+    "no-restricted-globals": [
+      "error",
+      {
+        "name": "Promise",
+        "message": "Use Effect instead of Promise."
+      }
+    ]
+  }
+}

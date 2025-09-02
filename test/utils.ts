@@ -7,16 +7,7 @@ import { createInitialWorld, World as WorldState } from '@/domain/world'
 import { Scene, PerspectiveCamera, WebGLRenderer, Mesh, Material } from 'three'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js'
-import {
-  ChunkDataQueue,
-  DeltaTime,
-  GameState,
-  OnCommand,
-  RaycastResultService,
-  RenderQueue,
-  SpatialGridService,
-  InputManagerService,
-} from '@/runtime/services'
+import { ChunkDataQueue, DeltaTime, GameState, OnCommand, RaycastResultService, RenderQueue, SpatialGridService, InputManagerService } from '@/runtime/services'
 import { ComputationWorker } from '@/infrastructure/computation.worker'
 import { MaterialManager } from '@/infrastructure/material-manager'
 import { Hotbar } from '@/domain/components'
@@ -54,22 +45,19 @@ export const provideTestLayer = (
   const camera = new PerspectiveCamera()
   const controls = new PointerLockControls(camera, canvas)
 
-  const worldLayer = Layer.effect(
-    WorldContext,
-    Ref.make(initialState ?? createInitialWorld()).pipe(Effect.map((ref) => ({ world: ref }))),
-  )
+  const worldLayer = Layer.effect(WorldContext, Ref.make(initialState ?? createInitialWorld()).pipe(Effect.map((ref) => ({ world: ref }))))
 
   const mocksLayer = Layer.mergeAll(
     Layer.succeed(
       RaycastService,
-      RaycastService.of({
+      {
         cast: () => Effect.succeed(Option.none()),
         ...mockOverrides?.raycast,
-      }),
+      },
     ),
     Layer.succeed(
       ThreeCameraService,
-      ThreeCameraService.of({
+      {
         camera: { camera, controls },
         syncToComponent: () => Effect.void,
         moveRight: () => Effect.void,
@@ -81,11 +69,11 @@ export const provideTestLayer = (
         lock: Effect.void,
         unlock: Effect.void,
         ...mockOverrides?.camera,
-      }),
+      },
     ),
     Layer.succeed(
       ThreeContextService,
-      ThreeContextService.of({
+      {
         scene: new Scene(),
         camera: { camera, controls },
         renderer: {
@@ -98,42 +86,42 @@ export const provideTestLayer = (
         chunkMeshes: new Map(),
         instancedMeshes: new Map(),
         ...mockOverrides?.context,
-      }),
+      },
     ),
     Layer.succeed(
       ComputationWorker,
-      ComputationWorker.of({
+      {
         postTask: () => Effect.die('ComputationWorker.postTask not implemented'),
         ...mockOverrides?.computationWorker,
-      }),
+      },
     ),
     Layer.succeed(
       InputManagerService,
-      InputManagerService.of({
+      {
         getState: Effect.succeed({ keyboard: new Set(), mouse: { dx: 0, dy: 0 }, isLocked: false }),
         getMouseDelta: Effect.succeed({ dx: 0, dy: 0 }),
         registerListeners: () => Effect.void,
         cleanup: () => Effect.void,
         ...mockOverrides?.inputManager,
-      }),
+      },
     ),
     Layer.succeed(
       MaterialManager,
-      MaterialManager.of({
+      {
         get: () => Effect.succeed(new Material()),
         dispose: () => Effect.void,
         ...mockOverrides?.materialManager,
-      }),
+      },
     ),
     Layer.succeed(
       SpatialGridService,
-      SpatialGridService.of({
+      {
         state: Ref.unsafeMake<SpatialGridState>(HashMap.empty()),
         clear: Effect.void,
         register: () => Effect.void,
         query: () => Effect.succeed([]),
         ...mockOverrides?.spatialGrid,
-      }),
+      },
     ),
     Layer.effect(RaycastResultService, Ref.make(Option.none())),
     Layer.succeed(ChunkDataQueue, []),
@@ -141,9 +129,9 @@ export const provideTestLayer = (
     Layer.succeed(OnCommand, () => Effect.void),
     Layer.succeed(
       GameState,
-      GameState.of({
+      {
         getHotbar: Effect.succeed(new Hotbar({ slots: [], selectedIndex: 0 })),
-      }),
+      },
     ),
     Layer.succeed(DeltaTime, 0),
   )

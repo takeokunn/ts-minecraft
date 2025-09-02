@@ -14,11 +14,7 @@ type CollisionResolutionState = {
   isGrounded: boolean
 }
 
-const resolveYAxis = (
-  initialState: CollisionResolutionState,
-  playerCollider: Collider,
-  nearbyAABBs: readonly AABB[],
-): CollisionResolutionState => {
+const resolveYAxis = (initialState: CollisionResolutionState, playerCollider: Collider, nearbyAABBs: readonly AABB[]): CollisionResolutionState => {
   const state = { ...initialState }
   let playerAABB = createAABB({ x: state.position.x, y: state.position.y, z: state.position.z }, playerCollider)
 
@@ -37,11 +33,7 @@ const resolveYAxis = (
   return state
 }
 
-const resolveXAxis = (
-  initialState: CollisionResolutionState,
-  playerCollider: Collider,
-  nearbyAABBs: readonly AABB[],
-): CollisionResolutionState => {
+const resolveXAxis = (initialState: CollisionResolutionState, playerCollider: Collider, nearbyAABBs: readonly AABB[]): CollisionResolutionState => {
   const state = { ...initialState }
   let playerAABB = createAABB({ x: state.position.x, y: state.position.y, z: state.position.z }, playerCollider)
 
@@ -59,11 +51,7 @@ const resolveXAxis = (
   return state
 }
 
-const resolveZAxis = (
-  initialState: CollisionResolutionState,
-  playerCollider: Collider,
-  nearbyAABBs: readonly AABB[],
-): CollisionResolutionState => {
+const resolveZAxis = (initialState: CollisionResolutionState, playerCollider: Collider, nearbyAABBs: readonly AABB[]): CollisionResolutionState => {
   const state = { ...initialState }
   const playerAABB = createAABB({ x: state.position.x, y: state.position.y, z: state.position.z }, playerCollider)
 

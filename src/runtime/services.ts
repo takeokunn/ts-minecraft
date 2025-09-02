@@ -80,7 +80,7 @@ export interface GameState {
 export class GameState extends Context.Tag('app/GameState')<GameState, GameState>() {
   static readonly Live = Layer.succeed(
     GameState,
-    GameState.of({
+    {
       getHotbar: Effect.gen(function* (_) {
         const players = yield* _(World.query(playerQuery))
         return pipe(
@@ -89,6 +89,6 @@ export class GameState extends Context.Tag('app/GameState')<GameState, GameState
           Option.getOrElse(() => new Hotbar({ slots: [], selectedIndex: 0 })),
         )
       }),
-    }),
+    },
   )
 }

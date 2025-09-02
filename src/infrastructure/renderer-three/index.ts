@@ -3,8 +3,8 @@ import * as World from '@/domain/world'
 import { playerQuery } from '@/domain/queries'
 import { ThreeCameraService } from '../camera-three'
 import { MaterialManager, RaycastResultService, RendererService, RenderQueue, ThreeContextService } from '@/runtime/services'
-import { BufferAttribute, BufferGeometry, InstancedMesh, Matrix4, Mesh, NormalBufferAttributes } from 'three'
-import { RenderCommand } from '@/domain/types'
+import { BufferGeometry, InstancedMesh, Mesh, NormalBufferAttributes } from 'three'
+
 
 const makeRenderer = Effect.gen(function* (_) {
   const context = yield* _(ThreeContextService)
@@ -72,7 +72,7 @@ const makeRenderer = Effect.gen(function* (_) {
   })
 
   const updateInstancedMeshes = Effect.sync(() => {
-    context.instancedMeshes.forEach((mesh: InstancedMesh, key: string) => {
+    context.instancedMeshes.forEach(() => {
       // This part needs to be implemented based on how instanced meshes are used.
       // For now, it's a placeholder.
     })

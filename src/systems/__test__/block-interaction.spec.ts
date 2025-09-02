@@ -30,7 +30,7 @@ const setupWorld = Effect.gen(function* ($) {
       new TargetBlock({
         _tag: 'block',
         entityId: blockId,
-        face: { x: 0, y: 0, z: 1 },
+        face: [0, 0, 1],
         position: { x: 0, y: 0, z: -2 },
       }),
     ),
@@ -42,7 +42,7 @@ const setupWorld = Effect.gen(function* ($) {
 describe('blockInteractionSystem', () => {
   it('should call destroy handler when destroy input is true', () =>
     Effect.gen(function* ($) {
-      const { playerId, blockId } = yield* $(setupWorld)
+      const { playerId } = yield* $(setupWorld)
       yield* $(
         World.updateComponent(
           playerId,
@@ -156,7 +156,7 @@ describe('blockInteractionSystem', () => {
 describe('blockInteractionSystem', () => {
   it('should call destroy handler when destroy input is true', () =>
     Effect.gen(function* ($) {
-      const { playerId, blockId } = yield* $(setupWorld)
+      const { playerId } = yield* $(setupWorld)
       yield* $(
         World.updateComponent(
           playerId,

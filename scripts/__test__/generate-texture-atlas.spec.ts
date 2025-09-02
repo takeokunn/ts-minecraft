@@ -15,7 +15,7 @@ const createMockDirent = (name: string, isDirectory: boolean): Dirent =>
     isSymbolicLink: () => false,
     isFIFO: () => false,
     isSocket: () => false,
-  } as Dirent)
+  }) as Dirent
 
 const साइलेंटLogger = Layer.succeed(Logger, {
   log: () => Effect.unit,
@@ -59,10 +59,7 @@ describe('scripts/generate-texture-atlas', () => {
         const result = yield* _(Effect.provide(script.findAllTextureFiles(), testLayer))
 
         assert.lengthOf(result, 4)
-        assert.deepStrictEqual(
-          result.map((f) => f.name).sort(),
-          ['dirt_side', 'grass_bottom', 'grass_side', 'grass_top'],
-        )
+        assert.deepStrictEqual(result.map((f) => f.name).sort(), ['dirt_side', 'grass_bottom', 'grass_side', 'grass_top'])
         assert.include(result[0].path, 'dirt/side.png')
       }))
 

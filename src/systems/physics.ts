@@ -3,6 +3,7 @@ import { physicsQuery } from '@/domain/queries'
 import { FRICTION, TERMINAL_VELOCITY } from '@/domain/world-constants'
 import { DeltaTime } from '@/runtime/services'
 import * as World from '@/domain/world'
+import { QuerySoAResult } from '@/domain/world'
 
 export const physicsSystem = Effect.gen(function* ($) {
   const deltaTime = yield* $(DeltaTime)
@@ -11,13 +12,11 @@ export const physicsSystem = Effect.gen(function* ($) {
     return
   }
 
-  const soa = yield* $(World.querySoA(physicsQuery))
+  const soa: QuerySoAResult<typeof physicsQuery['components']> = yield* $(World.querySoA(physicsQuery))
 
   for (let i = 0; i < soa.entities.length; i++) {
     // Apply gravity
-    const newVelDY = soa.player.isGrounded[i]
-      ? 0
-      : Math.max(-TERMINAL_VELOCITY, soa.velocity.dy[i]! - soa.gravity.value[i]! * deltaTime)
+    const newVelDY = soa.player.isGrounded[i] ? 0 : Math.max(-TERMINAL_VELOCITY, soa.velocity.dy[i]! - soa.gravity.value[i]! * deltaTime)
 
     // Apply friction
     let newVelDX = soa.velocity.dx[i]!

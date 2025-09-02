@@ -1,5 +1,7 @@
 import { ChunkGenerationResult, ComputationTask, WorkerError } from '@/domain/types'
-import { Effect, Layer, Pool } from 'effect'
+import { Context, Effect, Layer, Pool } from 'effect'
+
+export { WorkerError } from '@/domain/types'
 
 const createWorker = Effect.sync(() => new Worker(new URL('../workers/computation.worker.ts', import.meta.url)))
 
@@ -8,11 +10,12 @@ const createWorkerPool = Pool.make({
   size: navigator.hardwareConcurrency || 4,
 })
 
-export interface ComputationWorker {
-  readonly postTask: (task: ComputationTask) => Effect.Effect<ChunkGenerationResult, WorkerError>
-}
-
-export const ComputationWorker = Effect.Tag<ComputationWorker>()
+export class ComputationWorker extends Context.Tag('ComputationWorker')<
+  ComputationWorker,
+  {
+    readonly postTask: (task: ComputationTask) => Effect.Effect<ChunkGenerationResult, WorkerError>
+  }
+>() {}
 
 export const ComputationWorkerLive = Layer.scoped(
   ComputationWorker,

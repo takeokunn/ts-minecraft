@@ -1,8 +1,7 @@
 import { vec3 } from 'gl-matrix'
 import { Match, Option } from 'effect'
 import { Camera, Position, Target } from './components'
-import type { Vector3 } from './geometry'
-import { isSome } from './types'
+import { Vector3 } from './common'
 
 const PI_HALF = Math.PI / 2
 
@@ -30,25 +29,23 @@ export const clampPitch = (pitch: number): number => {
 
 export const updateCamera = (camera: Camera, target: Option.Option<Target>): Camera => {
   const newTargetPositionOption = Option.flatMap(target, (t) => (t._tag === 'block' ? Option.some(t.position) : Option.none()))
-  if (Option.isSome(newTargetPositionOption)) {
-    return new Camera({ ...camera, target: newTargetPositionOption.value })
-  }
-  return new Camera({ ...camera, target: undefined })
+  return Option.match(newTargetPositionOption, {
+    onNone: () => new Camera({ ...camera, target: undefined }),
+    onSome: (newTargetPosition) => new Camera({ ...camera, target: newTargetPosition }),
+  })
 }
 
-export const updateCameraPosition = (
-  camera: Camera,
-  targetPosition: Option.Option<Vector3>,
-  deltaTime: number,
-): Camera => {
-  if (isSome(targetPosition)) {
-    const newPositionVec = vec3.create()
-    const currentPositionVec: Vector3 = [camera.position.x, camera.position.y, camera.position.z]
-    vec3.lerp(newPositionVec, currentPositionVec, targetPosition.value, deltaTime * camera.damping)
-    const newPosition = new Position({ x: newPositionVec[0], y: newPositionVec[1], z: newPositionVec[2] })
-    return new Camera({ ...camera, position: newPosition })
-  }
-  return camera
+export const updateCameraPosition = (camera: Camera, targetPosition: Option.Option<Vector3>, deltaTime: number): Camera => {
+  return Option.match(targetPosition, {
+    onNone: () => camera,
+    onSome: (targetPos) => {
+      const newPositionVec = vec3.create()
+      const currentPositionVec: Vector3 = [camera.position.x, camera.position.y, camera.position.z]
+      vec3.lerp(newPositionVec, currentPositionVec, targetPos, deltaTime * camera.damping)
+      const newPosition = new Position({ x: newPositionVec[0], y: newPositionVec[1], z: newPositionVec[2] })
+      return new Camera({ ...camera, position: newPosition })
+    },
+  })
 }
 
 export const getCameraLookAt = (camera: Camera): Vector3 => {
