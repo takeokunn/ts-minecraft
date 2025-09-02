@@ -36,18 +36,18 @@ const BlockDefinitionSchema = S.Struct({
 type BlockDefinition = S.Schema.Type<typeof BlockDefinitionSchema>
 
 export const blockDefinitions: Readonly<Record<BlockType, BlockDefinition>> = {
-  air: { textures: { side: [0, 0] }, isTransparent: true, isFluid: false },
-  grass: { textures: { top: [0, 0], bottom: [2, 0], side: [1, 0] }, isTransparent: false, isFluid: false },
-  dirt: { textures: { side: [2, 0] }, isTransparent: false, isFluid: false },
-  stone: { textures: { side: [3, 0] }, isTransparent: false, isFluid: false },
-  cobblestone: { textures: { side: [4, 0] }, isTransparent: false, isFluid: false },
-  oakLog: { textures: { top: [6, 0], bottom: [6, 0], side: [5, 0] }, isTransparent: false, isFluid: false },
-  oakLeaves: { textures: { side: [7, 0] }, isTransparent: true, isFluid: false },
-  sand: { textures: { side: [8, 0] }, isTransparent: false, isFluid: false },
-  water: { textures: { side: [9, 0] }, isTransparent: true, isFluid: true },
-  glass: { textures: { side: [10, 0] }, isTransparent: true, isFluid: false },
-  brick: { textures: { side: [11, 0] }, isTransparent: false, isFluid: false },
-  plank: { textures: { side: [12, 0] }, isTransparent: false, isFluid: false },
+  air: { textures: { side: [0, 0] }, isTransparent: true, isFluid: false }, // Note: air doesn't have a real texture
+  grass: { textures: { top: [7, 0], bottom: [5, 0], side: [6, 0] }, isTransparent: false, isFluid: false },
+  dirt: { textures: { side: [3, 0] }, isTransparent: false, isFluid: false },
+  stone: { textures: { side: [15, 0] }, isTransparent: false, isFluid: false },
+  cobblestone: { textures: { side: [1, 0] }, isTransparent: false, isFluid: false },
+  oakLog: { textures: { top: [12, 0], bottom: [10, 0], side: [11, 0] }, isTransparent: false, isFluid: false },
+  oakLeaves: { textures: { side: [8, 0] }, isTransparent: true, isFluid: false }, // Using non-transparent for now
+  sand: { textures: { side: [14, 0] }, isTransparent: false, isFluid: false },
+  water: { textures: { side: [9, 0] }, isTransparent: true, isFluid: true }, // Assuming water has a texture, placeholder
+  glass: { textures: { side: [4, 0] }, isTransparent: true, isFluid: false },
+  brick: { textures: { side: [0, 0] }, isTransparent: false, isFluid: false },
+  plank: { textures: { side: [13, 0] }, isTransparent: false, isFluid: false },
 }
 
 // --- Functions ---

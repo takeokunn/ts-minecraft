@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "lint": "oxlint",
-    "format": "prettier --write . --ignore-path .gitignore && oxlint --fix"
+    "format": "prettier --write . --ignore-path .gitignore && oxlint --fix",
+    "generate:atlas": "npx tsx scripts/generate-texture-atlas.ts"
   },
   "devDependencies": {
     "@effect/test": "^0.1.0",
@@ -27,7 +28,9 @@
     "madge": "^8.0.0",
     "oxlint": "^1.14.0",
     "prettier": "^3.3.3",
+    "sharp": "^0.34.3",
     "ts-pattern": "^5.8.0",
+    "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "vite": "^7.1.3",
     "vite-tsconfig-paths": "^5.1.4",

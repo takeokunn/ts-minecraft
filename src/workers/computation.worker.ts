@@ -240,7 +240,7 @@ export const generateGreedyMesh = (blocks: ReadonlyArray<PlacedBlock>, chunkX: n
               normals.push(dir[0], dir[1], dir[2], dir[0], dir[1], dir[2], dir[0], dir[1], dir[2], dir[0], dir[1], dir[2])
 
               const u0 = tileUv[0] * TILE_SIZE
-              const v0 = 1.0 - (tileUv[1] + 1) * TILE_SIZE
+              const v0 = 1.0 - tileUv[1] * TILE_SIZE
               const u1 = (tileUv[0] + w) * TILE_SIZE
               const v1 = 1.0 - (tileUv[1] + h) * TILE_SIZE
               uvs.push(u0, v1, u1, v1, u1, v0, u0, v0)

@@ -1,1 +1,3 @@
-import './main'
+import { init } from './main'
+
+init()

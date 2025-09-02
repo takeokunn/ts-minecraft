@@ -127,9 +127,13 @@ export const bootstrap = () => {
   return main.pipe(Effect.provide(finalLayer))
 }
 
-// --- Bootstrap ---
-document.addEventListener('DOMContentLoaded', () => {
-  const runnable = bootstrap()
+export const runApp = (bootstrapFn = bootstrap) => {
+  const runnable = bootstrapFn()
   // @ts-expect-error R a is not assignable to never
   Effect.runFork(runnable)
-})
+}
+
+// --- Bootstrap ---
+export const init = () => {
+  document.addEventListener('DOMContentLoaded', () => runApp())
+}

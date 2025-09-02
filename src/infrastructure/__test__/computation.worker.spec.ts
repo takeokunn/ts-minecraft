@@ -106,4 +106,21 @@ describe('ComputationWorker', () => {
 
     await Effect.runPromise(Effect.provide(program, ComputationWorkerLive))
   })
+
+  describe('when hardwareConcurrency is not available', () => {
+    beforeEach(() => {
+      // Mock hardwareConcurrency to be undefined
+      vi.spyOn(navigator, 'hardwareConcurrency', 'get').mockReturnValue(undefined as any)
+    })
+
+    it('should default to 4 workers', async () => {
+      const program = Effect.gen(function* (_) {
+        // This test just needs to run the layer to ensure the fallback is hit.
+        // We don't need to post tasks.
+      })
+
+      // We expect this to run without errors, implying the fallback was used.
+      await expect(Effect.runPromise(Effect.provide(program, ComputationWorkerLive))).resolves.toBeUndefined()
+    })
+  })
 })

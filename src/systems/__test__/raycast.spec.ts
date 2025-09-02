@@ -8,6 +8,7 @@ import { RaycastResult, RaycastService } from '@/infrastructure/raycast-three'
 import { EntityId } from '@/domain/entity'
 import { ThreeContext } from '@/infrastructure/types'
 import * as THREE from 'three'
+import { areRaycastResultsEqual } from '../raycast'
 
 const mockRaycastResult = (result: Option.Option<RaycastResult>) =>
   Layer.succeed(
@@ -56,7 +57,7 @@ describe('raycastSystem', () => {
     const initialResult: RaycastResult = {
       entityId: 1 as EntityId,
       face: { x: 0, y: 1, z: 0 },
-      intersection: {} as THREE.Intersection,
+      intersection: { distance: 1 } as THREE.Intersection,
     }
     const raycastResultRef = Ref.unsafeMake(Option.some(initialResult))
     const MockRaycastResult = Layer.succeed(RaycastResultService, raycastResultRef)
@@ -73,5 +74,115 @@ describe('raycastSystem', () => {
     })
 
     await Effect.runPromise(Effect.provide(program, Layer.mergeAll(WorldLive, MockRaycastResult, MockRaycast, MockThreeContext)))
+  })
+
+  it('should update raycast result when the Some value changes', async () => {
+    const initialResult: RaycastResult = {
+      entityId: 1 as EntityId,
+      face: { x: 0, y: 1, z: 0 },
+      intersection: { distance: 1 } as THREE.Intersection,
+    }
+    const newResult: RaycastResult = {
+      entityId: 2 as EntityId,
+      face: { x: 1, y: 0, z: 0 },
+      intersection: { distance: 2 } as THREE.Intersection,
+    }
+
+    const raycastResultRef = Ref.unsafeMake(Option.some(initialResult))
+    const MockRaycastResult = Layer.succeed(RaycastResultService, raycastResultRef)
+    const MockRaycast = mockRaycastResult(Option.some(newResult))
+    const MockThreeContext = Layer.succeed(ThreeContextService, {} as ThreeContext)
+
+    const program = Effect.gen(function* (_) {
+      yield* _(setupWorld)
+      yield* _(raycastSystem)
+      return yield* _(Ref.get(raycastResultRef))
+    })
+
+    const finalResult = await Effect.runPromise(Effect.provide(program, Layer.mergeAll(WorldLive, MockRaycastResult, MockRaycast, MockThreeContext)))
+
+    expect(finalResult).toEqual(Option.some(newResult))
+    expect(finalResult).not.toEqual(Option.some(initialResult))
+  })
+
+  it('should not update when both old and new results are None', async () => {
+    const raycastResultRef = Ref.unsafeMake(Option.none<RaycastResult>())
+    const MockRaycastResult = Layer.succeed(RaycastResultService, raycastResultRef)
+    const MockRaycast = mockRaycastResult(Option.none())
+    const MockThreeContext = Layer.succeed(ThreeContextService, {} as ThreeContext)
+
+    const program = Effect.gen(function* (_) {
+      yield* _(setupWorld)
+      yield* _(raycastSystem)
+      return yield* _(Ref.get(raycastResultRef))
+    })
+
+    const finalResult = await Effect.runPromise(Effect.provide(program, Layer.mergeAll(WorldLive, MockRaycastResult, MockRaycast, MockThreeContext)))
+    expect(Option.isNone(finalResult)).toBe(true)
+  })
+
+  it('should update when old result is Some and new is None', async () => {
+    const initialResult: RaycastResult = {
+      entityId: 1 as EntityId,
+      face: { x: 0, y: 1, z: 0 },
+      intersection: { distance: 1 } as THREE.Intersection,
+    }
+    const raycastResultRef = Ref.unsafeMake(Option.some(initialResult))
+    const MockRaycastResult = Layer.succeed(RaycastResultService, raycastResultRef)
+    const MockRaycast = mockRaycastResult(Option.none())
+    const MockThreeContext = Layer.succeed(ThreeContextService, {} as ThreeContext)
+
+    const program = Effect.gen(function* (_) {
+      yield* _(setupWorld)
+      yield* _(raycastSystem)
+      return yield* _(Ref.get(raycastResultRef))
+    })
+
+    const finalResult = await Effect.runPromise(Effect.provide(program, Layer.mergeAll(WorldLive, MockRaycastResult, MockRaycast, MockThreeContext)))
+    expect(Option.isNone(finalResult)).toBe(true)
+  })
+})
+
+describe('areRaycastResultsEqual', () => {
+  const baseResult: RaycastResult = {
+    entityId: 1 as EntityId,
+    face: { x: 0, y: 1, z: 0 },
+    intersection: { distance: 1.23 } as THREE.Intersection,
+  }
+
+  it('should return true for identical results', () => {
+    const resultA = { ...baseResult }
+    const resultB = { ...baseResult }
+    expect(areRaycastResultsEqual(resultA, resultB)).toBe(true)
+  })
+
+  it('should return false if entityId is different', () => {
+    const resultA = { ...baseResult }
+    const resultB = { ...baseResult, entityId: 2 as EntityId }
+    expect(areRaycastResultsEqual(resultA, resultB)).toBe(false)
+  })
+
+  it('should return false if face.x is different', () => {
+    const resultA = { ...baseResult }
+    const resultB = { ...baseResult, face: { ...baseResult.face, x: 1 } }
+    expect(areRaycastResultsEqual(resultA, resultB)).toBe(false)
+  })
+
+  it('should return false if face.y is different', () => {
+    const resultA = { ...baseResult }
+    const resultB = { ...baseResult, face: { ...baseResult.face, y: 0 } }
+    expect(areRaycastResultsEqual(resultA, resultB)).toBe(false)
+  })
+
+  it('should return false if face.z is different', () => {
+    const resultA = { ...baseResult }
+    const resultB = { ...baseResult, face: { ...baseResult.face, z: 1 } }
+    expect(areRaycastResultsEqual(resultA, resultB)).toBe(false)
+  })
+
+  it('should return false if intersection.distance is different', () => {
+    const resultA = { ...baseResult }
+    const resultB = { ...baseResult, intersection: { distance: 4.56 } as THREE.Intersection }
+    expect(areRaycastResultsEqual(resultA, resultB)).toBe(false)
   })
 })

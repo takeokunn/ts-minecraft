@@ -3,7 +3,8 @@
  */
 import { Effect, Layer, Ref, HashSet } from 'effect'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { main, bootstrap, AppLayer, onCommandEffect } from '@/main'
+import * as mainModule from '@/main'
+import { main, bootstrap, AppLayer, onCommandEffect, runApp } from '@/main'
 import * as loop from '@/runtime/loop'
 import * as systems from '@/systems'
 import { World } from '@/runtime/world'
@@ -62,6 +63,22 @@ describe('bootstrap', () => {
 
   it('should throw an error if #app element does not exist', () => {
     expect(() => bootstrap()).toThrow('Root element #app not found')
+  })
+})
+
+describe('init', () => {
+  it('should add DOMContentLoaded listener', () => {
+    const addEventListenerSpy = vi.spyOn(document, 'addEventListener')
+    mainModule.init()
+    expect(addEventListenerSpy).toHaveBeenCalledWith('DOMContentLoaded', expect.any(Function))
+  })
+})
+
+describe('runApp', () => {
+  it('should call bootstrap', () => {
+    const bootstrapSpy = vi.fn(() => Effect.void)
+    runApp(bootstrapSpy)
+    expect(bootstrapSpy).toHaveBeenCalled()
   })
 })
 

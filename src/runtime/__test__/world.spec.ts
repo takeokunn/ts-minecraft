@@ -89,4 +89,21 @@ describe('World Service', () => {
         expect(results.length).toBe(0)
       }),
     ))
+
+  it('should query entities using SoA', () =>
+    runTest(
+      Effect.gen(function* (_) {
+        const world = yield* _(World)
+        const playerArchetype = createArchetype({ type: 'player', pos: new Position({ x: 1, y: 2, z: 3 }) })
+
+        const player1Id = yield* _(world.addArchetype(playerArchetype))
+        const results = yield* _(world.querySoA(playerQuery))
+
+        expect(results.entities).toEqual([player1Id])
+        expect(results.position.x).toEqual([1])
+        expect(results.position.y).toEqual([2])
+        expect(results.position.z).toEqual([3])
+        expect(results.player.isGrounded).toEqual([false])
+      }),
+    ))
 })

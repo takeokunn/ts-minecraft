@@ -217,19 +217,14 @@ export const query = <T extends ReadonlyArray<ComponentName>>(world: World, quer
   for (const entities of matchingArchetypes) {
     for (const entityId of entities) {
       const result: Partial<QueryResult<T>> = { entityId } as any
-      let allComponentsFound = true
       for (const componentName of queryDef.components) {
         const component = getComponent(world, entityId, componentName)
+        // This Option is guaranteed to be Some because we've already filtered by archetype
         if (Option.isSome(component)) {
           ;(result as any)[componentName] = component.value
-        } else {
-          allComponentsFound = false
-          break
         }
       }
-      if (allComponentsFound) {
-        results.push(result as QueryResult<T>)
-      }
+      results.push(result as QueryResult<T>)
     }
   }
   return results
@@ -249,19 +244,22 @@ export const querySoA = <T extends ReadonlyArray<ComponentName>>(
 
   for (const componentName of queryDef.components) {
     const componentSchema = componentSchemas[componentName]
-    const ast = S.isSchema(componentSchema) ? componentSchema.ast : undefined
-    const typeLiteral = ast && AST.isTransformation(ast) ? ast.from : ast
 
-    if (typeLiteral && AST.isTypeLiteral(typeLiteral)) {
-      const props = AST.getPropertySignatures(typeLiteral)
-      const propKeys = props.map((p) => String(p.name))
+    let ast = componentSchema?.ast
+    // Handle transformations (e.g., from S.Class) to get to the underlying TypeLiteral
+    while (ast && AST.isTransformation(ast)) {
+      ast = ast.from
+    }
 
+    if (ast && AST.isTypeLiteral(ast)) {
+      const propKeys = ast.propertySignatures.map((ps) => String(ps.name))
       const soaStore: any = {}
       for (const key of propKeys) {
         soaStore[key] = queryResult.map((r) => (r as any)[componentName][key])
       }
       ;(result as any)[componentName] = soaStore
     } else {
+      // Handle non-structured components (e.g., unions, primitives)
       ;(result as any)[componentName] = queryResult.map((r) => (r as any)[componentName])
     }
   }

@@ -1,4 +1,4 @@
-import { TextureLoader, MeshBasicMaterial, type Material, SRGBColorSpace, Texture } from 'three'
+import { TextureLoader, MeshBasicMaterial, type Material, SRGBColorSpace, Texture, NearestFilter } from 'three'
 import { Context, Effect, Layer } from 'effect'
 
 // --- Error Type ---
@@ -25,59 +25,29 @@ export const MaterialManager = Context.GenericTag<MaterialManager>('app/Material
 
 // --- Service Implementation ---
 
-export const MaterialManagerLive = Layer.effect(
-  MaterialManager,
-  Effect.sync(() => {
+const makeMaterialManager = Effect.tryPromise({
+  try: async () => {
     const textureLoader = new TextureLoader()
-    const materialCache = new Map<string, Material>()
-    const promiseCache = new Map<string, Promise<Material>>()
+    const texture = await textureLoader.loadAsync('/texture/texture.png')
+    texture.colorSpace = SRGBColorSpace
+    // Use NearestFilter for crisp pixel art style textures
+    texture.magFilter = NearestFilter
+    texture.minFilter = NearestFilter
+    const material = new MeshBasicMaterial({ map: texture })
 
-    async function loadAndCreateMaterial(key: string): Promise<Material> {
-      try {
-        const texture = await textureLoader.loadAsync(key)
-        texture.colorSpace = SRGBColorSpace
-        const material = new MeshBasicMaterial({ map: texture })
-        materialCache.set(key, material)
-        return material
-      } finally {
-        promiseCache.delete(key)
+    const dispose = Effect.sync(() => {
+      if (material.map) {
+        material.map.dispose()
       }
-    }
-
-    const getAsync = (key: string): Promise<Material> => {
-      const cachedMaterial = materialCache.get(key)
-      if (cachedMaterial) {
-        return Promise.resolve(cachedMaterial)
-      }
-
-      const cachedPromise = promiseCache.get(key)
-      if (cachedPromise) {
-        return cachedPromise
-      }
-
-      const promise = loadAndCreateMaterial(key)
-      promiseCache.set(key, promise)
-      return promise
-    }
-
-    const disposeSync = (): void => {
-      materialCache.forEach((material) => {
-        if ('map' in material && material.map instanceof Texture) {
-          material.map.dispose()
-        }
-        material.dispose()
-      })
-      materialCache.clear()
-      promiseCache.clear()
-    }
+      material.dispose()
+    })
 
     return {
-      get: (key: string) =>
-        Effect.tryPromise({
-          try: () => getAsync(key),
-          catch: (e) => new TextureLoadError(key, e),
-        }),
-      dispose: () => Effect.sync(disposeSync),
+      get: (_key: string) => Effect.succeed(material),
+      dispose: () => dispose,
     }
-  }),
-)
+  },
+  catch: (e) => new TextureLoadError('/texture/texture.png', e),
+})
+
+export const MaterialManagerLive = Layer.effect(MaterialManager, makeMaterialManager)

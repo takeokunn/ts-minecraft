@@ -132,6 +132,23 @@ describe('InputManager', () => {
     await setupAndRun(program)
   })
 
+  it('should handle mousemove events with undefined movement values when locked', async () => {
+    const program = Effect.gen(function* (_) {
+      const manager = yield* _(InputManager)
+      mockControls.lock() // Simulate lock
+
+      // Dispatch event with undefined movementX and movementY
+      const mouseMoveEvent = new MouseEvent('mousemove')
+      Object.defineProperty(mouseMoveEvent, 'movementX', { value: undefined })
+      Object.defineProperty(mouseMoveEvent, 'movementY', { value: undefined })
+      document.dispatchEvent(mouseMoveEvent)
+
+      const delta = yield* _(manager.getMouseDelta)
+      expect(delta).toEqual({ dx: 0, dy: 0 })
+    })
+    await setupAndRun(program)
+  })
+
   it('should update lock state on lock/unlock events', async () => {
     const program = Effect.gen(function* (_) {
       const manager = yield* _(InputManager)
@@ -146,5 +163,51 @@ describe('InputManager', () => {
     })
 
     await setupAndRun(program)
+  })
+
+  it('should not update keyboard state on mouseup when not locked', async () => {
+    const program = Effect.gen(function* (_) {
+      const manager = yield* _(InputManager)
+      document.dispatchEvent(new MouseEvent('mouseup', { button: 0 }))
+      const state = yield* _(manager.getState)
+      expect(state.keyboard.has('Mouse0')).toBe(false)
+    })
+    await setupAndRun(program)
+  })
+
+  it('should call unlock on cleanup if controls are locked', async () => {
+    const program = Effect.gen(function* (_) {
+      const manager = yield* _(InputManager)
+      yield* _(manager.registerListeners(mockControls))
+      mockControls.lock()
+      yield* _(manager.cleanup)
+      expect(mockControls.unlock).toHaveBeenCalled()
+    })
+    await Effect.runPromise(Effect.provide(program, InputManagerLive))
+  })
+
+  it('should cleanup previous listeners when registerListeners is called again', async () => {
+    const program = Effect.gen(function* (_) {
+      const manager = yield* _(InputManager)
+      const removeListenerSpy = vi.spyOn(document, 'removeEventListener')
+      const removeControlsListenerSpy = vi.spyOn(mockControls, 'removeEventListener')
+
+      yield* _(manager.registerListeners(mockControls))
+      yield* _(manager.registerListeners(mockControls))
+
+      expect(removeListenerSpy).toHaveBeenCalledTimes(5)
+      expect(removeControlsListenerSpy).toHaveBeenCalledTimes(2)
+    })
+    await Effect.runPromise(Effect.provide(program, InputManagerLive))
+  })
+
+  it('should do nothing on cleanup if listeners were not registered', async () => {
+    const program = Effect.gen(function* (_) {
+      const manager = yield* _(InputManager)
+      const removeListenerSpy = vi.spyOn(document, 'removeEventListener')
+      yield* _(manager.cleanup)
+      expect(removeListenerSpy).not.toHaveBeenCalled()
+    })
+    await Effect.runPromise(Effect.provide(program, InputManagerLive))
   })
 })

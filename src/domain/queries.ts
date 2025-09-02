@@ -8,7 +8,7 @@ export const playerQuery: Query = createQuery('playerQuery', ['player', 'positio
 /**
  * Query for the player entity, focusing on components needed for block interaction (targeting).
  */
-export const playerTargetQuery: Query = createQuery('playerTargetQuery', ['player', 'inputState', 'target', 'hotbar'])
+export const playerTargetQuery: Query = createQuery('playerTargetQuery', ['player', 'position', 'inputState', 'target', 'hotbar'])
 
 /**
  * Query for the player entity, focusing on components needed for collision detection.

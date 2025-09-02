@@ -1,4 +1,4 @@
-import { Effect, Fiber } from 'effect'
+import { Effect } from 'effect'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MaterialManager, MaterialManagerLive, TextureLoadError } from '../material-manager'
 import * as THREE from 'three'
@@ -7,31 +7,27 @@ import * as THREE from 'three'
 vi.mock('three', async () => {
   const actualThree = await vi.importActual('three')
   class MockTexture {
-    _isMockTexture = true
     colorSpace = ''
-    dispose() {}
+    magFilter = null
+    minFilter = null
+    dispose = vi.fn()
   }
   class MockMeshBasicMaterial {
     map: any
     constructor(params: { map: any }) {
       this.map = params.map
     }
-    dispose() {}
+    dispose = vi.fn()
   }
-
-  const MockTextureConstructor = vi.fn((...args) => new (MockTexture as any)(...args))
-  Object.defineProperty(MockTextureConstructor, Symbol.hasInstance, {
-    value: (instance: any) => !!instance?._isMockTexture,
-  })
 
   return {
     ...actualThree,
-    Texture: MockTextureConstructor,
     TextureLoader: vi.fn().mockImplementation(() => ({
       loadAsync: vi.fn(),
     })),
     MeshBasicMaterial: vi.fn((...args) => new (MockMeshBasicMaterial as any)(...args)),
     SRGBColorSpace: 'srgb-colorspace',
+    NearestFilter: 'nearest-filter',
   }
 })
 
@@ -40,35 +36,51 @@ const mockedMeshBasicMaterial = vi.mocked(THREE.MeshBasicMaterial, true)
 
 describe('MaterialManager', () => {
   let loadAsyncMock: ReturnType<typeof vi.fn>
+  let mockTexture: THREE.Texture
+  let mockMaterial: THREE.MeshBasicMaterial
 
   beforeEach(() => {
     vi.clearAllMocks()
-    loadAsyncMock = vi.fn()
+
+    mockTexture = new THREE.Texture()
+    vi.spyOn(mockTexture, 'dispose')
+    mockMaterial = new THREE.MeshBasicMaterial({ map: mockTexture })
+    vi.spyOn(mockMaterial, 'dispose')
+
+    loadAsyncMock = vi.fn().mockResolvedValue(mockTexture)
     mockedTextureLoader.mockImplementation(
       () =>
         ({
           loadAsync: loadAsyncMock,
         }) as any,
     )
+    mockedMeshBasicMaterial.mockImplementation(() => mockMaterial as any)
   })
 
-  it('should load and cache a material', async () => {
-    const texture = { colorSpace: '' }
-    loadAsyncMock.mockResolvedValue(texture)
-
+  it('should load the texture atlas and provide a material', async () => {
     const program = Effect.gen(function* (_) {
       const manager = yield* _(MaterialManager)
-      const material = yield* _(manager.get('test.png'))
+      const material = yield* _(manager.get('any_key_is_ignored'))
 
-      expect(material).toBeDefined()
-      expect(loadAsyncMock).toHaveBeenCalledWith('test.png')
-      expect(mockedMeshBasicMaterial).toHaveBeenCalledWith({ map: texture })
-      expect(texture.colorSpace).toBe(THREE.SRGBColorSpace)
+      expect(loadAsyncMock).toHaveBeenCalledWith('/texture/texture.png')
+      expect(mockedMeshBasicMaterial).toHaveBeenCalledWith({ map: mockTexture })
+      expect(material).toBe(mockMaterial)
+      expect(mockTexture.colorSpace).toBe(THREE.SRGBColorSpace)
+      expect(mockTexture.magFilter).toBe(THREE.NearestFilter)
+      expect(mockTexture.minFilter).toBe(THREE.NearestFilter)
+    })
 
-      // Call get again to test cache
-      const cachedMaterial = yield* _(manager.get('test.png'))
-      expect(cachedMaterial).toBe(material)
-      expect(loadAsyncMock).toHaveBeenCalledTimes(1) // Should not be called again
+    await Effect.runPromise(Effect.provide(program, MaterialManagerLive))
+  })
+
+  it('should return the same material instance on subsequent calls', async () => {
+    const program = Effect.gen(function* (_) {
+      const manager = yield* _(MaterialManager)
+      const material1 = yield* _(manager.get('key1'))
+      const material2 = yield* _(manager.get('key2'))
+
+      expect(material1).toBe(material2)
+      expect(loadAsyncMock).toHaveBeenCalledTimes(1)
     })
 
     await Effect.runPromise(Effect.provide(program, MaterialManagerLive))
@@ -80,66 +92,45 @@ describe('MaterialManager', () => {
 
     const program = Effect.gen(function* (_) {
       const manager = yield* _(MaterialManager)
-      const result = yield* _(Effect.flip(manager.get('error.png')))
-      expect(result).toBeInstanceOf(TextureLoadError)
-      expect(result.path).toBe('error.png')
-      expect(result.originalError).toBe(error)
+      // The error happens during layer creation, so we must catch the layer's error
+      const result = yield* _(Effect.flip(manager.get('any')))
+      return result
     })
 
-    await Effect.runPromise(Effect.provide(program, MaterialManagerLive))
+    // We test the layer directly because the error occurs during initialization
+    const layerEffect = Effect.provide(program, MaterialManagerLive)
+    const result = await Effect.runPromise(Effect.flip(layerEffect))
+    
+    expect(result).toBeInstanceOf(TextureLoadError)
+    expect(result.path).toBe('/texture/texture.png')
+    expect(result.originalError).toBe(error)
   })
 
-  
+  it('should dispose of the material and texture', async () => {
+    const materialDisposeSpy = vi.fn()
+    const textureDisposeSpy = vi.fn()
 
-  it('should handle concurrent requests for the same material', async () => {
-    const texture = { colorSpace: '' }
-    let resolve: (value: unknown) => void
-    const promise = new Promise((r) => (resolve = r))
-    loadAsyncMock.mockImplementation(() => promise)
+    // Create a fresh mock implementation for this specific test
+    const mockTexture = { dispose: textureDisposeSpy, colorSpace: '', magFilter: null, minFilter: null }
+    const mockMaterial = { dispose: materialDisposeSpy, map: mockTexture }
+
+    mockedTextureLoader.mockImplementation(
+      () =>
+        ({
+          loadAsync: vi.fn().mockResolvedValue(mockTexture),
+        }) as any,
+    )
+    mockedMeshBasicMaterial.mockImplementation(() => mockMaterial as any)
 
     const program = Effect.gen(function* (_) {
       const manager = yield* _(MaterialManager)
-      const fiber1 = yield* _(Effect.fork(manager.get('concurrent.png')))
-      const fiber2 = yield* _(Effect.fork(manager.get('concurrent.png')))
-
-      // Give fibers time to start
-      yield* _(Effect.sleep(0))
-
-      resolve!(texture)
-
-      const material1 = yield* _(Fiber.join(fiber1))
-      const material2 = yield* _(Fiber.join(fiber2))
-
-      expect(material1).toBe(material2)
-      expect(loadAsyncMock).toHaveBeenCalledTimes(1)
+      const disposeEffect = manager.dispose()
+      yield* _(disposeEffect)
     })
 
     await Effect.runPromise(Effect.provide(program, MaterialManagerLive))
-  })
 
-  it('should dispose of materials and textures', async () => {
-    const texture = new THREE.Texture()
-    vi.spyOn(texture, 'dispose')
-    const material = new THREE.MeshBasicMaterial({ map: texture })
-    vi.spyOn(material, 'dispose')
-
-    loadAsyncMock.mockResolvedValue(texture)
-    mockedMeshBasicMaterial.mockReturnValue(material as any)
-
-    const program = Effect.gen(function* (_) {
-      const manager = yield* _(MaterialManager)
-      yield* _(manager.get('test.png')) // Load a material
-      yield* _(manager.dispose())
-
-      expect(material.dispose).toHaveBeenCalledOnce()
-      expect(texture.dispose).toHaveBeenCalledOnce()
-
-      // Check if cache is cleared by trying to get again
-      loadAsyncMock.mockClear()
-      yield* _(manager.get('test.png'))
-      expect(loadAsyncMock).toHaveBeenCalledTimes(1)
-    })
-
-    await Effect.runPromise(Effect.provide(program, MaterialManagerLive))
+    expect(materialDisposeSpy).toHaveBeenCalledOnce()
+    expect(textureDisposeSpy).toHaveBeenCalledOnce()
   })
 })

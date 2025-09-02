@@ -16,6 +16,18 @@ declare module '@/domain/components' {
   }
 }
 
+// Test-only component with a class schema
+class TransformComponent extends S.Class<TransformComponent>()({
+  value: S.String,
+}) {}
+
+declare module '@/domain/components' {
+  interface Components {
+    transform: TransformComponent
+  }
+}
+
+
 const archetypeGen = fc.constantFrom<Archetype>(
   createArchetype({ type: 'player', pos: new Position({ x: 0, y: 0, z: 0 }) }),
   createArchetype({ type: 'block', pos: new Position({ x: 1, y: 1, z: 1 }), blockType: 'grass' }),
@@ -248,7 +260,7 @@ describe('world-pure', () => {
       const [entityId, newWorld] = World.addArchetype(world, archetype)
       world = newWorld
 
-      const results = World.querySoA(world, { components: ['position', 'noSchema'] })
+      const results = World.querySoA(world, { components: ['position', 'noSchema'] }, ComponentSchemas)
       expect(results.entities).toEqual([entityId])
       expect(results.position.x).toEqual([1])
       expect((results as any).noSchema).toEqual(['test-string'])
@@ -268,6 +280,27 @@ describe('world-pure', () => {
       const targetSoA = results.target as any
       expect(targetSoA.length).toBe(1)
       expect(targetSoA[0]._tag).toBe('none')
+    })
+
+    it('should handle components with a transform schema (S.Class)', () => {
+      // Monkey-patch the schema for this test
+      ;(ComponentSchemas as any).transform = TransformComponent
+
+      let world = World.createWorld()
+      const archetype: Archetype = {
+        position: new Position({ x: 1, y: 2, z: 3 }),
+        transform: new TransformComponent({ value: 'test' }),
+      }
+      const [entityId, newWorld] = World.addArchetype(world, archetype)
+      world = newWorld
+
+      const results = World.querySoA(world, { components: ['position', 'transform'] }, ComponentSchemas)
+      expect(results.entities).toEqual([entityId])
+      expect(results.position.x).toEqual([1])
+      expect((results as any).transform.value).toEqual(['test'])
+
+      // Clean up the monkey-patch
+      delete (ComponentSchemas as any).transform
     })
   })
 
