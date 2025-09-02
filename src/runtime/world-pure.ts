@@ -1,12 +1,13 @@
+import * as HashMap from 'effect/HashMap'
+import * as HashSet from 'effect/HashSet'
 import * as Option from 'effect/Option'
 import * as ReadonlyRecord from 'effect/Record'
+import { Schema } from 'effect'
 import { BlockType } from '@/domain/block'
 import { Archetype } from '@/domain/archetypes'
 import { ComponentName, Components, ComponentSchemas } from '@/domain/components'
 import { EntityId, toEntityId } from '@/domain/entity'
 import { Query } from '@/domain/query'
-import * as HashMap from 'effect/HashMap'
-import * as HashSet from 'effect/HashSet'
 
 // --- Data Types ---
 
@@ -240,6 +241,7 @@ export const query = <T extends ReadonlyArray<ComponentName>>(world: World, quer
   return results
 }
 
+/*
 export const querySoA = <T extends ReadonlyArray<ComponentName>>(world: World, queryDef: Query): QuerySoAResult<T> => {
   const requiredComponents = new Set(queryDef.components)
   const matchingEntities: EntityId[] = []
@@ -264,22 +266,30 @@ export const querySoA = <T extends ReadonlyArray<ComponentName>>(world: World, q
 
   for (const componentName of queryDef.components) {
     const componentSchema = ComponentSchemas[componentName]
-    const props = 'props' in componentSchema ? Object.keys((componentSchema as any).props) : []
-    const soaStore: any = {}
-    for (const prop of props) {
-      soaStore[prop] = []
-    }
+    const typeLiteral = componentSchema.ast
+    const props = typeLiteral._tag === 'TypeLiteral' ? typeLiteral.propertySignatures : []
+    const propKeys = props.map((p: any) => p.key)
 
-    for (const entityId of matchingEntities) {
-      const component = getComponent(world, entityId, componentName)
-      if (Option.isSome(component)) {
-        for (const prop of props) {
-          soaStore[prop].push((component.value as any)[prop])
-        }
+    if (propKeys.length > 0) {
+      const soaStore: any = {}
+      for (const key of propKeys) {
+        soaStore[key] = new Array(matchingEntities.length)
       }
+
+      matchingEntities.forEach((entityId, i) => {
+        const component = getComponent(world, entityId, componentName)
+        if (Option.isSome(component)) {
+          for (const key of propKeys) {
+            soaStore[key][i] = (component.value as any)[key]
+          }
+        }
+      })
+      ;(result as any)[componentName] = soaStore
+    } else {
+      ;(result as any)[componentName] = {}
     }
-    ;(result as any)[componentName] = soaStore
   }
 
   return result as any
 }
+*/

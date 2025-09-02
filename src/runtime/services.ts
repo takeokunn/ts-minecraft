@@ -5,12 +5,14 @@ import { RaycastResult } from '@/infrastructure/raycast-three'
 import { SpatialGrid } from '@/infrastructure/spatial-grid'
 import { MaterialManager } from '@/infrastructure/material-manager'
 import { World } from './world'
-import { ComputationWorker } from '@/infrastructure/computation.worker'
+import { ComputationWorkerTag } from '@/infrastructure/computation.worker'
 import { ThreeContextService } from '@/infrastructure/types'
 
 // --- Service Tags for Dependencies ---
 
-export type OnCommand = (command: SystemCommand) => Effect.Effect<void, never, World | ComputationWorker | Context.Tag.Service<typeof ChunkDataQueueService>>
+export type OnCommand = (
+  command: SystemCommand,
+) => Effect.Effect<void, never, World | Context.Tag.Service<typeof ComputationWorkerTag> | Context.Tag.Service<typeof ChunkDataQueueService>>
 export const OnCommand = Context.GenericTag<OnCommand>('app/OnCommand')
 
 export const InputManagerService = InputManager
