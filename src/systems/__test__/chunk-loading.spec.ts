@@ -9,7 +9,7 @@ import { SystemCommand } from '@/domain/types'
 import { createArchetype } from '@/domain/archetypes'
 import { RENDER_DISTANCE } from '@/domain/world-constants'
 import { Position } from '@/domain/components'
-import { provideTestWorld } from 'test/utils'
+import { provideTestLayer } from 'test/utils'
 
 const setupWorld = (playerPos: { x: number; y: number; z: number }, lastPlayerChunk: Option.Option<{ x: number; z: number }>, loadedChunks: HashMap.HashMap<string, EntityId>) =>
   Effect.gen(function* ($) {
@@ -84,23 +84,19 @@ describe('chunkLoadingSystem', () => {
     it('should do nothing if the player has not moved to a new chunk', () =>
       Effect.gen(function* ($) {
         const commandRef = yield* $(Ref.make<SystemCommand[]>([]))
-        const OnCommandLive = Layer.succeed(OnCommand, (cmd) => Ref.update(commandRef, (cmds) => [...cmds, cmd]))
-        const TestLayer = provideTestWorld().pipe(Layer.provide(OnCommandLive))
 
         yield* $(setupWorld({ x: 5, y: 0, z: 5 }, Option.some({ x: 0, z: 0 }), HashMap.empty()))
         yield* $(chunkLoadingSystem)
 
         const commands = yield* $(Ref.get(commandRef))
         expect(commands).toEqual([])
-      }).pipe(Effect.provide(provideTestWorld())))
+      }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(Layer.succeed(OnCommand, (cmd) => Ref.update(commandRef, (cmds) => [...cmds, cmd])))))))
 
     it('should issue commands and remove entities when the player moves to a new chunk', () =>
       Effect.gen(function* ($) {
         const unloadedEntityId = toEntityId(999)
         const initialLoadedChunks = HashMap.empty<string, EntityId>().pipe(HashMap.set('99,99', unloadedEntityId))
         const commandRef = yield* $(Ref.make<SystemCommand[]>([]))
-        const OnCommandLive = Layer.succeed(OnCommand, (cmd) => Ref.update(commandRef, (cmds) => [...cmds, cmd]))
-        const TestLayer = provideTestWorld().pipe(Layer.provide(OnCommandLive))
 
         yield* $(setupWorld({ x: 5, y: 0, z: 5 }, Option.none(), initialLoadedChunks))
         yield* $(chunkLoadingSystem)
@@ -112,18 +108,16 @@ describe('chunkLoadingSystem', () => {
 
         const entityExists = yield* $(World.getComponentOption(unloadedEntityId, 'position'))
         expect(Option.isNone(entityExists)).toBe(true)
-      }).pipe(Effect.provide(provideTestWorld())))
+      }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(Layer.succeed(OnCommand, (cmd) => Ref.update(commandRef, (cmds) => [...cmds, cmd])))))))
 
     it('should do nothing if no player exists', () =>
       Effect.gen(function* ($) {
         const commandRef = yield* $(Ref.make<SystemCommand[]>([]))
-        const OnCommandLive = Layer.succeed(OnCommand, (cmd) => Ref.update(commandRef, (cmds) => [...cmds, cmd]))
-        const TestLayer = provideTestWorld().pipe(Layer.provide(OnCommandLive))
 
         yield* $(chunkLoadingSystem)
 
         const commands = yield* $(Ref.get(commandRef))
         expect(commands).toEqual([])
-      }).pipe(Effect.provide(provideTestWorld())))
+      }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(Layer.succeed(OnCommand, (cmd) => Ref.update(commandRef, (cmds) => [...cmds, cmd])))))))
   })
 })

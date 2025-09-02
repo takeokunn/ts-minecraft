@@ -13,8 +13,6 @@ export const ThreeContextLive = (rootElement: HTMLElement) =>
     ThreeContextService,
     Effect.acquireRelease(
       Effect.gen(function* (_) {
-        const runtime = yield* _(Effect.runtime<ThreeCameraService>())
-        const run = runtime.runFork
         const cameraService = yield* _(ThreeCameraService)
         const scene = new THREE.Scene()
         const renderer = new THREE.WebGLRenderer()
@@ -44,14 +42,14 @@ export const ThreeContextLive = (rootElement: HTMLElement) =>
           instancedMeshes: new Map(),
         }
 
-        const onResize = () => run(cameraService.handleResize(context.renderer))
+        const onResize = () => Effect.runFork(cameraService.handleResize(context.renderer))
         window.addEventListener('resize', onResize)
 
         return [context, onResize] as const
       }),
       ([context, onResize]) =>
         Effect.sync(() => {
-          window.removeEventListener('resize', onResize as EventListener)
+          window.removeEventListener('resize', onResize)
           context.renderer.dispose()
           if (rootElement.contains(context.renderer.domElement)) {
             rootElement.removeChild(context.renderer.domElement)

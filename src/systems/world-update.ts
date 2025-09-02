@@ -1,11 +1,9 @@
-import { Effect, HashMap, Ref } from 'effect'
+import { Effect } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
 import { ChunkDataQueueService, RenderQueueService } from '@/runtime/services'
 import * as World from '@/runtime/world-pure'
-import { WorldContext } from '@/runtime/context'
 
 export const worldUpdateSystem = Effect.gen(function* (_) {
-  const { world } = yield* _(WorldContext)
   const chunkDataQueue = yield* _(ChunkDataQueueService)
   const renderQueue = yield* _(RenderQueueService)
 
@@ -47,16 +45,5 @@ export const worldUpdateSystem = Effect.gen(function* (_) {
     })
   }
 
-  yield* _(
-    Ref.update(world, (w) => ({
-      ...w,
-      globalState: {
-        ...w.globalState,
-        chunkLoading: {
-          ...w.globalState.chunkLoading,
-          loadedChunks: HashMap.set(w.globalState.chunkLoading.loadedChunks, `${chunkX},${chunkZ}`, chunkEntityId),
-        },
-      },
-    })),
-  )
-})
+  yield* _(World.recordLoadedChunk(chunkX, chunkZ, chunkEntityId))
+}).pipe(Effect.catchAllCause((cause) => Effect.logError('An error occurred in worldUpdateSystem', cause)))

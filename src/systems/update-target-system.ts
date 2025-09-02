@@ -1,39 +1,26 @@
-import { Effect, Option } from 'effect'
-import { createTargetBlock, createTargetNone, Target } from '@/domain/components'
+import { Data, Effect, Option, Array as A } from 'effect'
+import { createTargetBlock, createTargetNone } from '@/domain/components'
 import { playerTargetQuery } from '@/domain/queries'
 import { RaycastResultService } from '@/runtime/services'
 import * as World from '@/runtime/world-pure'
 
-const areTargetsEqual = (a: Target, b: Target): boolean => {
-  if (a._tag !== b._tag) {
-    return false
-  }
-  if (a._tag === 'none' && b._tag === 'none') {
-    return true
-  }
-  if (a._tag === 'block' && b._tag === 'block') {
-    return a.entityId === b.entityId && a.face.x === b.face.x && a.face.y === b.face.y && a.face.z === b.face.z
-  }
-  return false
-}
-
 export const updateTargetSystem = Effect.gen(function* ($) {
-  const raycastResultRef = yield* $(RaycastResultService)
+  const raycastResult = yield* $(Effect.flatMap(RaycastResultService, (ref) => ref.get))
   const players = yield* $(World.query(playerTargetQuery))
 
-  // Assuming a single player for now
-  const player = players[0]
-  if (!player) {
+  const playerOption = A.get(players, 0)
+  if (Option.isNone(playerOption)) {
     return
   }
+  const player = playerOption.value
 
-  const newTarget = Option.match(yield* $(raycastResultRef.get), {
+  const newTarget = Option.match(raycastResult, {
     onNone: () => createTargetNone(),
     onSome: (hit) => createTargetBlock(hit.entityId, hit.face),
   })
 
   // Only update if the target has changed
-  if (!areTargetsEqual(player.target, newTarget)) {
+  if (!Data.equals(player.target, newTarget)) {
     yield* $(World.updateComponent(player.entityId, 'target', newTarget))
   }
-})
+}).pipe(Effect.catchAllCause((cause) => Effect.logError('An error occurred in updateTargetSystem', cause)))

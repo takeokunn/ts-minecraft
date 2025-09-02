@@ -6,7 +6,7 @@ import { physicsSystem } from '../physics'
 import { FRICTION, TERMINAL_VELOCITY } from '@/domain/world-constants'
 import { playerQuery } from '@/domain/queries'
 import { DeltaTime } from '@/runtime/services'
-import { provideTestWorld } from 'test/utils'
+import { provideTestLayer } from 'test/utils'
 
 const MockDeltaTime = (dt: number) => Layer.succeed(DeltaTime, dt)
 
@@ -40,7 +40,7 @@ describe('physicsSystem', () => {
       } else {
         expect(finalPlayer).toBeDefined()
       }
-    }).pipe(Effect.provide(provideTestWorld().pipe(Layer.provide(MockDeltaTime(0))))))
+    }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(MockDeltaTime(0))))))
 
   it('should apply gravity when not grounded', () =>
     Effect.gen(function* ($) {
@@ -64,7 +64,7 @@ describe('physicsSystem', () => {
           expect(finalPlayer.position.y).toBeCloseTo(expectedY, 2)
         }
       }
-    }).pipe(Effect.provide(provideTestWorld().pipe(Layer.provide(MockDeltaTime(0.1))))))
+    }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(MockDeltaTime(0.1))))))
 
   it('should apply friction when grounded', () =>
     Effect.gen(function* ($) {
@@ -90,5 +90,5 @@ describe('physicsSystem', () => {
           expect(finalPlayer.position.z).toBeCloseTo(expectedZ, 2)
         }
       }
-    }).pipe(Effect.provide(provideTestWorld().pipe(Layer.provide(MockDeltaTime(0.1))))))
+    }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(MockDeltaTime(0.1))))))
 })

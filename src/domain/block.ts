@@ -1,4 +1,5 @@
-import { Schema as S } from 'effect'
+import { Schema as S, Either, Effect } from 'effect'
+import type { ParseError } from 'effect/ParseResult'
 import { match } from 'ts-pattern'
 import { Vector3IntSchema } from './common'
 
@@ -88,9 +89,8 @@ export const isBlockFluid = (blockType: BlockType): boolean => blockDefinitions[
  * @param blockType The type of the block.
  * @returns A PlacedBlock object.
  */
-export const createPlacedBlock = (position: { readonly x: number; readonly y: number; readonly z: number }, blockType: BlockType): PlacedBlock => ({
-  position,
-  blockType,
-})
+export const createPlacedBlock = (position: { readonly x: number; readonly y: number; readonly z: number }, blockType: BlockType): Either.Either<ParseError, PlacedBlock> => {
+  return Effect.runSync(Effect.either(S.decode(PlacedBlockSchema)({ position, blockType })))
+}
 
 export const isBlockType = S.is(BlockTypeSchema)

@@ -45,5 +45,6 @@ export const physicsSystem = Effect.gen(function* ($) {
       },
       { discard: true, concurrency: 'unbounded' },
     ),
+    Effect.catchAllCause((cause) => Effect.logError('An error occurred in physicsSystem', cause)),
   )
 })

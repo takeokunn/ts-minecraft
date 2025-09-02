@@ -4,7 +4,7 @@ import { createArchetype } from '@/domain/archetypes'
 import { InputState } from '@/domain/components'
 import { InputManagerService } from '@/runtime/services'
 import * as World from '@/runtime/world-pure'
-import { provideTestWorld } from 'test/utils'
+import { provideTestLayer } from 'test/utils'
 import { inputPollingSystem } from '../input-polling'
 
 const mockInput = Layer.succeed(
@@ -42,5 +42,5 @@ describe('inputPollingSystem', () => {
       expect(state.jump).toBe(true)
       expect(state.backward).toBe(false)
       expect(state.isLocked).toBe(true)
-    }).pipe(Effect.provide(provideTestWorld().pipe(Layer.provide(mockInput)))))
+    }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(mockInput)))))
 })

@@ -19,12 +19,12 @@ export interface ComputationWorker {
   readonly postTask: (task: ComputationTask) => Effect.Effect<ChunkGenerationResult, WorkerError>
 }
 
-export const ComputationWorkerTag = Context.GenericTag<ComputationWorker>('app/ComputationWorker')
+export class ComputationWorker extends Context.Tag('app/ComputationWorker')<ComputationWorker, ComputationWorker>() {}
 
 // --- Live Implementation ---
 
 export const ComputationWorkerLive = Layer.scoped(
-  ComputationWorkerTag,
+  ComputationWorker,
   Effect.gen(function* ($) {
     const maxWorkers = navigator.hardwareConcurrency || 4
 

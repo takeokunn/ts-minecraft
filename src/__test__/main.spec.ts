@@ -1,22 +1,20 @@
 /**
  * @vitest-environment happy-dom
  */
-/**
- * @vitest-environment happy-dom
- */
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as mainModule from '@/main'
 import { main, bootstrap, runApp } from '@/main'
 import * as loop from '@/runtime/loop'
 import * as systems from '@/systems'
-import { ComputationWorkerTag } from '@/infrastructure/computation.worker'
+
 import { ChunkDataQueueService } from '@/runtime/services'
 import { Hotbar } from '@/domain/components'
 import { provideTestLayer } from 'test/utils'
+import { ChunkGenerationResult } from '@/domain/types'
 
 // Mock the game loop
-const gameLoopSpy = vi.spyOn(loop, 'gameLoop').mockImplementation(() => Effect.void as Effect.Effect<void, never, never>)
+const gameLoopSpy = vi.spyOn(loop, 'gameLoop').mockImplementation(() => Effect.void)
 
 describe('main', () => {
   beforeEach(() => {
@@ -62,10 +60,6 @@ describe('bootstrap', () => {
 
     expect(Effect.isEffect(runnable)).toBe(true)
   })
-
-  it('should throw an error if #app element does not exist', () => {
-    expect(() => bootstrap(document.createElement('div'))).toThrow('Root element #app not found')
-  })
 })
 
 describe('init', () => {
@@ -90,10 +84,22 @@ describe('init', () => {
 })
 
 describe('runApp', () => {
-  it('should call bootstrap', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('should call bootstrap with the app element', () => {
+    const appElement = document.createElement('div')
+    appElement.id = 'app'
+    document.body.appendChild(appElement)
+
     const bootstrapSpy = vi.fn(() => Effect.void)
     runApp(bootstrapSpy)
-    expect(bootstrapSpy).toHaveBeenCalled()
+    expect(bootstrapSpy).toHaveBeenCalledWith(appElement)
+  })
+
+  it('should throw an error if #app element does not exist', () => {
+    expect(() => runApp(vi.fn())).toThrow('Root element #app not found')
   })
 })
 
@@ -108,20 +114,23 @@ describe('AppLayer', () => {
 
 describe('onCommandEffect', () => {
   it('should post a task to the computation worker', async () => {
-    const mockPostTask = vi.fn(() => Effect.succeed({} as any))
-    const mockWorker = { postTask: mockPostTask }
-    const mockQueue: any[] = []
+    const mockPostTask = vi.fn(() => Effect.succeed({} as ChunkGenerationResult))
 
-    const testLayer = Layer.succeed(ComputationWorkerTag, mockWorker).pipe(
-      Layer.merge(Layer.succeed(ChunkDataQueueService, mockQueue)),
-      Layer.merge(provideTestLayer()),
-    )
+    const testEffect = Effect.gen(function* ($) {
+      const onCommand = yield* $(mainModule.onCommandEffect)
+      yield* $(onCommand({ type: 'GenerateChunk', chunkX: 0, chunkZ: 0 }))
+      const queue = yield* $(ChunkDataQueueService)
+      expect(mockPostTask).toHaveBeenCalledOnce()
+      expect(queue.length).toBe(1)
+    })
 
-    const onCommand = await Effect.runPromise(mainModule.onCommandEffect.pipe(Effect.provide(testLayer)))
-    await Effect.runPromise(onCommand({ type: 'GenerateChunk', chunkX: 0, chunkZ: 0 }))
+    const testLayer = provideTestLayer(undefined, {
+      computationWorker: {
+        postTask: mockPostTask,
+      },
+    })
 
-    expect(mockPostTask).toHaveBeenCalledOnce()
-    expect(mockQueue.length).toBe(1)
+    await Effect.runPromise(testEffect.pipe(Effect.provide(testLayer)))
   })
 })
 
@@ -132,5 +141,3 @@ describe('hotbarUpdater', () => {
     expect(effect).toBe(Effect.void)
   })
 })
-
-

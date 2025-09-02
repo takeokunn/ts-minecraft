@@ -1,11 +1,10 @@
-import { Effect, Layer, Ref, HashMap, HashSet } from 'effect'
-import { describe, it } from '@effect/vitest'
-import * as Assert from '@effect/test/Assert'
+import { Effect, Layer, Ref, HashMap } from 'effect'
+import { describe, it, expect } from 'vitest'
 import { createArchetype } from '@/domain/archetypes'
 import { positionColliderQuery } from '@/domain/queries'
 import { SpatialGrid } from '@/infrastructure/spatial-grid'
 import * as World from '@/runtime/world-pure'
-import { provideTestWorld } from 'test/utils'
+import { provideTestLayer } from 'test/utils'
 import { updatePhysicsWorldSystem } from '../update-physics-world'
 import { AABB } from '@/domain/geometry'
 import { EntityId } from '@/domain/entity'
@@ -48,12 +47,15 @@ describe('updatePhysicsWorldSystem', () => {
 
       const colliders = yield* $(World.query(positionColliderQuery))
       const block = colliders[0]
-      yield* $(Assert.isDefined(block))
+      expect(block).toBeDefined()
 
-      const gridState = yield* $(Ref.get(ref))
-      yield* $(Assert.isTrue(gridState.cleared))
-      yield* $(Assert.strictEqual(gridState.registered.length, 1))
-      yield* $(Assert.strictEqual(gridState.registered[0]?.entityId, block.entityId))
-      yield* $(Assert.isTrue(gridState.registered[0]?.aabb instanceof AABB))
-    }).pipe(Effect.provide(provideTestWorld())))
+      if (block) {
+        const gridState = yield* $(Ref.get(ref))
+        expect(gridState.cleared).toBe(true)
+        expect(gridState.registered.length).toBe(1)
+        expect(gridState.registered[0]?.entityId).toBe(block.entityId)
+        const expectedAABB = createAABB(block.position, block.collider)
+        expect(gridState.registered[0]?.aabb).toEqual(expectedAABB)
+      }
+    }).pipe(Effect.provide(provideTestLayer())))
 })

@@ -1,13 +1,12 @@
-import { Effect, Layer, Option, Ref } from 'effect'
-import { describe, it } from '@effect/vitest'
-import * as Assert from '@effect/test/Assert'
+import { Effect, Option, Ref } from 'effect'
+import { describe, it, expect } from 'vitest'
 import { createArchetype } from '@/domain/archetypes'
 import { createTargetBlock, createTargetNone } from '@/domain/components'
 import { playerTargetQuery } from '@/domain/queries'
 import { RaycastResult } from '@/infrastructure/raycast-three'
 import { RaycastResultService } from '@/runtime/services'
 import * as World from '@/runtime/world-pure'
-import { provideTestWorld } from 'test/utils'
+import { provideTestLayer } from 'test/utils'
 import { updateTargetSystem } from '../update-target-system'
 
 const setupWorld = () =>
@@ -38,9 +37,11 @@ describe('updateTargetSystem', () => {
       yield* $(updateTargetSystem)
 
       const player = (yield* $(World.query(playerTargetQuery)))[0]
-      yield* $(Assert.isDefined(player))
-      yield* $(Assert.deepStrictEqual(player.target, createTargetBlock(blockId, face)))
-    }).pipe(Effect.provide(provideTestWorld())))
+      expect(player).toBeDefined()
+      if (player) {
+        expect(player.target).toEqual(createTargetBlock(blockId, face))
+      }
+    }).pipe(Effect.provide(provideTestLayer())))
 
   it('should update target to none when raycast hits nothing', () =>
     Effect.gen(function* ($) {
@@ -51,7 +52,9 @@ describe('updateTargetSystem', () => {
       yield* $(updateTargetSystem)
 
       const player = (yield* $(World.query(playerTargetQuery)))[0]
-      yield* $(Assert.isDefined(player))
-      yield* $(Assert.deepStrictEqual(player.target, createTargetNone()))
-    }).pipe(Effect.provide(provideTestWorld())))
+      expect(player).toBeDefined()
+      if (player) {
+        expect(player.target).toEqual(createTargetNone())
+      }
+    }).pipe(Effect.provide(provideTestLayer())))
 })

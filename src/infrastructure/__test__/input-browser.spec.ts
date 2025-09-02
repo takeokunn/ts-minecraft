@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { InputManager, InputManagerLive, type LockableControls } from '../input-browser'
+import { InputManagerService, InputManagerLive, type LockableControls } from '../input-browser'
 
 type MockControls = LockableControls & {
   listeners: Map<string, () => void>
@@ -29,16 +29,16 @@ const createMockControls = (): MockControls => {
   }
 }
 
-describe('InputManager', () => {
+describe('InputManagerService', () => {
   let mockControls: MockControls
 
   beforeEach(() => {
     mockControls = createMockControls()
   })
 
-  const setupAndRun = <A, E>(program: Effect.Effect<A, E, InputManager>, controls: LockableControls = mockControls) => {
+  const setupAndRun = <A, E>(program: Effect.Effect<A, E, typeof InputManagerService>, controls: LockableControls = mockControls) => {
     const fullProgram = Effect.gen(function* (_) {
-      const manager = yield* _(InputManager)
+      const manager = yield* _(InputManagerService)
       yield* _(manager.registerListeners(controls))
       const result = yield* _(program)
       yield* _(manager.cleanup)
@@ -72,7 +72,7 @@ describe('InputManager', () => {
 
   it('should update keyboard state on keydown and keyup', async () => {
     const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManager)
+      const manager = yield* _(InputManagerService)
 
       document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW' }))
       let state = yield* _(manager.getState)
@@ -96,7 +96,7 @@ describe('InputManager', () => {
 
   it('should update mouse state on mousedown when locked', async () => {
     const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManager)
+      const manager = yield* _(InputManagerService)
       mockControls.lock() // Simulate lock
 
       document.dispatchEvent(new MouseEvent('mousedown', { button: 0 }))
@@ -112,7 +112,7 @@ describe('InputManager', () => {
 
   it('should not update keyboard state for unhandled mouse buttons', async () => {
     const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManager)
+      const manager = yield* _(InputManagerService)
       mockControls.lock() // Simulate lock
 
       document.dispatchEvent(new MouseEvent('mousedown', { button: 1 })) // Middle mouse button
@@ -124,7 +124,7 @@ describe('InputManager', () => {
 
   it('should not update mouse delta on mousemove when not locked', async () => {
     const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManager)
+      const manager = yield* _(InputManagerService)
       document.dispatchEvent(new MouseEvent('mousemove', { movementX: 10, movementY: -20 }))
       const delta = yield* _(manager.getMouseDelta)
       expect(delta).toEqual({ dx: 0, dy: 0 })
@@ -134,7 +134,7 @@ describe('InputManager', () => {
 
   it('should handle mousemove events with undefined movement values when locked', async () => {
     const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManager)
+      const manager = yield* _(InputManagerService)
       mockControls.lock() // Simulate lock
 
       // Dispatch event with undefined movementX and movementY
@@ -151,7 +151,7 @@ describe('InputManager', () => {
 
   it('should update lock state on lock/unlock events', async () => {
     const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManager)
+      const manager = yield* _(InputManagerService)
 
       mockControls.lock()
       let state = yield* _(manager.getState)
@@ -167,7 +167,7 @@ describe('InputManager', () => {
 
   it('should not update keyboard state on mouseup when not locked', async () => {
     const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManager)
+      const manager = yield* _(InputManagerService)
       document.dispatchEvent(new MouseEvent('mouseup', { button: 0 }))
       const state = yield* _(manager.getState)
       expect(state.keyboard.has('Mouse0')).toBe(false)
@@ -177,7 +177,7 @@ describe('InputManager', () => {
 
   it('should call unlock on cleanup if controls are locked', async () => {
     const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManager)
+      const manager = yield* _(InputManagerService)
       yield* _(manager.registerListeners(mockControls))
       mockControls.lock()
       yield* _(manager.cleanup)
@@ -188,7 +188,7 @@ describe('InputManager', () => {
 
   it('should cleanup previous listeners when registerListeners is called again', async () => {
     const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManager)
+      const manager = yield* _(InputManagerService)
       const removeListenerSpy = vi.spyOn(document, 'removeEventListener')
       const removeControlsListenerSpy = vi.spyOn(mockControls, 'removeEventListener')
 
@@ -203,7 +203,7 @@ describe('InputManager', () => {
 
   it('should do nothing on cleanup if listeners were not registered', async () => {
     const program = Effect.gen(function* (_) {
-      const manager = yield* _(InputManager)
+      const manager = yield* _(InputManagerService)
       const removeListenerSpy = vi.spyOn(document, 'removeEventListener')
       yield* _(manager.cleanup)
       expect(removeListenerSpy).not.toHaveBeenCalled()

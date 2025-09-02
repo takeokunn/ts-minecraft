@@ -5,10 +5,10 @@ import type { BlockType } from '@/domain/block'
 import { Hotbar, InputState, TargetBlock, createTargetNone } from '@/domain/components'
 import * as World from '@/runtime/world-pure'
 import { WorldContext } from '@/runtime/context'
-import { provideTestWorld } from 'test/utils'
+import { provideTestLayer } from 'test/utils'
 import { blockInteractionSystem } from '../block-interaction'
 
-const TestLayer = provideTestWorld()
+const TestLayer = provideTestLayer()
 
 const setupWorld = Effect.gen(function* ($) {
   const playerArchetype = createArchetype({

@@ -1,4 +1,4 @@
-import { Effect, Option, pipe, Runtime } from 'effect'
+import { Effect, Option, pipe } from 'effect'
 import { match } from 'ts-pattern'
 import Alea from 'alea'
 import { createNoise2D } from 'simplex-noise'
@@ -87,7 +87,7 @@ const generateTerrainColumn = (chunkX: number, chunkZ: number, localX: number, l
   return blocks
 }
 
-const generateBlockData = (params: GenerationParams): Effect.Effect<PlacedBlock[]> =>
+export const generateBlockData = (params: GenerationParams): Effect.Effect<PlacedBlock[]> =>
   Effect.sync(() => {
     const { chunkX, chunkZ, seeds, amplitude, editedBlocks } = params
     const noise = createNoiseFunctions(seeds)
@@ -115,7 +115,7 @@ const generateBlockData = (params: GenerationParams): Effect.Effect<PlacedBlock[
 
 type ChunkView = (BlockType | undefined)[][][]
 
-const createChunkDataView = (blocks: ReadonlyArray<PlacedBlock>, startX: number, startZ: number): ChunkView => {
+export const createChunkDataView = (blocks: ReadonlyArray<PlacedBlock>, startX: number, startZ: number): ChunkView => {
   const view: ChunkView = Array.from({ length: CHUNK_SIZE }, () => Array.from({ length: CHUNK_HEIGHT }, () => Array.from({ length: CHUNK_SIZE })))
   for (const { position, blockType } of blocks) {
     const localX = position.x - startX
@@ -134,14 +134,14 @@ const createChunkDataView = (blocks: ReadonlyArray<PlacedBlock>, startX: number,
   return view
 }
 
-const getBlock = (view: ChunkView, x: number, y: number, z: number): Option.Option<BlockType> => {
+export const getBlock = (view: ChunkView, x: number, y: number, z: number): Option.Option<BlockType> => {
   if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || z < 0 || z >= CHUNK_SIZE) {
     return Option.none()
   }
   return Option.fromNullable(view[x]?.[y]?.[z])
 }
 
-const generateGreedyMesh = (blocks: ReadonlyArray<PlacedBlock>, chunkX: number, chunkZ: number): Effect.Effect<ChunkGenerationResult['mesh'], GreedyMeshError> =>
+export const generateGreedyMesh = (blocks: ReadonlyArray<PlacedBlock>, chunkX: number, chunkZ: number): Effect.Effect<ChunkGenerationResult['mesh'], GreedyMeshError> =>
   Effect.try({
     try: () => {
       const startX = chunkX * CHUNK_SIZE
@@ -156,22 +156,22 @@ const generateGreedyMesh = (blocks: ReadonlyArray<PlacedBlock>, chunkX: number, 
 
       const dims: [number, number, number] = [CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE]
       const pos: [number, number, number] = [0, 0, 0]
+      const dimensions: ReadonlyArray<0 | 1 | 2> = [0, 1, 2]
 
-      for (let d = 0; d < 3; d++) {
-        const d_ = d as 0 | 1 | 2
-        for (pos[d_] = -1; pos[d_] < dims[d_]; pos[d_]++) {
-          const u = (d_ + 1) % 3
-          const v = (d_ + 2) % 3
+      for (const d of dimensions) {
+        for (pos[d] = -1; pos[d] < dims[d]; pos[d]++) {
+          const u = (d + 1) % 3
+          const v = (d + 2) % 3
           const dir: [number, number, number] = [0, 0, 0]
           for (let s = -1; s <= 1; s += 2) {
-            dir[d_] = s
+            dir[d] = s
             const mask = Array.from({ length: dims[u] * dims[v] }, (): BlockType | null => null)
             let maskIdx = 0
 
             for (pos[v] = 0; pos[v] < dims[v]; ++pos[v]) {
               for (pos[u] = 0; pos[u] < dims[u]; ++pos[u]) {
                 const b1 = getBlock(chunkView, pos[0], pos[1], pos[2])
-                const b2 = getBlock(chunkView, pos[0] + (d_ === 0 ? s : 0), pos[1] + (d_ === 1 ? s : 0), pos[2] + (d_ === 2 ? s : 0))
+                const b2 = getBlock(chunkView, pos[0] + (d === 0 ? s : 0), pos[1] + (d === 1 ? s : 0), pos[2] + (d === 2 ? s : 0))
                 const t1 = pipe(
                   b1,
                   Option.map(isBlockTransparent),
@@ -216,7 +216,7 @@ const generateGreedyMesh = (blocks: ReadonlyArray<PlacedBlock>, chunkX: number, 
                   const dv: [number, number, number] = [0, 0, 0]
                   dv[v] = h
 
-                  const faceName: FaceName = match(d_)
+                  const faceName: FaceName = match(d)
                     .with(0, () => (s > 0 ? 'east' : 'west'))
                     .with(1, () => (s > 0 ? 'top' : 'bottom'))
                     .with(2, () => (s > 0 ? 'north' : 'south'))
@@ -279,7 +279,7 @@ const generateGreedyMesh = (blocks: ReadonlyArray<PlacedBlock>, chunkX: number, 
 
 // --- Main Worker Logic ---
 
-const generateChunk = (params: GenerationParams): Effect.Effect<ChunkGenerationResult, GreedyMeshError> =>
+export const generateChunk = (params: GenerationParams): Effect.Effect<ChunkGenerationResult, GreedyMeshError> =>
   Effect.gen(function* ($) {
     const blocks = yield* $(generateBlockData(params))
     const mesh = yield* $(generateGreedyMesh(blocks, params.chunkX, params.chunkZ))
@@ -291,9 +291,9 @@ const generateChunk = (params: GenerationParams): Effect.Effect<ChunkGenerationR
     }
   })
 
-const messageHandler = (e: MessageEvent<ComputationTask>) => {
+export const messageHandler = async (e: MessageEvent<ComputationTask>, generateChunkFn = generateChunk) => {
   const program = match(e.data)
-    .with({ type: 'generateChunk' }, (task) => generateChunk(task.payload))
+    .with({ type: 'generateChunk' }, (task) => generateChunkFn(task.payload))
     .exhaustive()
 
   const handleSuccess = (result: ChunkGenerationResult) => {
@@ -307,7 +307,7 @@ const messageHandler = (e: MessageEvent<ComputationTask>) => {
     // self.postMessage({ type: 'error', error });
   }
 
-  Effect.runPromise(program).then(handleSuccess).catch(handleFailure)
+  await Effect.runPromise(program).then(handleSuccess).catch(handleFailure)
 }
 
 // Ensure we are in a worker context before assigning to self.onmessage

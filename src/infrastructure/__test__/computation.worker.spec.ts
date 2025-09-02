@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ComputationWorkerLive, ComputationWorkerTag, WorkerError } from '../computation.worker'
+import { ComputationWorkerLive, ComputationWorker, WorkerError } from '../computation.worker'
 import type { ChunkGenerationResult, ComputationTask } from '@/domain/types'
 import ComputationWorkerUrl from '@/workers/computation.worker.ts?worker'
 
@@ -58,7 +58,7 @@ describe('ComputationWorker', () => {
     }
 
     const program = Effect.gen(function* (_) {
-      const workerService = yield* _(ComputationWorkerTag)
+      const workerService = yield* _(ComputationWorker)
       const effect = workerService.postTask(task)
 
       // Simulate worker success
@@ -89,7 +89,7 @@ describe('ComputationWorker', () => {
     const error = new ErrorEvent('error', { message: 'Worker failed' })
 
     const program = Effect.gen(function* (_) {
-      const workerService = yield* _(ComputationWorkerTag)
+      const workerService = yield* _(ComputationWorker)
       const effect = workerService.postTask(task)
 
       // Simulate worker error

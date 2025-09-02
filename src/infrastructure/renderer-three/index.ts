@@ -1,14 +1,12 @@
 import * as THREE from 'three'
-import { Effect, Layer, Option, Ref } from 'effect'
+import { Effect, Layer, Option, Ref, Array as A } from 'effect'
 import { pipe } from 'effect/Function'
 import { match } from 'ts-pattern'
-import { ComponentSchemas } from '@/domain/components'
 import { playerQuery } from '@/domain/queries'
 import { RenderCommand } from '@/domain/types'
 import { MaterialManager, RaycastResultService, RendererService, RenderQueueService, ThreeContextService } from '@/runtime/services'
 import * as World from '@/runtime/world-pure'
 import { ThreeCameraService } from '../camera-three'
-import { ThreeContext } from '@/infrastructure/types'
 
 // --- Live Implementation ---
 
@@ -71,12 +69,16 @@ export const RendererLive = Layer.effect(
 
     const syncCameraToWorld = Effect.gen(function* ($) {
       const players = yield* $(World.query(playerQuery))
-      const player = players[0]
-
-      if (player) {
-        const { position, cameraState } = player
-        yield* $(cameraService.syncToComponent(position.x, position.y, position.z, cameraState.pitch, cameraState.yaw))
-      }
+      yield* $(
+        A.get(players, 0),
+        Option.match({
+          onNone: () => Effect.void,
+          onSome: (player) => {
+            const { position, cameraState } = player
+            return cameraService.syncToComponent(position.x, position.y, position.z, cameraState.pitch, cameraState.yaw)
+          },
+        }),
+      )
     })
 
     const updateHighlight = Effect.gen(function* (_) {

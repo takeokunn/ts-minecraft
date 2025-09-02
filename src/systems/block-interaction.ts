@@ -1,11 +1,9 @@
-import { Effect, HashSet, Record, Ref } from 'effect'
+import { Effect, Option, Array as A } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
 import { PlacedBlock } from '@/domain/block'
-import { createTargetNone, Hotbar, InputState, Position, setInputState, Target } from '@/domain/components'
+import { createTargetNone, Hotbar, Position, setInputState, Target } from '@/domain/components'
 import { playerTargetQuery } from '@/domain/queries'
-import { System } from '@/runtime/loop'
 import * as World from '@/runtime/world-pure'
-import { WorldContext } from '@/runtime/context'
 import { QueryResult } from '@/runtime/world-pure'
 
 const getNewBlockPosition = (targetPosition: Position, face: { readonly x: number; readonly y: number; readonly z: number }): Position => ({
@@ -21,22 +19,8 @@ export const handleDestroyBlock = (target: Target) =>
     }
 
     const targetPosition = yield* $(World.getComponent(target.entityId, 'position'))
-    const blockKey = `${targetPosition.x},${targetPosition.y},${targetPosition.z}`
-
     yield* $(World.removeEntity(target.entityId))
-    const { world } = yield* $(WorldContext)
-    yield* $(
-      Ref.update(world, (w) => ({
-        ...w,
-        globalState: {
-          ...w.globalState,
-          editedBlocks: {
-            placed: Record.remove(w.globalState.editedBlocks.placed, blockKey),
-            destroyed: HashSet.add(w.globalState.editedBlocks.destroyed, blockKey),
-          },
-        },
-      })),
-    )
+    yield* $(World.recordBlockDestruction(targetPosition))
   })
 
 export const handlePlaceBlock = (target: Target, hotbar: Hotbar) =>
@@ -45,43 +29,33 @@ export const handlePlaceBlock = (target: Target, hotbar: Hotbar) =>
       return
     }
 
-    const targetPosition = yield* $(World.getComponent(target.entityId, 'position'))
-
-    const newBlockPos = getNewBlockPosition(targetPosition, target.face)
-    const selectedBlockType = hotbar.slots[hotbar.selectedIndex]
-    if (!selectedBlockType) {
-      return
-    }
-
-    const newBlockArchetype = createArchetype({
-      type: 'block',
-      pos: newBlockPos,
-      blockType: selectedBlockType,
-    })
-    yield* $(World.addArchetype(newBlockArchetype))
-
-    const blockKey = `${newBlockPos.x},${newBlockPos.y},${newBlockPos.z}`
-    const newBlock: PlacedBlock = {
-      position: newBlockPos,
-      blockType: selectedBlockType,
-    }
-
-    const { world } = yield* $(WorldContext)
     yield* $(
-      Ref.update(world, (w) => ({
-        ...w,
-        globalState: {
-          ...w.globalState,
-          editedBlocks: {
-            placed: Record.set(w.globalState.editedBlocks.placed, blockKey, newBlock),
-            destroyed: HashSet.remove(w.globalState.editedBlocks.destroyed, blockKey),
-          },
-        },
-      })),
+      A.get(hotbar.slots, hotbar.selectedIndex),
+      Option.match({
+        onNone: () => Effect.void, // Do nothing if index is out of bounds
+        onSome: (selectedBlockType) =>
+          Effect.gen(function* ($) {
+            const targetPosition = yield* $(World.getComponent(target.entityId, 'position'))
+            const newBlockPos = getNewBlockPosition(targetPosition, target.face)
+
+            const newBlockArchetype = createArchetype({
+              type: 'block',
+              pos: newBlockPos,
+              blockType: selectedBlockType,
+            })
+            yield* $(World.addArchetype(newBlockArchetype))
+
+            const newBlock: PlacedBlock = {
+              position: newBlockPos,
+              blockType: selectedBlockType,
+            }
+            yield* $(World.recordBlockPlacement(newBlock))
+          }),
+      }),
     )
   })
 
-type PlayerTargetQueryResult = QueryResult<(typeof playerTargetQuery.components)>
+type PlayerTargetQueryResult = QueryResult<typeof playerTargetQuery.components>
 
 const processPlayerInteraction = (player: PlayerTargetQueryResult) =>
   Effect.gen(function* ($) {
@@ -101,13 +75,13 @@ const processPlayerInteraction = (player: PlayerTargetQueryResult) =>
     }
   })
 
-export const blockInteractionSystem: System = Effect.gen(function* ($) {
+export const blockInteractionSystem = Effect.gen(function* ($) {
   const players = yield* $(World.query(playerTargetQuery))
   yield* $(
     Effect.forEach(players, processPlayerInteraction, {
       discard: true,
       concurrency: 'unbounded',
     }),
-    Effect.catchAll(() => Effect.void), // Ignore errors for now
+    Effect.catchAllCause((cause) => Effect.logError('An error occurred in blockInteractionSystem', cause)),
   )
 })

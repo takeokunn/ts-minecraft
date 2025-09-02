@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { test } from '@fast-check/vitest'
 import * as fc from 'fast-check'
+import { Either } from 'effect'
 import { getUvForFace, isBlockTransparent, isBlockFluid, createPlacedBlock, isBlockType, blockTypeNames, blockDefinitions, FaceName } from '../block'
 
 describe('block', () => {
@@ -68,11 +69,21 @@ describe('block', () => {
   })
 
   describe('createPlacedBlock', () => {
-    it('should create a PlacedBlock object with the correct properties', () => {
+    it('should create a PlacedBlock object for valid input', () => {
       const position = { x: 1, y: 2, z: 3 }
       const blockType = 'grass'
-      const placedBlock = createPlacedBlock(position, blockType)
-      expect(placedBlock).toEqual({ position, blockType })
+      const placedBlockEither = createPlacedBlock(position, blockType)
+      expect(Either.isRight(placedBlockEither)).toBe(true)
+      if (Either.isRight(placedBlockEither)) {
+        expect(placedBlockEither.right).toEqual({ position, blockType })
+      }
+    })
+
+    it('should return a Left for invalid input', () => {
+      const position = { x: 1.5, y: 2, z: 3 } // x is not an integer
+      const blockType = 'grass'
+      const placedBlockEither = createPlacedBlock(position, blockType)
+      expect(Either.isLeft(placedBlockEither)).toBe(true)
     })
   })
 

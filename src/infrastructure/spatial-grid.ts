@@ -7,7 +7,7 @@ const CELL_SIZE = 4
 
 // --- Pure Implementation ---
 
-type SpatialGridState = HashMap.HashMap<string, HashSet.HashSet<EntityId>>
+export type SpatialGridState = HashMap.HashMap<string, HashSet.HashSet<EntityId>>
 
 const forEachCellInAABB = (aabb: AABB, callback: (key: string) => void): void => {
   const minCellX = Math.floor(aabb.minX / CELL_SIZE)

@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { createArchetype } from '@/domain/archetypes'
 import { playerQuery } from '@/domain/queries'
 import * as World from '@/runtime/world-pure'
-import { provideTestWorld } from 'test/utils'
+import { provideTestLayer } from 'test/utils'
 
 describe('World', () => {
   it('should add and retrieve an archetype', async () => {
@@ -21,7 +21,7 @@ describe('World', () => {
       expect(velocity).toEqual(archetype.velocity)
     })
 
-    await Effect.runPromise(Effect.provide(program, provideTestWorld()))
+    await Effect.runPromise(Effect.provide(program, provideTestLayer()))
   })
 
   it('should remove an entity', async () => {
@@ -37,7 +37,7 @@ describe('World', () => {
       expect(Option.isNone(position)).toBe(true)
     })
 
-    await Effect.runPromise(Effect.provide(program, provideTestWorld()))
+    await Effect.runPromise(Effect.provide(program, provideTestLayer()))
   })
 
   it('should update a component', async () => {
@@ -54,7 +54,7 @@ describe('World', () => {
       expect(position).toEqual(newPosition)
     })
 
-    await Effect.runPromise(Effect.provide(program, provideTestWorld()))
+    await Effect.runPromise(Effect.provide(program, provideTestLayer()))
   })
 
   it('should query entities', async () => {
@@ -80,6 +80,6 @@ describe('World', () => {
       expect(entityIds).toContain(player2Id)
     })
 
-    await Effect.runPromise(Effect.provide(program, provideTestWorld()))
+    await Effect.runPromise(Effect.provide(program, provideTestLayer()))
   })
 })

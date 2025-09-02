@@ -29,5 +29,6 @@ export const cameraControlSystem = Effect.gen(function* ($) {
       },
       { discard: true, concurrency: 'unbounded' },
     ),
+    Effect.catchAllCause((cause) => Effect.logError('An error occurred in cameraControlSystem', cause)),
   )
 })

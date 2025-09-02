@@ -1,8 +1,8 @@
-import { Data, Effect, HashMap, HashSet, Layer, Option, Record, Ref } from 'effect'
+import { Schema as S, Data, Effect, HashMap, HashSet, Layer, Option, Record, Ref } from 'effect'
 import * as AST from 'effect/SchemaAST'
 import { Archetype } from '@/domain/archetypes'
-import { BlockType } from '@/domain/block'
-import { ComponentName, Components, ComponentSchemas, componentNamesSet } from '@/domain/components'
+import { BlockType, PlacedBlock } from '@/domain/block'
+import { ComponentName, Components, ComponentSchemas, componentNames, componentNamesSet, Position } from '@/domain/components'
 import { EntityId, toEntityId } from '@/domain/entity'
 import { Query } from '@/domain/query'
 import { WorldContext } from './context'
@@ -85,59 +85,48 @@ const getArchetypeKey = (componentNames: ReadonlyArray<ComponentName>): string =
   return [...componentNames].sort().join(',')
 }
 
+const getBlockKey = (position: { readonly x: number; readonly y: number; readonly z: number }) => {
+  return `${position.x},${position.y},${position.z}`
+}
+
 // --- Core Functions ---
 
-export const createInitialWorld = (): World => ({
-  nextEntityId: 0,
-  entities: HashMap.empty(),
-  archetypes: HashMap.empty(),
-  components: {
-    position: HashMap.empty(),
-    velocity: HashMap.empty(),
-    player: HashMap.empty(),
-    inputState: HashMap.empty(),
-    cameraState: HashMap.empty(),
-    hotbar: HashMap.empty(),
-    target: HashMap.empty(),
-    gravity: HashMap.empty(),
-    collider: HashMap.empty(),
-    renderable: HashMap.empty(),
-    instancedMeshRenderable: HashMap.empty(),
-    terrainBlock: HashMap.empty(),
-    chunk: HashMap.empty(),
-    camera: HashMap.empty(),
-    targetBlock: HashMap.empty(),
-    chunkLoaderState: HashMap.empty(),
-  },
-  globalState: {
-    scene: 'Title',
-    seeds: { world: 1, biome: 2, trees: 3 },
-    amplitude: 20,
-    editedBlocks: {
-      placed: Record.empty(),
-      destroyed: HashSet.empty<string>(),
-    },
-    chunkLoading: {
-      lastPlayerChunk: Option.none(),
-      loadedChunks: HashMap.empty<string, EntityId>(),
-    },
-  },
-})
+export const createInitialWorld = (): World => {
+  const components = {} as ComponentStorage
+  for (const name of componentNames) {
+    components[name] = HashMap.empty()
+  }
 
-export const worldLayer = Layer.effect(
-  WorldContext,
-  Ref.make(createInitialWorld()).pipe(Effect.map((ref) => ({ world: ref }))),
-)
+  return {
+    nextEntityId: 0,
+    entities: HashMap.empty(),
+    archetypes: HashMap.empty(),
+    components,
+    globalState: {
+      scene: 'Title',
+      seeds: { world: 1, biome: 2, trees: 3 },
+      amplitude: 20,
+      editedBlocks: {
+        placed: Record.empty(),
+        destroyed: HashSet.empty<string>(),
+      },
+      chunkLoading: {
+        lastPlayerChunk: Option.none(),
+        loadedChunks: HashMap.empty<string, EntityId>(),
+      },
+    },
+  }
+}
+
+export const worldLayer = Layer.effect(WorldContext, Ref.make(createInitialWorld()).pipe(Effect.map((ref) => ({ world: ref }))))
 
 export const addArchetype = (archetype: Archetype): Effect.Effect<EntityId, never, WorldContext> =>
   Effect.gen(function* ($) {
     const { world } = yield* $(WorldContext)
-    const entityId = yield* $(
-      Ref.modify(world, (w) => [toEntityId(w.nextEntityId), { ...w, nextEntityId: w.nextEntityId + 1 }]),
-    )
+    const entityId = yield* $(Ref.modify(world, (w) => [toEntityId(w.nextEntityId), { ...w, nextEntityId: w.nextEntityId + 1 }]))
 
     const isValidComponentName = (key: string): key is ComponentName => {
-      return componentNamesSet.has(key)
+      return componentNamesSet.has(key as ComponentName)
     }
     const componentNames = Object.keys(archetype).filter(isValidComponentName)
     const archetypeKey = getArchetypeKey(componentNames)
@@ -149,13 +138,13 @@ export const addArchetype = (archetype: Archetype): Effect.Effect<EntityId, neve
         const currentArchetype = Option.getOrElse(HashMap.get(w.archetypes, archetypeKey), () => HashSet.empty<EntityId>())
         const newArchetypes = HashMap.set(w.archetypes, archetypeKey, HashSet.add(currentArchetype, entityId))
 
-        let newComponents = w.components
+        const newComponents = { ...w.components }
         for (const componentName of componentNames) {
           const componentData = archetype[componentName]
           if (componentData) {
             const storage = newComponents[componentName]
             const newStorage = HashMap.set(storage, entityId, componentData)
-            newComponents = { ...newComponents, [componentName]: newStorage }
+            newComponents[componentName] = newStorage
           }
         }
 
@@ -188,14 +177,14 @@ export const removeEntity = (entityId: EntityId): Effect.Effect<void, EntityNotF
         const currentArchetype = Option.getOrElse(HashMap.get(w.archetypes, archetypeKey), () => HashSet.empty<EntityId>())
         const newArchetypes = HashMap.set(w.archetypes, archetypeKey, HashSet.remove(currentArchetype, entityId))
 
-        let newComponents = w.components
-        const isValidComponentName = (key: string): key is ComponentName => componentNamesSet.has(key)
+        const newComponents = { ...w.components }
+        const isValidComponentName = (key: string): key is ComponentName => componentNamesSet.has(key as ComponentName)
         const componentNamesToRemove = archetypeKey.split(',').filter(isValidComponentName)
 
         for (const componentName of componentNamesToRemove) {
           const storage = newComponents[componentName]
           const newStorage = HashMap.remove(storage, entityId)
-          newComponents = { ...newComponents, [componentName]: newStorage }
+          newComponents[componentName] = newStorage
         }
 
         return {
@@ -208,10 +197,7 @@ export const removeEntity = (entityId: EntityId): Effect.Effect<void, EntityNotF
     )
   })
 
-export const getComponent = <T extends ComponentName>(
-  entityId: EntityId,
-  componentName: T,
-): Effect.Effect<Components[T], ComponentNotFoundError, WorldContext> =>
+export const getComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<Components[T], ComponentNotFoundError, WorldContext> =>
   Effect.gen(function* ($) {
     const { world } = yield* $(WorldContext)
     const worldState = yield* $(Ref.get(world))
@@ -221,10 +207,7 @@ export const getComponent = <T extends ComponentName>(
     )
   })
 
-export const getComponentOption = <T extends ComponentName>(
-  entityId: EntityId,
-  componentName: T,
-): Effect.Effect<Option.Option<Components[T]>, never, WorldContext> =>
+export const getComponentOption = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<Option.Option<Components[T]>, never, WorldContext> =>
   Effect.gen(function* ($) {
     const { world } = yield* $(WorldContext)
     const worldState = yield* $(Ref.get(world))
@@ -239,14 +222,12 @@ export const updateComponent = <T extends ComponentName>(
   Effect.gen(function* ($) {
     const { world } = yield* $(WorldContext)
 
-    yield* $(
-      Ref.get(world),
-      Effect.flatMap((w) => HashMap.has(w.entities, entityId)),
-      Effect.filterOrFail(
-        (exists) => exists,
-        () => new EntityNotFoundError({ entityId }),
-      ),
-    )
+    const worldState = yield* $(Ref.get(world))
+    const entityExists = HashMap.has(worldState.entities, entityId)
+
+    if (!entityExists) {
+      return yield* $(Effect.fail(new EntityNotFoundError({ entityId })))
+    }
 
     yield* $(
       Ref.update(world, (w) => ({
@@ -259,9 +240,7 @@ export const updateComponent = <T extends ComponentName>(
     )
   })
 
-export const query = <T extends ReadonlyArray<ComponentName>>(
-  queryDef: Query,
-): Effect.Effect<ReadonlyArray<QueryResult<T>>, never, WorldContext> =>
+export const query = <T extends ReadonlyArray<ComponentName>>(queryDef: Query): Effect.Effect<ReadonlyArray<QueryResult<T>>, never, WorldContext> =>
   Effect.gen(function* ($) {
     const { world } = yield* $(WorldContext)
     const worldState = yield* $(Ref.get(world))
@@ -272,87 +251,141 @@ export const query = <T extends ReadonlyArray<ComponentName>>(
       return HashSet.isSubset(requiredComponents, archetypeComponents)
     })
 
-    return yield* $(
-      HashMap.values(matchingArchetypes),
-      Effect.reduce(
-        [] as QueryResult<T>[],
-        (acc, entitySet) =>
-          Effect.reduce(entitySet, acc, (innerAcc, entityId) => {
-            const componentsRecord = queryDef.components.reduce(
-              (record, componentName) => {
-                record[componentName] = HashMap.get(worldState.components[componentName], entityId)
-                return record
-              },
-              {} as Record<T[number], Option.Option<Components[T[number]]>>,
-            )
+    const results: Array<QueryResult<T>> = []
+    for (const entitySet of HashMap.values(matchingArchetypes)) {
+      for (const entityId of entitySet) {
+        const componentsTupleOption = Option.all(
+          queryDef.components.map((componentName) => HashMap.get(worldState.components[componentName], entityId)),
+        )
 
-            return Option.all(componentsRecord).pipe(
-              Option.map((components) => [...innerAcc, { entityId, ...components } as QueryResult<T>]),
-              Option.getOrElse(() => innerAcc),
-              Effect.succeed,
-            )
-          }),
-      ),
-    )
+        if (Option.isSome(componentsTupleOption)) {
+          const componentsTuple = componentsTupleOption.value
+          const components = {} as { [K in T[number]]: Components[K] }
+          queryDef.components.forEach((name, i) => {
+            components[name] = componentsTuple[i]
+          })
+
+          results.push({ entityId, ...components })
+        }
+      }
+    }
+    return results
   })
 
-export const querySoA = <T extends ReadonlyArray<ComponentName>>(
-  queryDef: Query,
-): Effect.Effect<QuerySoAResult<T>, never, WorldContext> =>
+export const querySoA = <T extends ReadonlyArray<ComponentName>>(queryDef: Query): Effect.Effect<QuerySoAResult<T>, never, WorldContext> =>
   query(queryDef).pipe(
     Effect.map((queryResult) => {
       const entities = queryResult.map((r) => r.entityId)
 
-      const result: {
-        entities: ReadonlyArray<EntityId>
-        [key: string]: unknown
-      } = { entities }
-
+      const componentSoAs: Partial<{ [K in T[number]]: ComponentSoA<Components[K]> }> = {}
       for (const componentName of queryDef.components) {
         const componentSchema = ComponentSchemas[componentName]
-        let ast = componentSchema?.ast
-
-        // Handle S.Class, etc., to get to the core definition
-        while (ast && AST.isTransformation(ast)) {
-          ast = ast.from
-        }
-
         const components = queryResult.map((r) => r[componentName])
 
-        const getKeysFromAst = (node: AST.AST): Set<string> => {
-          const keys = new Set<string>()
-          let current = node
-          while (current && AST.isTransformation(current)) {
-            current = current.from
-          }
-          if (AST.isTypeLiteral(current)) {
-            current.propertySignatures.forEach((ps) => keys.add(String(ps.name)))
-          } else if (AST.isUnion(current)) {
-            current.types.forEach((t) => getKeysFromAst(t).forEach((k) => keys.add(k)))
-          }
-          return keys
+        if (!componentSchema || !('ast' in componentSchema)) {
+          componentSoAs[componentName] = components as any
+          continue
         }
 
-        if (ast) {
-          const allKeys = getKeysFromAst(ast)
-          if (allKeys.size > 0) {
-            const soaStore: { [key: string]: unknown[] } = {}
-            for (const key of allKeys) {
-              soaStore[key] = components.map((c) =>
-                c && typeof c === 'object' && key in c ? (c as Record<string, unknown>)[key] : undefined,
-              )
-            }
-            result[componentName] = soaStore
-          } else {
-            // Handle non-structured components (e.g., primitives)
-            result[componentName] = components
+        const keysSchema = S.keyof(componentSchema)
+        if (AST.isUnion(keysSchema.ast)) {
+          const allKeys = keysSchema.ast.types.flatMap((ast) => (AST.isLiteral(ast) ? [String(ast.literal)] : []))
+
+          if (allKeys.length > 0) {
+            const soaStore = Object.fromEntries(
+              allKeys.map((key) => {
+                const values = components.map((c) => (c && typeof c === 'object' && key in c ? (c as Record<string, unknown>)[key] : undefined))
+                return [key, values]
+              }),
+            )
+            componentSoAs[componentName] = soaStore as any
+            continue
           }
-        } else {
-          // Fallback for empty results or schemas without AST
-          result[componentName] = components
         }
+
+        componentSoAs[componentName] = components as any
       }
 
-      return result as QuerySoAResult<T>
+      return {
+        entities,
+        ...componentSoAs,
+      } as QuerySoAResult<T>
     }),
   )
+
+export const recordBlockDestruction = (position: Position): Effect.Effect<void, never, WorldContext> =>
+  Effect.gen(function* ($) {
+    const { world } = yield* $(WorldContext)
+    const blockKey = getBlockKey(position)
+    yield* $(
+      Ref.update(world, (w) => ({
+        ...w,
+        globalState: {
+          ...w.globalState,
+          editedBlocks: {
+            placed: Record.remove(w.globalState.editedBlocks.placed, blockKey),
+            destroyed: HashSet.add(w.globalState.editedBlocks.destroyed, blockKey),
+          },
+        },
+      })),
+    )
+  })
+
+export const recordBlockPlacement = (block: PlacedBlock): Effect.Effect<void, never, WorldContext> =>
+  Effect.gen(function* ($) {
+    const { world } = yield* $(WorldContext)
+    const blockKey = getBlockKey(block.position)
+    yield* $(
+      Ref.update(world, (w) => ({
+        ...w,
+        globalState: {
+          ...w.globalState,
+          editedBlocks: {
+            placed: Record.set(w.globalState.editedBlocks.placed, blockKey, block),
+            destroyed: HashSet.remove(w.globalState.editedBlocks.destroyed, blockKey),
+          },
+        },
+      })),
+    )
+  })
+
+export const updateLastPlayerChunk = (chunk: { readonly x: number; readonly z: number }): Effect.Effect<void, never, WorldContext> =>
+  Effect.gen(function* ($) {
+    const { world } = yield* $(WorldContext)
+    yield* $(
+      Ref.update(world, (w) => ({
+        ...w,
+        globalState: {
+          ...w.globalState,
+          chunkLoading: {
+            ...w.globalState.chunkLoading,
+            lastPlayerChunk: Option.some(chunk),
+          },
+        },
+      })),
+    )
+  })
+
+export const getChunkLoadingState = (): Effect.Effect<World['globalState']['chunkLoading'], never, WorldContext> =>
+  Effect.gen(function* ($) {
+    const { world } = yield* $(WorldContext)
+    const worldState = yield* $(Ref.get(world))
+    return worldState.globalState.chunkLoading
+  })
+
+export const recordLoadedChunk = (chunkX: number, chunkZ: number, entityId: EntityId): Effect.Effect<void, never, WorldContext> =>
+  Effect.gen(function* ($) {
+    const { world } = yield* $(WorldContext)
+    yield* $(
+      Ref.update(world, (w) => ({
+        ...w,
+        globalState: {
+          ...w.globalState,
+          chunkLoading: {
+            ...w.globalState.chunkLoading,
+            loadedChunks: HashMap.set(w.globalState.chunkLoading.loadedChunks, `${chunkX},${chunkZ}`, entityId),
+          },
+        },
+      })),
+    )
+  })

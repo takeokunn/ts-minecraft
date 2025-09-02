@@ -1,10 +1,10 @@
 import { Effect } from 'effect'
-import { Position, Velocity } from '@/domain/components'
+import { Position, Velocity, Player } from '@/domain/components'
+import { EntityId } from '@/domain/entity'
 import { AABB, areAABBsIntersecting, createAABB } from '@/domain/geometry'
 import { playerColliderQuery, positionColliderQuery } from '@/domain/queries'
 import * as World from '@/runtime/world-pure'
 import { QueryResult } from '@/runtime/world-pure'
-import { SpatialGrid } from '@/infrastructure/spatial-grid'
 import { SpatialGridService } from '@/runtime/services'
 
 type PlayerQueryResult = QueryResult<typeof playerColliderQuery.components>
@@ -36,9 +36,9 @@ const resolveCollisions = (player: PlayerQueryResult, nearbyAABBs: readonly AABB
   for (const blockAABB of nearbyAABBs) {
     if (areAABBsIntersecting(playerAABB_Y, blockAABB)) {
       if (velocity.dy > 0) {
-        newPosition = { ...newPosition, y: blockAABB.minY - collider.height / 2 }
+        newPosition = { ...newPosition, y: blockAABB.minY - collider.height }
       } else if (velocity.dy < 0) {
-        newPosition = { ...newPosition, y: blockAABB.maxY + collider.height / 2 }
+        newPosition = { ...newPosition, y: blockAABB.maxY }
         isGrounded = true
       }
       newVelocity = { ...newVelocity, dy: 0 }
@@ -76,8 +76,9 @@ const resolveCollisions = (player: PlayerQueryResult, nearbyAABBs: readonly AABB
   return { newPosition, newVelocity, isGrounded }
 }
 
-const processPlayerCollision = (player: PlayerQueryResult, spatialGrid: SpatialGrid, colliderMap: ReadonlyMap<number, ColliderQueryResult>) =>
+const processPlayerCollision = (player: PlayerQueryResult, colliderMap: ReadonlyMap<EntityId, ColliderQueryResult>) =>
   Effect.gen(function* ($) {
+    const spatialGrid = yield* $(SpatialGridService)
     const { entityId, position, velocity, collider } = player
 
     // Broad-phase
@@ -87,18 +88,22 @@ const processPlayerCollision = (player: PlayerQueryResult, spatialGrid: SpatialG
     )
     const nearbyEntityIds = yield* $(spatialGrid.query(broadphaseAABB))
 
-    const nearbyAABBs = (nearbyEntityIds as readonly number[]).reduce((aabbs: AABB[], nearbyId: number) => {
+    const nearbyAABBs: AABB[] = []
+    for (const nearbyId of nearbyEntityIds) {
       if (nearbyId !== entityId) {
         const c = colliderMap.get(nearbyId)
         if (c) {
-          aabbs.push(createAABB(c.position, c.collider))
+          nearbyAABBs.push(createAABB(c.position, c.collider))
         }
       }
-      return aabbs
-    }, [] as AABB[])
+    }
 
     // Narrow-phase
     const { newPosition, newVelocity, isGrounded } = resolveCollisions(player, nearbyAABBs)
+
+    // Get the current player component to avoid overwriting other properties
+    const currentPlayer = yield* $(World.getComponent(entityId, 'player'))
+    const newPlayer: Player = { ...currentPlayer, isGrounded }
 
     // Write results
     yield* $(
@@ -106,7 +111,7 @@ const processPlayerCollision = (player: PlayerQueryResult, spatialGrid: SpatialG
         [
           World.updateComponent(entityId, 'position', newPosition),
           World.updateComponent(entityId, 'velocity', newVelocity),
-          World.updateComponent(entityId, 'player', { isGrounded }),
+          World.updateComponent(entityId, 'player', newPlayer),
         ],
         { discard: true },
       ),
@@ -114,7 +119,6 @@ const processPlayerCollision = (player: PlayerQueryResult, spatialGrid: SpatialG
   })
 
 export const collisionSystem = Effect.gen(function* ($) {
-  const spatialGrid = yield* $(SpatialGridService)
   const players = yield* $(World.query(playerColliderQuery))
   const colliders = yield* $(World.query(positionColliderQuery))
 
@@ -125,13 +129,10 @@ export const collisionSystem = Effect.gen(function* ($) {
   const colliderMap = colliders.reduce((map, collider) => {
     map.set(collider.entityId, collider)
     return map
-  }, new Map<number, ColliderQueryResult>())
+  }, new Map<EntityId, ColliderQueryResult>())
 
   yield* $(
-    Effect.forEach(
-      players,
-      (player) => processPlayerCollision(player, spatialGrid, colliderMap),
-      { discard: true, concurrency: 'unbounded' },
-    ),
+    Effect.forEach(players, (player) => processPlayerCollision(player, colliderMap), { discard: true, concurrency: 'unbounded' }),
+    Effect.catchAllCause((cause) => Effect.logError('An error occurred in collisionSystem', cause)),
   )
 })

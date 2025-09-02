@@ -1,25 +1,18 @@
 import { Effect, Ref, Schedule, Clock } from 'effect'
 import { pipe } from 'effect/Function'
 import { DeltaTime, RendererService } from './services'
-import { ComponentNotFoundError, EntityNotFoundError } from './world-pure'
-
-// --- Types ---
-
-export type System = Effect.Effect<void, EntityNotFoundError | ComponentNotFoundError, any>
 
 // --- Game Loop ---
 
 /* v8 ignore start */
-export const createGameTick = (systems: ReadonlyArray<System>, lastTimeRef: Ref.Ref<number>) =>
+export const createGameTick = <E, R>(systems: ReadonlyArray<Effect.Effect<void, E, R>>, lastTimeRef: Ref.Ref<number>) =>
   Effect.gen(function* (_) {
     const renderer = yield* _(RendererService)
     const currentTime = yield* _(Clock.currentTimeMillis)
     const lastTime = yield* _(Ref.getAndSet(lastTimeRef, currentTime))
     const deltaTime = (currentTime - lastTime) / 1000
 
-    const systemsEffect = Effect.forEach(systems, (system) =>
-      Effect.catchAll(system, (e) => Effect.logError("Error in system", e)), { discard: true, concurrency: "inherit" }
-    )
+    const systemsEffect = Effect.forEach(systems, (system) => Effect.catchAll(system, (e) => Effect.logError('Error in system', e)), { discard: true, concurrency: 'inherit' })
 
     const tickEffect = pipe(systemsEffect, Effect.provideService(DeltaTime, deltaTime))
 
@@ -48,7 +41,7 @@ const animationFrameSchedule = pipe(
 export const gameLoop = <E, R>(systems: ReadonlyArray<Effect.Effect<void, E, R>>) =>
   Effect.gen(function* (_) {
     const lastTimeRef = yield* _(Ref.make(yield* _(Clock.currentTimeMillis)))
-    const gameTick = createGameTick(systems as any, lastTimeRef)
+    const gameTick = createGameTick(systems, lastTimeRef)
     yield* _(Effect.repeat(gameTick, animationFrameSchedule))
   })
 /* v8 ignore stop */

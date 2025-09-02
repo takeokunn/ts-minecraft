@@ -7,7 +7,7 @@ import { ThreeContextService } from '@/infrastructure/renderer-three/context'
 import { ThreeContext } from '@/infrastructure/types'
 import { RaycastResultService } from '@/runtime/services'
 import * as World from '@/runtime/world-pure'
-import { provideTestWorld } from 'test/utils'
+import { provideTestLayer } from 'test/utils'
 import { raycastSystem } from '../raycast'
 import { toEntityId } from '@/domain/entity'
 
@@ -45,5 +45,5 @@ describe('raycastSystem', () => {
 
       const result = yield* $(Ref.get(raycastResultRef))
       expect(Option.isSome(result)).toBe(true)
-    }).pipe(Effect.provide(provideTestWorld())))
+    }).pipe(Effect.provide(provideTestLayer())))
 })

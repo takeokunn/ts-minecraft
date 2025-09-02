@@ -15,7 +15,7 @@ export interface MaterialManager {
   readonly dispose: () => Effect.Effect<void>
 }
 
-export const MaterialManager = Context.GenericTag<MaterialManager>('app/MaterialManager')
+export class MaterialManager extends Context.Tag('app/MaterialManager')<MaterialManager, MaterialManager>() {}
 
 // --- Service Implementation ---
 

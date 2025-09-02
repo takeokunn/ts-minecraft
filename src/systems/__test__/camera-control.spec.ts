@@ -4,7 +4,7 @@ import { createArchetype } from '@/domain/archetypes'
 import { CameraState } from '@/domain/components'
 import { InputManagerService } from '@/runtime/services'
 import * as World from '@/runtime/world-pure'
-import { provideTestWorld } from 'test/utils'
+import { provideTestLayer } from 'test/utils'
 import { cameraControlSystem } from '../camera-control'
 
 const MockInputManager = (dx: number, dy: number) =>
@@ -40,7 +40,7 @@ describe('cameraControlSystem', () => {
       const updatedCameraState = yield* $(World.getComponent(playerId, 'cameraState'))
 
       expect(updatedCameraState).not.toEqual(initialCameraState)
-    }).pipe(Effect.provide(provideTestWorld().pipe(Layer.provide(MockInputManager(100, 200))))))
+    }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(MockInputManager(100, 200))))))
 
   it('should not update camera state if mouse has not moved', () =>
     Effect.gen(function* ($) {
@@ -51,5 +51,5 @@ describe('cameraControlSystem', () => {
 
       const updatedCameraState = yield* $(World.getComponent(playerId, 'cameraState'))
       expect(updatedCameraState).toEqual(initialCameraState)
-    }).pipe(Effect.provide(provideTestWorld().pipe(Layer.provide(MockInputManager(0, 0))))))
+    }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(MockInputManager(0, 0))))))
 })

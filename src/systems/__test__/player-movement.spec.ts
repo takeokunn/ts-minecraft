@@ -7,7 +7,7 @@ import { CameraState, InputState } from '@/domain/components'
 import { playerQuery } from '@/domain/queries'
 import { JUMP_FORCE, MIN_VELOCITY_THRESHOLD, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@/domain/world-constants'
 import * as World from '@/runtime/world-pure'
-import { provideTestWorld } from 'test/utils'
+import { provideTestLayer } from 'test/utils'
 import { applyDeceleration, calculateHorizontalVelocity, calculateVerticalVelocity, playerMovementSystem } from '../player-movement'
 
 const setupWorld = (inputState: Partial<InputState>, isGrounded: boolean, camera: Partial<CameraState>) =>
@@ -140,6 +140,7 @@ describe('playerMovementSystem', () => {
           expect(velocity.dy).toBe(JUMP_FORCE)
           expect(playerComponent.isGrounded).toBe(false)
         }
-      }).pipe(Effect.provide(provideTestWorld())))
+      }).pipe(Effect.provide(provideTestLayer())),
+    )
   })
 })

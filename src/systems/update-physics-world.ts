@@ -24,4 +24,4 @@ export const updatePhysicsWorldSystem = Effect.gen(function* (_) {
       { discard: true },
     ),
   )
-})
+}).pipe(Effect.catchAllCause((cause) => Effect.logError('An error occurred in updatePhysicsWorldSystem', cause)))

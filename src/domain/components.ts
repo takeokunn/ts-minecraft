@@ -135,5 +135,7 @@ export type Components = {
 }
 
 export type ComponentName = keyof Components
-export const componentNames = Object.keys(ComponentSchemas) as ReadonlyArray<ComponentName>
+export const componentNames: ReadonlyArray<ComponentName> = Object.keys(ComponentSchemas).filter(
+  (key): key is ComponentName => Object.prototype.hasOwnProperty.call(ComponentSchemas, key),
+)
 export const componentNamesSet = new Set<ComponentName>(componentNames)

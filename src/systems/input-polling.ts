@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Data, Effect } from 'effect'
 import { InputState } from '@/domain/components'
 import { playerInputQuery } from '@/domain/queries'
 import { InputManagerService } from '@/runtime/services'
@@ -21,12 +21,16 @@ export const inputPollingSystem = Effect.gen(function* ($) {
     isLocked: isLocked,
   })
 
-  // TODO: Check if the input state has actually changed before updating
+  const updateTasks = players.map((player) => {
+    // Check if the input state has actually changed
+    if (!Data.equals(player.inputState, newInputState)) {
+      return World.updateComponent(player.entityId, 'inputState', newInputState)
+    }
+    return Effect.void
+  })
+
   yield* $(
-    Effect.forEach(
-      players,
-      (player) => World.updateComponent(player.entityId, 'inputState', newInputState),
-      { discard: true, concurrency: 'unbounded' },
-    ),
+    Effect.all(updateTasks, { discard: true, concurrency: 'unbounded' }),
+    Effect.catchAllCause((cause) => Effect.logError('An error occurred in inputPollingSystem', cause)),
   )
 })

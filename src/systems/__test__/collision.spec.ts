@@ -5,7 +5,7 @@ import { playerColliderQuery } from '@/domain/queries'
 import { SpatialGrid } from '@/infrastructure/spatial-grid'
 import { SpatialGridService } from '@/runtime/services'
 import * as World from '@/runtime/world-pure'
-import { provideTestWorld } from 'test/utils'
+import { provideTestLayer } from 'test/utils'
 import { collisionSystem } from '../collision'
 import { AABB } from '@/domain/geometry'
 import { EntityId } from '@/domain/entity'
@@ -59,5 +59,5 @@ describe('collisionSystem', () => {
       } else {
         expect(player).toBeDefined()
       }
-    }).pipe(Effect.provide(provideTestWorld())))
+    }).pipe(Effect.provide(provideTestLayer())))
 })

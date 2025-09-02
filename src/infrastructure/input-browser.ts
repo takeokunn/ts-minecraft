@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Ref, Runtime } from 'effect'
+import { Context, Effect, Layer, Option, Ref } from 'effect'
 import { match } from 'ts-pattern'
 import type { BrowserInputState } from '@/domain/types'
 
@@ -21,16 +21,13 @@ export interface InputManager {
   readonly cleanup: Effect.Effect<void>
 }
 
-export const InputManager = Context.GenericTag<InputManager>('app/InputManager')
+export const InputManagerService = Context.GenericTag<InputManager>('app/InputManager')
 
 // --- Live Implementation ---
 
 export const InputManagerLive = Layer.effect(
-  InputManager,
+  InputManagerService,
   Effect.gen(function* ($) {
-    const runtime = yield* $(Effect.runtime<never>())
-    const run = runtime.runFork
-
     const stateRef = yield* $(
       Ref.make<BrowserInputState>({
         keyboard: new Set<string>(),
@@ -77,27 +74,30 @@ export const InputManagerLive = Layer.effect(
         const onLock = () => Ref.update(stateRef, (s) => ({ ...s, isLocked: true }))
         const onUnlock = () => Ref.update(stateRef, (s) => ({ ...s, isLocked: false }))
 
-        const listeners: { [K in keyof DocumentEventMap]?: (event: DocumentEventMap[K]) => void } = {
-          keydown: (e) => run(onKeyDown(e)),
-          keyup: (e) => run(onKeyUp(e)),
-          mousemove: (e) => run(onMouseMove(e)),
-          mousedown: (e) => run(onMouseDown(e)),
-          mouseup: (e) => run(onMouseUp(e)),
-        }
+        const onKeyDownListener = (e: KeyboardEvent) => Effect.runFork(onKeyDown(e))
+        const onKeyUpListener = (e: KeyboardEvent) => Effect.runFork(onKeyUp(e))
+        const onMouseMoveListener = (e: MouseEvent) => Effect.runFork(onMouseMove(e))
+        const onMouseDownListener = (e: MouseEvent) => Effect.runFork(onMouseDown(e))
+        const onMouseUpListener = (e: MouseEvent) => Effect.runFork(onMouseUp(e))
 
-        for (const [event, listener] of Object.entries(listeners)) {
-          document.addEventListener(event, listener as EventListener)
-        }
-        const onLockListener = () => run(onLock())
-        const onUnlockListener = () => run(onUnlock())
+        document.addEventListener('keydown', onKeyDownListener)
+        document.addEventListener('keyup', onKeyUpListener)
+        document.addEventListener('mousemove', onMouseMoveListener)
+        document.addEventListener('mousedown', onMouseDownListener)
+        document.addEventListener('mouseup', onMouseUpListener)
+
+        const onLockListener = () => Effect.runFork(onLock())
+        const onUnlockListener = () => Effect.runFork(onUnlock())
 
         controls.addEventListener('lock', onLockListener)
         controls.addEventListener('unlock', onUnlockListener)
 
         const cleanupEffect = Effect.sync(() => {
-          for (const [event, listener] of Object.entries(listeners)) {
-            document.removeEventListener(event, listener as EventListener)
-          }
+          document.removeEventListener('keydown', onKeyDownListener)
+          document.removeEventListener('keyup', onKeyUpListener)
+          document.removeEventListener('mousemove', onMouseMoveListener)
+          document.removeEventListener('mousedown', onMouseDownListener)
+          document.removeEventListener('mouseup', onMouseUpListener)
           controls.removeEventListener('lock', onLockListener)
           controls.removeEventListener('unlock', onUnlockListener)
           if (controls.isLocked) controls.unlock()
@@ -117,7 +117,8 @@ export const InputManagerLive = Layer.effect(
     const getMouseDelta = Ref.modify(stateRef, (s) => {
       const delta = { dx: s.mouse.dx, dy: s.mouse.dy }
       const newState = { ...s, mouse: { dx: 0, dy: 0 } }
-      return [delta, newState] as const
+      const result: readonly [typeof delta, typeof newState] = [delta, newState]
+      return result
     })
 
     return {

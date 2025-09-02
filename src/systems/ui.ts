@@ -7,5 +7,6 @@ export type HotbarUpdater = (hotbar: Hotbar) => Effect.Effect<void>
 export const createUISystem = (updateHotbar: HotbarUpdater) =>
   Effect.gen(function* (_) {
     const gameState = yield* _(GameStateService)
-    yield* _(updateHotbar(gameState.hotbar))
-  })
+    const hotbar = yield* _(gameState.getHotbar)
+    yield* _(updateHotbar(hotbar))
+  }).pipe(Effect.catchAllCause((cause) => Effect.logError('An error occurred in UISystem', cause)))

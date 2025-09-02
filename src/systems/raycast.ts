@@ -7,13 +7,7 @@ import * as World from '@/runtime/world-pure'
 
 export const areRaycastResultsEqual = (a: RaycastResult, b: RaycastResult): boolean => {
   // Note: This is a shallow comparison. For deep equality on intersection, more checks are needed.
-  return (
-    a.entityId === b.entityId &&
-    a.face.x === b.face.x &&
-    a.face.y === b.face.y &&
-    a.face.z === b.face.z &&
-    a.intersection.distance === b.intersection.distance
-  )
+  return a.entityId === b.entityId && a.face.x === b.face.x && a.face.y === b.face.y && a.face.z === b.face.z && a.intersection.distance === b.intersection.distance
 }
 
 export const raycastSystem = Effect.gen(function* ($) {
@@ -32,14 +26,10 @@ export const raycastSystem = Effect.gen(function* ($) {
   const newRaycastResult = yield* $(raycastService.cast(threeContext.scene, terrainBlockMap))
   const oldRaycastResult = yield* $(Ref.get(raycastResultRef))
 
-  const areEqual = Option.match(oldRaycastResult, {
-    onNone: () => Option.isNone(newRaycastResult),
-    onSome: (oldResult) =>
-      Option.match(newRaycastResult, {
-        onNone: () => false,
-        onSome: (newResult) => areRaycastResultsEqual(oldResult, newResult),
-      }),
-  })
+  const areEqual = Option.zip(oldRaycastResult, newRaycastResult).pipe(
+    Option.map(([oldResult, newResult]) => areRaycastResultsEqual(oldResult, newResult)),
+    Option.getOrElse(() => oldRaycastResult === newRaycastResult),
+  )
 
   if (!areEqual) {
     yield* $(Ref.set(raycastResultRef, newRaycastResult))

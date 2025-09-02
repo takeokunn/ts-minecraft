@@ -1,8 +1,9 @@
 import { Effect, Layer, Ref } from 'effect'
 import { describe, it, expect } from 'vitest'
-import { ChunkDataQueueService, RenderQueue, RenderQueueService } from '@/runtime/services'
+import type { RenderQueue } from '@/domain/types'
+import { ChunkDataQueueService, RenderQueueService } from '@/runtime/services'
 import * as World from '@/runtime/world-pure'
-import { provideTestWorld } from 'test/utils'
+import { provideTestLayer } from 'test/utils'
 import { worldUpdateSystem } from '../world-update'
 import { chunkQuery, terrainBlockQuery } from '@/domain/queries'
 import { ChunkGenerationResult, RenderCommand } from '@/domain/types'
@@ -13,7 +14,7 @@ describe('worldUpdateSystem', () => {
     Effect.gen(function* ($) {
       const chunkData: ChunkGenerationResult = {
         blocks: [{ position: { x: 0, y: 0, z: 0 }, blockType: 'dirt' as BlockType }],
-        mesh: { indices: [1, 2, 3], positions: new Float32Array(), normals: new Float32Array(), uvs: new Float32Array() },
+        mesh: { indices: new Uint32Array([1, 2, 3]), positions: new Float32Array(), normals: new Float32Array(), uvs: new Float32Array() },
         chunkX: 0,
         chunkZ: 0,
       }
@@ -22,12 +23,13 @@ describe('worldUpdateSystem', () => {
       const ChunkQueueLayer = Layer.succeed(ChunkDataQueueService, chunkQueue)
       const RenderQueueLayer = Layer.succeed(RenderQueueService, {
         push: (cmd: RenderCommand) => Ref.update(renderQueueRef, (q) => [...q, cmd]),
-        splice: (start: number, deleteCount: number) => Effect.gen(function* ($) {
-          const q = yield* $(Ref.get(renderQueueRef))
-          const removed = q.splice(start, deleteCount)
-          yield* $(Ref.set(renderQueueRef, q))
-          return removed
-        }),
+        splice: (start: number, deleteCount: number) =>
+          Effect.gen(function* ($) {
+            const q = yield* $(Ref.get(renderQueueRef))
+            const removed = q.splice(start, deleteCount)
+            yield* $(Ref.set(renderQueueRef, q))
+            return removed
+          }),
       } as RenderQueue)
 
       yield* $(Effect.provide(worldUpdateSystem, ChunkQueueLayer.pipe(Layer.provide(RenderQueueLayer))))
@@ -45,5 +47,5 @@ describe('worldUpdateSystem', () => {
         chunkZ: 0,
         mesh: chunkData.mesh,
       })
-    }).pipe(Effect.provide(provideTestWorld())))
+    }).pipe(Effect.provide(provideTestLayer())))
 })

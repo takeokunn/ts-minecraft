@@ -38,22 +38,14 @@ export const calculateVerticalVelocity = (isGrounded: boolean, jumpPressed: bool
   return { newDy: currentDy, newIsGrounded: isGrounded }
 }
 
+const clampToZero = (value: number) =>
+  match(value)
+    .when(Number.isFinite, (v) => (Math.abs(v) < MIN_VELOCITY_THRESHOLD ? 0 : v))
+    .otherwise(() => 0)
+
 export const applyDeceleration = (velocity: Pick<Velocity, 'dx' | 'dz'>): Pick<Velocity, 'dx' | 'dz'> => {
-  let { dx, dz } = velocity
-
-  if (!Number.isFinite(dx)) {
-    dx = 0
-  }
-  if (!Number.isFinite(dz)) {
-    dz = 0
-  }
-
-  dx *= DECELERATION
-  dz *= DECELERATION
-
-  dx = Math.abs(dx) < MIN_VELOCITY_THRESHOLD ? 0 : dx
-  dz = Math.abs(dz) < MIN_VELOCITY_THRESHOLD ? 0 : dz
-
+  const dx = clampToZero(velocity.dx * DECELERATION)
+  const dz = clampToZero(velocity.dz * DECELERATION)
   return { dx, dz }
 }
 
@@ -88,5 +80,6 @@ export const playerMovementSystem = Effect.gen(function* ($) {
       },
       { discard: true, concurrency: 'unbounded' },
     ),
+    Effect.catchAllCause((cause) => Effect.logError('An error occurred in playerMovementSystem', cause)),
   )
 })

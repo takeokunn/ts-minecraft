@@ -34,6 +34,7 @@ const BLOCK_SIZE = 1
 const PlayerArchetypeBuilderSchema = S.Struct({
   type: S.Literal('player'),
   pos: Position,
+  cameraState: S.optional(CameraState),
 })
 
 const BlockArchetypeBuilderSchema = S.Struct({
@@ -83,12 +84,12 @@ export type Archetype = Partial<Components>
  */
 export const createArchetype = (builder: ArchetypeBuilder): Archetype => {
   return match(builder)
-    .with({ type: 'player' }, ({ pos }) => ({
+    .with({ type: 'player' }, ({ pos, cameraState }) => ({
       player: new Player({ isGrounded: false }),
       position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
       velocity: new Velocity({ dx: 0, dy: 0, dz: 0 }),
       gravity: new Gravity({ value: PLAYER_GRAVITY }),
-      cameraState: new CameraState({ pitch: 0, yaw: 0 }),
+      cameraState: cameraState ?? new CameraState({ pitch: 0, yaw: 0 }),
       inputState: createInputState(),
       collider: new Collider({
         width: PLAYER_WIDTH,
