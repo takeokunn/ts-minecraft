@@ -2,7 +2,6 @@ import { Context, Effect, Layer } from 'effect'
 import { PerspectiveCamera, WebGLRenderer } from 'three'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'
 import { clampPitch } from '@/domain/camera-logic'
-import type { CameraState, Position } from '@/domain/components'
 import { ThreeCamera } from './types'
 
 // --- Constants ---
@@ -13,7 +12,7 @@ export const PLAYER_EYE_HEIGHT = 1.6
 
 export interface ThreeCameraService {
   readonly camera: ThreeCamera
-  readonly syncToComponent: (position: Position, cameraState: CameraState) => Effect.Effect<void>
+  readonly syncToComponent: (x: number, y: number, z: number, pitch: number, yaw: number) => Effect.Effect<void>
   readonly moveRight: (delta: number) => Effect.Effect<void>
   readonly rotatePitch: (delta: number) => Effect.Effect<void>
   readonly rotateYaw: (delta: number) => Effect.Effect<void>
@@ -37,12 +36,12 @@ export const ThreeCameraLive = (canvas: HTMLElement) =>
 
     return {
       camera: threeCamera,
-      syncToComponent: (position: Position, cameraState: CameraState) =>
+      syncToComponent: (x: number, y: number, z: number, pitch: number, yaw: number) =>
         Effect.sync(() => {
           const controlsObject = threeCamera.controls.getObject()
-          controlsObject.position.set(position.x, position.y + PLAYER_EYE_HEIGHT, position.z)
-          controlsObject.rotation.y = cameraState.yaw
-          threeCamera.camera.rotation.x = cameraState.pitch
+          controlsObject.position.set(x, y + PLAYER_EYE_HEIGHT, z)
+          controlsObject.rotation.y = yaw
+          threeCamera.camera.rotation.x = pitch
         }),
       moveRight: (delta: number) => Effect.sync(() => threeCamera.controls.moveRight(delta)),
       rotatePitch: (delta: number) =>

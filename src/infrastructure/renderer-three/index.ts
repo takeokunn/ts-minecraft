@@ -2,12 +2,12 @@ import * as THREE from 'three'
 import { Effect, Layer, Option, Ref } from 'effect'
 import { pipe } from 'effect/Function'
 import { match } from 'ts-pattern'
+import { ComponentSchemas } from '@/domain/components'
 import { playerQuery } from '@/domain/queries'
 import { RenderCommand } from '@/domain/types'
 import { MaterialManager, RaycastResultService, RendererService, RenderQueueService, ThreeContextService } from '@/runtime/services'
-import { World } from '@/runtime/world'
+import * as World from '@/runtime/world-pure'
 import { ThreeCameraService } from '../camera-three'
-import { CameraState, Position } from '@/domain/components'
 import { ThreeContext } from '@/infrastructure/types'
 
 // --- Live Implementation ---
@@ -15,10 +15,9 @@ import { ThreeContext } from '@/infrastructure/types'
 export const RendererLive = Layer.effect(
   RendererService,
   Effect.gen(function* (_) {
-    const world = yield* _(World)
     const cameraService = yield* _(ThreeCameraService)
     const raycastResultRef = yield* _(RaycastResultService)
-    const context = (yield* _(ThreeContextService)) as ThreeContext
+    const context = yield* _(ThreeContextService)
     const materialManager = yield* _(MaterialManager)
     const renderQueue = yield* _(RenderQueueService)
 
@@ -70,23 +69,13 @@ export const RendererLive = Layer.effect(
       )
     }).pipe(Effect.catchAll((err) => Effect.logError('Failed to process render queue', err)))
 
-    const syncCameraToWorld = Effect.gen(function* (_) {
-      const players = yield* _(world.querySoA(playerQuery))
-      if (players.entities.length > 0) {
-        const i = 0
-        const x = players.position.x[i]
-        const y = players.position.y[i]
-        const z = players.position.z[i]
-        const pitch = players.cameraState.pitch[i]
-        const yaw = players.cameraState.yaw[i]
+    const syncCameraToWorld = Effect.gen(function* ($) {
+      const players = yield* $(World.query(playerQuery))
+      const player = players[0]
 
-        if (x === undefined || y === undefined || z === undefined || pitch === undefined || yaw === undefined) {
-          return
-        }
-
-        const position = new Position({ x, y, z })
-        const cameraState = new CameraState({ pitch, yaw })
-        yield* _(cameraService.syncToComponent(position, cameraState))
+      if (player) {
+        const { position, cameraState } = player
+        yield* $(cameraService.syncToComponent(position.x, position.y, position.z, cameraState.pitch, cameraState.yaw))
       }
     })
 
@@ -97,7 +86,7 @@ export const RendererLive = Layer.effect(
           raycastResult,
           Option.match({
             onNone: () => Effect.succeed(Option.none()),
-            onSome: (result) => world.getComponent(result.entityId, 'position'),
+            onSome: (result) => World.getComponentOption(result.entityId, 'position'),
           }),
         ),
       )

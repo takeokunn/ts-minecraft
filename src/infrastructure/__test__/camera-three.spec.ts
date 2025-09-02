@@ -81,7 +81,7 @@ describe('ThreeCameraLive', () => {
 
     const program = Effect.gen(function* (_) {
       const service = yield* _(ThreeCameraService)
-      yield* _(service.syncToComponent(position, cameraState))
+      yield* _(service.syncToComponent(position.x, position.y, position.z, cameraState.pitch, cameraState.yaw))
 
       const controlsObject = service.camera.controls.getObject()
       expect(controlsObject.position.set).toHaveBeenCalledWith(1, 2 + PLAYER_EYE_HEIGHT, 3)

@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Ref } from 'effect'
+import { Context, Effect, Layer, Option, Ref, Runtime } from 'effect'
 import { match } from 'ts-pattern'
 import type { BrowserInputState } from '@/domain/types'
 
@@ -27,19 +27,22 @@ export const InputManager = Context.GenericTag<InputManager>('app/InputManager')
 
 export const InputManagerLive = Layer.effect(
   InputManager,
-  Effect.gen(function* (_) {
-    const stateRef = yield* _(
+  Effect.gen(function* ($) {
+    const runtime = yield* $(Effect.runtime<never>())
+    const run = runtime.runFork
+
+    const stateRef = yield* $(
       Ref.make<BrowserInputState>({
         keyboard: new Set<string>(),
         mouse: { dx: 0, dy: 0 },
         isLocked: false,
       }),
     )
-    const cleanupRef = yield* _(Ref.make<Option.Option<Effect.Effect<void>>>(Option.none()))
+    const cleanupRef = yield* $(Ref.make<Option.Option<Effect.Effect<void>>>(Option.none()))
 
     const registerListeners = (controls: LockableControls) =>
-      Effect.gen(function* (_) {
-        yield* _(Effect.flatMap(Ref.get(cleanupRef), Option.match({ onNone: () => Effect.void, onSome: (e) => e })))
+      Effect.gen(function* ($) {
+        yield* $(Effect.flatMap(Ref.get(cleanupRef), Option.match({ onNone: () => Effect.void, onSome: (e) => e })))
 
         const getMouseButtonKey = (button: number) =>
           match(button)
@@ -75,18 +78,18 @@ export const InputManagerLive = Layer.effect(
         const onUnlock = () => Ref.update(stateRef, (s) => ({ ...s, isLocked: false }))
 
         const listeners: { [K in keyof DocumentEventMap]?: (event: DocumentEventMap[K]) => void } = {
-          keydown: (e) => Effect.runSync(onKeyDown(e)),
-          keyup: (e) => Effect.runSync(onKeyUp(e)),
-          mousemove: (e) => Effect.runSync(onMouseMove(e)),
-          mousedown: (e) => Effect.runSync(onMouseDown(e)),
-          mouseup: (e) => Effect.runSync(onMouseUp(e)),
+          keydown: (e) => run(onKeyDown(e)),
+          keyup: (e) => run(onKeyUp(e)),
+          mousemove: (e) => run(onMouseMove(e)),
+          mousedown: (e) => run(onMouseDown(e)),
+          mouseup: (e) => run(onMouseUp(e)),
         }
 
         for (const [event, listener] of Object.entries(listeners)) {
           document.addEventListener(event, listener as EventListener)
         }
-        const onLockListener = () => Effect.runSync(onLock())
-        const onUnlockListener = () => Effect.runSync(onUnlock())
+        const onLockListener = () => run(onLock())
+        const onUnlockListener = () => run(onUnlock())
 
         controls.addEventListener('lock', onLockListener)
         controls.addEventListener('unlock', onUnlockListener)
@@ -99,7 +102,7 @@ export const InputManagerLive = Layer.effect(
           controls.removeEventListener('unlock', onUnlockListener)
           if (controls.isLocked) controls.unlock()
         })
-        yield* _(Ref.set(cleanupRef, Option.some(cleanupEffect)))
+        yield* $(Ref.set(cleanupRef, Option.some(cleanupEffect)))
       })
 
     const cleanup = Effect.flatMap(Ref.get(cleanupRef), (opt) =>

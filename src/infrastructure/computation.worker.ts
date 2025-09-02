@@ -1,19 +1,17 @@
 import * as Context from 'effect/Context'
+import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Pool from 'effect/Pool'
 import type { ChunkGenerationResult, ComputationTask } from '@/domain/types'
+export type { ChunkGenerationResult } from '@/domain/types'
 import ComputationWorkerUrl from '@/workers/computation.worker.ts?worker'
 
 // --- Error Type ---
 
-export class WorkerError extends Error {
-  readonly _tag = 'WorkerError'
-  constructor(readonly reason: unknown) {
-    super('A worker failed to execute a task.', { cause: reason })
-    this.name = 'WorkerError'
-  }
-}
+export class WorkerError extends Data.TaggedError('WorkerError')<{
+  readonly reason: unknown
+}> {}
 
 // --- Service Definition ---
 
@@ -49,7 +47,7 @@ export const ComputationWorkerLive = Layer.scoped(
               }
               const handleError = (err: ErrorEvent) => {
                 cleanUp()
-                resume(Effect.fail(new WorkerError(err)))
+                resume(Effect.fail(new WorkerError({ reason: err })))
               }
               const cleanUp = () => {
                 worker.removeEventListener('message', handleMessage)

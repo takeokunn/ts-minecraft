@@ -3,29 +3,34 @@ import { terrainBlockQuery } from '@/domain/queries'
 import { EntityId } from '@/domain/entity'
 import { RaycastResult, RaycastService } from '@/infrastructure/raycast-three'
 import { RaycastResultService, ThreeContextService } from '@/runtime/services'
-import { World } from '@/runtime/world'
-import { ThreeContext } from '@/infrastructure/types'
+import * as World from '@/runtime/world-pure'
 
 export const areRaycastResultsEqual = (a: RaycastResult, b: RaycastResult): boolean => {
-  return a.entityId === b.entityId && a.face.x === b.face.x && a.face.y === b.face.y && a.face.z === b.face.z && a.intersection.distance === b.intersection.distance
+  // Note: This is a shallow comparison. For deep equality on intersection, more checks are needed.
+  return (
+    a.entityId === b.entityId &&
+    a.face.x === b.face.x &&
+    a.face.y === b.face.y &&
+    a.face.z === b.face.z &&
+    a.intersection.distance === b.intersection.distance
+  )
 }
 
-export const raycastSystem = Effect.gen(function* (_) {
-  const world = yield* _(World)
-  const threeContext = (yield* _(ThreeContextService)) as ThreeContext
-  const raycastService = yield* _(RaycastService)
-  const raycastResultRef = yield* _(RaycastResultService)
+export const raycastSystem = Effect.gen(function* ($) {
+  const threeContext = yield* $(ThreeContextService)
+  const raycastService = yield* $(RaycastService)
+  const raycastResultRef = yield* $(RaycastResultService)
 
-  const terrainBlocks = yield* _(world.query(terrainBlockQuery))
-  const terrainBlockMap = new Map<string, EntityId>()
-  for (const block of terrainBlocks) {
-    const { entityId, position } = block
+  const terrainBlocks = yield* $(World.query(terrainBlockQuery))
+
+  const terrainBlockMap = terrainBlocks.reduce((map, { entityId, position }) => {
     const key = `${position.x},${position.y},${position.z}`
-    terrainBlockMap.set(key, entityId)
-  }
+    map.set(key, entityId)
+    return map
+  }, new Map<string, EntityId>())
 
-  const newRaycastResult = yield* _(raycastService.cast(threeContext.scene, terrainBlockMap))
-  const oldRaycastResult = yield* _(Ref.get(raycastResultRef))
+  const newRaycastResult = yield* $(raycastService.cast(threeContext.scene, terrainBlockMap))
+  const oldRaycastResult = yield* $(Ref.get(raycastResultRef))
 
   const areEqual = Option.match(oldRaycastResult, {
     onNone: () => Option.isNone(newRaycastResult),
@@ -37,6 +42,6 @@ export const raycastSystem = Effect.gen(function* (_) {
   })
 
   if (!areEqual) {
-    yield* _(Ref.set(raycastResultRef, newRaycastResult))
+    yield* $(Ref.set(raycastResultRef, newRaycastResult))
   }
 })

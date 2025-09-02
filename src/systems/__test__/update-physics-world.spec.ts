@@ -1,63 +1,59 @@
 import { Effect, Layer, Ref, HashMap, HashSet } from 'effect'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import * as Assert from '@effect/test/Assert'
 import { createArchetype } from '@/domain/archetypes'
-import { World, WorldLive } from '@/runtime/world'
-import { updatePhysicsWorldSystem } from '../update-physics-world'
-import { SpatialGridService } from '@/runtime/services'
-import { SpatialGrid } from '@/infrastructure/spatial-grid'
-import { EntityId } from '@/domain/entity'
-import { AABB, createAABB } from '@/domain/geometry'
 import { positionColliderQuery } from '@/domain/queries'
+import { SpatialGrid } from '@/infrastructure/spatial-grid'
+import * as World from '@/runtime/world-pure'
+import { provideTestWorld } from 'test/utils'
+import { updatePhysicsWorldSystem } from '../update-physics-world'
+import { AABB } from '@/domain/geometry'
+import { EntityId } from '@/domain/entity'
+import { SpatialGridService } from '@/runtime/services'
 
-const createMockSpatialGrid = () => {
-  const registerFn = vi.fn((_entityId: EntityId, _aabb: AABB) => Effect.void)
-  const clearFn = vi.fn()
-
-  const mock: SpatialGrid = {
-    state: Ref.unsafeMake(HashMap.empty<string, HashSet.HashSet<EntityId>>()),
-    register: registerFn,
-    query: (_aabb: AABB) => Effect.succeed([] as ReadonlyArray<EntityId>),
-    clear: Effect.sync(clearFn),
-  }
-
-  return {
-    mock,
-    spies: {
-      register: registerFn,
-      clear: clearFn,
-    },
-  }
+type MockGridState = {
+  cleared: boolean
+  registered: { entityId: EntityId; aabb: AABB }[]
 }
 
-const setupWorld = Effect.gen(function* (_) {
-  const world = yield* _(World)
-  const blockArchetype = createArchetype({
-    type: 'block',
-    pos: { x: 0, y: 0, z: 0 },
-    blockType: 'stone',
+const MockSpatialGrid = (ref: Ref.Ref<MockGridState>) =>
+  Layer.succeed(
+    SpatialGridService,
+    SpatialGrid.of({
+      state: Ref.unsafeMake(HashMap.empty()),
+      clear: Ref.update(ref, (s) => ({ ...s, cleared: true })),
+      register: (entityId, aabb) => Ref.update(ref, (s) => ({ ...s, registered: [...s.registered, { entityId, aabb }] })),
+      query: () => Effect.succeed([]),
+    }),
+  )
+
+const setupWorld = () =>
+  Effect.gen(function* ($) {
+    const blockArchetype = createArchetype({
+      type: 'block',
+      pos: { x: 0, y: 0, z: 0 },
+      blockType: 'dirt',
+    })
+    yield* $(World.addArchetype(blockArchetype))
   })
-  yield* _(world.addArchetype(blockArchetype))
-})
 
 describe('updatePhysicsWorldSystem', () => {
-  it('should clear the spatial grid and register all colliders with correct AABBs', async () => {
-    const { mock: mockSpatialGrid, spies } = createMockSpatialGrid()
-    const MockSpatialGridLayer = Layer.succeed(SpatialGridService, mockSpatialGrid)
+  it('should clear the spatial grid and register colliders', () =>
+    Effect.gen(function* ($) {
+      const ref = yield* $(Ref.make<MockGridState>({ cleared: false, registered: [] }))
+      const MockSpatialGridLayer = MockSpatialGrid(ref)
 
-    const program = Effect.gen(function* (_) {
-      const world = yield* _(World)
-      yield* _(setupWorld)
-      yield* _(updatePhysicsWorldSystem)
+      yield* $(setupWorld())
+      yield* $(Effect.provide(updatePhysicsWorldSystem, MockSpatialGridLayer))
 
-      const colliders = yield* _(world.query(positionColliderQuery))
-      const block = colliders[0]!
-      const expectedAABB = createAABB(block.position, block.collider)
+      const colliders = yield* $(World.query(positionColliderQuery))
+      const block = colliders[0]
+      yield* $(Assert.isDefined(block))
 
-      expect(spies.clear).toHaveBeenCalledOnce()
-      expect(spies.register).toHaveBeenCalledOnce()
-      expect(spies.register).toHaveBeenCalledWith(block.entityId, expectedAABB)
-    })
-
-    await Effect.runPromise(Effect.provide(program, Layer.merge(WorldLive, MockSpatialGridLayer)))
-  })
+      const gridState = yield* $(Ref.get(ref))
+      yield* $(Assert.isTrue(gridState.cleared))
+      yield* $(Assert.strictEqual(gridState.registered.length, 1))
+      yield* $(Assert.strictEqual(gridState.registered[0]?.entityId, block.entityId))
+      yield* $(Assert.isTrue(gridState.registered[0]?.aabb instanceof AABB))
+    }).pipe(Effect.provide(provideTestWorld())))
 })

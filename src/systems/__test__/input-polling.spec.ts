@@ -1,53 +1,46 @@
-import { Effect, Layer, Option } from 'effect'
+import { Effect, Layer } from 'effect'
 import { describe, it, expect } from 'vitest'
 import { createArchetype } from '@/domain/archetypes'
+import { InputState } from '@/domain/components'
 import { InputManagerService } from '@/runtime/services'
-import { World, WorldLive } from '@/runtime/world'
+import * as World from '@/runtime/world-pure'
+import { provideTestWorld } from 'test/utils'
 import { inputPollingSystem } from '../input-polling'
 
-const MockInputManager = (keyboard: Set<string>, isLocked: boolean) =>
-  Layer.succeed(
-    InputManagerService,
-    InputManagerService.of({
-      getState: Effect.succeed({ keyboard, isLocked, mouse: { dx: 0, dy: 0 } }),
-      getMouseDelta: Effect.succeed({ dx: 0, dy: 0 }),
-      registerListeners: () => Effect.void,
-      cleanup: Effect.void,
+const mockInput = Layer.succeed(
+  InputManagerService,
+  InputManagerService.of({
+    getMouseDelta: Effect.succeed({ dx: 0, dy: 0 }),
+    getState: Effect.succeed({
+      keyboard: new Set(['KeyW', 'Space']),
+      isLocked: true,
+      mouse: { dx: 0, dy: 0 },
     }),
-  )
+    registerListeners: () => Effect.void,
+    cleanup: Effect.void,
+  }),
+)
 
-const setupWorld = Effect.gen(function* (_) {
-  const world = yield* _(World)
-  const playerArchetype = createArchetype({
-    type: 'player',
-    pos: { x: 0, y: 1, z: 0 },
+const setupWorld = () =>
+  Effect.gen(function* ($) {
+    const playerArchetype = createArchetype({
+      type: 'player',
+      pos: { x: 0, y: 0, z: 0 },
+    })
+    const playerId = yield* $(World.addArchetype(playerArchetype))
+    return { playerId }
   })
-  const playerId = yield* _(world.addArchetype(playerArchetype))
-  return { playerId }
-})
 
 describe('inputPollingSystem', () => {
-  it('should update input state based on keyboard input', async () => {
-    const keyboard = new Set(['KeyW', 'Space'])
-    const isLocked = true
-    const mockInput = MockInputManager(keyboard, isLocked)
-
-    const program = Effect.gen(function* (_) {
-      const world = yield* _(World)
-      const { playerId } = yield* _(setupWorld)
-
-      yield* _(inputPollingSystem)
-
-      const inputState = yield* _(world.getComponent(playerId, 'inputState'))
-      expect(Option.isSome(inputState)).toBe(true)
-      const state = Option.getOrThrow(inputState)
-
+  it('should update inputState based on input manager', () =>
+    Effect.gen(function* ($) {
+      const { playerId } = yield* $(setupWorld())
+      yield* $(inputPollingSystem)
+      const inputState = yield* $(World.getComponent(playerId, 'inputState'))
+      const state = new InputState(inputState)
       expect(state.forward).toBe(true)
       expect(state.jump).toBe(true)
       expect(state.backward).toBe(false)
       expect(state.isLocked).toBe(true)
-    })
-
-    await Effect.runPromise(Effect.provide(program, Layer.merge(WorldLive, mockInput)))
-  })
+    }).pipe(Effect.provide(provideTestWorld().pipe(Layer.provide(mockInput)))))
 })

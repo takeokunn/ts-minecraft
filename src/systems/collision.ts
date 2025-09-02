@@ -1,117 +1,137 @@
 import { Effect } from 'effect'
+import { Position, Velocity } from '@/domain/components'
 import { AABB, areAABBsIntersecting, createAABB } from '@/domain/geometry'
 import { playerColliderQuery, positionColliderQuery } from '@/domain/queries'
+import * as World from '@/runtime/world-pure'
+import { QueryResult } from '@/runtime/world-pure'
+import { SpatialGrid } from '@/infrastructure/spatial-grid'
 import { SpatialGridService } from '@/runtime/services'
-import { World } from '@/runtime/world'
 
-export const collisionSystem = Effect.gen(function* (_) {
-  const world = yield* _(World)
-  const spatialGrid = yield* _(SpatialGridService)
+type PlayerQueryResult = QueryResult<typeof playerColliderQuery.components>
+type ColliderQueryResult = QueryResult<typeof positionColliderQuery.components>
 
-  const players = yield* _(world.query(playerColliderQuery))
-  const colliders = yield* _(world.query(positionColliderQuery))
+type CollisionResult = {
+  readonly newPosition: Position
+  readonly newVelocity: Velocity
+  readonly isGrounded: boolean
+}
+
+// Helper function for collision resolution
+const resolveCollisions = (player: PlayerQueryResult, nearbyAABBs: readonly AABB[]): CollisionResult => {
+  const { position, velocity, collider } = player
+  let newPosition: Position = {
+    x: position.x + velocity.dx,
+    y: position.y + velocity.dy,
+    z: position.z + velocity.dz,
+  }
+  let newVelocity: Velocity = { ...velocity }
+  let isGrounded = false
+
+  if (nearbyAABBs.length === 0) {
+    return { newPosition, newVelocity, isGrounded }
+  }
+
+  // Y-axis
+  let playerAABB_Y = createAABB({ x: position.x, y: newPosition.y, z: position.z }, collider)
+  for (const blockAABB of nearbyAABBs) {
+    if (areAABBsIntersecting(playerAABB_Y, blockAABB)) {
+      if (velocity.dy > 0) {
+        newPosition = { ...newPosition, y: blockAABB.minY - collider.height / 2 }
+      } else if (velocity.dy < 0) {
+        newPosition = { ...newPosition, y: blockAABB.maxY + collider.height / 2 }
+        isGrounded = true
+      }
+      newVelocity = { ...newVelocity, dy: 0 }
+      playerAABB_Y = createAABB({ x: position.x, y: newPosition.y, z: position.z }, collider)
+    }
+  }
+
+  // X-axis
+  let playerAABB_X = createAABB({ x: newPosition.x, y: newPosition.y, z: position.z }, collider)
+  for (const blockAABB of nearbyAABBs) {
+    if (areAABBsIntersecting(playerAABB_X, blockAABB)) {
+      if (velocity.dx > 0) {
+        newPosition = { ...newPosition, x: blockAABB.minX - collider.width / 2 }
+      } else if (velocity.dx < 0) {
+        newPosition = { ...newPosition, x: blockAABB.maxX + collider.width / 2 }
+      }
+      newVelocity = { ...newVelocity, dx: 0 }
+      playerAABB_X = createAABB({ x: newPosition.x, y: newPosition.y, z: position.z }, collider)
+    }
+  }
+
+  // Z-axis
+  let playerAABB_Z = createAABB({ x: newPosition.x, y: newPosition.y, z: newPosition.z }, collider)
+  for (const blockAABB of nearbyAABBs) {
+    if (areAABBsIntersecting(playerAABB_Z, blockAABB)) {
+      if (velocity.dz > 0) {
+        newPosition = { ...newPosition, z: blockAABB.minZ - collider.depth / 2 }
+      } else if (velocity.dz < 0) {
+        newPosition = { ...newPosition, z: blockAABB.maxZ + collider.depth / 2 }
+      }
+      newVelocity = { ...newVelocity, dz: 0 }
+    }
+  }
+
+  return { newPosition, newVelocity, isGrounded }
+}
+
+const processPlayerCollision = (player: PlayerQueryResult, spatialGrid: SpatialGrid, colliderMap: ReadonlyMap<number, ColliderQueryResult>) =>
+  Effect.gen(function* ($) {
+    const { entityId, position, velocity, collider } = player
+
+    // Broad-phase
+    const broadphaseAABB = createAABB(
+      { x: position.x + velocity.dx / 2, y: position.y + velocity.dy / 2, z: position.z + velocity.dz / 2 },
+      { width: collider.width + Math.abs(velocity.dx), height: collider.height + Math.abs(velocity.dy), depth: collider.depth + Math.abs(velocity.dz) },
+    )
+    const nearbyEntityIds = yield* $(spatialGrid.query(broadphaseAABB))
+
+    const nearbyAABBs = (nearbyEntityIds as readonly number[]).reduce((aabbs: AABB[], nearbyId: number) => {
+      if (nearbyId !== entityId) {
+        const c = colliderMap.get(nearbyId)
+        if (c) {
+          aabbs.push(createAABB(c.position, c.collider))
+        }
+      }
+      return aabbs
+    }, [] as AABB[])
+
+    // Narrow-phase
+    const { newPosition, newVelocity, isGrounded } = resolveCollisions(player, nearbyAABBs)
+
+    // Write results
+    yield* $(
+      Effect.all(
+        [
+          World.updateComponent(entityId, 'position', newPosition),
+          World.updateComponent(entityId, 'velocity', newVelocity),
+          World.updateComponent(entityId, 'player', { isGrounded }),
+        ],
+        { discard: true },
+      ),
+    )
+  })
+
+export const collisionSystem = Effect.gen(function* ($) {
+  const spatialGrid = yield* $(SpatialGridService)
+  const players = yield* $(World.query(playerColliderQuery))
+  const colliders = yield* $(World.query(positionColliderQuery))
 
   if (players.length === 0) {
     return
   }
 
-  // --- Pre-computation: Create a map for quick collider data lookup ---
-  const colliderMap = new Map(colliders.map((c) => [c.entityId, c]))
+  const colliderMap = colliders.reduce((map, collider) => {
+    map.set(collider.entityId, collider)
+    return map
+  }, new Map<number, ColliderQueryResult>())
 
-  // --- Main Loop: Iterate through players ---
-  for (const player of players) {
-    // --- 1. Read data into local variables ---
-    const {
-      entityId: playerId,
-      position: { x: posX, y: posY, z: posZ },
-      velocity: { dx: velX, dy: velY, dz: velZ },
-      collider: { width: colW, height: colH, depth: colD },
-    } = player
-
-    // --- 2. Broad-phase: Query spatial grid for nearby colliders ---
-    const broadphaseAABB = createAABB(
-      { x: posX + velX / 2, y: posY + velY / 2, z: posZ + velZ / 2 },
-      { width: colW + Math.abs(velX), height: colH + Math.abs(velY), depth: colD + Math.abs(velZ) },
-    )
-    const nearbyEntityIds = yield* _(spatialGrid.query(broadphaseAABB))
-
-    const nearbyAABBs: AABB[] = []
-    for (const nearbyId of nearbyEntityIds) {
-      if (nearbyId === playerId) continue
-      const collider = colliderMap.get(nearbyId)
-      if (collider) {
-        nearbyAABBs.push(createAABB(collider.position, collider.collider))
-      }
-    }
-
-    // --- 3. Narrow-phase: Resolve collisions axis by axis ---
-    let newPosX = posX
-    let newPosY = posY
-    let newPosZ = posZ
-    let newVelX = velX
-    let newVelY = velY
-    let newVelZ = velZ
-    let isGrounded = false
-
-    // Y-axis
-    let playerAABB = createAABB({ x: newPosX, y: newPosY, z: newPosZ }, { width: colW, height: colH, depth: colD })
-    for (const blockAABB of nearbyAABBs) {
-      if (areAABBsIntersecting(playerAABB, blockAABB)) {
-        if (velY > 0) {
-          newPosY = blockAABB.minY - colH / 2
-        } else if (velY < 0) {
-          newPosY = blockAABB.maxY + colH / 2
-          isGrounded = true
-        }
-        newVelY = 0
-        playerAABB = createAABB({ x: newPosX, y: newPosY, z: newPosZ }, { width: colW, height: colH, depth: colD })
-      }
-    }
-
-    // X-axis
-    playerAABB = createAABB({ x: newPosX, y: newPosY, z: newPosZ }, { width: colW, height: colH, depth: colD })
-    for (const blockAABB of nearbyAABBs) {
-      if (areAABBsIntersecting(playerAABB, blockAABB)) {
-        if (velX > 0) {
-          newPosX = blockAABB.minX - colW / 2
-        } else if (velX < 0) {
-          newPosX = blockAABB.maxX + colW / 2
-        }
-        newVelX = 0
-        playerAABB = createAABB({ x: newPosX, y: newPosY, z: newPosZ }, { width: colW, height: colH, depth: colD })
-      }
-    }
-
-    // Z-axis
-    playerAABB = createAABB({ x: newPosX, y: newPosY, z: newPosZ }, { width: colW, height: colH, depth: colD })
-    for (const blockAABB of nearbyAABBs) {
-      if (areAABBsIntersecting(playerAABB, blockAABB)) {
-        if (velZ > 0) {
-          newPosZ = blockAABB.minZ - colD / 2
-        } else if (velZ < 0) {
-          newPosZ = blockAABB.maxZ + colD / 2
-        }
-        newVelZ = 0
-      }
-    }
-
-    // --- 4. Write results back to components ---
-    yield* _(
-      world.updateComponent(playerId, 'position', {
-        ...player.position,
-        x: newPosX,
-        y: newPosY,
-        z: newPosZ,
-      }),
-    )
-    yield* _(
-      world.updateComponent(playerId, 'velocity', {
-        ...player.velocity,
-        dx: newVelX,
-        dy: newVelY,
-        dz: newVelZ,
-      }),
-    )
-    yield* _(world.updateComponent(playerId, 'player', { ...player.player, isGrounded }))
-  }
+  yield* $(
+    Effect.forEach(
+      players,
+      (player) => processPlayerCollision(player, spatialGrid, colliderMap),
+      { discard: true, concurrency: 'unbounded' },
+    ),
+  )
 })

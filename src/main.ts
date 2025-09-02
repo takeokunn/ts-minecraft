@@ -11,8 +11,10 @@ import { ThreeContextLive } from '@/infrastructure/renderer-three/context'
 import { RaycastServiceLive } from '@/infrastructure/raycast-three'
 import { SpatialGridLive } from '@/infrastructure/spatial-grid'
 import { gameLoop } from '@/runtime/loop'
+import { System } from '@/runtime/loop'
 import { ChunkDataQueueService, GameStateService, OnCommand, RaycastResultService, RenderQueueService, DeltaTime } from '@/runtime/services'
-import { World, WorldLive } from '@/runtime/world'
+import { addArchetype, worldLayer } from '@/runtime/world-pure'
+import { WorldContext } from '@/runtime/context'
 import {
   blockInteractionSystem,
   cameraControlSystem,
@@ -32,10 +34,9 @@ export const hotbarUpdater = (_hotbar: Hotbar) => Effect.void
 
 export const main = (uiSystem = createUISystem(hotbarUpdater)) =>
   Effect.gen(function* ($) {
-    const world = yield* $(World)
-    yield* $(world.addArchetype(createArchetype({ type: 'player', pos: new Position({ x: 0, y: 20, z: 0 }) })))
+    yield* $(addArchetype(createArchetype({ type: 'player', pos: new Position({ x: 0, y: 20, z: 0 }) })))
 
-    const systems = [
+    const systems: System[] = [
       inputPollingSystem,
       cameraControlSystem,
       playerMovementSystem,
@@ -53,32 +54,13 @@ export const main = (uiSystem = createUISystem(hotbarUpdater)) =>
     yield* $(gameLoop(systems))
   })
 
-export const AppLayer = (rootElement: HTMLElement) => {
-  const statefulServices = Layer.succeed(RaycastResultService, Ref.unsafeMake(Option.none())).pipe(
-    Layer.merge(Layer.succeed(ChunkDataQueueService, [])),
-    Layer.merge(Layer.succeed(RenderQueueService, [])),
-  )
-
-  const baseServices = Layer.mergeAll(WorldLive, InputManagerLive, ComputationWorkerLive, MaterialManagerLive, RaycastServiceLive, SpatialGridLive)
-
-  const threeContextLayer = ThreeContextLive(rootElement)
-  const threeCameraLayer = ThreeCameraLive(rootElement)
-
-  const base = Layer.mergeAll(statefulServices, baseServices, threeContextLayer)
-
-  const withCamera = Layer.provideMerge(threeCameraLayer, base)
-  const withRenderer = Layer.provideMerge(RendererLive, withCamera)
-
-  return withRenderer
-}
-
 export const onCommandEffect = Effect.gen(function* ($) {
-  const world = yield* $(World)
+  const { world } = yield* $(WorldContext)
   const computationWorker = yield* $(ComputationWorkerTag)
   const chunkDataQueue = yield* $(ChunkDataQueueService)
   return (command: SystemCommand) =>
     Effect.gen(function* ($) {
-      const worldState = yield* $(world.state)
+      const worldState = yield* $(Ref.get(world))
       const taskPayload = {
         ...command,
         seeds: worldState.globalState.seeds,
@@ -97,37 +79,50 @@ export const onCommandEffect = Effect.gen(function* ($) {
     )
 })
 
-export const bootstrap = () => {
+const StatefulServicesLive = Layer.effect(
+  RaycastResultService,
+  Ref.make(Option.none()),
+).pipe(
+  Layer.merge(Layer.succeed(ChunkDataQueueService, [])),
+  Layer.merge(Layer.succeed(RenderQueueService, [])),
+)
+
+const BaseServicesLive = Layer.mergeAll(worldLayer, InputManagerLive, ComputationWorkerLive, MaterialManagerLive, RaycastServiceLive, SpatialGridLive)
+
+export const AppLayer = (rootElement: HTMLElement) =>
+  Layer.empty.pipe(
+    Layer.provide(StatefulServicesLive),
+    Layer.provide(BaseServicesLive),
+    Layer.provide(ThreeContextLive(rootElement)),
+    Layer.provide(ThreeCameraLive(rootElement)),
+    Layer.provide(RendererLive),
+    Layer.provide(Layer.effect(OnCommand, onCommandEffect)),
+    Layer.provide(
+      Layer.succeed(GameStateService, {
+        hotbar: new Hotbar({
+          slots: [],
+          selectedIndex: 0,
+        }),
+      }),
+    ),
+    Layer.provide(Layer.succeed(DeltaTime, 0)),
+  )
+
+export const bootstrap = (rootElement: HTMLElement) => {
+  const appLayer = AppLayer(rootElement)
+  return main().pipe(Effect.provide(appLayer))
+}
+
+export const runApp = (bootstrapFn: (el: HTMLElement) => Effect.Effect<void>) => {
   const rootElement = document.getElementById('app')
   if (!rootElement) {
     throw new Error('Root element #app not found')
   }
-
-  const baseAppLayer = AppLayer(rootElement)
-  const onCommandLayer = Layer.effect(OnCommand, onCommandEffect)
-
-  const appLayer = Layer.provideMerge(onCommandLayer, baseAppLayer)
-
-  const GameStateLive = Layer.succeed(GameStateService, {
-    hotbar: new Hotbar({
-      slots: [],
-      selectedIndex: 0,
-    }),
-  })
-
-  const deltaTimeLayer = Layer.succeed(DeltaTime, 0)
-  const finalLayer = Layer.mergeAll(appLayer, deltaTimeLayer, GameStateLive)
-
-  return main().pipe(Effect.provide(finalLayer))
-}
-
-export const runApp = (bootstrapFn = bootstrap) => {
-  const runnable = bootstrapFn()
-  // @ts-expect-error R a is not assignable to never
+  const runnable = bootstrapFn(rootElement)
   Effect.runFork(runnable)
 }
 
 // --- Bootstrap ---
 export const init = (appRunner = runApp) => {
-  document.addEventListener('DOMContentLoaded', () => appRunner())
+  document.addEventListener('DOMContentLoaded', () => appRunner(bootstrap))
 }

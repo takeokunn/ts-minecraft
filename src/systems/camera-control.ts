@@ -2,33 +2,32 @@ import { Effect } from 'effect'
 import { clampPitch } from '@/domain/camera-logic'
 import { playerQuery } from '@/domain/queries'
 import { InputManagerService } from '@/runtime/services'
-import { World } from '@/runtime/world'
+import * as World from '@/runtime/world-pure'
 
 const MOUSE_SENSITIVITY = 0.002
 
-export const cameraControlSystem = Effect.gen(function* (_) {
-  const world = yield* _(World)
-  const inputManager = yield* _(InputManagerService)
-  const mouseDelta = yield* _(inputManager.getMouseDelta)
+export const cameraControlSystem = Effect.gen(function* ($) {
+  const inputManager = yield* $(InputManagerService)
+  const mouseDelta = yield* $(inputManager.getMouseDelta)
 
   if (mouseDelta.dx === 0 && mouseDelta.dy === 0) {
     return
   }
 
-  const players = yield* _(world.query(playerQuery))
+  const players = yield* $(World.query(playerQuery))
+
   const deltaPitch = -mouseDelta.dy * MOUSE_SENSITIVITY
   const deltaYaw = -mouseDelta.dx * MOUSE_SENSITIVITY
 
-  yield* _(
+  yield* $(
     Effect.forEach(
       players,
-      (player) => {
-        const { entityId, cameraState } = player
+      ({ entityId, cameraState }) => {
         const newPitch = clampPitch(cameraState.pitch + deltaPitch)
         const newYaw = cameraState.yaw + deltaYaw
-        return world.updateComponent(entityId, 'cameraState', { ...cameraState, pitch: newPitch, yaw: newYaw })
+        return World.updateComponent(entityId, 'cameraState', { pitch: newPitch, yaw: newYaw })
       },
-      { discard: true },
+      { discard: true, concurrency: 'unbounded' },
     ),
   )
 })

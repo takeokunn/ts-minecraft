@@ -6,20 +6,23 @@ import { Schema as S } from 'effect'
 export const EntityIdSchema = S.Number.pipe(S.brand('EntityId'))
 export type EntityId = S.Schema.Type<typeof EntityIdSchema>
 
+const decodeEntityId = S.decodeSync(EntityIdSchema)
+const encodeEntityId = S.encodeSync(EntityIdSchema)
+
 /**
- * Casts a number to an EntityId.
- * @param id The number to cast.
+ * Decodes a number into an EntityId, throwing an error if invalid.
+ * @param id The number to decode.
  * @returns The number as an EntityId.
  */
 export function toEntityId(id: number): EntityId {
-  return id as EntityId
+  return decodeEntityId(id)
 }
 
 /**
- * Casts an EntityId back to a number.
- * @param id The EntityId to cast.
+ * Encodes an EntityId back to a number.
+ * @param id The EntityId to encode.
  * @returns The EntityId as a number.
  */
 export function fromEntityId(id: EntityId): number {
-  return id as number
+  return encodeEntityId(id)
 }

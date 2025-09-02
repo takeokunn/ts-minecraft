@@ -1,93 +1,57 @@
-import { Effect, Option } from 'effect'
-import { describe, expect, it, vi } from 'vitest'
+import { Effect, Layer, Option, Ref } from 'effect'
+import { describe, it } from '@effect/vitest'
+import * as Assert from '@effect/test/Assert'
 import { createArchetype } from '@/domain/archetypes'
-import { TargetBlock, createTargetNone } from '@/domain/components'
+import { createTargetBlock, createTargetNone } from '@/domain/components'
 import { playerTargetQuery } from '@/domain/queries'
-import { RaycastService } from '@/infrastructure/raycast-three'
-import { World } from '@/runtime/world'
-import { provideTestWorld } from '@/../test/utils'
+import { RaycastResult } from '@/infrastructure/raycast-three'
+import { RaycastResultService } from '@/runtime/services'
+import * as World from '@/runtime/world-pure'
+import { provideTestWorld } from 'test/utils'
 import { updateTargetSystem } from '../update-target-system'
-import { addArchetype, createWorld } from '@/runtime/world-pure'
 
-const RaycastServiceMock: RaycastService = {
-  cast: vi.fn(),
-}
+const setupWorld = () =>
+  Effect.gen(function* ($) {
+    const playerArchetype = createArchetype({
+      type: 'player',
+      pos: { x: 0, y: 0, z: 0 },
+    })
+    const playerId = yield* $(World.addArchetype(playerArchetype))
+    const blockArchetype = createArchetype({
+      type: 'block',
+      pos: { x: 1, y: 1, z: 1 },
+      blockType: 'grass',
+    })
+    const blockId = yield* $(World.addArchetype(blockArchetype))
+    return { playerId, blockId }
+  })
 
 describe('updateTargetSystem', () => {
-  it('should update target to block when raycast hits', async () => {
-    // 1. Setup initial world state
-    let worldState = createWorld()
-    const [, worldWithPlayer] = addArchetype(worldState, {
-      ...createArchetype({ type: 'player', pos: { x: 0, y: 0, z: 0 } }),
-      target: createTargetNone(),
-    })
-    const [block, finalWorldState] = addArchetype(worldWithPlayer, createArchetype({ type: 'block', pos: { x: 1, y: 1, z: 1 }, blockType: 'grass' }))
+  it('should update target to the block hit by raycast', () =>
+    Effect.gen(function* ($) {
+      const { blockId } = yield* $(setupWorld())
+      const face = { x: 0, y: 1, z: 0 }
+      const raycastResult: RaycastResult = { entityId: blockId, face, intersection: {} as any }
+      const raycastResultRef = yield* $(RaycastResultService)
+      yield* $(Ref.set(raycastResultRef, Option.some(raycastResult)))
 
-    // 2. Mock service implementations
-    const face = { x: 0, y: 1, z: 0 }
-    vi.spyOn(RaycastServiceMock, 'cast').mockReturnValue(Effect.succeed(Option.some({ entityId: block, face, intersection: {} as any })))
+      yield* $(updateTargetSystem)
 
-    // 3. Create the test layer
-    const testLayer = provideTestWorld(finalWorldState, {
-      raycast: RaycastServiceMock,
-    })
+      const player = (yield* $(World.query(playerTargetQuery)))[0]
+      yield* $(Assert.isDefined(player))
+      yield* $(Assert.deepStrictEqual(player.target, createTargetBlock(blockId, face)))
+    }).pipe(Effect.provide(provideTestWorld())))
 
-    // 4. Define the test program
-    const program = Effect.gen(function* (_) {
-      const world = yield* _(World)
-      yield* _(updateTargetSystem)
-      const players = yield* _(world.query(playerTargetQuery))
-      const player = players[0]!
+  it('should update target to none when raycast hits nothing', () =>
+    Effect.gen(function* ($) {
+      yield* $(setupWorld())
+      const raycastResultRef = yield* $(RaycastResultService)
+      yield* $(Ref.set(raycastResultRef, Option.none()))
 
-      expect(player.target._tag).toBe('block')
-      if (player.target._tag === 'block') {
-        expect(player.target.entityId).toBe(block)
-        expect(player.target.face).toEqual(face)
-      }
-    })
+      yield* $(updateTargetSystem)
 
-    // 5. Run the program
-    await Effect.runPromise(Effect.provide(program, testLayer))
-  })
-
-  it('should update target to none when raycast misses', async () => {
-    let worldState = createWorld()
-    const [block, worldWithBlock] = addArchetype(worldState, createArchetype({ type: 'block', pos: { x: 1, y: 1, z: 1 }, blockType: 'grass' }))
-    const [, finalWorldState] = addArchetype(worldWithBlock, {
-      ...createArchetype({ type: 'player', pos: { x: 0, y: 0, z: 0 } }),
-      target: new TargetBlock({ _tag: 'block', entityId: block, face: { x: 0, y: 1, z: 0 } }),
-    })
-
-    vi.spyOn(RaycastServiceMock, 'cast').mockReturnValue(Effect.succeed(Option.none()))
-
-    const testLayer = provideTestWorld(finalWorldState, {
-      raycast: RaycastServiceMock,
-    })
-
-    const program = Effect.gen(function* (_) {
-      const world = yield* _(World)
-      yield* _(updateTargetSystem)
-      const players = yield* _(world.query(playerTargetQuery))
-      const player = players[0]!
-      expect(player.target._tag).toBe('none')
-    })
-
-    await Effect.runPromise(Effect.provide(program, testLayer))
-  })
-
-  it('should not call raycast if no player exists', async () => {
-    const worldState = createWorld()
-    const castSpy = vi.spyOn(RaycastServiceMock, 'cast')
-
-    const testLayer = provideTestWorld(worldState, {
-      raycast: RaycastServiceMock,
-    })
-
-    const program = Effect.gen(function* (_) {
-      yield* _(updateTargetSystem)
-    })
-
-    await Effect.runPromise(Effect.provide(program, testLayer))
-    expect(castSpy).not.toHaveBeenCalled()
-  })
+      const player = (yield* $(World.query(playerTargetQuery)))[0]
+      yield* $(Assert.isDefined(player))
+      yield* $(Assert.deepStrictEqual(player.target, createTargetNone()))
+    }).pipe(Effect.provide(provideTestWorld())))
 })

@@ -1,18 +1,12 @@
 import { TextureLoader, MeshBasicMaterial, type Material, SRGBColorSpace, NearestFilter } from 'three'
-import { Context, Effect, Layer } from 'effect'
+import { Context, Data, Effect, Layer } from 'effect'
 
 // --- Error Type ---
 
-export class TextureLoadError extends Error {
-  readonly _tag = 'TextureLoadError'
-  constructor(
-    readonly path: string,
-    readonly originalError: unknown,
-  ) {
-    super(`Failed to load texture: ${path}`, { cause: originalError })
-    this.name = 'TextureLoadError'
-  }
-}
+export class TextureLoadError extends Data.TaggedError('TextureLoadError')<{
+  readonly path: string
+  readonly originalError: unknown
+}> {}
 
 // --- Service Definition ---
 
@@ -47,7 +41,7 @@ const makeMaterialManager = Effect.tryPromise({
       dispose: () => dispose,
     }
   },
-  catch: (e) => new TextureLoadError('/texture/texture.png', e),
+  catch: (originalError) => new TextureLoadError({ path: '/texture/texture.png', originalError }),
 })
 
 export const MaterialManagerLive = Layer.effect(MaterialManager, makeMaterialManager)

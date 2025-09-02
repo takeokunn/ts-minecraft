@@ -3,19 +3,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as THREE from 'three'
 import { RendererLive } from '..'
 import { MaterialManager, RenderQueueService, ThreeContextService, type Renderer, RendererService } from '@/runtime/services'
-import { World } from '@/runtime/world'
+import * as World from '@/runtime/world-pure'
 import { ThreeCameraService } from '../../camera-three'
 import type { ThreeContext } from '../../types'
-import { Position, CameraState } from '@/domain/components'
-import { type EntityId } from '@/domain/entity'
 import type { RaycastResult } from '../../raycast-three'
 import { RaycastResultService } from '@/runtime/services'
+import { provideTestLayer } from 'test/utils'
+import { createArchetype } from '@/domain/archetypes'
+import { WorldContext } from '@/runtime/context'
 
 // Mocks
-const mockWorld = {
-  querySoA: vi.fn(),
-  getComponent: vi.fn(),
-}
 const mockCameraService = {
   syncToComponent: vi.fn(() => Effect.void),
 }
@@ -36,27 +33,25 @@ const mockContext: ThreeContext = {
 describe('RendererLive', () => {
   let renderQueue: any[]
   let raycastResultRef: Ref.Ref<Option.Option<RaycastResult>>
-  let TestLayer: Layer.Layer<Renderer, never, never>
+  let TestLayer: Layer.Layer<Renderer | WorldContext, unknown, unknown>
 
   beforeEach(async () => {
     vi.clearAllMocks()
     renderQueue = []
     raycastResultRef = await Effect.runPromise(Ref.make(Option.none()))
 
-    TestLayer = Layer.provide(
-      RendererLive,
-      Layer.mergeAll(
-        Layer.succeed(World, mockWorld as any),
-        Layer.succeed(ThreeCameraService, mockCameraService as any),
-        Layer.succeed(RaycastResultService, raycastResultRef),
-        Layer.succeed(ThreeContextService, mockContext),
-        Layer.succeed(MaterialManager, mockMaterialManager as any),
-        Layer.succeed(RenderQueueService, renderQueue),
-      ),
+    const mockServices = Layer.mergeAll(
+      Layer.succeed(ThreeCameraService, mockCameraService as any),
+      Layer.succeed(RaycastResultService, raycastResultRef),
+      Layer.succeed(ThreeContextService, mockContext),
+      Layer.succeed(MaterialManager, mockMaterialManager as any),
+      Layer.succeed(RenderQueueService, renderQueue),
     )
+
+    TestLayer = provideTestLayer().pipe(Layer.provide(RendererLive), Layer.provide(mockServices)) as Layer.Layer<Renderer | WorldContext, unknown, unknown>
   })
 
-  const run = <A, E>(program: Effect.Effect<A, E, Renderer>) => {
+  const run = <A, E, R>(program: Effect.Effect<A, E, R>) => {
     return Effect.runPromise(Effect.provide(program, TestLayer))
   }
 
@@ -97,33 +92,33 @@ describe('RendererLive', () => {
 
   describe('syncCameraToWorld', () => {
     it('should sync camera from world state', async () => {
-      mockWorld.querySoA.mockReturnValue(
-        Effect.succeed({
-          entities: [1 as EntityId],
-          position: { x: [1], y: [2], z: [3] },
-          cameraState: { pitch: [0.1], yaw: [0.2] },
-        }),
-      )
-
       const program = Effect.gen(function* (_) {
+        yield* _(
+          World.addArchetype(
+            createArchetype({
+              type: 'player',
+              pos: { x: 1, y: 2, z: 3 },
+            }),
+          ),
+        )
         const renderer = yield* _(RendererService)
         yield* _(renderer.syncCameraToWorld)
-        expect(mockCameraService.syncToComponent).toHaveBeenCalledWith(new Position({ x: 1, y: 2, z: 3 }), new CameraState({ pitch: 0.1, yaw: 0.2 }))
+        expect(mockCameraService.syncToComponent).toHaveBeenCalledWith(1, 2, 3, 0.1, 0.2)
       })
 
       await run(program)
     })
 
     it('should not sync if player data is incomplete', async () => {
-      mockWorld.querySoA.mockReturnValue(
-        Effect.succeed({
-          entities: [1 as EntityId],
-          position: { x: [1], y: [2], z: [undefined] }, // Incomplete data
-          cameraState: { pitch: [0.1], yaw: [0.2] },
-        }),
-      )
-
       const program = Effect.gen(function* (_) {
+        yield* _(
+          World.addArchetype(
+            createArchetype({
+              type: 'player',
+              pos: { x: 1, y: 2, z: undefined as any },
+            }),
+          ),
+        )
         const renderer = yield* _(RendererService)
         yield* _(renderer.syncCameraToWorld)
         expect(mockCameraService.syncToComponent).not.toHaveBeenCalled()
@@ -134,12 +129,17 @@ describe('RendererLive', () => {
   })
 
   it('updateHighlight should show highlight on raycast hit', async () => {
-    const entityId = 1 as EntityId
-    const position = new Position({ x: 10, y: 20, z: 30 })
-    await Effect.runPromise(Ref.set(raycastResultRef, Option.some({ entityId } as any)))
-    mockWorld.getComponent.mockReturnValue(Effect.succeed(Option.some(position)))
-
     const program = Effect.gen(function* (_) {
+      const entityId = yield* _(
+        World.addArchetype(
+          createArchetype({
+            type: 'block',
+            pos: { x: 10, y: 20, z: 30 },
+            blockType: 'dirt',
+          }),
+        ),
+      )
+      yield* _(Ref.set(raycastResultRef, Option.some({ entityId } as any)))
       const renderer = yield* _(RendererService)
       yield* _(renderer.updateHighlight)
       expect(mockContext.highlightMesh.visible).toBe(true)
@@ -150,9 +150,8 @@ describe('RendererLive', () => {
   })
 
   it('updateHighlight should hide highlight on no raycast hit', async () => {
-    await Effect.runPromise(Ref.set(raycastResultRef, Option.none()))
-
     const program = Effect.gen(function* (_) {
+      yield* _(Ref.set(raycastResultRef, Option.none()))
       const renderer = yield* _(RendererService)
       yield* _(renderer.updateHighlight)
       expect(mockContext.highlightMesh.visible).toBe(false)

@@ -1,32 +1,39 @@
 import { Effect, Option } from 'effect'
-import { createTargetBlock, createTargetNone } from '@/domain/components'
-import { playerTargetQuery, terrainBlockQuery } from '@/domain/queries'
-import { RaycastService } from '@/infrastructure/raycast-three'
-import { ThreeContext } from '@/infrastructure/types'
-import { ThreeContextService } from '@/runtime/services'
-import { World } from '@/runtime/world'
+import { createTargetBlock, createTargetNone, Target } from '@/domain/components'
+import { playerTargetQuery } from '@/domain/queries'
+import { RaycastResultService } from '@/runtime/services'
+import * as World from '@/runtime/world-pure'
 
-export const updateTargetSystem = Effect.gen(function* (_) {
-  const world = yield* _(World)
-  const raycast = yield* _(RaycastService)
-  const context = (yield* _(ThreeContextService)) as ThreeContext
+const areTargetsEqual = (a: Target, b: Target): boolean => {
+  if (a._tag !== b._tag) {
+    return false
+  }
+  if (a._tag === 'none' && b._tag === 'none') {
+    return true
+  }
+  if (a._tag === 'block' && b._tag === 'block') {
+    return a.entityId === b.entityId && a.face.x === b.face.x && a.face.y === b.face.y && a.face.z === b.face.z
+  }
+  return false
+}
 
-  const players = yield* _(world.query(playerTargetQuery))
-  const player = Option.fromNullable(players[0])
+export const updateTargetSystem = Effect.gen(function* ($) {
+  const raycastResultRef = yield* $(RaycastResultService)
+  const players = yield* $(World.query(playerTargetQuery))
 
-  if (Option.isNone(player)) {
+  // Assuming a single player for now
+  const player = players[0]
+  if (!player) {
     return
   }
 
-  const terrainBlocks = yield* _(world.query(terrainBlockQuery))
-  const terrainBlockMap = new Map(terrainBlocks.map((block) => [`${block.position.x},${block.position.y},${block.position.z}`, block.entityId]))
+  const newTarget = Option.match(yield* $(raycastResultRef.get), {
+    onNone: () => createTargetNone(),
+    onSome: (hit) => createTargetBlock(hit.entityId, hit.face),
+  })
 
-  const result = yield* _(raycast.cast(context.scene, terrainBlockMap))
-
-  yield* _(
-    Option.match(result, {
-      onNone: () => world.updateComponent(player.value.entityId, 'target', createTargetNone()),
-      onSome: (hit) => world.updateComponent(player.value.entityId, 'target', createTargetBlock(hit.entityId, hit.face)),
-    }),
-  )
+  // Only update if the target has changed
+  if (!areTargetsEqual(player.target, newTarget)) {
+    yield* $(World.updateComponent(player.entityId, 'target', newTarget))
+  }
 })

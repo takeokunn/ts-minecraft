@@ -93,6 +93,4 @@ export const createPlacedBlock = (position: { readonly x: number; readonly y: nu
   blockType,
 })
 
-export const isBlockType = (value: unknown): value is BlockType => {
-  return typeof value === 'string' && (blockTypeNames as ReadonlyArray<string>).includes(value)
-}
+export const isBlockType = S.is(BlockTypeSchema)

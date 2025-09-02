@@ -1,16 +1,19 @@
 /**
  * @vitest-environment happy-dom
  */
-import { Effect, Layer, Ref, HashSet } from 'effect'
+/**
+ * @vitest-environment happy-dom
+ */
+import { Effect, Layer } from 'effect'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as mainModule from '@/main'
-import { main, bootstrap, AppLayer, onCommandEffect, runApp } from '@/main'
+import { main, bootstrap, runApp } from '@/main'
 import * as loop from '@/runtime/loop'
 import * as systems from '@/systems'
-import { World } from '@/runtime/world'
 import { ComputationWorkerTag } from '@/infrastructure/computation.worker'
 import { ChunkDataQueueService } from '@/runtime/services'
 import { Hotbar } from '@/domain/components'
+import { provideTestLayer } from 'test/utils'
 
 // Mock the game loop
 const gameLoopSpy = vi.spyOn(loop, 'gameLoop').mockImplementation(() => Effect.void as Effect.Effect<void, never, never>)
@@ -21,11 +24,9 @@ describe('main', () => {
   })
 
   it('should pass the correct systems to gameLoop in the correct order', async () => {
-    const testLayer = Layer.succeed(World, {
-      addArchetype: () => Effect.succeed(0 as any),
-    } as any)
     const mockUiSystem = Effect.void
-    await Effect.runPromise(main(mockUiSystem).pipe(Effect.provide(testLayer)) as any)
+    const program = main(mockUiSystem)
+    await Effect.runPromise(Effect.provide(program, provideTestLayer()))
 
     expect(gameLoopSpy).toHaveBeenCalledOnce()
     const systemsPassed = gameLoopSpy.mock.calls[0]![0]
@@ -57,13 +58,13 @@ describe('bootstrap', () => {
     appElement.id = 'app'
     document.body.appendChild(appElement)
 
-    const runnable = bootstrap()
+    const runnable = bootstrap(appElement)
 
     expect(Effect.isEffect(runnable)).toBe(true)
   })
 
   it('should throw an error if #app element does not exist', () => {
-    expect(() => bootstrap()).toThrow('Root element #app not found')
+    expect(() => bootstrap(document.createElement('div'))).toThrow('Root element #app not found')
   })
 })
 
@@ -100,7 +101,7 @@ describe('AppLayer', () => {
   it('should build a layer without errors', () => {
     const appElement = document.createElement('div')
     appElement.id = 'app'
-    const layer = AppLayer(appElement)
+    const layer = mainModule.AppLayer(appElement)
     expect(layer).toBeDefined()
   })
 })
@@ -110,22 +111,13 @@ describe('onCommandEffect', () => {
     const mockPostTask = vi.fn(() => Effect.succeed({} as any))
     const mockWorker = { postTask: mockPostTask }
     const mockQueue: any[] = []
-    const mockWorld = {
-      state: Ref.unsafeMake({
-        globalState: {
-          seeds: { main: 0 },
-          amplitude: 0,
-          editedBlocks: { placed: new Map(), destroyed: HashSet.empty() },
-        },
-      }),
-    } as any
 
     const testLayer = Layer.succeed(ComputationWorkerTag, mockWorker).pipe(
       Layer.merge(Layer.succeed(ChunkDataQueueService, mockQueue)),
-      Layer.merge(Layer.succeed(World, mockWorld)),
+      Layer.merge(provideTestLayer()),
     )
 
-    const onCommand = await Effect.runPromise(onCommandEffect.pipe(Effect.provide(testLayer)))
+    const onCommand = await Effect.runPromise(mainModule.onCommandEffect.pipe(Effect.provide(testLayer)))
     await Effect.runPromise(onCommand({ type: 'GenerateChunk', chunkX: 0, chunkZ: 0 }))
 
     expect(mockPostTask).toHaveBeenCalledOnce()
@@ -140,3 +132,5 @@ describe('hotbarUpdater', () => {
     expect(effect).toBe(Effect.void)
   })
 })
+
+

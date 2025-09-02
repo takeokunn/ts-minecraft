@@ -2,14 +2,12 @@ import { Effect } from 'effect'
 import { InputState } from '@/domain/components'
 import { playerInputQuery } from '@/domain/queries'
 import { InputManagerService } from '@/runtime/services'
-import { World } from '@/runtime/world'
+import * as World from '@/runtime/world-pure'
 
-export const inputPollingSystem = Effect.gen(function* (_) {
-  const world = yield* _(World)
-  const inputManager = yield* _(InputManagerService)
-  const { keyboard, isLocked } = yield* _(inputManager.getState)
-
-  const players = yield* _(world.query(playerInputQuery))
+export const inputPollingSystem = Effect.gen(function* ($) {
+  const inputManager = yield* $(InputManagerService)
+  const { keyboard, isLocked } = yield* $(inputManager.getState)
+  const players = yield* $(World.query(playerInputQuery))
 
   const newInputState = new InputState({
     forward: keyboard.has('KeyW'),
@@ -23,5 +21,12 @@ export const inputPollingSystem = Effect.gen(function* (_) {
     isLocked: isLocked,
   })
 
-  yield* _(Effect.forEach(players, (player) => world.updateComponent(player.entityId, 'inputState', newInputState), { discard: true }))
+  // TODO: Check if the input state has actually changed before updating
+  yield* $(
+    Effect.forEach(
+      players,
+      (player) => World.updateComponent(player.entityId, 'inputState', newInputState),
+      { discard: true, concurrency: 'unbounded' },
+    ),
+  )
 })

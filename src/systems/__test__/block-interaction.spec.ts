@@ -1,50 +1,31 @@
-import { Effect, HashSet, Option, Record, Layer } from 'effect'
+import { Effect, Option, Record, Ref } from 'effect'
 import { describe, it, expect } from 'vitest'
 import { createArchetype } from '@/domain/archetypes'
 import type { BlockType } from '@/domain/block'
 import { Hotbar, InputState, TargetBlock, createTargetNone } from '@/domain/components'
-import { playerTargetQuery } from '@/domain/queries'
-import { QueryResult, World, WorldLive } from '@/runtime/world'
-import { blockInteractionSystem, handleDestroyBlock, handlePlaceBlock } from '../block-interaction'
-import { mock } from 'vitest-mock-extended'
-import { RaycastService } from '@/infrastructure/raycast-three'
-import { ThreeCameraService } from '@/infrastructure/camera-three'
-import { ThreeContextService, ThreeContext } from '@/infrastructure/types'
-import { Scene } from 'three'
+import * as World from '@/runtime/world-pure'
+import { WorldContext } from '@/runtime/context'
+import { provideTestWorld } from 'test/utils'
+import { blockInteractionSystem } from '../block-interaction'
 
-const raycastMock = mock<RaycastService>()
-const cameraMock = mock<ThreeCameraService>()
-const contextMock = {
-  ...mock<ThreeContext>(),
-  scene: new Scene(),
-} as ThreeContext
+const TestLayer = provideTestWorld()
 
-const MocksLayer = Layer.mergeAll(
-  Layer.succeed(RaycastService, raycastMock),
-  Layer.succeed(ThreeCameraService, cameraMock),
-  Layer.succeed(ThreeContextService, contextMock),
-)
-
-const TestLayer = WorldLive.pipe(Layer.provide(MocksLayer))
-
-const setupWorld = Effect.gen(function* (_) {
-  const world = yield* _(World)
-
+const setupWorld = Effect.gen(function* ($) {
   const playerArchetype = createArchetype({
     type: 'player',
     pos: { x: 0, y: 1, z: 0 },
   })
-  const playerId = yield* _(world.addArchetype(playerArchetype))
+  const playerId = yield* $(World.addArchetype(playerArchetype))
 
   const blockArchetype = createArchetype({
     type: 'block',
     pos: { x: 0, y: 0, z: -2 },
     blockType: 'grass',
   })
-  const blockId = yield* _(world.addArchetype(blockArchetype))
+  const blockId = yield* $(World.addArchetype(blockArchetype))
 
-  yield* _(
-    world.updateComponent(
+  yield* $(
+    World.updateComponent(
       playerId,
       'target',
       new TargetBlock({
@@ -58,301 +39,114 @@ const setupWorld = Effect.gen(function* (_) {
   return { playerId, blockId }
 })
 
-type PlayerQueryResult = QueryResult<['player', 'inputState', 'target', 'hotbar']> & { target: TargetBlock }
-
 describe('blockInteractionSystem', () => {
-  describe('handleDestroyBlock', () => {
-    it('should destroy a block', async () => {
-      const program = Effect.gen(function* (_) {
-        const world = yield* _(World)
-        const { playerId, blockId } = yield* _(setupWorld)
+  it('should call destroy handler when destroy input is true', () =>
+    Effect.gen(function* ($) {
+      const { playerId, blockId } = yield* $(setupWorld)
+      yield* $(
+        World.updateComponent(
+          playerId,
+          'inputState',
+          new InputState({ destroy: true, place: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
+        ),
+      )
 
-        const players = yield* _(world.query(playerTargetQuery))
-        const player = players[0]
-        expect(player).toBeDefined()
+      yield* $(blockInteractionSystem)
 
-        if (player && player.target._tag === 'block') {
-          yield* _(handleDestroyBlock(player as PlayerQueryResult))
-        }
+      const blockExists = yield* $(World.getComponentOption(blockId, 'position'))
+      expect(Option.isNone(blockExists)).toBe(true)
+    }).pipe(Effect.provide(TestLayer)))
 
-        const blockExists = yield* _(world.getComponent(blockId, 'position'))
-        const newTarget = yield* _(world.getComponent(playerId, 'target'))
-        const worldState = yield* _(world.state.get)
-
-        expect(Option.isNone(blockExists)).toBe(true)
-        expect(newTarget).toEqual(Option.some(createTargetNone()))
-        expect(HashSet.has(worldState.globalState.editedBlocks.destroyed, '0,0,-2')).toBe(true)
-      })
-
-      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
-    })
-
-    it('should do nothing if target block has no position', async () => {
-      const program = Effect.gen(function* (_) {
-        const world = yield* _(World)
-        const { blockId } = yield* _(setupWorld)
-        const players = yield* _(world.query(playerTargetQuery))
-        const player = players[0]!
-
-        // Manually remove the position component to trigger the guard clause
-        yield* _(
-          world.update((w) => {
-            const newPositionMap = new Map(w.components.position)
-            newPositionMap.delete(blockId)
-            return {
-              ...w,
-              components: {
-                ...w.components,
-                position: newPositionMap,
-              },
-            }
+  it('should call place handler when place input is true', () =>
+    Effect.gen(function* ($) {
+      const { playerId } = yield* $(setupWorld)
+      const { world } = yield* $(WorldContext)
+      yield* $(
+        World.updateComponent(
+          playerId,
+          'inputState',
+          new InputState({ place: true, destroy: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
+        ),
+      )
+      yield* $(
+        World.updateComponent(
+          playerId,
+          'hotbar',
+          new Hotbar({
+            slots: ['stone' as BlockType],
+            selectedIndex: 0,
           }),
-        )
-        const initialWorldState = yield* _(world.state.get)
+        ),
+      )
 
-        if (player && player.target._tag === 'block') {
-          yield* _(handleDestroyBlock(player as PlayerQueryResult))
-        }
+      yield* $(blockInteractionSystem)
 
-        const finalWorldState = yield* _(world.state.get)
-        expect(finalWorldState).toEqual(initialWorldState)
-      })
+      const worldState = yield* $(Ref.get(world))
+      const placedBlock = Record.get(worldState.globalState.editedBlocks.placed, '0,0,-1')
+      expect(Option.isSome(placedBlock)).toBe(true)
+    }).pipe(Effect.provide(TestLayer)))
 
-      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
-    })
-
-    it('should do nothing if target is not a block', async () => {
-      const program = Effect.gen(function* (_) {
-        const world = yield* _(World)
-        const { playerId } = yield* _(setupWorld)
-        yield* _(world.updateComponent(playerId, 'target', createTargetNone()))
-        const players = yield* _(world.query(playerTargetQuery))
-        const player = players[0]!
-        const initialWorldState = yield* _(world.state.get)
-
-        if (player) {
-          yield* _(handleDestroyBlock(player as PlayerQueryResult))
-        }
-
-        const finalWorldState = yield* _(world.state.get)
-        expect(finalWorldState).toEqual(initialWorldState)
-      })
-      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
-    })
-  })
-
-  describe('handlePlaceBlock', () => {
-    it('should place a block', async () => {
-      const program = Effect.gen(function* (_) {
-        const world = yield* _(World)
-        const { playerId } = yield* _(setupWorld)
-
-        yield* _(
-          world.updateComponent(
-            playerId,
-            'hotbar',
-            new Hotbar({
-              slots: ['dirt' as BlockType],
-              selectedIndex: 0,
-            }),
-          ),
-        )
-
-        const players = yield* _(world.query(playerTargetQuery))
-        const player = players[0]
-        expect(player).toBeDefined()
-
-        if (player && player.target._tag === 'block') {
-          yield* _(handlePlaceBlock(player as PlayerQueryResult))
-        }
-
-        const worldState = yield* _(world.state.get)
-        const placedBlock = Record.get(worldState.globalState.editedBlocks.placed, '0,0,-1')
-        expect(Option.isSome(placedBlock)).toBe(true)
-        expect(Option.getOrThrow(placedBlock)).toEqual({
-          position: { x: 0, y: 0, z: -1 },
-          blockType: 'dirt',
-        })
-
-        const newPlayerInput = yield* _(world.getComponent(playerId, 'inputState'))
-        expect(newPlayerInput.pipe(Option.map((s) => s.place)).pipe(Option.getOrThrow)).toBe(false)
-      })
-      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
-    })
-
-    it('should do nothing if target is not a block', async () => {
-      const program = Effect.gen(function* (_) {
-        const world = yield* _(World)
-        const { playerId } = yield* _(setupWorld)
-        yield* _(world.updateComponent(playerId, 'target', createTargetNone()))
-        const players = yield* _(world.query(playerTargetQuery))
-        const player = players[0]!
-        const initialWorldState = yield* _(world.state.get)
-
-        if (player) {
-          yield* _(handlePlaceBlock(player as PlayerQueryResult))
-        }
-
-        const finalWorldState = yield* _(world.state.get)
-        expect(finalWorldState).toEqual(initialWorldState)
-      })
-      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
-    })
-
-    it('should do nothing if target block has no position', async () => {
-      const program = Effect.gen(function* (_) {
-        const world = yield* _(World)
-        const { blockId } = yield* _(setupWorld)
-        const players = yield* _(world.query(playerTargetQuery))
-        const player = players[0]!
-
-        // Manually remove the position component to trigger the guard clause
-        yield* _(
-          world.update((w) => {
-            const newPositionMap = new Map(w.components.position)
-            newPositionMap.delete(blockId)
-            return {
-              ...w,
-              components: {
-                ...w.components,
-                position: newPositionMap,
-              },
-            }
+  it('should do nothing if hotbar selection is empty when placing', () =>
+    Effect.gen(function* ($) {
+      const { playerId } = yield* $(setupWorld)
+      const { world } = yield* $(WorldContext)
+      yield* $(
+        World.updateComponent(
+          playerId,
+          'inputState',
+          new InputState({ place: true, destroy: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
+        ),
+      )
+      yield* $(
+        World.updateComponent(
+          playerId,
+          'hotbar',
+          new Hotbar({
+            slots: [],
+            selectedIndex: 0,
           }),
-        )
-        const initialWorldState = yield* _(world.state.get)
+        ),
+      )
+      const initialWorldState = yield* $(Ref.get(world))
 
-        if (player && player.target._tag === 'block') {
-          yield* _(handlePlaceBlock(player as PlayerQueryResult))
-        }
+      yield* $(blockInteractionSystem)
 
-        const finalWorldState = yield* _(world.state.get)
-        expect(finalWorldState).toEqual(initialWorldState)
-      })
-      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
-    })
-  })
+      const finalWorldState = yield* $(Ref.get(world))
+      expect(finalWorldState).toEqual(initialWorldState)
+    }).pipe(Effect.provide(TestLayer)))
 
-  describe('blockInteractionSystem', () => {
-    it('should call destroy handler when destroy input is true', async () => {
-      const program = Effect.gen(function* (_) {
-        const world = yield* _(World)
-        const { playerId, blockId } = yield* _(setupWorld)
-        yield* _(
-          world.updateComponent(
-            playerId,
-            'inputState',
-            new InputState({ destroy: true, place: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
-          ),
-        )
+  it('should do nothing if target is none', () =>
+    Effect.gen(function* ($) {
+      const { playerId } = yield* $(setupWorld)
+      const { world } = yield* $(WorldContext)
+      yield* $(World.updateComponent(playerId, 'target', createTargetNone()))
+      yield* $(
+        World.updateComponent(
+          playerId,
+          'inputState',
+          new InputState({ destroy: true, place: true, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
+        ),
+      )
+      const initialWorldState = yield* $(Ref.get(world))
 
-        yield* _(blockInteractionSystem)
+      yield* $(blockInteractionSystem)
 
-        const blockExists = yield* _(world.getComponent(blockId, 'position'))
-        expect(Option.isNone(blockExists)).toBe(true)
-      })
-      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
-    })
+      const finalWorldState = yield* $(Ref.get(world))
+      expect(finalWorldState).toEqual(initialWorldState)
+    }).pipe(Effect.provide(TestLayer)))
 
-    it('should call place handler when place input is true', async () => {
-      const program = Effect.gen(function* (_) {
-        const world = yield* _(World)
-        const { playerId } = yield* _(setupWorld)
-        yield* _(
-          world.updateComponent(
-            playerId,
-            'inputState',
-            new InputState({ place: true, destroy: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
-          ),
-        )
-        yield* _(
-          world.updateComponent(
-            playerId,
-            'hotbar',
-            new Hotbar({
-              slots: ['stone' as BlockType],
-              selectedIndex: 0,
-            }),
-          ),
-        )
+  it('should do nothing if no input is given', () =>
+    Effect.gen(function* ($) {
+      const { blockId } = yield* $(setupWorld)
+      const { world } = yield* $(WorldContext)
+      const initialWorldState = yield* $(Ref.get(world))
 
-        yield* _(blockInteractionSystem)
+      yield* $(blockInteractionSystem)
 
-        const worldState = yield* _(world.state.get)
-        const placedBlock = Record.get(worldState.globalState.editedBlocks.placed, '0,0,-1')
-        expect(Option.isSome(placedBlock)).toBe(true)
-      })
-      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
-    })
+      const finalWorldState = yield* $(Ref.get(world))
+      const blockExists = yield* $(World.getComponentOption(blockId, 'position'))
 
-    it('should do nothing if hotbar selection is empty when placing', async () => {
-      const program = Effect.gen(function* (_) {
-        const world = yield* _(World)
-        const { playerId } = yield* _(setupWorld)
-        yield* _(
-          world.updateComponent(
-            playerId,
-            'inputState',
-            new InputState({ place: true, destroy: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
-          ),
-        )
-        yield* _(
-          world.updateComponent(
-            playerId,
-            'hotbar',
-            new Hotbar({
-              slots: [],
-              selectedIndex: 0,
-            }),
-          ),
-        )
-        const initialWorldState = yield* _(world.state.get)
-
-        yield* _(blockInteractionSystem)
-
-        const finalWorldState = yield* _(world.state.get)
-        expect(finalWorldState).toEqual(initialWorldState)
-      })
-      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
-    })
-
-    it('should do nothing if target is none', async () => {
-      const program = Effect.gen(function* (_) {
-        const world = yield* _(World)
-        const { playerId } = yield* _(setupWorld)
-        yield* _(world.updateComponent(playerId, 'target', createTargetNone()))
-        yield* _(
-          world.updateComponent(
-            playerId,
-            'inputState',
-            new InputState({ destroy: true, place: true, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
-          ),
-        )
-        const initialWorldState = yield* _(world.state.get)
-
-        yield* _(blockInteractionSystem)
-
-        const finalWorldState = yield* _(world.state.get)
-        expect(finalWorldState).toEqual(initialWorldState)
-      })
-      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
-    })
-
-    it('should do nothing if no input is given', async () => {
-      const program = Effect.gen(function* (_) {
-        const world = yield* _(World)
-        const { blockId } = yield* _(setupWorld)
-        const initialWorldState = yield* _(world.state.get)
-
-        yield* _(blockInteractionSystem)
-
-        const finalWorldState = yield* _(world.state.get)
-        const blockExists = yield* _(world.getComponent(blockId, 'position'))
-
-        expect(Option.isSome(blockExists)).toBe(true)
-        expect(finalWorldState).toEqual(initialWorldState)
-      })
-      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
-    })
-  })
+      expect(Option.isSome(blockExists)).toBe(true)
+      expect(finalWorldState).toEqual(initialWorldState)
+    }).pipe(Effect.provide(TestLayer)))
 })

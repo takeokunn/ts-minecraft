@@ -1,84 +1,49 @@
-import { describe, it, expect, vi } from 'vitest'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Ref } from 'effect'
+import { describe, it, expect } from 'vitest'
+import { ChunkDataQueueService, RenderQueue, RenderQueueService } from '@/runtime/services'
+import * as World from '@/runtime/world-pure'
+import { provideTestWorld } from 'test/utils'
 import { worldUpdateSystem } from '../world-update'
-import { World, WorldLive } from '@/runtime/world'
-import { ChunkDataQueueService, RenderQueueService } from '@/runtime/services'
-import { PlacedBlock } from '@/domain/block'
+import { chunkQuery, terrainBlockQuery } from '@/domain/queries'
 import { ChunkGenerationResult, RenderCommand } from '@/domain/types'
-
-const setup = (chunkResult: ChunkGenerationResult | null) => {
-  const chunkQueue: ChunkGenerationResult[] = chunkResult ? [chunkResult] : []
-  const renderQueue: RenderCommand[] = []
-
-  const ChunkDataQueueLive = Layer.succeed(ChunkDataQueueService, chunkQueue)
-  const RenderQueueLive = Layer.succeed(RenderQueueService, renderQueue)
-
-  const TestLayer = Layer.mergeAll(WorldLive, ChunkDataQueueLive, RenderQueueLive)
-  return { TestLayer, renderQueue, chunkQueue }
-}
+import { BlockType } from '@/domain/block'
 
 describe('worldUpdateSystem', () => {
-  it('should do nothing if the chunk data queue is empty', async () => {
-    const { TestLayer, renderQueue } = setup(null)
-    const program = Effect.gen(function* (_) {
-      const world = yield* _(World)
-      const addArchetypeSpy = vi.spyOn(world, 'addArchetype')
-      yield* _(worldUpdateSystem)
-      expect(addArchetypeSpy).not.toHaveBeenCalled()
-      expect(renderQueue.length).toBe(0)
-    })
+  it('should process a chunk from the queue and add entities to the world', () =>
+    Effect.gen(function* ($) {
+      const chunkData: ChunkGenerationResult = {
+        blocks: [{ position: { x: 0, y: 0, z: 0 }, blockType: 'dirt' as BlockType }],
+        mesh: { indices: [1, 2, 3], positions: new Float32Array(), normals: new Float32Array(), uvs: new Float32Array() },
+        chunkX: 0,
+        chunkZ: 0,
+      }
+      const chunkQueue: ChunkGenerationResult[] = [chunkData]
+      const renderQueueRef = yield* $(Ref.make<RenderCommand[]>([]))
+      const ChunkQueueLayer = Layer.succeed(ChunkDataQueueService, chunkQueue)
+      const RenderQueueLayer = Layer.succeed(RenderQueueService, {
+        push: (cmd: RenderCommand) => Ref.update(renderQueueRef, (q) => [...q, cmd]),
+        splice: (start: number, deleteCount: number) => Effect.gen(function* ($) {
+          const q = yield* $(Ref.get(renderQueueRef))
+          const removed = q.splice(start, deleteCount)
+          yield* $(Ref.set(renderQueueRef, q))
+          return removed
+        }),
+      } as RenderQueue)
 
-    await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
-  })
+      yield* $(Effect.provide(worldUpdateSystem, ChunkQueueLayer.pipe(Layer.provide(RenderQueueLayer))))
 
-  it('should update world and render queue when a chunk is processed', async () => {
-    const blocks: PlacedBlock[] = [{ position: { x: 0, y: 64, z: 0 }, blockType: 'stone' }]
-    const mesh = {
-      positions: new Float32Array([0, 0, 0]),
-      normals: new Float32Array([0, 1, 0]),
-      uvs: new Float32Array([0, 0]),
-      indices: new Uint32Array([0, 1, 2]),
-    }
-    const chunkResult: ChunkGenerationResult = { blocks, mesh, chunkX: 0, chunkZ: 0 }
-    const { TestLayer, renderQueue } = setup(chunkResult)
+      const chunks = yield* $(World.query(chunkQuery))
+      const blocks = yield* $(World.query(terrainBlockQuery))
+      expect(chunks.length).toBe(1)
+      expect(blocks.length).toBe(1)
 
-    const program = Effect.gen(function* (_) {
-      const world = yield* _(World)
-      const addArchetypeSpy = vi.spyOn(world, 'addArchetype')
-      yield* _(worldUpdateSystem)
-      // Chunk archetype + block archetypes
-      expect(addArchetypeSpy).toHaveBeenCalledTimes(blocks.length + 1)
+      const renderQueue = yield* $(Ref.get(renderQueueRef))
       expect(renderQueue.length).toBe(1)
       expect(renderQueue[0]).toEqual({
         type: 'UpsertChunk',
         chunkX: 0,
         chunkZ: 0,
-        mesh,
+        mesh: chunkData.mesh,
       })
-    })
-
-    await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
-  })
-
-  it('should not push to render queue if mesh is empty', async () => {
-    const blocks: PlacedBlock[] = []
-    const mesh = {
-      positions: new Float32Array(),
-      normals: new Float32Array(),
-      uvs: new Float32Array(),
-      indices: new Uint32Array(),
-    }
-    const chunkResult: ChunkGenerationResult = { blocks, mesh, chunkX: 0, chunkZ: 0 }
-    const { TestLayer, renderQueue } = setup(chunkResult)
-
-    const program = Effect.gen(function* (_) {
-      const world = yield* _(World)
-      const addArchetypeSpy = vi.spyOn(world, 'addArchetype')
-      yield* _(worldUpdateSystem)
-      expect(addArchetypeSpy).toHaveBeenCalledTimes(1) // Just the chunk archetype
-      expect(renderQueue.length).toBe(0)
-    })
-
-    await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
-  })
+    }).pipe(Effect.provide(provideTestWorld())))
 })

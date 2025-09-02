@@ -4,7 +4,9 @@ import { playerQuery } from '@/domain/queries'
 import { SystemCommand } from '@/domain/types'
 import { CHUNK_SIZE, RENDER_DISTANCE } from '@/domain/world-constants'
 import { OnCommand } from '@/runtime/services'
-import { World, WorldState } from '@/runtime/world'
+import { World as WorldState, removeEntity } from '@/runtime/world-pure'
+import * as World from '@/runtime/world-pure'
+import { WorldContext } from '@/runtime/context'
 
 type ChunkCoord = { readonly x: number; readonly z: number }
 
@@ -44,29 +46,21 @@ export const calculateChunkUpdates = (
   return { toLoad, toUnload }
 }
 
-export const chunkLoadingSystem = Effect.gen(function* (_) {
-  const world = yield* _(World)
-  const onCommand = yield* _(OnCommand)
-  const players = yield* _(world.query(playerQuery))
+export const chunkLoadingSystem = Effect.gen(function* ($) {
+  const onCommand = yield* $(OnCommand)
+  const { world } = yield* $(WorldContext)
+  const players = yield* $(World.query(playerQuery))
 
-  if (players.length === 0) {
-    return
-  }
-  const player = (yield* _(world.query(playerQuery)))[0]
+  const player = players[0]
   if (!player) {
     return
   }
-  const playerPositionX = player.position.x
-  const playerPositionZ = player.position.z
 
-  if (playerPositionX === undefined || playerPositionZ === undefined) {
-    return
-  }
+  const { position } = player
+  const playerChunkX = Math.floor(position.x / CHUNK_SIZE)
+  const playerChunkZ = Math.floor(position.z / CHUNK_SIZE)
 
-  const playerChunkX = Math.floor(playerPositionX / CHUNK_SIZE)
-  const playerChunkZ = Math.floor(playerPositionZ / CHUNK_SIZE)
-
-  const worldState = yield* _(world.state)
+  const worldState = yield* $(Ref.get(world))
   const { lastPlayerChunk, loadedChunks } = worldState.globalState.chunkLoading
 
   const isSameChunk = pipe(
@@ -87,21 +81,19 @@ export const chunkLoadingSystem = Effect.gen(function* (_) {
     chunkZ: z,
   }))
 
-  yield* _(Effect.forEach(commands, (command) => onCommand(command), { discard: true }))
-  yield* _(Effect.forEach(toUnload, (entityId) => world.removeEntity(entityId), { discard: true }))
+  yield* $(Effect.forEach(commands, (command) => onCommand(command), { discard: true }))
+  yield* $(Effect.forEach(toUnload, (entityId) => removeEntity(entityId), { discard: true, concurrency: 'unbounded' }))
 
-  yield* _(
-    world.state.pipe(
-      Ref.update((w: WorldState) => ({
-        ...w,
-        globalState: {
-          ...w.globalState,
-          chunkLoading: {
-            ...w.globalState.chunkLoading,
-            lastPlayerChunk: Option.some({ x: playerChunkX, z: playerChunkZ }),
-          },
+  yield* $(
+    Ref.update(world, (w: WorldState) => ({
+      ...w,
+      globalState: {
+        ...w.globalState,
+        chunkLoading: {
+          ...w.globalState.chunkLoading,
+          lastPlayerChunk: Option.some({ x: playerChunkX, z: playerChunkZ }),
         },
-      })),
-    ),
+      },
+    })),
   )
 })

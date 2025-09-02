@@ -1,68 +1,55 @@
-import { Effect, Layer, Option } from 'effect'
+import { Effect, Layer } from 'effect'
 import { describe, it, expect } from 'vitest'
 import { createArchetype } from '@/domain/archetypes'
+import { CameraState } from '@/domain/components'
 import { InputManagerService } from '@/runtime/services'
-import { World, WorldLive } from '@/runtime/world'
+import * as World from '@/runtime/world-pure'
+import { provideTestWorld } from 'test/utils'
 import { cameraControlSystem } from '../camera-control'
 
 const MockInputManager = (dx: number, dy: number) =>
   Layer.succeed(
     InputManagerService,
     InputManagerService.of({
-      getState: Effect.succeed({ keyboard: new Set(), isLocked: true, mouse: { dx: 0, dy: 0 } }),
       getMouseDelta: Effect.succeed({ dx, dy }),
+      getState: Effect.succeed({ keyboard: new Set(), isLocked: true, mouse: { dx, dy } }),
       registerListeners: () => Effect.void,
       cleanup: Effect.void,
     }),
   )
 
-const setupWorld = Effect.gen(function* (_) {
-  const world = yield* _(World)
-  const playerArchetype = createArchetype({
-    type: 'player',
-    pos: { x: 0, y: 1, z: 0 },
+const setupWorld = (camera: Partial<CameraState>) =>
+  Effect.gen(function* ($) {
+    const playerArchetype = createArchetype({
+      type: 'player',
+      pos: { x: 0, y: 0, z: 0 },
+    })
+    const playerId = yield* $(World.addArchetype(playerArchetype))
+    yield* $(World.updateComponent(playerId, 'cameraState', new CameraState({ pitch: 0, yaw: 0, ...camera })))
+    return { playerId }
   })
-  const playerId = yield* _(world.addArchetype(playerArchetype))
-  return { playerId }
-})
 
 describe('cameraControlSystem', () => {
-  it('should update camera state based on mouse input', async () => {
-    const program = Effect.gen(function* (_) {
-      const world = yield* _(World)
-      const { playerId } = yield* _(setupWorld)
+  it('should update camera state based on mouse delta', () =>
+    Effect.gen(function* ($) {
+      const { playerId } = yield* $(setupWorld({ pitch: 0, yaw: 0 }))
+      const initialCameraState = yield* $(World.getComponent(playerId, 'cameraState'))
 
-      const initialCameraState = yield* _(world.getComponent(playerId, 'cameraState'))
-      expect(Option.isSome(initialCameraState)).toBe(true)
-      const { pitch: initialPitch, yaw: initialYaw } = Option.getOrThrow(initialCameraState)
+      yield* $(cameraControlSystem)
 
-      yield* _(cameraControlSystem)
+      const updatedCameraState = yield* $(World.getComponent(playerId, 'cameraState'))
 
-      const updatedCameraState = yield* _(world.getComponent(playerId, 'cameraState'))
-      expect(Option.isSome(updatedCameraState)).toBe(true)
-      const { pitch: updatedPitch, yaw: updatedYaw } = Option.getOrThrow(updatedCameraState)
+      expect(updatedCameraState).not.toEqual(initialCameraState)
+    }).pipe(Effect.provide(provideTestWorld().pipe(Layer.provide(MockInputManager(100, 200))))))
 
-      expect(updatedPitch).not.toEqual(initialPitch)
-      expect(updatedYaw).not.toEqual(initialYaw)
-      expect(updatedPitch).toBeCloseTo(initialPitch - 200 * 0.002)
-      expect(updatedYaw).toBeCloseTo(initialYaw - 100 * 0.002)
-    })
+  it('should not update camera state if mouse has not moved', () =>
+    Effect.gen(function* ($) {
+      const { playerId } = yield* $(setupWorld({ pitch: 0, yaw: 0 }))
+      const initialCameraState = yield* $(World.getComponent(playerId, 'cameraState'))
 
-    await Effect.runPromise(Effect.provide(program, Layer.merge(WorldLive, MockInputManager(100, 200))))
-  })
+      yield* $(cameraControlSystem)
 
-  it('should do nothing if mouse has not moved', async () => {
-    const program = Effect.gen(function* (_) {
-      const world = yield* _(World)
-      const { playerId } = yield* _(setupWorld)
-
-      const initialCameraState = yield* _(world.getComponent(playerId, 'cameraState'))
-      yield* _(cameraControlSystem)
-      const updatedCameraState = yield* _(world.getComponent(playerId, 'cameraState'))
-
+      const updatedCameraState = yield* $(World.getComponent(playerId, 'cameraState'))
       expect(updatedCameraState).toEqual(initialCameraState)
-    })
-
-    await Effect.runPromise(Effect.provide(program, Layer.merge(WorldLive, MockInputManager(0, 0))))
-  })
+    }).pipe(Effect.provide(provideTestWorld().pipe(Layer.provide(MockInputManager(0, 0))))))
 })

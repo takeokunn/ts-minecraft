@@ -135,4 +135,5 @@ export type Components = {
 }
 
 export type ComponentName = keyof Components
-export const componentNames = Object.keys(ComponentSchemas) as unknown as ReadonlyArray<ComponentName>
+export const componentNames = Object.keys(ComponentSchemas) as ReadonlyArray<ComponentName>
+export const componentNamesSet = new Set<ComponentName>(componentNames)
