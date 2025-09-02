@@ -1,3 +1,6 @@
+> **Summary**
+> このドキュメントは、ECSの中心サービスである`World`の高性能な内部アーキテクチャについて解説します。パフォーマンスを最大化するために採用している「Archetype」と「Structure of Arrays (SoA)」の組み合わせが、どのように高速なクエリとデータ処理を実現しているかを詳述します。
+
 # Worldアーキテクチャ
 
 `World` は、ECSアーキテクチャの中心となるサービスであり、すべてのエンティティとコンポーネントの状態を一元管理する唯一の信頼できる情報源（Source of Truth）です。その実装は、現代のゲームエンジンで採用されている高性能な設計原則に基づいています。
@@ -103,4 +106,4 @@ const entities =
 
 ---
 
-より高レベルなAPI（`createEntity`, `query`など）の具体的な使用方法については、[\*\*Worldサービス仕様 (features/world.md)](./../features/world.md) を参照してください。
+より高レベルなAPI（`createEntity`, `query`など）の具体的な使用方法については、[\*\*Worldサービス仕様](../features/world/world-api.md) を参照してください。

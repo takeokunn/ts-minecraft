@@ -1,47 +1,15 @@
-/// <reference types="vitest" />
-import { defineConfig } from 'vite'
-import path from 'path'
+import { defineConfig } from "vitest/config";
+import tsconfigPaths from "vite-tsconfig-paths";
 
+// https://vitejs.dev/config/
 export default defineConfig({
-  server: {
-    headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'require-corp',
-    },
-  },
-  optimizeDeps: {
-    exclude: ['@sqlite.org/sqlite-wasm'],
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
-  },
+  plugins: [tsconfigPaths()],
   test: {
+    environment: "jsdom",
     globals: true,
-    environment: 'jsdom',
-    include: ['src/**/*.spec.ts'],
-    testTimeout: 1000,
-    exclude: [
-      'node_modules',
-      'dist',
-      '.idea',
-      '.git',
-      '.cache',
-      'src/main.ts',
-      'src/index.ts', // Exclude the new entry point
-    ],
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      reportsDirectory: './coverage',
-      include: ['src/'],
-      thresholds: {
-        lines: 95,
-        functions: 95,
-        branches: 95,
-        statements: 95,
-      },
+      provider: "v8",
+      reporter: ["text", "json", "html"],
     },
   },
-})
+});

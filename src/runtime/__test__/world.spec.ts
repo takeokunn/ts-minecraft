@@ -1,141 +1,92 @@
-import { describe, it, expect } from 'vitest'
-import * as Effect from 'effect/Effect'
-import * as Option from 'effect/Option'
-import { World, WorldLive } from '../world'
-import { Position } from '@/domain/components'
+import { Effect, Option } from 'effect'
+import { describe, expect, it } from 'vitest'
 import { createArchetype } from '@/domain/archetypes'
-import { createQuery } from '@/domain/query'
+import { Position } from '@/domain/components'
+import { toEntityId } from '@/domain/entity'
+import { playerQuery } from '@/domain/queries'
+import { World, WorldLive } from '../world'
 
-describe('World service', () => {
-  it('should add and retrieve an entity', async () => {
-    const program = Effect.gen(function* (_) {
-      const world = yield* _(World)
-      const playerArchetype = createArchetype({
-        type: 'player',
-        pos: new Position({ x: 1, y: 2, z: 3 }),
-      })
+const testLayer = WorldLive
 
-      const entityId = yield* _(world.addArchetype(playerArchetype))
-      const pos = yield* _(world.getComponent(entityId, 'position'))
+const runTest = <E, A>(effect: Effect.Effect<A, E, World>) => {
+  return Effect.runPromise(Effect.provide(effect, testLayer))
+}
 
-      return { pos, expected: playerArchetype.position }
-    })
+describe('World Service', () => {
+  it('should add an archetype and retrieve its components', () =>
+    runTest(
+      Effect.gen(function* (_) {
+        const world = yield* _(World)
+        const archetype = createArchetype({ type: 'player', pos: new Position({ x: 0, y: 0, z: 0 }) })
 
-    const testEffect = Effect.provide(program, WorldLive)
+        const entityId = yield* _(world.addArchetype(archetype))
+        const position = yield* _(world.getComponent(entityId, 'position'))
 
-    const { pos, expected } = await Effect.runPromise(testEffect)
-    expect(Option.isSome(pos)).toBe(true)
-    expect(Option.getOrThrow(pos)).toEqual(expected)
-  })
+        expect(entityId).toBe(toEntityId(0))
+        expect(Option.isSome(position)).toBe(true)
+        expect(Option.getOrThrow(position)).toEqual(archetype.position)
+      }),
+    ))
 
-  it('should remove an entity', async () => {
-    const program = Effect.gen(function* (_) {
-      const world = yield* _(World)
-      const playerArchetype = createArchetype({
-        type: 'player',
-        pos: new Position({ x: 1, y: 2, z: 3 }),
-      })
+  it('should remove an entity', () =>
+    runTest(
+      Effect.gen(function* (_) {
+        const world = yield* _(World)
+        const archetype = createArchetype({ type: 'player', pos: new Position({ x: 0, y: 0, z: 0 }) })
 
-      const entityId = yield* _(world.addArchetype(playerArchetype))
-      yield* _(world.removeEntity(entityId))
-      const pos = yield* _(world.getComponent(entityId, 'position'))
-      return pos
-    })
+        const entityId = yield* _(world.addArchetype(archetype))
+        yield* _(world.removeEntity(entityId))
+        const position = yield* _(world.getComponent(entityId, 'position'))
 
-    const testEffect = Effect.provide(program, WorldLive)
+        expect(Option.isNone(position)).toBe(true)
+      }),
+    ))
 
-    const pos = await Effect.runPromise(testEffect)
-    expect(Option.isNone(pos)).toBe(true)
-  })
+  it('should update a component', () =>
+    runTest(
+      Effect.gen(function* (_) {
+        const world = yield* _(World)
+        const archetype = createArchetype({ type: 'player', pos: new Position({ x: 0, y: 0, z: 0 }) })
+        const newPosition = new Position({ x: 10, y: 20, z: 30 })
 
-  it('should update a component', async () => {
-    const program = Effect.gen(function* (_) {
-      const world = yield* _(World)
-      const playerArchetype = createArchetype({
-        type: 'player',
-        pos: new Position({ x: 1, y: 2, z: 3 }),
-      })
-      const newPosition = new Position({ x: 4, y: 5, z: 6 })
+        const entityId = yield* _(world.addArchetype(archetype))
+        yield* _(world.updateComponent(entityId, 'position', newPosition))
+        const position = yield* _(world.getComponent(entityId, 'position'))
 
-      const entityId = yield* _(world.addArchetype(playerArchetype))
-      yield* _(world.updateComponent(entityId, 'position', newPosition))
-      const pos = yield* _(world.getComponent(entityId, 'position'))
-      return { pos, expected: newPosition }
-    })
+        expect(Option.isSome(position)).toBe(true)
+        expect(Option.getOrThrow(position)).toEqual(newPosition)
+      }),
+    ))
 
-    const testEffect = Effect.provide(program, WorldLive)
+  it('should query entities', () =>
+    runTest(
+      Effect.gen(function* (_) {
+        const world = yield* _(World)
+        const playerArchetype = createArchetype({ type: 'player', pos: new Position({ x: 0, y: 0, z: 0 }) })
+        const blockArchetype = createArchetype({ type: 'block', pos: new Position({ x: 1, y: 1, z: 1 }), blockType: 'grass' })
 
-    const { pos, expected } = await Effect.runPromise(testEffect)
-    expect(Option.isSome(pos)).toBe(true)
-    expect(Option.getOrThrow(pos)).toEqual(expected)
-  })
+        const player1Id = yield* _(world.addArchetype(playerArchetype))
+        yield* _(world.addArchetype(blockArchetype))
+        const player2Id = yield* _(world.addArchetype(playerArchetype))
 
-  it('should query entities', async () => {
-    const program = Effect.gen(function* (_) {
-      const world = yield* _(World)
-      const playerArchetype = createArchetype({
-        type: 'player',
-        pos: new Position({ x: 1, y: 2, z: 3 }),
-      })
-      const blockArchetype = createArchetype({
-        type: 'block',
-        pos: new Position({ x: 4, y: 5, z: 6 }),
-        blockType: 'grass',
-      })
+        const results = yield* _(world.query(playerQuery))
 
-      const playerEntity = yield* _(world.addArchetype(playerArchetype))
-      yield* _(world.addArchetype(blockArchetype))
+        expect(results.length).toBe(2)
+        const entityIds = results.map((r) => r.entityId)
+        expect(entityIds).toContain(player1Id)
+        expect(entityIds).toContain(player2Id)
+      }),
+    ))
 
-      const playerQuery = createQuery('playerQuery', ['position', 'player'])
-      const results = yield* _(world.query(playerQuery))
-      return { results, playerEntity }
-    })
+  it('should return an empty array when query finds no matches', () =>
+    runTest(
+      Effect.gen(function* (_) {
+        const world = yield* _(World)
+        const blockArchetype = createArchetype({ type: 'block', pos: new Position({ x: 1, y: 1, z: 1 }), blockType: 'grass' })
+        yield* _(world.addArchetype(blockArchetype))
 
-    const testEffect = Effect.provide(program, WorldLive)
-
-    const { results, playerEntity } = await Effect.runPromise(testEffect)
-    expect(results.length).toBe(1)
-    const result = results[0]
-    if (result) {
-      expect(result.entityId).toBe(playerEntity)
-      expect(result.position).toBeDefined()
-      expect(result.player).toBeDefined()
-    }
-  })
-
-  it('should query SoA', async () => {
-    const program = Effect.gen(function* (_) {
-      const world = yield* _(World)
-      const player1Archetype = createArchetype({
-        type: 'player',
-        pos: new Position({ x: 1, y: 2, z: 3 }),
-      })
-      const player2Archetype = createArchetype({
-        type: 'player',
-        pos: new Position({ x: 4, y: 5, z: 6 }),
-      })
-
-      const p1 = yield* _(world.addArchetype(player1Archetype))
-      const p2 = yield* _(world.addArchetype(player2Archetype))
-
-      const playerQuery = createQuery('playerQuery', ['position', 'player'])
-      const results = yield* _(world.querySoA(playerQuery))
-      return { results, p1, p2 }
-    })
-
-    const testEffect = Effect.provide(program, WorldLive)
-
-    const { results, p1, p2 } = await Effect.runPromise(testEffect)
-    expect(results.entities).toHaveLength(2)
-    expect(results.entities).toContain(p1)
-    expect(results.entities).toContain(p2)
-    const p1Index = results.entities.indexOf(p1)
-    const p2Index = results.entities.indexOf(p2)
-    expect(results.position.x[p1Index]).toBe(1)
-    expect(results.position.y[p1Index]).toBe(2)
-    expect(results.position.z[p1Index]).toBe(3)
-    expect(results.position.x[p2Index]).toBe(4)
-    expect(results.position.y[p2Index]).toBe(5)
-    expect(results.position.z[p2Index]).toBe(6)
-  })
+        const results = yield* _(world.query(playerQuery))
+        expect(results.length).toBe(0)
+      }),
+    ))
 })

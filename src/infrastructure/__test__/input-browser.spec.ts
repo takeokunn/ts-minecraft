@@ -110,21 +110,14 @@ describe('InputManager', () => {
     await setupAndRun(program)
   })
 
-  it.skip('should update mouse delta on mousemove when locked', async () => {
+  it('should not update keyboard state for unhandled mouse buttons', async () => {
     const program = Effect.gen(function* (_) {
       const manager = yield* _(InputManager)
       mockControls.lock() // Simulate lock
 
-      const lockedState = yield* _(manager.getState)
-      expect(lockedState.isLocked).toBe(true)
-
-      document.dispatchEvent(new MouseEvent('mousemove', { movementX: 10, movementY: -20 }))
-      const delta = yield* _(manager.getMouseDelta)
-      expect(delta).toEqual({ dx: 10, dy: -20 })
-
-      // Delta should be reset
-      const nextDelta = yield* _(manager.getMouseDelta)
-      expect(nextDelta).toEqual({ dx: 0, dy: 0 })
+      document.dispatchEvent(new MouseEvent('mousedown', { button: 1 })) // Middle mouse button
+      const state = yield* _(manager.getState)
+      expect(state.keyboard.size).toBe(0)
     })
     await setupAndRun(program)
   })

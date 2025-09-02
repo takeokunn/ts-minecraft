@@ -1,3 +1,6 @@
+> **Summary**
+> このドキュメントは、本プロジェクトのコアアーキテクチャであるEntity Component System (ECS)とEffect-TSの統合モデルについて解説します。Entity, Component, Archetype, Query, System, Worldの各要素がどのように連携し、データ指向設計と関数型プログラミングを両立させているかを説明します。
+
 # ECS (Entity Component System) with Effect
 
 本プロジェクトのアーキテクチャは、伝統的なEntity Component System (ECS) パターンと、関数型プログラミングライブラリである **[Effect](https://effect.website/)** を深く統合させた独自のモデルに基づいています。これにより、データ指向設計のパフォーマンス上の利点と、関数型プログラミングの持つ堅牢性・テスト容易性を両立させています。
@@ -118,7 +121,7 @@ export const playerMovementSystem = Effect.gen(function* (_) {
 
 - **`querySoA` API**: このSoAアーキテクチャの性能を最大限に引き出すためのAPIが `world.querySoA()` です。このAPIは、内部ストレージの配列への直接の参照を返すため、システムはGC負荷の原因となる中間オブジェクトを一切生成することなく、データを直接読み書きできます。
 
-詳細は **[Worldアーキテクチャ](./world.md)** のドキュメントを参照してください。
+詳細は **[Worldアーキテクチャ](./world-performance.md)** のドキュメントを参照してください。
 
 ---
 

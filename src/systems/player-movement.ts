@@ -45,6 +45,14 @@ export const calculateVerticalVelocity = (isGrounded: boolean, jumpPressed: bool
 
 export const applyDeceleration = (velocity: Pick<Velocity, 'dx' | 'dz'>): Pick<Velocity, 'dx' | 'dz'> => {
   let { dx, dz } = velocity
+
+  if (!Number.isFinite(dx)) {
+    dx = 0
+  }
+  if (!Number.isFinite(dz)) {
+    dz = 0
+  }
+
   dx *= DECELERATION
   dz *= DECELERATION
 

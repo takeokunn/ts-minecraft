@@ -5,15 +5,16 @@ import { InputManagerService } from '@/runtime/services'
 import { World, WorldLive } from '@/runtime/world'
 import { cameraControlSystem } from '../camera-control'
 
-const MockInputManager = Layer.succeed(
-  InputManagerService,
-  InputManagerService.of({
-    getState: Effect.succeed({ keyboard: new Set(), isLocked: true, mouse: { dx: 0, dy: 0 } }),
-    getMouseDelta: Effect.succeed({ dx: 100, dy: 200 }),
-    registerListeners: () => Effect.void,
-    cleanup: Effect.void,
-  }),
-)
+const MockInputManager = (dx: number, dy: number) =>
+  Layer.succeed(
+    InputManagerService,
+    InputManagerService.of({
+      getState: Effect.succeed({ keyboard: new Set(), isLocked: true, mouse: { dx: 0, dy: 0 } }),
+      getMouseDelta: Effect.succeed({ dx, dy }),
+      registerListeners: () => Effect.void,
+      cleanup: Effect.void,
+    }),
+  )
 
 const setupWorld = Effect.gen(function* (_) {
   const world = yield* _(World)
@@ -47,20 +48,10 @@ describe('cameraControlSystem', () => {
       expect(updatedYaw).toBeCloseTo(initialYaw - 100 * 0.002)
     })
 
-    await Effect.runPromise(Effect.provide(program, Layer.merge(WorldLive, MockInputManager)))
+    await Effect.runPromise(Effect.provide(program, Layer.merge(WorldLive, MockInputManager(100, 200))))
   })
 
   it('should do nothing if mouse has not moved', async () => {
-    const NoopInputManager = Layer.succeed(
-      InputManagerService,
-      InputManagerService.of({
-        getState: Effect.succeed({ keyboard: new Set(), isLocked: true, mouse: { dx: 0, dy: 0 } }),
-        getMouseDelta: Effect.succeed({ dx: 0, dy: 0 }),
-        registerListeners: () => Effect.void,
-        cleanup: Effect.void,
-      }),
-    )
-
     const program = Effect.gen(function* (_) {
       const world = yield* _(World)
       const { playerId } = yield* _(setupWorld)
@@ -72,6 +63,6 @@ describe('cameraControlSystem', () => {
       expect(updatedCameraState).toEqual(initialCameraState)
     })
 
-    await Effect.runPromise(Effect.provide(program, Layer.merge(WorldLive, NoopInputManager)))
+    await Effect.runPromise(Effect.provide(program, Layer.merge(WorldLive, MockInputManager(0, 0))))
   })
 })

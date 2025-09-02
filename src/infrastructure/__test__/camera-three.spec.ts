@@ -123,6 +123,17 @@ describe('ThreeCameraLive', () => {
     await run(program)
   })
 
+  it('should not rotate pitch if delta is NaN', async () => {
+    const program = Effect.gen(function* (_) {
+      const service = yield* _(ThreeCameraService)
+      const initialPitch = yield* _(service.getPitch)
+      yield* _(service.rotatePitch(NaN))
+      const finalPitch = yield* _(service.getPitch)
+      expect(finalPitch).toBe(initialPitch)
+    })
+    await run(program)
+  })
+
   it('should rotate yaw', async () => {
     const program = Effect.gen(function* (_) {
       const service = yield* _(ThreeCameraService)

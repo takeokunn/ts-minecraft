@@ -1,3 +1,6 @@
+> **Summary**
+> このドキュメントは、`src`ディレクトリ以下のソースコード構成について説明します。`domain`, `systems`, `runtime`, `infrastructure`といったレイヤーに責務を分割することで、関心の分離を徹底し、コードの保守性とテスト容易性を高めることを目的としています。
+
 # ディレクトリ構成 (Directory Structure)
 
 プロジェクトのソースコードは `src/` ディレクトリ以下に配置され、責務に応じて明確に分割されています。この構成は、関数型プログラミングと[関心の分離 (Separation of Concerns)](https://en.wikipedia.org/wiki/Separation_of_concerns) の原則に強く従っており、コードの保守性、再利用性、テスト容易性を高めることを目的としています。

@@ -6,7 +6,26 @@
 
 このプロジェクトは単なるクローンではなく、関数型プログラミングとデータ指向設計（ECS/SoA）の原則をWebゲーム開発に適用するための、モダンなアーキテクチャの探求と実践の場です。
 
+# ts-minecraft
+
+[![CI](https://github.com/takeokunn/ts-minecraft/actions/workflows/ci.yml/badge.svg)](https://github.com/takeokunn/ts-minecraft/actions/workflows/ci.yml)
+
+**ts-minecraft** は、TypeScript、[Effect](https://effect.website/)、[Three.js](https://threejs.org/) を用いて構築されたMinecraftライクなボクセルエンジンです。
+
+このプロジェクトは単なるクローンではなく、関数型プログラミングとデータ指向設計（ECS/SoA）の原則をWebゲーム開発に適用するための、モダンなアーキテクチャの探求と実践の場です。
+
 ## 🎮 プレイグラウンド
+
+最新版はGitHub Pagesで公開されています。
+
+**[https://minecraft.takeokunn.org/](https://minecraft.takeokunn.org/)**
+
+## ✨ 主な特徴
+
+- **関数型プログラミング**: 副作用管理、依存性注入、構造化された並行処理など、アプリケーションのあらゆる側面を [Effect](https.effect.website/) で制御。
+- **データ指向設計**: パフォーマンスを最大化するため、ArchetypeベースのECSとStructure of Arrays (SoA) を採用。GC負荷を最小限に抑えます。
+- **宣言的なシステムスケジューラ**: システム間の依存関係を定義するだけで、実行順序を自動的に解決。
+- **Web Workerによる並行処理**: 負荷の高い地形生成とメッシュ生成をメインスレッドから完全に分離し、スムーズなフレームレートを維持。
 
 最新版はGitHub Pagesで公開されています。
 
@@ -18,19 +37,19 @@
 - **データ指向設計**: パフォーマンスを最大化するため、ArchetypeベースのECSとStructure of Arrays (SoA) を採用。GC負荷を最小限に抑えます。
 - **宣言的なシステムスケジューラ**: システム間の依存関係を定義するだけで、実行順序を自動的に解決。
 - **Web Workerによる並行処理**: 負荷の高い地形生成とメッシュ生成をメインスレッドから完全に分離し、スムーズなフレームレートを維持。
-- **型安全なデータモデリング**: `@effect/schema` を用いてコンポーネントやセーブデータを定義し、静的・動的な一貫性を保証。
+- **型安全なデータモデリング**: `effect/Schema` を用いてコンポーネントやセーブデータを定義し、静的・動的な一貫性を保証。
 - **無限のワールド生成**: Simplex Noiseを用いたプロシージャルな地形生成。
 - **基本的なゲーム機能**: ブロックの設置/破壊、物理演算と衝突検知、セーブ＆ロード機能など。
 
 ## 🛠️ 使用技術
 
 - **言語**: TypeScript
-- **コアアーキテクチャ**: Effect-TS
+- **コアアーキテクチャ**: Effect
 - **レンダリング**: Three.js
 - **ビルドツール**: Vite
 - **テスティング**: Vitest, fast-check
 - **リンター**: Oxlint
-- **フォーマッタ**: BiomeJS
+- **フォーマッタ**: Prettier, Oxlint
 
 ## 🚀 開発を始めるには
 
@@ -57,8 +76,7 @@ pnpm dev
 | `pnpm build`  | 本番用にプロジェクトをビルドします。  |
 | `pnpm test`   | Vitestですべてのテストを実行します。  |
 | `pnpm lint`   | Oxlintで静的解析を実行します。        |
-| `pnpm format` | BiomeJSでコードをフォーマットします。 |
-| `pnpm atlas`  | テクスチャアトラスを生成します。      |
+| `pnpm format` | PrettierとOxlintでコードをフォーマット・修正します。 |
 
 ## 📂 プロジェクト構造
 
@@ -69,7 +87,7 @@ pnpm dev
 - `src/systems/`: ゲームロジック（ECSのシステム）。
 - `src/infrastructure/`: 外部API（Three.js, ブラウザAPI）との境界。
 
-詳細については [ディレクトリ構成ドキュメント](./docs/architecture/directory_structure.md) を参照してください。
+詳細については [ディレクトリ構成ドキュメント](./docs/architecture/directory-structure.md) を参照してください。
 
 ## 📚 ドキュメント
 

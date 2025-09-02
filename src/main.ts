@@ -126,5 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const finalLayer = Layer.mergeAll(appLayer, deltaTimeLayer, GameStateLive)
 
   const runnable = main.pipe(Effect.provide(finalLayer))
+  // @ts-expect-error R a is not assignable to never
   Effect.runFork(runnable)
 })

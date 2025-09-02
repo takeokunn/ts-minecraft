@@ -3,7 +3,7 @@ import { createQuery, Query } from './query'
 /**
  * Query for the main player entity, including all components needed for movement and interaction.
  */
-export const playerQuery: Query = createQuery('playerQuery', ['player', 'position', 'velocity', 'inputState', 'cameraState', 'hotbar'])
+export const playerQuery: Query = createQuery('playerQuery', ['player', 'position', 'velocity', 'inputState', 'cameraState', 'hotbar', 'gravity'])
 
 /**
  * Query for the player entity, focusing on components needed for block interaction (targeting).

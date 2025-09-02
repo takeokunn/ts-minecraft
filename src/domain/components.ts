@@ -1,7 +1,7 @@
 import { Schema as S } from 'effect'
 import { BlockTypeSchema } from './block'
 import { Float, Int, Vector3IntSchema } from './common'
-import { EntityId } from './entity'
+import { EntityId, EntityIdSchema } from './entity'
 
 // --- Component Schemas ---
 
@@ -60,7 +60,7 @@ export class Hotbar extends S.Class<Hotbar>('Hotbar')({
 
 export class TargetBlock extends S.Class<TargetBlock>('TargetBlock')({
   _tag: S.Literal('block'),
-  entityId: EntityId,
+  entityId: EntityIdSchema,
   face: Vector3IntSchema,
 }) {}
 export class TargetNone extends S.Class<TargetNone>('TargetNone')({
@@ -69,6 +69,8 @@ export class TargetNone extends S.Class<TargetNone>('TargetNone')({
 export const Target = S.Union(TargetBlock, TargetNone)
 export type Target = S.Schema.Type<typeof Target>
 export const createTargetNone = (): Target => new TargetNone({ _tag: 'none' })
+export const createTargetBlock = (entityId: EntityId, face: { readonly x: number; readonly y: number; readonly z: number }): Target =>
+  new TargetBlock({ _tag: 'block', entityId, face })
 
 export class Gravity extends S.Class<Gravity>('Gravity')({
   value: Float,

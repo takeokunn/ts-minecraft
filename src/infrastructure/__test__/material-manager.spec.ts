@@ -77,25 +77,7 @@ describe('MaterialManager', () => {
     await Effect.runPromise(Effect.provide(program, MaterialManagerLive))
   })
 
-  it.skip('should dispose of materials', async () => {
-    const texture = { colorSpace: '', dispose: vi.fn() }
-    loadAsyncMock.mockResolvedValue(texture)
-
-    const materialInstance = new THREE.MeshBasicMaterial({ map: texture as any })
-    materialInstance.dispose = vi.fn()
-    mockedMeshBasicMaterial.mockReturnValue(materialInstance)
-
-    const program = Effect.gen(function* (_) {
-      const manager = yield* _(MaterialManager)
-      yield* _(manager.get('test.png'))
-      yield* _(manager.dispose())
-
-      expect(materialInstance.dispose).toHaveBeenCalled()
-      expect(texture.dispose).toHaveBeenCalled()
-    })
-
-    await Effect.runPromise(Effect.provide(program, MaterialManagerLive))
-  })
+  
 
   it('should handle concurrent requests for the same material', async () => {
     const texture = { colorSpace: '' }

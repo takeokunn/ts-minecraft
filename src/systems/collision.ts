@@ -58,9 +58,9 @@ export const collisionSystem = Effect.gen(function* (_) {
     for (const blockAABB of nearbyAABBs) {
       if (areAABBsIntersecting(playerAABB, blockAABB)) {
         if (velY > 0) {
-          newPosY = blockAABB.minY - colH
+          newPosY = blockAABB.minY - colH / 2
         } else if (velY < 0) {
-          newPosY = blockAABB.maxY
+          newPosY = blockAABB.maxY + colH / 2
           isGrounded = true
         }
         newVelY = 0

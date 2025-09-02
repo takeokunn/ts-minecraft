@@ -3,8 +3,8 @@ import { Schema as S } from 'effect'
 /**
  * A branded type for entity IDs to prevent accidental use of raw numbers.
  */
-export const EntityId = S.Number.pipe(S.brand('EntityId'))
-export type EntityId = S.Schema.Type<typeof EntityId>
+export const EntityIdSchema = S.Number.pipe(S.brand('EntityId'))
+export type EntityId = S.Schema.Type<typeof EntityIdSchema>
 
 /**
  * Casts a number to an EntityId.

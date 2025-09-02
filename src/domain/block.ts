@@ -72,10 +72,7 @@ export const getUvForFace = (blockType: BlockType, faceName: FaceName): readonly
  * @returns True if the block is transparent, false otherwise.
  */
 export const isBlockTransparent = (blockType: BlockType): boolean => {
-  if (!blockType || !blockDefinitions[blockType]) {
-    return true
-  }
-  return blockDefinitions[blockType]!.isTransparent
+  return blockDefinitions[blockType].isTransparent
 }
 
 /**

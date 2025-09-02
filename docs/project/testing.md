@@ -117,3 +117,11 @@ it('should handle floating point comparisons', () => {
   expect(result).toBeCloseTo(expected);
 });
 ```
+
+## 5. テストカバレッジ
+
+コードベースの品質を保証するため、テストカバレッジは **90%以上** を目標とします。CIパイプラインでカバレッジレポートを生成し、この目標が維持されていることを確認します。
+
+---
+
+より詳細なテスト戦略については、[テスト戦略](./testing-strategy.md)のドキュメントを参照してください。

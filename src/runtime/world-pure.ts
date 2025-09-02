@@ -245,23 +245,22 @@ export const querySoA = <T extends ReadonlyArray<ComponentName>>(world: World, q
 
   for (const componentName of queryDef.components) {
     const componentSchema = ComponentSchemas[componentName]
-    if (S.isSchema(componentSchema) && AST.isTypeLiteral(componentSchema.ast)) {
-      const props = AST.getPropertySignatures(componentSchema.ast)
+    const ast = S.isSchema(componentSchema) ? componentSchema.ast : undefined
+    const typeLiteral = ast && AST.isTransformation(ast) ? ast.from : ast
+
+    if (typeLiteral && AST.isTypeLiteral(typeLiteral)) {
+      const props = AST.getPropertySignatures(typeLiteral)
       const propKeys = props.map((p) => String(p.name))
 
-      if (propKeys.length > 0) {
-        const soaStore: any = {}
-        for (const key of propKeys) {
-          soaStore[key] = queryResult.map((r) => (r as any)[componentName][key])
-        }
-        ;(result as any)[componentName] = soaStore
-      } else {
-        ;(result as any)[componentName] = queryResult.map((r) => (r as any)[componentName])
+      const soaStore: any = {}
+      for (const key of propKeys) {
+        soaStore[key] = queryResult.map((r) => (r as any)[componentName][key])
       }
+      ;(result as any)[componentName] = soaStore
     } else {
       ;(result as any)[componentName] = queryResult.map((r) => (r as any)[componentName])
     }
   }
 
-  return result
+  return result as QuerySoAResult<T>
 }

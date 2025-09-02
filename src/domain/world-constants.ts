@@ -1,3 +1,5 @@
+import type { Collider } from './components'
+
 // World Generation Constants
 export const CHUNK_SIZE = 10
 export const CHUNK_HEIGHT = 256
@@ -19,6 +21,10 @@ export const FRICTION = 0.98
 export const GRAVITY = 20
 export const DECELERATION = 0.98
 export const MIN_VELOCITY_THRESHOLD = 0.001
+
+// --- Colliders ---
+export const PLAYER_COLLIDER: Collider = { width: 0.6, height: 1.8, depth: 0.6 }
+export const BLOCK_COLLIDER: Collider = { width: 1, height: 1, depth: 1 }
 
 // Chunk Loading Constants
 export const RENDER_DISTANCE = 2

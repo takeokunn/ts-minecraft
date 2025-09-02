@@ -7,7 +7,6 @@ import { SpatialGridService } from '@/runtime/services'
 import { SpatialGrid } from '@/infrastructure/spatial-grid'
 import { EntityId } from '@/domain/entity'
 import { AABB, createAABB } from '@/domain/geometry'
-import { BLOCK_COLLIDER } from '@/domain/world-constants'
 import { positionColliderQuery } from '@/domain/queries'
 
 const createMockSpatialGrid = () => {
