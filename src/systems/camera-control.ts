@@ -1,37 +1,33 @@
 import { Effect } from 'effect'
 import { clampPitch } from '@/domain/camera-logic'
-import { setCameraState } from '@/domain/components'
 import { playerQuery } from '@/domain/queries'
-import { InputManagerService, System } from '@/runtime/loop'
+import { InputManagerService } from '@/runtime/services'
 import { World } from '@/runtime/world'
 
 const MOUSE_SENSITIVITY = 0.002
 
-export const cameraControlSystem: System = Effect.gen(function* () {
-  const world = yield* World
-  const inputManager = yield* InputManagerService
-  const { dx, dy } = yield* inputManager.getMouseDelta
+export const cameraControlSystem = Effect.gen(function* (_) {
+  const world = yield* _(World)
+  const inputManager = yield* _(InputManagerService)
+  const mouseDelta = yield* _(inputManager.getMouseDelta)
 
-  if (dx === 0 && dy === 0) {
+  if (mouseDelta.dx === 0 && mouseDelta.dy === 0) {
     return
   }
 
-  const players = yield* world.query(playerQuery)
-  const deltaPitch = -dy * MOUSE_SENSITIVITY
-  const deltaYaw = -dx * MOUSE_SENSITIVITY
+  const { entities, cameraState } = yield* _(world.querySoA(playerQuery))
+  const deltaPitch = -mouseDelta.dy * MOUSE_SENSITIVITY
+  const deltaYaw = -mouseDelta.dx * MOUSE_SENSITIVITY
 
-  yield* Effect.forEach(
-    players,
-    (player) => {
-      const { entityId, cameraState } = player
-      const newPitch = clampPitch(cameraState.pitch + deltaPitch)
-      const newYaw = cameraState.yaw + deltaYaw
-      const newCameraState = setCameraState(cameraState, {
-        pitch: newPitch,
-        yaw: newYaw,
-      })
-      return world.updateComponent(entityId, 'cameraState', newCameraState)
-    },
-    { discard: true },
-  )
+  for (let i = 0; i < entities.length; i++) {
+    const currentPitch = cameraState.pitch[i]
+    const currentYaw = cameraState.yaw[i]
+    if (currentPitch === undefined || currentYaw === undefined) {
+      continue
+    }
+    const newPitch = clampPitch(currentPitch + deltaPitch)
+    const newYaw = currentYaw + deltaYaw
+    cameraState.pitch[i] = newPitch
+    cameraState.yaw[i] = newYaw
+  }
 })

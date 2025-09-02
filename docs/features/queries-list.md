@@ -1,49 +1,59 @@
 # 共通クエリ一覧 (Query List)
 
-このドキュメントは、`src/domain/queries.ts`で定義されている共通のクエリオブジェクトについて解説します。
+このドキュメントは、`src/domain/queries.ts` で定義されている共通のクエリオブジェクトについて解説します。
 
-クエリを共通化することで、各システムは`World`からどのような条件でデータを取得するかの詳細を意識する必要がなくなり、コードの可読性と保守性が向上します。
+クエリを共通化することで、各システムは `World` からどのような条件でデータを取得するかの詳細を意識する必要がなくなり、コードの可読性と保守性が向上します。
+
+- **関連ソース**: [`src/domain/queries.ts`](../../src/domain/queries.ts)
 
 ---
 
 ### `playerQuery`
 
-- **目的**: プレイヤーエンティティを特定するためのクエリ。
-- **対象コンポーネント**: `Player`, `Position`, `Velocity`, `CameraState`, `InputState`
-- **使用システム例**: `playerMovementSystem`
+- **目的**: 移動やインタラクションに必要な主要コンポーネントを持つプレイヤーエンティティを取得します。
+- **コンポーネント**: `player`, `position`, `velocity`, `inputState`, `cameraState`, `hotbar`
 
-### `physicsQuery`
+### `playerTargetQuery`
 
-- **目的**: 物理演算（特に重力）の影響を受けるすべてのエンティティを取得します。
-- **対象コンポーネント**: `Position`, `Velocity`, `Gravity`
-- **使用システム例**: `physicsSystem`
+- **目的**: ブロックのターゲティングに必要なコンポーネントを持つプレイヤーエンティティを取得します。
+- **コンポーネント**: `player`, `inputState`, `target`, `hotbar`
 
 ### `playerColliderQuery`
 
-- **目的**: 物理的な当たり判定を持つプレイヤーエンティティを取得します。
-- **対象コンポーネント**: `Player`, `Position`, `Velocity`, `Collider`
-- **使用システム例**: `collisionSystem`
+- **目的**: 衝突検知に必要なコンポーネントを持つプレイヤーエンティティを取得します。
+- **コンポーネント**: `player`, `position`, `velocity`, `collider`
 
 ### `positionColliderQuery`
 
-- **目的**: 位置と当たり判定を持つすべてのエンティティを取得します。主に衝突対象のオブジェクト（ブロックなど）を取得するために使われます。
-- **対象コンポーネント**: `Position`, `Collider`
-- **使用システム例**: `collisionSystem`
+- **目的**: 位置と当たり判定を持つすべてのエンティティを取得します。主に衝突対象の障害物（ブロックなど）を見つけるために使われます。
+- **コンポーネント**: `position`, `collider`
 
-### `sceneQuery`
+### `physicsQuery`
 
-- **目的**: シーンに描画されるべきすべてのエンティティを取得します。
-- **対象コンポーネント**: `Position`, `Renderable`
-- **使用システム例**: `sceneSystem` (旧)
+- **目的**: 物理演算（重力）の影響を受けるエンティティを取得します。
+- **コンポーネント**: `position`, `velocity`, `gravity`, `player`
 
-### `terrainQuery`
+### `chunkQuery`
 
-- **目的**: ワールドの地形を構成するすべてのエンティティを取得します。
-- **対象コンポーネント**: `TerrainBlock`, `Chunk`
-- **使用システム例**: `chunk-loading` (アンロード処理など)
+- **目的**: チャンクのマーカーエンティティを取得します。
+- **コンポーネント**: `chunk`
 
-### `instancedRenderableQuery`
+### `chunkLoaderQuery`
 
-- **目的**: `InstancedMesh`を使って描画されるべきすべてのエンティティを取得します。
-- **対象コンポーネント**: `InstancedMeshRenderable`, `Position`
-- **使用システム例**: `renderer-three.ts` (レンダリングループ内)
+- **目的**: チャンクロード状態を管理するエンティティを取得します。
+- **コンポーネント**: `chunkLoaderState`
+
+### `playerMovementQuery`
+
+- **目的**: 移動ベクトルの計算に必要なコンポーネントを持つプレイヤーエンティティを取得します。
+- **コンポーネント**: `player`, `inputState`, `velocity`, `cameraState`
+
+### `playerInputQuery`
+
+- **目的**: 生の入力状態を持つプレイヤーエンティティを取得します。
+- **コンポーネント**: `player`, `inputState`
+
+### `terrainBlockQuery`
+
+- **目的**: レイキャストやワールド操作の対象となる、すべての地形ブロックを取得します。
+- **コンポーネント**: `terrainBlock`, `position`

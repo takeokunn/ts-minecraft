@@ -1,11 +1,10 @@
-import { Effect, Option, pipe } from 'effect'
-import * as HashMap from 'effect/HashMap'
+import { Effect, Option, pipe, HashMap, Ref } from 'effect'
 import { EntityId } from '@/domain/entity'
 import { playerQuery } from '@/domain/queries'
 import { SystemCommand } from '@/domain/types'
 import { CHUNK_SIZE, RENDER_DISTANCE } from '@/domain/world-constants'
-import { OnCommand, System } from '@/runtime/loop'
-import { World } from '@/runtime/world'
+import { OnCommand } from '@/runtime/services'
+import { World, WorldState } from '@/runtime/world'
 
 type ChunkCoord = { readonly x: number; readonly z: number }
 
@@ -36,28 +35,34 @@ export const calculateChunkUpdates = (
   for (const key of requiredChunks) {
     if (!HashMap.has(loadedChunks, key)) {
       const [xStr, zStr] = key.split(',')
-      toLoad.push({ x: parseInt(xStr!, 10), z: parseInt(zStr!, 10) })
+      if (xStr && zStr) {
+        toLoad.push({ x: parseInt(xStr, 10), z: parseInt(zStr, 10) })
+      }
     }
   }
 
   return { toLoad, toUnload }
 }
 
-export const chunkLoadingSystem: System = Effect.gen(function* () {
-  const world = yield* World
-  const onCommand = yield* OnCommand
-  const players = yield* world.query(playerQuery)
-  const player = players[0]
+export const chunkLoadingSystem = Effect.gen(function* (_) {
+  const world = yield* _(World)
+  const onCommand = yield* _(OnCommand)
+  const players = yield* _(world.querySoA(playerQuery))
 
-  if (!player) {
+  if (players.entities.length === 0) {
+    return
+  }
+  const playerPositionX = players.position.x[0]
+  const playerPositionZ = players.position.z[0]
+
+  if (playerPositionX === undefined || playerPositionZ === undefined) {
     return
   }
 
-  const { position: playerPosition } = player
-  const playerChunkX = Math.floor(playerPosition.x / CHUNK_SIZE)
-  const playerChunkZ = Math.floor(playerPosition.z / CHUNK_SIZE)
+  const playerChunkX = Math.floor(playerPositionX / CHUNK_SIZE)
+  const playerChunkZ = Math.floor(playerPositionZ / CHUNK_SIZE)
 
-  const worldState = yield* world.state.get
+  const worldState = yield* _(world.state)
   const { lastPlayerChunk, loadedChunks } = worldState.globalState.chunkLoading
 
   const isSameChunk = pipe(
@@ -78,17 +83,21 @@ export const chunkLoadingSystem: System = Effect.gen(function* () {
     chunkZ: z,
   }))
 
-  yield* Effect.forEach(commands, (command) => onCommand(command), { discard: true })
-  yield* Effect.forEach(toUnload, (entityId) => world.removeEntity(entityId), { discard: true })
+  yield* _(Effect.forEach(commands, (command) => onCommand(command), { discard: true }))
+  yield* _(Effect.forEach(toUnload, (entityId) => world.removeEntity(entityId), { discard: true }))
 
-  yield* world.update((w) => ({
-    ...w,
-    globalState: {
-      ...w.globalState,
-      chunkLoading: {
-        ...w.globalState.chunkLoading,
-        lastPlayerChunk: Option.some({ x: playerChunkX, z: playerChunkZ }),
-      },
-    },
-  }))
+  yield* _(
+    world.state.pipe(
+      Ref.update((w: WorldState) => ({
+        ...w,
+        globalState: {
+          ...w.globalState,
+          chunkLoading: {
+            ...w.globalState.chunkLoading,
+            lastPlayerChunk: Option.some({ x: playerChunkX, z: playerChunkZ }),
+          },
+        },
+      })),
+    ),
+  )
 })

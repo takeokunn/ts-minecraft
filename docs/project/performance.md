@@ -22,33 +22,6 @@ ECSアーキテクチャの採用は、データ指向設計を実現するた�
 パフォーマンスをさらに追求するため、`World`の実装には**Archetype**と**Structure of Arrays (SoA)**を組み合わせています。
 
 - **Archetype**: 同じコンポーネントの組み合わせを持つエンティティをグループ化します。これにより、クエリの対象となるエンティティを瞬時に絞り込むことができます。
-- **SoA**: コンポーネントのデータをプロパティごとに連続した配列としてメモリ上に配置します。
-  ```typescript
-  # パフォーマンス設計 (Performance Design)
-  ```
-
-このプロジェクトは、Webブラウザ上で大規模なボクセルの世界を滑らかに描画するという、パフォーマンスが非常に重要な要件を持っています。そのため、アーキテクチャの設計段階から、パフォーマンスを最大化するためのいくつかの重要な原則を取り入れています。
-
----
-
-## 1. データ指向設計 (Data-Oriented Design)
-
-本プロジェクトのパフォーマンス設計の核心は、**データ指向設計**の考え方に基づいています。これは、コード（ロジック）よりもデータとそのメモリレイアウトを優先して最適化するアプローチです。
-
-### Entity Component System (ECS)
-
-ECSアーキテクチャの採用は、データ指向設計を実現するための第一歩です。
-
-- **Component**: 純粋なデータであり、ロジックを持ちません。
-- **System**: データを処理するロジックです。
-
-これにより、データとロジックが明確に分離され、データを効率的に処理するための最適化が可能になります。
-
-### Archetype + Structure of Arrays (SoA)
-
-パフォーマンスをさらに追求するため、`World`の実装には**Archetype**と**Structure of Arrays (SoA)**を組み合わせています。
-
-- **Archetype**: 同じコンポーネントの組み合わせを持つエンティティをグループ化します。これにより、クエリの対象となるエンティティを瞬時に絞り込むことができます。
 - **SoA**: コンポーネントのデータをプロパティごとに連続した配列（`Float32Array`などの型付き配列）としてメモリ上に配置します。
   ```typescript
   // PositionコンポーネントのSoAストレージ
@@ -70,62 +43,6 @@ JavaScript/TypeScriptは自動的にメモリ管理を行いますが、その�
 
 毎フレーム実行されるシステムのループ内で、`new MyObject()` のようなオブジェクト生成や `{}` のようなオブジェクトリテラルを使用することは、原則として禁止されています。
 
-### SoAストアへの直接アクセス
-
-この問題を解決するため、システムは`queryEntities`でエンティティIDのリストを取得した後、`getComponentStore`を通じてSoAストアに直接アクセスし、データを読み書きします。
-
-- **良い例 (Good Practice)**:
-
-  ````typescript
-  const entities = yield* \_(queryEntities(physicsQuery));
-  const positions = yield* _(getComponentStore(Position));
-  const velocities = yield\* _(getComponentStore(Velocity));
-
-      for (const id of entities) {
-        // 新しいオブジェクトを生成せず、既存の配列データを直接変更
-        positions.y[id] += velocities.dy[id];
-      }
-      ```
-
-  このアプローチは、ループ中のメモリアロケーションを完全にゼロにし、GCのプレッシャーを劇的に削減します。
-  ````
-
----
-
-## 3. Effect-TSによる効率的な並行処理
-
-`Effect-TS`は、単なる型安全なエラーハンドリングのツールではありません。`Effect.all`や`Effect.forEach`といったコンビネータは、依存関係のない処理を効率的に並行実行するためのスケジューリング機能を提供します。
-
-```typescript
-// 複数のチャンクを並行してアンロードする
-yield * _(Effect.all(unloadingEffects, { discard: true, concurrency: 'unbounded' }))
-```
-
-これにより、マルチコアCPUの性能を最大限に活用し、特にチャンクのロード/アンロードのような重い処理をメインスレッドをブロックすることなく実行できます。
-
----
-
-## 4. レンダリングの最適化
-
-### Greedy Meshing
-
-Minecraftライクなゲームでは、膨大な数のブロックを描画する必要があります。個別のキューブをレンダリングする代わりに、隣接する同じ種類のブロックを一つの大きなメッシュに統合する**Greedy Meshing**アルゴリズムをWeb Workerで実行します。これにより、頂点数とドローコール数が劇的に削減され、パフォーマンスが大幅に向上します。
-
-詳細は[レンダリング](../architecture/rendering.md)のドキュメントを参照してください。
-
-````
-    このレイアウトにより、システムが特定のデータ（例: 全エンティティの`y`座標）を処理する際に、CPUのSIMD（Single Instruction, Multiple Data）命令が効率的に働き、キャッシュヒット率が劇的に向上します。詳細は [Worldアーキテクチャ](../architecture/world.md) を参照してください。
-
----
-
-## 2. ガベージコレクション (GC) 負荷の最小化
-
-JavaScript/TypeScriptは自動的にメモリ管理を行いますが、そのプロセス（ガベージコレクション）はフレームレートの低下（ジャンク）を引き起こす主要な原因です。本プロジェクトでは、GCの発生を可能な限り抑えるための規約を設けています。
-
-### ループ内でのオブジェクト生成の禁止
-
-毎フレーム実行されるシステムのループ内で、`new MyObject()` のようなオブジェクト生成や `{}` のようなオブジェクトリテラルを使用することは、原則として禁止されています。
-
 - **悪い例 (Bad Practice)**:
 
   ```typescript
@@ -133,7 +50,7 @@ JavaScript/TypeScriptは自動的にメモリ管理を行いますが、その�
     const newVel = new Velocity({ ... }); // ループごとに新しいオブジェクトが生成される
     world.updateComponent(id, newVel);
   }
-````
+  ```
 
 - **良い例 (Good Practice)**:
   ```typescript
@@ -156,7 +73,7 @@ JavaScript/TypeScriptは自動的にメモリ管理を行いますが、その�
 
 ## 3. Effect-TSによる効率的な並行処理
 
-`Effect-TS`は、単なる型安全なエラーハンドリングのツールではありません。`Effect.all`や`Effect.forEach`といったコンビネータは、依存関係のない処理を効率的に並行実行するためのスケジューリング機能を提供します。
+[Effect-TS](https://effect.website/llms-full.txt)は、単なる型安全なエラーハンドリングのツールではありません。`Effect.all`や`Effect.forEach`といったコンビネータは、依存関係のない処理を効率的に並行実行するためのスケジューリング機能を提供します。
 
 ```typescript
 // 複数のチャンクを並行してアンロードする

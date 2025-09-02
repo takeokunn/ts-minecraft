@@ -1,73 +1,46 @@
 # 物理システム (Physics System)
 
-物理システムは、ゲームワールド内のエンティティに基本的な物理法則、特に「重力」を適用し、その結果に基づいて位置を更新する責務を担います。
-
 - **関連ソース**: [`src/systems/physics.ts`](../../src/systems/physics.ts)
+- **責務**: エンティティに物理法則（重力、摩擦）を適用し、その結果に基づいてエンティティの位置を更新すること。
 
 ---
 
-## 責務
+## 概要
 
-`physicsSystem` が果たす役割は、**重力の適用と、それに基づく位置の更新**です。
+`physicsSystem` は、ゲームワールド内のエンティティに基本的な物理演算を適用します。この計算はフレームレートに依存しないように、前フレームからの経過時間（`DeltaTime`）を考慮して行われます。
 
-- **重力の適用**: `Gravity` コンポーネントを持つエンティティに対して、`Velocity` コンポーネントのY軸方向の値を継続的に減少させます。
-- **位置の更新**: `Velocity` コンポーネントの値に基づいて、エンティティの `Position` を更新します。
+このシステムが計算した位置は「暫定的な」ものであり、最終的な位置は後続の `collisionSystem` によって衝突解決が行われた後に確定します。
 
-このシステムによって計算された位置は「暫定的な」ものであり、最終的な位置は後続の `collisionSystem` によって衝突解決が行われた後に確定します。
+## アーキテクチャ
 
----
+`physicsSystem` は `Effect<R, E, void>` として実装された `Effect` プログラムです。
 
-## 関連コンポーネント
+- **依存性の注入**: `World` サービスと `DeltaTime` サービスを `Effect` のコンテキストを通じて受け取ります。
+- **状態の更新**: `world.querySoA` を使ってコンポーネントの配列への直接参照を取得し、状態を効率的に更新します。
 
-物理シミュレーションは、以下のコンポーネントを持つエンティティに作用します。
+## 処理フロー
 
-- **`Position`**: エンティティの現在位置。このシステムの主要な更新対象の一つです。
-- **`Velocity`**: エンティティの現在の速度ベクトル (`dx`, `dy`, `dz`)。このシステムの主要な更新対象の一つです。
-- **`Gravity`**: エンティティが重力の影響を受けることを示すコンポーネント。Y軸速度から毎フレーム減算される値を保持します。
+1.  **クエリ実行**:
+    - `physicsQuery` を使用して、物理演算に必要なコンポーネント（`position`, `velocity`, `gravity`, `player`）を持つエンティティのデータを `querySoA` で取得します。
 
----
+2.  **物理計算**:
+    - ループ処理で各エンティティのコンポーネントを更新します。
+    - **重力の適用**:
+      - エンティティが接地していない（`isGrounded` が `false`）場合、`Velocity` の `dy` 成分に重力を適用します。落下速度が `TERMINAL_VELOCITY`（終端速度）を超えないように制限されます。
+    - **摩擦の適用**:
+      - エンティティが接地している（`isGrounded` が `true`）場合、水平方向の速度 (`dx`, `dz`) に `FRICTION`（摩擦係数）を乗算し、スムーズに減速させます。
+    - **位置の更新**:
+      - 上記の計算で更新された最終的な速度 (`newDx`, `newDy`, `newDz`) に `deltaTime` を乗算し、現在の `Position` に加算します。これにより、フレームレートの変動に関わらず、物理挙動が一貫性を保ちます。
 
-## システムのロジック (`physicsSystem`)
+3.  **コンポーネントの更新**:
+    - 計算された新しい速度と位置を、`querySoA` で取得したコンポーネント配列に直接書き込みます。
 
-システムの実行フローは、パフォーマンスを最大化するためにSoA(Structure of Arrays)ストアへの直接アクセスを利用しています。
-
-1.  **クエリ**:
-    - `world.querySoA` と `src/domain/queries.ts` で定義された共通クエリ `physicsQuery` を使用し、対象となるコンポーネントのSoAストアへの直接参照を取得します。
-2.  **物理計算と直接更新**:
-    - 取得したエンティティの数だけ高速な `for` ループで反復処理します。
-    - 各エンティティについて、`Velocity` の `dy` 成分に重力値を減算し、落下速度が一定値を超えないようにターミナルベロシティ（終端速度）を適用します。
-    - 現在の速度に基づいて、`Position` (`x`, `y`, `z`) を更新します。
-    - **パフォーマンスの鍵**: すべての計算結果は、新しいオブジェクトを一切生成することなく、SoAストアの配列に直接書き込まれます。これにより、ループ内でのメモリアロケーションがゼロになり、GC（ガベージコレクション）によるフレームレートの低下を防ぎます。
-
-```typescript
-// src/systems/physics.ts (主要部分)
-export const physicsSystem = Effect.gen(function* (_) {
-  const world = yield* _(World)
-  const { entities, positions, velocities, gravities } = yield* _(world.querySoA(physicsQuery))
-
-  for (let i = 0; i < entities.length; i++) {
-    // 重力を速度に適用
-    const newDy = Math.max(-2, velocities.dy[i] - gravities.value[i])
-    velocities.dy[i] = newDy
-
-    // 速度を位置に適用
-    positions.x[i] += velocities.dx[i]
-    positions.y[i] += newDy
-    positions.z[i] += velocities.dz[i]
-  }
-})
-```
-
----
-
-## 他のシステムとの連携
+## 実行順序
 
 物理システムの実行順序は、ゲームのシミュレーションにおいて極めて重要です。
 
 `playerMovementSystem` -> **`physicsSystem`** -> `collisionSystem`
 
-1.  **`playerMovementSystem`**: プレイヤーの移動やジャンプの _意図_ を決定し、`Velocity` コンポーネントを更新します。（例: ジャンプ時に上向きの初速を与える）
-2.  **`physicsSystem` (このシステム)**: `playerMovementSystem` によって設定された `Velocity` に重力を適用し、Y軸の速度を更新し、その結果に基づいて `Position` を暫定的に更新します。
-3.  **`collisionSystem`**: `physicsSystem` によって更新された暫定的な `Position` を検証し、衝突検知と位置の補正を行い、`Position` を最終的な正しい位置に「確定」させます。
-
-この明確な役割分担により、「移動の意図」「物理法則の適用」「衝突解決」という各ステップが、互いに独立しつつも正しく連携するシミュレーションが実現されています。
+1.  **`playerMovementSystem`**: プレイヤーの移動やジャンプの「意図」を決定し、`Velocity` を更新します。
+2.  **`physicsSystem` (このシステム)**: `playerMovementSystem` によって設定された `Velocity` に重力と摩擦を適用し、`Position` を暫定的に更新します。
+3.  **`collisionSystem`**: `physicsSystem` によって更新された暫定的な `Position` を検証し、衝突があれば位置を補正して最終的な位置を「確定」させます。

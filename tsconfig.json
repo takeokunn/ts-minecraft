@@ -24,7 +24,6 @@
     "noUncheckedIndexedAccess": true,
     "forceConsistentCasingInFileNames": true,
     "allowSyntheticDefaultImports": true,
-    "types": ["vitest/globals", "three", "vite/client"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]

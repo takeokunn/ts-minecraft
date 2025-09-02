@@ -1,10 +1,8 @@
-import * as Context from 'effect/Context'
-import * as Effect from 'effect/Effect'
-import * as Layer from 'effect/Layer'
+import { Context, Effect, Layer } from 'effect'
 import { PerspectiveCamera, WebGLRenderer } from 'three'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'
-import type { CameraState, Position } from '@/domain/components'
 import { clampPitch } from '@/domain/camera-logic'
+import type { CameraState, Position } from '@/domain/components'
 import { ThreeCamera } from './types'
 
 // --- Constants ---
@@ -26,7 +24,7 @@ export interface ThreeCameraService {
   readonly unlock: Effect.Effect<void>
 }
 
-export const ThreeCameraService = Context.Tag<ThreeCameraService>()
+export const ThreeCameraService = Context.GenericTag<ThreeCameraService>('app/ThreeCameraService')
 
 // --- Service Implementation ---
 
@@ -37,26 +35,26 @@ export const ThreeCameraLive = (canvas: HTMLElement) =>
     controls.getObject().rotation.order = 'YXZ'
     const threeCamera: ThreeCamera = { camera, controls }
 
-    return ThreeCameraService.of({
+    return {
       camera: threeCamera,
-      syncToComponent: (position, cameraState) =>
+      syncToComponent: (position: Position, cameraState: CameraState) =>
         Effect.sync(() => {
           const controlsObject = threeCamera.controls.getObject()
           controlsObject.position.set(position.x, position.y + PLAYER_EYE_HEIGHT, position.z)
           controlsObject.rotation.y = cameraState.yaw
           threeCamera.camera.rotation.x = cameraState.pitch
         }),
-      moveRight: (delta) => Effect.sync(() => threeCamera.controls.moveRight(delta)),
-      rotatePitch: (delta) =>
+      moveRight: (delta: number) => Effect.sync(() => threeCamera.controls.moveRight(delta)),
+      rotatePitch: (delta: number) =>
         Effect.sync(() => {
           if (Number.isNaN(delta)) return
           const newPitch = threeCamera.camera.rotation.x + delta
           threeCamera.camera.rotation.x = clampPitch(newPitch)
         }),
-      rotateYaw: (delta) => Effect.sync(() => (threeCamera.controls.getObject().rotation.y += delta)),
+      rotateYaw: (delta: number) => Effect.sync(() => (threeCamera.controls.getObject().rotation.y += delta)),
       getYaw: Effect.sync(() => threeCamera.controls.getObject().rotation.y),
       getPitch: Effect.sync(() => threeCamera.camera.rotation.x),
-      handleResize: (renderer) =>
+      handleResize: (renderer: WebGLRenderer) =>
         Effect.sync(() => {
           threeCamera.camera.aspect = window.innerWidth / window.innerHeight
           threeCamera.camera.updateProjectionMatrix()
@@ -64,5 +62,5 @@ export const ThreeCameraLive = (canvas: HTMLElement) =>
         }),
       lock: Effect.sync(() => threeCamera.controls.lock()),
       unlock: Effect.sync(() => threeCamera.controls.unlock()),
-    })
+    }
   })

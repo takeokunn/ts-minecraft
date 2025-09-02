@@ -1,7 +1,5 @@
 import { TextureLoader, MeshBasicMaterial, type Material, SRGBColorSpace } from 'three'
-import * as Context from 'effect/Context'
-import * as Effect from 'effect/Effect'
-import * as Layer from 'effect/Layer'
+import { Context, Effect, Layer } from 'effect'
 
 // --- Error Type ---
 
@@ -23,7 +21,7 @@ export interface MaterialManager {
   readonly dispose: () => Effect.Effect<void>
 }
 
-export const MaterialManager = Context.Tag<MaterialManager>()
+export const MaterialManager = Context.GenericTag<MaterialManager>('app/MaterialManager')
 
 // --- Service Implementation ---
 
@@ -73,13 +71,13 @@ export const MaterialManagerLive = Layer.effect(
       promiseCache.clear()
     }
 
-    return MaterialManager.of({
-      get: (key) =>
+    return {
+      get: (key: string) =>
         Effect.tryPromise({
           try: () => getAsync(key),
           catch: (e) => new TextureLoadError(key, e),
         }),
       dispose: () => Effect.sync(disposeSync),
-    })
+    }
   }),
 )

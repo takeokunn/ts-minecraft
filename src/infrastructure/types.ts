@@ -1,6 +1,7 @@
 import type { InstancedMesh, Mesh, PerspectiveCamera, Scene, WebGLRenderer } from 'three'
 import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'
 import type Stats from 'three/examples/jsm/libs/stats.module.js'
+import { Context } from 'effect'
 
 export type ThreeCamera = {
   readonly camera: PerspectiveCamera
@@ -16,3 +17,5 @@ export type ThreeContext = {
   readonly chunkMeshes: Map<string, Mesh>
   readonly instancedMeshes: Map<string, InstancedMesh>
 }
+
+export const ThreeContextService = Context.GenericTag<ThreeContext>('app/ThreeContextService')

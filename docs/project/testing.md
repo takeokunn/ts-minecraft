@@ -25,12 +25,13 @@ pnpm test --ui
 
 ユニットテストは、個々の関数やシステムが期待通りに動作するかを検証することを目的とします。
 
-- **ファイル命名規則**: テスト対象のファイル名に `.test.ts` を付与します (例: `world.ts` -> `world.test.ts`)。
-- **場所**: テストファイルは、テスト対象のソースコードと同じディレクトリに配置します。
+- **ファイル命名規則**: テスト対象のファイル名に `.spec.ts` を付与します (例: `world.ts` -> `world.spec.ts`)。
+- **場所**: テストファイルは、テスト対象のソースコードが含まれるディレクトリ内の `__test__/` ディレクトリに配置します (例: `src/domain/world.ts` -> `src/domain/__test__/world.spec.ts`)。
+- **共有ヘルパー**: 複数のドメインやレイヤーを横断して共有されるテストヘルパーは `src/__test__/` ディレクトリに配置します。
 
 ### Effectプログラムのテスト
 
-`Effect`でラップされたプログラムをテストする場合、`Effect.runPromise` を使用してEffectを実行し、その結果を検証します。
+[Effect](https://effect.website/llms-full.txt)でラップされたプログラムをテストする場合、`Effect.runPromise` を使用してEffectを実行し、その結果を検証します。
 
 ```typescript
 // src/runtime/world.test.ts の例

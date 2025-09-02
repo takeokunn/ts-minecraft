@@ -1,10 +1,4 @@
-import * as Context from 'effect/Context'
-import * as Effect from 'effect/Effect'
-import * as HashMap from 'effect/HashMap'
-import * as HashSet from 'effect/HashSet'
-import * as Layer from 'effect/Layer'
-import * as Option from 'effect/Option'
-import * as Ref from 'effect/Ref'
+import { Context, Effect, HashMap, HashSet, Layer, Option, Ref } from 'effect'
 import { pipe } from 'effect/Function'
 import type { EntityId } from '@/domain/entity'
 import type { AABB } from '@/domain/geometry'
@@ -58,25 +52,25 @@ const queryPure = (grid: SpatialGridState, aabb: AABB): ReadonlyArray<EntityId> 
 
 // --- Effect Service ---
 
-export type SpatialGrid = {
+export interface SpatialGrid {
   readonly state: Ref.Ref<SpatialGridState>
   readonly clear: Effect.Effect<void>
   readonly register: (entityId: EntityId, aabb: AABB) => Effect.Effect<void>
   readonly query: (aabb: AABB) => Effect.Effect<ReadonlyArray<EntityId>>
 }
 
-export const SpatialGrid = Context.Tag<SpatialGrid>()
+export const SpatialGrid = Context.GenericTag<SpatialGrid>('app/SpatialGrid')
 
 export const SpatialGridLive = Layer.effect(
   SpatialGrid,
-  Effect.gen(function* () {
-    const gridRef = yield* Ref.make(HashMap.empty<string, HashSet.HashSet<EntityId>>())
+  Effect.gen(function* (_) {
+    const gridRef = yield* _(Ref.make(HashMap.empty<string, HashSet.HashSet<EntityId>>()))
 
-    return SpatialGrid.of({
+    return {
       state: gridRef,
       clear: Ref.set(gridRef, HashMap.empty()),
-      register: (entityId, aabb) => Ref.update(gridRef, (grid) => registerPure(grid, entityId, aabb)),
-      query: (aabb) => Effect.map(Ref.get(gridRef), (grid) => queryPure(grid, aabb)),
-    })
+      register: (entityId: EntityId, aabb: AABB) => Ref.update(gridRef, (grid) => registerPure(grid, entityId, aabb)),
+      query: (aabb: AABB) => Effect.map(Ref.get(gridRef), (grid) => queryPure(grid, aabb)),
+    }
   }),
 )

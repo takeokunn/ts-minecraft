@@ -2,6 +2,8 @@
 
 このドキュメントは、ECS（Entity Component System）アーキテクチャの中核をなす `World` サービスについて詳述します。`World` サービスは、ゲーム内に存在するすべてのエンティティとコンポーネントの状態を一元管理する、唯一の信頼できる情報源（Source of Truth）です。
 
+> `World`の内部的な設計思想（Archetype, SoA）やパフォーマンスに関する詳細については、[**Worldアーキテクチャ (architecture/world.md)](./../architecture/world.md) を参照してください。
+
 ## 1. 設計思想: Archetypeベースのデータ指向設計
 
 `World` の実装は、UnityのDOTSやBevyエンジンに代表されるような、モダンでハイパフォーマンスな**Archetype（アーキタイプ）ベース**のアーキテクチャを採用しています。

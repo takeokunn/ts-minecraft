@@ -1,9 +1,6 @@
 import * as THREE from 'three'
 import { match, P } from 'ts-pattern'
-import * as Context from 'effect/Context'
-import * as Effect from 'effect/Effect'
-import * as Layer from 'effect/Layer'
-import * as Option from 'effect/Option'
+import { Context, Effect, Layer, Option } from 'effect'
 import { EntityId } from '@/domain/entity'
 import { ThreeCameraService } from './camera-three'
 
@@ -21,14 +18,14 @@ export interface RaycastService {
   readonly cast: (scene: THREE.Scene, terrainBlockMap: ReadonlyMap<string, EntityId>) => Effect.Effect<Option.Option<RaycastResult>>
 }
 
-export const RaycastService = Context.Tag<RaycastService>()
+export const RaycastService = Context.GenericTag<RaycastService>('app/RaycastService')
 
 // --- Live Implementation ---
 
 export const RaycastServiceLive = Layer.effect(
   RaycastService,
-  Effect.gen(function* () {
-    const cameraService = yield* ThreeCameraService
+  Effect.gen(function* (_) {
+    const cameraService = yield* _(ThreeCameraService)
     const raycaster = new THREE.Raycaster()
     const hitPosVec = new THREE.Vector3()
     const centerScreenVec = new THREE.Vector2(0, 0)
@@ -71,6 +68,6 @@ export const RaycastServiceLive = Layer.effect(
         return Option.none()
       })
 
-    return RaycastService.of({ cast })
+    return { cast }
   }),
 )

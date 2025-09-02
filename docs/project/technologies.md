@@ -72,11 +72,7 @@
 - **概要**: `immer`は、状態を変更するロジックを簡潔に書くことで、複雑な不変なデータ構造の更新を容易にするライブラリです。直接オブジェクトを書き換えるようなコード（ミューテーション）を書いても、安全な更新処理に変換してくれます。
 - **採用理由**: 本プロジェクトでは直接的にコード内で使用されている箇所は少ないですが、`@react-three/drei`のようなUI関連の依存ライブラリの内部で広く活用されています。これにより、UIの状態管理などが安全かつ効率的に行われます。また、テストコード(`src/vitest.setup.ts`)でも`Map`や`Set`を扱えるように設定されており、テストの信頼性を高めています。
 
-### [ts-pattern](https://github.com/gvergnaud/ts-pattern)
-
-- **役割**: パターンマッチングライブラリ。
-- **概要**: TypeScriptで表現力豊かなパターンマッチングを実現します。
-- **採用理由**: `src/infrastructure/input-browser.ts`において、キーボードの入力イベントを処理するために使用されています。`if/else`や`switch`文のネストを避けることができ、どのキーがどのアクションに対応するのかを宣言的かつ可読性高く記述できます。
+### [  - **採用理由**: `src/infrastructure/input-browser.ts`でのキーボード入力イベントの処理や、複雑な状態を持つシステムのユニットテストなどで活用されています。`if/else`や`switch`文のネストを避け、条件分岐を宣言的かつ可読性高く記述できるため、コードの保守性向上に貢献します。
 
 ### [simplex-noise](httpss://github.com/jwagner/simplex-noise.js), [perlin-noise](https://www.npmjs.com/package/perlin-noise) & [alea](https://www.npmjs.com/package/alea)
 

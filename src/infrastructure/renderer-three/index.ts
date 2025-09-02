@@ -1,32 +1,33 @@
 import * as THREE from 'three'
-import * as Context from 'effect/Context'
-import * as Effect from 'effect/Effect'
-import * as Layer from 'effect/Layer'
-import * as Option from 'effect/Option'
-import * as Ref from 'effect/Ref'
+import { Effect, Layer, Option, Ref } from 'effect'
 import { pipe } from 'effect/Function'
 import { match } from 'ts-pattern'
-import { RenderCommand, RenderQueue } from '@/domain/types'
-import { World } from '@/runtime/world'
-import { ThreeCameraService } from './camera-three'
-import { RaycastResultService, RendererService, ThreeContextService } from '@/runtime/loop'
 import { playerQuery } from '@/domain/queries'
+import { RenderCommand } from '@/domain/types'
+import { MaterialManager, RaycastResultService, RendererService, RenderQueueService, ThreeContextService } from '@/runtime/services'
+import { World } from '@/runtime/world'
+import { ThreeCameraService } from '../camera-three'
+import { CameraState, Position } from '@/domain/components'
+import { ThreeContext } from '@/infrastructure/types'
 
 // --- Live Implementation ---
 
 export const RendererLive = Layer.effect(
   RendererService,
-  Effect.gen(function* () {
-    const world = yield* World
-    const cameraService = yield* ThreeCameraService
-    const raycastResultRef = yield* RaycastResultService
-    const context = yield* ThreeContextService
+  Effect.gen(function* (_) {
+    const world = yield* _(World)
+    const cameraService = yield* _(ThreeCameraService)
+    const raycastResultRef = yield* _(RaycastResultService)
+    const context = (yield* _(ThreeContextService)) as ThreeContext
+    const materialManager = yield* _(MaterialManager)
+    const renderQueue = yield* _(RenderQueueService)
 
-    const handleUpsertChunk = (command: Extract<RenderCommand, { type: 'UpsertChunk' }>, material: THREE.Material) =>
-      Effect.sync(() => {
+    const handleUpsertChunk = (command: Extract<RenderCommand, { type: 'UpsertChunk' }>) =>
+      Effect.gen(function* (_) {
         const { scene, chunkMeshes } = context
         const { chunkX, chunkZ, mesh: meshData } = command
         const chunkId = `${chunkX},${chunkZ}`
+        const material = yield* _(materialManager.get('atlas.png'))
 
         const mesh =
           chunkMeshes.get(chunkId) ??
@@ -60,35 +61,45 @@ export const RendererLive = Layer.effect(
         }
       })
 
-    const processRenderQueue = (queue: RenderQueue, material: THREE.Material) =>
-      Effect.gen(function* () {
-        const commands = queue.splice(0, queue.length)
-        yield* Effect.forEach(
-          commands,
-          (command) =>
-            match(command)
-              .with({ type: 'UpsertChunk' }, (cmd) => handleUpsertChunk(cmd, material))
-              .with({ type: 'RemoveChunk' }, (cmd) => handleRemoveChunk(cmd))
-              .exhaustive(),
-          { discard: true },
-        )
-      })
+    const processRenderQueue = Effect.gen(function* (_) {
+      const commands = renderQueue.splice(0, renderQueue.length)
+      yield* _(
+        Effect.forEach(commands, (command) => match(command).with({ type: 'UpsertChunk' }, handleUpsertChunk).with({ type: 'RemoveChunk' }, handleRemoveChunk).exhaustive(), {
+          discard: true,
+        }),
+      )
+    }).pipe(Effect.catchAll((err) => Effect.logError('Failed to process render queue', err)))
 
-    const syncCameraToWorld = Effect.gen(function* () {
-      const players = yield* world.query(playerQuery)
-      const player = players[0]
-      if (player) {
-        yield* cameraService.syncToComponent(player.position, player.cameraState)
+    const syncCameraToWorld = Effect.gen(function* (_) {
+      const players = yield* _(world.querySoA(playerQuery))
+      if (players.entities.length > 0) {
+        const i = 0
+        const x = players.position.x[i]
+        const y = players.position.y[i]
+        const z = players.position.z[i]
+        const pitch = players.cameraState.pitch[i]
+        const yaw = players.cameraState.yaw[i]
+
+        if (x === undefined || y === undefined || z === undefined || pitch === undefined || yaw === undefined) {
+          return
+        }
+
+        const position = new Position({ x, y, z })
+        const cameraState = new CameraState({ pitch, yaw })
+        yield* _(cameraService.syncToComponent(position, cameraState))
       }
     })
 
-    const updateHighlight = Effect.gen(function* () {
-      const raycastResult = yield* Ref.get(raycastResultRef)
-      const positionOption = yield* pipe(
-        raycastResult,
-        Option.map((result) => world.getComponent(result.entityId, 'position')),
-        Effect.all,
-        Effect.map(Option.flatten),
+    const updateHighlight = Effect.gen(function* (_) {
+      const raycastResult = yield* _(Ref.get(raycastResultRef))
+      const positionOption = yield* _(
+        pipe(
+          raycastResult,
+          Option.match({
+            onNone: () => Effect.succeed(Option.none()),
+            onSome: (result) => world.getComponent(result.entityId, 'position'),
+          }),
+        ),
       )
 
       context.highlightMesh.visible = Option.isSome(positionOption)
@@ -108,12 +119,12 @@ export const RendererLive = Layer.effect(
       context.stats.end()
     })
 
-    return RendererService.of({
-      processRenderQueue: (queue, material) => processRenderQueue(queue, material),
+    return {
+      processRenderQueue,
       syncCameraToWorld,
       updateHighlight,
       updateInstancedMeshes,
       renderScene,
-    })
+    }
   }),
 )

@@ -1,6 +1,24 @@
+import { Schema as S } from 'effect'
 import { match } from 'ts-pattern'
-import { BlockType, hotbarSlots } from './block'
-import { Components, createInputState, Position } from './components'
+import { BlockType, BlockTypeSchema, hotbarSlots } from './block'
+import {
+  Camera,
+  CameraState,
+  Chunk,
+  Collider,
+  type ComponentName,
+  type Components,
+  createInputState,
+  createTargetNone,
+  Gravity,
+  Hotbar,
+  Player,
+  Position,
+  Renderable,
+  TargetBlockComponent,
+  TerrainBlock,
+  Velocity,
+} from './components'
 
 // --- Constants ---
 
@@ -10,74 +28,50 @@ const PLAYER_DEPTH = 0.6
 const PLAYER_GRAVITY = 0.01
 const BLOCK_SIZE = 1
 
+// --- Schema ---
+
+const PlayerArchetypeBuilderSchema = S.Struct({
+  type: S.Literal('player'),
+  pos: Position,
+})
+
+const BlockArchetypeBuilderSchema = S.Struct({
+  type: S.Literal('block'),
+  pos: Position,
+  blockType: BlockTypeSchema,
+})
+
+const CameraArchetypeBuilderSchema = S.Struct({
+  type: S.Literal('camera'),
+  pos: Position,
+})
+
+const TargetBlockArchetypeBuilderSchema = S.Struct({
+  type: S.Literal('targetBlock'),
+  pos: Position,
+})
+
+const ChunkArchetypeBuilderSchema = S.Struct({
+  type: S.Literal('chunk'),
+  chunkX: S.Number,
+  chunkZ: S.Number,
+})
+
+export const ArchetypeBuilderSchema = S.Union(
+  PlayerArchetypeBuilderSchema,
+  BlockArchetypeBuilderSchema,
+  CameraArchetypeBuilderSchema,
+  TargetBlockArchetypeBuilderSchema,
+  ChunkArchetypeBuilderSchema,
+)
+export type ArchetypeBuilder = S.Schema.Type<typeof ArchetypeBuilderSchema>
+
 // --- Types ---
 
 /**
  * An archetype is a template for creating an entity, defined as a partial set of components.
  */
 export type Archetype = Partial<Components>
-
-/**
- * A builder type to specify which archetype to create and with what parameters.
- * This is used with the `createArchetype` function.
- */
-export type ArchetypeBuilder =
-  | { readonly type: 'player'; readonly pos: Position }
-  | {
-      readonly type: 'block'
-      readonly pos: Position
-      readonly blockType: BlockType
-    }
-  | { readonly type: 'camera'; readonly pos: Position }
-  | { readonly type: 'targetBlock'; readonly pos: Position }
-  | {
-      readonly type: 'chunk'
-      readonly chunkX: number
-      readonly chunkZ: number
-    }
-
-// --- Private Archetype Factories ---
-
-const playerArchetype = (pos: Position): Archetype => ({
-  player: { isGrounded: false },
-  position: { x: pos.x, y: pos.y, z: pos.z },
-  velocity: { dx: 0, dy: 0, dz: 0 },
-  gravity: { value: PLAYER_GRAVITY },
-  cameraState: { pitch: 0, yaw: 0 },
-  inputState: createInputState(),
-  collider: {
-    width: PLAYER_WIDTH,
-    height: PLAYER_HEIGHT,
-    depth: PLAYER_DEPTH,
-  },
-  hotbar: { slots: hotbarSlots, selectedIndex: 0 },
-  target: { type: 'none' },
-})
-
-const blockArchetype = (pos: Position, blockType: BlockType): Archetype => ({
-  position: { x: pos.x, y: pos.y, z: pos.z },
-  renderable: { geometry: 'box', blockType },
-  collider: {
-    width: BLOCK_SIZE,
-    height: BLOCK_SIZE,
-    depth: BLOCK_SIZE,
-  },
-  terrainBlock: {},
-})
-
-const cameraArchetype = (pos: Position): Archetype => ({
-  camera: {},
-  position: { x: pos.x, y: pos.y, z: pos.z },
-})
-
-const targetBlockArchetype = (pos: Position): Archetype => ({
-  position: { x: pos.x, y: pos.y, z: pos.z },
-  targetBlock: {},
-})
-
-const chunkArchetype = (chunkX: number, chunkZ: number): Archetype => ({
-  chunk: { chunkX, chunkZ },
-})
 
 // --- Public API ---
 
@@ -88,11 +82,42 @@ const chunkArchetype = (chunkX: number, chunkZ: number): Archetype => ({
  */
 export const createArchetype = (builder: ArchetypeBuilder): Archetype => {
   return match(builder)
-    .with({ type: 'player' }, ({ pos }) => playerArchetype(pos))
-    .with({ type: 'block' }, ({ pos, blockType }) => blockArchetype(pos, blockType))
-    .with({ type: 'camera' }, ({ pos }) => cameraArchetype(pos))
-    .with({ type: 'targetBlock' }, ({ pos }) => targetBlockArchetype(pos))
-    .with({ type: 'chunk' }, ({ chunkX, chunkZ }) => chunkArchetype(chunkX, chunkZ))
+    .with({ type: 'player' }, ({ pos }) => ({
+      player: new Player({ isGrounded: false }),
+      position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
+      velocity: new Velocity({ dx: 0, dy: 0, dz: 0 }),
+      gravity: new Gravity({ value: PLAYER_GRAVITY }),
+      cameraState: new CameraState({ pitch: 0, yaw: 0 }),
+      inputState: createInputState(),
+      collider: new Collider({
+        width: PLAYER_WIDTH,
+        height: PLAYER_HEIGHT,
+        depth: PLAYER_DEPTH,
+      }),
+      hotbar: new Hotbar({ slots: hotbarSlots, selectedIndex: 0 }),
+      target: createTargetNone(),
+    }))
+    .with({ type: 'block' }, ({ pos, blockType }) => ({
+      position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
+      renderable: new Renderable({ geometry: 'box', blockType }),
+      collider: new Collider({
+        width: BLOCK_SIZE,
+        height: BLOCK_SIZE,
+        depth: BLOCK_SIZE,
+      }),
+      terrainBlock: new TerrainBlock({}),
+    }))
+    .with({ type: 'camera' }, ({ pos }) => ({
+      camera: new Camera({}),
+      position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
+    }))
+    .with({ type: 'targetBlock' }, ({ pos }) => ({
+      position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
+      targetBlock: new TargetBlockComponent({}),
+    }))
+    .with({ type: 'chunk' }, ({ chunkX, chunkZ }) => ({
+      chunk: new Chunk({ chunkX, chunkZ }),
+    }))
     .exhaustive()
 }
 
@@ -102,7 +127,7 @@ export const createArchetype = (builder: ArchetypeBuilder): Archetype => {
  * @param components - An array of component names to check for.
  * @returns True if the archetype has all the specified components, false otherwise.
  */
-export function hasComponents<T extends ReadonlyArray<keyof Components>>(
+export function hasComponents<T extends ReadonlyArray<ComponentName>>(
   archetype: Archetype,
   components: T,
 ): archetype is Archetype & { readonly [K in T[number]]: Components[K] } {

@@ -1,10 +1,249 @@
 import { match, P } from 'ts-pattern'
-import { NonExhaustiveError } from 'ts-pattern/dist/types/NonExhaustiveError'
 import { BlockType, FaceName, getUvForFace, isBlockTransparent, PlacedBlock, TILE_SIZE } from '../domain/block'
 import { ChunkGenerationResult, ComputationTask, GenerationParams } from '../domain/types'
 import { CHUNK_HEIGHT, CHUNK_SIZE, MIN_WORLD_Y, WATER_LEVEL, WORLD_DEPTH, Y_OFFSET } from '../domain/world-constants'
 import { Option, pipe } from 'effect'
-import * as noise from 'perlin-noise'
+import { Alea } from 'alea'
+import { createNoise2D, type Noise2D } from 'simplex-noise'
+import { CHUNK_HEIGHT, CHUNK_SIZE, WATER_LEVEL, WORLD_DEPTH } from '@/domain/world-constants'
+import { type BlockType, createPlacedBlock, isBlockTransparent } from '../domain/block'
+import { type ChunkMesh, type GenerationParams, type PlacedBlock } from '../domain/types'
+
+// --- Noise Generation ---
+
+type NoiseFunctions = {
+  readonly terrain: Noise2D
+  readonly biome: Noise2D
+  readonly trees: Noise2D
+}
+
+const createNoiseFunctions = (seeds: GenerationParams['seeds']): NoiseFunctions => {
+  const createNoise = (seed: number) => createNoise2D(Alea(seed))
+  return {
+    terrain: createNoise(seeds.world),
+    biome: createNoise(seeds.biome),
+    trees: createNoise(seeds.trees),
+  }
+}
+
+// --- Terrain Generation ---
+
+const getTerrainHeight = (x: number, z: number, terrainNoise: Noise2D, amplitude: number) => {
+  const frequency = 0.01
+  return Math.floor(terrainNoise(x * frequency, z * frequency) * amplitude)
+}
+
+const getBiome = (x: number, z: number, biomeNoise: Noise2D) => {
+  const frequency = 0.005
+  return biomeNoise(x * frequency, z * frequency) > 0 ? 'desert' : 'plains'
+}
+
+const generateTerrainColumn = (
+  chunkX: number,
+  chunkZ: number,
+  localX: number,
+  localZ: number,
+  noise: NoiseFunctions,
+  amplitude: number,
+): PlacedBlock[] => {
+  const blocks: PlacedBlock[] = []
+  const worldX = chunkX * CHUNK_SIZE + localX
+  const worldZ = chunkZ * CHUNK_SIZE + localZ
+
+  const height = getTerrainHeight(worldX, worldZ, noise.terrain, amplitude)
+  const biome = getBiome(worldX, worldZ, noise.biome)
+
+  for (let y = -WORLD_DEPTH; y < height; y++) {
+    const worldY = y
+    let blockType: BlockType = 'stone'
+    if (y === height - 1) {
+      blockType = biome === 'desert' ? 'sand' : 'grass'
+    } else if (y > height - 4) {
+      blockType = biome === 'desert' ? 'sand' : 'dirt'
+    }
+    blocks.push(createPlacedBlock({ x: localX, y: worldY, z: localZ }, blockType))
+  }
+
+  if (height < WATER_LEVEL) {
+    for (let y = height; y < WATER_LEVEL; y++) {
+      blocks.push(createPlacedBlock({ x: localX, y, z: localZ }, 'water'))
+    }
+  }
+
+  const treeNoise = noise.trees(worldX, worldZ)
+  if (biome === 'plains' && height >= WATER_LEVEL && treeNoise > 0.95) {
+    const treeHeight = 4 + Math.floor(Math.abs(treeNoise) * 3)
+    for (let i = 0; i < treeHeight; i++) {
+      blocks.push(createPlacedBlock({ x: localX, y: height + i, z: localZ }, 'oakLog'))
+    }
+    for (let y = height + treeHeight - 2; y < height + treeHeight + 1; y++) {
+      for (let x = -2; x <= 2; x++) {
+        for (let z = -2; z <= 2; z++) {
+          if (x !== 0 || z !== 0) {
+            blocks.push(createPlacedBlock({ x: localX + x, y, z: localZ + z }, 'oakLeaves'))
+          }
+        }
+      }
+    }
+  }
+
+  return blocks
+}
+
+const generateBlockData = (params: GenerationParams): PlacedBlock[] => {
+  const { chunkX, chunkZ, seeds, amplitude, editedBlocks } = params
+  const noise = createNoiseFunctions(seeds)
+  const blocksMap = new Map<string, PlacedBlock>()
+
+  for (let x = 0; x < CHUNK_SIZE; x++) {
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      const column = generateTerrainColumn(chunkX, chunkZ, x, z, noise, amplitude)
+      for (const block of column) {
+        const key = `${block.position.x},${block.position.y},${block.position.z}`
+        blocksMap.set(key, block)
+      }
+    }
+  }
+
+  editedBlocks.destroyed.forEach((key) => blocksMap.delete(key))
+  Object.entries(editedBlocks.placed).forEach(([key, block]) => {
+    blocksMap.set(key, createPlacedBlock(block.position, block.blockType))
+  })
+
+  return Array.from(blocksMap.values())
+}
+
+// --- Greedy Meshing ---
+
+type BlockVoxel = BlockType | 0
+
+const getVoxel = (blocks: PlacedBlock[], x: number, y: number, z: number): BlockVoxel => {
+  const block = blocks.find((b) => b.position.x === x && b.position.y === y && b.position.z === z)
+  return block ? block.blockType : 0
+}
+
+const generateGreedyMesh = (blocks: PlacedBlock[]): ChunkMesh => {
+  const vertices: number[] = []
+  const normals: number[] = []
+  const uvs: number[] = []
+  const indices: number[] = []
+  let index = 0
+
+  const voxels = new Map<string, BlockType>()
+  for (const block of blocks) {
+    voxels.set(`${block.position.x},${block.position.y},${block.position.z}`, block.blockType)
+  }
+
+  const visited = new Set<string>()
+
+  for (const block of blocks) {
+    const { x, y, z } = block.position
+    const key = `${x},${y},${z}`
+    if (visited.has(key)) {
+      continue
+    }
+
+    const blockType = block.blockType
+    if (isBlockTransparent(blockType)) {
+      visited.add(key)
+      continue
+    }
+
+    // For simplicity, this is a naive implementation and not a full greedy mesh.
+    // It just creates faces for exposed sides of a block.
+    // A true greedy meshing implementation would merge adjacent faces.
+
+    const neighbors = [
+      { face: [0, 1, 0], dir: [0, 1, 0] }, // top
+      { face: [0, -1, 0], dir: [0, -1, 0] }, // bottom
+      { face: [1, 0, 0], dir: [1, 0, 0] }, // right
+      { face: [-1, 0, 0], dir: [-1, 0, 0] }, // left
+      { face: [0, 0, 1], dir: [0, 0, 1] }, // front
+      { face: [0, 0, -1], dir: [0, 0, -1] }, // back
+    ]
+
+    for (const { dir } of neighbors) {
+      const nx = x + dir[0]
+      const ny = y + dir[1]
+      const nz = z + dir[2]
+      const neighborKey = `${nx},${ny},${nz}`
+      const neighborType = voxels.get(neighborKey)
+
+      if (!neighborType || isBlockTransparent(neighborType)) {
+        // This face is exposed, add it to the mesh
+        const faceVertices = createFace(dir, { x, y, z })
+        vertices.push(...faceVertices)
+        normals.push(...Array(4).fill(dir).flat())
+        // TODO: Add correct UVs based on block type and face
+        uvs.push(0, 0, 1, 0, 0, 1, 1, 1)
+        indices.push(index, index + 1, index + 2, index + 2, index + 1, index + 3)
+        index += 4
+      }
+    }
+    visited.add(key)
+  }
+
+  return {
+    positions: new Float32Array(vertices),
+    normals: new Float32Array(normals),
+    uvs: new Float32Array(uvs),
+    indices: new Uint32Array(indices),
+  }
+}
+
+const createFace = (dir: number[], pos: { x: number; y: number; z: number }) => {
+  const { x, y, z } = pos
+  const w = 1,
+    h = 1,
+    d = 1
+  switch (dir.join(',')) {
+    case '0,1,0': // top
+      return [x, y + h, z, x + w, y + h, z, x, y + h, z + d, x + w, y + h, z + d]
+    case '0,-1,0': // bottom
+      return [x, y, z + d, x + w, y, z + d, x, y, z, x + w, y, z]
+    case '1,0,0': // right
+      return [x + w, y, z, x + w, y + h, z, x + w, y, z + d, x + w, y + h, z + d]
+    case '-1,0,0': // left
+      return [x, y, z + d, x, y + h, z + d, x, y, z, x, y + h, z]
+    case '0,0,1': // front
+      return [x, y, z + d, x, y + h, z + d, x + w, y, z + d, x + w, y + h, z + d]
+    case '0,0,-1': // back
+      return [x + w, y, z, x + w, y + h, z, x, y, z, x, y + h, z]
+    default:
+      return []
+  }
+}
+
+// --- Main Worker Logic ---
+
+self.onmessage = (e: MessageEvent<any>) => {
+  const { type, payload } = e.data
+  if (type === 'generateChunk') {
+    const blocks = generateBlockData(payload)
+    const mesh = generateGreedyMesh(blocks)
+    self.postMessage({
+      type: 'chunkGenerated',
+      payload: {
+        blocks,
+        mesh,
+        chunkX: payload.chunkX,
+        chunkZ: payload.chunkZ,
+      },
+    })
+  }
+}
+
+export const generateChunk = (params: GenerationParams) => {
+  const blocks = generateBlockData(params)
+  const mesh = generateGreedyMesh(blocks)
+  return {
+    blocks,
+    mesh,
+    chunkX: params.chunkX,
+    chunkZ: params.chunkZ,
+  }
+}
+
 
 type ChunkMeshData = ChunkGenerationResult['mesh']
 
@@ -27,12 +266,12 @@ const createNoiseFunctions = (seeds: GenerationParams['seeds']): NoiseFunctions 
 }
 
 const getBlockTypeForDepth = (depth: number, biome: 'plains' | 'desert'): Option.Option<BlockType> => {
-  return match([depth, biome])
-    .with([0, 'plains'], () => Option.some('grass' as BlockType))
-    .with([0, 'desert'], () => Option.some('sand' as BlockType))
-    .with([P.when((d) => d <= 2), 'plains'], () => Option.some('dirt' as BlockType))
-    .with([P.when((d) => d <= 2), 'desert'], () => Option.some('sand' as BlockType))
-    .with([P.when((d) => d <= 4), P._], () => Option.some('stone' as BlockType))
+  return match<[number, 'plains' | 'desert'], Option.Option<BlockType>>([depth, biome])
+    .with([0, 'plains'], () => Option.some('grass'))
+    .with([0, 'desert'], () => Option.some('sand'))
+    .with([P.when((d) => d <= 2), 'plains'], () => Option.some('dirt'))
+    .with([P.when((d) => d <= 2), 'desert'], () => Option.some('sand'))
+    .with([P.when((d) => d <= 4), P._], () => Option.some('stone'))
     .otherwise(() => Option.none())
 }
 
@@ -141,19 +380,20 @@ export const generateGreedyMesh = (blocks: ReadonlyArray<PlacedBlock>, chunkX: n
   const pos: [number, number, number] = [0, 0, 0]
 
   for (let d = 0; d < 3; d++) {
-    for (pos[d] = -1; pos[d]! < dims[d]!; pos[d]!++) {
-      const u = (d + 1) % 3
-      const v = (d + 2) % 3
+    const d_ = d as 0 | 1 | 2
+    for (pos[d_] = -1; pos[d_] < dims[d_]; pos[d_]++) {
+      const u = (d_ + 1) % 3
+      const v = (d_ + 2) % 3
       const dir: [number, number, number] = [0, 0, 0]
       for (let s = -1; s <= 1; s += 2) {
-        dir[d] = s
+        dir[d_] = s
         const mask = Array.from({ length: dims[u]! * dims[v]! }, (): BlockType | null => null)
         let maskIdx = 0
 
         for (pos[v] = 0; pos[v] < dims[v]!; ++pos[v]) {
           for (pos[u] = 0; pos[u] < dims[u]!; ++pos[u]) {
             const b1 = getBlock(chunkView, pos[0], pos[1], pos[2])
-            const b2 = getBlock(chunkView, pos[0] + (d === 0 ? s : 0), pos[1] + (d === 1 ? s : 0), pos[2] + (d === 2 ? s : 0))
+            const b2 = getBlock(chunkView, pos[0] + (d_ === 0 ? s : 0), pos[1] + (d_ === 1 ? s : 0), pos[2] + (d_ === 2 ? s : 0))
             const t1 = pipe(
               b1,
               Option.map(isBlockTransparent),
@@ -198,7 +438,7 @@ export const generateGreedyMesh = (blocks: ReadonlyArray<PlacedBlock>, chunkX: n
               const dv: [number, number, number] = [0, 0, 0]
               dv[v] = h
 
-              const faceName: FaceName = match(d)
+              const faceName: FaceName = match(d_)
                 .with(0, () => (s > 0 ? 'east' : 'west'))
                 .with(1, () => (s > 0 ? 'top' : 'bottom'))
                 .with(2, () => (s > 0 ? 'north' : 'south'))
@@ -275,11 +515,7 @@ const messageHandler = (e: MessageEvent<ComputationTask>) => {
       })
       .exhaustive()
   } catch (error) {
-    if (error instanceof NonExhaustiveError) {
-      console.error('Non-exhaustive match in worker:', error.value)
-    } else {
-      throw error
-    }
+    console.error('Error in computation worker:', error)
   }
 }
 

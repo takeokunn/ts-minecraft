@@ -1,17 +1,28 @@
 import { Effect } from 'effect'
 import { Hotbar } from '@/domain/components'
 import { playerQuery } from '@/domain/queries'
-import { System } from '@/runtime/loop'
 import { World } from '@/runtime/world'
 
 export type HotbarUpdater = (hotbar: Hotbar) => Effect.Effect<void>
 
-export const createUISystem = (updateHotbar: HotbarUpdater): System =>
-  Effect.gen(function* () {
-    const world = yield* World
-    const player = (yield* world.query(playerQuery))[0]
+export const createUISystem = (updateHotbar: HotbarUpdater) =>
+  Effect.gen(function* (_) {
+    const world = yield* _(World)
+    const players = yield* _(world.querySoA(playerQuery))
 
-    if (player?.hotbar) {
-      yield* updateHotbar(player.hotbar)
+    if (players.entities.length > 0) {
+      const i = 0
+      const slots = players.hotbar.slots[i]
+      const selectedIndex = players.hotbar.selectedIndex[i]
+
+      if (slots === undefined || selectedIndex === undefined) {
+        return
+      }
+
+      const hotbar = new Hotbar({
+        slots,
+        selectedIndex,
+      })
+      yield* _(updateHotbar(hotbar))
     }
   })

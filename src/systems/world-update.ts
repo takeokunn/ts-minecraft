@@ -1,13 +1,12 @@
-import { Effect } from 'effect'
-import * as HashMap from 'effect/HashMap'
+import { Effect, HashMap, Ref } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
-import { ChunkDataQueueService, RenderQueueService, System } from '@/runtime/loop'
-import { World } from '@/runtime/world'
+import { ChunkDataQueueService, RenderQueueService } from '@/runtime/services'
+import { World, WorldState } from '@/runtime/world'
 
-export const worldUpdateSystem: System = Effect.gen(function* () {
-  const world = yield* World
-  const chunkDataQueue = yield* ChunkDataQueueService
-  const renderQueue = yield* RenderQueueService
+export const worldUpdateSystem = Effect.gen(function* (_) {
+  const world = yield* _(World)
+  const chunkDataQueue = yield* _(ChunkDataQueueService)
+  const renderQueue = yield* _(RenderQueueService)
 
   const chunkResult = chunkDataQueue.shift()
   if (!chunkResult) {
@@ -21,19 +20,21 @@ export const worldUpdateSystem: System = Effect.gen(function* () {
     chunkX,
     chunkZ,
   })
-  const chunkEntityId = yield* world.addArchetype(chunkArchetype)
+  const chunkEntityId = yield* _(world.addArchetype(chunkArchetype))
 
-  yield* Effect.forEach(
-    blocks,
-    (block) => {
-      const blockArchetype = createArchetype({
-        type: 'block',
-        pos: block.position,
-        blockType: block.blockType,
-      })
-      return world.addArchetype(blockArchetype)
-    },
-    { discard: true },
+  yield* _(
+    Effect.forEach(
+      blocks,
+      (block) => {
+        const blockArchetype = createArchetype({
+          type: 'block',
+          pos: block.position,
+          blockType: block.blockType,
+        })
+        return world.addArchetype(blockArchetype)
+      },
+      { discard: true },
+    ),
   )
 
   if (mesh.indices.length > 0) {
@@ -45,14 +46,18 @@ export const worldUpdateSystem: System = Effect.gen(function* () {
     })
   }
 
-  yield* world.update((w) => ({
-    ...w,
-    globalState: {
-      ...w.globalState,
-      chunkLoading: {
-        ...w.globalState.chunkLoading,
-        loadedChunks: HashMap.set(w.globalState.chunkLoading.loadedChunks, `${chunkX},${chunkZ}`, chunkEntityId),
-      },
-    },
-  }))
+  yield* _(
+    world.state.pipe(
+      Ref.update((w: WorldState) => ({
+        ...w,
+        globalState: {
+          ...w.globalState,
+          chunkLoading: {
+            ...w.globalState.chunkLoading,
+            loadedChunks: HashMap.set(w.globalState.chunkLoading.loadedChunks, `${chunkX},${chunkZ}`, chunkEntityId),
+          },
+        },
+      })),
+    ),
+  )
 })

@@ -23,7 +23,7 @@ export const positionColliderQuery: Query = createQuery('positionColliderQuery',
 /**
  * Query for entities affected by physics (gravity).
  */
-export const physicsQuery: Query = createQuery('physicsQuery', ['position', 'velocity', 'gravity'])
+export const physicsQuery: Query = createQuery('physicsQuery', ['position', 'velocity', 'gravity', 'player'])
 
 /**
  * Query for chunk marker entities.

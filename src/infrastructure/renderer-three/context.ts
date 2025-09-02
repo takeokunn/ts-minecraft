@@ -1,23 +1,17 @@
 import * as THREE from 'three'
 import Stats from 'three/examples/jsm/libs/stats.module.js'
-import * as Context from 'effect/Context'
-import * as Effect from 'effect/Effect'
-import * as Layer from 'effect/Layer'
-import { ThreeCameraService } from './camera-three'
-import { ThreeContext } from './types'
-
-// --- Service Definition ---
-
-export const ThreeContextService = Context.Tag<ThreeContext>()
+import { Effect, Layer } from 'effect'
+import { ThreeCameraService } from '../camera-three'
+import { ThreeContext, ThreeContextService } from '../types'
 
 // --- Live Implementation ---
 
 export const ThreeContextLive = (rootElement: HTMLElement) =>
-  Layer.effect(
+  Layer.scoped(
     ThreeContextService,
     Effect.acquireRelease(
-      Effect.gen(function* () {
-        const cameraService = yield* ThreeCameraService
+      Effect.gen(function* (_) {
+        const cameraService = yield* _(ThreeCameraService)
         const scene = new THREE.Scene()
         const renderer = new THREE.WebGLRenderer()
         renderer.setSize(window.innerWidth, window.innerHeight)
@@ -49,9 +43,9 @@ export const ThreeContextLive = (rootElement: HTMLElement) =>
         const onResize = () => Effect.runSync(cameraService.handleResize(context.renderer))
         window.addEventListener('resize', onResize)
 
-        return { context, onResize }
+        return [context, onResize] as const
       }),
-      ({ context, onResize }) =>
+      ([context, onResize]) =>
         Effect.sync(() => {
           window.removeEventListener('resize', onResize)
           context.renderer.dispose()
@@ -62,5 +56,5 @@ export const ThreeContextLive = (rootElement: HTMLElement) =>
             rootElement.removeChild(context.stats.dom)
           }
         }),
-    ).pipe(Layer.map((res) => res.context)),
+    ).pipe(Effect.map(([context]) => context)),
   )

@@ -1,4 +1,4 @@
-import { Effect, pipe } from 'effect'
+import { Effect } from 'effect'
 import * as HashSet from 'effect/HashSet'
 import * as Option from 'effect/Option'
 import * as ReadonlyRecord from 'effect/Record'
@@ -9,10 +9,21 @@ import { createTargetNone, Position, setInputState } from '@/domain/components'
 import { playerTargetQuery } from '@/domain/queries'
 import { System } from '@/runtime/loop'
 import { World } from '@/runtime/world'
+import { Hotbar, InputState, Player, TargetBlock } from '@/domain/components'
+import { EntityId } from '@/domain/entity'
 
-type PlayerQueryResult = Awaited<ReturnType<World['query']>>[number] & {
-  readonly components: 'player' | 'inputState' | 'target' | 'hotbar'
+type PlayerQueryResult = {
+  readonly entityId: EntityId
+  readonly player: Player
+  readonly inputState: InputState
+  readonly target: TargetBlock
+  readonly hotbar: Hotbar
 }
+
+
+// type PlayerQueryResult = Awaited<ReturnType<World['query']>>[number] & {
+  //   readonly components: 'player' | 'inputState' | 'target' | 'hotbar'
+// }
 
 const getNewBlockPosition = (targetPosition: Position, face: { readonly x: number; readonly y: number; readonly z: number }): Position => ({
   x: targetPosition.x + face.x,
@@ -23,7 +34,7 @@ const getNewBlockPosition = (targetPosition: Position, face: { readonly x: numbe
 const handleDestroyBlock = (player: PlayerQueryResult) =>
   Effect.gen(function* () {
     const world = yield* World
-    if (player.target.type !== 'block') {
+    if (player.target._tag !== 'block') {
       return
     }
 
@@ -51,7 +62,7 @@ const handleDestroyBlock = (player: PlayerQueryResult) =>
 const handlePlaceBlock = (player: PlayerQueryResult) =>
   Effect.gen(function* () {
     const world = yield* World
-    if (player.target.type !== 'block') {
+    if (player.target._tag !== 'block') {
       return
     }
 
@@ -102,8 +113,8 @@ export const blockInteractionSystem: System = Effect.gen(function* () {
     players,
     (player) =>
       match(player)
-        .with({ target: { type: 'block' }, inputState: { destroy: true } }, handleDestroyBlock)
-        .with({ target: { type: 'block' }, inputState: { place: true } }, handlePlaceBlock)
+        .with({ target: { _tag: 'block' }, inputState: { destroy: true } }, handleDestroyBlock)
+        .with({ target: { _tag: 'block' }, inputState: { place: true } }, handlePlaceBlock)
         .otherwise(() => Effect.void),
     { discard: true },
   )

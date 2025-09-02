@@ -1,9 +1,8 @@
 import { Effect } from 'effect'
 import { match } from 'ts-pattern'
-import { CameraState, InputState, setPlayerGrounded, setVelocity, Velocity } from '@/domain/components'
+import { CameraState, InputState, Velocity } from '@/domain/components'
 import { playerMovementQuery } from '@/domain/queries'
 import { DECELERATION, JUMP_FORCE, MIN_VELOCITY_THRESHOLD, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@/domain/world-constants'
-import { System } from '@/runtime/loop'
 import { World } from '@/runtime/world'
 
 export const calculateHorizontalVelocity = (
@@ -55,27 +54,61 @@ export const applyDeceleration = (velocity: Pick<Velocity, 'dx' | 'dz'>): Pick<V
   return { dx, dz }
 }
 
-export const playerMovementSystem: System = Effect.gen(function* () {
-  const world = yield* World
-  const players = yield* world.query(playerMovementQuery)
+export const playerMovementSystem = Effect.gen(function* (_) {
+  const world = yield* _(World)
+  const { entities, player, inputState, velocity, cameraState } = yield* _(world.querySoA(playerMovementQuery))
 
-  yield* Effect.forEach(
-    players,
-    (entity) =>
-      Effect.gen(function* () {
-        const { entityId, player, inputState, velocity, cameraState } = entity
-        const { newDy, newIsGrounded } = calculateVerticalVelocity(player.isGrounded, inputState.jump, velocity.dy)
-        const hasHorizontalInput = inputState.forward || inputState.backward || inputState.left || inputState.right
-        const { dx, dz } = match(hasHorizontalInput)
-          .with(true, () => calculateHorizontalVelocity(inputState, cameraState))
-          .otherwise(() => applyDeceleration(velocity))
+  for (let i = 0; i < entities.length; i++) {
+    const isGrounded = player.isGrounded[i]
+    const jumpPressed = inputState.jump[i]
+    const currentDy = velocity.dy[i]
+    const forward = inputState.forward[i]
+    const backward = inputState.backward[i]
+    const left = inputState.left[i]
+    const right = inputState.right[i]
+    const sprint = inputState.sprint[i]
+    const yaw = cameraState.yaw[i]
+    const currentDx = velocity.dx[i]
+    const currentDz = velocity.dz[i]
 
-        const newVelocity = setVelocity(velocity, { dx, dy: newDy, dz })
-        yield* world.updateComponent(entityId, 'velocity', newVelocity)
+    if (
+      isGrounded === undefined ||
+      jumpPressed === undefined ||
+      currentDy === undefined ||
+      forward === undefined ||
+      backward === undefined ||
+      left === undefined ||
+      right === undefined ||
+      sprint === undefined ||
+      yaw === undefined ||
+      currentDx === undefined ||
+      currentDz === undefined
+    ) {
+      continue
+    }
 
-        const newPlayerState = setPlayerGrounded(player, newIsGrounded)
-        yield* world.updateComponent(entityId, 'player', newPlayerState)
-      }),
-    { discard: true },
-  )
+    const { newDy, newIsGrounded } = calculateVerticalVelocity(isGrounded, jumpPressed, currentDy)
+
+    const hasHorizontalInput = forward || backward || left || right
+
+    const { dx, dz } = match(hasHorizontalInput)
+      .with(true, () =>
+        calculateHorizontalVelocity(
+          {
+            forward,
+            backward,
+            left,
+            right,
+            sprint,
+          },
+          { yaw },
+        ),
+      )
+      .otherwise(() => applyDeceleration({ dx: currentDx, dz: currentDz }))
+
+    velocity.dx[i] = dx
+    velocity.dy[i] = newDy
+    velocity.dz[i] = dz
+    player.isGrounded[i] = newIsGrounded
+  }
 })

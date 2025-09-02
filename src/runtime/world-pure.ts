@@ -1,24 +1,26 @@
-import * as ReadonlyArray from 'effect/Array'
-import { pipe } from 'effect/Function'
+import * as Option from 'effect/Option'
+import * as ReadonlyRecord from 'effect/Record'
+import { BlockType } from '@/domain/block'
+import { Archetype } from '@/domain/archetypes'
+import { ComponentName, Components, ComponentSchemas } from '@/domain/components'
+import { EntityId, toEntityId } from '@/domain/entity'
+import { Query } from '@/domain/query'
 import * as HashMap from 'effect/HashMap'
 import * as HashSet from 'effect/HashSet'
-import * as Option from 'effect/Option'
-import * as Order from 'effect/Order'
-import * as ReadonlyRecord from 'effect/Record'
-import { Archetype } from '@/domain/archetypes'
-import { PlacedBlock } from '@/domain/block'
-import { componentNames, ComponentName, Components } from '@/domain/components'
-import { EntityId, toEntityId, fromEntityId } from '@/domain/entity'
-import { Query } from '@/domain/query'
 
-// --- Types ---
+// --- Data Types ---
+
+export type ComponentStorage = {
+  [K in ComponentName]: Map<EntityId, Components[K]>
+}
+
+export type ArchetypeStorage = Map<string, Set<EntityId>>
 
 export type World = {
-  readonly nextEntityId: EntityId
-  readonly entities: HashSet.HashSet<EntityId>
-  readonly components: {
-    readonly [K in ComponentName]: HashMap.HashMap<EntityId, Components[K]>
-  }
+  readonly nextEntityId: number
+  readonly entities: Map<EntityId, string> // Map<EntityId, ArchetypeKey>
+  readonly archetypes: ArchetypeStorage
+  readonly components: ComponentStorage
   readonly globalState: {
     readonly scene: 'Title' | 'InGame' | 'Paused'
     readonly seeds: {
@@ -28,7 +30,13 @@ export type World = {
     }
     readonly amplitude: number
     readonly editedBlocks: {
-      readonly placed: ReadonlyRecord.ReadonlyRecord<string, PlacedBlock>
+      readonly placed: ReadonlyRecord.ReadonlyRecord<
+        string,
+        {
+          readonly position: { readonly x: number; readonly y: number; readonly z: number }
+          readonly blockType: BlockType
+        }
+      >
       readonly destroyed: HashSet.HashSet<string>
     }
     readonly chunkLoading: {
@@ -41,169 +49,237 @@ export type World = {
   }
 }
 
-// --- World Creation ---
-
-export const createWorld = (): World => {
-  const components = Object.fromEntries(componentNames.map((name) => [name, HashMap.empty<EntityId, any>()])) as unknown as World['components']
-
-  return {
-    nextEntityId: toEntityId(0),
-    entities: HashSet.empty<EntityId>(),
-    components,
-    globalState: {
-      scene: 'Title',
-      seeds: { world: 1, biome: 2, trees: 3 },
-      amplitude: 20,
-      editedBlocks: {
-        placed: {},
-        destroyed: HashSet.empty<string>(),
-      },
-      chunkLoading: {
-        lastPlayerChunk: Option.none(),
-        loadedChunks: HashMap.empty<string, EntityId>(),
-      },
-    },
-  }
-}
-
-// --- Entity & Component Operations (Purely Functional) ---
-
-export const addArchetype = (world: World, archetype: Archetype): readonly [World, EntityId] => {
-  const entityId = world.nextEntityId
-
-  const newEntities = HashSet.add(world.entities, entityId)
-
-  const newComponents = pipe(
-    Object.entries(archetype),
-    ReadonlyArray.reduce(world.components, (acc: World['components'], [key, data]) => {
-      const componentName = key as ComponentName
-      if (data) {
-        const map = acc[componentName]
-        // This cast is safe because the key corresponds to the data type.
-        const newMap = HashMap.set(map, entityId, data as any)
-        return { ...acc, [componentName]: newMap }
-      }
-      return acc
-    }),
-  )
-
-  return [
-    {
-      ...world,
-      nextEntityId: toEntityId(fromEntityId(entityId) + 1),
-      entities: newEntities,
-      components: newComponents,
-    },
-    entityId,
-  ] as const
-}
-
-export const removeEntity = (world: World, id: EntityId): World => {
-  if (!HashSet.has(world.entities, id)) {
-    return world
-  }
-
-  const newEntities = HashSet.remove(world.entities, id)
-
-  const newComponents = pipe(
-    componentNames,
-    ReadonlyArray.reduce(world.components, (acc, name) => {
-      if (HashMap.has(acc[name], id)) {
-        const newMap = HashMap.remove(acc[name], id)
-        return { ...acc, [name]: newMap }
-      }
-      return acc
-    }),
-  )
-
-  return {
-    ...world,
-    entities: newEntities,
-    components: newComponents,
-  }
-}
-
-export const getComponent = <T extends ComponentName>(world: World, entityId: EntityId, componentName: T): Option.Option<Components[T]> => {
-  // This cast is safe due to the structure of the components map.
-  return HashMap.get(world.components[componentName], entityId) as Option.Option<Components[T]>
-}
-
-export const updateComponent = <T extends ComponentName>(world: World, entityId: EntityId, componentName: T, componentData: Components[T]): World => {
-  if (!HashSet.has(world.entities, entityId)) {
-    return world
-  }
-
-  const newComponentMap = HashMap.set(world.components[componentName], entityId, componentData)
-
-  return {
-    ...world,
-    components: {
-      ...world.components,
-      [componentName]: newComponentMap,
-    },
-  }
-}
-
-// --- Querying ---
-
 export type QueryResult<T extends ReadonlyArray<ComponentName>> = {
   readonly entityId: EntityId
 } & {
   readonly [K in T[number]]: Components[K]
 }
 
-export function query<T extends ReadonlyArray<ComponentName>>(world: World, queryDef: Query): ReadonlyArray<QueryResult<T>> {
-  const { components: queryComponents } = queryDef
+type Mutable<T> = {
+  -readonly [P in keyof T]: T[P]
+}
 
-  if (queryComponents.length === 0) {
-    return pipe(
-      world.entities,
-      HashSet.values,
-      ReadonlyArray.fromIterable,
-      ReadonlyArray.map((entityId) => ({ entityId }) as unknown as QueryResult<T>),
-    )
+export type QuerySoAResult<T extends ReadonlyArray<ComponentName>> = {
+  readonly entities: ReadonlyArray<EntityId>
+} & {
+  readonly [K in T[number]]: Components[K] extends object ? {
+    [P in keyof Components[K]]: Mutable<Array<Components[K][P]>>
+  } : Array<Components[K]>
+}
+
+// --- Helper Functions ---
+
+const getArchetypeKey = (componentNames: ReadonlyArray<ComponentName>): string => {
+  return [...componentNames].sort().join(',')
+}
+
+// --- Core Functions ---
+
+export const createWorld = (): World => ({
+  nextEntityId: 0,
+  entities: new Map(),
+  archetypes: new Map(),
+  components: {
+    position: new Map(),
+    velocity: new Map(),
+    player: new Map(),
+    inputState: new Map(),
+    cameraState: new Map(),
+    hotbar: new Map(),
+    target: new Map(),
+    gravity: new Map(),
+    collider: new Map(),
+    renderable: new Map(),
+    instancedMeshRenderable: new Map(),
+    terrainBlock: new Map(),
+    chunk: new Map(),
+    camera: new Map(),
+    targetBlock: new Map(),
+    chunkLoaderState: new Map(),
+  },
+  globalState: {
+    scene: 'Title',
+    seeds: { world: 1, biome: 2, trees: 3 },
+    amplitude: 20,
+    editedBlocks: {
+      placed: ReadonlyRecord.empty(),
+      destroyed: HashSet.empty<string>(),
+    },
+    chunkLoading: {
+      lastPlayerChunk: Option.none(),
+      loadedChunks: HashMap.empty<string, EntityId>(),
+    },
+  },
+})
+
+export const addArchetype = (world: World, archetype: Archetype): readonly [EntityId, World] => {
+  const entityId = toEntityId(world.nextEntityId)
+  const componentNames = Object.keys(archetype) as ComponentName[]
+  const archetypeKey = getArchetypeKey(componentNames)
+
+  const newEntities = new Map(world.entities).set(entityId, archetypeKey)
+  const newArchetypes = new Map(world.archetypes)
+  if (!newArchetypes.has(archetypeKey)) {
+    newArchetypes.set(archetypeKey, new Set())
+  }
+  newArchetypes.get(archetypeKey)!.add(entityId)
+
+  const newComponents = { ...world.components }
+  for (const componentName of componentNames) {
+    const componentData = archetype[componentName]!
+    const newComponentMap = new Map(world.components[componentName])
+    newComponentMap.set(entityId, componentData)
+    ;(newComponents as any)[componentName] = newComponentMap
   }
 
-  const componentNameOrder = pipe(
-    Order.string,
-    Order.mapInput((name: ComponentName) => name),
-  )
-  const componentSizeOrder = pipe(
-    Order.number,
-    Order.mapInput((name: ComponentName) => HashMap.size(world.components[name])),
-  )
+  const newWorld: World = {
+    ...world,
+    nextEntityId: world.nextEntityId + 1,
+    entities: newEntities,
+    archetypes: newArchetypes,
+    components: newComponents,
+  }
 
-  const sortedComponents = pipe(queryComponents, ReadonlyArray.sortBy(componentNameOrder, componentSizeOrder))
+  return [entityId, newWorld]
+}
 
-  const smallestMap = world.components[sortedComponents[0]!]
-  const otherKeys = ReadonlyArray.tail(sortedComponents)
+export const removeEntity = (world: World, entityId: EntityId): World => {
+  const archetypeKey = world.entities.get(entityId)
+  if (!archetypeKey) {
+    return world
+  }
 
+  const newEntities = new Map(world.entities)
+  newEntities.delete(entityId)
+
+  const newArchetypes = new Map(world.archetypes)
+  const archetypeEntities = new Set(newArchetypes.get(archetypeKey)!)
+  archetypeEntities.delete(entityId)
+  newArchetypes.set(archetypeKey, archetypeEntities)
+
+  const newComponents = { ...world.components }
+  for (const componentName of Object.keys(newComponents) as ComponentName[]) {
+    const newComponentMap = new Map(newComponents[componentName])
+    if (newComponentMap.has(entityId)) {
+      newComponentMap.delete(entityId)
+      ;(newComponents as any)[componentName] = newComponentMap
+    }
+  }
+
+  return {
+    ...world,
+    entities: newEntities,
+    archetypes: newArchetypes,
+    components: newComponents,
+  }
+}
+
+export const getComponent = <T extends ComponentName>(
+  world: World,
+  entityId: EntityId,
+  componentName: T,
+): Option.Option<Components[T]> => {
+  return Option.fromNullable(world.components[componentName].get(entityId) as Components[T])
+}
+
+export const updateComponent = <T extends ComponentName>(
+  world: World,
+  entityId: EntityId,
+  componentName: T,
+  componentData: Components[T],
+): World => {
+  const newComponents = { ...world.components }
+  const newComponentMap = new Map(world.components[componentName])
+  newComponentMap.set(entityId, componentData)
+  ;(newComponents as any)[componentName] = newComponentMap
+
+  return {
+    ...world,
+    components: newComponents,
+  }
+}
+
+export const query = <T extends ReadonlyArray<ComponentName>>(world: World, queryDef: Query): ReadonlyArray<QueryResult<T>> => {
+  const requiredComponents = new Set(queryDef.components)
   const results: QueryResult<T>[] = []
 
-  for (const [entityId] of smallestMap) {
-    const hasAllComponents = pipe(
-      otherKeys,
-      Option.map((keys) => ReadonlyArray.every(keys, (key) => HashMap.has(world.components[key], entityId))),
-      Option.getOrElse(() => true),
-    )
+  // Find all archetypes that have at least the required components
+  const matchingArchetypes: Set<EntityId>[] = []
+  for (const [archetypeKey, entities] of world.archetypes.entries()) {
+    const archetypeComponents = new Set(archetypeKey.split(','))
+    let match = true
+    for (const req of requiredComponents) {
+      if (!archetypeComponents.has(req)) {
+        match = false
+        break
+      }
+    }
+    if (match) {
+      matchingArchetypes.push(entities)
+    }
+  }
 
-    if (hasAllComponents) {
-      const result = { entityId } as any
+  for (const entities of matchingArchetypes) {
+    for (const entityId of entities) {
+      const result: Partial<QueryResult<T>> = { entityId } as any
       let allComponentsFound = true
-      for (const key of queryComponents) {
-        const component = HashMap.get(world.components[key], entityId)
+      for (const componentName of queryDef.components) {
+        const component = getComponent(world, entityId, componentName)
         if (Option.isSome(component)) {
-          result[key] = component.value
+          ;(result as any)[componentName] = component.value
         } else {
           allComponentsFound = false
           break
         }
       }
       if (allComponentsFound) {
-        results.push(result)
+        results.push(result as QueryResult<T>)
       }
     }
   }
-
   return results
+}
+
+export const querySoA = <T extends ReadonlyArray<ComponentName>>(world: World, queryDef: Query): QuerySoAResult<T> => {
+  const requiredComponents = new Set(queryDef.components)
+  const matchingEntities: EntityId[] = []
+
+  for (const [archetypeKey, entities] of world.archetypes.entries()) {
+    const archetypeComponents = new Set(archetypeKey.split(','))
+    let match = true
+    for (const req of requiredComponents) {
+      if (!archetypeComponents.has(req)) {
+        match = false
+        break
+      }
+    }
+    if (match) {
+      matchingEntities.push(...entities)
+    }
+  }
+
+  const result: Mutable<QuerySoAResult<T>> = {
+    entities: matchingEntities,
+  } as any
+
+  for (const componentName of queryDef.components) {
+    const componentSchema = ComponentSchemas[componentName]
+    const props = 'props' in componentSchema ? Object.keys((componentSchema as any).props) : []
+    const soaStore: any = {}
+    for (const prop of props) {
+      soaStore[prop] = []
+    }
+
+    for (const entityId of matchingEntities) {
+      const component = getComponent(world, entityId, componentName)
+      if (Option.isSome(component)) {
+        for (const prop of props) {
+          soaStore[prop].push((component.value as any)[prop])
+        }
+      }
+    }
+    ;(result as any)[componentName] = soaStore
+  }
+
+  return result as any
 }

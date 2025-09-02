@@ -1,4 +1,4 @@
-import * as S from '@effect/schema/Schema'
+import { Schema as S } from 'effect'
 import { match } from 'ts-pattern'
 import { Vector3IntSchema } from './common'
 
@@ -35,7 +35,7 @@ const BlockDefinitionSchema = S.Struct({
 })
 type BlockDefinition = S.Schema.Type<typeof BlockDefinitionSchema>
 
-export const blockDefinitions: Record<BlockType, BlockDefinition> = {
+export const blockDefinitions: Readonly<Record<BlockType, BlockDefinition>> = {
   grass: { textures: { top: [0, 0], bottom: [2, 0], side: [1, 0] }, isTransparent: false, isFluid: false },
   dirt: { textures: { side: [2, 0] }, isTransparent: false, isFluid: false },
   stone: { textures: { side: [3, 0] }, isTransparent: false, isFluid: false },
@@ -58,7 +58,7 @@ export const blockDefinitions: Record<BlockType, BlockDefinition> = {
  * @returns A tuple [u, v] representing the texture coordinates.
  */
 export const getUvForFace = (blockType: BlockType, faceName: FaceName): readonly [number, number] => {
-  const textures = blockDefinitions[blockType].textures
+  const { textures } = blockDefinitions[blockType]
   return match(faceName)
     .with('top', () => textures.top ?? textures.side)
     .with('bottom', () => textures.bottom ?? textures.side)
@@ -89,3 +89,7 @@ export const createPlacedBlock = (position: { readonly x: number; readonly y: nu
   position,
   blockType,
 })
+
+export const isBlockType = (value: unknown): value is BlockType => {
+  return typeof value === 'string' && (blockTypeNames as ReadonlyArray<string>).includes(value)
+}

@@ -37,7 +37,7 @@ export const createAABB = (position: Position, collider: Collider): AABB => ({
  * @returns True if they intersect, false otherwise.
  */
 export const areAABBsIntersecting = (a: AABB, b: AABB): boolean => {
-  return a.minX < b.maxX && a.maxX > b.minX && a.minY < b.maxY && a.maxY > b.minY && a.minZ < b.maxZ && a.maxZ > b.minZ
+  return a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY && a.minZ <= b.maxZ && a.maxZ >= b.minZ
 }
 
 /**

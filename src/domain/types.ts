@@ -1,4 +1,4 @@
-import * as S from '@effect/schema/Schema'
+import { Schema as S } from 'effect'
 
 import { BlockTypeSchema, PlacedBlockSchema } from './block'
 import { Position } from './components'
@@ -25,10 +25,7 @@ export const GenerationParamsSchema = S.Struct({
   }),
   amplitude: S.Number,
   editedBlocks: S.Struct({
-    placed: S.Record({
-      key: S.String,
-      value: S.Struct({ position: Position, blockType: BlockTypeSchema }),
-    }),
+    placed: S.Record({ key: S.String, value: S.Struct({ position: Position, blockType: BlockTypeSchema }) }),
     destroyed: S.Set(S.String),
   }),
 })
