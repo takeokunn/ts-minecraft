@@ -100,7 +100,7 @@ describe('MaterialManager', () => {
     // We test the layer directly because the error occurs during initialization
     const layerEffect = Effect.provide(program, MaterialManagerLive)
     const result = await Effect.runPromise(Effect.flip(layerEffect))
-    
+
     expect(result).toBeInstanceOf(TextureLoadError)
     expect(result.path).toBe('/texture/texture.png')
     expect(result.originalError).toBe(error)

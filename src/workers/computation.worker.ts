@@ -38,14 +38,7 @@ export const getBiome = (x: number, z: number, biomeNoise: Noise2D) => {
   return biomeNoise(x * frequency, z * frequency) > 0 ? 'desert' : 'plains'
 }
 
-export const generateTerrainColumn = (
-  chunkX: number,
-  chunkZ: number,
-  localX: number,
-  localZ: number,
-  noise: NoiseFunctions,
-  amplitude: number,
-): PlacedBlock[] => {
+export const generateTerrainColumn = (chunkX: number, chunkZ: number, localX: number, localZ: number, noise: NoiseFunctions, amplitude: number): PlacedBlock[] => {
   const blocks: PlacedBlock[] = []
   const worldX = chunkX * CHUNK_SIZE + localX
   const worldZ = chunkZ * CHUNK_SIZE + localZ

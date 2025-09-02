@@ -27,7 +27,6 @@ declare module '@/domain/components' {
   }
 }
 
-
 const archetypeGen = fc.constantFrom<Archetype>(
   createArchetype({ type: 'player', pos: new Position({ x: 0, y: 0, z: 0 }) }),
   createArchetype({ type: 'block', pos: new Position({ x: 1, y: 1, z: 1 }), blockType: 'grass' }),

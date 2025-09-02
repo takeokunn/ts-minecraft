@@ -8,11 +8,7 @@ import { createArchetype } from '@/domain/archetypes'
 import { RENDER_DISTANCE } from '@/domain/world-constants'
 import { Position } from '@/domain/components'
 
-const setupWorld = (
-  playerPos: { x: number; y: number; z: number },
-  lastPlayerChunk: Option.Option<{ x: number; z: number }>,
-  loadedChunks: HashMap.HashMap<string, EntityId>,
-) =>
+const setupWorld = (playerPos: { x: number; y: number; z: number }, lastPlayerChunk: Option.Option<{ x: number; z: number }>, loadedChunks: HashMap.HashMap<string, EntityId>) =>
   Effect.gen(function* (_) {
     const world = yield* _(World)
     const playerArchetype = createArchetype({

@@ -107,15 +107,15 @@ describe('Component Schemas', () => {
 
 ```typescript
 it('should handle floating point comparisons', () => {
-  const result = 0.1 + 0.2;
-  const expected = 0.3;
+  const result = 0.1 + 0.2
+  const expected = 0.3
 
   // 失敗する可能性があるテスト
   // expect(result).toBe(expected);
 
   // 成功するテスト
-  expect(result).toBeCloseTo(expected);
-});
+  expect(result).toBeCloseTo(expected)
+})
 ```
 
 ## 5. テストカバレッジ

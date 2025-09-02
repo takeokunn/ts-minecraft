@@ -58,14 +58,7 @@ export const AppLayer = (rootElement: HTMLElement) => {
     Layer.merge(Layer.succeed(RenderQueueService, [])),
   )
 
-  const baseServices = Layer.mergeAll(
-    WorldLive,
-    InputManagerLive,
-    ComputationWorkerLive,
-    MaterialManagerLive,
-    RaycastServiceLive,
-    SpatialGridLive,
-  )
+  const baseServices = Layer.mergeAll(WorldLive, InputManagerLive, ComputationWorkerLive, MaterialManagerLive, RaycastServiceLive, SpatialGridLive)
 
   const threeContextLayer = ThreeContextLive(rootElement)
   const threeCameraLayer = ThreeCameraLive(rootElement)

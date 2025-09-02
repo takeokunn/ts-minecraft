@@ -93,26 +93,26 @@ describe('scripts/generate-texture-atlas', () => {
   describe('generateTextureAtlas', () => {
     it('should generate an atlas from found textures', async () => {
       mockedFs.readdir.mockImplementation(async (p: any, options: any) => {
-        const dirPath = p.toString();
+        const dirPath = p.toString()
         if (options?.withFileTypes) {
           if (dirPath.endsWith('public/texture')) {
             return [
               { name: 'dirt', isDirectory: () => true },
               { name: 'grass', isDirectory: () => true },
-            ];
+            ]
           }
         } else {
           if (dirPath.endsWith('grass')) {
-            return ['top.png'];
+            return ['top.png']
           }
           if (dirPath.endsWith('dirt')) {
-            return ['side.png'];
+            return ['side.png']
           }
         }
-        return [];
-      });
+        return []
+      })
 
-      await script.generateTextureAtlas();
+      await script.generateTextureAtlas()
 
       expect(mockedSharp).toHaveBeenCalledWith({
         create: {
@@ -121,28 +121,28 @@ describe('scripts/generate-texture-atlas', () => {
           channels: 4,
           background: { r: 0, g: 0, b: 0, alpha: 0 },
         },
-      });
+      })
 
-      const sharpInstance = mockedSharp.mock.results[0].value;
-      expect(sharpInstance.composite).toHaveBeenCalledOnce();
+      const sharpInstance = mockedSharp.mock.results[0].value
+      expect(sharpInstance.composite).toHaveBeenCalledOnce()
       expect(sharpInstance.composite).toHaveBeenCalledWith(
         expect.arrayContaining([
           // The order depends on localeCompare, dirt_side comes before grass_top
           expect.objectContaining({ left: 0, top: 0 }), // dirt_side
           expect.objectContaining({ left: 16, top: 0 }), // grass_top
         ]),
-      );
-      expect(sharpInstance.toFile).toHaveBeenCalledOnce();
-      expect(sharpInstance.toFile).toHaveBeenCalledWith(expect.stringContaining('texture.png'));
-    });
+      )
+      expect(sharpInstance.toFile).toHaveBeenCalledOnce()
+      expect(sharpInstance.toFile).toHaveBeenCalledWith(expect.stringContaining('texture.png'))
+    })
 
     it('should warn and return if no texture files are found', async () => {
-      mockedFs.readdir.mockResolvedValue([]);
+      mockedFs.readdir.mockResolvedValue([])
 
-      await script.generateTextureAtlas();
+      await script.generateTextureAtlas()
 
-      expect(console.warn).toHaveBeenCalledWith('No texture files found to generate the atlas.');
-      expect(mockedSharp).not.toHaveBeenCalled();
-    });
-  });
+      expect(console.warn).toHaveBeenCalledWith('No texture files found to generate the atlas.')
+      expect(mockedSharp).not.toHaveBeenCalled()
+    })
+  })
 })

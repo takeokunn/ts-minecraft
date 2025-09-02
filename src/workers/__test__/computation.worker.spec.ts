@@ -1,10 +1,5 @@
 import * as ComputationWorker from '../computation.worker'
-import {
-  generateBlockData,
-  generateGreedyMesh,
-  createChunkDataView,
-  getBlock,
-} from '../computation.worker'
+import { generateBlockData, generateGreedyMesh, createChunkDataView, getBlock } from '../computation.worker'
 import type { ComputationTask, GenerationParams } from '../../domain/types'
 import { PlacedBlock } from '../../domain/block'
 import { CHUNK_HEIGHT, CHUNK_SIZE, Y_OFFSET } from '../../domain/world-constants'

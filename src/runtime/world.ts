@@ -66,8 +66,7 @@ export const WorldLive = Layer.effect(
 
     const query = <T extends ReadonlyArray<ComponentName>>(queryDef: Query) => Effect.map(Ref.get(worldStateRef), (world) => queryPure<T>(world, queryDef))
 
-    const querySoA = <T extends ReadonlyArray<ComponentName>>(queryDef: Query) =>
-      Effect.map(Ref.get(worldStateRef), (world) => querySoAPure<T>(world, queryDef, ComponentSchemas))
+    const querySoA = <T extends ReadonlyArray<ComponentName>>(queryDef: Query) => Effect.map(Ref.get(worldStateRef), (world) => querySoAPure<T>(world, queryDef, ComponentSchemas))
 
     return {
       state: worldStateRef,

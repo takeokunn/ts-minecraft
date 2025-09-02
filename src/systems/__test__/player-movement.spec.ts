@@ -41,7 +41,7 @@ const setupWorld = (inputState: Partial<InputState>, isGrounded: boolean, camera
 
 describe('playerMovementSystem', () => {
   describe('pure functions', () => {
-    const safeDouble = (constraints: fc.DoubleConstraints = {}) => fc.double({ ...constraints, noNaN: true });
+    const safeDouble = (constraints: fc.DoubleConstraints = {}) => fc.double({ ...constraints, noNaN: true })
 
     test.prop([
       fc.record({
@@ -58,11 +58,7 @@ describe('playerMovementSystem', () => {
       const { dx, dz } = calculateHorizontalVelocity(input, camera)
       const speed = input.sprint ? PLAYER_SPEED * SPRINT_MULTIPLIER : PLAYER_SPEED
 
-      const hasEffectiveInput =
-        (input.forward && !input.backward) ||
-        (input.backward && !input.forward) ||
-        (input.left && !input.right) ||
-        (input.right && !input.left)
+      const hasEffectiveInput = (input.forward && !input.backward) || (input.backward && !input.forward) || (input.left && !input.right) || (input.right && !input.left)
 
       if (hasEffectiveInput) {
         expect(Math.sqrt(dx * dx + dz * dz)).toBeCloseTo(speed)
@@ -72,19 +68,16 @@ describe('playerMovementSystem', () => {
       }
     })
 
-    test.prop([fc.boolean(), fc.boolean(), safeDouble({ min: -100, max: 100 })])(
-      'calculateVerticalVelocity',
-      (isGrounded, jumpPressed, currentDy) => {
-        const { newDy, newIsGrounded } = calculateVerticalVelocity(isGrounded, jumpPressed, currentDy)
-        if (jumpPressed && isGrounded) {
-          expect(newDy).toBe(JUMP_FORCE)
-          expect(newIsGrounded).toBe(false)
-        } else {
-          expect(newDy).toBe(currentDy)
-          expect(newIsGrounded).toBe(isGrounded)
-        }
-      },
-    )
+    test.prop([fc.boolean(), fc.boolean(), safeDouble({ min: -100, max: 100 })])('calculateVerticalVelocity', (isGrounded, jumpPressed, currentDy) => {
+      const { newDy, newIsGrounded } = calculateVerticalVelocity(isGrounded, jumpPressed, currentDy)
+      if (jumpPressed && isGrounded) {
+        expect(newDy).toBe(JUMP_FORCE)
+        expect(newIsGrounded).toBe(false)
+      } else {
+        expect(newDy).toBe(currentDy)
+        expect(newIsGrounded).toBe(isGrounded)
+      }
+    })
 
     describe('applyDeceleration', () => {
       test.prop([fc.record({ dx: fc.double(), dz: fc.double() })])('should decelerate finite velocities', (velocity) => {
@@ -140,11 +133,7 @@ describe('playerMovementSystem', () => {
         const player = (yield* _(world.query(playerQuery)))[0]!
         const { velocity, player: playerComponent } = player
 
-        const hasEffectiveInput =
-          (input.forward && !input.backward) ||
-          (input.backward && !input.forward) ||
-          (input.left && !input.right) ||
-          (input.right && !input.left)
+        const hasEffectiveInput = (input.forward && !input.backward) || (input.backward && !input.forward) || (input.left && !input.right) || (input.right && !input.left)
 
         if (hasEffectiveInput) {
           const speed = input.sprint ? PLAYER_SPEED * SPRINT_MULTIPLIER : PLAYER_SPEED

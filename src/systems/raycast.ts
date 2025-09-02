@@ -7,13 +7,7 @@ import { World } from '@/runtime/world'
 import { ThreeContext } from '@/infrastructure/types'
 
 export const areRaycastResultsEqual = (a: RaycastResult, b: RaycastResult): boolean => {
-  return (
-    a.entityId === b.entityId &&
-    a.face.x === b.face.x &&
-    a.face.y === b.face.y &&
-    a.face.z === b.face.z &&
-    a.intersection.distance === b.intersection.distance
-  )
+  return a.entityId === b.entityId && a.face.x === b.face.x && a.face.y === b.face.y && a.face.z === b.face.z && a.intersection.distance === b.intersection.distance
 }
 
 export const raycastSystem = Effect.gen(function* (_) {

@@ -2,13 +2,7 @@ import { Effect, Layer, Option, Ref } from 'effect'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as THREE from 'three'
 import { RendererLive } from '..'
-import {
-  MaterialManager,
-  RenderQueueService,
-  ThreeContextService,
-  type Renderer,
-  RendererService,
-} from '@/runtime/services'
+import { MaterialManager, RenderQueueService, ThreeContextService, type Renderer, RendererService } from '@/runtime/services'
 import { World } from '@/runtime/world'
 import { ThreeCameraService } from '../../camera-three'
 import type { ThreeContext } from '../../types'

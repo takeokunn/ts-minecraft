@@ -230,11 +230,7 @@ export const query = <T extends ReadonlyArray<ComponentName>>(world: World, quer
   return results
 }
 
-export const querySoA = <T extends ReadonlyArray<ComponentName>>(
-  world: World,
-  queryDef: Query,
-  componentSchemas: typeof ComponentSchemas,
-): QuerySoAResult<T> => {
+export const querySoA = <T extends ReadonlyArray<ComponentName>>(world: World, queryDef: Query, componentSchemas: typeof ComponentSchemas): QuerySoAResult<T> => {
   const queryResult = query(world, queryDef)
   const entities = queryResult.map((r) => r.entityId)
 

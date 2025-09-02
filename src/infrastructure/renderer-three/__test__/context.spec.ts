@@ -39,10 +39,7 @@ const mockThreeCameraService = {
   handleResize: vi.fn(() => Effect.void),
 }
 
-const ThreeCameraServiceMock = Layer.succeed(
-  ThreeCameraService,
-  mockThreeCameraService as any,
-)
+const ThreeCameraServiceMock = Layer.succeed(ThreeCameraService, mockThreeCameraService as any)
 
 describe('ThreeContextLive', () => {
   let rootElement: HTMLElement
