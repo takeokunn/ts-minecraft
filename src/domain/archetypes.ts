@@ -128,9 +128,6 @@ export const createArchetype = (builder: ArchetypeBuilder): Archetype => {
  * @param components - An array of component names to check for.
  * @returns True if the archetype has all the specified components, false otherwise.
  */
-export function hasComponents<T extends ReadonlyArray<ComponentName>>(
-  archetype: Archetype,
-  components: T,
-): archetype is Archetype & { readonly [K in T[number]]: Components[K] } {
+export function hasComponents<T extends ReadonlyArray<ComponentName>>(archetype: Archetype, components: T): archetype is Archetype & { readonly [K in T[number]]: Components[K] } {
   return components.every((component) => component in archetype)
 }

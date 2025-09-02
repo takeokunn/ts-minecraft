@@ -131,14 +131,11 @@ describe('InputState helpers', () => {
     expect(initialState.isLocked).toBe(false)
   })
 
-  test.prop([inputStateArbitrary, inputStateArbitrary])(
-    'setInputState should update state immutably',
-    (initialState, changes) => {
-      const updatedState = C.setInputState(new C.InputState(initialState), changes)
-      expect(updatedState).toEqual({ ...initialState, ...changes })
-      expect(updatedState).not.toBe(initialState)
-    },
-  )
+  test.prop([inputStateArbitrary, inputStateArbitrary])('setInputState should update state immutably', (initialState, changes) => {
+    const updatedState = C.setInputState(new C.InputState(initialState), changes)
+    expect(updatedState).toEqual({ ...initialState, ...changes })
+    expect(updatedState).not.toBe(initialState)
+  })
 
   test('setInputState should only update specified properties', () => {
     const initialState = C.createInputState()

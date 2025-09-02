@@ -2,7 +2,6 @@ import * as HashMap from 'effect/HashMap'
 import * as HashSet from 'effect/HashSet'
 import * as Option from 'effect/Option'
 import * as ReadonlyRecord from 'effect/Record'
-import { Schema } from 'effect'
 import { BlockType } from '@/domain/block'
 import { Archetype } from '@/domain/archetypes'
 import { ComponentName, Components, ComponentSchemas } from '@/domain/components'
@@ -63,9 +62,11 @@ type Mutable<T> = {
 export type QuerySoAResult<T extends ReadonlyArray<ComponentName>> = {
   readonly entities: ReadonlyArray<EntityId>
 } & {
-  readonly [K in T[number]]: Components[K] extends object ? {
-    [P in keyof Components[K]]: Mutable<Array<Components[K][P]>>
-  } : Array<Components[K]>
+  readonly [K in T[number]]: Components[K] extends object
+    ? {
+        [P in keyof Components[K]]: Mutable<Array<Components[K][P]>>
+      }
+    : Array<Components[K]>
 }
 
 // --- Helper Functions ---
@@ -175,20 +176,11 @@ export const removeEntity = (world: World, entityId: EntityId): World => {
   }
 }
 
-export const getComponent = <T extends ComponentName>(
-  world: World,
-  entityId: EntityId,
-  componentName: T,
-): Option.Option<Components[T]> => {
+export const getComponent = <T extends ComponentName>(world: World, entityId: EntityId, componentName: T): Option.Option<Components[T]> => {
   return Option.fromNullable(world.components[componentName].get(entityId) as Components[T])
 }
 
-export const updateComponent = <T extends ComponentName>(
-  world: World,
-  entityId: EntityId,
-  componentName: T,
-  componentData: Components[T],
-): World => {
+export const updateComponent = <T extends ComponentName>(world: World, entityId: EntityId, componentName: T, componentData: Components[T]): World => {
   const newComponents = { ...world.components }
   const newComponentMap = new Map(world.components[componentName])
   newComponentMap.set(entityId, componentData)
@@ -241,7 +233,6 @@ export const query = <T extends ReadonlyArray<ComponentName>>(world: World, quer
   return results
 }
 
-/*
 export const querySoA = <T extends ReadonlyArray<ComponentName>>(world: World, queryDef: Query): QuerySoAResult<T> => {
   const requiredComponents = new Set(queryDef.components)
   const matchingEntities: EntityId[] = []
@@ -292,4 +283,3 @@ export const querySoA = <T extends ReadonlyArray<ComponentName>>(world: World, q
 
   return result as any
 }
-*/

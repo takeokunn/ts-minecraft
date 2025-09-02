@@ -1,15 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as Option from 'effect/Option'
-import {
-  createWorld,
-  addArchetype,
-  removeEntity,
-  getComponent,
-  updateComponent,
-  query,
-  querySoA,
-} from '../world-pure'
-import { Position, Velocity, Player } from '@/domain/components'
+import { createWorld, addArchetype, removeEntity, getComponent, updateComponent, query, querySoA } from '../world-pure'
+import { Position, Velocity } from '@/domain/components'
 import { createArchetype } from '@/domain/archetypes'
 import { toEntityId } from '@/domain/entity'
 import { createQuery } from '@/domain/query'
@@ -64,7 +56,9 @@ describe('world-pure', () => {
     expect(getComponent(updatedWorld, entityId, 'velocity')).toEqual(Option.none())
 
     const archetypeKey = [...world.entities.values()][0]
-    expect(updatedWorld.archetypes.get(archetypeKey)?.has(entityId)).toBe(false)
+    if (archetypeKey) {
+      expect(updatedWorld.archetypes.get(archetypeKey)?.has(entityId)).toBe(false)
+    }
   })
 
   it('removeEntity should return world if entity does not exist', () => {
@@ -112,10 +106,10 @@ describe('world-pure', () => {
       const results = query(world, playerQuery)
 
       expect(results.length).toBe(1)
-      expect(results[0].entityId).toBe(playerEntity)
-      expect(results[0].position).toBeDefined()
-      expect(results[0].velocity).toBeDefined()
-      expect(results[0].player).toBeDefined()
+      expect(results[0]?.entityId).toBe(playerEntity)
+      expect(results[0]?.position).toBeDefined()
+      expect(results[0]?.velocity).toBeDefined()
+      expect(results[0]?.player).toBeDefined()
     })
 
     it('should return empty array if no entities match', () => {
@@ -135,7 +129,6 @@ describe('world-pure', () => {
     })
   })
 
-  /*
   describe('querySoA', () => {
     it('should return SoA data for entities that match the query', () => {
       let world = createWorld()
@@ -178,5 +171,4 @@ describe('world-pure', () => {
       expect(results.velocity.dx[p2Index]).toBe(20)
     })
   })
-*/
 })

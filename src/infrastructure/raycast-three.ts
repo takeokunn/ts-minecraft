@@ -34,7 +34,7 @@ export const RaycastServiceLive = Layer.effect(
       if (!intersection.face) {
         return Option.none()
       }
-      hitPosVec.copy(intersection.point).add(intersection.face.normal.multiplyScalar(-0.5)).floor()
+      hitPosVec.copy(intersection.point).add(intersection.face.normal.clone().multiplyScalar(-0.5)).floor()
       const key = `${hitPosVec.x},${hitPosVec.y},${hitPosVec.z}`
       const entityId = terrainBlockMap.get(key)
       if (entityId === undefined) {

@@ -95,12 +95,14 @@ describe('World service', () => {
 
     const { results, playerEntity } = await Effect.runPromise(testEffect)
     expect(results.length).toBe(1)
-    expect(results[0].entityId).toBe(playerEntity)
-    expect(results[0].position).toBeDefined()
-    expect(results[0].player).toBeDefined()
+    const result = results[0]
+    if (result) {
+      expect(result.entityId).toBe(playerEntity)
+      expect(result.position).toBeDefined()
+      expect(result.player).toBeDefined()
+    }
   })
 
-  /*
   it('should query SoA', async () => {
     const program = Effect.gen(function* (_) {
       const world = yield* _(World)
@@ -136,5 +138,4 @@ describe('World service', () => {
     expect(results.position.y[p2Index]).toBe(5)
     expect(results.position.z[p2Index]).toBe(6)
   })
-  */
 })

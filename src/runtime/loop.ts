@@ -4,7 +4,7 @@ import { DeltaTime, RendererService } from './services'
 
 // --- Types ---
 
-export type System = Effect.Effect<void, never, any>
+export type System = Effect.Effect<void, never, unknown>
 
 // --- Game Loop ---
 

@@ -47,13 +47,17 @@ export const calculateChunkUpdates = (
 export const chunkLoadingSystem = Effect.gen(function* (_) {
   const world = yield* _(World)
   const onCommand = yield* _(OnCommand)
-  const players = yield* _(world.querySoA(playerQuery))
+  const players = yield* _(world.query(playerQuery))
 
-  if (players.entities.length === 0) {
+  if (players.length === 0) {
     return
   }
-  const playerPositionX = players.position.x[0]
-  const playerPositionZ = players.position.z[0]
+  const player = players[0]
+  if (!player) {
+    return
+  }
+  const playerPositionX = player.position.x
+  const playerPositionZ = player.position.z
 
   if (playerPositionX === undefined || playerPositionZ === undefined) {
     return

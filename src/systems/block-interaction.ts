@@ -9,20 +9,19 @@ import { createTargetNone, Position, setInputState } from '@/domain/components'
 import { playerTargetQuery } from '@/domain/queries'
 import { System } from '@/runtime/loop'
 import { World } from '@/runtime/world'
-import { Hotbar, InputState, Player, TargetBlock } from '@/domain/components'
+import { Hotbar, InputState, Player, Target } from '@/domain/components'
 import { EntityId } from '@/domain/entity'
 
 type PlayerQueryResult = {
   readonly entityId: EntityId
   readonly player: Player
   readonly inputState: InputState
-  readonly target: TargetBlock
+  readonly target: Target
   readonly hotbar: Hotbar
 }
 
-
 // type PlayerQueryResult = Awaited<ReturnType<World['query']>>[number] & {
-  //   readonly components: 'player' | 'inputState' | 'target' | 'hotbar'
+//   readonly components: 'player' | 'inputState' | 'target' | 'hotbar'
 // }
 
 const getNewBlockPosition = (targetPosition: Position, face: { readonly x: number; readonly y: number; readonly z: number }): Position => ({
@@ -31,7 +30,7 @@ const getNewBlockPosition = (targetPosition: Position, face: { readonly x: numbe
   z: targetPosition.z + face.z,
 })
 
-const handleDestroyBlock = (player: PlayerQueryResult) =>
+export const handleDestroyBlock = (player: PlayerQueryResult) =>
   Effect.gen(function* () {
     const world = yield* World
     if (player.target._tag !== 'block') {
@@ -59,7 +58,7 @@ const handleDestroyBlock = (player: PlayerQueryResult) =>
     yield* world.updateComponent(player.entityId, 'target', createTargetNone())
   })
 
-const handlePlaceBlock = (player: PlayerQueryResult) =>
+export const handlePlaceBlock = (player: PlayerQueryResult) =>
   Effect.gen(function* () {
     const world = yield* World
     if (player.target._tag !== 'block') {

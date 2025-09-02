@@ -21,7 +21,7 @@ export interface ComputationWorker {
   readonly postTask: (task: ComputationTask) => Effect.Effect<ChunkGenerationResult, WorkerError>
 }
 
-export const ComputationWorkerTag = Context.Tag<ComputationWorker>()
+export const ComputationWorkerTag = Context.GenericTag<ComputationWorker>('app/ComputationWorker')
 
 // --- Live Implementation ---
 

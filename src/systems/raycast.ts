@@ -20,15 +20,12 @@ export const raycastSystem = Effect.gen(function* (_) {
   const raycastService = yield* _(RaycastService)
   const raycastResultRef = yield* _(RaycastResultService)
 
-  const { entities, position } = yield* _(world.querySoA(terrainBlockQuery))
+  const terrainBlocks = yield* _(world.query(terrainBlockQuery))
   const terrainBlockMap = new Map<string, EntityId>()
-  for (let i = 0; i < entities.length; i++) {
-    const entity = entities[i]
-    if (entity === undefined) {
-      continue
-    }
-    const key = `${position.x[i]},${position.y[i]},${position.z[i]}`
-    terrainBlockMap.set(key, entity)
+  for (const block of terrainBlocks) {
+    const { entityId, position } = block
+    const key = `${position.x},${position.y},${position.z}`
+    terrainBlockMap.set(key, entityId)
   }
 
   const newRaycastResult = yield* _(raycastService.cast(threeContext.scene, terrainBlockMap))

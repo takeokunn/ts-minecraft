@@ -16,12 +16,12 @@ import {
   updateComponent as updateComponentPure,
   World as WorldState,
   QueryResult,
-  // querySoA as querySoAPure,
-  // QuerySoAResult,
+  querySoA as querySoAPure,
+  QuerySoAResult,
 } from './world-pure'
 
 // Re-export pure types for convenience
-export type { World as WorldState, QueryResult } from './world-pure'
+export type { World as WorldState, QueryResult, QuerySoAResult } from './world-pure'
 
 // --- Service Definition ---
 
@@ -32,7 +32,7 @@ export interface World {
   readonly getComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) => Effect.Effect<Option.Option<Components[T]>>
   readonly updateComponent: <T extends ComponentName>(entityId: EntityId, componentName: T, componentData: Components[T]) => Effect.Effect<void>
   readonly query: <T extends ReadonlyArray<ComponentName>>(queryDef: Query) => Effect.Effect<ReadonlyArray<QueryResult<T>>>
-  // readonly querySoA: <T extends ReadonlyArray<ComponentName>>(queryDef: Query) => Effect.Effect<QuerySoAResult<T>>
+  readonly querySoA: <T extends ReadonlyArray<ComponentName>>(queryDef: Query) => Effect.Effect<QuerySoAResult<T>>
   readonly modify: <A>(f: (world: WorldState) => readonly [A, WorldState]) => Effect.Effect<A>
   readonly update: (f: (world: WorldState) => WorldState) => Effect.Effect<void>
 }
@@ -66,8 +66,8 @@ export const WorldLive = Layer.effect(
 
     const query = <T extends ReadonlyArray<ComponentName>>(queryDef: Query) => Effect.map(Ref.get(worldStateRef), (world) => queryPure<T>(world, queryDef))
 
-    // const querySoA = <T extends ReadonlyArray<ComponentName>>(queryDef: Query) =>
-    //   Effect.map(Ref.get(worldStateRef), (world) => querySoAPure<T>(world, queryDef))
+    const querySoA = <T extends ReadonlyArray<ComponentName>>(queryDef: Query) =>
+      Effect.map(Ref.get(worldStateRef), (world) => querySoAPure<T>(world, queryDef))
 
     return {
       state: worldStateRef,
@@ -76,7 +76,7 @@ export const WorldLive = Layer.effect(
       getComponent,
       updateComponent,
       query,
-      // querySoA,
+      querySoA,
       modify,
       update,
     }

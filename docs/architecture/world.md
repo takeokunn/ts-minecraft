@@ -103,4 +103,4 @@ const entities =
 
 ---
 
-より高レベルなAPI（`createEntity`, `query`など）の具体的な使用方法については、[**Worldサービス仕様 (features/world.md)](./../features/world.md) を参照してください。
+より高レベルなAPI（`createEntity`, `query`など）の具体的な使用方法については、[\*\*Worldサービス仕様 (features/world.md)](./../features/world.md) を参照してください。

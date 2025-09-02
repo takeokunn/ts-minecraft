@@ -30,4 +30,3 @@ describe('Common Schemas', () => {
     })
   }
 })
-

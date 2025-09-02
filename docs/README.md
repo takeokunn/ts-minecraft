@@ -55,11 +55,13 @@ Effect-TSを採用することで、本作は単なる「TypeScriptで書かれ�
 ### 3. 機能仕様
 
 #### データモデル
+
 - [**コンポーネント一覧 (Components)**](./features/components-list.md)
 - [**アーキタイプ一覧 (Archetypes)**](./features/archetypes-list.md)
 - [**クエリ一覧 (Queries)**](./features/queries-list.md)
 
 #### ワールドとプレイヤー
+
 - [**Worldサービス API (World Service)**](./features/world.md)
 - [**ワールド生成 (World Generation)**](./features/world-generation.md)
 - [**チャンクローディング (Chunk Loading)**](./features/chunk-loading.md)
@@ -71,11 +73,13 @@ Effect-TSを採用することで、本作は単なる「TypeScriptで書かれ�
 - [**セーブ & ロード (Save & Load)**](./features/save_load.md)
 
 #### 物理エンジン
+
 - [**物理システム (Physics)**](./features/physics.md)
 - [**衝突検知 (Collision)**](./features/collision.md)
 - [**空間グリッド更新 (Update Physics World)**](./features/update-physics-world.md)
 
 #### レンダリングとUI
+
 - [**レンダリングパイプライン (Rendering)**](./features/rendering.md)
 - [**ターゲット更新 (Update Target System)**](./features/update-target-system.md)
 - [**UIシステム (User Interface)**](./features/ui.md)

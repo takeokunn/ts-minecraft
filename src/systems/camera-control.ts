@@ -15,19 +15,20 @@ export const cameraControlSystem = Effect.gen(function* (_) {
     return
   }
 
-  const { entities, cameraState } = yield* _(world.querySoA(playerQuery))
+  const players = yield* _(world.query(playerQuery))
   const deltaPitch = -mouseDelta.dy * MOUSE_SENSITIVITY
   const deltaYaw = -mouseDelta.dx * MOUSE_SENSITIVITY
 
-  for (let i = 0; i < entities.length; i++) {
-    const currentPitch = cameraState.pitch[i]
-    const currentYaw = cameraState.yaw[i]
-    if (currentPitch === undefined || currentYaw === undefined) {
-      continue
-    }
-    const newPitch = clampPitch(currentPitch + deltaPitch)
-    const newYaw = currentYaw + deltaYaw
-    cameraState.pitch[i] = newPitch
-    cameraState.yaw[i] = newYaw
-  }
+  yield* _(
+    Effect.forEach(
+      players,
+      (player) => {
+        const { entityId, cameraState } = player
+        const newPitch = clampPitch(cameraState.pitch + deltaPitch)
+        const newYaw = cameraState.yaw + deltaYaw
+        return world.updateComponent(entityId, 'cameraState', { ...cameraState, pitch: newPitch, yaw: newYaw })
+      },
+      { discard: true },
+    ),
+  )
 })

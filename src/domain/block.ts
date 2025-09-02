@@ -4,7 +4,7 @@ import { Vector3IntSchema } from './common'
 
 // --- Schemas ---
 
-export const BlockTypeSchema = S.Literal('grass', 'dirt', 'stone', 'cobblestone', 'oakLog', 'oakLeaves', 'sand', 'water', 'glass', 'brick', 'plank')
+export const BlockTypeSchema = S.Literal('air', 'grass', 'dirt', 'stone', 'cobblestone', 'oakLog', 'oakLeaves', 'sand', 'water', 'glass', 'brick', 'plank')
 export type BlockType = S.Schema.Type<typeof BlockTypeSchema>
 export const blockTypeNames: ReadonlyArray<BlockType> = BlockTypeSchema.literals
 
@@ -36,6 +36,7 @@ const BlockDefinitionSchema = S.Struct({
 type BlockDefinition = S.Schema.Type<typeof BlockDefinitionSchema>
 
 export const blockDefinitions: Readonly<Record<BlockType, BlockDefinition>> = {
+  air: { textures: { side: [0, 0] }, isTransparent: true, isFluid: false },
   grass: { textures: { top: [0, 0], bottom: [2, 0], side: [1, 0] }, isTransparent: false, isFluid: false },
   dirt: { textures: { side: [2, 0] }, isTransparent: false, isFluid: false },
   stone: { textures: { side: [3, 0] }, isTransparent: false, isFluid: false },
@@ -70,7 +71,12 @@ export const getUvForFace = (blockType: BlockType, faceName: FaceName): readonly
  * @param blockType The type of the block.
  * @returns True if the block is transparent, false otherwise.
  */
-export const isBlockTransparent = (blockType: BlockType): boolean => blockDefinitions[blockType].isTransparent
+export const isBlockTransparent = (blockType: BlockType): boolean => {
+  if (!blockType || !blockDefinitions[blockType]) {
+    return true
+  }
+  return blockDefinitions[blockType]!.isTransparent
+}
 
 /**
  * Checks if a block type is a fluid.

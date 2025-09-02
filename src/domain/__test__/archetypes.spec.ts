@@ -1,13 +1,7 @@
 import * as Arb from 'effect/Arbitrary'
 import { fc, test } from '@fast-check/vitest'
 import { describe, expect } from 'vitest'
-import {
-  ArchetypeBuilderSchema,
-  createArchetype,
-  hasComponents,
-  type Archetype,
-  type ArchetypeBuilder,
-} from '../archetypes'
+import { ArchetypeBuilderSchema, createArchetype, hasComponents, type Archetype, type ArchetypeBuilder } from '../archetypes'
 import { type ComponentName, componentNames, Position, Velocity } from '../components'
 
 const archetypeBuilderArb: fc.Arbitrary<ArchetypeBuilder> = Arb.make(ArchetypeBuilderSchema)
@@ -24,17 +18,7 @@ describe('createArchetype', () => {
 
     switch (builder.type) {
       case 'player': {
-        const expectedComponents: ReadonlyArray<ComponentName> = [
-          'player',
-          'position',
-          'velocity',
-          'gravity',
-          'cameraState',
-          'inputState',
-          'collider',
-          'hotbar',
-          'target',
-        ]
+        const expectedComponents: ReadonlyArray<ComponentName> = ['player', 'position', 'velocity', 'gravity', 'cameraState', 'inputState', 'collider', 'hotbar', 'target']
         expect(getArchetypeKeys(archetype)).toEqual(expect.arrayContaining([...expectedComponents]))
         if (hasComponents(archetype, ['position'])) {
           expect(archetype.position).toEqual(builder.pos)

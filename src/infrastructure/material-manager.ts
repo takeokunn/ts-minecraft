@@ -1,4 +1,4 @@
-import { TextureLoader, MeshBasicMaterial, type Material, SRGBColorSpace } from 'three'
+import { TextureLoader, MeshBasicMaterial, type Material, SRGBColorSpace, Texture } from 'three'
 import { Context, Effect, Layer } from 'effect'
 
 // --- Error Type ---
@@ -62,7 +62,7 @@ export const MaterialManagerLive = Layer.effect(
 
     const disposeSync = (): void => {
       materialCache.forEach((material) => {
-        if (material instanceof MeshBasicMaterial && material.map) {
+        if (material instanceof MeshBasicMaterial && material.map instanceof Texture) {
           material.map.dispose()
         }
         material.dispose()

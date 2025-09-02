@@ -68,7 +68,7 @@ export const InputManagerLive = Layer.effect(
             return { ...s, keyboard: newKeyboard }
           })
         const onMouseMove = (event: MouseEvent) =>
-          Ref.update(stateRef, (s) => (s.isLocked ? { ...s, mouse: { dx: s.mouse.dx + event.movementX, dy: s.mouse.dy + event.movementY } } : s))
+          Ref.update(stateRef, (s) => (s.isLocked ? { ...s, mouse: { dx: s.mouse.dx + (event.movementX ?? 0), dy: s.mouse.dy + (event.movementY ?? 0) } } : s))
         const onMouseDown = (event: MouseEvent) => Effect.flatMap(Ref.get(stateRef), (s) => (s.isLocked ? handleMouseButton(event, 'add') : Effect.sync(() => controls.lock())))
         const onMouseUp = (event: MouseEvent) => handleMouseButton(event, 'delete')
         const onLock = () => Ref.update(stateRef, (s) => ({ ...s, isLocked: true }))
@@ -85,15 +85,18 @@ export const InputManagerLive = Layer.effect(
         for (const [event, listener] of Object.entries(listeners)) {
           document.addEventListener(event, listener as EventListener)
         }
-        controls.addEventListener('lock', () => Effect.runSync(onLock()))
-        controls.addEventListener('unlock', () => Effect.runSync(onUnlock()))
+        const onLockListener = () => Effect.runSync(onLock())
+        const onUnlockListener = () => Effect.runSync(onUnlock())
+
+        controls.addEventListener('lock', onLockListener)
+        controls.addEventListener('unlock', onUnlockListener)
 
         const cleanupEffect = Effect.sync(() => {
           for (const [event, listener] of Object.entries(listeners)) {
             document.removeEventListener(event, listener as EventListener)
           }
-          controls.removeEventListener('lock', () => Effect.runSync(onLock()))
-          controls.removeEventListener('unlock', () => Effect.runSync(onUnlock()))
+          controls.removeEventListener('lock', onLockListener)
+          controls.removeEventListener('unlock', onUnlockListener)
           if (controls.isLocked) controls.unlock()
         })
         yield* _(Ref.set(cleanupRef, Option.some(cleanupEffect)))

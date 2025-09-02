@@ -12,50 +12,53 @@ export const physicsSystem = Effect.gen(function* (_) {
     return
   }
 
-  const { entities, position, velocity, gravity, player } = yield* _(world.querySoA(physicsQuery))
+  const entities = yield* _(world.query(physicsQuery))
 
-  for (let i = 0; i < entities.length; i++) {
-    const isGrounded = player.isGrounded[i]
-    const dy = velocity.dy[i]
-    const grav = gravity.value[i]
-    const dx = velocity.dx[i]
-    const dz = velocity.dz[i]
-    const posX = position.x[i]
-    const posY = position.y[i]
-    const posZ = position.z[i]
+  yield* _(
+    Effect.forEach(
+      entities,
+      (entity) =>
+        Effect.gen(function* (_) {
+          const {
+            entityId,
+            player: { isGrounded },
+            position,
+            velocity,
+            gravity,
+          } = entity
 
-    if (
-      isGrounded === undefined ||
-      dy === undefined ||
-      grav === undefined ||
-      dx === undefined ||
-      dz === undefined ||
-      posX === undefined ||
-      posY === undefined ||
-      posZ === undefined
-    ) {
-      continue
-    }
+          // Apply gravity
+          const newDy = isGrounded ? velocity.dy : Math.max(-TERMINAL_VELOCITY, velocity.dy - gravity.value * deltaTime)
 
-    // Apply gravity
-    const newDy = isGrounded ? dy : Math.max(-TERMINAL_VELOCITY, dy - grav * deltaTime)
+          // Apply friction
+          let newDx = velocity.dx
+          let newDz = velocity.dz
+          if (isGrounded) {
+            newDx *= FRICTION
+            newDz *= FRICTION
+          }
 
-    // Apply friction
-    let newDx = dx
-    let newDz = dz
-    if (isGrounded) {
-      newDx *= FRICTION
-      newDz *= FRICTION
-    }
+          // Update velocity component
+          yield* _(
+            world.updateComponent(entityId, 'velocity', {
+              ...velocity,
+              dx: newDx,
+              dy: newDy,
+              dz: newDz,
+            }),
+          )
 
-    // Update velocity component store
-    velocity.dx[i] = newDx
-    velocity.dy[i] = newDy
-    velocity.dz[i] = newDz
-
-    // Update position
-    position.x[i] = posX + newDx * deltaTime
-    position.y[i] = posY + newDy * deltaTime
-    position.z[i] = posZ + newDz * deltaTime
-  }
+          // Update position
+          yield* _(
+            world.updateComponent(entityId, 'position', {
+              ...position,
+              x: position.x + newDx * deltaTime,
+              y: position.y + newDy * deltaTime,
+              z: position.z + newDz * deltaTime,
+            }),
+          )
+        }),
+      { discard: true },
+    ),
+  )
 })

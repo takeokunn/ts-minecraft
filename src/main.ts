@@ -2,14 +2,14 @@ import { Effect, Layer, Option, Ref, HashSet } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
 import { Hotbar, Position } from '@/domain/components'
 import { SystemCommand } from '@/domain/types'
-import { ComputationWorkerTag, ComputationWorkerLive, type ComputationWorker } from '@/infrastructure/computation.worker'
-import { InputManager, InputManagerLive } from '@/infrastructure/input-browser'
-import { MaterialManager, MaterialManagerLive } from '@/infrastructure/material-manager'
+import { ComputationWorkerTag, ComputationWorkerLive } from '@/infrastructure/computation.worker'
+import { InputManagerLive } from '@/infrastructure/input-browser'
+import { MaterialManagerLive } from '@/infrastructure/material-manager'
 import { RendererLive } from '@/infrastructure/renderer-three'
-import { ThreeCameraService, ThreeCameraLive } from '@/infrastructure/camera-three'
+import { ThreeCameraLive } from '@/infrastructure/camera-three'
 import { ThreeContextLive } from '@/infrastructure/renderer-three/context'
-import { RaycastService, RaycastServiceLive } from '@/infrastructure/raycast-three'
-import { SpatialGrid, SpatialGridLive } from '@/infrastructure/spatial-grid'
+import { RaycastServiceLive } from '@/infrastructure/raycast-three'
+import { SpatialGridLive } from '@/infrastructure/spatial-grid'
 import { gameLoop } from '@/runtime/loop'
 import {
   ChunkDataQueueService,
@@ -34,29 +34,13 @@ import {
   worldUpdateSystem,
 } from '@/systems'
 
-type SystemRequirements =
-  | World
-  | InputManager
-  | OnCommand
-  | SpatialGrid
-  | typeof DeltaTime
-  | typeof RaycastResultService
-  | typeof ThreeContextService
-  | RaycastService
-  | typeof ChunkDataQueueService
-  | typeof RenderQueueService
-  | ComputationWorker
-  | MaterialManager
-  | typeof RendererService
-  | ThreeCameraService
-
 const main = Effect.gen(function* ($) {
   const world = yield* $(World)
-  yield* $(world.createEntity(createArchetype({ type: 'player', pos: new Position({ x: 0, y: 20, z: 0 }) })))
+  yield* $(world.addArchetype(createArchetype({ type: 'player', pos: new Position({ x: 0, y: 20, z: 0 }) })))
 
   const hotbarUpdater = (_hotbar: Hotbar) => Effect.void
 
-  const systems: ReadonlyArray<Effect.Effect<void, never, SystemRequirements>> = [
+  const systems = [
     inputPollingSystem,
     cameraControlSystem,
     playerMovementSystem,
@@ -80,14 +64,7 @@ const AppLayer = (rootElement: HTMLElement) => {
     Layer.merge(Layer.succeed(ChunkDataQueueService, [])),
     Layer.merge(Layer.succeed(RenderQueueService, [])),
   )
-  const baseServices = Layer.mergeAll(
-    WorldLive,
-    InputManagerLive,
-    ComputationWorkerLive,
-    MaterialManagerLive,
-    RaycastServiceLive,
-    SpatialGridLive,
-  )
+  const baseServices = Layer.mergeAll(WorldLive, InputManagerLive, ComputationWorkerLive, MaterialManagerLive, RaycastServiceLive, SpatialGridLive)
 
   // Services with dependencies
   const threeContextLayer = ThreeContextLive(rootElement)

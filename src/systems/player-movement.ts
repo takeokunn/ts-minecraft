@@ -56,59 +56,49 @@ export const applyDeceleration = (velocity: Pick<Velocity, 'dx' | 'dz'>): Pick<V
 
 export const playerMovementSystem = Effect.gen(function* (_) {
   const world = yield* _(World)
-  const { entities, player, inputState, velocity, cameraState } = yield* _(world.querySoA(playerMovementQuery))
+  const players = yield* _(world.query(playerMovementQuery))
 
-  for (let i = 0; i < entities.length; i++) {
-    const isGrounded = player.isGrounded[i]
-    const jumpPressed = inputState.jump[i]
-    const currentDy = velocity.dy[i]
-    const forward = inputState.forward[i]
-    const backward = inputState.backward[i]
-    const left = inputState.left[i]
-    const right = inputState.right[i]
-    const sprint = inputState.sprint[i]
-    const yaw = cameraState.yaw[i]
-    const currentDx = velocity.dx[i]
-    const currentDz = velocity.dz[i]
+  yield* _(
+    Effect.forEach(
+      players,
+      (p) =>
+        Effect.gen(function* (_) {
+          const { entityId, player, inputState, velocity, cameraState } = p
+          const { isGrounded } = player
+          const { jump: jumpPressed, forward, backward, left, right, sprint } = inputState
+          const { dy: currentDy, dx: currentDx, dz: currentDz } = velocity
+          const { yaw } = cameraState
 
-    if (
-      isGrounded === undefined ||
-      jumpPressed === undefined ||
-      currentDy === undefined ||
-      forward === undefined ||
-      backward === undefined ||
-      left === undefined ||
-      right === undefined ||
-      sprint === undefined ||
-      yaw === undefined ||
-      currentDx === undefined ||
-      currentDz === undefined
-    ) {
-      continue
-    }
+          const { newDy, newIsGrounded } = calculateVerticalVelocity(isGrounded, jumpPressed, currentDy)
 
-    const { newDy, newIsGrounded } = calculateVerticalVelocity(isGrounded, jumpPressed, currentDy)
+          const hasHorizontalInput = forward || backward || left || right
 
-    const hasHorizontalInput = forward || backward || left || right
+          const { dx, dz } = match(hasHorizontalInput)
+            .with(true, () =>
+              calculateHorizontalVelocity(
+                {
+                  forward,
+                  backward,
+                  left,
+                  right,
+                  sprint,
+                },
+                { yaw },
+              ),
+            )
+            .otherwise(() => applyDeceleration({ dx: currentDx, dz: currentDz }))
 
-    const { dx, dz } = match(hasHorizontalInput)
-      .with(true, () =>
-        calculateHorizontalVelocity(
-          {
-            forward,
-            backward,
-            left,
-            right,
-            sprint,
-          },
-          { yaw },
-        ),
-      )
-      .otherwise(() => applyDeceleration({ dx: currentDx, dz: currentDz }))
-
-    velocity.dx[i] = dx
-    velocity.dy[i] = newDy
-    velocity.dz[i] = dz
-    player.isGrounded[i] = newIsGrounded
-  }
+          yield* _(
+            world.updateComponent(entityId, 'velocity', {
+              ...velocity,
+              dx,
+              dy: newDy,
+              dz,
+            }),
+          )
+          yield* _(world.updateComponent(entityId, 'player', { ...player, isGrounded: newIsGrounded }))
+        }),
+      { discard: true },
+    ),
+  )
 })
