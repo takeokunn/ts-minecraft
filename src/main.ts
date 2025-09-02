@@ -11,13 +11,7 @@ import { ThreeContextLive } from '@/infrastructure/renderer-three/context'
 import { RaycastServiceLive } from '@/infrastructure/raycast-three'
 import { SpatialGridLive } from '@/infrastructure/spatial-grid'
 import { gameLoop } from '@/runtime/loop'
-import {
-  ChunkDataQueueService,
-  OnCommand,
-  RaycastResultService,
-  RenderQueueService,
-  DeltaTime,
-} from '@/runtime/services'
+import { ChunkDataQueueService, OnCommand, RaycastResultService, RenderQueueService, DeltaTime } from '@/runtime/services'
 import { World, WorldLive } from '@/runtime/world'
 import {
   blockInteractionSystem,
@@ -59,30 +53,31 @@ const main = Effect.gen(function* ($) {
 })
 
 const AppLayer = (rootElement: HTMLElement) => {
-  // Independent services
   const statefulServices = Layer.succeed(RaycastResultService, Ref.unsafeMake(Option.none())).pipe(
     Layer.merge(Layer.succeed(ChunkDataQueueService, [])),
     Layer.merge(Layer.succeed(RenderQueueService, [])),
   )
-  const baseServices = Layer.mergeAll(WorldLive, InputManagerLive, ComputationWorkerLive, MaterialManagerLive, RaycastServiceLive, SpatialGridLive)
 
-  // Services with dependencies
+  const baseServices = Layer.mergeAll(
+    WorldLive,
+    InputManagerLive,
+    ComputationWorkerLive,
+    MaterialManagerLive,
+    RaycastServiceLive,
+    SpatialGridLive,
+  )
+
   const threeContextLayer = ThreeContextLive(rootElement)
-  const threeCameraLayer = ThreeCameraLive(rootElement) // Depends on ThreeContext
+  const threeCameraLayer = ThreeCameraLive(rootElement)
 
-  // Combine context and camera layers
-  const threeServices = Layer.merge(threeContextLayer, Layer.provide(threeCameraLayer, threeContextLayer))
+  const base = Layer.mergeAll(statefulServices, baseServices, threeContextLayer)
 
-  // Combine all services that Renderer depends on
-  const rendererDependencies = Layer.mergeAll(statefulServices, baseServices, threeServices)
+  const withCamera = Layer.provideMerge(threeCameraLayer, base)
+  const withRenderer = Layer.provideMerge(RendererLive, withCamera)
 
-  const rendererLayer = RendererLive // Depends on rendererDependencies
-
-  // Combine the dependencies with the renderer itself
-  const fullLayer = Layer.merge(rendererDependencies, Layer.provide(rendererLayer, rendererDependencies))
-
-  return fullLayer
+  return withRenderer
 }
+
 // --- Bootstrap ---
 document.addEventListener('DOMContentLoaded', () => {
   const rootElement = document.getElementById('app')
@@ -115,13 +110,13 @@ document.addEventListener('DOMContentLoaded', () => {
       )
   })
 
-  const onCommandLayer = Layer.effect(OnCommand, onCommandEffect)
   const baseAppLayer = AppLayer(rootElement)
+  const onCommandLayer = Layer.effect(OnCommand, onCommandEffect)
 
-  const combinedLayer = Layer.merge(baseAppLayer, Layer.provide(onCommandLayer, baseAppLayer))
+  const appLayer = Layer.provideMerge(onCommandLayer, baseAppLayer)
 
   const deltaTimeLayer = Layer.succeed(DeltaTime, 0)
-  const finalLayer = Layer.merge(combinedLayer, deltaTimeLayer)
+  const finalLayer = Layer.merge(appLayer, deltaTimeLayer)
 
   const runnable = main.pipe(Effect.provide(finalLayer))
   Effect.runFork(runnable)

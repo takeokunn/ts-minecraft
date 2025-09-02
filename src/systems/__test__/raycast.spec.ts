@@ -7,6 +7,7 @@ import { RaycastResultService, ThreeContextService } from '@/runtime/services'
 import { RaycastResult, RaycastService } from '@/infrastructure/raycast-three'
 import { EntityId } from '@/domain/entity'
 import { ThreeContext } from '@/infrastructure/types'
+import * as THREE from 'three'
 
 const mockRaycastResult = (result: Option.Option<RaycastResult>) =>
   Layer.succeed(
@@ -34,7 +35,7 @@ describe('raycastSystem', () => {
     const newResult: RaycastResult = {
       entityId: 1 as EntityId,
       face: { x: 0, y: 1, z: 0 },
-      intersection: { x: 0, y: 0, z: 0 },
+      intersection: {} as THREE.Intersection,
     }
     const MockRaycast = mockRaycastResult(Option.some(newResult))
 
@@ -55,7 +56,7 @@ describe('raycastSystem', () => {
     const initialResult: RaycastResult = {
       entityId: 1 as EntityId,
       face: { x: 0, y: 1, z: 0 },
-      intersection: { x: 0, y: 0, z: 0 },
+      intersection: {} as THREE.Intersection,
     }
     const raycastResultRef = Ref.unsafeMake(Option.some(initialResult))
     const MockRaycastResult = Layer.succeed(RaycastResultService, raycastResultRef)

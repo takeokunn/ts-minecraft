@@ -11,10 +11,8 @@ const MockInputManager = (keyboard: Set<string>, isLocked: boolean) =>
     InputManagerService.of({
       getState: Effect.succeed({ keyboard, isLocked, mouse: { dx: 0, dy: 0 } }),
       getMouseDelta: Effect.succeed({ dx: 0, dy: 0 }),
-      registerListeners: Effect.void,
+      registerListeners: () => Effect.void,
       cleanup: Effect.void,
-      lock: Effect.void,
-      unlock: Effect.void,
     }),
   )
 

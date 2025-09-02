@@ -54,13 +54,12 @@ export const collisionSystem = Effect.gen(function* (_) {
     let isGrounded = false
 
     // Y-axis
-    newPosY += newVelY
     let playerAABB = createAABB({ x: newPosX, y: newPosY, z: newPosZ }, { width: colW, height: colH, depth: colD })
     for (const blockAABB of nearbyAABBs) {
       if (areAABBsIntersecting(playerAABB, blockAABB)) {
-        if (newVelY > 0) {
+        if (velY > 0) {
           newPosY = blockAABB.minY - colH
-        } else {
+        } else if (velY < 0) {
           newPosY = blockAABB.maxY
           isGrounded = true
         }
@@ -70,13 +69,12 @@ export const collisionSystem = Effect.gen(function* (_) {
     }
 
     // X-axis
-    newPosX += newVelX
     playerAABB = createAABB({ x: newPosX, y: newPosY, z: newPosZ }, { width: colW, height: colH, depth: colD })
     for (const blockAABB of nearbyAABBs) {
       if (areAABBsIntersecting(playerAABB, blockAABB)) {
-        if (newVelX > 0) {
+        if (velX > 0) {
           newPosX = blockAABB.minX - colW / 2
-        } else {
+        } else if (velX < 0) {
           newPosX = blockAABB.maxX + colW / 2
         }
         newVelX = 0
@@ -85,13 +83,12 @@ export const collisionSystem = Effect.gen(function* (_) {
     }
 
     // Z-axis
-    newPosZ += newVelZ
     playerAABB = createAABB({ x: newPosX, y: newPosY, z: newPosZ }, { width: colW, height: colH, depth: colD })
     for (const blockAABB of nearbyAABBs) {
       if (areAABBsIntersecting(playerAABB, blockAABB)) {
-        if (newVelZ > 0) {
+        if (velZ > 0) {
           newPosZ = blockAABB.minZ - colD / 2
-        } else {
+        } else if (velZ < 0) {
           newPosZ = blockAABB.maxZ + colD / 2
         }
         newVelZ = 0

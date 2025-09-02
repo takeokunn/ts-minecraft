@@ -42,7 +42,8 @@ describe('collisionSystem', () => {
   it('should resolve collision with ground', async () => {
     const program = Effect.gen(function* (_) {
       const world = yield* _(World)
-      const { playerId, blockId } = yield* _(setupWorld({ x: 0, y: 0, z: 0 }, { dx: 0, dy: -1, dz: 0 }))
+      // Player is already intersecting with the ground block
+      const { playerId, blockId } = yield* _(setupWorld({ x: 0, y: -0.5, z: 0 }, { dx: 0, dy: -1, dz: 0 }))
 
       const MockSpatialGridLayer = Layer.succeed(SpatialGridService, new MockSpatialGrid([playerId, blockId]))
       const system = collisionSystem.pipe(Effect.provide(MockSpatialGridLayer))
@@ -50,7 +51,7 @@ describe('collisionSystem', () => {
       yield* _(system)
 
       const player = (yield* _(world.query(playerColliderQuery)))[0]!
-      expect(player.position.y).toBe(0) // block y is -1, block height is 1, player height is 2. so player pos y should be 0
+      expect(player.position.y).toBe(0) // block y is -1, block height is 1. player pos y should be 0
       expect(player.velocity.dy).toBe(0)
       expect(player.player.isGrounded).toBe(true)
     })
@@ -61,7 +62,8 @@ describe('collisionSystem', () => {
   it('should resolve collision with a wall on the X axis', async () => {
     const program = Effect.gen(function* (_) {
       const world = yield* _(World)
-      const { playerId, blockId } = yield* _(setupWorld({ x: 0.6, y: 0, z: 0 }, { dx: 1, dy: 0, dz: 0 }))
+      // Player is already intersecting with the wall
+      const { playerId, blockId } = yield* _(setupWorld({ x: 1.7, y: 0, z: 0 }, { dx: 1, dy: 0, dz: 0 }))
       yield* _(world.updateComponent(blockId, 'position', { x: 2, y: 0, z: 0 }))
 
       const MockSpatialGridLayer = Layer.succeed(SpatialGridService, new MockSpatialGrid([playerId, blockId]))
@@ -70,7 +72,7 @@ describe('collisionSystem', () => {
       yield* _(system)
 
       const player = (yield* _(world.query(playerColliderQuery)))[0]!
-      expect(player.position.x).toBeLessThan(2 - 0.5 / 2)
+      expect(player.position.x).toBe(1.2)
       expect(player.velocity.dx).toBe(0)
     })
 
@@ -80,7 +82,8 @@ describe('collisionSystem', () => {
   it('should resolve collision with a wall on the Z axis', async () => {
     const program = Effect.gen(function* (_) {
       const world = yield* _(World)
-      const { playerId, blockId } = yield* _(setupWorld({ x: 0, y: 0, z: 0.6 }, { dx: 0, dy: 0, dz: 1 }))
+      // Player is already intersecting with the wall
+      const { playerId, blockId } = yield* _(setupWorld({ x: 0, y: 0, z: 1.7 }, { dx: 0, dy: 0, dz: 1 }))
       yield* _(world.updateComponent(blockId, 'position', { x: 0, y: 0, z: 2 }))
 
       const MockSpatialGridLayer = Layer.succeed(SpatialGridService, new MockSpatialGrid([playerId, blockId]))
@@ -89,7 +92,7 @@ describe('collisionSystem', () => {
       yield* _(system)
 
       const player = (yield* _(world.query(playerColliderQuery)))[0]!
-      expect(player.position.z).toBeLessThan(2 - 0.5 / 2)
+      expect(player.position.z).toBe(1.2)
       expect(player.velocity.dz).toBe(0)
     })
 

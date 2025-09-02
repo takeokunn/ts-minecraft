@@ -2,6 +2,7 @@ import * as HashMap from 'effect/HashMap'
 import * as HashSet from 'effect/HashSet'
 import * as Option from 'effect/Option'
 import * as ReadonlyRecord from 'effect/Record'
+import * as S from 'effect/Schema'
 import { BlockType } from '@/domain/block'
 import { Archetype } from '@/domain/archetypes'
 import { ComponentName, Components, ComponentSchemas } from '@/domain/components'
@@ -257,14 +258,13 @@ export const querySoA = <T extends ReadonlyArray<ComponentName>>(world: World, q
 
   for (const componentName of queryDef.components) {
     const componentSchema = ComponentSchemas[componentName]
-    const typeLiteral = componentSchema.ast
-    const props = typeLiteral._tag === 'TypeLiteral' ? typeLiteral.propertySignatures : []
-    const propKeys = props.map((p: any) => p.key)
+    const props = S.getPropertySignatures(componentSchema)
+    const propKeys = props.map((p) => p.key)
 
     if (propKeys.length > 0) {
       const soaStore: any = {}
       for (const key of propKeys) {
-        soaStore[key] = new Array(matchingEntities.length)
+        soaStore[key] = Array.from({ length: matchingEntities.length })
       }
 
       matchingEntities.forEach((entityId, i) => {

@@ -10,10 +10,8 @@ const MockInputManager = Layer.succeed(
   InputManagerService.of({
     getState: Effect.succeed({ keyboard: new Set(), isLocked: true, mouse: { dx: 0, dy: 0 } }),
     getMouseDelta: Effect.succeed({ dx: 100, dy: 200 }),
-    registerListeners: Effect.void,
+    registerListeners: () => Effect.void,
     cleanup: Effect.void,
-    lock: Effect.void,
-    unlock: Effect.void,
   }),
 )
 
@@ -58,10 +56,8 @@ describe('cameraControlSystem', () => {
       InputManagerService.of({
         getState: Effect.succeed({ keyboard: new Set(), isLocked: true, mouse: { dx: 0, dy: 0 } }),
         getMouseDelta: Effect.succeed({ dx: 0, dy: 0 }),
-        registerListeners: Effect.void,
+        registerListeners: () => Effect.void,
         cleanup: Effect.void,
-        lock: Effect.void,
-        unlock: Effect.void,
       }),
     )
 

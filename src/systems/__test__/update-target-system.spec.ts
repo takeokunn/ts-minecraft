@@ -8,6 +8,7 @@ import { RaycastResult } from '@/infrastructure/raycast-three'
 import { EntityId } from '@/domain/entity'
 import { TargetBlock } from '@/domain/components'
 import { playerTargetQuery } from '@/domain/queries'
+import * as THREE from 'three'
 
 const setupWorld = Effect.gen(function* (_) {
   const world = yield* _(World)
@@ -23,7 +24,7 @@ describe('updateTargetSystem', () => {
     const raycastResult: RaycastResult = {
       entityId: 1 as EntityId,
       face: { x: 0, y: 1, z: 0 },
-      intersection: { x: 0, y: 0, z: 0 },
+      intersection: {} as THREE.Intersection,
     }
     const raycastResultRef = Ref.unsafeMake(Option.some(raycastResult))
     const MockRaycastResult = Layer.succeed(RaycastResultService, raycastResultRef)

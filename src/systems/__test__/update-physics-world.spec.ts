@@ -8,11 +8,24 @@ import { SpatialGrid } from '@/infrastructure/spatial-grid'
 import { EntityId } from '@/domain/entity'
 import { AABB } from '@/domain/geometry'
 
-class MockSpatialGrid implements SpatialGrid {
-  state = Ref.unsafeMake(HashMap.empty<string, HashSet.HashSet<EntityId>>())
-  register = vi.fn((_entityId: EntityId, _aabb: AABB) => Effect.void)
-  query = (_aabb: AABB) => Effect.succeed([] as ReadonlyArray<EntityId>)
-  clear = vi.fn(() => Effect.void)
+const createMockSpatialGrid = () => {
+  const registerFn = vi.fn((_entityId: EntityId, _aabb: AABB) => Effect.void)
+  const clearFn = vi.fn()
+
+  const mock: SpatialGrid = {
+    state: Ref.unsafeMake(HashMap.empty<string, HashSet.HashSet<EntityId>>()),
+    register: registerFn,
+    query: (_aabb: AABB) => Effect.succeed([] as ReadonlyArray<EntityId>),
+    clear: Effect.sync(clearFn),
+  }
+
+  return {
+    mock,
+    spies: {
+      register: registerFn,
+      clear: clearFn,
+    },
+  }
 }
 
 const setupWorld = Effect.gen(function* (_) {
@@ -27,7 +40,7 @@ const setupWorld = Effect.gen(function* (_) {
 
 describe('updatePhysicsWorldSystem', () => {
   it('should clear the spatial grid and register all colliders', async () => {
-    const mockSpatialGrid = new MockSpatialGrid()
+    const { mock: mockSpatialGrid, spies } = createMockSpatialGrid()
     const MockSpatialGridLayer = Layer.succeed(SpatialGridService, mockSpatialGrid)
 
     const program = Effect.gen(function* (_) {
@@ -37,7 +50,7 @@ describe('updatePhysicsWorldSystem', () => {
 
     await Effect.runPromise(Effect.provide(program, Layer.merge(WorldLive, MockSpatialGridLayer)))
 
-    expect(mockSpatialGrid.clear).toHaveBeenCalledOnce()
-    expect(mockSpatialGrid.register).toHaveBeenCalledOnce()
+    expect(spies.clear).toHaveBeenCalledOnce()
+    expect(spies.register).toHaveBeenCalledOnce()
   })
 })
