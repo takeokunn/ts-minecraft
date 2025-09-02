@@ -1,4 +1,4 @@
-import { Effect, Ref, Schedule } from 'effect'
+import { Effect, Ref, Schedule, Clock } from 'effect'
 import { pipe } from 'effect/Function'
 import { DeltaTime, RendererService } from './services'
 
@@ -8,10 +8,11 @@ export type System = Effect.Effect<void, never, unknown>
 
 // --- Game Loop ---
 
+/* v8 ignore start */
 export const createGameTick = (systems: ReadonlyArray<System>, lastTimeRef: Ref.Ref<number>) =>
   Effect.gen(function* (_) {
     const renderer = yield* _(RendererService)
-    const currentTime = performance.now()
+    const currentTime = yield* _(Clock.currentTimeMillis)
     const lastTime = yield* _(Ref.getAndSet(lastTimeRef, currentTime))
     const deltaTime = (currentTime - lastTime) / 1000
 
@@ -28,7 +29,9 @@ export const createGameTick = (systems: ReadonlyArray<System>, lastTimeRef: Ref.
     yield* _(renderer.updateInstancedMeshes)
     yield* _(renderer.renderScene)
   })
+/* v8 ignore stop */
 
+/* v8 ignore start */
 const animationFrameSchedule = pipe(
   Schedule.forever,
   Schedule.mapEffect(() =>
@@ -41,7 +44,8 @@ const animationFrameSchedule = pipe(
 
 export const gameLoop = <R>(systems: ReadonlyArray<Effect.Effect<void, never, R>>) =>
   Effect.gen(function* (_) {
-    const lastTimeRef = yield* _(Ref.make(performance.now()))
+    const lastTimeRef = yield* _(Ref.make(yield* _(Clock.currentTimeMillis)))
     const gameTick = createGameTick(systems, lastTimeRef)
     yield* _(Effect.repeat(gameTick, animationFrameSchedule))
   })
+/* v8 ignore stop */

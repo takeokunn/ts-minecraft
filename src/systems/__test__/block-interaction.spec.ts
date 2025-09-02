@@ -69,6 +69,96 @@ describe('blockInteractionSystem', () => {
       // @ts-expect-error R a is not assignable to never
       await Effect.runPromise(Effect.provide(program, TestLayer))
     })
+
+    it('should do nothing if target block has no position', async () => {
+      const program = Effect.gen(function* (_) {
+        const world = yield* _(World)
+        const { blockId } = yield* _(setupWorld)
+        const players = yield* _(world.query(playerTargetQuery))
+        const player = players[0]!
+
+        // Manually remove the position component to trigger the guard clause
+        yield* _(
+          world.update((w) => {
+            const newPositionMap = new Map(w.components.position)
+            newPositionMap.delete(blockId)
+            return {
+              ...w,
+              components: {
+                ...w.components,
+                position: newPositionMap,
+              },
+            }
+          }),
+        )
+        const initialWorldState = yield* _(world.state.get)
+
+        if (player && player.target._tag === 'block') {
+          yield* _(handleDestroyBlock(player as PlayerQueryResult))
+        }
+
+        const finalWorldState = yield* _(world.state.get)
+        expect(finalWorldState).toEqual(initialWorldState)
+      })
+
+      // @ts-expect-error R a is not assignable to never
+      await Effect.runPromise(Effect.provide(program, TestLayer))
+    })
+
+    it('should do nothing if target is not a block', async () => {
+      const program = Effect.gen(function* (_) {
+        const world = yield* _(World)
+        const { playerId } = yield* _(setupWorld)
+        yield* _(world.updateComponent(playerId, 'target', createTargetNone()))
+        const players = yield* _(world.query(playerTargetQuery))
+        const player = players[0]!
+        const initialWorldState = yield* _(world.state.get)
+
+        if (player) {
+          yield* _(handleDestroyBlock(player as PlayerQueryResult))
+        }
+
+        const finalWorldState = yield* _(world.state.get)
+        expect(finalWorldState).toEqual(initialWorldState)
+      })
+      // @ts-expect-error R a is not assignable to never
+      await Effect.runPromise(Effect.provide(program, TestLayer))
+    })
+
+    it('should do nothing if target block has no position', async () => {
+      const program = Effect.gen(function* (_) {
+        const world = yield* _(World)
+        const { blockId } = yield* _(setupWorld)
+        const players = yield* _(world.query(playerTargetQuery))
+        const player = players[0]!
+
+        // Manually remove the position component to trigger the guard clause
+        yield* _(
+          world.update((w) => {
+            const newPositionMap = new Map(w.components.position)
+            newPositionMap.delete(blockId)
+            return {
+              ...w,
+              components: {
+                ...w.components,
+                position: newPositionMap,
+              },
+            }
+          }),
+        )
+        const initialWorldState = yield* _(world.state.get)
+
+        if (player && player.target._tag === 'block') {
+          yield* _(handleDestroyBlock(player as PlayerQueryResult))
+        }
+
+        const finalWorldState = yield* _(world.state.get)
+        expect(finalWorldState).toEqual(initialWorldState)
+      })
+
+      // @ts-expect-error R a is not assignable to never
+      await Effect.runPromise(Effect.provide(program, TestLayer))
+    })
   })
 
   describe('handlePlaceBlock', () => {
@@ -106,6 +196,60 @@ describe('blockInteractionSystem', () => {
 
         const newPlayerInput = yield* _(world.getComponent(playerId, 'inputState'))
         expect(newPlayerInput.pipe(Option.map((s) => s.place)).pipe(Option.getOrThrow)).toBe(false)
+      })
+      // @ts-expect-error R a is not assignable to never
+      await Effect.runPromise(Effect.provide(program, TestLayer))
+    })
+
+    it('should do nothing if target is not a block', async () => {
+      const program = Effect.gen(function* (_) {
+        const world = yield* _(World)
+        const { playerId } = yield* _(setupWorld)
+        yield* _(world.updateComponent(playerId, 'target', createTargetNone()))
+        const players = yield* _(world.query(playerTargetQuery))
+        const player = players[0]!
+        const initialWorldState = yield* _(world.state.get)
+
+        if (player) {
+          yield* _(handlePlaceBlock(player as PlayerQueryResult))
+        }
+
+        const finalWorldState = yield* _(world.state.get)
+        expect(finalWorldState).toEqual(initialWorldState)
+      })
+      // @ts-expect-error R a is not assignable to never
+      await Effect.runPromise(Effect.provide(program, TestLayer))
+    })
+
+    it('should do nothing if target block has no position', async () => {
+      const program = Effect.gen(function* (_) {
+        const world = yield* _(World)
+        const { blockId } = yield* _(setupWorld)
+        const players = yield* _(world.query(playerTargetQuery))
+        const player = players[0]!
+
+        // Manually remove the position component to trigger the guard clause
+        yield* _(
+          world.update((w) => {
+            const newPositionMap = new Map(w.components.position)
+            newPositionMap.delete(blockId)
+            return {
+              ...w,
+              components: {
+                ...w.components,
+                position: newPositionMap,
+              },
+            }
+          }),
+        )
+        const initialWorldState = yield* _(world.state.get)
+
+        if (player && player.target._tag === 'block') {
+          yield* _(handlePlaceBlock(player as PlayerQueryResult))
+        }
+
+        const finalWorldState = yield* _(world.state.get)
+        expect(finalWorldState).toEqual(initialWorldState)
       })
       // @ts-expect-error R a is not assignable to never
       await Effect.runPromise(Effect.provide(program, TestLayer))

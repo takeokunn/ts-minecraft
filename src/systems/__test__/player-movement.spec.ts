@@ -86,18 +86,35 @@ describe('playerMovementSystem', () => {
       },
     )
 
-    test.prop([fc.record({ dx: safeDouble(), dz: safeDouble() })])('applyDeceleration', (velocity) => {
-      const { dx, dz } = applyDeceleration(velocity)
-      if (Math.abs(velocity.dx) < MIN_VELOCITY_THRESHOLD) {
-        expect(dx).toBe(0)
-      } else {
-        expect(Math.abs(dx)).toBeLessThan(Math.abs(velocity.dx))
-      }
-      if (Math.abs(velocity.dz) < MIN_VELOCITY_THRESHOLD) {
-        expect(dz).toBe(0)
-      } else {
-        expect(Math.abs(dz)).toBeLessThan(Math.abs(velocity.dz))
-      }
+    describe('applyDeceleration', () => {
+      test.prop([fc.record({ dx: fc.double(), dz: fc.double() })])('should decelerate finite velocities', (velocity) => {
+        const { dx, dz } = applyDeceleration(velocity)
+
+        if (!Number.isFinite(velocity.dx)) {
+          expect(dx).toBe(0)
+        } else if (Math.abs(velocity.dx) < MIN_VELOCITY_THRESHOLD) {
+          expect(dx).toBe(0)
+        } else {
+          expect(Math.abs(dx)).toBeLessThan(Math.abs(velocity.dx))
+        }
+
+        if (!Number.isFinite(velocity.dz)) {
+          expect(dz).toBe(0)
+        } else if (Math.abs(velocity.dz) < MIN_VELOCITY_THRESHOLD) {
+          expect(dz).toBe(0)
+        } else {
+          expect(Math.abs(dz)).toBeLessThan(Math.abs(velocity.dz))
+        }
+      })
+
+      it('should handle non-finite values', () => {
+        expect(applyDeceleration({ dx: NaN, dz: 0 })).toEqual({ dx: 0, dz: 0 })
+        expect(applyDeceleration({ dx: 0, dz: NaN })).toEqual({ dx: 0, dz: 0 })
+        expect(applyDeceleration({ dx: Infinity, dz: 0 })).toEqual({ dx: 0, dz: 0 })
+        expect(applyDeceleration({ dx: 0, dz: Infinity })).toEqual({ dx: 0, dz: 0 })
+        expect(applyDeceleration({ dx: -Infinity, dz: 0 })).toEqual({ dx: 0, dz: 0 })
+        expect(applyDeceleration({ dx: 0, dz: -Infinity })).toEqual({ dx: 0, dz: 0 })
+      })
     })
   })
 

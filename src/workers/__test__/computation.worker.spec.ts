@@ -1,13 +1,11 @@
-import { describe, it, expect } from 'vitest'
-
+import * as ComputationWorker from '../computation.worker'
 import {
-  generateChunk,
   generateBlockData,
   generateGreedyMesh,
   createChunkDataView,
   getBlock,
 } from '../computation.worker'
-import type { GenerationParams } from '../../domain/types'
+import type { ComputationTask, GenerationParams } from '../../domain/types'
 import { PlacedBlock } from '../../domain/block'
 import { CHUNK_HEIGHT, CHUNK_SIZE, Y_OFFSET } from '../../domain/world-constants'
 import { Option } from 'effect'
@@ -147,7 +145,7 @@ describe('computation.worker', () => {
 
   describe('generateChunk', () => {
     it('should return blocks and a mesh', () => {
-      const result = generateChunk(defaultParams)
+      const result = ComputationWorker.generateChunk(defaultParams)
       expect(result.blocks).toBeInstanceOf(Array)
       expect(result.mesh.positions).toBeInstanceOf(Float32Array)
       expect(result.chunkX).toBe(defaultParams.chunkX)
@@ -171,8 +169,8 @@ describe('computation.worker', () => {
       }
 
       const runCheck = (params: GenerationParams) => {
-        const result1 = generateChunk(params)
-        const result2 = generateChunk(params)
+        const result1 = ComputationWorker.generateChunk(params)
+        const result2 = ComputationWorker.generateChunk(params)
         expect([...result1.blocks].sort(compareBlocks)).toEqual([...result2.blocks].sort(compareBlocks))
         expect(Array.from(result1.mesh.positions)).toEqual(Array.from(result2.mesh.positions))
       }
@@ -182,7 +180,7 @@ describe('computation.worker', () => {
     })
 
     it('should generate a snapshot for chunk (0,0)', () => {
-      const result = generateChunk(defaultParams)
+      const result = ComputationWorker.generateChunk(defaultParams)
       // Sanitize mesh data for snapshot
       const snapshotData = {
         ...result,
@@ -195,6 +193,66 @@ describe('computation.worker', () => {
         },
       }
       expect(snapshotData).toMatchSnapshot()
+    })
+  })
+
+  describe('messageHandler', () => {
+    const self = globalThis as any
+    let postMessageSpy: vi.SpyInstance
+
+    beforeEach(() => {
+      postMessageSpy = vi.fn()
+      self.postMessage = postMessageSpy
+    })
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should call generateChunk and postMessage on "generateChunk" task', () => {
+      const task: ComputationTask = {
+        type: 'generateChunk',
+        payload: defaultParams,
+      }
+      const event = { data: task } as MessageEvent<ComputationTask>
+
+      ComputationWorker.messageHandler(event)
+
+      expect(postMessageSpy).toHaveBeenCalledOnce()
+      const result = postMessageSpy.mock.calls[0][0]
+      const transfer = postMessageSpy.mock.calls[0][1]
+      expect(result.chunkX).toBe(defaultParams.chunkX)
+      expect(result.mesh).toBeDefined()
+      expect(transfer.transfer).toHaveLength(4)
+    })
+
+    it('should handle unknown task types and log an error', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const event = { data: { type: 'unknown' } } as MessageEvent<any>
+
+      ComputationWorker.messageHandler(event)
+
+      expect(postMessageSpy).not.toHaveBeenCalled()
+      expect(consoleErrorSpy).toHaveBeenCalledOnce()
+    })
+
+    it('should handle errors during chunk generation', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const error = new Error('Chunk generation failed')
+      vi.spyOn(ComputationWorker, 'generateChunk').mockImplementation(() => {
+        throw error
+      })
+
+      const task: ComputationTask = {
+        type: 'generateChunk',
+        payload: defaultParams,
+      }
+      const event = { data: task } as MessageEvent<ComputationTask>
+
+      ComputationWorker.messageHandler(event)
+
+      expect(postMessageSpy).not.toHaveBeenCalled()
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Error in computation worker:', error)
     })
   })
 })

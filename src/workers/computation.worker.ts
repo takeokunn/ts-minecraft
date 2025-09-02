@@ -1,4 +1,5 @@
 import { match } from 'ts-pattern'
+import * as selfWorker from './computation.worker'
 import { BlockType, FaceName, getUvForFace, isBlockTransparent, PlacedBlock, TILE_SIZE } from '../domain/block'
 import { ChunkGenerationResult, ComputationTask, GenerationParams } from '../domain/types'
 import { CHUNK_HEIGHT, CHUNK_SIZE, WATER_LEVEL, WORLD_DEPTH, Y_OFFSET } from '../domain/world-constants'
@@ -284,11 +285,11 @@ export const generateChunk = (params: GenerationParams): ChunkGenerationResult =
   }
 }
 
-const messageHandler = (e: MessageEvent<ComputationTask>) => {
+export const messageHandler = (e: MessageEvent<ComputationTask>) => {
   try {
     match(e.data)
       .with({ type: 'generateChunk' }, (task) => {
-        const result = generateChunk(task.payload)
+        const result = selfWorker.generateChunk(task.payload)
         const transferables = [result.mesh.positions.buffer, result.mesh.normals.buffer, result.mesh.uvs.buffer, result.mesh.indices.buffer]
         self.postMessage(result, { transfer: transferables })
       })

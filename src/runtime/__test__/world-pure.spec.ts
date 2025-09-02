@@ -1,11 +1,20 @@
 import * as fc from 'fast-check'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { Archetype, createArchetype } from '@/domain/archetypes'
-import { ComponentName, Position } from '@/domain/components'
+import { ComponentName, Components, Position, ComponentSchemas } from '@/domain/components'
 import { toEntityId } from '@/domain/entity'
 import { playerQuery, playerTargetQuery } from '@/domain/queries'
 import * as World from '../world-pure'
 import { Option } from 'effect'
+import * as S from 'effect/Schema'
+
+// Test-only component without a schema
+type NoSchemaComponent = { value: string }
+declare module '@/domain/components' {
+  interface Components {
+    noSchema: NoSchemaComponent
+  }
+}
 
 const archetypeGen = fc.constantFrom<Archetype>(
   createArchetype({ type: 'player', pos: new Position({ x: 0, y: 0, z: 0 }) }),
@@ -174,7 +183,7 @@ describe('world-pure', () => {
       const [, world3] = World.addArchetype(world2, blockArchetype)
       const [player2Id, world4] = World.addArchetype(world3, playerArchetype2)
 
-      const results = World.querySoA(world4, playerQuery)
+      const results = World.querySoA(world4, playerTargetQuery, ComponentSchemas)
 
       expect(results.entities.length).toBe(2)
       expect(results.entities).toContain(player1Id)
@@ -197,7 +206,7 @@ describe('world-pure', () => {
       const blockArchetype = createArchetype({ type: 'block', pos: new Position({ x: 1, y: 1, z: 1 }), blockType: 'grass' })
       const [, newWorld] = World.addArchetype(world, blockArchetype)
 
-      const results = World.querySoA(newWorld, playerQuery)
+      const results = World.querySoA(newWorld, playerQuery, ComponentSchemas)
       expect(results.entities.length).toBe(0)
       expect(results.player.isGrounded).toEqual([])
       expect(results.position.x).toEqual([])
@@ -206,12 +215,54 @@ describe('world-pure', () => {
       expect(results.velocity.dx).toEqual([])
     })
 
+    it('should handle components without a schema', () => {
+      // Monkey-patch the schema for this test
+      ;(ComponentSchemas as any).noSchema = S.Struct({ value: S.String })
+
+      let world = World.createWorld()
+      const archetype: Archetype = {
+        position: new Position({ x: 1, y: 2, z: 3 }),
+        noSchema: { value: 'test' },
+      }
+      const [entityId, newWorld] = World.addArchetype(world, archetype)
+      world = newWorld
+
+      const results = World.querySoA(world, { components: ['position', 'noSchema'] }, ComponentSchemas)
+      expect(results.entities).toEqual([entityId])
+      expect(results.position.x).toEqual([1])
+      expect((results as any).noSchema.value).toEqual(['test'])
+
+      // Clean up the monkey-patch
+      delete (ComponentSchemas as any).noSchema
+    })
+
+    it('should handle components with a schema that is not a TypeLiteral', () => {
+      // Monkey-patch the schema for this test
+      ;(ComponentSchemas as any).noSchema = S.string
+
+      let world = World.createWorld()
+      const archetype: Archetype = {
+        position: new Position({ x: 1, y: 2, z: 3 }),
+        noSchema: 'test-string',
+      }
+      const [entityId, newWorld] = World.addArchetype(world, archetype)
+      world = newWorld
+
+      const results = World.querySoA(world, { components: ['position', 'noSchema'] })
+      expect(results.entities).toEqual([entityId])
+      expect(results.position.x).toEqual([1])
+      expect((results as any).noSchema).toEqual(['test-string'])
+
+      // Clean up the monkey-patch
+      delete (ComponentSchemas as any).noSchema
+    })
+
     it('should handle union types correctly', () => {
       const world = World.createWorld()
       const playerArchetype = createArchetype({ type: 'player', pos: new Position({ x: 1, y: 2, z: 3 }) })
       const [_, newWorld] = World.addArchetype(world, playerArchetype)
 
-      const results = World.querySoA(newWorld, playerTargetQuery)
+      const results = World.querySoA(newWorld, playerTargetQuery, ComponentSchemas)
       expect(results.entities.length).toBe(1)
       expect(results.target).toBeDefined()
       const targetSoA = results.target as any

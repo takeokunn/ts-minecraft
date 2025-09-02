@@ -42,6 +42,12 @@ importers:
         specifier: '>=11.1.0'
         version: 11.1.0
     devDependencies:
+      '@effect/test':
+        specifier: ^0.1.0
+        version: 0.1.0
+      '@effect/vitest':
+        specifier: ^0.25.1
+        version: 0.25.1(effect@3.17.10)(vitest@3.2.4)
       '@fast-check/vitest':
         specifier: ^0.2.2
         version: 0.2.2(vitest@3.2.4)
@@ -165,6 +171,35 @@ packages:
 
   '@dimforge/rapier3d-compat@0.12.0':
     resolution: {integrity: sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow==}
+
+  '@effect/data@0.1.3':
+    resolution: {integrity: sha512-2z0DQ/rPa/cpZkc32PAFNeufD3Jdgdh9NE5b74CeBwr1JUyJOj2IdOLnGNjm+MAwua7+YiXGvJhupe3wrbFiSg==}
+    deprecated: this package has been merged into the main effect package
+
+  '@effect/data@0.2.0':
+    resolution: {integrity: sha512-1hSNjR0LX3zsGxCB8wykSNZ4OHXoA9NjeWlxgjmxcCOkYyMH+3exxJu/9GbkXt/35zaZE0KDFyMwfvrr20zRKw==}
+    deprecated: this package has been merged into the main effect package
+
+  '@effect/io@0.2.0':
+    resolution: {integrity: sha512-ILZc8+qO4CbIYef1KxU3IIXuZh+04I5IOh3xW0voT8tKuXSvXGeRf4wsBoxo6+HQwURfp8I7FVghPROwXRkbJw==}
+    deprecated: this package has been merged into the main effect package
+
+  '@effect/io@0.3.1':
+    resolution: {integrity: sha512-mcUWfA0eVNGklL9rx7pOAiRxd5TOmjJMxvBapb7fPiarYJCPJgvCPRxOi2mWb31buDN0Z9v3C8DE9KKLE8Yv3w==}
+    deprecated: this package has been merged into the main effect package
+
+  '@effect/stream@0.4.0':
+    resolution: {integrity: sha512-GLZyWoUIIwc7HszdhjWCcnIye8aRHElt8A0jvdO8z/XG0uaEFT5KDhXZ/3eihIQOZfFs5X74MVCQyMGloXAUMA==}
+    deprecated: this package has been merged into the main effect package
+
+  '@effect/test@0.1.0':
+    resolution: {integrity: sha512-50WbrMEt8jwqhPVXeIgfU18D2l17rtcpUhFQjF55caUnrv1bF1dI0nzeA5bgpQCYdpCjmQlEEDA26/J9DT2wIw==}
+
+  '@effect/vitest@0.25.1':
+    resolution: {integrity: sha512-OMYvOU8iGed8GZXxgVBXlYtjG+jwWj5cJxFk0hOHOfTbCHXtdCMEWlXNba5zxbE7dBnW4srbnSYrP/NGGTC3qQ==}
+    peerDependencies:
+      effect: ^3.17.7
+      vitest: ^3.2.0
 
   '@esbuild/aix-ppc64@0.25.9':
     resolution: {integrity: sha512-OaGtL73Jck6pBKjNIe24BnFE6agGl+6KxDtTfHhy1HmhthfKouEcOhqpSL64K4/0WCtbKFLOdzD/44cJ4k9opA==}
@@ -2057,6 +2092,34 @@ snapshots:
       node-source-walk: 7.0.1
 
   '@dimforge/rapier3d-compat@0.12.0': {}
+
+  '@effect/data@0.1.3': {}
+
+  '@effect/data@0.2.0': {}
+
+  '@effect/io@0.2.0':
+    dependencies:
+      '@effect/data': 0.1.3
+
+  '@effect/io@0.3.1':
+    dependencies:
+      '@effect/data': 0.2.0
+
+  '@effect/stream@0.4.0':
+    dependencies:
+      '@effect/data': 0.1.3
+      '@effect/io': 0.2.0
+
+  '@effect/test@0.1.0':
+    dependencies:
+      '@effect/data': 0.2.0
+      '@effect/io': 0.3.1
+      '@effect/stream': 0.4.0
+
+  '@effect/vitest@0.25.1(effect@3.17.10)(vitest@3.2.4)':
+    dependencies:
+      effect: 3.17.10
+      vitest: 3.2.4(@types/node@20.19.11)(@vitest/ui@3.2.4)(happy-dom@18.0.1)(jsdom@26.1.0)
 
   '@esbuild/aix-ppc64@0.25.9':
     optional: true

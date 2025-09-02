@@ -13,6 +13,8 @@
     "format": "prettier --write . --ignore-path .gitignore && oxlint --fix"
   },
   "devDependencies": {
+    "@effect/test": "^0.1.0",
+    "@effect/vitest": "^0.25.1",
     "@fast-check/vitest": "^0.2.2",
     "@types/file-saver": ">=2.0.7",
     "@types/three": ">=0.179.0",

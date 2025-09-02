@@ -126,5 +126,54 @@ describe('chunkLoadingSystem', () => {
       // @ts-expect-error R a is not assignable to never
       await Effect.runPromise(Effect.provide(program, Layer.merge(WorldLive, OnCommandLive)))
     })
+
+    it('should do nothing if no player exists', async () => {
+      const onCommand = vi.fn(() => Effect.void)
+      const OnCommandLive = Layer.succeed(OnCommand, onCommand)
+      const program = Effect.gen(function* (_) {
+        const world = yield* _(World)
+        const removeEntitySpy = vi.spyOn(world, 'removeEntity')
+        yield* _(chunkLoadingSystem)
+        expect(onCommand).not.toHaveBeenCalled()
+        expect(removeEntitySpy).not.toHaveBeenCalled()
+      })
+
+      // @ts-expect-error R a is not assignable to never
+      await Effect.runPromise(Effect.provide(program, Layer.merge(WorldLive, OnCommandLive)))
+    })
+
+    it('should do nothing if player position is undefined', async () => {
+      const onCommand = vi.fn(() => Effect.void)
+      const OnCommandLive = Layer.succeed(OnCommand, onCommand)
+      const program = Effect.gen(function* (_) {
+        const world = yield* _(World)
+        const playerArchetype = createArchetype({
+          type: 'player',
+          pos: { x: 1, y: 1, z: 1 },
+        })
+        const playerId = yield* _(world.addArchetype(playerArchetype))
+
+        // Manually set an invalid position
+        yield* _(
+          world.update((w) => {
+            const newPositionMap = new Map(w.components.position)
+            const playerPos = newPositionMap.get(playerId)
+            if (playerPos) {
+              // @ts-expect-error - Intentionally creating an invalid position for testing
+              newPositionMap.set(playerId, { ...playerPos, x: undefined })
+            }
+            return { ...w, components: { ...w.components, position: newPositionMap } }
+          }),
+        )
+
+        const removeEntitySpy = vi.spyOn(world, 'removeEntity')
+        yield* _(chunkLoadingSystem)
+        expect(onCommand).not.toHaveBeenCalled()
+        expect(removeEntitySpy).not.toHaveBeenCalled()
+      })
+
+      // @ts-expect-error R a is not assignable to never
+      await Effect.runPromise(Effect.provide(program, Layer.merge(WorldLive, OnCommandLive)))
+    })
   })
 })

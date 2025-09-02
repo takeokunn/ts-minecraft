@@ -4,15 +4,15 @@ import { Position, Collider } from '../components'
 import { createAABB, areAABBsIntersecting, getIntersectionDepth } from '../geometry'
 
 const positionArb = fc.record({
-  x: fc.float({ noNaN: true }),
-  y: fc.float({ noNaN: true }),
-  z: fc.float({ noNaN: true }),
+  x: fc.double({ noNaN: true }).filter((v) => Number.isFinite(v)),
+  y: fc.double({ noNaN: true }).filter((v) => Number.isFinite(v)),
+  z: fc.double({ noNaN: true }).filter((v) => Number.isFinite(v)),
 })
 
 const colliderArb = fc.record({
-  width: fc.float({ noNaN: true, min: 0 }),
-  height: fc.float({ noNaN: true, min: 0 }),
-  depth: fc.float({ noNaN: true, min: 0 }),
+  width: fc.double({ noNaN: true, min: 0 }).filter((v) => Number.isFinite(v)),
+  height: fc.double({ noNaN: true, min: 0 }).filter((v) => Number.isFinite(v)),
+  depth: fc.double({ noNaN: true, min: 0 }).filter((v) => Number.isFinite(v)),
 })
 
 describe('geometry', () => {

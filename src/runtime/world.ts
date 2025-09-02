@@ -4,7 +4,7 @@ import * as Layer from 'effect/Layer'
 import * as Option from 'effect/Option'
 import * as Ref from 'effect/Ref'
 import { Archetype } from '@/domain/archetypes'
-import { ComponentName, Components } from '@/domain/components'
+import { ComponentName, Components, ComponentSchemas } from '@/domain/components'
 import { EntityId } from '@/domain/entity'
 import { Query } from '@/domain/query'
 import {
@@ -67,7 +67,7 @@ export const WorldLive = Layer.effect(
     const query = <T extends ReadonlyArray<ComponentName>>(queryDef: Query) => Effect.map(Ref.get(worldStateRef), (world) => queryPure<T>(world, queryDef))
 
     const querySoA = <T extends ReadonlyArray<ComponentName>>(queryDef: Query) =>
-      Effect.map(Ref.get(worldStateRef), (world) => querySoAPure<T>(world, queryDef))
+      Effect.map(Ref.get(worldStateRef), (world) => querySoAPure<T>(world, queryDef, ComponentSchemas))
 
     return {
       state: worldStateRef,

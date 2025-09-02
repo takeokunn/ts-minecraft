@@ -6,6 +6,11 @@ import * as THREE from 'three'
 // Mock Three.js
 vi.mock('three', async () => {
   const actualThree = await vi.importActual('three')
+  class MockTexture {
+    _isMockTexture = true
+    colorSpace = ''
+    dispose() {}
+  }
   class MockMeshBasicMaterial {
     map: any
     constructor(params: { map: any }) {
@@ -13,8 +18,15 @@ vi.mock('three', async () => {
     }
     dispose() {}
   }
+
+  const MockTextureConstructor = vi.fn((...args) => new (MockTexture as any)(...args))
+  Object.defineProperty(MockTextureConstructor, Symbol.hasInstance, {
+    value: (instance: any) => !!instance?._isMockTexture,
+  })
+
   return {
     ...actualThree,
+    Texture: MockTextureConstructor,
     TextureLoader: vi.fn().mockImplementation(() => ({
       loadAsync: vi.fn(),
     })),
@@ -99,6 +111,32 @@ describe('MaterialManager', () => {
       const material2 = yield* _(Fiber.join(fiber2))
 
       expect(material1).toBe(material2)
+      expect(loadAsyncMock).toHaveBeenCalledTimes(1)
+    })
+
+    await Effect.runPromise(Effect.provide(program, MaterialManagerLive))
+  })
+
+  it('should dispose of materials and textures', async () => {
+    const texture = new THREE.Texture()
+    vi.spyOn(texture, 'dispose')
+    const material = new THREE.MeshBasicMaterial({ map: texture })
+    vi.spyOn(material, 'dispose')
+
+    loadAsyncMock.mockResolvedValue(texture)
+    mockedMeshBasicMaterial.mockReturnValue(material as any)
+
+    const program = Effect.gen(function* (_) {
+      const manager = yield* _(MaterialManager)
+      yield* _(manager.get('test.png')) // Load a material
+      yield* _(manager.dispose())
+
+      expect(material.dispose).toHaveBeenCalledOnce()
+      expect(texture.dispose).toHaveBeenCalledOnce()
+
+      // Check if cache is cleared by trying to get again
+      loadAsyncMock.mockClear()
+      yield* _(manager.get('test.png'))
       expect(loadAsyncMock).toHaveBeenCalledTimes(1)
     })
 

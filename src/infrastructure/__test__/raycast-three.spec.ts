@@ -1,7 +1,7 @@
 import { Effect, Layer, Option } from 'effect'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as THREE from 'three'
-import { RaycastService, RaycastServiceLive } from '../raycast-three'
+import { RaycastService, RaycastServiceLive, findHitEntity } from '../raycast-three'
 import { ThreeCameraService } from '../camera-three'
 import { type EntityId } from '@/domain/entity'
 import type { ThreeCamera } from '../types'
@@ -40,6 +40,24 @@ vi.mock('three', async () => {
       intersectObjects: intersectObjectsMock,
     })),
   }
+})
+
+describe('findHitEntity', () => {
+  it('should return none if intersection.face is null', () => {
+    const intersection = { face: null } as any
+    const result = findHitEntity(intersection, new Map())
+    expect(Option.isNone(result)).toBe(true)
+  })
+
+  it('should return none if the block key is not in the map', () => {
+    const intersection = {
+      point: new THREE.Vector3(0.5, 0.5, 0.5),
+      face: { normal: new THREE.Vector3(0, 1, 0) },
+    } as any
+    const terrainBlockMap = new Map<string, EntityId>() // Empty map
+    const result = findHitEntity(intersection, terrainBlockMap)
+    expect(Option.isNone(result)).toBe(true)
+  })
 })
 
 describe('RaycastService', () => {

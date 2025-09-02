@@ -101,22 +101,42 @@ describe('RendererLive', () => {
     await run(program)
   })
 
-  it('syncCameraToWorld should sync camera from world state', async () => {
-    mockWorld.querySoA.mockReturnValue(
-      Effect.succeed({
-        entities: [1 as EntityId],
-        position: { x: [1], y: [2], z: [3] },
-        cameraState: { pitch: [0.1], yaw: [0.2] },
-      }),
-    )
+  describe('syncCameraToWorld', () => {
+    it('should sync camera from world state', async () => {
+      mockWorld.querySoA.mockReturnValue(
+        Effect.succeed({
+          entities: [1 as EntityId],
+          position: { x: [1], y: [2], z: [3] },
+          cameraState: { pitch: [0.1], yaw: [0.2] },
+        }),
+      )
 
-    const program = Effect.gen(function* (_) {
-      const renderer = yield* _(RendererService)
-      yield* _(renderer.syncCameraToWorld)
-      expect(mockCameraService.syncToComponent).toHaveBeenCalledWith(new Position({ x: 1, y: 2, z: 3 }), new CameraState({ pitch: 0.1, yaw: 0.2 }))
+      const program = Effect.gen(function* (_) {
+        const renderer = yield* _(RendererService)
+        yield* _(renderer.syncCameraToWorld)
+        expect(mockCameraService.syncToComponent).toHaveBeenCalledWith(new Position({ x: 1, y: 2, z: 3 }), new CameraState({ pitch: 0.1, yaw: 0.2 }))
+      })
+
+      await run(program)
     })
 
-    await run(program)
+    it('should not sync if player data is incomplete', async () => {
+      mockWorld.querySoA.mockReturnValue(
+        Effect.succeed({
+          entities: [1 as EntityId],
+          position: { x: [1], y: [2], z: [undefined] }, // Incomplete data
+          cameraState: { pitch: [0.1], yaw: [0.2] },
+        }),
+      )
+
+      const program = Effect.gen(function* (_) {
+        const renderer = yield* _(RendererService)
+        yield* _(renderer.syncCameraToWorld)
+        expect(mockCameraService.syncToComponent).not.toHaveBeenCalled()
+      })
+
+      await run(program)
+    })
   })
 
   it('updateHighlight should show highlight on raycast hit', async () => {

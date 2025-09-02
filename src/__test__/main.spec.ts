@@ -1,91 +1,103 @@
-import { Effect, Layer } from 'effect'
+/**
+ * @vitest-environment happy-dom
+ */
+import { Effect, Layer, Ref, HashSet } from 'effect'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { main, bootstrap, AppLayer, onCommandEffect } from '@/main'
 import * as loop from '@/runtime/loop'
 import * as systems from '@/systems'
-import { WorldLive } from '@/runtime/world'
-import { GameStateService, DeltaTime } from '@/runtime/services'
-import { Hotbar } from '@/domain/components'
-
-// Mock all systems
-vi.mock('@/systems', async (importOriginal) => {
-  const original = await importOriginal<typeof systems>()
-  return {
-    ...original,
-    inputPollingSystem: Effect.void,
-    cameraControlSystem: Effect.void,
-    playerMovementSystem: Effect.void,
-    physicsSystem: Effect.void,
-    updatePhysicsWorldSystem: Effect.void,
-    collisionSystem: Effect.void,
-    raycastSystem: Effect.void,
-    updateTargetSystem: Effect.void,
-    blockInteractionSystem: Effect.void,
-    chunkLoadingSystem: Effect.void,
-    worldUpdateSystem: Effect.void,
-    createUISystem: () => Effect.void,
-  }
-})
+import { World } from '@/runtime/world'
+import { ComputationWorkerTag } from '@/infrastructure/computation.worker'
+import { ChunkDataQueueService } from '@/runtime/services'
+import { SystemCommand } from '@/domain/types'
 
 // Mock the game loop
-const gameLoopSpy = vi.spyOn(loop, 'gameLoop')
-
-// Dynamically import main to get the un-exported 'main' effect
-async function getMainEffect() {
-  const mainModule = await import('@/main')
-  return (mainModule as any).main
-}
+const gameLoopSpy = vi.spyOn(loop, 'gameLoop').mockImplementation(() => Effect.void)
 
 describe('main', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    gameLoopSpy.mockImplementation(() => Effect.void)
   })
 
-  it.skip('should initialize and run systems in the correct order', async () => {
-    const mainEffect = await getMainEffect()
-
-    // Provide a minimal layer for the main effect to run
-    const GameStateLive = Layer.succeed(GameStateService, {
-      hotbar: new Hotbar({ slots: [], selectedIndex: 0 }),
-    })
-    const DeltaTimeLive = Layer.succeed(DeltaTime, 0)
-    const TestLayer = Layer.mergeAll(WorldLive, GameStateLive, DeltaTimeLive)
-
-    await Effect.runPromise(mainEffect.pipe(Effect.provide(TestLayer)))
+  it('should pass the correct systems to gameLoop in the correct order', async () => {
+    const testLayer = Layer.succeed(World, {
+      addArchetype: () => Effect.succeed(0 as any),
+    } as any)
+    await Effect.runPromise(main.pipe(Effect.provide(testLayer)))
 
     expect(gameLoopSpy).toHaveBeenCalledOnce()
+    const systemsPassed = gameLoopSpy.mock.calls[0][0]
+    expect(systemsPassed.slice(0, -1)).toEqual([
+      systems.inputPollingSystem,
+      systems.cameraControlSystem,
+      systems.playerMovementSystem,
+      systems.physicsSystem,
+      systems.updatePhysicsWorldSystem,
+      systems.collisionSystem,
+      systems.raycastSystem,
+      systems.updateTargetSystem,
+      systems.blockInteractionSystem,
+      systems.chunkLoadingSystem,
+      systems.worldUpdateSystem,
+    ])
+    expect(Effect.isEffect(systemsPassed[systemsPassed.length - 1])).toBe(true)
+  })
+})
 
-    const systemsPassedToGameLoop = gameLoopSpy.mock.calls[0]![0]
-    const systemNames = systemsPassedToGameLoop.map((s: any) => {
-      if (s === systems.inputPollingSystem) return 'inputPollingSystem'
-      if (s === systems.cameraControlSystem) return 'cameraControlSystem'
-      if (s === systems.playerMovementSystem) return 'playerMovementSystem'
-      if (s === systems.physicsSystem) return 'physicsSystem'
-      if (s === systems.updatePhysicsWorldSystem) return 'updatePhysicsWorldSystem'
-      if (s === systems.collisionSystem) return 'collisionSystem'
-      if (s === systems.raycastSystem) return 'raycastSystem'
-      if (s === systems.updateTargetSystem) return 'updateTargetSystem'
-      if (s === systems.blockInteractionSystem) return 'blockInteractionSystem'
-      if (s === systems.chunkLoadingSystem) return 'chunkLoadingSystem'
-      if (s === systems.worldUpdateSystem) return 'worldUpdateSystem'
-      return 'uiSystem'
-    })
+describe('bootstrap', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+    vi.clearAllMocks()
+  })
 
-    const expectedOrder = [
-      'inputPollingSystem',
-      'cameraControlSystem',
-      'playerMovementSystem',
-      'physicsSystem',
-      'updatePhysicsWorldSystem',
-      'collisionSystem',
-      'raycastSystem',
-      'updateTargetSystem',
-      'blockInteractionSystem',
-      'chunkLoadingSystem',
-      'worldUpdateSystem',
-      'uiSystem',
-    ]
+  it('should return a runnable Effect when #app element exists', () => {
+    const appElement = document.createElement('div')
+    appElement.id = 'app'
+    document.body.appendChild(appElement)
 
-    expect(systemNames).toEqual(expectedOrder)
+    const runnable = bootstrap()
+
+    expect(Effect.isEffect(runnable)).toBe(true)
+  })
+
+  it('should throw an error if #app element does not exist', () => {
+    expect(() => bootstrap()).toThrow('Root element #app not found')
+  })
+})
+
+describe('AppLayer', () => {
+  it('should build a layer without errors', () => {
+    const appElement = document.createElement('div')
+    appElement.id = 'app'
+    const layer = AppLayer(appElement)
+    expect(layer).toBeDefined()
+  })
+})
+
+describe('onCommandEffect', () => {
+  it('should post a task to the computation worker', async () => {
+    const mockPostTask = vi.fn(() => Effect.succeed({} as any))
+    const mockWorker = { postTask: mockPostTask }
+    const mockQueue: any[] = []
+    const mockWorld = {
+      state: Ref.unsafeMake({
+        globalState: {
+          seeds: { main: 0 },
+          amplitude: 0,
+          editedBlocks: { placed: new Map(), destroyed: HashSet.empty() },
+        },
+      }),
+    } as any
+
+    const testLayer = Layer.succeed(ComputationWorkerTag, mockWorker).pipe(
+      Layer.merge(Layer.succeed(ChunkDataQueueService, mockQueue)),
+      Layer.merge(Layer.succeed(World, mockWorld)),
+    )
+
+    const onCommand = await Effect.runPromise(onCommandEffect.pipe(Effect.provide(testLayer)))
+    await Effect.runPromise(onCommand({ type: 'generateChunk' } as SystemCommand))
+
+    expect(mockPostTask).toHaveBeenCalledOnce()
+    expect(mockQueue.length).toBe(1)
   })
 })

@@ -28,7 +28,7 @@ import {
   worldUpdateSystem,
 } from '@/systems'
 
-const main = Effect.gen(function* ($) {
+export const main = Effect.gen(function* ($) {
   const world = yield* $(World)
   yield* $(world.addArchetype(createArchetype({ type: 'player', pos: new Position({ x: 0, y: 20, z: 0 }) })))
 
@@ -52,7 +52,7 @@ const main = Effect.gen(function* ($) {
   yield* $(gameLoop(systems))
 })
 
-const AppLayer = (rootElement: HTMLElement) => {
+export const AppLayer = (rootElement: HTMLElement) => {
   const statefulServices = Layer.succeed(RaycastResultService, Ref.unsafeMake(Option.none())).pipe(
     Layer.merge(Layer.succeed(ChunkDataQueueService, [])),
     Layer.merge(Layer.succeed(RenderQueueService, [])),
@@ -78,37 +78,36 @@ const AppLayer = (rootElement: HTMLElement) => {
   return withRenderer
 }
 
-// --- Bootstrap ---
-document.addEventListener('DOMContentLoaded', () => {
+export const onCommandEffect = Effect.gen(function* ($) {
+  const world = yield* $(World)
+  const computationWorker = yield* $(ComputationWorkerTag)
+  const chunkDataQueue = yield* $(ChunkDataQueueService)
+  return (command: SystemCommand) =>
+    Effect.gen(function* ($) {
+      const worldState = yield* $(world.state)
+      const taskPayload = {
+        ...command,
+        seeds: worldState.globalState.seeds,
+        amplitude: worldState.globalState.amplitude,
+        editedBlocks: {
+          placed: worldState.globalState.editedBlocks.placed,
+          destroyed: new Set(HashSet.values(worldState.globalState.editedBlocks.destroyed)),
+        },
+      }
+      const task = { type: 'generateChunk' as const, payload: taskPayload }
+      const result = yield* $(computationWorker.postTask(task))
+      chunkDataQueue.push(result)
+    }).pipe(
+      Effect.catchAll((err) => Effect.logError('Failed to process chunk', err)),
+      Effect.forkDaemon,
+    )
+})
+
+export const bootstrap = () => {
   const rootElement = document.getElementById('app')
   if (!rootElement) {
     throw new Error('Root element #app not found')
   }
-
-  const onCommandEffect = Effect.gen(function* ($) {
-    const world = yield* $(World)
-    const computationWorker = yield* $(ComputationWorkerTag)
-    const chunkDataQueue = yield* $(ChunkDataQueueService)
-    return (command: SystemCommand) =>
-      Effect.gen(function* ($) {
-        const worldState = yield* $(world.state)
-        const taskPayload = {
-          ...command,
-          seeds: worldState.globalState.seeds,
-          amplitude: worldState.globalState.amplitude,
-          editedBlocks: {
-            placed: worldState.globalState.editedBlocks.placed,
-            destroyed: new Set(HashSet.values(worldState.globalState.editedBlocks.destroyed)),
-          },
-        }
-        const task = { type: 'generateChunk' as const, payload: taskPayload }
-        const result = yield* $(computationWorker.postTask(task))
-        chunkDataQueue.push(result)
-      }).pipe(
-        Effect.catchAll((err) => Effect.logError('Failed to process chunk', err)),
-        Effect.forkDaemon,
-      )
-  })
 
   const baseAppLayer = AppLayer(rootElement)
   const onCommandLayer = Layer.effect(OnCommand, onCommandEffect)
@@ -125,7 +124,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const deltaTimeLayer = Layer.succeed(DeltaTime, 0)
   const finalLayer = Layer.mergeAll(appLayer, deltaTimeLayer, GameStateLive)
 
-  const runnable = main.pipe(Effect.provide(finalLayer))
+  return main.pipe(Effect.provide(finalLayer))
+}
+
+// --- Bootstrap ---
+document.addEventListener('DOMContentLoaded', () => {
+  const runnable = bootstrap()
   // @ts-expect-error R a is not assignable to never
   Effect.runFork(runnable)
 })

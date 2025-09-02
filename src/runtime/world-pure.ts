@@ -235,7 +235,11 @@ export const query = <T extends ReadonlyArray<ComponentName>>(world: World, quer
   return results
 }
 
-export const querySoA = <T extends ReadonlyArray<ComponentName>>(world: World, queryDef: Query): QuerySoAResult<T> => {
+export const querySoA = <T extends ReadonlyArray<ComponentName>>(
+  world: World,
+  queryDef: Query,
+  componentSchemas: typeof ComponentSchemas,
+): QuerySoAResult<T> => {
   const queryResult = query(world, queryDef)
   const entities = queryResult.map((r) => r.entityId)
 
@@ -244,7 +248,7 @@ export const querySoA = <T extends ReadonlyArray<ComponentName>>(world: World, q
   } as any
 
   for (const componentName of queryDef.components) {
-    const componentSchema = ComponentSchemas[componentName]
+    const componentSchema = componentSchemas[componentName]
     const ast = S.isSchema(componentSchema) ? componentSchema.ast : undefined
     const typeLiteral = ast && AST.isTransformation(ast) ? ast.from : ast
 

@@ -62,7 +62,7 @@ export const MaterialManagerLive = Layer.effect(
 
     const disposeSync = (): void => {
       materialCache.forEach((material) => {
-        if (material instanceof MeshBasicMaterial && material.map instanceof Texture) {
+        if ('map' in material && material.map instanceof Texture) {
           material.map.dispose()
         }
         material.dispose()
