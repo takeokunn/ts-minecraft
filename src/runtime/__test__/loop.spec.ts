@@ -44,8 +44,9 @@ describe('gameLoop', () => {
       yield* _(gameTick)
     })
 
-    const testEffect = Effect.provide(program, Layer.merge(WorldLive, MockRendererLive))
-    await Effect.runPromise(testEffect)
+    const DeltaTimeLive = Layer.succeed(DeltaTime, 0.01)
+    const TestLayer = Layer.mergeAll(WorldLive, MockRendererLive, DeltaTimeLive)
+    await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
 
     const finalValue = await Effect.runPromise(Ref.get(ref))
     expect(finalValue).toBe(2) // 0 -> 1 -> 2

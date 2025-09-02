@@ -11,7 +11,7 @@ import { ThreeContextLive } from '@/infrastructure/renderer-three/context'
 import { RaycastServiceLive } from '@/infrastructure/raycast-three'
 import { SpatialGridLive } from '@/infrastructure/spatial-grid'
 import { gameLoop } from '@/runtime/loop'
-import { ChunkDataQueueService, OnCommand, RaycastResultService, RenderQueueService, DeltaTime } from '@/runtime/services'
+import { ChunkDataQueueService, GameStateService, OnCommand, RaycastResultService, RenderQueueService, DeltaTime } from '@/runtime/services'
 import { World, WorldLive } from '@/runtime/world'
 import {
   blockInteractionSystem,
@@ -115,8 +115,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const appLayer = Layer.provideMerge(onCommandLayer, baseAppLayer)
 
+  const GameStateLive = Layer.succeed(GameStateService, {
+    hotbar: new Hotbar({
+      slots: [],
+      selectedIndex: 0,
+    }),
+  })
+
   const deltaTimeLayer = Layer.succeed(DeltaTime, 0)
-  const finalLayer = Layer.merge(appLayer, deltaTimeLayer)
+  const finalLayer = Layer.mergeAll(appLayer, deltaTimeLayer, GameStateLive)
 
   const runnable = main.pipe(Effect.provide(finalLayer))
   Effect.runFork(runnable)

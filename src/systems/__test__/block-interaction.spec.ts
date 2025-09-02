@@ -1,11 +1,13 @@
-import { Effect, HashSet, Option, Record } from 'effect'
+import { Effect, HashSet, Option, Record, Layer } from 'effect'
 import { describe, it, expect } from 'vitest'
 import { createArchetype } from '@/domain/archetypes'
-import { BlockType } from '@/domain/block'
+import type { BlockType } from '@/domain/block'
 import { Hotbar, InputState, TargetBlock, createTargetNone } from '@/domain/components'
 import { playerTargetQuery } from '@/domain/queries'
 import { QueryResult, World, WorldLive } from '@/runtime/world'
 import { blockInteractionSystem, handleDestroyBlock, handlePlaceBlock } from '../block-interaction'
+
+const TestLayer = WorldLive
 
 const setupWorld = Effect.gen(function* (_) {
   const world = yield* _(World)
@@ -64,7 +66,7 @@ describe('blockInteractionSystem', () => {
         expect(HashSet.has(worldState.globalState.editedBlocks.destroyed, '0,0,-2')).toBe(true)
       })
 
-      await Effect.runPromise(Effect.provide(program, WorldLive))
+      await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
     })
   })
 
@@ -104,7 +106,7 @@ describe('blockInteractionSystem', () => {
         const newPlayerInput = yield* _(world.getComponent(playerId, 'inputState'))
         expect(newPlayerInput.pipe(Option.map((s) => s.place)).pipe(Option.getOrThrow)).toBe(false)
       })
-      await Effect.runPromise(Effect.provide(program, WorldLive))
+      await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
     })
   })
 
@@ -126,7 +128,7 @@ describe('blockInteractionSystem', () => {
         const blockExists = yield* _(world.getComponent(blockId, 'position'))
         expect(Option.isNone(blockExists)).toBe(true)
       })
-      await Effect.runPromise(Effect.provide(program, WorldLive))
+      await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
     })
 
     it('should call place handler when place input is true', async () => {
@@ -157,7 +159,7 @@ describe('blockInteractionSystem', () => {
         const placedBlock = Record.get(worldState.globalState.editedBlocks.placed, '0,0,-1')
         expect(Option.isSome(placedBlock)).toBe(true)
       })
-      await Effect.runPromise(Effect.provide(program, WorldLive))
+      await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
     })
 
     it('should do nothing if no input is given', async () => {
@@ -174,7 +176,7 @@ describe('blockInteractionSystem', () => {
         expect(Option.isSome(blockExists)).toBe(true)
         expect(finalWorldState).toEqual(initialWorldState)
       })
-      await Effect.runPromise(Effect.provide(program, WorldLive))
+      await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
     })
   })
 })

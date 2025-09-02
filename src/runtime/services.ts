@@ -7,6 +7,7 @@ import { MaterialManager } from '@/infrastructure/material-manager'
 import { World } from './world'
 import { ComputationWorkerTag } from '@/infrastructure/computation.worker'
 import { ThreeContextService } from '@/infrastructure/types'
+import { Hotbar } from '@/domain/components'
 
 // --- Service Tags for Dependencies ---
 
@@ -38,3 +39,10 @@ export interface Renderer {
   readonly renderScene: Effect.Effect<void>
 }
 export const RendererService = Context.GenericTag<Renderer>('app/RendererService')
+
+// --- Game State Service ---
+
+export interface GameState {
+  readonly hotbar: Hotbar
+}
+export const GameStateService = Context.GenericTag<GameState>('app/GameStateService')
