@@ -85,8 +85,8 @@ describe('ThreeCameraLive', () => {
 
       const controlsObject = service.camera.controls.getObject()
       expect(controlsObject.position.set).toHaveBeenCalledWith(1, 2 + PLAYER_EYE_HEIGHT, 3)
-      expect(controlsObject.rotation.y).toBe(1.5)
-      expect(service.camera.camera.rotation.x).toBe(0.5)
+      expect(controlsObject.rotation.y).toBeCloseTo(1.5)
+      expect(service.camera.camera.rotation.x).toBeCloseTo(0.5)
     })
 
     await run(program)
@@ -107,18 +107,18 @@ describe('ThreeCameraLive', () => {
 
       // Initial pitch is 0
       yield* _(service.rotatePitch(1.0))
-      expect(service.camera.camera.rotation.x).toBe(1.0)
+      expect(service.camera.camera.rotation.x).toBeCloseTo(1.0)
 
       // Clamp upper bound
       yield* _(service.rotatePitch(1.0))
-      expect(service.camera.camera.rotation.x).toBe(Math.PI / 2)
+      expect(service.camera.camera.rotation.x).toBeCloseTo(Math.PI / 2)
 
       // Reset
       service.camera.camera.rotation.x = 0
 
       // Clamp lower bound
       yield* _(service.rotatePitch(-2.0))
-      expect(service.camera.camera.rotation.x).toBe(-Math.PI / 2)
+      expect(service.camera.camera.rotation.x).toBeCloseTo(-Math.PI / 2)
     })
     await run(program)
   })
@@ -127,7 +127,7 @@ describe('ThreeCameraLive', () => {
     const program = Effect.gen(function* (_) {
       const service = yield* _(ThreeCameraService)
       yield* _(service.rotateYaw(0.5))
-      expect(service.camera.controls.getObject().rotation.y).toBe(0.5)
+      expect(service.camera.controls.getObject().rotation.y).toBeCloseTo(0.5)
     })
     await run(program)
   })
@@ -141,8 +141,8 @@ describe('ThreeCameraLive', () => {
       const yaw = yield* _(service.getYaw)
       const pitch = yield* _(service.getPitch)
 
-      expect(yaw).toBe(1.23)
-      expect(pitch).toBe(0.45)
+      expect(yaw).toBeCloseTo(1.23)
+      expect(pitch).toBeCloseTo(0.45)
     })
     await run(program)
   })
@@ -153,7 +153,7 @@ describe('ThreeCameraLive', () => {
       const service = yield* _(ThreeCameraService)
       yield* _(service.handleResize(renderer))
 
-      expect(service.camera.camera.aspect).toBe(window.innerWidth / window.innerHeight)
+      expect(service.camera.camera.aspect).toBeCloseTo(window.innerWidth / window.innerHeight)
       expect(service.camera.camera.updateProjectionMatrix).toHaveBeenCalled()
       expect(renderer.setSize).toHaveBeenCalledWith(window.innerWidth, window.innerHeight)
     })

@@ -22,12 +22,12 @@ describe('geometry', () => {
       const collider = new Collider(col)
       const aabb = createAABB(position, collider)
 
-      expect(aabb.minX).toBe(position.x - collider.width / 2)
-      expect(aabb.minY).toBe(position.y)
-      expect(aabb.minZ).toBe(position.z - collider.depth / 2)
-      expect(aabb.maxX).toBe(position.x + collider.width / 2)
-      expect(aabb.maxY).toBe(position.y + collider.height)
-      expect(aabb.maxZ).toBe(position.z + collider.depth / 2)
+      expect(aabb.minX).toBeCloseTo(position.x - collider.width / 2)
+      expect(aabb.minY).toBeCloseTo(position.y)
+      expect(aabb.minZ).toBeCloseTo(position.z - collider.depth / 2)
+      expect(aabb.maxX).toBeCloseTo(position.x + collider.width / 2)
+      expect(aabb.maxY).toBeCloseTo(position.y + collider.height)
+      expect(aabb.maxZ).toBeCloseTo(position.z + collider.depth / 2)
     })
   })
 
@@ -62,7 +62,10 @@ describe('geometry', () => {
     test('should return [0, 0, 0] for non-overlapping AABBs', () => {
       const aabb1 = { minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 1, maxZ: 1 }
       const aabb2 = { minX: 2, minY: 2, minZ: 2, maxX: 3, maxY: 3, maxZ: 3 }
-      expect(getIntersectionDepth(aabb1, aabb2)).toEqual([0, 0, 0])
+      const mtv = getIntersectionDepth(aabb1, aabb2)
+      expect(mtv[0]).toBeCloseTo(0)
+      expect(mtv[1]).toBeCloseTo(0)
+      expect(mtv[2]).toBeCloseTo(0)
     })
 
     test('should return correct MTV for X-axis overlap', () => {
@@ -93,8 +96,8 @@ describe('geometry', () => {
       // min overlap is on x-axis
       const mtv = getIntersectionDepth(aabb1, aabb2)
       expect(mtv[0]).toBeCloseTo(-0.1)
-      expect(mtv[1]).toBe(0)
-      expect(mtv[2]).toBe(0)
+      expect(mtv[1]).toBeCloseTo(0)
+      expect(mtv[2]).toBeCloseTo(0)
     })
   })
 })

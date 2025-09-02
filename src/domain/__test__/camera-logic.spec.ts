@@ -17,13 +17,13 @@ describe('clampPitch', () => {
   })
 
   test('should not change values within the valid range', () => {
-    expect(clampPitch(0)).toBe(0)
-    expect(clampPitch(PI_HALF / 2)).toBe(PI_HALF / 2)
-    expect(clampPitch(-PI_HALF / 2)).toBe(-PI_HALF / 2)
+    expect(clampPitch(0)).toBeCloseTo(0)
+    expect(clampPitch(PI_HALF / 2)).toBeCloseTo(PI_HALF / 2)
+    expect(clampPitch(-PI_HALF / 2)).toBeCloseTo(-PI_HALF / 2)
   })
 
   test('should clamp values outside the valid range', () => {
-    expect(clampPitch(Math.PI)).toBe(PI_HALF)
-    expect(clampPitch(-Math.PI)).toBe(-PI_HALF)
+    expect(clampPitch(Math.PI)).toBeCloseTo(PI_HALF)
+    expect(clampPitch(-Math.PI)).toBeCloseTo(-PI_HALF)
   })
 })

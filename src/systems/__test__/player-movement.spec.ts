@@ -38,13 +38,13 @@ describe('playerMovementSystem', () => {
       const input = { forward: true, backward: false, left: false, right: false, sprint: false }
       const camera = { yaw: 0 }
       const { dx, dz } = calculateHorizontalVelocity(input, camera)
-      expect(dz).toBe(-PLAYER_SPEED)
-      expect(dx).toBe(0)
+      expect(dz).toBeCloseTo(-PLAYER_SPEED)
+      expect(dx).toBeCloseTo(0)
     })
 
     it('calculateVerticalVelocity', () => {
       const { newDy, newIsGrounded } = calculateVerticalVelocity(true, true, 0)
-      expect(newDy).toBe(JUMP_FORCE)
+      expect(newDy).toBeCloseTo(JUMP_FORCE)
       expect(newIsGrounded).toBe(false)
     })
 
@@ -78,7 +78,7 @@ describe('playerMovementSystem', () => {
         yield* _(playerMovementSystem)
 
         const player = (yield* _(world.query(playerQuery)))[0]!
-        expect(player.velocity.dy).toBe(JUMP_FORCE)
+        expect(player.velocity.dy).toBeCloseTo(JUMP_FORCE)
         expect(player.player.isGrounded).toBe(false)
       })
 

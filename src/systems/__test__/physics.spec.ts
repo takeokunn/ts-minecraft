@@ -63,7 +63,7 @@ describe('physicsSystem', () => {
       yield* _(physicsSystem)
 
       const player = (yield* _(world.query(playerQuery)))[0]!
-      expect(player.velocity.dy).toBe(-TERMINAL_VELOCITY)
+      expect(player.velocity.dy).toBeCloseTo(-TERMINAL_VELOCITY)
     })
 
     await Effect.runPromise(Effect.provide(program, Layer.merge(WorldLive, MockDeltaTime(0.016))))

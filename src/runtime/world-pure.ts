@@ -236,54 +236,32 @@ export const query = <T extends ReadonlyArray<ComponentName>>(world: World, quer
 }
 
 export const querySoA = <T extends ReadonlyArray<ComponentName>>(world: World, queryDef: Query): QuerySoAResult<T> => {
-  const requiredComponents = new Set(queryDef.components)
-  const matchingEntities: EntityId[] = []
-
-  for (const [archetypeKey, entities] of world.archetypes.entries()) {
-    const archetypeComponents = new Set(archetypeKey.split(','))
-    let match = true
-    for (const req of requiredComponents) {
-      if (!archetypeComponents.has(req)) {
-        match = false
-        break
-      }
-    }
-    if (match) {
-      matchingEntities.push(...entities)
-    }
-  }
+  const queryResult = query(world, queryDef)
+  const entities = queryResult.map((r) => r.entityId)
 
   const result: Mutable<QuerySoAResult<T>> = {
-    entities: matchingEntities,
+    entities,
   } as any
 
   for (const componentName of queryDef.components) {
     const componentSchema = ComponentSchemas[componentName]
-    if (!S.isSchema(componentSchema) || !AST.isTypeLiteral(componentSchema.ast)) {
-      continue
-    }
-    const props = AST.getPropertySignatures(componentSchema.ast)
-    const propKeys = props.map((p) => String(p.name))
+    if (S.isSchema(componentSchema) && AST.isTypeLiteral(componentSchema.ast)) {
+      const props = AST.getPropertySignatures(componentSchema.ast)
+      const propKeys = props.map((p) => String(p.name))
 
-    if (propKeys.length > 0) {
-      const soaStore: any = {}
-      for (const key of propKeys) {
-        soaStore[key] = Array.from({ length: matchingEntities.length })
-      }
-
-      matchingEntities.forEach((entityId, i) => {
-        const component = getComponent(world, entityId, componentName)
-        if (Option.isSome(component)) {
-          for (const key of propKeys) {
-            soaStore[key][i] = (component.value as any)[key]
-          }
+      if (propKeys.length > 0) {
+        const soaStore: any = {}
+        for (const key of propKeys) {
+          soaStore[key] = queryResult.map((r) => (r as any)[componentName][key])
         }
-      })
-      ;(result as any)[componentName] = soaStore
+        ;(result as any)[componentName] = soaStore
+      } else {
+        ;(result as any)[componentName] = queryResult.map((r) => (r as any)[componentName])
+      }
     } else {
-      ;(result as any)[componentName] = {}
+      ;(result as any)[componentName] = queryResult.map((r) => (r as any)[componentName])
     }
   }
 
-  return result as any
+  return result
 }

@@ -6,7 +6,9 @@ import { updatePhysicsWorldSystem } from '../update-physics-world'
 import { SpatialGridService } from '@/runtime/services'
 import { SpatialGrid } from '@/infrastructure/spatial-grid'
 import { EntityId } from '@/domain/entity'
-import { AABB } from '@/domain/geometry'
+import { AABB, createAABB } from '@/domain/geometry'
+import { BLOCK_COLLIDER } from '@/domain/world-constants'
+import { positionColliderQuery } from '@/domain/queries'
 
 const createMockSpatialGrid = () => {
   const registerFn = vi.fn((_entityId: EntityId, _aabb: AABB) => Effect.void)
@@ -39,18 +41,24 @@ const setupWorld = Effect.gen(function* (_) {
 })
 
 describe('updatePhysicsWorldSystem', () => {
-  it('should clear the spatial grid and register all colliders', async () => {
+  it('should clear the spatial grid and register all colliders with correct AABBs', async () => {
     const { mock: mockSpatialGrid, spies } = createMockSpatialGrid()
     const MockSpatialGridLayer = Layer.succeed(SpatialGridService, mockSpatialGrid)
 
     const program = Effect.gen(function* (_) {
+      const world = yield* _(World)
       yield* _(setupWorld)
       yield* _(updatePhysicsWorldSystem)
+
+      const colliders = yield* _(world.query(positionColliderQuery))
+      const block = colliders[0]!
+      const expectedAABB = createAABB(block.position, block.collider)
+
+      expect(spies.clear).toHaveBeenCalledOnce()
+      expect(spies.register).toHaveBeenCalledOnce()
+      expect(spies.register).toHaveBeenCalledWith(block.entityId, expectedAABB)
     })
 
     await Effect.runPromise(Effect.provide(program, Layer.merge(WorldLive, MockSpatialGridLayer)))
-
-    expect(spies.clear).toHaveBeenCalledOnce()
-    expect(spies.register).toHaveBeenCalledOnce()
   })
 })

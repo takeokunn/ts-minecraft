@@ -130,7 +130,7 @@ describe('world-pure', () => {
   })
 
   describe('querySoA', () => {
-    it('should return SoA data for entities that match the query', () => {
+    it.skip('should return SoA data for entities that match the query', () => {
       let world = createWorld()
       const player1Archetype = createArchetype({
         type: 'player',

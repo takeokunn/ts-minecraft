@@ -31,7 +31,7 @@ describe('gameLoop', () => {
     const system1 = Ref.update(ref, (n) => n + 1)
     const system2 = Effect.gen(function* (_) {
       const dt = yield* _(DeltaTime)
-      expect(dt).toBe(0.01)
+      expect(dt).toBeCloseTo(0.01)
       yield* _(Ref.update(ref, (n) => n * 2))
     })
 

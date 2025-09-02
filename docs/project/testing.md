@@ -96,3 +96,24 @@ describe('Component Schemas', () => {
   })
 })
 ```
+
+## 4. 浮動小数点数のテスト
+
+物理演算や幾何学計算など、浮動小数点数を扱うテストでは、`toBe` や `toEqual` を使った直接比較は避けるべきです。これは、浮動小数点演算には誤差が伴い、テストが不安定になる原因となるためです。
+
+代わりに、Vitestに組み込まれている `toBeCloseTo` マッチャーを使用してください。
+
+### 例
+
+```typescript
+it('should handle floating point comparisons', () => {
+  const result = 0.1 + 0.2;
+  const expected = 0.3;
+
+  // 失敗する可能性があるテスト
+  // expect(result).toBe(expected);
+
+  // 成功するテスト
+  expect(result).toBeCloseTo(expected);
+});
+```
