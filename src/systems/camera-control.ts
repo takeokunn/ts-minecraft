@@ -2,7 +2,7 @@ import { Effect } from 'effect'
 import { clampPitch } from '@/domain/camera-logic'
 import { playerQuery } from '@/domain/queries'
 import { InputManagerService } from '@/runtime/services'
-import * as World from '@/runtime/world-pure'
+import * as World from '@/domain/world'
 
 const MOUSE_SENSITIVITY = 0.002
 

@@ -33,7 +33,7 @@ const chunkMeshArbitrary = fc.record({
 
 // Arbitraries for schemas in types.ts
 
-const generationParamsArbitrary = fc.record({
+const generationParamsArbitrary: fc.Arbitrary<T.GenerationParams> = fc.record({
   chunkX: fc.integer(),
   chunkZ: fc.integer(),
   seeds: fc.record({
@@ -79,7 +79,7 @@ const removeChunkRenderCommandArbitrary = fc.record({
   chunkZ: fc.integer(),
 })
 
-const browserInputStateArbitrary = fc.record({
+const browserInputStateArbitrary: fc.Arbitrary<T.BrowserInputState> = fc.record({
   keyboard: fc.array(fc.string()).map((arr) => new Set(arr)),
   mouse: fc.record({
     dx: fc.float({ noNaN: true }),
@@ -94,7 +94,7 @@ const systemCommandArbitrary = fc.record({
   chunkZ: fc.integer(),
 })
 
-const schemas = {
+const schemas: Record<string, { schema: S.Schema<any, any, never>; arbitrary: fc.Arbitrary<any> }> = {
   GenerationParamsSchema: { schema: T.GenerationParamsSchema, arbitrary: generationParamsArbitrary },
   ChunkGenerationResultSchema: { schema: T.ChunkGenerationResultSchema, arbitrary: chunkGenerationResultArbitrary },
   ComputationTaskSchema: { schema: T.ComputationTaskSchema, arbitrary: computationTaskArbitrary },
@@ -104,29 +104,33 @@ const schemas = {
   SystemCommandSchema: { schema: T.SystemCommandSchema, arbitrary: systemCommandArbitrary },
 }
 
+
+
 describe('Type Schemas', () => {
   for (const [name, { schema, arbitrary }] of Object.entries(schemas)) {
     test.prop([arbitrary])(`${name} should be reversible after encoding and decoding`, (value) => {
-      const encode = S.encodeSync(schema as S.Schema<any, any, never>)
-      const decode = S.decodeSync(schema as S.Schema<any, any, never>)
+      const encode = S.encodeSync(schema)
+      const decode = S.decodeSync(schema)
+      const decodedValue = decode(encode(value))
+
       // We need to manually check equality for Sets
-      if ('editedBlocks' in value && value.editedBlocks.destroyed instanceof Set) {
+      if (name === 'GenerationParamsSchema') {
         const original = value as T.GenerationParams
-        const decodedValue = decode(encode(value)) as T.GenerationParams
-        expect(Array.from(decodedValue.editedBlocks.destroyed)).toEqual(Array.from(original.editedBlocks.destroyed))
+        const decoded = decodedValue as T.GenerationParams
+        expect(Array.from(decoded.editedBlocks.destroyed)).toEqual(Array.from(original.editedBlocks.destroyed))
         // check the rest of the object
         const { destroyed: _, ...restOriginal } = original.editedBlocks
-        const { destroyed: __, ...restDecoded } = decodedValue.editedBlocks
-        expect({ ...decodedValue, editedBlocks: restDecoded }).toEqual({ ...original, editedBlocks: restOriginal })
-      } else if ('keyboard' in value && value.keyboard instanceof Set) {
+        const { destroyed: __, ...restDecoded } = decoded.editedBlocks
+        expect({ ...decoded, editedBlocks: restDecoded }).toEqual({ ...original, editedBlocks: restOriginal })
+      } else if (name === 'BrowserInputStateSchema') {
         const original = value as T.BrowserInputState
-        const decodedValue = decode(encode(value)) as T.BrowserInputState
-        expect(Array.from(decodedValue.keyboard)).toEqual(Array.from(original.keyboard))
+        const decoded = decodedValue as T.BrowserInputState
+        expect(Array.from(decoded.keyboard)).toEqual(Array.from(original.keyboard))
         const { keyboard: _, ...restOriginal } = original
-        const { keyboard: __, ...restDecoded } = decodedValue
+        const { keyboard: __, ...restDecoded } = decoded
         expect(restDecoded).toEqual(restOriginal)
       } else {
-        expect(decode(encode(value))).toEqual(value)
+        expect(decodedValue).toEqual(value)
       }
     })
   }

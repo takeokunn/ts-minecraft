@@ -1,7 +1,7 @@
 import { Effect, Layer } from 'effect'
 import { describe, it, expect } from 'vitest'
 import { createArchetype } from '@/domain/archetypes'
-import * as World from '@/runtime/world-pure'
+import * as World from '@/domain/world'
 import { physicsSystem } from '../physics'
 import { FRICTION, TERMINAL_VELOCITY } from '@/domain/world-constants'
 import { playerQuery } from '@/domain/queries'

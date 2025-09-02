@@ -45,6 +45,6 @@ export class RendererService extends Context.Tag('app/RendererService')<Renderer
 // --- Game State Service ---
 
 export interface GameState {
-  readonly getHotbar: Effect.Effect<Hotbar>
+  readonly getHotbar: Effect.Effect<Hotbar, never, WorldContext>
 }
 export class GameStateService extends Context.Tag('app/GameStateService')<GameStateService, GameState>() {}

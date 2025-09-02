@@ -1,5 +1,5 @@
 import { Effect, Ref } from 'effect'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from '@effect/vitest'
 import { createUISystem, HotbarUpdater } from '../ui'
 import { GameState, GameStateService } from '@/runtime/services'
 import { Hotbar } from '@/domain/components'
@@ -13,12 +13,12 @@ describe('uiSystem', () => {
       const uiSystem = createUISystem(hotbarUpdater)
 
       const mockHotbar = new Hotbar({
-        slots: ['grass', 'dirt'] as BlockType[],
+        slots: ['grass', 'dirt'],
         selectedIndex: 0,
       })
 
       const mockGameState: GameState = {
-        hotbar: mockHotbar,
+        getHotbar: Effect.succeed(mockHotbar),
       }
 
       yield* $(Effect.provideService(uiSystem, GameStateService, mockGameState))
@@ -34,12 +34,12 @@ describe('uiSystem', () => {
       const uiSystem = createUISystem(hotbarUpdater)
 
       const mockHotbar = new Hotbar({
-        slots: ['cobblestone', 'stone'] as BlockType[],
+        slots: ['cobblestone', 'stone'],
         selectedIndex: 1,
       })
 
       const mockGameState: GameState = {
-        hotbar: mockHotbar,
+        getHotbar: Effect.succeed(mockHotbar),
       }
 
       yield* $(Effect.provideService(uiSystem, GameStateService, mockGameState))

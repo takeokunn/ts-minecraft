@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { createArchetype } from '@/domain/archetypes'
 import { InputState } from '@/domain/components'
 import { InputManagerService } from '@/runtime/services'
-import * as World from '@/runtime/world-pure'
+import * as World from '@/domain/world'
 import { provideTestLayer } from 'test/utils'
 import { inputPollingSystem } from '../input-polling'
 

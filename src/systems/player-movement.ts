@@ -1,9 +1,8 @@
-import { Effect } from 'effect'
-import { match } from 'ts-pattern'
+import { Effect, Match } from 'effect'
 import { CameraState, InputState, Velocity } from '@/domain/components'
 import { playerMovementQuery } from '@/domain/queries'
 import { DECELERATION, JUMP_FORCE, MIN_VELOCITY_THRESHOLD, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@/domain/world-constants'
-import * as World from '@/runtime/world-pure'
+import * as World from '@/domain/world'
 
 export const calculateHorizontalVelocity = (
   input: Pick<InputState, 'forward' | 'backward' | 'left' | 'right' | 'sprint'>,
@@ -38,10 +37,12 @@ export const calculateVerticalVelocity = (isGrounded: boolean, jumpPressed: bool
   return { newDy: currentDy, newIsGrounded: isGrounded }
 }
 
-const clampToZero = (value: number) =>
-  match(value)
-    .when(Number.isFinite, (v) => (Math.abs(v) < MIN_VELOCITY_THRESHOLD ? 0 : v))
-    .otherwise(() => 0)
+const clampToZero = (value: number): number => {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+  return Math.abs(value) < MIN_VELOCITY_THRESHOLD ? 0 : value
+}
 
 export const applyDeceleration = (velocity: Pick<Velocity, 'dx' | 'dz'>): Pick<Velocity, 'dx' | 'dz'> => {
   const dx = clampToZero(velocity.dx * DECELERATION)
@@ -62,9 +63,10 @@ export const playerMovementSystem = Effect.gen(function* ($) {
 
         const hasHorizontalInput = inputState.forward || inputState.backward || inputState.left || inputState.right
 
-        const { dx, dz } = match(hasHorizontalInput)
-          .with(true, () => calculateHorizontalVelocity(inputState, cameraState))
-          .otherwise(() => applyDeceleration(velocity))
+        const { dx, dz } = Match.value(hasHorizontalInput).pipe(
+          Match.when(true, () => calculateHorizontalVelocity(inputState, cameraState)),
+          Match.orElse(() => applyDeceleration(velocity)),
+        )
 
         return Effect.all(
           [

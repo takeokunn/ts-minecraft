@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
 import { ChunkDataQueueService, RenderQueueService } from '@/runtime/services'
-import * as World from '@/runtime/world-pure'
+import * as World from '@/domain/world'
 
 export const worldUpdateSystem = Effect.gen(function* (_) {
   const chunkDataQueue = yield* _(ChunkDataQueueService)

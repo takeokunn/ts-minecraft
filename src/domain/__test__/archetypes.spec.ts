@@ -2,24 +2,25 @@ import * as Arb from 'effect/Arbitrary'
 import { fc, test } from '@fast-check/vitest'
 import { describe, expect } from 'vitest'
 import { ArchetypeBuilderSchema, createArchetype, hasComponents, type Archetype, type ArchetypeBuilder } from '../archetypes'
-import { type ComponentName, componentNames, Position, Velocity } from '../components'
+import { type ComponentName, componentNames, Position, Velocity, type Components } from '../components'
 
 const archetypeBuilderArb: fc.Arbitrary<ArchetypeBuilder> = Arb.make(ArchetypeBuilderSchema)
 
 const componentKeyArb: fc.Arbitrary<ComponentName> = fc.constantFrom(...componentNames)
 
-const getArchetypeKeys = (archetype: Archetype): ReadonlyArray<ComponentName> => {
-  return Object.keys(archetype) as ReadonlyArray<ComponentName>
+const isComponentName = (key: string): key is ComponentName => {
+  return (componentNames as ReadonlyArray<string>).includes(key)
 }
 
 describe('createArchetype', () => {
   test.prop([archetypeBuilderArb])('should create archetypes with the correct components', (builder) => {
     const archetype = createArchetype(builder)
+    const archetypeKeys = Object.keys(archetype)
 
     switch (builder.type) {
       case 'player': {
         const expectedComponents: ReadonlyArray<ComponentName> = ['player', 'position', 'velocity', 'gravity', 'cameraState', 'inputState', 'collider', 'hotbar', 'target']
-        expect(getArchetypeKeys(archetype)).toEqual(expect.arrayContaining([...expectedComponents]))
+        expect(archetypeKeys).toEqual(expect.arrayContaining([...expectedComponents]))
         if (hasComponents(archetype, ['position'])) {
           expect(archetype.position).toEqual(builder.pos)
         }
@@ -27,7 +28,7 @@ describe('createArchetype', () => {
       }
       case 'block': {
         const expectedComponents: ReadonlyArray<ComponentName> = ['position', 'renderable', 'collider', 'terrainBlock']
-        expect(getArchetypeKeys(archetype)).toEqual(expect.arrayContaining([...expectedComponents]))
+        expect(archetypeKeys).toEqual(expect.arrayContaining([...expectedComponents]))
         if (hasComponents(archetype, ['position', 'renderable'])) {
           expect(archetype.position).toEqual(builder.pos)
           expect(archetype.renderable.blockType).toBe(builder.blockType)
@@ -36,7 +37,7 @@ describe('createArchetype', () => {
       }
       case 'camera': {
         const expectedComponents: ReadonlyArray<ComponentName> = ['camera', 'position']
-        expect(getArchetypeKeys(archetype)).toEqual(expect.arrayContaining([...expectedComponents]))
+        expect(archetypeKeys).toEqual(expect.arrayContaining([...expectedComponents]))
         if (hasComponents(archetype, ['position'])) {
           expect(archetype.position).toEqual(builder.pos)
         }
@@ -44,7 +45,7 @@ describe('createArchetype', () => {
       }
       case 'targetBlock': {
         const expectedComponents: ReadonlyArray<ComponentName> = ['position', 'targetBlock']
-        expect(getArchetypeKeys(archetype)).toEqual(expect.arrayContaining([...expectedComponents]))
+        expect(archetypeKeys).toEqual(expect.arrayContaining([...expectedComponents]))
         if (hasComponents(archetype, ['position'])) {
           expect(archetype.position).toEqual(builder.pos)
         }
@@ -52,7 +53,7 @@ describe('createArchetype', () => {
       }
       case 'chunk': {
         const expectedComponents: ReadonlyArray<ComponentName> = ['chunk']
-        expect(getArchetypeKeys(archetype)).toEqual(expect.arrayContaining([...expectedComponents]))
+        expect(archetypeKeys).toEqual(expect.arrayContaining([...expectedComponents]))
         if (hasComponents(archetype, ['chunk'])) {
           expect(archetype.chunk.chunkX).toBe(builder.chunkX)
           expect(archetype.chunk.chunkZ).toBe(builder.chunkZ)
@@ -69,24 +70,23 @@ const createDefaultArchetype = (): Archetype => ({
 })
 
 const archetypeArb: fc.Arbitrary<Archetype> = fc.uniqueArray(componentKeyArb).map((keys) => {
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-  const archetype: any = {}
-  for (const key of keys) {
+  const entries = keys.map((key): [ComponentName, Partial<Components>[ComponentName]] => {
     // This is a simplified mock component creation for testing `hasComponents`.
     // A more robust implementation would use arbitraries for each component.
     if (key === 'position') {
-      archetype[key] = new Position({ x: 0, y: 0, z: 0 })
-    } else {
-      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-      ;(archetype as any)[key] = {}
+      return [key, new Position({ x: 0, y: 0, z: 0 })]
     }
-  }
-  return archetype as Archetype
+    if (key === 'velocity') {
+      return [key, new Velocity({ dx: 0, dy: 0, dz: 0 })]
+    }
+    return [key, {}]
+  })
+  return Object.fromEntries(entries) as Archetype
 })
 
 describe('hasComponents', () => {
   test.prop([archetypeArb])('should return true if archetype has all specified components', (archetype) => {
-    const components = Object.keys(archetype) as ComponentName[]
+    const components = Object.keys(archetype).filter(isComponentName)
     expect(hasComponents(archetype, components)).toBe(true)
   })
 

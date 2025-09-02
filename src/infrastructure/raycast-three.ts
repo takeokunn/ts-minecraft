@@ -1,75 +1,70 @@
-import * as THREE from 'three'
-import { match, P } from 'ts-pattern'
 import { Context, Effect, Layer, Option } from 'effect'
+import * as THREE from 'three'
 import { EntityId } from '@/domain/entity'
-import { ThreeCameraService } from './camera-three'
-
-const REACH = 8
-
-export type RaycastResult = {
-  readonly entityId: EntityId
-  readonly face: { x: number; y: number; z: number }
-  readonly intersection: THREE.Intersection
-}
+import { Vector3 } from '@/domain/geometry'
+import { ThreeContextService } from './types'
 
 // --- Service Definition ---
 
+export type RaycastResult = {
+  readonly entityId: EntityId
+  readonly face: { readonly x: number; readonly y: number; readonly z: number }
+  readonly intersection: {
+    readonly distance: number
+    readonly point: Vector3
+  }
+}
+
+export class RaycastError extends Data.TaggedError('RaycastError')<{
+  readonly originalError: unknown
+}> {}
+
 export interface RaycastService {
-  readonly cast: (scene: THREE.Scene, terrainBlockMap: ReadonlyMap<string, EntityId>) => Effect.Effect<Option.Option<RaycastResult>>
+  readonly cast: (
+    scene: THREE.Scene,
+    terrainBlockMap: ReadonlyMap<string, EntityId>,
+  ) => Effect.Effect<Option.Option<RaycastResult>, RaycastError>
 }
 
 export const RaycastService = Context.GenericTag<RaycastService>('app/RaycastService')
-
-export const findHitEntity = (
-  intersection: THREE.Intersection,
-  terrainBlockMap: ReadonlyMap<string, EntityId>,
-  hitPosVec: THREE.Vector3 = new THREE.Vector3(),
-): Option.Option<RaycastResult> => {
-  if (!intersection.face) {
-    return Option.none()
-  }
-  hitPosVec.copy(intersection.point).add(intersection.face.normal.clone().multiplyScalar(-0.5)).floor()
-  const key = `${hitPosVec.x},${hitPosVec.y},${hitPosVec.z}`
-  const entityId = terrainBlockMap.get(key)
-  if (entityId === undefined) {
-    return Option.none()
-  }
-  return Option.some({
-    entityId,
-    face: {
-      x: intersection.face.normal.x,
-      y: intersection.face.normal.y,
-      z: intersection.face.normal.z,
-    },
-    intersection,
-  })
-}
 
 // --- Live Implementation ---
 
 export const RaycastServiceLive = Layer.effect(
   RaycastService,
-  Effect.gen(function* (_) {
-    const cameraService = yield* _(ThreeCameraService)
+  Effect.gen(function* ($) {
+    const threeContext = yield* $(ThreeContextService)
     const raycaster = new THREE.Raycaster()
-    const hitPosVec = new THREE.Vector3()
-    const centerScreenVec = new THREE.Vector2(0, 0)
 
     const cast = (scene: THREE.Scene, terrainBlockMap: ReadonlyMap<string, EntityId>) =>
-      Effect.sync(() => {
-        raycaster.setFromCamera(centerScreenVec, cameraService.camera.camera)
-        const intersects = raycaster.intersectObjects(scene.children, false)
+      Effect.try({
+        try: () => {
+          const { camera } = threeContext.camera
+          raycaster.setFromCamera(new THREE.Vector2(0, 0), camera)
+          const intersects = raycaster.intersectObjects(scene.children)
 
-        for (const intersection of intersects) {
-          const result = match(intersection)
-            .with({ distance: P.number.lt(REACH), object: { userData: { type: 'chunk' } } }, (hit) => findHitEntity(hit, terrainBlockMap, hitPosVec))
-            .otherwise(() => Option.none())
+          for (const intersect of intersects) {
+            const { object, point, face } = intersect
+            if (object.userData.type === 'chunk' && face) {
+              const hitPosition = new THREE.Vector3().copy(point).sub(face.normal.clone().multiplyScalar(0.5)).floor()
+              const key = `${hitPosition.x},${hitPosition.y},${hitPosition.z}`
+              const entityId = terrainBlockMap.get(key)
 
-          if (Option.isSome(result)) {
-            return result
+              if (entityId) {
+                return Option.some<RaycastResult>({
+                  entityId,
+                  face: { x: face.normal.x, y: face.normal.y, z: face.normal.z },
+                  intersection: {
+                    distance: intersect.distance,
+                    point: [point.x, point.y, point.z],
+                  },
+                })
+              }
+            }
           }
-        }
-        return Option.none()
+          return Option.none<RaycastResult>()
+        },
+        catch: (originalError) => new RaycastError({ originalError }),
       })
 
     return { cast }

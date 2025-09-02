@@ -3,7 +3,7 @@ import { Schema as S, Arbitrary as Arb } from 'effect'
 import { describe, expect } from 'vitest'
 import * as C from '../components'
 
-const components = {
+const components: Record<string, S.Schema<any, any, never>> = {
   Position: C.Position,
   Velocity: C.Velocity,
   Collider: C.Collider,
@@ -23,10 +23,10 @@ const components = {
 
 describe('Component Schemas', () => {
   for (const [name, schema] of Object.entries(components)) {
-    const arbitrary = Arb.make(schema as any)
+    const arbitrary = Arb.make(schema)
     test.prop([arbitrary])(`${name} should be reversible after encoding and decoding`, (value) => {
-      const encode = S.encodeSync(schema as S.Schema<any, any, never>)
-      const decode = S.decodeSync(schema as S.Schema<any, any, never>)
+      const encode = S.encodeSync(schema)
+      const decode = S.decodeSync(schema)
       expect(decode(encode(value))).toEqual(value)
     })
   }

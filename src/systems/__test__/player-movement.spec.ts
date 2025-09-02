@@ -6,7 +6,7 @@ import { createArchetype } from '@/domain/archetypes'
 import { CameraState, InputState } from '@/domain/components'
 import { playerQuery } from '@/domain/queries'
 import { JUMP_FORCE, MIN_VELOCITY_THRESHOLD, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@/domain/world-constants'
-import * as World from '@/runtime/world-pure'
+import * as World from '@/domain/world'
 import { provideTestLayer } from 'test/utils'
 import { applyDeceleration, calculateHorizontalVelocity, calculateVerticalVelocity, playerMovementSystem } from '../player-movement'
 

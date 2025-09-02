@@ -3,7 +3,7 @@ import { terrainBlockQuery } from '@/domain/queries'
 import { EntityId } from '@/domain/entity'
 import { RaycastResult, RaycastService } from '@/infrastructure/raycast-three'
 import { RaycastResultService, ThreeContextService } from '@/runtime/services'
-import * as World from '@/runtime/world-pure'
+import * as World from '@/domain/world'
 
 export const areRaycastResultsEqual = (a: RaycastResult, b: RaycastResult): boolean => {
   // Note: This is a shallow comparison. For deep equality on intersection, more checks are needed.
@@ -26,7 +26,7 @@ export const raycastSystem = Effect.gen(function* ($) {
   const newRaycastResult = yield* $(raycastService.cast(threeContext.scene, terrainBlockMap))
   const oldRaycastResult = yield* $(Ref.get(raycastResultRef))
 
-  const areEqual = Option.zip(oldRaycastResult, newRaycastResult).pipe(
+  const areEqual = Option.all([oldRaycastResult, newRaycastResult]).pipe(
     Option.map(([oldResult, newResult]) => areRaycastResultsEqual(oldResult, newResult)),
     Option.getOrElse(() => oldRaycastResult === newRaycastResult),
   )

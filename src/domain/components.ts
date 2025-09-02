@@ -3,6 +3,8 @@ import { BlockTypeSchema } from './block'
 import { Float, Int, Vector3IntSchema } from './common'
 import { EntityId, EntityIdSchema } from './entity'
 
+
+
 // --- Component Schemas ---
 
 export class Position extends S.Class<Position>('Position')({
@@ -62,6 +64,7 @@ export class TargetBlock extends S.Class<TargetBlock>('TargetBlock')({
   _tag: S.Literal('block'),
   entityId: EntityIdSchema,
   face: Vector3IntSchema,
+  position: Position,
 }) {}
 export class TargetNone extends S.Class<TargetNone>('TargetNone')({
   _tag: S.Literal('none'),
@@ -69,8 +72,11 @@ export class TargetNone extends S.Class<TargetNone>('TargetNone')({
 export const Target = S.Union(TargetBlock, TargetNone)
 export type Target = S.Schema.Type<typeof Target>
 export const createTargetNone = (): Target => new TargetNone({ _tag: 'none' })
-export const createTargetBlock = (entityId: EntityId, face: { readonly x: number; readonly y: number; readonly z: number }): Target =>
-  new TargetBlock({ _tag: 'block', entityId, face })
+export const createTargetBlock = (
+  entityId: EntityId,
+  face: { readonly x: number; readonly y: number; readonly z: number },
+  position: Position,
+): Target => new TargetBlock({ _tag: 'block', entityId, face, position })
 
 export class Gravity extends S.Class<Gravity>('Gravity')({
   value: Float,
@@ -98,7 +104,11 @@ export class Chunk extends S.Class<Chunk>('Chunk')({
   chunkZ: Int,
 }) {}
 
-export class Camera extends S.Class<Camera>('Camera')({}) {}
+export class Camera extends S.Class<Camera>('Camera')({
+  position: Position,
+  target: S.optional(Position),
+  damping: Float,
+}) {}
 
 export class TargetBlockComponent extends S.Class<TargetBlockComponent>('TargetBlockComponent')({}) {}
 

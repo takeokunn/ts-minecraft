@@ -3,8 +3,8 @@ import { Position, Velocity, Player } from '@/domain/components'
 import { EntityId } from '@/domain/entity'
 import { AABB, areAABBsIntersecting, createAABB } from '@/domain/geometry'
 import { playerColliderQuery, positionColliderQuery } from '@/domain/queries'
-import * as World from '@/runtime/world-pure'
-import { QueryResult } from '@/runtime/world-pure'
+import * as World from '@/domain/world'
+import { QueryResult } from '@/domain/world'
 import { SpatialGridService } from '@/runtime/services'
 
 type PlayerQueryResult = QueryResult<typeof playerColliderQuery.components>

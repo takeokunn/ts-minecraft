@@ -2,7 +2,7 @@ import { Effect } from 'effect'
 import { createAABB } from '@/domain/geometry'
 import { positionColliderQuery } from '@/domain/queries'
 import { SpatialGridService } from '@/runtime/services'
-import * as World from '@/runtime/world-pure'
+import * as World from '@/domain/world'
 
 /**
  * Rebuilds the spatial grid for broadphase collision detection.

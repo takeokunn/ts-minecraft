@@ -1,5 +1,4 @@
-import { Effect, Option, pipe } from 'effect'
-import { match } from 'ts-pattern'
+import { Effect, Option, pipe, Match } from 'effect'
 import Alea from 'alea'
 import { createNoise2D } from 'simplex-noise'
 import { BlockType, FaceName, getUvForFace, isBlockTransparent, PlacedBlock, TILE_SIZE } from '../domain/block'
@@ -165,11 +164,11 @@ export const generateGreedyMesh = (blocks: ReadonlyArray<PlacedBlock>, chunkX: n
           const dir: [number, number, number] = [0, 0, 0]
           for (let s = -1; s <= 1; s += 2) {
             dir[d] = s
-            const mask = Array.from({ length: dims[u] * dims[v] }, (): BlockType | null => null)
+            const mask = Array.from({ length: dims[u]! * dims[v]! }, (): BlockType | null => null)
             let maskIdx = 0
 
-            for (pos[v] = 0; pos[v] < dims[v]; ++pos[v]) {
-              for (pos[u] = 0; pos[u] < dims[u]; ++pos[u]) {
+            for (pos[v] = 0; pos[v] < dims[v]!; ++pos[v]) {
+              for (pos[u] = 0; pos[u] < dims[u]!; ++pos[u]) {
                 const b1 = getBlock(chunkView, pos[0], pos[1], pos[2])
                 const b2 = getBlock(chunkView, pos[0] + (d === 0 ? s : 0), pos[1] + (d === 1 ? s : 0), pos[2] + (d === 2 ? s : 0))
                 const t1 = pipe(
@@ -190,8 +189,8 @@ export const generateGreedyMesh = (blocks: ReadonlyArray<PlacedBlock>, chunkX: n
             }
 
             maskIdx = 0
-            for (let j = 0; j < dims[v]; j++) {
-              for (let i = 0; i < dims[u]; ) {
+            for (let j = 0; j < dims[v]!; j++) {
+              for (let i = 0; i < dims[u]!; ) {
                 const blockType = mask[maskIdx]
                 if (blockType) {
                   let w = 1
@@ -216,11 +215,12 @@ export const generateGreedyMesh = (blocks: ReadonlyArray<PlacedBlock>, chunkX: n
                   const dv: [number, number, number] = [0, 0, 0]
                   dv[v] = h
 
-                  const faceName: FaceName = match(d)
-                    .with(0, () => (s > 0 ? 'east' : 'west'))
-                    .with(1, () => (s > 0 ? 'top' : 'bottom'))
-                    .with(2, () => (s > 0 ? 'north' : 'south'))
-                    .exhaustive()
+                  const faceName: FaceName = Match.value(d).pipe(
+                    Match.when(0, () => (s > 0 ? 'east' : 'west')),
+                    Match.when(1, () => (s > 0 ? 'top' : 'bottom')),
+                    Match.when(2, () => (s > 0 ? 'north' : 'south')),
+                    Match.exhaustive,
+                  )
                   const tileUv = getUvForFace(blockType, faceName)
 
                   positions.push(
@@ -291,26 +291,34 @@ export const generateChunk = (params: GenerationParams): Effect.Effect<ChunkGene
     }
   })
 
-export const messageHandler = async (e: MessageEvent<ComputationTask>, generateChunkFn = generateChunk) => {
-  const program = match(e.data)
-    .with({ type: 'generateChunk' }, (task) => generateChunkFn(task.payload))
-    .exhaustive()
-
-  const handleSuccess = (result: ChunkGenerationResult) => {
+const handleTask = (task: ComputationTask, generateChunkFn = generateChunk) =>
+  Effect.gen(function* ($) {
+    const result = yield* $(
+      Match.value(task).pipe(
+        Match.when({ type: 'generateChunk' }, (task) => generateChunkFn(task.payload)),
+        Match.exhaustive,
+      ),
+    )
     const transferables = [result.mesh.positions.buffer, result.mesh.normals.buffer, result.mesh.uvs.buffer, result.mesh.indices.buffer]
-    self.postMessage(result, { transfer: transferables })
+    yield* $(Effect.sync(() => self.postMessage(result, { transfer: transferables })))
+  })
+
+const listen = Effect.async<never, Error, MessageEvent<ComputationTask>>((resume) => {
+  const listener = (e: MessageEvent<ComputationTask>) => {
+    resume(Effect.succeed(e))
   }
+  self.addEventListener('message', listener)
+  return Effect.sync(() => self.removeEventListener('message', listener))
+})
 
-  const handleFailure = (error: unknown) => {
-    console.error('Error in computation worker:', error)
-    // Optionally, post an error message back to the main thread
-    // self.postMessage({ type: 'error', error });
+const main = Effect.gen(function* ($) {
+  while (true) {
+    const event = yield* $(listen)
+    yield* $(Effect.fork(handleTask(event.data)))
   }
+})
 
-  await Effect.runPromise(program).then(handleSuccess).catch(handleFailure)
-}
-
-// Ensure we are in a worker context before assigning to self.onmessage
+// Ensure we are in a worker context before running the main effect
 if (typeof self !== 'undefined' && 'onmessage' in self) {
-  self.onmessage = messageHandler
+  Effect.runFork(main.pipe(Effect.catchAll((err) => Effect.logError('Worker failed', err))))
 }

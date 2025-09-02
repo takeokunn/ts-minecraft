@@ -140,7 +140,7 @@
 
 ### 処理フロー
 
-`blockInteractionSystem`は毎フレーム実行され、`ts-pattern`ライブラリの`match`式を用いて、プレイヤーの状態に応じた処理（破壊または設置）を呼び出します。
+`blockInteractionSystem`は毎フレーム実行され、`@effect/match`ライブラリの`Match`式を用いて、プレイヤーの状態に応じた処理（破壊または設置）を呼び出します。
 
 1.  **クエリ実行**:
     - `runtime/world` の `query` 関数と `domain/queries` の `playerTargetQuery` を使い、ブロック操作に必要なコンポーネント（`player`, `inputState`, `target`, `hotbar`）を持つプレイヤーエンティティを取得します。

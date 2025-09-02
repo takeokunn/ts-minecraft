@@ -1,5 +1,4 @@
-import { Schema as S } from 'effect'
-import { match } from 'ts-pattern'
+import { Schema as S, Match } from 'effect'
 import { BlockTypeSchema, hotbarSlots } from './block'
 import {
   Camera,
@@ -83,8 +82,8 @@ export type Archetype = Partial<Components>
  * @returns An archetype object (a partial set of components).
  */
 export const createArchetype = (builder: ArchetypeBuilder): Archetype => {
-  return match(builder)
-    .with({ type: 'player' }, ({ pos, cameraState }) => ({
+  return Match.value(builder).pipe(
+    Match.when({ type: 'player' }, ({ pos, cameraState }) => ({
       player: new Player({ isGrounded: false }),
       position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
       velocity: new Velocity({ dx: 0, dy: 0, dz: 0 }),
@@ -98,8 +97,8 @@ export const createArchetype = (builder: ArchetypeBuilder): Archetype => {
       }),
       hotbar: new Hotbar({ slots: hotbarSlots, selectedIndex: 0 }),
       target: createTargetNone(),
-    }))
-    .with({ type: 'block' }, ({ pos, blockType }) => ({
+    })),
+    Match.when({ type: 'block' }, ({ pos, blockType }) => ({
       position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
       renderable: new Renderable({ geometry: 'box', blockType }),
       collider: new Collider({
@@ -108,19 +107,23 @@ export const createArchetype = (builder: ArchetypeBuilder): Archetype => {
         depth: BLOCK_SIZE,
       }),
       terrainBlock: new TerrainBlock({}),
-    }))
-    .with({ type: 'camera' }, ({ pos }) => ({
-      camera: new Camera({}),
-      position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
-    }))
-    .with({ type: 'targetBlock' }, ({ pos }) => ({
+    })),
+    Match.when({ type: 'camera' }, ({ pos }) => ({
+      camera: new Camera({
+        position: new Position(pos),
+        damping: 0.1,
+      }),
+      position: new Position(pos),
+    })),
+    Match.when({ type: 'targetBlock' }, ({ pos }) => ({
       position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
       targetBlock: new TargetBlockComponent({}),
-    }))
-    .with({ type: 'chunk' }, ({ chunkX, chunkZ }) => ({
+    })),
+    Match.when({ type: 'chunk' }, ({ chunkX, chunkZ }) => ({
       chunk: new Chunk({ chunkX, chunkZ }),
-    }))
-    .exhaustive()
+    })),
+    Match.exhaustive,
+  )
 }
 
 /**

@@ -2,7 +2,7 @@ import { Effect } from 'effect'
 import { physicsQuery } from '@/domain/queries'
 import { FRICTION, TERMINAL_VELOCITY } from '@/domain/world-constants'
 import { DeltaTime } from '@/runtime/services'
-import * as World from '@/runtime/world-pure'
+import * as World from '@/domain/world'
 
 export const physicsSystem = Effect.gen(function* ($) {
   const deltaTime = yield* $(DeltaTime)

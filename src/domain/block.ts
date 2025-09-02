@@ -1,6 +1,4 @@
-import { Schema as S, Either, Effect } from 'effect'
-import type { ParseError } from 'effect/ParseResult'
-import { match } from 'ts-pattern'
+import { Schema as S, Match } from 'effect'
 import { Vector3IntSchema } from './common'
 
 // --- Schemas ---
@@ -61,10 +59,11 @@ export const blockDefinitions: Readonly<Record<BlockType, BlockDefinition>> = {
  */
 export const getUvForFace = (blockType: BlockType, faceName: FaceName): readonly [number, number] => {
   const { textures } = blockDefinitions[blockType]
-  return match(faceName)
-    .with('top', () => textures.top ?? textures.side)
-    .with('bottom', () => textures.bottom ?? textures.side)
-    .otherwise(() => textures.side)
+  return Match.value(faceName).pipe(
+    Match.when('top', () => textures.top ?? textures.side),
+    Match.when('bottom', () => textures.bottom ?? textures.side),
+    Match.orElse(() => textures.side),
+  )
 }
 
 /**
@@ -89,8 +88,12 @@ export const isBlockFluid = (blockType: BlockType): boolean => blockDefinitions[
  * @param blockType The type of the block.
  * @returns A PlacedBlock object.
  */
-export const createPlacedBlock = (position: { readonly x: number; readonly y: number; readonly z: number }, blockType: BlockType): Either.Either<ParseError, PlacedBlock> => {
-  return Effect.runSync(Effect.either(S.decode(PlacedBlockSchema)({ position, blockType })))
+export const createPlacedBlock = (
+  position: { readonly x: number; readonly y: number; readonly z: number },
+  blockType: BlockType,
+) => {
+  const decode = S.decodeEither(PlacedBlockSchema)
+  return decode({ position, blockType })
 }
 
 export const isBlockType = S.is(BlockTypeSchema)

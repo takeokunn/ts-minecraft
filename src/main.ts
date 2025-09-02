@@ -13,7 +13,7 @@ import { RaycastServiceLive } from '@/infrastructure/raycast-three'
 import { SpatialGridLive } from '@/infrastructure/spatial-grid'
 import { gameLoop } from '@/runtime/loop'
 import { ChunkDataQueueService, GameStateService, OnCommand, RaycastResultService, RenderQueueService, DeltaTime } from '@/runtime/services'
-import * as World from '@/runtime/world-pure'
+import * as World from '@/domain/world'
 import { WorldContext } from '@/runtime/context'
 import {
   blockInteractionSystem,
@@ -108,24 +108,50 @@ export const AppLayer = (rootElement: HTMLElement) =>
     Layer.provide(Layer.succeed(DeltaTime, 0)),
   )
 
-export const bootstrap = (rootElement: HTMLElement) => {
-  const appLayer = AppLayer(rootElement)
-  return main().pipe(
-    Effect.provide(appLayer),
-    Effect.catchAll((err) => Effect.logError('An unrecoverable error occurred', err)),
-  )
+class RootElementNotFoundError extends Error {
+  readonly _tag = 'RootElementNotFoundError'
 }
 
-export const runApp = (bootstrapFn: (el: HTMLElement) => Effect.Effect<void>) => {
-  const rootElement = document.getElementById('app')
-  if (!rootElement) {
-    throw new Error('Root element #app not found')
+const getRootElement = Effect.sync(() => document.getElementById('app')).pipe(
+  Effect.flatMap(Option.fromNullable),
+  Effect.mapError(() => new RootElementNotFoundError()),
+)
+
+const waitForDom = Effect.async<never, never, void>((resume) => {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => resume(Effect.void))
+  } else {
+    resume(Effect.void)
   }
-  const runnable = bootstrapFn(rootElement)
-  Effect.runFork(runnable)
-}
+})
+
+export const bootstrap = Effect.gen(function* ($) {
+  yield* $(waitForDom)
+  const rootElement = yield* $(getRootElement)
+  const appLayer = AppLayer(rootElement)
+  yield* $(main().pipe(Effect.provide(appLayer)))
+}).pipe(
+  Effect.catchAll((err) => Effect.logError('An unrecoverable error occurred', err)),
+)
+
+export const runApp = (bootstrapFn: (el: HTMLElement) => Effect.Effect<void>) =>
+  Effect.gen(function* ($) {
+    const rootElement = yield* $(
+      Effect.sync(() => document.getElementById('app')),
+      Effect.flatMap(Option.fromNullable),
+      Effect.catchAll(() => Effect.fail(new Error('Root element #app not found'))),
+    )
+    const runnable = bootstrapFn(rootElement)
+    yield* $(runnable)
+  })
 
 // --- Bootstrap ---
-export const init = (appRunner = runApp) => {
-  document.addEventListener('DOMContentLoaded', () => appRunner(bootstrap))
-}
+export const init = (appRunner = runApp) =>
+  Effect.runFork(
+    Effect.async<never, never, void>((resume) => {
+      document.addEventListener('DOMContentLoaded', () => resume(Effect.void))
+      return Effect.sync(() => document.removeEventListener('DOMContentLoaded', () => resume(Effect.void)))
+    }).pipe(Effect.flatMap(() => appRunner(bootstrap))),
+  )
+
+Effect.runFork(bootstrap)

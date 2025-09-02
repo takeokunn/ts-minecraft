@@ -1,4 +1,8 @@
-import { match } from 'ts-pattern'
+import { vec3 } from 'gl-matrix'
+import { Match, Option } from 'effect'
+import { Camera, Position, Target } from './components'
+import type { Vector3 } from './geometry'
+import { isSome } from './types'
 
 const PI_HALF = Math.PI / 2
 
@@ -10,15 +14,44 @@ const PI_HALF = Math.PI / 2
  * @returns The clamped pitch angle.
  */
 export const clampPitch = (pitch: number): number => {
-  return match(pitch)
-    .when(Number.isNaN, () => 0)
-    .when(
+  return Match.value(pitch).pipe(
+    Match.when(Number.isNaN, () => 0),
+    Match.when(
       (p) => p > PI_HALF,
       () => PI_HALF,
-    )
-    .when(
+    ),
+    Match.when(
       (p) => p < -PI_HALF,
       () => -PI_HALF,
-    )
-    .otherwise((p) => p)
+    ),
+    Match.orElse((p) => p),
+  )
+}
+
+export const updateCamera = (camera: Camera, target: Option.Option<Target>): Camera => {
+  const newTargetPositionOption = Option.flatMap(target, (t) => (t._tag === 'block' ? Option.some(t.position) : Option.none()))
+  const newTargetPosition = Option.getOrUndefined(newTargetPositionOption)
+  return new Camera({ ...camera, target: newTargetPosition })
+}
+
+export const updateCameraPosition = (
+  camera: Camera,
+  targetPosition: Option.Option<Vector3>,
+  deltaTime: number,
+): Camera => {
+  if (isSome(targetPosition)) {
+    const newPositionVec = vec3.create()
+    const currentPositionVec: Vector3 = [camera.position.x, camera.position.y, camera.position.z]
+    vec3.lerp(newPositionVec, currentPositionVec, targetPosition.value, deltaTime * camera.damping)
+    const newPosition = new Position({ x: newPositionVec[0], y: newPositionVec[1], z: newPositionVec[2] })
+    return new Camera({ ...camera, position: newPosition })
+  }
+  return camera
+}
+
+export const getCameraLookAt = (camera: Camera): Vector3 => {
+  const lookAt = vec3.create()
+  const cameraPosition: Vector3 = [camera.position.x, camera.position.y, camera.position.z]
+  vec3.add(lookAt, cameraPosition, [0, 0, -1]) // Look forward
+  return [lookAt[0], lookAt[1], lookAt[2]]
 }

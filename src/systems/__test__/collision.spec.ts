@@ -1,20 +1,17 @@
 import { Effect, Layer, Ref } from 'effect'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from '@effect/vitest'
 import { createArchetype } from '@/domain/archetypes'
 import { playerColliderQuery } from '@/domain/queries'
 import { SpatialGrid } from '@/infrastructure/spatial-grid'
 import { SpatialGridService } from '@/runtime/services'
-import * as World from '@/runtime/world-pure'
+import * as World from '@/domain/world'
 import { provideTestLayer } from 'test/utils'
 import { collisionSystem } from '../collision'
 import { AABB } from '@/domain/geometry'
 import { EntityId } from '@/domain/entity'
 
 class MockSpatialGrid implements SpatialGrid {
-  state: Ref.Ref<any>
-  constructor(private entities: EntityId[] = []) {
-    this.state = Ref.unsafeMake({})
-  }
+  constructor(private entities: EntityId[] = []) {}
   clear = Effect.void
   register = (_entityId: EntityId, _aabb: AABB) => Effect.void
   query = (_aabb: AABB) => Effect.succeed(this.entities)

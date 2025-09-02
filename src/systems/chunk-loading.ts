@@ -4,7 +4,7 @@ import { playerQuery } from '@/domain/queries'
 import { SystemCommand } from '@/domain/types'
 import { CHUNK_SIZE, RENDER_DISTANCE } from '@/domain/world-constants'
 import { OnCommand } from '@/runtime/services'
-import * as World from '@/runtime/world-pure'
+import * as World from '@/domain/world'
 
 type ChunkCoord = { readonly x: number; readonly z: number }
 

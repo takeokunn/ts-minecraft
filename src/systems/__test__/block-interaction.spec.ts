@@ -1,9 +1,8 @@
 import { Effect, Option, Record, Ref } from 'effect'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from '@effect/vitest'
 import { createArchetype } from '@/domain/archetypes'
-import type { BlockType } from '@/domain/block'
 import { Hotbar, InputState, TargetBlock, createTargetNone } from '@/domain/components'
-import * as World from '@/runtime/world-pure'
+import * as World from '@/domain/world'
 import { WorldContext } from '@/runtime/context'
 import { provideTestLayer } from 'test/utils'
 import { blockInteractionSystem } from '../block-interaction'
@@ -29,9 +28,9 @@ const setupWorld = Effect.gen(function* ($) {
       playerId,
       'target',
       new TargetBlock({
-        _tag: 'block',
         entityId: blockId,
         face: { x: 0, y: 0, z: 1 },
+        position: { x: 0, y: 0, z: -2 },
       }),
     ),
   )
@@ -53,8 +52,10 @@ describe('blockInteractionSystem', () => {
 
       yield* $(blockInteractionSystem)
 
-      const blockExists = yield* $(World.getComponentOption(blockId, 'position'))
-      expect(Option.isNone(blockExists)).toBe(true)
+      const { world } = yield* $(WorldContext)
+      const worldState = yield* $(Ref.get(world))
+      const isBlockDestroyed = worldState.globalState.editedBlocks.destroyed.has('0,0,-2')
+      expect(isBlockDestroyed).toBe(true)
     }).pipe(Effect.provide(TestLayer)))
 
   it('should call place handler when place input is true', () =>
@@ -73,7 +74,7 @@ describe('blockInteractionSystem', () => {
           playerId,
           'hotbar',
           new Hotbar({
-            slots: ['stone' as BlockType],
+            slots: ['stone'],
             selectedIndex: 0,
           }),
         ),
