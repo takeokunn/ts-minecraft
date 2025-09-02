@@ -1,31 +1,17 @@
 import * as fc from 'fast-check'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { Archetype, createArchetype } from '@/domain/archetypes'
-import { ComponentName, Components, Position, ComponentSchemas } from '@/domain/components'
+import { ComponentName, Position, ComponentSchemas } from '@/domain/components'
 import { toEntityId } from '@/domain/entity'
 import { playerQuery, playerTargetQuery } from '@/domain/queries'
 import * as World from '../world-pure'
 import { Option } from 'effect'
 import * as S from 'effect/Schema'
 
-// Test-only component without a schema
-type NoSchemaComponent = { value: string }
-declare module '@/domain/components' {
-  interface Components {
-    noSchema: NoSchemaComponent
-  }
-}
-
 // Test-only component with a class schema
-class TransformComponent extends S.Class<TransformComponent>()({
+class TransformComponent extends S.Class<TransformComponent>('TransformComponent')({
   value: S.String,
 }) {}
-
-declare module '@/domain/components' {
-  interface Components {
-    transform: TransformComponent
-  }
-}
 
 const archetypeGen = fc.constantFrom<Archetype>(
   createArchetype({ type: 'player', pos: new Position({ x: 0, y: 0, z: 0 }) }),
@@ -83,7 +69,6 @@ describe('world-pure', () => {
       const blockArchetypeEntities = world4.archetypes.get(blockArchetypeKey)
       expect(blockArchetypeEntities).toBeDefined()
       expect(blockArchetypeEntities?.size).toBe(1)
-      // @ts-expect-error
       expect(blockArchetypeEntities).toContain(blockEntityId)
     })
   })
@@ -179,7 +164,7 @@ describe('world-pure', () => {
 
       const results = World.query(world3, playerQuery)
       expect(results.length).toBe(1)
-      expect(results[0].entityId).toBe(playerEntityId)
+      expect(results[0]!.entityId).toBe(playerEntityId)
     })
   })
 
@@ -234,11 +219,11 @@ describe('world-pure', () => {
       const archetype: Archetype = {
         position: new Position({ x: 1, y: 2, z: 3 }),
         noSchema: { value: 'test' },
-      }
+      } as any
       const [entityId, newWorld] = World.addArchetype(world, archetype)
       world = newWorld
 
-      const results = World.querySoA(world, { components: ['position', 'noSchema'] }, ComponentSchemas)
+      const results = World.querySoA(world, { name: 'test', components: ['position', 'noSchema'] as any }, ComponentSchemas)
       expect(results.entities).toEqual([entityId])
       expect(results.position.x).toEqual([1])
       expect((results as any).noSchema.value).toEqual(['test'])
@@ -249,17 +234,17 @@ describe('world-pure', () => {
 
     it('should handle components with a schema that is not a TypeLiteral', () => {
       // Monkey-patch the schema for this test
-      ;(ComponentSchemas as any).noSchema = S.string
+      ;(ComponentSchemas as any).noSchema = S.String
 
       let world = World.createWorld()
       const archetype: Archetype = {
         position: new Position({ x: 1, y: 2, z: 3 }),
         noSchema: 'test-string',
-      }
+      } as any
       const [entityId, newWorld] = World.addArchetype(world, archetype)
       world = newWorld
 
-      const results = World.querySoA(world, { components: ['position', 'noSchema'] }, ComponentSchemas)
+      const results = World.querySoA(world, { name: 'test', components: ['position', 'noSchema'] as any }, ComponentSchemas)
       expect(results.entities).toEqual([entityId])
       expect(results.position.x).toEqual([1])
       expect((results as any).noSchema).toEqual(['test-string'])
@@ -289,11 +274,11 @@ describe('world-pure', () => {
       const archetype: Archetype = {
         position: new Position({ x: 1, y: 2, z: 3 }),
         transform: new TransformComponent({ value: 'test' }),
-      }
+      } as any
       const [entityId, newWorld] = World.addArchetype(world, archetype)
       world = newWorld
 
-      const results = World.querySoA(world, { components: ['position', 'transform'] }, ComponentSchemas)
+      const results = World.querySoA(world, { name: 'test', components: ['position', 'transform'] as any }, ComponentSchemas)
       expect(results.entities).toEqual([entityId])
       expect(results.position.x).toEqual([1])
       expect((results as any).transform.value).toEqual(['test'])

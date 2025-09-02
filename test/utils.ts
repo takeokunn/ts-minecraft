@@ -1,6 +1,6 @@
 import { Effect, Layer, Ref } from 'effect'
 import { Archetype } from '@/domain/archetypes'
-import { ComponentName, Components } from '@/domain/components'
+import { ComponentName, Components, ComponentSchemas } from '@/domain/components'
 import { EntityId } from '@/domain/entity'
 import { Query } from '@/domain/query'
 import { ThreeCameraService } from '@/infrastructure/camera-three'
@@ -55,7 +55,7 @@ export const provideTestWorld = (
       const updateComponent = <T extends ComponentName>(entityId: EntityId, componentName: T, componentData: Components[T]) =>
         update((world) => updateComponentPure(world, entityId, componentName, componentData))
       const query = <T extends ReadonlyArray<ComponentName>>(queryDef: Query) => Effect.map(Ref.get(worldStateRef), (world) => queryPure<T>(world, queryDef))
-      const querySoA = <T extends ReadonlyArray<ComponentName>>(queryDef: Query) => Effect.map(Ref.get(worldStateRef), (world) => querySoAPure<T>(world, queryDef))
+      const querySoA = <T extends ReadonlyArray<ComponentName>>(queryDef: Query) => Effect.map(Ref.get(worldStateRef), (world) => querySoAPure<T>(world, queryDef, ComponentSchemas))
 
       return {
         state: worldStateRef,

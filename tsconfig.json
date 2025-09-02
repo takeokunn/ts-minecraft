@@ -30,5 +30,5 @@
     },
     "types": ["vite/client"]
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "vite.config.ts"]
 }

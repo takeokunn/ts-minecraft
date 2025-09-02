@@ -37,7 +37,7 @@ async function findAllTextureFiles(): Promise<TextureInfo[]> {
           }
         }
       } catch (error) {
-        console.warn(`Could not read directory ${faceFilesPath}, skipping.`)
+        console.warn(`Could not read directory ${faceFilesPath}, skipping.`, error)
       }
     }
   }

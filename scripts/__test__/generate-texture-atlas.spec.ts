@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import path from 'path'
 import sharp from 'sharp'
 import fs from 'fs/promises'
 import * as script from '../generate-texture-atlas'

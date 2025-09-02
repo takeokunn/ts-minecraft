@@ -1,4 +1,4 @@
-import { Effect, HashSet, Option, Record } from 'effect'
+import { Effect, HashSet, Option, Record, Layer } from 'effect'
 import { describe, it, expect } from 'vitest'
 import { createArchetype } from '@/domain/archetypes'
 import type { BlockType } from '@/domain/block'
@@ -6,8 +6,26 @@ import { Hotbar, InputState, TargetBlock, createTargetNone } from '@/domain/comp
 import { playerTargetQuery } from '@/domain/queries'
 import { QueryResult, World, WorldLive } from '@/runtime/world'
 import { blockInteractionSystem, handleDestroyBlock, handlePlaceBlock } from '../block-interaction'
+import { mock } from 'vitest-mock-extended'
+import { RaycastService } from '@/infrastructure/raycast-three'
+import { ThreeCameraService } from '@/infrastructure/camera-three'
+import { ThreeContextService, ThreeContext } from '@/infrastructure/types'
+import { Scene } from 'three'
 
-const TestLayer = WorldLive
+const raycastMock = mock<RaycastService>()
+const cameraMock = mock<ThreeCameraService>()
+const contextMock = {
+  ...mock<ThreeContext>(),
+  scene: new Scene(),
+} as ThreeContext
+
+const MocksLayer = Layer.mergeAll(
+  Layer.succeed(RaycastService, raycastMock),
+  Layer.succeed(ThreeCameraService, cameraMock),
+  Layer.succeed(ThreeContextService, contextMock),
+)
+
+const TestLayer = WorldLive.pipe(Layer.provide(MocksLayer))
 
 const setupWorld = Effect.gen(function* (_) {
   const world = yield* _(World)
@@ -66,8 +84,7 @@ describe('blockInteractionSystem', () => {
         expect(HashSet.has(worldState.globalState.editedBlocks.destroyed, '0,0,-2')).toBe(true)
       })
 
-      // @ts-expect-error R a is not assignable to never
-      await Effect.runPromise(Effect.provide(program, TestLayer))
+      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
     })
 
     it('should do nothing if target block has no position', async () => {
@@ -101,8 +118,7 @@ describe('blockInteractionSystem', () => {
         expect(finalWorldState).toEqual(initialWorldState)
       })
 
-      // @ts-expect-error R a is not assignable to never
-      await Effect.runPromise(Effect.provide(program, TestLayer))
+      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
     })
 
     it('should do nothing if target is not a block', async () => {
@@ -121,43 +137,7 @@ describe('blockInteractionSystem', () => {
         const finalWorldState = yield* _(world.state.get)
         expect(finalWorldState).toEqual(initialWorldState)
       })
-      // @ts-expect-error R a is not assignable to never
-      await Effect.runPromise(Effect.provide(program, TestLayer))
-    })
-
-    it('should do nothing if target block has no position', async () => {
-      const program = Effect.gen(function* (_) {
-        const world = yield* _(World)
-        const { blockId } = yield* _(setupWorld)
-        const players = yield* _(world.query(playerTargetQuery))
-        const player = players[0]!
-
-        // Manually remove the position component to trigger the guard clause
-        yield* _(
-          world.update((w) => {
-            const newPositionMap = new Map(w.components.position)
-            newPositionMap.delete(blockId)
-            return {
-              ...w,
-              components: {
-                ...w.components,
-                position: newPositionMap,
-              },
-            }
-          }),
-        )
-        const initialWorldState = yield* _(world.state.get)
-
-        if (player && player.target._tag === 'block') {
-          yield* _(handleDestroyBlock(player as PlayerQueryResult))
-        }
-
-        const finalWorldState = yield* _(world.state.get)
-        expect(finalWorldState).toEqual(initialWorldState)
-      })
-
-      // @ts-expect-error R a is not assignable to never
-      await Effect.runPromise(Effect.provide(program, TestLayer))
+      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
     })
   })
 
@@ -197,8 +177,7 @@ describe('blockInteractionSystem', () => {
         const newPlayerInput = yield* _(world.getComponent(playerId, 'inputState'))
         expect(newPlayerInput.pipe(Option.map((s) => s.place)).pipe(Option.getOrThrow)).toBe(false)
       })
-      // @ts-expect-error R a is not assignable to never
-      await Effect.runPromise(Effect.provide(program, TestLayer))
+      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
     })
 
     it('should do nothing if target is not a block', async () => {
@@ -217,8 +196,7 @@ describe('blockInteractionSystem', () => {
         const finalWorldState = yield* _(world.state.get)
         expect(finalWorldState).toEqual(initialWorldState)
       })
-      // @ts-expect-error R a is not assignable to never
-      await Effect.runPromise(Effect.provide(program, TestLayer))
+      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
     })
 
     it('should do nothing if target block has no position', async () => {
@@ -251,8 +229,7 @@ describe('blockInteractionSystem', () => {
         const finalWorldState = yield* _(world.state.get)
         expect(finalWorldState).toEqual(initialWorldState)
       })
-      // @ts-expect-error R a is not assignable to never
-      await Effect.runPromise(Effect.provide(program, TestLayer))
+      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
     })
   })
 
@@ -274,8 +251,7 @@ describe('blockInteractionSystem', () => {
         const blockExists = yield* _(world.getComponent(blockId, 'position'))
         expect(Option.isNone(blockExists)).toBe(true)
       })
-      // @ts-expect-error R a is not assignable to never
-      await Effect.runPromise(Effect.provide(program, TestLayer))
+      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
     })
 
     it('should call place handler when place input is true', async () => {
@@ -306,8 +282,7 @@ describe('blockInteractionSystem', () => {
         const placedBlock = Record.get(worldState.globalState.editedBlocks.placed, '0,0,-1')
         expect(Option.isSome(placedBlock)).toBe(true)
       })
-      // @ts-expect-error R a is not assignable to never
-      await Effect.runPromise(Effect.provide(program, TestLayer))
+      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
     })
 
     it('should do nothing if hotbar selection is empty when placing', async () => {
@@ -338,8 +313,7 @@ describe('blockInteractionSystem', () => {
         const finalWorldState = yield* _(world.state.get)
         expect(finalWorldState).toEqual(initialWorldState)
       })
-      // @ts-expect-error R a is not assignable to never
-      await Effect.runPromise(Effect.provide(program, TestLayer))
+      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
     })
 
     it('should do nothing if target is none', async () => {
@@ -361,8 +335,7 @@ describe('blockInteractionSystem', () => {
         const finalWorldState = yield* _(world.state.get)
         expect(finalWorldState).toEqual(initialWorldState)
       })
-      // @ts-expect-error R a is not assignable to never
-      await Effect.runPromise(Effect.provide(program, TestLayer))
+      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
     })
 
     it('should do nothing if no input is given', async () => {
@@ -379,8 +352,7 @@ describe('blockInteractionSystem', () => {
         expect(Option.isSome(blockExists)).toBe(true)
         expect(finalWorldState).toEqual(initialWorldState)
       })
-      // @ts-expect-error R a is not assignable to never
-      await Effect.runPromise(Effect.provide(program, TestLayer))
+      await Effect.runPromise(Effect.provide(program, TestLayer) as any)
     })
   })
 })

@@ -52,7 +52,10 @@ export const chunkLoadingSystem = Effect.gen(function* (_) {
   if (players.length === 0) {
     return
   }
-  const player = players[0]
+  const player = (yield* _(world.query(playerQuery)))[0]
+  if (!player) {
+    return
+  }
   const playerPositionX = player.position.x
   const playerPositionZ = player.position.z
 

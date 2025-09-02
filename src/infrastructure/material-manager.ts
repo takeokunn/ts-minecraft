@@ -1,4 +1,4 @@
-import { TextureLoader, MeshBasicMaterial, type Material, SRGBColorSpace, Texture, NearestFilter } from 'three'
+import { TextureLoader, MeshBasicMaterial, type Material, SRGBColorSpace, NearestFilter } from 'three'
 import { Context, Effect, Layer } from 'effect'
 
 // --- Error Type ---

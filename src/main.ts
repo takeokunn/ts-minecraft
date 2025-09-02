@@ -28,29 +28,30 @@ import {
   worldUpdateSystem,
 } from '@/systems'
 
-export const main = Effect.gen(function* ($) {
-  const world = yield* $(World)
-  yield* $(world.addArchetype(createArchetype({ type: 'player', pos: new Position({ x: 0, y: 20, z: 0 }) })))
+export const hotbarUpdater = (_hotbar: Hotbar) => Effect.void
 
-  const hotbarUpdater = (_hotbar: Hotbar) => Effect.void
+export const main = (uiSystem = createUISystem(hotbarUpdater)) =>
+  Effect.gen(function* ($) {
+    const world = yield* $(World)
+    yield* $(world.addArchetype(createArchetype({ type: 'player', pos: new Position({ x: 0, y: 20, z: 0 }) })))
 
-  const systems = [
-    inputPollingSystem,
-    cameraControlSystem,
-    playerMovementSystem,
-    physicsSystem,
-    updatePhysicsWorldSystem,
-    collisionSystem,
-    raycastSystem,
-    updateTargetSystem,
-    blockInteractionSystem,
-    chunkLoadingSystem,
-    worldUpdateSystem,
-    createUISystem(hotbarUpdater),
-  ]
+    const systems = [
+      inputPollingSystem,
+      cameraControlSystem,
+      playerMovementSystem,
+      physicsSystem,
+      updatePhysicsWorldSystem,
+      collisionSystem,
+      raycastSystem,
+      updateTargetSystem,
+      blockInteractionSystem,
+      chunkLoadingSystem,
+      worldUpdateSystem,
+      uiSystem,
+    ]
 
-  yield* $(gameLoop(systems))
-})
+    yield* $(gameLoop(systems))
+  })
 
 export const AppLayer = (rootElement: HTMLElement) => {
   const statefulServices = Layer.succeed(RaycastResultService, Ref.unsafeMake(Option.none())).pipe(
@@ -117,7 +118,7 @@ export const bootstrap = () => {
   const deltaTimeLayer = Layer.succeed(DeltaTime, 0)
   const finalLayer = Layer.mergeAll(appLayer, deltaTimeLayer, GameStateLive)
 
-  return main.pipe(Effect.provide(finalLayer))
+  return main().pipe(Effect.provide(finalLayer))
 }
 
 export const runApp = (bootstrapFn = bootstrap) => {
@@ -127,6 +128,6 @@ export const runApp = (bootstrapFn = bootstrap) => {
 }
 
 // --- Bootstrap ---
-export const init = () => {
-  document.addEventListener('DOMContentLoaded', () => runApp())
+export const init = (appRunner = runApp) => {
+  document.addEventListener('DOMContentLoaded', () => appRunner())
 }

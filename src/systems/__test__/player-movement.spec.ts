@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { describe, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { fc, test } from '@fast-check/vitest'
 import { createArchetype } from '@/domain/archetypes'
 import { CameraState, InputState } from '@/domain/components'

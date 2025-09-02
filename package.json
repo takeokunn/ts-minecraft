@@ -9,7 +9,7 @@
     "tsc": "tsc --pretty",
     "preview": "vite preview",
     "test": "vitest",
-    "lint": "oxlint",
+    "lint": "oxlint --deny-warnings",
     "format": "prettier --write . --ignore-path .gitignore && oxlint --fix",
     "generate:atlas": "npx tsx scripts/generate-texture-atlas.ts"
   },

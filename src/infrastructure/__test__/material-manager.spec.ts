@@ -6,12 +6,6 @@ import * as THREE from 'three'
 // Mock Three.js
 vi.mock('three', async () => {
   const actualThree = await vi.importActual('three')
-  class MockTexture {
-    colorSpace = ''
-    magFilter = null
-    minFilter = null
-    dispose = vi.fn()
-  }
   class MockMeshBasicMaterial {
     map: any
     constructor(params: { map: any }) {
@@ -102,8 +96,10 @@ describe('MaterialManager', () => {
     const result = await Effect.runPromise(Effect.flip(layerEffect))
 
     expect(result).toBeInstanceOf(TextureLoadError)
-    expect(result.path).toBe('/texture/texture.png')
-    expect(result.originalError).toBe(error)
+    if (result instanceof TextureLoadError) {
+      expect(result.path).toBe('/texture/texture.png')
+      expect(result.originalError).toBe(error)
+    }
   })
 
   it('should dispose of the material and texture', async () => {

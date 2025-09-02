@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as ComputationWorker from '../computation.worker'
 import { generateBlockData, generateGreedyMesh, createChunkDataView, getBlock } from '../computation.worker'
 import type { ComputationTask, GenerationParams } from '../../domain/types'
@@ -193,7 +194,7 @@ describe('computation.worker', () => {
 
   describe('messageHandler', () => {
     const self = globalThis as any
-    let postMessageSpy: vi.SpyInstance
+    let postMessageSpy: any
 
     beforeEach(() => {
       postMessageSpy = vi.fn()

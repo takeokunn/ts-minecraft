@@ -1,12 +1,12 @@
 import { Effect, Layer, Ref } from 'effect'
 import { createGameTick } from '../loop'
 import { DeltaTime, RendererService } from '../services'
-import { TestClock } from '@effect/test/TestClock'
+import { TestClock } from 'effect'
 import { it } from '@effect/vitest'
 import { assert, describe } from 'vitest'
 
 // Test-specific implementation of RendererService
-const makeTestRenderer = Effect.gen(function* (_) {
+const makeTestRenderer = Effect.sync(() => {
   const calls = {
     processRenderQueue: 0,
     syncCameraToWorld: 0,

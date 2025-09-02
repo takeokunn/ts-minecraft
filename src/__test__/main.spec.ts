@@ -10,10 +10,10 @@ import * as systems from '@/systems'
 import { World } from '@/runtime/world'
 import { ComputationWorkerTag } from '@/infrastructure/computation.worker'
 import { ChunkDataQueueService } from '@/runtime/services'
-import { SystemCommand } from '@/domain/types'
+import { Hotbar } from '@/domain/components'
 
 // Mock the game loop
-const gameLoopSpy = vi.spyOn(loop, 'gameLoop').mockImplementation(() => Effect.void)
+const gameLoopSpy = vi.spyOn(loop, 'gameLoop').mockImplementation(() => Effect.void as Effect.Effect<void, never, never>)
 
 describe('main', () => {
   beforeEach(() => {
@@ -24,11 +24,12 @@ describe('main', () => {
     const testLayer = Layer.succeed(World, {
       addArchetype: () => Effect.succeed(0 as any),
     } as any)
-    await Effect.runPromise(main.pipe(Effect.provide(testLayer)))
+    const mockUiSystem = Effect.void
+    await Effect.runPromise(main(mockUiSystem).pipe(Effect.provide(testLayer)) as any)
 
     expect(gameLoopSpy).toHaveBeenCalledOnce()
-    const systemsPassed = gameLoopSpy.mock.calls[0][0]
-    expect(systemsPassed.slice(0, -1)).toEqual([
+    const systemsPassed = gameLoopSpy.mock.calls[0]![0]
+    expect(systemsPassed).toEqual([
       systems.inputPollingSystem,
       systems.cameraControlSystem,
       systems.playerMovementSystem,
@@ -40,8 +41,8 @@ describe('main', () => {
       systems.blockInteractionSystem,
       systems.chunkLoadingSystem,
       systems.worldUpdateSystem,
+      mockUiSystem,
     ])
-    expect(Effect.isEffect(systemsPassed[systemsPassed.length - 1])).toBe(true)
   })
 })
 
@@ -67,10 +68,23 @@ describe('bootstrap', () => {
 })
 
 describe('init', () => {
-  it('should add DOMContentLoaded listener', () => {
+  it('should add a DOMContentLoaded listener that calls the provided runner', () => {
+    const runnerSpy = vi.fn()
     const addEventListenerSpy = vi.spyOn(document, 'addEventListener')
-    mainModule.init()
+
+    mainModule.init(runnerSpy)
+
+    // Verify that addEventListener was called with the correct event name
     expect(addEventListenerSpy).toHaveBeenCalledWith('DOMContentLoaded', expect.any(Function))
+
+    // Get the listener function from the spy
+    const domContentLoadedListener = addEventListenerSpy.mock.calls[0]![1] as () => void
+
+    // Call the listener function manually to simulate the event
+    domContentLoadedListener()
+
+    // Verify that the runner was called
+    expect(runnerSpy).toHaveBeenCalledOnce()
   })
 })
 
@@ -112,9 +126,17 @@ describe('onCommandEffect', () => {
     )
 
     const onCommand = await Effect.runPromise(onCommandEffect.pipe(Effect.provide(testLayer)))
-    await Effect.runPromise(onCommand({ type: 'generateChunk' } as SystemCommand))
+    await Effect.runPromise(onCommand({ type: 'GenerateChunk', chunkX: 0, chunkZ: 0 }))
 
     expect(mockPostTask).toHaveBeenCalledOnce()
     expect(mockQueue.length).toBe(1)
+  })
+})
+
+describe('hotbarUpdater', () => {
+  it('should return Effect.void', () => {
+    const hotbar = new Hotbar({ slots: [], selectedIndex: 0 })
+    const effect = mainModule.hotbarUpdater(hotbar)
+    expect(effect).toBe(Effect.void)
   })
 })
