@@ -10,18 +10,25 @@ import * as World from '@/domain/world'
  */
 export const updatePhysicsWorldSystem = Effect.gen(function* (_) {
   const spatialGridService = yield* _(SpatialGridService)
-  const colliders = yield* _(World.query(positionColliderQuery))
+  const soa = yield* _(World.querySoA(positionColliderQuery))
 
   yield* _(spatialGridService.clear)
 
-  yield* _(
-    Effect.forEach(
-      colliders,
-      (c) => {
-        const aabb = createAABB(c.position, c.collider)
-        return spatialGridService.register(c.entityId, aabb)
-      },
-      { discard: true },
-    ),
-  )
+  const registrationEffects = []
+  for (let i = 0; i < soa.entities.length; i++) {
+    const position = {
+      x: soa.position.x[i]!,
+      y: soa.position.y[i]!,
+      z: soa.position.z[i]!,
+    }
+    const collider = {
+      width: soa.collider.width[i]!,
+      height: soa.collider.height[i]!,
+      depth: soa.collider.depth[i]!,
+    }
+    const aabb = createAABB(position, collider)
+    registrationEffects.push(spatialGridService.register(soa.entities[i]!, aabb))
+  }
+
+  yield* _(Effect.all(registrationEffects, { discard: true, concurrency: 'unbounded' }))
 }).pipe(Effect.catchAllCause((cause) => Effect.logError('An error occurred in updatePhysicsWorldSystem', cause)))

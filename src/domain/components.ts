@@ -1,4 +1,4 @@
-import { Schema as S } from 'effect'
+import { Schema as S, Class } from 'effect/Schema'
 import { BlockTypeSchema } from './block'
 import { Float, Int, Vector3IntSchema } from './common'
 import { EntityId, EntityIdSchema } from './entity'
@@ -7,23 +7,23 @@ import { EntityId, EntityIdSchema } from './entity'
 
 // --- Component Schemas ---
 
-export class Position extends S.Class<Position>('Position')({
+export class Position extends Class<Position>('Position')({
   x: Float,
   y: Float,
   z: Float,
 }) {}
 
-export class Velocity extends S.Class<Velocity>('Velocity')({
+export class Velocity extends Class<Velocity>('Velocity')({
   dx: Float,
   dy: Float,
   dz: Float,
 }) {}
 
-export class Player extends S.Class<Player>('Player')({
+export class Player extends Class<Player>('Player')({
   isGrounded: S.Boolean,
 }) {}
 
-export class InputState extends S.Class<InputState>('InputState')({
+export class InputState extends Class<InputState>('InputState')({
   forward: S.Boolean,
   backward: S.Boolean,
   left: S.Boolean,
@@ -50,23 +50,23 @@ export const setInputState = (state: InputState, changes: Partial<InputState>): 
   return new InputState({ ...state, ...changes })
 }
 
-export class CameraState extends S.Class<CameraState>('CameraState')({
+export class CameraState extends Class<CameraState>('CameraState')({
   pitch: Float,
   yaw: Float,
 }) {}
 
-export class Hotbar extends S.Class<Hotbar>('Hotbar')({
+export class Hotbar extends Class<Hotbar>('Hotbar')({
   slots: S.Array(BlockTypeSchema),
   selectedIndex: Int,
 }) {}
 
-export class TargetBlock extends S.Class<TargetBlock>('TargetBlock')({
+export class TargetBlock extends Class<TargetBlock>('TargetBlock')({
   _tag: S.Literal('block'),
   entityId: EntityIdSchema,
   face: Vector3IntSchema,
   position: Position,
 }) {}
-export class TargetNone extends S.Class<TargetNone>('TargetNone')({
+export class TargetNone extends Class<TargetNone>('TargetNone')({
   _tag: S.Literal('none'),
 }) {}
 export const Target = S.Union(TargetBlock, TargetNone)
@@ -78,41 +78,42 @@ export const createTargetBlock = (
   position: Position,
 ): Target => new TargetBlock({ _tag: 'block', entityId, face, position })
 
-export class Gravity extends S.Class<Gravity>('Gravity')({
+export class Gravity extends Class<Gravity>('Gravity')({
   value: Float,
 }) {}
 
-export class Collider extends S.Class<Collider>('Collider')({
+export class Collider extends Class<Collider>('Collider')({
   width: Float,
   height: Float,
   depth: Float,
 }) {}
 
-export class Renderable extends S.Class<Renderable>('Renderable')({
+export class Renderable extends Class<Renderable>('Renderable')({
   geometry: S.String,
   blockType: BlockTypeSchema,
 }) {}
 
-export class InstancedMeshRenderable extends S.Class<InstancedMeshRenderable>('InstancedMeshRenderable')({
+export class InstancedMeshRenderable extends Class<InstancedMeshRenderable>('InstancedMeshRenderable')({
   meshType: S.String,
 }) {}
 
-export class TerrainBlock extends S.Class<TerrainBlock>('TerrainBlock')({}) {}
+export class TerrainBlock extends Class<TerrainBlock>('TerrainBlock')({}) {}
 
-export class Chunk extends S.Class<Chunk>('Chunk')({
+export class Chunk extends Class<Chunk>('Chunk')({
   chunkX: Int,
   chunkZ: Int,
+  blocks: S.Array(BlockTypeSchema),
 }) {}
 
-export class Camera extends S.Class<Camera>('Camera')({
+export class Camera extends Class<Camera>('Camera')({
   position: Position,
   target: S.optional(Position),
   damping: Float,
 }) {}
 
-export class TargetBlockComponent extends S.Class<TargetBlockComponent>('TargetBlockComponent')({}) {}
+export class TargetBlockComponent extends Class<TargetBlockComponent>('TargetBlockComponent')({}) {}
 
-export class ChunkLoaderState extends S.Class<ChunkLoaderState>('ChunkLoaderState')({
+export class ChunkLoaderState extends Class<ChunkLoaderState>('ChunkLoaderState')({
   loadedChunks: S.ReadonlySet(S.String),
 }) {}
 
@@ -140,12 +141,20 @@ export const ComponentSchemas = {
 export const AnyComponent = S.Union(...Object.values(ComponentSchemas).filter((s) => 'ast' in s))
 export type AnyComponent = S.Schema.Type<typeof AnyComponent>
 
+export type ComponentClass<T extends AnyComponent> = S.Schema.Class<T>
+
+export const getComponentId = <T extends AnyComponent>(componentClass: ComponentClass<T>): ComponentName => {
+  // HACK: The component name is stored in the AST.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (componentClass as any).ast.annotations[0].name as ComponentName
+}
+
 export type Components = {
   readonly [K in keyof typeof ComponentSchemas]: S.Schema.Type<(typeof ComponentSchemas)[K]>
 }
 
 export type ComponentName = keyof Components
-export const componentNames: ReadonlyArray<ComponentName> = Object.keys(ComponentSchemas).filter(
+export const componentNames: ComponentName[] = Object.keys(ComponentSchemas).filter(
   (key): key is ComponentName => Object.prototype.hasOwnProperty.call(ComponentSchemas, key),
 )
-export const componentNamesSet = new Set<ComponentName>(componentNames)
+export const componentNamesSet = new Set<string>(componentNames)

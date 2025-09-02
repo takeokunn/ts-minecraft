@@ -11,40 +11,30 @@ export const physicsSystem = Effect.gen(function* ($) {
     return
   }
 
-  const entities = yield* $(World.query(physicsQuery))
+  const soa = yield* $(World.querySoA(physicsQuery))
 
-  yield* $(
-    Effect.forEach(
-      entities,
-      (entity) => {
-        const { entityId, player, position, velocity, gravity } = entity
+  for (let i = 0; i < soa.entities.length; i++) {
+    // Apply gravity
+    const newVelDY = soa.player.isGrounded[i]
+      ? 0
+      : Math.max(-TERMINAL_VELOCITY, soa.velocity.dy[i]! - soa.gravity.value[i]! * deltaTime)
 
-        // Apply gravity
-        const newVelDY = player.isGrounded ? 0 : Math.max(-TERMINAL_VELOCITY, velocity.dy - gravity.value * deltaTime)
+    // Apply friction
+    let newVelDX = soa.velocity.dx[i]!
+    let newVelDZ = soa.velocity.dz[i]!
+    if (soa.player.isGrounded[i]) {
+      newVelDX *= FRICTION
+      newVelDZ *= FRICTION
+    }
 
-        // Apply friction
-        let newVelDX = velocity.dx
-        let newVelDZ = velocity.dz
-        if (player.isGrounded) {
-          newVelDX *= FRICTION
-          newVelDZ *= FRICTION
-        }
+    // Update velocity component
+    soa.velocity.dx[i] = newVelDX
+    soa.velocity.dy[i] = newVelDY
+    soa.velocity.dz[i] = newVelDZ
 
-        // Update position
-        const newPosX = position.x + newVelDX * deltaTime
-        const newPosY = position.y + newVelDY * deltaTime
-        const newPosZ = position.z + newVelDZ * deltaTime
-
-        return Effect.all(
-          [
-            World.updateComponent(entityId, 'velocity', { dx: newVelDX, dy: newVelDY, dz: newVelDZ }),
-            World.updateComponent(entityId, 'position', { x: newPosX, y: newPosY, z: newPosZ }),
-          ],
-          { discard: true },
-        )
-      },
-      { discard: true, concurrency: 'unbounded' },
-    ),
-    Effect.catchAllCause((cause) => Effect.logError('An error occurred in physicsSystem', cause)),
-  )
+    // Update position component
+    soa.position.x[i]! += newVelDX * deltaTime
+    soa.position.y[i]! += newVelDY * deltaTime
+    soa.position.z[i]! += newVelDZ * deltaTime
+  }
 })

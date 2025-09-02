@@ -120,7 +120,7 @@ export const createArchetype = (builder: ArchetypeBuilder): Archetype => {
       targetBlock: new TargetBlockComponent({}),
     })),
     Match.when({ type: 'chunk' }, ({ chunkX, chunkZ }) => ({
-      chunk: new Chunk({ chunkX, chunkZ }),
+      chunk: new Chunk({ chunkX, chunkZ, blocks: [] }),
     })),
     Match.exhaustive,
   )

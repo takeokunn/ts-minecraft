@@ -28,6 +28,7 @@ const setupWorld = Effect.gen(function* ($) {
       playerId,
       'target',
       new TargetBlock({
+        _tag: 'block',
         entityId: blockId,
         face: { x: 0, y: 0, z: 1 },
         position: { x: 0, y: 0, z: -2 },
@@ -54,7 +55,121 @@ describe('blockInteractionSystem', () => {
 
       const { world } = yield* $(WorldContext)
       const worldState = yield* $(Ref.get(world))
-      const isBlockDestroyed = worldState.globalState.editedBlocks.destroyed.has('0,0,-2')
+      const isBlockDestroyed = (worldState.globalState.editedBlocks.destroyed as HashSet.HashSet<string>).has('0,0,-2')
+      expect(isBlockDestroyed).toBe(true)
+    }).pipe(Effect.provide(TestLayer)))
+
+  it('should call place handler when place input is true', () =>
+    Effect.gen(function* ($) {
+      const { playerId } = yield* $(setupWorld)
+      const { world } = yield* $(WorldContext)
+      yield* $(
+        World.updateComponent(
+          playerId,
+          'inputState',
+          new InputState({ place: true, destroy: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
+        ),
+      )
+      yield* $(
+        World.updateComponent(
+          playerId,
+          'hotbar',
+          new Hotbar({
+            slots: ['stone'],
+            selectedIndex: 0,
+          }),
+        ),
+      )
+
+      yield* $(blockInteractionSystem)
+
+      const worldState = yield* $(Ref.get(world))
+      const placedBlock = Record.get(worldState.globalState.editedBlocks.placed, '0,0,-1')
+      expect(Option.isSome(placedBlock)).toBe(true)
+    }).pipe(Effect.provide(TestLayer)))
+
+  it('should do nothing if hotbar selection is empty when placing', () =>
+    Effect.gen(function* ($) {
+      const { playerId } = yield* $(setupWorld)
+      const { world } = yield* $(WorldContext)
+      yield* $(
+        World.updateComponent(
+          playerId,
+          'inputState',
+          new InputState({ place: true, destroy: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
+        ),
+      )
+      yield* $(
+        World.updateComponent(
+          playerId,
+          'hotbar',
+          new Hotbar({
+            slots: [],
+            selectedIndex: 0,
+          }),
+        ),
+      )
+      const initialWorldState = yield* $(Ref.get(world))
+
+      yield* $(blockInteractionSystem)
+
+      const finalWorldState = yield* $(Ref.get(world))
+      expect(finalWorldState).toEqual(initialWorldState)
+    }).pipe(Effect.provide(TestLayer)))
+
+  it('should do nothing if target is none', () =>
+    Effect.gen(function* ($) {
+      const { playerId } = yield* $(setupWorld)
+      const { world } = yield* $(WorldContext)
+      yield* $(World.updateComponent(playerId, 'target', createTargetNone()))
+      yield* $(
+        World.updateComponent(
+          playerId,
+          'inputState',
+          new InputState({ destroy: true, place: true, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
+        ),
+      )
+      const initialWorldState = yield* $(Ref.get(world))
+
+      yield* $(blockInteractionSystem)
+
+      const finalWorldState = yield* $(Ref.get(world))
+      expect(finalWorldState).toEqual(initialWorldState)
+    }).pipe(Effect.provide(TestLayer)))
+
+  it('should do nothing if no input is given', () =>
+    Effect.gen(function* ($) {
+      const { blockId } = yield* $(setupWorld)
+      const { world } = yield* $(WorldContext)
+      const initialWorldState = yield* $(Ref.get(world))
+
+      yield* $(blockInteractionSystem)
+
+      const finalWorldState = yield* $(Ref.get(world))
+      const blockExists = yield* $(World.getComponentOption(blockId, 'position'))
+
+      expect(Option.isSome(blockExists)).toBe(true)
+      expect(finalWorldState).toEqual(initialWorldState)
+    }).pipe(Effect.provide(TestLayer)))
+})
+
+describe('blockInteractionSystem', () => {
+  it('should call destroy handler when destroy input is true', () =>
+    Effect.gen(function* ($) {
+      const { playerId, blockId } = yield* $(setupWorld)
+      yield* $(
+        World.updateComponent(
+          playerId,
+          'inputState',
+          new InputState({ destroy: true, place: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
+        ),
+      )
+
+      yield* $(blockInteractionSystem)
+
+      const { world } = yield* $(WorldContext)
+      const worldState = yield* $(Ref.get(world))
+      const isBlockDestroyed = (worldState.globalState.editedBlocks.destroyed as HashSet.HashSet<string>).has('0,0,-2')
       expect(isBlockDestroyed).toBe(true)
     }).pipe(Effect.provide(TestLayer)))
 

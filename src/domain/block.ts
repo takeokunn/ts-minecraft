@@ -1,4 +1,4 @@
-import { Schema as S, Match } from 'effect'
+import { Effect, Match, ParseResult, Schema as S } from 'effect'
 import { Vector3IntSchema } from './common'
 
 // --- Schemas ---
@@ -82,6 +82,8 @@ export const isBlockTransparent = (blockType: BlockType): boolean => {
  */
 export const isBlockFluid = (blockType: BlockType): boolean => blockDefinitions[blockType].isFluid
 
+const decodePlacedBlock = S.decode(PlacedBlockSchema)
+
 /**
  * Creates a PlacedBlock object.
  * @param position The position of the block.
@@ -91,9 +93,8 @@ export const isBlockFluid = (blockType: BlockType): boolean => blockDefinitions[
 export const createPlacedBlock = (
   position: { readonly x: number; readonly y: number; readonly z: number },
   blockType: BlockType,
-) => {
-  const decode = S.decodeEither(PlacedBlockSchema)
-  return decode({ position, blockType })
+): Effect.Effect<PlacedBlock, ParseResult.ParseError> => {
+  return decodePlacedBlock({ position, blockType })
 }
 
 export const isBlockType = S.is(BlockTypeSchema)

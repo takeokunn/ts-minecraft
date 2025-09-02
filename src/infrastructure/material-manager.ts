@@ -1,46 +1,59 @@
-import { TextureLoader, MeshBasicMaterial, type Material, SRGBColorSpace, NearestFilter } from 'three'
-import { Context, Data, Effect, Layer } from 'effect'
+import { TILE_SIZE, UV_MAPPINGS } from '@/domain/block'
+import { Effect, Layer, Ref } from 'effect'
+import { TextureLoader, MeshBasicMaterial, NearestFilter, SRGBColorSpace, Texture } from 'three'
 
-// --- Error Type ---
+export class TextureLoadError extends Effect.Tag('TextureLoadError')<
+  TextureLoadError,
+  {
+    readonly cause: unknown
+  }
+>() {}
 
-export class TextureLoadError extends Data.TaggedError('TextureLoadError')<{
-  readonly path: string
-  readonly originalError: unknown
-}> {}
+const createTexture = (url: string) =>
+  Effect.async<Texture, TextureLoadError>((resume) => {
+    new TextureLoader().load(
+      url,
+      (texture) => {
+        texture.magFilter = NearestFilter
+        texture.colorSpace = SRGBColorSpace
+        resume(Effect.succeed(texture))
+      },
+      undefined,
+      (err) => {
+        resume(Effect.fail(new TextureLoadError({ cause: err })))
+      },
+    )
+  })
 
-// --- Service Definition ---
+const makeMaterialManager = Effect.gen(function* ($) {
+  const texture = yield* $(createTexture('/texture/texture-atlas.png'))
+  const material = new MeshBasicMaterial({
+    map: texture,
+    alphaTest: 0.1,
+    transparent: true,
+  })
+  const uvCache = yield* $(Ref.make(new Map(Object.entries(UV_MAPPINGS).map(([key, value]) => [key, value]))))
+  const getUvForFace = (faceName: string) =>
+    Ref.get(uvCache).pipe(Effect.map((cache) => cache.get(faceName) ?? [0, 0]))
+
+  return {
+    material,
+    getUvForFace,
+    getUv: (x: number, y: number) => [x * TILE_SIZE, y * TILE_SIZE] as const,
+  }
+})
 
 export interface MaterialManager {
-  readonly get: (key: string) => Effect.Effect<Material, TextureLoadError>
+  readonly get: (_key: string) => Effect.Effect<MeshBasicMaterial>
 }
 
-export class MaterialManager extends Context.Tag('app/MaterialManager')<MaterialManager, MaterialManager>() {}
-
-// --- Service Implementation ---
-
-const makeMaterialManager = Effect.acquireRelease(
-  Effect.tryPromise({
-    try: async () => {
-      const textureLoader = new TextureLoader()
-      const texture = await textureLoader.loadAsync('/texture/texture.png')
-      texture.colorSpace = SRGBColorSpace
-      texture.magFilter = NearestFilter
-      texture.minFilter = NearestFilter
-      const material = new MeshBasicMaterial({ map: texture })
-      return { material, texture }
-    },
-    catch: (originalError) => new TextureLoadError({ path: '/texture/texture.png', originalError }),
-  }),
-  ({ material, texture }) =>
-    Effect.sync(() => {
-      texture.dispose()
-      material.dispose()
-    }),
-)
+export const MaterialManager = Effect.Tag<MaterialManager>()
 
 export const MaterialManagerLive = Layer.scoped(
   MaterialManager,
-  Effect.map(makeMaterialManager, ({ material }) => ({
-    get: (_key: string) => Effect.succeed(material),
-  })),
+  Effect.map(makeMaterialManager, ({ material }) =>
+    MaterialManager.of({
+      get: (_key: string) => Effect.succeed(material),
+    }),
+  ),
 )

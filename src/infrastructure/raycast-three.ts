@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option } from 'effect'
+import { Context, Data, Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
 import { EntityId } from '@/domain/entity'
 import { Vector3 } from '@/domain/geometry'

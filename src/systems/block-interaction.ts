@@ -1,6 +1,7 @@
 import { Effect } from 'effect'
 import { playerTargetQuery } from '@/domain/queries'
 import * as W from '@/domain/world'
+import { createTargetNone, setInputState, Target, InputState, ComponentName } from '@/domain/components'
 
 export const blockInteractionSystem = Effect.gen(function* ($) {
   const players = yield* $(W.query(playerTargetQuery))
@@ -9,41 +10,55 @@ export const blockInteractionSystem = Effect.gen(function* ($) {
     Effect.forEach(
       players,
       (player) => {
-        const { inputState, target } = player
+        const { entityId, inputState, target, hotbar } = player
 
-        return Effect.if(
-          Effect.succeed(target._tag === 'block'),
-          {
-            onTrue: () => Effect.gen(function* ($) {
-              const destroyEffect = Effect.when(
-                () => inputState.destroy,
-                () => W.recordBlockDestruction(target.position),
-              )
+        if (target._tag !== 'block') {
+          return Effect.void
+        }
 
-              const placeEffect = Effect.when(
-                () => inputState.place,
-                () => Effect.sync(() => {
-                  const { position, face } = target
-                  return {
-                    x: position.x + face.x,
-                    y: position.y + face.y,
-                    z: position.z + face.z,
-                  }
-                }).pipe(
-                  Effect.flatMap((newPosition) =>
-                    W.recordBlockPlacement({
-                      position: newPosition,
-                      blockType: 'stone', // TODO: Use hotbar selection
-                    }),
-                  ),
-                ),
-              )
+        const handleDestroy = () =>
+          Effect.all(
+            [
+              W.removeEntity(target.entityId),
+              W.updateComponent(entityId, Target.name as ComponentName, createTargetNone()),
+              W.recordBlockDestruction(target.position),
+            ],
+            { discard: true },
+          )
 
-              yield* $(Effect.all([destroyEffect, placeEffect], { discard: true }))
-            }),
-            onFalse: () => Effect.void,
+        const handlePlace = () => {
+          const blockType = hotbar.slots[hotbar.selectedIndex]
+          if (!blockType) {
+            return Effect.void
           }
-        )
+
+          const newPosition = {
+            x: target.position.x + target.face.x,
+            y: target.position.y + target.face.y,
+            z: target.position.z + target.face.z,
+          }
+
+          return Effect.all(
+            [
+              W.updateComponent(entityId, InputState.name as ComponentName, setInputState(inputState, { place: false })),
+              W.recordBlockPlacement({
+                position: newPosition,
+                blockType,
+              }),
+            ],
+            { discard: true },
+          )
+        }
+
+        if (inputState.destroy) {
+          return handleDestroy()
+        }
+
+        if (inputState.place) {
+          return handlePlace()
+        }
+
+        return Effect.void
       },
       { concurrency: 'inherit' },
     ),

@@ -1,11 +1,12 @@
-import { Schema as S, Data, Effect, HashMap, HashSet, Layer, Option, Record, Ref } from 'effect'
+import { Schema as S, Data, Effect, HashMap, HashSet, Layer, Option, Record, Ref, ParseResult } from 'effect'
 import * as AST from 'effect/SchemaAST'
 import { Archetype } from '@/domain/archetypes'
 import { BlockType, PlacedBlock } from '@/domain/block'
-import { ComponentName, Components, ComponentSchemas, componentNames, Position } from '@/domain/components'
+import { ComponentName, Components, ComponentSchemas, componentNames, componentNamesSet, Position } from '@/domain/components'
 import { EntityId, toEntityId } from '@/domain/entity'
 import { Query } from '@/domain/query'
 import { WorldContext } from '@/runtime/context'
+import { CHUNK_SIZE } from './world-constants'
 
 // --- Error Types ---
 
@@ -27,7 +28,7 @@ export type ComponentStorage = {
 export type ArchetypeStorage = HashMap.HashMap<string, HashSet.HashSet<EntityId>>
 
 export type World = {
-  readonly nextEntityId: number
+  nextEntityId: number
   readonly entities: HashMap.HashMap<EntityId, string> // Map<EntityId, ArchetypeKey>
   readonly archetypes: ArchetypeStorage
   readonly components: ComponentStorage
@@ -90,73 +91,67 @@ const getBlockKey = (position: { readonly x: number; readonly y: number; readonl
 }
 
 const isComponentName = (key: string): key is ComponentName => {
-  return (componentNames as ReadonlyArray<string>).includes(key)
+  return componentNamesSet.has(key)
 }
 
 // --- Core Functions ---
 
-export const createInitialWorld = (): World => {
-  const components = Object.fromEntries(
+export const createInitialWorld = (): World => ({
+  nextEntityId: 0,
+  entities: HashMap.empty(),
+  archetypes: HashMap.empty(),
+  components: Object.fromEntries(
     componentNames.map((name) => [name, HashMap.empty()]),
-  ) as unknown as ComponentStorage
-
-  return {
-    nextEntityId: 0,
-    entities: HashMap.empty(),
-    archetypes: HashMap.empty(),
-    components,
-    globalState: {
-      scene: 'Title',
-      seeds: { world: 1, biome: 2, trees: 3 },
-      amplitude: 20,
-      editedBlocks: {
-        placed: Record.empty(),
-        destroyed: HashSet.empty<string>(),
-      },
-      chunkLoading: {
-        lastPlayerChunk: Option.none(),
-        loadedChunks: HashMap.empty<string, EntityId>(),
-      },
+  ) as ComponentStorage,
+  globalState: {
+    scene: 'Title',
+    seeds: { world: 1, biome: 2, trees: 3 },
+    amplitude: 20,
+    editedBlocks: {
+      placed: Record.empty(),
+      destroyed: HashSet.empty<string>(),
     },
-  }
-}
+    chunkLoading: {
+      lastPlayerChunk: Option.none(),
+      loadedChunks: HashMap.empty<string, EntityId>(),
+    },
+  },
+})
 
 export const worldLayer = Layer.effect(WorldContext, Ref.make(createInitialWorld()).pipe(Effect.map((ref) => ({ world: ref }))))
 
-export const addArchetype = (archetype: Archetype): Effect.Effect<EntityId, never, WorldContext> =>
+export const addArchetype = (archetype: Archetype): Effect.Effect<EntityId, ParseResult.ParseError, WorldContext> =>
   Effect.gen(function* ($) {
     const { world } = yield* $(WorldContext)
-    const entityId = yield* $(Ref.modify(world, (w) => [toEntityId(w.nextEntityId), { ...w, nextEntityId: w.nextEntityId + 1 }]))
+
+    const nextId = yield* $(Ref.get(world).pipe(Effect.map((w) => w.nextEntityId)))
+    const entityId = yield* $(toEntityId(nextId))
 
     const componentNames = Object.keys(archetype).filter(isComponentName)
     const archetypeKey = getArchetypeKey(componentNames)
 
     yield* $(
       Ref.update(world, (w) => {
-        const newEntities = HashMap.set(w.entities, entityId, archetypeKey)
+        const newArchetypes = HashMap.has(w.archetypes, archetypeKey)
+          ? HashMap.modify(w.archetypes, archetypeKey, (set) => HashSet.add(set, entityId))
+          : HashMap.set(w.archetypes, archetypeKey, HashSet.make(entityId))
 
-        const currentArchetype = Option.getOrElse(HashMap.get(w.archetypes, archetypeKey), () => HashSet.empty<EntityId>())
-        const newArchetypes = HashMap.set(w.archetypes, archetypeKey, HashSet.add(currentArchetype, entityId))
-
-        const components = componentNames.reduce(
-          (acc, componentName) => {
-            const componentData = archetype[componentName]
-            if (componentData) {
-              const storage = acc[componentName]
-              // TODO: Find a type-safe way to update the component storage.
-              const newStorage = HashMap.set(storage as any, entityId, componentData)
-              return { ...acc, [componentName]: newStorage }
+        let newComponents = w.components
+        for (const [componentName, componentData] of Object.entries(archetype)) {
+          if (isComponentName(componentName) && componentData) {
+            newComponents = {
+              ...newComponents,
+              [componentName]: HashMap.set(newComponents[componentName], entityId, componentData),
             }
-            return acc
-          },
-          w.components,
-        )
+          }
+        }
 
         return {
           ...w,
-          entities: newEntities,
+          nextEntityId: w.nextEntityId + 1,
+          entities: HashMap.set(w.entities, entityId, archetypeKey),
           archetypes: newArchetypes,
-          components,
+          components: newComponents,
         }
       }),
     )
@@ -176,27 +171,22 @@ export const removeEntity = (entityId: EntityId): Effect.Effect<void, EntityNotF
 
     yield* $(
       Ref.update(world, (w) => {
-        const newEntities = HashMap.remove(w.entities, entityId)
+        const newArchetypes = HashMap.modify(w.archetypes, archetypeKey, (set) => HashSet.remove(set, entityId))
 
-        const currentArchetype = Option.getOrElse(HashMap.get(w.archetypes, archetypeKey), () => HashSet.empty<EntityId>())
-        const newArchetypes = HashMap.set(w.archetypes, archetypeKey, HashSet.remove(currentArchetype, entityId))
-
+        let newComponents = w.components
         const componentNamesToRemove = archetypeKey.split(',').filter(isComponentName)
-
-        const components = componentNamesToRemove.reduce(
-          (acc, componentName) => {
-            const storage = acc[componentName]
-            const newStorage = HashMap.remove(storage, entityId)
-            return { ...acc, [componentName]: newStorage }
-          },
-          w.components,
-        )
+        for (const componentName of componentNamesToRemove) {
+          newComponents = {
+            ...newComponents,
+            [componentName]: HashMap.remove(newComponents[componentName], entityId),
+          }
+        }
 
         return {
           ...w,
-          entities: newEntities,
+          entities: HashMap.remove(w.entities, entityId),
           archetypes: newArchetypes,
-          components,
+          components: newComponents,
         }
       }),
     )
@@ -266,7 +256,7 @@ export const query = <T extends ReadonlyArray<ComponentName>>(queryDef: Query): 
         if (Option.isSome(componentsTupleOption)) {
           const componentsTuple = componentsTupleOption.value
           const components = Object.fromEntries(
-            componentsTuple.map((component, i) => [queryDef.components[i]!, component]),
+            componentsTuple.map((component, index) => [queryDef.components[index], component]),
           ) as { [K in T[number]]: Components[K] }
 
           results.push({ entityId, ...components })
@@ -286,23 +276,26 @@ export const querySoA = <T extends ReadonlyArray<ComponentName>>(queryDef: Query
           const componentSchema = ComponentSchemas[componentName]
           const components = queryResult.map((r) => r[componentName])
 
-          if (!componentSchema || !('ast' in componentSchema)) {
+          if (!S.isSchema(componentSchema) || !AST.isTypeLiteral(componentSchema.ast)) {
             return [componentName, components]
           }
 
-          const keysSchema = S.keyof(componentSchema as S.Schema<any>)
-          if (AST.isUnion(keysSchema.ast)) {
-            const allKeys = keysSchema.ast.types.flatMap((ast) => (AST.isLiteral(ast) ? [String(ast.literal)] : []))
+          const propertySignatures = componentSchema.ast.propertySignatures
+          const allKeys = propertySignatures.map((ps) => String(ps.name))
 
-            if (allKeys.length > 0) {
-              const soaStore = Object.fromEntries(
-                allKeys.map((key) => {
-                  const values = components.map((c) => (c && typeof c === 'object' && key in c ? c[key as keyof typeof c] : undefined))
-                  return [key, values]
-                }),
-              )
-              return [componentName, soaStore]
+          if (allKeys.length > 0) {
+            const soaStore: Record<string, unknown[]> = {}
+            for (const key of allKeys) {
+              soaStore[key] = []
             }
+
+            for (const c of components) {
+              for (const key of allKeys) {
+                const value = Record.get(c as Record<string, unknown>, key)
+                soaStore[key]?.push(Option.getOrUndefined(value))
+              }
+            }
+            return [componentName, soaStore]
           }
 
           return [componentName, components]
@@ -326,6 +319,7 @@ export const recordBlockDestruction = (position: Position): Effect.Effect<void, 
         globalState: {
           ...w.globalState,
           editedBlocks: {
+            ...w.globalState.editedBlocks,
             placed: Record.remove(w.globalState.editedBlocks.placed, blockKey),
             destroyed: HashSet.add(w.globalState.editedBlocks.destroyed, blockKey),
           },
@@ -344,6 +338,7 @@ export const recordBlockPlacement = (block: PlacedBlock): Effect.Effect<void, ne
         globalState: {
           ...w.globalState,
           editedBlocks: {
+            ...w.globalState.editedBlocks,
             placed: Record.set(w.globalState.editedBlocks.placed, blockKey, block),
             destroyed: HashSet.remove(w.globalState.editedBlocks.destroyed, blockKey),
           },
@@ -391,4 +386,57 @@ export const recordLoadedChunk = (chunkX: number, chunkZ: number, entityId: Enti
         },
       })),
     )
+  })
+
+export const removeLoadedChunk = (chunkX: number, chunkZ: number): Effect.Effect<void, never, WorldContext> =>
+  Effect.gen(function* ($) {
+    const { world } = yield* $(WorldContext)
+    yield* $(
+      Ref.update(world, (w) => ({
+        ...w,
+        globalState: {
+          ...w.globalState,
+          chunkLoading: {
+            ...w.globalState.chunkLoading,
+            loadedChunks: HashMap.remove(w.globalState.chunkLoading.loadedChunks, `${chunkX},${chunkZ}`),
+          },
+        },
+      })),
+    )
+  })
+
+export const getVoxel = (pos: {
+  readonly x: number
+  readonly y: number
+  readonly z: number
+}): Effect.Effect<BlockType, never, WorldContext> =>
+  Effect.gen(function* ($) {
+    const { world } = yield* $(WorldContext)
+    const worldState = yield* $(Ref.get(world))
+
+    const chunkX = Math.floor(pos.x / CHUNK_SIZE)
+    const chunkZ = Math.floor(pos.z / CHUNK_SIZE)
+
+    const chunkEntityId = Option.fromNullable(
+      worldState.globalState.chunkLoading.loadedChunks.get(`${chunkX},${chunkZ}`),
+    )
+    if (Option.isNone(chunkEntityId)) {
+      return 'air'
+    }
+
+    const chunkOption = yield* $(
+      getComponent(chunkEntityId.value, 'chunk'),
+      Effect.map(Option.some),
+      Effect.catchAll(() => Effect.succeed(Option.none())),
+    )
+    if (Option.isNone(chunkOption)) {
+      return 'air'
+    }
+
+    const chunk = chunkOption.value
+    const x = pos.x - chunkX * CHUNK_SIZE
+    const y = pos.y
+    const z = pos.z - chunkZ * CHUNK_SIZE
+
+    return chunk.blocks[y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x] ?? 'air'
   })

@@ -8,6 +8,27 @@ import * as World from '@/domain/world'
 
 type ChunkCoord = { readonly x: number; readonly z: number }
 
+const ChunkCoord = {
+  asString: (coord: ChunkCoord): string => `${coord.x},${coord.z}`,
+  fromString: (key: string): Option.Option<ChunkCoord> => {
+    const parts = key.split(',')
+    if (parts.length !== 2) {
+      return Option.none()
+    }
+    const xStr = parts[0]
+    const zStr = parts[1]
+    if (xStr === undefined || zStr === undefined) {
+      return Option.none()
+    }
+    const x = parseInt(xStr, 10)
+    const z = parseInt(zStr, 10)
+    if (isNaN(x) || isNaN(z)) {
+      return Option.none()
+    }
+    return Option.some({ x, z })
+  },
+}
+
 export const calculateChunkUpdates = (
   currentPlayerChunk: ChunkCoord,
   loadedChunks: HashMap.HashMap<string, EntityId>,
@@ -19,27 +40,27 @@ export const calculateChunkUpdates = (
   const requiredChunks = new Set<string>()
   for (let x = currentPlayerChunk.x - renderDistance; x <= currentPlayerChunk.x + renderDistance; x++) {
     for (let z = currentPlayerChunk.z - renderDistance; z <= currentPlayerChunk.z + renderDistance; z++) {
-      requiredChunks.add(`${x},${z}`)
+      requiredChunks.add(ChunkCoord.asString({ x, z }))
     }
   }
 
   const toUnload: EntityId[] = []
   const toLoad: ChunkCoord[] = []
 
-  for (const [key, entityId] of loadedChunks) {
+  HashMap.forEach(loadedChunks, (entityId, key) => {
     if (!requiredChunks.has(key)) {
       toUnload.push(entityId)
     }
-  }
+  })
 
-  for (const key of requiredChunks) {
+  requiredChunks.forEach((key) => {
     if (!HashMap.has(loadedChunks, key)) {
-      const [xStr, zStr] = key.split(',')
-      if (xStr && zStr) {
-        toLoad.push({ x: parseInt(xStr, 10), z: parseInt(zStr, 10) })
-      }
+      pipe(
+        ChunkCoord.fromString(key),
+        Option.map((coord) => toLoad.push(coord)),
+      )
     }
-  }
+  })
 
   return { toLoad, toUnload }
 }

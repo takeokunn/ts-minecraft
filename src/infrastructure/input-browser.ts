@@ -1,306 +1,81 @@
-import { Context, Effect, Layer, Ref, Scope } from 'effect'
-import { match } from 'ts-pattern'
-import type { BrowserInputState } from '@/domain/types'
+import { Effect, Layer, Ref, Scope } from 'effect'
+import { LockableControls } from './types'
+import { InputManagerService } from '@/runtime/services'
 
-// --- Type Definitions ---
-
-export type LockableControls = {
+export interface InputState {
   readonly isLocked: boolean
-  lock: () => void
-  unlock: () => void
-  addEventListener: (type: 'lock' | 'unlock', listener: () => void) => void
-  removeEventListener: (type: 'lock' | 'unlock', listener: () => void) => void
+  readonly keyboard: Set<string>
+  readonly mouse: {
+    readonly dx: number
+    readonly dy: number
+  }
 }
 
-// --- Service Definition ---
-
 export interface InputManager {
-  readonly getState: Effect.Effect<BrowserInputState>
+  readonly getState: Effect.Effect<InputState>
   readonly getMouseDelta: Effect.Effect<{ dx: number; dy: number }>
   readonly registerListeners: (controls: LockableControls) => Effect.Effect<void, never, Scope.Scope>
 }
 
-export const InputManagerService = Context.GenericTag<InputManager>('app/InputManager')
+export const InputManager = Effect.Tag<InputManager>()
 
-// --- Live Implementation ---
-
-const makeEventListener = <K extends keyof DocumentEventMap>(
-  target: Document,
-  type: K,
-  listener: (ev: DocumentEventMap[K]) => Effect.Effect<void>,
-) =>
-  Effect.acquireRelease(
-    Effect.sync(() => {
-      import { Context, Effect, Layer, Ref, Scope, Match } from 'effect'
-import type { BrowserInputState } from '@/domain/types'
-
-// --- Type Definitions ---
-
-export type LockableControls = {
-  readonly isLocked: boolean
-  lock: () => void
-  unlock: () => void
-  addEventListener: (type: 'lock' | 'unlock', listener: () => void) => void
-  removeEventListener: (type: 'lock' | 'unlock', listener: () => void) => void
-}
-
-// --- Service Definition ---
-
-export interface InputManager {
-  readonly getState: Effect.Effect<BrowserInputState>
-  readonly getMouseDelta: Effect.Effect<{ dx: number; dy: number }>
-  readonly registerListeners: (controls: LockableControls) => Effect.Effect<void, never, Scope.Scope>
-}
-
-export const InputManagerService = Context.GenericTag<InputManager>('app/InputManager')
-
-// --- Live Implementation ---
-
-const makeEventListener = <K extends keyof DocumentEventMap>(
-  target: Document,
-  type: K,
-  listener: (ev: DocumentEventMap[K]) => Effect.Effect<void>,
-) =>
-  Effect.acquireRelease(
-    Effect.sync(() => {
-      const handler = (ev: DocumentEventMap[K]) => Effect.runFork(listener(ev))
-      target.addEventListener(type, handler)
-      return handler
+const makeInputManager = Effect.gen(function* ($) {
+  const stateRef = yield* $(
+    Ref.make<InputState>({
+      isLocked: false,
+      keyboard: new Set(),
+      mouse: { dx: 0, dy: 0 },
     }),
-    (handler) => Effect.sync(() => target.removeEventListener(type, handler)),
   )
 
-const makeControlsEventListener = (
-  controls: LockableControls,
-  type: 'lock' | 'unlock',
-  listener: () => Effect.Effect<void>,
-) =>
-  Effect.acquireRelease(
-    Effect.sync(() => {
-      const handler = () => Effect.runFork(listener())
-      controls.addEventListener(type, handler)
-      return handler
-    }),
-    (handler) => Effect.sync(() => controls.removeEventListener(type, handler)),
-  )
-
-export const InputManagerLive = Layer.effect(
-  InputManagerService,
-  Effect.gen(function* ($) {
-    const stateRef = yield* $(
-      Ref.make<BrowserInputState>({
-        keyboard: new Set<string>(),
-        mouse: { dx: 0, dy: 0 },
-        isLocked: false,
-      }),
-    )
-
-    const registerListeners = (controls: LockableControls) =>
-      Effect.gen(function* ($) {
-        const getMouseButtonKey = (button: number) =>
-          Match.value(button).pipe(
-            Match.when(0, () => 'Mouse0' as const),
-            Match.when(2, () => 'Mouse2' as const),
-            Match.orElse(() => null),
-          )
-
-        const handleMouseButton = (event: MouseEvent, action: 'add' | 'delete') =>
-          Effect.flatMap(Ref.get(stateRef), (s) => {
-            if (s.isLocked) {
-              const key = getMouseButtonKey(event.button)
-              if (key) {
-                const newKeyboard = new Set(s.keyboard)
-                newKeyboard[action](key)
-                return Ref.update(stateRef, (s) => ({ ...s, keyboard: newKeyboard }))
-              }
-            }
-            return Effect.void
-          })
-
-        const onKeyDown = (event: KeyboardEvent) => Ref.update(stateRef, (s) => ({ ...s, keyboard: new Set(s.keyboard).add(event.code) }))
-        const onKeyUp = (event: KeyboardEvent) =>
-          Ref.update(stateRef, (s) => {
-            const newKeyboard = new Set(s.keyboard)
-            newKeyboard.delete(event.code)
-            return { ...s, keyboard: newKeyboard }
-          })
-        const onMouseMove = (event: MouseEvent) =>
-          Ref.update(stateRef, (s) =>
-            s.isLocked
-              ? {
-                  ...s,
-                  mouse: {
-                    dx: s.mouse.dx + (event.movementX ?? 0),
-                    dy: s.mouse.dy + (event.movementY ?? 0),
-                  },
-                }
-              : s,
-          )
-        const onMouseDown = (event: MouseEvent) =>
-          Effect.flatMap(Ref.get(stateRef), (s) =>
-            s.isLocked
-              ? handleMouseButton(event, 'add')
-              : Effect.sync(() => controls.lock()))
-        const onMouseUp = (event: MouseEvent) => handleMouseButton(event, 'delete')
-        const onLock = () => Ref.update(stateRef, (s) => ({ ...s, isLocked: true }))
-        const onUnlock = () => Ref.update(stateRef, (s) => ({ ...s, isLocked: false }))
-
-        yield* $(
-          Effect.all(
-            [
-              makeEventListener(document, 'keydown', onKeyDown),
-              makeEventListener(document, 'keyup', onKeyUp),
-              makeEventListener(document, 'mousemove', onMouseMove),
-              makeEventListener(document, 'mousedown', onMouseDown),
-              makeEventListener(document, 'mouseup', onMouseUp),
-              makeControlsEventListener(controls, 'lock', onLock),
-              makeControlsEventListener(controls, 'unlock', onUnlock),
-              Effect.acquireRelease(
-                Effect.void,
-                () => Effect.sync(() => {
-                  if (controls.isLocked)
-                    controls.unlock()
-                }),
-              ),
-            ],
-            { discard: true },
-          ),
-        )
-      }).pipe(Effect.scoped)
-
-    const getState = Ref.get(stateRef)
-
-    const getMouseDelta = Ref.modify(stateRef, (s) => {
-      const delta = { dx: s.mouse.dx, dy: s.mouse.dy }
-      const newState = { ...s, mouse: { dx: 0, dy: 0 } }
-      const result: readonly [typeof delta, typeof newState] = [delta, newState]
-      return result
+  const handleKeyDown = (e: KeyboardEvent) => Ref.update(stateRef, (s) => ({ ...s, keyboard: s.keyboard.add(e.code) }))
+  const handleKeyUp = (e: KeyboardEvent) =>
+    Ref.update(stateRef, (s) => {
+      s.keyboard.delete(e.code)
+      return { ...s, keyboard: s.keyboard }
     })
 
-    return {
-      getState,
-      getMouseDelta,
-      registerListeners,
-    }
-  }),
-)
+  const handleMouseMove = (e: MouseEvent) =>
+    Ref.update(stateRef, (s) => ({
+      ...s,
+      mouse: { dx: e.movementX, dy: e.movementY },
+    }))
 
-      target.addEventListener(type, handler)
-      return handler
-    }),
-    (handler) => Effect.sync(() => target.removeEventListener(type, handler)),
-  )
+  const handleLockChange = (controls: LockableControls) =>
+    Ref.update(stateRef, (s) => ({ ...s, isLocked: !!controls.isLocked }))
 
-const makeControlsEventListener = (
-  controls: LockableControls,
-  type: 'lock' | 'unlock',
-  listener: () => Effect.Effect<void>,
-) =>
-  Effect.acquireRelease(
-    Effect.sync(() => {
-      const handler = () => Effect.runFork(listener())
-      controls.addEventListener(type, handler)
-      return handler
-    }),
-    (handler) => Effect.sync(() => controls.removeEventListener(type, handler)),
-  )
+  const registerListeners = (controls: LockableControls) =>
+    Effect.acquireRelease(
+      Effect.sync(() => {
+        const onKeyDown = (e: KeyboardEvent) => Effect.runSync(handleKeyDown(e))
+        const onKeyUp = (e: KeyboardEvent) => Effect.runSync(handleKeyUp(e))
+        const onMouseMove = (e: MouseEvent) => Effect.runSync(handleMouseMove(e))
+        const onLock = () => Effect.runSync(handleLockChange(controls))
+        const onUnlock = () => Effect.runSync(handleLockChange(controls))
 
-export const InputManagerLive = Layer.effect(
-  InputManagerService,
-  Effect.gen(function* ($) {
-    const stateRef = yield* $(
-      Ref.make<BrowserInputState>({
-        keyboard: new Set<string>(),
-        mouse: { dx: 0, dy: 0 },
-        isLocked: false,
+        document.addEventListener('keydown', onKeyDown)
+        document.addEventListener('keyup', onKeyUp)
+        document.addEventListener('mousemove', onMouseMove)
+        controls.addEventListener('lock', onLock)
+        controls.addEventListener('unlock', onUnlock)
+
+        return { onKeyDown, onKeyUp, onMouseMove, onLock, onUnlock }
       }),
+      ({ onKeyDown, onKeyUp, onMouseMove, onLock, onUnlock }) =>
+        Effect.sync(() => {
+          document.removeEventListener('keydown', onKeyDown)
+          document.removeEventListener('keyup', onKeyUp)
+          document.removeEventListener('mousemove', onMouseMove)
+          controls.removeEventListener('lock', onLock)
+          controls.removeEventListener('unlock', onUnlock)
+        }),
     )
 
-    const registerListeners = (controls: LockableControls) =>
-      Effect.gen(function* ($) {
-        const getMouseButtonKey = (button: number) =>
-          match(button)
-            .with(0, () => 'Mouse0' as const)
-            .with(2, () => 'Mouse2' as const)
-            .otherwise(() => null)
+  return {
+    getState: Ref.get(stateRef),
+    getMouseDelta: Ref.get(stateRef).pipe(Effect.map((s) => s.mouse)),
+    registerListeners,
+  }
+})
 
-        const handleMouseButton = (event: MouseEvent, action: 'add' | 'delete') =>
-          Effect.flatMap(Ref.get(stateRef), (s) => {
-            if (s.isLocked) {
-              const key = getMouseButtonKey(event.button)
-              if (key) {
-                const newKeyboard = new Set(s.keyboard)
-                newKeyboard[action](key)
-                return Ref.update(stateRef, (s) => ({ ...s, keyboard: newKeyboard }))
-              }
-            }
-            return Effect.void
-          })
-
-        const onKeyDown = (event: KeyboardEvent) => Ref.update(stateRef, (s) => ({ ...s, keyboard: new Set(s.keyboard).add(event.code) }))
-        const onKeyUp = (event: KeyboardEvent) =>
-          Ref.update(stateRef, (s) => {
-            const newKeyboard = new Set(s.keyboard)
-            newKeyboard.delete(event.code)
-            return { ...s, keyboard: newKeyboard }
-          })
-        const onMouseMove = (event: MouseEvent) =>
-          Ref.update(stateRef, (s) =>
-            s.isLocked
-              ? {
-                  ...s,
-                  mouse: {
-                    dx: s.mouse.dx + (event.movementX ?? 0),
-                    dy: s.mouse.dy + (event.movementY ?? 0),
-                  },
-                }
-              : s,
-          )
-        const onMouseDown = (event: MouseEvent) =>
-          Effect.flatMap(Ref.get(stateRef), (s) =>
-            s.isLocked
-              ? handleMouseButton(event, 'add')
-              : Effect.sync(() => controls.lock()))
-        const onMouseUp = (event: MouseEvent) => handleMouseButton(event, 'delete')
-        const onLock = () => Ref.update(stateRef, (s) => ({ ...s, isLocked: true }))
-        const onUnlock = () => Ref.update(stateRef, (s) => ({ ...s, isLocked: false }))
-
-        yield* $(
-          Effect.all(
-            [
-              makeEventListener(document, 'keydown', onKeyDown),
-              makeEventListener(document, 'keyup', onKeyUp),
-              makeEventListener(document, 'mousemove', onMouseMove),
-              makeEventListener(document, 'mousedown', onMouseDown),
-              makeEventListener(document, 'mouseup', onMouseUp),
-              makeControlsEventListener(controls, 'lock', onLock),
-              makeControlsEventListener(controls, 'unlock', onUnlock),
-              Effect.acquireRelease(
-                Effect.void,
-                () => Effect.sync(() => {
-                  if (controls.isLocked)
-                    controls.unlock()
-                }),
-              ),
-            ],
-            { discard: true },
-          ),
-        )
-      }).pipe(Effect.scoped)
-
-    const getState = Ref.get(stateRef)
-
-    const getMouseDelta = Ref.modify(stateRef, (s) => {
-      const delta = { dx: s.mouse.dx, dy: s.mouse.dy }
-      const newState = { ...s, mouse: { dx: 0, dy: 0 } }
-      const result: readonly [typeof delta, typeof newState] = [delta, newState]
-      return result
-    })
-
-    return {
-      getState,
-      getMouseDelta,
-      registerListeners,
-    }
-  }),
-)
+export const InputManagerLive = Layer.scoped(InputManagerService, makeInputManager)

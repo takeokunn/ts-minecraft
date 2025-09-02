@@ -1,4 +1,4 @@
-import { Brand, Option as EffectOption, Either as EffectEither, Schema as S } from 'effect';
+import { Brand, Option as EffectOption, Either as EffectEither, Schema as S, Data } from 'effect';
 import { BlockTypeSchema, PlacedBlockSchema } from './block';
 import { Position } from './components';
 
@@ -103,4 +103,7 @@ export const BrowserInputStateSchema = S.Struct({
 });
 export type BrowserInputState = S.Schema.Type<typeof BrowserInputStateSchema>;
 
-
+// --- Error Types ---
+export class WorkerError extends Data.TaggedError('WorkerError')<{
+  readonly reason: unknown
+}> {}

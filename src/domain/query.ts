@@ -1,22 +1,33 @@
-import type { ComponentName } from './components'
+import {
+  ComponentSchemas,
+  type AnyComponent,
+  type ComponentClass,
+  type ComponentName,
+  type Components,
+} from './components'
 
-/**
- * Defines the structure of a query used to retrieve entities from the world.
- */
-export type Query = {
-  /** A unique name for the query, primarily for debugging. */
+export type Query<T extends readonly ComponentName[] = readonly ComponentName[]> = {
   readonly name: string
-  /** An array of component names that an entity must have to match the query. */
-  readonly components: readonly ComponentName[]
+  readonly components: T
+  readonly set: ReadonlySet<ComponentName>
+  readonly schemas: readonly ComponentClass<AnyComponent>[]
 }
 
-/**
- * Creates a new Query object.
- * @param name The unique name of the query.
- * @param components The list of required component names.
- * @returns A Query object.
- */
-export const createQuery = (name: string, components: readonly ComponentName[]): Query => ({
-  name,
-  components,
-})
+export const createQuery = <T extends readonly ComponentName[]>(
+  name: string,
+  components: T,
+): Query<T> => {
+  const set = new Set(components)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const schemas = components.map((name) => ComponentSchemas[name]) as any
+  return {
+    name,
+    components,
+    set,
+    schemas,
+  }
+}
+
+export type QueryResult<T extends readonly ComponentName[]> = {
+  readonly [K in T[number]]: Components[K]
+}

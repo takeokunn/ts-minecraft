@@ -1,67 +1,44 @@
-import * as Context from 'effect/Context'
-import * as Data from 'effect/Data'
-import * as Effect from 'effect/Effect'
-import * as Layer from 'effect/Layer'
-import * as Pool from 'effect/Pool'
-import type { ChunkGenerationResult, ComputationTask } from '@/domain/types'
-export type { ChunkGenerationResult } from '@/domain/types'
-import ComputationWorkerUrl from '@/workers/computation.worker.ts?worker'
+import { ChunkGenerationResult, ComputationTask, WorkerError } from '@/domain/types'
+import { Effect, Layer, Pool } from 'effect'
 
-// --- Error Type ---
+const createWorker = Effect.sync(() => new Worker(new URL('../workers/computation.worker.ts', import.meta.url)))
 
-export class WorkerError extends Data.TaggedError('WorkerError')<{
-  readonly reason: unknown
-}> {}
-
-// --- Service Definition ---
+const createWorkerPool = Pool.make({
+  acquire: createWorker,
+  size: navigator.hardwareConcurrency || 4,
+})
 
 export interface ComputationWorker {
   readonly postTask: (task: ComputationTask) => Effect.Effect<ChunkGenerationResult, WorkerError>
 }
 
-export class ComputationWorker extends Context.Tag('app/ComputationWorker')<ComputationWorker, ComputationWorker>() {}
-
-// --- Live Implementation ---
+export const ComputationWorker = Effect.Tag<ComputationWorker>()
 
 export const ComputationWorkerLive = Layer.scoped(
   ComputationWorker,
   Effect.gen(function* ($) {
-    const maxWorkers = navigator.hardwareConcurrency || 4
-
-    const createWorker = Effect.acquireRelease(
-      Effect.sync(() => new ComputationWorkerUrl()),
-      (worker) => Effect.sync(() => worker.terminate()),
-    )
-
-    const workerPool = yield* $(Pool.make({ acquire: createWorker, size: maxWorkers }))
-
-    const postTask = (task: ComputationTask): Effect.Effect<ChunkGenerationResult, WorkerError> =>
+    const pool = yield* $(createWorkerPool)
+    const postTask = (task: ComputationTask) =>
       Effect.scoped(
         Effect.gen(function* ($) {
-          const worker = yield* $(Pool.get(workerPool))
+          const worker = yield* $(pool.get)
           return yield* $(
             Effect.async<ChunkGenerationResult, WorkerError>((resume) => {
-              const handleMessage = (ev: MessageEvent<ChunkGenerationResult>) => {
-                cleanUp()
-                resume(Effect.succeed(ev.data))
+              worker.onmessage = (e) => {
+                if (e.data._tag === 'error') {
+                  resume(Effect.fail(new WorkerError({ reason: e.data.error })))
+                } else {
+                  resume(Effect.succeed(e.data.result))
+                }
               }
-              const handleError = (err: ErrorEvent) => {
-                cleanUp()
-                resume(Effect.fail(new WorkerError({ reason: err })))
+              worker.onerror = (e) => {
+                resume(Effect.fail(new WorkerError({ reason: e.message })))
               }
-              const cleanUp = () => {
-                worker.removeEventListener('message', handleMessage)
-                worker.removeEventListener('error', handleError)
-              }
-
-              worker.addEventListener('message', handleMessage, { once: true })
-              worker.addEventListener('error', handleError, { once: true })
               worker.postMessage(task)
             }),
           )
         }),
       )
-
     return { postTask }
   }),
 )

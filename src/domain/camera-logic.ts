@@ -30,8 +30,10 @@ export const clampPitch = (pitch: number): number => {
 
 export const updateCamera = (camera: Camera, target: Option.Option<Target>): Camera => {
   const newTargetPositionOption = Option.flatMap(target, (t) => (t._tag === 'block' ? Option.some(t.position) : Option.none()))
-  const newTargetPosition = Option.getOrUndefined(newTargetPositionOption)
-  return new Camera({ ...camera, target: newTargetPosition })
+  if (Option.isSome(newTargetPositionOption)) {
+    return new Camera({ ...camera, target: newTargetPositionOption.value })
+  }
+  return new Camera({ ...camera, target: undefined })
 }
 
 export const updateCameraPosition = (

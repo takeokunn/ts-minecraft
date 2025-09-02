@@ -8,16 +8,16 @@ import { Scene, PerspectiveCamera, WebGLRenderer, Mesh, Material } from 'three'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js'
 import {
-  ChunkDataQueueService,
+  ChunkDataQueue,
   DeltaTime,
-  GameStateService,
+  GameState,
   OnCommand,
   RaycastResultService,
-  RenderQueueService,
+  RenderQueue,
   SpatialGridService,
+  InputManagerService,
 } from '@/runtime/services'
 import { ComputationWorker } from '@/infrastructure/computation.worker'
-import { InputManagerService } from '@/infrastructure/input-browser'
 import { MaterialManager } from '@/infrastructure/material-manager'
 import { Hotbar } from '@/domain/components'
 import { SpatialGrid, SpatialGridState } from '@/infrastructure/spatial-grid'
@@ -26,16 +26,16 @@ export type TestLayerContext =
   | WorldContext
   | RaycastService
   | ThreeCameraService
-  | typeof ThreeContextService
+  | ThreeContextService
   | ComputationWorker
-  | typeof InputManagerService
+  | InputManagerService
   | MaterialManager
-  | typeof SpatialGridService
+  | SpatialGridService
   | RaycastResultService
-  | ChunkDataQueueService
-  | RenderQueueService
+  | ChunkDataQueue
+  | RenderQueue
   | OnCommand
-  | GameStateService
+  | GameState
   | DeltaTime
 
 export const provideTestLayer = (
@@ -44,9 +44,9 @@ export const provideTestLayer = (
     raycast?: Partial<RaycastService>
     camera?: Partial<ThreeCameraService>
     context?: Partial<ThreeContext>
-    computationWorker?: Partial<ComputationWorker['_S']>
+    computationWorker?: Partial<ComputationWorker>
     inputManager?: Partial<InputManagerService>
-    materialManager?: Partial<MaterialManager['_S']>
+    materialManager?: Partial<MaterialManager>
     spatialGrid?: Partial<SpatialGrid>
   },
 ): Layer.Layer<TestLayerContext, never, never> => {
@@ -54,7 +54,10 @@ export const provideTestLayer = (
   const camera = new PerspectiveCamera()
   const controls = new PointerLockControls(camera, canvas)
 
-  const worldLayer = Layer.effect(WorldContext, Ref.make(initialState ?? createInitialWorld()).pipe(Effect.map((ref) => ({ world: ref }))))
+  const worldLayer = Layer.effect(
+    WorldContext,
+    Ref.make(initialState ?? createInitialWorld()).pipe(Effect.map((ref) => ({ world: ref }))),
+  )
 
   const mocksLayer = Layer.mergeAll(
     Layer.succeed(
@@ -97,14 +100,12 @@ export const provideTestLayer = (
         ...mockOverrides?.context,
       }),
     ),
-    Layer.mock(
+    Layer.succeed(
       ComputationWorker,
-      Object.assign(
-        {
-          postTask: () => Effect.die('ComputationWorker.postTask not implemented'),
-        },
-        mockOverrides?.computationWorker,
-      ),
+      ComputationWorker.of({
+        postTask: () => Effect.die('ComputationWorker.postTask not implemented'),
+        ...mockOverrides?.computationWorker,
+      }),
     ),
     Layer.succeed(
       InputManagerService,
@@ -116,11 +117,14 @@ export const provideTestLayer = (
         ...mockOverrides?.inputManager,
       }),
     ),
-    Layer.mock(MaterialManager, {
-      get: () => Effect.succeed(new Material()),
-      dispose: () => Effect.void,
-      ...mockOverrides?.materialManager,
-    }),
+    Layer.succeed(
+      MaterialManager,
+      MaterialManager.of({
+        get: () => Effect.succeed(new Material()),
+        dispose: () => Effect.void,
+        ...mockOverrides?.materialManager,
+      }),
+    ),
     Layer.succeed(
       SpatialGridService,
       SpatialGridService.of({
@@ -132,10 +136,15 @@ export const provideTestLayer = (
       }),
     ),
     Layer.effect(RaycastResultService, Ref.make(Option.none())),
-    Layer.succeed(ChunkDataQueueService, []),
-    Layer.succeed(RenderQueueService, []),
+    Layer.succeed(ChunkDataQueue, []),
+    Layer.succeed(RenderQueue, []),
     Layer.succeed(OnCommand, () => Effect.void),
-    Layer.succeed(GameStateService, { hotbar: new Hotbar({ slots: [], selectedIndex: 0 }) }),
+    Layer.succeed(
+      GameState,
+      GameState.of({
+        getHotbar: Effect.succeed(new Hotbar({ slots: [], selectedIndex: 0 })),
+      }),
+    ),
     Layer.succeed(DeltaTime, 0),
   )
 

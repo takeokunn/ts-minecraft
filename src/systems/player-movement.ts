@@ -51,37 +51,52 @@ export const applyDeceleration = (velocity: Pick<Velocity, 'dx' | 'dz'>): Pick<V
 }
 
 export const playerMovementSystem = Effect.gen(function* ($) {
-  const players = yield* $(World.query(playerMovementQuery))
+  const soa = yield* $(World.querySoA(playerMovementQuery))
 
-  yield* $(
-    Effect.forEach(
-      players,
-      (player) => {
-        const { entityId, player: playerData, inputState, velocity, cameraState } = player
+  if (soa.entities.length === 0) {
+    return
+  }
 
-        const { newDy, newIsGrounded } = calculateVerticalVelocity(playerData.isGrounded, inputState.jump, velocity.dy)
+  const player = soa.player
+  const inputState = soa.inputState
+  const velocity = soa.velocity
+  const cameraState = soa.cameraState
 
-        const hasHorizontalInput = inputState.forward || inputState.backward || inputState.left || inputState.right
+  for (let i = 0; i < soa.entities.length; i++) {
+    const isGrounded = player.isGrounded[i] ?? false
+    const jump = inputState.jump[i] ?? false
+    const dy = velocity.dy[i] ?? 0
 
-        const { dx, dz } = Match.value(hasHorizontalInput).pipe(
-          Match.when(true, () => calculateHorizontalVelocity(inputState, cameraState)),
-          Match.orElse(() => applyDeceleration(velocity)),
-        )
+    const { newDy, newIsGrounded } = calculateVerticalVelocity(
+      isGrounded,
+      jump,
+      dy,
+    )
 
-        return Effect.all(
-          [
-            World.updateComponent(entityId, 'velocity', {
-              dx,
-              dy: newDy,
-              dz,
-            }),
-            World.updateComponent(entityId, 'player', { isGrounded: newIsGrounded }),
-          ],
-          { discard: true },
-        )
-      },
-      { discard: true, concurrency: 'unbounded' },
-    ),
-    Effect.catchAllCause((cause) => Effect.logError('An error occurred in playerMovementSystem', cause)),
-  )
+    const forward = inputState.forward[i] ?? false
+    const backward = inputState.backward[i] ?? false
+    const left = inputState.left[i] ?? false
+    const right = inputState.right[i] ?? false
+    const sprint = inputState.sprint[i] ?? false
+    const yaw = cameraState.yaw[i] ?? 0
+    const currentDx = velocity.dx[i] ?? 0
+    const currentDz = velocity.dz[i] ?? 0
+
+    const hasHorizontalInput = forward || backward || left || right
+
+    const { dx, dz } = Match.value(hasHorizontalInput).pipe(
+      Match.when(true, () =>
+        calculateHorizontalVelocity(
+          { forward, backward, left, right, sprint },
+          { yaw },
+        ),
+      ),
+      Match.orElse(() => applyDeceleration({ dx: currentDx, dz: currentDz })),
+    )
+
+    velocity.dx[i] = dx
+    velocity.dy[i] = newDy
+    velocity.dz[i] = dz
+    player.isGrounded[i] = newIsGrounded
+  }
 })
