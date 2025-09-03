@@ -1,5 +1,5 @@
 import { Cause, Duration, Effect, Layer, Ref } from 'effect'
-import { TestClock, TestContext, TestLogger } from 'effect/test'
+import { TestClock, TestContext, TestLogger } from '@effect/test'
 import { assert, describe, expect, it } from '@effect/vitest'
 import * as fc from 'effect/FastCheck'
 import { createTick, gameLoop } from '../../runtime/loop'

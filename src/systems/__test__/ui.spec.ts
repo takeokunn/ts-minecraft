@@ -35,7 +35,8 @@ describe('UISystem', () => {
               Layer.provide(Layer.succeed(World, mockWorld as World)),
             )
 
-            await Effect.runPromise(createUISystem.pipe(Effect.provide(testLayer)))
+            const system = createUISystem.pipe(Effect.provide(testLayer))
+            await Effect.runPromise(system)
 
             if (hotbarOpt) {
               assert.strictEqual(updateHotbarSpy.mock.calls.length, 1)

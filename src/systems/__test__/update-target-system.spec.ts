@@ -10,6 +10,8 @@ import { TargetBlock, TargetNone } from '@/domain/components'
 import * as THREE from 'three'
 import { Int, Vector3Int } from '@/domain/common'
 
+import { arbitraryEntityId } from '@test/arbitraries'
+
 const arbitraryVector3 = fc.record({
   x: fc.float(),
   y: fc.float(),
@@ -17,7 +19,7 @@ const arbitraryVector3 = fc.record({
 })
 
 const arbitraryIntersection = fc.record({
-  object: fc.record({ name: fc.uuid().map(toEntityId) }),
+  object: fc.record({ name: arbitraryEntityId }),
   point: arbitraryVector3.map((v) => new THREE.Vector3(v.x, v.y, v.z)),
   face: fc.record({ normal: arbitraryVector3.map((v) => new THREE.Vector3(v.x, v.y, v.z)) }),
 })
@@ -28,7 +30,7 @@ describe('updateTargetSystem', () => {
       fc.assert(
         fc.asyncProperty(
           fc.option(arbitraryIntersection, { nil: undefined }),
-          fc.array(fc.uuid().map(toEntityId)),
+          fc.array(arbitraryEntityId),
           async (intersectionOpt, entityIds) => {
             const soa: SoAResult<typeof playerQuery.components> = {
               entities: entityIds,

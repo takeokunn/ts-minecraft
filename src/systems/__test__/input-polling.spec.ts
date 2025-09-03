@@ -7,7 +7,7 @@ import { toEntityId } from '@/domain/entity'
 import { InputState } from '@/domain/components'
 import { SoAResult } from '@/domain/types'
 import { playerInputQuery } from '@/domain/queries'
-import { arbitraryInputState } from '@test/arbitraries'
+import { arbitraryInputState, arbitraryEntityId } from '@test/arbitraries'
 
 describe('inputPollingSystem', () => {
   it.effect('should adhere to input polling properties', () =>
@@ -15,7 +15,7 @@ describe('inputPollingSystem', () => {
       fc.assert(
         fc.asyncProperty(
           arbitraryInputState,
-          fc.array(fc.uuid().map(toEntityId)),
+          fc.array(arbitraryEntityId),
           fc.boolean(),
           async (inputState, entityIds, isLocked) => {
             const soa: SoAResult<typeof playerInputQuery.components> = {

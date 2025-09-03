@@ -14,10 +14,10 @@ import {
   arbitraryHotbar,
 } from '@test/arbitraries'
 
-const defaultInputState = S.decodeSync(InputState)(S.Struct.fields(InputState.fields))
+const defaultInputState = S.decodeSync(InputState)({} as any)
 
 describe('blockInteractionSystem', () => {
-  const entityId = toEntityId('1')
+  const entityId = toEntityId(1)
 
   const createMockWorld = (
     inputState: Partial<InputState>,
@@ -37,7 +37,7 @@ describe('blockInteractionSystem', () => {
 
     const mockWorld: World = {
       querySoA: () => Effect.succeed(soa as any),
-      addArchetype: () => Effect.succeed(toEntityId('3')),
+      addArchetype: () => Effect.succeed(toEntityId(3)),
       removeEntity: () => Effect.succeed(undefined),
       updateComponent: () => Effect.succeed(undefined),
     }

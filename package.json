@@ -8,13 +8,14 @@
     "build": "tsc && vite build",
     "tsc": "tsc --pretty",
     "preview": "vite preview",
-    "test": "vitest --experimental-vm-modules",
+    "test": "vitest",
     "lint": "oxlint --deny-warnings --allow no-restricted-globals",
     "format": "prettier --write . --ignore-path .gitignore && oxlint --fix",
     "generate:atlas": "npx tsx scripts/generate-texture-atlas.ts",
     "clear-cache": "vitest clear"
   },
   "devDependencies": {
+    "@effect/test": "^0.1.0",
     "@effect/vitest": "^0.25.1",
     "@types/file-saver": "^2.0.7",
     "@types/stats.js": "^0.17.4",

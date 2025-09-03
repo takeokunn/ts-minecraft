@@ -56,9 +56,8 @@ describe('cameraControlSystem', () => {
               getMouseState: () => Effect.succeed(mouseDelta),
             }
 
-            const testLayer = Layer.merge(
-              Layer.succeed(World, mockWorld),
-              Layer.succeed(InputManager, mockInputManager),
+            const testLayer = Layer.succeed(World, mockWorld).pipe(
+              Layer.provide(Layer.succeed(InputManager, mockInputManager)),
             )
 
             await Effect.runPromise(

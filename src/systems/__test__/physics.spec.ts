@@ -49,9 +49,8 @@ describe('physicsSystem', () => {
               onFrame: () => Effect.void,
             }
 
-            const testLayer = Layer.merge(
-              Layer.succeed(World, mockWorld as World),
-              Layer.succeed(Clock, mockClock),
+            const testLayer = Layer.succeed(World, mockWorld as World).pipe(
+              Layer.provide(Layer.succeed(Clock, mockClock)),
             )
 
             await Effect.runPromise(physicsSystem.pipe(Effect.provide(testLayer)))

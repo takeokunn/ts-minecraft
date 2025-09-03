@@ -54,10 +54,10 @@ describe('worldUpdateSystem', () => {
         },
       }
 
-      const testLayer = Layer.succeed(World, mockWorld as World).pipe(
-        Layer.provide(Layer.succeed(Renderer, mockRenderer as Renderer)),
-        Layer.provide(Layer.succeed(ComputationWorker, mockComputationWorker as ComputationWorker)),
-      )
+      const worldLayer = Layer.succeed(World, mockWorld as World)
+      const rendererLayer = Layer.succeed(Renderer, mockRenderer as Renderer)
+      const computationWorkerLayer = Layer.succeed(ComputationWorker, mockComputationWorker as ComputationWorker)
+      const testLayer = Layer.mergeAll(worldLayer, rendererLayer, computationWorkerLayer)
 
       yield* $(worldUpdateSystem.pipe(Effect.provide(testLayer)))
       yield* $(messageHandler!(message))

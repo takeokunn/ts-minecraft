@@ -36,8 +36,8 @@ describe('collisionSystem', () => {
           ),
           fc.array(arbitraryBlock),
           async (playerOpt, blocks) => {
-            const playerEntityId = toEntityId('player')
-            const blockEntities = blocks.map((_, i) => toEntityId(i))
+            const playerEntityId = toEntityId(0)
+            const blockEntities = blocks.map((_, i) => toEntityId(i + 1))
 
             const playerSoa: SoAResult<typeof playerColliderQuery.components> = {
               entities: playerOpt ? [playerEntityId] : [],

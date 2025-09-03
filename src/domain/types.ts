@@ -7,12 +7,12 @@ import { ChunkX, ChunkZ } from './common'
 const Float32ArraySchema = S.transform(S.Array(S.Number), S.instanceOf(Float32Array), {
   decode: (arr) => new Float32Array(arr),
   encode: (f32arr) => Array.from(f32arr),
-}).pipe(S.arbitrary(() => fc.float32Array()))
+}).pipe(S.annotations({ arbitrary: () => fc.float32Array() }))
 
 const Uint32ArraySchema = S.transform(S.Array(S.Number), S.instanceOf(Uint32Array), {
   decode: (arr) => new Uint32Array(arr),
   encode: (u32arr) => Array.from(u32arr),
-}).pipe(S.arbitrary(() => fc.uint32Array()))
+}).pipe(S.annotations({ arbitrary: () => fc.uint32Array() }))
 
 export type SoAResult<C extends Record<string, S.Schema<any, any>>> = {
   readonly entities: ReadonlyArray<EntityId>

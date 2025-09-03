@@ -33,7 +33,7 @@ const CoreServicesLive = Layer.mergeAll(
   WorldLive,
 )
 
-const gameSystems = [
+export const gameSystems = [
   inputPollingSystem,
   playerMovementSystem,
   cameraControlSystem,
@@ -47,7 +47,7 @@ const gameSystems = [
   uiSystem,
 ]
 
-const main = Effect.gen(function* (_) {
+export const main = Effect.gen(function* (_) {
   const world = yield* _(World)
 
   const player = yield* _(
@@ -63,4 +63,7 @@ const main = Effect.gen(function* (_) {
 
 const AppLive = main.pipe(Effect.provide(CoreServicesLive))
 
-Effect.runFork(AppLive)
+/* v8 ignore next 3 */
+if (import.meta.env.PROD) {
+  Effect.runFork(AppLive)
+}

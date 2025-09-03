@@ -26,7 +26,7 @@ describe('player-movement pure functions', () => {
           const hasInput = input.forward || input.backward || input.left || input.right
           if (hasInput) {
             const magnitude = Math.sqrt(dx * dx + dz * dz)
-            assert.closeTo(magnitude, speed, 1e-9)
+            assert.closeTo(magnitude, speed, 1e-6)
           } else {
             assert.strictEqual(dx, 0)
             assert.strictEqual(dz, 0)

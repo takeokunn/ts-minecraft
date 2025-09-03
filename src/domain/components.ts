@@ -109,7 +109,7 @@ export const TargetBlockComponent = S.Struct({})
 export type TargetBlockComponent = S.Schema.Type<typeof TargetBlockComponent>
 
 export const ChunkLoaderState = S.Struct({
-  loadedChunks: S.ReadonlySet(S.String).pipe(S.annotations({ arbitrary: (fc) => fc.set(fc.string()).map(s => new Set(s)) })),
+  loadedChunks: S.ReadonlySet(S.String).pipe(S.annotations({ arbitrary: () => fc.set(fc.string()).map(s => new Set(s)) })),
 })
 export type ChunkLoaderState = S.Schema.Type<typeof ChunkLoaderState>
 
@@ -138,7 +138,16 @@ export const ComponentSchemas = {
 export const AnyComponent = S.Union(...Object.values(ComponentSchemas).filter((s) => s !== Target && s !== ChunkLoaderState))
 export type AnyComponent = S.Schema.Type<typeof AnyComponent>
 
-export const PartialComponentsSchema = S.partial(S.Struct(ComponentSchemas))
+export const PartialComponentsSchema = S.partial(S.Struct(ComponentSchemas)).pipe(
+  S.annotations({
+    arbitrary: (_) =>
+      fc.record(
+        Object.fromEntries(
+          Object.entries(ComponentSchemas).map(([key, schema]) => [key, fc.option(_(schema), { nil: undefined })]),
+        ),
+      ),
+  }),
+)
 export type PartialComponents = S.Schema.Type<typeof PartialComponentsSchema>
 
 export type ComponentName = keyof typeof ComponentSchemas

@@ -1,59 +1,74 @@
 import * as S from 'effect/Schema'
 import * as Arbitrary from 'effect/Arbitrary'
-import {
-  InputState,
-  Target,
-  Hotbar,
-  Position,
-  Player,
-  Velocity,
-  Collider,
-  CameraState,
-  Chunk,
-} from '@/domain/components'
-import { blockTypeNames } from '@/domain/block-types'
 import * as fc from 'effect/FastCheck'
-import { EntityId } from '@/domain/entity'
+import { AABBSchema, EntityIdSchema } from '@/domain/geometry'
+import {
+  Position,
+  Velocity,
+  InputState,
+  CameraState,
+  Hotbar,
+  Target,
+  BlockTypeSchema,
+  TargetBlock,
+  TargetNone,
+  ComponentName,
+  ComponentSchemas,
+  Component,
+} from '@/domain/components'
+import { Int, Vector3Int } from '@/domain/common'
+import { type ArchetypeBuilder } from '@/domain/archetypes'
 
-export const arbitraryInputState = Arbitrary.make(S.partial(InputState))
-export const arbitraryTarget = Arbitrary.make(Target)
-export const arbitraryHotbar = Arbitrary.make(Hotbar)
-export const arbitraryPosition = Arbitrary.make(Position)
-export const arbitraryPlayer = Arbitrary.make(Player)
-export const arbitraryVelocity = Arbitrary.make(Velocity)
-export const arbitraryCollider = Arbitrary.make(Collider)
-export const arbitraryCameraState = Arbitrary.make(CameraState)
-export const arbitraryChunk = Arbitrary.make(Chunk)
+// Existing arbitraries
+export const EntityIdArb = Arbitrary.make(EntityIdSchema)(fc)
+export const AABBArb = Arbitrary.make(AABBSchema)(fc)
 
-export const arbitraryBlockType = fc.constantFrom(...blockTypeNames)
+// Primitive arbitraries
+export const IntArb = Arbitrary.make(Int)(fc)
+export const Vector3IntArb = Arbitrary.make(Vector3Int)(fc)
 
-export const arbitraryHotbarWithAir = fc.record({
-  slots: fc.array(arbitraryBlockType),
-  selectedIndex: fc.integer(),
-}).map((hotbar) => {
-  const selectedIndex = hotbar.selectedIndex % (hotbar.slots.length || 1)
-  const slots = [...hotbar.slots]
-  if (slots.length > 0) {
-    slots[selectedIndex] = 'air'
-  }
-  return { ...hotbar, selectedIndex, slots }
-})
+// Component arbitraries
+export const PositionArb = Arbitrary.make(Position)(fc)
+export const VelocityArb = Arbitrary.make(Velocity)(fc)
+export const InputStateArb = Arbitrary.make(InputState)(fc)
+export const CameraStateArb = Arbitrary.make(CameraState)(fc)
+export const BlockTypeArb = Arbitrary.make(BlockTypeSchema)(fc)
+export const TargetBlockArb = Arbitrary.make(TargetBlock)(fc)
+export const TargetNoneArb = Arbitrary.make(TargetNone)(fc)
+export const TargetArb = fc.oneof(TargetBlockArb, TargetNoneArb)
+export const HotbarArb = Arbitrary.make(Hotbar)(fc)
 
-export const arbitraryHotbarWithoutAir = fc.record({
-  slots: fc.array(arbitraryBlockType.filter((b) => b !== 'air')),
-  selectedIndex: fc.integer(),
-}).map((hotbar) => {
-  const selectedIndex = hotbar.selectedIndex % (hotbar.slots.length || 1)
-  return { ...hotbar, selectedIndex }
-})
+export const ComponentNameArb = fc.constantFrom(
+  ...(Object.keys(ComponentSchemas) as ReadonlyArray<ComponentName>),
+)
 
-export const arbitraryTargetBlock = fc.record({
-  _tag: fc.constant('block' as const),
-  entityId: fc.uuid().map(EntityId),
-  position: arbitraryPosition,
-  face: fc.tuple(fc.integer(), fc.integer(), fc.integer()),
-})
+export const ComponentArb = ComponentNameArb.chain((name) =>
+  Arbitrary.make(ComponentSchemas[name])(fc).map((component) => [name, component] as const),
+) as fc.Arbitrary<readonly [ComponentName, Component]>
 
-export const arbitraryTargetNone = fc.record({
-  _tag: fc.constant('none' as const),
-})
+// ArchetypeBuilder arbitrary
+export const ArchetypeBuilderArb: fc.Arbitrary<ArchetypeBuilder> = fc.oneof(
+  fc.record({
+    type: fc.constant('player' as const),
+    pos: PositionArb,
+    cameraState: fc.option(CameraStateArb, { nil: undefined }),
+  }),
+  fc.record({
+    type: fc.constant('block' as const),
+    pos: PositionArb,
+    blockType: BlockTypeArb,
+  }),
+  fc.record({
+    type: fc.constant('camera' as const),
+    pos: PositionArb,
+  }),
+  fc.record({
+    type: fc.constant('targetBlock' as const),
+    pos: PositionArb,
+  }),
+  fc.record({
+    type: fc.constant('chunk' as const),
+    chunkX: IntArb,
+    chunkZ: IntArb,
+  }),
+)

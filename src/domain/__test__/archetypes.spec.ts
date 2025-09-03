@@ -50,7 +50,7 @@ const ArchetypeBuilderArbitrary = fc.oneof(
 describe('Archetypes', () => {
   describe('Schema Reversibility', () => {
     it.effect('ArchetypeBuilder should be reversible after encoding and decoding', () =>
-      Effect.sync(() =>
+      Effect.promise(() =>
         fc.assert(
           fc.property(ArchetypeBuilderArbitrary, (value) => {
             const encode = S.encodeSync(ArchetypeBuilder)
@@ -63,7 +63,7 @@ describe('Archetypes', () => {
     )
 
     it.effect('ArchetypeSchema should be reversible after encoding and decoding', () =>
-      Effect.sync(() =>
+      Effect.promise(() =>
         fc.assert(
           fc.property(Arbitrary.make(ArchetypeSchema), (value) => {
             const encode = S.encodeSync(ArchetypeSchema)
@@ -77,20 +77,21 @@ describe('Archetypes', () => {
   })
 
   describe('createInputState', () => {
-    it('should return a valid InputState object with all fields set to false', () => {
-      const expectedState = {
-        forward: false,
-        backward: false,
-        left: false,
-        right: false,
-        jump: false,
-        sprint: false,
-        place: false,
-        destroy: false,
-        isLocked: false,
-      }
-      assert.deepStrictEqual(createInputState(), expectedState)
-    })
+    it.effect('should return a valid InputState object with all fields set to false', () =>
+      Effect.sync(() => {
+        const expectedState = {
+          forward: false,
+          backward: false,
+          left: false,
+          right: false,
+          jump: false,
+          sprint: false,
+          place: false,
+          destroy: false,
+          isLocked: false,
+        }
+        assert.deepStrictEqual(createInputState(), expectedState)
+      }))
   })
 
   describe('createArchetype', () => {
@@ -194,12 +195,12 @@ describe('Archetypes', () => {
       }))
 
     it.effect('should create a valid archetype for any valid builder (PBT)', () =>
-      Effect.sync(() =>
+      Effect.promise(() =>
         fc.assert(
-          fc.property(ArchetypeBuilderArbitrary, (builder) => {
-            const result = Effect.runSync(createArchetype(builder))
+          fc.asyncProperty(ArchetypeBuilderArbitrary, async (builder) => {
+            const result = await Effect.runPromise(createArchetype(builder))
             assert.isObject(result)
-            if ('pos' in builder) {
+            if ('pos' in builder && builder.pos) {
               assert.deepStrictEqual(result.position, builder.pos)
             }
           }),

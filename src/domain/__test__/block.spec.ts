@@ -26,20 +26,23 @@ describe('Block', () => {
   })
 
   describe('Constants', () => {
-    it('hotbarSlots should match snapshot', () => {
-      expect(hotbarSlots).toMatchSnapshot()
-    })
-    it('ATLAS_SIZE_IN_TILES should match snapshot', () => {
-      expect(ATLAS_SIZE_IN_TILES).toMatchSnapshot()
-    })
-    it('TILE_SIZE should be 1 / ATLAS_SIZE_IN_TILES', () => {
-      expect(TILE_SIZE).toBe(1 / ATLAS_SIZE_IN_TILES)
-    })
+    it.effect('hotbarSlots should match snapshot', () =>
+      Effect.sync(() => {
+        expect(hotbarSlots).toMatchSnapshot()
+      }))
+    it.effect('ATLAS_SIZE_IN_TILES should match snapshot', () =>
+      Effect.sync(() => {
+        expect(ATLAS_SIZE_IN_TILES).toMatchSnapshot()
+      }))
+    it.effect('TILE_SIZE should be 1 / ATLAS_SIZE_IN_TILES', () =>
+      Effect.sync(() => {
+        expect(TILE_SIZE).toBe(1 / ATLAS_SIZE_IN_TILES)
+      }))
   })
 
   describe('createPlacedBlock', () => {
     it.effect('should create a valid PlacedBlock object', () =>
-      Effect.sync(() =>
+      Effect.promise(() =>
         fc.assert(
           fc.property(Arbitrary.make(PlacedBlockSchema), (placedBlock) => {
             const { position, blockType } = placedBlock
@@ -54,7 +57,7 @@ describe('Block', () => {
 
   describe('getUvForFace', () => {
     it.effect('should return the correct UV for a given block type and face', () =>
-      Effect.sync(() =>
+      Effect.promise(() =>
         fc.assert(
           fc.property(
             Arbitrary.make(FaceNameSchema),
@@ -77,15 +80,16 @@ describe('Block', () => {
       ),
     )
 
-    it('should throw an error for an undefined block type', () => {
-      // @ts-expect-error - Testing invalid input
-      expect(() => getUvForFace('invalidBlockType', 'top')).toThrow()
-    })
+    it.effect('should throw an error for an undefined block type', () =>
+      Effect.sync(() => {
+        // @ts-expect-error - Testing invalid input
+        expect(() => getUvForFace('invalidBlockType', 'top')).toThrow()
+      }))
   })
 
   describe('isBlockTransparent', () => {
     it.effect('should return the correct transparency for a given block type', () =>
-      Effect.sync(() =>
+      Effect.promise(() =>
         fc.assert(
           fc.property(blockTypeArbitrary, (blockType) => {
             const isTransparent = isBlockTransparent(blockType)
@@ -95,15 +99,16 @@ describe('Block', () => {
       ),
     )
 
-    it('should throw an error for an undefined block type', () => {
-      // @ts-expect-error - Testing invalid input
-      expect(() => isBlockTransparent('invalidBlockType')).toThrow()
-    })
+    it.effect('should throw an error for an undefined block type', () =>
+      Effect.sync(() => {
+        // @ts-expect-error - Testing invalid input
+        expect(() => isBlockTransparent('invalidBlockType')).toThrow()
+      }))
   })
 
   describe('isBlockFluid', () => {
     it.effect('should return the correct fluid status for a given block type', () =>
-      Effect.sync(() =>
+      Effect.promise(() =>
         fc.assert(
           fc.property(blockTypeArbitrary, (blockType) => {
             const isFluid = isBlockFluid(blockType)
@@ -113,9 +118,10 @@ describe('Block', () => {
       ),
     )
 
-    it('should throw an error for an undefined block type', () => {
-      // @ts-expect-error - Testing invalid input
-      expect(() => isBlockFluid('invalidBlockType')).toThrow()
-    })
+    it.effect('should throw an error for an undefined block type', () =>
+      Effect.sync(() => {
+        // @ts-expect-error - Testing invalid input
+        expect(() => isBlockFluid('invalidBlockType')).toThrow()
+      }))
   })
 })

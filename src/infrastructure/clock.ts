@@ -2,6 +2,23 @@ import { Clock } from '@/runtime/services'
 import { Console, Effect, Layer, Ref } from 'effect'
 import * as THREE from 'three'
 
+export const tick = (
+  getDelta: () => number,
+  deltaTime: Ref.Ref<number>,
+  onFrameCallbacks: Ref.Ref<ReadonlyArray<() => Effect.Effect<void>>>,
+) =>
+  Effect.gen(function* (_) {
+    const delta = getDelta()
+    yield* _(Ref.set(deltaTime, delta))
+    const callbacks = yield* _(Ref.get(onFrameCallbacks))
+    yield* _(
+      Effect.forEach(callbacks, (cb) => Effect.catchAll(cb(), (e) => Console.error(e)), {
+        discard: true,
+        concurrency: 'inherit',
+      }),
+    )
+  })
+
 export const ClockLive = Layer.scoped(
   Clock,
   Effect.gen(function* (_) {
@@ -12,23 +29,17 @@ export const ClockLive = Layer.scoped(
     const onFrame = (callback: () => Effect.Effect<void>) =>
       Ref.update(onFrameCallbacks, (callbacks) => [...callbacks, callback])
 
-    const tick = Effect.gen(function* (_) {
-      const delta = clock.getDelta()
-      yield* _(Ref.set(deltaTime, delta))
-      const callbacks = yield* _(Ref.get(onFrameCallbacks))
-      yield* _(
-        Effect.forEach(callbacks, (cb) => Effect.catchAll(cb(), (e) => Console.error(e)), {
-          discard: true,
-          concurrency: 'inherit'
-        })
-      )
-    })
+    const tickEffect = tick(
+      () => clock.getDelta(),
+      deltaTime,
+      onFrameCallbacks,
+    )
 
     const requestAnimationFrameEffect = Effect.async<void>((resume) => {
       requestAnimationFrame(() => resume(Effect.void))
     })
 
-    const loop = Effect.forever(Effect.flatMap(requestAnimationFrameEffect, () => tick))
+    const loop = Effect.forever(Effect.flatMap(requestAnimationFrameEffect, () => tickEffect))
 
     yield* _(Effect.forkScoped(loop))
 

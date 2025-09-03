@@ -1,4 +1,4 @@
-import { describe, it, assert } from '@effect/vitest'
+import { describe, it, assert, expect } from '@effect/vitest'
 import * as S from 'effect/Schema'
 import * as Arbitrary from 'effect/Arbitrary'
 import * as fc from 'effect/FastCheck'
@@ -54,15 +54,16 @@ const Vector3FloatArbitrary = Arbitrary.make(Vector3FloatSchema).filter(([x, y, 
 
 describe('Geometry', () => {
   describe('toChunkIndex', () => {
-    it('should convert a 3D position to a 1D index', () => {
-      const position: Vector3Int = [toInt(1), toInt(2), toInt(3)]
-      const [x, y, z] = position
-      const expected = x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
-      assert.strictEqual(toChunkIndex(position), expected)
-    })
+    it.effect('should convert a 3D position to a 1D index', () =>
+      Effect.sync(() => {
+        const position: Vector3Int = [toInt(1), toInt(2), toInt(3)]
+        const [x, y, z] = position
+        const expected = x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
+        assert.strictEqual(toChunkIndex(position), expected)
+      }))
 
     it.effect('should always produce a valid index based on its formula', () =>
-      Effect.sync(() =>
+      Effect.promise(() =>
         fc.assert(
           fc.property(Vector3IntArbitrary, (pos) => {
             const [x, y, z] = pos
@@ -79,23 +80,24 @@ describe('Geometry', () => {
     testReversibility('AABBSchema', AABBSchema)
 
     describe('fromCenterAndSize', () => {
-      it('should create a correct AABB from center and size', () => {
-        const center: Vector3Float = [toFloat(10), toFloat(20), toFloat(30)]
-        const size: Vector3Float = [toFloat(2), toFloat(4), toFloat(6)]
-        const aabb = fromCenterAndSize(center, size)
-        const expected: AABB = {
-          minX: toFloat(9),
-          minY: toFloat(18),
-          minZ: toFloat(27),
-          maxX: toFloat(11),
-          maxY: toFloat(22),
-          maxZ: toFloat(33),
-        }
-        assert.deepStrictEqual(aabb, expected)
-      })
+      it.effect('should create a correct AABB from center and size', () =>
+        Effect.sync(() => {
+          const center: Vector3Float = [toFloat(10), toFloat(20), toFloat(30)]
+          const size: Vector3Float = [toFloat(2), toFloat(4), toFloat(6)]
+          const aabb = fromCenterAndSize(center, size)
+          const expected: AABB = {
+            minX: toFloat(9),
+            minY: toFloat(18),
+            minZ: toFloat(27),
+            maxX: toFloat(11),
+            maxY: toFloat(22),
+            maxZ: toFloat(33),
+          }
+          assert.deepStrictEqual(aabb, expected)
+        }))
 
       it.effect('should create an AABB where max >= min', () =>
-        Effect.sync(() =>
+        Effect.promise(() =>
           fc.assert(
             fc.property(Vector3FloatArbitrary, PositiveVector3FloatArbitrary, (center, size) => {
               const aabb = fromCenterAndSize(center, size)
@@ -109,23 +111,24 @@ describe('Geometry', () => {
     })
 
     describe('createAABB', () => {
-      it('should create a correct AABB', () => {
-        const position: Position = { x: toFloat(0.5), y: toFloat(0), z: toFloat(0.5) }
-        const collider: Collider = PLAYER_COLLIDER
-        const aabb = createAABB(position, collider)
-        const expected = {
-          minX: toFloat(position.x - collider.width / 2),
-          minY: position.y,
-          minZ: toFloat(position.z - collider.depth / 2),
-          maxX: toFloat(position.x + collider.width / 2),
-          maxY: toFloat(position.y + collider.height),
-          maxZ: toFloat(position.z + collider.depth / 2),
-        }
-        assert.deepStrictEqual(aabb, expected)
-      })
+      it.effect('should create a correct AABB', () =>
+        Effect.sync(() => {
+          const position: Position = { x: toFloat(0.5), y: toFloat(0), z: toFloat(0.5) }
+          const collider: Collider = PLAYER_COLLIDER
+          const aabb = createAABB(position, collider)
+          const expected = {
+            minX: toFloat(position.x - collider.width / 2),
+            minY: position.y,
+            minZ: toFloat(position.z - collider.depth / 2),
+            maxX: toFloat(position.x + collider.width / 2),
+            maxY: toFloat(position.y + collider.height),
+            maxZ: toFloat(position.z + collider.depth / 2),
+          }
+          assert.deepStrictEqual(aabb, expected)
+        }))
 
       it.effect('should create a valid AABB from any position and collider', () =>
-        Effect.sync(() =>
+        Effect.promise(() =>
           fc.assert(
             fc.property(PositionArbitrary, ColliderArbitrary, (position, collider) => {
               const aabb = createAABB(position, collider)
@@ -145,23 +148,24 @@ describe('Geometry', () => {
     })
 
     describe('areAABBsIntersecting', () => {
-      it('should correctly detect intersections', () => {
-        const a: AABB = {
-          minX: toFloat(0),
-          minY: toFloat(0),
-          minZ: toFloat(0),
-          maxX: toFloat(1),
-          maxY: toFloat(1),
-          maxZ: toFloat(1),
-        }
-        const b: AABB = { ...a, minX: toFloat(0.5) }
-        const c: AABB = { ...a, minX: toFloat(2) }
-        assert.isTrue(areAABBsIntersecting(a, b))
-        assert.isFalse(areAABBsIntersecting(a, c))
-      })
+      it.effect('should correctly detect intersections', () =>
+        Effect.sync(() => {
+          const a: AABB = {
+            minX: toFloat(0),
+            minY: toFloat(0),
+            minZ: toFloat(0),
+            maxX: toFloat(1),
+            maxY: toFloat(1),
+            maxZ: toFloat(1),
+          }
+          const b: AABB = { ...a, minX: toFloat(0.5) }
+          const c: AABB = { ...a, minX: toFloat(2) }
+          assert.isTrue(areAABBsIntersecting(a, b))
+          assert.isFalse(areAABBsIntersecting(a, c))
+        }))
 
       it.effect('an AABB should always intersect with itself', () =>
-        Effect.sync(() =>
+        Effect.promise(() =>
           fc.assert(
             fc.property(AABBArbitrary, (aabb) => {
               assert.isTrue(areAABBsIntersecting(aabb, aabb))
@@ -172,22 +176,39 @@ describe('Geometry', () => {
     })
 
     describe('getIntersectionDepth', () => {
-      it('should return zero vector for non-intersecting AABBs', () => {
-        const a: AABB = {
-          minX: toFloat(0),
-          minY: toFloat(0),
-          minZ: toFloat(0),
-          maxX: toFloat(1),
-          maxY: toFloat(1),
-          maxZ: toFloat(1),
-        }
-        const b: AABB = { ...a, minX: toFloat(a.maxX + 1) }
-        const expected: Vector3Float = [toFloat(0), toFloat(0), toFloat(0)]
-        assert.deepStrictEqual(getIntersectionDepth(a, b), expected)
-      })
+      it.effect('should return zero vector for non-intersecting AABBs', () =>
+        Effect.sync(() => {
+          const a: AABB = {
+            minX: toFloat(0),
+            minY: toFloat(0),
+            minZ: toFloat(0),
+            maxX: toFloat(1),
+            maxY: toFloat(1),
+            maxZ: toFloat(1),
+          }
+          const b: AABB = { ...a, minX: toFloat(a.maxX + 1) }
+          const expected: Vector3Float = [toFloat(0), toFloat(0), toFloat(0)]
+          assert.deepStrictEqual(getIntersectionDepth(a, b), expected)
+        }))
+
+      it.effect('should calculate correct depth for partially intersecting AABBs', () =>
+        Effect.sync(() => {
+          const a: AABB = { minX: toFloat(0), minY: toFloat(0), minZ: toFloat(0), maxX: toFloat(2), maxY: toFloat(2), maxZ: toFloat(2) }
+          const b: AABB = { minX: toFloat(1), minY: toFloat(1), minZ: toFloat(1), maxX: toFloat(3), maxY: toFloat(3), maxZ: toFloat(3) }
+          const depth = getIntersectionDepth(a, b)
+          expect(depth).toEqual([toFloat(-1), toFloat(0), toFloat(0)])
+        }))
+
+      it.effect('should calculate correct depth when one AABB contains another', () =>
+        Effect.sync(() => {
+          const a: AABB = { minX: toFloat(0), minY: toFloat(0), minZ: toFloat(0), maxX: toFloat(4), maxY: toFloat(4), maxZ: toFloat(4) }
+          const b: AABB = { minX: toFloat(1), minY: toFloat(1), minZ: toFloat(1), maxX: toFloat(2), maxY: toFloat(2), maxZ: toFloat(2) }
+          const depth = getIntersectionDepth(a, b)
+          expect(depth).toEqual([toFloat(2), toFloat(0), toFloat(0)])
+        }))
 
       it.effect('should return zero vector for non-intersecting AABBs (PBT)', () =>
-        Effect.sync(() =>
+        Effect.promise(() =>
           fc.assert(
             fc.property(AABBArbitrary, AABBArbitrary, (a, b) => {
               if (!areAABBsIntersecting(a, b)) {
@@ -200,7 +221,7 @@ describe('Geometry', () => {
       )
 
       it.effect('should not crash for intersecting AABBs (PBT)', () =>
-        Effect.sync(() =>
+        Effect.promise(() =>
           fc.assert(
             fc.property(AABBArbitrary, AABBArbitrary, (a, b) => {
               if (areAABBsIntersecting(a, b)) {
