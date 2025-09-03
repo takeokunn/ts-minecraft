@@ -1,5 +1,5 @@
 import { InputManager } from '@/runtime/services'
-import { Effect, Layer, Ref, Hub } from 'effect'
+import { Effect, Layer, Ref, Queue } from 'effect'
 
 type DomEvent =
   | { _tag: 'keydown'; event: KeyboardEvent }
@@ -16,38 +16,53 @@ export const InputManagerLive = Layer.scoped(
     const keyboardState = yield* _(Ref.make(new Set<string>()))
     const mouseButtonState = yield* _(Ref.make(new Set<number>()))
     const mouseState = yield* _(Ref.make({ dx: 0, dy: 0 }))
-    const eventHub = yield* _(Hub.unbounded<DomEvent>())
+    const eventQueue = yield* _(Queue.unbounded<DomEvent>())
 
-    const registerEventListener = <K extends keyof DocumentEventMap>(
-      type: K,
-      listener: (this: Document, ev: DocumentEventMap[K]) => any,
-    ) =>
+    yield* _(
       Effect.acquireRelease(
-        Effect.sync(() => document.addEventListener(type, listener)),
-        () => Effect.sync(() => document.removeEventListener(type, listener)),
-      )
+        Effect.sync(() => {
+          const keydownListener = (event: KeyboardEvent) =>
+            Queue.unsafeOffer(eventQueue, { _tag: 'keydown', event })
+          const keyupListener = (event: KeyboardEvent) =>
+            Queue.unsafeOffer(eventQueue, { _tag: 'keyup', event })
+          const mousedownListener = (event: MouseEvent) =>
+            Queue.unsafeOffer(eventQueue, { _tag: 'mousedown', event })
+          const mouseupListener = (event: MouseEvent) =>
+            Queue.unsafeOffer(eventQueue, { _tag: 'mouseup', event })
+          const mousemoveListener = (event: MouseEvent) =>
+            Queue.unsafeOffer(eventQueue, { _tag: 'mousemove', event })
+          const pointerlockchangeListener = () =>
+            Queue.unsafeOffer(eventQueue, { _tag: 'pointerlockchange' })
 
-    yield* _(
-      registerEventListener('keydown', (event) => Effect.runFork(Hub.publish(eventHub, { _tag: 'keydown', event }))),
-    )
-    yield* _(
-      registerEventListener('keyup', (event) => Effect.runFork(Hub.publish(eventHub, { _tag: 'keyup', event }))),
-    )
-    yield* _(
-      registerEventListener('mousedown', (event) =>
-        Effect.runFork(Hub.publish(eventHub, { _tag: 'mousedown', event })),
+          document.addEventListener('keydown', keydownListener)
+          document.addEventListener('keyup', keyupListener)
+          document.addEventListener('mousedown', mousedownListener)
+          document.addEventListener('mouseup', mouseupListener)
+          document.addEventListener('mousemove', mousemoveListener)
+          document.addEventListener('pointerlockchange', pointerlockchangeListener)
+
+          return {
+            keydownListener,
+            keyupListener,
+            mousedownListener,
+            mouseupListener,
+            mousemoveListener,
+            pointerlockchangeListener,
+          }
+        }),
+        (listeners) =>
+          Effect.sync(() => {
+            document.removeEventListener('keydown', listeners.keydownListener)
+            document.removeEventListener('keyup', listeners.keyupListener)
+            document.removeEventListener('mousedown', listeners.mousedownListener)
+            document.removeEventListener('mouseup', listeners.mouseupListener)
+            document.removeEventListener('mousemove', listeners.mousemoveListener)
+            document.removeEventListener(
+              'pointerlockchange',
+              listeners.pointerlockchangeListener,
+            )
+          }),
       ),
-    )
-    yield* _(
-      registerEventListener('mouseup', (event) => Effect.runFork(Hub.publish(eventHub, { _tag: 'mouseup', event }))),
-    )
-    yield* _(
-      registerEventListener('mousemove', (event) =>
-        Effect.runFork(Hub.publish(eventHub, { _tag: 'mousemove', event })),
-      ),
-    )
-    yield* _(
-      registerEventListener('pointerlockchange', () => Effect.runFork(Hub.publish(eventHub, { _tag: 'pointerlockchange' }))),
     )
 
     const handleEvent = (event: DomEvent) => {
@@ -82,8 +97,9 @@ export const InputManagerLive = Layer.scoped(
     }
 
     yield* _(
-      Hub.subscribe(eventHub).pipe(
-        Effect.flatMap((subscription) => Effect.forever(subscription.take.pipe(Effect.flatMap(handleEvent)))),
+      Queue.take(eventQueue).pipe(
+        Effect.flatMap(handleEvent),
+        Effect.forever,
         Effect.forkScoped,
       ),
     )

@@ -1,20 +1,33 @@
-import { describe, it, assert } from '@effect/vitest'
-import { Effect } from 'effect'
-import { blockDefinitions } from '../block-definitions'
+import * as S from 'effect/Schema'
+import { describe, it, assert, expect } from '@effect/vitest'
+import * as fc from 'effect/FastCheck'
+import { Effect, Gen } from 'effect'
+import { BlockDefinitionSchema, blockDefinitions } from '../block-definitions'
 import { blockTypeNames } from '../block-types'
 
-describe('blockDefinitions', () => {
-  it('should be successfully decoded', () =>
-    Effect.gen(function* (_) {
-      const definitions = yield* _(blockDefinitions)
-      assert.isDefined(definitions)
-    }))
+describe('Block Definitions', () => {
+  describe('BlockDefinitionSchema', () => {
+    it.effect('should be reversible after encoding and decoding', () =>
+      Gen.flatMap(fc.gen(BlockDefinitionSchema), (value) =>
+        Effect.sync(() => {
+          const encode = S.encodeSync(BlockDefinitionSchema)
+          const decode = S.decodeSync(BlockDefinitionSchema)
+          const decodedValue = decode(encode(value))
+          assert.deepStrictEqual(decodedValue, value)
+        }),
+      ))
+  })
 
-  it('should contain all block types', () =>
-    Effect.gen(function* (_) {
-      const definitions = yield* _(blockDefinitions)
-      for (const name of blockTypeNames) {
-        assert.isDefined(definitions[name])
-      }
-    }))
+  describe('blockDefinitions', () => {
+    it('should match the snapshot', () => {
+      expect(blockDefinitions).toMatchSnapshot()
+    })
+
+    it.effect('should contain all block types', () =>
+      Effect.sync(() => {
+        for (const name of blockTypeNames) {
+          assert.isDefined(blockDefinitions[name])
+        }
+      }))
+  })
 })

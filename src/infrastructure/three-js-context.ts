@@ -1,16 +1,17 @@
 import { Context, Effect, Layer } from 'effect'
 import * as THREE from 'three'
 
-export interface ThreeJsContext {
-  readonly renderer: THREE.WebGLRenderer
-  readonly scene: THREE.Scene
-  readonly camera: THREE.PerspectiveCamera
-}
-
-export const ThreeJsContextTag = Context.Tag<ThreeJsContext>()
+export class ThreeJsContext extends Context.Tag('ThreeJsContext')<
+  ThreeJsContext,
+  {
+    readonly renderer: THREE.WebGLRenderer
+    readonly scene: THREE.Scene
+    readonly camera: THREE.PerspectiveCamera
+  }
+>() {}
 
 export const ThreeJsContextLive = Layer.scoped(
-  ThreeJsContextTag,
+  ThreeJsContext,
   Effect.gen(function* (_) {
     const renderer = yield* _(
       Effect.acquireRelease(
@@ -55,6 +56,6 @@ export const ThreeJsContextLive = Layer.scoped(
       ),
     )
 
-    return ThreeJsContextTag.of({ renderer, scene, camera })
+    return ThreeJsContext.of({ renderer, scene, camera })
   }),
 )

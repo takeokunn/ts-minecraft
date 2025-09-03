@@ -1,12 +1,29 @@
-import { describe, it, assert } from '@effect/vitest'
+import * as S from 'effect/Schema'
+import { describe, assert, it } from '@effect/vitest'
+import * as fc from 'effect/FastCheck'
 import { BlockTypeSchema, blockTypeNames } from '../block-types'
+import { Effect, Gen } from 'effect'
 
-describe('block-types', () => {
-  it('should have the correct number of block types', () => {
-    assert.lengthOf(blockTypeNames, 12)
-  })
+describe('BlockTypeSchema', () => {
+  it.effect('should have the correct number of block types', () =>
+    Effect.sync(() => {
+      assert.lengthOf(blockTypeNames, 12)
+    }),
+  )
 
-  it('should have literals equal to blockTypeNames', () => {
-    assert.deepStrictEqual(BlockTypeSchema.literals, blockTypeNames)
-  })
+  it.effect('should have literals equal to blockTypeNames', () =>
+    Effect.sync(() => {
+      assert.deepStrictEqual(BlockTypeSchema.literals, blockTypeNames)
+    }),
+  )
+
+  it.effect('should be reversible after encoding and decoding', () =>
+    Gen.flatMap(fc.gen(BlockTypeSchema), (value) =>
+      Effect.sync(() => {
+        const encode = S.encodeSync(BlockTypeSchema)
+        const decode = S.decodeSync(BlockTypeSchema)
+        const decodedValue = decode(encode(value))
+        assert.deepStrictEqual(decodedValue, value)
+      }),
+    ))
 })

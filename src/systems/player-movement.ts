@@ -3,7 +3,7 @@ import { CameraState, InputState, Player, Velocity } from '@/domain/components'
 import { playerMovementQuery } from '@/domain/queries'
 import { DECELERATION, JUMP_FORCE, MIN_VELOCITY_THRESHOLD, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@/domain/world-constants'
 import { World } from '@/runtime/services'
-import { Float } from '@/domain/common'
+import { Float, toFloat } from '@/domain/common'
 
 export const calculateHorizontalVelocity = (
   input: Pick<InputState, 'forward' | 'backward' | 'left' | 'right' | 'sprint'>,
@@ -14,7 +14,7 @@ export const calculateHorizontalVelocity = (
   const moveZ = (input.backward ? 1 : 0) - (input.forward ? 1 : 0)
 
   if (moveX === 0 && moveZ === 0) {
-    return { dx: Float(0), dz: Float(0) }
+    return { dx: toFloat(0), dz: toFloat(0) }
   }
 
   // Normalize diagonal movement
@@ -25,8 +25,8 @@ export const calculateHorizontalVelocity = (
   // Apply camera rotation
   const sinYaw = Math.sin(camera.yaw)
   const cosYaw = Math.cos(camera.yaw)
-  const dx = Float(normalizedX * cosYaw - normalizedZ * sinYaw)
-  const dz = Float(normalizedX * sinYaw + normalizedZ * cosYaw)
+  const dx = toFloat(normalizedX * cosYaw - normalizedZ * sinYaw)
+  const dz = toFloat(normalizedX * sinYaw + normalizedZ * cosYaw)
 
   return { dx, dz }
 }
@@ -44,9 +44,9 @@ export const calculateVerticalVelocity = (
 
 const clampToZero = (value: number): Float => {
   if (!Number.isFinite(value)) {
-    return Float(0)
+    return toFloat(0)
   }
-  return Float(Math.abs(value) < MIN_VELOCITY_THRESHOLD ? 0 : value)
+  return toFloat(Math.abs(value) < MIN_VELOCITY_THRESHOLD ? 0 : value)
 }
 
 export const applyDeceleration = (velocity: Pick<Velocity, 'dx' | 'dz'>): Pick<Velocity, 'dx' | 'dz'> => {
@@ -90,7 +90,7 @@ export const playerMovementSystem = Effect.gen(function* ($) {
           yield* $(world.updateComponent(entityId, 'velocity', new Velocity({ dx, dy: newDy, dz })))
           yield* $(world.updateComponent(entityId, 'player', new Player({ isGrounded: newIsGrounded })))
         }),
-      { concurrency: 'inherit' },
+      { concurrency: 'inherit', discard: true },
     ),
   )
 })

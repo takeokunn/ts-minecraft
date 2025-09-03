@@ -48,7 +48,7 @@ const queryPure = (grid: SpatialGridState, aabb: AABB): ReadonlyArray<EntityId> 
       potentialCollisions = HashSet.union(potentialCollisions, cell.value)
     }
   })
-  return Array.from(HashSet.from(potentialCollisions))
+  return Array.from(potentialCollisions)
 }
 
 // --- Effect Service ---
@@ -59,7 +59,7 @@ export const SpatialGridLive = Layer.effect(
     const gridRef = yield* _(Ref.make(HashMap.empty<string, HashSet.HashSet<EntityId>>()))
 
     return SpatialGrid.of({
-      clear: Ref.set(gridRef, HashMap.empty()),
+      clear: () => Ref.set(gridRef, HashMap.empty()),
       add: (entityId: EntityId, aabb: AABB) => Ref.update(gridRef, (grid) => addPure(grid, entityId, aabb)),
       query: (aabb: AABB) => Effect.map(Ref.get(gridRef), (grid) => queryPure(grid, aabb)),
     })

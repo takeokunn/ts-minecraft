@@ -6,7 +6,6 @@ import { createQuery } from '@/domain/query'
 import { Position } from '@/domain/components'
 import { WorldLive } from '@/infrastructure/world'
 import { World } from '@/runtime/services'
-import { Float } from '@/domain/common'
 
 const createPlayerArchetype = createArchetype({
   type: 'player',

@@ -1,5 +1,5 @@
 import { describe, it, assert, vi } from '@effect/vitest'
-import { Effect, Layer, HashMap } from 'effect'
+import { Effect, Layer, HashMap, ReadonlyArray } from 'effect'
 import { calculateChunkUpdates, chunkLoadingSystem } from '../chunk-loading'
 import { ComputationWorker, World } from '@/runtime/services'
 import { EntityId } from '@/domain/entity'
@@ -157,26 +157,26 @@ describe('chunkLoadingSystem', () => {
 })
 
 describe('calculateChunkUpdates', () => {
-  it.effect('should calculate chunks to load and unload', () =>
-    Effect.sync(() => {
-      const currentPlayerChunk = { x: 0, z: 0 }
-      const loadedChunks = HashMap.make(
-        ['0,1', EntityId('1')],
-        ['-1,-1', EntityId('2')],
-      )
-      const renderDistance = 1
+  it('should calculate chunks to load and unload', () => {
+    const currentPlayerChunk = { x: 0, z: 0 }
+    const loadedChunks = HashMap.make(['0,1', EntityId('1')], ['-2,-2', EntityId('2')])
+    const renderDistance = 1
 
-      const { toLoad, toUnload } = calculateChunkUpdates(currentPlayerChunk, loadedChunks, renderDistance)
+    const { toLoad, toUnload } = calculateChunkUpdates(currentPlayerChunk, loadedChunks, renderDistance)
 
-      assert.deepStrictEqual(toLoad, [
-        { x: 0, z: 0 },
-        { x: -1, z: 0 },
-        { x: 1, z: 0 },
-        { x: 0, z: -1 },
-        { x: 1, z: -1 },
-        { x: 1, z: 1 },
-        { x: -1, z: 1 },
-      ])
-      assert.deepStrictEqual(toUnload, [EntityId('2')])
-    }))
+    const toLoadSet = new Set(ReadonlyArray.map(toLoad, (c) => `${c.x},${c.z}`))
+    const expectedToLoadSet = new Set([
+      '-1,-1',
+      '0,-1',
+      '1,-1',
+      '-1,0',
+      '0,0',
+      '1,0',
+      '-1,1',
+      '1,1',
+    ])
+
+    assert.deepStrictEqual(toLoadSet, expectedToLoadSet)
+    assert.deepStrictEqual(toUnload, [EntityId('2')])
+  })
 })

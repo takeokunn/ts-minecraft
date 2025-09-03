@@ -1,9 +1,9 @@
-import { Effect } from 'effect'
+import { Effect, ReadonlyArray } from 'effect'
 import { clampPitch } from '@/domain/camera-logic'
-import { CameraState } from '@/domain/components'
 import { playerQuery } from '@/domain/queries'
 import { InputManager, World } from '@/runtime/services'
-import { Float } from '@/domain/common'
+import { toFloat } from '@/domain/common'
+import { CameraState } from '@/domain/components'
 
 const MOUSE_SENSITIVITY = 0.002
 
@@ -12,26 +12,35 @@ export const cameraControlSystem = Effect.gen(function* (_) {
   const inputManager = yield* _(InputManager)
   const mouseDelta = yield* _(inputManager.getMouseState())
 
-  if (mouseDelta.dx === 0 && mouseDelta.dy === 0) {
-    return
-  }
-
-  const { entities, components } = yield* _(world.querySoA(playerQuery))
-  const { cameraState } = components
-
-  const deltaPitch = -mouseDelta.dy * MOUSE_SENSITIVITY
-  const deltaYaw = -mouseDelta.dx * MOUSE_SENSITIVITY
-
   yield* _(
-    Effect.forEach(
-      entities,
-      (entityId, i) => {
-        const currentCameraState = cameraState[i]
-        const newPitch = clampPitch(Float(currentCameraState.pitch + deltaPitch))
-        const newYaw = Float(currentCameraState.yaw + deltaYaw)
-        return world.updateComponent(entityId, 'cameraState', new CameraState({ pitch: newPitch, yaw: newYaw }))
-      },
-      { concurrency: 'inherit' },
+    Effect.when(
+      () => mouseDelta.dx !== 0 || mouseDelta.dy !== 0,
+      Effect.gen(function* (_) {
+        const { entities, components } = yield* _(world.querySoA(playerQuery))
+        const { cameraState } = components
+
+        const deltaPitch = -mouseDelta.dy * MOUSE_SENSITIVITY
+        const deltaYaw = -mouseDelta.dx * MOUSE_SENSITIVITY
+
+        const players = ReadonlyArray.zip(entities, cameraState)
+
+        yield* _(
+          Effect.forEach(
+            players,
+            ([entityId, currentCameraState]) => {
+              const newPitch = clampPitch(toFloat(currentCameraState.pitch + deltaPitch))
+              const newYaw = toFloat(currentCameraState.yaw + deltaYaw)
+              const newCameraState: CameraState = { pitch: newPitch, yaw: newYaw }
+              return world.updateComponent(
+                entityId,
+                'cameraState',
+                newCameraState,
+              )
+            },
+            { concurrency: 'inherit', discard: true },
+          ),
+        )
+      }),
     ),
   )
 })

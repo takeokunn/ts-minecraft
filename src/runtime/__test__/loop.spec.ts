@@ -1,8 +1,7 @@
-import { Effect } from 'effect'
+import { Effect, Layer, Ref } from 'effect'
 import { describe, it, expect } from '@effect/vitest'
-import { createTick, gameLoop } from '../../runtime/loop'
-import { Stats, Clock, DeltaTime } from '@/runtime/services'
-import { Layer } from 'effect'
+import { createTick } from '../../runtime/loop'
+import { Stats, Clock } from '@/runtime/services'
 
 const StatsTest = Layer.succeed(
   Stats,
@@ -15,7 +14,7 @@ const StatsTest = Layer.succeed(
 const ClockTest = Layer.succeed(
   Clock,
   {
-    deltaTime: { get: Effect.succeed(0.016) } as any,
+    deltaTime: Ref.unsafeMake(0.016),
     onFrame: () => Effect.void,
   }
 )

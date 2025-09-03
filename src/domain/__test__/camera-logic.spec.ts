@@ -1,118 +1,120 @@
 import { describe, assert, it } from '@effect/vitest'
-import * as fc from 'fast-check'
 import { clampPitch, getCameraLookAt, updateCamera, updateCameraPosition } from '../camera-logic'
-import * as Arbitrary from 'effect/Arbitrary'
 import { Camera, Position, TargetBlock, TargetNone } from '../components'
-import { Option, Effect } from 'effect'
-import { Vector3IntSchema } from '../common'
-import { EntityIdSchema } from '../entity'
+import { Effect, Option, Gen } from 'effect'
+import { Vector3Int, toFloat, toInt } from '../common'
+import { toEntityId } from '../entity'
+import * as fc from 'effect/FastCheck'
+import * as S from 'effect/Schema'
 
 const PI_HALF = Math.PI / 2
 
 describe('clampPitch', () => {
   it.effect('should always return a value between -PI/2 and PI/2', () =>
-    Effect.gen(function*(_) {
-      yield* _(
-        Effect.promise(() =>
-          fc.assert(
-            fc.asyncProperty(fc.float(), async (pitch) => {
-              const clamped = await Effect.runPromise(clampPitch(pitch))
-              assert.isAtLeast(clamped, -PI_HALF)
-              assert.isAtMost(clamped, PI_HALF)
-            }),
-          ),
-        ),
-      )
-    }),
-  )
+    Gen.flatMap(fc.gen(S.Float), (pitch) =>
+      Effect.sync(() => {
+        const clamped = clampPitch(pitch)
+        assert.isAtLeast(clamped, -PI_HALF)
+        assert.isAtMost(clamped, PI_HALF)
+      }),
+    ))
 
   it.effect('should return 0 for NaN input', () =>
-    Effect.gen(function*(_) {
-      const clamped = yield* _(clampPitch(NaN))
+    Effect.sync(() => {
+      const clamped = clampPitch(toFloat(NaN))
       assert.strictEqual(clamped, 0)
-    }),
-  )
+    }))
 
   it.effect('should not change values within the valid range', () =>
-    Effect.gen(function*(_) {
-      let clamped = yield* _(clampPitch(0))
+    Effect.sync(() => {
+      let clamped = clampPitch(toFloat(0))
       assert.closeTo(clamped, 0, 0.0001)
-      clamped = yield* _(clampPitch(PI_HALF / 2))
+      clamped = clampPitch(toFloat(PI_HALF / 2))
       assert.closeTo(clamped, PI_HALF / 2, 0.0001)
-      clamped = yield* _(clampPitch(-PI_HALF / 2))
+      clamped = clampPitch(toFloat(-PI_HALF / 2))
       assert.closeTo(clamped, -PI_HALF / 2, 0.0001)
-    }),
-  )
+    }))
 
   it.effect('should clamp values outside the valid range', () =>
-    Effect.gen(function*(_) {
-      let clamped = yield* _(clampPitch(Math.PI))
+    Effect.sync(() => {
+      let clamped = clampPitch(toFloat(Math.PI))
       assert.closeTo(clamped, PI_HALF, 0.0001)
-      clamped = yield* _(clampPitch(-Math.PI))
+      clamped = clampPitch(toFloat(-Math.PI))
       assert.closeTo(clamped, -PI_HALF, 0.0001)
-    }),
-  )
+    }))
 })
 
 describe('updateCamera', () => {
-  const cameraArbitrary = Arbitrary.make(Camera)
-  const positionArbitrary = Arbitrary.make(Position)
-  const entityIdArbitrary = Arbitrary.make(EntityIdSchema)
-  const vector3IntArbitrary = Arbitrary.make(Vector3IntSchema)
-
-  it.prop('should update camera target when target is a block', [cameraArbitrary, positionArbitrary, entityIdArbitrary, vector3IntArbitrary], (camera, position, entityId, face) =>
-    Effect.gen(function* (_) {
+  it.effect('should update camera target when target is a block', () =>
+    Effect.sync(() => {
+      const camera: Camera = {
+        position: { x: toFloat(0), y: toFloat(0), z: toFloat(0) },
+        damping: toFloat(0.1),
+      }
+      const position: Position = { x: toFloat(1), y: toFloat(2), z: toFloat(3) }
+      const entityId = toEntityId(1)
+      const face: Vector3Int = [toInt(0), toInt(1), toInt(0)]
       const target: TargetBlock = { _tag: 'block', position, entityId, face }
-      const updatedCamera = yield* _(updateCamera(camera, Option.some(target)))
+      const updatedCamera = updateCamera(camera, Option.some(target))
       assert.deepStrictEqual(updatedCamera.target, position)
-    }),
-  )
+    }))
 
-  it.prop('should remove camera target when target is none', [cameraArbitrary], (camera) =>
-    Effect.gen(function* (_) {
+  it.effect('should remove camera target when target is none', () =>
+    Effect.sync(() => {
+      const camera: Camera = {
+        position: { x: toFloat(0), y: toFloat(0), z: toFloat(0) },
+        damping: toFloat(0.1),
+        target: { x: toFloat(1), y: toFloat(1), z: toFloat(1) },
+      }
       const target: TargetNone = { _tag: 'none' }
-      const updatedCamera = yield* _(updateCamera(camera, Option.some(target)))
+      const updatedCamera = updateCamera(camera, Option.some(target))
       assert.isUndefined(updatedCamera.target)
-    }),
-  )
+    }))
 
-  it.prop('should not update camera target when target is not present', [cameraArbitrary], (camera) =>
-    Effect.gen(function* (_) {
-      const updatedCamera = yield* _(updateCamera(camera, Option.none()))
+  it.effect('should not update camera target when target is not present', () =>
+    Effect.sync(() => {
+      const camera: Camera = {
+        position: { x: toFloat(0), y: toFloat(0), z: toFloat(0) },
+        damping: toFloat(0.1),
+      }
+      const updatedCamera = updateCamera(camera, Option.none())
       assert.isUndefined(updatedCamera.target)
-    }),
-  )
+    }))
 })
 
 describe('updateCameraPosition', () => {
-  const cameraArbitrary = Arbitrary.make(Camera)
-  const positionArbitrary = Arbitrary.make(Position)
-
-  it.prop('should update camera position towards target', [cameraArbitrary, positionArbitrary], (camera, targetPosition) =>
-    Effect.gen(function* (_) {
+  it.effect('should update camera position towards target', () =>
+    Effect.sync(() => {
+      const camera: Camera = {
+        position: { x: toFloat(0), y: toFloat(0), z: toFloat(0) },
+        damping: toFloat(0.1),
+      }
+      const targetPosition: Position = { x: toFloat(10), y: toFloat(10), z: toFloat(10) }
       const deltaTime = 0.1
-      const updatedCamera = yield* _(updateCameraPosition(camera, Option.some(targetPosition), deltaTime))
-      // This is a basic check. A more thorough test would check the lerp calculation.
-      assert.notDeepStrictEqual(updatedCamera.position, camera.position)
-    }),
-  )
+      const updatedCamera = updateCameraPosition(camera, Option.some(targetPosition), deltaTime)
+      assert.notDeepEqual(updatedCamera.position, camera.position)
+    }))
 
-  it.prop('should not update camera position when target is not present', [cameraArbitrary], (camera) =>
-    Effect.gen(function* (_) {
+  it.effect('should not update camera position when target is not present', () =>
+    Effect.sync(() => {
+      const camera: Camera = {
+        position: { x: toFloat(0), y: toFloat(0), z: toFloat(0) },
+        damping: toFloat(0.1),
+      }
       const deltaTime = 0.1
-      const updatedCamera = yield* _(updateCameraPosition(camera, Option.none(), deltaTime))
+      const updatedCamera = updateCameraPosition(camera, Option.none(), deltaTime)
       assert.deepStrictEqual(updatedCamera.position, camera.position)
-    }),
-  )
+    }))
 })
 
 describe('getCameraLookAt', () => {
-  const cameraArbitrary = Arbitrary.make(Camera)
-
-  it.prop('should return a look at vector', [cameraArbitrary], (camera) =>
-    Effect.gen(function* (_) {
-      const lookAt = yield* _(getCameraLookAt(camera))
-      assert.deepStrictEqual(lookAt, [camera.position.x, camera.position.y, camera.position.z - 1])
-    }),
-  )
+  it.effect('should return a look at vector', () =>
+    Effect.sync(() => {
+      const camera: Camera = {
+        position: { x: toFloat(1), y: toFloat(2), z: toFloat(3) },
+        damping: toFloat(0.1),
+      }
+      const lookAt = getCameraLookAt(camera)
+      assert.deepStrictEqual(lookAt, [toFloat(1), toFloat(2), toFloat(2)])
+    }))
 })

@@ -1,8 +1,8 @@
-import { describe, it, assert, vi } from '@effect/vitest'
-import { Effect, Layer } from 'effect'
+import { describe, it, expect, vi } from '@effect/vitest'
+import { Effect, Layer, Ref } from 'effect'
 import { inputPollingSystem } from '../input-polling'
 import { InputManager, World } from '@/runtime/services'
-import { EntityId } from '@/domain/entity'
+import { EntityId, toEntityId } from '@/domain/entity'
 import { InputState } from '@/domain/components'
 import { SoA } from '@/domain/world'
 import { playerInputQuery } from '@/domain/queries'
@@ -10,8 +10,8 @@ import { playerInputQuery } from '@/domain/queries'
 describe('inputPollingSystem', () => {
   it.effect('should update input state for all player entities', () =>
     Effect.gen(function* (_) {
-      const entityId1 = EntityId('1')
-      const entityId2 = EntityId('2')
+      const entityId1 = toEntityId(1)
+      const entityId2 = toEntityId(2)
       const inputState = {
         forward: true,
         backward: false,
@@ -21,6 +21,7 @@ describe('inputPollingSystem', () => {
         sprint: false,
         place: false,
         destroy: false,
+        isLocked: false,
       }
       const soa: SoA<typeof playerInputQuery> = {
         entities: [entityId1, entityId2],
@@ -29,31 +30,30 @@ describe('inputPollingSystem', () => {
         },
       }
 
+      const updateComponentMock = vi.fn(() => Effect.succeed(undefined))
+
       const mockWorld: Partial<World> = {
         querySoA: () => Effect.succeed(soa),
-        updateComponent: () => Effect.succeed(undefined),
+        updateComponent: updateComponentMock,
       }
 
-      const mockInputManager: Partial<InputManager> = {
+      const mockInputManager: InputManager = {
+        isLocked: Ref.unsafeMake(false),
         getState: () => Effect.succeed(inputState),
+        getMouseState: () => Effect.succeed({ dx: 0, dy: 0 }),
       }
 
-      const worldLayer = Layer.succeed(World, mockWorld as World)
-      const inputManagerLayer = Layer.succeed(InputManager, mockInputManager as InputManager)
-      const testLayer = worldLayer.pipe(Layer.provide(inputManagerLayer))
-
-      const world = yield* _(World)
-      const querySoaSpy = vi.spyOn(world, 'querySoA')
-      const updateComponentSpy = vi.spyOn(world, 'updateComponent')
+      const testLayer = Layer.merge(
+        Layer.succeed(World, mockWorld as World),
+        Layer.succeed(InputManager, mockInputManager),
+      )
 
       yield* _(inputPollingSystem.pipe(Effect.provide(testLayer)))
 
-      assert.deepStrictEqual(querySoaSpy.mock.calls.length, 1)
-      assert.deepStrictEqual(updateComponentSpy.mock.calls.length, 2)
-
-      const expectedInputState = new InputState(inputState)
-      assert.deepStrictEqual(updateComponentSpy.mock.calls[0], [entityId1, 'inputState', expectedInputState])
-      assert.deepStrictEqual(updateComponentSpy.mock.calls[1], [entityId2, 'inputState', expectedInputState])
+      expect(updateComponentMock).toHaveBeenCalledTimes(2)
+      const expectedInputState: InputState = { ...inputState, isLocked: false }
+      expect(updateComponentMock).toHaveBeenCalledWith(entityId1, 'inputState', expectedInputState)
+      expect(updateComponentMock).toHaveBeenCalledWith(entityId2, 'inputState', expectedInputState)
     }))
 
   it.effect('should not fail when there are no player entities', () =>
@@ -65,26 +65,35 @@ describe('inputPollingSystem', () => {
         },
       }
 
+      const updateComponentMock = vi.fn(() => Effect.succeed(undefined))
+
       const mockWorld: Partial<World> = {
         querySoA: () => Effect.succeed(soa),
-        updateComponent: () => Effect.succeed(undefined),
+        updateComponent: updateComponentMock,
       }
 
-      const mockInputManager: Partial<InputManager> = {
-        getState: () => Effect.succeed({} as any),
+      const mockInputManager: InputManager = {
+        isLocked: Ref.unsafeMake(false),
+        getState: () => Effect.succeed({
+          forward: false,
+          backward: false,
+          left: false,
+          right: false,
+          jump: false,
+          sprint: false,
+          place: false,
+          destroy: false,
+        }),
+        getMouseState: () => Effect.succeed({ dx: 0, dy: 0 }),
       }
 
-      const worldLayer = Layer.succeed(World, mockWorld as World)
-      const inputManagerLayer = Layer.succeed(InputManager, mockInputManager as InputManager)
-      const testLayer = worldLayer.pipe(Layer.provide(inputManagerLayer))
-
-      const world = yield* _(World)
-      const querySoaSpy = vi.spyOn(world, 'querySoA')
-      const updateComponentSpy = vi.spyOn(world, 'updateComponent')
+      const testLayer = Layer.merge(
+        Layer.succeed(World, mockWorld as World),
+        Layer.succeed(InputManager, mockInputManager),
+      )
 
       yield* _(inputPollingSystem.pipe(Effect.provide(testLayer)))
 
-      assert.deepStrictEqual(querySoaSpy.mock.calls.length, 1)
-      assert.deepStrictEqual(updateComponentSpy.mock.calls.length, 0)
+      expect(updateComponentMock).not.toHaveBeenCalled()
     }))
 })

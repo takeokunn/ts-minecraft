@@ -1,28 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from '@effect/vitest'
+import { describe, it, expect, vi } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import { playerMovementSystem } from '../player-movement'
 import { World } from '@/runtime/services'
-import { EntityId } from '@/domain/entity'
+import { EntityId, toEntityId } from '@/domain/entity'
 import { CameraState, InputState, Player, Velocity } from '@/domain/components'
 import { SoA } from '@/domain/world'
 import { playerMovementQuery } from '@/domain/queries'
 import { JUMP_FORCE, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@/domain/world-constants'
 
-const mockWorld: Partial<World> = {
-  querySoA: vi.fn(),
-  updateComponent: vi.fn(),
-}
-
-const worldLayer = Layer.succeed(World, mockWorld as World)
-
 describe('playerMovementSystem', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-  })
-
   it.effect('should update velocity and state based on input', () =>
     Effect.gen(function* ($) {
-      const entityId = EntityId('player')
+      const entityId = toEntityId(1)
       const inputState = new InputState({
         forward: true,
         backward: false,
@@ -30,6 +19,9 @@ describe('playerMovementSystem', () => {
         right: true,
         jump: true,
         sprint: true,
+        place: false,
+        destroy: false,
+        isLocked: false,
       })
       const player = new Player({ isGrounded: true })
       const velocity = new Velocity({ dx: 0, dy: 0, dz: 0 })
@@ -45,30 +37,36 @@ describe('playerMovementSystem', () => {
         },
       }
 
-      vi.spyOn(mockWorld, 'querySoA').mockReturnValue(Effect.succeed(soa))
-      vi.spyOn(mockWorld, 'updateComponent').mockReturnValue(Effect.succeed(undefined))
+      const updateComponentMock = vi.fn(() => Effect.succeed(undefined))
 
-      yield* $(playerMovementSystem)
+      const mockWorld: Partial<World> = {
+        querySoA: () => Effect.succeed(soa),
+        updateComponent: updateComponentMock,
+      }
+
+      const testLayer = Layer.succeed(World, mockWorld as World)
+
+      yield* $(playerMovementSystem.pipe(Effect.provide(testLayer)))
 
       const speed = PLAYER_SPEED * SPRINT_MULTIPLIER
       const expectedDx = (speed * Math.cos(Math.PI / 4) - speed * Math.sin(Math.PI / 4)) / Math.sqrt(2)
       const expectedDz = (speed * Math.sin(Math.PI / 4) + speed * Math.cos(Math.PI / 4)) / Math.sqrt(2)
 
-      const updatedVelocity = vi.mocked(mockWorld.updateComponent).mock.calls[0][2] as Velocity
+      const updatedVelocity = updateComponentMock.mock.calls[0][2] as Velocity
       expect(updatedVelocity.dx).toBeCloseTo(expectedDx)
       expect(updatedVelocity.dz).toBeCloseTo(expectedDz)
       expect(updatedVelocity.dy).toBe(JUMP_FORCE)
 
-      expect(mockWorld.updateComponent).toHaveBeenCalledWith(
+      expect(updateComponentMock).toHaveBeenCalledWith(
         entityId,
         'player',
         new Player({ isGrounded: false }),
       )
-    }).pipe(Effect.provide(worldLayer)))
+    }))
 
   it.effect('should apply deceleration when there is no horizontal input', () =>
     Effect.gen(function* ($) {
-      const entityId = EntityId('player')
+      const entityId = toEntityId(1)
       const inputState = new InputState({
         forward: false,
         backward: false,
@@ -76,6 +74,9 @@ describe('playerMovementSystem', () => {
         right: false,
         jump: false,
         sprint: false,
+        place: false,
+        destroy: false,
+        isLocked: false,
       })
       const player = new Player({ isGrounded: true })
       const velocity = new Velocity({ dx: 1, dy: 0, dz: 1 })
@@ -91,13 +92,19 @@ describe('playerMovementSystem', () => {
         },
       }
 
-      vi.spyOn(mockWorld, 'querySoA').mockReturnValue(Effect.succeed(soa))
-      vi.spyOn(mockWorld, 'updateComponent').mockReturnValue(Effect.succeed(undefined))
+      const updateComponentMock = vi.fn(() => Effect.succeed(undefined))
 
-      yield* $(playerMovementSystem)
+      const mockWorld: Partial<World> = {
+        querySoA: () => Effect.succeed(soa),
+        updateComponent: updateComponentMock,
+      }
 
-      const updatedVelocity = vi.mocked(mockWorld.updateComponent).mock.calls[0][2] as Velocity
+      const testLayer = Layer.succeed(World, mockWorld as World)
+
+      yield* $(playerMovementSystem.pipe(Effect.provide(testLayer)))
+
+      const updatedVelocity = updateComponentMock.mock.calls[0][2] as Velocity
       expect(updatedVelocity.dx).toBeCloseTo(0)
       expect(updatedVelocity.dz).toBeCloseTo(0)
-    }).pipe(Effect.provide(worldLayer)))
+    }))
 })

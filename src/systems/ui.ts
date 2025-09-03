@@ -1,20 +1,18 @@
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import { playerQuery } from '@/domain/queries'
 import { UIService, World } from '@/runtime/services'
 
 export const uiSystem = Effect.gen(function* ($) {
   const world = yield* $(World)
   const uiService = yield* $(UIService)
-  const { entities, components } = yield* $(world.querySoA(playerQuery))
+  const { components } = yield* $(world.querySoA(playerQuery))
 
-  if (entities.length === 0) {
-    return
-  }
-
-  const hotbar = components.hotbar[0]
-  if (!hotbar) {
-    return
-  }
-
-  yield* $(uiService.updateHotbar(hotbar))
+  yield* $(
+    Option.fromNullable(components.hotbar[0]).pipe(
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (hotbar) => uiService.updateHotbar(hotbar),
+      }),
+    ),
+  )
 })

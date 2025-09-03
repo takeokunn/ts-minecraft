@@ -1,13 +1,14 @@
-import { Archetype, ComponentName, EntityId, Query } from '@/domain/types'
-import { World } from '@/runtime/services'
-import { componentNamesSet, Components, ComponentSchemas } from '@/domain/components'
-import { toChunkIndex, Vector3Int } from '@/domain/geometry'
+import { Archetype } from '@/domain/archetypes'
 import { Vector3 } from '@/domain/common'
-import { Chunk } from '@/domain/components'
-import { Context, Data, Effect, HashMap, HashSet, Layer, Option, Ref, ReadonlyArray } from 'effect'
-import * as S from 'effect/Schema'
+import { Chunk, componentNamesSet, Components, ComponentSchemas, ComponentName } from '@/domain/components'
+import { EntityId, toEntityId } from '@/domain/entity'
+import { toChunkIndex } from '@/domain/geometry'
+import { Query } from '@/domain/query'
 import { Voxel } from '@/domain/world'
+import { World } from '@/runtime/services'
+import { Data, Effect, HashMap, HashSet, Layer, Option, Ref, pipe, ReadonlyArray } from 'effect'
 import { ParseError } from 'effect/ParseResult'
+import * as S from 'effect/Schema'
 
 // --- Error Types ---
 export class EntityNotFoundError extends Data.TaggedError('EntityNotFoundError')<{
@@ -70,7 +71,7 @@ export const WorldLive = Layer.effect(
 
     const addArchetype = (archetype: Archetype) =>
       Ref.modify(state, (s) => {
-        const entityId = EntityId(s.nextEntityId)
+        const entityId = toEntityId(s.nextEntityId)
         const componentEntries = Object.entries(archetype) as [ComponentName, Components[ComponentName]][]
         const archetypeKey = getArchetypeKey(componentEntries.map(([name]) => name))
 
@@ -136,28 +137,27 @@ export const WorldLive = Layer.effect(
       componentName: T,
       data: Partial<Omit<Components[T], 'name'>>,
     ) =>
-      Effect.gen(function* (_) {
-        const s = yield* _(Ref.get(state))
-        const componentMap = s.components[componentName]
-        const current = yield* _(
-          HashMap.get(componentMap, entityId),
-          Effect.mapError(() => new ComponentNotFoundError({ entityId, componentName })),
-        )
-        const updated = { ...current, ...data }
-        const decoded = yield* _(
-          S.decode(ComponentSchemas[componentName])(updated),
-          Effect.mapError((error) => new ComponentDecodeError({ entityId, componentName, error })),
-        )
-        yield* _(
-          Ref.update(state, (s) => ({
-            ...s,
-            components: {
-              ...s.components,
-              [componentName]: HashMap.set(componentMap, entityId, decoded)
-            }
-          }))
-        )
-      }).pipe(Effect.asVoid)
+      Ref.get(state).pipe(
+        Effect.flatMap((s) =>
+          pipe(
+            HashMap.get(s.components[componentName], entityId),
+            Effect.mapError(() => new ComponentNotFoundError({ entityId, componentName })),
+            Effect.flatMap((current) => {
+              const updated = { ...current, ...data }
+              return pipe(
+                S.decode(ComponentSchemas[componentName])(updated),
+                Effect.mapError((error) => new ComponentDecodeError({ entityId, componentName, error })),
+                Effect.flatMap((decoded) => {
+                  const newComponentMap = HashMap.set(s.components[componentName], entityId, decoded)
+                  const newComponents = { ...s.components, [componentName]: newComponentMap }
+                  return Ref.set(state, { ...s, components: newComponents })
+                }),
+              )
+            }),
+          ),
+        ),
+        Effect.asVoid,
+      )
 
     const query = <T extends ReadonlyArray<ComponentName>>(query: Query<T>) =>
       Ref.get(state).pipe(
@@ -168,10 +168,17 @@ export const WorldLive = Layer.effect(
             return HashSet.isSubset(requiredComponents, archetypeComponents)
           })
 
-          return ReadonlyArray.flatMap(Array.from(matchingArchetypes), ([_, entitySet]) =>
-            ReadonlyArray.filterMap(Array.from(entitySet), (entityId) =>
-              Option.all(query.components.map((name) => HashMap.get(s.components[name], entityId))).pipe(
-                Option.map((components) => [entityId, components] as [EntityId, Array<Components[T[number]]>])
+          return pipe(
+            Array.from(matchingArchetypes),
+            ReadonlyArray.flatMap(([_, entitySet]) =>
+              pipe(
+                Array.from(entitySet),
+                ReadonlyArray.filterMap((entityId) =>
+                  pipe(
+                    Option.all(query.components.map((name) => HashMap.get(s.components[name], entityId))),
+                    Option.map((components) => [entityId, components] as [EntityId, Array<Components[T[number]]>])
+                  )
+                )
               )
             )
           )
@@ -205,10 +212,17 @@ export const WorldLive = Layer.effect(
             return HashSet.isSubset(requiredComponents, archetypeComponents)
           })
 
-          const matchingEntities = ReadonlyArray.flatMap(Array.from(matchingArchetypes), ([_, entitySet]) =>
-            ReadonlyArray.filterMap(Array.from(entitySet), (entityId) =>
-              Option.all(query.components.map((name) => HashMap.get(s.components[name], entityId))).pipe(
-                Option.map((components) => ({ entityId, components }))
+          const matchingEntities = pipe(
+            Array.from(matchingArchetypes),
+            ReadonlyArray.flatMap(([_, entitySet]) =>
+              pipe(
+                Array.from(entitySet),
+                ReadonlyArray.filterMap((entityId) =>
+                  pipe(
+                    Option.all(query.components.map((name) => HashMap.get(s.components[name], entityId))),
+                    Option.map((components) => ({ entityId, components }))
+                  )
+                )
               )
             )
           )

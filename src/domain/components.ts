@@ -1,5 +1,5 @@
 import * as S from 'effect/Schema'
-import { Float, Int, Vector3IntSchema } from './common'
+import { ChunkX, ChunkZ, Float, Int, Vector3IntSchema } from './common'
 import { EntityIdSchema } from './entity'
 import { BlockTypeSchema } from './block-types'
 
@@ -92,8 +92,8 @@ export const TerrainBlock = S.Struct({})
 export type TerrainBlock = S.Schema.Type<typeof TerrainBlock>
 
 export const Chunk = S.Struct({
-  chunkX: Int,
-  chunkZ: Int,
+  chunkX: ChunkX,
+  chunkZ: ChunkZ,
   blocks: S.Array(BlockTypeSchema),
 })
 export type Chunk = S.Schema.Type<typeof Chunk>
@@ -135,14 +135,13 @@ export const ComponentSchemas = {
   chunkLoaderState: ChunkLoaderState,
 } as const
 
-export const AnyComponent = S.Union(...Object.values(ComponentSchemas).filter((s) => 'ast' in s && s !== Target))
+export const AnyComponent = S.Union(...Object.values(ComponentSchemas).filter((s) => s !== Target))
 export type AnyComponent = S.Schema.Type<typeof AnyComponent>
 
-export type Components = {
-  readonly [K in keyof typeof ComponentSchemas]: S.Schema.Type<(typeof ComponentSchemas)[K]>
-}
+export const PartialComponentsSchema = S.partial(S.Struct(ComponentSchemas))
+export type PartialComponents = S.Schema.Type<typeof PartialComponentsSchema>
 
-export type ComponentName = keyof Components
-export const ComponentNameSchema = S.Literal(...(Object.keys(ComponentSchemas) as ComponentName[]))
-export const componentNames: ReadonlyArray<ComponentName> = ComponentNameSchema.literals
+export type ComponentName = keyof typeof ComponentSchemas
+export const componentNames = Object.keys(ComponentSchemas) as Array<ComponentName>
+export const ComponentNameSchema = S.Literal(...componentNames)
 export const componentNamesSet = new Set<string>(componentNames)

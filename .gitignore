@@ -10,3 +10,4 @@ public/*
 /coverage/
 /dist/
 .devenv/
+__snapshots__/

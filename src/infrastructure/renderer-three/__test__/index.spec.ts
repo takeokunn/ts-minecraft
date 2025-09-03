@@ -1,12 +1,12 @@
 import { Effect, Layer, Queue } from 'effect'
-import { describe, it, expect } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
 import { RendererLive } from '../'
 import { Clock, MaterialManager, Renderer, RenderCommand } from '@/runtime/services'
-import { ThreeJsContextTag, ThreeJsContext } from '../../three-js-context'
+import { ThreeJsContext } from '../../three-js-context'
 import * as THREE from 'three'
 
 const ThreeJsContextTest = Layer.succeed(
-  ThreeJsContextTag,
+  ThreeJsContext,
   {
     renderer: {
       render: () => {},
@@ -37,8 +37,10 @@ const ClockTest = Layer.succeed(
   }
 )
 
-const TestLayers = Layer.mergeAll(ThreeJsContextTest, MaterialManagerTest, ClockTest).pipe(
-  Layer.provide(RendererLive)
+const TestLayers = RendererLive.pipe(
+  Layer.provide(ThreeJsContextTest),
+  Layer.provide(MaterialManagerTest),
+  Layer.provide(ClockTest)
 )
 
 describe('Renderer', () => {

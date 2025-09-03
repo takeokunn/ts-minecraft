@@ -1,8 +1,10 @@
-import { Effect, Match } from 'effect'
+import { Match, Option } from 'effect'
 import * as S from 'effect/Schema'
 import { Vector3Int, Vector3IntSchema } from './common'
 import { blockDefinitions } from './block-definitions'
 import { BlockType, BlockTypeSchema } from './block-types'
+
+export type { BlockType } from './block-types'
 
 // --- Schemas ---
 
@@ -24,6 +26,12 @@ export const TILE_SIZE = 1 / ATLAS_SIZE_IN_TILES
 
 // --- Functions ---
 
+const getBlockDefinition = (blockType: BlockType) => {
+  return Option.fromNullable(blockDefinitions[blockType]).pipe(
+    Option.getOrThrowWith(() => new Error(`Block definition not found for ${blockType}`)),
+  )
+}
+
 /**
  * Gets the UV coordinates for a specific face of a block type.
  * @param blockType The type of the block.
@@ -33,36 +41,32 @@ export const TILE_SIZE = 1 / ATLAS_SIZE_IN_TILES
 export const getUvForFace = (
   blockType: BlockType,
   faceName: FaceName,
-): Effect.Effect<readonly [number, number], S.ParseError> =>
-  Effect.flatMap(blockDefinitions, (definitions) => {
-    const { textures } = definitions[blockType]
-    const uv = Match.value(faceName).pipe(
-      Match.when('top', () => textures.top ?? textures.side),
-      Match.when('bottom', () => textures.bottom ?? textures.side),
-      Match.orElse(() => textures.side),
-    )
-    return Effect.succeed(uv)
-  })
+): readonly [number, number] => {
+  const { textures } = getBlockDefinition(blockType)
+  return Match.value(faceName).pipe(
+    Match.when('top', () => textures.top ?? textures.side),
+    Match.when('bottom', () => textures.bottom ?? textures.side),
+    Match.orElse(() => textures.side),
+  )
+}
 
 /**
  * Checks if a block type is transparent.
  * @param blockType The type of the block.
  * @returns True if the block is transparent, false otherwise.
  */
-export const isBlockTransparent = (blockType: BlockType) =>
-  Effect.map(blockDefinitions, (definitions) => {
-    return definitions[blockType].isTransparent
-  })
+export const isBlockTransparent = (blockType: BlockType) => {
+  return getBlockDefinition(blockType).isTransparent
+}
 
 /**
  * Checks if a block type is a fluid.
  * @param blockType The type of the block.
  * @returns True if the block is a fluid, false otherwise.
  */
-export const isBlockFluid = (blockType: BlockType) =>
-  Effect.map(blockDefinitions, (definitions) => {
-    return definitions[blockType].isFluid
-  })
+export const isBlockFluid = (blockType: BlockType) => {
+  return getBlockDefinition(blockType).isFluid
+}
 
 /**
  * Creates a PlacedBlock object.
@@ -70,8 +74,6 @@ export const isBlockFluid = (blockType: BlockType) =>
  * @param blockType The type of the block.
  * @returns A PlacedBlock object.
  */
-export const createPlacedBlock = (position: Vector3Int, blockType: BlockType) => {
-  return S.decode(PlacedBlockSchema)({ position, blockType })
+export const createPlacedBlock = (position: Vector3Int, blockType: BlockType): PlacedBlock => {
+  return { position, blockType }
 }
-
-export const isBlockType = S.is(BlockTypeSchema)

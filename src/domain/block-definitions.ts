@@ -1,5 +1,5 @@
 import * as S from 'effect/Schema'
-import { BlockTypeSchema, blockTypeNames } from './block-types'
+import { blockTypeNames } from './block-types'
 import { Effect } from 'effect'
 
 export const BlockDefinitionSchema = S.Struct({
@@ -15,11 +15,12 @@ export type BlockDefinition = S.Schema.Type<typeof BlockDefinitionSchema>
 
 const BlockDefinitionsSchema = S.Struct(
   Object.fromEntries(
-    blockTypeNames.map((name) => [name, BlockDefinitionSchema])
-  )
+    blockTypeNames.map((name) => [name, BlockDefinitionSchema]),
+  ),
 )
+export type BlockDefinitions = S.Schema.Type<typeof BlockDefinitionsSchema>
 
-export const blockDefinitions: Effect.Effect<S.Schema.Type<typeof BlockDefinitionsSchema>> = S.decode(
+export const blockDefinitions: BlockDefinitions = Effect.runSync(S.decodeUnknown(
   BlockDefinitionsSchema,
 )({
   air: { textures: { side: [0, 0] }, isTransparent: true, isFluid: false }, // Note: air doesn't have a real texture
@@ -34,5 +35,4 @@ export const blockDefinitions: Effect.Effect<S.Schema.Type<typeof BlockDefinitio
   glass: { textures: { side: [4, 0] }, isTransparent: true, isFluid: false },
   brick: { textures: { side: [0, 0] }, isTransparent: false, isFluid: false },
   plank: { textures: { side: [13, 0] }, isTransparent: false, isFluid: false },
-})
-
+}))

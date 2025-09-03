@@ -1,9 +1,9 @@
-import { Effect, Option, HashMap, Ref } from 'effect'
+import { Effect, Option, HashMap, Ref, ReadonlyArray } from 'effect'
 import { EntityId } from '@/domain/entity'
 import { playerQuery, chunkQuery } from '@/domain/queries'
 import { CHUNK_SIZE, RENDER_DISTANCE } from '@/domain/world-constants'
 import { ComputationWorker, World } from '@/runtime/services'
-import { Chunk, Position } from '@/domain/components'
+import { Position } from '@/domain/components'
 
 type ChunkCoord = { readonly x: number; readonly z: number }
 
@@ -44,20 +44,19 @@ export const calculateChunkUpdates = (
     }
   }
 
-  const toUnload: EntityId[] = []
-  const toLoad: ChunkCoord[] = []
+  const loadedChunkKeys = new Set(HashMap.keys(loadedChunks))
 
-  HashMap.forEach(loadedChunks, (entityId, key) => {
-    if (!requiredChunks.has(key)) {
-      toUnload.push(entityId)
-    }
-  })
+  const toUnload = ReadonlyArray.fromIterable(HashMap.entries(loadedChunks)).pipe(
+    ReadonlyArray.filterMap(([key, entityId]) =>
+      !requiredChunks.has(key) ? Option.some(entityId) : Option.none(),
+    ),
+  )
 
-  requiredChunks.forEach((key) => {
-    if (!HashMap.has(loadedChunks, key)) {
-      ChunkCoord.fromString(key).pipe(Option.map((coord) => toLoad.push(coord)))
-    }
-  })
+  const toLoad = ReadonlyArray.fromIterable(requiredChunks).pipe(
+    ReadonlyArray.filterMap((key) =>
+      !loadedChunkKeys.has(key) ? ChunkCoord.fromString(key) : Option.none(),
+    ),
+  )
 
   return { toLoad, toUnload }
 }
@@ -73,41 +72,66 @@ const makeChunkLoadingSystem = Effect.gen(function* ($) {
   const lastPlayerChunkRef = yield* $(Ref.make(Option.none<ChunkCoord>()))
 
   return Effect.gen(function* ($) {
-    const { entities: playerEntities, components: playerComponents } = yield* $(world.querySoA(playerQuery))
-    if (playerEntities.length === 0) {
-      return
-    }
-    const position = playerComponents.position[0]
-    const currentPlayerChunk = getPlayerChunk(position)
-    const lastPlayerChunk = yield* $(Ref.get(lastPlayerChunkRef))
+    const { components: playerComponents } = yield* $(world.querySoA(playerQuery))
+    const playerPosition = Option.fromNullable(playerComponents.position[0])
 
-    if (Option.isSome(lastPlayerChunk) && ChunkCoord.equals(lastPlayerChunk.value, currentPlayerChunk)) {
-      return
-    }
+    yield* $(
+      Option.match(playerPosition, {
+        onNone: () => Effect.void, // No player, do nothing
+        onSome: (position) =>
+          Effect.gen(function* ($) {
+            const currentPlayerChunk = getPlayerChunk(position)
+            const lastPlayerChunk = yield* $(Ref.get(lastPlayerChunkRef))
 
-    yield* $(Ref.set(lastPlayerChunkRef, Option.some(currentPlayerChunk)))
+            const shouldUpdate = Option.match(lastPlayerChunk, {
+              onNone: () => true,
+              onSome: (last) => !ChunkCoord.equals(last, currentPlayerChunk),
+            })
 
-    const { entities: loadedChunkEntities, components: chunkComponents } = yield* $(world.querySoA(chunkQuery))
-    const loadedChunks = HashMap.make(
-      ...loadedChunkEntities.map((entityId, i) => {
-        const chunk = chunkComponents.chunk[i]
-        return [ChunkCoord.asString(chunk), entityId] as const
+            yield* $(
+              Effect.when(
+                () => shouldUpdate,
+                Effect.gen(function* ($) {
+                  yield* $(Ref.set(lastPlayerChunkRef, Option.some(currentPlayerChunk)))
+
+                  const { entities: loadedChunkEntities, components: chunkComponents } = yield* $(
+                    world.querySoA(chunkQuery),
+                  )
+                  const loadedChunks = HashMap.make(
+                    ...loadedChunkEntities.map((entityId, i) => {
+                      const chunk = chunkComponents.chunk[i]
+                      return [ChunkCoord.asString(chunk), entityId] as const
+                    }),
+                  )
+
+                  const { toLoad, toUnload } = calculateChunkUpdates(
+                    currentPlayerChunk,
+                    loadedChunks,
+                    RENDER_DISTANCE,
+                  )
+
+                  const loadEffects = ReadonlyArray.map(toLoad, (coord) =>
+                    worker.postTask({
+                      type: 'generateChunk',
+                      chunkX: coord.x,
+                      chunkZ: coord.z,
+                    }),
+                  )
+
+                  const unloadEffects = ReadonlyArray.map(toUnload, (entityId) => world.removeEntity(entityId))
+
+                  yield* $(
+                    Effect.all(ReadonlyArray.appendAll(loadEffects, unloadEffects), {
+                      discard: true,
+                      concurrency: 'unbounded',
+                    }),
+                  )
+                }),
+              ),
+            )
+          }),
       }),
     )
-
-    const { toLoad, toUnload } = calculateChunkUpdates(currentPlayerChunk, loadedChunks, RENDER_DISTANCE)
-
-    const loadEffects = toLoad.map((coord) =>
-      worker.postTask({
-        type: 'generateChunk',
-        chunkX: coord.x,
-        chunkZ: coord.z,
-      }),
-    )
-
-    const unloadEffects = toUnload.map((entityId) => world.removeEntity(entityId))
-
-    yield* $(Effect.all([...loadEffects, ...unloadEffects], { discard: true, concurrency: 'unbounded' }))
   })
 })
 

@@ -1,9 +1,7 @@
-import { Effect } from 'effect'
 import * as S from 'effect/Schema'
-import { ParseError } from 'effect/ParseResult'
 import { CHUNK_SIZE } from './world-constants'
 import type { Collider, Position } from './components'
-import { Float, Vector3, Vector3FloatSchema } from './common'
+import { Float, toFloat, Vector3 } from './common'
 
 export type { Vector3 } from './common'
 
@@ -36,15 +34,14 @@ export type AABB = S.Schema.Type<typeof AABB>
  * @param collider The entity's collider.
  * @returns A new AABB object.
  */
-export const createAABB = (position: Position, collider: Collider): Effect.Effect<AABB, ParseError> =>
-  S.decode(AABB)({
-    minX: position.x - collider.width / 2,
-    minY: position.y, // Player's origin is at their feet
-    minZ: position.z - collider.depth / 2,
-    maxX: position.x + collider.width / 2,
-    maxY: position.y + collider.height,
-    maxZ: position.z + collider.depth / 2,
-  })
+export const createAABB = (position: Position, collider: Collider): AABB => ({
+  minX: toFloat(position.x - collider.width / 2),
+  minY: position.y, // Player's origin is at their feet
+  minZ: toFloat(position.z - collider.depth / 2),
+  maxX: toFloat(position.x + collider.width / 2),
+  maxY: toFloat(position.y + collider.height),
+  maxZ: toFloat(position.z + collider.depth / 2),
+})
 
 /**
  * Checks if two AABBs are intersecting.
@@ -63,9 +60,9 @@ export const areAABBsIntersecting = (a: AABB, b: AABB): boolean => {
  * @param b The second AABB.
  * @returns The MTV as a 3D vector.
  */
-export const getIntersectionDepth = (a: AABB, b: AABB): Effect.Effect<Vector3> => {
+export const getIntersectionDepth = (a: AABB, b: AABB): Vector3 => {
   if (!areAABBsIntersecting(a, b)) {
-    return S.decode(Vector3FloatSchema)([0, 0, 0])
+    return [toFloat(0), toFloat(0), toFloat(0)]
   }
 
   const overlaps = [
@@ -82,5 +79,5 @@ export const getIntersectionDepth = (a: AABB, b: AABB): Effect.Effect<Vector3> =
   const mtv: [number, number, number] = [0, 0, 0]
   mtv[minOverlap.axis] = minOverlap.value * minOverlap.sign
 
-  return S.decode(Vector3FloatSchema)(mtv)
+  return [toFloat(mtv[0]), toFloat(mtv[1]), toFloat(mtv[2])]
 }

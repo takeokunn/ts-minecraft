@@ -1,44 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from '@effect/vitest'
+import { describe, it, expect, vi } from '@effect/vitest'
 import { Effect, Layer, Queue } from 'effect'
 import { worldUpdateSystem } from '../world-update'
-import { ComputationWorker, Renderer, World } from '@/runtime/services'
+import { ComputationWorker, PlacedBlock, Renderer, RenderCommand, World } from '@/runtime/services'
 import { Position } from '@/domain/components'
-import { Float } from '@/domain/common'
-
-const mockWorld: Partial<World> = {
-  addArchetype: vi.fn(),
-}
-
-const mockRenderer: Partial<Renderer> = {
-  renderQueue: {
-    offer: vi.fn(),
-  } as unknown as Queue.Queue<any>,
-}
-
-const mockComputationWorker: Partial<ComputationWorker> = {
-  onMessage: vi.fn(),
-}
-
-const worldLayer = Layer.succeed(World, mockWorld as World)
-const rendererLayer = Layer.succeed(Renderer, mockRenderer as Renderer)
-const computationWorkerLayer = Layer.succeed(ComputationWorker, mockComputationWorker as ComputationWorker)
-const testLayer = worldLayer.pipe(Layer.provide(rendererLayer)).pipe(Layer.provide(computationWorkerLayer))
+import { Archetype } from '@/domain/archetypes'
+import { BLOCK_COLLIDER } from '@/domain/world-constants'
 
 describe('worldUpdateSystem', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-  })
-
   it.effect('should handle chunkGenerated message', () =>
     Effect.gen(function* ($) {
+      const blocks: ReadonlyArray<PlacedBlock> = [
+        {
+          position: [0, 0, 0],
+          blockType: 'grass',
+        },
+      ]
       const message = {
-        type: 'chunkGenerated',
-        blocks: [
-          {
-            position: [0, 0, 0],
-            blockType: 'grass',
-          },
-        ],
+        type: 'chunkGenerated' as const,
+        blocks,
         mesh: {
           positions: new Float32Array([0, 0, 0]),
           normals: new Float32Array([0, 1, 0]),
@@ -49,22 +28,40 @@ describe('worldUpdateSystem', () => {
         chunkZ: 0,
       }
 
-      vi.spyOn(mockComputationWorker, 'onMessage').mockImplementation((callback) => callback(message))
-      vi.spyOn(mockWorld, 'addArchetype').mockReturnValue(Effect.succeed(undefined as any))
-      vi.spyOn(mockRenderer.renderQueue, 'offer').mockReturnValue(Effect.succeed(true))
+      const addArchetypeMock = vi.fn(() => Effect.succeed(undefined as any))
+      const offerMock = vi.fn(() => Effect.succeed(true))
 
-      yield* $(worldUpdateSystem)
+      const mockWorld: Partial<World> = {
+        addArchetype: addArchetypeMock,
+      }
 
-      expect(mockWorld.addArchetype).toHaveBeenCalledWith({
-        type: 'block',
-        pos: new Position({
-          x: Float(0),
-          y: Float(0),
-          z: Float(0),
-        }),
-        blockType: 'grass',
-      })
-      expect(mockRenderer.renderQueue.offer).toHaveBeenCalledWith({
+      const mockRenderer: Partial<Renderer> = {
+        renderQueue: {
+          offer: offerMock,
+        } as unknown as Queue.Queue<RenderCommand>,
+      }
+
+      const mockComputationWorker: Partial<ComputationWorker> = {
+        onMessage: (handler) => handler(message),
+      }
+
+      const testLayer = Layer.succeed(World, mockWorld as World).pipe(
+        Layer.provide(Layer.succeed(Renderer, mockRenderer as Renderer)),
+        Layer.provide(Layer.succeed(ComputationWorker, mockComputationWorker as ComputationWorker)),
+      )
+
+      yield* $(worldUpdateSystem.pipe(Effect.provide(testLayer)))
+
+      const expectedArchetype: Archetype = {
+        position: new Position({ x: 0, y: 0, z: 0 }),
+        renderable: { geometry: 'box', blockType: 'grass' },
+        collider: BLOCK_COLLIDER,
+        terrainBlock: {},
+      }
+
+      expect(addArchetypeMock).toHaveBeenCalledWith(expectedArchetype)
+
+      expect(offerMock).toHaveBeenCalledWith({
         type: 'ADD_CHUNK',
         chunkX: 0,
         chunkZ: 0,
@@ -73,5 +70,5 @@ describe('worldUpdateSystem', () => {
         uvs: message.mesh.uvs,
         indices: message.mesh.indices,
       })
-    }).pipe(Effect.provide(testLayer)))
+    }))
 })

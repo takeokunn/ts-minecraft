@@ -1,7 +1,7 @@
 import Alea from 'alea'
 import { createNoise2D } from 'simplex-noise'
-import { BlockType, FaceName, getUvForFace, isBlockTransparent, TILE_SIZE } from '../domain/block'
-import { CHUNK_HEIGHT, CHUNK_SIZE, WATER_LEVEL, WORLD_DEPTH, Y_OFFSET } from '@/domain/world-constants'
+import { BlockType } from '../domain/block'
+import { CHUNK_SIZE, WATER_LEVEL, WORLD_DEPTH } from '@/domain/world-constants'
 import { Int } from '@/domain/common'
 
 // Types would be defined here or imported from a shared file

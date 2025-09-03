@@ -1,12 +1,12 @@
 import { Clock, MaterialManager, Renderer, RenderCommand } from '@/runtime/services'
 import { Effect, Layer, Match, Queue, Ref } from 'effect'
 import * as THREE from 'three'
-import { ThreeJsContextTag } from '../three-js-context'
+import { ThreeJsContext } from '../three-js-context'
 
 export const RendererLive = Layer.scoped(
   Renderer,
   Effect.gen(function* (_) {
-    const threeJsContext = yield* _(ThreeJsContextTag)
+    const threeJsContext = yield* _(ThreeJsContext)
     const materialManager = yield* _(MaterialManager)
     const clock = yield* _(Clock)
 

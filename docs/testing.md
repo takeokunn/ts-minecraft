@@ -64,7 +64,7 @@ describe('World', () => {
 
 ## 3. プロパティベーステスト (Property-Based Testing)
 
-プロパティベーステスト (PBT) は、開発者が手動でテストケースを考える代わりに、「どのような入力であっても、このプロパティ（性質）は常に真でなければならない」という不変条件を定義するテスト手法です。ライブラリには **fast-check** を使用します。
+プロパティベーステスト (PBT) は、開発者が手動でテストケースを考える代わりに、「どのような入力であっても、このプロパティ（性質）は常に真でなければならない」という不変条件を定義するテスト手法です。本プロジェクトでは、Effect-TSのエコシステムに統合された **`@effect/schema/Arbitrary`** と **`@effect/test`** を使用します。
 
 PBTは、開発者が想定しないエッジケースを自動的に発見するのに非常に強力です。
 
@@ -72,26 +72,22 @@ PBTは、開発者が想定しないエッジケースを自動的に発見す�
 
 ```typescript
 // src/domain/__test__/components.spec.ts の例
-import * as fc from 'fast-check'
 import * as S from '@effect/schema/Schema'
 import * as Arbitrary from '@effect/schema/Arbitrary'
-import { describe, it } from 'vitest'
+import { describe, it, expect } from '@effect/vitest'
+import { Gen } from '@effect/test'
 import { Position } from '@/domain/components'
+import { Effect } from 'effect'
 
 describe('Component Schemas', () => {
-  it('Position should be reversible after encoding and decoding', () => {
-    // SchemaからArbitrary（任意データ生成器）を生成
-    const PositionArb = Arbitrary.make(Position)
-
-    // プロパティを定義
-    fc.assert(
-      fc.property(PositionArb, (position) => {
-        const encoded = S.encodeSync(Position)(position)
-        const decoded = S.decodeSync(Position)(encoded)
-        return JSON.stringify(decoded) === JSON.stringify(position)
-      }),
-    )
-  })
+  it.effect('Position should be reversible after encoding and decoding', () =>
+    Gen.forAll(Arbitrary.make(Position), (position) => {
+      const encoded = S.encodeSync(Position)(position)
+      const decoded = S.decodeSync(Position)(encoded)
+      expect(decoded).toEqual(position)
+      return Effect.void
+    }),
+  )
 })
 ```
 

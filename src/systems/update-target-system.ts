@@ -41,7 +41,7 @@ export const updateTargetSystem = Effect.gen(function* ($) {
       (entityId) => {
         return world.updateComponent(entityId, 'target', newTarget)
       },
-      { concurrency: 'inherit' },
+      { concurrency: 'inherit', discard: true },
     ),
   )
 })

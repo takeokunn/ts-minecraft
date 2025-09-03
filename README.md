@@ -47,7 +47,7 @@
 - **コアアーキテクチャ**: Effect
 - **レンダリング**: Three.js
 - **ビルドツール**: Vite
-- **テスティング**: Vitest, fast-check
+- **テスティング**: @effect/vitest
 - **リンター**: Oxlint
 - **フォーマッタ**: Prettier, Oxlint
 

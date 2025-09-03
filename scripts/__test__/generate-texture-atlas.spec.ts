@@ -21,7 +21,7 @@ describe('scripts/generate-texture-atlas', () => {
   describe('findAllTextureFiles', () => {
     it.effect('should find all texture files', () =>
       Effect.gen(function* (_) {
-        const testLayer = Layer.succeed(
+        const fileSystemLayer = Layer.succeed(
           FileSystem,
           FileSystem.of({
             readdir: (dirPath: string) => {
@@ -37,10 +37,12 @@ describe('scripts/generate-texture-atlas', () => {
               return Effect.succeed([])
             },
           }),
-        ).pipe(Layer.provide(साइलेंटLogger))
+        )
+        // eslint-disable-next-line no-unused-vars
+        const testLayer = Layer.merge(fileSystemLayer, साइलेंटLogger)
 
-        const result = yield* _(script.findAllTextureFiles(), Effect.provide(testLayer))
+        const result = yield* _(script.findAllTextureFiles())
         assert.deepStrictEqual(result.map((f) => f.name).sort(), ['grass_side', 'stone'])
-      }))
+      }).pipe(Effect.provide(testLayer)))
   })
 })

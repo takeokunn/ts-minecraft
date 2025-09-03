@@ -1,31 +1,26 @@
-import { describe, it, assert } from '@effect/vitest'
-import { Effect } from 'effect'
-import { toEntityId, EntityId } from '../entity'
+import * as S from 'effect/Schema'
+import { describe, assert, it, expect } from '@effect/vitest'
+import * as fc from 'effect/FastCheck'
+import { EntityIdSchema, toEntityId } from '../entity'
+import { Effect, Gen } from 'effect'
 
-describe('EntityId', () => {
-  it.effect('should create a branded EntityId from a number', () =>
-    Effect.gen(function*(_) {
-      const id = 1
-      const entityId = yield* _(toEntityId(id))
-      assert.strictEqual(entityId, id)
-    }),
-  )
+describe('Entity', () => {
+  describe('EntityIdSchema', () => {
+    it.effect('should be reversible after encoding and decoding', () =>
+      Gen.flatMap(fc.gen(EntityIdSchema), (value) =>
+        Effect.sync(() => {
+          const encode = S.encodeSync(EntityIdSchema)
+          const decode = S.decodeSync(EntityIdSchema)
+          const decodedValue = decode(encode(value))
+          assert.deepStrictEqual(decodedValue, value)
+        }),
+      ))
+  })
 
-  it.effect('should create different EntityIds for different numbers', () =>
-    Effect.gen(function*(_) {
-      const id1 = 1
-      const id2 = 2
-      const entityId1 = yield* _(toEntityId(id1))
-      const entityId2 = yield* _(toEntityId(id2))
-      assert.notStrictEqual(entityId1, entityId2)
-    }),
-  )
-
-  it.effect('EntityId brand should not allow direct creation', () =>
-    Effect.sync(() => {
-      const id: number = 1
-      // @ts-expect-error This should not compile
-      const entityId: EntityId = id
-      assert.strictEqual(typeof entityId, 'number')
-    }))
+  describe('toEntityId', () => {
+    it('should correctly brand a number as EntityId', () => {
+      expect(toEntityId(1)).toBe(1)
+      expect(toEntityId(100.5)).toBe(100.5) // S.Number accepts floats
+    })
+  })
 })

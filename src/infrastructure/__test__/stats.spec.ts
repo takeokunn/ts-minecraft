@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
-import { describe, it, expect } from '@effect/vitest'
-import { StatsLive } from '../stats'
+import { describe, it } from '@effect/vitest'
+import { StatsTest } from '../stats'
 import { Stats } from '@/runtime/services'
 
 describe('Stats', () => {
@@ -9,5 +9,5 @@ describe('Stats', () => {
       const stats = yield* _(Stats)
       yield* _(stats.begin)
       yield* _(stats.end)
-    }).pipe(Effect.provide(StatsLive)))
+    }).pipe(Effect.provide(StatsTest)))
 })
