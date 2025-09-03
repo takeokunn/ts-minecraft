@@ -1,23 +1,23 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, assert } from '@effect/vitest'
 import { createQuery } from '../query'
-import { ComponentName } from '../components'
+import { Effect } from 'effect'
 
 describe('createQuery', () => {
-  it('should create a query object with the given name and components', () => {
-    const name = 'testQuery'
-    const components: readonly ComponentName[] = ['position', 'velocity']
-    const query = createQuery(name, components)
+  it.effect('should create a query object with the given components', () =>
+    Effect.sync(() => {
+      const query = createQuery('test', ['position', 'velocity'])
+      assert.strictEqual(query.name, 'test')
+      assert.deepStrictEqual(query.components, ['position', 'velocity'])
+      assert.deepStrictEqual(query.set, new Set(['position', 'velocity']))
+    }),
+  )
 
-    expect(query.name).toBe(name)
-    expect(query.components).toEqual(components)
-  })
-
-  it('should handle an empty component list', () => {
-    const name = 'emptyQuery'
-    const components: readonly ComponentName[] = []
-    const query = createQuery(name, components)
-
-    expect(query.name).toBe(name)
-    expect(query.components).toEqual([])
-  })
+  it.effect('should handle an empty component list', () =>
+    Effect.sync(() => {
+      const query = createQuery('test', [])
+      assert.strictEqual(query.name, 'test')
+      assert.deepStrictEqual(query.components, [])
+      assert.deepStrictEqual(query.set, new Set())
+    }),
+  )
 })

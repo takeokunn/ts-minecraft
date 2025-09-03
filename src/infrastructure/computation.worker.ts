@@ -1,47 +1,71 @@
-import { ChunkGenerationResult, ComputationTask, WorkerError } from '@/domain/types'
-import { Context, Effect, Layer, Pool } from 'effect'
+import { ComputationWorker } from '@/runtime/services'
+import { Effect, Layer, Hub } from 'effect'
 
-export { WorkerError } from '@/domain/types'
-
-const createWorker = Effect.sync(() => new Worker(new URL('../workers/computation.worker.ts', import.meta.url)))
-
-const createWorkerPool = Pool.make({
-  acquire: createWorker,
-  size: navigator.hardwareConcurrency || 4,
-})
-
-export class ComputationWorker extends Context.Tag('ComputationWorker')<
-  ComputationWorker,
-  {
-    readonly postTask: (task: ComputationTask) => Effect.Effect<ChunkGenerationResult, WorkerError>
-  }
->() {}
+type Message = {
+  type: 'chunkGenerated'
+  chunkX: number
+  chunkZ: number
+  positions: Float32Array
+  normals: Float32Array
+  uvs: Float32Array
+  indices: Uint32Array
+  blocks: unknown[]
+}
 
 export const ComputationWorkerLive = Layer.scoped(
   ComputationWorker,
-  Effect.gen(function* ($) {
-    const pool = yield* $(createWorkerPool)
-    const postTask = (task: ComputationTask) =>
-      Effect.scoped(
-        Effect.gen(function* ($) {
-          const worker = yield* $(pool.get)
-          return yield* $(
-            Effect.async<ChunkGenerationResult, WorkerError>((resume) => {
-              worker.onmessage = (e) => {
-                if (e.data._tag === 'error') {
-                  resume(Effect.fail(new WorkerError({ reason: e.data.error })))
-                } else {
-                  resume(Effect.succeed(e.data.result))
-                }
-              }
-              worker.onerror = (e) => {
-                resume(Effect.fail(new WorkerError({ reason: e.message })))
-              }
-              worker.postMessage(task)
-            }),
-          )
+  Effect.gen(function* (_) {
+    const worker = yield* _(
+      Effect.acquireRelease(
+        Effect.sync(() => new Worker(new URL('../workers/computation.worker.ts', import.meta.url), { type: 'module' })),
+        (worker) => Effect.sync(() => worker.terminate()),
+      ),
+    )
+    const messageHub = yield* _(Hub.unbounded<Message>())
+
+    const handleMessage = (event: MessageEvent<Message>) => {
+      Effect.runFork(Hub.publish(messageHub, event.data))
+    }
+    const handleError = (error: ErrorEvent) => {
+      Effect.runFork(Effect.logError('Computation Worker Error:', error))
+    }
+
+    yield* _(
+      Effect.acquireRelease(
+        Effect.sync(() => {
+          worker.addEventListener('message', handleMessage)
+          worker.addEventListener('error', handleError)
         }),
+        () =>
+          Effect.sync(() => {
+            worker.removeEventListener('message', handleMessage)
+            worker.removeEventListener('error', handleError)
+          }),
+      ),
+    )
+
+    const postTask = (task: { type: 'generateChunk'; chunkX: number; chunkZ: number }) =>
+      Effect.try(() => {
+        worker.postMessage(task)
+      })
+
+    const onMessage = (handler: (message: Message) => Effect.Effect<void>) =>
+      Hub.subscribe(messageHub).pipe(
+        Effect.flatMap((subscription) =>
+          Effect.forever(
+            subscription.take.pipe(
+              Effect.flatMap(handler),
+              Effect.catchAll((error) => Effect.logError(error)),
+            ),
+          ),
+        ),
+        Effect.forkScoped,
+        Effect.void,
       )
-    return { postTask }
+
+    return ComputationWorker.of({
+      postTask,
+      onMessage,
+    })
   }),
 )

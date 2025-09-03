@@ -1,268 +1,275 @@
-import { Effect, Option, Record, Ref } from 'effect'
-import { describe, it, expect } from '@effect/vitest'
-import { createArchetype } from '@/domain/archetypes'
-import { Hotbar, InputState, TargetBlock, createTargetNone } from '@/domain/components'
-import * as World from '@/domain/world'
-import { WorldContext } from '@/runtime/context'
-import { provideTestLayer } from 'test/utils'
+import { describe, it, assert, vi } from '@effect/vitest'
+import { Effect, Layer } from 'effect'
 import { blockInteractionSystem } from '../block-interaction'
+import { World } from '@/runtime/services'
+import { EntityId } from '@/domain/entity'
+import { Hotbar, InputState, Position, TargetBlock, TargetNone } from '@/domain/components'
+import { SoA } from '@/domain/world'
+import { playerTargetQuery } from '@/domain/queries'
 
-const TestLayer = provideTestLayer()
+const mockWorld: Partial<World> = {
+  querySoA: vi.fn(),
+  addArchetype: vi.fn(),
+  removeEntity: vi.fn(),
+  updateComponent: vi.fn(),
+}
 
-const setupWorld = Effect.gen(function* ($) {
-  const playerArchetype = createArchetype({
-    type: 'player',
-    pos: { x: 0, y: 1, z: 0 },
-  })
-  const playerId = yield* $(World.addArchetype(playerArchetype))
+const worldLayer = Layer.succeed(World, mockWorld as World)
 
-  const blockArchetype = createArchetype({
-    type: 'block',
-    pos: { x: 0, y: 0, z: -2 },
-    blockType: 'grass',
-  })
-  const blockId = yield* $(World.addArchetype(blockArchetype))
+describe('blockInteractionSystem', () => {
+  
 
-  yield* $(
-    World.updateComponent(
-      playerId,
-      'target',
-      new TargetBlock({
+  it.effect('should destroy a block', () =>
+    Effect.gen(function* ($) {
+      const entityId = EntityId('1')
+      const targetEntityId = EntityId('2')
+      const targetPosition = new Position({ x: 1, y: 2, z: 3 })
+      const target = new TargetBlock({
         _tag: 'block',
-        entityId: blockId,
-        face: [0, 0, 1],
-        position: { x: 0, y: 0, z: -2 },
-      }),
-    ),
-  )
+        entityId: targetEntityId,
+        position: targetPosition,
+        face: [0, 1, 0],
+      })
+      const inputState = new InputState({ ...InputState.default, destroy: true })
+      const hotbar = new Hotbar({ selectedIndex: 0, slots: ['air'] })
 
-  return { playerId, blockId }
-})
+      const soa: SoA<typeof playerTargetQuery> = {
+        entities: [entityId],
+        components: {
+          inputState: [inputState],
+          target: [target],
+          hotbar: [hotbar],
+        },
+      }
 
-describe('blockInteractionSystem', () => {
-  it('should call destroy handler when destroy input is true', () =>
+      const mockWorld: Partial<World> = {
+        querySoA: () => Effect.succeed(soa),
+        removeEntity: () => Effect.succeed(undefined),
+        updateComponent: () => Effect.succeed(undefined),
+      }
+
+      const worldLayer = Layer.succeed(World, mockWorld as World)
+
+      const world = yield* $(World)
+      const removeEntitySpy = vi.spyOn(world, 'removeEntity')
+      const updateComponentSpy = vi.spyOn(world, 'updateComponent')
+
+      yield* $(blockInteractionSystem.pipe(Effect.provide(worldLayer)))
+
+      assert.deepStrictEqual(removeEntitySpy.mock.calls.length, 1)
+      assert.deepStrictEqual(removeEntitySpy.mock.calls[0][0], targetEntityId)
+      assert.deepStrictEqual(updateComponentSpy.mock.calls.length, 1)
+      assert.deepStrictEqual(updateComponentSpy.mock.calls[0], [entityId, 'target', new TargetNone({ _tag: 'none' })])
+    }))
+
+  it.effect('should place a block', () =>
     Effect.gen(function* ($) {
-      const { playerId } = yield* $(setupWorld)
-      yield* $(
-        World.updateComponent(
-          playerId,
-          'inputState',
-          new InputState({ destroy: true, place: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
-        ),
-      )
+      const entityId = EntityId('1')
+      const targetEntityId = EntityId('2')
+      const targetPosition = new Position({ x: 1, y: 2, z: 3 })
+      const target = new TargetBlock({
+        _tag: 'block',
+        entityId: targetEntityId,
+        position: targetPosition,
+        face: [0, 1, 0],
+      })
+      const inputState = new InputState({ ...InputState.default, place: true })
+      const hotbar = new Hotbar({ selectedIndex: 0, slots: ['stone'] })
 
-      yield* $(blockInteractionSystem)
+      const soa: SoA<typeof playerTargetQuery> = {
+        entities: [entityId],
+        components: {
+          inputState: [inputState],
+          target: [target],
+          hotbar: [hotbar],
+        },
+      }
 
-      const { world } = yield* $(WorldContext)
-      const worldState = yield* $(Ref.get(world))
-      const isBlockDestroyed = (worldState.globalState.editedBlocks.destroyed as HashSet.HashSet<string>).has('0,0,-2')
-      expect(isBlockDestroyed).toBe(true)
-    }).pipe(Effect.provide(TestLayer)))
+      const mockWorld: Partial<World> = {
+        querySoA: () => Effect.succeed(soa),
+        addArchetype: () => Effect.succeed(EntityId('3')),
+        updateComponent: () => Effect.succeed(undefined),
+      }
 
-  it('should call place handler when place input is true', () =>
+      const worldLayer = Layer.succeed(World, mockWorld as World)
+
+      const world = yield* $(World)
+      const addArchetypeSpy = vi.spyOn(world, 'addArchetype')
+      const updateComponentSpy = vi.spyOn(world, 'updateComponent')
+
+      yield* $(blockInteractionSystem.pipe(Effect.provide(worldLayer)))
+
+      assert.deepStrictEqual(addArchetypeSpy.mock.calls.length, 1)
+      assert.deepStrictEqual(updateComponentSpy.mock.calls.length, 1)
+      assert.deepStrictEqual(updateComponentSpy.mock.calls[0], [entityId, 'inputState', { ...inputState, place: false }])
+    }))
+
+  it.effect('should do nothing if not placing or destroying', () =>
     Effect.gen(function* ($) {
-      const { playerId } = yield* $(setupWorld)
-      const { world } = yield* $(WorldContext)
-      yield* $(
-        World.updateComponent(
-          playerId,
-          'inputState',
-          new InputState({ place: true, destroy: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
-        ),
-      )
-      yield* $(
-        World.updateComponent(
-          playerId,
-          'hotbar',
-          new Hotbar({
-            slots: ['stone'],
-            selectedIndex: 0,
-          }),
-        ),
-      )
+      const entityId = EntityId('1')
+      const targetEntityId = EntityId('2')
+      const targetPosition = new Position({ x: 1, y: 2, z: 3 })
+      const target = new TargetBlock({
+        _tag: 'block',
+        entityId: targetEntityId,
+        position: targetPosition,
+        face: [0, 1, 0],
+      })
+      const inputState = new InputState({ ...InputState.default })
+      const hotbar = new Hotbar({ selectedIndex: 0, slots: ['stone'] })
 
-      yield* $(blockInteractionSystem)
+      const soa: SoA<typeof playerTargetQuery> = {
+        entities: [entityId],
+        components: {
+          inputState: [inputState],
+          target: [target],
+          hotbar: [hotbar],
+        },
+      }
 
-      const worldState = yield* $(Ref.get(world))
-      const placedBlock = Record.get(worldState.globalState.editedBlocks.placed, '0,0,-1')
-      expect(Option.isSome(placedBlock)).toBe(true)
-    }).pipe(Effect.provide(TestLayer)))
+      const mockWorld: Partial<World> = {
+        querySoA: () => Effect.succeed(soa),
+        addArchetype: () => Effect.succeed(EntityId('3')),
+        removeEntity: () => Effect.succeed(undefined),
+        updateComponent: () => Effect.succeed(undefined),
+      }
 
-  it('should do nothing if hotbar selection is empty when placing', () =>
+      const worldLayer = Layer.succeed(World, mockWorld as World)
+
+      const world = yield* $(World)
+      const addArchetypeSpy = vi.spyOn(world, 'addArchetype')
+      const removeEntitySpy = vi.spyOn(world, 'removeEntity')
+      const updateComponentSpy = vi.spyOn(world, 'updateComponent')
+
+      yield* $(blockInteractionSystem.pipe(Effect.provide(worldLayer)))
+
+      assert.deepStrictEqual(addArchetypeSpy.mock.calls.length, 0)
+      assert.deepStrictEqual(removeEntitySpy.mock.calls.length, 0)
+      assert.deepStrictEqual(updateComponentSpy.mock.calls.length, 0)
+    }))
+
+  it.effect('should do nothing if target is not a block', () =>
     Effect.gen(function* ($) {
-      const { playerId } = yield* $(setupWorld)
-      const { world } = yield* $(WorldContext)
-      yield* $(
-        World.updateComponent(
-          playerId,
-          'inputState',
-          new InputState({ place: true, destroy: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
-        ),
-      )
-      yield* $(
-        World.updateComponent(
-          playerId,
-          'hotbar',
-          new Hotbar({
-            slots: [],
-            selectedIndex: 0,
-          }),
-        ),
-      )
-      const initialWorldState = yield* $(Ref.get(world))
+      const entityId = EntityId('1')
+      const target = new TargetNone()
+      const inputState = new InputState({ ...InputState.default, place: true, destroy: true })
+      const hotbar = new Hotbar({ selectedIndex: 0, slots: ['stone'] })
 
-      yield* $(blockInteractionSystem)
+      const soa: SoA<typeof playerTargetQuery> = {
+        entities: [entityId],
+        components: {
+          inputState: [inputState],
+          target: [target],
+          hotbar: [hotbar],
+        },
+      }
 
-      const finalWorldState = yield* $(Ref.get(world))
-      expect(finalWorldState).toEqual(initialWorldState)
-    }).pipe(Effect.provide(TestLayer)))
+      const mockWorld: Partial<World> = {
+        querySoA: () => Effect.succeed(soa),
+        addArchetype: () => Effect.succeed(EntityId('3')),
+        removeEntity: () => Effect.succeed(undefined),
+        updateComponent: () => Effect.succeed(undefined),
+      }
 
-  it('should do nothing if target is none', () =>
+      const worldLayer = Layer.succeed(World, mockWorld as World)
+
+      const world = yield* $(World)
+      const addArchetypeSpy = vi.spyOn(world, 'addArchetype')
+      const removeEntitySpy = vi.spyOn(world, 'removeEntity')
+      const updateComponentSpy = vi.spyOn(world, 'updateComponent')
+
+      yield* $(blockInteractionSystem.pipe(Effect.provide(worldLayer)))
+
+      assert.deepStrictEqual(addArchetypeSpy.mock.calls.length, 0)
+      assert.deepStrictEqual(removeEntitySpy.mock.calls.length, 0)
+      assert.deepStrictEqual(updateComponentSpy.mock.calls.length, 0)
+    }))
+
+  it.effect('should do nothing if trying to place air', () =>
     Effect.gen(function* ($) {
-      const { playerId } = yield* $(setupWorld)
-      const { world } = yield* $(WorldContext)
-      yield* $(World.updateComponent(playerId, 'target', createTargetNone()))
-      yield* $(
-        World.updateComponent(
-          playerId,
-          'inputState',
-          new InputState({ destroy: true, place: true, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
-        ),
-      )
-      const initialWorldState = yield* $(Ref.get(world))
+      const entityId = EntityId('1')
+      const targetEntityId = EntityId('2')
+      const targetPosition = new Position({ x: 1, y: 2, z: 3 })
+      const target = new TargetBlock({
+        _tag: 'block',
+        entityId: targetEntityId,
+        position: targetPosition,
+        face: [0, 1, 0],
+      })
+      const inputState = new InputState({ ...InputState.default, place: true })
+      const hotbar = new Hotbar({ selectedIndex: 0, slots: ['air'] })
 
-      yield* $(blockInteractionSystem)
+      const soa: SoA<typeof playerTargetQuery> = {
+        entities: [entityId],
+        components: {
+          inputState: [inputState],
+          target: [target],
+          hotbar: [hotbar],
+        },
+      }
 
-      const finalWorldState = yield* $(Ref.get(world))
-      expect(finalWorldState).toEqual(initialWorldState)
-    }).pipe(Effect.provide(TestLayer)))
+      const mockWorld: Partial<World> = {
+        querySoA: () => Effect.succeed(soa),
+        addArchetype: () => Effect.succeed(EntityId('3')),
+        removeEntity: () => Effect.succeed(undefined),
+        updateComponent: () => Effect.succeed(undefined),
+      }
 
-  it('should do nothing if no input is given', () =>
+      const worldLayer = Layer.succeed(World, mockWorld as World)
+
+      const world = yield* $(World)
+      const addArchetypeSpy = vi.spyOn(world, 'addArchetype')
+      const removeEntitySpy = vi.spyOn(world, 'removeEntity')
+      const updateComponentSpy = vi.spyOn(world, 'updateComponent')
+
+      yield* $(blockInteractionSystem.pipe(Effect.provide(worldLayer)))
+
+      assert.deepStrictEqual(addArchetypeSpy.mock.calls.length, 0)
+      assert.deepStrictEqual(removeEntitySpy.mock.calls.length, 0)
+      assert.deepStrictEqual(updateComponentSpy.mock.calls.length, 0)
+    }))
+
+  it.effect('should do nothing if hotbar slot is empty', () =>
     Effect.gen(function* ($) {
-      const { blockId } = yield* $(setupWorld)
-      const { world } = yield* $(WorldContext)
-      const initialWorldState = yield* $(Ref.get(world))
+      const entityId = EntityId('1')
+      const targetEntityId = EntityId('2')
+      const targetPosition = new Position({ x: 1, y: 2, z: 3 })
+      const target = new TargetBlock({
+        _tag: 'block',
+        entityId: targetEntityId,
+        position: targetPosition,
+        face: [0, 1, 0],
+      })
+      const inputState = new InputState({ ...InputState.default, place: true })
+      const hotbar = new Hotbar({ selectedIndex: 0, slots: [] })
 
-      yield* $(blockInteractionSystem)
+      const soa: SoA<typeof playerTargetQuery> = {
+        entities: [entityId],
+        components: {
+          inputState: [inputState],
+          target: [target],
+          hotbar: [hotbar],
+        },
+      }
 
-      const finalWorldState = yield* $(Ref.get(world))
-      const blockExists = yield* $(World.getComponentOption(blockId, 'position'))
+      const mockWorld: Partial<World> = {
+        querySoA: () => Effect.succeed(soa),
+        addArchetype: () => Effect.succeed(EntityId('3')),
+        removeEntity: () => Effect.succeed(undefined),
+        updateComponent: () => Effect.succeed(undefined),
+      }
 
-      expect(Option.isSome(blockExists)).toBe(true)
-      expect(finalWorldState).toEqual(initialWorldState)
-    }).pipe(Effect.provide(TestLayer)))
-})
+      const worldLayer = Layer.succeed(World, mockWorld as World)
 
-describe('blockInteractionSystem', () => {
-  it('should call destroy handler when destroy input is true', () =>
-    Effect.gen(function* ($) {
-      const { playerId } = yield* $(setupWorld)
-      yield* $(
-        World.updateComponent(
-          playerId,
-          'inputState',
-          new InputState({ destroy: true, place: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
-        ),
-      )
+      const world = yield* $(World)
+      const addArchetypeSpy = vi.spyOn(world, 'addArchetype')
+      const removeEntitySpy = vi.spyOn(world, 'removeEntity')
+      const updateComponentSpy = vi.spyOn(world, 'updateComponent')
 
-      yield* $(blockInteractionSystem)
+      yield* $(blockInteractionSystem.pipe(Effect.provide(worldLayer)))
 
-      const { world } = yield* $(WorldContext)
-      const worldState = yield* $(Ref.get(world))
-      const isBlockDestroyed = (worldState.globalState.editedBlocks.destroyed as HashSet.HashSet<string>).has('0,0,-2')
-      expect(isBlockDestroyed).toBe(true)
-    }).pipe(Effect.provide(TestLayer)))
-
-  it('should call place handler when place input is true', () =>
-    Effect.gen(function* ($) {
-      const { playerId } = yield* $(setupWorld)
-      const { world } = yield* $(WorldContext)
-      yield* $(
-        World.updateComponent(
-          playerId,
-          'inputState',
-          new InputState({ place: true, destroy: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
-        ),
-      )
-      yield* $(
-        World.updateComponent(
-          playerId,
-          'hotbar',
-          new Hotbar({
-            slots: ['stone'],
-            selectedIndex: 0,
-          }),
-        ),
-      )
-
-      yield* $(blockInteractionSystem)
-
-      const worldState = yield* $(Ref.get(world))
-      const placedBlock = Record.get(worldState.globalState.editedBlocks.placed, '0,0,-1')
-      expect(Option.isSome(placedBlock)).toBe(true)
-    }).pipe(Effect.provide(TestLayer)))
-
-  it('should do nothing if hotbar selection is empty when placing', () =>
-    Effect.gen(function* ($) {
-      const { playerId } = yield* $(setupWorld)
-      const { world } = yield* $(WorldContext)
-      yield* $(
-        World.updateComponent(
-          playerId,
-          'inputState',
-          new InputState({ place: true, destroy: false, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
-        ),
-      )
-      yield* $(
-        World.updateComponent(
-          playerId,
-          'hotbar',
-          new Hotbar({
-            slots: [],
-            selectedIndex: 0,
-          }),
-        ),
-      )
-      const initialWorldState = yield* $(Ref.get(world))
-
-      yield* $(blockInteractionSystem)
-
-      const finalWorldState = yield* $(Ref.get(world))
-      expect(finalWorldState).toEqual(initialWorldState)
-    }).pipe(Effect.provide(TestLayer)))
-
-  it('should do nothing if target is none', () =>
-    Effect.gen(function* ($) {
-      const { playerId } = yield* $(setupWorld)
-      const { world } = yield* $(WorldContext)
-      yield* $(World.updateComponent(playerId, 'target', createTargetNone()))
-      yield* $(
-        World.updateComponent(
-          playerId,
-          'inputState',
-          new InputState({ destroy: true, place: true, forward: false, backward: false, left: false, right: false, jump: false, sprint: false, isLocked: false }),
-        ),
-      )
-      const initialWorldState = yield* $(Ref.get(world))
-
-      yield* $(blockInteractionSystem)
-
-      const finalWorldState = yield* $(Ref.get(world))
-      expect(finalWorldState).toEqual(initialWorldState)
-    }).pipe(Effect.provide(TestLayer)))
-
-  it('should do nothing if no input is given', () =>
-    Effect.gen(function* ($) {
-      const { blockId } = yield* $(setupWorld)
-      const { world } = yield* $(WorldContext)
-      const initialWorldState = yield* $(Ref.get(world))
-
-      yield* $(blockInteractionSystem)
-
-      const finalWorldState = yield* $(Ref.get(world))
-      const blockExists = yield* $(World.getComponentOption(blockId, 'position'))
-
-      expect(Option.isSome(blockExists)).toBe(true)
-      expect(finalWorldState).toEqual(initialWorldState)
-    }).pipe(Effect.provide(TestLayer)))
+      assert.deepStrictEqual(addArchetypeSpy.mock.calls.length, 0)
+      assert.deepStrictEqual(removeEntitySpy.mock.calls.length, 0)
+      assert.deepStrictEqual(updateComponentSpy.mock.calls.length, 0)
+    }))
 })

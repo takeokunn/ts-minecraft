@@ -1,18 +1,38 @@
 import * as S from 'effect/Schema'
-import { describe, expect, it } from 'vitest'
+import { describe, assert, it } from '@effect/vitest'
+import * as fc from 'fast-check'
+import * as Arbitrary from '@effect/schema/Arbitrary'
 import { Vector3FloatSchema, Vector3IntSchema } from '../common'
+import { Effect } from 'effect'
 
 describe('Common Schemas', () => {
   describe('Vector Schemas', () => {
-    it.each([
-      { schema: Vector3FloatSchema, value: [1.1, 2.2, 3.3] as const },
-      { schema: Vector3IntSchema, value: [1, 2, 3] as const },
-    ])('should encode and decode $value', ({ schema, value }) => {
-      const encode = S.encodeSync(schema)
-      const decode = S.decodeSync(schema)
-      const encoded = encode(value)
-      const decoded = decode(encoded)
-      expect(decoded).toEqual(value)
-    })
+    it.effect('Vector3FloatSchema should be reversible', () =>
+      Effect.sync(() => {
+        const arbitrary = Arbitrary.make(Vector3FloatSchema)
+        fc.assert(
+          fc.property(arbitrary, (vec) => {
+            const encode = S.encodeSync(Vector3FloatSchema)
+            const decode = S.decodeSync(Vector3FloatSchema)
+            const decoded = decode(encode(vec))
+            assert.deepStrictEqual(decoded, vec)
+          }),
+        )
+      }),
+    )
+
+    it.effect('Vector3IntSchema should be reversible', () =>
+      Effect.sync(() => {
+        const arbitrary = Arbitrary.make(Vector3IntSchema)
+        fc.assert(
+          fc.property(arbitrary, (vec) => {
+            const encode = S.encodeSync(Vector3IntSchema)
+            const decode = S.decodeSync(Vector3IntSchema)
+            const decoded = decode(encode(vec))
+            assert.deepStrictEqual(decoded, vec)
+          }),
+        )
+      }),
+    )
   })
 })

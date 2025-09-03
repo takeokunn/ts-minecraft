@@ -1,94 +1,78 @@
-import { Effect, Layer, Option, match } from 'effect'
-import * as World from '@/domain/world'
-import { playerQuery } from '@/domain/queries'
-import { ThreeCameraService } from '../camera-three'
-import { MaterialManager, RaycastResultService, RendererService, RenderQueue, ThreeContextService } from '@/runtime/services'
-import { BufferGeometry, InstancedMesh, Mesh, NormalBufferAttributes } from 'three'
+import { Clock, MaterialManager, Renderer, RenderCommand } from '@/runtime/services'
+import { Effect, Layer, Match, Queue, Ref } from 'effect'
+import * as THREE from 'three'
+import { ThreeJsContextTag } from '../three-js-context'
 
+export const RendererLive = Layer.scoped(
+  Renderer,
+  Effect.gen(function* (_) {
+    const threeJsContext = yield* _(ThreeJsContextTag)
+    const materialManager = yield* _(MaterialManager)
+    const clock = yield* _(Clock)
 
-const makeRenderer = Effect.gen(function* (_) {
-  const context = yield* _(ThreeContextService)
-  const cameraService = yield* _(ThreeCameraService)
-  const renderQueue = yield* _(RenderQueue)
-  const raycastResult = yield* _(RaycastResultService)
-  const materialManager = yield* _(MaterialManager)
+    const chunkMeshes = yield* _(Ref.make(new Map<string, THREE.Mesh>()))
+    const renderQueue = yield* _(Queue.unbounded<RenderCommand>())
 
-  const handleUpsertChunk = (geometry: BufferGeometry<NormalBufferAttributes>) =>
-    Effect.gen(function* (_) {
-      const material = yield* _(materialManager.get('chunk'))
-      const mesh = new Mesh(geometry, material)
-      context.scene.add(mesh)
-      context.chunkMeshes.set(`${geometry.uuid}`, mesh)
-    })
+    const processCommand = (command: RenderCommand) =>
+      Match.value(command).pipe(
+        Match.when({ type: 'ADD_CHUNK' }, ({ chunkX, chunkZ, positions, normals, uvs, indices }) =>
+          Effect.gen(function* (_) {
+            const material = yield* _(materialManager.getMaterial('chunk'))
+            const geometry = new THREE.BufferGeometry()
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+            geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
+            geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
+            geometry.setIndex(Array.from(indices))
+            const mesh = new THREE.Mesh(geometry, material)
+            mesh.position.set(chunkX * 16, 0, chunkZ * 16)
+            threeJsContext.scene.add(mesh)
+            yield* _(Ref.update(chunkMeshes, (map) => map.set(`${chunkX},${chunkZ}`, mesh)))
+          }),
+        ),
+        Match.when({ type: 'REMOVE_CHUNK' }, ({ chunkX, chunkZ }) =>
+          Effect.gen(function* (_) {
+            const key = `${chunkX},${chunkZ}`
+            const mesh = yield* _(Ref.get(chunkMeshes).pipe(Effect.map((map) => map.get(key))))
+            if (mesh) {
+              mesh.geometry.dispose()
+              threeJsContext.scene.remove(mesh)
+              yield* _(Ref.update(chunkMeshes, (map) => {
+                map.delete(key)
+                return map
+              }))
+            }
+          }),
+        ),
+        Match.exhaustive,
+      )
 
-  const handleRemoveChunk = (chunkId: string) =>
-    Effect.sync(() => {
-      const mesh = context.chunkMeshes.get(chunkId)
-      if (mesh) {
-        mesh.geometry.dispose()
-        context.scene.remove(mesh)
-        context.chunkMeshes.delete(chunkId)
-      }
-    })
-
-  const processRenderQueue = Effect.gen(function* (_) {
-    const commands = renderQueue.splice(0, renderQueue.length)
     yield* _(
-      Effect.forEach(
-        commands,
-        (command) =>
-          match(command)
-            .with({ type: 'UpsertChunk' }, ({ mesh }) => handleUpsertChunk(mesh as any))
-            .with({ type: 'RemoveChunk' }, ({ chunkId }) => handleRemoveChunk(chunkId))
-            .exhaustive(),
-        { discard: true },
+      Queue.take(renderQueue).pipe(
+        Effect.flatMap((command) =>
+          processCommand(command).pipe(
+            Effect.catchAll((error) => Effect.logError('Error processing render command', error)),
+          ),
+        ),
+        Effect.forever,
+        Effect.forkScoped,
       ),
     )
-  })
 
-  const syncCameraToWorld = Effect.gen(function* (_) {
-    const players = yield* _(World.query(playerQuery))
-    const player = Option.fromNullable(players[0])
-    if (Option.isSome(player)) {
-      yield* _(cameraService.syncToComponent(player.value))
-    }
-  })
-
-  const updateHighlight = Effect.gen(function* (_) {
-    const result = yield* _(Ref.get(raycastResult))
-    const position = yield* _(
-      Option.match(result, {
-        onSome: (result) => World.getComponentOption(result.entityId, 'position'),
-        onNone: () => Effect.succeed(Option.none()),
-      }),
-    )
-
-    if (Option.isSome(position)) {
-      context.highlightMesh.position.set(position.value.x, position.value.y, position.value.z)
-      context.highlightMesh.visible = true
-    } else {
-      context.highlightMesh.visible = false
-    }
-  })
-
-  const updateInstancedMeshes = Effect.sync(() => {
-    context.instancedMeshes.forEach(() => {
-      // This part needs to be implemented based on how instanced meshes are used.
-      // For now, it's a placeholder.
+    const render = Effect.sync(() => {
+      threeJsContext.renderer.render(threeJsContext.scene, threeJsContext.camera)
     })
-  })
 
-  const renderScene = Effect.sync(() => {
-    context.renderer.render(context.scene, cameraService.camera)
-  })
+    yield* _(clock.onFrame(() => render))
 
-  return {
-    processRenderQueue,
-    syncCameraToWorld,
-    updateHighlight,
-    updateInstancedMeshes,
-    renderScene,
-  }
-})
+    const updateCamera = (position: THREE.Vector3, rotation: THREE.Euler) =>
+      Effect.sync(() => {
+        threeJsContext.camera.position.copy(position)
+        threeJsContext.camera.rotation.copy(rotation)
+      })
 
-export const RendererLive = Layer.effect(RendererService, makeRenderer)
+    return Renderer.of({
+      renderQueue,
+      updateCamera,
+    })
+  }),
+)

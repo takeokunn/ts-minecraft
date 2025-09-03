@@ -1,114 +1,70 @@
+import { describe, it, assert } from '@effect/vitest'
 import { Effect } from 'effect'
-import { describe, expect, it } from 'vitest'
-import { ArchetypeBuilder, createArchetype, hasComponents } from '../archetypes'
-import {
-  Camera,
-  CameraState,
-  Chunk,
-  Collider,
-  Gravity,
-  Hotbar,
-  InputState,
-  Player,
-  Position,
-  Renderable,
-  Target,
-  TargetBlockComponent,
-  TerrainBlock,
-  Velocity,
-} from '../components'
+import * as S from 'effect/Schema'
+console.log(S)
+import * as Arbitrary from 'effect/Arbitrary'
+import { blockTypeNames } from '../block-types'
+import { hotbarSlots } from '../block'
+import { CameraState, Position } from '../components'
+import { BLOCK_COLLIDER, GRAVITY, PLAYER_COLLIDER } from '../world-constants'
+import { createArchetype, createInputState } from '../archetypes'
 
-describe('Archetypes', () => {
-  describe('createArchetype', () => {
-    it('should create a player archetype', async () => {
-      const builder: ArchetypeBuilder = {
-        type: 'player',
-        pos: new Position({ x: 1, y: 2, z: 3 }),
-      }
-      const archetype = await Effect.runPromise(createArchetype(builder))
-      expect(archetype.player).toBeInstanceOf(Player)
-      expect(archetype.position).toEqual(new Position({ x: 1, y: 2, z: 3 }))
-      expect(archetype.velocity).toBeInstanceOf(Velocity)
-      expect(archetype.gravity).toBeInstanceOf(Gravity)
-      expect(archetype.cameraState).toBeInstanceOf(CameraState)
-      expect(archetype.inputState).toBeInstanceOf(InputState)
-      expect(archetype.collider).toBeInstanceOf(Collider)
-      expect(archetype.hotbar).toBeInstanceOf(Hotbar)
-      expect(archetype.target).toBeInstanceOf(Object)
-    })
+const positionArbitrary = Arbitrary.make(Position)
+const cameraStateArbitrary = Arbitrary.make(CameraState)
+const blockTypeArbitrary = S.Literal(...blockTypeNames).pipe(Arbitrary.make)
 
-    it('should create a block archetype', async () => {
-      const builder: ArchetypeBuilder = {
-        type: 'block',
-        pos: new Position({ x: 4, y: 5, z: 6 }),
-        blockType: 'grass',
-      }
-      const archetype = await Effect.runPromise(createArchetype(builder))
-      expect(archetype.position).toEqual(new Position({ x: 4, y: 5, z: 6 }))
-      expect(archetype.renderable).toBeInstanceOf(Renderable)
-      expect(archetype.collider).toBeInstanceOf(Collider)
-      expect(archetype.terrainBlock).toBeInstanceOf(TerrainBlock)
-    })
+describe('createArchetype', () => {
+  describe('player', () => {
+    it.prop('should create a player archetype with given position and cameraState', [positionArbitrary, cameraStateArbitrary], (pos, cameraState) =>
+      Effect.gen(function* (_) {
+        const archetype = yield* _(
+          createArchetype({
+            type: 'player',
+            pos,
+            cameraState,
+          }),
+        )
 
-    it('should create a camera archetype', async () => {
-      const builder: ArchetypeBuilder = {
-        type: 'camera',
-        pos: new Position({ x: 7, y: 8, z: 9 }),
-      }
-      const archetype = await Effect.runPromise(createArchetype(builder))
-      expect(archetype.camera).toBeInstanceOf(Camera)
-      expect(archetype.position).toEqual(new Position({ x: 7, y: 8, z: 9 }))
-    })
+        const inputState = yield* _(createInputState())
 
-    it('should create a target block archetype', async () => {
-      const builder: ArchetypeBuilder = {
-        type: 'targetBlock',
-        pos: new Position({ x: 10, y: 11, z: 12 }),
-      }
-      const archetype = await Effect.runPromise(createArchetype(builder))
-      expect(archetype.position).toEqual(new Position({ x: 10, y: 11, z: 12 }))
-      expect(archetype.targetBlock).toBeInstanceOf(TargetBlockComponent)
-    })
+        assert.deepStrictEqual(archetype.player, { isGrounded: false })
+        assert.deepStrictEqual(archetype.position, pos)
+        assert.deepStrictEqual(archetype.velocity, { dx: 0, dy: 0, dz: 0 })
+        assert.deepStrictEqual(archetype.gravity, { value: GRAVITY })
+        assert.deepStrictEqual(archetype.cameraState, cameraState)
+        assert.deepStrictEqual(archetype.inputState, inputState)
+        const playerCollider = yield* _(PLAYER_COLLIDER)
+        assert.deepStrictEqual(archetype.collider, playerCollider)
+        assert.deepStrictEqual(archetype.hotbar, { slots: hotbarSlots, selectedIndex: 0 })
+        assert.deepStrictEqual(archetype.target, { _tag: 'none' })
+      }),
+    )
 
-    it('should create a chunk archetype', async () => {
-      const builder: ArchetypeBuilder = {
-        type: 'chunk',
-        chunkX: 1,
-        chunkZ: 2,
-      }
-      const archetype = await Effect.runPromise(createArchetype(builder))
-      expect(archetype.chunk).toBeInstanceOf(Chunk)
-    })
+    it.prop('should create a player archetype with default cameraState if not provided', [positionArbitrary], (pos) =>
+      Effect.gen(function* (_) {
+        const archetype = yield* _(createArchetype({ type: 'player', pos, cameraState: undefined }))
+        assert.deepStrictEqual(archetype.cameraState, { pitch: 0, yaw: 0 })
+      }),
+    )
   })
 
-  describe('hasComponents', () => {
-    const archetype = {
-      player: new Player({ isGrounded: false }),
-      position: new Position({ x: 1, y: 2, z: 3 }),
-      velocity: new Velocity({ dx: 0, dy: 0, dz: 0 }),
-    }
+  describe('block', () => {
+    it.prop('should create a block archetype', [positionArbitrary, blockTypeArbitrary], (pos, blockType) =>
+      Effect.gen(function* (_) {
+        const archetype = yield* _(
+          createArchetype({
+            type: 'block',
+            pos,
+            blockType,
+          }),
+        )
 
-    it('should return true if the archetype has all specified components', () => {
-      expect(hasComponents(archetype, ['player', 'position'])).toBe(true)
-    })
-
-    it('should return false if the archetype is missing one or more specified components', () => {
-      expect(hasComponents(archetype, ['player', 'renderable'])).toBe(false)
-    })
-
-    it('should return true for an empty component list', () => {
-      expect(hasComponents(archetype, [])).toBe(true)
-    })
-
-    it('should correctly narrow the type of the archetype', () => {
-      if (hasComponents(archetype, ['player', 'position', 'velocity'])) {
-        expect(archetype.player).toBeDefined()
-        expect(archetype.position).toBeDefined()
-        expect(archetype.velocity).toBeDefined()
-      } else {
-        // This block should not be reached
-        expect(true).toBe(false)
-      }
-    })
+        assert.deepStrictEqual(archetype.position, pos)
+        assert.deepStrictEqual(archetype.renderable, { geometry: 'box', blockType })
+        const blockCollider = yield* _(BLOCK_COLLIDER)
+        assert.deepStrictEqual(archetype.collider, blockCollider)
+        assert.deepStrictEqual(archetype.terrainBlock, {})
+      }),
+    )
   })
 })

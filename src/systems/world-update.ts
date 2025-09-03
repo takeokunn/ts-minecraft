@@ -1,52 +1,54 @@
-import { Effect, Option } from 'effect'
+import { Effect } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
-import { ChunkDataQueue, RenderQueue } from '@/runtime/services'
-import * as World from '@/domain/world'
+import { ComputationWorker, Renderer, World } from '@/runtime/services'
+import { Float } from '@/domain/common'
+import { Position } from '@/domain/components'
 
-export const worldUpdateSystem = Effect.gen(function* (_) {
-  const chunkDataQueue = yield* _(ChunkDataQueue)
-  const renderQueue = yield* _(RenderQueue)
+export const worldUpdateSystem = Effect.gen(function* ($) {
+  const world = yield* $(World)
+  const renderer = yield* $(Renderer)
+  const worker = yield* $(ComputationWorker)
 
-  const chunkResultOption = Option.fromNullable(chunkDataQueue.shift())
+  yield* $(
+    worker.onMessage((message) =>
+      Effect.gen(function* ($) {
+        if (message.type === 'chunkGenerated') {
+          const { blocks, mesh, chunkX, chunkZ } = message
 
-  return yield* _(
-    Option.match(chunkResultOption, {
-      onNone: () => Effect.void,
-      onSome: ({ blocks, mesh, chunkX, chunkZ }) =>
-        Effect.gen(function* (_) {
-          const chunkArchetype = createArchetype({
-            type: 'chunk',
-            chunkX,
-            chunkZ,
-          })
-          const chunkEntityId = yield* _(World.addArchetype(chunkArchetype))
-
-          yield* _(
-            Effect.forEach(
-              blocks,
-              (block) => {
-                const blockArchetype = createArchetype({
+          // Create entities for each block in the chunk
+          const blockArchetypes = yield* $(
+            Effect.all(
+              blocks.map((block: any) =>
+                createArchetype({
                   type: 'block',
-                  pos: block.position,
+                  pos: new Position({
+                    x: block.position[0] as Float,
+                    y: block.position[1] as Float,
+                    z: block.position[2] as Float,
+                  }),
                   blockType: block.blockType,
-                })
-                return World.addArchetype(blockArchetype)
-              },
-              { discard: true },
+                }),
+              ),
             ),
           )
+          yield* $(Effect.forEach(blockArchetypes, (archetype) => world.addArchetype(archetype), { discard: true }))
 
+          // Add the chunk mesh to the renderer
           if (mesh.indices.length > 0) {
-            renderQueue.push({
-              type: 'UpsertChunk',
-              chunkX,
-              chunkZ,
-              mesh: mesh,
-            })
+            yield* $(
+              renderer.renderQueue.offer({
+                type: 'ADD_CHUNK',
+                chunkX,
+                chunkZ,
+                positions: mesh.positions,
+                normals: mesh.normals,
+                uvs: mesh.uvs,
+                indices: mesh.indices,
+              }),
+            )
           }
-
-          yield* _(World.recordLoadedChunk(chunkX, chunkZ, chunkEntityId))
-        }),
-    }),
+        }
+      }),
+    ),
   )
-}).pipe(Effect.catchAllCause((cause) => Effect.logError('An error occurred in worldUpdateSystem', cause)))
+})

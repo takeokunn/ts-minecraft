@@ -1,14 +1,22 @@
-import { Schema as S } from 'effect'
+import * as S from 'effect/Schema'
+import * as Arbitrary from 'effect/Arbitrary'
+import { Effect } from 'effect'
 
 /**
  * A reusable schema for a floating-point number.
  */
-export const Float = S.Number
+export const Float = S.Number.pipe(S.brand('Float'))
+export type Float = S.Schema.Type<typeof Float>
+export const FloatArbitrary = Arbitrary.make(Float)
+export const toFloat = (n: number): Effect.Effect<Float> => S.decode(Float)(n)
 
 /**
  * A reusable schema for an integer.
  */
-export const Int = S.Number.pipe(S.int())
+export const Int = S.Number.pipe(S.int(), S.brand('Int'))
+export type Int = S.Schema.Type<typeof Int>
+export const IntArbitrary = Arbitrary.make(Int)
+export const toInt = (n: number): Effect.Effect<Int> => S.decode(Int)(n)
 
 /**
  * A schema for a 3D vector with floating-point coordinates.

@@ -1,60 +1,113 @@
+import { describe, it, expect, vi, beforeEach } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
-import { describe, it, expect } from '@effect/vitest'
-import { createArchetype } from '@/domain/archetypes'
-import { playerColliderQuery } from '@/domain/queries'
-import { SpatialGrid } from '@/infrastructure/spatial-grid'
-import { SpatialGridService } from '@/runtime/services'
-import * as World from '@/domain/world'
-import { provideTestLayer } from 'test/utils'
 import { collisionSystem } from '../collision'
-import { AABB } from '@/domain/geometry'
+import { SpatialGrid, World } from '@/runtime/services'
 import { EntityId } from '@/domain/entity'
+import { Collider, Player, Position, Velocity } from '@/domain/components'
+import { SoA } from '@/domain/world'
+import { playerColliderQuery, positionColliderQuery } from '@/domain/queries'
+import { AABB } from '@/domain/geometry'
+import { Box3 } from 'three'
 
-class MockSpatialGrid implements SpatialGrid {
-  constructor(private entities: EntityId[] = []) {}
-  clear = Effect.void
-  register = (_entityId: EntityId, _aabb: AABB) => Effect.void
-  query = (_aabb: AABB) => Effect.succeed(this.entities)
+const mockWorld: Partial<World> = {
+  querySoA: vi.fn(),
+  updateComponent: vi.fn(),
 }
 
-const setupWorld = (playerVelocity: { dx: number; dy: number; dz: number }, blocks: { x: number; y: number; z: number }[]) =>
-  Effect.gen(function* ($) {
-    const playerArchetype = createArchetype({
-      type: 'player',
-      pos: { x: 0, y: 1.6, z: 0 },
-    })
-    const playerId = yield* $(World.addArchetype(playerArchetype))
-    yield* $(World.updateComponent(playerId, 'velocity', playerVelocity))
+const mockSpatialGrid: Partial<SpatialGrid> = {
+  query: vi.fn(),
+}
 
-    const blockIds: EntityId[] = []
-    for (const pos of blocks) {
-      const blockArchetype = createArchetype({
-        type: 'block',
-        pos,
-        blockType: 'dirt',
-      })
-      const blockId = yield* $(World.addArchetype(blockArchetype))
-      blockIds.push(blockId)
-    }
-
-    return { playerId, blockIds }
-  })
+const worldLayer = Layer.succeed(World, mockWorld as World)
+const spatialGridLayer = Layer.succeed(SpatialGrid, mockSpatialGrid as SpatialGrid)
+const testLayer = worldLayer.pipe(Layer.provide(spatialGridLayer))
 
 describe('collisionSystem', () => {
-  it('should resolve collision and set isGrounded to true', () =>
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it.effect('should resolve collisions and update components', () =>
     Effect.gen(function* ($) {
-      const { playerId, blockIds } = yield* $(setupWorld({ dx: 0, dy: -1, dz: 0 }, [{ x: 0, y: 0, z: 0 }]))
-      const mockSpatialGrid = new MockSpatialGrid([playerId, ...blockIds])
-      const MockSpatialGridLayer = Layer.succeed(SpatialGridService, mockSpatialGrid)
+      const playerEntityId = EntityId('player')
+      const playerPosition = new Position({ x: 0, y: 1, z: 0 })
+      const playerVelocity = new Velocity({ dx: 0, dy: -1, dz: 0 })
+      const playerCollider = new Collider({ width: 1, height: 2, depth: 1 })
+      const player = new Player({ isGrounded: false })
 
-      yield* $(Effect.provide(collisionSystem, MockSpatialGridLayer))
+      const blockEntityId = EntityId('block')
+      const blockPosition = new Position({ x: 0, y: 0, z: 0 })
+      const blockCollider = new Collider({ width: 1, height: 1, depth: 1 })
 
-      const player = (yield* $(World.query(playerColliderQuery)))[0]
-      if (player) {
-        expect(player.player.isGrounded).toBe(true)
-        expect(player.position.y).toBeCloseTo(1.5, 2)
-      } else {
-        expect(player).toBeDefined()
+      const playerSoa: SoA<typeof playerColliderQuery> = {
+        entities: [playerEntityId],
+        components: {
+          player: [player],
+          position: [playerPosition],
+          velocity: [playerVelocity],
+          collider: [playerCollider],
+        },
       }
-    }).pipe(Effect.provide(provideTestLayer())))
+      const colliderSoa: SoA<typeof positionColliderQuery> = {
+        entities: [blockEntityId],
+        components: {
+          position: [blockPosition],
+          collider: [blockCollider],
+        },
+      }
+
+      vi.spyOn(mockWorld, 'querySoA').mockImplementation((query) => {
+        if (query === playerColliderQuery) {
+          return Effect.succeed(playerSoa)
+        }
+        if (query === positionColliderQuery) {
+          return Effect.succeed(colliderSoa)
+        }
+        return Effect.fail(new Error('unexpected query'))
+      })
+      vi.spyOn(mockSpatialGrid, 'query').mockReturnValue(Effect.succeed([blockEntityId]))
+      vi.spyOn(mockWorld, 'updateComponent').mockReturnValue(Effect.succeed(undefined))
+
+      yield* $(collisionSystem)
+
+      expect(mockWorld.updateComponent).toHaveBeenCalledWith(
+        playerEntityId,
+        'position',
+        new Position({ x: 0, y: 1, z: 0 }),
+      )
+      expect(mockWorld.updateComponent).toHaveBeenCalledWith(
+        playerEntityId,
+        'velocity',
+        new Velocity({ dx: 0, dy: 0, dz: 0 }),
+      )
+      expect(mockWorld.updateComponent).toHaveBeenCalledWith(
+        playerEntityId,
+        'player',
+        new Player({ isGrounded: true }),
+      )
+    }).pipe(Effect.provide(testLayer)))
+
+  it.effect('should not do anything if there are no players', () =>
+    Effect.gen(function* ($) {
+      const playerSoa: SoA<typeof playerColliderQuery> = {
+        entities: [],
+        components: {
+          player: [],
+          position: [],
+          velocity: [],
+          collider: [],
+        },
+      }
+
+      vi.spyOn(mockWorld, 'querySoA').mockImplementation((query) => {
+        if (query === playerColliderQuery) {
+          return Effect.succeed(playerSoa)
+        }
+        return Effect.succeed({ entities: [], components: {} })
+      })
+
+      yield* $(collisionSystem)
+
+      expect(mockSpatialGrid.query).not.toHaveBeenCalled()
+    }).pipe(Effect.provide(testLayer)))
 })

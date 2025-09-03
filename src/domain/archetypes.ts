@@ -1,15 +1,15 @@
-import { Schema as S, Match, Effect } from 'effect'
-import { BlockTypeSchema, hotbarSlots } from './block'
+import { Effect, Match } from 'effect'
+import * as S from 'effect/Schema'
+import { hotbarSlots } from './block'
+import { BlockTypeSchema } from './block-types'
 import {
   Camera,
   CameraState,
   Chunk,
-  Collider,
-  type ComponentName,
   type Components,
-  createInputState,
   Gravity,
   Hotbar,
+  InputState,
   Player,
   Position,
   Renderable,
@@ -19,62 +19,65 @@ import {
   Velocity,
 } from './components'
 import { Int } from './common'
+import {
+  BLOCK_COLLIDER,
+  GRAVITY,
+  PLAYER_COLLIDER,
+} from './world-constants'
 
-// --- Constants ---
-
-const PLAYER_WIDTH = 0.6
-const PLAYER_HEIGHT = 1.8
-const PLAYER_DEPTH = 0.6
-const PLAYER_GRAVITY = 0.01
-const BLOCK_SIZE = 1
-
-// --- Schema ---
-
-const PlayerArchetypeBuilderSchema = S.Struct({
+const PlayerArchetypeBuilder = S.Struct({
   type: S.Literal('player'),
   pos: Position,
-  cameraState: S.optional(CameraState),
+  cameraState: S.withDefault(S.optional(CameraState), () => ({ pitch: 0, yaw: 0 })),
 })
 
-const BlockArchetypeBuilderSchema = S.Struct({
+const BlockArchetypeBuilder = S.Struct({
   type: S.Literal('block'),
   pos: Position,
   blockType: BlockTypeSchema,
 })
 
-const CameraArchetypeBuilderSchema = S.Struct({
+const CameraArchetypeBuilder = S.Struct({
   type: S.Literal('camera'),
   pos: Position,
 })
 
-const TargetBlockArchetypeBuilderSchema = S.Struct({
+const TargetBlockArchetypeBuilder = S.Struct({
   type: S.Literal('targetBlock'),
   pos: Position,
 })
 
-const ChunkArchetypeBuilderSchema = S.Struct({
+const ChunkArchetypeBuilder = S.Struct({
   type: S.Literal('chunk'),
   chunkX: Int,
   chunkZ: Int,
 })
 
-export const ArchetypeBuilderSchema = S.Union(
-  PlayerArchetypeBuilderSchema,
-  BlockArchetypeBuilderSchema,
-  CameraArchetypeBuilderSchema,
-  TargetBlockArchetypeBuilderSchema,
-  ChunkArchetypeBuilderSchema,
+const ArchetypeBuilder = S.Union(
+  PlayerArchetypeBuilder,
+  BlockArchetypeBuilder,
+  CameraArchetypeBuilder,
+  TargetBlockArchetypeBuilder,
+  ChunkArchetypeBuilder,
 )
-export type ArchetypeBuilder = S.Schema.Type<typeof ArchetypeBuilderSchema>
-
-// --- Types ---
+type ArchetypeBuilder = S.Schema.Type<typeof ArchetypeBuilder>
 
 /**
  * An archetype is a template for creating an entity, defined as a partial set of components.
  */
 export type Archetype = Partial<Components>
 
-// --- Public API ---
+export const createInputState = (): Effect.Effect<InputState> => Effect.succeed({
+  forward: false,
+  backward: false,
+  left: false,
+  right: false,
+  jump: false,
+  sprint: false,
+  place: false,
+  destroy: false,
+  isLocked: false,
+})
 
 /**
  * Creates an archetype object based on the provided builder.
@@ -85,57 +88,51 @@ export const createArchetype = (builder: ArchetypeBuilder): Effect.Effect<Archet
   return Effect.gen(function* (_) {
     const inputState = yield* _(createInputState())
 
-    return Match.value(builder).pipe(
-      Match.when({ type: 'player' }, ({ pos, cameraState }) => ({
-        player: new Player({ isGrounded: false }),
-        position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
-        velocity: new Velocity({ dx: 0, dy: 0, dz: 0 }),
-        gravity: new Gravity({ value: PLAYER_GRAVITY }),
-        cameraState: cameraState ?? new CameraState({ pitch: 0, yaw: 0 }),
-        inputState: inputState,
-        collider: new Collider({
-          width: PLAYER_WIDTH,
-          height: PLAYER_HEIGHT,
-          depth: PLAYER_DEPTH,
-        }),
-        hotbar: new Hotbar({ slots: hotbarSlots, selectedIndex: 0 }),
-        target: new TargetNone({ _tag: 'none' }),
-      })),
-      Match.when({ type: 'block' }, ({ pos, blockType }) => ({
-        position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
-        renderable: new Renderable({ geometry: 'box', blockType }),
-        collider: new Collider({
-          width: BLOCK_SIZE,
-          height: BLOCK_SIZE,
-          depth: BLOCK_SIZE,
-        }),
-        terrainBlock: new TerrainBlock({}),
-      })),
-      Match.when({ type: 'camera' }, ({ pos }) => ({
-        camera: new Camera({
-          position: new Position(pos),
-          damping: 0.1,
-        }),
-        position: new Position(pos),
-      })),
-      Match.when({ type: 'targetBlock' }, ({ pos }) => ({
-        position: new Position({ x: pos.x, y: pos.y, z: pos.z }),
-        targetBlock: new TargetBlockComponent({}),
-      })),
-      Match.when({ type: 'chunk' }, ({ chunkX, chunkZ }) => ({
-        chunk: new Chunk({ chunkX, chunkZ, blocks: [] }),
-      })),
-      Match.exhaustive,
+    return yield* _(
+      Match.value(builder).pipe(
+        Match.when({ type: 'player' }, ({ pos, cameraState }) =>
+          Effect.all({
+            player: Effect.succeed({ isGrounded: false } as Player),
+            position: Effect.succeed(pos),
+            velocity: Effect.succeed({ dx: 0, dy: 0, dz: 0 } as Velocity),
+            gravity: Effect.succeed({ value: GRAVITY } as Gravity),
+            cameraState: Effect.succeed(cameraState),
+            inputState: Effect.succeed(inputState),
+            collider: PLAYER_COLLIDER,
+            hotbar: Effect.succeed({ slots: hotbarSlots, selectedIndex: 0 } as Hotbar),
+            target: Effect.succeed({ _tag: 'none' } as TargetNone),
+          }),
+        ),
+        Match.when({ type: 'block' }, ({ pos, blockType }) =>
+          Effect.all({
+            position: Effect.succeed(pos),
+            renderable: Effect.succeed({ geometry: 'box', blockType } as Renderable),
+            collider: BLOCK_COLLIDER,
+            terrainBlock: Effect.succeed({} as TerrainBlock),
+          }),
+        ),
+        Match.when({ type: 'camera' }, ({ pos }) =>
+          Effect.all({
+            camera: Effect.succeed({
+              position: pos,
+              damping: 0.1,
+            } as Camera),
+            position: Effect.succeed(pos),
+          }),
+        ),
+        Match.when({ type: 'targetBlock' }, ({ pos }) =>
+          Effect.all({
+            position: Effect.succeed(pos),
+            targetBlock: Effect.succeed({} as TargetBlockComponent),
+          }),
+        ),
+        Match.when({ type: 'chunk' }, ({ chunkX, chunkZ }) =>
+          Effect.all({
+            chunk: Effect.succeed({ chunkX, chunkZ, blocks: [] } as Chunk),
+          }),
+        ),
+        Match.exhaustive,
+      ),
     )
   })
-}
-
-/**
- * A type guard that checks if an archetype has a given set of components.
- * @param archetype - The archetype to check.
- * @param components - An array of component names to check for.
- * @returns True if the archetype has all the specified components, false otherwise.
- */
-export function hasComponents<T extends ReadonlyArray<ComponentName>>(archetype: Archetype, components: T): archetype is Archetype & { readonly [K in T[number]]: Components[K] } {
-  return components.every((component) => component in archetype)
 }

@@ -1,55 +1,138 @@
+import { describe, it, expect, vi, beforeEach, assert } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
-import { describe, it, expect } from 'vitest'
-import { createArchetype } from '@/domain/archetypes'
-import { CameraState } from '@/domain/components'
-import { InputManagerService } from '@/runtime/services'
-import * as World from '@/domain/world'
-import { provideTestLayer } from 'test/utils'
 import { cameraControlSystem } from '../camera-control'
+import { InputManager, World } from '@/runtime/services'
+import { EntityId } from '@/domain/entity'
+import { CameraState } from '@/domain/components'
+import { clampPitch } from '@/domain/camera-logic'
+import { Float } from '@/domain/common'
+import { SoA } from '@/domain/world'
+import { playerQuery } from '@/domain/queries'
 
-const MockInputManager = (dx: number, dy: number) =>
-  Layer.succeed(
-    InputManagerService,
-    InputManagerService.of({
-      getMouseDelta: Effect.succeed({ dx, dy }),
-      getState: Effect.succeed({ keyboard: new Set(), isLocked: true, mouse: { dx, dy } }),
-      registerListeners: () => Effect.void,
-      cleanup: Effect.void,
-    }),
-  )
-
-const setupWorld = (camera: Partial<CameraState>) =>
-  Effect.gen(function* ($) {
-    const playerArchetype = createArchetype({
-      type: 'player',
-      pos: { x: 0, y: 0, z: 0 },
-    })
-    const playerId = yield* $(World.addArchetype(playerArchetype))
-    yield* $(World.updateComponent(playerId, 'cameraState', new CameraState({ pitch: 0, yaw: 0, ...camera })))
-    return { playerId }
-  })
+const MOUSE_SENSITIVITY = 0.002
 
 describe('cameraControlSystem', () => {
-  it('should update camera state based on mouse delta', () =>
-    Effect.gen(function* ($) {
-      const { playerId } = yield* $(setupWorld({ pitch: 0, yaw: 0 }))
-      const initialCameraState = yield* $(World.getComponent(playerId, 'cameraState'))
+  it.effect('should update camera state for multiple entities when mouse moves', () =>
+    Effect.gen(function* (_) {
+      const entityId1 = EntityId('1')
+      const entityId2 = EntityId('2')
+      const initialPitch1 = Float(0.5)
+      const initialYaw1 = Float(1.0)
+      const initialPitch2 = Float(0.2)
+      const initialYaw2 = Float(0.8)
+      const cameraState1 = new CameraState({ pitch: initialPitch1, yaw: initialYaw1 })
+      const cameraState2 = new CameraState({ pitch: initialPitch2, yaw: initialYaw2 })
+      const mouseDelta = { dx: 10, dy: 20 }
 
-      yield* $(cameraControlSystem)
+      const soa: SoA<typeof playerQuery> = {
+        entities: [entityId1, entityId2],
+        components: {
+          position: [],
+          velocity: [],
+          player: [],
+          inputState: [],
+          cameraState: [cameraState1, cameraState2],
+          hotbar: [],
+        },
+      }
 
-      const updatedCameraState = yield* $(World.getComponent(playerId, 'cameraState'))
+      const mockWorld: Partial<World> = {
+        querySoA: () => Effect.succeed(soa),
+        updateComponent: () => Effect.succeed(undefined),
+      }
 
-      expect(updatedCameraState).not.toEqual(initialCameraState)
-    }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(MockInputManager(100, 200))))))
+      const mockInputManager: Partial<InputManager> = {
+        getMouseState: () => Effect.succeed(mouseDelta),
+      }
 
-  it('should not update camera state if mouse has not moved', () =>
-    Effect.gen(function* ($) {
-      const { playerId } = yield* $(setupWorld({ pitch: 0, yaw: 0 }))
-      const initialCameraState = yield* $(World.getComponent(playerId, 'cameraState'))
+      const worldLayer = Layer.succeed(World, mockWorld as World)
+      const inputManagerLayer = Layer.succeed(InputManager, mockInputManager as InputManager)
+      const testLayer = worldLayer.pipe(Layer.provide(inputManagerLayer))
 
-      yield* $(cameraControlSystem)
+      const world = yield* _(World)
+      const updateComponentSpy = vi.spyOn(world, 'updateComponent')
 
-      const updatedCameraState = yield* $(World.getComponent(playerId, 'cameraState'))
-      expect(updatedCameraState).toEqual(initialCameraState)
-    }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(MockInputManager(0, 0))))))
+      yield* _(cameraControlSystem.pipe(Effect.provide(testLayer)))
+
+      const deltaPitch = -mouseDelta.dy * MOUSE_SENSITIVITY
+      const deltaYaw = -mouseDelta.dx * MOUSE_SENSITIVITY
+
+      const expectedPitch1 = clampPitch(Float(initialPitch1 + deltaPitch))
+      const expectedYaw1 = Float(initialYaw1 + deltaYaw)
+      const expectedPitch2 = clampPitch(Float(initialPitch2 + deltaPitch))
+      const expectedYaw2 = Float(initialYaw2 + deltaYaw)
+
+      assert.deepStrictEqual(updateComponentSpy.mock.calls.length, 2)
+      assert.deepStrictEqual(
+        updateComponentSpy.mock.calls[0],
+        [entityId1, 'cameraState', new CameraState({ pitch: expectedPitch1, yaw: expectedYaw1 })],
+      )
+      assert.deepStrictEqual(
+        updateComponentSpy.mock.calls[1],
+        [entityId2, 'cameraState', new CameraState({ pitch: expectedPitch2, yaw: expectedYaw2 })],
+      )
+    }))
+
+  it.effect('should not update camera state when mouse does not move', () =>
+    Effect.gen(function* (_) {
+      const mouseDelta = { dx: 0, dy: 0 }
+
+      const mockWorld: Partial<World> = {
+        querySoA: () => Effect.succeed({ entities: [], components: {} } as any),
+        updateComponent: () => Effect.succeed(undefined),
+      }
+
+      const mockInputManager: Partial<InputManager> = {
+        getMouseState: () => Effect.succeed(mouseDelta),
+      }
+
+      const worldLayer = Layer.succeed(World, mockWorld as World)
+      const inputManagerLayer = Layer.succeed(InputManager, mockInputManager as InputManager)
+      const testLayer = worldLayer.pipe(Layer.provide(inputManagerLayer))
+
+      const world = yield* _(World)
+      const querySoaSpy = vi.spyOn(world, 'querySoA')
+      const updateComponentSpy = vi.spyOn(world, 'updateComponent')
+
+      yield* _(cameraControlSystem.pipe(Effect.provide(testLayer)))
+
+      assert.deepStrictEqual(querySoaSpy.mock.calls.length, 0)
+      assert.deepStrictEqual(updateComponentSpy.mock.calls.length, 0)
+    }))
+
+  it.effect('should not fail when there are no player entities', () =>
+    Effect.gen(function* (_) {
+      const mouseDelta = { dx: 10, dy: 20 }
+      const soa: SoA<typeof playerQuery> = {
+        entities: [],
+        components: {
+          position: [],
+          velocity: [],
+          player: [],
+          inputState: [],
+          cameraState: [],
+          hotbar: [],
+        },
+      }
+
+      const mockWorld: Partial<World> = {
+        querySoA: () => Effect.succeed(soa),
+        updateComponent: () => Effect.succeed(undefined),
+      }
+
+      const mockInputManager: Partial<InputManager> = {
+        getMouseState: () => Effect.succeed(mouseDelta),
+      }
+
+      const worldLayer = Layer.succeed(World, mockWorld as World)
+      const inputManagerLayer = Layer.succeed(InputManager, mockInputManager as InputManager)
+      const testLayer = worldLayer.pipe(Layer.provide(inputManagerLayer))
+
+      const world = yield* _(World)
+      const updateComponentSpy = vi.spyOn(world, 'updateComponent')
+
+      yield* _(cameraControlSystem.pipe(Effect.provide(testLayer)))
+
+      assert.deepStrictEqual(updateComponentSpy.mock.calls.length, 0)
+    }))
 })

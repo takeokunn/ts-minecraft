@@ -1,34 +1,41 @@
+import * as S from 'effect/Schema'
+import { describe, it, assert } from '@effect/vitest'
 import * as fc from 'fast-check'
-import { describe, expect, it } from 'vitest'
+import * as Arbitrary from 'effect/Arbitrary'
 import * as C from '../components'
 import { Effect } from 'effect'
 
-describe('Components', () => {
-  describe('InputState', () => {
-    it('should create an initial InputState', () => {
-      const initialState = Effect.runSync(C.createInputState())
-      expect(initialState.forward).toBe(false)
-      expect(initialState.backward).toBe(false)
-      expect(initialState.left).toBe(false)
-      expect(initialState.right).toBe(false)
-      expect(initialState.jump).toBe(false)
-      expect(initialState.sprint).toBe(false)
-      expect(initialState.place).toBe(false)
-      expect(initialState.destroy).toBe(false)
-      expect(initialState.isLocked).toBe(false)
-    })
+describe('Component Schemas', () => {
+  const testReversibility = (name: string, schema: S.Schema<any, any>) => {
+    it.effect(`${name} should be reversible after encoding and decoding`, () =>
+      Effect.sync(() => {
+        const arbitrary = Arbitrary.make(schema)
+        fc.assert(
+          fc.property(arbitrary, (value) => {
+            const encode = S.encodeSync(schema)
+            const decode = S.decodeSync(schema)
+            const decodedValue = decode(encode(value))
+            assert.deepStrictEqual(decodedValue, value)
+          }),
+        )
+      }),
+    )
+  }
 
-    it('should set input state correctly', () => {
-      const initialState = Effect.runSync(C.createInputState())
-      const changes: Partial<C.InputState> = {
-        forward: true,
-        jump: true,
-      }
-      const updatedState = Effect.runSync(C.setInputState(initialState, changes))
-      expect(updatedState.forward).toBe(true)
-      expect(updatedState.jump).toBe(true)
-      expect(updatedState.backward).toBe(false)
-      expect(updatedState.left).toBe(false)
-    })
-  })
+  testReversibility('position', C.Position)
+  testReversibility('velocity', C.Velocity)
+  testReversibility('player', C.Player)
+  testReversibility('inputState', C.InputState)
+  testReversibility('cameraState', C.CameraState)
+  testReversibility('hotbar', C.Hotbar)
+  testReversibility('target', C.Target)
+  testReversibility('gravity', C.Gravity)
+  testReversibility('collider', C.Collider)
+  testReversibility('renderable', C.Renderable)
+  testReversibility('instancedMeshRenderable', C.InstancedMeshRenderable)
+  testReversibility('terrainBlock', C.TerrainBlock)
+  testReversibility('chunk', C.Chunk)
+  testReversibility('camera', C.Camera)
+  testReversibility('targetBlock', C.TargetBlockComponent)
+  testReversibility('chunkLoaderState', C.ChunkLoaderState)
 })

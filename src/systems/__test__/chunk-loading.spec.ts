@@ -1,123 +1,182 @@
-import { describe, it, expect } from 'vitest'
-import { Effect, HashMap, Layer, Option, Ref } from 'effect'
+import { describe, it, assert, vi } from '@effect/vitest'
+import { Effect, Layer, HashMap } from 'effect'
 import { calculateChunkUpdates, chunkLoadingSystem } from '../chunk-loading'
-import { EntityId, toEntityId } from '@/domain/entity'
-import * as World from '@/domain/world'
-import { WorldContext } from '@/runtime/context'
-import { OnCommand } from '@/runtime/services'
-import { SystemCommand } from '@/domain/types'
-import { createArchetype } from '@/domain/archetypes'
-import { RENDER_DISTANCE } from '@/domain/world-constants'
+import { ComputationWorker, World } from '@/runtime/services'
+import { EntityId } from '@/domain/entity'
 import { Position } from '@/domain/components'
-import { provideTestLayer } from 'test/utils'
-
-const setupWorld = (playerPos: { x: number; y: number; z: number }, lastPlayerChunk: Option.Option<{ x: number; z: number }>, loadedChunks: HashMap.HashMap<string, EntityId>) =>
-  Effect.gen(function* ($) {
-    const { world } = yield* $(WorldContext)
-    const playerArchetype = createArchetype({
-      type: 'player',
-      pos: new Position(playerPos),
-    })
-    yield* $(World.addArchetype(playerArchetype))
-    yield* $(
-      Ref.update(world, (ws) => ({
-        ...ws,
-        globalState: {
-          ...ws.globalState,
-          chunkLoading: {
-            lastPlayerChunk,
-            loadedChunks,
-          },
-        },
-      })),
-    )
-  })
+import { SoA } from '@/domain/world'
+import { playerQuery, chunkQuery } from '@/domain/queries'
+import { RENDER_DISTANCE } from '@/domain/world-constants'
 
 describe('chunkLoadingSystem', () => {
-  describe('calculateChunkUpdates', () => {
-    it('should identify chunks to load when none are loaded', () => {
-      const currentPlayerChunk = { x: 0, z: 0 }
-      const loadedChunks = HashMap.empty<string, EntityId>()
-      const { toLoad, toUnload } = calculateChunkUpdates(currentPlayerChunk, loadedChunks, 1)
-
-      expect(toUnload).toEqual([])
-      expect(toLoad.length).toBe(9) // 3x3 grid
-      expect(toLoad.find((c) => c.x === 0 && c.z === 0)).toEqual({ x: 0, z: 0 })
-      expect(toLoad.find((c) => c.x === 1 && c.z === 1)).toEqual({ x: 1, z: 1 })
-      expect(toLoad.find((c) => c.x === -1 && c.z === -1)).toEqual({ x: -1, z: -1 })
-    })
-
-    it('should identify chunks to unload when player moves', () => {
-      let loadedChunks = HashMap.empty<string, EntityId>()
-      for (let x = -1; x <= 1; x++) {
-        for (let z = -1; z <= 1; z++) {
-          loadedChunks = HashMap.set(loadedChunks, `${x},${z}`, toEntityId((x + 1) * 10 + (z + 1)))
-        }
+  it.effect('should load initial chunks', () =>
+    Effect.gen(function* ($) {
+      const playerEntityId = EntityId('player')
+      const playerPosition = new Position({ x: 0, y: 0, z: 0 })
+      const playerSoa: SoA<typeof playerQuery> = {
+        entities: [playerEntityId],
+        components: {
+          position: [playerPosition],
+          velocity: [],
+          player: [],
+          inputState: [],
+          cameraState: [],
+          hotbar: [],
+        },
+      }
+      const chunkSoa: SoA<typeof chunkQuery> = {
+        entities: [],
+        components: {
+          chunk: [],
+        },
       }
 
-      const newPlayerChunk = { x: 1, z: 0 }
-      const { toLoad, toUnload } = calculateChunkUpdates(newPlayerChunk, loadedChunks, 1)
-
-      expect(toUnload.length).toBe(3)
-      expect(toLoad.length).toBe(3)
-      expect(toLoad.find((c) => c.x === 2 && c.z === -1)).toBeDefined()
-      expect(toLoad.find((c) => c.x === 2 && c.z === 0)).toBeDefined()
-      expect(toLoad.find((c) => c.x === 2 && c.z === 1)).toBeDefined()
-    })
-
-    it('should do nothing if the required chunks are already loaded', () => {
-      const currentPlayerChunk = { x: 0, z: 0 }
-      let loadedChunks = HashMap.empty<string, EntityId>()
-      for (let x = -RENDER_DISTANCE; x <= RENDER_DISTANCE; x++) {
-        for (let z = -RENDER_DISTANCE; z <= RENDER_DISTANCE; z++) {
-          loadedChunks = HashMap.set(loadedChunks, `${x},${z}`, toEntityId(x * 100 + z))
-        }
+      const mockWorld: Partial<World> = {
+        querySoA: (query) => {
+          if (query === playerQuery) {
+            return Effect.succeed(playerSoa)
+          }
+          if (query === chunkQuery) {
+            return Effect.succeed(chunkSoa)
+          }
+          return Effect.fail(new Error('unexpected query'))
+        },
+        removeEntity: () => Effect.succeed(undefined),
       }
 
-      const { toLoad, toUnload } = calculateChunkUpdates(currentPlayerChunk, loadedChunks, RENDER_DISTANCE)
-      expect(toLoad).toEqual([])
-      expect(toUnload).toEqual([])
-    })
-  })
+      const mockComputationWorker: Partial<ComputationWorker> = {
+        postTask: () => Effect.succeed(undefined),
+      }
 
-  describe('system logic', () => {
-    it('should do nothing if the player has not moved to a new chunk', () =>
-      Effect.gen(function* ($) {
-        const commandRef = yield* $(Ref.make<SystemCommand[]>([]))
+      const worldLayer = Layer.succeed(World, mockWorld as World)
+      const computationWorkerLayer = Layer.succeed(ComputationWorker, mockComputationWorker as ComputationWorker)
+      const testLayer = worldLayer.pipe(Layer.provide(computationWorkerLayer))
 
-        yield* $(setupWorld({ x: 5, y: 0, z: 5 }, Option.some({ x: 0, z: 0 }), HashMap.empty()))
-        yield* $(chunkLoadingSystem)
+      const world = yield* $(World)
+      const computationWorker = yield* $(ComputationWorker)
+      const postTaskSpy = vi.spyOn(computationWorker, 'postTask')
+      const removeEntitySpy = vi.spyOn(world, 'removeEntity')
 
-        const commands = yield* $(Ref.get(commandRef))
-        expect(commands).toEqual([])
-      }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(Layer.succeed(OnCommand, (cmd) => Ref.update(commandRef, (cmds) => [...cmds, cmd])))))))
+      yield* $(chunkLoadingSystem.pipe(Effect.provide(testLayer)))
 
-    it('should issue commands and remove entities when the player moves to a new chunk', () =>
-      Effect.gen(function* ($) {
-        const unloadedEntityId = toEntityId(999)
-        const initialLoadedChunks = HashMap.empty<string, EntityId>().pipe(HashMap.set('99,99', unloadedEntityId))
-        const commandRef = yield* $(Ref.make<SystemCommand[]>([]))
+      const expectedChunksToLoad = (2 * RENDER_DISTANCE + 1) ** 2
+      assert.deepStrictEqual(postTaskSpy.mock.calls.length, expectedChunksToLoad)
+      assert.deepStrictEqual(removeEntitySpy.mock.calls.length, 0)
+    }))
 
-        yield* $(setupWorld({ x: 5, y: 0, z: 5 }, Option.none(), initialLoadedChunks))
-        yield* $(chunkLoadingSystem)
+  it.effect('should not do anything if player has not moved to a new chunk', () =>
+    Effect.gen(function* ($) {
+      const playerEntityId = EntityId('player')
+      const playerPosition = new Position({ x: 0, y: 0, z: 0 })
+      const playerSoa: SoA<typeof playerQuery> = {
+        entities: [playerEntityId],
+        components: {
+          position: [playerPosition],
+          velocity: [],
+          player: [],
+          inputState: [],
+          cameraState: [],
+          hotbar: [],
+        },
+      }
+      const chunkSoa: SoA<typeof chunkQuery> = {
+        entities: [],
+        components: {
+          chunk: [],
+        },
+      }
 
-        const commands = yield* $(Ref.get(commandRef))
-        const expectedChunksToLoad = (2 * RENDER_DISTANCE + 1) ** 2
-        expect(commands.length).toBe(expectedChunksToLoad)
-        expect(commands.find((c) => c.type === 'GenerateChunk' && c.chunkX === 0 && c.chunkZ === 0)).toBeDefined()
+      const mockWorld: Partial<World> = {
+        querySoA: (query) => {
+          if (query === playerQuery) {
+            return Effect.succeed(playerSoa)
+          }
+          if (query === chunkQuery) {
+            return Effect.succeed(chunkSoa)
+          }
+          return Effect.fail(new Error('unexpected query'))
+        },
+      }
 
-        const entityExists = yield* $(World.getComponentOption(unloadedEntityId, 'position'))
-        expect(Option.isNone(entityExists)).toBe(true)
-      }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(Layer.succeed(OnCommand, (cmd) => Ref.update(commandRef, (cmds) => [...cmds, cmd])))))))
+      const mockComputationWorker: Partial<ComputationWorker> = {
+        postTask: () => Effect.succeed(undefined),
+      }
 
-    it('should do nothing if no player exists', () =>
-      Effect.gen(function* ($) {
-        const commandRef = yield* $(Ref.make<SystemCommand[]>([]))
+      const worldLayer = Layer.succeed(World, mockWorld as World)
+      const computationWorkerLayer = Layer.succeed(ComputationWorker, mockComputationWorker as ComputationWorker)
+      const testLayer = worldLayer.pipe(Layer.provide(computationWorkerLayer))
 
-        yield* $(chunkLoadingSystem)
+      const computationWorker = yield* $(ComputationWorker)
+      const postTaskSpy = vi.spyOn(computationWorker, 'postTask')
 
-        const commands = yield* $(Ref.get(commandRef))
-        expect(commands).toEqual([])
-      }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(Layer.succeed(OnCommand, (cmd) => Ref.update(commandRef, (cmds) => [...cmds, cmd])))))))
-  })
+      yield* $(chunkLoadingSystem.pipe(Effect.provide(testLayer)))
+      yield* $(chunkLoadingSystem.pipe(Effect.provide(testLayer)))
+
+      const expectedChunksToLoad = (2 * RENDER_DISTANCE + 1) ** 2
+      assert.deepStrictEqual(postTaskSpy.mock.calls.length, expectedChunksToLoad)
+    }))
+
+  it.effect('should not do anything if there are no players', () =>
+    Effect.gen(function* ($) {
+      const playerSoa: SoA<typeof playerQuery> = {
+        entities: [],
+        components: {
+          position: [],
+          velocity: [],
+          player: [],
+          inputState: [],
+          cameraState: [],
+          hotbar: [],
+        },
+      }
+
+      const mockWorld: Partial<World> = {
+        querySoA: (query) => {
+          if (query === playerQuery) {
+            return Effect.succeed(playerSoa)
+          }
+          return Effect.fail(new Error('unexpected query'))
+        },
+      }
+
+      const mockComputationWorker: Partial<ComputationWorker> = {
+        postTask: () => Effect.succeed(undefined),
+      }
+
+      const worldLayer = Layer.succeed(World, mockWorld as World)
+      const computationWorkerLayer = Layer.succeed(ComputationWorker, mockComputationWorker as ComputationWorker)
+      const testLayer = worldLayer.pipe(Layer.provide(computationWorkerLayer))
+
+      const computationWorker = yield* $(ComputationWorker)
+      const postTaskSpy = vi.spyOn(computationWorker, 'postTask')
+
+      yield* $(chunkLoadingSystem.pipe(Effect.provide(testLayer)))
+
+      assert.deepStrictEqual(postTaskSpy.mock.calls.length, 0)
+    }))
+})
+
+describe('calculateChunkUpdates', () => {
+  it.effect('should calculate chunks to load and unload', () =>
+    Effect.sync(() => {
+      const currentPlayerChunk = { x: 0, z: 0 }
+      const loadedChunks = HashMap.make(
+        ['0,1', EntityId('1')],
+        ['-1,-1', EntityId('2')],
+      )
+      const renderDistance = 1
+
+      const { toLoad, toUnload } = calculateChunkUpdates(currentPlayerChunk, loadedChunks, renderDistance)
+
+      assert.deepStrictEqual(toLoad, [
+        { x: 0, z: 0 },
+        { x: -1, z: 0 },
+        { x: 1, z: 0 },
+        { x: 0, z: -1 },
+        { x: 1, z: -1 },
+        { x: 1, z: 1 },
+        { x: -1, z: 1 },
+      ])
+      assert.deepStrictEqual(toUnload, [EntityId('2')])
+    }))
 })

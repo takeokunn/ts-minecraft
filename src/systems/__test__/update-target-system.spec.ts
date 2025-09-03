@@ -1,66 +1,87 @@
-import { Effect, Layer, Option, Ref } from 'effect'
-import { describe, it, expect } from '@effect/vitest'
-import { BufferGeometry, InstancedMesh, Mesh, Scene } from 'three'
-import { createArchetype } from '@/domain/archetypes'
-import { RaycastResult, RaycastService } from '@/infrastructure/raycast-three'
-import { ThreeContextService } from '@/infrastructure/renderer-three/context'
-import { ThreeContext } from '@/infrastructure/types'
-import { RaycastResultService } from '@/runtime/services'
-import * as World from '@/domain/world'
-import { provideTestLayer } from 'test/utils'
+import { describe, it, expect, vi, beforeEach } from '@effect/vitest'
+import { Effect, Layer, Option } from 'effect'
 import { updateTargetSystem } from '../update-target-system'
-import { toEntityId } from '@/domain/entity'
-import { Intersection } from 'three/src/core/Raycaster'
+import { Raycast, World } from '@/runtime/services'
+import { EntityId } from '@/domain/entity'
+import { SoA } from '@/domain/world'
+import { playerQuery } from '@/domain/queries'
+import { TargetBlock, TargetNone } from '@/domain/components'
+import * as THREE from 'three'
 
-const MockRaycast = (result: Option.Option<RaycastResult>) =>
-  Layer.succeed(
-    RaycastService,
-    RaycastService.of({
-      cast: () => Effect.succeed(result),
-    }),
-  )
+const mockWorld: Partial<World> = {
+  querySoA: vi.fn(),
+  updateComponent: vi.fn(),
+}
 
-const setupWorld = () =>
-  Effect.gen(function* ($) {
-    const blockArchetype = createArchetype({
-      type: 'block',
-      pos: { x: 0, y: 0, z: 0 },
-      blockType: 'dirt',
-    })
-    yield* $(World.addArchetype(blockArchetype))
+const mockRaycast: Partial<Raycast> = {
+  raycast: vi.fn(),
+}
+
+const worldLayer = Layer.succeed(World, mockWorld as World)
+const raycastLayer = Layer.succeed(Raycast, mockRaycast as Raycast)
+const testLayer = worldLayer.pipe(Layer.provide(raycastLayer))
+
+describe('updateTargetSystem', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
   })
 
-const createMockThreeContext = (): ThreeContext => ({
-  scene: new Scene(),
-  camera: {} as any, // Mock camera if needed, otherwise {} as any is fine if not used
-  renderer: {} as any, // Mock renderer if needed
-  highlightMesh: new Mesh(),
-  stats: { dom: document.createElement('div'), begin: () => {}, end: () => {} },
-  chunkMeshes: new Map<string, Mesh<BufferGeometry>>(),
-  instancedMeshes: new Map<string, InstancedMesh>(),
-})
-
-describe('raycastSystem', () => {
-  it('should update raycast result', () =>
+  it.effect('should update target to TargetNone when raycast does not intersect', () =>
     Effect.gen(function* ($) {
-      const mockIntersection: Intersection = {
-        distance: 1,
-        point: { x: 0, y: 0, z: 0 } as any,
-        object: new Mesh(),
+      const entityId = EntityId('player')
+      const soa: SoA<typeof playerQuery> = {
+        entities: [entityId],
+        components: {
+          player: [],
+          position: [],
+          velocity: [],
+          inputState: [],
+          cameraState: [],
+        },
       }
 
-      const mockRaycastResult: RaycastResult = {
-        entityId: toEntityId(1),
-        face: { x: 0, y: 1, z: 0 },
-        intersection: mockIntersection,
+      vi.spyOn(mockWorld, 'querySoA').mockReturnValue(Effect.succeed(soa))
+      vi.spyOn(mockRaycast, 'raycast').mockReturnValue(Effect.succeed(Option.none()))
+      vi.spyOn(mockWorld, 'updateComponent').mockReturnValue(Effect.succeed(undefined))
+
+      yield* $(updateTargetSystem)
+
+      expect(mockWorld.updateComponent).toHaveBeenCalledWith(entityId, 'target', new TargetNone())
+    }).pipe(Effect.provide(testLayer)))
+
+  it.effect('should update target to TargetBlock when raycast intersects', () =>
+    Effect.gen(function* ($) {
+      const entityId = EntityId('player')
+      const soa: SoA<typeof playerQuery> = {
+        entities: [entityId],
+        components: {
+          player: [],
+          position: [],
+          velocity: [],
+          inputState: [],
+          cameraState: [],
+        },
       }
-      const raycastResultRef = yield* $(RaycastResultService)
-      const MockThreeContext = Layer.succeed(ThreeContextService, createMockThreeContext())
 
-      yield* $(setupWorld())
-      yield* $(Effect.provide(raycastSystem, MockThreeContext.pipe(Layer.provide(MockRaycast(Option.some(mockRaycastResult))))))
+      const intersection = {
+        object: { name: 'targetEntity' },
+        point: new THREE.Vector3(1, 2, 3),
+        face: { normal: new THREE.Vector3(0, 1, 0) },
+      } as THREE.Intersection
 
-      const result = yield* $(Ref.get(raycastResultRef))
-      expect(Option.isSome(result)).toBe(true)
-    }).pipe(Effect.provide(provideTestLayer())))
+      vi.spyOn(mockWorld, 'querySoA').mockReturnValue(Effect.succeed(soa))
+      vi.spyOn(mockRaycast, 'raycast').mockReturnValue(Effect.succeed(Option.some(intersection)))
+      vi.spyOn(mockWorld, 'updateComponent').mockReturnValue(Effect.succeed(undefined))
+
+      yield* $(updateTargetSystem)
+
+      const expectedTarget = new TargetBlock({
+        _tag: 'block',
+        entityId: EntityId('targetEntity'),
+        face: [0, 1, 0],
+        position: { x: 1, y: 2, z: 3 },
+      })
+
+      expect(mockWorld.updateComponent).toHaveBeenCalledWith(entityId, 'target', expectedTarget)
+    }).pipe(Effect.provide(testLayer)))
 })

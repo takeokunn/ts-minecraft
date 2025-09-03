@@ -1,61 +1,71 @@
-import { Effect, Layer, Ref, HashMap } from 'effect'
-import { describe, it, expect } from 'vitest'
-import { createArchetype } from '@/domain/archetypes'
-import { positionColliderQuery } from '@/domain/queries'
-import { SpatialGrid } from '@/infrastructure/spatial-grid'
-import * as World from '@/domain/world'
-import { provideTestLayer } from 'test/utils'
+import { describe, it, expect, vi, beforeEach } from '@effect/vitest'
+import { Effect, Layer } from 'effect'
 import { updatePhysicsWorldSystem } from '../update-physics-world'
-import { AABB } from '@/domain/geometry'
+import { SpatialGrid, World } from '@/runtime/services'
 import { EntityId } from '@/domain/entity'
-import { SpatialGridService } from '@/runtime/services'
+import { Collider, Position } from '@/domain/components'
+import { SoA } from '@/domain/world'
+import { positionColliderQuery } from '@/domain/queries'
+import { Box3 } from 'three'
 
-type MockGridState = {
-  cleared: boolean
-  registered: { entityId: EntityId; aabb: AABB }[]
+const mockWorld: Partial<World> = {
+  querySoA: vi.fn(),
 }
 
-const MockSpatialGrid = (ref: Ref.Ref<MockGridState>) =>
-  Layer.succeed(
-    SpatialGridService,
-    SpatialGrid.of({
-      state: Ref.unsafeMake(HashMap.empty()),
-      clear: Ref.update(ref, (s) => ({ ...s, cleared: true })),
-      register: (entityId, aabb) => Ref.update(ref, (s) => ({ ...s, registered: [...s.registered, { entityId, aabb }] })),
-      query: () => Effect.succeed([]),
-    }),
-  )
+const mockSpatialGrid: Partial<SpatialGrid> = {
+  clear: vi.fn(),
+  add: vi.fn(),
+}
 
-const setupWorld = () =>
-  Effect.gen(function* ($) {
-    const blockArchetype = createArchetype({
-      type: 'block',
-      pos: { x: 0, y: 0, z: 0 },
-      blockType: 'dirt',
-    })
-    yield* $(World.addArchetype(blockArchetype))
-  })
+const worldLayer = Layer.succeed(World, mockWorld as World)
+const spatialGridLayer = Layer.succeed(SpatialGrid, mockSpatialGrid as SpatialGrid)
+const testLayer = worldLayer.pipe(Layer.provide(spatialGridLayer))
 
 describe('updatePhysicsWorldSystem', () => {
-  it('should clear the spatial grid and register colliders', () =>
-    Effect.gen(function* ($) {
-      const ref = yield* $(Ref.make<MockGridState>({ cleared: false, registered: [] }))
-      const MockSpatialGridLayer = MockSpatialGrid(ref)
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
 
-      yield* $(setupWorld())
-      yield* $(Effect.provide(updatePhysicsWorldSystem, MockSpatialGridLayer))
+  it.effect('should clear the spatial grid and add all colliders', () =>
+    Effect.gen(function* (_) {
+      const entityId1 = EntityId('1')
+      const entityId2 = EntityId('2')
+      const position1 = new Position({ x: 0, y: 0, z: 0 })
+      const collider1 = new Collider({ width: 1, height: 1, depth: 1 })
+      const position2 = new Position({ x: 10, y: 10, z: 10 })
+      const collider2 = new Collider({ width: 2, height: 2, depth: 2 })
 
-      const colliders = yield* $(World.query(positionColliderQuery))
-      const block = colliders[0]
-      expect(block).toBeDefined()
-
-      if (block) {
-        const gridState = yield* $(Ref.get(ref))
-        expect(gridState.cleared).toBe(true)
-        expect(gridState.registered.length).toBe(1)
-        expect(gridState.registered[0]?.entityId).toBe(block.entityId)
-        const expectedAABB = createAABB(block.position, block.collider)
-        expect(gridState.registered[0]?.aabb).toEqual(expectedAABB)
+      const soa: SoA<typeof positionColliderQuery> = {
+        entities: [entityId1, entityId2],
+        components: {
+          position: [position1, position2],
+          collider: [collider1, collider2],
+        },
       }
-    }).pipe(Effect.provide(provideTestLayer())))
+
+      vi.spyOn(mockWorld, 'querySoA').mockReturnValue(Effect.succeed(soa))
+      vi.spyOn(mockSpatialGrid, 'clear').mockReturnValue(Effect.succeed(undefined))
+      vi.spyOn(mockSpatialGrid, 'add').mockReturnValue(Effect.succeed(undefined))
+
+      yield* _(updatePhysicsWorldSystem)
+
+      expect(mockSpatialGrid.clear).toHaveBeenCalledTimes(1)
+      expect(mockSpatialGrid.add).toHaveBeenCalledTimes(2)
+
+      const aabb1 = new Box3().setFromCenterAndSize(
+        { x: 0, y: 0.5, z: 0 } as any,
+        { x: 1, y: 1, z: 1 } as any,
+      )
+      const aabb2 = new Box3().setFromCenterAndSize(
+        { x: 10, y: 11, z: 10 } as any,
+        { x: 2, y: 2, z: 2 } as any,
+      )
+
+      expect(vi.mocked(mockSpatialGrid.add).mock.calls[0][0]).toBe(entityId1)
+      expect(vi.mocked(mockSpatialGrid.add).mock.calls[0][1].min).toEqual(aabb1.min)
+      expect(vi.mocked(mockSpatialGrid.add).mock.calls[0][1].max).toEqual(aabb1.max)
+      expect(vi.mocked(mockSpatialGrid.add).mock.calls[1][0]).toBe(entityId2)
+      expect(vi.mocked(mockSpatialGrid.add).mock.calls[1][1].min).toEqual(aabb2.min)
+      expect(vi.mocked(mockSpatialGrid.add).mock.calls[1][1].max).toEqual(aabb2.max)
+    }).pipe(Effect.provide(testLayer)))
 })

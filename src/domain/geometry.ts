@@ -1,31 +1,34 @@
 import { Effect } from 'effect'
+import * as S from 'effect/Schema'
+import { ParseError } from 'effect/ParseResult'
 import { CHUNK_SIZE } from './world-constants'
 import type { Collider, Position } from './components'
-import { Vector3 } from './common'
+import { Float, Vector3, Vector3FloatSchema } from './common'
+
+export type { Vector3 } from './common'
 
 /**
  * Converts a 3D local position vector within a chunk to a 1D array index.
  * @param localPosition The position vector within the chunk [x, y, z].
  * @returns The corresponding index in the chunk's block array.
  */
-export const toChunkIndex = (localPosition: Vector3): Effect.Effect<number> => {
-  return Effect.sync(() => {
-    const [x, y, z] = localPosition
-    return x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
-  })
+export const toChunkIndex = (localPosition: Vector3): number => {
+  const [x, y, z] = localPosition
+  return x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
 }
 
 /**
  * An Axis-Aligned Bounding Box, defined by its minimum and maximum corners.
  */
-export type AABB = {
-  readonly minX: number
-  readonly minY: number
-  readonly minZ: number
-  readonly maxX: number
-  readonly maxY: number
-  readonly maxZ: number
-}
+export const AABB = S.Struct({
+  minX: Float,
+  minY: Float,
+  minZ: Float,
+  maxX: Float,
+  maxY: Float,
+  maxZ: Float,
+})
+export type AABB = S.Schema.Type<typeof AABB>
 
 /**
  * Creates an AABB from an entity's position and collider components.
@@ -33,14 +36,15 @@ export type AABB = {
  * @param collider The entity's collider.
  * @returns A new AABB object.
  */
-export const createAABB = (position: Position, collider: Collider): Effect.Effect<AABB> => Effect.succeed({
-  minX: position.x - collider.width / 2,
-  minY: position.y, // Player's origin is at their feet
-  minZ: position.z - collider.depth / 2,
-  maxX: position.x + collider.width / 2,
-  maxY: position.y + collider.height,
-  maxZ: position.z + collider.depth / 2,
-})
+export const createAABB = (position: Position, collider: Collider): Effect.Effect<AABB, ParseError> =>
+  S.decode(AABB)({
+    minX: position.x - collider.width / 2,
+    minY: position.y, // Player's origin is at their feet
+    minZ: position.z - collider.depth / 2,
+    maxX: position.x + collider.width / 2,
+    maxY: position.y + collider.height,
+    maxZ: position.z + collider.depth / 2,
+  })
 
 /**
  * Checks if two AABBs are intersecting.
@@ -48,8 +52,8 @@ export const createAABB = (position: Position, collider: Collider): Effect.Effec
  * @param b The second AABB.
  * @returns True if they intersect, false otherwise.
  */
-export const areAABBsIntersecting = (a: AABB, b: AABB): Effect.Effect<boolean> => {
-  return Effect.succeed(a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY && a.minZ <= b.maxZ && a.maxZ >= b.minZ)
+export const areAABBsIntersecting = (a: AABB, b: AABB): boolean => {
+  return a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY && a.minZ <= b.maxZ && a.maxZ >= b.minZ
 }
 
 /**
@@ -60,26 +64,23 @@ export const areAABBsIntersecting = (a: AABB, b: AABB): Effect.Effect<boolean> =
  * @returns The MTV as a 3D vector.
  */
 export const getIntersectionDepth = (a: AABB, b: AABB): Effect.Effect<Vector3> => {
-  return Effect.gen(function* (_) {
-    const intersecting = yield* _(areAABBsIntersecting(a, b))
-    if (!intersecting) {
-      return [0, 0, 0]
-    }
+  if (!areAABBsIntersecting(a, b)) {
+    return S.decode(Vector3FloatSchema)([0, 0, 0])
+  }
 
-    const overlaps = [
-      { axis: 0, value: a.maxX - b.minX, sign: -1 }, // Push left
-      { axis: 0, value: b.maxX - a.minX, sign: 1 }, // Push right
-      { axis: 1, value: a.maxY - b.minY, sign: -1 }, // Push down
-      { axis: 1, value: b.maxY - a.minY, sign: 1 }, // Push up
-      { axis: 2, value: a.maxZ - b.minZ, sign: -1 }, // Push back
-      { axis: 2, value: b.maxZ - a.minZ, sign: 1 }, // Push forward
-    ]
+  const overlaps = [
+    { axis: 0, value: a.maxX - b.minX, sign: -1 }, // Push left
+    { axis: 0, value: b.maxX - a.minX, sign: 1 }, // Push right
+    { axis: 1, value: a.maxY - b.minY, sign: -1 }, // Push down
+    { axis: 1, value: b.maxY - a.minY, sign: 1 }, // Push up
+    { axis: 2, value: a.maxZ - b.minZ, sign: -1 }, // Push back
+    { axis: 2, value: b.maxZ - a.minZ, sign: 1 }, // Push forward
+  ]
 
-    const minOverlap = overlaps.reduce((min, current) => (current.value < min.value ? current : min))
+  const minOverlap = overlaps.reduce((min, current) => (current.value < min.value ? current : min))
 
-    const mtv: [number, number, number] = [0, 0, 0]
-    mtv[minOverlap.axis] = minOverlap.value * minOverlap.sign
+  const mtv: [number, number, number] = [0, 0, 0]
+  mtv[minOverlap.axis] = minOverlap.value * minOverlap.sign
 
-    return mtv
-  })
+  return S.decode(Vector3FloatSchema)(mtv)
 }

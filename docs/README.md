@@ -37,61 +37,48 @@ ECSの各要素をEffect-TSの思想に基づいて再定義しています。
 
 Effect-TSを採用することで、本作は単なる「TypeScriptで書かれたゲーム」ではなく、「型安全で、テスト容易性が高く、宣言的なコードで構築された、極めて堅牢なアプリケーション」となることを目指します。
 
-> **このリファクタリングに関する詳細な計画は [型定義の全体的な改善計画](./project/refactoring-plan.md) を参照してください。**
-
 ---
 
 ## ドキュメント
 
 ### 1. プロジェクト概要
 
-- [**使用技術 (Technologies)**](./project/technologies.md)
-- [**プロジェクト規約 (Conventions)**](./project/conventions.md)
-- [**パフォーマンス設計 (Performance)**](./project/performance.md)
-- [**型定義の全体的な改善計画 (Refactoring Plan)**](./project/refactoring-plan.md)
+- [**使用技術 (Technologies)**](./technologies.md)
+- [**プロジェクト規約 (Conventions)**](./conventions.md)
+- [**パフォーマンス設計 (Performance)**](./performance.md)
 
 ### 2. アーキテクチャ
 
-- [**ディレクトリ構成 (Directory Structure)**](./architecture/directory-structure.md)
-- [**ECS設計 (Entity Component System)**](./architecture/ecs.md)
-- [**World設計 (World Architecture)**](./architecture/world.md)
-- [**システム実行順序 (System Scheduler)**](./architecture/system-scheduler.md)
+- [**ディレクトリ構成 (Directory Structure)**](./directory-structure.md)
+- [**ECS設計 (Entity Component System)**](./ecs.md)
+- [**World内部設計 (World Architecture)**](./world-performance.md)
+- [**システム実行順序 (System Scheduler)**](./system-scheduler.md)
 
 ### 3. 機能仕様
 
 #### データモデル
 
-- [**コンポーネント一覧 (Components)**](./features/components-list.md)
-- [**アーキタイプ一覧 (Archetypes)**](./features/archetypes-list.md)
-- [**クエリ一覧 (Queries)**](./features/queries-list.md)
+- [**コンポーネント一覧 (Components)**](./components-list.md)
+- [**アーキタイプ一覧 (Archetypes)**](./archetypes-list.md)
+- [**クエリ一覧 (Queries)**](./queries-list.md)
 
 #### ワールドとプレイヤー
 
-- [**Worldサービス API (World Service)**](./features/world.md)
-- [**ワールド生成 (World Generation)**](./features/world-generation.md)
-- [**チャンクローディング (Chunk Loading)**](./features/chunk-loading.md)
-- [**プレイヤー (Player)**](./features/player.md)
-- [**入力処理 (Input Polling)**](./features/input-polling.md)
-- [**カメラ制御 (Camera Control)**](./features/camera-control.md)
-- [**プレイヤー移動 (Player Movement)**](./features/player-movement.md)
-- [**ブロック操作 (Block Interaction)**](./features/block-interaction.md)
-- [**セーブ & ロード (Save & Load)**](./features/save_load.md)
+- [**World (API, ライフサイクル, etc)**](./world.md)
+- [**Player (入力, 移動, etc)**](./player.md)
+- [**Camera (カメラ制御)**](./camera.md)
 
 #### 物理エンジン
 
-- [**物理システム (Physics)**](./features/physics.md)
-- [**衝突検知 (Collision)**](./features/collision.md)
-- [**空間グリッド更新 (Update Physics World)**](./features/update-physics-world.md)
+- [**Physics (物理, 衝突検知)**](./physics.md)
 
 #### レンダリングとUI
 
-- [**レンダリングパイプライン (Rendering)**](./features/rendering.md)
-- [**ターゲット更新 (Update Target System)**](./features/update-target-system.md)
-- [**UIシステム (User Interface)**](./features/ui.md)
+- [**Rendering (レンダリング, UI)**](./rendering.md)
 
 ### 4. 開発プロセス
 
-- [**ブランチ戦略 (Branch Strategy)**](./project/branch-strategy.md)
-- [**CI/CD パイプライン**](./project/cicd.md)
-- [**テスト戦略 (Testing Strategy)**](./project/testing-strategy.md)
-- [**テストガイド (Testing Guide)**](./project/testing.md)
+- [**ブランチ戦略 (Branch Strategy)**](./branch-strategy.md)
+- [**CI/CD パイプライン**](./cicd.md)
+- [**テスト戦略 (Testing Strategy)**](./testing-strategy.md)
+- [**テストガイド (Testing Guide)**](./testing.md)

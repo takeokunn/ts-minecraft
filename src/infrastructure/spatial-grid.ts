@@ -1,7 +1,8 @@
-import { Context, Effect, HashMap, HashSet, Layer, Option, Ref } from 'effect'
+import { Effect, HashMap, HashSet, Layer, Ref, Option } from 'effect'
 import { pipe } from 'effect/Function'
-import type { EntityId } from '@/domain/entity'
+import type { EntityId } from '@/domain/types'
 import type { AABB } from '@/domain/geometry'
+import { SpatialGrid } from '@/runtime/services'
 
 const CELL_SIZE = 4
 
@@ -26,7 +27,7 @@ const forEachCellInAABB = (aabb: AABB, callback: (key: string) => void): void =>
   }
 }
 
-const registerPure = (grid: SpatialGridState, entityId: EntityId, aabb: AABB): SpatialGridState => {
+const addPure = (grid: SpatialGridState, entityId: EntityId, aabb: AABB): SpatialGridState => {
   let newGrid = grid
   forEachCellInAABB(aabb, (key) => {
     const newCell = pipe(
@@ -43,34 +44,24 @@ const queryPure = (grid: SpatialGridState, aabb: AABB): ReadonlyArray<EntityId> 
   let potentialCollisions = HashSet.empty<EntityId>()
   forEachCellInAABB(aabb, (key) => {
     const cell = HashMap.get(grid, key)
-    if (Option.isSome(cell)) {
+    if (cell._tag === 'Some') {
       potentialCollisions = HashSet.union(potentialCollisions, cell.value)
     }
   })
-  return Array.from(HashSet.values(potentialCollisions))
+  return Array.from(HashSet.from(potentialCollisions))
 }
 
 // --- Effect Service ---
-
-export interface SpatialGrid {
-  readonly state: Ref.Ref<SpatialGridState>
-  readonly clear: Effect.Effect<void>
-  readonly register: (entityId: EntityId, aabb: AABB) => Effect.Effect<void>
-  readonly query: (aabb: AABB) => Effect.Effect<ReadonlyArray<EntityId>>
-}
-
-export const SpatialGrid = Context.GenericTag<SpatialGrid>('app/SpatialGrid')
 
 export const SpatialGridLive = Layer.effect(
   SpatialGrid,
   Effect.gen(function* (_) {
     const gridRef = yield* _(Ref.make(HashMap.empty<string, HashSet.HashSet<EntityId>>()))
 
-    return {
-      state: gridRef,
+    return SpatialGrid.of({
       clear: Ref.set(gridRef, HashMap.empty()),
-      register: (entityId: EntityId, aabb: AABB) => Ref.update(gridRef, (grid) => registerPure(grid, entityId, aabb)),
+      add: (entityId: EntityId, aabb: AABB) => Ref.update(gridRef, (grid) => addPure(grid, entityId, aabb)),
       query: (aabb: AABB) => Effect.map(Ref.get(gridRef), (grid) => queryPure(grid, aabb)),
-    }
+    })
   }),
 )

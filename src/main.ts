@@ -1,108 +1,66 @@
-import { Data, Effect, Layer } from 'effect'
-import {
-  blockInteractionSystem,
-  cameraControlSystem,
-  chunkLoadingSystem,
-  collisionSystem,
-  createUISystem,
-  inputPollingSystem,
-  physicsSystem,
-  playerMovementSystem,
-  updatePhysicsWorldSystem,
-  updateTargetSystem,
-  worldUpdateSystem,
-} from './systems'
-
+import { Effect, Layer } from 'effect'
 import { createArchetype } from './domain/archetypes'
-import { Position } from './domain/components'
-import * as World from './domain/world'
-import { ThreeCameraLive } from './infrastructure/camera-three'
+import { World } from './runtime/services'
+import { ClockLive } from './infrastructure/clock'
 import { ComputationWorkerLive } from './infrastructure/computation.worker'
 import { InputManagerLive } from './infrastructure/input-browser'
 import { MaterialManagerLive } from './infrastructure/material-manager'
+import { RaycastLive } from './infrastructure/raycast-three'
 import { RendererLive } from './infrastructure/renderer-three'
-import { ThreeContextLive } from './infrastructure/renderer-three/context'
-import { RaycastServiceLive } from './infrastructure/raycast-three'
 import { SpatialGridLive } from './infrastructure/spatial-grid'
+import { WorldLive } from './infrastructure/world'
 import { gameLoop } from './runtime/loop'
-import { ChunkDataQueue, DeltaTime, GameState, OnCommand, RaycastResultService, RenderQueue, hotbarUpdater } from './runtime/services'
+import { blockInteractionSystem } from './systems/block-interaction'
+import { cameraControlSystem } from './systems/camera-control'
+import { chunkLoadingSystem } from './systems/chunk-loading'
+import { collisionSystem } from './systems/collision'
+import { inputPollingSystem } from './systems/input-polling'
+import { physicsSystem } from './systems/physics'
+import { playerMovementSystem } from './systems/player-movement'
+import { uiSystem } from './systems/ui'
+import { updatePhysicsWorldSystem } from './systems/update-physics-world'
+import { updateTargetSystem } from './systems/update-target-system'
+import { worldUpdateSystem } from './systems/world-update'
 
-const InfraServicesLive = Layer.mergeAll(
-  ComputationWorkerLive,
+const CoreServicesLive = Layer.mergeAll(
+  ClockLive,
   InputManagerLive,
+  RendererLive,
   MaterialManagerLive,
-  RaycastServiceLive,
+  RaycastLive,
+  ComputationWorkerLive,
   SpatialGridLive,
+  WorldLive,
 )
 
-const AppLive = (rootElement: HTMLElement) => {
-  const services = Layer.mergeAll(
-    World.worldLayer,
-    InfraServicesLive,
-    ThreeContextLive(rootElement),
-    ThreeCameraLive(),
-    RendererLive,
-    OnCommand.Live,
-    GameState.Live,
-  ).pipe(Layer.provide(hotbarUpdater))
+const gameSystems = [
+  inputPollingSystem,
+  playerMovementSystem,
+  cameraControlSystem,
+  physicsSystem,
+  updatePhysicsWorldSystem,
+  collisionSystem,
+  updateTargetSystem,
+  blockInteractionSystem,
+  chunkLoadingSystem,
+  worldUpdateSystem,
+  uiSystem,
+]
 
-  const systems = Effect.all(
-    [
-      inputPollingSystem,
-      playerMovementSystem,
-      cameraControlSystem,
-      collisionSystem,
-      physicsSystem,
-      blockInteractionSystem,
-      updateTargetSystem,
-      updatePhysicsWorldSystem,
-      chunkLoadingSystem,
-      worldUpdateSystem,
-      createUISystem,
-    ],
-    { concurrency: 'inherit' },
-  )
+const main = Effect.gen(function* (_) {
+  const world = yield* _(World)
 
-  return services.pipe(Layer.provide(Layer.effectDiscard(systems)))
-}
-
-class RootElementNotFoundError extends Data.TaggedError('RootElementNotFoundError') {}
-
-const getRootElement = Effect.fromNullable(document.getElementById('app')).pipe(Effect.mapError(() => new RootElementNotFoundError()))
-
-const waitForDom = Effect.async<void>((resume) => {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => resume(Effect.void), { once: true })
-  } else {
-    resume(Effect.void)
-  }
-})
-
-export const main = Effect.gen(function* (_) {
-  const rootElement = yield* _(getRootElement)
-  const appLayer = AppLive(rootElement)
-
-  yield* _(
-    World.addArchetype({
+  const player = yield* _(
+    createArchetype({
       type: 'player',
-      pos: new Position({ x: 0, y: 80, z: 0 }),
+      pos: { x: 0, y: 80, z: 0 },
     }),
   )
-  yield* _(
-    World.addArchetype({
-      type: 'camera',
-      pos: new Position({ x: 0, y: 80, z: 0 }),
-    }),
-  )
+  yield* _(world.addArchetype(player))
 
-  yield* _(gameLoop, Effect.provide(appLayer))
+  yield* _(gameLoop(gameSystems))
 })
 
-export const bootstrap = waitForDom.pipe(
-  Effect.flatMap(() => main),
-  Effect.catchTags({
-    RootElementNotFoundError: (e) => Effect.logError('Root element not found', e),
-  }),
-)
+const AppLive = main.pipe(Effect.provide(CoreServicesLive))
 
-Effect.runFork(bootstrap)
+Effect.runFork(AppLive)

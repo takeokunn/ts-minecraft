@@ -1,72 +1,97 @@
-import { Effect, Match } from 'effect'
+import { Effect, Match, Option } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
-import { createTargetNone, InputState, Target } from '@/domain/components'
+import { Hotbar, InputState, Position, Target, TargetBlock, TargetNone } from '@/domain/components'
 import { playerTargetQuery } from '@/domain/queries'
-import * as W from '@/domain/world'
+import { World } from '@/runtime/services'
+import { EntityId } from '@/domain/entity'
+import { Float } from '@/domain/common'
 
-const handleDestroyBlock = (entityId: W.EntityId, target: Extract<Target, { _tag: 'block' }>) =>
-  Effect.all(
-    [
-      W.removeEntity(target.entityId),
-      W.updateComponent(entityId, 'target', createTargetNone()),
-      W.recordBlockDestruction(target.position),
-    ],
-    { discard: true },
-  )
-
-const handlePlaceBlock = (
-  entityId: W.EntityId,
-  inputState: InputState,
-  target: Extract<Target, { _tag: 'block' }>,
-  hotbar: { slots: ReadonlyArray<string>; selectedIndex: number },
-) => {
-  const blockType = hotbar.slots[hotbar.selectedIndex]
-  if (!blockType || blockType === 'air') {
-    return Effect.void
-  }
-
-  const newPosition = {
-    x: target.position.x + target.face[0],
-    y: target.position.y + target.face[1],
-    z: target.position.z + target.face[2],
-  }
-
-  const newBlockArchetype = createArchetype({
-    type: 'block',
-    pos: newPosition,
-    blockType,
+const handleDestroyBlock = (entityId: EntityId, target: TargetBlock) =>
+  Effect.gen(function* ($) {
+    const world = yield* $(World)
+    yield* $(world.removeEntity(target.entityId))
+    yield* $(world.updateComponent(entityId, 'target', new TargetNone()))
   })
 
-  return Effect.all(
-    [
-      W.addArchetype(newBlockArchetype),
-      W.updateComponent(entityId, 'inputState', { ...inputState, place: false }),
-      W.recordBlockPlacement({
-        position: newPosition,
-        blockType,
+const handlePlaceBlock = (
+  entityId: EntityId,
+  target: TargetBlock,
+  hotbar: Hotbar,
+  inputState: InputState,
+) =>
+  Effect.gen(function* ($) {
+    const world = yield* $(World)
+    const blockType = Option.fromNullable(hotbar.slots[hotbar.selectedIndex])
+
+    yield* $(
+      Option.match(blockType, {
+        onNone: () => Effect.void,
+        onSome: (blockType) =>
+          Effect.gen(function* ($) {
+            if (blockType === 'air') {
+              return
+            }
+
+            const newPosition = new Position({
+              x: Float(target.position.x + target.face[0]),
+              y: Float(target.position.y + target.face[1]),
+              z: Float(target.position.z + target.face[2]),
+            })
+
+            const newBlockArchetype = yield* $(
+              createArchetype({
+                type: 'block',
+                pos: newPosition,
+                blockType,
+              }),
+            )
+
+            yield* $(world.addArchetype(newBlockArchetype))
+            yield* $(world.updateComponent(entityId, 'inputState', { ...inputState, place: false }))
+          }),
       }),
-    ],
-    { discard: true },
+    )
+  })
+
+const handleInteraction = ({
+  entityId,
+  inputState,
+  target,
+  hotbar,
+}: {
+  entityId: EntityId
+  inputState: InputState
+  target: Target
+  hotbar: Hotbar
+}) =>
+  Match.value({ inputState, target }).pipe(
+    Match.when(
+      { inputState: { destroy: true }, target: { _tag: 'block' } },
+      ({ target }) => handleDestroyBlock(entityId, target),
+    ),
+    Match.when(
+      { inputState: { place: true }, target: { _tag: 'block' } },
+      ({ target }) => handlePlaceBlock(entityId, target, hotbar, inputState),
+    ),
+    Match.orElse(() => Effect.void),
   )
-}
 
 export const blockInteractionSystem = Effect.gen(function* ($) {
-  const players = yield* $(W.query(playerTargetQuery))
+  const world = yield* $(World)
+  const { entities, components } = yield* $(world.querySoA(playerTargetQuery))
 
   yield* $(
     Effect.forEach(
-      players,
-      ({ entityId, inputState, target, hotbar }) =>
-        Match.value(target).pipe(
-          Match.when({ _tag: 'block' }, (blockTarget) =>
-            Match.value(inputState).pipe(
-              Match.when({ destroy: true }, () => handleDestroyBlock(entityId, blockTarget)),
-              Match.when({ place: true }, () => handlePlaceBlock(entityId, inputState, blockTarget, hotbar)),
-              Match.orElse(() => Effect.void),
-            ),
-          ),
-          Match.orElse(() => Effect.void),
-        ),
+      entities,
+      (entityId, i) => {
+        const { inputState, target, hotbar } = components
+        return handleInteraction({
+          entityId,
+          inputState: inputState[i],
+          target: target[i],
+          hotbar: hotbar[i],
+        })
+      },
       { concurrency: 'inherit' },
     ),
   )

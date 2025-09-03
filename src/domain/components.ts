@@ -1,28 +1,30 @@
-import { Schema as S, Effect } from 'effect'
-import { Class } from 'effect/Schema'
-import { BlockTypeSchema } from './block'
-import { Float, Int, Vector3Int, Vector3IntSchema } from './common'
-import { EntityId, EntityIdSchema } from './entity'
+import * as S from 'effect/Schema'
+import { Float, Int, Vector3IntSchema } from './common'
+import { EntityIdSchema } from './entity'
+import { BlockTypeSchema } from './block-types'
 
-// --- Component Schemas ---
+// --- Component Schemas using S.Struct ---
 
-export class Position extends Class<Position>('Position')({
+export const Position = S.Struct({
   x: Float,
   y: Float,
   z: Float,
-}) {}
+})
+export type Position = S.Schema.Type<typeof Position>
 
-export class Velocity extends Class<Velocity>('Velocity')({
+export const Velocity = S.Struct({
   dx: Float,
   dy: Float,
   dz: Float,
-}) {}
+})
+export type Velocity = S.Schema.Type<typeof Velocity>
 
-export class Player extends Class<Player>('Player')({
+export const Player = S.Struct({
   isGrounded: S.Boolean,
-}) {}
+})
+export type Player = S.Schema.Type<typeof Player>
 
-export class InputState extends Class<InputState>('InputState')({
+export const InputState = S.Struct({
   forward: S.Boolean,
   backward: S.Boolean,
   left: S.Boolean,
@@ -32,86 +34,85 @@ export class InputState extends Class<InputState>('InputState')({
   place: S.Boolean,
   destroy: S.Boolean,
   isLocked: S.Boolean,
-}) {}
-export const createInputState = (): Effect.Effect<InputState> =>
-  Effect.sync(() => new InputState({
-    forward: false,
-    backward: false,
-    left: false,
-    right: false,
-    jump: false,
-    sprint: false,
-    place: false,
-    destroy: false,
-    isLocked: false,
-  }))
-export const setInputState = (state: InputState, changes: Partial<InputState>): Effect.Effect<InputState> => {
-  return Effect.sync(() => new InputState({ ...state, ...changes }))
-}
+})
+export type InputState = S.Schema.Type<typeof InputState>
 
-export class CameraState extends Class<CameraState>('CameraState')({
+export const CameraState = S.Struct({
   pitch: Float,
   yaw: Float,
-}) {}
+})
+export type CameraState = S.Schema.Type<typeof CameraState>
 
-export class Hotbar extends Class<Hotbar>('Hotbar')({
+export const Hotbar = S.Struct({
   slots: S.Array(BlockTypeSchema),
   selectedIndex: Int,
-}) {}
+})
+export type Hotbar = S.Schema.Type<typeof Hotbar>
 
-export class TargetBlock extends Class<TargetBlock>('TargetBlock')({
+export const TargetBlock = S.Struct({
   _tag: S.Literal('block'),
   entityId: EntityIdSchema,
   face: Vector3IntSchema,
   position: Position,
-}) {}
-export class TargetNone extends Class<TargetNone>('TargetNone')({
+})
+export type TargetBlock = S.Schema.Type<typeof TargetBlock>
+
+export const TargetNone = S.Struct({
   _tag: S.Literal('none'),
-}) {}
+})
+export type TargetNone = S.Schema.Type<typeof TargetNone>
+
 export const Target = S.Union(TargetBlock, TargetNone)
 export type Target = S.Schema.Type<typeof Target>
-export const createTargetNone = (): Effect.Effect<Target> => Effect.sync(() => new TargetNone({ _tag: 'none' }))
-export const createTargetBlock = (entityId: EntityId, face: Vector3Int, position: Position): Effect.Effect<Target> =>
-  Effect.sync(() => new TargetBlock({ _tag: 'block', entityId, face, position }))
 
-export class Gravity extends Class<Gravity>('Gravity')({
+export const Gravity = S.Struct({
   value: Float,
-}) {}
+})
+export type Gravity = S.Schema.Type<typeof Gravity>
 
-export class Collider extends Class<Collider>('Collider')({
+export const Collider = S.Struct({
   width: Float,
   height: Float,
   depth: Float,
-}) {}
+})
+export type Collider = S.Schema.Type<typeof Collider>
 
-export class Renderable extends Class<Renderable>('Renderable')({
+export const Renderable = S.Struct({
   geometry: S.String,
   blockType: BlockTypeSchema,
-}) {}
+})
+export type Renderable = S.Schema.Type<typeof Renderable>
 
-export class InstancedMeshRenderable extends Class<InstancedMeshRenderable>('InstancedMeshRenderable')({
+export const InstancedMeshRenderable = S.Struct({
   meshType: S.String,
-}) {}
+})
+export type InstancedMeshRenderable = S.Schema.Type<typeof InstancedMeshRenderable>
 
-export class TerrainBlock extends Class<TerrainBlock>('TerrainBlock')({}) {}
+export const TerrainBlock = S.Struct({})
+export type TerrainBlock = S.Schema.Type<typeof TerrainBlock>
 
-export class Chunk extends Class<Chunk>('Chunk')({
+export const Chunk = S.Struct({
   chunkX: Int,
   chunkZ: Int,
   blocks: S.Array(BlockTypeSchema),
-}) {}
+})
+export type Chunk = S.Schema.Type<typeof Chunk>
 
-export class Camera extends Class<Camera>('Camera')({
+export const Camera = S.Struct({
   position: Position,
   target: S.optional(Position),
   damping: Float,
-}) {}
+})
+export type Camera = S.Schema.Type<typeof Camera>
 
-export class TargetBlockComponent extends Class<TargetBlockComponent>('TargetBlockComponent')({}) {}
+export const TargetBlockComponent = S.Struct({})
+export type TargetBlockComponent = S.Schema.Type<typeof TargetBlockComponent>
 
-export class ChunkLoaderState extends Class<ChunkLoaderState>('ChunkLoaderState')({
+export const ChunkLoaderState = S.Struct({
   loadedChunks: S.ReadonlySet(S.String),
-}) {}
+})
+export type ChunkLoaderState = S.Schema.Type<typeof ChunkLoaderState>
+
 
 // --- Aggregated Component Types ---
 
@@ -134,15 +135,14 @@ export const ComponentSchemas = {
   chunkLoaderState: ChunkLoaderState,
 } as const
 
-export const AnyComponent = S.Union(...Object.values(ComponentSchemas).filter((s) => 'ast' in s))
+export const AnyComponent = S.Union(...Object.values(ComponentSchemas).filter((s) => 'ast' in s && s !== Target))
 export type AnyComponent = S.Schema.Type<typeof AnyComponent>
-
-
 
 export type Components = {
   readonly [K in keyof typeof ComponentSchemas]: S.Schema.Type<(typeof ComponentSchemas)[K]>
 }
 
 export type ComponentName = keyof Components
-export const componentNames: ComponentName[] = Object.keys(ComponentSchemas).filter((key): key is ComponentName => Object.prototype.hasOwnProperty.call(ComponentSchemas, key))
+export const ComponentNameSchema = S.Literal(...(Object.keys(ComponentSchemas) as ComponentName[]))
+export const componentNames: ReadonlyArray<ComponentName> = ComponentNameSchema.literals
 export const componentNamesSet = new Set<string>(componentNames)

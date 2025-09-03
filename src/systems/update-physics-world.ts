@@ -1,34 +1,36 @@
 import { Effect } from 'effect'
-import { createAABB } from '@/domain/geometry'
+import { Box3 } from 'three'
 import { positionColliderQuery } from '@/domain/queries'
-import { SpatialGridService } from '@/runtime/services'
-import * as World from '@/domain/world'
+import { SpatialGrid, World } from '@/runtime/services'
 
-/**
- * Rebuilds the spatial grid for broadphase collision detection.
- * This system should run after physics updates positions, but before collision resolution.
- */
 export const updatePhysicsWorldSystem = Effect.gen(function* (_) {
-  const spatialGridService = yield* _(SpatialGridService)
-  const soa = yield* _(World.querySoA(positionColliderQuery))
+  const world = yield* _(World)
+  const spatialGrid = yield* _(SpatialGrid)
 
-  yield* _(spatialGridService.clear)
+  yield* _(spatialGrid.clear())
 
-  const registrationEffects = []
-  for (let i = 0; i < soa.entities.length; i++) {
-    const position = {
-      x: soa.position.x[i]!,
-      y: soa.position.y[i]!,
-      z: soa.position.z[i]!,
-    }
-    const collider = {
-      width: soa.collider.width[i]!,
-      height: soa.collider.height[i]!,
-      depth: soa.collider.depth[i]!,
-    }
-    const aabb = createAABB(soa.position[i]!, soa.collider[i]!)
-    registrationEffects.push(spatialGridService.register(soa.entities[i]!, aabb))
-  }
+  const { entities, components } = yield* _(world.querySoA(positionColliderQuery))
+  const { position, collider } = components
 
-  yield* _(Effect.all(registrationEffects, { discard: true, concurrency: 'unbounded' }))
-}).pipe(Effect.catchAllCause((cause) => Effect.logError('An error occurred in updatePhysicsWorldSystem', cause)))
+  yield* _(
+    Effect.forEach(
+      entities,
+      (entityId, i) => {
+        const currentPosition = position[i]
+        const currentCollider = collider[i]
+
+        const minX = currentPosition.x - currentCollider.width / 2
+        const minY = currentPosition.y
+        const minZ = currentPosition.z - currentCollider.depth / 2
+        const maxX = currentPosition.x + currentCollider.width / 2
+        const maxY = currentPosition.y + currentCollider.height
+        const maxZ = currentPosition.z + currentCollider.depth / 2
+
+        const aabb = new Box3(new Box3().min.set(minX, minY, minZ), new Box3().max.set(maxX, maxY, maxZ))
+
+        return spatialGrid.add(entityId, aabb)
+      },
+      { discard: true, concurrency: 'unbounded' },
+    ),
+  )
+})

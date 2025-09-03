@@ -1,4 +1,7 @@
-import type { Collider } from './components'
+import { Effect } from 'effect'
+import * as S from 'effect/Schema'
+import { Collider } from './components'
+import { toFloat } from './common'
 
 // World Generation Constants
 export const CHUNK_SIZE = 10
@@ -21,10 +24,20 @@ export const FRICTION = 0.98
 export const GRAVITY = 20
 export const DECELERATION = 0.98
 export const MIN_VELOCITY_THRESHOLD = 0.001
+export const PLAYER_HEIGHT = 1.8
 
 // --- Colliders ---
-export const PLAYER_COLLIDER: Collider = { width: 0.6, height: 1.8, depth: 0.6 }
-export const BLOCK_COLLIDER: Collider = { width: 1, height: 1, depth: 1 }
+export const PLAYER_COLLIDER = Effect.all({
+  width: toFloat(0.6),
+  height: toFloat(PLAYER_HEIGHT),
+  depth: toFloat(0.6),
+}).pipe(Effect.flatMap(S.decode(Collider)))
+
+export const BLOCK_COLLIDER = Effect.all({
+  width: toFloat(1),
+  height: toFloat(1),
+  depth: toFloat(1),
+}).pipe(Effect.flatMap(S.decode(Collider)))
 
 // Chunk Loading Constants
 export const RENDER_DISTANCE = 2

@@ -1,94 +1,110 @@
-import { Effect, Layer } from 'effect'
-import { describe, it, expect } from 'vitest'
-import { createArchetype } from '@/domain/archetypes'
-import * as World from '@/domain/world'
+import { describe, it, expect, vi, beforeEach } from '@effect/vitest'
+import { Effect, Layer, Ref } from 'effect'
 import { physicsSystem } from '../physics'
-import { FRICTION, TERMINAL_VELOCITY } from '@/domain/world-constants'
-import { playerQuery } from '@/domain/queries'
-import { DeltaTime } from '@/runtime/services'
-import { provideTestLayer } from 'test/utils'
+import { Clock, World } from '@/runtime/services'
+import { EntityId } from '@/domain/entity'
+import { Player, Position, Velocity } from '@/domain/components'
+import { SoA } from '@/domain/world'
+import { physicsQuery } from '@/domain/queries'
+import { FRICTION, GRAVITY } from '@/domain/world-constants'
 
-const MockDeltaTime = (dt: number) => Layer.succeed(DeltaTime, dt)
+const mockWorld: Partial<World> = {
+  querySoA: vi.fn(),
+  updateComponent: vi.fn(),
+}
 
-const setupWorld = (isGrounded: boolean, velocity: { dx: number; dy: number; dz: number }) =>
-  Effect.gen(function* ($) {
-    const playerArchetype = createArchetype({
-      type: 'player',
-      pos: { x: 0, y: 0, z: 0 },
-    })
-    const playerId = yield* $(World.addArchetype(playerArchetype))
-    yield* $(World.updateComponent(playerId, 'player', { isGrounded }))
-    yield* $(World.updateComponent(playerId, 'velocity', velocity))
-    return { playerId }
-  })
+const mockClock: Partial<Clock> = {
+  deltaTime: Ref.unsafeMake(1),
+}
+
+const worldLayer = Layer.succeed(World, mockWorld as World)
+const clockLayer = Layer.succeed(Clock, mockClock as Clock)
+const testLayer = worldLayer.pipe(Layer.provide(clockLayer))
 
 describe('physicsSystem', () => {
-  it.skip('property-based test for physics calculations', () => {})
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
 
-  it('should do nothing if deltaTime is 0', () =>
+  it.effect('should apply gravity and friction and update components', () =>
     Effect.gen(function* ($) {
-      yield* $(setupWorld(false, { dx: 1, dy: 1, dz: 1 }))
-      const initialPlayer = (yield* $(World.query(playerQuery)))[0]
-      expect(initialPlayer).toBeDefined()
+      const entityId = EntityId('player')
+      const player = new Player({ isGrounded: true })
+      const position = new Position({ x: 0, y: 0, z: 0 })
+      const velocity = new Velocity({ dx: 1, dy: 0, dz: 1 })
+
+      const soa: SoA<typeof physicsQuery> = {
+        entities: [entityId],
+        components: {
+          player: [player],
+          position: [position],
+          velocity: [velocity],
+        },
+      }
+
+      vi.spyOn(mockWorld, 'querySoA').mockReturnValue(Effect.succeed(soa))
+      vi.spyOn(mockWorld, 'updateComponent').mockReturnValue(Effect.succeed(undefined))
 
       yield* $(physicsSystem)
 
-      const finalPlayer = (yield* $(World.query(playerQuery)))[0]
-      if (initialPlayer && finalPlayer) {
-        expect(finalPlayer.position).toEqual(initialPlayer.position)
-        expect(finalPlayer.velocity).toEqual(initialPlayer.velocity)
-      } else {
-        expect(finalPlayer).toBeDefined()
-      }
-    }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(MockDeltaTime(0))))))
+      const expectedVelocity = new Velocity({
+        dx: velocity.dx * FRICTION,
+        dy: 0,
+        dz: velocity.dz * FRICTION,
+      })
+      const expectedPosition = new Position({
+        x: position.x + expectedVelocity.dx,
+        y: position.y + expectedVelocity.dy,
+        z: position.z + expectedVelocity.dz,
+      })
 
-  it('should apply gravity when not grounded', () =>
+      expect(mockWorld.updateComponent).toHaveBeenCalledWith(entityId, 'velocity', expectedVelocity)
+      expect(mockWorld.updateComponent).toHaveBeenCalledWith(entityId, 'position', expectedPosition)
+    }).pipe(Effect.provide(testLayer)))
+
+  it.effect('should apply gravity when not grounded', () =>
     Effect.gen(function* ($) {
-      const deltaTime = 0.1
-      yield* $(setupWorld(false, { dx: 0, dy: 10, dz: 0 }))
-      const initialPlayer = (yield* $(World.query(playerQuery)))[0]
-      expect(initialPlayer).toBeDefined()
+      const entityId = EntityId('player')
+      const player = new Player({ isGrounded: false })
+      const position = new Position({ x: 0, y: 10, z: 0 })
+      const velocity = new Velocity({ dx: 0, dy: 0, dz: 0 })
 
-      if (initialPlayer) {
-        const gravityValue = initialPlayer.gravity.value
-
-        yield* $(physicsSystem)
-
-        const finalPlayer = (yield* $(World.query(playerQuery)))[0]
-        expect(finalPlayer).toBeDefined()
-        if (finalPlayer) {
-          const expectedDy = Math.max(-TERMINAL_VELOCITY, 10 - gravityValue * deltaTime)
-          const expectedY = initialPlayer.position.y + expectedDy * deltaTime
-
-          expect(finalPlayer.velocity.dy).toBeCloseTo(expectedDy, 2)
-          expect(finalPlayer.position.y).toBeCloseTo(expectedY, 2)
-        }
+      const soa: SoA<typeof physicsQuery> = {
+        entities: [entityId],
+        components: {
+          player: [player],
+          position: [position],
+          velocity: [velocity],
+        },
       }
-    }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(MockDeltaTime(0.1))))))
 
-  it('should apply friction when grounded', () =>
+      vi.spyOn(mockWorld, 'querySoA').mockReturnValue(Effect.succeed(soa))
+      vi.spyOn(mockWorld, 'updateComponent').mockReturnValue(Effect.succeed(undefined))
+
+      yield* $(physicsSystem)
+
+      const expectedVelocity = new Velocity({
+        dx: 0,
+        dy: -GRAVITY,
+        dz: 0,
+      })
+      const expectedPosition = new Position({
+        x: position.x,
+        y: position.y - GRAVITY,
+        z: position.z,
+      })
+
+      expect(mockWorld.updateComponent).toHaveBeenCalledWith(entityId, 'velocity', expectedVelocity)
+      expect(mockWorld.updateComponent).toHaveBeenCalledWith(entityId, 'position', expectedPosition)
+    }).pipe(Effect.provide(testLayer)))
+
+  it.effect('should not do anything if deltaTime is 0', () =>
     Effect.gen(function* ($) {
-      const deltaTime = 0.1
-      yield* $(setupWorld(true, { dx: 10, dy: 0, dz: 10 }))
-      const initialPlayer = (yield* $(World.query(playerQuery)))[0]
-      expect(initialPlayer).toBeDefined()
+      const clock = yield* $(Clock)
+      yield* $(Ref.set(clock.deltaTime, 0))
 
-      if (initialPlayer) {
-        yield* $(physicsSystem)
+      yield* $(physicsSystem)
 
-        const finalPlayer = (yield* $(World.query(playerQuery)))[0]
-        expect(finalPlayer).toBeDefined()
-        if (finalPlayer) {
-          const expectedDx = 10 * FRICTION
-          const expectedDz = 10 * FRICTION
-          const expectedX = initialPlayer.position.x + expectedDx * deltaTime
-          const expectedZ = initialPlayer.position.z + expectedDz * deltaTime
-
-          expect(finalPlayer.velocity.dx).toBeCloseTo(expectedDx, 2)
-          expect(finalPlayer.velocity.dz).toBeCloseTo(expectedDz, 2)
-          expect(finalPlayer.position.x).toBeCloseTo(expectedX, 2)
-          expect(finalPlayer.position.z).toBeCloseTo(expectedZ, 2)
-        }
-      }
-    }).pipe(Effect.provide(provideTestLayer().pipe(Layer.provide(MockDeltaTime(0.1))))))
+      expect(mockWorld.querySoA).not.toHaveBeenCalled()
+    }).pipe(Effect.provide(testLayer)))
 })
