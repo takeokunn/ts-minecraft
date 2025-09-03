@@ -52,7 +52,7 @@ describe('Archetypes', () => {
     it.effect('ArchetypeBuilder should be reversible after encoding and decoding', () =>
       Effect.promise(() =>
         fc.assert(
-          fc.property(ArchetypeBuilderArbitrary, (value) => {
+          fc.asyncProperty(ArchetypeBuilderArbitrary, async (value) => {
             const encode = S.encodeSync(ArchetypeBuilder)
             const decode = S.decodeSync(ArchetypeBuilder)
             const decodedValue = decode(encode(value))
@@ -65,7 +65,7 @@ describe('Archetypes', () => {
     it.effect('ArchetypeSchema should be reversible after encoding and decoding', () =>
       Effect.promise(() =>
         fc.assert(
-          fc.property(Arbitrary.make(ArchetypeSchema), (value) => {
+          fc.asyncProperty(Arbitrary.make(ArchetypeSchema), async (value) => {
             const encode = S.encodeSync(ArchetypeSchema)
             const decode = S.decodeSync(ArchetypeSchema)
             const decodedValue = decode(encode(value))
@@ -95,7 +95,7 @@ describe('Archetypes', () => {
   })
 
   describe('createArchetype', () => {
-    const pos = new Position({ x: toFloat(10), y: toFloat(20), z: toFloat(30) })
+    const pos: Position = { x: toFloat(10), y: toFloat(20), z: toFloat(30) }
 
     it.effect('should create a valid player archetype without cameraState', () =>
       Effect.gen(function* () {
@@ -117,7 +117,7 @@ describe('Archetypes', () => {
 
     it.effect('should create a valid player archetype with cameraState', () =>
       Effect.gen(function* () {
-        const cameraState = new CameraState({ pitch: toFloat(0.5), yaw: toFloat(1.5) })
+        const cameraState: CameraState = { pitch: toFloat(0.5), yaw: toFloat(1.5) }
         const builder = { type: 'player' as const, pos, cameraState }
         const archetype = yield* createArchetype(builder)
         const expected = {

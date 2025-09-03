@@ -44,7 +44,7 @@ describe('Block', () => {
     it.effect('should create a valid PlacedBlock object', () =>
       Effect.promise(() =>
         fc.assert(
-          fc.property(Arbitrary.make(PlacedBlockSchema), (placedBlock) => {
+          fc.asyncProperty(Arbitrary.make(PlacedBlockSchema), async (placedBlock) => {
             const { position, blockType } = placedBlock
             assert.deepStrictEqual(createPlacedBlock(position, blockType), placedBlock)
           }),
@@ -59,10 +59,10 @@ describe('Block', () => {
     it.effect('should return the correct UV for a given block type and face', () =>
       Effect.promise(() =>
         fc.assert(
-          fc.property(
+          fc.asyncProperty(
             Arbitrary.make(FaceNameSchema),
             blockTypeArbitrary,
-            (faceName, blockType) => {
+            async (faceName, blockType) => {
               const definition = blockDefinitions[blockType]!
               const uv = getUvForFace(blockType, faceName)
               let expectedUv
@@ -91,7 +91,7 @@ describe('Block', () => {
     it.effect('should return the correct transparency for a given block type', () =>
       Effect.promise(() =>
         fc.assert(
-          fc.property(blockTypeArbitrary, (blockType) => {
+          fc.asyncProperty(blockTypeArbitrary, async (blockType) => {
             const isTransparent = isBlockTransparent(blockType)
             assert.strictEqual(isTransparent, blockDefinitions[blockType]!.isTransparent)
           }),
@@ -110,7 +110,7 @@ describe('Block', () => {
     it.effect('should return the correct fluid status for a given block type', () =>
       Effect.promise(() =>
         fc.assert(
-          fc.property(blockTypeArbitrary, (blockType) => {
+          fc.asyncProperty(blockTypeArbitrary, async (blockType) => {
             const isFluid = isBlockFluid(blockType)
             assert.strictEqual(isFluid, blockDefinitions[blockType]!.isFluid)
           }),

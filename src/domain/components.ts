@@ -1,4 +1,6 @@
 import * as S from 'effect/Schema'
+import * as Arbitrary from 'effect/Arbitrary'
+import * as fc from 'effect/FastCheck'
 import { ChunkX, ChunkZ, Float, Int, Vector3IntSchema } from './common'
 import { EntityIdSchema } from './entity'
 import { BlockTypeSchema } from './block-types'
@@ -109,7 +111,7 @@ export const TargetBlockComponent = S.Struct({})
 export type TargetBlockComponent = S.Schema.Type<typeof TargetBlockComponent>
 
 export const ChunkLoaderState = S.Struct({
-  loadedChunks: S.ReadonlySet(S.String).pipe(S.annotations({ arbitrary: () => fc.set(fc.string()).map(s => new Set(s)) })),
+  loadedChunks: S.ReadonlySet(S.String).pipe(S.annotations({ arbitrary: () => fc.array(fc.string()).map(arr => new Set(arr)) })),
 })
 export type ChunkLoaderState = S.Schema.Type<typeof ChunkLoaderState>
 
@@ -140,10 +142,10 @@ export type AnyComponent = S.Schema.Type<typeof AnyComponent>
 
 export const PartialComponentsSchema = S.partial(S.Struct(ComponentSchemas)).pipe(
   S.annotations({
-    arbitrary: (_) =>
+    arbitrary: () =>
       fc.record(
         Object.fromEntries(
-          Object.entries(ComponentSchemas).map(([key, schema]) => [key, fc.option(_(schema), { nil: undefined })]),
+          Object.entries(ComponentSchemas).map(([key, schema]) => [key, fc.option(Arbitrary.make(schema), { nil: undefined })]),
         ),
       ),
   }),

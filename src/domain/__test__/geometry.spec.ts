@@ -10,7 +10,7 @@ import {
   fromCenterAndSize,
   getIntersectionDepth,
   toChunkIndex,
-  AABB as AABBSchema,
+  AABBSchema,
   type AABB,
 } from '../geometry'
 import {
@@ -65,7 +65,7 @@ describe('Geometry', () => {
     it.effect('should always produce a valid index based on its formula', () =>
       Effect.promise(() =>
         fc.assert(
-          fc.property(Vector3IntArbitrary, (pos) => {
+          fc.asyncProperty(Vector3IntArbitrary, async (pos) => {
             const [x, y, z] = pos
             const index = toChunkIndex(pos)
             const expected = x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
@@ -99,7 +99,7 @@ describe('Geometry', () => {
       it.effect('should create an AABB where max >= min', () =>
         Effect.promise(() =>
           fc.assert(
-            fc.property(Vector3FloatArbitrary, PositiveVector3FloatArbitrary, (center, size) => {
+            fc.asyncProperty(Vector3FloatArbitrary, PositiveVector3FloatArbitrary, async (center, size) => {
               const aabb = fromCenterAndSize(center, size)
               assert.isAtLeast(aabb.maxX, aabb.minX)
               assert.isAtLeast(aabb.maxY, aabb.minY)
@@ -130,7 +130,7 @@ describe('Geometry', () => {
       it.effect('should create a valid AABB from any position and collider', () =>
         Effect.promise(() =>
           fc.assert(
-            fc.property(PositionArbitrary, ColliderArbitrary, (position, collider) => {
+            fc.asyncProperty(PositionArbitrary, ColliderArbitrary, async (position, collider) => {
               const aabb = createAABB(position, collider)
               const expected = {
                 minX: toFloat(position.x - collider.width / 2),
@@ -167,7 +167,7 @@ describe('Geometry', () => {
       it.effect('an AABB should always intersect with itself', () =>
         Effect.promise(() =>
           fc.assert(
-            fc.property(AABBArbitrary, (aabb) => {
+            fc.asyncProperty(AABBArbitrary, async (aabb) => {
               assert.isTrue(areAABBsIntersecting(aabb, aabb))
             }),
           ),
@@ -210,7 +210,7 @@ describe('Geometry', () => {
       it.effect('should return zero vector for non-intersecting AABBs (PBT)', () =>
         Effect.promise(() =>
           fc.assert(
-            fc.property(AABBArbitrary, AABBArbitrary, (a, b) => {
+            fc.asyncProperty(AABBArbitrary, AABBArbitrary, async (a, b) => {
               if (!areAABBsIntersecting(a, b)) {
                 const depth = getIntersectionDepth(a, b)
                 assert.deepStrictEqual(depth, [toFloat(0), toFloat(0), toFloat(0)])
@@ -223,7 +223,7 @@ describe('Geometry', () => {
       it.effect('should not crash for intersecting AABBs (PBT)', () =>
         Effect.promise(() =>
           fc.assert(
-            fc.property(AABBArbitrary, AABBArbitrary, (a, b) => {
+            fc.asyncProperty(AABBArbitrary, AABBArbitrary, async (a, b) => {
               if (areAABBsIntersecting(a, b)) {
                 const depth = getIntersectionDepth(a, b)
                 assert.isDefined(depth)

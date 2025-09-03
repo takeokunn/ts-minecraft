@@ -1,4 +1,5 @@
 import * as S from 'effect/Schema'
+import * as Arbitrary from 'effect/Arbitrary'
 import * as fc from 'effect/FastCheck'
 import { EntityId } from './entity'
 import { PlacedBlockSchema } from './block'
@@ -25,14 +26,17 @@ export const ChunkMeshSchema = S.Struct({
   uvs: Float32ArraySchema,
   indices: Uint32ArraySchema,
 }).pipe(
-  S.arbitrary((_) =>
-    fc.record({
-      positions: _(Float32ArraySchema),
-      normals: _(Float32ArraySchema),
-      uvs: _(Float32ArraySchema),
-      indices: _(Uint32ArraySchema),
-    }),
-  ),
+  S.annotations({
+    arbitrary: () => {
+      const arb = Arbitrary.make(Float32ArraySchema)
+      return fc.record({
+        positions: arb,
+        normals: arb,
+        uvs: arb,
+        indices: Arbitrary.make(Uint32ArraySchema),
+      })
+    },
+  }),
 )
 export type ChunkMesh = S.Schema.Type<typeof ChunkMeshSchema>
 
@@ -43,15 +47,16 @@ export const ChunkGenerationResultSchema = S.Struct({
   mesh: ChunkMeshSchema,
   blocks: S.Array(PlacedBlockSchema),
 }).pipe(
-  S.arbitrary((_) =>
-    fc.record({
-      type: fc.constant('chunkGenerated' as const),
-      chunkX: _(ChunkX),
-      chunkZ: _(ChunkZ),
-      mesh: _(ChunkMeshSchema),
-      blocks: fc.array(_(PlacedBlockSchema)),
-    }),
-  ),
+  S.annotations({
+    arbitrary: () =>
+      fc.record({
+        type: fc.constant('chunkGenerated' as const),
+        chunkX: Arbitrary.make(ChunkX),
+        chunkZ: Arbitrary.make(ChunkZ),
+        mesh: Arbitrary.make(ChunkMeshSchema),
+        blocks: fc.array(Arbitrary.make(PlacedBlockSchema)),
+      }),
+  }),
 )
 export type ChunkGenerationResult = S.Schema.Type<typeof ChunkGenerationResultSchema>
 
@@ -69,15 +74,16 @@ export const UpsertChunkRenderCommandSchema = S.Struct({
   mesh: ChunkMeshSchema,
   blocks: S.Array(PlacedBlockSchema),
 }).pipe(
-  S.arbitrary((_) =>
-    fc.record({
-      type: fc.constant('upsertChunk' as const),
-      chunkX: _(ChunkX),
-      chunkZ: _(ChunkZ),
-      mesh: _(ChunkMeshSchema),
-      blocks: fc.array(_(PlacedBlockSchema)),
-    }),
-  ),
+  S.annotations({
+    arbitrary: () =>
+      fc.record({
+        type: fc.constant('upsertChunk' as const),
+        chunkX: Arbitrary.make(ChunkX),
+        chunkZ: Arbitrary.make(ChunkZ),
+        mesh: Arbitrary.make(ChunkMeshSchema),
+        blocks: fc.array(Arbitrary.make(PlacedBlockSchema)),
+      }),
+  }),
 )
 export type UpsertChunkRenderCommand = S.Schema.Type<typeof UpsertChunkRenderCommandSchema>
 
@@ -89,6 +95,12 @@ export const RemoveChunkRenderCommandSchema = S.Struct({
 export type RemoveChunkRenderCommand = S.Schema.Type<typeof RemoveChunkRenderCommandSchema>
 
 export const RenderCommandSchema = S.Union(UpsertChunkRenderCommandSchema, RemoveChunkRenderCommandSchema).pipe(
-  S.arbitrary((_) => fc.oneof(_(UpsertChunkRenderCommandSchema), _(RemoveChunkRenderCommandSchema))),
+  S.annotations({
+    arbitrary: () =>
+      fc.oneof(
+        Arbitrary.make(UpsertChunkRenderCommandSchema),
+        Arbitrary.make(RemoveChunkRenderCommandSchema),
+      ),
+  }),
 )
 export type RenderCommand = S.Schema.Type<typeof RenderCommandSchema>

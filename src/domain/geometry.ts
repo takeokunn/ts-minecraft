@@ -16,7 +16,7 @@ export const toChunkIndex = (localPosition: Vector3Int): number => {
 /**
  * An Axis-Aligned Bounding Box, defined by its minimum and maximum corners.
  */
-export const AABB = S.Struct({
+export const AABBSchema = S.Struct({
   minX: S.Number,
   minY: S.Number,
   minZ: S.Number,
@@ -24,11 +24,11 @@ export const AABB = S.Struct({
   maxY: S.Number,
   maxZ: S.Number,
 })
-export type AABB = S.Schema.Type<typeof AABB>
+export type AABB = S.Schema.Type<typeof AABBSchema>
 
 export const fromCenterAndSize = (center: Vector3Float, size: Vector3Float) => {
   const halfSize: Vector3Float = [toFloat(size[0] / 2), toFloat(size[1] / 2), toFloat(size[2] / 2)]
-  return S.decodeUnknownSync(AABB)({
+  return S.decodeUnknownSync(AABBSchema)({
     minX: center[0] - halfSize[0],
     minY: center[1] - halfSize[1],
     minZ: center[2] - halfSize[2],

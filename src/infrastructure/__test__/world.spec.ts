@@ -1,4 +1,4 @@
-import { Effect, Option, ReadonlyArray } from 'effect'
+import { Effect, Option } from 'effect'
 import { describe, it, assert } from '@effect/vitest'
 import * as fc from 'effect/FastCheck'
 import * as S from 'effect/Schema'
@@ -12,7 +12,7 @@ import { BlockType } from '@/domain/block-types'
 import { CHUNK_HEIGHT } from '@/domain/world-constants'
 
 // Helper to set up a world with some archetypes
-const setupWorldWithArchetypes = (builders: ReadonlyArray<ArchetypeBuilder>) =>
+const setupWorldWithArchetypes = (builders: readonly ArchetypeBuilder[]) =>
   Effect.gen(function* (_) {
     const world = yield* _(World)
     const archetypes = yield* _(Effect.all(builders.map(createArchetype)))
@@ -195,7 +195,7 @@ describe('World Queries', () => {
 
   it.effect('query and querySoA should return consistent results', () =>
     Effect.gen(function* (_) {
-      const allComponentNames: ReadonlyArray<ComponentName> = [
+      const allComponentNames: readonly ComponentName[] = [
         'position',
         'velocity',
         'player',

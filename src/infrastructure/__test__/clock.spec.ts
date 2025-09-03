@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { describe, it, assert } from '@effect/vitest'
 import * as fc from 'effect/FastCheck'
-import { TestClock } from '@effect/test'
+import { adjust } from 'effect/TestClock'
 import { ClockLive } from '../clock'
 import { Clock } from '@/runtime/services'
 
@@ -17,7 +17,7 @@ describe('Clock', () => {
       const clock = yield* _(Clock)
       yield* _(clock.onFrame(callback))
 
-      yield* _(TestClock.adjust(fc.float({ min: 1, max: 1000 })))
+      yield* _(adjust(fc.float({ min: 1, max: 1000 })))
       const deltaTime = yield* _(clock.deltaTime.get)
 
       // This test is a bit tricky with TestClock as requestAnimationFrame is not mocked by default.

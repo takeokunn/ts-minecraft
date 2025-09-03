@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect'
-import { createArchetype } from './domain/archetypes'
+import { Archetype, createArchetype } from './domain/archetypes'
 import { World } from './runtime/services'
 import { ClockLive } from './infrastructure/clock'
 import { ComputationWorkerLive } from './infrastructure/computation.worker'
@@ -47,21 +47,24 @@ export const gameSystems = [
   uiSystem,
 ]
 
-export const main = Effect.gen(function* (_) {
-  const world = yield* _(World)
+export const main = (player: Archetype) =>
+  Effect.gen(function* (_) {
+    const world = yield* _(World)
+    yield* _(world.addArchetype(player))
+    yield* _(gameLoop(gameSystems))
+  })
 
+const initialize = Effect.gen(function* (_) {
   const player = yield* _(
     createArchetype({
       type: 'player',
       pos: { x: 0, y: 80, z: 0 },
     }),
   )
-  yield* _(world.addArchetype(player))
-
-  yield* _(gameLoop(gameSystems))
+  yield* _(main(player))
 })
 
-const AppLive = main.pipe(Effect.provide(CoreServicesLive))
+const AppLive = initialize.pipe(Effect.provide(CoreServicesLive))
 
 /* v8 ignore next 3 */
 if (import.meta.env.PROD) {

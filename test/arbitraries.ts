@@ -1,7 +1,9 @@
 import * as S from 'effect/Schema'
 import * as Arbitrary from 'effect/Arbitrary'
 import * as fc from 'effect/FastCheck'
-import { AABBSchema, EntityIdSchema } from '@/domain/geometry'
+import { AABBSchema } from '@/domain/geometry'
+import { EntityIdSchema } from '@/domain/entity'
+import { BlockTypeSchema } from '@/domain/block-types'
 import {
   Position,
   Velocity,
@@ -9,42 +11,60 @@ import {
   CameraState,
   Hotbar,
   Target,
-  BlockTypeSchema,
   TargetBlock,
   TargetNone,
   ComponentName,
   ComponentSchemas,
-  Component,
+  AnyComponent,
+  Player,
+  Collider,
+  Chunk,
 } from '@/domain/components'
-import { Int, Vector3Int } from '@/domain/common'
+import { ChunkX, ChunkZ, Int, Vector3IntSchema } from '@/domain/common'
 import { type ArchetypeBuilder } from '@/domain/archetypes'
 
 // Existing arbitraries
-export const EntityIdArb = Arbitrary.make(EntityIdSchema)(fc)
-export const AABBArb = Arbitrary.make(AABBSchema)(fc)
+export const EntityIdArb = Arbitrary.make(EntityIdSchema)
+export const AABBArb = Arbitrary.make(AABBSchema)
 
 // Primitive arbitraries
-export const IntArb = Arbitrary.make(Int)(fc)
-export const Vector3IntArb = Arbitrary.make(Vector3Int)(fc)
+export const IntArb = Arbitrary.make(Int)
+export const Vector3IntArb = Arbitrary.make(Vector3IntSchema)
 
 // Component arbitraries
-export const PositionArb = Arbitrary.make(Position)(fc)
-export const VelocityArb = Arbitrary.make(Velocity)(fc)
-export const InputStateArb = Arbitrary.make(InputState)(fc)
-export const CameraStateArb = Arbitrary.make(CameraState)(fc)
-export const BlockTypeArb = Arbitrary.make(BlockTypeSchema)(fc)
-export const TargetBlockArb = Arbitrary.make(TargetBlock)(fc)
-export const TargetNoneArb = Arbitrary.make(TargetNone)(fc)
-export const TargetArb = fc.oneof(TargetBlockArb, TargetNoneArb)
-export const HotbarArb = Arbitrary.make(Hotbar)(fc)
+export const PositionArb = Arbitrary.make(Position)
+export const VelocityArb = Arbitrary.make(Velocity)
+export const InputStateArb = Arbitrary.make(InputState)
+export const CameraStateArb = Arbitrary.make(CameraState)
+export const BlockTypeArb = Arbitrary.make(BlockTypeSchema)
+export const TargetBlockArb = Arbitrary.make(TargetBlock)
+export const TargetNoneArb = Arbitrary.make(TargetNone)
+export const TargetArb = Arbitrary.make(Target)
+export const HotbarArb = Arbitrary.make(Hotbar)
+export const PlayerArb = Arbitrary.make(Player)
+export const ColliderArb = Arbitrary.make(Collider)
+export const ChunkArb = Arbitrary.make(Chunk)
+
+// --- Aliases for convenience ---
+export const arbitraryInputState = InputStateArb
+export const arbitraryTarget = TargetArb
+export const arbitraryHotbar = HotbarArb
+export const arbitraryPlayer = PlayerArb
+export const arbitraryVelocity = VelocityArb
+export const arbitraryCollider = ColliderArb
+export const arbitraryCameraState = CameraStateArb
+export const arbitraryPosition = PositionArb
+export const arbitraryChunk = ChunkArb
+export const arbitraryEntityId = EntityIdArb
+export const arbitraryBlockType = BlockTypeArb
 
 export const ComponentNameArb = fc.constantFrom(
   ...(Object.keys(ComponentSchemas) as ReadonlyArray<ComponentName>),
 )
 
 export const ComponentArb = ComponentNameArb.chain((name) =>
-  Arbitrary.make(ComponentSchemas[name])(fc).map((component) => [name, component] as const),
-) as fc.Arbitrary<readonly [ComponentName, Component]>
+  Arbitrary.make(ComponentSchemas[name]).map((component) => [name, component] as const),
+) as fc.Arbitrary<readonly [ComponentName, AnyComponent]>
 
 // ArchetypeBuilder arbitrary
 export const ArchetypeBuilderArb: fc.Arbitrary<ArchetypeBuilder> = fc.oneof(

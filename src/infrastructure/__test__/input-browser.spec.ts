@@ -1,4 +1,4 @@
-import { Effect, Layer, Queue, ReadonlyArray } from 'effect'
+import { Effect, Layer, Queue } from 'effect'
 import { describe, it, assert } from '@effect/vitest'
 import * as fc from 'effect/FastCheck'
 import { InputManager } from '@/runtime/services'

@@ -1,4 +1,5 @@
-import { Effect, Array as ReadonlyArray } from 'effect'
+import { Effect } from 'effect'
+import * as ReadonlyArray from 'effect/ReadonlyArray'
 import { clampPitch } from '@/domain/camera-logic'
 import { playerQuery } from '@/domain/queries'
 import { InputManager, World } from '@/runtime/services'

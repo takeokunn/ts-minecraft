@@ -1,4 +1,5 @@
-import { Effect, pipe, Array as ReadonlyArray } from 'effect'
+import { Effect, pipe } from 'effect'
+import * as ReadonlyArray from 'effect/ReadonlyArray'
 import * as HashMap from 'effect/HashMap'
 import * as Option from 'effect/Option'
 import { Collider, Player, Position, Velocity } from '@/domain/components'

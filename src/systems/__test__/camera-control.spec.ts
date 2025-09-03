@@ -1,5 +1,5 @@
 import { describe, it, vi, assert } from '@effect/vitest'
-import { Effect, Layer, Ref, Array as ReadonlyArray } from 'effect'
+import { Effect, Layer, Ref } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { cameraControlSystem } from '../camera-control'
 import { InputManager, World } from '@/runtime/services'

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, assert } from '@effect/vitest'
-import { Effect, Layer, Array as ReadonlyArray } from 'effect'
+import { Effect, Layer } from 'effect'
+import * as ReadonlyArray from 'effect/ReadonlyArray'
 import * as fc from 'effect/FastCheck'
 import { collisionSystem } from '../collision'
 import { SpatialGrid, World } from '@/runtime/services'

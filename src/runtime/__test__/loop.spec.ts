@@ -1,5 +1,7 @@
 import { Cause, Duration, Effect, Layer, Ref } from 'effect'
-import { TestClock, TestContext, TestLogger } from '@effect/test'
+import { adjust, times, tick } from 'effect/TestClock'
+import { TestContext } from 'effect/TestContext'
+import * as TestLogger from 'effect/TestLogger'
 import { assert, describe, expect, it } from '@effect/vitest'
 import * as fc from 'effect/FastCheck'
 import { createTick, gameLoop } from '../../runtime/loop'
@@ -17,7 +19,7 @@ const createStatsTest = (
 // Arbitrary for generating random systems for PBT
 const systemArbitrary = fc.oneof(
   fc.constant(Effect.void),
-  fc.string().pipe(fc.map((s) => Effect.fail(s))),
+  fc.string().map((s) => Effect.fail(s)),
 )
 const systemsArbitrary = fc.array(systemArbitrary)
 
@@ -76,8 +78,8 @@ describe('Game Loop', () => {
               })
 
               const tick = createTick([system])
-              yield* TestClock.adjust(Duration.millis(dt))
-              yield* tick
+              yield* adjust(Duration.millis(dt))
+              yield* tick()
 
               expect(receivedDeltaTime).toBeCloseTo(dt / 1000)
             }),
@@ -97,20 +99,20 @@ describe('Game Loop', () => {
         yield* gameLoop([system])
 
         // Check if the callback is registered
-        const callbacks = yield* TestClock.times
+        const callbacks = yield* times
         expect(callbacks.length).toBe(1)
 
         // Manually trigger frames
-        yield* TestClock.tick()
+        yield* tick()
         expect(systemCallCount).toBe(1)
 
-        yield* TestClock.tick()
+        yield* tick()
         expect(systemCallCount).toBe(2)
 
         for (let i = 0; i < 10; i++) {
-          yield* TestClock.tick()
+          yield* tick()
         }
         expect(systemCallCount).toBe(12)
       }))
   })
-}).pipe(Effect.provide(TestContext.TestContext))
+}).pipe(Effect.provide(TestContext))

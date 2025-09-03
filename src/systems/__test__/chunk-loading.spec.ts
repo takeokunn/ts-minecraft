@@ -1,5 +1,6 @@
 import { describe, it, assert, vi } from '@effect/vitest'
-import { Effect, Layer, HashMap, Array as ReadonlyArray, Option } from 'effect'
+import { Effect, Layer, HashMap, Option } from 'effect'
+import * as ReadonlyArray from 'effect/ReadonlyArray'
 import * as fc from 'effect/FastCheck'
 import { calculateChunkUpdates, chunkLoadingSystem } from '../chunk-loading'
 import { ComputationWorker, World } from '@/runtime/services'
