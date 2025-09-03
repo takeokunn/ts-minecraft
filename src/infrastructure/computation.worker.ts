@@ -1,16 +1,5 @@
-import { ComputationWorker, PlacedBlock } from '@/runtime/services'
+import { ComputationWorker, IncomingMessage, OutgoingMessage } from '@/runtime/services'
 import { Effect, Layer, Queue } from 'effect'
-
-type Message = {
-  type: 'chunkGenerated'
-  chunkX: number
-  chunkZ: number
-  positions: Float32Array
-  normals: Float32Array
-  uvs: Float32Array
-  indices: Uint32Array
-  blocks: ReadonlyArray<PlacedBlock>
-}
 
 export const ComputationWorkerLive = Layer.scoped(
   ComputationWorker,
@@ -27,12 +16,12 @@ export const ComputationWorkerLive = Layer.scoped(
         (worker) => Effect.sync(() => worker.terminate()),
       ),
     )
-    const messageQueue = yield* _(Queue.unbounded<Message>())
+    const messageQueue = yield* _(Queue.unbounded<OutgoingMessage>())
 
     yield* _(
       Effect.acquireRelease(
         Effect.sync(() => {
-          const handleMessage = (event: MessageEvent<Message>) => {
+          const handleMessage = (event: MessageEvent<OutgoingMessage>) => {
             Queue.unsafeOffer(messageQueue, event.data)
           }
           const handleError = (error: ErrorEvent) => {
@@ -50,16 +39,12 @@ export const ComputationWorkerLive = Layer.scoped(
       ),
     )
 
-    const postTask = (task: {
-      type: 'generateChunk'
-      chunkX: number
-      chunkZ: number
-    }) =>
+    const postTask = (task: IncomingMessage) =>
       Effect.try(() => {
         worker.postMessage(task)
-      })
+      }).pipe(Effect.catchAll((e) => Effect.logError(e)))
 
-    const onMessage = (handler: (message: Message) => Effect.Effect<void>) =>
+    const onMessage = (handler: (message: OutgoingMessage) => Effect.Effect<void>) =>
       Queue.take(messageQueue).pipe(
         Effect.flatMap(handler),
         Effect.catchAll((error) => Effect.logError(error)),

@@ -1,5 +1,5 @@
 import { Archetype } from '@/domain/archetypes'
-import { BlockType } from '@/domain/block'
+import { BlockType } from '@/domain/block-types'
 import { Vector3Int } from '@/domain/common'
 import { Chunk, ComponentName, ComponentOfName, Hotbar } from '@/domain/components'
 import { EntityId } from '@/domain/entity'
@@ -111,7 +111,7 @@ export class Raycast extends Context.Tag('Raycast')<
 export class MaterialManager extends Context.Tag('MaterialManager')<
   MaterialManager,
   {
-    readonly getMaterial: (name: string) => Effect.Effect<T.Material>
+    readonly getMaterial: (name: string) => Effect.Effect<T.Material, unknown>
   }
 >() {}
 
@@ -129,26 +129,34 @@ export type PlacedBlock = {
   readonly blockType: BlockType
 }
 
+export type IncomingMessage = {
+  type: 'generateChunk'
+  chunkX: number
+  chunkZ: number
+  seeds: { world: number; biome: number; trees: number }
+  amplitude: number
+  editedBlocks: {
+    destroyed: string[]
+    placed: Record<string, PlacedBlock>
+  }
+}
+
+export type OutgoingMessage = {
+  type: 'chunkGenerated'
+  chunkX: number
+  chunkZ: number
+  positions: Float32Array
+  normals: Float32Array
+  uvs: Float32Array
+  indices: Uint32Array
+  blocks: ReadonlyArray<PlacedBlock>
+}
+
 export class ComputationWorker extends Context.Tag('ComputationWorker')<
   ComputationWorker,
   {
-    readonly postTask: (task: {
-      type: 'generateChunk'
-      chunkX: number
-      chunkZ: number
-    }) => Effect.Effect<void>
-    readonly onMessage: (
-      handler: (message: {
-        type: 'chunkGenerated'
-        chunkX: number
-        chunkZ: number
-        positions: Float32Array
-        normals: Float32Array
-        uvs: Float32Array
-        indices: Uint32Array
-        blocks: ReadonlyArray<PlacedBlock>
-      }) => Effect.Effect<void>,
-    ) => Effect.Effect<void>
+    readonly postTask: (task: IncomingMessage) => Effect.Effect<void>
+    readonly onMessage: (handler: (message: OutgoingMessage) => Effect.Effect<void>) => Effect.Effect<void>
   }
 >() {}
 
@@ -168,7 +176,7 @@ export class Stats extends Context.Tag('Stats')<
   }
 >() {}
 
-export class DeltaTime extends Context.Tag('DeltaTime')<DeltaTime, number>() {}
+export class DeltaTime extends Context.Tag('DeltaTime')<DeltaTime, { readonly value: number }>() {}
 
 export class UIService extends Context.Tag('UIService')<
   UIService,

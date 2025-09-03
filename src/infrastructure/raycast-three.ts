@@ -11,7 +11,7 @@ export const RaycastLive = Layer.effect(
 
     const raycast = () =>
       Effect.sync(() => {
-        raycaster.setFromCamera({ x: 0, y: 0 }, camera)
+        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera)
         const intersects = raycaster.intersectObjects(scene.children)
         return Option.fromNullable(intersects[0])
       })

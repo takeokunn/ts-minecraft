@@ -6,5 +6,4 @@ import * as S from 'effect/Schema'
 export const EntityIdSchema = S.Number.pipe(S.brand('EntityId'))
 export type EntityId = S.Schema.Type<typeof EntityIdSchema>
 
-const decodeEntityId = S.decodeSync(EntityIdSchema)
-export const toEntityId = (id: number): EntityId => decodeEntityId(id)
+export const toEntityId = S.decodeUnknownSync(EntityIdSchema)

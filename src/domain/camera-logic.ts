@@ -1,7 +1,7 @@
 import { vec3 } from 'gl-matrix'
 import { Match, Option } from 'effect'
 import { Camera, Position, Target } from './components'
-import { Float, toFloat, Vector3 } from './common'
+import { Float, toFloat, Vector3Float } from './common'
 
 const PI_HALF = Math.PI / 2
 
@@ -45,8 +45,8 @@ export const updateCameraPosition = (
     onSome: (targetPos) => {
       const newPositionVec = vec3.create()
       const { x, y, z } = camera.position
-      const currentPositionVec: Vector3 = [x, y, z]
-      const targetPositionVec: Vector3 = [targetPos.x, targetPos.y, targetPos.z]
+      const currentPositionVec: Vector3Float = [toFloat(x), toFloat(y), toFloat(z)]
+      const targetPositionVec: Vector3Float = [toFloat(targetPos.x), toFloat(targetPos.y), toFloat(targetPos.z)]
       vec3.lerp(newPositionVec, currentPositionVec, targetPositionVec, deltaTime * camera.damping)
       const newPosition: Position = {
         x: toFloat(newPositionVec[0]),
@@ -58,10 +58,10 @@ export const updateCameraPosition = (
   })
 }
 
-export const getCameraLookAt = (camera: Camera): Vector3 => {
+export const getCameraLookAt = (camera: Camera): Vector3Float => {
   const lookAt = vec3.create()
   const { x, y, z } = camera.position
-  const cameraPosition: Vector3 = [x, y, z]
+  const cameraPosition = [toFloat(x), toFloat(y), toFloat(z)]
   vec3.add(lookAt, cameraPosition, [0, 0, -1]) // Look forward
   return [toFloat(lookAt[0]), toFloat(lookAt[1]), toFloat(lookAt[2])]
 }

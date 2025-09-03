@@ -1,8 +1,9 @@
 import * as S from 'effect/Schema'
+import * as Arbitrary from 'effect/Arbitrary'
 import { describe, assert, it } from '@effect/vitest'
 import * as fc from 'effect/FastCheck'
 import { BlockTypeSchema, blockTypeNames } from '../block-types'
-import { Effect, Gen } from 'effect'
+import { Effect } from 'effect'
 
 describe('BlockTypeSchema', () => {
   it.effect('should have the correct number of block types', () =>
@@ -18,12 +19,15 @@ describe('BlockTypeSchema', () => {
   )
 
   it.effect('should be reversible after encoding and decoding', () =>
-    Gen.flatMap(fc.gen(BlockTypeSchema), (value) =>
-      Effect.sync(() => {
-        const encode = S.encodeSync(BlockTypeSchema)
-        const decode = S.decodeSync(BlockTypeSchema)
-        const decodedValue = decode(encode(value))
-        assert.deepStrictEqual(decodedValue, value)
-      }),
-    ))
+    Effect.promise(() =>
+      fc.assert(
+        fc.asyncProperty(Arbitrary.make(BlockTypeSchema), async (value) => {
+          const encode = S.encodeSync(BlockTypeSchema)
+          const decode = S.decodeSync(BlockTypeSchema)
+          const decodedValue = decode(encode(value))
+          assert.deepStrictEqual(decodedValue, value)
+        }),
+      ),
+    ),
+  )
 })

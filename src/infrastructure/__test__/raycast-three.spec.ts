@@ -5,13 +5,13 @@ import { RaycastLive } from '../raycast-three'
 import { ThreeJsContext } from '../three-js-context'
 import * as THREE from 'three'
 
-const MockThreeJsContext = Layer.succeed(
+const MockThreeJsContext = Layer.effect(
   ThreeJsContext,
-  {
+  Effect.sync(() => ({
     scene: new THREE.Scene(),
     camera: new THREE.PerspectiveCamera(),
     renderer: undefined as any,
-  },
+  })),
 )
 
 describe('Raycast', () => {

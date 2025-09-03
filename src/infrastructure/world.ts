@@ -1,12 +1,20 @@
 import { Archetype } from '@/domain/archetypes'
-import { Vector3 } from '@/domain/common'
-import { Chunk, componentNamesSet, Components, ComponentSchemas, ComponentName } from '@/domain/components'
-import { EntityId, toEntityId } from '@/domain/entity'
+import { Vector3Float as Vector3 } from '@/domain/common'
+import {
+  Chunk,
+  componentNamesSet,
+  type Components,
+  ComponentSchemas,
+  type ComponentName,
+  type ComponentOfName,
+} from '@/domain/components'
+import { type EntityId, toEntityId } from '@/domain/entity'
 import { toChunkIndex } from '@/domain/geometry'
-import { Query } from '@/domain/query'
-import { Voxel } from '@/domain/world'
+import { type Query } from '@/domain/query'
+import { type Voxel } from '@/domain/world'
 import { World } from '@/runtime/services'
-import { Data, Effect, HashMap, HashSet, Layer, Option, Ref, pipe, ReadonlyArray } from 'effect'
+import { Data, Effect, HashMap, HashSet, Layer, Option, Ref, pipe } from 'effect'
+import * as ReadonlyArray from 'effect/ReadonlyArray'
 import { ParseError } from 'effect/ParseResult'
 import * as S from 'effect/Schema'
 
@@ -21,7 +29,7 @@ export class ComponentNotFoundError extends Data.TaggedError('ComponentNotFoundE
 }> {}
 
 export class QuerySingleResultNotFoundError extends Data.TaggedError('QuerySingleResultNotFoundError')<{
-  readonly query: Query<ReadonlyArray<ComponentName>>
+  readonly query: Query<ReadonlyArray.NonEmptyReadonlyArray<ComponentName>>
 }> {}
 
 export class ComponentDecodeError extends Data.TaggedError('ComponentDecodeError')<{
@@ -128,19 +136,20 @@ export const WorldLive = Layer.effect(
 
     const getComponentUnsafe = <T extends ComponentName>(entityId: EntityId, componentName: T) =>
       getComponent(entityId, componentName).pipe(
-        Effect.flatMap(Option.toEffect),
+        Effect.some,
         Effect.mapError(() => new ComponentNotFoundError({ entityId, componentName })),
       )
 
     const updateComponent = <T extends ComponentName>(
       entityId: EntityId,
       componentName: T,
-      data: Partial<Omit<Components[T], 'name'>>,
+      data: Partial<ComponentOfName<T>>,
     ) =>
       Ref.get(state).pipe(
         Effect.flatMap((s) =>
           pipe(
             HashMap.get(s.components[componentName], entityId),
+            Option.toEffect,
             Effect.mapError(() => new ComponentNotFoundError({ entityId, componentName })),
             Effect.flatMap((current) => {
               const updated = { ...current, ...data }
@@ -148,7 +157,7 @@ export const WorldLive = Layer.effect(
                 S.decode(ComponentSchemas[componentName])(updated),
                 Effect.mapError((error) => new ComponentDecodeError({ entityId, componentName, error })),
                 Effect.flatMap((decoded) => {
-                  const newComponentMap = HashMap.set(s.components[componentName], entityId, decoded)
+                  const newComponentMap = HashMap.set(s.components[componentName], entityId, decoded as any)
                   const newComponents = { ...s.components, [componentName]: newComponentMap }
                   return Ref.set(state, { ...s, components: newComponents })
                 }),
@@ -159,7 +168,7 @@ export const WorldLive = Layer.effect(
         Effect.asVoid,
       )
 
-    const query = <T extends ReadonlyArray<ComponentName>>(query: Query<T>) =>
+    const query = <T extends ReadonlyArray.NonEmptyReadonlyArray<ComponentName>>(query: Query<T>) =>
       Ref.get(state).pipe(
         Effect.map((s) => {
           const requiredComponents = HashSet.fromIterable(query.components)
@@ -170,22 +179,24 @@ export const WorldLive = Layer.effect(
 
           return pipe(
             Array.from(matchingArchetypes),
-            ReadonlyArray.flatMap(([_, entitySet]) =>
+            ReadonlyArray.flatMap(([, entitySet]: [string, HashSet.HashSet<EntityId>]) =>
               pipe(
                 Array.from(entitySet),
-                ReadonlyArray.filterMap((entityId) =>
+                ReadonlyArray.filterMap((entityId: EntityId) =>
                   pipe(
                     Option.all(query.components.map((name) => HashMap.get(s.components[name], entityId))),
-                    Option.map((components) => [entityId, components] as [EntityId, Array<Components[T[number]]>])
-                  )
-                )
-              )
-            )
+                    Option.map(
+                      (components) => [entityId, components] as [EntityId, Array<Components[T[number]]>],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           )
         }),
       )
 
-    const queryUnsafe = <T extends ReadonlyArray<ComponentName>>(q: Query<T>) =>
+    const queryUnsafe = <T extends ReadonlyArray.NonEmptyReadonlyArray<ComponentName>>(q: Query<T>) =>
       query(q).pipe(
         Effect.map((results) =>
           results.map(([entityId, components]) => {
@@ -194,16 +205,16 @@ export const WorldLive = Layer.effect(
         ),
       )
 
-    const querySingle = <T extends ReadonlyArray<ComponentName>>(q: Query<T>) =>
+    const querySingle = <T extends ReadonlyArray.NonEmptyReadonlyArray<ComponentName>>(q: Query<T>) =>
       query(q).pipe(Effect.map((results) => Option.fromNullable(results[0])))
 
-    const querySingleUnsafe = <T extends ReadonlyArray<ComponentName>>(q: Query<T>) =>
+    const querySingleUnsafe = <T extends ReadonlyArray.NonEmptyReadonlyArray<ComponentName>>(q: Query<T>) =>
       querySingle(q).pipe(
         Effect.flatMap(Option.toEffect),
         Effect.mapError(() => new QuerySingleResultNotFoundError({ query: q })),
       )
 
-    const querySoA = <T extends ReadonlyArray<ComponentName>>(query: Query<T>) =>
+    const querySoA = <T extends ReadonlyArray.NonEmptyReadonlyArray<ComponentName>>(query: Query<T>) =>
       Ref.get(state).pipe(
         Effect.map((s) => {
           const requiredComponents = HashSet.fromIterable(query.components)
@@ -214,22 +225,22 @@ export const WorldLive = Layer.effect(
 
           const matchingEntities = pipe(
             Array.from(matchingArchetypes),
-            ReadonlyArray.flatMap(([_, entitySet]) =>
+            ReadonlyArray.flatMap(([, entitySet]: [string, HashSet.HashSet<EntityId>]) =>
               pipe(
                 Array.from(entitySet),
-                ReadonlyArray.filterMap((entityId) =>
+                ReadonlyArray.filterMap((entityId: EntityId) =>
                   pipe(
                     Option.all(query.components.map((name) => HashMap.get(s.components[name], entityId))),
-                    Option.map((components) => ({ entityId, components }))
-                  )
-                )
-              )
-            )
+                    Option.map((components) => ({ entityId, components })),
+                  ),
+                ),
+              ),
+            ),
           )
 
           const entities = matchingEntities.map(({ entityId }) => entityId)
           const components = Object.fromEntries(
-            query.components.map((name, i) => [name, matchingEntities.map(({ components }) => components[i])])
+            query.components.map((name, i) => [name, matchingEntities.map(({ components }) => components[i])]),
           )
 
           return {
@@ -254,14 +265,14 @@ export const WorldLive = Layer.effect(
           Option.match({
             onNone: () => Option.none<Voxel>(),
             onSome: (chunk) => {
-              const vec: Vector3 = [x, y, z]
+              const vec: Vector3 = [x, y, z] as unknown as Vector3
               const index = toChunkIndex(vec)
               const blockType = chunk.blocks[index]
               if (blockType === 'air') {
                 return Option.none<Voxel>()
               }
               const voxel: Voxel = {
-                position: [Math.floor(x), Math.floor(y), Math.floor(z)],
+                position: [Math.floor(x), Math.floor(y), Math.floor(z)] as unknown as Vector3,
                 blockType: blockType,
               }
               return Option.some(voxel)
@@ -276,7 +287,7 @@ export const WorldLive = Layer.effect(
           Option.match({
             onNone: () => Effect.void,
             onSome: (chunk) => {
-              const vec: Vector3 = [x, y, z]
+              const vec: Vector3 = [x, y, z] as unknown as Vector3
               const index = toChunkIndex(vec)
               const newBlocks = [...chunk.blocks]
               newBlocks[index] = voxel.blockType

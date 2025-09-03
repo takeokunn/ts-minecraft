@@ -1,22 +1,8 @@
-import * as S from 'effect/Schema'
-import { describe, assert, it, expect } from '@effect/vitest'
-import * as fc from 'effect/FastCheck'
 import * as C from '../common'
-import { Effect, Gen } from 'effect'
+import { describe, it, expect } from '@effect/vitest'
+import { testReversibility } from '@test/test-utils'
 
 describe('Common Schemas', () => {
-  const testReversibility = (name: string, schema: S.Schema<any, any>) => {
-    it.effect(`${name} should be reversible after encoding and decoding`, () =>
-      Gen.flatMap(fc.gen(schema), (value) =>
-        Effect.sync(() => {
-          const encode = S.encodeSync(schema)
-          const decode = S.decodeSync(schema)
-          const decodedValue = decode(encode(value))
-          assert.deepStrictEqual(decodedValue, value)
-        }),
-      ))
-  }
-
   describe('Schema Reversibility', () => {
     testReversibility('Float', C.Float)
     testReversibility('Int', C.Int)

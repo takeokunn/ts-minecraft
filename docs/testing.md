@@ -64,30 +64,53 @@ describe('World', () => {
 
 ## 3. プロパティベーステスト (Property-Based Testing)
 
-プロパティベーステスト (PBT) は、開発者が手動でテストケースを考える代わりに、「どのような入力であっても、このプロパティ（性質）は常に真でなければならない」という不変条件を定義するテスト手法です。本プロジェクトでは、Effect-TSのエコシステムに統合された **`@effect/schema/Arbitrary`** と **`@effect/test`** を使用します。
+プロパティベーステスト (PBT) は、開発者が手動でテストケースを考える代わりに、「どのような入力であっても、このプロパティ（性質）は常に真でなければならない」という不変条件を定義するテスト手法です。本プロジェクトでは、Effect-TSのエコシステムに統合された **`@effect/schema/Arbitrary`** と **`effect/FastCheck`** を全面的に採用しています。
 
 PBTは、開発者が想定しないエッジケースを自動的に発見するのに非常に強力です。
 
-- **使用例**: `src/domain/__test__/components.spec.ts` では、すべてのコンポーネントスキーマが「任意の有効な入力データに対して、エンコードとデコードが可逆的である（`decode(encode(data)) === data`）」というプロパティをテストしています。
+### スキーマの可逆性テスト
+
+本プロジェクトにおけるPBTの主要な使用例は、`@effect/schema`で定義されたすべてのスキーマが**エンコード・デコード可能で、その操作が可逆的であること**を保証することです。
+
+このテストは非常に定型的であるため、共通のヘルパー関数として `@test/test-utils.ts` に集約されています。
 
 ```typescript
-// src/domain/__test__/components.spec.ts の例
-import * as S from '@effect/schema/Schema'
-import * as Arbitrary from '@effect/schema/Arbitrary'
-import { describe, it, expect } from '@effect/vitest'
-import { Gen } from '@effect/test'
-import { Position } from '@/domain/components'
+// test/test-utils.ts
+import * as S from 'effect/Schema'
+import { it, assert } from '@effect/vitest'
+import * as fc from 'effect/FastCheck'
 import { Effect } from 'effect'
+import * as Arbitrary from 'effect/Arbitrary'
 
-describe('Component Schemas', () => {
-  it.effect('Position should be reversible after encoding and decoding', () =>
-    Gen.forAll(Arbitrary.make(Position), (position) => {
-      const encoded = S.encodeSync(Position)(position)
-      const decoded = S.decodeSync(Position)(encoded)
-      expect(decoded).toEqual(position)
-      return Effect.void
-    }),
+export const testReversibility = (name: string, schema: S.Schema<any, any>) => {
+  it.effect(`${name} should be reversible after encoding and decoding`, () =>
+    Effect.promise(() =>
+      fc.assert(
+        fc.asyncProperty(Arbitrary.make(schema), async (value) => {
+          const encode = S.encodeSync(schema)
+          const decode = S.decodeSync(schema)
+          const decodedValue = decode(encode(value))
+          assert.deepStrictEqual(decodedValue, value)
+        }),
+      ),
+    ),
   )
+}
+```
+
+各コンポーネントや型のテストでは、このヘルパーを呼び出すだけでPBTを実践できます。
+
+```typescript
+// src/domain/__test__/entity.spec.ts の例
+import { describe } from '@effect/vitest'
+import { EntityIdSchema } from '../entity'
+import { testReversibility } from '@test/test-utils'
+
+describe('Entity', () => {
+  describe('EntityIdSchema', () => {
+    testReversibility('EntityIdSchema', EntityIdSchema)
+  })
+  // ...
 })
 ```
 

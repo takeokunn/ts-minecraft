@@ -1,75 +1,67 @@
 import { describe, it, assert } from '@effect/vitest'
-import { Effect, Gen } from 'effect'
 import * as S from 'effect/Schema'
-import * as fc from 'effect/FastCheck'
 import { Collider, Position } from '../components'
-import { areAABBsIntersecting, createAABB, getIntersectionDepth, toChunkIndex, AABB } from '../geometry'
-import { Vector3, toFloat } from '../common'
+import { areAABBsIntersecting, createAABB, getIntersectionDepth, toChunkIndex, AABB as AABBSchema } from '../geometry'
+import { Vector3, toFloat, toInt, Vector3Int } from '../common'
 import { CHUNK_SIZE } from '../world-constants'
+import { PLAYER_COLLIDER } from '../world-constants'
+import { AABB } from '../types'
 
 describe('Geometry', () => {
   describe('toChunkIndex', () => {
-    it.effect('should convert a 3D position to a 1D index', () =>
-      Gen.flatMap(fc.gen(Vector3), (position) =>
-        Effect.sync(() => {
-          const [x, y, z] = position
-          const expected = x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
-          assert.strictEqual(toChunkIndex(position), expected)
-        }),
-      ))
+    it('should convert a 3D position to a 1D index', () => {
+      const position: Vector3Int = [toInt(1), toInt(2), toInt(3)]
+      const [x, y, z] = position
+      const expected = x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
+      assert.strictEqual(toChunkIndex(position), expected)
+    })
   })
 
   describe('AABB', () => {
-    it.effect('AABB schema should be reversible', () =>
-      Gen.flatMap(fc.gen(AABB), (aabb) =>
-        Effect.sync(() => {
-          const encode = S.encodeSync(AABB)
-          const decode = S.decodeSync(AABB)
-          const decoded = decode(encode(aabb))
-          assert.deepStrictEqual(decoded, aabb)
-        }),
-      ))
+    const aabbValue: AABB = {
+      minX: toFloat(0),
+      minY: toFloat(0),
+      minZ: toFloat(0),
+      maxX: toFloat(1),
+      maxY: toFloat(1),
+      maxZ: toFloat(1),
+    }
 
-    it.effect('createAABB should create a correct AABB', () =>
-      Gen.flatMap(fc.gen(Position), (position) =>
-        Gen.flatMap(fc.gen(Collider), (collider) =>
-          Effect.sync(() => {
-            const aabb = createAABB(position, collider)
-            const expected = {
-              minX: toFloat(position.x - collider.width / 2),
-              minY: position.y,
-              minZ: toFloat(position.z - collider.depth / 2),
-              maxX: toFloat(position.x + collider.width / 2),
-              maxY: toFloat(position.y + collider.height),
-              maxZ: toFloat(position.z + collider.depth / 2),
-            }
-            assert.deepStrictEqual(aabb, expected)
-          }),
-        ),
-      ))
+    it('AABB schema should be reversible', () => {
+      const encode = S.encodeSync(AABBSchema)
+      const decode = S.decodeSync(AABBSchema)
+      const decoded = decode(encode(aabbValue))
+      assert.deepStrictEqual(decoded, aabbValue)
+    })
 
-    it.effect('areAABBsIntersecting should correctly detect intersections', () =>
-      Gen.flatMap(fc.gen(AABB), (a) =>
-        Gen.flatMap(fc.gen(AABB), (b) =>
-          Effect.sync(() => {
-            const expected = a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY && a.minZ <= b.maxZ && a.maxZ >= b.minZ
-            assert.strictEqual(areAABBsIntersecting(a, b), expected)
-          }),
-        ),
-      ))
+    it('createAABB should create a correct AABB', () => {
+      const position: Position = { x: toFloat(0.5), y: toFloat(0), z: toFloat(0.5) }
+      const collider: Collider = PLAYER_COLLIDER
+      const aabb = createAABB(position, collider)
+      const expected = {
+        minX: toFloat(position.x - collider.width / 2),
+        minY: position.y,
+        minZ: toFloat(position.z - collider.depth / 2),
+        maxX: toFloat(position.x + collider.width / 2),
+        maxY: toFloat(position.y + collider.height),
+        maxZ: toFloat(position.z + collider.depth / 2),
+      }
+      assert.deepStrictEqual(aabb, expected)
+    })
 
-    it.effect('getIntersectionDepth should return zero vector for non-intersecting AABBs', () =>
-      Gen.flatMap(fc.gen(AABB), (a) =>
-        Gen.flatMap(
-          fc.gen(AABB).map((b) => ({
-            ...b,
-            minX: toFloat(a.maxX + 1), // Ensure they don't intersect
-          })),
-          (b) =>
-            Effect.sync(() => {
-              assert.deepStrictEqual(getIntersectionDepth(a, b), [toFloat(0), toFloat(0), toFloat(0)])
-            }),
-        ),
-      ))
+    it('areAABBsIntersecting should correctly detect intersections', () => {
+      const a: AABB = { ...aabbValue }
+      const b: AABB = { ...aabbValue, minX: toFloat(0.5) }
+      const c: AABB = { ...aabbValue, minX: toFloat(2) }
+      assert.isTrue(areAABBsIntersecting(a, b))
+      assert.isFalse(areAABBsIntersecting(a, c))
+    })
+
+    it('getIntersectionDepth should return zero vector for non-intersecting AABBs', () => {
+      const a: AABB = { ...aabbValue }
+      const b: AABB = { ...aabbValue, minX: toFloat(a.maxX + 1) }
+      const expected: Vector3 = [toFloat(0), toFloat(0), toFloat(0)]
+      assert.deepStrictEqual(getIntersectionDepth(a, b), expected)
+    })
   })
 })

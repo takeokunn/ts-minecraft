@@ -68,11 +68,11 @@ export const createInputState = (): InputState => ({
  * @returns An archetype object (a partial set of components).
  */
 export const createArchetype = (builder: ArchetypeBuilder): Effect.Effect<Archetype, ParseError> => {
-  return Effect.gen(function* (_) {
-    const decodedBuilder = yield* _(S.decodeUnknown(ArchetypeBuilder)(builder))
+  return Effect.gen(function* () {
+    const decodedBuilder = yield* S.decodeUnknown(ArchetypeBuilder)(builder)
     const inputState = createInputState()
 
-    return Match.value(decodedBuilder).pipe(
+    const archetype: Archetype = Match.value(decodedBuilder).pipe(
       Match.when({ type: 'player' }, ({ pos, cameraState }) => ({
         player: { isGrounded: false },
         position: pos,
@@ -106,5 +106,6 @@ export const createArchetype = (builder: ArchetypeBuilder): Effect.Effect<Archet
       })),
       Match.exhaustive,
     )
+    return archetype
   })
 }

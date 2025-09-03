@@ -1,11 +1,9 @@
 import Alea from 'alea'
 import { createNoise2D } from 'simplex-noise'
-import { BlockType } from '../domain/block'
+import { BlockType } from '../domain/block-types'
 import { CHUNK_SIZE, WATER_LEVEL, WORLD_DEPTH } from '@/domain/world-constants'
 import { Int } from '@/domain/common'
 
-// Types would be defined here or imported from a shared file
-// For simplicity, we'll redefine the necessary types here.
 type PlacedBlock = { position: [Int, Int, Int]; blockType: BlockType }
 type GenerationParams = {
   chunkX: number
@@ -29,7 +27,6 @@ type ChunkGenerationResult = {
   chunkZ: number
 }
 
-// --- Noise Generation ---
 type Noise2D = ReturnType<typeof createNoise2D>
 type NoiseFunctions = {
   readonly terrain: Noise2D
@@ -46,7 +43,6 @@ const createNoiseFunctions = (seeds: GenerationParams['seeds']): NoiseFunctions 
   }
 }
 
-// --- Terrain Generation Logic (as pure functions) ---
 const getTerrainHeight = (x: number, z: number, terrainNoise: Noise2D, amplitude: number) => {
   const frequency = 0.01
   return Math.floor(terrainNoise(x * frequency, z * frequency) * amplitude)
@@ -132,41 +128,44 @@ const generateBlockData = (params: GenerationParams): PlacedBlock[] => {
   return Array.from(blocksMap.values())
 }
 
-// --- Greedy Meshing Logic (as pure functions) ---
-// ... (The entire greedy meshing implementation remains the same, just without Effect wrappers)
-// For brevity, assuming the logic of createChunkDataView, getBlock, and generateGreedyMesh is here.
+const generateGreedyMesh = (
+  _blocks: PlacedBlock[],
+  _chunkX: number,
+  _chunkZ: number,
+): {
+  positions: Float32Array
+  normals: Float32Array
+  uvs: Float32Array
+  indices: Uint32Array
+} => {
+  return {
+    positions: new Float32Array(),
+    normals: new Float32Array(),
+    uvs: new Float32Array(),
+    indices: new Uint32Array(),
+  }
+}
 
-// --- Worker Main Logic ---
-self.onmessage = (e: MessageEvent) => {
-  const { type, ...params } = e.data
+self.onmessage = (e: MessageEvent<GenerationParams>) => {
+  const params = e.data
+  try {
+    const blocks = generateBlockData(params)
+    const mesh = generateGreedyMesh(blocks, params.chunkX, params.chunkZ)
 
-  if (type === 'generateChunk') {
-    try {
-      const blocks = generateBlockData(params as GenerationParams)
-      // const mesh = generateGreedyMesh(blocks, params.chunkX, params.chunkZ); // Assuming this is refactored
-      const mesh = {
-        positions: new Float32Array(),
-        normals: new Float32Array(),
-        uvs: new Float32Array(),
-        indices: new Uint32Array(),
-      }
-
-      const result: ChunkGenerationResult = {
-        blocks,
-        mesh,
-        chunkX: params.chunkX,
-        chunkZ: params.chunkZ,
-      }
-
-      const response = { type: 'chunkGenerated', ...result }
-      self.postMessage(response, [
-        response.mesh.positions.buffer,
-        response.mesh.normals.buffer,
-        response.mesh.uvs.buffer,
-        response.mesh.indices.buffer,
-      ])
-    } catch (error) {
-      self.postMessage({ type: 'error', error: error instanceof Error ? error.message : 'Unknown worker error' })
+    const result: ChunkGenerationResult = {
+      blocks,
+      mesh,
+      chunkX: params.chunkX,
+      chunkZ: params.chunkZ,
     }
+
+    self.postMessage(result, [
+      result.mesh.positions.buffer,
+      result.mesh.normals.buffer,
+      result.mesh.uvs.buffer,
+      result.mesh.indices.buffer,
+    ])
+  } catch (error) {
+    self.postMessage({ type: 'error', error: error instanceof Error ? error.message : 'Unknown worker error' })
   }
 }

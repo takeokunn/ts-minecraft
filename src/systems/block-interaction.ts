@@ -1,15 +1,15 @@
 import { Effect, Match, Option } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
-import { Hotbar, InputState, Position, Target, TargetBlock, TargetNone } from '@/domain/components'
+import { Hotbar, InputState, Position, TargetBlock, TargetNone } from '@/domain/components'
 import { playerTargetQuery } from '@/domain/queries'
 import { World } from '@/runtime/services'
 import { EntityId } from '@/domain/entity'
-import { Float } from '@/domain/common'
+import { Float, toFloat } from '@/domain/common'
 
 const handleDestroyBlock = (world: World, entityId: EntityId, target: TargetBlock) =>
   Effect.gen(function* () {
     yield* world.removeEntity(target.entityId)
-    yield* world.updateComponent(entityId, 'target', new TargetNone())
+    yield* world.updateComponent(entityId, 'target', new TargetNone({}))
   })
 
 const handlePlaceBlock = (
@@ -28,9 +28,9 @@ const handlePlaceBlock = (
           Match.orElse((blockType) =>
             Effect.gen(function* () {
               const newPosition = new Position({
-                x: Float(target.position.x + target.face[0]),
-                y: Float(target.position.y + target.face[1]),
-                z: Float(target.position.z + target.face[2]),
+                x: toFloat(target.position.x + target.face[0]),
+                y: toFloat(target.position.y + target.face[1]),
+                z: toFloat(target.position.z + target.face[2]),
               })
 
               const newBlockArchetype = yield* createArchetype({

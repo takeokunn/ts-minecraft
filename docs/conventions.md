@@ -51,7 +51,30 @@ pnpm exec tsc
   - `any` の使用は固く禁じられています。
   - 型が不明な場合は `unknown` を使用しますが、`as` を用いた安易な型キャストは避け、型ガードや `@effect/schema/Schema` を用いて安全に型を絞り込みます。
   - `Effect.fromEither` や `Effect.fromOption` を活用し、失敗する可能性を型で表現することで、型アサーションが必要な場面を減らします。
-- **`@effect/schema` による型定義**: すべてのドメインデータ、APIレスポンス、外部データは `Schema` を用いて定義します。これにより、パースと型ガードが自動的に提供され、ランタイムエラーを防ぎます。
+- **`@effect/schema` による型定義とバリデーション**: すべてのドメインデータ、APIレスポンス、外部データは `Schema` を用いて定義します。これにより、パースと型ガードが自動的に提供され、ランタイムエラーを防ぎます。
+  - **基本**: `S.Struct` (オブジェクト), `S.Array` (配列), `S.Literal` (リテラル), `S.Number`, `S.String`, `S.Boolean` などを組み合わせて定義します。
+    ```typescript
+    // src/domain/components.ts
+    export const Position = S.Struct({
+      x: Float,
+      y: Float,
+      z: Float,
+    })
+    ```
+  - **カスタム型とTypedArray**: `Float32Array` のようにエンコード/デコードロジックが必要な型や、Arbitrary（テスト用のランダムな値）を自動生成できない型は、`S.transform` と `S.arbitrary` アノテーションを組み合わせて定義します。
+    ```typescript
+    // src/domain/types.ts
+    import * as fc from 'effect/FastCheck'
+
+    const Float32ArraySchema = S.transform(
+      S.Array(S.Number),
+      S.instanceOf(Float32Array),
+      {
+        decode: (arr) => new Float32Array(arr),
+        encode: (f32arr) => Array.from(f32arr),
+      },
+    ).pipe(S.arbitrary(() => fc.float32Array()))
+    ```
 
 ---
 

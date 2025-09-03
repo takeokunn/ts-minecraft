@@ -1,13 +1,14 @@
 import * as S from 'effect/Schema'
+import * as Arbitrary from 'effect/Arbitrary'
 import { InputState, Target, Hotbar, Position } from '@/domain/components'
 import { blockTypeNames } from '@/domain/block-types'
 import * as fc from 'effect/FastCheck'
 import { EntityId } from '@/domain/entity'
 
-export const arbitraryInputState = fc.gen(S.partial(InputState))
-export const arbitraryTarget = fc.gen(Target)
-export const arbitraryHotbar = fc.gen(Hotbar)
-export const arbitraryPosition = fc.gen(Position)
+export const arbitraryInputState = Arbitrary.make(S.partial(InputState))
+export const arbitraryTarget = Arbitrary.make(Target)
+export const arbitraryHotbar = Arbitrary.make(Hotbar)
+export const arbitraryPosition = Arbitrary.make(Position)
 
 export const arbitraryBlockType = fc.constantFrom(...blockTypeNames)
 

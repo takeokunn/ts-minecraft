@@ -35,4 +35,4 @@ export const blockDefinitions: BlockDefinitions = Effect.runSync(S.decodeUnknown
   glass: { textures: { side: [4, 0] }, isTransparent: true, isFluid: false },
   brick: { textures: { side: [0, 0] }, isTransparent: false, isFluid: false },
   plank: { textures: { side: [13, 0] }, isTransparent: false, isFluid: false },
-}))
+} as const))

@@ -1,45 +1,35 @@
 import * as S from 'effect/Schema'
 
 /**
- * A reusable schema for a floating-point number.
+ * Represents a floating-point Number.
  */
 export const Float = S.Number.pipe(S.brand('Float'))
 export type Float = S.Schema.Type<typeof Float>
-const decodeFloat = S.decodeSync(Float)
-export const toFloat = (n: number): Float => decodeFloat(n)
+export const toFloat = S.decodeUnknownSync(Float)
 
 /**
- * A reusable schema for an integer.
+ * Represents an integer.
  */
 export const Int = S.Number.pipe(S.int(), S.brand('Int'))
 export type Int = S.Schema.Type<typeof Int>
-const decodeInt = S.decodeSync(Int)
-export const toInt = (n: number): Int => decodeInt(n)
+export const toInt = S.decodeUnknownSync(Int)
 
 /**
- * A schema for a 3D vector with floating-point coordinates.
+ * Schemas for 3D and 2D vectors.
  */
 export const Vector3FloatSchema = S.Tuple(Float, Float, Float)
-export type Vector3 = S.Schema.Type<typeof Vector3FloatSchema>
+export type Vector3Float = S.Schema.Type<typeof Vector3FloatSchema>
 
-/**
- * A schema for a 2D vector with floating-point coordinates.
- */
 export const Vector2FloatSchema = S.Tuple(Float, Float)
-export type Vector2 = S.Schema.Type<typeof Vector2FloatSchema>
+export type Vector2Float = S.Schema.Type<typeof Vector2FloatSchema>
 
-/**
- * A schema for a 3D vector with integer coordinates.
- */
 export const Vector3IntSchema = S.Tuple(Int, Int, Int)
 export type Vector3Int = S.Schema.Type<typeof Vector3IntSchema>
 
 export const ChunkX = Int.pipe(S.brand('ChunkX'))
 export type ChunkX = S.Schema.Type<typeof ChunkX>
-const decodeChunkX = S.decodeSync(ChunkX)
-export const toChunkX = (n: number): ChunkX => decodeChunkX(n)
+export const toChunkX = S.decodeUnknownSync(ChunkX)
 
 export const ChunkZ = Int.pipe(S.brand('ChunkZ'))
 export type ChunkZ = S.Schema.Type<typeof ChunkZ>
-const decodeChunkZ = S.decodeSync(ChunkZ)
-export const toChunkZ = (n: number): ChunkZ => decodeChunkZ(n)
+export const toChunkZ = S.decodeUnknownSync(ChunkZ)

@@ -2,9 +2,9 @@ import { describe, it, expect, vi } from '@effect/vitest'
 import { Effect, Layer, Ref } from 'effect'
 import { inputPollingSystem } from '../input-polling'
 import { InputManager, World } from '@/runtime/services'
-import { EntityId, toEntityId } from '@/domain/entity'
+import { toEntityId } from '@/domain/entity'
 import { InputState } from '@/domain/components'
-import { SoA } from '@/domain/world'
+import { SoAResult } from '@/domain/types'
 import { playerInputQuery } from '@/domain/queries'
 
 describe('inputPollingSystem', () => {
@@ -23,17 +23,18 @@ describe('inputPollingSystem', () => {
         destroy: false,
         isLocked: false,
       }
-      const soa: SoA<typeof playerInputQuery> = {
+      const soa: SoAResult<typeof playerInputQuery.components> = {
         entities: [entityId1, entityId2],
         components: {
           inputState: [],
+          player: [],
         },
       }
 
       const updateComponentMock = vi.fn(() => Effect.succeed(undefined))
 
       const mockWorld: Partial<World> = {
-        querySoA: () => Effect.succeed(soa),
+        querySoA: () => Effect.succeed(soa as any),
         updateComponent: updateComponentMock,
       }
 
@@ -58,17 +59,18 @@ describe('inputPollingSystem', () => {
 
   it.effect('should not fail when there are no player entities', () =>
     Effect.gen(function* (_) {
-      const soa: SoA<typeof playerInputQuery> = {
+      const soa: SoAResult<typeof playerInputQuery.components> = {
         entities: [],
         components: {
           inputState: [],
+          player: [],
         },
       }
 
       const updateComponentMock = vi.fn(() => Effect.succeed(undefined))
 
       const mockWorld: Partial<World> = {
-        querySoA: () => Effect.succeed(soa),
+        querySoA: () => Effect.succeed(soa as any),
         updateComponent: updateComponentMock,
       }
 

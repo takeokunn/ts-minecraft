@@ -1,7 +1,7 @@
 import { InputManager } from '@/runtime/services'
-import { Effect, Layer, Ref, Queue } from 'effect'
+import { Context, Effect, Layer, Ref, Queue } from 'effect'
 
-type DomEvent =
+export type DomEvent =
   | { _tag: 'keydown'; event: KeyboardEvent }
   | { _tag: 'keyup'; event: KeyboardEvent }
   | { _tag: 'mousedown'; event: MouseEvent }
@@ -9,14 +9,16 @@ type DomEvent =
   | { _tag: 'mousemove'; event: MouseEvent }
   | { _tag: 'pointerlockchange' }
 
-export const InputManagerLive = Layer.scoped(
+export const DomEventQueue = Context.Tag<Queue.Queue<DomEvent>>('DomEventQueue')
+
+const InputManagerLiveRaw = Layer.scoped(
   InputManager,
   Effect.gen(function* (_) {
     const isLocked = yield* _(Ref.make(false))
     const keyboardState = yield* _(Ref.make(new Set<string>()))
     const mouseButtonState = yield* _(Ref.make(new Set<number>()))
     const mouseState = yield* _(Ref.make({ dx: 0, dy: 0 }))
-    const eventQueue = yield* _(Queue.unbounded<DomEvent>())
+    const eventQueue = yield* _(DomEventQueue)
 
     yield* _(
       Effect.acquireRelease(
@@ -126,4 +128,8 @@ export const InputManagerLive = Layer.scoped(
       getMouseState,
     })
   }),
+)
+
+export const InputManagerLive = InputManagerLiveRaw.pipe(
+  Layer.provide(Layer.effect(DomEventQueue, Queue.unbounded<DomEvent>())),
 )

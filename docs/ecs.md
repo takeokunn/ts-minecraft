@@ -26,19 +26,21 @@
 ## Component (コンポーネント)
 
 - **定義**: エンティティの特性や状態を表す、純粋なデータコンテナです。例えば、「位置」を表す `Position` コンポーネントや、「速度」を表す `Velocity` コンポーネントなどがあります。コンポーネントはロジック（メソッド）を持ちません。
-- **実装**: `src/domain/components.ts` に集約されています。コンポーネントは `@effect/schema` の `Schema.Class` を用いて定義されます。
-  - **型安全性と不変性**: `Schema.Class` により、コンポーネントのプロパティは静的に型チェックされ、デフォルトで `readonly` となるため、意図しない変更が防止されます。
+- **実装**: `src/domain/components.ts` に集約されています。コンポーネントは `@effect/schema` の `S.Struct` を用いて定義されます。
+  - **型安全性と不変性**: `Schema` から生成される型はデフォルトでプロパティが `readonly` となるため、意図しない変更が防止されます。
   - **ランタイムスキーマ**: 各コンポーネントは自身のスキーマ情報を保持しており、セーブ/ロード機能で安全なシリアライズを実現します。
 
 ```typescript
 // src/domain/components.ts
-import { Schema as S } from '@effect/schema'
+import * as S from 'effect/Schema'
+import { Float } from './common'
 
-export class Position extends S.Class<Position>('Position')({
-  x: S.Float,
-  y: S.Float,
-  z: S.Float,
-}) {}
+export const Position = S.Struct({
+  x: Float,
+  y: Float,
+  z: Float,
+})
+export type Position = S.Schema.Type<typeof Position>
 ```
 
 ---

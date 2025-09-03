@@ -1,29 +1,87 @@
 import * as S from 'effect/Schema'
+import * as Arbitrary from 'effect/Arbitrary'
 import { describe, it, assert } from '@effect/vitest'
+import { Effect } from 'effect'
 import * as fc from 'effect/FastCheck'
-import { Effect, Gen } from 'effect'
-import { ArchetypeBuilder, ArchetypeSchema, createArchetype, createInputState } from '../archetypes'
+import { Archetype, ArchetypeBuilder, ArchetypeSchema, createArchetype, createInputState } from '../archetypes'
 import { BLOCK_COLLIDER, GRAVITY, PLAYER_COLLIDER } from '../world-constants'
 import { hotbarSlots } from '../block'
-import { toFloat, toInt } from '../common'
+import { toFloat, toInt, toChunkX, toChunkZ, ChunkX, ChunkZ } from '../common'
 import { Position } from '../components'
+import { BlockTypeSchema } from '../block-types'
+
+const PlayerArchetypeBuilderArbitrary = Arbitrary.make(
+  S.Struct({
+    type: S.Literal('player'),
+    pos: Position,
+  }),
+)
+
+const BlockArchetypeBuilderArbitrary = Arbitrary.make(
+  S.Struct({
+    type: S.Literal('block'),
+    pos: Position,
+    blockType: BlockTypeSchema,
+  }),
+)
+
+const CameraArchetypeBuilderArbitrary = Arbitrary.make(
+  S.Struct({
+    type: S.Literal('camera'),
+    pos: Position,
+  }),
+)
+
+const TargetBlockArchetypeBuilderArbitrary = Arbitrary.make(
+  S.Struct({
+    type: S.Literal('targetBlock'),
+    pos: Position,
+  }),
+)
+
+const ChunkArchetypeBuilderArbitrary = Arbitrary.make(
+  S.Struct({
+    type: S.Literal('chunk'),
+    chunkX: ChunkX,
+    chunkZ: ChunkZ,
+  }),
+)
+
+const ArchetypeBuilderArbitrary = fc.oneof(
+  PlayerArchetypeBuilderArbitrary,
+  BlockArchetypeBuilderArbitrary,
+  CameraArchetypeBuilderArbitrary,
+  TargetBlockArchetypeBuilderArbitrary,
+  ChunkArchetypeBuilderArbitrary,
+)
 
 describe('Archetypes', () => {
-  const testReversibility = (name: string, schema: S.Schema<any, any>) => {
-    it.effect(`${name} should be reversible after encoding and decoding`, () =>
-      Gen.flatMap(fc.gen(schema), (value) =>
-        Effect.sync(() => {
-          const encode = S.encodeSync(schema)
-          const decode = S.decodeSync(schema)
-          const decodedValue = decode(encode(value))
-          assert.deepStrictEqual(decodedValue, value)
-        }),
-      ))
-  }
-
   describe('Schema Reversibility', () => {
-    testReversibility('ArchetypeBuilder', ArchetypeBuilder)
-    testReversibility('ArchetypeSchema', ArchetypeSchema)
+    it.effect('ArchetypeBuilder should be reversible after encoding and decoding', () =>
+      Effect.promise(() =>
+        fc.assert(
+          fc.asyncProperty(ArchetypeBuilderArbitrary, async (value) => {
+            const encode = S.encodeSync(ArchetypeBuilder)
+            const decode = S.decodeSync(ArchetypeBuilder)
+            const decodedValue = decode(encode(value))
+            assert.deepStrictEqual(decodedValue, value)
+          }),
+        ),
+      ),
+    )
+
+    it.effect('ArchetypeSchema should be reversible after encoding and decoding', () =>
+      Effect.promise(() =>
+        fc.assert(
+          fc.asyncProperty(Arbitrary.make(ArchetypeSchema), async (value) => {
+            const encode = S.encodeSync(ArchetypeSchema)
+            const decode = S.decodeSync(ArchetypeSchema)
+            const decodedValue = decode(encode(value))
+            assert.deepStrictEqual(decodedValue, value)
+          }),
+        ),
+      ),
+    )
   })
 
   describe('createInputState', () => {
@@ -44,84 +102,76 @@ describe('Archetypes', () => {
   })
 
   describe('createArchetype', () => {
+    const pos: Position = { x: toFloat(10), y: toFloat(20), z: toFloat(30) }
+
     it.effect('should create a valid player archetype', () =>
-      Gen.flatMap(fc.gen(Position), (pos) =>
-        Effect.gen(function* () {
-          const builder: S.Schema.Type<typeof ArchetypeBuilder> = { type: 'player', pos }
-          const archetype = yield* createArchetype(builder)
-          const expected = {
-            player: { isGrounded: false },
-            position: pos,
-            velocity: { dx: toFloat(0), dy: toFloat(0), dz: toFloat(0) },
-            gravity: { value: toFloat(GRAVITY) },
-            cameraState: { pitch: toFloat(0), yaw: toFloat(0) },
-            inputState: createInputState(),
-            collider: PLAYER_COLLIDER,
-            hotbar: { slots: hotbarSlots, selectedIndex: toInt(0) },
-            target: { _tag: 'none' },
-          }
-          assert.deepStrictEqual(archetype, expected)
-        }),
-      ))
+      Effect.gen(function* () {
+        const builder: S.Schema.Type<typeof ArchetypeBuilder> = { type: 'player', pos }
+        const archetype = yield* createArchetype(builder)
+        const expected = {
+          player: { isGrounded: false },
+          position: pos,
+          velocity: { dx: toFloat(0), dy: toFloat(0), dz: toFloat(0) },
+          gravity: { value: toFloat(GRAVITY) },
+          cameraState: { pitch: toFloat(0), yaw: toFloat(0) },
+          inputState: createInputState(),
+          collider: PLAYER_COLLIDER,
+          hotbar: { slots: hotbarSlots, selectedIndex: toInt(0) },
+          target: { _tag: 'none' as const },
+        }
+        assert.deepStrictEqual(archetype, expected)
+      }))
 
     it.effect('should create a valid block archetype', () =>
-      Gen.flatMap(
-        fc.gen(ArchetypeBuilder).pipe(Gen.filter((b) => b.type === 'block')),
-        (builder) =>
-          Effect.gen(function* () {
-            if (builder.type !== 'block') return // Type guard
-            const archetype = yield* createArchetype(builder)
-            const expected = {
-              position: builder.pos,
-              renderable: { geometry: 'box', blockType: builder.blockType },
-              collider: BLOCK_COLLIDER,
-              terrainBlock: {},
-            }
-            assert.deepStrictEqual(archetype, expected)
-          }),
-      ))
+      Effect.gen(function* () {
+        const builder: S.Schema.Type<typeof ArchetypeBuilder> = { type: 'block', pos, blockType: 'grass' }
+        const archetype = yield* createArchetype(builder)
+        const expected: Archetype = {
+          position: pos,
+          renderable: { geometry: 'box', blockType: 'grass' },
+          collider: BLOCK_COLLIDER,
+          terrainBlock: {},
+        }
+        assert.deepStrictEqual(archetype, expected)
+      }))
 
     it.effect('should create a valid camera archetype', () =>
-      Gen.flatMap(fc.gen(Position), (pos) =>
-        Effect.gen(function* () {
-          const builder: S.Schema.Type<typeof ArchetypeBuilder> = { type: 'camera', pos }
-          const archetype = yield* createArchetype(builder)
-          const expected = {
-            camera: {
-              position: pos,
-              damping: toFloat(0.1),
-            },
+      Effect.gen(function* () {
+        const builder: S.Schema.Type<typeof ArchetypeBuilder> = { type: 'camera', pos }
+        const archetype = yield* createArchetype(builder)
+        const expected = {
+          camera: {
             position: pos,
-          }
-          assert.deepStrictEqual(archetype, expected)
-        }),
-      ))
+            damping: toFloat(0.1),
+          },
+          position: pos,
+        }
+        assert.deepStrictEqual(archetype, expected)
+      }))
 
     it.effect('should create a valid targetBlock archetype', () =>
-      Gen.flatMap(fc.gen(Position), (pos) =>
-        Effect.gen(function* () {
-          const builder: S.Schema.Type<typeof ArchetypeBuilder> = { type: 'targetBlock', pos }
-          const archetype = yield* createArchetype(builder)
-          const expected = {
-            position: pos,
-            targetBlock: {},
-          }
-          assert.deepStrictEqual(archetype, expected)
-        }),
-      ))
+      Effect.gen(function* () {
+        const builder: S.Schema.Type<typeof ArchetypeBuilder> = { type: 'targetBlock', pos }
+        const archetype = yield* createArchetype(builder)
+        const expected = {
+          position: pos,
+          targetBlock: {},
+        }
+        assert.deepStrictEqual(archetype, expected)
+      }))
 
     it.effect('should create a valid chunk archetype', () =>
-      Gen.flatMap(
-        fc.gen(ArchetypeBuilder).pipe(Gen.filter((b) => b.type === 'chunk')),
-        (builder) =>
-          Effect.gen(function* () {
-            if (builder.type !== 'chunk') return // Type guard
-            const archetype = yield* createArchetype(builder)
-            const expected = {
-              chunk: { chunkX: builder.chunkX, chunkZ: builder.chunkZ, blocks: [] },
-            }
-            assert.deepStrictEqual(archetype, expected)
-          }),
-      ))
+      Effect.gen(function* () {
+        const builder: S.Schema.Type<typeof ArchetypeBuilder> = {
+          type: 'chunk',
+          chunkX: toChunkX(1),
+          chunkZ: toChunkZ(2),
+        }
+        const archetype = yield* createArchetype(builder)
+        const expected = {
+          chunk: { chunkX: toChunkX(1), chunkZ: toChunkZ(2), blocks: [] },
+        }
+        assert.deepStrictEqual(archetype, expected)
+      }))
   })
 })

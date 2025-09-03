@@ -2,9 +2,9 @@ import { describe, it, expect, vi } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import { playerMovementSystem } from '../player-movement'
 import { World } from '@/runtime/services'
-import { EntityId, toEntityId } from '@/domain/entity'
+import { toEntityId } from '@/domain/entity'
 import { CameraState, InputState, Player, Velocity } from '@/domain/components'
-import { SoA } from '@/domain/world'
+import { SoAResult } from '@/domain/types'
 import { playerMovementQuery } from '@/domain/queries'
 import { JUMP_FORCE, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@/domain/world-constants'
 
@@ -27,7 +27,7 @@ describe('playerMovementSystem', () => {
       const velocity = new Velocity({ dx: 0, dy: 0, dz: 0 })
       const cameraState = new CameraState({ yaw: Math.PI / 4, pitch: 0 })
 
-      const soa: SoA<typeof playerMovementQuery> = {
+      const soa: SoAResult<typeof playerMovementQuery.components> = {
         entities: [entityId],
         components: {
           player: [player],
@@ -40,7 +40,7 @@ describe('playerMovementSystem', () => {
       const updateComponentMock = vi.fn(() => Effect.succeed(undefined))
 
       const mockWorld: Partial<World> = {
-        querySoA: () => Effect.succeed(soa),
+        querySoA: () => Effect.succeed(soa as any),
         updateComponent: updateComponentMock,
       }
 
@@ -82,7 +82,7 @@ describe('playerMovementSystem', () => {
       const velocity = new Velocity({ dx: 1, dy: 0, dz: 1 })
       const cameraState = new CameraState({ yaw: 0, pitch: 0 })
 
-      const soa: SoA<typeof playerMovementQuery> = {
+      const soa: SoAResult<typeof playerMovementQuery.components> = {
         entities: [entityId],
         components: {
           player: [player],
@@ -95,7 +95,7 @@ describe('playerMovementSystem', () => {
       const updateComponentMock = vi.fn(() => Effect.succeed(undefined))
 
       const mockWorld: Partial<World> = {
-        querySoA: () => Effect.succeed(soa),
+        querySoA: () => Effect.succeed(soa as any),
         updateComponent: updateComponentMock,
       }
 

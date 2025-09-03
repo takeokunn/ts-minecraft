@@ -13,11 +13,11 @@ export const createTick = <E, R>(systems: ReadonlyArray<Effect.Effect<void, E, R
 
     yield* _(stats.begin)
     const deltaTime = yield* _(clock.deltaTime.get)
-    yield* _(systemsEffect.pipe(Effect.provideService(DeltaTime, deltaTime)))
+    yield* _(systemsEffect.pipe(Effect.provideService(DeltaTime, { value: deltaTime })))
     yield* _(stats.end)
   })
 
 export const gameLoop = <E, R>(systems: ReadonlyArray<Effect.Effect<void, E, R>>) => {
   const tick = createTick(systems)
-  return Effect.repeat(tick, Schedule.animationFrame)
+  return Effect.repeat(tick, Schedule.forever)
 }

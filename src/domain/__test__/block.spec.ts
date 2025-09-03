@@ -1,7 +1,4 @@
-import * as S from 'effect/Schema'
-import { describe, it, assert, expect } from '@effect/vitest'
-import * as fc from 'effect/FastCheck'
-import { Effect, Gen } from 'effect'
+import { describe, it, expect } from '@effect/vitest'
 import {
   PlacedBlockSchema,
   FaceNameSchema,
@@ -14,20 +11,15 @@ import {
   TILE_SIZE,
 } from '../block'
 import { blockDefinitions } from '../block-definitions'
+import { testReversibility } from '@test/test-utils'
+import * as fc from 'effect/FastCheck'
+import * as Arbitrary from 'effect/Arbitrary'
+import * as S from 'effect/Schema'
+import { blockTypeNames } from '../block-types'
+import { Effect } from 'effect'
+import { assert } from 'vitest'
 
 describe('Block', () => {
-  const testReversibility = (name: string, schema: S.Schema<any, any>) => {
-    it.effect(`${name} should be reversible after encoding and decoding`, () =>
-      Gen.flatMap(fc.gen(schema), (value) =>
-        Effect.sync(() => {
-          const encode = S.encodeSync(schema)
-          const decode = S.decodeSync(schema)
-          const decodedValue = decode(encode(value))
-          assert.deepStrictEqual(decodedValue, value)
-        }),
-      ))
-  }
-
   describe('Schema Reversibility', () => {
     testReversibility('PlacedBlockSchema', PlacedBlockSchema)
     testReversibility('FaceNameSchema', FaceNameSchema)
@@ -47,52 +39,68 @@ describe('Block', () => {
 
   describe('createPlacedBlock', () => {
     it.effect('should create a valid PlacedBlock object', () =>
-      Gen.flatMap(fc.gen(PlacedBlockSchema), (placedBlock) =>
-        Effect.sync(() => {
-          const { position, blockType } = placedBlock
-          assert.deepStrictEqual(createPlacedBlock(position, blockType), placedBlock)
-        }),
-      ))
+      Effect.promise(() =>
+        fc.assert(
+          fc.asyncProperty(Arbitrary.make(PlacedBlockSchema), async (placedBlock) => {
+            const { position, blockType } = placedBlock
+            assert.deepStrictEqual(createPlacedBlock(position, blockType), placedBlock)
+          }),
+        ),
+      ),
+    )
   })
+
+  const blockTypeArbitrary = Arbitrary.make(S.Literal(...blockTypeNames))
 
   describe('getUvForFace', () => {
     it.effect('should return the correct UV for a given block type and face', () =>
-      Gen.flatMap(fc.gen(FaceNameSchema), (faceName) =>
-        Gen.flatMap(fc.gen(S.keyof(S.Struct(blockDefinitions))), (blockType) =>
-          Effect.sync(() => {
-            const definition = blockDefinitions[blockType]
-            const uv = getUvForFace(blockType, faceName)
-            let expectedUv
-            if (faceName === 'top') {
-              expectedUv = definition.textures.top ?? definition.textures.side
-            } else if (faceName === 'bottom') {
-              expectedUv = definition.textures.bottom ?? definition.textures.side
-            } else {
-              expectedUv = definition.textures.side
-            }
-            assert.deepStrictEqual(uv, expectedUv)
-          }),
+      Effect.promise(() =>
+        fc.assert(
+          fc.asyncProperty(
+            Arbitrary.make(FaceNameSchema),
+            blockTypeArbitrary,
+            async (faceName, blockType) => {
+              const definition = blockDefinitions[blockType]
+              const uv = getUvForFace(blockType, faceName)
+              let expectedUv
+              if (faceName === 'top') {
+                expectedUv = definition.textures.top ?? definition.textures.side
+              } else if (faceName === 'bottom') {
+                expectedUv = definition.textures.bottom ?? definition.textures.side
+              } else {
+                expectedUv = definition.textures.side
+              }
+              assert.deepStrictEqual(uv, expectedUv)
+            },
+          ),
         ),
-      ))
+      ),
+    )
   })
 
   describe('isBlockTransparent', () => {
     it.effect('should return the correct transparency for a given block type', () =>
-      Gen.flatMap(fc.gen(S.keyof(S.Struct(blockDefinitions))), (blockType) =>
-        Effect.sync(() => {
-          const isTransparent = isBlockTransparent(blockType)
-          assert.strictEqual(isTransparent, blockDefinitions[blockType].isTransparent)
-        }),
-      ))
+      Effect.promise(() =>
+        fc.assert(
+          fc.asyncProperty(blockTypeArbitrary, async (blockType) => {
+            const isTransparent = isBlockTransparent(blockType)
+            assert.strictEqual(isTransparent, blockDefinitions[blockType].isTransparent)
+          }),
+        ),
+      ),
+    )
   })
 
   describe('isBlockFluid', () => {
     it.effect('should return the correct fluid status for a given block type', () =>
-      Gen.flatMap(fc.gen(S.keyof(S.Struct(blockDefinitions))), (blockType) =>
-        Effect.sync(() => {
-          const isFluid = isBlockFluid(blockType)
-          assert.strictEqual(isFluid, blockDefinitions[blockType].isFluid)
-        }),
-      ))
+      Effect.promise(() =>
+        fc.assert(
+          fc.asyncProperty(blockTypeArbitrary, async (blockType) => {
+            const isFluid = isBlockFluid(blockType)
+            assert.strictEqual(isFluid, blockDefinitions[blockType].isFluid)
+          }),
+        ),
+      ),
+    )
   })
 })

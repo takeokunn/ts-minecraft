@@ -1,4 +1,5 @@
-import { Effect, Option, HashMap, Ref, ReadonlyArray } from 'effect'
+import { Effect, Option, HashMap, Ref } from 'effect'
+import * as ReadonlyArray from 'effect/ReadonlyArray'
 import { EntityId } from '@/domain/entity'
 import { playerQuery, chunkQuery } from '@/domain/queries'
 import { CHUNK_SIZE, RENDER_DISTANCE } from '@/domain/world-constants'
@@ -91,14 +92,14 @@ const makeChunkLoadingSystem = Effect.gen(function* ($) {
             yield* $(
               Effect.when(
                 () => shouldUpdate,
-                Effect.gen(function* ($) {
+                () => Effect.gen(function* ($) {
                   yield* $(Ref.set(lastPlayerChunkRef, Option.some(currentPlayerChunk)))
 
                   const { entities: loadedChunkEntities, components: chunkComponents } = yield* $(
                     world.querySoA(chunkQuery),
                   )
                   const loadedChunks = HashMap.make(
-                    ...loadedChunkEntities.map((entityId, i) => {
+                    ...ReadonlyArray.map(loadedChunkEntities, (entityId, i) => {
                       const chunk = chunkComponents.chunk[i]
                       return [ChunkCoord.asString(chunk), entityId] as const
                     }),

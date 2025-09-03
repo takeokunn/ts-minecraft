@@ -2,15 +2,15 @@ import { Effect, pipe } from 'effect'
 import { physicsQuery } from '@/domain/queries'
 import { FRICTION, GRAVITY, TERMINAL_VELOCITY } from '@/domain/world-constants'
 import { Clock, World } from '@/runtime/services'
-import { Float } from '@/domain/common'
+import { toFloat } from '@/domain/common'
 import { Position, Velocity } from '@/domain/components'
 
 const applyGravity = (isGrounded: boolean, deltaTime: number) => (velocity: Velocity): Velocity => {
   if (isGrounded) {
-    return new Velocity({ ...velocity, dy: Float(0) })
+    return new Velocity({ ...velocity, dy: toFloat(0) })
   }
   const newVelDY = Math.max(-TERMINAL_VELOCITY, velocity.dy - GRAVITY * deltaTime)
-  return new Velocity({ ...velocity, dy: Float(newVelDY) })
+  return new Velocity({ ...velocity, dy: toFloat(newVelDY) })
 }
 
 const applyFriction = (isGrounded: boolean) => (velocity: Velocity): Velocity => {
@@ -19,16 +19,16 @@ const applyFriction = (isGrounded: boolean) => (velocity: Velocity): Velocity =>
   }
   return new Velocity({
     ...velocity,
-    dx: Float(velocity.dx * FRICTION),
-    dz: Float(velocity.dz * FRICTION),
+    dx: toFloat(velocity.dx * FRICTION),
+    dz: toFloat(velocity.dz * FRICTION),
   })
 }
 
 const updatePosition = (velocity: Velocity, deltaTime: number) => (position: Position): Position => {
   return new Position({
-    x: Float(position.x + velocity.dx * deltaTime),
-    y: Float(position.y + velocity.dy * deltaTime),
-    z: Float(position.z + velocity.dz * deltaTime),
+    x: toFloat(position.x + velocity.dx * deltaTime),
+    y: toFloat(position.y + velocity.dy * deltaTime),
+    z: toFloat(position.z + velocity.dz * deltaTime),
   })
 }
 
@@ -40,7 +40,7 @@ export const physicsSystem = Effect.gen(function* ($) {
   yield* $(
     Effect.when(
       () => deltaTime > 0,
-      Effect.gen(function* ($) {
+      () => Effect.gen(function* ($) {
         const { entities, components } = yield* $(world.querySoA(physicsQuery))
         const { player, position, velocity } = components
 

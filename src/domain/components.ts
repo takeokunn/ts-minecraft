@@ -143,5 +143,12 @@ export type PartialComponents = S.Schema.Type<typeof PartialComponentsSchema>
 
 export type ComponentName = keyof typeof ComponentSchemas
 export const componentNames = Object.keys(ComponentSchemas) as Array<ComponentName>
-export const ComponentNameSchema = S.Literal(...componentNames)
+export const ComponentNameSchema = S.keyof(S.Struct(ComponentSchemas))
 export const componentNamesSet = new Set<string>(componentNames)
+
+export type ComponentOfName<T extends ComponentName> = S.Schema.Type<(typeof ComponentSchemas)[T]>
+
+export type Components = {
+  [K in ComponentName]: ComponentOfName<K>
+}
+

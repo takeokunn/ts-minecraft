@@ -1,46 +1,65 @@
 import { describe, assert, it } from '@effect/vitest'
 import { clampPitch, getCameraLookAt, updateCamera, updateCameraPosition } from '../camera-logic'
 import { Camera, Position, TargetBlock, TargetNone } from '../components'
-import { Effect, Option, Gen } from 'effect'
+import { Effect, Option } from 'effect'
+import * as S from 'effect/Schema'
+import * as Arbitrary from 'effect/Arbitrary'
+import * as fc from 'effect/FastCheck'
 import { Vector3Int, toFloat, toInt } from '../common'
 import { toEntityId } from '../entity'
-import * as fc from 'effect/FastCheck'
-import * as S from 'effect/Schema'
 
 const PI_HALF = Math.PI / 2
 
 describe('clampPitch', () => {
   it.effect('should always return a value between -PI/2 and PI/2', () =>
-    Gen.flatMap(fc.gen(S.Float), (pitch) =>
-      Effect.sync(() => {
-        const clamped = clampPitch(pitch)
-        assert.isAtLeast(clamped, -PI_HALF)
-        assert.isAtMost(clamped, PI_HALF)
-      }),
-    ))
+    Effect.promise(() =>
+      fc.assert(
+        fc.asyncProperty(Arbitrary.make(S.Number), async (pitch) => {
+          const clamped = clampPitch(pitch)
+          assert.isAtLeast(clamped, -PI_HALF)
+          assert.isAtMost(clamped, PI_HALF)
+        }),
+      ),
+    ),
+  )
+
+  it.effect('should not change values within the valid range', () =>
+    Effect.promise(() =>
+      fc.assert(
+        fc.asyncProperty(fc.float({ min: Math.fround(-PI_HALF), max: Math.fround(PI_HALF) }), async (pitch) => {
+          const clamped = clampPitch(toFloat(pitch))
+          assert.closeTo(clamped, pitch, 0.0001)
+        }),
+      ),
+    ),
+  )
+
+  it.effect('should clamp values greater than PI/2', () =>
+    Effect.promise(() =>
+      fc.assert(
+        fc.asyncProperty(fc.float({ min: Math.fround(PI_HALF + Number.EPSILON) }), async (pitch) => {
+          const clamped = clampPitch(toFloat(pitch))
+          assert.closeTo(clamped, PI_HALF, 0.0001)
+        }),
+      ),
+    ),
+  )
+
+  it.effect('should clamp values less than -PI/2', () =>
+    Effect.promise(() =>
+      fc.assert(
+        fc.asyncProperty(fc.float({ max: Math.fround(-PI_HALF - Number.EPSILON) }), async (pitch) => {
+          const clamped = clampPitch(toFloat(pitch))
+          assert.closeTo(clamped, -PI_HALF, 0.0001)
+        }),
+      ),
+    ),
+  )
 
   it.effect('should return 0 for NaN input', () =>
     Effect.sync(() => {
       const clamped = clampPitch(toFloat(NaN))
       assert.strictEqual(clamped, 0)
-    }))
-
-  it.effect('should not change values within the valid range', () =>
-    Effect.sync(() => {
-      let clamped = clampPitch(toFloat(0))
-      assert.closeTo(clamped, 0, 0.0001)
-      clamped = clampPitch(toFloat(PI_HALF / 2))
-      assert.closeTo(clamped, PI_HALF / 2, 0.0001)
-      clamped = clampPitch(toFloat(-PI_HALF / 2))
-      assert.closeTo(clamped, -PI_HALF / 2, 0.0001)
-    }))
-
-  it.effect('should clamp values outside the valid range', () =>
-    Effect.sync(() => {
-      let clamped = clampPitch(toFloat(Math.PI))
-      assert.closeTo(clamped, PI_HALF, 0.0001)
-      clamped = clampPitch(toFloat(-Math.PI))
-      assert.closeTo(clamped, -PI_HALF, 0.0001)
     }))
 })
 

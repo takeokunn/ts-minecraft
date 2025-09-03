@@ -11,3 +11,4 @@ public/*
 /dist/
 .devenv/
 __snapshots__/
+src/**/*.js

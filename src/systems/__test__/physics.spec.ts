@@ -2,9 +2,9 @@ import { describe, it, expect, vi } from '@effect/vitest'
 import { Effect, Layer, Ref } from 'effect'
 import { physicsSystem } from '../physics'
 import { Clock, World } from '@/runtime/services'
-import { EntityId, toEntityId } from '@/domain/entity'
+import { toEntityId } from '@/domain/entity'
 import { Player, Position, Velocity } from '@/domain/components'
-import { SoA } from '@/domain/world'
+import { SoAResult } from '@/domain/types'
 import { physicsQuery } from '@/domain/queries'
 import { FRICTION, GRAVITY } from '@/domain/world-constants'
 
@@ -17,33 +17,21 @@ describe('physicsSystem', () => {
       const velocity = new Velocity({ dx: 1, dy: 0, dz: 1 })
       const deltaTime = 1
 
-      const soa: SoA<typeof physicsQuery> = {
+      const soa: SoAResult<typeof physicsQuery.components> = {
         entities: [entityId],
         components: {
           player: [player],
           position: [position],
           velocity: [velocity],
+          gravity: [],
         },
       }
 
       const updateComponentMock = vi.fn(() => Effect.succeed(undefined))
 
-      const mockWorld: World = {
-        state: Ref.unsafeMake(undefined as any),
-        addArchetype: () => Effect.die('Not implemented'),
-        removeEntity: () => Effect.die('Not implemented'),
-        getComponent: () => Effect.die('Not implemented'),
-        getComponentUnsafe: () => Effect.die('Not implemented'),
+      const mockWorld: Partial<World> = {
+        querySoA: () => Effect.succeed(soa as any),
         updateComponent: updateComponentMock,
-        query: () => Effect.die('Not implemented'),
-        querySoA: () => Effect.succeed(soa),
-        queryUnsafe: () => Effect.die('Not implemented'),
-        querySingle: () => Effect.die('Not implemented'),
-        querySingleUnsafe: () => Effect.die('Not implemented'),
-        getChunk: () => Effect.die('Not implemented'),
-        setChunk: () => Effect.die('Not implemented'),
-        getVoxel: () => Effect.die('Not implemented'),
-        setVoxel: () => Effect.die('Not implemented'),
       }
 
       const mockClock: Clock = {
@@ -51,7 +39,7 @@ describe('physicsSystem', () => {
         onFrame: () => Effect.void,
       }
 
-      const testLayer = Layer.merge(Layer.succeed(World, mockWorld), Layer.succeed(Clock, mockClock))
+      const testLayer = Layer.merge(Layer.succeed(World, mockWorld as World), Layer.succeed(Clock, mockClock))
 
       yield* $(physicsSystem.pipe(Effect.provide(testLayer)))
 
@@ -79,33 +67,21 @@ describe('physicsSystem', () => {
       const velocity = new Velocity({ dx: 0, dy: 0, dz: 0 })
       const deltaTime = 1
 
-      const soa: SoA<typeof physicsQuery> = {
+      const soa: SoAResult<typeof physicsQuery.components> = {
         entities: [entityId],
         components: {
           player: [player],
           position: [position],
           velocity: [velocity],
+          gravity: [],
         },
       }
 
       const updateComponentMock = vi.fn(() => Effect.succeed(undefined))
 
-      const mockWorld: World = {
-        state: Ref.unsafeMake(undefined as any),
-        addArchetype: () => Effect.die('Not implemented'),
-        removeEntity: () => Effect.die('Not implemented'),
-        getComponent: () => Effect.die('Not implemented'),
-        getComponentUnsafe: () => Effect.die('Not implemented'),
+      const mockWorld: Partial<World> = {
+        querySoA: () => Effect.succeed(soa as any),
         updateComponent: updateComponentMock,
-        query: () => Effect.die('Not implemented'),
-        querySoA: () => Effect.succeed(soa),
-        queryUnsafe: () => Effect.die('Not implemented'),
-        querySingle: () => Effect.die('Not implemented'),
-        querySingleUnsafe: () => Effect.die('Not implemented'),
-        getChunk: () => Effect.die('Not implemented'),
-        setChunk: () => Effect.die('Not implemented'),
-        getVoxel: () => Effect.die('Not implemented'),
-        setVoxel: () => Effect.die('Not implemented'),
       }
 
       const mockClock: Clock = {
@@ -113,7 +89,7 @@ describe('physicsSystem', () => {
         onFrame: () => Effect.void,
       }
 
-      const testLayer = Layer.merge(Layer.succeed(World, mockWorld), Layer.succeed(Clock, mockClock))
+      const testLayer = Layer.merge(Layer.succeed(World, mockWorld as World), Layer.succeed(Clock, mockClock))
 
       yield* $(physicsSystem.pipe(Effect.provide(testLayer)))
 
@@ -137,22 +113,8 @@ describe('physicsSystem', () => {
     Effect.gen(function* ($) {
       const querySoaMock = vi.fn(() => Effect.succeed({ entities: [], components: {} } as any))
 
-      const mockWorld: World = {
-        state: Ref.unsafeMake(undefined as any),
-        addArchetype: () => Effect.die('Not implemented'),
-        removeEntity: () => Effect.die('Not implemented'),
-        getComponent: () => Effect.die('Not implemented'),
-        getComponentUnsafe: () => Effect.die('Not implemented'),
-        updateComponent: () => Effect.die('Not implemented'),
-        query: () => Effect.die('Not implemented'),
+      const mockWorld: Partial<World> = {
         querySoA: querySoaMock,
-        queryUnsafe: () => Effect.die('Not implemented'),
-        querySingle: () => Effect.die('Not implemented'),
-        querySingleUnsafe: () => Effect.die('Not implemented'),
-        getChunk: () => Effect.die('Not implemented'),
-        setChunk: () => Effect.die('Not implemented'),
-        getVoxel: () => Effect.die('Not implemented'),
-        setVoxel: () => Effect.die('Not implemented'),
       }
 
       const mockClock: Clock = {
@@ -160,7 +122,7 @@ describe('physicsSystem', () => {
         onFrame: () => Effect.void,
       }
 
-      const testLayer = Layer.merge(Layer.succeed(World, mockWorld), Layer.succeed(Clock, mockClock))
+      const testLayer = Layer.merge(Layer.succeed(World, mockWorld as World), Layer.succeed(Clock, mockClock))
 
       yield* $(physicsSystem.pipe(Effect.provide(testLayer)))
 

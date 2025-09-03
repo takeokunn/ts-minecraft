@@ -2,9 +2,9 @@ import { describe, it, expect, vi } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import { collisionSystem } from '../collision'
 import { SpatialGrid, World } from '@/runtime/services'
-import { EntityId, toEntityId } from '@/domain/entity'
+import { toEntityId } from '@/domain/entity'
 import { Collider, Player, Position, Velocity } from '@/domain/components'
-import { SoA } from '@/domain/world'
+import { SoAResult } from '@/domain/types'
 import { playerColliderQuery, positionColliderQuery } from '@/domain/queries'
 
 describe('collisionSystem', () => {
@@ -20,7 +20,7 @@ describe('collisionSystem', () => {
       const blockPosition = new Position({ x: 0, y: 0, z: 0 })
       const blockCollider = new Collider({ width: 1, height: 1, depth: 1 })
 
-      const playerSoa: SoA<typeof playerColliderQuery> = {
+      const playerSoa: SoAResult<typeof playerColliderQuery.components> = {
         entities: [playerEntityId],
         components: {
           player: [player],
@@ -29,7 +29,7 @@ describe('collisionSystem', () => {
           collider: [playerCollider],
         },
       }
-      const colliderSoa: SoA<typeof positionColliderQuery> = {
+      const colliderSoa: SoAResult<typeof positionColliderQuery.components> = {
         entities: [blockEntityId],
         components: {
           position: [blockPosition],
@@ -40,12 +40,12 @@ describe('collisionSystem', () => {
       const updateComponentMock = vi.fn(() => Effect.succeed(undefined))
 
       const mockWorld: Partial<World> = {
-        querySoA: (query) => {
+        querySoA: (query: any) => {
           if (query === playerColliderQuery) {
-            return Effect.succeed(playerSoa)
+            return Effect.succeed(playerSoa as any)
           }
           if (query === positionColliderQuery) {
-            return Effect.succeed(colliderSoa)
+            return Effect.succeed(colliderSoa as any)
           }
           return Effect.fail(new Error('unexpected query'))
         },
@@ -56,6 +56,7 @@ describe('collisionSystem', () => {
         add: () => Effect.void,
         query: () => Effect.succeed(new Set([blockEntityId])),
         clear: () => Effect.void,
+        register: () => Effect.void,
       }
 
       const testLayer = Layer.merge(
@@ -84,7 +85,7 @@ describe('collisionSystem', () => {
 
   it.effect('should not do anything if there are no players', () =>
     Effect.gen(function* ($) {
-      const playerSoa: SoA<typeof playerColliderQuery> = {
+      const playerSoa: SoAResult<typeof playerColliderQuery.components> = {
         entities: [],
         components: {
           player: [],
@@ -94,9 +95,9 @@ describe('collisionSystem', () => {
         },
       }
 
-      const querySoaMock = vi.fn((query) => {
+      const querySoaMock = vi.fn((query: any) => {
         if (query === playerColliderQuery) {
-          return Effect.succeed(playerSoa)
+          return Effect.succeed(playerSoa as any)
         }
         return Effect.succeed({ entities: [], components: {} } as any)
       })
@@ -110,6 +111,7 @@ describe('collisionSystem', () => {
         add: () => Effect.void,
         query: queryMock,
         clear: () => Effect.void,
+        register: () => Effect.void,
       }
 
       const testLayer = Layer.merge(

@@ -1,16 +1,14 @@
 import * as S from 'effect/Schema'
-import { CHUNK_SIZE } from './world-constants'
 import type { Collider, Position } from './components'
-import { Float, toFloat, Vector3 } from './common'
-
-export type { Vector3 } from './common'
+import { toFloat, Vector3Float, Vector3Int } from './common'
+import { CHUNK_SIZE } from './world-constants'
 
 /**
  * Converts a 3D local position vector within a chunk to a 1D array index.
  * @param localPosition The position vector within the chunk [x, y, z].
  * @returns The corresponding index in the chunk's block array.
  */
-export const toChunkIndex = (localPosition: Vector3): number => {
+export const toChunkIndex = (localPosition: Vector3Int): number => {
   const [x, y, z] = localPosition
   return x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
 }
@@ -19,14 +17,26 @@ export const toChunkIndex = (localPosition: Vector3): number => {
  * An Axis-Aligned Bounding Box, defined by its minimum and maximum corners.
  */
 export const AABB = S.Struct({
-  minX: Float,
-  minY: Float,
-  minZ: Float,
-  maxX: Float,
-  maxY: Float,
-  maxZ: Float,
+  minX: S.Number,
+  minY: S.Number,
+  minZ: S.Number,
+  maxX: S.Number,
+  maxY: S.Number,
+  maxZ: S.Number,
 })
 export type AABB = S.Schema.Type<typeof AABB>
+
+export const fromCenterAndSize = (center: Vector3Float, size: Vector3Float) => {
+  const halfSize: Vector3Float = [toFloat(size[0] / 2), toFloat(size[1] / 2), toFloat(size[2] / 2)]
+  return S.decodeUnknownSync(AABB)({
+    minX: center[0] - halfSize[0],
+    minY: center[1] - halfSize[1],
+    minZ: center[2] - halfSize[2],
+    maxX: center[0] + halfSize[0],
+    maxY: center[1] + halfSize[1],
+    maxZ: center[2] + halfSize[2],
+  })
+}
 
 /**
  * Creates an AABB from an entity's position and collider components.
@@ -36,7 +46,7 @@ export type AABB = S.Schema.Type<typeof AABB>
  */
 export const createAABB = (position: Position, collider: Collider): AABB => ({
   minX: toFloat(position.x - collider.width / 2),
-  minY: position.y, // Player's origin is at their feet
+  minY: toFloat(position.y), // Player's origin is at their feet
   minZ: toFloat(position.z - collider.depth / 2),
   maxX: toFloat(position.x + collider.width / 2),
   maxY: toFloat(position.y + collider.height),
@@ -60,7 +70,7 @@ export const areAABBsIntersecting = (a: AABB, b: AABB): boolean => {
  * @param b The second AABB.
  * @returns The MTV as a 3D vector.
  */
-export const getIntersectionDepth = (a: AABB, b: AABB): Vector3 => {
+export const getIntersectionDepth = (a: AABB, b: AABB): Vector3Float => {
   if (!areAABBsIntersecting(a, b)) {
     return [toFloat(0), toFloat(0), toFloat(0)]
   }

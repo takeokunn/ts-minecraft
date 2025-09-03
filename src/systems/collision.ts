@@ -1,11 +1,14 @@
-import { Effect, ReadonlyArray, HashMap, Option, pipe } from 'effect'
+import { Effect, pipe } from 'effect'
+import * as ReadonlyArray from 'effect/ReadonlyArray'
+import * as HashMap from 'effect/HashMap'
+import * as Option from 'effect/Option'
 import { Collider, Player, Position, Velocity } from '@/domain/components'
 import { AABB, createAABB } from '@/domain/geometry'
 import { playerColliderQuery, positionColliderQuery } from '@/domain/queries'
 import { SpatialGrid, World } from '@/runtime/services'
-import { Float } from '@/domain/common'
+import { toFloat } from '@/domain/common'
 import { EntityId } from '@/domain/entity'
-import { SoA } from '@/domain/world'
+import { SoAResult } from '@/domain/types'
 
 type CollisionResolutionState = {
   readonly position: Position
@@ -16,7 +19,7 @@ type CollisionResolutionState = {
 const resolveAxis = (
   axis: 'x' | 'y' | 'z',
   playerCollider: Collider,
-  nearbyAABBs: ReadonlyArray<AABB>,
+  nearbyAABBs: ReadonlyArray.NonEmptyReadonlyArray<AABB>,
 ) => (initialState: CollisionResolutionState): CollisionResolutionState => {
   const playerAABB = createAABB(initialState.position, playerCollider)
 
@@ -28,40 +31,40 @@ const resolveAxis = (
     if (axis === 'y') {
       const newY =
         state.velocity.dy > 0
-          ? Float(blockAABB.minY - playerCollider.height)
+          ? toFloat(blockAABB.minY - playerCollider.height)
           : state.velocity.dy < 0
-          ? Float(blockAABB.maxY)
+          ? toFloat(blockAABB.maxY)
           : state.position.y
       const isGrounded = state.velocity.dy < 0 || state.isGrounded
       return {
         ...state,
         position: new Position({ ...state.position, y: newY }),
-        velocity: new Velocity({ ...state.velocity, dy: Float(0) }),
+        velocity: new Velocity({ ...state.velocity, dy: toFloat(0) }),
         isGrounded,
       }
     } else if (axis === 'x') {
       const newX =
         state.velocity.dx > 0
-          ? Float(blockAABB.minX - playerCollider.width / 2)
+          ? toFloat(blockAABB.minX - playerCollider.width / 2)
           : state.velocity.dx < 0
-          ? Float(blockAABB.maxX + playerCollider.width / 2)
+          ? toFloat(blockAABB.maxX + playerCollider.width / 2)
           : state.position.x
       return {
         ...state,
         position: new Position({ ...state.position, x: newX }),
-        velocity: new Velocity({ ...state.velocity, dx: Float(0) }),
+        velocity: new Velocity({ ...state.velocity, dx: toFloat(0) }),
       }
     } else {
       const newZ =
         state.velocity.dz > 0
-          ? Float(blockAABB.minZ - playerCollider.depth / 2)
+          ? toFloat(blockAABB.minZ - playerCollider.depth / 2)
           : state.velocity.dz < 0
-          ? Float(blockAABB.maxZ + playerCollider.depth / 2)
+          ? toFloat(blockAABB.maxZ + playerCollider.depth / 2)
           : state.position.z
       return {
         ...state,
         position: new Position({ ...state.position, z: newZ }),
-        velocity: new Velocity({ ...state.velocity, dz: Float(0) }),
+        velocity: new Velocity({ ...state.velocity, dz: toFloat(0) }),
       }
     }
   })
@@ -71,7 +74,7 @@ const getNearbyAABBs = (
   entityId: EntityId,
   nearbyEntityIds: ReadonlySet<EntityId>,
   colliderEntityMap: HashMap.HashMap<EntityId, number>,
-  colliderComponents: SoA<typeof positionColliderQuery>['components'],
+  colliderComponents: SoAResult<typeof positionColliderQuery.components>['components'],
 ) =>
   ReadonlyArray.fromIterable(nearbyEntityIds).pipe(
     ReadonlyArray.filterMap((nearbyEntityId) => {
@@ -91,9 +94,9 @@ const getNearbyAABBs = (
 const resolveCollisionsForPlayer = (
   entityId: EntityId,
   i: number,
-  playerComponents: SoA<typeof playerColliderQuery>['components'],
+  playerComponents: SoAResult<typeof playerColliderQuery.components>['components'],
   colliderEntityMap: HashMap.HashMap<EntityId, number>,
-  colliderComponents: SoA<typeof positionColliderQuery>['components'],
+  colliderComponents: SoAResult<typeof positionColliderQuery.components>['components'],
 ) =>
   Effect.gen(function* ($) {
     const spatialGrid = yield* $(SpatialGrid)
@@ -117,9 +120,9 @@ const resolveCollisionsForPlayer = (
 
     const finalState = pipe(
       initialState,
-      resolveAxis('y', collider, nearbyAABBs),
-      resolveAxis('x', collider, nearbyAABBs),
-      resolveAxis('z', collider, nearbyAABBs),
+      resolveAxis('y', collider, nearbyAABBs as any),
+      resolveAxis('x', collider, nearbyAABBs as any),
+      resolveAxis('z', collider, nearbyAABBs as any),
     )
 
     yield* $(
