@@ -1,192 +1,144 @@
 import { describe, it, assert, vi } from '@effect/vitest'
-import { Effect, Layer, HashMap } from 'effect'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
+import { Effect, Layer, HashMap, Array as ReadonlyArray, Option } from 'effect'
+import * as fc from 'effect/FastCheck'
 import { calculateChunkUpdates, chunkLoadingSystem } from '../chunk-loading'
 import { ComputationWorker, World } from '@/runtime/services'
-import { toEntityId } from '@/domain/entity'
-import { Position } from '@/domain/components'
+import { EntityId, toEntityId } from '@/domain/entity'
+import { Position, Chunk } from '@/domain/components'
 import { SoAResult } from '@/domain/types'
 import { playerQuery, chunkQuery } from '@/domain/queries'
-import { RENDER_DISTANCE } from '@/domain/world-constants'
+import { RENDER_DISTANCE, CHUNK_SIZE } from '@/domain/world-constants'
+import { arbitraryPosition, arbitraryChunk } from '@test/arbitraries'
 
-describe('chunkLoadingSystem', () => {
-  it.effect('should load initial chunks', () =>
-    Effect.gen(function* ($) {
-      const playerEntityId = toEntityId('player')
-      const playerPosition = new Position({ x: 0, y: 0, z: 0 })
-      const playerSoa: SoAResult<typeof playerQuery.components> = {
-        entities: [playerEntityId],
-        components: {
-          position: [playerPosition],
-          velocity: [],
-          player: [],
-          inputState: [],
-          cameraState: [],
-          hotbar: [],
-          gravity: [],
-          collider: [],
-          target: [],
-        },
-      }
-      const chunkSoa: SoAResult<typeof chunkQuery.components> = {
-        entities: [],
-        components: {
-          chunk: [],
-        },
-      }
-
-      const mockWorld: Partial<World> = {
-        querySoA: (query: any) => {
-          if (query === playerQuery) {
-            return Effect.succeed(playerSoa as any)
-          }
-          if (query === chunkQuery) {
-            return Effect.succeed(chunkSoa as any)
-          }
-          return Effect.fail(new Error('unexpected query'))
-        },
-        removeEntity: () => Effect.succeed(undefined),
-      }
-
-      const mockComputationWorker: Partial<ComputationWorker> = {
-        postTask: () => Effect.succeed(undefined),
-      }
-
-      const worldLayer = Layer.succeed(World, mockWorld as World)
-      const computationWorkerLayer = Layer.succeed(ComputationWorker, mockComputationWorker as ComputationWorker)
-      const testLayer = worldLayer.pipe(Layer.provide(computationWorkerLayer))
-
-      const computationWorker = yield* $(ComputationWorker)
-      const postTaskSpy = vi.spyOn(computationWorker, 'postTask')
-
-      const system = yield* $(chunkLoadingSystem)
-      yield* $(system.pipe(Effect.provide(testLayer)))
-
-      const expectedChunksToLoad = (2 * RENDER_DISTANCE + 1) ** 2
-      assert.deepStrictEqual(postTaskSpy.mock.calls.length, expectedChunksToLoad)
-    }))
-
-  it.effect('should not do anything if player has not moved to a new chunk', () =>
-    Effect.gen(function* ($) {
-      const playerEntityId = toEntityId('player')
-      const playerPosition = new Position({ x: 0, y: 0, z: 0 })
-      const playerSoa: SoAResult<typeof playerQuery.components> = {
-        entities: [playerEntityId],
-        components: {
-          position: [playerPosition],
-          velocity: [],
-          player: [],
-          inputState: [],
-          cameraState: [],
-          hotbar: [],
-          gravity: [],
-          collider: [],
-          target: [],
-        },
-      }
-      const chunkSoa: SoAResult<typeof chunkQuery.components> = {
-        entities: [],
-        components: {
-          chunk: [],
-        },
-      }
-
-      const mockWorld: Partial<World> = {
-        querySoA: (query: any) => {
-          if (query === playerQuery) {
-            return Effect.succeed(playerSoa as any)
-          }
-          if (query === chunkQuery) {
-            return Effect.succeed(chunkSoa as any)
-          }
-          return Effect.fail(new Error('unexpected query'))
-        },
-      }
-
-      const mockComputationWorker: Partial<ComputationWorker> = {
-        postTask: () => Effect.succeed(undefined),
-      }
-
-      const worldLayer = Layer.succeed(World, mockWorld as World)
-      const computationWorkerLayer = Layer.succeed(ComputationWorker, mockComputationWorker as ComputationWorker)
-      const testLayer = worldLayer.pipe(Layer.provide(computationWorkerLayer))
-
-      const computationWorker = yield* $(ComputationWorker)
-      const postTaskSpy = vi.spyOn(computationWorker, 'postTask')
-
-      const system = yield* $(chunkLoadingSystem)
-      yield* $(system.pipe(Effect.provide(testLayer)))
-      yield* $(system.pipe(Effect.provide(testLayer)))
-
-      const expectedChunksToLoad = (2 * RENDER_DISTANCE + 1) ** 2
-      assert.deepStrictEqual(postTaskSpy.mock.calls.length, expectedChunksToLoad)
-    }))
-
-  it.effect('should not do anything if there are no players', () =>
-    Effect.gen(function* ($) {
-      const playerSoa: SoAResult<typeof playerQuery.components> = {
-        entities: [],
-        components: {
-          position: [],
-          velocity: [],
-          player: [],
-          inputState: [],
-          cameraState: [],
-          hotbar: [],
-          gravity: [],
-          collider: [],
-          target: [],
-        },
-      }
-
-      const mockWorld: Partial<World> = {
-        querySoA: (query: any) => {
-          if (query === playerQuery) {
-            return Effect.succeed(playerSoa as any)
-          }
-          return Effect.fail(new Error('unexpected query'))
-        },
-      }
-
-      const mockComputationWorker: Partial<ComputationWorker> = {
-        postTask: () => Effect.succeed(undefined),
-      }
-
-      const worldLayer = Layer.succeed(World, mockWorld as World)
-      const computationWorkerLayer = Layer.succeed(ComputationWorker, mockComputationWorker as ComputationWorker)
-      const testLayer = worldLayer.pipe(Layer.provide(computationWorkerLayer))
-
-      const computationWorker = yield* $(ComputationWorker)
-      const postTaskSpy = vi.spyOn(computationWorker, 'postTask')
-
-      const system = yield* $(chunkLoadingSystem)
-      yield* $(system.pipe(Effect.provide(testLayer)))
-
-      assert.deepStrictEqual(postTaskSpy.mock.calls.length, 0)
-    }))
+const arbitraryChunkCoord = fc.record({
+  x: fc.integer(),
+  z: fc.integer(),
 })
 
 describe('calculateChunkUpdates', () => {
-  it('should calculate chunks to load and unload', () => {
-    const currentPlayerChunk = { x: 0, z: 0 }
-    const loadedChunks = HashMap.make(['0,1', toEntityId('1')], ['-2,-2', toEntityId('2')])
-    const renderDistance = 1
+  it.effect('should correctly calculate chunks to load and unload', () =>
+    Effect.promise(() =>
+      fc.assert(
+        fc.asyncProperty(
+          arbitraryChunkCoord,
+          fc.array(fc.tuple(fc.string(), arbitraryChunk.map(toEntityId))),
+          fc.integer({ min: 1, max: 5 }),
+          async (playerChunk, loadedChunksArray, renderDistance) => {
+            const loadedChunks = HashMap.fromIterable(loadedChunksArray)
+            const { toLoad, toUnload } = calculateChunkUpdates(
+              playerChunk,
+              loadedChunks,
+              renderDistance,
+            )
 
-    const { toLoad, toUnload } = calculateChunkUpdates(currentPlayerChunk, loadedChunks, renderDistance)
+            const requiredChunks = new Set<string>()
+            for (let x = playerChunk.x - renderDistance; x <= playerChunk.x + renderDistance; x++) {
+              for (let z = playerChunk.z - renderDistance; z <= playerChunk.z + renderDistance; z++) {
+                requiredChunks.add(`${x},${z}`)
+              }
+            }
 
-    const toLoadSet = new Set(ReadonlyArray.map(toLoad, (c) => `${c.x},${c.z}`))
-    const expectedToLoadSet = new Set([
-      '-1,-1',
-      '0,-1',
-      '1,-1',
-      '-1,0',
-      '0,0',
-      '1,0',
-      '-1,1',
-      '1,1',
-    ])
+            toLoad.forEach((chunk) => {
+              const key = `${chunk.x},${chunk.z}`
+              assert.isTrue(requiredChunks.has(key), `Chunk ${key} should be required`)
+              assert.isFalse(HashMap.has(loadedChunks, key), `Chunk ${key} should not be already loaded`)
+            })
 
-    assert.deepStrictEqual(toLoadSet, expectedToLoadSet)
-    assert.deepStrictEqual(toUnload, [toEntityId('2')])
-  })
+            toUnload.forEach((entityId) => {
+              const isActuallyLoaded = ReadonlyArray.some(
+                loadedChunksArray,
+                ([_, id]) => id === entityId,
+              )
+              assert.isTrue(isActuallyLoaded, `Entity ${entityId} should be in the original loaded chunks`)
+
+              const key = ReadonlyArray.findFirst(
+                loadedChunksArray,
+                ([_, id]) => id === entityId,
+              ).pipe(Option.map(([key]) => key)).pipe(Option.getOrThrow)
+              assert.isFalse(requiredChunks.has(key), `Unloaded chunk ${key} should not be required`)
+            })
+          },
+        ),
+      ),
+    ))
+})
+
+describe('chunkLoadingSystem', () => {
+  it.effect('should adhere to chunk loading properties', () =>
+    Effect.promise(() =>
+      fc.assert(
+        fc.asyncProperty(
+          fc.option(arbitraryPosition, { nil: undefined }),
+          fc.array(arbitraryChunk),
+          async (playerPositionOpt, loadedChunks) => {
+            const playerSoa: SoAResult<typeof playerQuery.components> = {
+              entities: playerPositionOpt ? [toEntityId('player')] : [],
+              components: {
+                position: playerPositionOpt ? [playerPositionOpt] : [],
+                velocity: [],
+                player: [],
+                inputState: [],
+                cameraState: [],
+                hotbar: [],
+                gravity: [],
+                collider: [],
+                target: [],
+              },
+            }
+            const chunkSoa: SoAResult<typeof chunkQuery.components> = {
+              entities: loadedChunks.map((_, i) => toEntityId(i)),
+              components: {
+                chunk: loadedChunks,
+              },
+            }
+
+            const querySoaMock = vi.fn((query: any) => {
+              if (query === playerQuery) return Effect.succeed(playerSoa as any)
+              if (query === chunkQuery) return Effect.succeed(chunkSoa as any)
+              return Effect.fail(new Error('unexpected query'))
+            })
+            const removeEntitySpy = vi.fn(() => Effect.succeed(undefined))
+            const postTaskSpy = vi.fn(() => Effect.succeed(undefined))
+
+            const mockWorld: Partial<World> = {
+              querySoA: querySoaMock,
+              removeEntity: removeEntitySpy,
+            }
+            const mockComputationWorker: Partial<ComputationWorker> = {
+              postTask: postTaskSpy,
+            }
+
+            const testLayer = Layer.succeed(World, mockWorld as World).pipe(
+              Layer.provide(Layer.succeed(ComputationWorker, mockComputationWorker as ComputationWorker)),
+            )
+
+            const system = await Effect.runPromise(chunkLoadingSystem)
+            await Effect.runPromise(system.pipe(Effect.provide(testLayer)))
+
+            if (!playerPositionOpt) {
+              assert.strictEqual(postTaskSpy.mock.calls.length, 0)
+              assert.strictEqual(removeEntitySpy.mock.calls.length, 0)
+              return
+            }
+
+            const playerChunk = {
+              x: Math.floor(playerPositionOpt.x / CHUNK_SIZE),
+              z: Math.floor(playerPositionOpt.z / CHUNK_SIZE),
+            }
+            const loadedChunksMap = HashMap.fromIterable(
+              loadedChunks.map((chunk, i) => [`${chunk.chunkX},${chunk.chunkZ}`, toEntityId(i)] as const),
+            )
+
+            const { toLoad, toUnload } = calculateChunkUpdates(
+              playerChunk,
+              loadedChunksMap,
+              RENDER_DISTANCE,
+            )
+
+            assert.strictEqual(postTaskSpy.mock.calls.length, toLoad.length)
+            assert.strictEqual(removeEntitySpy.mock.calls.length, toUnload.length)
+          },
+        ),
+      ),
+    ))
 })

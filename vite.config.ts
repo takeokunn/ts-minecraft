@@ -13,5 +13,8 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       exclude: ['src/index.ts', 'vite.config.ts', 'src/@types/*', 'src/systems/index.ts', 'test/'],
     },
+    deps: {
+      inline: [/^(?!.*vitest).*$/],
+    },
   },
 })

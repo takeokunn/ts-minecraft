@@ -19,28 +19,27 @@ const साइलेंटLogger = Layer.succeed(Logger, {
 
 describe('scripts/generate-texture-atlas', () => {
   describe('findAllTextureFiles', () => {
+    const fileSystemLayer = Layer.succeed(
+      FileSystem,
+      FileSystem.of({
+        readdir: (dirPath: string) => {
+          if (dirPath.endsWith('public/texture')) {
+            return Effect.succeed([
+              createMockDirent('grass', true),
+              createMockDirent('stone.png', false),
+            ])
+          }
+          if (dirPath.endsWith('grass')) {
+            return Effect.succeed([createMockDirent('side.png', false)])
+          }
+          return Effect.succeed([])
+        },
+      }),
+    )
+    const testLayer = Layer.merge(fileSystemLayer, साइलेंटLogger)
+
     it.effect('should find all texture files', () =>
       Effect.gen(function* (_) {
-        const fileSystemLayer = Layer.succeed(
-          FileSystem,
-          FileSystem.of({
-            readdir: (dirPath: string) => {
-              if (dirPath.endsWith('public/texture')) {
-                return Effect.succeed([
-                  createMockDirent('grass', true),
-                  createMockDirent('stone.png', false),
-                ])
-              }
-              if (dirPath.endsWith('grass')) {
-                return Effect.succeed([createMockDirent('side.png', false)])
-              }
-              return Effect.succeed([])
-            },
-          }),
-        )
-        // eslint-disable-next-line no-unused-vars
-        const testLayer = Layer.merge(fileSystemLayer, साइलेंटLogger)
-
         const result = yield* _(script.findAllTextureFiles())
         assert.deepStrictEqual(result.map((f) => f.name).sort(), ['grass_side', 'stone'])
       }).pipe(Effect.provide(testLayer)))

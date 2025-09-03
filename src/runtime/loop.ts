@@ -1,4 +1,4 @@
-import { Effect, Schedule } from 'effect'
+import { Context, Effect } from 'effect'
 import { Stats, Clock, DeltaTime } from '@/runtime/services'
 
 export const createTick = <E, R>(systems: ReadonlyArray<Effect.Effect<void, E, R>>) =>
@@ -6,10 +6,14 @@ export const createTick = <E, R>(systems: ReadonlyArray<Effect.Effect<void, E, R
     const stats = yield* _(Stats)
     const clock = yield* _(Clock)
 
-    const systemsEffect = Effect.forEach(systems, (system) => Effect.catchAll(system, (e) => Effect.logError('Error in system', e)), {
-      discard: true,
-      concurrency: 'inherit',
-    })
+    const systemsEffect = Effect.forEach(
+      systems,
+      (system) => Effect.catchAll(system, (e) => Effect.logError('Error in system', e)),
+      {
+        discard: true,
+        concurrency: 'inherit',
+      },
+    )
 
     yield* _(stats.begin)
     const deltaTime = yield* _(clock.deltaTime.get)
@@ -19,5 +23,9 @@ export const createTick = <E, R>(systems: ReadonlyArray<Effect.Effect<void, E, R
 
 export const gameLoop = <E, R>(systems: ReadonlyArray<Effect.Effect<void, E, R>>) => {
   const tick = createTick(systems)
-  return Effect.repeat(tick, Schedule.forever)
+  return Effect.gen(function* (_) {
+    const clock = yield* _(Clock)
+    const context = yield* _(Effect.context<R | Stats | Clock>())
+    yield* _(clock.onFrame(() => tick.pipe(Effect.provide(context))))
+  })
 }

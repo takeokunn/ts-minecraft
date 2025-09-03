@@ -1,5 +1,4 @@
-import { Effect, pipe } from 'effect'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
+import { Effect, pipe, Array as ReadonlyArray } from 'effect'
 import * as HashMap from 'effect/HashMap'
 import * as Option from 'effect/Option'
 import { Collider, Player, Position, Velocity } from '@/domain/components'
@@ -76,7 +75,8 @@ const getNearbyAABBs = (
   colliderEntityMap: HashMap.HashMap<EntityId, number>,
   colliderComponents: SoAResult<typeof positionColliderQuery.components>['components'],
 ) =>
-  ReadonlyArray.fromIterable(nearbyEntityIds).pipe(
+  pipe(
+    ReadonlyArray.fromIterable(nearbyEntityIds),
     ReadonlyArray.filterMap((nearbyEntityId) => {
       if (nearbyEntityId === entityId) {
         return Option.none()

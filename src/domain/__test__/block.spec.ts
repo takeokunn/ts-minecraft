@@ -39,9 +39,9 @@ describe('Block', () => {
 
   describe('createPlacedBlock', () => {
     it.effect('should create a valid PlacedBlock object', () =>
-      Effect.promise(() =>
+      Effect.sync(() =>
         fc.assert(
-          fc.asyncProperty(Arbitrary.make(PlacedBlockSchema), async (placedBlock) => {
+          fc.property(Arbitrary.make(PlacedBlockSchema), (placedBlock) => {
             const { position, blockType } = placedBlock
             assert.deepStrictEqual(createPlacedBlock(position, blockType), placedBlock)
           }),
@@ -54,13 +54,13 @@ describe('Block', () => {
 
   describe('getUvForFace', () => {
     it.effect('should return the correct UV for a given block type and face', () =>
-      Effect.promise(() =>
+      Effect.sync(() =>
         fc.assert(
-          fc.asyncProperty(
+          fc.property(
             Arbitrary.make(FaceNameSchema),
             blockTypeArbitrary,
-            async (faceName, blockType) => {
-              const definition = blockDefinitions[blockType]
+            (faceName, blockType) => {
+              const definition = blockDefinitions[blockType]!
               const uv = getUvForFace(blockType, faceName)
               let expectedUv
               if (faceName === 'top') {
@@ -76,31 +76,46 @@ describe('Block', () => {
         ),
       ),
     )
+
+    it('should throw an error for an undefined block type', () => {
+      // @ts-expect-error - Testing invalid input
+      expect(() => getUvForFace('invalidBlockType', 'top')).toThrow()
+    })
   })
 
   describe('isBlockTransparent', () => {
     it.effect('should return the correct transparency for a given block type', () =>
-      Effect.promise(() =>
+      Effect.sync(() =>
         fc.assert(
-          fc.asyncProperty(blockTypeArbitrary, async (blockType) => {
+          fc.property(blockTypeArbitrary, (blockType) => {
             const isTransparent = isBlockTransparent(blockType)
-            assert.strictEqual(isTransparent, blockDefinitions[blockType].isTransparent)
+            assert.strictEqual(isTransparent, blockDefinitions[blockType]!.isTransparent)
           }),
         ),
       ),
     )
+
+    it('should throw an error for an undefined block type', () => {
+      // @ts-expect-error - Testing invalid input
+      expect(() => isBlockTransparent('invalidBlockType')).toThrow()
+    })
   })
 
   describe('isBlockFluid', () => {
     it.effect('should return the correct fluid status for a given block type', () =>
-      Effect.promise(() =>
+      Effect.sync(() =>
         fc.assert(
-          fc.asyncProperty(blockTypeArbitrary, async (blockType) => {
+          fc.property(blockTypeArbitrary, (blockType) => {
             const isFluid = isBlockFluid(blockType)
-            assert.strictEqual(isFluid, blockDefinitions[blockType].isFluid)
+            assert.strictEqual(isFluid, blockDefinitions[blockType]!.isFluid)
           }),
         ),
       ),
     )
+
+    it('should throw an error for an undefined block type', () => {
+      // @ts-expect-error - Testing invalid input
+      expect(() => isBlockFluid('invalidBlockType')).toThrow()
+    })
   })
 })

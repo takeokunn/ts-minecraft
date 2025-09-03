@@ -1,48 +1,57 @@
-import { describe, it, expect, vi } from '@effect/vitest'
-import { Effect, Layer, Queue } from 'effect'
+import { describe, it, expect, vi, assert } from '@effect/vitest'
+import { Effect, Layer, Queue, Scope } from 'effect'
+import * as fc from 'effect/FastCheck'
 import { worldUpdateSystem } from '../world-update'
 import { ComputationWorker, PlacedBlock, Renderer, RenderCommand, World } from '@/runtime/services'
 import { Position } from '@/domain/components'
 import { Archetype } from '@/domain/archetypes'
 import { BLOCK_COLLIDER } from '@/domain/world-constants'
+import { arbitraryBlockType } from '@test/arbitraries'
+import { OutgoingMessage } from '@/workers/messages'
+
+const arbitraryPlacedBlock = fc.record({
+  position: fc.tuple(fc.float(), fc.float(), fc.float()),
+  blockType: arbitraryBlockType,
+})
+
+const arbitraryMesh = fc.record({
+  positions: fc.float32Array(),
+  normals: fc.float32Array(),
+  uvs: fc.float32Array(),
+  indices: fc.uint32Array(),
+})
+
+const arbitraryChunkGeneratedMessage = fc.record({
+  type: fc.constant('chunkGenerated' as const),
+  blocks: fc.array(arbitraryPlacedBlock),
+  mesh: arbitraryMesh,
+  chunkX: fc.integer(),
+  chunkZ: fc.integer(),
+})
 
 describe('worldUpdateSystem', () => {
-  it.effect('should handle chunkGenerated message', () =>
+  it.effect('should adhere to world update properties', () =>
     Effect.gen(function* ($) {
-      const blocks: ReadonlyArray<PlacedBlock> = [
-        {
-          position: [0, 0, 0],
-          blockType: 'grass',
-        },
-      ]
-      const message = {
-        type: 'chunkGenerated' as const,
-        blocks,
-        mesh: {
-          positions: new Float32Array([0, 0, 0]),
-          normals: new Float32Array([0, 1, 0]),
-          uvs: new Float32Array([0, 0]),
-          indices: new Uint32Array([0, 1, 2]),
-        },
-        chunkX: 0,
-        chunkZ: 0,
-      }
+      const message = yield* $(Effect.promise(() => fc.sample(arbitraryChunkGeneratedMessage, 1)[0]))
 
-      const addArchetypeMock = vi.fn(() => Effect.succeed(undefined as any))
-      const offerMock = vi.fn(() => Effect.succeed(true))
+      const addArchetypeSpy = vi.fn(() => Effect.succeed(undefined as any))
+      const offerSpy = vi.fn(() => Effect.succeed(true))
 
       const mockWorld: Partial<World> = {
-        addArchetype: addArchetypeMock,
+        addArchetype: addArchetypeSpy,
       }
-
       const mockRenderer: Partial<Renderer> = {
         renderQueue: {
-          offer: offerMock,
+          offer: offerSpy,
         } as unknown as Queue.Queue<RenderCommand>,
       }
 
+      let messageHandler: (message: OutgoingMessage) => Effect.Effect<void, never, Scope.Scope>
       const mockComputationWorker: Partial<ComputationWorker> = {
-        onMessage: (handler) => handler(message),
+        onMessage: (handler) => {
+          messageHandler = handler
+          return Effect.void
+        },
       }
 
       const testLayer = Layer.succeed(World, mockWorld as World).pipe(
@@ -51,24 +60,36 @@ describe('worldUpdateSystem', () => {
       )
 
       yield* $(worldUpdateSystem.pipe(Effect.provide(testLayer)))
+      yield* $(messageHandler!(message))
 
-      const expectedArchetype: Archetype = {
-        position: new Position({ x: 0, y: 0, z: 0 }),
-        renderable: { geometry: 'box', blockType: 'grass' },
-        collider: BLOCK_COLLIDER,
-        terrainBlock: {},
-      }
-
-      expect(addArchetypeMock).toHaveBeenCalledWith(expectedArchetype)
-
-      expect(offerMock).toHaveBeenCalledWith({
-        type: 'ADD_CHUNK',
-        chunkX: 0,
-        chunkZ: 0,
-        positions: message.mesh.positions,
-        normals: message.mesh.normals,
-        uvs: message.mesh.uvs,
-        indices: message.mesh.indices,
+      assert.strictEqual(addArchetypeSpy.mock.calls.length, message.blocks.length)
+      message.blocks.forEach((block, i) => {
+        const expectedArchetype: Archetype = {
+          position: new Position({
+            x: block.position[0],
+            y: block.position[1],
+            z: block.position[2],
+          }),
+          renderable: { geometry: 'box', blockType: block.blockType },
+          collider: BLOCK_COLLIDER,
+          terrainBlock: {},
+        }
+        expect(addArchetypeSpy.mock.calls[i][0]).toEqual(expectedArchetype)
       })
-    }))
+
+      if (message.mesh.indices.length > 0) {
+        assert.strictEqual(offerSpy.mock.calls.length, 1)
+        expect(offerSpy.mock.calls[0][0]).toEqual({
+          type: 'ADD_CHUNK',
+          chunkX: message.chunkX,
+          chunkZ: message.chunkZ,
+          positions: message.mesh.positions,
+          normals: message.mesh.normals,
+          uvs: message.mesh.uvs,
+          indices: message.mesh.indices,
+        })
+      } else {
+        assert.strictEqual(offerSpy.mock.calls.length, 0)
+      }
+    }).pipe(Effect.scoped))
 })

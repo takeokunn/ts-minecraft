@@ -39,7 +39,7 @@ export const physicsSystem = Effect.gen(function* ($) {
 
   yield* $(
     Effect.when(
-      () => deltaTime > 0,
+      deltaTime > 0,
       () => Effect.gen(function* ($) {
         const { entities, components } = yield* $(world.querySoA(physicsQuery))
         const { player, position, velocity } = components

@@ -1,58 +1,64 @@
-import { describe, it, expect, vi } from '@effect/vitest'
+import { describe, it, expect, vi, assert } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
+import * as fc from 'effect/FastCheck'
 import { updatePhysicsWorldSystem } from '../update-physics-world'
 import { SpatialGrid, World } from '@/runtime/services'
-import { EntityId, toEntityId } from '@/domain/entity'
+import { toEntityId } from '@/domain/entity'
 import { Collider, Position } from '@/domain/components'
-import { SoA } from '@/domain/world'
+import { SoAResult } from '@/domain/types'
 import { positionColliderQuery } from '@/domain/queries'
 import { createAABB } from '@/domain/geometry'
+import { arbitraryPosition, arbitraryCollider } from '@test/arbitraries'
+
+const arbitraryEntity = fc.record({
+  position: arbitraryPosition,
+  collider: arbitraryCollider,
+})
 
 describe('updatePhysicsWorldSystem', () => {
-  it.effect('should clear the spatial grid and add all colliders', () =>
-    Effect.gen(function* ($) {
-      const entityId1 = toEntityId(1)
-      const entityId2 = toEntityId(2)
-      const position1 = new Position({ x: 0, y: 0, z: 0 })
-      const collider1 = new Collider({ width: 1, height: 1, depth: 1 })
-      const position2 = new Position({ x: 10, y: 10, z: 10 })
-      const collider2 = new Collider({ width: 2, height: 2, depth: 2 })
+  it.effect('should adhere to physics world update properties', () =>
+    Effect.promise(() =>
+      fc.assert(
+        fc.asyncProperty(fc.array(arbitraryEntity), async (entities) => {
+          const entityIds = entities.map((_, i) => toEntityId(i))
+          const soa: SoAResult<typeof positionColliderQuery.components> = {
+            entities: entityIds,
+            components: {
+              position: entities.map((e) => e.position),
+              collider: entities.map((e) => e.collider),
+            },
+          }
 
-      const soa: SoA<typeof positionColliderQuery> = {
-        entities: [entityId1, entityId2],
-        components: {
-          position: [position1, position2],
-          collider: [collider1, collider2],
-        },
-      }
+          const clearSpy = vi.fn(() => Effect.succeed(undefined))
+          const addSpy = vi.fn(() => Effect.succeed(undefined))
 
-      const clearMock = vi.fn(() => Effect.succeed(undefined))
-      const addMock = vi.fn(() => Effect.succeed(undefined))
+          const mockWorld: Partial<World> = {
+            querySoA: () => Effect.succeed(soa as any),
+          }
 
-      const mockWorld: Partial<World> = {
-        querySoA: () => Effect.succeed(soa),
-      }
+          const mockSpatialGrid: SpatialGrid = {
+            clear: clearSpy,
+            add: addSpy,
+            query: () => Effect.succeed([]),
+            register: () => Effect.void,
+          }
 
-      const mockSpatialGrid: SpatialGrid = {
-        clear: clearMock,
-        add: addMock,
-        query: () => Effect.succeed([]),
-      }
+          const testLayer = Layer.merge(
+            Layer.succeed(World, mockWorld as World),
+            Layer.succeed(SpatialGrid, mockSpatialGrid),
+          )
 
-      const testLayer = Layer.merge(
-        Layer.succeed(World, mockWorld as World),
-        Layer.succeed(SpatialGrid, mockSpatialGrid),
-      )
+          await Effect.runPromise(updatePhysicsWorldSystem.pipe(Effect.provide(testLayer)))
 
-      yield* $(updatePhysicsWorldSystem.pipe(Effect.provide(testLayer)))
+          assert.strictEqual(clearSpy.mock.calls.length, 1)
+          assert.strictEqual(addSpy.mock.calls.length, entities.length)
 
-      expect(clearMock).toHaveBeenCalledTimes(1)
-      expect(addMock).toHaveBeenCalledTimes(2)
-
-      const aabb1 = createAABB(position1, collider1)
-      const aabb2 = createAABB(position2, collider2)
-
-      expect(addMock).toHaveBeenCalledWith(entityId1, aabb1)
-      expect(addMock).toHaveBeenCalledWith(entityId2, aabb2)
-    }))
+          entities.forEach((entity, i) => {
+            const aabb = createAABB(entity.position, entity.collider)
+            assert.deepStrictEqual(addSpy.mock.calls[i], [entityIds[i], aabb])
+          })
+        }),
+      ),
+    ),
+  )
 })

@@ -1,13 +1,12 @@
 import { Archetype } from '@/domain/archetypes'
-import { BlockType } from '@/domain/block-types'
-import { Vector3Int } from '@/domain/common'
 import { Chunk, ComponentName, ComponentOfName, Hotbar } from '@/domain/components'
 import { EntityId } from '@/domain/entity'
 import { AABB } from '@/domain/geometry'
 import { Query, QueryResult } from '../domain/query'
 import { Voxel, WorldState } from '../domain/world'
-import { Context, Effect, Option, Queue, Ref } from 'effect'
+import { Context, Effect, Option, Queue, Ref, Scope } from 'effect'
 import * as T from 'three'
+import { IncomingMessage, OutgoingMessage } from '@/workers/messages'
 
 export type SoAResult<T extends ReadonlyArray<ComponentName>> = {
   readonly entities: ReadonlyArray<EntityId>
@@ -37,19 +36,19 @@ export class World extends Context.Tag('World')<
     ) => Effect.Effect<void>
     readonly query: <T extends ReadonlyArray<ComponentName>>(
       query: Query<T>,
-    ) => Effect.Effect<ReadonlyArray<[EntityId, QueryResult<T>]>>
+    ) => Effect.Effect<ReadonlyArray<readonly [EntityId, QueryResult<T>]>>
     readonly querySoA: <T extends ReadonlyArray<ComponentName>>(
       query: Query<T>,
     ) => Effect.Effect<SoAResult<T>>
     readonly queryUnsafe: <T extends ReadonlyArray<ComponentName>>(
       query: Query<T>,
-    ) => Effect.Effect<ReadonlyArray<[EntityId, QueryResult<T>]>>
+    ) => Effect.Effect<ReadonlyArray<readonly [EntityId, ...QueryResult<T>]>>
     readonly querySingle: <T extends ReadonlyArray<ComponentName>>(
       query: Query<T>,
-    ) => Effect.Effect<Option.Option<[EntityId, QueryResult<T>]>>
+    ) => Effect.Effect<Option.Option<readonly [EntityId, QueryResult<T>]>>
     readonly querySingleUnsafe: <T extends ReadonlyArray<ComponentName>>(
       query: Query<T>,
-    ) => Effect.Effect<[EntityId, QueryResult<T>]>
+    ) => Effect.Effect<readonly [EntityId, QueryResult<T>]>
     readonly getChunk: (chunkX: number, chunkZ: number) => Effect.Effect<Option.Option<Chunk>>
     readonly setChunk: (chunkX: number, chunkZ: number, chunk: Chunk) => Effect.Effect<void>
     readonly getVoxel: (x: number, y: number, z: number) => Effect.Effect<Option.Option<Voxel>>
@@ -124,39 +123,15 @@ export class SpatialGrid extends Context.Tag('SpatialGrid')<
   }
 >() {}
 
-export type PlacedBlock = {
-  readonly position: Vector3Int
-  readonly blockType: BlockType
-}
 
-export type IncomingMessage = {
-  type: 'generateChunk'
-  chunkX: number
-  chunkZ: number
-  seeds: { world: number; biome: number; trees: number }
-  amplitude: number
-  editedBlocks: {
-    destroyed: string[]
-    placed: Record<string, PlacedBlock>
-  }
-}
-
-export type OutgoingMessage = {
-  type: 'chunkGenerated'
-  chunkX: number
-  chunkZ: number
-  positions: Float32Array
-  normals: Float32Array
-  uvs: Float32Array
-  indices: Uint32Array
-  blocks: ReadonlyArray<PlacedBlock>
-}
 
 export class ComputationWorker extends Context.Tag('ComputationWorker')<
   ComputationWorker,
   {
     readonly postTask: (task: IncomingMessage) => Effect.Effect<void>
-    readonly onMessage: (handler: (message: OutgoingMessage) => Effect.Effect<void>) => Effect.Effect<void>
+    readonly onMessage: (
+      handler: (message: OutgoingMessage) => Effect.Effect<void, never, Scope.Scope>,
+    ) => Effect.Effect<void, never, Scope.Scope>
   }
 >() {}
 

@@ -1,132 +1,103 @@
-import { describe, it, expect, vi } from '@effect/vitest'
+import { describe, it, expect, vi, assert } from '@effect/vitest'
 import { Effect, Layer, Ref } from 'effect'
+import * as fc from 'effect/FastCheck'
 import { physicsSystem } from '../physics'
 import { Clock, World } from '@/runtime/services'
 import { toEntityId } from '@/domain/entity'
 import { Player, Position, Velocity } from '@/domain/components'
 import { SoAResult } from '@/domain/types'
 import { physicsQuery } from '@/domain/queries'
-import { FRICTION, GRAVITY } from '@/domain/world-constants'
+import { FRICTION, GRAVITY, TERMINAL_VELOCITY } from '@/domain/world-constants'
+import { arbitraryPlayer, arbitraryPosition, arbitraryVelocity } from '@test/arbitraries'
+import { toFloat } from '@/domain/common'
+
+const arbitraryPhysicsEntity = fc.record({
+  player: arbitraryPlayer,
+  position: arbitraryPosition,
+  velocity: arbitraryVelocity,
+})
 
 describe('physicsSystem', () => {
-  it.effect('should apply gravity and friction and update components', () =>
-    Effect.gen(function* ($) {
-      const entityId = toEntityId(1)
-      const player = new Player({ isGrounded: true })
-      const position = new Position({ x: 0, y: 0, z: 0 })
-      const velocity = new Velocity({ dx: 1, dy: 0, dz: 1 })
-      const deltaTime = 1
+  it.effect('should adhere to physics properties', () =>
+    Effect.promise(() =>
+      fc.assert(
+        fc.asyncProperty(
+          fc.array(arbitraryPhysicsEntity),
+          fc.float({ min: 0, max: 1 }), // deltaTime
+          async (entities, deltaTime) => {
+            const entityIds = entities.map((_, i) => toEntityId(i))
+            const soa: SoAResult<typeof physicsQuery.components> = {
+              entities: entityIds,
+              components: {
+                player: entities.map((e) => e.player),
+                position: entities.map((e) => e.position),
+                velocity: entities.map((e) => e.velocity),
+                gravity: [],
+              },
+            }
 
-      const soa: SoAResult<typeof physicsQuery.components> = {
-        entities: [entityId],
-        components: {
-          player: [player],
-          position: [position],
-          velocity: [velocity],
-          gravity: [],
-        },
-      }
+            const querySoaSpy = vi.fn(() => Effect.succeed(soa as any))
+            const updateComponentSpy = vi.fn(() => Effect.succeed(undefined))
 
-      const updateComponentMock = vi.fn(() => Effect.succeed(undefined))
+            const mockWorld: Partial<World> = {
+              querySoA: querySoaSpy,
+              updateComponent: updateComponentSpy,
+            }
 
-      const mockWorld: Partial<World> = {
-        querySoA: () => Effect.succeed(soa as any),
-        updateComponent: updateComponentMock,
-      }
+            const mockClock: Clock = {
+              deltaTime: Ref.unsafeMake(deltaTime),
+              onFrame: () => Effect.void,
+            }
 
-      const mockClock: Clock = {
-        deltaTime: Ref.unsafeMake(deltaTime),
-        onFrame: () => Effect.void,
-      }
+            const testLayer = Layer.merge(
+              Layer.succeed(World, mockWorld as World),
+              Layer.succeed(Clock, mockClock),
+            )
 
-      const testLayer = Layer.merge(Layer.succeed(World, mockWorld as World), Layer.succeed(Clock, mockClock))
+            await Effect.runPromise(physicsSystem.pipe(Effect.provide(testLayer)))
 
-      yield* $(physicsSystem.pipe(Effect.provide(testLayer)))
+            if (deltaTime === 0) {
+              assert.strictEqual(querySoaSpy.mock.calls.length, 0)
+              return
+            }
 
-      const expectedVelocity = new Velocity({
-        dx: velocity.dx * FRICTION,
-        dy: 0,
-        dz: velocity.dz * FRICTION,
-      })
-      const expectedPosition = new Position({
-        x: position.x + expectedVelocity.dx * deltaTime,
-        y: position.y + expectedVelocity.dy * deltaTime,
-        z: position.z + expectedVelocity.dz * deltaTime,
-      })
+            assert.strictEqual(querySoaSpy.mock.calls.length, 1)
+            assert.strictEqual(updateComponentSpy.mock.calls.length, entities.length * 2)
 
-      expect(updateComponentMock).toHaveBeenCalledWith(entityId, 'velocity', expectedVelocity)
-      expect(updateComponentMock).toHaveBeenCalledWith(entityId, 'position', expectedPosition)
-    }),
-  )
+            entities.forEach((entity, i) => {
+              const { player, position, velocity } = entity
+              let expectedDx = velocity.dx
+              let expectedDz = velocity.dz
+              let expectedDy = velocity.dy
 
-  it.effect('should apply gravity when not grounded', () =>
-    Effect.gen(function* ($) {
-      const entityId = toEntityId(1)
-      const player = new Player({ isGrounded: false })
-      const position = new Position({ x: 0, y: 10, z: 0 })
-      const velocity = new Velocity({ dx: 0, dy: 0, dz: 0 })
-      const deltaTime = 1
+              if (player.isGrounded) {
+                expectedDx *= FRICTION
+                expectedDz *= FRICTION
+                expectedDy = toFloat(0)
+              } else {
+                expectedDy = Math.max(-TERMINAL_VELOCITY, velocity.dy - GRAVITY * deltaTime)
+              }
 
-      const soa: SoAResult<typeof physicsQuery.components> = {
-        entities: [entityId],
-        components: {
-          player: [player],
-          position: [position],
-          velocity: [velocity],
-          gravity: [],
-        },
-      }
+              const expectedVelocity = new Velocity({
+                dx: toFloat(expectedDx),
+                dy: toFloat(expectedDy),
+                dz: toFloat(expectedDz),
+              })
 
-      const updateComponentMock = vi.fn(() => Effect.succeed(undefined))
+              const expectedPosition = new Position({
+                x: toFloat(position.x + expectedVelocity.dx * deltaTime),
+                y: toFloat(position.y + expectedVelocity.dy * deltaTime),
+                z: toFloat(position.z + expectedVelocity.dz * deltaTime),
+              })
 
-      const mockWorld: Partial<World> = {
-        querySoA: () => Effect.succeed(soa as any),
-        updateComponent: updateComponentMock,
-      }
-
-      const mockClock: Clock = {
-        deltaTime: Ref.unsafeMake(deltaTime),
-        onFrame: () => Effect.void,
-      }
-
-      const testLayer = Layer.merge(Layer.succeed(World, mockWorld as World), Layer.succeed(Clock, mockClock))
-
-      yield* $(physicsSystem.pipe(Effect.provide(testLayer)))
-
-      const expectedVelocity = new Velocity({
-        dx: 0,
-        dy: -GRAVITY * deltaTime,
-        dz: 0,
-      })
-      const expectedPosition = new Position({
-        x: position.x,
-        y: position.y + expectedVelocity.dy * deltaTime,
-        z: position.z,
-      })
-
-      expect(updateComponentMock).toHaveBeenCalledWith(entityId, 'velocity', expectedVelocity)
-      expect(updateComponentMock).toHaveBeenCalledWith(entityId, 'position', expectedPosition)
-    }),
-  )
-
-  it.effect('should not do anything if deltaTime is 0', () =>
-    Effect.gen(function* ($) {
-      const querySoaMock = vi.fn(() => Effect.succeed({ entities: [], components: {} } as any))
-
-      const mockWorld: Partial<World> = {
-        querySoA: querySoaMock,
-      }
-
-      const mockClock: Clock = {
-        deltaTime: Ref.unsafeMake(0),
-        onFrame: () => Effect.void,
-      }
-
-      const testLayer = Layer.merge(Layer.succeed(World, mockWorld as World), Layer.succeed(Clock, mockClock))
-
-      yield* $(physicsSystem.pipe(Effect.provide(testLayer)))
-
-      expect(querySoaMock).not.toHaveBeenCalled()
-    }),
+              const entityId = entityIds[i]
+              const calls = updateComponentSpy.mock.calls.filter((call) => call[0] === entityId)
+              expect(calls).toContainEqual([entityId, 'velocity', expectedVelocity])
+              expect(calls).toContainEqual([entityId, 'position', expectedPosition])
+            })
+          },
+        ),
+      ),
+    ),
   )
 })

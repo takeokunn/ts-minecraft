@@ -1,5 +1,6 @@
-import { ComputationWorker, IncomingMessage, OutgoingMessage } from '@/runtime/services'
-import { Effect, Layer, Queue } from 'effect'
+import { ComputationWorker } from '@/runtime/services'
+import { IncomingMessage, OutgoingMessage } from '@/workers/messages'
+import { Effect, Layer, Scope } from 'effect'
 
 export const ComputationWorkerLive = Layer.scoped(
   ComputationWorker,
@@ -16,13 +17,12 @@ export const ComputationWorkerLive = Layer.scoped(
         (worker) => Effect.sync(() => worker.terminate()),
       ),
     )
-    const messageQueue = yield* _(Queue.unbounded<OutgoingMessage>())
 
-    yield* _(
+    const onMessage = (handler: (message: OutgoingMessage) => Effect.Effect<void, never, Scope.Scope>) =>
       Effect.acquireRelease(
         Effect.sync(() => {
           const handleMessage = (event: MessageEvent<OutgoingMessage>) => {
-            Queue.unsafeOffer(messageQueue, event.data)
+            Effect.runFork(handler(event.data))
           }
           const handleError = (error: ErrorEvent) => {
             Effect.runFork(Effect.logError('Computation Worker Error:', error))
@@ -36,22 +36,12 @@ export const ComputationWorkerLive = Layer.scoped(
             worker.removeEventListener('message', handleMessage)
             worker.removeEventListener('error', handleError)
           }),
-      ),
-    )
+      ).pipe(Effect.forkScoped, Effect.asVoid)
 
     const postTask = (task: IncomingMessage) =>
       Effect.try(() => {
         worker.postMessage(task)
       }).pipe(Effect.catchAll((e) => Effect.logError(e)))
-
-    const onMessage = (handler: (message: OutgoingMessage) => Effect.Effect<void>) =>
-      Queue.take(messageQueue).pipe(
-        Effect.flatMap(handler),
-        Effect.catchAll((error) => Effect.logError(error)),
-        Effect.forever,
-        Effect.forkScoped,
-        Effect.asVoid,
-      )
 
     return ComputationWorker.of({
       postTask,

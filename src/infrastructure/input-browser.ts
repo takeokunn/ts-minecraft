@@ -11,7 +11,7 @@ export type DomEvent =
 
 export const DomEventQueue = Context.Tag<Queue.Queue<DomEvent>>('DomEventQueue')
 
-const InputManagerLiveRaw = Layer.scoped(
+export const InputManagerLiveRaw = Layer.scoped(
   InputManager,
   Effect.gen(function* (_) {
     const isLocked = yield* _(Ref.make(false))

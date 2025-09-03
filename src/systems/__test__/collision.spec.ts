@@ -1,126 +1,120 @@
-import { describe, it, expect, vi } from '@effect/vitest'
-import { Effect, Layer } from 'effect'
+import { describe, it, expect, vi, assert } from '@effect/vitest'
+import { Effect, Layer, Array as ReadonlyArray } from 'effect'
+import * as fc from 'effect/FastCheck'
 import { collisionSystem } from '../collision'
 import { SpatialGrid, World } from '@/runtime/services'
 import { toEntityId } from '@/domain/entity'
 import { Collider, Player, Position, Velocity } from '@/domain/components'
 import { SoAResult } from '@/domain/types'
 import { playerColliderQuery, positionColliderQuery } from '@/domain/queries'
+import {
+  arbitraryPlayer,
+  arbitraryPosition,
+  arbitraryVelocity,
+  arbitraryCollider,
+} from '@test/arbitraries'
+import { AABB, createAABB } from '@/domain/geometry'
+
+const arbitraryBlock = fc.record({
+  position: arbitraryPosition,
+  collider: arbitraryCollider,
+})
 
 describe('collisionSystem', () => {
-  it.effect('should resolve collisions and update components', () =>
-    Effect.gen(function* ($) {
-      const playerEntityId = toEntityId(1)
-      const playerPosition = new Position({ x: 0, y: 1, z: 0 })
-      const playerVelocity = new Velocity({ dx: 0, dy: -1, dz: 0 })
-      const playerCollider = new Collider({ width: 1, height: 2, depth: 1 })
-      const player = new Player({ isGrounded: false })
+  it.effect('should adhere to collision properties', () =>
+    Effect.promise(() =>
+      fc.assert(
+        fc.asyncProperty(
+          fc.option(
+            fc.record({
+              player: arbitraryPlayer,
+              position: arbitraryPosition,
+              velocity: arbitraryVelocity,
+              collider: arbitraryCollider,
+            }),
+            { nil: undefined },
+          ),
+          fc.array(arbitraryBlock),
+          async (playerOpt, blocks) => {
+            const playerEntityId = toEntityId('player')
+            const blockEntities = blocks.map((_, i) => toEntityId(i))
 
-      const blockEntityId = toEntityId(2)
-      const blockPosition = new Position({ x: 0, y: 0, z: 0 })
-      const blockCollider = new Collider({ width: 1, height: 1, depth: 1 })
+            const playerSoa: SoAResult<typeof playerColliderQuery.components> = {
+              entities: playerOpt ? [playerEntityId] : [],
+              components: {
+                player: playerOpt ? [playerOpt.player] : [],
+                position: playerOpt ? [playerOpt.position] : [],
+                velocity: playerOpt ? [playerOpt.velocity] : [],
+                collider: playerOpt ? [playerOpt.collider] : [],
+              },
+            }
+            const colliderSoa: SoAResult<typeof positionColliderQuery.components> = {
+              entities: blockEntities,
+              components: {
+                position: blocks.map((b) => b.position),
+                collider: blocks.map((b) => b.collider),
+              },
+            }
 
-      const playerSoa: SoAResult<typeof playerColliderQuery.components> = {
-        entities: [playerEntityId],
-        components: {
-          player: [player],
-          position: [playerPosition],
-          velocity: [playerVelocity],
-          collider: [playerCollider],
-        },
-      }
-      const colliderSoa: SoAResult<typeof positionColliderQuery.components> = {
-        entities: [blockEntityId],
-        components: {
-          position: [blockPosition],
-          collider: [blockCollider],
-        },
-      }
+            const updatedValues: {
+              position?: Position
+              velocity?: Velocity
+              player?: Player
+            } = {}
+            const updateComponentMock = vi.fn((_entityId, componentName, value) => {
+              updatedValues[componentName as keyof typeof updatedValues] = value
+              return Effect.succeed(undefined)
+            })
 
-      const updateComponentMock = vi.fn(() => Effect.succeed(undefined))
+            const mockWorld: Partial<World> = {
+              querySoA: (query: any) => {
+                if (query === playerColliderQuery) return Effect.succeed(playerSoa as any)
+                if (query === positionColliderQuery) return Effect.succeed(colliderSoa as any)
+                return Effect.fail(new Error('unexpected query'))
+              },
+              updateComponent: updateComponentMock,
+            }
 
-      const mockWorld: Partial<World> = {
-        querySoA: (query: any) => {
-          if (query === playerColliderQuery) {
-            return Effect.succeed(playerSoa as any)
-          }
-          if (query === positionColliderQuery) {
-            return Effect.succeed(colliderSoa as any)
-          }
-          return Effect.fail(new Error('unexpected query'))
-        },
-        updateComponent: updateComponentMock,
-      }
+            const querySpy = vi.fn(() => Effect.succeed(new Set(blockEntities)))
+            const mockSpatialGrid: SpatialGrid = {
+              add: () => Effect.void,
+              query: querySpy,
+              clear: () => Effect.void,
+              register: () => Effect.void,
+            }
 
-      const mockSpatialGrid: SpatialGrid = {
-        add: () => Effect.void,
-        query: () => Effect.succeed(new Set([blockEntityId])),
-        clear: () => Effect.void,
-        register: () => Effect.void,
-      }
+            const testLayer = Layer.merge(
+              Layer.succeed(World, mockWorld as World),
+              Layer.succeed(SpatialGrid, mockSpatialGrid),
+            )
 
-      const testLayer = Layer.merge(
-        Layer.succeed(World, mockWorld as World),
-        Layer.succeed(SpatialGrid, mockSpatialGrid),
-      )
+            await Effect.runPromise(collisionSystem.pipe(Effect.provide(testLayer)))
 
-      yield* $(collisionSystem.pipe(Effect.provide(testLayer)))
+            if (!playerOpt) {
+              assert.strictEqual(querySpy.mock.calls.length, 0)
+              return
+            }
 
-      expect(updateComponentMock).toHaveBeenCalledWith(
-        playerEntityId,
-        'position',
-        new Position({ x: 0, y: 1, z: 0 }),
-      )
-      expect(updateComponentMock).toHaveBeenCalledWith(
-        playerEntityId,
-        'velocity',
-        new Velocity({ dx: 0, dy: 0, dz: 0 }),
-      )
-      expect(updateComponentMock).toHaveBeenCalledWith(
-        playerEntityId,
-        'player',
-        new Player({ isGrounded: true }),
-      )
-    }))
+            const finalPosition = updatedValues.position ?? playerOpt.position
+            const finalVelocity = updatedValues.velocity ?? playerOpt.velocity
+            const finalPlayer = updatedValues.player ?? playerOpt.player
+            const playerAABB = createAABB(finalPosition, playerOpt.collider)
 
-  it.effect('should not do anything if there are no players', () =>
-    Effect.gen(function* ($) {
-      const playerSoa: SoAResult<typeof playerColliderQuery.components> = {
-        entities: [],
-        components: {
-          player: [],
-          position: [],
-          velocity: [],
-          collider: [],
-        },
-      }
+            const blockAABBs = blocks.map((b) => createAABB(b.position, b.collider))
 
-      const querySoaMock = vi.fn((query: any) => {
-        if (query === playerColliderQuery) {
-          return Effect.succeed(playerSoa as any)
-        }
-        return Effect.succeed({ entities: [], components: {} } as any)
-      })
+            blockAABBs.forEach((blockAABB) => {
+              assert.isFalse(AABB.intersects(playerAABB, blockAABB), 'Player should not intersect with any blocks')
+            })
 
-      const mockWorld: Partial<World> = {
-        querySoA: querySoaMock,
-      }
-
-      const queryMock = vi.fn(() => Effect.succeed(new Set()))
-      const mockSpatialGrid: SpatialGrid = {
-        add: () => Effect.void,
-        query: queryMock,
-        clear: () => Effect.void,
-        register: () => Effect.void,
-      }
-
-      const testLayer = Layer.merge(
-        Layer.succeed(World, mockWorld as World),
-        Layer.succeed(SpatialGrid, mockSpatialGrid),
-      )
-
-      yield* $(collisionSystem.pipe(Effect.provide(testLayer)))
-
-      expect(queryMock).not.toHaveBeenCalled()
-    }))
+            const initialPlayerAABB = createAABB(playerOpt.position, playerOpt.collider)
+            const collidedY = ReadonlyArray.some(blockAABBs, (blockAABB) => AABB.intersects(initialPlayerAABB, blockAABB) && playerOpt.velocity.dy < 0)
+            if (collidedY) {
+              assert.isTrue(finalPlayer.isGrounded, 'Player should be grounded after collision')
+              assert.strictEqual(finalVelocity.dy, 0, 'Player dy should be 0 after collision')
+            }
+          },
+        ),
+      ),
+    ),
+  )
 })

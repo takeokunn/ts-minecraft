@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "tsc": "tsc --pretty",
     "preview": "vite preview",
-    "test": "vitest",
+    "test": "vitest --experimental-vm-modules",
     "lint": "oxlint --deny-warnings --allow no-restricted-globals",
     "format": "prettier --write . --ignore-path .gitignore && oxlint --fix",
     "generate:atlas": "npx tsx scripts/generate-texture-atlas.ts",

@@ -1,9 +1,9 @@
-import { Effect, Layer, Context, Queue } from 'effect'
+import { Effect, Layer, Queue } from 'effect'
 import { describe, it, assert } from '@effect/vitest'
 import { InputManager } from '@/runtime/services'
-import { InputManagerLive, DomEventQueue, DomEvent } from '../input-browser'
+import { InputManagerLiveRaw, DomEventQueue, DomEvent } from '../input-browser'
 
-const TestInputManager = InputManagerLive.pipe(
+const TestInputManager = InputManagerLiveRaw.pipe(
   Layer.provide(Layer.effect(DomEventQueue, Queue.unbounded<DomEvent>()))
 )
 
@@ -22,5 +22,5 @@ describe('InputManager', () => {
       yield* _(Effect.sleep(50))
       state = yield* _(input.getState())
       assert.isFalse(state.forward)
-    }).pipe(Effect.provide(TestInputManager)))
+    }).pipe(Effect.provideLayer(TestInputManager)))
 })

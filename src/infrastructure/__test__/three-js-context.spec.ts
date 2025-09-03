@@ -1,17 +1,20 @@
-import { Effect, Layer } from 'effect'
-import { describe, it, expect } from '@effect/vitest'
-import { ThreeJsContextLive, ThreeJsContext } from '../three-js-context'
-import * as THREE from 'three'
+import { vi } from 'vitest'
 
-// Mock WebGLRenderer to avoid errors in jsdom
-vi.mock('three/src/renderers/WebGLRenderer', () => ({
-  WebGLRenderer: vi.fn().mockImplementation(() => ({
+// Mock WebGLRenderer to avoid errors in happy-dom
+vi.mock('three/src/renderers/WebGLRenderer', () => {
+  const WebGLRenderer = vi.fn().mockImplementation(() => ({
     setSize: vi.fn(),
     setClearColor: vi.fn(),
     domElement: document.createElement('canvas'),
     render: vi.fn(),
-  })),
-}))
+  }))
+  return { WebGLRenderer }
+})
+
+import { Effect, Layer } from 'effect'
+import { describe, it, expect } from '@effect/vitest'
+import { ThreeJsContextLive, ThreeJsContext } from '../three-js-context'
+import * as THREE from 'three'
 
 describe('ThreeJsContext', () => {
   it.effect('should create the context without errors', () =>

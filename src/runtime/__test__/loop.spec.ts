@@ -1,113 +1,116 @@
-import { Effect, Layer, Ref, Logger, Fiber, TestClock } from 'effect'
-import { describe, it, expect } from '@effect/vitest'
+import { Cause, Duration, Effect, Layer, Ref } from 'effect'
+import { TestClock, TestContext, TestLogger } from 'effect/test'
+import { assert, describe, expect, it } from '@effect/vitest'
+import * as fc from 'effect/FastCheck'
 import { createTick, gameLoop } from '../../runtime/loop'
-import { Stats, Clock, DeltaTime } from '@/runtime/services'
+import { Clock, DeltaTime, Stats } from '@/runtime/services'
 
-const testDeltaTime = 0.016
-
+// Test implementation for the Stats service
 const createStatsTest = (
-  begin: Effect.Effect<void> = Effect.void,
-  end: Effect.Effect<void> = Effect.void,
-) => Layer.succeed(Stats, { begin, end })
-
-const createClockTest = (deltaTime: number) =>
-  Layer.succeed(Clock, {
-    deltaTime: Ref.unsafeMake(deltaTime),
-    onFrame: () => Effect.void,
+  callOrder: Ref.Ref<string[]>,
+): Layer.Layer<Stats> =>
+  Layer.succeed(Stats, {
+    begin: Ref.update(callOrder, (calls) => [...calls, 'begin']),
+    end: Ref.update(callOrder, (calls) => [...calls, 'end']),
   })
 
-const BaseTestLayers = Layer.mergeAll(createStatsTest(), createClockTest(testDeltaTime))
+// Arbitrary for generating random systems for PBT
+const systemArbitrary = fc.oneof(
+  fc.constant(Effect.void),
+  fc.string().pipe(fc.map((s) => Effect.fail(s))),
+)
+const systemsArbitrary = fc.array(systemArbitrary)
 
 describe('Game Loop', () => {
   describe('createTick', () => {
-    it.effect('should run systems', () =>
+    it.effect('should always succeed and call stats.begin and stats.end in order', () =>
       Effect.gen(function* () {
-        let system1Called = false
-        let system2Called = false
-        const system1 = Effect.sync(() => {
-          system1Called = true
-        })
-        const system2 = Effect.sync(() => {
-          system2Called = true
-        })
-        const tick = createTick([system1, system2])
-        yield* tick
-        expect(system1Called).toBe(true)
-        expect(system2Called).toBe(true)
-      }).pipe(Effect.provide(BaseTestLayers)))
+        const callOrder = yield* Ref.make<string[]>([])
+        const StatsTest = createStatsTest(callOrder)
 
-    it.effect('should call stats.begin and stats.end in order', () =>
-      Effect.gen(function* () {
-        const callOrder: string[] = []
-        const StatsTest = createStatsTest(
-          Effect.sync(() => callOrder.push('begin')),
-          Effect.sync(() => callOrder.push('end')),
+        yield* fc.assert(
+          fc.asyncProperty(systemsArbitrary, (systems) =>
+            Effect.gen(function* () {
+              yield* Ref.set(callOrder, [])
+              const tick = createTick(systems)
+              yield* tick
+              const calls = yield* Ref.get(callOrder)
+              expect(calls[0]).toBe('begin')
+              expect(calls[calls.length - 1]).toBe('end')
+            }).pipe(Effect.provide(StatsTest)),
+          ),
         )
-        const TestLayers = Layer.mergeAll(StatsTest, createClockTest(testDeltaTime))
-
-        const system = Effect.sync(() => callOrder.push('system'))
-        const tick = createTick([system])
-
-        yield* tick.pipe(Effect.provide(TestLayers))
-
-        expect(callOrder).toEqual(['begin', 'system', 'end'])
       }))
 
-    it.effect('should provide DeltaTime to systems', () =>
+    it.effect('should log all errors from failing systems', () =>
       Effect.gen(function* () {
-        let receivedDeltaTime = 0
-        const system = Effect.gen(function* () {
-          const deltaTime = yield* DeltaTime
-          receivedDeltaTime = deltaTime.value
-        })
+        yield* fc.assert(
+          fc.asyncProperty(systemsArbitrary, (systems) =>
+            Effect.gen(function* () {
+              yield* TestLogger.clear
+              const tick = createTick(systems)
+              yield* tick
 
-        const tick = createTick([system])
-        yield* tick
+              const logs = yield* TestLogger.logs
+              const failingSystems = systems.filter((s) => s._tag === 'Fail')
+              expect(logs.length).toBe(failingSystems.length)
 
-        expect(receivedDeltaTime).toBe(testDeltaTime)
-      }).pipe(Effect.provide(BaseTestLayers)))
+              for (const log of logs) {
+                expect(log.message).toBe('Error in system')
+                assert(Cause.isFail(log.cause))
+              }
+            }),
+          ),
+        )
+      }))
 
-    it.effect('should log errors from failing systems', () =>
+    it.effect('should provide the correct DeltaTime to systems', () =>
       Effect.gen(function* () {
-        const error = new Error('system failure')
-        const failingSystem = Effect.fail(error)
-        const tick = createTick([failingSystem])
+        yield* fc.assert(
+          fc.asyncProperty(fc.float({ min: 0, max: 100 }), (dt) =>
+            Effect.gen(function* () {
+              let receivedDeltaTime = 0
+              const system = Effect.gen(function* () {
+                const deltaTime = yield* DeltaTime
+                receivedDeltaTime = deltaTime.value
+              })
 
-        const [logger, fiber] = yield* Logger.test
-        const testLayer = Layer.merge(BaseTestLayers, Logger.replace(Logger.default, logger))
+              const tick = createTick([system])
+              yield* TestClock.adjust(Duration.millis(dt))
+              yield* tick
 
-        yield* tick.pipe(Effect.provide(testLayer))
-        const logs = yield* Fiber.join(fiber)
-
-        expect(logs.length).toBe(1)
-        expect(logs[0].message).toBe('Error in system')
-        expect(logs[0].cause.toJSON()).toEqual(error.toJSON())
+              expect(receivedDeltaTime).toBeCloseTo(dt / 1000)
+            }),
+          ),
+        )
       }))
   })
 
   describe('gameLoop', () => {
-    it.effect('should repeat the tick', () =>
+    it.effect('should register a callback that is called on each frame', () =>
       Effect.gen(function* () {
         let systemCallCount = 0
         const system = Effect.sync(() => {
           systemCallCount++
         })
 
-        const loop = gameLoop([system])
-        const fiber = yield* Effect.fork(loop)
+        yield* gameLoop([system])
 
-        yield* TestClock.increment
+        // Check if the callback is registered
+        const callbacks = yield* TestClock.times
+        expect(callbacks.length).toBe(1)
+
+        // Manually trigger frames
+        yield* TestClock.tick()
         expect(systemCallCount).toBe(1)
 
-        yield* TestClock.increment
+        yield* TestClock.tick()
         expect(systemCallCount).toBe(2)
 
         for (let i = 0; i < 10; i++) {
-          yield* TestClock.increment
+          yield* TestClock.tick()
         }
         expect(systemCallCount).toBe(12)
-
-        yield* Fiber.interrupt(fiber)
-      }).pipe(Effect.provide(BaseTestLayers)))
+      }))
   })
-})
+}).pipe(Effect.provide(TestContext.TestContext))

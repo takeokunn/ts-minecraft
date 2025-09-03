@@ -1,5 +1,4 @@
-import { Effect } from 'effect'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
+import { Effect, Array as ReadonlyArray } from 'effect'
 import { clampPitch } from '@/domain/camera-logic'
 import { playerQuery } from '@/domain/queries'
 import { InputManager, World } from '@/runtime/services'
@@ -15,7 +14,7 @@ export const cameraControlSystem = Effect.gen(function* (_) {
 
   yield* _(
     Effect.when(
-      () => mouseDelta.dx !== 0 || mouseDelta.dy !== 0,
+      mouseDelta.dx !== 0 || mouseDelta.dy !== 0,
       () => Effect.gen(function* (_) {
         const { entities, components } = yield* _(world.querySoA(playerQuery))
         const { cameraState } = components

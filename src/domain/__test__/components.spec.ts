@@ -1,56 +1,37 @@
-import * as S from 'effect/Schema'
-import { describe, it, assert } from '@effect/vitest'
+import { describe, it, expect } from '@effect/vitest'
 import * as C from '../components'
-import { toFloat, toInt, toChunkX, toChunkZ } from '../common'
-import { PLAYER_COLLIDER } from '../world-constants'
-import { hotbarSlots } from '../block'
+import { testReversibility } from '@test/test-utils'
 
 describe('Component Schemas', () => {
-  const testReversibility = <A, I>(name: string, schema: S.Schema<A, I>, value: A) => {
-    it(`${name} should be reversible after encoding and decoding`, () => {
-      const encode = S.encodeSync(schema)
-      const decode = S.decodeSync(schema)
-      const decodedValue = decode(encode(value))
-      assert.deepStrictEqual(decodedValue, value)
-    })
-  }
+  testReversibility('Position', C.Position)
+  testReversibility('Velocity', C.Velocity)
+  testReversibility('Player', C.Player)
+  testReversibility('InputState', C.InputState)
+  testReversibility('CameraState', C.CameraState)
+  testReversibility('Hotbar', C.Hotbar)
+  testReversibility('Target', C.Target)
+  testReversibility('Gravity', C.Gravity)
+  testReversibility('Collider', C.Collider)
+  testReversibility('Renderable', C.Renderable)
+  testReversibility('InstancedMeshRenderable', C.InstancedMeshRenderable)
+  testReversibility('TerrainBlock', C.TerrainBlock)
+  testReversibility('Chunk', C.Chunk)
+  testReversibility('Camera', C.Camera)
+  testReversibility('TargetBlockComponent', C.TargetBlockComponent)
+  testReversibility('ChunkLoaderState', C.ChunkLoaderState)
+  testReversibility('AnyComponent', C.AnyComponent)
+  testReversibility('PartialComponentsSchema', C.PartialComponentsSchema)
+  testReversibility('ComponentNameSchema', C.ComponentNameSchema)
 
-  testReversibility('Position', C.Position, { x: toFloat(1), y: toFloat(2), z: toFloat(3) })
-  testReversibility('Velocity', C.Velocity, { dx: toFloat(1), dy: toFloat(2), dz: toFloat(3) })
-  testReversibility('Player', C.Player, { isGrounded: false })
-  testReversibility('InputState', C.InputState, {
-    forward: false,
-    backward: false,
-    left: false,
-    right: false,
-    jump: false,
-    sprint: false,
-    place: false,
-    destroy: false,
-    isLocked: false,
+  describe('componentNames and componentNamesSet', () => {
+    it('should have the same number of elements', () => {
+      expect(C.componentNames.length).toBe(C.componentNamesSet.size)
+    })
+
+    it('should contain the same elements', () => {
+      const sortedNames = [...C.componentNames].sort()
+      const sortedSetNames = [...C.componentNamesSet].sort()
+      expect(sortedNames).toEqual(sortedSetNames)
+    })
   })
-  testReversibility('CameraState', C.CameraState, { pitch: toFloat(1), yaw: toFloat(2) })
-  testReversibility('Hotbar', C.Hotbar, { slots: hotbarSlots, selectedIndex: toInt(0) })
-  testReversibility('Target', C.Target, { _tag: 'none' })
-  testReversibility('Gravity', C.Gravity, { value: toFloat(9.8) })
-  testReversibility('Collider', C.Collider, PLAYER_COLLIDER)
-  testReversibility('Renderable', C.Renderable, { geometry: 'box', blockType: 'grass' })
-  testReversibility('InstancedMeshRenderable', C.InstancedMeshRenderable, {
-    meshType: 'box',
-  })
-  testReversibility('TerrainBlock', C.TerrainBlock, {})
-  testReversibility('Chunk', C.Chunk, { chunkX: toChunkX(0), chunkZ: toChunkZ(0), blocks: [] })
-  testReversibility('Camera', C.Camera, {
-    position: { x: toFloat(1), y: toFloat(2), z: toFloat(3) },
-    damping: toFloat(0.1),
-  })
-  testReversibility('TargetBlockComponent', C.TargetBlockComponent, {})
-  testReversibility('ChunkLoaderState', C.ChunkLoaderState, { loadedChunks: new Set() })
-  testReversibility('AnyComponent', C.AnyComponent, {
-    position: { x: toFloat(1), y: toFloat(2), z: toFloat(3) },
-  })
-  testReversibility('PartialComponentsSchema', C.PartialComponentsSchema, {
-    position: { x: toFloat(1), y: toFloat(2), z: toFloat(3) },
-  })
-  testReversibility('ComponentNameSchema', C.ComponentNameSchema, 'position')
 })

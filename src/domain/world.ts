@@ -1,5 +1,5 @@
 import { Data, HashMap, HashSet } from 'effect'
-import { PartialComponents, type ComponentName } from './components'
+import { type ComponentName, type ComponentOfName } from './components'
 import { PlacedBlock } from './block'
 import { Chunk } from './components'
 import { EntityId } from './entity'
@@ -16,8 +16,6 @@ export class ComponentNotFoundError extends Data.TaggedError('ComponentNotFoundE
 
 // --- Data Types ---
 export type Voxel = PlacedBlock
-
-type ComponentOfName<K extends ComponentName> = PartialComponents[K]
 
 export type ComponentStorage = {
   readonly [K in ComponentName]: HashMap.HashMap<EntityId, ComponentOfName<K>>

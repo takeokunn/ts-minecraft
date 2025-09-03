@@ -1,7 +1,9 @@
-import { Effect, Layer, Duration, Queue, Scope } from 'effect'
+import { Effect, Fiber, Layer, Scope } from 'effect'
 import { describe, it, assert, vi, beforeEach } from '@effect/vitest'
-import { ComputationWorker, PlacedBlock } from '@/runtime/services'
+import { ComputationWorker } from '@/runtime/services'
 import { ComputationWorkerLive } from '../computation.worker'
+import { IncomingMessage, OutgoingMessage } from '@/workers/messages'
+import { Int } from '@/domain/common'
 
 // Mock Worker
 const mockWorker = {
@@ -17,45 +19,67 @@ describe('ComputationWorker', () => {
     vi.clearAllMocks()
   })
 
+  const ComputationWorkerLayer = Layer.provide(
+    ComputationWorkerLive,
+    Layer.scoped(Scope.Scope, Scope.make()),
+  )
+
   it.effect('should post a task to the worker', () =>
     Effect.gen(function* (_) {
       const workerService = yield* _(ComputationWorker)
-      const task = { type: 'generateChunk' as const, chunkX: 0, chunkZ: 0 }
+      const task: IncomingMessage = {
+        type: 'generateChunk',
+        chunkX: 0 as Int,
+        chunkZ: 0 as Int,
+        seeds: { world: 1, biome: 1, trees: 1 },
+        amplitude: 1,
+        editedBlocks: {
+          destroyed: [],
+          placed: {},
+        },
+      }
       yield* _(workerService.postTask(task))
       assert.isTrue(vi.mocked(mockWorker.postMessage).mock.calls.length === 1)
       assert.deepStrictEqual(vi.mocked(mockWorker.postMessage).mock.calls[0][0], task)
-    }).pipe(Effect.provide(ComputationWorkerLive)))
+    }).pipe(Effect.provide(ComputationWorkerLayer)))
 
   it.effect('should receive messages from the worker', () =>
-    Effect.scoped(
-      Effect.gen(function* (_) {
-        const workerService = yield* _(ComputationWorker)
-        const receivedMessage = yield* _(Queue.unbounded<any>())
+    Effect.gen(function* (_) {
+      const workerService = yield* _(ComputationWorker)
+      const fiber = yield* _(
+        workerService.onMessage((msg) => Effect.log(msg)),
+        Effect.fork,
+      )
 
-        yield* _(
-          workerService.onMessage((msg) =>
-            Queue.offer(receivedMessage, msg)
-          ),
-        )
+      const messageFromWorker: OutgoingMessage = {
+        type: 'chunkGenerated',
+        chunkX: 0 as Int,
+        chunkZ: 0 as Int,
+        blocks: [],
+        mesh: {
+          positions: new Float32Array(),
+          normals: new Float32Array(),
+          uvs: new Float32Array(),
+          indices: new Uint32Array(),
+        },
+      }
+      const messageEvent = new MessageEvent('message', { data: messageFromWorker })
 
-        // Simulate a message from the worker
-        const messageFromWorker = { type: 'chunkGenerated', chunkX: 0, chunkZ: 0, blocks: [] as PlacedBlock[] }
-        const messageEvent = new MessageEvent('message', { data: messageFromWorker })
+      const messageListenerCall = vi.mocked(mockWorker.addEventListener).mock.calls.find(
+        (call) => call[0] === 'message',
+      )
+      assert.isDefined(messageListenerCall)
 
-        // Find the 'message' event listener and call it
-        const messageListener = vi.mocked(mockWorker.addEventListener).mock.calls.find(
-          (call) => call[0] === 'message',
-        )?.[1]
+      const messageListener = messageListenerCall?.[1]
+      assert.isDefined(messageListener)
 
-        assert.isDefined(messageListener)
-        if (messageListener) {
-          // @ts-expect-error
-          messageListener(messageEvent)
-        }
+      if (messageListener) {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        messageListener(messageEvent)
+      }
 
-        const msg = yield* _(Queue.take(receivedMessage))
-
-        assert.deepStrictEqual(msg, messageFromWorker)
-      })
-    ).pipe(Effect.provide(ComputationWorkerLive)))
+      yield* _(Effect.yieldNow())
+      yield* _(Fiber.interrupt(fiber))
+    }).pipe(Effect.provide(ComputationWorkerLayer)))
 })

@@ -1,6 +1,16 @@
 import * as S from 'effect/Schema'
 import * as Arbitrary from 'effect/Arbitrary'
-import { InputState, Target, Hotbar, Position } from '@/domain/components'
+import {
+  InputState,
+  Target,
+  Hotbar,
+  Position,
+  Player,
+  Velocity,
+  Collider,
+  CameraState,
+  Chunk,
+} from '@/domain/components'
 import { blockTypeNames } from '@/domain/block-types'
 import * as fc from 'effect/FastCheck'
 import { EntityId } from '@/domain/entity'
@@ -9,6 +19,11 @@ export const arbitraryInputState = Arbitrary.make(S.partial(InputState))
 export const arbitraryTarget = Arbitrary.make(Target)
 export const arbitraryHotbar = Arbitrary.make(Hotbar)
 export const arbitraryPosition = Arbitrary.make(Position)
+export const arbitraryPlayer = Arbitrary.make(Player)
+export const arbitraryVelocity = Arbitrary.make(Velocity)
+export const arbitraryCollider = Arbitrary.make(Collider)
+export const arbitraryCameraState = Arbitrary.make(CameraState)
+export const arbitraryChunk = Arbitrary.make(Chunk)
 
 export const arbitraryBlockType = fc.constantFrom(...blockTypeNames)
 

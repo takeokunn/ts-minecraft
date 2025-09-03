@@ -13,8 +13,7 @@ import { toChunkIndex } from '@/domain/geometry'
 import { type Query } from '@/domain/query'
 import { type Voxel } from '@/domain/world'
 import { World } from '@/runtime/services'
-import { Data, Effect, HashMap, HashSet, Layer, Option, Ref, pipe } from 'effect'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
+import { Data, Effect, HashMap, HashSet, Layer, Option, ReadonlyArray, Ref, pipe } from 'effect'
 import { ParseError } from 'effect/ParseResult'
 import * as S from 'effect/Schema'
 
@@ -29,7 +28,7 @@ export class ComponentNotFoundError extends Data.TaggedError('ComponentNotFoundE
 }> {}
 
 export class QuerySingleResultNotFoundError extends Data.TaggedError('QuerySingleResultNotFoundError')<{
-  readonly query: Query<ReadonlyArray.NonEmptyReadonlyArray<ComponentName>>
+  readonly query: Query<ReadonlyArray<ComponentName>>
 }> {}
 
 export class ComponentDecodeError extends Data.TaggedError('ComponentDecodeError')<{
@@ -136,7 +135,7 @@ export const WorldLive = Layer.effect(
 
     const getComponentUnsafe = <T extends ComponentName>(entityId: EntityId, componentName: T) =>
       getComponent(entityId, componentName).pipe(
-        Effect.some,
+        Effect.flatten,
         Effect.mapError(() => new ComponentNotFoundError({ entityId, componentName })),
       )
 
@@ -147,14 +146,12 @@ export const WorldLive = Layer.effect(
     ) =>
       Ref.get(state).pipe(
         Effect.flatMap((s) =>
-          pipe(
-            HashMap.get(s.components[componentName], entityId),
+          HashMap.get(s.components[componentName], entityId).pipe(
             Option.toEffect,
             Effect.mapError(() => new ComponentNotFoundError({ entityId, componentName })),
             Effect.flatMap((current) => {
               const updated = { ...current, ...data }
-              return pipe(
-                S.decode(ComponentSchemas[componentName])(updated),
+              return S.decode(ComponentSchemas[componentName])(updated).pipe(
                 Effect.mapError((error) => new ComponentDecodeError({ entityId, componentName, error })),
                 Effect.flatMap((decoded) => {
                   const newComponentMap = HashMap.set(s.components[componentName], entityId, decoded as any)
@@ -168,7 +165,7 @@ export const WorldLive = Layer.effect(
         Effect.asVoid,
       )
 
-    const query = <T extends ReadonlyArray.NonEmptyReadonlyArray<ComponentName>>(query: Query<T>) =>
+    const query = <T extends ReadonlyArray<ComponentName>>(query: Query<T>) =>
       Ref.get(state).pipe(
         Effect.map((s) => {
           const requiredComponents = HashSet.fromIterable(query.components)
@@ -178,10 +175,10 @@ export const WorldLive = Layer.effect(
           })
 
           return pipe(
-            Array.from(matchingArchetypes),
+            ReadonlyArray.fromIterable(matchingArchetypes),
             ReadonlyArray.flatMap(([, entitySet]: [string, HashSet.HashSet<EntityId>]) =>
               pipe(
-                Array.from(entitySet),
+                ReadonlyArray.fromIterable(entitySet),
                 ReadonlyArray.filterMap((entityId: EntityId) =>
                   pipe(
                     Option.all(query.components.map((name) => HashMap.get(s.components[name], entityId))),
@@ -196,7 +193,7 @@ export const WorldLive = Layer.effect(
         }),
       )
 
-    const queryUnsafe = <T extends ReadonlyArray.NonEmptyReadonlyArray<ComponentName>>(q: Query<T>) =>
+    const queryUnsafe = <T extends ReadonlyArray<ComponentName>>(q: Query<T>) =>
       query(q).pipe(
         Effect.map((results) =>
           results.map(([entityId, components]) => {
@@ -205,16 +202,16 @@ export const WorldLive = Layer.effect(
         ),
       )
 
-    const querySingle = <T extends ReadonlyArray.NonEmptyReadonlyArray<ComponentName>>(q: Query<T>) =>
+    const querySingle = <T extends ReadonlyArray<ComponentName>>(q: Query<T>) =>
       query(q).pipe(Effect.map((results) => Option.fromNullable(results[0])))
 
-    const querySingleUnsafe = <T extends ReadonlyArray.NonEmptyReadonlyArray<ComponentName>>(q: Query<T>) =>
+    const querySingleUnsafe = <T extends ReadonlyArray<ComponentName>>(q: Query<T>) =>
       querySingle(q).pipe(
-        Effect.flatMap(Option.toEffect),
+        Effect.flatten,
         Effect.mapError(() => new QuerySingleResultNotFoundError({ query: q })),
       )
 
-    const querySoA = <T extends ReadonlyArray.NonEmptyReadonlyArray<ComponentName>>(query: Query<T>) =>
+    const querySoA = <T extends ReadonlyArray<ComponentName>>(query: Query<T>) =>
       Ref.get(state).pipe(
         Effect.map((s) => {
           const requiredComponents = HashSet.fromIterable(query.components)
@@ -224,10 +221,10 @@ export const WorldLive = Layer.effect(
           })
 
           const matchingEntities = pipe(
-            Array.from(matchingArchetypes),
+            ReadonlyArray.fromIterable(matchingArchetypes),
             ReadonlyArray.flatMap(([, entitySet]: [string, HashSet.HashSet<EntityId>]) =>
               pipe(
-                Array.from(entitySet),
+                ReadonlyArray.fromIterable(entitySet),
                 ReadonlyArray.filterMap((entityId: EntityId) =>
                   pipe(
                     Option.all(query.components.map((name) => HashMap.get(s.components[name], entityId))),

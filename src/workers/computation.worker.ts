@@ -3,29 +3,10 @@ import { createNoise2D } from 'simplex-noise'
 import { BlockType } from '../domain/block-types'
 import { CHUNK_SIZE, WATER_LEVEL, WORLD_DEPTH } from '@/domain/world-constants'
 import { Int } from '@/domain/common'
+import * as S from 'effect/Schema'
+import { GenerationParams, ChunkGenerationResult, PlacedBlock } from './messages'
 
-type PlacedBlock = { position: [Int, Int, Int]; blockType: BlockType }
-type GenerationParams = {
-  chunkX: number
-  chunkZ: number
-  seeds: { world: number; biome: number; trees: number }
-  amplitude: number
-  editedBlocks: {
-    destroyed: string[]
-    placed: Record<string, PlacedBlock>
-  }
-}
-type ChunkGenerationResult = {
-  blocks: PlacedBlock[]
-  mesh: {
-    positions: Float32Array
-    normals: Float32Array
-    uvs: Float32Array
-    indices: Uint32Array
-  }
-  chunkX: number
-  chunkZ: number
-}
+const decodeIncomingMessage = S.decodeUnknownSync(GenerationParams)
 
 type Noise2D = ReturnType<typeof createNoise2D>
 type NoiseFunctions = {
@@ -120,7 +101,7 @@ const generateBlockData = (params: GenerationParams): PlacedBlock[] => {
     }
   }
 
-  editedBlocks.destroyed.forEach((key) => blocksMap.delete(key))
+  editedBlocks.destroyed.forEach((key: string) => blocksMap.delete(key))
   Object.entries(editedBlocks.placed).forEach(([key, block]) => {
     blocksMap.set(key, block)
   })
@@ -146,13 +127,14 @@ const generateGreedyMesh = (
   }
 }
 
-self.onmessage = (e: MessageEvent<GenerationParams>) => {
-  const params = e.data
+self.onmessage = (e: MessageEvent<unknown>) => {
   try {
+    const params = decodeIncomingMessage(e.data)
     const blocks = generateBlockData(params)
     const mesh = generateGreedyMesh(blocks, params.chunkX, params.chunkZ)
 
     const result: ChunkGenerationResult = {
+      type: 'chunkGenerated',
       blocks,
       mesh,
       chunkX: params.chunkX,
