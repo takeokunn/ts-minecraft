@@ -191,7 +191,9 @@ describe('Archetypes', () => {
         const builder = { type: 'invalid' }
         const result = yield* Effect.either(createArchetype(builder as any))
         assert.isTrue(Either.isLeft(result))
-        assert.instanceOf(result.left, ParseError)
+        if (Either.isLeft(result)) {
+          assert.instanceOf(result.left, ParseError)
+        }
       }))
 
     it.effect('should create a valid archetype for any valid builder (PBT)', () =>
