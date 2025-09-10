@@ -1,5 +1,5 @@
 import * as S from 'effect/Schema'
-import type { Collider, Position } from './components'
+import type { ColliderComponent, PositionComponent } from '@/core/components'
 import { toFloat, Vector3Float, Vector3Int } from './common'
 import { CHUNK_SIZE } from './world-constants'
 
@@ -44,7 +44,7 @@ export const fromCenterAndSize = (center: Vector3Float, size: Vector3Float) => {
  * @param collider The entity's collider.
  * @returns A new AABB object.
  */
-export const createAABB = (position: Position, collider: Collider): AABB => ({
+export const createAABB = (position: PositionComponent, collider: ColliderComponent): AABB => ({
   minX: toFloat(position.x - collider.width / 2),
   minY: toFloat(position.y), // Player's origin is at their feet
   minZ: toFloat(position.z - collider.depth / 2),

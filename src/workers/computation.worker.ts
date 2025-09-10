@@ -1,138 +1,19 @@
-import Alea from 'alea'
-import { createNoise2D } from 'simplex-noise'
-import { BlockType } from '../domain/block-types'
-import { CHUNK_SIZE, WATER_LEVEL, WORLD_DEPTH } from '@/domain/world-constants'
-import { Int } from '@/domain/common'
-import * as S from 'effect/Schema'
-import { GenerationParams, ChunkGenerationResult, PlacedBlock } from './messages'
+import { Effect } from 'effect'
+import { GenerationParams, ChunkGenerationResult } from './messages'
+import { createWorker } from './shared/worker-base'
+import { generateBlockData } from './terrain-generation'
+import { generateGreedyMesh } from './mesh-generation'
 
-const decodeIncomingMessage = S.decodeUnknownSync(GenerationParams)
-
-type Noise2D = ReturnType<typeof createNoise2D>
-type NoiseFunctions = {
-  readonly terrain: Noise2D
-  readonly biome: Noise2D
-  readonly trees: Noise2D
-}
-
-const createNoiseFunctions = (seeds: GenerationParams['seeds']): NoiseFunctions => {
-  const createNoise = (seed: number) => createNoise2D(Alea(seed))
-  return {
-    terrain: createNoise(seeds.world),
-    biome: createNoise(seeds.biome),
-    trees: createNoise(seeds.trees),
-  }
-}
-
-const getTerrainHeight = (x: number, z: number, terrainNoise: Noise2D, amplitude: number) => {
-  const frequency = 0.01
-  return Math.floor(terrainNoise(x * frequency, z * frequency) * amplitude)
-}
-
-const getBiome = (x: number, z: number, biomeNoise: Noise2D) => {
-  const frequency = 0.005
-  return biomeNoise(x * frequency, z * frequency) > 0 ? 'desert' : 'plains'
-}
-
-const generateTerrainColumn = (
-  chunkX: number,
-  chunkZ: number,
-  localX: number,
-  localZ: number,
-  noise: NoiseFunctions,
-  amplitude: number,
-): PlacedBlock[] => {
-  const blocks: PlacedBlock[] = []
-  const worldX = chunkX * CHUNK_SIZE + localX
-  const worldZ = chunkZ * CHUNK_SIZE + localZ
-
-  const height = getTerrainHeight(worldX, worldZ, noise.terrain, amplitude)
-  const biome = getBiome(worldX, worldZ, noise.biome)
-
-  for (let y = -WORLD_DEPTH; y < height; y++) {
-    const worldY = y
-    let blockType: BlockType = 'stone'
-    if (y === height - 1) {
-      blockType = biome === 'desert' ? 'sand' : 'grass'
-    } else if (y > height - 4) {
-      blockType = biome === 'desert' ? 'sand' : 'dirt'
-    }
-    blocks.push({ position: [localX as Int, worldY as Int, localZ as Int], blockType })
-  }
-
-  if (height < WATER_LEVEL) {
-    for (let y = height; y < WATER_LEVEL; y++) {
-      blocks.push({ position: [localX as Int, y as Int, localZ as Int], blockType: 'water' })
-    }
-  }
-
-  const treeNoise = noise.trees(worldX, worldZ)
-  if (biome === 'plains' && height >= WATER_LEVEL && treeNoise > 0.95) {
-    const treeHeight = 4 + Math.floor(Math.abs(treeNoise) * 3)
-    for (let i = 0; i < treeHeight; i++) {
-      blocks.push({ position: [localX as Int, (height + i) as Int, localZ as Int], blockType: 'oakLog' })
-    }
-    for (let y = height + treeHeight - 2; y < height + treeHeight + 1; y++) {
-      for (let x = -2; x <= 2; x++) {
-        for (let z = -2; z <= 2; z++) {
-          if (x !== 0 || z !== 0) {
-            blocks.push({ position: [(localX + x) as Int, y as Int, (localZ + z) as Int], blockType: 'oakLeaves' })
-          }
-        }
-      }
-    }
-  }
-
-  return blocks
-}
-
-const generateBlockData = (params: GenerationParams): PlacedBlock[] => {
-  const { chunkX, chunkZ, seeds, amplitude, editedBlocks } = params
-  const noise = createNoiseFunctions(seeds)
-  const blocksMap = new Map<string, PlacedBlock>()
-
-  for (let x = 0; x < CHUNK_SIZE; x++) {
-    for (let z = 0; z < CHUNK_SIZE; z++) {
-      const column = generateTerrainColumn(chunkX, chunkZ, x, z, noise, amplitude)
-      for (const block of column) {
-        const key = `${block.position[0]},${block.position[1]},${block.position[2]}`
-        blocksMap.set(key, block)
-      }
-    }
-  }
-
-  editedBlocks.destroyed.forEach((key: string) => blocksMap.delete(key))
-  Object.entries(editedBlocks.placed).forEach(([key, block]) => {
-    blocksMap.set(key, block)
-  })
-
-  return Array.from(blocksMap.values())
-}
-
-const generateGreedyMesh = (
-  _blocks: PlacedBlock[],
-  _chunkX: number,
-  _chunkZ: number,
-): {
-  positions: Float32Array
-  normals: Float32Array
-  uvs: Float32Array
-  indices: Uint32Array
-} => {
-  return {
-    positions: new Float32Array(),
-    normals: new Float32Array(),
-    uvs: new Float32Array(),
-    indices: new Uint32Array(),
-  }
-}
-
-self.onmessage = (e: MessageEvent<unknown>) => {
-  try {
-    const params = decodeIncomingMessage(e.data)
-    const blocks = generateBlockData(params)
-    const mesh = generateGreedyMesh(blocks, params.chunkX, params.chunkZ)
-
+// Define the worker handler with full type safety
+const computationHandler = (params: GenerationParams): Effect.Effect<ChunkGenerationResult> =>
+  Effect.gen(function* () {
+    // Generate terrain blocks
+    const blocks = yield* Effect.sync(() => generateBlockData(params))
+    
+    // Generate mesh from blocks
+    const mesh = yield* Effect.sync(() => generateGreedyMesh(blocks, params.chunkX, params.chunkZ))
+    
+    // Create result
     const result: ChunkGenerationResult = {
       type: 'chunkGenerated',
       blocks,
@@ -140,14 +21,35 @@ self.onmessage = (e: MessageEvent<unknown>) => {
       chunkX: params.chunkX,
       chunkZ: params.chunkZ,
     }
+    
+    // Use transferable objects for better performance
+    if (typeof self !== 'undefined' && self.postMessage) {
+      const originalPostMessage = self.postMessage
+      self.postMessage = (message: any) => {
+        if (message.type === 'success' && message.data.mesh) {
+          originalPostMessage(message, {
+            transfer: [
+              message.data.mesh.positions.buffer,
+              message.data.mesh.normals.buffer,
+              message.data.mesh.uvs.buffer,
+              message.data.mesh.indices.buffer,
+            ],
+          })
+        } else {
+          originalPostMessage(message)
+        }
+      }
+    }
+    
+    return result
+  })
 
-    self.postMessage(result, [
-      result.mesh.positions.buffer,
-      result.mesh.normals.buffer,
-      result.mesh.uvs.buffer,
-      result.mesh.indices.buffer,
-    ])
-  } catch (error) {
-    self.postMessage({ type: 'error', error: error instanceof Error ? error.message : 'Unknown worker error' })
-  }
-}
+// Create the worker with type-safe message handling
+const worker = createWorker({
+  inputSchema: GenerationParams,
+  outputSchema: ChunkGenerationResult,
+  handler: computationHandler,
+})
+
+// Start the worker
+worker.start()

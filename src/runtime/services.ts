@@ -1,5 +1,5 @@
 import { Archetype } from '@/domain/archetypes'
-import { Chunk, ComponentName, ComponentOfName, Hotbar } from '@/domain/components'
+import { Chunk, ComponentName, ComponentOfName, Hotbar } from '@/core/components'
 import { EntityId } from '@/domain/entity'
 import { AABB } from '@/domain/geometry'
 import { Query, QueryResult } from '../domain/query'

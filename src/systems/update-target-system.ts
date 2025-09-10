@@ -1,5 +1,5 @@
 import { Effect, Option } from 'effect'
-import { TargetBlock, TargetNone } from '@/domain/components'
+// Target types are used as plain objects, not constructors
 import { playerQuery } from '@/domain/queries'
 import { Raycast, World } from '@/runtime/services'
 import { Int, Vector3Int } from '@/domain/common'
@@ -15,12 +15,12 @@ const getTarget = (intersection: THREE.Intersection) => {
 
   const faceInt: Vector3Int = [Int(Math.round(face.x)), Int(Math.round(face.y)), Int(Math.round(face.z))]
 
-  return new TargetBlock({
-    _tag: 'block',
+  return {
+    _tag: 'block' as const,
     entityId: targetEntityId,
     face: faceInt,
     position: { x: position.x, y: position.y, z: position.z },
-  })
+  }
 }
 
 export const updateTargetSystem = Effect.gen(function* ($) {
@@ -29,7 +29,7 @@ export const updateTargetSystem = Effect.gen(function* ($) {
   const intersectionOpt = yield* $(raycast.raycast())
 
   const newTarget = Option.match(intersectionOpt, {
-    onNone: () => new TargetNone(),
+    onNone: () => ({ _tag: 'none' as const }),
     onSome: getTarget,
   })
 

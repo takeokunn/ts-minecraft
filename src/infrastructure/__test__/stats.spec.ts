@@ -1,9 +1,27 @@
+import { vi } from 'vitest'
+
+// Mock Stats.js constructor and methods
+const mockStatsInstance = {
+  dom: document.createElement('div'),
+  begin: vi.fn(),
+  end: vi.fn(),
+}
+
+vi.mock('stats.js', () => ({
+  default: vi.fn(() => mockStatsInstance)
+}))
+
 import { Effect, Layer, Scope } from 'effect'
-import { describe, it, assert } from '@effect/vitest'
+import { describe, it, assert, beforeEach } from '@effect/vitest'
 import { StatsLive, StatsTest } from '../stats'
 import { Stats } from '@/runtime/services'
 
 describe('Stats', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.body.innerHTML = ''
+  })
+
   it.effect('StatsTest should run without errors', () =>
     Effect.gen(function* (_) {
       const stats = yield* _(Stats)

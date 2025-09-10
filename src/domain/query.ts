@@ -1,4 +1,4 @@
-import { type ComponentName, type ComponentOfName } from './components'
+import { type ComponentName, type ComponentOfName } from '@/core/components'
 
 export type Query<T extends ReadonlyArray<ComponentName> = ReadonlyArray<ComponentName>> = {
   readonly name: string

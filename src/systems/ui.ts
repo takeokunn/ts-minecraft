@@ -2,7 +2,7 @@ import { Effect, Option } from 'effect'
 import { playerQuery } from '@/domain/queries'
 import { UIService, World } from '@/runtime/services'
 
-export const createUISystem = Effect.gen(function* ($) {
+export const uiSystem = Effect.gen(function* ($) {
   const world = yield* $(World)
   const uiService = yield* $(UIService)
   const { components } = yield* $(world.querySoA(playerQuery))

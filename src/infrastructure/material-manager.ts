@@ -1,10 +1,7 @@
 import { MaterialManager } from '@/runtime/services'
-import { Data, Effect, Layer, HashMap } from 'effect'
+import { Effect, Layer, HashMap } from 'effect'
+import { MaterialNotFoundError } from '@/core/errors'
 import * as THREE from 'three'
-
-export class MaterialNotFoundError extends Data.TaggedError('MaterialNotFoundError')<{
-  readonly name: string
-}> {}
 
 export const MaterialManagerLive = Layer.scoped(
   MaterialManager,
@@ -34,7 +31,7 @@ export const MaterialManagerLive = Layer.scoped(
 
     const getMaterial = (name: string) =>
       HashMap.get(materials, name).pipe(
-        Effect.mapError(() => new MaterialNotFoundError({ name })),
+        Effect.mapError(() => new MaterialNotFoundError(name)),
       )
 
     return MaterialManager.of({

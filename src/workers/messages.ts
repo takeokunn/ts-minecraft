@@ -1,6 +1,6 @@
 import * as S from 'effect/Schema'
-import { Int } from '@/domain/common'
-import { BlockTypeSchema } from '@/domain/block-types'
+import { Int } from '../domain/common'
+import { BlockTypeSchema } from '../domain/block-types'
 
 export const PlacedBlock = S.Struct({
   position: S.Tuple(Int, Int, Int),

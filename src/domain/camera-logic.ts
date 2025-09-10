@@ -1,6 +1,6 @@
 import { vec3 } from 'gl-matrix'
 import { Match, Option } from 'effect'
-import { Camera, Position, Target } from './components'
+import { CameraComponent, PositionComponent, TargetComponent } from '@/core/components'
 import { Float, toFloat, Vector3Float } from './common'
 
 const PI_HALF = Math.PI / 2
@@ -27,7 +27,7 @@ export const clampPitch = (pitch: Float): Float => {
   )
 }
 
-export const updateCamera = (camera: Camera, target: Option.Option<Target>): Camera => {
+export const updateCamera = (camera: CameraComponent, target: Option.Option<TargetComponent>): CameraComponent => {
   const newTargetPositionOption = Option.flatMap(target, (t) => (t._tag === 'block' ? Option.some(t.position) : Option.none()))
   return Option.match(newTargetPositionOption, {
     onNone: () => ({ ...camera, target: undefined }),
@@ -36,10 +36,10 @@ export const updateCamera = (camera: Camera, target: Option.Option<Target>): Cam
 }
 
 export const updateCameraPosition = (
-  camera: Camera,
-  targetPosition: Option.Option<Position>,
+  camera: CameraComponent,
+  targetPosition: Option.Option<PositionComponent>,
   deltaTime: number,
-): Camera => {
+): CameraComponent => {
   return Option.match(targetPosition, {
     onNone: () => camera,
     onSome: (targetPos) => {
@@ -48,7 +48,7 @@ export const updateCameraPosition = (
       const currentPositionVec: Vector3Float = [toFloat(x), toFloat(y), toFloat(z)]
       const targetPositionVec: Vector3Float = [toFloat(targetPos.x), toFloat(targetPos.y), toFloat(targetPos.z)]
       vec3.lerp(newPositionVec, currentPositionVec, targetPositionVec, deltaTime * camera.damping)
-      const newPosition: Position = {
+      const newPosition: PositionComponent = {
         x: toFloat(newPositionVec[0]),
         y: toFloat(newPositionVec[1]),
         z: toFloat(newPositionVec[2]),
@@ -58,7 +58,7 @@ export const updateCameraPosition = (
   })
 }
 
-export const getCameraLookAt = (camera: Camera): Vector3Float => {
+export const getCameraLookAt = (camera: CameraComponent): Vector3Float => {
   const lookAt = vec3.create()
   const { x, y, z } = camera.position
   const cameraPosition = [toFloat(x), toFloat(y), toFloat(z)]

@@ -1,4 +1,4 @@
-import { Effect, HashMap, HashSet, Layer, Ref, Option } from 'effect'
+import { Effect, HashMap, HashSet, Layer, Ref, Option, ReadonlyArray } from 'effect'
 import { pipe } from 'effect/Function'
 import type { EntityId } from '@/domain/entity'
 import type { AABB } from '@/domain/geometry'

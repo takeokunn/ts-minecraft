@@ -1,5 +1,5 @@
 import { Effect, Ref } from 'effect'
-import { InputState } from '@/domain/components'
+import { InputState } from '@/core/components'
 import { playerInputQuery } from '@/domain/queries'
 import { InputManager, World } from '@/runtime/services'
 

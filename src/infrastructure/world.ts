@@ -7,36 +7,22 @@ import {
   ComponentSchemas,
   type ComponentName,
   type ComponentOfName,
-} from '@/domain/components'
+} from '@/core/components'
 import { type EntityId, toEntityId } from '@/domain/entity'
 import { toChunkIndex } from '@/domain/geometry'
 import { type Query } from '@/domain/query'
 import { type Voxel } from '@/domain/world'
 import { World } from '@/runtime/services'
-import { Data, Effect, HashMap, HashSet, Layer, Option, Ref, pipe } from 'effect'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
-import { ParseError } from 'effect/ParseResult'
+import { Effect, HashMap, HashSet, Layer, Option, Ref, pipe, ReadonlyArray } from 'effect'
 import * as S from 'effect/Schema'
 
-// --- Error Types ---
-export class EntityNotFoundError extends Data.TaggedError('EntityNotFoundError')<{
-  readonly entityId: EntityId
-}> {}
-
-export class ComponentNotFoundError extends Data.TaggedError('ComponentNotFoundError')<{
-  readonly entityId: EntityId
-  readonly componentName: ComponentName
-}> {}
-
-export class QuerySingleResultNotFoundError extends Data.TaggedError('QuerySingleResultNotFoundError')<{
-  readonly query: Query<ReadonlyArray<ComponentName>>
-}> {}
-
-export class ComponentDecodeError extends Data.TaggedError('ComponentDecodeError')<{
-  readonly entityId: EntityId
-  readonly componentName: ComponentName
-  readonly error: ParseError
-}> {}
+// Import errors from centralized location
+import {
+  EntityNotFoundError,
+  ComponentNotFoundError,
+  QuerySingleResultNotFoundError,
+  ComponentDecodeError,
+} from '@/core/errors'
 
 // --- Data Types ---
 
@@ -137,7 +123,7 @@ export const WorldLive = Layer.effect(
     const getComponentUnsafe = <T extends ComponentName>(entityId: EntityId, componentName: T) =>
       getComponent(entityId, componentName).pipe(
         Effect.flatten,
-        Effect.mapError(() => new ComponentNotFoundError({ entityId, componentName })),
+        Effect.mapError(() => new ComponentNotFoundError(entityId, componentName)),
       )
 
     const updateComponent = <T extends ComponentName>(
@@ -148,18 +134,19 @@ export const WorldLive = Layer.effect(
       Ref.get(state).pipe(
         Effect.flatMap((s) =>
           HashMap.get(s.components[componentName], entityId).pipe(
-            Option.toEffect,
-            Effect.mapError(() => new ComponentNotFoundError({ entityId, componentName })),
-            Effect.flatMap((current) => {
-              const updated = { ...current, ...data }
-              return S.decode(ComponentSchemas[componentName])(updated).pipe(
-                Effect.mapError((error) => new ComponentDecodeError({ entityId, componentName, error })),
-                Effect.flatMap((decoded) => {
-                  const newComponentMap = HashMap.set(s.components[componentName], entityId, decoded as any)
-                  const newComponents = { ...s.components, [componentName]: newComponentMap }
-                  return Ref.set(state, { ...s, components: newComponents })
-                }),
-              )
+            Option.match({
+              onNone: () => Effect.fail(new ComponentNotFoundError(entityId, componentName)),
+              onSome: (current) => {
+                const updated = { ...current, ...data }
+                return S.decode(ComponentSchemas[componentName])(updated).pipe(
+                  Effect.mapError((error) => new ComponentDecodeError(entityId, componentName, error)),
+                  Effect.flatMap((decoded) => {
+                    const newComponentMap = HashMap.set(s.components[componentName], entityId, decoded as any)
+                    const newComponents = { ...s.components, [componentName]: newComponentMap }
+                    return Ref.set(state, { ...s, components: newComponents })
+                  })
+                )
+              }
             }),
           ),
         ),
@@ -175,22 +162,13 @@ export const WorldLive = Layer.effect(
             return HashSet.isSubset(requiredComponents, archetypeComponents)
           })
 
-          return pipe(
-            ReadonlyArray.fromIterable(matchingArchetypes),
-            ReadonlyArray.flatMap(([, entitySet]: [string, HashSet.HashSet<EntityId>]) =>
-              pipe(
-                ReadonlyArray.fromIterable(entitySet),
-                ReadonlyArray.filterMap((entityId: EntityId) =>
-                  pipe(
-                    Option.all(query.components.map((name) => HashMap.get(s.components[name], entityId))),
-                    Option.map(
-                      (components) => [entityId, components] as [EntityId, Array<Components[T[number]]>],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          )
+          return Array.from(matchingArchetypes).flatMap(([, entitySet]: [string, HashSet.HashSet<EntityId>]) => 
+            Array.from(entitySet).map((entityId: EntityId) => {
+              const componentOptions = query.components.map((name) => HashMap.get(s.components[name], entityId))
+              const allComponents = Option.all(componentOptions)
+              return Option.map(allComponents, (components) => [entityId, components] as [EntityId, Array<Components[T[number]]>])
+            }).filter(Option.isSome).map(option => option.value)
+          ).filter((result): result is [EntityId, Array<Components[T[number]]>] => result !== undefined)
         }),
       )
 
@@ -209,7 +187,7 @@ export const WorldLive = Layer.effect(
     const querySingleUnsafe = <T extends ReadonlyArray<ComponentName>>(q: Query<T>) =>
       querySingle(q).pipe(
         Effect.flatten,
-        Effect.mapError(() => new QuerySingleResultNotFoundError({ query: q })),
+        Effect.mapError(() => new QuerySingleResultNotFoundError(q)),
       )
 
     const querySoA = <T extends ReadonlyArray<ComponentName>>(query: Query<T>) =>
@@ -221,20 +199,13 @@ export const WorldLive = Layer.effect(
             return HashSet.isSubset(requiredComponents, archetypeComponents)
           })
 
-          const matchingEntities = pipe(
-            ReadonlyArray.fromIterable(matchingArchetypes),
-            ReadonlyArray.flatMap(([, entitySet]: [string, HashSet.HashSet<EntityId>]) =>
-              pipe(
-                ReadonlyArray.fromIterable(entitySet),
-                ReadonlyArray.filterMap((entityId: EntityId) =>
-                  pipe(
-                    Option.all(query.components.map((name) => HashMap.get(s.components[name], entityId))),
-                    Option.map((components) => ({ entityId, components })),
-                  ),
-                ),
-              ),
-            ),
-          )
+          const matchingEntities = Array.from(matchingArchetypes).flatMap(([, entitySet]: [string, HashSet.HashSet<EntityId>]) => 
+            Array.from(entitySet).map((entityId: EntityId) => {
+              const componentOptions = query.components.map((name) => HashMap.get(s.components[name], entityId))
+              const allComponents = Option.all(componentOptions)
+              return Option.map(allComponents, (components) => ({ entityId, components }))
+            }).filter(Option.isSome).map(option => option.value)
+          ).filter(result => result !== undefined)
 
           const entities = matchingEntities.map(({ entityId }) => entityId)
           const components = Object.fromEntries(

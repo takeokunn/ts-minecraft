@@ -1,9 +1,8 @@
-import { Effect, pipe } from 'effect'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
+import { Effect, pipe, Array as ReadonlyArray } from 'effect'
 import * as HashMap from 'effect/HashMap'
 import * as Option from 'effect/Option'
-import { Collider, Player, Position, Velocity } from '@/domain/components'
-import { AABB, createAABB } from '@/domain/geometry'
+import { Collider, Player, Position, Velocity } from '@/core/components'
+import { AABB, createAABB, areAABBsIntersecting, getIntersectionDepth } from '@/domain/geometry'
 import { playerColliderQuery, positionColliderQuery } from '@/domain/queries'
 import { SpatialGrid, World } from '@/runtime/services'
 import { toFloat } from '@/domain/common'
@@ -24,7 +23,7 @@ const resolveAxis = (
   const playerAABB = createAABB(initialState.position, playerCollider)
 
   return ReadonlyArray.reduce(nearbyAABBs, initialState, (state, blockAABB) => {
-    if (!AABB.intersects(playerAABB, blockAABB)) {
+    if (!areAABBsIntersecting(playerAABB, blockAABB)) {
       return state
     }
 
@@ -77,7 +76,7 @@ const getNearbyAABBs = (
   colliderComponents: SoAResult<typeof positionColliderQuery.components>['components'],
 ) =>
   pipe(
-    ReadonlyArray.fromIterable(nearbyEntityIds),
+    Array.from(nearbyEntityIds),
     ReadonlyArray.filterMap((nearbyEntityId) => {
       if (nearbyEntityId === entityId) {
         return Option.none()

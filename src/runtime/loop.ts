@@ -1,4 +1,4 @@
-import { Context, Effect } from 'effect'
+import { Effect } from 'effect'
 import { Stats, Clock, DeltaTime } from '@/runtime/services'
 
 export const createTick = <E, R>(systems: ReadonlyArray<Effect.Effect<void, E, R>>) =>

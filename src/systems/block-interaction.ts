@@ -1,6 +1,6 @@
 import { Effect, Match, Option } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
-import { Hotbar, InputState, Position, TargetBlock, TargetNone } from '@/domain/components'
+import { Hotbar, InputState, Position, TargetBlock, TargetNone } from '@/core/components'
 import { playerTargetQuery } from '@/domain/queries'
 import { World } from '@/runtime/services'
 import { EntityId } from '@/domain/entity'

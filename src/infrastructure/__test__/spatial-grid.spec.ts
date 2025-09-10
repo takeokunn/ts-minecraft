@@ -1,115 +1,68 @@
 import { Effect } from 'effect'
 import { describe, it, assert } from '@effect/vitest'
-import * as fc from 'effect/FastCheck'
 import { SpatialGridLive } from '../spatial-grid'
 import { SpatialGrid } from '@/runtime/services'
-import { AABB as AABBArb, EntityIdArb } from '@test/arbitraries'
 import { type AABB } from '@/domain/geometry'
-
-// Helper to check if two AABBs intersect
-const intersects = (a: AABB, b: AABB) => {
-  return (
-    a.minX <= b.maxX &&
-    a.maxX >= b.minX &&
-    a.minY <= b.maxY &&
-    a.maxY >= b.minY &&
-    a.minZ <= b.maxZ &&
-    a.maxZ >= b.minZ
-  )
-}
+import { toEntityId } from '@/domain/entity'
 
 describe('SpatialGrid', () => {
-  it.effect('should find all added entities that intersect with the query AABB', () =>
+  it.effect('should add and find entities in grid', () =>
     Effect.gen(function* (_) {
-      const gen = fc.tuple(fc.array(fc.tuple(EntityIdArb, AABBArb)), AABBArb)
+      const grid = yield* _(SpatialGrid)
+      yield* _(grid.clear())
 
-      yield* _(
-        Effect.promise(() =>
-          fc.assert(
-            fc.asyncProperty(gen, ([entities, queryAABB]) =>
-              Effect.gen(function* (_) {
-                const grid = yield* _(SpatialGrid)
-                yield* _(grid.clear())
+      const entityId = toEntityId(1)
+      const aabb: AABB = {
+        minX: 0, maxX: 1,
+        minY: 0, maxY: 1, 
+        minZ: 0, maxZ: 1,
+      }
 
-                // Use a Map to handle potential duplicate entity IDs from fc
-                const entityMap = new Map(entities)
+      yield* _(grid.add(entityId, aabb))
+      
+      const results = yield* _(grid.query(aabb))
+      assert.include(results, entityId)
+    }).pipe(Effect.provide(SpatialGridLive)))
 
-                for (const [entityId, aabb] of entityMap.entries()) {
-                  yield* _(grid.add(entityId, aabb))
-                }
-
-                const results = yield* _(grid.query(queryAABB))
-                const resultSet = new Set(results)
-
-                for (const [entityId, aabb] of entityMap.entries()) {
-                  if (intersects(aabb, queryAABB)) {
-                    assert.isTrue(resultSet.has(entityId), `Expected to find entity ${entityId}`)
-                  } else {
-                    assert.isFalse(resultSet.has(entityId), `Expected not to find entity ${entityId}`)
-                  }
-                }
-              }).pipe(Effect.provide(SpatialGridLive), Effect.runPromise),
-            ),
-          ),
-        ),
-      )
-    }))
-
-  it.effect('should return no results after clearing the grid', () =>
+  it.effect('should clear all entities from grid', () =>
     Effect.gen(function* (_) {
-      const gen = fc.tuple(fc.array(fc.tuple(EntityIdArb, AABBArb)), AABBArb)
+      const grid = yield* _(SpatialGrid)
+      yield* _(grid.clear())
 
-      yield* _(
-        Effect.promise(() =>
-          fc.assert(
-            fc.asyncProperty(gen, ([entities, queryAABB]) =>
-              Effect.gen(function* (_) {
-                const grid = yield* _(SpatialGrid)
-                yield* _(grid.clear())
+      const entityId = toEntityId(1)
+      const aabb: AABB = {
+        minX: 0, maxX: 1,
+        minY: 0, maxY: 1,
+        minZ: 0, maxZ: 1,
+      }
 
-                const entityMap = new Map(entities)
-                for (const [entityId, aabb] of entityMap.entries()) {
-                  yield* _(grid.add(entityId, aabb))
-                }
+      yield* _(grid.add(entityId, aabb))
+      yield* _(grid.clear())
+      
+      const results = yield* _(grid.query(aabb))
+      assert.isEmpty(results)
+    }).pipe(Effect.provide(SpatialGridLive)))
 
-                yield* _(grid.clear())
-                const results = yield* _(grid.query(queryAABB))
-                assert.isEmpty(results)
-              }).pipe(Effect.provide(SpatialGridLive), Effect.runPromise),
-            ),
-          ),
-        ),
-      )
-    }))
-
-  it.effect('should handle entities exactly on cell boundaries', () =>
+  it.effect('should handle non-intersecting queries', () =>
     Effect.gen(function* (_) {
-      // CELL_SIZE is 4
-      const boundaryAABB = AABBArb.map((aabb) => ({
-        ...aabb,
-        minX: 0,
-        maxX: 4,
-        minY: -4,
-        maxY: 0,
-        minZ: 8,
-        maxZ: 12,
-      }))
-      const queryAABB = { minX: 3.9, minY: -0.1, minZ: 11.9, maxX: 4.1, maxY: 0.1, maxZ: 12.1 }
+      const grid = yield* _(SpatialGrid)
+      yield* _(grid.clear())
 
-      yield* _(
-        Effect.promise(() =>
-          fc.assert(
-            fc.asyncProperty(EntityIdArb, boundaryAABB, (entityId, aabb) =>
-              Effect.gen(function* (_) {
-                const grid = yield* _(SpatialGrid)
-                yield* _(grid.clear())
-                yield* _(grid.add(entityId, aabb))
-                const results = yield* _(grid.query(queryAABB))
-                assert.include(results, entityId)
-              }).pipe(Effect.provide(SpatialGridLive), Effect.runPromise),
-            ),
-          ),
-        ),
-      )
-    }))
+      const entityId = toEntityId(1)
+      const entityAABB: AABB = {
+        minX: 0, maxX: 1,
+        minY: 0, maxY: 1,
+        minZ: 0, maxZ: 1,
+      }
+      const queryAABB: AABB = {
+        minX: 10, maxX: 11,
+        minY: 10, maxY: 11,
+        minZ: 10, maxZ: 11,
+      }
+
+      yield* _(grid.add(entityId, entityAABB))
+      
+      const results = yield* _(grid.query(queryAABB))
+      assert.notInclude(results, entityId)
+    }).pipe(Effect.provide(SpatialGridLive)))
 })

@@ -1,9 +1,9 @@
-import { Effect, pipe } from 'effect'
+import { Effect, pipe, Ref } from 'effect'
 import { physicsQuery } from '@/domain/queries'
 import { FRICTION, GRAVITY, TERMINAL_VELOCITY } from '@/domain/world-constants'
 import { Clock, World } from '@/runtime/services'
 import { toFloat } from '@/domain/common'
-import { Position, Velocity } from '@/domain/components'
+import { Position, Velocity } from '@/core/components'
 
 const applyGravity = (isGrounded: boolean, deltaTime: number) => (velocity: Velocity): Velocity => {
   if (isGrounded) {
@@ -35,39 +35,36 @@ const updatePosition = (velocity: Velocity, deltaTime: number) => (position: Pos
 export const physicsSystem = Effect.gen(function* ($) {
   const world = yield* $(World)
   const clock = yield* $(Clock)
-  const deltaTime = yield* $(clock.deltaTime)
+  const deltaTime = yield* $(Ref.get(clock.deltaTime))
+
+  if (deltaTime <= 0) {
+    return
+  }
+
+  const { entities, components } = yield* $(world.querySoA(physicsQuery))
+  const { player, position, velocity } = components
 
   yield* $(
-    Effect.when(
-      deltaTime > 0,
-      () => Effect.gen(function* ($) {
-        const { entities, components } = yield* $(world.querySoA(physicsQuery))
-        const { player, position, velocity } = components
+    Effect.forEach(
+      entities,
+      (entityId, i) =>
+        Effect.gen(function* ($) {
+          const currentPlayer = player[i]
+          const currentPosition = position[i]
+          const currentVelocity = velocity[i]
 
-        yield* $(
-          Effect.forEach(
-            entities,
-            (entityId, i) =>
-              Effect.gen(function* ($) {
-                const currentPlayer = player[i]
-                const currentPosition = position[i]
-                const currentVelocity = velocity[i]
+          const finalVelocity = pipe(
+            currentVelocity,
+            applyGravity(currentPlayer.isGrounded, deltaTime),
+            applyFriction(currentPlayer.isGrounded),
+          )
 
-                const finalVelocity = pipe(
-                  currentVelocity,
-                  applyGravity(currentPlayer.isGrounded, deltaTime),
-                  applyFriction(currentPlayer.isGrounded),
-                )
+          const newPosition = pipe(currentPosition, updatePosition(finalVelocity, deltaTime))
 
-                const newPosition = pipe(currentPosition, updatePosition(finalVelocity, deltaTime))
-
-                yield* $(world.updateComponent(entityId, 'velocity', finalVelocity))
-                yield* $(world.updateComponent(entityId, 'position', newPosition))
-              }),
-            { concurrency: 'inherit', discard: true },
-          ),
-        )
-      }),
+          yield* $(world.updateComponent(entityId, 'velocity', finalVelocity))
+          yield* $(world.updateComponent(entityId, 'position', newPosition))
+        }),
+      { concurrency: 'inherit', discard: true },
     ),
   )
 })

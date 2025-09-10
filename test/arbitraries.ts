@@ -4,6 +4,7 @@ import * as fc from 'effect/FastCheck'
 import { AABBSchema } from '@/domain/geometry'
 import { EntityIdSchema } from '@/domain/entity'
 import { BlockTypeSchema } from '@/domain/block-types'
+// Import from new location
 import {
   Position,
   Velocity,
@@ -11,15 +12,14 @@ import {
   CameraState,
   Hotbar,
   Target,
-  TargetBlock,
-  TargetNone,
   ComponentName,
   ComponentSchemas,
   AnyComponent,
   Player,
   Collider,
   Chunk,
-} from '@/domain/components'
+} from '@/core/components'
+import { TargetBlockComponent as TargetBlock, TargetNoneComponent as TargetNone } from '@/core/components/gameplay/target'
 import { ChunkX, ChunkZ, Int, Vector3IntSchema } from '@/domain/common'
 import { type ArchetypeBuilder } from '@/domain/archetypes'
 

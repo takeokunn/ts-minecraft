@@ -14,7 +14,12 @@ export default defineConfig({
       exclude: ['src/index.ts', 'vite.config.ts', 'src/@types/*', 'src/systems/index.ts', 'test/'],
     },
     deps: {
-      inline: [/^(?!.*vitest).*$/],
+      optimizer: {
+        web: {
+          include: [/^(?!.*vitest).*$/],
+        },
+      },
     },
+    setupFiles: ['./test/setup.ts'],
   },
 })

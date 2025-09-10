@@ -31,14 +31,14 @@
     "sharp": "^0.34.3",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
-    "vite": "^7.1.4",
+    "vite": "^7.1.5",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@effect/platform": "^0.90.6",
+    "@effect/platform": "^0.90.8",
     "alea": "^1.0.1",
-    "effect": "^3.17.11",
+    "effect": "^3.17.13",
     "gl-matrix": "^3.4.4",
     "simplex-noise": "^4.0.3",
     "stats.js": "^0.17.0",

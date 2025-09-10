@@ -1,5 +1,5 @@
 import { Effect, Match, Option } from 'effect'
-import { CameraState, InputState, Player, Velocity } from '@/domain/components'
+import { CameraState, InputState, Player, Velocity } from '@/core/components'
 import { playerMovementQuery } from '@/domain/queries'
 import { DECELERATION, JUMP_FORCE, MIN_VELOCITY_THRESHOLD, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@/domain/world-constants'
 import { World } from '@/runtime/services'

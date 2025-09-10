@@ -1,18 +1,10 @@
-import { Data, HashMap, HashSet } from 'effect'
-import { type ComponentName, type ComponentOfName } from './components'
+import { HashMap, HashSet } from 'effect'
+import { type ComponentName, type ComponentOfName, ChunkComponent } from '@/core/components'
 import { PlacedBlock } from './block'
-import { Chunk } from './components'
 import { EntityId } from './entity'
 
-// --- Error Types ---
-export class EntityNotFoundError extends Data.TaggedError('EntityNotFoundError')<{
-  readonly entityId: EntityId
-}> {}
-
-export class ComponentNotFoundError extends Data.TaggedError('ComponentNotFoundError')<{
-  readonly entityId: EntityId
-  readonly componentName: ComponentName
-}> {}
+// Import errors from centralized location
+export { EntityNotFoundError, ComponentNotFoundError } from '@/core/errors'
 
 // --- Data Types ---
 export type Voxel = PlacedBlock
@@ -28,5 +20,5 @@ export interface WorldState {
   readonly entities: HashMap.HashMap<EntityId, string> // Map<EntityId, ArchetypeKey>
   readonly archetypes: ArchetypeStorage
   readonly components: ComponentStorage
-  readonly chunks: HashMap.HashMap<string, Chunk>
+  readonly chunks: HashMap.HashMap<string, ChunkComponent>
 }

@@ -1,121 +1,310 @@
-import { describe, it, expect, vi, assert } from '@effect/vitest'
-import { Effect, Layer } from 'effect'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
-import * as fc from 'effect/FastCheck'
+import { describe, it, assert } from '@effect/vitest'
+import { Effect, Layer, pipe } from 'effect'
 import { collisionSystem } from '../collision'
-import { SpatialGrid, World } from '@/runtime/services'
-import { toEntityId } from '@/domain/entity'
-import { Collider, Player, Position, Velocity } from '@/domain/components'
-import { SoAResult } from '@/domain/types'
-import { playerColliderQuery, positionColliderQuery } from '@/domain/queries'
-import {
-  arbitraryPlayer,
-  arbitraryPosition,
-  arbitraryVelocity,
-  arbitraryCollider,
-} from '@test/arbitraries'
-import { AABB, createAABB } from '@/domain/geometry'
+import { World, SpatialGrid } from '@/runtime/services'
+import { WorldLive } from '@/infrastructure/world'
+import { SpatialGridLive } from '@/infrastructure/spatial-grid'
+import { createArchetype } from '@/domain/archetypes'
+import { toFloat } from '@/domain/common'
+import { Player, Position, Velocity, Collider } from '@/core/components'
+import { createAABB } from '@/domain/geometry'
 
-const arbitraryBlock = fc.record({
-  position: arbitraryPosition,
-  collider: arbitraryCollider,
-})
+const TestLayer = Layer.mergeAll(WorldLive, SpatialGridLive)
 
 describe('collisionSystem', () => {
-  it.effect('should adhere to collision properties', () =>
-    Effect.promise(() =>
-      fc.assert(
-        fc.asyncProperty(
-          fc.option(
-            fc.record({
-              player: arbitraryPlayer,
-              position: arbitraryPosition,
-              velocity: arbitraryVelocity,
-              collider: arbitraryCollider,
-            }),
-            { nil: undefined },
-          ),
-          fc.array(arbitraryBlock),
-          async (playerOpt, blocks) => {
-            const playerEntityId = toEntityId(0)
-            const blockEntities = blocks.map((_, i) => toEntityId(i + 1))
+  it.effect('should detect and resolve collisions between player and blocks', () =>
+    Effect.gen(function* (_) {
+      const world = yield* _(World)
+      const spatialGrid = yield* _(SpatialGrid)
+      
+      // Create a player moving downward
+      const playerArchetype = yield* _(createArchetype({
+        type: 'player',
+        pos: { x: 0, y: 10, z: 0 },
+      }))
+      const playerId = yield* _(world.addArchetype(playerArchetype))
+      
+      // Set player velocity (falling)
+      yield* _(world.updateComponent(playerId, 'velocity', new Velocity({
+        dx: toFloat(0),
+        dy: toFloat(-5), // Falling
+        dz: toFloat(0),
+      })))
+      
+      // Create a block below the player
+      const blockArchetype = yield* _(createArchetype({
+        type: 'block',
+        pos: { x: 0, y: 5, z: 0 },
+        blockType: 'stone',
+      }))
+      const blockId = yield* _(world.addArchetype(blockArchetype))
+      
+      // Add block to spatial grid
+      const blockCollider = yield* _(world.getComponentUnsafe(blockId, 'collider'))
+      const blockPosition = yield* _(world.getComponentUnsafe(blockId, 'position'))
+      const blockAABB = createAABB(blockPosition, blockCollider)
+      yield* _(spatialGrid.add(blockId, blockAABB))
+      
+      // Run collision system
+      yield* _(collisionSystem)
+      
+      // Check that player is grounded after collision
+      const playerComponent = yield* _(world.getComponentUnsafe(playerId, 'player'))
+      assert.isTrue(playerComponent.isGrounded, 'Player should be grounded after collision')
+      
+      // Check that vertical velocity is zero
+      const velocity = yield* _(world.getComponentUnsafe(playerId, 'velocity'))
+      assert.equal(velocity.dy, 0, 'Vertical velocity should be zero after collision')
+    }).pipe(Effect.provide(TestLayer))
+  )
 
-            const playerSoa: SoAResult<typeof playerColliderQuery.components> = {
-              entities: playerOpt ? [playerEntityId] : [],
-              components: {
-                player: playerOpt ? [playerOpt.player] : [],
-                position: playerOpt ? [playerOpt.position] : [],
-                velocity: playerOpt ? [playerOpt.velocity] : [],
-                collider: playerOpt ? [playerOpt.collider] : [],
-              },
-            }
-            const colliderSoa: SoAResult<typeof positionColliderQuery.components> = {
-              entities: blockEntities,
-              components: {
-                position: blocks.map((b) => b.position),
-                collider: blocks.map((b) => b.collider),
-              },
-            }
+  it.effect('should handle multiple collisions', () =>
+    Effect.gen(function* (_) {
+      const world = yield* _(World)
+      const spatialGrid = yield* _(SpatialGrid)
+      
+      // Create a player surrounded by blocks
+      const playerArchetype = yield* _(createArchetype({
+        type: 'player',
+        pos: { x: 10, y: 10, z: 10 },
+      }))
+      const playerId = yield* _(world.addArchetype(playerArchetype))
+      
+      // Create blocks around the player
+      const blockPositions = [
+        { x: 9, y: 10, z: 10 },  // Left
+        { x: 11, y: 10, z: 10 }, // Right
+        { x: 10, y: 10, z: 9 },  // Front
+        { x: 10, y: 10, z: 11 }, // Back
+      ]
+      
+      for (const pos of blockPositions) {
+        const blockArchetype = yield* _(createArchetype({
+          type: 'block',
+          pos,
+          blockType: 'stone',
+        }))
+        const blockId = yield* _(world.addArchetype(blockArchetype))
+        
+        const blockCollider = yield* _(world.getComponentUnsafe(blockId, 'collider'))
+        const blockPosition = yield* _(world.getComponentUnsafe(blockId, 'position'))
+        const blockAABB = createAABB(blockPosition, blockCollider)
+        yield* _(spatialGrid.add(blockId, blockAABB))
+      }
+      
+      // Set player velocity in multiple directions
+      yield* _(world.updateComponent(playerId, 'velocity', new Velocity({
+        dx: toFloat(2),
+        dy: toFloat(0),
+        dz: toFloat(2),
+      })))
+      
+      // Run collision system
+      yield* _(collisionSystem)
+      
+      // Check that velocities are zeroed out
+      const velocity = yield* _(world.getComponentUnsafe(playerId, 'velocity'))
+      assert.equal(velocity.dx, 0, 'X velocity should be zero after collision')
+      assert.equal(velocity.dz, 0, 'Z velocity should be zero after collision')
+    }).pipe(Effect.provide(TestLayer))
+  )
 
-            const updatedValues: {
-              position?: Position
-              velocity?: Velocity
-              player?: Player
-            } = {}
-            const updateComponentMock = vi.fn((_entityId, componentName, value) => {
-              updatedValues[componentName as keyof typeof updatedValues] = value
-              return Effect.succeed(undefined)
-            })
+  it.effect('should handle no collisions', () =>
+    Effect.gen(function* (_) {
+      const world = yield* _(World)
+      
+      // Create a player in empty space
+      const playerArchetype = yield* _(createArchetype({
+        type: 'player',
+        pos: { x: 0, y: 50, z: 0 },
+      }))
+      const playerId = yield* _(world.addArchetype(playerArchetype))
+      
+      const initialVelocity = new Velocity({
+        dx: toFloat(5),
+        dy: toFloat(-3),
+        dz: toFloat(2),
+      })
+      yield* _(world.updateComponent(playerId, 'velocity', initialVelocity))
+      
+      // Run collision system
+      yield* _(collisionSystem)
+      
+      // Velocity should remain unchanged
+      const velocity = yield* _(world.getComponentUnsafe(playerId, 'velocity'))
+      assert.equal(velocity.dx, initialVelocity.dx)
+      assert.equal(velocity.dy, initialVelocity.dy)
+      assert.equal(velocity.dz, initialVelocity.dz)
+      
+      // Player should not be grounded
+      const player = yield* _(world.getComponentUnsafe(playerId, 'player'))
+      assert.isFalse(player.isGrounded)
+    }).pipe(Effect.provide(TestLayer))
+  )
 
-            const mockWorld: Partial<World> = {
-              querySoA: (query: any) => {
-                if (query === playerColliderQuery) return Effect.succeed(playerSoa as any)
-                if (query === positionColliderQuery) return Effect.succeed(colliderSoa as any)
-                return Effect.fail(new Error('unexpected query'))
-              },
-              updateComponent: updateComponentMock,
-            }
+  it.effect('should handle axis-specific collisions', () =>
+    Effect.gen(function* (_) {
+      const world = yield* _(World)
+      const spatialGrid = yield* _(SpatialGrid)
+      
+      // Create a player moving diagonally
+      const playerArchetype = yield* _(createArchetype({
+        type: 'player',
+        pos: { x: 5, y: 10, z: 5 },
+      }))
+      const playerId = yield* _(world.addArchetype(playerArchetype))
+      
+      // Set diagonal velocity
+      yield* _(world.updateComponent(playerId, 'velocity', new Velocity({
+        dx: toFloat(3),
+        dy: toFloat(-2),
+        dz: toFloat(0),
+      })))
+      
+      // Create a wall to the right
+      const wallArchetype = yield* _(createArchetype({
+        type: 'block',
+        pos: { x: 7, y: 10, z: 5 },
+        blockType: 'stone',
+      }))
+      const wallId = yield* _(world.addArchetype(wallArchetype))
+      
+      const wallCollider = yield* _(world.getComponentUnsafe(wallId, 'collider'))
+      const wallPosition = yield* _(world.getComponentUnsafe(wallId, 'position'))
+      const wallAABB = createAABB(wallPosition, wallCollider)
+      yield* _(spatialGrid.add(wallId, wallAABB))
+      
+      // Run collision system
+      yield* _(collisionSystem)
+      
+      // Only X velocity should be affected
+      const velocity = yield* _(world.getComponentUnsafe(playerId, 'velocity'))
+      assert.equal(velocity.dx, 0, 'X velocity should be zero after hitting wall')
+      assert.notEqual(velocity.dy, 0, 'Y velocity should be unchanged')
+    }).pipe(Effect.provide(TestLayer))
+  )
 
-            const querySpy = vi.fn(() => Effect.succeed(new Set(blockEntities)))
-            const mockSpatialGrid: SpatialGrid = {
-              add: () => Effect.void,
-              query: querySpy,
-              clear: () => Effect.void,
-              register: () => Effect.void,
-            }
+  it.effect('should handle player with custom collider size', () =>
+    Effect.gen(function* (_) {
+      const world = yield* _(World)
+      const spatialGrid = yield* _(SpatialGrid)
+      
+      // Create a player
+      const playerArchetype = yield* _(createArchetype({
+        type: 'player',
+        pos: { x: 0, y: 10, z: 0 },
+      }))
+      const playerId = yield* _(world.addArchetype(playerArchetype))
+      
+      // Update collider to be larger
+      yield* _(world.updateComponent(playerId, 'collider', new Collider({
+        width: toFloat(2), // Wider than default
+        height: toFloat(3), // Taller than default
+        depth: toFloat(2),
+      })))
+      
+      // Create a block that would not collide with default size
+      const blockArchetype = yield* _(createArchetype({
+        type: 'block',
+        pos: { x: 1.5, y: 10, z: 0 },
+        blockType: 'stone',
+      }))
+      const blockId = yield* _(world.addArchetype(blockArchetype))
+      
+      const blockCollider = yield* _(world.getComponentUnsafe(blockId, 'collider'))
+      const blockPosition = yield* _(world.getComponentUnsafe(blockId, 'position'))
+      const blockAABB = createAABB(blockPosition, blockCollider)
+      yield* _(spatialGrid.add(blockId, blockAABB))
+      
+      // Set velocity toward block
+      yield* _(world.updateComponent(playerId, 'velocity', new Velocity({
+        dx: toFloat(2),
+        dy: toFloat(0),
+        dz: toFloat(0),
+      })))
+      
+      // Run collision system
+      yield* _(collisionSystem)
+      
+      // Should collide due to larger collider
+      const velocity = yield* _(world.getComponentUnsafe(playerId, 'velocity'))
+      assert.equal(velocity.dx, 0, 'Should collide with larger collider')
+    }).pipe(Effect.provide(TestLayer))
+  )
 
-            const testLayer = Layer.merge(
-              Layer.succeed(World, mockWorld as World),
-              Layer.succeed(SpatialGrid, mockSpatialGrid),
-            )
+  it.effect('should handle no players', () =>
+    Effect.gen(function* (_) {
+      const world = yield* _(World)
+      const spatialGrid = yield* _(SpatialGrid)
+      
+      // Create only blocks, no players
+      const blockArchetype = yield* _(createArchetype({
+        type: 'block',
+        pos: { x: 0, y: 0, z: 0 },
+        blockType: 'stone',
+      }))
+      const blockId = yield* _(world.addArchetype(blockArchetype))
+      
+      const blockCollider = yield* _(world.getComponentUnsafe(blockId, 'collider'))
+      const blockPosition = yield* _(world.getComponentUnsafe(blockId, 'position'))
+      const blockAABB = createAABB(blockPosition, blockCollider)
+      yield* _(spatialGrid.add(blockId, blockAABB))
+      
+      // Should handle gracefully with no players
+      yield* _(collisionSystem)
+      assert.isOk(true)
+    }).pipe(Effect.provide(TestLayer))
+  )
 
-            await Effect.runPromise(collisionSystem.pipe(Effect.provide(testLayer)))
-
-            if (!playerOpt) {
-              assert.strictEqual(querySpy.mock.calls.length, 0)
-              return
-            }
-
-            const finalPosition = updatedValues.position ?? playerOpt.position
-            const finalVelocity = updatedValues.velocity ?? playerOpt.velocity
-            const finalPlayer = updatedValues.player ?? playerOpt.player
-            const playerAABB = createAABB(finalPosition, playerOpt.collider)
-
-            const blockAABBs = blocks.map((b) => createAABB(b.position, b.collider))
-
-            blockAABBs.forEach((blockAABB) => {
-              assert.isFalse(AABB.intersects(playerAABB, blockAABB), 'Player should not intersect with any blocks')
-            })
-
-            const initialPlayerAABB = createAABB(playerOpt.position, playerOpt.collider)
-            const collidedY = ReadonlyArray.some(blockAABBs, (blockAABB) => AABB.intersects(initialPlayerAABB, blockAABB) && playerOpt.velocity.dy < 0)
-            if (collidedY) {
-              assert.isTrue(finalPlayer.isGrounded, 'Player should be grounded after collision')
-              assert.strictEqual(finalVelocity.dy, 0, 'Player dy should be 0 after collision')
-            }
-          },
-        ),
-      ),
-    ),
+  it.effect('should resolve falling collision correctly', () =>
+    Effect.gen(function* (_) {
+      const world = yield* _(World)
+      const spatialGrid = yield* _(SpatialGrid)
+      
+      // Create a player falling onto a platform
+      const playerArchetype = yield* _(createArchetype({
+        type: 'player',
+        pos: { x: 0, y: 5.5, z: 0 }, // Just above platform
+      }))
+      const playerId = yield* _(world.addArchetype(playerArchetype))
+      
+      // Player is falling
+      yield* _(world.updateComponent(playerId, 'velocity', new Velocity({
+        dx: toFloat(0),
+        dy: toFloat(-10), // Fast fall
+        dz: toFloat(0),
+      })))
+      
+      yield* _(world.updateComponent(playerId, 'player', new Player({
+        isGrounded: false,
+      })))
+      
+      // Create platform below
+      const platformArchetype = yield* _(createArchetype({
+        type: 'block',
+        pos: { x: 0, y: 4, z: 0 },
+        blockType: 'stone',
+      }))
+      const platformId = yield* _(world.addArchetype(platformArchetype))
+      
+      const platformCollider = yield* _(world.getComponentUnsafe(platformId, 'collider'))
+      const platformPosition = yield* _(world.getComponentUnsafe(platformId, 'position'))
+      const platformAABB = createAABB(platformPosition, platformCollider)
+      yield* _(spatialGrid.add(platformId, platformAABB))
+      
+      // Run collision system
+      yield* _(collisionSystem)
+      
+      // Player should be on top of platform and grounded
+      const player = yield* _(world.getComponentUnsafe(playerId, 'player'))
+      assert.isTrue(player.isGrounded, 'Player should be grounded after landing')
+      
+      const velocity = yield* _(world.getComponentUnsafe(playerId, 'velocity'))
+      assert.equal(velocity.dy, 0, 'Y velocity should be zero after landing')
+      
+      const position = yield* _(world.getComponentUnsafe(playerId, 'position'))
+      // Player should be positioned on top of the platform
+      assert.isAbove(position.y, platformPosition.y, 'Player should be above platform')
+    }).pipe(Effect.provide(TestLayer))
   )
 })

@@ -2,31 +2,37 @@ import { Effect, Match } from 'effect'
 import * as S from 'effect/Schema'
 import { hotbarSlots } from './block'
 import { BlockTypeSchema } from './block-types'
-import { CameraState, type PartialComponents, InputState, Position, PartialComponentsSchema } from './components'
+import { 
+  CameraStateComponent, 
+  type PartialComponents, 
+  InputStateComponent, 
+  PositionComponent, 
+  PartialComponentsSchema 
+} from '@/core/components'
 import { ChunkX, ChunkZ, toFloat, toInt } from './common'
 import { BLOCK_COLLIDER, GRAVITY, PLAYER_COLLIDER } from './world-constants'
 import { ParseError } from 'effect/ParseResult'
 
 const PlayerArchetypeBuilder = S.Struct({
   type: S.Literal('player'),
-  pos: Position,
-  cameraState: S.optional(CameraState),
+  pos: PositionComponent,
+  cameraState: S.optional(CameraStateComponent),
 })
 
 const BlockArchetypeBuilder = S.Struct({
   type: S.Literal('block'),
-  pos: Position,
+  pos: PositionComponent,
   blockType: BlockTypeSchema,
 })
 
 const CameraArchetypeBuilder = S.Struct({
   type: S.Literal('camera'),
-  pos: Position,
+  pos: PositionComponent,
 })
 
 const TargetBlockArchetypeBuilder = S.Struct({
   type: S.Literal('targetBlock'),
-  pos: Position,
+  pos: PositionComponent,
 })
 
 const ChunkArchetypeBuilder = S.Struct({
@@ -50,7 +56,7 @@ export type ArchetypeBuilder = S.Schema.Type<typeof ArchetypeBuilder>
 export const ArchetypeSchema = PartialComponentsSchema
 export type Archetype = PartialComponents
 
-export const createInputState = (): InputState => ({
+export const createInputState = () => ({
   forward: false,
   backward: false,
   left: false,

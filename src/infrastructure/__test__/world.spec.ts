@@ -1,10 +1,10 @@
-import { Effect, Option } from 'effect'
+import { Effect, Option, HashMap } from 'effect'
 import { describe, it, assert } from '@effect/vitest'
 import * as fc from 'effect/FastCheck'
 import * as S from 'effect/Schema'
 import { createArchetype, type ArchetypeBuilder } from '@/domain/archetypes'
 import { createQuery } from '@/domain/query'
-import { Position, ComponentName, Chunk } from '@/domain/components'
+import { Position, ComponentName, Chunk } from '@/core/components'
 import { WorldLive } from '@/infrastructure/world'
 import { World } from '@/runtime/services'
 import { ArchetypeBuilderArb, PositionArb } from '@test/arbitraries'
@@ -75,7 +75,7 @@ describe('World', () => {
                   }
 
                   const allEntitiesInWorld = yield* _(
-                    world.state.pipe(Effect.map((s) => [...s.entities.keys()])),
+                    world.state.pipe(Effect.map((s) => Array.from(HashMap.keys(s.entities)))),
                   )
 
                   for (const removedId of idsToRemove) {
