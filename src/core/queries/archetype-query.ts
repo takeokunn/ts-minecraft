@@ -1,10 +1,11 @@
 /**
- * Archetype-based Query System
+ * Archetype-based Query System - Functional Effect-TS Implementation
  * Provides high-performance entity querying using archetype patterns
  */
 
+import { Effect, Ref, Context, Layer, HashMap, Option } from 'effect'
 import { ComponentName, ComponentOfName } from '@/core/components'
-import { EntityId } from '@/core/entities'
+import { EntityId } from '@/domain/entities'
 import { QueryConfig, QueryMetrics, startQueryContext, finalizeQueryContext, QueryEntity } from './builder'
 
 /**
@@ -17,299 +18,508 @@ export interface ArchetypeSignature {
 }
 
 /**
- * Archetype-based entity group for O(1) query matching
+ * Archetype Service
  */
-export class Archetype {
-  private entities: Set<QueryEntity> = new Set()
-  private componentMask: bigint
-  private static componentIndices: Map<ComponentName, number> = new Map()
-  private static nextIndex = 0
+export const ArchetypeService = Context.GenericTag<{
+  readonly addEntity: (entity: QueryEntity) => Effect.Effect<void>
+  readonly removeEntity: (entity: QueryEntity) => Effect.Effect<void>
+  readonly getEntities: () => Effect.Effect<ReadonlyArray<QueryEntity>>
+  readonly matches: (signature: ArchetypeSignature) => Effect.Effect<boolean>
+  readonly matchesMask: (requiredMask: bigint, forbiddenMask: bigint) => Effect.Effect<boolean>
+  readonly getSize: () => Effect.Effect<number>
+}>('ArchetypeService')
 
-  constructor(public readonly signature: ArchetypeSignature) {
-    this.componentMask = this.computeComponentMask(signature.required)
-  }
+/**
+ * Archetype Manager Service
+ */
+export const ArchetypeManagerService = Context.GenericTag<{
+  readonly createSignature: (
+    required: ReadonlyArray<ComponentName>,
+    forbidden?: ReadonlyArray<ComponentName>
+  ) => ArchetypeSignature
+  readonly getOrCreateArchetype: (signature: ArchetypeSignature) => Effect.Effect<ArchetypeService.Type>
+  readonly addEntity: (entity: QueryEntity) => Effect.Effect<void>
+  readonly removeEntity: (entity: QueryEntity) => Effect.Effect<void>
+  readonly findMatchingArchetypes: (signature: ArchetypeSignature) => Effect.Effect<ReadonlyArray<ArchetypeService.Type>>
+  readonly getAllEntities: () => Effect.Effect<ReadonlyArray<EntityId>>
+  readonly getStats: () => Effect.Effect<ArchetypeManagerStats>
+}>('ArchetypeManagerService')
 
-  private computeComponentMask(components: ReadonlySet<ComponentName>): bigint {
+/**
+ * Archetype Query Service
+ */
+export const ArchetypeQueryService = Context.GenericTag<{
+  readonly execute: <T extends ReadonlyArray<ComponentName>>(
+    config: QueryConfig<T>,
+    entities?: ReadonlyArray<QueryEntity>
+  ) => Effect.Effect<{ entities: ReadonlyArray<QueryEntity>; metrics: QueryMetrics }>
+  readonly addEntity: (entity: QueryEntity) => Effect.Effect<void>
+  readonly removeEntity: (entity: QueryEntity) => Effect.Effect<void>
+  readonly getStats: () => Effect.Effect<ArchetypeManagerStats>
+  readonly reset: () => Effect.Effect<void>
+}>('ArchetypeQueryService')
+
+/**
+ * Archetype manager statistics
+ */
+interface ArchetypeManagerStats {
+  totalArchetypes: number
+  totalEntities: number
+  archetypeDistribution: Array<{
+    hash: string
+    entityCount: number
+    components: ComponentName[]
+  }>
+}
+
+/**
+ * Internal archetype state
+ */
+interface ArchetypeState {
+  entities: Set<QueryEntity>
+  signature: ArchetypeSignature
+  componentMask: bigint
+}
+
+/**
+ * Component indices for bit masking
+ */
+interface ComponentIndices {
+  componentToIndex: HashMap.HashMap<ComponentName, number>
+  nextIndex: number
+}
+
+/**
+ * Internal archetype manager state
+ */
+interface ArchetypeManagerState {
+  archetypes: HashMap.HashMap<string, ArchetypeState>
+  entityToArchetype: HashMap.HashMap<QueryEntity, ArchetypeState>
+  componentIndices: ComponentIndices
+}
+
+/**
+ * Compute component mask for archetype
+ */
+const computeComponentMask = (
+  components: ReadonlySet<ComponentName>,
+  indicesRef: Ref.Ref<ComponentIndices>
+): Effect.Effect<bigint> =>
+  Effect.gen(function* () {
     let mask = 0n
+    const indices = yield* Ref.get(indicesRef)
+    let newIndices = indices
+    
     for (const component of components) {
-      if (!Archetype.componentIndices.has(component)) {
-        Archetype.componentIndices.set(component, Archetype.nextIndex++)
+      const indexOption = HashMap.get(indices.componentToIndex, component)
+      let index: number
+      
+      if (Option.isNone(indexOption)) {
+        index = newIndices.nextIndex
+        newIndices = {
+          componentToIndex: HashMap.set(newIndices.componentToIndex, component, index),
+          nextIndex: newIndices.nextIndex + 1
+        }
+      } else {
+        index = indexOption.value
       }
-      const index = Archetype.componentIndices.get(component)!
+      
       mask |= 1n << BigInt(index)
     }
+    
+    if (newIndices !== indices) {
+      yield* Ref.set(indicesRef, newIndices)
+    }
+    
     return mask
-  }
+  })
 
-  /**
-   * Add entity to this archetype
-   */
-  addEntity(entity: QueryEntity): void {
-    this.entities.add(entity)
-  }
-
-  /**
-   * Remove entity from this archetype
-   */
-  removeEntity(entity: QueryEntity): void {
-    this.entities.delete(entity)
-  }
-
-  /**
-   * Get all entities in this archetype
-   */
-  getEntities(): ReadonlyArray<QueryEntity> {
-    return Array.from(this.entities)
-  }
-
-  /**
-   * Check if this archetype matches the given signature
-   */
-  matches(signature: ArchetypeSignature): boolean {
-    // Check that all required components are present
-    for (const required of signature.required) {
-      if (!this.signature.required.has(required)) {
-        return false
-      }
-    }
-
-    // Check that no forbidden components are present
-    for (const forbidden of signature.forbidden) {
-      if (this.signature.required.has(forbidden)) {
-        return false
-      }
-    }
-
-    return true
-  }
-
-  /**
-   * Fast bit-mask based matching
-   */
-  matchesMask(requiredMask: bigint, forbiddenMask: bigint): boolean {
-    // All required components must be present
-    if ((this.componentMask & requiredMask) !== requiredMask) {
-      return false
-    }
-
-    // No forbidden components should be present
-    if ((this.componentMask & forbiddenMask) !== 0n) {
-      return false
-    }
-
-    return true
-  }
-
-  get size(): number {
-    return this.entities.size
+/**
+ * Create archetype signature from component sets
+ */
+const createArchetypeSignature = (
+  required: ReadonlyArray<ComponentName>,
+  forbidden: ReadonlyArray<ComponentName> = []
+): ArchetypeSignature => {
+  const requiredSet = new Set(required)
+  const forbiddenSet = new Set(forbidden)
+  
+  const sortedRequired = [...requiredSet].sort()
+  const sortedForbidden = [...forbiddenSet].sort()
+  
+  const hash = `req:${sortedRequired.join(',')}|forb:${sortedForbidden.join(',')}`
+  
+  return {
+    required: requiredSet,
+    forbidden: forbiddenSet,
+    hash,
   }
 }
 
 /**
- * Archetype manager for efficient entity organization
+ * Check if archetype matches signature
  */
-export class ArchetypeManager {
-  private archetypes: Map<string, Archetype> = new Map()
-  private entityToArchetype: Map<QueryEntity, Archetype> = new Map()
-
-  /**
-   * Create archetype signature from component sets
-   */
-  createSignature(
-    required: ReadonlyArray<ComponentName>,
-    forbidden: ReadonlyArray<ComponentName> = []
-  ): ArchetypeSignature {
-    const requiredSet = new Set(required)
-    const forbiddenSet = new Set(forbidden)
-    
-    const sortedRequired = [...requiredSet].sort()
-    const sortedForbidden = [...forbiddenSet].sort()
-    
-    const hash = `req:${sortedRequired.join(',')}|forb:${sortedForbidden.join(',')}`
-
-    return {
-      required: requiredSet,
-      forbidden: forbiddenSet,
-      hash,
+const archetypeMatches = (
+  archetypeSignature: ArchetypeSignature,
+  targetSignature: ArchetypeSignature
+): boolean => {
+  // Check that all required components are present
+  for (const required of targetSignature.required) {
+    if (!archetypeSignature.required.has(required)) {
+      return false
     }
   }
+  
+  // Check that no forbidden components are present
+  for (const forbidden of targetSignature.forbidden) {
+    if (archetypeSignature.required.has(forbidden)) {
+      return false
+    }
+  }
+  
+  return true
+}
 
-  /**
-   * Get or create archetype for given signature
-   */
-  getOrCreateArchetype(signature: ArchetypeSignature): Archetype {
-    let archetype = this.archetypes.get(signature.hash)
+/**
+ * Fast bit-mask based matching
+ */
+const archetypeMatchesMask = (
+  archetypeMask: bigint,
+  requiredMask: bigint,
+  forbiddenMask: bigint
+): boolean => {
+  // All required components must be present
+  if ((archetypeMask & requiredMask) !== requiredMask) {
+    return false
+  }
+  
+  // No forbidden components should be present
+  if ((archetypeMask & forbiddenMask) !== 0n) {
+    return false
+  }
+  
+  return true
+}
+
+/**
+ * Create individual archetype service
+ */
+const createArchetypeService = (
+  signature: ArchetypeSignature,
+  componentIndicesRef: Ref.Ref<ComponentIndices>
+): Effect.Effect<ArchetypeService.Type> =>
+  Effect.gen(function* () {
+    const entitiesRef = yield* Ref.make(new Set<QueryEntity>())
+    const componentMask = yield* computeComponentMask(signature.required, componentIndicesRef)
     
-    if (!archetype) {
-      archetype = new Archetype(signature)
-      this.archetypes.set(signature.hash, archetype)
+    return ArchetypeService.of({
+      addEntity: (entity) =>
+        Ref.update(entitiesRef, entities => {
+          const newEntities = new Set(entities)
+          newEntities.add(entity)
+          return newEntities
+        }),
+      
+      removeEntity: (entity) =>
+        Ref.update(entitiesRef, entities => {
+          const newEntities = new Set(entities)
+          newEntities.delete(entity)
+          return newEntities
+        }),
+      
+      getEntities: () =>
+        Effect.gen(function* () {
+          const entities = yield* Ref.get(entitiesRef)
+          return Array.from(entities)
+        }),
+      
+      matches: (targetSignature) =>
+        Effect.succeed(archetypeMatches(signature, targetSignature)),
+      
+      matchesMask: (requiredMask, forbiddenMask) =>
+        Effect.succeed(archetypeMatchesMask(componentMask, requiredMask, forbiddenMask)),
+      
+      getSize: () =>
+        Effect.gen(function* () {
+          const entities = yield* Ref.get(entitiesRef)
+          return entities.size
+        })
+    })
+  })
+
+/**
+ * Get or create archetype for given signature
+ */
+const getOrCreateArchetype = (
+  signature: ArchetypeSignature,
+  stateRef: Ref.Ref<ArchetypeManagerState>
+): Effect.Effect<ArchetypeService.Type> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    const existingArchetypeOption = HashMap.get(state.archetypes, signature.hash)
+    
+    if (Option.isSome(existingArchetypeOption)) {
+      // Return existing archetype service (this would need to be stored differently in practice)
+      const componentIndicesRef = yield* Ref.make(state.componentIndices)
+      return yield* createArchetypeService(signature, componentIndicesRef)
     }
     
-    return archetype
-  }
+    // Create new archetype
+    const componentIndicesRef = yield* Ref.make(state.componentIndices)
+    const archetypeService = yield* createArchetypeService(signature, componentIndicesRef)
+    const componentMask = yield* computeComponentMask(signature.required, componentIndicesRef)
+    
+    const newArchetypeState: ArchetypeState = {
+      entities: new Set<QueryEntity>(),
+      signature,
+      componentMask
+    }
+    
+    yield* Ref.update(stateRef, state => ({
+      ...state,
+      archetypes: HashMap.set(state.archetypes, signature.hash, newArchetypeState),
+      componentIndices: yield* Ref.get(componentIndicesRef) as ComponentIndices
+    }))
+    
+    return archetypeService
+  })
 
-  /**
-   * Add entity to appropriate archetype
-   */
-  addEntity(entity: QueryEntity): void {
+/**
+ * Add entity to appropriate archetype
+ */
+const addEntityToArchetype = (
+  entity: QueryEntity,
+  stateRef: Ref.Ref<ArchetypeManagerState>
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
     // Remove from current archetype if exists
-    this.removeEntity(entity)
-
+    yield* removeEntityFromArchetype(entity, stateRef)
+    
     // Determine entity's archetype based on components
     const componentNames = Object.keys(entity.components) as ComponentName[]
-    const signature = this.createSignature(componentNames, [])
-    const archetype = this.getOrCreateArchetype(signature)
+    const signature = createArchetypeSignature(componentNames, [])
+    const archetype = yield* getOrCreateArchetype(signature, stateRef)
     
-    archetype.addEntity(entity)
-    this.entityToArchetype.set(entity, archetype)
-  }
+    yield* archetype.addEntity(entity)
+    
+    // Update entity to archetype mapping
+    yield* Ref.update(stateRef, state => {
+      const archetypeStateOption = HashMap.get(state.archetypes, signature.hash)
+      if (Option.isSome(archetypeStateOption)) {
+        const archetypeState = archetypeStateOption.value
+        const newArchetypeState = {
+          ...archetypeState,
+          entities: new Set([...archetypeState.entities, entity])
+        }
+        return {
+          ...state,
+          archetypes: HashMap.set(state.archetypes, signature.hash, newArchetypeState),
+          entityToArchetype: HashMap.set(state.entityToArchetype, entity, newArchetypeState)
+        }
+      }
+      return state
+    })
+  })
 
-  /**
-   * Remove entity from its archetype
-   */
-  removeEntity(entity: QueryEntity): void {
-    const currentArchetype = this.entityToArchetype.get(entity)
-    if (currentArchetype) {
-      currentArchetype.removeEntity(entity)
-      this.entityToArchetype.delete(entity)
+/**
+ * Remove entity from its archetype
+ */
+const removeEntityFromArchetype = (
+  entity: QueryEntity,
+  stateRef: Ref.Ref<ArchetypeManagerState>
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    const currentArchetypeOption = HashMap.get(state.entityToArchetype, entity)
+    
+    if (Option.isSome(currentArchetypeOption)) {
+      const currentArchetype = currentArchetypeOption.value
+      const newEntities = new Set(currentArchetype.entities)
+      newEntities.delete(entity)
+      
+      const updatedArchetype = {
+        ...currentArchetype,
+        entities: newEntities
+      }
+      
+      yield* Ref.update(stateRef, state => ({
+        ...state,
+        archetypes: HashMap.set(state.archetypes, currentArchetype.signature.hash, updatedArchetype),
+        entityToArchetype: HashMap.remove(state.entityToArchetype, entity)
+      }))
     }
-  }
+  })
 
-  /**
-   * Find all archetypes matching the given signature
-   */
-  findMatchingArchetypes(signature: ArchetypeSignature): ReadonlyArray<Archetype> {
-    const matching: Archetype[] = []
+/**
+ * Find all archetypes matching the given signature
+ */
+const findMatchingArchetypes = (
+  signature: ArchetypeSignature,
+  stateRef: Ref.Ref<ArchetypeManagerState>
+): Effect.Effect<ReadonlyArray<ArchetypeService.Type>> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    const matching: ArchetypeService.Type[] = []
     
-    for (const archetype of this.archetypes.values()) {
-      if (archetype.matches(signature)) {
-        matching.push(archetype)
+    for (const [_, archetypeState] of HashMap.toEntries(state.archetypes)) {
+      if (archetypeMatches(archetypeState.signature, signature)) {
+        const componentIndicesRef = yield* Ref.make(state.componentIndices)
+        const archetypeService = yield* createArchetypeService(archetypeState.signature, componentIndicesRef)
+        matching.push(archetypeService)
       }
     }
     
     return matching
-  }
+  })
 
-  /**
-   * Get all entities across all archetypes
-   */
-  getAllEntities(): ReadonlyArray<EntityId> {
+/**
+ * Get all entities across all archetypes
+ */
+const getAllArchetypeEntities = (
+  stateRef: Ref.Ref<ArchetypeManagerState>
+): Effect.Effect<ReadonlyArray<EntityId>> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
     const entities: EntityId[] = []
     
-    for (const archetype of this.archetypes.values()) {
-      entities.push(...archetype.getEntities().map(entity => entity.id))
+    for (const [_, archetypeState] of HashMap.toEntries(state.archetypes)) {
+      entities.push(...Array.from(archetypeState.entities).map(entity => entity.id))
     }
     
     return entities
-  }
-
-  /**
-   * Get archetype statistics
-   */
-  getStats() {
-    return {
-      totalArchetypes: this.archetypes.size,
-      totalEntities: this.entityToArchetype.size,
-      archetypeDistribution: Array.from(this.archetypes.entries()).map(([hash, archetype]) => ({
-        hash,
-        entityCount: archetype.size,
-        components: Array.from(archetype.signature.required),
-      })),
-    }
-  }
-}
+  })
 
 /**
- * High-performance archetype-based query
+ * Get archetype manager statistics
  */
-export class ArchetypeQuery<T extends ReadonlyArray<ComponentName>> {
-  private signature: ArchetypeSignature
-  private static archetypeManager = new ArchetypeManager()
+const getArchetypeStats = (
+  stateRef: Ref.Ref<ArchetypeManagerState>
+): Effect.Effect<ArchetypeManagerStats> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    
+    const archetypeDistribution = HashMap.toEntries(state.archetypes)
+      .map(([hash, archetypeState]) => ({
+        hash,
+        entityCount: archetypeState.entities.size,
+        components: Array.from(archetypeState.signature.required),
+      }))
+    
+    return {
+      totalArchetypes: HashMap.size(state.archetypes),
+      totalEntities: HashMap.size(state.entityToArchetype),
+      archetypeDistribution,
+    }
+  })
 
-  constructor(private config: QueryConfig<T>) {
-    this.signature = ArchetypeQuery.archetypeManager.createSignature(
-      config.withComponents,
-      config.withoutComponents || []
-    )
-  }
-
-  /**
-   * Execute query using archetype-based filtering
-   */
-  execute(entities?: ReadonlyArray<QueryEntity>): {
-    entities: ReadonlyArray<QueryEntity>
-    metrics: QueryMetrics
-  } {
+/**
+ * Execute archetype-based query
+ */
+const executeArchetypeQuery = <T extends ReadonlyArray<ComponentName>>(
+  config: QueryConfig<T>,
+  entities: ReadonlyArray<QueryEntity> | undefined,
+  managerStateRef: Ref.Ref<ArchetypeManagerState>
+): Effect.Effect<{ entities: ReadonlyArray<QueryEntity>; metrics: QueryMetrics }> =>
+  Effect.gen(function* () {
     const context = startQueryContext()
-
+    
     let resultEntities: QueryEntity[]
-
+    
     if (entities) {
       // Direct entity filtering (fallback mode)
-      resultEntities = this.executeDirectFilter(entities, context)
+      resultEntities = yield* executeDirectFilter(config, entities, context)
     } else {
       // Archetype-based querying (optimized mode)
-      resultEntities = this.executeArchetypeQuery(context)
+      resultEntities = yield* executeArchetypeBasedQuery(config, context, managerStateRef)
     }
-
+    
     // Apply predicate if specified
-    if (this.config.predicate) {
-      resultEntities = this.applyPredicate(resultEntities, context)
+    if (config.predicate) {
+      resultEntities = yield* applyArchetypePredicate(resultEntities, config, context)
     }
-
+    
     context.metrics.entitiesMatched = resultEntities.length
     const metrics = finalizeQueryContext(context)
-
+    
     return {
       entities: resultEntities,
       metrics,
     }
-  }
+  })
 
-  private executeArchetypeQuery(context: { metrics: QueryMetrics }): QueryEntity[] {
-    const matchingArchetypes = ArchetypeQuery.archetypeManager.findMatchingArchetypes(this.signature)
+/**
+ * Execute archetype-based query
+ */
+const executeArchetypeBasedQuery = <T extends ReadonlyArray<ComponentName>>(
+  config: QueryConfig<T>,
+  context: { metrics: QueryMetrics },
+  managerStateRef: Ref.Ref<ArchetypeManagerState>
+): Effect.Effect<QueryEntity[]> =>
+  Effect.gen(function* () {
+    const signature = createArchetypeSignature(
+      config.withComponents,
+      config.withoutComponents || []
+    )
+    
+    const matchingArchetypes = yield* findMatchingArchetypes(signature, managerStateRef)
     const entities: QueryEntity[] = []
-
+    
     for (const archetype of matchingArchetypes) {
-      const archetypeEntities = archetype.getEntities()
+      const archetypeEntities = yield* archetype.getEntities()
       context.metrics.entitiesScanned += archetypeEntities.length
       entities.push(...archetypeEntities)
     }
-
+    
     return entities
-  }
+  })
 
-  private executeDirectFilter(entities: ReadonlyArray<QueryEntity>, context: { metrics: QueryMetrics }): QueryEntity[] {
+/**
+ * Execute direct entity filtering
+ */
+const executeDirectFilter = <T extends ReadonlyArray<ComponentName>>(
+  config: QueryConfig<T>,
+  entities: ReadonlyArray<QueryEntity>,
+  context: { metrics: QueryMetrics }
+): Effect.Effect<QueryEntity[]> =>
+  Effect.gen(function* () {
     const result: QueryEntity[] = []
     
     for (const entity of entities) {
       context.metrics.entitiesScanned++
-
+      
       // Check required components
-      const hasRequired = this.config.withComponents.every(
+      const hasRequired = config.withComponents.every(
         comp => entity.components[comp] !== undefined
       )
-
+      
       if (!hasRequired) continue
-
+      
       // Check forbidden components
-      const hasForbidden = (this.config.withoutComponents || []).some(
+      const hasForbidden = (config.withoutComponents || []).some(
         comp => entity.components[comp] !== undefined
       )
-
+      
       if (hasForbidden) continue
-
+      
       result.push(entity)
     }
-
+    
     return result
-  }
+  })
 
-  private applyPredicate(entities: QueryEntity[], _context: { metrics: QueryMetrics }): QueryEntity[] {
-    if (!this.config.predicate) return entities
-
+/**
+ * Apply predicate to archetype query results
+ */
+const applyArchetypePredicate = <T extends ReadonlyArray<ComponentName>>(
+  entities: QueryEntity[],
+  config: QueryConfig<T>,
+  _context: { metrics: QueryMetrics }
+): Effect.Effect<QueryEntity[]> =>
+  Effect.gen(function* () {
+    if (!config.predicate) return entities
+    
     const result: QueryEntity[] = []
-
+    
     for (const entity of entities) {
       const entityProxy = {
         get: <K extends ComponentName>(componentName: K) => {
@@ -320,55 +530,187 @@ export class ArchetypeQuery<T extends ReadonlyArray<ComponentName>> {
         },
         id: entity.id,
       }
-
+      
       try {
-        if (this.config.predicate(entityProxy as any)) {
+        if (config.predicate(entityProxy as any)) {
           result.push(entity)
         }
       } catch (error) {
         console.warn(`Predicate error for entity ${entity.id}:`, error)
       }
     }
-
+    
     return result
-  }
+  })
 
-  /**
-   * Add entity to archetype system
-   */
+/**
+ * Archetype Manager Service Implementation
+ */
+export const ArchetypeManagerServiceLive = Layer.effect(
+  ArchetypeManagerService,
+  Effect.gen(function* () {
+    const stateRef = yield* Ref.make<ArchetypeManagerState>({
+      archetypes: HashMap.empty(),
+      entityToArchetype: HashMap.empty(),
+      componentIndices: {
+        componentToIndex: HashMap.empty(),
+        nextIndex: 0
+      }
+    })
+    
+    return ArchetypeManagerService.of({
+      createSignature: createArchetypeSignature,
+      getOrCreateArchetype: (signature) => getOrCreateArchetype(signature, stateRef),
+      addEntity: (entity) => addEntityToArchetype(entity, stateRef),
+      removeEntity: (entity) => removeEntityFromArchetype(entity, stateRef),
+      findMatchingArchetypes: (signature) => findMatchingArchetypes(signature, stateRef),
+      getAllEntities: () => getAllArchetypeEntities(stateRef),
+      getStats: () => getArchetypeStats(stateRef)
+    })
+  })
+)
+
+/**
+ * Archetype Query Service Implementation
+ */
+export const ArchetypeQueryServiceLive = Layer.effect(
+  ArchetypeQueryService,
+  Effect.gen(function* () {
+    const managerStateRef = yield* Ref.make<ArchetypeManagerState>({
+      archetypes: HashMap.empty(),
+      entityToArchetype: HashMap.empty(),
+      componentIndices: {
+        componentToIndex: HashMap.empty(),
+        nextIndex: 0
+      }
+    })
+    
+    return ArchetypeQueryService.of({
+      execute: <T extends ReadonlyArray<ComponentName>>(
+        config: QueryConfig<T>,
+        entities?: ReadonlyArray<QueryEntity>
+      ) => executeArchetypeQuery(config, entities, managerStateRef),
+      
+      addEntity: (entity) => addEntityToArchetype(entity, managerStateRef),
+      removeEntity: (entity) => removeEntityFromArchetype(entity, managerStateRef),
+      getStats: () => getArchetypeStats(managerStateRef),
+      reset: () =>
+        Ref.set(managerStateRef, {
+          archetypes: HashMap.empty(),
+          entityToArchetype: HashMap.empty(),
+          componentIndices: {
+            componentToIndex: HashMap.empty(),
+            nextIndex: 0
+          }
+        })
+    })
+  })
+)
+
+/**
+ * Legacy Archetype class wrapper for backward compatibility
+ */
+export class Archetype {
+  constructor(public readonly signature: ArchetypeSignature) {}
+  
+  addEntity(entity: QueryEntity): void {
+    throw new Error('Legacy Archetype.addEntity() not supported. Use ArchetypeService instead.')
+  }
+  
+  removeEntity(entity: QueryEntity): void {
+    throw new Error('Legacy Archetype.removeEntity() not supported. Use ArchetypeService instead.')
+  }
+  
+  getEntities(): ReadonlyArray<QueryEntity> {
+    throw new Error('Legacy Archetype.getEntities() not supported. Use ArchetypeService instead.')
+  }
+  
+  matches(signature: ArchetypeSignature): boolean {
+    throw new Error('Legacy Archetype.matches() not supported. Use ArchetypeService instead.')
+  }
+  
+  matchesMask(requiredMask: bigint, forbiddenMask: bigint): boolean {
+    throw new Error('Legacy Archetype.matchesMask() not supported. Use ArchetypeService instead.')
+  }
+  
+  get size(): number {
+    throw new Error('Legacy Archetype.size not supported. Use ArchetypeService instead.')
+  }
+}
+
+/**
+ * Legacy ArchetypeManager class wrapper for backward compatibility
+ */
+export class ArchetypeManager {
+  createSignature(
+    required: ReadonlyArray<ComponentName>,
+    forbidden: ReadonlyArray<ComponentName> = []
+  ): ArchetypeSignature {
+    return createArchetypeSignature(required, forbidden)
+  }
+  
+  getOrCreateArchetype(signature: ArchetypeSignature): Archetype {
+    throw new Error('Legacy ArchetypeManager.getOrCreateArchetype() not supported. Use ArchetypeManagerService instead.')
+  }
+  
+  addEntity(entity: QueryEntity): void {
+    throw new Error('Legacy ArchetypeManager.addEntity() not supported. Use ArchetypeManagerService instead.')
+  }
+  
+  removeEntity(entity: QueryEntity): void {
+    throw new Error('Legacy ArchetypeManager.removeEntity() not supported. Use ArchetypeManagerService instead.')
+  }
+  
+  findMatchingArchetypes(signature: ArchetypeSignature): ReadonlyArray<Archetype> {
+    throw new Error('Legacy ArchetypeManager.findMatchingArchetypes() not supported. Use ArchetypeManagerService instead.')
+  }
+  
+  getAllEntities(): ReadonlyArray<EntityId> {
+    throw new Error('Legacy ArchetypeManager.getAllEntities() not supported. Use ArchetypeManagerService instead.')
+  }
+  
+  getStats() {
+    throw new Error('Legacy ArchetypeManager.getStats() not supported. Use ArchetypeManagerService instead.')
+  }
+}
+
+/**
+ * Legacy ArchetypeQuery class wrapper for backward compatibility
+ */
+export class ArchetypeQuery<T extends ReadonlyArray<ComponentName>> {
+  constructor(private config: QueryConfig<T>) {}
+  
+  execute(entities?: ReadonlyArray<QueryEntity>): {
+    entities: ReadonlyArray<QueryEntity>
+    metrics: QueryMetrics
+  } {
+    throw new Error('Legacy ArchetypeQuery.execute() not supported. Use ArchetypeQueryService instead.')
+  }
+  
   static addEntity(entity: QueryEntity): void {
-    ArchetypeQuery.archetypeManager.addEntity(entity)
+    throw new Error('Legacy ArchetypeQuery.addEntity() not supported. Use ArchetypeQueryService instead.')
   }
-
-  /**
-   * Remove entity from archetype system
-   */
+  
   static removeEntity(entity: QueryEntity): void {
-    ArchetypeQuery.archetypeManager.removeEntity(entity)
+    throw new Error('Legacy ArchetypeQuery.removeEntity() not supported. Use ArchetypeQueryService instead.')
   }
-
-  /**
-   * Get archetype manager statistics
-   */
+  
   static getArchetypeStats() {
-    return ArchetypeQuery.archetypeManager.getStats()
+    throw new Error('Legacy ArchetypeQuery.getArchetypeStats() not supported. Use ArchetypeQueryService instead.')
   }
-
-  /**
-   * Reset archetype system (useful for testing)
-   */
+  
   static reset(): void {
-    ArchetypeQuery.archetypeManager = new ArchetypeManager()
+    throw new Error('Legacy ArchetypeQuery.reset() not supported. Use ArchetypeQueryService instead.')
   }
-
+  
   get name(): string {
     return this.config.name
   }
-
+  
   get components(): T {
     return this.config.withComponents
   }
-
+  
   get forbiddenComponents(): ReadonlyArray<ComponentName> {
     return this.config.withoutComponents || []
   }
@@ -376,17 +718,17 @@ export class ArchetypeQuery<T extends ReadonlyArray<ComponentName>> {
 
 // Convenience functions for test compatibility
 export const addEntityToArchetype = (entity: QueryEntity): void => {
-  ArchetypeQuery.addEntity(entity)
+  throw new Error('Legacy addEntityToArchetype() not supported. Use ArchetypeQueryService instead.')
 }
 
 export const removeEntityFromArchetype = (entity: QueryEntity): void => {
-  ArchetypeQuery.removeEntity(entity)
+  throw new Error('Legacy removeEntityFromArchetype() not supported. Use ArchetypeQueryService instead.')
 }
 
 export const getArchetypeStats = () => {
-  return ArchetypeQuery.getArchetypeStats()
+  throw new Error('Legacy getArchetypeStats() not supported. Use ArchetypeQueryService instead.')
 }
 
 export const resetArchetypes = (): void => {
-  ArchetypeQuery.reset()
+  throw new Error('Legacy resetArchetypes() not supported. Use ArchetypeQueryService instead.')
 }

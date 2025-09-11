@@ -4,7 +4,7 @@
  */
 
 import { ComponentName, ComponentOfName } from '@/core/components'
-import { EntityId } from '@/core/entities'
+import { EntityId } from '@/domain/entities'
 import { QueryConfig, QueryMetrics, startQueryContext, finalizeQueryContext, QueryEntity } from './builder'
 
 /**

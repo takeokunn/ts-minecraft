@@ -4,7 +4,7 @@
  */
 
 import { ComponentName, ComponentOfName } from '@/core/components'
-import { EntityId } from '@/core/entities'
+import { EntityId } from '@/domain/entities'
 import { QueryEntity } from './builder'
 import { QueryConfig, QueryMetrics, startQueryContext, finalizeQueryContext } from './builder'
 import { QueryCache, globalQueryCache, CacheKeyGenerator, CachedQueryResult, CachedQueryMetrics } from './cache'

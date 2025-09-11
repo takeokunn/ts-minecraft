@@ -1,6 +1,6 @@
 import { Layer, Effect, Ref } from 'effect'
 import { SpatialGrid } from '@/services/core/spatial-grid'
-import { EntityId } from '@/core/entities/entity'
+import { EntityId } from '@/domain/entities'
 import { AABB } from '@/domain/geometry'
 
 /**

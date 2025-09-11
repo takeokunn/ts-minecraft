@@ -22,7 +22,7 @@ import * as Queue from 'effect/Queue'
 import * as Schedule from 'effect/Schedule'
 
 // Core imports
-import { EntityId } from '../../core/entities'
+import { EntityId } from '@/domain/entities'
 import { Position } from '../../core/values'
 import { ChunkCoordinates } from '../../core/values/coordinates'
 import { BlockType } from '../../core/values'

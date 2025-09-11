@@ -1,5 +1,5 @@
 import { Context, Effect } from 'effect'
-import { EntityId } from '@/core/entities/entity'
+import { EntityId } from '@/domain/entities'
 import { AABB } from '@/domain/geometry'
 
 /**

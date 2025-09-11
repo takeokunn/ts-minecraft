@@ -21,7 +21,7 @@ import * as Ref from 'effect/Ref'
 
 
 // Core imports
-import { EntityId } from '../../core/entities'
+import { EntityId } from '@/domain/entities'
 import { ComponentName, Components } from '../../core/components'
 import { Position } from '../../core/values'
 import {

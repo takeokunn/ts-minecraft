@@ -15,7 +15,7 @@ import { ArchetypeQuery, trackPerformance } from '@/core/queries'
 import { World, ComputationWorker } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
 import { Position, ChunkComponent, VelocityComponent } from '@/core/components'
-import { EntityId } from '@/core/entities/entity'
+import { EntityId } from '@/domain/entities'
 import { CHUNK_SIZE, RENDER_DISTANCE, CHUNK_HEIGHT } from '@/domain/world-constants'
 
 /**

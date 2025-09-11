@@ -1,10 +1,10 @@
 /**
- * Query Cache System
+ * Query Cache System - Functional Effect-TS Implementation
  * Provides intelligent caching for query results with TTL and invalidation strategies
  */
 
+import { Effect, Ref, Context, Layer, HashMap, Option } from 'effect'
 import { ComponentName } from '@/core/components'
-
 import { QueryMetrics } from './builder'
 
 /**
@@ -54,75 +54,108 @@ export interface CacheStats {
 }
 
 /**
- * Query result cache with intelligent invalidation
+ * Query Cache Service
  */
-export class QueryCache {
-  private cache: Map<string, CacheEntry> = new Map()
-  private stats: CacheStats = {
-    hits: 0,
-    misses: 0,
-    evictions: 0,
-    totalEntries: 0,
-    memoryUsage: 0,
-    hitRate: 0,
-  }
+export const QueryCacheService = Context.GenericTag<{
+  readonly get: <T>(key: string) => Effect.Effect<Option.Option<T>>
+  readonly set: <T>(
+    key: string,
+    data: T,
+    dependencies?: ComponentName[],
+    ttl?: number
+  ) => Effect.Effect<void>
+  readonly invalidate: (modifiedComponents: ComponentName[]) => Effect.Effect<number>
+  readonly invalidateKey: (key: string) => Effect.Effect<boolean>
+  readonly clear: () => Effect.Effect<void>
+  readonly getStats: () => Effect.Effect<CacheStats>
+  readonly cleanup: () => Effect.Effect<number>
+  readonly getEntries: () => Effect.Effect<Array<{ key: string; entry: CacheEntry }>>
+}>('QueryCacheService')
 
-  private cleanupTimer?: NodeJS.Timeout | undefined
+/**
+ * Internal cache state
+ */
+interface CacheState {
+  cache: HashMap.HashMap<string, CacheEntry>
+  stats: CacheStats
+  cleanupTimer?: NodeJS.Timeout
+}
 
-  constructor(private config: CacheConfig) {
-    if (config.autoCleanupInterval > 0) {
-      this.cleanupTimer = setInterval(() => {
-        this.cleanup()
-      }, config.autoCleanupInterval)
-    }
-  }
-
-  /**
-   * Get cached query result
-   */
-  get<T>(key: string): T | undefined {
-    const entry = this.cache.get(key)
+/**
+ * Get cached query result
+ */
+const getCached = <T>(key: string, cacheRef: Ref.Ref<CacheState>): Effect.Effect<Option.Option<T>> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.get(cacheRef)
+    const entryOption = HashMap.get(state.cache, key)
     
-    if (!entry) {
-      this.stats.misses++
-      this.updateHitRate()
-      return undefined
+    if (Option.isNone(entryOption)) {
+      yield* Ref.update(cacheRef, state => ({
+        ...state,
+        stats: {
+          ...state.stats,
+          misses: state.stats.misses + 1,
+          hitRate: updateHitRate(state.stats.hits, state.stats.misses + 1)
+        }
+      }))
+      return Option.none()
     }
-
+    
+    const entry = entryOption.value
     const now = Date.now()
     
     // Check TTL expiration
     if (now - entry.timestamp > entry.ttl) {
-      this.cache.delete(key)
-      this.stats.misses++
-      this.stats.evictions++
-      this.updateStats()
-      return undefined
+      yield* Ref.update(cacheRef, state => ({
+        ...state,
+        cache: HashMap.remove(state.cache, key),
+        stats: {
+          ...state.stats,
+          misses: state.stats.misses + 1,
+          evictions: state.stats.evictions + 1,
+          totalEntries: state.stats.totalEntries - 1,
+          hitRate: updateHitRate(state.stats.hits, state.stats.misses + 1)
+        }
+      }))
+      return Option.none()
     }
-
+    
     // Update access metadata
-    entry.accessCount++
-    entry.lastAccessed = now
+    const updatedEntry = {
+      ...entry,
+      accessCount: entry.accessCount + 1,
+      lastAccessed: now
+    }
     
-    this.stats.hits++
-    this.updateHitRate()
+    yield* Ref.update(cacheRef, state => ({
+      ...state,
+      cache: HashMap.set(state.cache, key, updatedEntry),
+      stats: {
+        ...state.stats,
+        hits: state.stats.hits + 1,
+        hitRate: updateHitRate(state.stats.hits + 1, state.stats.misses)
+      }
+    }))
     
-    return entry.data as T
-  }
+    return Option.some(entry.data as T)
+  })
 
-  /**
-   * Cache query result with dependencies
-   */
-  set<T>(
-    key: string, 
-    data: T, 
-    dependencies: ComponentName[] = [], 
-    ttl?: number
-  ): void {
+/**
+ * Cache query result with dependencies
+ */
+const setCached = <T>(
+  key: string,
+  data: T,
+  dependencies: ComponentName[] = [],
+  ttl: number | undefined,
+  cacheRef: Ref.Ref<CacheState>,
+  config: CacheConfig
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
     const now = Date.now()
-    const entryTtl = ttl ?? this.config.defaultTtl
-    const size = this.estimateSize(data)
-
+    const entryTtl = ttl ?? config.defaultTtl
+    const size = estimateSize(data)
+    
     const entry: CacheEntry<T> = {
       data,
       timestamp: now,
@@ -130,256 +163,386 @@ export class QueryCache {
       lastAccessed: now,
       ttl: entryTtl,
       size,
-      dependencies: new Set(dependencies),
+      dependencies: new Set(dependencies)
     }
-
+    
     // Evict if necessary
-    while (this.shouldEvict(size)) {
-      this.evictOne()
-    }
-
-    this.cache.set(key, entry)
-    this.updateStats()
-  }
-
-  /**
-   * Invalidate cache entries that depend on modified components
-   */
-  invalidate(modifiedComponents: ComponentName[]): number {
-    let invalidated = 0
-    const modifiedSet = new Set(modifiedComponents)
-
-    for (const [key, entry] of this.cache.entries()) {
-      // Check if any dependencies were modified
-      const hasIntersection = [...entry.dependencies].some(dep => modifiedSet.has(dep))
-      
-      if (hasIntersection) {
-        this.cache.delete(key)
-        invalidated++
+    yield* evictIfNecessary(size, cacheRef, config)
+    
+    yield* Ref.update(cacheRef, state => {
+      const newCache = HashMap.set(state.cache, key, entry)
+      return {
+        ...state,
+        cache: newCache,
+        stats: {
+          ...state.stats,
+          totalEntries: HashMap.size(newCache),
+          memoryUsage: calculateMemoryUsage(newCache)
+        }
       }
-    }
+    })
+  })
 
-    this.updateStats()
+/**
+ * Invalidate cache entries that depend on modified components
+ */
+const invalidateCached = (
+  modifiedComponents: ComponentName[],
+  cacheRef: Ref.Ref<CacheState>
+): Effect.Effect<number> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.get(cacheRef)
+    const modifiedSet = new Set(modifiedComponents)
+    let invalidated = 0
+    
+    const newCache = HashMap.filter(state.cache, (_key, entry) => {
+      const hasIntersection = [...entry.dependencies].some(dep => modifiedSet.has(dep))
+      if (hasIntersection) {
+        invalidated++
+        return false
+      }
+      return true
+    })
+    
+    yield* Ref.set(cacheRef, {
+      ...state,
+      cache: newCache,
+      stats: {
+        ...state.stats,
+        totalEntries: HashMap.size(newCache),
+        memoryUsage: calculateMemoryUsage(newCache)
+      }
+    })
+    
     return invalidated
-  }
+  })
 
-  /**
-   * Invalidate specific cache entry
-   */
-  invalidateKey(key: string): boolean {
-    const deleted = this.cache.delete(key)
-    if (deleted) {
-      this.updateStats()
+/**
+ * Invalidate specific cache entry
+ */
+const invalidateKeyCached = (
+  key: string,
+  cacheRef: Ref.Ref<CacheState>
+): Effect.Effect<boolean> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.get(cacheRef)
+    const hadKey = HashMap.has(state.cache, key)
+    
+    if (hadKey) {
+      const newCache = HashMap.remove(state.cache, key)
+      yield* Ref.set(cacheRef, {
+        ...state,
+        cache: newCache,
+        stats: {
+          ...state.stats,
+          totalEntries: HashMap.size(newCache),
+          memoryUsage: calculateMemoryUsage(newCache)
+        }
+      })
     }
-    return deleted
-  }
+    
+    return hadKey
+  })
 
-  /**
-   * Clear all cache entries
-   */
-  clear(): void {
-    this.cache.clear()
-    this.stats.evictions += this.stats.totalEntries
-    this.updateStats()
-  }
+/**
+ * Clear all cache entries
+ */
+const clearCached = (cacheRef: Ref.Ref<CacheState>): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.get(cacheRef)
+    const evictions = state.stats.totalEntries
+    
+    yield* Ref.set(cacheRef, {
+      ...state,
+      cache: HashMap.empty(),
+      stats: {
+        ...state.stats,
+        evictions: state.stats.evictions + evictions,
+        totalEntries: 0,
+        memoryUsage: 0
+      }
+    })
+  })
 
-  /**
-   * Get cache statistics
-   */
-  getStats(): CacheStats {
-    return { ...this.stats }
-  }
+/**
+ * Get cache statistics
+ */
+const getStatsCached = (cacheRef: Ref.Ref<CacheState>): Effect.Effect<CacheStats> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.get(cacheRef)
+    return { ...state.stats }
+  })
 
-  /**
-   * Cleanup expired entries
-   */
-  cleanup(): number {
+/**
+ * Cleanup expired entries
+ */
+const cleanupCached = (cacheRef: Ref.Ref<CacheState>): Effect.Effect<number> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.get(cacheRef)
     const now = Date.now()
     let cleaned = 0
-
-    for (const [key, entry] of this.cache.entries()) {
-      if (now - entry.timestamp > entry.ttl) {
-        this.cache.delete(key)
+    
+    const newCache = HashMap.filter(state.cache, (_key, entry) => {
+      const isExpired = now - entry.timestamp > entry.ttl
+      if (isExpired) {
         cleaned++
+        return false
       }
-    }
-
+      return true
+    })
+    
     if (cleaned > 0) {
-      this.stats.evictions += cleaned
-      this.updateStats()
+      yield* Ref.set(cacheRef, {
+        ...state,
+        cache: newCache,
+        stats: {
+          ...state.stats,
+          evictions: state.stats.evictions + cleaned,
+          totalEntries: HashMap.size(newCache),
+          memoryUsage: calculateMemoryUsage(newCache)
+        }
+      })
     }
-
+    
     return cleaned
-  }
+  })
 
-  /**
-   * Get cache entries for debugging
-   */
-  getEntries(): Array<{ key: string; entry: CacheEntry }> {
-    return Array.from(this.cache.entries()).map(([key, entry]) => ({
+/**
+ * Get cache entries for debugging
+ */
+const getEntriesCached = (cacheRef: Ref.Ref<CacheState>): Effect.Effect<Array<{ key: string; entry: CacheEntry }>> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.get(cacheRef)
+    return HashMap.toEntries(state.cache).map(([key, entry]) => ({
       key,
-      entry: { ...entry, dependencies: Array.from(entry.dependencies) } as any,
+      entry: { ...entry, dependencies: Array.from(entry.dependencies) } as any
     }))
-  }
+  })
 
-  private shouldEvict(newEntrySize: number): boolean {
-    return this.stats.memoryUsage + newEntrySize > this.config.maxSize
-  }
+/**
+ * Check if eviction is needed
+ */
+const shouldEvict = (newEntrySize: number, memoryUsage: number, maxSize: number): boolean =>
+  memoryUsage + newEntrySize > maxSize
 
-  private evictOne(): void {
-    if (this.cache.size === 0) return
-
-    let keyToEvict: string
-
-    switch (this.config.evictionPolicy) {
-      case EvictionPolicy.LRU:
-        keyToEvict = this.findLRUKey()
-        break
-      case EvictionPolicy.LFU:
-        keyToEvict = this.findLFUKey()
-        break
-      case EvictionPolicy.TTL:
-        keyToEvict = this.findOldestTTLKey()
-        break
-      case EvictionPolicy.FIFO:
-      default:
-        keyToEvict = this.cache.keys().next().value!
-        break
-    }
-
-    this.cache.delete(keyToEvict)
-    this.stats.evictions++
-  }
-
-  private findLRUKey(): string {
-    let oldestTime = Infinity
-    let lruKey = ''
-
-    for (const [key, entry] of this.cache.entries()) {
-      if (entry.lastAccessed < oldestTime) {
-        oldestTime = entry.lastAccessed
-        lruKey = key
+/**
+ * Evict entries if necessary
+ */
+const evictIfNecessary = (
+  newEntrySize: number,
+  cacheRef: Ref.Ref<CacheState>,
+  config: CacheConfig
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.get(cacheRef)
+    
+    let currentState = state
+    while (shouldEvict(newEntrySize, currentState.stats.memoryUsage, config.maxSize)) {
+      if (HashMap.isEmpty(currentState.cache)) break
+      
+      const keyToEvict = findKeyToEvict(currentState.cache, config.evictionPolicy)
+      const newCache = HashMap.remove(currentState.cache, keyToEvict)
+      
+      currentState = {
+        ...currentState,
+        cache: newCache,
+        stats: {
+          ...currentState.stats,
+          evictions: currentState.stats.evictions + 1,
+          totalEntries: HashMap.size(newCache),
+          memoryUsage: calculateMemoryUsage(newCache)
+        }
       }
     }
-
-    return lruKey
-  }
-
-  private findLFUKey(): string {
-    let lowestCount = Infinity
-    let lfuKey = ''
-
-    for (const [key, entry] of this.cache.entries()) {
-      if (entry.accessCount < lowestCount) {
-        lowestCount = entry.accessCount
-        lfuKey = key
-      }
+    
+    if (currentState !== state) {
+      yield* Ref.set(cacheRef, currentState)
     }
+  })
 
-    return lfuKey
-  }
-
-  private findOldestTTLKey(): string {
-    let oldestTimestamp = Infinity
-    let oldestKey = ''
-
-    for (const [key, entry] of this.cache.entries()) {
-      if (entry.timestamp < oldestTimestamp) {
-        oldestTimestamp = entry.timestamp
-        oldestKey = key
-      }
-    }
-
-    return oldestKey
-  }
-
-  private estimateSize(data: any): number {
-    try {
-      return JSON.stringify(data).length * 2 // Rough estimation
-    } catch {
-      return 1024 // Default size for non-serializable data
-    }
-  }
-
-  private updateStats(): void {
-    this.stats.totalEntries = this.cache.size
-    this.stats.memoryUsage = Array.from(this.cache.values())
-      .reduce((sum, entry) => sum + entry.size, 0)
-    this.updateHitRate()
-  }
-
-  private updateHitRate(): void {
-    const total = this.stats.hits + this.stats.misses
-    this.stats.hitRate = total === 0 ? 0 : this.stats.hits / total
-  }
-
-  /**
-   * Dispose cache and cleanup resources
-   */
-  dispose(): void {
-    if (this.cleanupTimer) {
-      clearInterval(this.cleanupTimer)
-      this.cleanupTimer = undefined
-    }
-    this.clear()
+/**
+ * Find key to evict based on policy
+ */
+const findKeyToEvict = (cache: HashMap.HashMap<string, CacheEntry>, policy: EvictionPolicy): string => {
+  const entries = HashMap.toEntries(cache)
+  
+  switch (policy) {
+    case EvictionPolicy.LRU:
+      return entries.reduce((oldest, [key, entry]) => 
+        entry.lastAccessed < oldest.lastAccessed 
+          ? { key, lastAccessed: entry.lastAccessed }
+          : oldest
+      , { key: entries[0]![0], lastAccessed: entries[0]![1].lastAccessed }).key
+      
+    case EvictionPolicy.LFU:
+      return entries.reduce((lowest, [key, entry]) =>
+        entry.accessCount < lowest.accessCount
+          ? { key, accessCount: entry.accessCount }
+          : lowest
+      , { key: entries[0]![0], accessCount: entries[0]![1].accessCount }).key
+      
+    case EvictionPolicy.TTL:
+      return entries.reduce((oldest, [key, entry]) =>
+        entry.timestamp < oldest.timestamp
+          ? { key, timestamp: entry.timestamp }
+          : oldest
+      , { key: entries[0]![0], timestamp: entries[0]![1].timestamp }).key
+      
+    case EvictionPolicy.FIFO:
+    default:
+      return entries[0]![0]
   }
 }
 
 /**
- * Global query cache instance
+ * Estimate data size
  */
-export const globalQueryCache = new QueryCache({
+const estimateSize = (data: any): number => {
+  try {
+    return JSON.stringify(data).length * 2 // Rough estimation
+  } catch {
+    return 1024 // Default size for non-serializable data
+  }
+}
+
+/**
+ * Calculate total memory usage
+ */
+const calculateMemoryUsage = (cache: HashMap.HashMap<string, CacheEntry>): number =>
+  HashMap.reduce(cache, 0, (sum, entry) => sum + entry.size)
+
+/**
+ * Update hit rate
+ */
+const updateHitRate = (hits: number, misses: number): number => {
+  const total = hits + misses
+  return total === 0 ? 0 : hits / total
+}
+
+/**
+ * Query Cache Service Implementation
+ */
+export const QueryCacheServiceLive = (config: CacheConfig) => Layer.effect(
+  QueryCacheService,
+  Effect.gen(function* () {
+    const cacheRef = yield* Ref.make<CacheState>({
+      cache: HashMap.empty(),
+      stats: {
+        hits: 0,
+        misses: 0,
+        evictions: 0,
+        totalEntries: 0,
+        memoryUsage: 0,
+        hitRate: 0
+      },
+      cleanupTimer: undefined
+    })
+    
+    // Setup cleanup timer if needed
+    if (config.autoCleanupInterval > 0) {
+      const timer = setInterval(() => {
+        Effect.runPromise(cleanupCached(cacheRef))
+      }, config.autoCleanupInterval)
+      
+      yield* Ref.update(cacheRef, state => ({ ...state, cleanupTimer: timer }))
+    }
+    
+    return QueryCacheService.of({
+      get: <T>(key: string) => getCached<T>(key, cacheRef),
+      set: <T>(key: string, data: T, dependencies?: ComponentName[], ttl?: number) =>
+        setCached(key, data, dependencies || [], ttl, cacheRef, config),
+      invalidate: (modifiedComponents) => invalidateCached(modifiedComponents, cacheRef),
+      invalidateKey: (key) => invalidateKeyCached(key, cacheRef),
+      clear: () => clearCached(cacheRef),
+      getStats: () => getStatsCached(cacheRef),
+      cleanup: () => cleanupCached(cacheRef),
+      getEntries: () => getEntriesCached(cacheRef)
+    })
+  })
+)
+
+/**
+ * Default cache configuration
+ */
+export const defaultCacheConfig: CacheConfig = {
   maxSize: 50 * 1024 * 1024, // 50MB
   defaultTtl: 30000, // 30 seconds
   evictionPolicy: EvictionPolicy.LRU,
   enableMetrics: true,
   autoCleanupInterval: 10000, // 10 seconds
-})
+}
 
 /**
- * Query cache key generation
+ * Global query cache layer with default configuration
  */
-export class CacheKeyGenerator {
-  /**
-   * Generate cache key for component-based query
-   */
-  static forComponents(
+export const GlobalQueryCacheServiceLive = QueryCacheServiceLive(defaultCacheConfig)
+
+/**
+ * Cache Key Generator Service
+ */
+export const CacheKeyGeneratorService = Context.GenericTag<{
+  readonly forComponents: (
     required: ReadonlyArray<ComponentName>,
-    forbidden: ReadonlyArray<ComponentName> = [],
+    forbidden?: ReadonlyArray<ComponentName>,
     predicateHash?: string
-  ): string {
-    const requiredStr = [...required].sort().join(',')
-    const forbiddenStr = [...forbidden].sort().join(',')
-    const predicateStr = predicateHash ? `|pred:${predicateHash}` : ''
-    
-    return `comp:${requiredStr}|!${forbiddenStr}${predicateStr}`
-  }
+  ) => string
+  readonly forEntityList: (entityIds: ReadonlyArray<string>) => string
+  readonly hashPredicate: (predicate: Function) => string
+}>('CacheKeyGeneratorService')
 
-  /**
-   * Generate cache key for entity list query
-   */
-  static forEntityList(entityIds: ReadonlyArray<string>): string {
-    return `entities:${[...entityIds].sort().join(',')}`
-  }
-
-  /**
-   * Generate hash for predicate function
-   */
-  static hashPredicate(predicate: Function): string {
-    const funcStr = predicate.toString()
-    return this.simpleHash(funcStr).toString(36)
-  }
-
-  private static simpleHash(str: string): number {
-    let hash = 0
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i)
-      hash = ((hash << 5) - hash) + char
-      hash = hash & hash // Convert to 32-bit integer
-    }
-    return hash
-  }
+/**
+ * Generate cache key for component-based query
+ */
+const forComponents = (
+  required: ReadonlyArray<ComponentName>,
+  forbidden: ReadonlyArray<ComponentName> = [],
+  predicateHash?: string
+): string => {
+  const requiredStr = [...required].sort().join(',')
+  const forbiddenStr = [...forbidden].sort().join(',')
+  const predicateStr = predicateHash ? `|pred:${predicateHash}` : ''
+  
+  return `comp:${requiredStr}|!${forbiddenStr}${predicateStr}`
 }
+
+/**
+ * Generate cache key for entity list query
+ */
+const forEntityList = (entityIds: ReadonlyArray<string>): string =>
+  `entities:${[...entityIds].sort().join(',')}`
+
+/**
+ * Generate hash for predicate function
+ */
+const hashPredicate = (predicate: Function): string => {
+  const funcStr = predicate.toString()
+  return simpleHash(funcStr).toString(36)
+}
+
+/**
+ * Simple hash function
+ */
+const simpleHash = (str: string): number => {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32-bit integer
+  }
+  return hash
+}
+
+/**
+ * Cache Key Generator Service Implementation
+ */
+export const CacheKeyGeneratorServiceLive = Layer.succeed(
+  CacheKeyGeneratorService,
+  CacheKeyGeneratorService.of({
+    forComponents,
+    forEntityList,
+    hashPredicate
+  })
+)
 
 /**
  * Cache-aware query metrics
@@ -399,3 +562,60 @@ export interface CachedQueryResult<T> {
   fromCache: boolean
   cacheKey?: string
 }
+
+/**
+ * Convenience functions for backward compatibility
+ */
+export const CacheKeyGenerator = {
+  forComponents,
+  forEntityList, 
+  hashPredicate
+}
+
+/**
+ * Legacy QueryCache class wrapper for backward compatibility
+ */
+export class QueryCache {
+  constructor(private config: CacheConfig) {}
+  
+  get<T>(key: string): T | undefined {
+    throw new Error('Legacy QueryCache.get() not supported. Use QueryCacheService instead.')
+  }
+  
+  set<T>(key: string, data: T, dependencies: ComponentName[] = [], ttl?: number): void {
+    throw new Error('Legacy QueryCache.set() not supported. Use QueryCacheService instead.')
+  }
+  
+  invalidate(modifiedComponents: ComponentName[]): number {
+    throw new Error('Legacy QueryCache.invalidate() not supported. Use QueryCacheService instead.')
+  }
+  
+  invalidateKey(key: string): boolean {
+    throw new Error('Legacy QueryCache.invalidateKey() not supported. Use QueryCacheService instead.')
+  }
+  
+  clear(): void {
+    throw new Error('Legacy QueryCache.clear() not supported. Use QueryCacheService instead.')
+  }
+  
+  getStats(): CacheStats {
+    throw new Error('Legacy QueryCache.getStats() not supported. Use QueryCacheService instead.')
+  }
+  
+  cleanup(): number {
+    throw new Error('Legacy QueryCache.cleanup() not supported. Use QueryCacheService instead.')
+  }
+  
+  getEntries(): Array<{ key: string; entry: CacheEntry }> {
+    throw new Error('Legacy QueryCache.getEntries() not supported. Use QueryCacheService instead.')
+  }
+  
+  dispose(): void {
+    throw new Error('Legacy QueryCache.dispose() not supported. Use QueryCacheService instead.')
+  }
+}
+
+/**
+ * Legacy global query cache instance (deprecated)
+ */
+export const globalQueryCache = new QueryCache(defaultCacheConfig)

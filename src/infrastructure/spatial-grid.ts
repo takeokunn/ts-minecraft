@@ -1,6 +1,6 @@
 import { Effect, HashMap, HashSet, Layer, Ref, Option, Array as _EffectArray } from 'effect'
 import { pipe } from 'effect/Function'
-import type { EntityId } from '@/core/entities/entity'
+import type { EntityId } from '@/domain/entities'
 import type { AABB } from '@/domain/geometry'
 import { SpatialGrid } from '@/runtime/services'
 import { ObjectPool } from '@/core/performance/object-pool'

@@ -1,4 +1,4 @@
-import { World } from '../core/entities/entity'
+import { World } from '@/domain/entities'
 
 export interface WorldEditAction {
   type: 'place' | 'remove' | 'replace'

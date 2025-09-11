@@ -7,5 +7,5 @@ export { type SoAResult } from '@/runtime/services'
 
 // Re-export commonly used world types
 export type { WorldState, Voxel } from '@/domain/world'
-export type { EntityId } from '@/core/entities/entity'
+export type { EntityId } from '@/domain/entities'
 export type { ComponentName, ComponentOfName } from '@/core/components'

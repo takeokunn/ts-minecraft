@@ -17,7 +17,7 @@ import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
 import { Position, InputStateComponent, TargetComponent, HotbarComponent } from '@/core/components'
 import { BlockType, BlockPosition } from '@/domain/value-objects'
 
-import { EntityId } from '@/core/entities/entity'
+import { EntityId } from '@/domain/entities'
 import * as THREE from 'three'
 
 /**

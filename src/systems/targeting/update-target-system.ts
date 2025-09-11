@@ -15,7 +15,7 @@ import { ArchetypeQuery, trackPerformance } from '@/core/queries'
 import { World, InputManager as _InputManager } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
 import { Position, CameraComponent, TargetComponent, InputStateComponent } from '@/core/components'
-import { EntityId } from '@/core/entities/entity'
+import { EntityId } from '@/domain/entities'
 import { BlockType, BlockPosition } from '@/domain/value-objects'
 import * as THREE from 'three'
 

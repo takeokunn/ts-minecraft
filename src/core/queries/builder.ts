@@ -6,7 +6,7 @@
 import { ComponentName, ComponentOfName } from '@/core/components'
 import { ArchetypeQuery } from './archetype-query'
 import { OptimizedQuery } from './optimized-query'
-import { EntityId } from '@/core/entities'
+import { EntityId } from '@/domain/entities'
 
 /**
  * Entity interface for query system

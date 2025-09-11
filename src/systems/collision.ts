@@ -7,7 +7,7 @@ import { AABB, createAABB, areAABBsIntersecting } from '@/domain/geometry'
 import { queries } from '@/core/queries'
 import { SpatialGrid, World } from '@/runtime/services'
 import { toFloat } from '@/core/common'
-import { EntityId } from '@/core/entities/entity'
+import { EntityId } from '@/domain/entities'
 import { SoAResult } from '@/core/types'
 
 type CollisionResolutionState = {

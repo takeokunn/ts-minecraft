@@ -12,7 +12,7 @@
 
 import { Effect, Queue, Option } from 'effect'
 import { SystemConfig, SystemContext } from './scheduler'
-import { EntityId } from '@/core/entities/entity'
+import { EntityId } from '@/domain/entities'
 
 /**
  * System message type

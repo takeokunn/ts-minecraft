@@ -1,6 +1,6 @@
 import { Effect, Option, HashMap } from 'effect'
 import { ReadonlyArray } from 'effect/ReadonlyArray'
-import { EntityId } from '@/core/entities/entity'
+import { EntityId } from '@/domain/entities'
 import { queries } from '@/core/queries'
 import { CHUNK_SIZE, RENDER_DISTANCE } from '@/domain/world-constants'
 import { ComputationWorker, World } from '@/runtime/services'

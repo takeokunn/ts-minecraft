@@ -1,4 +1,5 @@
 export * from './coordinates'
 export * from './physics'
+export * from './math'
 export * from './block-type.vo'
 export * from './entity-id.vo'

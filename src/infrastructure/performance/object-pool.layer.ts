@@ -1,4 +1,4 @@
-import { Effect, Ref, Queue, Option } from 'effect'
+import { Effect, Ref, Queue, Option, Context, Layer } from 'effect'
 
 /**
  * Generic object pool for reusable objects
@@ -15,122 +15,10 @@ export interface ObjectPoolConfig {
   readonly growthFactor: number
 }
 
-export class ObjectPool<T extends PoolableObject> {
-  private readonly available: T[] = []
-  private readonly inUse = new Set<T>()
-  
-  constructor(
-    private readonly factory: () => T,
-    private readonly config: ObjectPoolConfig = {
-      initialSize: 10,
-      maxSize: 1000,
-      growthFactor: 2
-    }
-  ) {
-    // Pre-allocate initial objects
-    for (let i = 0; i < config.initialSize; i++) {
-      this.available.push(factory())
-    }
-  }
-  
-  /**
-   * Acquire an object from the pool
-   */
-  acquire(): T {
-    let obj: T
-    
-    if (this.available.length > 0) {
-      obj = this.available.pop()!
-    } else if (this.inUse.size < this.config.maxSize) {
-      // Create new object if under max size
-      obj = this.factory()
-    } else {
-      // Pool exhausted, forcefully create (may cause GC pressure)
-      console.warn(`Object pool exhausted (size: ${this.config.maxSize})`)
-      obj = this.factory()
-    }
-    
-    this.inUse.add(obj)
-    return obj
-  }
-  
-  /**
-   * Release an object back to the pool
-   */
-  release(obj: T): void {
-    if (!this.inUse.has(obj)) {
-      console.warn('Attempting to release object not from this pool')
-      return
-    }
-    
-    this.inUse.delete(obj)
-    obj.reset()
-    
-    // Only keep up to maxSize objects in available pool
-    if (this.available.length < this.config.maxSize) {
-      this.available.push(obj)
-    }
-  }
-  
-  /**
-   * Release all objects back to the pool
-   */
-  releaseAll(): void {
-    this.inUse.forEach(obj => {
-      obj.reset()
-      if (this.available.length < this.config.maxSize) {
-        this.available.push(obj)
-      }
-    })
-    this.inUse.clear()
-  }
-  
-  /**
-   * Grow the pool by the growth factor
-   */
-  grow(): void {
-    const currentSize = this.available.length + this.inUse.size
-    const targetSize = Math.min(
-      Math.floor(currentSize * this.config.growthFactor),
-      this.config.maxSize
-    )
-    
-    const toAdd = targetSize - currentSize
-    for (let i = 0; i < toAdd; i++) {
-      this.available.push(this.factory())
-    }
-  }
-  
-  /**
-   * Get pool statistics
-   */
-  getStats(): {
-    available: number
-    inUse: number
-    total: number
-    maxSize: number
-  } {
-    return {
-      available: this.available.length,
-      inUse: this.inUse.size,
-      total: this.available.length + this.inUse.size,
-      maxSize: this.config.maxSize
-    }
-  }
-  
-  /**
-   * Clear the pool (for cleanup)
-   */
-  clear(): void {
-    this.available.length = 0
-    this.inUse.clear()
-  }
-}
-
 /**
- * Effect-based object pool with managed lifecycle
+ * Object pool service interface
  */
-export interface EffectObjectPool<T extends PoolableObject> {
+export interface ObjectPool<T extends PoolableObject> {
   readonly acquire: Effect.Effect<T, never, never>
   readonly release: (obj: T) => Effect.Effect<void, never, never>
   readonly releaseAll: Effect.Effect<void, never, never>
@@ -141,16 +29,30 @@ export interface EffectObjectPool<T extends PoolableObject> {
     total: number
     maxSize: number
   }, never, never>
+  readonly clear: Effect.Effect<void, never, never>
 }
 
-export const createEffectPool = <T extends PoolableObject>(
+/**
+ * Object pool service for dependency injection
+ */
+export const ObjectPoolService = Context.GenericTag<{
+  readonly createPool: <T extends PoolableObject>(
+    factory: () => T,
+    config?: ObjectPoolConfig
+  ) => Effect.Effect<ObjectPool<T>, never, never>
+}>('ObjectPoolService')
+
+/**
+ * Create an object pool implementation
+ */
+const createObjectPoolImpl = <T extends PoolableObject>(
   factory: () => T,
   config: ObjectPoolConfig = {
     initialSize: 10,
     maxSize: 1000,
     growthFactor: 2
   }
-): Effect.Effect<EffectObjectPool<T>, never, never> =>
+): Effect.Effect<ObjectPool<T>, never, never> =>
   Effect.gen(function* () {
     const available = yield* Queue.unbounded<T>()
     const inUse = yield* Ref.make(new Set<T>())
@@ -253,9 +155,26 @@ export const createEffectPool = <T extends PoolableObject>(
           total: queueSize + inUseSize,
           maxSize: config.maxSize
         }
+      }),
+      
+      clear: Effect.gen(function* () {
+        // Clear available queue
+        yield* Queue.takeAll(available)
+        // Clear in-use set
+        yield* Ref.set(inUse, new Set())
       })
     }
   })
+
+/**
+ * Object Pool Service Layer implementation
+ */
+export const ObjectPoolServiceLive = Layer.succeed(
+  ObjectPoolService,
+  ObjectPoolService.of({
+    createPool: createObjectPoolImpl
+  })
+)
 
 /**
  * Specialized pools for common objects
@@ -382,42 +301,48 @@ export class PooledAABB implements PoolableObject {
   }
 }
 
-// Pre-configured pools
-export const vector3Pool = new ObjectPool(
-  () => new PooledVector3(),
-  { initialSize: 100, maxSize: 10000, growthFactor: 2 }
-)
+// Pre-configured pool configurations
+export const vector3PoolConfig: ObjectPoolConfig = {
+  initialSize: 100,
+  maxSize: 10000,
+  growthFactor: 2
+}
 
-export const matrix4Pool = new ObjectPool(
-  () => new PooledMatrix4(),
-  { initialSize: 20, maxSize: 1000, growthFactor: 2 }
-)
+export const matrix4PoolConfig: ObjectPoolConfig = {
+  initialSize: 20,
+  maxSize: 1000,
+  growthFactor: 2
+}
 
-export const aabbPool = new ObjectPool(
-  () => new PooledAABB(),
-  { initialSize: 50, maxSize: 5000, growthFactor: 2 }
-)
-
-/**
- * Utility function to use pooled object temporarily
- */
-export const withPooled = <T extends PoolableObject, R>(
-  pool: ObjectPool<T>,
-  fn: (obj: T) => R
-): R => {
-  const obj = pool.acquire()
-  try {
-    return fn(obj)
-  } finally {
-    pool.release(obj)
-  }
+export const aabbPoolConfig: ObjectPoolConfig = {
+  initialSize: 50,
+  maxSize: 5000,
+  growthFactor: 2
 }
 
 /**
- * Effect version of withPooled
+ * Pre-configured pools as Effects
+ */
+export const createVector3Pool = Effect.gen(function* () {
+  const service = yield* ObjectPoolService
+  return yield* service.createPool(() => new PooledVector3(), vector3PoolConfig)
+})
+
+export const createMatrix4Pool = Effect.gen(function* () {
+  const service = yield* ObjectPoolService
+  return yield* service.createPool(() => new PooledMatrix4(), matrix4PoolConfig)
+})
+
+export const createAABBPool = Effect.gen(function* () {
+  const service = yield* ObjectPoolService
+  return yield* service.createPool(() => new PooledAABB(), aabbPoolConfig)
+})
+
+/**
+ * Effect version of withPooled - use pooled object with automatic cleanup
  */
 export const withPooledEffect = <T extends PoolableObject, R, E>(
-  pool: EffectObjectPool<T>,
+  pool: ObjectPool<T>,
   fn: (obj: T) => Effect.Effect<R, E, never>
 ): Effect.Effect<R, E, never> =>
   Effect.acquireUseRelease(
@@ -425,3 +350,17 @@ export const withPooledEffect = <T extends PoolableObject, R, E>(
     fn,
     obj => pool.release(obj)
   )
+
+/**
+ * Convenience function to create and use a temporary pool
+ */
+export const withTemporaryPool = <T extends PoolableObject, R, E>(
+  factory: () => T,
+  config: ObjectPoolConfig,
+  fn: (pool: ObjectPool<T>) => Effect.Effect<R, E, never>
+): Effect.Effect<R, E, ObjectPoolService> =>
+  Effect.gen(function* () {
+    const service = yield* ObjectPoolService
+    const pool = yield* service.createPool(factory, config)
+    return yield* fn(pool)
+  })

@@ -1,6 +1,6 @@
 import * as S from '@effect/schema/Schema'
 import { EntityId } from '@/domain/value-objects/entity-id.vo'
-import { PlacedBlockSchema } from '@/core/entities/block'
+import { PlacedBlockSchema } from '@/domain/entities'
 import { ChunkX, ChunkZ } from './common'
 
 const Float32ArraySchema = S.transform(S.Array(S.Number), S.instanceOf(Float32Array), {

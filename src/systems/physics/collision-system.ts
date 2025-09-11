@@ -15,7 +15,7 @@ import { ArchetypeQuery, trackPerformance } from '@/core/queries'
 import { World, SpatialGrid } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
 import { PositionComponent, VelocityComponent, ColliderComponent, MassComponent } from '@/core/components'
-import { EntityId } from '@/core/entities/entity'
+import { EntityId } from '@/domain/entities'
 import { AABB, createAABB as domainCreateAABB } from '@/domain/geometry'
 import { toFloat } from '@/core/common'
 

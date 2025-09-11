@@ -8,7 +8,7 @@ import {
   type ComponentName,
   type ComponentOfName,
 } from '@/core/components'
-import { type EntityId, toEntityId } from '@/core/entities/entity'
+import { type EntityId, toEntityId } from '@/domain/entities'
 import { toChunkIndex } from '@/domain/geometry'
 import { type LegacyQuery, type OptimizedQuery } from '@/core/queries'
 import { type Voxel } from '@/domain/world'

@@ -23,7 +23,7 @@ import * as Ref from 'effect/Ref'
 
 
 // Core imports
-import { EntityId } from '../../core/entities'
+import { EntityId } from '@/domain/entities'
 
 import { AABB } from '../../core/values/geometry/aabb.value'
 import {
