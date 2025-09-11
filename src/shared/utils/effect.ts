@@ -134,12 +134,12 @@ export interface CircuitBreakerConfig {
   readonly timeout: number
 }
 
-export const createCircuitBreaker = (config: CircuitBreakerConfig) => 
+export const createCircuitBreaker = (config: CircuitBreakerConfig) =>
   Effect.gen(function* () {
     const stateRef = yield* Ref.make<CircuitBreakerState>({
       failureCount: 0,
       lastFailureTime: 0,
-      state: 'closed'
+      state: 'closed',
     })
 
     const execute = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E | Error, R> =>
@@ -149,7 +149,7 @@ export const createCircuitBreaker = (config: CircuitBreakerConfig) =>
 
         // Check if circuit should be reset to half-open
         if (currentState.state === 'open' && now - currentState.lastFailureTime > config.timeout) {
-          yield* Ref.update(stateRef, state => ({ ...state, state: 'half-open' }))
+          yield* Ref.update(stateRef, (state) => ({ ...state, state: 'half-open' }))
         }
 
         const updatedState = yield* Ref.get(stateRef)
@@ -160,27 +160,27 @@ export const createCircuitBreaker = (config: CircuitBreakerConfig) =>
         }
 
         return yield* effect.pipe(
-          Effect.tap(() => 
+          Effect.tap(() =>
             // Success - reset failure count
-            Ref.update(stateRef, state => ({
+            Ref.update(stateRef, (state) => ({
               failureCount: 0,
               lastFailureTime: state.lastFailureTime,
-              state: 'closed'
-            }))
+              state: 'closed',
+            })),
           ),
           Effect.tapError(() =>
             Effect.gen(function* () {
               // Failure - increment count and potentially open circuit
-              yield* Ref.update(stateRef, state => {
+              yield* Ref.update(stateRef, (state) => {
                 const newFailureCount = state.failureCount + 1
                 return {
                   failureCount: newFailureCount,
                   lastFailureTime: now,
-                  state: newFailureCount >= config.threshold ? 'open' : state.state
+                  state: newFailureCount >= config.threshold ? 'open' : state.state,
                 }
               })
-            })
-          )
+            }),
+          ),
         )
       })
 

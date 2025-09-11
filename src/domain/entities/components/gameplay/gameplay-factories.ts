@@ -1,18 +1,18 @@
 /**
  * Gameplay Component Factory Functions
- * 
+ *
  * Provides factory functions for creating gameplay components with sensible defaults
  */
 
 import * as Data from 'effect/Data'
-import type { 
-  HealthComponent, 
-  InventoryComponent, 
-  PlayerControlComponent, 
-  AIComponent, 
+import type {
+  HealthComponent,
+  InventoryComponent,
+  PlayerControlComponent,
+  AIComponent,
   TargetComponent,
   AIState,
-  ItemStack
+  ItemStack,
 } from '@domain/entities/components/gameplay/gameplay-components'
 
 // ===== COMPONENT FACTORIES =====

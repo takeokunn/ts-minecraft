@@ -40,7 +40,7 @@ export const ChunkLoadUseCaseLive = Layer.effect(
 
         // Check if chunk is already loaded using world management service
         const metadata = yield* worldManagement.getChunkMetadata(coordinates)
-        
+
         if (metadata && metadata.status === 'loaded') {
           yield* Effect.log(`Chunk ${command.chunkX}, ${command.chunkZ} already loaded`)
           return
@@ -53,7 +53,7 @@ export const ChunkLoadUseCaseLive = Layer.effect(
 
         // Load chunk using world management domain service
         const result = yield* worldManagement.loadChunk(coordinates, priority)
-        
+
         if (result.success) {
           yield* Effect.log(`Chunk ${command.chunkX}, ${command.chunkZ} loaded successfully in ${result.loadTime}ms`)
         } else {
@@ -100,9 +100,9 @@ export const ChunkLoadUseCaseLive = Layer.effect(
 
     return {
       execute: executeChunk,
-      preloadChunksAroundPosition
+      preloadChunksAroundPosition,
     } satisfies ChunkLoadUseCaseService
-  })
+  }),
 )
 
 // This function is now handled by WorldManagementDomainService.loadChunk()

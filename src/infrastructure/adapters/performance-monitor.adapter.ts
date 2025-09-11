@@ -12,21 +12,14 @@ import { PerformanceMonitorService, PerformanceMonitorServiceLive } from '@infra
 
 /**
  * Performance Monitor Adapter
- * 
+ *
  * Maps the PerformanceMonitorService to the PerformanceMonitorPort
  */
-export const PerformanceMonitorAdapter = Layer.effect(
-  PerformanceMonitorPort,
-  PerformanceMonitorService,
-)
+export const PerformanceMonitorAdapter = Layer.effect(PerformanceMonitorPort, PerformanceMonitorService)
 
 /**
  * Performance Monitor Live Layer
- * 
+ *
  * Provides both the service implementation and the port adapter
  */
-export const PerformanceMonitorLive = (config?: any) =>
-  Layer.provide(
-    PerformanceMonitorAdapter,
-    PerformanceMonitorServiceLive(config)
-  )
+export const PerformanceMonitorLive = (config?: any) => Layer.provide(PerformanceMonitorAdapter, PerformanceMonitorServiceLive(config))

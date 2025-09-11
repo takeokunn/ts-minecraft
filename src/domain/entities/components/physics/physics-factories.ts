@@ -1,17 +1,11 @@
 /**
  * Physics Component Factory Functions
- * 
+ *
  * Provides factory functions for creating physics components with sensible defaults
  */
 
 import * as Data from 'effect/Data'
-import type { 
-  PositionComponent,
-  VelocityComponent,
-  AccelerationComponent,
-  MassComponent,
-  ColliderComponent
-} from '@domain/entities/components/physics/physics-components'
+import type { PositionComponent, VelocityComponent, AccelerationComponent, MassComponent, ColliderComponent } from '@domain/entities/components/physics/physics-components'
 
 // Factory for efficient position creation
 export const createPosition = (x: number, y: number, z: number): PositionComponent =>

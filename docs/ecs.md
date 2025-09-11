@@ -162,7 +162,7 @@ export class Player extends Data.Class<{
 }> {
   static readonly schema = S.Struct({
     id: EntityIdSchema,
-    name: S.String.pipe(S.minLength(1))
+    name: S.String.pipe(S.minLength(1)),
   })
 }
 ```
@@ -174,14 +174,14 @@ export class Player extends Data.Class<{
 export const Position = S.Struct({
   x: S.Number.pipe(S.finite()),
   y: S.Number.pipe(S.between(0, 255)),
-  z: S.Number.pipe(S.finite())
+  z: S.Number.pipe(S.finite()),
 })
 export type Position = S.Schema.Type<typeof Position>
 
 export const Velocity = S.Struct({
   dx: S.Number.pipe(S.finite()),
   dy: S.Number.pipe(S.finite()),
-  dz: S.Number.pipe(S.finite())
+  dz: S.Number.pipe(S.finite()),
 })
 export type Velocity = S.Schema.Type<typeof Velocity>
 ```
@@ -201,17 +201,17 @@ export class World extends Data.Class<{
     if (position.y === 0) return false // 岩盤層には設置不可
     return true
   }
-  
+
   // 整合性を保つメソッド
   addEntity(entity: EntityId): Effect.Effect<World, EntityError> {
     return Effect.gen(function* () {
       if (this.entities.has(entity)) {
         return yield* Effect.fail(new EntityAlreadyExistsError({ entity }))
       }
-      
+
       return new World({
         ...this,
-        entities: new Set([...this.entities, entity])
+        entities: new Set([...this.entities, entity]),
       })
     })
   }
@@ -226,12 +226,12 @@ export class World extends Data.Class<{
 // src/application/queries/queries.ts
 export const movableEntitiesQuery = createQuery({
   all: [Position, Velocity],
-  none: [Frozen]
+  none: [Frozen],
 })
 
 export const renderableEntitiesQuery = createQuery({
   all: [Position, Mesh],
-  any: [Visible, AlwaysRender]
+  any: [Visible, AlwaysRender],
 })
 ```
 
@@ -239,29 +239,26 @@ export const renderableEntitiesQuery = createQuery({
 
 ```typescript
 // src/application/use-cases/entity-creation.use-case.ts
-export const createPlayerUseCase = (
-  name: string,
-  spawnPosition: Position
-): Effect.Effect<EntityId, PlayerCreationError, WorldService | EntityService> =>
+export const createPlayerUseCase = (name: string, spawnPosition: Position): Effect.Effect<EntityId, PlayerCreationError, WorldService | EntityService> =>
   Effect.gen(function* () {
     const world = yield* WorldService
     const entityService = yield* EntityService
-    
+
     // ドメインエンティティの作成
-    const player = new Player({ 
+    const player = new Player({
       id: EntityId(crypto.randomUUID()),
-      name 
+      name,
     })
-    
+
     // ECSエンティティとコンポーネントの作成
     const entityId = yield* entityService.createEntity()
     yield* entityService.addComponent(entityId, 'position', spawnPosition)
     yield* entityService.addComponent(entityId, 'player', player)
     yield* entityService.addComponent(entityId, 'health', { current: 100, max: 100 })
-    
+
     // Worldに追加
     yield* world.addEntity(entityId)
-    
+
     return entityId
   })
 ```
@@ -274,22 +271,22 @@ export const playerMovementWorkflow = Effect.gen(function* () {
   const world = yield* WorldService
   const physics = yield* PhysicsService
   const input = yield* InputService
-  
+
   // クエリによるエンティティ取得
   const { entities, components } = yield* world.querySoA(movableEntitiesQuery)
-  
+
   // ビジネスロジックの適用
   for (let i = 0; i < entities.length; i++) {
     const inputState = components.input[i]
     const currentPos = components.position[i]
-    
+
     // ドメインサービスによる移動計算
     const newVelocity = yield* physics.calculateMovement(inputState)
     const newPosition = yield* physics.applyMovement(currentPos, newVelocity)
-    
+
     // 整合性チェック
     const canMove = yield* world.validateMovement(entities[i], newPosition)
-    
+
     if (canMove) {
       components.position[i] = newPosition
       components.velocity[i] = newVelocity
@@ -308,7 +305,7 @@ export const worldRepositoryLive = Layer.effect(
   WorldRepository,
   Effect.gen(function* () {
     const storage = yield* StorageService
-    
+
     return WorldRepository.of({
       save: (world) =>
         Effect.gen(function* () {
@@ -316,25 +313,25 @@ export const worldRepositoryLive = Layer.effect(
           const worldData = {
             seed: world.seed,
             chunks: Array.from(world.loadedChunks.entries()),
-            entities: Array.from(world.entities)
+            entities: Array.from(world.entities),
           }
-          
+
           yield* storage.write('world.json', JSON.stringify(worldData))
         }),
-        
+
       load: () =>
         Effect.gen(function* () {
           const data = yield* storage.read('world.json')
           const worldData = JSON.parse(data)
-          
+
           return new World({
             seed: worldData.seed,
             loadedChunks: new Map(worldData.chunks),
-            entities: new Set(worldData.entities)
+            entities: new Set(worldData.entities),
           })
-        })
+        }),
     })
-  })
+  }),
 )
 ```
 
@@ -347,14 +344,14 @@ export const worldRepositoryLive = Layer.effect(
 export const gameController = Effect.gen(function* () {
   const playerMovement = yield* PlayerMovementUseCase
   const blockPlacement = yield* BlockPlacementUseCase
-  
+
   return {
     handlePlayerInput: (input: PlayerInput) =>
       Match.value(input.type).pipe(
         Match.when('move', () => playerMovement(input.playerId, input.direction)),
         Match.when('place', () => blockPlacement(input.playerId, input.position, input.blockType)),
-        Match.orElse(() => Effect.unit)
-      )
+        Match.orElse(() => Effect.unit),
+      ),
   }
 })
 ```
@@ -376,12 +373,9 @@ describe('World Business Logic', () => {
   it.effect('should prevent block placement at bedrock level', () =>
     Effect.gen(function* () {
       const world = createTestWorld()
-      const canPlace = world.canPlaceBlock(
-        new Position({ x: 10, y: 0, z: 10 }),
-        BlockType.Stone
-      )
+      const canPlace = world.canPlaceBlock(new Position({ x: 10, y: 0, z: 10 }), BlockType.Stone)
       expect(canPlace).toBe(false)
-    })
+    }),
   )
 })
 
@@ -391,14 +385,12 @@ describe('Player Movement Workflow', () => {
     Effect.gen(function* () {
       const workflow = yield* PlayerMovementWorkflow
       const initialPosition = yield* getPlayerPosition('player1')
-      
+
       yield* workflow()
-      
+
       const newPosition = yield* getPlayerPosition('player1')
       expect(newPosition).not.toEqual(initialPosition)
-    }).pipe(
-      Effect.provide(TestApplicationLayer)
-    )
+    }).pipe(Effect.provide(TestApplicationLayer)),
   )
 })
 ```
@@ -417,14 +409,14 @@ describe('Player Movement Workflow', () => {
 // 新しいコンポーネント追加（Domain Layer）
 export const MagicPower = S.Struct({
   mana: S.Number.pipe(S.between(0, 1000)),
-  spells: S.Array(SpellSchema)
+  spells: S.Array(SpellSchema),
 })
 
 // 新しいシステム追加（Application Layer）
 export const magicSystem = Effect.gen(function* () {
   const world = yield* WorldService
   const { entities, components } = yield* world.querySoA(magicQuery)
-  
+
   // 魔法システムのロジック
 })
 
@@ -433,7 +425,7 @@ export const magicEffectRendererLive = Layer.effect(
   MagicEffectRenderer,
   Effect.gen(function* () {
     // 魔法エフェクトのレンダリング実装
-  })
+  }),
 )
 ```
 

@@ -129,5 +129,4 @@ export const UIControllerLive: Layer.Layer<UIController, never, never> = Layer.e
 )
 
 // Factory function for direct usage
-export const createUIController = () => 
-  Effect.runSync(UIControllerLive)
+export const createUIController = () => Effect.runSync(UIControllerLive)

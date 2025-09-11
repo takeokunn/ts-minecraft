@@ -1,6 +1,6 @@
 /**
  * Terrain Generator Port
- * 
+ *
  * This port defines the contract for terrain generation operations,
  * allowing the domain layer to generate terrain without depending
  * on specific noise algorithms or terrain generation implementations.
@@ -99,17 +99,17 @@ export interface ITerrainGenerator {
    * Generate terrain for a chunk
    */
   readonly generateTerrain: (request: TerrainGenerationRequest) => Effect.Effect<TerrainGenerationResult, never, never>
-  
+
   /**
    * Generate height map for a chunk
    */
   readonly generateHeightMap: (coordinates: ChunkCoordinates, seed: number, noise: NoiseSettings) => Effect.Effect<readonly number[], never, never>
-  
+
   /**
    * Get biome at specific coordinates
    */
   readonly getBiome: (x: number, z: number, seed: number) => Effect.Effect<BiomeConfig, never, never>
-  
+
   /**
    * Check if terrain generation is available
    */

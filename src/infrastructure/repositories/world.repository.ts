@@ -54,36 +54,33 @@ const parseArchetypeKey = (key: string): ReadonlyArray<ComponentName> => {
  * World Repository Implementation
  */
 export const createWorldRepository = (stateRef: Ref.Ref<WorldRepositoryState>): IWorldRepository => {
-
   const updateComponent = <T>(entityId: EntityId, componentType: string, component: T): Effect.Effect<void, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        const componentName = componentType as ComponentName
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const componentName = componentType as ComponentName
 
-        if (!componentNamesSet.has(componentName)) {
-          yield* _(Effect.logWarning(`Unknown component type: ${componentType}`))
-          return
-        }
+      if (!componentNamesSet.has(componentName)) {
+        yield* _(Effect.logWarning(`Unknown component type: ${componentType}`))
+        return
+      }
 
-        // Validate component against schema
-        const schema = ComponentSchemas[componentName]
-        const validatedComponent = yield* _(S.decode(schema)(component).pipe(Effect.mapError((error) => new ComponentDecodeError(entityId, componentName, error))))
+      // Validate component against schema
+      const schema = ComponentSchemas[componentName]
+      const validatedComponent = yield* _(S.decode(schema)(component).pipe(Effect.mapError((error) => new ComponentDecodeError(entityId, componentName, error))))
 
-        // Update component storage
-        const currentComponentMap = state.components[componentName]
-        const newComponentMap = HashMap.set(currentComponentMap, entityId, validatedComponent as any)
-        const newComponents = { ...state.components, [componentName]: newComponentMap }
+      // Update component storage
+      const currentComponentMap = state.components[componentName]
+      const newComponentMap = HashMap.set(currentComponentMap, entityId, validatedComponent as any)
+      const newComponents = { ...state.components, [componentName]: newComponentMap }
 
-        yield* _(
-          Ref.update(stateRef, (s) => ({
-            ...s,
-            components: newComponents,
-            version: s.version + 1,
-          })),
-        )
-      },
-    )
+      yield* _(
+        Ref.update(stateRef, (s) => ({
+          ...s,
+          components: newComponents,
+          version: s.version + 1,
+        })),
+      )
+    })
 
   const querySoA = <Q extends (typeof queries)[keyof typeof queries]>(query: Q): Effect.Effect<SoAResult<Q['components']>, never, never> =>
     Effect.gen(

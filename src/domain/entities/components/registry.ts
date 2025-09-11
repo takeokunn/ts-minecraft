@@ -83,131 +83,119 @@ export const ComponentRegistry = {
   /**
    * Create a new registry state
    */
-  create: () => Effect.gen(function* () {
-    const stateRef = yield* Ref.make<ComponentRegistryState>(Data.struct({
-      components: HashMap.empty(),
-      archetypes: HashMap.empty(),
-      soaBuffers: HashMap.empty(),
-    }))
-    return stateRef
-  }),
+  create: () =>
+    Effect.gen(function* () {
+      const stateRef = yield* Ref.make<ComponentRegistryState>(
+        Data.struct({
+          components: HashMap.empty(),
+          archetypes: HashMap.empty(),
+          soaBuffers: HashMap.empty(),
+        }),
+      )
+      return stateRef
+    }),
 
   /**
    * Register a component with automatic metadata extraction
    */
-  register: <TSchema extends S.Schema<any, any, any>>(
-    stateRef: Ref.Ref<ComponentRegistryState>,
-    meta: ComponentMeta<TSchema>
-  ) => Effect.gen(function* () {
-    const currentState = yield* Ref.get(stateRef)
-    const newState = Data.struct({
-      ...currentState,
-      components: HashMap.set(currentState.components, meta.id, meta),
-    })
-    
-    yield* Ref.set(stateRef, newState)
+  register: <TSchema extends S.Schema<any, any, any>>(stateRef: Ref.Ref<ComponentRegistryState>, meta: ComponentMeta<TSchema>) =>
+    Effect.gen(function* () {
+      const currentState = yield* Ref.get(stateRef)
+      const newState = Data.struct({
+        ...currentState,
+        components: HashMap.set(currentState.components, meta.id, meta),
+      })
 
-    // Initialize SoA buffer for physics and performance-critical components
-    if (meta.category === 'physics' || meta.priority === 1) {
-      yield* initializeSoABuffer(stateRef, meta.id, meta.schema)
-    }
-  }),
+      yield* Ref.set(stateRef, newState)
+
+      // Initialize SoA buffer for physics and performance-critical components
+      if (meta.category === 'physics' || meta.priority === 1) {
+        yield* initializeSoABuffer(stateRef, meta.id, meta.schema)
+      }
+    }),
 
   /**
    * Get component metadata with type safety
    */
-  getComponent: <TSchema extends S.Schema<any, any, any>>(
-    stateRef: Ref.Ref<ComponentRegistryState>,
-    id: string
-  ) => Effect.gen(function* () {
-    const state = yield* Ref.get(stateRef)
-    return HashMap.get(state.components, id) as Option.Option<ComponentMeta<TSchema>>
-  }),
+  getComponent: <TSchema extends S.Schema<any, any, any>>(stateRef: Ref.Ref<ComponentRegistryState>, id: string) =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+      return HashMap.get(state.components, id) as Option.Option<ComponentMeta<TSchema>>
+    }),
 
   /**
    * Get all components in a category
    */
-  getComponentsByCategory: (
-    stateRef: Ref.Ref<ComponentRegistryState>,
-    category: ComponentMeta['category']
-  ) => Effect.gen(function* () {
-    const state = yield* Ref.get(stateRef)
-    return Array.fromIterable(HashMap.values(HashMap.filter(state.components, (meta) => meta.category === category)))
-  }),
+  getComponentsByCategory: (stateRef: Ref.Ref<ComponentRegistryState>, category: ComponentMeta['category']) =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+      return Array.fromIterable(HashMap.values(HashMap.filter(state.components, (meta) => meta.category === category)))
+    }),
 
   /**
    * Create or get archetype for component signature
    */
-  getArchetype: (
-    stateRef: Ref.Ref<ComponentRegistryState>,
-    componentIds: readonly string[]
-  ) => Effect.gen(function* () {
-    const state = yield* Ref.get(stateRef)
-    const signature = Array.sort(componentIds, (a: string, b: string) => {
-      const result = a.localeCompare(b)
-      return result < 0 ? -1 : result > 0 ? 1 : 0
-    })
-    const archetypeKey = signature.join('|')
-
-    return Option.getOrElse(HashMap.get(state.archetypes, archetypeKey), () => {
-      const archetype = createArchetype(state, signature)
-      const newState = Data.struct({
-        ...state,
-        archetypes: HashMap.set(state.archetypes, archetypeKey, archetype),
+  getArchetype: (stateRef: Ref.Ref<ComponentRegistryState>, componentIds: readonly string[]) =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+      const signature = Array.sort(componentIds, (a: string, b: string) => {
+        const result = a.localeCompare(b)
+        return result < 0 ? -1 : result > 0 ? 1 : 0
       })
-      Effect.runSync(Ref.set(stateRef, newState))
-      return archetype
-    })
-  }),
+      const archetypeKey = signature.join('|')
+
+      return Option.getOrElse(HashMap.get(state.archetypes, archetypeKey), () => {
+        const archetype = createArchetype(state, signature)
+        const newState = Data.struct({
+          ...state,
+          archetypes: HashMap.set(state.archetypes, archetypeKey, archetype),
+        })
+        Effect.runSync(Ref.set(stateRef, newState))
+        return archetype
+      })
+    }),
 
   /**
    * Query entities by component requirements with enhanced type safety
    */
-  query: <TComponents extends Record<string, Component>>(
-    stateRef: Ref.Ref<ComponentRegistryState>,
-    required: readonly (keyof TComponents)[],
-    _optional: readonly string[] = []
-  ) => Effect.gen(function* () {
-    const componentIds = required as readonly string[]
-    const archetype = yield* ComponentRegistry.getArchetype(stateRef, componentIds)
-    return {
-      entities: archetype.entities,
-      getComponent: <T>(entityId: number, componentId: keyof TComponents) => 
-        getEntityComponent<T>(stateRef, entityId, componentId as string),
-      hasComponent: (entityId: number, componentId: keyof TComponents) => 
-        hasEntityComponent(stateRef, entityId, componentId as string),
-      storageLayout: archetype.storageLayout,
-    }
-  }),
+  query: <TComponents extends Record<string, Component>>(stateRef: Ref.Ref<ComponentRegistryState>, required: readonly (keyof TComponents)[], _optional: readonly string[] = []) =>
+    Effect.gen(function* () {
+      const componentIds = required as readonly string[]
+      const archetype = yield* ComponentRegistry.getArchetype(stateRef, componentIds)
+      return {
+        entities: archetype.entities,
+        getComponent: <T>(entityId: number, componentId: keyof TComponents) => getEntityComponent<T>(stateRef, entityId, componentId as string),
+        hasComponent: (entityId: number, componentId: keyof TComponents) => hasEntityComponent(stateRef, entityId, componentId as string),
+        storageLayout: archetype.storageLayout,
+      }
+    }),
 
   /**
    * Convert storage layout for performance optimization
    */
-  convertStorageLayout: (
-    stateRef: Ref.Ref<ComponentRegistryState>,
-    componentId: string,
-    targetLayout: StorageLayout
-  ) => Effect.gen(function* () {
-    const state = yield* Ref.get(stateRef)
-    const soaBuffer = HashMap.get(state.soaBuffers, componentId)
-    if (Option.isSome(soaBuffer)) {
-      yield* performStorageConversion(soaBuffer.value, targetLayout)
-    }
-  }),
+  convertStorageLayout: (stateRef: Ref.Ref<ComponentRegistryState>, componentId: string, targetLayout: StorageLayout) =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+      const soaBuffer = HashMap.get(state.soaBuffers, componentId)
+      if (Option.isSome(soaBuffer)) {
+        yield* performStorageConversion(soaBuffer.value, targetLayout)
+      }
+    }),
 
   /**
    * Get performance metrics
    */
-  getMetrics: (stateRef: Ref.Ref<ComponentRegistryState>) => Effect.gen(function* () {
-    const state = yield* Ref.get(stateRef)
-    const memoryUsage = yield* calculateMemoryUsage(state)
-    return {
-      componentCount: HashMap.size(state.components),
-      archetypeCount: HashMap.size(state.archetypes),
-      soaBufferCount: HashMap.size(state.soaBuffers),
-      totalMemoryUsage: memoryUsage,
-    }
-  }),
+  getMetrics: (stateRef: Ref.Ref<ComponentRegistryState>) =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+      const memoryUsage = yield* calculateMemoryUsage(state)
+      return {
+        componentCount: HashMap.size(state.components),
+        archetypeCount: HashMap.size(state.archetypes),
+        soaBufferCount: HashMap.size(state.soaBuffers),
+        totalMemoryUsage: memoryUsage,
+      }
+    }),
 }
 
 // Helper functions
@@ -221,26 +209,23 @@ const createArchetype = (state: ComponentRegistryState, componentIds: readonly s
   })
 }
 
-const initializeSoABuffer = (
-  stateRef: Ref.Ref<ComponentRegistryState>,
-  componentId: string,
-  _schema: S.Schema<any, any, any>
-) => Effect.gen(function* () {
-  const buffer = Data.struct({
-    componentId,
-    capacity: 1024,
-    length: 0,
-    data: new ArrayBuffer(1024 * 32),
-    views: {},
-  })
+const initializeSoABuffer = (stateRef: Ref.Ref<ComponentRegistryState>, componentId: string, _schema: S.Schema<any, any, any>) =>
+  Effect.gen(function* () {
+    const buffer = Data.struct({
+      componentId,
+      capacity: 1024,
+      length: 0,
+      data: new ArrayBuffer(1024 * 32),
+      views: {},
+    })
 
-  const currentState = yield* Ref.get(stateRef)
-  const newState = Data.struct({
-    ...currentState,
-    soaBuffers: HashMap.set(currentState.soaBuffers, componentId, buffer),
+    const currentState = yield* Ref.get(stateRef)
+    const newState = Data.struct({
+      ...currentState,
+      soaBuffers: HashMap.set(currentState.soaBuffers, componentId, buffer),
+    })
+    yield* Ref.set(stateRef, newState)
   })
-  yield* Ref.set(stateRef, newState)
-})
 
 const determineOptimalStorageLayout = (state: ComponentRegistryState, componentIds: readonly string[]): StorageLayout => {
   const physicsComponents = componentIds.filter((id) => {
@@ -253,33 +238,18 @@ const determineOptimalStorageLayout = (state: ComponentRegistryState, componentI
   return physicsComponents.length > componentIds.length / 2 ? 'SoA' : 'AoS'
 }
 
-const getEntityComponent = <T>(
-  _stateRef: Ref.Ref<ComponentRegistryState>,
-  _entityId: number,
-  _componentId: string
-): Effect.Effect<Option.Option<T>, never, never> => Effect.succeed(Option.none())
+const getEntityComponent = <T>(_stateRef: Ref.Ref<ComponentRegistryState>, _entityId: number, _componentId: string): Effect.Effect<Option.Option<T>, never, never> =>
+  Effect.succeed(Option.none())
 
-const hasEntityComponent = (
-  _stateRef: Ref.Ref<ComponentRegistryState>,
-  _entityId: number,
-  _componentId: string
-): Effect.Effect<boolean, never, never> => Effect.succeed(false)
+const hasEntityComponent = (_stateRef: Ref.Ref<ComponentRegistryState>, _entityId: number, _componentId: string): Effect.Effect<boolean, never, never> => Effect.succeed(false)
 
-const performStorageConversion = (
-  buffer: SoABuffer,
-  targetLayout: StorageLayout
-): Effect.Effect<void, never, never> => Effect.gen(function* () {
-  console.log(`Converting storage layout to ${targetLayout} for component ${buffer.componentId}`)
-})
+const performStorageConversion = (buffer: SoABuffer, targetLayout: StorageLayout): Effect.Effect<void, never, never> =>
+  Effect.gen(function* () {
+    console.log(`Converting storage layout to ${targetLayout} for component ${buffer.componentId}`)
+  })
 
 const calculateMemoryUsage = (state: ComponentRegistryState): Effect.Effect<number, never, never> =>
-  Effect.succeed(
-    Array.reduce(
-      Array.fromIterable(HashMap.values(state.soaBuffers)), 
-      0, 
-      (acc, buffer) => acc + (buffer as SoABuffer).data.byteLength
-    )
-  )
+  Effect.succeed(Array.reduce(Array.fromIterable(HashMap.values(state.soaBuffers)), 0, (acc, buffer) => acc + (buffer as SoABuffer).data.byteLength))
 
 // Enhanced query result interface with generic typing
 export interface QueryResult<TComponents extends Record<string, Component> = Record<string, Component>> {
@@ -305,11 +275,13 @@ export const RegisterComponent =
   <TSchema extends S.Schema<any, any, any>>(meta: Omit<ComponentMeta<TSchema>, 'schema' | '_tag'>) =>
   (schema: TSchema): TSchema => {
     const registryRef = createGlobalRegistry()
-    Effect.runSync(ComponentRegistry.register(registryRef, {
-      ...meta,
-      schema,
-      _tag: meta.id, // Use ID as discriminated union tag
-    }))
+    Effect.runSync(
+      ComponentRegistry.register(registryRef, {
+        ...meta,
+        schema,
+        _tag: meta.id, // Use ID as discriminated union tag
+      }),
+    )
     return schema
   }
 

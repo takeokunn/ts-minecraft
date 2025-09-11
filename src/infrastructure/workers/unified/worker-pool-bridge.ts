@@ -36,13 +36,13 @@ export interface WorkerStats {
 export class WorkerError extends Schema.TaggedError<WorkerError>()('WorkerError', {
   message: Schema.String,
   workerId: Schema.optional(Schema.String),
-  taskId: Schema.optional(Schema.String)
+  taskId: Schema.optional(Schema.String),
 }) {}
 
 export class WorkerTimeoutError extends Schema.TaggedError<WorkerTimeoutError>()('WorkerTimeoutError', {
   message: Schema.String,
   taskId: Schema.String,
-  timeout: Schema.Number
+  timeout: Schema.Number,
 }) {}
 
 export interface WorkerConfig {
@@ -116,7 +116,7 @@ const make = Effect.gen(function* () {
   const workerManager = yield* WorkerManagerService
 
   return {
-    createPool: (config) => 
+    createPool: (config) =>
       Effect.gen(function* () {
         // The unified worker manager already handles pool creation
         // This is a no-op since pools are created automatically
@@ -126,7 +126,7 @@ const make = Effect.gen(function* () {
     execute: <T>(task: WorkerTask) =>
       Effect.gen(function* () {
         const unifiedType = mapWorkerType(task.type)
-        
+
         if (unifiedType === 'terrain' || unifiedType === 'physics' || unifiedType === 'mesh') {
           // For these types, we need proper protocol requests
           // For now, return an error since we can't convert arbitrary data
@@ -134,7 +134,7 @@ const make = Effect.gen(function* () {
             new WorkerError({
               message: `Direct execution of ${task.type} tasks requires proper protocol requests. Use the unified worker manager directly.`,
               taskId: task.id,
-            })
+            }),
           )
         }
 
@@ -142,9 +142,7 @@ const make = Effect.gen(function* () {
         const computationRequest: ComputationRequest = {
           id: task.id,
           type: mapComputationType(task.operation, task.type),
-          priority: task.priority === 'critical' ? 'critical' : 
-                   task.priority === 'high' ? 'high' :
-                   task.priority === 'low' ? 'low' : 'normal',
+          priority: task.priority === 'critical' ? 'critical' : task.priority === 'high' ? 'high' : task.priority === 'low' ? 'low' : 'normal',
           payload: task.data,
           options: {
             enableProfiling: false,
@@ -155,7 +153,7 @@ const make = Effect.gen(function* () {
         }
 
         const response = yield* workerManager.executeComputation(computationRequest, {
-          timeout: task.timeout ? Effect.succeed(task.timeout).pipe(Effect.map(ms => ({ _tag: 'Millis' as const, millis: ms }))) : undefined,
+          timeout: task.timeout ? Effect.succeed(task.timeout).pipe(Effect.map((ms) => ({ _tag: 'Millis' as const, millis: ms }))) : undefined,
         })
 
         return response.result as T
@@ -170,14 +168,12 @@ const make = Effect.gen(function* () {
             const self = {
               execute: <U>(t: WorkerTask) => {
                 const unifiedType = mapWorkerType(t.type)
-                
+
                 if (unifiedType === 'computation') {
                   const computationRequest: ComputationRequest = {
                     id: t.id,
                     type: mapComputationType(t.operation, t.type),
-                    priority: t.priority === 'critical' ? 'critical' : 
-                             t.priority === 'high' ? 'high' :
-                             t.priority === 'low' ? 'low' : 'normal',
+                    priority: t.priority === 'critical' ? 'critical' : t.priority === 'high' ? 'high' : t.priority === 'low' ? 'low' : 'normal',
                     payload: t.data,
                     options: {
                       enableProfiling: false,
@@ -187,23 +183,21 @@ const make = Effect.gen(function* () {
                     },
                   }
 
-                  return workerManager.executeComputation(computationRequest).pipe(
-                    Effect.map(response => response.result as U)
-                  )
+                  return workerManager.executeComputation(computationRequest).pipe(Effect.map((response) => response.result as U))
                 }
 
                 return Effect.fail(
                   new WorkerError({
                     message: `Batch execution of ${t.type} tasks not supported via bridge`,
                     taskId: t.id,
-                  })
+                  }),
                 )
-              }
+              },
             }
-            
+
             return self.execute<T>(task)
           },
-          { concurrency: 'unbounded' }
+          { concurrency: 'unbounded' },
         )
 
         return results
@@ -214,7 +208,7 @@ const make = Effect.gen(function* () {
       return input.pipe(
         Effect.mapEffect((data) => {
           const unifiedType = mapWorkerType(type)
-          
+
           if (unifiedType === 'computation') {
             const computationRequest: ComputationRequest = {
               id: `stream_${Date.now()}_${Math.random()}`,
@@ -229,17 +223,15 @@ const make = Effect.gen(function* () {
               },
             }
 
-            return workerManager.executeComputation(computationRequest).pipe(
-              Effect.map(response => response.result)
-            )
+            return workerManager.executeComputation(computationRequest).pipe(Effect.map((response) => response.result))
           }
 
           return Effect.fail(
             new WorkerError({
               message: `Stream processing of ${type} not supported via bridge`,
-            })
+            }),
           )
-        })
+        }),
       )
     },
 
@@ -259,10 +251,10 @@ const make = Effect.gen(function* () {
     getStats: () =>
       Effect.gen(function* () {
         const poolStats = yield* workerManager.getPoolStats()
-        
+
         // Convert unified stats to performance layer format
         const stats: WorkerStats[] = []
-        
+
         // Create mock stats based on pool information
         // This is approximate since the unified system has different metrics
         for (let i = 0; i < poolStats.totalWorkers; i++) {
@@ -295,7 +287,7 @@ const make = Effect.gen(function* () {
     getPoolSize: (type) =>
       Effect.gen(function* () {
         const poolStats = yield* workerManager.getPoolStats()
-        
+
         return {
           active: poolStats.activeWorkers,
           idle: poolStats.idleWorkers,
@@ -309,9 +301,7 @@ const make = Effect.gen(function* () {
  * Bridge layer that implements the performance worker pool interface
  * using the unified worker manager
  */
-export const WorkerPoolServiceBridge = Layer.effect(PerformanceWorkerPoolService, make).pipe(
-  Layer.provide(WorkerManagerServiceLive)
-)
+export const WorkerPoolServiceBridge = Layer.effect(PerformanceWorkerPoolService, make).pipe(Layer.provide(WorkerManagerServiceLive))
 
 /**
  * Helper function to create a bridge configuration

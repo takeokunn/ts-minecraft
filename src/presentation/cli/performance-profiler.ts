@@ -76,7 +76,7 @@ export const createPerformanceProfiler = () =>
     const createGraphUI = () =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         if (!import.meta.env.DEV) return
 
         // グラフ表示用のUI要素を作成
@@ -140,7 +140,7 @@ export const createPerformanceProfiler = () =>
     const removeGraphUI = () =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         if (state.graphContainer) {
           document.body.removeChild(state.graphContainer)
           yield* Ref.update(stateRef, (state) => ({
@@ -155,7 +155,7 @@ export const createPerformanceProfiler = () =>
     const toggleGraph = () =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         if (state.graphContainer) {
           const isVisible = state.graphContainer.style.display !== 'none'
           state.graphContainer.style.display = isVisible ? 'none' : 'block'
@@ -165,7 +165,7 @@ export const createPerformanceProfiler = () =>
     const toggleRecording = (button: HTMLButtonElement) =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         if (state.isRecording) {
           yield* stopRecording()
           button.textContent = 'Start Recording'
@@ -178,7 +178,7 @@ export const createPerformanceProfiler = () =>
     const drawGrid = () =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         if (!state.ctx || !state.canvas) return
 
         state.ctx.strokeStyle = '#333'
@@ -206,7 +206,7 @@ export const createPerformanceProfiler = () =>
     const drawFPSGraph = () =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         if (!state.ctx || !state.canvas || state.frameTimes.length < 2) return
 
         state.ctx.strokeStyle = '#00ff00'
@@ -241,7 +241,7 @@ export const createPerformanceProfiler = () =>
     const drawFrameTimeGraph = () =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         if (!state.ctx || !state.canvas || state.frameTimes.length < 2) return
 
         state.ctx.strokeStyle = '#ff6600'
@@ -275,7 +275,7 @@ export const createPerformanceProfiler = () =>
     const updateGraph = () =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         if (!state.ctx || !state.canvas || state.graphContainer?.style.display === 'none') return
 
         const width = state.canvas.width
@@ -336,13 +336,13 @@ export const createPerformanceProfiler = () =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
         const data = [...state.recordingData]
-        
+
         yield* Ref.update(stateRef, (state) => ({
           ...state,
           isRecording: false,
           recordingData: [],
         }))
-        
+
         console.log(`📊 Performance recording stopped. ${data.length} samples collected`)
         return data
       })
@@ -350,7 +350,7 @@ export const createPerformanceProfiler = () =>
     const update = (_currentDeltaTime: number) =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         if (!state.isRunning) return
 
         const currentTime = performance.now()
@@ -394,7 +394,7 @@ export const createPerformanceProfiler = () =>
     const getStats = () =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         const fps = state.deltaTime > 0 ? 1000 / state.deltaTime : 0
         const avgFrameTime = state.frameTimes.length > 0 ? state.frameTimes.reduce((a, b) => a + b, 0) / state.frameTimes.length : 0
         const minFrameTime = state.frameTimes.length > 0 ? Math.min(...state.frameTimes) : 0
@@ -421,7 +421,7 @@ export const createPerformanceProfiler = () =>
     const analyzePerformance = () =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         if (state.recordingData.length === 0) return null
 
         const frameTimes = state.recordingData.map((r) => r.frameTime)

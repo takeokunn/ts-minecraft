@@ -1,26 +1,26 @@
 // Controllers - Named exports for better tree-shaking
-export { 
-  DebugController, 
+export {
+  DebugController,
   DebugControllerLive,
   createDebugController,
   type DebugControllerInterface,
   type DebugState,
-  GameController, 
+  GameController,
   GameControllerLive,
   createGameController,
   type GameControllerInterface,
   type GameControllerState,
-  UIController, 
+  UIController,
   UIControllerLive,
   createUIController,
   type UIControllerInterface,
   type UIState,
   type HotbarItem,
-  type Notification 
+  type Notification,
 } from './controllers'
 
 // View Models - Named exports for better tree-shaking
-export { 
+export {
   GameStateViewModel,
   GameStateViewModelLive,
   createGameStateViewModel,
@@ -41,11 +41,11 @@ export {
   type WorldInfoViewModelInterface,
   type WorldInfoView,
   type TimeInfo,
-  type WeatherInfo 
+  type WeatherInfo,
 } from './view-models'
 
 // CLI Tools - Named exports for better tree-shaking
-export { 
+export {
   createGameDebugger,
   createGameDebuggerFactory,
   type GameDebuggerState,
@@ -84,10 +84,8 @@ export {
   type ComponentState,
   type StateSnapshot,
   type StateDiff,
-  defaultCliConfig 
+  defaultCliConfig,
 } from './cli'
 
 // Web application entry point
-export { 
-  startWebApplication 
-} from './web'
+export { startWebApplication } from './web'

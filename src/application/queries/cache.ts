@@ -76,8 +76,7 @@ export const QueryCache = Context.GenericTag<QueryCacheService>('QueryCache')
 /**
  * Helper functions for cache operations
  */
-const shouldEvict = (currentMemoryUsage: number, newEntrySize: number, maxSize: number): boolean =>
-  currentMemoryUsage + newEntrySize > maxSize
+const shouldEvict = (currentMemoryUsage: number, newEntrySize: number, maxSize: number): boolean => currentMemoryUsage + newEntrySize > maxSize
 
 const findLRUKey = (cache: Map<string, CacheEntry>): string => {
   let oldestTime = Infinity
@@ -183,7 +182,7 @@ export const queryCacheLive = (config: CacheConfig) =>
         const total = currentStats.hits + currentStats.misses
         return {
           ...currentStats,
-          hitRate: total === 0 ? 0 : currentStats.hits / total
+          hitRate: total === 0 ? 0 : currentStats.hits / total,
         }
       }
 
@@ -206,11 +205,13 @@ export const queryCacheLive = (config: CacheConfig) =>
                 c.delete(key)
                 return new Map(c)
               })
-              yield* Ref.update(stats, (s) => updateHitRate({
-                ...s,
-                misses: s.misses + 1,
-                evictions: s.evictions + 1
-              }))
+              yield* Ref.update(stats, (s) =>
+                updateHitRate({
+                  ...s,
+                  misses: s.misses + 1,
+                  evictions: s.evictions + 1,
+                }),
+              )
               return undefined
             }
 
@@ -252,12 +253,12 @@ export const queryCacheLive = (config: CacheConfig) =>
             }
 
             currentCache.set(key, entry)
-            
+
             yield* Ref.set(cache, new Map(currentCache))
             yield* Ref.set(stats, {
               ...currentStats,
               totalEntries: currentCache.size,
-              memoryUsage: Array.from(currentCache.values()).reduce((sum, e) => sum + e.size, 0)
+              memoryUsage: Array.from(currentCache.values()).reduce((sum, e) => sum + e.size, 0),
             })
           }),
 
@@ -280,7 +281,7 @@ export const queryCacheLive = (config: CacheConfig) =>
             yield* Ref.update(stats, (s) => ({
               ...s,
               totalEntries: currentCache.size,
-              memoryUsage: Array.from(currentCache.values()).reduce((sum, e) => sum + e.size, 0)
+              memoryUsage: Array.from(currentCache.values()).reduce((sum, e) => sum + e.size, 0),
             }))
 
             return invalidated
@@ -290,16 +291,16 @@ export const queryCacheLive = (config: CacheConfig) =>
           Effect.gen(function* () {
             const currentCache = yield* Ref.get(cache)
             const deleted = currentCache.delete(key)
-            
+
             if (deleted) {
               yield* Ref.set(cache, new Map(currentCache))
               yield* Ref.update(stats, (s) => ({
                 ...s,
                 totalEntries: currentCache.size,
-                memoryUsage: Array.from(currentCache.values()).reduce((sum, e) => sum + e.size, 0)
+                memoryUsage: Array.from(currentCache.values()).reduce((sum, e) => sum + e.size, 0),
               }))
             }
-            
+
             return deleted
           }),
 
@@ -310,7 +311,7 @@ export const queryCacheLive = (config: CacheConfig) =>
             ...currentStats,
             evictions: currentStats.evictions + currentStats.totalEntries,
             totalEntries: 0,
-            memoryUsage: 0
+            memoryUsage: 0,
           })
         }),
 
@@ -334,7 +335,7 @@ export const queryCacheLive = (config: CacheConfig) =>
               ...s,
               evictions: s.evictions + cleaned,
               totalEntries: currentCache.size,
-              memoryUsage: Array.from(currentCache.values()).reduce((sum, e) => sum + e.size, 0)
+              memoryUsage: Array.from(currentCache.values()).reduce((sum, e) => sum + e.size, 0),
             }))
           }
 
@@ -349,7 +350,7 @@ export const queryCacheLive = (config: CacheConfig) =>
           }))
         }),
       })
-    })
+    }),
   )
 
 /**

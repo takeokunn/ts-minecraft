@@ -12,21 +12,14 @@ import { SystemCommunicationService, SystemCommunicationServiceLive } from '@inf
 
 /**
  * System Communication Adapter
- * 
+ *
  * Maps the SystemCommunicationService to the SystemCommunicationPort
  */
-export const SystemCommunicationAdapter = Layer.effect(
-  SystemCommunicationPort,
-  SystemCommunicationService,
-)
+export const SystemCommunicationAdapter = Layer.effect(SystemCommunicationPort, SystemCommunicationService)
 
 /**
  * System Communication Live Layer
- * 
+ *
  * Provides both the service implementation and the port adapter
  */
-export const SystemCommunicationLive = (config?: any) =>
-  Layer.provide(
-    SystemCommunicationAdapter,
-    SystemCommunicationServiceLive(config)
-  )
+export const SystemCommunicationLive = (config?: any) => Layer.provide(SystemCommunicationAdapter, SystemCommunicationServiceLive(config))

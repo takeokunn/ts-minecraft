@@ -1,6 +1,6 @@
 /**
  * Enhanced Mesh Generation Service
- * 
+ *
  * Pure domain service for mesh generation with advanced algorithms
  * and optimizations. Extracted from infrastructure layer with all
  * technology-agnostic geometry processing logic.
@@ -88,14 +88,14 @@ interface EnhancedBlockFace {
  */
 const FaceDirection = {
   FRONT: 'front',
-  BACK: 'back', 
+  BACK: 'back',
   RIGHT: 'right',
   LEFT: 'left',
   TOP: 'top',
   BOTTOM: 'bottom',
 } as const
 
-type FaceDirectionType = typeof FaceDirection[keyof typeof FaceDirection]
+type FaceDirectionType = (typeof FaceDirection)[keyof typeof FaceDirection]
 
 /**
  * Vertex attribute configuration
@@ -134,7 +134,7 @@ export const EnhancedMeshAlgorithms = {
         neighborKey: `${x},${y},${z + 1}`,
         uvs: [0, 0, 1, 0, 1, 1, 0, 1],
       },
-      // Back face (-Z) 
+      // Back face (-Z)
       {
         name: FaceDirection.BACK as FaceDirectionType,
         positions: [x + 1, y, z, x, y, z, x, y + 1, z, x + 1, y + 1, z],
@@ -183,7 +183,7 @@ export const EnhancedMeshAlgorithms = {
 
       if (shouldRender) {
         const blockColor = BlockPropertiesUtils.getBlockColor(block.blockType)
-        
+
         const face: EnhancedBlockFace = {
           positions: faceDef.positions,
           normals: faceDef.normals,
@@ -202,11 +202,7 @@ export const EnhancedMeshAlgorithms = {
 
         // Add ambient occlusion if enabled
         if (options.enableAmbientOcclusion) {
-          const aoValues = EnhancedMeshAlgorithms.calculateAmbientOcclusion(
-            block.position, 
-            faceDef.name, 
-            neighborLookup
-          )
+          const aoValues = EnhancedMeshAlgorithms.calculateAmbientOcclusion(block.position, faceDef.name, neighborLookup)
           face.ambientOcclusion = aoValues
         }
 
@@ -227,12 +223,7 @@ export const EnhancedMeshAlgorithms = {
   /**
    * Enhanced face culling with multiple modes
    */
-  shouldRenderEnhancedFace: (
-    neighbor: GeneratedBlock | null,
-    currentBlock: GeneratedBlock,
-    faceDirection: FaceDirectionType,
-    cullMode: CullingMode,
-  ): boolean => {
+  shouldRenderEnhancedFace: (neighbor: GeneratedBlock | null, currentBlock: GeneratedBlock, faceDirection: FaceDirectionType, cullMode: CullingMode): boolean => {
     switch (cullMode) {
       case 'none':
         return true
@@ -253,8 +244,7 @@ export const EnhancedMeshAlgorithms = {
       case 'ambient_occlusion':
         // Special culling for ambient occlusion
         if (!neighbor) return true
-        const isNeighborTransparent = neighbor.blockType === 'air' || 
-                                     BlockPropertiesUtils.isBlockTransparent(neighbor.blockType)
+        const isNeighborTransparent = neighbor.blockType === 'air' || BlockPropertiesUtils.isBlockTransparent(neighbor.blockType)
         // Consider light transmission for AO
         return isNeighborTransparent || BlockPropertiesUtils.isBlockLightSource(neighbor.blockType)
 
@@ -266,17 +256,13 @@ export const EnhancedMeshAlgorithms = {
   /**
    * Calculate ambient occlusion values for face vertices
    */
-  calculateAmbientOcclusion: (
-    blockPos: Position3D,
-    faceDirection: FaceDirectionType,
-    neighborLookup: { readonly [key: string]: GeneratedBlock | null },
-  ): readonly number[] => {
+  calculateAmbientOcclusion: (blockPos: Position3D, faceDirection: FaceDirectionType, neighborLookup: { readonly [key: string]: GeneratedBlock | null }): readonly number[] => {
     const aoValues: number[] = []
 
     // Define the vertex positions for each face
     const vertexOffsets = EnhancedMeshAlgorithms.getVertexOffsetsForFace(faceDirection)
 
-    vertexOffsets.forEach(offset => {
+    vertexOffsets.forEach((offset) => {
       const vertexPos = {
         x: blockPos.x + offset.x,
         y: blockPos.y + offset.y,
@@ -287,7 +273,7 @@ export const EnhancedMeshAlgorithms = {
       const aoSamples = EnhancedMeshAlgorithms.getAOSamples(vertexPos, faceDirection)
       let occludedCount = 0
 
-      aoSamples.forEach(samplePos => {
+      aoSamples.forEach((samplePos) => {
         const key = `${samplePos.x},${samplePos.y},${samplePos.z}`
         const neighbor = neighborLookup[key]
         if (neighbor && neighbor.blockType !== 'air' && !BlockPropertiesUtils.isBlockTransparent(neighbor.blockType)) {
@@ -362,13 +348,13 @@ export const EnhancedMeshAlgorithms = {
   getAOSamples: (vertexPos: Position3D, faceDirection: FaceDirectionType): readonly Position3D[] => {
     // Simplified AO sampling - sample neighboring positions
     const samples: Position3D[] = []
-    
+
     // Add samples in a 3x3 grid around the vertex based on face direction
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
           if (dx === 0 && dy === 0 && dz === 0) continue // Skip center
-          
+
           samples.push({
             x: vertexPos.x + dx,
             y: vertexPos.y + dy,
@@ -414,7 +400,7 @@ export const EnhancedMeshAlgorithms = {
     let hash = 0
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i)
-      hash = ((hash << 5) - hash) + char
+      hash = (hash << 5) - hash + char
       hash = hash & hash // Convert to 32-bit integer
     }
     return Math.abs(hash)
@@ -498,10 +484,7 @@ export const EnhancedMeshAlgorithms = {
   /**
    * Create neighbor lookup table from chunk data
    */
-  createNeighborLookup: (
-    chunkData: ChunkData,
-    neighbors?: { readonly [key: string]: ChunkData },
-  ): { readonly [key: string]: GeneratedBlock | null } => {
+  createNeighborLookup: (chunkData: ChunkData, neighbors?: { readonly [key: string]: ChunkData }): { readonly [key: string]: GeneratedBlock | null } => {
     const lookup: { [key: string]: GeneratedBlock | null } = {}
 
     // Add current chunk blocks
@@ -521,7 +504,7 @@ export const EnhancedMeshAlgorithms = {
     }
 
     return lookup
-  }
+  },
 } as const
 
 /**
@@ -552,17 +535,13 @@ export const createEnhancedMeshGenerationService = (): IMeshGenerator => {
     }
   }
 
-  const applyVertexWelding = (
-    meshData: VertexAttributes & { readonly indices: readonly number[] },
-  ): VertexAttributes & { readonly indices: readonly number[] } => {
+  const applyVertexWelding = (meshData: VertexAttributes & { readonly indices: readonly number[] }): VertexAttributes & { readonly indices: readonly number[] } => {
     // Simplified vertex welding implementation
     // In a full implementation, this would find vertices within a threshold and merge them
     return meshData
   }
 
-  const applyIndexOptimization = (
-    meshData: VertexAttributes & { readonly indices: readonly number[] },
-  ): VertexAttributes & { readonly indices: readonly number[] } => {
+  const applyIndexOptimization = (meshData: VertexAttributes & { readonly indices: readonly number[] }): VertexAttributes & { readonly indices: readonly number[] } => {
     // Simplified index optimization
     // In a full implementation, this would use algorithms like Forsyth vertex cache optimization
     return meshData
@@ -577,9 +556,7 @@ export const createEnhancedMeshGenerationService = (): IMeshGenerator => {
     return meshData
   }
 
-  const applyGPUOptimizations = (
-    meshData: VertexAttributes & { readonly indices: readonly number[] },
-  ): VertexAttributes & { readonly indices: readonly number[] } => {
+  const applyGPUOptimizations = (meshData: VertexAttributes & { readonly indices: readonly number[] }): VertexAttributes & { readonly indices: readonly number[] } => {
     // GPU optimizations like vertex attribute interleaving
     return meshData
   }
@@ -650,7 +627,7 @@ export const createEnhancedMeshGenerationService = (): IMeshGenerator => {
 
   const calculateMemoryUsage = (meshData: VertexAttributes & { readonly indices: readonly number[] }): number => {
     let memoryUsage = 0
-    
+
     memoryUsage += meshData.position.length * 4 // positions
     if (meshData.normal) memoryUsage += meshData.normal.length * 4 // normals
     if (meshData.uv) memoryUsage += meshData.uv.length * 4 // uvs
@@ -665,9 +642,9 @@ export const createEnhancedMeshGenerationService = (): IMeshGenerator => {
     // Simple quality metric based on triangle count and vertex reuse
     const vertexCount = meshData.position.length / 3
     const triangleCount = meshData.indices.length / 3
-    
+
     if (triangleCount === 0) return 0
-    
+
     // Higher vertex reuse indicates better quality/optimization
     const vertexReuseRatio = triangleCount / vertexCount
     return Math.min(1.0, vertexReuseRatio / 2.0) // Normalize to 0-1 range
@@ -714,7 +691,7 @@ export const createEnhancedMeshGenerationService = (): IMeshGenerator => {
       Effect.gen(function* () {
         const startTime = performance.now()
         const { chunkData, neighbors, algorithm, optimizations, options, lodLevel } = request
-        
+
         const opts = options || MeshGeneratorHelpers.createDefaultOptions()
         const enhancedOpts = request.enhancedOptimizations || createDefaultEnhancedOptimizations(optimizations)
         const meshAlg = request.meshAlgorithm || algorithm || 'naive'
@@ -787,19 +764,13 @@ export const createEnhancedMeshGenerationService = (): IMeshGenerator => {
         } satisfies MeshGenerationResult
       }),
 
-    generateNaiveMesh: (
-      chunkData: ChunkData,
-      options?: MeshGenerationOptions,
-    ): Effect.Effect<GeneratedMeshData, never, never> =>
+    generateNaiveMesh: (chunkData: ChunkData, options?: MeshGenerationOptions): Effect.Effect<GeneratedMeshData, never, never> =>
       Effect.gen(function* () {
         const meshData = EnhancedMeshAlgorithms.generateEnhancedNaiveMesh(chunkData, undefined, {})
         return yield* createGeneratedMeshData(meshData, options)
       }),
 
-    generateGreedyMesh: (
-      chunkData: ChunkData,
-      options?: MeshGenerationOptions,
-    ): Effect.Effect<GeneratedMeshData, never, never> =>
+    generateGreedyMesh: (chunkData: ChunkData, options?: MeshGenerationOptions): Effect.Effect<GeneratedMeshData, never, never> =>
       Effect.gen(function* () {
         const meshData = EnhancedMeshAlgorithms.generateEnhancedGreedyMesh(chunkData, undefined, {})
         return yield* createGeneratedMeshData(meshData, options)
@@ -813,17 +784,14 @@ export const createEnhancedMeshGenerationService = (): IMeshGenerator => {
     isAvailable: (): Effect.Effect<boolean, never, never> =>
       Effect.gen(function* () {
         return true // Always available as it's pure logic
-      })
+      }),
   }
 }
 
 /**
  * Live layer for Enhanced Mesh Generation Service
  */
-export const EnhancedMeshGenerationServiceLive = Layer.succeed(
-  MeshGeneratorPort,
-  createEnhancedMeshGenerationService(),
-)
+export const EnhancedMeshGenerationServiceLive = Layer.succeed(MeshGeneratorPort, createEnhancedMeshGenerationService())
 
 /**
  * Mesh Generation Service interface for dependency injection
@@ -835,16 +803,13 @@ export const MeshGenerationService = Context.GenericTag<MeshGenerationService>('
 /**
  * Create mesh generation service layer with Effect-TS patterns
  */
-export const meshGenerationServiceLive = Layer.succeed(
-  MeshGenerationService,
-  createEnhancedMeshGenerationService(),
-)
+export const meshGenerationServiceLive = Layer.succeed(MeshGenerationService, createEnhancedMeshGenerationService())
 
 // Re-export original service for backward compatibility
 export * from '@domain/services/mesh-generation-domain.service'
-export { 
+export {
   MeshGenerationDomainService as MeshGenerationDomainServiceOriginal,
-  MeshGenerationDomainServiceLive as MeshGenerationDomainServiceLiveOriginal 
+  MeshGenerationDomainServiceLive as MeshGenerationDomainServiceLiveOriginal,
 } from '@domain/services/mesh-generation-domain.service'
 
 /**
@@ -880,10 +845,8 @@ export const MeshGenerationServiceUtils = {
     return (
       request.chunkData !== undefined &&
       request.chunkData.blocks.length >= 0 &&
-      (request.meshAlgorithm === undefined || 
-       ['naive', 'culled', 'greedy', 'surface_nets', 'marching_cubes'].includes(request.meshAlgorithm)) &&
-      (request.cullingMode === undefined ||
-       ['none', 'basic', 'aggressive', 'ambient_occlusion'].includes(request.cullingMode))
+      (request.meshAlgorithm === undefined || ['naive', 'culled', 'greedy', 'surface_nets', 'marching_cubes'].includes(request.meshAlgorithm)) &&
+      (request.cullingMode === undefined || ['none', 'basic', 'aggressive', 'ambient_occlusion'].includes(request.cullingMode))
     )
   },
 
@@ -891,7 +854,7 @@ export const MeshGenerationServiceUtils = {
    * Estimate enhanced mesh complexity
    */
   estimateEnhancedMeshComplexity: (request: EnhancedMeshGenerationRequest): number => {
-    const solidBlocks = request.chunkData.blocks.filter(b => b.blockType !== 'air').length
+    const solidBlocks = request.chunkData.blocks.filter((b) => b.blockType !== 'air').length
     let complexity = solidBlocks * 6 // Base complexity
 
     // Algorithm complexity multipliers
@@ -929,7 +892,7 @@ export const MeshGenerationServiceUtils = {
    * Get memory estimate for mesh generation
    */
   estimateMemoryUsage: (request: EnhancedMeshGenerationRequest): number => {
-    const solidBlocks = request.chunkData.blocks.filter(b => b.blockType !== 'air').length
+    const solidBlocks = request.chunkData.blocks.filter((b) => b.blockType !== 'air').length
     let memoryUsage = solidBlocks * 6 * 4 * 8 * 4 // positions + normals + uvs + indices
 
     if (request.enhancedOptimizations?.enableVertexColors) {

@@ -1,6 +1,6 @@
 /**
  * Unified Component Schemas and Type Definitions
- * 
+ *
  * This module consolidates all component schemas and provides type definitions.
  * Moved from index.ts to separate concerns and maintain pure barrel exports.
  */

@@ -1,23 +1,17 @@
 /**
  * Physics Component Utilities and Constants
- * 
+ *
  * Provides utility objects and type definitions for physics components
  */
 
-import type {
-  PositionComponent,
-  VelocityComponent,
-  AccelerationComponent,
-  MassComponent,
-  ColliderComponent
-} from '@domain/entities/components/physics/physics-components'
+import type { PositionComponent, VelocityComponent, AccelerationComponent, MassComponent, ColliderComponent } from '@domain/entities/components/physics/physics-components'
 
 import {
   PositionComponent as PositionComponentSchema,
   VelocityComponent as VelocityComponentSchema,
   AccelerationComponent as AccelerationComponentSchema,
   MassComponent as MassComponentSchema,
-  ColliderComponent as ColliderComponentSchema
+  ColliderComponent as ColliderComponentSchema,
 } from '@domain/entities/components/physics/physics-components'
 
 // Aggregate all physics components for easy import
@@ -30,12 +24,7 @@ export const PhysicsComponents = {
 } as const
 
 // Type union for any physics component
-export type AnyPhysicsComponent = 
-  | PositionComponent 
-  | VelocityComponent 
-  | AccelerationComponent 
-  | MassComponent 
-  | ColliderComponent
+export type AnyPhysicsComponent = PositionComponent | VelocityComponent | AccelerationComponent | MassComponent | ColliderComponent
 
 // Re-export for backward compatibility
 export {

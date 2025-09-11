@@ -58,32 +58,26 @@ const resolveAxis =
 const getNearbyAABBs = (
   entityId: EntityId,
   nearbyEntityIds: ReadonlySet<EntityId>,
-  world: any // Simplified - would need proper typing
+  world: any, // Simplified - would need proper typing
 ) =>
   Effect.gen(function* () {
     const aabbs: AABB[] = []
-    
+
     for (const nearbyEntityId of nearbyEntityIds) {
       if (nearbyEntityId === entityId) continue
-      
+
       const position = yield* world.getComponent(nearbyEntityId, 'position')
       const collider = yield* world.getComponent(nearbyEntityId, 'collider')
-      
+
       if (Option.isSome(position) && Option.isSome(collider)) {
         aabbs.push(createAABB(position.value, collider.value))
       }
     }
-    
+
     return aabbs
   })
 
-const resolveCollisionsForPlayer = (
-  entityId: EntityId,
-  player: Player,
-  position: Position,
-  velocity: Velocity,
-  collider: Collider
-) =>
+const resolveCollisionsForPlayer = (entityId: EntityId, player: Player, position: Position, velocity: Velocity, collider: Collider) =>
   Effect.gen(function* ($) {
     const spatialGrid = yield* $(SpatialGridPort)
     const world = yield* $(WorldRepositoryPortPort)
@@ -120,24 +114,25 @@ export const collisionSystem = Effect.gen(function* ($) {
 
   // Query for players with collision components
   const playerQuery = yield* $(world.query(['player', 'position', 'velocity', 'collider']))
-  
+
   yield* $(
     Effect.forEach(
-      playerQuery.entities, 
-      (entityId) => Effect.gen(function* () {
-        const player = playerQuery.getComponent<Player>(entityId, 'player')
-        const position = playerQuery.getComponent<Position>(entityId, 'position')
-        const velocity = playerQuery.getComponent<Velocity>(entityId, 'velocity')
-        const collider = playerQuery.getComponent<Collider>(entityId, 'collider')
-        
-        if (Option.isSome(player) && Option.isSome(position) && Option.isSome(velocity) && Option.isSome(collider)) {
-          yield* $(resolveCollisionsForPlayer(entityId, player.value, position.value, velocity.value, collider.value))
-        }
-      }), 
+      playerQuery.entities,
+      (entityId) =>
+        Effect.gen(function* () {
+          const player = playerQuery.getComponent<Player>(entityId, 'player')
+          const position = playerQuery.getComponent<Position>(entityId, 'position')
+          const velocity = playerQuery.getComponent<Velocity>(entityId, 'velocity')
+          const collider = playerQuery.getComponent<Collider>(entityId, 'collider')
+
+          if (Option.isSome(player) && Option.isSome(position) && Option.isSome(velocity) && Option.isSome(collider)) {
+            yield* $(resolveCollisionsForPlayer(entityId, player.value, position.value, velocity.value, collider.value))
+          }
+        }),
       {
         concurrency: 'inherit',
         discard: true,
-      }
-    )
+      },
+    ),
   )
 })

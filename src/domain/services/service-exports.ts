@@ -71,15 +71,15 @@ export { targetingSystem } from '@domain/services/targeting.service'
 // Terrain Generation Domain Service
 export { TerrainGenerationDomainService, TerrainGenerationDomainServiceLive, TerrainGenerationUtils } from '@domain/services/terrain-generation-domain.service'
 
-// Mesh Generation Domain Service  
+// Mesh Generation Domain Service
 export { MeshGenerationDomainService, MeshGenerationDomainServiceLive, MeshGenerationUtils } from '@domain/services/mesh-generation-domain.service'
 
 // World Management Domain Service
-export { 
-  WorldManagementDomainService, 
-  WorldManagementDomainServiceLive, 
+export {
+  WorldManagementDomainService,
+  WorldManagementDomainServiceLive,
   WorldManagementUtils,
-  WorldManagementDomainServicePort
+  WorldManagementDomainServicePort,
 } from '@domain/services/world-management-domain.service'
 export type {
   IWorldManagementDomainService,
@@ -87,23 +87,18 @@ export type {
   ChunkMetadata,
   WorldManagementConfig,
   WorldManagementStats,
-  ChunkLoadResult
+  ChunkLoadResult,
 } from '@domain/services/world-management-domain.service'
 
 // Material Configuration Domain Service
-export { 
-  MaterialConfigDomainServiceLive, 
+export {
+  MaterialConfigDomainServiceLive,
   MaterialConfigUtils,
   MaterialConfigDomainServicePort,
   MaterialConfigNotFoundError,
-  MaterialConfigValidationError
+  MaterialConfigValidationError,
 } from '@domain/services/material-config-domain.service'
-export type {
-  IMaterialConfigDomainService,
-  MaterialConfig,
-  MaterialVariant,
-  MaterialType
-} from '@domain/services/material-config-domain.service'
+export type { IMaterialConfigDomainService, MaterialConfig, MaterialVariant, MaterialType } from '@domain/services/material-config-domain.service'
 
 // Performance Domain Service
 export {
@@ -112,7 +107,7 @@ export {
   PerformanceDomainUtils,
   PerformanceAnalysisError,
   PerformanceThresholdViolationError,
-  PERFORMANCE_THRESHOLDS
+  PERFORMANCE_THRESHOLDS,
 } from '@domain/services/performance-domain.service'
 export type {
   IPerformanceDomainService,
@@ -124,7 +119,7 @@ export type {
   PerformanceConfig,
   PerformanceCategory,
   PerformanceSeverity,
-  AlertType
+  AlertType,
 } from '@domain/services/performance-domain.service'
 
 // Optimization Domain Service
@@ -135,7 +130,7 @@ export {
   OptimizationError,
   LODConfigurationError,
   CullingError,
-  OPTIMIZATION_CONSTANTS
+  OPTIMIZATION_CONSTANTS,
 } from '@domain/services/optimization-domain.service'
 export type {
   IOptimizationDomainService,
@@ -150,5 +145,5 @@ export type {
   OptimizationDecision,
   SpatialOptimizationData,
   QualitySettings,
-  CullingType
+  CullingType,
 } from '@domain/services/optimization-domain.service'

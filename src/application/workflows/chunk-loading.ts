@@ -77,7 +77,11 @@ const getPlayerChunk = (position: Position): ChunkCoord => ({
  */
 export interface ChunkLoadingWorkflowService {
   readonly executeChunkLoading: () => Effect.Effect<void, Error>
-  readonly calculateUpdates: (currentPlayerChunk: ChunkCoord, loadedChunks: HashMap.HashMap<string, EntityId>, renderDistance: number) => {
+  readonly calculateUpdates: (
+    currentPlayerChunk: ChunkCoord,
+    loadedChunks: HashMap.HashMap<string, EntityId>,
+    renderDistance: number,
+  ) => {
     toLoad: ReadonlyArray<ChunkCoord>
     toUnload: ReadonlyArray<EntityId>
   }
@@ -139,9 +143,9 @@ export const ChunkLoadingWorkflowLive = Layer.effect(
 
     return {
       executeChunkLoading,
-      calculateUpdates: calculateChunkUpdates
+      calculateUpdates: calculateChunkUpdates,
     } satisfies ChunkLoadingWorkflowService
-  })
+  }),
 )
 
 /**

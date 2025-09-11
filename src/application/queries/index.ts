@@ -1,14 +1,8 @@
 // Archetype Query System
-export { 
-  ArchetypeManager, ArchetypeManagerLive, ComponentIndexing, ComponentIndexingLive,
-  ArchetypeSystemUtils, createArchetypeQuery
-} from './archetype-query'
+export { ArchetypeManager, ArchetypeManagerLive, ComponentIndexing, ComponentIndexingLive, ArchetypeSystemUtils, createArchetypeQuery } from './archetype-query'
 
 // Query Builder
-export { 
-  query, QueryBuilder, soaQuery, aosQuery, createSoAQuery, createAoSQuery,
-  QueryBuilderUtils, createEntityProxy, startQueryContext, finalizeQueryContext
-} from './builder'
+export { query, QueryBuilder, soaQuery, aosQuery, createSoAQuery, createAoSQuery, QueryBuilderUtils, createEntityProxy, startQueryContext, finalizeQueryContext } from './builder'
 
 // Query Cache
 export { QueryCache, globalQueryCacheLayer, CacheKeyGenerator } from './cache'
@@ -30,7 +24,11 @@ export { QueryUtils, createQueryExecutor, validateQueryConfig } from './query-ut
 
 // Unified Query System
 export {
-  UnifiedQuerySystemService, UnifiedQuerySystemLive, UnifiedQueryUtils,
-  createUnifiedQuerySystem, createUnifiedQuerySystemLayer,
-  defaultUnifiedQueryConfig, archetypeMatchesMask
+  UnifiedQuerySystemService,
+  UnifiedQuerySystemLive,
+  UnifiedQueryUtils,
+  createUnifiedQuerySystem,
+  createUnifiedQuerySystemLayer,
+  defaultUnifiedQueryConfig,
+  archetypeMatchesMask,
 } from './unified-query-system'

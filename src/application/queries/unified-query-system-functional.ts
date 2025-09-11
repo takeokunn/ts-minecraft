@@ -1,9 +1,9 @@
 /**
  * Unified Query System - Complete ECS Query Solution (Functional Implementation)
- * 
+ *
  * This system consolidates all query functionality from both domain and application layers,
  * eliminating duplication while providing a comprehensive interface for all query operations.
- * 
+ *
  * Architecture:
  * - Combines ECS query capabilities (archetype, optimized, cached)
  * - Provides both SoA (Structure of Arrays) and AoS (Array of Structures) query patterns
@@ -12,14 +12,14 @@
  * - Supports query optimization and execution planning
  * - Provides comprehensive performance monitoring and profiling
  * - Maintains backward compatibility with legacy query systems
- * 
+ *
  * Migrated Features from Domain Layer:
  * - Advanced archetype management with bit-mask optimization
  * - Component indexing for fast entity lookup
  * - Smart execution planning and query optimization
  * - Intelligent caching with TTL and dependency tracking
  * - Performance profiling and metrics collection
- * 
+ *
  * FUNCTIONAL IMPLEMENTATION:
  * - Uses Effect-TS Context.GenericTag and Layer pattern
  * - Replaces classes with interfaces + pure functions
@@ -280,10 +280,7 @@ export const makeUnifiedQueryState = <T = unknown>(
 /**
  * Execute a unified query functionally
  */
-export const executeUnifiedQuery = <T>(
-  queryState: UnifiedQueryState<T>,
-  context?: QueryExecutionContext,
-): Effect.Effect<UnifiedQueryResult<T>, never, never> =>
+export const executeUnifiedQuery = <T>(queryState: UnifiedQueryState<T>, context?: QueryExecutionContext): Effect.Effect<UnifiedQueryResult<T>, never, never> =>
   Effect.gen(function* () {
     const startTime = performance.now()
     const ctx: QueryExecutionContext = context || {
@@ -295,12 +292,10 @@ export const executeUnifiedQuery = <T>(
 
     // Mock entity fetching - in real implementation would query ECS
     let entities: readonly T[] = []
-    
+
     // Apply predicates
     if (queryState.predicates.length > 0) {
-      entities = entities.filter(entity => 
-        queryState.predicates.every(predicate => predicate(entity))
-      )
+      entities = entities.filter((entity) => queryState.predicates.every((predicate) => predicate(entity)))
     }
 
     // Apply selector
@@ -392,15 +387,12 @@ export const UnifiedQueryBuilder = Context.GenericTag<UnifiedQueryBuilderService
 export const UnifiedQueryBuilderLive = Layer.succeed(
   UnifiedQueryBuilder,
   UnifiedQueryBuilder.of({
-    withComponents: <T extends readonly ComponentName[]>(components: T) => 
-      Effect.succeed(makeUnifiedQueryState<T>(`Query_${components.join('_')}`, components)),
+    withComponents: <T extends readonly ComponentName[]>(components: T) => Effect.succeed(makeUnifiedQueryState<T>(`Query_${components.join('_')}`, components)),
 
-    withArchetype: (signature: string) => 
-      Effect.succeed(makeUnifiedQueryState(`ArchetypeQuery_${signature}`, [])),
+    withArchetype: (signature: string) => Effect.succeed(makeUnifiedQueryState(`ArchetypeQuery_${signature}`, [])),
 
-    cached: (key: string, ttl?: number) => 
-      Effect.succeed(makeUnifiedQueryState(`CachedQuery_${key}`, [], [], undefined, undefined, undefined, key, ttl)),
-  })
+    cached: (key: string, ttl?: number) => Effect.succeed(makeUnifiedQueryState(`CachedQuery_${key}`, [], [], undefined, undefined, undefined, key, ttl)),
+  }),
 )
 
 /**
@@ -510,19 +502,15 @@ export const computeComponentMask = (components: ReadonlySet<ComponentName>, com
 /**
  * Calculate memory usage of cache
  */
-export const calculateMemoryUsage = (cache: HashMap.HashMap<string, CacheEntry>): number =>
-  HashMap.reduce(cache, 0, (sum, entry) => sum + entry.size)
+export const calculateMemoryUsage = (cache: HashMap.HashMap<string, CacheEntry>): number => HashMap.reduce(cache, 0, (sum, entry) => sum + entry.size)
 
 /**
  * Add entity to component index
  */
-export const addToComponentIndexEffect = (
-  stateRef: Ref.Ref<UnifiedQuerySystemState>,
-  entity: QueryEntity,
-): Effect.Effect<void, never, never> =>
+export const addToComponentIndexEffect = (stateRef: Ref.Ref<UnifiedQuerySystemState>, entity: QueryEntity): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     const components = Object.keys(entity.components) as ComponentName[]
-    
+
     yield* Ref.update(stateRef, (state) => {
       let newComponentToEntities = state.componentIndex.componentToEntities
       let newEntityToComponents = state.componentIndex.entityToComponents
@@ -552,10 +540,7 @@ export const addToComponentIndexEffect = (
 /**
  * Remove entity from component index
  */
-export const removeFromComponentIndexEffect = (
-  stateRef: Ref.Ref<UnifiedQuerySystemState>,
-  entity: QueryEntity,
-): Effect.Effect<void, never, never> =>
+export const removeFromComponentIndexEffect = (stateRef: Ref.Ref<UnifiedQuerySystemState>, entity: QueryEntity): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     yield* Ref.update(stateRef, (state) => {
       const componentsOption = HashMap.get(state.componentIndex.entityToComponents, entity)
@@ -593,10 +578,7 @@ export const removeFromComponentIndexEffect = (
 /**
  * Add entity to archetype system
  */
-export const addToArchetypeSystemEffect = (
-  stateRef: Ref.Ref<UnifiedQuerySystemState>,
-  entity: QueryEntity,
-): Effect.Effect<void, never, never> =>
+export const addToArchetypeSystemEffect = (stateRef: Ref.Ref<UnifiedQuerySystemState>, entity: QueryEntity): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     // Remove from current archetype if exists
     yield* removeFromArchetypeSystemEffect(stateRef, entity)
@@ -633,10 +615,7 @@ export const addToArchetypeSystemEffect = (
 /**
  * Remove entity from archetype system
  */
-export const removeFromArchetypeSystemEffect = (
-  stateRef: Ref.Ref<UnifiedQuerySystemState>,
-  entity: QueryEntity,
-): Effect.Effect<void, never, never> =>
+export const removeFromArchetypeSystemEffect = (stateRef: Ref.Ref<UnifiedQuerySystemState>, entity: QueryEntity): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     yield* Ref.update(stateRef, (state) => {
       const currentArchetypeOption = HashMap.get(state.entityToArchetype, entity)
@@ -663,10 +642,7 @@ export const removeFromArchetypeSystemEffect = (
 /**
  * Invalidate cache entries based on modified components
  */
-export const invalidateCacheEffect = (
-  stateRef: Ref.Ref<UnifiedQuerySystemState>,
-  modifiedComponents: ComponentName[],
-): Effect.Effect<number, never, never> =>
+export const invalidateCacheEffect = (stateRef: Ref.Ref<UnifiedQuerySystemState>, modifiedComponents: ComponentName[]): Effect.Effect<number, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const modifiedSet = new Set(modifiedComponents)
@@ -697,20 +673,14 @@ export const invalidateCacheEffect = (
 /**
  * Create the unified query system service
  */
-export const makeUnifiedQuerySystemService = (
-  config: UnifiedQueryConfig,
-  stateRef: Ref.Ref<UnifiedQuerySystemState>,
-): UnifiedQuerySystemServiceImpl => ({
-  createQuery: <T extends readonly ComponentName[]>(name: string, components: T) => 
-    makeUnifiedQueryState<T>(name, components),
+export const makeUnifiedQuerySystemService = (config: UnifiedQueryConfig, stateRef: Ref.Ref<UnifiedQuerySystemState>): UnifiedQuerySystemServiceImpl => ({
+  createQuery: <T extends readonly ComponentName[]>(name: string, components: T) => makeUnifiedQueryState<T>(name, components),
 
-  createArchetypeQuery: (name: string, signature: string) => 
-    makeUnifiedQueryState(name, [], [], undefined, undefined, undefined, `archetype_${signature}`),
+  createArchetypeQuery: (name: string, signature: string) => makeUnifiedQueryState(name, [], [], undefined, undefined, undefined, `archetype_${signature}`),
 
-  executeQuery: <T>(queryState: UnifiedQueryState<T>, context?: QueryExecutionContext) => 
-    executeUnifiedQuery(queryState, context),
+  executeQuery: <T>(queryState: UnifiedQueryState<T>, context?: QueryExecutionContext) => executeUnifiedQuery(queryState, context),
 
-  getMetrics: (queryName: string) => 
+  getMetrics: (queryName: string) =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
       return HashMap.get(state.queryMetrics, queryName)
@@ -731,7 +701,7 @@ export const makeUnifiedQuerySystemService = (
   getBuilder: () => UnifiedQueryBuilder,
 
   // Advanced methods for entity management
-  addEntity: (entity: QueryEntity) => 
+  addEntity: (entity: QueryEntity) =>
     Effect.gen(function* () {
       // Add to component index
       yield* addToComponentIndexEffect(stateRef, entity)
@@ -739,7 +709,7 @@ export const makeUnifiedQuerySystemService = (
       yield* addToArchetypeSystemEffect(stateRef, entity)
     }),
 
-  removeEntity: (entity: QueryEntity) => 
+  removeEntity: (entity: QueryEntity) =>
     Effect.gen(function* () {
       // Remove from component index
       yield* removeFromComponentIndexEffect(stateRef, entity)
@@ -850,7 +820,7 @@ export const UnifiedQuerySystemLive = Layer.effect(
     }
 
     return makeUnifiedQuerySystemService(defaultUnifiedQueryConfig, stateRef)
-  })
+  }),
 )
 
 /**
@@ -883,7 +853,7 @@ export const createUnifiedQuerySystem = (config: Partial<UnifiedQueryConfig> = {
         },
       })
       return makeUnifiedQuerySystemService(finalConfig, stateRef)
-    })
+    }),
   )
 
 /**
@@ -914,11 +884,7 @@ export const UnifiedQueryUtils = {
   executeParallelQueries: <T>(queries: readonly UnifiedQueryState<T>[], context?: QueryExecutionContext) =>
     Effect.gen(function* () {
       const system = yield* UnifiedQuerySystemService
-      return yield* Effect.forEach(
-        queries,
-        (query) => system.executeQuery(query, context),
-        { concurrency: 'unbounded' }
-      )
+      return yield* Effect.forEach(queries, (query) => system.executeQuery(query, context), { concurrency: 'unbounded' })
     }),
 
   /**

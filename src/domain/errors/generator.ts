@@ -66,10 +66,8 @@ export const logError = (error: { _tag: string } & BaseErrorData): Effect.Effect
 /**
  * Creates an error recovery handler - functional approach
  */
-export const createRecoveryHandler = <T, E extends { _tag: string } & BaseErrorData>(
-  strategy: RecoveryStrategy,
-  fallbackValue?: T,
-): ((error: E) => Effect.Effect<T, E, never>) =>
+export const createRecoveryHandler =
+  <T, E extends { _tag: string } & BaseErrorData>(strategy: RecoveryStrategy, fallbackValue?: T): ((error: E) => Effect.Effect<T, E, never>) =>
   (error: E) =>
     Effect.gen(function* () {
       yield* logError(error)
@@ -102,10 +100,7 @@ export const createRecoveryHandler = <T, E extends { _tag: string } & BaseErrorD
 /**
  * Create a tagged error using Schema.TaggedError - pure functional approach
  */
-export const createTaggedError = <Tag extends string, Data extends BaseErrorData>(
-  tag: Tag,
-  schema: Schema.Schema<Data, any, never>,
-) => Schema.TaggedError(tag)<Data>(schema)
+export const createTaggedError = <Tag extends string, Data extends BaseErrorData>(tag: Tag, schema: Schema.Schema<Data, any, never>) => Schema.TaggedError(tag)<Data>(schema)
 
 /**
  * Error aggregation state type
@@ -153,18 +148,13 @@ export const ErrorAggregator = {
   /**
    * Get errors by type
    */
-  getErrorsByType: <T extends { _tag: string } & BaseErrorData>(
-    state: ErrorAggregatorState,
-    type: string,
-  ): readonly T[] => state.errors.filter((error) => error._tag === type) as T[],
+  getErrorsByType: <T extends { _tag: string } & BaseErrorData>(state: ErrorAggregatorState, type: string): readonly T[] =>
+    state.errors.filter((error) => error._tag === type) as T[],
 
   /**
    * Get errors by severity
    */
-  getBySeverity: (
-    state: ErrorAggregatorState,
-    severity: 'low' | 'medium' | 'high' | 'critical',
-  ): ReadonlyArray<{ _tag: string } & BaseErrorData> =>
+  getBySeverity: (state: ErrorAggregatorState, severity: 'low' | 'medium' | 'high' | 'critical'): ReadonlyArray<{ _tag: string } & BaseErrorData> =>
     state.errors.filter((error) => error.context.severity === severity),
 
   /**

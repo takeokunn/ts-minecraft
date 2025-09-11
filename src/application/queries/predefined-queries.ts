@@ -1,6 +1,6 @@
 /**
  * Predefined Query Definitions
- * 
+ *
  * This file contains pre-built optimized queries for common use cases
  * in the Minecraft game, including player queries, physics queries,
  * and rendering queries.

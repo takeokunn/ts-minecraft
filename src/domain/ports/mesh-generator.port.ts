@@ -1,6 +1,6 @@
 /**
  * Mesh Generator Port
- * 
+ *
  * This port defines the contract for mesh generation operations,
  * allowing the domain layer to generate 3D meshes from voxel data
  * without depending on specific mesh generation algorithms.
@@ -139,22 +139,22 @@ export interface IMeshGenerator {
    * Generate mesh from chunk data
    */
   readonly generateMesh: (request: MeshGenerationRequest) => Effect.Effect<MeshGenerationResult, never, never>
-  
+
   /**
    * Generate mesh with naive algorithm
    */
   readonly generateNaiveMesh: (chunkData: ChunkData, options?: MeshGenerationOptions) => Effect.Effect<GeneratedMeshData, never, never>
-  
+
   /**
    * Generate mesh with greedy meshing algorithm
    */
   readonly generateGreedyMesh: (chunkData: ChunkData, options?: MeshGenerationOptions) => Effect.Effect<GeneratedMeshData, never, never>
-  
+
   /**
    * Calculate bounding volume for positions
    */
   readonly calculateBounds: (positions: Float32Array) => Effect.Effect<BoundingVolume, never, never>
-  
+
   /**
    * Check if mesh generation is available
    */
@@ -194,11 +194,7 @@ export const MeshGeneratorHelpers = {
   /**
    * Create transferable vertex data
    */
-  createTransferableVertexData: (
-    positions: number[],
-    normals?: number[],
-    uvs?: number[],
-  ): VertexAttributes => ({
+  createTransferableVertexData: (positions: number[], normals?: number[], uvs?: number[]): VertexAttributes => ({
     positions: new Float32Array(positions),
     normals: normals ? new Float32Array(normals) : undefined,
     uvs: uvs ? new Float32Array(uvs) : undefined,
@@ -228,8 +224,12 @@ export const MeshGeneratorHelpers = {
    * Calculate mesh bounds from positions
    */
   calculateMeshBounds: (positions: Float32Array): BoundingVolume => {
-    let minX = Infinity, minY = Infinity, minZ = Infinity
-    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
+    let minX = Infinity,
+      minY = Infinity,
+      minZ = Infinity
+    let maxX = -Infinity,
+      maxY = -Infinity,
+      maxZ = -Infinity
 
     for (let i = 0; i < positions.length; i += 3) {
       const x = positions[i]
@@ -248,11 +248,7 @@ export const MeshGeneratorHelpers = {
     const centerY = (minY + maxY) / 2
     const centerZ = (minZ + maxZ) / 2
 
-    const radius = Math.sqrt(
-      Math.pow(maxX - centerX, 2) +
-      Math.pow(maxY - centerY, 2) +
-      Math.pow(maxZ - centerZ, 2)
-    )
+    const radius = Math.sqrt(Math.pow(maxX - centerX, 2) + Math.pow(maxY - centerY, 2) + Math.pow(maxZ - centerZ, 2))
 
     return {
       min: { x: minX, y: minY, z: minZ },

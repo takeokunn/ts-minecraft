@@ -31,8 +31,7 @@ import {
 export const NativeVector3AdapterLive = Layer.succeed(
   Vector3Port,
   Vector3Port.of({
-    create: (x: number, y: number, z: number) =>
-      Effect.succeed({ x, y, z }),
+    create: (x: number, y: number, z: number) => Effect.succeed({ x, y, z }),
 
     add: (a: Vector3Data, b: Vector3Data) =>
       Effect.succeed({
@@ -55,8 +54,7 @@ export const NativeVector3AdapterLive = Layer.succeed(
         z: vector.z * scalar,
       }),
 
-    dot: (a: Vector3Data, b: Vector3Data) =>
-      Effect.succeed(a.x * b.x + a.y * b.y + a.z * b.z),
+    dot: (a: Vector3Data, b: Vector3Data) => Effect.succeed(a.x * b.x + a.y * b.y + a.z * b.z),
 
     cross: (a: Vector3Data, b: Vector3Data) =>
       Effect.succeed({
@@ -65,8 +63,7 @@ export const NativeVector3AdapterLive = Layer.succeed(
         z: a.x * b.y - a.y * b.x,
       }),
 
-    magnitude: (vector: Vector3Data) =>
-      Effect.succeed(Math.sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z)),
+    magnitude: (vector: Vector3Data) => Effect.succeed(Math.sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z)),
 
     normalize: (vector: Vector3Data) =>
       Effect.gen(function* (_) {
@@ -95,7 +92,7 @@ export const NativeVector3AdapterLive = Layer.succeed(
         y: a.y + (b.y - a.y) * t,
         z: a.z + (b.z - a.z) * t,
       }),
-  })
+  }),
 )
 
 /**
@@ -104,11 +101,9 @@ export const NativeVector3AdapterLive = Layer.succeed(
 export const NativeQuaternionAdapterLive = Layer.succeed(
   QuaternionPort,
   QuaternionPort.of({
-    create: (x: number, y: number, z: number, w: number) =>
-      Effect.succeed({ x, y, z, w }),
+    create: (x: number, y: number, z: number, w: number) => Effect.succeed({ x, y, z, w }),
 
-    identity: () =>
-      Effect.succeed({ x: 0, y: 0, z: 0, w: 1 }),
+    identity: () => Effect.succeed({ x: 0, y: 0, z: 0, w: 1 }),
 
     multiply: (a: QuaternionData, b: QuaternionData) =>
       Effect.succeed({
@@ -118,8 +113,7 @@ export const NativeQuaternionAdapterLive = Layer.succeed(
         w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
       }),
 
-    conjugate: (q: QuaternionData) =>
-      Effect.succeed({ x: -q.x, y: -q.y, z: -q.z, w: q.w }),
+    conjugate: (q: QuaternionData) => Effect.succeed({ x: -q.x, y: -q.y, z: -q.z, w: q.w }),
 
     normalize: (q: QuaternionData) =>
       Effect.gen(function* (_) {
@@ -205,7 +199,7 @@ export const NativeQuaternionAdapterLive = Layer.succeed(
       Effect.gen(function* (_) {
         // Manual quaternion rotation: v' = q * v * q^(-1)
         // For unit quaternions, q^(-1) = conjugate(q)
-        
+
         // First multiply: q * v (treating v as quaternion with w=0)
         const qv = {
           x: q.w * vector.x + q.y * vector.z - q.z * vector.y,
@@ -213,17 +207,17 @@ export const NativeQuaternionAdapterLive = Layer.succeed(
           z: q.w * vector.z + q.x * vector.y - q.y * vector.x,
           w: -(q.x * vector.x + q.y * vector.y + q.z * vector.z),
         }
-        
+
         // Then multiply result by conjugate of q
         const qConj = { x: -q.x, y: -q.y, z: -q.z, w: q.w }
-        
+
         return {
           x: qv.w * qConj.x + qv.x * qConj.w + qv.y * qConj.z - qv.z * qConj.y,
           y: qv.w * qConj.y - qv.x * qConj.z + qv.y * qConj.w + qv.z * qConj.x,
           z: qv.w * qConj.z + qv.x * qConj.y - qv.y * qConj.x + qv.z * qConj.w,
         }
       }),
-  })
+  }),
 )
 
 /**
@@ -232,8 +226,7 @@ export const NativeQuaternionAdapterLive = Layer.succeed(
 export const NativeRayAdapterLive = Layer.succeed(
   RayPort,
   RayPort.of({
-    create: (origin: Vector3Data, direction: Vector3Data) =>
-      Effect.succeed({ origin, direction }),
+    create: (origin: Vector3Data, direction: Vector3Data) => Effect.succeed({ origin, direction }),
 
     at: (ray: RayData, distance: number) =>
       Effect.succeed({
@@ -249,35 +242,35 @@ export const NativeRayAdapterLive = Layer.succeed(
           y: ray.origin.y - center.y,
           z: ray.origin.z - center.z,
         }
-        
+
         const a = ray.direction.x * ray.direction.x + ray.direction.y * ray.direction.y + ray.direction.z * ray.direction.z
         const b = 2.0 * (oc.x * ray.direction.x + oc.y * ray.direction.y + oc.z * ray.direction.z)
         const c = oc.x * oc.x + oc.y * oc.y + oc.z * oc.z - radius * radius
-        
+
         const discriminant = b * b - 4 * a * c
-        
+
         if (discriminant < 0) {
           return { hit: false }
         }
-        
+
         const t = (-b - Math.sqrt(discriminant)) / (2.0 * a)
         if (t >= 0) {
           return { hit: true, distance: t }
         }
-        
+
         return { hit: false }
       }),
 
     intersectsPlane: (ray: RayData, planeNormal: Vector3Data, planeDistance: number) =>
       Effect.gen(function* (_) {
         const denom = ray.direction.x * planeNormal.x + ray.direction.y * planeNormal.y + ray.direction.z * planeNormal.z
-        
+
         if (Math.abs(denom) < 1e-6) {
           return { hit: false } // Ray is parallel to plane
         }
-        
+
         const t = (planeDistance - (ray.origin.x * planeNormal.x + ray.origin.y * planeNormal.y + ray.origin.z * planeNormal.z)) / denom
-        
+
         if (t >= 0) {
           const point = {
             x: ray.origin.x + ray.direction.x * t,
@@ -286,7 +279,7 @@ export const NativeRayAdapterLive = Layer.succeed(
           }
           return { hit: true, point, distance: t }
         }
-        
+
         return { hit: false }
       }),
 
@@ -297,31 +290,31 @@ export const NativeRayAdapterLive = Layer.succeed(
           y: ray.direction.y === 0 ? Infinity : 1.0 / ray.direction.y,
           z: ray.direction.z === 0 ? Infinity : 1.0 / ray.direction.z,
         }
-        
+
         const t1 = (min.x - ray.origin.x) * invDir.x
         const t2 = (max.x - ray.origin.x) * invDir.x
         const t3 = (min.y - ray.origin.y) * invDir.y
         const t4 = (max.y - ray.origin.y) * invDir.y
         const t5 = (min.z - ray.origin.z) * invDir.z
         const t6 = (max.z - ray.origin.z) * invDir.z
-        
+
         const tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6))
         const tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6))
-        
+
         if (tmax < 0 || tmin > tmax) {
           return { hit: false }
         }
-        
+
         const t = tmin < 0 ? tmax : tmin
         const point = {
           x: ray.origin.x + ray.direction.x * t,
           y: ray.origin.y + ray.direction.y * t,
           z: ray.origin.z + ray.direction.z * t,
         }
-        
+
         return { hit: true, point, distance: t }
       }),
-  })
+  }),
 )
 
 /**
@@ -332,32 +325,34 @@ export const NativeMatrix4AdapterLive = Layer.succeed(
   Matrix4Port.of({
     create: () =>
       Effect.succeed({
-        elements: [
-          1, 0, 0, 0,
-          0, 1, 0, 0,
-          0, 0, 1, 0,
-          0, 0, 0, 1
-        ]
+        elements: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
       }),
 
     identity: () =>
       Effect.succeed({
-        elements: [
-          1, 0, 0, 0,
-          0, 1, 0, 0,
-          0, 0, 1, 0,
-          0, 0, 0, 1
-        ]
+        elements: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
       }),
 
     fromArray: (elements: readonly number[]) =>
       Effect.succeed({
         elements: [
-          elements[0] || 0, elements[1] || 0, elements[2] || 0, elements[3] || 0,
-          elements[4] || 0, elements[5] || 0, elements[6] || 0, elements[7] || 0,
-          elements[8] || 0, elements[9] || 0, elements[10] || 0, elements[11] || 0,
-          elements[12] || 0, elements[13] || 0, elements[14] || 0, elements[15] || 0
-        ]
+          elements[0] || 0,
+          elements[1] || 0,
+          elements[2] || 0,
+          elements[3] || 0,
+          elements[4] || 0,
+          elements[5] || 0,
+          elements[6] || 0,
+          elements[7] || 0,
+          elements[8] || 0,
+          elements[9] || 0,
+          elements[10] || 0,
+          elements[11] || 0,
+          elements[12] || 0,
+          elements[13] || 0,
+          elements[14] || 0,
+          elements[15] || 0,
+        ],
       }),
 
     multiply: (a: Matrix4Data, b: Matrix4Data) =>
@@ -365,27 +360,25 @@ export const NativeMatrix4AdapterLive = Layer.succeed(
         const ae = a.elements
         const be = b.elements
         const result: number[] = new Array(16)
-        
+
         for (let i = 0; i < 4; i++) {
           for (let j = 0; j < 4; j++) {
-            result[i * 4 + j] = 
-              ae[i * 4 + 0] * be[0 * 4 + j] +
-              ae[i * 4 + 1] * be[1 * 4 + j] +
-              ae[i * 4 + 2] * be[2 * 4 + j] +
-              ae[i * 4 + 3] * be[3 * 4 + j]
+            result[i * 4 + j] = ae[i * 4 + 0] * be[0 * 4 + j] + ae[i * 4 + 1] * be[1 * 4 + j] + ae[i * 4 + 2] * be[2 * 4 + j] + ae[i * 4 + 3] * be[3 * 4 + j]
           }
         }
-        
+
         return { elements: result as any }
       }),
 
     multiplyVector3: (matrix: Matrix4Data, vector: Vector3Data) =>
       Effect.gen(function* (_) {
         const m = matrix.elements
-        const x = vector.x, y = vector.y, z = vector.z
-        
+        const x = vector.x,
+          y = vector.y,
+          z = vector.z
+
         const w = 1 / (m[3] * x + m[7] * y + m[11] * z + m[15])
-        
+
         return {
           x: (m[0] * x + m[4] * y + m[8] * z + m[12]) * w,
           y: (m[1] * x + m[5] * y + m[9] * z + m[13]) * w,
@@ -397,12 +390,7 @@ export const NativeMatrix4AdapterLive = Layer.succeed(
       Effect.gen(function* (_) {
         const m = matrix.elements
         return {
-          elements: [
-            m[0], m[4], m[8], m[12],
-            m[1], m[5], m[9], m[13],
-            m[2], m[6], m[10], m[14],
-            m[3], m[7], m[11], m[15]
-          ]
+          elements: [m[0], m[4], m[8], m[12], m[1], m[5], m[9], m[13], m[2], m[6], m[10], m[14], m[3], m[7], m[11], m[15]],
         }
       }),
 
@@ -429,111 +417,105 @@ export const NativeMatrix4AdapterLive = Layer.succeed(
         inv[15] = m[0] * m[5] * m[10] - m[0] * m[6] * m[9] - m[4] * m[1] * m[10] + m[4] * m[2] * m[9] + m[8] * m[1] * m[6] - m[8] * m[2] * m[5]
 
         const det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12]
-        
+
         if (det === 0) {
           return { elements: matrix.elements } // Return original if not invertible
         }
-        
+
         const invDet = 1.0 / det
         for (let i = 0; i < 16; i++) {
           inv[i] *= invDet
         }
-        
+
         return { elements: inv as any }
       }),
 
     translate: (matrix: Matrix4Data, vector: Vector3Data) =>
       Effect.gen(function* (_) {
-        const translation = [
-          1, 0, 0, 0,
-          0, 1, 0, 0,
-          0, 0, 1, 0,
-          vector.x, vector.y, vector.z, 1
-        ]
-        
-        return yield* _(Effect.succeed({ elements: translation as any }).pipe(
-          Effect.flatMap(t => Effect.succeed(t).pipe(
-            Effect.flatMap(t => {
-              const ae = matrix.elements
-              const be = t.elements
-              const result: number[] = new Array(16)
-              
-              for (let i = 0; i < 4; i++) {
-                for (let j = 0; j < 4; j++) {
-                  result[i * 4 + j] = 
-                    ae[i * 4 + 0] * be[0 * 4 + j] +
-                    ae[i * 4 + 1] * be[1 * 4 + j] +
-                    ae[i * 4 + 2] * be[2 * 4 + j] +
-                    ae[i * 4 + 3] * be[3 * 4 + j]
-                }
-              }
-              
-              return Effect.succeed({ elements: result as any })
-            })
-          ))
-        ))
+        const translation = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, vector.x, vector.y, vector.z, 1]
+
+        return yield* _(
+          Effect.succeed({ elements: translation as any }).pipe(
+            Effect.flatMap((t) =>
+              Effect.succeed(t).pipe(
+                Effect.flatMap((t) => {
+                  const ae = matrix.elements
+                  const be = t.elements
+                  const result: number[] = new Array(16)
+
+                  for (let i = 0; i < 4; i++) {
+                    for (let j = 0; j < 4; j++) {
+                      result[i * 4 + j] = ae[i * 4 + 0] * be[0 * 4 + j] + ae[i * 4 + 1] * be[1 * 4 + j] + ae[i * 4 + 2] * be[2 * 4 + j] + ae[i * 4 + 3] * be[3 * 4 + j]
+                    }
+                  }
+
+                  return Effect.succeed({ elements: result as any })
+                }),
+              ),
+            ),
+          ),
+        )
       }),
 
     rotate: (matrix: Matrix4Data, axis: Vector3Data, angle: number) =>
       Effect.gen(function* (_) {
         const axisMag = Math.sqrt(axis.x * axis.x + axis.y * axis.y + axis.z * axis.z)
         if (axisMag === 0) return matrix
-        
+
         const x = axis.x / axisMag
         const y = axis.y / axisMag
         const z = axis.z / axisMag
-        
+
         const cos = Math.cos(angle)
         const sin = Math.sin(angle)
         const t = 1 - cos
-        
+
         const rotation = [
-          cos + x * x * t,     x * y * t - z * sin, x * z * t + y * sin, 0,
-          y * x * t + z * sin, cos + y * y * t,     y * z * t - x * sin, 0,
-          z * x * t - y * sin, z * y * t + x * sin, cos + z * z * t,     0,
-          0,                   0,                   0,                   1
+          cos + x * x * t,
+          x * y * t - z * sin,
+          x * z * t + y * sin,
+          0,
+          y * x * t + z * sin,
+          cos + y * y * t,
+          y * z * t - x * sin,
+          0,
+          z * x * t - y * sin,
+          z * y * t + x * sin,
+          cos + z * z * t,
+          0,
+          0,
+          0,
+          0,
+          1,
         ]
-        
+
         const ae = matrix.elements
         const be = rotation
         const result: number[] = new Array(16)
-        
+
         for (let i = 0; i < 4; i++) {
           for (let j = 0; j < 4; j++) {
-            result[i * 4 + j] = 
-              ae[i * 4 + 0] * be[0 * 4 + j] +
-              ae[i * 4 + 1] * be[1 * 4 + j] +
-              ae[i * 4 + 2] * be[2 * 4 + j] +
-              ae[i * 4 + 3] * be[3 * 4 + j]
+            result[i * 4 + j] = ae[i * 4 + 0] * be[0 * 4 + j] + ae[i * 4 + 1] * be[1 * 4 + j] + ae[i * 4 + 2] * be[2 * 4 + j] + ae[i * 4 + 3] * be[3 * 4 + j]
           }
         }
-        
+
         return { elements: result as any }
       }),
 
     scale: (matrix: Matrix4Data, vector: Vector3Data) =>
       Effect.gen(function* (_) {
-        const scaling = [
-          vector.x, 0, 0, 0,
-          0, vector.y, 0, 0,
-          0, 0, vector.z, 0,
-          0, 0, 0, 1
-        ]
-        
+        const scaling = [vector.x, 0, 0, 0, 0, vector.y, 0, 0, 0, 0, vector.z, 0, 0, 0, 0, 1]
+
         const ae = matrix.elements
         const be = scaling
         const result: number[] = new Array(16)
-        
+
         for (let i = 0; i < 4; i++) {
           for (let j = 0; j < 4; j++) {
-            result[i * 4 + j] = 
-              ae[i * 4 + 0] * be[0 * 4 + j] +
-              ae[i * 4 + 1] * be[1 * 4 + j] +
-              ae[i * 4 + 2] * be[2 * 4 + j] +
-              ae[i * 4 + 3] * be[3 * 4 + j]
+            result[i * 4 + j] = ae[i * 4 + 0] * be[0 * 4 + j] + ae[i * 4 + 1] * be[1 * 4 + j] + ae[i * 4 + 2] * be[2 * 4 + j] + ae[i * 4 + 3] * be[3 * 4 + j]
           }
         }
-        
+
         return { elements: result as any }
       }),
 
@@ -542,59 +524,58 @@ export const NativeMatrix4AdapterLive = Layer.succeed(
         const zAxis = {
           x: eye.x - center.x,
           y: eye.y - center.y,
-          z: eye.z - center.z
+          z: eye.z - center.z,
         }
         const zLen = Math.sqrt(zAxis.x * zAxis.x + zAxis.y * zAxis.y + zAxis.z * zAxis.z)
         if (zLen === 0) {
           return {
-            elements: [
-              1, 0, 0, 0,
-              0, 1, 0, 0,
-              0, 0, 1, 0,
-              0, 0, 0, 1
-            ]
+            elements: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
           }
         }
         zAxis.x /= zLen
         zAxis.y /= zLen
         zAxis.z /= zLen
-        
+
         const xAxis = {
           x: up.y * zAxis.z - up.z * zAxis.y,
           y: up.z * zAxis.x - up.x * zAxis.z,
-          z: up.x * zAxis.y - up.y * zAxis.x
+          z: up.x * zAxis.y - up.y * zAxis.x,
         }
         const xLen = Math.sqrt(xAxis.x * xAxis.x + xAxis.y * xAxis.y + xAxis.z * xAxis.z)
         if (xLen === 0) {
           return {
-            elements: [
-              1, 0, 0, 0,
-              0, 1, 0, 0,
-              0, 0, 1, 0,
-              0, 0, 0, 1
-            ]
+            elements: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
           }
         }
         xAxis.x /= xLen
         xAxis.y /= xLen
         xAxis.z /= xLen
-        
+
         const yAxis = {
           x: zAxis.y * xAxis.z - zAxis.z * xAxis.y,
           y: zAxis.z * xAxis.x - zAxis.x * xAxis.z,
-          z: zAxis.x * xAxis.y - zAxis.y * xAxis.x
+          z: zAxis.x * xAxis.y - zAxis.y * xAxis.x,
         }
-        
+
         return {
           elements: [
-            xAxis.x, yAxis.x, zAxis.x, 0,
-            xAxis.y, yAxis.y, zAxis.y, 0,
-            xAxis.z, yAxis.z, zAxis.z, 0,
+            xAxis.x,
+            yAxis.x,
+            zAxis.x,
+            0,
+            xAxis.y,
+            yAxis.y,
+            zAxis.y,
+            0,
+            xAxis.z,
+            yAxis.z,
+            zAxis.z,
+            0,
             -(xAxis.x * eye.x + xAxis.y * eye.y + xAxis.z * eye.z),
             -(yAxis.x * eye.x + yAxis.y * eye.y + yAxis.z * eye.z),
             -(zAxis.x * eye.x + zAxis.y * eye.y + zAxis.z * eye.z),
-            1
-          ]
+            1,
+          ],
         }
       }),
 
@@ -602,17 +583,12 @@ export const NativeMatrix4AdapterLive = Layer.succeed(
       Effect.gen(function* (_) {
         const f = Math.tan(Math.PI * 0.5 - 0.5 * fov)
         const rangeInv = 1.0 / (near - far)
-        
+
         return {
-          elements: [
-            f / aspect, 0, 0, 0,
-            0, f, 0, 0,
-            0, 0, (near + far) * rangeInv, -1,
-            0, 0, near * far * rangeInv * 2, 0
-          ]
+          elements: [f / aspect, 0, 0, 0, 0, f, 0, 0, 0, 0, (near + far) * rangeInv, -1, 0, 0, near * far * rangeInv * 2, 0],
         }
       }),
-  })
+  }),
 )
 
 /**
@@ -632,14 +608,7 @@ export const NativeMathAdapterLive = Layer.succeed(
       ray,
       matrix4,
     })
-  }).pipe(Effect.provide(
-    Layer.mergeAll(
-      NativeVector3AdapterLive,
-      NativeQuaternionAdapterLive,
-      NativeRayAdapterLive,
-      NativeMatrix4AdapterLive
-    )
-  ))
+  }).pipe(Effect.provide(Layer.mergeAll(NativeVector3AdapterLive, NativeQuaternionAdapterLive, NativeRayAdapterLive, NativeMatrix4AdapterLive))),
 )
 
 /**
@@ -650,5 +619,5 @@ export const AllNativeMathAdaptersLive = Layer.mergeAll(
   NativeQuaternionAdapterLive,
   NativeRayAdapterLive,
   NativeMatrix4AdapterLive,
-  NativeMathAdapterLive
+  NativeMathAdapterLive,
 )

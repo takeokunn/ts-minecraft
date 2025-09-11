@@ -1,6 +1,6 @@
 /**
  * Centralized monitoring utilities for ts-minecraft
- * 
+ *
  * Provides performance monitoring, health checks, and metrics collection
  * across all application layers.
  */
@@ -104,21 +104,21 @@ const monitoringStateRef = Ref.unsafeMake(initialMonitoringState)
 // Functional monitoring state operations
 const MonitoringStateOps = {
   updateConfig: (config: Partial<MonitoringConfig>) =>
-    Ref.update(monitoringStateRef, state => ({
+    Ref.update(monitoringStateRef, (state) => ({
       ...state,
-      config: { ...state.config, ...config }
+      config: { ...state.config, ...config },
     })),
 
   getConfig: () =>
     pipe(
       Ref.get(monitoringStateRef),
-      Effect.map(state => ({ ...state.config }))
+      Effect.map((state) => ({ ...state.config })),
     ),
 
   getUptime: () =>
     pipe(
       Ref.get(monitoringStateRef),
-      Effect.map(state => Date.now() - state.startTime.getTime())
+      Effect.map((state) => Date.now() - state.startTime.getTime()),
     ),
 
   updateHealthCheck: (component: string, check: Omit<HealthCheck, 'timestamp'>) => {
@@ -126,12 +126,12 @@ const MonitoringStateOps = {
       ...check,
       timestamp: new Date(),
     }
-    return Ref.update(monitoringStateRef, state => {
+    return Ref.update(monitoringStateRef, (state) => {
       const newHealthChecks = new Map(state.healthChecks)
       newHealthChecks.set(component, fullCheck)
       return {
         ...state,
-        healthChecks: newHealthChecks
+        healthChecks: newHealthChecks,
       }
     })
   },
@@ -139,21 +139,22 @@ const MonitoringStateOps = {
   getHealthChecks: () =>
     pipe(
       Ref.get(monitoringStateRef),
-      Effect.map(state => Array.from(state.healthChecks.values()))
+      Effect.map((state) => Array.from(state.healthChecks.values())),
     ),
 
   updateMetrics: (metrics: Partial<PerformanceMetrics>) =>
-    Ref.update(monitoringStateRef, state => {
+    Ref.update(monitoringStateRef, (state) => {
       const updatedMetrics = { ...state.metrics, ...metrics }
       let newFpsBuffer = [...state.fpsBuffer]
-      
+
       // Update FPS calculations
       if (metrics.fps?.current !== undefined) {
         newFpsBuffer.push(metrics.fps.current)
-        if (newFpsBuffer.length > 60) { // Keep last 60 samples
+        if (newFpsBuffer.length > 60) {
+          // Keep last 60 samples
           newFpsBuffer = newFpsBuffer.slice(-60)
         }
-        
+
         updatedMetrics.fps = {
           current: metrics.fps.current,
           average: newFpsBuffer.reduce((sum, fps) => sum + fps, 0) / newFpsBuffer.length,
@@ -161,31 +162,29 @@ const MonitoringStateOps = {
           max: Math.max(...newFpsBuffer),
         }
       }
-      
+
       // Store metrics history
       const newMetricsHistory = [...state.metricsHistory, { ...updatedMetrics }]
-      const limitedHistory = newMetricsHistory.length > 100 
-        ? newMetricsHistory.slice(-100) 
-        : newMetricsHistory
-      
+      const limitedHistory = newMetricsHistory.length > 100 ? newMetricsHistory.slice(-100) : newMetricsHistory
+
       return {
         ...state,
         metrics: updatedMetrics,
         metricsHistory: limitedHistory,
-        fpsBuffer: newFpsBuffer
+        fpsBuffer: newFpsBuffer,
       }
     }),
 
   getMetrics: () =>
     pipe(
       Ref.get(monitoringStateRef),
-      Effect.map(state => ({ ...state.metrics }))
+      Effect.map((state) => ({ ...state.metrics })),
     ),
 
   getMetricsHistory: () =>
     pipe(
       Ref.get(monitoringStateRef),
-      Effect.map(state => [...state.metricsHistory])
+      Effect.map((state) => [...state.metricsHistory]),
     ),
 }
 
@@ -207,43 +206,40 @@ const getMemoryMetrics = (): Effect.Effect<PerformanceMetrics['memory'], never, 
 const measureFrameTime = <T>(effect: Effect.Effect<T, any, any>): Effect.Effect<T, any, never> =>
   pipe(
     Effect.sync(() => performance.now()),
-    Effect.flatMap(startTime =>
+    Effect.flatMap((startTime) =>
       pipe(
         effect,
         Effect.flatMap(() =>
           pipe(
             MonitoringStateOps.getMetrics(),
-            Effect.flatMap(currentMetrics => {
+            Effect.flatMap((currentMetrics) => {
               const frameTime = performance.now() - startTime
-              return MonitoringStateOps.updateMetrics({ 
-                timing: { 
-                  ...currentMetrics.timing, 
-                  frameTime 
-                } 
+              return MonitoringStateOps.updateMetrics({
+                timing: {
+                  ...currentMetrics.timing,
+                  frameTime,
+                },
               })
-            })
-          )
-        )
-      )
-    )
+            }),
+          ),
+        ),
+      ),
+    ),
   )
 
 // Health check registry
 const healthCheckRegistry: Map<string, () => Effect.Effect<HealthCheck, never, never>> = new Map()
 
 // Register a health check function
-export const registerHealthCheck = (
-  component: string,
-  checkFn: () => Effect.Effect<Omit<HealthCheck, 'timestamp'>, never, never>
-): void => {
+export const registerHealthCheck = (component: string, checkFn: () => Effect.Effect<Omit<HealthCheck, 'timestamp'>, never, never>): void => {
   healthCheckRegistry.set(component, () =>
     pipe(
       checkFn(),
-      Effect.map(check => ({
+      Effect.map((check) => ({
         ...check,
         timestamp: new Date(),
-      }))
-    )
+      })),
+    ),
   )
 }
 
@@ -265,12 +261,11 @@ export const PerformanceMonitor = {
   updateMemoryMetrics: () =>
     pipe(
       getMemoryMetrics(),
-      Effect.flatMap(memory => MonitoringStateOps.updateMetrics({ memory }))
+      Effect.flatMap((memory) => MonitoringStateOps.updateMetrics({ memory })),
     ),
 
   // FPS monitoring
-  updateFPS: (fps: number) =>
-    MonitoringStateOps.updateMetrics({ fps: { current: fps, average: 0, min: 0, max: 0 } }),
+  updateFPS: (fps: number) => MonitoringStateOps.updateMetrics({ fps: { current: fps, average: 0, min: 0, max: 0 } }),
 
   // Timing measurements
   measureFrame: measureFrameTime,
@@ -278,60 +273,60 @@ export const PerformanceMonitor = {
   measureUpdate: <T>(effect: Effect.Effect<T, any, any>) =>
     pipe(
       Effect.sync(() => performance.now()),
-      Effect.flatMap(startTime =>
+      Effect.flatMap((startTime) =>
         pipe(
           effect,
           Effect.flatMap(() =>
             pipe(
               MonitoringStateOps.getMetrics(),
-              Effect.flatMap(currentMetrics => {
+              Effect.flatMap((currentMetrics) => {
                 const updateTime = performance.now() - startTime
-                return MonitoringStateOps.updateMetrics({ 
-                  timing: { 
-                    ...currentMetrics.timing, 
-                    updateTime 
-                  } 
+                return MonitoringStateOps.updateMetrics({
+                  timing: {
+                    ...currentMetrics.timing,
+                    updateTime,
+                  },
                 })
-              })
-            )
-          )
-        )
-      )
+              }),
+            ),
+          ),
+        ),
+      ),
     ),
 
   measureRender: <T>(effect: Effect.Effect<T, any, any>) =>
     pipe(
       Effect.sync(() => performance.now()),
-      Effect.flatMap(startTime =>
+      Effect.flatMap((startTime) =>
         pipe(
           effect,
           Effect.flatMap(() =>
             pipe(
               MonitoringStateOps.getMetrics(),
-              Effect.flatMap(currentMetrics => {
+              Effect.flatMap((currentMetrics) => {
                 const renderTime = performance.now() - startTime
-                return MonitoringStateOps.updateMetrics({ 
-                  timing: { 
-                    ...currentMetrics.timing, 
-                    renderTime 
-                  } 
+                return MonitoringStateOps.updateMetrics({
+                  timing: {
+                    ...currentMetrics.timing,
+                    renderTime,
+                  },
                 })
-              })
-            )
-          )
-        )
-      )
+              }),
+            ),
+          ),
+        ),
+      ),
     ),
 
   // Count tracking
   updateCounts: (counts: Partial<PerformanceMetrics['counts']>) =>
     pipe(
       MonitoringStateOps.getMetrics(),
-      Effect.flatMap(currentMetrics =>
+      Effect.flatMap((currentMetrics) =>
         MonitoringStateOps.updateMetrics({
-          counts: { ...currentMetrics.counts, ...counts }
-        })
-      )
+          counts: { ...currentMetrics.counts, ...counts },
+        }),
+      ),
     ),
 }
 
@@ -390,11 +385,11 @@ export const HealthMonitor = {
       const metrics = yield* _(MonitoringStateOps.getMetrics())
       const uptime = yield* _(MonitoringStateOps.getUptime())
 
-      const overall = healthChecks.some(check => check.status === 'error')
-        ? 'error' as const
-        : healthChecks.some(check => check.status === 'warning')
-        ? 'warning' as const
-        : 'healthy' as const
+      const overall = healthChecks.some((check) => check.status === 'error')
+        ? ('error' as const)
+        : healthChecks.some((check) => check.status === 'warning')
+          ? ('warning' as const)
+          : ('healthy' as const)
 
       return {
         overall,
@@ -407,47 +402,39 @@ export const HealthMonitor = {
 }
 
 // Monitoring decorators for common use cases
-export const withMonitoring = <T>(
-  operation: string,
-  component?: string
-) => (effect: Effect.Effect<T, any, any>): Effect.Effect<T, any, never> =>
-  pipe(
-    Effect.sync(() => performance.now()),
-    Effect.flatMap(startTime =>
-      pipe(
-        effect,
-        Effect.tap(result =>
-          pipe(
-            Logger.performance.start(operation, component).end({ result }),
-            Effect.flatMap(() => {
-              const duration = performance.now() - startTime
-              if (duration > 16) { // Log slow operations (> 1 frame at 60fps)
-                return Logger.warn(
-                  `Slow operation detected: ${operation}`,
-                  component,
-                  { duration: `${duration.toFixed(2)}ms`, operation },
-                  ['performance', 'slow']
-                )
-              }
-              return Effect.void
-            })
-          )
-        )
-      )
+export const withMonitoring =
+  <T>(operation: string, component?: string) =>
+  (effect: Effect.Effect<T, any, any>): Effect.Effect<T, any, never> =>
+    pipe(
+      Effect.sync(() => performance.now()),
+      Effect.flatMap((startTime) =>
+        pipe(
+          effect,
+          Effect.tap((result) =>
+            pipe(
+              Logger.performance.start(operation, component).end({ result }),
+              Effect.flatMap(() => {
+                const duration = performance.now() - startTime
+                if (duration > 16) {
+                  // Log slow operations (> 1 frame at 60fps)
+                  return Logger.warn(`Slow operation detected: ${operation}`, component, { duration: `${duration.toFixed(2)}ms`, operation }, ['performance', 'slow'])
+                }
+                return Effect.void
+              }),
+            ),
+          ),
+        ),
+      ),
     )
-  )
 
 // Component-specific monitor
 export const createComponentMonitor = (component: string) => ({
-  updateMetrics: (metrics: Partial<PerformanceMetrics>) =>
-    PerformanceMonitor.updateMetrics(metrics),
-  
-  measureOperation: <T>(operation: string, effect: Effect.Effect<T, any, any>) =>
-    withMonitoring(operation, component)(effect),
-  
-  registerHealthCheck: (checkFn: () => Effect.Effect<Omit<HealthCheck, 'timestamp'>, never, never>) =>
-    registerHealthCheck(component, checkFn),
-  
+  updateMetrics: (metrics: Partial<PerformanceMetrics>) => PerformanceMonitor.updateMetrics(metrics),
+
+  measureOperation: <T>(operation: string, effect: Effect.Effect<T, any, any>) => withMonitoring(operation, component)(effect),
+
+  registerHealthCheck: (checkFn: () => Effect.Effect<Omit<HealthCheck, 'timestamp'>, never, never>) => registerHealthCheck(component, checkFn),
+
   log: Logger.withComponent(component),
 })
 
@@ -455,27 +442,27 @@ export const createComponentMonitor = (component: string) => ({
 registerHealthCheck('Memory', () =>
   pipe(
     getMemoryMetrics(),
-    Effect.map(memory => ({
+    Effect.map((memory) => ({
       component: 'Memory',
-      status: memory.percentage > 90 ? 'error' as const : memory.percentage > 70 ? 'warning' as const : 'healthy' as const,
+      status: memory.percentage > 90 ? ('error' as const) : memory.percentage > 70 ? ('warning' as const) : ('healthy' as const),
       message: memory.percentage > 90 ? 'Memory usage critical' : memory.percentage > 70 ? 'Memory usage high' : 'Memory usage normal',
       metrics: { usage: memory.percentage, used: memory.used, total: memory.total },
-    }))
-  )
+    })),
+  ),
 )
 
 registerHealthCheck('Performance', () =>
   pipe(
     MonitoringStateOps.getMetrics(),
-    Effect.map(metrics => {
+    Effect.map((metrics) => {
       const avgFps = metrics.fps.average
-      
+
       return {
         component: 'Performance',
-        status: avgFps < 30 ? 'error' as const : avgFps < 50 ? 'warning' as const : 'healthy' as const,
+        status: avgFps < 30 ? ('error' as const) : avgFps < 50 ? ('warning' as const) : ('healthy' as const),
         message: avgFps < 30 ? 'Performance critical' : avgFps < 50 ? 'Performance degraded' : 'Performance normal',
         metrics: { fps: avgFps, frameTime: metrics.timing.frameTime },
       }
-    })
-  )
+    }),
+  ),
 )

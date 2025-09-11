@@ -86,7 +86,7 @@ export interface FogConfig {
 
 export interface LightingConfig {
   readonly ambient?: { color: { r: number; g: number; b: number }; intensity: number }
-  readonly directional?: Array<{ 
+  readonly directional?: Array<{
     color: { r: number; g: number; b: number }
     intensity: number
     direction: { x: number; y: number; z: number }
@@ -108,12 +108,12 @@ export interface IRenderPort {
   readonly updateMesh: (handle: MeshHandle, meshData: ChunkMeshData) => Effect.Effect<void, MeshError, never>
   readonly removeMesh: (handle: MeshHandle) => Effect.Effect<void, MeshError, never>
   readonly getMesh: (handle: MeshHandle) => Effect.Effect<Option.Option<ChunkMeshData>, MeshError, never>
-  
+
   // Batch operations for performance
   readonly createMeshes: (meshes: ReadonlyArray<ChunkMeshData>) => Effect.Effect<ReadonlyArray<MeshHandle>, MeshError, never>
   readonly updateMeshes: (updates: ReadonlyArray<{ handle: MeshHandle; meshData: ChunkMeshData }>) => Effect.Effect<void, MeshError, never>
   readonly removeMeshes: (handles: ReadonlyArray<MeshHandle>) => Effect.Effect<void, MeshError, never>
-  
+
   // Backward compatibility - these will be deprecated
   readonly addChunkMesh: (meshData: ChunkMeshData) => Effect.Effect<void, MeshError, never>
   readonly removeChunkMesh: (chunkX: number, chunkZ: number) => Effect.Effect<void, MeshError, never>
@@ -123,7 +123,7 @@ export interface IRenderPort {
   readonly getStats: () => Effect.Effect<RenderStats, RenderError, never>
   readonly getStatsStream: () => Effect.Effect<Effect.Effect<RenderStats, RenderError, never>, RenderError, never>
   readonly setWireframe: (enabled: boolean) => Effect.Effect<void, RenderError, never>
-  
+
   // Lighting and atmosphere
   readonly setFog: (config: FogConfig) => Effect.Effect<void, RenderError, never>
   readonly setLighting: (config: LightingConfig) => Effect.Effect<void, RenderError, never>
@@ -132,7 +132,7 @@ export interface IRenderPort {
   readonly dispose: () => Effect.Effect<void, ResourceError, never>
   readonly getMemoryUsage: () => Effect.Effect<{ totalBytes: number; textureBytes: number; geometryBytes: number }, ResourceError, never>
   readonly collectGarbage: () => Effect.Effect<{ freedBytes: number }, ResourceError, never>
-  
+
   // Render state management
   readonly isReady: () => Effect.Effect<boolean, RenderError, never>
   readonly waitForReady: () => Effect.Effect<void, RenderError, never>

@@ -6,33 +6,18 @@
  */
 
 // Re-export commonly used types and utilities from terrain protocol
-export { 
-  type Position3D, 
-  type Block, 
-  type ChunkData, 
-  createDefaultBiome, 
-  createDefaultNoiseSettings, 
-  createDefaultTerrainFeatures 
-} from '@infrastructure/terrain.protocol'
+export { type Position3D, type Block, type ChunkData, createDefaultBiome, createDefaultNoiseSettings, createDefaultTerrainFeatures } from '@infrastructure/terrain.protocol'
 
 // Re-export commonly used types and utilities from physics protocol
-export { 
-  type Vector3, 
-  type PhysicsBody, 
-  type CollisionEvent, 
-  zeroVector3, 
-  identityQuaternion, 
-  createPhysicsMaterial, 
-  vectorOps 
-} from '@infrastructure/physics.protocol'
+export { type Vector3, type PhysicsBody, type CollisionEvent, zeroVector3, identityQuaternion, createPhysicsMaterial, vectorOps } from '@infrastructure/physics.protocol'
 
 // Re-export commonly used types and utilities from mesh protocol
-export { 
-  type GeneratedMeshData, 
-  type OptimizationSettings, 
-  createDefaultOptimizations, 
-  createDefaultLighting as createDefaultMeshLighting, 
-  extractMeshTransferables 
+export {
+  type GeneratedMeshData,
+  type OptimizationSettings,
+  createDefaultOptimizations,
+  createDefaultLighting as createDefaultMeshLighting,
+  extractMeshTransferables,
 } from '@infrastructure/mesh.protocol'
 
 // Re-export commonly used types and utilities from lighting protocol
@@ -44,7 +29,7 @@ export {
   createDefaultShadowSettings,
   createDefaultAOSettings,
   worldTimeToSkyLight,
-  extractLightingTransferables
+  extractLightingTransferables,
 } from '@infrastructure/lighting.protocol'
 
 // Re-export commonly used types and utilities from computation protocol
@@ -57,7 +42,7 @@ export {
   createDefaultNoiseParams,
   createDefaultCompressionParams,
   distance3D,
-  extractComputationTransferables
+  extractComputationTransferables,
 } from '@infrastructure/computation.protocol'
 
 // Re-export commonly used types and utilities from error handling protocol
@@ -74,5 +59,5 @@ export {
   createMemoryError,
   createDefaultErrorHandlingConfig,
   isRetryableError,
-  categorizeError
+  categorizeError,
 } from '@infrastructure/error-handling.protocol'

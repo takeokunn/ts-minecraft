@@ -1,7 +1,7 @@
 /**
  * Optimized Query System with Caching and Index Support (Functional Implementation)
  * Provides high-performance queries with automatic optimization and caching
- * 
+ *
  * FUNCTIONAL IMPLEMENTATION:
  * - Replaces class-based OptimizedQueryService with pure functions
  * - Uses Effect-TS Context.GenericTag and Layer pattern
@@ -45,11 +45,15 @@ interface ComponentIndexServiceFunctional {
   readonly removeEntity: (entity: QueryEntity) => Effect.Effect<void, never, never>
   readonly getEntitiesWithComponent: (component: ComponentName) => Effect.Effect<ReadonlyArray<QueryEntity>, never, never>
   readonly getEntitiesWithAllComponents: (components: ReadonlyArray<ComponentName>) => Effect.Effect<ReadonlyArray<QueryEntity>, never, never>
-  readonly getStats: () => Effect.Effect<{
-    totalComponents: number
-    totalEntities: number
-    componentDistribution: Array<{ component: ComponentName; entityCount: number }>
-  }, never, never>
+  readonly getStats: () => Effect.Effect<
+    {
+      totalComponents: number
+      totalEntities: number
+      componentDistribution: Array<{ component: ComponentName; entityCount: number }>
+    },
+    never,
+    never
+  >
   readonly clear: () => Effect.Effect<void, never, never>
 }
 
@@ -61,10 +65,7 @@ export const ComponentIndexFunctional = Context.GenericTag<ComponentIndexService
 /**
  * Functional component index operations
  */
-export const addEntityToIndexEffect = (
-  stateRef: Ref.Ref<ComponentIndexData>,
-  entity: QueryEntity,
-): Effect.Effect<void, never, never> =>
+export const addEntityToIndexEffect = (stateRef: Ref.Ref<ComponentIndexData>, entity: QueryEntity): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     const components = Object.keys(entity.components) as ComponentName[]
     yield* Ref.update(stateRef, (data) => {
@@ -87,10 +88,7 @@ export const addEntityToIndexEffect = (
     })
   })
 
-export const removeEntityFromIndexEffect = (
-  stateRef: Ref.Ref<ComponentIndexData>,
-  entity: QueryEntity,
-): Effect.Effect<void, never, never> =>
+export const removeEntityFromIndexEffect = (stateRef: Ref.Ref<ComponentIndexData>, entity: QueryEntity): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     yield* Ref.update(stateRef, (data) => {
       const components = data.entityToComponents.get(entity)
@@ -118,10 +116,7 @@ export const removeEntityFromIndexEffect = (
     })
   })
 
-export const getEntitiesWithComponentEffect = (
-  stateRef: Ref.Ref<ComponentIndexData>,
-  component: ComponentName,
-): Effect.Effect<ReadonlyArray<QueryEntity>, never, never> =>
+export const getEntitiesWithComponentEffect = (stateRef: Ref.Ref<ComponentIndexData>, component: ComponentName): Effect.Effect<ReadonlyArray<QueryEntity>, never, never> =>
   Effect.gen(function* () {
     const data = yield* Ref.get(stateRef)
     const entitySet = data.componentToEntities.get(component)
@@ -136,7 +131,7 @@ export const getEntitiesWithAllComponentsEffect = (
     if (components.length === 0) return []
 
     const data = yield* Ref.get(stateRef)
-    
+
     // Sort components by entity count (rarest first)
     const sortedComponents = [...components].sort((a, b) => {
       const aSize = data.componentToEntities.get(a)?.size || 0
@@ -171,11 +166,15 @@ export const getEntitiesWithAllComponentsEffect = (
 
 export const getIndexStatsEffect = (
   stateRef: Ref.Ref<ComponentIndexData>,
-): Effect.Effect<{
-  totalComponents: number
-  totalEntities: number
-  componentDistribution: Array<{ component: ComponentName; entityCount: number }>
-}, never, never> =>
+): Effect.Effect<
+  {
+    totalComponents: number
+    totalEntities: number
+    componentDistribution: Array<{ component: ComponentName; entityCount: number }>
+  },
+  never,
+  never
+> =>
   Effect.gen(function* () {
     const data = yield* Ref.get(stateRef)
     return {
@@ -190,9 +189,7 @@ export const getIndexStatsEffect = (
     }
   })
 
-export const clearIndexEffect = (
-  stateRef: Ref.Ref<ComponentIndexData>,
-): Effect.Effect<void, never, never> =>
+export const clearIndexEffect = (stateRef: Ref.Ref<ComponentIndexData>): Effect.Effect<void, never, never> =>
   Ref.set(stateRef, {
     componentToEntities: new Map(),
     entityToComponents: new Map(),
@@ -201,9 +198,7 @@ export const clearIndexEffect = (
 /**
  * Create functional component index service
  */
-export const makeComponentIndexService = (
-  stateRef: Ref.Ref<ComponentIndexData>,
-): ComponentIndexServiceFunctional => ({
+export const makeComponentIndexService = (stateRef: Ref.Ref<ComponentIndexData>): ComponentIndexServiceFunctional => ({
   addEntity: (entity: QueryEntity) => addEntityToIndexEffect(stateRef, entity),
   removeEntity: (entity: QueryEntity) => removeEntityFromIndexEffect(stateRef, entity),
   getEntitiesWithComponent: (component: ComponentName) => getEntitiesWithComponentEffect(stateRef, component),
@@ -224,7 +219,7 @@ export const componentIndexFunctionalLive = Layer.effect(
     })
 
     return makeComponentIndexService(stateRef)
-  })
+  }),
 )
 
 /**
@@ -269,11 +264,7 @@ export const createExecutionPlanEffect = <T extends ReadonlyArray<ComponentName>
 
     // Determine caching strategy
     if (config.predicate) {
-      plan.cacheKey = CacheKeyGenerator.forComponents(
-        config.withComponents,
-        config.withoutComponents,
-        CacheKeyGenerator.hashPredicate(config.predicate)
-      )
+      plan.cacheKey = CacheKeyGenerator.forComponents(config.withComponents, config.withoutComponents, CacheKeyGenerator.hashPredicate(config.predicate))
     } else {
       plan.cacheKey = CacheKeyGenerator.forComponents(config.withComponents, config.withoutComponents)
     }
@@ -388,7 +379,7 @@ export const applyPredicateEffect = <T extends ReadonlyArray<ComponentName>>(
               return false
             }
           }),
-        { concurrency: 'unbounded' }
+        { concurrency: 'unbounded' },
       )
 
       // Add entities that passed the predicate
@@ -414,7 +405,11 @@ export const makeOptimizedQueryService = <T extends ReadonlyArray<ComponentName>
 ): OptimizedQueryServiceFunctional<T> => ({
   execute: (entities?: ReadonlyArray<QueryEntity>) =>
     Effect.gen(function* () {
-      const plan = yield* createExecutionPlanEffect(stateRef, config, entities?.map((entity) => entity.id))
+      const plan = yield* createExecutionPlanEffect(
+        stateRef,
+        config,
+        entities?.map((entity) => entity.id),
+      )
       const context = startQueryContext()
 
       // Try cache first if enabled
@@ -502,7 +497,7 @@ export const makeOptimizedQueryService = <T extends ReadonlyArray<ComponentName>
  * Create an optimized query implementation (functional)
  */
 export const createOptimizedQueryFunctional = <T extends ReadonlyArray<ComponentName>>(
-  config: QueryConfig<T>
+  config: QueryConfig<T>,
 ): Effect.Effect<OptimizedQueryServiceFunctional<T>, never, ComponentIndexServiceFunctional | QueryCacheService> =>
   Effect.gen(function* () {
     const componentIndex = yield* ComponentIndexFunctional
@@ -547,19 +542,23 @@ export const updateEntityInOptimizationIndicesFunctional = (entity: QueryEntity)
 /**
  * Get comprehensive query optimization statistics (functional)
  */
-export const getOptimizationStatsFunctional = (): Effect.Effect<{
-  componentIndex: {
-    totalComponents: number
-    totalEntities: number
-    componentDistribution: Array<{ component: ComponentName; entityCount: number }>
-  }
-  archetypes: any
-  cache: any
-}, never, ComponentIndexServiceFunctional | QueryCacheService> =>
+export const getOptimizationStatsFunctional = (): Effect.Effect<
+  {
+    componentIndex: {
+      totalComponents: number
+      totalEntities: number
+      componentDistribution: Array<{ component: ComponentName; entityCount: number }>
+    }
+    archetypes: any
+    cache: any
+  },
+  never,
+  ComponentIndexServiceFunctional | QueryCacheService
+> =>
   Effect.gen(function* () {
     const componentIndex = yield* ComponentIndexFunctional
     const queryCache = yield* Context.GenericTag<QueryCacheService>('QueryCache')
-    
+
     return {
       componentIndex: yield* componentIndex.getStats(),
       archetypes: yield* ArchetypeSystemUtils.getStats(),
@@ -574,7 +573,7 @@ export const resetOptimizationIndicesFunctional = (): Effect.Effect<void, never,
   Effect.gen(function* () {
     const componentIndex = yield* ComponentIndexFunctional
     const queryCache = yield* Context.GenericTag<QueryCacheService>('QueryCache')
-    
+
     yield* componentIndex.clear()
     // Note: ArchetypeSystemUtils doesn't have a reset method yet - would need to be added if needed
     yield* queryCache.clear

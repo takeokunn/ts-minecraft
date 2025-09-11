@@ -15,15 +15,11 @@ export const CollisionDetectionError = Schema.TaggedError('CollisionDetectionErr
   Schema.Struct({
     ...BaseErrorData.fields,
     affectedBodies: Schema.Array(Schema.String),
-  })
+  }),
 )
 export type CollisionDetectionError = Schema.Schema.Type<typeof CollisionDetectionError>
 
-export const createCollisionDetectionError = (
-  message: string,
-  affectedBodies: ReadonlyArray<string> = [],
-  metadata?: Record<string, unknown>,
-): CollisionDetectionError =>
+export const createCollisionDetectionError = (message: string, affectedBodies: ReadonlyArray<string> = [], metadata?: Record<string, unknown>): CollisionDetectionError =>
   CollisionDetectionError({
     message,
     affectedBodies,
@@ -44,16 +40,11 @@ export const PhysicsSimulationError = Schema.TaggedError('PhysicsSimulationError
     ...BaseErrorData.fields,
     deltaTime: Schema.optional(Schema.Number),
     timeScale: Schema.optional(Schema.Number),
-  })
+  }),
 )
 export type PhysicsSimulationError = Schema.Schema.Type<typeof PhysicsSimulationError>
 
-export const createPhysicsSimulationError = (
-  message: string,
-  deltaTime?: number,
-  timeScale?: number,
-  metadata?: Record<string, unknown>,
-): PhysicsSimulationError =>
+export const createPhysicsSimulationError = (message: string, deltaTime?: number, timeScale?: number, metadata?: Record<string, unknown>): PhysicsSimulationError =>
   PhysicsSimulationError({
     message,
     deltaTime,
@@ -75,16 +66,11 @@ export const RigidBodyError = Schema.TaggedError('RigidBodyError')<
     ...BaseErrorData.fields,
     entityId: Schema.optional(Schema.String),
     bodyId: Schema.optional(Schema.String),
-  })
+  }),
 )
 export type RigidBodyError = Schema.Schema.Type<typeof RigidBodyError>
 
-export const createRigidBodyError = (
-  message: string,
-  entityId?: EntityId,
-  bodyId?: string,
-  metadata?: Record<string, unknown>,
-): RigidBodyError =>
+export const createRigidBodyError = (message: string, entityId?: EntityId, bodyId?: string, metadata?: Record<string, unknown>): RigidBodyError =>
   RigidBodyError({
     message,
     entityId,
@@ -104,15 +90,11 @@ export const GravityError = Schema.TaggedError('GravityError')<
   Schema.Struct({
     ...BaseErrorData.fields,
     entityId: Schema.optional(Schema.String),
-  })
+  }),
 )
 export type GravityError = Schema.Schema.Type<typeof GravityError>
 
-export const createGravityError = (
-  message: string,
-  entityId?: EntityId,
-  metadata?: Record<string, unknown>,
-): GravityError =>
+export const createGravityError = (message: string, entityId?: EntityId, metadata?: Record<string, unknown>): GravityError =>
   GravityError({
     message,
     entityId,
@@ -131,15 +113,11 @@ export const ConstraintViolationError = Schema.TaggedError('ConstraintViolationE
   Schema.Struct({
     ...BaseErrorData.fields,
     constraintId: Schema.optional(Schema.String),
-  })
+  }),
 )
 export type ConstraintViolationError = Schema.Schema.Type<typeof ConstraintViolationError>
 
-export const createConstraintViolationError = (
-  message: string,
-  constraintId?: string,
-  metadata?: Record<string, unknown>,
-): ConstraintViolationError =>
+export const createConstraintViolationError = (message: string, constraintId?: string, metadata?: Record<string, unknown>): ConstraintViolationError =>
   ConstraintViolationError({
     message,
     constraintId,
@@ -166,10 +144,10 @@ export const RaycastError = Schema.TaggedError('RaycastError')<
           y: Schema.Number,
           z: Schema.Number,
         }),
-      })
+      }),
     ),
     maxDistance: Schema.optional(Schema.Number),
-  })
+  }),
 )
 export type RaycastError = Schema.Schema.Type<typeof RaycastError>
 
@@ -198,15 +176,11 @@ export const PhysicsMaterialError = Schema.TaggedError('PhysicsMaterialError')<
   Schema.Struct({
     ...BaseErrorData.fields,
     materialName: Schema.optional(Schema.String),
-  })
+  }),
 )
 export type PhysicsMaterialError = Schema.Schema.Type<typeof PhysicsMaterialError>
 
-export const createPhysicsMaterialError = (
-  message: string,
-  materialName?: string,
-  metadata?: Record<string, unknown>,
-): PhysicsMaterialError =>
+export const createPhysicsMaterialError = (message: string, materialName?: string, metadata?: Record<string, unknown>): PhysicsMaterialError =>
   PhysicsMaterialError({
     message,
     materialName,

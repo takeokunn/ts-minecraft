@@ -147,16 +147,20 @@ const getNeighborCoordinates = (center: ChunkCoordinates, radius: number): reado
 
 const priorityWeight = (priority: ChunkPriority): number => {
   switch (priority) {
-    case 'critical': return 4
-    case 'high': return 3
-    case 'normal': return 2
-    case 'low': return 1
-    default: return 1
+    case 'critical':
+      return 4
+    case 'high':
+      return 3
+    case 'normal':
+      return 2
+    case 'low':
+      return 1
+    default:
+      return 1
   }
 }
 
-const calculateDistance = (a: ChunkCoordinates, b: ChunkCoordinates): number => 
-  Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.z - b.z, 2))
+const calculateDistance = (a: ChunkCoordinates, b: ChunkCoordinates): number => Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.z - b.z, 2))
 
 // ===== CHUNK LOADING SERVICE IMPLEMENTATION =====
 
@@ -172,7 +176,7 @@ export const ChunkLoadingServiceLive = Layer.effect(
     const loadingStates = yield* Ref.make(HashMap.empty<string, ChunkLoadingState>())
     const loadQueue = yield* Queue.bounded<ChunkLoadRequest>(1000)
     const completionQueues = yield* Ref.make(HashMap.empty<string, Queue.Queue<ChunkLoadResult>>())
-    
+
     // Statistics tracking
     const stats = yield* Ref.make({
       totalRequests: 0,
@@ -193,7 +197,7 @@ export const ChunkLoadingServiceLive = Layer.effect(
       while (true) {
         // Take request from queue
         const request = yield* Queue.take(loadQueue)
-        
+
         // Process the load request
         yield* Effect.fork(processChunkLoadRequest(request))
       }
@@ -205,23 +209,26 @@ export const ChunkLoadingServiceLive = Layer.effect(
         const startTime = Date.now()
 
         // Update loading state
-        yield* Ref.update(loadingStates, HashMap.set(key, {
-          coordinates: request.coordinates,
-          status: 'loading' as ChunkLoadingStatus,
-          priority: request.priority,
-          requestedBy: request.requesterEntityId,
-          requestTime: new Date(),
-          progress: 0,
-        }))
+        yield* Ref.update(
+          loadingStates,
+          HashMap.set(key, {
+            coordinates: request.coordinates,
+            status: 'loading' as ChunkLoadingStatus,
+            priority: request.priority,
+            requestedBy: request.requesterEntityId,
+            requestTime: new Date(),
+            progress: 0,
+          }),
+        )
 
         try {
           // Check if chunk is already in cache
           const cached = yield* Ref.get(loadedChunks)
           const cachedChunk = HashMap.get(cached, key)
-          
+
           if (Option.isSome(cachedChunk)) {
             // Cache hit - update stats and complete request
-            yield* Ref.update(stats, s => ({ ...s, cacheHits: s.cacheHits + 1, completedLoads: s.completedLoads + 1 }))
+            yield* Ref.update(stats, (s) => ({ ...s, cacheHits: s.cacheHits + 1, completedLoads: s.completedLoads + 1 }))
             yield* updateLoadingState(key, 'loaded', 100)
             yield* notifyCompletion(request.coordinates, {
               coordinates: request.coordinates,
@@ -234,12 +241,12 @@ export const ChunkLoadingServiceLive = Layer.effect(
 
           // Check repository for persisted chunk
           const persistedChunk = yield* chunkRepository.loadChunk(request.coordinates)
-          
+
           if (Option.isSome(persistedChunk)) {
             // Load from repository
             yield* updateLoadingState(key, 'loaded', 100)
             yield* Ref.update(loadedChunks, HashMap.set(key, persistedChunk.value))
-            yield* Ref.update(stats, s => ({ ...s, completedLoads: s.completedLoads + 1 }))
+            yield* Ref.update(stats, (s) => ({ ...s, completedLoads: s.completedLoads + 1 }))
             yield* notifyCompletion(request.coordinates, {
               coordinates: request.coordinates,
               success: true,
@@ -252,9 +259,9 @@ export const ChunkLoadingServiceLive = Layer.effect(
           // Generate new terrain
           yield* updateLoadingState(key, 'generating', 25)
           const chunkData = yield* terrainGenerator.generateTerrain(request.coordinates)
-          
+
           yield* updateLoadingState(key, 'meshing', 75)
-          
+
           // Generate mesh if requested
           if (request.options?.generateMesh !== false) {
             yield* meshGenerator.generateMesh(chunkData)
@@ -267,7 +274,7 @@ export const ChunkLoadingServiceLive = Layer.effect(
 
           // Update statistics
           const loadTime = Date.now() - startTime
-          yield* Ref.update(stats, s => ({
+          yield* Ref.update(stats, (s) => ({
             ...s,
             completedLoads: s.completedLoads + 1,
             totalLoadTime: s.totalLoadTime + loadTime,
@@ -286,21 +293,21 @@ export const ChunkLoadingServiceLive = Layer.effect(
             const neighbors = getNeighborCoordinates(request.coordinates, 1)
             yield* Effect.forEach(
               neighbors,
-              (coords) => Queue.offer(loadQueue, {
-                coordinates: coords,
-                priority: 'low' as ChunkPriority,
-                requesterEntityId: request.requesterEntityId,
-                options: { ...request.options, preloadNeighbors: false },
-              }),
-              { concurrency: 'unbounded', discard: true }
+              (coords) =>
+                Queue.offer(loadQueue, {
+                  coordinates: coords,
+                  priority: 'low' as ChunkPriority,
+                  requesterEntityId: request.requesterEntityId,
+                  options: { ...request.options, preloadNeighbors: false },
+                }),
+              { concurrency: 'unbounded', discard: true },
             )
           }
-
         } catch (error) {
           // Handle load failure
           const errorMessage = error instanceof Error ? error.message : 'Unknown error'
           yield* updateLoadingState(key, 'error', 0, errorMessage)
-          yield* Ref.update(stats, s => ({ ...s, failedLoads: s.failedLoads + 1 }))
+          yield* Ref.update(stats, (s) => ({ ...s, failedLoads: s.failedLoads + 1 }))
           yield* notifyCompletion(request.coordinates, {
             coordinates: request.coordinates,
             success: false,
@@ -311,7 +318,7 @@ export const ChunkLoadingServiceLive = Layer.effect(
       })
 
     const updateLoadingState = (key: string, status: ChunkLoadingStatus, progress: number, error?: string): Effect.Effect<void, never> =>
-      Ref.update(loadingStates, states => {
+      Ref.update(loadingStates, (states) => {
         const existing = HashMap.get(states, key)
         if (Option.isSome(existing)) {
           const updated = { ...existing.value, status, progress, error }
@@ -336,7 +343,7 @@ export const ChunkLoadingServiceLive = Layer.effect(
     // Implement service methods
     const requestChunkLoad = (request: ChunkLoadRequest): Effect.Effect<void, never> =>
       Effect.gen(function* () {
-        yield* Ref.update(stats, s => ({ ...s, totalRequests: s.totalRequests + 1 }))
+        yield* Ref.update(stats, (s) => ({ ...s, totalRequests: s.totalRequests + 1 }))
         yield* Queue.offer(loadQueue, request)
       })
 
@@ -344,7 +351,7 @@ export const ChunkLoadingServiceLive = Layer.effect(
       Effect.gen(function* () {
         const chunks = yield* Ref.get(loadedChunks)
         const chunk = HashMap.get(chunks, chunkKey(coordinates))
-        
+
         return Option.match(chunk, {
           onNone: () => new ChunkNotLoadedError({ chunkX: coordinates.x, chunkZ: coordinates.z }),
           onSome: (data) => data,
@@ -362,13 +369,13 @@ export const ChunkLoadingServiceLive = Layer.effect(
         const key = chunkKey(coordinates)
         const chunks = yield* Ref.get(loadedChunks)
         const states = yield* Ref.get(loadingStates)
-        
+
         const hasChunk = HashMap.has(chunks, key)
         if (hasChunk) {
           yield* Ref.update(loadedChunks, HashMap.remove(key))
           yield* Ref.update(loadingStates, HashMap.remove(key))
         }
-        
+
         return hasChunk
       })
 
@@ -376,13 +383,13 @@ export const ChunkLoadingServiceLive = Layer.effect(
       Effect.gen(function* () {
         const chunks = getNeighborCoordinates(center, radius)
         let requestCount = 0
-        
+
         for (const coords of chunks) {
           const alreadyLoaded = yield* isChunkLoaded(coords)
           if (!alreadyLoaded) {
             const distance = calculateDistance(center, coords)
             const priority: ChunkPriority = distance <= 1 ? 'high' : distance <= 2 ? 'normal' : 'low'
-            
+
             yield* requestChunkLoad({
               coordinates: coords,
               priority,
@@ -392,7 +399,7 @@ export const ChunkLoadingServiceLive = Layer.effect(
             requestCount++
           }
         }
-        
+
         return requestCount
       })
 
@@ -414,21 +421,18 @@ export const ChunkLoadingServiceLive = Layer.effect(
         const chunks = yield* Ref.get(loadedChunks)
         const states = yield* Ref.get(loadingStates)
         const queueSize = yield* Queue.size(loadQueue)
-        
-        const currentlyLoading = Array.from(HashMap.values(states))
-          .filter(state => state.status === 'loading' || state.status === 'generating' || state.status === 'meshing').length
-        
-        const averageLoadTime = currentStats.completedLoads > 0 
-          ? currentStats.totalLoadTime / currentStats.completedLoads 
-          : 0
-        
-        const cacheHitRate = currentStats.totalRequests > 0 
-          ? currentStats.cacheHits / currentStats.totalRequests 
-          : 0
-        
+
+        const currentlyLoading = Array.from(HashMap.values(states)).filter(
+          (state) => state.status === 'loading' || state.status === 'generating' || state.status === 'meshing',
+        ).length
+
+        const averageLoadTime = currentStats.completedLoads > 0 ? currentStats.totalLoadTime / currentStats.completedLoads : 0
+
+        const cacheHitRate = currentStats.totalRequests > 0 ? currentStats.cacheHits / currentStats.totalRequests : 0
+
         // Rough memory estimation
         const memoryUsage = HashMap.size(chunks) * 1024 * 1024 // 1MB per chunk estimate
-        
+
         return {
           totalRequests: currentStats.totalRequests,
           completedLoads: currentStats.completedLoads,
@@ -445,7 +449,7 @@ export const ChunkLoadingServiceLive = Layer.effect(
       Effect.gen(function* () {
         yield* Ref.set(loadedChunks, HashMap.empty())
         yield* Ref.set(loadingStates, HashMap.empty())
-        yield* Ref.update(stats, s => ({ ...s, memoryUsage: 0 }))
+        yield* Ref.update(stats, (s) => ({ ...s, memoryUsage: 0 }))
       })
 
     const cancelChunkLoad = (coordinates: ChunkCoordinates): Effect.Effect<boolean, never> =>
@@ -453,12 +457,12 @@ export const ChunkLoadingServiceLive = Layer.effect(
         const key = chunkKey(coordinates)
         const states = yield* Ref.get(loadingStates)
         const state = HashMap.get(states, key)
-        
+
         if (Option.isSome(state) && state.value.status !== 'loaded' && state.value.status !== 'error') {
           yield* updateLoadingState(key, 'error', 0, 'Cancelled')
           return true
         }
-        
+
         return false
       })
 
@@ -469,31 +473,31 @@ export const ChunkLoadingServiceLive = Layer.effect(
         if (alreadyLoaded) {
           return yield* getChunkData(coordinates)
         }
-        
+
         // Create completion queue for this chunk
         const key = chunkKey(coordinates)
         const completionQueue = yield* Queue.bounded<ChunkLoadResult>(1)
         yield* Ref.update(completionQueues, HashMap.set(key, completionQueue))
-        
+
         // Wait for completion or timeout
         const result = yield* Queue.take(completionQueue).pipe(
           Effect.timeout(timeout),
-          Effect.catchTag('TimeoutException', () => 
-            Effect.fail(new ChunkNotLoadedError({ chunkX: coordinates.x, chunkZ: coordinates.z, message: 'Chunk load timeout' }))
-          )
+          Effect.catchTag('TimeoutException', () => Effect.fail(new ChunkNotLoadedError({ chunkX: coordinates.x, chunkZ: coordinates.z, message: 'Chunk load timeout' }))),
         )
-        
+
         // Cleanup completion queue
         yield* Ref.update(completionQueues, HashMap.remove(key))
-        
+
         if (result.success && result.data) {
           return result.data
         } else {
-          return yield* Effect.fail(new ChunkGenerationError({ 
-            chunkX: coordinates.x, 
-            chunkZ: coordinates.z, 
-            reason: result.error || 'Unknown error' 
-          }))
+          return yield* Effect.fail(
+            new ChunkGenerationError({
+              chunkX: coordinates.x,
+              chunkZ: coordinates.z,
+              reason: result.error || 'Unknown error',
+            }),
+          )
         }
       })
 
@@ -510,7 +514,7 @@ export const ChunkLoadingServiceLive = Layer.effect(
       cancelChunkLoad,
       waitForChunkLoad,
     })
-  })
+  }),
 )
 
 // ===== UTILITY FUNCTIONS =====
@@ -519,11 +523,7 @@ export const ChunkLoadingUtils = {
   /**
    * Create a chunk load request with default options
    */
-  createLoadRequest: (
-    coordinates: ChunkCoordinates, 
-    requesterEntityId: EntityId, 
-    priority: ChunkPriority = 'normal'
-  ): ChunkLoadRequest => ({
+  createLoadRequest: (coordinates: ChunkCoordinates, requesterEntityId: EntityId, priority: ChunkPriority = 'normal'): ChunkLoadRequest => ({
     coordinates,
     priority,
     requesterEntityId,
@@ -538,8 +538,7 @@ export const ChunkLoadingUtils = {
   /**
    * Calculate chunks in area around center point
    */
-  getChunksInArea: (center: ChunkCoordinates, radius: number): readonly ChunkCoordinates[] =>
-    getNeighborCoordinates(center, radius),
+  getChunksInArea: (center: ChunkCoordinates, radius: number): readonly ChunkCoordinates[] => getNeighborCoordinates(center, radius),
 
   /**
    * Convert world position to chunk coordinates
@@ -562,8 +561,7 @@ export const ChunkLoadingUtils = {
   /**
    * Estimate memory usage for chunks
    */
-  estimateChunkMemoryUsage: (chunkCount: number): number =>
-    chunkCount * 1024 * 1024, // Rough estimate: 1MB per chunk
+  estimateChunkMemoryUsage: (chunkCount: number): number => chunkCount * 1024 * 1024, // Rough estimate: 1MB per chunk
 
   /**
    * Create chunk metadata

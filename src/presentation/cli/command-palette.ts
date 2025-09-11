@@ -1,6 +1,6 @@
 /**
  * Command Palette - Functional Module Implementation
- * 
+ *
  * Converted from class-based implementation to functional Effect-TS module
  * Features:
  * - Comprehensive command management system
@@ -68,7 +68,7 @@ const defaultConfig: CommandPaletteConfig = {
   enableHistory: true,
   maxHistory: 50,
   position: { top: '20%', left: '50%' },
-  size: { width: '600px', maxWidth: '90vw' }
+  size: { width: '600px', maxWidth: '90vw' },
 }
 
 /**
@@ -79,11 +79,11 @@ export const createCommandPalette = (
   devConsole?: any,
   entityInspector?: any,
   performanceProfiler?: PerformanceProfiler,
-  config: Partial<CommandPaletteConfig> = {}
+  config: Partial<CommandPaletteConfig> = {},
 ) =>
   Effect.gen(function* () {
     const finalConfig = { ...defaultConfig, ...config }
-    
+
     const stateRef = yield* Ref.make<CommandPaletteState>({
       isOpen: false,
       element: null,
@@ -98,7 +98,7 @@ export const createCommandPalette = (
       devConsole,
       entityInspector,
       performanceProfiler,
-      hotReloadManager: null
+      hotReloadManager: null,
     })
 
     /**
@@ -114,7 +114,7 @@ export const createCommandPalette = (
      */
     const setupCommands = Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
-      
+
       // Debug commands
       yield* addCommand({
         id: 'debug.toggle',
@@ -407,7 +407,7 @@ export const createCommandPalette = (
                 .map((cmd) => `${cmd.shortcut}: ${cmd.name}`)
                 .join('\n')
               console.log('Keyboard Shortcuts:\n' + shortcuts)
-            })
+            }),
           )
         },
       })
@@ -439,7 +439,7 @@ export const createCommandPalette = (
                   console.log(`  ${cmd.name} - ${cmd.description}`)
                 })
               })
-            })
+            }),
           )
         },
       })
@@ -506,7 +506,7 @@ export const createCommandPalette = (
         ...s,
         element,
         inputElement,
-        resultsElement
+        resultsElement,
       }))
 
       yield* setupEventListeners()
@@ -523,12 +523,12 @@ export const createCommandPalette = (
         Effect.runSync(
           Effect.gen(function* () {
             const currentState = yield* Ref.get(stateRef)
-            yield* Ref.update(stateRef, (s) => ({ 
-              ...s, 
-              searchQuery: currentState.inputElement?.value || '' 
+            yield* Ref.update(stateRef, (s) => ({
+              ...s,
+              searchQuery: currentState.inputElement?.value || '',
             }))
             yield* updateResults()
-          })
+          }),
         )
       })
 
@@ -552,7 +552,7 @@ export const createCommandPalette = (
                 yield* executeSelected()
                 break
             }
-          })
+          }),
         )
       })
 
@@ -564,7 +564,7 @@ export const createCommandPalette = (
             if (currentState.isOpen && !currentState.element?.contains(event.target as Node)) {
               yield* close()
             }
-          })
+          }),
         )
       })
     })
@@ -595,7 +595,7 @@ export const createCommandPalette = (
                 }
               }
             }
-          })
+          }),
         )
       })
     })
@@ -628,38 +628,39 @@ export const createCommandPalette = (
     const updateResults = Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
       const filteredCommands = yield* filterCommands(state.searchQuery)
-      
+
       yield* Ref.update(stateRef, (s) => ({
         ...s,
         filteredCommands,
-        selectedIndex: 0
+        selectedIndex: 0,
       }))
-      
+
       yield* renderResults()
     })
 
     /**
      * Filter commands based on search query
      */
-    const filterCommands = (query: string) => Effect.gen(function* () {
-      const state = yield* Ref.get(stateRef)
-      
-      if (!query.trim()) {
-        return Array.from(state.commands.values()).slice(0, finalConfig.maxResults)
-      }
+    const filterCommands = (query: string) =>
+      Effect.gen(function* () {
+        const state = yield* Ref.get(stateRef)
 
-      const queryLower = query.toLowerCase()
-      const scored = Array.from(state.commands.values())
-        .map((command) => ({
-          command,
-          score: calculateScore(command, queryLower),
-        }))
-        .filter((item) => item.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, finalConfig.maxResults)
+        if (!query.trim()) {
+          return Array.from(state.commands.values()).slice(0, finalConfig.maxResults)
+        }
 
-      return scored.map((item) => item.command)
-    })
+        const queryLower = query.toLowerCase()
+        const scored = Array.from(state.commands.values())
+          .map((command) => ({
+            command,
+            score: calculateScore(command, queryLower),
+          }))
+          .filter((item) => item.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, finalConfig.maxResults)
+
+        return scored.map((item) => item.command)
+      })
 
     /**
      * Calculate search score for command
@@ -688,9 +689,7 @@ export const createCommandPalette = (
       }
 
       // Keywords match
-      const matchingKeywords = command.keywords.filter((keyword) => 
-        keyword.toLowerCase().includes(query)
-      )
+      const matchingKeywords = command.keywords.filter((keyword) => keyword.toLowerCase().includes(query))
       score += matchingKeywords.length * 15
 
       // Fuzzy matching for additional flexibility
@@ -815,7 +814,7 @@ export const createCommandPalette = (
             Effect.gen(function* () {
               yield* Ref.update(stateRef, (s) => ({ ...s, selectedIndex: index }))
               yield* executeSelected()
-            })
+            }),
           )
         })
 
@@ -824,7 +823,7 @@ export const createCommandPalette = (
             Effect.gen(function* () {
               yield* Ref.update(stateRef, (s) => ({ ...s, selectedIndex: index }))
               yield* renderResults()
-            })
+            }),
           )
         })
 
@@ -868,27 +867,28 @@ export const createCommandPalette = (
     /**
      * Add command to execution history
      */
-    const addToHistory = (commandId: string) => Effect.gen(function* () {
-      if (!finalConfig.enableHistory) return
+    const addToHistory = (commandId: string) =>
+      Effect.gen(function* () {
+        if (!finalConfig.enableHistory) return
 
-      yield* Ref.update(stateRef, (state) => {
-        const newHistory = [...state.commandHistory]
-        const index = newHistory.indexOf(commandId)
-        if (index > -1) {
-          newHistory.splice(index, 1)
-        }
+        yield* Ref.update(stateRef, (state) => {
+          const newHistory = [...state.commandHistory]
+          const index = newHistory.indexOf(commandId)
+          if (index > -1) {
+            newHistory.splice(index, 1)
+          }
 
-        newHistory.unshift(commandId)
+          newHistory.unshift(commandId)
 
-        if (newHistory.length > finalConfig.maxHistory) {
-          newHistory.splice(finalConfig.maxHistory)
-        }
+          if (newHistory.length > finalConfig.maxHistory) {
+            newHistory.splice(finalConfig.maxHistory)
+          }
 
-        return { ...state, commandHistory: newHistory }
+          return { ...state, commandHistory: newHistory }
+        })
+
+        yield* saveHistory()
       })
-
-      yield* saveHistory()
-    })
 
     /**
      * Load command history from storage
@@ -920,24 +920,26 @@ export const createCommandPalette = (
     /**
      * Add command to palette
      */
-    const addCommand = (command: Command) => Effect.gen(function* () {
-      yield* Ref.update(stateRef, (s) => {
-        const newCommands = new Map(s.commands)
-        newCommands.set(command.id, command)
-        return { ...s, commands: newCommands }
+    const addCommand = (command: Command) =>
+      Effect.gen(function* () {
+        yield* Ref.update(stateRef, (s) => {
+          const newCommands = new Map(s.commands)
+          newCommands.set(command.id, command)
+          return { ...s, commands: newCommands }
+        })
       })
-    })
 
     /**
      * Remove command from palette
      */
-    const removeCommand = (commandId: string) => Effect.gen(function* () {
-      yield* Ref.update(stateRef, (s) => {
-        const newCommands = new Map(s.commands)
-        newCommands.delete(commandId)
-        return { ...s, commands: newCommands }
+    const removeCommand = (commandId: string) =>
+      Effect.gen(function* () {
+        yield* Ref.update(stateRef, (s) => {
+          const newCommands = new Map(s.commands)
+          newCommands.delete(commandId)
+          return { ...s, commands: newCommands }
+        })
       })
-    })
 
     /**
      * Open command palette
@@ -963,11 +965,11 @@ export const createCommandPalette = (
           state.inputElement.value = ''
         }
       }
-      yield* Ref.update(stateRef, (s) => ({ 
-        ...s, 
+      yield* Ref.update(stateRef, (s) => ({
+        ...s,
         isOpen: false,
         searchQuery: '',
-        selectedIndex: 0
+        selectedIndex: 0,
       }))
     })
 
@@ -986,14 +988,15 @@ export const createCommandPalette = (
     /**
      * Execute command by ID
      */
-    const executeCommand = (commandId: string) => Effect.gen(function* () {
-      const state = yield* Ref.get(stateRef)
-      const command = state.commands.get(commandId)
-      if (command && (!command.enabled || command.enabled())) {
-        yield* addToHistory(commandId)
-        command.execute()
-      }
-    })
+    const executeCommand = (commandId: string) =>
+      Effect.gen(function* () {
+        const state = yield* Ref.get(stateRef)
+        const command = state.commands.get(commandId)
+        if (command && (!command.enabled || command.enabled())) {
+          yield* addToHistory(commandId)
+          command.execute()
+        }
+      })
 
     /**
      * Get all commands
@@ -1033,17 +1036,14 @@ export const createCommandPalette = (
       toggle,
       executeCommand,
       getCommands,
-      destroy
+      destroy,
     }
   })
 
 /**
  * Create command palette factory for easier usage
  */
-export const createCommandPaletteFactory = (config: Partial<CommandPaletteConfig> = {}) =>
-  (
-    gameDebugger?: any,
-    devConsole?: any,
-    entityInspector?: any,
-    performanceProfiler?: PerformanceProfiler
-  ) => createCommandPalette(gameDebugger, devConsole, entityInspector, performanceProfiler, config)
+export const createCommandPaletteFactory =
+  (config: Partial<CommandPaletteConfig> = {}) =>
+  (gameDebugger?: any, devConsole?: any, entityInspector?: any, performanceProfiler?: PerformanceProfiler) =>
+    createCommandPalette(gameDebugger, devConsole, entityInspector, performanceProfiler, config)

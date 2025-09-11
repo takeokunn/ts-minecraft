@@ -4,7 +4,7 @@
  * This repository provides entity-specific operations and optimizations,
  * focusing on entity lifecycle management, component operations,
  * and entity queries while maintaining clean separation from domain logic.
- * 
+ *
  * FUNCTIONAL IMPLEMENTATION:
  * - Replaces EntityRepositoryImpl class with pure functions
  * - Uses Effect-TS Context.GenericTag and Layer pattern
@@ -145,10 +145,7 @@ export const parseArchetypeKey = (key: string): ReadonlySet<ComponentName> => {
 /**
  * Create Entity functional implementation
  */
-export const createEntityEffect = (
-  stateRef: Ref.Ref<EntityRepositoryState>,
-  archetype?: Archetype,
-): Effect.Effect<EntityId, never, never> =>
+export const createEntityEffect = (stateRef: Ref.Ref<EntityRepositoryState>, archetype?: Archetype): Effect.Effect<EntityId, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const entityId = toEntityId(state.nextEntityId)
@@ -207,10 +204,7 @@ export const createEntityEffect = (
 /**
  * Destroy Entity functional implementation
  */
-export const destroyEntityEffect = (
-  stateRef: Ref.Ref<EntityRepositoryState>,
-  entityId: EntityId,
-): Effect.Effect<boolean, never, never> =>
+export const destroyEntityEffect = (stateRef: Ref.Ref<EntityRepositoryState>, entityId: EntityId): Effect.Effect<boolean, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const metadataOpt = HashMap.get(state.entityMetadata, entityId)
@@ -255,10 +249,7 @@ export const destroyEntityEffect = (
 /**
  * Entity Exists functional implementation
  */
-export const entityExistsEffect = (
-  stateRef: Ref.Ref<EntityRepositoryState>,
-  entityId: EntityId,
-): Effect.Effect<boolean, never, never> =>
+export const entityExistsEffect = (stateRef: Ref.Ref<EntityRepositoryState>, entityId: EntityId): Effect.Effect<boolean, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     return HashMap.has(state.entityMetadata, entityId)
@@ -267,10 +258,7 @@ export const entityExistsEffect = (
 /**
  * Get Entity Metadata functional implementation
  */
-export const getEntityMetadataEffect = (
-  stateRef: Ref.Ref<EntityRepositoryState>,
-  entityId: EntityId,
-): Effect.Effect<Option.Option<EntityMetadata>, never, never> =>
+export const getEntityMetadataEffect = (stateRef: Ref.Ref<EntityRepositoryState>, entityId: EntityId): Effect.Effect<Option.Option<EntityMetadata>, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     return HashMap.get(state.entityMetadata, entityId)
@@ -441,11 +429,7 @@ export const getComponentEffect = <T extends ComponentName>(
 /**
  * Has Component functional implementation
  */
-export const hasComponentEffect = <T extends ComponentName>(
-  stateRef: Ref.Ref<EntityRepositoryState>,
-  entityId: EntityId,
-  componentName: T,
-): Effect.Effect<boolean, never, never> =>
+export const hasComponentEffect = <T extends ComponentName>(stateRef: Ref.Ref<EntityRepositoryState>, entityId: EntityId, componentName: T): Effect.Effect<boolean, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const metadataOpt = HashMap.get(state.entityMetadata, entityId)
@@ -517,10 +501,7 @@ export const updateComponentEffect = <T extends ComponentName>(
 /**
  * Create multiple entities functional implementation
  */
-export const createEntitiesEffect = (
-  stateRef: Ref.Ref<EntityRepositoryState>,
-  archetypes: ReadonlyArray<Archetype>,
-): Effect.Effect<ReadonlyArray<EntityId>, never, never> =>
+export const createEntitiesEffect = (stateRef: Ref.Ref<EntityRepositoryState>, archetypes: ReadonlyArray<Archetype>): Effect.Effect<ReadonlyArray<EntityId>, never, never> =>
   Effect.gen(function* () {
     const entityIds: EntityId[] = []
     for (const archetype of archetypes) {
@@ -533,10 +514,7 @@ export const createEntitiesEffect = (
 /**
  * Destroy multiple entities functional implementation
  */
-export const destroyEntitiesEffect = (
-  stateRef: Ref.Ref<EntityRepositoryState>,
-  entityIds: ReadonlyArray<EntityId>,
-): Effect.Effect<number, never, never> =>
+export const destroyEntitiesEffect = (stateRef: Ref.Ref<EntityRepositoryState>, entityIds: ReadonlyArray<EntityId>): Effect.Effect<number, never, never> =>
   Effect.gen(function* () {
     let count = 0
     for (const entityId of entityIds) {
@@ -549,10 +527,7 @@ export const destroyEntitiesEffect = (
 /**
  * Clone entity functional implementation
  */
-export const cloneEntityEffect = (
-  stateRef: Ref.Ref<EntityRepositoryState>,
-  entityId: EntityId,
-): Effect.Effect<Option.Option<EntityId>, never, never> =>
+export const cloneEntityEffect = (stateRef: Ref.Ref<EntityRepositoryState>, entityId: EntityId): Effect.Effect<Option.Option<EntityId>, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const metadataOpt = HashMap.get(state.entityMetadata, entityId)
@@ -620,10 +595,7 @@ export const findEntitiesByComponentsEffect = (
 /**
  * Find entities by archetype functional implementation
  */
-export const findEntitiesByArchetypeEffect = (
-  stateRef: Ref.Ref<EntityRepositoryState>,
-  archetypeKey: string,
-): Effect.Effect<ReadonlyArray<EntityMetadata>, never, never> =>
+export const findEntitiesByArchetypeEffect = (stateRef: Ref.Ref<EntityRepositoryState>, archetypeKey: string): Effect.Effect<ReadonlyArray<EntityMetadata>, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const entitiesOpt = HashMap.get(state.archetypeToEntities, archetypeKey)
@@ -644,10 +616,7 @@ export const findEntitiesByArchetypeEffect = (
 /**
  * Count entities functional implementation
  */
-export const countEntitiesEffect = (
-  stateRef: Ref.Ref<EntityRepositoryState>,
-  componentNames?: ReadonlyArray<ComponentName>,
-): Effect.Effect<number, never, never> =>
+export const countEntitiesEffect = (stateRef: Ref.Ref<EntityRepositoryState>, componentNames?: ReadonlyArray<ComponentName>): Effect.Effect<number, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
 
@@ -656,9 +625,7 @@ export const countEntitiesEffect = (
     }
 
     const requiredComponents = new Set(componentNames)
-    const matchingCount = Array.from(state.entityMetadata).filter(([_, metadata]) => 
-      Array.from(requiredComponents).every((comp) => metadata.componentTypes.has(comp))
-    ).length
+    const matchingCount = Array.from(state.entityMetadata).filter(([_, metadata]) => Array.from(requiredComponents).every((comp) => metadata.componentTypes.has(comp))).length
 
     return matchingCount
   })
@@ -666,11 +633,7 @@ export const countEntitiesEffect = (
 /**
  * Get entity changes functional implementation
  */
-export const getEntityChangesEffect = (
-  stateRef: Ref.Ref<EntityRepositoryState>,
-  entityId?: EntityId,
-  since?: number,
-): Effect.Effect<ReadonlyArray<EntityChange>, never, never> =>
+export const getEntityChangesEffect = (stateRef: Ref.Ref<EntityRepositoryState>, entityId?: EntityId, since?: number): Effect.Effect<ReadonlyArray<EntityChange>, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     let changes = state.changes
@@ -689,10 +652,7 @@ export const getEntityChangesEffect = (
 /**
  * Clear change history functional implementation
  */
-export const clearChangeHistoryEffect = (
-  stateRef: Ref.Ref<EntityRepositoryState>,
-  before?: number,
-): Effect.Effect<number, never, never> =>
+export const clearChangeHistoryEffect = (stateRef: Ref.Ref<EntityRepositoryState>, before?: number): Effect.Effect<number, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const cutoff = before ?? Date.now()
@@ -726,13 +686,9 @@ export const getRepositoryStatsEffect = (
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
 
-    const componentCounts = Object.fromEntries(
-      Array.from(componentNamesSet).map((name) => [name, HashMap.size(state.componentStorage[name])])
-    ) as Record<ComponentName, number>
+    const componentCounts = Object.fromEntries(Array.from(componentNamesSet).map((name) => [name, HashMap.size(state.componentStorage[name])])) as Record<ComponentName, number>
 
-    const archetypeCounts = Object.fromEntries(
-      Array.from(state.archetypeToEntities).map(([key, entitySet]) => [key, HashSet.size(entitySet)])
-    )
+    const archetypeCounts = Object.fromEntries(Array.from(state.archetypeToEntities).map(([key, entitySet]) => [key, HashSet.size(entitySet)]))
 
     return {
       entityCount: HashMap.size(state.entityMetadata),
@@ -746,9 +702,7 @@ export const getRepositoryStatsEffect = (
 /**
  * Compact storage functional implementation
  */
-export const compactStorageEffect = (
-  stateRef: Ref.Ref<EntityRepositoryState>,
-): Effect.Effect<void, never, never> =>
+export const compactStorageEffect = (stateRef: Ref.Ref<EntityRepositoryState>): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     // Remove empty archetype entries
     yield* Ref.update(stateRef, (s) => ({
@@ -760,9 +714,7 @@ export const compactStorageEffect = (
 /**
  * Create functional entity repository service implementation
  */
-export const makeEntityRepositoryService = (
-  stateRef: Ref.Ref<EntityRepositoryState>,
-): IEntityRepositoryFunctional => ({
+export const makeEntityRepositoryService = (stateRef: Ref.Ref<EntityRepositoryState>): IEntityRepositoryFunctional => ({
   // Entity lifecycle
   createEntity: (archetype?: Archetype) => createEntityEffect(stateRef, archetype),
   destroyEntity: (entityId: EntityId) => destroyEntityEffect(stateRef, entityId),
@@ -770,19 +722,12 @@ export const makeEntityRepositoryService = (
   getEntityMetadata: (entityId: EntityId) => getEntityMetadataEffect(stateRef, entityId),
 
   // Component operations
-  addComponent: <T extends ComponentName>(entityId: EntityId, componentName: T, component: ComponentOfName<T>) =>
-    addComponentEffect(stateRef, entityId, componentName, component),
-  removeComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) =>
-    removeComponentEffect(stateRef, entityId, componentName),
-  getComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) =>
-    getComponentEffect(stateRef, entityId, componentName),
-  hasComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) =>
-    hasComponentEffect(stateRef, entityId, componentName),
-  updateComponent: <T extends ComponentName>(
-    entityId: EntityId,
-    componentName: T,
-    updater: (current: ComponentOfName<T>) => ComponentOfName<T>,
-  ) => updateComponentEffect(stateRef, entityId, componentName, updater),
+  addComponent: <T extends ComponentName>(entityId: EntityId, componentName: T, component: ComponentOfName<T>) => addComponentEffect(stateRef, entityId, componentName, component),
+  removeComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) => removeComponentEffect(stateRef, entityId, componentName),
+  getComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) => getComponentEffect(stateRef, entityId, componentName),
+  hasComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) => hasComponentEffect(stateRef, entityId, componentName),
+  updateComponent: <T extends ComponentName>(entityId: EntityId, componentName: T, updater: (current: ComponentOfName<T>) => ComponentOfName<T>) =>
+    updateComponentEffect(stateRef, entityId, componentName, updater),
 
   // Bulk operations
   createEntities: (archetypes: ReadonlyArray<Archetype>) => createEntitiesEffect(stateRef, archetypes),
@@ -790,8 +735,7 @@ export const makeEntityRepositoryService = (
   cloneEntity: (entityId: EntityId) => cloneEntityEffect(stateRef, entityId),
 
   // Query operations
-  findEntitiesByComponents: (componentNames: ReadonlyArray<ComponentName>, options?: EntityQueryOptions) =>
-    findEntitiesByComponentsEffect(stateRef, componentNames, options),
+  findEntitiesByComponents: (componentNames: ReadonlyArray<ComponentName>, options?: EntityQueryOptions) => findEntitiesByComponentsEffect(stateRef, componentNames, options),
   findEntitiesByArchetype: (archetypeKey: string) => findEntitiesByArchetypeEffect(stateRef, archetypeKey),
   countEntities: (componentNames?: ReadonlyArray<ComponentName>) => countEntitiesEffect(stateRef, componentNames),
 
@@ -813,9 +757,7 @@ export const EntityRepositoryFunctionalLive = Layer.effect(
     const initialState: EntityRepositoryState = {
       nextEntityId: 0,
       entityMetadata: HashMap.empty(),
-      componentStorage: Object.fromEntries(
-        Array.from(componentNamesSet).map((name) => [name, HashMap.empty()])
-      ) as EntityRepositoryState['componentStorage'],
+      componentStorage: Object.fromEntries(Array.from(componentNamesSet).map((name) => [name, HashMap.empty()])) as EntityRepositoryState['componentStorage'],
       archetypeToEntities: HashMap.empty(),
       changes: [],
       maxChangeHistory: 1000,

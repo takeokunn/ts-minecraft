@@ -1,6 +1,6 @@
 /**
  * Mesh Generation Domain Service
- * 
+ *
  * Contains the pure business logic for mesh generation from voxel data,
  * extracted from infrastructure layer and made technology-agnostic.
  * This service implements core mesh generation algorithms without dependencies
@@ -41,7 +41,7 @@ interface BlockFace {
 const FaceDirection = {
   FRONT: 'front',
   BACK: 'back',
-  RIGHT: 'right', 
+  RIGHT: 'right',
   LEFT: 'left',
   TOP: 'top',
   BOTTOM: 'bottom',
@@ -51,10 +51,7 @@ const FaceDirection = {
  * Generate cube faces for a block with occlusion culling
  * Pure geometric calculation without external dependencies
  */
-const generateBlockFaces = (
-  block: GeneratedBlock,
-  neighborLookup: { readonly [key: string]: GeneratedBlock | null },
-): readonly BlockFace[] => {
+const generateBlockFaces = (block: GeneratedBlock, neighborLookup: { readonly [key: string]: GeneratedBlock | null }): readonly BlockFace[] => {
   const { x, y, z } = block.position
   const faces: BlockFace[] = []
 
@@ -126,16 +123,13 @@ const generateBlockFaces = (
  * Determine if a face should be rendered based on occlusion rules
  * Pure business logic for face culling
  */
-const shouldRenderFace = (
-  neighbor: GeneratedBlock | null,
-  currentBlock: GeneratedBlock,
-): boolean => {
+const shouldRenderFace = (neighbor: GeneratedBlock | null, currentBlock: GeneratedBlock): boolean => {
   // Render if no neighbor exists (chunk boundary)
   if (!neighbor) return true
-  
+
   // Render if neighbor is air or transparent
   if (neighbor.blockType === 'air' || neighbor.blockType === 'water') return true
-  
+
   // Don't render if neighbor is solid opaque block
   return false
 }
@@ -144,10 +138,7 @@ const shouldRenderFace = (
  * Create neighbor lookup table from chunk data
  * Optimized lookup for face culling calculations
  */
-const createNeighborLookup = (
-  chunkData: ChunkData,
-  neighbors?: { readonly [key: string]: ChunkData },
-): { readonly [key: string]: GeneratedBlock | null } => {
+const createNeighborLookup = (chunkData: ChunkData, neighbors?: { readonly [key: string]: ChunkData }): { readonly [key: string]: GeneratedBlock | null } => {
   const lookup: { [key: string]: GeneratedBlock | null } = {}
 
   // Add current chunk blocks
@@ -301,7 +292,7 @@ export const MeshGenerationDomainService: IMeshGenerator = {
     Effect.gen(function* () {
       const startTime = performance.now()
       const { chunkData, neighbors, algorithm, optimizations, options, lodLevel } = request
-      
+
       const opts = options || MeshGeneratorHelpers.createDefaultOptions()
       const optims = optimizations || MeshGeneratorHelpers.createDefaultOptimizations()
 
@@ -331,14 +322,10 @@ export const MeshGenerationDomainService: IMeshGenerator = {
       }
 
       // Create index buffer
-      const indexBuffer: IndexBuffer = MeshGeneratorHelpers.createTransferableIndexBuffer(
-        Array.from(meshData.indices)
-      )
+      const indexBuffer: IndexBuffer = MeshGeneratorHelpers.createTransferableIndexBuffer(Array.from(meshData.indices))
 
       // Calculate bounds
-      const bounds: BoundingVolume = MeshGeneratorHelpers.calculateMeshBounds(
-        vertexAttributes.positions
-      )
+      const bounds: BoundingVolume = MeshGeneratorHelpers.calculateMeshBounds(vertexAttributes.positions)
 
       // Create final mesh data
       const generatedMeshData: GeneratedMeshData = {
@@ -373,10 +360,7 @@ export const MeshGenerationDomainService: IMeshGenerator = {
       } satisfies MeshGenerationResult
     }),
 
-  generateNaiveMesh: (
-    chunkData: ChunkData,
-    options?: MeshGenerationOptions,
-  ): Effect.Effect<GeneratedMeshData, never, never> =>
+  generateNaiveMesh: (chunkData: ChunkData, options?: MeshGenerationOptions): Effect.Effect<GeneratedMeshData, never, never> =>
     Effect.gen(function* () {
       const meshData = naiveMeshingAlgorithm(chunkData)
       const opts = options || MeshGeneratorHelpers.createDefaultOptions()
@@ -394,13 +378,9 @@ export const MeshGenerationDomainService: IMeshGenerator = {
         interleaved: false,
       }
 
-      const indexBuffer: IndexBuffer = MeshGeneratorHelpers.createTransferableIndexBuffer(
-        Array.from(meshData.indices)
-      )
+      const indexBuffer: IndexBuffer = MeshGeneratorHelpers.createTransferableIndexBuffer(Array.from(meshData.indices))
 
-      const bounds: BoundingVolume = MeshGeneratorHelpers.calculateMeshBounds(
-        vertexAttributes.positions
-      )
+      const bounds: BoundingVolume = MeshGeneratorHelpers.calculateMeshBounds(vertexAttributes.positions)
 
       return {
         vertexBuffer,
@@ -410,10 +390,7 @@ export const MeshGenerationDomainService: IMeshGenerator = {
       } satisfies GeneratedMeshData
     }),
 
-  generateGreedyMesh: (
-    chunkData: ChunkData,
-    options?: MeshGenerationOptions,
-  ): Effect.Effect<GeneratedMeshData, never, never> =>
+  generateGreedyMesh: (chunkData: ChunkData, options?: MeshGenerationOptions): Effect.Effect<GeneratedMeshData, never, never> =>
     Effect.gen(function* () {
       const meshData = greedyMeshingAlgorithm(chunkData)
       const opts = options || MeshGeneratorHelpers.createDefaultOptions()
@@ -431,13 +408,9 @@ export const MeshGenerationDomainService: IMeshGenerator = {
         interleaved: false,
       }
 
-      const indexBuffer: IndexBuffer = MeshGeneratorHelpers.createTransferableIndexBuffer(
-        Array.from(meshData.indices)
-      )
+      const indexBuffer: IndexBuffer = MeshGeneratorHelpers.createTransferableIndexBuffer(Array.from(meshData.indices))
 
-      const bounds: BoundingVolume = MeshGeneratorHelpers.calculateMeshBounds(
-        vertexAttributes.positions
-      )
+      const bounds: BoundingVolume = MeshGeneratorHelpers.calculateMeshBounds(vertexAttributes.positions)
 
       return {
         vertexBuffer,
@@ -455,16 +428,13 @@ export const MeshGenerationDomainService: IMeshGenerator = {
   isAvailable: (): Effect.Effect<boolean, never, never> =>
     Effect.gen(function* () {
       return true // Always available as it's pure logic
-    })
+    }),
 }
 
 /**
  * Live layer for Mesh Generation Domain Service
  */
-export const MeshGenerationDomainServiceLive = Layer.succeed(
-  MeshGeneratorPort,
-  MeshGenerationDomainService,
-)
+export const MeshGenerationDomainServiceLive = Layer.succeed(MeshGeneratorPort, MeshGenerationDomainService)
 
 /**
  * Utility functions for mesh generation
@@ -487,18 +457,14 @@ export const MeshGenerationUtils = {
    * Validate mesh generation request
    */
   validateRequest: (request: MeshGenerationRequest): boolean => {
-    return (
-      request.chunkData !== undefined &&
-      request.chunkData.blocks.length >= 0 &&
-      ['naive', 'greedy', 'culled'].includes(request.algorithm)
-    )
+    return request.chunkData !== undefined && request.chunkData.blocks.length >= 0 && ['naive', 'greedy', 'culled'].includes(request.algorithm)
   },
 
   /**
    * Estimate mesh complexity
    */
   estimateMeshComplexity: (chunkData: ChunkData): number => {
-    const solidBlocks = chunkData.blocks.filter(b => b.blockType !== 'air').length
+    const solidBlocks = chunkData.blocks.filter((b) => b.blockType !== 'air').length
     return solidBlocks * 6 // Maximum 6 faces per block
   },
 }

@@ -9,9 +9,11 @@ This guide documents the comprehensive migration from a mixed class-based/functi
 ### Phase 1: Foundation Cleanup (Completed)
 
 #### Agent A: Dead Code Elimination
+
 **Objective**: Remove unused code and legacy systems
 
 **Completed Tasks**:
+
 - ✅ Removed `src/application/queries/legacy-compatibility.ts` (287 lines)
 - ✅ Removed `src/domain/queries/legacy-query-compatibility.ts` (156 lines)
 - ✅ Removed `src/domain/queries/legacy-query-system.ts` (342 lines)
@@ -22,9 +24,11 @@ This guide documents the comprehensive migration from a mixed class-based/functi
 **Total Code Reduction**: 1,092 lines of dead code removed
 
 #### Agent B: Path Alias Standardization
+
 **Objective**: Standardize import paths across all layers
 
 **Completed Tasks**:
+
 - ✅ **Shared Layer**: 23 files updated to use `@shared/` alias
 - ✅ **Domain Layer**: 54 files updated to use `@domain/` alias
 - ✅ **Application Layer**: 19 files updated to use `@application/` alias
@@ -32,6 +36,7 @@ This guide documents the comprehensive migration from a mixed class-based/functi
 - ✅ **Presentation Layer**: 12 files updated to use `@presentation/` alias
 
 **Before Migration**:
+
 ```typescript
 // Inconsistent import patterns
 import { Something } from '../../../domain/services'
@@ -40,6 +45,7 @@ import { Config } from '../../shared/config'
 ```
 
 **After Migration**:
+
 ```typescript
 // Consistent path aliases
 import { Something } from '@domain/services'
@@ -48,21 +54,27 @@ import { Config } from '@shared/config'
 ```
 
 #### Agent C: Index File Purification
+
 **Objective**: Convert all index.ts files to pure barrel exports
 
 **Completed Tasks**:
+
 - ✅ Cleaned 15 main index.ts files across all layers
 - ✅ Removed logic from barrel exports
 - ✅ Standardized export patterns
 
 **Before Migration**:
+
 ```typescript
 // index.ts with logic
 export * from './service'
-export const defaultConfig = { /* ... */ }  // Logic in barrel export
+export const defaultConfig = {
+  /* ... */
+} // Logic in barrel export
 ```
 
 **After Migration**:
+
 ```typescript
 // Pure barrel export
 export * from './service'
@@ -72,15 +84,18 @@ export * from './config'
 ### Phase 2: Layer Separation (Completed)
 
 #### Agent D: Domain Logic Extraction
+
 **Objective**: Extract business logic from infrastructure layer
 
 **Completed Tasks**:
+
 - ✅ Moved block properties from infrastructure to `@domain/constants/block-properties.ts`
 - ✅ Extracted terrain generation logic to `@domain/services/terrain-generation-domain.service.ts`
 - ✅ Created mesh generation domain service at `@domain/services/mesh-generation-domain.service.ts`
 - ✅ Separated physics calculations into `@domain/services/physics-domain.service.ts`
 
 **Domain Logic Extracted**:
+
 ```typescript
 // New domain constants (530+ lines of pure business logic)
 export const BLOCK_COLORS = {
@@ -102,23 +117,22 @@ export const BLOCK_MATERIAL_PROPERTIES = {
 ```
 
 #### Agent E: Port/Adapter Implementation
+
 **Objective**: Implement dependency inversion through ports and adapters
 
 **Completed Tasks**:
+
 - ✅ Created `@domain/ports/terrain-generator.port.ts`
 - ✅ Created `@domain/ports/mesh-generator.port.ts`
 - ✅ Created `@domain/ports/world-repository.port.ts`
 - ✅ Implemented corresponding adapters in infrastructure layer
 
 **Port Definition Example**:
+
 ```typescript
 // Domain port (interface)
 export interface TerrainGeneratorPort {
-  readonly generateHeightMap: (
-    coordinates: ChunkCoordinates,
-    seed: number,
-    biome: BiomeConfiguration
-  ) => Effect.Effect<HeightMap, TerrainGenerationError>
+  readonly generateHeightMap: (coordinates: ChunkCoordinates, seed: number, biome: BiomeConfiguration) => Effect.Effect<HeightMap, TerrainGenerationError>
 }
 
 // Infrastructure adapter (implementation)
@@ -128,19 +142,22 @@ export const simplexNoiseTerrainAdapter: TerrainGeneratorPort = {
       const noise = new SimplexNoise(seed)
       // Implementation details...
       return heightMap
-    })
+    }),
 }
 ```
 
 #### Agent F: Dependency Inversion
+
 **Objective**: Remove external dependencies from domain layer
 
 **Completed Tasks**:
+
 - ✅ Removed all Three.js imports from domain layer
 - ✅ Created abstract math interfaces for 3D operations
 - ✅ Moved Three.js specific code to infrastructure adapters
 
 **Before Migration**:
+
 ```typescript
 // Domain service with external dependency
 import * as THREE from 'three'
@@ -153,6 +170,7 @@ export class RaycastService {
 ```
 
 **After Migration**:
+
 ```typescript
 // Domain service with abstract interfaces
 export interface Vector3Port {
@@ -162,24 +180,24 @@ export interface Vector3Port {
 }
 
 export interface RaycastDomainService {
-  readonly castRay: (
-    origin: Vector3Port,
-    direction: Vector3Port
-  ) => Effect.Effect<RaycastResult, RaycastError>
+  readonly castRay: (origin: Vector3Port, direction: Vector3Port) => Effect.Effect<RaycastResult, RaycastError>
 }
 ```
 
 ### Phase 3: Type System Enhancement (Completed)
 
 #### Agent G: Effect-TS Integration
+
 **Objective**: Convert all operations to Effect-TS patterns
 
 **Completed Tasks**:
+
 - ✅ Converted 45+ services to Context.Tag pattern
 - ✅ Implemented comprehensive error handling with tagged errors
 - ✅ Created Layer-based dependency injection system
 
 **Service Conversion Example**:
+
 ```typescript
 // Before: Class-based service
 export class WorldService {
@@ -194,9 +212,7 @@ export class WorldService {
 
 // After: Effect-TS service
 export interface WorldService {
-  readonly loadChunk: (
-    coord: ChunkCoordinate
-  ) => Effect.Effect<Chunk, ChunkLoadError>
+  readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkLoadError>
 }
 
 export const WorldService = Context.GenericTag<WorldService>('WorldService')
@@ -205,34 +221,41 @@ export const worldServiceLive = Layer.effect(
   WorldService,
   Effect.gen(function* () {
     const repository = yield* ChunkRepository
-    
+
     return WorldService.of({
       loadChunk: (coord) =>
         pipe(
           repository.find(coord),
-          Effect.mapError(error => new ChunkLoadError({ coord, cause: error }))
-        )
+          Effect.mapError((error) => new ChunkLoadError({ coord, cause: error })),
+        ),
     })
-  })
+  }),
 )
 ```
 
 #### Agent H: Class Elimination
+
 **Objective**: Replace all class-based code with functional patterns
 
 **Completed Tasks**:
+
 - ✅ Converted 126+ classes to `Data.Class` or pure functions
 - ✅ Eliminated all `this` keyword usage
 - ✅ Converted all mutable state to immutable patterns
 
 **Class Conversion Examples**:
+
 ```typescript
 // Before: Mutable class
 class Position {
-  constructor(public x: number, public y: number, public z: number) {}
-  
+  constructor(
+    public x: number,
+    public y: number,
+    public z: number,
+  ) {}
+
   move(dx: number, dy: number, dz: number) {
-    this.x += dx  // Mutation!
+    this.x += dx // Mutation!
     this.y += dy
     this.z += dz
   }
@@ -247,14 +270,14 @@ export class Position extends Data.Class<{
   static readonly schema = S.Struct({
     x: S.Number.pipe(S.finite()),
     y: S.Number.pipe(S.between(0, 255)),
-    z: S.Number.pipe(S.finite())
+    z: S.Number.pipe(S.finite()),
   })
-  
+
   translate(dx: number, dy: number, dz: number): Position {
     return new Position({
       x: this.x + dx,
       y: this.y + dy,
-      z: this.z + dz
+      z: this.z + dz,
     })
   }
 }
@@ -263,17 +286,21 @@ export class Position extends Data.Class<{
 ### Phase 4: Documentation and Testing (Current)
 
 #### Agent I: Testing Framework Implementation
+
 **Objective**: Comprehensive test coverage with Effect-TS patterns
 
 **In Progress**:
+
 - Property-based testing with Effect-TS and FastCheck
 - Integration tests for layer boundaries
 - Performance regression tests
 
 #### Agent J: Documentation Update (This Document)
+
 **Objective**: Complete documentation overhaul
 
 **Completed**:
+
 - ✅ [ARCHITECTURE.md](../ARCHITECTURE.md) - Comprehensive architecture guide
 - ✅ [README.md](../README.md) - Project overview and quick start
 - ✅ [CONTRIBUTING.md](../CONTRIBUTING.md) - Development guidelines
@@ -285,6 +312,7 @@ export class Position extends Data.Class<{
 ### 1. Service Migration Pattern
 
 **Step 1: Define Interface**
+
 ```typescript
 export interface MyService {
   readonly operation: (input: Input) => Effect.Effect<Output, MyError>
@@ -292,41 +320,39 @@ export interface MyService {
 ```
 
 **Step 2: Create Context Tag**
+
 ```typescript
 export const MyService = Context.GenericTag<MyService>('MyService')
 ```
 
 **Step 3: Implement with Layer**
+
 ```typescript
 export const myServiceLive = Layer.effect(
   MyService,
   Effect.gen(function* () {
     const dependency = yield* DependencyService
-    
+
     return MyService.of({
-      operation: (input) => 
-        pipe(
-          validateInput(input),
-          Effect.flatMap(processInput),
-          Effect.mapError(toMyError)
-        )
+      operation: (input) => pipe(validateInput(input), Effect.flatMap(processInput), Effect.mapError(toMyError)),
     })
-  })
+  }),
 )
 ```
 
 ### 2. Class to Data.Class Migration
 
 **Step 1: Identify State and Behavior**
+
 ```typescript
 // Original class
 class Player {
   constructor(
     public name: string,
     public health: number,
-    public position: Position
+    public position: Position,
   ) {}
-  
+
   takeDamage(amount: number) {
     this.health = Math.max(0, this.health - amount)
   }
@@ -334,6 +360,7 @@ class Player {
 ```
 
 **Step 2: Convert to Data.Class**
+
 ```typescript
 export class Player extends Data.Class<{
   readonly name: string
@@ -343,13 +370,13 @@ export class Player extends Data.Class<{
   static readonly schema = S.Struct({
     name: S.String.pipe(S.minLength(1)),
     health: S.Number.pipe(S.between(0, 100)),
-    position: PositionSchema
+    position: PositionSchema,
   })
-  
+
   takeDamage(amount: number): Player {
     return new Player({
       ...this,
-      health: Math.max(0, this.health - amount)
+      health: Math.max(0, this.health - amount),
     })
   }
 }
@@ -358,22 +385,24 @@ export class Player extends Data.Class<{
 ### 3. Error Handling Migration
 
 **Before: Exception-based**
+
 ```typescript
 function loadChunk(coord: ChunkCoordinate): Chunk {
   if (!isValidCoordinate(coord)) {
     throw new Error('Invalid coordinate')
   }
-  
+
   const chunk = database.find(coord)
   if (!chunk) {
     throw new Error('Chunk not found')
   }
-  
+
   return chunk
 }
 ```
 
 **After: Effect-based**
+
 ```typescript
 export class InvalidCoordinateError extends Data.TaggedError('InvalidCoordinateError')<{
   readonly coordinate: ChunkCoordinate
@@ -387,24 +416,27 @@ const loadChunk = (coord: ChunkCoordinate): Effect.Effect<Chunk, InvalidCoordina
   pipe(
     validateCoordinate(coord),
     Effect.flatMap(() => database.find(coord)),
-    Effect.flatMap(Option.match({
-      onNone: () => Effect.fail(new ChunkNotFoundError({ coordinate: coord })),
-      onSome: Effect.succeed
-    }))
+    Effect.flatMap(
+      Option.match({
+        onNone: () => Effect.fail(new ChunkNotFoundError({ coordinate: coord })),
+        onSome: Effect.succeed,
+      }),
+    ),
   )
 ```
 
 ### 4. Repository Migration Pattern
 
 **Before: Class-based Repository**
+
 ```typescript
 export class ChunkRepository {
   private cache = new Map<string, Chunk>()
-  
+
   async find(coord: ChunkCoordinate): Promise<Chunk | null> {
     return this.cache.get(coord.toString()) || null
   }
-  
+
   async save(chunk: Chunk): Promise<void> {
     this.cache.set(chunk.coordinate.toString(), chunk)
   }
@@ -412,6 +444,7 @@ export class ChunkRepository {
 ```
 
 **After: Effect-based Repository**
+
 ```typescript
 export interface ChunkRepository {
   readonly find: (coord: ChunkCoordinate) => Effect.Effect<Option.Option<Chunk>, never>
@@ -424,20 +457,17 @@ export const chunkRepositoryLive = Layer.effect(
   ChunkRepository,
   Effect.gen(function* () {
     const cache = yield* Ref.make(new Map<string, Chunk>())
-    
+
     return ChunkRepository.of({
       find: (coord) =>
         pipe(
           Ref.get(cache),
-          Effect.map(cache => Option.fromNullable(cache.get(coord.toString())))
+          Effect.map((cache) => Option.fromNullable(cache.get(coord.toString()))),
         ),
-        
-      save: (chunk) =>
-        Ref.update(cache, cache => 
-          new Map(cache).set(chunk.coordinate.toString(), chunk)
-        )
+
+      save: (chunk) => Ref.update(cache, (cache) => new Map(cache).set(chunk.coordinate.toString(), chunk)),
     })
-  })
+  }),
 )
 ```
 
@@ -471,17 +501,17 @@ import * as fs from 'fs'
 const findClasses = (directory: string): Effect.Effect<string[], never> =>
   Effect.gen(function* () {
     const files = yield* Effect.promise(() => fs.promises.readdir(directory, { recursive: true }))
-    const tsFiles = files.filter(file => file.endsWith('.ts'))
-    
+    const tsFiles = files.filter((file) => file.endsWith('.ts'))
+
     const classFiles: string[] = []
-    
+
     for (const file of tsFiles) {
       const content = yield* Effect.promise(() => fs.promises.readFile(file, 'utf-8'))
       if (content.includes('class ') && !content.includes('Data.Class')) {
         classFiles.push(file)
       }
     }
-    
+
     return classFiles
   })
 ```
@@ -493,9 +523,7 @@ const findClasses = (directory: string): Effect.Effect<string[], never> =>
 const generateEffectService = (className: string, methods: string[]): string => {
   return `
 export interface ${className}Service {
-  ${methods.map(method => 
-    `readonly ${method}: (input: Input) => Effect.Effect<Output, Error>`
-  ).join('\n  ')}
+  ${methods.map((method) => `readonly ${method}: (input: Input) => Effect.Effect<Output, Error>`).join('\n  ')}
 }
 
 export const ${className}Service = Context.GenericTag<${className}Service>('${className}Service')
@@ -504,9 +532,7 @@ export const ${className.toLowerCase()}ServiceLive = Layer.effect(
   ${className}Service,
   Effect.gen(function* () {
     return ${className}Service.of({
-      ${methods.map(method => 
-        `${method}: (input) => Effect.succeed(/* implementation */)`
-      ).join(',\n      ')}
+      ${methods.map((method) => `${method}: (input) => Effect.succeed(/* implementation */)`).join(',\n      ')}
     })
   })
 )
@@ -521,11 +547,11 @@ export const ${className.toLowerCase()}ServiceLive = Layer.effect(
 ```typescript
 describe('PlayerService', () => {
   let playerService: PlayerService
-  
+
   beforeEach(() => {
     playerService = new PlayerService(mockRepository)
   })
-  
+
   it('should move player', async () => {
     const result = await playerService.movePlayer('player1', { x: 1, y: 0, z: 0 })
     expect(result.success).toBe(true)
@@ -543,11 +569,9 @@ describe('PlayerService', () => {
     Effect.gen(function* () {
       const playerService = yield* PlayerService
       const result = yield* playerService.movePlayer('player1', { x: 1, y: 0, z: 0 })
-      
+
       expect(result.success).toBe(true)
-    }).pipe(
-      Effect.provide(TestPlayerServiceLayer)
-    )
+    }).pipe(Effect.provide(TestPlayerServiceLayer)),
   )
 })
 ```
@@ -556,14 +580,14 @@ describe('PlayerService', () => {
 
 ### Metrics Comparison
 
-| Metric | Before Migration | After Migration | Change |
-|--------|------------------|-----------------|---------|
-| Bundle Size | 2.3 MB | 1.8 MB | -22% |
-| Memory Usage (Runtime) | 45 MB | 38 MB | -16% |
-| Cold Start Time | 850ms | 720ms | -15% |
-| Hot Reload Time | 340ms | 280ms | -18% |
-| Test Execution Time | 12.3s | 9.7s | -21% |
-| Type Check Time | 8.2s | 6.1s | -26% |
+| Metric                 | Before Migration | After Migration | Change |
+| ---------------------- | ---------------- | --------------- | ------ |
+| Bundle Size            | 2.3 MB           | 1.8 MB          | -22%   |
+| Memory Usage (Runtime) | 45 MB            | 38 MB           | -16%   |
+| Cold Start Time        | 850ms            | 720ms           | -15%   |
+| Hot Reload Time        | 340ms            | 280ms           | -18%   |
+| Test Execution Time    | 12.3s            | 9.7s            | -21%   |
+| Type Check Time        | 8.2s             | 6.1s            | -26%   |
 
 ### Performance Optimizations Achieved
 
@@ -578,15 +602,17 @@ describe('PlayerService', () => {
 ### 1. Circular Dependencies
 
 **Problem**: Classes often had circular dependencies
+
 ```typescript
 // service-a.ts
 import { ServiceB } from './service-b'
 
-// service-b.ts  
-import { ServiceA } from './service-a'  // Circular!
+// service-b.ts
+import { ServiceA } from './service-a' // Circular!
 ```
 
 **Solution**: Use interfaces and dependency injection
+
 ```typescript
 // Define interfaces in separate files
 // service-a.interface.ts
@@ -601,6 +627,7 @@ import type { ServiceA } from './service-a.interface'
 ### 2. Async/Await to Effect Migration
 
 **Problem**: Converting Promise-based code to Effect
+
 ```typescript
 // Before
 async function processData(input: Input): Promise<Output> {
@@ -616,6 +643,7 @@ async function processData(input: Input): Promise<Output> {
 ```
 
 **Solution**: Use Effect.gen for sequential operations
+
 ```typescript
 // After
 const processData = (input: Input): Effect.Effect<Output, ProcessingError> =>
@@ -624,26 +652,26 @@ const processData = (input: Input): Effect.Effect<Output, ProcessingError> =>
     const processed = yield* process(validated)
     const result = yield* save(processed)
     return result
-  }).pipe(
-    Effect.tapError(error => Effect.logError('Processing failed', error))
-  )
+  }).pipe(Effect.tapError((error) => Effect.logError('Processing failed', error)))
 ```
 
 ### 3. State Management Migration
 
 **Problem**: Converting mutable state to immutable
+
 ```typescript
 // Before: Mutable state
 class GameState {
   private players = new Map<string, Player>()
-  
+
   addPlayer(player: Player) {
-    this.players.set(player.id, player)  // Mutation
+    this.players.set(player.id, player) // Mutation
   }
 }
 ```
 
 **Solution**: Use Ref for controlled mutation in Effect context
+
 ```typescript
 // After: Controlled mutation with Ref
 export interface GameStateService {
@@ -655,20 +683,17 @@ export const gameStateServiceLive = Layer.effect(
   GameStateService,
   Effect.gen(function* () {
     const playersRef = yield* Ref.make(new Map<string, Player>())
-    
+
     return GameStateService.of({
-      addPlayer: (player) =>
-        Ref.update(playersRef, players => 
-          new Map(players).set(player.id, player)
-        ),
-        
+      addPlayer: (player) => Ref.update(playersRef, (players) => new Map(players).set(player.id, player)),
+
       getPlayer: (id) =>
         pipe(
           Ref.get(playersRef),
-          Effect.map(players => Option.fromNullable(players.get(id)))
-        )
+          Effect.map((players) => Option.fromNullable(players.get(id))),
+        ),
     })
-  })
+  }),
 )
 ```
 
@@ -692,7 +717,7 @@ export const webGPURenderAdapter: RenderPort = {
       const device = yield* getWebGPUDevice()
       const buffer = yield* createGeometryBuffer(device, geometry)
       return generateMeshId()
-    })
+    }),
 }
 ```
 
@@ -702,10 +727,8 @@ The Effect-TS foundation supports adding networking:
 
 ```typescript
 export interface NetworkService {
-  readonly sendMessage: (
-    message: GameMessage
-  ) => Effect.Effect<void, NetworkError>
-  
+  readonly sendMessage: (message: GameMessage) => Effect.Effect<void, NetworkError>
+
   readonly receiveMessages: () => Stream.Stream<GameMessage, NetworkError>
 }
 
@@ -713,20 +736,17 @@ export const websocketNetworkLive = Layer.effect(
   NetworkService,
   Effect.gen(function* () {
     const connection = yield* establishWebSocketConnection()
-    
+
     return NetworkService.of({
       sendMessage: (message) =>
         Effect.tryPromise({
           try: () => connection.send(JSON.stringify(message)),
-          catch: (error) => new NetworkError({ cause: error })
+          catch: (error) => new NetworkError({ cause: error }),
         }),
-        
-      receiveMessages: () =>
-        Stream.fromAsyncIterable(connection.messages, error => 
-          new NetworkError({ cause: error })
-        )
+
+      receiveMessages: () => Stream.fromAsyncIterable(connection.messages, (error) => new NetworkError({ cause: error })),
     })
-  })
+  }),
 )
 ```
 
@@ -736,27 +756,18 @@ The layer-based architecture enables a plugin system:
 
 ```typescript
 export interface PluginService {
-  readonly loadPlugin: (
-    manifest: PluginManifest
-  ) => Effect.Effect<Plugin, PluginLoadError>
-  
-  readonly executePlugin: (
-    plugin: Plugin,
-    context: GameContext
-  ) => Effect.Effect<PluginResult, PluginExecutionError>
+  readonly loadPlugin: (manifest: PluginManifest) => Effect.Effect<Plugin, PluginLoadError>
+
+  readonly executePlugin: (plugin: Plugin, context: GameContext) => Effect.Effect<PluginResult, PluginExecutionError>
 }
 
 // Plugins can provide their own layers
-export const customPluginLayer = Layer.mergeAll(
-  CustomPluginServiceLive,
-  CustomRenderingLive,
-  CustomPhysicsLive
-)
+export const customPluginLayer = Layer.mergeAll(CustomPluginServiceLive, CustomRenderingLive, CustomPhysicsLive)
 
 // Main app can optionally include plugin layers
 export const AppWithPluginsLayer = Layer.mergeAll(
   BaseAppLayer,
-  customPluginLayer  // Optional plugin integration
+  customPluginLayer, // Optional plugin integration
 )
 ```
 
@@ -788,6 +799,7 @@ export const AppWithPluginsLayer = Layer.mergeAll(
 ## Migration Checklist for Future Projects
 
 ### Pre-Migration
+
 - [ ] Establish baseline performance metrics
 - [ ] Create comprehensive test suite
 - [ ] Document current architecture
@@ -795,6 +807,7 @@ export const AppWithPluginsLayer = Layer.mergeAll(
 - [ ] Set up migration tools and scripts
 
 ### During Migration
+
 - [ ] Follow established patterns consistently
 - [ ] Migrate in small, verifiable batches
 - [ ] Update documentation as you go
@@ -802,6 +815,7 @@ export const AppWithPluginsLayer = Layer.mergeAll(
 - [ ] Monitor performance impact
 
 ### Post-Migration
+
 - [ ] Validate all tests pass
 - [ ] Confirm performance targets met
 - [ ] Update developer onboarding docs

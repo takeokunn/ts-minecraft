@@ -1,6 +1,6 @@
 /**
  * Query System Utilities
- * 
+ *
  * This module provides utilities for managing the query system,
  * including entity lifecycle management, cache operations,
  * and performance monitoring.

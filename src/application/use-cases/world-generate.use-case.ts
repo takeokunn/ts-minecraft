@@ -107,28 +107,28 @@ export const WorldGenerateUseCaseLive = Layer.effect(
     return {
       execute: executeGenerate,
       generateBiome,
-      generateStructure
+      generateStructure,
     } satisfies WorldGenerateUseCaseService
-  })
+  }),
 )
 
 const generateBaseTerrain = (command: WorldGenerateCommand, terrainGenerator: any) =>
   Effect.gen(function* (_) {
     // Use the new TerrainGenerationDomainService for terrain generation
     yield* _(Effect.log(`Generating ${command.worldType} terrain with seed ${command.seed}`))
-    
+
     // The actual terrain generation is now handled by the domain service
     // This would typically involve generating initial chunks around spawn
     const spawnChunk = { x: 0, z: 0 }
     const biome = yield* _(terrainGenerator.getBiome(0, 0, command.seed))
-    
+
     yield* _(Effect.log(`Base terrain generation completed for world type: ${command.worldType}`))
   })
 
 const generateBiomes = (command: WorldGenerateCommand, terrainGenerator: any) =>
   Effect.gen(function* (_) {
     yield* _(Effect.log(`Generating biomes for world with seed ${command.seed}`))
-    
+
     // Generate biomes using the terrain generation domain service
     for (const biomeType of command.biomes!) {
       const biome = yield* _(terrainGenerator.getBiome(0, 0, command.seed))

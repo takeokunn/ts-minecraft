@@ -1,6 +1,6 @@
 /**
  * Enhanced Terrain Generation Service
- * 
+ *
  * Pure domain service for terrain generation using advanced algorithms
  * and domain-driven patterns. Extracted from infrastructure layer with
  * all technology-agnostic business logic for world generation.
@@ -175,9 +175,7 @@ export const DomainNoise = {
    * Generate noise based on fractal type
    */
   generateNoise: (x: number, y: number, z: number, settings: AdvancedNoiseSettings, seed: number): number => {
-    const [warpedX, warpedY, warpedZ] = settings.domainWarpStrength 
-      ? DomainNoise.domainWarp(x, y, z, settings, seed)
-      : [x, y, z]
+    const [warpedX, warpedY, warpedZ] = settings.domainWarpStrength ? DomainNoise.domainWarp(x, y, z, settings, seed) : [x, y, z]
 
     switch (settings.fractalType ?? 'fbm') {
       case 'ridged':
@@ -195,11 +193,9 @@ export const DomainNoise = {
    */
   simplex3D: (x: number, y: number, z: number, seed: number): number => {
     const offset = seed * 1000
-    const n = Math.sin((x + offset) * 0.1) * 
-              Math.cos((y + offset) * 0.1) * 
-              Math.sin((z + offset) * 0.1)
+    const n = Math.sin((x + offset) * 0.1) * Math.cos((y + offset) * 0.1) * Math.sin((z + offset) * 0.1)
     return (n + 1) / 2 - 0.5 // Return in range [-0.5, 0.5]
-  }
+  },
 } as const
 
 /**
@@ -210,31 +206,25 @@ export const TerrainGenerationAlgorithms = {
   /**
    * Generate advanced height map with multiple noise layers
    */
-  generateAdvancedHeightMap: (
-    chunkX: number,
-    chunkZ: number,
-    seed: number,
-    noiseSettings: AdvancedNoiseSettings,
-    biome: EnhancedBiomeConfig,
-  ): readonly number[] => {
+  generateAdvancedHeightMap: (chunkX: number, chunkZ: number, seed: number, noiseSettings: AdvancedNoiseSettings, biome: EnhancedBiomeConfig): readonly number[] => {
     const heightMap: number[] = []
     const chunkSize = 16
 
     // Generate base terrain height using primary noise
     const baseHeights = TerrainGenerationAlgorithms.generateBaseHeightLayer(chunkX, chunkZ, seed, noiseSettings)
-    
+
     // Generate mountain/hill features using ridged noise
     const mountainHeights = TerrainGenerationAlgorithms.generateMountainLayer(chunkX, chunkZ, seed + 1000, noiseSettings, biome)
-    
+
     // Generate valley/depression features
     const valleyHeights = TerrainGenerationAlgorithms.generateValleyLayer(chunkX, chunkZ, seed + 2000, noiseSettings, biome)
 
     for (let i = 0; i < chunkSize * chunkSize; i++) {
       let height = baseHeights[i] + mountainHeights[i] - valleyHeights[i]
-      
+
       // Apply biome-specific height adjustments
       height = TerrainGenerationAlgorithms.applyBiomeHeightModifications(height, biome)
-      
+
       // Ensure height is within valid range
       height = Math.max(1, Math.min(255, Math.floor(height)))
       heightMap.push(height)
@@ -246,12 +236,7 @@ export const TerrainGenerationAlgorithms = {
   /**
    * Generate base terrain height layer
    */
-  generateBaseHeightLayer: (
-    chunkX: number,
-    chunkZ: number,
-    seed: number,
-    noiseSettings: AdvancedNoiseSettings,
-  ): readonly number[] => {
+  generateBaseHeightLayer: (chunkX: number, chunkZ: number, seed: number, noiseSettings: AdvancedNoiseSettings): readonly number[] => {
     const heights: number[] = []
     const chunkSize = 16
 
@@ -272,13 +257,7 @@ export const TerrainGenerationAlgorithms = {
   /**
    * Generate mountain/hill feature layer
    */
-  generateMountainLayer: (
-    chunkX: number,
-    chunkZ: number,
-    seed: number,
-    noiseSettings: AdvancedNoiseSettings,
-    biome: EnhancedBiomeConfig,
-  ): readonly number[] => {
+  generateMountainLayer: (chunkX: number, chunkZ: number, seed: number, noiseSettings: AdvancedNoiseSettings, biome: EnhancedBiomeConfig): readonly number[] => {
     const heights: number[] = []
     const chunkSize = 16
 
@@ -295,7 +274,7 @@ export const TerrainGenerationAlgorithms = {
         const worldZ = chunkZ * chunkSize + z
 
         let mountainHeight = DomainNoise.generateNoise(worldX, 0, worldZ, mountainSettings, seed)
-        
+
         // Scale based on biome preferences
         if (biome.type === 'mountain') {
           mountainHeight *= 3.0
@@ -315,13 +294,7 @@ export const TerrainGenerationAlgorithms = {
   /**
    * Generate valley/depression layer
    */
-  generateValleyLayer: (
-    chunkX: number,
-    chunkZ: number,
-    seed: number,
-    noiseSettings: AdvancedNoiseSettings,
-    biome: EnhancedBiomeConfig,
-  ): readonly number[] => {
+  generateValleyLayer: (chunkX: number, chunkZ: number, seed: number, noiseSettings: AdvancedNoiseSettings, biome: EnhancedBiomeConfig): readonly number[] => {
     const heights: number[] = []
     const chunkSize = 16
 
@@ -338,7 +311,7 @@ export const TerrainGenerationAlgorithms = {
         const worldZ = chunkZ * chunkSize + z
 
         let valleyDepth = DomainNoise.generateNoise(worldX, 0, worldZ, valleySettings, seed)
-        
+
         // Scale based on biome preferences
         if (biome.type === 'ocean') {
           valleyDepth *= 2.0 // Deeper ocean valleys
@@ -374,7 +347,7 @@ export const TerrainGenerationAlgorithms = {
     }
 
     return height
-  }
+  },
 } as const
 
 /**
@@ -417,15 +390,7 @@ export const BiomeAwareBlockPlacement = {
           }
 
           // Generate regular terrain blocks
-          const blockType = BiomeAwareBlockPlacement.determineAdvancedBlockType(
-            worldX,
-            worldY,
-            worldZ,
-            terrainHeight,
-            biome,
-            features,
-            seed,
-          )
+          const blockType = BiomeAwareBlockPlacement.determineAdvancedBlockType(worldX, worldY, worldZ, terrainHeight, biome, features, seed)
 
           if (blockType !== 'air') {
             const position: Position3D = { x: worldX, y: worldY, z: worldZ }
@@ -445,28 +410,26 @@ export const BiomeAwareBlockPlacement = {
   /**
    * Determine block type with advanced biome-specific logic
    */
-  determineAdvancedBlockType: (
-    x: number,
-    y: number,
-    z: number,
-    terrainHeight: number,
-    biome: EnhancedBiomeConfig,
-    features: FeatureConfig,
-    seed: number,
-  ): BlockType => {
+  determineAdvancedBlockType: (x: number, y: number, z: number, terrainHeight: number, biome: EnhancedBiomeConfig, features: FeatureConfig, seed: number): BlockType => {
     const rules = biome.generationRules
 
     // Bedrock layer with variation
     if (y <= rules.bedrockVariation) {
-      const bedrockNoise = DomainNoise.generateNoise(x, y, z, { 
-        scale: 0.1, 
-        octaves: 1, 
-        persistence: 0.5, 
-        lacunarity: 2.0,
-        heightMultiplier: 1,
-        baseHeight: 0 
-      }, seed)
-      
+      const bedrockNoise = DomainNoise.generateNoise(
+        x,
+        y,
+        z,
+        {
+          scale: 0.1,
+          octaves: 1,
+          persistence: 0.5,
+          lacunarity: 2.0,
+          heightMultiplier: 1,
+          baseHeight: 0,
+        },
+        seed,
+      )
+
       if (y === 0 || bedrockNoise > 0.3) {
         return 'bedrock'
       }
@@ -483,15 +446,21 @@ export const BiomeAwareBlockPlacement = {
 
       // Biome-specific stone variants
       if (biome.blockVariants?.stone) {
-        const stoneNoise = DomainNoise.generateNoise(x, y, z, { 
-          scale: 0.05, 
-          octaves: 2, 
-          persistence: 0.5, 
-          lacunarity: 2.0,
-          heightMultiplier: 1,
-          baseHeight: 0 
-        }, seed + 5000)
-        
+        const stoneNoise = DomainNoise.generateNoise(
+          x,
+          y,
+          z,
+          {
+            scale: 0.05,
+            octaves: 2,
+            persistence: 0.5,
+            lacunarity: 2.0,
+            heightMultiplier: 1,
+            baseHeight: 0,
+          },
+          seed + 5000,
+        )
+
         if (stoneNoise > 0.6) {
           const variants = biome.blockVariants.stone
           const variantIndex = Math.floor(Math.abs(stoneNoise * variants.length)) % variants.length
@@ -536,26 +505,25 @@ export const BiomeAwareBlockPlacement = {
   /**
    * Enhanced ore generation with biome-specific rules
    */
-  generateOres: (
-    x: number,
-    y: number,
-    z: number,
-    biome: EnhancedBiomeConfig,
-    features: FeatureConfig,
-    seed: number,
-  ): BlockType | null => {
+  generateOres: (x: number, y: number, z: number, biome: EnhancedBiomeConfig, features: FeatureConfig, seed: number): BlockType | null => {
     const oreMultiplier = biome.generationRules.oreMultiplier
     const adjustedDensity = features.oreDensity * oreMultiplier
 
-    const oreNoise = DomainNoise.generateNoise(x, y, z, {
-      scale: 0.05,
-      octaves: 3,
-      persistence: 0.6,
-      lacunarity: 2.0,
-      heightMultiplier: 1,
-      baseHeight: 0,
-      fractalType: 'billow'
-    }, seed + 12345)
+    const oreNoise = DomainNoise.generateNoise(
+      x,
+      y,
+      z,
+      {
+        scale: 0.05,
+        octaves: 3,
+        persistence: 0.6,
+        lacunarity: 2.0,
+        heightMultiplier: 1,
+        baseHeight: 0,
+        fractalType: 'billow',
+      },
+      seed + 12345,
+    )
 
     const oreThreshold = 1 - adjustedDensity
 
@@ -565,7 +533,7 @@ export const BiomeAwareBlockPlacement = {
     }
 
     // Gold ore (mid-deep levels)
-    if (y <= 32 && oreNoise > oreThreshold + 0.10) {
+    if (y <= 32 && oreNoise > oreThreshold + 0.1) {
       return 'gold_ore'
     }
 
@@ -586,16 +554,22 @@ export const BiomeAwareBlockPlacement = {
    * Check if vegetation should be generated
    */
   shouldGenerateVegetation: (x: number, z: number, biome: EnhancedBiomeConfig, seed: number): boolean => {
-    const vegetationNoise = DomainNoise.generateNoise(x, 0, z, {
-      scale: 0.1,
-      octaves: 2,
-      persistence: 0.5,
-      lacunarity: 2.0,
-      heightMultiplier: 1,
-      baseHeight: 0
-    }, seed + 9999)
+    const vegetationNoise = DomainNoise.generateNoise(
+      x,
+      0,
+      z,
+      {
+        scale: 0.1,
+        octaves: 2,
+        persistence: 0.5,
+        lacunarity: 2.0,
+        heightMultiplier: 1,
+        baseHeight: 0,
+      },
+      seed + 9999,
+    )
 
-    return vegetationNoise > (1 - biome.generationRules.vegetationDensity)
+    return vegetationNoise > 1 - biome.generationRules.vegetationDensity
   },
 
   /**
@@ -618,26 +592,25 @@ export const BiomeAwareBlockPlacement = {
   /**
    * Generate above-surface vegetation (trees, etc.)
    */
-  generateAboveSurfaceVegetation: (
-    x: number,
-    y: number,
-    z: number,
-    terrainHeight: number,
-    biome: EnhancedBiomeConfig,
-    seed: number,
-  ): BlockType | null => {
+  generateAboveSurfaceVegetation: (x: number, y: number, z: number, terrainHeight: number, biome: EnhancedBiomeConfig, seed: number): BlockType | null => {
     const heightAboveTerrain = y - terrainHeight
 
     // Simple tree generation for forest biomes
     if (biome.type === 'forest' && heightAboveTerrain <= 5) {
-      const treeNoise = DomainNoise.generateNoise(x, 0, z, {
-        scale: 0.2,
-        octaves: 1,
-        persistence: 0.5,
-        lacunarity: 2.0,
-        heightMultiplier: 1,
-        baseHeight: 0
-      }, seed + 7777)
+      const treeNoise = DomainNoise.generateNoise(
+        x,
+        0,
+        z,
+        {
+          scale: 0.2,
+          octaves: 1,
+          persistence: 0.5,
+          lacunarity: 2.0,
+          heightMultiplier: 1,
+          baseHeight: 0,
+        },
+        seed + 7777,
+      )
 
       if (treeNoise > 0.8) {
         return heightAboveTerrain <= 3 ? 'wood' : 'leaves'
@@ -650,26 +623,26 @@ export const BiomeAwareBlockPlacement = {
   /**
    * Check if structures should be generated
    */
-  shouldGenerateStructure: (
-    x: number,
-    y: number,
-    z: number,
-    structures: StructureConfig,
-    seed: number,
-  ): boolean => {
+  shouldGenerateStructure: (x: number, y: number, z: number, structures: StructureConfig, seed: number): boolean => {
     // Cave generation
     if (structures.caves.enabled && y > 1 && y < 60) {
-      const caveNoise = DomainNoise.generateNoise(x, y, z, {
-        scale: 0.02,
-        octaves: 3,
-        persistence: 0.5,
-        lacunarity: 2.0,
-        heightMultiplier: 1,
-        baseHeight: 0,
-        fractalType: 'billow'
-      }, seed + 11111)
+      const caveNoise = DomainNoise.generateNoise(
+        x,
+        y,
+        z,
+        {
+          scale: 0.02,
+          octaves: 3,
+          persistence: 0.5,
+          lacunarity: 2.0,
+          heightMultiplier: 1,
+          baseHeight: 0,
+          fractalType: 'billow',
+        },
+        seed + 11111,
+      )
 
-      return caveNoise > (1 - structures.caves.density)
+      return caveNoise > 1 - structures.caves.density
     }
 
     return false
@@ -678,13 +651,7 @@ export const BiomeAwareBlockPlacement = {
   /**
    * Generate structure-specific blocks
    */
-  generateStructureBlock: (
-    x: number,
-    y: number,
-    z: number,
-    structures: StructureConfig,
-    seed: number,
-  ): GeneratedBlock | null => {
+  generateStructureBlock: (x: number, y: number, z: number, structures: StructureConfig, seed: number): GeneratedBlock | null => {
     // For caves, return air to create caverns
     if (y > 1 && y < 60) {
       return {
@@ -721,7 +688,7 @@ export const BiomeAwareBlockPlacement = {
     }
 
     return Math.min(15, lightLevel)
-  }
+  },
 } as const
 
 /**
@@ -815,7 +782,7 @@ export const createEnhancedTerrainGenerationService = (): ITerrainGenerator => {
 
   const createEnhancedBiome = (biome: BiomeConfig): EnhancedBiomeConfig => {
     const generationRules: BiomeGenerationRules = createBiomeGenerationRules(biome.type)
-    
+
     return {
       ...biome,
       generationRules,
@@ -887,24 +854,10 @@ export const createEnhancedTerrainGenerationService = (): ITerrainGenerator => {
         const structures = request.structures ?? createDefaultStructures()
 
         // Generate advanced height map
-        const heightMap = TerrainGenerationAlgorithms.generateAdvancedHeightMap(
-          coordinates.x,
-          coordinates.z,
-          seed,
-          advancedNoise,
-          enhancedBiome,
-        )
+        const heightMap = TerrainGenerationAlgorithms.generateAdvancedHeightMap(coordinates.x, coordinates.z, seed, advancedNoise, enhancedBiome)
 
         // Generate blocks with biome-aware placement
-        const blocks = BiomeAwareBlockPlacement.generateAdvancedBlocks(
-          coordinates.x,
-          coordinates.z,
-          heightMap,
-          enhancedBiome,
-          features,
-          structures,
-          seed,
-        )
+        const blocks = BiomeAwareBlockPlacement.generateAdvancedBlocks(coordinates.x, coordinates.z, heightMap, enhancedBiome, features, structures, seed)
 
         // Generate biome map
         const biomeMap = generateBiomeMap(enhancedBiome)
@@ -921,58 +874,66 @@ export const createEnhancedTerrainGenerationService = (): ITerrainGenerator => {
         } satisfies TerrainGenerationResult
       }),
 
-    generateHeightMap: (
-      coordinates: ChunkCoordinates,
-      seed: number,
-      noise: NoiseSettings,
-    ): Effect.Effect<readonly number[], never, never> =>
+    generateHeightMap: (coordinates: ChunkCoordinates, seed: number, noise: NoiseSettings): Effect.Effect<readonly number[], never, never> =>
       Effect.gen(function* () {
         const advancedNoise = createAdvancedNoiseSettings(noise)
         const defaultBiome = createEnhancedBiome(TerrainGeneratorHelpers.createDefaultBiome())
-        
-        return TerrainGenerationAlgorithms.generateAdvancedHeightMap(
-          coordinates.x,
-          coordinates.z,
-          seed,
-          advancedNoise,
-          defaultBiome,
-        )
+
+        return TerrainGenerationAlgorithms.generateAdvancedHeightMap(coordinates.x, coordinates.z, seed, advancedNoise, defaultBiome)
       }),
 
     getBiome: (x: number, z: number, seed: number): Effect.Effect<BiomeConfig, never, never> =>
       Effect.gen(function* () {
-        const biomeNoise = DomainNoise.generateNoise(x * 0.001, 0, z * 0.001, {
-          scale: 0.001,
-          octaves: 4,
-          persistence: 0.5,
-          lacunarity: 2.0,
-          heightMultiplier: 1,
-          baseHeight: 0,
-          fractalType: 'fbm'
-        }, seed + 54321)
+        const biomeNoise = DomainNoise.generateNoise(
+          x * 0.001,
+          0,
+          z * 0.001,
+          {
+            scale: 0.001,
+            octaves: 4,
+            persistence: 0.5,
+            lacunarity: 2.0,
+            heightMultiplier: 1,
+            baseHeight: 0,
+            fractalType: 'fbm',
+          },
+          seed + 54321,
+        )
 
-        const temperatureNoise = DomainNoise.generateNoise(x * 0.002, 0, z * 0.002, {
-          scale: 0.002,
-          octaves: 3,
-          persistence: 0.6,
-          lacunarity: 2.0,
-          heightMultiplier: 1,
-          baseHeight: 0
-        }, seed + 12345)
+        const temperatureNoise = DomainNoise.generateNoise(
+          x * 0.002,
+          0,
+          z * 0.002,
+          {
+            scale: 0.002,
+            octaves: 3,
+            persistence: 0.6,
+            lacunarity: 2.0,
+            heightMultiplier: 1,
+            baseHeight: 0,
+          },
+          seed + 12345,
+        )
 
-        const humidityNoise = DomainNoise.generateNoise(x * 0.003, 0, z * 0.003, {
-          scale: 0.003,
-          octaves: 3,
-          persistence: 0.6,
-          lacunarity: 2.0,
-          heightMultiplier: 1,
-          baseHeight: 0
-        }, seed + 67890)
+        const humidityNoise = DomainNoise.generateNoise(
+          x * 0.003,
+          0,
+          z * 0.003,
+          {
+            scale: 0.003,
+            octaves: 3,
+            persistence: 0.6,
+            lacunarity: 2.0,
+            heightMultiplier: 1,
+            baseHeight: 0,
+          },
+          seed + 67890,
+        )
 
         // Normalize noise values
-        const normalizedBiome = (biomeNoise + 0.5)
-        const temperature = (temperatureNoise + 0.5)
-        const humidity = (humidityNoise + 0.5)
+        const normalizedBiome = biomeNoise + 0.5
+        const temperature = temperatureNoise + 0.5
+        const humidity = humidityNoise + 0.5
 
         // Determine biome based on temperature and humidity
         return selectBiomeByClimate(normalizedBiome, temperature, humidity)
@@ -981,17 +942,14 @@ export const createEnhancedTerrainGenerationService = (): ITerrainGenerator => {
     isAvailable: (): Effect.Effect<boolean, never, never> =>
       Effect.gen(function* () {
         return true // Always available as it's pure logic
-      })
+      }),
   }
 }
 
 /**
  * Live layer for Enhanced Terrain Generation Service
  */
-export const EnhancedTerrainGenerationServiceLive = Layer.succeed(
-  TerrainGeneratorPort,
-  createEnhancedTerrainGenerationService(),
-)
+export const EnhancedTerrainGenerationServiceLive = Layer.succeed(TerrainGeneratorPort, createEnhancedTerrainGenerationService())
 
 /**
  * Terrain Generation Service interface for dependency injection
@@ -1003,16 +961,13 @@ export const TerrainGenerationService = Context.GenericTag<TerrainGenerationServ
 /**
  * Create terrain generation service layer with Effect-TS patterns
  */
-export const terrainGenerationServiceLive = Layer.succeed(
-  TerrainGenerationService,
-  createEnhancedTerrainGenerationService(),
-)
+export const terrainGenerationServiceLive = Layer.succeed(TerrainGenerationService, createEnhancedTerrainGenerationService())
 
 // Re-export original service for backward compatibility
 export * from '@domain/services/terrain-generation-domain.service'
-export { 
+export {
   TerrainGenerationDomainService as TerrainGenerationDomainServiceOriginal,
-  TerrainGenerationDomainServiceLive as TerrainGenerationDomainServiceLiveOriginal
+  TerrainGenerationDomainServiceLive as TerrainGenerationDomainServiceLiveOriginal,
 } from '@domain/services/terrain-generation-domain.service'
 
 /**
@@ -1051,8 +1006,7 @@ export const TerrainGenerationServiceUtils = {
       request.noise.scale > 0 &&
       request.noise.octaves > 0 &&
       request.noise.heightMultiplier > 0 &&
-      (request.advancedNoise?.fractalType === undefined || 
-       ['fbm', 'ridged', 'billow'].includes(request.advancedNoise.fractalType))
+      (request.advancedNoise?.fractalType === undefined || ['fbm', 'ridged', 'billow'].includes(request.advancedNoise.fractalType))
     )
   },
 
@@ -1061,13 +1015,13 @@ export const TerrainGenerationServiceUtils = {
    */
   estimateTerrainComplexity: (request: EnhancedTerrainGenerationRequest): number => {
     let complexity = request.noise.octaves * 10
-    
+
     if (request.advancedNoise?.fractalType === 'ridged') complexity += 20
     if (request.advancedNoise?.fractalType === 'billow') complexity += 15
     if (request.advancedNoise?.domainWarpStrength) complexity += 30
     if (request.structures?.caves.enabled) complexity += 25
     if (request.features?.generateOres) complexity += 15
-    
+
     return complexity
   },
 } as const

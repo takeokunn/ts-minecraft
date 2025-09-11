@@ -125,6 +125,7 @@ graph TD
 ### Effect-TS パターンの標準化
 
 #### サービス定義パターン
+
 ```typescript
 // 1. インターフェース定義
 export interface MyService {
@@ -140,16 +141,14 @@ export const myServiceLive = Layer.effect(
   Effect.gen(function* () {
     const dependency = yield* DependencyService
     return MyService.of({
-      operation: (input) => pipe(
-        validateInput(input),
-        Effect.flatMap(processInput)
-      )
+      operation: (input) => pipe(validateInput(input), Effect.flatMap(processInput)),
     })
-  })
+  }),
 )
 ```
 
 #### エラーハンドリングパターン
+
 ```typescript
 // Tagged Errorの定義
 export class ValidationError extends Data.TaggedError('ValidationError')<{
@@ -158,11 +157,7 @@ export class ValidationError extends Data.TaggedError('ValidationError')<{
 }> {}
 
 // 使用例
-const operation = pipe(
-  validateInput(input),
-  Effect.catchTag('ValidationError', handleValidationError),
-  Effect.catchAll(handleUnexpectedError)
-)
+const operation = pipe(validateInput(input), Effect.catchTag('ValidationError', handleValidationError), Effect.catchAll(handleUnexpectedError))
 ```
 
 ### パフォーマンス
@@ -178,6 +173,7 @@ const operation = pipe(
 - **PBT（Property-Based Testing）**: 純粋な関数で構成されたロジックは、Property-Based Testingとの相性が非常に良いです。テストの記述は必須ではありませんが、将来的なテスト導入を容易にするため、この設計を推奨します。
 
 #### テストパターン例
+
 ```typescript
 import { describe, it, expect } from '@effect/vitest'
 
@@ -187,9 +183,7 @@ describe('MyService', () => {
       const service = yield* MyService
       const result = yield* service.operation(testInput)
       expect(result).toEqual(expectedOutput)
-    }).pipe(
-      Effect.provide(TestMyServiceLayer)
-    )
+    }).pipe(Effect.provide(TestMyServiceLayer)),
   )
 })
 ```
@@ -202,6 +196,7 @@ describe('MyService', () => {
 - **Repository as Port**: ドメイン層でインターフェースを定義し、インフラ層で実装
 
 #### Entity 定義例
+
 ```typescript
 export class Player extends Data.Class<{
   readonly id: EntityId
@@ -211,14 +206,14 @@ export class Player extends Data.Class<{
   static readonly schema = S.Struct({
     id: EntityIdSchema,
     name: S.String.pipe(S.minLength(1)),
-    position: PositionSchema
+    position: PositionSchema,
   })
-  
+
   // ビジネスロジックメソッド
   moveTo(newPosition: Position): Player {
     return new Player({
       ...this,
-      position: newPosition
+      position: newPosition,
     })
   }
 }
@@ -233,13 +228,14 @@ export class Player extends Data.Class<{
 - **依存性の注入 (DI)**: 依存関係はすべてEffectの `Context` と `Layer` によって管理されます。
 
 #### ECS システム例
+
 ```typescript
 export const playerMovementSystem = Effect.gen(function* () {
   const world = yield* WorldService
   const physics = yield* PhysicsService
-  
+
   const { entities, components } = yield* world.querySoA(movableQuery)
-  
+
   for (let i = 0; i < entities.length; i++) {
     const velocity = yield* physics.calculateVelocity(components.input[i])
     components.position.x[i] += velocity.dx
@@ -276,3 +272,4 @@ export const playerMovementSystem = Effect.gen(function* () {
   4.  単体テスト (`pnpm test`)
 
 すべてのチェックが成功しなければ、マージは許可されません。
+```

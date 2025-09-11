@@ -1,6 +1,6 @@
 /**
  * Optimization Domain Service
- * 
+ *
  * Contains pure domain logic for rendering and performance optimization strategies.
  * This service defines business rules for LOD (Level of Detail), culling, batching,
  * and other optimization techniques without dependencies on specific rendering libraries.
@@ -176,14 +176,14 @@ export const OPTIMIZATION_CONSTANTS = {
     HYSTERESIS_FACTOR: 0.1, // 10% distance buffer
     MAX_LOD_TRANSITIONS_PER_FRAME: 10,
   },
-  
+
   CULLING: {
     FRUSTUM_MARGIN: 1.1, // 10% margin to prevent edge popping
     OCCLUSION_QUERY_DELAY: 2, // Frames to wait before querying occlusion
     DISTANCE_CULLING_FACTOR: 1.5, // Multiplier for render distance
     SMALL_FEATURE_THRESHOLD: 0.001, // Screen space size threshold
   },
-  
+
   BATCHING: {
     MAX_BATCH_SIZE: 1000,
     MAX_INSTANCES: 65536,
@@ -191,7 +191,7 @@ export const OPTIMIZATION_CONSTANTS = {
     MATERIAL_COMPATIBILITY_SCORE: 0.9,
     DYNAMIC_BATCH_UPDATE_THRESHOLD: 10, // Minimum changes to rebuild batch
   },
-  
+
   PERFORMANCE: {
     TARGET_FPS: 60,
     FRAME_TIME_BUDGET: 16.67, // ms for 60fps
@@ -205,23 +205,18 @@ export const OPTIMIZATION_CONSTANTS = {
  * Pure domain functions for optimization
  */
 
-const calculateLODLevel = (
-  distance: number,
-  levels: readonly LODLevel[],
-  currentLevel: number,
-  hysteresis: number
-): number => {
+const calculateLODLevel = (distance: number, levels: readonly LODLevel[], currentLevel: number, hysteresis: number): number => {
   const sortedLevels = [...levels].sort((a, b) => a.distance - b.distance)
-  
+
   // Apply hysteresis to prevent flickering
   const hysteresisDistance = distance * (1 + (currentLevel > 0 ? -hysteresis : hysteresis))
-  
+
   for (let i = sortedLevels.length - 1; i >= 0; i--) {
     if (hysteresisDistance >= sortedLevels[i].distance) {
       return i
     }
   }
-  
+
   return 0
 }
 
@@ -230,10 +225,10 @@ const evaluateCullingStrategy = (
   spatialData: SpatialOptimizationData,
   viewerPosition: readonly [number, number, number],
   frustumPlanes?: readonly number[][],
-  occluders?: readonly SpatialOptimizationData[]
+  occluders?: readonly SpatialOptimizationData[],
 ): CullingResult => {
   const entityId = spatialData.entityId
-  
+
   switch (cullingConfig.type) {
     case 'frustum':
       // Simplified frustum culling logic (would use actual frustum planes)
@@ -244,16 +239,16 @@ const evaluateCullingStrategy = (
         reason: 'frustum',
         outsideFrustum: !inFrustum,
       }
-    
+
     case 'distance': {
       const dx = spatialData.position[0] - viewerPosition[0]
       const dy = spatialData.position[1] - viewerPosition[1]
       const dz = spatialData.position[2] - viewerPosition[2]
       const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-      
+
       const maxDistance = cullingConfig.parameters.maxDistance || Infinity
       const culled = distance > maxDistance
-      
+
       return {
         entityId,
         culled,
@@ -261,7 +256,7 @@ const evaluateCullingStrategy = (
         distance,
       }
     }
-    
+
     case 'occlusion': {
       // Simplified occlusion culling (would use actual occlusion queries)
       const occluded = false // Placeholder
@@ -272,18 +267,18 @@ const evaluateCullingStrategy = (
         occluded,
       }
     }
-    
+
     case 'small_feature': {
       // Cull objects that would be too small to see
       const distance = Math.sqrt(
         Math.pow(spatialData.position[0] - viewerPosition[0], 2) +
-        Math.pow(spatialData.position[1] - viewerPosition[1], 2) +
-        Math.pow(spatialData.position[2] - viewerPosition[2], 2)
+          Math.pow(spatialData.position[1] - viewerPosition[1], 2) +
+          Math.pow(spatialData.position[2] - viewerPosition[2], 2),
       )
-      
+
       const screenSize = spatialData.radius / distance
       const threshold = cullingConfig.parameters.screenSizeThreshold || OPTIMIZATION_CONSTANTS.CULLING.SMALL_FEATURE_THRESHOLD
-      
+
       return {
         entityId,
         culled: screenSize < threshold,
@@ -291,7 +286,7 @@ const evaluateCullingStrategy = (
         distance,
       }
     }
-    
+
     default:
       return {
         entityId,
@@ -301,32 +296,28 @@ const evaluateCullingStrategy = (
   }
 }
 
-const createOptimalBatches = (
-  entities: readonly EntityId[],
-  spatialData: readonly SpatialOptimizationData[],
-  strategy: BatchingStrategy
-): readonly RenderBatch[] => {
+const createOptimalBatches = (entities: readonly EntityId[], spatialData: readonly SpatialOptimizationData[], strategy: BatchingStrategy): readonly RenderBatch[] => {
   const batches: RenderBatch[] = []
-  const entityMap = new Map(spatialData.map(data => [data.entityId, data]))
-  
+  const entityMap = new Map(spatialData.map((data) => [data.entityId, data]))
+
   // Group entities by compatibility
   const groups = new Map<string, EntityId[]>()
-  
+
   for (const entityId of entities) {
     // Simplified grouping logic (would use actual geometry/material analysis)
     const groupKey = `group-${Math.floor(Math.random() * 10)}` // Placeholder
-    
+
     if (!groups.has(groupKey)) {
       groups.set(groupKey, [])
     }
     groups.get(groupKey)!.push(entityId)
   }
-  
+
   // Create batches from groups
   let batchId = 0
   for (const [groupKey, groupEntities] of groups) {
     const chunks = chunkArray(groupEntities, strategy.maxBatchSize)
-    
+
     for (const chunk of chunks) {
       const batch: RenderBatch = {
         id: `batch-${batchId++}`,
@@ -337,11 +328,11 @@ const createOptimalBatches = (
         priority: calculateBatchPriority(chunk, entityMap),
         isDynamic: strategy.type === 'dynamic',
       }
-      
+
       batches.push(batch)
     }
   }
-  
+
   return batches.sort((a, b) => b.priority - a.priority)
 }
 
@@ -353,58 +344,43 @@ const chunkArray = <T>(array: readonly T[], size: number): T[][] => {
   return chunks
 }
 
-const calculateBatchPriority = (
-  entities: readonly EntityId[],
-  entityMap: Map<EntityId, SpatialOptimizationData>
-): number => {
+const calculateBatchPriority = (entities: readonly EntityId[], entityMap: Map<EntityId, SpatialOptimizationData>): number => {
   // Higher priority for frequently visible, closer objects
   let totalPriority = 0
-  
+
   for (const entityId of entities) {
     const data = entityMap.get(entityId)
     if (data) {
       // Closer objects get higher priority
-      const distanceFactor = 1.0 / (1.0 + Math.sqrt(
-        data.position[0] * data.position[0] +
-        data.position[1] * data.position[1] +
-        data.position[2] * data.position[2]
-      ) / 100)
-      
+      const distanceFactor = 1.0 / (1.0 + Math.sqrt(data.position[0] * data.position[0] + data.position[1] * data.position[1] + data.position[2] * data.position[2]) / 100)
+
       // More frequently visible objects get higher priority
       const visibilityFactor = data.visibilityFrequency
-      
+
       totalPriority += distanceFactor * visibilityFactor
     }
   }
-  
+
   return totalPriority / entities.length
 }
 
-const calculateOptimizationImpact = (
-  decision: OptimizationDecision,
-  currentMetrics: OptimizationMetrics,
-  targets: OptimizationTargets
-): number => {
+const calculateOptimizationImpact = (decision: OptimizationDecision, currentMetrics: OptimizationMetrics, targets: OptimizationTargets): number => {
   const fpsImprovement = decision.expectedImprovement.fpsGain / (targets.targetFPS - currentMetrics.currentFPS || 1)
   const drawCallReduction = decision.expectedImprovement.drawCallReduction / currentMetrics.drawCalls
   const memoryReduction = decision.expectedImprovement.memoryReduction / currentMetrics.memoryUsage
-  
+
   const qualityCost = decision.cost.qualityLoss
   const performanceCost = (decision.cost.cpuOverhead + decision.cost.memoryOverhead) / 2
-  
+
   const benefit = (fpsImprovement + drawCallReduction + memoryReduction) / 3
   const cost = (qualityCost + performanceCost) / 2
-  
+
   return Math.max(0, benefit - cost)
 }
 
-const adjustQualitySettings = (
-  currentSettings: QualitySettings,
-  currentMetrics: OptimizationMetrics,
-  targets: OptimizationTargets
-): QualitySettings => {
+const adjustQualitySettings = (currentSettings: QualitySettings, currentMetrics: OptimizationMetrics, targets: OptimizationTargets): QualitySettings => {
   const fpsRatio = currentMetrics.currentFPS / targets.targetFPS
-  
+
   if (fpsRatio < 0.8) {
     // Performance is poor, reduce quality
     return {
@@ -428,7 +404,7 @@ const adjustQualitySettings = (
       postProcessing: upgradeSetting(currentSettings.postProcessing, ['off', 'basic', 'full']),
     }
   }
-  
+
   return currentSettings
 }
 
@@ -446,66 +422,56 @@ const upgradeSetting = <T>(current: T, levels: readonly T[]): T => {
  * Optimization Domain Service Port
  */
 export interface IOptimizationDomainService {
-  readonly calculateLOD: (
-    entityId: EntityId,
-    distance: number,
-    config: LODConfiguration
-  ) => Effect.Effect<LODConfiguration, LODConfigurationError, never>
-  
+  readonly calculateLOD: (entityId: EntityId, distance: number, config: LODConfiguration) => Effect.Effect<LODConfiguration, LODConfigurationError, never>
+
   readonly evaluateCulling: (
     entities: readonly EntityId[],
     spatialData: readonly SpatialOptimizationData[],
     viewerPosition: readonly [number, number, number],
-    cullingConfigs: readonly CullingConfiguration[]
+    cullingConfigs: readonly CullingConfiguration[],
   ) => Effect.Effect<readonly CullingResult[], CullingError, never>
-  
+
   readonly optimizeBatching: (
     entities: readonly EntityId[],
     spatialData: readonly SpatialOptimizationData[],
-    strategy: BatchingStrategy
+    strategy: BatchingStrategy,
   ) => Effect.Effect<readonly RenderBatch[], OptimizationError, never>
-  
+
   readonly generateOptimizationDecisions: (
     currentMetrics: OptimizationMetrics,
     targets: OptimizationTargets,
-    spatialData: readonly SpatialOptimizationData[]
+    spatialData: readonly SpatialOptimizationData[],
   ) => Effect.Effect<readonly OptimizationDecision[], OptimizationError, never>
-  
+
   readonly adjustQualityDynamically: (
     currentSettings: QualitySettings,
     currentMetrics: OptimizationMetrics,
-    targets: OptimizationTargets
+    targets: OptimizationTargets,
   ) => Effect.Effect<QualitySettings, OptimizationError, never>
-  
-  readonly validateOptimizationTargets: (
-    targets: OptimizationTargets
-  ) => Effect.Effect<boolean, OptimizationError, never>
+
+  readonly validateOptimizationTargets: (targets: OptimizationTargets) => Effect.Effect<boolean, OptimizationError, never>
 }
 
 /**
  * Pure domain functions implementation
  */
 
-const calculateLODPure = (
-  entityId: EntityId,
-  distance: number,
-  config: LODConfiguration
-): Effect.Effect<LODConfiguration, LODConfigurationError, never> =>
+const calculateLODPure = (entityId: EntityId, distance: number, config: LODConfiguration): Effect.Effect<LODConfiguration, LODConfigurationError, never> =>
   Effect.gen(function* () {
     if (config.levels.length === 0) {
       throw new LODConfigurationError('LOD configuration must have at least one level')
     }
-    
+
     if (!config.enabled) {
       return config
     }
-    
+
     const newLevel = calculateLODLevel(distance, config.levels, config.currentLevel, config.hysteresis)
-    
+
     if (newLevel === config.currentLevel) {
       return config
     }
-    
+
     return {
       ...config,
       currentLevel: newLevel,
@@ -516,30 +482,28 @@ const evaluateCullingPure = (
   entities: readonly EntityId[],
   spatialData: readonly SpatialOptimizationData[],
   viewerPosition: readonly [number, number, number],
-  cullingConfigs: readonly CullingConfiguration[]
+  cullingConfigs: readonly CullingConfiguration[],
 ): Effect.Effect<readonly CullingResult[], CullingError, never> =>
   Effect.gen(function* () {
     const results: CullingResult[] = []
-    const entityMap = new Map(spatialData.map(data => [data.entityId, data]))
-    
+    const entityMap = new Map(spatialData.map((data) => [data.entityId, data]))
+
     // Sort culling configs by priority (higher first)
-    const sortedConfigs = [...cullingConfigs]
-      .filter(config => config.enabled)
-      .sort((a, b) => b.priority - a.priority)
-    
+    const sortedConfigs = [...cullingConfigs].filter((config) => config.enabled).sort((a, b) => b.priority - a.priority)
+
     for (const entityId of entities) {
       const entityData = entityMap.get(entityId)
       if (!entityData) {
         continue
       }
-      
+
       let culled = false
       let cullingReason: CullingType | undefined
-      
+
       // Apply culling strategies in priority order
       for (const config of sortedConfigs) {
         if (culled) break
-        
+
         const result = evaluateCullingStrategy(config, entityData, viewerPosition)
         if (result.culled) {
           culled = true
@@ -548,7 +512,7 @@ const evaluateCullingPure = (
           break
         }
       }
-      
+
       // If not culled by any strategy, mark as visible
       if (!culled) {
         results.push({
@@ -558,40 +522,40 @@ const evaluateCullingPure = (
         })
       }
     }
-    
+
     return results
   })
 
 const optimizeBatchingPure = (
   entities: readonly EntityId[],
   spatialData: readonly SpatialOptimizationData[],
-  strategy: BatchingStrategy
+  strategy: BatchingStrategy,
 ): Effect.Effect<readonly RenderBatch[], OptimizationError, never> =>
   Effect.gen(function* () {
     if (entities.length === 0) {
       return []
     }
-    
+
     if (strategy.maxBatchSize <= 0) {
       throw new OptimizationError('Batch size must be positive')
     }
-    
+
     return createOptimalBatches(entities, spatialData, strategy)
   })
 
 const generateOptimizationDecisionsPure = (
   currentMetrics: OptimizationMetrics,
   targets: OptimizationTargets,
-  spatialData: readonly SpatialOptimizationData[]
+  spatialData: readonly SpatialOptimizationData[],
 ): Effect.Effect<readonly OptimizationDecision[], OptimizationError, never> =>
   Effect.gen(function* () {
     const decisions: OptimizationDecision[] = []
-    
+
     // FPS optimization decisions
     if (currentMetrics.currentFPS < targets.targetFPS * 0.9) {
       decisions.push({
         strategy: 'aggressive-lod',
-        entities: spatialData.map(d => d.entityId),
+        entities: spatialData.map((d) => d.entityId),
         expectedImprovement: {
           fpsGain: 10,
           drawCallReduction: 0,
@@ -605,12 +569,12 @@ const generateOptimizationDecisionsPure = (
         priority: 0.8,
       })
     }
-    
+
     // Draw call optimization decisions
     if (currentMetrics.drawCalls > targets.maxDrawCalls) {
       decisions.push({
         strategy: 'instanced-rendering',
-        entities: spatialData.filter(d => d.visibilityFrequency > 0.5).map(d => d.entityId),
+        entities: spatialData.filter((d) => d.visibilityFrequency > 0.5).map((d) => d.entityId),
         expectedImprovement: {
           fpsGain: 5,
           drawCallReduction: Math.floor(currentMetrics.drawCalls * 0.5),
@@ -624,12 +588,12 @@ const generateOptimizationDecisionsPure = (
         priority: 0.9,
       })
     }
-    
+
     // Memory optimization decisions
     if (currentMetrics.memoryUsage > targets.maxMemoryUsage * 0.8) {
       decisions.push({
         strategy: 'texture-streaming',
-        entities: spatialData.filter(d => d.lastVisible < Date.now() - 10000).map(d => d.entityId),
+        entities: spatialData.filter((d) => d.lastVisible < Date.now() - 10000).map((d) => d.entityId),
         expectedImprovement: {
           fpsGain: 2,
           drawCallReduction: 0,
@@ -643,7 +607,7 @@ const generateOptimizationDecisionsPure = (
         priority: 0.7,
       })
     }
-    
+
     // Sort decisions by impact
     return decisions.sort((a, b) => {
       const impactA = calculateOptimizationImpact(a, currentMetrics, targets)
@@ -655,34 +619,31 @@ const generateOptimizationDecisionsPure = (
 const adjustQualityDynamicallyPure = (
   currentSettings: QualitySettings,
   currentMetrics: OptimizationMetrics,
-  targets: OptimizationTargets
-): Effect.Effect<QualitySettings, OptimizationError, never> =>
-  Effect.succeed(adjustQualitySettings(currentSettings, currentMetrics, targets))
+  targets: OptimizationTargets,
+): Effect.Effect<QualitySettings, OptimizationError, never> => Effect.succeed(adjustQualitySettings(currentSettings, currentMetrics, targets))
 
-const validateOptimizationTargetsPure = (
-  targets: OptimizationTargets
-): Effect.Effect<boolean, OptimizationError, never> =>
+const validateOptimizationTargetsPure = (targets: OptimizationTargets): Effect.Effect<boolean, OptimizationError, never> =>
   Effect.gen(function* () {
     if (targets.targetFPS <= 0) {
       throw new OptimizationError('Target FPS must be positive')
     }
-    
+
     if (targets.maxDrawCalls <= 0) {
       throw new OptimizationError('Max draw calls must be positive')
     }
-    
+
     if (targets.maxTriangles <= 0) {
       throw new OptimizationError('Max triangles must be positive')
     }
-    
+
     if (targets.maxMemoryUsage <= 0) {
       throw new OptimizationError('Max memory usage must be positive')
     }
-    
+
     if (targets.lodBias < -1.0 || targets.lodBias > 1.0) {
       throw new OptimizationError('LOD bias must be between -1.0 and 1.0')
     }
-    
+
     return true
   })
 
@@ -706,10 +667,7 @@ export const OptimizationDomainServicePort = Context.GenericTag<IOptimizationDom
 /**
  * Live layer for Optimization Domain Service
  */
-export const OptimizationDomainServiceLive = Layer.succeed(
-  OptimizationDomainServicePort,
-  optimizationDomainService
-)
+export const OptimizationDomainServiceLive = Layer.succeed(OptimizationDomainServicePort, optimizationDomainService)
 
 /**
  * Utility functions for optimization domain operations
@@ -764,12 +722,7 @@ export const OptimizationDomainUtils = {
   /**
    * Calculate screen space size
    */
-  calculateScreenSpaceSize: (
-    objectSize: number,
-    distance: number,
-    fov: number = 60,
-    screenHeight: number = 1080
-  ): number => {
+  calculateScreenSpaceSize: (objectSize: number, distance: number, fov: number = 60, screenHeight: number = 1080): number => {
     const fovRadians = (fov * Math.PI) / 180
     const angularSize = Math.atan(objectSize / distance)
     return (angularSize / fovRadians) * screenHeight
@@ -778,11 +731,7 @@ export const OptimizationDomainUtils = {
   /**
    * Estimate triangle count reduction
    */
-  estimateTriangleReduction: (
-    originalCount: number,
-    lodLevel: number,
-    maxLevels: number
-  ): number => {
+  estimateTriangleReduction: (originalCount: number, lodLevel: number, maxLevels: number): number => {
     const reductionFactor = Math.pow(0.5, lodLevel)
     return Math.floor(originalCount * reductionFactor)
   },
@@ -792,13 +741,11 @@ export const OptimizationDomainUtils = {
    */
   calculateBatchingEfficiency: (batch: RenderBatch): number => {
     if (batch.entities.length === 0) return 0
-    
-    const instanceEfficiency = batch.strategy.type === 'instanced' 
-      ? batch.entities.length / batch.estimatedDrawCalls 
-      : 1
-    
+
+    const instanceEfficiency = batch.strategy.type === 'instanced' ? batch.entities.length / batch.estimatedDrawCalls : 1
+
     const triangleEfficiency = Math.min(1, batch.estimatedTriangles / 10000)
-    
+
     return (instanceEfficiency + triangleEfficiency) / 2
   },
 } as const

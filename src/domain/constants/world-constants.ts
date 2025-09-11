@@ -1,6 +1,6 @@
 /**
  * Domain-specific world constants
- * 
+ *
  * These constants are specific to the domain layer's understanding of world mechanics.
  * Physical world constants are defined in /constants/world
  */

@@ -1,6 +1,6 @@
 /**
  * Material Manager Port
- * 
+ *
  * Domain port interface for material management operations.
  * Abstracts away technical details of material creation and management.
  */

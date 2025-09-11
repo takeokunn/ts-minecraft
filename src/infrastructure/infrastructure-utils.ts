@@ -1,6 +1,6 @@
 /**
  * Infrastructure Utilities
- * 
+ *
  * This module provides utility functions for creating and configuring
  * infrastructure layers based on different environments and capabilities.
  */
@@ -64,16 +64,8 @@ export const InfrastructureUtils = {
   /**
    * Create infrastructure layer with custom configuration
    */
-  createCustomInfrastructure: (config: { 
-    adapters?: 'minimal' | 'standard' | 'advanced'; 
-    repositories?: 'core' | 'all'; 
-    features?: ('workers' | 'webgpu' | 'networking')[] 
-  }) => {
-    const adapters = config.adapters === 'minimal' 
-      ? BasicBrowserAdapters 
-      : config.adapters === 'advanced' 
-        ? AdvancedBrowserAdapters 
-        : ProductionAdapters
+  createCustomInfrastructure: (config: { adapters?: 'minimal' | 'standard' | 'advanced'; repositories?: 'core' | 'all'; features?: ('workers' | 'webgpu' | 'networking')[] }) => {
+    const adapters = config.adapters === 'minimal' ? BasicBrowserAdapters : config.adapters === 'advanced' ? AdvancedBrowserAdapters : ProductionAdapters
 
     const repositories = config.repositories === 'all' ? AllRepositories : CoreRepositories
 

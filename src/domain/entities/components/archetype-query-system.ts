@@ -1,6 +1,6 @@
 /**
  * Archetype Query System
- * 
+ *
  * This module provides optimized archetype-based queries for ECS performance.
  * Moved from index.ts to separate concerns and maintain pure barrel exports.
  */
@@ -31,10 +31,7 @@ const createArchetypeQueryState = (): ArchetypeQueryState => ({
 /**
  * Add required components to the query
  */
-const withComponents = <T extends string>(
-  state: ArchetypeQueryState,
-  ...componentIds: T[]
-): ArchetypeQueryState => ({
+const withComponents = <T extends string>(state: ArchetypeQueryState, ...componentIds: T[]): ArchetypeQueryState => ({
   ...state,
   requiredComponents: [...state.requiredComponents, ...componentIds],
 })
@@ -42,10 +39,7 @@ const withComponents = <T extends string>(
 /**
  * Add optional components to the query
  */
-const maybeComponents = <T extends string>(
-  state: ArchetypeQueryState,
-  ...componentIds: T[]
-): ArchetypeQueryState => ({
+const maybeComponents = <T extends string>(state: ArchetypeQueryState, ...componentIds: T[]): ArchetypeQueryState => ({
   ...state,
   optionalComponents: [...state.optionalComponents, ...componentIds],
 })
@@ -53,10 +47,7 @@ const maybeComponents = <T extends string>(
 /**
  * Exclude components from the query
  */
-const withoutComponents = <T extends string>(
-  state: ArchetypeQueryState,
-  ...componentIds: T[]
-): ArchetypeQueryState => ({
+const withoutComponents = <T extends string>(state: ArchetypeQueryState, ...componentIds: T[]): ArchetypeQueryState => ({
   ...state,
   excludedComponents: [...state.excludedComponents, ...componentIds],
 })
@@ -70,18 +61,14 @@ const executeArchetypeQuery = (state: ArchetypeQueryState): ArchetypeQueryResult
 
   // Filter entities that don't have excluded components
   const filteredEntities = archetype.entities.filter((entityId) => {
-    return !state.excludedComponents.some((componentId) => 
-      registry.query([componentId]).hasComponent(entityId, componentId)
-    )
+    return !state.excludedComponents.some((componentId) => registry.query([componentId]).hasComponent(entityId, componentId))
   })
 
   return {
     entities: filteredEntities,
     archetype,
-    getComponent: <T>(entityId: number, componentId: string) => 
-      registry.query([componentId]).getComponent<T>(entityId, componentId),
-    hasComponent: (entityId: number, componentId: string) => 
-      registry.query([componentId]).hasComponent(entityId, componentId),
+    getComponent: <T>(entityId: number, componentId: string) => registry.query([componentId]).getComponent<T>(entityId, componentId),
+    hasComponent: (entityId: number, componentId: string) => registry.query([componentId]).hasComponent(entityId, componentId),
     requiredComponents: state.requiredComponents,
     optionalComponents: state.optionalComponents,
     storageLayout: archetype.storageLayout,

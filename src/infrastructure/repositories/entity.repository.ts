@@ -135,9 +135,7 @@ const parseArchetypeKey = (key: string): ReadonlySet<ComponentName> => {
 /**
  * Create an Entity Repository Implementation
  */
-export const createEntityRepository = (
-  stateRef: Ref.Ref<EntityRepositoryState>
-): IEntityRepository => {
+export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>): IEntityRepository => {
   const createEntity = (archetype?: Archetype): Effect.Effect<EntityId, never, never> =>
     Effect.gen(function* (_) {
       const state = yield* _(Ref.get(stateRef))
@@ -253,404 +251,376 @@ export const createEntityRepository = (
     })
 
   const addComponent = <T extends ComponentName>(entityId: EntityId, componentName: T, component: ComponentOfName<T>): Effect.Effect<boolean, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        const metadataOpt = HashMap.get(state.entityMetadata, entityId)
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const metadataOpt = HashMap.get(state.entityMetadata, entityId)
 
-        if (Option.isNone(metadataOpt)) {
-          return false
-        }
+      if (Option.isNone(metadataOpt)) {
+        return false
+      }
 
-        const metadata = metadataOpt.value
-        const now = Date.now()
+      const metadata = metadataOpt.value
+      const now = Date.now()
 
-        // Check if component already exists
-        if (metadata.componentTypes.has(componentName)) {
-          return false
-        }
+      // Check if component already exists
+      if (metadata.componentTypes.has(componentName)) {
+        return false
+      }
 
-        // Update component storage
-        const newComponentStorage = {
-          ...state.componentStorage,
-          [componentName]: HashMap.set(state.componentStorage[componentName], entityId, component as any),
-        }
+      // Update component storage
+      const newComponentStorage = {
+        ...state.componentStorage,
+        [componentName]: HashMap.set(state.componentStorage[componentName], entityId, component as any),
+      }
 
-        // Update entity metadata
-        const newComponentTypes = new Set([...metadata.componentTypes, componentName])
-        const newArchetypeKey = getArchetypeKey(newComponentTypes)
-        const newMetadata: EntityMetadata = {
-          ...metadata,
-          componentTypes: newComponentTypes,
-          archetypeKey: newArchetypeKey,
-          updatedAt: now,
-          generation: metadata.generation + 1,
-        }
+      // Update entity metadata
+      const newComponentTypes = new Set([...metadata.componentTypes, componentName])
+      const newArchetypeKey = getArchetypeKey(newComponentTypes)
+      const newMetadata: EntityMetadata = {
+        ...metadata,
+        componentTypes: newComponentTypes,
+        archetypeKey: newArchetypeKey,
+        updatedAt: now,
+        generation: metadata.generation + 1,
+      }
 
-        // Update archetype tracking
-        const oldArchetypeEntities = HashMap.get(state.archetypeToEntities, metadata.archetypeKey)
-        const newArchetypeToEntities = Option.match(oldArchetypeEntities, {
-          onNone: () => state.archetypeToEntities,
-          onSome: (oldSet) => {
-            const withoutOld = HashMap.set(state.archetypeToEntities, metadata.archetypeKey, HashSet.remove(oldSet, entityId))
-            return HashMap.has(withoutOld, newArchetypeKey)
-              ? HashMap.modify(withoutOld, newArchetypeKey, (set) => HashSet.add(set, entityId))
-              : HashMap.set(withoutOld, newArchetypeKey, HashSet.make(entityId))
-          },
-        })
+      // Update archetype tracking
+      const oldArchetypeEntities = HashMap.get(state.archetypeToEntities, metadata.archetypeKey)
+      const newArchetypeToEntities = Option.match(oldArchetypeEntities, {
+        onNone: () => state.archetypeToEntities,
+        onSome: (oldSet) => {
+          const withoutOld = HashMap.set(state.archetypeToEntities, metadata.archetypeKey, HashSet.remove(oldSet, entityId))
+          return HashMap.has(withoutOld, newArchetypeKey)
+            ? HashMap.modify(withoutOld, newArchetypeKey, (set) => HashSet.add(set, entityId))
+            : HashMap.set(withoutOld, newArchetypeKey, HashSet.make(entityId))
+        },
+      })
 
-        // Record change
-        const change: EntityChange = {
-          entityId,
-          changeType: 'updated',
-          componentName,
-          newValue: component,
-          timestamp: now,
-        }
+      // Record change
+      const change: EntityChange = {
+        entityId,
+        changeType: 'updated',
+        componentName,
+        newValue: component,
+        timestamp: now,
+      }
 
-        yield* _(
-          Ref.update(stateRef, (s) => ({
-            ...s,
-            entityMetadata: HashMap.set(s.entityMetadata, entityId, newMetadata),
-            componentStorage: newComponentStorage,
-            archetypeToEntities: newArchetypeToEntities,
-            changes: [...s.changes.slice(-s.maxChangeHistory + 1), change],
-          })),
-        )
+      yield* _(
+        Ref.update(stateRef, (s) => ({
+          ...s,
+          entityMetadata: HashMap.set(s.entityMetadata, entityId, newMetadata),
+          componentStorage: newComponentStorage,
+          archetypeToEntities: newArchetypeToEntities,
+          changes: [...s.changes.slice(-s.maxChangeHistory + 1), change],
+        })),
+      )
 
-        return true
-      },
-    )
+      return true
+    })
 
   const removeComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<boolean, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        const metadataOpt = HashMap.get(state.entityMetadata, entityId)
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const metadataOpt = HashMap.get(state.entityMetadata, entityId)
 
-        if (Option.isNone(metadataOpt)) {
-          return false
-        }
+      if (Option.isNone(metadataOpt)) {
+        return false
+      }
 
-        const metadata = metadataOpt.value
+      const metadata = metadataOpt.value
 
-        if (!metadata.componentTypes.has(componentName)) {
-          return false
-        }
+      if (!metadata.componentTypes.has(componentName)) {
+        return false
+      }
 
-        const now = Date.now()
-        const previousValue = HashMap.get(state.componentStorage[componentName], entityId)
+      const now = Date.now()
+      const previousValue = HashMap.get(state.componentStorage[componentName], entityId)
 
-        // Update component storage
-        const newComponentStorage = {
-          ...state.componentStorage,
-          [componentName]: HashMap.remove(state.componentStorage[componentName], entityId),
-        }
+      // Update component storage
+      const newComponentStorage = {
+        ...state.componentStorage,
+        [componentName]: HashMap.remove(state.componentStorage[componentName], entityId),
+      }
 
-        // Update entity metadata
-        const newComponentTypes = new Set(metadata.componentTypes)
-        newComponentTypes.delete(componentName)
-        const newArchetypeKey = getArchetypeKey(newComponentTypes)
-        const newMetadata: EntityMetadata = {
-          ...metadata,
-          componentTypes: newComponentTypes,
-          archetypeKey: newArchetypeKey,
-          updatedAt: now,
-          generation: metadata.generation + 1,
-        }
+      // Update entity metadata
+      const newComponentTypes = new Set(metadata.componentTypes)
+      newComponentTypes.delete(componentName)
+      const newArchetypeKey = getArchetypeKey(newComponentTypes)
+      const newMetadata: EntityMetadata = {
+        ...metadata,
+        componentTypes: newComponentTypes,
+        archetypeKey: newArchetypeKey,
+        updatedAt: now,
+        generation: metadata.generation + 1,
+      }
 
-        // Update archetype tracking (similar to addComponent but reverse)
-        const oldArchetypeEntities = HashMap.get(state.archetypeToEntities, metadata.archetypeKey)
-        const newArchetypeToEntities = Option.match(oldArchetypeEntities, {
-          onNone: () => state.archetypeToEntities,
-          onSome: (oldSet) => {
-            const withoutOld = HashMap.set(state.archetypeToEntities, metadata.archetypeKey, HashSet.remove(oldSet, entityId))
-            return HashMap.has(withoutOld, newArchetypeKey)
-              ? HashMap.modify(withoutOld, newArchetypeKey, (set) => HashSet.add(set, entityId))
-              : HashMap.set(withoutOld, newArchetypeKey, HashSet.make(entityId))
-          },
-        })
+      // Update archetype tracking (similar to addComponent but reverse)
+      const oldArchetypeEntities = HashMap.get(state.archetypeToEntities, metadata.archetypeKey)
+      const newArchetypeToEntities = Option.match(oldArchetypeEntities, {
+        onNone: () => state.archetypeToEntities,
+        onSome: (oldSet) => {
+          const withoutOld = HashMap.set(state.archetypeToEntities, metadata.archetypeKey, HashSet.remove(oldSet, entityId))
+          return HashMap.has(withoutOld, newArchetypeKey)
+            ? HashMap.modify(withoutOld, newArchetypeKey, (set) => HashSet.add(set, entityId))
+            : HashMap.set(withoutOld, newArchetypeKey, HashSet.make(entityId))
+        },
+      })
 
-        // Record change
-        const change: EntityChange = {
-          entityId,
-          changeType: 'updated',
-          componentName,
-          previousValue: Option.getOrUndefined(previousValue),
-          timestamp: now,
-        }
+      // Record change
+      const change: EntityChange = {
+        entityId,
+        changeType: 'updated',
+        componentName,
+        previousValue: Option.getOrUndefined(previousValue),
+        timestamp: now,
+      }
 
-        yield* _(
-          Ref.update(stateRef, (s) => ({
-            ...s,
-            entityMetadata: HashMap.set(s.entityMetadata, entityId, newMetadata),
-            componentStorage: newComponentStorage,
-            archetypeToEntities: newArchetypeToEntities,
-            changes: [...s.changes.slice(-s.maxChangeHistory + 1), change],
-          })),
-        )
+      yield* _(
+        Ref.update(stateRef, (s) => ({
+          ...s,
+          entityMetadata: HashMap.set(s.entityMetadata, entityId, newMetadata),
+          componentStorage: newComponentStorage,
+          archetypeToEntities: newArchetypeToEntities,
+          changes: [...s.changes.slice(-s.maxChangeHistory + 1), change],
+        })),
+      )
 
-        return true
-      },
-    )
+      return true
+    })
 
   const getComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<Option.Option<ComponentOfName<T>>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        return HashMap.get(state.componentStorage[componentName], entityId) as Option.Option<ComponentOfName<T>>
-      },
-    )
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      return HashMap.get(state.componentStorage[componentName], entityId) as Option.Option<ComponentOfName<T>>
+    })
 
   const hasComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<boolean, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        const metadataOpt = HashMap.get(state.entityMetadata, entityId)
-        return Option.match(metadataOpt, {
-          onNone: () => false,
-          onSome: (metadata) => metadata.componentTypes.has(componentName),
-        })
-      },
-    )
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const metadataOpt = HashMap.get(state.entityMetadata, entityId)
+      return Option.match(metadataOpt, {
+        onNone: () => false,
+        onSome: (metadata) => metadata.componentTypes.has(componentName),
+      })
+    })
 
   const updateComponent = <T extends ComponentName>(
     entityId: EntityId,
     componentName: T,
     updater: (current: ComponentOfName<T>) => ComponentOfName<T>,
   ): Effect.Effect<boolean, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        const currentOpt = HashMap.get(state.componentStorage[componentName], entityId)
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const currentOpt = HashMap.get(state.componentStorage[componentName], entityId)
 
-        if (Option.isNone(currentOpt)) {
-          return false
-        }
+      if (Option.isNone(currentOpt)) {
+        return false
+      }
 
-        const current = currentOpt.value as ComponentOfName<T>
-        const updated = updater(current)
-        const now = Date.now()
+      const current = currentOpt.value as ComponentOfName<T>
+      const updated = updater(current)
+      const now = Date.now()
 
-        // Update component storage
-        const newComponentStorage = {
-          ...state.componentStorage,
-          [componentName]: HashMap.set(state.componentStorage[componentName], entityId, updated as any),
-        }
+      // Update component storage
+      const newComponentStorage = {
+        ...state.componentStorage,
+        [componentName]: HashMap.set(state.componentStorage[componentName], entityId, updated as any),
+      }
 
-        // Update entity metadata timestamp
-        const metadataOpt = HashMap.get(state.entityMetadata, entityId)
-        const newEntityMetadata = Option.match(metadataOpt, {
-          onNone: () => state.entityMetadata,
-          onSome: (metadata) =>
-            HashMap.set(state.entityMetadata, entityId, {
-              ...metadata,
-              updatedAt: now,
-              generation: metadata.generation + 1,
-            }),
-        })
+      // Update entity metadata timestamp
+      const metadataOpt = HashMap.get(state.entityMetadata, entityId)
+      const newEntityMetadata = Option.match(metadataOpt, {
+        onNone: () => state.entityMetadata,
+        onSome: (metadata) =>
+          HashMap.set(state.entityMetadata, entityId, {
+            ...metadata,
+            updatedAt: now,
+            generation: metadata.generation + 1,
+          }),
+      })
 
-        // Record change
-        const change: EntityChange = {
-          entityId,
-          changeType: 'updated',
-          componentName,
-          previousValue: current,
-          newValue: updated,
-          timestamp: now,
-        }
+      // Record change
+      const change: EntityChange = {
+        entityId,
+        changeType: 'updated',
+        componentName,
+        previousValue: current,
+        newValue: updated,
+        timestamp: now,
+      }
 
-        yield* _(
-          Ref.update(stateRef, (s) => ({
-            ...s,
-            entityMetadata: newEntityMetadata,
-            componentStorage: newComponentStorage,
-            changes: [...s.changes.slice(-s.maxChangeHistory + 1), change],
-          })),
-        )
+      yield* _(
+        Ref.update(stateRef, (s) => ({
+          ...s,
+          entityMetadata: newEntityMetadata,
+          componentStorage: newComponentStorage,
+          changes: [...s.changes.slice(-s.maxChangeHistory + 1), change],
+        })),
+      )
 
-        return true
-      },
-    )
+      return true
+    })
 
   // Simplified implementations of remaining methods for brevity
   const createEntities = (archetypes: ReadonlyArray<Archetype>): Effect.Effect<ReadonlyArray<EntityId>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const entityIds: EntityId[] = []
-        for (const archetype of archetypes) {
-          const entityId = yield* _(this.createEntity(archetype))
-          entityIds.push(entityId)
-        }
-        return entityIds
-      },
-    )
+    Effect.gen(function* (_) {
+      const entityIds: EntityId[] = []
+      for (const archetype of archetypes) {
+        const entityId = yield* _(this.createEntity(archetype))
+        entityIds.push(entityId)
+      }
+      return entityIds
+    })
 
   const destroyEntities = (entityIds: ReadonlyArray<EntityId>): Effect.Effect<number, never, never> =>
-    Effect.gen(
-      function* (_) {
-        let count = 0
-        for (const entityId of entityIds) {
-          const destroyed = yield* _(this.destroyEntity(entityId))
-          if (destroyed) count++
-        }
-        return count
-      },
-    )
+    Effect.gen(function* (_) {
+      let count = 0
+      for (const entityId of entityIds) {
+        const destroyed = yield* _(this.destroyEntity(entityId))
+        if (destroyed) count++
+      }
+      return count
+    })
 
   const cloneEntity = (entityId: EntityId): Effect.Effect<Option.Option<EntityId>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        const metadataOpt = HashMap.get(state.entityMetadata, entityId)
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const metadataOpt = HashMap.get(state.entityMetadata, entityId)
 
-        if (Option.isNone(metadataOpt)) {
-          return Option.none()
+      if (Option.isNone(metadataOpt)) {
+        return Option.none()
+      }
+
+      const metadata = metadataOpt.value
+      const archetype: Archetype = {}
+
+      // Copy all components
+      for (const componentName of metadata.componentTypes) {
+        const componentOpt = HashMap.get(state.componentStorage[componentName], entityId)
+        if (Option.isSome(componentOpt)) {
+          archetype[componentName] = componentOpt.value as any
         }
+      }
 
-        const metadata = metadataOpt.value
-        const archetype: Archetype = {}
-
-        // Copy all components
-        for (const componentName of metadata.componentTypes) {
-          const componentOpt = HashMap.get(state.componentStorage[componentName], entityId)
-          if (Option.isSome(componentOpt)) {
-            archetype[componentName] = componentOpt.value as any
-          }
-        }
-
-        const newEntityId = yield* _(this.createEntity(archetype))
-        return Option.some(newEntityId)
-      },
-    )
+      const newEntityId = yield* _(this.createEntity(archetype))
+      return Option.some(newEntityId)
+    })
 
   const findEntitiesByComponents = (componentNames: ReadonlyArray<ComponentName>, options?: EntityQueryOptions): Effect.Effect<ReadonlyArray<EntityMetadata>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        const requiredComponents = new Set(componentNames)
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const requiredComponents = new Set(componentNames)
 
-        const matchingEntities = Array.from(state.entityMetadata)
-          .filter(([_, metadata]) => {
-            const hasRequired = Array.from(requiredComponents).every((comp) => metadata.componentTypes.has(comp))
-            const hasExcluded = options?.excludeComponents?.some((comp) => metadata.componentTypes.has(comp)) ?? false
-            return hasRequired && !hasExcluded
-          })
-          .map(([_, metadata]) => metadata)
+      const matchingEntities = Array.from(state.entityMetadata)
+        .filter(([_, metadata]) => {
+          const hasRequired = Array.from(requiredComponents).every((comp) => metadata.componentTypes.has(comp))
+          const hasExcluded = options?.excludeComponents?.some((comp) => metadata.componentTypes.has(comp)) ?? false
+          return hasRequired && !hasExcluded
+        })
+        .map(([_, metadata]) => metadata)
 
-        // Apply sorting and pagination if specified
-        let result = matchingEntities
-        if (options?.sortBy) {
-          result = result.sort((a, b) => {
-            const aVal = a[options.sortBy!]
-            const bVal = b[options.sortBy!]
-            const order = options.sortOrder === 'desc' ? -1 : 1
-            return aVal < bVal ? -order : aVal > bVal ? order : 0
-          })
-        }
+      // Apply sorting and pagination if specified
+      let result = matchingEntities
+      if (options?.sortBy) {
+        result = result.sort((a, b) => {
+          const aVal = a[options.sortBy!]
+          const bVal = b[options.sortBy!]
+          const order = options.sortOrder === 'desc' ? -1 : 1
+          return aVal < bVal ? -order : aVal > bVal ? order : 0
+        })
+      }
 
-        if (options?.offset) {
-          result = result.slice(options.offset)
-        }
-        if (options?.limit) {
-          result = result.slice(0, options.limit)
-        }
+      if (options?.offset) {
+        result = result.slice(options.offset)
+      }
+      if (options?.limit) {
+        result = result.slice(0, options.limit)
+      }
 
-        return result
-      },
-    )
+      return result
+    })
 
   const findEntitiesByArchetype = (archetypeKey: string): Effect.Effect<ReadonlyArray<EntityMetadata>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        const entitiesOpt = HashMap.get(state.archetypeToEntities, archetypeKey)
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const entitiesOpt = HashMap.get(state.archetypeToEntities, archetypeKey)
 
-        if (Option.isNone(entitiesOpt)) {
-          return []
-        }
+      if (Option.isNone(entitiesOpt)) {
+        return []
+      }
 
-        const entityIds = Array.from(entitiesOpt.value)
-        const metadata = entityIds
-          .map((id) => HashMap.get(state.entityMetadata, id))
-          .filter(Option.isSome)
-          .map((opt) => opt.value)
+      const entityIds = Array.from(entitiesOpt.value)
+      const metadata = entityIds
+        .map((id) => HashMap.get(state.entityMetadata, id))
+        .filter(Option.isSome)
+        .map((opt) => opt.value)
 
-        return metadata
-      },
-    )
+      return metadata
+    })
 
   const countEntities = (componentNames?: ReadonlyArray<ComponentName>): Effect.Effect<number, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
 
-        if (!componentNames) {
-          return HashMap.size(state.entityMetadata)
-        }
+      if (!componentNames) {
+        return HashMap.size(state.entityMetadata)
+      }
 
-        const requiredComponents = new Set(componentNames)
-        const matchingCount = Array.from(state.entityMetadata).filter(([_, metadata]) => Array.from(requiredComponents).every((comp) => metadata.componentTypes.has(comp))).length
+      const requiredComponents = new Set(componentNames)
+      const matchingCount = Array.from(state.entityMetadata).filter(([_, metadata]) => Array.from(requiredComponents).every((comp) => metadata.componentTypes.has(comp))).length
 
-        return matchingCount
-      },
-    )
+      return matchingCount
+    })
 
   const getEntityChanges = (entityId?: EntityId, since?: number): Effect.Effect<ReadonlyArray<EntityChange>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        let changes = state.changes
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      let changes = state.changes
 
-        if (entityId) {
-          changes = changes.filter((change) => change.entityId === entityId)
-        }
+      if (entityId) {
+        changes = changes.filter((change) => change.entityId === entityId)
+      }
 
-        if (since) {
-          changes = changes.filter((change) => change.timestamp >= since)
-        }
+      if (since) {
+        changes = changes.filter((change) => change.timestamp >= since)
+      }
 
-        return changes
-      },
-    )
+      return changes
+    })
 
   const clearChangeHistory = (before?: number): Effect.Effect<number, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        const cutoff = before ?? Date.now()
-        const oldChanges = state.changes.filter((change) => change.timestamp < cutoff)
-        const newChanges = state.changes.filter((change) => change.timestamp >= cutoff)
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const cutoff = before ?? Date.now()
+      const oldChanges = state.changes.filter((change) => change.timestamp < cutoff)
+      const newChanges = state.changes.filter((change) => change.timestamp >= cutoff)
 
-        yield* _(
-          Ref.update(stateRef, (s) => ({
-            ...s,
-            changes: newChanges,
-          })),
-        )
+      yield* _(
+        Ref.update(stateRef, (s) => ({
+          ...s,
+          changes: newChanges,
+        })),
+      )
 
-        return oldChanges.length
-      },
-    )
+      return oldChanges.length
+    })
 
   const getRepositoryStats = () =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
 
-        const componentCounts = Object.fromEntries(Array.from(componentNamesSet).map((name) => [name, HashMap.size(state.componentStorage[name])])) as Record<ComponentName, number>
+      const componentCounts = Object.fromEntries(Array.from(componentNamesSet).map((name) => [name, HashMap.size(state.componentStorage[name])])) as Record<ComponentName, number>
 
-        const archetypeCounts = Object.fromEntries(Array.from(state.archetypeToEntities).map(([key, entitySet]) => [key, HashSet.size(entitySet)]))
+      const archetypeCounts = Object.fromEntries(Array.from(state.archetypeToEntities).map(([key, entitySet]) => [key, HashSet.size(entitySet)]))
 
-        return {
-          entityCount: HashMap.size(state.entityMetadata),
-          componentCounts,
-          archetypeCounts,
-          changeCount: state.changes.length,
-          memoryUsage: JSON.stringify(state).length, // Rough estimate
-        }
-      },
-    )
+      return {
+        entityCount: HashMap.size(state.entityMetadata),
+        componentCounts,
+        archetypeCounts,
+        changeCount: state.changes.length,
+        memoryUsage: JSON.stringify(state).length, // Rough estimate
+      }
+    })
 
   const compactStorage = (): Effect.Effect<void, never, never> =>
     Effect.gen(function* (_) {

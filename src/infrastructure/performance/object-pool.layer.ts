@@ -235,7 +235,7 @@ export const createPooledVector3 = (): PooledVector3 => {
       this.x = 0
       this.y = 0
       this.z = 0
-    }
+    },
   }
   return vector3
 }
@@ -279,9 +279,9 @@ export const createPooledMatrix4 = (): PooledMatrix4 => {
 
     reset() {
       this.identity()
-    }
+    },
   }
-  
+
   matrix4.identity()
   return matrix4
 }
@@ -334,7 +334,7 @@ export const createPooledAABB = (): PooledAABB => {
       this.maxX = 0
       this.maxY = 0
       this.maxZ = 0
-    }
+    },
   }
 }
 

@@ -74,7 +74,7 @@ export interface CommunicationStats {
 
 /**
  * System Communication Port interface
- * 
+ *
  * This is the domain-level abstraction for system communication.
  * Infrastructure adapters implement this interface.
  */

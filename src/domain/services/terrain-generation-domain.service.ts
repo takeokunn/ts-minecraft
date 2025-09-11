@@ -1,6 +1,6 @@
 /**
  * Terrain Generation Domain Service
- * 
+ *
  * Contains the pure business logic for terrain generation,
  * extracted from infrastructure layer and made technology-agnostic.
  * This service implements the core terrain generation algorithms
@@ -35,12 +35,7 @@ const simpleNoise = (x: number, y: number, z: number, seed: number): number => {
  * Generate height map for a chunk using layered noise
  * Pure domain logic without infrastructure dependencies
  */
-const generateHeightMapLogic = (
-  chunkX: number,
-  chunkZ: number,
-  seed: number,
-  noiseSettings: NoiseSettings,
-): readonly number[] => {
+const generateHeightMapLogic = (chunkX: number, chunkZ: number, seed: number, noiseSettings: NoiseSettings): readonly number[] => {
   const heightMap: number[] = []
   const chunkSize = 16
 
@@ -96,15 +91,7 @@ const generateBlocksLogic = (
         const worldY = y
         const worldZ = chunkZ * chunkSize + z
 
-        const blockType = determineBlockType(
-          worldX,
-          worldY,
-          worldZ,
-          terrainHeight,
-          biome,
-          features,
-          seed,
-        )
+        const blockType = determineBlockType(worldX, worldY, worldZ, terrainHeight, biome, features, seed)
 
         if (blockType !== 'air') {
           const position: Position3D = { x: worldX, y: worldY, z: worldZ }
@@ -125,15 +112,7 @@ const generateBlocksLogic = (
  * Determine block type based on position, height, biome, and features
  * Core business logic for block placement rules
  */
-const determineBlockType = (
-  x: number,
-  y: number,
-  z: number,
-  terrainHeight: number,
-  biome: BiomeConfig,
-  features: FeatureConfig,
-  seed: number,
-): string => {
+const determineBlockType = (x: number, y: number, z: number, terrainHeight: number, biome: BiomeConfig, features: FeatureConfig, seed: number): string => {
   // Bedrock layer
   if (y === 0) {
     return 'bedrock'
@@ -186,7 +165,7 @@ const calculateLightLevel = (y: number, terrainHeight: number): number => {
   if (y > terrainHeight) {
     return 15 // Full sunlight above surface
   }
-  
+
   const depth = terrainHeight - y
   return Math.max(0, 15 - depth)
 }
@@ -241,11 +220,7 @@ const createTerrainGenerationService = (): TerrainGenerationDomainService => ({
       } satisfies TerrainGenerationResult
     }),
 
-  generateHeightMap: (
-    coordinates: ChunkCoordinates,
-    seed: number,
-    noise: NoiseSettings,
-  ): Effect.Effect<readonly number[], never, never> =>
+  generateHeightMap: (coordinates: ChunkCoordinates, seed: number, noise: NoiseSettings): Effect.Effect<readonly number[], never, never> =>
     Effect.gen(function* () {
       return generateHeightMapLogic(coordinates.x, coordinates.z, seed, noise)
     }),
@@ -254,7 +229,7 @@ const createTerrainGenerationService = (): TerrainGenerationDomainService => ({
     Effect.gen(function* () {
       // Simplified biome generation based on noise
       const biomeNoise = simpleNoise(x * 0.001, 0, z * 0.001, seed + 54321)
-      
+
       if (biomeNoise < 0.2) {
         return TerrainGeneratorHelpers.createDefaultBiome('desert')
       } else if (biomeNoise < 0.4) {
@@ -271,7 +246,7 @@ const createTerrainGenerationService = (): TerrainGenerationDomainService => ({
   isAvailable: (): Effect.Effect<boolean, never, never> =>
     Effect.gen(function* () {
       return true // Always available as it's pure logic
-    })
+    }),
 })
 
 /**
@@ -281,7 +256,7 @@ export const TerrainGenerationDomainServiceLive = Layer.effect(
   TerrainGenerationDomainService,
   Effect.gen(function* () {
     return TerrainGenerationDomainService.of(createTerrainGenerationService())
-  })
+  }),
 )
 
 /**
@@ -292,7 +267,7 @@ export const TerrainGeneratorPortLive = Layer.effect(
   Effect.gen(function* () {
     const service = yield* TerrainGenerationDomainService
     return TerrainGeneratorPort.of(service)
-  })
+  }),
 ).pipe(Layer.provide(TerrainGenerationDomainServiceLive))
 
 /**

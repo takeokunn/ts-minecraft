@@ -120,7 +120,7 @@ export const UIUpdateWorkflowLive = Layer.effect(
       updatePlayerUI,
       updateWorldUI,
       updateHotbar,
-      updateHealthBar
+      updateHealthBar,
     } satisfies UIUpdateWorkflowService
   }),
 )

@@ -57,10 +57,7 @@ import {
 import { ApplicationLayer } from '@application/application-layer'
 
 // Import infrastructure adapters
-import { 
-  SystemCommunicationLive, 
-  PerformanceMonitorLive 
-} from '@infrastructure/adapters'
+import { SystemCommunicationLive, PerformanceMonitorLive } from '@infrastructure/adapters'
 
 // ===== LAYER COMPOSITIONS BY ARCHITECTURE TIER =====
 
@@ -95,12 +92,7 @@ export const PresentationLayer = UIServicesLive
  * This is the main layer used in production
  * Includes the adapters that provide the port implementations
  */
-export const AppLayer = Layer.mergeAll(
-  UnifiedAppLive, 
-  SystemCommunicationLive(), 
-  PerformanceMonitorLive(), 
-  ApplicationLayer
-)
+export const AppLayer = Layer.mergeAll(UnifiedAppLive, SystemCommunicationLive(), PerformanceMonitorLive(), ApplicationLayer)
 
 /**
  * Development layer with debug capabilities

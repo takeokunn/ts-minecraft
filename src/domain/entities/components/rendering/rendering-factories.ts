@@ -1,17 +1,17 @@
 /**
  * Rendering Component Factory Functions
- * 
+ *
  * Provides factory functions for creating rendering components with sensible defaults
  */
 
 import * as Data from 'effect/Data'
-import type { 
+import type {
   MeshComponent,
   MaterialComponent,
   LightComponent,
   CameraComponent,
   RenderableComponent,
-  MeshGeometry
+  MeshGeometry,
 } from '@domain/entities/components/rendering/rendering-components'
 
 // ===== COMPONENT FACTORIES =====

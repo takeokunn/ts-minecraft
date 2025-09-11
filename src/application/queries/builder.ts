@@ -55,9 +55,7 @@ export interface QueryBuilder<T extends ReadonlyArray<ComponentName> = readonly 
 /**
  * Functional query builder implementation
  */
-const createQueryBuilderImpl = <T extends ReadonlyArray<ComponentName>>(
-  config: Partial<QueryConfig<T>> = {}
-): QueryBuilder<T> => {
+const createQueryBuilderImpl = <T extends ReadonlyArray<ComponentName>>(config: Partial<QueryConfig<T>> = {}): QueryBuilder<T> => {
   const currentConfig: Partial<QueryConfig<T>> = {
     withComponents: (config.withComponents || []) as T,
     withoutComponents: [],
@@ -125,7 +123,7 @@ const createQueryBuilderImpl = <T extends ReadonlyArray<ComponentName>>(
     buildOptimized: () => {
       // This would need to be implemented with proper OptimizedQueryService creation
       return Effect.fail(new Error('buildOptimized() requires OptimizedQueryService implementation'))
-    }
+    },
   }
 }
 
@@ -168,10 +166,7 @@ export interface SoAQueryService<T extends ReadonlyArray<ComponentName>> {
 /**
  * Create Structure of Arrays Query for high-performance bulk operations
  */
-export const createSoAQuery = <T extends ReadonlyArray<ComponentName>>(
-  components: T,
-  name: string = `soa-${components.join('-')}`
-): SoAQueryService<T> => {
+export const createSoAQuery = <T extends ReadonlyArray<ComponentName>>(components: T, name: string = `soa-${components.join('-')}`): SoAQueryService<T> => {
   const execute = (entities: ReadonlyArray<QueryEntity>) =>
     Effect.gen(function* () {
       const matchingEntities: QueryEntity[] = []
@@ -208,7 +203,7 @@ export const createSoAQuery = <T extends ReadonlyArray<ComponentName>>(
   return {
     components,
     name,
-    execute
+    execute,
   }
 }
 
@@ -244,10 +239,7 @@ export interface AoSQueryService<T extends ReadonlyArray<ComponentName>> {
 /**
  * Create Array of Structures Query for entity-centric operations
  */
-export const createAoSQuery = <T extends ReadonlyArray<ComponentName>>(
-  components: T,
-  name: string = `aos-${components.join('-')}`
-): AoSQueryService<T> => {
+export const createAoSQuery = <T extends ReadonlyArray<ComponentName>>(components: T, name: string = `aos-${components.join('-')}`): AoSQueryService<T> => {
   const execute = (entities: ReadonlyArray<QueryEntity>) =>
     Effect.gen(function* () {
       const result: Array<{
@@ -281,7 +273,7 @@ export const createAoSQuery = <T extends ReadonlyArray<ComponentName>>(
   return {
     components,
     name,
-    execute
+    execute,
   }
 }
 
@@ -369,10 +361,7 @@ export const QueryBuilderUtils = {
   /**
    * Add required components to state
    */
-  withComponents: <T extends ReadonlyArray<ComponentName>, K extends ComponentName[]>(
-    state: QueryBuilderState<T>,
-    ...components: K
-  ): QueryBuilderState<readonly [...T, ...K]> => ({
+  withComponents: <T extends ReadonlyArray<ComponentName>, K extends ComponentName[]>(state: QueryBuilderState<T>, ...components: K): QueryBuilderState<readonly [...T, ...K]> => ({
     config: {
       ...state.config,
       withComponents: [...(state.config.withComponents || []), ...components] as readonly [...T, ...K],
@@ -382,10 +371,7 @@ export const QueryBuilderUtils = {
   /**
    * Add forbidden components to state
    */
-  withoutComponents: <T extends ReadonlyArray<ComponentName>>(
-    state: QueryBuilderState<T>,
-    ...components: ComponentName[]
-  ): QueryBuilderState<T> => ({
+  withoutComponents: <T extends ReadonlyArray<ComponentName>>(state: QueryBuilderState<T>, ...components: ComponentName[]): QueryBuilderState<T> => ({
     config: {
       ...state.config,
       withoutComponents: [...(state.config.withoutComponents || []), ...components],
@@ -395,10 +381,7 @@ export const QueryBuilderUtils = {
   /**
    * Add predicate to state
    */
-  withPredicate: <T extends ReadonlyArray<ComponentName>>(
-    state: QueryBuilderState<T>,
-    predicate: EntityPredicate<T>
-  ): QueryBuilderState<T> => ({
+  withPredicate: <T extends ReadonlyArray<ComponentName>>(state: QueryBuilderState<T>, predicate: EntityPredicate<T>): QueryBuilderState<T> => ({
     config: {
       ...state.config,
       predicate,
@@ -408,10 +391,7 @@ export const QueryBuilderUtils = {
   /**
    * Set query name
    */
-  withName: <T extends ReadonlyArray<ComponentName>>(
-    state: QueryBuilderState<T>,
-    name: string
-  ): QueryBuilderState<T> => ({
+  withName: <T extends ReadonlyArray<ComponentName>>(state: QueryBuilderState<T>, name: string): QueryBuilderState<T> => ({
     config: {
       ...state.config,
       name,
@@ -421,10 +401,7 @@ export const QueryBuilderUtils = {
   /**
    * Set query priority
    */
-  withPriority: <T extends ReadonlyArray<ComponentName>>(
-    state: QueryBuilderState<T>,
-    priority: number
-  ): QueryBuilderState<T> => ({
+  withPriority: <T extends ReadonlyArray<ComponentName>>(state: QueryBuilderState<T>, priority: number): QueryBuilderState<T> => ({
     config: {
       ...state.config,
       priority,
@@ -453,10 +430,7 @@ export const QueryBuilderUtils = {
   /**
    * Execute query with given configuration
    */
-  executeQuery: <T extends ReadonlyArray<ComponentName>>(
-    config: QueryConfig<T>,
-    entities?: ReadonlyArray<QueryEntity>
-  ) =>
+  executeQuery: <T extends ReadonlyArray<ComponentName>>(config: QueryConfig<T>, entities?: ReadonlyArray<QueryEntity>) =>
     Effect.gen(function* () {
       const query = yield* createArchetypeQuery(config)
       return yield* query.execute(entities)
@@ -473,7 +447,7 @@ export const QueryBuilderUtils = {
       return entity.components[componentName] !== undefined
     },
     id: entity.id,
-  })
+  }),
 }
 
 /**

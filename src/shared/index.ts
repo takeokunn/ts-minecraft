@@ -6,17 +6,17 @@ export {
   FPS_UPDATE_INTERVAL,
   MAX_FPS,
   FRAME_TIME_BUDGET,
-  
+
   // Physics constants
   GRAVITY,
   PHYSICS_TIME_STEP,
   MAX_PHYSICS_SUBSTEPS,
-  
+
   // UI constants
   DEBUG_PANEL_WIDTH,
   DEBUG_PANEL_HEIGHT,
   CHAT_HISTORY_SIZE,
-  
+
   // World constants
   CHUNK_SIZE,
   CHUNK_HEIGHT,
@@ -27,17 +27,11 @@ export {
   RENDER_DISTANCE,
   NOISE_SCALE,
   TERRAIN_HEIGHT_MULTIPLIER,
-  CAVE_THRESHOLD
+  CAVE_THRESHOLD,
 } from './constants'
 
 // Decorators
-export {
-  measureTime,
-  throttle,
-  debounce,
-  memoize,
-  logCalls
-} from './decorators'
+export { measureTime, throttle, debounce, memoize, logCalls } from './decorators'
 
 // Types - explicit exports for better tree-shaking
 export type {
@@ -84,7 +78,7 @@ export type {
   State,
   StateUpdate,
   StateSelector,
-  
+
   // Game-specific types
   BlockType,
   WorldPosition,
@@ -110,14 +104,11 @@ export type {
   ClientMessage,
   GameMetrics,
   WorldEvent,
-  GameState
+  GameState,
 } from './types'
 
 // Game schemas and constants
-export {
-  BlockTypeSchema,
-  blockTypeNames
-} from './types'
+export { BlockTypeSchema, blockTypeNames } from './types'
 
 // Utilities - explicit exports for better tree-shaking and transparency
 export {
@@ -135,7 +126,7 @@ export {
   handleError,
   recoverFromError,
   reportErrors,
-  
+
   // Logging utilities
   type LogLevel,
   type LogEntry,
@@ -143,7 +134,7 @@ export {
   Logger,
   createComponentLogger,
   DevLogger,
-  
+
   // Monitoring utilities
   type PerformanceMetrics,
   type HealthCheck,
@@ -154,7 +145,7 @@ export {
   HealthMonitor,
   withMonitoring,
   createComponentMonitor,
-  
+
   // Validation utilities
   type ValidationResult,
   type ValidationContext,
@@ -165,7 +156,7 @@ export {
   ValidationUtils,
   GameValidators,
   createComponentValidator,
-  
+
   // Common utilities
   isNotNull,
   isNotUndefined,
@@ -183,7 +174,7 @@ export {
   formatBytes,
   sleep,
   retry,
-  
+
   // Effect utilities
   withErrorLog,
   withTiming,
@@ -198,7 +189,7 @@ export {
   createCircuitBreaker,
   type CircuitBreakerState,
   type CircuitBreakerConfig,
-  
+
   // Math utilities
   Float,
   type FloatType,
@@ -216,5 +207,5 @@ export {
   Vector3,
   type Vector3Type,
   createVector3,
-  VectorOps
+  VectorOps,
 } from './utils'

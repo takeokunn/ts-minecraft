@@ -43,31 +43,19 @@ export const DomainServiceRegistry = Context.GenericTag<DomainServiceRegistry>('
  * Core domain services layer
  * Composes all fundamental domain services without external dependencies
  */
-export const CoreDomainServicesLayer = Layer.mergeAll(
-  EntityDomainService.Live,
-  WorldDomainService.Live,
-  PhysicsDomainService.Live,
-)
+export const CoreDomainServicesLayer = Layer.mergeAll(EntityDomainService.Live, WorldDomainService.Live, PhysicsDomainService.Live)
 
 /**
  * Advanced domain services layer
  * Requires external ports to be provided by infrastructure layer
  */
-export const AdvancedDomainServicesLayer = Layer.mergeAll(
-  meshGenerationServiceLive,
-  ChunkLoadingServiceLive,
-  AdvancedTargetingServiceLive,
-  WorldManagementDomainServiceLive,
-)
+export const AdvancedDomainServicesLayer = Layer.mergeAll(meshGenerationServiceLive, ChunkLoadingServiceLive, AdvancedTargetingServiceLive, WorldManagementDomainServiceLive)
 
 /**
  * Complete domain services layer
  * Combines all domain services into a single layer
  */
-export const DomainServicesLayer = Layer.mergeAll(
-  CoreDomainServicesLayer,
-  AdvancedDomainServicesLayer,
-)
+export const DomainServicesLayer = Layer.mergeAll(CoreDomainServicesLayer, AdvancedDomainServicesLayer)
 
 /**
  * Service registry layer that provides access to all services
@@ -92,7 +80,7 @@ export const DomainServiceRegistryLive = Layer.effect(
       meshGenerationService,
       worldManagementService,
     })
-  })
+  }),
 )
 
 // ===== SERVICE DEPENDENCIES VALIDATION =====
@@ -217,7 +205,7 @@ export const ServiceDependencyValidatorLive = Layer.effect(
           }
         }),
     })
-  })
+  }),
 )
 
 // ===== SERVICE LIFECYCLE MANAGEMENT =====
@@ -272,7 +260,7 @@ export const ServiceLifecycleManagerLive = Layer.effect(
           // Gracefully shutdown services if needed
           // For now, just log shutdown
           console.info('Domain services shutdown initiated')
-          
+
           // Could add specific shutdown logic for services that need it
           // For example, clearing caches, saving state, etc.
           try {
@@ -302,7 +290,7 @@ export const ServiceLifecycleManagerLive = Layer.effect(
           // Check each service health
           const servicesToCheck = [
             'EntityDomainService',
-            'WorldDomainService', 
+            'WorldDomainService',
             'PhysicsDomainService',
             'ChunkLoadingService',
             'AdvancedTargetingService',
@@ -319,7 +307,7 @@ export const ServiceLifecycleManagerLive = Layer.effect(
           }
 
           // Services with warnings are considered degraded
-          validationResult.warnings.forEach(warning => {
+          validationResult.warnings.forEach((warning) => {
             const serviceName = warning.split(' ')[0]
             if (serviceName && !degraded.includes(serviceName)) {
               degraded.push(serviceName)
@@ -335,7 +323,7 @@ export const ServiceLifecycleManagerLive = Layer.effect(
           }
         }),
     })
-  })
+  }),
 )
 
 // ===== COMPLETE SERVICE LAYER =====
@@ -343,12 +331,7 @@ export const ServiceLifecycleManagerLive = Layer.effect(
 /**
  * Complete domain layer with all services, validation, and lifecycle management
  */
-export const CompleteDomainLayer = Layer.mergeAll(
-  DomainServicesLayer,
-  DomainServiceRegistryLive,
-  ServiceDependencyValidatorLive,
-  ServiceLifecycleManagerLive,
-)
+export const CompleteDomainLayer = Layer.mergeAll(DomainServicesLayer, DomainServiceRegistryLive, ServiceDependencyValidatorLive, ServiceLifecycleManagerLive)
 
 // ===== UTILITY FUNCTIONS =====
 
@@ -386,12 +369,7 @@ export const ServiceCompositionUtils = {
       updateComponent: () => Effect.void,
     } as any)
 
-    const mockPorts = Layer.mergeAll(
-      mockTerrainGenerator,
-      mockChunkRepository, 
-      mockMeshGenerator,
-      mockWorldPort,
-    )
+    const mockPorts = Layer.mergeAll(mockTerrainGenerator, mockChunkRepository, mockMeshGenerator, mockWorldPort)
 
     return Layer.provide(DomainServicesLayer, mockPorts)
   },
@@ -412,7 +390,7 @@ export const ServiceCompositionUtils = {
     Effect.gen(function* () {
       const lifecycleManager = yield* ServiceLifecycleManager
       const healthReport = yield* lifecycleManager.getServiceHealth()
-      
+
       return {
         ...healthReport,
         healthPercentage: (healthReport.healthy.length / healthReport.totalServices) * 100,
@@ -423,10 +401,4 @@ export const ServiceCompositionUtils = {
 
 // ===== TYPE EXPORTS =====
 
-export type {
-  DomainServiceRegistry,
-  ServiceValidationResult,
-  ServiceHealthReport,
-  ServiceDependencyValidator,
-  ServiceLifecycleManager,
-}
+export type { DomainServiceRegistry, ServiceValidationResult, ServiceHealthReport, ServiceDependencyValidator, ServiceLifecycleManager }

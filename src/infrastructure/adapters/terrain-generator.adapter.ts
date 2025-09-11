@@ -1,6 +1,6 @@
 /**
  * Terrain Generator Adapter
- * 
+ *
  * Infrastructure adapter that provides technical implementation of terrain generation
  * by delegating to domain services and handling infrastructure-specific concerns.
  * This adapter focuses on technical integration and resource management.
@@ -22,7 +22,7 @@ import { TerrainGenerationDomainService } from '@domain/services/terrain-generat
 /**
  * Technical noise implementation using browser APIs
  * This is the infrastructure-specific implementation detail
- * 
+ *
  * Functional implementation that eliminates class-based pattern
  */
 
@@ -65,150 +65,135 @@ const InfrastructureNoise = {
  * Infrastructure adapter for terrain generation
  * Focuses on technical implementation and resource management
  */
-export const createTerrainGeneratorAdapter = () => Effect.gen(function* () {
-  const domainService = new TerrainGenerationDomainService()
-  const noiseProvider = InfrastructureNoise.simplexNoise
+export const createTerrainGeneratorAdapter = () =>
+  Effect.gen(function* () {
+    const domainService = new TerrainGenerationDomainService()
+    const noiseProvider = InfrastructureNoise.simplexNoise
 
-  /**
-   * Infrastructure-specific validation of capabilities
-   */
-  const validateInfrastructureCapabilities = (): Effect.Effect<void, never, never> =>
-    Effect.gen(function* () {
-      // Technical validation: check browser capabilities, memory, etc.
-      const hasRequiredAPIs = typeof performance !== 'undefined' && 
-                             typeof Math !== 'undefined' && 
-                             typeof Float32Array !== 'undefined'
-      
-      if (!hasRequiredAPIs) {
-        yield* Effect.logWarning('Missing required browser APIs for terrain generation')
-      }
-      
-      // Check available memory
-      if (typeof (performance as any).memory !== 'undefined') {
-        const memoryInfo = (performance as any).memory
-        if (memoryInfo.usedJSHeapSize > memoryInfo.totalJSHeapSize * 0.9) {
-          yield* Effect.logWarning('High memory usage detected, terrain generation may be slow')
+    /**
+     * Infrastructure-specific validation of capabilities
+     */
+    const validateInfrastructureCapabilities = (): Effect.Effect<void, never, never> =>
+      Effect.gen(function* () {
+        // Technical validation: check browser capabilities, memory, etc.
+        const hasRequiredAPIs = typeof performance !== 'undefined' && typeof Math !== 'undefined' && typeof Float32Array !== 'undefined'
+
+        if (!hasRequiredAPIs) {
+          yield* Effect.logWarning('Missing required browser APIs for terrain generation')
         }
-      }
-    })
 
-  /**
-   * Infrastructure-specific performance monitoring
-   */
-  const logPerformanceMetrics = (
-    duration: number,
-    blockCount: number,
-  ): Effect.Effect<void, never, never> =>
-    Effect.gen(function* () {
-      const blocksPerMs = blockCount / Math.max(1, duration)
-      
-      yield* Effect.logInfo(`Terrain generation completed`, {
-        duration: `${duration.toFixed(2)}ms`,
-        blockCount,
-        performance: `${blocksPerMs.toFixed(2)} blocks/ms`,
+        // Check available memory
+        if (typeof (performance as any).memory !== 'undefined') {
+          const memoryInfo = (performance as any).memory
+          if (memoryInfo.usedJSHeapSize > memoryInfo.totalJSHeapSize * 0.9) {
+            yield* Effect.logWarning('High memory usage detected, terrain generation may be slow')
+          }
+        }
       })
-      
-      // Infrastructure monitoring: send metrics to monitoring service
-      if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
-        // In production, this would send metrics to a monitoring endpoint
-        const metrics = {
-          component: 'terrain-generator-adapter',
-          duration,
+
+    /**
+     * Infrastructure-specific performance monitoring
+     */
+    const logPerformanceMetrics = (duration: number, blockCount: number): Effect.Effect<void, never, never> =>
+      Effect.gen(function* () {
+        const blocksPerMs = blockCount / Math.max(1, duration)
+
+        yield* Effect.logInfo(`Terrain generation completed`, {
+          duration: `${duration.toFixed(2)}ms`,
           blockCount,
-          timestamp: Date.now(),
+          performance: `${blocksPerMs.toFixed(2)} blocks/ms`,
+        })
+
+        // Infrastructure monitoring: send metrics to monitoring service
+        if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+          // In production, this would send metrics to a monitoring endpoint
+          const metrics = {
+            component: 'terrain-generator-adapter',
+            duration,
+            blockCount,
+            timestamp: Date.now(),
+          }
+          // navigator.sendBeacon('/api/metrics', JSON.stringify(metrics))
         }
-        // navigator.sendBeacon('/api/metrics', JSON.stringify(metrics))
-      }
-    })
-
-  return {
-    /**
-     * Technical implementation that delegates business logic to domain service
-     * and handles infrastructure concerns like performance monitoring and caching
-     */
-    generateTerrain: (request: TerrainGenerationRequest): Effect.Effect<TerrainGenerationResult, never, never> =>
-      Effect.gen(function* () {
-        const startTime = performance.now()
-        
-        // Technical validation of infrastructure capabilities
-        yield* validateInfrastructureCapabilities()
-        
-        // Delegate to domain service for business logic
-        const result = yield* domainService.generateTerrain(request)
-        
-        // Infrastructure-specific performance monitoring
-        const infraTime = performance.now() - startTime
-        yield* logPerformanceMetrics(infraTime, result.blockCount)
-        
-        return result
-      }),
-
-    /**
-     * Generate height map using infrastructure-specific noise implementation
-     */
-    generateHeightMap: (
-      coordinates: ChunkCoordinates,
-      seed: number,
-      noise: NoiseSettings,
-    ): Effect.Effect<readonly number[], never, never> =>
-      Effect.gen(function* () {
-        // Delegate to domain service for business logic
-        return yield* domainService.generateHeightMap(coordinates, seed, noise)
-      }),
-
-    /**
-     * Get biome configuration using infrastructure-specific biome generation
-     */
-    getBiome: (x: number, z: number, seed: number): Effect.Effect<BiomeConfig, never, never> =>
-      Effect.gen(function* () {
-        // Delegate to domain service for business logic
-        return yield* domainService.getBiome(x, z, seed)
-      }),
-
-    /**
-     * Check if terrain generation is available on this platform
-     */
-    isAvailable: (): Effect.Effect<boolean, never, never> =>
-      Effect.gen(function* () {
-        // Check if infrastructure dependencies are available
-        // In a real implementation, this would check for WebGL, noise libraries, etc.
-        return typeof performance !== 'undefined' && typeof Math !== 'undefined'
       })
-  } satisfies ITerrainGenerator
-})
+
+    return {
+      /**
+       * Technical implementation that delegates business logic to domain service
+       * and handles infrastructure concerns like performance monitoring and caching
+       */
+      generateTerrain: (request: TerrainGenerationRequest): Effect.Effect<TerrainGenerationResult, never, never> =>
+        Effect.gen(function* () {
+          const startTime = performance.now()
+
+          // Technical validation of infrastructure capabilities
+          yield* validateInfrastructureCapabilities()
+
+          // Delegate to domain service for business logic
+          const result = yield* domainService.generateTerrain(request)
+
+          // Infrastructure-specific performance monitoring
+          const infraTime = performance.now() - startTime
+          yield* logPerformanceMetrics(infraTime, result.blockCount)
+
+          return result
+        }),
+
+      /**
+       * Generate height map using infrastructure-specific noise implementation
+       */
+      generateHeightMap: (coordinates: ChunkCoordinates, seed: number, noise: NoiseSettings): Effect.Effect<readonly number[], never, never> =>
+        Effect.gen(function* () {
+          // Delegate to domain service for business logic
+          return yield* domainService.generateHeightMap(coordinates, seed, noise)
+        }),
+
+      /**
+       * Get biome configuration using infrastructure-specific biome generation
+       */
+      getBiome: (x: number, z: number, seed: number): Effect.Effect<BiomeConfig, never, never> =>
+        Effect.gen(function* () {
+          // Delegate to domain service for business logic
+          return yield* domainService.getBiome(x, z, seed)
+        }),
+
+      /**
+       * Check if terrain generation is available on this platform
+       */
+      isAvailable: (): Effect.Effect<boolean, never, never> =>
+        Effect.gen(function* () {
+          // Check if infrastructure dependencies are available
+          // In a real implementation, this would check for WebGL, noise libraries, etc.
+          return typeof performance !== 'undefined' && typeof Math !== 'undefined'
+        }),
+    } satisfies ITerrainGenerator
+  })
 
 /**
  * Live layer for Terrain Generator Adapter
  */
-export const TerrainGeneratorAdapterLive = Layer.effect(
-  TerrainGeneratorPort,
-  createTerrainGeneratorAdapter()
-)
+export const TerrainGeneratorAdapterLive = Layer.effect(TerrainGeneratorPort, createTerrainGeneratorAdapter())
 
 /**
  * Terrain Generator Adapter with custom configuration
  */
-export const createCustomTerrainGeneratorAdapter = (config?: {
-  noiseLibrary?: 'math' | 'simplex' | 'perlin'
-  enableGPUAcceleration?: boolean
-  enableWorkerThreads?: boolean
-}) => {
+export const createCustomTerrainGeneratorAdapter = (config?: { noiseLibrary?: 'math' | 'simplex' | 'perlin'; enableGPUAcceleration?: boolean; enableWorkerThreads?: boolean }) => {
   return Layer.effect(
     TerrainGeneratorPort,
     Effect.gen(function* () {
       const adapter = yield* createTerrainGeneratorAdapter()
-      
+
       // Configure noise provider based on capabilities
       if (config?.enableGPUAcceleration && typeof WebGLRenderingContext !== 'undefined') {
         // Configure WebGL-based noise - future enhancement
       }
-      
+
       if (config?.enableWorkerThreads && typeof Worker !== 'undefined') {
         // Configure Worker-based noise - future enhancement
       }
-      
+
       return adapter
-    })
+    }),
   )
 }
 
@@ -222,11 +207,7 @@ export const TerrainGeneratorAdapterUtils = {
   validateCapabilities: (): Effect.Effect<boolean, never, never> =>
     Effect.gen(function* () {
       // Check for required browser APIs and performance capabilities
-      return (
-        typeof performance !== 'undefined' &&
-        typeof Math !== 'undefined' &&
-        typeof Float32Array !== 'undefined'
-      )
+      return typeof performance !== 'undefined' && typeof Math !== 'undefined' && typeof Float32Array !== 'undefined'
     }),
 
   /**
@@ -242,15 +223,15 @@ export const TerrainGeneratorAdapterUtils = {
    */
   getSupportedAlgorithms: (): string[] => {
     const algorithms = ['math-based']
-    
+
     if (typeof WebGLRenderingContext !== 'undefined') {
       algorithms.push('webgl-optimized')
     }
-    
+
     if (typeof Worker !== 'undefined') {
       algorithms.push('worker-threaded')
     }
-    
+
     return algorithms
   },
 
@@ -259,7 +240,7 @@ export const TerrainGeneratorAdapterUtils = {
    */
   checkWebGLSupport: (): boolean => {
     if (typeof WebGLRenderingContext === 'undefined') return false
-    
+
     try {
       const canvas = document.createElement('canvas')
       const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')

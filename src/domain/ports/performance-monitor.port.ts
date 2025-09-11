@@ -94,7 +94,7 @@ export interface FramePerformanceSummary {
 
 /**
  * Performance Monitor Port interface
- * 
+ *
  * This is the domain-level abstraction for performance monitoring.
  * Infrastructure adapters implement this interface.
  */

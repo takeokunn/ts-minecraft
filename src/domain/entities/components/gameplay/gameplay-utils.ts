@@ -1,6 +1,6 @@
 /**
  * Gameplay Component Utilities and Constants
- * 
+ *
  * Provides utility objects and type definitions for gameplay components
  */
 
@@ -16,7 +16,7 @@ import type {
   HotbarComponent,
   GravityComponent,
   FrozenComponent,
-  DisabledComponent
+  DisabledComponent,
 } from '@domain/entities/components/gameplay/gameplay-components'
 
 import {
@@ -31,7 +31,7 @@ import {
   HotbarComponent as HotbarComponentSchema,
   GravityComponent as GravityComponentSchema,
   FrozenComponent as FrozenComponentSchema,
-  DisabledComponent as DisabledComponentSchema
+  DisabledComponent as DisabledComponentSchema,
 } from '@domain/entities/components/gameplay/gameplay-components'
 
 // ===== GAMEPLAY COMPONENT UTILITIES =====
@@ -51,11 +51,11 @@ export const GameplayComponents = {
   Disabled: DisabledComponentSchema,
 } as const
 
-export type AnyGameplayComponent = 
-  | HealthComponent 
-  | InventoryComponent 
-  | PlayerControlComponent 
-  | AIComponent 
+export type AnyGameplayComponent =
+  | HealthComponent
+  | InventoryComponent
+  | PlayerControlComponent
+  | AIComponent
   | TargetComponent
   | PlayerComponent
   | InputStateComponent
@@ -74,14 +74,14 @@ export {
   TargetComponent as TargetComponentType,
 }
 
-export type { 
-  HotbarComponent as Hotbar, 
-  PlayerComponent as PlayerType, 
-  InputStateComponent as InputStateType, 
-  CameraStateComponent as CameraState, 
+export type {
+  HotbarComponent as Hotbar,
+  PlayerComponent as PlayerType,
+  InputStateComponent as InputStateType,
+  CameraStateComponent as CameraState,
   TargetComponent as TargetBlock,
   PlayerComponent as Player,
-  InputStateComponent as InputState
+  InputStateComponent as InputState,
 }
 
 // Additional type aliases for backward compatibility

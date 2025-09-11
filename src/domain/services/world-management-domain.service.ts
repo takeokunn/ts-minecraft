@@ -1,6 +1,6 @@
 /**
  * World Management Domain Service
- * 
+ *
  * Contains the pure business logic for world management operations,
  * including chunk management, world state coordination, and
  * high-level world operations that orchestrate other domain services.
@@ -8,20 +8,8 @@
 
 import { Effect, Context, Layer, HashMap, HashSet, Data, Ref } from 'effect'
 import { WorldDomainService } from '@domain/services/world-domain.service'
-import { 
-  TerrainGeneratorPort, 
-  type ITerrainGenerator, 
-  type TerrainGenerationRequest,
-  type ChunkCoordinates,
-  TerrainGeneratorHelpers
-} from '@domain/ports/terrain-generator.port'
-import {
-  MeshGeneratorPort,
-  type IMeshGenerator,
-  type MeshGenerationRequest,
-  type ChunkData,
-  MeshGeneratorHelpers
-} from '@domain/ports/mesh-generator.port'
+import { TerrainGeneratorPort, type ITerrainGenerator, type TerrainGenerationRequest, type ChunkCoordinates, TerrainGeneratorHelpers } from '@domain/ports/terrain-generator.port'
+import { MeshGeneratorPort, type IMeshGenerator, type MeshGenerationRequest, type ChunkData, MeshGeneratorHelpers } from '@domain/ports/mesh-generator.port'
 import { WorldRepositoryPort } from '@domain/ports/world-repository.port'
 import { CHUNK_SIZE } from '@domain/constants/world-constants'
 import { EntityId } from '@domain/entities'
@@ -90,32 +78,32 @@ export interface IWorldManagementDomainService {
    * Load a chunk with terrain generation and mesh creation
    */
   readonly loadChunk: (coordinates: ChunkCoordinates, priority?: number) => Effect.Effect<ChunkLoadResult, ChunkLoadFailedError | ChunkGenerationLimitExceededError>
-  
+
   /**
    * Unload a chunk and free its resources
    */
   readonly unloadChunk: (coordinates: ChunkCoordinates) => Effect.Effect<boolean>
-  
+
   /**
    * Get chunk metadata
    */
   readonly getChunkMetadata: (coordinates: ChunkCoordinates) => Effect.Effect<ChunkMetadata | null>
-  
+
   /**
    * Get all loaded chunks
    */
   readonly getLoadedChunks: () => Effect.Effect<readonly ChunkMetadata[]>
-  
+
   /**
    * Update player position and manage chunk loading/unloading
    */
   readonly updatePlayerPosition: (playerEntityId: EntityId, chunkCoordinates: ChunkCoordinates) => Effect.Effect<void>
-  
+
   /**
    * Get world management statistics
    */
   readonly getStats: () => Effect.Effect<WorldManagementStats>
-  
+
   /**
    * Cleanup unused chunks based on distance and usage
    */
@@ -143,10 +131,10 @@ export class WorldManagementConfigError extends Data.TaggedError('WorldManagemen
 const getChunkKey = (coordinates: ChunkCoordinates): string => `${coordinates.x},${coordinates.z}`
 
 const getNeighborCoordinates = (coordinates: ChunkCoordinates): readonly ChunkCoordinates[] => [
-  { x: coordinates.x - 1, z: coordinates.z },     // West
-  { x: coordinates.x + 1, z: coordinates.z },     // East
-  { x: coordinates.x, z: coordinates.z - 1 },     // North
-  { x: coordinates.x, z: coordinates.z + 1 },     // South
+  { x: coordinates.x - 1, z: coordinates.z }, // West
+  { x: coordinates.x + 1, z: coordinates.z }, // East
+  { x: coordinates.x, z: coordinates.z - 1 }, // North
+  { x: coordinates.x, z: coordinates.z + 1 }, // South
   { x: coordinates.x - 1, z: coordinates.z - 1 }, // Northwest
   { x: coordinates.x + 1, z: coordinates.z - 1 }, // Northeast
   { x: coordinates.x - 1, z: coordinates.z + 1 }, // Southwest
@@ -174,8 +162,7 @@ const getChunksInRadius = (center: ChunkCoordinates, radius: number): readonly C
   return chunks
 }
 
-const calculateChunkDistance = (a: ChunkCoordinates, b: ChunkCoordinates): number => 
-  Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.z - b.z, 2))
+const calculateChunkDistance = (a: ChunkCoordinates, b: ChunkCoordinates): number => Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.z - b.z, 2))
 
 /**
  * World Management Domain Service Context Tag
@@ -208,20 +195,22 @@ export const WorldManagementDomainServiceLive = Layer.effect(
         const chunkKey = getChunkKey(coordinates)
         const metadata = yield* Ref.get(chunkMetadata)
         const existing = HashMap.get(metadata, chunkKey)
-        
-        const updated: ChunkMetadata = existing ? {
-          ...existing,
-          status,
-          lastAccessed: Date.now(),
-        } : {
-          coordinates,
-          status,
-          lastAccessed: Date.now(),
-          priority: 1,
-          neighbors: getNeighborCoordinates(coordinates),
-          entityCount: 0,
-          blockCount: 0,
-        }
+
+        const updated: ChunkMetadata = existing
+          ? {
+              ...existing,
+              status,
+              lastAccessed: Date.now(),
+            }
+          : {
+              coordinates,
+              status,
+              lastAccessed: Date.now(),
+              priority: 1,
+              neighbors: getNeighborCoordinates(coordinates),
+              entityCount: 0,
+              blockCount: 0,
+            }
 
         yield* Ref.update(chunkMetadata, HashMap.set(chunkKey, updated))
       })
@@ -231,11 +220,11 @@ export const WorldManagementDomainServiceLive = Layer.effect(
         const metadata = yield* Ref.get(chunkMetadata)
         const chunks = HashMap.values(metadata)
         return chunks
-          .filter(chunk => {
+          .filter((chunk) => {
             const distance = calculateChunkDistance(center, chunk.coordinates)
             return distance > radius
           })
-          .map(chunk => chunk.coordinates)
+          .map((chunk) => chunk.coordinates)
       })
 
     // Service implementation
@@ -264,7 +253,7 @@ export const WorldManagementDomainServiceLive = Layer.effect(
             new ChunkGenerationLimitExceededError({
               limit: config.maxConcurrentGenerations,
               current: generations,
-            })
+            }),
           )
         }
 
@@ -276,7 +265,7 @@ export const WorldManagementDomainServiceLive = Layer.effect(
           // Generate terrain
           const terrainGenerator = yield* TerrainGeneratorPort
           const terrainRequest = createTerrainRequest(coordinates, config.worldSeed)
-          
+
           yield* updateChunkStatus(coordinates, 'generating')
           const terrainResult = yield* terrainGenerator.generateTerrain(terrainRequest)
 
@@ -290,7 +279,7 @@ export const WorldManagementDomainServiceLive = Layer.effect(
           }
 
           const meshRequest = MeshGeneratorHelpers.createDefaultRequest(chunkData)
-          
+
           yield* updateChunkStatus(coordinates, 'meshing')
           const meshResult = yield* meshGenerator.generateMesh(meshRequest)
 
@@ -324,12 +313,12 @@ export const WorldManagementDomainServiceLive = Layer.effect(
         } catch (error) {
           yield* updateChunkStatus(coordinates, 'error')
           yield* Ref.update(currentGenerations, (n) => n - 1)
-          
+
           return yield* Effect.fail(
             new ChunkLoadFailedError({
               coordinates,
               reason: error instanceof Error ? error.message : 'Unknown error',
-            })
+            }),
           )
         }
       })
@@ -363,7 +352,7 @@ export const WorldManagementDomainServiceLive = Layer.effect(
     const getLoadedChunks = (): Effect.Effect<readonly ChunkMetadata[]> =>
       Effect.gen(function* () {
         const metadata = yield* Ref.get(chunkMetadata)
-        return HashMap.values(metadata).filter(chunk => chunk.status === 'loaded')
+        return HashMap.values(metadata).filter((chunk) => chunk.status === 'loaded')
       })
 
     const updatePlayerPosition = (playerEntityId: EntityId, chunkCoordinates: ChunkCoordinates): Effect.Effect<void> =>
@@ -376,7 +365,7 @@ export const WorldManagementDomainServiceLive = Layer.effect(
         for (const coords of chunksToLoad) {
           const distance = calculateChunkDistance(chunkCoordinates, coords)
           const priority = Math.max(1, config.chunkLoadDistance - distance + 1)
-          
+
           // Start loading chunk (fire and forget)
           yield* Effect.fork(loadChunk(coords, priority))
         }
@@ -391,10 +380,10 @@ export const WorldManagementDomainServiceLive = Layer.effect(
       Effect.gen(function* () {
         const metadata = yield* Ref.get(chunkMetadata)
         const chunks = HashMap.values(metadata)
-        const loadedChunks = chunks.filter(c => c.status === 'loaded')
-        const generatingChunks = chunks.filter(c => c.status === 'generating').length
-        const meshingChunks = chunks.filter(c => c.status === 'meshing').length
-        
+        const loadedChunks = chunks.filter((c) => c.status === 'loaded')
+        const generatingChunks = chunks.filter((c) => c.status === 'generating').length
+        const meshingChunks = chunks.filter((c) => c.status === 'meshing').length
+
         const totalEntities = chunks.reduce((sum, chunk) => sum + chunk.entityCount, 0)
         const totalBlocks = chunks.reduce((sum, chunk) => sum + chunk.blockCount, 0)
         const averageLoadTime = loadedChunks.reduce((sum, chunk) => sum + (chunk.loadTime || 0), 0) / Math.max(1, loadedChunks.length)
@@ -422,7 +411,7 @@ export const WorldManagementDomainServiceLive = Layer.effect(
         const metadata = yield* Ref.get(chunkMetadata)
         const chunks = HashMap.values(metadata)
         for (const chunk of chunks) {
-          if (chunk.status === 'loaded' && (now - chunk.lastAccessed) > maxAge) {
+          if (chunk.status === 'loaded' && now - chunk.lastAccessed > maxAge) {
             yield* unloadChunk(chunk.coordinates)
             cleanedCount++
           }
@@ -440,9 +429,8 @@ export const WorldManagementDomainServiceLive = Layer.effect(
       getStats,
       cleanupUnusedChunks,
     }
-  })
+  }),
 )
-
 
 /**
  * Utility functions for world management
@@ -471,10 +459,7 @@ export const WorldManagementUtils = {
    * Get chunk priority based on distance from player
    */
   calculateChunkPriority: (playerChunk: ChunkCoordinates, targetChunk: ChunkCoordinates, maxDistance: number): number => {
-    const distance = Math.sqrt(
-      Math.pow(playerChunk.x - targetChunk.x, 2) + 
-      Math.pow(playerChunk.z - targetChunk.z, 2)
-    )
+    const distance = Math.sqrt(Math.pow(playerChunk.x - targetChunk.x, 2) + Math.pow(playerChunk.z - targetChunk.z, 2))
     return Math.max(1, maxDistance - Math.floor(distance) + 1)
   },
 }

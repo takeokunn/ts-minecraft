@@ -108,9 +108,7 @@ export interface GameStateViewModelExtended extends GameStateViewModelInterface 
 export const GameStateViewModel = Context.GenericTag<GameStateViewModelExtended>('GameStateViewModel')
 
 // Layer for dependency injection
-export const GameStateViewModelLive: Layer.Layer<GameStateViewModel, never, QueryHandlers> = 
-  Layer.effect(GameStateViewModel, GameStateViewModelLive)
+export const GameStateViewModelLive: Layer.Layer<GameStateViewModel, never, QueryHandlers> = Layer.effect(GameStateViewModel, GameStateViewModelLive)
 
 // Factory function for direct usage
-export const createGameStateViewModel = (queryHandlers: any) => 
-  Effect.runSync(Effect.provide(GameStateViewModelLive, Layer.succeed(QueryHandlers, queryHandlers)))
+export const createGameStateViewModel = (queryHandlers: any) => Effect.runSync(Effect.provide(GameStateViewModelLive, Layer.succeed(QueryHandlers, queryHandlers)))

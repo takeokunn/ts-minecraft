@@ -22,10 +22,10 @@ graph TD
     B --> C[Domain Layer]
     B --> D[Infrastructure Layer]
     D --> C
-    
+
     E[External Systems] --> D
     F[User Interface] --> A
-    
+
     subgraph "Domain Layer (Core Business Logic)"
         C1[Entities]
         C2[Value Objects]
@@ -33,7 +33,7 @@ graph TD
         C4[Ports/Interfaces]
         C5[Domain Events]
     end
-    
+
     subgraph "Application Layer (Use Cases)"
         B1[Use Cases]
         B2[Application Services]
@@ -41,7 +41,7 @@ graph TD
         B4[Query Handlers]
         B5[Command Handlers]
     end
-    
+
     subgraph "Infrastructure Layer (Technical Concerns)"
         D1[Adapters]
         D2[Repositories]
@@ -49,7 +49,7 @@ graph TD
         D4[Database]
         D5[File System]
     end
-    
+
     subgraph "Presentation Layer (User Interface)"
         A1[Controllers]
         A2[View Models]
@@ -65,6 +65,7 @@ graph TD
 **Purpose**: Contains the core business logic and rules of the Minecraft game engine.
 
 **Responsibilities**:
+
 - Define game entities (Player, Chunk, Block, World)
 - Implement business rules and constraints
 - Define domain services for complex operations
@@ -82,19 +83,14 @@ export class EntityId extends Data.Class<{
 
 // Example: Domain service
 export interface WorldDomainService {
-  readonly generateTerrain: (
-    coordinate: ChunkCoordinate,
-    seed: number
-  ) => Effect.Effect<TerrainData, TerrainGenerationError>
-  
-  readonly validateBlockPlacement: (
-    position: Position,
-    blockType: BlockType
-  ) => Effect.Effect<boolean, ValidationError>
+  readonly generateTerrain: (coordinate: ChunkCoordinate, seed: number) => Effect.Effect<TerrainData, TerrainGenerationError>
+
+  readonly validateBlockPlacement: (position: Position, blockType: BlockType) => Effect.Effect<boolean, ValidationError>
 }
 ```
 
 **Subdirectories**:
+
 - `entities/` - Game entities and their components
 - `value-objects/` - Immutable value types (Position, Velocity, etc.)
 - `services/` - Domain business logic services
@@ -107,6 +103,7 @@ export interface WorldDomainService {
 **Purpose**: Orchestrates domain logic to fulfill specific use cases and workflows.
 
 **Responsibilities**:
+
 - Implement use cases (player movement, block placement, chunk loading)
 - Coordinate multiple domain services
 - Handle application-specific workflows
@@ -116,18 +113,15 @@ export interface WorldDomainService {
 
 ```typescript
 // Example: Use case implementation
-export const playerMoveUseCase = (
-  direction: Direction,
-  playerId: EntityId
-): Effect.Effect<void, PlayerMoveError, WorldService | InputService> =>
+export const playerMoveUseCase = (direction: Direction, playerId: EntityId): Effect.Effect<void, PlayerMoveError, WorldService | InputService> =>
   Effect.gen(function* () {
     const world = yield* WorldService
     const input = yield* InputService
-    
+
     const player = yield* world.getPlayer(playerId)
     const newPosition = yield* calculateNewPosition(player.position, direction)
     const isValid = yield* world.validatePosition(newPosition)
-    
+
     if (isValid) {
       yield* world.updatePlayerPosition(playerId, newPosition)
     }
@@ -135,6 +129,7 @@ export const playerMoveUseCase = (
 ```
 
 **Subdirectories**:
+
 - `use-cases/` - Application use cases
 - `workflows/` - Complex multi-step processes
 - `queries/` - ECS query system for data retrieval
@@ -147,6 +142,7 @@ export const playerMoveUseCase = (
 **Purpose**: Provides technical implementations of domain ports and external system integration.
 
 **Responsibilities**:
+
 - Implement domain ports with concrete technologies
 - Handle external system communication (WebGL, WebGPU, Workers)
 - Manage data persistence and caching
@@ -162,50 +158,55 @@ export const threeJsRenderAdapter: RenderPort = {
       const threeGeometry = yield* convertGeometry(geometry)
       const threeMaterial = yield* convertMaterial(material)
       const mesh = new THREE.Mesh(threeGeometry, threeMaterial)
-      
+
       const id = yield* generateMeshId()
       yield* addToScene(mesh)
       yield* storeMeshReference(id, mesh)
-      
+
       return id
     }).pipe(
-      Effect.catchAll(error => Effect.fail(
-        new RenderError({ 
-          operation: 'createMesh',
-          cause: error,
-          geometry: geometry.type,
-          material: material.type
-        })
-      ))
+      Effect.catchAll((error) =>
+        Effect.fail(
+          new RenderError({
+            operation: 'createMesh',
+            cause: error,
+            geometry: geometry.type,
+            material: material.type,
+          }),
+        ),
+      ),
     ),
-  
+
   updateMesh: (id, updates) =>
     Effect.gen(function* () {
       const mesh = yield* getMeshById(id)
-      
+
       if (updates.position) {
         mesh.position.copy(convertVector3(updates.position))
       }
-      
+
       if (updates.rotation) {
         mesh.rotation.copy(convertEuler(updates.rotation))
       }
-      
+
       // Batch render updates for performance
       yield* scheduleRenderUpdate(id)
     }).pipe(
-      Effect.catchTag('MeshNotFound', error =>
-        Effect.fail(new RenderError({
-          operation: 'updateMesh',
-          meshId: id,
-          cause: error
-        }))
-      )
-    )
+      Effect.catchTag('MeshNotFound', (error) =>
+        Effect.fail(
+          new RenderError({
+            operation: 'updateMesh',
+            meshId: id,
+            cause: error,
+          }),
+        ),
+      ),
+    ),
 }
 ```
 
 **Subdirectories**:
+
 - `adapters/` - Concrete implementations of domain ports
 - `repositories/` - Data persistence implementations
 - `services/` - Technical services
@@ -217,6 +218,7 @@ export const threeJsRenderAdapter: RenderPort = {
 **Purpose**: Handles user interaction and presents information to users.
 
 **Responsibilities**:
+
 - Process user input events
 - Display game state and information
 - Provide developer tools and debugging interfaces
@@ -229,7 +231,7 @@ export const threeJsRenderAdapter: RenderPort = {
 export const gameController = Effect.gen(function* () {
   const playerMove = yield* PlayerMoveUseCase
   const blockPlace = yield* BlockPlaceUseCase
-  
+
   return {
     handleKeyPress: (key: KeyCode) =>
       Match.value(key).pipe(
@@ -237,8 +239,8 @@ export const gameController = Effect.gen(function* () {
         Match.when('S', () => playerMove('backward')),
         Match.when('A', () => playerMove('left')),
         Match.when('D', () => playerMove('right')),
-        Match.orElse(() => Effect.unit)
-      )
+        Match.orElse(() => Effect.unit),
+      ),
   }
 })
 ```
@@ -263,17 +265,11 @@ export const MyServiceLive = Layer.effect(
   MyService,
   Effect.gen(function* () {
     const dependency = yield* DependencyService
-    
+
     return MyService.of({
-      operation: (input) =>
-        pipe(
-          Effect.succeed(input),
-          Effect.flatMap(validate),
-          Effect.flatMap(process),
-          Effect.mapError(toMyError)
-        )
+      operation: (input) => pipe(Effect.succeed(input), Effect.flatMap(validate), Effect.flatMap(process), Effect.mapError(toMyError)),
     })
-  })
+  }),
 )
 ```
 
@@ -297,13 +293,8 @@ export class ValidationError extends Data.TaggedError('ValidationError')<{
 // Usage with specific error handling
 const operation = pipe(
   riskyOperation(input),
-  Effect.catchTag('EntityNotFoundError', (error) => 
-    Effect.logWarning(`Entity ${error.entityId} not found during ${error.operation}`)
-      .pipe(Effect.andThen(createDefaultEntity()))
-  ),
-  Effect.catchTag('ValidationError', (error) =>
-    Effect.fail(new UserInputError({ message: `Invalid ${error.field}` }))
-  )
+  Effect.catchTag('EntityNotFoundError', (error) => Effect.logWarning(`Entity ${error.entityId} not found during ${error.operation}`).pipe(Effect.andThen(createDefaultEntity()))),
+  Effect.catchTag('ValidationError', (error) => Effect.fail(new UserInputError({ message: `Invalid ${error.field}` }))),
 )
 ```
 
@@ -313,25 +304,11 @@ Application layers are composed from bottom-up:
 
 ```typescript
 // src/layers.ts
-export const AppLayer = Layer.mergeAll(
-  DomainLayer,
-  ApplicationLayer,
-  InfrastructureLayer,
-  PresentationLayer
-)
+export const AppLayer = Layer.mergeAll(DomainLayer, ApplicationLayer, InfrastructureLayer, PresentationLayer)
 
-export const DomainLayer = Layer.mergeAll(
-  WorldDomainServiceLive,
-  EntityDomainServiceLive,
-  PhysicsDomainServiceLive
-)
+export const DomainLayer = Layer.mergeAll(WorldDomainServiceLive, EntityDomainServiceLive, PhysicsDomainServiceLive)
 
-export const InfrastructureLayer = Layer.mergeAll(
-  ThreeJsAdapterLive,
-  WebGLRendererLive,
-  ChunkRepositoryLive,
-  PerformanceMonitorLive
-)
+export const InfrastructureLayer = Layer.mergeAll(ThreeJsAdapterLive, WebGLRendererLive, ChunkRepositoryLive, PerformanceMonitorLive)
 ```
 
 ### 4. Dependency Flow
@@ -342,13 +319,14 @@ graph LR
     B --> C[Domain Ports]
     D[Infrastructure] --> C
     E[External Systems] --> D
-    
+
     subgraph "Dependency Direction"
         F[High Level] --> G[Low Level]
     end
 ```
 
 Dependencies flow inward toward the domain layer:
+
 - Presentation depends on Application
 - Application depends on Domain
 - Infrastructure implements Domain ports
@@ -371,26 +349,26 @@ export class Player extends Data.Class<{
 export const Position = S.Struct({
   x: S.Number,
   y: S.Number,
-  z: S.Number
+  z: S.Number,
 })
 
 export const Velocity = S.Struct({
   dx: S.Number,
   dy: S.Number,
-  dz: S.Number
+  dz: S.Number,
 })
 
 // ECS Queries
 export const movableEntitiesQuery = createQuery({
   all: [Position, Velocity],
-  none: [Frozen]
+  none: [Frozen],
 })
 
 // ECS System (Application layer)
 export const movementSystem = Effect.gen(function* () {
   const world = yield* WorldService
   const { entities, components } = yield* world.querySoA(movableEntitiesQuery)
-  
+
   // Process entities in Structure of Arrays format for performance
   for (let i = 0; i < entities.length; i++) {
     components.position.x[i] += components.velocity.dx[i]
@@ -417,26 +395,13 @@ Different environments use different layer configurations:
 
 ```typescript
 // Development environment
-export const DevLayer = Layer.mergeAll(
-  AppLayer,
-  DebuggerLive,
-  ProfilerLive,
-  DevToolsLive
-)
+export const DevLayer = Layer.mergeAll(AppLayer, DebuggerLive, ProfilerLive, DevToolsLive)
 
 // Production environment
-export const ProdLayer = Layer.mergeAll(
-  AppLayer,
-  PerformanceOptimizedLive,
-  TelemetryLive
-)
+export const ProdLayer = Layer.mergeAll(AppLayer, PerformanceOptimizedLive, TelemetryLive)
 
 // Test environment
-export const TestLayer = Layer.mergeAll(
-  MockWorldServiceLive,
-  MockRendererLive,
-  TestUtilitiesLive
-)
+export const TestLayer = Layer.mergeAll(MockWorldServiceLive, MockRendererLive, TestUtilitiesLive)
 ```
 
 ### Dependency Injection
@@ -448,9 +413,7 @@ All dependencies are managed through Effect-TS Context system:
 const program = Effect.gen(function* () {
   yield* initialize()
   yield* gameLoop()
-}).pipe(
-  Effect.provide(getAppLayer())
-)
+}).pipe(Effect.provide(getAppLayer()))
 
 Effect.runPromise(program)
 ```
@@ -468,16 +431,11 @@ describe('WorldDomainService', () => {
   it.effect('should generate valid terrain', () =>
     Effect.gen(function* () {
       const service = yield* WorldDomainService
-      const terrain = yield* service.generateTerrain(
-        ChunkCoordinate.make(0, 0),
-        12345
-      )
-      
+      const terrain = yield* service.generateTerrain(ChunkCoordinate.make(0, 0), 12345)
+
       expect(terrain.blocks.length).toBe(CHUNK_SIZE ** 3)
-      expect(terrain.heightMap.every(h => h >= 0 && h <= 255)).toBe(true)
-    }).pipe(
-      Effect.provide(TestWorldDomainServiceLive)
-    )
+      expect(terrain.heightMap.every((h) => h >= 0 && h <= 255)).toBe(true)
+    }).pipe(Effect.provide(TestWorldDomainServiceLive)),
   )
 })
 ```
@@ -492,15 +450,13 @@ describe('Player Movement Integration', () => {
     Effect.gen(function* () {
       const controller = yield* GameController
       const world = yield* WorldService
-      
+
       const initialPosition = yield* world.getPlayerPosition()
       yield* controller.handleKeyPress('W')
       const newPosition = yield* world.getPlayerPosition()
-      
+
       expect(newPosition.z).toBeLessThan(initialPosition.z)
-    }).pipe(
-      Effect.provide(TestAppLayer)
-    )
+    }).pipe(Effect.provide(TestAppLayer)),
   )
 })
 ```
@@ -512,6 +468,7 @@ This architecture represents our ongoing migration to clean DDD with Effect-TS:
 ### Phase 3 Migration Complete ✅
 
 #### Before Migration (Phase 1)
+
 - 126+ classes with mixed OOP/FP patterns
 - Direct Three.js dependencies in domain layer
 - 3 different query systems causing confusion
@@ -520,6 +477,7 @@ This architecture represents our ongoing migration to clean DDD with Effect-TS:
 - Inconsistent error handling patterns
 
 #### After Phase 3 Migration ✅
+
 - **95% Functional Programming**: Nearly eliminated class-based patterns
 - **Clean Layer Separation**: Strict DDD boundaries with dependency inversion
 - **Unified Query System**: Consolidated 3 systems into 1 optimized system
@@ -551,18 +509,21 @@ Test Coverage: ~5% → ~60% (1200% increase) 🎯
 ### Key Achievements
 
 #### Architectural Excellence
+
 - **Layer Compliance**: Zero circular dependencies, strict DDD boundaries
 - **Type Safety**: Comprehensive Effect-TS types with branded types
 - **Error Handling**: Consistent tagged error system throughout
 - **Dependency Injection**: Type-safe DI through Effect Context system
 
 #### Code Quality Improvements
+
 - **Pure Functions**: Eliminated `this` keyword and mutations
 - **Immutable Data**: All data structures use Effect-TS `Data.Class`
 - **Composable Effects**: All operations wrapped in Effect types
 - **Resource Management**: Scoped resource handling with cleanup
 
 #### Performance Enhancements
+
 - **SoA ECS**: Structure of Arrays for optimal cache performance
 - **Unified Queries**: Single optimized query system
 - **Worker Integration**: Background computation with Effect coordination
@@ -571,18 +532,21 @@ Test Coverage: ~5% → ~60% (1200% increase) 🎯
 ## Best Practices
 
 ### Code Organization
+
 1. Group related functionality in bounded contexts
 2. Use barrel exports (`index.ts`) for clean module interfaces
 3. Follow consistent naming conventions (kebab-case files, PascalCase types)
 4. Separate pure domain logic from technical implementations
 
 ### Effect-TS Usage
+
 1. Prefer `Effect.gen` for complex async operations
 2. Use tagged errors for specific error handling
 3. Compose services through Layer system
 4. Leverage branded types for domain safety
 
 ### Performance
+
 1. Use SoA for component storage
 2. Batch operations where possible
 3. Offload heavy computations to workers
@@ -593,16 +557,19 @@ Test Coverage: ~5% → ~60% (1200% increase) 🎯
 ### Common Issues
 
 **Circular Dependencies**
+
 - Ensure layers only depend on lower layers
 - Use ports/interfaces to break concrete dependencies
 - Check import statements for cross-layer violations
 
 **Performance Problems**
+
 - Profile using built-in performance tools
 - Check for memory leaks in component storage
 - Verify proper use of SoA data structures
 
 **Type Errors**
+
 - Ensure all services are properly provided in layers
 - Check branded type usage consistency
 - Verify Effect error types match error handling
@@ -610,6 +577,7 @@ Test Coverage: ~5% → ~60% (1200% increase) 🎯
 ### Debugging Tools
 
 The architecture includes comprehensive debugging capabilities:
+
 - Real-time entity inspector
 - Performance profiler
 - Memory usage monitor
@@ -619,6 +587,7 @@ The architecture includes comprehensive debugging capabilities:
 ## Future Roadmap
 
 ### Planned Enhancements
+
 1. **WebGPU Integration**: Enhanced rendering performance
 2. **Distributed Computing**: Multi-threaded physics simulation
 3. **Persistent World**: Advanced save/load system
@@ -626,6 +595,7 @@ The architecture includes comprehensive debugging capabilities:
 5. **Plugin System**: Extensible architecture for mods
 
 ### Technical Debt Reduction
+
 1. Further optimization of query system
 2. Enhanced error recovery mechanisms
 3. Improved developer tooling

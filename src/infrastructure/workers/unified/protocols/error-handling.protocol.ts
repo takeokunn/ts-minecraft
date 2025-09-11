@@ -12,12 +12,7 @@ import * as S from 'effect/Schema'
 /**
  * Error severity levels
  */
-export const ErrorSeverity = S.Union(
-  S.Literal('low'),
-  S.Literal('medium'),
-  S.Literal('high'),
-  S.Literal('critical'),
-).pipe(S.identifier('ErrorSeverity'))
+export const ErrorSeverity = S.Union(S.Literal('low'), S.Literal('medium'), S.Literal('high'), S.Literal('critical')).pipe(S.identifier('ErrorSeverity'))
 export type ErrorSeverity = S.Schema.Type<typeof ErrorSeverity>
 
 /**
@@ -40,14 +35,9 @@ export type ErrorCategory = S.Schema.Type<typeof ErrorCategory>
 /**
  * Error recovery strategy
  */
-export const RecoveryStrategy = S.Union(
-  S.Literal('retry'),
-  S.Literal('fallback'),
-  S.Literal('ignore'),
-  S.Literal('abort'),
-  S.Literal('escalate'),
-  S.Literal('manual'),
-).pipe(S.identifier('RecoveryStrategy'))
+export const RecoveryStrategy = S.Union(S.Literal('retry'), S.Literal('fallback'), S.Literal('ignore'), S.Literal('abort'), S.Literal('escalate'), S.Literal('manual')).pipe(
+  S.identifier('RecoveryStrategy'),
+)
 export type RecoveryStrategy = S.Schema.Type<typeof RecoveryStrategy>
 
 /**
@@ -59,28 +49,30 @@ export const WorkerError = S.Struct({
   message: S.String,
   category: ErrorCategory,
   severity: ErrorSeverity,
-  
+
   // Context information
   workerId: S.optional(S.String),
   workerType: S.optional(S.String),
   requestId: S.optional(S.String),
   timestamp: S.Number.pipe(S.positive),
-  
+
   // Error details
-  details: S.optional(S.Record({
-    key: S.String,
-    value: S.Union(S.String, S.Number, S.Boolean, S.Unknown),
-  })),
-  
+  details: S.optional(
+    S.Record({
+      key: S.String,
+      value: S.Union(S.String, S.Number, S.Boolean, S.Unknown),
+    }),
+  ),
+
   // Stack trace and debugging
   stackTrace: S.optional(S.String),
   innerError: S.optional(S.Unknown), // Nested error
-  
+
   // Recovery information
   recoveryStrategy: S.optional(RecoveryStrategy),
   retryable: S.Boolean,
   maxRetries: S.optional(S.Number.pipe(S.int(), S.nonNegative)),
-  
+
   // Metrics
   occurredAt: S.Number.pipe(S.positive),
   processingTime: S.optional(S.Number.pipe(S.positive)),
@@ -170,28 +162,30 @@ export const ErrorContext = S.Struct({
   workerId: S.String,
   workerType: S.String,
   workerVersion: S.optional(S.String),
-  
+
   // Request context
   requestId: S.String,
   requestType: S.String,
   requestData: S.optional(S.Unknown),
-  
+
   // System context
   platform: S.optional(S.String),
   userAgent: S.optional(S.String),
   memoryUsage: S.optional(S.Number.pipe(S.positive)),
   cpuUsage: S.optional(S.Number.pipe(S.between(0, 100))),
-  
+
   // Performance context
   startTime: S.Number.pipe(S.positive),
   duration: S.optional(S.Number.pipe(S.positive)),
-  
+
   // Additional metadata
   tags: S.optional(S.Array(S.String)),
-  custom: S.optional(S.Record({
-    key: S.String,
-    value: S.Union(S.String, S.Number, S.Boolean),
-  })),
+  custom: S.optional(
+    S.Record({
+      key: S.String,
+      value: S.Union(S.String, S.Number, S.Boolean),
+    }),
+  ),
 }).pipe(S.identifier('ErrorContext'))
 export type ErrorContext = S.Schema.Type<typeof ErrorContext>
 
@@ -204,7 +198,7 @@ export const ErrorMetrics = S.Struct({
   averageRecoveryTime: S.optional(S.Number.pipe(S.positive)),
   successfulRetries: S.Number.pipe(S.int(), S.nonNegative),
   failedRetries: S.Number.pipe(S.int(), S.nonNegative),
-  
+
   // Error distribution
   errorsByCategory: S.Record({
     key: ErrorCategory,
@@ -214,11 +208,11 @@ export const ErrorMetrics = S.Struct({
     key: ErrorSeverity,
     value: S.Number.pipe(S.int(), S.nonNegative),
   }),
-  
+
   // Time-based metrics
   firstOccurrence: S.Number.pipe(S.positive),
   lastOccurrence: S.Number.pipe(S.positive),
-  
+
   // Resolution metrics
   resolvedErrors: S.Number.pipe(S.int(), S.nonNegative),
   unresolvedErrors: S.Number.pipe(S.int(), S.nonNegative),
@@ -271,16 +265,16 @@ export const ErrorHandlingConfig = S.Struct({
   enableLogging: S.Boolean,
   enableMetrics: S.Boolean,
   enableNotifications: S.Boolean,
-  
+
   // Strategy configurations
   retryConfig: S.optional(RetryConfig),
   fallbackConfig: S.optional(FallbackConfig),
   circuitBreakerConfig: S.optional(CircuitBreakerConfig),
-  
+
   // Escalation rules
   escalationThreshold: S.optional(S.Number.pipe(S.int(), S.positive)),
   escalationTarget: S.optional(S.String), // Email, webhook, etc.
-  
+
   // Filtering
   ignoredErrors: S.optional(S.Array(S.String)), // Error codes to ignore
   criticalErrors: S.optional(S.Array(S.String)), // Error codes requiring immediate attention
@@ -298,12 +292,12 @@ export const WorkerErrorResponse = S.Struct({
   error: WorkerError,
   context: ErrorContext,
   timestamp: S.Number.pipe(S.positive),
-  
+
   // Recovery information
   canRetry: S.Boolean,
   retryAfter: S.optional(S.Number.pipe(S.positive)),
   suggestedAction: S.optional(S.String),
-  
+
   // Debugging aids
   troubleshootingGuide: S.optional(S.String),
   relatedErrors: S.optional(S.Array(S.String)), // Related error IDs
@@ -346,7 +340,7 @@ export const createWorkerError = (
     requestId?: string
     retryable?: boolean
     details?: Record<string, any>
-  }
+  },
 ): WorkerError => ({
   code,
   message,
@@ -367,7 +361,7 @@ export const createWorkerError = (
 export const createValidationError = (
   message: string,
   validationErrors: ValidationError['validationErrors'],
-  options?: { workerId?: string; requestId?: string }
+  options?: { workerId?: string; requestId?: string },
 ): ValidationError => ({
   code: 'VALIDATION_FAILED',
   message,
@@ -384,12 +378,7 @@ export const createValidationError = (
 /**
  * Create a timeout error
  */
-export const createTimeoutError = (
-  operation: string,
-  timeoutDuration: number,
-  elapsedTime: number,
-  options?: { workerId?: string; requestId?: string }
-): TimeoutError => ({
+export const createTimeoutError = (operation: string, timeoutDuration: number, elapsedTime: number, options?: { workerId?: string; requestId?: string }): TimeoutError => ({
   code: 'TIMEOUT',
   message: `Operation '${operation}' timed out after ${elapsedTime}ms (limit: ${timeoutDuration}ms)`,
   category: 'timeout',
@@ -418,7 +407,7 @@ export const createMemoryError = (
     allocatedMemory?: number
     requestedMemory?: number
     availableMemory?: number
-  }
+  },
 ): MemoryError => ({
   code: 'MEMORY_ERROR',
   message,
@@ -463,23 +452,18 @@ export const createDefaultErrorHandlingConfig = (): ErrorHandlingConfig => ({
  * Check if error is retryable
  */
 export const isRetryableError = (error: WorkerError): boolean => {
-  return error.retryable && 
-         error.category !== 'validation' &&
-         error.severity !== 'critical'
+  return error.retryable && error.category !== 'validation' && error.severity !== 'critical'
 }
 
 /**
  * Get retry delay based on configuration
  */
-export const calculateRetryDelay = (
-  retryAttempt: number,
-  config: RetryConfig
-): number => {
+export const calculateRetryDelay = (retryAttempt: number, config: RetryConfig): number => {
   let delay: number
 
   switch (config.backoffStrategy) {
     case 'linear':
-      delay = config.initialDelay + (retryAttempt * config.initialDelay)
+      delay = config.initialDelay + retryAttempt * config.initialDelay
       break
     case 'exponential':
       delay = config.initialDelay * Math.pow(config.backoffFactor || 2, retryAttempt)

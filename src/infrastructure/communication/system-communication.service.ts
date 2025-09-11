@@ -108,7 +108,7 @@ export interface CommunicationConfig {
  */
 export class CommunicationError extends Schema.TaggedError<CommunicationError>()('CommunicationError', {
   message: Schema.String,
-  cause: Schema.optional(Schema.Unknown)
+  cause: Schema.optional(Schema.Unknown),
 }) {}
 
 /**

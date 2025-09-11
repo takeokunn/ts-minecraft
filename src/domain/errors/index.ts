@@ -123,11 +123,4 @@ export {
 } from '@domain/errors/error-exports'
 
 // Error utilities
-export {
-  ErrorUtils,
-  type ErrorPatternMatcher,
-  type ErrorRecoveryStrategy,
-  type ErrorAnalysisResult,
-  type ErrorReport,
-  type ValidationResult
-} from '@domain/errors/error-utils'
+export { ErrorUtils, type ErrorPatternMatcher, type ErrorRecoveryStrategy, type ErrorAnalysisResult, type ErrorReport, type ValidationResult } from '@domain/errors/error-utils'

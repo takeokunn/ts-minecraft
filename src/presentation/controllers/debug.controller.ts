@@ -114,11 +114,7 @@ const DebugControllerImpl = Effect.gen(function* ($) {
 // Create context tag for dependency injection
 export const DebugController = Context.GenericTag<DebugControllerInterface>('DebugController')
 
-export const DebugControllerLive: Layer.Layer<DebugController, never, never> = Layer.effect(
-  DebugController,
-  DebugControllerImpl,
-)
+export const DebugControllerLive: Layer.Layer<DebugController, never, never> = Layer.effect(DebugController, DebugControllerImpl)
 
 // Factory function for direct usage
-export const createDebugController = () => 
-  Effect.runSync(DebugControllerLive)
+export const createDebugController = () => Effect.runSync(DebugControllerLive)

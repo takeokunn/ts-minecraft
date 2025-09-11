@@ -29,24 +29,15 @@ export type ComputationType = S.Schema.Type<typeof ComputationType>
 /**
  * Priority level for computations
  */
-export const ComputationPriority = S.Union(
-  S.Literal('low'),
-  S.Literal('normal'),
-  S.Literal('high'),
-  S.Literal('critical'),
-).pipe(S.identifier('ComputationPriority'))
+export const ComputationPriority = S.Union(S.Literal('low'), S.Literal('normal'), S.Literal('high'), S.Literal('critical')).pipe(S.identifier('ComputationPriority'))
 export type ComputationPriority = S.Schema.Type<typeof ComputationPriority>
 
 /**
  * Computation execution mode
  */
-export const ExecutionMode = S.Union(
-  S.Literal('single_threaded'),
-  S.Literal('multi_threaded'),
-  S.Literal('simd'),
-  S.Literal('wasm'),
-  S.Literal('gpu_compute'),
-).pipe(S.identifier('ExecutionMode'))
+export const ExecutionMode = S.Union(S.Literal('single_threaded'), S.Literal('multi_threaded'), S.Literal('simd'), S.Literal('wasm'), S.Literal('gpu_compute')).pipe(
+  S.identifier('ExecutionMode'),
+)
 export type ExecutionMode = S.Schema.Type<typeof ExecutionMode>
 
 // ============================================
@@ -217,14 +208,9 @@ export type NoiseSampleResult = S.Schema.Type<typeof NoiseSampleResult>
 /**
  * Compression algorithm
  */
-export const CompressionAlgorithm = S.Union(
-  S.Literal('gzip'),
-  S.Literal('deflate'),
-  S.Literal('brotli'),
-  S.Literal('lz4'),
-  S.Literal('zstd'),
-  S.Literal('snappy'),
-).pipe(S.identifier('CompressionAlgorithm'))
+export const CompressionAlgorithm = S.Union(S.Literal('gzip'), S.Literal('deflate'), S.Literal('brotli'), S.Literal('lz4'), S.Literal('zstd'), S.Literal('snappy')).pipe(
+  S.identifier('CompressionAlgorithm'),
+)
 export type CompressionAlgorithm = S.Schema.Type<typeof CompressionAlgorithm>
 
 /**
@@ -266,14 +252,9 @@ export type CompressionResult = S.Schema.Type<typeof CompressionResult>
 /**
  * Image format
  */
-export const ImageFormat = S.Union(
-  S.Literal('rgba8'),
-  S.Literal('rgb8'),
-  S.Literal('grayscale8'),
-  S.Literal('rgba16f'),
-  S.Literal('rgb16f'),
-  S.Literal('r32f'),
-).pipe(S.identifier('ImageFormat'))
+export const ImageFormat = S.Union(S.Literal('rgba8'), S.Literal('rgb8'), S.Literal('grayscale8'), S.Literal('rgba16f'), S.Literal('rgb16f'), S.Literal('r32f')).pipe(
+  S.identifier('ImageFormat'),
+)
 export type ImageFormat = S.Schema.Type<typeof ImageFormat>
 
 /**
@@ -376,11 +357,11 @@ export const ComputationRequest = S.Struct({
   id: S.String,
   type: ComputationType,
   priority: ComputationPriority,
-  
+
   // Execution preferences
   executionMode: S.optional(ExecutionMode),
   timeout: S.optional(S.Number.pipe(S.positive)),
-  
+
   // Computation-specific payload
   payload: S.Union(
     PathfindingParams, // For pathfinding
@@ -390,10 +371,10 @@ export const ComputationRequest = S.Struct({
     MathOperationRequest, // For math operations
     S.Unknown, // For custom operations
   ),
-  
+
   // Navigation mesh (for pathfinding)
   navigationMesh: S.optional(S.Array(NavigationNode)),
-  
+
   // Options
   options: S.optional(
     S.Struct({
@@ -401,13 +382,13 @@ export const ComputationRequest = S.Struct({
       returnIntermediateResults: S.Boolean,
       useCache: S.Boolean,
       cacheTTL: S.optional(S.Number.pipe(S.positive)),
-      
+
       // Threading options
       maxThreads: S.optional(S.Number.pipe(S.int(), S.positive)),
-      
+
       // Memory options
       maxMemoryUsage: S.optional(S.Number.pipe(S.positive)),
-      
+
       // Progress reporting
       reportProgress: S.optional(S.Boolean),
       progressInterval: S.optional(S.Number.pipe(S.positive)),
@@ -425,23 +406,23 @@ export const ComputationPerformanceMetrics = S.Struct({
   computationTime: S.Number.pipe(S.positive),
   setupTime: S.Number.pipe(S.positive),
   teardownTime: S.Number.pipe(S.positive),
-  
+
   // Resource usage
   peakMemoryUsage: S.optional(S.Number.pipe(S.positive)),
   averageMemoryUsage: S.optional(S.Number.pipe(S.positive)),
   cpuUtilization: S.optional(S.Number.pipe(S.between(0, 100))),
-  
+
   // Threading
   threadsUsed: S.Number.pipe(S.int(), S.nonNegative),
-  
+
   // Operations
   operationsPerformed: S.optional(S.Number.pipe(S.int(), S.nonNegative)),
   throughput: S.optional(S.Number.pipe(S.positive)), // Operations per second
-  
+
   // Cache statistics
   cacheHits: S.optional(S.Number.pipe(S.int(), S.nonNegative)),
   cacheMisses: S.optional(S.Number.pipe(S.int(), S.nonNegative)),
-  
+
   // Quality metrics
   accuracy: S.optional(S.Number.pipe(S.between(0, 1))),
   convergence: S.optional(S.Boolean),
@@ -455,7 +436,7 @@ export const ComputationResponse = S.Struct({
   // Request identification
   id: S.String,
   type: ComputationType,
-  
+
   // Result data
   result: S.Union(
     PathResult, // For pathfinding
@@ -465,19 +446,19 @@ export const ComputationResponse = S.Struct({
     Matrix, // For math operations
     S.Unknown, // For custom operations
   ),
-  
+
   // Performance metrics
   metrics: ComputationPerformanceMetrics,
-  
+
   // Status information
   success: S.Boolean,
   warnings: S.optional(S.Array(S.String)),
   errors: S.optional(S.Array(S.String)),
-  
+
   // Worker information
   workerId: S.String,
   executionMode: ExecutionMode,
-  
+
   // Progress information (if requested)
   progress: S.optional(
     S.Struct({
@@ -486,7 +467,7 @@ export const ComputationResponse = S.Struct({
       estimatedTimeRemaining: S.optional(S.Number.pipe(S.positive)),
     }),
   ),
-  
+
   // Debug information
   debugData: S.optional(
     S.Struct({
@@ -512,7 +493,7 @@ export type ComputationResponse = S.Schema.Type<typeof ComputationResponse>
  */
 export const BatchComputationRequest = S.Struct({
   requests: S.Array(ComputationRequest),
-  
+
   // Batch options
   options: S.optional(
     S.Struct({
@@ -523,7 +504,7 @@ export const BatchComputationRequest = S.Struct({
       enableDependencies: S.Boolean,
     }),
   ),
-  
+
   // Dependencies between requests (if enabled)
   dependencies: S.optional(
     S.Array(
@@ -541,7 +522,7 @@ export type BatchComputationRequest = S.Schema.Type<typeof BatchComputationReque
  */
 export const BatchComputationResponse = S.Struct({
   responses: S.Array(ComputationResponse),
-  
+
   // Batch metrics
   batchMetrics: S.Struct({
     totalTime: S.Number.pipe(S.positive),
@@ -550,7 +531,7 @@ export const BatchComputationResponse = S.Struct({
     averageProcessingTime: S.Number.pipe(S.positive),
     concurrencyAchieved: S.Number.pipe(S.int(), S.positive),
   }),
-  
+
   // Failed requests
   failures: S.optional(
     S.Array(
@@ -630,7 +611,7 @@ export const manhattanDistance3D = (a: Position3D, b: Position3D): number => {
  */
 export const extractComputationTransferables = (data: any): ArrayBufferView[] => {
   const transferables: ArrayBufferView[] = []
-  
+
   const extract = (obj: any) => {
     if (obj instanceof ArrayBufferView) {
       transferables.push(obj)
@@ -642,7 +623,7 @@ export const extractComputationTransferables = (data: any): ArrayBufferView[] =>
       }
     }
   }
-  
+
   extract(data)
   return transferables
 }

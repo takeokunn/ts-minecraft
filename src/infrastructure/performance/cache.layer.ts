@@ -133,183 +133,189 @@ interface LRUCacheState<T> {
 /**
  * Create a functional LRU Cache using Effect-TS Ref
  */
-const createLRUCache = <T>(maxSize: number, maxEntries: number) => Effect.gen(function* () {
-  const stateRef = yield* Ref.make<LRUCacheState<T>>({
-    cache: new Map(),
-    head: null,
-    tail: null,
-    currentSize: 0,
-    maxSize,
-    maxEntries,
-  })
+const createLRUCache = <T>(maxSize: number, maxEntries: number) =>
+  Effect.gen(function* () {
+    const stateRef = yield* Ref.make<LRUCacheState<T>>({
+      cache: new Map(),
+      head: null,
+      tail: null,
+      currentSize: 0,
+      maxSize,
+      maxEntries,
+    })
 
-  const moveToHead = (state: LRUCacheState<T>, node: LRUNode<T>): LRUCacheState<T> => {
-    const newState = removeNode(state, node)
-    return addToHead(newState, node)
-  }
-
-  const addToHead = (state: LRUCacheState<T>, node: LRUNode<T>): LRUCacheState<T> => {
-    node.prev = null
-    node.next = state.head
-
-    if (state.head) {
-      state.head.prev = node
-    }
-
-    const newHead = node
-    const newTail = state.tail || node
-
-    return {
-      ...state,
-      head: newHead,
-      tail: newTail,
-    }
-  }
-
-  const removeNode = (state: LRUCacheState<T>, node: LRUNode<T>): LRUCacheState<T> => {
-    let newHead = state.head
-    let newTail = state.tail
-
-    if (node.prev) {
-      node.prev.next = node.next
-    } else {
-      newHead = node.next
-    }
-
-    if (node.next) {
-      node.next.prev = node.prev
-    } else {
-      newTail = node.prev
-    }
-
-    return {
-      ...state,
-      head: newHead,
-      tail: newTail,
-    }
-  }
-
-  const evictTail = (state: LRUCacheState<T>): LRUCacheState<T> => {
-    if (!state.tail) return state
-
-    const key = state.tail.key
-    const newState = removeNode(state, state.tail)
-    const newCache = new Map(state.cache)
-    newCache.delete(key)
-
-    return {
-      ...newState,
-      cache: newCache,
-      currentSize: newState.currentSize - state.tail.size,
-    }
-  }
-
-  return {
-    get: (key: string) => Effect.gen(function* () {
-      const state = yield* Ref.get(stateRef)
-      const node = state.cache.get(key)
-      
-      if (!node) return undefined
-
-      // Update node access info
-      node.accessCount++
-      node.timestamp = Date.now()
-
-      // Move to head (most recently used)
-      const newState = moveToHead(state, node)
-      yield* Ref.set(stateRef, newState)
-
-      return node.value
-    }),
-
-    set: (key: string, value: T, size: number) => Effect.gen(function* () {
-      const state = yield* Ref.get(stateRef)
-      const existing = state.cache.get(key)
-
-      if (existing) {
-        // Update existing node
-        const newCurrentSize = state.currentSize - existing.size + size
-        existing.value = value
-        existing.size = size
-        existing.timestamp = Date.now()
-        existing.accessCount++
-
-        const newState = {
-          ...moveToHead(state, existing),
-          currentSize: newCurrentSize,
-        }
-        yield* Ref.set(stateRef, newState)
-      } else {
-        // Create new node
-        const node: LRUNode<T> = {
-          key,
-          value,
-          size,
-          prev: null,
-          next: null,
-          timestamp: Date.now(),
-          accessCount: 1,
-        }
-
-        const newCache = new Map(state.cache)
-        newCache.set(key, node)
-
-        let newState: LRUCacheState<T> = {
-          ...addToHead(state, node),
-          cache: newCache,
-          currentSize: state.currentSize + size,
-        }
-
-        // Evict if necessary
-        while ((newState.currentSize > newState.maxSize || newState.cache.size > newState.maxEntries) && newState.tail) {
-          newState = evictTail(newState)
-        }
-
-        yield* Ref.set(stateRef, newState)
-      }
-    }),
-
-    delete: (key: string) => Effect.gen(function* () {
-      const state = yield* Ref.get(stateRef)
-      const node = state.cache.get(key)
-      
-      if (!node) return false
-
+    const moveToHead = (state: LRUCacheState<T>, node: LRUNode<T>): LRUCacheState<T> => {
       const newState = removeNode(state, node)
+      return addToHead(newState, node)
+    }
+
+    const addToHead = (state: LRUCacheState<T>, node: LRUNode<T>): LRUCacheState<T> => {
+      node.prev = null
+      node.next = state.head
+
+      if (state.head) {
+        state.head.prev = node
+      }
+
+      const newHead = node
+      const newTail = state.tail || node
+
+      return {
+        ...state,
+        head: newHead,
+        tail: newTail,
+      }
+    }
+
+    const removeNode = (state: LRUCacheState<T>, node: LRUNode<T>): LRUCacheState<T> => {
+      let newHead = state.head
+      let newTail = state.tail
+
+      if (node.prev) {
+        node.prev.next = node.next
+      } else {
+        newHead = node.next
+      }
+
+      if (node.next) {
+        node.next.prev = node.prev
+      } else {
+        newTail = node.prev
+      }
+
+      return {
+        ...state,
+        head: newHead,
+        tail: newTail,
+      }
+    }
+
+    const evictTail = (state: LRUCacheState<T>): LRUCacheState<T> => {
+      if (!state.tail) return state
+
+      const key = state.tail.key
+      const newState = removeNode(state, state.tail)
       const newCache = new Map(state.cache)
       newCache.delete(key)
 
-      yield* Ref.set(stateRef, {
+      return {
         ...newState,
         cache: newCache,
-        currentSize: newState.currentSize - node.size,
-      })
-
-      return true
-    }),
-
-    clear: () => Effect.gen(function* () {
-      yield* Ref.set(stateRef, {
-        cache: new Map(),
-        head: null,
-        tail: null,
-        currentSize: 0,
-        maxSize,
-        maxEntries,
-      })
-    }),
-
-    getStats: () => Effect.gen(function* () {
-      const state = yield* Ref.get(stateRef)
-      return {
-        currentSize: state.currentSize,
-        currentEntries: state.cache.size,
-        maxSize: state.maxSize,
-        maxEntries: state.maxEntries,
+        currentSize: newState.currentSize - state.tail.size,
       }
-    }),
-  }
-})
+    }
+
+    return {
+      get: (key: string) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(stateRef)
+          const node = state.cache.get(key)
+
+          if (!node) return undefined
+
+          // Update node access info
+          node.accessCount++
+          node.timestamp = Date.now()
+
+          // Move to head (most recently used)
+          const newState = moveToHead(state, node)
+          yield* Ref.set(stateRef, newState)
+
+          return node.value
+        }),
+
+      set: (key: string, value: T, size: number) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(stateRef)
+          const existing = state.cache.get(key)
+
+          if (existing) {
+            // Update existing node
+            const newCurrentSize = state.currentSize - existing.size + size
+            existing.value = value
+            existing.size = size
+            existing.timestamp = Date.now()
+            existing.accessCount++
+
+            const newState = {
+              ...moveToHead(state, existing),
+              currentSize: newCurrentSize,
+            }
+            yield* Ref.set(stateRef, newState)
+          } else {
+            // Create new node
+            const node: LRUNode<T> = {
+              key,
+              value,
+              size,
+              prev: null,
+              next: null,
+              timestamp: Date.now(),
+              accessCount: 1,
+            }
+
+            const newCache = new Map(state.cache)
+            newCache.set(key, node)
+
+            let newState: LRUCacheState<T> = {
+              ...addToHead(state, node),
+              cache: newCache,
+              currentSize: state.currentSize + size,
+            }
+
+            // Evict if necessary
+            while ((newState.currentSize > newState.maxSize || newState.cache.size > newState.maxEntries) && newState.tail) {
+              newState = evictTail(newState)
+            }
+
+            yield* Ref.set(stateRef, newState)
+          }
+        }),
+
+      delete: (key: string) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(stateRef)
+          const node = state.cache.get(key)
+
+          if (!node) return false
+
+          const newState = removeNode(state, node)
+          const newCache = new Map(state.cache)
+          newCache.delete(key)
+
+          yield* Ref.set(stateRef, {
+            ...newState,
+            cache: newCache,
+            currentSize: newState.currentSize - node.size,
+          })
+
+          return true
+        }),
+
+      clear: () =>
+        Effect.gen(function* () {
+          yield* Ref.set(stateRef, {
+            cache: new Map(),
+            head: null,
+            tail: null,
+            currentSize: 0,
+            maxSize,
+            maxEntries,
+          })
+        }),
+
+      getStats: () =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(stateRef)
+          return {
+            currentSize: state.currentSize,
+            currentEntries: state.cache.size,
+            maxSize: state.maxSize,
+            maxEntries: state.maxEntries,
+          }
+        }),
+    }
+  })
 
 // ============================================================================
 // Multi-Level Cache Implementation
@@ -427,25 +433,20 @@ export const MultiLevelCacheServiceLive = Layer.effect(
 
         // If TTL is set, schedule expiration
         if (options?.ttl) {
-          yield* Effect.fork(
-            Effect.delay(
-              cache.delete(key),
-              options.ttl,
-            ),
-          )
+          yield* Effect.fork(Effect.delay(cache.delete(key), options.ttl))
         }
 
         yield* Metric.increment(cacheMetrics.sets.tagged('level', level))
       })
 
-    const has = (key: string) => 
+    const has = (key: string) =>
       Effect.gen(function* () {
         const l1Value = yield* l1Cache.get(key)
         if (l1Value !== undefined) return true
-        
+
         const l2Value = yield* l2Cache.get(key)
         if (l2Value !== undefined) return true
-        
+
         const l3Value = yield* l3Cache.get(key)
         return l3Value !== undefined
       })

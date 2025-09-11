@@ -272,7 +272,7 @@ export const createWorkerFactory = <TInput, TOutput>(config: TypedWorkerConfig<T
 export const createTypedWorker = <TInput, TOutput>(config: TypedWorkerConfig<TInput, TOutput>) => {
   return Effect.gen(function* () {
     const capabilities = detectWorkerCapabilities()
-    
+
     // Send ready signal
     self.postMessage({
       type: 'ready',
@@ -324,13 +324,13 @@ export const createTypedWorker = <TInput, TOutput>(config: TypedWorkerConfig<TIn
               })
               return Effect.void
             }),
-          )
+          ),
         )
       }
     }
 
     self.onmessage = handleMessage
-    
+
     return { capabilities }
   })
 }

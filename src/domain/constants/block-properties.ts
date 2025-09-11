@@ -1,6 +1,6 @@
 /**
  * Block Properties Constants
- * 
+ *
  * Pure domain constants defining block properties including colors, opacity, textures, and materials.
  * These constants are extracted from infrastructure layer to maintain technology-agnostic domain logic.
  * All properties use const assertions for maximum type safety.
@@ -72,73 +72,73 @@ export const BLOCK_OPACITY = {
 export const BLOCK_TEXTURES = {
   grass: {
     top: 'grass_top',
-    sides: 'grass_side', 
-    bottom: 'dirt'
+    sides: 'grass_side',
+    bottom: 'dirt',
   } as const,
   dirt: {
-    all: 'dirt'
+    all: 'dirt',
   } as const,
   stone: {
-    all: 'stone'
+    all: 'stone',
   } as const,
   bedrock: {
-    all: 'bedrock'
+    all: 'bedrock',
   } as const,
   sand: {
-    all: 'sand'
+    all: 'sand',
   } as const,
   water: {
     all: 'water',
-    animated: true
+    animated: true,
   } as const,
   wood: {
     top: 'log_top',
     bottom: 'log_top',
-    sides: 'log_side'
+    sides: 'log_side',
   } as const,
   leaves: {
-    all: 'leaves'
+    all: 'leaves',
   } as const,
   coal_ore: {
-    all: 'coal_ore'
+    all: 'coal_ore',
   } as const,
   iron_ore: {
-    all: 'iron_ore'
+    all: 'iron_ore',
   } as const,
   gold_ore: {
-    all: 'gold_ore'
+    all: 'gold_ore',
   } as const,
   diamond_ore: {
-    all: 'diamond_ore'
+    all: 'diamond_ore',
   } as const,
   cobblestone: {
-    all: 'cobblestone'
+    all: 'cobblestone',
   } as const,
   planks: {
-    all: 'planks_oak'
+    all: 'planks_oak',
   } as const,
   glass: {
-    all: 'glass'
+    all: 'glass',
   } as const,
   lava: {
     all: 'lava',
     animated: true,
-    emissive: true
+    emissive: true,
   } as const,
   obsidian: {
-    all: 'obsidian'
+    all: 'obsidian',
   } as const,
   snow: {
-    all: 'snow'
+    all: 'snow',
   } as const,
   ice: {
-    all: 'ice'
+    all: 'ice',
   } as const,
   clay: {
-    all: 'clay'
+    all: 'clay',
   } as const,
   gravel: {
-    all: 'gravel'
+    all: 'gravel',
   } as const,
 } as const
 
@@ -508,8 +508,7 @@ export const BlockPropertiesUtils = {
   isBlockEmissive: (blockType: BlockType): boolean => {
     const textures = BLOCK_TEXTURES[blockType]
     const opacity = BLOCK_OPACITY[blockType]
-    return ('emissive' in textures && textures.emissive === true) || 
-           ('isEmissive' in opacity && opacity.isEmissive === true)
+    return ('emissive' in textures && textures.emissive === true) || ('isEmissive' in opacity && opacity.isEmissive === true)
   },
 
   /**

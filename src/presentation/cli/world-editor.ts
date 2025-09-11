@@ -1,6 +1,6 @@
 /**
  * World Editor - Functional Module Implementation
- * 
+ *
  * Converted from class-based implementation to functional Effect-TS module
  * Features:
  * - Block placement, removal, and replacement tools
@@ -43,7 +43,7 @@ const defaultConfig: WorldEditorConfig = {
   position: { top: 10, left: 420 },
   maxHistorySize: 1000,
   defaultTool: 'place',
-  defaultBlockType: 'stone'
+  defaultBlockType: 'stone',
 }
 
 /**
@@ -52,14 +52,14 @@ const defaultConfig: WorldEditorConfig = {
 export const createWorldEditor = (world: World, config: Partial<WorldEditorConfig> = {}) =>
   Effect.gen(function* () {
     const finalConfig = { ...defaultConfig, ...config }
-    
+
     const stateRef = yield* Ref.make<WorldEditorState>({
       isOpen: false,
       editorElement: null,
       selectedTool: finalConfig.defaultTool,
       selectedBlockType: finalConfig.defaultBlockType,
       actionHistory: [],
-      historyIndex: -1
+      historyIndex: -1,
     })
 
     /**
@@ -99,10 +99,11 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
     /**
      * Create editor content and controls
      */
-    const createEditorContent = (parent: HTMLElement) => Effect.gen(function* () {
-      const state = yield* Ref.get(stateRef)
-      
-      parent.innerHTML = `
+    const createEditorContent = (parent: HTMLElement) =>
+      Effect.gen(function* () {
+        const state = yield* Ref.get(stateRef)
+
+        parent.innerHTML = `
         <div style="font-weight: bold; margin-bottom: 10px; color: #0cf;">
           🏗️ World Editor
           <button id="close-button" 
@@ -159,89 +160,90 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
           <div>History Index: <span id="history-index">${state.historyIndex}</span></div>
         </div>
       `
-    })
+      })
 
     /**
      * Setup event listeners for UI controls and keyboard shortcuts
      */
-    const setupEventListeners = (editorElement: HTMLElement) => Effect.gen(function* () {
-      // Close button
-      const closeButton = editorElement.querySelector('#close-button')
-      if (closeButton) {
-        closeButton.addEventListener('click', () => Effect.runSync(close()))
-      }
+    const setupEventListeners = (editorElement: HTMLElement) =>
+      Effect.gen(function* () {
+        // Close button
+        const closeButton = editorElement.querySelector('#close-button')
+        if (closeButton) {
+          closeButton.addEventListener('click', () => Effect.runSync(close()))
+        }
 
-      // Tool selection
-      const toolSelect = editorElement.querySelector('#tool-select') as HTMLSelectElement
-      if (toolSelect) {
-        toolSelect.addEventListener('change', (e) => {
-          const tool = (e.target as HTMLSelectElement).value
-          Effect.runSync(Ref.update(stateRef, (s) => ({ ...s, selectedTool: tool })))
-        })
-      }
+        // Tool selection
+        const toolSelect = editorElement.querySelector('#tool-select') as HTMLSelectElement
+        if (toolSelect) {
+          toolSelect.addEventListener('change', (e) => {
+            const tool = (e.target as HTMLSelectElement).value
+            Effect.runSync(Ref.update(stateRef, (s) => ({ ...s, selectedTool: tool })))
+          })
+        }
 
-      // Block type selection
-      const blockSelect = editorElement.querySelector('#block-select') as HTMLSelectElement
-      if (blockSelect) {
-        blockSelect.addEventListener('change', (e) => {
-          const blockType = (e.target as HTMLSelectElement).value
-          Effect.runSync(Ref.update(stateRef, (s) => ({ ...s, selectedBlockType: blockType })))
-        })
-      }
+        // Block type selection
+        const blockSelect = editorElement.querySelector('#block-select') as HTMLSelectElement
+        if (blockSelect) {
+          blockSelect.addEventListener('change', (e) => {
+            const blockType = (e.target as HTMLSelectElement).value
+            Effect.runSync(Ref.update(stateRef, (s) => ({ ...s, selectedBlockType: blockType })))
+          })
+        }
 
-      // Fill functionality
-      const fillButton = editorElement.querySelector('#fill-button')
-      if (fillButton) {
-        fillButton.addEventListener('click', () => Effect.runSync(fillSelectedArea()))
-      }
+        // Fill functionality
+        const fillButton = editorElement.querySelector('#fill-button')
+        if (fillButton) {
+          fillButton.addEventListener('click', () => Effect.runSync(fillSelectedArea()))
+        }
 
-      // Undo/Redo buttons
-      const undoButton = editorElement.querySelector('#undo-button')
-      const redoButton = editorElement.querySelector('#redo-button')
+        // Undo/Redo buttons
+        const undoButton = editorElement.querySelector('#undo-button')
+        const redoButton = editorElement.querySelector('#redo-button')
 
-      if (undoButton) {
-        undoButton.addEventListener('click', () => Effect.runSync(undo()))
-      }
+        if (undoButton) {
+          undoButton.addEventListener('click', () => Effect.runSync(undo()))
+        }
 
-      if (redoButton) {
-        redoButton.addEventListener('click', () => Effect.runSync(redo()))
-      }
+        if (redoButton) {
+          redoButton.addEventListener('click', () => Effect.runSync(redo()))
+        }
 
-      // Keyboard shortcuts
-      const keyboardHandler = (event: KeyboardEvent) => {
-        Effect.runSync(
-          Effect.gen(function* () {
-            const state = yield* Ref.get(stateRef)
-            if (!state.isOpen) return
+        // Keyboard shortcuts
+        const keyboardHandler = (event: KeyboardEvent) => {
+          Effect.runSync(
+            Effect.gen(function* () {
+              const state = yield* Ref.get(stateRef)
+              if (!state.isOpen) return
 
-            if (event.ctrlKey || event.metaKey) {
-              if (event.key === 'z' && !event.shiftKey) {
-                event.preventDefault()
-                yield* undo()
-              } else if (event.key === 'y' || (event.key === 'z' && event.shiftKey)) {
-                event.preventDefault()
-                yield* redo()
+              if (event.ctrlKey || event.metaKey) {
+                if (event.key === 'z' && !event.shiftKey) {
+                  event.preventDefault()
+                  yield* undo()
+                } else if (event.key === 'y' || (event.key === 'z' && event.shiftKey)) {
+                  event.preventDefault()
+                  yield* redo()
+                }
               }
-            }
-          })
-        )
-      }
+            }),
+          )
+        }
 
-      document.addEventListener('keydown', keyboardHandler)
+        document.addEventListener('keydown', keyboardHandler)
 
-      // Mouse interaction
-      const mouseHandler = (event: MouseEvent) => {
-        Effect.runSync(
-          Effect.gen(function* () {
-            const state = yield* Ref.get(stateRef)
-            if (!state.isOpen) return
-            yield* handleMouseClick(event)
-          })
-        )
-      }
+        // Mouse interaction
+        const mouseHandler = (event: MouseEvent) => {
+          Effect.runSync(
+            Effect.gen(function* () {
+              const state = yield* Ref.get(stateRef)
+              if (!state.isOpen) return
+              yield* handleMouseClick(event)
+            }),
+          )
+        }
 
-      document.addEventListener('mousedown', mouseHandler)
-    })
+        document.addEventListener('mousedown', mouseHandler)
+      })
 
     /**
      * Toggle editor visibility
@@ -260,7 +262,7 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
      */
     const open = Effect.gen(function* () {
       yield* createEditorUI()
-      
+
       const state = yield* Ref.get(stateRef)
       if (state.editorElement) {
         state.editorElement.style.display = 'block'
@@ -286,89 +288,96 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
     /**
      * Handle mouse click for world editing
      */
-    const handleMouseClick = (event: MouseEvent) => Effect.gen(function* () {
-      const worldPos = yield* getWorldPositionFromMouse(event)
-      if (!worldPos) return
+    const handleMouseClick = (event: MouseEvent) =>
+      Effect.gen(function* () {
+        const worldPos = yield* getWorldPositionFromMouse(event)
+        if (!worldPos) return
 
-      const state = yield* Ref.get(stateRef)
-      yield* executeAction(state.selectedTool, worldPos)
-    })
+        const state = yield* Ref.get(stateRef)
+        yield* executeAction(state.selectedTool, worldPos)
+      })
 
     /**
      * Get world position from mouse coordinates (placeholder implementation)
      */
-    const getWorldPositionFromMouse = (_event: MouseEvent) => Effect.gen(function* () {
-      // In actual implementation, use Three.js raycaster to get world coordinates
-      return { x: 0, y: 0, z: 0 }
-    })
+    const getWorldPositionFromMouse = (_event: MouseEvent) =>
+      Effect.gen(function* () {
+        // In actual implementation, use Three.js raycaster to get world coordinates
+        return { x: 0, y: 0, z: 0 }
+      })
 
     /**
      * Execute editing action at position
      */
-    const executeAction = (tool: string, position: { x: number; y: number; z: number }) => Effect.gen(function* () {
-      const validTypes = ['place', 'remove', 'replace'] as const
-      if (!validTypes.includes(tool as any)) {
-        console.warn(`Invalid tool type: ${tool}`)
-        return
-      }
+    const executeAction = (tool: string, position: { x: number; y: number; z: number }) =>
+      Effect.gen(function* () {
+        const validTypes = ['place', 'remove', 'replace'] as const
+        if (!validTypes.includes(tool as any)) {
+          console.warn(`Invalid tool type: ${tool}`)
+          return
+        }
 
-      const state = yield* Ref.get(stateRef)
-      const action: WorldEditAction = {
-        type: tool as 'place' | 'remove' | 'replace',
-        position,
-      }
+        const state = yield* Ref.get(stateRef)
+        const action: WorldEditAction = {
+          type: tool as 'place' | 'remove' | 'replace',
+          position,
+        }
 
-      switch (tool) {
-        case 'place':
-          action.blockType = state.selectedBlockType
-          yield* placeBlock(position, state.selectedBlockType)
-          break
-        case 'remove':
-          action.oldBlockType = yield* getBlockAt(position)
-          yield* removeBlock(position)
-          break
-        case 'replace':
-          action.oldBlockType = yield* getBlockAt(position)
-          action.blockType = state.selectedBlockType
-          yield* replaceBlock(position, state.selectedBlockType)
-          break
-      }
+        switch (tool) {
+          case 'place':
+            action.blockType = state.selectedBlockType
+            yield* placeBlock(position, state.selectedBlockType)
+            break
+          case 'remove':
+            action.oldBlockType = yield* getBlockAt(position)
+            yield* removeBlock(position)
+            break
+          case 'replace':
+            action.oldBlockType = yield* getBlockAt(position)
+            action.blockType = state.selectedBlockType
+            yield* replaceBlock(position, state.selectedBlockType)
+            break
+        }
 
-      yield* addToHistory(action)
-      yield* updateUI()
-    })
+        yield* addToHistory(action)
+        yield* updateUI()
+      })
 
     /**
      * Place block at position
      */
-    const placeBlock = (position: { x: number; y: number; z: number }, blockType: string) => Effect.gen(function* () {
-      console.log(`Placing ${blockType} at (${position.x}, ${position.y}, ${position.z})`)
-      // Actual block placement logic would go here
-    })
+    const placeBlock = (position: { x: number; y: number; z: number }, blockType: string) =>
+      Effect.gen(function* () {
+        console.log(`Placing ${blockType} at (${position.x}, ${position.y}, ${position.z})`)
+        // Actual block placement logic would go here
+      })
 
     /**
      * Remove block at position
      */
-    const removeBlock = (position: { x: number; y: number; z: number }) => Effect.gen(function* () {
-      console.log(`Removing block at (${position.x}, ${position.y}, ${position.z})`)
-      // Actual block removal logic would go here
-    })
+    const removeBlock = (position: { x: number; y: number; z: number }) =>
+      Effect.gen(function* () {
+        console.log(`Removing block at (${position.x}, ${position.y}, ${position.z})`)
+        // Actual block removal logic would go here
+      })
 
     /**
      * Replace block at position
      */
-    const replaceBlock = (position: { x: number; y: number; z: number }, blockType: string) => Effect.gen(function* () {
-      console.log(`Replacing block at (${position.x}, ${position.y}, ${position.z}) with ${blockType}`)
-      // Actual block replacement logic would go here
-    })
+    const replaceBlock = (position: { x: number; y: number; z: number }, blockType: string) =>
+      Effect.gen(function* () {
+        console.log(`Replacing block at (${position.x}, ${position.y}, ${position.z}) with ${blockType}`)
+        // Actual block replacement logic would go here
+      })
 
     /**
      * Get block type at position
      */
-    const getBlockAt = (_position: { x: number; y: number; z: number }) => Effect.gen(function* () {
-      // In actual implementation, get block type from world
-      return 'air'
-    })
+    const getBlockAt = (_position: { x: number; y: number; z: number }) =>
+      Effect.gen(function* () {
+        // In actual implementation, get block type from world
+        return 'air'
+      })
 
     /**
      * Fill selected area with current block type
@@ -382,30 +391,31 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
     /**
      * Add action to history
      */
-    const addToHistory = (action: WorldEditAction) => Effect.gen(function* () {
-      yield* Ref.update(stateRef, (state) => {
-        // Remove future history if we're not at the end
-        let newHistory = [...state.actionHistory]
-        if (state.historyIndex < newHistory.length - 1) {
-          newHistory = newHistory.slice(0, state.historyIndex + 1)
-        }
+    const addToHistory = (action: WorldEditAction) =>
+      Effect.gen(function* () {
+        yield* Ref.update(stateRef, (state) => {
+          // Remove future history if we're not at the end
+          let newHistory = [...state.actionHistory]
+          if (state.historyIndex < newHistory.length - 1) {
+            newHistory = newHistory.slice(0, state.historyIndex + 1)
+          }
 
-        newHistory.push(action)
-        let newIndex = newHistory.length - 1
+          newHistory.push(action)
+          let newIndex = newHistory.length - 1
 
-        // Limit history size
-        if (newHistory.length > finalConfig.maxHistorySize) {
-          newHistory.shift()
-          newIndex--
-        }
+          // Limit history size
+          if (newHistory.length > finalConfig.maxHistorySize) {
+            newHistory.shift()
+            newIndex--
+          }
 
-        return {
-          ...state,
-          actionHistory: newHistory,
-          historyIndex: newIndex
-        }
+          return {
+            ...state,
+            actionHistory: newHistory,
+            historyIndex: newIndex,
+          }
+        })
       })
-    })
 
     /**
      * Undo last action
@@ -441,44 +451,46 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
     /**
      * Revert an action (for undo)
      */
-    const revertAction = (action: WorldEditAction) => Effect.gen(function* () {
-      switch (action.type) {
-        case 'place':
-          yield* removeBlock(action.position)
-          break
-        case 'remove':
-          if (action.oldBlockType) {
-            yield* placeBlock(action.position, action.oldBlockType)
-          }
-          break
-        case 'replace':
-          if (action.oldBlockType) {
-            yield* replaceBlock(action.position, action.oldBlockType)
-          }
-          break
-      }
-    })
+    const revertAction = (action: WorldEditAction) =>
+      Effect.gen(function* () {
+        switch (action.type) {
+          case 'place':
+            yield* removeBlock(action.position)
+            break
+          case 'remove':
+            if (action.oldBlockType) {
+              yield* placeBlock(action.position, action.oldBlockType)
+            }
+            break
+          case 'replace':
+            if (action.oldBlockType) {
+              yield* replaceBlock(action.position, action.oldBlockType)
+            }
+            break
+        }
+      })
 
     /**
      * Apply an action (for redo)
      */
-    const applyAction = (action: WorldEditAction) => Effect.gen(function* () {
-      switch (action.type) {
-        case 'place':
-          if (action.blockType) {
-            yield* placeBlock(action.position, action.blockType)
-          }
-          break
-        case 'remove':
-          yield* removeBlock(action.position)
-          break
-        case 'replace':
-          if (action.blockType) {
-            yield* replaceBlock(action.position, action.blockType)
-          }
-          break
-      }
-    })
+    const applyAction = (action: WorldEditAction) =>
+      Effect.gen(function* () {
+        switch (action.type) {
+          case 'place':
+            if (action.blockType) {
+              yield* placeBlock(action.position, action.blockType)
+            }
+            break
+          case 'remove':
+            yield* removeBlock(action.position)
+            break
+          case 'replace':
+            if (action.blockType) {
+              yield* replaceBlock(action.position, action.blockType)
+            }
+            break
+        }
+      })
 
     /**
      * Update UI elements with current state
@@ -506,7 +518,7 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
       yield* Ref.update(stateRef, (s) => ({
         ...s,
         actionHistory: [],
-        historyIndex: -1
+        historyIndex: -1,
       }))
       yield* updateUI()
       console.log('🧹 World editor history cleared')
@@ -529,10 +541,11 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
     /**
      * Import world data
      */
-    const importWorld = (data: any) => Effect.gen(function* () {
-      console.log('📁 Importing world data...', data)
-      // World import logic would go here
-    })
+    const importWorld = (data: any) =>
+      Effect.gen(function* () {
+        console.log('📁 Importing world data...', data)
+        // World import logic would go here
+      })
 
     /**
      * Get editor statistics
@@ -556,12 +569,14 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
       clearHistory,
       exportWorld,
       importWorld,
-      getStats
+      getStats,
     }
   })
 
 /**
  * Create world editor factory for easier usage
  */
-export const createWorldEditorFactory = (config: Partial<WorldEditorConfig> = {}) =>
-  (world: World) => createWorldEditor(world, config)
+export const createWorldEditorFactory =
+  (config: Partial<WorldEditorConfig> = {}) =>
+  (world: World) =>
+    createWorldEditor(world, config)

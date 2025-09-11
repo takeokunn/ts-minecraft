@@ -40,10 +40,10 @@ export {
   CHUNK_VOLUME,
   WORLD_HEIGHT_RANGE,
   SURFACE_LEVEL,
-  UNDERGROUND_LEVEL
+  UNDERGROUND_LEVEL,
 } from './constants'
 
-// Domain Entities  
+// Domain Entities
 export {
   PlayerInventory,
   Player,
@@ -70,7 +70,7 @@ export {
   BlockDefinitionSchema,
   blockDefinitions,
   type BlockDefinition,
-  type BlockDefinitions
+  type BlockDefinitions,
 } from './entities'
 
 // Domain Errors

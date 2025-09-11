@@ -41,7 +41,7 @@ export type {
   GameEvent,
   State,
   StateUpdate,
-  StateSelector
+  StateSelector,
 } from './common'
 
 // Game-specific types
@@ -70,11 +70,8 @@ export type {
   ClientMessage,
   GameMetrics,
   WorldEvent,
-  GameState
+  GameState,
 } from './game'
 
 // Schemas and constants
-export {
-  BlockTypeSchema,
-  blockTypeNames
-} from './game'
+export { BlockTypeSchema, blockTypeNames } from './game'

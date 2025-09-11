@@ -69,7 +69,7 @@ export const WorldUpdateWorkflowLive = Layer.effect(
               (block) =>
                 Effect.gen(function* (_) {
                   const querySystem = yield* _(UnifiedQuerySystemService)
-                  
+
                   // Create block entity with components
                   const blockEntity = {
                     id: `block_${chunkX}_${chunkZ}_${block.position[0]}_${block.position[1]}_${block.position[2]}`,
@@ -81,12 +81,12 @@ export const WorldUpdateWorkflowLive = Layer.effect(
                       }),
                       BlockType: block.blockType,
                       ChunkCoordinate: { x: chunkX, z: chunkZ },
-                    }
+                    },
                   }
 
                   // Add entity to unified query system for indexing
                   yield* _(querySystem.addEntity(blockEntity))
-                  
+
                   // Add entity to domain service
                   yield* _(entityService.addEntity(blockEntity))
                 }),
@@ -117,7 +117,7 @@ export const WorldUpdateWorkflowLive = Layer.effect(
 
     return {
       processWorldUpdates,
-      handleChunkGeneration
+      handleChunkGeneration,
     } satisfies WorldUpdateWorkflowService
   }),
 )

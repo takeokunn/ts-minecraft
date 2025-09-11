@@ -6,7 +6,7 @@ import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordin
 
 /**
  * Unified Layer Implementation
- * 
+ *
  * ARCHITECTURE: DDD-compliant infrastructure layer
  * - Pure technical implementations only
  * - Business logic moved to domain layer
@@ -589,7 +589,7 @@ export const SpatialGridLive: Layer.Layer<SpatialGrid, never, never> = Layer.eff
         Effect.gen(function* () {
           // Direct state manipulation to avoid circular dependency
           const gridMap = yield* Ref.get(grid)
-          
+
           // Remove from old position
           for (const [key, value] of gridMap.entries()) {
             if (value === id) {
@@ -597,7 +597,7 @@ export const SpatialGridLive: Layer.Layer<SpatialGrid, never, never> = Layer.eff
               break
             }
           }
-          
+
           // Insert at new position
           const key = getKey(Math.floor(x), Math.floor(y), Math.floor(z))
           gridMap.set(key, id)
@@ -1265,22 +1265,13 @@ export const EntityDomainServiceLive: Layer.Layer<EntityDomainService, never, ne
  * Domain services layer - Pure domain logic
  * No external dependencies, provides business rules and domain entities
  */
-export const DomainServicesLive = Layer.mergeAll(
-  WorldDomainServiceLive, 
-  PhysicsDomainServiceLive, 
-  EntityDomainServiceLive
-)
+export const DomainServicesLive = Layer.mergeAll(WorldDomainServiceLive, PhysicsDomainServiceLive, EntityDomainServiceLive)
 
 /**
  * Core services layer - Essential services without dependencies
  * Provides foundational services that other layers depend on
  */
-export const CoreServicesLive = Layer.mergeAll(
-  ClockLive, 
-  StatsLive, 
-  SpatialGridLive, 
-  TerrainGeneratorLive
-)
+export const CoreServicesLive = Layer.mergeAll(ClockLive, StatsLive, SpatialGridLive, TerrainGeneratorLive)
 
 /**
  * World services layer - World and chunk management
@@ -1297,12 +1288,7 @@ export const WorkerServicesLive = WorkerManagerLive
  * Rendering services layer - 3D rendering and visual output
  * Depends on Core services for materials and render commands
  */
-export const RenderingServicesLive = Layer.mergeAll(
-  RendererLive, 
-  MaterialManagerLive, 
-  RenderCommandLive,
-  RaycastLive
-)
+export const RenderingServicesLive = Layer.mergeAll(RendererLive, MaterialManagerLive, RenderCommandLive, RaycastLive)
 
 /**
  * Input services layer - user input handling
@@ -1330,26 +1316,20 @@ export const SystemServicesLive = Layer.mergeAll(
       // These adapters provide the SystemCommunicationPort and PerformanceMonitorPort
       // implementations that the application layer depends on
       console.log('System services (communication and monitoring) initialized')
-    })
-  )
+    }),
+  ),
 )
 
 /**
  * Complete unified infrastructure layer - all technical services composed
  * Layer dependency order: Domain -> Core -> World -> Infrastructure -> System
- * 
+ *
  * CLEAN ARCHITECTURE: Infrastructure layer only contains technical implementations
  * - No business logic at this layer
  * - All domain decisions delegated to domain services
  * - Adapters implement ports with concrete technology choices
  */
-export const UnifiedInfrastructureLive = Layer.mergeAll(
-  DomainServicesLive, 
-  CoreServicesLive, 
-  WorldServicesLive, 
-  InfrastructureServicesLive,
-  SystemServicesLive
-)
+export const UnifiedInfrastructureLive = Layer.mergeAll(DomainServicesLive, CoreServicesLive, WorldServicesLive, InfrastructureServicesLive, SystemServicesLive)
 
 // Alias for backward compatibility
 export const UnifiedAppLive = UnifiedInfrastructureLive
@@ -1371,18 +1351,12 @@ export const HeadlessLive = Layer.mergeAll(DomainServicesLive, CoreServicesLive,
 /**
  * Development layer - includes debug services
  */
-export const DevelopmentLive = Layer.merge(
-  UnifiedAppLive,
-  Layer.effectDiscard(Effect.log('Unified development environment initialized'))
-)
+export const DevelopmentLive = Layer.merge(UnifiedAppLive, Layer.effectDiscard(Effect.log('Unified development environment initialized')))
 
 /**
  * Production layer - optimized for performance
  */
-export const ProductionLive = Layer.merge(
-  UnifiedAppLive,
-  Layer.effectDiscard(Effect.log('Unified production environment initialized'))
-)
+export const ProductionLive = Layer.merge(UnifiedAppLive, Layer.effectDiscard(Effect.log('Unified production environment initialized')))
 
 /**
  * Helper to build custom layer compositions
@@ -1414,7 +1388,7 @@ export const buildCustomLayer = (config: {
   if (config.world) {
     layers.push(WorldServicesLive)
   }
-  
+
   // Layer 4: Infrastructure services (depends on Core/World)
   if (config.infrastructure) {
     layers.push(InfrastructureServicesLive)

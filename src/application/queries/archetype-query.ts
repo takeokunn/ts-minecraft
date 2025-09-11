@@ -45,11 +45,11 @@ export const ArchetypeFunctions = {
     Effect.gen(function* () {
       const indexingRef = yield* ComponentIndexing
       const indexingState = yield* Ref.get(indexingRef)
-      
+
       let mask = 0n
       let newIndices = new Map(indexingState.componentIndices)
       let nextIndex = indexingState.nextIndex
-      
+
       for (const component of components) {
         if (!newIndices.has(component)) {
           newIndices.set(component, nextIndex++)
@@ -59,15 +59,15 @@ export const ArchetypeFunctions = {
           mask |= 1n << BigInt(index)
         }
       }
-      
+
       // Update indexing state if needed
       if (nextIndex !== indexingState.nextIndex) {
         yield* Ref.set(indexingRef, {
           componentIndices: newIndices,
-          nextIndex
+          nextIndex,
         })
       }
-      
+
       return mask
     }),
 
@@ -77,11 +77,11 @@ export const ArchetypeFunctions = {
   create: (signature: ArchetypeSignature) =>
     Effect.gen(function* () {
       const componentMask = yield* ArchetypeFunctions.computeComponentMask(signature.required)
-      
+
       return {
         entities: new Set<QueryEntity>(),
         componentMask,
-        signature
+        signature,
       } as ArchetypeState
     }),
 
@@ -91,7 +91,7 @@ export const ArchetypeFunctions = {
   addEntity: (entity: QueryEntity) => (archetype: ArchetypeState) =>
     Effect.succeed({
       ...archetype,
-      entities: new Set([...archetype.entities, entity])
+      entities: new Set([...archetype.entities, entity]),
     }),
 
   /**
@@ -100,14 +100,13 @@ export const ArchetypeFunctions = {
   removeEntity: (entity: QueryEntity) => (archetype: ArchetypeState) =>
     Effect.succeed({
       ...archetype,
-      entities: new Set([...archetype.entities].filter(e => e.id !== entity.id))
+      entities: new Set([...archetype.entities].filter((e) => e.id !== entity.id)),
     }),
 
   /**
    * Get all entities from archetype
    */
-  getEntities: (archetype: ArchetypeState) =>
-    Effect.succeed(Array.from(archetype.entities)),
+  getEntities: (archetype: ArchetypeState) => Effect.succeed(Array.from(archetype.entities)),
 
   /**
    * Check if archetype matches signature
@@ -129,7 +128,7 @@ export const ArchetypeFunctions = {
       }
 
       return true
-    }).pipe(Effect.map(fn => fn())),
+    }).pipe(Effect.map((fn) => fn())),
 
   /**
    * Fast bit-mask based matching
@@ -147,13 +146,12 @@ export const ArchetypeFunctions = {
       }
 
       return true
-    }).pipe(Effect.map(fn => fn())),
+    }).pipe(Effect.map((fn) => fn())),
 
   /**
    * Get archetype size
    */
-  getSize: (archetype: ArchetypeState) =>
-    Effect.succeed(archetype.entities.size)
+  getSize: (archetype: ArchetypeState) => Effect.succeed(archetype.entities.size),
 }
 
 /**
@@ -166,10 +164,10 @@ export const ComponentIndexingLive = Layer.effect(
   pipe(
     Ref.make<ComponentIndexingState>({
       componentIndices: new Map(),
-      nextIndex: 0
+      nextIndex: 0,
     }),
-    Effect.succeed
-  )
+    Effect.succeed,
+  ),
 )
 
 /**
@@ -184,10 +182,7 @@ export interface ArchetypeManagerState {
  * Archetype manager service interface
  */
 export interface ArchetypeManagerService {
-  readonly createSignature: (
-    required: ReadonlyArray<ComponentName>,
-    forbidden?: ReadonlyArray<ComponentName>
-  ) => Effect.Effect<ArchetypeSignature>
+  readonly createSignature: (required: ReadonlyArray<ComponentName>, forbidden?: ReadonlyArray<ComponentName>) => Effect.Effect<ArchetypeSignature>
   readonly getOrCreateArchetype: (signature: ArchetypeSignature) => Effect.Effect<ArchetypeState>
   readonly addEntity: (entity: QueryEntity) => Effect.Effect<void>
   readonly removeEntity: (entity: QueryEntity) => Effect.Effect<void>
@@ -217,17 +212,15 @@ export const ArchetypeManagerLive = Layer.effect(
   Effect.gen(function* () {
     const stateRef = yield* Ref.make<ArchetypeManagerState>({
       archetypes: new Map(),
-      entityToArchetype: new Map()
+      entityToArchetype: new Map(),
     })
 
-    const createSignature = (
-      required: ReadonlyArray<ComponentName>,
-      forbidden: ReadonlyArray<ComponentName> = []
-    ) => Effect.succeed({
-      required: new Set(required),
-      forbidden: new Set(forbidden),
-      hash: `req:${[...new Set(required)].sort().join(',')}|forb:${[...new Set(forbidden)].sort().join(',')}`
-    })
+    const createSignature = (required: ReadonlyArray<ComponentName>, forbidden: ReadonlyArray<ComponentName> = []) =>
+      Effect.succeed({
+        required: new Set(required),
+        forbidden: new Set(forbidden),
+        hash: `req:${[...new Set(required)].sort().join(',')}|forb:${[...new Set(forbidden)].sort().join(',')}`,
+      })
 
     const getOrCreateArchetype = (signature: ArchetypeSignature) =>
       Effect.gen(function* () {
@@ -238,10 +231,10 @@ export const ArchetypeManagerLive = Layer.effect(
           archetype = yield* ArchetypeFunctions.create(signature)
           const newArchetypes = new Map(state.archetypes)
           newArchetypes.set(signature.hash, archetype)
-          
+
           yield* Ref.set(stateRef, {
             ...state,
-            archetypes: newArchetypes
+            archetypes: newArchetypes,
           })
         }
 
@@ -257,20 +250,20 @@ export const ArchetypeManagerLive = Layer.effect(
         const componentNames = Object.keys(entity.components) as ComponentName[]
         const signature = yield* createSignature(componentNames, [])
         const archetype = yield* getOrCreateArchetype(signature)
-        
+
         const updatedArchetype = yield* ArchetypeFunctions.addEntity(entity)(archetype)
-        
+
         // Update state
         const state = yield* Ref.get(stateRef)
         const newArchetypes = new Map(state.archetypes)
         const newEntityToArchetype = new Map(state.entityToArchetype)
-        
+
         newArchetypes.set(signature.hash, updatedArchetype)
         newEntityToArchetype.set(entity, updatedArchetype)
-        
+
         yield* Ref.set(stateRef, {
           archetypes: newArchetypes,
-          entityToArchetype: newEntityToArchetype
+          entityToArchetype: newEntityToArchetype,
         })
       })
 
@@ -278,19 +271,19 @@ export const ArchetypeManagerLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
         const currentArchetype = state.entityToArchetype.get(entity)
-        
+
         if (currentArchetype) {
           const updatedArchetype = yield* ArchetypeFunctions.removeEntity(entity)(currentArchetype)
-          
+
           const newArchetypes = new Map(state.archetypes)
           const newEntityToArchetype = new Map(state.entityToArchetype)
-          
+
           newArchetypes.set(currentArchetype.signature.hash, updatedArchetype)
           newEntityToArchetype.delete(entity)
-          
+
           yield* Ref.set(stateRef, {
             archetypes: newArchetypes,
-            entityToArchetype: newEntityToArchetype
+            entityToArchetype: newEntityToArchetype,
           })
         }
       })
@@ -317,7 +310,7 @@ export const ArchetypeManagerLive = Layer.effect(
 
         for (const archetype of state.archetypes.values()) {
           const archetypeEntities = yield* ArchetypeFunctions.getEntities(archetype)
-          entities.push(...archetypeEntities.map(entity => entity.id))
+          entities.push(...archetypeEntities.map((entity) => entity.id))
         }
 
         return entities
@@ -326,26 +319,26 @@ export const ArchetypeManagerLive = Layer.effect(
     const getStats = () =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         const archetypeDistribution: Array<{
           hash: string
           entityCount: number
           components: ComponentName[]
         }> = []
-        
+
         for (const [hash, archetype] of state.archetypes.entries()) {
           const size = yield* ArchetypeFunctions.getSize(archetype)
           archetypeDistribution.push({
             hash,
             entityCount: size,
-            components: Array.from(archetype.signature.required)
+            components: Array.from(archetype.signature.required),
           })
         }
 
         return {
           totalArchetypes: state.archetypes.size,
           totalEntities: state.entityToArchetype.size,
-          archetypeDistribution
+          archetypeDistribution,
         }
       })
 
@@ -356,9 +349,9 @@ export const ArchetypeManagerLive = Layer.effect(
       removeEntity,
       findMatchingArchetypes,
       getAllEntities,
-      getStats
+      getStats,
     } satisfies ArchetypeManagerService
-  })
+  }),
 )
 
 /**
@@ -377,9 +370,7 @@ export interface ArchetypeQueryService<T extends ReadonlyArray<ComponentName>> {
 /**
  * Create archetype-based query
  */
-export const createArchetypeQuery = <T extends ReadonlyArray<ComponentName>>(
-  config: QueryConfig<T>
-) =>
+export const createArchetypeQuery = <T extends ReadonlyArray<ComponentName>>(config: QueryConfig<T>) =>
   Effect.gen(function* () {
     const archetypeManager = yield* ArchetypeManager
     const signature = yield* archetypeManager.createSignature(config.withComponents, config.withoutComponents || [])
@@ -483,7 +474,7 @@ export const createArchetypeQuery = <T extends ReadonlyArray<ComponentName>>(
       execute,
       name: config.name,
       components: config.withComponents,
-      forbiddenComponents: config.withoutComponents || []
+      forbiddenComponents: config.withoutComponents || [],
     } satisfies ArchetypeQueryService<T>
   })
 
@@ -516,30 +507,14 @@ export const ArchetypeSystemUtils = {
     Effect.gen(function* () {
       const archetypeManager = yield* ArchetypeManager
       return yield* archetypeManager.getStats()
-    })
+    }),
 }
 
 // Legacy compatibility functions (deprecated - use ArchetypeSystemUtils instead)
-export const addEntityToArchetype = (entity: QueryEntity) => 
-  pipe(
-    ArchetypeSystemUtils.addEntity(entity),
-    Effect.provide(ArchetypeManagerLive),
-    Effect.provide(ComponentIndexingLive),
-    Effect.runSync
-  )
+export const addEntityToArchetype = (entity: QueryEntity) =>
+  pipe(ArchetypeSystemUtils.addEntity(entity), Effect.provide(ArchetypeManagerLive), Effect.provide(ComponentIndexingLive), Effect.runSync)
 
-export const removeEntityFromArchetype = (entity: QueryEntity) => 
-  pipe(
-    ArchetypeSystemUtils.removeEntity(entity),
-    Effect.provide(ArchetypeManagerLive),
-    Effect.provide(ComponentIndexingLive),
-    Effect.runSync
-  )
+export const removeEntityFromArchetype = (entity: QueryEntity) =>
+  pipe(ArchetypeSystemUtils.removeEntity(entity), Effect.provide(ArchetypeManagerLive), Effect.provide(ComponentIndexingLive), Effect.runSync)
 
-export const getArchetypeStats = () => 
-  pipe(
-    ArchetypeSystemUtils.getStats(),
-    Effect.provide(ArchetypeManagerLive),
-    Effect.provide(ComponentIndexingLive),
-    Effect.runSync
-  )
+export const getArchetypeStats = () => pipe(ArchetypeSystemUtils.getStats(), Effect.provide(ArchetypeManagerLive), Effect.provide(ComponentIndexingLive), Effect.runSync)

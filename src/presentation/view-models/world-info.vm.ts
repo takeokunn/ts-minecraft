@@ -102,9 +102,7 @@ const WorldInfoViewModelLive = Effect.gen(function* ($) {
 export const WorldInfoViewModel = Context.GenericTag<WorldInfoViewModelInterface>('WorldInfoViewModel')
 
 // Layer for dependency injection
-export const WorldInfoViewModelLive: Layer.Layer<WorldInfoViewModel, never, QueryHandlers> = 
-  Layer.effect(WorldInfoViewModel, WorldInfoViewModelLive)
+export const WorldInfoViewModelLive: Layer.Layer<WorldInfoViewModel, never, QueryHandlers> = Layer.effect(WorldInfoViewModel, WorldInfoViewModelLive)
 
 // Factory function for direct usage
-export const createWorldInfoViewModel = (queryHandlers: any) => 
-  Effect.runSync(Effect.provide(WorldInfoViewModelLive, Layer.succeed(QueryHandlers, queryHandlers)))
+export const createWorldInfoViewModel = (queryHandlers: any) => Effect.runSync(Effect.provide(WorldInfoViewModelLive, Layer.succeed(QueryHandlers, queryHandlers)))

@@ -131,7 +131,7 @@ export interface PerformanceMonitorConfig {
  */
 export class PerformanceMonitorError extends Schema.TaggedError<PerformanceMonitorError>()('PerformanceMonitorError', {
   message: Schema.String,
-  cause: Schema.optional(Schema.Unknown)
+  cause: Schema.optional(Schema.Unknown),
 }) {}
 
 /**

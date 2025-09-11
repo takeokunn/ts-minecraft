@@ -6,7 +6,7 @@
  * - Gravity and movement calculations
  * - Physics state management
  * - Velocity and acceleration computations
- * 
+ *
  * FUNCTIONAL IMPLEMENTATION:
  * - Replaces PhysicsDomainService class with pure functions
  * - Uses Effect-TS Context.GenericTag and Layer pattern
@@ -92,10 +92,7 @@ export interface IPhysicsDomainServiceFunctional {
   readonly addPhysicsComponent: (entityId: EntityId, component: PhysicsComponent) => Effect.Effect<void, never, never>
   readonly removePhysicsComponent: (entityId: EntityId) => Effect.Effect<void, never, never>
   readonly getPhysicsComponent: (entityId: EntityId) => Effect.Effect<Option.Option<PhysicsComponent>, never, never>
-  readonly updatePhysicsComponent: (
-    entityId: EntityId, 
-    updater: (component: PhysicsComponent) => PhysicsComponent
-  ) => Effect.Effect<void, PhysicsError, never>
+  readonly updatePhysicsComponent: (entityId: EntityId, updater: (component: PhysicsComponent) => PhysicsComponent) => Effect.Effect<void, PhysicsError, never>
 
   // Collision detection and response
   readonly checkCollisions: () => Effect.Effect<ReadonlyArray<CollisionData>, never, never>
@@ -131,7 +128,7 @@ export const defaultPhysicsConfig: PhysicsConfig = {
   gravity: { x: 0, y: -9.81, z: 0 },
   airResistance: 0.01,
   groundFriction: 0.1,
-  timeStep: 1/60,
+  timeStep: 1 / 60,
   maxVelocity: { x: 100, y: 100, z: 100 },
   collisionIterations: 3,
 }
@@ -155,15 +152,11 @@ export class PhysicsSimulationError extends Data.TaggedError('PhysicsSimulationE
 /**
  * Apply gravity to physics component
  */
-export const applyGravityEffect = (
-  stateRef: Ref.Ref<PhysicsState>,
-  entityId: EntityId,
-  deltaTime: number,
-): Effect.Effect<void, PhysicsEntityNotFoundError, never> =>
+export const applyGravityEffect = (stateRef: Ref.Ref<PhysicsState>, entityId: EntityId, deltaTime: number): Effect.Effect<void, PhysicsEntityNotFoundError, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const componentOpt = HashMap.get(state.entities, entityId)
-    
+
     if (Option.isNone(componentOpt)) {
       return yield* Effect.fail(new PhysicsEntityNotFoundError({ entityId }))
     }
@@ -199,15 +192,11 @@ export const applyGravityEffect = (
 /**
  * Update velocity based on acceleration
  */
-export const updateVelocityEffect = (
-  stateRef: Ref.Ref<PhysicsState>,
-  entityId: EntityId,
-  deltaTime: number,
-): Effect.Effect<void, PhysicsEntityNotFoundError, never> =>
+export const updateVelocityEffect = (stateRef: Ref.Ref<PhysicsState>, entityId: EntityId, deltaTime: number): Effect.Effect<void, PhysicsEntityNotFoundError, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const componentOpt = HashMap.get(state.entities, entityId)
-    
+
     if (Option.isNone(componentOpt)) {
       return yield* Effect.fail(new PhysicsEntityNotFoundError({ entityId }))
     }
@@ -263,15 +252,11 @@ export const updateVelocityEffect = (
 /**
  * Update position based on velocity
  */
-export const updatePositionEffect = (
-  stateRef: Ref.Ref<PhysicsState>,
-  entityId: EntityId,
-  deltaTime: number,
-): Effect.Effect<void, PhysicsEntityNotFoundError, never> =>
+export const updatePositionEffect = (stateRef: Ref.Ref<PhysicsState>, entityId: EntityId, deltaTime: number): Effect.Effect<void, PhysicsEntityNotFoundError, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const componentOpt = HashMap.get(state.entities, entityId)
-    
+
     if (Option.isNone(componentOpt)) {
       return yield* Effect.fail(new PhysicsEntityNotFoundError({ entityId }))
     }
@@ -298,15 +283,11 @@ export const updatePositionEffect = (
 /**
  * Apply force to physics component
  */
-export const applyForceEffect = (
-  stateRef: Ref.Ref<PhysicsState>,
-  entityId: EntityId,
-  force: Vector3,
-): Effect.Effect<void, PhysicsEntityNotFoundError, never> =>
+export const applyForceEffect = (stateRef: Ref.Ref<PhysicsState>, entityId: EntityId, force: Vector3): Effect.Effect<void, PhysicsEntityNotFoundError, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const componentOpt = HashMap.get(state.entities, entityId)
-    
+
     if (Option.isNone(componentOpt)) {
       return yield* Effect.fail(new PhysicsEntityNotFoundError({ entityId }))
     }
@@ -343,15 +324,11 @@ export const applyForceEffect = (
 /**
  * Apply impulse to physics component
  */
-export const applyImpulseEffect = (
-  stateRef: Ref.Ref<PhysicsState>,
-  entityId: EntityId,
-  impulse: Vector3,
-): Effect.Effect<void, PhysicsEntityNotFoundError, never> =>
+export const applyImpulseEffect = (stateRef: Ref.Ref<PhysicsState>, entityId: EntityId, impulse: Vector3): Effect.Effect<void, PhysicsEntityNotFoundError, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const componentOpt = HashMap.get(state.entities, entityId)
-    
+
     if (Option.isNone(componentOpt)) {
       return yield* Effect.fail(new PhysicsEntityNotFoundError({ entityId }))
     }
@@ -389,11 +366,7 @@ export const applyImpulseEffect = (
 /**
  * Add physics component to entity
  */
-export const addPhysicsComponentEffect = (
-  stateRef: Ref.Ref<PhysicsState>,
-  entityId: EntityId,
-  component: PhysicsComponent,
-): Effect.Effect<void, never, never> =>
+export const addPhysicsComponentEffect = (stateRef: Ref.Ref<PhysicsState>, entityId: EntityId, component: PhysicsComponent): Effect.Effect<void, never, never> =>
   Ref.update(stateRef, (s) => ({
     ...s,
     entities: HashMap.set(s.entities, entityId, component),
@@ -402,10 +375,7 @@ export const addPhysicsComponentEffect = (
 /**
  * Remove physics component from entity
  */
-export const removePhysicsComponentEffect = (
-  stateRef: Ref.Ref<PhysicsState>,
-  entityId: EntityId,
-): Effect.Effect<void, never, never> =>
+export const removePhysicsComponentEffect = (stateRef: Ref.Ref<PhysicsState>, entityId: EntityId): Effect.Effect<void, never, never> =>
   Ref.update(stateRef, (s) => ({
     ...s,
     entities: HashMap.remove(s.entities, entityId),
@@ -414,10 +384,7 @@ export const removePhysicsComponentEffect = (
 /**
  * Get physics component for entity
  */
-export const getPhysicsComponentEffect = (
-  stateRef: Ref.Ref<PhysicsState>,
-  entityId: EntityId,
-): Effect.Effect<Option.Option<PhysicsComponent>, never, never> =>
+export const getPhysicsComponentEffect = (stateRef: Ref.Ref<PhysicsState>, entityId: EntityId): Effect.Effect<Option.Option<PhysicsComponent>, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     return HashMap.get(state.entities, entityId)
@@ -434,7 +401,7 @@ export const updatePhysicsComponentEffect = (
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const componentOpt = HashMap.get(state.entities, entityId)
-    
+
     if (Option.isNone(componentOpt)) {
       return yield* Effect.fail(new PhysicsEntityNotFoundError({ entityId }))
     }
@@ -450,44 +417,45 @@ export const updatePhysicsComponentEffect = (
 /**
  * Check for collisions between all entities
  */
-export const checkCollisionsEffect = (
-  stateRef: Ref.Ref<PhysicsState>,
-): Effect.Effect<ReadonlyArray<CollisionData>, never, never> =>
+export const checkCollisionsEffect = (stateRef: Ref.Ref<PhysicsState>): Effect.Effect<ReadonlyArray<CollisionData>, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const collisions: CollisionData[] = []
     const entities = Array.from(state.entities)
-    
+
     // Simple O(n²) collision detection for demonstration
     // In a real system, you'd use spatial partitioning
     for (let i = 0; i < entities.length; i++) {
       for (let j = i + 1; j < entities.length; j++) {
         const [entityA, componentA] = entities[i]
         const [entityB, componentB] = entities[j]
-        
+
         // Simple sphere collision detection
         const dx = componentA.position.x - componentB.position.x
         const dy = componentA.position.y - componentB.position.y
         const dz = componentA.position.z - componentB.position.z
         const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-        
+
         // Assume radius of 1 for all entities for simplicity
         const radiusA = 1.0
         const radiusB = 1.0
-        
+
         if (distance < radiusA + radiusB) {
-          const normal = distance > 0 ? {
-            x: dx / distance,
-            y: dy / distance,
-            z: dz / distance,
-          } : { x: 1, y: 0, z: 0 }
-          
+          const normal =
+            distance > 0
+              ? {
+                  x: dx / distance,
+                  y: dy / distance,
+                  z: dz / distance,
+                }
+              : { x: 1, y: 0, z: 0 }
+
           const contactPoint = {
             x: componentA.position.x - normal.x * radiusA,
             y: componentA.position.y - normal.y * radiusA,
             z: componentA.position.z - normal.z * radiusA,
           }
-          
+
           collisions.push({
             entityA,
             entityB,
@@ -499,46 +467,43 @@ export const checkCollisionsEffect = (
         }
       }
     }
-    
+
     return collisions
   })
 
 /**
  * Resolve a collision between two entities
  */
-export const resolveCollisionEffect = (
-  stateRef: Ref.Ref<PhysicsState>,
-  collision: CollisionData,
-): Effect.Effect<void, never, never> =>
+export const resolveCollisionEffect = (stateRef: Ref.Ref<PhysicsState>, collision: CollisionData): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const componentAOpt = HashMap.get(state.entities, collision.entityA)
     const componentBOpt = HashMap.get(state.entities, collision.entityB)
-    
+
     if (Option.isNone(componentAOpt) || Option.isNone(componentBOpt)) {
       return // One of the entities no longer exists
     }
 
     const componentA = componentAOpt.value
     const componentB = componentBOpt.value
-    
+
     // Don't resolve if both are kinematic
     if (componentA.isKinematic && componentB.isKinematic) {
       return
     }
 
     const { normal, penetrationDepth } = collision
-    
+
     // Separate the entities
     const separationA = componentA.isKinematic ? 0 : penetrationDepth / 2
     const separationB = componentB.isKinematic ? 0 : penetrationDepth / 2
-    
+
     const newPositionA = {
       x: componentA.position.x + normal.x * separationA,
       y: componentA.position.y + normal.y * separationA,
       z: componentA.position.z + normal.z * separationA,
     }
-    
+
     const newPositionB = {
       x: componentB.position.x - normal.x * separationB,
       y: componentB.position.y - normal.y * separationB,
@@ -552,10 +517,7 @@ export const resolveCollisionEffect = (
       z: componentA.velocity.z - componentB.velocity.z,
     }
 
-    const velocityAlongNormal = 
-      relativeVelocity.x * normal.x + 
-      relativeVelocity.y * normal.y + 
-      relativeVelocity.z * normal.z
+    const velocityAlongNormal = relativeVelocity.x * normal.x + relativeVelocity.y * normal.y + relativeVelocity.z * normal.z
 
     if (velocityAlongNormal > 0) {
       return // Objects separating
@@ -567,17 +529,21 @@ export const resolveCollisionEffect = (
     const totalMass = componentA.mass + componentB.mass
     const impulse = impulseScalar / totalMass
 
-    const newVelocityA = componentA.isKinematic ? componentA.velocity : {
-      x: componentA.velocity.x + impulse * normal.x / componentA.mass,
-      y: componentA.velocity.y + impulse * normal.y / componentA.mass,
-      z: componentA.velocity.z + impulse * normal.z / componentA.mass,
-    }
+    const newVelocityA = componentA.isKinematic
+      ? componentA.velocity
+      : {
+          x: componentA.velocity.x + (impulse * normal.x) / componentA.mass,
+          y: componentA.velocity.y + (impulse * normal.y) / componentA.mass,
+          z: componentA.velocity.z + (impulse * normal.z) / componentA.mass,
+        }
 
-    const newVelocityB = componentB.isKinematic ? componentB.velocity : {
-      x: componentB.velocity.x - impulse * normal.x / componentB.mass,
-      y: componentB.velocity.y - impulse * normal.y / componentB.mass,
-      z: componentB.velocity.z - impulse * normal.z / componentB.mass,
-    }
+    const newVelocityB = componentB.isKinematic
+      ? componentB.velocity
+      : {
+          x: componentB.velocity.x - (impulse * normal.x) / componentB.mass,
+          y: componentB.velocity.y - (impulse * normal.y) / componentB.mass,
+          z: componentB.velocity.z - (impulse * normal.z) / componentB.mass,
+        }
 
     const updatedComponentA = {
       ...componentA,
@@ -600,21 +566,18 @@ export const resolveCollisionEffect = (
 /**
  * Simulate physics for one time step
  */
-export const simulatePhysicsEffect = (
-  stateRef: Ref.Ref<PhysicsState>,
-  deltaTime: number,
-): Effect.Effect<void, never, never> =>
+export const simulatePhysicsEffect = (stateRef: Ref.Ref<PhysicsState>, deltaTime: number): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     const state = yield* Ref.get(stateRef)
     const entityIds = Array.from(state.entities).map(([id]) => id)
-    
+
     // Apply physics to all entities
     for (const entityId of entityIds) {
       yield* applyGravityEffect(stateRef, entityId, deltaTime).pipe(Effect.orElse(() => Effect.void))
       yield* updateVelocityEffect(stateRef, entityId, deltaTime).pipe(Effect.orElse(() => Effect.void))
       yield* updatePositionEffect(stateRef, entityId, deltaTime).pipe(Effect.orElse(() => Effect.void))
     }
-    
+
     // Handle collisions
     const collisions = yield* checkCollisionsEffect(stateRef)
     for (const collision of collisions) {
@@ -631,70 +594,58 @@ export const simulatePhysicsEffect = (
 /**
  * Create functional physics domain service implementation
  */
-export const makePhysicsDomainService = (
-  stateRef: Ref.Ref<PhysicsState>,
-): IPhysicsDomainServiceFunctional => ({
+export const makePhysicsDomainService = (stateRef: Ref.Ref<PhysicsState>): IPhysicsDomainServiceFunctional => ({
   // Core physics operations
-  applyGravity: (entityId: EntityId, deltaTime: number) => 
-    applyGravityEffect(stateRef, entityId, deltaTime).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
-  updateVelocity: (entityId: EntityId, deltaTime: number) => 
+  applyGravity: (entityId: EntityId, deltaTime: number) => applyGravityEffect(stateRef, entityId, deltaTime).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
+  updateVelocity: (entityId: EntityId, deltaTime: number) =>
     updateVelocityEffect(stateRef, entityId, deltaTime).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
-  updatePosition: (entityId: EntityId, deltaTime: number) => 
+  updatePosition: (entityId: EntityId, deltaTime: number) =>
     updatePositionEffect(stateRef, entityId, deltaTime).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
-  applyForce: (entityId: EntityId, force: Vector3) => 
-    applyForceEffect(stateRef, entityId, force).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
-  applyImpulse: (entityId: EntityId, impulse: Vector3) => 
-    applyImpulseEffect(stateRef, entityId, impulse).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
+  applyForce: (entityId: EntityId, force: Vector3) => applyForceEffect(stateRef, entityId, force).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
+  applyImpulse: (entityId: EntityId, impulse: Vector3) => applyImpulseEffect(stateRef, entityId, impulse).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
 
   // Physics component management
-  addPhysicsComponent: (entityId: EntityId, component: PhysicsComponent) => 
-    addPhysicsComponentEffect(stateRef, entityId, component),
-  removePhysicsComponent: (entityId: EntityId) => 
-    removePhysicsComponentEffect(stateRef, entityId),
-  getPhysicsComponent: (entityId: EntityId) => 
-    getPhysicsComponentEffect(stateRef, entityId),
-  updatePhysicsComponent: (entityId: EntityId, updater: (component: PhysicsComponent) => PhysicsComponent) => 
+  addPhysicsComponent: (entityId: EntityId, component: PhysicsComponent) => addPhysicsComponentEffect(stateRef, entityId, component),
+  removePhysicsComponent: (entityId: EntityId) => removePhysicsComponentEffect(stateRef, entityId),
+  getPhysicsComponent: (entityId: EntityId) => getPhysicsComponentEffect(stateRef, entityId),
+  updatePhysicsComponent: (entityId: EntityId, updater: (component: PhysicsComponent) => PhysicsComponent) =>
     updatePhysicsComponentEffect(stateRef, entityId, updater).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
 
   // Collision detection and response
   checkCollisions: () => checkCollisionsEffect(stateRef),
-  resolveCollision: (collision: CollisionData) => 
-    resolveCollisionEffect(stateRef, collision).pipe(Effect.mapError((e) => new CollisionError({ message: e.message }))),
-  isCollidingWith: (entityA: EntityId, entityB: EntityId) => 
+  resolveCollision: (collision: CollisionData) => resolveCollisionEffect(stateRef, collision).pipe(Effect.mapError((e) => new CollisionError({ message: e.message }))),
+  isCollidingWith: (entityA: EntityId, entityB: EntityId) =>
     Effect.gen(function* () {
       const collisions = yield* checkCollisionsEffect(stateRef)
-      return collisions.some(c => 
-        (c.entityA === entityA && c.entityB === entityB) ||
-        (c.entityA === entityB && c.entityB === entityA)
-      )
+      return collisions.some((c) => (c.entityA === entityA && c.entityB === entityB) || (c.entityA === entityB && c.entityB === entityA))
     }),
 
   // Physics queries
-  getEntitiesInRadius: (center: Position, radius: number) => 
+  getEntitiesInRadius: (center: Position, radius: number) =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
       const entitiesInRadius: EntityId[] = []
-      
+
       for (const [entityId, component] of state.entities) {
         const dx = component.position.x - center.x
         const dy = component.position.y - center.y
         const dz = component.position.z - center.z
         const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-        
+
         if (distance <= radius) {
           entitiesInRadius.push(entityId)
         }
       }
-      
+
       return entitiesInRadius
     }),
 
-  raycast: (origin: Position, direction: Vector3, maxDistance: number) => 
+  raycast: (origin: Position, direction: Vector3, maxDistance: number) =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
       let closestEntity: EntityId | undefined
       let closestDistance = maxDistance
-      
+
       for (const [entityId, component] of state.entities) {
         // Simple sphere raycast - in reality you'd use more sophisticated algorithms
         const toEntity = {
@@ -702,39 +653,34 @@ export const makePhysicsDomainService = (
           y: component.position.y - origin.y,
           z: component.position.z - origin.z,
         }
-        
-        const projectionLength = 
-          toEntity.x * direction.x + 
-          toEntity.y * direction.y + 
-          toEntity.z * direction.z
-        
+
+        const projectionLength = toEntity.x * direction.x + toEntity.y * direction.y + toEntity.z * direction.z
+
         if (projectionLength < 0 || projectionLength > maxDistance) {
           continue // Entity is behind ray or too far
         }
-        
+
         const projectionPoint = {
           x: origin.x + direction.x * projectionLength,
           y: origin.y + direction.y * projectionLength,
           z: origin.z + direction.z * projectionLength,
         }
-        
+
         const distanceToProjection = Math.sqrt(
-          Math.pow(component.position.x - projectionPoint.x, 2) +
-          Math.pow(component.position.y - projectionPoint.y, 2) +
-          Math.pow(component.position.z - projectionPoint.z, 2)
+          Math.pow(component.position.x - projectionPoint.x, 2) + Math.pow(component.position.y - projectionPoint.y, 2) + Math.pow(component.position.z - projectionPoint.z, 2),
         )
-        
+
         // Assume entity radius of 1
         if (distanceToProjection <= 1.0 && projectionLength < closestDistance) {
           closestEntity = entityId
           closestDistance = projectionLength
         }
       }
-      
+
       return Option.fromNullable(closestEntity)
     }),
 
-  getVelocity: (entityId: EntityId) => 
+  getVelocity: (entityId: EntityId) =>
     Effect.gen(function* () {
       const componentOpt = yield* getPhysicsComponentEffect(stateRef, entityId)
       if (Option.isNone(componentOpt)) {
@@ -743,13 +689,12 @@ export const makePhysicsDomainService = (
       return componentOpt.value.velocity
     }),
 
-  setVelocity: (entityId: EntityId, velocity: Vector3) => 
-    updatePhysicsComponentEffect(stateRef, entityId, (component) => ({ ...component, velocity }))
-      .pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
+  setVelocity: (entityId: EntityId, velocity: Vector3) =>
+    updatePhysicsComponentEffect(stateRef, entityId, (component) => ({ ...component, velocity })).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
 
   // Simulation control
   simulatePhysics: (deltaTime: number) => simulatePhysicsEffect(stateRef, deltaTime),
-  resetPhysics: () => 
+  resetPhysics: () =>
     Ref.update(stateRef, (s) => ({
       ...s,
       entities: HashMap.empty(),
@@ -760,12 +705,12 @@ export const makePhysicsDomainService = (
   resumePhysics: () => Effect.void, // Could add pause state if needed
 
   // Configuration
-  updateConfig: (config: Partial<PhysicsConfig>) => 
+  updateConfig: (config: Partial<PhysicsConfig>) =>
     Ref.update(stateRef, (s) => ({
       ...s,
       config: { ...s.config, ...config },
     })),
-  getConfig: () => 
+  getConfig: () =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
       return state.config

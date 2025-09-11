@@ -1,14 +1,12 @@
 /**
  * Infrastructure Layer Service Aliases
- * 
+ *
  * This module provides service aliases and compatibility mappings.
  * Moved from index.ts to separate concerns and maintain pure barrel exports.
  */
 
 // Import from unified layer
-import {
-  UnifiedAppLive,
-} from '@infrastructure/unified.layer'
+import { UnifiedAppLive } from '@infrastructure/unified.layer'
 
 // Layer composition aliases for backward compatibility
 export {

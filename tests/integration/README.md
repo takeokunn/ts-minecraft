@@ -7,12 +7,14 @@ This directory contains comprehensive integration tests to validate the DDD arch
 ## Test Files Created
 
 ### 1. **basic-architecture.test.ts** ✅ WORKING
+
 - Tests basic Effect-TS functionality
 - Validates DDD directory structure exists
 - Confirms basic architectural patterns are functional
 - **Status**: All tests passing (5/5)
 
 ### 2. **ddd-migration.test.ts** ⚠️ NEEDS FIXES
+
 - Tests layer boundary enforcement
 - Validates Effect-TS usage throughout the system
 - Tests functional programming patterns
@@ -20,6 +22,7 @@ This directory contains comprehensive integration tests to validate the DDD arch
 - **Status**: Infrastructure issues with service imports
 
 ### 3. **architecture-compliance.test.ts** ⚠️ NEEDS FIXES
+
 - Tests domain layer purity (no external dependencies)
 - Validates infrastructure implements all ports correctly
 - Tests application layer orchestration
@@ -27,6 +30,7 @@ This directory contains comprehensive integration tests to validate the DDD arch
 - **Status**: Infrastructure issues with service imports
 
 ### 4. **performance-baseline.test.ts** ⚠️ NEEDS FIXES
+
 - Tests memory usage patterns
 - Tests async operation performance
 - Measures Effect-TS overhead
@@ -34,6 +38,7 @@ This directory contains comprehensive integration tests to validate the DDD arch
 - **Status**: Infrastructure issues with service imports
 
 ### 5. **ports-adapters.test.ts** ⚠️ NEEDS FIXES
+
 - Tests math port implementations
 - Tests render port functionality
 - Tests repository port implementations
@@ -43,34 +48,40 @@ This directory contains comprehensive integration tests to validate the DDD arch
 ## Issues Identified
 
 ### 1. Service Layer Import Issues
+
 - The main issue preventing tests from running is with Effect-TS service definitions
 - `PhysicsDomainService` has incorrect `GenericTag` syntax
 - `Set` import should be `HashSet` in Effect 3.x
 - Service layer needs to be properly structured for testability
 
 ### 2. Layer Dependencies
+
 - Some circular dependency issues in the layer composition
 - Test layer needs proper mock implementations for all ports
 - Service interfaces need to be properly exported
 
 ### 3. Effect-TS Version Compatibility
+
 - Some imports need to be updated for Effect 3.17.13
 - GenericTag syntax has changed in newer versions
 
 ## Architectural Validation Status
 
 ### ✅ Validated Components
+
 1. **Basic Effect-TS Integration**: Working correctly
 2. **Directory Structure**: Proper DDD structure exists
 3. **Error Handling**: Basic Effect error handling works
 4. **Function Composition**: Effect composition patterns work
 
 ### ⚠️ Partially Validated
+
 1. **Layer Separation**: Tests created but infrastructure issues prevent execution
 2. **Port/Adapter Pattern**: Tests created but service layer issues prevent execution
 3. **Dependency Injection**: Framework in place but needs fixes
 
 ### ❌ Not Yet Validated
+
 1. **Performance Baselines**: Tests exist but can't run due to service issues
 2. **Memory Management**: Test framework ready but blocked by infrastructure
 3. **Service Composition**: Needs service layer fixes
@@ -78,7 +89,9 @@ This directory contains comprehensive integration tests to validate the DDD arch
 ## Recommendations
 
 ### Immediate Fixes Needed
+
 1. **Fix PhysicsDomainService GenericTag syntax**
+
    ```typescript
    export class PhysicsDomainService extends Context.Tag('PhysicsDomainService')<PhysicsDomainService, PhysicsDomainServiceInterface>() {}
    ```
@@ -92,6 +105,7 @@ This directory contains comprehensive integration tests to validate the DDD arch
    - Ensure test layer is self-contained
 
 ### Architecture Improvements
+
 1. **Service Interface Consistency**
    - Standardize service interface definitions
    - Ensure all services follow the same pattern
@@ -106,14 +120,14 @@ This directory contains comprehensive integration tests to validate the DDD arch
 
 ## Test Coverage Summary
 
-| Category | Tests Created | Tests Passing | Coverage |
-|----------|---------------|---------------|----------|
-| Basic Architecture | 5 | 5 | 100% |
-| DDD Migration | 12 | 0 | 0% (blocked) |
-| Architecture Compliance | 15 | 0 | 0% (blocked) |
-| Performance Baseline | 18 | 0 | 0% (blocked) |
-| Port/Adapter Integration | 25 | 0 | 0% (blocked) |
-| **Total** | **75** | **5** | **6.7%** |
+| Category                 | Tests Created | Tests Passing | Coverage     |
+| ------------------------ | ------------- | ------------- | ------------ |
+| Basic Architecture       | 5             | 5             | 100%         |
+| DDD Migration            | 12            | 0             | 0% (blocked) |
+| Architecture Compliance  | 15            | 0             | 0% (blocked) |
+| Performance Baseline     | 18            | 0             | 0% (blocked) |
+| Port/Adapter Integration | 25            | 0             | 0% (blocked) |
+| **Total**                | **75**        | **5**         | **6.7%**     |
 
 ## Next Steps
 

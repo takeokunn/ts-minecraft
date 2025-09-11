@@ -1,6 +1,6 @@
 /**
  * Performance Domain Service
- * 
+ *
  * Contains pure domain logic for performance monitoring, optimization strategies,
  * and alert management. This service defines business rules for performance
  * thresholds and optimization without dependencies on specific monitoring libraries.
@@ -155,7 +155,11 @@ export class PerformanceAnalysisError extends Error {
 
 export class PerformanceThresholdViolationError extends Error {
   readonly _tag = 'PerformanceThresholdViolationError'
-  constructor(public readonly category: PerformanceCategory, public readonly value: number, public readonly threshold: number) {
+  constructor(
+    public readonly category: PerformanceCategory,
+    public readonly value: number,
+    public readonly threshold: number,
+  ) {
     super(`Performance threshold violation: ${category} value ${value} exceeds threshold ${threshold}`)
   }
 }
@@ -172,28 +176,28 @@ const calculatePerformanceSeverity = (category: PerformanceCategory, value: numb
       if (value >= PERFORMANCE_THRESHOLDS.fps.acceptable) return 'acceptable'
       if (value >= PERFORMANCE_THRESHOLDS.fps.poor) return 'poor'
       return 'critical'
-    
+
     case 'memory':
       if (value <= PERFORMANCE_THRESHOLDS.memory.low) return 'excellent'
       if (value <= PERFORMANCE_THRESHOLDS.memory.moderate) return 'good'
       if (value <= PERFORMANCE_THRESHOLDS.memory.high) return 'acceptable'
       if (value <= PERFORMANCE_THRESHOLDS.memory.critical) return 'poor'
       return 'critical'
-    
+
     case 'latency':
       if (value <= PERFORMANCE_THRESHOLDS.latency.excellent) return 'excellent'
       if (value <= PERFORMANCE_THRESHOLDS.latency.good) return 'good'
       if (value <= PERFORMANCE_THRESHOLDS.latency.acceptable) return 'acceptable'
       if (value <= PERFORMANCE_THRESHOLDS.latency.poor) return 'poor'
       return 'critical'
-    
+
     case 'cpu':
       if (value <= PERFORMANCE_THRESHOLDS.cpu.low) return 'excellent'
       if (value <= PERFORMANCE_THRESHOLDS.cpu.moderate) return 'good'
       if (value <= PERFORMANCE_THRESHOLDS.cpu.high) return 'acceptable'
       if (value <= PERFORMANCE_THRESHOLDS.cpu.critical) return 'poor'
       return 'critical'
-    
+
     default:
       return 'good' // Default for categories without specific thresholds
   }
@@ -213,14 +217,9 @@ const severityToAlertType = (severity: PerformanceSeverity): AlertType => {
   }
 }
 
-const createPerformanceMetric = (
-  category: PerformanceCategory,
-  value: number,
-  timestamp: number = Date.now(),
-  metadata?: Readonly<Record<string, unknown>>
-): PerformanceMetric => {
+const createPerformanceMetric = (category: PerformanceCategory, value: number, timestamp: number = Date.now(), metadata?: Readonly<Record<string, unknown>>): PerformanceMetric => {
   const severity = calculatePerformanceSeverity(category, value)
-  
+
   const units: Record<PerformanceCategory, string> = {
     fps: 'fps',
     memory: 'bytes',
@@ -230,7 +229,7 @@ const createPerformanceMetric = (
     gpu: '%',
     disk: 'MB/s',
   }
-  
+
   return {
     category,
     value,
@@ -241,14 +240,11 @@ const createPerformanceMetric = (
   }
 }
 
-const createPerformanceAlert = (
-  metric: PerformanceMetric,
-  threshold: number
-): Effect.Effect<PerformanceAlert, never, never> =>
+const createPerformanceAlert = (metric: PerformanceMetric, threshold: number): Effect.Effect<PerformanceAlert, never, never> =>
   Effect.gen(function* () {
     const alertType = severityToAlertType(metric.severity)
     const id = `${metric.category}-${metric.timestamp}`
-    
+
     const messages: Record<PerformanceCategory, (value: number, threshold: number) => string> = {
       fps: (v, t) => `Low frame rate detected: ${v.toFixed(1)} fps (threshold: ${t} fps)`,
       memory: (v, t) => `High memory usage: ${(v / 1024 / 1024).toFixed(1)} MB (threshold: ${(t / 1024 / 1024).toFixed(1)} MB)`,
@@ -258,7 +254,7 @@ const createPerformanceAlert = (
       gpu: (v, t) => `High GPU usage: ${v.toFixed(1)}% (threshold: ${t}%)`,
       disk: (v, t) => `High disk I/O: ${v.toFixed(1)} MB/s (threshold: ${t} MB/s)`,
     }
-    
+
     return {
       id,
       category: metric.category,
@@ -273,12 +269,9 @@ const createPerformanceAlert = (
     }
   })
 
-const getOptimizationStrategies = (
-  context: GamePerformanceContext,
-  analysis: PerformanceAnalysis
-): readonly OptimizationStrategy[] => {
+const getOptimizationStrategies = (context: GamePerformanceContext, analysis: PerformanceAnalysis): readonly OptimizationStrategy[] => {
   const strategies: OptimizationStrategy[] = []
-  
+
   // FPS optimization strategies
   if (analysis.categoryScores.fps < 60) {
     strategies.push({
@@ -293,7 +286,7 @@ const getOptimizationStrategies = (
       prerequisites: [],
       enabled: context.renderDistance > 8,
     })
-    
+
     strategies.push({
       id: 'enable-lod',
       name: 'Enable Level of Detail (LOD)',
@@ -306,7 +299,7 @@ const getOptimizationStrategies = (
       prerequisites: [],
       enabled: true,
     })
-    
+
     strategies.push({
       id: 'frustum-culling',
       name: 'Implement Frustum Culling',
@@ -320,7 +313,7 @@ const getOptimizationStrategies = (
       enabled: true,
     })
   }
-  
+
   // Memory optimization strategies
   if (analysis.categoryScores.memory > PERFORMANCE_THRESHOLDS.memory.moderate) {
     strategies.push({
@@ -335,7 +328,7 @@ const getOptimizationStrategies = (
       prerequisites: [],
       enabled: true,
     })
-    
+
     strategies.push({
       id: 'texture-compression',
       name: 'Enable Texture Compression',
@@ -348,7 +341,7 @@ const getOptimizationStrategies = (
       prerequisites: [],
       enabled: true,
     })
-    
+
     strategies.push({
       id: 'chunk-unloading',
       name: 'Aggressive Chunk Unloading',
@@ -362,7 +355,7 @@ const getOptimizationStrategies = (
       enabled: context.chunksLoaded > 100,
     })
   }
-  
+
   // GPU optimization strategies
   if (context.qualityLevel === 'ultra' && analysis.overallScore < 70) {
     strategies.push({
@@ -378,7 +371,7 @@ const getOptimizationStrategies = (
       enabled: true,
     })
   }
-  
+
   // Entity optimization strategies
   if (context.entitiesCount > 10000) {
     strategies.push({
@@ -394,13 +387,11 @@ const getOptimizationStrategies = (
       enabled: true,
     })
   }
-  
-  return strategies.filter(s => s.enabled)
+
+  return strategies.filter((s) => s.enabled)
 }
 
-const calculateOverallPerformanceScore = (
-  categoryScores: Readonly<Record<PerformanceCategory, number>>
-): number => {
+const calculateOverallPerformanceScore = (categoryScores: Readonly<Record<PerformanceCategory, number>>): number => {
   const weights: Readonly<Record<PerformanceCategory, number>> = {
     fps: 0.3,
     memory: 0.2,
@@ -410,24 +401,22 @@ const calculateOverallPerformanceScore = (
     gpu: 0.05,
     disk: 0.05,
   }
-  
+
   let totalScore = 0
   let totalWeight = 0
-  
+
   for (const [category, score] of Object.entries(categoryScores)) {
     const weight = weights[category as PerformanceCategory] || 0
     totalScore += score * weight
     totalWeight += weight
   }
-  
+
   return totalWeight > 0 ? totalScore / totalWeight : 0
 }
 
-const identifyBottlenecks = (
-  categoryScores: Readonly<Record<PerformanceCategory, number>>
-): readonly PerformanceCategory[] => {
+const identifyBottlenecks = (categoryScores: Readonly<Record<PerformanceCategory, number>>): readonly PerformanceCategory[] => {
   const bottleneckThreshold = 50 // Score below which we consider it a bottleneck
-  
+
   return Object.entries(categoryScores)
     .filter(([_, score]) => score < bottleneckThreshold)
     .map(([category, _]) => category as PerformanceCategory)
@@ -436,7 +425,7 @@ const identifyBottlenecks = (
 
 const generatePerformanceSummary = (analysis: PerformanceAnalysis): string => {
   const { overallScore, bottlenecks, alerts } = analysis
-  
+
   if (overallScore >= 80) {
     return `Performance is excellent (${overallScore.toFixed(1)}/100). System is running smoothly with minimal issues.`
   } else if (overallScore >= 60) {
@@ -455,33 +444,23 @@ export interface IPerformanceDomainService {
   readonly analyzePerformance: (
     metrics: readonly PerformanceMetric[],
     context: GamePerformanceContext,
-    config: PerformanceConfig
+    config: PerformanceConfig,
   ) => Effect.Effect<PerformanceAnalysis, PerformanceAnalysisError, never>
-  
+
   readonly createPerformanceMetric: (
     category: PerformanceCategory,
     value: number,
     timestamp?: number,
-    metadata?: Readonly<Record<string, unknown>>
+    metadata?: Readonly<Record<string, unknown>>,
   ) => Effect.Effect<PerformanceMetric, never, never>
-  
-  readonly evaluateMetric: (
-    metric: PerformanceMetric,
-    config: PerformanceConfig
-  ) => Effect.Effect<PerformanceAlert | null, never, never>
-  
-  readonly getOptimizationRecommendations: (
-    context: GamePerformanceContext,
-    analysis: PerformanceAnalysis
-  ) => Effect.Effect<readonly OptimizationStrategy[], never, never>
-  
-  readonly validatePerformanceThresholds: (
-    config: PerformanceConfig
-  ) => Effect.Effect<boolean, PerformanceAnalysisError, never>
-  
-  readonly calculatePerformanceScore: (
-    metrics: readonly PerformanceMetric[]
-  ) => Effect.Effect<Readonly<Record<PerformanceCategory, number>>, never, never>
+
+  readonly evaluateMetric: (metric: PerformanceMetric, config: PerformanceConfig) => Effect.Effect<PerformanceAlert | null, never, never>
+
+  readonly getOptimizationRecommendations: (context: GamePerformanceContext, analysis: PerformanceAnalysis) => Effect.Effect<readonly OptimizationStrategy[], never, never>
+
+  readonly validatePerformanceThresholds: (config: PerformanceConfig) => Effect.Effect<boolean, PerformanceAnalysisError, never>
+
+  readonly calculatePerformanceScore: (metrics: readonly PerformanceMetric[]) => Effect.Effect<Readonly<Record<PerformanceCategory, number>>, never, never>
 }
 
 /**
@@ -491,13 +470,13 @@ export interface IPerformanceDomainService {
 const analyzePerformancePure = (
   metrics: readonly PerformanceMetric[],
   context: GamePerformanceContext,
-  config: PerformanceConfig
+  config: PerformanceConfig,
 ): Effect.Effect<PerformanceAnalysis, PerformanceAnalysisError, never> =>
   Effect.gen(function* () {
     if (metrics.length === 0) {
       throw new PerformanceAnalysisError('No metrics provided for analysis')
     }
-    
+
     // Calculate category scores
     const categoryScores: Record<PerformanceCategory, number> = {
       fps: 0,
@@ -508,19 +487,22 @@ const analyzePerformancePure = (
       gpu: 0,
       disk: 0,
     }
-    
+
     // Group metrics by category and calculate average scores
-    const metricsByCategory = metrics.reduce((acc, metric) => {
-      if (!acc[metric.category]) {
-        acc[metric.category] = []
-      }
-      acc[metric.category].push(metric)
-      return acc
-    }, {} as Record<PerformanceCategory, PerformanceMetric[]>)
-    
+    const metricsByCategory = metrics.reduce(
+      (acc, metric) => {
+        if (!acc[metric.category]) {
+          acc[metric.category] = []
+        }
+        acc[metric.category].push(metric)
+        return acc
+      },
+      {} as Record<PerformanceCategory, PerformanceMetric[]>,
+    )
+
     for (const [category, categoryMetrics] of Object.entries(metricsByCategory)) {
       const avgValue = categoryMetrics.reduce((sum, m) => sum + m.value, 0) / categoryMetrics.length
-      
+
       // Convert values to 0-100 scores based on thresholds
       switch (category as PerformanceCategory) {
         case 'fps':
@@ -539,14 +521,14 @@ const analyzePerformancePure = (
           categoryScores[category as PerformanceCategory] = 50 // Neutral score for unknown categories
       }
     }
-    
+
     const overallScore = calculateOverallPerformanceScore(categoryScores)
     const bottlenecks = identifyBottlenecks(categoryScores)
-    
+
     // Generate alerts for recent metrics
-    const recentMetrics = metrics.filter(m => Date.now() - m.timestamp < 60000) // Last minute
+    const recentMetrics = metrics.filter((m) => Date.now() - m.timestamp < 60000) // Last minute
     const alerts: PerformanceAlert[] = []
-    
+
     for (const metric of recentMetrics) {
       const threshold = getThresholdForCategory(metric.category, config)
       if (shouldCreateAlert(metric, threshold)) {
@@ -554,7 +536,7 @@ const analyzePerformancePure = (
         alerts.push(alert)
       }
     }
-    
+
     const recommendedOptimizations = getOptimizationStrategies(context, {
       overallScore,
       categoryScores,
@@ -563,7 +545,7 @@ const analyzePerformancePure = (
       alerts,
       summary: '',
     })
-    
+
     const analysis: PerformanceAnalysis = {
       overallScore,
       categoryScores,
@@ -579,7 +561,7 @@ const analyzePerformancePure = (
         summary: '',
       }),
     }
-    
+
     return analysis
   })
 
@@ -615,59 +597,52 @@ const createPerformanceMetricPure = (
   category: PerformanceCategory,
   value: number,
   timestamp: number = Date.now(),
-  metadata?: Readonly<Record<string, unknown>>
-): Effect.Effect<PerformanceMetric, never, never> =>
-  Effect.succeed(createPerformanceMetric(category, value, timestamp, metadata))
+  metadata?: Readonly<Record<string, unknown>>,
+): Effect.Effect<PerformanceMetric, never, never> => Effect.succeed(createPerformanceMetric(category, value, timestamp, metadata))
 
-const evaluateMetricPure = (
-  metric: PerformanceMetric,
-  config: PerformanceConfig
-): Effect.Effect<PerformanceAlert | null, never, never> =>
+const evaluateMetricPure = (metric: PerformanceMetric, config: PerformanceConfig): Effect.Effect<PerformanceAlert | null, never, never> =>
   Effect.gen(function* () {
     if (!config.monitoring.alertingEnabled) {
       return null
     }
-    
+
     const threshold = getThresholdForCategory(metric.category, config)
-    
+
     if (shouldCreateAlert(metric, threshold)) {
       return yield* createPerformanceAlert(metric, threshold)
     }
-    
+
     return null
   })
 
-const getOptimizationRecommendationsPure = (
-  context: GamePerformanceContext,
-  analysis: PerformanceAnalysis
-): Effect.Effect<readonly OptimizationStrategy[], never, never> =>
+const getOptimizationRecommendationsPure = (context: GamePerformanceContext, analysis: PerformanceAnalysis): Effect.Effect<readonly OptimizationStrategy[], never, never> =>
   Effect.succeed(getOptimizationStrategies(context, analysis))
 
-const validatePerformanceThresholdsPure = (
-  config: PerformanceConfig
-): Effect.Effect<boolean, PerformanceAnalysisError, never> =>
+const validatePerformanceThresholdsPure = (config: PerformanceConfig): Effect.Effect<boolean, PerformanceAnalysisError, never> =>
   Effect.gen(function* () {
     // Validate FPS thresholds
-    if (config.thresholds.fps.critical >= config.thresholds.fps.poor ||
-        config.thresholds.fps.poor >= config.thresholds.fps.acceptable ||
-        config.thresholds.fps.acceptable >= config.thresholds.fps.good ||
-        config.thresholds.fps.good >= config.thresholds.fps.excellent) {
+    if (
+      config.thresholds.fps.critical >= config.thresholds.fps.poor ||
+      config.thresholds.fps.poor >= config.thresholds.fps.acceptable ||
+      config.thresholds.fps.acceptable >= config.thresholds.fps.good ||
+      config.thresholds.fps.good >= config.thresholds.fps.excellent
+    ) {
       throw new PerformanceAnalysisError('FPS thresholds must be in ascending order')
     }
-    
+
     // Validate memory thresholds
-    if (config.thresholds.memory.low >= config.thresholds.memory.moderate ||
-        config.thresholds.memory.moderate >= config.thresholds.memory.high ||
-        config.thresholds.memory.high >= config.thresholds.memory.critical) {
+    if (
+      config.thresholds.memory.low >= config.thresholds.memory.moderate ||
+      config.thresholds.memory.moderate >= config.thresholds.memory.high ||
+      config.thresholds.memory.high >= config.thresholds.memory.critical
+    ) {
       throw new PerformanceAnalysisError('Memory thresholds must be in ascending order')
     }
-    
+
     return true
   })
 
-const calculatePerformanceScorePure = (
-  metrics: readonly PerformanceMetric[]
-): Effect.Effect<Readonly<Record<PerformanceCategory, number>>, never, never> =>
+const calculatePerformanceScorePure = (metrics: readonly PerformanceMetric[]): Effect.Effect<Readonly<Record<PerformanceCategory, number>>, never, never> =>
   Effect.gen(function* () {
     const scores: Record<PerformanceCategory, number> = {
       fps: 0,
@@ -678,26 +653,30 @@ const calculatePerformanceScorePure = (
       gpu: 0,
       disk: 0,
     }
-    
-    const metricsByCategory = metrics.reduce((acc, metric) => {
-      if (!acc[metric.category]) {
-        acc[metric.category] = []
-      }
-      acc[metric.category].push(metric)
-      return acc
-    }, {} as Record<PerformanceCategory, PerformanceMetric[]>)
-    
+
+    const metricsByCategory = metrics.reduce(
+      (acc, metric) => {
+        if (!acc[metric.category]) {
+          acc[metric.category] = []
+        }
+        acc[metric.category].push(metric)
+        return acc
+      },
+      {} as Record<PerformanceCategory, PerformanceMetric[]>,
+    )
+
     for (const [category, categoryMetrics] of Object.entries(metricsByCategory)) {
       if (categoryMetrics.length > 0) {
-        const avgSeverityScore = categoryMetrics.reduce((sum, m) => {
-          const severityScores = { excellent: 100, good: 80, acceptable: 60, poor: 40, critical: 20 }
-          return sum + severityScores[m.severity]
-        }, 0) / categoryMetrics.length
-        
+        const avgSeverityScore =
+          categoryMetrics.reduce((sum, m) => {
+            const severityScores = { excellent: 100, good: 80, acceptable: 60, poor: 40, critical: 20 }
+            return sum + severityScores[m.severity]
+          }, 0) / categoryMetrics.length
+
         scores[category as PerformanceCategory] = avgSeverityScore
       }
     }
-    
+
     return scores
   })
 
@@ -721,10 +700,7 @@ export const PerformanceDomainServicePort = Context.GenericTag<IPerformanceDomai
 /**
  * Live layer for Performance Domain Service
  */
-export const PerformanceDomainServiceLive = Layer.succeed(
-  PerformanceDomainServicePort,
-  performanceDomainService
-)
+export const PerformanceDomainServiceLive = Layer.succeed(PerformanceDomainServicePort, performanceDomainService)
 
 /**
  * Utility functions for performance domain operations
@@ -761,7 +737,7 @@ export const PerformanceDomainUtils = {
     qualityLevel: 'low' | 'medium' | 'high' | 'ultra' = 'medium',
     shaderComplexity: 'basic' | 'standard' | 'advanced' = 'standard',
     playerCount: number = 1,
-    worldSize: number = 1000
+    worldSize: number = 1000,
   ): GamePerformanceContext => ({
     entitiesCount,
     chunksLoaded,
@@ -795,17 +771,13 @@ export const PerformanceDomainUtils = {
   /**
    * Check if optimization strategy is applicable
    */
-  isOptimizationApplicable: (
-    strategy: OptimizationStrategy,
-    context: GamePerformanceContext,
-    currentScore: number
-  ): boolean => {
+  isOptimizationApplicable: (strategy: OptimizationStrategy, context: GamePerformanceContext, currentScore: number): boolean => {
     if (!strategy.enabled) return false
-    
+
     // Check if the performance is poor enough to warrant this optimization
     const severityThresholds = { critical: 20, poor: 40, acceptable: 60, good: 80, excellent: 100 }
     if (currentScore > severityThresholds[strategy.severity]) return false
-    
+
     // Check prerequisites
     return strategy.prerequisites.length === 0 // Simplified - would check if prerequisites are met
   },

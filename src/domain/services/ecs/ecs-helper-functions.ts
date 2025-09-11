@@ -1,6 +1,6 @@
 /**
  * ECS Helper Functions
- * 
+ *
  * This module provides convenient helper functions for working with the ECS system.
  * Moved from index.ts to separate concerns and maintain pure barrel exports.
  */

@@ -94,8 +94,8 @@ export const SchedulerError = Schema.TaggedError(
   'SchedulerError',
   Schema.Struct({
     message: Schema.String,
-    cause: Schema.optional(Schema.Unknown)
-  })
+    cause: Schema.optional(Schema.Unknown),
+  }),
 )
 
 /**
@@ -298,9 +298,13 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
             yield* pipe(
               registeredSystem.system(context),
               Effect.timeout(registeredSystem.config.maxExecutionTime),
-              Effect.catchTag('TimeoutException', () => Effect.fail(new SchedulerError({ 
-                message: `System ${systemId} exceeded maximum execution time` 
-              }))),
+              Effect.catchTag('TimeoutException', () =>
+                Effect.fail(
+                  new SchedulerError({
+                    message: `System ${systemId} exceeded maximum execution time`,
+                  }),
+                ),
+              ),
             )
 
             const endTime = yield* EffectClock.currentTimeMillis
@@ -321,10 +325,12 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
             yield* updateSystemMetrics(systemId, executionTime, Option.some(error instanceof Error ? error : new Error(String(error))))
 
             // Re-throw error for handling by scheduler
-            yield* Effect.fail(new SchedulerError({ 
-              message: `System ${systemId} execution failed`, 
-              cause: error 
-            }))
+            yield* Effect.fail(
+              new SchedulerError({
+                message: `System ${systemId} execution failed`,
+                cause: error,
+              }),
+            )
           }
         })
 

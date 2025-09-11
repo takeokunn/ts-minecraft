@@ -5,13 +5,7 @@ import { PlayerMoveUseCase } from '@application/use-cases/player-move.use-case'
 import { BlockPlaceUseCase } from '@application/use-cases/block-place.use-case'
 import { ChunkLoadUseCase, ChunkLoadCommand } from '@application/use-cases/chunk-load.use-case'
 import { WorldGenerateUseCase, WorldGenerateCommand } from '@application/use-cases/world-generate.use-case'
-import { 
-  ValidationError, 
-  SystemExecutionError, 
-  EntityNotFoundError,
-  ChunkNotLoadedError,
-  WorldStateError 
-} from '@domain/errors'
+import { ValidationError, SystemExecutionError, EntityNotFoundError, ChunkNotLoadedError, WorldStateError } from '@domain/errors'
 
 // Service interface with proper error types
 interface CommandHandlersService {
@@ -92,96 +86,120 @@ export const CommandHandlersLive: Layer.Layer<CommandHandlers, never, PlayerMove
 const validatePlayerMovementCommand = (command: PlayerMovementCommand): Effect.Effect<void, ValidationError, never> =>
   Effect.gen(function* () {
     if (!command.entityId) {
-      return yield* Effect.fail(ValidationError({
-        field: 'entityId',
-        message: 'Entity ID is required'
-      }))
+      return yield* Effect.fail(
+        ValidationError({
+          field: 'entityId',
+          message: 'Entity ID is required',
+        }),
+      )
     }
 
     if (!command.position || typeof command.position.x !== 'number' || typeof command.position.y !== 'number' || typeof command.position.z !== 'number') {
-      return yield* Effect.fail(ValidationError({
-        field: 'position',
-        message: 'Valid position with x, y, z coordinates is required'
-      }))
+      return yield* Effect.fail(
+        ValidationError({
+          field: 'position',
+          message: 'Valid position with x, y, z coordinates is required',
+        }),
+      )
     }
 
     if (!command.velocity || typeof command.velocity.dx !== 'number' || typeof command.velocity.dy !== 'number' || typeof command.velocity.dz !== 'number') {
-      return yield* Effect.fail(ValidationError({
-        field: 'velocity',
-        message: 'Valid velocity with dx, dy, dz components is required'
-      }))
+      return yield* Effect.fail(
+        ValidationError({
+          field: 'velocity',
+          message: 'Valid velocity with dx, dy, dz components is required',
+        }),
+      )
     }
   })
 
 const validateBlockInteractionCommand = (command: BlockInteractionCommand): Effect.Effect<void, ValidationError, never> =>
   Effect.gen(function* () {
     if (!command.entityId) {
-      return yield* Effect.fail(ValidationError({
-        field: 'entityId',
-        message: 'Entity ID is required'
-      }))
+      return yield* Effect.fail(
+        ValidationError({
+          field: 'entityId',
+          message: 'Entity ID is required',
+        }),
+      )
     }
 
     if (!command.position || typeof command.position.x !== 'number' || typeof command.position.y !== 'number' || typeof command.position.z !== 'number') {
-      return yield* Effect.fail(ValidationError({
-        field: 'position',
-        message: 'Valid position with x, y, z coordinates is required'
-      }))
+      return yield* Effect.fail(
+        ValidationError({
+          field: 'position',
+          message: 'Valid position with x, y, z coordinates is required',
+        }),
+      )
     }
 
     if (!['place', 'destroy'].includes(command.action)) {
-      return yield* Effect.fail(ValidationError({
-        field: 'action',
-        message: "Action must be 'place' or 'destroy'"
-      }))
+      return yield* Effect.fail(
+        ValidationError({
+          field: 'action',
+          message: "Action must be 'place' or 'destroy'",
+        }),
+      )
     }
 
     if (command.action === 'place' && !command.blockType) {
-      return yield* Effect.fail(ValidationError({
-        field: 'blockType',
-        message: 'Block type is required for place action'
-      }))
+      return yield* Effect.fail(
+        ValidationError({
+          field: 'blockType',
+          message: 'Block type is required for place action',
+        }),
+      )
     }
   })
 
 const validateChunkLoadCommand = (command: ChunkLoadCommand): Effect.Effect<void, ValidationError, never> =>
   Effect.gen(function* () {
     if (typeof command.chunkX !== 'number' || typeof command.chunkZ !== 'number') {
-      return yield* Effect.fail(ValidationError({
-        field: 'chunkCoordinates',
-        message: 'Valid chunk coordinates (chunkX, chunkZ) are required'
-      }))
+      return yield* Effect.fail(
+        ValidationError({
+          field: 'chunkCoordinates',
+          message: 'Valid chunk coordinates (chunkX, chunkZ) are required',
+        }),
+      )
     }
 
     if (!['high', 'medium', 'low'].includes(command.priority)) {
-      return yield* Effect.fail(ValidationError({
-        field: 'priority',
-        message: "Priority must be 'high', 'medium', or 'low'"
-      }))
+      return yield* Effect.fail(
+        ValidationError({
+          field: 'priority',
+          message: "Priority must be 'high', 'medium', or 'low'",
+        }),
+      )
     }
   })
 
 const validateWorldGenerateCommand = (command: WorldGenerateCommand): Effect.Effect<void, ValidationError, never> =>
   Effect.gen(function* () {
     if (typeof command.seed !== 'number') {
-      return yield* Effect.fail(ValidationError({
-        field: 'seed',
-        message: 'Valid numeric seed is required'
-      }))
+      return yield* Effect.fail(
+        ValidationError({
+          field: 'seed',
+          message: 'Valid numeric seed is required',
+        }),
+      )
     }
 
     if (!['flat', 'normal', 'amplified', 'debug'].includes(command.worldType)) {
-      return yield* Effect.fail(ValidationError({
-        field: 'worldType',
-        message: "World type must be 'flat', 'normal', 'amplified', or 'debug'"
-      }))
+      return yield* Effect.fail(
+        ValidationError({
+          field: 'worldType',
+          message: "World type must be 'flat', 'normal', 'amplified', or 'debug'",
+        }),
+      )
     }
 
     if (typeof command.generateStructures !== 'boolean') {
-      return yield* Effect.fail(ValidationError({
-        field: 'generateStructures',
-        message: 'Generate structures must be a boolean value'
-      }))
+      return yield* Effect.fail(
+        ValidationError({
+          field: 'generateStructures',
+          message: 'Generate structures must be a boolean value',
+        }),
+      )
     }
   })
 

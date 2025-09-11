@@ -14,7 +14,7 @@ This project demonstrates a complete Minecraft game engine implementation using 
 ### Key Features
 
 - **🏗️ Clean Architecture**: Strict DDD layer separation with dependency inversion
-- **⚡ High Performance**: Structure of Arrays (SoA) ECS with optimized queries  
+- **⚡ High Performance**: Structure of Arrays (SoA) ECS with optimized queries
 - **🔒 Type Safety**: 100% Effect-TS type system with comprehensive error handling
 - **🚫 Zero Classes**: Pure functional programming - no classes or `this` keyword
 - **🔄 Immutable State**: All data structures are immutable by default
@@ -25,7 +25,7 @@ This project demonstrates a complete Minecraft game engine implementation using 
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - pnpm (recommended) or npm
 
 ### Installation
@@ -69,7 +69,7 @@ pnpm test:coverage   # Run tests with coverage report
 ```
 src/
 ├── domain/           # Core business logic (entities, value objects, services)
-├── application/      # Use cases, workflows, queries, commands  
+├── application/      # Use cases, workflows, queries, commands
 ├── infrastructure/   # Technical implementations (adapters, repositories)
 ├── presentation/     # User interface (controllers, view models, CLI tools)
 └── shared/          # Common utilities and types
@@ -89,36 +89,21 @@ All code follows Effect-TS patterns for:
 
 ```typescript
 // Pure domain logic
-export const calculateNewPosition = (
-  current: Position,
-  direction: Direction,
-  speed: number
-): Effect.Effect<Position, ValidationError> =>
+export const calculateNewPosition = (current: Position, direction: Direction, speed: number): Effect.Effect<Position, ValidationError> =>
   pipe(
     Effect.succeed(current),
-    Effect.map(pos => pos.translate(
-      direction.x * speed,
-      direction.y * speed, 
-      direction.z * speed
-    )),
-    Effect.flatMap(validatePosition)
+    Effect.map((pos) => pos.translate(direction.x * speed, direction.y * speed, direction.z * speed)),
+    Effect.flatMap(validatePosition),
   )
 
 // Application use case
-export const playerMoveUseCase = (
-  playerId: EntityId,
-  direction: Direction
-): Effect.Effect<void, PlayerMoveError, WorldService | InputService> =>
+export const playerMoveUseCase = (playerId: EntityId, direction: Direction): Effect.Effect<void, PlayerMoveError, WorldService | InputService> =>
   Effect.gen(function* () {
     const world = yield* WorldService
     const player = yield* world.getPlayer(playerId)
-    
-    const newPosition = yield* calculateNewPosition(
-      player.position, 
-      direction, 
-      PLAYER_SPEED
-    )
-    
+
+    const newPosition = yield* calculateNewPosition(player.position, direction, PLAYER_SPEED)
+
     yield* world.updatePlayerPosition(playerId, newPosition)
   })
 ```
@@ -141,23 +126,17 @@ We've successfully completed Phase 3 of our DDD architecture migration:
 ```typescript
 // ✅ Achieved: Clean service definitions with Effect-TS
 export interface WorldService {
-  readonly loadChunk: (
-    coordinate: ChunkCoordinate
-  ) => Effect.Effect<Chunk, ChunkError>
+  readonly loadChunk: (coordinate: ChunkCoordinate) => Effect.Effect<Chunk, ChunkError>
 }
 
 // ✅ Achieved: Pure domain logic
 export class Position extends Data.Class<{
   readonly x: number
-  readonly y: number  
+  readonly y: number
   readonly z: number
 }> {
   distanceTo(other: Position): number {
-    return Math.sqrt(
-      (this.x - other.x) ** 2 + 
-      (this.y - other.y) ** 2 + 
-      (this.z - other.z) ** 2
-    )
+    return Math.sqrt((this.x - other.x) ** 2 + (this.y - other.y) ** 2 + (this.z - other.z) ** 2)
   }
 }
 
@@ -165,14 +144,11 @@ export class Position extends Data.Class<{
 export const threeJsRenderAdapter: RenderPort = {
   createMesh: (geometry, material) =>
     Effect.gen(function* () {
-      const mesh = new THREE.Mesh(
-        convertGeometry(geometry),
-        convertMaterial(material)
-      )
+      const mesh = new THREE.Mesh(convertGeometry(geometry), convertMaterial(material))
       const id = yield* generateMeshId()
       yield* addToScene(mesh)
       return id
-    })
+    }),
 }
 ```
 
@@ -185,14 +161,14 @@ Components are stored in Structure of Arrays format for optimal CPU cache perfor
 ```typescript
 // Traditional Array of Structures (slow)
 const entities = [
-  { position: {x: 1, y: 2, z: 3}, velocity: {dx: 0.1, dy: 0, dz: 0.1} },
-  { position: {x: 4, y: 5, z: 6}, velocity: {dx: -0.1, dy: 0, dz: 0.2} }
+  { position: { x: 1, y: 2, z: 3 }, velocity: { dx: 0.1, dy: 0, dz: 0.1 } },
+  { position: { x: 4, y: 5, z: 6 }, velocity: { dx: -0.1, dy: 0, dz: 0.2 } },
 ]
 
 // Structure of Arrays (fast - better cache locality)
 const components = {
   position: { x: [1, 4], y: [2, 5], z: [3, 6] },
-  velocity: { dx: [0.1, -0.1], dy: [0, 0], dz: [0.1, 0.2] }
+  velocity: { dx: [0.1, -0.1], dy: [0, 0], dz: [0.1, 0.2] },
 }
 ```
 
@@ -202,16 +178,16 @@ Our consolidated query system enables fast, type-safe entity iteration:
 
 ```typescript
 const movableQuery = createQuery({
-  all: [Position, Velocity],    // Must have these components
-  any: [Player, NPC],          // Must have at least one of these
-  none: [Frozen, Disabled]     // Must not have any of these
+  all: [Position, Velocity], // Must have these components
+  any: [Player, NPC], // Must have at least one of these
+  none: [Frozen, Disabled], // Must not have any of these
 })
 
 // Fast iteration with Effect-TS safety
 const processMovableEntities = Effect.gen(function* () {
   const world = yield* WorldService
   const { entities, components } = yield* world.querySoA(movableQuery)
-  
+
   for (let i = 0; i < entities.length; i++) {
     components.position.x[i] += components.velocity.dx[i] * deltaTime
   }
@@ -223,7 +199,7 @@ const processMovableEntities = Effect.gen(function* () {
 Heavy computations are offloaded to Web Workers:
 
 - **Terrain Generation**: Procedural world generation in background threads
-- **Mesh Building**: 3D geometry construction without blocking main thread  
+- **Mesh Building**: 3D geometry construction without blocking main thread
 - **Physics Simulation**: Collision detection and response
 - **Lighting Calculations**: Dynamic lighting and shadows
 
@@ -241,7 +217,7 @@ export class Player extends Data.Class<{
   readonly position: Position
 }> {}
 
-// Value Objects  
+// Value Objects
 export class Position extends Data.Class<{
   readonly x: number
   readonly y: number
@@ -250,17 +226,15 @@ export class Position extends Data.Class<{
   translate(dx: number, dy: number, dz: number): Position {
     return new Position({
       x: this.x + dx,
-      y: this.y + dy, 
-      z: this.z + dz
+      y: this.y + dy,
+      z: this.z + dz,
     })
   }
 }
 
 // Domain Services
 export interface WorldDomainService {
-  readonly generateTerrain: (
-    coordinate: ChunkCoordinate
-  ) => Effect.Effect<TerrainData, TerrainGenerationError>
+  readonly generateTerrain: (coordinate: ChunkCoordinate) => Effect.Effect<TerrainData, TerrainGenerationError>
 }
 ```
 
@@ -270,22 +244,20 @@ Orchestrates domain logic into specific use cases:
 
 ```typescript
 // Use Cases
-export const chunkLoadUseCase = (
-  coordinate: ChunkCoordinate
-): Effect.Effect<Chunk, ChunkLoadError, WorldService | TerrainService> =>
+export const chunkLoadUseCase = (coordinate: ChunkCoordinate): Effect.Effect<Chunk, ChunkLoadError, WorldService | TerrainService> =>
   Effect.gen(function* () {
     const world = yield* WorldService
     const terrain = yield* TerrainService
-    
+
     const existingChunk = yield* world.getChunk(coordinate)
     if (Option.isSome(existingChunk)) {
       return existingChunk.value
     }
-    
+
     const terrainData = yield* terrain.generateTerrain(coordinate)
     const chunk = yield* createChunk(coordinate, terrainData)
     yield* world.saveChunk(chunk)
-    
+
     return chunk
   })
 ```
@@ -302,18 +274,18 @@ export const threeJsRenderAdapter: RenderPort = {
       const threeGeometry = convertGeometry(geometry)
       const threeMaterial = convertMaterial(material)
       const mesh = new THREE.Mesh(threeGeometry, threeMaterial)
-      
+
       const id = yield* generateMeshId()
       yield* addToScene(mesh)
-      
+
       return id
     }),
-    
+
   updateMesh: (id, updates) =>
     Effect.gen(function* () {
       const mesh = yield* getMeshById(id)
       yield* applyUpdates(mesh, updates)
-    })
+    }),
 }
 ```
 
@@ -339,17 +311,15 @@ describe('PlayerMovement', () => {
     Effect.gen(function* () {
       const useCase = yield* PlayerMoveUseCase
       const world = yield* WorldService
-      
+
       const playerId = EntityId('player-1')
       const initialPosition = yield* world.getPlayerPosition(playerId)
-      
+
       yield* useCase.movePlayer(playerId, Direction.forward)
-      
+
       const newPosition = yield* world.getPlayerPosition(playerId)
       expect(newPosition.z).toBeLessThan(initialPosition.z)
-    }).pipe(
-      Effect.provide(TestLayer)
-    )
+    }).pipe(Effect.provide(TestLayer)),
   )
 })
 ```
@@ -367,10 +337,7 @@ export class ChunkNotFoundError extends Data.TaggedError('ChunkNotFoundError')<{
 const loadChunk = (coord: ChunkCoordinate) =>
   pipe(
     chunkRepository.find(coord),
-    Effect.catchTag('ChunkNotFoundError', (error) =>
-      Effect.logInfo(`Generating new chunk at ${error.coordinate}`)
-        .pipe(Effect.andThen(generateNewChunk(error.coordinate)))
-    )
+    Effect.catchTag('ChunkNotFoundError', (error) => Effect.logInfo(`Generating new chunk at ${error.coordinate}`).pipe(Effect.andThen(generateNewChunk(error.coordinate)))),
   )
 ```
 
@@ -379,7 +346,7 @@ const loadChunk = (coord: ChunkCoordinate) =>
 ### Memory Management
 
 - **Object Pooling**: Reuse objects to minimize garbage collection
-- **Component Storage**: SoA format reduces memory fragmentation  
+- **Component Storage**: SoA format reduces memory fragmentation
 - **Batch Operations**: Group similar operations to reduce overhead
 - **Lazy Loading**: Load chunks and assets on demand
 
@@ -404,13 +371,13 @@ This project leverages the complete Effect-TS ecosystem:
 ```json
 {
   "dependencies": {
-    "effect": "^3.17.13",           // Core Effect library
-    "@effect/platform": "^0.90.8",  // Platform abstractions
-    "@effect/schema": "^0.75.5"     // Schema validation
+    "effect": "^3.17.13", // Core Effect library
+    "@effect/platform": "^0.90.8", // Platform abstractions
+    "@effect/schema": "^0.75.5" // Schema validation
   },
   "devDependencies": {
-    "@effect/vitest": "^0.25.1",   // Testing integration
-    "@effect/test": "^0.1.0"       // Additional test utilities
+    "@effect/vitest": "^0.25.1", // Testing integration
+    "@effect/test": "^0.1.0" // Additional test utilities
   }
 }
 ```
@@ -430,8 +397,9 @@ This project leverages the complete Effect-TS ecosystem:
 ## Phase 4: Migration Complete ✅
 
 ### Final Status
+
 - ✅ **Phase 1**: Foundation cleanup completed
-- ✅ **Phase 2**: Layer separation completed  
+- ✅ **Phase 2**: Layer separation completed
 - ✅ **Phase 3**: Type system enhancement completed
 - ✅ **Phase 4**: Documentation & validation completed
 
@@ -441,7 +409,7 @@ This project leverages the complete Effect-TS ecosystem:
 // ✅ Achieved: Massive class reduction
 126 classes → 74 classes (41% reduction)
 
-// ✅ Achieved: Effect-TS coverage  
+// ✅ Achieved: Effect-TS coverage
 30% → 95%+ (317% increase)
 
 // ✅ Achieved: Test coverage expansion
@@ -470,7 +438,7 @@ We welcome contributions! Please read our [Contributing Guide](./CONTRIBUTING.md
 
 - Development setup and workflow
 - DDD architecture guidelines
-- Effect-TS patterns and best practices  
+- Effect-TS patterns and best practices
 - Code standards and testing requirements
 - Pull request process
 
@@ -488,7 +456,7 @@ We welcome contributions! Please read our [Contributing Guide](./CONTRIBUTING.md
 ### Documentation
 
 - [Architecture Guide](./ARCHITECTURE.md) - Detailed system architecture
-- [Contributing Guide](./CONTRIBUTING.md) - Development guidelines  
+- [Contributing Guide](./CONTRIBUTING.md) - Development guidelines
 - [DDD Principles](./docs/ddd-principles.md) - Domain-driven design patterns
 - [Effect-TS Patterns](./docs/effect-ts-patterns.md) - Best practices
 - [Migration Guide](./docs/migration-guide.md) - Upgrade and migration info

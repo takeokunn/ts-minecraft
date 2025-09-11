@@ -126,7 +126,7 @@ const componentIndexLive = Layer.effect(
           if (components.length === 0) return []
 
           const data = yield* Ref.get(index)
-          
+
           // Sort components by entity count (rarest first)
           const sortedComponents = [...components].sort((a, b) => {
             const aSize = data.componentToEntities.get(a)?.size || 0
@@ -180,7 +180,7 @@ const componentIndexLive = Layer.effect(
         })
       }),
     })
-  })
+  }),
 )
 
 /**
@@ -197,14 +197,13 @@ export interface OptimizedQueryService<T extends ReadonlyArray<ComponentName>> {
 /**
  * Optimized query context tag factory
  */
-export const OptimizedQuery = <T extends ReadonlyArray<ComponentName>>(name: string) =>
-  Context.GenericTag<OptimizedQueryService<T>>(`OptimizedQuery(${name})`)
+export const OptimizedQuery = <T extends ReadonlyArray<ComponentName>>(name: string) => Context.GenericTag<OptimizedQueryService<T>>(`OptimizedQuery(${name})`)
 
 /**
  * Create an optimized query implementation
  */
 export const createOptimizedQuery = <T extends ReadonlyArray<ComponentName>>(
-  config: QueryConfig<T>
+  config: QueryConfig<T>,
 ): Effect.Effect<OptimizedQueryService<T>, never, typeof ComponentIndex | typeof QueryCache> =>
   Effect.gen(function* () {
     const componentIndex = yield* ComponentIndex
@@ -229,11 +228,7 @@ export const createOptimizedQuery = <T extends ReadonlyArray<ComponentName>>(
 
         // Determine caching strategy
         if (config.predicate) {
-          plan.cacheKey = CacheKeyGenerator.forComponents(
-            config.withComponents,
-            config.withoutComponents,
-            CacheKeyGenerator.hashPredicate(config.predicate)
-          )
+          plan.cacheKey = CacheKeyGenerator.forComponents(config.withComponents, config.withoutComponents, CacheKeyGenerator.hashPredicate(config.predicate))
         } else {
           plan.cacheKey = CacheKeyGenerator.forComponents(config.withComponents, config.withoutComponents)
         }
@@ -278,10 +273,7 @@ export const createOptimizedQuery = <T extends ReadonlyArray<ComponentName>>(
         return [...candidates]
       })
 
-    const executeHybridStrategy = (
-      entities: ReadonlyArray<QueryEntity> | undefined,
-      context: { metrics: QueryMetrics }
-    ): Effect.Effect<QueryEntity[]> =>
+    const executeHybridStrategy = (entities: ReadonlyArray<QueryEntity> | undefined, context: { metrics: QueryMetrics }): Effect.Effect<QueryEntity[]> =>
       Effect.gen(function* () {
         // Use component index for initial filtering if no entity list provided
         if (!entities) {
@@ -296,10 +288,7 @@ export const createOptimizedQuery = <T extends ReadonlyArray<ComponentName>>(
         return [...archetypeResult.entities]
       })
 
-    const applyPredicateAsync = async (
-      entities: QueryEntity[],
-      _context: { metrics: QueryMetrics }
-    ): Promise<QueryEntity[]> => {
+    const applyPredicateAsync = async (entities: QueryEntity[], _context: { metrics: QueryMetrics }): Promise<QueryEntity[]> => {
       if (!config.predicate) return entities
 
       const result: QueryEntity[] = []
@@ -327,7 +316,7 @@ export const createOptimizedQuery = <T extends ReadonlyArray<ComponentName>>(
               console.warn(`Predicate error for entity ${entity.id}:`, error)
               return false
             }
-          })
+          }),
         )
 
         // Add entities that passed the predicate
@@ -469,19 +458,23 @@ export const updateEntityInOptimizationIndices = (entity: QueryEntity): Effect.E
 /**
  * Get comprehensive query optimization statistics
  */
-export const getOptimizationStats = (): Effect.Effect<{
-  componentIndex: {
-    totalComponents: number
-    totalEntities: number
-    componentDistribution: Array<{ component: ComponentName; entityCount: number }>
-  }
-  archetypes: any
-  cache: any
-}, never, typeof ComponentIndex | typeof QueryCache> =>
+export const getOptimizationStats = (): Effect.Effect<
+  {
+    componentIndex: {
+      totalComponents: number
+      totalEntities: number
+      componentDistribution: Array<{ component: ComponentName; entityCount: number }>
+    }
+    archetypes: any
+    cache: any
+  },
+  never,
+  typeof ComponentIndex | typeof QueryCache
+> =>
   Effect.gen(function* () {
     const componentIndex = yield* ComponentIndex
     const queryCache = yield* QueryCache
-    
+
     return {
       componentIndex: yield* componentIndex.getStats,
       archetypes: ArchetypeQuery.getArchetypeStats(),
@@ -496,7 +489,7 @@ export const resetOptimizationIndices = (): Effect.Effect<void, never, typeof Co
   Effect.gen(function* () {
     const componentIndex = yield* ComponentIndex
     const queryCache = yield* QueryCache
-    
+
     yield* componentIndex.clear
     ArchetypeQuery.reset()
     yield* queryCache.clear
@@ -515,4 +508,3 @@ export const invalidateOptimizationCache = (modifiedComponents: ComponentName[])
  * Optimized query layer that provides component index and query cache
  */
 export const optimizedQueryLayer = Layer.mergeAll(componentIndexLive, globalQueryCacheLayer)
-

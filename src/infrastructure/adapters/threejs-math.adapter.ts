@@ -33,8 +33,7 @@ import {
 export const ThreeJsVector3AdapterLive = Layer.succeed(
   Vector3Port,
   Vector3Port.of({
-    create: (x: number, y: number, z: number) =>
-      Effect.succeed({ x, y, z }),
+    create: (x: number, y: number, z: number) => Effect.succeed({ x, y, z }),
 
     add: (a: Vector3Data, b: Vector3Data) =>
       Effect.succeed({
@@ -57,8 +56,7 @@ export const ThreeJsVector3AdapterLive = Layer.succeed(
         z: vector.z * scalar,
       }),
 
-    dot: (a: Vector3Data, b: Vector3Data) =>
-      Effect.succeed(a.x * b.x + a.y * b.y + a.z * b.z),
+    dot: (a: Vector3Data, b: Vector3Data) => Effect.succeed(a.x * b.x + a.y * b.y + a.z * b.z),
 
     cross: (a: Vector3Data, b: Vector3Data) =>
       Effect.succeed({
@@ -67,8 +65,7 @@ export const ThreeJsVector3AdapterLive = Layer.succeed(
         z: a.x * b.y - a.y * b.x,
       }),
 
-    magnitude: (vector: Vector3Data) =>
-      Effect.succeed(Math.sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z)),
+    magnitude: (vector: Vector3Data) => Effect.succeed(Math.sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z)),
 
     normalize: (vector: Vector3Data) =>
       Effect.gen(function* (_) {
@@ -97,7 +94,7 @@ export const ThreeJsVector3AdapterLive = Layer.succeed(
         y: a.y + (b.y - a.y) * t,
         z: a.z + (b.z - a.z) * t,
       }),
-  })
+  }),
 )
 
 /**
@@ -106,11 +103,9 @@ export const ThreeJsVector3AdapterLive = Layer.succeed(
 export const ThreeJsQuaternionAdapterLive = Layer.succeed(
   QuaternionPort,
   QuaternionPort.of({
-    create: (x: number, y: number, z: number, w: number) =>
-      Effect.succeed({ x, y, z, w }),
+    create: (x: number, y: number, z: number, w: number) => Effect.succeed({ x, y, z, w }),
 
-    identity: () =>
-      Effect.succeed({ x: 0, y: 0, z: 0, w: 1 }),
+    identity: () => Effect.succeed({ x: 0, y: 0, z: 0, w: 1 }),
 
     multiply: (a: QuaternionData, b: QuaternionData) =>
       Effect.succeed({
@@ -120,8 +115,7 @@ export const ThreeJsQuaternionAdapterLive = Layer.succeed(
         w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
       }),
 
-    conjugate: (q: QuaternionData) =>
-      Effect.succeed({ x: -q.x, y: -q.y, z: -q.z, w: q.w }),
+    conjugate: (q: QuaternionData) => Effect.succeed({ x: -q.x, y: -q.y, z: -q.z, w: q.w }),
 
     normalize: (q: QuaternionData) =>
       Effect.gen(function* (_) {
@@ -208,16 +202,16 @@ export const ThreeJsQuaternionAdapterLive = Layer.succeed(
         // Convert to Three.js types for the rotation operation
         const threeQuat = new THREE.Quaternion(q.x, q.y, q.z, q.w)
         const threeVector = new THREE.Vector3(vector.x, vector.y, vector.z)
-        
+
         threeVector.applyQuaternion(threeQuat)
-        
+
         return {
           x: threeVector.x,
           y: threeVector.y,
           z: threeVector.z,
         }
       }),
-  })
+  }),
 )
 
 /**
@@ -226,8 +220,7 @@ export const ThreeJsQuaternionAdapterLive = Layer.succeed(
 export const ThreeJsRayAdapterLive = Layer.succeed(
   RayPort,
   RayPort.of({
-    create: (origin: Vector3Data, direction: Vector3Data) =>
-      Effect.succeed({ origin, direction }),
+    create: (origin: Vector3Data, direction: Vector3Data) => Effect.succeed({ origin, direction }),
 
     at: (ray: RayData, distance: number) =>
       Effect.succeed({
@@ -238,38 +231,26 @@ export const ThreeJsRayAdapterLive = Layer.succeed(
 
     intersectsSphere: (ray: RayData, center: Vector3Data, radius: number) =>
       Effect.gen(function* (_) {
-        const threeRay = new THREE.Ray(
-          new THREE.Vector3(ray.origin.x, ray.origin.y, ray.origin.z),
-          new THREE.Vector3(ray.direction.x, ray.direction.y, ray.direction.z)
-        )
-        const sphere = new THREE.Sphere(
-          new THREE.Vector3(center.x, center.y, center.z),
-          radius
-        )
-        
+        const threeRay = new THREE.Ray(new THREE.Vector3(ray.origin.x, ray.origin.y, ray.origin.z), new THREE.Vector3(ray.direction.x, ray.direction.y, ray.direction.z))
+        const sphere = new THREE.Sphere(new THREE.Vector3(center.x, center.y, center.z), radius)
+
         const intersection = threeRay.intersectSphere(sphere, new THREE.Vector3())
-        
+
         if (intersection) {
           const distance = threeRay.origin.distanceTo(intersection)
           return { hit: true, distance }
         }
-        
+
         return { hit: false }
       }),
 
     intersectsPlane: (ray: RayData, planeNormal: Vector3Data, planeDistance: number) =>
       Effect.gen(function* (_) {
-        const threeRay = new THREE.Ray(
-          new THREE.Vector3(ray.origin.x, ray.origin.y, ray.origin.z),
-          new THREE.Vector3(ray.direction.x, ray.direction.y, ray.direction.z)
-        )
-        const plane = new THREE.Plane(
-          new THREE.Vector3(planeNormal.x, planeNormal.y, planeNormal.z),
-          planeDistance
-        )
-        
+        const threeRay = new THREE.Ray(new THREE.Vector3(ray.origin.x, ray.origin.y, ray.origin.z), new THREE.Vector3(ray.direction.x, ray.direction.y, ray.direction.z))
+        const plane = new THREE.Plane(new THREE.Vector3(planeNormal.x, planeNormal.y, planeNormal.z), planeDistance)
+
         const intersection = threeRay.intersectPlane(plane, new THREE.Vector3())
-        
+
         if (intersection) {
           const distance = threeRay.origin.distanceTo(intersection)
           return {
@@ -278,23 +259,17 @@ export const ThreeJsRayAdapterLive = Layer.succeed(
             distance,
           }
         }
-        
+
         return { hit: false }
       }),
 
     intersectsBox: (ray: RayData, min: Vector3Data, max: Vector3Data) =>
       Effect.gen(function* (_) {
-        const threeRay = new THREE.Ray(
-          new THREE.Vector3(ray.origin.x, ray.origin.y, ray.origin.z),
-          new THREE.Vector3(ray.direction.x, ray.direction.y, ray.direction.z)
-        )
-        const box = new THREE.Box3(
-          new THREE.Vector3(min.x, min.y, min.z),
-          new THREE.Vector3(max.x, max.y, max.z)
-        )
-        
+        const threeRay = new THREE.Ray(new THREE.Vector3(ray.origin.x, ray.origin.y, ray.origin.z), new THREE.Vector3(ray.direction.x, ray.direction.y, ray.direction.z))
+        const box = new THREE.Box3(new THREE.Vector3(min.x, min.y, min.z), new THREE.Vector3(max.x, max.y, max.z))
+
         const intersection = threeRay.intersectBox(box, new THREE.Vector3())
-        
+
         if (intersection) {
           const distance = threeRay.origin.distanceTo(intersection)
           return {
@@ -303,10 +278,10 @@ export const ThreeJsRayAdapterLive = Layer.succeed(
             distance,
           }
         }
-        
+
         return { hit: false }
       }),
-  })
+  }),
 )
 
 /**
@@ -317,32 +292,34 @@ export const ThreeJsMatrix4AdapterLive = Layer.succeed(
   Matrix4Port.of({
     create: () =>
       Effect.succeed({
-        elements: [
-          1, 0, 0, 0,
-          0, 1, 0, 0,
-          0, 0, 1, 0,
-          0, 0, 0, 1
-        ]
+        elements: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
       }),
 
     identity: () =>
       Effect.succeed({
-        elements: [
-          1, 0, 0, 0,
-          0, 1, 0, 0,
-          0, 0, 1, 0,
-          0, 0, 0, 1
-        ]
+        elements: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
       }),
 
     fromArray: (elements: readonly number[]) =>
       Effect.succeed({
         elements: [
-          elements[0] || 0, elements[1] || 0, elements[2] || 0, elements[3] || 0,
-          elements[4] || 0, elements[5] || 0, elements[6] || 0, elements[7] || 0,
-          elements[8] || 0, elements[9] || 0, elements[10] || 0, elements[11] || 0,
-          elements[12] || 0, elements[13] || 0, elements[14] || 0, elements[15] || 0
-        ]
+          elements[0] || 0,
+          elements[1] || 0,
+          elements[2] || 0,
+          elements[3] || 0,
+          elements[4] || 0,
+          elements[5] || 0,
+          elements[6] || 0,
+          elements[7] || 0,
+          elements[8] || 0,
+          elements[9] || 0,
+          elements[10] || 0,
+          elements[11] || 0,
+          elements[12] || 0,
+          elements[13] || 0,
+          elements[14] || 0,
+          elements[15] || 0,
+        ],
       }),
 
     multiply: (a: Matrix4Data, b: Matrix4Data) =>
@@ -386,10 +363,7 @@ export const ThreeJsMatrix4AdapterLive = Layer.succeed(
     rotate: (matrix: Matrix4Data, axis: Vector3Data, angle: number) =>
       Effect.gen(function* (_) {
         const mat = new THREE.Matrix4().fromArray(Array.from(matrix.elements))
-        const rotation = new THREE.Matrix4().makeRotationAxis(
-          new THREE.Vector3(axis.x, axis.y, axis.z).normalize(),
-          angle
-        )
+        const rotation = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(axis.x, axis.y, axis.z).normalize(), angle)
         mat.multiply(rotation)
         return { elements: mat.elements as any }
       }),
@@ -405,11 +379,7 @@ export const ThreeJsMatrix4AdapterLive = Layer.succeed(
     lookAt: (eye: Vector3Data, center: Vector3Data, up: Vector3Data) =>
       Effect.gen(function* (_) {
         const mat = new THREE.Matrix4()
-        mat.lookAt(
-          new THREE.Vector3(eye.x, eye.y, eye.z),
-          new THREE.Vector3(center.x, center.y, center.z),
-          new THREE.Vector3(up.x, up.y, up.z)
-        )
+        mat.lookAt(new THREE.Vector3(eye.x, eye.y, eye.z), new THREE.Vector3(center.x, center.y, center.z), new THREE.Vector3(up.x, up.y, up.z))
         return { elements: mat.elements as any }
       }),
 
@@ -419,7 +389,7 @@ export const ThreeJsMatrix4AdapterLive = Layer.succeed(
         mat.makePerspective(-aspect * Math.tan(fov / 2), aspect * Math.tan(fov / 2), Math.tan(fov / 2), -Math.tan(fov / 2), near, far)
         return { elements: mat.elements as any }
       }),
-  })
+  }),
 )
 
 /**
@@ -439,14 +409,7 @@ export const ThreeJsMathAdapterLive = Layer.succeed(
       ray,
       matrix4,
     })
-  }).pipe(Effect.provide(
-    Layer.mergeAll(
-      ThreeJsVector3AdapterLive,
-      ThreeJsQuaternionAdapterLive,
-      ThreeJsRayAdapterLive,
-      ThreeJsMatrix4AdapterLive
-    )
-  ))
+  }).pipe(Effect.provide(Layer.mergeAll(ThreeJsVector3AdapterLive, ThreeJsQuaternionAdapterLive, ThreeJsRayAdapterLive, ThreeJsMatrix4AdapterLive))),
 )
 
 /**
@@ -457,5 +420,5 @@ export const AllThreeJsMathAdaptersLive = Layer.mergeAll(
   ThreeJsQuaternionAdapterLive,
   ThreeJsRayAdapterLive,
   ThreeJsMatrix4AdapterLive,
-  ThreeJsMathAdapterLive
+  ThreeJsMathAdapterLive,
 )

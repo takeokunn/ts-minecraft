@@ -36,12 +36,7 @@ export interface RaycastHit {
 }
 
 export interface Matrix4Data {
-  readonly elements: readonly [
-    number, number, number, number,
-    number, number, number, number,
-    number, number, number, number,
-    number, number, number, number
-  ]
+  readonly elements: readonly [number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number]
 }
 
 /**
@@ -141,11 +136,6 @@ export const QUATERNION_CONSTANTS = {
 // Constants for common matrices
 export const MATRIX4_CONSTANTS = {
   IDENTITY: {
-    elements: [
-      1, 0, 0, 0,
-      0, 1, 0, 0,
-      0, 0, 1, 0,
-      0, 0, 0, 1
-    ]
+    elements: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
   } as const,
 } as const

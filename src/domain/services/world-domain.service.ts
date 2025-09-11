@@ -14,11 +14,7 @@ import * as ReadonlyArray from 'effect/ReadonlyArray'
 import { EntityId } from '@domain/value-objects/entity-id.vo'
 import { Chunk } from '@domain/entities/chunk.entity'
 import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordinate.vo'
-import { 
-  ChunkNotLoadedError, 
-  InvalidPositionError, 
-  WorldStateError 
-} from '@domain/errors'
+import { ChunkNotLoadedError, InvalidPositionError, WorldStateError } from '@domain/errors'
 
 // Port interfaces for external dependencies
 export interface WorldRepositoryPort {
@@ -80,83 +76,98 @@ export const WorldDomainServiceLive = Layer.effect(
   WorldDomainService,
   Effect.gen(function* () {
     return WorldDomainService.of({
-      validateWorldState: (state) => 
+      validateWorldState: (state) =>
         state._tag === 'WorldState' && typeof state.timestamp === 'number' && state.timestamp > 0
           ? Effect.succeed(true)
-          : Effect.fail(WorldStateError({
-              operation: 'validateWorldState',
-              reason: 'Invalid world state structure or timestamp',
-              stateVersion: state.timestamp
-            })),
+          : Effect.fail(
+              WorldStateError({
+                operation: 'validateWorldState',
+                reason: 'Invalid world state structure or timestamp',
+                stateVersion: state.timestamp,
+              }),
+            ),
 
-      addEntityToWorld: (entityId, entityData) => 
+      addEntityToWorld: (entityId, entityData) =>
         entityData && entityId
           ? Effect.succeed(undefined) // Pure function - would return updated state
-          : Effect.fail(WorldStateError({
-              operation: 'addEntityToWorld',
-              reason: 'Invalid entity data or ID provided'
-            })),
+          : Effect.fail(
+              WorldStateError({
+                operation: 'addEntityToWorld',
+                reason: 'Invalid entity data or ID provided',
+              }),
+            ),
 
-      removeEntityFromWorld: (entityId) => 
+      removeEntityFromWorld: (entityId) =>
         entityId
-          ? Effect.succeed(undefined) // Pure function - would return updated state  
-          : Effect.fail(WorldStateError({
-              operation: 'removeEntityFromWorld',
-              reason: 'Invalid entity ID provided'
-            })),
+          ? Effect.succeed(undefined) // Pure function - would return updated state
+          : Effect.fail(
+              WorldStateError({
+                operation: 'removeEntityFromWorld',
+                reason: 'Invalid entity ID provided',
+              }),
+            ),
 
-      addChunkToWorld: (chunk) => 
+      addChunkToWorld: (chunk) =>
         chunk && chunk.coordinate
           ? Effect.succeed(undefined) // Pure function - would return updated state
-          : Effect.fail(WorldStateError({
-              operation: 'addChunkToWorld', 
-              reason: 'Invalid chunk data provided'
-            })),
+          : Effect.fail(
+              WorldStateError({
+                operation: 'addChunkToWorld',
+                reason: 'Invalid chunk data provided',
+              }),
+            ),
 
-      removeChunkFromWorld: (coordinate) => 
+      removeChunkFromWorld: (coordinate) =>
         coordinate
           ? Effect.succeed(undefined) // Pure function - would return updated state
-          : Effect.fail(WorldStateError({
-              operation: 'removeChunkFromWorld',
-              reason: 'Invalid chunk coordinate provided'
-            })),
+          : Effect.fail(
+              WorldStateError({
+                operation: 'removeChunkFromWorld',
+                reason: 'Invalid chunk coordinate provided',
+              }),
+            ),
 
       updateWorldTimestamp: (state) =>
-        state._tag === 'WorldState' 
+        state._tag === 'WorldState'
           ? Effect.succeed({
               ...state,
               timestamp: Date.now(),
             })
-          : Effect.fail(WorldStateError({
-              operation: 'updateWorldTimestamp',
-              reason: 'Invalid world state provided',
-              stateVersion: state.timestamp
-            })),
+          : Effect.fail(
+              WorldStateError({
+                operation: 'updateWorldTimestamp',
+                reason: 'Invalid world state provided',
+                stateVersion: state.timestamp,
+              }),
+            ),
 
       calculateChunkKey: (coordinate) => `${coordinate.x},${coordinate.z}`,
 
       validateChunkCoordinate: (coordinate) =>
-        Number.isInteger(coordinate.x) && Number.isInteger(coordinate.z) && 
-        Math.abs(coordinate.x) < 30000000 && Math.abs(coordinate.z) < 30000000
+        Number.isInteger(coordinate.x) && Number.isInteger(coordinate.z) && Math.abs(coordinate.x) < 30000000 && Math.abs(coordinate.z) < 30000000
           ? Effect.succeed(true)
-          : Effect.fail(InvalidPositionError({
-              position: { x: coordinate.x, y: 0, z: coordinate.z },
-              reason: 'Chunk coordinate out of valid bounds or not integer',
-              validBounds: { 
-                min: { x: -30000000, y: 0, z: -30000000 }, 
-                max: { x: 30000000, y: 0, z: 30000000 } 
-              }
-            })),
+          : Effect.fail(
+              InvalidPositionError({
+                position: { x: coordinate.x, y: 0, z: coordinate.z },
+                reason: 'Chunk coordinate out of valid bounds or not integer',
+                validBounds: {
+                  min: { x: -30000000, y: 0, z: -30000000 },
+                  max: { x: 30000000, y: 0, z: 30000000 },
+                },
+              }),
+            ),
 
       // Query method implementations with proper error handling
       isChunkLoaded: (chunkX, chunkZ) => Effect.succeed(false), // TODO: Implement with proper chunk storage
 
-      getChunk: (chunkX, chunkZ) => 
-        Effect.fail(ChunkNotLoadedError({
-          coordinates: { x: chunkX, z: chunkZ },
-          requestedOperation: 'getChunk',
-          loadingState: 'not-requested'
-        })), // TODO: Implement with proper chunk storage
+      getChunk: (chunkX, chunkZ) =>
+        Effect.fail(
+          ChunkNotLoadedError({
+            coordinates: { x: chunkX, z: chunkZ },
+            requestedOperation: 'getChunk',
+            loadingState: 'not-requested',
+          }),
+        ), // TODO: Implement with proper chunk storage
 
       getLoadedChunks: () => Effect.succeed([]), // TODO: Implement with proper chunk storage
     })

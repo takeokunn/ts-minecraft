@@ -165,11 +165,7 @@ const onCircuitBreakerSuccess = (state: CircuitBreakerState): CircuitBreakerStat
 /**
  * Update circuit breaker state on failure
  */
-const onCircuitBreakerFailure = (
-  state: CircuitBreakerState,
-  config: CircuitBreakerConfig,
-  now: number,
-): CircuitBreakerState => {
+const onCircuitBreakerFailure = (state: CircuitBreakerState, config: CircuitBreakerConfig, now: number): CircuitBreakerState => {
   const newFailureCount = state.failureCount + 1
   return {
     failureCount: newFailureCount,
@@ -181,11 +177,8 @@ const onCircuitBreakerFailure = (
 /**
  * Check if circuit breaker should transition from open to half-open
  */
-const shouldTransitionToHalfOpen = (
-  state: CircuitBreakerState,
-  config: CircuitBreakerConfig,
-  now: number,
-): boolean => state.state === 'open' && now - state.lastFailureTime > config.timeout
+const shouldTransitionToHalfOpen = (state: CircuitBreakerState, config: CircuitBreakerConfig, now: number): boolean =>
+  state.state === 'open' && now - state.lastFailureTime > config.timeout
 
 /**
  * Circuit breaker functional implementation using Ref for state management
@@ -215,9 +208,7 @@ export const createCircuitBreaker = <A, E, R>(config: CircuitBreakerConfig) => {
 
         return yield* effect.pipe(
           Effect.tap(() => Ref.update(stateRef, onCircuitBreakerSuccess)),
-          Effect.tapError(() =>
-            Ref.update(stateRef, (state) => onCircuitBreakerFailure(state, config, now))
-          ),
+          Effect.tapError(() => Ref.update(stateRef, (state) => onCircuitBreakerFailure(state, config, now))),
         )
       })
 

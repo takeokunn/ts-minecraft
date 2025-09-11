@@ -1,9 +1,9 @@
 /**
  * Unified Query System - Complete ECS Query Solution
- * 
+ *
  * This system consolidates all query functionality from both domain and application layers,
  * eliminating duplication while providing a comprehensive interface for all query operations.
- * 
+ *
  * Architecture:
  * - Combines ECS query capabilities (archetype, optimized, cached)
  * - Provides both SoA (Structure of Arrays) and AoS (Array of Structures) query patterns
@@ -12,7 +12,7 @@
  * - Supports query optimization and execution planning
  * - Provides comprehensive performance monitoring and profiling
  * - Maintains backward compatibility with legacy query systems
- * 
+ *
  * Migrated Features from Domain Layer:
  * - Advanced archetype management with bit-mask optimization
  * - Component indexing for fast entity lookup
@@ -242,12 +242,12 @@ export interface IUnifiedQueryBuilder {
    * Create a query for entities with specific components
    */
   readonly withComponents: <T extends readonly ComponentName[]>(components: T) => IUnifiedQuery<T>
-  
+
   /**
    * Create an optimized archetype query
    */
   readonly withArchetype: (signature: string) => IUnifiedQuery<unknown>
-  
+
   /**
    * Create a cached query
    */
@@ -308,12 +308,10 @@ export const createUnifiedQuery = <T = unknown>(
 
     // Mock entity fetching - in real implementation would query ECS
     let entities: readonly T[] = []
-    
+
     // Apply predicates
     if (predicates.length > 0) {
-      entities = entities.filter(entity => 
-        predicates.every(predicate => predicate(entity))
-      )
+      entities = entities.filter((entity) => predicates.every((predicate) => predicate(entity)))
     }
 
     // Apply selector
@@ -354,17 +352,7 @@ export const createUnifiedQuery = <T = unknown>(
   },
 
   where: (predicate: QueryPredicate<T>): IUnifiedQuery<T> =>
-    createUnifiedQuery(
-      name,
-      components,
-      system,
-      [...predicates, predicate],
-      selector,
-      limitCount,
-      orderCompareFn,
-      cacheKey,
-      cacheTTL,
-    ),
+    createUnifiedQuery(name, components, system, [...predicates, predicate], selector, limitCount, orderCompareFn, cacheKey, cacheTTL),
 
   select: <R>(newSelector: ComponentSelector<T, R>): IUnifiedQuery<R> =>
     createUnifiedQuery<R>(
@@ -379,58 +367,22 @@ export const createUnifiedQuery = <T = unknown>(
       cacheTTL,
     ),
 
-  limit: (count: number): IUnifiedQuery<T> =>
-    createUnifiedQuery(
-      name,
-      components,
-      system,
-      predicates,
-      selector,
-      count,
-      orderCompareFn,
-      cacheKey,
-      cacheTTL,
-    ),
+  limit: (count: number): IUnifiedQuery<T> => createUnifiedQuery(name, components, system, predicates, selector, count, orderCompareFn, cacheKey, cacheTTL),
 
-  orderBy: (compareFn: (a: T, b: T) => number): IUnifiedQuery<T> =>
-    createUnifiedQuery(
-      name,
-      components,
-      system,
-      predicates,
-      selector,
-      limitCount,
-      compareFn,
-      cacheKey,
-      cacheTTL,
-    ),
+  orderBy: (compareFn: (a: T, b: T) => number): IUnifiedQuery<T> => createUnifiedQuery(name, components, system, predicates, selector, limitCount, compareFn, cacheKey, cacheTTL),
 
-  cached: (key: string, ttl?: number): IUnifiedQuery<T> =>
-    createUnifiedQuery(
-      name,
-      components,
-      system,
-      predicates,
-      selector,
-      limitCount,
-      orderCompareFn,
-      key,
-      ttl,
-    ),
+  cached: (key: string, ttl?: number): IUnifiedQuery<T> => createUnifiedQuery(name, components, system, predicates, selector, limitCount, orderCompareFn, key, ttl),
 })
 
 /**
  * Create a unified query builder implementation
  */
 export const createUnifiedQueryBuilder = (system: IUnifiedQuerySystem): IUnifiedQueryBuilder => ({
-  withComponents: <T extends readonly ComponentName[]>(components: T): IUnifiedQuery<T> =>
-    createUnifiedQuery<T>(`Query_${components.join('_')}`, components, system),
+  withComponents: <T extends readonly ComponentName[]>(components: T): IUnifiedQuery<T> => createUnifiedQuery<T>(`Query_${components.join('_')}`, components, system),
 
-  withArchetype: (signature: string): IUnifiedQuery<unknown> =>
-    createUnifiedQuery(`ArchetypeQuery_${signature}`, [], system),
+  withArchetype: (signature: string): IUnifiedQuery<unknown> => createUnifiedQuery(`ArchetypeQuery_${signature}`, [], system),
 
-  cached: (key: string, ttl?: number): IUnifiedQuery<unknown> =>
-    createUnifiedQuery(`CachedQuery_${key}`, [], system, [], undefined, undefined, undefined, key, ttl)
+  cached: (key: string, ttl?: number): IUnifiedQuery<unknown> => createUnifiedQuery(`CachedQuery_${key}`, [], system, [], undefined, undefined, undefined, key, ttl),
 })
 
 /**
@@ -499,35 +451,33 @@ export const archetypeMatchesMask = (archetypeMask: bigint, requiredMask: bigint
 /**
  * Create a comprehensive unified query system implementation
  */
-export const createUnifiedQuerySystem = (
-  config: UnifiedQueryConfig,
-  stateRef?: Ref.Ref<UnifiedQuerySystemState>
-): Effect.Effect<IUnifiedQuerySystem, never, never> =>
+export const createUnifiedQuerySystem = (config: UnifiedQueryConfig, stateRef?: Ref.Ref<UnifiedQuerySystemState>): Effect.Effect<IUnifiedQuerySystem, never, never> =>
   Effect.gen(function* () {
-    const systemStateRef = stateRef || (yield* Ref.make<UnifiedQuerySystemState>({
-      queryMetrics: HashMap.empty(),
-      queryCache: HashMap.empty(),
-      cachedPlans: HashMap.empty(),
-      archetypes: HashMap.empty(),
-      entityToArchetype: HashMap.empty(),
-      componentIndex: {
-        componentToEntities: HashMap.empty(),
-        entityToComponents: HashMap.empty(),
-        componentIndices: HashMap.empty(),
-        nextIndex: 0,
-      },
-      cacheStats: {
-        hits: 0,
-        misses: 0,
-        evictions: 0,
-        totalEntries: 0,
-        memoryUsage: 0,
-        hitRate: 0,
-      },
-    }))
+    const systemStateRef =
+      stateRef ||
+      (yield* Ref.make<UnifiedQuerySystemState>({
+        queryMetrics: HashMap.empty(),
+        queryCache: HashMap.empty(),
+        cachedPlans: HashMap.empty(),
+        archetypes: HashMap.empty(),
+        entityToArchetype: HashMap.empty(),
+        componentIndex: {
+          componentToEntities: HashMap.empty(),
+          entityToComponents: HashMap.empty(),
+          componentIndices: HashMap.empty(),
+          nextIndex: 0,
+        },
+        cacheStats: {
+          hits: 0,
+          misses: 0,
+          evictions: 0,
+          totalEntries: 0,
+          memoryUsage: 0,
+          hitRate: 0,
+        },
+      }))
 
-    const calculateMemoryUsage = (cache: HashMap.HashMap<string, CacheEntry>): number =>
-      HashMap.reduce(cache, 0, (sum, entry) => sum + entry.size)
+    const calculateMemoryUsage = (cache: HashMap.HashMap<string, CacheEntry>): number => HashMap.reduce(cache, 0, (sum, entry) => sum + entry.size)
 
     const computeComponentMask = (components: ReadonlySet<ComponentName>, componentIndex: ComponentIndexState): bigint => {
       let mask = 0n
@@ -545,7 +495,7 @@ export const createUnifiedQuerySystem = (
     const addToComponentIndex = (entity: QueryEntity): Effect.Effect<void, never, never> =>
       Effect.gen(function* () {
         const components = Object.keys(entity.components) as ComponentName[]
-        
+
         yield* Ref.update(systemStateRef, (state) => {
           let newComponentToEntities = state.componentIndex.componentToEntities
           let newEntityToComponents = state.componentIndex.entityToComponents
@@ -666,14 +616,12 @@ export const createUnifiedQuerySystem = (
       })
 
     const system: IUnifiedQuerySystem = {
-      createQuery: <T extends readonly ComponentName[]>(name: string, components: T): IUnifiedQuery<T> =>
-        createUnifiedQuery<T>(name, components, system),
+      createQuery: <T extends readonly ComponentName[]>(name: string, components: T): IUnifiedQuery<T> => createUnifiedQuery<T>(name, components, system),
 
       createArchetypeQuery: (name: string, signature: string): IUnifiedQuery<unknown> =>
         createUnifiedQuery(name, [], system, [], undefined, undefined, undefined, `archetype_${signature}`),
 
-      executeQuery: <T>(query: IUnifiedQuery<T>, context?: QueryExecutionContext): Effect.Effect<UnifiedQueryResult<T>, never, never> =>
-        query.execute(context),
+      executeQuery: <T>(query: IUnifiedQuery<T>, context?: QueryExecutionContext): Effect.Effect<UnifiedQueryResult<T>, never, never> => query.execute(context),
 
       getMetrics: (queryName: string): Effect.Effect<Option.Option<QueryPerformanceMetrics>, never, never> =>
         Effect.gen(function* () {
@@ -807,7 +755,7 @@ export const UnifiedQuerySystemLive = Layer.effect(
     }
 
     return yield* createUnifiedQuerySystem(defaultUnifiedQueryConfig, stateRef)
-  })
+  }),
 )
 
 /**
@@ -873,11 +821,7 @@ export const UnifiedQueryUtils = {
   executeParallelQueries: <T>(queries: readonly IUnifiedQuery<T>[], context?: QueryExecutionContext) =>
     Effect.gen(function* () {
       const system = yield* UnifiedQuerySystemService
-      return yield* Effect.forEach(
-        queries,
-        (query) => system.executeQuery(query, context),
-        { concurrency: 'unbounded' }
-      )
+      return yield* Effect.forEach(queries, (query) => system.executeQuery(query, context), { concurrency: 'unbounded' })
     }),
 
   /**
@@ -951,5 +895,5 @@ export const createUnifiedQuerySystemLayer = (config: Partial<UnifiedQueryConfig
         },
       })
       return yield* createUnifiedQuerySystem(finalConfig, stateRef)
-    })
+    }),
   )

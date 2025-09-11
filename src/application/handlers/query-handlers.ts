@@ -77,7 +77,7 @@ export const QueryHandlersLive: Layer.Layer<QueryHandlers, never, typeof WorldDo
 
           // TODO: Implement actual entity data retrieval
           // For now, using mock data
-          
+
           // Mock data for missing methods - will be implemented later
           const position = { x: 0, y: 0, z: 0 }
           const velocity = { dx: 0, dy: 0, dz: 0 }
@@ -99,7 +99,6 @@ export const QueryHandlersLive: Layer.Layer<QueryHandlers, never, typeof WorldDo
 
       getChunkState: (query: ChunkQuery): Effect.Effect<ChunkQueryResult, Error, never> =>
         Effect.gen(function* (_) {
-
           // Validate query
           yield* validateChunkQuery(query)
 

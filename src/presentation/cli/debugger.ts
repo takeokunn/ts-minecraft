@@ -1,6 +1,6 @@
 /**
  * Game Debugger - Functional Module Implementation
- * 
+ *
  * Converted from class-based implementation to functional Effect-TS module
  * Features:
  * - Interactive debugging overlay with real-time metrics
@@ -82,7 +82,7 @@ const defaultConfig: GameDebuggerConfig = {
   overlayPosition: { top: 10, right: 10 },
   detailsPosition: { top: 10, left: 10 },
   enableKeyboardShortcuts: true,
-  enablePerformanceIntegration: true
+  enablePerformanceIntegration: true,
 }
 
 /**
@@ -91,7 +91,7 @@ const defaultConfig: GameDebuggerConfig = {
 export const createGameDebugger = (world: World, config: Partial<GameDebuggerConfig> = {}) =>
   Effect.gen(function* () {
     const finalConfig = { ...defaultConfig, ...config }
-    
+
     const stateRef = yield* Ref.make<GameDebuggerInternalState>({
       isEnabled: false,
       overlay: null,
@@ -117,16 +117,14 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
       isPaused: false,
       performanceProfiler: null,
       devConsole: null,
-      entityInspector: null
+      entityInspector: null,
     })
 
     /**
      * Initialize debugger components
      */
     const initializeComponents = Effect.gen(function* () {
-      const performanceProfiler = yield* Effect.tryPromise(() => 
-        Effect.runSync(Effect.gen(() => new PerformanceProfiler()))
-      )
+      const performanceProfiler = yield* Effect.tryPromise(() => Effect.runSync(Effect.gen(() => new PerformanceProfiler())))
       const devConsole = yield* createDevConsole(world)
       const entityInspector = yield* createEntityInspector(world)
 
@@ -134,7 +132,7 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
         ...s,
         performanceProfiler,
         devConsole,
-        entityInspector
+        entityInspector,
       }))
     })
 
@@ -232,19 +230,20 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
     /**
      * Setup overlay controls
      */
-    const setupOverlayControls = (overlay: HTMLElement) => Effect.gen(function* () {
-      const pauseBtn = overlay.querySelector('#pause-btn')
-      const stepBtn = overlay.querySelector('#step-btn')
-      const recordBtn = overlay.querySelector('#record-btn')
-      const settingsBtn = overlay.querySelector('#settings-btn')
-      const closeBtn = overlay.querySelector('#close-btn')
+    const setupOverlayControls = (overlay: HTMLElement) =>
+      Effect.gen(function* () {
+        const pauseBtn = overlay.querySelector('#pause-btn')
+        const stepBtn = overlay.querySelector('#step-btn')
+        const recordBtn = overlay.querySelector('#record-btn')
+        const settingsBtn = overlay.querySelector('#settings-btn')
+        const closeBtn = overlay.querySelector('#close-btn')
 
-      pauseBtn?.addEventListener('click', () => Effect.runSync(togglePause()))
-      stepBtn?.addEventListener('click', () => Effect.runSync(stepFrame()))
-      recordBtn?.addEventListener('click', () => Effect.runSync(toggleRecording()))
-      settingsBtn?.addEventListener('click', () => Effect.runSync(showDetailsPanel()))
-      closeBtn?.addEventListener('click', () => Effect.runSync(disable()))
-    })
+        pauseBtn?.addEventListener('click', () => Effect.runSync(togglePause()))
+        stepBtn?.addEventListener('click', () => Effect.runSync(stepFrame()))
+        recordBtn?.addEventListener('click', () => Effect.runSync(toggleRecording()))
+        settingsBtn?.addEventListener('click', () => Effect.runSync(showDetailsPanel()))
+        closeBtn?.addEventListener('click', () => Effect.runSync(disable()))
+      })
 
     /**
      * Setup keyboard shortcuts
@@ -297,7 +296,7 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
               event.preventDefault()
               yield* toggleRecording()
             }
-          })
+          }),
         )
       })
     })
@@ -323,7 +322,7 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
             if (state.isEnabled && !state.isPaused) {
               yield* updateDebugInfo()
             }
-          })
+          }),
         )
       }, finalConfig.updateInterval)
 
@@ -354,22 +353,22 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
       const stats = state.performanceProfiler?.getStats() || {
         frameTime: 0,
         drawCalls: 0,
-        triangles: 0
+        triangles: 0,
       }
-      
+
       const entityCount = yield* getEntityCount()
 
       // Get real-time performance metrics
-      const metrics = yield* Effect.tryPromise(() => 
-        Effect.runSync(PerformanceDashboard.getRealTimeMetrics())
-      ).pipe(
-        Effect.catchAll(() => Effect.succeed({
-          fps: 60,
-          memoryUsage: 0,
-          memoryPercentage: 0,
-          activeLeaks: 0,
-          profiledOperations: 0
-        }))
+      const metrics = yield* Effect.tryPromise(() => Effect.runSync(PerformanceDashboard.getRealTimeMetrics())).pipe(
+        Effect.catchAll(() =>
+          Effect.succeed({
+            fps: 60,
+            memoryUsage: 0,
+            memoryPercentage: 0,
+            activeLeaks: 0,
+            profiledOperations: 0,
+          }),
+        ),
       )
 
       content.innerHTML = `
@@ -408,15 +407,15 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
       yield* initializeComponents()
       yield* createOverlay()
       yield* createDetailsPanel()
-      
+
       const state = yield* Ref.get(stateRef)
       if (state.performanceProfiler) {
         state.performanceProfiler.start()
       }
-      
+
       yield* startUpdateInterval()
       yield* Ref.update(stateRef, (s) => ({ ...s, isEnabled: true }))
-      
+
       console.log('🔧 Enhanced Game Debugger enabled')
     })
 
@@ -427,14 +426,14 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
       yield* removeOverlay()
       yield* removeDetailsPanel()
       yield* stopUpdateInterval()
-      
+
       const state = yield* Ref.get(stateRef)
       if (state.performanceProfiler) {
         state.performanceProfiler.stop()
       }
-      
+
       yield* Ref.update(stateRef, (s) => ({ ...s, isEnabled: false }))
-      
+
       console.log('🔧 Game Debugger disabled')
     })
 
@@ -477,7 +476,7 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
      */
     const togglePause = Effect.gen(function* () {
       yield* Ref.update(stateRef, (s) => ({ ...s, isPaused: !s.isPaused }))
-      
+
       const state = yield* Ref.get(stateRef)
       console.log(`🎮 Game ${state.isPaused ? 'paused' : 'resumed'}`)
 
@@ -496,7 +495,7 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
       if (state.isPaused) {
         yield* Ref.update(stateRef, (s) => ({ ...s, currentFrame: s.currentFrame + 1 }))
         yield* updateDebugInfo()
-        
+
         const updatedState = yield* Ref.get(stateRef)
         console.log(`👣 Stepped to frame ${updatedState.currentFrame}`)
       }
@@ -508,7 +507,7 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
     const toggleRecording = Effect.gen(function* () {
       yield* Ref.update(stateRef, (s) => ({
         ...s,
-        state: { ...s.state, recordingSession: !s.state.recordingSession }
+        state: { ...s.state, recordingSession: !s.state.recordingSession },
       }))
 
       const state = yield* Ref.get(stateRef)
@@ -540,10 +539,8 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
       const content = state.detailsPanel.querySelector('#details-content')
       if (!content) return
 
-      const report = yield* Effect.tryPromise(() => 
-        Effect.runSync(PerformanceDashboard.generateReport())
-      ).pipe(
-        Effect.catchAll(() => Effect.succeed('Performance data not available'))
+      const report = yield* Effect.tryPromise(() => Effect.runSync(PerformanceDashboard.generateReport())).pipe(
+        Effect.catchAll(() => Effect.succeed('Performance data not available')),
       )
 
       content.innerHTML = `<pre style="font-size: 9px; line-height: 1.2; white-space: pre-wrap;">${report}</pre>`
@@ -572,7 +569,7 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
       yield* Ref.update(stateRef, (s) => ({
         ...s,
         debugSessions: newSessions,
-        recordingData: []
+        recordingData: [],
       }))
 
       console.log(`🎬 Started debugging session: ${sessionId}`)
@@ -598,7 +595,7 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
       yield* Ref.update(stateRef, (s) => ({
         ...s,
         debugSessions: updatedSessions,
-        recordingData: []
+        recordingData: [],
       }))
     })
 
@@ -621,36 +618,37 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
     /**
      * Update frame
      */
-    const update = (deltaTime: number) => Effect.gen(function* () {
-      const state = yield* Ref.get(stateRef)
-      if (!state.isEnabled) return
+    const update = (deltaTime: number) =>
+      Effect.gen(function* () {
+        const state = yield* Ref.get(stateRef)
+        if (!state.isEnabled) return
 
-      yield* Ref.update(stateRef, (s) => ({ ...s, currentFrame: s.currentFrame + 1 }))
-      
-      if (state.performanceProfiler) {
-        state.performanceProfiler.update(deltaTime)
-      }
+        yield* Ref.update(stateRef, (s) => ({ ...s, currentFrame: s.currentFrame + 1 }))
 
-      // Check breakpoints
-      yield* checkBreakpoints()
+        if (state.performanceProfiler) {
+          state.performanceProfiler.update(deltaTime)
+        }
 
-      // Update overlay if not paused
-      if (!state.isPaused) {
-        yield* updateDebugInfo()
-      }
+        // Check breakpoints
+        yield* checkBreakpoints()
 
-      // Record data if recording
-      if (state.state.recordingSession) {
-        yield* recordFrameData(deltaTime)
-      }
-    })
+        // Update overlay if not paused
+        if (!state.isPaused) {
+          yield* updateDebugInfo()
+        }
+
+        // Record data if recording
+        if (state.state.recordingSession) {
+          yield* recordFrameData(deltaTime)
+        }
+      })
 
     /**
      * Check breakpoints
      */
     const checkBreakpoints = Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
-      
+
       for (const [id, breakpoint] of state.breakpoints) {
         if (breakpoint.enabled && (yield* evaluateBreakpointCondition(breakpoint))) {
           breakpoint.hitCount++
@@ -662,49 +660,52 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
     /**
      * Evaluate breakpoint condition
      */
-    const evaluateBreakpointCondition = (_breakpoint: DebugBreakpoint) => Effect.gen(function* () {
-      // Implement condition evaluation logic
-      return false // Placeholder
-    })
+    const evaluateBreakpointCondition = (_breakpoint: DebugBreakpoint) =>
+      Effect.gen(function* () {
+        // Implement condition evaluation logic
+        return false // Placeholder
+      })
 
     /**
      * On breakpoint hit
      */
-    const onBreakpointHit = (breakpoint: DebugBreakpoint) => Effect.gen(function* () {
-      yield* Ref.update(stateRef, (s) => ({ ...s, isPaused: true }))
-      
-      const state = yield* Ref.get(stateRef)
-      console.log(`🔴 Breakpoint hit: ${breakpoint.id} (${breakpoint.hitCount} times)`)
+    const onBreakpointHit = (breakpoint: DebugBreakpoint) =>
+      Effect.gen(function* () {
+        yield* Ref.update(stateRef, (s) => ({ ...s, isPaused: true }))
 
-      if (breakpoint.callback) {
-        breakpoint.callback({
-          frame: state.currentFrame,
-          breakpoint,
-          world,
-        })
-      }
-    })
+        const state = yield* Ref.get(stateRef)
+        console.log(`🔴 Breakpoint hit: ${breakpoint.id} (${breakpoint.hitCount} times)`)
+
+        if (breakpoint.callback) {
+          breakpoint.callback({
+            frame: state.currentFrame,
+            breakpoint,
+            world,
+          })
+        }
+      })
 
     /**
      * Record frame data
      */
-    const recordFrameData = (deltaTime: number) => Effect.gen(function* () {
-      const state = yield* Ref.get(stateRef)
-      
-      const frameData = {
-        frame: state.currentFrame,
-        timestamp: Date.now(),
-        deltaTime,
-        stats: state.performanceProfiler?.getStats() || {},
-        watchedEntities: yield* getWatchedEntitiesData(),
-        systemMetrics: yield* getSystemMetrics(),
-      }
+    const recordFrameData = (deltaTime: number) =>
+      Effect.gen(function* () {
+        const state = yield* Ref.get(stateRef)
 
-      yield* Ref.update(stateRef, (s) => ({
-        ...s,
-        recordingData: [...s.recordingData, frameData]
-      }))
-    })
+        const frameData = {
+          frame: state.currentFrame,
+          timestamp: Date.now(),
+          deltaTime,
+          stats: state.performanceProfiler?.getStats() || {},
+          watchedEntities: yield* getWatchedEntitiesData(),
+          systemMetrics: yield* getSystemMetrics(),
+        }
+
+        yield* Ref.update(stateRef, (s) => ({
+          ...s,
+          recordingData: [...s.recordingData, frameData],
+        }))
+      })
 
     /**
      * Get watched entities data
@@ -725,55 +726,59 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
     /**
      * Add breakpoint
      */
-    const addBreakpoint = (breakpoint: DebugBreakpoint) => Effect.gen(function* () {
-      yield* Ref.update(stateRef, (s) => {
-        const newBreakpoints = new Map(s.breakpoints)
-        newBreakpoints.set(breakpoint.id, breakpoint)
-        return { ...s, breakpoints: newBreakpoints }
+    const addBreakpoint = (breakpoint: DebugBreakpoint) =>
+      Effect.gen(function* () {
+        yield* Ref.update(stateRef, (s) => {
+          const newBreakpoints = new Map(s.breakpoints)
+          newBreakpoints.set(breakpoint.id, breakpoint)
+          return { ...s, breakpoints: newBreakpoints }
+        })
+        console.log(`🔴 Breakpoint added: ${breakpoint.id}`)
       })
-      console.log(`🔴 Breakpoint added: ${breakpoint.id}`)
-    })
 
     /**
      * Remove breakpoint
      */
-    const removeBreakpoint = (id: string) => Effect.gen(function* () {
-      yield* Ref.update(stateRef, (s) => {
-        const newBreakpoints = new Map(s.breakpoints)
-        newBreakpoints.delete(id)
-        return { ...s, breakpoints: newBreakpoints }
+    const removeBreakpoint = (id: string) =>
+      Effect.gen(function* () {
+        yield* Ref.update(stateRef, (s) => {
+          const newBreakpoints = new Map(s.breakpoints)
+          newBreakpoints.delete(id)
+          return { ...s, breakpoints: newBreakpoints }
+        })
+        console.log(`🟢 Breakpoint removed: ${id}`)
       })
-      console.log(`🟢 Breakpoint removed: ${id}`)
-    })
 
     /**
      * Watch entity
      */
-    const watchEntity = (entityId: string) => Effect.gen(function* () {
-      yield* Ref.update(stateRef, (s) => ({
-        ...s,
-        state: {
-          ...s.state,
-          watchedEntities: new Set([...s.state.watchedEntities, entityId])
-        }
-      }))
-      console.log(`👁️ Watching entity: ${entityId}`)
-    })
+    const watchEntity = (entityId: string) =>
+      Effect.gen(function* () {
+        yield* Ref.update(stateRef, (s) => ({
+          ...s,
+          state: {
+            ...s.state,
+            watchedEntities: new Set([...s.state.watchedEntities, entityId]),
+          },
+        }))
+        console.log(`👁️ Watching entity: ${entityId}`)
+      })
 
     /**
      * Unwatch entity
      */
-    const unwatchEntity = (entityId: string) => Effect.gen(function* () {
-      yield* Ref.update(stateRef, (s) => {
-        const newWatched = new Set(s.state.watchedEntities)
-        newWatched.delete(entityId)
-        return {
-          ...s,
-          state: { ...s.state, watchedEntities: newWatched }
-        }
+    const unwatchEntity = (entityId: string) =>
+      Effect.gen(function* () {
+        yield* Ref.update(stateRef, (s) => {
+          const newWatched = new Set(s.state.watchedEntities)
+          newWatched.delete(entityId)
+          return {
+            ...s,
+            state: { ...s.state, watchedEntities: newWatched },
+          }
+        })
+        console.log(`👁️ Stopped watching entity: ${entityId}`)
       })
-      console.log(`👁️ Stopped watching entity: ${entityId}`)
-    })
 
     /**
      * Get current state
@@ -805,7 +810,7 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
       yield* Ref.update(stateRef, (s) => ({
         ...s,
         debugSessions: new Map(),
-        breakpoints: new Map()
+        breakpoints: new Map(),
       }))
       console.log('🔧 Game Debugger destroyed')
     })
@@ -832,12 +837,14 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
       unwatchEntity,
       getState,
       exportDebugData,
-      destroy
+      destroy,
     }
   })
 
 /**
  * Create game debugger factory for easier usage
  */
-export const createGameDebuggerFactory = (config: Partial<GameDebuggerConfig> = {}) =>
-  (world: World) => createGameDebugger(world, config)
+export const createGameDebuggerFactory =
+  (config: Partial<GameDebuggerConfig> = {}) =>
+  (world: World) =>
+    createGameDebugger(world, config)

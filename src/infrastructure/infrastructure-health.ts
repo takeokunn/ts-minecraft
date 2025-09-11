@@ -1,6 +1,6 @@
 /**
  * Infrastructure Health Monitoring
- * 
+ *
  * This module provides health checking and monitoring capabilities
  * for infrastructure components, allowing the system to detect
  * and report on the operational status of various subsystems.

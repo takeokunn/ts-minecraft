@@ -156,176 +156,159 @@ const estimateChunkMemorySize = (chunk: Chunk): number => {
  * Chunk Repository Implementation
  */
 export const createChunkRepository = (stateRef: Ref.Ref<ChunkRepositoryState>): IChunkRepository => {
-
   const getChunk = (coordinate: ChunkCoordinate): Effect.Effect<Option.Option<Chunk>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        const key = chunkKey(coordinate)
-        const chunk = HashMap.get(state.chunks, key)
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const key = chunkKey(coordinate)
+      const chunk = HashMap.get(state.chunks, key)
 
-        // Update last accessed time
-        if (Option.isSome(chunk)) {
-          yield* _(
-            updateChunkMetadata(coordinate, (metadata) => ({
-              ...metadata,
-              lastAccessed: Date.now(),
-            })),
-          )
-        }
+      // Update last accessed time
+      if (Option.isSome(chunk)) {
+        yield* _(
+          updateChunkMetadata(coordinate, (metadata) => ({
+            ...metadata,
+            lastAccessed: Date.now(),
+          })),
+        )
+      }
 
-        return chunk
-      },
-    )
+      return chunk
+    })
 
   const setChunk = (chunk: Chunk): Effect.Effect<void, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        const coordinate = { x: chunk.chunkX, z: chunk.chunkZ }
-        const key = chunkKey(coordinate)
-        const now = Date.now()
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const coordinate = { x: chunk.chunkX, z: chunk.chunkZ }
+      const key = chunkKey(coordinate)
+      const now = Date.now()
 
-        // Calculate chunk statistics
-        const nonAirBlockCount = chunk.blocks.filter((block) => block !== 'air').length
-        const memorySize = estimateChunkMemorySize(chunk)
+      // Calculate chunk statistics
+      const nonAirBlockCount = chunk.blocks.filter((block) => block !== 'air').length
+      const memorySize = estimateChunkMemorySize(chunk)
 
-        // Get existing metadata or create new
-        const existingMetadata = HashMap.get(state.metadata, key)
-        const metadata: ChunkMetadata = Option.match(existingMetadata, {
-          onNone: () => ({
-            coordinate,
-            generatedAt: now,
-            lastModified: now,
-            lastAccessed: now,
-            blockCount: chunk.blocks.length,
-            nonAirBlockCount,
-            generationStage: 'complete',
-            isDirty: false,
-            memorySize,
-            version: 1,
-          }),
-          onSome: (existing) => ({
-            ...existing,
-            lastModified: now,
-            lastAccessed: now,
-            blockCount: chunk.blocks.length,
-            nonAirBlockCount,
-            memorySize,
-            version: existing.version + 1,
-          }),
-        })
+      // Get existing metadata or create new
+      const existingMetadata = HashMap.get(state.metadata, key)
+      const metadata: ChunkMetadata = Option.match(existingMetadata, {
+        onNone: () => ({
+          coordinate,
+          generatedAt: now,
+          lastModified: now,
+          lastAccessed: now,
+          blockCount: chunk.blocks.length,
+          nonAirBlockCount,
+          generationStage: 'complete',
+          isDirty: false,
+          memorySize,
+          version: 1,
+        }),
+        onSome: (existing) => ({
+          ...existing,
+          lastModified: now,
+          lastAccessed: now,
+          blockCount: chunk.blocks.length,
+          nonAirBlockCount,
+          memorySize,
+          version: existing.version + 1,
+        }),
+      })
 
-        // Update spatial index
-        const regionKey_ = regionKey(coordinate)
-        const existingRegion = HashMap.get(state.spatialIndex, regionKey_) ?? new Set()
-        const newSpatialIndex = HashMap.set(state.spatialIndex, regionKey_, new Set([...existingRegion, key]))
+      // Update spatial index
+      const regionKey_ = regionKey(coordinate)
+      const existingRegion = HashMap.get(state.spatialIndex, regionKey_) ?? new Set()
+      const newSpatialIndex = HashMap.set(state.spatialIndex, regionKey_, new Set([...existingRegion, key]))
 
-        yield* _(
-          Ref.update(stateRef, (s) => ({
-            ...s,
-            chunks: HashMap.set(s.chunks, key, chunk),
-            metadata: HashMap.set(s.metadata, key, metadata),
-            spatialIndex: newSpatialIndex,
-          })),
-        )
-      },
-    )
+      yield* _(
+        Ref.update(stateRef, (s) => ({
+          ...s,
+          chunks: HashMap.set(s.chunks, key, chunk),
+          metadata: HashMap.set(s.metadata, key, metadata),
+          spatialIndex: newSpatialIndex,
+        })),
+      )
+    })
 
   const removeChunk = (coordinate: ChunkCoordinate): Effect.Effect<boolean, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        const key = chunkKey(coordinate)
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const key = chunkKey(coordinate)
 
-        if (!HashMap.has(state.chunks, key)) {
-          return false
-        }
+      if (!HashMap.has(state.chunks, key)) {
+        return false
+      }
 
-        // Update spatial index
-        const regionKey_ = regionKey(coordinate)
-        const existingRegion = HashMap.get(state.spatialIndex, regionKey_) ?? new Set()
-        const newRegion = new Set(existingRegion)
-        newRegion.delete(key)
-        const newSpatialIndex = newRegion.size > 0 ? HashMap.set(state.spatialIndex, regionKey_, newRegion) : HashMap.remove(state.spatialIndex, regionKey_)
+      // Update spatial index
+      const regionKey_ = regionKey(coordinate)
+      const existingRegion = HashMap.get(state.spatialIndex, regionKey_) ?? new Set()
+      const newRegion = new Set(existingRegion)
+      newRegion.delete(key)
+      const newSpatialIndex = newRegion.size > 0 ? HashMap.set(state.spatialIndex, regionKey_, newRegion) : HashMap.remove(state.spatialIndex, regionKey_)
 
-        yield* _(
-          Ref.update(stateRef, (s) => ({
-            ...s,
-            chunks: HashMap.remove(s.chunks, key),
-            metadata: HashMap.remove(s.metadata, key),
-            spatialIndex: newSpatialIndex,
-          })),
-        )
+      yield* _(
+        Ref.update(stateRef, (s) => ({
+          ...s,
+          chunks: HashMap.remove(s.chunks, key),
+          metadata: HashMap.remove(s.metadata, key),
+          spatialIndex: newSpatialIndex,
+        })),
+      )
 
-        return true
-      },
-    )
+      return true
+    })
 
   const hasChunk = (coordinate: ChunkCoordinate): Effect.Effect<boolean, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        return HashMap.has(state.chunks, chunkKey(coordinate))
-      },
-    )
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      return HashMap.has(state.chunks, chunkKey(coordinate))
+    })
 
   const getChunkMetadata = (coordinate: ChunkCoordinate): Effect.Effect<Option.Option<ChunkMetadata>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        return HashMap.get(state.metadata, chunkKey(coordinate))
-      },
-    )
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      return HashMap.get(state.metadata, chunkKey(coordinate))
+    })
 
   const updateChunkMetadata = (coordinate: ChunkCoordinate, updater: (metadata: ChunkMetadata) => ChunkMetadata): Effect.Effect<boolean, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(stateRef))
-        const key = chunkKey(coordinate)
-        const existingMetadata = HashMap.get(state.metadata, key)
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const key = chunkKey(coordinate)
+      const existingMetadata = HashMap.get(state.metadata, key)
 
-        if (Option.isNone(existingMetadata)) {
-          return false
-        }
+      if (Option.isNone(existingMetadata)) {
+        return false
+      }
 
-        const updatedMetadata = updater(existingMetadata.value)
+      const updatedMetadata = updater(existingMetadata.value)
 
-        yield* _(
-          Ref.update(stateRef, (s) => ({
-            ...s,
-            metadata: HashMap.set(s.metadata, key, updatedMetadata),
-          })),
-        )
+      yield* _(
+        Ref.update(stateRef, (s) => ({
+          ...s,
+          metadata: HashMap.set(s.metadata, key, updatedMetadata),
+        })),
+      )
 
-        return true
-      },
-    )
+      return true
+    })
 
   const markChunkDirty = (coordinate: ChunkCoordinate): Effect.Effect<void, never, never> =>
-    Effect.gen(
-      function* (_) {
-        yield* _(
-          updateChunkMetadata(coordinate, (metadata) => ({
-            ...metadata,
-            isDirty: true,
-            lastModified: Date.now(),
-          })),
-        )
-      },
-    )
+    Effect.gen(function* (_) {
+      yield* _(
+        updateChunkMetadata(coordinate, (metadata) => ({
+          ...metadata,
+          isDirty: true,
+          lastModified: Date.now(),
+        })),
+      )
+    })
 
   const markChunkClean = (coordinate: ChunkCoordinate): Effect.Effect<void, never, never> =>
-    Effect.gen(
-      function* (_) {
-        yield* _(
-          updateChunkMetadata(coordinate, (metadata) => ({
-            ...metadata,
-            isDirty: false,
-          })),
-        )
-      },
-    )
+    Effect.gen(function* (_) {
+      yield* _(
+        updateChunkMetadata(coordinate, (metadata) => ({
+          ...metadata,
+          isDirty: false,
+        })),
+      )
+    })
 
   const getChunks = (coordinates: ReadonlyArray<ChunkCoordinate>): Effect.Effect<HashMap.HashMap<string, Chunk>, never, never> =>
     Effect.gen(
@@ -735,32 +718,30 @@ export const createChunkRepository = (stateRef: Ref.Ref<ChunkRepositoryState>): 
     )
 
   const validateChunkData = (coordinate: ChunkCoordinate): Effect.Effect<boolean, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const chunkOpt = yield* _(this.getChunk(coordinate))
+    Effect.gen(function* (_) {
+      const chunkOpt = yield* _(this.getChunk(coordinate))
 
-        if (Option.isNone(chunkOpt)) {
-          return false
-        }
+      if (Option.isNone(chunkOpt)) {
+        return false
+      }
 
-        const chunk = chunkOpt.value
+      const chunk = chunkOpt.value
 
-        // Validate chunk structure
-        if (chunk.chunkX !== coordinate.x || chunk.chunkZ !== coordinate.z) {
-          return false
-        }
+      // Validate chunk structure
+      if (chunk.chunkX !== coordinate.x || chunk.chunkZ !== coordinate.z) {
+        return false
+      }
 
-        // Validate blocks array length (assuming 16x256x16 = 65536 blocks)
-        if (chunk.blocks.length !== 65536) {
-          return false
-        }
+      // Validate blocks array length (assuming 16x256x16 = 65536 blocks)
+      if (chunk.blocks.length !== 65536) {
+        return false
+      }
 
-        // All blocks should be valid block types
-        const validBlocks = chunk.blocks.every((block) => typeof block === 'string' && block.length > 0)
+      // All blocks should be valid block types
+      const validBlocks = chunk.blocks.every((block) => typeof block === 'string' && block.length > 0)
 
-        return validBlocks
-      },
-    )
+      return validBlocks
+    })
 
   // Return the complete implementation
   return {
@@ -789,7 +770,7 @@ export const createChunkRepository = (stateRef: Ref.Ref<ChunkRepositoryState>): 
     getChunkStats: getChunkStats as any,
     unloadOldChunks: unloadOldChunks as any,
     compactStorage: compactStorage as any,
-    validateChunkData: validateChunkData as any
+    validateChunkData: validateChunkData as any,
   } satisfies IChunkRepository
 }
 

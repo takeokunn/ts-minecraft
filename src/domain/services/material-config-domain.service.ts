@@ -1,6 +1,6 @@
 /**
  * Material Configuration Domain Service
- * 
+ *
  * Contains pure domain logic for material configurations,
  * extracted from infrastructure layer. This service defines
  * business rules for material properties without dependencies
@@ -80,7 +80,7 @@ const DOMAIN_MATERIAL_CONFIGS: Readonly<Record<string, MaterialConfig>> = {
       shadows: true,
     },
   },
-  
+
   water: {
     name: 'water',
     type: 'standard',
@@ -101,7 +101,7 @@ const DOMAIN_MATERIAL_CONFIGS: Readonly<Record<string, MaterialConfig>> = {
       animation: true,
     },
   },
-  
+
   glass: {
     name: 'glass',
     type: 'standard',
@@ -121,7 +121,7 @@ const DOMAIN_MATERIAL_CONFIGS: Readonly<Record<string, MaterialConfig>> = {
       shadows: false,
     },
   },
-  
+
   terrain: {
     name: 'terrain',
     type: 'standard',
@@ -141,7 +141,7 @@ const DOMAIN_MATERIAL_CONFIGS: Readonly<Record<string, MaterialConfig>> = {
       shadows: true,
     },
   },
-  
+
   leaves: {
     name: 'leaves',
     type: 'standard',
@@ -211,27 +211,27 @@ const getMaterialNameForBlock = (blockType: BlockType, blockProps: BlockProperti
   if (blockType === 'water') {
     return 'water'
   }
-  
+
   // Glass blocks use glass material
   if (blockType === 'glass') {
     return 'glass'
   }
-  
+
   // Leaf blocks use leaves material
   if (blockType === 'oakLeaves') {
     return 'leaves'
   }
-  
+
   // Transparent blocks use appropriate materials
   if (blockProps.material.transparent) {
     return 'glass'
   }
-  
+
   // Natural terrain blocks use terrain material
   if (['grass', 'dirt', 'stone', 'sand'].includes(blockType)) {
     return 'terrain'
   }
-  
+
   // Everything else uses chunk material (standard opaque blocks)
   return 'chunk'
 }
@@ -243,14 +243,10 @@ const getMaterialConfigForBlockPure = (blockType: BlockType): Effect.Effect<Mate
     return yield* getMaterialConfigPure(materialName)
   })
 
-const createMaterialVariantPure = (
-  baseName: string,
-  variantName: string,
-  overrides: Partial<MaterialConfig>
-): Effect.Effect<MaterialVariant, MaterialConfigNotFoundError, never> =>
+const createMaterialVariantPure = (baseName: string, variantName: string, overrides: Partial<MaterialConfig>): Effect.Effect<MaterialVariant, MaterialConfigNotFoundError, never> =>
   Effect.gen(function* () {
     const baseConfig = yield* getMaterialConfigPure(baseName)
-    
+
     const variant: MaterialVariant = {
       name: variantName,
       baseMaterial: baseName,
@@ -258,7 +254,7 @@ const createMaterialVariantPure = (
       defines: {},
       uniformOverrides: {},
     }
-    
+
     return variant
   })
 
@@ -273,32 +269,32 @@ const validateMaterialConfigPure = (config: MaterialConfig): Effect.Effect<boole
     if (config.properties.opacity < 0 || config.properties.opacity > 1) {
       throw new MaterialConfigValidationError('Opacity must be between 0 and 1')
     }
-    
+
     // Validate metalness range
     if (config.properties.metalness < 0 || config.properties.metalness > 1) {
       throw new MaterialConfigValidationError('Metalness must be between 0 and 1')
     }
-    
+
     // Validate roughness range
     if (config.properties.roughness < 0 || config.properties.roughness > 1) {
       throw new MaterialConfigValidationError('Roughness must be between 0 and 1')
     }
-    
+
     // Validate transparency consistency
     if (config.properties.transparent && config.properties.opacity === 1) {
       throw new MaterialConfigValidationError('Transparent materials should have opacity < 1')
     }
-    
+
     if (!config.properties.transparent && config.properties.opacity < 1) {
       throw new MaterialConfigValidationError('Non-transparent materials should have opacity = 1')
     }
-    
+
     return true
   })
 
 const getMaterialsForFeaturePure = (feature: keyof MaterialConfig['features']): Effect.Effect<readonly MaterialConfig[], never, never> =>
   Effect.gen(function* () {
-    return Object.values(DOMAIN_MATERIAL_CONFIGS).filter(config => config.features[feature])
+    return Object.values(DOMAIN_MATERIAL_CONFIGS).filter((config) => config.features[feature])
   })
 
 /**
@@ -321,10 +317,7 @@ export const MaterialConfigDomainServicePort = Context.GenericTag<IMaterialConfi
 /**
  * Live layer for Material Configuration Domain Service
  */
-export const MaterialConfigDomainServiceLive = Layer.succeed(
-  MaterialConfigDomainServicePort,
-  materialConfigDomainService
-)
+export const MaterialConfigDomainServiceLive = Layer.succeed(MaterialConfigDomainServicePort, materialConfigDomainService)
 
 /**
  * Utility functions for material configuration
@@ -412,9 +405,4 @@ export const MaterialConfigUtils = {
 /**
  * Export types and utilities
  */
-export type {
-  MaterialConfig,
-  MaterialVariant,
-  MaterialType,
-  IMaterialConfigDomainService,
-}
+export type { MaterialConfig, MaterialVariant, MaterialType, IMaterialConfigDomainService }

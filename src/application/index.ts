@@ -14,11 +14,17 @@ export { CommandHandlers, CommandHandlersLive } from './handlers/command-handler
 export { QueryHandlers, QueryHandlersLive } from './handlers/query-handlers'
 
 // Queries
-export { 
-  query, QueryBuilder, soaQuery, aosQuery,
-  UnifiedQuerySystemService, UnifiedQuerySystemLive,
-  ArchetypeManager, ArchetypeManagerLive,
-  QueryCache, globalQueryCacheLayer
+export {
+  query,
+  QueryBuilder,
+  soaQuery,
+  aosQuery,
+  UnifiedQuerySystemService,
+  UnifiedQuerySystemLive,
+  ArchetypeManager,
+  ArchetypeManagerLive,
+  QueryCache,
+  globalQueryCacheLayer,
 } from './queries'
 
 // Use Cases
@@ -31,7 +37,4 @@ export { WorldGenerateUseCase, WorldGenerateUseCaseLive, WorldGenerateCommand } 
 export { UIUpdateWorkflow, UIUpdateWorkflowLive } from './workflows/ui-update'
 export { WorldUpdateWorkflow, WorldUpdateWorkflowLive } from './workflows/world-update'
 export { ChunkLoadingWorkflow, ChunkLoadingWorkflowLive } from './workflows/chunk-loading'
-export { 
-  SystemSchedulerService, SystemSchedulerServiceLive, 
-  SchedulerError, SystemConfig, SystemMetrics 
-} from './workflows/system-scheduler.service'
+export { SystemSchedulerService, SystemSchedulerServiceLive, SchedulerError, SystemConfig, SystemMetrics } from './workflows/system-scheduler.service'

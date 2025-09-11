@@ -1,6 +1,6 @@
 /**
  * Query Performance Profiler (Functional)
- * 
+ *
  * This module provides profiling capabilities for query execution,
  * tracking execution times, entity scan counts, and match rates
  * to help optimize query performance using Effect-TS patterns.
@@ -51,14 +51,14 @@ export const QueryProfilerLive = Layer.effect(
   QueryProfiler,
   Effect.gen(function* () {
     const stateRef = yield* Ref.make<QueryProfilerState>({
-      profiles: new Map()
+      profiles: new Map(),
     })
 
     const record = (queryName: string, metrics: QueryMetrics) =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
         const newProfiles = new Map(state.profiles)
-        
+
         if (!newProfiles.has(queryName)) {
           newProfiles.set(queryName, [])
         }
@@ -74,7 +74,7 @@ export const QueryProfilerLive = Layer.effect(
         newProfiles.set(queryName, queryProfiles)
 
         yield* Ref.set(stateRef, {
-          profiles: newProfiles
+          profiles: newProfiles,
         })
       })
 
@@ -82,7 +82,7 @@ export const QueryProfilerLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
         const profiles = state.profiles.get(queryName)
-        
+
         if (!profiles || profiles.length === 0) {
           return null
         }
@@ -117,7 +117,7 @@ export const QueryProfilerLive = Layer.effect(
     const clear = () =>
       Effect.gen(function* () {
         yield* Ref.set(stateRef, {
-          profiles: new Map()
+          profiles: new Map(),
         })
       })
 
@@ -125,9 +125,9 @@ export const QueryProfilerLive = Layer.effect(
       record,
       getStats,
       getAllStats,
-      clear
+      clear,
     } satisfies QueryProfilerService
-  })
+  }),
 )
 
 /**
@@ -168,5 +168,5 @@ export const QueryProfilerUtils = {
     Effect.gen(function* () {
       const profiler = yield* QueryProfiler
       yield* profiler.clear()
-    })
+    }),
 }

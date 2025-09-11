@@ -1,10 +1,10 @@
 /**
  * Spatial Grid Adapter
- * 
+ *
  * Infrastructure adapter that implements spatial indexing using concrete data structures.
  * This adapter provides the technical implementation while delegating business logic
  * to the domain layer via appropriate ports.
- * 
+ *
  * NOTE: This is a simplified technical implementation - complex spatial algorithms
  * should be implemented in domain services and injected via dependency injection.
  */
@@ -39,61 +39,99 @@ interface SpatialGridState {
 
 /**
  * Simple hash-based spatial grid implementation
- * 
+ *
  * This is a basic infrastructure adapter that handles:
  * - Data storage using JavaScript Map/Set
- * - Memory management 
+ * - Memory management
  * - Basic CRUD operations
- * 
+ *
  * Complex spatial algorithms are delegated to domain services.
  */
-export const createSpatialGridAdapter = () => Effect.gen(function* () {
-  const stateRef = yield* Ref.make<SpatialGridState>({
-    cells: new Map(),
-    entityToCell: new Map()
-  })
-  
-  /**
-   * Generate cell key from coordinates
-   */
-  const getCellKey = (x: number, y: number, z: number): string => {
-    const ix = Math.floor(x / CONFIG.CELL_SIZE)
-    const iy = Math.floor(y / CONFIG.CELL_SIZE)  
-    const iz = Math.floor(z / CONFIG.CELL_SIZE)
-    return `${ix}:${iy}:${iz}`
-  }
+export const createSpatialGridAdapter = () =>
+  Effect.gen(function* () {
+    const stateRef = yield* Ref.make<SpatialGridState>({
+      cells: new Map(),
+      entityToCell: new Map(),
+    })
 
-  /**
-   * Get all cell keys that intersect with an AABB
-   */
-  const getCellKeysForAABB = (aabb: AABB): string[] => {
-    const keys: string[] = []
-    const minCellX = Math.floor(aabb.minX / CONFIG.CELL_SIZE)
-    const maxCellX = Math.floor(aabb.maxX / CONFIG.CELL_SIZE)
-    const minCellY = Math.floor(aabb.minY / CONFIG.CELL_SIZE)
-    const maxCellY = Math.floor(aabb.maxY / CONFIG.CELL_SIZE)
-    const minCellZ = Math.floor(aabb.minZ / CONFIG.CELL_SIZE)
-    const maxCellZ = Math.floor(aabb.maxZ / CONFIG.CELL_SIZE)
+    /**
+     * Generate cell key from coordinates
+     */
+    const getCellKey = (x: number, y: number, z: number): string => {
+      const ix = Math.floor(x / CONFIG.CELL_SIZE)
+      const iy = Math.floor(y / CONFIG.CELL_SIZE)
+      const iz = Math.floor(z / CONFIG.CELL_SIZE)
+      return `${ix}:${iy}:${iz}`
+    }
 
-    for (let x = minCellX; x <= maxCellX; x++) {
-      for (let y = minCellY; y <= maxCellY; y++) {
-        for (let z = minCellZ; z <= maxCellZ; z++) {
-          keys.push(getCellKey(x * CONFIG.CELL_SIZE, y * CONFIG.CELL_SIZE, z * CONFIG.CELL_SIZE))
+    /**
+     * Get all cell keys that intersect with an AABB
+     */
+    const getCellKeysForAABB = (aabb: AABB): string[] => {
+      const keys: string[] = []
+      const minCellX = Math.floor(aabb.minX / CONFIG.CELL_SIZE)
+      const maxCellX = Math.floor(aabb.maxX / CONFIG.CELL_SIZE)
+      const minCellY = Math.floor(aabb.minY / CONFIG.CELL_SIZE)
+      const maxCellY = Math.floor(aabb.maxY / CONFIG.CELL_SIZE)
+      const minCellZ = Math.floor(aabb.minZ / CONFIG.CELL_SIZE)
+      const maxCellZ = Math.floor(aabb.maxZ / CONFIG.CELL_SIZE)
+
+      for (let x = minCellX; x <= maxCellX; x++) {
+        for (let y = minCellY; y <= maxCellY; y++) {
+          for (let z = minCellZ; z <= maxCellZ; z++) {
+            keys.push(getCellKey(x * CONFIG.CELL_SIZE, y * CONFIG.CELL_SIZE, z * CONFIG.CELL_SIZE))
+          }
         }
       }
+      return keys
     }
-    return keys
-  }
 
-  return {
-    addEntity: (entityId: EntityId, bounds: AABB): Effect.Effect<void, never, never> =>
-      Effect.gen(function* () {
-        const state = yield* Ref.get(stateRef)
-        
-        // Remove entity from previous cells if exists
-        const existingCellKeys = state.entityToCell.get(entityId)
-        if (existingCellKeys) {
-          for (const key of existingCellKeys) {
+    return {
+      addEntity: (entityId: EntityId, bounds: AABB): Effect.Effect<void, never, never> =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(stateRef)
+
+          // Remove entity from previous cells if exists
+          const existingCellKeys = state.entityToCell.get(entityId)
+          if (existingCellKeys) {
+            for (const key of existingCellKeys) {
+              const cell = state.cells.get(key)
+              if (cell) {
+                cell.entities.delete(entityId)
+                if (cell.entities.size === 0) {
+                  state.cells.delete(key)
+                }
+              }
+            }
+            state.entityToCell.delete(entityId)
+          }
+
+          // Add to new cells
+          const cellKeys = getCellKeysForAABB(bounds)
+          const affectedCells = new Set<string>()
+
+          for (const key of cellKeys) {
+            affectedCells.add(key)
+
+            let cell = state.cells.get(key)
+            if (!cell) {
+              cell = { entities: new Set() }
+              state.cells.set(key, cell)
+            }
+
+            cell.entities.add(entityId)
+          }
+
+          state.entityToCell.set(entityId, affectedCells)
+        }),
+
+      removeEntity: (entityId: EntityId): Effect.Effect<void, never, never> =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(stateRef)
+          const cellKeys = state.entityToCell.get(entityId)
+          if (!cellKeys) return
+
+          for (const key of cellKeys) {
             const cell = state.cells.get(key)
             if (cell) {
               cell.entities.delete(entityId)
@@ -102,93 +140,46 @@ export const createSpatialGridAdapter = () => Effect.gen(function* () {
               }
             }
           }
+
           state.entityToCell.delete(entityId)
-        }
-        
-        // Add to new cells
-        const cellKeys = getCellKeysForAABB(bounds)
-        const affectedCells = new Set<string>()
-        
-        for (const key of cellKeys) {
-          affectedCells.add(key)
-          
-          let cell = state.cells.get(key)
-          if (!cell) {
-            cell = { entities: new Set() }
-            state.cells.set(key, cell)
-          }
-          
-          cell.entities.add(entityId)
-        }
-        
-        state.entityToCell.set(entityId, affectedCells)
-      }),
+        }),
 
-    removeEntity: (entityId: EntityId): Effect.Effect<void, never, never> =>
-      Effect.gen(function* () {
-        const state = yield* Ref.get(stateRef)
-        const cellKeys = state.entityToCell.get(entityId)
-        if (!cellKeys) return
-        
-        for (const key of cellKeys) {
-          const cell = state.cells.get(key)
-          if (cell) {
-            cell.entities.delete(entityId)
-            if (cell.entities.size === 0) {
-              state.cells.delete(key)
+      queryRegion: (bounds: AABB): Effect.Effect<ReadonlyArray<EntityId>, never, never> =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(stateRef)
+          const result = new Set<EntityId>()
+          const cellKeys = getCellKeysForAABB(bounds)
+
+          for (const key of cellKeys) {
+            const cell = state.cells.get(key)
+            if (cell) {
+              for (const entityId of cell.entities) {
+                result.add(entityId)
+              }
             }
           }
-        }
-        
-        state.entityToCell.delete(entityId)
-      }),
 
-    queryRegion: (bounds: AABB): Effect.Effect<ReadonlyArray<EntityId>, never, never> =>
-      Effect.gen(function* () {
-        const state = yield* Ref.get(stateRef)
-        const result = new Set<EntityId>()
-        const cellKeys = getCellKeysForAABB(bounds)
-        
-        for (const key of cellKeys) {
-          const cell = state.cells.get(key)
-          if (cell) {
-            for (const entityId of cell.entities) {
-              result.add(entityId)
-            }
-          }
-        }
-        
-        return Array.from(result)
-      }),
+          return Array.from(result)
+        }),
 
-    clear: (): Effect.Effect<void, never, never> =>
-      Ref.update(stateRef, () => ({
-        cells: new Map(),
-        entityToCell: new Map()
-      })),
+      clear: (): Effect.Effect<void, never, never> =>
+        Ref.update(stateRef, () => ({
+          cells: new Map(),
+          entityToCell: new Map(),
+        })),
 
-    getCellCount: (): Effect.Effect<number, never, never> =>
-      Ref.get(stateRef).pipe(
-        Effect.map(state => state.cells.size)
-      ),
+      getCellCount: (): Effect.Effect<number, never, never> => Ref.get(stateRef).pipe(Effect.map((state) => state.cells.size)),
 
-    getEntityCount: (): Effect.Effect<number, never, never> =>
-      Ref.get(stateRef).pipe(
-        Effect.map(state => state.entityToCell.size)
-      ),
+      getEntityCount: (): Effect.Effect<number, never, never> => Ref.get(stateRef).pipe(Effect.map((state) => state.entityToCell.size)),
 
-    isAvailable: (): Effect.Effect<boolean, never, never> =>
-      Effect.succeed(true)
-  } satisfies ISpatialGrid
-})
+      isAvailable: (): Effect.Effect<boolean, never, never> => Effect.succeed(true),
+    } satisfies ISpatialGrid
+  })
 
 /**
  * Live layer for Spatial Grid Adapter
  */
-export const SpatialGridAdapterLive = Layer.effect(
-  SpatialGridPort,
-  createSpatialGridAdapter()
-)
+export const SpatialGridAdapterLive = Layer.effect(SpatialGridPort, createSpatialGridAdapter())
 
 /**
  * Infrastructure utilities for spatial grid operations

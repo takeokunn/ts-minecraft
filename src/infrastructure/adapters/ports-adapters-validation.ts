@@ -8,27 +8,10 @@
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Console from 'effect/Console'
-import {
-  Vector3Port,
-  QuaternionPort,
-  RayPort,
-  MathPort,
-  VECTOR3_CONSTANTS,
-  QUATERNION_CONSTANTS,
-} from '@domain/ports/math.port'
-import {
-  RenderPort,
-  Camera,
-  ChunkMeshData,
-  ViewportConfig,
-} from '@domain/ports/render.port'
-import {
-  WorldRepositoryPort,
-} from '@domain/ports/world-repository.port'
-import {
-  AllThreeJsMathAdaptersLive,
-  AllNativeMathAdaptersLive,
-} from '@infrastructure/adapter-exports'
+import { Vector3Port, QuaternionPort, RayPort, MathPort, VECTOR3_CONSTANTS, QUATERNION_CONSTANTS } from '@domain/ports/math.port'
+import { RenderPort, Camera, ChunkMeshData, ViewportConfig } from '@domain/ports/render.port'
+import { WorldRepositoryPort } from '@domain/ports/world-repository.port'
+import { AllThreeJsMathAdaptersLive, AllNativeMathAdaptersLive } from '@infrastructure/adapter-exports'
 
 /**
  * Test Math Port implementations
@@ -82,7 +65,7 @@ export const testRenderPortInterface = Effect.gen(function* (_) {
     position: { x: 0, y: 10, z: 20 },
     rotation: { x: 0, y: 0, z: 0 },
     fov: 75,
-    aspect: 16/9,
+    aspect: 16 / 9,
     near: 0.1,
     far: 1000,
   }
@@ -137,16 +120,14 @@ export const validateDependencyInversion = Effect.gen(function* (_) {
 
   // Check that domain types don't reference infrastructure types
   const domainTypesValid = true // This would be checked by TypeScript compiler
-  
+
   // Validate that ports are pure interfaces without implementation details
   const vector3Port = Vector3Port
   const renderPort = RenderPort
   const worldRepoPort = WorldRepositoryPort
-  
+
   // These should be pure interfaces/context tags
-  const portsArePure = typeof vector3Port === 'function' && 
-                      typeof renderPort === 'function' && 
-                      typeof worldRepoPort === 'function'
+  const portsArePure = typeof vector3Port === 'function' && typeof renderPort === 'function' && typeof worldRepoPort === 'function'
 
   if (!portsArePure) {
     yield* _(Effect.fail('Ports should be pure interfaces (Context tags)'))
@@ -216,19 +197,11 @@ export const validateAdapterCompliance = Effect.gen(function* (_) {
   yield* _(Console.log('Validating adapter interface compliance...'))
 
   // Check that all required methods are present in adapters
-  const requiredMathMethods = [
-    'create', 'add', 'subtract', 'multiply', 'dot', 'cross', 
-    'magnitude', 'normalize', 'distance', 'lerp'
-  ]
+  const requiredMathMethods = ['create', 'add', 'subtract', 'multiply', 'dot', 'cross', 'magnitude', 'normalize', 'distance', 'lerp']
 
-  const requiredQuaternionMethods = [
-    'create', 'identity', 'multiply', 'conjugate', 'normalize',
-    'fromAxisAngle', 'fromEuler', 'toEuler', 'rotateVector'
-  ]
+  const requiredQuaternionMethods = ['create', 'identity', 'multiply', 'conjugate', 'normalize', 'fromAxisAngle', 'fromEuler', 'toEuler', 'rotateVector']
 
-  const requiredRayMethods = [
-    'create', 'at', 'intersectsSphere', 'intersectsPlane', 'intersectsBox'
-  ]
+  const requiredRayMethods = ['create', 'at', 'intersectsSphere', 'intersectsPlane', 'intersectsBox']
 
   // These would be checked at runtime against actual adapter implementations
   yield* _(Console.log('✓ Math adapter methods compliance verified'))
@@ -244,16 +217,18 @@ export const testAdapterErrorHandling = Effect.gen(function* (_) {
   yield* _(Console.log('Testing adapter error handling...'))
 
   // Test math operations with edge cases
-  yield* _(Effect.gen(function* (_) {
-    const vector3 = yield* _(Vector3Port)
-    
-    // Test division by zero scenarios
-    const zeroVector = yield* _(vector3.create(0, 0, 0))
-    const normalizedZero = yield* _(vector3.normalize(zeroVector))
-    
-    // Should handle gracefully without throwing
-    yield* _(Console.log(`Normalized zero vector: ${normalizedZero.x}, ${normalizedZero.y}, ${normalizedZero.z}`))
-  }).pipe(Effect.provide(AllNativeMathAdaptersLive)))
+  yield* _(
+    Effect.gen(function* (_) {
+      const vector3 = yield* _(Vector3Port)
+
+      // Test division by zero scenarios
+      const zeroVector = yield* _(vector3.create(0, 0, 0))
+      const normalizedZero = yield* _(vector3.normalize(zeroVector))
+
+      // Should handle gracefully without throwing
+      yield* _(Console.log(`Normalized zero vector: ${normalizedZero.x}, ${normalizedZero.y}, ${normalizedZero.z}`))
+    }).pipe(Effect.provide(AllNativeMathAdaptersLive)),
+  )
 
   yield* _(Console.log('✓ Edge case handling validated'))
   yield* _(Console.log('✓ Error propagation verified'))
@@ -265,14 +240,14 @@ export const testAdapterErrorHandling = Effect.gen(function* (_) {
  */
 export const runPortsAdaptersValidation = Effect.gen(function* (_) {
   yield* _(Console.log('=== Ports and Adapters Validation Suite ==='))
-  
+
   yield* _(testRenderPortInterface)
   yield* _(testWorldRepositoryPortInterface)
   yield* _(validateDependencyInversion)
   yield* _(validateAdapterCompliance)
   yield* _(testMathAdapterSwitching)
   yield* _(testAdapterErrorHandling)
-  
+
   yield* _(Console.log('=== All validations completed successfully! ==='))
 })
 
@@ -280,21 +255,13 @@ export const runPortsAdaptersValidation = Effect.gen(function* (_) {
  * Summary of what was implemented
  */
 export const implementationSummary = {
-  ports: [
-    'Math Port (Vector3, Quaternion, Ray operations)',
-    'Improved Render Port with proper error handling',
-    'Enhanced World Repository Port with transactions',
-  ],
+  ports: ['Math Port (Vector3, Quaternion, Ray operations)', 'Improved Render Port with proper error handling', 'Enhanced World Repository Port with transactions'],
   adapters: [
     'Three.js Math Adapter (uses Three.js for math operations)',
     'Native Math Adapter (pure JavaScript implementation)',
     'Updated Three.js Render Adapter with new interface',
   ],
-  dependenciesInverted: [
-    'Math operations (Vector3, Quaternion, Ray)',
-    'Rendering operations (mesh, camera, lighting)',
-    'World repository operations (entities, components)',
-  ],
+  dependenciesInverted: ['Math operations (Vector3, Quaternion, Ray)', 'Rendering operations (mesh, camera, lighting)', 'World repository operations (entities, components)'],
   benefitsAchieved: [
     'Domain layer is now technology-agnostic',
     'Easy to switch between different implementations',

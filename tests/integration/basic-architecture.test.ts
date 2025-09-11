@@ -33,7 +33,7 @@ describe('Basic Architecture Test', () => {
 
   it('should handle Effect errors', async () => {
     const errorEffect = Effect.fail('Test Error')
-    
+
     try {
       await Effect.runPromise(errorEffect)
       expect.fail('Should have thrown an error')
@@ -46,12 +46,12 @@ describe('Basic Architecture Test', () => {
     // This test validates the directory structure exists
     const fs = require('fs')
     const path = require('path')
-    
+
     const srcPath = path.join(process.cwd(), 'src')
     const domainPath = path.join(srcPath, 'domain')
     const applicationPath = path.join(srcPath, 'application')
     const infrastructurePath = path.join(srcPath, 'infrastructure')
-    
+
     expect(fs.existsSync(srcPath)).toBe(true)
     expect(fs.existsSync(domainPath)).toBe(true)
     expect(fs.existsSync(applicationPath)).toBe(true)

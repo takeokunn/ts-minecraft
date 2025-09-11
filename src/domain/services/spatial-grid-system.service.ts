@@ -20,7 +20,7 @@ export const spatialGridSystem = Effect.gen(function* (_) {
         // Get components for this entity
         const position = queryResult.getComponent(entityId, 'position')
         const collider = queryResult.getComponent(entityId, 'collider')
-        
+
         if (position && collider) {
           const aabb = createAABB(position, collider)
           return spatialGrid.insert(entityId, aabb)

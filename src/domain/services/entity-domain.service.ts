@@ -220,7 +220,7 @@ export const EntityDomainServiceLive = Layer.effect(
         totalDestroyed: 0,
         totalQueries: 0,
         totalQueryTime: 0,
-      }
+      },
     })
 
     // Configuration
@@ -228,13 +228,11 @@ export const EntityDomainServiceLive = Layer.effect(
     const CACHE_SIZE = 1000
 
     // Helper functions
-    const generateArchetypeId = (componentNames: readonly ComponentName[]): string => 
-      Array.fromIterable(componentNames).sort().join('|')
+    const generateArchetypeId = (componentNames: readonly ComponentName[]): string => Array.fromIterable(componentNames).sort().join('|')
 
-    const getEntityArchetypeId = (components: Partial<Components>): string => 
-      generateArchetypeId(Object.keys(components) as ComponentName[])
+    const getEntityArchetypeId = (components: Partial<Components>): string => generateArchetypeId(Object.keys(components) as ComponentName[])
 
-    const incrementEntityId = (): Effect.Effect<EntityId, never, never> => 
+    const incrementEntityId = (): Effect.Effect<EntityId, never, never> =>
       Ref.modify(stateRef, (state) => [state.nextEntityId as EntityId, { ...state, nextEntityId: state.nextEntityId + 1 }])
 
     const validateEntityLimit = (currentCount: number): Effect.Effect<void, typeof EntityLimitExceededError, never> =>
@@ -249,598 +247,598 @@ export const EntityDomainServiceLive = Layer.effect(
         () => currentCount >= MAX_ENTITIES,
       )
 
-      // Entity lifecycle implementation
-      const createEntity = (components: Partial<Components> = {}): Effect.Effect<EntityId, typeof EntityCreationError | typeof EntityLimitExceededError, never> =>
-        Effect.gen(function* () {
-          const currentEntities = yield* Ref.get(entities)
-          const currentCount = HashMap.size(currentEntities)
+    // Entity lifecycle implementation
+    const createEntity = (components: Partial<Components> = {}): Effect.Effect<EntityId, typeof EntityCreationError | typeof EntityLimitExceededError, never> =>
+      Effect.gen(function* () {
+        const currentEntities = yield* Ref.get(entities)
+        const currentCount = HashMap.size(currentEntities)
 
-          yield* validateEntityLimit(currentCount)
+        yield* validateEntityLimit(currentCount)
 
-          const entityId = yield* incrementEntityId()
-          const archetypeId = getEntityArchetypeId(components)
-          const now = new Date()
+        const entityId = yield* incrementEntityId()
+        const archetypeId = getEntityArchetypeId(components)
+        const now = new Date()
 
-          const entity: Entity = {
-            id: entityId,
-            components: Set.fromIterable(Object.keys(components) as ComponentName[]),
-            archetype: archetypeId,
-            generation: 1,
-            createdAt: now,
-            lastModified: now,
-          }
+        const entity: Entity = {
+          id: entityId,
+          components: Set.fromIterable(Object.keys(components) as ComponentName[]),
+          archetype: archetypeId,
+          generation: 1,
+          createdAt: now,
+          lastModified: now,
+        }
 
-          // Update state
-          yield* Ref.update(entities, HashMap.set(entityId, entity))
-          yield* Ref.update(entityComponents, HashMap.set(entityId, components))
-          yield* updateArchetypeStats(archetypeId, Object.keys(components) as ComponentName[], 1)
-          yield* updateCreateStats()
+        // Update state
+        yield* Ref.update(entities, HashMap.set(entityId, entity))
+        yield* Ref.update(entityComponents, HashMap.set(entityId, components))
+        yield* updateArchetypeStats(archetypeId, Object.keys(components) as ComponentName[], 1)
+        yield* updateCreateStats()
 
-          // Clear query cache
-          yield* Ref.set(queryCache, HashMap.empty())
+        // Clear query cache
+        yield* Ref.set(queryCache, HashMap.empty())
 
-          return entityId
-        }).pipe(
-          Effect.catchAll((error) =>
-            Effect.fail(
-              EntityCreationError({
-                message: `Failed to create entity: ${error}`,
-                cause: error,
-              }),
-            ),
+        return entityId
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.fail(
+            EntityCreationError({
+              message: `Failed to create entity: ${error}`,
+              cause: error,
+            }),
           ),
-        )
+        ),
+      )
 
-      const destroyEntity = (entityId: EntityId): Effect.Effect<void, typeof EntityNotFoundError | typeof EntityDestructionError, never> =>
-        Effect.gen(function* () {
-          const currentEntities = yield* Ref.get(entities)
-          const entity = HashMap.get(currentEntities, entityId)
+    const destroyEntity = (entityId: EntityId): Effect.Effect<void, typeof EntityNotFoundError | typeof EntityDestructionError, never> =>
+      Effect.gen(function* () {
+        const currentEntities = yield* Ref.get(entities)
+        const entity = HashMap.get(currentEntities, entityId)
 
-          if (Option.isNone(entity)) {
-            return yield* Effect.fail(
-              EntityNotFoundError({
-                message: `Entity not found: ${entityId}`,
-                entityId,
-              }),
-            )
-          }
+        if (Option.isNone(entity)) {
+          return yield* Effect.fail(
+            EntityNotFoundError({
+              message: `Entity not found: ${entityId}`,
+              entityId,
+            }),
+          )
+        }
 
-          try {
-            // Remove from all state
-            yield* Ref.update(entities, HashMap.remove(entityId))
-            yield* Ref.update(entityComponents, HashMap.remove(entityId))
-            yield* updateArchetypeStats(entity.value.archetype, Array.fromIterable(entity.value.components), -1)
-            yield* updateDestroyStats()
-
-            // Clear query cache
-            yield* Ref.set(queryCache, HashMap.empty())
-          } catch (error) {
-            return yield* Effect.fail(
-              EntityDestructionError({
-                message: `Failed to destroy entity ${entityId}: ${error}`,
-                entityId,
-                cause: error,
-              }),
-            )
-          }
-        })
-
-      const entityExists = (entityId: EntityId): Effect.Effect<boolean, never, never> =>
-        Effect.gen(function* () {
-          const currentEntities = yield* Ref.get(entities)
-          return HashMap.has(currentEntities, entityId)
-        })
-
-      const getEntity = (entityId: EntityId): Effect.Effect<Entity, typeof EntityNotFoundError, never> =>
-        Effect.gen(function* () {
-          const currentEntities = yield* Ref.get(entities)
-          const entity = HashMap.get(currentEntities, entityId)
-
-          return Option.match(entity, {
-            onNone: () =>
-              EntityNotFoundError({
-                message: `Entity not found: ${entityId}`,
-                entityId,
-              }),
-            onSome: (entity) => entity,
-          })
-        }).pipe(Effect.flatMap(Effect.succeed))
-
-      // Component management implementation
-      const addComponent = <T extends ComponentName>(
-        entityId: EntityId,
-        componentName: T,
-        componentData: Components[T],
-      ): Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentAlreadyExistsError, never> =>
-        Effect.gen(function* () {
-          const entity = yield* getEntity(entityId)
-          const currentComponents = yield* Ref.get(entityComponents)
-          const entityComps = HashMap.get(currentComponents, entityId)
-
-          if (Option.isNone(entityComps)) {
-            return yield* Effect.fail(
-              EntityNotFoundError({
-                message: `Entity components not found: ${entityId}`,
-                entityId,
-              }),
-            )
-          }
-
-          if (componentName in entityComps.value) {
-            return yield* Effect.fail(
-              ComponentAlreadyExistsError({
-                message: `Component ${componentName} already exists on entity ${entityId}`,
-                entityId,
-                componentName,
-              }),
-            )
-          }
-
-          const updatedComponents = { ...entityComps.value, [componentName]: componentData }
-          const newArchetypeId = getEntityArchetypeId(updatedComponents)
-
-          // Update entity and components
-          const updatedEntity = Data.struct({
-            ...entity,
-            components: Set.add(entity.components, componentName),
-            archetype: newArchetypeId,
-            generation: entity.generation + 1,
-            lastModified: new Date(),
-          })
-
-          yield* Ref.update(entities, HashMap.set(entityId, updatedEntity))
-          yield* Ref.update(entityComponents, HashMap.set(entityId, updatedComponents))
-
-          // Update archetype statistics
-          yield* updateArchetypeStats(entity.archetype, Array.fromIterable(entity.components), -1)
-          yield* updateArchetypeStats(newArchetypeId, Object.keys(updatedComponents) as ComponentName[], 1)
+        try {
+          // Remove from all state
+          yield* Ref.update(entities, HashMap.remove(entityId))
+          yield* Ref.update(entityComponents, HashMap.remove(entityId))
+          yield* updateArchetypeStats(entity.value.archetype, Array.fromIterable(entity.value.components), -1)
+          yield* updateDestroyStats()
 
           // Clear query cache
           yield* Ref.set(queryCache, HashMap.empty())
+        } catch (error) {
+          return yield* Effect.fail(
+            EntityDestructionError({
+              message: `Failed to destroy entity ${entityId}: ${error}`,
+              entityId,
+              cause: error,
+            }),
+          )
+        }
+      })
+
+    const entityExists = (entityId: EntityId): Effect.Effect<boolean, never, never> =>
+      Effect.gen(function* () {
+        const currentEntities = yield* Ref.get(entities)
+        return HashMap.has(currentEntities, entityId)
+      })
+
+    const getEntity = (entityId: EntityId): Effect.Effect<Entity, typeof EntityNotFoundError, never> =>
+      Effect.gen(function* () {
+        const currentEntities = yield* Ref.get(entities)
+        const entity = HashMap.get(currentEntities, entityId)
+
+        return Option.match(entity, {
+          onNone: () =>
+            EntityNotFoundError({
+              message: `Entity not found: ${entityId}`,
+              entityId,
+            }),
+          onSome: (entity) => entity,
+        })
+      }).pipe(Effect.flatMap(Effect.succeed))
+
+    // Component management implementation
+    const addComponent = <T extends ComponentName>(
+      entityId: EntityId,
+      componentName: T,
+      componentData: Components[T],
+    ): Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentAlreadyExistsError, never> =>
+      Effect.gen(function* () {
+        const entity = yield* getEntity(entityId)
+        const currentComponents = yield* Ref.get(entityComponents)
+        const entityComps = HashMap.get(currentComponents, entityId)
+
+        if (Option.isNone(entityComps)) {
+          return yield* Effect.fail(
+            EntityNotFoundError({
+              message: `Entity components not found: ${entityId}`,
+              entityId,
+            }),
+          )
+        }
+
+        if (componentName in entityComps.value) {
+          return yield* Effect.fail(
+            ComponentAlreadyExistsError({
+              message: `Component ${componentName} already exists on entity ${entityId}`,
+              entityId,
+              componentName,
+            }),
+          )
+        }
+
+        const updatedComponents = { ...entityComps.value, [componentName]: componentData }
+        const newArchetypeId = getEntityArchetypeId(updatedComponents)
+
+        // Update entity and components
+        const updatedEntity = Data.struct({
+          ...entity,
+          components: Set.add(entity.components, componentName),
+          archetype: newArchetypeId,
+          generation: entity.generation + 1,
+          lastModified: new Date(),
         })
 
-      const removeComponent = <T extends ComponentName>(
-        entityId: EntityId,
-        componentName: T,
-      ): Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentNotFoundError, never> =>
-        Effect.gen(function* () {
-          const entity = yield* getEntity(entityId)
-          const currentComponents = yield* Ref.get(entityComponents)
+        yield* Ref.update(entities, HashMap.set(entityId, updatedEntity))
+        yield* Ref.update(entityComponents, HashMap.set(entityId, updatedComponents))
+
+        // Update archetype statistics
+        yield* updateArchetypeStats(entity.archetype, Array.fromIterable(entity.components), -1)
+        yield* updateArchetypeStats(newArchetypeId, Object.keys(updatedComponents) as ComponentName[], 1)
+
+        // Clear query cache
+        yield* Ref.set(queryCache, HashMap.empty())
+      })
+
+    const removeComponent = <T extends ComponentName>(
+      entityId: EntityId,
+      componentName: T,
+    ): Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentNotFoundError, never> =>
+      Effect.gen(function* () {
+        const entity = yield* getEntity(entityId)
+        const currentComponents = yield* Ref.get(entityComponents)
+        const entityComps = HashMap.get(currentComponents, entityId)
+
+        if (Option.isNone(entityComps)) {
+          return yield* Effect.fail(
+            EntityNotFoundError({
+              message: `Entity components not found: ${entityId}`,
+              entityId,
+            }),
+          )
+        }
+
+        if (!(componentName in entityComps.value)) {
+          return yield* Effect.fail(
+            ComponentNotFoundError({
+              message: `Component ${componentName} not found on entity ${entityId}`,
+              entityId,
+              componentName,
+            }),
+          )
+        }
+
+        const { [componentName]: removed, ...updatedComponents } = entityComps.value
+        const newArchetypeId = getEntityArchetypeId(updatedComponents)
+
+        // Update entity and components
+        const updatedEntity = Data.struct({
+          ...entity,
+          components: Set.remove(entity.components, componentName),
+          archetype: newArchetypeId,
+          generation: entity.generation + 1,
+          lastModified: new Date(),
+        })
+
+        yield* Ref.update(entities, HashMap.set(entityId, updatedEntity))
+        yield* Ref.update(entityComponents, HashMap.set(entityId, updatedComponents))
+
+        // Update archetype statistics
+        yield* updateArchetypeStats(entity.archetype, Array.fromIterable(entity.components), -1)
+        yield* updateArchetypeStats(newArchetypeId, Object.keys(updatedComponents) as ComponentName[], 1)
+
+        // Clear query cache
+        yield* Ref.set(queryCache, HashMap.empty())
+      })
+
+    const getComponent = <T extends ComponentName>(
+      entityId: EntityId,
+      componentName: T,
+    ): Effect.Effect<Components[T], typeof EntityNotFoundError | typeof ComponentNotFoundError, never> =>
+      Effect.gen(function* () {
+        yield* getEntity(entityId) // Validate entity exists
+        const currentComponents = yield* Ref.get(entityComponents)
+        const entityComps = HashMap.get(currentComponents, entityId)
+
+        if (Option.isNone(entityComps)) {
+          return yield* Effect.fail(
+            EntityNotFoundError({
+              message: `Entity components not found: ${entityId}`,
+              entityId,
+            }),
+          )
+        }
+
+        const component = entityComps.value[componentName]
+        if (component === undefined) {
+          return yield* Effect.fail(
+            ComponentNotFoundError({
+              message: `Component ${componentName} not found on entity ${entityId}`,
+              entityId,
+              componentName,
+            }),
+          )
+        }
+
+        return component as Components[T]
+      })
+
+    const hasComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<boolean, never, never> =>
+      Effect.gen(function* () {
+        const currentComponents = yield* Ref.get(entityComponents)
+        const entityComps = HashMap.get(currentComponents, entityId)
+
+        return Option.match(entityComps, {
+          onNone: () => false,
+          onSome: (comps) => componentName in comps,
+        })
+      })
+
+    // Query implementation with caching
+    const queryEntities = (requiredComponents: readonly ComponentName[]): Effect.Effect<readonly EntityId[], never, never> =>
+      Effect.gen(function* () {
+        const cacheKey = requiredComponents.join('|')
+        const cache = yield* Ref.get(queryCache)
+        const cached = HashMap.get(cache, cacheKey)
+
+        if (Option.isSome(cached)) {
+          return cached.value
+        }
+
+        // Perform query
+        const startTime = Date.now()
+        const currentEntities = yield* Ref.get(entities)
+        const currentComponents = yield* Ref.get(entityComponents)
+
+        const matchingEntities = Array.fromIterable(HashMap.keys(currentEntities)).filter((entityId) => {
           const entityComps = HashMap.get(currentComponents, entityId)
+          if (Option.isNone(entityComps)) return false
 
-          if (Option.isNone(entityComps)) {
-            return yield* Effect.fail(
-              EntityNotFoundError({
-                message: `Entity components not found: ${entityId}`,
-                entityId,
-              }),
-            )
-          }
-
-          if (!(componentName in entityComps.value)) {
-            return yield* Effect.fail(
-              ComponentNotFoundError({
-                message: `Component ${componentName} not found on entity ${entityId}`,
-                entityId,
-                componentName,
-              }),
-            )
-          }
-
-          const { [componentName]: removed, ...updatedComponents } = entityComps.value
-          const newArchetypeId = getEntityArchetypeId(updatedComponents)
-
-          // Update entity and components
-          const updatedEntity = Data.struct({
-            ...entity,
-            components: Set.remove(entity.components, componentName),
-            archetype: newArchetypeId,
-            generation: entity.generation + 1,
-            lastModified: new Date(),
-          })
-
-          yield* Ref.update(entities, HashMap.set(entityId, updatedEntity))
-          yield* Ref.update(entityComponents, HashMap.set(entityId, updatedComponents))
-
-          // Update archetype statistics
-          yield* updateArchetypeStats(entity.archetype, Array.fromIterable(entity.components), -1)
-          yield* updateArchetypeStats(newArchetypeId, Object.keys(updatedComponents) as ComponentName[], 1)
-
-          // Clear query cache
-          yield* Ref.set(queryCache, HashMap.empty())
+          return requiredComponents.every((componentName) => componentName in entityComps.value)
         })
 
-      const getComponent = <T extends ComponentName>(
-        entityId: EntityId,
-        componentName: T,
-      ): Effect.Effect<Components[T], typeof EntityNotFoundError | typeof ComponentNotFoundError, never> =>
+        const queryTime = Date.now() - startTime
+
+        // Update cache if within limits
+        const currentCacheSize = HashMap.size(cache)
+        if (currentCacheSize < CACHE_SIZE) {
+          yield* Ref.update(queryCache, HashMap.set(cacheKey, matchingEntities))
+        }
+
+        // Update query stats
+        yield* updateQueryStats(queryTime)
+
+        return matchingEntities
+      })
+
+    // Helper functions for archetype and stats management
+    const updateArchetypeStats = (archetypeId: string, componentNames: readonly ComponentName[], countDelta: number): Effect.Effect<void, never, never> =>
+      Ref.update(archetypes, (archetypes) => {
+        const existing = HashMap.get(archetypes, archetypeId)
+        const archetype = Option.getOrElse(existing, () => ({
+          id: archetypeId,
+          componentTypes: componentNames,
+          entityCount: 0,
+          storageLayout: 'AoS' as StorageLayout,
+        }))
+
+        const updated = Data.struct({
+          ...archetype,
+          entityCount: Math.max(0, archetype.entityCount + countDelta),
+        })
+
+        return HashMap.set(archetypes, archetypeId, updated)
+      })
+
+    const updateCreateStats = (): Effect.Effect<void, never, never> =>
+      Ref.update(entityStats, (stats) =>
+        Data.struct({
+          ...stats,
+          totalCreated: stats.totalCreated + 1,
+        }),
+      )
+
+    const updateDestroyStats = (): Effect.Effect<void, never, never> =>
+      Ref.update(entityStats, (stats) =>
+        Data.struct({
+          ...stats,
+          totalDestroyed: stats.totalDestroyed + 1,
+        }),
+      )
+
+    const updateQueryStats = (queryTime: number): Effect.Effect<void, never, never> =>
+      Ref.update(entityStats, (stats) =>
+        Data.struct({
+          ...stats,
+          totalQueries: stats.totalQueries + 1,
+          totalQueryTime: stats.totalQueryTime + queryTime,
+        }),
+      )
+
+    // Return the service implementation
+    return {
+      createEntity,
+      destroyEntity,
+      entityExists,
+      getEntity,
+      getEntityCount: () =>
+        Effect.gen(function* () {
+          const currentEntities = yield* Ref.get(entities)
+          return HashMap.size(currentEntities)
+        }),
+
+      addComponent,
+      removeComponent,
+      getComponent,
+      hasComponent,
+      updateComponent: <T extends ComponentName>(entityId: EntityId, componentName: T, updater: (current: Components[T]) => Components[T]) =>
+        Effect.gen(function* () {
+          const currentComponent = yield* getComponent(entityId, componentName)
+          const updatedComponent = updater(currentComponent)
+          yield* removeComponent(entityId, componentName)
+          yield* addComponent(entityId, componentName, updatedComponent)
+        }),
+
+      queryEntities,
+      queryEntitiesWithComponents: <T extends readonly ComponentName[]>(requiredComponents: T) =>
+        Effect.gen(function* () {
+          const entityIds = yield* queryEntities(requiredComponents)
+          const currentComponents = yield* Ref.get(entityComponents)
+          const currentEntities = yield* Ref.get(entities)
+
+          const results = entityIds
+            .map((entityId) => {
+              const entity = HashMap.get(currentEntities, entityId)
+              const components = HashMap.get(currentComponents, entityId)
+
+              if (Option.isSome(entity) && Option.isSome(components)) {
+                const filteredComponents = Object.fromEntries(requiredComponents.map((componentName) => [componentName, components.value[componentName]])) as Pick<
+                  Components,
+                  T[number]
+                >
+
+                return {
+                  entity: entity.value,
+                  components: filteredComponents,
+                }
+              }
+              return null
+            })
+            .filter(Boolean) as EntityWithComponents<T>[]
+
+          return results
+        }),
+
+      findEntitiesInRadius: () =>
+        // Implementation would use spatial indexing
+        Effect.succeed([]),
+
+      findEntitiesByArchetype: (archetypeId: string) =>
+        Effect.gen(function* () {
+          const currentEntities = yield* Ref.get(entities)
+          const matching = Array.fromIterable(HashMap.values(currentEntities))
+            .filter((entity) => entity.archetype === archetypeId)
+            .map((entity) => entity.id)
+          return matching
+        }),
+
+      getEntityComponents: (entityId: EntityId) =>
         Effect.gen(function* () {
           yield* getEntity(entityId) // Validate entity exists
           const currentComponents = yield* Ref.get(entityComponents)
           const entityComps = HashMap.get(currentComponents, entityId)
 
-          if (Option.isNone(entityComps)) {
-            return yield* Effect.fail(
-              EntityNotFoundError({
-                message: `Entity components not found: ${entityId}`,
-                entityId,
-              }),
-            )
-          }
+          return Option.getOrElse(entityComps, () => ({}) as Partial<Components>)
+        }),
 
-          const component = entityComps.value[componentName]
-          if (component === undefined) {
-            return yield* Effect.fail(
-              ComponentNotFoundError({
-                message: `Component ${componentName} not found on entity ${entityId}`,
-                entityId,
-                componentName,
-              }),
-            )
-          }
-
-          return component as Components[T]
-        })
-
-      const hasComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<boolean, never, never> =>
+      getEntityArchetype: (entityId: EntityId) =>
         Effect.gen(function* () {
-          const currentComponents = yield* Ref.get(entityComponents)
-          const entityComps = HashMap.get(currentComponents, entityId)
+          const entity = yield* getEntity(entityId)
+          const currentArchetypes = yield* Ref.get(archetypes)
+          const archetype = HashMap.get(currentArchetypes, entity.archetype)
 
-          return Option.match(entityComps, {
-            onNone: () => false,
-            onSome: (comps) => componentName in comps,
-          })
-        })
-
-      // Query implementation with caching
-      const queryEntities = (requiredComponents: readonly ComponentName[]): Effect.Effect<readonly EntityId[], never, never> =>
-        Effect.gen(function* () {
-          const cacheKey = requiredComponents.join('|')
-          const cache = yield* Ref.get(queryCache)
-          const cached = HashMap.get(cache, cacheKey)
-
-          if (Option.isSome(cached)) {
-            return cached.value
-          }
-
-          // Perform query
-          const startTime = Date.now()
-          const currentEntities = yield* Ref.get(entities)
-          const currentComponents = yield* Ref.get(entityComponents)
-
-          const matchingEntities = Array.fromIterable(HashMap.keys(currentEntities)).filter((entityId) => {
-            const entityComps = HashMap.get(currentComponents, entityId)
-            if (Option.isNone(entityComps)) return false
-
-            return requiredComponents.every((componentName) => componentName in entityComps.value)
-          })
-
-          const queryTime = Date.now() - startTime
-
-          // Update cache if within limits
-          const currentCacheSize = HashMap.size(cache)
-          if (currentCacheSize < CACHE_SIZE) {
-            yield* Ref.update(queryCache, HashMap.set(cacheKey, matchingEntities))
-          }
-
-          // Update query stats
-          yield* updateQueryStats(queryTime)
-
-          return matchingEntities
-        })
-
-      // Helper functions for archetype and stats management
-      const updateArchetypeStats = (archetypeId: string, componentNames: readonly ComponentName[], countDelta: number): Effect.Effect<void, never, never> =>
-        Ref.update(archetypes, (archetypes) => {
-          const existing = HashMap.get(archetypes, archetypeId)
-          const archetype = Option.getOrElse(existing, () => ({
-            id: archetypeId,
-            componentTypes: componentNames,
-            entityCount: 0,
+          return Option.getOrElse(archetype, () => ({
+            id: entity.archetype,
+            componentTypes: Array.fromIterable(entity.components),
+            entityCount: 1,
             storageLayout: 'AoS' as StorageLayout,
           }))
+        }),
 
-          const updated = Data.struct({
-            ...archetype,
-            entityCount: Math.max(0, archetype.entityCount + countDelta),
-          })
+      serializeEntity: (entityId: EntityId) =>
+        Effect.gen(function* () {
+          const entity = yield* getEntity(entityId)
+          const components = yield* getEntityComponents(entityId)
 
-          return HashMap.set(archetypes, archetypeId, updated)
-        })
+          return {
+            id: entityId,
+            components: components as Record<ComponentName, unknown>,
+            archetype: entity.archetype,
+            metadata: {
+              generation: entity.generation,
+              createdAt: entity.createdAt.toISOString(),
+              lastModified: entity.lastModified.toISOString(),
+              version: '1.0.0',
+            },
+          }
+        }),
 
-      const updateCreateStats = (): Effect.Effect<void, never, never> =>
-        Ref.update(entityStats, (stats) =>
-          Data.struct({
-            ...stats,
-            totalCreated: stats.totalCreated + 1,
-          }),
-        )
+      deserializeEntity: (serializedEntity: SerializedEntity) => createEntity(serializedEntity.components),
 
-      const updateDestroyStats = (): Effect.Effect<void, never, never> =>
-        Ref.update(entityStats, (stats) =>
-          Data.struct({
-            ...stats,
-            totalDestroyed: stats.totalDestroyed + 1,
-          }),
-        )
+      // Batch operations
+      createEntitiesBatch: (entitiesData: readonly Partial<Components>[]) => Effect.all(entitiesData.map(createEntity), { concurrency: 10 }),
 
-      const updateQueryStats = (queryTime: number): Effect.Effect<void, never, never> =>
-        Ref.update(entityStats, (stats) =>
-          Data.struct({
-            ...stats,
-            totalQueries: stats.totalQueries + 1,
-            totalQueryTime: stats.totalQueryTime + queryTime,
-          }),
-        )
+      destroyEntitiesBatch: (entityIds: readonly EntityId[]) =>
+        Effect.gen(function* () {
+          const results = yield* Effect.all(
+            entityIds.map((id) =>
+              destroyEntity(id).pipe(
+                Effect.map(() => id),
+                Effect.option,
+              ),
+            ),
+            { concurrency: 10 },
+          )
+          return results.filter(Option.isSome).map((opt) => opt.value)
+        }),
 
-      // Return the service implementation
-      return {
-        createEntity,
-        destroyEntity,
-        entityExists,
-        getEntity,
-        getEntityCount: () =>
-          Effect.gen(function* () {
-            const currentEntities = yield* Ref.get(entities)
-            return HashMap.size(currentEntities)
-          }),
+      updateEntitiesBatch: <T extends ComponentName>(entityIds: readonly EntityId[], componentName: T, updater: (current: Components[T]) => Components[T]) =>
+        Effect.all(
+          entityIds.map((entityId) => updateComponent(entityId, componentName, updater).pipe(Effect.option)),
+          { concurrency: 10 },
+        ).pipe(Effect.asUnit),
 
-        addComponent,
-        removeComponent,
-        getComponent,
-        hasComponent,
-        updateComponent: <T extends ComponentName>(entityId: EntityId, componentName: T, updater: (current: Components[T]) => Components[T]) =>
-          Effect.gen(function* () {
-            const currentComponent = yield* getComponent(entityId, componentName)
-            const updatedComponent = updater(currentComponent)
-            yield* removeComponent(entityId, componentName)
-            yield* addComponent(entityId, componentName, updatedComponent)
-          }),
+      // Performance and debugging
+      getEntityStats: () =>
+        Effect.gen(function* () {
+          const currentEntities = yield* Ref.get(entities)
+          const currentArchetypes = yield* Ref.get(archetypes)
+          const currentComponents = yield* Ref.get(entityComponents)
+          const stats = yield* Ref.get(entityStats)
+          const cache = yield* Ref.get(queryCache)
 
-        queryEntities,
-        queryEntitiesWithComponents: <T extends readonly ComponentName[]>(requiredComponents: T) =>
-          Effect.gen(function* () {
-            const entityIds = yield* queryEntities(requiredComponents)
-            const currentComponents = yield* Ref.get(entityComponents)
-            const currentEntities = yield* Ref.get(entities)
+          const totalEntities = HashMap.size(currentEntities)
+          const archetypeCount = HashMap.size(currentArchetypes)
+          const avgQueryTime = stats.totalQueries > 0 ? stats.totalQueryTime / stats.totalQueries : 0
+          const cacheHitRate = stats.totalQueries > 0 ? HashMap.size(cache) / stats.totalQueries : 0
 
-            const results = entityIds
-              .map((entityId) => {
-                const entity = HashMap.get(currentEntities, entityId)
-                const components = HashMap.get(currentComponents, entityId)
+          return {
+            totalEntities,
+            activeEntities: totalEntities,
+            destroyedEntities: stats.totalDestroyed,
+            archetypeCount,
+            averageComponentsPerEntity:
+              totalEntities > 0 ? Array.fromIterable(HashMap.values(currentComponents)).reduce((sum, comps) => sum + Object.keys(comps).length, 0) / totalEntities : 0,
+            memoryUsage: {
+              entitiesMemory: totalEntities * 128, // Rough estimate
+              componentsMemory: totalEntities * 256, // Rough estimate
+              archetypesMemory: archetypeCount * 64, // Rough estimate
+              totalMemory: totalEntities * 448 + archetypeCount * 64,
+            },
+            queryPerformance: {
+              totalQueries: stats.totalQueries,
+              averageQueryTime: avgQueryTime,
+              cacheHitRate,
+              mostFrequentQuery: [], // Would track in real implementation
+            },
+          }
+        }),
 
-                if (Option.isSome(entity) && Option.isSome(components)) {
-                  const filteredComponents = Object.fromEntries(requiredComponents.map((componentName) => [componentName, components.value[componentName]])) as Pick<
-                    Components,
-                    T[number]
-                  >
+      validateEntityIntegrity: (entityId: EntityId) =>
+        Effect.gen(function* () {
+          const issues: EntityIssue[] = []
+          let isValid = true
 
-                  return {
-                    entity: entity.value,
-                    components: filteredComponents,
-                  }
-                }
-                return null
-              })
-              .filter(Boolean) as EntityWithComponents<T>[]
-
-            return results
-          }),
-
-        findEntitiesInRadius: () =>
-          // Implementation would use spatial indexing
-          Effect.succeed([]),
-
-        findEntitiesByArchetype: (archetypeId: string) =>
-          Effect.gen(function* () {
-            const currentEntities = yield* Ref.get(entities)
-            const matching = Array.fromIterable(HashMap.values(currentEntities))
-              .filter((entity) => entity.archetype === archetypeId)
-              .map((entity) => entity.id)
-            return matching
-          }),
-
-        getEntityComponents: (entityId: EntityId) =>
-          Effect.gen(function* () {
-            yield* getEntity(entityId) // Validate entity exists
-            const currentComponents = yield* Ref.get(entityComponents)
-            const entityComps = HashMap.get(currentComponents, entityId)
-
-            return Option.getOrElse(entityComps, () => ({}) as Partial<Components>)
-          }),
-
-        getEntityArchetype: (entityId: EntityId) =>
-          Effect.gen(function* () {
-            const entity = yield* getEntity(entityId)
-            const currentArchetypes = yield* Ref.get(archetypes)
-            const archetype = HashMap.get(currentArchetypes, entity.archetype)
-
-            return Option.getOrElse(archetype, () => ({
-              id: entity.archetype,
-              componentTypes: Array.fromIterable(entity.components),
-              entityCount: 1,
-              storageLayout: 'AoS' as StorageLayout,
-            }))
-          }),
-
-        serializeEntity: (entityId: EntityId) =>
-          Effect.gen(function* () {
+          try {
             const entity = yield* getEntity(entityId)
             const components = yield* getEntityComponents(entityId)
 
-            return {
-              id: entityId,
-              components: components as Record<ComponentName, unknown>,
-              archetype: entity.archetype,
-              metadata: {
-                generation: entity.generation,
-                createdAt: entity.createdAt.toISOString(),
-                lastModified: entity.lastModified.toISOString(),
-                version: '1.0.0',
-              },
-            }
-          }),
-
-        deserializeEntity: (serializedEntity: SerializedEntity) => createEntity(serializedEntity.components),
-
-        // Batch operations
-        createEntitiesBatch: (entitiesData: readonly Partial<Components>[]) => Effect.all(entitiesData.map(createEntity), { concurrency: 10 }),
-
-        destroyEntitiesBatch: (entityIds: readonly EntityId[]) =>
-          Effect.gen(function* () {
-            const results = yield* Effect.all(
-              entityIds.map((id) =>
-                destroyEntity(id).pipe(
-                  Effect.map(() => id),
-                  Effect.option,
-                ),
-              ),
-              { concurrency: 10 },
-            )
-            return results.filter(Option.isSome).map((opt) => opt.value)
-          }),
-
-        updateEntitiesBatch: <T extends ComponentName>(entityIds: readonly EntityId[], componentName: T, updater: (current: Components[T]) => Components[T]) =>
-          Effect.all(
-            entityIds.map((entityId) => updateComponent(entityId, componentName, updater).pipe(Effect.option)),
-            { concurrency: 10 },
-          ).pipe(Effect.asUnit),
-
-        // Performance and debugging
-        getEntityStats: () =>
-          Effect.gen(function* () {
-            const currentEntities = yield* Ref.get(entities)
-            const currentArchetypes = yield* Ref.get(archetypes)
-            const currentComponents = yield* Ref.get(entityComponents)
-            const stats = yield* Ref.get(entityStats)
-            const cache = yield* Ref.get(queryCache)
-
-            const totalEntities = HashMap.size(currentEntities)
-            const archetypeCount = HashMap.size(currentArchetypes)
-            const avgQueryTime = stats.totalQueries > 0 ? stats.totalQueryTime / stats.totalQueries : 0
-            const cacheHitRate = stats.totalQueries > 0 ? HashMap.size(cache) / stats.totalQueries : 0
-
-            return {
-              totalEntities,
-              activeEntities: totalEntities,
-              destroyedEntities: stats.totalDestroyed,
-              archetypeCount,
-              averageComponentsPerEntity:
-                totalEntities > 0 ? Array.fromIterable(HashMap.values(currentComponents)).reduce((sum, comps) => sum + Object.keys(comps).length, 0) / totalEntities : 0,
-              memoryUsage: {
-                entitiesMemory: totalEntities * 128, // Rough estimate
-                componentsMemory: totalEntities * 256, // Rough estimate
-                archetypesMemory: archetypeCount * 64, // Rough estimate
-                totalMemory: totalEntities * 448 + archetypeCount * 64,
-              },
-              queryPerformance: {
-                totalQueries: stats.totalQueries,
-                averageQueryTime: avgQueryTime,
-                cacheHitRate,
-                mostFrequentQuery: [], // Would track in real implementation
-              },
-            }
-          }),
-
-        validateEntityIntegrity: (entityId: EntityId) =>
-          Effect.gen(function* () {
-            const issues: EntityIssue[] = []
-            let isValid = true
-
-            try {
-              const entity = yield* getEntity(entityId)
-              const components = yield* getEntityComponents(entityId)
-
-              // Check if all entity components exist in component storage
-              for (const componentName of entity.components) {
-                if (!(componentName in components)) {
-                  issues.push({
-                    type: 'missing_component',
-                    severity: 'error',
-                    description: `Component ${componentName} listed in entity but not found in storage`,
-                    componentName,
-                  })
-                  isValid = false
-                }
-              }
-
-              // Check archetype consistency
-              const expectedArchetype = getEntityArchetypeId(components)
-              if (entity.archetype !== expectedArchetype) {
+            // Check if all entity components exist in component storage
+            for (const componentName of entity.components) {
+              if (!(componentName in components)) {
                 issues.push({
-                  type: 'archetype_mismatch',
-                  severity: 'warning',
-                  description: `Entity archetype ${entity.archetype} doesn't match computed archetype ${expectedArchetype}`,
+                  type: 'missing_component',
+                  severity: 'error',
+                  description: `Component ${componentName} listed in entity but not found in storage`,
+                  componentName,
                 })
                 isValid = false
               }
-            } catch (error) {
+            }
+
+            // Check archetype consistency
+            const expectedArchetype = getEntityArchetypeId(components)
+            if (entity.archetype !== expectedArchetype) {
               issues.push({
-                type: 'stale_reference',
-                severity: 'critical',
-                description: `Entity reference is stale or invalid: ${error}`,
+                type: 'archetype_mismatch',
+                severity: 'warning',
+                description: `Entity archetype ${entity.archetype} doesn't match computed archetype ${expectedArchetype}`,
               })
               isValid = false
             }
+          } catch (error) {
+            issues.push({
+              type: 'stale_reference',
+              severity: 'critical',
+              description: `Entity reference is stale or invalid: ${error}`,
+            })
+            isValid = false
+          }
 
-            return {
-              isValid,
-              issues,
-              recommendations: issues.map((issue) => `Fix ${issue.type}: ${issue.description}`),
-            }
-          }),
+          return {
+            isValid,
+            issues,
+            recommendations: issues.map((issue) => `Fix ${issue.type}: ${issue.description}`),
+          }
+        }),
 
-        optimizeArchetypes: () =>
-          Effect.gen(function* () {
-            // Basic optimization - in practice would be more sophisticated
-            const currentArchetypes = yield* Ref.get(archetypes)
-            const emptyArchetypes = Array.fromIterable(HashMap.values(currentArchetypes)).filter((archetype) => archetype.entityCount === 0)
+      optimizeArchetypes: () =>
+        Effect.gen(function* () {
+          // Basic optimization - in practice would be more sophisticated
+          const currentArchetypes = yield* Ref.get(archetypes)
+          const emptyArchetypes = Array.fromIterable(HashMap.values(currentArchetypes)).filter((archetype) => archetype.entityCount === 0)
 
-            // Remove empty archetypes
-            for (const archetype of emptyArchetypes) {
-              yield* Ref.update(archetypes, HashMap.remove(archetype.id))
-            }
+          // Remove empty archetypes
+          for (const archetype of emptyArchetypes) {
+            yield* Ref.update(archetypes, HashMap.remove(archetype.id))
+          }
 
-            return {
-              optimizationsApplied: emptyArchetypes.length,
-              memoryFreed: emptyArchetypes.length * 64, // Rough estimate
-              performanceImprovement: emptyArchetypes.length * 0.01, // Rough estimate
-              recommendations: emptyArchetypes.length > 0 ? ['Consider implementing archetype pooling for frequently created/destroyed entities'] : [],
-            }
-          }),
+          return {
+            optimizationsApplied: emptyArchetypes.length,
+            memoryFreed: emptyArchetypes.length * 64, // Rough estimate
+            performanceImprovement: emptyArchetypes.length * 0.01, // Rough estimate
+            recommendations: emptyArchetypes.length > 0 ? ['Consider implementing archetype pooling for frequently created/destroyed entities'] : [],
+          }
+        }),
 
-        // Missing query methods used by handlers
-        getEntityPosition: (entityId) =>
-          Effect.gen(function* () {
-            const allEntities = yield* Ref.get(entities)
-            const entity = HashMap.get(allEntities, entityId)
-            if (Option.isNone(entity)) {
-              return yield* Effect.fail(EntityNotFoundError)
-            }
-            // TODO: Extract position from entity components - returning mock for now
-            return { x: 0, y: 0, z: 0 } as Position
-          }),
+      // Missing query methods used by handlers
+      getEntityPosition: (entityId) =>
+        Effect.gen(function* () {
+          const allEntities = yield* Ref.get(entities)
+          const entity = HashMap.get(allEntities, entityId)
+          if (Option.isNone(entity)) {
+            return yield* Effect.fail(EntityNotFoundError)
+          }
+          // TODO: Extract position from entity components - returning mock for now
+          return { x: 0, y: 0, z: 0 } as Position
+        }),
 
-        getAllEntities: () =>
-          Effect.gen(function* () {
-            const allEntities = yield* Ref.get(entities)
-            return Array.fromIterable(HashMap.values(allEntities))
-          }),
+      getAllEntities: () =>
+        Effect.gen(function* () {
+          const allEntities = yield* Ref.get(entities)
+          return Array.fromIterable(HashMap.values(allEntities))
+        }),
 
-        getEntitiesByType: (entityType) =>
-          Effect.gen(function* () {
-            // TODO: Implement type filtering - for now return all entities
-            const allEntities = yield* Ref.get(entities)
-            return Array.fromIterable(HashMap.values(allEntities))
-          }),
+      getEntitiesByType: (entityType) =>
+        Effect.gen(function* () {
+          // TODO: Implement type filtering - for now return all entities
+          const allEntities = yield* Ref.get(entities)
+          return Array.fromIterable(HashMap.values(allEntities))
+        }),
 
-        getEntitiesInRadius: (center, radius) =>
-          Effect.gen(function* () {
-            // TODO: Implement spatial query - for now return all entities
-            const allEntities = yield* Ref.get(entities)
-            return Array.fromIterable(HashMap.values(allEntities))
-          }),
-      }
-    }),
-  )
+      getEntitiesInRadius: (center, radius) =>
+        Effect.gen(function* () {
+          // TODO: Implement spatial query - for now return all entities
+          const allEntities = yield* Ref.get(entities)
+          return Array.fromIterable(HashMap.values(allEntities))
+        }),
+    }
+  }),
+)
