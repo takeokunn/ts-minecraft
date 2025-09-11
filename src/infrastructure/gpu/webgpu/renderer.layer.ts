@@ -34,7 +34,7 @@ import {
   RenderTargetError,
   MeshDataError,
   GraphicsContextError,
-} from '../../core/errors'
+} from '../errors'
 
 // ===== RENDER SERVICE INTERFACE =====
 

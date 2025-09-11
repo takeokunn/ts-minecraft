@@ -11,10 +11,10 @@
  */
 
 import { Effect, Duration, Option } from 'effect'
-import { ArchetypeQuery, trackPerformance } from '@/core/queries'
+import { ArchetypeQuery, trackPerformance } from '@/domain/queries'
 import { World, InputManager } from '@/runtime/services'
-import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { InputStateComponent, CameraComponent, VelocityComponent } from '@/core/components'
+import { SystemFunction, SystemConfig, SystemContext } from '../application/scheduler'
+import { InputStateComponent, CameraComponent, VelocityComponent } from '@/domain/entities/components'
 
 /**
  * Input system configuration

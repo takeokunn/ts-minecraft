@@ -48,7 +48,7 @@ export {
 } from './cache'
 
 // Legacy query compatibility layer
-import { ComponentName } from '@/core/components'
+import { ComponentName } from '@/domain/entities/components'
 
 /**
  * Legacy Query interface for backward compatibility

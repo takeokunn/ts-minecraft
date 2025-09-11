@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { createAABB } from '@/domain/geometry'
-import { queries } from '@/core/queries'
+import { queries } from '@/domain/queries'
 import { SpatialGrid, World } from '@/runtime/services'
 
 export const updatePhysicsWorldSystem = Effect.gen(function* (_) {

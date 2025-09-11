@@ -1,9 +1,9 @@
 import { Effect, Layer, Ref, Option } from 'effect'
 
-import type { Chunk } from '@/core/components/world/chunk'
-import { ObjectPool } from '@/core/performance/object-pool'
+import type { Chunk } from '@/domain/entities/components/world/chunk'
+import { ObjectPool } from '@/domain/performance/object-pool'
 import { ChunkManager } from '@/services'
-import { toChunkX, toChunkZ } from '@/core/common'
+import { toChunkX, toChunkZ } from '@/domain/value-objects/common'
 
 // --- Configuration ---
 

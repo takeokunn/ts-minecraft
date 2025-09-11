@@ -2,7 +2,7 @@ import { Effect, Layer, Ref } from 'effect'
 
 import * as THREE from 'three'
 import type { EntityId } from '@/domain/entities'
-import { ObjectPool } from '@/core/performance/object-pool'
+import { ObjectPool } from '@/domain/performance/object-pool'
 
 // --- Configuration ---
 

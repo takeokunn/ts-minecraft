@@ -11,10 +11,10 @@
  */
 
 import { Effect, Array as EffArray, Duration, Option, Fiber } from 'effect'
-import { ArchetypeQuery, trackPerformance } from '@/core/queries'
+import { ArchetypeQuery, trackPerformance } from '@/domain/queries'
 import { World, ComputationWorker } from '@/runtime/services'
-import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { Position, ChunkComponent, VelocityComponent } from '@/core/components'
+import { SystemFunction, SystemConfig, SystemContext } from '../application/scheduler'
+import { Position, ChunkComponent, VelocityComponent } from '@/domain/entities/components'
 import { EntityId } from '@/domain/entities'
 import { CHUNK_SIZE, RENDER_DISTANCE, CHUNK_HEIGHT } from '@/domain/world-constants'
 

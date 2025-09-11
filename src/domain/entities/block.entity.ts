@@ -1,6 +1,6 @@
 import { Match, Option } from 'effect'
 import * as S from "@effect/schema/Schema"
-import { Vector3Int, Vector3IntSchema } from '@/core/common'
+import { Vector3Int, Vector3IntSchema } from '@/domain/value-objects/common'
 import { blockDefinitions } from './block-definitions.entity'
 import { BlockType, BlockTypeSchema } from '@/domain/value-objects/block-type.vo'
 

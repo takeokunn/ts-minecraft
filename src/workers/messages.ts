@@ -1,5 +1,5 @@
 import * as S from "/schema/Schema"
-import { Int } from '../core/common'
+import { Int } from '../domain/value-objects/common'
 import { BlockTypeSchema } from '../domain/block-types'
 
 export const PlacedBlock = S.Struct({

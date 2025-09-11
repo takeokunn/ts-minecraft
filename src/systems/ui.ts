@@ -1,5 +1,5 @@
 import { Effect, Option } from 'effect'
-import { queries } from '@/core/queries'
+import { queries } from '@/domain/queries'
 import { UIService, World } from '@/runtime/services'
 
 export const uiSystem = Effect.gen(function* ($) {

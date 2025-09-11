@@ -1,8 +1,8 @@
 import { Effect, Option } from 'effect'
 // Target types are used as plain objects, not constructors
-import { queries } from '@/core/queries'
+import { queries } from '@/domain/queries'
 import { Raycast, World } from '@/runtime/services'
-import { Int, Vector3Int } from '@/core/common'
+import { Int, Vector3Int } from '@/domain/value-objects/common'
 import * as THREE from 'three'
 
 

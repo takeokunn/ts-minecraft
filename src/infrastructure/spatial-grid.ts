@@ -3,7 +3,7 @@ import { pipe } from 'effect/Function'
 import type { EntityId } from '@/domain/entities'
 import type { AABB } from '@/domain/geometry'
 import { SpatialGrid } from '@/runtime/services'
-import { ObjectPool } from '@/core/performance/object-pool'
+import { ObjectPool } from '@/domain/performance/object-pool'
 
 // Optimized configuration
 const CONFIG = {

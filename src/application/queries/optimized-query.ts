@@ -3,7 +3,7 @@
  * Provides high-performance queries with automatic optimization and caching
  */
 
-import { ComponentName, ComponentOfName } from '@/core/components'
+import { ComponentName, ComponentOfName } from '@/domain/entities/components'
 import { EntityId } from '@/domain/entities'
 import { QueryEntity } from './builder'
 import { QueryConfig, QueryMetrics, startQueryContext, finalizeQueryContext } from './builder'

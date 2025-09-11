@@ -1,7 +1,7 @@
 import { Effect, Layer, Ref, HashMap, HashSet, Option } from 'effect'
 
 import { Archetype } from '@/domain/archetypes'
-import { Vector3Float as Vector3 } from '@/core/common'
+import { Vector3Float as Vector3 } from '@/domain/value-objects/common'
 import {
   Chunk,
   componentNamesSet,
@@ -9,13 +9,13 @@ import {
   ComponentSchemas,
   type ComponentName,
   type ComponentOfName,
-} from '@/core/components'
+} from '@/domain/entities/components'
 import { type EntityId, toEntityId } from '@/domain/entities'
 import { toChunkIndex } from '@/domain/geometry'
-import { type LegacyQuery, type OptimizedQuery } from '@/core/queries'
+import { type LegacyQuery, type OptimizedQuery } from '@/domain/queries'
 import { type Voxel } from '@/domain/world'
 import { World } from '@/runtime/services'
-import { ObjectPool } from '@/core/performance/object-pool'
+import { ObjectPool } from '@/domain/performance/object-pool'
 import { AdvancedSpatialGridState } from './spatial-grid'
 import { ChunkCacheState } from './chunk-cache'
 import * as S from "@effect/schema/Schema"
@@ -25,7 +25,7 @@ import {
   ComponentNotFoundError,
   QuerySingleResultNotFoundError,
   ComponentDecodeError,
-} from '@/core/errors'
+} from '@/domain/errors'
 
 // --- Optimization Configuration ---
 

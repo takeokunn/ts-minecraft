@@ -4,10 +4,10 @@ import { World } from '@/services/world'
 import { WorldState } from '@/domain/world'
 import { EntityId, toEntityId } from '@/domain/entities'
 import { Archetype } from '@/domain/archetypes'
-import { ComponentName, ComponentOfName } from '@/core/components'
+import { ComponentName, ComponentOfName } from '@/domain/entities/components'
 import { ChunkCoordinates, ChunkData } from '@/domain/chunk'
 import { BlockType } from '@/domain/value-objects/block-type.vo'
-import { ComponentNotFoundError } from '@/core/errors'
+import { ComponentNotFoundError } from '@/domain/errors'
 
 /**
  * Production implementation of World service

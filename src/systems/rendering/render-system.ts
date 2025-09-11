@@ -11,10 +11,10 @@
  */
 
 import { Effect, Array as EffArray, Queue, Duration } from 'effect'
-import { ArchetypeQuery, trackPerformance } from '@/core/queries'
+import { ArchetypeQuery, trackPerformance } from '@/domain/queries'
 import { World, Renderer } from '@/runtime/services'
-import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { PositionComponent, MeshComponent, MaterialComponent, CameraComponent, RenderableComponent } from '@/core/components'
+import { SystemFunction, SystemConfig, SystemContext } from '../application/scheduler'
+import { PositionComponent, MeshComponent, MaterialComponent, CameraComponent, RenderableComponent } from '@/domain/entities/components'
 import * as THREE from 'three'
 
 /**

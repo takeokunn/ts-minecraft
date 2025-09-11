@@ -10,12 +10,12 @@
  */
 
 import { Effect, Array as EffArray, Duration } from 'effect'
-import { ArchetypeQuery, trackPerformance } from '@/core/queries'
+import { ArchetypeQuery, trackPerformance } from '@/domain/queries'
 import { World, SpatialGrid } from '@/runtime/services'
-import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { PositionComponent, VelocityComponent, AccelerationComponent, MassComponent, ColliderComponent } from '@/core/components'
+import { SystemFunction, SystemConfig, SystemContext } from '../application/scheduler'
+import { PositionComponent, VelocityComponent, AccelerationComponent, MassComponent, ColliderComponent } from '@/domain/entities/components'
 import { FRICTION, GRAVITY, TERMINAL_VELOCITY, AIR_RESISTANCE } from '@/domain/world-constants'
-import { toFloat } from '@/core/common'
+import { toFloat } from '@/domain/value-objects/common'
 import { createAABB } from '@/domain/geometry'
 
 

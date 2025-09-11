@@ -1,9 +1,9 @@
 import { Effect, pipe, Ref, Duration } from 'effect'
-import { queries, QueryProfiler } from '@/core/queries'
+import { queries, QueryProfiler } from '@/domain/queries'
 import { FRICTION, GRAVITY, TERMINAL_VELOCITY } from '@/domain/world-constants'
 import { Clock, World } from '@/runtime/services'
-import { toFloat } from '@/core/common'
-import { Position, Velocity } from '@/core/components'
+import { toFloat } from '@/domain/value-objects/common'
+import { Position, Velocity } from '@/domain/entities/components'
 import { SystemContext } from './core/scheduler'
 import { globalCommunicationHub } from './core/system-communication'
 

@@ -1,6 +1,6 @@
 import { MaterialManager } from '@/runtime/services'
 import { Effect, Layer, HashMap } from 'effect'
-import { MaterialNotFoundError } from '@/core/errors'
+import { MaterialNotFoundError } from '@/domain/errors'
 import * as THREE from 'three'
 
 export const MaterialManagerLive = Layer.scoped(

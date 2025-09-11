@@ -2,13 +2,13 @@ import { Effect, pipe } from 'effect'
 import { ReadonlyArray } from 'effect/ReadonlyArray'
 import * as HashMap from 'effect/HashMap'
 import * as Option from 'effect/Option'
-import { Collider, Player, Position, Velocity } from '@/core/components'
+import { Collider, Player, Position, Velocity } from '@/domain/entities/components'
 import { AABB, createAABB, areAABBsIntersecting } from '@/domain/geometry'
-import { queries } from '@/core/queries'
+import { queries } from '@/domain/queries'
 import { SpatialGrid, World } from '@/runtime/services'
-import { toFloat } from '@/core/common'
+import { toFloat } from '@/domain/value-objects/common'
 import { EntityId } from '@/domain/entities'
-import { SoAResult } from '@/core/types'
+import { SoAResult } from '@/domain/types'
 
 type CollisionResolutionState = {
   readonly position: Position

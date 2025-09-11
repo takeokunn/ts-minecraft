@@ -1,4 +1,4 @@
-import { createQuery, LegacyQuery as Query } from '@/core/queries'
+import { createQuery, LegacyQuery as Query } from '@/domain/queries'
 
 /**
  * Query for the main player entity, including all components needed for movement and interaction.

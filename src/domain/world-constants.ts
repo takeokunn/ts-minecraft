@@ -1,4 +1,4 @@
-import { ColliderComponent } from '@/core/components'
+import { ColliderComponent } from '@/domain/entities/components'
 import { toFloat } from './common'
 
 // World Generation Constants

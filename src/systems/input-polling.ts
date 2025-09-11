@@ -1,6 +1,6 @@
 import { Effect, Ref } from 'effect'
-import { InputState } from '@/core/components'
-import { queries } from '@/core/queries'
+import { InputState } from '@/domain/entities/components'
+import { queries } from '@/domain/queries'
 import { InputManager, World } from '@/runtime/services'
 
 export const inputPollingSystem = Effect.gen(function* (_) {

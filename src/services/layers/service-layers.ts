@@ -17,11 +17,11 @@ import * as Layer from 'effect/Layer'
 
 // Service imports
 import { WorldService } from '../world/world.service'
-import { EntityService } from '../entity/entity.service'
-import { PhysicsService } from '../physics/physics.service'
-import { RenderService } from '../render/render.service'
+import { EntityService } from '../../domain/services/entity.service'
+import { PhysicsService } from '../../domain/services/physics.service'
+import { RenderService } from '../../infrastructure/gpu/webgpu/renderer.layer'
 import { InputService } from '../input/input.service'
-import { NetworkService } from '../network/network.service'
+import { NetworkService } from '../../infrastructure/network/websocket.layer'
 
 // ===== SERVICE LAYER CONFIGURATION =====
 

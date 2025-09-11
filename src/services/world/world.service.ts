@@ -23,9 +23,9 @@ import * as Schedule from 'effect/Schedule'
 
 // Core imports
 import { EntityId } from '@/domain/entities'
-import { Position } from '../../core/values'
-import { ChunkCoordinates } from '../../core/values/coordinates'
-import { BlockType } from '../../core/values'
+import { Position } from '../value-objects'
+import { ChunkCoordinates } from '../value-objects/coordinates'
+import { BlockType } from '../value-objects'
 import {
   ChunkNotLoadedError,
   InvalidPositionError,
@@ -37,7 +37,7 @@ import {
   WorldLoadError,
   BlockPlacementError,
   WorldTickError,
-} from '../../core/errors'
+} from '../errors'
 
 // ===== WORLD SERVICE INTERFACE =====
 

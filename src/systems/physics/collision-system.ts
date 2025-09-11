@@ -11,13 +11,13 @@
  */
 
 import { Effect, Array as EffArray, Duration, Option } from 'effect'
-import { ArchetypeQuery, trackPerformance } from '@/core/queries'
+import { ArchetypeQuery, trackPerformance } from '@/domain/queries'
 import { World, SpatialGrid } from '@/runtime/services'
-import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { PositionComponent, VelocityComponent, ColliderComponent, MassComponent } from '@/core/components'
+import { SystemFunction, SystemConfig, SystemContext } from '../application/scheduler'
+import { PositionComponent, VelocityComponent, ColliderComponent, MassComponent } from '@/domain/entities/components'
 import { EntityId } from '@/domain/entities'
 import { AABB, createAABB as domainCreateAABB } from '@/domain/geometry'
-import { toFloat } from '@/core/common'
+import { toFloat } from '@/domain/value-objects/common'
 
 /**
  * Collision system configuration

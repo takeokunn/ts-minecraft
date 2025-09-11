@@ -1,5 +1,5 @@
 import { Archetype } from '@/domain/archetypes'
-import { Vector3Float as Vector3 } from '@/core/common'
+import { Vector3Float as Vector3 } from '@/domain/value-objects/common'
 import {
   Chunk,
   componentNamesSet,
@@ -7,10 +7,10 @@ import {
   ComponentSchemas,
   type ComponentName,
   type ComponentOfName,
-} from '@/core/components'
+} from '@/domain/entities/components'
 import { type EntityId, toEntityId } from '@/domain/entities'
 import { toChunkIndex } from '@/domain/geometry'
-import { type LegacyQuery, type OptimizedQuery } from '@/core/queries'
+import { type LegacyQuery, type OptimizedQuery } from '@/domain/queries'
 import { type Voxel } from '@/domain/world'
 import { World } from '@/runtime/services'
 import { Effect, HashMap, HashSet, Layer, Option, Ref } from 'effect'
@@ -21,7 +21,7 @@ import {
   ComponentNotFoundError,
   QuerySingleResultNotFoundError,
   ComponentDecodeError,
-} from '@/core/errors'
+} from '@/domain/errors'
 
 // --- Data Types ---
 

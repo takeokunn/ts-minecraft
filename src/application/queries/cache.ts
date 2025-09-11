@@ -3,7 +3,7 @@
  * Provides intelligent caching for query results with TTL and invalidation strategies
  */
 
-import { ComponentName } from '@/core/components'
+import { ComponentName } from '@/domain/entities/components'
 
 import { QueryMetrics } from './builder'
 

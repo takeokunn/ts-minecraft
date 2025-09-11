@@ -1,9 +1,9 @@
 import { MaterialManager } from '@/runtime/services'
 import { Effect, Layer, Ref } from 'effect'
 
-import { MaterialNotFoundError } from '@/core/errors'
+import { MaterialNotFoundError } from '@/domain/errors'
 import * as THREE from 'three'
-import { ObjectPool } from '@/core/performance/object-pool'
+import { ObjectPool } from '@/domain/performance/object-pool'
 
 // --- Configuration ---
 

@@ -4,7 +4,7 @@
  */
 
 import { Effect, Ref, Context, Layer, HashMap, Option } from 'effect'
-import { ComponentName } from '@/core/components'
+import { ComponentName } from '@/domain/entities/components'
 import { QueryMetrics } from './builder'
 
 /**

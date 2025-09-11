@@ -11,10 +11,10 @@
  */
 
 import { Effect, Array as _EffArray, Duration, Option } from 'effect'
-import { ArchetypeQuery, trackPerformance } from '@/core/queries'
+import { ArchetypeQuery, trackPerformance } from '@/domain/queries'
 import { World, InputManager as _InputManager } from '@/runtime/services'
-import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { Position, CameraComponent, TargetComponent, InputStateComponent } from '@/core/components'
+import { SystemFunction, SystemConfig, SystemContext } from '../application/scheduler'
+import { Position, CameraComponent, TargetComponent, InputStateComponent } from '@/domain/entities/components'
 import { EntityId } from '@/domain/entities'
 import { BlockType, BlockPosition } from '@/domain/value-objects'
 import * as THREE from 'three'

@@ -22,8 +22,8 @@ import * as Ref from 'effect/Ref'
 
 // Core imports
 import { EntityId } from '@/domain/entities'
-import { ComponentName, Components } from '../../core/components'
-import { Position } from '../../core/values'
+import { ComponentName, Components } from '../entities/components'
+import { Position } from '../value-objects'
 import {
   EntityNotFoundError,
   EntityCreationError,
@@ -31,7 +31,7 @@ import {
   EntityLimitExceededError,
   ComponentNotFoundError,
   ComponentAlreadyExistsError,
-} from '../../core/errors'
+} from '../errors'
 
 // ===== ENTITY SERVICE INTERFACE =====
 

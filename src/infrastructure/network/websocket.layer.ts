@@ -27,10 +27,10 @@ import * as Match from 'effect/Match'
 
 // Core imports
 import { EntityId } from '@/domain/entities'
-import { Position } from '../../core/values'
+import { Position } from '../value-objects'
 import {
   NetworkError,
-} from '../../core/errors'
+} from '../errors'
 
 // ===== NETWORK SERVICE INTERFACE =====
 

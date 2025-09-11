@@ -1,10 +1,10 @@
 import { Effect, Match, Option } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
-import { Hotbar, InputState, Position, TargetBlock, TargetNone } from '@/core/components'
-import { queries } from '@/core/queries'
+import { Hotbar, InputState, Position, TargetBlock, TargetNone } from '@/domain/entities/components'
+import { queries } from '@/domain/queries'
 import { World } from '@/runtime/services'
 import { EntityId } from '@/domain/entities'
-import { toFloat } from '@/core/common'
+import { toFloat } from '@/domain/value-objects/common'
 
 const handleDestroyBlock = (world: World, entityId: EntityId, target: TargetBlock) =>
   Effect.gen(function* () {

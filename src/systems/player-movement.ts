@@ -1,9 +1,9 @@
 import { Effect, Match, Duration } from 'effect'
-import { CameraState, InputState, Player, Velocity } from '@/core/components'
-import { queries, QueryProfiler } from '@/core/queries'
+import { CameraState, InputState, Player, Velocity } from '@/domain/entities/components'
+import { queries, QueryProfiler } from '@/domain/queries'
 import { DECELERATION, JUMP_FORCE, MIN_VELOCITY_THRESHOLD, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@/domain/world-constants'
 import { World } from '@/runtime/services'
-import { Float, toFloat } from '@/core/common'
+import { Float, toFloat } from '@/domain/value-objects/common'
 import { SystemContext } from './core/scheduler'
 import { globalCommunicationHub } from './core/system-communication'
 

@@ -1,10 +1,10 @@
 import { Effect } from 'effect'
 import { ReadonlyArray } from 'effect/ReadonlyArray'
 import { clampPitch } from '@/domain/camera-logic'
-import { queries } from '@/core/queries'
+import { queries } from '@/domain/queries'
 import { InputManager, World } from '@/runtime/services'
-import { toFloat } from '@/core/common'
-import { CameraState } from '@/core/components'
+import { toFloat } from '@/domain/value-objects/common'
+import { CameraState } from '@/domain/entities/components'
 
 const MOUSE_SENSITIVITY = 0.002
 

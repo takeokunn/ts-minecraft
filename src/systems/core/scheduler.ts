@@ -11,7 +11,7 @@
 
 import { Effect, pipe, Duration, Fiber, Ref, Array, Option, Clock as EffectClock } from 'effect'
 import { Clock, World } from '@/runtime/services'
-import { QueryProfiler } from '@/core/queries'
+import { QueryProfiler } from '@/domain/queries'
 
 /**
  * System execution priority levels

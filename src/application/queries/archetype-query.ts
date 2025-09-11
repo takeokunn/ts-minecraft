@@ -3,7 +3,7 @@
  * Provides high-performance entity querying using archetype patterns
  */
 
-import { ComponentName, ComponentOfName } from '@/core/components'
+import { ComponentName, ComponentOfName } from '@/domain/entities/components'
 import { EntityId } from '@/domain/entities'
 import { QueryConfig, QueryMetrics, startQueryContext, finalizeQueryContext, QueryEntity } from './builder'
 

@@ -1,7 +1,7 @@
 import { Effect, Match } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
 import { ComputationWorker, Renderer, World } from '@/runtime/services'
-import { Position } from '@/core/components'
+import { Position } from '@/domain/entities/components'
 
 export const worldUpdateSystem = Effect.gen(function* ($) {
   const world = yield* $(World)

@@ -17,11 +17,11 @@
 
 import { Effect } from 'effect'
 import { WorldService } from './world/world.service'
-import { EntityService } from './entity/entity.service'
-import { PhysicsService } from './physics/physics.service'
-import { RenderService } from './render/render.service'
+import { EntityService } from '../domain/services/entity.service'
+import { PhysicsService } from '../domain/services/physics.service'
+import { RenderService } from '../infrastructure/gpu/webgpu/renderer.layer'
 import { InputService } from './input/input.service'
-import { NetworkService } from './network/network.service'
+import { NetworkService } from '../infrastructure/network/websocket.layer'
 
 // ===== CORE SERVICE EXPORTS =====
 
@@ -42,7 +42,7 @@ export type {
   RaycastResult as WorldRaycastResult,
 } from './world/world.service'
 
-export { EntityService } from './entity/entity.service'
+export { EntityService } from '../domain/services/entity.service'
 export type {
   EntityServiceInterface,
   Entity,
@@ -57,9 +57,9 @@ export type {
   ArchetypeOptimizationResult,
   EntityWithComponents,
   StorageLayout,
-} from './entity/entity.service'
+} from '../domain/services/entity.service'
 
-export { PhysicsService } from './physics/physics.service'
+export { PhysicsService } from '../domain/services/physics.service'
 export type {
   PhysicsServiceInterface,
   RigidBodyId,
@@ -83,9 +83,9 @@ export type {
   PhysicsStats,
   PhysicsMemoryUsage,
   PhysicsPerformanceMetrics,
-} from './physics/physics.service'
+} from '../domain/services/physics.service'
 
-export { RenderService } from './render/render.service'
+export { RenderService } from '../infrastructure/gpu/webgpu/renderer.layer'
 export type {
   RenderServiceInterface,
   SceneId,
@@ -111,7 +111,7 @@ export type {
   ScreenshotResult,
   ResourceUsage,
   OptimizationResult,
-} from './render/render.service'
+} from '../infrastructure/gpu/webgpu/renderer.layer'
 
 export { InputService } from './input/input.service'
 export type {
@@ -145,7 +145,7 @@ export type {
   InputDebugInfo,
 } from './input/input.service'
 
-export { NetworkService } from './network/network.service'
+export { NetworkService } from '../infrastructure/network/websocket.layer'
 export type {
   NetworkServiceInterface,
   ServerId,
@@ -167,7 +167,7 @@ export type {
   NetworkStats,
   ConnectionInfo,
   NetworkDebugInfo,
-} from './network/network.service'
+} from '../infrastructure/network/websocket.layer'
 
 // ===== LAYER CONFIGURATION AND COMPOSITION =====
 

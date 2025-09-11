@@ -11,10 +11,10 @@
  */
 
 import { Effect, Duration, Option } from 'effect'
-import { ArchetypeQuery, trackPerformance } from '@/core/queries'
+import { ArchetypeQuery, trackPerformance } from '@/domain/queries'
 import { World } from '@/runtime/services'
-import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { Position, InputStateComponent, TargetComponent, HotbarComponent } from '@/core/components'
+import { SystemFunction, SystemConfig, SystemContext } from '../application/scheduler'
+import { Position, InputStateComponent, TargetComponent, HotbarComponent } from '@/domain/entities/components'
 import { BlockType, BlockPosition } from '@/domain/value-objects'
 
 import { EntityId } from '@/domain/entities'

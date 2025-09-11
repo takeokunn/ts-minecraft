@@ -1,10 +1,10 @@
 import { Effect, Option, HashMap } from 'effect'
 import { ReadonlyArray } from 'effect/ReadonlyArray'
 import { EntityId } from '@/domain/entities'
-import { queries } from '@/core/queries'
+import { queries } from '@/domain/queries'
 import { CHUNK_SIZE, RENDER_DISTANCE } from '@/domain/world-constants'
 import { ComputationWorker, World } from '@/runtime/services'
-import { Position } from '@/core/components'
+import { Position } from '@/domain/entities/components'
 
 type ChunkCoord = { readonly x: number; readonly z: number }
 

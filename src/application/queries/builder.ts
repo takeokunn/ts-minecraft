@@ -3,7 +3,7 @@
  * Provides fluent API for entity queries with optimization and caching
  */
 
-import { ComponentName, ComponentOfName } from '@/core/components'
+import { ComponentName, ComponentOfName } from '@/domain/entities/components'
 import { ArchetypeQuery } from './archetype-query'
 import { OptimizedQuery } from './optimized-query'
 import { EntityId } from '@/domain/entities'

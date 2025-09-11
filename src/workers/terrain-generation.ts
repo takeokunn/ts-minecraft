@@ -2,7 +2,7 @@ import Alea from 'alea'
 import { createNoise2D } from 'simplex-noise'
 import { BlockType } from '../domain/block-types'
 import { CHUNK_SIZE, WATER_LEVEL, WORLD_DEPTH } from '../domain/world-constants'
-import { Int } from '../core/common'
+import { Int } from '../domain/value-objects/common'
 import { GenerationParams, PlacedBlock } from './messages'
 
 export type Noise2D = ReturnType<typeof createNoise2D>

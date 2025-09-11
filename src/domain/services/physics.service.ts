@@ -25,7 +25,7 @@ import * as Ref from 'effect/Ref'
 // Core imports
 import { EntityId } from '@/domain/entities'
 
-import { AABB } from '../../core/values/geometry/aabb.value'
+import { AABB } from '../value-objects/geometry/aabb.value'
 import {
   CollisionDetectionError,
   PhysicsSimulationError,
@@ -34,7 +34,7 @@ import {
   ConstraintViolationError,
   RaycastError,
   PhysicsMaterialError,
-} from '../../core/errors'
+} from '../errors'
 
 // ===== PHYSICS SERVICE INTERFACE =====
 
