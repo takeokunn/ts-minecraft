@@ -1,7 +1,7 @@
 import { Layer, Effect, Ref, Queue, Option } from 'effect'
 import { World, Renderer, InputManager, Clock, Stats, SpatialGrid } from '@/services'
 import { WorldState } from '@/domain/world'
-import { EntityId, toEntityId } from '@/domain/entity'
+import { EntityId, toEntityId } from '@/core/entities/entity'
 import { AABB } from '@/domain/geometry'
 import * as HashMap from 'effect/HashMap'
 import * as HashSet from 'effect/HashSet'

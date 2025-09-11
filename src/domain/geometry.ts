@@ -1,4 +1,4 @@
-import * as S from 'effect/Schema'
+import * as S from "/schema/Schema"
 import type { ColliderComponent, PositionComponent } from '@/core/components'
 import { toFloat, Vector3Float, Vector3Int } from './common'
 import { CHUNK_SIZE } from './world-constants'

@@ -3,11 +3,11 @@ import * as HashMap from 'effect/HashMap'
 import * as Option from 'effect/Option'
 import { Collider, Player, Position, Velocity } from '@/core/components'
 import { AABB, createAABB, areAABBsIntersecting, getIntersectionDepth } from '@/domain/geometry'
-import { playerColliderQuery, positionColliderQuery } from '@/domain/queries'
+import { queries } from '@/core/queries'
 import { SpatialGrid, World } from '@/runtime/services'
-import { toFloat } from '@/domain/common'
-import { EntityId } from '@/domain/entity'
-import { SoAResult } from '@/domain/types'
+import { toFloat } from '@/core/common'
+import { EntityId } from '@/core/entities/entity'
+import { SoAResult } from '@/core/types'
 
 type CollisionResolutionState = {
   readonly position: Position
@@ -73,7 +73,7 @@ const getNearbyAABBs = (
   entityId: EntityId,
   nearbyEntityIds: ReadonlySet<EntityId>,
   colliderEntityMap: HashMap.HashMap<EntityId, number>,
-  colliderComponents: SoAResult<typeof positionColliderQuery.components>['components'],
+  colliderComponents: SoAResult<typeof queries.positionCollider.components>['components'],
 ) =>
   pipe(
     Array.from(nearbyEntityIds),
@@ -94,9 +94,9 @@ const getNearbyAABBs = (
 const resolveCollisionsForPlayer = (
   entityId: EntityId,
   i: number,
-  playerComponents: SoAResult<typeof playerColliderQuery.components>['components'],
+  playerComponents: SoAResult<typeof queries.playerCollider.components>['components'],
   colliderEntityMap: HashMap.HashMap<EntityId, number>,
-  colliderComponents: SoAResult<typeof positionColliderQuery.components>['components'],
+  colliderComponents: SoAResult<typeof queries.positionCollider.components>['components'],
 ) =>
   Effect.gen(function* ($) {
     const spatialGrid = yield* $(SpatialGrid)
@@ -140,9 +140,9 @@ const resolveCollisionsForPlayer = (
 export const collisionSystem = Effect.gen(function* ($) {
   const world = yield* $(World)
 
-  const { entities: playerEntities, components: playerComponents } = yield* $(world.querySoA(playerColliderQuery))
+  const { entities: playerEntities, components: playerComponents } = yield* $(world.querySoA(queries.playerCollider))
   const { entities: colliderEntities, components: colliderComponents } = yield* $(
-    world.querySoA(positionColliderQuery),
+    world.querySoA(queries.positionCollider),
   )
 
   const colliderEntityMap = HashMap.fromIterable(colliderEntities.map((id, i) => [id, i] as const))

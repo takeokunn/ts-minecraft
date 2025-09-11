@@ -4,7 +4,7 @@ import { cameraControlSystem } from '../camera-control'
 import { World, InputManager } from '@/runtime/services'
 import { WorldLive } from '@/infrastructure/world'
 import { createArchetype } from '@/domain/archetypes'
-import { toFloat } from '@/domain/common'
+import { toFloat } from '@/core/common'
 
 const InputManagerTest = Layer.effect(
   InputManager,

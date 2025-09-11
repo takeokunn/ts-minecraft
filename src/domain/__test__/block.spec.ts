@@ -9,12 +9,12 @@ import {
   hotbarSlots,
   ATLAS_SIZE_IN_TILES,
   TILE_SIZE,
-} from '../block'
-import { blockDefinitions } from '../block-definitions'
+} from '../../core/entities/block'
+import { blockDefinitions } from '../../core/entities/block-definitions'
 import { testReversibility } from '@test/test-utils'
 import * as fc from 'effect/FastCheck'
 import * as Arbitrary from 'effect/Arbitrary'
-import * as S from 'effect/Schema'
+import * as S from "/schema/Schema"
 import { blockTypeNames } from '../block-types'
 import { Effect } from 'effect'
 import { assert } from 'vitest'

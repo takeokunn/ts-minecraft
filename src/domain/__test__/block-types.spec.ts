@@ -1,4 +1,4 @@
-import * as S from 'effect/Schema'
+import * as S from "/schema/Schema"
 import * as Arbitrary from 'effect/Arbitrary'
 import { describe, assert, it } from '@effect/vitest'
 import * as fc from 'effect/FastCheck'

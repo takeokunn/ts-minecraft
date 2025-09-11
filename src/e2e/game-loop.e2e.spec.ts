@@ -2,7 +2,7 @@ import { describe, it, expect } from '@effect/vitest'
 import { Effect, Layer, Ref, pipe } from 'effect'
 import { World } from '@/services/world/world.service'
 import { worldBuilder } from '@/test-utils/builders/world.builder'
-import { BlockType } from '@/domain/block-types'
+import { BlockType } from '@/core/values/block-type'
 import { withTiming, withErrorLog } from '@/core/effect-utils'
 
 /**

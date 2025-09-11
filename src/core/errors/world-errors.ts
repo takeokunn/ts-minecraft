@@ -1,87 +1,145 @@
-import { Data } from 'effect'
-import type { ChunkCoordinates, Position } from '@/domain/values/coordinates'
-import type { BlockType } from '@/domain/values/block-type'
-import type { Query } from '@/domain/query'
+import { defineError } from './generator'
+import { WorldError } from './base-errors'
+import type { ChunkCoordinates, Position } from '@/core/values/coordinates'
+import type { BlockType } from '@/core/values/block-type'
+import type { LegacyQuery, OptimizedQuery } from '@/core/queries'
 import type { ComponentName } from '@/core/components'
 import { ParseError } from 'effect/ParseResult'
 
 /**
- * World-related errors
+ * Chunk not loaded in memory
+ * Recovery: Load chunk or use cached data
  */
-
-export class ChunkNotLoadedError extends Data.TaggedError('ChunkNotLoadedError')<{
+export const ChunkNotLoadedError = defineError<{
   readonly coordinates: ChunkCoordinates
-  readonly timestamp: Date
-}> {
-  constructor(coordinates: ChunkCoordinates) {
-    super({ coordinates, timestamp: new Date() })
-  }
-}
+  readonly requestedOperation: string
+  readonly loadingState?: 'pending' | 'failed' | 'not-requested'
+}>('ChunkNotLoadedError', WorldError, 'retry', 'medium')
 
-export class InvalidPositionError extends Data.TaggedError('InvalidPositionError')<{
+/**
+ * Invalid world position (out of bounds, etc.)
+ * Recovery: Clamp to valid bounds or use fallback position
+ */
+export const InvalidPositionError = defineError<{
   readonly position: Position
   readonly reason: string
-  readonly timestamp: Date
-}> {
-  constructor(position: Position, reason: string) {
-    super({ position, reason, timestamp: new Date() })
-  }
-}
+  readonly validBounds?: { min: Position; max: Position }
+}>('InvalidPositionError', WorldError, 'fallback', 'low')
 
-export class BlockNotFoundError extends Data.TaggedError('BlockNotFoundError')<{
+/**
+ * Block not found at specified position
+ * Recovery: Return air block or generate default block
+ */
+export const BlockNotFoundError = defineError<{
   readonly position: Position
-  readonly timestamp: Date
-}> {
-  constructor(position: Position) {
-    super({ position, timestamp: new Date() })
-  }
-}
+  readonly expectedBlockType?: BlockType
+  readonly chunkState?: string
+}>('BlockNotFoundError', WorldError, 'fallback', 'low')
 
-export class InvalidBlockTypeError extends Data.TaggedError('InvalidBlockTypeError')<{
+/**
+ * Invalid block type specified
+ * Recovery: Use default block type or prompt for correction
+ */
+export const InvalidBlockTypeError = defineError<{
   readonly blockType: BlockType
   readonly reason: string
-  readonly timestamp: Date
-}> {
-  constructor(blockType: BlockType, reason: string) {
-    super({ blockType, reason, timestamp: new Date() })
-  }
-}
+  readonly validBlockTypes?: BlockType[]
+  readonly operation: string
+}>('InvalidBlockTypeError', WorldError, 'fallback', 'medium')
 
-export class WorldStateError extends Data.TaggedError('WorldStateError')<{
+/**
+ * World state inconsistency or corruption
+ * Recovery: Reload world state or reset to last known good state
+ */
+export const WorldStateError = defineError<{
   readonly operation: string
   readonly reason: string
-  readonly timestamp: Date
-}> {
-  constructor(operation: string, reason: string) {
-    super({ operation, reason, timestamp: new Date() })
-  }
-}
+  readonly affectedRegion?: { from: Position; to: Position }
+  readonly stateVersion?: number
+}>('WorldStateError', WorldError, 'retry', 'high')
 
-export class ArchetypeNotFoundError extends Data.TaggedError('ArchetypeNotFoundError')<{
+/**
+ * Entity archetype not found in world
+ * Recovery: Use default archetype or create new archetype
+ */
+export const ArchetypeNotFoundError = defineError<{
   readonly archetypeKey: string
-  readonly timestamp: Date
-}> {
-  constructor(archetypeKey: string) {
-    super({ archetypeKey, timestamp: new Date() })
-  }
-}
+  readonly requestedComponents: string[]
+  readonly availableArchetypes?: string[]
+}>('ArchetypeNotFoundError', WorldError, 'fallback', 'medium')
 
-export class QuerySingleResultNotFoundError extends Data.TaggedError('QuerySingleResultNotFoundError')<{
-  readonly query: Query<ReadonlyArray<ComponentName>>
-  readonly timestamp: Date
-}> {
-  constructor(query: Query<ReadonlyArray<ComponentName>>) {
-    super({ query, timestamp: new Date() })
-  }
-}
+/**
+ * Query expected single result but found none or multiple
+ * Recovery: Return first result or use fallback entity
+ */
+export const QuerySingleResultNotFoundError = defineError<{
+  readonly query: LegacyQuery<ReadonlyArray<ComponentName>> | OptimizedQuery<ReadonlyArray<ComponentName>>
+  readonly resultCount: number
+  readonly expectedCount: 1
+}>('QuerySingleResultNotFoundError', WorldError, 'fallback', 'medium')
 
-export class ComponentDecodeError extends Data.TaggedError('ComponentDecodeError')<{
+/**
+ * Component data decoding failed
+ * Recovery: Use default component data or skip component
+ */
+export const ComponentDecodeError = defineError<{
   readonly entityId: string
   readonly componentName: ComponentName
-  readonly error: ParseError
-  readonly timestamp: Date
-}> {
-  constructor(entityId: string, componentName: ComponentName, error: ParseError) {
-    super({ entityId, componentName, error, timestamp: new Date() })
-  }
-}
+  readonly parseError: ParseError
+  readonly rawData?: unknown
+}>('ComponentDecodeError', WorldError, 'fallback', 'medium')
+
+/**
+ * Chunk generation failed
+ * Recovery: Retry generation with different seed or use empty chunk
+ */
+export const ChunkGenerationError = defineError<{
+  readonly coordinates: ChunkCoordinates
+  readonly generatorName: string
+  readonly reason: string
+  readonly seed?: number
+}>('ChunkGenerationError', WorldError, 'retry', 'high')
+
+/**
+ * World save operation failed
+ * Recovery: Retry save or cache changes for later save
+ */
+export const WorldSaveError = defineError<{
+  readonly savePath: string
+  readonly reason: string
+  readonly affectedChunks: ChunkCoordinates[]
+  readonly dataSize?: number
+}>('WorldSaveError', WorldError, 'retry', 'high')
+
+/**
+ * World load operation failed
+ * Recovery: Load from backup or create new world
+ */
+export const WorldLoadError = defineError<{
+  readonly loadPath: string
+  readonly reason: string
+  readonly corruptedSections?: string[]
+  readonly backupAvailable?: boolean
+}>('WorldLoadError', WorldError, 'fallback', 'high')
+
+/**
+ * Block placement validation failed
+ * Recovery: Use nearest valid position or cancel placement
+ */
+export const BlockPlacementError = defineError<{
+  readonly position: Position
+  readonly blockType: BlockType
+  readonly reason: string
+  readonly conflictingBlocks?: Position[]
+}>('BlockPlacementError', WorldError, 'fallback', 'low')
+
+/**
+ * World tick processing failed
+ * Recovery: Skip failed systems or rollback tick
+ */
+export const WorldTickError = defineError<{
+  readonly tickNumber: number
+  readonly failedSystems: string[]
+  readonly reason: string
+  readonly duration?: number
+}>('WorldTickError', WorldError, 'retry', 'medium')

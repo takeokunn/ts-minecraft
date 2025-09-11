@@ -1,6 +1,6 @@
 import { Effect, Ref } from 'effect'
 import { InputState } from '@/core/components'
-import { playerInputQuery } from '@/domain/queries'
+import { queries } from '@/core/queries'
 import { InputManager, World } from '@/runtime/services'
 
 export const inputPollingSystem = Effect.gen(function* (_) {
@@ -10,7 +10,7 @@ export const inputPollingSystem = Effect.gen(function* (_) {
   const isLocked = yield* _(Ref.get(inputManager.isLocked))
   const newInputState: InputState = { ...state, isLocked }
 
-  const { entities } = yield* _(world.querySoA(playerInputQuery))
+  const { entities } = yield* _(world.querySoA(queries.playerInput))
 
   yield* _(
     Effect.forEach(

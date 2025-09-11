@@ -1,4 +1,4 @@
-import * as S from 'effect/Schema'
+import * as S from "@effect/schema/Schema"
 
 /**
  * TerrainBlock Component - Marks entity as a terrain block

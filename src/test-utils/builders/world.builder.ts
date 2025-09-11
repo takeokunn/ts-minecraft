@@ -1,8 +1,8 @@
 import { pipe, Effect } from 'effect'
-import { EntityId, toEntityId } from '@/domain/entity'
+import { EntityId, toEntityId } from '@/core/entities/entity'
 import { Archetype } from '@/domain/archetypes'
 import { Position, Velocity } from '@/core/values'
-import { BlockType } from '@/domain/block-types'
+import { BlockType } from '@/core/values/block-type'
 import { World } from '@/services/world'
 
 /**

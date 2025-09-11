@@ -1,5 +1,5 @@
 import { Archetype } from '@/domain/archetypes'
-import { BlockType } from '@/domain/block-types'
+import { BlockType } from '@/core/values/block-type'
 import { ComponentName, ComponentOfName } from '@/core/components'
 
 /**

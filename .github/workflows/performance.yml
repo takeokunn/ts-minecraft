@@ -1,0 +1,453 @@
+name: Performance Testing & Monitoring
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Run performance tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+env:
+  PNPM_VERSION: 10
+  NODE_VERSION: 20
+
+jobs:
+  # Bundle size analysis
+  bundle-analysis:
+    name: Bundle Size Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build for analysis
+        run: pnpm build
+
+      - name: Analyze bundle size
+        run: |
+          echo "📊 Bundle Size Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "| File | Size | Gzipped |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|---------|" >> $GITHUB_STEP_SUMMARY
+          
+          for file in dist/assets/*.js; do
+            if [ -f "$file" ]; then
+              SIZE=$(wc -c < "$file" | numfmt --to=iec)
+              GZIPPED=$(gzip -c "$file" | wc -c | numfmt --to=iec)
+              FILENAME=$(basename "$file")
+              echo "| $FILENAME | $SIZE | $GZIPPED |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Bundle size regression check
+        run: |
+          TOTAL_SIZE=$(du -sb dist | cut -f1)
+          MAX_SIZE=10485760  # 10MB
+          WARN_SIZE=8388608  # 8MB
+          
+          echo "Total bundle size: $(numfmt --to=iec $TOTAL_SIZE)B"
+          
+          if [ $TOTAL_SIZE -gt $MAX_SIZE ]; then
+            echo "❌ Bundle size $(numfmt --to=iec $TOTAL_SIZE)B exceeds maximum $(numfmt --to=iec $MAX_SIZE)B"
+            exit 1
+          elif [ $TOTAL_SIZE -gt $WARN_SIZE ]; then
+            echo "⚠️ Bundle size $(numfmt --to=iec $TOTAL_SIZE)B is approaching limit $(numfmt --to=iec $MAX_SIZE)B"
+          else
+            echo "✅ Bundle size $(numfmt --to=iec $TOTAL_SIZE)B is acceptable"
+          fi
+
+      - name: Upload bundle analyzer report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-analysis-${{ github.sha }}
+          path: |
+            dist/
+            package.json
+
+  # Performance benchmarks
+  performance-benchmarks:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build project
+        run: pnpm build
+
+      - name: Install Playwright
+        run: pnpm dlx playwright install chromium
+
+      - name: Run performance benchmarks
+        run: |
+          echo "🚀 Running performance benchmarks..."
+          
+          # Create simple performance test script
+          cat > performance-test.js << 'EOF'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+          
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage();
+            
+            // Enable performance metrics
+            await page.coverage.startJSCoverage();
+            
+            const startTime = Date.now();
+            
+            // Navigate to built application
+            await page.goto('file://' + process.cwd() + '/dist/index.html');
+            
+            // Wait for app to be ready
+            await page.waitForTimeout(5000);
+            
+            // Measure First Contentful Paint and other metrics
+            const metrics = await page.evaluate(() => {
+              const navigation = performance.getEntriesByType('navigation')[0];
+              const paint = performance.getEntriesByType('paint');
+              
+              return {
+                domContentLoaded: navigation.domContentLoadedEventEnd - navigation.domContentLoadedEventStart,
+                loadComplete: navigation.loadEventEnd - navigation.loadEventStart,
+                firstContentfulPaint: paint.find(entry => entry.name === 'first-contentful-paint')?.startTime || 0,
+                firstPaint: paint.find(entry => entry.name === 'first-paint')?.startTime || 0,
+                memoryUsage: performance.memory ? {
+                  used: performance.memory.usedJSHeapSize,
+                  total: performance.memory.totalJSHeapSize,
+                  limit: performance.memory.jsHeapSizeLimit
+                } : null
+              };
+            });
+            
+            const totalTime = Date.now() - startTime;
+            
+            console.log('Performance Metrics:');
+            console.log('- Total Load Time:', totalTime + 'ms');
+            console.log('- DOM Content Loaded:', metrics.domContentLoaded + 'ms');
+            console.log('- Load Complete:', metrics.loadComplete + 'ms');
+            console.log('- First Contentful Paint:', metrics.firstContentfulPaint + 'ms');
+            console.log('- First Paint:', metrics.firstPaint + 'ms');
+            if (metrics.memoryUsage) {
+              console.log('- Memory Used:', (metrics.memoryUsage.used / 1024 / 1024).toFixed(2) + 'MB');
+            }
+            
+            // Save metrics for GitHub Actions
+            const report = {
+              timestamp: new Date().toISOString(),
+              commit: process.env.GITHUB_SHA,
+              metrics: {
+                totalLoadTime: totalTime,
+                ...metrics
+              }
+            };
+            
+            fs.writeFileSync('performance-report.json', JSON.stringify(report, null, 2));
+            
+            await browser.close();
+          })();
+          EOF
+          
+          node performance-test.js
+
+      - name: Generate performance report
+        run: |
+          if [ -f performance-report.json ]; then
+            echo "📈 Performance Report" >> $GITHUB_STEP_SUMMARY
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            
+            TOTAL_LOAD=$(jq -r '.metrics.totalLoadTime' performance-report.json)
+            DOM_LOADED=$(jq -r '.metrics.domContentLoaded' performance-report.json)
+            FCP=$(jq -r '.metrics.firstContentfulPaint' performance-report.json)
+            
+            echo "| Total Load Time | ${TOTAL_LOAD}ms |" >> $GITHUB_STEP_SUMMARY
+            echo "| DOM Content Loaded | ${DOM_LOADED}ms |" >> $GITHUB_STEP_SUMMARY
+            echo "| First Contentful Paint | ${FCP}ms |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Performance regression check
+        run: |
+          if [ -f performance-report.json ]; then
+            TOTAL_LOAD=$(jq -r '.metrics.totalLoadTime' performance-report.json)
+            MAX_LOAD_TIME=5000  # 5 seconds
+            WARN_LOAD_TIME=3000  # 3 seconds
+            
+            if [ $TOTAL_LOAD -gt $MAX_LOAD_TIME ]; then
+              echo "❌ Load time ${TOTAL_LOAD}ms exceeds maximum ${MAX_LOAD_TIME}ms"
+              exit 1
+            elif [ $TOTAL_LOAD -gt $WARN_LOAD_TIME ]; then
+              echo "⚠️ Load time ${TOTAL_LOAD}ms is slower than expected (${WARN_LOAD_TIME}ms)"
+            else
+              echo "✅ Load time ${TOTAL_LOAD}ms is acceptable"
+            fi
+          fi
+
+      - name: Upload performance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report-${{ github.sha }}
+          path: performance-report.json
+
+  # Lighthouse CI
+  lighthouse:
+    name: Lighthouse Performance Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build project
+        run: pnpm build
+
+      - name: Setup Lighthouse CI
+        run: npm install -g @lhci/cli@0.12.x
+
+      - name: Run Lighthouse CI
+        run: |
+          cat > lighthouserc.json << 'EOF'
+          {
+            "ci": {
+              "collect": {
+                "staticDistDir": "./dist",
+                "numberOfRuns": 3
+              },
+              "assert": {
+                "preset": "lighthouse:recommended",
+                "assertions": {
+                  "categories:performance": ["error", {"minScore": 0.8}],
+                  "categories:accessibility": ["error", {"minScore": 0.9}],
+                  "categories:best-practices": ["error", {"minScore": 0.9}],
+                  "categories:seo": ["error", {"minScore": 0.8}],
+                  "first-contentful-paint": ["error", {"maxNumericValue": 2000}],
+                  "largest-contentful-paint": ["error", {"maxNumericValue": 4000}],
+                  "cumulative-layout-shift": ["error", {"maxNumericValue": 0.1}]
+                }
+              },
+              "upload": {
+                "target": "temporary-public-storage"
+              }
+            }
+          }
+          EOF
+          
+          lhci autorun
+
+      - name: Upload Lighthouse results
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report-${{ github.sha }}
+          path: .lighthouseci/
+
+  # Memory leak detection
+  memory-leak-test:
+    name: Memory Leak Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build project
+        run: pnpm build
+
+      - name: Install Playwright
+        run: pnpm dlx playwright install chromium
+
+      - name: Run memory leak test
+        run: |
+          cat > memory-leak-test.js << 'EOF'
+          const { chromium } = require('playwright');
+          
+          (async () => {
+            const browser = await chromium.launch({ 
+              headless: true,
+              args: ['--disable-dev-shm-usage', '--disable-background-timer-throttling']
+            });
+            const page = await browser.newPage();
+            
+            // Navigate to application
+            await page.goto('file://' + process.cwd() + '/dist/index.html');
+            await page.waitForTimeout(2000);
+            
+            const samples = [];
+            const iterations = 10;
+            
+            for (let i = 0; i < iterations; i++) {
+              // Simulate user interactions
+              await page.evaluate(() => {
+                // Trigger some game interactions
+                if (window.dispatchEvent) {
+                  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w' }));
+                  window.dispatchEvent(new KeyboardEvent('keyup', { key: 'w' }));
+                }
+              });
+              
+              await page.waitForTimeout(1000);
+              
+              // Measure memory
+              const metrics = await page.evaluate(() => {
+                if (performance.memory) {
+                  return {
+                    used: performance.memory.usedJSHeapSize,
+                    total: performance.memory.totalJSHeapSize
+                  };
+                }
+                return null;
+              });
+              
+              if (metrics) {
+                samples.push(metrics);
+                console.log(`Iteration ${i + 1}: ${(metrics.used / 1024 / 1024).toFixed(2)}MB used`);
+              }
+              
+              // Force garbage collection if available
+              await page.evaluate(() => {
+                if (window.gc) {
+                  window.gc();
+                }
+              });
+            }
+            
+            await browser.close();
+            
+            // Analyze memory trend
+            if (samples.length > 0) {
+              const firstSample = samples[0].used;
+              const lastSample = samples[samples.length - 1].used;
+              const memoryGrowth = lastSample - firstSample;
+              const memoryGrowthMB = memoryGrowth / 1024 / 1024;
+              
+              console.log(`Memory growth: ${memoryGrowthMB.toFixed(2)}MB`);
+              
+              // Alert if memory growth is excessive
+              if (memoryGrowthMB > 50) {
+                console.log('❌ Potential memory leak detected!');
+                process.exit(1);
+              } else if (memoryGrowthMB > 20) {
+                console.log('⚠️ High memory growth detected');
+              } else {
+                console.log('✅ Memory usage appears stable');
+              }
+            }
+          })();
+          EOF
+          
+          node memory-leak-test.js
+
+  # Performance monitoring summary
+  performance-summary:
+    name: Performance Summary
+    runs-on: ubuntu-latest
+    needs: [bundle-analysis, performance-benchmarks, lighthouse, memory-leak-test]
+    if: always()
+    steps:
+      - name: Download performance artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*-report-*'
+          merge-multiple: true
+
+      - name: Generate performance summary
+        run: |
+          echo "## 🏎️ Performance Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Bundle Analysis: ${{ needs.bundle-analysis.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Performance Benchmarks: ${{ needs.performance-benchmarks.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Lighthouse Audit: ${{ needs.lighthouse.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Memory Leak Test: ${{ needs.memory-leak-test.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Performance Metrics" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f performance-report.json ]; then
+            LOAD_TIME=$(jq -r '.metrics.totalLoadTime' performance-report.json)
+            echo "- **Load Time**: ${LOAD_TIME}ms" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "- **Test Date**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check overall performance status
+        run: |
+          FAILED_JOBS=0
+          if [ "${{ needs.bundle-analysis.result }}" != "success" ]; then
+            ((FAILED_JOBS++))
+          fi
+          if [ "${{ needs.performance-benchmarks.result }}" != "success" ]; then
+            ((FAILED_JOBS++))
+          fi
+          if [ "${{ needs.lighthouse.result }}" != "success" ]; then
+            ((FAILED_JOBS++))
+          fi
+          if [ "${{ needs.memory-leak-test.result }}" != "success" ]; then
+            ((FAILED_JOBS++))
+          fi
+          
+          if [ $FAILED_JOBS -gt 0 ]; then
+            echo "❌ $FAILED_JOBS performance test(s) failed"
+            exit 1
+          else
+            echo "✅ All performance tests passed"
+          fi

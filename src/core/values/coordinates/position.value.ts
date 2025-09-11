@@ -1,5 +1,5 @@
 import { Data, pipe } from 'effect'
-import * as S from 'effect/Schema'
+import * as S from "@effect/schema/Schema"
 
 /**
  * Position Value Object - Represents a 3D position in the world

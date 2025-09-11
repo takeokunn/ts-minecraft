@@ -1,6 +1,6 @@
 import { describe, it, assert } from '@effect/vitest'
 import { generateGreedyMesh } from '../mesh-generation'
-import { toInt } from '../../domain/common'
+import { toInt } from '../../core/common'
 
 describe('mesh-generation', () => {
   describe('generateGreedyMesh', () => {

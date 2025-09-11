@@ -1,6 +1,6 @@
-import * as S from 'effect/Schema'
-import { ChunkX, ChunkZ } from '@/domain/common'
-import { BlockTypeSchema } from '@/domain/block-types'
+import * as S from "@effect/schema/Schema"
+import { ChunkX, ChunkZ } from '@/core/common'
+import { BlockTypeSchema } from '@/core/values/block-type'
 
 /**
  * Chunk Component - Represents a chunk of terrain blocks

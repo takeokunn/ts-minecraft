@@ -3,7 +3,7 @@ import { Option } from 'effect'
 import * as CL from '../camera-logic'
 import { toFloat } from '../common'
 import { Camera, Position, TargetBlock, TargetNone } from '../components'
-import { EntityIdSchema } from '../entity'
+import { EntityIdSchema } from '../../core/entities/entity'
 import { toInt } from '../common'
 
 describe('Camera Logic', () => {

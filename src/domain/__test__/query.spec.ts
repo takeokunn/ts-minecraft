@@ -1,10 +1,10 @@
 import { describe, it, assert } from '@effect/vitest'
-import { createQuery } from '../query'
+import { createQuery } from '@/core/queries'
 import { Effect } from 'effect'
 import * as S from 'effect/Schema'
 import * as Arbitrary from 'effect/Arbitrary'
 import * as fc from 'effect/FastCheck'
-import { ComponentNameSchema } from '../components'
+import { ComponentNameSchema } from '@/core/components'
 
 describe('Query', () => {
   describe('createQuery', () => {

@@ -1,5 +1,5 @@
 import { Effect, Match } from 'effect'
-import * as S from 'effect/Schema'
+import * as S from "/schema/Schema"
 import { hotbarSlots } from './block'
 import { BlockTypeSchema } from './block-types'
 import { 

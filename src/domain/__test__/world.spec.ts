@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@effect/vitest'
 import { EntityNotFoundError, ComponentNotFoundError } from '@/core/errors'
-import { toEntityId } from '../entity'
+import { toEntityId } from '../../core/entities/entity'
 import { Effect } from 'effect'
 
 describe('World Errors', () => {

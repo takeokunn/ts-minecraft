@@ -376,6 +376,122 @@ export const Profile = {
 
 ---
 
+## 🧪 ECS準拠テスト戦略
+
+### テスト構造の統合
+```
+src/
+├── core/              # ECSコア実装
+│   └── __tests__/    # ユニットテスト
+├── systems/
+│   └── __tests__/    # システムテスト
+├── test-utils/        # 共通テストユーティリティ（旧test/）
+│   ├── arbitraries/  # PBT用Arbitrary
+│   ├── builders/     # テストデータビルダー
+│   ├── fixtures/     # テストフィクスチャ
+│   ├── harness/      # テストハーネス
+│   └── layers/       # Effect-TSテストレイヤー
+└── e2e/              # E2Eテスト（統合済み）
+    ├── ecs/          # ECSシステム統合テスト
+    ├── performance/  # パフォーマンステスト
+    └── scenarios/    # ゲームシナリオテスト
+```
+
+### ECS Component PBTテスト
+```typescript
+// src/core/components/__tests__/component.pbt.spec.ts
+import { describe, it } from '@effect/vitest'
+import { fc } from '@effect/vitest'
+import { Effect, pipe } from 'effect'
+
+describe('ECS Component Properties', () => {
+  it.prop([
+    fc.record({
+      x: fc.float({ min: -1000, max: 1000 }),
+      y: fc.float({ min: 0, max: 256 }),
+      z: fc.float({ min: -1000, max: 1000 })
+    })
+  ])('Position component maintains immutability', (position) =>
+    Effect.gen(function* () {
+      const pos1 = Position(position)
+      const pos2 = Position(position)
+      
+      // 同じデータから生成されたコンポーネントは等価
+      expect(pos1).toEqual(pos2)
+      
+      // イミュータブル性の検証
+      const modified = { ...pos1, x: pos1.x + 1 }
+      expect(pos1.x).toBe(position.x) // 元のデータは変更されない
+    })
+  )
+
+  // スキーマの可逆性テスト
+  it.prop([ComponentArbitraries.anyComponent])(
+    'Component schema encoding is reversible',
+    (component) =>
+      Effect.gen(function* () {
+        const encoded = yield* S.encode(ComponentSchema)(component)
+        const decoded = yield* S.decode(ComponentSchema)(encoded)
+        expect(decoded).toEqual(component)
+      })
+  )
+})
+```
+
+### ECS System統合テスト
+```typescript
+// src/systems/__tests__/physics.integration.spec.ts
+describe('Physics System Integration', () => {
+  it.effect('processes 10000 entities within 16ms', () =>
+    Effect.gen(function* () {
+      // Arrange: 大規模エンティティセット
+      const world = yield* createWorldWith10000MovingEntities()
+      
+      // Act: 物理シミュレーション実行
+      const startTime = yield* Clock.currentTimeMillis
+      yield* physicsSystem.execute(world, 0.016) // 60FPS
+      const endTime = yield* Clock.currentTimeMillis
+      
+      // Assert: パフォーマンス要件
+      expect(endTime - startTime).toBeLessThan(16)
+      
+      // Assert: 物理法則の維持
+      const totalEnergy = yield* calculateTotalEnergy(world)
+      expect(totalEnergy).toBeCloseTo(initialEnergy, 2)
+    }).pipe(
+      Effect.provide(TestWorldLayer)
+    )
+  )
+})
+```
+
+### Query最適化テスト
+```typescript
+// src/core/queries/__tests__/query.performance.spec.ts
+describe('Query Performance', () => {
+  it.effect('SoA query outperforms AoS by 5x', () =>
+    Effect.gen(function* () {
+      const world = yield* createLargeWorld()
+      
+      // SoA (Structure of Arrays) クエリ
+      const soaStart = performance.now()
+      const soaResult = yield* world.querySoA(complexQuery)
+      const soaTime = performance.now() - soaStart
+      
+      // AoS (Array of Structures) クエリ
+      const aosStart = performance.now()
+      const aosResult = yield* world.queryAoS(complexQuery)
+      const aosTime = performance.now() - aosStart
+      
+      expect(soaTime).toBeLessThan(aosTime / 5)
+      expect(soaResult).toEqual(aosResult) // 同じ結果
+    })
+  )
+})
+```
+
+---
+
 ## 📊 成功指標（破壊的変更版）
 
 ### 技術的指標

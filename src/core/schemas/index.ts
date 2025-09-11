@@ -1,4 +1,4 @@
-import * as S from 'effect/Schema'
+import * as S from "@effect/schema/Schema"
 import { Brand } from 'effect'
 
 /**
@@ -55,27 +55,27 @@ export const ColliderSchema = S.Struct({
   width: S.Number.pipe(S.positive(), S.finite()),
   height: S.Number.pipe(S.positive(), S.finite()),
   depth: S.Number.pipe(S.positive(), S.finite()),
-  offsetX: S.Number.pipe(S.finite()).pipe(S.withDefault(() => 0)),
-  offsetY: S.Number.pipe(S.finite()).pipe(S.withDefault(() => 0)),
-  offsetZ: S.Number.pipe(S.finite()).pipe(S.withDefault(() => 0)),
+  offsetX: S.Number.pipe(S.finite()).pipe(S.withDefaults(() => 0)),
+  offsetY: S.Number.pipe(S.finite()).pipe(S.withDefaults(() => 0)),
+  offsetZ: S.Number.pipe(S.finite()).pipe(S.withDefaults(() => 0)),
 })
 export type Collider = S.Schema.Type<typeof ColliderSchema>
 
 export const GravitySchema = S.Struct({
-  value: S.Number.pipe(S.finite()).pipe(S.withDefault(() => -32)),
-  multiplier: S.Number.pipe(S.positive(), S.finite()).pipe(S.withDefault(() => 1.0)),
+  value: S.Number.pipe(S.finite()).pipe(S.withDefaults(() => -32)),
+  multiplier: S.Number.pipe(S.positive(), S.finite()).pipe(S.withDefaults(() => 1.0)),
 })
 export type Gravity = S.Schema.Type<typeof GravitySchema>
 
 // Gameplay Components
 export const PlayerSchema = S.Struct({
   isGrounded: S.Boolean,
-  isSprinting: S.Boolean.pipe(S.withDefault(() => false)),
-  isCrouching: S.Boolean.pipe(S.withDefault(() => false)),
-  isFlying: S.Boolean.pipe(S.withDefault(() => false)),
-  health: S.Number.pipe(S.finite(), S.clamp(0, 20)).pipe(S.withDefault(() => 20)),
-  hunger: S.Number.pipe(S.finite(), S.clamp(0, 20)).pipe(S.withDefault(() => 20)),
-  experience: S.Number.pipe(S.int(), S.nonNegative()).pipe(S.withDefault(() => 0)),
+  isSprinting: S.Boolean.pipe(S.withDefaults(() => false)),
+  isCrouching: S.Boolean.pipe(S.withDefaults(() => false)),
+  isFlying: S.Boolean.pipe(S.withDefaults(() => false)),
+  health: S.Number.pipe(S.finite(), S.clamp(0, 20)).pipe(S.withDefaults(() => 20)),
+  hunger: S.Number.pipe(S.finite(), S.clamp(0, 20)).pipe(S.withDefaults(() => 20)),
+  experience: S.Number.pipe(S.int(), S.nonNegative()).pipe(S.withDefaults(() => 0)),
 })
 export type Player = S.Schema.Type<typeof PlayerSchema>
 
@@ -92,8 +92,8 @@ export const InputStateSchema = S.Struct({
   interact: S.Boolean,
   inventory: S.Boolean,
   menu: S.Boolean,
-  mouseDeltaX: S.Number.pipe(S.finite()).pipe(S.withDefault(() => 0)),
-  mouseDeltaY: S.Number.pipe(S.finite()).pipe(S.withDefault(() => 0)),
+  mouseDeltaX: S.Number.pipe(S.finite()).pipe(S.withDefaults(() => 0)),
+  mouseDeltaY: S.Number.pipe(S.finite()).pipe(S.withDefaults(() => 0)),
   isLocked: S.Boolean,
 })
 export type InputState = S.Schema.Type<typeof InputStateSchema>
@@ -102,10 +102,10 @@ export type InputState = S.Schema.Type<typeof InputStateSchema>
 export const CameraSchema = S.Struct({
   pitch: S.Number.pipe(S.finite(), S.clamp(-Math.PI / 2, Math.PI / 2)),
   yaw: S.Number.pipe(S.finite()),
-  fov: S.Number.pipe(S.positive(), S.finite()).pipe(S.withDefault(() => 75)),
-  near: S.Number.pipe(S.positive(), S.finite()).pipe(S.withDefault(() => 0.1)),
-  far: S.Number.pipe(S.positive(), S.finite()).pipe(S.withDefault(() => 1000)),
-  isActive: S.Boolean.pipe(S.withDefault(() => false)),
+  fov: S.Number.pipe(S.positive(), S.finite()).pipe(S.withDefaults(() => 75)),
+  near: S.Number.pipe(S.positive(), S.finite()).pipe(S.withDefaults(() => 0.1)),
+  far: S.Number.pipe(S.positive(), S.finite()).pipe(S.withDefaults(() => 1000)),
+  isActive: S.Boolean.pipe(S.withDefaults(() => false)),
 })
 export type Camera = S.Schema.Type<typeof CameraSchema>
 

@@ -3,7 +3,7 @@ import { describe, it, assert } from '@effect/vitest'
 import { SpatialGridLive } from '../spatial-grid'
 import { SpatialGrid } from '@/runtime/services'
 import { type AABB } from '@/domain/geometry'
-import { toEntityId } from '@/domain/entity'
+import { toEntityId } from '@/core/entities/entity'
 
 describe('SpatialGrid', () => {
   it.effect('should add and find entities in grid', () =>

@@ -1,5 +1,5 @@
-import * as S from 'effect/Schema'
-import { Int } from '../domain/common'
+import * as S from "/schema/Schema"
+import { Int } from '../core/common'
 import { BlockTypeSchema } from '../domain/block-types'
 
 export const PlacedBlock = S.Struct({

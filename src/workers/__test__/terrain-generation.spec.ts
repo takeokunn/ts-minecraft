@@ -9,7 +9,7 @@ import {
   generateBlockData,
   type NoiseFunctions
 } from '../terrain-generation'
-import { toInt } from '../../domain/common'
+import { toInt } from '../../core/common'
 import { CHUNK_SIZE, WATER_LEVEL, WORLD_DEPTH } from '../../domain/world-constants'
 
 describe('terrain-generation', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@effect/vitest'
-import { EntityIdSchema, toEntityId } from '../entity'
+import { EntityIdSchema, toEntityId } from '../../core/entities/entity'
 import { testReversibility } from '@test/test-utils'
 import { ParseError } from 'effect/ParseResult'
 

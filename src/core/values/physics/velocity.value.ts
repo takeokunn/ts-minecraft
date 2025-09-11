@@ -1,5 +1,5 @@
 import { Data, pipe } from 'effect'
-import * as S from 'effect/Schema'
+import * as S from "@effect/schema/Schema"
 
 /**
  * Velocity Value Object - Represents 3D velocity/movement vector

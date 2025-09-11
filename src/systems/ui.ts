@@ -1,11 +1,11 @@
 import { Effect, Option } from 'effect'
-import { playerQuery } from '@/domain/queries'
+import { queries } from '@/core/queries'
 import { UIService, World } from '@/runtime/services'
 
 export const uiSystem = Effect.gen(function* ($) {
   const world = yield* $(World)
   const uiService = yield* $(UIService)
-  const { components } = yield* $(world.querySoA(playerQuery))
+  const { components } = yield* $(world.querySoA(queries.player))
 
   yield* $(
     Option.fromNullable(components.hotbar[0]).pipe(

@@ -1,12 +1,14 @@
 import { Archetype } from '@/domain/archetypes'
 import { Chunk, ComponentName, ComponentOfName, Hotbar } from '@/core/components'
-import { EntityId } from '@/domain/entity'
+import { EntityId } from '@/core/entities/entity'
 import { AABB } from '@/domain/geometry'
-import { Query, QueryResult } from '../domain/query'
+import { LegacyLegacyQuery, LegacyLegacyLegacyQueryResult, OptimizedLegacyQuery, queries } from '@/core/queries'
 import { Voxel, WorldState } from '../domain/world'
 import { Context, Effect, Option, Queue, Ref, Scope } from 'effect'
 import * as T from 'three'
 import { IncomingMessage, OutgoingMessage } from '@/workers/messages'
+import { MemoryPoolManager } from './memory-pools'
+import { ResourceManager } from './resource-manager'
 
 export type SoAResult<T extends ReadonlyArray<ComponentName>> = {
   readonly entities: ReadonlyArray<EntityId>
@@ -35,20 +37,20 @@ export class World extends Context.Tag('World')<
       data: Partial<Omit<ComponentOfName<T>, 'name'>>,
     ) => Effect.Effect<void>
     readonly query: <T extends ReadonlyArray<ComponentName>>(
-      query: Query<T>,
-    ) => Effect.Effect<ReadonlyArray<readonly [EntityId, QueryResult<T>]>>
+      query: LegacyQuery<T>,
+    ) => Effect.Effect<ReadonlyArray<readonly [EntityId, LegacyLegacyQueryResult<T>]>>
     readonly querySoA: <T extends ReadonlyArray<ComponentName>>(
-      query: Query<T>,
+      query: LegacyQuery<T>,
     ) => Effect.Effect<SoAResult<T>>
     readonly queryUnsafe: <T extends ReadonlyArray<ComponentName>>(
-      query: Query<T>,
-    ) => Effect.Effect<ReadonlyArray<readonly [EntityId, ...QueryResult<T>]>>
+      query: LegacyQuery<T>,
+    ) => Effect.Effect<ReadonlyArray<readonly [EntityId, ...LegacyLegacyQueryResult<T>]>>
     readonly querySingle: <T extends ReadonlyArray<ComponentName>>(
-      query: Query<T>,
-    ) => Effect.Effect<Option.Option<readonly [EntityId, QueryResult<T>]>>
+      query: LegacyQuery<T>,
+    ) => Effect.Effect<Option.Option<readonly [EntityId, LegacyLegacyQueryResult<T>]>>
     readonly querySingleUnsafe: <T extends ReadonlyArray<ComponentName>>(
-      query: Query<T>,
-    ) => Effect.Effect<readonly [EntityId, QueryResult<T>]>
+      query: LegacyQuery<T>,
+    ) => Effect.Effect<readonly [EntityId, LegacyLegacyQueryResult<T>]>
     readonly getChunk: (chunkX: number, chunkZ: number) => Effect.Effect<Option.Option<Chunk>>
     readonly setChunk: (chunkX: number, chunkZ: number, chunk: Chunk) => Effect.Effect<void>
     readonly getVoxel: (x: number, y: number, z: number) => Effect.Effect<Option.Option<Voxel>>
@@ -151,11 +153,78 @@ export class Stats extends Context.Tag('Stats')<
   }
 >() {}
 
-export class DeltaTime extends Context.Tag('DeltaTime')<DeltaTime, { readonly value: number }>() {}
+export class DeltaTime extends Context.Tag('DeltaTime')<DeltaTime, { 
+  readonly value: number
+  readonly alpha?: number
+  readonly frameTime?: number
+}>() {}
 
 export class UIService extends Context.Tag('UIService')<
   UIService,
   {
     readonly updateHotbar: (hotbar: Hotbar) => Effect.Effect<void>
+  }
+>() {}
+
+/**
+ * Optimized Runtime Services for enhanced performance
+ */
+
+export class OptimizedMemoryPool extends Context.Tag('OptimizedMemoryPool')<
+  OptimizedMemoryPool,
+  MemoryPoolManager
+>() {}
+
+export class OptimizedResourceManager extends Context.Tag('OptimizedResourceManager')<
+  OptimizedResourceManager,
+  ResourceManager
+>() {}
+
+export class PerformanceMonitor extends Context.Tag('PerformanceMonitor')<
+  PerformanceMonitor,
+  {
+    readonly startMonitoring: () => Effect.Effect<void>
+    readonly stopMonitoring: () => Effect.Effect<void>
+    readonly getMetrics: () => Effect.Effect<{
+      fps: number
+      frameTime: number
+      memoryUsage: number
+      poolUtilization: Record<string, number>
+      resourceCacheHitRate: number
+    }>
+    readonly generateReport: () => Effect.Effect<string>
+  }
+>() {}
+
+export class QualityController extends Context.Tag('QualityController')<
+  QualityController,
+  {
+    readonly adjustQuality: (targetFPS: number) => Effect.Effect<void>
+    readonly getCurrentQuality: () => Effect.Effect<{
+      renderDistance: number
+      particleDensity: number
+      shadowQuality: 'low' | 'medium' | 'high' | 'ultra'
+      textureQuality: 'low' | 'medium' | 'high' | 'ultra'
+    }>
+    readonly setQualityPreset: (preset: 'low' | 'medium' | 'high' | 'ultra') => Effect.Effect<void>
+  }
+>() {}
+
+/**
+ * WebWorker coordination service for distributed processing
+ */
+export class WorkerCoordinator extends Context.Tag('WorkerCoordinator')<
+  WorkerCoordinator,
+  {
+    readonly distributeTask: <T>(
+      task: { type: string; data: any },
+      priority: 'high' | 'normal' | 'low'
+    ) => Effect.Effect<T>
+    readonly getWorkerStats: () => Effect.Effect<{
+      activeWorkers: number
+      queuedTasks: number
+      averageTaskTime: number
+    }>
+    readonly terminateIdleWorkers: () => Effect.Effect<void>
   }
 >() {}

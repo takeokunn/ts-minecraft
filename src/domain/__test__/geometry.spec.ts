@@ -1,5 +1,5 @@
 import { describe, it, assert, expect } from '@effect/vitest'
-import * as S from 'effect/Schema'
+import * as S from "/schema/Schema"
 import * as Arbitrary from 'effect/Arbitrary'
 import * as fc from 'effect/FastCheck'
 import { Effect } from 'effect'

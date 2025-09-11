@@ -4,9 +4,9 @@ import { blockInteractionSystem } from '../block-interaction'
 import { World } from '@/runtime/services'
 import { WorldLive } from '@/infrastructure/world'
 import { createArchetype } from '@/domain/archetypes'
-import { toFloat, toInt } from '@/domain/common'
+import { toFloat, toInt } from '@/core/common'
 import { Hotbar } from '@/core/components'
-import { EntityId } from '@/domain/entity'
+import { EntityId } from '@/core/entities/entity'
 
 const TestLayer = WorldLive
 

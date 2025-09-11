@@ -4,7 +4,7 @@ import { AppLive } from '@/infrastructure/layers'
 import { World, Clock, InputManager, Renderer } from '@/services'
 import { runGameLoop } from '@/runtime/loop'
 import { BlockType } from '@/domain/block-types'
-import { toEntityId } from '@/domain/entity'
+import { toEntityId } from '@/core/entities/entity'
 
 /**
  * End-to-end tests for the complete game loop

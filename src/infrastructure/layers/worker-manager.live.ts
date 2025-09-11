@@ -1,7 +1,7 @@
 import { Layer, Effect, Ref, Queue } from 'effect'
 import { WorkerManager } from '@/services/worker/worker-manager.service'
 import { createWorkerClient } from '@/workers/shared/worker-base'
-import * as S from 'effect/Schema'
+import * as S from "/schema/Schema"
 
 /**
  * WorkerManager Live implementation

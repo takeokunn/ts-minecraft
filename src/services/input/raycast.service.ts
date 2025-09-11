@@ -1,5 +1,5 @@
 import { Context, Effect, Option } from 'effect'
-import { EntityId } from '@/domain/entity'
+import { EntityId } from '@/core/entities/entity'
 import { Position } from '@/core/values/coordinates'
 
 /**

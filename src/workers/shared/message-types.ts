@@ -1,6 +1,6 @@
-import * as S from 'effect/Schema'
+import * as S from "/schema/Schema"
 import { ChunkCoordinates } from '@/core/values/coordinates'
-import { BlockTypeSchema } from '@/domain/block-types'
+import { BlockTypeSchema } from '@/core/values/block-type'
 
 /**
  * Shared message type definitions for all workers

@@ -1,5 +1,5 @@
 import { Archetype } from '@/domain/archetypes'
-import { Vector3Float as Vector3 } from '@/domain/common'
+import { Vector3Float as Vector3 } from '@/core/common'
 import {
   Chunk,
   componentNamesSet,
@@ -8,13 +8,13 @@ import {
   type ComponentName,
   type ComponentOfName,
 } from '@/core/components'
-import { type EntityId, toEntityId } from '@/domain/entity'
+import { type EntityId, toEntityId } from '@/core/entities/entity'
 import { toChunkIndex } from '@/domain/geometry'
-import { type Query } from '@/domain/query'
+import { type LegacyQuery, type OptimizedQuery } from '@/core/queries'
 import { type Voxel } from '@/domain/world'
 import { World } from '@/runtime/services'
 import { Effect, HashMap, HashSet, Layer, Option, Ref, pipe, ReadonlyArray } from 'effect'
-import * as S from 'effect/Schema'
+import * as S from "/schema/Schema"
 
 // Import errors from centralized location
 import {
@@ -153,7 +153,7 @@ export const WorldLive = Layer.effect(
         Effect.asVoid,
       )
 
-    const query = <T extends ReadonlyArray<ComponentName>>(query: Query<T>) =>
+    const query = <T extends ReadonlyArray<ComponentName>>(query: LegacyQuery<T> | OptimizedQuery<T>) =>
       Ref.get(state).pipe(
         Effect.map((s) => {
           const requiredComponents = HashSet.fromIterable(query.components)
@@ -172,7 +172,7 @@ export const WorldLive = Layer.effect(
         }),
       )
 
-    const queryUnsafe = <T extends ReadonlyArray<ComponentName>>(q: Query<T>) =>
+    const queryUnsafe = <T extends ReadonlyArray<ComponentName>>(q: LegacyQuery<T> | OptimizedQuery<T>) =>
       query(q).pipe(
         Effect.map((results) =>
           results.map(([entityId, components]) => {
@@ -181,16 +181,16 @@ export const WorldLive = Layer.effect(
         ),
       )
 
-    const querySingle = <T extends ReadonlyArray<ComponentName>>(q: Query<T>) =>
+    const querySingle = <T extends ReadonlyArray<ComponentName>>(q: LegacyQuery<T> | OptimizedQuery<T>) =>
       query(q).pipe(Effect.map((results) => Option.fromNullable(results[0])))
 
-    const querySingleUnsafe = <T extends ReadonlyArray<ComponentName>>(q: Query<T>) =>
+    const querySingleUnsafe = <T extends ReadonlyArray<ComponentName>>(q: LegacyQuery<T> | OptimizedQuery<T>) =>
       querySingle(q).pipe(
         Effect.flatten,
-        Effect.mapError(() => new QuerySingleResultNotFoundError(q)),
+        Effect.mapError(() => new QuerySingleResultNotFoundError({ query: q, resultCount: 0, expectedCount: 1 })),
       )
 
-    const querySoA = <T extends ReadonlyArray<ComponentName>>(query: Query<T>) =>
+    const querySoA = <T extends ReadonlyArray<ComponentName>>(query: LegacyQuery<T> | OptimizedQuery<T>) =>
       Ref.get(state).pipe(
         Effect.map((s) => {
           const requiredComponents = HashSet.fromIterable(query.components)

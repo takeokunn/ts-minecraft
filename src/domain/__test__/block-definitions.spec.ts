@@ -1,9 +1,9 @@
-import * as S from 'effect/Schema'
+import * as S from "/schema/Schema"
 import * as Arbitrary from 'effect/Arbitrary'
 import { describe, it, assert, expect } from '@effect/vitest'
 import * as fc from 'effect/FastCheck'
 import { Effect } from 'effect'
-import { BlockDefinitionSchema, blockDefinitions } from '../block-definitions'
+import { BlockDefinitionSchema, blockDefinitions } from '../../core/entities/block-definitions'
 import { blockTypeNames } from '../block-types'
 
 describe('Block Definitions', () => {

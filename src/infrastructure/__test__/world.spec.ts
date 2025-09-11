@@ -1,14 +1,14 @@
 import { Effect, Option, HashMap } from 'effect'
 import { describe, it, assert } from '@effect/vitest'
 import * as fc from 'effect/FastCheck'
-import * as S from 'effect/Schema'
+import * as S from "/schema/Schema"
 import { createArchetype, type ArchetypeBuilder } from '@/domain/archetypes'
-import { createQuery } from '@/domain/query'
+import { createQuery } from '@/core/queries'
 import { Position, ComponentName, Chunk } from '@/core/components'
 import { WorldLive } from '@/infrastructure/world'
 import { World } from '@/runtime/services'
 import { ArchetypeBuilderArb, PositionArb } from '@test/arbitraries'
-import { BlockType } from '@/domain/block-types'
+import { BlockType } from '@/core/values/block-type'
 import { CHUNK_HEIGHT } from '@/domain/world-constants'
 
 // Helper to set up a world with some archetypes

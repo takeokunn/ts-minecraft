@@ -1,0 +1,371 @@
+import { Effect, Layer, Ref, Queue, Option } from 'effect'
+import { vi, type MockedFunction } from 'vitest'
+import * as HashMap from 'effect/HashMap'
+
+/**
+ * Automatic Mock Generation System
+ * 
+ * Features:
+ * - Automatic service mock creation
+ * - Method call tracking and verification
+ * - Configurable mock behavior
+ * - Type-safe mock interfaces
+ * - Effect-TS integration
+ */
+
+/**
+ * Mock call record for verification
+ */
+export interface MockCall {
+  method: string
+  args: any[]
+  timestamp: number
+  result?: any
+  error?: any
+}
+
+/**
+ * Mock configuration for service methods
+ */
+export interface MockConfig<T> {
+  [K in keyof T]?: {
+    returnValue?: any
+    implementation?: T[K]
+    shouldThrow?: boolean
+    error?: any
+    callCount?: number
+  }
+}
+
+/**
+ * Mock state tracking
+ */
+interface MockState {
+  calls: MockCall[]
+  configs: Map<string, any>
+}
+
+/**
+ * Base mock service with call tracking
+ */
+export class MockService<T> {
+  private callHistory: MockCall[] = []
+  private configs: Map<string, any> = new Map()
+
+  constructor(
+    private readonly serviceName: string,
+    private readonly methods: (keyof T)[]
+  ) {}
+
+  /**
+   * Configure mock behavior for a method
+   */
+  configure(method: keyof T, config: MockConfig<T>[keyof T]) {
+    this.configs.set(method as string, config)
+    return this
+  }
+
+  /**
+   * Create a mock method with tracking
+   */
+  private createMockMethod<K extends keyof T>(methodName: K): T[K] {
+    return vi.fn((...args: any[]) => {
+      const call: MockCall = {
+        method: methodName as string,
+        args,
+        timestamp: Date.now()
+      }
+
+      const config = this.configs.get(methodName as string)
+      
+      try {
+        if (config?.shouldThrow) {
+          call.error = config.error || new Error(`Mock error for ${String(methodName)}`)
+          this.callHistory.push(call)
+          throw call.error
+        }
+
+        let result
+        if (config?.implementation) {
+          result = config.implementation(...args)
+        } else if (config?.returnValue !== undefined) {
+          result = config.returnValue
+        } else {
+          // Default behavior - return Effect.succeed(undefined) for Effect methods
+          result = Effect.succeed(undefined)
+        }
+
+        call.result = result
+        this.callHistory.push(call)
+        return result
+      } catch (error) {
+        call.error = error
+        this.callHistory.push(call)
+        throw error
+      }
+    }) as T[K]
+  }
+
+  /**
+   * Build the mock service object
+   */
+  build(): T {
+    const mockObject = {} as T
+    
+    this.methods.forEach(method => {
+      mockObject[method] = this.createMockMethod(method)
+    })
+
+    return mockObject
+  }
+
+  /**
+   * Get call history for verification
+   */
+  getCalls(method?: keyof T): MockCall[] {
+    if (method) {
+      return this.callHistory.filter(call => call.method === method)
+    }
+    return [...this.callHistory]
+  }
+
+  /**
+   * Verify method was called with expected arguments
+   */
+  verify(method: keyof T, expectedArgs?: any[], callCount?: number): boolean {
+    const calls = this.getCalls(method)
+    
+    if (callCount !== undefined && calls.length !== callCount) {
+      return false
+    }
+
+    if (expectedArgs) {
+      return calls.some(call => 
+        JSON.stringify(call.args) === JSON.stringify(expectedArgs)
+      )
+    }
+
+    return calls.length > 0
+  }
+
+  /**
+   * Reset call history
+   */
+  reset() {
+    this.callHistory = []
+    this.configs.clear()
+    return this
+  }
+
+  /**
+   * Get call count for method
+   */
+  getCallCount(method: keyof T): number {
+    return this.getCalls(method).length
+  }
+}
+
+/**
+ * Service mock factory
+ */
+export class MockFactory {
+  private static mocks = new Map<string, MockService<any>>()
+
+  /**
+   * Create or get existing mock for service
+   */
+  static forService<T>(
+    serviceName: string,
+    methods: (keyof T)[]
+  ): MockService<T> {
+    if (!this.mocks.has(serviceName)) {
+      this.mocks.set(serviceName, new MockService<T>(serviceName, methods))
+    }
+    return this.mocks.get(serviceName)!
+  }
+
+  /**
+   * Reset all mocks
+   */
+  static resetAll() {
+    this.mocks.forEach(mock => mock.reset())
+    this.mocks.clear()
+  }
+
+  /**
+   * Get all active mocks
+   */
+  static getAllMocks() {
+    return Array.from(this.mocks.entries())
+  }
+}
+
+/**
+ * Automatic service layer mock generation
+ */
+export const createMockLayer = <T, K extends string>(
+  serviceTag: { new(): T },
+  serviceName: K,
+  defaultImplementation?: Partial<T>
+): Layer.Layer<T, never, never> => {
+  return Layer.effect(
+    serviceTag,
+    Effect.gen(function* () {
+      const state = yield* Ref.make<MockState>({
+        calls: [],
+        configs: new Map()
+      })
+
+      // Auto-detect service methods (simplified - in real implementation, 
+      // you'd use reflection or service interface)
+      const methods = Object.getOwnPropertyNames(defaultImplementation || {})
+        .filter(prop => typeof (defaultImplementation as any)?.[prop] === 'function')
+
+      const mockService = MockFactory.forService<T>(serviceName, methods as (keyof T)[])
+      
+      // Apply default implementation if provided
+      if (defaultImplementation) {
+        Object.entries(defaultImplementation).forEach(([method, impl]) => {
+          mockService.configure(method as keyof T, { implementation: impl })
+        })
+      }
+
+      return mockService.build()
+    })
+  )
+}
+
+/**
+ * Predefined mock configurations for common services
+ */
+export const MockConfigs = {
+  /**
+   * World service mock configuration
+   */
+  World: {
+    addArchetype: { returnValue: Effect.succeed(1) },
+    removeEntity: { returnValue: Effect.succeed(undefined) },
+    getComponent: { returnValue: Effect.succeed(Option.none()) },
+    query: { returnValue: Effect.succeed([]) },
+    getChunk: { returnValue: Effect.succeed(Option.none()) },
+    setVoxel: { returnValue: Effect.succeed(undefined) }
+  },
+
+  /**
+   * InputManager mock configuration
+   */
+  InputManager: {
+    getState: { 
+      returnValue: Effect.succeed({
+        forward: false,
+        backward: false,
+        left: false,
+        right: false,
+        jump: false,
+        sprint: false,
+        place: false,
+        destroy: false
+      })
+    },
+    getMouseState: { returnValue: Effect.succeed({ dx: 0, dy: 0 }) }
+  },
+
+  /**
+   * Renderer mock configuration
+   */
+  Renderer: {
+    updateCamera: { returnValue: Effect.succeed(undefined) }
+  }
+}
+
+/**
+ * Spy utilities for mock verification
+ */
+export class MockSpy {
+  /**
+   * Create a spy that tracks all calls to a service method
+   */
+  static on<T, K extends keyof T>(
+    service: T,
+    method: K
+  ): MockedFunction<T[K]> {
+    return vi.spyOn(service as any, method as any)
+  }
+
+  /**
+   * Verify method calls with fluent API
+   */
+  static verify<T>(service: MockService<T>) {
+    return {
+      called: (method: keyof T, times?: number) => {
+        const callCount = service.getCallCount(method)
+        if (times !== undefined) {
+          return callCount === times
+        }
+        return callCount > 0
+      },
+
+      calledWith: (method: keyof T, ...args: any[]) => {
+        return service.verify(method, args)
+      },
+
+      calledBefore: (method1: keyof T, method2: keyof T) => {
+        const calls1 = service.getCalls(method1)
+        const calls2 = service.getCalls(method2)
+        
+        if (calls1.length === 0 || calls2.length === 0) return false
+        
+        const lastCall1 = calls1[calls1.length - 1]
+        const firstCall2 = calls2[0]
+        
+        return lastCall1.timestamp < firstCall2.timestamp
+      },
+
+      neverCalled: (method: keyof T) => {
+        return service.getCallCount(method) === 0
+      }
+    }
+  }
+}
+
+/**
+ * Mock assertion utilities
+ */
+export const MockAssert = {
+  /**
+   * Assert that a service method was called
+   */
+  wasCalled: <T>(mock: MockService<T>, method: keyof T, times?: number) => {
+    const callCount = mock.getCallCount(method)
+    if (times !== undefined && callCount !== times) {
+      throw new Error(`Expected ${String(method)} to be called ${times} times, but was called ${callCount} times`)
+    }
+    if (times === undefined && callCount === 0) {
+      throw new Error(`Expected ${String(method)} to be called, but it was never called`)
+    }
+  },
+
+  /**
+   * Assert that a service method was called with specific arguments
+   */
+  wasCalledWith: <T>(mock: MockService<T>, method: keyof T, ...args: any[]) => {
+    if (!mock.verify(method, args)) {
+      const calls = mock.getCalls(method)
+      const actualArgs = calls.map(call => call.args)
+      throw new Error(
+        `Expected ${String(method)} to be called with [${args.join(', ')}], ` +
+        `but was called with: ${JSON.stringify(actualArgs)}`
+      )
+    }
+  },
+
+  /**
+   * Assert that a service method was never called
+   */
+  wasNeverCalled: <T>(mock: MockService<T>, method: keyof T) => {
+    const callCount = mock.getCallCount(method)
+    if (callCount > 0) {
+      throw new Error(`Expected ${String(method)} to never be called, but was called ${callCount} times`)
+    }
+  }
+}

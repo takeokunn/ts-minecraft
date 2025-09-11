@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { createAABB } from '@/domain/geometry'
-import { positionColliderQuery } from '@/domain/queries'
+import { queries } from '@/core/queries'
 import { SpatialGrid, World } from '@/runtime/services'
 
 export const updatePhysicsWorldSystem = Effect.gen(function* (_) {
@@ -9,7 +9,7 @@ export const updatePhysicsWorldSystem = Effect.gen(function* (_) {
 
   yield* _(spatialGrid.clear())
 
-  const { entities, components } = yield* _(world.querySoA(positionColliderQuery))
+  const { entities, components } = yield* _(world.querySoA(queries.positionCollider))
   const { position, collider } = components
 
   yield* _(

@@ -9,7 +9,7 @@ import {
 import { World } from '@/runtime/services'
 import { WorldLive } from '@/infrastructure/world'
 import { JUMP_FORCE, PLAYER_SPEED, DECELERATION } from '@/domain/world-constants'
-import { toFloat } from '@/domain/common'
+import { toFloat } from '@/core/common'
 
 const TestLayer = WorldLive
 

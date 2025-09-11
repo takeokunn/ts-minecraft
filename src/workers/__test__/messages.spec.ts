@@ -1,7 +1,7 @@
 import { describe, it, assert } from '@effect/vitest'
-import * as S from 'effect/Schema'
+import * as S from "/schema/Schema"
 import { PlacedBlock, GenerationParams, ChunkGenerationResult, OutgoingMessage } from '../messages'
-import { toInt } from '../../domain/common'
+import { toInt } from '../../core/common'
 
 describe('messages', () => {
   it('PlacedBlock schema should validate correct data', () => {

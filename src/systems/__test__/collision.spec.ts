@@ -5,7 +5,7 @@ import { World, SpatialGrid } from '@/runtime/services'
 import { WorldLive } from '@/infrastructure/world'
 import { SpatialGridLive } from '@/infrastructure/spatial-grid'
 import { createArchetype } from '@/domain/archetypes'
-import { toFloat } from '@/domain/common'
+import { toFloat } from '@/core/common'
 import { Player, Position, Velocity, Collider } from '@/core/components'
 import { createAABB } from '@/domain/geometry'
 

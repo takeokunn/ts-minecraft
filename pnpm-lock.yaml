@@ -11,6 +11,9 @@ importers:
       '@effect/platform':
         specifier: ^0.90.8
         version: 0.90.8(effect@3.17.13)
+      '@effect/schema':
+        specifier: ^0.75.5
+        version: 0.75.5(effect@3.17.13)
       alea:
         specifier: ^1.0.1
         version: 1.0.1
@@ -176,6 +179,12 @@ packages:
     resolution: {integrity: sha512-lQejPI2VbUAwPIU6oG12sAhqMar8+KkBjxgBVqQTERzHz4vnG9zaiDDytJM+IGWE40MKbCG3pc2wK6nw2Ugk8A==}
     peerDependencies:
       effect: ^3.17.13
+
+  '@effect/schema@0.75.5':
+    resolution: {integrity: sha512-TQInulTVCuF+9EIbJpyLP6dvxbQJMphrnRqgexm/Ze39rSjfhJuufF7XvU3SxTgg3HnL7B/kpORTJbHhlE6thw==}
+    deprecated: this package has been merged into the main effect package
+    peerDependencies:
+      effect: ^3.9.2
 
   '@effect/stream@0.4.0':
     resolution: {integrity: sha512-GLZyWoUIIwc7HszdhjWCcnIye8aRHElt8A0jvdO8z/XG0uaEFT5KDhXZ/3eihIQOZfFs5X74MVCQyMGloXAUMA==}
@@ -2093,6 +2102,11 @@ snapshots:
       find-my-way-ts: 0.1.6
       msgpackr: 1.11.5
       multipasta: 0.2.7
+
+  '@effect/schema@0.75.5(effect@3.17.13)':
+    dependencies:
+      effect: 3.17.13
+      fast-check: 3.23.2
 
   '@effect/stream@0.4.0':
     dependencies:

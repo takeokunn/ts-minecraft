@@ -1,10 +1,10 @@
 import { Effect, Match, Option } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
 import { Hotbar, InputState, Position, TargetBlock, TargetNone } from '@/core/components'
-import { playerTargetQuery } from '@/domain/queries'
+import { queries } from '@/core/queries'
 import { World } from '@/runtime/services'
-import { EntityId } from '@/domain/entity'
-import { Float, toFloat } from '@/domain/common'
+import { EntityId } from '@/core/entities/entity'
+import { Float, toFloat } from '@/core/common'
 
 const handleDestroyBlock = (world: World, entityId: EntityId, target: TargetBlock) =>
   Effect.gen(function* () {
@@ -49,7 +49,7 @@ const handlePlaceBlock = (
 
 export const blockInteractionSystem = Effect.gen(function* () {
   const world = yield* World
-  const { entities, components } = yield* world.querySoA(playerTargetQuery)
+  const { entities, components } = yield* world.querySoA(queries.playerTarget)
 
   yield* Effect.forEach(
     entities,

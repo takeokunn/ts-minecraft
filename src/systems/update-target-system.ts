@@ -1,10 +1,10 @@
 import { Effect, Option } from 'effect'
 // Target types are used as plain objects, not constructors
-import { playerQuery } from '@/domain/queries'
+import { queries } from '@/core/queries'
 import { Raycast, World } from '@/runtime/services'
-import { Int, Vector3Int } from '@/domain/common'
+import { Int, Vector3Int } from '@/core/common'
 import * as THREE from 'three'
-import { EntityId } from '@/domain/entity'
+import { EntityId } from '@/core/entities/entity'
 
 const getTarget = (intersection: THREE.Intersection) => {
   // This is a simplification. We need a robust way to get the entityId from the intersection.
@@ -33,7 +33,7 @@ export const updateTargetSystem = Effect.gen(function* ($) {
     onSome: getTarget,
   })
 
-  const { entities } = yield* $(world.querySoA(playerQuery))
+  const { entities } = yield* $(world.querySoA(queries.player))
 
   yield* $(
     Effect.forEach(
