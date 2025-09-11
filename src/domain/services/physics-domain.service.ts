@@ -1,9 +1,9 @@
 /**
  * PhysicsDomainService - Pure domain physics logic without infrastructure dependencies
- * 
+ *
  * Features:
  * - Physics calculations and domain rules
- * - Collision detection algorithms 
+ * - Collision detection algorithms
  * - Physics material calculations
  * - Pure domain logic with port interfaces
  * - No infrastructure dependencies
@@ -22,15 +22,7 @@ import * as Ref from 'effect/Ref'
 // Core imports
 import { EntityId } from '../entities'
 import { Vector3, Position } from '../value-objects'
-import {
-  CollisionDetectionError,
-  PhysicsSimulationError,
-  RigidBodyError,
-  GravityError,
-  ConstraintViolationError,
-  RaycastError,
-  PhysicsMaterialError,
-} from '../errors'
+import { CollisionDetectionError, PhysicsSimulationError, RigidBodyError, GravityError, ConstraintViolationError, RaycastError, PhysicsMaterialError } from '../errors'
 
 // Port interfaces for external dependencies
 export interface PhysicsPort {
@@ -91,6 +83,11 @@ export interface PhysicsDomainServiceInterface {
   readonly getPhysicsStats: () => Effect.Effect<PhysicsStats, never, never>
   readonly enableDebugVisualization: (enabled: boolean) => Effect.Effect<void, never, never>
   readonly getDebugData: () => Effect.Effect<PhysicsDebugData, never, never>
+
+  // Missing query methods used by handlers
+  readonly getEntityVelocity: (entityId: EntityId) => Effect.Effect<Vector3, never, never>
+  readonly isEntityGrounded: (entityId: EntityId) => Effect.Effect<boolean, never, never>
+  readonly getAllPhysicsObjects: () => Effect.Effect<readonly any[], never, never>
 }
 
 // ===== SUPPORTING TYPES =====
@@ -345,10 +342,7 @@ export interface DebugColor {
 
 // ===== PHYSICS DOMAIN SERVICE TAG =====
 
-export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainService')<
-  PhysicsDomainService,
-  PhysicsDomainServiceInterface
->() {
+export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainService')<PhysicsDomainService, PhysicsDomainServiceInterface>() {
   static readonly Live = Layer.effect(
     PhysicsDomainService,
     Effect.gen(function* () {
@@ -365,7 +359,7 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
       const timeScale = yield* Ref.make(1.0)
       const debugEnabled = yield* Ref.make(false)
       const nextId = yield* Ref.make(0)
-      
+
       const physicsStats = yield* Ref.make({
         totalSteps: 0,
         totalSimulationTime: 0,
@@ -376,12 +370,11 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
 
       // Configuration constants
       const MAX_SUBSTEPS = 10
-      const FIXED_TIMESTEP = 1/60
+      const FIXED_TIMESTEP = 1 / 60
       const SLEEP_THRESHOLD = 0.01
 
       // Helper functions
-      const generateId = (): Effect.Effect<string, never, never> =>
-        Ref.modify(nextId, id => [(id + 1).toString(), id + 1])
+      const generateId = (): Effect.Effect<string, never, never> => Ref.modify(nextId, (id) => [(id + 1).toString(), id + 1])
 
       const createRigidBodyId = (id: string): RigidBodyId => id as RigidBodyId
       const createConstraintId = (id: string): ConstraintId => id as ConstraintId
@@ -400,23 +393,21 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
         z: v.z * scale,
       })
 
-      const vectorLength = (v: Vector3): number =>
-        Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
+      const vectorLength = (v: Vector3): number => Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
 
       const _vectorNormalize = (v: Vector3): Vector3 => {
         const length = vectorLength(v)
         return length > 0 ? vectorScale(v, 1 / length) : { x: 0, y: 0, z: 0 }
       }
 
-      const vectorDot = (a: Vector3, b: Vector3): number =>
-        a.x * b.x + a.y * b.y + a.z * b.z
+      const vectorDot = (a: Vector3, b: Vector3): number => a.x * b.x + a.y * b.y + a.z * b.z
 
       // Rigid body management implementation
       const createRigidBody = (entityId: EntityId, bodyDef: RigidBodyDefinition): Effect.Effect<RigidBodyId, typeof RigidBodyError, never> =>
         Effect.gen(function* () {
           try {
             const id = createRigidBodyId(yield* generateId())
-            
+
             const rigidBody: RigidBody = {
               id,
               entityId,
@@ -436,7 +427,7 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
             }
 
             yield* Ref.update(rigidBodies, HashMap.set(id, rigidBody))
-            
+
             // Update spatial index
             const currentIndex = yield* Ref.get(spatialIndex)
             const bounds = calculateBounds(rigidBody)
@@ -444,11 +435,13 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
 
             return id
           } catch (error) {
-            return yield* Effect.fail(RigidBodyError({
-              message: `Failed to create rigid body: ${error}`,
-              entityId,
-              cause: error
-            }))
+            return yield* Effect.fail(
+              RigidBodyError({
+                message: `Failed to create rigid body: ${error}`,
+                entityId,
+                cause: error,
+              }),
+            )
           }
         })
 
@@ -458,14 +451,16 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
           const body = HashMap.get(bodies, bodyId)
 
           if (Option.isNone(body)) {
-            return yield* Effect.fail(RigidBodyError({
-              message: `Rigid body not found: ${bodyId}`,
-              bodyId
-            }))
+            return yield* Effect.fail(
+              RigidBodyError({
+                message: `Rigid body not found: ${bodyId}`,
+                bodyId,
+              }),
+            )
           }
 
           yield* Ref.update(rigidBodies, HashMap.remove(bodyId))
-          
+
           // Remove from spatial index
           const currentIndex = yield* Ref.get(spatialIndex)
           currentIndex.remove(bodyId)
@@ -477,10 +472,11 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
           const body = HashMap.get(bodies, bodyId)
 
           return Option.match(body, {
-            onNone: () => RigidBodyError({
-              message: `Rigid body not found: ${bodyId}`,
-              bodyId
-            }),
+            onNone: () =>
+              RigidBodyError({
+                message: `Rigid body not found: ${bodyId}`,
+                bodyId,
+              }),
             onSome: (body) => body,
           })
         }).pipe(Effect.flatMap(Effect.succeed))
@@ -491,7 +487,7 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
           const startTime = Date.now()
           const scale = yield* Ref.get(timeScale)
           const scaledDeltaTime = deltaTime * scale
-          
+
           let substeps = 0
           let remainingTime = scaledDeltaTime
           let bodiesUpdated = 0
@@ -502,24 +498,24 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
             // Substep simulation for stability
             while (remainingTime > 0 && substeps < MAX_SUBSTEPS) {
               const stepTime = Math.min(remainingTime, FIXED_TIMESTEP)
-              
+
               // Integration step
               yield* integrateRigidBodies(stepTime)
-              
+
               // Collision detection
               const collisionPairs = yield* detectCollisions()
               collisionsProcessed += collisionPairs.length
-              
+
               // Constraint solving
               const constraintCount = yield* solveConstraints(stepTime)
               constraintsSolved += constraintCount
-              
+
               // Collision response
               yield* resolveCollisions(collisionPairs, stepTime)
-              
+
               // Update spatial index
               yield* updateSpatialIndex()
-              
+
               remainingTime -= stepTime
               substeps++
             }
@@ -539,11 +535,13 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
               simulationTime,
             }
           } catch (error) {
-            return yield* Effect.fail(PhysicsSimulationError({
-              message: `Physics step failed: ${error}`,
-              deltaTime: scaledDeltaTime,
-              cause: error
-            }))
+            return yield* Effect.fail(
+              PhysicsSimulationError({
+                message: `Physics step failed: ${error}`,
+                deltaTime: scaledDeltaTime,
+                cause: error,
+              }),
+            )
           }
         })
 
@@ -579,10 +577,12 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
 
             return collisionPairs
           } catch (error) {
-            return yield* Effect.fail(CollisionDetectionError({
-              message: `Collision detection failed: ${error}`,
-              cause: error
-            }))
+            return yield* Effect.fail(
+              CollisionDetectionError({
+                message: `Collision detection failed: ${error}`,
+                cause: error,
+              }),
+            )
           }
         })
 
@@ -616,11 +616,13 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
               distance: closestDistance,
             }
           } catch (error) {
-            return yield* Effect.fail(RaycastError({
-              message: `Raycast failed: ${error}`,
-              ray,
-              cause: error
-            }))
+            return yield* Effect.fail(
+              RaycastError({
+                message: `Raycast failed: ${error}`,
+                ray,
+                cause: error,
+              }),
+            )
           }
         })
 
@@ -629,7 +631,7 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
         Effect.gen(function* () {
           try {
             const id = createMaterialId(yield* generateId())
-            
+
             const material: PhysicsMaterial = {
               id,
               definition: materialDef,
@@ -638,11 +640,13 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
             yield* Ref.update(materials, HashMap.set(id, material))
             return id
           } catch (error) {
-            return yield* Effect.fail(PhysicsMaterialError({
-              message: `Failed to create physics material: ${error}`,
-              materialName: materialDef.name,
-              cause: error
-            }))
+            return yield* Effect.fail(
+              PhysicsMaterialError({
+                message: `Failed to create physics material: ${error}`,
+                materialName: materialDef.name,
+                cause: error,
+              }),
+            )
           }
         })
 
@@ -689,8 +693,7 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
           yield* Ref.set(rigidBodies, updatedBodies)
         })
 
-      const detectCollisions = (): Effect.Effect<readonly CollisionPair[], never, never> =>
-        checkCollisions().pipe(Effect.catchAll(() => Effect.succeed([])))
+      const detectCollisions = (): Effect.Effect<readonly CollisionPair[], never, never> => checkCollisions().pipe(Effect.catchAll(() => Effect.succeed([])))
 
       const solveConstraints = (deltaTime: number): Effect.Effect<number, never, never> =>
         Effect.gen(function* () {
@@ -725,7 +728,7 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
           const currentIndex = yield* Ref.get(spatialIndex)
 
           currentIndex.clear()
-          
+
           for (const body of HashMap.values(bodies)) {
             const bounds = calculateBounds(body)
             currentIndex.insert(body.id, bounds)
@@ -733,12 +736,14 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
         })
 
       const updatePhysicsStats = (simulationTime: number): Effect.Effect<void, never, never> =>
-        Ref.update(physicsStats, stats => Data.struct({
-          ...stats,
-          totalSteps: stats.totalSteps + 1,
-          totalSimulationTime: stats.totalSimulationTime + simulationTime,
-          avgStepTime: (stats.totalSimulationTime + simulationTime) / (stats.totalSteps + 1),
-        }))
+        Ref.update(physicsStats, (stats) =>
+          Data.struct({
+            ...stats,
+            totalSteps: stats.totalSteps + 1,
+            totalSimulationTime: stats.totalSimulationTime + simulationTime,
+            avgStepTime: (stats.totalSimulationTime + simulationTime) / (stats.totalSteps + 1),
+          }),
+        )
 
       // Additional helper function stubs (would be fully implemented)
       const testCollisionBetweenBodies = (bodyA: RigidBody, bodyB: RigidBody): Effect.Effect<CollisionResult, never, never> =>
@@ -752,14 +757,11 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
       const calculateSeparatingVelocity = (bodyA: RigidBody, bodyB: RigidBody, normal: Vector3): number =>
         vectorDot(vectorAdd(bodyA.state.linearVelocity, vectorScale(bodyB.state.linearVelocity, -1)), normal)
 
-      const testRayAgainstBody = (_ray: Ray, _body: RigidBody, _ignoreBackfaces: boolean): RaycastHit | null =>
-        null // Implementation would perform actual ray-shape intersection
+      const testRayAgainstBody = (_ray: Ray, _body: RigidBody, _ignoreBackfaces: boolean): RaycastHit | null => null // Implementation would perform actual ray-shape intersection
 
-      const solveConstraint = (_constraint: Constraint, _deltaTime: number): Effect.Effect<void, never, never> =>
-        Effect.succeed(undefined)
+      const solveConstraint = (_constraint: Constraint, _deltaTime: number): Effect.Effect<void, never, never> => Effect.succeed(undefined)
 
-      const resolveCollisionPair = (_bodyA: RigidBody, _bodyB: RigidBody, _collision: CollisionPair): Effect.Effect<void, never, never> =>
-        Effect.succeed(undefined)
+      const resolveCollisionPair = (_bodyA: RigidBody, _bodyB: RigidBody, _collision: CollisionPair): Effect.Effect<void, never, never> => Effect.succeed(undefined)
 
       const calculateBounds = (body: RigidBody): AABB => ({
         minX: body.state.position.x - 1,
@@ -786,10 +788,8 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
         step,
         setGravity: (newGravity: Vector3) => Ref.set(gravity, newGravity),
         getGravity: () => Ref.get(gravity),
-        setTimeScale: (scale: number) => 
-          scale > 0 && scale <= 10 ? 
-            Ref.set(timeScale, scale) : 
-            Effect.fail(PhysicsSimulationError({ message: `Invalid time scale: ${scale}`, timeScale: scale })),
+        setTimeScale: (scale: number) =>
+          scale > 0 && scale <= 10 ? Ref.set(timeScale, scale) : Effect.fail(PhysicsSimulationError({ message: `Invalid time scale: ${scale}`, timeScale: scale })),
 
         checkCollisions,
         testCollision: (bodyA: RigidBodyId, bodyB: RigidBodyId) =>
@@ -801,9 +801,7 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
         getCollisionPairs: (bodyId: RigidBodyId) =>
           Effect.gen(function* () {
             const collisions = yield* checkCollisions().pipe(Effect.catchAll(() => Effect.succeed([])))
-            return collisions
-              .filter(pair => pair.bodyA === bodyId || pair.bodyB === bodyId)
-              .map(pair => pair.bodyA === bodyId ? pair.bodyB : pair.bodyA)
+            return collisions.filter((pair) => pair.bodyA === bodyId || pair.bodyB === bodyId).map((pair) => (pair.bodyA === bodyId ? pair.bodyB : pair.bodyA))
           }),
 
         raycast,
@@ -834,8 +832,7 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
         updateConstraint: () => Effect.succeed(undefined),
 
         createMaterial,
-        destroyMaterial: (materialId: PhysicsMaterialId) =>
-          Ref.update(materials, HashMap.remove(materialId)),
+        destroyMaterial: (materialId: PhysicsMaterialId) => Ref.update(materials, HashMap.remove(materialId)),
         assignMaterial: (bodyId: RigidBodyId, materialId: PhysicsMaterialId) =>
           Effect.gen(function* () {
             const body = yield* getRigidBody(bodyId)
@@ -849,8 +846,7 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
             const currentConstraints = yield* Ref.get(constraints)
             const stats = yield* Ref.get(physicsStats)
 
-            const activeBodies = Array.fromIterable(HashMap.values(bodies))
-              .filter(body => body.isActive).length
+            const activeBodies = Array.fromIterable(HashMap.values(bodies)).filter((body) => body.isActive).length
 
             return {
               totalBodies: HashMap.size(bodies),
@@ -880,9 +876,9 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
         getDebugData: () =>
           Effect.gen(function* () {
             const bodies = yield* Ref.get(rigidBodies)
-            
+
             return {
-              bodies: Array.fromIterable(HashMap.values(bodies)).map(body => ({
+              bodies: Array.fromIterable(HashMap.values(bodies)).map((body) => ({
                 id: body.id,
                 position: body.state.position,
                 rotation: body.state.rotation,
@@ -895,19 +891,38 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
               spatialPartitions: [], // Would show spatial index structure
             }
           }),
+
+        // Missing query methods used by handlers
+        getEntityVelocity: (entityId) =>
+          Effect.gen(function* () {
+            // TODO: Get velocity from rigid body - returning mock for now
+            return { x: 0, y: 0, z: 0 }
+          }),
+
+        isEntityGrounded: (entityId) =>
+          Effect.gen(function* () {
+            // TODO: Check if entity is on ground - returning mock for now
+            return true
+          }),
+
+        getAllPhysicsObjects: () =>
+          Effect.gen(function* () {
+            const bodies = yield* Ref.get(rigidBodies)
+            return Array.fromIterable(HashMap.values(bodies))
+          }),
       }
-    })
+    }),
   )
 }
-
-
 
 // Supporting classes and interfaces
 class SpatialIndex {
   insert(_id: RigidBodyId, _bounds: AABB): void {}
   remove(_id: RigidBodyId): void {}
   clear(): void {}
-  getBroadPhasePairs(): Array<[RigidBodyId, RigidBodyId]> { return [] }
+  getBroadPhasePairs(): Array<[RigidBodyId, RigidBodyId]> {
+    return []
+  }
 }
 
 interface Constraint {

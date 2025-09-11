@@ -53,7 +53,7 @@ export class ProfilingUI {
 
   constructor(
     private performanceProfiler?: PerformanceProfiler,
-    config: Partial<ProfilingUIConfig> = {}
+    config: Partial<ProfilingUIConfig> = {},
   ) {
     this.config = {
       updateInterval: 100,
@@ -71,9 +71,9 @@ export class ProfilingUI {
         frameTime: '#0099ff',
         background: '#111111',
         grid: '#333333',
-        text: '#cccccc'
+        text: '#cccccc',
       },
-      ...config
+      ...config,
     }
 
     this.chartData = {
@@ -82,7 +82,7 @@ export class ProfilingUI {
       memory: [],
       frameTime: [],
       drawCalls: [],
-      triangles: []
+      triangles: [],
     }
 
     if (import.meta.env.DEV) {
@@ -213,7 +213,7 @@ export class ProfilingUI {
 
   private createGraph(id: string, title: string, color: string): void {
     const container = document.getElementById('graphs-container')!
-    
+
     const graphContainer = document.createElement('div')
     graphContainer.style.cssText = 'margin-bottom: 16px;'
 
@@ -414,12 +414,12 @@ export class ProfilingUI {
 
     console.log('📊 Starting performance profiling...')
     this.startTime = Date.now()
-    
+
     // Update button states
     this.updateButtonState('start', true)
     this.updateButtonState('pause', false)
     this.updateButtonState('stop', false)
-    
+
     // Update recording indicator
     const indicator = document.getElementById('recording-indicator')
     if (indicator) {
@@ -495,7 +495,7 @@ export class ProfilingUI {
       memory: [],
       frameTime: [],
       drawCalls: [],
-      triangles: []
+      triangles: [],
     }
 
     this.updateGraphs()
@@ -530,7 +530,7 @@ export class ProfilingUI {
 
   private updateData(): void {
     const now = Date.now()
-    
+
     // Get current performance metrics
     let fps = 60 // Default fallback
     let memory = 0
@@ -548,13 +548,15 @@ export class ProfilingUI {
       Effect.runSync(
         Effect.gen(() => {
           return PerformanceDashboard.getRealTimeMetrics()
+        }),
+      )
+        .then((metrics: { fps: number; memoryUsage: number }) => {
+          fps = metrics.fps
+          memory = metrics.memoryUsage / 1024 / 1024 // Convert to MB
         })
-      ).then((metrics: { fps: number; memoryUsage: number }) => {
-        fps = metrics.fps
-        memory = metrics.memoryUsage / 1024 / 1024 // Convert to MB
-      }).catch(() => {
-        // Use fallback values
-      })
+        .catch(() => {
+          // Use fallback values
+        })
     } catch {
       // Use fallback values
     }
@@ -628,7 +630,7 @@ export class ProfilingUI {
       for (let i = 0; i < data.length; i++) {
         const x = (i / (data.length - 1)) * width
         const y = height - ((data[i] - min) / (max - min)) * height
-        
+
         if (i === 0) {
           ctx.moveTo(x, y)
         } else {
@@ -668,7 +670,7 @@ export class ProfilingUI {
       networkLatency: Math.random() * 100,
       diskIO: Math.random() * 100,
       batteryLevel: Math.random() * 100,
-      thermalState: 'Normal'
+      thermalState: 'Normal',
     }
 
     const metricItems = [
@@ -682,7 +684,7 @@ export class ProfilingUI {
 
     grid.innerHTML = ''
 
-    metricItems.forEach(item => {
+    metricItems.forEach((item) => {
       const metricElement = document.createElement('div')
       metricElement.style.cssText = `
         background: rgba(255, 255, 255, 0.05);
@@ -715,8 +717,8 @@ export class ProfilingUI {
         maxFPS: this.chartData.fps.length > 0 ? Math.max(...this.chartData.fps) : 0,
         avgMemory: this.chartData.memory.length > 0 ? this.chartData.memory.reduce((a, b) => a + b, 0) / this.chartData.memory.length : 0,
         maxMemory: this.chartData.memory.length > 0 ? Math.max(...this.chartData.memory) : 0,
-        samples: this.chartData.timestamps.length
-      }
+        samples: this.chartData.timestamps.length,
+      },
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })

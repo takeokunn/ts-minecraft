@@ -40,7 +40,7 @@ export const updateCameraPosition = (
   currentPosition: PositionComponent,
   targetPosition: Option.Option<PositionComponent>,
   deltaTime: number,
-  damping: number = 0.1
+  damping: number = 0.1,
 ): PositionComponent => {
   return Option.match(targetPosition, {
     onNone: () => currentPosition,

@@ -56,7 +56,7 @@ export class GameDebugger {
     this.performanceProfiler = new PerformanceProfiler()
     this.devConsole = new DevConsole(world)
     this.entityInspector = new EntityInspector(world)
-    
+
     this.state = {
       showOverlay: true,
       showPerformanceGraph: true,
@@ -68,9 +68,9 @@ export class GameDebugger {
       watchedComponents: new Set(),
       breakpoints: new Map(),
       frameByFrameMode: false,
-      stepMode: 'none'
+      stepMode: 'none',
     }
-    
+
     // 開発環境でのみ有効化
     if (import.meta.env.DEV) {
       this.enable()
@@ -222,13 +222,13 @@ export class GameDebugger {
         event.preventDefault()
         this.toggle()
       }
-      
+
       // Ctrl+Shift+D で開発者コンソールを開く
       if (event.ctrlKey && event.shiftKey && event.key === 'D') {
         event.preventDefault()
         this.devConsole.toggle()
       }
-      
+
       // Ctrl+Shift+I でエンティティインスペクターを開く
       if (event.ctrlKey && event.shiftKey && event.key === 'I') {
         event.preventDefault()
@@ -261,7 +261,7 @@ export class GameDebugger {
       Effect.gen(function* () {
         yield* Effect.log('🔗 Integrating debugger with performance system...')
         // Initialize performance monitoring if needed
-      })
+      }),
     )
   }
 
@@ -285,10 +285,10 @@ export class GameDebugger {
 
     this.currentFrame++
     this.performanceProfiler.update(deltaTime)
-    
+
     // Check breakpoints
     this.checkBreakpoints()
-    
+
     // Update overlay if not paused
     if (!this.isPaused) {
       this.updateDebugInfo()
@@ -308,14 +308,14 @@ export class GameDebugger {
 
     const stats = this.performanceProfiler.getStats()
     const entityCount = this.getEntityCount()
-    
+
     // Get real-time performance metrics
     const metrics = Effect.runSync(
       Effect.gen(function* () {
         return yield* PerformanceDashboard.getRealTimeMetrics()
-      })
+      }),
     ) as { fps: number; memoryUsage: number; memoryPercentage: number; activeLeaks: number; profiledOperations: number }
-    
+
     content.innerHTML = `
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 10px;">
           <div><strong>Frame:</strong> ${this.currentFrame}</div>
@@ -346,7 +346,7 @@ export class GameDebugger {
   togglePause(): void {
     this.isPaused = !this.isPaused
     console.log(`🎮 Game ${this.isPaused ? 'paused' : 'resumed'}`)
-    
+
     if (this.isPaused) {
       this.onGamePaused()
     } else {
@@ -364,7 +364,7 @@ export class GameDebugger {
 
   toggleRecording(): void {
     this.state.recordingSession = !this.state.recordingSession
-    
+
     if (this.state.recordingSession) {
       this.startDebuggingSession()
     } else {
@@ -388,9 +388,9 @@ export class GameDebugger {
     const report = Effect.runSync(
       Effect.gen(function* () {
         return yield* PerformanceDashboard.generateReport()
-      })
+      }),
     ) as string
-    
+
     content.innerHTML = `<pre style="font-size: 9px; line-height: 1.2; white-space: pre-wrap;">${report}</pre>`
   }
 
@@ -422,12 +422,12 @@ export class GameDebugger {
   private onBreakpointHit(breakpoint: DebugBreakpoint): void {
     this.isPaused = true
     console.log(`🔴 Breakpoint hit: ${breakpoint.id} (${breakpoint.hitCount} times)`)
-    
+
     if (breakpoint.callback) {
       breakpoint.callback({
         frame: this.currentFrame,
         breakpoint,
-        world: this.world
+        world: this.world,
       })
     }
   }
@@ -463,10 +463,10 @@ export class GameDebugger {
       metadata: {
         startFrame: this.currentFrame,
         watchedEntities: Array.from(this.state.watchedEntities),
-        watchedComponents: Array.from(this.state.watchedComponents)
-      }
+        watchedComponents: Array.from(this.state.watchedComponents),
+      },
     }
-    
+
     this.debugSessions.set(sessionId, session)
     this.recordingData = []
     console.log(`🎬 Started debugging session: ${sessionId}`)
@@ -474,15 +474,15 @@ export class GameDebugger {
   }
 
   private stopDebuggingSession(): void {
-    const activeSessions = Array.from(this.debugSessions.values()).filter(s => !s.endTime)
-    
-    activeSessions.forEach(session => {
+    const activeSessions = Array.from(this.debugSessions.values()).filter((s) => !s.endTime)
+
+    activeSessions.forEach((session) => {
       session.endTime = Date.now()
       session.data = [...this.recordingData]
       console.log(`🎬 Stopped debugging session: ${session.id}`)
       console.log(`📊 Recorded ${session.data.length} frames`)
     })
-    
+
     this.recordingData = []
   }
 
@@ -493,9 +493,9 @@ export class GameDebugger {
       deltaTime,
       stats: this.performanceProfiler.getStats(),
       watchedEntities: this.getWatchedEntitiesData(),
-      systemMetrics: this.getSystemMetrics()
+      systemMetrics: this.getSystemMetrics(),
     }
-    
+
     this.recordingData.push(frameData)
   }
 
@@ -522,27 +522,27 @@ export class GameDebugger {
   // Enhanced query debugging
   debugQuery(query: Query, context?: any): void {
     if (!this.isEnabled) return
-    
+
     console.group(`🔍 Query Debug: ${query.constructor.name}`)
     console.log('Query components:', query)
     console.log('Context:', context)
     console.log('Frame:', this.currentFrame)
     console.log('Timestamp:', new Date().toISOString())
-    
+
     // Add query to watch list if requested
     if (context?.watch) {
       console.log('Added to watch list')
     }
-    
+
     console.groupEnd()
   }
 
   // Enhanced component editing
   editComponent(entityId: string, componentType: string, newData: any): void {
     if (!this.isEnabled) return
-    
+
     console.log(`✏️ Editing component ${componentType} for entity ${entityId}`, newData)
-    
+
     // Record the edit
     if (this.state.recordingSession) {
       this.recordingData.push({
@@ -552,7 +552,7 @@ export class GameDebugger {
         entityId,
         componentType,
         oldData: null, // Get current data
-        newData
+        newData,
       })
     }
   }
@@ -576,7 +576,7 @@ export class GameDebugger {
       breakpoints: Array.from(this.breakpoints.values()),
       state: this.state,
       currentFrame: this.currentFrame,
-      performance: this.performanceProfiler.exportPerformanceData()
+      performance: this.performanceProfiler.exportPerformanceData(),
     }
   }
 
@@ -587,19 +587,19 @@ export class GameDebugger {
         this.addBreakpoint(bp)
       })
     }
-    
+
     if (config.watchedEntities) {
       config.watchedEntities.forEach((id: string) => {
         this.watchEntity(id)
       })
     }
-    
+
     if (config.watchedComponents) {
       config.watchedComponents.forEach((type: string) => {
         this.watchComponent(type)
       })
     }
-    
+
     console.log('🔧 Debug configuration imported')
   }
 

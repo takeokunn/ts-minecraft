@@ -57,7 +57,7 @@ export class StateDebugger {
 
   constructor(
     private world: World,
-    config: Partial<StateDebuggerConfig> = {}
+    config: Partial<StateDebuggerConfig> = {},
   ) {
     this.config = {
       maxSnapshots: 100,
@@ -68,7 +68,7 @@ export class StateDebugger {
       trackSystemChanges: true,
       enableDiffing: true,
       enableTimeTravelDebug: true,
-      ...config
+      ...config,
     }
 
     if (import.meta.env.DEV) {
@@ -304,10 +304,10 @@ export class StateDebugger {
       { id: 'state-tab', label: 'State', active: true },
       { id: 'diff-tab', label: 'Diff' },
       { id: 'watch-tab', label: 'Watch' },
-      { id: 'history-tab', label: 'History' }
+      { id: 'history-tab', label: 'History' },
     ]
 
-    tabButtons.forEach(tab => {
+    tabButtons.forEach((tab) => {
       const button = document.createElement('button')
       button.id = tab.id
       button.textContent = tab.label
@@ -435,12 +435,12 @@ export class StateDebugger {
         frameNumber: 0, // Would get from game loop
         memoryUsage: this.getMemoryUsage(),
         entityCount: this.getEntityCount(),
-        componentCount: this.getComponentCount()
-      }
+        componentCount: this.getComponentCount(),
+      },
     }
 
     this.snapshots.push(snapshot)
-    
+
     // Limit snapshots
     if (this.snapshots.length > this.config.maxSnapshots) {
       this.snapshots.shift()
@@ -456,21 +456,21 @@ export class StateDebugger {
 
   private captureEntities(): Map<string, any> {
     const entities = new Map()
-    
+
     // In a real implementation, you would iterate through actual entities
     // For demo purposes, we'll create placeholder data
     entities.set('player-1', {
       id: 'player-1',
       name: 'Player',
       active: true,
-      components: ['Position', 'Velocity', 'Renderable', 'Player']
+      components: ['Position', 'Velocity', 'Renderable', 'Player'],
     })
-    
+
     entities.set('camera-1', {
       id: 'camera-1',
       name: 'Camera',
       active: true,
-      components: ['Position', 'Camera']
+      components: ['Position', 'Camera'],
     })
 
     return entities
@@ -494,7 +494,7 @@ export class StateDebugger {
         data: { x: Math.random() * 100, y: Math.random() * 100, z: Math.random() * 100 },
         lastModified: Date.now(),
         version: 1,
-        dependencies: []
+        dependencies: [],
       },
       {
         id: 'vel-player-1',
@@ -503,11 +503,11 @@ export class StateDebugger {
         data: { x: (Math.random() - 0.5) * 10, y: (Math.random() - 0.5) * 10, z: (Math.random() - 0.5) * 10 },
         lastModified: Date.now(),
         version: 1,
-        dependencies: ['pos-player-1']
-      }
+        dependencies: ['pos-player-1'],
+      },
     ]
 
-    demoComponents.forEach(comp => {
+    demoComponents.forEach((comp) => {
       components.set(comp.id, comp)
     })
 
@@ -521,10 +521,10 @@ export class StateDebugger {
     const demoSystems = [
       { name: 'Physics', active: true, lastUpdate: Date.now() },
       { name: 'Rendering', active: true, lastUpdate: Date.now() },
-      { name: 'Input', active: true, lastUpdate: Date.now() }
+      { name: 'Input', active: true, lastUpdate: Date.now() },
     ]
 
-    demoSystems.forEach(system => {
+    demoSystems.forEach((system) => {
       systems.set(system.name, system)
     })
 
@@ -566,7 +566,7 @@ export class StateDebugger {
 
   private loadSnapshot(snapshot: StateSnapshot): void {
     console.log(`🕰️ Loading snapshot: ${snapshot.id}`)
-    
+
     // In a real implementation, you would restore the world state
     // This is a placeholder that shows what would happen
     console.log('Restoring entities:', snapshot.entities)
@@ -639,7 +639,7 @@ export class StateDebugger {
   private switchTab(tabId: string): void {
     // Update tab buttons
     const tabs = this.element!.querySelectorAll('[id$="-tab"]')
-    tabs.forEach(tab => {
+    tabs.forEach((tab) => {
       const button = tab as HTMLElement
       const isActive = button.id === tabId
       button.style.background = isActive ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
@@ -687,25 +687,33 @@ export class StateDebugger {
         <div>
           <h4 style="color: #00ccff; margin: 0 0 8px 0;">Entities</h4>
           <div style="background: rgba(255, 255, 255, 0.05); padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto;">
-            ${Array.from(snapshot.entities.entries()).map(([id, entity]) => `
+            ${Array.from(snapshot.entities.entries())
+              .map(
+                ([id, entity]) => `
               <div style="margin-bottom: 8px; padding: 6px; background: rgba(255, 255, 255, 0.05); border-radius: 3px;">
                 <div style="font-weight: bold;">${entity.name || id}</div>
                 <div style="font-size: 10px; color: #888;">Components: ${entity.components?.join(', ') || 'None'}</div>
               </div>
-            `).join('')}
+            `,
+              )
+              .join('')}
           </div>
         </div>
         
         <div>
           <h4 style="color: #00ccff; margin: 0 0 8px 0;">Components</h4>
           <div style="background: rgba(255, 255, 255, 0.05); padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto;">
-            ${Array.from(snapshot.components.entries()).map(([_id, component]) => `
+            ${Array.from(snapshot.components.entries())
+              .map(
+                ([_id, component]) => `
               <div style="margin-bottom: 8px; padding: 6px; background: rgba(255, 255, 255, 0.05); border-radius: 3px;">
                 <div style="font-weight: bold;">${component.type}</div>
                 <div style="font-size: 10px; color: #888;">Entity: ${component.entityId}</div>
                 <pre style="font-size: 9px; margin: 4px 0; color: #ccc; overflow: hidden;">${JSON.stringify(component.data, null, 2)}</pre>
               </div>
-            `).join('')}
+            `,
+              )
+              .join('')}
           </div>
         </div>
       </div>
@@ -741,13 +749,17 @@ export class StateDebugger {
       </div>
       
       <div style="max-height: 400px; overflow-y: auto;">
-        ${diffs.map(diff => `
+        ${diffs
+          .map(
+            (diff) => `
           <div style="margin-bottom: 8px; padding: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px; border-left: 3px solid ${this.getDiffColor(diff.type)};">
             <div style="font-weight: bold; color: ${this.getDiffColor(diff.type)};">${diff.type.toUpperCase()}: ${diff.path}</div>
             ${diff.oldValue !== undefined ? `<div style="font-size: 10px; color: #ff6666;">- ${JSON.stringify(diff.oldValue)}</div>` : ''}
             ${diff.newValue !== undefined ? `<div style="font-size: 10px; color: #66ff66;">+ ${JSON.stringify(diff.newValue)}</div>` : ''}
           </div>
-        `).join('')}
+        `,
+          )
+          .join('')}
       </div>
     `
   }
@@ -764,24 +776,36 @@ export class StateDebugger {
       <div style="margin-bottom: 16px;">
         <h4 style="color: #00ccff; margin: 0 0 8px 0;">Watched Entities</h4>
         <div style="background: rgba(255, 255, 255, 0.05); padding: 8px; border-radius: 4px; min-height: 100px;">
-          ${Array.from(this.watchedEntities).map(id => `
+          ${
+            Array.from(this.watchedEntities)
+              .map(
+                (id) => `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
               <span>${id}</span>
               <button onclick="stateDebugger.unwatchEntity('${id}')" style="${this.getButtonStyle('#d33')}">Remove</button>
             </div>
-          `).join('') || '<div style="color: #888; text-align: center;">No entities being watched</div>'}
+          `,
+              )
+              .join('') || '<div style="color: #888; text-align: center;">No entities being watched</div>'
+          }
         </div>
       </div>
       
       <div>
         <h4 style="color: #00ccff; margin: 0 0 8px 0;">Watched Components</h4>
         <div style="background: rgba(255, 255, 255, 0.05); padding: 8px; border-radius: 4px; min-height: 100px;">
-          ${Array.from(this.watchedComponents).map(type => `
+          ${
+            Array.from(this.watchedComponents)
+              .map(
+                (type) => `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
               <span>${type}</span>
               <button onclick="stateDebugger.unwatchComponent('${type}')" style="${this.getButtonStyle('#d33')}">Remove</button>
             </div>
-          `).join('') || '<div style="color: #888; text-align: center;">No components being watched</div>'}
+          `,
+              )
+              .join('') || '<div style="color: #888; text-align: center;">No components being watched</div>'
+          }
         </div>
       </div>
     `
@@ -801,7 +825,12 @@ export class StateDebugger {
       </div>
       
       <div style="max-height: 400px; overflow-y: auto;">
-        ${this.stateDiffs.slice(-50).reverse().map(diff => `
+        ${
+          this.stateDiffs
+            .slice(-50)
+            .reverse()
+            .map(
+              (diff) => `
           <div style="margin-bottom: 6px; padding: 6px; background: rgba(255, 255, 255, 0.05); border-radius: 3px; border-left: 2px solid ${this.getDiffColor(diff.type)};">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <span style="font-weight: bold; color: ${this.getDiffColor(diff.type)};">${diff.type.toUpperCase()}</span>
@@ -809,7 +838,10 @@ export class StateDebugger {
             </div>
             <div style="font-size: 10px; margin-top: 2px;">${diff.path}</div>
           </div>
-        `).join('') || '<div style="color: #888; text-align: center;">No changes recorded</div>'}
+        `,
+            )
+            .join('') || '<div style="color: #888; text-align: center;">No changes recorded</div>'
+        }
       </div>
     `
   }
@@ -825,7 +857,7 @@ export class StateDebugger {
           type: 'added',
           path: `entities.${id}`,
           newValue: entity,
-          timestamp: current.timestamp
+          timestamp: current.timestamp,
         })
       } else if (JSON.stringify(entity) !== JSON.stringify(prevEntity)) {
         diffs.push({
@@ -833,7 +865,7 @@ export class StateDebugger {
           path: `entities.${id}`,
           oldValue: prevEntity,
           newValue: entity,
-          timestamp: current.timestamp
+          timestamp: current.timestamp,
         })
       }
     })
@@ -844,7 +876,7 @@ export class StateDebugger {
           type: 'removed',
           path: `entities.${id}`,
           oldValue: entity,
-          timestamp: current.timestamp
+          timestamp: current.timestamp,
         })
       }
     })
@@ -857,7 +889,7 @@ export class StateDebugger {
           type: 'added',
           path: `components.${id}`,
           newValue: component,
-          timestamp: current.timestamp
+          timestamp: current.timestamp,
         })
       } else if (JSON.stringify(component.data) !== JSON.stringify(prevComponent.data)) {
         diffs.push({
@@ -865,7 +897,7 @@ export class StateDebugger {
           path: `components.${id}.data`,
           oldValue: prevComponent.data,
           newValue: component.data,
-          timestamp: current.timestamp
+          timestamp: current.timestamp,
         })
       }
     })
@@ -875,10 +907,14 @@ export class StateDebugger {
 
   private getDiffColor(type: string): string {
     switch (type) {
-      case 'added': return '#66ff66'
-      case 'removed': return '#ff6666'
-      case 'modified': return '#ffaa00'
-      default: return '#cccccc'
+      case 'added':
+        return '#66ff66'
+      case 'removed':
+        return '#ff6666'
+      case 'modified':
+        return '#ffaa00'
+      default:
+        return '#cccccc'
     }
   }
 
@@ -908,7 +944,7 @@ export class StateDebugger {
   // Auto snapshot
   private toggleAutoSnapshot(): void {
     this.config.autoSnapshot = !this.config.autoSnapshot
-    
+
     const button = document.getElementById('auto-snapshot-btn')
     if (button) {
       button.style.background = this.config.autoSnapshot ? '#28a745' : '#333'
@@ -943,7 +979,7 @@ export class StateDebugger {
       snapshots: this.snapshots,
       watchedEntities: Array.from(this.watchedEntities),
       watchedComponents: Array.from(this.watchedComponents),
-      stateDiffs: this.stateDiffs
+      stateDiffs: this.stateDiffs,
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
@@ -973,11 +1009,11 @@ export class StateDebugger {
             this.watchedComponents = new Set(data.watchedComponents || [])
             this.stateDiffs = data.stateDiffs || []
             this.currentSnapshotIndex = this.snapshots.length - 1
-            
+
             this.updateSnapshotList()
             this.updateSnapshotCounter()
             this.updateSnapshotSelection()
-            
+
             console.log('📂 State debug session imported')
           } catch (error) {
             console.error('Failed to import session:', error)
@@ -1014,7 +1050,7 @@ export class StateDebugger {
 
   public updateConfig(newConfig: Partial<StateDebuggerConfig>): void {
     this.config = { ...this.config, ...newConfig }
-    
+
     if (this.config.autoSnapshot) {
       this.startAutoSnapshot()
     } else {
@@ -1029,12 +1065,12 @@ export class StateDebugger {
   public destroy(): void {
     this.close()
     this.stopAutoSnapshot()
-    
+
     if (this.element) {
       document.body.removeChild(this.element)
       this.element = null
     }
-    
+
     console.log('🔬 State Debugger destroyed')
   }
 }

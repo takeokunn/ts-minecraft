@@ -7,23 +7,23 @@ import { Layer } from 'effect'
 import { ComponentName } from '@/domain/entities/components'
 
 // Core query system exports
-import { 
-  query, 
-  soaQuery, 
-  aosQuery, 
+import {
+  query,
+  soaQuery,
+  aosQuery,
   QueryMetrics,
   QueryBuilderService,
   QueryBuilderServiceLive,
   SoAQueryService,
   SoAQueryServiceLive,
   AoSQueryService,
-  AoSQueryServiceLive
+  AoSQueryServiceLive,
 } from './builder'
 
 // Legacy query instances
-export { 
+export {
   playerQuery,
-  playerTargetQuery, 
+  playerTargetQuery,
   playerColliderQuery,
   positionColliderQuery,
   physicsQuery,
@@ -31,36 +31,18 @@ export {
   chunkLoaderQuery,
   playerMovementQuery,
   playerInputQuery,
-  terrainBlockQuery
+  terrainBlockQuery,
 } from '../queries'
 
 // Domain layer should not depend on application layer
 // Removed dependency: export { queries } from '../../application/queries'
 // Use queryConfigs instead for domain-level query configurations
 
-import { 
-  OptimizedQueryService,
-  OptimizedQueryServiceLive,
-  ComponentIndexService,
-  ComponentIndexServiceLive
-} from './optimized-query'
+import { OptimizedQueryService, OptimizedQueryServiceLive, ComponentIndexService, ComponentIndexServiceLive } from './optimized-query'
 
-import {
-  ArchetypeQueryService,
-  ArchetypeQueryServiceLive,
-  ArchetypeManagerService,
-  ArchetypeManagerServiceLive,
-  ArchetypeService
-} from './archetype-query'
+import { ArchetypeQueryService, ArchetypeQueryServiceLive, ArchetypeManagerService, ArchetypeManagerServiceLive, ArchetypeService } from './archetype-query'
 
-import {
-  QueryCacheService,
-  GlobalQueryCacheServiceLive,
-  CacheKeyGeneratorService,
-  CacheKeyGeneratorServiceLive,
-  EvictionPolicy,
-  defaultCacheConfig
-} from './cache'
+import { QueryCacheService, GlobalQueryCacheServiceLive, CacheKeyGeneratorService, CacheKeyGeneratorServiceLive, EvictionPolicy, defaultCacheConfig } from './cache'
 
 export {
   query,
@@ -91,13 +73,7 @@ export {
   ArchetypeQueryServiceLive,
 } from './archetype-query'
 
-export {
-  OptimizedQuery,
-  OptimizedQueryService,
-  OptimizedQueryServiceLive,
-  ComponentIndexService,
-  ComponentIndexServiceLive,
-} from './optimized-query'
+export { OptimizedQuery, OptimizedQueryService, OptimizedQueryServiceLive, ComponentIndexService, ComponentIndexServiceLive } from './optimized-query'
 
 export {
   QueryCache,
@@ -124,7 +100,7 @@ export const QuerySystemLive = Layer.mergeAll(
   ArchetypeQueryServiceLive,
   OptimizedQueryServiceLive,
   CacheKeyGeneratorServiceLive,
-  GlobalQueryCacheServiceLive
+  GlobalQueryCacheServiceLive,
 )
 
 // Legacy query compatibility layer
@@ -148,10 +124,7 @@ export type LegacyQueryResult<T extends ReadonlyArray<ComponentName>> = {
  * Create legacy query for backward compatibility
  * @deprecated Use the new query builder API instead
  */
-export const createQuery = <T extends ReadonlyArray<ComponentName>>(
-  name: string, 
-  components: T
-): LegacyQuery<T> => {
+export const createQuery = <T extends ReadonlyArray<ComponentName>>(name: string, components: T): LegacyQuery<T> => {
   const set = new Set(components)
   return {
     name,
@@ -267,9 +240,13 @@ export const queryConfigs = {
     predicate: (entity: any) => {
       const velocity = entity.get('velocity')
       // Assuming velocity has a magnitude property or method
-      return velocity && typeof velocity === 'object' && 'magnitude' in velocity && 
-             typeof (velocity as { magnitude: unknown }).magnitude === 'number' && 
-             (velocity as { magnitude: number }).magnitude > 0
+      return (
+        velocity &&
+        typeof velocity === 'object' &&
+        'magnitude' in velocity &&
+        typeof (velocity as { magnitude: unknown }).magnitude === 'number' &&
+        (velocity as { magnitude: number }).magnitude > 0
+      )
     },
     priority: 7,
   },
@@ -390,10 +367,10 @@ export class QueryProfiler {
     if (!this.profiles.has(queryName)) {
       this.profiles.set(queryName, [])
     }
-    
+
     const queryProfiles = this.profiles.get(queryName)!
     queryProfiles.push(metrics)
-    
+
     // Keep only last 100 executions
     if (queryProfiles.length > 100) {
       queryProfiles.shift()
@@ -409,9 +386,9 @@ export class QueryProfiler {
       return null
     }
 
-    const execTimes = profiles.map(p => p.executionTime)
-    const scannedCounts = profiles.map(p => p.entitiesScanned)
-    const matchedCounts = profiles.map(p => p.entitiesMatched)
+    const execTimes = profiles.map((p) => p.executionTime)
+    const scannedCounts = profiles.map((p) => p.entitiesScanned)
+    const matchedCounts = profiles.map((p) => p.entitiesMatched)
 
     return {
       executionCount: profiles.length,
@@ -429,11 +406,11 @@ export class QueryProfiler {
    */
   static getAllStats() {
     const stats: Record<string, any> = {}
-    
+
     for (const queryName of this.profiles.keys()) {
       stats[queryName] = this.getStats(queryName)
     }
-    
+
     return stats
   }
 

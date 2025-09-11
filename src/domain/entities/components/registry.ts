@@ -1,6 +1,6 @@
 /**
  * Component Registry with Automatic Registration System
- * 
+ *
  * This registry provides:
  * - Automatic component registration
  * - Archetype-based query optimization
@@ -9,7 +9,7 @@
  * - Performance optimizations through archetype caching
  */
 
-import * as S from "effect/Schema"
+import * as S from 'effect/Schema'
 import * as Data from 'effect/Data'
 import * as HashMap from 'effect/HashMap'
 import * as Array from 'effect/Array'
@@ -60,20 +60,11 @@ export type Component<T = unknown> = {
 
 // Type guard for component validation
 export function isComponent<T>(value: unknown, tag: string): value is Component<T> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    '_tag' in value &&
-    (value as { _tag: unknown })._tag === tag &&
-    'data' in value
-  )
+  return typeof value === 'object' && value !== null && '_tag' in value && (value as { _tag: unknown })._tag === tag && 'data' in value
 }
 
 // Type guard for checking if entity has component
-export function hasComponent<T extends Record<string, Component>>(
-  entity: T, 
-  componentId: keyof T
-): componentId is keyof T {
+export function hasComponent<T extends Record<string, Component>>(entity: T, componentId: keyof T): componentId is keyof T {
   return componentId in entity && isComponent(entity[componentId], componentId as string)
 }
 
@@ -103,7 +94,7 @@ export class ComponentRegistry {
       ...this.state,
       components: HashMap.set(this.state.components, meta.id, meta),
     })
-    
+
     // Initialize SoA buffer for physics and performance-critical components
     if (meta.category === 'physics' || meta.priority === 1) {
       this.initializeSoABuffer(meta.id, meta.schema)
@@ -113,9 +104,7 @@ export class ComponentRegistry {
   /**
    * Get component metadata with type safety
    */
-  getComponent<TSchema extends S.Schema<any, any, any>>(
-    id: string
-  ): Option.Option<ComponentMeta<TSchema>> {
+  getComponent<TSchema extends S.Schema<any, any, any>>(id: string): Option.Option<ComponentMeta<TSchema>> {
     return HashMap.get(this.state.components, id) as Option.Option<ComponentMeta<TSchema>>
   }
 
@@ -123,11 +112,7 @@ export class ComponentRegistry {
    * Get all components in a category
    */
   getComponentsByCategory(category: ComponentMeta['category']): readonly ComponentMeta[] {
-    return Array.fromIterable(
-      HashMap.values(
-        HashMap.filter(this.state.components, (meta) => meta.category === category)
-      )
-    )
+    return Array.fromIterable(HashMap.values(HashMap.filter(this.state.components, (meta) => meta.category === category)))
   }
 
   /**
@@ -139,35 +124,27 @@ export class ComponentRegistry {
       return result < 0 ? -1 : result > 0 ? 1 : 0
     })
     const archetypeKey = signature.join('|')
-    
-    return Option.getOrElse(
-      HashMap.get(this.state.archetypes, archetypeKey),
-      () => {
-        const archetype = this.createArchetype(signature)
-        this.state = Data.struct({
-          ...this.state,
-          archetypes: HashMap.set(this.state.archetypes, archetypeKey, archetype),
-        })
-        return archetype
-      }
-    )
+
+    return Option.getOrElse(HashMap.get(this.state.archetypes, archetypeKey), () => {
+      const archetype = this.createArchetype(signature)
+      this.state = Data.struct({
+        ...this.state,
+        archetypes: HashMap.set(this.state.archetypes, archetypeKey, archetype),
+      })
+      return archetype
+    })
   }
 
   /**
    * Query entities by component requirements with enhanced type safety
    */
-  query<TComponents extends Record<string, Component>>(
-    required: readonly (keyof TComponents)[], 
-    _optional: readonly string[] = []
-  ): QueryResult<TComponents> {
+  query<TComponents extends Record<string, Component>>(required: readonly (keyof TComponents)[], _optional: readonly string[] = []): QueryResult<TComponents> {
     const componentIds = required as readonly string[]
     const archetype = this.getArchetype(componentIds)
     return {
       entities: archetype.entities,
-      getComponent: <T>(entityId: number, componentId: keyof TComponents) => 
-        this.getEntityComponent<T>(entityId, componentId as string),
-      hasComponent: (entityId: number, componentId: keyof TComponents) =>
-        this.hasEntityComponent(entityId, componentId as string),
+      getComponent: <T>(entityId: number, componentId: keyof TComponents) => this.getEntityComponent<T>(entityId, componentId as string),
+      hasComponent: (entityId: number, componentId: keyof TComponents) => this.hasEntityComponent(entityId, componentId as string),
       storageLayout: archetype.storageLayout,
     }
   }
@@ -200,7 +177,7 @@ export class ComponentRegistry {
   private createArchetype(componentIds: readonly string[]): ArchetypeInfo {
     // Determine optimal storage layout based on component types
     const storageLayout = this.determineOptimalStorageLayout(componentIds)
-    
+
     return Data.struct({
       signature: componentIds,
       entities: [],
@@ -224,11 +201,11 @@ export class ComponentRegistry {
   }
 
   private determineOptimalStorageLayout(componentIds: readonly string[]): StorageLayout {
-    const physicsComponents = componentIds.filter(id => {
+    const physicsComponents = componentIds.filter((id) => {
       const meta = HashMap.get(this.state.components, id)
       return Option.match(meta, {
         onNone: () => false,
-        onSome: (m) => m.category === 'physics'
+        onSome: (m) => m.category === 'physics',
       })
     })
 
@@ -252,11 +229,7 @@ export class ComponentRegistry {
   }
 
   private calculateMemoryUsage(): number {
-    return Array.reduce(
-      Array.fromIterable(HashMap.values(this.state.soaBuffers)),
-      0,
-      (acc, buffer) => acc + (buffer as SoABuffer).data.byteLength
-    )
+    return Array.reduce(Array.fromIterable(HashMap.values(this.state.soaBuffers)), 0, (acc, buffer) => acc + (buffer as SoABuffer).data.byteLength)
   }
 }
 
@@ -280,9 +253,8 @@ export interface RegistryMetrics {
 export const globalRegistry = new ComponentRegistry()
 
 // Enhanced decorator for automatic component registration with typing
-export const RegisterComponent = <TSchema extends S.Schema<any, any, any>>(
-  meta: Omit<ComponentMeta<TSchema>, 'schema' | '_tag'>
-) => 
+export const RegisterComponent =
+  <TSchema extends S.Schema<any, any, any>>(meta: Omit<ComponentMeta<TSchema>, 'schema' | '_tag'>) =>
   (schema: TSchema): TSchema => {
     globalRegistry.register({
       ...meta,

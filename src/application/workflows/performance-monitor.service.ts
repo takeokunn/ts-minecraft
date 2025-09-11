@@ -1,6 +1,6 @@
 /**
  * Performance Monitor Service - Effect-TS Implementation
- * 
+ *
  * Converted from class-based implementation to functional Effect-TS service
  * Features:
  * - Real-time performance metrics collection
@@ -17,7 +17,7 @@ import { Effect, Context, Layer, Option, Ref } from 'effect'
 /**
  * Performance metric types
  */
-export type PerformanceMetricType = 
+export type PerformanceMetricType =
   | 'execution_time'
   | 'memory_usage'
   | 'cpu_usage'
@@ -131,7 +131,10 @@ export interface PerformanceMonitorConfig {
  */
 export class PerformanceMonitorError extends Error {
   readonly _tag = 'PerformanceMonitorError'
-  constructor(message: string, readonly cause?: unknown) {
+  constructor(
+    message: string,
+    readonly cause?: unknown,
+  ) {
     super(message)
   }
 }
@@ -144,13 +147,7 @@ export interface PerformanceMonitorService {
   readonly startSystem: (systemId: string) => Effect.Effect<void>
   readonly endSystem: (systemId: string) => Effect.Effect<void>
   readonly endFrame: () => Effect.Effect<FramePerformanceSummary>
-  readonly recordMetric: (
-    type: PerformanceMetricType,
-    systemId: string,
-    value: number,
-    unit: string,
-    metadata?: Record<string, any>
-  ) => Effect.Effect<void>
+  readonly recordMetric: (type: PerformanceMetricType, systemId: string, value: number, unit: string, metadata?: Record<string, any>) => Effect.Effect<void>
   readonly getSystemStats: (systemId: string, type: PerformanceMetricType) => Effect.Effect<Option.Option<PerformanceStats>>
   readonly getSystemProfile: (systemId: string) => Effect.Effect<SystemPerformanceProfile>
   readonly getActiveAlerts: () => Effect.Effect<readonly PerformanceAlert[]>
@@ -206,17 +203,17 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
        */
       const calculateTrend = (values: number[]): 'improving' | 'degrading' | 'stable' => {
         if (values.length < 10) return 'stable'
-        
+
         const recentValues = values.slice(-10)
         const earlierValues = values.slice(-20, -10)
-        
+
         if (earlierValues.length === 0) return 'stable'
-        
+
         const recentAvg = recentValues.reduce((sum, val) => sum + val, 0) / recentValues.length
         const earlierAvg = earlierValues.reduce((sum, val) => sum + val, 0) / earlierValues.length
-        
-        const changePercent = (recentAvg - earlierAvg) / earlierAvg * 100
-        
+
+        const changePercent = ((recentAvg - earlierAvg) / earlierAvg) * 100
+
         if (changePercent < -5) return 'improving' // Lower values are better for most metrics
         if (changePercent > 5) return 'degrading'
         return 'stable'
@@ -229,25 +226,25 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
         Effect.gen(function* () {
           if (metrics.length === 0) return
 
-          const values = metrics.map(m => m.value)
+          const values = metrics.map((m) => m.value)
           const sorted = [...values].sort((a, b) => a - b)
-          
+
           const min = Math.min(...values)
           const max = Math.max(...values)
           const average = values.reduce((sum, val) => sum + val, 0) / values.length
           const median = sorted[Math.floor(sorted.length / 2)]
           const p95 = sorted[Math.floor(sorted.length * 0.95)]
           const p99 = sorted[Math.floor(sorted.length * 0.99)]
-          
+
           // Calculate standard deviation
           const variance = values.reduce((sum, val) => sum + Math.pow(val - average, 2), 0) / values.length
           const standardDeviation = Math.sqrt(variance)
-          
+
           // Calculate trend
           const trend = calculateTrend(values)
-          
+
           const lastMetric = metrics[metrics.length - 1]!
-          
+
           const stats: PerformanceStats = {
             metricType: lastMetric.type,
             systemId: lastMetric.systemId,
@@ -261,8 +258,8 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
             standardDeviation,
             trend,
           }
-          
-          yield* Ref.update(statsRef, statsMap => {
+
+          yield* Ref.update(statsRef, (statsMap) => {
             const updated = new Map(statsMap)
             updated.set(key, stats)
             return updated
@@ -274,15 +271,15 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
        */
       const cleanupOldMetrics = Effect.gen(function* () {
         const cutoffTime = Date.now() - config.metricsRetentionMs
-        
-        yield* Ref.update(metricsRef, metricsMap => {
+
+        yield* Ref.update(metricsRef, (metricsMap) => {
           const updated = new Map(metricsMap)
-          
+
           for (const [key, metricList] of updated) {
-            const filteredMetrics = metricList.filter(metric => metric.timestamp > cutoffTime)
+            const filteredMetrics = metricList.filter((metric) => metric.timestamp > cutoffTime)
             updated.set(key, filteredMetrics)
           }
-          
+
           return updated
         })
       })
@@ -293,31 +290,31 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
       const addMetric = (metric: PerformanceMetric) =>
         Effect.gen(function* () {
           const key = `${metric.systemId}_${metric.type}`
-          
-          yield* Ref.update(metricsRef, metricsMap => {
+
+          yield* Ref.update(metricsRef, (metricsMap) => {
             const updated = new Map(metricsMap)
-            
+
             if (!updated.has(key)) {
               updated.set(key, [])
             }
-            
+
             const metricList = updated.get(key)!
             const newMetricList = [...metricList, metric]
-            
+
             // Limit history size
             if (newMetricList.length > config.historySize) {
               newMetricList.shift()
             }
-            
+
             updated.set(key, newMetricList)
             return updated
           })
-          
+
           // Update statistics
           const metrics = yield* Ref.get(metricsRef)
           const updatedMetrics = metrics.get(key) || []
           yield* updateStats(key, updatedMetrics)
-          
+
           // Cleanup old metrics
           yield* cleanupOldMetrics
         })
@@ -331,15 +328,15 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
             if (!threshold.enabled) continue
             if (threshold.metricType !== metric.type) continue
             if (threshold.systemId && threshold.systemId !== metric.systemId) continue
-            
+
             let level: 'warning' | 'critical' | null = null
-            
+
             if (metric.value >= threshold.criticalValue) {
               level = 'critical'
             } else if (metric.value >= threshold.warningValue) {
               level = 'warning'
             }
-            
+
             if (level) {
               const alert: PerformanceAlert = {
                 id: `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -350,8 +347,8 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
                 resolved: false,
                 description: `${metric.systemId} ${metric.type} (${metric.value}${metric.unit}) exceeded ${level} threshold (${level === 'critical' ? threshold.criticalValue : threshold.warningValue}${metric.unit})`,
               }
-              
-              yield* Ref.update(alertsRef, alerts => {
+
+              yield* Ref.update(alertsRef, (alerts) => {
                 const updated = [...alerts, alert]
                 // Limit alert history
                 return updated.length > 100 ? updated.slice(-100) : updated
@@ -365,33 +362,30 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
        */
       const findBottleneckSystem = (systemBreakdown: Map<string, number>): Option.Option<string> => {
         if (systemBreakdown.size === 0) return Option.none()
-        
+
         let maxTime = 0
         let bottleneckSystem = ''
-        
+
         for (const [systemId, time] of systemBreakdown) {
           if (time > maxTime) {
             maxTime = time
             bottleneckSystem = systemId
           }
         }
-        
+
         return bottleneckSystem ? Option.some(bottleneckSystem) : Option.none()
       }
 
       /**
        * Calculate recommended quality level based on performance
        */
-      const calculateRecommendedQuality = (
-        frameTime: number,
-        targetFrameTime: number
-      ): 'low' | 'medium' | 'high' | 'ultra' => {
+      const calculateRecommendedQuality = (frameTime: number, targetFrameTime: number): 'low' | 'medium' | 'high' | 'ultra' => {
         const ratio = frameTime / targetFrameTime
-        
-        if (ratio > 2.0) return 'low'      // Running at <30fps, need low quality
-        if (ratio > 1.5) return 'medium'   // Running at ~40fps, use medium quality
-        if (ratio > 1.1) return 'high'     // Running at ~55fps, use high quality
-        return 'ultra'                     // Running at 60fps+, can use ultra quality
+
+        if (ratio > 2.0) return 'low' // Running at <30fps, need low quality
+        if (ratio > 1.5) return 'medium' // Running at ~40fps, use medium quality
+        if (ratio > 1.1) return 'high' // Running at ~55fps, use high quality
+        return 'ultra' // Running at 60fps+, can use ultra quality
       }
 
       /**
@@ -401,10 +395,10 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
         Effect.gen(function* () {
           const currentQuality = yield* Ref.get(qualityLevelRef)
           if (newQuality === currentQuality) return
-          
+
           console.log(`Performance Monitor: Adjusting quality level from ${currentQuality} to ${newQuality}`)
           yield* Ref.set(qualityLevelRef, newQuality)
-          
+
           // Here you would send messages to systems to adjust their quality settings
           // This would integrate with the communication hub
         })
@@ -416,19 +410,19 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
         Effect.gen(function* () {
           const stats = yield* Ref.get(statsRef)
           const executionStats = stats.get(`${systemId}_execution_time`)
-          
+
           if (!executionStats) return 0
-          
+
           // Higher score = more likely to be a bottleneck
           // Based on average execution time, trend, and variance
           let score = executionStats.average / 10 // Base score from execution time
-          
+
           // Add penalty for degrading performance
           if (executionStats.trend === 'degrading') score += 20
-          
+
           // Add penalty for high variance (inconsistent performance)
           score += executionStats.standardDeviation / 5
-          
+
           return Math.min(100, Math.max(0, score))
         })
 
@@ -439,34 +433,34 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
         systemId: string,
         executionTime: Option.Option<PerformanceStats>,
         memoryUsage: Option.Option<PerformanceStats>,
-        queryPerformance: Option.Option<PerformanceStats>
+        queryPerformance: Option.Option<PerformanceStats>,
       ): string[] => {
         const recommendations: string[] = []
-        
+
         if (Option.isSome(executionTime)) {
           const stats = executionTime.value
-          
+
           if (stats.average > 10) {
             recommendations.push(`Consider optimizing ${systemId} execution time (avg: ${stats.average.toFixed(2)}ms)`)
           }
-          
+
           if (stats.trend === 'degrading') {
             recommendations.push(`${systemId} performance is degrading, investigate recent changes`)
           }
-          
+
           if (stats.standardDeviation > stats.average * 0.5) {
             recommendations.push(`${systemId} has inconsistent performance, check for frame spikes`)
           }
         }
-        
+
         if (Option.isSome(queryPerformance)) {
           const stats = queryPerformance.value
-          
+
           if (stats.average > 5) {
             recommendations.push(`Optimize queries in ${systemId} (avg: ${stats.average.toFixed(2)}ms)`)
           }
         }
-        
+
         return recommendations
       }
 
@@ -497,7 +491,7 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
         startSystem: (systemId: string) =>
           Effect.gen(function* () {
             if (!config.enabled) return
-            yield* Ref.update(systemStartTimesRef, times => {
+            yield* Ref.update(systemStartTimesRef, (times) => {
               const updated = new Map(times)
               updated.set(systemId, performance.now())
               return updated
@@ -507,14 +501,14 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
         endSystem: (systemId: string) =>
           Effect.gen(function* () {
             if (!config.enabled) return
-            
+
             const startTimes = yield* Ref.get(systemStartTimesRef)
             const startTime = startTimes.get(systemId)
             if (!startTime) return
-            
+
             const executionTime = performance.now() - startTime
             const currentFrameId = yield* Ref.get(currentFrameIdRef)
-            
+
             const metric: PerformanceMetric = {
               type: 'execution_time',
               systemId,
@@ -523,11 +517,11 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
               timestamp: Date.now(),
               frameId: currentFrameId,
             }
-            
+
             yield* addMetric(metric)
             yield* checkThresholds(metric)
-            
-            yield* Ref.update(systemStartTimesRef, times => {
+
+            yield* Ref.update(systemStartTimesRef, (times) => {
               const updated = new Map(times)
               updated.delete(systemId)
               return updated
@@ -541,30 +535,30 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
             const targetFrameTime = 1000 / config.targetFrameRate
             const frameRate = 1000 / frameTime
             const currentFrameId = yield* Ref.get(currentFrameIdRef)
-            
+
             // Collect system execution times from this frame
             const systemBreakdown = new Map<string, number>()
             const metrics = yield* Ref.get(metricsRef)
-            
+
             for (const [key, metricList] of metrics) {
               if (key.endsWith('_execution_time')) {
                 const systemId = key.replace('_execution_time', '')
-                const currentFrameMetrics = metricList.filter(m => m.frameId === currentFrameId)
-                
+                const currentFrameMetrics = metricList.filter((m) => m.frameId === currentFrameId)
+
                 if (currentFrameMetrics.length > 0) {
                   const totalTime = currentFrameMetrics.reduce((sum, m) => sum + m.value, 0)
                   systemBreakdown.set(systemId, totalTime)
                 }
               }
             }
-            
+
             // Find bottleneck system
             const bottleneckSystem = findBottleneckSystem(systemBreakdown)
-            
+
             // Determine recommended quality level
             const recommendedQuality = calculateRecommendedQuality(frameTime, targetFrameTime)
             const qualityLevel = yield* Ref.get(qualityLevelRef)
-            
+
             const summary: FramePerformanceSummary = {
               frameId: currentFrameId,
               timestamp: Date.now(),
@@ -576,24 +570,24 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
               qualityLevel,
               recommendedQuality,
             }
-            
-            yield* Ref.update(frameHistoryRef, history => {
+
+            yield* Ref.update(frameHistoryRef, (history) => {
               const updated = [...history, summary]
               return updated.length > config.historySize ? updated.slice(-config.historySize) : updated
             })
-            
+
             // Apply automatic optimization if enabled
             if (config.enableAutomaticOptimization && recommendedQuality !== qualityLevel) {
               yield* adjustQualityLevel(recommendedQuality)
             }
-            
+
             return summary
           }),
 
         recordMetric: (type, systemId, value, unit, metadata) =>
           Effect.gen(function* () {
             if (!config.enabled) return
-            
+
             const currentFrameId = yield* Ref.get(currentFrameIdRef)
             const metric: PerformanceMetric = {
               type,
@@ -604,7 +598,7 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
               frameId: currentFrameId,
               metadata,
             }
-            
+
             yield* addMetric(metric)
             yield* checkThresholds(metric)
           }),
@@ -619,17 +613,17 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
         getSystemProfile: (systemId: string) =>
           Effect.gen(function* () {
             const stats = yield* Ref.get(statsRef)
-            
+
             const executionTime = Option.fromNullable(stats.get(`${systemId}_execution_time`))
             const memoryUsage = Option.fromNullable(stats.get(`${systemId}_memory_usage`))
             const queryPerformance = Option.fromNullable(stats.get(`${systemId}_query_performance`))
-            
+
             // Calculate bottleneck score
             const bottleneckScore = yield* calculateBottleneckScore(systemId)
-            
+
             // Generate recommendations
             const recommendations = generateRecommendations(systemId, executionTime, memoryUsage, queryPerformance)
-            
+
             return {
               systemId,
               executionTime: Option.isSome(executionTime) ? executionTime.value : createEmptyStats(systemId, 'execution_time'),
@@ -643,7 +637,7 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
         getActiveAlerts: () =>
           Effect.gen(function* () {
             const alerts = yield* Ref.get(alertsRef)
-            return alerts.filter(alert => !alert.resolved)
+            return alerts.filter((alert) => !alert.resolved)
           }),
 
         getFrameHistory: (count = 60) =>
@@ -659,7 +653,7 @@ export const PerformanceMonitorServiceLive = (config: PerformanceMonitorConfig =
             return metrics.get(key) || []
           }),
       })
-    })
+    }),
   )
 
 /**
@@ -669,21 +663,16 @@ export const PerformanceUtils = {
   /**
    * Create performance monitoring decorator for system functions
    */
-  withPerformanceMonitoring: <Args extends readonly unknown[], Return>(
-    systemId: string,
-    originalMethod: (...args: Args) => Effect.Effect<Return, any, any>
-  ) =>
+  withPerformanceMonitoring:
+    <Args extends readonly unknown[], Return>(systemId: string, originalMethod: (...args: Args) => Effect.Effect<Return, any, any>) =>
     (...args: Args): Effect.Effect<Return, any, any> =>
       Effect.gen(function* () {
         const monitor = yield* PerformanceMonitorService
-        
+
         yield* monitor.startSystem(systemId)
-        
-        const result = yield* Effect.ensuring(
-          originalMethod(...args),
-          monitor.endSystem(systemId)
-        )
-        
+
+        const result = yield* Effect.ensuring(originalMethod(...args), monitor.endSystem(systemId))
+
         return result
       }),
 
@@ -693,7 +682,7 @@ export const PerformanceUtils = {
   trackMemoryUsage: (systemId: string) =>
     Effect.gen(function* () {
       const monitor = yield* PerformanceMonitorService
-      
+
       if (typeof performance !== 'undefined' && 'memory' in performance) {
         const memory = (performance as { memory: MemoryInfo }).memory
         yield* monitor.recordMetric('memory_usage', systemId, memory.usedJSHeapSize / 1024 / 1024, 'MB')
@@ -708,18 +697,18 @@ export const PerformanceUtils = {
       const monitor = yield* PerformanceMonitorService
       const frameHistory = yield* monitor.getFrameHistory(60)
       const alerts = yield* monitor.getActiveAlerts()
-      
+
       let report = '=== Performance Report ===\n\n'
-      
+
       if (frameHistory.length > 0) {
         const avgFrameTime = frameHistory.reduce((sum, f) => sum + f.totalFrameTime, 0) / frameHistory.length
         const avgFrameRate = frameHistory.reduce((sum, f) => sum + f.frameRate, 0) / frameHistory.length
-        
+
         report += `Average Frame Time: ${avgFrameTime.toFixed(2)}ms\n`
         report += `Average Frame Rate: ${avgFrameRate.toFixed(1)} FPS\n`
         report += `Quality Level: ${frameHistory[frameHistory.length - 1]?.qualityLevel || 'unknown'}\n\n`
       }
-      
+
       if (alerts.length > 0) {
         report += `Active Alerts (${alerts.length}):\n`
         for (const alert of alerts.slice(0, 5)) {
@@ -727,7 +716,7 @@ export const PerformanceUtils = {
         }
         report += '\n'
       }
-      
+
       return report
     }),
 }
@@ -735,5 +724,4 @@ export const PerformanceUtils = {
 /**
  * Create performance monitor service with custom configuration
  */
-export const createPerformanceMonitorService = (config: Partial<PerformanceMonitorConfig> = {}) =>
-  PerformanceMonitorServiceLive({ ...defaultPerformanceMonitorConfig, ...config })
+export const createPerformanceMonitorService = (config: Partial<PerformanceMonitorConfig> = {}) => PerformanceMonitorServiceLive({ ...defaultPerformanceMonitorConfig, ...config })

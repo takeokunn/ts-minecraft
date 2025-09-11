@@ -1,6 +1,6 @@
 /**
  * Unified Application Layer Composition
- * 
+ *
  * This file provides the main layer composition using the unified infrastructure
  * layer system. All services are now consolidated in the unified.layer.ts file.
  */
@@ -18,7 +18,7 @@ import {
   InputServicesLive,
   UIServicesLive,
   UnifiedAppLive,
-  
+
   // Preset configurations
   MinimalLive,
   HeadlessLive,
@@ -26,7 +26,7 @@ import {
   ProductionLive,
   buildCustomLayer,
   getRuntimeLayer,
-  
+
   // Service definitions for dependency injection
   Clock,
   Stats,
@@ -44,14 +44,17 @@ import {
   WorldDomainService,
   PhysicsDomainService,
   EntityDomainService,
-  
+
   // Types
   type PerformanceStats,
   type InputState,
   type RenderCommandType,
   type RaycastResult,
-  type WorldState
+  type WorldState,
 } from '@/infrastructure/layers/unified.layer'
+
+// Import application layer
+import { ApplicationLayer } from '@/application/application-layer'
 
 // ===== LAYER COMPOSITIONS BY ARCHITECTURE TIER =====
 
@@ -65,21 +68,13 @@ export const DomainLayer = DomainServicesLive
  * Infrastructure Layer - Technical infrastructure services
  * Contains implementations of ports defined by domain/application layers
  */
-export const InfrastructureLayer = Layer.mergeAll(
-  CoreServicesLive,
-  RenderingServicesLive,
-  InputServicesLive,
-  WorkerServicesLive
-)
+export const InfrastructureLayer = Layer.mergeAll(CoreServicesLive, RenderingServicesLive, InputServicesLive, WorkerServicesLive)
 
 /**
  * Application Layer - Application services and use cases
  * Orchestrates domain services to implement business use cases
  */
-export const ApplicationLayer = Layer.mergeAll(
-  WorldServicesLive,
-  // Additional application services would go here
-)
+export const ApplicationServicesLayer = ApplicationLayer
 
 /**
  * Presentation Layer - UI and presentation services
@@ -93,7 +88,7 @@ export const PresentationLayer = UIServicesLive
  * Complete unified application layer - all services composed
  * This is the main layer used in production
  */
-export const AppLayer = UnifiedAppLive
+export const AppLayer = Layer.mergeAll(UnifiedAppLive, ApplicationLayer)
 
 /**
  * Development layer with debug capabilities
@@ -163,22 +158,16 @@ export {
   RenderCommand,
   Raycast,
   UIService,
-  
+
   // Domain Services
   WorldDomainService,
   PhysicsDomainService,
-  EntityDomainService
+  EntityDomainService,
 }
 
 // ===== TYPE EXPORTS =====
 
-export type {
-  PerformanceStats,
-  InputState,
-  RenderCommandType,
-  RaycastResult,
-  WorldState
-}
+export type { PerformanceStats, InputState, RenderCommandType, RaycastResult, WorldState }
 
 // ===== BACKWARDS COMPATIBILITY =====
 

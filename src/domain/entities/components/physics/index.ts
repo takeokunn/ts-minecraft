@@ -1,6 +1,6 @@
 /**
  * Physics Components - Redesigned for Performance Optimization
- * 
+ *
  * Features:
  * - SoA-optimized data structures for physics simulation
  * - SIMD-friendly memory layouts
@@ -18,7 +18,7 @@ export const PositionComponent = RegisterComponent({
   id: 'position',
   category: 'physics',
   priority: 1, // High priority for SoA optimization
-})( 
+})(
   S.Struct({
     x: S.Number,
     y: S.Number,
@@ -26,7 +26,7 @@ export const PositionComponent = RegisterComponent({
     // Additional metadata for optimization
     dirty: S.optional(S.Boolean),
     lastUpdated: S.optional(S.Number),
-  })
+  }),
 )
 
 export type PositionComponent = S.Schema.Type<typeof PositionComponent>
@@ -57,17 +57,12 @@ export const VelocityComponent = RegisterComponent({
     damping: S.optional(S.Number.pipe(S.between(0, 1))),
     // Maximum velocity magnitude
     maxMagnitude: S.optional(S.Number.pipe(S.positive())),
-  })
+  }),
 )
 
 export type VelocityComponent = S.Schema.Type<typeof VelocityComponent>
 
-export const createVelocity = (
-  x: number = 0, 
-  y: number = 0, 
-  z: number = 0,
-  options?: { damping?: number; maxMagnitude?: number }
-): VelocityComponent =>
+export const createVelocity = (x: number = 0, y: number = 0, z: number = 0, options?: { damping?: number; maxMagnitude?: number }): VelocityComponent =>
   Data.struct({
     x,
     y,
@@ -88,12 +83,14 @@ export const AccelerationComponent = RegisterComponent({
     y: S.Number,
     z: S.Number,
     // Accumulated forces
-    forceAccumulator: S.optional(S.Struct({
-      x: S.Number,
-      y: S.Number,
-      z: S.Number,
-    })),
-  })
+    forceAccumulator: S.optional(
+      S.Struct({
+        x: S.Number,
+        y: S.Number,
+        z: S.Number,
+      }),
+    ),
+  }),
 )
 
 export type AccelerationComponent = S.Schema.Type<typeof AccelerationComponent>
@@ -120,20 +117,19 @@ export const MassComponent = RegisterComponent({
     // Mass type classification
     type: S.Literal('static', 'kinematic', 'dynamic'),
     // Center of mass offset
-    centerOfMass: S.optional(S.Struct({
-      x: S.Number,
-      y: S.Number,
-      z: S.Number,
-    })),
-  })
+    centerOfMass: S.optional(
+      S.Struct({
+        x: S.Number,
+        y: S.Number,
+        z: S.Number,
+      }),
+    ),
+  }),
 )
 
 export type MassComponent = S.Schema.Type<typeof MassComponent>
 
-export const createMass = (
-  value: number,
-  type: 'static' | 'kinematic' | 'dynamic' = 'dynamic'
-): MassComponent =>
+export const createMass = (value: number, type: 'static' | 'kinematic' | 'dynamic' = 'dynamic'): MassComponent =>
   Data.struct({
     value,
     inverseMass: type === 'static' ? 0 : 1 / value,
@@ -164,7 +160,7 @@ export const ColliderShape = S.Union(
     type: S.Literal('mesh'),
     vertices: S.Array(S.Number),
     indices: S.Array(S.Number),
-  })
+  }),
 )
 
 export const ColliderComponent = RegisterComponent({
@@ -181,13 +177,13 @@ export const ColliderComponent = RegisterComponent({
     density: S.optional(S.Number.pipe(S.positive())),
     // Collision filtering
     layer: S.Number.pipe(S.int(), S.between(0, 31)),
-    mask: S.Number.pipe(S.int(), S.between(0, 0xFFFFFFFF)),
+    mask: S.Number.pipe(S.int(), S.between(0, 0xffffffff)),
     // State
     isSensor: S.Boolean,
     isActive: S.Boolean,
     // Optimization flags
     isStatic: S.Boolean,
-  })
+  }),
 )
 
 export type ColliderComponent = S.Schema.Type<typeof ColliderComponent>
@@ -195,29 +191,26 @@ export type ColliderShape = S.Schema.Type<typeof ColliderShape>
 
 export const createBoxCollider = (
   halfExtents: { x: number; y: number; z: number },
-  options?: Partial<Pick<ColliderComponent, 'restitution' | 'friction' | 'layer' | 'mask'>>
+  options?: Partial<Pick<ColliderComponent, 'restitution' | 'friction' | 'layer' | 'mask'>>,
 ): ColliderComponent =>
   Data.struct({
     shape: { type: 'box' as const, halfExtents },
     restitution: options?.restitution ?? 0.3,
     friction: options?.friction ?? 0.5,
     layer: options?.layer ?? 0,
-    mask: options?.mask ?? 0xFFFFFFFF,
+    mask: options?.mask ?? 0xffffffff,
     isSensor: false,
     isActive: true,
     isStatic: false,
   })
 
-export const createSphereCollider = (
-  radius: number,
-  options?: Partial<Pick<ColliderComponent, 'restitution' | 'friction' | 'layer' | 'mask'>>
-): ColliderComponent =>
+export const createSphereCollider = (radius: number, options?: Partial<Pick<ColliderComponent, 'restitution' | 'friction' | 'layer' | 'mask'>>): ColliderComponent =>
   Data.struct({
     shape: { type: 'sphere' as const, radius },
     restitution: options?.restitution ?? 0.3,
     friction: options?.friction ?? 0.5,
     layer: options?.layer ?? 0,
-    mask: options?.mask ?? 0xFFFFFFFF,
+    mask: options?.mask ?? 0xffffffff,
     isSensor: false,
     isActive: true,
     isStatic: false,
@@ -235,12 +228,7 @@ export const PhysicsComponents = {
 } as const
 
 // Type union for any physics component
-export type AnyPhysicsComponent = 
-  | PositionComponent 
-  | VelocityComponent 
-  | AccelerationComponent 
-  | MassComponent 
-  | ColliderComponent
+export type AnyPhysicsComponent = PositionComponent | VelocityComponent | AccelerationComponent | MassComponent | ColliderComponent
 
 // Physics component factory functions
 export const PhysicsComponentFactories = {
@@ -253,7 +241,7 @@ export const PhysicsComponentFactories = {
 } as const
 
 // Re-export for backward compatibility
-export { 
+export {
   PositionComponent as PositionComponentType,
   VelocityComponent as VelocityComponentType,
   AccelerationComponent as AccelerationComponentType,

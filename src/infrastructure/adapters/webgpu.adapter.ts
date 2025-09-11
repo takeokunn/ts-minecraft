@@ -1,6 +1,6 @@
 /**
  * WebGPU Adapter - Implements advanced GPU rendering using WebGPU API
- * 
+ *
  * This adapter provides a concrete implementation for high-performance
  * GPU rendering using WebGPU, offering advanced features like compute
  * shaders, sophisticated pipeline management, and optimized resource handling.
@@ -16,10 +16,7 @@ import * as Ref from 'effect/Ref'
  */
 const WEBGPU_CONFIG = {
   ADAPTER_POWER_PREFERENCE: 'high-performance' as GPUPowerPreference,
-  REQUIRED_FEATURES: [
-    'texture-compression-bc',
-    'timestamp-query',
-  ] as GPUFeatureName[],
+  REQUIRED_FEATURES: ['texture-compression-bc', 'timestamp-query'] as GPUFeatureName[],
   REQUIRED_LIMITS: {
     maxTextureDimension2D: 8192,
     maxBufferSize: 256 << 20, // 256MB
@@ -215,12 +212,7 @@ export interface IWebGPUAdapter {
   readonly createBuffer: (name: string, size: number, usage: GPUBufferUsageFlags) => Effect.Effect<GPUBuffer, never, never>
   readonly createTexture: (name: string, width: number, height: number, format: GPUTextureFormat) => Effect.Effect<GPUTexture, never, never>
   readonly updateCamera: (position: [number, number, number], rotation: [number, number, number]) => Effect.Effect<void, never, never>
-  readonly renderChunk: (
-    chunkX: number,
-    chunkZ: number,
-    vertexData: Float32Array,
-    indexData: Uint32Array
-  ) => Effect.Effect<void, never, never>
+  readonly renderChunk: (chunkX: number, chunkZ: number, vertexData: Float32Array, indexData: Uint32Array) => Effect.Effect<void, never, never>
   readonly dispatchCompute: (pipelineName: string, workgroupsX: number, workgroupsY: number, workgroupsZ: number) => Effect.Effect<void, never, never>
   readonly getCapabilities: () => Effect.Effect<WebGPUCapabilities, never, never>
   readonly getStats: () => Effect.Effect<WebGPUState['stats'], never, never>
@@ -228,10 +220,7 @@ export interface IWebGPUAdapter {
   readonly dispose: () => Effect.Effect<void, never, never>
 }
 
-export class WebGPUAdapter extends Context.GenericTag('WebGPUAdapter')<
-  WebGPUAdapter,
-  IWebGPUAdapter
->() {}
+export class WebGPUAdapter extends Context.GenericTag('WebGPUAdapter')<WebGPUAdapter, IWebGPUAdapter>() {}
 
 /**
  * Utility functions
@@ -261,7 +250,7 @@ const detectWebGPUCapabilities = async (): Promise<WebGPUCapabilities> => {
     }
 
     const adapterInfo = await adapter.requestAdapterInfo()
-    
+
     return {
       isSupported: true,
       adapterInfo: {
@@ -271,9 +260,7 @@ const detectWebGPUCapabilities = async (): Promise<WebGPUCapabilities> => {
         description: adapterInfo.description,
       },
       features: Array.from(adapter.features),
-      limits: Object.fromEntries(
-        Object.entries(adapter.limits).map(([key, value]) => [key, Number(value)])
-      ),
+      limits: Object.fromEntries(Object.entries(adapter.limits).map(([key, value]) => [key, Number(value)])),
       textureFormats: ['bgra8unorm', 'rgba8unorm', 'depth24plus'], // Common formats
     }
   } catch (error) {
@@ -287,9 +274,7 @@ const detectWebGPUCapabilities = async (): Promise<WebGPUCapabilities> => {
 }
 
 const createWebGPUDevice = async (adapter: GPUAdapter): Promise<GPUDevice> => {
-  const requiredFeatures = WEBGPU_CONFIG.REQUIRED_FEATURES.filter(feature => 
-    adapter.features.has(feature)
-  )
+  const requiredFeatures = WEBGPU_CONFIG.REQUIRED_FEATURES.filter((feature) => adapter.features.has(feature))
 
   return await adapter.requestDevice({
     requiredFeatures,
@@ -349,15 +334,19 @@ export const WebGPUAdapterLive = Layer.scoped(
     const initialize = (canvas: HTMLCanvasElement): Effect.Effect<boolean, never, never> =>
       Effect.gen(function* (_) {
         const capabilities = yield* _(Effect.promise(() => detectWebGPUCapabilities()))
-        
+
         if (!capabilities.isSupported) {
-          yield* _(Ref.update(stateRef, s => ({ ...s, capabilities })))
+          yield* _(Ref.update(stateRef, (s) => ({ ...s, capabilities })))
           return false
         }
 
-        const adapter = yield* _(Effect.promise(() => navigator.gpu.requestAdapter({
-          powerPreference: WEBGPU_CONFIG.ADAPTER_POWER_PREFERENCE,
-        })))
+        const adapter = yield* _(
+          Effect.promise(() =>
+            navigator.gpu.requestAdapter({
+              powerPreference: WEBGPU_CONFIG.ADAPTER_POWER_PREFERENCE,
+            }),
+          ),
+        )
 
         if (!adapter) return false
 
@@ -372,13 +361,15 @@ export const WebGPUAdapterLive = Layer.scoped(
           alphaMode: 'premultiplied',
         })
 
-        yield* _(Ref.update(stateRef, s => ({
-          ...s,
-          device,
-          adapter,
-          context,
-          capabilities,
-        })))
+        yield* _(
+          Ref.update(stateRef, (s) => ({
+            ...s,
+            device,
+            adapter,
+            context,
+            capabilities,
+          })),
+        )
 
         yield* _(Effect.logInfo('WebGPU initialized successfully'))
         yield* _(Effect.logInfo(`Adapter: ${capabilities.adapterInfo?.vendor} - ${capabilities.adapterInfo?.device}`))
@@ -389,7 +380,7 @@ export const WebGPUAdapterLive = Layer.scoped(
     const createRenderPipeline = (name: string, vertexShader: string, fragmentShader: string): Effect.Effect<void, never, never> =>
       Effect.gen(function* (_) {
         const state = yield* _(Ref.get(stateRef))
-        
+
         if (!state.device) {
           yield* _(Effect.fail(new Error('WebGPU device not initialized')))
           return
@@ -403,7 +394,7 @@ export const WebGPUAdapterLive = Layer.scoped(
     const createComputePipeline = (name: string, computeShader: string): Effect.Effect<void, never, never> =>
       Effect.gen(function* (_) {
         const state = yield* _(Ref.get(stateRef))
-        
+
         if (!state.device) {
           yield* _(Effect.fail(new Error('WebGPU device not initialized')))
           return
@@ -416,7 +407,7 @@ export const WebGPUAdapterLive = Layer.scoped(
     const beginFrame = (): Effect.Effect<GPUCommandEncoder, never, never> =>
       Effect.gen(function* (_) {
         const state = yield* _(Ref.get(stateRef))
-        
+
         if (!state.device) {
           yield* _(Effect.fail(new Error('WebGPU device not initialized')))
           return state.device!.createCommandEncoder() // This won't execute due to fail above
@@ -429,7 +420,7 @@ export const WebGPUAdapterLive = Layer.scoped(
     const endFrame = (encoder: GPUCommandEncoder): Effect.Effect<void, never, never> =>
       Effect.gen(function* (_) {
         const state = yield* _(Ref.get(stateRef))
-        
+
         if (!state.device) {
           yield* _(Effect.fail(new Error('WebGPU device not initialized')))
           return
@@ -438,20 +429,22 @@ export const WebGPUAdapterLive = Layer.scoped(
         const commandBuffer = encoder.finish()
         state.device.queue.submit([commandBuffer])
 
-        yield* _(Ref.update(stateRef, s => ({
-          ...s,
-          currentFrame: s.currentFrame + 1,
-          stats: {
-            ...s.stats,
-            framesRendered: s.stats.framesRendered + 1
-          }
-        })))
+        yield* _(
+          Ref.update(stateRef, (s) => ({
+            ...s,
+            currentFrame: s.currentFrame + 1,
+            stats: {
+              ...s.stats,
+              framesRendered: s.stats.framesRendered + 1,
+            },
+          })),
+        )
       })
 
     const createBuffer = (name: string, size: number, usage: GPUBufferUsageFlags): Effect.Effect<GPUBuffer, never, never> =>
       Effect.gen(function* (_) {
         const state = yield* _(Ref.get(stateRef))
-        
+
         if (!state.device) {
           yield* _(Effect.fail(new Error('WebGPU device not initialized')))
           return state.device!.createBuffer({ size, usage }) // This won't execute
@@ -463,14 +456,16 @@ export const WebGPUAdapterLive = Layer.scoped(
           mappedAtCreation: false,
         })
 
-        yield* _(Ref.update(stateRef, s => ({
-          ...s,
-          stats: {
-            ...s.stats,
-            bufferUploads: s.stats.bufferUploads + 1,
-            memoryUsage: s.stats.memoryUsage + size,
-          }
-        })))
+        yield* _(
+          Ref.update(stateRef, (s) => ({
+            ...s,
+            stats: {
+              ...s.stats,
+              bufferUploads: s.stats.bufferUploads + 1,
+              memoryUsage: s.stats.memoryUsage + size,
+            },
+          })),
+        )
 
         return buffer
       })
@@ -478,7 +473,7 @@ export const WebGPUAdapterLive = Layer.scoped(
     const createTexture = (name: string, width: number, height: number, format: GPUTextureFormat): Effect.Effect<GPUTexture, never, never> =>
       Effect.gen(function* (_) {
         const state = yield* _(Ref.get(stateRef))
-        
+
         if (!state.device) {
           yield* _(Effect.fail(new Error('WebGPU device not initialized')))
           return state.device!.createTexture({ size: { width, height }, format, usage: 0 })
@@ -492,14 +487,16 @@ export const WebGPUAdapterLive = Layer.scoped(
 
         const memoryUsage = width * height * 4 // Assume 4 bytes per pixel
 
-        yield* _(Ref.update(stateRef, s => ({
-          ...s,
-          stats: {
-            ...s.stats,
-            textureUploads: s.stats.textureUploads + 1,
-            memoryUsage: s.stats.memoryUsage + memoryUsage,
-          }
-        })))
+        yield* _(
+          Ref.update(stateRef, (s) => ({
+            ...s,
+            stats: {
+              ...s.stats,
+              textureUploads: s.stats.textureUploads + 1,
+              memoryUsage: s.stats.memoryUsage + memoryUsage,
+            },
+          })),
+        )
 
         return texture
       })
@@ -510,12 +507,7 @@ export const WebGPUAdapterLive = Layer.scoped(
         // This is a placeholder
       })
 
-    const renderChunk = (
-      chunkX: number,
-      chunkZ: number,
-      vertexData: Float32Array,
-      indexData: Uint32Array
-    ): Effect.Effect<void, never, never> =>
+    const renderChunk = (chunkX: number, chunkZ: number, vertexData: Float32Array, indexData: Uint32Array): Effect.Effect<void, never, never> =>
       Effect.gen(function* (_) {
         // Implementation would create/update vertex and index buffers
         // and issue draw commands
@@ -525,35 +517,31 @@ export const WebGPUAdapterLive = Layer.scoped(
     const dispatchCompute = (pipelineName: string, workgroupsX: number, workgroupsY: number, workgroupsZ: number): Effect.Effect<void, never, never> =>
       Effect.gen(function* (_) {
         const state = yield* _(Ref.get(stateRef))
-        
+
         if (!state.device) {
           yield* _(Effect.fail(new Error('WebGPU device not initialized')))
           return
         }
 
-        yield* _(Ref.update(stateRef, s => ({
-          ...s,
-          stats: {
-            ...s.stats,
-            computeDispatches: s.stats.computeDispatches + 1,
-          }
-        })))
+        yield* _(
+          Ref.update(stateRef, (s) => ({
+            ...s,
+            stats: {
+              ...s.stats,
+              computeDispatches: s.stats.computeDispatches + 1,
+            },
+          })),
+        )
       })
 
-    const getCapabilities = (): Effect.Effect<WebGPUCapabilities, never, never> =>
-      Ref.get(stateRef).pipe(
-        Effect.map((state) => state.capabilities)
-      )
+    const getCapabilities = (): Effect.Effect<WebGPUCapabilities, never, never> => Ref.get(stateRef).pipe(Effect.map((state) => state.capabilities))
 
-    const getStats = (): Effect.Effect<WebGPUState['stats'], never, never> =>
-      Ref.get(stateRef).pipe(
-        Effect.map((state) => state.stats)
-      )
+    const getStats = (): Effect.Effect<WebGPUState['stats'], never, never> => Ref.get(stateRef).pipe(Effect.map((state) => state.stats))
 
     const resize = (width: number, height: number): Effect.Effect<void, never, never> =>
       Effect.gen(function* (_) {
         const state = yield* _(Ref.get(stateRef))
-        
+
         if (state.context && state.device) {
           state.context.configure({
             device: state.device,
@@ -606,7 +594,7 @@ export const WebGPUAdapterLive = Layer.scoped(
       getCapabilities,
       getStats,
       resize,
-      dispose
+      dispose,
     })
-  })
+  }),
 )

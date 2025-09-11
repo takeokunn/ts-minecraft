@@ -42,7 +42,7 @@ export class CommandPalette {
     private devConsole?: DevConsole,
     private entityInspector?: EntityInspector,
     private performanceProfiler?: PerformanceProfiler,
-    config: Partial<CommandPaletteConfig> = {}
+    config: Partial<CommandPaletteConfig> = {},
   ) {
     this.config = {
       maxResults: 10,
@@ -51,7 +51,7 @@ export class CommandPalette {
       showCategories: true,
       enableHistory: true,
       maxHistory: 50,
-      ...config
+      ...config,
     }
 
     if (import.meta.env.DEV) {
@@ -73,7 +73,7 @@ export class CommandPalette {
       shortcut: 'F12',
       icon: '🔧',
       execute: () => this.gameDebugger?.toggle(),
-      enabled: () => !!this.gameDebugger
+      enabled: () => !!this.gameDebugger,
     })
 
     this.addCommand({
@@ -85,7 +85,7 @@ export class CommandPalette {
       shortcut: 'Ctrl+Shift+P',
       icon: '⏸️',
       execute: () => this.gameDebugger?.togglePause(),
-      enabled: () => !!this.gameDebugger
+      enabled: () => !!this.gameDebugger,
     })
 
     this.addCommand({
@@ -97,7 +97,7 @@ export class CommandPalette {
       shortcut: 'Ctrl+Shift+S',
       icon: '👣',
       execute: () => this.gameDebugger?.stepFrame(),
-      enabled: () => !!this.gameDebugger
+      enabled: () => !!this.gameDebugger,
     })
 
     this.addCommand({
@@ -109,7 +109,7 @@ export class CommandPalette {
       shortcut: 'Ctrl+Shift+R',
       icon: '⏺️',
       execute: () => this.gameDebugger?.toggleRecording(),
-      enabled: () => !!this.gameDebugger
+      enabled: () => !!this.gameDebugger,
     })
 
     // Console commands
@@ -122,7 +122,7 @@ export class CommandPalette {
       shortcut: 'Ctrl+Shift+D',
       icon: '🖥️',
       execute: () => this.devConsole?.toggle(),
-      enabled: () => !!this.devConsole
+      enabled: () => !!this.devConsole,
     })
 
     this.addCommand({
@@ -135,10 +135,10 @@ export class CommandPalette {
       execute: () => {
         if (this.devConsole && 'executeCommand' in this.devConsole && typeof this.devConsole.executeCommand === 'function') {
           // Use type assertion with interface check
-          (this.devConsole as DevConsole & { executeCommand(cmd: string): void }).executeCommand('clear')
+          ;(this.devConsole as DevConsole & { executeCommand(cmd: string): void }).executeCommand('clear')
         }
       },
-      enabled: () => !!this.devConsole
+      enabled: () => !!this.devConsole,
     })
 
     // Inspector commands
@@ -151,7 +151,7 @@ export class CommandPalette {
       shortcut: 'Ctrl+Shift+I',
       icon: '🔍',
       execute: () => this.entityInspector?.toggle(),
-      enabled: () => !!this.entityInspector
+      enabled: () => !!this.entityInspector,
     })
 
     this.addCommand({
@@ -164,10 +164,10 @@ export class CommandPalette {
       execute: () => {
         if (this.entityInspector && 'refreshEntityList' in this.entityInspector && typeof this.entityInspector.refreshEntityList === 'function') {
           // Use type assertion with interface check
-          (this.entityInspector as EntityInspector & { refreshEntityList(): void }).refreshEntityList()
+          ;(this.entityInspector as EntityInspector & { refreshEntityList(): void }).refreshEntityList()
         }
       },
-      enabled: () => !!this.entityInspector
+      enabled: () => !!this.entityInspector,
     })
 
     // Performance commands
@@ -179,7 +179,7 @@ export class CommandPalette {
       keywords: ['performance', 'record', 'metrics', 'fps'],
       icon: '📊',
       execute: () => this.performanceProfiler?.startRecording(),
-      enabled: () => !!this.performanceProfiler
+      enabled: () => !!this.performanceProfiler,
     })
 
     this.addCommand({
@@ -195,7 +195,7 @@ export class CommandPalette {
           console.log('Performance data:', data)
         }
       },
-      enabled: () => !!this.performanceProfiler
+      enabled: () => !!this.performanceProfiler,
     })
 
     // Hot reload commands
@@ -207,7 +207,7 @@ export class CommandPalette {
       keywords: ['reload', 'refresh', 'page'],
       shortcut: 'F5',
       icon: '🔄',
-      execute: () => window.location.reload()
+      execute: () => window.location.reload(),
     })
 
     this.addCommand({
@@ -218,7 +218,7 @@ export class CommandPalette {
       keywords: ['hot', 'reload', 'hmr'],
       shortcut: 'Ctrl+R',
       icon: '🔥',
-      execute: () => hotReloadManager.manualReload()
+      execute: () => hotReloadManager.manualReload(),
     })
 
     this.addCommand({
@@ -229,7 +229,7 @@ export class CommandPalette {
       keywords: ['force', 'reload', 'hard'],
       shortcut: 'Ctrl+Shift+R',
       icon: '💪',
-      execute: () => hotReloadManager.forceReload()
+      execute: () => hotReloadManager.forceReload(),
     })
 
     // View commands
@@ -247,7 +247,7 @@ export class CommandPalette {
         } else {
           document.documentElement.requestFullscreen()
         }
-      }
+      },
     })
 
     this.addCommand({
@@ -260,7 +260,7 @@ export class CommandPalette {
       icon: '🔍',
       execute: () => {
         document.body.style.zoom = `${(parseFloat(document.body.style.zoom || '1') + 0.1).toFixed(1)}`
-      }
+      },
     })
 
     this.addCommand({
@@ -276,7 +276,7 @@ export class CommandPalette {
         if (currentZoom > 0.5) {
           document.body.style.zoom = `${(currentZoom - 0.1).toFixed(1)}`
         }
-      }
+      },
     })
 
     this.addCommand({
@@ -289,7 +289,7 @@ export class CommandPalette {
       icon: '🔍',
       execute: () => {
         document.body.style.zoom = '1'
-      }
+      },
     })
 
     // Memory commands
@@ -308,7 +308,7 @@ export class CommandPalette {
         } else {
           console.warn('Garbage collection not available. Use --expose-gc flag.')
         }
-      }
+      },
     })
 
     this.addCommand({
@@ -329,7 +329,7 @@ export class CommandPalette {
         } else {
           console.log('Memory information not available')
         }
-      }
+      },
     })
 
     // Settings commands
@@ -344,7 +344,7 @@ export class CommandPalette {
         const settings = {
           debugger: this.gameDebugger?.getState(),
           hotReload: hotReloadManager.getConfig(),
-          timestamp: Date.now()
+          timestamp: Date.now(),
         }
         const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' })
         const url = URL.createObjectURL(blob)
@@ -353,7 +353,7 @@ export class CommandPalette {
         a.download = `dev-settings-${Date.now()}.json`
         a.click()
         URL.revokeObjectURL(url)
-      }
+      },
     })
 
     this.addCommand({
@@ -368,7 +368,7 @@ export class CommandPalette {
           localStorage.removeItem('dev-tools-settings')
           console.log('Settings reset to defaults')
         }
-      }
+      },
     })
 
     // Help commands
@@ -381,11 +381,11 @@ export class CommandPalette {
       icon: '⌨️',
       execute: () => {
         const shortcuts = Array.from(this.commands.values())
-          .filter(cmd => cmd.shortcut)
-          .map(cmd => `${cmd.shortcut}: ${cmd.name}`)
+          .filter((cmd) => cmd.shortcut)
+          .map((cmd) => `${cmd.shortcut}: ${cmd.name}`)
           .join('\n')
         console.log('Keyboard Shortcuts:\n' + shortcuts)
-      }
+      },
     })
 
     this.addCommand({
@@ -397,8 +397,8 @@ export class CommandPalette {
       icon: '📋',
       execute: () => {
         const categories = new Map<string, Command[]>()
-        
-        this.commands.forEach(cmd => {
+
+        this.commands.forEach((cmd) => {
           if (!categories.has(cmd.category)) {
             categories.set(cmd.category, [])
           }
@@ -408,11 +408,11 @@ export class CommandPalette {
         console.log('Available Commands:')
         categories.forEach((commands, category) => {
           console.log(`\n${category}:`)
-          commands.forEach(cmd => {
+          commands.forEach((cmd) => {
             console.log(`  ${cmd.name} - ${cmd.description}`)
           })
         })
-      }
+      },
     })
   }
 
@@ -519,7 +519,7 @@ export class CommandPalette {
 
       // Handle global shortcuts when palette is closed
       if (!this.isOpen) {
-        this.commands.forEach(command => {
+        this.commands.forEach((command) => {
           if (command.shortcut && this.matchesShortcut(event, command.shortcut)) {
             event.preventDefault()
             if (!command.enabled || command.enabled()) {
@@ -563,15 +563,15 @@ export class CommandPalette {
 
     const queryLower = query.toLowerCase()
     const scored = Array.from(this.commands.values())
-      .map(command => ({
+      .map((command) => ({
         command,
-        score: this.calculateScore(command, queryLower)
+        score: this.calculateScore(command, queryLower),
       }))
-      .filter(item => item.score > 0)
+      .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, this.config.maxResults)
 
-    return scored.map(item => item.command)
+    return scored.map((item) => item.command)
   }
 
   private calculateScore(command: Command, query: string): number {
@@ -598,9 +598,7 @@ export class CommandPalette {
     }
 
     // Keywords match
-    const matchingKeywords = command.keywords.filter(keyword => 
-      keyword.toLowerCase().includes(query)
-    )
+    const matchingKeywords = command.keywords.filter((keyword) => keyword.toLowerCase().includes(query))
     score += matchingKeywords.length * 15
 
     // Fuzzy matching for additional flexibility
@@ -684,15 +682,15 @@ export class CommandPalette {
       }
 
       const textContainer = document.createElement('div')
-      
+
       const name = document.createElement('div')
       name.style.cssText = 'font-weight: 500; margin-bottom: 2px;'
       name.textContent = command.name
-      
+
       const description = document.createElement('div')
       description.style.cssText = 'font-size: 12px; color: #aaa;'
       description.textContent = command.description
-      
+
       textContainer.appendChild(name)
       textContainer.appendChild(description)
       leftSide.appendChild(textContainer)
@@ -753,13 +751,13 @@ export class CommandPalette {
     if (index > -1) {
       this.commandHistory.splice(index, 1)
     }
-    
+
     this.commandHistory.unshift(commandId)
-    
+
     if (this.commandHistory.length > this.config.maxHistory) {
       this.commandHistory = this.commandHistory.slice(0, this.config.maxHistory)
     }
-    
+
     this.saveHistory()
   }
 

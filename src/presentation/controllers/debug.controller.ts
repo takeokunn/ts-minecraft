@@ -1,4 +1,4 @@
-import { Effect, Context, Ref } from 'effect'
+import { Effect, Context, Ref, Layer } from 'effect'
 
 /**
  * Debug Controller
@@ -21,69 +21,81 @@ export interface DebugState {
   readonly worldEditorVisible: boolean
 }
 
-const DebugControllerLive = Effect.gen(function* ($) {
-  const debugStateRef = yield* $(Ref.make<DebugState>({
-    debugMode: false,
-    performanceStatsVisible: false,
-    entityInspectorVisible: false,
-    worldEditorVisible: false,
-  }))
+const DebugControllerImpl = Effect.gen(function* ($) {
+  const debugStateRef = yield* $(
+    Ref.make<DebugState>({
+      debugMode: false,
+      performanceStatsVisible: false,
+      entityInspectorVisible: false,
+      worldEditorVisible: false,
+    }),
+  )
 
   const toggleDebugMode = () =>
     Effect.gen(function* ($) {
-      yield* $(Ref.update(debugStateRef, (state) => ({
-        ...state,
-        debugMode: !state.debugMode,
-      })))
+      yield* $(
+        Ref.update(debugStateRef, (state) => ({
+          ...state,
+          debugMode: !state.debugMode,
+        })),
+      )
       const newState = yield* $(Ref.get(debugStateRef))
       yield* $(Effect.log(`Debug mode: ${newState.debugMode ? 'ON' : 'OFF'}`))
     })
 
   const showPerformanceStats = (visible: boolean) =>
     Effect.gen(function* ($) {
-      yield* $(Ref.update(debugStateRef, (state) => ({
-        ...state,
-        performanceStatsVisible: visible,
-      })))
+      yield* $(
+        Ref.update(debugStateRef, (state) => ({
+          ...state,
+          performanceStatsVisible: visible,
+        })),
+      )
       yield* $(Effect.log(`Performance stats: ${visible ? 'VISIBLE' : 'HIDDEN'}`))
     })
 
   const showEntityInspector = (visible: boolean) =>
     Effect.gen(function* ($) {
-      yield* $(Ref.update(debugStateRef, (state) => ({
-        ...state,
-        entityInspectorVisible: visible,
-      })))
+      yield* $(
+        Ref.update(debugStateRef, (state) => ({
+          ...state,
+          entityInspectorVisible: visible,
+        })),
+      )
       yield* $(Effect.log(`Entity inspector: ${visible ? 'VISIBLE' : 'HIDDEN'}`))
     })
 
   const showWorldEditor = (visible: boolean) =>
     Effect.gen(function* ($) {
-      yield* $(Ref.update(debugStateRef, (state) => ({
-        ...state,
-        worldEditorVisible: visible,
-      })))
+      yield* $(
+        Ref.update(debugStateRef, (state) => ({
+          ...state,
+          worldEditorVisible: visible,
+        })),
+      )
       yield* $(Effect.log(`World editor: ${visible ? 'VISIBLE' : 'HIDDEN'}`))
     })
 
   const executeDebugCommand = (command: string) =>
     Effect.gen(function* ($) {
       yield* $(Effect.log(`Executing debug command: ${command}`))
-      
-      // 簡単なコマンド処理の例
-      switch (command.toLowerCase()) {
+
+      // 軽量化されたコマンド処理
+      const cmd = command.toLowerCase().trim()
+
+      switch (cmd) {
         case 'help':
           return 'Available commands: help, status, clear, toggle'
         case 'status':
           const state = yield* $(Ref.get(debugStateRef))
-          return JSON.stringify(state, null, 2)
+          return `Debug: ${state.debugMode ? 'ON' : 'OFF'}, Stats: ${state.performanceStatsVisible ? 'ON' : 'OFF'}`
         case 'clear':
           return 'Debug console cleared'
         case 'toggle':
           yield* $(toggleDebugMode())
           return 'Debug mode toggled'
         default:
-          return `Unknown command: ${command}`
+          return `Unknown command: ${cmd}`
       }
     })
 
@@ -99,9 +111,9 @@ const DebugControllerLive = Effect.gen(function* ($) {
   }
 })
 
-export class DebugController extends Context.GenericTag('DebugController')<
+export class DebugController extends Context.Tag('DebugController')<DebugController, DebugControllerInterface>() {}
+
+export const DebugControllerLive: Layer.Layer<DebugController, never, never> = Layer.effect(
   DebugController,
-  DebugControllerInterface
->() {
-  static readonly Live = DebugControllerLive.pipe(Effect.map(DebugController.of))
-}
+  DebugControllerImpl,
+)

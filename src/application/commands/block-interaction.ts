@@ -17,6 +17,6 @@ export interface BlockInteractionCommand {
 export const blockInteractionSystem = Effect.gen(function* () {
   // For now, create a simplified system that focuses on direct world interaction
   // In a full implementation, this would query entities with proper ECS integration
-  
+
   return Effect.void // Placeholder - would contain actual entity querying logic
 })

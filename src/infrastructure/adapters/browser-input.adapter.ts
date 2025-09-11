@@ -1,6 +1,6 @@
 /**
  * Browser Input Adapter - Implements input operations using browser DOM events
- * 
+ *
  * This adapter provides concrete implementation for input handling
  * using browser DOM events, implementing the IInputPort interface
  * to isolate the domain layer from browser-specific input details.
@@ -47,10 +47,7 @@ export interface IBrowserInputAdapter extends IInputPort {
   readonly processEvents: () => Effect.Effect<void, never, never>
 }
 
-export class BrowserInputAdapter extends Context.GenericTag('BrowserInputAdapter')<
-  BrowserInputAdapter,
-  IBrowserInputAdapter
->() {}
+export class BrowserInputAdapter extends Context.GenericTag('BrowserInputAdapter')<BrowserInputAdapter, IBrowserInputAdapter>() {}
 
 /**
  * Browser Input Adapter Layer
@@ -59,15 +56,17 @@ export const BrowserInputAdapterLive = Layer.scoped(
   BrowserInputAdapter,
   Effect.gen(function* (_) {
     const eventQueue = yield* _(Queue.unbounded<DomEvent>())
-    const inputState = yield* _(Ref.make<InternalInputState>({
-      keysPressed: new Set(),
-      keysJustPressed: new Set(),
-      keysJustReleased: new Set(),
-      mouseButtons: new Set(),
-      mousePosition: { x: 0, y: 0 },
-      mouseDelta: { dx: 0, dy: 0 },
-      isPointerLocked: false
-    }))
+    const inputState = yield* _(
+      Ref.make<InternalInputState>({
+        keysPressed: new Set(),
+        keysJustPressed: new Set(),
+        keysJustReleased: new Set(),
+        mouseButtons: new Set(),
+        mousePosition: { x: 0, y: 0 },
+        mouseDelta: { dx: 0, dy: 0 },
+        isPointerLocked: false,
+      }),
+    )
 
     // Set up DOM event listeners
     yield* _(
@@ -77,26 +76,26 @@ export const BrowserInputAdapterLive = Layer.scoped(
             event.preventDefault()
             Queue.unsafeOffer(eventQueue, { _tag: 'keydown', event })
           }
-          
+
           const keyupListener = (event: KeyboardEvent) => {
             event.preventDefault()
             Queue.unsafeOffer(eventQueue, { _tag: 'keyup', event })
           }
-          
+
           const mousedownListener = (event: MouseEvent) => {
             event.preventDefault()
             Queue.unsafeOffer(eventQueue, { _tag: 'mousedown', event })
           }
-          
+
           const mouseupListener = (event: MouseEvent) => {
             event.preventDefault()
             Queue.unsafeOffer(eventQueue, { _tag: 'mouseup', event })
           }
-          
+
           const mousemoveListener = (event: MouseEvent) => {
             Queue.unsafeOffer(eventQueue, { _tag: 'mousemove', event })
           }
-          
+
           const pointerlockchangeListener = () => {
             Queue.unsafeOffer(eventQueue, { _tag: 'pointerlockchange' })
           }
@@ -133,8 +132,8 @@ export const BrowserInputAdapterLive = Layer.scoped(
             document.removeEventListener('mousemove', listeners.mousemoveListener)
             document.removeEventListener('pointerlockchange', listeners.pointerlockchangeListener)
             document.removeEventListener('contextmenu', listeners.contextmenuListener)
-          })
-      )
+          }),
+      ),
     )
 
     const handleEvent = (event: DomEvent) =>
@@ -143,8 +142,8 @@ export const BrowserInputAdapterLive = Layer.scoped(
           Ref.update(inputState, (state) => ({
             ...state,
             keysPressed: new Set([...state.keysPressed, event.code]),
-            keysJustPressed: new Set([...state.keysJustPressed, event.code])
-          }))
+            keysJustPressed: new Set([...state.keysJustPressed, event.code]),
+          })),
         ),
         Match.when({ _tag: 'keyup' }, ({ event }) =>
           Ref.update(inputState, (state) => {
@@ -153,16 +152,16 @@ export const BrowserInputAdapterLive = Layer.scoped(
             return {
               ...state,
               keysPressed: newKeysPressed,
-              keysJustReleased: new Set([...state.keysJustReleased, event.code])
+              keysJustReleased: new Set([...state.keysJustReleased, event.code]),
             }
-          })
+          }),
         ),
         Match.when({ _tag: 'mousedown' }, ({ event }) =>
           Ref.update(inputState, (state) => ({
             ...state,
             mouseButtons: new Set([...state.mouseButtons, event.button]),
-            mousePosition: { x: event.clientX, y: event.clientY }
-          }))
+            mousePosition: { x: event.clientX, y: event.clientY },
+          })),
         ),
         Match.when({ _tag: 'mouseup' }, ({ event }) =>
           Ref.update(inputState, (state) => {
@@ -171,44 +170,35 @@ export const BrowserInputAdapterLive = Layer.scoped(
             return {
               ...state,
               mouseButtons: newMouseButtons,
-              mousePosition: { x: event.clientX, y: event.clientY }
+              mousePosition: { x: event.clientX, y: event.clientY },
             }
-          })
+          }),
         ),
         Match.when({ _tag: 'mousemove' }, ({ event }) =>
           Ref.update(inputState, (state) => ({
             ...state,
             mousePosition: { x: event.clientX, y: event.clientY },
-            mouseDelta: state.isPointerLocked 
-              ? { dx: event.movementX, dy: event.movementY }
-              : { dx: 0, dy: 0 }
-          }))
+            mouseDelta: state.isPointerLocked ? { dx: event.movementX, dy: event.movementY } : { dx: 0, dy: 0 },
+          })),
         ),
         Match.when({ _tag: 'pointerlockchange' }, () =>
           Ref.update(inputState, (state) => ({
             ...state,
-            isPointerLocked: document.pointerLockElement !== null
-          }))
+            isPointerLocked: document.pointerLockElement !== null,
+          })),
         ),
         Match.when({ _tag: 'contextmenu' }, () => Effect.void),
-        Match.exhaustive
+        Match.exhaustive,
       )
 
     const processEvents = () =>
       Queue.take(eventQueue).pipe(
         Effect.flatMap(handleEvent),
-        Effect.catchAll((error) =>
-          Effect.logError('Error processing input event', error)
-        )
+        Effect.catchAll((error) => Effect.logError('Error processing input event', error)),
       )
 
     // Start processing events in background
-    yield* _(
-      processEvents().pipe(
-        Effect.forever,
-        Effect.forkScoped
-      )
-    )
+    yield* _(processEvents().pipe(Effect.forever, Effect.forkScoped))
 
     const getMouseState = (): Effect.Effect<MouseState, never, never> =>
       Ref.get(inputState).pipe(
@@ -219,14 +209,14 @@ export const BrowserInputAdapterLive = Layer.scoped(
           y: state.mousePosition.y,
           leftPressed: state.mouseButtons.has(0),
           rightPressed: state.mouseButtons.has(2),
-          middlePressed: state.mouseButtons.has(1)
-        }))
+          middlePressed: state.mouseButtons.has(1),
+        })),
       )
 
     const resetMouseDelta = (): Effect.Effect<void, never, never> =>
       Ref.update(inputState, (state) => ({
         ...state,
-        mouseDelta: { dx: 0, dy: 0 }
+        mouseDelta: { dx: 0, dy: 0 },
       }))
 
     const getKeyboardState = (): Effect.Effect<KeyboardState, never, never> =>
@@ -234,30 +224,21 @@ export const BrowserInputAdapterLive = Layer.scoped(
         Effect.map((state) => ({
           keysPressed: state.keysPressed,
           keysJustPressed: state.keysJustPressed,
-          keysJustReleased: state.keysJustReleased
-        }))
+          keysJustReleased: state.keysJustReleased,
+        })),
       )
 
-    const isKeyPressed = (key: string): Effect.Effect<boolean, never, never> =>
-      Ref.get(inputState).pipe(
-        Effect.map((state) => state.keysPressed.has(key))
-      )
+    const isKeyPressed = (key: string): Effect.Effect<boolean, never, never> => Ref.get(inputState).pipe(Effect.map((state) => state.keysPressed.has(key)))
 
-    const isKeyJustPressed = (key: string): Effect.Effect<boolean, never, never> =>
-      Ref.get(inputState).pipe(
-        Effect.map((state) => state.keysJustPressed.has(key))
-      )
+    const isKeyJustPressed = (key: string): Effect.Effect<boolean, never, never> => Ref.get(inputState).pipe(Effect.map((state) => state.keysJustPressed.has(key)))
 
-    const isKeyJustReleased = (key: string): Effect.Effect<boolean, never, never> =>
-      Ref.get(inputState).pipe(
-        Effect.map((state) => state.keysJustReleased.has(key))
-      )
+    const isKeyJustReleased = (key: string): Effect.Effect<boolean, never, never> => Ref.get(inputState).pipe(Effect.map((state) => state.keysJustReleased.has(key)))
 
     const update = (): Effect.Effect<void, never, never> =>
       Ref.update(inputState, (state) => ({
         ...state,
         keysJustPressed: new Set(),
-        keysJustReleased: new Set()
+        keysJustReleased: new Set(),
       }))
 
     const lockPointer = (): Effect.Effect<void, never, never> =>
@@ -273,10 +254,7 @@ export const BrowserInputAdapterLive = Layer.scoped(
         document.exitPointerLock()
       })
 
-    const isPointerLocked = (): Effect.Effect<boolean, never, never> =>
-      Ref.get(inputState).pipe(
-        Effect.map((state) => state.isPointerLocked)
-      )
+    const isPointerLocked = (): Effect.Effect<boolean, never, never> => Ref.get(inputState).pipe(Effect.map((state) => state.isPointerLocked))
 
     return BrowserInputAdapter.of({
       eventQueue,
@@ -290,7 +268,7 @@ export const BrowserInputAdapterLive = Layer.scoped(
       update,
       lockPointer,
       unlockPointer,
-      isPointerLocked
+      isPointerLocked,
     })
-  })
+  }),
 )

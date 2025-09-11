@@ -1,6 +1,6 @@
 /**
  * Rendering Components - Redesigned for Modern Graphics Pipeline
- * 
+ *
  * Features:
  * - GPU-optimized data structures
  * - Instanced rendering support
@@ -38,7 +38,7 @@ export const MeshGeometry = S.Union(
     normals: S.Array(S.Number),
     uvs: S.Array(S.Number),
     indices: S.Array(S.Number),
-  })
+  }),
 )
 
 export const MeshComponent = RegisterComponent({
@@ -57,14 +57,18 @@ export const MeshComponent = RegisterComponent({
     castShadows: S.Boolean,
     receiveShadows: S.Boolean,
     // LOD (Level of Detail) settings
-    lodLevels: S.optional(S.Array(S.Struct({
-      distance: S.Number.pipe(S.positive()),
-      geometry: MeshGeometry,
-    }))),
+    lodLevels: S.optional(
+      S.Array(
+        S.Struct({
+          distance: S.Number.pipe(S.positive()),
+          geometry: MeshGeometry,
+        }),
+      ),
+    ),
     // Instancing support
     isInstanced: S.Boolean,
     instanceCount: S.optional(S.Number.pipe(S.int(), S.positive())),
-  })
+  }),
 )
 
 export type MeshComponent = S.Schema.Type<typeof MeshComponent>
@@ -116,7 +120,7 @@ export const MaterialComponent = RegisterComponent({
     shaderId: S.optional(S.String),
     // Custom uniforms
     uniforms: S.optional(S.Record({ key: S.String, value: S.Union(S.Number, S.Array(S.Number)) })),
-  })
+  }),
 )
 
 export type MaterialComponent = S.Schema.Type<typeof MaterialComponent>
@@ -150,7 +154,7 @@ export const LightComponent = RegisterComponent({
     // Optimization
     cullingMask: S.Number.pipe(S.int()),
     enabled: S.Boolean,
-  })
+  }),
 )
 
 export type LightComponent = S.Schema.Type<typeof LightComponent>
@@ -175,11 +179,13 @@ export const CameraComponent = RegisterComponent({
     near: S.Number.pipe(S.positive()),
     far: S.Number.pipe(S.positive()),
     // View properties
-    target: S.optional(S.Struct({
-      x: S.Number,
-      y: S.Number,
-      z: S.Number,
-    })),
+    target: S.optional(
+      S.Struct({
+        x: S.Number,
+        y: S.Number,
+        z: S.Number,
+      }),
+    ),
     up: S.Struct({
       x: S.Number,
       y: S.Number,
@@ -203,13 +209,15 @@ export const CameraComponent = RegisterComponent({
     // Render order
     renderOrder: S.Number.pipe(S.int()),
     // Viewport
-    viewport: S.optional(S.Struct({
-      x: S.Number.pipe(S.between(0, 1)),
-      y: S.Number.pipe(S.between(0, 1)),
-      width: S.Number.pipe(S.between(0, 1)),
-      height: S.Number.pipe(S.between(0, 1)),
-    })),
-  })
+    viewport: S.optional(
+      S.Struct({
+        x: S.Number.pipe(S.between(0, 1)),
+        y: S.Number.pipe(S.between(0, 1)),
+        width: S.Number.pipe(S.between(0, 1)),
+        height: S.Number.pipe(S.between(0, 1)),
+      }),
+    ),
+  }),
 )
 
 export type CameraComponent = S.Schema.Type<typeof CameraComponent>
@@ -228,30 +236,31 @@ export const RenderableComponent = RegisterComponent({
     // Sorting key for transparent objects
     sortingOrder: S.Number.pipe(S.int()),
     // Bounds for culling
-    bounds: S.optional(S.Struct({
-      min: S.Struct({ x: S.Number, y: S.Number, z: S.Number }),
-      max: S.Struct({ x: S.Number, y: S.Number, z: S.Number }),
-    })),
+    bounds: S.optional(
+      S.Struct({
+        min: S.Struct({ x: S.Number, y: S.Number, z: S.Number }),
+        max: S.Struct({ x: S.Number, y: S.Number, z: S.Number }),
+      }),
+    ),
     // GPU instancing
-    instancedData: S.optional(S.Struct({
-      transforms: S.Array(S.Number), // Matrix4 data
-      colors: S.optional(S.Array(S.Number)),
-      customData: S.optional(S.Array(S.Number)),
-    })),
+    instancedData: S.optional(
+      S.Struct({
+        transforms: S.Array(S.Number), // Matrix4 data
+        colors: S.optional(S.Array(S.Number)),
+        customData: S.optional(S.Array(S.Number)),
+      }),
+    ),
     // State
     visible: S.Boolean,
     enabled: S.Boolean,
-  })
+  }),
 )
 
 export type RenderableComponent = S.Schema.Type<typeof RenderableComponent>
 
 // ===== COMPONENT FACTORIES =====
 
-export const createMeshComponent = (
-  geometry: MeshGeometry,
-  options?: Partial<Pick<MeshComponent, 'visible' | 'castShadows' | 'receiveShadows'>>
-): MeshComponent =>
+export const createMeshComponent = (geometry: MeshGeometry, options?: Partial<Pick<MeshComponent, 'visible' | 'castShadows' | 'receiveShadows'>>): MeshComponent =>
   Data.struct({
     geometry,
     visible: options?.visible ?? true,
@@ -262,7 +271,7 @@ export const createMeshComponent = (
 
 export const createMaterialComponent = (
   albedo?: { r: number; g: number; b: number; a?: number },
-  options?: Partial<Pick<MaterialComponent, 'metallic' | 'roughness' | 'transparent'>>
+  options?: Partial<Pick<MaterialComponent, 'metallic' | 'roughness' | 'transparent'>>,
 ): MaterialComponent =>
   Data.struct({
     albedo: {
@@ -278,40 +287,28 @@ export const createMaterialComponent = (
     doubleSided: false,
   })
 
-export const createDirectionalLight = (
-  color: { r: number; g: number; b: number } = { r: 1, g: 1, b: 1 },
-  intensity: number = 1
-): LightComponent =>
+export const createDirectionalLight = (color: { r: number; g: number; b: number } = { r: 1, g: 1, b: 1 }, intensity: number = 1): LightComponent =>
   Data.struct({
     type: 'directional' as const,
     color,
     intensity,
     castShadows: true,
-    cullingMask: 0xFFFFFFFF,
+    cullingMask: 0xffffffff,
     enabled: true,
   })
 
-export const createPointLight = (
-  color: { r: number; g: number; b: number } = { r: 1, g: 1, b: 1 },
-  intensity: number = 1,
-  range: number = 10
-): LightComponent =>
+export const createPointLight = (color: { r: number; g: number; b: number } = { r: 1, g: 1, b: 1 }, intensity: number = 1, range: number = 10): LightComponent =>
   Data.struct({
     type: 'point' as const,
     color,
     intensity,
     range,
     castShadows: true,
-    cullingMask: 0xFFFFFFFF,
+    cullingMask: 0xffffffff,
     enabled: true,
   })
 
-export const createPerspectiveCamera = (
-  fov: number = Math.PI / 4,
-  aspect: number = 1,
-  near: number = 0.1,
-  far: number = 1000
-): CameraComponent =>
+export const createPerspectiveCamera = (fov: number = Math.PI / 4, aspect: number = 1, near: number = 0.1, far: number = 1000): CameraComponent =>
   Data.struct({
     projectionType: 'perspective' as const,
     fov,
@@ -322,14 +319,11 @@ export const createPerspectiveCamera = (
     clearColor: { r: 0.2, g: 0.2, b: 0.3, a: 1 },
     clearFlags: { color: true, depth: true, stencil: false },
     frustumCulling: true,
-    cullingMask: 0xFFFFFFFF,
+    cullingMask: 0xffffffff,
     renderOrder: 0,
   })
 
-export const createRenderableComponent = (
-  layer: number = 0,
-  options?: Partial<Pick<RenderableComponent, 'visible' | 'enabled'>>
-): RenderableComponent =>
+export const createRenderableComponent = (layer: number = 0, options?: Partial<Pick<RenderableComponent, 'visible' | 'enabled'>>): RenderableComponent =>
   Data.struct({
     layer,
     sortingOrder: 0,
@@ -347,12 +341,7 @@ export const RenderingComponents = {
   Renderable: RenderableComponent,
 } as const
 
-export type AnyRenderingComponent = 
-  | MeshComponent 
-  | MaterialComponent 
-  | LightComponent 
-  | CameraComponent 
-  | RenderableComponent
+export type AnyRenderingComponent = MeshComponent | MaterialComponent | LightComponent | CameraComponent | RenderableComponent
 
 export const RenderingComponentFactories = {
   createMeshComponent,

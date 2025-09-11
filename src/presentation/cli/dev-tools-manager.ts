@@ -24,12 +24,15 @@ export class DevToolsManager {
   private entityInspector: EntityInspector | null = null
   private worldEditor: WorldEditor | null = null
   private networkInspector: NetworkInspector | null = null
-  
+
   private isEnabled: boolean = false
   private config: DevToolsConfig
   private toolbarElement: HTMLElement | null = null
 
-  constructor(private world: World, config: Partial<DevToolsConfig> = {}) {
+  constructor(
+    private world: World,
+    config: Partial<DevToolsConfig> = {},
+  ) {
     this.config = {
       enableDebugger: true,
       enablePerformanceProfiler: true,
@@ -39,7 +42,7 @@ export class DevToolsManager {
       enableNetworkInspector: true,
       autoStart: true,
       showWelcome: true,
-      ...config
+      ...config,
     }
 
     // 開発環境でのみ有効
@@ -50,35 +53,35 @@ export class DevToolsManager {
 
   private initialize(): void {
     console.log('🔧 Initializing Development Tools...')
-    
+
     // 各ツールを初期化
     if (this.config.enableDebugger) {
       this.gameDebugger = new GameDebugger(this.world)
     }
-    
+
     if (this.config.enablePerformanceProfiler) {
       this.performanceProfiler = new PerformanceProfiler()
     }
-    
+
     if (this.config.enableDevConsole) {
       this.devConsole = new DevConsole(this.world)
     }
-    
+
     if (this.config.enableEntityInspector) {
       this.entityInspector = new EntityInspector(this.world)
     }
-    
+
     if (this.config.enableWorldEditor) {
       this.worldEditor = new WorldEditor(this.world)
     }
-    
+
     if (this.config.enableNetworkInspector) {
       this.networkInspector = new NetworkInspector()
     }
 
     this.createToolbar()
     this.setupGlobalKeyboardShortcuts()
-    
+
     if (this.config.autoStart) {
       this.enable()
     }
@@ -114,7 +117,7 @@ export class DevToolsManager {
       { icon: '🏗️', title: 'Toggle World Editor (Ctrl+Shift+W)', action: () => this.toggleWorldEditor() },
       { icon: '🌐', title: 'Toggle Network Inspector (Ctrl+Shift+N)', action: () => this.toggleNetworkInspector() },
       { icon: '📊', title: 'Toggle Performance (Ctrl+Shift+P)', action: () => this.togglePerformanceProfiler() },
-      { icon: '❌', title: 'Close Dev Tools', action: () => this.disable() }
+      { icon: '❌', title: 'Close Dev Tools', action: () => this.disable() },
     ]
 
     buttons.forEach(({ icon, title, action }) => {
@@ -135,9 +138,13 @@ export class DevToolsManager {
         justify-content: center;
         transition: background 0.2s;
       `
-      
-      button.onmouseover = () => { button.style.background = '#555' }
-      button.onmouseout = () => { button.style.background = '#333' }
+
+      button.onmouseover = () => {
+        button.style.background = '#555'
+      }
+      button.onmouseout = () => {
+        button.style.background = '#333'
+      }
       button.onclick = action
 
       this.toolbarElement!.appendChild(button)
@@ -276,7 +283,7 @@ export class DevToolsManager {
     if (this.gameDebugger) {
       this.gameDebugger.update(deltaTime)
     }
-    
+
     if (this.performanceProfiler) {
       this.performanceProfiler.update(deltaTime)
     }
@@ -294,12 +301,12 @@ export class DevToolsManager {
         entityInspector: !!this.entityInspector,
         worldEditor: !!this.worldEditor,
         networkInspector: !!this.networkInspector,
-        performanceProfiler: !!this.performanceProfiler
+        performanceProfiler: !!this.performanceProfiler,
       },
       performance: this.performanceProfiler?.getStats() || null,
       network: this.networkInspector?.getNetworkSummary() || null,
       worldEditor: this.worldEditor?.getStats() || null,
-      entityInspector: this.entityInspector?.getEntityStats() || null
+      entityInspector: this.entityInspector?.getEntityStats() || null,
     }
   }
 
@@ -332,7 +339,7 @@ export class DevToolsManager {
       stats: this.getStats(),
       performance: this.performanceProfiler?.exportPerformanceData(),
       network: this.networkInspector?.getNetworkSummary(),
-      worldEditor: this.worldEditor?.getStats()
+      worldEditor: this.worldEditor?.getStats(),
     }
   }
 

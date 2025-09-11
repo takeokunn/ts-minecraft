@@ -2,45 +2,48 @@
  * Application-wide configuration
  */
 
-export interface AppConfig {
-  // General application settings
-  appName: string
-  version: string
-  debug: boolean
+import * as S from 'effect/Schema'
+import type { Schema } from 'effect/Schema'
 
-  // Environment settings
-  environment: 'development' | 'production' | 'test'
-  apiUrl?: string
+// Schema definitions for type safety and validation
+export const LoggingConfigSchema = S.Struct({
+  level: S.Literal('error', 'warn', 'info', 'debug'),
+  enableConsole: S.Boolean,
+  enableRemote: S.Boolean,
+})
 
-  // Logging configuration
-  logging: {
-    level: 'error' | 'warn' | 'info' | 'debug'
-    enableConsole: boolean
-    enableRemote: boolean
-  }
+export const FeatureFlagsSchema = S.Struct({
+  enableMultiplayer: S.Boolean,
+  enableWebGPU: S.Boolean,
+  enableWasm: S.Boolean,
+  enableServiceWorker: S.Boolean,
+  enableHotReload: S.Boolean,
+})
 
-  // Feature flags
-  features: {
-    enableMultiplayer: boolean
-    enableWebGPU: boolean
-    enableWasm: boolean
-    enableServiceWorker: boolean
-    enableHotReload: boolean
-  }
+export const StorageConfigSchema = S.Struct({
+  enableLocalStorage: S.Boolean,
+  enableIndexedDB: S.Boolean,
+  maxCacheSize: S.Number.pipe(S.positive()), // Must be positive
+})
 
-  // Storage settings
-  storage: {
-    enableLocalStorage: boolean
-    enableIndexedDB: boolean
-    maxCacheSize: number // in MB
-  }
+export const SecurityConfigSchema = S.Struct({
+  enableCSP: S.Boolean,
+  allowedOrigins: S.Array(S.String),
+})
 
-  // Security settings
-  security: {
-    enableCSP: boolean
-    allowedOrigins: string[]
-  }
-}
+export const AppConfigSchema = S.Struct({
+  appName: S.String.pipe(S.nonEmpty()),
+  version: S.String.pipe(S.nonEmpty()),
+  debug: S.Boolean,
+  environment: S.Literal('development', 'production', 'test'),
+  apiUrl: S.optional(S.String),
+  logging: LoggingConfigSchema,
+  features: FeatureFlagsSchema,
+  storage: StorageConfigSchema,
+  security: SecurityConfigSchema,
+})
+
+export type AppConfig = S.Schema.Type<typeof AppConfigSchema>
 
 const developmentConfig: AppConfig = {
   appName: 'TS Minecraft',
@@ -139,27 +142,21 @@ const getConfig = (): AppConfig => {
 
 export const APP_CONFIG = getConfig()
 
-// Configuration validation
-export const validateAppConfig = (config: AppConfig): boolean => {
-  if (!config.appName || !config.version) {
-    console.error('App name and version are required')
+// Schema-based configuration validation
+export const validateAppConfig = S.decodeUnknownSync(AppConfigSchema)
+
+// Type-safe configuration validation with detailed error messages
+export const safeValidateAppConfig = (config: unknown): config is AppConfig => {
+  try {
+    validateAppConfig(config)
+    return true
+  } catch (error) {
+    console.error('Configuration validation failed:', error)
     return false
   }
-
-  if (!['development', 'production', 'test'].includes(config.environment)) {
-    console.error('Invalid environment specified')
-    return false
-  }
-
-  if (config.storage.maxCacheSize <= 0) {
-    console.error('Max cache size must be positive')
-    return false
-  }
-
-  return true
 }
 
-// Validate configuration on load
-if (!validateAppConfig(APP_CONFIG)) {
-  throw new Error('Invalid application configuration')
+// Validate configuration on load with schema validation
+if (!safeValidateAppConfig(APP_CONFIG)) {
+  throw new Error('Invalid application configuration - see console for details')
 }

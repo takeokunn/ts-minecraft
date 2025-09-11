@@ -41,17 +41,13 @@ export const toChunkZ = S.decodeUnknownSync(ChunkZ)
 /**
  * Mathematical utility functions
  */
-export const clamp = (value: number, min: number, max: number): number =>
-  Math.max(min, Math.min(max, value))
+export const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value))
 
-export const lerp = (a: number, b: number, t: number): number =>
-  a + (b - a) * t
+export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t
 
-export const distance2D = (x1: number, y1: number, x2: number, y2: number): number =>
-  Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+export const distance2D = (x1: number, y1: number, x2: number, y2: number): number => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
-export const distance3D = (x1: number, y1: number, z1: number, x2: number, y2: number, z2: number): number =>
-  Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
+export const distance3D = (x1: number, y1: number, z1: number, x2: number, y2: number, z2: number): number => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
 
 export const normalizeAngle = (angle: number): number => {
   while (angle < 0) angle += 2 * Math.PI
@@ -59,14 +55,11 @@ export const normalizeAngle = (angle: number): number => {
   return angle
 }
 
-export const degreesToRadians = (degrees: number): number =>
-  degrees * (Math.PI / 180)
+export const degreesToRadians = (degrees: number): number => degrees * (Math.PI / 180)
 
-export const radiansToDegrees = (radians: number): number =>
-  radians * (180 / Math.PI)
+export const radiansToDegrees = (radians: number): number => radians * (180 / Math.PI)
 
-export const isPowerOfTwo = (value: number): boolean =>
-  (value & (value - 1)) === 0 && value !== 0
+export const isPowerOfTwo = (value: number): boolean => (value & (value - 1)) === 0 && value !== 0
 
 export const nextPowerOfTwo = (value: number): number => {
   if (isPowerOfTwo(value)) return value

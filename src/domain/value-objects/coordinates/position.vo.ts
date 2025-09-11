@@ -14,9 +14,8 @@ export const Position = S.Struct({
   _tag: S.Literal('Position'),
   x: X,
   y: Y,
-  z: Z
+  z: Z,
 })
 export type Position = S.Schema.Type<typeof Position>
 
-export const makePosition = (x: number, y: number, z: number) =>
-  S.decodeSync(Position)({ _tag: 'Position', x, y, z })
+export const makePosition = (x: number, y: number, z: number) => S.decodeSync(Position)({ _tag: 'Position', x, y, z })

@@ -49,7 +49,7 @@ jobs:
           echo "📊 Bundle Size Analysis" >> $GITHUB_STEP_SUMMARY
           echo "| File | Size | Gzipped |" >> $GITHUB_STEP_SUMMARY
           echo "|------|------|---------|" >> $GITHUB_STEP_SUMMARY
-          
+
           for file in dist/assets/*.js; do
             if [ -f "$file" ]; then
               SIZE=$(wc -c < "$file" | numfmt --to=iec)
@@ -64,9 +64,9 @@ jobs:
           TOTAL_SIZE=$(du -sb dist | cut -f1)
           MAX_SIZE=10485760  # 10MB
           WARN_SIZE=8388608  # 8MB
-          
+
           echo "Total bundle size: $(numfmt --to=iec $TOTAL_SIZE)B"
-          
+
           if [ $TOTAL_SIZE -gt $MAX_SIZE ]; then
             echo "❌ Bundle size $(numfmt --to=iec $TOTAL_SIZE)B exceeds maximum $(numfmt --to=iec $MAX_SIZE)B"
             exit 1
@@ -115,12 +115,12 @@ jobs:
       - name: Run performance benchmarks
         run: |
           echo "🚀 Running performance benchmarks..."
-          
+
           # Create simple performance test script
           cat > performance-test.js << 'EOF'
           const { chromium } = require('playwright');
           const fs = require('fs');
-          
+
           (async () => {
             const browser = await chromium.launch({ headless: true });
             const page = await browser.newPage();
@@ -181,7 +181,7 @@ jobs:
             await browser.close();
           })();
           EOF
-          
+
           node performance-test.js
 
       - name: Generate performance report
@@ -278,7 +278,7 @@ jobs:
             }
           }
           EOF
-          
+
           lhci autorun
 
       - name: Upload Lighthouse results
@@ -319,7 +319,7 @@ jobs:
         run: |
           cat > memory-leak-test.js << 'EOF'
           const { chromium } = require('playwright');
-          
+
           (async () => {
             const browser = await chromium.launch({ 
               headless: true,
@@ -393,7 +393,7 @@ jobs:
             }
           })();
           EOF
-          
+
           node memory-leak-test.js
 
   # Performance monitoring summary
@@ -420,12 +420,12 @@ jobs:
           echo "- Memory Leak Test: ${{ needs.memory-leak-test.result }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📊 Performance Metrics" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ -f performance-report.json ]; then
             LOAD_TIME=$(jq -r '.metrics.totalLoadTime' performance-report.json)
             echo "- **Load Time**: ${LOAD_TIME}ms" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "- **Test Date**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
 
@@ -444,7 +444,7 @@ jobs:
           if [ "${{ needs.memory-leak-test.result }}" != "success" ]; then
             ((FAILED_JOBS++))
           fi
-          
+
           if [ $FAILED_JOBS -gt 0 ]; then
             echo "❌ $FAILED_JOBS performance test(s) failed"
             exit 1

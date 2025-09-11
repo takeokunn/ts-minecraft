@@ -1,6 +1,6 @@
 /**
  * Application Commands - Effect-TS Commands
- * 
+ *
  * Exports all command handlers converted from system functions
  */
 

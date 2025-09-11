@@ -3,7 +3,7 @@ import { ReadonlyArray } from 'effect/ReadonlyArray'
 import * as HashMap from 'effect/HashMap'
 import * as Option from 'effect/Option'
 import { Collider, Player, Position, Velocity } from '@/domain/entities/components'
-import { AABB, createAABB, areAABBsIntersecting } from '@/domain/geometry'
+import { AABB, createAABB, areAABBsIntersecting } from '@/domain/value-objects/physics/aabb.vo'
 import { queries } from '@/domain/queries'
 import { WorldRepository } from '@/domain/ports/world.repository'
 import { SpatialGridPort } from '@/domain/ports/spatial-grid.port'
@@ -17,59 +17,44 @@ type CollisionResolutionState = {
   readonly isGrounded: boolean
 }
 
-const resolveAxis = (
-  axis: 'x' | 'y' | 'z',
-  playerCollider: Collider,
-  nearbyAABBs: ReadonlyArray.NonEmptyReadonlyArray<AABB>,
-) => (initialState: CollisionResolutionState): CollisionResolutionState => {
-  const playerAABB = createAABB(initialState.position, playerCollider)
+const resolveAxis =
+  (axis: 'x' | 'y' | 'z', playerCollider: Collider, nearbyAABBs: ReadonlyArray.NonEmptyReadonlyArray<AABB>) =>
+  (initialState: CollisionResolutionState): CollisionResolutionState => {
+    const playerAABB = createAABB(initialState.position, playerCollider)
 
-  return ReadonlyArray.reduce(nearbyAABBs, initialState, (state, blockAABB) => {
-    if (!areAABBsIntersecting(playerAABB, blockAABB)) {
-      return state
-    }
+    return ReadonlyArray.reduce(nearbyAABBs, initialState, (state, blockAABB) => {
+      if (!areAABBsIntersecting(playerAABB, blockAABB)) {
+        return state
+      }
 
-    if (axis === 'y') {
-      const newY =
-        state.velocity.dy > 0
-          ? toFloat(blockAABB.minY - playerCollider.height)
-          : state.velocity.dy < 0
-          ? toFloat(blockAABB.maxY)
-          : state.position.y
-      const isGrounded = state.velocity.dy < 0 || state.isGrounded
-      return {
-        ...state,
-        position: new Position({ ...state.position, y: newY }),
-        velocity: new Velocity({ ...state.velocity, dy: toFloat(0) }),
-        isGrounded,
+      if (axis === 'y') {
+        const newY = state.velocity.dy > 0 ? toFloat(blockAABB.minY - playerCollider.height) : state.velocity.dy < 0 ? toFloat(blockAABB.maxY) : state.position.y
+        const isGrounded = state.velocity.dy < 0 || state.isGrounded
+        return {
+          ...state,
+          position: new Position({ ...state.position, y: newY }),
+          velocity: new Velocity({ ...state.velocity, dy: toFloat(0) }),
+          isGrounded,
+        }
+      } else if (axis === 'x') {
+        const newX =
+          state.velocity.dx > 0 ? toFloat(blockAABB.minX - playerCollider.width / 2) : state.velocity.dx < 0 ? toFloat(blockAABB.maxX + playerCollider.width / 2) : state.position.x
+        return {
+          ...state,
+          position: new Position({ ...state.position, x: newX }),
+          velocity: new Velocity({ ...state.velocity, dx: toFloat(0) }),
+        }
+      } else {
+        const newZ =
+          state.velocity.dz > 0 ? toFloat(blockAABB.minZ - playerCollider.depth / 2) : state.velocity.dz < 0 ? toFloat(blockAABB.maxZ + playerCollider.depth / 2) : state.position.z
+        return {
+          ...state,
+          position: new Position({ ...state.position, z: newZ }),
+          velocity: new Velocity({ ...state.velocity, dz: toFloat(0) }),
+        }
       }
-    } else if (axis === 'x') {
-      const newX =
-        state.velocity.dx > 0
-          ? toFloat(blockAABB.minX - playerCollider.width / 2)
-          : state.velocity.dx < 0
-          ? toFloat(blockAABB.maxX + playerCollider.width / 2)
-          : state.position.x
-      return {
-        ...state,
-        position: new Position({ ...state.position, x: newX }),
-        velocity: new Velocity({ ...state.velocity, dx: toFloat(0) }),
-      }
-    } else {
-      const newZ =
-        state.velocity.dz > 0
-          ? toFloat(blockAABB.minZ - playerCollider.depth / 2)
-          : state.velocity.dz < 0
-          ? toFloat(blockAABB.maxZ + playerCollider.depth / 2)
-          : state.position.z
-      return {
-        ...state,
-        position: new Position({ ...state.position, z: newZ }),
-        velocity: new Velocity({ ...state.velocity, dz: toFloat(0) }),
-      }
-    }
-  })
-}
+    })
+  }
 
 const getNearbyAABBs = (
   entityId: EntityId,
@@ -121,12 +106,7 @@ const resolveCollisionsForPlayer = (
     }
 
     const finalState = ReadonlyArray.isNonEmptyReadonlyArray(nearbyAABBs)
-      ? pipe(
-          initialState,
-          resolveAxis('y', collider, nearbyAABBs),
-          resolveAxis('x', collider, nearbyAABBs),
-          resolveAxis('z', collider, nearbyAABBs),
-        )
+      ? pipe(initialState, resolveAxis('y', collider, nearbyAABBs), resolveAxis('x', collider, nearbyAABBs), resolveAxis('z', collider, nearbyAABBs))
       : initialState
 
     yield* $(
@@ -145,18 +125,14 @@ export const collisionSystem = Effect.gen(function* ($) {
   const world = yield* $(WorldRepository)
 
   const { entities: playerEntities, components: playerComponents } = yield* $(world.querySoA(queries.playerCollider))
-  const { entities: colliderEntities, components: colliderComponents } = yield* $(
-    world.querySoA(queries.positionCollider),
-  )
+  const { entities: colliderEntities, components: colliderComponents } = yield* $(world.querySoA(queries.positionCollider))
 
   const colliderEntityMap = HashMap.fromIterable(colliderEntities.map((id, i) => [id, i] as const))
 
   yield* $(
-    Effect.forEach(
-      playerEntities,
-      (entityId, i) =>
-        resolveCollisionsForPlayer(entityId, i, playerComponents, colliderEntityMap, colliderComponents),
-      { concurrency: 'inherit', discard: true },
-    ),
+    Effect.forEach(playerEntities, (entityId, i) => resolveCollisionsForPlayer(entityId, i, playerComponents, colliderEntityMap, colliderComponents), {
+      concurrency: 'inherit',
+      discard: true,
+    }),
   )
 })

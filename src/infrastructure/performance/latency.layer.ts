@@ -85,31 +85,27 @@ export interface RequestBatch<T, R> {
 export const LatencyOptimizerService = Context.GenericTag<{
   readonly startMeasurement: (name: string, metadata?: Record<string, unknown>) => Effect.Effect<string, never, never>
   readonly endMeasurement: (id: string) => Effect.Effect<LatencyMeasurement, never, never>
-  readonly measure: <R, E>(
-    name: string,
-    effect: Effect.Effect<R, E, never>,
-    metadata?: Record<string, unknown>
-  ) => Effect.Effect<R, E, never>
-  
+  readonly measure: <R, E>(name: string, effect: Effect.Effect<R, E, never>, metadata?: Record<string, unknown>) => Effect.Effect<R, E, never>
+
   readonly getStats: (name?: string) => Effect.Effect<LatencyStats, never, never>
   readonly getAllStats: () => Effect.Effect<Map<string, LatencyStats>, never, never>
   readonly clearMeasurements: (name?: string) => Effect.Effect<void, never, never>
-  
+
   readonly setTarget: (target: LatencyTarget) => Effect.Effect<void, never, never>
   readonly getTargets: () => Effect.Effect<LatencyTarget[], never, never>
   readonly checkTargets: () => Effect.Effect<Array<{ name: string; status: 'ok' | 'warning' | 'critical'; actualLatency: number }>, never, never>
-  
+
   readonly enableBatching: <T, R>(config: {
     name: string
     maxBatchSize: number
     maxWaitTime: number
     processor: (requests: T[]) => Promise<R[]>
   }) => Effect.Effect<(request: T) => Promise<R>, never, never>
-  
+
   readonly prefetch: (key: string, generator: () => Promise<any>) => Effect.Effect<void, never, never>
   readonly getCached: <T>(key: string) => Effect.Effect<T | null, never, never>
   readonly invalidateCache: (pattern?: string) => Effect.Effect<void, never, never>
-  
+
   readonly optimizeLatency: () => Effect.Effect<void, never, never>
   readonly generateReport: () => Effect.Effect<string, never, never>
 }>('LatencyOptimizerService')
@@ -117,9 +113,7 @@ export const LatencyOptimizerService = Context.GenericTag<{
 /**
  * Create latency optimizer service implementation
  */
-const createLatencyOptimizerServiceImpl = (
-  config: LatencyOptimizerConfig
-): Effect.Effect<Context.Tag.Service<typeof LatencyOptimizerService>, never, never> =>
+const createLatencyOptimizerServiceImpl = (config: LatencyOptimizerConfig): Effect.Effect<Context.Tag.Service<typeof LatencyOptimizerService>, never, never> =>
   Effect.gen(function* () {
     const measurements = yield* Ref.make<Map<string, LatencyMeasurement[]>>(new Map())
     const activeMeasurements = yield* Ref.make<Map<string, { name: string; startTime: number; metadata?: Record<string, unknown> }>>(new Map())
@@ -131,7 +125,7 @@ const createLatencyOptimizerServiceImpl = (
 
     const addMeasurement = (measurement: LatencyMeasurement) =>
       Effect.gen(function* () {
-        yield* Ref.update(measurements, map => {
+        yield* Ref.update(measurements, (map) => {
           const existing = map.get(measurement.name) || []
           const updated = [...existing, measurement].slice(-config.maxHistorySize)
           return new Map(map).set(measurement.name, updated)
@@ -139,8 +133,8 @@ const createLatencyOptimizerServiceImpl = (
 
         // Check against targets
         const currentTargets = yield* Ref.get(targets)
-        const target = currentTargets.find(t => t.name === measurement.name && t.enabled)
-        
+        const target = currentTargets.find((t) => t.name === measurement.name && t.enabled)
+
         if (target) {
           if (measurement.latency > target.criticalThreshold) {
             yield* Effect.logError(`CRITICAL: ${measurement.name} latency ${measurement.latency.toFixed(2)}ms exceeds critical threshold ${target.criticalThreshold}ms`)
@@ -161,7 +155,7 @@ const createLatencyOptimizerServiceImpl = (
           p95: 0,
           p99: 0,
           standardDeviation: 0,
-          histogram: []
+          histogram: [],
         }
       }
 
@@ -170,12 +164,10 @@ const createLatencyOptimizerServiceImpl = (
       const min = sorted[0]
       const max = sorted[count - 1]
       const mean = sorted.reduce((sum, val) => sum + val, 0) / count
-      const median = count % 2 === 0 
-        ? (sorted[count / 2 - 1] + sorted[count / 2]) / 2
-        : sorted[Math.floor(count / 2)]
+      const median = count % 2 === 0 ? (sorted[count / 2 - 1] + sorted[count / 2]) / 2 : sorted[Math.floor(count / 2)]
       const p95 = sorted[Math.floor(count * 0.95)]
       const p99 = sorted[Math.floor(count * 0.99)]
-      
+
       const variance = sorted.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / count
       const standardDeviation = Math.sqrt(variance)
 
@@ -187,13 +179,13 @@ const createLatencyOptimizerServiceImpl = (
       for (let i = 0; i < bucketCount; i++) {
         const bucketMin = min + i * bucketSize
         const bucketMax = bucketMin + bucketSize
-        const bucketValues = sorted.filter(val => val >= bucketMin && val < bucketMax)
-        
+        const bucketValues = sorted.filter((val) => val >= bucketMin && val < bucketMax)
+
         histogram.push({
           min: bucketMin,
           max: bucketMax,
           count: bucketValues.length,
-          percentage: (bucketValues.length / count) * 100
+          percentage: (bucketValues.length / count) * 100,
         })
       }
 
@@ -206,7 +198,7 @@ const createLatencyOptimizerServiceImpl = (
         p95,
         p99,
         standardDeviation,
-        histogram
+        histogram,
       }
     }
 
@@ -214,26 +206,26 @@ const createLatencyOptimizerServiceImpl = (
       Effect.gen(function* () {
         const batches = yield* Ref.get(batchQueues)
         const batch = batches.get(batchId) as RequestBatch<T, R>
-        
+
         if (!batch || batch.requests.length === 0) {
           return
         }
 
         try {
-          const requestData = batch.requests.map(r => r.data)
+          const requestData = batch.requests.map((r) => r.data)
           const results = yield* Effect.fromPromise(() => batch.batchProcessor(requestData))
-          
+
           batch.requests.forEach((req, index) => {
             req.resolve(results[index])
           })
         } catch (error) {
-          batch.requests.forEach(req => {
+          batch.requests.forEach((req) => {
             req.reject(error instanceof Error ? error : new Error(String(error)))
           })
         }
 
         // Clear the batch
-        yield* Ref.update(batchQueues, map => {
+        yield* Ref.update(batchQueues, (map) => {
           const newMap = new Map(map)
           newMap.delete(batchId)
           return newMap
@@ -244,18 +236,18 @@ const createLatencyOptimizerServiceImpl = (
       Effect.gen(function* () {
         while (true) {
           yield* Effect.sleep(Duration.millis(config.optimizationInterval))
-          
+
           if (config.enablePredictiveOptimization) {
             yield* Effect.gen(function* () {
               // Analyze patterns and adjust thresholds
               const allMeasurements = yield* Ref.get(measurements)
-              
+
               for (const [name, latencyList] of allMeasurements.entries()) {
                 if (latencyList.length > 10) {
                   const recent = latencyList.slice(-10)
                   const trend = recent.slice(-5).reduce((sum, m) => sum + m.latency, 0) / 5
                   const baseline = recent.slice(0, 5).reduce((sum, m) => sum + m.latency, 0) / 5
-                  
+
                   if (trend > baseline * config.adaptiveThreshold) {
                     yield* Effect.logInfo(`Detected latency increase in ${name}, enabling optimizations`)
                     // Trigger optimizations for this operation
@@ -276,9 +268,7 @@ const createLatencyOptimizerServiceImpl = (
           const id = generateId()
           const startTime = performance.now()
 
-          yield* Ref.update(activeMeasurements, map =>
-            new Map(map).set(id, { name, startTime, metadata })
-          )
+          yield* Ref.update(activeMeasurements, (map) => new Map(map).set(id, { name, startTime, metadata }))
 
           return id
         }),
@@ -299,10 +289,10 @@ const createLatencyOptimizerServiceImpl = (
             startTime: active.startTime,
             endTime,
             latency: endTime - active.startTime,
-            metadata: active.metadata
+            metadata: active.metadata,
           }
 
-          yield* Ref.update(activeMeasurements, map => {
+          yield* Ref.update(activeMeasurements, (map) => {
             const newMap = new Map(map)
             newMap.delete(id)
             return newMap
@@ -312,11 +302,7 @@ const createLatencyOptimizerServiceImpl = (
           return measurement
         }),
 
-      measure: <R, E>(
-        name: string,
-        effect: Effect.Effect<R, E, never>,
-        metadata?: Record<string, unknown>
-      ) =>
+      measure: <R, E>(name: string, effect: Effect.Effect<R, E, never>, metadata?: Record<string, unknown>) =>
         Effect.gen(function* () {
           const id = yield* Effect.sync(() => generateId())
           const startTime = yield* Effect.sync(() => performance.now())
@@ -330,7 +316,7 @@ const createLatencyOptimizerServiceImpl = (
             startTime,
             endTime,
             latency: endTime - startTime,
-            metadata
+            metadata,
           }
 
           yield* addMeasurement(measurement)
@@ -340,16 +326,16 @@ const createLatencyOptimizerServiceImpl = (
       getStats: (name?: string) =>
         Effect.gen(function* () {
           const allMeasurements = yield* Ref.get(measurements)
-          
+
           if (name) {
             const nameLatencies = allMeasurements.get(name) || []
-            const latencies = nameLatencies.map(m => m.latency)
+            const latencies = nameLatencies.map((m) => m.latency)
             return calculateStats(latencies)
           } else {
             // Aggregate all measurements
             const allLatencies: number[] = []
             for (const latencyList of allMeasurements.values()) {
-              allLatencies.push(...latencyList.map(m => m.latency))
+              allLatencies.push(...latencyList.map((m) => m.latency))
             }
             return calculateStats(allLatencies)
           }
@@ -359,19 +345,19 @@ const createLatencyOptimizerServiceImpl = (
         Effect.gen(function* () {
           const allMeasurements = yield* Ref.get(measurements)
           const statsMap = new Map<string, LatencyStats>()
-          
+
           for (const [name, latencyList] of allMeasurements.entries()) {
-            const latencies = latencyList.map(m => m.latency)
+            const latencies = latencyList.map((m) => m.latency)
             statsMap.set(name, calculateStats(latencies))
           }
-          
+
           return statsMap
         }),
 
       clearMeasurements: (name?: string) =>
         Effect.gen(function* () {
           if (name) {
-            yield* Ref.update(measurements, map => {
+            yield* Ref.update(measurements, (map) => {
               const newMap = new Map(map)
               newMap.delete(name)
               return newMap
@@ -383,8 +369,8 @@ const createLatencyOptimizerServiceImpl = (
         }),
 
       setTarget: (target: LatencyTarget) =>
-        Ref.update(targets, current => {
-          const existing = current.findIndex(t => t.name === target.name)
+        Ref.update(targets, (current) => {
+          const existing = current.findIndex((t) => t.name === target.name)
           if (existing >= 0) {
             const updated = [...current]
             updated[existing] = target
@@ -402,17 +388,16 @@ const createLatencyOptimizerServiceImpl = (
           const allMeasurements = yield* Ref.get(measurements)
           const results = []
 
-          for (const target of currentTargets.filter(t => t.enabled)) {
+          for (const target of currentTargets.filter((t) => t.enabled)) {
             const latencies = allMeasurements.get(target.name)
             if (latencies && latencies.length > 0) {
               const recentLatency = latencies[latencies.length - 1].latency
-              const status = recentLatency > target.criticalThreshold ? 'critical' :
-                           recentLatency > target.warningThreshold ? 'warning' : 'ok'
-              
+              const status = recentLatency > target.criticalThreshold ? 'critical' : recentLatency > target.warningThreshold ? 'warning' : 'ok'
+
               results.push({
                 name: target.name,
                 status: status as 'ok' | 'warning' | 'critical',
-                actualLatency: recentLatency
+                actualLatency: recentLatency,
               })
             }
           }
@@ -420,12 +405,7 @@ const createLatencyOptimizerServiceImpl = (
           return results
         }),
 
-      enableBatching: <T, R>(batchConfig: {
-        name: string
-        maxBatchSize: number
-        maxWaitTime: number
-        processor: (requests: T[]) => Promise<R[]>
-      }) =>
+      enableBatching: <T, R>(batchConfig: { name: string; maxBatchSize: number; maxWaitTime: number; processor: (requests: T[]) => Promise<R[]> }) =>
         Effect.gen(function* () {
           return (request: T): Promise<R> => {
             return new Promise((resolve, reject) => {
@@ -440,12 +420,10 @@ const createLatencyOptimizerServiceImpl = (
                       requests: [],
                       batchProcessor: batchConfig.processor,
                       maxBatchSize: batchConfig.maxBatchSize,
-                      maxWaitTime: batchConfig.maxWaitTime
+                      maxWaitTime: batchConfig.maxWaitTime,
                     }
 
-                    yield* Ref.update(batchQueues, map =>
-                      new Map(map).set(batchConfig.name, batch)
-                    )
+                    yield* Ref.update(batchQueues, (map) => new Map(map).set(batchConfig.name, batch))
 
                     // Schedule batch processing
                     setTimeout(() => {
@@ -459,7 +437,7 @@ const createLatencyOptimizerServiceImpl = (
                   if (batch.requests.length >= batchConfig.maxBatchSize) {
                     yield* processBatch<T, R>(batchConfig.name)
                   }
-                })
+                }),
               )
             })
           }
@@ -470,10 +448,8 @@ const createLatencyOptimizerServiceImpl = (
           if (config.enablePrefetching) {
             const result = yield* Effect.fromPromise(generator)
             const ttl = 5 * 60 * 1000 // 5 minutes default TTL
-            
-            yield* Ref.update(cache, map =>
-              new Map(map).set(key, { data: result, timestamp: Date.now(), ttl })
-            )
+
+            yield* Ref.update(cache, (map) => new Map(map).set(key, { data: result, timestamp: Date.now(), ttl }))
           }
         }),
 
@@ -481,11 +457,11 @@ const createLatencyOptimizerServiceImpl = (
         Effect.gen(function* () {
           const cacheMap = yield* Ref.get(cache)
           const cached = cacheMap.get(key)
-          
+
           if (cached && Date.now() - cached.timestamp < cached.ttl) {
             return cached.data as T
           }
-          
+
           return null
         }),
 
@@ -493,7 +469,7 @@ const createLatencyOptimizerServiceImpl = (
         Effect.gen(function* () {
           if (pattern) {
             const regex = new RegExp(pattern)
-            yield* Ref.update(cache, map => {
+            yield* Ref.update(cache, (map) => {
               const newMap = new Map()
               for (const [key, value] of map.entries()) {
                 if (!regex.test(key)) {
@@ -510,9 +486,9 @@ const createLatencyOptimizerServiceImpl = (
       optimizeLatency: () =>
         Effect.gen(function* () {
           yield* Effect.logInfo('🚀 Running latency optimization')
-          
+
           // Clear expired cache entries
-          yield* Ref.update(cache, map => {
+          yield* Ref.update(cache, (map) => {
             const now = Date.now()
             const newMap = new Map()
             for (const [key, value] of map.entries()) {
@@ -533,10 +509,10 @@ const createLatencyOptimizerServiceImpl = (
             return yield* service.getAllStats()
           })
           const currentTargets = yield* Ref.get(targets)
-          
+
           let report = '📊 Latency Optimization Report\n'
           report += '═'.repeat(50) + '\n\n'
-          
+
           report += '📈 Performance Statistics:\n'
           for (const [name, stats] of allStats.entries()) {
             report += `\n🎯 ${name}:\n`
@@ -556,14 +532,13 @@ const createLatencyOptimizerServiceImpl = (
             })
 
             for (const check of targetChecks) {
-              const statusEmoji = check.status === 'ok' ? '✅' : 
-                                 check.status === 'warning' ? '⚠️' : '❌'
+              const statusEmoji = check.status === 'ok' ? '✅' : check.status === 'warning' ? '⚠️' : '❌'
               report += `  ${statusEmoji} ${check.name}: ${check.actualLatency.toFixed(2)}ms (${check.status})\n`
             }
           }
 
           return report
-        })
+        }),
     }
   })
 
@@ -579,26 +554,19 @@ export const defaultLatencyConfig: LatencyOptimizerConfig = {
   maxHistorySize: 1000,
   measurementWindow: 60000, // 1 minute
   optimizationInterval: 10000, // 10 seconds
-  adaptiveThreshold: 1.2 // 20% increase triggers optimization
+  adaptiveThreshold: 1.2, // 20% increase triggers optimization
 }
 
 /**
  * Latency Optimizer Service Layer implementation
  */
 export const LatencyOptimizerServiceLive = (config: LatencyOptimizerConfig = defaultLatencyConfig) =>
-  Layer.effect(
-    LatencyOptimizerService,
-    createLatencyOptimizerServiceImpl(config)
-  )
+  Layer.effect(LatencyOptimizerService, createLatencyOptimizerServiceImpl(config))
 
 /**
  * Latency utilities
  */
-export const measureLatency = <R, E>(
-  name: string,
-  effect: Effect.Effect<R, E, never>,
-  metadata?: Record<string, unknown>
-): Effect.Effect<R, E, LatencyOptimizerService> =>
+export const measureLatency = <R, E>(name: string, effect: Effect.Effect<R, E, never>, metadata?: Record<string, unknown>): Effect.Effect<R, E, LatencyOptimizerService> =>
   Effect.gen(function* () {
     const service = yield* LatencyOptimizerService
     return yield* service.measure(name, effect, metadata)
@@ -607,52 +575,39 @@ export const measureLatency = <R, E>(
 /**
  * Create a latency target helper
  */
-export const createLatencyTarget = (config: {
-  name: string
-  targetLatency: number
-  warningThreshold?: number
-  criticalThreshold?: number
-  enabled?: boolean
-}): LatencyTarget => ({
+export const createLatencyTarget = (config: { name: string; targetLatency: number; warningThreshold?: number; criticalThreshold?: number; enabled?: boolean }): LatencyTarget => ({
   warningThreshold: config.targetLatency * 1.5,
   criticalThreshold: config.targetLatency * 2,
   enabled: true,
-  ...config
+  ...config,
 })
 
 /**
  * Batch multiple operations for latency optimization
  */
-export const withBatching = <T, R>(
-  name: string,
-  processor: (requests: T[]) => Promise<R[]>,
-  options: { maxBatchSize?: number; maxWaitTime?: number } = {}
-) =>
+export const withBatching = <T, R>(name: string, processor: (requests: T[]) => Promise<R[]>, options: { maxBatchSize?: number; maxWaitTime?: number } = {}) =>
   Effect.gen(function* () {
     const service = yield* LatencyOptimizerService
     return yield* service.enableBatching({
       name,
       processor,
       maxBatchSize: options.maxBatchSize || 10,
-      maxWaitTime: options.maxWaitTime || 100
+      maxWaitTime: options.maxWaitTime || 100,
     })
   })
 
 /**
  * Cache frequently accessed data
  */
-export const withCaching = <T>(
-  key: string,
-  generator: () => Promise<T>
-): Effect.Effect<T, Error, LatencyOptimizerService> =>
+export const withCaching = <T>(key: string, generator: () => Promise<T>): Effect.Effect<T, Error, LatencyOptimizerService> =>
   Effect.gen(function* () {
     const service = yield* LatencyOptimizerService
     const cached = yield* service.getCached<T>(key)
-    
+
     if (cached) {
       return cached
     }
-    
+
     const result = yield* Effect.fromPromise(generator)
     yield* service.prefetch(key, () => Promise.resolve(result))
     return result

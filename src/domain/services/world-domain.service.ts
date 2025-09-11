@@ -1,6 +1,6 @@
 /**
  * WorldDomainService - Pure domain world logic without infrastructure dependencies
- * 
+ *
  * Features:
  * - World state domain rules and validation
  * - Chunk management algorithms
@@ -45,7 +45,7 @@ export const makeEmptyWorldState = (): WorldState => ({
   _tag: 'WorldState',
   entities: HashMap.empty(),
   chunks: HashMap.empty(),
-  timestamp: Date.now()
+  timestamp: Date.now(),
 })
 
 /**
@@ -61,6 +61,10 @@ export const WorldDomainService = Context.GenericTag<{
   readonly updateWorldTimestamp: (state: WorldState) => Effect.Effect<WorldState>
   readonly calculateChunkKey: (coordinate: ChunkCoordinate) => string
   readonly validateChunkCoordinate: (coordinate: ChunkCoordinate) => Effect.Effect<boolean>
+  // Missing query methods
+  readonly isChunkLoaded: (chunkX: number, chunkZ: number) => Effect.Effect<boolean>
+  readonly getChunk: (chunkX: number, chunkZ: number) => Effect.Effect<Chunk>
+  readonly getLoadedChunks: () => Effect.Effect<readonly Chunk[]>
 }>('WorldDomainService')
 
 /**
@@ -71,41 +75,33 @@ export const WorldDomainServiceLive = Layer.effect(
   WorldDomainService,
   Effect.gen(function* () {
     return WorldDomainService.of({
-      validateWorldState: (state) =>
-        Effect.succeed(
-          state._tag === 'WorldState' && 
-          typeof state.timestamp === 'number' &&
-          state.timestamp > 0
-        ),
-      
-      addEntityToWorld: (entityId, entityData) =>
-        Effect.succeed(undefined), // Pure function - would return updated state
-      
-      removeEntityFromWorld: (entityId) =>
-        Effect.succeed(undefined), // Pure function - would return updated state
-      
-      addChunkToWorld: (chunk) =>
-        Effect.succeed(undefined), // Pure function - would return updated state
-      
-      removeChunkFromWorld: (coordinate) =>
-        Effect.succeed(undefined), // Pure function - would return updated state
-      
+      validateWorldState: (state) => Effect.succeed(state._tag === 'WorldState' && typeof state.timestamp === 'number' && state.timestamp > 0),
+
+      addEntityToWorld: (entityId, entityData) => Effect.succeed(undefined), // Pure function - would return updated state
+
+      removeEntityFromWorld: (entityId) => Effect.succeed(undefined), // Pure function - would return updated state
+
+      addChunkToWorld: (chunk) => Effect.succeed(undefined), // Pure function - would return updated state
+
+      removeChunkFromWorld: (coordinate) => Effect.succeed(undefined), // Pure function - would return updated state
+
       updateWorldTimestamp: (state) =>
         Effect.succeed({
           ...state,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         }),
-      
-      calculateChunkKey: (coordinate) =>
-        `${coordinate.x},${coordinate.z}`,
-      
+
+      calculateChunkKey: (coordinate) => `${coordinate.x},${coordinate.z}`,
+
       validateChunkCoordinate: (coordinate) =>
-        Effect.succeed(
-          Number.isInteger(coordinate.x) && 
-          Number.isInteger(coordinate.z) &&
-          Math.abs(coordinate.x) < 30000000 &&
-          Math.abs(coordinate.z) < 30000000
-        )
+        Effect.succeed(Number.isInteger(coordinate.x) && Number.isInteger(coordinate.z) && Math.abs(coordinate.x) < 30000000 && Math.abs(coordinate.z) < 30000000),
+
+      // Missing query method implementations
+      isChunkLoaded: (chunkX, chunkZ) => Effect.succeed(false), // TODO: Implement with proper chunk storage
+
+      getChunk: (chunkX, chunkZ) => Effect.fail(new Error(`Chunk at ${chunkX}, ${chunkZ} not found`)), // TODO: Implement with proper chunk storage
+
+      getLoadedChunks: () => Effect.succeed([]), // TODO: Implement with proper chunk storage
     })
-  })
+  }),
 )

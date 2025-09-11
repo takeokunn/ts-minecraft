@@ -180,8 +180,8 @@ export class DevConsole {
 
   private autocomplete(): void {
     const input = this.inputElement!.value
-    const commands = Array.from(this.commands.keys()).filter(cmd => cmd.startsWith(input))
-    
+    const commands = Array.from(this.commands.keys()).filter((cmd) => cmd.startsWith(input))
+
     if (commands.length === 1) {
       this.inputElement!.value = commands[0] + ' '
     } else if (commands.length > 1) {
@@ -249,7 +249,7 @@ export class DevConsole {
           this.print(`  ${name}${params} - ${cmd.description}`)
         })
         return undefined
-      }
+      },
     })
 
     // Clear command
@@ -261,7 +261,7 @@ export class DevConsole {
           this.outputElement.innerHTML = ''
         }
         return undefined
-      }
+      },
     })
 
     // Spawn entity command
@@ -274,17 +274,17 @@ export class DevConsole {
         if (!entityType) {
           throw new Error('Entity type required')
         }
-        
+
         const position = {
           x: parseFloat(x || '0') || 0,
           y: parseFloat(y || '0') || 0,
-          z: parseFloat(z || '0') || 0
+          z: parseFloat(z || '0') || 0,
         }
-        
+
         this.print(`Spawning ${entityType} at (${position.x}, ${position.y}, ${position.z})`)
         // 実際のスポーン処理は実装に依存
         return { entityType, position }
-      }
+      },
     })
 
     // Teleport command
@@ -293,15 +293,15 @@ export class DevConsole {
       description: 'Teleport player to coordinates',
       parameters: ['x', 'y', 'z'],
       execute: (args) => {
-        const [x, y, z] = args.map(arg => parseFloat(arg || '0'))
+        const [x, y, z] = args.map((arg) => parseFloat(arg || '0'))
         if (isNaN(x) || isNaN(y) || isNaN(z)) {
           throw new Error('Invalid coordinates')
         }
-        
+
         this.print(`Teleporting to (${x}, ${y}, ${z})`)
         // 実際のテレポート処理
         return { x, y, z }
-      }
+      },
     })
 
     // Set time command
@@ -314,11 +314,11 @@ export class DevConsole {
         if (isNaN(time)) {
           throw new Error('Invalid time value')
         }
-        
+
         this.print(`Setting time to ${time}`)
         // 実際の時間設定処理
         return { time }
-      }
+      },
     })
 
     // Performance command
@@ -331,16 +331,16 @@ export class DevConsole {
         const stats = {
           fps: '60', // 実際のFPS計算
           memory: memory ? `${(memory.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB` : 'N/A',
-          entities: 0 // 実際のエンティティ数
+          entities: 0, // 実際のエンティティ数
         }
-        
+
         this.print(`Performance Stats:`)
         this.print(`  FPS: ${stats.fps}`)
         this.print(`  Memory: ${stats.memory}`)
         this.print(`  Entities: ${stats.entities}`)
-        
+
         return stats
-      }
+      },
     })
 
     // Debug command
@@ -357,7 +357,7 @@ export class DevConsole {
           this.print('Usage: debug on|off')
           return undefined
         }
-      }
+      },
     })
 
     // Inspect command
@@ -370,11 +370,11 @@ export class DevConsole {
         if (!entityId) {
           throw new Error('Entity ID required')
         }
-        
+
         this.print(`Inspecting entity: ${entityId}`)
         // 実際のインスペクション処理
         return { entityId, components: {} }
-      }
+      },
     })
 
     // World command
@@ -398,7 +398,7 @@ export class DevConsole {
             this.print('Available world actions: save, load, reset')
             return undefined
         }
-      }
+      },
     })
 
     // Entity management commands
@@ -425,7 +425,7 @@ export class DevConsole {
             this.print('Available entity actions: list, create, delete, info')
             return undefined
         }
-      }
+      },
     })
 
     // Component management commands
@@ -452,7 +452,7 @@ export class DevConsole {
             this.print('Available component actions: add, remove, get, set')
             return undefined
         }
-      }
+      },
     })
 
     // System commands
@@ -482,7 +482,7 @@ export class DevConsole {
             this.print('Available system actions: list, start, stop, restart, status')
             return undefined
         }
-      }
+      },
     })
 
     // Camera commands
@@ -512,7 +512,7 @@ export class DevConsole {
             this.print('Available camera actions: pos [x y z], look [pitch yaw], fov [degrees], reset')
             return undefined
         }
-      }
+      },
     })
 
     // Rendering commands
@@ -545,7 +545,7 @@ export class DevConsole {
             this.print('Available render actions: wireframe [true/false], shadows [true/false], stats, quality [low/medium/high]')
             return undefined
         }
-      }
+      },
     })
 
     // Physics commands
@@ -577,7 +577,7 @@ export class DevConsole {
             this.print('Available physics actions: gravity [value], pause, resume, step, debug [true/false]')
             return undefined
         }
-      }
+      },
     })
 
     // Hot reload commands
@@ -608,7 +608,7 @@ export class DevConsole {
             this.print('Available reload actions: page, components, systems, styles, config')
             return undefined
         }
-      }
+      },
     })
 
     // Memory commands
@@ -640,7 +640,7 @@ export class DevConsole {
               return {
                 used: memory.usedJSHeapSize,
                 total: memory.totalJSHeapSize,
-                limit: memory.jsHeapSizeLimit
+                limit: memory.jsHeapSizeLimit,
               }
             } else {
               this.print('Memory information not available')
@@ -654,7 +654,7 @@ export class DevConsole {
             this.print('Available memory actions: gc, usage, leaks')
             return undefined
         }
-      }
+      },
     })
 
     // Configuration commands
@@ -679,7 +679,7 @@ export class DevConsole {
             return {
               'graphics.quality': 'medium',
               'audio.volume': 0.8,
-              'debug.enabled': true
+              'debug.enabled': true,
             }
           case 'reset':
             this.print(`Resetting configuration ${key || 'all'} to default`)
@@ -688,7 +688,7 @@ export class DevConsole {
             this.print('Available config actions: get [key], set [key] [value], list, reset [key]')
             return undefined
         }
-      }
+      },
     })
 
     // Logging commands
@@ -718,7 +718,7 @@ export class DevConsole {
             this.print('Available log actions: level [debug/info/warn/error], filter [pattern], clear, export')
             return undefined
         }
-      }
+      },
     })
 
     // Network commands (for multiplayer debugging)
@@ -746,7 +746,7 @@ export class DevConsole {
             this.print('Available network actions: status, latency, simulate [ms], packet')
             return undefined
         }
-      }
+      },
     })
 
     // Benchmark commands
@@ -777,7 +777,7 @@ export class DevConsole {
             this.print('Available benchmark actions: start, stop, quick')
             return undefined
         }
-      }
+      },
     })
 
     // Scene commands
@@ -809,7 +809,7 @@ export class DevConsole {
             this.print('Available scene actions: load [name], save [name], list, export')
             return undefined
         }
-      }
+      },
     })
   }
 

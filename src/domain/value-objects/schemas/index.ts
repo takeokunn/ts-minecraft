@@ -1,4 +1,4 @@
-import * as S from "effect/Schema"
+import * as S from 'effect/Schema'
 import { Brand } from 'effect'
 
 /**
@@ -157,19 +157,19 @@ export const Schemas = {
   EntityId: EntityIdSchema,
   ChunkX: ChunkXSchema,
   ChunkZ: ChunkZSchema,
-  
+
   // Values
   Position: PositionSchema,
   Velocity: VelocitySchema,
   ChunkCoordinates: ChunkCoordinatesSchema,
-  
+
   // Components
   Collider: ColliderSchema,
   Gravity: GravitySchema,
   Player: PlayerSchema,
   InputState: InputStateSchema,
   Camera: CameraSchema,
-  
+
   // Messages
   GenerateChunkMessage: GenerateChunkMessageSchema,
   ChunkGenerationResult: ChunkGenerationResultSchema,
@@ -180,22 +180,13 @@ export const Schemas = {
 /**
  * Type helper for getting the type of a schema
  */
-export type SchemaType<K extends keyof typeof Schemas> = S.Schema.Type<typeof Schemas[K]>
+export type SchemaType<K extends keyof typeof Schemas> = S.Schema.Type<(typeof Schemas)[K]>
 
 /**
  * Validation helpers
  */
-export const decode = <K extends keyof typeof Schemas>(
-  schemaKey: K,
-  value: unknown
-) => S.decodeUnknown(Schemas[schemaKey])(value)
+export const decode = <K extends keyof typeof Schemas>(schemaKey: K, value: unknown) => S.decodeUnknown(Schemas[schemaKey])(value)
 
-export const encode = <K extends keyof typeof Schemas>(
-  schemaKey: K,
-  value: SchemaType<K>
-) => S.encode(Schemas[schemaKey])(value as any)
+export const encode = <K extends keyof typeof Schemas>(schemaKey: K, value: SchemaType<K>) => S.encode(Schemas[schemaKey])(value as any)
 
-export const validate = <K extends keyof typeof Schemas>(
-  schemaKey: K,
-  value: unknown
-) => S.validateSync(Schemas[schemaKey])(value)
+export const validate = <K extends keyof typeof Schemas>(schemaKey: K, value: unknown) => S.validateSync(Schemas[schemaKey])(value)

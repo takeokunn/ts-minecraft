@@ -20,32 +20,32 @@ export interface WorkerPoolConfig {
   workerScript: string
   inputSchema: S.Schema<any>
   outputSchema: S.Schema<any>
-  
+
   // Pool sizing
   minWorkers: number
   maxWorkers: number
   initialWorkers: number
   strategy: PoolStrategy
-  
+
   // Performance settings
   maxConcurrentRequests: number
   requestTimeout: Duration.Duration
   idleTimeout: Duration.Duration
-  
+
   // Load balancing
   loadBalanceStrategy: LoadBalanceStrategy
-  
+
   // Health monitoring
   healthCheckInterval: Duration.Duration
   healthCheckTimeout: Duration.Duration
   maxConsecutiveFailures: number
-  
+
   // Auto-scaling (for dynamic strategy)
-  scaleUpThreshold: number    // CPU/queue utilization %
-  scaleDownThreshold: number  // CPU/queue utilization %
+  scaleUpThreshold: number // CPU/queue utilization %
+  scaleDownThreshold: number // CPU/queue utilization %
   scaleUpCooldown: Duration.Duration
   scaleDownCooldown: Duration.Duration
-  
+
   // Advanced features
   enableSharedArrayBuffer: boolean
   enableTransferableObjects: boolean
@@ -59,7 +59,7 @@ export interface WorkerInstance {
   status: HealthStatus
   createdAt: number
   lastUsed: number
-  
+
   // Metrics
   totalRequests: number
   activeRequests: number
@@ -67,7 +67,7 @@ export interface WorkerInstance {
   failedRequests: number
   averageResponseTime: number
   consecutiveFailures: number
-  
+
   // Resource usage
   memoryUsage: number
   cpuUsage: number
@@ -78,18 +78,18 @@ export interface PoolMetrics {
   activeWorkers: number
   idleWorkers: number
   unhealthyWorkers: number
-  
+
   totalRequests: number
   completedRequests: number
   failedRequests: number
   averageResponseTime: number
-  
+
   queueLength: number
   queueUtilization: number
-  
+
   memoryUsage: number
   cpuUtilization: number
-  
+
   lastScaleEvent: number | null
   scaleEvents: Array<{
     timestamp: number
@@ -125,7 +125,7 @@ export interface WorkerPoolService {
       timeout?: Duration.Duration
       retryCount?: number
       preferredWorkerId?: string
-    }
+    },
   ) => Effect.Effect<TOutput, never, never>
 
   /**
@@ -180,10 +180,10 @@ const make = (config: WorkerPoolConfig) =>
   Effect.gen(function* () {
     // Worker instances
     const workers = yield* Ref.make<Map<string, WorkerInstance>>(new Map())
-    
+
     // Request queue with priority
     const requestQueue = yield* Queue.bounded<QueuedRequest>(1000)
-    
+
     // Pool metrics
     const metrics = yield* Ref.make<PoolMetrics>({
       totalWorkers: 0,
@@ -199,7 +199,7 @@ const make = (config: WorkerPoolConfig) =>
       memoryUsage: 0,
       cpuUtilization: 0,
       lastScaleEvent: null,
-      scaleEvents: []
+      scaleEvents: [],
     })
 
     // Pool state
@@ -212,7 +212,7 @@ const make = (config: WorkerPoolConfig) =>
       isPaused: false,
       isShuttingDown: false,
       lastScaleUp: 0,
-      lastScaleDown: 0
+      lastScaleDown: 0,
     })
 
     /**
@@ -222,12 +222,12 @@ const make = (config: WorkerPoolConfig) =>
       Effect.gen(function* () {
         const workerId = `${config.name}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
         const worker = new Worker(config.workerScript, { type: 'module' })
-        
+
         const clientConfig: WorkerClientConfig<any, any> = {
           inputSchema: config.inputSchema,
           outputSchema: config.outputSchema,
           timeout: config.requestTimeout,
-          maxConcurrentRequests: config.maxConcurrentRequests
+          maxConcurrentRequests: config.maxConcurrentRequests,
         }
 
         const client = yield* createTypedWorkerClient(worker, clientConfig)
@@ -246,7 +246,7 @@ const make = (config: WorkerPoolConfig) =>
           averageResponseTime: 0,
           consecutiveFailures: 0,
           memoryUsage: 0,
-          cpuUsage: 0
+          cpuUsage: 0,
         }
 
         // Warmup worker if warmup requests are provided
@@ -257,7 +257,7 @@ const make = (config: WorkerPoolConfig) =>
               Effect.catchAll((error) => {
                 console.warn(`Warmup failed for worker ${workerId}:`, error)
                 return Effect.void
-              })
+              }),
             )
           }
         }
@@ -272,7 +272,7 @@ const make = (config: WorkerPoolConfig) =>
       Effect.gen(function* () {
         const workerMap = yield* Ref.get(workers)
         const instance = workerMap.get(workerId)
-        
+
         if (!instance) return false
 
         // Terminate worker
@@ -294,9 +294,7 @@ const make = (config: WorkerPoolConfig) =>
     const getBestWorker = (): Effect.Effect<WorkerInstance | null, never, never> =>
       Effect.gen(function* () {
         const workerMap = yield* Ref.get(workers)
-        const availableWorkers = Array.from(workerMap.values()).filter(
-          w => w.status === 'healthy' && w.activeRequests < config.maxConcurrentRequests
-        )
+        const availableWorkers = Array.from(workerMap.values()).filter((w) => w.status === 'healthy' && w.activeRequests < config.maxConcurrentRequests)
 
         if (availableWorkers.length === 0) return null
 
@@ -304,24 +302,18 @@ const make = (config: WorkerPoolConfig) =>
           case 'round-robin': {
             // Simple round-robin based on creation time
             availableWorkers.sort((a, b) => a.createdAt - b.createdAt)
-            const lastUsedWorker = availableWorkers.reduce((latest, current) =>
-              current.lastUsed > latest.lastUsed ? current : latest
-            )
+            const lastUsedWorker = availableWorkers.reduce((latest, current) => (current.lastUsed > latest.lastUsed ? current : latest))
             const index = availableWorkers.indexOf(lastUsedWorker)
             return availableWorkers[(index + 1) % availableWorkers.length]
           }
 
           case 'least-busy': {
-            return availableWorkers.reduce((best, current) =>
-              current.activeRequests < best.activeRequests ? current : best
-            )
+            return availableWorkers.reduce((best, current) => (current.activeRequests < best.activeRequests ? current : best))
           }
 
           case 'priority': {
             // Prefer workers with lower response times
-            return availableWorkers.reduce((best, current) =>
-              current.averageResponseTime < best.averageResponseTime ? current : best
-            )
+            return availableWorkers.reduce((best, current) => (current.averageResponseTime < best.averageResponseTime ? current : best))
           }
 
           case 'random': {
@@ -336,10 +328,7 @@ const make = (config: WorkerPoolConfig) =>
     /**
      * Execute request with worker
      */
-    const executeRequest = <TInput, TOutput>(
-      worker: WorkerInstance,
-      request: QueuedRequest
-    ): Effect.Effect<TOutput, never, never> =>
+    const executeRequest = <TInput, TOutput>(worker: WorkerInstance, request: QueuedRequest): Effect.Effect<TOutput, never, never> =>
       Effect.gen(function* () {
         const startTime = Date.now()
 
@@ -348,34 +337,32 @@ const make = (config: WorkerPoolConfig) =>
         worker.totalRequests++
         worker.lastUsed = startTime
 
-        try {
-          const result = yield* worker.client.sendRequest(request.payload).pipe(
-            Effect.timeout(request.timeout),
-            Effect.catchAll((error) =>
-              Effect.gen(function* () {
-                worker.failedRequests++
-                worker.consecutiveFailures++
-                
-                if (worker.consecutiveFailures >= config.maxConsecutiveFailures) {
-                  worker.status = 'unhealthy'
-                }
+        return yield* worker.client.sendRequest(request.payload).pipe(
+          Effect.timeout(request.timeout),
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              worker.failedRequests++
+              worker.consecutiveFailures++
 
-                return yield* Effect.fail(error)
-              })
-            ),
-            Effect.tap(() => {
-              const responseTime = Date.now() - startTime
-              worker.completedRequests++
-              worker.consecutiveFailures = 0
-              worker.averageResponseTime = 
-                (worker.averageResponseTime * (worker.completedRequests - 1) + responseTime) / worker.completedRequests
-            })
-          )
+              if (worker.consecutiveFailures >= config.maxConsecutiveFailures) {
+                worker.status = 'unhealthy'
+              }
 
-          return result
-        } finally {
-          worker.activeRequests--
-        }
+              return yield* Effect.fail(error)
+            }),
+          ),
+          Effect.tap(() => {
+            const responseTime = Date.now() - startTime
+            worker.completedRequests++
+            worker.consecutiveFailures = 0
+            worker.averageResponseTime = (worker.averageResponseTime * (worker.completedRequests - 1) + responseTime) / worker.completedRequests
+          }),
+          Effect.ensuring(
+            Effect.sync(() => {
+              worker.activeRequests--
+            }),
+          ),
+        )
       })
 
     /**
@@ -396,7 +383,7 @@ const make = (config: WorkerPoolConfig) =>
           if (!worker) {
             // No available workers, check if we can scale up
             yield* autoScale()
-            
+
             // Re-queue request
             yield* Queue.offer(requestQueue, request)
             yield* Effect.sleep(Duration.millis(50))
@@ -413,14 +400,12 @@ const make = (config: WorkerPoolConfig) =>
             Effect.tap((result) => {
               request.resolve(result)
             }),
-            Effect.fork
+            Effect.fork,
           )
 
           yield* result
         }
-      }).pipe(
-        Effect.forever
-      )
+      }).pipe(Effect.forever)
 
     /**
      * Auto-scaling logic
@@ -446,8 +431,8 @@ const make = (config: WorkerPoolConfig) =>
         ) {
           const newWorkerCount = Math.min(config.maxWorkers, currentWorkerCount + 1)
           yield* scalePool(newWorkerCount, 'auto-scale-up: high utilization')
-          
-          yield* Ref.update(poolState, s => ({ ...s, lastScaleUp: now }))
+
+          yield* Ref.update(poolState, (s) => ({ ...s, lastScaleUp: now }))
         }
 
         // Scale down conditions
@@ -459,8 +444,8 @@ const make = (config: WorkerPoolConfig) =>
         ) {
           const newWorkerCount = Math.max(config.minWorkers, currentWorkerCount - 1)
           yield* scalePool(newWorkerCount, 'auto-scale-down: low utilization')
-          
-          yield* Ref.update(poolState, s => ({ ...s, lastScaleDown: now }))
+
+          yield* Ref.update(poolState, (s) => ({ ...s, lastScaleDown: now }))
         }
       })
 
@@ -489,7 +474,7 @@ const make = (config: WorkerPoolConfig) =>
           // Scale down - remove least used workers
           const workersArray = Array.from(workerMap.values())
           workersArray.sort((a, b) => a.lastUsed - b.lastUsed)
-          
+
           const workersToRemove = currentSize - targetSize
           for (let i = 0; i < workersToRemove; i++) {
             const workerToRemove = workersArray[i]
@@ -509,9 +494,9 @@ const make = (config: WorkerPoolConfig) =>
               timestamp: Date.now(),
               action: targetSize > currentSize ? 'scale-up' : 'scale-down',
               reason,
-              workerCount: targetSize
-            }
-          ]
+              workerCount: targetSize,
+            },
+          ],
         }))
       })
 
@@ -521,7 +506,7 @@ const make = (config: WorkerPoolConfig) =>
     const healthCheck = (): Effect.Effect<void, never, never> =>
       Effect.gen(function* () {
         const workerMap = yield* Ref.get(workers)
-        
+
         for (const worker of workerMap.values()) {
           // Check if worker is idle too long
           const idleTime = Date.now() - worker.lastUsed
@@ -538,21 +523,23 @@ const make = (config: WorkerPoolConfig) =>
           }
 
           // Basic health ping
-          try {
-            const capabilities = yield* worker.client.getCapabilities().pipe(
-              Effect.timeout(config.healthCheckTimeout)
-            )
-            
-            if (capabilities && worker.status !== 'healthy') {
-              worker.status = 'healthy'
-              worker.consecutiveFailures = 0
-            }
-          } catch (error) {
-            worker.consecutiveFailures++
-            if (worker.consecutiveFailures >= config.maxConsecutiveFailures) {
-              worker.status = 'unhealthy'
-            }
-          }
+          yield* worker.client.getCapabilities().pipe(
+            Effect.timeout(config.healthCheckTimeout),
+            Effect.tap(() => {
+              if (worker.status !== 'healthy') {
+                worker.status = 'healthy'
+                worker.consecutiveFailures = 0
+              }
+            }),
+            Effect.catchAll(() =>
+              Effect.sync(() => {
+                worker.consecutiveFailures++
+                if (worker.consecutiveFailures >= config.maxConsecutiveFailures) {
+                  worker.status = 'unhealthy'
+                }
+              }),
+            ),
+          )
         }
       })
 
@@ -564,9 +551,9 @@ const make = (config: WorkerPoolConfig) =>
         const workerMap = yield* Ref.get(workers)
         const queueSize = yield* Queue.size(requestQueue)
 
-        const healthyWorkers = Array.from(workerMap.values()).filter(w => w.status === 'healthy')
-        const activeWorkers = healthyWorkers.filter(w => w.activeRequests > 0)
-        const unhealthyWorkers = Array.from(workerMap.values()).filter(w => w.status === 'unhealthy')
+        const healthyWorkers = Array.from(workerMap.values()).filter((w) => w.status === 'healthy')
+        const activeWorkers = healthyWorkers.filter((w) => w.activeRequests > 0)
+        const unhealthyWorkers = Array.from(workerMap.values()).filter((w) => w.status === 'unhealthy')
 
         const totalRequests = Array.from(workerMap.values()).reduce((sum, w) => sum + w.totalRequests, 0)
         const completedRequests = Array.from(workerMap.values()).reduce((sum, w) => sum + w.completedRequests, 0)
@@ -584,7 +571,7 @@ const make = (config: WorkerPoolConfig) =>
           failedRequests,
           averageResponseTime: avgResponseTime,
           queueLength: queueSize,
-          queueUtilization: (queueSize / 1000) * 100 // Based on queue capacity
+          queueUtilization: (queueSize / 1000) * 100, // Based on queue capacity
         }))
       })
 
@@ -600,27 +587,18 @@ const make = (config: WorkerPoolConfig) =>
 
     // Start background tasks
     const queueProcessor = yield* processQueue().pipe(Effect.fork)
-    
-    const healthMonitor = yield* Effect.repeat(
-      healthCheck(),
-      Schedule.fixed(config.healthCheckInterval)
-    ).pipe(Effect.fork)
 
-    const metricsUpdater = yield* Effect.repeat(
-      updateMetrics(),
-      Schedule.fixed(Duration.seconds(5))
-    ).pipe(Effect.fork)
+    const healthMonitor = yield* Effect.repeat(healthCheck(), Schedule.fixed(config.healthCheckInterval)).pipe(Effect.fork)
 
-    const autoScaler = yield* Effect.repeat(
-      autoScale(),
-      Schedule.fixed(Duration.seconds(10))
-    ).pipe(Effect.fork)
+    const metricsUpdater = yield* Effect.repeat(updateMetrics(), Schedule.fixed(Duration.seconds(5))).pipe(Effect.fork)
+
+    const autoScaler = yield* Effect.repeat(autoScale(), Schedule.fixed(Duration.seconds(10))).pipe(Effect.fork)
 
     return {
       submit: <TInput, TOutput>(payload: TInput, options = {}) =>
         Effect.gen(function* () {
           const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-          
+
           const request = yield* Effect.async<TOutput>((resume) => {
             const queuedRequest: QueuedRequest = {
               id: requestId,
@@ -630,7 +608,7 @@ const make = (config: WorkerPoolConfig) =>
               createdAt: Date.now(),
               resolve: (value) => resume(Effect.succeed(value)),
               reject: (error) => resume(Effect.fail(error)),
-              retryCount: 0
+              retryCount: 0,
             }
 
             Effect.runPromise(Queue.offer(requestQueue, queuedRequest))
@@ -658,15 +636,15 @@ const make = (config: WorkerPoolConfig) =>
       removeUnhealthyWorkers: () =>
         Effect.gen(function* () {
           const workerMap = yield* Ref.get(workers)
-          const unhealthyWorkers = Array.from(workerMap.values()).filter(w => w.status === 'unhealthy')
-          
+          const unhealthyWorkers = Array.from(workerMap.values()).filter((w) => w.status === 'unhealthy')
+
           let removed = 0
           for (const worker of unhealthyWorkers) {
             if (yield* removeWorker(worker.id)) {
               removed++
             }
           }
-          
+
           return removed
         }),
 
@@ -685,36 +663,33 @@ const make = (config: WorkerPoolConfig) =>
           return false
         }),
 
-      pause: () =>
-        Ref.update(poolState, s => ({ ...s, isPaused: true })).pipe(Effect.asVoid),
+      pause: () => Ref.update(poolState, (s) => ({ ...s, isPaused: true })).pipe(Effect.asVoid),
 
-      resume: () =>
-        Ref.update(poolState, s => ({ ...s, isPaused: false })).pipe(Effect.asVoid),
+      resume: () => Ref.update(poolState, (s) => ({ ...s, isPaused: false })).pipe(Effect.asVoid),
 
       shutdown: () =>
         Effect.gen(function* () {
-          yield* Ref.update(poolState, s => ({ ...s, isShuttingDown: true }))
-          
+          yield* Ref.update(poolState, (s) => ({ ...s, isShuttingDown: true }))
+
           const workerMap = yield* Ref.get(workers)
           for (const worker of workerMap.values()) {
             yield* worker.client.terminate()
           }
-          
+
           yield* Ref.set(workers, new Map())
-        })
+        }),
     } satisfies WorkerPoolService
   })
 
 /**
  * Create a WorkerPool layer
  */
-export const createWorkerPool = (config: WorkerPoolConfig) =>
-  Layer.effect(WorkerPoolService, make(config))
+export const createWorkerPool = (config: WorkerPoolConfig) => Layer.effect(WorkerPoolService, make(config))
 
 /**
  * Create multiple WorkerPool instances
  */
 export const createMultipleWorkerPools = (configs: WorkerPoolConfig[]) => {
-  const layers = configs.map(config => createWorkerPool(config))
+  const layers = configs.map((config) => createWorkerPool(config))
   return Layer.mergeAll(...layers)
 }

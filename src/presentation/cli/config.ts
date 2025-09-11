@@ -8,7 +8,7 @@ export const DEFAULT_DEV_CONFIG: DevToolsConfig = {
   enableWorldEditor: true,
   enableNetworkInspector: true,
   autoStart: true,
-  showWelcome: true
+  showWelcome: true,
 }
 
 export const PRODUCTION_DEV_CONFIG: DevToolsConfig = {
@@ -19,7 +19,7 @@ export const PRODUCTION_DEV_CONFIG: DevToolsConfig = {
   enableWorldEditor: false,
   enableNetworkInspector: false,
   autoStart: false,
-  showWelcome: false
+  showWelcome: false,
 }
 
 export const MINIMAL_DEV_CONFIG: DevToolsConfig = {
@@ -30,13 +30,13 @@ export const MINIMAL_DEV_CONFIG: DevToolsConfig = {
   enableWorldEditor: false,
   enableNetworkInspector: false,
   autoStart: false,
-  showWelcome: false
+  showWelcome: false,
 }
 
 // 環境に応じた設定を取得
 export function getDevToolsConfig(): DevToolsConfig {
   const mode = import.meta.env.MODE
-  
+
   switch (mode) {
     case 'development':
       return DEFAULT_DEV_CONFIG
@@ -44,7 +44,7 @@ export function getDevToolsConfig(): DevToolsConfig {
       return {
         ...DEFAULT_DEV_CONFIG,
         enableWorldEditor: false,
-        enableEntityInspector: false
+        enableEntityInspector: false,
       }
     case 'production':
       return PRODUCTION_DEV_CONFIG

@@ -1,6 +1,6 @@
 /**
  * WebGPU Infrastructure - GPU-accelerated rendering services
- * 
+ *
  * This module provides WebGPU-based rendering infrastructure services
  * for high-performance graphics rendering.
  */

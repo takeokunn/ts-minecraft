@@ -1,27 +1,16 @@
 import { Archetype } from '@/domain/archetypes'
 import { Vector3Float as Vector3 } from '@/domain/value-objects/common'
-import {
-  Chunk,
-  componentNamesSet,
-  type Components,
-  ComponentSchemas,
-  type ComponentName,
-  type ComponentOfName,
-} from '@/domain/entities/components'
+import { Chunk, componentNamesSet, type Components, ComponentSchemas, type ComponentName, type ComponentOfName } from '@/domain/entities/components'
 import { type EntityId, toEntityId } from '@/domain/entities'
 import { toChunkIndex } from '@/domain/geometry'
 import { type LegacyQuery, type OptimizedQuery } from '@/domain/queries'
 import { type Voxel } from '@/domain/world'
 import { WorldService as World } from '@/application/services/world.service'
 import { Effect, HashMap, HashSet, Layer, Option, Ref } from 'effect'
-import * as S from "/schema/Schema"
+import * as S from '/schema/Schema'
 
 // Import errors from centralized location
-import {
-  ComponentNotFoundError,
-  QuerySingleResultNotFoundError,
-  ComponentDecodeError,
-} from '@/domain/errors'
+import { ComponentNotFoundError, QuerySingleResultNotFoundError, ComponentDecodeError } from '@/domain/errors'
 
 // --- Data Types ---
 
@@ -55,9 +44,7 @@ export const WorldLive = Layer.effect(
         nextEntityId: 0,
         entities: HashMap.empty(),
         archetypes: HashMap.empty(),
-        components: Object.fromEntries(
-          Array.from(componentNamesSet).map((name) => [name, HashMap.empty()]),
-        ) as ComponentStorage,
+        components: Object.fromEntries(Array.from(componentNamesSet).map((name) => [name, HashMap.empty()])) as ComponentStorage,
         chunks: HashMap.empty(),
       }),
     )
@@ -125,11 +112,7 @@ export const WorldLive = Layer.effect(
         Effect.mapError(() => new ComponentNotFoundError(entityId, componentName)),
       )
 
-    const updateComponent = <T extends ComponentName>(
-      entityId: EntityId,
-      componentName: T,
-      data: Partial<ComponentOfName<T>>,
-    ) =>
+    const updateComponent = <T extends ComponentName>(entityId: EntityId, componentName: T, data: Partial<ComponentOfName<T>>) =>
       Ref.get(state).pipe(
         Effect.flatMap((s) =>
           HashMap.get(s.components[componentName], entityId).pipe(
@@ -143,9 +126,9 @@ export const WorldLive = Layer.effect(
                     const newComponentMap = HashMap.set(s.components[componentName], entityId, decoded as unknown)
                     const newComponents = { ...s.components, [componentName]: newComponentMap }
                     return Ref.set(state, { ...s, components: newComponents })
-                  })
+                  }),
                 )
-              }
+              },
             }),
           ),
         ),
@@ -161,13 +144,18 @@ export const WorldLive = Layer.effect(
             return HashSet.isSubset(requiredComponents, archetypeComponents)
           })
 
-          return Array.from(matchingArchetypes).flatMap(([, entitySet]: [string, HashSet.HashSet<EntityId>]) => 
-            Array.from(entitySet).map((entityId: EntityId) => {
-              const componentOptions = query.components.map((name) => HashMap.get(s.components[name], entityId))
-              const allComponents = Option.all(componentOptions)
-              return Option.map(allComponents, (components) => [entityId, components] as [EntityId, Array<Components[T[number]]>])
-            }).filter(Option.isSome).map(option => option.value)
-          ).filter((result): result is [EntityId, Array<Components[T[number]]>] => result !== undefined)
+          return Array.from(matchingArchetypes)
+            .flatMap(([, entitySet]: [string, HashSet.HashSet<EntityId>]) =>
+              Array.from(entitySet)
+                .map((entityId: EntityId) => {
+                  const componentOptions = query.components.map((name) => HashMap.get(s.components[name], entityId))
+                  const allComponents = Option.all(componentOptions)
+                  return Option.map(allComponents, (components) => [entityId, components] as [EntityId, Array<Components[T[number]]>])
+                })
+                .filter(Option.isSome)
+                .map((option) => option.value),
+            )
+            .filter((result): result is [EntityId, Array<Components[T[number]]>] => result !== undefined)
         }),
       )
 
@@ -180,8 +168,7 @@ export const WorldLive = Layer.effect(
         ),
       )
 
-    const querySingle = <T extends ReadonlyArray<ComponentName>>(q: LegacyQuery<T> | OptimizedQuery<T>) =>
-      query(q).pipe(Effect.map((results) => Option.fromNullable(results[0])))
+    const querySingle = <T extends ReadonlyArray<ComponentName>>(q: LegacyQuery<T> | OptimizedQuery<T>) => query(q).pipe(Effect.map((results) => Option.fromNullable(results[0])))
 
     const querySingleUnsafe = <T extends ReadonlyArray<ComponentName>>(q: LegacyQuery<T> | OptimizedQuery<T>) =>
       querySingle(q).pipe(
@@ -198,18 +185,21 @@ export const WorldLive = Layer.effect(
             return HashSet.isSubset(requiredComponents, archetypeComponents)
           })
 
-          const matchingEntities = Array.from(matchingArchetypes).flatMap(([, entitySet]: [string, HashSet.HashSet<EntityId>]) => 
-            Array.from(entitySet).map((entityId: EntityId) => {
-              const componentOptions = query.components.map((name) => HashMap.get(s.components[name], entityId))
-              const allComponents = Option.all(componentOptions)
-              return Option.map(allComponents, (components) => ({ entityId, components }))
-            }).filter(Option.isSome).map(option => option.value)
-          ).filter(result => result !== undefined)
+          const matchingEntities = Array.from(matchingArchetypes)
+            .flatMap(([, entitySet]: [string, HashSet.HashSet<EntityId>]) =>
+              Array.from(entitySet)
+                .map((entityId: EntityId) => {
+                  const componentOptions = query.components.map((name) => HashMap.get(s.components[name], entityId))
+                  const allComponents = Option.all(componentOptions)
+                  return Option.map(allComponents, (components) => ({ entityId, components }))
+                })
+                .filter(Option.isSome)
+                .map((option) => option.value),
+            )
+            .filter((result) => result !== undefined)
 
           const entities = matchingEntities.map(({ entityId }) => entityId)
-          const components = Object.fromEntries(
-            query.components.map((name, i) => [name, matchingEntities.map(({ components }) => components[i])]),
-          )
+          const components = Object.fromEntries(query.components.map((name, i) => [name, matchingEntities.map(({ components }) => components[i])]))
 
           return {
             entities,
@@ -218,8 +208,7 @@ export const WorldLive = Layer.effect(
         }),
       )
 
-    const getChunk = (chunkX: number, chunkZ: number) =>
-      Ref.get(state).pipe(Effect.map((s) => HashMap.get(s.chunks, getChunkKey(chunkX, chunkZ))))
+    const getChunk = (chunkX: number, chunkZ: number) => Ref.get(state).pipe(Effect.map((s) => HashMap.get(s.chunks, getChunkKey(chunkX, chunkZ))))
 
     const setChunk = (chunkX: number, chunkZ: number, chunk: Chunk) =>
       Ref.update(state, (s) => ({

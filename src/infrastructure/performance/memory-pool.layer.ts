@@ -34,30 +34,19 @@ export interface MemoryPoolMetrics {
  * Memory Pool Service for dependency injection
  */
 export const MemoryPoolService = Context.GenericTag<{
-  readonly createPool: <T>(
-    factory: () => T,
-    reset: (item: T) => void,
-    config: MemoryPoolConfig
-  ) => Effect.Effect<MemoryPool<T>, never, never>
+  readonly createPool: <T>(factory: () => T, reset: (item: T) => void, config: MemoryPoolConfig) => Effect.Effect<MemoryPool<T>, never, never>
   readonly createTypedArrayPool: (
     type: 'Float32' | 'Float64' | 'Int32' | 'Uint32' | 'Int16' | 'Uint16',
     length: number,
-    config: MemoryPoolConfig
+    config: MemoryPoolConfig,
   ) => Effect.Effect<MemoryPool<ArrayBuffer>, never, never>
-  readonly createBufferPool: (
-    size: number,
-    config: MemoryPoolConfig
-  ) => Effect.Effect<MemoryPool<ArrayBuffer>, never, never>
+  readonly createBufferPool: (size: number, config: MemoryPoolConfig) => Effect.Effect<MemoryPool<ArrayBuffer>, never, never>
 }>('MemoryPoolService')
 
 /**
  * Create a memory pool implementation
  */
-const createMemoryPoolImpl = <T>(
-  factory: () => T,
-  reset: (item: T) => void,
-  config: MemoryPoolConfig
-): Effect.Effect<MemoryPool<T>, never, never> =>
+const createMemoryPoolImpl = <T>(factory: () => T, reset: (item: T) => void, config: MemoryPoolConfig): Effect.Effect<MemoryPool<T>, never, never> =>
   Effect.gen(function* () {
     const available = yield* Queue.unbounded<T>()
     const metrics = yield* Ref.make<MemoryPoolMetrics>({
@@ -65,7 +54,7 @@ const createMemoryPoolImpl = <T>(
       currentInUse: 0,
       peakUsage: 0,
       hitRate: 0,
-      missCount: 0
+      missCount: 0,
     })
 
     // Pre-allocate initial objects
@@ -74,18 +63,18 @@ const createMemoryPoolImpl = <T>(
       yield* Queue.offer(available, item)
     }
 
-    yield* Ref.update(metrics, m => ({ ...m, totalAllocated: config.initialSize }))
+    yield* Ref.update(metrics, (m) => ({ ...m, totalAllocated: config.initialSize }))
 
     return {
       acquire: Effect.gen(function* () {
         const item = yield* Queue.poll(available)
-        
+
         if (item._tag === 'Some') {
           if (config.enableMetrics) {
-            yield* Ref.update(metrics, m => ({
+            yield* Ref.update(metrics, (m) => ({
               ...m,
               currentInUse: m.currentInUse + 1,
-              peakUsage: Math.max(m.peakUsage, m.currentInUse + 1)
+              peakUsage: Math.max(m.peakUsage, m.currentInUse + 1),
             }))
           }
           return item.value
@@ -93,14 +82,13 @@ const createMemoryPoolImpl = <T>(
           // Pool miss - create new item
           const newItem = factory()
           if (config.enableMetrics) {
-            yield* Ref.update(metrics, m => ({
+            yield* Ref.update(metrics, (m) => ({
               ...m,
               totalAllocated: m.totalAllocated + 1,
               currentInUse: m.currentInUse + 1,
               peakUsage: Math.max(m.peakUsage, m.currentInUse + 1),
               missCount: m.missCount + 1,
-              hitRate: m.totalAllocated > 0 ? 
-                (m.totalAllocated - m.missCount - 1) / m.totalAllocated : 0
+              hitRate: m.totalAllocated > 0 ? (m.totalAllocated - m.missCount - 1) / m.totalAllocated : 0,
             }))
           }
           return newItem
@@ -111,15 +99,15 @@ const createMemoryPoolImpl = <T>(
         Effect.gen(function* () {
           reset(item)
           const currentSize = yield* Queue.size(available)
-          
+
           if (currentSize < config.maxSize) {
             yield* Queue.offer(available, item)
           }
-          
+
           if (config.enableMetrics) {
-            yield* Ref.update(metrics, m => ({
+            yield* Ref.update(metrics, (m) => ({
               ...m,
-              currentInUse: Math.max(0, m.currentInUse - 1)
+              currentInUse: Math.max(0, m.currentInUse - 1),
             }))
           }
         }),
@@ -133,9 +121,9 @@ const createMemoryPoolImpl = <T>(
           currentInUse: 0,
           peakUsage: 0,
           hitRate: 0,
-          missCount: 0
+          missCount: 0,
         })
-      })
+      }),
     }
   })
 
@@ -145,7 +133,7 @@ const createMemoryPoolImpl = <T>(
 const createTypedArrayPoolImpl = (
   type: 'Float32' | 'Float64' | 'Int32' | 'Uint32' | 'Int16' | 'Uint16',
   length: number,
-  config: MemoryPoolConfig
+  config: MemoryPoolConfig,
 ): Effect.Effect<MemoryPool<ArrayBuffer>, never, never> => {
   const typeMap = {
     Float32: Float32Array,
@@ -153,35 +141,32 @@ const createTypedArrayPoolImpl = (
     Int32: Int32Array,
     Uint32: Uint32Array,
     Int16: Int16Array,
-    Uint16: Uint16Array
+    Uint16: Uint16Array,
   }
-  
+
   const TypedArrayConstructor = typeMap[type]
-  
+
   return createMemoryPoolImpl(
     () => new TypedArrayConstructor(length).buffer,
     (buffer) => {
       // Reset buffer to zeros
       new Uint8Array(buffer).fill(0)
     },
-    config
+    config,
   )
 }
 
 /**
  * Create a buffer pool
  */
-const createBufferPoolImpl = (
-  size: number,
-  config: MemoryPoolConfig
-): Effect.Effect<MemoryPool<ArrayBuffer>, never, never> =>
+const createBufferPoolImpl = (size: number, config: MemoryPoolConfig): Effect.Effect<MemoryPool<ArrayBuffer>, never, never> =>
   createMemoryPoolImpl(
     () => new ArrayBuffer(size),
     (buffer) => {
       // Reset buffer to zeros
       new Uint8Array(buffer).fill(0)
     },
-    config
+    config,
   )
 
 /**
@@ -192,8 +177,8 @@ export const MemoryPoolServiceLive = Layer.succeed(
   MemoryPoolService.of({
     createPool: createMemoryPoolImpl,
     createTypedArrayPool: createTypedArrayPoolImpl,
-    createBufferPool: createBufferPoolImpl
-  })
+    createBufferPool: createBufferPoolImpl,
+  }),
 )
 
 /**
@@ -202,7 +187,7 @@ export const MemoryPoolServiceLive = Layer.succeed(
 export const defaultMemoryPoolConfig: MemoryPoolConfig = {
   maxSize: 1000,
   initialSize: 10,
-  enableMetrics: true
+  enableMetrics: true,
 }
 
 /**
@@ -228,23 +213,13 @@ export const createBufferPool = (size: number = 1024) =>
 /**
  * Memory pool utilities
  */
-export const withPooledMemory = <T, R, E>(
-  pool: MemoryPool<T>,
-  fn: (item: T) => Effect.Effect<R, E, never>
-): Effect.Effect<R, E, never> =>
-  Effect.acquireUseRelease(
-    pool.acquire,
-    fn,
-    item => pool.release(item)
-  )
+export const withPooledMemory = <T, R, E>(pool: MemoryPool<T>, fn: (item: T) => Effect.Effect<R, E, never>): Effect.Effect<R, E, never> =>
+  Effect.acquireUseRelease(pool.acquire, fn, (item) => pool.release(item))
 
 /**
  * Batch acquire multiple items from pool
  */
-export const acquireBatch = <T>(
-  pool: MemoryPool<T>,
-  count: number
-): Effect.Effect<T[], never, never> =>
+export const acquireBatch = <T>(pool: MemoryPool<T>, count: number): Effect.Effect<T[], never, never> =>
   Effect.gen(function* () {
     const items: T[] = []
     for (let i = 0; i < count; i++) {
@@ -257,10 +232,7 @@ export const acquireBatch = <T>(
 /**
  * Batch release multiple items to pool
  */
-export const releaseBatch = <T>(
-  pool: MemoryPool<T>,
-  items: T[]
-): Effect.Effect<void, never, never> =>
+export const releaseBatch = <T>(pool: MemoryPool<T>, items: T[]): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     for (const item of items) {
       yield* pool.release(item)

@@ -1,92 +1,93 @@
-import { Effect, Context } from 'effect'
-import { World } from '@/infrastructure/layers'
-import { PlayerMovementCommand } from '@/application/commands/player-movement'
-import { BlockInteractionCommand } from '@/application/commands/block-interaction'
+import { Effect, Context, Layer } from 'effect'
+import { CommandHandlers } from '@/application/handlers/command-handlers'
+import { QueryHandlers } from '@/application/handlers/query-handlers'
+import type { PlayerMovementCommand } from '@/application/commands/player-movement'
+import type { BlockInteractionCommand } from '@/application/commands/block-interaction'
+import type { WorldGenerateCommand } from '@/application/use-cases/world-generate.use-case'
 
 /**
  * Game Controller
  * メインゲーム機能の制御を担当する薄いコントローラー層
- * ビジネスロジックは含まず、適切なサービスへの委譲のみを行う
+ * ビジネスロジックは含まず、適切なアプリケーション層への委譲のみを行う
  */
 export interface GameControllerInterface {
-  readonly startGame: () => Effect.Effect<void, never, never>
+  readonly initializeWorld: (seed?: string) => Effect.Effect<void, Error, never>
   readonly pauseGame: () => Effect.Effect<void, never, never>
   readonly resumeGame: () => Effect.Effect<void, never, never>
-  readonly handlePlayerInput: (input: PlayerInput) => Effect.Effect<void, never, never>
-  readonly handleBlockInteraction: (interaction: BlockInteraction) => Effect.Effect<void, never, never>
+  readonly handlePlayerMovement: (command: PlayerMovementCommand) => Effect.Effect<void, Error, never>
+  readonly handleBlockInteraction: (command: BlockInteractionCommand) => Effect.Effect<void, Error, never>
+  readonly getGameState: () => Effect.Effect<GameControllerState, Error, never>
 }
 
-export interface PlayerInput {
-  readonly type: 'movement' | 'action' | 'jump'
-  readonly data: Record<string, unknown>
+export interface GameControllerState {
+  readonly isRunning: boolean
+  readonly isPaused: boolean
+  readonly playerCount: number
+  readonly loadedChunks: number
 }
 
-export interface BlockInteraction {
-  readonly type: 'place' | 'break' | 'interact'
-  readonly position: { x: number; y: number; z: number }
-  readonly blockType?: string
-}
+export class GameController extends Context.Tag('GameController')<GameController, GameControllerInterface>() {}
 
-const GameControllerLive = Effect.gen(function* ($) {
-  const world = yield* $(World)
-  const playerMovement = yield* $(PlayerMovementCommand)
-  const blockInteraction = yield* $(BlockInteractionCommand)
-
-  const startGame = () =>
-    Effect.gen(function* ($) {
-      yield* $(world.initialize())
-      yield* $(Effect.log('Game started'))
-    })
-
-  const pauseGame = () =>
-    Effect.gen(function* ($) {
-      // World service doesn't have pause/resume methods in current implementation
-      // This would need to be implemented at application layer
-      yield* $(Effect.log('Game paused'))
-    })
-
-  const resumeGame = () =>
-    Effect.gen(function* ($) {
-      // World service doesn't have pause/resume methods in current implementation  
-      // This would need to be implemented at application layer
-      yield* $(Effect.log('Game resumed'))
-    })
-
-  const handlePlayerInput = (input: PlayerInput) =>
-    Effect.gen(function* ($) {
-      switch (input.type) {
-        case 'movement':
-          yield* $(playerMovement.execute(input.data))
-          break
-        case 'action':
-        case 'jump':
-          // 他のアクションの処理
-          yield* $(Effect.log(`Player input: ${input.type}`))
-          break
-      }
-    })
-
-  const handleBlockInteraction = (interaction: BlockInteraction) =>
-    Effect.gen(function* ($) {
-      yield* $(blockInteraction.execute({
-        type: interaction.type,
-        position: interaction.position,
-        blockType: interaction.blockType,
-      }))
-    })
-
-  return {
-    startGame,
-    pauseGame,
-    resumeGame,
-    handlePlayerInput,
-    handleBlockInteraction,
-  }
-})
-
-export class GameController extends Context.GenericTag('GameController')<
+export const GameControllerLive: Layer.Layer<GameController, never, CommandHandlers | QueryHandlers> = Layer.effect(
   GameController,
-  GameControllerInterface
->() {
-  static readonly Live = GameControllerLive.pipe(Effect.map(GameController.of))
-}
+  Effect.gen(function* () {
+    const commandHandlers = yield* CommandHandlers
+    const queryHandlers = yield* QueryHandlers
+
+    const initializeWorld = (seed?: string): Effect.Effect<void, Error, never> =>
+      Effect.gen(function* () {
+        const worldGenerateCommand: WorldGenerateCommand = {
+          seed: seed || Math.random().toString(36).substring(7),
+          worldType: 'default',
+          generateStructures: true,
+          timestamp: Date.now(),
+        }
+
+        yield* commandHandlers.handleWorldGenerate(worldGenerateCommand)
+        yield* Effect.log(`World initialized with seed: ${worldGenerateCommand.seed}`)
+      })
+
+    const pauseGame = (): Effect.Effect<void, never, never> => Effect.log('Game paused')
+
+    const resumeGame = (): Effect.Effect<void, never, never> => Effect.log('Game resumed')
+
+    const handlePlayerMovement = (command: PlayerMovementCommand): Effect.Effect<void, Error, never> =>
+      Effect.gen(function* () {
+        yield* commandHandlers.handlePlayerMovement(command)
+        yield* Effect.log(`Player movement handled for entity ${command.entityId}`)
+      })
+
+    const handleBlockInteraction = (command: BlockInteractionCommand): Effect.Effect<void, Error, never> =>
+      Effect.gen(function* () {
+        yield* commandHandlers.handleBlockInteraction(command)
+        yield* Effect.log(`Block interaction handled: ${command.action}`)
+      })
+
+    const getGameState = (): Effect.Effect<GameControllerState, Error, never> =>
+      Effect.gen(function* () {
+        const worldState = yield* queryHandlers.getWorldState({
+          includeEntities: false,
+          includeChunks: false,
+          includePhysics: false,
+        })
+
+        const loadedChunks = yield* queryHandlers.getLoadedChunks()
+
+        return {
+          isRunning: true, // This should come from game state management
+          isPaused: false, // This should come from game state management
+          playerCount: worldState.entities?.length || 0,
+          loadedChunks: loadedChunks.length,
+        }
+      })
+
+    return {
+      initializeWorld,
+      pauseGame,
+      resumeGame,
+      handlePlayerMovement,
+      handleBlockInteraction,
+      getGameState,
+    } satisfies GameControllerInterface
+  }),
+)

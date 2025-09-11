@@ -1,6 +1,6 @@
 /**
  * WebSocket Adapter - Implements network communication using WebSocket protocol
- * 
+ *
  * This adapter provides concrete implementation for real-time network
  * communication using WebSocket, enabling multiplayer functionality
  * and remote state synchronization.
@@ -69,12 +69,7 @@ export type WebSocketMessage =
 /**
  * WebSocket connection state
  */
-export type ConnectionState = 
-  | 'disconnected'
-  | 'connecting'
-  | 'connected'
-  | 'reconnecting'
-  | 'error'
+export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error'
 
 /**
  * WebSocket configuration
@@ -100,19 +95,20 @@ export interface IWebSocketAdapter {
   readonly onConnectionStateChange: () => Stream.Stream<ConnectionState, never, never>
   readonly getConnectionState: () => Effect.Effect<ConnectionState, never, never>
   readonly isConnected: () => Effect.Effect<boolean, never, never>
-  readonly getStats: () => Effect.Effect<{
-    readonly messagesSent: number
-    readonly messagesReceived: number
-    readonly bytesTransferred: number
-    readonly connectionUptime: number
-    readonly lastPingTime: number
-  }, never, never>
+  readonly getStats: () => Effect.Effect<
+    {
+      readonly messagesSent: number
+      readonly messagesReceived: number
+      readonly bytesTransferred: number
+      readonly connectionUptime: number
+      readonly lastPingTime: number
+    },
+    never,
+    never
+  >
 }
 
-export class WebSocketAdapter extends Context.GenericTag('WebSocketAdapter')<
-  WebSocketAdapter,
-  IWebSocketAdapter
->() {}
+export class WebSocketAdapter extends Context.GenericTag('WebSocketAdapter')<WebSocketAdapter, IWebSocketAdapter>() {}
 
 /**
  * WebSocket adapter state
@@ -166,7 +162,7 @@ export const WebSocketAdapterLive = Layer.scoped(
     const updateConnectionState = (newState: ConnectionState) =>
       Effect.gen(function* (_) {
         yield* _(Ref.update(stateRef, (s) => ({ ...s, connectionState: newState })))
-        yield* _(Queue.offer(yield* _(Ref.get(stateRef).pipe(Effect.map(s => s.connectionStateQueue))), newState))
+        yield* _(Queue.offer(yield* _(Ref.get(stateRef).pipe(Effect.map((s) => s.connectionStateQueue))), newState))
       })
 
     const parseMessage = (data: string | ArrayBuffer): Effect.Effect<WebSocketMessage, Error, never> => {
@@ -183,7 +179,7 @@ export const WebSocketAdapterLive = Layer.scoped(
           type: 'CHUNK_DATA',
           chunkX: 0, // Would be extracted from binary data
           chunkZ: 0,
-          data
+          data,
         } as WebSocketMessage)
       }
     }
@@ -194,11 +190,13 @@ export const WebSocketAdapterLive = Layer.scoped(
 
         socket.onopen = () => {
           Effect.runSync(updateConnectionState('connected'))
-          Effect.runSync(Ref.update(stateRef, (s) => ({
-            ...s,
-            reconnectAttempts: 0,
-            lastConnectTime: Date.now()
-          })))
+          Effect.runSync(
+            Ref.update(stateRef, (s) => ({
+              ...s,
+              reconnectAttempts: 0,
+              lastConnectTime: Date.now(),
+            })),
+          )
         }
 
         socket.onclose = (event) => {
@@ -221,21 +219,17 @@ export const WebSocketAdapterLive = Layer.scoped(
             Effect.gen(function* (_) {
               const message = yield* _(parseMessage(event.data))
               yield* _(Queue.offer(state.messageQueue, message))
-              yield* _(Ref.update(stateRef, (s) => ({
-                ...s,
-                stats: {
-                  ...s.stats,
-                  messagesReceived: s.stats.messagesReceived + 1,
-                  bytesTransferred: s.stats.bytesTransferred + (
-                    typeof event.data === 'string' 
-                      ? event.data.length 
-                      : event.data.byteLength
-                  )
-                }
-              })))
-            }).pipe(
-              Effect.catchAll((error) => Effect.logError('Failed to handle WebSocket message', error))
-            )
+              yield* _(
+                Ref.update(stateRef, (s) => ({
+                  ...s,
+                  stats: {
+                    ...s.stats,
+                    messagesReceived: s.stats.messagesReceived + 1,
+                    bytesTransferred: s.stats.bytesTransferred + (typeof event.data === 'string' ? event.data.length : event.data.byteLength),
+                  },
+                })),
+              )
+            }).pipe(Effect.catchAll((error) => Effect.logError('Failed to handle WebSocket message', error))),
           )
         }
       })
@@ -243,7 +237,7 @@ export const WebSocketAdapterLive = Layer.scoped(
     const attemptReconnect = (): Effect.Effect<void, never, never> =>
       Effect.gen(function* (_) {
         const state = yield* _(Ref.get(stateRef))
-        
+
         if (!state.config || state.reconnectAttempts >= state.config.maxReconnectAttempts) {
           yield* _(updateConnectionState('disconnected'))
           return
@@ -253,16 +247,18 @@ export const WebSocketAdapterLive = Layer.scoped(
         yield* _(Ref.update(stateRef, (s) => ({ ...s, reconnectAttempts: s.reconnectAttempts + 1 })))
 
         yield* _(Effect.sleep(`${state.config.reconnectDelay}ms`))
-        
+
         if (state.config) {
-          yield* _(connect(state.config).pipe(
-            Effect.catchAll((error) =>
-              Effect.gen(function* (_) {
-                yield* _(Effect.logError('Reconnection attempt failed', error))
-                yield* _(attemptReconnect())
-              })
-            )
-          ))
+          yield* _(
+            connect(state.config).pipe(
+              Effect.catchAll((error) =>
+                Effect.gen(function* (_) {
+                  yield* _(Effect.logError('Reconnection attempt failed', error))
+                  yield* _(attemptReconnect())
+                }),
+              ),
+            ),
+          )
         }
       })
 
@@ -274,10 +270,8 @@ export const WebSocketAdapterLive = Layer.scoped(
               type: 'CHAT_MESSAGE', // Using as heartbeat placeholder
               playerId: 'system',
               message: 'ping',
-              timestamp: Date.now()
-            }).pipe(
-              Effect.catchAll((error) => Effect.logError('Heartbeat failed', error))
-            )
+              timestamp: Date.now(),
+            }).pipe(Effect.catchAll((error) => Effect.logError('Heartbeat failed', error))),
           )
         }, interval)
 
@@ -296,21 +290,14 @@ export const WebSocketAdapterLive = Layer.scoped(
     const connect = (config: WebSocketConfig): Effect.Effect<void, Error, never> =>
       Effect.gen(function* (_) {
         yield* _(updateConnectionState('connecting'))
-        
+
         const socket = new WebSocket(config.url, config.protocols)
-        
+
         yield* _(Ref.update(stateRef, (s) => ({ ...s, socket, config })))
         yield* _(setupSocketEventHandlers(socket))
-        
+
         // Wait for connection to be established
-        yield* _(
-          Effect.repeatUntil(
-            Ref.get(stateRef).pipe(
-              Effect.map(s => s.connectionState === 'connected' || s.connectionState === 'error')
-            ),
-            (connected) => connected
-          )
-        )
+        yield* _(Effect.repeatUntil(Ref.get(stateRef).pipe(Effect.map((s) => s.connectionState === 'connected' || s.connectionState === 'error')), (connected) => connected))
 
         const finalState = yield* _(Ref.get(stateRef))
         if (finalState.connectionState === 'error') {
@@ -337,31 +324,27 @@ export const WebSocketAdapterLive = Layer.scoped(
                   stats: {
                     ...s.stats,
                     messagesSent: s.stats.messagesSent + 1,
-                    bytesTransferred: s.stats.bytesTransferred + (
-                      message instanceof ArrayBuffer 
-                        ? message.byteLength 
-                        : JSON.stringify(message).length
-                    )
-                  }
+                    bytesTransferred: s.stats.bytesTransferred + (message instanceof ArrayBuffer ? message.byteLength : JSON.stringify(message).length),
+                  },
                 }))
               }
               return Effect.void
             }),
             Effect.forever,
-            Effect.forkScoped
-          )
+            Effect.forkScoped,
+          ),
         )
       })
 
     const disconnect = (): Effect.Effect<void, never, never> =>
       Effect.gen(function* (_) {
         yield* _(stopHeartbeat())
-        
+
         const state = yield* _(Ref.get(stateRef))
         if (state.socket) {
           state.socket.close(1000, 'Normal closure')
         }
-        
+
         yield* _(updateConnectionState('disconnected'))
         yield* _(Ref.update(stateRef, (s) => ({ ...s, socket: null })))
       })
@@ -369,7 +352,7 @@ export const WebSocketAdapterLive = Layer.scoped(
     const send = (message: WebSocketMessage): Effect.Effect<void, Error, never> =>
       Effect.gen(function* (_) {
         const state = yield* _(Ref.get(stateRef))
-        
+
         if (state.connectionState !== 'connected') {
           yield* _(Effect.fail(new Error('WebSocket not connected')))
         }
@@ -380,7 +363,7 @@ export const WebSocketAdapterLive = Layer.scoped(
     const sendBinary = (data: ArrayBuffer): Effect.Effect<void, Error, never> =>
       Effect.gen(function* (_) {
         const state = yield* _(Ref.get(stateRef))
-        
+
         if (state.connectionState !== 'connected') {
           yield* _(Effect.fail(new Error('WebSocket not connected')))
         }
@@ -400,24 +383,16 @@ export const WebSocketAdapterLive = Layer.scoped(
         return Stream.fromQueue(state.connectionStateQueue)
       }).pipe(Stream.unwrap)
 
-    const getConnectionState = (): Effect.Effect<ConnectionState, never, never> =>
-      Ref.get(stateRef).pipe(
-        Effect.map((state) => state.connectionState)
-      )
+    const getConnectionState = (): Effect.Effect<ConnectionState, never, never> => Ref.get(stateRef).pipe(Effect.map((state) => state.connectionState))
 
-    const isConnected = (): Effect.Effect<boolean, never, never> =>
-      Ref.get(stateRef).pipe(
-        Effect.map((state) => state.connectionState === 'connected')
-      )
+    const isConnected = (): Effect.Effect<boolean, never, never> => Ref.get(stateRef).pipe(Effect.map((state) => state.connectionState === 'connected'))
 
     const getStats = () =>
       Ref.get(stateRef).pipe(
         Effect.map((state) => ({
           ...state.stats,
-          connectionUptime: state.connectionState === 'connected' 
-            ? Date.now() - state.lastConnectTime 
-            : 0
-        }))
+          connectionUptime: state.connectionState === 'connected' ? Date.now() - state.lastConnectTime : 0,
+        })),
       )
 
     return WebSocketAdapter.of({
@@ -429,7 +404,7 @@ export const WebSocketAdapterLive = Layer.scoped(
       onConnectionStateChange,
       getConnectionState,
       isConnected,
-      getStats
+      getStats,
     })
-  })
+  }),
 )

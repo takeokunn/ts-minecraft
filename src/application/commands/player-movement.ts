@@ -42,11 +42,7 @@ export const calculateHorizontalVelocity = (
   return { dx, dz }
 }
 
-export const calculateVerticalVelocity = (
-  isGrounded: boolean,
-  jumpPressed: boolean,
-  currentDy: Float,
-): { newDy: Float; newIsGrounded: boolean } => {
+export const calculateVerticalVelocity = (isGrounded: boolean, jumpPressed: boolean, currentDy: Float): { newDy: Float; newIsGrounded: boolean } => {
   if (jumpPressed && isGrounded) {
     return { newDy: toFloat(JUMP_FORCE), newIsGrounded: false }
   }
@@ -66,12 +62,13 @@ export const applyDeceleration = (velocity: Pick<Velocity, 'dx' | 'dz'>): Pick<V
   return { dx, dz }
 }
 
-export const playerMovementSystem = () => Effect.gen(function* () {
-  // For now, create a simplified system that focuses on direct world interaction
-  // In a full implementation, this would query entities with proper ECS integration
-  
-  return Effect.void // Placeholder - would contain actual entity querying logic
-})
+export const playerMovementSystem = () =>
+  Effect.gen(function* () {
+    // For now, create a simplified system that focuses on direct world interaction
+    // In a full implementation, this would query entities with proper ECS integration
+
+    return Effect.void // Placeholder - would contain actual entity querying logic
+  })
 
 /**
  * Player movement utilities
@@ -80,30 +77,33 @@ export const PlayerMovementUtils = {
   /**
    * Calculate movement speed based on terrain and modifiers
    */
-  calculateMovementSpeed: (baseSpeed: number, modifiers: {
-    isGrounded: boolean
-    isSprinting: boolean
-    terrainMultiplier?: number
-    speedBoost?: number
-  }) => {
+  calculateMovementSpeed: (
+    baseSpeed: number,
+    modifiers: {
+      isGrounded: boolean
+      isSprinting: boolean
+      terrainMultiplier?: number
+      speedBoost?: number
+    },
+  ) => {
     let speed = baseSpeed
-    
+
     if (modifiers.isSprinting) {
       speed *= SPRINT_MULTIPLIER
     }
-    
+
     if (!modifiers.isGrounded) {
       speed *= 0.3 // Air movement penalty
     }
-    
+
     if (modifiers.terrainMultiplier) {
       speed *= modifiers.terrainMultiplier
     }
-    
+
     if (modifiers.speedBoost) {
       speed += modifiers.speedBoost
     }
-    
+
     return speed
   },
 
@@ -120,7 +120,7 @@ export const PlayerMovementUtils = {
   getMovementDirection: (inputState: InputState) => {
     const moveX = (inputState.right ? 1 : 0) - (inputState.left ? 1 : 0)
     const moveZ = (inputState.backward ? 1 : 0) - (inputState.forward ? 1 : 0)
-    
+
     return { x: moveX, z: moveZ }
   },
 
@@ -128,17 +128,13 @@ export const PlayerMovementUtils = {
    * Check if player is moving
    */
   isPlayerMoving: (velocity: Velocity, threshold = MIN_VELOCITY_THRESHOLD) => {
-    return Math.abs(velocity.dx) > threshold || 
-           Math.abs(velocity.dz) > threshold
+    return Math.abs(velocity.dx) > threshold || Math.abs(velocity.dz) > threshold
   },
 
   /**
    * Calculate movement impulse (pure function - no side effects in commands)
    */
-  calculateMovementImpulse: (
-    currentVelocity: Pick<Velocity, 'dx' | 'dy' | 'dz'>,
-    impulse: { x: number; y: number; z: number }
-  ): Pick<Velocity, 'dx' | 'dy' | 'dz'> => {
+  calculateMovementImpulse: (currentVelocity: Pick<Velocity, 'dx' | 'dy' | 'dz'>, impulse: { x: number; y: number; z: number }): Pick<Velocity, 'dx' | 'dy' | 'dz'> => {
     return {
       dx: toFloat(currentVelocity.dx + impulse.x),
       dy: toFloat(currentVelocity.dy + impulse.y),
@@ -158,16 +154,14 @@ export const smoothedMovementCalculation = {
     currentVelocity: Pick<Velocity, 'dx' | 'dz'>,
     targetVelocity: Pick<Velocity, 'dx' | 'dz'>,
     deltaTime: number,
-    acceleration = 20.0
+    acceleration = 20.0,
   ): Pick<Velocity, 'dx' | 'dz'> => {
     const maxChange = acceleration * deltaTime
-    
-    const dx = currentVelocity.dx + Math.sign(targetVelocity.dx - currentVelocity.dx) * 
-                Math.min(maxChange, Math.abs(targetVelocity.dx - currentVelocity.dx))
-    
-    const dz = currentVelocity.dz + Math.sign(targetVelocity.dz - currentVelocity.dz) * 
-                Math.min(maxChange, Math.abs(targetVelocity.dz - currentVelocity.dz))
-    
+
+    const dx = currentVelocity.dx + Math.sign(targetVelocity.dx - currentVelocity.dx) * Math.min(maxChange, Math.abs(targetVelocity.dx - currentVelocity.dx))
+
+    const dz = currentVelocity.dz + Math.sign(targetVelocity.dz - currentVelocity.dz) * Math.min(maxChange, Math.abs(targetVelocity.dz - currentVelocity.dz))
+
     return {
       dx: toFloat(dx),
       dz: toFloat(dz),
@@ -177,20 +171,15 @@ export const smoothedMovementCalculation = {
   /**
    * Calculate smooth rotation for camera following
    */
-  smoothCameraFollow: (
-    currentYaw: number,
-    targetYaw: number,
-    deltaTime: number,
-    rotationSpeed = 5.0
-  ): number => {
+  smoothCameraFollow: (currentYaw: number, targetYaw: number, deltaTime: number, rotationSpeed = 5.0): number => {
     const maxRotation = rotationSpeed * deltaTime
     const deltaYaw = targetYaw - currentYaw
-    
+
     // Handle wrap-around
     const normalizedDelta = ((deltaYaw + Math.PI) % (2 * Math.PI)) - Math.PI
-    
+
     const clampedDelta = Math.sign(normalizedDelta) * Math.min(maxRotation, Math.abs(normalizedDelta))
-    
+
     return currentYaw + clampedDelta
   },
 }

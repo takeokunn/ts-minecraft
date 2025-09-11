@@ -3,14 +3,7 @@ import { Effect, Context, Layer, Ref, Duration } from 'effect'
 /**
  * Startup phase tracking
  */
-export type StartupPhase = 
-  | 'initializing'
-  | 'loading-config'
-  | 'registering-services'
-  | 'loading-resources'
-  | 'warming-caches'
-  | 'optimizing'
-  | 'ready'
+export type StartupPhase = 'initializing' | 'loading-config' | 'registering-services' | 'loading-resources' | 'warming-caches' | 'optimizing' | 'ready'
 
 /**
  * Startup metrics for each phase
@@ -77,16 +70,16 @@ export const StartupOptimizerService = Context.GenericTag<{
   readonly getCurrentPhase: () => Effect.Effect<StartupPhase, never, never>
   readonly getPhaseMetrics: () => Effect.Effect<StartupPhaseMetrics[], never, never>
   readonly getStats: () => Effect.Effect<StartupStats, never, never>
-  
+
   readonly registerCriticalPath: (items: CriticalPathItem[]) => Effect.Effect<void, never, never>
   readonly executeCriticalPath: () => Effect.Effect<void, Error, never>
   readonly optimizeStartup: () => Effect.Effect<void, Error, never>
-  
+
   readonly enableCodeSplitting: () => Effect.Effect<void, never, never>
   readonly preloadCriticalResources: (resources: string[]) => Effect.Effect<void, Error, never>
   readonly warmCaches: () => Effect.Effect<void, never, never>
   readonly deferNonCritical: () => Effect.Effect<void, never, never>
-  
+
   readonly markReady: () => Effect.Effect<void, never, never>
   readonly isReady: () => Effect.Effect<boolean, never, never>
   readonly waitForReady: () => Effect.Effect<void, never, never>
@@ -95,9 +88,7 @@ export const StartupOptimizerService = Context.GenericTag<{
 /**
  * Create startup optimizer service implementation
  */
-const createStartupOptimizerServiceImpl = (
-  config: StartupConfig
-): Effect.Effect<Context.Tag.Service<typeof StartupOptimizerService>, never, never> =>
+const createStartupOptimizerServiceImpl = (config: StartupConfig): Effect.Effect<Context.Tag.Service<typeof StartupOptimizerService>, never, never> =>
   Effect.gen(function* () {
     const currentPhase = yield* Ref.make<StartupPhase>('initializing')
     const phaseMetrics = yield* Ref.make<StartupPhaseMetrics[]>([])
@@ -116,12 +107,12 @@ const createStartupOptimizerServiceImpl = (
     const findPhaseMetrics = (phase: StartupPhase) =>
       Effect.gen(function* () {
         const metrics = yield* Ref.get(phaseMetrics)
-        return metrics.find(m => m.phase === phase)
+        return metrics.find((m) => m.phase === phase)
       })
 
     const addOrUpdatePhaseMetrics = (phaseMetric: StartupPhaseMetrics) =>
-      Ref.update(phaseMetrics, metrics => {
-        const existing = metrics.findIndex(m => m.phase === phaseMetric.phase)
+      Ref.update(phaseMetrics, (metrics) => {
+        const existing = metrics.findIndex((m) => m.phase === phaseMetric.phase)
         if (existing >= 0) {
           const updated = [...metrics]
           updated[existing] = phaseMetric
@@ -134,7 +125,7 @@ const createStartupOptimizerServiceImpl = (
     const topologicalSort = (items: CriticalPathItem[]): CriticalPathItem[] => {
       const visited = new Set<string>()
       const result: CriticalPathItem[] = []
-      const itemMap = new Map(items.map(item => [item.id, item]))
+      const itemMap = new Map(items.map((item) => [item.id, item]))
 
       const visit = (itemId: string) => {
         if (visited.has(itemId)) return
@@ -151,17 +142,15 @@ const createStartupOptimizerServiceImpl = (
         result.push(item)
       }
 
-      items.forEach(item => visit(item.id))
+      items.forEach((item) => visit(item.id))
       return result
     }
 
     const executeCriticalPathOptimized = (items: CriticalPathItem[]) =>
       Effect.gen(function* () {
         const sortedItems = topologicalSort(items)
-        const criticalItems = sortedItems.filter(item => 
-          item.priority === 'critical' || item.priority === 'high'
-        )
-        const deferableItems = sortedItems.filter(item => item.canDefer)
+        const criticalItems = sortedItems.filter((item) => item.priority === 'critical' || item.priority === 'high')
+        const deferableItems = sortedItems.filter((item) => item.canDefer)
 
         // Execute critical path items first
         if (config.parallelInitialization && criticalItems.length > 1) {
@@ -170,20 +159,17 @@ const createStartupOptimizerServiceImpl = (
           const processed = new Set<string>()
 
           while (processed.size < criticalItems.length) {
-            const batch = criticalItems.filter(item =>
-              !processed.has(item.id) &&
-              item.dependencies.every(dep => processed.has(dep))
-            )
+            const batch = criticalItems.filter((item) => !processed.has(item.id) && item.dependencies.every((dep) => processed.has(dep)))
 
             if (batch.length === 0) break // Circular dependency or error
 
             batches.push(batch.slice(0, config.maxConcurrency))
-            batch.forEach(item => processed.add(item.id))
+            batch.forEach((item) => processed.add(item.id))
           }
 
           for (const batch of batches) {
-            yield* Effect.forEach(batch, item => item.execute, { 
-              concurrency: config.maxConcurrency 
+            yield* Effect.forEach(batch, (item) => item.execute, {
+              concurrency: config.maxConcurrency,
             })
           }
         } else {
@@ -194,10 +180,7 @@ const createStartupOptimizerServiceImpl = (
         }
 
         // Defer non-critical items
-        yield* Ref.update(deferredOperations, ops => [
-          ...ops,
-          ...deferableItems.map(item => item.execute)
-        ])
+        yield* Ref.update(deferredOperations, (ops) => [...ops, ...deferableItems.map((item) => item.execute)])
       })
 
     return {
@@ -212,7 +195,7 @@ const createStartupOptimizerServiceImpl = (
             startTime,
             memoryBefore,
             operations: 0,
-            errors: 0
+            errors: 0,
           }
 
           yield* addOrUpdatePhaseMetrics(phaseMetric)
@@ -231,13 +214,11 @@ const createStartupOptimizerServiceImpl = (
               endTime,
               duration: endTime - existingMetric.startTime,
               memoryAfter,
-              memoryDelta: memoryAfter - existingMetric.memoryBefore
+              memoryDelta: memoryAfter - existingMetric.memoryBefore,
             }
 
             yield* addOrUpdatePhaseMetrics(updatedMetric)
-            yield* Effect.logInfo(
-              `Completed phase: ${phase} in ${updatedMetric.duration?.toFixed(2)}ms`
-            )
+            yield* Effect.logInfo(`Completed phase: ${phase} in ${updatedMetric.duration?.toFixed(2)}ms`)
           }
         }),
 
@@ -249,12 +230,9 @@ const createStartupOptimizerServiceImpl = (
         Effect.gen(function* () {
           const metrics = yield* Ref.get(phaseMetrics)
           const totalDuration = metrics.reduce((sum, m) => sum + (m.duration || 0), 0)
-          const criticalMetrics = metrics.filter(m => 
-            m.phase === 'loading-config' || 
-            m.phase === 'registering-services'
-          )
+          const criticalMetrics = metrics.filter((m) => m.phase === 'loading-config' || m.phase === 'registering-services')
           const criticalPathDuration = criticalMetrics.reduce((sum, m) => sum + (m.duration || 0), 0)
-          
+
           return {
             totalDuration,
             criticalPathDuration,
@@ -262,12 +240,11 @@ const createStartupOptimizerServiceImpl = (
             memoryUsage: getMemoryUsage(),
             cacheHitRate: 0.8, // Placeholder - would be calculated from cache stats
             deferredOperations: (yield* Ref.get(deferredOperations)).length,
-            failedOperations: metrics.reduce((sum, m) => sum + m.errors, 0)
+            failedOperations: metrics.reduce((sum, m) => sum + m.errors, 0),
           }
         }),
 
-      registerCriticalPath: (items: CriticalPathItem[]) =>
-        Ref.set(criticalPath, items),
+      registerCriticalPath: (items: CriticalPathItem[]) => Ref.set(criticalPath, items),
 
       executeCriticalPath: () =>
         Effect.gen(function* () {
@@ -300,11 +277,7 @@ const createStartupOptimizerServiceImpl = (
             yield* Effect.gen(function* () {
               const service = yield* StartupOptimizerService
               yield* service.startPhase('loading-resources')
-              yield* service.preloadCriticalResources([
-                'shaders/basic.vert',
-                'shaders/basic.frag',
-                'textures/atlas.png'
-              ])
+              yield* service.preloadCriticalResources(['shaders/basic.vert', 'shaders/basic.frag', 'textures/atlas.png'])
               yield* service.endPhase('loading-resources')
             })
           }
@@ -353,61 +326,54 @@ const createStartupOptimizerServiceImpl = (
       preloadCriticalResources: (resources: string[]) =>
         Effect.gen(function* () {
           yield* Effect.logInfo(`Preloading ${resources.length} critical resources`)
-          
+
           // Parallel resource loading
           yield* Effect.forEach(
             resources,
-            resource => Effect.gen(function* () {
-              yield* Effect.logDebug(`Loading resource: ${resource}`)
-              // Simulate resource loading
-              yield* Effect.sleep(Duration.millis(50))
-            }),
-            { concurrency: config.maxConcurrency }
+            (resource) =>
+              Effect.gen(function* () {
+                yield* Effect.logDebug(`Loading resource: ${resource}`)
+                // Simulate resource loading
+                yield* Effect.sleep(Duration.millis(50))
+              }),
+            { concurrency: config.maxConcurrency },
           )
         }),
 
       warmCaches: () =>
         Effect.gen(function* () {
           yield* Effect.logInfo('Warming up caches')
-          
+
           // Simulate cache warming operations
-          const warmupOperations = [
-            'shader-cache',
-            'texture-cache', 
-            'mesh-cache',
-            'material-cache'
-          ]
+          const warmupOperations = ['shader-cache', 'texture-cache', 'mesh-cache', 'material-cache']
 
           yield* Effect.forEach(
             warmupOperations,
-            operation => Effect.gen(function* () {
-              yield* Effect.logDebug(`Warming cache: ${operation}`)
-              yield* Effect.sleep(Duration.millis(25))
-            }),
-            { concurrency: 4 }
+            (operation) =>
+              Effect.gen(function* () {
+                yield* Effect.logDebug(`Warming cache: ${operation}`)
+                yield* Effect.sleep(Duration.millis(25))
+              }),
+            { concurrency: 4 },
           )
         }),
 
       deferNonCritical: () =>
         Effect.gen(function* () {
           const deferred = yield* Ref.get(deferredOperations)
-          
+
           if (deferred.length > 0) {
             yield* Effect.logInfo(`Deferring ${deferred.length} non-critical operations`)
-            
+
             // Execute deferred operations in background
             Effect.runFork(
               Effect.gen(function* () {
                 yield* Effect.sleep(Duration.seconds(1)) // Wait for app to be stable
-                
-                yield* Effect.forEach(
-                  deferred,
-                  operation => operation.pipe(Effect.catchAll(() => Effect.succeed(undefined as void))),
-                  { concurrency: 2 }
-                )
-                
+
+                yield* Effect.forEach(deferred, (operation) => operation.pipe(Effect.catchAll(() => Effect.succeed(undefined as void))), { concurrency: 2 })
+
                 yield* Effect.logInfo('Completed deferred operations')
-              })
+              }),
             )
           }
         }),
@@ -425,7 +391,7 @@ const createStartupOptimizerServiceImpl = (
           while (!(yield* Ref.get(isReadyRef))) {
             yield* Effect.sleep(Duration.millis(10))
           }
-        })
+        }),
     }
   })
 
@@ -441,29 +407,22 @@ export const defaultStartupConfig: StartupConfig = {
   enableTreeShaking: true,
   parallelInitialization: true,
   maxConcurrency: 4,
-  timeoutMs: 30000
+  timeoutMs: 30000,
 }
 
 /**
  * Startup Optimizer Service Layer implementation
  */
-export const StartupOptimizerServiceLive = (config: StartupConfig = defaultStartupConfig) =>
-  Layer.effect(
-    StartupOptimizerService,
-    createStartupOptimizerServiceImpl(config)
-  )
+export const StartupOptimizerServiceLive = (config: StartupConfig = defaultStartupConfig) => Layer.effect(StartupOptimizerService, createStartupOptimizerServiceImpl(config))
 
 /**
  * Startup utilities
  */
-export const withStartupPhase = <R, E>(
-  phase: StartupPhase,
-  effect: Effect.Effect<R, E, never>
-): Effect.Effect<R, E, StartupOptimizerService> =>
+export const withStartupPhase = <R, E>(phase: StartupPhase, effect: Effect.Effect<R, E, never>): Effect.Effect<R, E, StartupOptimizerService> =>
   Effect.gen(function* () {
     const service = yield* StartupOptimizerService
     yield* service.startPhase(phase)
-    
+
     try {
       const result = yield* effect
       yield* service.endPhase(phase)
@@ -490,7 +449,7 @@ export const createCriticalPathItem = (config: {
   estimatedDuration: 100,
   priority: 'medium',
   canDefer: false,
-  ...config
+  ...config,
 })
 
 /**
@@ -505,10 +464,7 @@ export const measureStartupPerformance = (): Effect.Effect<StartupStats, never, 
 /**
  * Create an optimized startup sequence
  */
-export const createOptimizedStartup = (
-  criticalPath: CriticalPathItem[],
-  config?: Partial<StartupConfig>
-) =>
+export const createOptimizedStartup = (criticalPath: CriticalPathItem[], config?: Partial<StartupConfig>) =>
   Effect.gen(function* () {
     const service = yield* StartupOptimizerService
     yield* service.registerCriticalPath(criticalPath)

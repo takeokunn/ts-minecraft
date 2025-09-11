@@ -1,6 +1,6 @@
 /**
  * Next-Generation Component System
- * 
+ *
  * Features:
  * - Automatic component registration with ComponentRegistry
  * - Archetype-based query optimization for ECS performance
@@ -17,27 +17,11 @@ import * as Option from 'effect/Option'
 
 // Import registry and all component categories
 import { globalRegistry, ComponentRegistry, RegisterComponent } from './registry'
-import type { 
-  ComponentMeta,
-  ComponentRegistryState,
-  ArchetypeInfo,
-  StorageLayout,
-  SoABuffer,
-  QueryResult,
-  RegistryMetrics 
-} from './registry'
+import type { ComponentMeta, ComponentRegistryState, ArchetypeInfo, StorageLayout, SoABuffer, QueryResult, RegistryMetrics } from './registry'
 
 // Re-export for external use
 export { globalRegistry, ComponentRegistry, RegisterComponent }
-export type { 
-  ComponentMeta,
-  ComponentRegistryState,
-  ArchetypeInfo,
-  StorageLayout,
-  SoABuffer,
-  QueryResult,
-  RegistryMetrics 
-}
+export type { ComponentMeta, ComponentRegistryState, ArchetypeInfo, StorageLayout, SoABuffer, QueryResult, RegistryMetrics }
 
 // Import all component categories
 export * from './physics'
@@ -101,21 +85,17 @@ export class ArchetypeQuery {
   execute(): ArchetypeQueryResult {
     const registry = globalRegistry
     const archetype = registry.getArchetype(this.requiredComponents)
-    
+
     // Filter entities that don't have excluded components
-    const filteredEntities = archetype.entities.filter(entityId => {
-      return !this.excludedComponents.some(componentId => 
-        registry.query([componentId]).hasComponent(entityId, componentId)
-      )
+    const filteredEntities = archetype.entities.filter((entityId) => {
+      return !this.excludedComponents.some((componentId) => registry.query([componentId]).hasComponent(entityId, componentId))
     })
 
     return {
       entities: filteredEntities,
       archetype,
-      getComponent: <T>(entityId: number, componentId: string) => 
-        registry.query([componentId]).getComponent<T>(entityId, componentId),
-      hasComponent: (entityId: number, componentId: string) =>
-        registry.query([componentId]).hasComponent(entityId, componentId),
+      getComponent: <T>(entityId: number, componentId: string) => registry.query([componentId]).getComponent<T>(entityId, componentId),
+      hasComponent: (entityId: number, componentId: string) => registry.query([componentId]).hasComponent(entityId, componentId),
       requiredComponents: this.requiredComponents,
       optionalComponents: this.optionalComponents,
       storageLayout: archetype.storageLayout,
@@ -140,7 +120,7 @@ export interface ArchetypeQueryResult {
  */
 export class ComponentPerformanceManager {
   private performanceMetrics = new Map<string, PerformanceMetric>()
-  
+
   /**
    * Track component access patterns for optimization hints
    */
@@ -173,8 +153,8 @@ export class ComponentPerformanceManager {
    */
   getOptimizationSuggestions(): readonly OptimizationSuggestion[] {
     return Array.fromIterable(this.performanceMetrics.values())
-      .filter(metric => metric.suggestedOptimization !== 'none')
-      .map(metric => ({
+      .filter((metric) => metric.suggestedOptimization !== 'none')
+      .map((metric) => ({
         componentId: metric.componentId,
         currentLayout: this.getCurrentLayout(metric.componentId),
         suggestedLayout: metric.suggestedOptimization as StorageLayout,
@@ -189,7 +169,7 @@ export class ComponentPerformanceManager {
     const suggestions = this.getOptimizationSuggestions()
     const registry = globalRegistry
 
-    suggestions.forEach(suggestion => {
+    suggestions.forEach((suggestion) => {
       if (suggestion.suggestedLayout !== 'none') {
         registry.convertStorageLayout(suggestion.componentId, suggestion.suggestedLayout)
       }
@@ -200,12 +180,12 @@ export class ComponentPerformanceManager {
     const totalAccess = metric.readCount + metric.writeCount
     const readRatio = metric.readCount / totalAccess
     const avgReadTime = metric.totalReadTime / Math.max(1, metric.readCount)
-    
+
     // High read frequency with slow access suggests SoA optimization
     if (readRatio > 0.8 && avgReadTime > 1 && totalAccess > 100) {
       return 'SoA'
     }
-    
+
     // Balanced read/write suggests AoS
     if (readRatio >= 0.4 && readRatio <= 0.6 && totalAccess > 50) {
       return 'AoS'
@@ -222,11 +202,11 @@ export class ComponentPerformanceManager {
   private getOptimizationReason(metric: PerformanceMetric): string {
     const totalAccess = metric.readCount + metric.writeCount
     const readRatio = metric.readCount / totalAccess
-    
+
     if (metric.suggestedOptimization === 'SoA') {
       return `High read frequency (${(readRatio * 100).toFixed(1)}%) with ${totalAccess} total accesses suggests SoA optimization`
     }
-    
+
     if (metric.suggestedOptimization === 'AoS') {
       return `Balanced read/write pattern (${(readRatio * 100).toFixed(1)}% reads) with ${totalAccess} accesses suggests AoS optimization`
     }
@@ -261,14 +241,14 @@ export const ComponentSchemas = {
   acceleration: PhysicsModule.AccelerationComponent,
   mass: PhysicsModule.MassComponent,
   collider: PhysicsModule.ColliderComponent,
-  
-  // Rendering components  
+
+  // Rendering components
   mesh: RenderingModule.MeshComponent,
   material: RenderingModule.MaterialComponent,
   light: RenderingModule.LightComponent,
   camera: RenderingModule.CameraComponent,
   renderable: RenderingModule.RenderableComponent,
-  
+
   // Gameplay components
   health: GameplayModule.HealthComponent,
   inventory: GameplayModule.InventoryComponent,
@@ -282,7 +262,7 @@ export const ComponentSchemas = {
   gravity: GameplayModule.GravityComponent,
   frozen: GameplayModule.FrozenComponent,
   disabled: GameplayModule.DisabledComponent,
-  
+
   // World components
   chunk: WorldModule.ChunkComponent,
   chunkLoaderState: WorldModule.ChunkLoaderStateComponent,
@@ -312,25 +292,21 @@ export type Components = {
 
 // ===== UTILITY FUNCTIONS AND EXPORTS =====
 
-// Global instances  
+// Global instances
 export const performanceManager = new ComponentPerformanceManager()
 
 // High-level query interface
-export const query = (components: readonly string[]): QueryResult => 
-  globalRegistry.query(components)
+export const query = (components: readonly string[]): QueryResult => globalRegistry.query(components)
 
-export const createArchetypeQuery = (): ArchetypeQuery => 
-  ArchetypeQuery.create()
+export const createArchetypeQuery = (): ArchetypeQuery => ArchetypeQuery.create()
 
 // Performance monitoring
 export const trackPerformance = (componentId: string, accessType: 'read' | 'write', duration: number): void =>
   performanceManager.trackComponentAccess(componentId, accessType, duration)
 
-export const getOptimizationSuggestions = (): readonly OptimizationSuggestion[] =>
-  performanceManager.getOptimizationSuggestions()
+export const getOptimizationSuggestions = (): readonly OptimizationSuggestion[] => performanceManager.getOptimizationSuggestions()
 
-export const applyOptimizations = (): void =>
-  performanceManager.applyOptimizations()
+export const applyOptimizations = (): void => performanceManager.applyOptimizations()
 
 // Component factory aggregation
 export const ComponentFactories = {
@@ -352,7 +328,4 @@ export const ComponentCategories = {
 // Registry reference is already exported above
 
 // Type exports for external use
-export type {
-  PerformanceMetric,
-  OptimizationSuggestion,
-}
+export type { PerformanceMetric, OptimizationSuggestion }

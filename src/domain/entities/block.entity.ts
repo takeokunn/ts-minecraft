@@ -1,5 +1,5 @@
 import { Match, Option } from 'effect'
-import * as S from "effect/Schema"
+import * as S from 'effect/Schema'
 import { Vector3Int, Vector3IntSchema } from '@/domain/value-objects/common'
 import { blockDefinitions } from './block-definitions.entity'
 import { BlockType, BlockTypeSchema } from '@/domain/value-objects/block-type.vo'
@@ -27,9 +27,7 @@ export const TILE_SIZE = 1 / ATLAS_SIZE_IN_TILES
 // --- Functions ---
 
 const getBlockDefinition = (blockType: BlockType) => {
-  return Option.fromNullable(blockDefinitions[blockType]).pipe(
-    Option.getOrThrowWith(() => new Error(`Block definition not found for ${blockType}`)),
-  )
+  return Option.fromNullable(blockDefinitions[blockType]).pipe(Option.getOrThrowWith(() => new Error(`Block definition not found for ${blockType}`)))
 }
 
 /**
@@ -38,10 +36,7 @@ const getBlockDefinition = (blockType: BlockType) => {
  * @param faceName The name of the face.
  * @returns A tuple [u, v] representing the texture coordinates.
  */
-export const getUvForFace = (
-  blockType: BlockType,
-  faceName: FaceName,
-): readonly [number, number] => {
+export const getUvForFace = (blockType: BlockType, faceName: FaceName): readonly [number, number] => {
   const { textures } = getBlockDefinition(blockType)
   return Match.value(faceName).pipe(
     Match.when('top', () => textures.top ?? textures.side),

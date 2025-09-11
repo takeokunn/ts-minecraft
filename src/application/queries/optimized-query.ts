@@ -89,7 +89,7 @@ class ComponentIndex {
 
     for (const component of sortedComponents) {
       const entitiesWithComponent = this.componentToEntities.get(component)
-      
+
       if (!entitiesWithComponent || entitiesWithComponent.size === 0) {
         return [] // Early exit if any component has no entities
       }
@@ -98,9 +98,7 @@ class ComponentIndex {
         candidateEntities = new Set(entitiesWithComponent)
       } else {
         // Intersect with current candidates
-        candidateEntities = new Set([...candidateEntities].filter(entity => 
-          entitiesWithComponent.has(entity)
-        ))
+        candidateEntities = new Set([...candidateEntities].filter((entity) => entitiesWithComponent.has(entity)))
       }
 
       // Early exit if intersection becomes empty
@@ -119,10 +117,12 @@ class ComponentIndex {
     return {
       totalComponents: this.componentToEntities.size,
       totalEntities: this.entityToComponents.size,
-      componentDistribution: Array.from(this.componentToEntities.entries()).map(([component, entities]) => ({
-        component,
-        entityCount: entities.size,
-      })).sort((a, b) => b.entityCount - a.entityCount),
+      componentDistribution: Array.from(this.componentToEntities.entries())
+        .map(([component, entities]) => ({
+          component,
+          entityCount: entities.size,
+        }))
+        .sort((a, b) => b.entityCount - a.entityCount),
     }
   }
 
@@ -145,7 +145,7 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
 
   constructor(
     private config: QueryConfig<T>,
-    private cache: QueryCache = globalQueryCache
+    private cache: QueryCache = globalQueryCache,
   ) {
     this.archetypeQuery = new ArchetypeQuery(config)
   }
@@ -154,7 +154,7 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
    * Execute optimized query with automatic performance tuning
    */
   async execute(entities?: ReadonlyArray<QueryEntity>): Promise<CachedQueryResult<ReadonlyArray<QueryEntity>>> {
-    const plan = this.createExecutionPlan(entities?.map(entity => entity.id))
+    const plan = this.createExecutionPlan(entities?.map((entity) => entity.id))
     const context = startQueryContext()
 
     // Try cache first if enabled
@@ -167,14 +167,15 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
           cacheHit: true,
           cacheInvalidations: 0,
         }
-        
+
         context.metrics.cacheHits++
-        
+
         // Convert EntityIds back to QueryEntities if needed
-        const entitiesData = Array.isArray(cachedResult) && cachedResult.length > 0 && typeof cachedResult[0] === 'object' && 'id' in cachedResult[0]
-          ? cachedResult as ReadonlyArray<QueryEntity>
-          : [] // Handle case where cached data is EntityId[]
-        
+        const entitiesData =
+          Array.isArray(cachedResult) && cachedResult.length > 0 && typeof cachedResult[0] === 'object' && 'id' in cachedResult[0]
+            ? (cachedResult as ReadonlyArray<QueryEntity>)
+            : [] // Handle case where cached data is EntityId[]
+
         return {
           data: entitiesData,
           metrics,
@@ -182,7 +183,7 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
           cacheKey: plan.cacheKey,
         }
       }
-      
+
       context.metrics.cacheMisses++
     }
 
@@ -212,11 +213,7 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
 
     // Cache result if caching is enabled
     if (plan.useCache && plan.cacheKey) {
-      this.cache.set(
-        plan.cacheKey,
-        resultEntities,
-        [...this.config.withComponents] as ComponentName[]
-      )
+      this.cache.set(plan.cacheKey, resultEntities, [...this.config.withComponents] as ComponentName[])
     }
 
     const metrics: CachedQueryMetrics = {
@@ -239,20 +236,16 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
    */
   private executeWithComponentIndex(context: { metrics: QueryMetrics }): QueryEntity[] {
     // Get entities with all required components using index
-    let candidates = OptimizedQuery.componentIndex.getEntitiesWithAllComponents(
-      this.config.withComponents
-    )
+    let candidates = OptimizedQuery.componentIndex.getEntitiesWithAllComponents(this.config.withComponents)
 
     context.metrics.entitiesScanned += candidates.length
 
     // Filter out entities with forbidden components
     if (this.config.withoutComponents && this.config.withoutComponents.length > 0) {
-      candidates = candidates.filter(entity => {
+      candidates = candidates.filter((entity) => {
         const withoutComponents = this.config.withoutComponents
         if (!withoutComponents) return true
-        return !withoutComponents.some(comp => 
-          entity.components[comp] !== undefined
-        )
+        return !withoutComponents.some((comp) => entity.components[comp] !== undefined)
       })
     }
 
@@ -273,7 +266,7 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
     const archetypeResult = this.archetypeQuery.execute(entities)
     context.metrics.entitiesScanned += archetypeResult.metrics.entitiesScanned
     context.metrics.entitiesMatched += archetypeResult.metrics.entitiesMatched
-    
+
     return [...archetypeResult.entities]
   }
 
@@ -288,26 +281,28 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
 
     for (let i = 0; i < entities.length; i += batchSize) {
       const batch = entities.slice(i, i + batchSize)
-      
-      const batchResults = await Promise.all(batch.map(async entity => {
-        const entityProxy = {
-          get: <K extends ComponentName>(componentName: K) => {
-            return entity.components[componentName] as ComponentOfName<K>
-          },
-          has: <K extends ComponentName>(componentName: K) => {
-            return entity.components[componentName] !== undefined
-          },
-          id: entity.id,
-        }
 
-        try {
-          const typedProxy = entityProxy as unknown as Parameters<NonNullable<typeof this.config.predicate>>[0]
-          return await Promise.resolve(this.config.predicate!(typedProxy))
-        } catch (error) {
-          console.warn(`Predicate error for entity ${entity.id}:`, error)
-          return false
-        }
-      }))
+      const batchResults = await Promise.all(
+        batch.map(async (entity) => {
+          const entityProxy = {
+            get: <K extends ComponentName>(componentName: K) => {
+              return entity.components[componentName] as ComponentOfName<K>
+            },
+            has: <K extends ComponentName>(componentName: K) => {
+              return entity.components[componentName] !== undefined
+            },
+            id: entity.id,
+          }
+
+          try {
+            const typedProxy = entityProxy as unknown as Parameters<NonNullable<typeof this.config.predicate>>[0]
+            return await Promise.resolve(this.config.predicate!(typedProxy))
+          } catch (error) {
+            console.warn(`Predicate error for entity ${entity.id}:`, error)
+            return false
+          }
+        }),
+      )
 
       // Add entities that passed the predicate
       for (let j = 0; j < batch.length; j++) {
@@ -319,7 +314,7 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
 
       // Yield control to event loop between batches
       if (i + batchSize < entities.length) {
-        await new Promise(resolve => setImmediate(resolve))
+        await new Promise((resolve) => setImmediate(resolve))
       }
     }
 
@@ -344,16 +339,9 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
 
     // Determine caching strategy
     if (this.config.predicate) {
-      plan.cacheKey = CacheKeyGenerator.forComponents(
-        this.config.withComponents,
-        this.config.withoutComponents,
-        CacheKeyGenerator.hashPredicate(this.config.predicate)
-      )
+      plan.cacheKey = CacheKeyGenerator.forComponents(this.config.withComponents, this.config.withoutComponents, CacheKeyGenerator.hashPredicate(this.config.predicate))
     } else {
-      plan.cacheKey = CacheKeyGenerator.forComponents(
-        this.config.withComponents,
-        this.config.withoutComponents
-      )
+      plan.cacheKey = CacheKeyGenerator.forComponents(this.config.withComponents, this.config.withoutComponents)
     }
 
     // Estimate query cost

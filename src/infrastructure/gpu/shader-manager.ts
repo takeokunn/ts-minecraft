@@ -322,7 +322,7 @@ fn noise3d(p: vec3<f32>) -> f32 {
 const shaderPool = new ObjectPool<THREE.Shader>(
   () => new THREE.Shader(),
   (shader: THREE.Shader) => shader,
-  CONFIG.MAX_SHADER_VARIANTS
+  CONFIG.MAX_SHADER_VARIANTS,
 )
 
 const materialPool = new ObjectPool<THREE.ShaderMaterial>(
@@ -331,7 +331,7 @@ const materialPool = new ObjectPool<THREE.ShaderMaterial>(
     material.dispose()
     return new THREE.ShaderMaterial()
   },
-  64
+  64,
 )
 
 // --- Utility Functions ---
@@ -341,33 +341,31 @@ const materialPool = new ObjectPool<THREE.ShaderMaterial>(
  */
 const processShaderDefines = (shaderCode: string, defines: Record<string, string | number | boolean>): string => {
   let processedCode = shaderCode
-  
+
   // Add defines at the top
-  const defineLines = Object.entries(defines).map(([key, value]) => {
-    if (typeof value === 'boolean') {
-      return value ? `#define ${key}` : `// #define ${key}`;
-    } else {
-      return `#define ${key} ${value}`
-    }
-  }).join('\n')
-  
+  const defineLines = Object.entries(defines)
+    .map(([key, value]) => {
+      if (typeof value === 'boolean') {
+        return value ? `#define ${key}` : `// #define ${key}`
+      } else {
+        return `#define ${key} ${value}`
+      }
+    })
+    .join('\n')
+
   processedCode = defineLines + '\n' + processedCode
-  
+
   return processedCode
 }
 
 /**
  * Compile Three.js shader
  */
-const compileThreeJSShader = (
-  vertexShader: string,
-  fragmentShader: string,
-  uniforms: Record<string, THREE.IUniform>
-): Effect.Effect<ShaderCompilationResult, never, never> =>
+const compileThreeJSShader = (vertexShader: string, fragmentShader: string, uniforms: Record<string, THREE.IUniform>): Effect.Effect<ShaderCompilationResult, never, never> =>
   Effect.gen(function* () {
     const startTime = Date.now()
     const warnings: string[] = []
-    
+
     try {
       // Create shader material for validation
       const material = new THREE.ShaderMaterial({
@@ -375,32 +373,32 @@ const compileThreeJSShader = (
         fragmentShader,
         uniforms,
       })
-      
+
       // Basic syntax validation (simplified)
       if (!vertexShader.includes('gl_Position')) {
         warnings.push('Vertex shader should set gl_Position')
       }
-      
+
       if (!fragmentShader.includes('gl_FragColor')) {
         warnings.push('Fragment shader should set gl_FragColor')
       }
-      
+
       const compilationTime = Date.now() - startTime
-      
+
       return {
         success: true,
         shader: material as unknown as ShaderMaterial,
         warnings,
-        compilationTime
+        compilationTime,
       }
     } catch (error) {
       const compilationTime = Date.now() - startTime
-      
+
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
         warnings,
-        compilationTime
+        compilationTime,
       }
     }
   })
@@ -410,44 +408,37 @@ const compileThreeJSShader = (
  */
 const createVariantKey = (baseName: string, defines: Record<string, string | number | boolean>): string => {
   const defineKeys = Object.keys(defines).sort()
-  const defineString = defineKeys.map(key => `${key}=${defines[key]}`).join('|')
+  const defineString = defineKeys.map((key) => `${key}=${defines[key]}`).join('|')
   return `${baseName}:${defineString}`
 }
 
 // --- Pure State Functions ---
 
-const addShaderProgram = (
-  state: ShaderManagerState,
-  metadata: ShaderProgramMetadata
-): ShaderManagerState => {
+const addShaderProgram = (state: ShaderManagerState, metadata: ShaderProgramMetadata): ShaderManagerState => {
   const newShaderPrograms = new Map(state.shaderPrograms)
   newShaderPrograms.set(metadata.name, metadata)
-  
+
   return {
     ...state,
     shaderPrograms: newShaderPrograms,
     stats: {
       ...state.stats,
-      totalShaders: newShaderPrograms.size
-    }
+      totalShaders: newShaderPrograms.size,
+    },
   }
 }
 
-const _addCompiledShader = (
-  state: ShaderManagerState,
-  key: string,
-  shader: THREE.Shader
-): ShaderManagerState => {
+const _addCompiledShader = (state: ShaderManagerState, key: string, shader: THREE.Shader): ShaderManagerState => {
   const newCompiledShaders = new Map(state.compiledShaders)
   newCompiledShaders.set(key, shader)
-  
+
   return {
     ...state,
     compiledShaders: newCompiledShaders,
     stats: {
       ...state.stats,
-      compiledShaders: newCompiledShaders.size
-    }
+      compiledShaders: newCompiledShaders.size,
+    },
   }
 }
 
@@ -456,7 +447,11 @@ const _addCompiledShader = (
 export interface ShaderManagerService {
   loadShader: (name: string, variant?: Record<string, string | number | boolean>) => Effect.Effect<THREE.Material, never, never>
   compileShader: (vertexShader: string, fragmentShader: string, uniforms?: Record<string, THREE.IUniform>) => Effect.Effect<ShaderCompilationResult, never, never>
-  createMaterial: (shaderName: string, uniforms?: Record<string, THREE.IUniform>, defines?: Record<string, string | number | boolean>) => Effect.Effect<THREE.ShaderMaterial, never, never>
+  createMaterial: (
+    shaderName: string,
+    uniforms?: Record<string, THREE.IUniform>,
+    defines?: Record<string, string | number | boolean>,
+  ) => Effect.Effect<THREE.ShaderMaterial, never, never>
   reloadShader: (name: string) => Effect.Effect<void, never, never>
   getShaderVariants: (name: string) => Effect.Effect<ReadonlyArray<string, never, never>>
   optimizeShaders: () => Effect.Effect<void, never, never>
@@ -483,12 +478,12 @@ export const ShaderManagerLive = Layer.effect(
         failedCompilations: 0,
         cacheHits: 0,
         cacheMisses: 0,
-        memoryUsage: 0
-      }
+        memoryUsage: 0,
+      },
     }
-    
+
     const stateRef = yield* _(Ref.make(initialState))
-    
+
     // Initialize built-in shaders
     const initializeBuiltinShaders = () =>
       Effect.gen(function* () {
@@ -520,17 +515,15 @@ export const ShaderManagerLive = Layer.effect(
           compilationStats: {
             totalCompilations: 0,
             successfulCompilations: 0,
-            averageCompilationTime: 0
-          }
+            averageCompilationTime: 0,
+          },
         }
-        
+
         // Water shader
         const waterShaderMetadata: ShaderProgramMetadata = {
           name: 'water',
           type: 'material',
-          variants: new Map([
-            ['basic', { name: 'basic', defines: {} }],
-          ]),
+          variants: new Map([['basic', { name: 'basic', defines: {} }]]),
           baseVertexShader: WATER_VERTEX_SHADER,
           baseFragmentShader: WATER_FRAGMENT_SHADER,
           uniforms: {
@@ -544,62 +537,64 @@ export const ShaderManagerLive = Layer.effect(
           compilationStats: {
             totalCompilations: 0,
             successfulCompilations: 0,
-            averageCompilationTime: 0
-          }
+            averageCompilationTime: 0,
+          },
         }
-        
-        yield* _(Ref.update(stateRef, state => 
-          pipe(
-            state,
-            s => addShaderProgram(s, blockShaderMetadata),
-            s => addShaderProgram(s, waterShaderMetadata)
-          )
-        ))
+
+        yield* _(
+          Ref.update(stateRef, (state) =>
+            pipe(
+              state,
+              (s) => addShaderProgram(s, blockShaderMetadata),
+              (s) => addShaderProgram(s, waterShaderMetadata),
+            ),
+          ),
+        )
       })
-    
+
     yield* _(initializeBuiltinShaders())
-    
+
     return {
       loadShader: (name: string, variant: Record<string, string | number | boolean> = {}) =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
           const variantKey = createVariantKey(name, variant)
-          
+
           // Check cache first
           const cachedMaterial = state.materials.get(variantKey)
           if (cachedMaterial) {
-            yield* _(Ref.update(stateRef, s => ({
-              ...s,
-              stats: { ...s.stats, cacheHits: s.stats.cacheHits + 1 }
-            })))
+            yield* _(
+              Ref.update(stateRef, (s) => ({
+                ...s,
+                stats: { ...s.stats, cacheHits: s.stats.cacheHits + 1 },
+              })),
+            )
             return cachedMaterial
           }
-          
+
           // Get shader program
           const program = state.shaderPrograms.get(name)
           if (!program) {
             throw new Error(`Shader program '${name}' not found`)
           }
-          
+
           // Process shader with defines
           const vertexShader = processShaderDefines(program.baseVertexShader, variant)
           const fragmentShader = processShaderDefines(program.baseFragmentShader, variant)
-          
+
           // Compile shader
-          const compilationResult = yield* _(compileThreeJSShader(
-            vertexShader,
-            fragmentShader,
-            program.uniforms
-          ))
-          
+          const compilationResult = yield* _(compileThreeJSShader(vertexShader, fragmentShader, program.uniforms))
+
           if (!compilationResult.success) {
-            yield* _(Ref.update(stateRef, s => ({
-              ...s,
-              stats: { ...s.stats, failedCompilations: s.stats.failedCompilations + 1 }
-            })))
+            yield* _(
+              Ref.update(stateRef, (s) => ({
+                ...s,
+                stats: { ...s.stats, failedCompilations: s.stats.failedCompilations + 1 },
+              })),
+            )
             throw new Error(`Shader compilation failed: ${compilationResult.error}`)
           }
-          
+
           // Create material
           const material = new THREE.ShaderMaterial({
             vertexShader,
@@ -608,120 +603,125 @@ export const ShaderManagerLive = Layer.effect(
             transparent: name === 'water',
             alphaTest: name === 'water' ? 0 : 0.5,
           })
-          
+
           // Update state
-          yield* _(Ref.update(stateRef, s => ({
-            ...s,
-            materials: new Map([...s.materials, [variantKey, material]]),
-            stats: { 
-              ...s.stats, 
-              cacheMisses: s.stats.cacheMisses + 1,
-              compiledShaders: s.stats.compiledShaders + 1
-            }
-          })))
-          
+          yield* _(
+            Ref.update(stateRef, (s) => ({
+              ...s,
+              materials: new Map([...s.materials, [variantKey, material]]),
+              stats: {
+                ...s.stats,
+                cacheMisses: s.stats.cacheMisses + 1,
+                compiledShaders: s.stats.compiledShaders + 1,
+              },
+            })),
+          )
+
           return material as THREE.Material
         }),
-      
-      compileShader: (vertexShader: string, fragmentShader: string, uniforms: Record<string, THREE.IUniform> = {}) =>
-        compileThreeJSShader(vertexShader, fragmentShader, uniforms),
-      
+
+      compileShader: (vertexShader: string, fragmentShader: string, uniforms: Record<string, THREE.IUniform> = {}) => compileThreeJSShader(vertexShader, fragmentShader, uniforms),
+
       createMaterial: (shaderName: string, uniforms: Record<string, THREE.IUniform> = {}, defines: Record<string, string | number | boolean> = {}) =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
           const program = state.shaderPrograms.get(shaderName)
-          
+
           if (!program) {
             throw new Error(`Shader program '${shaderName}' not found`)
           }
-          
+
           const mergedUniforms = { ...program.uniforms, ...uniforms }
           const vertexShader = processShaderDefines(program.baseVertexShader, defines)
           const fragmentShader = processShaderDefines(program.baseFragmentShader, defines)
-          
+
           const material = materialPool.acquire()
           material.vertexShader = vertexShader
           material.fragmentShader = fragmentShader
           material.uniforms = mergedUniforms
           material.needsUpdate = true
-          
+
           return material
         }),
-      
+
       reloadShader: (name: string) =>
         Effect.gen(function* () {
           // Clear cached materials for this shader
-          yield* _(Ref.update(stateRef, state => {
-            const newMaterials = new Map(state.materials)
-            const keysToRemove: string[] = []
-            
-            for (const [key] of newMaterials) {
-              if (key.startsWith(name + ':')) {
-                keysToRemove.push(key)
+          yield* _(
+            Ref.update(stateRef, (state) => {
+              const newMaterials = new Map(state.materials)
+              const keysToRemove: string[] = []
+
+              for (const [key] of newMaterials) {
+                if (key.startsWith(name + ':')) {
+                  keysToRemove.push(key)
+                }
               }
-            }
-            
-            keysToRemove.forEach(key => {
-              const material = newMaterials.get(key)
-              if (material) {
-                material.dispose()
+
+              keysToRemove.forEach((key) => {
+                const material = newMaterials.get(key)
+                if (material) {
+                  material.dispose()
+                }
+                newMaterials.delete(key)
+              })
+
+              return {
+                ...state,
+                materials: newMaterials,
               }
-              newMaterials.delete(key)
-            })
-            
-            return {
-              ...state,
-              materials: newMaterials
-            }
-          }))
+            }),
+          )
         }),
-      
+
       getShaderVariants: (name: string) =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
           const program = state.shaderPrograms.get(name)
-          
+
           if (!program) {
             return []
           }
-          
+
           return Array.from(program.variants.keys())
         }),
-      
+
       optimizeShaders: () =>
         Effect.gen(function* () {
           // Remove unused shaders from cache
-          yield* _(Ref.update(stateRef, state => {
-            const newCompiledShaders = new Map<string, THREE.Shader>()
-            const newMaterials = new Map<string, THREE.Material>()
-            
-            // Keep only recently used shaders (basic implementation)
-            for (const [key, shader] of state.compiledShaders) {
-              newCompiledShaders.set(key, shader)
-            }
-            
-            for (const [key, material] of state.materials) {
-              newMaterials.set(key, material)
-            }
-            
-            return {
-              ...state,
-              compiledShaders: newCompiledShaders,
-              materials: newMaterials,
-              stats: {
-                ...state.stats,
-                compiledShaders: newCompiledShaders.size
+          yield* _(
+            Ref.update(stateRef, (state) => {
+              const newCompiledShaders = new Map<string, THREE.Shader>()
+              const newMaterials = new Map<string, THREE.Material>()
+
+              // Keep only recently used shaders (basic implementation)
+              for (const [key, shader] of state.compiledShaders) {
+                newCompiledShaders.set(key, shader)
               }
-            }
-          }))
+
+              for (const [key, material] of state.materials) {
+                newMaterials.set(key, material)
+              }
+
+              return {
+                ...state,
+                compiledShaders: newCompiledShaders,
+                materials: newMaterials,
+                stats: {
+                  ...state.stats,
+                  compiledShaders: newCompiledShaders.size,
+                },
+              }
+            }),
+          )
         }),
-      
+
       enableWebGPU: () =>
         Effect.gen(function* () {
           if (!CONFIG.WEBGPU_ENABLED || typeof navigator === 'undefined' || !('gpu' in navigator)) {
             return false
           }
-          
+
           try {
             // Future WebGPU initialization
             // const adapter = await navigator.gpu.requestAdapter()
@@ -731,55 +731,49 @@ export const ShaderManagerLive = Layer.effect(
             return false
           }
         }),
-      
+
       createWebGPUShader: () =>
         Effect.gen(function* () {
           // Future WebGPU shader creation
           throw new Error('WebGPU shaders not yet implemented')
         }),
-      
+
       getStats: () =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
-          
+
           // Calculate memory usage
           let memoryUsage = 0
           for (const _material of state.materials.values()) {
             // Rough estimate of material memory usage
             memoryUsage += 1024 // Basic material overhead
           }
-          
+
           return {
             ...state.stats,
-            memoryUsage
+            memoryUsage,
           }
         }),
-      
+
       dispose: () =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
-          
+
           // Dispose all materials
           for (const material of state.materials.values()) {
             material.dispose()
           }
-          
+
           // Clear pools
           shaderPool.clear()
           materialPool.clear()
-          
+
           yield* _(Ref.set(stateRef, initialState))
-        })
+        }),
     }
   }),
 )
 
 // Export types and configuration
-export type { 
-  ShaderManagerState, 
-  ShaderProgramMetadata, 
-  ShaderVariant, 
-  ShaderCompilationResult, 
-  WebGPUShaderModule 
-}
+export type { ShaderManagerState, ShaderProgramMetadata, ShaderVariant, ShaderCompilationResult, WebGPUShaderModule }
 export { CONFIG as ShaderManagerConfig }

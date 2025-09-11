@@ -1,4 +1,4 @@
-import * as S from "effect/Schema"
+import * as S from 'effect/Schema'
 import { RegisterComponent } from '../registry'
 
 /**
@@ -9,9 +9,7 @@ export const TerrainBlockComponent = RegisterComponent({
   id: 'terrainBlock',
   category: 'world',
   priority: 3,
-})(
-  S.Struct({})
-)
+})(S.Struct({}))
 
 export type TerrainBlockComponent = S.Schema.Type<typeof TerrainBlockComponent>
 
@@ -22,8 +20,6 @@ export const TargetBlockComponent = RegisterComponent({
   id: 'targetBlock',
   category: 'world',
   priority: 3,
-})(
-  S.Struct({})
-)
+})(S.Struct({}))
 
 export type TargetBlockComponent = S.Schema.Type<typeof TargetBlockComponent>

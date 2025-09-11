@@ -1,6 +1,6 @@
 /**
  * RenderService - Complete rendering management with Context.Tag pattern
- * 
+ *
  * Features:
  * - Scene graph management and culling optimization
  * - Material and shader management
@@ -423,16 +423,13 @@ type BufferId = string & { readonly _brand: 'BufferId' }
 
 // ===== RENDER SERVICE TAG =====
 
-export class RenderService extends Context.GenericTag('RenderService')<
-  RenderService,
-  RenderServiceInterface
->() {
+export class RenderService extends Context.GenericTag('RenderService')<RenderService, RenderServiceInterface>() {
   static readonly Live = Layer.effect(
     RenderService,
     Effect.gen(function* () {
       // Dependencies would be provided by proper service composition
       // const entityService = yield* EntityServiceDep
-      
+
       // Internal state
       const scenes = yield* Ref.make(HashMap.empty<SceneId, Scene>())
       const renderables = yield* Ref.make(HashMap.empty<RenderableId, Renderable>())
@@ -441,17 +438,17 @@ export class RenderService extends Context.GenericTag('RenderService')<
       const materials = yield* Ref.make(HashMap.empty<MaterialId, Material>())
       const textures = yield* Ref.make(HashMap.empty<TextureId, WebGLTexture>())
       const postEffects = yield* Ref.make(HashMap.empty<EffectId, PostProcessEffect>())
-      
+
       const activeScene = yield* Ref.make<Option.Option<SceneId>>(Option.none())
       const nextId = yield* Ref.make(0)
-      
+
       const renderStats = yield* Ref.make({
         frameCount: 0,
         totalRenderTime: 0,
         totalDrawCalls: 0,
         avgFps: 0,
       })
-      
+
       const debugMode = yield* Ref.make<RenderDebugMode>('none')
       const wireframeEnabled = yield* Ref.make(false)
 
@@ -465,8 +462,7 @@ export class RenderService extends Context.GenericTag('RenderService')<
       })
 
       // Helper functions
-      const generateId = (): Effect.Effect<string, never, never> =>
-        Ref.modify(nextId, id => [(id + 1).toString(), id + 1])
+      const generateId = (): Effect.Effect<string, never, never> => Ref.modify(nextId, (id) => [(id + 1).toString(), id + 1])
 
       const createSceneId = (id: string): SceneId => id as SceneId
       const createRenderableId = (id: string): RenderableId => id as RenderableId
@@ -507,7 +503,7 @@ export class RenderService extends Context.GenericTag('RenderService')<
         Effect.gen(function* () {
           try {
             const id = createSceneId(yield* generateId())
-            
+
             const scene: Scene = {
               id,
               config,
@@ -519,10 +515,12 @@ export class RenderService extends Context.GenericTag('RenderService')<
             yield* Ref.update(scenes, HashMap.set(id, scene))
             return id
           } catch (error) {
-            return yield* Effect.fail(RenderingError({
-              message: `Failed to create scene: ${error}`,
-              cause: error
-            }))
+            return yield* Effect.fail(
+              RenderingError({
+                message: `Failed to create scene: ${error}`,
+                cause: error,
+              }),
+            )
           }
         })
 
@@ -532,10 +530,12 @@ export class RenderService extends Context.GenericTag('RenderService')<
           const scene = HashMap.get(currentScenes, sceneId)
 
           if (Option.isNone(scene)) {
-            return yield* Effect.fail(RenderingError({
-              message: `Scene not found: ${sceneId}`,
-              sceneId
-            }))
+            return yield* Effect.fail(
+              RenderingError({
+                message: `Scene not found: ${sceneId}`,
+                sceneId,
+              }),
+            )
           }
 
           // Clean up scene resources
@@ -561,13 +561,15 @@ export class RenderService extends Context.GenericTag('RenderService')<
         Effect.gen(function* () {
           try {
             const id = createRenderableId(yield* generateId())
-            
+
             // Load mesh data (in practice would load from file system)
             const meshData = yield* loadMeshData(config.meshPath).pipe(
-              Effect.mapError(() => MeshDataError({
-                message: `Failed to load mesh: ${config.meshPath}`,
-                meshPath: config.meshPath
-              }))
+              Effect.mapError(() =>
+                MeshDataError({
+                  message: `Failed to load mesh: ${config.meshPath}`,
+                  meshPath: config.meshPath,
+                }),
+              ),
             )
 
             // Calculate bounding box
@@ -583,11 +585,11 @@ export class RenderService extends Context.GenericTag('RenderService')<
             }
 
             yield* Ref.update(renderables, HashMap.set(id, renderable))
-            
+
             // Add to active scene if one exists
             const current = yield* Ref.get(activeScene)
             if (Option.isSome(current)) {
-              yield* Ref.update(scenes, scenes => {
+              yield* Ref.update(scenes, (scenes) => {
                 const scene = HashMap.get(scenes, current.value)
                 if (Option.isSome(scene)) {
                   const updatedScene = Data.struct({
@@ -602,10 +604,12 @@ export class RenderService extends Context.GenericTag('RenderService')<
 
             return id
           } catch (error) {
-            return yield* Effect.fail(RenderingError({
-              message: `Failed to create renderable: ${error}`,
-              cause: error
-            }))
+            return yield* Effect.fail(
+              RenderingError({
+                message: `Failed to create renderable: ${error}`,
+                cause: error,
+              }),
+            )
           }
         })
 
@@ -614,7 +618,7 @@ export class RenderService extends Context.GenericTag('RenderService')<
         Effect.gen(function* () {
           try {
             const id = createCameraId(yield* generateId())
-            
+
             const viewMatrix = calculateViewMatrix(config)
             const projectionMatrix = calculateProjectionMatrix(config)
             const frustum = createFrustum(viewMatrix, projectionMatrix)
@@ -630,10 +634,12 @@ export class RenderService extends Context.GenericTag('RenderService')<
             yield* Ref.update(cameras, HashMap.set(id, camera))
             return id
           } catch (error) {
-            return yield* Effect.fail(RenderingError({
-              message: `Failed to create camera: ${error}`,
-              cause: error
-            }))
+            return yield* Effect.fail(
+              RenderingError({
+                message: `Failed to create camera: ${error}`,
+                cause: error,
+              }),
+            )
           }
         })
 
@@ -642,11 +648,9 @@ export class RenderService extends Context.GenericTag('RenderService')<
         Effect.gen(function* () {
           try {
             const id = createLightId(yield* generateId())
-            
+
             // Create shadow map if needed
-            const shadowMap = config.castShadows ? 
-              Option.some(yield* createShadowMap(config.shadowMapSize)) : 
-              Option.none()
+            const shadowMap = config.castShadows ? Option.some(yield* createShadowMap(config.shadowMapSize)) : Option.none()
 
             const light: Light = {
               id,
@@ -657,10 +661,12 @@ export class RenderService extends Context.GenericTag('RenderService')<
             yield* Ref.update(lights, HashMap.set(id, light))
             return id
           } catch (error) {
-            return yield* Effect.fail(RenderingError({
-              message: `Failed to create light: ${error}`,
-              cause: error
-            }))
+            return yield* Effect.fail(
+              RenderingError({
+                message: `Failed to create light: ${error}`,
+                cause: error,
+              }),
+            )
           }
         })
 
@@ -669,13 +675,15 @@ export class RenderService extends Context.GenericTag('RenderService')<
         Effect.gen(function* () {
           try {
             const id = createMaterialId(yield* generateId())
-            
+
             // Compile shader
             const compiledShader = yield* compileShader(config.shader).pipe(
-              Effect.mapError(() => ShaderCompilationError({
-                message: `Failed to compile shader for material: ${config.name}`,
-                shaderSource: config.shader.vertexShader + config.shader.fragmentShader
-              }))
+              Effect.mapError(() =>
+                ShaderCompilationError({
+                  message: `Failed to compile shader for material: ${config.name}`,
+                  shaderSource: config.shader.vertexShader + config.shader.fragmentShader,
+                }),
+              ),
             )
 
             // Create uniforms buffer
@@ -691,10 +699,12 @@ export class RenderService extends Context.GenericTag('RenderService')<
             yield* Ref.update(materials, HashMap.set(id, material))
             return id
           } catch (error) {
-            return yield* Effect.fail(RenderingError({
-              message: `Failed to create material: ${error}`,
-              cause: error
-            }))
+            return yield* Effect.fail(
+              RenderingError({
+                message: `Failed to create material: ${error}`,
+                cause: error,
+              }),
+            )
           }
         })
 
@@ -725,34 +735,40 @@ export class RenderService extends Context.GenericTag('RenderService')<
             const scenes = yield* Ref.get(scenes)
             const scene = HashMap.get(scenes, currentScene.value)
             if (Option.isNone(scene)) {
-              return yield* Effect.fail(RenderingError({
-                message: `Active scene not found: ${currentScene.value}`,
-                sceneId: currentScene.value
-              }))
+              return yield* Effect.fail(
+                RenderingError({
+                  message: `Active scene not found: ${currentScene.value}`,
+                  sceneId: currentScene.value,
+                }),
+              )
             }
 
             // Get active camera
             const activeCamera = scene.value.activeCamera
             if (Option.isNone(activeCamera)) {
-              return yield* Effect.fail(RenderingError({
-                message: `No active camera in scene: ${currentScene.value}`,
-                sceneId: currentScene.value
-              }))
+              return yield* Effect.fail(
+                RenderingError({
+                  message: `No active camera in scene: ${currentScene.value}`,
+                  sceneId: currentScene.value,
+                }),
+              )
             }
 
             const cameraMap = yield* Ref.get(cameras)
             const camera = HashMap.get(cameraMap, activeCamera.value)
             if (Option.isNone(camera)) {
-              return yield* Effect.fail(RenderingError({
-                message: `Active camera not found: ${activeCamera.value}`,
-                cameraId: activeCamera.value
-              }))
+              return yield* Effect.fail(
+                RenderingError({
+                  message: `Active camera not found: ${activeCamera.value}`,
+                  cameraId: activeCamera.value,
+                }),
+              )
             }
 
             // Frustum culling
             const renderableMap = yield* Ref.get(renderables)
             const visibleRenderables = []
-            
+
             for (const renderableId of scene.value.renderables) {
               const renderable = HashMap.get(renderableMap, renderableId)
               if (Option.isSome(renderable) && renderable.value.visible) {
@@ -771,10 +787,10 @@ export class RenderService extends Context.GenericTag('RenderService')<
             // Shadow pass
             const lightMap = yield* Ref.get(lights)
             const shadowCastingLights = Array.fromIterable(scene.value.lights)
-              .map(lightId => HashMap.get(lightMap, lightId))
+              .map((lightId) => HashMap.get(lightMap, lightId))
               .filter(Option.isSome)
-              .map(light => light.value)
-              .filter(light => light.config.castShadows)
+              .map((light) => light.value)
+              .filter((light) => light.config.castShadows)
 
             for (const light of shadowCastingLights) {
               if (Option.isSome(light.shadowMap)) {
@@ -784,7 +800,7 @@ export class RenderService extends Context.GenericTag('RenderService')<
 
             // Main render pass
             yield* clearRenderTarget(scene.value.config.backgroundColor)
-            
+
             for (const renderable of sortedRenderables) {
               const renderResult = yield* renderObject(renderable, camera.value)
               drawCalls += renderResult.drawCalls
@@ -795,7 +811,7 @@ export class RenderService extends Context.GenericTag('RenderService')<
             // Post-processing
             const effectsMap = yield* Ref.get(postEffects)
             const enabledEffects = Array.fromIterable(HashMap.values(effectsMap))
-              .filter(effect => effect.enabled)
+              .filter((effect) => effect.enabled)
               .sort((a, b) => a.name.localeCompare(b.name)) // Sort by priority in real impl
 
             for (const effect of enabledEffects) {
@@ -815,10 +831,12 @@ export class RenderService extends Context.GenericTag('RenderService')<
               visibleObjects,
             }
           } catch (error) {
-            return yield* Effect.fail(RenderingError({
-              message: `Render failed: ${error}`,
-              cause: error
-            }))
+            return yield* Effect.fail(
+              RenderingError({
+                message: `Render failed: ${error}`,
+                cause: error,
+              }),
+            )
           }
         })
 
@@ -838,8 +856,7 @@ export class RenderService extends Context.GenericTag('RenderService')<
         max: { x: 1, y: 1, z: 1 },
       })
 
-      const createShadowMap = (_size: number): Effect.Effect<TextureId, never, never> =>
-        Effect.succeed(createTextureId('shadow_' + Math.random().toString()))
+      const createShadowMap = (_size: number): Effect.Effect<TextureId, never, never> => Effect.succeed(createTextureId('shadow_' + Math.random().toString()))
 
       const compileShader = (_shaderConfig: ShaderConfig): Effect.Effect<CompiledShader, never, never> =>
         Effect.succeed({
@@ -862,26 +879,25 @@ export class RenderService extends Context.GenericTag('RenderService')<
           return aIndex - bIndex
         })
 
-      const renderShadowMap = (_light: Light, _renderables: readonly Renderable[]): Effect.Effect<void, never, never> =>
-        Effect.succeed(undefined)
+      const renderShadowMap = (_light: Light, _renderables: readonly Renderable[]): Effect.Effect<void, never, never> => Effect.succeed(undefined)
 
-      const clearRenderTarget = (_color: Color): Effect.Effect<void, never, never> =>
-        Effect.succeed(undefined)
+      const clearRenderTarget = (_color: Color): Effect.Effect<void, never, never> => Effect.succeed(undefined)
 
       const renderObject = (_renderable: Renderable, _camera: Camera): Effect.Effect<{ drawCalls: number; triangles: number; vertices: number }, never, never> =>
         Effect.succeed({ drawCalls: 1, triangles: 100, vertices: 300 })
 
-      const applyPostProcessEffect = (_effect: PostProcessEffect): Effect.Effect<void, never, never> =>
-        Effect.succeed(undefined)
+      const applyPostProcessEffect = (_effect: PostProcessEffect): Effect.Effect<void, never, never> => Effect.succeed(undefined)
 
       const updateRenderStats = (renderTime: number, drawCalls: number): Effect.Effect<void, never, never> =>
-        Ref.update(renderStats, stats => Data.struct({
-          ...stats,
-          frameCount: stats.frameCount + 1,
-          totalRenderTime: stats.totalRenderTime + renderTime,
-          totalDrawCalls: stats.totalDrawCalls + drawCalls,
-          avgFps: stats.frameCount > 0 ? 1000 / (stats.totalRenderTime / stats.frameCount) : 0,
-        }))
+        Ref.update(renderStats, (stats) =>
+          Data.struct({
+            ...stats,
+            frameCount: stats.frameCount + 1,
+            totalRenderTime: stats.totalRenderTime + renderTime,
+            totalDrawCalls: stats.totalDrawCalls + drawCalls,
+            avgFps: stats.frameCount > 0 ? 1000 / (stats.totalRenderTime / stats.frameCount) : 0,
+          }),
+        )
 
       // Return the service implementation
       return {
@@ -891,48 +907,50 @@ export class RenderService extends Context.GenericTag('RenderService')<
         getActiveScene: () => Ref.get(activeScene),
 
         createRenderable,
-        destroyRenderable: (renderableId: RenderableId) =>
-          Ref.update(renderables, HashMap.remove(renderableId)),
+        destroyRenderable: (renderableId: RenderableId) => Ref.update(renderables, HashMap.remove(renderableId)),
         updateRenderable: (renderableId: RenderableId, updates: RenderableUpdates) =>
           Effect.gen(function* () {
             const currentRenderables = yield* Ref.get(renderables)
             const renderable = HashMap.get(currentRenderables, renderableId)
-            
+
             if (Option.isSome(renderable)) {
               const updatedConfig = { ...renderable.value.config, ...updates }
               const updatedRenderable = Data.struct({ ...renderable.value, config: updatedConfig })
               yield* Ref.update(renderables, HashMap.set(renderableId, updatedRenderable))
             } else {
-              return yield* Effect.fail(RenderingError({
-                message: `Renderable not found: ${renderableId}`,
-                renderableId
-              }))
+              return yield* Effect.fail(
+                RenderingError({
+                  message: `Renderable not found: ${renderableId}`,
+                  renderableId,
+                }),
+              )
             }
           }),
         setRenderableVisibility: (renderableId: RenderableId, visible: boolean) =>
           Effect.gen(function* () {
             const currentRenderables = yield* Ref.get(renderables)
             const renderable = HashMap.get(currentRenderables, renderableId)
-            
+
             if (Option.isSome(renderable)) {
               const updatedRenderable = Data.struct({ ...renderable.value, visible })
               yield* Ref.update(renderables, HashMap.set(renderableId, updatedRenderable))
             } else {
-              return yield* Effect.fail(RenderingError({
-                message: `Renderable not found: ${renderableId}`,
-                renderableId
-              }))
+              return yield* Effect.fail(
+                RenderingError({
+                  message: `Renderable not found: ${renderableId}`,
+                  renderableId,
+                }),
+              )
             }
           }),
 
         createCamera,
-        destroyCamera: (cameraId: CameraId) =>
-          Ref.update(cameras, HashMap.remove(cameraId)),
+        destroyCamera: (cameraId: CameraId) => Ref.update(cameras, HashMap.remove(cameraId)),
         setActiveCamera: (cameraId: CameraId) =>
           Effect.gen(function* () {
             const current = yield* Ref.get(activeScene)
             if (Option.isSome(current)) {
-              yield* Ref.update(scenes, scenes => {
+              yield* Ref.update(scenes, (scenes) => {
                 const scene = HashMap.get(scenes, current.value)
                 if (Option.isSome(scene)) {
                   const updatedScene = Data.struct({
@@ -949,13 +967,13 @@ export class RenderService extends Context.GenericTag('RenderService')<
           Effect.gen(function* () {
             const currentCameras = yield* Ref.get(cameras)
             const camera = HashMap.get(currentCameras, cameraId)
-            
+
             if (Option.isSome(camera)) {
               const updatedConfig = { ...camera.value.config, ...updates }
               const viewMatrix = calculateViewMatrix(updatedConfig)
               const projectionMatrix = calculateProjectionMatrix(updatedConfig)
               const frustum = createFrustum(viewMatrix, projectionMatrix)
-              
+
               const updatedCamera = Data.struct({
                 ...camera.value,
                 config: updatedConfig,
@@ -963,45 +981,44 @@ export class RenderService extends Context.GenericTag('RenderService')<
                 projectionMatrix,
                 frustum,
               })
-              
+
               yield* Ref.update(cameras, HashMap.set(cameraId, updatedCamera))
             }
           }),
 
         createLight,
-        destroyLight: (lightId: LightId) =>
-          Ref.update(lights, HashMap.remove(lightId)),
+        destroyLight: (lightId: LightId) => Ref.update(lights, HashMap.remove(lightId)),
         updateLight: (lightId: LightId, updates: LightUpdates) =>
           Effect.gen(function* () {
             const currentLights = yield* Ref.get(lights)
             const light = HashMap.get(currentLights, lightId)
-            
+
             if (Option.isSome(light)) {
               const updatedConfig = { ...light.value.config, ...updates }
               const updatedLight = Data.struct({ ...light.value, config: updatedConfig })
               yield* Ref.update(lights, HashMap.set(lightId, updatedLight))
             }
           }),
-        setGlobalLighting: (config: GlobalLightingConfig) =>
-          Ref.set(globalLighting, config),
+        setGlobalLighting: (config: GlobalLightingConfig) => Ref.set(globalLighting, config),
 
         createMaterial,
-        destroyMaterial: (materialId: MaterialId) =>
-          Ref.update(materials, HashMap.remove(materialId)),
+        destroyMaterial: (materialId: MaterialId) => Ref.update(materials, HashMap.remove(materialId)),
         updateMaterial: (materialId: MaterialId, updates: MaterialUpdates) =>
           Effect.gen(function* () {
             const currentMaterials = yield* Ref.get(materials)
             const material = HashMap.get(currentMaterials, materialId)
-            
+
             if (Option.isSome(material)) {
               const updatedConfig = { ...material.value.config, ...updates }
               const updatedMaterial = Data.struct({ ...material.value, config: updatedConfig })
               yield* Ref.update(materials, HashMap.set(materialId, updatedMaterial))
             } else {
-              return yield* Effect.fail(MaterialNotFoundError({
-                message: `Material not found: ${materialId}`,
-                materialId
-              }))
+              return yield* Effect.fail(
+                MaterialNotFoundError({
+                  message: `Material not found: ${materialId}`,
+                  materialId,
+                }),
+              )
             }
           }),
         loadTexture: () =>
@@ -1012,12 +1029,10 @@ export class RenderService extends Context.GenericTag('RenderService')<
             yield* Ref.update(textures, HashMap.set(id, texture))
             return id
           }),
-        unloadTexture: (textureId: TextureId) =>
-          Ref.update(textures, HashMap.remove(textureId)),
+        unloadTexture: (textureId: TextureId) => Ref.update(textures, HashMap.remove(textureId)),
 
         render,
-        renderToTarget: () =>
-          Effect.succeed(undefined),
+        renderToTarget: () => Effect.succeed(undefined),
         present: () => Effect.succeed(undefined),
 
         addPostProcessEffect: (effect: PostProcessEffect) =>
@@ -1026,13 +1041,12 @@ export class RenderService extends Context.GenericTag('RenderService')<
             yield* Ref.update(postEffects, HashMap.set(id, effect))
             return id
           }),
-        removePostProcessEffect: (effectId: EffectId) =>
-          Ref.update(postEffects, HashMap.remove(effectId)),
+        removePostProcessEffect: (effectId: EffectId) => Ref.update(postEffects, HashMap.remove(effectId)),
         updatePostProcessEffect: (effectId: EffectId, updates: EffectUpdates) =>
           Effect.gen(function* () {
             const currentEffects = yield* Ref.get(postEffects)
             const effect = HashMap.get(currentEffects, effectId)
-            
+
             if (Option.isSome(effect)) {
               const updatedEffect = { ...effect.value, ...updates }
               yield* Ref.update(postEffects, HashMap.set(effectId, updatedEffect))
@@ -1043,7 +1057,7 @@ export class RenderService extends Context.GenericTag('RenderService')<
           Effect.gen(function* () {
             const stats = yield* Ref.get(renderStats)
             const currentTextures = yield* Ref.get(textures)
-            
+
             return {
               fps: stats.avgFps,
               frameTime: stats.frameCount > 0 ? stats.totalRenderTime / stats.frameCount : 0,
@@ -1096,10 +1110,9 @@ export class RenderService extends Context.GenericTag('RenderService')<
             performanceImprovement: 0,
           }),
 
-        preloadResources: () =>
-          Effect.succeed(undefined),
+        preloadResources: () => Effect.succeed(undefined),
       }
-    })
+    }),
   )
 }
 

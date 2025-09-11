@@ -1,4 +1,3 @@
-
 // Interface for global state objects
 interface GlobalGameState {
   gameState?: unknown
@@ -47,30 +46,13 @@ export class HotReloadManager {
   constructor(config: Partial<HotReloadConfig> = {}) {
     this.config = {
       enabled: true,
-      watchPatterns: [
-        'src/**/*.ts',
-        'src/**/*.js',
-        'src/**/*.json',
-        'src/**/*.css',
-        'public/**/*'
-      ],
-      ignoredPatterns: [
-        '**/node_modules/**',
-        '**/dist/**',
-        '**/coverage/**',
-        '**/*.d.ts',
-        '**/.git/**'
-      ],
+      watchPatterns: ['src/**/*.ts', 'src/**/*.js', 'src/**/*.json', 'src/**/*.css', 'public/**/*'],
+      ignoredPatterns: ['**/node_modules/**', '**/dist/**', '**/coverage/**', '**/*.d.ts', '**/.git/**'],
       debounceMs: 300,
       enableLiveReload: true,
       enableStatePreservation: true,
-      preservedStateKeys: [
-        'gameState',
-        'userSettings',
-        'debugState',
-        'playerPosition'
-      ],
-      ...config
+      preservedStateKeys: ['gameState', 'userSettings', 'debugState', 'playerPosition'],
+      ...config,
     }
 
     this.state = {
@@ -79,7 +61,7 @@ export class HotReloadManager {
       totalReloads: 0,
       watchedFiles: new Set(),
       pendingChanges: [],
-      preservedState: {}
+      preservedState: {},
     }
 
     if (import.meta.env.DEV && this.config.enabled) {
@@ -90,7 +72,7 @@ export class HotReloadManager {
   private async initialize(): Promise<void> {
     try {
       console.log('🔥 Initializing Hot Reload Manager...')
-      
+
       // Setup HMR if available
       if (import.meta.hot) {
         this.setupViteHMR()
@@ -98,16 +80,15 @@ export class HotReloadManager {
 
       // Setup file watching for custom hot reload
       await this.setupFileWatcher()
-      
+
       // Create UI overlay
       this.createReloadOverlay()
-      
+
       // Setup keyboard shortcuts
       this.setupKeyboardShortcuts()
-      
+
       this.state.isActive = true
       console.log('🔥 Hot Reload Manager initialized')
-      
     } catch (error) {
       console.error('❌ Failed to initialize Hot Reload Manager:', error)
       this.config.onError?.(error as Error)
@@ -147,9 +128,9 @@ export class HotReloadManager {
   private async setupFileWatcher(): Promise<void> {
     // In a real implementation, you would use a file watcher library
     // For now, we'll simulate file watching with periodic checks
-    
+
     console.log('👁️ Setting up file watcher...')
-    
+
     // Simulate file watching with polling (for demo purposes)
     setInterval(() => {
       this.checkForFileChanges()
@@ -159,29 +140,30 @@ export class HotReloadManager {
   private checkForFileChanges(): void {
     // In a real implementation, this would check actual file system changes
     // For now, we'll simulate occasional changes for demo purposes
-    
-    if (Math.random() < 0.01) { // 1% chance per second
+
+    if (Math.random() < 0.01) {
+      // 1% chance per second
       const simulatedChange: FileChange = {
         path: `src/components/test-${Date.now()}.ts`,
         type: 'changed',
-        timestamp: Date.now()
+        timestamp: Date.now(),
       }
-      
+
       this.handleFileChange(simulatedChange)
     }
   }
 
   private handleFileChange(change: FileChange): void {
     console.log(`📁 File ${change.type}: ${change.path}`)
-    
+
     this.state.pendingChanges.push(change)
     this.state.watchedFiles.add(change.path)
-    
+
     // Debounce multiple rapid changes
     if (this.debounceTimeout) {
       clearTimeout(this.debounceTimeout)
     }
-    
+
     this.debounceTimeout = window.setTimeout(() => {
       this.processFileChanges()
     }, this.config.debounceMs)
@@ -196,18 +178,18 @@ export class HotReloadManager {
 
     try {
       console.log(`🔄 Processing ${changes.length} file changes...`)
-      
+
       // Show reload overlay
       this.showReloadOverlay(changes)
-      
+
       // Preserve state before reload
       if (this.config.enableStatePreservation) {
         this.preserveCurrentState()
       }
-      
+
       // Attempt hot module replacement
       const success = await this.attemptHotReload(changes)
-      
+
       if (!success && this.config.enableLiveReload) {
         // Fallback to full page reload
         console.log('🔄 Hot reload failed, performing full reload...')
@@ -218,12 +200,11 @@ export class HotReloadManager {
           this.hideReloadOverlay()
         }, 1000)
       }
-      
+
       this.state.totalReloads++
       this.state.lastReload = Date.now()
-      
+
       this.config.onReload?.(changes)
-      
     } catch (error) {
       console.error('❌ Hot reload failed:', error)
       this.config.onError?.(error as Error)
@@ -236,25 +217,24 @@ export class HotReloadManager {
   private async attemptHotReload(changes: FileChange[]): Promise<boolean> {
     try {
       // Categorize changes
-      const componentChanges = changes.filter(c => c.path.includes('components/'))
-      const systemChanges = changes.filter(c => c.path.includes('services/') || c.path.includes('workflows/'))
-      const styleChanges = changes.filter(c => c.path.includes('.css'))
-      
+      const componentChanges = changes.filter((c) => c.path.includes('components/'))
+      const systemChanges = changes.filter((c) => c.path.includes('services/') || c.path.includes('workflows/'))
+      const styleChanges = changes.filter((c) => c.path.includes('.css'))
+
       // Handle different types of changes
       if (styleChanges.length > 0) {
         return await this.reloadStyles(styleChanges)
       }
-      
+
       if (componentChanges.length > 0) {
         return await this.reloadComponents(componentChanges)
       }
-      
+
       if (systemChanges.length > 0) {
         return await this.reloadSystems(systemChanges)
       }
-      
+
       return false // Fallback to full reload
-      
     } catch (error) {
       console.error('❌ Hot reload attempt failed:', error)
       return false
@@ -263,7 +243,7 @@ export class HotReloadManager {
 
   private async reloadStyles(changes: FileChange[]): Promise<boolean> {
     console.log('🎨 Hot reloading styles...')
-    
+
     try {
       // Reload CSS files
       for (const change of changes) {
@@ -273,10 +253,9 @@ export class HotReloadManager {
           link.href = newHref
         }
       }
-      
+
       console.log('✅ Styles reloaded successfully')
       return true
-      
     } catch (error) {
       console.error('❌ Style reload failed:', error)
       return false
@@ -285,24 +264,23 @@ export class HotReloadManager {
 
   private async reloadComponents(changes: FileChange[]): Promise<boolean> {
     console.log('🧩 Hot reloading components...')
-    
+
     try {
       // In a real implementation, you would:
       // 1. Parse the changed component files
       // 2. Update the component registry
       // 3. Re-render affected parts of the UI
       // 4. Preserve component state where possible
-      
+
       for (const change of changes) {
         console.log(`🔄 Reloading component: ${change.path}`)
-        
+
         // Simulate component reload
         await this.simulateModuleReload(change.path)
       }
-      
+
       console.log('✅ Components reloaded successfully')
       return true
-      
     } catch (error) {
       console.error('❌ Component reload failed:', error)
       return false
@@ -311,23 +289,22 @@ export class HotReloadManager {
 
   private async reloadSystems(changes: FileChange[]): Promise<boolean> {
     console.log('⚙️ Hot reloading systems...')
-    
+
     try {
       // In a real implementation, you would:
       // 1. Stop affected systems
       // 2. Reload system modules
       // 3. Restart systems with preserved state
-      
+
       for (const change of changes) {
         console.log(`🔄 Reloading system: ${change.path}`)
-        
+
         // Simulate system reload
         await this.simulateModuleReload(change.path)
       }
-      
+
       console.log('✅ Systems reloaded successfully')
       return true
-      
     } catch (error) {
       console.error('❌ System reload failed:', error)
       return false
@@ -336,7 +313,7 @@ export class HotReloadManager {
 
   private async simulateModuleReload(path: string): Promise<void> {
     // Simulate async module reload
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       setTimeout(() => {
         console.log(`📦 Module reloaded: ${path}`)
         resolve()
@@ -348,10 +325,10 @@ export class HotReloadManager {
     if (!this.config.enableStatePreservation) return
 
     console.log('💾 Preserving current state...')
-    
+
     // Preserve state to the data object (for HMR)
     if (data) {
-      this.config.preservedStateKeys.forEach(key => {
+      this.config.preservedStateKeys.forEach((key) => {
         const value = this.getStateValue(key)
         if (value !== undefined) {
           data[key] = value
@@ -359,7 +336,7 @@ export class HotReloadManager {
         }
       })
     }
-    
+
     // Also preserve to localStorage as backup
     this.preserveStateToStorage()
   }
@@ -367,17 +344,16 @@ export class HotReloadManager {
   private preserveStateToStorage(): void {
     try {
       const stateToPreserve: Record<string, any> = {}
-      
-      this.config.preservedStateKeys.forEach(key => {
+
+      this.config.preservedStateKeys.forEach((key) => {
         const value = this.getStateValue(key)
         if (value !== undefined) {
           stateToPreserve[key] = value
         }
       })
-      
+
       localStorage.setItem('hot-reload-preserved-state', JSON.stringify(stateToPreserve))
       console.log('💾 State preserved to storage')
-      
     } catch (error) {
       console.error('❌ Failed to preserve state to storage:', error)
     }
@@ -386,9 +362,9 @@ export class HotReloadManager {
   private getStateValue(key: string): any {
     // In a real implementation, you would get state from your application
     // This is a placeholder that would need to be customized
-    
+
     const globalState = globalThis as typeof globalThis & GlobalGameState
-    
+
     switch (key) {
       case 'gameState':
         return globalState.gameState
@@ -403,13 +379,12 @@ export class HotReloadManager {
     }
   }
 
-
   private setStateValue(key: string, value: any): void {
     // In a real implementation, you would set state in your application
     // This is a placeholder that would need to be customized
-    
+
     const globalState = globalThis as typeof globalThis & GlobalGameState
-    
+
     switch (key) {
       case 'gameState':
         globalState.gameState = value
@@ -452,15 +427,15 @@ export class HotReloadManager {
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
       min-width: 200px;
     `
-    
+
     document.body.appendChild(this.overlay)
   }
 
   private showReloadOverlay(changes: FileChange[]): void {
     if (!this.overlay) return
 
-    const changeList = changes.map(c => `• ${c.type}: ${c.path.split('/').pop()}`).join('<br>')
-    
+    const changeList = changes.map((c) => `• ${c.type}: ${c.path.split('/').pop()}`).join('<br>')
+
     this.overlay.innerHTML = `
       <div style="display: flex; align-items: center; margin-bottom: 8px;">
         <div style="margin-right: 8px;">🔥</div>
@@ -473,7 +448,7 @@ export class HotReloadManager {
         Press F5 to force full reload
       </div>
     `
-    
+
     this.overlay.style.display = 'block'
   }
 
@@ -498,9 +473,9 @@ export class HotReloadManager {
         Press F5 to force full reload
       </div>
     `
-    
+
     this.overlay.style.display = 'block'
-    
+
     // Auto-hide after 5 seconds
     setTimeout(() => {
       this.hideReloadOverlay()
@@ -514,13 +489,13 @@ export class HotReloadManager {
         event.preventDefault()
         this.manualReload()
       }
-      
+
       // Ctrl+Shift+R for force reload
       if (event.ctrlKey && event.shiftKey && event.key === 'R') {
         event.preventDefault()
         this.forceReload()
       }
-      
+
       // F5 for standard reload
       if (event.key === 'F5') {
         event.preventDefault()
@@ -531,18 +506,20 @@ export class HotReloadManager {
 
   private handleHMRUpdate(newModule: any): void {
     console.log('🔄 Handling HMR update:', newModule)
-    
+
     // In a real implementation, you would:
     // 1. Update the module in your application
     // 2. Re-render affected components
     // 3. Preserve relevant state
-    
-    this.showReloadOverlay([{
-      path: 'HMR Update',
-      type: 'changed',
-      timestamp: Date.now()
-    }])
-    
+
+    this.showReloadOverlay([
+      {
+        path: 'HMR Update',
+        type: 'changed',
+        timestamp: Date.now(),
+      },
+    ])
+
     setTimeout(() => {
       this.hideReloadOverlay()
     }, 1000)
@@ -550,7 +527,7 @@ export class HotReloadManager {
 
   private handleDevToolsReload(data: any): void {
     console.log('🔧 Handling dev tools reload:', data)
-    
+
     // Custom dev tools reload logic
     if (data.type === 'debugger') {
       // Reload debugger
@@ -562,13 +539,15 @@ export class HotReloadManager {
   // Public API
   public manualReload(): void {
     console.log('🔄 Manual reload triggered')
-    
-    this.queueChanges([{
-      path: 'Manual Reload',
-      type: 'changed',
-      timestamp: Date.now()
-    }])
-    
+
+    this.queueChanges([
+      {
+        path: 'Manual Reload',
+        type: 'changed',
+        timestamp: Date.now(),
+      },
+    ])
+
     this.processFileChanges()
   }
 
@@ -586,11 +565,11 @@ export class HotReloadManager {
   public disable(): void {
     this.config.enabled = false
     this.state.isActive = false
-    
+
     if (this.debounceTimeout) {
       clearTimeout(this.debounceTimeout)
     }
-    
+
     console.log('🔥 Hot reload disabled')
   }
 
@@ -609,17 +588,17 @@ export class HotReloadManager {
 
   public destroy(): void {
     this.disable()
-    
+
     if (this.overlay) {
       document.body.removeChild(this.overlay)
       this.overlay = null
     }
-    
+
     if (this.watcher) {
       this.watcher.close?.()
       this.watcher = null
     }
-    
+
     console.log('🔥 Hot Reload Manager destroyed')
   }
 }

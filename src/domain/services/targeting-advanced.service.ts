@@ -1,6 +1,6 @@
 /**
  * Update Target System - Next-Generation Targeting and Raycasting
- * 
+ *
  * Features:
  * - High-performance raycasting with spatial optimization
  * - Multi-target selection with priority filtering
@@ -92,7 +92,7 @@ export interface TargetCandidate {
   readonly blockType: Option.Option<BlockType>
   readonly distance: number
   readonly size: number
-  readonly velocity: Option.Option<{ x: number, y: number, z: number }>
+  readonly velocity: Option.Option<{ x: number; y: number; z: number }>
   readonly priority: number
   readonly isValid: boolean
 }
@@ -126,7 +126,7 @@ interface TargetSelectionResult {
 interface PredictiveTarget {
   readonly currentPosition: Position
   readonly predictedPosition: Position
-  readonly velocity: { x: number, y: number, z: number }
+  readonly velocity: { x: number; y: number; z: number }
   readonly timeToIntercept: number
   readonly confidence: number
 }
@@ -195,40 +195,31 @@ export const TargetingUtils = {
    */
   createRayFromCamera: (position: Position, camera: CameraComponent): THREE.Ray => {
     const origin = new THREE.Vector3(position.x, position.y, position.z)
-    
+
     // Convert pitch/yaw to direction vector
-    const pitchRad = camera.pitch * Math.PI / 180
-    const yawRad = camera.yaw * Math.PI / 180
-    
-    const direction = new THREE.Vector3(
-      Math.cos(pitchRad) * Math.sin(yawRad),
-      -Math.sin(pitchRad),
-      Math.cos(pitchRad) * Math.cos(yawRad)
-    ).normalize()
-    
+    const pitchRad = (camera.pitch * Math.PI) / 180
+    const yawRad = (camera.yaw * Math.PI) / 180
+
+    const direction = new THREE.Vector3(Math.cos(pitchRad) * Math.sin(yawRad), -Math.sin(pitchRad), Math.cos(pitchRad) * Math.cos(yawRad)).normalize()
+
     return new THREE.Ray(origin, direction)
   },
 
   /**
    * Calculate target priority
    */
-  calculateTargetPriority: (
-    candidate: TargetCandidate, 
-    config: TargetConfig
-  ): number => {
+  calculateTargetPriority: (candidate: TargetCandidate, config: TargetConfig): number => {
     const weights = config.priorityWeighting
-    
+
     // Distance factor (closer = higher priority)
     const distanceFactor = Math.max(0, 1 - candidate.distance / config.maxTargetDistance)
-    
+
     // Size factor (larger = higher priority for entities, normalized for blocks)
-    const sizeFactor = candidate.type === 'entity' ? 
-      Math.min(1, candidate.size / 10) : 
-      0.5 // Blocks have standard priority
-    
+    const sizeFactor = candidate.type === 'entity' ? Math.min(1, candidate.size / 10) : 0.5 // Blocks have standard priority
+
     // Type factor (based on filters)
     const typeFactor = candidate.type === 'block' ? 0.8 : 1.0
-    
+
     // Velocity factor (moving targets are harder to hit, lower priority)
     const velocityFactor = Option.match(candidate.velocity, {
       onNone: () => 1.0,
@@ -237,13 +228,8 @@ export const TargetingUtils = {
         return Math.max(0.1, 1 - speed / 20) // Normalize against max expected speed
       },
     })
-    
-    return (
-      distanceFactor * weights.distance +
-      sizeFactor * weights.size +
-      typeFactor * weights.type +
-      velocityFactor * weights.velocity
-    ) * candidate.priority
+
+    return (distanceFactor * weights.distance + sizeFactor * weights.size + typeFactor * weights.type + velocityFactor * weights.velocity) * candidate.priority
   },
 
   /**
@@ -254,23 +240,23 @@ export const TargetingUtils = {
     if (candidate.distance > config.maxTargetDistance) {
       return false
     }
-    
+
     // Type check
     if (!config.enableBlockTargeting && candidate.type === 'block') {
       return false
     }
-    
+
     if (!config.enableEntityTargeting && candidate.type === 'entity') {
       return false
     }
-    
+
     // Filter checks
     for (const filter of config.targetFilters) {
       if (filter.enabled && !filter.predicate(candidate)) {
         return false
       }
     }
-    
+
     return true
   },
 
@@ -305,7 +291,7 @@ class TargetingProcessor {
       inputState: InputStateComponent
       currentTarget: Option.Option<TargetComponent>
     }[],
-    worldPort: WorldPort
+    worldPort: WorldPort,
   ): Promise<{
     targetUpdates: Map<EntityId, TargetComponent>
     raycastResults: Map<EntityId, RaycastHit[]>
@@ -317,7 +303,7 @@ class TargetingProcessor {
 
     for (const player of players) {
       const result = await this.processPlayerTargeting(player, world)
-      
+
       if (Option.isSome(result.primary)) {
         const target: TargetComponent = {
           position: result.primary.value.position,
@@ -327,10 +313,10 @@ class TargetingProcessor {
           normal: new THREE.Vector3(0, 1, 0), // Would be calculated from raycast
           isValid: result.primary.value.isValid,
         }
-        
+
         targetUpdates.set(player.entityId, target)
       }
-      
+
       raycastResults.set(player.entityId, result.raycastHits)
       validationErrors.push(...result.validationErrors)
     }
@@ -353,35 +339,26 @@ class TargetingProcessor {
       inputState: InputStateComponent
       currentTarget: Option.Option<TargetComponent>
     },
-    worldPort: WorldPort
+    worldPort: WorldPort,
   ): Promise<TargetSelectionResult> {
     // Create ray from camera
     const ray = TargetingUtils.createRayFromCamera(player.position, player.cameraState)
-    
+
     // Perform raycast
     const raycastHits = await this.performRaycast(ray, world)
-    
+
     // Generate target candidates
-    const candidates = await this.generateTargetCandidates(
-      ray,
-      raycastHits,
-      player.position,
-      world
-    )
-    
+    const candidates = await this.generateTargetCandidates(ray, raycastHits, player.position, world)
+
     // Filter and prioritize candidates
     const filteredCandidates = this.filterAndPrioritizeCandidates(candidates)
-    
+
     // Select primary target
-    const primary = filteredCandidates.length > 0 ? 
-      Option.some(filteredCandidates[0]!) : 
-      Option.none<TargetCandidate>()
-    
+    const primary = filteredCandidates.length > 0 ? Option.some(filteredCandidates[0]!) : Option.none<TargetCandidate>()
+
     // Select secondary targets
-    const secondary = this.config.multiTargetSelection ? 
-      filteredCandidates.slice(1, this.config.maxTargets) : 
-      []
-    
+    const secondary = this.config.multiTargetSelection ? filteredCandidates.slice(1, this.config.maxTargets) : []
+
     return {
       primary,
       secondary,
@@ -397,17 +374,17 @@ class TargetingProcessor {
     const hits: RaycastHit[] = []
     const stepSize = this.config.raycastStepSize
     const maxDistance = this.config.maxTargetDistance
-    
+
     // Step along ray
     for (let distance = 0; distance < maxDistance; distance += stepSize) {
       const point = ray.at(distance, new THREE.Vector3())
       const position: Position = { x: point.x, y: point.y, z: point.z }
-      
+
       // Check for block collision
       if (this.config.enableBlockTargeting) {
         const blockPos = TargetingUtils.worldToBlockPosition(position)
         const voxel = await Effect.runPromise(worldPort.getVoxel(blockPos.x, blockPos.y, blockPos.z))
-        
+
         if (Option.isSome(voxel)) {
           hits.push({
             hit: true,
@@ -421,35 +398,26 @@ class TargetingProcessor {
           break // First hit stops the ray
         }
       }
-      
+
       // Check for entity collisions would go here
       // This would require querying entities at the ray position
     }
-    
+
     return hits
   }
 
   /**
    * Generate target candidates from raycast results
    */
-  private async generateTargetCandidates(
-    _ray: THREE.Ray,
-    hits: RaycastHit[],
-    _playerPosition: Position,
-    worldPort: WorldPort
-  ): Promise<TargetCandidate[]> {
+  private async generateTargetCandidates(_ray: THREE.Ray, hits: RaycastHit[], _playerPosition: Position, worldPort: WorldPort): Promise<TargetCandidate[]> {
     const candidates: TargetCandidate[] = []
-    
+
     for (const hit of hits) {
       if (hit.hit) {
         // Create block candidate
         if (Option.isSome(hit.blockPosition)) {
-          const blockType = await Effect.runPromise(worldPort.getVoxel(
-            hit.blockPosition.value.x,
-            hit.blockPosition.value.y,
-            hit.blockPosition.value.z
-          ))
-          
+          const blockType = await Effect.runPromise(worldPort.getVoxel(hit.blockPosition.value.x, hit.blockPosition.value.y, hit.blockPosition.value.z))
+
           const candidate: TargetCandidate = {
             type: 'block',
             position: hit.position,
@@ -461,12 +429,12 @@ class TargetingProcessor {
             priority: 1.0,
             isValid: true,
           }
-          
+
           if (TargetingUtils.validateTarget(candidate, this.config)) {
             candidates.push(candidate)
           }
         }
-        
+
         // Create entity candidate
         if (Option.isSome(hit.entityId)) {
           // Would query entity data here
@@ -481,14 +449,14 @@ class TargetingProcessor {
             priority: 1.0,
             isValid: true,
           }
-          
+
           if (TargetingUtils.validateTarget(candidate, this.config)) {
             candidates.push(candidate)
           }
         }
       }
     }
-    
+
     return candidates
   }
 
@@ -497,16 +465,14 @@ class TargetingProcessor {
    */
   private filterAndPrioritizeCandidates(candidates: TargetCandidate[]): TargetCandidate[] {
     // Apply filters
-    let filteredCandidates = candidates.filter(candidate => 
-      TargetingUtils.validateTarget(candidate, this.config)
-    )
-    
+    let filteredCandidates = candidates.filter((candidate) => TargetingUtils.validateTarget(candidate, this.config))
+
     // Calculate priorities
-    filteredCandidates = filteredCandidates.map(candidate => ({
+    filteredCandidates = filteredCandidates.map((candidate) => ({
       ...candidate,
       priority: TargetingUtils.calculateTargetPriority(candidate, this.config),
     }))
-    
+
     // Sort by priority (highest first)
     return filteredCandidates.sort((a, b) => b.priority - a.priority)
   }
@@ -530,80 +496,76 @@ class TargetingProcessor {
 /**
  * Create optimized update target system
  */
-export const createUpdateTargetSystem = (
-  config: Partial<TargetConfig> = {}
-): SystemFunction => {
-  const targetConfig = { 
-    ...defaultTargetConfig, 
+export const createUpdateTargetSystem = (config: Partial<TargetConfig> = {}): SystemFunction => {
+  const targetConfig = {
+    ...defaultTargetConfig,
     ...config,
     targetFilters: [...defaultTargetFilters, ...(config.targetFilters || [])],
   }
   const processor = new TargetingProcessor(targetConfig)
 
-  return (context: SystemContext, worldPort: WorldPort) => Effect.gen(function* ($) {
-    
-    const startTime = Date.now()
+  return (context: SystemContext, worldPort: WorldPort) =>
+    Effect.gen(function* ($) {
+      const startTime = Date.now()
 
-    // Query players with targeting capability
-    const playerQuery = ArchetypeQuery()
-      .with('player', 'position', 'cameraState', 'inputState')
-      .maybe('target')
-      .execute()
+      // Query players with targeting capability
+      const playerQuery = ArchetypeQuery().with('player', 'position', 'cameraState', 'inputState').maybe('target').execute()
 
-    if (playerQuery.entities.length === 0) {
-      return // No players
-    }
-
-    // Extract player data
-    const players = playerQuery.entities.map(entityId => {
-      const position = playerQuery.getComponent<Position>(entityId, 'position')
-      const cameraState = playerQuery.getComponent<CameraComponent>(entityId, 'cameraState')
-      const inputState = playerQuery.getComponent<InputStateComponent>(entityId, 'inputState')
-      const currentTarget = playerQuery.getComponent<TargetComponent>(entityId, 'target')
-
-      return {
-        entityId,
-        position: Option.isSome(position) ? position.value : null,
-        cameraState: Option.isSome(cameraState) ? cameraState.value : null,
-        inputState: Option.isSome(inputState) ? inputState.value : null,
-        currentTarget: Option.isSome(currentTarget) ? Option.some(currentTarget.value) : Option.none(),
+      if (playerQuery.entities.length === 0) {
+        return // No players
       }
-    }).filter(player => player.position && player.cameraState && player.inputState)
 
-    // Process targeting
-    const result = yield* $(
-      Effect.promise(() => processor.processTargeting(players, worldPort))
-    )
+      // Extract player data
+      const players = playerQuery.entities
+        .map((entityId) => {
+          const position = playerQuery.getComponent<Position>(entityId, 'position')
+          const cameraState = playerQuery.getComponent<CameraComponent>(entityId, 'cameraState')
+          const inputState = playerQuery.getComponent<InputStateComponent>(entityId, 'inputState')
+          const currentTarget = playerQuery.getComponent<TargetComponent>(entityId, 'target')
 
-    // Apply target updates
-    yield* $(
-      Effect.forEach(
-        Array.from(result.targetUpdates.entries()),
-        ([entityId, target]) => Effect.gen(function* ($) {
-          yield* $(worldPort.updateComponent(entityId, 'target', target))
-        }),
-        { concurrency: 'inherit', discard: true }
+          return {
+            entityId,
+            position: Option.isSome(position) ? position.value : null,
+            cameraState: Option.isSome(cameraState) ? cameraState.value : null,
+            inputState: Option.isSome(inputState) ? inputState.value : null,
+            currentTarget: Option.isSome(currentTarget) ? Option.some(currentTarget.value) : Option.none(),
+          }
+        })
+        .filter((player) => player.position && player.cameraState && player.inputState)
+
+      // Process targeting
+      const result = yield* $(Effect.promise(() => processor.processTargeting(players, worldPort)))
+
+      // Apply target updates
+      yield* $(
+        Effect.forEach(
+          Array.from(result.targetUpdates.entries()),
+          ([entityId, target]) =>
+            Effect.gen(function* ($) {
+              yield* $(worldPort.updateComponent(entityId, 'target', target))
+            }),
+          { concurrency: 'inherit', discard: true },
+        ),
       )
-    )
 
-    // Log validation errors
-    for (const error of result.validationErrors) {
-      console.warn(`Target Validation Error: ${error}`)
-    }
+      // Log validation errors
+      for (const error of result.validationErrors) {
+        console.warn(`Target Validation Error: ${error}`)
+      }
 
-    // Performance tracking
-    const endTime = Date.now()
-    const executionTime = endTime - startTime
-    // Note: Performance tracking should be handled by infrastructure layer
-    // trackPerformance('update-target', 'write', executionTime)
+      // Performance tracking
+      const endTime = Date.now()
+      const executionTime = endTime - startTime
+      // Note: Performance tracking should be handled by infrastructure layer
+      // trackPerformance('update-target', 'write', executionTime)
 
-    // Debug logging
-    if (context.frameId % 60 === 0) {
-      const stats = processor.getStats()
-      const targetCount = result.targetUpdates.size
-      console.debug(`Update Target System - Targets: ${targetCount}, Candidates: ${stats.candidateCount}, Time: ${executionTime}ms`)
-    }
-  })
+      // Debug logging
+      if (context.frameId % 60 === 0) {
+        const stats = processor.getStats()
+        const targetCount = result.targetUpdates.size
+        console.debug(`Update Target System - Targets: ${targetCount}, Candidates: ${stats.candidateCount}, Time: ${executionTime}ms`)
+      }
+    })
 }
 
 /**
@@ -680,19 +642,14 @@ export const UpdateTargetSystemUtils = {
       }),
       both: updateTargetSystem,
     }
-    
+
     return modes[mode]
   },
 
   /**
    * Create custom target filter
    */
-  createTargetFilter: (
-    id: string,
-    name: string,
-    predicate: (target: TargetCandidate) => boolean,
-    priority = 1.0
-  ): TargetFilter => ({
+  createTargetFilter: (id: string, name: string, predicate: (target: TargetCandidate) => boolean, priority = 1.0): TargetFilter => ({
     id,
     name,
     enabled: true,

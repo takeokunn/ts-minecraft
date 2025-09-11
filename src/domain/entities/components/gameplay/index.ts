@@ -1,6 +1,6 @@
 /**
  * Gameplay Components - Redesigned for Enhanced Game Mechanics
- * 
+ *
  * Features:
  * - Health and damage system with status effects
  * - Advanced inventory management with item stacking and metadata
@@ -9,7 +9,7 @@
  * - Target system with multiple target types
  */
 
-import * as S from "effect/Schema"
+import * as S from 'effect/Schema'
 import * as Data from 'effect/Data'
 import { RegisterComponent } from '../registry'
 
@@ -50,7 +50,7 @@ export const HealthComponent = RegisterComponent({
     isDead: S.Boolean,
     isInvulnerable: S.Boolean,
     canRegen: S.Boolean,
-  })
+  }),
 )
 
 export type HealthComponent = S.Schema.Type<typeof HealthComponent>
@@ -64,10 +64,14 @@ export const ItemStack = S.Struct({
   maxStack: S.Number.pipe(S.int(), S.positive()),
   // Item metadata
   durability: S.optional(S.Number.pipe(S.int(), S.between(0, 100))),
-  enchantments: S.optional(S.Array(S.Struct({
-    id: S.String,
-    level: S.Number.pipe(S.int(), S.positive()),
-  }))),
+  enchantments: S.optional(
+    S.Array(
+      S.Struct({
+        id: S.String,
+        level: S.Number.pipe(S.int(), S.positive()),
+      }),
+    ),
+  ),
   customData: S.optional(S.Record({ key: S.String, value: S.Union(S.String, S.Number, S.Boolean) })),
 })
 
@@ -85,19 +89,21 @@ export const InventoryComponent = RegisterComponent({
     hotbarCapacity: S.Number.pipe(S.int(), S.positive()),
     selectedHotbarSlot: S.Number.pipe(S.int(), S.between(0, 8)),
     // Equipment slots
-    equipment: S.optional(S.Struct({
-      helmet: S.optional(ItemStack),
-      chestplate: S.optional(ItemStack),
-      leggings: S.optional(ItemStack),
-      boots: S.optional(ItemStack),
-      mainHand: S.optional(ItemStack),
-      offHand: S.optional(ItemStack),
-    })),
+    equipment: S.optional(
+      S.Struct({
+        helmet: S.optional(ItemStack),
+        chestplate: S.optional(ItemStack),
+        leggings: S.optional(ItemStack),
+        boots: S.optional(ItemStack),
+        mainHand: S.optional(ItemStack),
+        offHand: S.optional(ItemStack),
+      }),
+    ),
     // Crafting
     craftingGrid: S.optional(S.Array(S.Union(ItemStack, S.Undefined))),
     // State
     isOpen: S.Boolean,
-  })
+  }),
 )
 
 export type InventoryComponent = S.Schema.Type<typeof InventoryComponent>
@@ -138,7 +144,7 @@ export const PlayerControlComponent = RegisterComponent({
     // Ground detection
     isGrounded: S.Boolean,
     groundCheckDistance: S.Number.pipe(S.positive()),
-  })
+  }),
 )
 
 export type PlayerControlComponent = S.Schema.Type<typeof PlayerControlComponent>
@@ -148,7 +154,7 @@ export type InputAction = S.Schema.Type<typeof InputAction>
 
 export const AIState = S.Union(
   S.Struct({ type: S.Literal('idle') }),
-  S.Struct({ 
+  S.Struct({
     type: S.Literal('patrol'),
     waypoints: S.Array(S.Struct({ x: S.Number, y: S.Number, z: S.Number })),
     currentWaypoint: S.Number.pipe(S.int()),
@@ -171,7 +177,7 @@ export const AIState = S.Union(
     fleeFromEntityId: S.Number.pipe(S.int()),
     fleeSpeed: S.Number.pipe(S.positive()),
     safeDistance: S.Number.pipe(S.positive()),
-  })
+  }),
 )
 
 export const AIComponent = RegisterComponent({
@@ -190,18 +196,20 @@ export const AIComponent = RegisterComponent({
     decisionInterval: S.Number.pipe(S.positive()), // seconds between decisions
     lastDecisionTime: S.Number,
     // Memory
-    knownEntities: S.Array(S.Struct({
-      entityId: S.Number.pipe(S.int()),
-      lastSeenPosition: S.Struct({ x: S.Number, y: S.Number, z: S.Number }),
-      lastSeenTime: S.Number,
-      relationship: S.Literal('neutral', 'hostile', 'friendly'),
-    })),
+    knownEntities: S.Array(
+      S.Struct({
+        entityId: S.Number.pipe(S.int()),
+        lastSeenPosition: S.Struct({ x: S.Number, y: S.Number, z: S.Number }),
+        lastSeenTime: S.Number,
+        relationship: S.Literal('neutral', 'hostile', 'friendly'),
+      }),
+    ),
     // Pathfinding
     currentPath: S.optional(S.Array(S.Struct({ x: S.Number, y: S.Number, z: S.Number }))),
     pathfindingEnabled: S.Boolean,
     // State
     enabled: S.Boolean,
-  })
+  }),
 )
 
 export type AIComponent = S.Schema.Type<typeof AIComponent>
@@ -210,8 +218,8 @@ export type AIState = S.Schema.Type<typeof AIState>
 // ===== TARGET COMPONENT =====
 
 export const Target = S.Union(
-  S.Struct({ 
-    type: S.Literal('none') 
+  S.Struct({
+    type: S.Literal('none'),
   }),
   S.Struct({
     type: S.Literal('block'),
@@ -229,7 +237,7 @@ export const Target = S.Union(
     type: S.Literal('position'),
     position: S.Struct({ x: S.Number, y: S.Number, z: S.Number }),
     distance: S.Number.pipe(S.positive()),
-  })
+  }),
 )
 
 export const TargetComponent = RegisterComponent({
@@ -248,13 +256,15 @@ export const TargetComponent = RegisterComponent({
     ignoreTransparent: S.Boolean,
     // Visual feedback
     showTargetHighlight: S.Boolean,
-    highlightColor: S.optional(S.Struct({
-      r: S.Number.pipe(S.between(0, 1)),
-      g: S.Number.pipe(S.between(0, 1)),
-      b: S.Number.pipe(S.between(0, 1)),
-      a: S.Number.pipe(S.between(0, 1)),
-    })),
-  })
+    highlightColor: S.optional(
+      S.Struct({
+        r: S.Number.pipe(S.between(0, 1)),
+        g: S.Number.pipe(S.between(0, 1)),
+        b: S.Number.pipe(S.between(0, 1)),
+        a: S.Number.pipe(S.between(0, 1)),
+      }),
+    ),
+  }),
 )
 
 export type TargetComponent = S.Schema.Type<typeof TargetComponent>
@@ -262,10 +272,7 @@ export type Target = S.Schema.Type<typeof Target>
 
 // ===== COMPONENT FACTORIES =====
 
-export const createHealthComponent = (
-  maxHealth: number,
-  options?: Partial<Pick<HealthComponent, 'current' | 'regenRate' | 'armor' | 'magicResistance'>>
-): HealthComponent =>
+export const createHealthComponent = (maxHealth: number, options?: Partial<Pick<HealthComponent, 'current' | 'regenRate' | 'armor' | 'magicResistance'>>): HealthComponent =>
   Data.struct({
     current: options?.current ?? maxHealth,
     maximum: maxHealth,
@@ -279,22 +286,25 @@ export const createHealthComponent = (
     canRegen: true,
   })
 
-export const createInventoryComponent = (
-  capacity: number = 36,
-  hotbarCapacity: number = 9
-): InventoryComponent =>
+export const createInventoryComponent = (capacity: number = 36, hotbarCapacity: number = 9): InventoryComponent =>
   Data.struct({
-    slots: (() => { const arr: (ItemStack | undefined)[] = []; for (let i = 0; i < capacity; i++) arr.push(undefined); return arr; })(),
+    slots: (() => {
+      const arr: (ItemStack | undefined)[] = []
+      for (let i = 0; i < capacity; i++) arr.push(undefined)
+      return arr
+    })(),
     capacity,
-    hotbarSlots: (() => { const arr: (ItemStack | undefined)[] = []; for (let i = 0; i < hotbarCapacity; i++) arr.push(undefined); return arr; })(),
+    hotbarSlots: (() => {
+      const arr: (ItemStack | undefined)[] = []
+      for (let i = 0; i < hotbarCapacity; i++) arr.push(undefined)
+      return arr
+    })(),
     hotbarCapacity,
     selectedHotbarSlot: 0,
     isOpen: false,
   })
 
-export const createPlayerControlComponent = (
-  options?: Partial<Pick<PlayerControlComponent, 'walkSpeed' | 'runSpeed' | 'jumpForce'>>
-): PlayerControlComponent =>
+export const createPlayerControlComponent = (options?: Partial<Pick<PlayerControlComponent, 'walkSpeed' | 'runSpeed' | 'jumpForce'>>): PlayerControlComponent =>
   Data.struct({
     walkSpeed: options?.walkSpeed ?? 4.3,
     runSpeed: options?.runSpeed ?? 5.6,
@@ -310,10 +320,7 @@ export const createPlayerControlComponent = (
     groundCheckDistance: 0.1,
   })
 
-export const createAIComponent = (
-  initialState: AIState = { type: 'idle' },
-  options?: Partial<Pick<AIComponent, 'detectionRadius' | 'fieldOfView'>>
-): AIComponent =>
+export const createAIComponent = (initialState: AIState = { type: 'idle' }, options?: Partial<Pick<AIComponent, 'detectionRadius' | 'fieldOfView'>>): AIComponent =>
   Data.struct({
     currentState: initialState,
     detectionRadius: options?.detectionRadius ?? 16,
@@ -325,10 +332,7 @@ export const createAIComponent = (
     enabled: true,
   })
 
-export const createTargetComponent = (
-  maxDistance: number = 8,
-  options?: Partial<Pick<TargetComponent, 'autoTarget' | 'showTargetHighlight'>>
-): TargetComponent =>
+export const createTargetComponent = (maxDistance: number = 8, options?: Partial<Pick<TargetComponent, 'autoTarget' | 'showTargetHighlight'>>): TargetComponent =>
   Data.struct({
     current: { type: 'none' as const },
     maxTargetDistance: maxDistance,
@@ -349,12 +353,7 @@ export const GameplayComponents = {
   Target: TargetComponent,
 } as const
 
-export type AnyGameplayComponent = 
-  | HealthComponent 
-  | InventoryComponent 
-  | PlayerControlComponent 
-  | AIComponent 
-  | TargetComponent
+export type AnyGameplayComponent = HealthComponent | InventoryComponent | PlayerControlComponent | AIComponent | TargetComponent
 
 export const GameplayComponentFactories = {
   createHealthComponent,
@@ -374,7 +373,7 @@ export const PlayerComponent = RegisterComponent({
   S.Struct({
     isMainPlayer: S.Boolean,
     name: S.String,
-  })
+  }),
 )
 export type PlayerComponent = S.Schema.Type<typeof PlayerComponent>
 
@@ -393,7 +392,7 @@ export const InputStateComponent = RegisterComponent({
     sprint: S.Boolean,
     interact: S.Boolean,
     attack: S.Boolean,
-  })
+  }),
 )
 export type InputStateComponent = S.Schema.Type<typeof InputStateComponent>
 
@@ -407,7 +406,7 @@ export const CameraStateComponent = RegisterComponent({
     pitch: S.Number,
     roll: S.Number,
     fov: S.Number.pipe(S.positive()),
-  })
+  }),
 )
 export type CameraStateComponent = S.Schema.Type<typeof CameraStateComponent>
 
@@ -419,7 +418,7 @@ export const HotbarComponent = RegisterComponent({
   S.Struct({
     selectedSlot: S.Number.pipe(S.int(), S.between(0, 8)),
     slots: S.Array(S.Union(ItemStack, S.Undefined)),
-  })
+  }),
 )
 export type HotbarComponent = S.Schema.Type<typeof HotbarComponent>
 
@@ -431,7 +430,7 @@ export const GravityComponent = RegisterComponent({
   S.Struct({
     force: S.Number,
     enabled: S.Boolean,
-  })
+  }),
 )
 export type GravityComponent = S.Schema.Type<typeof GravityComponent>
 
@@ -444,7 +443,7 @@ export const FrozenComponent = RegisterComponent({
 })(
   S.Struct({
     reason: S.String,
-  })
+  }),
 )
 export type FrozenComponent = S.Schema.Type<typeof FrozenComponent>
 
@@ -455,7 +454,7 @@ export const DisabledComponent = RegisterComponent({
 })(
   S.Struct({
     reason: S.String,
-  })
+  }),
 )
 export type DisabledComponent = S.Schema.Type<typeof DisabledComponent>
 
@@ -470,15 +469,9 @@ export {
   InputStateComponent as InputState,
 }
 
-export type {
-  HotbarComponent as Hotbar,
-  PlayerComponent as PlayerType,
-  InputStateComponent as InputStateType,
-  CameraStateComponent as CameraState,
-  TargetComponent as TargetBlock,
-}
+export type { HotbarComponent as Hotbar, PlayerComponent as PlayerType, InputStateComponent as InputStateType, CameraStateComponent as CameraState, TargetComponent as TargetBlock }
 
-// Additional type aliases for backward compatibility  
+// Additional type aliases for backward compatibility
 export type TargetNone = { _tag: 'none' }
 export type InputState = InputStateComponent
 export type Player = PlayerComponent

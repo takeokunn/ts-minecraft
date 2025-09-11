@@ -1,4 +1,4 @@
-import * as S from "effect/Schema"
+import * as S from 'effect/Schema'
 import { ChunkCoordinatesSchema } from '@/domain/value-objects/coordinates'
 
 /**
@@ -15,7 +15,7 @@ import { ChunkCoordinatesSchema } from '@/domain/value-objects/coordinates'
  */
 export const Position3D = S.Struct({
   x: S.Number.pipe(S.finite),
-  y: S.Number.pipe(S.finite), 
+  y: S.Number.pipe(S.finite),
   z: S.Number.pipe(S.finite),
 }).pipe(S.identifier('Position3D'))
 export type Position3D = S.Schema.Type<typeof Position3D>
@@ -38,7 +38,7 @@ export const BlockType = S.Union(
   S.Literal('coal_ore'),
   S.Literal('iron_ore'),
   S.Literal('gold_ore'),
-  S.Literal('diamond_ore')
+  S.Literal('diamond_ore'),
 ).pipe(S.identifier('BlockType'))
 export type BlockType = S.Schema.Type<typeof BlockType>
 
@@ -48,12 +48,14 @@ export type BlockType = S.Schema.Type<typeof BlockType>
 export const Block = S.Struct({
   position: Position3D,
   blockType: BlockType,
-  metadata: S.optional(S.Record({
-    key: S.String,
-    value: S.Union(S.String, S.Number, S.Boolean)
-  })),
+  metadata: S.optional(
+    S.Record({
+      key: S.String,
+      value: S.Union(S.String, S.Number, S.Boolean),
+    }),
+  ),
   lightLevel: S.optional(S.Number.pipe(S.between(0, 15))),
-  customData: S.optional(S.Unknown)
+  customData: S.optional(S.Unknown),
 }).pipe(S.identifier('Block'))
 export type Block = S.Schema.Type<typeof Block>
 
@@ -68,7 +70,7 @@ export const BiomeType = S.Union(
   S.Literal('ocean'),
   S.Literal('swamp'),
   S.Literal('tundra'),
-  S.Literal('jungle')
+  S.Literal('jungle'),
 ).pipe(S.identifier('BiomeType'))
 export type BiomeType = S.Schema.Type<typeof BiomeType>
 
@@ -78,7 +80,7 @@ export const BiomeSettings = S.Struct({
   humidity: S.Number.pipe(S.between(0, 1)),
   elevation: S.Number.pipe(S.between(0, 1)),
   rainfall: S.Number.pipe(S.between(0, 1)),
-  vegetation: S.Number.pipe(S.between(0, 1))
+  vegetation: S.Number.pipe(S.between(0, 1)),
 }).pipe(S.identifier('BiomeSettings'))
 export type BiomeSettings = S.Schema.Type<typeof BiomeSettings>
 
@@ -92,7 +94,7 @@ export const NoiseSettings = S.Struct({
   lacunarity: S.Number.pipe(S.between(1, 4)),
   scale: S.Number.pipe(S.positive),
   heightMultiplier: S.Number.pipe(S.positive),
-  baseHeight: S.Number.pipe(S.finite)
+  baseHeight: S.Number.pipe(S.finite),
 }).pipe(S.identifier('NoiseSettings'))
 export type NoiseSettings = S.Schema.Type<typeof NoiseSettings>
 
@@ -106,15 +108,17 @@ export const TerrainFeatures = S.Struct({
   generateWaterBodies: S.Boolean,
   generateStructures: S.Boolean,
   caveFrequency: S.optional(S.Number.pipe(S.between(0, 1))),
-  oreDistribution: S.optional(S.Record({
-    key: BlockType,
-    value: S.Struct({
-      frequency: S.Number.pipe(S.between(0, 1)),
-      minHeight: S.Number.pipe(S.int()),
-      maxHeight: S.Number.pipe(S.int()),
-      veinSize: S.Number.pipe(S.int(), S.positive)
-    })
-  }))
+  oreDistribution: S.optional(
+    S.Record({
+      key: BlockType,
+      value: S.Struct({
+        frequency: S.Number.pipe(S.between(0, 1)),
+        minHeight: S.Number.pipe(S.int()),
+        maxHeight: S.Number.pipe(S.int()),
+        veinSize: S.Number.pipe(S.int(), S.positive),
+      }),
+    }),
+  ),
 }).pipe(S.identifier('TerrainFeatures'))
 export type TerrainFeatures = S.Schema.Type<typeof TerrainFeatures>
 
@@ -128,52 +132,60 @@ export type TerrainFeatures = S.Schema.Type<typeof TerrainFeatures>
 export const TerrainGenerationRequest = S.Struct({
   // Chunk identification
   coordinates: ChunkCoordinatesSchema,
-  
+
   // Generation settings
   seed: S.Number.pipe(S.int()),
   biome: BiomeSettings,
   noise: NoiseSettings,
   features: TerrainFeatures,
-  
+
   // Neighboring chunk data for seamless generation
-  neighborData: S.optional(S.Record({
-    key: S.Union(
-      S.Literal('north'),
-      S.Literal('south'), 
-      S.Literal('east'),
-      S.Literal('west'),
-      S.Literal('northeast'),
-      S.Literal('northwest'),
-      S.Literal('southeast'),
-      S.Literal('southwest')
-    ),
-    value: S.Struct({
-      heightMap: S.Array(S.Number.pipe(S.finite)),
-      biomeData: S.Array(BiomeType),
-      edgeBlocks: S.Array(Block)
-    })
-  })),
-  
+  neighborData: S.optional(
+    S.Record({
+      key: S.Union(
+        S.Literal('north'),
+        S.Literal('south'),
+        S.Literal('east'),
+        S.Literal('west'),
+        S.Literal('northeast'),
+        S.Literal('northwest'),
+        S.Literal('southeast'),
+        S.Literal('southwest'),
+      ),
+      value: S.Struct({
+        heightMap: S.Array(S.Number.pipe(S.finite)),
+        biomeData: S.Array(BiomeType),
+        edgeBlocks: S.Array(Block),
+      }),
+    }),
+  ),
+
   // Player modifications
-  editedBlocks: S.optional(S.Struct({
-    destroyed: S.Array(S.String), // Position keys as "x,y,z"
-    placed: S.Array(Block),
-    modified: S.Array(S.Struct({
-      position: Position3D,
-      originalType: BlockType,
-      newType: BlockType,
-      timestamp: S.Number.pipe(S.positive)
-    }))
-  })),
-  
+  editedBlocks: S.optional(
+    S.Struct({
+      destroyed: S.Array(S.String), // Position keys as "x,y,z"
+      placed: S.Array(Block),
+      modified: S.Array(
+        S.Struct({
+          position: Position3D,
+          originalType: BlockType,
+          newType: BlockType,
+          timestamp: S.Number.pipe(S.positive),
+        }),
+      ),
+    }),
+  ),
+
   // Generation options
-  options: S.optional(S.Struct({
-    generateMeshData: S.Boolean,
-    lodLevel: S.Number.pipe(S.int(), S.between(0, 4)),
-    enableOptimizations: S.Boolean,
-    useMultithreading: S.Boolean,
-    debugMode: S.Boolean
-  }))
+  options: S.optional(
+    S.Struct({
+      generateMeshData: S.Boolean,
+      lodLevel: S.Number.pipe(S.int(), S.between(0, 4)),
+      enableOptimizations: S.Boolean,
+      useMultithreading: S.Boolean,
+      debugMode: S.Boolean,
+    }),
+  ),
 }).pipe(S.identifier('TerrainGenerationRequest'))
 export type TerrainGenerationRequest = S.Schema.Type<typeof TerrainGenerationRequest>
 
@@ -183,41 +195,39 @@ export type TerrainGenerationRequest = S.Schema.Type<typeof TerrainGenerationReq
 export const ChunkData = S.Struct({
   coordinates: ChunkCoordinatesSchema,
   blocks: S.Array(Block),
-  
+
   // Height and biome maps
   heightMap: S.Array(S.Number.pipe(S.finite)),
   biomeMap: S.Array(BiomeType),
-  
+
   // Lighting data
   lightMap: S.optional(S.Array(S.Number.pipe(S.between(0, 15)))),
   skyLightMap: S.optional(S.Array(S.Number.pipe(S.between(0, 15)))),
-  
+
   // Generation metadata
   generationTime: S.Number.pipe(S.positive),
   blockCount: S.Number.pipe(S.int(), S.nonNegative),
   timestamp: S.Number.pipe(S.positive),
-  
+
   // Feature data
-  generatedFeatures: S.optional(S.Array(S.Struct({
-    type: S.Union(
-      S.Literal('cave'),
-      S.Literal('ore_vein'),
-      S.Literal('tree'),
-      S.Literal('structure'),
-      S.Literal('water_body')
+  generatedFeatures: S.optional(
+    S.Array(
+      S.Struct({
+        type: S.Union(S.Literal('cave'), S.Literal('ore_vein'), S.Literal('tree'), S.Literal('structure'), S.Literal('water_body')),
+        position: Position3D,
+        size: S.Number.pipe(S.positive),
+        data: S.optional(S.Unknown),
+      }),
     ),
-    position: Position3D,
-    size: S.Number.pipe(S.positive),
-    data: S.optional(S.Unknown)
-  }))),
-  
+  ),
+
   // Boundaries for seamless generation
   edgeBoundaries: S.Struct({
     north: S.Array(Block),
     south: S.Array(Block),
     east: S.Array(Block),
-    west: S.Array(Block)
-  })
+    west: S.Array(Block),
+  }),
 }).pipe(S.identifier('ChunkData'))
 export type ChunkData = S.Schema.Type<typeof ChunkData>
 
@@ -227,37 +237,34 @@ export type ChunkData = S.Schema.Type<typeof ChunkData>
 export const MeshData = S.Struct({
   // Vertex data (Float32Arrays - transferable)
   positions: S.Unknown, // Float32Array
-  normals: S.Unknown,   // Float32Array
-  uvs: S.Unknown,       // Float32Array
+  normals: S.Unknown, // Float32Array
+  uvs: S.Unknown, // Float32Array
   colors: S.optional(S.Unknown), // Float32Array
-  
+
   // Index data (Uint32Array - transferable)
-  indices: S.Unknown,   // Uint32Array
-  
+  indices: S.Unknown, // Uint32Array
+
   // Mesh statistics
   vertexCount: S.Number.pipe(S.int(), S.nonNegative),
   triangleCount: S.Number.pipe(S.int(), S.nonNegative),
-  
+
   // Bounding information
   boundingBox: S.Struct({
     min: Position3D,
-    max: Position3D
+    max: Position3D,
   }),
-  
+
   // LOD data
   lodLevel: S.Number.pipe(S.int(), S.between(0, 4)),
-  
+
   // Optimization metadata
-  optimizations: S.optional(S.Struct({
-    facesCulled: S.Number.pipe(S.int(), S.nonNegative),
-    verticesReduced: S.Number.pipe(S.int(), S.nonNegative),
-    meshingTechnique: S.Union(
-      S.Literal('naive'),
-      S.Literal('greedy'),
-      S.Literal('marching_cubes'),
-      S.Literal('dual_contouring')
-    )
-  }))
+  optimizations: S.optional(
+    S.Struct({
+      facesCulled: S.Number.pipe(S.int(), S.nonNegative),
+      verticesReduced: S.Number.pipe(S.int(), S.nonNegative),
+      meshingTechnique: S.Union(S.Literal('naive'), S.Literal('greedy'), S.Literal('marching_cubes'), S.Literal('dual_contouring')),
+    }),
+  ),
 }).pipe(S.identifier('MeshData'))
 export type MeshData = S.Schema.Type<typeof MeshData>
 
@@ -270,18 +277,18 @@ export const PerformanceMetrics = S.Struct({
   terrainGenerationTime: S.Number.pipe(S.positive),
   meshGenerationTime: S.optional(S.Number.pipe(S.positive)),
   optimizationTime: S.optional(S.Number.pipe(S.positive)),
-  
+
   // Processing stats
   blocksGenerated: S.Number.pipe(S.int(), S.nonNegative),
   featuresGenerated: S.Number.pipe(S.int(), S.nonNegative),
-  
+
   // Memory usage
   memoryUsed: S.optional(S.Number.pipe(S.positive)),
   peakMemoryUsage: S.optional(S.Number.pipe(S.positive)),
-  
+
   // Quality metrics
   lodReductionRatio: S.optional(S.Number.pipe(S.between(0, 1))),
-  compressionRatio: S.optional(S.Number.pipe(S.positive))
+  compressionRatio: S.optional(S.Number.pipe(S.positive)),
 }).pipe(S.identifier('PerformanceMetrics'))
 export type PerformanceMetrics = S.Schema.Type<typeof PerformanceMetrics>
 
@@ -292,24 +299,26 @@ export const TerrainGenerationResponse = S.Struct({
   // Generated data
   chunkData: ChunkData,
   meshData: S.optional(MeshData),
-  
+
   // Performance information
   metrics: PerformanceMetrics,
-  
+
   // Status and metadata
   success: S.Boolean,
   warnings: S.optional(S.Array(S.String)),
   errors: S.optional(S.Array(S.String)),
-  
+
   // Worker information
   workerId: S.String,
-  workerCapabilities: S.optional(S.Struct({
-    supportsSharedArrayBuffer: S.Boolean,
-    supportsTransferableObjects: S.Boolean,
-    supportsWasm: S.Boolean,
-    maxMemory: S.Number.pipe(S.positive),
-    threadCount: S.Number.pipe(S.int(), S.positive)
-  }))
+  workerCapabilities: S.optional(
+    S.Struct({
+      supportsSharedArrayBuffer: S.Boolean,
+      supportsTransferableObjects: S.Boolean,
+      supportsWasm: S.Boolean,
+      maxMemory: S.Number.pipe(S.positive),
+      threadCount: S.Number.pipe(S.int(), S.positive),
+    }),
+  ),
 }).pipe(S.identifier('TerrainGenerationResponse'))
 export type TerrainGenerationResponse = S.Schema.Type<typeof TerrainGenerationResponse>
 
@@ -320,13 +329,7 @@ export type TerrainGenerationResponse = S.Schema.Type<typeof TerrainGenerationRe
 /**
  * Create transferable mesh data
  */
-export const createTransferableMeshData = (meshData: {
-  positions: number[]
-  normals: number[]
-  uvs: number[]
-  indices: number[]
-  colors?: number[]
-}): MeshData => ({
+export const createTransferableMeshData = (meshData: { positions: number[]; normals: number[]; uvs: number[]; indices: number[]; colors?: number[] }): MeshData => ({
   positions: new Float32Array(meshData.positions),
   normals: new Float32Array(meshData.normals),
   uvs: new Float32Array(meshData.uvs),
@@ -336,9 +339,9 @@ export const createTransferableMeshData = (meshData: {
   triangleCount: meshData.indices.length / 3,
   boundingBox: {
     min: { x: 0, y: 0, z: 0 },
-    max: { x: 16, y: 256, z: 16 }
+    max: { x: 16, y: 256, z: 16 },
   },
-  lodLevel: 0
+  lodLevel: 0,
 })
 
 /**
@@ -346,27 +349,25 @@ export const createTransferableMeshData = (meshData: {
  */
 export const extractMeshTransferables = (meshData: MeshData): ArrayBufferView[] => {
   const transferables: ArrayBufferView[] = []
-  
+
   if (meshData.positions instanceof Float32Array) transferables.push(meshData.positions)
   if (meshData.normals instanceof Float32Array) transferables.push(meshData.normals)
   if (meshData.uvs instanceof Float32Array) transferables.push(meshData.uvs)
   if (meshData.colors instanceof Float32Array) transferables.push(meshData.colors)
   if (meshData.indices instanceof Uint32Array) transferables.push(meshData.indices)
-  
+
   return transferables
 }
 
 /**
  * Validate terrain generation request
  */
-export const validateTerrainRequest = (request: unknown) =>
-  S.decodeUnknown(TerrainGenerationRequest)(request)
+export const validateTerrainRequest = (request: unknown) => S.decodeUnknown(TerrainGenerationRequest)(request)
 
 /**
- * Validate terrain generation response  
+ * Validate terrain generation response
  */
-export const validateTerrainResponse = (response: unknown) =>
-  S.decodeUnknown(TerrainGenerationResponse)(response)
+export const validateTerrainResponse = (response: unknown) => S.decodeUnknown(TerrainGenerationResponse)(response)
 
 /**
  * Create default biome settings
@@ -380,9 +381,9 @@ export const createDefaultBiome = (type: BiomeType): BiomeSettings => {
     ocean: { temperature: 0.6, humidity: 1.0, elevation: 0.1, rainfall: 0.9, vegetation: 0.2 },
     swamp: { temperature: 0.7, humidity: 0.9, elevation: 0.2, rainfall: 0.9, vegetation: 0.8 },
     tundra: { temperature: -0.5, humidity: 0.2, elevation: 0.3, rainfall: 0.2, vegetation: 0.2 },
-    jungle: { temperature: 0.8, humidity: 0.9, elevation: 0.5, rainfall: 1.0, vegetation: 1.0 }
+    jungle: { temperature: 0.8, humidity: 0.9, elevation: 0.5, rainfall: 1.0, vegetation: 1.0 },
   }
-  
+
   return { type, ...defaults[type] }
 }
 
@@ -396,7 +397,7 @@ export const createDefaultNoiseSettings = (seed: number): NoiseSettings => ({
   lacunarity: 2.0,
   scale: 0.01,
   heightMultiplier: 64,
-  baseHeight: 64
+  baseHeight: 64,
 })
 
 /**
@@ -413,6 +414,6 @@ export const createDefaultTerrainFeatures = (): TerrainFeatures => ({
     coal_ore: { frequency: 0.8, minHeight: 5, maxHeight: 128, veinSize: 8 },
     iron_ore: { frequency: 0.6, minHeight: 5, maxHeight: 64, veinSize: 6 },
     gold_ore: { frequency: 0.3, minHeight: 5, maxHeight: 32, veinSize: 4 },
-    diamond_ore: { frequency: 0.1, minHeight: 5, maxHeight: 16, veinSize: 2 }
-  }
+    diamond_ore: { frequency: 0.1, minHeight: 5, maxHeight: 16, veinSize: 2 },
+  },
 })

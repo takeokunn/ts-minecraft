@@ -1,6 +1,6 @@
 /**
  * Network Infrastructure - WebSocket-based networking services
- * 
+ *
  * This module provides WebSocket-based network infrastructure services
  * for multiplayer communication and state synchronization.
  */

@@ -4,10 +4,21 @@
  */
 
 import { ChunkComponent, ChunkLoaderStateComponent, type ChunkComponent as ChunkComponentType, type ChunkLoaderStateComponent as ChunkLoaderStateComponentType } from './chunk'
-import { TerrainBlockComponent, TargetBlockComponent, type TerrainBlockComponent as TerrainBlockComponentType, type TargetBlockComponent as TargetBlockComponentType } from './terrain-block'
+import {
+  TerrainBlockComponent,
+  TargetBlockComponent,
+  type TerrainBlockComponent as TerrainBlockComponentType,
+  type TargetBlockComponent as TargetBlockComponentType,
+} from './terrain-block'
 import { toChunkX, toChunkZ } from '../../common'
 
-export { ChunkComponent, ChunkLoaderStateComponent, Chunk, type ChunkComponent as ChunkComponentType, type ChunkLoaderStateComponent as ChunkLoaderStateComponentType } from './chunk'
+export {
+  ChunkComponent,
+  ChunkLoaderStateComponent,
+  Chunk,
+  type ChunkComponent as ChunkComponentType,
+  type ChunkLoaderStateComponent as ChunkLoaderStateComponentType,
+} from './chunk'
 
 export {
   TerrainBlockComponent,

@@ -1,6 +1,6 @@
 /**
  * World Repository Port - Interface for world data access
- * 
+ *
  * This port defines the contract for world data operations,
  * allowing the domain layer to interact with world storage
  * without depending on specific implementations.
@@ -14,16 +14,10 @@ import { SoAResult } from '@/domain/types'
 
 export interface IWorldRepository {
   // Component management
-  readonly updateComponent: <T>(
-    entityId: EntityId,
-    componentType: string,
-    component: T
-  ) => Effect.Effect<void, never, never>
+  readonly updateComponent: <T>(entityId: EntityId, componentType: string, component: T) => Effect.Effect<void, never, never>
 
   // Query operations
-  readonly querySoA: <Q extends typeof queries[keyof typeof queries]>(
-    query: Q
-  ) => Effect.Effect<SoAResult<Q['components']>, never, never>
+  readonly querySoA: <Q extends (typeof queries)[keyof typeof queries]>(query: Q) => Effect.Effect<SoAResult<Q['components']>, never, never>
 
   // Entity management
   readonly createEntity: (components?: Record<string, unknown>) => Effect.Effect<EntityId, never, never>
@@ -36,11 +30,8 @@ export interface IWorldRepository {
       entityId: EntityId
       componentType: string
       component: unknown
-    }>
+    }>,
   ) => Effect.Effect<void, never, never>
 }
 
-export class WorldRepository extends Context.GenericTag('WorldRepository')<
-  WorldRepository,
-  IWorldRepository
->() {}
+export class WorldRepository extends Context.GenericTag('WorldRepository')<WorldRepository, IWorldRepository>() {}

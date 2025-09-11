@@ -1,4 +1,4 @@
-import { ColliderComponent } from '@/domain/entities/components'
+import { ColliderComponent } from '../../domain/entities/components'
 import { toFloat } from '../utils/math'
 
 /**

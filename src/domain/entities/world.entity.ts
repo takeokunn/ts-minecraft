@@ -15,6 +15,6 @@ export const WorldState = S.Struct({
   players: S.HashMap(EntityId, Player),
   chunks: S.HashMap(ChunkCoordinate, Chunk),
   spawnPoint: Position,
-  gameRules: S.Record(S.String, S.Union(S.Boolean, S.Number, S.String))
+  gameRules: S.Record(S.String, S.Union(S.Boolean, S.Number, S.String)),
 })
 export type WorldState = S.Schema.Type<typeof WorldState>

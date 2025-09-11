@@ -9,9 +9,8 @@ export type ChunkZ = S.Schema.Type<typeof ChunkZ>
 
 export const ChunkCoordinate = S.Struct({
   x: ChunkX,
-  z: ChunkZ
+  z: ChunkZ,
 })
 export type ChunkCoordinate = S.Schema.Type<typeof ChunkCoordinate>
 
-export const makeChunkCoordinate = (x: number, z: number) =>
-  S.decodeSync(ChunkCoordinate)({ x, z })
+export const makeChunkCoordinate = (x: number, z: number) => S.decodeSync(ChunkCoordinate)({ x, z })

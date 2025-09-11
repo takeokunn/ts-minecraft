@@ -70,11 +70,11 @@ export interface ChunkCacheState {
  * Chunk operation priority levels
  */
 export enum ChunkPriority {
-  CRITICAL = 0,  // Player's current chunk
-  HIGH = 1,      // Immediately surrounding chunks
-  NORMAL = 2,    // Within render distance
-  LOW = 3,       // Prefetch chunks
-  BACKGROUND = 4 // Distant chunks
+  CRITICAL = 0, // Player's current chunk
+  HIGH = 1, // Immediately surrounding chunks
+  NORMAL = 2, // Within render distance
+  LOW = 3, // Prefetch chunks
+  BACKGROUND = 4, // Distant chunks
 }
 
 // --- Memory Pooling ---
@@ -114,7 +114,7 @@ const cacheNodePool = new ObjectPool<CacheNode>(
     node.next = null
     return node
   },
-  CONFIG.MAX_CACHE_SIZE
+  CONFIG.MAX_CACHE_SIZE,
 )
 
 // --- Compression Utilities ---
@@ -170,7 +170,7 @@ const decompressChunk = (data: Uint8Array, chunkX: number, chunkZ: number): Chun
 
   const blockTypes = ['air', 'stone', 'dirt', 'grass', 'cobblestone', 'wood', 'sand', 'gravel', 'water', 'lava']
   const blocks: string[] = []
-  
+
   for (let i = 0; i < data.length; i += 2) {
     const blockType = blockTypes[data[i]] || 'air'
     const count = data[i + 1]
@@ -229,7 +229,7 @@ const moveToFront = (state: ChunkCacheState, node: CacheNode): ChunkCacheState =
   node.prev = null
   node.next = state.lruHead
   if (state.lruHead) state.lruHead.prev = node
-  
+
   const newHead = node
 
   return {
@@ -272,7 +272,7 @@ const addToL1Cache = (state: ChunkCacheState, key: string, entry: ChunkCacheEntr
   if (state.l1Cache.size >= CONFIG.MAX_CACHE_SIZE) {
     const [stateAfterRemoval, removedNode] = removeLRU(state)
     newState = stateAfterRemoval
-    
+
     if (removedNode) {
       // Move to L2 cache
       const compressedEntry = {
@@ -281,10 +281,10 @@ const addToL1Cache = (state: ChunkCacheState, key: string, entry: ChunkCacheEntr
       }
       const newL2Cache = new Map(newState.l2Cache)
       newL2Cache.set(removedNode.key, compressedEntry)
-      
+
       const newL1Cache = new Map(newState.l1Cache)
       newL1Cache.delete(removedNode.key)
-      
+
       newState = {
         ...newState,
         l1Cache: newL1Cache,
@@ -323,7 +323,7 @@ const getFromCache = (state: ChunkCacheState, key: string): [ChunkCacheState, Ch
       accessCount: l1Node.entry.accessCount + 1,
     }
     l1Node.entry = updatedEntry
-    
+
     const newState = moveToFront(state, l1Node)
     return [
       {
@@ -335,7 +335,7 @@ const getFromCache = (state: ChunkCacheState, key: string): [ChunkCacheState, Ch
         },
       },
       updatedEntry,
-      1
+      1,
     ]
   }
 
@@ -343,9 +343,7 @@ const getFromCache = (state: ChunkCacheState, key: string): [ChunkCacheState, Ch
   const l2Entry = state.l2Cache.get(key)
   if (l2Entry) {
     // Decompress and move to L1
-    const chunk = l2Entry.compressedData 
-      ? decompressChunk(l2Entry.compressedData, 0, 0)
-      : l2Entry.chunk
+    const chunk = l2Entry.compressedData ? decompressChunk(l2Entry.compressedData, 0, 0) : l2Entry.chunk
 
     const newEntry = {
       ...l2Entry,
@@ -357,10 +355,14 @@ const getFromCache = (state: ChunkCacheState, key: string): [ChunkCacheState, Ch
     const newL2Cache = new Map(state.l2Cache)
     newL2Cache.delete(key)
 
-    const newState = addToL1Cache({
-      ...state,
-      l2Cache: newL2Cache,
-    }, key, newEntry)
+    const newState = addToL1Cache(
+      {
+        ...state,
+        l2Cache: newL2Cache,
+      },
+      key,
+      newEntry,
+    )
 
     return [
       {
@@ -372,7 +374,7 @@ const getFromCache = (state: ChunkCacheState, key: string): [ChunkCacheState, Ch
         },
       },
       newEntry,
-      2
+      2,
     ]
   }
 
@@ -385,10 +387,14 @@ const getFromCache = (state: ChunkCacheState, key: string): [ChunkCacheState, Ch
     const newL3Cache = new Map(state.l3Cache)
     newL3Cache.delete(key)
 
-    const newState = addToL1Cache({
-      ...state,
-      l3Cache: newL3Cache,
-    }, key, newEntry)
+    const newState = addToL1Cache(
+      {
+        ...state,
+        l3Cache: newL3Cache,
+      },
+      key,
+      newEntry,
+    )
 
     return [
       {
@@ -400,7 +406,7 @@ const getFromCache = (state: ChunkCacheState, key: string): [ChunkCacheState, Ch
         },
       },
       newEntry,
-      3
+      3,
     ]
   }
 
@@ -415,7 +421,7 @@ const getFromCache = (state: ChunkCacheState, key: string): [ChunkCacheState, Ch
       },
     },
     null,
-    0
+    0,
   ]
 }
 
@@ -424,30 +430,25 @@ const getFromCache = (state: ChunkCacheState, key: string): [ChunkCacheState, Ch
  */
 const calculateMemoryUsage = (state: ChunkCacheState): number => {
   let totalSize = 0
-  
+
   for (const node of state.l1Cache.values()) {
     totalSize += node.entry.size
   }
-  
+
   for (const entry of state.l2Cache.values()) {
     totalSize += entry.compressedData?.length || entry.size
   }
-  
+
   for (const data of state.l3Cache.values()) {
     totalSize += data.length
   }
-  
+
   return totalSize
 }
 
 // --- Pure Cache Operations ---
 
-const putChunkPure = (
-  state: ChunkCacheState,
-  key: string,
-  chunk: Chunk,
-  priority: ChunkPriority = ChunkPriority.NORMAL
-): ChunkCacheState => {
+const putChunkPure = (state: ChunkCacheState, key: string, chunk: Chunk, priority: ChunkPriority = ChunkPriority.NORMAL): ChunkCacheState => {
   const entry = createCacheEntry(chunk, priority)
   return addToL1Cache(state, key, entry)
 }
@@ -461,22 +462,22 @@ const removeChunkPure = (state: ChunkCacheState, key: string): ChunkCacheState =
   const newL1Cache = new Map(state.l1Cache)
   const newL2Cache = new Map(state.l2Cache)
   const newL3Cache = new Map(state.l3Cache)
-  
+
   const l1Node = newL1Cache.get(key)
   if (l1Node) {
     // Update LRU list
     if (l1Node.prev) l1Node.prev.next = l1Node.next
     if (l1Node.next) l1Node.next.prev = l1Node.prev
-    
+
     let newHead = state.lruHead
     let newTail = state.lruTail
-    
+
     if (l1Node === state.lruHead) newHead = l1Node.next
     if (l1Node === state.lruTail) newTail = l1Node.prev
-    
+
     newL1Cache.delete(key)
     cacheNodePool.release(l1Node)
-    
+
     return {
       ...state,
       l1Cache: newL1Cache,
@@ -486,10 +487,10 @@ const removeChunkPure = (state: ChunkCacheState, key: string): ChunkCacheState =
       lruTail: newTail,
     }
   }
-  
+
   newL2Cache.delete(key)
   newL3Cache.delete(key)
-  
+
   return {
     ...state,
     l1Cache: newL1Cache,
@@ -501,7 +502,7 @@ const removeChunkPure = (state: ChunkCacheState, key: string): ChunkCacheState =
 const optimizeCachePure = (state: ChunkCacheState): ChunkCacheState => {
   const currentTime = Date.now()
   const newDirtyChunks = new Set(state.dirtyChunks)
-  
+
   // Clean up old entries
   const newL2Cache = new Map<string, ChunkCacheEntry>()
   for (const [key, entry] of state.l2Cache) {
@@ -512,15 +513,15 @@ const optimizeCachePure = (state: ChunkCacheState): ChunkCacheState => {
       newL2Cache.set(key, entry)
     }
   }
-  
+
   const newL3Cache = new Map<string, string>()
   for (const [key, data] of state.l3Cache) {
     // Keep L3 cache for longer
     newL3Cache.set(key, data)
   }
-  
+
   const memoryUsage = calculateMemoryUsage(state)
-  
+
   return {
     ...state,
     l2Cache: newL2Cache,
@@ -596,7 +597,7 @@ export const ChunkCacheLive = Layer.effect(
       preloadChunks: (centerX: number, centerZ: number, radius: number) =>
         Effect.gen(function* () {
           const chunks: Array<{ x: number; z: number }> = []
-          
+
           for (let x = centerX - radius; x <= centerX + radius; x++) {
             for (let z = centerZ - radius; z <= centerZ + radius; z++) {
               const distance = Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2)
@@ -605,14 +606,14 @@ export const ChunkCacheLive = Layer.effect(
               }
             }
           }
-          
+
           // Sort by distance for priority loading
           chunks.sort((a, b) => {
             const distA = Math.sqrt((a.x - centerX) ** 2 + (a.z - centerZ) ** 2)
             const distB = Math.sqrt((b.x - centerX) ** 2 + (b.z - centerZ) ** 2)
             return distA - distB
           })
-          
+
           return chunks.map(({ x, z }) => ({ chunkX: x, chunkZ: z }))
         }),
 
@@ -620,18 +621,16 @@ export const ChunkCacheLive = Layer.effect(
         Ref.get(cacheRef).pipe(
           Effect.map((state) => ({
             ...state.metrics,
-            hitRate: state.metrics.totalRequests > 0 
-              ? ((state.metrics.l1Hits + state.metrics.l2Hits + state.metrics.l3Hits) / state.metrics.totalRequests) * 100
-              : 0,
+            hitRate: state.metrics.totalRequests > 0 ? ((state.metrics.l1Hits + state.metrics.l2Hits + state.metrics.l3Hits) / state.metrics.totalRequests) * 100 : 0,
             l1Size: state.l1Cache.size,
             l2Size: state.l2Cache.size,
             l3Size: state.l3Cache.size,
-          }))
+          })),
         ),
 
       optimize: () => Ref.update(cacheRef, optimizeCachePure),
 
-      clear: () => 
+      clear: () =>
         Effect.gen(function* () {
           const state = yield* Ref.get(cacheRef)
           // Release all pooled nodes

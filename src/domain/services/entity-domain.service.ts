@@ -1,9 +1,9 @@
 /**
  * EntityDomainService - Pure domain entity logic without infrastructure dependencies
- * 
+ *
  * Features:
  * - Entity domain rules and validation
- * - Component domain logic 
+ * - Component domain logic
  * - Archetype management algorithms
  * - Pure domain logic with port interfaces
  * - No infrastructure dependencies
@@ -22,14 +22,7 @@ import * as Ref from 'effect/Ref'
 import { EntityId } from '../entities'
 import { ComponentName, Components } from '../entities/components'
 import { Position } from '../value-objects'
-import {
-  EntityNotFoundError,
-  EntityCreationError,
-  EntityDestructionError,
-  EntityLimitExceededError,
-  ComponentNotFoundError,
-  ComponentAlreadyExistsError,
-} from '../errors'
+import { EntityNotFoundError, EntityCreationError, EntityDestructionError, EntityLimitExceededError, ComponentNotFoundError, ComponentAlreadyExistsError } from '../errors'
 
 // Port interfaces for external dependencies
 export interface EntityRepositoryPort {
@@ -54,11 +47,25 @@ export interface EntityDomainServiceInterface {
   readonly getEntityCount: () => Effect.Effect<number, never, never>
 
   // Component management
-  readonly addComponent: <T extends ComponentName>(entityId: EntityId, componentName: T, componentData: Components[T]) => Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentAlreadyExistsError, never>
-  readonly removeComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) => Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentNotFoundError, never>
-  readonly getComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) => Effect.Effect<Components[T], typeof EntityNotFoundError | typeof ComponentNotFoundError, never>
+  readonly addComponent: <T extends ComponentName>(
+    entityId: EntityId,
+    componentName: T,
+    componentData: Components[T],
+  ) => Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentAlreadyExistsError, never>
+  readonly removeComponent: <T extends ComponentName>(
+    entityId: EntityId,
+    componentName: T,
+  ) => Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentNotFoundError, never>
+  readonly getComponent: <T extends ComponentName>(
+    entityId: EntityId,
+    componentName: T,
+  ) => Effect.Effect<Components[T], typeof EntityNotFoundError | typeof ComponentNotFoundError, never>
   readonly hasComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) => Effect.Effect<boolean, never, never>
-  readonly updateComponent: <T extends ComponentName>(entityId: EntityId, componentName: T, updater: (current: Components[T]) => Components[T]) => Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentNotFoundError, never>
+  readonly updateComponent: <T extends ComponentName>(
+    entityId: EntityId,
+    componentName: T,
+    updater: (current: Components[T]) => Components[T],
+  ) => Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentNotFoundError, never>
 
   // Archetype queries
   readonly queryEntities: (requiredComponents: readonly ComponentName[]) => Effect.Effect<readonly EntityId[], never, never>
@@ -73,14 +80,26 @@ export interface EntityDomainServiceInterface {
   readonly deserializeEntity: (serializedEntity: SerializedEntity) => Effect.Effect<EntityId, typeof EntityCreationError, never>
 
   // Bulk operations
-  readonly createEntitiesBatch: (entitiesData: readonly Partial<Components>[]) => Effect.Effect<readonly EntityId[], typeof EntityCreationError | typeof EntityLimitExceededError, never>
+  readonly createEntitiesBatch: (
+    entitiesData: readonly Partial<Components>[],
+  ) => Effect.Effect<readonly EntityId[], typeof EntityCreationError | typeof EntityLimitExceededError, never>
   readonly destroyEntitiesBatch: (entityIds: readonly EntityId[]) => Effect.Effect<readonly EntityId[], typeof EntityNotFoundError | typeof EntityDestructionError, never>
-  readonly updateEntitiesBatch: <T extends ComponentName>(entityIds: readonly EntityId[], componentName: T, updater: (current: Components[T]) => Components[T]) => Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentNotFoundError, never>
+  readonly updateEntitiesBatch: <T extends ComponentName>(
+    entityIds: readonly EntityId[],
+    componentName: T,
+    updater: (current: Components[T]) => Components[T],
+  ) => Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentNotFoundError, never>
 
   // Performance and debugging
   readonly getEntityStats: () => Effect.Effect<EntityStats, never, never>
   readonly validateEntityIntegrity: (entityId: EntityId) => Effect.Effect<EntityIntegrityResult, typeof EntityNotFoundError, never>
   readonly optimizeArchetypes: () => Effect.Effect<ArchetypeOptimizationResult, never, never>
+
+  // Missing query methods used by handlers
+  readonly getEntityPosition: (entityId: EntityId) => Effect.Effect<Position, typeof EntityNotFoundError, never>
+  readonly getAllEntities: () => Effect.Effect<readonly Entity[], never, never>
+  readonly getEntitiesByType: (entityType: string) => Effect.Effect<readonly Entity[], never, never>
+  readonly getEntitiesInRadius: (center: Position, radius: number) => Effect.Effect<readonly Entity[], never, never>
 }
 
 // ===== SUPPORTING TYPES =====
@@ -168,10 +187,7 @@ export type EntityWithComponents<T extends readonly ComponentName[]> = {
 
 // ===== ENTITY DOMAIN SERVICE TAG =====
 
-export class EntityDomainService extends Context.GenericTag('EntityDomainService')<
-  EntityDomainService,
-  EntityDomainServiceInterface
->() {
+export class EntityDomainService extends Context.GenericTag('EntityDomainService')<EntityDomainService, EntityDomainServiceInterface>() {
   static readonly Live = Layer.effect(
     EntityDomainService,
     Effect.gen(function* () {
@@ -193,23 +209,22 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
       const CACHE_SIZE = 1000
 
       // Helper functions
-      const generateArchetypeId = (componentNames: readonly ComponentName[]): string =>
-        Array.fromIterable(componentNames).sort().join('|')
+      const generateArchetypeId = (componentNames: readonly ComponentName[]): string => Array.fromIterable(componentNames).sort().join('|')
 
-      const getEntityArchetypeId = (components: Partial<Components>): string =>
-        generateArchetypeId(Object.keys(components) as ComponentName[])
+      const getEntityArchetypeId = (components: Partial<Components>): string => generateArchetypeId(Object.keys(components) as ComponentName[])
 
-      const incrementEntityId = (): Effect.Effect<EntityId, never, never> =>
-        Ref.modify(nextEntityId, id => [id as EntityId, id + 1])
+      const incrementEntityId = (): Effect.Effect<EntityId, never, never> => Ref.modify(nextEntityId, (id) => [id as EntityId, id + 1])
 
       const validateEntityLimit = (currentCount: number): Effect.Effect<void, typeof EntityLimitExceededError, never> =>
         Effect.when(
-          Effect.fail(EntityLimitExceededError({
-            message: `Entity limit exceeded: ${currentCount}/${MAX_ENTITIES}`,
-            limit: MAX_ENTITIES,
-            current: currentCount
-          })),
-          () => currentCount >= MAX_ENTITIES
+          Effect.fail(
+            EntityLimitExceededError({
+              message: `Entity limit exceeded: ${currentCount}/${MAX_ENTITIES}`,
+              limit: MAX_ENTITIES,
+              current: currentCount,
+            }),
+          ),
+          () => currentCount >= MAX_ENTITIES,
         )
 
       // Entity lifecycle implementation
@@ -217,9 +232,9 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
         Effect.gen(function* () {
           const currentEntities = yield* Ref.get(entities)
           const currentCount = HashMap.size(currentEntities)
-          
+
           yield* validateEntityLimit(currentCount)
-          
+
           const entityId = yield* incrementEntityId()
           const archetypeId = getEntityArchetypeId(components)
           const now = new Date()
@@ -245,11 +260,13 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
           return entityId
         }).pipe(
           Effect.catchAll((error) =>
-            Effect.fail(EntityCreationError({
-              message: `Failed to create entity: ${error}`,
-              cause: error
-            }))
-          )
+            Effect.fail(
+              EntityCreationError({
+                message: `Failed to create entity: ${error}`,
+                cause: error,
+              }),
+            ),
+          ),
         )
 
       const destroyEntity = (entityId: EntityId): Effect.Effect<void, typeof EntityNotFoundError | typeof EntityDestructionError, never> =>
@@ -258,10 +275,12 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
           const entity = HashMap.get(currentEntities, entityId)
 
           if (Option.isNone(entity)) {
-            return yield* Effect.fail(EntityNotFoundError({
-              message: `Entity not found: ${entityId}`,
-              entityId
-            }))
+            return yield* Effect.fail(
+              EntityNotFoundError({
+                message: `Entity not found: ${entityId}`,
+                entityId,
+              }),
+            )
           }
 
           try {
@@ -274,11 +293,13 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
             // Clear query cache
             yield* Ref.set(queryCache, HashMap.empty())
           } catch (error) {
-            return yield* Effect.fail(EntityDestructionError({
-              message: `Failed to destroy entity ${entityId}: ${error}`,
-              entityId,
-              cause: error
-            }))
+            return yield* Effect.fail(
+              EntityDestructionError({
+                message: `Failed to destroy entity ${entityId}: ${error}`,
+                entityId,
+                cause: error,
+              }),
+            )
           }
         })
 
@@ -294,10 +315,11 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
           const entity = HashMap.get(currentEntities, entityId)
 
           return Option.match(entity, {
-            onNone: () => EntityNotFoundError({
-              message: `Entity not found: ${entityId}`,
-              entityId
-            }),
+            onNone: () =>
+              EntityNotFoundError({
+                message: `Entity not found: ${entityId}`,
+                entityId,
+              }),
             onSome: (entity) => entity,
           })
         }).pipe(Effect.flatMap(Effect.succeed))
@@ -306,7 +328,7 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
       const addComponent = <T extends ComponentName>(
         entityId: EntityId,
         componentName: T,
-        componentData: Components[T]
+        componentData: Components[T],
       ): Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentAlreadyExistsError, never> =>
         Effect.gen(function* () {
           const entity = yield* getEntity(entityId)
@@ -314,18 +336,22 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
           const entityComps = HashMap.get(currentComponents, entityId)
 
           if (Option.isNone(entityComps)) {
-            return yield* Effect.fail(EntityNotFoundError({
-              message: `Entity components not found: ${entityId}`,
-              entityId
-            }))
+            return yield* Effect.fail(
+              EntityNotFoundError({
+                message: `Entity components not found: ${entityId}`,
+                entityId,
+              }),
+            )
           }
 
           if (componentName in entityComps.value) {
-            return yield* Effect.fail(ComponentAlreadyExistsError({
-              message: `Component ${componentName} already exists on entity ${entityId}`,
-              entityId,
-              componentName
-            }))
+            return yield* Effect.fail(
+              ComponentAlreadyExistsError({
+                message: `Component ${componentName} already exists on entity ${entityId}`,
+                entityId,
+                componentName,
+              }),
+            )
           }
 
           const updatedComponents = { ...entityComps.value, [componentName]: componentData }
@@ -353,7 +379,7 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
 
       const removeComponent = <T extends ComponentName>(
         entityId: EntityId,
-        componentName: T
+        componentName: T,
       ): Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentNotFoundError, never> =>
         Effect.gen(function* () {
           const entity = yield* getEntity(entityId)
@@ -361,18 +387,22 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
           const entityComps = HashMap.get(currentComponents, entityId)
 
           if (Option.isNone(entityComps)) {
-            return yield* Effect.fail(EntityNotFoundError({
-              message: `Entity components not found: ${entityId}`,
-              entityId
-            }))
+            return yield* Effect.fail(
+              EntityNotFoundError({
+                message: `Entity components not found: ${entityId}`,
+                entityId,
+              }),
+            )
           }
 
           if (!(componentName in entityComps.value)) {
-            return yield* Effect.fail(ComponentNotFoundError({
-              message: `Component ${componentName} not found on entity ${entityId}`,
-              entityId,
-              componentName
-            }))
+            return yield* Effect.fail(
+              ComponentNotFoundError({
+                message: `Component ${componentName} not found on entity ${entityId}`,
+                entityId,
+                componentName,
+              }),
+            )
           }
 
           const { [componentName]: removed, ...updatedComponents } = entityComps.value
@@ -400,7 +430,7 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
 
       const getComponent = <T extends ComponentName>(
         entityId: EntityId,
-        componentName: T
+        componentName: T,
       ): Effect.Effect<Components[T], typeof EntityNotFoundError | typeof ComponentNotFoundError, never> =>
         Effect.gen(function* () {
           yield* getEntity(entityId) // Validate entity exists
@@ -408,28 +438,29 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
           const entityComps = HashMap.get(currentComponents, entityId)
 
           if (Option.isNone(entityComps)) {
-            return yield* Effect.fail(EntityNotFoundError({
-              message: `Entity components not found: ${entityId}`,
-              entityId
-            }))
+            return yield* Effect.fail(
+              EntityNotFoundError({
+                message: `Entity components not found: ${entityId}`,
+                entityId,
+              }),
+            )
           }
 
           const component = entityComps.value[componentName]
           if (component === undefined) {
-            return yield* Effect.fail(ComponentNotFoundError({
-              message: `Component ${componentName} not found on entity ${entityId}`,
-              entityId,
-              componentName
-            }))
+            return yield* Effect.fail(
+              ComponentNotFoundError({
+                message: `Component ${componentName} not found on entity ${entityId}`,
+                entityId,
+                componentName,
+              }),
+            )
           }
 
           return component as Components[T]
         })
 
-      const hasComponent = <T extends ComponentName>(
-        entityId: EntityId,
-        componentName: T
-      ): Effect.Effect<boolean, never, never> =>
+      const hasComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<boolean, never, never> =>
         Effect.gen(function* () {
           const currentComponents = yield* Ref.get(entityComponents)
           const entityComps = HashMap.get(currentComponents, entityId)
@@ -456,16 +487,15 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
           const currentEntities = yield* Ref.get(entities)
           const currentComponents = yield* Ref.get(entityComponents)
 
-          const matchingEntities = Array.fromIterable(HashMap.keys(currentEntities))
-            .filter(entityId => {
-              const entityComps = HashMap.get(currentComponents, entityId)
-              if (Option.isNone(entityComps)) return false
+          const matchingEntities = Array.fromIterable(HashMap.keys(currentEntities)).filter((entityId) => {
+            const entityComps = HashMap.get(currentComponents, entityId)
+            if (Option.isNone(entityComps)) return false
 
-              return requiredComponents.every(componentName => componentName in entityComps.value)
-            })
+            return requiredComponents.every((componentName) => componentName in entityComps.value)
+          })
 
           const queryTime = Date.now() - startTime
-          
+
           // Update cache if within limits
           const currentCacheSize = HashMap.size(cache)
           if (currentCacheSize < CACHE_SIZE) {
@@ -479,12 +509,8 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
         })
 
       // Helper functions for archetype and stats management
-      const updateArchetypeStats = (
-        archetypeId: string,
-        componentNames: readonly ComponentName[],
-        countDelta: number
-      ): Effect.Effect<void, never, never> =>
-        Ref.update(archetypes, archetypes => {
+      const updateArchetypeStats = (archetypeId: string, componentNames: readonly ComponentName[], countDelta: number): Effect.Effect<void, never, never> =>
+        Ref.update(archetypes, (archetypes) => {
           const existing = HashMap.get(archetypes, archetypeId)
           const archetype = Option.getOrElse(existing, () => ({
             id: archetypeId,
@@ -502,23 +528,29 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
         })
 
       const updateCreateStats = (): Effect.Effect<void, never, never> =>
-        Ref.update(entityStats, stats => Data.struct({
-          ...stats,
-          totalCreated: stats.totalCreated + 1,
-        }))
+        Ref.update(entityStats, (stats) =>
+          Data.struct({
+            ...stats,
+            totalCreated: stats.totalCreated + 1,
+          }),
+        )
 
       const updateDestroyStats = (): Effect.Effect<void, never, never> =>
-        Ref.update(entityStats, stats => Data.struct({
-          ...stats,
-          totalDestroyed: stats.totalDestroyed + 1,
-        }))
+        Ref.update(entityStats, (stats) =>
+          Data.struct({
+            ...stats,
+            totalDestroyed: stats.totalDestroyed + 1,
+          }),
+        )
 
       const updateQueryStats = (queryTime: number): Effect.Effect<void, never, never> =>
-        Ref.update(entityStats, stats => Data.struct({
-          ...stats,
-          totalQueries: stats.totalQueries + 1,
-          totalQueryTime: stats.totalQueryTime + queryTime,
-        }))
+        Ref.update(entityStats, (stats) =>
+          Data.struct({
+            ...stats,
+            totalQueries: stats.totalQueries + 1,
+            totalQueryTime: stats.totalQueryTime + queryTime,
+          }),
+        )
 
       // Return the service implementation
       return {
@@ -526,20 +558,17 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
         destroyEntity,
         entityExists,
         getEntity,
-        getEntityCount: () => Effect.gen(function* () {
-          const currentEntities = yield* Ref.get(entities)
-          return HashMap.size(currentEntities)
-        }),
+        getEntityCount: () =>
+          Effect.gen(function* () {
+            const currentEntities = yield* Ref.get(entities)
+            return HashMap.size(currentEntities)
+          }),
 
         addComponent,
         removeComponent,
         getComponent,
         hasComponent,
-        updateComponent: <T extends ComponentName>(
-          entityId: EntityId,
-          componentName: T,
-          updater: (current: Components[T]) => Components[T]
-        ) =>
+        updateComponent: <T extends ComponentName>(entityId: EntityId, componentName: T, updater: (current: Components[T]) => Components[T]) =>
           Effect.gen(function* () {
             const currentComponent = yield* getComponent(entityId, componentName)
             const updatedComponent = updater(currentComponent)
@@ -548,33 +577,31 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
           }),
 
         queryEntities,
-        queryEntitiesWithComponents: <T extends readonly ComponentName[]>(
-          requiredComponents: T
-        ) =>
+        queryEntitiesWithComponents: <T extends readonly ComponentName[]>(requiredComponents: T) =>
           Effect.gen(function* () {
             const entityIds = yield* queryEntities(requiredComponents)
             const currentComponents = yield* Ref.get(entityComponents)
             const currentEntities = yield* Ref.get(entities)
 
-            const results = entityIds.map(entityId => {
-              const entity = HashMap.get(currentEntities, entityId)
-              const components = HashMap.get(currentComponents, entityId)
+            const results = entityIds
+              .map((entityId) => {
+                const entity = HashMap.get(currentEntities, entityId)
+                const components = HashMap.get(currentComponents, entityId)
 
-              if (Option.isSome(entity) && Option.isSome(components)) {
-                const filteredComponents = Object.fromEntries(
-                  requiredComponents.map(componentName => [
-                    componentName,
-                    components.value[componentName]
-                  ])
-                ) as Pick<Components, T[number]>
+                if (Option.isSome(entity) && Option.isSome(components)) {
+                  const filteredComponents = Object.fromEntries(requiredComponents.map((componentName) => [componentName, components.value[componentName]])) as Pick<
+                    Components,
+                    T[number]
+                  >
 
-                return {
-                  entity: entity.value,
-                  components: filteredComponents,
+                  return {
+                    entity: entity.value,
+                    components: filteredComponents,
+                  }
                 }
-              }
-              return null
-            }).filter(Boolean) as EntityWithComponents<T>[]
+                return null
+              })
+              .filter(Boolean) as EntityWithComponents<T>[]
 
             return results
           }),
@@ -587,8 +614,8 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
           Effect.gen(function* () {
             const currentEntities = yield* Ref.get(entities)
             const matching = Array.fromIterable(HashMap.values(currentEntities))
-              .filter(entity => entity.archetype === archetypeId)
-              .map(entity => entity.id)
+              .filter((entity) => entity.archetype === archetypeId)
+              .map((entity) => entity.id)
             return matching
           }),
 
@@ -598,7 +625,7 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
             const currentComponents = yield* Ref.get(entityComponents)
             const entityComps = HashMap.get(currentComponents, entityId)
 
-            return Option.getOrElse(entityComps, () => ({} as Partial<Components>))
+            return Option.getOrElse(entityComps, () => ({}) as Partial<Components>)
           }),
 
         getEntityArchetype: (entityId: EntityId) =>
@@ -633,37 +660,29 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
             }
           }),
 
-        deserializeEntity: (serializedEntity: SerializedEntity) =>
-          createEntity(serializedEntity.components),
+        deserializeEntity: (serializedEntity: SerializedEntity) => createEntity(serializedEntity.components),
 
         // Batch operations
-        createEntitiesBatch: (entitiesData: readonly Partial<Components>[]) =>
-          Effect.all(entitiesData.map(createEntity), { concurrency: 10 }),
+        createEntitiesBatch: (entitiesData: readonly Partial<Components>[]) => Effect.all(entitiesData.map(createEntity), { concurrency: 10 }),
 
         destroyEntitiesBatch: (entityIds: readonly EntityId[]) =>
           Effect.gen(function* () {
             const results = yield* Effect.all(
-              entityIds.map(id =>
+              entityIds.map((id) =>
                 destroyEntity(id).pipe(
                   Effect.map(() => id),
-                  Effect.option
-                )
+                  Effect.option,
+                ),
               ),
-              { concurrency: 10 }
+              { concurrency: 10 },
             )
-            return results.filter(Option.isSome).map(opt => opt.value)
+            return results.filter(Option.isSome).map((opt) => opt.value)
           }),
 
-        updateEntitiesBatch: <T extends ComponentName>(
-          entityIds: readonly EntityId[],
-          componentName: T,
-          updater: (current: Components[T]) => Components[T]
-        ) =>
+        updateEntitiesBatch: <T extends ComponentName>(entityIds: readonly EntityId[], componentName: T, updater: (current: Components[T]) => Components[T]) =>
           Effect.all(
-            entityIds.map(entityId =>
-              updateComponent(entityId, componentName, updater).pipe(Effect.option)
-            ),
-            { concurrency: 10 }
+            entityIds.map((entityId) => updateComponent(entityId, componentName, updater).pipe(Effect.option)),
+            { concurrency: 10 },
           ).pipe(Effect.asUnit),
 
         // Performance and debugging
@@ -685,9 +704,8 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
               activeEntities: totalEntities,
               destroyedEntities: stats.totalDestroyed,
               archetypeCount,
-              averageComponentsPerEntity: totalEntities > 0 ? 
-                Array.fromIterable(HashMap.values(currentComponents))
-                  .reduce((sum, comps) => sum + Object.keys(comps).length, 0) / totalEntities : 0,
+              averageComponentsPerEntity:
+                totalEntities > 0 ? Array.fromIterable(HashMap.values(currentComponents)).reduce((sum, comps) => sum + Object.keys(comps).length, 0) / totalEntities : 0,
               memoryUsage: {
                 entitiesMemory: totalEntities * 128, // Rough estimate
                 componentsMemory: totalEntities * 256, // Rough estimate
@@ -735,7 +753,6 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
                 })
                 isValid = false
               }
-
             } catch (error) {
               issues.push({
                 type: 'stale_reference',
@@ -748,7 +765,7 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
             return {
               isValid,
               issues,
-              recommendations: issues.map(issue => `Fix ${issue.type}: ${issue.description}`),
+              recommendations: issues.map((issue) => `Fix ${issue.type}: ${issue.description}`),
             }
           }),
 
@@ -756,8 +773,7 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
           Effect.gen(function* () {
             // Basic optimization - in practice would be more sophisticated
             const currentArchetypes = yield* Ref.get(archetypes)
-            const emptyArchetypes = Array.fromIterable(HashMap.values(currentArchetypes))
-              .filter(archetype => archetype.entityCount === 0)
+            const emptyArchetypes = Array.fromIterable(HashMap.values(currentArchetypes)).filter((archetype) => archetype.entityCount === 0)
 
             // Remove empty archetypes
             for (const archetype of emptyArchetypes) {
@@ -768,11 +784,42 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
               optimizationsApplied: emptyArchetypes.length,
               memoryFreed: emptyArchetypes.length * 64, // Rough estimate
               performanceImprovement: emptyArchetypes.length * 0.01, // Rough estimate
-              recommendations: emptyArchetypes.length > 0 ? 
-                ['Consider implementing archetype pooling for frequently created/destroyed entities'] : [],
+              recommendations: emptyArchetypes.length > 0 ? ['Consider implementing archetype pooling for frequently created/destroyed entities'] : [],
             }
           }),
+
+        // Missing query methods used by handlers
+        getEntityPosition: (entityId) =>
+          Effect.gen(function* () {
+            const allEntities = yield* Ref.get(entities)
+            const entity = HashMap.get(allEntities, entityId)
+            if (Option.isNone(entity)) {
+              return yield* Effect.fail(EntityNotFoundError)
+            }
+            // TODO: Extract position from entity components - returning mock for now
+            return { x: 0, y: 0, z: 0 } as Position
+          }),
+
+        getAllEntities: () =>
+          Effect.gen(function* () {
+            const allEntities = yield* Ref.get(entities)
+            return Array.fromIterable(HashMap.values(allEntities))
+          }),
+
+        getEntitiesByType: (entityType) =>
+          Effect.gen(function* () {
+            // TODO: Implement type filtering - for now return all entities
+            const allEntities = yield* Ref.get(entities)
+            return Array.fromIterable(HashMap.values(allEntities))
+          }),
+
+        getEntitiesInRadius: (center, radius) =>
+          Effect.gen(function* () {
+            // TODO: Implement spatial query - for now return all entities
+            const allEntities = yield* Ref.get(entities)
+            return Array.fromIterable(HashMap.values(allEntities))
+          }),
       }
-    })
+    }),
   )
 }

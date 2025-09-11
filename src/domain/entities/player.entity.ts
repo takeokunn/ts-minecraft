@@ -7,8 +7,8 @@ export const PlayerInventory = S.Array(
   S.Struct({
     slot: S.Number.pipe(S.between(0, 35)),
     itemId: S.String,
-    count: S.Number.pipe(S.between(1, 64))
-  })
+    count: S.Number.pipe(S.between(1, 64)),
+  }),
 )
 
 export const Player = S.Struct({
@@ -21,7 +21,7 @@ export const Player = S.Struct({
   hunger: S.Number.pipe(S.between(0, 20)),
   experience: S.Number.pipe(S.nonNegative),
   inventory: PlayerInventory,
-  gameMode: S.Literal('survival', 'creative', 'adventure', 'spectator')
+  gameMode: S.Literal('survival', 'creative', 'adventure', 'spectator'),
 })
 export type Player = S.Schema.Type<typeof Player>
 
@@ -79,16 +79,14 @@ export const PlayerBusinessLogic = {
    * Check if player has specific item in inventory
    */
   hasItem: (player: Player, itemId: string): boolean => {
-    return player.inventory.some(item => item.itemId === itemId)
+    return player.inventory.some((item) => item.itemId === itemId)
   },
 
   /**
    * Get total count of specific item in inventory
    */
   getItemCount: (player: Player, itemId: string): number => {
-    return player.inventory
-      .filter(item => item.itemId === itemId)
-      .reduce((total, item) => total + item.count, 0)
+    return player.inventory.filter((item) => item.itemId === itemId).reduce((total, item) => total + item.count, 0)
   },
 
   /**
@@ -103,46 +101,42 @@ export const PlayerBusinessLogic = {
    */
   validateInvariants: (player: Player): readonly string[] => {
     const violations: string[] = []
-    
+
     if (player.health < 0 || player.health > 20) {
       violations.push('Health must be between 0 and 20')
     }
-    
+
     if (player.hunger < 0 || player.hunger > 20) {
       violations.push('Hunger must be between 0 and 20')
     }
-    
+
     if (player.experience < 0) {
       violations.push('Experience cannot be negative')
     }
-    
-    if (player.inventory.some(item => item.count <= 0 || item.count > 64)) {
+
+    if (player.inventory.some((item) => item.count <= 0 || item.count > 64)) {
       violations.push('Inventory item counts must be between 1 and 64')
     }
-    
-    if (player.inventory.some(item => item.slot < 0 || item.slot > 35)) {
+
+    if (player.inventory.some((item) => item.slot < 0 || item.slot > 35)) {
       violations.push('Inventory slots must be between 0 and 35')
     }
-    
+
     // Check for duplicate slots
-    const slots = player.inventory.map(item => item.slot)
+    const slots = player.inventory.map((item) => item.slot)
     const uniqueSlots = new Set(slots)
     if (slots.length !== uniqueSlots.size) {
       violations.push('Inventory cannot have duplicate slots')
     }
-    
+
     return violations
-  }
+  },
 }
 
 /**
  * Factory function to create a new player with default values
  */
-export const createPlayer = (
-  id: EntityId, 
-  name: string, 
-  position: Position
-): Player => {
+export const createPlayer = (id: EntityId, name: string, position: Position): Player => {
   return S.decodeSync(Player)({
     _tag: 'Player',
     id,
@@ -153,6 +147,6 @@ export const createPlayer = (
     hunger: 20,
     experience: 0,
     inventory: [],
-    gameMode: 'survival'
+    gameMode: 'survival',
   })
 }

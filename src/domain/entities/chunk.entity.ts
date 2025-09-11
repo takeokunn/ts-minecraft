@@ -12,7 +12,7 @@ export const Chunk = S.Struct({
   biome: S.Literal('plains', 'desert', 'forest', 'mountains', 'ocean', 'taiga', 'swamp'),
   generated: S.Boolean,
   modified: S.Boolean,
-  lastUpdate: S.Number
+  lastUpdate: S.Number,
 })
 export type Chunk = S.Schema.Type<typeof Chunk>
 
@@ -24,7 +24,7 @@ export const makeEmptyChunk = (coordinate: ChunkCoordinate) =>
     biome: 'plains',
     generated: false,
     modified: false,
-    lastUpdate: Date.now()
+    lastUpdate: Date.now(),
   })
 
 // Business Logic for Chunk Entity
@@ -52,9 +52,9 @@ export const ChunkBusinessLogic = {
    */
   getDimensions: () => ({
     width: CHUNK_SIZE,
-    depth: CHUNK_SIZE, 
+    depth: CHUNK_SIZE,
     height: CHUNK_HEIGHT,
-    totalBlocks: CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
+    totalBlocks: CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT,
   }),
 
   /**
@@ -63,16 +63,14 @@ export const ChunkBusinessLogic = {
   worldToChunkBlockPosition: (worldX: number, worldY: number, worldZ: number) => ({
     x: worldX - Math.floor(worldX / CHUNK_SIZE) * CHUNK_SIZE,
     y: worldY,
-    z: worldZ - Math.floor(worldZ / CHUNK_SIZE) * CHUNK_SIZE
+    z: worldZ - Math.floor(worldZ / CHUNK_SIZE) * CHUNK_SIZE,
   }),
 
   /**
    * Check if coordinates are within chunk bounds
    */
   isValidBlockPosition: (x: number, y: number, z: number): boolean => {
-    return x >= 0 && x < CHUNK_SIZE &&
-           y >= 0 && y < CHUNK_HEIGHT &&
-           z >= 0 && z < CHUNK_SIZE
+    return x >= 0 && x < CHUNK_SIZE && y >= 0 && y < CHUNK_HEIGHT && z >= 0 && z < CHUNK_SIZE
   },
 
   /**
@@ -81,14 +79,14 @@ export const ChunkBusinessLogic = {
   getWorldBounds: (chunk: Chunk) => {
     const startX = chunk.coordinate.x * CHUNK_SIZE
     const startZ = chunk.coordinate.z * CHUNK_SIZE
-    
+
     return {
       minX: startX,
       maxX: startX + CHUNK_SIZE - 1,
       minY: 0,
       maxY: CHUNK_HEIGHT - 1,
       minZ: startZ,
-      maxZ: startZ + CHUNK_SIZE - 1
+      maxZ: startZ + CHUNK_SIZE - 1,
     }
   },
 
@@ -97,8 +95,7 @@ export const ChunkBusinessLogic = {
    */
   containsWorldPosition: (chunk: Chunk, worldX: number, worldZ: number): boolean => {
     const bounds = ChunkBusinessLogic.getWorldBounds(chunk)
-    return worldX >= bounds.minX && worldX <= bounds.maxX &&
-           worldZ >= bounds.minZ && worldZ <= bounds.maxZ
+    return worldX >= bounds.minX && worldX <= bounds.maxX && worldZ >= bounds.minZ && worldZ <= bounds.maxZ
   },
 
   /**
@@ -112,9 +109,9 @@ export const ChunkBusinessLogic = {
       mountains: { temperature: 0.2, humidity: 0.3, elevation: 128 },
       ocean: { temperature: 0.5, humidity: 0.9, elevation: 32 },
       taiga: { temperature: 0.25, humidity: 0.8, elevation: 64 },
-      swamp: { temperature: 0.8, humidity: 0.9, elevation: 58 }
+      swamp: { temperature: 0.8, humidity: 0.9, elevation: 58 },
     }
-    
+
     return biomeData[biome]
   },
 
@@ -123,19 +120,19 @@ export const ChunkBusinessLogic = {
    */
   validateInvariants: (chunk: Chunk): readonly string[] => {
     const violations: string[] = []
-    
+
     if (chunk.blocks.length > CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT) {
       violations.push(`Too many blocks: ${chunk.blocks.length} > ${CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT}`)
     }
-    
+
     if (chunk.lastUpdate <= 0) {
       violations.push('Invalid lastUpdate timestamp')
     }
-    
+
     if (chunk.generated && chunk.blocks.length === 0) {
       violations.push('Generated chunk cannot have zero blocks')
     }
-    
+
     // Check for duplicate block positions
     const positions = new Set<string>()
     for (const block of chunk.blocks) {
@@ -145,7 +142,7 @@ export const ChunkBusinessLogic = {
       }
       positions.add(posKey)
     }
-    
+
     return violations
   },
 
@@ -156,7 +153,7 @@ export const ChunkBusinessLogic = {
     return S.decodeSync(Chunk)({
       ...chunk,
       modified: true,
-      lastUpdate: Date.now()
+      lastUpdate: Date.now(),
     })
   },
 
@@ -167,7 +164,7 @@ export const ChunkBusinessLogic = {
     return S.decodeSync(Chunk)({
       ...chunk,
       generated: true,
-      lastUpdate: Date.now()
+      lastUpdate: Date.now(),
     })
-  }
+  },
 }

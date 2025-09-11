@@ -68,7 +68,7 @@ class QueryBuilderImpl<T extends ReadonlyArray<ComponentName>> implements QueryB
 
   with<K extends ComponentName>(...components: K[]): QueryBuilder<readonly [...T, ...K[]]> {
     const newWithComponents = [...(this.config.withComponents || []), ...components] as readonly [...T, ...K[]]
-    
+
     return new QueryBuilderImpl<readonly [...T, ...K[]]>({
       ...this.config,
       withComponents: newWithComponents,
@@ -121,9 +121,7 @@ class QueryBuilderImpl<T extends ReadonlyArray<ComponentName>> implements QueryB
     if (!this.config.name) {
       // Auto-generate name from components
       const componentsList = [...this.config.withComponents].sort().join('-')
-      const withoutList = this.config.withoutComponents?.length 
-        ? `-without-${[...this.config.withoutComponents].sort().join('-')}`
-        : ''
+      const withoutList = this.config.withoutComponents?.length ? `-without-${[...this.config.withoutComponents].sort().join('-')}` : ''
       this.config.name = `query-${componentsList}${withoutList}`
     }
 
@@ -164,7 +162,7 @@ export interface SoAQueryResult<T extends ReadonlyArray<ComponentName>> {
 export class SoAQuery<T extends ReadonlyArray<ComponentName>> {
   constructor(
     public readonly components: T,
-    public readonly name: string = `soa-${components.join('-')}`
+    public readonly name: string = `soa-${components.join('-')}`,
   ) {}
 
   /**
@@ -181,11 +179,11 @@ export class SoAQuery<T extends ReadonlyArray<ComponentName>> {
 
     // Filter and collect matching entities and their components
     for (const entity of entities) {
-      const hasAllComponents = this.components.every(comp => entity.components[comp] !== undefined)
-      
+      const hasAllComponents = this.components.every((comp) => entity.components[comp] !== undefined)
+
       if (hasAllComponents) {
         matchingEntities.push(entity)
-        
+
         // Add components to arrays
         for (const componentName of this.components) {
           componentArrays[componentName]!.push(entity.components[componentName])
@@ -206,9 +204,7 @@ export class SoAQuery<T extends ReadonlyArray<ComponentName>> {
 /**
  * Create SoA query for bulk operations
  */
-export function soaQuery<T extends ReadonlyArray<ComponentName>>(
-  ...components: T
-): SoAQuery<T> {
+export function soaQuery<T extends ReadonlyArray<ComponentName>>(...components: T): SoAQuery<T> {
   return new SoAQuery(components)
 }
 
@@ -219,9 +215,7 @@ export interface AoSQueryResult<T extends ReadonlyArray<ComponentName>> {
   entities: ReadonlyArray<{
     entity: QueryEntity
     components: {
-      [K in keyof T]: T[K] extends ComponentName 
-        ? ComponentOfName<T[K]>
-        : never
+      [K in keyof T]: T[K] extends ComponentName ? ComponentOfName<T[K]> : never
     }
   }>
   length: number
@@ -233,7 +227,7 @@ export interface AoSQueryResult<T extends ReadonlyArray<ComponentName>> {
 export class AoSQuery<T extends ReadonlyArray<ComponentName>> {
   constructor(
     public readonly components: T,
-    public readonly name: string = `aos-${components.join('-')}`
+    public readonly name: string = `aos-${components.join('-')}`,
   ) {}
 
   /**
@@ -246,11 +240,11 @@ export class AoSQuery<T extends ReadonlyArray<ComponentName>> {
     }> = []
 
     for (const entity of entities) {
-      const hasAllComponents = this.components.every(comp => entity.components[comp] !== undefined)
-      
+      const hasAllComponents = this.components.every((comp) => entity.components[comp] !== undefined)
+
       if (hasAllComponents) {
         const entityComponents: Record<string, unknown> = {}
-        
+
         for (const componentName of this.components) {
           entityComponents[componentName] = entity.components[componentName]
         }
@@ -272,9 +266,7 @@ export class AoSQuery<T extends ReadonlyArray<ComponentName>> {
 /**
  * Create AoS query for entity-centric operations
  */
-export function aosQuery<T extends ReadonlyArray<ComponentName>>(
-  ...components: T
-): AoSQuery<T> {
+export function aosQuery<T extends ReadonlyArray<ComponentName>>(...components: T): AoSQuery<T> {
   return new AoSQuery(components)
 }
 
@@ -372,10 +364,7 @@ export class QueryBuilder {
   /**
    * Add forbidden components to state
    */
-  static withoutComponents<T extends ReadonlyArray<ComponentName>>(
-    state: QueryBuilderState<T>,
-    ...components: ComponentName[]
-  ): QueryBuilderState<T> {
+  static withoutComponents<T extends ReadonlyArray<ComponentName>>(state: QueryBuilderState<T>, ...components: ComponentName[]): QueryBuilderState<T> {
     return {
       config: {
         ...state.config,
@@ -387,10 +376,7 @@ export class QueryBuilder {
   /**
    * Add predicate to state
    */
-  static withPredicate<T extends ReadonlyArray<ComponentName>>(
-    state: QueryBuilderState<T>,
-    predicate: EntityPredicate<T>
-  ): QueryBuilderState<T> {
+  static withPredicate<T extends ReadonlyArray<ComponentName>>(state: QueryBuilderState<T>, predicate: EntityPredicate<T>): QueryBuilderState<T> {
     return {
       config: {
         ...state.config,
@@ -402,10 +388,7 @@ export class QueryBuilder {
   /**
    * Set query name
    */
-  static withName<T extends ReadonlyArray<ComponentName>>(
-    state: QueryBuilderState<T>,
-    name: string
-  ): QueryBuilderState<T> {
+  static withName<T extends ReadonlyArray<ComponentName>>(state: QueryBuilderState<T>, name: string): QueryBuilderState<T> {
     return {
       config: {
         ...state.config,
@@ -417,10 +400,7 @@ export class QueryBuilder {
   /**
    * Set query priority
    */
-  static withPriority<T extends ReadonlyArray<ComponentName>>(
-    state: QueryBuilderState<T>,
-    priority: number
-  ): QueryBuilderState<T> {
+  static withPriority<T extends ReadonlyArray<ComponentName>>(state: QueryBuilderState<T>, priority: number): QueryBuilderState<T> {
     return {
       config: {
         ...state.config,
@@ -432,9 +412,7 @@ export class QueryBuilder {
   /**
    * Validate query configuration
    */
-  static validateConfig<T extends ReadonlyArray<ComponentName>>(
-    config: Partial<QueryConfig<T>>
-  ): QueryConfig<T> {
+  static validateConfig<T extends ReadonlyArray<ComponentName>>(config: Partial<QueryConfig<T>>): QueryConfig<T> {
     if (!config.withComponents || config.withComponents.length === 0) {
       throw new Error('Query must specify at least one component with with()')
     }
@@ -442,9 +420,7 @@ export class QueryBuilder {
     if (!config.name) {
       // Auto-generate name from components
       const componentsList = [...config.withComponents].sort().join('-')
-      const withoutList = config.withoutComponents?.length
-        ? `-without-${[...config.withoutComponents].sort().join('-')}`
-        : ''
+      const withoutList = config.withoutComponents?.length ? `-without-${[...config.withoutComponents].sort().join('-')}` : ''
       config.name = `query-${componentsList}${withoutList}`
     }
 
@@ -456,7 +432,7 @@ export class QueryBuilder {
    */
   static async executeQuery<T extends ReadonlyArray<ComponentName>>(
     config: QueryConfig<T>,
-    entities?: ReadonlyArray<QueryEntity>
+    entities?: ReadonlyArray<QueryEntity>,
   ): Promise<{ entities: ReadonlyArray<QueryEntity>; metrics: QueryMetrics }> {
     const query = new ArchetypeQuery(config)
     return query.execute(entities)
@@ -465,9 +441,7 @@ export class QueryBuilder {
   /**
    * Create entity proxy for component access
    */
-  static createEntityProxy<T extends ReadonlyArray<ComponentName>>(
-    entity: QueryEntity
-  ): EntityProxy<T> {
+  static createEntityProxy<T extends ReadonlyArray<ComponentName>>(entity: QueryEntity): EntityProxy<T> {
     return {
       get: <K extends ComponentName>(componentName: K) => {
         return entity.components[componentName] as ComponentOfName<K>
@@ -483,8 +457,6 @@ export class QueryBuilder {
 /**
  * Create entity proxy for component access (convenience function)
  */
-export function createEntityProxy<T extends ReadonlyArray<ComponentName>>(
-  entity: QueryEntity
-): EntityProxy<T> {
+export function createEntityProxy<T extends ReadonlyArray<ComponentName>>(entity: QueryEntity): EntityProxy<T> {
   return QueryBuilder.createEntityProxy(entity)
 }

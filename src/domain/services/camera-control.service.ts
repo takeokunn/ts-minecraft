@@ -33,16 +33,12 @@ export const cameraControlSystem = Effect.gen(function* (_) {
               const newPitch = clampPitch(toFloat(currentCameraState.pitch + deltaPitch))
               const newYaw = toFloat(currentCameraState.yaw + deltaYaw)
               const newCameraState: CameraState = { pitch: newPitch, yaw: newYaw }
-              return world.updateComponent(
-                entityId,
-                'cameraState',
-                newCameraState,
-              )
+              return world.updateComponent(entityId, 'cameraState', newCameraState)
             },
             { concurrency: 'inherit', discard: true },
           ),
         )
-      })
-    )
+      }),
+    ),
   )
 })

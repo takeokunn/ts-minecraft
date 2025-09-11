@@ -1,6 +1,6 @@
 /**
  * System Scheduler Service - Effect-TS Implementation
- * 
+ *
  * Converted from class-based implementation to functional Effect-TS service
  * Features:
  * - Dependency-based system ordering
@@ -11,9 +11,8 @@
  */
 
 import { Effect, Context, Layer, Ref, Array, Option, Duration, Fiber, Clock as EffectClock, pipe } from 'effect'
-import { Clock } from '@/infrastructure/layers/unified.layer'
-import { WorldService as World } from '@/application/services/world.service'
-import { QueryProfiler } from '@/domain/queries'
+import { ClockPort } from '@/domain/ports/clock.port'
+import { WorldDomainService as World } from '../../domain/services/world-domain.service'
 
 /**
  * System execution priority levels
@@ -66,7 +65,7 @@ export interface SystemMetrics {
 /**
  * System function signature
  */
-export type SystemFunction = (context: SystemContext) => Effect.Effect<void, Error, World | Clock>
+export type SystemFunction = (context: SystemContext) => Effect.Effect<void, Error, World | ClockPort>
 
 /**
  * Registered system information
@@ -93,7 +92,10 @@ export interface SchedulerConfig {
  */
 export class SchedulerError extends Error {
   readonly _tag = 'SchedulerError'
-  constructor(message: string, readonly cause?: unknown) {
+  constructor(
+    message: string,
+    readonly cause?: unknown,
+  ) {
     super(message)
   }
 }
@@ -104,7 +106,7 @@ export class SchedulerError extends Error {
 export interface SystemSchedulerService {
   readonly registerSystem: (config: SystemConfig, system: SystemFunction) => Effect.Effect<void>
   readonly unregisterSystem: (systemId: string) => Effect.Effect<void>
-  readonly executeFrame: () => Effect.Effect<void, SchedulerError, World | Clock>
+  readonly executeFrame: () => Effect.Effect<void, SchedulerError, World | ClockPort>
   readonly getSystemMetrics: (systemId: string) => Effect.Effect<Option.Option<SystemMetrics>>
   readonly getAllMetrics: () => Effect.Effect<Map<string, SystemMetrics>>
   readonly resetMetrics: () => Effect.Effect<void>
@@ -185,7 +187,7 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
           for (const neighbor of graph.get(current) || []) {
             const newDegree = inDegree.get(neighbor)! - 1
             inDegree.set(neighbor, newDegree)
-            
+
             if (newDegree === 0) {
               queue.push(neighbor)
             }
@@ -217,7 +219,7 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
       const computeParallelGroups = (systems: SystemConfig[], executionOrder: string[]): string[][] => {
         const groups: string[][] = []
         const processed = new Set<string>()
-        
+
         for (const systemId of executionOrder) {
           if (processed.has(systemId)) continue
 
@@ -228,8 +230,8 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
           for (const otherSystemId of executionOrder) {
             if (processed.has(otherSystemId)) continue
 
-            const system = systems.find(s => s.id === systemId)!
-            const otherSystem = systems.find(s => s.id === otherSystemId)!
+            const system = systems.find((s) => s.id === systemId)!
+            const otherSystem = systems.find((s) => s.id === otherSystemId)!
 
             if (canRunInParallel(system, otherSystem)) {
               group.push(otherSystemId)
@@ -248,10 +250,10 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
        */
       const rebuildExecutionPlan = Effect.gen(function* () {
         const systems = yield* Ref.get(systemsRef)
-        const systemConfigs = Array.fromIterable(systems.values()).map(s => s.config)
+        const systemConfigs = Array.fromIterable(systems.values()).map((s) => s.config)
         const executionOrder = topologicalSort(systemConfigs)
         const parallelGroups = computeParallelGroups(systemConfigs, executionOrder)
-        
+
         yield* Ref.set(executionOrderRef, executionOrder)
         yield* Ref.set(parallelGroupsRef, parallelGroups)
       })
@@ -259,12 +261,8 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
       /**
        * Update system execution metrics
        */
-      const updateSystemMetrics = (
-        systemId: string,
-        executionTime: number,
-        error: Option.Option<Error>
-      ) =>
-        Ref.update(metricsRef, metricsMap => {
+      const updateSystemMetrics = (systemId: string, executionTime: number, error: Option.Option<Error>) =>
+        Ref.update(metricsRef, (metricsMap) => {
           const currentMetrics = metricsMap.get(systemId)
           if (!currentMetrics) return metricsMap
 
@@ -302,9 +300,7 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
             yield* pipe(
               registeredSystem.system(context),
               Effect.timeout(registeredSystem.config.maxExecutionTime),
-              Effect.catchTag('TimeoutException', () => 
-                Effect.fail(new SchedulerError(`System ${systemId} exceeded maximum execution time`))
-              )
+              Effect.catchTag('TimeoutException', () => Effect.fail(new SchedulerError(`System ${systemId} exceeded maximum execution time`))),
             )
 
             const endTime = yield* EffectClock.currentTimeMillis
@@ -315,23 +311,14 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
 
             // Profile query performance if enabled
             if (config.enableProfiling) {
-              QueryProfiler.record(`${systemId}_frame_${context.frameId}`, {
-                executionTime,
-                entitiesScanned: 0, // This would be populated by query system
-                entitiesMatched: 0, // This would be populated by query system
-              })
+              yield* Effect.log(`System ${systemId} executed in ${executionTime}ms`)
             }
-
           } catch (error) {
             const endTime = yield* EffectClock.currentTimeMillis
             const executionTime = endTime - startTime
 
             // Update metrics with error
-            yield* updateSystemMetrics(
-              systemId, 
-              executionTime, 
-              Option.some(error instanceof Error ? error : new Error(String(error)))
-            )
+            yield* updateSystemMetrics(systemId, executionTime, Option.some(error instanceof Error ? error : new Error(String(error))))
 
             // Re-throw error for handling by scheduler
             yield* Effect.fail(new SchedulerError(`System ${systemId} execution failed`, error))
@@ -341,43 +328,23 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
       /**
        * Execute systems in parallel
        */
-      const executeSystemsInParallel = (
-        systemIds: string[],
-        phase: SystemPhase,
-        deltaTime: number,
-        frameId: number
-      ) =>
+      const executeSystemsInParallel = (systemIds: string[], phase: SystemPhase, deltaTime: number, frameId: number) =>
         Effect.gen(function* () {
-          const fibers = yield* Effect.forEach(
-            systemIds,
-            (systemId) => 
-              pipe(
-                executeSystem(systemId, { deltaTime, frameId, phase, priority: 'normal' }),
-                Effect.fork
-              ),
-            { concurrency: Math.min(systemIds.length, config.maxConcurrency) }
-          )
+          const fibers = yield* Effect.forEach(systemIds, (systemId) => pipe(executeSystem(systemId, { deltaTime, frameId, phase, priority: 'normal' }), Effect.fork), {
+            concurrency: Math.min(systemIds.length, config.maxConcurrency),
+          })
 
           // Wait for all fibers to complete
-          yield* Effect.forEach(
-            fibers,
-            (fiber) => Fiber.await(fiber),
-            { concurrency: 'unbounded', discard: true }
-          )
+          yield* Effect.forEach(fibers, (fiber) => Fiber.await(fiber), { concurrency: 'unbounded', discard: true })
         })
 
       /**
        * Execute systems sequentially
        */
-      const executeSystemsSequentially = (
-        systemIds: string[],
-        phase: SystemPhase,
-        deltaTime: number,
-        frameId: number
-      ) =>
+      const executeSystemsSequentially = (systemIds: string[], phase: SystemPhase, deltaTime: number, frameId: number) =>
         Effect.gen(function* () {
           const systems = yield* Ref.get(systemsRef)
-          
+
           for (const systemId of systemIds) {
             const system = systems.get(systemId)
             const priority = system?.config.priority || 'normal'
@@ -389,7 +356,7 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
        * Get systems for a specific phase
        */
       const getSystemsForPhase = (phase: SystemPhase, executionOrder: string[], systems: Map<string, RegisteredSystem>): string[] => {
-        return executionOrder.filter(systemId => {
+        return executionOrder.filter((systemId) => {
           const system = systems.get(systemId)
           return system && system.config.phase === phase
         })
@@ -399,11 +366,10 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
        * Get parallel groups for systems
        */
       const getParallelGroups = (systemIds: string[], parallelGroups: string[][]): string[][] => {
-        return parallelGroups.filter(group => 
-          group.some(systemId => systemIds.includes(systemId))
-        ).map(group => 
-          group.filter(systemId => systemIds.includes(systemId))
-        ).filter(group => group.length > 0)
+        return parallelGroups
+          .filter((group) => group.some((systemId) => systemIds.includes(systemId)))
+          .map((group) => group.filter((systemId) => systemIds.includes(systemId)))
+          .filter((group) => group.length > 0)
       }
 
       /**
@@ -414,7 +380,7 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
           const systems = yield* Ref.get(systemsRef)
           const executionOrder = yield* Ref.get(executionOrderRef)
           const parallelGroups = yield* Ref.get(parallelGroupsRef)
-          
+
           const phaseSystems = getSystemsForPhase(phase, executionOrder, systems)
           const phaseParallelGroups = getParallelGroups(phaseSystems, parallelGroups)
 
@@ -448,7 +414,7 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
               metrics: initialMetrics,
             }
 
-            yield* Ref.update(systemsRef, systems => {
+            yield* Ref.update(systemsRef, (systems) => {
               const updated = new Map(systems)
               updated.set(config.id, registeredSystem)
               return updated
@@ -460,7 +426,7 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
 
         unregisterSystem: (systemId: string) =>
           Effect.gen(function* () {
-            yield* Ref.update(systemsRef, systems => {
+            yield* Ref.update(systemsRef, (systems) => {
               const updated = new Map(systems)
               updated.delete(systemId)
               return updated
@@ -470,12 +436,12 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
 
         executeFrame: () =>
           Effect.gen(function* () {
-            const clock = yield* Clock
-            const deltaTime = yield* Ref.get(clock.deltaTime)
+            const clock = yield* ClockPort
+            const deltaTime = yield* clock.deltaTime()
             const frameId = yield* Ref.get(frameIdRef)
 
             // Update frame ID
-            yield* Ref.update(frameIdRef, n => n + 1)
+            yield* Ref.update(frameIdRef, (n) => n + 1)
 
             // Execute systems by phase
             const phases: SystemPhase[] = ['input', 'update', 'physics', 'collision', 'render', 'cleanup']
@@ -499,25 +465,19 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
           Effect.gen(function* () {
             const systems = yield* Ref.get(systemsRef)
             const parallelGroups = yield* Ref.get(parallelGroupsRef)
-            
+
             return {
               totalSystems: systems.size,
               parallelGroups: parallelGroups.length,
-              avgSystemsPerGroup: parallelGroups.length > 0 
-                ? parallelGroups.reduce((sum, group) => sum + group.length, 0) / parallelGroups.length 
-                : 0,
-              enabledFeatures: [
-                ...(config.enableProfiling ? ['profiling'] : []),
-                ...(config.enableParallelExecution ? ['parallel-execution'] : []),
-              ]
+              avgSystemsPerGroup: parallelGroups.length > 0 ? parallelGroups.reduce((sum, group) => sum + group.length, 0) / parallelGroups.length : 0,
+              enabledFeatures: [...(config.enableProfiling ? ['profiling'] : []), ...(config.enableParallelExecution ? ['parallel-execution'] : [])],
             }
-          })
+          }),
       })
-    })
+    }),
   )
 
 /**
  * Create system scheduler service with custom configuration
  */
-export const createSystemSchedulerService = (config: Partial<SchedulerConfig> = {}) =>
-  SystemSchedulerServiceLive({ ...defaultSchedulerConfig, ...config })
+export const createSystemSchedulerService = (config: Partial<SchedulerConfig> = {}) => SystemSchedulerServiceLive({ ...defaultSchedulerConfig, ...config })

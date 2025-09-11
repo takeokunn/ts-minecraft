@@ -36,10 +36,12 @@ export const RendererLive = Layer.scoped(
             if (mesh) {
               mesh.geometry.dispose()
               threeJsContext.scene.remove(mesh)
-              yield* _(Ref.update(chunkMeshes, (map) => {
-                map.delete(key)
-                return map
-              }))
+              yield* _(
+                Ref.update(chunkMeshes, (map) => {
+                  map.delete(key)
+                  return map
+                }),
+              )
             }
           }),
         ),
@@ -48,11 +50,7 @@ export const RendererLive = Layer.scoped(
 
     yield* _(
       Queue.take(renderQueue).pipe(
-        Effect.flatMap((command) =>
-          processCommand(command).pipe(
-            Effect.catchAll((error) => Effect.logError('Error processing render command', error)),
-          ),
-        ),
+        Effect.flatMap((command) => processCommand(command).pipe(Effect.catchAll((error) => Effect.logError('Error processing render command', error)))),
         Effect.forever,
         Effect.forkScoped,
       ),

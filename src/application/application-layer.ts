@@ -1,23 +1,26 @@
-import { Layer } from "effect"
-import { CommandHandlersLive } from "./handlers/command-handlers"
-import { QueryHandlersLive } from "./handlers/query-handlers"
-import { PlayerMoveUseCaseLive } from "./use-cases/player-move.use-case"
-import { BlockPlaceUseCaseLive } from "./use-cases/block-place.use-case"
-import { ChunkLoadUseCaseLive } from "./use-cases/chunk-load.use-case"
-import { WorldGenerateUseCaseLive } from "./use-cases/world-generate.use-case"
-import { WorldUpdateWorkflowLive } from "./workflows/world-update"
-import { UIUpdateWorkflowLive } from "./workflows/ui-update"
+import { Layer } from 'effect'
+import { CommandHandlersLive } from './handlers/command-handlers'
+import { QueryHandlersLive } from './handlers/query-handlers'
+import { PlayerMoveUseCaseLive } from './use-cases/player-move.use-case'
+import { BlockPlaceUseCaseLive } from './use-cases/block-place.use-case'
+import { ChunkLoadUseCaseLive } from './use-cases/chunk-load.use-case'
+import { WorldGenerateUseCaseLive } from './use-cases/world-generate.use-case'
+import { WorldUpdateWorkflowLive } from './workflows/world-update'
+import { UIUpdateWorkflowLive } from './workflows/ui-update'
+import { SystemSchedulerServiceLive } from './workflows/system-scheduler.service'
+import { SystemCommunicationServiceLive } from './workflows/system-communication.service'
 
 /**
  * Complete Application Layer with all use cases, handlers, and workflows
- * 
+ *
  * This layer provides:
  * - CQRS Command and Query Handlers
  * - Business Logic Use Cases
  * - Workflow Orchestration
- * 
+ * - System Communication and Scheduling
+ *
  * Dependencies:
- * - Domain Services (WorldService, EntityService, PhysicsService, etc.)
+ * - Domain Services (WorldDomainService, EntityDomainService, PhysicsDomainService, etc.)
  * - Infrastructure Services (provided by infrastructure layer)
  */
 export const ApplicationLayer = Layer.mergeAll(
@@ -26,14 +29,18 @@ export const ApplicationLayer = Layer.mergeAll(
   BlockPlaceUseCaseLive,
   ChunkLoadUseCaseLive,
   WorldGenerateUseCaseLive,
-  
+
   // CQRS Handlers
   CommandHandlersLive,
   QueryHandlersLive,
-  
+
   // Workflows
   WorldUpdateWorkflowLive,
-  UIUpdateWorkflowLive
+  UIUpdateWorkflowLive,
+
+  // System Services
+  SystemSchedulerServiceLive(),
+  SystemCommunicationServiceLive(),
 )
 
 /**
@@ -55,20 +62,21 @@ export const ApplicationUtils = {
   /**
    * Create a command with timestamp
    */
-  createCommand: <T extends Record<string, any>>(command: Omit<T, 'timestamp'>): T & { timestamp: number } => ({
-    ...command,
-    timestamp: Date.now(),
-  } as T & { timestamp: number }),
+  createCommand: <T extends Record<string, any>>(command: Omit<T, 'timestamp'>): T & { timestamp: number } =>
+    ({
+      ...command,
+      timestamp: Date.now(),
+    }) as T & { timestamp: number },
 
   /**
    * Validate command structure
    */
   validateCommand: (command: any) => {
     if (!command.timestamp) {
-      throw new Error("Command must have a timestamp")
+      throw new Error('Command must have a timestamp')
     }
     if (typeof command.timestamp !== 'number') {
-      throw new Error("Command timestamp must be a number")
+      throw new Error('Command timestamp must be a number')
     }
     return true
   },

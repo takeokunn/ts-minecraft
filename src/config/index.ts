@@ -27,17 +27,22 @@ export const createConfiguration = (): ApplicationConfiguration => ({
 // Export the main configuration instance
 export const CONFIG = createConfiguration()
 
-// Configuration utilities
+// Configuration utilities with validation
 export const reloadConfiguration = (): ApplicationConfiguration => {
   const newConfig = createConfiguration()
+
+  // Validate the new configuration before applying
+  if (!validateConfiguration(newConfig)) {
+    console.error('Failed to reload configuration - validation failed')
+    return CONFIG // Return existing config on failure
+  }
+
   Object.assign(CONFIG, newConfig)
   return CONFIG
 }
 
 // Type-safe configuration accessor
-export const getConfig = <K extends keyof ApplicationConfiguration>(
-  section: K
-): ApplicationConfiguration[K] => CONFIG[section]
+export const getConfig = <K extends keyof ApplicationConfiguration>(section: K): ApplicationConfiguration[K] => CONFIG[section]
 
 // Environment-specific configuration flags
 export const isProduction = () => CONFIG.app.environment === 'production'
@@ -48,33 +53,36 @@ export const isTest = () => CONFIG.app.environment === 'test'
 export const isDebugEnabled = () => CONFIG.app.debug || isDevelopment()
 
 // Feature flag helpers
-export const isFeatureEnabled = (feature: keyof typeof CONFIG.app.features): boolean =>
-  CONFIG.app.features[feature]
+export const isFeatureEnabled = (feature: keyof typeof CONFIG.app.features): boolean => CONFIG.app.features[feature]
 
-// Configuration validation
+// Enhanced configuration validation using individual validators
 export const validateConfiguration = (config: ApplicationConfiguration): boolean => {
-  if (!config.app || !config.game || !config.infrastructure) {
-    console.error('Missing configuration sections')
+  try {
+    // Use schema-based validation for each section
+    if (!config.app || !config.game || !config.infrastructure) {
+      console.error('Missing required configuration sections')
+      return false
+    }
+
+    // Validate app config with schema
+    import('./app.config').then(({ safeValidateAppConfig }) => {
+      if (!safeValidateAppConfig(config.app)) {
+        throw new Error('App configuration validation failed')
+      }
+    })
+
+    // Validate game config
+    import('./game.config').then(({ validateGameConfig }) => {
+      if (!validateGameConfig(config.game)) {
+        throw new Error('Game configuration validation failed')
+      }
+    })
+
+    return true
+  } catch (error) {
+    console.error('Configuration validation error:', error)
     return false
   }
-  
-  // Basic validation
-  if (!config.app.appName) {
-    console.error('App name is required')
-    return false
-  }
-  
-  if (config.game.world.chunkSize <= 0) {
-    console.error('Invalid chunk size')
-    return false
-  }
-  
-  if (config.infrastructure.memory.maxHeapSize <= 0) {
-    console.error('Invalid max heap size')
-    return false
-  }
-  
-  return true
 }
 
 // Initialize configuration validation

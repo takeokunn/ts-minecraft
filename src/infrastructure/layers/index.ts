@@ -15,28 +15,28 @@ import {
   TerrainGeneratorLive,
   RenderCommandLive,
   RaycastLive,
-  
+
   // World Services
   WorldLive,
   ChunkManagerLive,
-  
+
   // Worker Services
   WorkerManagerLive,
-  
+
   // Rendering Services
   RendererLive,
-  
+
   // Input Services
   InputManagerLive,
-  
+
   // UI Services
   UIServiceLive,
-  
+
   // Domain Services
   WorldDomainServiceLive,
   PhysicsDomainServiceLive,
   EntityDomainServiceLive,
-  
+
   // Service Definitions (Context Tags)
   Clock,
   Stats,
@@ -54,15 +54,12 @@ import {
   WorldDomainService,
   PhysicsDomainService,
   EntityDomainService,
-  
+
   // Layer compositions
   DomainServicesLive,
   CoreServicesLive,
   WorldServicesLive,
-  WorkerServicesLive,
-  RenderingServicesLive,
-  InputServicesLive,
-  UIServicesLive,
+  InfrastructureServicesLive,
   UnifiedAppLive,
   MinimalLive,
   HeadlessLive,
@@ -70,29 +67,18 @@ import {
   ProductionLive,
   buildCustomLayer,
   getRuntimeLayer,
-  
+
   // Type exports
   type PerformanceStats,
   type InputState,
   type RenderCommandType,
   type RaycastResult,
-  type WorldState
+  type WorldState,
 } from './unified.layer'
 
-// Re-export individual layer implementations for backwards compatibility
-export { WorldLive } from './world.live'
-export { RendererLive } from './renderer.live'
-export { InputManagerLive } from './input-manager.live'
-export { ClockLive } from './clock.live'
-export { StatsLive } from './stats.live'
-export { SpatialGridLive } from './spatial-grid.live'
-export { MaterialManagerLive } from './material-manager.live'
-export { WorkerManagerLive } from './worker-manager.live'
-export { ChunkManagerLive } from './chunk-manager.live'
-export { TerrainGeneratorLive } from './terrain-generator.live'
-export { RenderCommandLive } from './render-command.live'
-export { RaycastLive } from './raycast.live'
-export { UIServiceLive } from './ui-service.live'
+// Re-export extended worker functionality from specialized files
+export * from './worker-manager.live'
+export * from './typed-worker-manager.live'
 
 // Re-export domain service implementations
 export { WorldDomainServiceLive, PhysicsDomainServiceLive, EntityDomainServiceLive }
@@ -114,27 +100,18 @@ export {
   UIService,
   WorldDomainService,
   PhysicsDomainService,
-  EntityDomainService
+  EntityDomainService,
 }
 
 // Re-export types
-export type {
-  PerformanceStats,
-  InputState,
-  RenderCommandType,
-  RaycastResult,
-  WorldState
-}
+export type { PerformanceStats, InputState, RenderCommandType, RaycastResult, WorldState }
 
 // Re-export layer compositions from unified layer
 export {
   DomainServicesLive,
   CoreServicesLive,
   WorldServicesLive,
-  WorkerServicesLive,
-  RenderingServicesLive,
-  InputServicesLive,
-  UIServicesLive,
+  InfrastructureServicesLive,
   UnifiedAppLive as AppLive, // Map UnifiedAppLive to AppLive for compatibility
   UnifiedAppLive as AppTest, // Use same layer for tests for now
   MinimalLive,
@@ -142,5 +119,5 @@ export {
   DevelopmentLive,
   ProductionLive,
   buildCustomLayer,
-  getRuntimeLayer
+  getRuntimeLayer,
 } from './unified.layer'

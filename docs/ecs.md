@@ -135,7 +135,7 @@ const systems = [
   // ... other systems
 ]
 
-yield* _(gameLoop(systems))
+yield * _(gameLoop(systems))
 ```
 
 これにより、フレームごとにどのシステムがどの順番で実行されるかが明確に制御されます。詳細は **[システムスケジューラ](./system-scheduler.md)** のドキュメントを参照してください。

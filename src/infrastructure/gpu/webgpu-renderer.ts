@@ -8,10 +8,7 @@ import { ObjectPool } from '@/infrastructure/performance/object-pool'
 const CONFIG = {
   WEBGPU_ENABLED: true,
   ADAPTER_POWER_PREFERENCE: 'high-performance' as GPUPowerPreference,
-  REQUIRED_FEATURES: [
-    'texture-compression-bc',
-    'timestamp-query',
-  ] as GPUFeatureName[],
+  REQUIRED_FEATURES: ['texture-compression-bc', 'timestamp-query'] as GPUFeatureName[],
   REQUIRED_LIMITS: {
     maxTextureDimension2D: 8192,
     maxBufferSize: 256 << 20, // 256MB
@@ -321,9 +318,8 @@ const _bufferPool = new ObjectPool<GPUBuffer>(
   (buffer) => {
     if (buffer) buffer.destroy()
   },
-  64
+  64,
 )
-
 
 // --- Utility Functions ---
 
@@ -355,7 +351,7 @@ const detectWebGPUCapabilities = async (): Promise<WebGPUCapabilities> => {
     }
 
     const adapterInfo = await adapter.requestAdapterInfo()
-    
+
     return {
       isSupported: true,
       adapterInfo: {
@@ -365,9 +361,7 @@ const detectWebGPUCapabilities = async (): Promise<WebGPUCapabilities> => {
         description: adapterInfo.description,
       },
       features: Array.from(adapter.features),
-      limits: Object.fromEntries(
-        Object.entries(adapter.limits).map(([key, value]) => [key, Number(value)])
-      ),
+      limits: Object.fromEntries(Object.entries(adapter.limits).map(([key, value]) => [key, Number(value)])),
       textureFormats: ['bgra8unorm', 'rgba8unorm', 'depth24plus'], // Common formats
     }
   } catch (error) {
@@ -384,9 +378,7 @@ const detectWebGPUCapabilities = async (): Promise<WebGPUCapabilities> => {
  * Create WebGPU device
  */
 const createWebGPUDevice = async (adapter: GPUAdapter): Promise<GPUDevice> => {
-  const requiredFeatures = CONFIG.REQUIRED_FEATURES.filter(feature => 
-    adapter.features.has(feature)
-  )
+  const requiredFeatures = CONFIG.REQUIRED_FEATURES.filter((feature) => adapter.features.has(feature))
 
   return await adapter.requestDevice({
     requiredFeatures,
@@ -397,13 +389,7 @@ const createWebGPUDevice = async (adapter: GPUAdapter): Promise<GPUDevice> => {
 /**
  * Create render pipeline
  */
-const createRenderPipeline = (
-  device: GPUDevice,
-  name: string,
-  vertexShader: string,
-  fragmentShader: string,
-  format: GPUTextureFormat
-): WebGPURenderPipeline => {
+const createRenderPipeline = (device: GPUDevice, name: string, vertexShader: string, fragmentShader: string, format: GPUTextureFormat): WebGPURenderPipeline => {
   const shaderModule = device.createShaderModule({
     code: vertexShader + '\n' + fragmentShader,
   })
@@ -432,26 +418,30 @@ const createRenderPipeline = (
     vertex: {
       module: shaderModule,
       entryPoint: 'vs_main',
-      buffers: [{
-        arrayStride: 44, // 3*4 + 3*4 + 2*4 + 3*4 = 44 bytes
-        attributes: [
-          { format: 'float32x3', offset: 0, shaderLocation: 0 }, // position
-          { format: 'float32x3', offset: 12, shaderLocation: 1 }, // normal
-          { format: 'float32x2', offset: 24, shaderLocation: 2 }, // uv
-          { format: 'float32x3', offset: 32, shaderLocation: 3 }, // color
-        ],
-      }],
+      buffers: [
+        {
+          arrayStride: 44, // 3*4 + 3*4 + 2*4 + 3*4 = 44 bytes
+          attributes: [
+            { format: 'float32x3', offset: 0, shaderLocation: 0 }, // position
+            { format: 'float32x3', offset: 12, shaderLocation: 1 }, // normal
+            { format: 'float32x2', offset: 24, shaderLocation: 2 }, // uv
+            { format: 'float32x3', offset: 32, shaderLocation: 3 }, // color
+          ],
+        },
+      ],
     },
     fragment: {
       module: shaderModule,
       entryPoint: 'fs_main',
-      targets: [{
-        format,
-        blend: {
-          color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha' },
-          alpha: { srcFactor: 'one', dstFactor: 'zero' },
+      targets: [
+        {
+          format,
+          blend: {
+            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha' },
+            alpha: { srcFactor: 'one', dstFactor: 'zero' },
+          },
         },
-      }],
+      ],
     },
     primitive: {
       topology: 'triangle-list',
@@ -485,11 +475,7 @@ const createRenderPipeline = (
 /**
  * Create compute pipeline
  */
-const createComputePipeline = (
-  device: GPUDevice,
-  name: string,
-  computeShader: string
-): WebGPUComputePipeline => {
+const createComputePipeline = (device: GPUDevice, name: string, computeShader: string): WebGPUComputePipeline => {
   const shaderModule = device.createShaderModule({
     code: computeShader,
   })
@@ -567,7 +553,6 @@ export const WebGPURendererService = Effect.Tag<WebGPURendererService>('WebGPURe
 export const WebGPURendererLive = Layer.effect(
   WebGPURendererService,
   Effect.gen(function* (_) {
-    
     const initialState: WebGPURendererState = {
       device: null,
       adapter: null,
@@ -622,15 +607,19 @@ export const WebGPURendererLive = Layer.effect(
           if (!CONFIG.WEBGPU_ENABLED) return false
 
           const capabilities = yield* _(Effect.promise(() => detectWebGPUCapabilities()))
-          
+
           if (!capabilities.isSupported) {
-            yield* _(Ref.update(stateRef, s => ({ ...s, capabilities })))
+            yield* _(Ref.update(stateRef, (s) => ({ ...s, capabilities })))
             return false
           }
 
-          const adapter = yield* _(Effect.promise(() => navigator.gpu.requestAdapter({
-            powerPreference: CONFIG.ADAPTER_POWER_PREFERENCE,
-          })))
+          const adapter = yield* _(
+            Effect.promise(() =>
+              navigator.gpu.requestAdapter({
+                powerPreference: CONFIG.ADAPTER_POWER_PREFERENCE,
+              }),
+            ),
+          )
 
           if (!adapter) return false
 
@@ -646,29 +635,21 @@ export const WebGPURendererLive = Layer.effect(
           })
 
           // Create default pipelines
-          const chunkRenderPipeline = createRenderPipeline(
-            device,
-            'chunk',
-            CHUNK_VERTEX_SHADER,
-            CHUNK_FRAGMENT_SHADER,
-            CONFIG.FRAME_BUFFER_FORMAT
-          )
+          const chunkRenderPipeline = createRenderPipeline(device, 'chunk', CHUNK_VERTEX_SHADER, CHUNK_FRAGMENT_SHADER, CONFIG.FRAME_BUFFER_FORMAT)
 
-          const terrainComputePipeline = createComputePipeline(
-            device,
-            'terrain',
-            TERRAIN_COMPUTE_SHADER
-          )
+          const terrainComputePipeline = createComputePipeline(device, 'terrain', TERRAIN_COMPUTE_SHADER)
 
-          yield* _(Ref.update(stateRef, s => ({
-            ...s,
-            device,
-            adapter,
-            context,
-            capabilities,
-            renderPipelines: new Map([['chunk', chunkRenderPipeline]]),
-            computePipelines: new Map([['terrain', terrainComputePipeline]]),
-          })))
+          yield* _(
+            Ref.update(stateRef, (s) => ({
+              ...s,
+              device,
+              adapter,
+              context,
+              capabilities,
+              renderPipelines: new Map([['chunk', chunkRenderPipeline]]),
+              computePipelines: new Map([['terrain', terrainComputePipeline]]),
+            })),
+          )
 
           console.log('WebGPU initialized successfully')
           console.log('Adapter:', capabilities.adapterInfo)
@@ -680,58 +661,58 @@ export const WebGPURendererLive = Layer.effect(
       createRenderPipeline: (name: string, vertexShader: string, fragmentShader: string) =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
-          
+
           if (!state.device) {
             throw new Error('WebGPU device not initialized')
           }
 
-          const pipeline = createRenderPipeline(
-            state.device,
-            name,
-            vertexShader,
-            fragmentShader,
-            CONFIG.FRAME_BUFFER_FORMAT
-          )
+          const pipeline = createRenderPipeline(state.device, name, vertexShader, fragmentShader, CONFIG.FRAME_BUFFER_FORMAT)
 
-          yield* _(Ref.update(stateRef, s => ({
-            ...s,
-            renderPipelines: new Map([...s.renderPipelines, [name, pipeline]])
-          })))
+          yield* _(
+            Ref.update(stateRef, (s) => ({
+              ...s,
+              renderPipelines: new Map([...s.renderPipelines, [name, pipeline]]),
+            })),
+          )
         }),
 
       createComputePipeline: (name: string, computeShader: string) =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
-          
+
           if (!state.device) {
             throw new Error('WebGPU device not initialized')
           }
 
           const pipeline = createComputePipeline(state.device, name, computeShader)
 
-          yield* _(Ref.update(stateRef, s => ({
-            ...s,
-            computePipelines: new Map([...s.computePipelines, [name, pipeline]])
-          })))
+          yield* _(
+            Ref.update(stateRef, (s) => ({
+              ...s,
+              computePipelines: new Map([...s.computePipelines, [name, pipeline]]),
+            })),
+          )
         }),
 
       beginFrame: () =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
-          
+
           if (!state.device) {
             throw new Error('WebGPU device not initialized')
           }
 
           const encoder = state.device.createCommandEncoder()
 
-          yield* _(Ref.update(stateRef, s => ({
-            ...s,
-            commandEncoderPool: {
-              ...s.commandEncoderPool,
-              inUse: new Set([...s.commandEncoderPool.inUse, encoder])
-            }
-          })))
+          yield* _(
+            Ref.update(stateRef, (s) => ({
+              ...s,
+              commandEncoderPool: {
+                ...s.commandEncoderPool,
+                inUse: new Set([...s.commandEncoderPool.inUse, encoder]),
+              },
+            })),
+          )
 
           return encoder
         }),
@@ -739,7 +720,7 @@ export const WebGPURendererLive = Layer.effect(
       endFrame: (encoder: GPUCommandEncoder) =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
-          
+
           if (!state.device) {
             throw new Error('WebGPU device not initialized')
           }
@@ -747,24 +728,26 @@ export const WebGPURendererLive = Layer.effect(
           const commandBuffer = encoder.finish()
           state.device.queue.submit([commandBuffer])
 
-          yield* _(Ref.update(stateRef, s => ({
-            ...s,
-            currentFrame: s.currentFrame + 1,
-            commandEncoderPool: {
-              ...s.commandEncoderPool,
-              inUse: new Set([...s.commandEncoderPool.inUse].filter(e => e !== encoder))
-            },
-            stats: {
-              ...s.stats,
-              framesRendered: s.stats.framesRendered + 1
-            }
-          })))
+          yield* _(
+            Ref.update(stateRef, (s) => ({
+              ...s,
+              currentFrame: s.currentFrame + 1,
+              commandEncoderPool: {
+                ...s.commandEncoderPool,
+                inUse: new Set([...s.commandEncoderPool.inUse].filter((e) => e !== encoder)),
+              },
+              stats: {
+                ...s.stats,
+                framesRendered: s.stats.framesRendered + 1,
+              },
+            })),
+          )
         }),
 
       createBuffer: (name: string, size: number, usage: GPUBufferUsageFlags) =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
-          
+
           if (!state.device) {
             throw new Error('WebGPU device not initialized')
           }
@@ -787,19 +770,21 @@ export const WebGPURendererLive = Layer.effect(
             bufferManager.vertexBuffers.set(name, buffer)
           }
 
-          yield* _(Ref.update(stateRef, s => ({
-            ...s,
-            bufferManager: {
-              ...bufferManager,
-              memoryUsage: bufferManager.memoryUsage + size,
-              allocationCount: bufferManager.allocationCount + 1,
-            },
-            stats: {
-              ...s.stats,
-              bufferUploads: s.stats.bufferUploads + 1,
-              memoryUsage: s.stats.memoryUsage + size,
-            }
-          })))
+          yield* _(
+            Ref.update(stateRef, (s) => ({
+              ...s,
+              bufferManager: {
+                ...bufferManager,
+                memoryUsage: bufferManager.memoryUsage + size,
+                allocationCount: bufferManager.allocationCount + 1,
+              },
+              stats: {
+                ...s.stats,
+                bufferUploads: s.stats.bufferUploads + 1,
+                memoryUsage: s.stats.memoryUsage + size,
+              },
+            })),
+          )
 
           return buffer
         }),
@@ -807,7 +792,7 @@ export const WebGPURendererLive = Layer.effect(
       createTexture: (name: string, width: number, height: number, format: GPUTextureFormat) =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
-          
+
           if (!state.device) {
             throw new Error('WebGPU device not initialized')
           }
@@ -821,21 +806,23 @@ export const WebGPURendererLive = Layer.effect(
           const textureView = texture.createView()
           const memoryUsage = width * height * 4 // Assume 4 bytes per pixel
 
-          yield* _(Ref.update(stateRef, s => ({
-            ...s,
-            textureManager: {
-              ...s.textureManager,
-              textures: new Map([...s.textureManager.textures, [name, texture]]),
-              textureViews: new Map([...s.textureManager.textureViews, [name, textureView]]),
-              memoryUsage: s.textureManager.memoryUsage + memoryUsage,
-              allocationCount: s.textureManager.allocationCount + 1,
-            },
-            stats: {
-              ...s.stats,
-              textureUploads: s.stats.textureUploads + 1,
-              memoryUsage: s.stats.memoryUsage + memoryUsage,
-            }
-          })))
+          yield* _(
+            Ref.update(stateRef, (s) => ({
+              ...s,
+              textureManager: {
+                ...s.textureManager,
+                textures: new Map([...s.textureManager.textures, [name, texture]]),
+                textureViews: new Map([...s.textureManager.textureViews, [name, textureView]]),
+                memoryUsage: s.textureManager.memoryUsage + memoryUsage,
+                allocationCount: s.textureManager.allocationCount + 1,
+              },
+              stats: {
+                ...s.stats,
+                textureUploads: s.stats.textureUploads + 1,
+                memoryUsage: s.stats.memoryUsage + memoryUsage,
+              },
+            })),
+          )
 
           return texture
         }),
@@ -843,7 +830,7 @@ export const WebGPURendererLive = Layer.effect(
       dispatchCompute: (pipelineName: string, workgroupsX: number, workgroupsY: number, workgroupsZ: number) =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
-          
+
           if (!state.device) {
             throw new Error('WebGPU device not initialized')
           }
@@ -855,7 +842,7 @@ export const WebGPURendererLive = Layer.effect(
 
           const encoder = state.device.createCommandEncoder()
           const computePass = encoder.beginComputePass()
-          
+
           computePass.setPipeline(pipeline.pipeline)
           computePass.dispatchWorkgroups(workgroupsX, workgroupsY, workgroupsZ)
           computePass.end()
@@ -866,13 +853,15 @@ export const WebGPURendererLive = Layer.effect(
           pipeline.lastUsed = Date.now()
           pipeline.usageCount++
 
-          yield* _(Ref.update(stateRef, s => ({
-            ...s,
-            stats: {
-              ...s.stats,
-              computeDispatches: s.stats.computeDispatches + 1,
-            }
-          })))
+          yield* _(
+            Ref.update(stateRef, (s) => ({
+              ...s,
+              stats: {
+                ...s.stats,
+                computeDispatches: s.stats.computeDispatches + 1,
+              },
+            })),
+          )
         }),
 
       getCapabilities: () =>
@@ -916,17 +905,10 @@ export const WebGPURendererLive = Layer.effect(
           yield* _(Ref.set(stateRef, initialState))
         }),
     }
-  })
+  }),
   // .pipe(Effect.provide(WASMIntegrationService))
 )
 
 // Export types and configuration
-export type { 
-  WebGPURendererState, 
-  WebGPUCapabilities, 
-  WebGPURenderPipeline, 
-  WebGPUComputePipeline,
-  BufferManager,
-  TextureManager 
-}
+export type { WebGPURendererState, WebGPUCapabilities, WebGPURenderPipeline, WebGPUComputePipeline, BufferManager, TextureManager }
 export { CONFIG as WebGPURendererConfig }

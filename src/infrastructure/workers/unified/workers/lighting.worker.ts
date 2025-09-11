@@ -4,10 +4,7 @@
  */
 
 import { Effect } from 'effect'
-import {
-  TerrainGenerationRequest,
-  TerrainGenerationResponse
-} from '../protocols/terrain.protocol'
+import { TerrainGenerationRequest, TerrainGenerationResponse } from '../protocols/terrain.protocol'
 
 // Initialize worker capabilities
 const workerCapabilities = {
@@ -15,39 +12,37 @@ const workerCapabilities = {
   supportsTransferableObjects: typeof ArrayBuffer !== 'undefined',
   supportsWasm: typeof WebAssembly !== 'undefined',
   maxMemory: 50 * 1024 * 1024, // 50MB for lighting
-  threadCount: 1
+  threadCount: 1,
 }
 
 /**
  * Placeholder lighting handler
  * TODO: Implement proper lighting protocol and calculations
  */
-const lightingHandler = (
-  request: TerrainGenerationRequest
-): Effect.Effect<TerrainGenerationResponse, never, never> =>
+const lightingHandler = (request: TerrainGenerationRequest): Effect.Effect<TerrainGenerationResponse, never, never> =>
   Effect.gen(function* () {
     // Placeholder implementation
     return {
       chunkData: request.coordinates,
       success: true,
       workerId: `lighting-worker-${Date.now()}`,
-      workerCapabilities
+      workerCapabilities,
     } as any
   })
 
 // Worker message handling
 self.onmessage = async (event) => {
   const { id, type, payload } = event.data
-  
+
   if (type === 'capabilities') {
     self.postMessage({
       type: 'ready',
       timestamp: Date.now(),
-      capabilities: workerCapabilities
+      capabilities: workerCapabilities,
     })
     return
   }
-  
+
   if (type === 'request') {
     try {
       const response = await Effect.runPromise(lightingHandler(payload))
@@ -55,7 +50,7 @@ self.onmessage = async (event) => {
         id,
         type: 'response',
         data: response,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       })
     } catch (error) {
       self.postMessage({
@@ -63,9 +58,9 @@ self.onmessage = async (event) => {
         type: 'error',
         error: {
           name: error instanceof Error ? error.name : 'Error',
-          message: error instanceof Error ? error.message : String(error)
+          message: error instanceof Error ? error.message : String(error),
         },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       })
     }
   }
@@ -75,5 +70,5 @@ self.onmessage = async (event) => {
 self.postMessage({
   type: 'ready',
   timestamp: Date.now(),
-  capabilities: workerCapabilities
+  capabilities: workerCapabilities,
 })

@@ -1,6 +1,6 @@
 /**
  * NetworkService - Complete multiplayer communication foundation with Context.Tag pattern
- * 
+ *
  * Features:
  * - Client-server architecture with reliable networking
  * - Message serialization and deserialization
@@ -22,15 +22,12 @@ import * as Ref from 'effect/Ref'
 import * as Ref from 'effect/Ref'
 import * as Queue from 'effect/Queue'
 
-
 import * as Match from 'effect/Match'
 
 // Core imports
 import { EntityId } from '@/domain/entities'
 import { Position } from '../value-objects'
-import {
-  NetworkError,
-} from '../errors'
+import { NetworkError } from '../errors'
 
 // ===== NETWORK SERVICE INTERFACE =====
 
@@ -117,13 +114,26 @@ export interface NetworkMessage<T = unknown> {
   readonly priority: MessagePriority
 }
 
-export type MessageType = 
-  | 'playerJoin' | 'playerLeave' | 'playerMove' | 'playerAction'
-  | 'entityUpdate' | 'entityCreate' | 'entityDestroy'
-  | 'worldUpdate' | 'blockUpdate' | 'chunkData'
-  | 'chatMessage' | 'systemMessage'
-  | 'stateSync' | 'ping' | 'pong'
-  | 'roomCreate' | 'roomJoin' | 'roomLeave' | 'roomUpdate'
+export type MessageType =
+  | 'playerJoin'
+  | 'playerLeave'
+  | 'playerMove'
+  | 'playerAction'
+  | 'entityUpdate'
+  | 'entityCreate'
+  | 'entityDestroy'
+  | 'worldUpdate'
+  | 'blockUpdate'
+  | 'chunkData'
+  | 'chatMessage'
+  | 'systemMessage'
+  | 'stateSync'
+  | 'ping'
+  | 'pong'
+  | 'roomCreate'
+  | 'roomJoin'
+  | 'roomLeave'
+  | 'roomUpdate'
 
 export type MessagePriority = 'low' | 'normal' | 'high' | 'critical'
 
@@ -335,10 +345,7 @@ interface MessageSubscription {
 
 // ===== NETWORK SERVICE TAG =====
 
-export class NetworkService extends Context.GenericTag('NetworkService')<
-  NetworkService,
-  NetworkServiceInterface
->() {
+export class NetworkService extends Context.GenericTag('NetworkService')<NetworkService, NetworkServiceInterface>() {
   static readonly Live = Layer.effect(
     NetworkService,
     Effect.gen(function* () {
@@ -348,7 +355,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
       const rooms = yield* Ref.make(HashMap.empty<RoomId, Room>())
       const players = yield* Ref.make(HashMap.empty<PlayerId, PlayerInfo>())
       const messageSubscriptions = yield* Ref.make(HashMap.empty<SubscriptionId, MessageSubscription>())
-      
+
       const networkStats = yield* Ref.make({
         totalConnections: 0,
         messagesSent: 0,
@@ -357,13 +364,12 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
         bytesReceived: 0,
         startTime: Date.now(),
       })
-      
+
       const debugMode = yield* Ref.make(false)
       const nextId = yield* Ref.make(0)
 
       // Helper functions
-      const generateId = (): Effect.Effect<string, never, never> =>
-        Ref.modify(nextId, id => [(id + 1).toString(), id + 1])
+      const generateId = (): Effect.Effect<string, never, never> => Ref.modify(nextId, (id) => [(id + 1).toString(), id + 1])
 
       const createServerId = (id: string): ServerId => id as ServerId
       const createConnectionId = (id: string): ConnectionId => id as ConnectionId
@@ -389,7 +395,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
         Effect.gen(function* () {
           const id = createConnectionId(yield* generateId())
           const messageQueue = yield* Queue.unbounded<NetworkMessage>()
-          
+
           const connection: Connection = {
             id,
             socket,
@@ -409,7 +415,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
           }
 
           yield* Ref.update(connections, HashMap.set(id, connection))
-          yield* Ref.update(networkStats, stats => ({
+          yield* Ref.update(networkStats, (stats) => ({
             ...stats,
             totalConnections: stats.totalConnections + 1,
           }))
@@ -418,7 +424,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
         })
 
       const updateConnectionStatus = (connectionId: ConnectionId, status: ConnectionStatus): Effect.Effect<void, never, never> =>
-        Ref.update(connections, connections => {
+        Ref.update(connections, (connections) => {
           const connection = HashMap.get(connections, connectionId)
           if (Option.isSome(connection)) {
             const updated = Data.struct({ ...connection.value, status })
@@ -428,30 +434,29 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
         })
 
       // Message processing
-        Effect.gen(function* () {
-          try {
-            const message = deserializeMessage<T>(data)
-            
-            // Update connection stats
-            yield* updateConnectionStats(connectionId, 'received', data.length)
-            
-            // Update network stats
-            yield* Ref.update(networkStats, stats => ({
-              ...stats,
-              messagesReceived: stats.messagesReceived + 1,
-              bytesReceived: stats.bytesReceived + data.length,
-            }))
+      Effect.gen(function* () {
+        try {
+          const message = deserializeMessage<T>(data)
 
-            // Process message based on type
-            yield* processMessage(connectionId, message)
-            
-            // Notify subscribers
-            yield* notifyMessageSubscribers(message, connectionId)
-            
-          } catch (error) {
-            console.error('Failed to process incoming message:', error)
-          }
-        })
+          // Update connection stats
+          yield* updateConnectionStats(connectionId, 'received', data.length)
+
+          // Update network stats
+          yield* Ref.update(networkStats, (stats) => ({
+            ...stats,
+            messagesReceived: stats.messagesReceived + 1,
+            bytesReceived: stats.bytesReceived + data.length,
+          }))
+
+          // Process message based on type
+          yield* processMessage(connectionId, message)
+
+          // Notify subscribers
+          yield* notifyMessageSubscribers(message, connectionId)
+        } catch (error) {
+          console.error('Failed to process incoming message:', error)
+        }
+      })
 
       const processMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
@@ -461,7 +466,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
             Match.when('playerJoin', () => handlePlayerJoinMessage(connectionId, message)),
             Match.when('playerLeave', () => handlePlayerLeaveMessage(connectionId, message)),
             Match.when('stateSync', () => handleStateSyncMessage(connectionId, message)),
-            Match.orElse(() => Effect.succeed(undefined))
+            Match.orElse(() => Effect.succeed(undefined)),
           )
         })
 
@@ -484,67 +489,70 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
           yield* updateConnectionPing(connectionId, ping)
         })
 
-      const handlePlayerJoinMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
-        Effect.succeed(undefined) // Implementation would handle player authentication and room assignment
+      const handlePlayerJoinMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> => Effect.succeed(undefined) // Implementation would handle player authentication and room assignment
 
-      const handlePlayerLeaveMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
-        Effect.succeed(undefined) // Implementation would handle cleanup
+      const handlePlayerLeaveMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> => Effect.succeed(undefined) // Implementation would handle cleanup
 
-      const handleStateSyncMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
-        Effect.succeed(undefined) // Implementation would handle state synchronization
+      const handleStateSyncMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> => Effect.succeed(undefined) // Implementation would handle state synchronization
 
       const sendMessageToConnection = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, typeof NetworkError, never> =>
         Effect.gen(function* () {
           const connectionsMap = yield* Ref.get(connections)
           const connection = HashMap.get(connectionsMap, connectionId)
-          
+
           if (Option.isNone(connection)) {
-            return yield* Effect.fail(NetworkError({
-              message: `Connection not found: ${connectionId}`,
-              connectionId
-            }))
+            return yield* Effect.fail(
+              NetworkError({
+                message: `Connection not found: ${connectionId}`,
+                connectionId,
+              }),
+            )
           }
 
           try {
             const serialized = serializeMessage(message)
-            
+
             // In a real implementation, this would send over WebSocket/UDP/TCP
             // For now, we'll just queue the message
             yield* Queue.offer(connection.value.messageQueue, message)
-            
+
             // Update stats
             yield* updateConnectionStats(connectionId, 'sent', serialized.length)
-            yield* Ref.update(networkStats, stats => ({
+            yield* Ref.update(networkStats, (stats) => ({
               ...stats,
               messagesSent: stats.messagesSent + 1,
               bytesTransmitted: stats.bytesTransmitted + serialized.length,
             }))
-            
           } catch (error) {
-            return yield* Effect.fail(NetworkError({
-              message: `Failed to send message: ${error}`,
-              connectionId,
-              cause: error
-            }))
+            return yield* Effect.fail(
+              NetworkError({
+                message: `Failed to send message: ${error}`,
+                connectionId,
+                cause: error,
+              }),
+            )
           }
         })
 
       const updateConnectionStats = (connectionId: ConnectionId, operation: 'sent' | 'received', bytes: number): Effect.Effect<void, never, never> =>
-        Ref.update(connections, connections => {
+        Ref.update(connections, (connections) => {
           const connection = HashMap.get(connections, connectionId)
           if (Option.isSome(connection)) {
-            const updatedStats = operation === 'sent' ? {
-              ...connection.value.stats,
-              messagesSent: connection.value.stats.messagesSent + 1,
-              bytesTransmitted: connection.value.stats.bytesTransmitted + bytes,
-              lastActivity: new Date(),
-            } : {
-              ...connection.value.stats,
-              messagesReceived: connection.value.stats.messagesReceived + 1,
-              bytesReceived: connection.value.stats.bytesReceived + bytes,
-              lastActivity: new Date(),
-            }
-            
+            const updatedStats =
+              operation === 'sent'
+                ? {
+                    ...connection.value.stats,
+                    messagesSent: connection.value.stats.messagesSent + 1,
+                    bytesTransmitted: connection.value.stats.bytesTransmitted + bytes,
+                    lastActivity: new Date(),
+                  }
+                : {
+                    ...connection.value.stats,
+                    messagesReceived: connection.value.stats.messagesReceived + 1,
+                    bytesReceived: connection.value.stats.bytesReceived + bytes,
+                    lastActivity: new Date(),
+                  }
+
             const updated = Data.struct({ ...connection.value, stats: updatedStats })
             return HashMap.set(connections, connectionId, updated)
           }
@@ -552,7 +560,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
         })
 
       const updateConnectionPing = (connectionId: ConnectionId, ping: number): Effect.Effect<void, never, never> =>
-        Ref.update(connections, connections => {
+        Ref.update(connections, (connections) => {
           const connection = HashMap.get(connections, connectionId)
           if (Option.isSome(connection)) {
             const updatedStats = { ...connection.value.stats, ping }
@@ -565,8 +573,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
       const notifyMessageSubscribers = <T>(message: NetworkMessage<T>, connectionId: ConnectionId): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           const subscriptions = yield* Ref.get(messageSubscriptions)
-          const relevantSubs = Array.fromIterable(HashMap.values(subscriptions))
-            .filter(sub => sub.messageType === message.type)
+          const relevantSubs = Array.fromIterable(HashMap.values(subscriptions)).filter((sub) => sub.messageType === message.type)
 
           for (const sub of relevantSubs) {
             try {
@@ -588,12 +595,11 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
         return data
       }
 
-
       // Room management
       const createRoomInternal = (config: RoomConfig, hostPlayerId: PlayerId): Effect.Effect<RoomId, never, never> =>
         Effect.gen(function* () {
           const id = createRoomId(yield* generateId())
-          
+
           const room: Room = {
             id,
             config,
@@ -613,7 +619,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
         startServer: (config: ServerConfig) =>
           Effect.gen(function* () {
             const id = createServerId(yield* generateId())
-            
+
             const server: Server = {
               id,
               config,
@@ -624,9 +630,9 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
             }
 
             yield* Ref.update(servers, HashMap.set(id, server))
-            
+
             // In real implementation, would start WebSocket/TCP server
-            yield* Ref.update(servers, servers => {
+            yield* Ref.update(servers, (servers) => {
               const existing = HashMap.get(servers, id)
               if (Option.isSome(existing)) {
                 const updated = Data.struct({ ...existing.value, status: 'running' as ServerStatus })
@@ -642,12 +648,14 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
           Effect.gen(function* () {
             const serversMap = yield* Ref.get(servers)
             const server = HashMap.get(serversMap, serverId)
-            
+
             if (Option.isNone(server)) {
-              return yield* Effect.fail(NetworkError({
-                message: `Server not found: ${serverId}`,
-                serverId
-              }))
+              return yield* Effect.fail(
+                NetworkError({
+                  message: `Server not found: ${serverId}`,
+                  serverId,
+                }),
+              )
             }
 
             // Disconnect all connections
@@ -673,7 +681,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
 
             const connectionId = yield* createConnection(socket)
             yield* updateConnectionStatus(connectionId, 'connected')
-            
+
             return connectionId
           }),
 
@@ -694,28 +702,27 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
           }),
 
         // Message handling
-        sendMessage: <T>(connectionId: ConnectionId, message: NetworkMessage<T>) =>
-          sendMessageToConnection(connectionId, message),
+        sendMessage: <T>(connectionId: ConnectionId, message: NetworkMessage<T>) => sendMessageToConnection(connectionId, message),
 
         broadcastMessage: <T>(serverId: ServerId, message: NetworkMessage<T>, excludeConnections?: readonly ConnectionId[]) =>
           Effect.gen(function* () {
             const serversMap = yield* Ref.get(servers)
             const server = HashMap.get(serversMap, serverId)
-            
+
             if (Option.isNone(server)) {
-              return yield* Effect.fail(NetworkError({
-                message: `Server not found: ${serverId}`,
-                serverId
-              }))
+              return yield* Effect.fail(
+                NetworkError({
+                  message: `Server not found: ${serverId}`,
+                  serverId,
+                }),
+              )
             }
 
             const excludeSet = Set.fromIterable(excludeConnections ?? [])
-            
+
             for (const connectionId of server.value.connections) {
               if (!Set.has(excludeSet, connectionId)) {
-                yield* sendMessageToConnection(connectionId, message).pipe(
-                  Effect.catchAll(() => Effect.succeed(undefined))
-                )
+                yield* sendMessageToConnection(connectionId, message).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
               }
             }
           }),
@@ -732,14 +739,13 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
             return id
           }),
 
-        unsubscribeFromMessages: (subscriptionId: SubscriptionId) =>
-          Ref.update(messageSubscriptions, HashMap.remove(subscriptionId)),
+        unsubscribeFromMessages: (subscriptionId: SubscriptionId) => Ref.update(messageSubscriptions, HashMap.remove(subscriptionId)),
 
         // Player management
         authenticatePlayer: (connectionId: ConnectionId, credentials: PlayerCredentials) =>
           Effect.gen(function* () {
             const playerId = createPlayerId(credentials.username)
-            
+
             const playerInfo: PlayerInfo = {
               id: playerId,
               username: credentials.username,
@@ -751,7 +757,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
 
             yield* Ref.update(players, HashMap.set(playerId, playerInfo))
             yield* updateConnectionStatus(connectionId, 'authenticated')
-            
+
             return playerId
           }),
 
@@ -765,15 +771,14 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
           Effect.gen(function* () {
             const playersMap = yield* Ref.get(players)
             const player = HashMap.get(playersMap, playerId)
-            
+
             if (Option.isSome(player)) {
               yield* updateConnectionStatus(player.value.connectionId, 'disconnected')
               yield* Ref.update(players, HashMap.remove(playerId))
             }
           }),
 
-        banPlayer: () =>
-          Effect.succeed(undefined),
+        banPlayer: () => Effect.succeed(undefined),
 
         // State synchronization
         syncEntityState: (connectionId: ConnectionId, state: EntityState) =>
@@ -824,7 +829,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
           Effect.gen(function* () {
             const roomsMap = yield* Ref.get(rooms)
             const room = HashMap.get(roomsMap, roomId)
-            
+
             if (Option.isSome(room)) {
               // Notify all players in room
               const _leaveMessage = {
@@ -832,9 +837,9 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
                 payload: { roomId },
                 timestamp: Date.now(),
                 reliable: true,
-                priority: 'high'
+                priority: 'high',
               }
-              
+
               // Would send to all players in room
               yield* Ref.update(rooms, HashMap.remove(roomId))
             }
@@ -844,31 +849,34 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
           Effect.gen(function* () {
             const roomsMap = yield* Ref.get(rooms)
             const room = HashMap.get(roomsMap, roomId)
-            
+
             if (Option.isNone(room)) {
-              return yield* Effect.fail(NetworkError({
-                message: `Room not found: ${roomId}`,
-                roomId
-              }))
+              return yield* Effect.fail(
+                NetworkError({
+                  message: `Room not found: ${roomId}`,
+                  roomId,
+                }),
+              )
             }
 
             // Add player to room (simplified implementation)
             // Would check capacity, authentication, etc.
           }),
 
-        leaveRoom: () =>
-          Effect.succeed(undefined),
+        leaveRoom: () => Effect.succeed(undefined),
 
         getRoomInfo: (roomId: RoomId) =>
           Effect.gen(function* () {
             const roomsMap = yield* Ref.get(rooms)
             const room = HashMap.get(roomsMap, roomId)
-            
+
             if (Option.isNone(room)) {
-              return yield* Effect.fail(NetworkError({
-                message: `Room not found: ${roomId}`,
-                roomId
-              }))
+              return yield* Effect.fail(
+                NetworkError({
+                  message: `Room not found: ${roomId}`,
+                  roomId,
+                }),
+              )
             }
 
             return {
@@ -887,7 +895,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
         listRooms: () =>
           Effect.gen(function* () {
             const roomsMap = yield* Ref.get(rooms)
-            return Array.fromIterable(HashMap.values(roomsMap)).map(room => ({
+            return Array.fromIterable(HashMap.values(roomsMap)).map((room) => ({
               id: room.id,
               name: room.config.name,
               currentPlayers: Set.size(room.players),
@@ -902,7 +910,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
 
         // Network optimization
         enableCompression: (connectionId: ConnectionId, enabled: boolean) =>
-          Ref.update(connections, connections => {
+          Ref.update(connections, (connections) => {
             const connection = HashMap.get(connections, connectionId)
             if (Option.isSome(connection)) {
               const updated = Data.struct({ ...connection.value, compressionEnabled: enabled })
@@ -914,13 +922,15 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
         setTickRate: (serverId: ServerId, tickRate: number) =>
           Effect.gen(function* () {
             if (tickRate <= 0 || tickRate > 120) {
-              return yield* Effect.fail(NetworkError({
-                message: `Invalid tick rate: ${tickRate}`,
-                serverId
-              }))
+              return yield* Effect.fail(
+                NetworkError({
+                  message: `Invalid tick rate: ${tickRate}`,
+                  serverId,
+                }),
+              )
             }
 
-            yield* Ref.update(servers, servers => {
+            yield* Ref.update(servers, (servers) => {
               const server = HashMap.get(servers, serverId)
               if (Option.isSome(server)) {
                 const updatedConfig = { ...server.value.config, tickRate }
@@ -944,12 +954,9 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
           Effect.gen(function* () {
             const stats = yield* Ref.get(networkStats)
             const connectionsMap = yield* Ref.get(connections)
-            const activeConnections = Array.fromIterable(HashMap.values(connectionsMap))
-              .filter(conn => conn.status === 'connected' || conn.status === 'authenticated')
-            
-            const averagePing = activeConnections.length > 0 ?
-              activeConnections.reduce((sum, conn) => sum + conn.stats.ping, 0) / activeConnections.length :
-              0
+            const activeConnections = Array.fromIterable(HashMap.values(connectionsMap)).filter((conn) => conn.status === 'connected' || conn.status === 'authenticated')
+
+            const averagePing = activeConnections.length > 0 ? activeConnections.reduce((sum, conn) => sum + conn.stats.ping, 0) / activeConnections.length : 0
 
             return {
               totalConnections: stats.totalConnections,
@@ -969,7 +976,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
           Effect.gen(function* () {
             const connectionsMap = yield* Ref.get(connections)
             const connection = HashMap.get(connectionsMap, connectionId)
-            
+
             return Option.match(connection, {
               onNone: () => ({
                 id: connectionId,
@@ -1002,8 +1009,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
             })
           }),
 
-        enableDebugMode: (enabled: boolean) =>
-          Ref.set(debugMode, enabled),
+        enableDebugMode: (enabled: boolean) => Ref.set(debugMode, enabled),
 
         getDebugInfo: () =>
           Effect.gen(function* () {
@@ -1012,7 +1018,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
             const roomsMap = yield* Ref.get(rooms)
 
             return {
-              servers: Array.fromIterable(HashMap.values(serversMap)).map(server => ({
+              servers: Array.fromIterable(HashMap.values(serversMap)).map((server) => ({
                 id: server.id,
                 config: server.config,
                 status: server.status,
@@ -1020,7 +1026,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
                 rooms: Set.size(server.rooms),
                 uptime: Date.now() - server.startTime.getTime(),
               })),
-              connections: Array.fromIterable(HashMap.values(connectionsMap)).map(conn => ({
+              connections: Array.fromIterable(HashMap.values(connectionsMap)).map((conn) => ({
                 id: conn.id,
                 address: conn.socket.address,
                 port: conn.socket.port,
@@ -1034,7 +1040,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
                 packetLoss: conn.stats.packetLoss,
                 compressionEnabled: conn.compressionEnabled,
               })),
-              rooms: Array.fromIterable(HashMap.values(roomsMap)).map(room => ({
+              rooms: Array.fromIterable(HashMap.values(roomsMap)).map((room) => ({
                 id: room.id,
                 name: room.config.name,
                 currentPlayers: Set.size(room.players),
@@ -1050,6 +1056,6 @@ export class NetworkService extends Context.GenericTag('NetworkService')<
             }
           }),
       }
-    })
+    }),
   )
 }

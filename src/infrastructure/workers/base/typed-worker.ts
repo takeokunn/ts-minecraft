@@ -15,15 +15,14 @@ export type MessageId = string
 /**
  * Create unique message ID
  */
-export const createMessageId = (): MessageId =>
-  `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+export const createMessageId = (): MessageId => `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
 /**
  * Base message structure
  */
 export const BaseMessage = S.Struct({
   id: S.String,
-  timestamp: S.Number.pipe(S.positive)
+  timestamp: S.Number.pipe(S.positive),
 }).pipe(S.identifier('BaseMessage'))
 
 /**
@@ -35,7 +34,7 @@ export const WorkerRequest = <TPayload extends S.Schema<any>>(payloadSchema: TPa
     type: S.Literal('request'),
     payload: payloadSchema,
     sharedBuffer: S.optional(S.Unknown),
-    transferables: S.optional(S.Array(S.String))
+    transferables: S.optional(S.Array(S.String)),
   }).pipe(S.identifier('WorkerRequest'))
 
 /**
@@ -47,7 +46,7 @@ export const WorkerResponse = <TData extends S.Schema<any>>(dataSchema: TData) =
     type: S.Literal('response'),
     data: dataSchema,
     transferables: S.optional(S.Array(S.String)),
-    sharedBuffer: S.optional(S.Unknown)
+    sharedBuffer: S.optional(S.Unknown),
   }).pipe(S.identifier('WorkerResponse'))
 
 /**
@@ -59,8 +58,8 @@ export const WorkerError = S.Struct({
   error: S.Struct({
     name: S.String,
     message: S.String,
-    stack: S.optional(S.String)
-  })
+    stack: S.optional(S.String),
+  }),
 }).pipe(S.identifier('WorkerError'))
 
 /**
@@ -74,8 +73,8 @@ export const WorkerReady = S.Struct({
     supportsTransferableObjects: S.Boolean,
     supportsWasm: S.Boolean,
     maxMemory: S.Number.pipe(S.positive),
-    threadCount: S.Number.pipe(S.int(), S.positive)
-  })
+    threadCount: S.Number.pipe(S.int(), S.positive),
+  }),
 }).pipe(S.identifier('WorkerReady'))
 
 export type WorkerReady = S.Schema.Type<typeof WorkerReady>
@@ -92,7 +91,7 @@ export const detectWorkerCapabilities = (): WorkerReady['capabilities'] => ({
   supportsTransferableObjects: typeof ArrayBuffer !== 'undefined',
   supportsWasm: typeof WebAssembly !== 'undefined',
   maxMemory: 100 * 1024 * 1024, // 100MB default
-  threadCount: navigator?.hardwareConcurrency || 4
+  threadCount: navigator?.hardwareConcurrency || 4,
 })
 
 // ============================================
@@ -102,8 +101,7 @@ export const detectWorkerCapabilities = (): WorkerReady['capabilities'] => ({
 /**
  * Validate message against schema
  */
-export const validateMessage = <T>(schema: S.Schema<T>, message: unknown) =>
-  S.decodeUnknown(schema)(message)
+export const validateMessage = <T>(schema: S.Schema<T>, message: unknown) => S.decodeUnknown(schema)(message)
 
 /**
  * Encode message with transferables extraction
@@ -113,7 +111,7 @@ export const encodeMessage = <T>(schema: S.Schema<T>, data: T) =>
     const transferables = extractTransferables(data)
     return {
       message: data,
-      transferables
+      transferables,
     }
   })
 
@@ -122,7 +120,7 @@ export const encodeMessage = <T>(schema: S.Schema<T>, data: T) =>
  */
 export const extractTransferables = (data: any): ArrayBufferView[] => {
   const transferables: ArrayBufferView[] = []
-  
+
   const extract = (obj: any) => {
     if (obj instanceof ArrayBuffer || obj instanceof ArrayBufferView) {
       transferables.push(obj)
@@ -132,7 +130,7 @@ export const extractTransferables = (data: any): ArrayBufferView[] => {
       obj.forEach(extract)
     }
   }
-  
+
   extract(data)
   return transferables
 }
@@ -162,10 +160,7 @@ export const createSharedBuffer = (descriptor: SharedBufferDescriptor): SharedAr
 /**
  * Create typed array view from shared buffer
  */
-export const createTypedArrayView = <T extends ArrayBufferView>(
-  buffer: SharedArrayBuffer,
-  type: SharedBufferDescriptor['type']
-): T => {
+export const createTypedArrayView = <T extends ArrayBufferView>(buffer: SharedArrayBuffer, type: SharedBufferDescriptor['type']): T => {
   switch (type) {
     case 'Float32':
       return new Float32Array(buffer) as T
@@ -185,11 +180,16 @@ export const createTypedArrayView = <T extends ArrayBufferView>(
  */
 const getElementSize = (type: SharedBufferDescriptor['type']): number => {
   switch (type) {
-    case 'Float32': return 4
-    case 'Int32': return 4
-    case 'Uint32': return 4
-    case 'Uint8': return 1
-    default: return 4
+    case 'Float32':
+      return 4
+    case 'Int32':
+      return 4
+    case 'Uint32':
+      return 4
+    case 'Uint8':
+      return 1
+    default:
+      return 4
   }
 }
 
@@ -210,10 +210,7 @@ export interface WorkerHandlerContext {
 /**
  * Worker handler function type
  */
-export type WorkerHandler<TInput, TOutput> = (
-  input: TInput,
-  context: WorkerHandlerContext
-) => Effect.Effect<TOutput, never, never>
+export type WorkerHandler<TInput, TOutput> = (input: TInput, context: WorkerHandlerContext) => Effect.Effect<TOutput, never, never>
 
 /**
  * Worker configuration
@@ -260,22 +257,94 @@ interface PendingRequest<TOutput> {
 // ============================================
 
 /**
+ * Create a typed worker factory
+ */
+export const createWorkerFactory = <TInput, TOutput>(config: TypedWorkerConfig<TInput, TOutput>) => {
+  return {
+    create: () => new Worker(new URL(config.name, import.meta.url), { type: 'module' }),
+    config,
+  }
+}
+
+/**
+ * Create a typed worker instance with handler
+ */
+export const createTypedWorker = <TInput, TOutput>(config: TypedWorkerConfig<TInput, TOutput>) => {
+  return Effect.gen(function* () {
+    const capabilities = detectWorkerCapabilities()
+    
+    // Send ready signal
+    self.postMessage({
+      type: 'ready',
+      timestamp: Date.now(),
+      capabilities,
+    })
+
+    // Handle incoming messages
+    const handleMessage = (event: MessageEvent) => {
+      const { id, type, payload, timestamp } = event.data
+
+      if (type === 'capabilities') {
+        self.postMessage({
+          type: 'ready',
+          timestamp: Date.now(),
+          capabilities,
+        })
+        return
+      }
+
+      if (type === 'request') {
+        const context: WorkerHandlerContext = {
+          messageId: id,
+          timestamp,
+          capabilities,
+        }
+
+        Effect.runPromise(
+          config.handler(payload, context).pipe(
+            Effect.timeout(config.timeout || Duration.seconds(30)),
+            Effect.tap((result) => {
+              self.postMessage({
+                id,
+                type: 'response',
+                data: result,
+                timestamp: Date.now(),
+              })
+            }),
+            Effect.catchAll((error) => {
+              self.postMessage({
+                id,
+                type: 'error',
+                error: {
+                  name: error instanceof Error ? error.name : 'Error',
+                  message: error instanceof Error ? error.message : String(error),
+                  stack: error instanceof Error ? error.stack : undefined,
+                },
+                timestamp: Date.now(),
+              })
+              return Effect.void
+            }),
+          )
+        )
+      }
+    }
+
+    self.onmessage = handleMessage
+    
+    return { capabilities }
+  })
+}
+
+/**
  * Create a typed worker client
  */
-export const createTypedWorkerClient = <TInput, TOutput>(
-  worker: Worker,
-  config: WorkerClientConfig<TInput, TOutput>
-) => {
+export const createTypedWorkerClient = <TInput, TOutput>(worker: Worker, config: WorkerClientConfig<TInput, TOutput>) => {
   return Effect.gen(function* () {
     // Pending requests tracking
-    const pendingRequests = yield* Ref.make<Map<MessageId, PendingRequest<TOutput>>>(
-      new Map()
-    )
-    
+    const pendingRequests = yield* Ref.make<Map<MessageId, PendingRequest<TOutput>>>(new Map())
+
     // Request queue for rate limiting
-    const requestQueue = yield* Queue.bounded<TInput>(
-      config.maxConcurrentRequests ?? 10
-    )
+    const requestQueue = yield* Queue.bounded<TInput>(config.maxConcurrentRequests ?? 10)
 
     // Worker capabilities
     const capabilities = yield* Ref.make<WorkerReady['capabilities'] | null>(null)
@@ -294,10 +363,7 @@ export const createTypedWorkerClient = <TInput, TOutput>(
         }
 
         if (message.type === 'response') {
-          const response = yield* validateMessage(
-            WorkerResponse(config.outputSchema),
-            message
-          )
+          const response = yield* validateMessage(WorkerResponse(config.outputSchema), message)
 
           const pending = yield* Ref.get(pendingRequests)
           const request = pending.get(response.id)
@@ -322,7 +388,7 @@ export const createTypedWorkerClient = <TInput, TOutput>(
 
         if (message.type === 'error') {
           const errorMsg = yield* validateMessage(WorkerError, message)
-          
+
           const pending = yield* Ref.get(pendingRequests)
           const request = pending.get(errorMsg.id)
 
@@ -349,11 +415,11 @@ export const createTypedWorkerClient = <TInput, TOutput>(
           }
         }
       }).pipe(
-        Effect.catchAll((error) => 
+        Effect.catchAll((error) =>
           Effect.sync(() => {
             console.error('Worker client message handling error:', error)
-          })
-        )
+          }),
+        ),
       )
 
     // Set up message listener
@@ -369,11 +435,11 @@ export const createTypedWorkerClient = <TInput, TOutput>(
       options?: {
         sharedBuffer?: SharedArrayBuffer
         priority?: number
-      }
+      },
     ): Effect.Effect<TOutput, never, never> =>
       Effect.gen(function* () {
         const messageId = createMessageId()
-        
+
         // Create request
         const request = {
           id: messageId,
@@ -395,9 +461,7 @@ export const createTypedWorkerClient = <TInput, TOutput>(
           }
 
           // Set timeout if specified
-          const timeoutMs = config.timeout 
-            ? Duration.toMillis(config.timeout)
-            : 30000
+          const timeoutMs = config.timeout ? Duration.toMillis(config.timeout) : 30000
 
           pendingRequest.timeout = setTimeout(() => {
             Effect.runPromise(
@@ -405,7 +469,7 @@ export const createTypedWorkerClient = <TInput, TOutput>(
                 const newMap = new Map(map)
                 newMap.delete(messageId)
                 return newMap
-              })
+              }),
             )
             pendingRequest.reject(new Error(`Worker request timeout after ${timeoutMs}ms`))
           }, timeoutMs)
@@ -416,14 +480,17 @@ export const createTypedWorkerClient = <TInput, TOutput>(
               const newMap = new Map(map)
               newMap.set(messageId, pendingRequest)
               return newMap
-            })
+            }),
           )
 
           // Send message
           if (encoded.transferables.length > 0) {
-            worker.postMessage({ ...request, payload: encoded.message }, {
-              transfer: encoded.transferables
-            })
+            worker.postMessage(
+              { ...request, payload: encoded.message },
+              {
+                transfer: encoded.transferables,
+              },
+            )
           } else {
             worker.postMessage(request)
           }
@@ -435,8 +502,7 @@ export const createTypedWorkerClient = <TInput, TOutput>(
     /**
      * Get worker capabilities
      */
-    const getCapabilities = (): Effect.Effect<WorkerReady['capabilities'] | null, never, never> =>
-      Ref.get(capabilities)
+    const getCapabilities = (): Effect.Effect<WorkerReady['capabilities'] | null, never, never> => Ref.get(capabilities)
 
     /**
      * Terminate worker and clean up

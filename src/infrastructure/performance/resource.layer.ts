@@ -3,15 +3,7 @@ import { Effect, Ref, Context, Layer, Queue, Option } from 'effect'
 /**
  * Resource types that can be managed
  */
-export type ResourceType = 
-  | 'texture'
-  | 'mesh'
-  | 'shader'
-  | 'buffer'
-  | 'audio'
-  | 'model'
-  | 'animation'
-  | 'material'
+export type ResourceType = 'texture' | 'mesh' | 'shader' | 'buffer' | 'audio' | 'model' | 'animation' | 'material'
 
 /**
  * Resource metadata
@@ -50,11 +42,7 @@ export interface ResourceCacheConfig {
 /**
  * Resource loading strategy
  */
-export type LoadingStrategy = 
-  | 'immediate'
-  | 'lazy'
-  | 'preload'
-  | 'streaming'
+export type LoadingStrategy = 'immediate' | 'lazy' | 'preload' | 'streaming'
 
 /**
  * Resource loader definition
@@ -84,54 +72,38 @@ export interface ResourceStats {
  * Resource Service for dependency injection
  */
 export const ResourceService = Context.GenericTag<{
-  readonly registerLoader: <T>(
-    type: ResourceType,
-    loader: ResourceLoader<T>
-  ) => Effect.Effect<void, never, never>
-  
-  readonly load: <T>(
-    id: string,
-    type: ResourceType,
-    strategy?: LoadingStrategy,
-    options?: any
-  ) => Effect.Effect<ManagedResource<T>, Error, never>
-  
-  readonly get: <T>(
-    id: string,
-    type: ResourceType
-  ) => Effect.Effect<Option.Option<ManagedResource<T>>, never, never>
-  
-  readonly unload: (
-    id: string,
-    type: ResourceType
-  ) => Effect.Effect<void, never, never>
-  
-  readonly preload: (
-    resources: Array<{ id: string; type: ResourceType; options?: any }>
-  ) => Effect.Effect<void, Error, never>
-  
-  readonly evict: (
-    strategy: 'lru' | 'size' | 'access' | 'all'
-  ) => Effect.Effect<number, never, never>
-  
+  readonly registerLoader: <T>(type: ResourceType, loader: ResourceLoader<T>) => Effect.Effect<void, never, never>
+
+  readonly load: <T>(id: string, type: ResourceType, strategy?: LoadingStrategy, options?: any) => Effect.Effect<ManagedResource<T>, Error, never>
+
+  readonly get: <T>(id: string, type: ResourceType) => Effect.Effect<Option.Option<ManagedResource<T>>, never, never>
+
+  readonly unload: (id: string, type: ResourceType) => Effect.Effect<void, never, never>
+
+  readonly preload: (resources: Array<{ id: string; type: ResourceType; options?: any }>) => Effect.Effect<void, Error, never>
+
+  readonly evict: (strategy: 'lru' | 'size' | 'access' | 'all') => Effect.Effect<number, never, never>
+
   readonly getStats: () => Effect.Effect<ResourceStats, never, never>
   readonly clearCache: () => Effect.Effect<void, never, never>
-  
+
   readonly startGC: () => Effect.Effect<void, never, never>
   readonly stopGC: () => Effect.Effect<void, never, never>
-  
-  readonly exportCache: () => Effect.Effect<{
-    resources: Array<{ id: string; type: ResourceType; size: number }>
-    stats: ResourceStats
-  }, never, never>
+
+  readonly exportCache: () => Effect.Effect<
+    {
+      resources: Array<{ id: string; type: ResourceType; size: number }>
+      stats: ResourceStats
+    },
+    never,
+    never
+  >
 }>('ResourceService')
 
 /**
  * Create resource service implementation
  */
-const createResourceServiceImpl = (
-  config: ResourceCacheConfig
-): Effect.Effect<Context.Tag.Service<typeof ResourceService>, never, never> =>
+const createResourceServiceImpl = (config: ResourceCacheConfig): Effect.Effect<Context.Tag.Service<typeof ResourceService>, never, never> =>
   Effect.gen(function* () {
     const cache = yield* Ref.make<Map<string, ManagedResource<any>>>(new Map())
     const loaders = yield* Ref.make<Map<ResourceType, ResourceLoader<any>>>(new Map())
@@ -142,15 +114,14 @@ const createResourceServiceImpl = (
       missCount: 0,
       evictionCount: 0,
       preloadCount: 0,
-      compressionRatio: 0
+      compressionRatio: 0,
     })
     const preloadQueue = yield* Queue.unbounded<{ id: string; type: ResourceType; options?: any }>()
     const gcRunning = yield* Ref.make(false)
 
     const generateCacheKey = (id: string, type: ResourceType) => `${type}:${id}`
 
-    const updateStats = (update: Partial<ResourceStats>) =>
-      Ref.update(stats, current => ({ ...current, ...update }))
+    const updateStats = (update: Partial<ResourceStats>) => Ref.update(stats, (current) => ({ ...current, ...update }))
 
     const calculateMemoryUsage = () =>
       Effect.gen(function* () {
@@ -166,7 +137,7 @@ const createResourceServiceImpl = (
       Effect.gen(function* () {
         const cacheMap = yield* Ref.get(cache)
         const memoryMB = yield* calculateMemoryUsage()
-        
+
         return cacheMap.size >= config.maxItems || memoryMB >= config.maxMemoryMB
       })
 
@@ -187,7 +158,7 @@ const createResourceServiceImpl = (
 
         if (oldestResource && oldestKey) {
           yield* oldestResource.dispose
-          yield* Ref.update(cache, map => {
+          yield* Ref.update(cache, (map) => {
             const newMap = new Map(map)
             newMap.delete(oldestKey)
             return newMap
@@ -207,16 +178,16 @@ const createResourceServiceImpl = (
         let evicted = 0
         for (const [key, resource] of resources) {
           if (evicted >= 5) break // Evict maximum 5 largest resources at once
-          
+
           yield* resource.dispose
-          yield* Ref.update(cache, map => {
+          yield* Ref.update(cache, (map) => {
             const newMap = new Map(map)
             newMap.delete(key)
             return newMap
           })
           evicted++
         }
-        
+
         return evicted
       })
 
@@ -234,10 +205,9 @@ const createResourceServiceImpl = (
 
           for (const [key, resource] of cacheMap.entries()) {
             // Check TTL expiration
-            if (now - resource.metadata.lastAccessed > config.ttlMs && 
-                resource.metadata.priority !== 'critical') {
+            if (now - resource.metadata.lastAccessed > config.ttlMs && resource.metadata.priority !== 'critical') {
               yield* resource.dispose
-              yield* Ref.update(cache, map => {
+              yield* Ref.update(cache, (map) => {
                 const newMap = new Map(map)
                 newMap.delete(key)
                 return newMap
@@ -260,8 +230,7 @@ const createResourceServiceImpl = (
           try {
             yield* Effect.gen(function* () {
               const service = {
-                load: (id: string, type: ResourceType, strategy?: LoadingStrategy, options?: any) =>
-                  loadResource(id, type, strategy, options)
+                load: (id: string, type: ResourceType, strategy?: LoadingStrategy, options?: any) => loadResource(id, type, strategy, options),
               } as any
               yield* service.load(item.id, item.type, 'preload', item.options)
               yield* updateStats({ preloadCount: 1 })
@@ -272,12 +241,7 @@ const createResourceServiceImpl = (
         }
       })
 
-    const loadResource = <T>(
-      id: string,
-      type: ResourceType,
-      strategy: LoadingStrategy = 'immediate',
-      options?: any
-    ): Effect.Effect<ManagedResource<T>, Error, never> =>
+    const loadResource = <T>(id: string, type: ResourceType, strategy: LoadingStrategy = 'immediate', options?: any): Effect.Effect<ManagedResource<T>, Error, never> =>
       Effect.gen(function* () {
         const cacheKey = generateCacheKey(id, type)
         const cached = (yield* Ref.get(cache)).get(cacheKey)
@@ -287,14 +251,12 @@ const createResourceServiceImpl = (
           const updatedMetadata: ResourceMetadata = {
             ...cached.metadata,
             lastAccessed: Date.now(),
-            accessCount: cached.metadata.accessCount + 1
+            accessCount: cached.metadata.accessCount + 1,
           }
 
           const updatedResource = { ...cached, metadata: updatedMetadata }
-          
-          yield* Ref.update(cache, map =>
-            new Map(map).set(cacheKey, updatedResource)
-          )
+
+          yield* Ref.update(cache, (map) => new Map(map).set(cacheKey, updatedResource))
 
           yield* updateStats({ hitRate: 0.1 }) // Increment hit rate
           return updatedResource as ManagedResource<T>
@@ -315,9 +277,7 @@ const createResourceServiceImpl = (
         const size = loader.getSize(data)
 
         // Compress if enabled and supported
-        const finalData = config.compressionEnabled && loader.compress
-          ? yield* loader.compress(data)
-          : data
+        const finalData = config.compressionEnabled && loader.compress ? yield* loader.compress(data) : data
 
         const metadata: ResourceMetadata = {
           id,
@@ -326,7 +286,7 @@ const createResourceServiceImpl = (
           lastAccessed: Date.now(),
           accessCount: 1,
           priority: options?.priority || 'medium',
-          tags: options?.tags || []
+          tags: options?.tags || [],
         }
 
         const managedResource: ManagedResource<T> = {
@@ -334,7 +294,7 @@ const createResourceServiceImpl = (
           data: finalData,
           dispose: Effect.gen(function* () {
             yield* loader.unload(finalData)
-          })
+          }),
         }
 
         // Check if we need to evict before adding
@@ -344,15 +304,13 @@ const createResourceServiceImpl = (
         }
 
         // Add to cache
-        yield* Ref.update(cache, map =>
-          new Map(map).set(cacheKey, managedResource)
-        )
+        yield* Ref.update(cache, (map) => new Map(map).set(cacheKey, managedResource))
 
         // Update stats
         const memoryMB = yield* calculateMemoryUsage()
-        yield* updateStats({ 
+        yield* updateStats({
           totalItems: 1,
-          totalMemoryMB: memoryMB
+          totalMemoryMB: memoryMB,
         })
 
         return managedResource
@@ -364,8 +322,7 @@ const createResourceServiceImpl = (
     }
 
     return {
-      registerLoader: <T>(type: ResourceType, loader: ResourceLoader<T>) =>
-        Ref.update(loaders, map => new Map(map).set(type, loader)),
+      registerLoader: <T>(type: ResourceType, loader: ResourceLoader<T>) => Ref.update(loaders, (map) => new Map(map).set(type, loader)),
 
       load: loadResource,
 
@@ -385,16 +342,16 @@ const createResourceServiceImpl = (
 
           if (resource) {
             yield* resource.dispose
-            yield* Ref.update(cache, map => {
+            yield* Ref.update(cache, (map) => {
               const newMap = new Map(map)
               newMap.delete(cacheKey)
               return newMap
             })
 
             const memoryMB = yield* calculateMemoryUsage()
-            yield* updateStats({ 
+            yield* updateStats({
               totalItems: -1,
-              totalMemoryMB: memoryMB
+              totalMemoryMB: memoryMB,
             })
           }
         }),
@@ -429,7 +386,7 @@ const createResourceServiceImpl = (
                   evicted++
                 }
               }
-              yield* Ref.update(cache, map => {
+              yield* Ref.update(cache, (map) => {
                 const newMap = new Map()
                 for (const [key, resource] of map.entries()) {
                   if (resource.metadata.priority === 'critical') {
@@ -460,7 +417,7 @@ const createResourceServiceImpl = (
             missCount: 0,
             evictionCount: 0,
             preloadCount: 0,
-            compressionRatio: 0
+            compressionRatio: 0,
           })
         }),
 
@@ -492,18 +449,18 @@ const createResourceServiceImpl = (
         Effect.gen(function* () {
           const cacheMap = yield* Ref.get(cache)
           const currentStats = yield* Ref.get(stats)
-          
-          const resources = Array.from(cacheMap.values()).map(resource => ({
+
+          const resources = Array.from(cacheMap.values()).map((resource) => ({
             id: resource.metadata.id,
             type: resource.metadata.type,
-            size: resource.metadata.size
+            size: resource.metadata.size,
           }))
 
           return {
             resources,
-            stats: currentStats
+            stats: currentStats,
           }
-        })
+        }),
     }
   })
 
@@ -516,17 +473,13 @@ export const defaultResourceConfig: ResourceCacheConfig = {
   ttlMs: 5 * 60 * 1000, // 5 minutes
   enableLRU: true,
   enablePreloading: true,
-  compressionEnabled: false
+  compressionEnabled: false,
 }
 
 /**
  * Resource Service Layer implementation
  */
-export const ResourceServiceLive = (config: ResourceCacheConfig = defaultResourceConfig) =>
-  Layer.effect(
-    ResourceService,
-    createResourceServiceImpl(config)
-  )
+export const ResourceServiceLive = (config: ResourceCacheConfig = defaultResourceConfig) => Layer.effect(ResourceService, createResourceServiceImpl(config))
 
 /**
  * Resource utilities
@@ -534,7 +487,7 @@ export const ResourceServiceLive = (config: ResourceCacheConfig = defaultResourc
 export const withResource = <T, R, E>(
   id: string,
   type: ResourceType,
-  fn: (resource: ManagedResource<T>) => Effect.Effect<R, E, never>
+  fn: (resource: ManagedResource<T>) => Effect.Effect<R, E, never>,
 ): Effect.Effect<R, E | Error, ResourceService> =>
   Effect.gen(function* () {
     const service = yield* ResourceService
@@ -545,18 +498,16 @@ export const withResource = <T, R, E>(
 /**
  * Batch load multiple resources
  */
-export const loadBatch = (
-  resources: Array<{ id: string; type: ResourceType; options?: any }>
-): Effect.Effect<ManagedResource<any>[], Error, ResourceService> =>
+export const loadBatch = (resources: Array<{ id: string; type: ResourceType; options?: any }>): Effect.Effect<ManagedResource<any>[], Error, ResourceService> =>
   Effect.gen(function* () {
     const service = yield* ResourceService
     const results: ManagedResource<any>[] = []
-    
+
     for (const resource of resources) {
       const loaded = yield* service.load(resource.id, resource.type, 'immediate', resource.options)
       results.push(loaded)
     }
-    
+
     return results
   })
 

@@ -1,27 +1,21 @@
-import { Effect, Context } from 'effect'
-import { World } from '@/infrastructure/layers'
+import { Effect, Context, Layer, Ref } from 'effect'
+import { QueryHandlers } from '@/application/handlers/query-handlers'
 
 /**
- * Player Status View Model
+ * Player Status View Model - Simplified
  * プレイヤーの状態情報をプレゼンテーション層向けに変換・提供
- * 健康状態、位置、インベントリなどの表示用データを整形
+ * クエリハンドラーからデータを取得し、表示用に変換
  */
 export interface PlayerStatusViewModelInterface {
-  readonly getPlayerStatus: () => Effect.Effect<PlayerStatusView, never, never>
-  readonly getPlayerPosition: () => Effect.Effect<Position3D, never, never>
-  readonly getPlayerHealth: () => Effect.Effect<HealthStatus, never, never>
-  readonly getPlayerInventory: () => Effect.Effect<InventoryView, never, never>
+  readonly getPlayerStatus: (entityId: string) => Effect.Effect<PlayerStatusView, Error, never>
+  readonly updateLocalState: (entityId: string) => Effect.Effect<void, Error, never>
 }
 
 export interface PlayerStatusView {
   readonly position: Position3D
-  readonly rotation: Rotation3D
   readonly health: HealthStatus
-  readonly inventory: InventoryView
   readonly isOnGround: boolean
-  readonly isInWater: boolean
   readonly currentBiome: string
-  readonly lightLevel: number
 }
 
 export interface Position3D {
@@ -31,12 +25,6 @@ export interface Position3D {
   readonly formatted: string // "X: 123, Y: 64, Z: -456"
 }
 
-export interface Rotation3D {
-  readonly pitch: number
-  readonly yaw: number
-  readonly roll: number
-}
-
 export interface HealthStatus {
   readonly current: number
   readonly maximum: number
@@ -44,114 +32,53 @@ export interface HealthStatus {
   readonly status: 'healthy' | 'injured' | 'critical' | 'dead'
 }
 
-export interface InventoryView {
-  readonly totalSlots: number
-  readonly usedSlots: number
-  readonly freeSlots: number
-  readonly hotbar: InventoryItem[]
-  readonly items: InventoryItem[]
-}
-
-export interface InventoryItem {
-  readonly id: string
-  readonly type: string
-  readonly name: string
-  readonly count: number
-  readonly maxStack: number
-  readonly durability?: number
-  readonly maxDurability?: number
-}
-
 const PlayerStatusViewModelLive = Effect.gen(function* ($) {
-  const world = yield* $(World)
+  const queryHandlers = yield* $(QueryHandlers)
 
-  const getPlayerStatus = () =>
+  // 表示用の純粋変換関数
+  const formatPosition = (pos: { x: number; y: number; z: number }): Position3D => ({
+    ...pos,
+    formatted: `X: ${Math.round(pos.x)}, Y: ${Math.round(pos.y)}, Z: ${Math.round(pos.z)}`,
+  })
+
+  const calculateHealthStatus = (current: number, maximum: number): HealthStatus => {
+    const percentage = Math.round((current / maximum) * 100)
+    let status: HealthStatus['status'] = 'healthy'
+
+    if (current <= 0) status = 'dead'
+    else if (percentage <= 25) status = 'critical'
+    else if (percentage <= 50) status = 'injured'
+
+    return { current, maximum, percentage, status }
+  }
+
+  const getPlayerStatus = (entityId: string) =>
     Effect.gen(function* ($) {
-      // Since the current World service doesn't have player query functionality,
-      // we'll return default values for now. This would need to be connected
-      // to a proper entity/player management system.
-      return createDefaultPlayerStatus()
+      // クエリハンドラーからプレイヤーデータを取得
+      const playerData = yield* $(queryHandlers.getPlayerState({ entityId }))
+
+      // 表示用データ変換（純粋な変換処理のみ）
+      return {
+        position: formatPosition(playerData.position),
+        health: calculateHealthStatus(playerData.health, 20), // デフォルト最大値
+        isOnGround: true, // プレイヤーデータから取得すべき
+        currentBiome: 'Plains', // ワールドデータから取得すべき
+      }
     })
 
-  const getPlayerPosition = () =>
+  const updateLocalState = (entityId: string) =>
     Effect.gen(function* ($) {
-      const status = yield* $(getPlayerStatus())
-      return status.position
-    })
-
-  const getPlayerHealth = () =>
-    Effect.gen(function* ($) {
-      const status = yield* $(getPlayerStatus())
-      return status.health
-    })
-
-  const getPlayerInventory = () =>
-    Effect.gen(function* ($) {
-      const status = yield* $(getPlayerStatus())
-      return status.inventory
+      // 必要に応じてローカル表示状態を更新
+      // 現在は何もしない（将来の拡張用）
+      yield* $(Effect.log(`Local state updated for player ${entityId}`))
     })
 
   return {
     getPlayerStatus,
-    getPlayerPosition,
-    getPlayerHealth,
-    getPlayerInventory,
+    updateLocalState,
   }
 })
 
-// ヘルパー関数
-const getHealthStatus = (current: number, maximum: number): HealthStatus['status'] => {
-  const percentage = (current / maximum) * 100
-  if (current <= 0) return 'dead'
-  if (percentage <= 25) return 'critical'
-  if (percentage <= 50) return 'injured'
-  return 'healthy'
-}
-
-const formatInventoryItem = (item: any): InventoryItem => ({
-  id: item.id || 'unknown',
-  type: item.type || 'item',
-  name: item.name || 'Unknown Item',
-  count: item.count || 1,
-  maxStack: item.maxStack || 64,
-  durability: item.durability,
-  maxDurability: item.maxDurability,
-})
-
-const createDefaultPlayerStatus = (): PlayerStatusView => ({
-  position: {
-    x: 0,
-    y: 0,
-    z: 0,
-    formatted: 'X: 0, Y: 0, Z: 0',
-  },
-  rotation: {
-    pitch: 0,
-    yaw: 0,
-    roll: 0,
-  },
-  health: {
-    current: 20,
-    maximum: 20,
-    percentage: 100,
-    status: 'healthy',
-  },
-  inventory: {
-    totalSlots: 36,
-    usedSlots: 0,
-    freeSlots: 36,
-    hotbar: [],
-    items: [],
-  },
-  isOnGround: true,
-  isInWater: false,
-  currentBiome: 'Plains',
-  lightLevel: 15,
-})
-
-export class PlayerStatusViewModel extends Context.GenericTag('PlayerStatusViewModel')<
-  PlayerStatusViewModel,
-  PlayerStatusViewModelInterface
->() {
-  static readonly Live = PlayerStatusViewModelLive.pipe(Effect.map(PlayerStatusViewModel.of))
+export class PlayerStatusViewModel extends Context.GenericTag('PlayerStatusViewModel')<PlayerStatusViewModel, PlayerStatusViewModelInterface>() {
+  static readonly Live: Layer.Layer<PlayerStatusViewModel, never, QueryHandlers> = Layer.effect(PlayerStatusViewModel, PlayerStatusViewModelLive)
 }

@@ -106,54 +106,46 @@ export const InputError = defineError<{
 /**
  * Utility function to create error hierarchy chain
  */
-export function createErrorChain(
-  errors: Array<TaggedError<string, BaseErrorData>>
-): TaggedError<string, BaseErrorData & { chain: Array<string> }> {
-  const chain = errors.map(error => error._tag)
-  
-  const ErrorChainConstructor = defineError<{ chain: Array<string> }>(
-    'ErrorChain',
-    GameError,
-    'terminate',
-    'critical'
+export function createErrorChain(errors: Array<TaggedError<string, BaseErrorData>>): TaggedError<string, BaseErrorData & { chain: Array<string> }> {
+  const chain = errors.map((error) => error._tag)
+
+  const ErrorChainConstructor = defineError<{ chain: Array<string> }>('ErrorChain', GameError, 'terminate', 'critical')
+
+  return new ErrorChainConstructor(
+    { chain },
+    {
+      metadata: {
+        originalErrors: errors.map((e) => ({ type: e._tag, message: JSON.stringify(e) })),
+      },
+    },
   )
-  
-  return new ErrorChainConstructor({ chain }, { 
-    metadata: { 
-      originalErrors: errors.map(e => ({ type: e._tag, message: JSON.stringify(e) }))
-    }
-  })
 }
 
 /**
  * Error hierarchy validation
  */
-export function validateErrorHierarchy(
-  error: TaggedError<string, BaseErrorData>
-): boolean {
+export function validateErrorHierarchy(error: TaggedError<string, BaseErrorData>): boolean {
   // Check if error has proper context
   if (!error.context) return false
-  
+
   // Check if error has timestamp
   if (!error.context.timestamp) return false
-  
+
   // Check if error has recovery strategy
   if (!error.context.recoveryStrategy) return false
-  
+
   // Check if error has severity
   if (!error.context.severity) return false
-  
+
   return true
 }
 
 /**
  * Get error ancestry chain
  */
-export function getErrorAncestry(
-  error: TaggedError<string, BaseErrorData>
-): string[] {
+export function getErrorAncestry(error: TaggedError<string, BaseErrorData>): string[] {
   const ancestry: string[] = [error._tag]
-  
+
   // Use prototype chain to trace ancestry
   let currentProto = Object.getPrototypeOf(error.constructor)
   while (currentProto && currentProto.name !== 'Object') {
@@ -162,6 +154,6 @@ export function getErrorAncestry(
     }
     currentProto = Object.getPrototypeOf(currentProto)
   }
-  
+
   return ancestry.reverse()
 }

@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { Archetype, createArchetype } from './domain/archetypes'
-import { WorldService } from './application/services/world.service'
+import { World } from '@/infrastructure/layers/unified.layer'
 import { getAppLayer } from './layers'
 import { blockInteractionSystem } from './application/commands/block-interaction'
 import { playerMovementSystem } from './application/commands/player-movement'
@@ -8,18 +8,13 @@ import { chunkLoadingSystem } from './application/workflows/chunk-loading'
 import { worldUpdateSystem } from './application/workflows/world-update'
 
 // Simplified game systems for initial integration
-export const gameSystems = [
-  playerMovementSystem,
-  blockInteractionSystem,
-  chunkLoadingSystem,
-  worldUpdateSystem,
-]
+export const gameSystems = [playerMovementSystem, blockInteractionSystem, chunkLoadingSystem, worldUpdateSystem]
 
 // Simplified game loop for testing
 const gameLoop = (systems: Array<(context?: any) => Effect.Effect<void>>) =>
   Effect.gen(function* () {
     console.log('Starting game loop with', systems.length, 'systems')
-    
+
     // For now, just run systems once to verify they can be instantiated
     for (const system of systems) {
       try {
@@ -33,33 +28,27 @@ const gameLoop = (systems: Array<(context?: any) => Effect.Effect<void>>) =>
 
 export const main = (player: Archetype) =>
   Effect.gen(function* () {
-    const worldService = yield* WorldService
-    
+    const world = yield* World
+
     console.log('Application starting with player:', player)
-    
-    // Load initial chunk around player
-    const playerChunk = { 
-      x: Math.floor(player.pos.x / 16), 
-      z: Math.floor(player.pos.z / 16) 
-    }
-    
-    const chunkLoadResult = yield* worldService.loadChunk(playerChunk)
-    console.log('Initial chunk loaded:', chunkLoadResult)
-    
+
+    // Initialize world
+    yield* world.initialize()
+
     // Run simplified game loop
     yield* gameLoop(gameSystems)
   })
 
 const initialize = Effect.gen(function* () {
   console.log('Initializing TypeScript Minecraft...')
-  
+
   const player = yield* createArchetype({
     type: 'player',
     pos: { x: 0, y: 80, z: 0 },
   })
-  
+
   console.log('Player created:', player)
-  
+
   yield* main(player)
 })
 
@@ -78,6 +67,6 @@ if (import.meta.env.PROD) {
   // Development mode - run with error handling
   Effect.runPromise(AppLive).then(
     () => console.log('Application completed successfully'),
-    (error) => console.error('Application failed:', error)
+    (error) => console.error('Application failed:', error),
   )
 }

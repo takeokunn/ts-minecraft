@@ -1,6 +1,6 @@
 /**
  * Domain Services - Pure business logic services without infrastructure dependencies
- * 
+ *
  * This module exports domain services that contain the core business logic
  * of the Minecraft game, following DDD (Domain-Driven Design) principles.
  * All services are pure domain logic with port interfaces for external dependencies.
@@ -53,27 +53,24 @@ export type {
 
 // Raycast Domain Service
 export { RaycastDomainService } from './raycast-domain.service'
-export type { 
-  Ray,
-  RayHit,
-  GeometryPort,
-  AABB as RaycastAABB
-} from './raycast-domain.service'
+export type { Ray, RayHit, GeometryPort, AABB as RaycastAABB } from './raycast-domain.service'
 
 // World Domain Service
 export { WorldDomainService, WorldDomainServiceLive } from './world-domain.service'
-export type {
-  WorldState,
-  WorldRepositoryPort,
-  ChunkRepositoryPort
-} from './world-domain.service'
+export type { WorldState, WorldRepositoryPort, ChunkRepositoryPort } from './world-domain.service'
 
 // Camera Logic Service
 export { CameraLogic } from './camera-logic'
-export type {
-  CameraConfig,
-  CameraState,
-  CameraUpdates,
-  ViewMatrix,
-  ProjectionMatrix,
-} from './camera-logic'
+export type { CameraConfig, CameraState, CameraUpdates, ViewMatrix, ProjectionMatrix } from './camera-logic'
+
+// Domain Systems (updated naming convention)
+export { collisionSystem } from './collision-system.service'
+export { cameraControlSystem } from './camera-control.service'
+export { spatialGridSystem } from './spatial-grid-system.service'
+export { targetingSystem } from './targeting.service'
+
+// Advanced systems
+export * from './targeting-advanced.service'
+
+// ECS services
+export * from './ecs'

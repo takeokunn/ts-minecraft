@@ -108,10 +108,10 @@ export class EntityInspector {
 
     controls.appendChild(refreshButton)
     controls.appendChild(closeButton)
-    
+
     header.appendChild(title)
     header.appendChild(controls)
-    
+
     this.inspectorElement!.appendChild(header)
   }
 
@@ -167,7 +167,7 @@ export class EntityInspector {
 
     content.appendChild(leftPanel)
     content.appendChild(this.detailsElement)
-    
+
     this.inspectorElement!.appendChild(content)
   }
 
@@ -213,7 +213,7 @@ export class EntityInspector {
     // 実際のエンティティを取得（実装依存）
     const entities = this.getEntities()
 
-    entities.forEach(entity => {
+    entities.forEach((entity) => {
       const entityElement = document.createElement('div')
       entityElement.style.cssText = `
         padding: 5px;
@@ -285,7 +285,7 @@ export class EntityInspector {
     // コンポーネント表示
     if (entity.components.length > 0) {
       html += '<h4 style="color: #0cf; margin: 15px 0 10px 0;">Components</h4>'
-      
+
       entity.components.forEach((component, index) => {
         const componentName = component.constructor?.name || `Component ${index}`
         html += `
@@ -342,26 +342,26 @@ export class EntityInspector {
         components: [
           { type: 'Position', x: 0, y: 0, z: 0 },
           { type: 'Velocity', x: 0, y: 0, z: 0 },
-          { type: 'Player', health: 100 }
+          { type: 'Player', health: 100 },
         ],
         position: { x: 0, y: 0, z: 0 },
-        active: true
+        active: true,
       },
       {
         id: 'block-1',
         name: 'Block',
         components: [
           { type: 'Position', x: 5, y: 0, z: 5 },
-          { type: 'Block', blockType: 'stone' }
+          { type: 'Block', blockType: 'stone' },
         ],
         position: { x: 5, y: 0, z: 5 },
-        active: true
-      }
+        active: true,
+      },
     ]
   }
 
   private getEntityById(id: string): EntityInfo | null {
-    return this.getEntities().find(e => e.id === id) || null
+    return this.getEntities().find((e) => e.id === id) || null
   }
 
   // エンティティ操作メソッド
@@ -398,18 +398,16 @@ export class EntityInspector {
 
   // エンティティ検索機能
   findEntitiesByComponent(componentType: string): EntityInfo[] {
-    return this.getEntities().filter(entity => 
-      entity.components.some(comp => comp.type === componentType)
-    )
+    return this.getEntities().filter((entity) => entity.components.some((comp) => comp.type === componentType))
   }
 
   // エンティティ統計
   getEntityStats(): any {
     const entities = this.getEntities()
     const componentCount = new Map<string, number>()
-    
-    entities.forEach(entity => {
-      entity.components.forEach(comp => {
+
+    entities.forEach((entity) => {
+      entity.components.forEach((comp) => {
         const type = comp.type || 'Unknown'
         componentCount.set(type, (componentCount.get(type) || 0) + 1)
       })
@@ -417,8 +415,8 @@ export class EntityInspector {
 
     return {
       totalEntities: entities.length,
-      activeEntities: entities.filter(e => e.active).length,
-      componentTypes: Array.from(componentCount.entries()).map(([type, count]) => ({ type, count }))
+      activeEntities: entities.filter((e) => e.active).length,
+      componentTypes: Array.from(componentCount.entries()).map(([type, count]) => ({ type, count })),
     }
   }
 }

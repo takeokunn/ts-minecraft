@@ -79,9 +79,9 @@ export const chunkLoadingWorkflow = Effect.gen(function* (_) {
 
   // Get current player position
   const playerPosition = yield* _(worldService.getPlayerPosition())
-  
+
   if (!playerPosition) {
-    yield* _(Effect.log("No player position found, skipping chunk loading"))
+    yield* _(Effect.log('No player position found, skipping chunk loading'))
     return
   }
 
@@ -89,16 +89,11 @@ export const chunkLoadingWorkflow = Effect.gen(function* (_) {
 
   // Get currently loaded chunks
   const loadedChunks = yield* _(worldService.getLoadedChunks())
-  const loadedChunkMap = HashMap.fromIterable(
-    loadedChunks.map(chunk => [
-      ChunkCoord.asString({ x: chunk.chunkX, z: chunk.chunkZ }), 
-      chunk
-    ])
-  )
+  const loadedChunkMap = HashMap.fromIterable(loadedChunks.map((chunk) => [ChunkCoord.asString({ x: chunk.chunkX, z: chunk.chunkZ }), chunk]))
 
   const { toLoad, toUnload } = calculateChunkUpdates(
     currentPlayerChunk,
-    HashMap.map(loadedChunkMap, chunk => chunk.chunkX.toString()), // Convert to simple mapping for compatibility
+    HashMap.map(loadedChunkMap, (chunk) => chunk.chunkX.toString()), // Convert to simple mapping for compatibility
     RENDER_DISTANCE,
   )
 
@@ -106,24 +101,19 @@ export const chunkLoadingWorkflow = Effect.gen(function* (_) {
   yield* _(
     Effect.forEach(
       toLoad,
-      (coord) => chunkLoadUseCase.execute({
-        chunkX: coord.x,
-        chunkZ: coord.z,
-        priority: "medium",
-        requesterId: "chunk-loading-workflow"
-      }),
-      { concurrency: 4, discard: true }
-    )
+      (coord) =>
+        chunkLoadUseCase.execute({
+          chunkX: coord.x,
+          chunkZ: coord.z,
+          priority: 'medium',
+          requesterId: 'chunk-loading-workflow',
+        }),
+      { concurrency: 4, discard: true },
+    ),
   )
 
   // Unload distant chunks
-  yield* _(
-    Effect.forEach(
-      toUnload,
-      (entityId) => worldService.unloadChunk(entityId),
-      { concurrency: 4, discard: true }
-    )
-  )
+  yield* _(Effect.forEach(toUnload, (entityId) => worldService.unloadChunk(entityId), { concurrency: 4, discard: true }))
 
   yield* _(Effect.log(`Chunk loading workflow completed: ${toLoad.length} loaded, ${toUnload.length} unloaded`))
 })

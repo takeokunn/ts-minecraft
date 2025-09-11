@@ -1,6 +1,6 @@
 /**
  * Unified error system for ts-minecraft
- * 
+ *
  * Features:
  * - Hierarchical error structure with Data.TaggedError base
  * - Automatic error generation with defineError function
@@ -187,15 +187,7 @@ import {
   WorkerTimeoutError,
 } from './worker-errors'
 
-export {
-  WorkerCommunicationError,
-  WorkerTaskFailedError,
-  WorkerInitializationError,
-  WorkerPoolExhaustedError,
-  WorkerTerminatedError,
-  WorkerDataTransferError,
-  WorkerTimeoutError,
-}
+export { WorkerCommunicationError, WorkerTaskFailedError, WorkerInitializationError, WorkerPoolExhaustedError, WorkerTerminatedError, WorkerDataTransferError, WorkerTimeoutError }
 
 // Rendering subsystem errors
 import {
@@ -208,15 +200,7 @@ import {
   GraphicsContextError,
 } from './rendering-errors'
 
-export {
-  TextureNotFoundError,
-  MaterialNotFoundError,
-  ShaderCompilationError,
-  BufferAllocationError,
-  RenderTargetError,
-  MeshDataError,
-  GraphicsContextError,
-}
+export { TextureNotFoundError, MaterialNotFoundError, ShaderCompilationError, BufferAllocationError, RenderTargetError, MeshDataError, GraphicsContextError }
 
 // Resource and input errors
 import {
@@ -230,16 +214,7 @@ import {
   ResourcePermissionError,
 } from './resource-errors'
 
-export {
-  ResourceNotFoundError,
-  ResourceLoadError,
-  ValidationError,
-  ResourceCacheError,
-  UnsupportedFormatError,
-  InputNotAvailableError,
-  AssetBundleError,
-  ResourcePermissionError,
-}
+export { ResourceNotFoundError, ResourceLoadError, ValidationError, ResourceCacheError, UnsupportedFormatError, InputNotAvailableError, AssetBundleError, ResourcePermissionError }
 
 // Base type for our error interface
 type TaggedError<Tag extends string, Value> = {
@@ -287,10 +262,7 @@ export function isCriticalError(error: AllGameErrors): boolean {
 /**
  * Create a typed error handler for specific error types
  */
-export function createTypedErrorHandler<T extends AllGameErrors>(
-  errorType: string,
-  handler: (error: T) => void
-) {
+export function createTypedErrorHandler<T extends AllGameErrors>(errorType: string, handler: (error: T) => void) {
   return (error: AllGameErrors) => {
     if (error._tag === errorType) {
       handler(error as T)
@@ -318,18 +290,18 @@ export function generateDetailedErrorReport(): {
 } {
   const report = globalErrorAggregator.generateReport()
   const errors = globalErrorAggregator.getErrors()
-  
+
   const recoverabilityStats = {
     recoverable: errors.filter((e: any) => isRecoverableError(e)).length,
     nonRecoverable: errors.filter((e: any) => !isRecoverableError(e)).length,
   }
-  
+
   const criticalErrors = report.criticalErrors.map((error: any) => ({
     type: error._tag,
     message: JSON.stringify(error),
     timestamp: error.context.timestamp.toISOString(),
   }))
-  
+
   return {
     timestamp: new Date().toISOString(),
     totalErrors: report.totalErrors,

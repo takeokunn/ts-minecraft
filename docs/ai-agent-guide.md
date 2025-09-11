@@ -3,6 +3,7 @@
 ## 🎯 Quick Reference
 
 ### Essential Commands
+
 ```bash
 pnpm install         # Install dependencies
 pnpm dev            # Start dev server
@@ -81,12 +82,12 @@ export const MyServiceLive = Layer.effect(
   Effect.gen(function* () {
     // Initialize resources
     const resource = yield* initResource()
-    
+
     return MyService.of({
       doSomething: (input) => Effect.sync(() => console.log(input)),
-      getData: () => Effect.succeed("data"),
+      getData: () => Effect.succeed('data'),
     })
-  })
+  }),
 )
 ```
 
@@ -100,7 +101,7 @@ export type EntityId = string & Brand.Brand<'EntityId'>
 export const EntityId = Brand.nominal<EntityId>()
 
 // Use in code
-const id = EntityId('entity-123')  // Type-safe ID
+const id = EntityId('entity-123') // Type-safe ID
 
 // Validate at runtime
 const validateId = (value: unknown): EntityId => {
@@ -125,7 +126,7 @@ export class Position extends Data.Class<{
     y: S.Number,
     z: S.Number,
   })
-  
+
   translate(dx: number, dy: number, dz: number): Position {
     return new Position({
       x: this.x + dx,
@@ -143,25 +144,22 @@ export const physicsSystem = Effect.gen(function* () {
   const world = yield* World
   const clock = yield* Clock
   const deltaTime = yield* Ref.get(clock.deltaTime)
-  
+
   const { entities, components } = yield* world.querySoA(physicsQuery)
-  
+
   yield* Effect.forEach(
     entities,
-    (entityId, i) => Effect.gen(function* () {
-      const position = components.position[i]
-      const velocity = components.velocity[i]
-      
-      // Update position based on velocity
-      const newPosition = position.translate(
-        velocity.dx * deltaTime,
-        velocity.dy * deltaTime,
-        velocity.dz * deltaTime
-      )
-      
-      yield* world.updateComponent(entityId, 'position', newPosition)
-    }),
-    { concurrency: 'inherit' }
+    (entityId, i) =>
+      Effect.gen(function* () {
+        const position = components.position[i]
+        const velocity = components.velocity[i]
+
+        // Update position based on velocity
+        const newPosition = position.translate(velocity.dx * deltaTime, velocity.dy * deltaTime, velocity.dz * deltaTime)
+
+        yield* world.updateComponent(entityId, 'position', newPosition)
+      }),
+    { concurrency: 'inherit' },
   )
 })
 ```
@@ -171,6 +169,7 @@ export const physicsSystem = Effect.gen(function* () {
 ### Adding a New Component
 
 1. Define schema in `src/domain/components/`:
+
 ```typescript
 export class Health extends Data.Class<{
   readonly current: number
@@ -190,6 +189,7 @@ export class Health extends Data.Class<{
 ### Adding a New System
 
 1. Create in `src/systems/`:
+
 ```typescript
 export const healthSystem = Effect.gen(function* () {
   const world = yield* World
@@ -202,33 +202,35 @@ export const healthSystem = Effect.gen(function* () {
 ### Adding a New Service
 
 1. Define in `src/runtime/services.ts`:
+
 ```typescript
-export class AudioService extends Context.GenericTag('AudioService')<
-  AudioService,
-  { playSound: (name: string) => Effect.Effect<void> }
->() {}
+export class AudioService extends Context.GenericTag('AudioService')<AudioService, { playSound: (name: string) => Effect.Effect<void> }>() {}
 ```
 
 2. Implement in `src/infrastructure/`:
+
 ```typescript
 export const AudioServiceLive = Layer.effect(
   AudioService,
   Effect.gen(function* () {
     // Implementation
-  })
+  }),
 )
 ```
 
 ## ⚠️ Critical Rules
 
 ### NEVER DO THIS:
+
 ```typescript
 // ❌ async/await
-async function bad() { await promise }
+async function bad() {
+  await promise
+}
 
 // ❌ Classes with methods
 class Bad {
-  method() { } // NO!
+  method() {} // NO!
 }
 
 // ❌ Mutations
@@ -242,13 +244,15 @@ let x: any = 123 // NO!
 throw new Error() // Use Effect.fail()
 
 // ❌ Direct try/catch
-try { } catch { } // Use Effect.catchAll()
+try {
+} catch {} // Use Effect.catchAll()
 ```
 
 ### ALWAYS DO THIS:
+
 ```typescript
 // ✅ Effect for async
-Effect.gen(function* () { })
+Effect.gen(function* () {})
 
 // ✅ Data.Class for objects
 class Good extends Data.Class<{ value: number }> {}
@@ -270,6 +274,7 @@ effect.pipe(Effect.catchAll(handler))
 ## 🧪 Testing Requirements
 
 ### Test Structure
+
 ```typescript
 import { describe, it, assert } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
@@ -279,36 +284,40 @@ describe('MyFeature', () => {
     Effect.gen(function* () {
       // Test logic
       assert.equal(result, expected)
-    }).pipe(Effect.provide(TestLayer))
+    }).pipe(Effect.provide(TestLayer)),
   )
 })
 ```
 
 ### Test Services
+
 ```typescript
 const TestService = Layer.succeed(
   MyService,
   MyService.of({
-    method: () => Effect.succeed(mockValue)
-  })
+    method: () => Effect.succeed(mockValue),
+  }),
 )
 ```
 
 ## 🚀 Performance Guidelines
 
 1. **Use SoA queries** for cache efficiency:
+
 ```typescript
-const { entities, components } = yield* world.querySoA(query)
+const { entities, components } = yield * world.querySoA(query)
 ```
 
 2. **Batch operations**:
+
 ```typescript
 Effect.all(operations, { concurrency: 'unbounded' })
 ```
 
 3. **Use workers** for heavy computation:
+
 ```typescript
-yield* worker.postTask({ type: 'generateTerrain' })
+yield * worker.postTask({ type: 'generateTerrain' })
 ```
 
 4. **Spatial indexing** for collision detection
@@ -332,7 +341,7 @@ Effect.logDebug('message')
 // Tap for side effects
 pipe(
   effect,
-  Effect.tap((value) => Effect.log('Value:', value))
+  Effect.tap((value) => Effect.log('Value:', value)),
 )
 ```
 
@@ -349,7 +358,7 @@ pipe(
 ## 🚫 Common Pitfalls
 
 1. **Mixing Effect with Promises** - Never use `.then()` with Effect
-2. **Forgetting to yield*** - Always yield Effect operations
+2. **Forgetting to yield\*** - Always yield Effect operations
 3. **Wrong service provision** - Ensure all services are provided
 4. **Mutable operations** - Always create new objects
 5. **Missing error handling** - Always handle Effect errors

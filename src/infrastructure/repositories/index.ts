@@ -1,6 +1,6 @@
 /**
  * Infrastructure Repositories - Central exports for all repository implementations
- * 
+ *
  * This module provides a unified interface to all repository implementations,
  * following the Repository pattern to isolate data access concerns from
  * the domain layer. Repositories implement domain port interfaces and
@@ -8,13 +8,7 @@
  */
 
 // World Repository
-export {
-  WorldRepositoryImpl,
-  WorldRepositoryService,
-  WorldRepositoryLive,
-  WorldRepositoryUtils,
-  type IWorldRepository
-} from './world.repository'
+export { WorldRepositoryImpl, WorldRepositoryService, WorldRepositoryLive, WorldRepositoryUtils, type IWorldRepository } from './world.repository'
 
 // Entity Repository
 export {
@@ -24,7 +18,7 @@ export {
   type IEntityRepository,
   type EntityMetadata,
   type EntityQueryOptions,
-  type EntityChange
+  type EntityChange,
 } from './entity.repository'
 
 // Chunk Repository
@@ -36,7 +30,7 @@ export {
   type ChunkMetadata,
   type ChunkQueryOptions,
   type ChunkStats,
-  type ChunkChange
+  type ChunkChange,
 } from './chunk.repository'
 
 /**
@@ -50,35 +44,22 @@ import { ChunkRepositoryLive } from './chunk.repository'
 /**
  * Complete repository layer with all implementations
  */
-export const AllRepositories = Layer.mergeAll(
-  WorldRepositoryLive,
-  EntityRepositoryLive,
-  ChunkRepositoryLive
-)
+export const AllRepositories = Layer.mergeAll(WorldRepositoryLive, EntityRepositoryLive, ChunkRepositoryLive)
 
 /**
  * Core repositories needed for basic gameplay
  */
-export const CoreRepositories = Layer.mergeAll(
-  WorldRepositoryLive,
-  EntityRepositoryLive
-)
+export const CoreRepositories = Layer.mergeAll(WorldRepositoryLive, EntityRepositoryLive)
 
 /**
  * World-focused repositories for terrain and chunk management
  */
-export const WorldRepositories = Layer.mergeAll(
-  WorldRepositoryLive,
-  ChunkRepositoryLive
-)
+export const WorldRepositories = Layer.mergeAll(WorldRepositoryLive, ChunkRepositoryLive)
 
 /**
  * Entity-focused repositories for gameplay systems
  */
-export const EntityRepositories = Layer.mergeAll(
-  WorldRepositoryLive,
-  EntityRepositoryLive
-)
+export const EntityRepositories = Layer.mergeAll(WorldRepositoryLive, EntityRepositoryLive)
 
 /**
  * Repository utilities and helpers
@@ -99,7 +80,7 @@ export const RepositoryUtils = {
       worldRepository: 0,
       entityRepository: 0,
       chunkRepository: 0,
-      total: 0
+      total: 0,
     }
   },
 
@@ -124,7 +105,7 @@ export const RepositoryUtils = {
       version: '1.0.0',
       worldData: {},
       entityData: {},
-      chunkData: {}
+      chunkData: {},
     })
   },
 
@@ -152,7 +133,7 @@ export const RepositoryUtils = {
       worldRepository: true,
       entityRepository: true,
       chunkRepository: true,
-      errors: []
+      errors: [],
     }
   },
 
@@ -165,20 +146,20 @@ export const RepositoryUtils = {
       queryLatency: {
         world: { avg: 0, min: 0, max: 0 },
         entity: { avg: 0, min: 0, max: 0 },
-        chunk: { avg: 0, min: 0, max: 0 }
+        chunk: { avg: 0, min: 0, max: 0 },
       },
       operationCounts: {
         world: { read: 0, write: 0, delete: 0 },
         entity: { read: 0, write: 0, delete: 0 },
-        chunk: { read: 0, write: 0, delete: 0 }
+        chunk: { read: 0, write: 0, delete: 0 },
       },
       cacheHitRates: {
         world: 0,
         entity: 0,
-        chunk: 0
-      }
+        chunk: 0,
+      },
     }
-  }
+  },
 }
 
 /**
@@ -188,12 +169,7 @@ export const RepositoryFactory = {
   /**
    * Create repositories with custom configuration
    */
-  createWithConfig: (config: {
-    maxChangeHistory?: number
-    enableCaching?: boolean
-    compressionEnabled?: boolean
-    encryptionEnabled?: boolean
-  }) => {
+  createWithConfig: (config: { maxChangeHistory?: number; enableCaching?: boolean; compressionEnabled?: boolean; encryptionEnabled?: boolean }) => {
     // Implementation would create repositories with custom settings
     return AllRepositories
   },
@@ -220,7 +196,7 @@ export const RepositoryFactory = {
   createForTesting: () => {
     // Test-friendly repositories with predictable behavior
     return AllRepositories
-  }
+  },
 }
 
 /**
@@ -244,8 +220,8 @@ export const RepositoryHealth = {
       repositories: {
         world: { status: 'healthy' },
         entity: { status: 'healthy' },
-        chunk: { status: 'healthy' }
-      }
+        chunk: { status: 'healthy' },
+      },
     }
   },
 
@@ -260,7 +236,7 @@ export const RepositoryHealth = {
       errorRate: 0,
       averageResponseTime: 0,
       memoryUsage: 0,
-      diskUsage: 0
+      diskUsage: 0,
     }
-  }
+  },
 }

@@ -60,7 +60,7 @@ jobs:
           else
             COMMITS=$(git log ${LAST_TAG}..HEAD --oneline)
           fi
-          
+
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "should-release=true" >> $GITHUB_OUTPUT
             echo "release-type=${{ github.event.inputs.release_type }}" >> $GITHUB_OUTPUT
@@ -80,7 +80,7 @@ jobs:
               echo "should-release=false" >> $GITHUB_OUTPUT
             fi
           fi
-          
+
           # Calculate next version
           CURRENT_VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "0.0.0")
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
@@ -152,7 +152,7 @@ jobs:
     needs: [release]
     if: needs.release.outputs.release-created == 'true'
     strategy:
-      fail-fast: false  # Continue building other platforms if one fails
+      fail-fast: false # Continue building other platforms if one fails
       matrix:
         platform: [web, desktop]
         include:
@@ -213,18 +213,18 @@ jobs:
         if: matrix.quality-checks == true
         run: |
           echo "🔍 Running quality checks for ${{ matrix.platform }}..."
-          
+
           # Bundle size check
           BUILD_SIZE=$(du -sb ${{ matrix.artifact-path }} | cut -f1)
           MAX_SIZE=10485760  # 10MB
-          
+
           echo "Build size: $(numfmt --to=iec $BUILD_SIZE)B"
-          
+
           if [ $BUILD_SIZE -gt $MAX_SIZE ]; then
             echo "❌ Build size $(numfmt --to=iec $BUILD_SIZE)B exceeds maximum $(numfmt --to=iec $MAX_SIZE)B"
             exit 1
           fi
-          
+
           # Check for essential files
           ESSENTIAL_FILES=("index.html" "assets")
           for file in "${ESSENTIAL_FILES[@]}"; do
@@ -235,14 +235,14 @@ jobs:
               exit 1
             fi
           done
-          
+
           # Check JavaScript minification
           if find ${{ matrix.artifact-path }}/assets -name "*.js" -exec grep -l "console.log\|debugger" {} \; | head -1; then
             echo "⚠️ Debug statements found in production build"
           else
             echo "✅ No debug statements in production build"
           fi
-          
+
           echo "✅ All quality checks passed for ${{ matrix.platform }}"
 
       - name: Record build metrics
@@ -250,7 +250,7 @@ jobs:
         run: |
           BUILD_SIZE=$(du -sb ${{ matrix.artifact-path }} | cut -f1)
           echo "${{ matrix.platform }}-build-size=$BUILD_SIZE" >> $GITHUB_OUTPUT
-          
+
           echo "📊 Build Metrics for ${{ matrix.platform }}:" >> $GITHUB_STEP_SUMMARY
           echo "- Build Time: ${{ steps.build.outputs.build-time }}s" >> $GITHUB_STEP_SUMMARY
           echo "- Build Size: $(numfmt --to=iec $BUILD_SIZE)B" >> $GITHUB_STEP_SUMMARY
@@ -260,7 +260,7 @@ jobs:
           cd ${{ matrix.artifact-path }}
           tar -czf ../ts-minecraft-${{ matrix.platform }}-${{ needs.release.outputs.version }}.tar.gz .
           cd ..
-          
+
           # Calculate archive size
           ARCHIVE_SIZE=$(du -sb ts-minecraft-${{ matrix.platform }}-${{ needs.release.outputs.version }}.tar.gz | cut -f1)
           echo "Archive size: $(numfmt --to=iec $ARCHIVE_SIZE)B"

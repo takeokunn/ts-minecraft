@@ -1,6 +1,6 @@
 /**
  * Clock Adapter - Implements time operations using browser performance API
- * 
+ *
  * This adapter provides concrete implementation for time-related operations
  * using browser's performance.now() API, implementing the IClockPort interface
  * to isolate the domain layer from browser-specific time implementations.
@@ -34,157 +34,135 @@ export interface IBrowserClockAdapter extends IClockPort {
   readonly reset: () => Effect.Effect<void, never, never>
 }
 
-export class BrowserClockAdapter extends Context.GenericTag('BrowserClockAdapter')<
-  BrowserClockAdapter,
-  IBrowserClockAdapter
->() {}
+export class BrowserClockAdapter extends Context.GenericTag('BrowserClockAdapter')<BrowserClockAdapter, IBrowserClockAdapter>() {}
 
 /**
  * Browser Clock Adapter Layer
  */
-export const BrowserClockAdapterLive = Layer.sync(
-  BrowserClockAdapter,
-  () => {
-    const currentTime = performance.now()
-    const clockState = Ref.unsafeMake<ClockState>({
-      startTime: currentTime,
-      lastFrameTime: currentTime,
-      deltaTime: 0,
-      frameCount: 0,
-      fps: 0,
-      isPaused: false,
-      timeScale: 1.0,
-      pausedTime: 0
+export const BrowserClockAdapterLive = Layer.sync(BrowserClockAdapter, () => {
+  const currentTime = performance.now()
+  const clockState = Ref.unsafeMake<ClockState>({
+    startTime: currentTime,
+    lastFrameTime: currentTime,
+    deltaTime: 0,
+    frameCount: 0,
+    fps: 0,
+    isPaused: false,
+    timeScale: 1.0,
+    pausedTime: 0,
+  })
+
+  const now = (): Effect.Effect<number, never, never> => Effect.sync(() => performance.now())
+
+  const deltaTime = (): Effect.Effect<number, never, never> => Ref.get(clockState).pipe(Effect.map((state) => state.deltaTime * state.timeScale))
+
+  const frameTime = (): Effect.Effect<number, never, never> => Ref.get(clockState).pipe(Effect.map((state) => state.deltaTime))
+
+  const fps = (): Effect.Effect<number, never, never> => Ref.get(clockState).pipe(Effect.map((state) => state.fps))
+
+  const pause = (): Effect.Effect<void, never, never> =>
+    Effect.gen(function* (_) {
+      const currentTime = yield* _(now())
+      yield* _(
+        Ref.update(clockState, (state) => ({
+          ...state,
+          isPaused: true,
+          pausedTime: currentTime,
+        })),
+      )
     })
 
-    const now = (): Effect.Effect<number, never, never> =>
-      Effect.sync(() => performance.now())
-
-    const deltaTime = (): Effect.Effect<number, never, never> =>
-      Ref.get(clockState).pipe(
-        Effect.map((state) => state.deltaTime * state.timeScale)
+  const resume = (): Effect.Effect<void, never, never> =>
+    Effect.gen(function* (_) {
+      const currentTime = yield* _(now())
+      yield* _(
+        Ref.get(clockState).pipe(
+          Effect.flatMap((state) => {
+            if (state.isPaused) {
+              const pauseDuration = currentTime - state.pausedTime
+              return Ref.set(clockState, {
+                ...state,
+                isPaused: false,
+                startTime: state.startTime + pauseDuration,
+                lastFrameTime: currentTime,
+                pausedTime: 0,
+              })
+            }
+            return Effect.void
+          }),
+        ),
       )
-
-    const frameTime = (): Effect.Effect<number, never, never> =>
-      Ref.get(clockState).pipe(
-        Effect.map((state) => state.deltaTime)
-      )
-
-    const fps = (): Effect.Effect<number, never, never> =>
-      Ref.get(clockState).pipe(
-        Effect.map((state) => state.fps)
-      )
-
-    const pause = (): Effect.Effect<void, never, never> =>
-      Effect.gen(function* (_) {
-        const currentTime = yield* _(now())
-        yield* _(
-          Ref.update(clockState, (state) => ({
-            ...state,
-            isPaused: true,
-            pausedTime: currentTime
-          }))
-        )
-      })
-
-    const resume = (): Effect.Effect<void, never, never> =>
-      Effect.gen(function* (_) {
-        const currentTime = yield* _(now())
-        yield* _(
-          Ref.get(clockState).pipe(
-            Effect.flatMap((state) => {
-              if (state.isPaused) {
-                const pauseDuration = currentTime - state.pausedTime
-                return Ref.set(clockState, {
-                  ...state,
-                  isPaused: false,
-                  startTime: state.startTime + pauseDuration,
-                  lastFrameTime: currentTime,
-                  pausedTime: 0
-                })
-              }
-              return Effect.void
-            })
-          )
-        )
-      })
-
-    const isPaused = (): Effect.Effect<boolean, never, never> =>
-      Ref.get(clockState).pipe(
-        Effect.map((state) => state.isPaused)
-      )
-
-    const setTimeScale = (scale: number): Effect.Effect<void, never, never> =>
-      Ref.update(clockState, (state) => ({
-        ...state,
-        timeScale: Math.max(0, scale) // Ensure non-negative time scale
-      }))
-
-    const getTimeScale = (): Effect.Effect<number, never, never> =>
-      Ref.get(clockState).pipe(
-        Effect.map((state) => state.timeScale)
-      )
-
-    const tick = (): Effect.Effect<void, never, never> =>
-      Effect.gen(function* (_) {
-        const currentTime = yield* _(now())
-        const state = yield* _(Ref.get(clockState))
-        
-        if (state.isPaused) {
-          return
-        }
-
-        const rawDelta = (currentTime - state.lastFrameTime) / 1000 // Convert to seconds
-        const clampedDelta = Math.min(rawDelta, 0.1) // Clamp to prevent huge deltas
-        
-        // Calculate FPS (using a simple moving average)
-        const newFrameCount = state.frameCount + 1
-        const currentFps = rawDelta > 0 ? 1 / rawDelta : 0
-        const smoothedFps = newFrameCount === 1 ? currentFps : (state.fps * 0.9 + currentFps * 0.1)
-
-        yield* _(
-          Ref.set(clockState, {
-            ...state,
-            lastFrameTime: currentTime,
-            deltaTime: clampedDelta,
-            frameCount: newFrameCount,
-            fps: smoothedFps
-          })
-        )
-      })
-
-    const reset = (): Effect.Effect<void, never, never> =>
-      Effect.gen(function* (_) {
-        const currentTime = yield* _(now())
-        yield* _(
-          Ref.set(clockState, {
-            startTime: currentTime,
-            lastFrameTime: currentTime,
-            deltaTime: 0,
-            frameCount: 0,
-            fps: 0,
-            isPaused: false,
-            timeScale: 1.0,
-            pausedTime: 0
-          })
-        )
-      })
-
-    return BrowserClockAdapter.of({
-      now,
-      deltaTime,
-      frameTime,
-      fps,
-      pause,
-      resume,
-      isPaused,
-      setTimeScale,
-      getTimeScale,
-      tick,
-      reset
     })
-  }
-)
+
+  const isPaused = (): Effect.Effect<boolean, never, never> => Ref.get(clockState).pipe(Effect.map((state) => state.isPaused))
+
+  const setTimeScale = (scale: number): Effect.Effect<void, never, never> =>
+    Ref.update(clockState, (state) => ({
+      ...state,
+      timeScale: Math.max(0, scale), // Ensure non-negative time scale
+    }))
+
+  const getTimeScale = (): Effect.Effect<number, never, never> => Ref.get(clockState).pipe(Effect.map((state) => state.timeScale))
+
+  const tick = (): Effect.Effect<void, never, never> =>
+    Effect.gen(function* (_) {
+      const currentTime = yield* _(now())
+      const state = yield* _(Ref.get(clockState))
+
+      if (state.isPaused) {
+        return
+      }
+
+      const rawDelta = (currentTime - state.lastFrameTime) / 1000 // Convert to seconds
+      const clampedDelta = Math.min(rawDelta, 0.1) // Clamp to prevent huge deltas
+
+      // Calculate FPS (using a simple moving average)
+      const newFrameCount = state.frameCount + 1
+      const currentFps = rawDelta > 0 ? 1 / rawDelta : 0
+      const smoothedFps = newFrameCount === 1 ? currentFps : state.fps * 0.9 + currentFps * 0.1
+
+      yield* _(
+        Ref.set(clockState, {
+          ...state,
+          lastFrameTime: currentTime,
+          deltaTime: clampedDelta,
+          frameCount: newFrameCount,
+          fps: smoothedFps,
+        }),
+      )
+    })
+
+  const reset = (): Effect.Effect<void, never, never> =>
+    Effect.gen(function* (_) {
+      const currentTime = yield* _(now())
+      yield* _(
+        Ref.set(clockState, {
+          startTime: currentTime,
+          lastFrameTime: currentTime,
+          deltaTime: 0,
+          frameCount: 0,
+          fps: 0,
+          isPaused: false,
+          timeScale: 1.0,
+          pausedTime: 0,
+        }),
+      )
+    })
+
+  return BrowserClockAdapter.of({
+    now,
+    deltaTime,
+    frameTime,
+    fps,
+    pause,
+    resume,
+    isPaused,
+    setTimeScale,
+    getTimeScale,
+    tick,
+    reset,
+  })
+})
 
 /**
  * Clock utilities for common operations
@@ -199,7 +177,7 @@ export const ClockUtils = {
         yield* _(adapter.tick())
         yield* _(Effect.sync(() => requestAnimationFrame(() => Effect.runSync(animationLoop()))))
       })
-    
+
     return animationLoop
   },
 
@@ -221,5 +199,5 @@ export const ClockUtils = {
       })
 
     return fixedLoop
-  }
+  },
 }

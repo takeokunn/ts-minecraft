@@ -1,6 +1,6 @@
 /**
  * System Communication Service - Effect-TS Implementation
- * 
+ *
  * Converted from class-based implementation to functional Effect-TS service
  * Features:
  * - Event-driven system communication
@@ -17,11 +17,11 @@ import { EntityId } from '@/domain/entities'
 /**
  * System message type
  */
-export type SystemMessageType = 
+export type SystemMessageType =
   | 'entity_created'
   | 'entity_destroyed'
   | 'component_added'
-  | 'component_removed' 
+  | 'component_removed'
   | 'component_updated'
   | 'collision_detected'
   | 'block_placed'
@@ -108,7 +108,10 @@ export interface CommunicationConfig {
  */
 export class CommunicationError extends Error {
   readonly _tag = 'CommunicationError'
-  constructor(message: string, readonly cause?: unknown) {
+  constructor(
+    message: string,
+    readonly cause?: unknown,
+  ) {
     super(message)
   }
 }
@@ -127,14 +130,9 @@ export interface SystemCommunicationService {
       metadata?: Record<string, any>
       expirationMs?: number
       frameId?: number
-    }
+    },
   ) => Effect.Effect<void>
-  readonly subscribe: (
-    systemId: string,
-    messageTypes: SystemMessageType[],
-    handler: MessageHandler,
-    filter?: MessageFilter
-  ) => Effect.Effect<string>
+  readonly subscribe: (systemId: string, messageTypes: SystemMessageType[], handler: MessageHandler, filter?: MessageFilter) => Effect.Effect<string>
   readonly unsubscribe: (subscriptionId: string) => Effect.Effect<void>
   readonly processMessages: () => Effect.Effect<void>
   readonly getStats: () => Effect.Effect<CommunicationStats>
@@ -201,26 +199,20 @@ export const SystemCommunicationServiceLive = (config: CommunicationConfig = def
       const dropOldMessages = Effect.gen(function* () {
         const messages: SystemMessage[] = []
         let message = yield* Queue.poll(messageQueue)
-        
+
         while (Option.isSome(message)) {
           messages.push(message.value)
           message = yield* Queue.poll(messageQueue)
         }
 
         // Keep only high and immediate priority messages, drop others
-        const importantMessages = messages.filter(msg => 
-          msg.priority === 'immediate' || msg.priority === 'high'
-        )
+        const importantMessages = messages.filter((msg) => msg.priority === 'immediate' || msg.priority === 'high')
 
         // Re-add important messages
-        yield* Effect.forEach(
-          importantMessages,
-          (msg) => Queue.offer(messageQueue, msg),
-          { concurrency: 'unbounded', discard: true }
-        )
+        yield* Effect.forEach(importantMessages, (msg) => Queue.offer(messageQueue, msg), { concurrency: 'unbounded', discard: true })
 
         const droppedCount = messages.length - importantMessages.length
-        yield* Ref.update(statsRef, stats => ({
+        yield* Ref.update(statsRef, (stats) => ({
           ...stats,
           messagesDropped: stats.messagesDropped + droppedCount,
         }))
@@ -234,19 +226,17 @@ export const SystemCommunicationServiceLive = (config: CommunicationConfig = def
           const startTime = Date.now()
           const subscriptions = yield* Ref.get(subscriptionsRef)
           const messageSubscriptions = subscriptions.get(message.type) || []
-          
+
           // Filter subscriptions based on recipients
-          const targetSubscriptions = message.recipients.length > 0
-            ? messageSubscriptions.filter(sub => message.recipients.includes(sub.systemId))
-            : messageSubscriptions // Broadcast to all
+          const targetSubscriptions = message.recipients.length > 0 ? messageSubscriptions.filter((sub) => message.recipients.includes(sub.systemId)) : messageSubscriptions // Broadcast to all
 
           // Apply message filters
           const filteredSubscriptions = config.enableMessageFiltering
-            ? targetSubscriptions.filter(sub => 
+            ? targetSubscriptions.filter((sub) =>
                 Option.match(sub.filter, {
                   onNone: () => true,
                   onSome: (filter) => filter(message),
-                })
+                }),
               )
             : targetSubscriptions
 
@@ -257,41 +247,40 @@ export const SystemCommunicationServiceLive = (config: CommunicationConfig = def
           // Deliver to all subscribers
           const deliveryResults = yield* Effect.forEach(
             filteredSubscriptions,
-            (subscription) => Effect.gen(function* () {
-              try {
-                yield* subscription.handler(message)
-                return { success: true, error: null }
-              } catch (error) {
-                return { success: false, error: error instanceof Error ? error : new Error(String(error)) }
-              }
-            }),
-            { concurrency: config.maxConcurrentHandlers }
+            (subscription) =>
+              Effect.gen(function* () {
+                try {
+                  yield* subscription.handler(message)
+                  return { success: true, error: null }
+                } catch (error) {
+                  return { success: false, error: error instanceof Error ? error : new Error(String(error)) }
+                }
+              }),
+            { concurrency: config.maxConcurrentHandlers },
           )
 
           // Handle delivery failures
-          const failures = deliveryResults.filter(result => !result.success)
+          const failures = deliveryResults.filter((result) => !result.success)
           if (failures.length > 0 && config.enableDeadLetterQueue) {
-            yield* Ref.update(deadLetterQueueRef, queue => [...queue, message])
+            yield* Ref.update(deadLetterQueueRef, (queue) => [...queue, message])
           }
 
           // Update performance statistics
           if (config.enablePerformanceMonitoring) {
             const latency = Date.now() - startTime
-            
-            yield* Ref.update(latencyHistoryRef, history => {
+
+            yield* Ref.update(latencyHistoryRef, (history) => {
               const updated = [...history, latency]
               // Keep only last 100 measurements
               return updated.length > 100 ? updated.slice(-100) : updated
             })
-            
+
             const latencyHistory = yield* Ref.get(latencyHistoryRef)
-            const averageLatency = latencyHistory.length > 0 
-              ? latencyHistory.reduce((sum, lat) => sum + lat, 0) / latencyHistory.length 
-              : 0
-            
-            yield* Ref.update(statsRef, stats => ({
+            const averageLatency = latencyHistory.length > 0 ? latencyHistory.reduce((sum, lat) => sum + lat, 0) / latencyHistory.length : 0
+
+            yield* Ref.update(statsRef, (stats) => ({
               ...stats,
-              messagesReceived: stats.messagesReceived + deliveryResults.filter(r => r.success).length,
+              messagesReceived: stats.messagesReceived + deliveryResults.filter((r) => r.success).length,
               messagesDropped: stats.messagesDropped + failures.length,
               averageLatency,
             }))
@@ -323,9 +312,9 @@ export const SystemCommunicationServiceLive = (config: CommunicationConfig = def
 
             // Add to queue
             yield* Queue.offer(messageQueue, message)
-            
+
             // Update statistics
-            yield* Ref.update(statsRef, stats => ({
+            yield* Ref.update(statsRef, (stats) => ({
               ...stats,
               messagesSent: stats.messagesSent + 1,
               queueSize: currentSize + 1,
@@ -335,7 +324,7 @@ export const SystemCommunicationServiceLive = (config: CommunicationConfig = def
         subscribe: (systemId, messageTypes, handler, filter) =>
           Effect.gen(function* () {
             const subscriptionId = generateSubscriptionId()
-            
+
             const subscription: MessageSubscription = {
               id: subscriptionId,
               systemId,
@@ -346,20 +335,20 @@ export const SystemCommunicationServiceLive = (config: CommunicationConfig = def
             }
 
             // Add subscription for each message type
-            yield* Ref.update(subscriptionsRef, subscriptions => {
+            yield* Ref.update(subscriptionsRef, (subscriptions) => {
               const updated = new Map(subscriptions)
-              
+
               for (const messageType of messageTypes) {
                 if (!updated.has(messageType)) {
                   updated.set(messageType, [])
                 }
                 updated.get(messageType)!.push(subscription)
               }
-              
+
               return updated
             })
 
-            yield* Ref.update(statsRef, stats => ({
+            yield* Ref.update(statsRef, (stats) => ({
               ...stats,
               subscriptionCount: stats.subscriptionCount + 1,
             }))
@@ -369,33 +358,33 @@ export const SystemCommunicationServiceLive = (config: CommunicationConfig = def
 
         unsubscribe: (subscriptionId) =>
           Effect.gen(function* () {
-            yield* Ref.update(subscriptionsRef, subscriptions => {
+            yield* Ref.update(subscriptionsRef, (subscriptions) => {
               const updated = new Map(subscriptions)
               let removed = false
-              
+
               for (const [messageType, subs] of updated) {
-                const filtered = subs.filter(sub => sub.id !== subscriptionId)
+                const filtered = subs.filter((sub) => sub.id !== subscriptionId)
                 if (filtered.length < subs.length) {
                   updated.set(messageType, filtered)
                   removed = true
                 }
               }
-              
+
               return updated
             })
-            
+
             // Update subscription count only if we actually removed something
             const subscriptions = yield* Ref.get(subscriptionsRef)
             let hasSubscription = false
             for (const subs of subscriptions.values()) {
-              if (subs.some(sub => sub.id === subscriptionId)) {
+              if (subs.some((sub) => sub.id === subscriptionId)) {
                 hasSubscription = true
                 break
               }
             }
-            
+
             if (!hasSubscription) {
-              yield* Ref.update(statsRef, stats => ({
+              yield* Ref.update(statsRef, (stats) => ({
                 ...stats,
                 subscriptionCount: Math.max(0, stats.subscriptionCount - 1),
               }))
@@ -407,7 +396,7 @@ export const SystemCommunicationServiceLive = (config: CommunicationConfig = def
             // Get all messages from queue
             const messages: SystemMessage[] = []
             let message = yield* Queue.poll(messageQueue)
-            
+
             while (Option.isSome(message)) {
               messages.push(message.value)
               message = yield* Queue.poll(messageQueue)
@@ -417,13 +406,11 @@ export const SystemCommunicationServiceLive = (config: CommunicationConfig = def
 
             // Filter expired messages
             const now = Date.now()
-            const validMessages = messages.filter(msg => 
-              !msg.expirationTime || msg.expirationTime > now
-            )
+            const validMessages = messages.filter((msg) => !msg.expirationTime || msg.expirationTime > now)
 
             const expiredCount = messages.length - validMessages.length
             if (expiredCount > 0) {
-              yield* Ref.update(statsRef, stats => ({
+              yield* Ref.update(statsRef, (stats) => ({
                 ...stats,
                 messagesDropped: stats.messagesDropped + expiredCount,
               }))
@@ -438,15 +425,11 @@ export const SystemCommunicationServiceLive = (config: CommunicationConfig = def
             }
 
             // Process messages concurrently with limit
-            yield* Effect.forEach(
-              validMessages,
-              (msg) => deliverMessage(msg),
-              { concurrency: config.maxConcurrentHandlers, discard: true }
-            )
+            yield* Effect.forEach(validMessages, (msg) => deliverMessage(msg), { concurrency: config.maxConcurrentHandlers, discard: true })
 
             // Update queue size
             const currentQueueSize = yield* Queue.size(messageQueue)
-            yield* Ref.update(statsRef, stats => ({
+            yield* Ref.update(statsRef, (stats) => ({
               ...stats,
               queueSize: currentQueueSize,
             }))
@@ -458,7 +441,7 @@ export const SystemCommunicationServiceLive = (config: CommunicationConfig = def
 
         clearDeadLetterQueue: () => Ref.set(deadLetterQueueRef, []),
       })
-    })
+    }),
   )
 
 /**
@@ -468,14 +451,8 @@ export const SystemCommunicationUtils = {
   /**
    * Create standard entity event message
    */
-  createEntityMessage: (
-    type: 'created' | 'destroyed' | 'updated',
-    entityId: EntityId,
-    sender: string,
-    componentData?: any
-  ): Omit<SystemMessage, 'id' | 'timestamp'> => ({
-    type: type === 'created' ? 'entity_created' : 
-          type === 'destroyed' ? 'entity_destroyed' : 'component_updated',
+  createEntityMessage: (type: 'created' | 'destroyed' | 'updated', entityId: EntityId, sender: string, componentData?: any): Omit<SystemMessage, 'id' | 'timestamp'> => ({
+    type: type === 'created' ? 'entity_created' : type === 'destroyed' ? 'entity_destroyed' : 'component_updated',
     priority: 'normal',
     sender,
     recipients: [],
@@ -492,10 +469,9 @@ export const SystemCommunicationUtils = {
     entityId: EntityId,
     componentName: string,
     componentData: any,
-    sender: string
+    sender: string,
   ): Omit<SystemMessage, 'id' | 'timestamp'> => ({
-    type: action === 'added' ? 'component_added' : 
-          action === 'removed' ? 'component_removed' : 'component_updated',
+    type: action === 'added' ? 'component_added' : action === 'removed' ? 'component_removed' : 'component_updated',
     priority: 'normal',
     sender,
     recipients: [],
@@ -507,12 +483,7 @@ export const SystemCommunicationUtils = {
   /**
    * Create physics event message
    */
-  createPhysicsMessage: (
-    event: 'collision' | 'movement' | 'force_applied',
-    entities: EntityId[],
-    data: any,
-    sender: string
-  ): Omit<SystemMessage, 'id' | 'timestamp'> => ({
+  createPhysicsMessage: (event: 'collision' | 'movement' | 'force_applied', entities: EntityId[], data: any, sender: string): Omit<SystemMessage, 'id' | 'timestamp'> => ({
     type: event === 'collision' ? 'collision_detected' : 'physics_updated',
     priority: 'high',
     sender,
@@ -525,9 +496,11 @@ export const SystemCommunicationUtils = {
   /**
    * Create message filter for entity-related messages
    */
-  createEntityFilter: (entityId: EntityId): MessageFilter => (message) => {
-    return message.payload && message.payload.entityId === entityId
-  },
+  createEntityFilter:
+    (entityId: EntityId): MessageFilter =>
+    (message) => {
+      return message.payload && message.payload.entityId === entityId
+    },
 
   /**
    * Create message filter for priority filtering
@@ -535,7 +508,7 @@ export const SystemCommunicationUtils = {
   createPriorityFilter: (minPriority: MessagePriority): MessageFilter => {
     const priorityOrder = { immediate: 0, high: 1, normal: 2, low: 3, background: 4 }
     const minLevel = priorityOrder[minPriority]
-    
+
     return (message) => priorityOrder[message.priority] <= minLevel
   },
 }
@@ -543,5 +516,4 @@ export const SystemCommunicationUtils = {
 /**
  * Create system communication service with custom configuration
  */
-export const createSystemCommunicationService = (config: Partial<CommunicationConfig> = {}) =>
-  SystemCommunicationServiceLive({ ...defaultCommunicationConfig, ...config })
+export const createSystemCommunicationService = (config: Partial<CommunicationConfig> = {}) => SystemCommunicationServiceLive({ ...defaultCommunicationConfig, ...config })

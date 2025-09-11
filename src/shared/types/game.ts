@@ -6,11 +6,7 @@ import { Point3D, ID, Brand } from './common'
  */
 
 // Block types
-export const BlockTypeSchema = S.Literal(
-  'air', 'grass', 'dirt', 'stone', 'cobblestone', 
-  'oakLog', 'oakLeaves', 'sand', 'water', 'glass', 
-  'brick', 'plank'
-)
+export const BlockTypeSchema = S.Literal('air', 'grass', 'dirt', 'stone', 'cobblestone', 'oakLog', 'oakLeaves', 'sand', 'water', 'glass', 'brick', 'plank')
 export type BlockType = S.Schema.Type<typeof BlockTypeSchema>
 export const blockTypeNames: ReadonlyArray<BlockType> = BlockTypeSchema.literals
 
@@ -98,7 +94,7 @@ export type GameMetrics = {
 }
 
 // World events
-export type WorldEvent = 
+export type WorldEvent =
   | { type: 'block_placed'; position: BlockPosition; blockType: BlockType }
   | { type: 'block_destroyed'; position: BlockPosition; blockType: BlockType }
   | { type: 'chunk_loaded'; chunkId: ChunkID }

@@ -1,72 +1,73 @@
 import { Effect, Layer } from 'effect'
-import { Archetype, createArchetype } from '../../domain/archetypes'
-import { World } from '../../runtime/services'
-import { ClockLive } from '../../infrastructure/clock'
-import { ComputationWorkerLive } from '../../infrastructure/computation.worker'
-import { InputManagerLive } from '../../infrastructure/input-browser'
-import { MaterialManagerLive } from '../../infrastructure/material-manager'
-import { RaycastLive } from '../../infrastructure/raycast-three'
-import { RendererLive } from '../../infrastructure/renderer-three'
-import { SpatialGridLive } from '../../infrastructure/spatial-grid'
-import { WorldLive } from '../../infrastructure/storage/world'
-import { gameLoop } from '../../runtime/loop'
-import { blockInteractionSystem } from '../../application/commands/block-interaction'
-import { cameraControlSystem } from '../../domain/services/camera-control.service'
-import { chunkLoadingSystem } from '../../application/workflows/chunk-loading'
-import { collisionSystem } from '../../domain/services/collision-system.service'
-import { inputPollingSystem } from '../../application/services/input-polling.service'
-import { physicsSystem } from '../../domain/services/physics-system.service'
-import { playerMovementSystem } from '../../application/commands/player-movement'
-import { uiUpdateWorkflow } from '../../application/workflows/ui-update'
-import { updatePhysicsWorldSystem } from '../../domain/services/spatial-grid-system.service'
-import { updateTargetSystem } from '../../domain/services/targeting.service'
-import { worldUpdateSystem } from '../../application/workflows/world-update'
+import { createArchetype } from '../../domain/archetypes'
+import { ApplicationLayer } from '../../application/application-layer'
+import { UnifiedAppLive } from '../../infrastructure/layers/unified.layer'
+import { GameController, GameControllerLive } from '../controllers/game.controller'
+import { UIController, UIControllerLive } from '../controllers/ui.controller'
 
-const CoreServicesLive = Layer.mergeAll(
-  ClockLive,
-  InputManagerLive,
-  RendererLive,
-  MaterialManagerLive,
-  RaycastLive,
-  ComputationWorkerLive,
-  SpatialGridLive,
-  WorldLive,
-)
+/**
+ * Web Browser Main Entry Point
+ * ウェブブラウザ向けのメインエントリーポイント
+ *
+ * DDD構造に従い、以下のレイヤーを統合:
+ * - Presentation Layer (Controllers + View Models)
+ * - Application Layer
+ * - Infrastructure Layer
+ */
 
-export const gameSystems = [
-  inputPollingSystem,
-  playerMovementSystem,
-  cameraControlSystem,
-  physicsSystem,
-  updatePhysicsWorldSystem,
-  collisionSystem,
-  updateTargetSystem,
-  blockInteractionSystem,
-  chunkLoadingSystem,
-  worldUpdateSystem,
-  uiUpdateWorkflow,
-]
+// Presentation層のサービス統合
+const PresentationLayerLive = Layer.mergeAll(GameControllerLive, UIControllerLive)
 
-export const main = (player: Archetype) =>
-  Effect.gen(function* (_) {
-    const world = yield* _(World)
-    yield* _(world.addArchetype(player))
-    yield* _(gameLoop(gameSystems))
-  })
+// 全レイヤーの統合
+const WebAppLayerLive = Layer.mergeAll(UnifiedAppLive, ApplicationLayer, PresentationLayerLive)
 
-const initialize = Effect.gen(function* (_) {
-  const player = yield* _(
-    createArchetype({
-      type: 'player',
-      pos: { x: 0, y: 80, z: 0 },
-    }),
-  )
-  yield* _(main(player))
+/**
+ * メインゲームループの初期化と実行
+ */
+const initialize = Effect.gen(function* () {
+  // Presentation層コントローラーの取得
+  const gameController = yield* GameController
+  const uiController = yield* UIController
+
+  // プレイヤーアーキタイプの作成 (simplified for now)
+  // const player = yield* createArchetype({
+  //   type: 'player',
+  //   pos: { x: 0, y: 80, z: 0 },
+  // })
+
+  // UI初期化
+  yield* uiController.showHUD(true)
+  yield* uiController.showCrosshair(true)
+  yield* uiController.showNotification('Welcome to TypeScript Minecraft!', 5000)
+
+  // ワールド初期化
+  yield* gameController.initializeWorld()
+
+  yield* Effect.log('Web application initialized successfully')
 })
 
-const AppLive = initialize.pipe(Effect.provide(CoreServicesLive))
+/**
+ * ウェブアプリケーションの実行エントリーポイント
+ */
+const WebApp = initialize.pipe(
+  Effect.provide(WebAppLayerLive),
+  Effect.catchAllCause((cause) =>
+    Effect.gen(function* () {
+      yield* Effect.logError('Failed to initialize web application', cause)
+      return yield* Effect.die(cause)
+    }),
+  ),
+)
 
+/**
+ * 開発モード用のホットリロード対応
+ */
+export const startWebApplication = () => {
+  return Effect.runFork(WebApp)
+}
+
+// 本番環境では自動実行
 /* v8 ignore next 3 */
 if (import.meta.env.PROD) {
-  Effect.runFork(AppLive)
+  startWebApplication()
 }

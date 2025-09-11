@@ -52,21 +52,23 @@ const terrainResult = await WorkerManagerService.generateTerrain({
   seed: 12345,
   biome: createDefaultBiome('plains'),
   noise: createDefaultNoiseSettings(12345),
-  features: createDefaultTerrainFeatures()
+  features: createDefaultTerrainFeatures(),
 })
 
 // Physics simulation
 const physicsResult = await WorkerManagerService.simulatePhysics({
-  deltaTime: 1/60,
+  deltaTime: 1 / 60,
   gravity: { x: 0, y: -9.81, z: 0 },
-  bodies: [/* physics bodies */]
+  bodies: [
+    /* physics bodies */
+  ],
 })
 
 // Mesh生成
 const meshResult = await WorkerManagerService.generateMesh({
   chunkData: terrainResult.chunkData,
   algorithm: 'greedy',
-  optimizations: createDefaultOptimizations()
+  optimizations: createDefaultOptimizations(),
 })
 ```
 
@@ -82,23 +84,23 @@ const terrainPoolConfig: WorkerPoolConfig = {
   workerScript: './terrain-generation.worker.ts',
   inputSchema: TerrainGenerationRequest,
   outputSchema: TerrainGenerationResponse,
-  
+
   // Pool設定
   minWorkers: 1,
   maxWorkers: 4,
   initialWorkers: 2,
   strategy: 'dynamic',
-  
+
   // パフォーマンス設定
   maxConcurrentRequests: 2,
   requestTimeout: Duration.seconds(30),
   loadBalanceStrategy: 'least-busy',
-  
+
   // 自動スケーリング
   scaleUpThreshold: 80,
   scaleDownThreshold: 20,
   scaleUpCooldown: Duration.seconds(30),
-  scaleDownCooldown: Duration.minutes(2)
+  scaleDownCooldown: Duration.minutes(2),
 }
 
 const terrainPool = createWorkerPool(terrainPoolConfig)
@@ -111,13 +113,7 @@ const terrainPool = createWorkerPool(terrainPoolConfig)
 地形生成のための包括的なプロトコル：
 
 ```typescript
-import { 
-  TerrainGenerationRequest,
-  TerrainGenerationResponse,
-  Position3D,
-  Block,
-  ChunkData
-} from '@/infrastructure/workers/unified/protocols'
+import { TerrainGenerationRequest, TerrainGenerationResponse, Position3D, Block, ChunkData } from '@/infrastructure/workers/unified/protocols'
 
 const request: TerrainGenerationRequest = {
   coordinates: { x: 0, z: 0 },
@@ -128,7 +124,7 @@ const request: TerrainGenerationRequest = {
     humidity: 0.5,
     elevation: 0.3,
     rainfall: 0.6,
-    vegetation: 0.7
+    vegetation: 0.7,
   },
   noise: {
     seed: 12345,
@@ -137,15 +133,15 @@ const request: TerrainGenerationRequest = {
     lacunarity: 2.0,
     scale: 0.01,
     heightMultiplier: 64,
-    baseHeight: 64
+    baseHeight: 64,
   },
   features: {
     generateCaves: true,
     generateOres: true,
     generateVegetation: true,
     generateWaterBodies: true,
-    generateStructures: false
-  }
+    generateStructures: false,
+  },
 }
 ```
 
@@ -154,39 +150,36 @@ const request: TerrainGenerationRequest = {
 物理シミュレーションのプロトコル：
 
 ```typescript
-import {
-  PhysicsSimulationRequest,
-  PhysicsBody,
-  Vector3,
-  createPhysicsMaterial
-} from '@/infrastructure/workers/unified/protocols'
+import { PhysicsSimulationRequest, PhysicsBody, Vector3, createPhysicsMaterial } from '@/infrastructure/workers/unified/protocols'
 
 const physicsRequest: PhysicsSimulationRequest = {
-  deltaTime: 1/60,
+  deltaTime: 1 / 60,
   gravity: { x: 0, y: -9.81, z: 0 },
-  bodies: [{
-    id: 'player',
-    transform: {
-      position: { x: 0, y: 10, z: 0 },
-      rotation: { x: 0, y: 0, z: 0, w: 1 }
+  bodies: [
+    {
+      id: 'player',
+      transform: {
+        position: { x: 0, y: 10, z: 0 },
+        rotation: { x: 0, y: 0, z: 0, w: 1 },
+      },
+      type: 'dynamic',
+      mass: 1.0,
+      material: createPhysicsMaterial(0.5, 0.3, 1.0),
+      shape: {
+        type: 'box',
+        halfExtents: { x: 0.5, y: 0.9, z: 0.5 },
+      },
+      collisionGroup: 1,
+      collisionMask: 0xffffffff,
+      isActive: true,
     },
-    type: 'dynamic',
-    mass: 1.0,
-    material: createPhysicsMaterial(0.5, 0.3, 1.0),
-    shape: {
-      type: 'box',
-      halfExtents: { x: 0.5, y: 0.9, z: 0.5 }
-    },
-    collisionGroup: 1,
-    collisionMask: 0xFFFFFFFF,
-    isActive: true
-  }],
+  ],
   options: {
     enableCollisionDetection: true,
     enableContinuousCollisionDetection: false,
     enableSleeping: true,
-    solverIterations: 10
-  }
+    solverIterations: 10,
+  },
 }
 ```
 
@@ -248,19 +241,19 @@ const customConfig = {
     poolSize: 4,
     maxConcurrency: 6,
     timeout: Duration.seconds(45),
-    priority: 1
+    priority: 1,
   },
   physics: {
     poolSize: 2,
     maxConcurrency: 4,
     timeout: Duration.seconds(16),
-    priority: 2
+    priority: 2,
   },
   globalSettings: {
     loadBalancing: 'least-busy' as const,
     maxRetries: 5,
-    enableMetrics: true
-  }
+    enableMetrics: true,
+  },
 }
 
 const CustomWorkerLayer = WorkerManagerServiceLiveWith(customConfig)

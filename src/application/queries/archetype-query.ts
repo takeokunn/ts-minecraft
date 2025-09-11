@@ -117,16 +117,13 @@ export class ArchetypeManager {
   /**
    * Create archetype signature from component sets
    */
-  createSignature(
-    required: ReadonlyArray<ComponentName>,
-    forbidden: ReadonlyArray<ComponentName> = []
-  ): ArchetypeSignature {
+  createSignature(required: ReadonlyArray<ComponentName>, forbidden: ReadonlyArray<ComponentName> = []): ArchetypeSignature {
     const requiredSet = new Set(required)
     const forbiddenSet = new Set(forbidden)
-    
+
     const sortedRequired = [...requiredSet].sort()
     const sortedForbidden = [...forbiddenSet].sort()
-    
+
     const hash = `req:${sortedRequired.join(',')}|forb:${sortedForbidden.join(',')}`
 
     return {
@@ -141,12 +138,12 @@ export class ArchetypeManager {
    */
   getOrCreateArchetype(signature: ArchetypeSignature): Archetype {
     let archetype = this.archetypes.get(signature.hash)
-    
+
     if (!archetype) {
       archetype = new Archetype(signature)
       this.archetypes.set(signature.hash, archetype)
     }
-    
+
     return archetype
   }
 
@@ -161,7 +158,7 @@ export class ArchetypeManager {
     const componentNames = Object.keys(entity.components) as ComponentName[]
     const signature = this.createSignature(componentNames, [])
     const archetype = this.getOrCreateArchetype(signature)
-    
+
     archetype.addEntity(entity)
     this.entityToArchetype.set(entity, archetype)
   }
@@ -182,13 +179,13 @@ export class ArchetypeManager {
    */
   findMatchingArchetypes(signature: ArchetypeSignature): ReadonlyArray<Archetype> {
     const matching: Archetype[] = []
-    
+
     for (const archetype of this.archetypes.values()) {
       if (archetype.matches(signature)) {
         matching.push(archetype)
       }
     }
-    
+
     return matching
   }
 
@@ -197,11 +194,11 @@ export class ArchetypeManager {
    */
   getAllEntities(): ReadonlyArray<EntityId> {
     const entities: EntityId[] = []
-    
+
     for (const archetype of this.archetypes.values()) {
-      entities.push(...archetype.getEntities().map(entity => entity.id))
+      entities.push(...archetype.getEntities().map((entity) => entity.id))
     }
-    
+
     return entities
   }
 
@@ -229,10 +226,7 @@ export class ArchetypeQuery<T extends ReadonlyArray<ComponentName>> {
   private static archetypeManager = new ArchetypeManager()
 
   constructor(private config: QueryConfig<T>) {
-    this.signature = ArchetypeQuery.archetypeManager.createSignature(
-      config.withComponents,
-      config.withoutComponents || []
-    )
+    this.signature = ArchetypeQuery.archetypeManager.createSignature(config.withComponents, config.withoutComponents || [])
   }
 
   /**
@@ -283,21 +277,17 @@ export class ArchetypeQuery<T extends ReadonlyArray<ComponentName>> {
 
   private executeDirectFilter(entities: ReadonlyArray<QueryEntity>, context: { metrics: QueryMetrics }): QueryEntity[] {
     const result: QueryEntity[] = []
-    
+
     for (const entity of entities) {
       context.metrics.entitiesScanned++
 
       // Check required components
-      const hasRequired = this.config.withComponents.every(
-        comp => entity.components[comp] !== undefined
-      )
+      const hasRequired = this.config.withComponents.every((comp) => entity.components[comp] !== undefined)
 
       if (!hasRequired) continue
 
       // Check forbidden components
-      const hasForbidden = (this.config.withoutComponents || []).some(
-        comp => entity.components[comp] !== undefined
-      )
+      const hasForbidden = (this.config.withoutComponents || []).some((comp) => entity.components[comp] !== undefined)
 
       if (hasForbidden) continue
 

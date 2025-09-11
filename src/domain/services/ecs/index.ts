@@ -23,7 +23,7 @@ export type {
   Index,
   IndexType,
   ExecutionPlan,
-  QueryOptimization
+  QueryOptimization,
 } from './archetype-query.service'
 
 // Re-export service tags
@@ -35,7 +35,7 @@ export {
   QueryBuilderService,
   IndexService,
   QueryOptimizerService,
-  ParallelQueryExecutor
+  ParallelQueryExecutor,
 } from './archetype-query.service'
 
 // Re-export layers
@@ -55,7 +55,7 @@ export const ECSSystemLive = Layer.mergeAll(
   ComponentServiceLive,
   ComponentPoolServiceLive,
   QueryBuilderServiceLive,
-  OptimizedQuerySystemLive
+  OptimizedQuerySystemLive,
 )
 
 // Re-export helper functions

@@ -7,7 +7,6 @@ import { Int, Vector3Int } from '@/domain/value-objects/common'
 import { EntityId } from '@/domain/entities'
 import * as THREE from 'three'
 
-
 const getTarget = (hit: import('@/domain/ports/raycast.port').RaycastHit) => {
   const targetEntityId = hit.entityId
   const position = hit.point
@@ -23,7 +22,7 @@ const getTarget = (hit: import('@/domain/ports/raycast.port').RaycastHit) => {
   }
 }
 
-export const updateTargetSystem = Effect.gen(function* ($) {
+export const targetingSystem = Effect.gen(function* ($) {
   const world = yield* $(WorldRepository)
   const raycast = yield* $(RaycastPort)
   const ray = { origin: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 0, z: -1 } }

@@ -82,7 +82,7 @@ export class QueryCache {
    */
   get<T>(key: string): T | undefined {
     const entry = this.cache.get(key)
-    
+
     if (!entry) {
       this.stats.misses++
       this.updateHitRate()
@@ -90,7 +90,7 @@ export class QueryCache {
     }
 
     const now = Date.now()
-    
+
     // Check TTL expiration
     if (now - entry.timestamp > entry.ttl) {
       this.cache.delete(key)
@@ -103,22 +103,17 @@ export class QueryCache {
     // Update access metadata
     entry.accessCount++
     entry.lastAccessed = now
-    
+
     this.stats.hits++
     this.updateHitRate()
-    
+
     return entry.data as T
   }
 
   /**
    * Cache query result with dependencies
    */
-  set<T>(
-    key: string, 
-    data: T, 
-    dependencies: ComponentName[] = [], 
-    ttl?: number
-  ): void {
+  set<T>(key: string, data: T, dependencies: ComponentName[] = [], ttl?: number): void {
     const now = Date.now()
     const entryTtl = ttl ?? this.config.defaultTtl
     const size = this.estimateSize(data)
@@ -151,8 +146,8 @@ export class QueryCache {
 
     for (const [key, entry] of this.cache.entries()) {
       // Check if any dependencies were modified
-      const hasIntersection = [...entry.dependencies].some(dep => modifiedSet.has(dep))
-      
+      const hasIntersection = [...entry.dependencies].some((dep) => modifiedSet.has(dep))
+
       if (hasIntersection) {
         this.cache.delete(key)
         invalidated++
@@ -306,8 +301,7 @@ export class QueryCache {
 
   private updateStats(): void {
     this.stats.totalEntries = this.cache.size
-    this.stats.memoryUsage = Array.from(this.cache.values())
-      .reduce((sum, entry) => sum + entry.size, 0)
+    this.stats.memoryUsage = Array.from(this.cache.values()).reduce((sum, entry) => sum + entry.size, 0)
     this.updateHitRate()
   }
 
@@ -346,15 +340,11 @@ export class CacheKeyGenerator {
   /**
    * Generate cache key for component-based query
    */
-  static forComponents(
-    required: ReadonlyArray<ComponentName>,
-    forbidden: ReadonlyArray<ComponentName> = [],
-    predicateHash?: string
-  ): string {
+  static forComponents(required: ReadonlyArray<ComponentName>, forbidden: ReadonlyArray<ComponentName> = [], predicateHash?: string): string {
     const requiredStr = [...required].sort().join(',')
     const forbiddenStr = [...forbidden].sort().join(',')
     const predicateStr = predicateHash ? `|pred:${predicateHash}` : ''
-    
+
     return `comp:${requiredStr}|!${forbiddenStr}${predicateStr}`
   }
 
@@ -377,7 +367,7 @@ export class CacheKeyGenerator {
     let hash = 0
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i)
-      hash = ((hash << 5) - hash) + char
+      hash = (hash << 5) - hash + char
       hash = hash & hash // Convert to 32-bit integer
     }
     return hash

@@ -60,3 +60,6 @@ export type RemoveChunkRenderCommand = S.Schema.Type<typeof RemoveChunkRenderCom
 
 export const RenderCommandSchema = S.Union(UpsertChunkRenderCommandSchema, RemoveChunkRenderCommandSchema)
 export type RenderCommand = S.Schema.Type<typeof RenderCommandSchema>
+
+// Re-export world types
+export * from './world'

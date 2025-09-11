@@ -5,35 +5,35 @@
 ```mermaid
 graph TD
     Start[開始] --> Wave1{第1波}
-    
+
     Wave1 --> T1[エラー統一]
     Wave1 --> T2[Value Objects]
     Wave1 --> T3[テストヘルパー作成]
     Wave1 --> T4[Worker基盤整備]
-    
+
     T1 --> Wave2{第2波}
     T2 --> Wave2
     T3 --> Wave2
     T4 --> Wave2
-    
+
     Wave2 --> T5[コンポーネント分割]
     Wave2 --> T6[Service定義作成]
     Wave2 --> T7[Worker型安全化]
     Wave2 --> T8[テストビルダー実装]
-    
+
     T5 --> Wave3{第3波}
     T6 --> Wave3
     T7 --> Wave3
     T8 --> Wave3
-    
+
     Wave3 --> T9[Layer実装]
     Wave3 --> T10[システム整理]
     Wave3 --> T11[E2Eテスト]
-    
+
     T9 --> Wave4{第4波}
     T10 --> Wave4
     T11 --> Wave4
-    
+
     Wave4 --> T12[統合・最適化]
     T12 --> End[完了]
 ```
@@ -41,6 +41,7 @@ graph TD
 ## 📋 第1波：独立作業（並列実行可能）
 
 ### Team A: エラー統一とコア構造
+
 ```bash
 # 並列実行可能なタスク
 ├── エラー定義の統一（domain/errors.ts）
@@ -49,15 +50,16 @@ graph TD
 ```
 
 **作業内容:**
+
 ```typescript
 // src/core/errors/base/domain-error.ts
-export class DomainError extends Data.TaggedError("DomainError")<{
+export class DomainError extends Data.TaggedError('DomainError')<{
   message: string
   cause?: unknown
 }> {}
 
 // src/core/errors/entity-errors.ts
-export class EntityNotFoundError extends Data.TaggedError("EntityNotFoundError")<{
+export class EntityNotFoundError extends Data.TaggedError('EntityNotFoundError')<{
   entityId: EntityId
   message: string
 }> {}
@@ -70,6 +72,7 @@ export * from './world-errors'
 ```
 
 ### Team B: Value Objects実装
+
 ```bash
 # 並列実行可能なタスク
 ├── core/values/coordinates 作成
@@ -78,6 +81,7 @@ export * from './world-errors'
 ```
 
 **作業内容:**
+
 ```typescript
 // src/core/values/coordinates/position.value.ts
 import { Data, pipe } from 'effect'
@@ -98,7 +102,8 @@ export type Position = Data.Struct<{
 export const Position = Data.struct<Position>()
 
 // 振る舞いの定義
-export const translate = (dx: number, dy: number, dz: number) =>
+export const translate =
+  (dx: number, dy: number, dz: number) =>
   (pos: Position): Position =>
     Position({
       x: pos.x + dx,
@@ -108,6 +113,7 @@ export const translate = (dx: number, dy: number, dz: number) =>
 ```
 
 ### Team C: テスト基盤の整備
+
 ```bash
 # 並列実行可能なタスク
 ├── test-utils/builders 作成
@@ -116,6 +122,7 @@ export const translate = (dx: number, dy: number, dz: number) =>
 ```
 
 **作業内容:**
+
 ```typescript
 // src/test-utils/builders/entity.builder.ts
 type EntityBuilderState = {
@@ -126,20 +133,22 @@ type EntityBuilderState = {
 export const entityBuilder = {
   create: (id = EntityId.make()): EntityBuilderState => ({
     id,
-    components: new Map()
+    components: new Map(),
   }),
-  
-  withComponent: <T>(name: string, component: T) =>
+
+  withComponent:
+    <T>(name: string, component: T) =>
     (state: EntityBuilderState): EntityBuilderState => ({
       ...state,
-      components: new Map(state.components).set(name, component)
+      components: new Map(state.components).set(name, component),
     }),
-    
-  build: (state: EntityBuilderState) => state
+
+  build: (state: EntityBuilderState) => state,
 }
 ```
 
 ### Team D: Worker基盤の準備
+
 ```bash
 # 並列実行可能なタスク
 ├── workers/shared/worker-base.ts 作成
@@ -148,39 +157,28 @@ export const entityBuilder = {
 ```
 
 **作業内容:**
+
 ```typescript
 // src/workers/shared/worker-base.ts
 import { Effect, Schema as S, pipe } from 'effect'
 
-export type WorkerHandler<TIn, TOut> = (
-  input: TIn
-) => Effect.Effect<TOut>
+export type WorkerHandler<TIn, TOut> = (input: TIn) => Effect.Effect<TOut>
 
-export const createWorker = <TIn, TOut>(config: {
-  inputSchema: S.Schema<TIn>
-  outputSchema: S.Schema<TOut>
-  handler: WorkerHandler<TIn, TOut>
-}) => {
+export const createWorker = <TIn, TOut>(config: { inputSchema: S.Schema<TIn>; outputSchema: S.Schema<TOut>; handler: WorkerHandler<TIn, TOut> }) => {
   const handleMessage = (e: MessageEvent) =>
     pipe(
       S.decodeUnknown(config.inputSchema)(e.data),
       Effect.flatMap(config.handler),
       Effect.flatMap(S.encode(config.outputSchema)),
-      Effect.tap((encoded) =>
-        Effect.sync(() => self.postMessage(encoded))
-      ),
-      Effect.catchAll((error) =>
-        Effect.sync(() =>
-          self.postMessage({ type: 'error', error })
-        )
-      ),
-      Effect.runPromise
+      Effect.tap((encoded) => Effect.sync(() => self.postMessage(encoded))),
+      Effect.catchAll((error) => Effect.sync(() => self.postMessage({ type: 'error', error }))),
+      Effect.runPromise,
     )
 
   return {
     start: () => {
       self.onmessage = handleMessage
-    }
+    },
   }
 }
 ```
@@ -188,6 +186,7 @@ export const createWorker = <TIn, TOut>(config: {
 ## 📋 第2波：第1波完了後の並列作業
 
 ### Team A: コンポーネント分割
+
 ```bash
 # 依存: エラー統一、Value Objects
 ├── core/components/physics 作成
@@ -196,6 +195,7 @@ export const createWorker = <TIn, TOut>(config: {
 ```
 
 ### Team B: Service定義の作成
+
 ```bash
 # 依存: エラー統一
 ├── services/world/world.service.ts
@@ -204,6 +204,7 @@ export const createWorker = <TIn, TOut>(config: {
 ```
 
 ### Team C: Worker実装の型安全化
+
 ```bash
 # 依存: Worker基盤
 ├── workers/terrain の移行
@@ -212,6 +213,7 @@ export const createWorker = <TIn, TOut>(config: {
 ```
 
 ### Team D: テストビルダーの拡張
+
 ```bash
 # 依存: テスト基盤、Value Objects
 ├── world.builder.ts
@@ -222,6 +224,7 @@ export const createWorker = <TIn, TOut>(config: {
 ## 📋 第3波：統合作業
 
 ### Team A+B: Layer実装とService統合
+
 ```bash
 # 依存: Service定義、コンポーネント分割
 ├── infrastructure/layers/core 作成
@@ -230,6 +233,7 @@ export const createWorker = <TIn, TOut>(config: {
 ```
 
 ### Team C: システムのリファクタリング
+
 ```bash
 # 依存: コンポーネント分割、Service定義
 ├── systems/movement の整理
@@ -238,6 +242,7 @@ export const createWorker = <TIn, TOut>(config: {
 ```
 
 ### Team D: E2Eテストの実装
+
 ```bash
 # 依存: 全テストビルダー
 ├── e2e/game-loop.e2e.spec.ts
@@ -248,6 +253,7 @@ export const createWorker = <TIn, TOut>(config: {
 ## 📋 第4波：最終統合と最適化
 
 ### 全チーム協働
+
 ```bash
 ├── import文の一括更新
 ├── 循環依存の解消
@@ -259,6 +265,7 @@ export const createWorker = <TIn, TOut>(config: {
 ## 🔧 並列実行のための環境設定
 
 ### Git ブランチ戦略
+
 ```bash
 main
 ├── refactor/wave1-errors      (Team A)
@@ -269,6 +276,7 @@ main
 ```
 
 ### 並列実行スクリプト
+
 ```json
 // package.json
 {
@@ -287,41 +295,45 @@ main
 
 ### タスク依存関係マトリックス
 
-| タスク | 依存先 | ブロッカー | 並列可能 |
-|--------|--------|------------|----------|
-| エラー統一 | なし | なし | ✅ |
-| Value Objects | なし | なし | ✅ |
-| テスト基盤 | なし | なし | ✅ |
-| Worker基盤 | なし | なし | ✅ |
-| コンポーネント分割 | エラー統一, Value Objects | 第1波完了 | ✅ |
-| Service定義 | エラー統一 | 第1波完了 | ✅ |
-| Worker型安全化 | Worker基盤 | 第1波完了 | ✅ |
-| Layer実装 | Service定義 | 第2波完了 | ❌ |
-| システム整理 | コンポーネント分割 | 第2波完了 | ✅ |
-| 統合テスト | 全テスト基盤 | 第3波完了 | ❌ |
+| タスク             | 依存先                    | ブロッカー | 並列可能 |
+| ------------------ | ------------------------- | ---------- | -------- |
+| エラー統一         | なし                      | なし       | ✅       |
+| Value Objects      | なし                      | なし       | ✅       |
+| テスト基盤         | なし                      | なし       | ✅       |
+| Worker基盤         | なし                      | なし       | ✅       |
+| コンポーネント分割 | エラー統一, Value Objects | 第1波完了  | ✅       |
+| Service定義        | エラー統一                | 第1波完了  | ✅       |
+| Worker型安全化     | Worker基盤                | 第1波完了  | ✅       |
+| Layer実装          | Service定義               | 第2波完了  | ❌       |
+| システム整理       | コンポーネント分割        | 第2波完了  | ✅       |
+| 統合テスト         | 全テスト基盤              | 第3波完了  | ❌       |
 
 ## 🎯 成功基準
 
 ### 各波の完了条件
 
 **第1波（2日間）:**
+
 - [ ] エラークラスの重複が0
 - [ ] 全Value ObjectsがData.Struct使用
 - [ ] テストビルダー基本実装完了
 - [ ] Worker基盤の型定義完了
 
 **第2波（2日間）:**
+
 - [ ] components.ts が機能別に分割
 - [ ] 全ServiceのTag定義完了
 - [ ] Worker通信が100%型安全
 - [ ] テストビルダー全機能実装
 
 **第3波（2日間）:**
+
 - [ ] 全ServiceにLayer実装
 - [ ] システムの責務が明確化
 - [ ] E2Eテスト3件以上作成
 
 **第4波（1日間）:**
+
 - [ ] 循環依存0件
 - [ ] import文整理完了
 - [ ] パフォーマンス測定実施
@@ -330,6 +342,7 @@ main
 ## 🔄 継続的インテグレーション
 
 ### 自動マージ戦略
+
 ```yaml
 # .github/workflows/auto-merge.yml
 name: Auto Merge Refactor Branches
@@ -357,7 +370,7 @@ jobs:
 
 ### コンフリクト解決ガイドライン
 
-1. **インポートのコンフリクト:** 
+1. **インポートのコンフリクト:**
    - 新しいcore構造を優先
    - 古いdomainパスは削除
 
@@ -372,12 +385,14 @@ jobs:
 ## 📝 チーム間コミュニケーション
 
 ### デイリースタンドアップ項目
+
 - 完了したタスク
 - 進行中のタスク
 - ブロッカー
 - 他チームへの依存
 
 ### 統合ポイント
+
 - 第1波完了: Day 2 終了時
 - 第2波完了: Day 4 終了時
 - 第3波完了: Day 6 終了時
@@ -387,22 +402,24 @@ jobs:
 
 ### 想定リスクと対策
 
-| リスク | 影響度 | 対策 |
-|--------|--------|------|
-| 大規模な型エラー | 高 | 段階的な移行、型アサーション使用 |
-| テスト失敗 | 中 | 並列でテスト修正チーム配置 |
-| パフォーマンス劣化 | 中 | ベンチマーク実施、ロールバック準備 |
-| マージコンフリクト | 低 | 小さいPR、頻繁なリベース |
+| リスク             | 影響度 | 対策                               |
+| ------------------ | ------ | ---------------------------------- |
+| 大規模な型エラー   | 高     | 段階的な移行、型アサーション使用   |
+| テスト失敗         | 中     | 並列でテスト修正チーム配置         |
+| パフォーマンス劣化 | 中     | ベンチマーク実施、ロールバック準備 |
+| マージコンフリクト | 低     | 小さいPR、頻繁なリベース           |
 
 ## ✅ チェックリスト
 
 ### 開始前確認
+
 - [ ] 全テストがグリーン
 - [ ] main ブランチ最新化
 - [ ] バックアップブランチ作成
 - [ ] チーム分担確認
 
 ### 各波完了時確認
+
 - [ ] 型チェック通過
 - [ ] リント通過
 - [ ] テスト通過
@@ -410,6 +427,7 @@ jobs:
 - [ ] ドキュメント更新
 
 ### 最終確認
+
 - [ ] パフォーマンステスト実施
 - [ ] カバレッジ90%以上
 - [ ] READMEに変更内容記載

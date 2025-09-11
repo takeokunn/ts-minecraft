@@ -203,9 +203,9 @@ export class NetworkInspector {
       const startTime = performance.now()
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
-      
+
       const requestId = this.generateRequestId()
-      
+
       // リクエスト情報を記録
       const request: Partial<NetworkRequest> = {
         id: requestId,
@@ -213,34 +213,34 @@ export class NetworkInspector {
         method,
         timestamp: Date.now(),
         type: 'Fetch',
-        headers: init?.headers as Record<string, string> || {},
-        payload: init?.body
+        headers: (init?.headers as Record<string, string>) || {},
+        payload: init?.body,
       }
 
       try {
         const response = await this.originalFetch(input, init)
         const endTime = performance.now()
-        
+
         // レスポンス情報を追加
         const completeRequest: NetworkRequest = {
-          ...request as NetworkRequest,
+          ...(request as NetworkRequest),
           status: response.status,
           duration: endTime - startTime,
           requestSize: this.estimateSize(init?.body),
-          responseSize: this.estimateSize(response)
+          responseSize: this.estimateSize(response),
         }
 
         this.addRequest(completeRequest)
         return response
       } catch (error) {
         const endTime = performance.now()
-        
+
         const completeRequest: NetworkRequest = {
-          ...request as NetworkRequest,
+          ...(request as NetworkRequest),
           status: 0,
           duration: endTime - startTime,
           requestSize: this.estimateSize(init?.body),
-          responseSize: 0
+          responseSize: 0,
         }
 
         this.addRequest(completeRequest)
@@ -250,25 +250,25 @@ export class NetworkInspector {
 
     // XMLHttpRequestの傍受
     const self = this
-    XMLHttpRequest.prototype.open = function(method: string, url: string | URL, ...args: any[]) {
+    XMLHttpRequest.prototype.open = function (method: string, url: string | URL, ...args: any[]) {
       this._networkInspector = {
         id: self.generateRequestId(),
         method,
         url: url.toString(),
         startTime: performance.now(),
-        timestamp: Date.now()
+        timestamp: Date.now(),
       }
-      
+
       return self.originalXHROpen.call(this, method, url, ...args)
     }
 
-    XMLHttpRequest.prototype.send = function(body?: Document | XMLHttpRequestBodyInit | null) {
+    XMLHttpRequest.prototype.send = function (body?: Document | XMLHttpRequestBodyInit | null) {
       const requestInfo = this._networkInspector
-      
+
       if (requestInfo) {
         this.addEventListener('loadend', () => {
           const endTime = performance.now()
-          
+
           const request: NetworkRequest = {
             id: requestInfo.id,
             url: requestInfo.url,
@@ -281,13 +281,13 @@ export class NetworkInspector {
             type: 'XHR',
             headers: {},
             payload: body,
-            response: this.responseText
+            response: this.responseText,
           }
-          
+
           self.addRequest(request)
         })
       }
-      
+
       return self.originalXHRSend.call(this, body)
     }
   }
@@ -328,7 +328,7 @@ export class NetworkInspector {
 
     requestList.innerHTML = ''
 
-    this.requests.forEach(request => {
+    this.requests.forEach((request) => {
       const requestElement = document.createElement('div')
       requestElement.style.cssText = `
         padding: 5px 8px;
@@ -409,12 +409,12 @@ export class NetworkInspector {
     const data = {
       timestamp: Date.now(),
       requests: this.requests,
-      summary: this.getNetworkSummary()
+      summary: this.getNetworkSummary(),
     }
-    
+
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
-    
+
     const a = document.createElement('a')
     a.href = url
     a.download = `network-inspector-${Date.now()}.json`
@@ -422,26 +422,26 @@ export class NetworkInspector {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    
+
     console.log('💾 Network requests exported')
   }
 
   getNetworkSummary(): any {
     const summary = {
       totalRequests: this.requests.length,
-      successfulRequests: this.requests.filter(r => r.status >= 200 && r.status < 300).length,
-      failedRequests: this.requests.filter(r => r.status >= 400).length,
+      successfulRequests: this.requests.filter((r) => r.status >= 200 && r.status < 300).length,
+      failedRequests: this.requests.filter((r) => r.status >= 400).length,
       averageResponseTime: 0,
       totalDataTransferred: 0,
       requestsByMethod: {} as Record<string, number>,
-      requestsByStatus: {} as Record<string, number>
+      requestsByStatus: {} as Record<string, number>,
     }
 
     if (this.requests.length > 0) {
       summary.averageResponseTime = this.requests.reduce((sum, r) => sum + r.duration, 0) / this.requests.length
       summary.totalDataTransferred = this.requests.reduce((sum, r) => sum + r.responseSize, 0)
 
-      this.requests.forEach(request => {
+      this.requests.forEach((request) => {
         summary.requestsByMethod[request.method] = (summary.requestsByMethod[request.method] || 0) + 1
         const statusGroup = `${Math.floor(request.status / 100)}xx`
         summary.requestsByStatus[statusGroup] = (summary.requestsByStatus[statusGroup] || 0) + 1

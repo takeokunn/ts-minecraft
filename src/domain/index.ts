@@ -9,8 +9,20 @@ export * from './value-objects'
 // Domain Services
 export * from './services'
 
-// Core domain exports
-export * from './archetypes'
-export * from './block-types'
-export * from './world-constants'
-export * from './world'
+// Ports (dependency inversion)
+export * from './ports'
+
+// Errors
+export * from './errors'
+
+// Queries (ECS system)
+export * from './queries'
+
+// Constants
+export * from './constants'
+
+// Types
+export * from './types'
+
+// Utilities
+export * from './utils'

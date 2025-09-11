@@ -27,12 +27,12 @@ export const COLORS = {
   WARNING: '#f59e0b',
   ERROR: '#ef4444',
   INFO: '#3b82f6',
-  
+
   // UI Backgrounds
   PANEL_BACKGROUND: 'rgba(0, 0, 0, 0.8)',
   BUTTON_BACKGROUND: 'rgba(255, 255, 255, 0.1)',
   BUTTON_HOVER: 'rgba(255, 255, 255, 0.2)',
-  
+
   // Text Colors
   TEXT_PRIMARY: '#ffffff',
   TEXT_SECONDARY: '#94a3b8',

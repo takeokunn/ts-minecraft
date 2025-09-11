@@ -31,11 +31,11 @@ jobs:
           npm install -g octokit
           cat > collect-metrics.js << 'EOF'
           const { Octokit } = require("octokit");
-          
+
           const octokit = new Octokit({
             auth: process.env.GITHUB_TOKEN,
           });
-          
+
           async function collectMetrics() {
             const owner = process.env.GITHUB_REPOSITORY_OWNER;
             const repo = process.env.GITHUB_REPOSITORY.split('/')[1];
@@ -101,34 +101,34 @@ jobs:
             
             // Generate summary for GitHub Actions
             const summary = `## 📊 CI/CD Metrics Report
-          
+
           **Reporting Period**: ${metrics.period}
           **Report Generated**: ${new Date().toLocaleString()}
-          
+
           ### 🎯 Success Metrics
           - **Success Rate**: ${metrics.successRate}
           - **Total Runs**: ${metrics.totalRuns}
           - **Successful Runs**: ${metrics.successfulRuns}
           - **Average Duration**: ${metrics.averageDuration}
-          
+
           ### ⚠️ Failure Metrics  
           - **Failure Rate**: ${metrics.failureRate}
           - **Failed Runs**: ${metrics.failedRuns}
           - **Cancelled Runs**: ${metrics.cancelledRuns}
-          
+
           ### 🚀 Deployment Metrics
           - **Total Deployments**: ${metrics.deploymentFrequency}
           - **Deployment Rate**: ${metrics.deploymentRate}
-          
+
           ### 🎯 Performance Targets
           - ✅ Success Rate Target: >95% (Current: ${metrics.successRate})
           - ✅ Average Duration Target: <5min (Current: ${metrics.averageDuration})
           - ✅ Daily Deployments Target: >1 (Current: ${metrics.deploymentRate})
           `;
-          
+
             require('fs').writeFileSync('metrics-summary.md', summary);
           }
-          
+
           collectMetrics().catch(console.error);
           EOF
 
@@ -173,10 +173,10 @@ jobs:
         run: |
           echo "## 📦 Dependency Health Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Check for outdated packages
           OUTDATED=$(pnpm outdated --format json 2>/dev/null || echo '{}')
-          
+
           if [ "$OUTDATED" = "{}" ]; then
             echo "✅ All dependencies are up to date" >> $GITHUB_STEP_SUMMARY
           else
@@ -190,7 +190,7 @@ jobs:
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔒 Security Audit" >> $GITHUB_STEP_SUMMARY
-          
+
           if pnpm audit --audit-level moderate --json > audit-results.json 2>/dev/null; then
             echo "✅ No security vulnerabilities found" >> $GITHUB_STEP_SUMMARY
           else
@@ -202,17 +202,17 @@ jobs:
       - name: Check bundle size trends
         run: |
           pnpm build
-          
+
           CURRENT_SIZE=$(du -sb dist | cut -f1)
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📊 Bundle Size Analysis" >> $GITHUB_STEP_SUMMARY
           echo "- **Current Size**: $(numfmt --to=iec $CURRENT_SIZE)B" >> $GITHUB_STEP_SUMMARY
           echo "- **Size Limit**: 10MB" >> $GITHUB_STEP_SUMMARY
-          
+
           USAGE_PERCENT=$(($CURRENT_SIZE * 100 / 10485760))
           echo "- **Usage**: ${USAGE_PERCENT}%" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ $USAGE_PERCENT -gt 80 ]; then
             echo "⚠️ Bundle size is approaching the limit!" >> $GITHUB_STEP_SUMMARY
           else
@@ -222,13 +222,13 @@ jobs:
       - name: Generate repository health score
         run: |
           SCORE=100
-          
+
           # Deduct points for issues
           if [ -f audit-results.json ]; then
             VULNS=$(cat audit-results.json | jq -r '.metadata.vulnerabilities.total' 2>/dev/null || echo "0")
             SCORE=$((SCORE - VULNS * 5))
           fi
-          
+
           # Check test coverage (if available)
           if [ -f coverage/coverage-summary.json ]; then
             COVERAGE=$(cat coverage/coverage-summary.json | jq -r '.total.lines.pct' 2>/dev/null || echo "0")
@@ -236,11 +236,11 @@ jobs:
               SCORE=$((SCORE - 10))
             fi
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🏆 Repository Health Score" >> $GITHUB_STEP_SUMMARY
           echo "**Score**: $SCORE/100" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ $SCORE -ge 90 ]; then
             echo "🎉 Excellent repository health!" >> $GITHUB_STEP_SUMMARY
           elif [ $SCORE -ge 70 ]; then
@@ -280,13 +280,13 @@ jobs:
       - name: Generate current performance baseline
         run: |
           echo "📊 Generating current performance baseline..."
-          
+
           # Build current version
           pnpm build
-          
+
           # Calculate current metrics
           CURRENT_BUNDLE_SIZE=$(du -sb dist | cut -f1)
-          
+
           # Simulate load time test
           LOAD_START=$(date +%s%3N)
           # Simulate typical operations
@@ -298,10 +298,10 @@ jobs:
             }, 100);
           " > load_time.txt 2>/dev/null || echo "100" > load_time.txt
           LOAD_TIME=$(cat load_time.txt)
-          
+
           # Memory usage simulation
           MEMORY_USAGE=$(node -e "console.log(Math.floor(process.memoryUsage().heapUsed / 1024 / 1024))")
-          
+
           # Create performance baseline
           cat > current-performance.json << EOF
           {
@@ -312,7 +312,7 @@ jobs:
             "commit": "${{ github.sha }}"
           }
           EOF
-          
+
           echo "Current performance metrics:"
           echo "- Bundle Size: $(numfmt --to=iec $CURRENT_BUNDLE_SIZE)B"
           echo "- Load Time: ${LOAD_TIME}ms"
@@ -322,19 +322,19 @@ jobs:
         run: |
           echo "## 📈 Performance Trends Analysis" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Count available performance reports
           REPORT_COUNT=$(ls performance-report-*.json 2>/dev/null | wc -l)
           CURRENT_BUNDLE_SIZE=$(jq -r '.bundleSize' current-performance.json)
           CURRENT_LOAD_TIME=$(jq -r '.loadTime' current-performance.json)
           CURRENT_MEMORY=$(jq -r '.memoryUsage' current-performance.json)
-          
+
           echo "### 🎯 Current Performance Metrics" >> $GITHUB_STEP_SUMMARY
           echo "- **Bundle Size**: $(numfmt --to=iec $CURRENT_BUNDLE_SIZE)B" >> $GITHUB_STEP_SUMMARY
           echo "- **Load Time**: ${CURRENT_LOAD_TIME}ms" >> $GITHUB_STEP_SUMMARY
           echo "- **Memory Usage**: ${CURRENT_MEMORY}MB" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ $REPORT_COUNT -eq 0 ]; then
             echo "ℹ️ No historical performance reports available for comparison" >> $GITHUB_STEP_SUMMARY
           else
@@ -398,21 +398,21 @@ jobs:
           echo "**Generated**: $(date)" >> comprehensive-report.md
           echo "**Repository**: ${{ github.repository }}" >> comprehensive-report.md
           echo "" >> comprehensive-report.md
-          
+
           echo "## 📋 Executive Summary" >> comprehensive-report.md
           echo "" >> comprehensive-report.md
           echo "- **Metrics Collection**: ${{ needs.metrics-collection.result }}" >> comprehensive-report.md
           echo "- **Repository Health**: ${{ needs.repository-health.result }}" >> comprehensive-report.md
           echo "- **Performance Trends**: ${{ needs.performance-trends.result }}" >> comprehensive-report.md
           echo "" >> comprehensive-report.md
-          
+
           # Include detailed reports if available
           if [ -f metrics-summary.md ]; then
             echo "## Detailed Metrics" >> comprehensive-report.md
             cat metrics-summary.md >> comprehensive-report.md
             echo "" >> comprehensive-report.md
           fi
-          
+
           echo "## 🎯 Action Items" >> comprehensive-report.md
           echo "" >> comprehensive-report.md
           echo "- [ ] Review failed workflow runs" >> comprehensive-report.md
@@ -420,7 +420,7 @@ jobs:
           echo "- [ ] Address security vulnerabilities" >> comprehensive-report.md
           echo "- [ ] Monitor bundle size growth" >> comprehensive-report.md
           echo "- [ ] Optimize slow-running jobs" >> comprehensive-report.md
-          
+
           echo "---" >> comprehensive-report.md
           echo "*Report generated automatically by GitHub Actions*" >> comprehensive-report.md
 

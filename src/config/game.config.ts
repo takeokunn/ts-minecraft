@@ -1,11 +1,6 @@
 import { GameMode, RenderDistance } from '@/shared/types'
-import {
-  CHUNK_SIZE,
-  RENDER_DISTANCE as DEFAULT_RENDER_DISTANCE,
-  PLAYER_SPEED,
-  JUMP_FORCE,
-  GRAVITY
-} from '@/shared/constants'
+import { CHUNK_SIZE, RENDER_DISTANCE as DEFAULT_RENDER_DISTANCE } from '@/shared/constants/world'
+import { PLAYER_SPEED, JUMP_FORCE, GRAVITY } from '@/shared/constants/physics'
 
 /**
  * Game-specific configuration
@@ -297,7 +292,7 @@ export const getUserGameConfig = (): GameConfig => {
     controls: {
       ...GAME_CONFIG.controls,
       ...userConfig.controls,
-      keyBindings: { ...GAME_CONFIG.controls.keyBindings, ...userConfig.controls?.keyBindings }
+      keyBindings: { ...GAME_CONFIG.controls.keyBindings, ...userConfig.controls?.keyBindings },
     },
   }
 }

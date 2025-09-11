@@ -1,6 +1,6 @@
 /**
  * Input Port - Interface for input device operations
- * 
+ *
  * This port defines the contract for input operations,
  * allowing the domain layer to receive input without
  * depending on specific input implementations.
@@ -29,13 +29,13 @@ export interface IInputPort {
   // Mouse operations
   readonly getMouseState: () => Effect.Effect<MouseState, never, never>
   readonly resetMouseDelta: () => Effect.Effect<void, never, never>
-  
+
   // Keyboard operations
   readonly getKeyboardState: () => Effect.Effect<KeyboardState, never, never>
   readonly isKeyPressed: (key: string) => Effect.Effect<boolean, never, never>
   readonly isKeyJustPressed: (key: string) => Effect.Effect<boolean, never, never>
   readonly isKeyJustReleased: (key: string) => Effect.Effect<boolean, never, never>
-  
+
   // Input management
   readonly update: () => Effect.Effect<void, never, never>
   readonly lockPointer: () => Effect.Effect<void, never, never>
@@ -43,7 +43,4 @@ export interface IInputPort {
   readonly isPointerLocked: () => Effect.Effect<boolean, never, never>
 }
 
-export class InputPort extends Context.GenericTag('InputPort')<
-  InputPort,
-  IInputPort
->() {}
+export class InputPort extends Context.GenericTag('InputPort')<InputPort, IInputPort>() {}

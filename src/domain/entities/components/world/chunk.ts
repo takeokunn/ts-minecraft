@@ -16,7 +16,7 @@ export const ChunkComponent = RegisterComponent({
     chunkX: ChunkX,
     chunkZ: ChunkZ,
     blocks: S.Array(BlockTypeSchema),
-  })
+  }),
 )
 
 export type ChunkComponent = S.Schema.Type<typeof ChunkComponent>
@@ -31,7 +31,7 @@ export const ChunkLoaderStateComponent = RegisterComponent({
 })(
   S.Struct({
     loadedChunks: S.ReadonlySet(S.String),
-  })
+  }),
 )
 
 export type ChunkLoaderStateComponent = S.Schema.Type<typeof ChunkLoaderStateComponent>

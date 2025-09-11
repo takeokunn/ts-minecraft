@@ -1,9 +1,9 @@
 /**
  * Performance Infrastructure Layers
- * 
+ *
  * This module provides a comprehensive suite of performance optimization layers
  * built on Effect-TS for TypeScript Minecraft applications:
- * 
+ *
  * - Object Pool Layer: Memory-efficient object reuse patterns
  * - Memory Pool Layer: Advanced memory pool management
  * - Profiler Layer: Performance measurement and analysis
@@ -29,7 +29,7 @@ export {
   aabbPoolConfig,
   PooledVector3,
   PooledMatrix4,
-  PooledAABB
+  PooledAABB,
 } from './object-pool.layer'
 
 // Memory Pool Layer
@@ -48,7 +48,7 @@ export {
   createBufferPool,
   withPooledMemory,
   acquireBatch,
-  releaseBatch
+  releaseBatch,
 } from './memory-pool.layer'
 
 // Profiler Layer
@@ -64,7 +64,7 @@ export {
   profileAsync,
   profileSync,
   profileBatch,
-  withSession
+  withSession,
 } from './profiler.layer'
 
 // Resource Layer
@@ -81,7 +81,7 @@ export {
   defaultResourceConfig,
   withResource,
   loadBatch,
-  createLoader
+  createLoader,
 } from './resource.layer'
 
 // Startup Layer
@@ -97,7 +97,7 @@ export {
   withStartupPhase,
   createCriticalPathItem,
   measureStartupPerformance,
-  createOptimizedStartup
+  createOptimizedStartup,
 } from './startup.layer'
 
 // Latency Layer
@@ -113,7 +113,7 @@ export {
   measureLatency,
   createLatencyTarget,
   withBatching,
-  withCaching
+  withCaching,
 } from './latency.layer'
 
 import { Layer } from 'effect'
@@ -133,16 +133,13 @@ export const PerformanceLayer = Layer.mergeAll(
   ProfilerServiceLive(),
   ResourceServiceLive(),
   StartupOptimizerServiceLive(),
-  LatencyOptimizerServiceLive()
+  LatencyOptimizerServiceLive(),
 )
 
 /**
  * Minimal performance layer for lightweight applications
  */
-export const MinimalPerformanceLayer = Layer.mergeAll(
-  ObjectPoolServiceLive,
-  MemoryPoolServiceLive
-)
+export const MinimalPerformanceLayer = Layer.mergeAll(ObjectPoolServiceLive, MemoryPoolServiceLive)
 
 /**
  * Development performance layer with detailed profiling
@@ -155,7 +152,7 @@ export const DevelopmentPerformanceLayer = Layer.mergeAll(
     enableConsoleOutput: true,
     slowThreshold: 16,
     maxMeasurements: 2000,
-    sampleRate: 1.0
+    sampleRate: 1.0,
   }),
   ResourceServiceLive({
     maxMemoryMB: 256,
@@ -163,7 +160,7 @@ export const DevelopmentPerformanceLayer = Layer.mergeAll(
     ttlMs: 2 * 60 * 1000,
     enableLRU: true,
     enablePreloading: false,
-    compressionEnabled: false
+    compressionEnabled: false,
   }),
   StartupOptimizerServiceLive({
     enableCodeSplitting: false,
@@ -174,7 +171,7 @@ export const DevelopmentPerformanceLayer = Layer.mergeAll(
     enableTreeShaking: false,
     parallelInitialization: false,
     maxConcurrency: 2,
-    timeoutMs: 60000
+    timeoutMs: 60000,
   }),
   LatencyOptimizerServiceLive({
     enablePredictiveOptimization: false,
@@ -185,8 +182,8 @@ export const DevelopmentPerformanceLayer = Layer.mergeAll(
     maxHistorySize: 500,
     measurementWindow: 30000,
     optimizationInterval: 5000,
-    adaptiveThreshold: 1.5
-  })
+    adaptiveThreshold: 1.5,
+  }),
 )
 
 /**
@@ -200,7 +197,7 @@ export const ProductionPerformanceLayer = Layer.mergeAll(
     enableConsoleOutput: false,
     slowThreshold: 16,
     maxMeasurements: 1000,
-    sampleRate: 0.1 // Sample 10% for minimal overhead
+    sampleRate: 0.1, // Sample 10% for minimal overhead
   }),
   ResourceServiceLive({
     maxMemoryMB: 1024,
@@ -208,7 +205,7 @@ export const ProductionPerformanceLayer = Layer.mergeAll(
     ttlMs: 10 * 60 * 1000,
     enableLRU: true,
     enablePreloading: true,
-    compressionEnabled: true
+    compressionEnabled: true,
   }),
   StartupOptimizerServiceLive({
     enableCodeSplitting: true,
@@ -219,7 +216,7 @@ export const ProductionPerformanceLayer = Layer.mergeAll(
     enableTreeShaking: true,
     parallelInitialization: true,
     maxConcurrency: 8,
-    timeoutMs: 30000
+    timeoutMs: 30000,
   }),
   LatencyOptimizerServiceLive({
     enablePredictiveOptimization: true,
@@ -230,8 +227,8 @@ export const ProductionPerformanceLayer = Layer.mergeAll(
     maxHistorySize: 1000,
     measurementWindow: 60000,
     optimizationInterval: 10000,
-    adaptiveThreshold: 1.2
-  })
+    adaptiveThreshold: 1.2,
+  }),
 )
 
 /**
@@ -256,7 +253,7 @@ export const PerformancePresets = {
   /**
    * Production-optimized configuration
    */
-  Production: ProductionPerformanceLayer
+  Production: ProductionPerformanceLayer,
 } as const
 
 /**

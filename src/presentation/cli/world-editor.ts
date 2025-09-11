@@ -152,11 +152,11 @@ export class WorldEditor {
     // アンドゥ・リドゥ
     const undoButton = this.editorElement?.querySelector('#undo-button')
     const redoButton = this.editorElement?.querySelector('#redo-button')
-    
+
     if (undoButton) {
       undoButton.addEventListener('click', () => this.undo())
     }
-    
+
     if (redoButton) {
       redoButton.addEventListener('click', () => this.redo())
     }
@@ -169,7 +169,7 @@ export class WorldEditor {
         if (event.key === 'z' && !event.shiftKey) {
           event.preventDefault()
           this.undo()
-        } else if ((event.key === 'y') || (event.key === 'z' && event.shiftKey)) {
+        } else if (event.key === 'y' || (event.key === 'z' && event.shiftKey)) {
           event.preventDefault()
           this.redo()
         }
@@ -203,10 +203,10 @@ export class WorldEditor {
       console.warn(`Invalid tool type: ${tool}`)
       return
     }
-    
+
     const action: WorldEditAction = {
       type: tool as 'place' | 'remove' | 'replace',
-      position
+      position,
     }
 
     switch (tool) {
@@ -278,7 +278,7 @@ export class WorldEditor {
     this.revertAction(action)
     this.historyIndex--
     this.updateUI()
-    
+
     console.log('🔄 Undo action:', action)
   }
 
@@ -289,7 +289,7 @@ export class WorldEditor {
     const action = this.actionHistory[this.historyIndex]
     this.applyAction(action)
     this.updateUI()
-    
+
     console.log('🔄 Redo action:', action)
   }
 
@@ -332,11 +332,11 @@ export class WorldEditor {
   private updateUI(): void {
     const actionCountEl = this.editorElement?.querySelector('#action-count')
     const historyIndexEl = this.editorElement?.querySelector('#history-index')
-    
+
     if (actionCountEl) {
       actionCountEl.textContent = this.actionHistory.length.toString()
     }
-    
+
     if (historyIndexEl) {
       historyIndexEl.textContent = this.historyIndex.toString()
     }
@@ -356,7 +356,7 @@ export class WorldEditor {
     return {
       timestamp: Date.now(),
       actions: this.actionHistory.length,
-      message: 'World export feature not implemented yet'
+      message: 'World export feature not implemented yet',
     }
   }
 
@@ -372,7 +372,7 @@ export class WorldEditor {
       selectedTool: this.selectedTool,
       selectedBlockType: this.selectedBlockType,
       canUndo: this.historyIndex >= 0,
-      canRedo: this.historyIndex < this.actionHistory.length - 1
+      canRedo: this.historyIndex < this.actionHistory.length - 1,
     }
   }
 }
