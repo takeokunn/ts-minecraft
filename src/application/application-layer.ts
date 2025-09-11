@@ -8,7 +8,13 @@ import { WorldGenerateUseCaseLive } from './use-cases/world-generate.use-case'
 import { WorldUpdateWorkflowLive } from './workflows/world-update'
 import { UIUpdateWorkflowLive } from './workflows/ui-update'
 import { SystemSchedulerServiceLive } from './workflows/system-scheduler.service'
-import { SystemCommunicationServiceLive } from './workflows/system-communication.service'
+// Removed direct infrastructure dependencies - using ports instead
+
+// Import new domain services that the application layer depends on
+import { TerrainGenerationDomainServiceLive } from '../domain/services/terrain-generation-domain.service'
+import { MeshGenerationDomainServiceLive } from '../domain/services/mesh-generation-domain.service'
+import { WorldManagementDomainServiceLive } from '../domain/services/world-management-domain.service'
+import { UnifiedQuerySystemLive } from './queries/unified-query-system'
 
 /**
  * Complete Application Layer with all use cases, handlers, and workflows
@@ -20,10 +26,19 @@ import { SystemCommunicationServiceLive } from './workflows/system-communication
  * - System Communication and Scheduling
  *
  * Dependencies:
- * - Domain Services (WorldDomainService, EntityDomainService, PhysicsDomainService, etc.)
+ * - Domain Services (WorldDomainService, EntityDomainService, PhysicsDomainService,
+ *   TerrainGenerationDomainService, MeshGenerationDomainService, WorldManagementDomainService)
  * - Infrastructure Services (provided by infrastructure layer)
  */
 export const ApplicationLayer = Layer.mergeAll(
+  // Query System (unified ECS queries)
+  UnifiedQuerySystemLive,
+
+  // Domain Services (required by use cases)
+  TerrainGenerationDomainServiceLive,
+  MeshGenerationDomainServiceLive,
+  WorldManagementDomainServiceLive,
+
   // Use Cases
   PlayerMoveUseCaseLive,
   BlockPlaceUseCaseLive,
@@ -40,7 +55,8 @@ export const ApplicationLayer = Layer.mergeAll(
 
   // System Services
   SystemSchedulerServiceLive(),
-  SystemCommunicationServiceLive(),
+  // Note: SystemCommunication and PerformanceMonitor are now provided via adapters
+  // They should be provided at the infrastructure layer level
 )
 
 /**

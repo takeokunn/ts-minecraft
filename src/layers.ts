@@ -51,10 +51,16 @@ import {
   type RenderCommandType,
   type RaycastResult,
   type WorldState,
-} from '@/infrastructure/layers/unified.layer'
+} from '@infrastructure/layers/unified.layer'
 
 // Import application layer
-import { ApplicationLayer } from '@/application/application-layer'
+import { ApplicationLayer } from '@application/application-layer'
+
+// Import infrastructure adapters
+import { 
+  SystemCommunicationLive, 
+  PerformanceMonitorLive 
+} from '@infrastructure/adapters'
 
 // ===== LAYER COMPOSITIONS BY ARCHITECTURE TIER =====
 
@@ -87,8 +93,14 @@ export const PresentationLayer = UIServicesLive
 /**
  * Complete unified application layer - all services composed
  * This is the main layer used in production
+ * Includes the adapters that provide the port implementations
  */
-export const AppLayer = Layer.mergeAll(UnifiedAppLive, ApplicationLayer)
+export const AppLayer = Layer.mergeAll(
+  UnifiedAppLive, 
+  SystemCommunicationLive(), 
+  PerformanceMonitorLive(), 
+  ApplicationLayer
+)
 
 /**
  * Development layer with debug capabilities

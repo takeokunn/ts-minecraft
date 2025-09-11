@@ -31,100 +31,17 @@ export {
 // WebSocket Adapter
 export { WebSocketAdapter, WebSocketAdapterLive, type IWebSocketAdapter, type WebSocketMessage, type ConnectionState, type WebSocketConfig } from './websocket.adapter'
 
-/**
- * Adapter Layer combinations for easy setup
- */
-import * as Layer from 'effect/Layer'
-import { ThreeJsAdapterLive, ThreeJsContextLive } from './three-js.adapter'
-import { BrowserInputAdapterLive } from './browser-input.adapter'
-import { BrowserClockAdapterLive } from './clock.adapter'
-import { WebGPUAdapterLive } from './webgpu.adapter'
-import { WebSocketAdapterLive } from './websocket.adapter'
+// Terrain Generator Adapter
+export { TerrainGeneratorAdapter, TerrainGeneratorAdapterLive, createTerrainGeneratorAdapter, TerrainGeneratorAdapterUtils } from './terrain-generator.adapter'
 
-/**
- * Complete rendering layer with Three.js
- */
-export const ThreeJsRenderingLayer = Layer.mergeAll(ThreeJsContextLive, ThreeJsAdapterLive)
+// Mesh Generator Adapter
+export { MeshGeneratorAdapter, MeshGeneratorAdapterLive, createMeshGeneratorAdapter, MeshGeneratorAdapterUtils } from './mesh-generator.adapter'
 
-/**
- * Complete input layer with browser support
- */
-export const BrowserInputLayer = BrowserInputAdapterLive
+// System Communication Adapter
+export { SystemCommunicationAdapter, SystemCommunicationLive } from './system-communication.adapter'
 
-/**
- * Complete timing layer with browser clock
- */
-export const BrowserClockLayer = BrowserClockAdapterLive
+// Performance Monitor Adapter
+export { PerformanceMonitorAdapter, PerformanceMonitorLive } from './performance-monitor.adapter'
 
-/**
- * Complete WebGPU layer for advanced rendering
- */
-export const WebGPULayer = WebGPUAdapterLive
-
-/**
- * Complete networking layer with WebSocket
- */
-export const WebSocketLayer = WebSocketAdapterLive
-
-/**
- * All adapters combined for basic browser setup
- */
-export const BasicBrowserAdapters = Layer.mergeAll(ThreeJsRenderingLayer, BrowserInputLayer, BrowserClockLayer)
-
-/**
- * Advanced adapters with WebGPU and networking
- */
-export const AdvancedBrowserAdapters = Layer.mergeAll(ThreeJsRenderingLayer, WebGPULayer, BrowserInputLayer, BrowserClockLayer, WebSocketLayer)
-
-/**
- * Development adapters with full debugging support
- */
-export const DevelopmentAdapters = Layer.mergeAll(ThreeJsRenderingLayer, WebGPULayer, BrowserInputLayer, BrowserClockLayer, WebSocketLayer)
-
-/**
- * Production optimized adapters
- */
-export const ProductionAdapters = Layer.mergeAll(ThreeJsRenderingLayer, BrowserInputLayer, BrowserClockLayer)
-
-/**
- * Adapter utilities
- */
-export const AdapterUtils = {
-  /**
-   * Check if WebGPU is available
-   */
-  isWebGPUAvailable: (): boolean => {
-    return typeof navigator !== 'undefined' && !!navigator.gpu
-  },
-
-  /**
-   * Check if Workers are available
-   */
-  areWorkersAvailable: (): boolean => {
-    return typeof Worker !== 'undefined'
-  },
-
-  /**
-   * Check if WebSockets are available
-   */
-  areWebSocketsAvailable: (): boolean => {
-    return typeof WebSocket !== 'undefined'
-  },
-
-  /**
-   * Get recommended adapter layer based on capabilities
-   */
-  getRecommendedAdapterLayer: () => {
-    const hasWebGPU = AdapterUtils.isWebGPUAvailable()
-    const hasWorkers = AdapterUtils.areWorkersAvailable()
-    const hasWebSockets = AdapterUtils.areWebSocketsAvailable()
-
-    if (hasWebGPU && hasWorkers && hasWebSockets) {
-      return AdvancedBrowserAdapters
-    } else if (hasWebGPU) {
-      return Layer.mergeAll(ThreeJsRenderingLayer, WebGPULayer, BrowserInputLayer, BrowserClockLayer)
-    } else {
-      return BasicBrowserAdapters
-    }
-  },
-}
+// Adapter utilities and layer combinations
+export * from './adapter-utils'
