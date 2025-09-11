@@ -43,18 +43,18 @@ export const ComputationWorkerLive = Layer.scoped(
         worker.postMessage(task)
       }).pipe(Effect.catchAll((e) => Effect.logError(e)))
 
-    return ComputationWorker.of({
+    return {
       postTask,
       onMessage,
-    })
+    }
   }),
 )
 
 // For testing
 export const ComputationWorkerTest = Layer.succeed(
   ComputationWorker,
-  ComputationWorker.of({
+  {
     postTask: () => Effect.void,
     onMessage: () => Effect.void,
-  }),
+  }
 )

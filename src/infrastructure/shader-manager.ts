@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref, HashMap, Option } from 'effect'
+import { Effect, Layer, Ref } from 'effect'
 import { pipe } from 'effect/Function'
 import * as THREE from 'three'
 import { ObjectPool } from '@/core/performance/object-pool'
@@ -285,7 +285,7 @@ void main() {
 
 // --- WebGPU Shaders (Future Support) ---
 
-const WEBGPU_COMPUTE_SHADER_WGSL = `
+const _WEBGPU_COMPUTE_SHADER = `
 @group(0) @binding(0) var<storage, read_write> chunkData: array<u32>;
 @group(0) @binding(1) var<uniform> params: ComputeParams;
 
@@ -321,13 +321,13 @@ fn noise3d(p: vec3<f32>) -> f32 {
 
 const shaderPool = new ObjectPool<THREE.Shader>(
   () => new THREE.Shader(),
-  (shader) => shader,
+  (shader: THREE.Shader) => shader,
   CONFIG.MAX_SHADER_VARIANTS
 )
 
 const materialPool = new ObjectPool<THREE.ShaderMaterial>(
   () => new THREE.ShaderMaterial(),
-  (material) => {
+  (material: THREE.ShaderMaterial) => {
     material.dispose()
     return new THREE.ShaderMaterial()
   },
@@ -345,7 +345,7 @@ const processShaderDefines = (shaderCode: string, defines: Record<string, string
   // Add defines at the top
   const defineLines = Object.entries(defines).map(([key, value]) => {
     if (typeof value === 'boolean') {
-      return value ? `#define ${key}` : `// #define ${key}`
+      return value ? `#define ${key}` : `// #define ${key}`;
     } else {
       return `#define ${key} ${value}`
     }
@@ -363,7 +363,7 @@ const compileThreeJSShader = (
   vertexShader: string,
   fragmentShader: string,
   uniforms: Record<string, THREE.IUniform>
-): Effect.Effect<ShaderCompilationResult> =>
+): Effect.Effect<ShaderCompilationResult, never, never> =>
   Effect.gen(function* () {
     const startTime = Date.now()
     const warnings: string[] = []
@@ -433,7 +433,7 @@ const addShaderProgram = (
   }
 }
 
-const addCompiledShader = (
+const _addCompiledShader = (
   state: ShaderManagerState,
   key: string,
   shader: THREE.Shader
@@ -454,16 +454,16 @@ const addCompiledShader = (
 // --- Main Service ---
 
 export interface ShaderManagerService {
-  loadShader: (name: string, variant?: Record<string, string | number | boolean>) => Effect.Effect<THREE.Material>
-  compileShader: (vertexShader: string, fragmentShader: string, uniforms?: Record<string, THREE.IUniform>) => Effect.Effect<ShaderCompilationResult>
-  createMaterial: (shaderName: string, uniforms?: Record<string, THREE.IUniform>, defines?: Record<string, string | number | boolean>) => Effect.Effect<THREE.ShaderMaterial>
-  reloadShader: (name: string) => Effect.Effect<void>
-  getShaderVariants: (name: string) => Effect.Effect<ReadonlyArray<string>>
-  optimizeShaders: () => Effect.Effect<void>
-  enableWebGPU: () => Effect.Effect<boolean>
-  createWebGPUShader: (wgslCode: string) => Effect.Effect<WebGPUShaderModule>
-  getStats: () => Effect.Effect<ShaderManagerState['stats']>
-  dispose: () => Effect.Effect<void>
+  loadShader: (name: string, variant?: Record<string, string | number | boolean>) => Effect.Effect<THREE.Material, never, never>
+  compileShader: (vertexShader: string, fragmentShader: string, uniforms?: Record<string, THREE.IUniform>) => Effect.Effect<ShaderCompilationResult, never, never>
+  createMaterial: (shaderName: string, uniforms?: Record<string, THREE.IUniform>, defines?: Record<string, string | number | boolean>) => Effect.Effect<THREE.ShaderMaterial, never, never>
+  reloadShader: (name: string) => Effect.Effect<void, never, never>
+  getShaderVariants: (name: string) => Effect.Effect<ReadonlyArray<string, never, never>>
+  optimizeShaders: () => Effect.Effect<void, never, never>
+  enableWebGPU: () => Effect.Effect<boolean, never, never>
+  createWebGPUShader: (wgslCode: string) => Effect.Effect<WebGPUShaderModule, never, never>
+  getStats: () => Effect.Effect<ShaderManagerState['stats'], never, never>
+  dispose: () => Effect.Effect<void, never, never>
 }
 
 export const ShaderManagerService = Effect.Tag<ShaderManagerService>('ShaderManagerService')
@@ -559,7 +559,7 @@ export const ShaderManagerLive = Layer.effect(
     
     yield* _(initializeBuiltinShaders())
     
-    return ShaderManagerService.of({
+    return {
       loadShader: (name: string, variant: Record<string, string | number | boolean> = {}) =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
@@ -732,7 +732,7 @@ export const ShaderManagerLive = Layer.effect(
           }
         }),
       
-      createWebGPUShader: (wgslCode: string) =>
+      createWebGPUShader: () =>
         Effect.gen(function* () {
           // Future WebGPU shader creation
           throw new Error('WebGPU shaders not yet implemented')
@@ -744,7 +744,7 @@ export const ShaderManagerLive = Layer.effect(
           
           // Calculate memory usage
           let memoryUsage = 0
-          for (const material of state.materials.values()) {
+          for (const _material of state.materials.values()) {
             // Rough estimate of material memory usage
             memoryUsage += 1024 // Basic material overhead
           }
@@ -770,7 +770,7 @@ export const ShaderManagerLive = Layer.effect(
           
           yield* _(Ref.set(stateRef, initialState))
         })
-    })
+    }
   }),
 )
 

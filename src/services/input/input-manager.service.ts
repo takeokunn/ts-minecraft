@@ -29,8 +29,8 @@ export class InputManager extends Context.Tag('InputManager')<
   InputManager,
   {
     readonly isLocked: Ref.Ref<boolean>
-    readonly getState: () => Effect.Effect<InputState>
-    readonly getMouseState: () => Effect.Effect<MouseState>
-    readonly getHotbarSelection: () => Effect.Effect<number>
+    readonly getState: () => Effect.Effect<InputState, never, never>
+    readonly getMouseState: () => Effect.Effect<MouseState, never, never>
+    readonly getHotbarSelection: () => Effect.Effect<number, never, never>
   }
 >() {}

@@ -1,5 +1,5 @@
-import { Effect, pipe } from 'effect'
-import { DomainError, EntityNotFoundError, ComponentNotFoundError } from '@/core/errors'
+import { Effect, pipe, Schedule } from 'effect'
+import { DomainError } from './errors'
 
 /**
  * Effect utilities for consistent error handling and patterns
@@ -26,11 +26,8 @@ export const withDomainError = <A, E, R>(
   context: string
 ) =>
   effect.pipe(
-    Effect.catchTag('EntityNotFoundError', (e: EntityNotFoundError) =>
-      Effect.fail(new DomainError(`Entity ${e.entityId} not found in ${context}`))
-    ),
-    Effect.catchTag('ComponentNotFoundError', (e: ComponentNotFoundError) =>
-      Effect.fail(new DomainError(`Component ${e.componentName} not found for entity ${e.entityId} in ${context}`))
+    Effect.catchAll((error) =>
+      Effect.fail(new DomainError({ message: `Error in ${context}: ${error}`, domain: context }))
     )
   )
 
@@ -61,8 +58,8 @@ export const retryWithBackoff = <A, E, R>(
     Effect.retry({
       times: maxRetries,
       schedule: pipe(
-        Effect.scheduleExponential(initialDelay),
-        Effect.scheduleIntersect(Effect.scheduleRecurs(maxRetries))
+        Schedule.exponential(initialDelay),
+        Schedule.intersect(Schedule.recurs(maxRetries))
       )
     })
   )
@@ -213,7 +210,7 @@ export class CircuitBreaker<A, E, R> {
           this.failureCount = 0
           this.state = 'closed'
         }),
-        Effect.tapError(() => {
+        Effect.tapError(() => Effect.sync(() => {
           // Failure - increment count
           this.failureCount++
           this.lastFailureTime = now
@@ -221,7 +218,7 @@ export class CircuitBreaker<A, E, R> {
           if (this.failureCount >= this.threshold) {
             this.state = 'open'
           }
-        })
+        }))
       )
     }.bind(this))
   }

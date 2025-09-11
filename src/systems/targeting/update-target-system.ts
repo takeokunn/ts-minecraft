@@ -10,11 +10,11 @@
  * - Customizable targeting behaviors
  */
 
-import { Effect, pipe, Array as EffArray, Duration, Option, HashMap } from 'effect'
-import { queries, createArchetypeQuery, trackPerformance } from '@/core/queries'
-import { World, Raycast, InputManager } from '@/runtime/services'
+import { Effect, Array as _EffArray, Duration, Option } from 'effect'
+import { ArchetypeQuery, trackPerformance } from '@/core/queries'
+import { World, InputManager as _InputManager } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { Position, CameraStateComponent, TargetComponent, PlayerControlComponent, InputStateComponent } from '@/core/components'
+import { Position, CameraComponent, TargetComponent, InputStateComponent } from '@/core/components'
 import { EntityId } from '@/core/entities/entity'
 import { BlockType, BlockPosition } from '@/core/values'
 import * as THREE from 'three'
@@ -167,7 +167,7 @@ export const TargetingUtils = {
   /**
    * Create ray from camera
    */
-  createRayFromCamera: (position: Position, camera: CameraStateComponent): THREE.Ray => {
+  createRayFromCamera: (position: Position, camera: CameraComponent): THREE.Ray => {
     const origin = new THREE.Vector3(position.x, position.y, position.z)
     
     // Convert pitch/yaw to direction vector
@@ -275,7 +275,7 @@ class TargetingProcessor {
     players: {
       entityId: EntityId
       position: Position
-      cameraState: CameraStateComponent
+      cameraState: CameraComponent
       inputState: InputStateComponent
       currentTarget: Option.Option<TargetComponent>
     }[],
@@ -323,7 +323,7 @@ class TargetingProcessor {
     player: {
       entityId: EntityId
       position: Position
-      cameraState: CameraStateComponent
+      cameraState: CameraComponent
       inputState: InputStateComponent
       currentTarget: Option.Option<TargetComponent>
     },
@@ -407,9 +407,9 @@ class TargetingProcessor {
    * Generate target candidates from raycast results
    */
   private async generateTargetCandidates(
-    ray: THREE.Ray,
+    _ray: THREE.Ray,
     hits: RaycastHit[],
-    playerPosition: Position,
+    _playerPosition: Position,
     world: any
   ): Promise<TargetCandidate[]> {
     const candidates: TargetCandidate[] = []
@@ -488,9 +488,9 @@ class TargetingProcessor {
   /**
    * Predict target position for moving entities
    */
-  private predictTargetPosition(
+  private _predictTargetPosition(
     candidate: TargetCandidate,
-    playerPosition: Position
+    _playerPosition: Position
   ): Option.Option<PredictiveTarget> {
     if (!this.config.enablePredictiveTargeting || Option.isNone(candidate.velocity)) {
       return Option.none()
@@ -553,12 +553,11 @@ export const createUpdateTargetSystem = (
 
   return (context: SystemContext) => Effect.gen(function* ($) {
     const world = yield* $(World)
-    const inputManager = yield* $(InputManager)
     
     const startTime = Date.now()
 
     // Query players with targeting capability
-    const playerQuery = createArchetypeQuery()
+    const playerQuery = ArchetypeQuery()
       .with('player', 'position', 'cameraState', 'inputState')
       .maybe('target')
       .execute()
@@ -570,7 +569,7 @@ export const createUpdateTargetSystem = (
     // Extract player data
     const players = playerQuery.entities.map(entityId => {
       const position = playerQuery.getComponent<Position>(entityId, 'position')
-      const cameraState = playerQuery.getComponent<CameraStateComponent>(entityId, 'cameraState')
+      const cameraState = playerQuery.getComponent<CameraComponent>(entityId, 'cameraState')
       const inputState = playerQuery.getComponent<InputStateComponent>(entityId, 'inputState')
       const currentTarget = playerQuery.getComponent<TargetComponent>(entityId, 'target')
 

@@ -1,5 +1,5 @@
-import { Effect, Layer, Ref, Schedule, Duration } from 'effect'
-import { pipe } from 'effect/Function'
+import { Effect, Layer, Ref, Duration } from 'effect'
+
 
 // --- Configuration ---
 
@@ -400,13 +400,13 @@ const autoOptimize = (state: PerformanceMonitorState): PerformanceMonitorState =
 // --- Service Interface ---
 
 export interface PerformanceMonitorService {
-  startMonitoring: () => Effect.Effect<void>
-  stopMonitoring: () => Effect.Effect<void>
-  recordFrameTiming: (timing: FrameTiming) => Effect.Effect<void>
-  updateRenderingMetrics: (metrics: Partial<RenderingMetrics>) => Effect.Effect<void>
-  updateGameMetrics: (metrics: Partial<GameMetrics>) => Effect.Effect<void>
-  startProfiling: (functionName: string) => Effect.Effect<void>
-  endProfiling: (functionName: string) => Effect.Effect<void>
+  startMonitoring: () => Effect.Effect<void, never, never>
+  stopMonitoring: () => Effect.Effect<void, never, never>
+  recordFrameTiming: (timing: FrameTiming) => Effect.Effect<void, never, never>
+  updateRenderingMetrics: (metrics: Partial<RenderingMetrics>) => Effect.Effect<void, never, never>
+  updateGameMetrics: (metrics: Partial<GameMetrics>) => Effect.Effect<void, never, never>
+  startProfiling: (functionName: string) => Effect.Effect<void, never, never>
+  endProfiling: (functionName: string) => Effect.Effect<void, never, never>
   getMetrics: () => Effect.Effect<{
     current: {
       frame: FrameTiming | null
@@ -420,12 +420,12 @@ export interface PerformanceMonitorService {
       memoryHistory: MemoryMetrics[]
       systemHistory: SystemMetrics[]
     }
-    profiling: Map<string, ProfilingData>
+    profiling: Map<string, ProfilingData, never>
     alerts: PerformanceAlert[]
   }>
-  getOptimizationSuggestions: () => Effect.Effect<string[]>
-  exportMetrics: () => Effect.Effect<string>
-  clearHistory: () => Effect.Effect<void>
+  getOptimizationSuggestions: () => Effect.Effect<string[], never, never>
+  exportMetrics: () => Effect.Effect<string, never, never>
+  clearHistory: () => Effect.Effect<void, never, never>
 }
 
 export const PerformanceMonitorService = Effect.Tag<PerformanceMonitorService>('PerformanceMonitorService')
@@ -522,7 +522,7 @@ export const PerformanceMonitorLive = Layer.effect(
       }
     }).pipe(Effect.fork)
 
-    return PerformanceMonitorService.of({
+    return {
       startMonitoring: () =>
         Effect.gen(function* () {
           yield* _(Ref.update(stateRef, s => ({ ...s, isMonitoring: true })))
@@ -672,7 +672,7 @@ export const PerformanceMonitorLive = Layer.effect(
             gcEvents: [],
           })))
         }),
-    })
+    }
   }),
 )
 

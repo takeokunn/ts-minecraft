@@ -194,7 +194,7 @@ const generateTerrainColumn = (
     
     blocks.push({
       position: { x: localX, y, z: localZ },
-      blockType: { type: blockType } as any, // Type assertion for compatibility
+      blockType: blockType,
       metadata: biome !== 'plains' ? { biome } : undefined,
     })
   }
@@ -204,7 +204,7 @@ const generateTerrainColumn = (
     for (let y = height; y < WATER_LEVEL; y++) {
       blocks.push({
         position: { x: localX, y, z: localZ },
-        blockType: { type: 'water' } as any,
+        blockType: 'water',
       })
     }
   }
@@ -218,7 +218,7 @@ const generateTerrainColumn = (
       for (let i = 0; i < treeHeight; i++) {
         blocks.push({
           position: { x: localX, y: height + i, z: localZ },
-          blockType: { type: 'oakLog' } as any,
+          blockType: 'log',
         })
       }
       
@@ -232,7 +232,7 @@ const generateTerrainColumn = (
                   localZ + z >= 0 && localZ + z < CHUNK_SIZE) {
                 blocks.push({
                   position: { x: localX + x, y, z: localZ + z },
-                  blockType: { type: 'oakLeaves' } as any,
+                  blockType: 'leaves',
                 })
               }
             }
@@ -320,7 +320,7 @@ const generateGreedyMesh = (blocks: Block[]): {
       
       // Only render face if neighbor is empty or transparent
       const neighbor = blockGrid.get(neighborKey)
-      if (!neighbor || neighbor.blockType.type === 'water') {
+      if (!neighbor || (typeof neighbor.blockType === 'object' && neighbor.blockType.type === 'water')) {
         // Add quad vertices
         const baseVertices = [
           [-0.5, -0.5, -0.5],
@@ -334,8 +334,10 @@ const generateGreedyMesh = (blocks: Block[]): {
           const vertex = baseVertices[i]
           // Apply rotation and translation based on face orientation
           // This is a simplified version - full implementation would use proper matrix transforms
-          positions.push(x + vertex[0], y + vertex[1], z + vertex[2])
-          normals.push(face.normal[0], face.normal[1], face.normal[2])
+          if (vertex) {
+            positions.push(x + (vertex[0] ?? 0), y + (vertex[1] ?? 0), z + (vertex[2] ?? 0))
+          }
+          normals.push(face.normal[0] ?? 0, face.normal[1] ?? 0, face.normal[2] ?? 0)
           uvs.push(i % 2, Math.floor(i / 2))
         }
         
@@ -363,7 +365,7 @@ const generateGreedyMesh = (blocks: Block[]): {
 const terrainGenerationHandler = (
   request: TerrainGenerationRequest,
   context: any
-): Effect.Effect<TerrainGenerationResponse> =>
+): Effect.Effect<TerrainGenerationResponse, Error, never> =>
   Effect.gen(function* () {
     const startTime = Date.now()
     

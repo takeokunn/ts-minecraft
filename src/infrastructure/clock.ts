@@ -5,7 +5,7 @@ import * as THREE from 'three'
 export const tick = (
   getDelta: () => number,
   deltaTime: Ref.Ref<number>,
-  onFrameCallbacks: Ref.Ref<ReadonlyArray<() => Effect.Effect<void>>>,
+  onFrameCallbacks: Ref.Ref<ReadonlyArray<() => Effect.Effect<void, never, never>>>,
 ) =>
   Effect.gen(function* (_) {
     const delta = getDelta()
@@ -24,9 +24,9 @@ export const ClockLive = Layer.scoped(
   Effect.gen(function* (_) {
     const clock = new THREE.Clock()
     const deltaTime = yield* _(Ref.make(0))
-    const onFrameCallbacks = yield* _(Ref.make<ReadonlyArray<() => Effect.Effect<void>>>([]))
+    const onFrameCallbacks = yield* _(Ref.make<ReadonlyArray<() => Effect.Effect<void, never, never>>>([]))
 
-    const onFrame = (callback: () => Effect.Effect<void>) =>
+    const onFrame = (callback: () => Effect.Effect<void, never, never>) =>
       Ref.update(onFrameCallbacks, (callbacks) => [...callbacks, callback])
 
     const tickEffect = tick(
@@ -43,9 +43,9 @@ export const ClockLive = Layer.scoped(
 
     yield* _(Effect.forkScoped(loop))
 
-    return Clock.of({
+    return {
       deltaTime,
       onFrame,
-    })
+    }
   }),
 )

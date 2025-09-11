@@ -4,7 +4,7 @@
  */
 
 import { ComponentName } from '@/core/components'
-import { Entity } from '@/core/entities'
+
 import { QueryMetrics } from './builder'
 
 /**
@@ -67,7 +67,7 @@ export class QueryCache {
     hitRate: 0,
   }
 
-  private cleanupTimer?: NodeJS.Timeout
+  private cleanupTimer?: NodeJS.Timeout | undefined
 
   constructor(private config: CacheConfig) {
     if (config.autoCleanupInterval > 0) {
@@ -243,7 +243,7 @@ export class QueryCache {
         break
       case EvictionPolicy.FIFO:
       default:
-        keyToEvict = this.cache.keys().next().value
+        keyToEvict = this.cache.keys().next().value!
         break
     }
 

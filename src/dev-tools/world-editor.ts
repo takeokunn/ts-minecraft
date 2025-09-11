@@ -191,7 +191,7 @@ export class WorldEditor {
     this.executeAction(this.selectedTool, worldPos)
   }
 
-  private getWorldPositionFromMouse(event: MouseEvent): { x: number; y: number; z: number } | null {
+  private getWorldPositionFromMouse(_event: MouseEvent): { x: number; y: number; z: number } | null {
     // 実際の実装では、Three.jsのレイキャスターを使用してワールド座標を取得
     // プレースホルダー実装
     return { x: 0, y: 0, z: 0 }
@@ -238,7 +238,7 @@ export class WorldEditor {
     // 実際のブロック置換処理
   }
 
-  private getBlockAt(position: { x: number; y: number; z: number }): string {
+  private getBlockAt(_position: { x: number; y: number; z: number }): string {
     // 実際の実装では、ワールドからブロックタイプを取得
     return 'air'
   }
@@ -369,4 +369,9 @@ export class WorldEditor {
       canRedo: this.historyIndex < this.actionHistory.length - 1
     }
   }
+}
+
+// Factory function for compatibility
+export const createWorldEditor = (world: World): WorldEditor => {
+  return new WorldEditor(world)
 }

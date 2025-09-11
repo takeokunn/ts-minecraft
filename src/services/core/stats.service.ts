@@ -15,8 +15,8 @@ export interface PerformanceStats {
 export class Stats extends Context.Tag('Stats')<
   Stats,
   {
-    readonly begin: () => Effect.Effect<void>
-    readonly end: () => Effect.Effect<void>
-    readonly getStats: () => Effect.Effect<PerformanceStats>
+    readonly begin: () => Effect.Effect<void, never, never>
+    readonly end: () => Effect.Effect<void, never, never>
+    readonly getStats: () => Effect.Effect<PerformanceStats, never, never>
   }
 >() {}

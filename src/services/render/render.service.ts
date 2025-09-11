@@ -19,11 +19,12 @@ import * as Array from 'effect/Array'
 import * as Option from 'effect/Option'
 import * as Set from 'effect/Set'
 import * as Ref from 'effect/Ref'
-import * as Queue from 'effect/Queue'
+import * as Ref from 'effect/Ref'
+import * as _Queue from 'effect/Queue'
 
 // Core imports
 import { EntityId } from '../../core/entities'
-import { Position } from '../../core/values'
+
 import {
   RenderingError,
   TextureNotFoundError,
@@ -39,56 +40,56 @@ import {
 
 export interface RenderServiceInterface {
   // Scene management
-  readonly createScene: (config: SceneConfig) => Effect.Effect<SceneId, RenderingError>
-  readonly destroyScene: (sceneId: SceneId) => Effect.Effect<void, RenderingError>
-  readonly setActiveScene: (sceneId: SceneId) => Effect.Effect<void, RenderingError>
-  readonly getActiveScene: () => Effect.Effect<Option.Option<SceneId>, never>
+  readonly createScene: (config: SceneConfig) => Effect.Effect<SceneId, typeof RenderingError, never>
+  readonly destroyScene: (sceneId: SceneId) => Effect.Effect<void, typeof RenderingError, never>
+  readonly setActiveScene: (sceneId: SceneId) => Effect.Effect<void, typeof RenderingError, never>
+  readonly getActiveScene: () => Effect.Effect<Option.Option<SceneId, never, never>, never>
 
   // Renderable objects
-  readonly createRenderable: (config: RenderableConfig) => Effect.Effect<RenderableId, RenderingError | MeshDataError>
-  readonly destroyRenderable: (renderableId: RenderableId) => Effect.Effect<void, RenderingError>
-  readonly updateRenderable: (renderableId: RenderableId, updates: RenderableUpdates) => Effect.Effect<void, RenderingError>
-  readonly setRenderableVisibility: (renderableId: RenderableId, visible: boolean) => Effect.Effect<void, RenderingError>
+  readonly createRenderable: (config: RenderableConfig) => Effect.Effect<RenderableId, typeof RenderingError | typeof MeshDataError, never>
+  readonly destroyRenderable: (renderableId: RenderableId) => Effect.Effect<void, typeof RenderingError, never>
+  readonly updateRenderable: (renderableId: RenderableId, updates: RenderableUpdates) => Effect.Effect<void, typeof RenderingError, never>
+  readonly setRenderableVisibility: (renderableId: RenderableId, visible: boolean) => Effect.Effect<void, typeof RenderingError, never>
 
   // Camera management
-  readonly createCamera: (config: CameraConfig) => Effect.Effect<CameraId, RenderingError>
-  readonly destroyCamera: (cameraId: CameraId) => Effect.Effect<void, RenderingError>
-  readonly setActiveCamera: (cameraId: CameraId) => Effect.Effect<void, RenderingError>
-  readonly updateCamera: (cameraId: CameraId, updates: CameraUpdates) => Effect.Effect<void, RenderingError>
+  readonly createCamera: (config: CameraConfig) => Effect.Effect<CameraId, typeof RenderingError, never>
+  readonly destroyCamera: (cameraId: CameraId) => Effect.Effect<void, typeof RenderingError, never>
+  readonly setActiveCamera: (cameraId: CameraId) => Effect.Effect<void, typeof RenderingError, never>
+  readonly updateCamera: (cameraId: CameraId, updates: CameraUpdates) => Effect.Effect<void, typeof RenderingError, never>
 
   // Lighting system
-  readonly createLight: (config: LightConfig) => Effect.Effect<LightId, RenderingError>
-  readonly destroyLight: (lightId: LightId) => Effect.Effect<void, RenderingError>
-  readonly updateLight: (lightId: LightId, updates: LightUpdates) => Effect.Effect<void, RenderingError>
-  readonly setGlobalLighting: (config: GlobalLightingConfig) => Effect.Effect<void, RenderingError>
+  readonly createLight: (config: LightConfig) => Effect.Effect<LightId, typeof RenderingError, never>
+  readonly destroyLight: (lightId: LightId) => Effect.Effect<void, typeof RenderingError, never>
+  readonly updateLight: (lightId: LightId, updates: LightUpdates) => Effect.Effect<void, typeof RenderingError, never>
+  readonly setGlobalLighting: (config: GlobalLightingConfig) => Effect.Effect<void, typeof RenderingError, never>
 
   // Material and texture management
-  readonly createMaterial: (config: MaterialConfig) => Effect.Effect<MaterialId, RenderingError | ShaderCompilationError>
-  readonly destroyMaterial: (materialId: MaterialId) => Effect.Effect<void, RenderingError>
-  readonly updateMaterial: (materialId: MaterialId, updates: MaterialUpdates) => Effect.Effect<void, MaterialNotFoundError>
-  readonly loadTexture: (path: string, options?: TextureOptions) => Effect.Effect<TextureId, TextureNotFoundError>
-  readonly unloadTexture: (textureId: TextureId) => Effect.Effect<void, never>
+  readonly createMaterial: (config: MaterialConfig) => Effect.Effect<MaterialId, typeof RenderingError | typeof ShaderCompilationError, never>
+  readonly destroyMaterial: (materialId: MaterialId) => Effect.Effect<void, typeof RenderingError, never>
+  readonly updateMaterial: (materialId: MaterialId, updates: MaterialUpdates) => Effect.Effect<void, typeof MaterialNotFoundError, never>
+  readonly loadTexture: (path: string, options?: TextureOptions) => Effect.Effect<TextureId, typeof TextureNotFoundError, never>
+  readonly unloadTexture: (textureId: TextureId) => Effect.Effect<void, never, never>
 
   // Rendering pipeline
-  readonly render: (deltaTime: number) => Effect.Effect<RenderResult, RenderingError>
-  readonly renderToTarget: (renderTarget: RenderTarget, renderList?: readonly RenderableId[]) => Effect.Effect<void, RenderTargetError>
-  readonly present: () => Effect.Effect<void, RenderingError>
+  readonly render: (deltaTime: number) => Effect.Effect<RenderResult, typeof RenderingError, never>
+  readonly renderToTarget: (renderTarget: RenderTarget, renderList?: readonly RenderableId[]) => Effect.Effect<void, typeof RenderTargetError, never>
+  readonly present: () => Effect.Effect<void, typeof RenderingError, never>
 
   // Post-processing
-  readonly addPostProcessEffect: (effect: PostProcessEffect, priority: number) => Effect.Effect<EffectId, RenderingError>
-  readonly removePostProcessEffect: (effectId: EffectId) => Effect.Effect<void, RenderingError>
-  readonly updatePostProcessEffect: (effectId: EffectId, updates: EffectUpdates) => Effect.Effect<void, RenderingError>
+  readonly addPostProcessEffect: (effect: PostProcessEffect, priority: number) => Effect.Effect<EffectId, typeof RenderingError, never>
+  readonly removePostProcessEffect: (effectId: EffectId) => Effect.Effect<void, typeof RenderingError, never>
+  readonly updatePostProcessEffect: (effectId: EffectId, updates: EffectUpdates) => Effect.Effect<void, typeof RenderingError, never>
 
   // Performance and debugging
-  readonly getRenderStats: () => Effect.Effect<RenderStats, never>
-  readonly enableWireframe: (enabled: boolean) => Effect.Effect<void, never>
-  readonly captureScreenshot: (options?: ScreenshotOptions) => Effect.Effect<ScreenshotResult, RenderingError>
-  readonly setRenderDebugMode: (mode: RenderDebugMode) => Effect.Effect<void, never>
+  readonly getRenderStats: () => Effect.Effect<RenderStats, never, never>
+  readonly enableWireframe: (enabled: boolean) => Effect.Effect<void, never, never>
+  readonly captureScreenshot: (options?: ScreenshotOptions) => Effect.Effect<ScreenshotResult, typeof RenderingError, never>
+  readonly setRenderDebugMode: (mode: RenderDebugMode) => Effect.Effect<void, never, never>
 
   // Resource management
-  readonly getResourceUsage: () => Effect.Effect<ResourceUsage, never>
-  readonly optimizeResources: () => Effect.Effect<OptimizationResult, never>
-  readonly preloadResources: (resources: readonly ResourceRequest[]) => Effect.Effect<void, RenderingError>
+  readonly getResourceUsage: () => Effect.Effect<ResourceUsage, never, never>
+  readonly optimizeResources: () => Effect.Effect<OptimizationResult, never, never>
+  readonly preloadResources: (resources: readonly ResourceRequest[]) => Effect.Effect<void, typeof RenderingError, never>
 }
 
 // ===== SUPPORTING TYPES =====
@@ -442,7 +443,6 @@ export class RenderService extends Context.Tag('RenderService')<
       const postEffects = yield* Ref.make(HashMap.empty<EffectId, PostProcessEffect>())
       
       const activeScene = yield* Ref.make<Option.Option<SceneId>>(Option.none())
-      const renderQueue = yield* Queue.unbounded<RenderCommand>()
       const nextId = yield* Ref.make(0)
       
       const renderStats = yield* Ref.make({
@@ -465,7 +465,7 @@ export class RenderService extends Context.Tag('RenderService')<
       })
 
       // Helper functions
-      const generateId = (): Effect.Effect<string, never> =>
+      const generateId = (): Effect.Effect<string, never, never> =>
         Ref.modify(nextId, id => [(id + 1).toString(), id + 1])
 
       const createSceneId = (id: string): SceneId => id as SceneId
@@ -477,33 +477,33 @@ export class RenderService extends Context.Tag('RenderService')<
       const createEffectId = (id: string): EffectId => id as EffectId
 
       // Math utilities
-      const matrixMultiply = (a: Matrix4, b: Matrix4): Matrix4 => {
+      const _multiplyMatrices = (_a: Matrix4, _b: Matrix4): Matrix4 => {
         // Implementation would perform actual matrix multiplication
         return { elements: new Array(16).fill(0) }
       }
 
-      const calculateViewMatrix = (camera: CameraConfig): Matrix4 => {
+      const calculateViewMatrix = (_camera: CameraConfig): Matrix4 => {
         // Implementation would calculate view matrix from camera config
         return { elements: new Array(16).fill(0) }
       }
 
-      const calculateProjectionMatrix = (camera: CameraConfig): Matrix4 => {
+      const calculateProjectionMatrix = (_camera: CameraConfig): Matrix4 => {
         // Implementation would calculate projection matrix from camera config
         return { elements: new Array(16).fill(0) }
       }
 
-      const createFrustum = (viewMatrix: Matrix4, projMatrix: Matrix4): Frustum => {
+      const createFrustum = (_viewMatrix: Matrix4, _projMatrix: Matrix4): Frustum => {
         // Implementation would extract frustum planes from matrices
         return { planes: [] }
       }
 
-      const isInFrustum = (bounds: BoundingBox, frustum: Frustum): boolean => {
+      const isInFrustum = (_bounds: BoundingBox, _frustum: Frustum): boolean => {
         // Implementation would test bounding box against frustum planes
         return true
       }
 
       // Scene management implementation
-      const createScene = (config: SceneConfig): Effect.Effect<SceneId, RenderingError> =>
+      const createScene = (config: SceneConfig): Effect.Effect<SceneId, typeof RenderingError, never> =>
         Effect.gen(function* () {
           try {
             const id = createSceneId(yield* generateId())
@@ -526,7 +526,7 @@ export class RenderService extends Context.Tag('RenderService')<
           }
         })
 
-      const destroyScene = (sceneId: SceneId): Effect.Effect<void, RenderingError> =>
+      const destroyScene = (sceneId: SceneId): Effect.Effect<void, typeof RenderingError, never> =>
         Effect.gen(function* () {
           const currentScenes = yield* Ref.get(scenes)
           const scene = HashMap.get(currentScenes, sceneId)
@@ -557,7 +557,7 @@ export class RenderService extends Context.Tag('RenderService')<
         })
 
       // Renderable management implementation
-      const createRenderable = (config: RenderableConfig): Effect.Effect<RenderableId, RenderingError | MeshDataError> =>
+      const createRenderable = (config: RenderableConfig): Effect.Effect<RenderableId, typeof RenderingError | typeof MeshDataError, never> =>
         Effect.gen(function* () {
           try {
             const id = createRenderableId(yield* generateId())
@@ -610,7 +610,7 @@ export class RenderService extends Context.Tag('RenderService')<
         })
 
       // Camera management implementation
-      const createCamera = (config: CameraConfig): Effect.Effect<CameraId, RenderingError> =>
+      const createCamera = (config: CameraConfig): Effect.Effect<CameraId, typeof RenderingError, never> =>
         Effect.gen(function* () {
           try {
             const id = createCameraId(yield* generateId())
@@ -638,7 +638,7 @@ export class RenderService extends Context.Tag('RenderService')<
         })
 
       // Lighting system implementation
-      const createLight = (config: LightConfig): Effect.Effect<LightId, RenderingError> =>
+      const createLight = (config: LightConfig): Effect.Effect<LightId, typeof RenderingError, never> =>
         Effect.gen(function* () {
           try {
             const id = createLightId(yield* generateId())
@@ -665,7 +665,7 @@ export class RenderService extends Context.Tag('RenderService')<
         })
 
       // Material management implementation
-      const createMaterial = (config: MaterialConfig): Effect.Effect<MaterialId, RenderingError | ShaderCompilationError> =>
+      const createMaterial = (config: MaterialConfig): Effect.Effect<MaterialId, typeof RenderingError | typeof ShaderCompilationError, never> =>
         Effect.gen(function* () {
           try {
             const id = createMaterialId(yield* generateId())
@@ -699,7 +699,7 @@ export class RenderService extends Context.Tag('RenderService')<
         })
 
       // Rendering pipeline implementation
-      const render = (deltaTime: number): Effect.Effect<RenderResult, RenderingError> =>
+      const render = (deltaTime: number): Effect.Effect<RenderResult, typeof RenderingError, never> =>
         Effect.gen(function* () {
           const startTime = Date.now()
           let drawCalls = 0
@@ -823,7 +823,7 @@ export class RenderService extends Context.Tag('RenderService')<
         })
 
       // Helper function implementations (simplified)
-      const loadMeshData = (meshPath: string): Effect.Effect<MeshData, never> =>
+      const loadMeshData = (_meshPath: string): Effect.Effect<MeshData, never, never> =>
         Effect.succeed({
           vertices: new Float32Array([]),
           indices: new Uint32Array([]),
@@ -833,27 +833,27 @@ export class RenderService extends Context.Tag('RenderService')<
           indexBuffer: '' as BufferId,
         })
 
-      const calculateBoundingBox = (meshData: MeshData): BoundingBox => ({
+      const calculateBoundingBox = (_meshData: MeshData): BoundingBox => ({
         min: { x: -1, y: -1, z: -1 },
         max: { x: 1, y: 1, z: 1 },
       })
 
-      const createShadowMap = (size: number): Effect.Effect<TextureId, never> =>
+      const createShadowMap = (_size: number): Effect.Effect<TextureId, never, never> =>
         Effect.succeed(createTextureId('shadow_' + Math.random().toString()))
 
-      const compileShader = (shaderConfig: ShaderConfig): Effect.Effect<CompiledShader, never> =>
+      const compileShader = (_shaderConfig: ShaderConfig): Effect.Effect<CompiledShader, never, never> =>
         Effect.succeed({
           program: {} as WebGLProgram,
           uniforms: {},
           attributes: {},
         })
 
-      const createUniformsBuffer = (uniforms: Record<string, UniformValue>): UniformsBuffer => ({
+      const createUniformsBuffer = (_uniforms: Record<string, UniformValue>): UniformsBuffer => ({
         data: new ArrayBuffer(256),
         dirty: true,
       })
 
-      const sortRenderables = (renderables: readonly Renderable[], camera: Camera): readonly Renderable[] =>
+      const sortRenderables = (renderables: readonly Renderable[], _camera: Camera): readonly Renderable[] =>
         Array.fromIterable(renderables).sort((a, b) => {
           // Sort by layer first, then by distance
           const layerOrder = ['background', 'opaque', 'transparent', 'overlay', 'ui']
@@ -862,19 +862,19 @@ export class RenderService extends Context.Tag('RenderService')<
           return aIndex - bIndex
         })
 
-      const renderShadowMap = (light: Light, renderables: readonly Renderable[]): Effect.Effect<void, never> =>
+      const renderShadowMap = (_light: Light, _renderables: readonly Renderable[]): Effect.Effect<void, never, never> =>
         Effect.succeed(undefined)
 
-      const clearRenderTarget = (color: Color): Effect.Effect<void, never> =>
+      const clearRenderTarget = (_color: Color): Effect.Effect<void, never, never> =>
         Effect.succeed(undefined)
 
-      const renderObject = (renderable: Renderable, camera: Camera): Effect.Effect<{ drawCalls: number; triangles: number; vertices: number }, never> =>
+      const renderObject = (_renderable: Renderable, _camera: Camera): Effect.Effect<{ drawCalls: number; triangles: number; vertices: number }, never, never> =>
         Effect.succeed({ drawCalls: 1, triangles: 100, vertices: 300 })
 
-      const applyPostProcessEffect = (effect: PostProcessEffect): Effect.Effect<void, never> =>
+      const applyPostProcessEffect = (_effect: PostProcessEffect): Effect.Effect<void, never, never> =>
         Effect.succeed(undefined)
 
-      const updateRenderStats = (renderTime: number, drawCalls: number): Effect.Effect<void, never> =>
+      const updateRenderStats = (renderTime: number, drawCalls: number): Effect.Effect<void, never, never> =>
         Ref.update(renderStats, stats => Data.struct({
           ...stats,
           frameCount: stats.frameCount + 1,
@@ -1004,7 +1004,7 @@ export class RenderService extends Context.Tag('RenderService')<
               }))
             }
           }),
-        loadTexture: (path: string, options?: TextureOptions) =>
+        loadTexture: () =>
           Effect.gen(function* () {
             const id = createTextureId(yield* generateId())
             // Implementation would load actual texture
@@ -1016,11 +1016,11 @@ export class RenderService extends Context.Tag('RenderService')<
           Ref.update(textures, HashMap.remove(textureId)),
 
         render,
-        renderToTarget: (renderTarget: RenderTarget, renderList?: readonly RenderableId[]) =>
+        renderToTarget: () =>
           Effect.succeed(undefined),
         present: () => Effect.succeed(undefined),
 
-        addPostProcessEffect: (effect: PostProcessEffect, priority: number) =>
+        addPostProcessEffect: (effect: PostProcessEffect) =>
           Effect.gen(function* () {
             const id = createEffectId(yield* generateId())
             yield* Ref.update(postEffects, HashMap.set(id, effect))
@@ -1043,7 +1043,6 @@ export class RenderService extends Context.Tag('RenderService')<
           Effect.gen(function* () {
             const stats = yield* Ref.get(renderStats)
             const currentTextures = yield* Ref.get(textures)
-            const currentMaterials = yield* Ref.get(materials)
             
             return {
               fps: stats.avgFps,
@@ -1097,7 +1096,7 @@ export class RenderService extends Context.Tag('RenderService')<
             performanceImprovement: 0,
           }),
 
-        preloadResources: (resources: readonly ResourceRequest[]) =>
+        preloadResources: () =>
           Effect.succeed(undefined),
       }
     })

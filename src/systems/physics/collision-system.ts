@@ -10,11 +10,11 @@
  * - Collision event system for gameplay effects
  */
 
-import { Effect, pipe, Array as EffArray, Duration, Option, HashMap, Queue } from 'effect'
-import { queries, createArchetypeQuery, trackPerformance } from '@/core/queries'
-import { World, SpatialGrid, Clock } from '@/runtime/services'
+import { Effect, Array as EffArray, Duration, Option } from 'effect'
+import { ArchetypeQuery, trackPerformance } from '@/core/queries'
+import { World, SpatialGrid } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { Position, VelocityComponent, ColliderComponent, MassComponent, AccelerationComponent } from '@/core/components'
+import { Position, VelocityComponent, ColliderComponent, MassComponent } from '@/core/components'
 import { EntityId } from '@/core/entities/entity'
 import { AABB } from '@/domain/geometry'
 import { toFloat } from '@/core/common'
@@ -638,12 +638,11 @@ export const createCollisionSystem = (
 
   return (context: SystemContext) => Effect.gen(function* ($) {
     const world = yield* $(World)
-    const spatialGrid = yield* $(SpatialGrid)
     
     const startTime = Date.now()
 
     // Query entities with collision components
-    const collisionQuery = createArchetypeQuery()
+    const collisionQuery = ArchetypeQuery()
       .with('position', 'velocity', 'collider')
       .maybe('mass', 'acceleration')
       .execute()

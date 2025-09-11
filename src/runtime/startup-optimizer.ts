@@ -1,6 +1,6 @@
-import { Effect, Ref, Schedule, Duration, pipe, Queue, Layer } from 'effect'
+import { Effect, Ref, Schedule, Duration, Layer } from 'effect'
 import { Context } from 'effect'
-import { Profile, MemoryDetector, Metrics } from '@/core/performance'
+import { Profile, Metrics } from '@/core/performance'
 
 /**
  * Advanced Startup Optimization System

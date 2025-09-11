@@ -1,4 +1,4 @@
-import { Effect, Ref, Layer, Schedule, Duration, pipe } from 'effect'
+import { Effect, Ref, Layer, Schedule, Duration } from 'effect'
 import { 
   optimizedGameLoop, 
   PrioritizedSystem, 
@@ -7,12 +7,10 @@ import {
 } from './loop'
 import { 
   createMemoryPoolManager, 
-  MemoryPoolService,
   monitorPoolPerformance 
 } from './memory-pools'
 import { 
   createResourceManager, 
-  ResourceManagerService,
   defaultResourceConfig,
   predictivePreloader 
 } from './resource-manager'
@@ -28,7 +26,6 @@ import {
 import {
   FPSCounter,
   MemoryDetector,
-  Profile,
   Metrics,
   PerformanceDashboard,
   PerformanceHealthCheck,
@@ -85,7 +82,7 @@ export const defaultOptimizedConfig: OptimizedRuntimeConfig = {
 /**
  * Performance Monitor Implementation
  */
-const createPerformanceMonitor = (config: OptimizedRuntimeConfig) =>
+const createPerformanceMonitor = () =>
   Effect.gen(function* () {
     const isMonitoring = yield* Ref.make(false)
     const metrics = yield* Ref.make({
@@ -221,7 +218,7 @@ const createPerformanceMonitor = (config: OptimizedRuntimeConfig) =>
 /**
  * Quality Controller Implementation
  */
-const createQualityController = (config: OptimizedRuntimeConfig) =>
+const createQualityController = () =>
   Effect.gen(function* () {
     const currentQuality = yield* Ref.make({
       renderDistance: 8,
@@ -300,7 +297,7 @@ const createQualityController = (config: OptimizedRuntimeConfig) =>
 /**
  * Worker Coordinator Implementation (simplified)
  */
-const createWorkerCoordinator = (config: OptimizedRuntimeConfig) =>
+const createWorkerCoordinator = () =>
   Effect.gen(function* () {
     const workerStats = yield* Ref.make({
       activeWorkers: 0,
@@ -389,7 +386,6 @@ export const startOptimizedRuntime = <E, R>(
     }
 
     // Start predictive preloading
-    const resourceManager = yield* OptimizedResourceManager
     const preloader = predictivePreloader(
       { x: 0, z: 0 }, // Initial position
       config.resourceManager
@@ -430,7 +426,6 @@ export const benchmarkOptimizedRuntime = (): Effect.Effect<{
 
     // Run benchmark for 30 seconds
     const benchmarkDuration = 30000
-    const startTime = Date.now()
 
     // Collect metrics during benchmark
     const metricsCollection: Array<any> = []
@@ -491,8 +486,11 @@ export const benchmarkOptimizedRuntime = (): Effect.Effect<{
 export { monitorPoolPerformance } from './memory-pools'
 export { withResourceManager, predictivePreloader } from './resource-manager'
 export { 
-  PrioritizedSystem,
-  GameLoopConfig,
   optimizedGameLoop,
   createOptimizedTick 
+} from './loop'
+
+export type {
+  PrioritizedSystem,
+  GameLoopConfig
 } from './loop'

@@ -3,20 +3,19 @@ import * as S from "/schema/Schema"
 import { hotbarSlots } from './block'
 import { BlockTypeSchema } from './block-types'
 import { 
-  CameraStateComponent, 
+  CameraComponent, 
   type PartialComponents, 
-  InputStateComponent, 
   PositionComponent, 
   PartialComponentsSchema 
 } from '@/core/components'
 import { ChunkX, ChunkZ, toFloat, toInt } from './common'
 import { BLOCK_COLLIDER, GRAVITY, PLAYER_COLLIDER } from './world-constants'
-import { ParseError } from 'effect/ParseResult'
+import * as ParseResult from '@effect/schema/ParseResult'
 
 const PlayerArchetypeBuilder = S.Struct({
   type: S.Literal('player'),
   pos: PositionComponent,
-  cameraState: S.optional(CameraStateComponent),
+  cameraState: S.optional(CameraComponent),
 })
 
 const BlockArchetypeBuilder = S.Struct({
@@ -73,7 +72,7 @@ export const createInputState = () => ({
  * @param builder - The archetype builder specifying the type and parameters.
  * @returns An archetype object (a partial set of components).
  */
-export const createArchetype = (builder: ArchetypeBuilder): Effect.Effect<Archetype, ParseError> => {
+export const createArchetype = (builder: ArchetypeBuilder): Effect.Effect<Archetype, ParseResult.ParseError, never> => {
   return Effect.gen(function* () {
     const decodedBuilder = yield* S.decodeUnknown(ArchetypeBuilder)(builder)
     const inputState = createInputState()

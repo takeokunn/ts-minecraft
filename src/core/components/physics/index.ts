@@ -8,7 +8,7 @@
  * - Type-safe component definitions
  */
 
-import * as S from 'effect/Schema'
+import * as S from '@effect/schema/Schema'
 import * as Data from 'effect/Data'
 import { RegisterComponent } from '../registry'
 
@@ -260,3 +260,6 @@ export {
   MassComponent as MassComponentType,
   ColliderComponent as ColliderComponentType,
 }
+
+// Removed conflicting type aliases to avoid conflicts with value objects
+// Use PositionComponent, VelocityComponent, ColliderComponent directly

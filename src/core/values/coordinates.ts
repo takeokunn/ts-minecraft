@@ -1,5 +1,7 @@
 import * as S from '@effect/schema/Schema'
-import { Brand, Data } from 'effect'
+import { Brand } from 'effect'
+
+type Struct<T> = T
 import { ChunkX, ChunkZ } from '../common'
 
 // Branded types for type safety
@@ -39,20 +41,20 @@ export const WorldZSchema = S.Number.pipe(
   S.brand('WorldZ'),
 )
 
-// Position as a Data.struct for immutability
+// Position as a Struct for immutability
 export const PositionSchema = S.Struct({
   x: WorldXSchema,
   y: WorldYSchema,
   z: WorldZSchema,
 })
 
-export type Position = Data.Struct<{
+export type Position = Struct<{
   readonly x: WorldX
   readonly y: WorldY
   readonly z: WorldZ
 }>
 
-export const Position = Data.struct<Position>()
+export const Position = Struct<Position>()
 
 export const makePosition = (x: number, y: number, z: number): Position =>
   Position({
@@ -86,12 +88,12 @@ export const ChunkCoordinatesSchema = S.Struct({
   z: S.Int.pipe(S.brand('ChunkZ')),
 })
 
-export type ChunkCoordinates = Data.Struct<{
+export type ChunkCoordinates = Struct<{
   readonly x: ChunkX
   readonly z: ChunkZ
 }>
 
-export const ChunkCoordinates = Data.struct<ChunkCoordinates>()
+export const ChunkCoordinates = Struct<ChunkCoordinates>()
 
 export const makeChunkCoordinates = (x: number, z: number): ChunkCoordinates =>
   ChunkCoordinates({
@@ -123,13 +125,13 @@ export const Velocity3DSchema = S.Struct({
   dz: S.Number.pipe(S.finite(), S.clamp(-100, 100), S.brand('Velocity')),
 })
 
-export type Velocity3D = Data.Struct<{
+export type Velocity3D = Struct<{
   readonly dx: Velocity
   readonly dy: Velocity
   readonly dz: Velocity
 }>
 
-export const Velocity3D = Data.struct<Velocity3D>()
+export const Velocity3D = Struct<Velocity3D>()
 
 export const makeVelocity3D = (dx: number, dy: number, dz: number): Velocity3D =>
   Velocity3D({
@@ -170,3 +172,24 @@ export const addVelocity = (other: Velocity3D) =>
       vel.dy + other.dy,
       vel.dz + other.dz,
     )
+
+// Additional functions for test compatibility
+export const createWorldCoordinates = (x: number, y: number, z: number): Position =>
+  makePosition(x, y, z)
+
+export const createBlockCoordinates = (x: number, y: number, z: number): Position =>
+  makePosition(x, y, z)
+
+export const worldToChunk = (pos: Position): ChunkCoordinates =>
+  toChunkCoords(pos)
+
+export const chunkToWorld = (chunk: ChunkCoordinates, offsetX = 0, offsetZ = 0): Position =>
+  makePosition(chunk.x * 16 + offsetX, 0, chunk.z * 16 + offsetZ)
+
+export const blockToChunk = (pos: Position): ChunkCoordinates =>
+  toChunkCoords(pos)
+
+export const isValidCoordinate = (x: number, y: number, z: number): boolean => {
+  return Number.isFinite(x) && Number.isFinite(z) && 
+         Number.isFinite(y) && y >= 0 && y <= 255
+}

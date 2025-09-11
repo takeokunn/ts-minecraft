@@ -4,7 +4,7 @@ import { Vector3Int, Vector3IntSchema } from '@/core/common'
 import { blockDefinitions } from './block-definitions'
 import { BlockType, BlockTypeSchema } from '@/core/values/block-type'
 
-export type { BlockType } from './block-types'
+export type { BlockType } from '@/core/values/block-type'
 
 // --- Schemas ---
 

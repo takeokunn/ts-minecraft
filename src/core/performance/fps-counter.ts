@@ -1,4 +1,4 @@
-import { Effect, Ref, pipe } from 'effect'
+import { Effect, Ref } from 'effect'
 import { Metrics } from './metrics'
 
 /**

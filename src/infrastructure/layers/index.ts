@@ -1,4 +1,4 @@
-import { Layer } from 'effect'
+import { Layer, Effect } from 'effect'
 import { 
   Renderer, 
   InputManager, 
@@ -123,7 +123,7 @@ export const HeadlessLive = Layer.mergeAll(
  * Development layer - includes debug services
  */
 export const DevelopmentLive = AppLive.pipe(
-  Layer.tapLayer(
+  Layer.tap(
     Effect.log('Development environment initialized')
   )
 )
@@ -132,7 +132,7 @@ export const DevelopmentLive = AppLive.pipe(
  * Production layer - optimized for performance
  */
 export const ProductionLive = AppLive.pipe(
-  Layer.tapLayer(
+  Layer.tap(
     Effect.log('Production environment initialized')
   )
 )

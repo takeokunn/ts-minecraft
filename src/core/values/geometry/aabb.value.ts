@@ -1,4 +1,4 @@
-import { Data, Effect, pipe } from 'effect'
+import { Effect } from 'effect'
 import { Position } from '../coordinates/position.value'
 import { ValidationError } from '@/core/errors'
 
@@ -16,9 +16,9 @@ export interface AABBStruct {
   readonly maxZ: number
 }
 
-export interface AABB extends Data.Struct<AABBStruct> {}
+export interface AABB extends AABBStruct {}
 
-export const AABB = Data.struct<AABB>()
+export const AABB = (aabb: AABBStruct): AABB => aabb
 
 /**
  * Create AABB from center position and size
@@ -168,20 +168,30 @@ export const getCorners = (aabb: AABB): Position[] => [
 /**
  * Validate an AABB
  */
-export const validate = (aabb: AABBStruct): Effect.Effect<AABB, ValidationError, never> =>
+export const validate = (aabb: AABBStruct): Effect.Effect<AABB, typeof ValidationError, never> =>
   Effect.gen(function* () {
     // Check for NaN or Infinity
     const values = [aabb.minX, aabb.minY, aabb.minZ, aabb.maxX, aabb.maxY, aabb.maxZ]
     
     for (const value of values) {
       if (isNaN(value) || !isFinite(value)) {
-        return yield* Effect.fail(new ValidationError('AABB contains invalid values'))
+        return yield* Effect.fail(new ValidationError({ 
+          resourcePath: 'aabb.value.ts', 
+          validationRules: ['finite-values'], 
+          failures: ['AABB contains invalid values'],
+          severity: 'error' as const
+        }))
       }
     }
     
     // Check that min <= max
     if (aabb.minX > aabb.maxX || aabb.minY > aabb.maxY || aabb.minZ > aabb.maxZ) {
-      return yield* Effect.fail(new ValidationError('AABB min values must be less than or equal to max values'))
+      return yield* Effect.fail(new ValidationError({ 
+        resourcePath: 'aabb.value.ts', 
+        validationRules: ['min-max-order'], 
+        failures: ['AABB min values must be less than or equal to max values'],
+        severity: 'error' as const
+      }))
     }
     
     return AABB(aabb)

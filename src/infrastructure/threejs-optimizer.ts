@@ -1,5 +1,5 @@
-import { Effect, Layer, Ref, HashMap, Option, Duration } from 'effect'
-import { pipe } from 'effect/Function'
+import { Effect, Layer, Ref } from 'effect'
+
 import * as THREE from 'three'
 import type { EntityId } from '@/core/entities/entity'
 import { ObjectPool } from '@/core/performance/object-pool'
@@ -113,13 +113,13 @@ export interface ThreeJSOptimizerState {
 
 const matrixPool = new ObjectPool<THREE.Matrix4>(
   () => new THREE.Matrix4(),
-  (matrix) => matrix.identity(),
+  (matrix: THREE.Matrix4) => matrix.identity(),
   10000
 )
 
 const vector3Pool = new ObjectPool<THREE.Vector3>(
   () => new THREE.Vector3(),
-  (vector) => vector.set(0, 0, 0),
+  (vector: THREE.Vector3) => vector.set(0, 0, 0),
   1000
 )
 
@@ -258,7 +258,7 @@ const updateLODObjects = (
   lodObjects: Map<string, LODConfiguration>,
   camera: THREE.Camera
 ): void => {
-  for (const [key, lodConfig] of lodObjects) {
+  for (const [, lodConfig] of lodObjects) {
     lodConfig.object.update(camera)
   }
 }
@@ -403,17 +403,17 @@ const mergeGeometries = (geometries: THREE.BufferGeometry[]): THREE.BufferGeomet
 // --- Main Service ---
 
 export interface ThreeJSOptimizerService {
-  createInstancedBatch: (batchName: string, geometry: THREE.BufferGeometry, material: THREE.Material) => Effect.Effect<void>
-  addToInstancedBatch: (batchName: string, entityId: EntityId, transform: THREE.Matrix4, color?: THREE.Color) => Effect.Effect<boolean>
-  removeFromInstancedBatch: (batchName: string, entityId: EntityId) => Effect.Effect<boolean>
-  updateInstances: () => Effect.Effect<void>
-  createLODObject: (objectName: string, geometries: THREE.BufferGeometry[], materials: THREE.Material[], distances: number[]) => Effect.Effect<THREE.LOD>
-  updateLOD: (camera: THREE.Camera) => Effect.Effect<void>
-  performCulling: (objects: THREE.Object3D[], camera: THREE.Camera) => Effect.Effect<FrustumCullingData>
-  mergeObjectGeometries: (batchName: string, objects: THREE.Object3D[]) => Effect.Effect<THREE.BufferGeometry>
-  optimizeScene: (scene: THREE.Scene, camera: THREE.Camera) => Effect.Effect<void>
-  getStats: () => Effect.Effect<ThreeJSOptimizerState['stats']>
-  dispose: () => Effect.Effect<void>
+  createInstancedBatch: (batchName: string, geometry: THREE.BufferGeometry, material: THREE.Material) => Effect.Effect<void, never, never>
+  addToInstancedBatch: (batchName: string, entityId: EntityId, transform: THREE.Matrix4, color?: THREE.Color) => Effect.Effect<boolean, never, never>
+  removeFromInstancedBatch: (batchName: string, entityId: EntityId) => Effect.Effect<boolean, never, never>
+  updateInstances: () => Effect.Effect<void, never, never>
+  createLODObject: (objectName: string, geometries: THREE.BufferGeometry[], materials: THREE.Material[], distances: number[]) => Effect.Effect<THREE.LOD, never, never>
+  updateLOD: (camera: THREE.Camera) => Effect.Effect<void, never, never>
+  performCulling: (objects: THREE.Object3D[], camera: THREE.Camera) => Effect.Effect<FrustumCullingData, never, never>
+  mergeObjectGeometries: (batchName: string, objects: THREE.Object3D[]) => Effect.Effect<THREE.BufferGeometry, never, never>
+  optimizeScene: (scene: THREE.Scene, camera: THREE.Camera) => Effect.Effect<void, never, never>
+  getStats: () => Effect.Effect<ThreeJSOptimizerState['stats'], never, never>
+  dispose: () => Effect.Effect<void, never, never>
 }
 
 export const ThreeJSOptimizerService = Effect.Tag<ThreeJSOptimizerService>('ThreeJSOptimizerService')
@@ -455,7 +455,7 @@ export const ThreeJSOptimizerLive = Layer.effect(
     
     const stateRef = yield* _(Ref.make(initialState))
     
-    return ThreeJSOptimizerService.of({
+    return {
       createInstancedBatch: (batchName: string, geometry: THREE.BufferGeometry, material: THREE.Material) =>
         Effect.gen(function* () {
           const batch = createInstancedBatch(geometry, material)
@@ -741,7 +741,7 @@ export const ThreeJSOptimizerLive = Layer.effect(
           
           yield* _(Ref.set(stateRef, initialState))
         })
-    })
+    }
   }),
 )
 

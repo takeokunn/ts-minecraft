@@ -12,11 +12,11 @@ export const WorkerManagerLive = Layer.effect(
   Effect.gen(function* () {
     // Worker pool management
     const workers = yield* Ref.make<Map<string, Worker>>(new Map())
-    const taskQueue = yield* Queue.unbounded<{
+    const _messageQueue = yield* Queue.bounded<{
       id: string
       type: string
       data: unknown
-    }>()
+    }>(100)
 
     // Create a new worker
     const createWorker = (type: string) =>
@@ -86,10 +86,9 @@ export const WorkerManagerLive = Layer.effect(
       Effect.gen(function* () {
         const currentWorkers = yield* Ref.get(workers)
         
-        for (const [type, worker] of currentWorkers) {
+        for (const [, worker] of currentWorkers) {
           worker.terminate()
         }
-        
         yield* Ref.set(workers, new Map())
       })
 

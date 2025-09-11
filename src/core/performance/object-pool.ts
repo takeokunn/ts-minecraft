@@ -1,4 +1,4 @@
-import { Effect, Ref, Queue, Option, pipe } from 'effect'
+import { Effect, Ref, Queue, Option } from 'effect'
 
 /**
  * Generic object pool for reusable objects

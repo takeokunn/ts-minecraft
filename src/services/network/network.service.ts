@@ -19,9 +19,10 @@ import * as Array from 'effect/Array'
 import * as Option from 'effect/Option'
 import * as Set from 'effect/Set'
 import * as Ref from 'effect/Ref'
+import * as Ref from 'effect/Ref'
 import * as Queue from 'effect/Queue'
-import * as Schedule from 'effect/Schedule'
-import * as Duration from 'effect/Duration'
+
+
 import * as Match from 'effect/Match'
 
 // Core imports
@@ -35,47 +36,47 @@ import {
 
 export interface NetworkServiceInterface {
   // Connection management
-  readonly startServer: (config: ServerConfig) => Effect.Effect<ServerId, NetworkError>
-  readonly stopServer: (serverId: ServerId) => Effect.Effect<void, NetworkError>
-  readonly connectToServer: (config: ClientConfig) => Effect.Effect<ConnectionId, NetworkError>
-  readonly disconnect: (connectionId: ConnectionId) => Effect.Effect<void, NetworkError>
-  readonly getConnectionStatus: (connectionId: ConnectionId) => Effect.Effect<ConnectionStatus, never>
+  readonly startServer: (config: ServerConfig) => Effect.Effect<ServerId, typeof NetworkError, never>
+  readonly stopServer: (serverId: ServerId) => Effect.Effect<void, typeof NetworkError, never>
+  readonly connectToServer: (config: ClientConfig) => Effect.Effect<ConnectionId, typeof NetworkError, never>
+  readonly disconnect: (connectionId: ConnectionId) => Effect.Effect<void, typeof NetworkError, never>
+  readonly getConnectionStatus: (connectionId: ConnectionId) => Effect.Effect<ConnectionStatus, never, never>
 
   // Message handling
-  readonly sendMessage: <T>(connectionId: ConnectionId, message: NetworkMessage<T>) => Effect.Effect<void, NetworkError>
-  readonly broadcastMessage: <T>(serverId: ServerId, message: NetworkMessage<T>, excludeConnections?: readonly ConnectionId[]) => Effect.Effect<void, NetworkError>
-  readonly subscribeToMessages: <T>(messageType: MessageType, handler: MessageHandler<T>) => Effect.Effect<SubscriptionId, never>
-  readonly unsubscribeFromMessages: (subscriptionId: SubscriptionId) => Effect.Effect<void, never>
+  readonly sendMessage: <T>(connectionId: ConnectionId, message: NetworkMessage<T>) => Effect.Effect<void, typeof NetworkError, never>
+  readonly broadcastMessage: <T>(serverId: ServerId, message: NetworkMessage<T>, excludeConnections?: readonly ConnectionId[]) => Effect.Effect<void, typeof NetworkError, never>
+  readonly subscribeToMessages: <T>(messageType: MessageType, handler: MessageHandler<T>) => Effect.Effect<SubscriptionId, never, never>
+  readonly unsubscribeFromMessages: (subscriptionId: SubscriptionId) => Effect.Effect<void, never, never>
 
   // Player management
-  readonly authenticatePlayer: (connectionId: ConnectionId, credentials: PlayerCredentials) => Effect.Effect<PlayerId, NetworkError>
-  readonly getConnectedPlayers: (serverId: ServerId) => Effect.Effect<readonly PlayerInfo[], never>
-  readonly kickPlayer: (serverId: ServerId, playerId: PlayerId, reason: string) => Effect.Effect<void, NetworkError>
-  readonly banPlayer: (serverId: ServerId, playerId: PlayerId, reason: string, duration?: number) => Effect.Effect<void, NetworkError>
+  readonly authenticatePlayer: (connectionId: ConnectionId, credentials: PlayerCredentials) => Effect.Effect<PlayerId, typeof NetworkError, never>
+  readonly getConnectedPlayers: (serverId: ServerId) => Effect.Effect<readonly PlayerInfo[], never, never>
+  readonly kickPlayer: (serverId: ServerId, playerId: PlayerId, reason: string) => Effect.Effect<void, typeof NetworkError, never>
+  readonly banPlayer: (serverId: ServerId, playerId: PlayerId, reason: string, duration?: number) => Effect.Effect<void, typeof NetworkError, never>
 
   // State synchronization
-  readonly syncEntityState: (connectionId: ConnectionId, entityId: EntityId, state: EntityState) => Effect.Effect<void, NetworkError>
-  readonly syncWorldState: (connectionId: ConnectionId, worldData: WorldSyncData) => Effect.Effect<void, NetworkError>
-  readonly requestStateSync: (connectionId: ConnectionId, syncRequest: StateSyncRequest) => Effect.Effect<void, NetworkError>
+  readonly syncEntityState: (connectionId: ConnectionId, entityId: EntityId, state: EntityState) => Effect.Effect<void, typeof NetworkError, never>
+  readonly syncWorldState: (connectionId: ConnectionId, worldData: WorldSyncData) => Effect.Effect<void, typeof NetworkError, never>
+  readonly requestStateSync: (connectionId: ConnectionId, syncRequest: StateSyncRequest) => Effect.Effect<void, typeof NetworkError, never>
 
   // Room/Lobby management
-  readonly createRoom: (config: RoomConfig) => Effect.Effect<RoomId, NetworkError>
-  readonly destroyRoom: (roomId: RoomId) => Effect.Effect<void, NetworkError>
-  readonly joinRoom: (connectionId: ConnectionId, roomId: RoomId) => Effect.Effect<void, NetworkError>
-  readonly leaveRoom: (connectionId: ConnectionId, roomId: RoomId) => Effect.Effect<void, NetworkError>
-  readonly getRoomInfo: (roomId: RoomId) => Effect.Effect<RoomInfo, NetworkError>
-  readonly listRooms: () => Effect.Effect<readonly RoomInfo[], never>
+  readonly createRoom: (config: RoomConfig) => Effect.Effect<RoomId, typeof NetworkError, never>
+  readonly destroyRoom: (roomId: RoomId) => Effect.Effect<void, typeof NetworkError, never>
+  readonly joinRoom: (connectionId: ConnectionId, roomId: RoomId) => Effect.Effect<void, typeof NetworkError, never>
+  readonly leaveRoom: (connectionId: ConnectionId, roomId: RoomId) => Effect.Effect<void, typeof NetworkError, never>
+  readonly getRoomInfo: (roomId: RoomId) => Effect.Effect<RoomInfo, typeof NetworkError, never>
+  readonly listRooms: () => Effect.Effect<readonly RoomInfo[], never, never>
 
   // Network optimization
-  readonly enableCompression: (connectionId: ConnectionId, enabled: boolean) => Effect.Effect<void, never>
-  readonly setTickRate: (serverId: ServerId, tickRate: number) => Effect.Effect<void, NetworkError>
-  readonly optimizeNetworkTraffic: (serverId: ServerId) => Effect.Effect<OptimizationResult, never>
+  readonly enableCompression: (connectionId: ConnectionId, enabled: boolean) => Effect.Effect<void, never, never>
+  readonly setTickRate: (serverId: ServerId, tickRate: number) => Effect.Effect<void, typeof NetworkError, never>
+  readonly optimizeNetworkTraffic: (serverId: ServerId) => Effect.Effect<OptimizationResult, never, never>
 
   // Monitoring and debugging
-  readonly getNetworkStats: () => Effect.Effect<NetworkStats, never>
-  readonly getConnectionInfo: (connectionId: ConnectionId) => Effect.Effect<ConnectionInfo, never>
-  readonly enableDebugMode: (enabled: boolean) => Effect.Effect<void, never>
-  readonly getDebugInfo: () => Effect.Effect<NetworkDebugInfo, never>
+  readonly getNetworkStats: () => Effect.Effect<NetworkStats, never, never>
+  readonly getConnectionInfo: (connectionId: ConnectionId) => Effect.Effect<ConnectionInfo, never, never>
+  readonly enableDebugMode: (enabled: boolean) => Effect.Effect<void, never, never>
+  readonly getDebugInfo: () => Effect.Effect<NetworkDebugInfo, never, never>
 }
 
 // ===== SUPPORTING TYPES =====
@@ -126,7 +127,7 @@ export type MessageType =
 
 export type MessagePriority = 'low' | 'normal' | 'high' | 'critical'
 
-export type MessageHandler<T> = (message: NetworkMessage<T>, connectionId: ConnectionId) => Effect.Effect<void, never>
+export type MessageHandler<T> = (message: NetworkMessage<T>, connectionId: ConnectionId) => Effect.Effect<void, never, never>
 
 export interface PlayerCredentials {
   readonly username: string
@@ -361,7 +362,7 @@ export class NetworkService extends Context.Tag('NetworkService')<
       const nextId = yield* Ref.make(0)
 
       // Helper functions
-      const generateId = (): Effect.Effect<string, never> =>
+      const generateId = (): Effect.Effect<string, never, never> =>
         Ref.modify(nextId, id => [(id + 1).toString(), id + 1])
 
       const createServerId = (id: string): ServerId => id as ServerId
@@ -384,7 +385,7 @@ export class NetworkService extends Context.Tag('NetworkService')<
       }
 
       // Connection management
-      const createConnection = (socket: NetworkSocket): Effect.Effect<ConnectionId, never> =>
+      const createConnection = (socket: NetworkSocket): Effect.Effect<ConnectionId, never, never> =>
         Effect.gen(function* () {
           const id = createConnectionId(yield* generateId())
           const messageQueue = yield* Queue.unbounded<NetworkMessage>()
@@ -416,7 +417,7 @@ export class NetworkService extends Context.Tag('NetworkService')<
           return id
         })
 
-      const updateConnectionStatus = (connectionId: ConnectionId, status: ConnectionStatus): Effect.Effect<void, never> =>
+      const updateConnectionStatus = (connectionId: ConnectionId, status: ConnectionStatus): Effect.Effect<void, never, never> =>
         Ref.update(connections, connections => {
           const connection = HashMap.get(connections, connectionId)
           if (Option.isSome(connection)) {
@@ -427,7 +428,6 @@ export class NetworkService extends Context.Tag('NetworkService')<
         })
 
       // Message processing
-      const processIncomingMessage = <T>(connectionId: ConnectionId, data: Uint8Array): Effect.Effect<void, never> =>
         Effect.gen(function* () {
           try {
             const message = deserializeMessage<T>(data)
@@ -453,7 +453,7 @@ export class NetworkService extends Context.Tag('NetworkService')<
           }
         })
 
-      const processMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never> =>
+      const processMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           yield* Match.value(message.type).pipe(
             Match.when('ping', () => handlePingMessage(connectionId, message)),
@@ -465,7 +465,7 @@ export class NetworkService extends Context.Tag('NetworkService')<
           )
         })
 
-      const handlePingMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never> =>
+      const handlePingMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           const pongMessage: NetworkMessage<{ timestamp: number }> = {
             type: 'pong',
@@ -477,23 +477,23 @@ export class NetworkService extends Context.Tag('NetworkService')<
           yield* sendMessageToConnection(connectionId, pongMessage)
         })
 
-      const handlePongMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never> =>
+      const handlePongMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           // Calculate ping from timestamp
           const ping = Date.now() - message.timestamp
           yield* updateConnectionPing(connectionId, ping)
         })
 
-      const handlePlayerJoinMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never> =>
+      const handlePlayerJoinMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
         Effect.succeed(undefined) // Implementation would handle player authentication and room assignment
 
-      const handlePlayerLeaveMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never> =>
+      const handlePlayerLeaveMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
         Effect.succeed(undefined) // Implementation would handle cleanup
 
-      const handleStateSyncMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never> =>
+      const handleStateSyncMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
         Effect.succeed(undefined) // Implementation would handle state synchronization
 
-      const sendMessageToConnection = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, NetworkError> =>
+      const sendMessageToConnection = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, typeof NetworkError, never> =>
         Effect.gen(function* () {
           const connectionsMap = yield* Ref.get(connections)
           const connection = HashMap.get(connectionsMap, connectionId)
@@ -529,7 +529,7 @@ export class NetworkService extends Context.Tag('NetworkService')<
           }
         })
 
-      const updateConnectionStats = (connectionId: ConnectionId, operation: 'sent' | 'received', bytes: number): Effect.Effect<void, never> =>
+      const updateConnectionStats = (connectionId: ConnectionId, operation: 'sent' | 'received', bytes: number): Effect.Effect<void, never, never> =>
         Ref.update(connections, connections => {
           const connection = HashMap.get(connections, connectionId)
           if (Option.isSome(connection)) {
@@ -551,7 +551,7 @@ export class NetworkService extends Context.Tag('NetworkService')<
           return connections
         })
 
-      const updateConnectionPing = (connectionId: ConnectionId, ping: number): Effect.Effect<void, never> =>
+      const updateConnectionPing = (connectionId: ConnectionId, ping: number): Effect.Effect<void, never, never> =>
         Ref.update(connections, connections => {
           const connection = HashMap.get(connections, connectionId)
           if (Option.isSome(connection)) {
@@ -562,7 +562,7 @@ export class NetworkService extends Context.Tag('NetworkService')<
           return connections
         })
 
-      const notifyMessageSubscribers = <T>(message: NetworkMessage<T>, connectionId: ConnectionId): Effect.Effect<void, never> =>
+      const notifyMessageSubscribers = <T>(message: NetworkMessage<T>, connectionId: ConnectionId): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           const subscriptions = yield* Ref.get(messageSubscriptions)
           const relevantSubs = Array.fromIterable(HashMap.values(subscriptions))
@@ -578,18 +578,19 @@ export class NetworkService extends Context.Tag('NetworkService')<
         })
 
       // Compression utilities
-      const compressMessage = (data: Uint8Array): Uint8Array => {
+      const _compressData = (data: Uint8Array): Uint8Array => {
         // Simplified compression - would use LZ4, gzip, or custom compression
         return data
       }
 
-      const decompressMessage = (data: Uint8Array): Uint8Array => {
+      const _decompressData = (data: Uint8Array): Uint8Array => {
         // Simplified decompression
         return data
       }
 
+
       // Room management
-      const createRoomInternal = (config: RoomConfig, hostPlayerId: PlayerId): Effect.Effect<RoomId, never> =>
+      const createRoomInternal = (config: RoomConfig, hostPlayerId: PlayerId): Effect.Effect<RoomId, never, never> =>
         Effect.gen(function* () {
           const id = createRoomId(yield* generateId())
           
@@ -754,13 +755,13 @@ export class NetworkService extends Context.Tag('NetworkService')<
             return playerId
           }),
 
-        getConnectedPlayers: (serverId: ServerId) =>
+        getConnectedPlayers: () =>
           Effect.gen(function* () {
             const playersMap = yield* Ref.get(players)
             return Array.fromIterable(HashMap.values(playersMap))
           }),
 
-        kickPlayer: (serverId: ServerId, playerId: PlayerId, reason: string) =>
+        kickPlayer: (playerId: PlayerId) =>
           Effect.gen(function* () {
             const playersMap = yield* Ref.get(players)
             const player = HashMap.get(playersMap, playerId)
@@ -771,11 +772,11 @@ export class NetworkService extends Context.Tag('NetworkService')<
             }
           }),
 
-        banPlayer: (serverId: ServerId, playerId: PlayerId, reason: string, duration?: number) =>
+        banPlayer: () =>
           Effect.succeed(undefined),
 
         // State synchronization
-        syncEntityState: (connectionId: ConnectionId, entityId: EntityId, state: EntityState) =>
+        syncEntityState: (connectionId: ConnectionId, state: EntityState) =>
           Effect.gen(function* () {
             const message: NetworkMessage<EntityState> = {
               type: 'entityUpdate',
@@ -826,12 +827,12 @@ export class NetworkService extends Context.Tag('NetworkService')<
             
             if (Option.isSome(room)) {
               // Notify all players in room
-              const message: NetworkMessage<{ roomId: RoomId }> = {
+              const _leaveMessage = {
                 type: 'roomLeave',
                 payload: { roomId },
                 timestamp: Date.now(),
                 reliable: true,
-                priority: 'high',
+                priority: 'high'
               }
               
               // Would send to all players in room
@@ -839,7 +840,7 @@ export class NetworkService extends Context.Tag('NetworkService')<
             }
           }),
 
-        joinRoom: (connectionId: ConnectionId, roomId: RoomId) =>
+        joinRoom: (roomId: RoomId) =>
           Effect.gen(function* () {
             const roomsMap = yield* Ref.get(rooms)
             const room = HashMap.get(roomsMap, roomId)
@@ -855,7 +856,7 @@ export class NetworkService extends Context.Tag('NetworkService')<
             // Would check capacity, authentication, etc.
           }),
 
-        leaveRoom: (connectionId: ConnectionId, roomId: RoomId) =>
+        leaveRoom: () =>
           Effect.succeed(undefined),
 
         getRoomInfo: (roomId: RoomId) =>
@@ -930,7 +931,7 @@ export class NetworkService extends Context.Tag('NetworkService')<
             })
           }),
 
-        optimizeNetworkTraffic: (serverId: ServerId) =>
+        optimizeNetworkTraffic: () =>
           Effect.succeed({
             bandwidthSaved: 0,
             messagesOptimized: 0,

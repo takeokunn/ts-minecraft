@@ -1,4 +1,4 @@
-import { Effect, Ref, pipe } from 'effect'
+import { Effect, Ref } from 'effect'
 
 /**
  * Performance profiler with automatic measurement capabilities
@@ -77,7 +77,10 @@ const startMeasurement = (name: string): Effect.Effect<void, never, never> =>
     
     yield* Ref.update(profilerState, state => ({
       ...state,
-      activeMeasurements: new Map(state.activeMeasurements).set(name, { startTime, memoryBefore })
+      activeMeasurements: new Map(state.activeMeasurements).set(name, { 
+        startTime, 
+        ...(memoryBefore !== undefined && { memoryBefore })
+      })
     }))
     
     if (profilerConfig.enableConsoleOutput) {
@@ -115,9 +118,9 @@ const endMeasurement = (name: string): Effect.Effect<ProfileMeasurement | null, 
       startTime: active.startTime,
       endTime,
       duration,
-      memoryBefore: active.memoryBefore,
-      memoryAfter,
-      memoryDelta
+      ...(active.memoryBefore !== undefined && { memoryBefore: active.memoryBefore }),
+      ...(memoryAfter !== undefined && { memoryAfter }),
+      ...(memoryDelta !== undefined && { memoryDelta })
     }
     
     // Update state
@@ -251,17 +254,7 @@ export const Profile = {
   /**
    * Get performance statistics for a specific measurement name
    */
-  getStats: (name: string): Effect.Effect<{
-    count: number
-    totalTime: number
-    averageTime: number
-    minTime: number
-    maxTime: number
-    p50: number
-    p90: number
-    p95: number
-    p99: number
-  } | null, never, never> =>
+  getStats: (name: string) =>
     Effect.gen(function* () {
       const measurements = yield* Profile.getMeasurements()
       const filtered = measurements.filter(m => m.name === name)
@@ -321,7 +314,7 @@ export const Profile = {
         report += `   Count: ${stats.count}\n`
         report += `   Average: ${stats.averageTime.toFixed(2)}ms\n`
         report += `   Min/Max: ${stats.minTime.toFixed(2)}ms / ${stats.maxTime.toFixed(2)}ms\n`
-        report += `   P90/P95/P99: ${stats.p90.toFixed(2)}ms / ${stats.p95.toFixed(2)}ms / ${stats.p99.toFixed(2)}ms\n`
+        report += `   P90/P95/P99: ${stats.p90?.toFixed(2) || 'N/A'}ms / ${stats.p95?.toFixed(2) || 'N/A'}ms / ${stats.p99?.toFixed(2) || 'N/A'}ms\n`
         
         // Memory info if available
         const withMemory = group.filter(m => m.memoryDelta !== undefined)
@@ -371,7 +364,6 @@ export const withProfiling = <Args extends ReadonlyArray<any>, Return>(
 ) =>
   (...args: Args): Return => {
     const start = performance.now()
-    const memoryBefore = profilerConfig.enableMemoryTracking ? getCurrentMemory() : undefined
     
     try {
       const result = fn(...args)
@@ -399,7 +391,7 @@ export const measureBatch = <T>(
   name: string,
   items: ReadonlyArray<T>,
   processor: (item: T) => Effect.Effect<any, any, any>
-): Effect.Effect<void, never, never> =>
+) =>
   Effect.gen(function* () {
     const batchName = `${name}:batch(${items.length})`
     yield* Profile.start(batchName)
@@ -407,7 +399,10 @@ export const measureBatch = <T>(
     try {
       for (let i = 0; i < items.length; i++) {
         const itemName = `${name}:item[${i}]`
-        yield* Profile.measure(itemName)(processor(items[i]))
+        const item = items[i]
+        if (item !== undefined) {
+          yield* Profile.measure(itemName)(processor(item))
+        }
       }
     } finally {
       yield* Profile.end(batchName)

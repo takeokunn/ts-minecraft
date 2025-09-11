@@ -2,7 +2,7 @@ import { Archetype } from '@/domain/archetypes'
 import { Chunk, ComponentName, ComponentOfName, Hotbar } from '@/core/components'
 import { EntityId } from '@/core/entities/entity'
 import { AABB } from '@/domain/geometry'
-import { LegacyLegacyQuery, LegacyLegacyLegacyQueryResult, OptimizedLegacyQuery, queries } from '@/core/queries'
+import { OptimizedQuery, queries } from '@/core/queries'
 import { Voxel, WorldState } from '../domain/world'
 import { Context, Effect, Option, Queue, Ref, Scope } from 'effect'
 import * as T from 'three'
@@ -21,40 +21,40 @@ export class World extends Context.Tag('World')<
   World,
   {
     readonly state: Ref.Ref<WorldState>
-    readonly addArchetype: (archetype: Archetype) => Effect.Effect<EntityId>
-    readonly removeEntity: (entityId: EntityId) => Effect.Effect<void>
+    readonly addArchetype: (archetype: Archetype) => Effect.Effect<EntityId, never, never>
+    readonly removeEntity: (entityId: EntityId) => Effect.Effect<void, never, never>
     readonly getComponent: <T extends ComponentName>(
       entityId: EntityId,
       componentName: T,
-    ) => Effect.Effect<Option.Option<ComponentOfName<T>>>
+    ) => Effect.Effect<Option.Option<ComponentOfName<T, never, never>>>
     readonly getComponentUnsafe: <T extends ComponentName>(
       entityId: EntityId,
       componentName: T,
-    ) => Effect.Effect<ComponentOfName<T>>
+    ) => Effect.Effect<ComponentOfName<T, never, never>>
     readonly updateComponent: <T extends ComponentName>(
       entityId: EntityId,
       componentName: T,
       data: Partial<Omit<ComponentOfName<T>, 'name'>>,
-    ) => Effect.Effect<void>
+    ) => Effect.Effect<void, never, never>
     readonly query: <T extends ReadonlyArray<ComponentName>>(
       query: LegacyQuery<T>,
-    ) => Effect.Effect<ReadonlyArray<readonly [EntityId, LegacyLegacyQueryResult<T>]>>
+    ) => Effect.Effect<ReadonlyArray<readonly [EntityId, LegacyLegacyQueryResult<T, never>]>>
     readonly querySoA: <T extends ReadonlyArray<ComponentName>>(
       query: LegacyQuery<T>,
-    ) => Effect.Effect<SoAResult<T>>
+    ) => Effect.Effect<SoAResult<T, never, never>>
     readonly queryUnsafe: <T extends ReadonlyArray<ComponentName>>(
       query: LegacyQuery<T>,
-    ) => Effect.Effect<ReadonlyArray<readonly [EntityId, ...LegacyLegacyQueryResult<T>]>>
+    ) => Effect.Effect<ReadonlyArray<readonly [EntityId, ...LegacyLegacyQueryResult<T, never>]>>
     readonly querySingle: <T extends ReadonlyArray<ComponentName>>(
       query: LegacyQuery<T>,
-    ) => Effect.Effect<Option.Option<readonly [EntityId, LegacyLegacyQueryResult<T>]>>
+    ) => Effect.Effect<Option.Option<readonly [EntityId, LegacyLegacyQueryResult<T, never>]>>
     readonly querySingleUnsafe: <T extends ReadonlyArray<ComponentName>>(
       query: LegacyQuery<T>,
-    ) => Effect.Effect<readonly [EntityId, LegacyLegacyQueryResult<T>]>
-    readonly getChunk: (chunkX: number, chunkZ: number) => Effect.Effect<Option.Option<Chunk>>
-    readonly setChunk: (chunkX: number, chunkZ: number, chunk: Chunk) => Effect.Effect<void>
-    readonly getVoxel: (x: number, y: number, z: number) => Effect.Effect<Option.Option<Voxel>>
-    readonly setVoxel: (x: number, y: number, z: number, voxel: Voxel) => Effect.Effect<void>
+    ) => Effect.Effect<readonly [EntityId, LegacyLegacyQueryResult<T, never>]>
+    readonly getChunk: (chunkX: number, chunkZ: number) => Effect.Effect<Option.Option<Chunk, never, never>>
+    readonly setChunk: (chunkX: number, chunkZ: number, chunk: Chunk) => Effect.Effect<void, never, never>
+    readonly getVoxel: (x: number, y: number, z: number) => Effect.Effect<Option.Option<Voxel, never, never>>
+    readonly setVoxel: (x: number, y: number, z: number, voxel: Voxel) => Effect.Effect<void, never, never>
   }
 >() {}
 
@@ -77,7 +77,7 @@ export class Renderer extends Context.Tag('Renderer')<
   Renderer,
   {
     readonly renderQueue: Queue.Queue<RenderCommand>
-    readonly updateCamera: (position: T.Vector3, rotation: T.Euler) => Effect.Effect<void>
+    readonly updateCamera: (position: T.Vector3, rotation: T.Euler) => Effect.Effect<void, never, never>
   }
 >() {}
 
@@ -94,34 +94,34 @@ export class InputManager extends Context.Tag('InputManager')<
       readonly sprint: boolean
       readonly place: boolean
       readonly destroy: boolean
-    }>
+    }, never, never>
     readonly getMouseState: () => Effect.Effect<{
       readonly dx: number
       readonly dy: number
-    }>
+    }, never, never>
   }
 >() {}
 
 export class Raycast extends Context.Tag('Raycast')<
   Raycast,
   {
-    readonly raycast: () => Effect.Effect<Option.Option<T.Intersection>>
+    readonly raycast: () => Effect.Effect<Option.Option<T.Intersection, never, never>>
   }
 >() {}
 
 export class MaterialManager extends Context.Tag('MaterialManager')<
   MaterialManager,
   {
-    readonly getMaterial: (name: string) => Effect.Effect<T.Material, unknown>
+    readonly getMaterial: (name: string) => Effect.Effect<T.Material, unknown, never>
   }
 >() {}
 
 export class SpatialGrid extends Context.Tag('SpatialGrid')<
   SpatialGrid,
   {
-    readonly add: (entityId: EntityId, aabb: AABB) => Effect.Effect<void>
-    readonly query: (aabb: AABB) => Effect.Effect<ReadonlyArray<EntityId>>
-    readonly clear: () => Effect.Effect<void>
+    readonly add: (entityId: EntityId, aabb: AABB) => Effect.Effect<void, never, never>
+    readonly query: (aabb: AABB) => Effect.Effect<ReadonlyArray<EntityId, never, never>>
+    readonly clear: () => Effect.Effect<void, never, never>
   }
 >() {}
 
@@ -130,7 +130,7 @@ export class SpatialGrid extends Context.Tag('SpatialGrid')<
 export class ComputationWorker extends Context.Tag('ComputationWorker')<
   ComputationWorker,
   {
-    readonly postTask: (task: IncomingMessage) => Effect.Effect<void>
+    readonly postTask: (task: IncomingMessage) => Effect.Effect<void, never, never>
     readonly onMessage: (
       handler: (message: OutgoingMessage) => Effect.Effect<void, never, Scope.Scope>,
     ) => Effect.Effect<void, never, Scope.Scope>
@@ -141,15 +141,15 @@ export class Clock extends Context.Tag('Clock')<
   Clock,
   {
     readonly deltaTime: Ref.Ref<number>
-    readonly onFrame: (callback: () => Effect.Effect<void>) => Effect.Effect<void>
+    readonly onFrame: (callback: () => Effect.Effect<void, never, never>) => Effect.Effect<void, never, never>
   }
 >() {}
 
 export class Stats extends Context.Tag('Stats')<
   Stats,
   {
-    readonly begin: Effect.Effect<void>
-    readonly end: Effect.Effect<void>
+    readonly begin: Effect.Effect<void, never, never>
+    readonly end: Effect.Effect<void, never, never>
   }
 >() {}
 
@@ -162,7 +162,7 @@ export class DeltaTime extends Context.Tag('DeltaTime')<DeltaTime, {
 export class UIService extends Context.Tag('UIService')<
   UIService,
   {
-    readonly updateHotbar: (hotbar: Hotbar) => Effect.Effect<void>
+    readonly updateHotbar: (hotbar: Hotbar) => Effect.Effect<void, never, never>
   }
 >() {}
 
@@ -183,30 +183,30 @@ export class OptimizedResourceManager extends Context.Tag('OptimizedResourceMana
 export class PerformanceMonitor extends Context.Tag('PerformanceMonitor')<
   PerformanceMonitor,
   {
-    readonly startMonitoring: () => Effect.Effect<void>
-    readonly stopMonitoring: () => Effect.Effect<void>
+    readonly startMonitoring: () => Effect.Effect<void, never, never>
+    readonly stopMonitoring: () => Effect.Effect<void, never, never>
     readonly getMetrics: () => Effect.Effect<{
       fps: number
       frameTime: number
       memoryUsage: number
-      poolUtilization: Record<string, number>
+      poolUtilization: Record<string, number, never>
       resourceCacheHitRate: number
     }>
-    readonly generateReport: () => Effect.Effect<string>
+    readonly generateReport: () => Effect.Effect<string, never, never>
   }
 >() {}
 
 export class QualityController extends Context.Tag('QualityController')<
   QualityController,
   {
-    readonly adjustQuality: (targetFPS: number) => Effect.Effect<void>
+    readonly adjustQuality: (targetFPS: number) => Effect.Effect<void, never, never>
     readonly getCurrentQuality: () => Effect.Effect<{
       renderDistance: number
       particleDensity: number
       shadowQuality: 'low' | 'medium' | 'high' | 'ultra'
       textureQuality: 'low' | 'medium' | 'high' | 'ultra'
-    }>
-    readonly setQualityPreset: (preset: 'low' | 'medium' | 'high' | 'ultra') => Effect.Effect<void>
+    }, never, never>
+    readonly setQualityPreset: (preset: 'low' | 'medium' | 'high' | 'ultra') => Effect.Effect<void, never, never>
   }
 >() {}
 
@@ -219,12 +219,12 @@ export class WorkerCoordinator extends Context.Tag('WorkerCoordinator')<
     readonly distributeTask: <T>(
       task: { type: string; data: any },
       priority: 'high' | 'normal' | 'low'
-    ) => Effect.Effect<T>
+    ) => Effect.Effect<T, never, never>
     readonly getWorkerStats: () => Effect.Effect<{
       activeWorkers: number
       queuedTasks: number
       averageTaskTime: number
-    }>
-    readonly terminateIdleWorkers: () => Effect.Effect<void>
+    }, never, never>
+    readonly terminateIdleWorkers: () => Effect.Effect<void, never, never>
   }
 >() {}

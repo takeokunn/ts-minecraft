@@ -1,6 +1,6 @@
-import * as S from "/schema/Schema"
-import { ChunkCoordinates } from '@/core/values/coordinates'
-import { BlockType } from '@/core/values/block-type'
+import * as S from "@effect/schema/Schema"
+import { ChunkCoordinatesSchema } from '@/core/values/coordinates'
+
 
 /**
  * Shared protocol definitions for all Minecraft workers
@@ -26,7 +26,7 @@ export type Position3D = S.Schema.Type<typeof Position3D>
  */
 export const Block = S.Struct({
   position: Position3D,
-  blockType: BlockType.schema,
+  blockType: S.String,
   metadata: S.optional(S.Record({ key: S.String, value: S.Any })),
 })
 export type Block = S.Schema.Type<typeof Block>
@@ -35,7 +35,7 @@ export type Block = S.Schema.Type<typeof Block>
  * Chunk data schema
  */
 export const ChunkData = S.Struct({
-  coordinates: ChunkCoordinates.schema,
+  coordinates: ChunkCoordinatesSchema,
   blocks: S.Array(Block),
   heightMap: S.Array(S.Number),
   biomeData: S.optional(S.Array(S.Number)),
@@ -81,7 +81,7 @@ export type PhysicsBody = S.Schema.Type<typeof PhysicsBody>
  * Terrain generation request
  */
 export const TerrainGenerationRequest = S.Struct({
-  coordinates: ChunkCoordinates.schema,
+  coordinates: ChunkCoordinatesSchema,
   seed: S.Number,
   biomeSettings: S.Struct({
     temperature: S.Number,

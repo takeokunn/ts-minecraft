@@ -1,4 +1,4 @@
-import { Effect, Match, Option, Duration } from 'effect'
+import { Effect, Match, Duration } from 'effect'
 import { CameraState, InputState, Player, Velocity } from '@/core/components'
 import { queries, QueryProfiler } from '@/core/queries'
 import { DECELERATION, JUMP_FORCE, MIN_VELOCITY_THRESHOLD, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@/domain/world-constants'

@@ -7,6 +7,6 @@ import * as THREE from 'three'
 export class MaterialManager extends Context.Tag('MaterialManager')<
   MaterialManager,
   {
-    readonly getMaterial: (name: string) => Effect.Effect<THREE.Material>
+    readonly getMaterial: (name: string) => Effect.Effect<THREE.Material, never, never>
   }
 >() {}

@@ -43,32 +43,32 @@ import {
 
 export interface WorldServiceInterface {
   // Chunk management
-  readonly loadChunk: (coords: ChunkCoordinates) => Effect.Effect<Chunk, ChunkNotLoadedError | ChunkGenerationError>
-  readonly unloadChunk: (coords: ChunkCoordinates) => Effect.Effect<void, WorldStateError>
-  readonly getChunk: (coords: ChunkCoordinates) => Effect.Effect<Chunk, ChunkNotLoadedError>
-  readonly getLoadedChunks: () => Effect.Effect<ReadonlyArray<ChunkCoordinates>, never>
-  readonly isChunkLoaded: (coords: ChunkCoordinates) => Effect.Effect<boolean, never>
+  readonly loadChunk: (coords: ChunkCoordinates) => Effect.Effect<Chunk, typeof ChunkNotLoadedError | typeof ChunkGenerationError, never>
+  readonly unloadChunk: (coords: ChunkCoordinates) => Effect.Effect<void, typeof WorldStateError, never>
+  readonly getChunk: (coords: ChunkCoordinates) => Effect.Effect<Chunk, typeof ChunkNotLoadedError, never>
+  readonly getLoadedChunks: () => Effect.Effect<ReadonlyArray<ChunkCoordinates>, never, never>
+  readonly isChunkLoaded: (coords: ChunkCoordinates) => Effect.Effect<boolean, never, never>
 
   // Block operations
-  readonly getBlock: (position: Position) => Effect.Effect<BlockType, BlockNotFoundError | ChunkNotLoadedError>
-  readonly setBlock: (position: Position, blockType: BlockType) => Effect.Effect<void, InvalidPositionError | BlockPlacementError>
-  readonly placeBlock: (position: Position, blockType: BlockType, placer?: EntityId) => Effect.Effect<BlockPlacementResult, InvalidPositionError | BlockPlacementError>
-  readonly breakBlock: (position: Position, breaker?: EntityId) => Effect.Effect<BlockBreakResult, InvalidPositionError | BlockNotFoundError>
+  readonly getBlock: (position: Position) => Effect.Effect<BlockType, typeof BlockNotFoundError | typeof ChunkNotLoadedError, never>
+  readonly setBlock: (position: Position, blockType: BlockType) => Effect.Effect<void, typeof InvalidPositionError | typeof BlockPlacementError, never>
+  readonly placeBlock: (position: Position, blockType: BlockType, placer?: EntityId) => Effect.Effect<BlockPlacementResult, typeof InvalidPositionError | typeof BlockPlacementError, never>
+  readonly breakBlock: (position: Position, breaker?: EntityId) => Effect.Effect<BlockBreakResult, typeof InvalidPositionError | typeof BlockNotFoundError, never>
 
   // World querying
-  readonly getBlocksInRadius: (center: Position, radius: number) => Effect.Effect<ReadonlyArray<BlockInfo>, ChunkNotLoadedError>
-  readonly getBlocksInBounds: (min: Position, max: Position) => Effect.Effect<ReadonlyArray<BlockInfo>, ChunkNotLoadedError>
-  readonly findBlocksOfType: (blockType: BlockType, searchBounds?: SearchBounds) => Effect.Effect<ReadonlyArray<Position>, ChunkNotLoadedError>
+  readonly getBlocksInRadius: (center: Position, radius: number) => Effect.Effect<ReadonlyArray<BlockInfo>, typeof ChunkNotLoadedError, never>
+  readonly getBlocksInBounds: (min: Position, max: Position) => Effect.Effect<ReadonlyArray<BlockInfo>, typeof ChunkNotLoadedError, never>
+  readonly findBlocksOfType: (blockType: BlockType, searchBounds?: SearchBounds) => Effect.Effect<ReadonlyArray<Position>, typeof ChunkNotLoadedError, never>
 
   // World state management
-  readonly saveWorld: (worldName: string) => Effect.Effect<WorldSaveResult, WorldSaveError>
-  readonly loadWorld: (worldName: string) => Effect.Effect<WorldLoadResult, WorldLoadError>
-  readonly tick: (deltaTime: number) => Effect.Effect<WorldTickResult, WorldTickError>
-  readonly getWorldStats: () => Effect.Effect<WorldStats, never>
+  readonly saveWorld: (worldName: string) => Effect.Effect<WorldSaveResult, typeof WorldSaveError, never>
+  readonly loadWorld: (worldName: string) => Effect.Effect<WorldLoadResult, typeof WorldLoadError, never>
+  readonly tick: (deltaTime: number) => Effect.Effect<WorldTickResult, typeof WorldTickError, never>
+  readonly getWorldStats: () => Effect.Effect<WorldStats, never, never>
 
   // Spatial operations
-  readonly raycast: (origin: Position, direction: Position, maxDistance: number) => Effect.Effect<RaycastResult, never>
-  readonly getEntitiesInRadius: (center: Position, radius: number) => Effect.Effect<ReadonlyArray<EntityId>, never>
+  readonly raycast: (origin: Position, direction: Position, maxDistance: number) => Effect.Effect<RaycastResult, never, never>
+  readonly getEntitiesInRadius: (center: Position, radius: number) => Effect.Effect<ReadonlyArray<EntityId>, never, never>
 }
 
 // ===== SUPPORTING TYPES =====
@@ -188,7 +188,7 @@ export class WorldService extends Context.Tag('WorldService')<
         `${pos.x % 16},${pos.y},${pos.z % 16}`
 
       // Chunk management implementation
-      const loadChunk = (coords: ChunkCoordinates): Effect.Effect<Chunk, ChunkNotLoadedError | ChunkGenerationError> =>
+      const loadChunk = (coords: ChunkCoordinates): Effect.Effect<Chunk, typeof ChunkNotLoadedError | typeof ChunkGenerationError, never> =>
         Effect.gen(function* () {
           const chunks = yield* Ref.get(loadedChunks)
           const key = chunkKey(coords)
@@ -214,7 +214,7 @@ export class WorldService extends Context.Tag('WorldService')<
           return chunk
         })
 
-      const unloadChunk = (coords: ChunkCoordinates): Effect.Effect<void, WorldStateError> =>
+      const unloadChunk = (coords: ChunkCoordinates): Effect.Effect<void, typeof WorldStateError, never> =>
         Effect.gen(function* () {
           const chunks = yield* Ref.get(loadedChunks)
           const key = chunkKey(coords)
@@ -237,7 +237,7 @@ export class WorldService extends Context.Tag('WorldService')<
           // yield* spatialGrid.unregisterChunk(coords)
         })
 
-      const getChunk = (coords: ChunkCoordinates): Effect.Effect<Chunk, ChunkNotLoadedError> =>
+      const getChunk = (coords: ChunkCoordinates): Effect.Effect<Chunk, typeof ChunkNotLoadedError, never> =>
         Effect.gen(function* () {
           const chunks = yield* Ref.get(loadedChunks)
           const chunk = HashMap.get(chunks, chunkKey(coords))
@@ -251,14 +251,14 @@ export class WorldService extends Context.Tag('WorldService')<
           })
         }).pipe(Effect.flatMap(Effect.succeed))
 
-      const isChunkLoaded = (coords: ChunkCoordinates): Effect.Effect<boolean, never> =>
+      const isChunkLoaded = (coords: ChunkCoordinates): Effect.Effect<boolean, never, never> =>
         Effect.gen(function* () {
           const chunks = yield* Ref.get(loadedChunks)
           return HashMap.has(chunks, chunkKey(coords))
         })
 
       // Block operations implementation
-      const getBlock = (position: Position): Effect.Effect<BlockType, BlockNotFoundError | ChunkNotLoadedError> =>
+      const getBlock = (position: Position): Effect.Effect<BlockType, typeof BlockNotFoundError | typeof ChunkNotLoadedError, never> =>
         Effect.gen(function* () {
           const chunkCoords = positionToChunk(position)
           const chunk = yield* getChunk(chunkCoords)
@@ -275,7 +275,7 @@ export class WorldService extends Context.Tag('WorldService')<
           })
         }).pipe(Effect.flatMap(Effect.succeed))
 
-      const setBlock = (position: Position, blockType: BlockType): Effect.Effect<void, InvalidPositionError | BlockPlacementError> =>
+      const setBlock = (position: Position, blockType: BlockType): Effect.Effect<void, typeof InvalidPositionError | typeof BlockPlacementError, never> =>
         Effect.gen(function* () {
           // Validate position
           if (position.y < 0 || position.y > 255) {
@@ -301,7 +301,7 @@ export class WorldService extends Context.Tag('WorldService')<
         })
 
       // Advanced world operations
-      const raycast = (origin: Position, direction: Position, maxDistance: number): Effect.Effect<RaycastResult, never> =>
+      const raycast = (origin: Position, direction: Position, maxDistance: number): Effect.Effect<RaycastResult, never, never> =>
         Effect.gen(function* () {
           const normalizedDirection = normalizeVector(direction)
           let currentPos = origin
@@ -338,7 +338,7 @@ export class WorldService extends Context.Tag('WorldService')<
         })
 
       // World tick implementation
-      const tick = (deltaTime: number): Effect.Effect<WorldTickResult, WorldTickError> =>
+      const tick = (deltaTime: number): Effect.Effect<WorldTickResult, typeof WorldTickError, never> =>
         Effect.gen(function* () {
           const startTime = Date.now()
           let chunksUpdated = 0
@@ -392,28 +392,28 @@ export class WorldService extends Context.Tag('WorldService')<
         })
       }
 
-      const updateChunkTick = (chunk: Chunk, deltaTime: number): Effect.Effect<void, never> =>
+      const updateChunkTick = (_chunk: Chunk, _deltaTime: number): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           // Update chunk-specific logic here
           // For example: block updates, entity processing, etc.
           return
         })
 
-      const processChunkLoadQueue = (): Effect.Effect<void, never> =>
+      const processChunkLoadQueue = (): Effect.Effect<void, never, never> =>
         Queue.take(chunkLoadQueue).pipe(
           Effect.flatMap(loadChunk),
           Effect.ignore,
           Effect.repeat(Schedule.recurUntilEffect(() => Queue.size(chunkLoadQueue).pipe(Effect.map(size => size === 0))))
         )
 
-      const updateTickStats = (tickDuration: number): Effect.Effect<void, never> =>
+      const updateTickStats = (tickDuration: number): Effect.Effect<void, never, never> =>
         Ref.update(tickStats, stats => ({
           tickCount: stats.tickCount + 1,
           totalTickTime: stats.totalTickTime + tickDuration,
           averageTickTime: (stats.totalTickTime + tickDuration) / (stats.tickCount + 1),
         }))
 
-      const saveChunkToDisk = (chunk: Chunk): Effect.Effect<void, never> =>
+      const saveChunkToDisk = (_chunk: Chunk): Effect.Effect<void, never, never> =>
         // Implementation would save to actual persistence layer
         Effect.succeed(undefined)
 
@@ -458,15 +458,15 @@ export class WorldService extends Context.Tag('WorldService')<
             }
           }),
 
-        getBlocksInRadius: (center: Position, radius: number) =>
+        getBlocksInRadius: () =>
           // Implementation would use spatial indexing
           Effect.succeed([]),
         
-        getBlocksInBounds: (min: Position, max: Position) =>
+        getBlocksInBounds: () =>
           // Implementation would iterate through bound chunks
           Effect.succeed([]),
         
-        findBlocksOfType: (blockType: BlockType, searchBounds?: SearchBounds) =>
+        findBlocksOfType: () =>
           // Implementation would use indexed search
           Effect.succeed([]),
 
@@ -505,7 +505,7 @@ export class WorldService extends Context.Tag('WorldService')<
 
         raycast,
         
-        getEntitiesInRadius: (center: Position, radius: number) =>
+        getEntitiesInRadius: () =>
           // Implementation would query spatial grid
           Effect.succeed([]),
       }
@@ -529,3 +529,6 @@ const generateBlockDrops = (blockType: BlockType, position: Position): ReadonlyA
 }
 
 // Dependencies would be handled by proper service composition in real implementation
+
+// Re-export World from runtime services for compatibility
+export { World } from '@/runtime/services'

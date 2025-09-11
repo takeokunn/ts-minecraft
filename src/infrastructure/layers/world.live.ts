@@ -1,4 +1,4 @@
-import { Layer, Effect, Ref, Option, pipe } from 'effect'
+import { Layer, Effect, Ref, Option } from 'effect'
 import * as HashMap from 'effect/HashMap'
 import { World } from '@/services/world'
 import { WorldState } from '@/domain/world'
@@ -7,7 +7,7 @@ import { Archetype } from '@/domain/archetypes'
 import { ComponentName, ComponentOfName } from '@/core/components'
 import { ChunkCoordinates, ChunkData } from '@/domain/chunk'
 import { BlockType } from '@/core/values/block-type'
-import { EntityNotFoundError, ComponentNotFoundError } from '@/core/errors'
+import { ComponentNotFoundError } from '@/core/errors'
 
 /**
  * Production implementation of World service

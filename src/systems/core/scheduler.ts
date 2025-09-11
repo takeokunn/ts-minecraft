@@ -9,7 +9,7 @@
  * - Effect-TS integration with fiber-based concurrency
  */
 
-import { Effect, pipe, Duration, Fiber, Ref, Array, HashMap, Option, Clock as EffectClock } from 'effect'
+import { Effect, pipe, Duration, Fiber, Ref, Array, Option, Clock as EffectClock } from 'effect'
 import { Clock, World } from '@/runtime/services'
 import { QueryProfiler } from '@/core/queries'
 
@@ -109,7 +109,7 @@ export class SystemScheduler {
   registerSystem(
     config: SystemConfig,
     system: SystemFunction
-  ): Effect.Effect<void> {
+  ): Effect.Effect<void, never, never> {
     return Effect.gen(this, function* ($) {
       const initialMetrics: SystemMetrics = {
         systemId: config.id,
@@ -138,7 +138,7 @@ export class SystemScheduler {
   /**
    * Unregister a system
    */
-  unregisterSystem(systemId: string): Effect.Effect<void> {
+  unregisterSystem(systemId: string): Effect.Effect<void, never, never> {
     return Effect.gen(this, function* ($) {
       this.systems.delete(systemId)
       yield* $(this.rebuildExecutionPlan())
@@ -305,7 +305,7 @@ export class SystemScheduler {
     systemId: string,
     executionTime: number,
     error: Option.Option<Error>
-  ): Effect.Effect<void> {
+  ): Effect.Effect<void, never, never> {
     return Ref.update(this.metricsRef, metricsMap => {
       const currentMetrics = metricsMap.get(systemId)
       if (!currentMetrics) return metricsMap
@@ -330,7 +330,7 @@ export class SystemScheduler {
   /**
    * Rebuild execution plan based on dependencies and conflicts
    */
-  private rebuildExecutionPlan(): Effect.Effect<void> {
+  private rebuildExecutionPlan(): Effect.Effect<void, never, never> {
     return Effect.sync(() => {
       // Topological sort based on dependencies
       const systemConfigs = Array.fromIterable(this.systems.values()).map(s => s.config)
@@ -469,7 +469,7 @@ export class SystemScheduler {
   /**
    * Get system metrics
    */
-  getSystemMetrics(systemId: string): Effect.Effect<Option.Option<SystemMetrics>> {
+  getSystemMetrics(systemId: string): Effect.Effect<Option.Option<SystemMetrics, never, never>> {
     return Effect.gen(this, function* ($) {
       const metricsMap = yield* $(Ref.get(this.metricsRef))
       return Option.fromNullable(metricsMap.get(systemId))
@@ -479,14 +479,14 @@ export class SystemScheduler {
   /**
    * Get all system metrics
    */
-  getAllMetrics(): Effect.Effect<Map<string, SystemMetrics>> {
+  getAllMetrics(): Effect.Effect<Map<string, SystemMetrics, never>> {
     return Ref.get(this.metricsRef)
   }
 
   /**
    * Reset all metrics
    */
-  resetMetrics(): Effect.Effect<void> {
+  resetMetrics(): Effect.Effect<void, never, never> {
     return Ref.set(this.metricsRef, new Map())
   }
 
@@ -498,7 +498,7 @@ export class SystemScheduler {
     parallelGroups: number
     avgSystemsPerGroup: number
     enabledFeatures: string[]
-  }> {
+  }, never, never> {
     return Effect.sync(() => ({
       totalSystems: this.systems.size,
       parallelGroups: this.parallelGroups.length,

@@ -10,13 +10,13 @@
  * - Block interaction prediction and rollback
  */
 
-import { Effect, pipe, Array as EffArray, Duration, Option, HashMap } from 'effect'
-import { queries, createArchetypeQuery, trackPerformance } from '@/core/queries'
-import { World, Raycast, InputManager, SpatialGrid } from '@/runtime/services'
+import { Effect, Duration, Option } from 'effect'
+import { ArchetypeQuery, trackPerformance } from '@/core/queries'
+import { World } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { Position, InputStateComponent, TargetComponent, HotbarComponent, PlayerControlComponent } from '@/core/components'
+import { Position, InputStateComponent, TargetComponent, HotbarComponent } from '@/core/components'
 import { BlockType, BlockPosition } from '@/core/values'
-import { AABB } from '@/domain/geometry'
+
 import { EntityId } from '@/core/entities/entity'
 import * as THREE from 'three'
 
@@ -526,12 +526,11 @@ export const createBlockInteractionSystem = (
 
   return (context: SystemContext) => Effect.gen(function* ($) {
     const world = yield* $(World)
-    const spatialGrid = yield* $(SpatialGrid)
     
     const startTime = Date.now()
 
     // Query players with interaction capabilities
-    const playerQuery = createArchetypeQuery()
+    const playerQuery = ArchetypeQuery()
       .with('player', 'position', 'inputState')
       .maybe('target', 'hotbar')
       .execute()

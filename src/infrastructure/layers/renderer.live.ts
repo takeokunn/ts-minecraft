@@ -12,7 +12,7 @@ export const RendererLive = Layer.effect(
     
     return Renderer.of({
       renderQueue,
-      updateCamera: (position, rotation) => Effect.succeed(undefined)
+      updateCamera: () => Effect.succeed(undefined)
     })
   })
 )

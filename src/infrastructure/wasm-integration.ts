@@ -1,8 +1,8 @@
-import { Effect, Layer, Ref, Option, Duration } from 'effect'
-import { pipe } from 'effect/Function'
+import { Effect, Layer, Ref, Option } from 'effect'
+
 import { ObjectPool } from '@/core/performance/object-pool'
 import { createTypedWorkerClient, WorkerClientConfig } from '@/workers/base/typed-worker'
-import * as S from "/schema/Schema"
+
 
 // --- Configuration ---
 
@@ -219,7 +219,7 @@ const createWASMImports = (memory?: WebAssembly.Memory): WebAssembly.Imports => 
 /**
  * Compile WASM module from bytes
  */
-const compileWASMModule = (bytes: Uint8Array, name: string): Effect.Effect<WASMModule> =>
+const compileWASMModule = (bytes: Uint8Array, name: string): Effect.Effect<WASMModule, never, never> =>
   Effect.async<WASMModule>((resume) => {
     const startTime = performance.now()
     
@@ -272,7 +272,7 @@ const compileWASMModule = (bytes: Uint8Array, name: string): Effect.Effect<WASMM
 /**
  * Instantiate WASM module
  */
-const instantiateWASMModule = (wasmModule: WASMModule, imports?: WebAssembly.Imports): Effect.Effect<WASMModule> =>
+const instantiateWASMModule = (wasmModule: WASMModule, imports?: WebAssembly.Imports): Effect.Effect<WASMModule, never, never> =>
   Effect.gen(function* () {
     const startTime = performance.now()
     
@@ -389,7 +389,7 @@ const MATH_WASM_BYTES = new Uint8Array([
 /**
  * Noise generation WASM module (stub for future implementation)
  */
-const NOISE_WASM_BYTES = new Uint8Array([
+const _NOISE_WASM_BYTES = new Uint8Array([
   0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, // WASM header
   // Simplified noise generation module
 ])
@@ -405,17 +405,17 @@ const wasmBufferPool = new ObjectPool<ArrayBuffer>(
 // --- Main Service ---
 
 export interface WASMIntegrationService {
-  loadModule: (name: string, bytes: Uint8Array, imports?: WebAssembly.Imports) => Effect.Effect<WASMModule>
-  getFunction: (moduleName: string, functionName: string) => Effect.Effect<Option.Option<WASMFunction>>
-  callFunction: (moduleName: string, functionName: string, ...args: any[]) => Effect.Effect<any>
-  createMemoryBuffer: (name: string, size: number, shared?: boolean) => Effect.Effect<WASMMemoryBuffer>
-  getMemoryBuffer: (name: string) => Effect.Effect<Option.Option<WASMMemoryBuffer>>
-  enableProfiling: (enabled: boolean) => Effect.Effect<void>
-  getPerformanceProfile: (functionName: string) => Effect.Effect<Option.Option<WASMPerformanceProfile>>
-  getCapabilities: () => Effect.Effect<WASMIntegrationState['capabilities']>
-  optimizeMemory: () => Effect.Effect<void>
-  getStats: () => Effect.Effect<WASMIntegrationState['stats']>
-  dispose: () => Effect.Effect<void>
+  loadModule: (name: string, bytes: Uint8Array, imports?: WebAssembly.Imports) => Effect.Effect<WASMModule, never, never>
+  getFunction: (moduleName: string, functionName: string) => Effect.Effect<Option.Option<WASMFunction, never, never>>
+  callFunction: (moduleName: string, functionName: string, ...args: any[]) => Effect.Effect<any, never, never>
+  createMemoryBuffer: (name: string, size: number, shared?: boolean) => Effect.Effect<WASMMemoryBuffer, never, never>
+  getMemoryBuffer: (name: string) => Effect.Effect<Option.Option<WASMMemoryBuffer, never, never>>
+  enableProfiling: (enabled: boolean) => Effect.Effect<void, never, never>
+  getPerformanceProfile: (functionName: string) => Effect.Effect<Option.Option<WASMPerformanceProfile, never, never>>
+  getCapabilities: () => Effect.Effect<WASMIntegrationState['capabilities'], never, never>
+  optimizeMemory: () => Effect.Effect<void, never, never>
+  getStats: () => Effect.Effect<WASMIntegrationState['stats'], never, never>
+  dispose: () => Effect.Effect<void, never, never>
 }
 
 export const WASMIntegrationService = Effect.Tag<WASMIntegrationService>('WASMIntegrationService')
@@ -473,7 +473,7 @@ export const WASMIntegrationLive = Layer.effect(
       )
     ))
     
-    return WASMIntegrationService.of({
+    return {
       loadModule: (name: string, bytes: Uint8Array, imports?: WebAssembly.Imports) =>
         Effect.gen(function* () {
           const wasmModule = yield* _(compileWASMModule(bytes, name))
@@ -647,7 +647,7 @@ export const WASMIntegrationLive = Layer.effect(
           // Clear memory pools
           wasmBufferPool.clear()
         })
-    })
+    }
   }),
 )
 

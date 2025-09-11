@@ -1,4 +1,4 @@
-import { Effect, Ref, Schedule, pipe } from 'effect'
+import { Effect, Ref, Schedule } from 'effect'
 
 /**
  * Comprehensive metrics collection and reporting system
@@ -209,7 +209,7 @@ const recordMetric = (
     if (!metricsState) return
     
     const timestamp = Date.now()
-    const metricValue: MetricValue = { timestamp, value, labels }
+    const metricValue: MetricValue = { timestamp, value, ...(labels && { labels }) }
     
     yield* Ref.update(metricsState, state => {
       const existing = state.series.get(name)
@@ -358,17 +358,7 @@ export const Metrics = {
   /**
    * Calculate statistics for a metric series
    */
-  getStatistics: (name: string, windowMs?: number): Effect.Effect<{
-    count: number
-    min: number
-    max: number
-    mean: number
-    median: number
-    p90: number
-    p95: number
-    p99: number
-    stdDev: number
-  } | null, never, never> =>
+  getStatistics: (name: string, windowMs?: number) =>
     Effect.gen(function* () {
       const series = yield* Metrics.getSeries(name)
       if (!series || series.values.length === 0) return null
@@ -452,10 +442,12 @@ export const Metrics = {
         if (!stats) continue
         
         const latest = series.values[series.values.length - 1]
+        if (!latest) continue
+        
         dashboard += `${series.name} (${series.type}): ${latest.value} ${series.unit}\n`
         
         if (series.type === 'timer' || series.type === 'histogram') {
-          dashboard += `  └ avg: ${stats.mean.toFixed(2)}, p95: ${stats.p95.toFixed(2)}, max: ${stats.max.toFixed(2)}\n`
+          dashboard += `  └ avg: ${stats.mean.toFixed(2)}, p95: ${stats.p95?.toFixed(2) || 'N/A'}, max: ${stats.max?.toFixed(2) || 'N/A'}\n`
         }
       }
       

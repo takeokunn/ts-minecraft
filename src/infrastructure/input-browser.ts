@@ -122,11 +122,11 @@ export const InputManagerLiveRaw = Layer.scoped(
 
     const getMouseState = () => Ref.getAndSet(mouseState, { dx: 0, dy: 0 })
 
-    return InputManager.of({
+    return {
       isLocked,
       getState,
       getMouseState,
-    })
+    }
   }),
 )
 

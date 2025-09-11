@@ -1,4 +1,4 @@
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import { 
   startOptimizedRuntime,
   OptimizedRuntimeLayer,
@@ -8,7 +8,7 @@ import {
   type PrioritizedSystem
 } from './optimized-runtime'
 import { withPooledEntity, withPooledComponent } from './memory-pools'
-import { withResourceManager, loadTexture, loadMesh } from './resource-manager'
+import { withResourceManager, loadTexture } from './resource-manager'
 import { Profile } from '@/core/performance'
 
 /**
@@ -160,7 +160,7 @@ export const exampleMemoryPoolUsage = () =>
         yield* Effect.log(`Created pooled entity: ${entity.id}`)
         
         // Add components using pools
-        yield* withPooledComponent('transform', entity.id, { x: 0, y: 0, z: 0 }, component =>
+        yield* withPooledComponent('transform', entity.id, { x: 0, y: 0, z: 0 }, _component =>
           Effect.gen(function* () {
             yield* Effect.log(`Added transform component to ${entity.id}`)
             entity.addComponent('transform')
@@ -168,7 +168,7 @@ export const exampleMemoryPoolUsage = () =>
           })
         )
         
-        yield* withPooledComponent('velocity', entity.id, { vx: 0, vy: 0, vz: 0 }, component =>
+        yield* withPooledComponent('velocity', entity.id, { vx: 0, vy: 0, vz: 0 }, _component =>
           Effect.gen(function* () {
             yield* Effect.log(`Added velocity component to ${entity.id}`)
             entity.addComponent('velocity')

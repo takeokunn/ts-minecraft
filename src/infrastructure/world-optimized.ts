@@ -1,5 +1,5 @@
-import { Effect, Layer, Ref, HashMap, HashSet, Option, ReadonlyArray, Duration } from 'effect'
-import { pipe } from 'effect/Function'
+import { Effect, Layer, Ref, HashMap, HashSet, Option } from 'effect'
+
 import { Archetype } from '@/domain/archetypes'
 import { Vector3Float as Vector3 } from '@/core/common'
 import {
@@ -22,7 +22,6 @@ import * as S from "/schema/Schema"
 
 // Import errors from centralized location
 import {
-  EntityNotFoundError,
   ComponentNotFoundError,
   QuerySingleResultNotFoundError,
   ComponentDecodeError,
@@ -125,13 +124,14 @@ export interface EntityBatch {
 
 // --- Memory Pools ---
 
-const entityPool = new ObjectPool<EntityId>(
+const _entityIdPool = new ObjectPool<EntityId>(
   () => toEntityId(0),
   (id) => id,
   10000
 )
 
-const archetypePool = new ObjectPool<Archetype>(
+
+const _archetypePool = new ObjectPool<Archetype>(
   () => ({} as Archetype),
   (archetype) => {
     // Clear all properties
@@ -141,7 +141,8 @@ const archetypePool = new ObjectPool<Archetype>(
   1000
 )
 
-const queryResultPool = new ObjectPool<any[]>(
+
+const _arrayPool = new ObjectPool<any[]>(
   () => [],
   (array) => {
     array.length = 0
@@ -149,6 +150,7 @@ const queryResultPool = new ObjectPool<any[]>(
   },
   500
 )
+
 
 // --- Helper Functions ---
 
@@ -182,7 +184,7 @@ const invalidateQueryCache = (
   archetypes: OptimizedArchetypeStorage,
   componentName: ComponentName
 ): void => {
-  for (const [key, cache] of archetypes.queryCache) {
+  for (const [, cache] of archetypes.queryCache) {
     if (cache.dependencies.has(componentName)) {
       cache.isValid = false
     }
@@ -652,7 +654,7 @@ export const WorldOptimizedLive = Layer.effect(
       yield* startOptimization()
     }
 
-    return World.of({
+    return {
       state,
       
       addArchetype: (archetype: Archetype) =>
@@ -843,7 +845,7 @@ export const WorldOptimizedLive = Layer.effect(
             return s.changeEvents.filter(event => event.timestamp > sinceTime)
           })
         ),
-    })
+    }
   }),
 )
 

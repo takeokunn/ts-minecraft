@@ -4,7 +4,7 @@ import type { ChunkCoordinates, Position } from '@/core/values/coordinates'
 import type { BlockType } from '@/core/values/block-type'
 import type { LegacyQuery, OptimizedQuery } from '@/core/queries'
 import type { ComponentName } from '@/core/components'
-import { ParseError } from 'effect/ParseResult'
+import * as ParseResult from '@effect/schema/ParseResult'
 
 /**
  * Chunk not loaded in memory
@@ -85,7 +85,7 @@ export const QuerySingleResultNotFoundError = defineError<{
 export const ComponentDecodeError = defineError<{
   readonly entityId: string
   readonly componentName: ComponentName
-  readonly parseError: ParseError
+  readonly parseError: ParseResult.ParseError
   readonly rawData?: unknown
 }>('ComponentDecodeError', WorldError, 'fallback', 'medium')
 

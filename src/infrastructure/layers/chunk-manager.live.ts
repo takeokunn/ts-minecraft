@@ -16,7 +16,6 @@ export const ChunkManagerLive = Layer.effect(
     
     // Configuration
     const RENDER_DISTANCE = 8
-    const MAX_CACHED_CHUNKS = 256
     
     // Generate chunk key
     const getChunkKey = (coords: ChunkCoordinates): string =>
@@ -125,7 +124,7 @@ export const ChunkManagerLive = Layer.effect(
         
         // Determine chunks to unload
         const currentChunks = yield* Ref.get(chunks)
-        for (const [key, chunk] of HashMap.entries(currentChunks)) {
+        for (const [key, _chunk] of HashMap.entries(currentChunks)) {
           const [x, z] = key.split(',').map(Number)
           const distance = Math.max(
             Math.abs(x - centerCoords.x),
@@ -168,7 +167,7 @@ export const ChunkManagerLive = Layer.effect(
       getLoadedChunks,
       updateVisibleChunks,
       getRenderDistance: () => Effect.succeed(RENDER_DISTANCE),
-      setRenderDistance: (distance: number) => 
+      setRenderDistance: () => 
         Effect.succeed(undefined), // Would update RENDER_DISTANCE
     })
   })

@@ -27,6 +27,6 @@ export class Renderer extends Context.Tag('Renderer')<
   Renderer,
   {
     readonly renderQueue: Queue.Queue<RenderCommand>
-    readonly updateCamera: (position: THREE.Vector3, rotation: THREE.Euler) => Effect.Effect<void>
+    readonly updateCamera: (position: THREE.Vector3, rotation: THREE.Euler) => Effect.Effect<void, never, never>
   }
 >() {}

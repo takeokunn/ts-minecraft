@@ -13,12 +13,11 @@ import { toChunkIndex } from '@/domain/geometry'
 import { type LegacyQuery, type OptimizedQuery } from '@/core/queries'
 import { type Voxel } from '@/domain/world'
 import { World } from '@/runtime/services'
-import { Effect, HashMap, HashSet, Layer, Option, Ref, pipe, ReadonlyArray } from 'effect'
+import { Effect, HashMap, HashSet, Layer, Option, Ref } from 'effect'
 import * as S from "/schema/Schema"
 
 // Import errors from centralized location
 import {
-  EntityNotFoundError,
   ComponentNotFoundError,
   QuerySingleResultNotFoundError,
   ComponentDecodeError,
@@ -267,7 +266,7 @@ export const WorldLive = Layer.effect(
         ),
       )
 
-    return World.of({
+    return {
       state,
       addArchetype,
       removeEntity,
@@ -283,6 +282,6 @@ export const WorldLive = Layer.effect(
       setChunk,
       getVoxel,
       setVoxel,
-    })
+    }
   }),
 )

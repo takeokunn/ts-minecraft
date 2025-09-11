@@ -1,4 +1,5 @@
 import * as S from '@effect/schema/Schema'
+import * as ParseResult from '@effect/schema/ParseResult'
 import { Effect } from 'effect'
 
 /**
@@ -231,7 +232,7 @@ export const detectWorkerCapabilities = (): WorkerReady['capabilities'] => {
 export const validateMessage = <T>(
   schema: S.Schema<T>,
   data: unknown
-): Effect.Effect<T, S.ParseResult.ParseError> => {
+): Effect.Effect<T, ParseResult.ParseError, never> => {
   return S.decodeUnknown(schema)(data)
 }
 
@@ -241,7 +242,7 @@ export const validateMessage = <T>(
 export const encodeMessage = <T>(
   schema: S.Schema<T>,
   data: T
-): Effect.Effect<{ message: unknown; transferables: Transferable[] }> => {
+): Effect.Effect<{ message: unknown; transferables: Transferable[] }, ParseResult.ParseError, never> => {
   return Effect.gen(function* () {
     const encoded = yield* S.encode(schema)(data)
     const transferables = extractTransferables(encoded)

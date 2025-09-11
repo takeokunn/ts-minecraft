@@ -1,5 +1,5 @@
-import { Effect, Layer, Ref, Option, Duration } from 'effect'
-import { pipe } from 'effect/Function'
+import { Effect, Layer, Ref } from 'effect'
+
 import { ObjectPool } from '@/core/performance/object-pool'
 import { WASMIntegrationService } from './wasm-integration'
 
@@ -314,7 +314,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
 // --- Memory Pools ---
 
-const bufferPool = new ObjectPool<GPUBuffer>(
+const _bufferPool = new ObjectPool<GPUBuffer>(
   () => null as any, // Will be created dynamically
   (buffer) => {
     if (buffer) buffer.destroy()
@@ -322,6 +322,7 @@ const bufferPool = new ObjectPool<GPUBuffer>(
   },
   64
 )
+
 
 // --- Utility Functions ---
 
@@ -545,17 +546,17 @@ const createComputePipeline = (
 // --- Service Interface ---
 
 export interface WebGPURendererService {
-  initialize: (canvas: HTMLCanvasElement) => Effect.Effect<boolean>
-  createRenderPipeline: (name: string, vertexShader: string, fragmentShader: string) => Effect.Effect<void>
-  createComputePipeline: (name: string, computeShader: string) => Effect.Effect<void>
-  beginFrame: () => Effect.Effect<GPUCommandEncoder>
-  endFrame: (encoder: GPUCommandEncoder) => Effect.Effect<void>
-  createBuffer: (name: string, size: number, usage: GPUBufferUsageFlags) => Effect.Effect<GPUBuffer>
-  createTexture: (name: string, width: number, height: number, format: GPUTextureFormat) => Effect.Effect<GPUTexture>
-  dispatchCompute: (pipelineName: string, workgroupsX: number, workgroupsY: number, workgroupsZ: number) => Effect.Effect<void>
-  getCapabilities: () => Effect.Effect<WebGPUCapabilities>
-  getStats: () => Effect.Effect<WebGPURendererState['stats']>
-  dispose: () => Effect.Effect<void>
+  initialize: (canvas: HTMLCanvasElement) => Effect.Effect<boolean, never, never>
+  createRenderPipeline: (name: string, vertexShader: string, fragmentShader: string) => Effect.Effect<void, never, never>
+  createComputePipeline: (name: string, computeShader: string) => Effect.Effect<void, never, never>
+  beginFrame: () => Effect.Effect<GPUCommandEncoder, never, never>
+  endFrame: (encoder: GPUCommandEncoder) => Effect.Effect<void, never, never>
+  createBuffer: (name: string, size: number, usage: GPUBufferUsageFlags) => Effect.Effect<GPUBuffer, never, never>
+  createTexture: (name: string, width: number, height: number, format: GPUTextureFormat) => Effect.Effect<GPUTexture, never, never>
+  dispatchCompute: (pipelineName: string, workgroupsX: number, workgroupsY: number, workgroupsZ: number) => Effect.Effect<void, never, never>
+  getCapabilities: () => Effect.Effect<WebGPUCapabilities, never, never>
+  getStats: () => Effect.Effect<WebGPURendererState['stats'], never, never>
+  dispose: () => Effect.Effect<void, never, never>
 }
 
 export const WebGPURendererService = Effect.Tag<WebGPURendererService>('WebGPURendererService')
@@ -565,7 +566,6 @@ export const WebGPURendererService = Effect.Tag<WebGPURendererService>('WebGPURe
 export const WebGPURendererLive = Layer.effect(
   WebGPURendererService,
   Effect.gen(function* (_) {
-    const wasmService = yield* _(WASMIntegrationService)
     
     const initialState: WebGPURendererState = {
       device: null,
@@ -615,7 +615,7 @@ export const WebGPURendererLive = Layer.effect(
 
     const stateRef = yield* _(Ref.make(initialState))
 
-    return WebGPURendererService.of({
+    return {
       initialize: (canvas: HTMLCanvasElement) =>
         Effect.gen(function* () {
           if (!CONFIG.WEBGPU_ENABLED) return false
@@ -914,7 +914,7 @@ export const WebGPURendererLive = Layer.effect(
 
           yield* _(Ref.set(stateRef, initialState))
         }),
-    })
+    }
   }).pipe(
     Effect.provide(WASMIntegrationService)
   ),

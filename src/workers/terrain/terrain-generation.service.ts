@@ -55,19 +55,19 @@ const generateBlocks = (heightMap: number[]): BlockType[] => {
         
         let blockType: BlockType
         
-        if (y > height) {
-          blockType = BlockType.AIR
+        if (height === undefined || y > height) {
+          blockType = 'air'
         } else if (y === height) {
-          blockType = height > 62 ? BlockType.GRASS : BlockType.SAND
+          blockType = height > 62 ? 'grass' : 'sand'
         } else if (y > height - 4) {
-          blockType = height > 62 ? BlockType.DIRT : BlockType.SAND
+          blockType = height > 62 ? 'dirt' : 'sand'
         } else {
-          blockType = BlockType.STONE
+          blockType = 'stone'
         }
         
         // Add water at sea level
-        if (blockType === BlockType.AIR && y <= 62) {
-          blockType = BlockType.WATER
+        if (blockType === 'air' && y <= 62) {
+          blockType = 'water'
         }
         
         blocks.push(blockType)
@@ -81,7 +81,7 @@ const generateBlocks = (heightMap: number[]): BlockType[] => {
 /**
  * Main terrain generation handler
  */
-export const generateTerrain = (message: GenerateChunkMessage): Effect.Effect<ChunkGenerationResult> =>
+export const generateTerrain = (message: GenerateChunkMessage): Effect.Effect<ChunkGenerationResult, never, never> =>
   Effect.gen(function* () {
     const { seed, coords } = message
     

@@ -9,18 +9,17 @@ export const MaterialManagerLive = Layer.effect(
   MaterialManager,
   Effect.gen(function* () {
     const materials = yield* Ref.make(HashMap.empty<BlockType, any>())
-    const textures = yield* Ref.make(HashMap.empty<string, any>())
     
     return MaterialManager.of({
-      getMaterial: (blockType) => 
+      getMaterial: (blockType: BlockType) => 
         Ref.get(materials).pipe(
           Effect.map(m => HashMap.get(m, blockType))
         ),
       
-      loadTexture: (path) =>
+      loadTexture: () =>
         Effect.succeed(undefined),
       
-      createMaterial: (blockType) =>
+      createMaterial: () =>
         Effect.succeed(undefined)
     })
   })

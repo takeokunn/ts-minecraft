@@ -11,6 +11,48 @@
  * - Configurable system variants for different performance profiles
  */
 
+import { Effect } from 'effect'
+import { 
+  createSystemScheduler,
+  SystemScheduler
+} from './core/scheduler'
+import { 
+  globalCommunicationHub
+} from './core/system-communication'
+import {
+  globalPerformanceMonitor
+} from './core/performance-monitor'
+import {
+  physicsSystem,
+  physicsSystemConfig,
+  physicsSystemVariants
+} from './physics/physics-system'
+import {
+  collisionSystem,
+  collisionSystemConfig,
+  collisionSystemVariants
+} from './physics/collision-system'
+import {
+  inputSystem,
+  inputSystemConfig,
+  inputSystemVariants
+} from './input/input-system'
+import {
+  renderSystem,
+  renderSystemConfig,
+  renderSystemVariants
+} from './rendering/render-system'
+import {
+  chunkLoadingSystem,
+  chunkLoadingSystemConfig,
+  chunkLoadingSystemVariants
+} from './world/chunk-loading-system'
+import {
+  blockInteractionSystem,
+  blockInteractionSystemConfig,
+  blockInteractionSystemVariants
+} from './interaction/block-interaction-system'
+
 // =============================================================================
 // CORE SYSTEM INFRASTRUCTURE
 // =============================================================================
@@ -179,7 +221,7 @@ export { inputPollingSystem } from './input-polling'
 export { physicsSystem as legacyPhysicsSystem } from './physics'
 export { playerMovementSystem } from './player-movement'
 export { updateTargetSystem as legacyUpdateTargetSystem } from './update-target-system'
-export { createUISystem } from './ui'
+export { uiSystem } from './ui'
 export { updatePhysicsWorldSystem } from './update-physics-world'
 export { worldUpdateSystem } from './world-update'
 
@@ -187,8 +229,7 @@ export { worldUpdateSystem } from './world-update'
 // SYSTEM INTEGRATION AND ORCHESTRATION
 // =============================================================================
 
-import { Effect, pipe, Duration } from 'effect'
-import { World, Clock } from '@/runtime/services'
+import { Clock as _Clock } from '@/runtime/services'
 
 /**
  * Integrated system configuration profiles for different performance targets
@@ -260,7 +301,7 @@ export const createIntegratedSystemScheduler = (
     maxConcurrency: profile === 'performance' ? 2 : profile === 'quality' ? 8 : 4,
   })
 
-  return Effect.gen(function* ($) {
+  return Effect.gen(function* (_$) {
     // Register core systems with proper dependencies
     yield* $(scheduler.registerSystem(
       inputSystemConfig,
@@ -308,8 +349,7 @@ export const createSystemExecutionLoop = (
   scheduler: SystemScheduler,
   performanceMonitor = globalPerformanceMonitor
 ) => {
-  return Effect.gen(function* ($) {
-    const clock = yield* $(Clock)
+  return Effect.gen(function* (_$) {
     let frameId = 0
 
     const executeFrame = () => Effect.gen(function* ($) {
@@ -358,7 +398,7 @@ export const initializeSystemsForGameMode = (
     adventure: 'balanced' as const,
   }
 
-  return Effect.gen(function* ($) {
+  return Effect.gen(function* (_$) {
     // Create scheduler with appropriate profile
     const scheduler = yield* $(createIntegratedSystemScheduler(profileMap[gameMode]))
     
@@ -411,7 +451,7 @@ const setupSystemCommunication = () => Effect.gen(function* ($) {
   yield* $(hub.subscribe(
     'chunk-loading',
     ['player_moved'],
-    (message) => Effect.gen(function* ($) {
+    () => Effect.gen(function* ($) {
       // Chunk loading would evaluate if new chunks need loading
       console.debug('Chunk loading system: Player moved, checking chunks')
     })

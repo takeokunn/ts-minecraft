@@ -4,7 +4,7 @@ import { queries } from '@/core/queries'
 import { Raycast, World } from '@/runtime/services'
 import { Int, Vector3Int } from '@/core/common'
 import * as THREE from 'three'
-import { EntityId } from '@/core/entities/entity'
+
 
 const getTarget = (intersection: THREE.Intersection) => {
   // This is a simplification. We need a robust way to get the entityId from the intersection.

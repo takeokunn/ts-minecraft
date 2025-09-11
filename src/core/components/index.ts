@@ -12,13 +12,12 @@
 
 import * as S from 'effect/Schema'
 import * as Data from 'effect/Data'
-import * as HashMap from 'effect/HashMap'
 import * as Array from 'effect/Array'
 import * as Option from 'effect/Option'
 
 // Import registry and all component categories
-export { globalRegistry, ComponentRegistry, RegisterComponent } from './registry'
-export type { 
+import { globalRegistry, ComponentRegistry, RegisterComponent } from './registry'
+import type { 
   ComponentMeta,
   ComponentRegistryState,
   ArchetypeInfo,
@@ -27,6 +26,18 @@ export type {
   QueryResult,
   RegistryMetrics 
 } from './registry'
+
+// Re-export for external use
+export { globalRegistry, ComponentRegistry, RegisterComponent }
+export type { 
+  ComponentMeta,
+  ComponentRegistryState,
+  ArchetypeInfo,
+  StorageLayout,
+  SoABuffer,
+  QueryResult,
+  RegistryMetrics 
+}
 
 // Import all component categories
 export * from './physics'
@@ -38,6 +49,7 @@ export * from './world'
 import * as PhysicsModule from './physics'
 import * as RenderingModule from './rendering'
 import * as GameplayModule from './gameplay'
+import * as WorldModule from './world'
 
 // ===== ARCHETYPE QUERY OPTIMIZATION =====
 
@@ -165,7 +177,7 @@ export class ComponentPerformanceManager {
       .map(metric => ({
         componentId: metric.componentId,
         currentLayout: this.getCurrentLayout(metric.componentId),
-        suggestedLayout: metric.suggestedOptimization,
+        suggestedLayout: metric.suggestedOptimization as StorageLayout,
         reason: this.getOptimizationReason(metric),
       }))
   }
@@ -235,7 +247,7 @@ interface PerformanceMetric {
 interface OptimizationSuggestion {
   componentId: string
   currentLayout: StorageLayout
-  suggestedLayout: StorageLayout
+  suggestedLayout: StorageLayout | 'none'
   reason: string
 }
 
@@ -263,12 +275,25 @@ export const ComponentSchemas = {
   playerControl: GameplayModule.PlayerControlComponent,
   ai: GameplayModule.AIComponent,
   target: GameplayModule.TargetComponent,
+  player: GameplayModule.PlayerComponent,
+  inputState: GameplayModule.InputStateComponent,
+  cameraState: GameplayModule.CameraStateComponent,
+  hotbar: GameplayModule.HotbarComponent,
+  gravity: GameplayModule.GravityComponent,
+  frozen: GameplayModule.FrozenComponent,
+  disabled: GameplayModule.DisabledComponent,
+  
+  // World components
+  chunk: WorldModule.ChunkComponent,
+  chunkLoaderState: WorldModule.ChunkLoaderStateComponent,
+  terrainBlock: WorldModule.TerrainBlockComponent,
+  targetBlock: WorldModule.TargetBlockComponent,
 } as const
 
 // Type definitions
 export type ComponentName = keyof typeof ComponentSchemas
 export const componentNames = Object.keys(ComponentSchemas) as Array<ComponentName>
-export const ComponentNameSchema = S.keyof(S.Struct(ComponentSchemas))
+export const ComponentNameSchema = S.Literal(...componentNames)
 export const componentNamesSet = new Set<string>(componentNames)
 
 export type ComponentOfName<T extends ComponentName> = S.Schema.Type<(typeof ComponentSchemas)[T]>
@@ -277,13 +302,13 @@ export type Components = {
   [K in ComponentName]: ComponentOfName<K>
 }
 
-// Union types for any component
-export const AnyComponent = S.Union(...Object.values(ComponentSchemas))
-export type AnyComponent = S.Schema.Type<typeof AnyComponent>
+// Union types for any component - Comment out for now due to schema conflicts
+// export const AnyComponent = S.Union(...Object.values(ComponentSchemas))
+// export type AnyComponent = S.Schema.Type<typeof AnyComponent>
 
-// Partial components schema
-export const PartialComponentsSchema = S.partial(S.Struct(ComponentSchemas))
-export type PartialComponents = S.Schema.Type<typeof PartialComponentsSchema>
+// Partial components schema - Comment out for now due to schema conflicts
+// export const PartialComponentsSchema = S.partial(S.Struct(ComponentSchemas))
+// export type PartialComponents = S.Schema.Type<typeof PartialComponentsSchema>
 
 // ===== UTILITY FUNCTIONS AND EXPORTS =====
 
@@ -328,9 +353,6 @@ export const ComponentCategories = {
 
 // Type exports for external use
 export type {
-  ArchetypeQuery,
-  ArchetypeQueryResult,
-  ComponentPerformanceManager,
   PerformanceMetric,
   OptimizationSuggestion,
 }

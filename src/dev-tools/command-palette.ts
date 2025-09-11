@@ -38,7 +38,7 @@ export class CommandPalette {
   private config: CommandPaletteConfig
 
   constructor(
-    private debugger?: GameDebugger,
+    private gameDebugger?: GameDebugger,
     private devConsole?: DevConsole,
     private entityInspector?: EntityInspector,
     private performanceProfiler?: PerformanceProfiler,
@@ -72,8 +72,8 @@ export class CommandPalette {
       keywords: ['debug', 'toggle', 'enable', 'disable'],
       shortcut: 'F12',
       icon: '🔧',
-      execute: () => this.debugger?.toggle(),
-      enabled: () => !!this.debugger
+      execute: () => this.gameDebugger?.toggle(),
+      enabled: () => !!this.gameDebugger
     })
 
     this.addCommand({
@@ -84,8 +84,8 @@ export class CommandPalette {
       keywords: ['pause', 'stop', 'freeze'],
       shortcut: 'Ctrl+Shift+P',
       icon: '⏸️',
-      execute: () => this.debugger?.togglePause(),
-      enabled: () => !!this.debugger
+      execute: () => this.gameDebugger?.togglePause(),
+      enabled: () => !!this.gameDebugger
     })
 
     this.addCommand({
@@ -96,8 +96,8 @@ export class CommandPalette {
       keywords: ['step', 'frame', 'next'],
       shortcut: 'Ctrl+Shift+S',
       icon: '👣',
-      execute: () => this.debugger?.stepFrame(),
-      enabled: () => !!this.debugger
+      execute: () => this.gameDebugger?.stepFrame(),
+      enabled: () => !!this.gameDebugger
     })
 
     this.addCommand({
@@ -108,8 +108,8 @@ export class CommandPalette {
       keywords: ['record', 'capture', 'session'],
       shortcut: 'Ctrl+Shift+R',
       icon: '⏺️',
-      execute: () => this.debugger?.toggleRecording(),
-      enabled: () => !!this.debugger
+      execute: () => this.gameDebugger?.toggleRecording(),
+      enabled: () => !!this.gameDebugger
     })
 
     // Console commands
@@ -341,7 +341,7 @@ export class CommandPalette {
       icon: '💾',
       execute: () => {
         const settings = {
-          debugger: this.debugger?.getState(),
+          debugger: this.gameDebugger?.getState(),
           hotReload: hotReloadManager.getConfig(),
           timestamp: Date.now()
         }
@@ -656,7 +656,7 @@ export class CommandPalette {
           letter-spacing: 0.5px;
         `
         categoryHeader.textContent = currentCategory
-        this.resultsElement.appendChild(categoryHeader)
+        this.resultsElement?.appendChild(categoryHeader)
       }
 
       // Command item
@@ -722,7 +722,7 @@ export class CommandPalette {
         this.renderResults()
       })
 
-      this.resultsElement.appendChild(item)
+      this.resultsElement?.appendChild(item)
     })
   }
 

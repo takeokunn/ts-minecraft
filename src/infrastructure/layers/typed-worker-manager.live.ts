@@ -4,7 +4,6 @@ import { TypedWorkerManager, WorkerManagerConfig, WorkerType } from '@/services/
 import {
   createWorkerFactory,
   createWorkerPool,
-  WorkerClientConfig,
 } from '@/workers/base/typed-worker'
 import {
   TerrainGenerationRequest,
@@ -183,8 +182,8 @@ export const TypedWorkerManagerLive = Layer.effect(
      */
     const withRequestTracking = <T>(
       workerType: WorkerType,
-      effect: Effect.Effect<T>
-    ): Effect.Effect<T> =>
+      effect: Effect.Effect<T, never, never>
+    ): Effect.Effect<T, never, never> =>
       Effect.gen(function* () {
         // Increment active requests
         yield* Ref.update(activeRequests, (map) => {
@@ -249,7 +248,7 @@ export const TypedWorkerManagerLive = Layer.effect(
     /**
      * Send mesh generation request
      */
-    const sendMeshRequest = (request: MeshGenerationRequest) =>
+    const sendMeshRequest = () =>
       Effect.gen(function* () {
         // Placeholder implementation - return mock response
         // In real implementation, this would use the mesh worker pool
@@ -312,7 +311,6 @@ export const TypedWorkerManagerLive = Layer.effect(
      */
     const getWorkerStats = () =>
       Effect.gen(function* () {
-        const pools = yield* Ref.get(workerPools)
         const active = yield* Ref.get(activeRequests)
 
         return {

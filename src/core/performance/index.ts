@@ -14,34 +14,44 @@
 // Core performance utilities
 export {
   ObjectPool,
-  EffectObjectPool,
   createEffectPool,
-  PoolableObject,
-  ObjectPoolConfig,
-  PooledVector3,
-  PooledMatrix4,
-  PooledAABB,
   vector3Pool,
   matrix4Pool,
   aabbPool,
   withPooled,
   withPooledEffect
 } from './object-pool'
+export type {
+  EffectObjectPool,
+  PoolableObject,
+  ObjectPoolConfig,
+  PooledVector3,
+  PooledMatrix4,
+  PooledAABB,
+} from './object-pool'
 
 // Profiling and measurement
 export {
-  Profile,
-  ProfileMeasurement,
-  ProfilerConfig,
-  ProfilerState,
   initializeProfiler,
   measure,
   withProfiling,
   measureBatch
 } from './profiler'
+export type {
+  Profile,
+  ProfileMeasurement,
+  ProfilerConfig,
+  ProfilerState,
+} from './profiler'
 
 // Metrics collection and reporting
 export {
+  initializeMetrics,
+  timed,
+  counted,
+  withMetrics
+} from './metrics'
+export type {
   Metrics,
   MetricValue,
   MetricSeries,
@@ -49,31 +59,29 @@ export {
   MetricsConfig,
   MetricsSnapshot,
   SystemMetrics,
-  initializeMetrics,
-  timed,
-  counted,
-  withMetrics
 } from './metrics'
 
 // Memory leak detection
 export {
   MemoryDetector,
+} from './memory-detector'
+export type {
   MemorySnapshot,
   MemoryLeak,
   MemoryLeakType,
   MemoryDetectorConfig,
   ObjectTracker,
-  initializeMemoryDetector
+} from './memory-detector'
+export {
+  initializeMemoryDetector,
 } from './memory-detector'
 
 // FPS monitoring and frame analysis
 export {
   FPSCounter,
-  FrameData,
-  FrameDropEvent,
-  FPSStats,
-  FPSCounterConfig,
   initializeFPSCounter,
+} from './fps-counter'
+export type {
   withFPSTracking,
   requestAnimationFrameWithFPS,
   createFrameLoop
@@ -82,7 +90,7 @@ export {
 import { Effect } from 'effect'
 import { initializeProfiler } from './profiler'
 import { initializeMetrics } from './metrics'
-import { initializeMemoryDetector } from './memory-detector'
+import { initializeMemoryDetector, type MemoryLeak } from './memory-detector'
 import { initializeFPSCounter } from './fps-counter'
 
 /**
@@ -145,12 +153,12 @@ export const PerformanceDashboard = {
   /**
    * Generate a comprehensive performance report
    */
-  generateReport: (): Effect.Effect<string, never, never> =>
+  generateReport: () =>
     Effect.gen(function* () {
-      const { Profile } = yield* Effect.succeed(require('./profiler'))
-      const { Metrics } = yield* Effect.succeed(require('./metrics'))
-      const { MemoryDetector } = yield* Effect.succeed(require('./memory-detector'))
-      const { FPSCounter } = yield* Effect.succeed(require('./fps-counter'))
+      const { Profile } = yield* Effect.sync(() => require('./profiler'))
+      const { Metrics } = yield* Effect.sync(() => require('./metrics'))
+      const { MemoryDetector } = yield* Effect.sync(() => require('./memory-detector'))
+      const { FPSCounter } = yield* Effect.sync(() => require('./fps-counter'))
       
       let report = '🎮 TypeScript Minecraft Performance Report\n'
       report += '═'.repeat(60) + '\n\n'
@@ -177,17 +185,11 @@ export const PerformanceDashboard = {
   /**
    * Get real-time performance metrics
    */
-  getRealTimeMetrics: (): Effect.Effect<{
-    fps: number
-    memoryUsage: number
-    memoryPercentage: number
-    activeLeaks: number
-    profiledOperations: number
-  }, never, never> =>
+  getRealTimeMetrics: () =>
     Effect.gen(function* () {
-      const { Profile } = yield* Effect.succeed(require('./profiler'))
-      const { MemoryDetector } = yield* Effect.succeed(require('./memory-detector'))
-      const { FPSCounter } = yield* Effect.succeed(require('./fps-counter'))
+      const { Profile } = yield* Effect.sync(() => require('./profiler'))
+      const { MemoryDetector } = yield* Effect.sync(() => require('./memory-detector'))
+      const { FPSCounter } = yield* Effect.sync(() => require('./fps-counter'))
       
       const fps = yield* FPSCounter.getCurrentFPS()
       const memorySnapshot = yield* MemoryDetector.getCurrentUsage()
@@ -206,17 +208,12 @@ export const PerformanceDashboard = {
   /**
    * Export performance data for external analysis
    */
-  exportData: (): Effect.Effect<{
-    profiling: any
-    metrics: any
-    memory: any
-    fps: any
-  }, never, never> =>
+  exportData: () =>
     Effect.gen(function* () {
-      const { Profile } = yield* Effect.succeed(require('./profiler'))
-      const { Metrics } = yield* Effect.succeed(require('./metrics'))
-      const { MemoryDetector } = yield* Effect.succeed(require('./memory-detector'))
-      const { FPSCounter } = yield* Effect.succeed(require('./fps-counter'))
+      const { Profile } = yield* Effect.sync(() => require('./profiler'))
+      const { Metrics } = yield* Effect.sync(() => require('./metrics'))
+      const { MemoryDetector } = yield* Effect.sync(() => require('./memory-detector'))
+      const { FPSCounter } = yield* Effect.sync(() => require('./fps-counter'))
       
       const profiling = yield* Profile.getMeasurements()
       const metrics = yield* Metrics.getSnapshot()
@@ -242,12 +239,12 @@ export const PerformanceDashboard = {
   /**
    * Clear all performance data
    */
-  clearAll: (): Effect.Effect<void, never, never> =>
+  clearAll: () =>
     Effect.gen(function* () {
-      const { Profile } = yield* Effect.succeed(require('./profiler'))
-      const { Metrics } = yield* Effect.succeed(require('./metrics'))
-      const { MemoryDetector } = yield* Effect.succeed(require('./memory-detector'))
-      const { FPSCounter } = yield* Effect.succeed(require('./fps-counter'))
+      const { Profile } = yield* Effect.sync(() => require('./profiler'))
+      const { Metrics } = yield* Effect.sync(() => require('./metrics'))
+      const { MemoryDetector } = yield* Effect.sync(() => require('./memory-detector'))
+      const { FPSCounter } = yield* Effect.sync(() => require('./fps-counter'))
       
       yield* Profile.clear()
       yield* Metrics.clear()
@@ -265,14 +262,10 @@ export const PerformanceHealthCheck = {
   /**
    * Run a comprehensive health check
    */
-  runHealthCheck: (): Effect.Effect<{
-    overall: 'healthy' | 'warning' | 'critical'
-    issues: string[]
-    recommendations: string[]
-  }, never, never> =>
+  runHealthCheck: () =>
     Effect.gen(function* () {
-      const { MemoryDetector } = yield* Effect.succeed(require('./memory-detector'))
-      const { FPSCounter } = yield* Effect.succeed(require('./fps-counter'))
+      const { MemoryDetector } = yield* Effect.sync(() => require('./memory-detector'))
+      const { FPSCounter } = yield* Effect.sync(() => require('./fps-counter'))
       
       const issues: string[] = []
       const recommendations: string[] = []
@@ -287,7 +280,7 @@ export const PerformanceHealthCheck = {
       }
       
       if (leaks.length > 0) {
-        const criticalLeaks = leaks.filter(leak => leak.severity === 'critical')
+        const criticalLeaks = leaks.filter((leak: MemoryLeak) => leak.severity === 'critical')
         if (criticalLeaks.length > 0) {
           issues.push(`${criticalLeaks.length} critical memory leaks detected`)
           recommendations.push('Address critical memory leaks immediately')
@@ -333,7 +326,7 @@ export const PerformanceHealthCheck = {
       const monitor = () => {
         if (!isMonitoring) return
         
-        Effect.runSync(
+        Effect.runPromise(
           Effect.gen(function* () {
             const healthCheck = yield* PerformanceHealthCheck.runHealthCheck()
             
@@ -348,8 +341,8 @@ export const PerformanceHealthCheck = {
             
             // Schedule next check
             setTimeout(monitor, 10000) // Every 10 seconds
-          })
-        )
+          }).pipe(Effect.catchAll(() => Effect.succeed(undefined as void)))
+        ).catch(() => {}) // Ignore errors in monitoring
       }
       
       // Start monitoring
@@ -402,12 +395,12 @@ export const defaultPerformanceConfig: PerformanceConfig = {
  */
 export const startPerformanceMonitoring = (
   config: PerformanceConfig = defaultPerformanceConfig
-): Effect.Effect<void, never, never> =>
+) =>
   Effect.gen(function* () {
     yield* initializePerformanceMonitoring(config)
     
     // Start FPS monitoring
-    const { FPSCounter } = yield* Effect.succeed(require('./fps-counter'))
+    const { FPSCounter } = yield* Effect.sync(() => require('./fps-counter'))
     yield* FPSCounter.start()
     
     yield* Effect.log('🎯 Performance monitoring is now active')

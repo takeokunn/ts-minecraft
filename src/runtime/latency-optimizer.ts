@@ -1,6 +1,6 @@
-import { Effect, Ref, Schedule, Duration, pipe } from 'effect'
+import { Effect, Ref, Schedule, Duration } from 'effect'
 import { Context } from 'effect'
-import { Profile, FPSCounter, Metrics } from '@/core/performance'
+import { Profile, Metrics } from '@/core/performance'
 
 /**
  * Advanced Latency Optimization and Frame Timing System
@@ -133,7 +133,7 @@ export const createLatencyOptimizer = (
     })
     
     // GPU timing state (simulated)
-    const gpuTiming = yield* Ref.make<GPUTiming>({
+    const _gpuTiming = yield* Ref.make({
       gpuFrameTime: 1000 / config.targetFPS,
       gpuUtilization: 0.7,
       memoryBandwidth: 0.8,

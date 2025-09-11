@@ -1,4 +1,4 @@
-import { Effect, Ref, Queue, Option, pipe, Schedule, Duration } from 'effect'
+import { Effect, Ref, Queue, Option, Schedule, Duration } from 'effect'
 import { Stats, Clock, DeltaTime } from '@/runtime/services'
 import { FPSCounter, Profile, withFPSTracking } from '@/core/performance'
 
@@ -85,7 +85,6 @@ export const createOptimizedTick = <E, R>(
 ) =>
   Effect.gen(function* (_) {
     const stats = yield* _(Stats)
-    const clock = yield* _(Clock)
     
     // Initialize frame state
     const frameState = yield* _(Ref.make<FrameState>({

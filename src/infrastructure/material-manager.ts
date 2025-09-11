@@ -34,8 +34,8 @@ export const MaterialManagerLive = Layer.scoped(
         Effect.mapError(() => new MaterialNotFoundError(name)),
       )
 
-    return MaterialManager.of({
+    return {
       getMaterial,
-    })
+    }
   }),
 )

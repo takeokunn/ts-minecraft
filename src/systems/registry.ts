@@ -5,7 +5,7 @@
 
 import { Effect, Duration } from 'effect'
 import { SystemConfig, SystemFunction, SystemScheduler, createSystemScheduler } from './core/scheduler'
-import { globalCommunicationHub } from './core/system-communication'
+
 import { blockInteractionSystem } from './block-interaction'
 import { cameraControlSystem } from './camera-control'
 import { chunkLoadingSystem } from './chunk-loading'
@@ -166,17 +166,17 @@ const systemConfigurations: SystemConfig[] = [
  * System function adapters - Convert existing systems to scheduler-compatible format
  */
 const systemFunctionAdapters: Record<string, SystemFunction> = {
-  'input-polling': (context) => inputPollingSystem,
-  'player-movement': (context) => playerMovementSystem,
-  'block-interaction': (context) => blockInteractionSystem,
-  'update-target': (context) => updateTargetSystem,
-  'camera-control': (context) => cameraControlSystem,
-  'physics': (context) => physicsSystem,
-  'update-physics-world': (context) => updatePhysicsWorldSystem,
-  'collision': (context) => collisionSystem,
-  'chunk-loading': (context) => chunkLoadingSystem,
-  'world-update': (context) => worldUpdateSystem,
-  'ui': (context) => createUISystem(),
+  'input-polling': () => inputPollingSystem,
+  'player-movement': () => playerMovementSystem,
+  'block-interaction': () => blockInteractionSystem,
+  'update-target': () => updateTargetSystem,
+  'camera-control': () => cameraControlSystem,
+  'physics': () => physicsSystem,
+  'update-physics-world': () => updatePhysicsWorldSystem,
+  'collision': () => collisionSystem,
+  'chunk-loading': () => chunkLoadingSystem,
+  'world-update': () => worldUpdateSystem,
+  'ui': () => createUISystem(),
 }
 
 /**
@@ -367,7 +367,7 @@ export const SystemPerformanceUtils = {
   /**
    * Get frame time breakdown by system
    */
-  getFrameTimeBreakdown: (scheduler: SystemScheduler): Effect.Effect<Record<string, number>, never, never> =>
+  getFrameTimeBreakdown: (scheduler: SystemScheduler): Effect.Effect<Record<string, number, never>, never, never> =>
     Effect.gen(function* ($) {
       const allMetrics = yield* $(scheduler.getAllMetrics())
       const breakdown: Record<string, number> = {}

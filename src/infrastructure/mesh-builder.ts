@@ -1,5 +1,5 @@
-import { Effect, Layer, Ref, HashMap, Option, ReadonlyArray } from 'effect'
-import { pipe } from 'effect/Function'
+import { Effect, Layer } from 'effect'
+
 import * as THREE from 'three'
 import type { Chunk } from '@/core/components/world/chunk'
 import { ObjectPool } from '@/core/performance/object-pool'
@@ -429,7 +429,7 @@ const generateLODMesh = (chunk: Chunk, lodLevel: number): VertexData => {
 
 const geometryPool = new ObjectPool<THREE.BufferGeometry>(
   () => new THREE.BufferGeometry(),
-  (geometry) => {
+  (geometry: THREE.BufferGeometry) => {
     geometry.dispose()
     return new THREE.BufferGeometry()
   },
@@ -438,7 +438,7 @@ const geometryPool = new ObjectPool<THREE.BufferGeometry>(
 
 const meshPool = new ObjectPool<THREE.Mesh>(
   () => new THREE.Mesh(),
-  (mesh) => {
+  (mesh: THREE.Mesh) => {
     if (mesh.geometry) mesh.geometry.dispose()
     if (mesh.material && 'dispose' in mesh.material) {
       (mesh.material as THREE.Material).dispose()
@@ -498,13 +498,13 @@ const MeshGenerationResponseSchema = S.Struct({
 // --- Main Service ---
 
 export interface MeshBuilderService {
-  generateChunkMesh: (request: MeshGenerationRequest) => Effect.Effect<MeshGenerationResponse>
-  createInstancedMesh: (blockType: string, maxInstances: number) => Effect.Effect<InstancedMeshData>
-  updateInstancedMesh: (meshData: InstancedMeshData, chunkKey: string, instances: Float32Array) => Effect.Effect<void>
-  generateLOD: (chunk: Chunk, lodLevel: number) => Effect.Effect<VertexData>
-  optimizeMesh: (vertexData: VertexData) => Effect.Effect<VertexData>
-  createGeometry: (vertexData: VertexData) => Effect.Effect<THREE.BufferGeometry>
-  disposeMesh: (mesh: THREE.Mesh) => Effect.Effect<void>
+  generateChunkMesh: (request: MeshGenerationRequest) => Effect.Effect<MeshGenerationResponse, never, never>
+  createInstancedMesh: (blockType: string, maxInstances: number) => Effect.Effect<InstancedMeshData, never, never>
+  updateInstancedMesh: (meshData: InstancedMeshData, chunkKey: string, instances: Float32Array) => Effect.Effect<void, never, never>
+  generateLOD: (chunk: Chunk, lodLevel: number) => Effect.Effect<VertexData, never, never>
+  optimizeMesh: (vertexData: VertexData) => Effect.Effect<VertexData, never, never>
+  createGeometry: (vertexData: VertexData) => Effect.Effect<THREE.BufferGeometry, never, never>
+  disposeMesh: (mesh: THREE.Mesh) => Effect.Effect<void, never, never>
 }
 
 export const MeshBuilderService = Effect.Tag<MeshBuilderService>('MeshBuilderService')
@@ -527,7 +527,7 @@ export const MeshBuilderLive = Layer.effect(
         ))
       : null
 
-    return MeshBuilderService.of({
+    return {
       generateChunkMesh: (request: MeshGenerationRequest) =>
         Effect.gen(function* () {
           if (workerClient && CONFIG.WORKER_ENABLED) {
@@ -683,7 +683,7 @@ export const MeshBuilderLive = Layer.effect(
           
           meshPool.release(mesh)
         }),
-    })
+    }
   }),
 )
 

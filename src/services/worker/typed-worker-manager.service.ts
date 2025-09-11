@@ -1,5 +1,5 @@
-import { Context, Effect, Ref, Duration } from 'effect'
-import * as S from "/schema/Schema"
+import { Context, Effect, Duration } from 'effect'
+
 import {
   createTypedWorkerClient,
   createWorkerFactory,
@@ -50,17 +50,17 @@ export interface WorkerManagerConfig {
 export class TypedWorkerManager extends Context.Tag('TypedWorkerManager')<
   TypedWorkerManager,
   {
-    readonly initialize: (config: WorkerManagerConfig) => Effect.Effect<void>
-    readonly sendTerrainRequest: (request: TerrainGenerationRequest) => Effect.Effect<TerrainGenerationResponse>
-    readonly sendPhysicsRequest: (request: PhysicsSimulationRequest) => Effect.Effect<PhysicsSimulationResponse>
-    readonly sendMeshRequest: (request: MeshGenerationRequest) => Effect.Effect<MeshGenerationResponse>
-    readonly sendLightingRequest: (request: LightingCalculationRequest) => Effect.Effect<LightingCalculationResponse>
+    readonly initialize: (config: WorkerManagerConfig) => Effect.Effect<void, never, never>
+    readonly sendTerrainRequest: (request: TerrainGenerationRequest) => Effect.Effect<TerrainGenerationResponse, never, never>
+    readonly sendPhysicsRequest: (request: PhysicsSimulationRequest) => Effect.Effect<PhysicsSimulationResponse, never, never>
+    readonly sendMeshRequest: (request: MeshGenerationRequest) => Effect.Effect<MeshGenerationResponse, never, never>
+    readonly sendLightingRequest: (request: LightingCalculationRequest) => Effect.Effect<LightingCalculationResponse, never, never>
     readonly getWorkerStats: () => Effect.Effect<{
       terrain: { active: number; queued: number }
       physics: { active: number; queued: number }
       mesh: { active: number; queued: number }
       lighting: { active: number; queued: number }
-    }>
-    readonly terminateAll: () => Effect.Effect<void>
+    }, never, never>
+    readonly terminateAll: () => Effect.Effect<void, never, never>
   }
 >() {}

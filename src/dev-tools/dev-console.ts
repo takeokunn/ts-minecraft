@@ -174,7 +174,7 @@ export class DevConsole {
     if (this.historyIndex === -1) {
       this.inputElement!.value = ''
     } else {
-      this.inputElement!.value = this.commandHistory[this.historyIndex]
+      this.inputElement!.value = this.commandHistory[this.historyIndex] || ''
     }
   }
 
@@ -203,7 +203,7 @@ export class DevConsole {
     this.print(`> ${input}`, '#0f0')
 
     const args = input.split(' ')
-    const commandName = args[0].toLowerCase()
+    const commandName = args[0]?.toLowerCase()
     const commandArgs = args.slice(1)
 
     const command = this.commands.get(commandName)
@@ -276,9 +276,9 @@ export class DevConsole {
         }
         
         const position = {
-          x: parseFloat(x) || 0,
-          y: parseFloat(y) || 0,
-          z: parseFloat(z) || 0
+          x: parseFloat(x || '0') || 0,
+          y: parseFloat(y || '0') || 0,
+          z: parseFloat(z || '0') || 0
         }
         
         this.print(`Spawning ${entityType} at (${position.x}, ${position.y}, ${position.z})`)
@@ -293,7 +293,7 @@ export class DevConsole {
       description: 'Teleport player to coordinates',
       parameters: ['x', 'y', 'z'],
       execute: (args) => {
-        const [x, y, z] = args.map(parseFloat)
+        const [x, y, z] = args.map(arg => parseFloat(arg || '0'))
         if (isNaN(x) || isNaN(y) || isNaN(z)) {
           throw new Error('Invalid coordinates')
         }
@@ -407,7 +407,7 @@ export class DevConsole {
       description: 'Entity management commands',
       parameters: ['action', 'entityId', '...args'],
       execute: (args) => {
-        const [action, entityId, ...extraArgs] = args
+        const [action, entityId, ..._extraArgs] = args
         switch (action) {
           case 'list':
             this.print('Listing all entities...')
@@ -461,7 +461,7 @@ export class DevConsole {
       description: 'System management commands',
       parameters: ['action', 'systemName', '...args'],
       execute: (args) => {
-        const [action, systemName, ...extraArgs] = args
+        const [action, systemName, ..._extraArgs] = args
         switch (action) {
           case 'list':
             this.print('Listing all systems...')
@@ -586,7 +586,7 @@ export class DevConsole {
       description: 'Hot reload commands',
       parameters: ['action', '...args'],
       execute: (args) => {
-        const [action, ...params] = args
+        const [action, ..._params] = args
         switch (action) {
           case 'page':
             this.print('Reloading page...')
@@ -617,7 +617,7 @@ export class DevConsole {
       description: 'Memory management commands',
       parameters: ['action', '...args'],
       execute: (args) => {
-        const [action, ...params] = args
+        const [action, ..._params] = args
         switch (action) {
           case 'gc':
             this.print('Triggering garbage collection...')
@@ -754,7 +754,7 @@ export class DevConsole {
       description: 'Performance benchmarking commands',
       parameters: ['action', '...args'],
       execute: (args) => {
-        const [action, ...params] = args
+        const [action, ..._params] = args
         switch (action) {
           case 'start':
             this.print('Starting benchmark...')

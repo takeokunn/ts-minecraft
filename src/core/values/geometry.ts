@@ -1,5 +1,7 @@
 import * as S from '@effect/schema/Schema'
-import { Brand, Data } from 'effect'
+import { Brand } from 'effect'
+
+type Struct<T> = T
 
 // Distance calculations with branded types
 export type Distance = number & Brand.Brand<'Distance'>
@@ -51,7 +53,7 @@ export const BoundingBoxSchema = S.Struct({
   maxZ: S.Number,
 })
 
-export type BoundingBox = Data.Struct<{
+export type BoundingBox = Struct<{
   readonly minX: number
   readonly minY: number
   readonly minZ: number
@@ -60,7 +62,7 @@ export type BoundingBox = Data.Struct<{
   readonly maxZ: number
 }>
 
-export const BoundingBox = Data.struct<BoundingBox>()
+export const BoundingBox = Struct<BoundingBox>()
 
 export const makeBoundingBox = (
   minX: number,
@@ -94,13 +96,13 @@ export const RaySchema = S.Struct({
   maxDistance: DistanceSchema,
 })
 
-export type Ray = Data.Struct<{
+export type Ray = Struct<{
   readonly origin: { readonly x: number; readonly y: number; readonly z: number }
   readonly direction: { readonly x: number; readonly y: number; readonly z: number }
   readonly maxDistance: Distance
 }>
 
-export const Ray = Data.struct<Ray>()
+export const Ray = Struct<Ray>()
 
 export const makeRay = (
   origin: { x: number; y: number; z: number },
@@ -130,12 +132,12 @@ export const SphereSchema = S.Struct({
   radius: S.Number.pipe(S.nonNegative()),
 })
 
-export type Sphere = Data.Struct<{
+export type Sphere = Struct<{
   readonly center: { readonly x: number; readonly y: number; readonly z: number }
   readonly radius: number
 }>
 
-export const Sphere = Data.struct<Sphere>()
+export const Sphere = Struct<Sphere>()
 
 export const makeSphere = (center: { x: number; y: number; z: number }, radius: number): Sphere =>
   Sphere({
@@ -184,3 +186,132 @@ export const boundingBoxVolume = (box: BoundingBox): number =>
 
 export const sphereVolume = (sphere: Sphere): number =>
   (4 / 3) * Math.PI * sphere.radius ** 3
+
+// Vector3 operations for test compatibility
+export interface Vector3 {
+  readonly x: number
+  readonly y: number
+  readonly z: number
+}
+
+export interface Quaternion {
+  readonly x: number
+  readonly y: number
+  readonly z: number
+  readonly w: number
+}
+
+export interface Matrix4 {
+  readonly [row: number]: readonly [number, number, number, number] | undefined
+}
+
+export interface Plane {
+  readonly normal: Vector3
+  readonly distance: number
+}
+
+export const createVector3 = (x: number, y: number, z: number): Vector3 => ({ x, y, z })
+
+export const createQuaternion = (x: number, y: number, z: number, w: number): Quaternion => ({ x, y, z, w })
+
+export const createMatrix4 = (): Matrix4 => [
+  [1, 0, 0, 0],
+  [0, 1, 0, 0],
+  [0, 0, 1, 0],
+  [0, 0, 0, 1]
+]
+
+export const createAABB = (minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): BoundingBox =>
+  makeBoundingBox(minX, minY, minZ, maxX, maxY, maxZ)
+
+export const createRay = (origin: Vector3, direction: Vector3, maxDistance: number): Ray =>
+  makeRay(origin, direction, maxDistance)
+
+export const createPlane = (normal: Vector3, distance: number): Plane => ({ normal, distance })
+
+// Vector operations
+export const vectorAdd = (a: Vector3, b: Vector3): Vector3 => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z })
+
+export const vectorSubtract = (a: Vector3, b: Vector3): Vector3 => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z })
+
+export const vectorScale = (vec: Vector3, scale: number): Vector3 => ({ x: vec.x * scale, y: vec.y * scale, z: vec.z * scale })
+
+export const vectorDot = (a: Vector3, b: Vector3): number => a.x * b.x + a.y * b.y + a.z * b.z
+
+export const vectorCross = (a: Vector3, b: Vector3): Vector3 => ({
+  x: a.y * b.z - a.z * b.y,
+  y: a.z * b.x - a.x * b.z,
+  z: a.x * b.y - a.y * b.x
+})
+
+export const vectorLength = (vec: Vector3): number => Math.sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z)
+
+export const vectorNormalize = (vec: Vector3): Vector3 => {
+  const length = vectorLength(vec)
+  if (length === 0) return { x: 0, y: 0, z: 0 }
+  return vectorScale(vec, 1 / length)
+}
+
+// Quaternion operations
+export const quaternionMultiply = (a: Quaternion, b: Quaternion): Quaternion => ({
+  x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+  y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+  z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+  w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z
+})
+
+// AABB operations
+export const aabbIntersects = (a: BoundingBox, b: BoundingBox): boolean => boundingBoxIntersects(a, b)
+
+export const rayIntersectsAABB = (ray: Ray, aabb: BoundingBox): number | null => {
+  const tMin = [
+    (aabb.minX - ray.origin.x) / ray.direction.x,
+    (aabb.minY - ray.origin.y) / ray.direction.y,
+    (aabb.minZ - ray.origin.z) / ray.direction.z
+  ]
+  
+  const tMax = [
+    (aabb.maxX - ray.origin.x) / ray.direction.x,
+    (aabb.maxY - ray.origin.y) / ray.direction.y,
+    (aabb.maxZ - ray.origin.z) / ray.direction.z
+  ]
+  
+  const t1 = Math.min(tMin[0], tMax[0])
+  const t2 = Math.max(tMin[0], tMax[0])
+  const t3 = Math.min(tMin[1], tMax[1])
+  const t4 = Math.max(tMin[1], tMax[1])
+  const t5 = Math.min(tMin[2], tMax[2])
+  const t6 = Math.max(tMin[2], tMax[2])
+  
+  const tNear = Math.max(t1, t3, t5)
+  const tFar = Math.min(t2, t4, t6)
+  
+  if (tNear > tFar || tFar < 0 || tNear > ray.maxDistance) {
+    return null
+  }
+  
+  return tNear >= 0 ? tNear : tFar
+}
+
+// Type guards
+export const isVector3 = (value: unknown): value is Vector3 =>
+  typeof value === 'object' && value !== null &&
+  typeof (value as any).x === 'number' &&
+  typeof (value as any).y === 'number' &&
+  typeof (value as any).z === 'number'
+
+export const isQuaternion = (value: unknown): value is Quaternion =>
+  typeof value === 'object' && value !== null &&
+  typeof (value as any).x === 'number' &&
+  typeof (value as any).y === 'number' &&
+  typeof (value as any).z === 'number' &&
+  typeof (value as any).w === 'number'
+
+// Validation functions
+export const isValidAngle = (value: number): boolean => Number.isFinite(value)
+
+export const isValidDistance = (value: number): boolean => Number.isFinite(value) && value >= 0
+
+// Additional aliases for compatibility
+export { BoundingBox as AABB }
+export type { BoundingBox as AABB }

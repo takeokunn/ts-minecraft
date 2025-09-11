@@ -3,7 +3,7 @@
  * Contains types used across the World service
  */
 
-export { type SoAResult } from './world.service'
+export { type SoAResult } from '@/runtime/services'
 
 // Re-export commonly used world types
 export type { WorldState, Voxel } from '@/domain/world'

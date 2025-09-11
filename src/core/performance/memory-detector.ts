@@ -1,4 +1,4 @@
-import { Effect, Ref, Schedule, pipe } from 'effect'
+import { Effect, Ref, Schedule } from 'effect'
 import { Metrics } from './metrics'
 
 /**
@@ -282,6 +282,10 @@ const detectSteadyGrowth = (snapshots: ReadonlyArray<MemorySnapshot>): MemoryLea
   const oldest = recent[0]
   const newest = recent[recent.length - 1]
   
+  if (!oldest || !newest) {
+    return null // Not enough data to calculate growth rate
+  }
+  
   const timeDelta = newest.timestamp - oldest.timestamp
   const memoryDelta = newest.usedJSHeapSize - oldest.usedJSHeapSize
   
@@ -319,7 +323,12 @@ const detectMemorySpike = (snapshots: ReadonlyArray<MemorySnapshot>): MemoryLeak
   if (snapshots.length < 3) return null
   
   const recent = snapshots.slice(-3)
-  const [prev, curr] = [recent[recent.length - 2], recent[recent.length - 1]]
+  const prev = recent[recent.length - 2]
+  const curr = recent[recent.length - 1]
+  
+  if (!prev || !curr) {
+    return null
+  }
   
   const percentageIncrease = ((curr.usedJSHeapSize - prev.usedJSHeapSize) / prev.usedJSHeapSize) * 100
   
@@ -352,6 +361,10 @@ const detectMemorySpike = (snapshots: ReadonlyArray<MemorySnapshot>): MemoryLeak
  */
 const detectHighMemoryUsage = (snapshots: ReadonlyArray<MemorySnapshot>): MemoryLeak | null => {
   const latest = snapshots[snapshots.length - 1]
+  
+  if (!latest) {
+    return null
+  }
   
   if (latest.percentage > memoryConfig.maxMemoryPercentage) {
     const severity: MemoryLeak['severity'] =
@@ -532,6 +545,11 @@ export const MemoryDetector = {
       if (history.length > 1) {
         const oldest = history[0]
         const newest = history[history.length - 1]
+        
+        if (!oldest || !newest) {
+          return report
+        }
+        
         const timeDelta = newest.timestamp - oldest.timestamp
         const memoryDelta = newest.usedJSHeapSize - oldest.usedJSHeapSize
         const growthRate = (memoryDelta / timeDelta) * 60000 // per minute

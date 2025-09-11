@@ -68,7 +68,7 @@ export const ItemStack = S.Struct({
     id: S.String,
     level: S.Number.pipe(S.int(), S.positive()),
   }))),
-  customData: S.optional(S.Record(S.String, S.Union(S.String, S.Number, S.Boolean))),
+  customData: S.optional(S.Record({ key: S.String, value: S.Union(S.String, S.Number, S.Boolean) })),
 })
 
 export const InventoryComponent = RegisterComponent({
@@ -78,10 +78,10 @@ export const InventoryComponent = RegisterComponent({
 })(
   S.Struct({
     // Main inventory slots
-    slots: S.Array(S.optional(ItemStack)),
+    slots: S.Array(S.Union(ItemStack, S.Undefined)),
     capacity: S.Number.pipe(S.int(), S.positive()),
     // Hotbar (quick access slots)
-    hotbarSlots: S.Array(S.optional(ItemStack)),
+    hotbarSlots: S.Array(S.Union(ItemStack, S.Undefined)),
     hotbarCapacity: S.Number.pipe(S.int(), S.positive()),
     selectedHotbarSlot: S.Number.pipe(S.int(), S.between(0, 8)),
     // Equipment slots
@@ -94,7 +94,7 @@ export const InventoryComponent = RegisterComponent({
       offHand: S.optional(ItemStack),
     })),
     // Crafting
-    craftingGrid: S.optional(S.Array(S.optional(ItemStack))),
+    craftingGrid: S.optional(S.Array(S.Union(ItemStack, S.Undefined))),
     // State
     isOpen: S.Boolean,
   })
@@ -264,10 +264,10 @@ export type Target = S.Schema.Type<typeof Target>
 
 export const createHealthComponent = (
   maxHealth: number,
-  options?: Partial<Pick<HealthComponent, 'regenRate' | 'armor' | 'magicResistance'>>
+  options?: Partial<Pick<HealthComponent, 'current' | 'regenRate' | 'armor' | 'magicResistance'>>
 ): HealthComponent =>
   Data.struct({
-    current: maxHealth,
+    current: options?.current ?? maxHealth,
     maximum: maxHealth,
     regenRate: options?.regenRate ?? 0,
     regenDelay: 5, // 5 seconds
@@ -284,9 +284,9 @@ export const createInventoryComponent = (
   hotbarCapacity: number = 9
 ): InventoryComponent =>
   Data.struct({
-    slots: Array(capacity).fill(undefined),
+    slots: (() => { const arr: (ItemStack | undefined)[] = []; for (let i = 0; i < capacity; i++) arr.push(undefined); return arr; })(),
     capacity,
-    hotbarSlots: Array(hotbarCapacity).fill(undefined),
+    hotbarSlots: (() => { const arr: (ItemStack | undefined)[] = []; for (let i = 0; i < hotbarCapacity; i++) arr.push(undefined); return arr; })(),
     hotbarCapacity,
     selectedHotbarSlot: 0,
     isOpen: false,
@@ -364,6 +364,101 @@ export const GameplayComponentFactories = {
   createTargetComponent,
 } as const
 
+// ===== ADDITIONAL COMPONENTS FOR DOMAIN QUERIES =====
+
+export const PlayerComponent = RegisterComponent({
+  id: 'player',
+  category: 'gameplay',
+  priority: 1,
+})(
+  S.Struct({
+    isMainPlayer: S.Boolean,
+    name: S.String,
+  })
+)
+export type PlayerComponent = S.Schema.Type<typeof PlayerComponent>
+
+export const InputStateComponent = RegisterComponent({
+  id: 'inputState',
+  category: 'gameplay',
+  priority: 1,
+})(
+  S.Struct({
+    forward: S.Boolean,
+    backward: S.Boolean,
+    left: S.Boolean,
+    right: S.Boolean,
+    jump: S.Boolean,
+    sneak: S.Boolean,
+    sprint: S.Boolean,
+    interact: S.Boolean,
+    attack: S.Boolean,
+  })
+)
+export type InputStateComponent = S.Schema.Type<typeof InputStateComponent>
+
+export const CameraStateComponent = RegisterComponent({
+  id: 'cameraState',
+  category: 'gameplay',
+  priority: 1,
+})(
+  S.Struct({
+    yaw: S.Number,
+    pitch: S.Number,
+    roll: S.Number,
+    fov: S.Number.pipe(S.positive()),
+  })
+)
+export type CameraStateComponent = S.Schema.Type<typeof CameraStateComponent>
+
+export const HotbarComponent = RegisterComponent({
+  id: 'hotbar',
+  category: 'gameplay',
+  priority: 1,
+})(
+  S.Struct({
+    selectedSlot: S.Number.pipe(S.int(), S.between(0, 8)),
+    slots: S.Array(S.Union(ItemStack, S.Undefined)),
+  })
+)
+export type HotbarComponent = S.Schema.Type<typeof HotbarComponent>
+
+export const GravityComponent = RegisterComponent({
+  id: 'gravity',
+  category: 'gameplay',
+  priority: 1,
+})(
+  S.Struct({
+    force: S.Number,
+    enabled: S.Boolean,
+  })
+)
+export type GravityComponent = S.Schema.Type<typeof GravityComponent>
+
+// ===== TEST COMPONENTS =====
+
+export const FrozenComponent = RegisterComponent({
+  id: 'frozen',
+  category: 'gameplay',
+  priority: 0,
+})(
+  S.Struct({
+    reason: S.String,
+  })
+)
+export type FrozenComponent = S.Schema.Type<typeof FrozenComponent>
+
+export const DisabledComponent = RegisterComponent({
+  id: 'disabled',
+  category: 'gameplay',
+  priority: 0,
+})(
+  S.Struct({
+    reason: S.String,
+  })
+)
+export type DisabledComponent = S.Schema.Type<typeof DisabledComponent>
+
 // Re-export for backward compatibility
 export {
   HealthComponent as HealthComponentType,
@@ -371,11 +466,12 @@ export {
   PlayerControlComponent as PlayerControlComponentType,
   AIComponent as AIComponentType,
   TargetComponent as TargetComponentType,
-  // Legacy exports
-  PlayerControlComponent as PlayerComponent,
-  PlayerControlComponent as PlayerComponentType,
-  InventoryComponent as InputStateComponent,
-  InventoryComponent as InputStateComponentType,
-  InventoryComponent as HotbarComponent,
-  InventoryComponent as HotbarComponentType,
+  PlayerComponent as Player,
+  InputStateComponent as InputState,
+}
+
+export type {
+  HotbarComponent as Hotbar,
+  PlayerComponent as PlayerType,
+  InputStateComponent as InputStateType,
 }

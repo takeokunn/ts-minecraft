@@ -10,7 +10,7 @@
  * - Performance monitoring for communication overhead
  */
 
-import { Effect, pipe, Array as EffArray, Duration, Queue, Ref, HashMap, Option, Fiber } from 'effect'
+import { Effect, Queue, Option } from 'effect'
 import { SystemConfig, SystemContext } from './scheduler'
 import { EntityId } from '@/core/entities/entity'
 
@@ -58,7 +58,7 @@ export interface SystemMessage {
 /**
  * Message handler function
  */
-export type MessageHandler<T = any> = (message: SystemMessage<T>) => Effect.Effect<void, Error>
+export type MessageHandler<T = any> = (message: SystemMessage<T>) => Effect.Effect<void, Error, never>
 
 /**
  * Message filter function
@@ -161,7 +161,7 @@ export class SystemCommunicationHub {
       expirationMs?: number
       frameId?: number
     }
-  ): Effect.Effect<void> {
+  ): Effect.Effect<void, never, never> {
     return Effect.gen(this, function* ($) {
       const message: SystemMessage = {
         id: this.generateMessageId(),
@@ -203,7 +203,7 @@ export class SystemCommunicationHub {
     messageTypes: SystemMessageType[],
     handler: MessageHandler,
     filter?: MessageFilter
-  ): Effect.Effect<string> {
+  ): Effect.Effect<string, never, never> {
     return Effect.sync(() => {
       const subscriptionId = this.generateSubscriptionId()
       
@@ -236,7 +236,7 @@ export class SystemCommunicationHub {
   /**
    * Unsubscribe from messages
    */
-  unsubscribe(subscriptionId: string): Effect.Effect<void> {
+  unsubscribe(subscriptionId: string): Effect.Effect<void, never, never> {
     return Effect.sync(() => {
       for (const [messageType, subscriptions] of this.subscriptions) {
         const filtered = subscriptions.filter(sub => sub.id !== subscriptionId)
@@ -254,7 +254,7 @@ export class SystemCommunicationHub {
   /**
    * Process message queue
    */
-  processMessages(): Effect.Effect<void> {
+  processMessages(): Effect.Effect<void, never, never> {
     return Effect.gen(this, function* ($) {
       // Get all messages from queue
       const messages: SystemMessage[] = []
@@ -309,7 +309,7 @@ export class SystemCommunicationHub {
   /**
    * Deliver message to subscribers
    */
-  private deliverMessage(message: SystemMessage): Effect.Effect<void> {
+  private deliverMessage(message: SystemMessage): Effect.Effect<void, never, never> {
     return Effect.gen(this, function* ($) {
       const startTime = Date.now()
       const subscriptions = this.subscriptions.get(message.type) || []
@@ -378,7 +378,7 @@ export class SystemCommunicationHub {
   /**
    * Drop old messages when queue is full
    */
-  private dropOldMessages(): Effect.Effect<void> {
+  private dropOldMessages(): Effect.Effect<void, never, never> {
     return Effect.gen(this, function* ($) {
       const messages: SystemMessage[] = []
       let message = yield* $(Queue.poll(this.messageQueue))
@@ -624,7 +624,7 @@ export const SystemMessageDecorators = {
   /**
    * Automatically send component update messages
    */
-  withComponentUpdates: <T extends SystemMessage>(
+  withComponentUpdates: (
     systemId: string,
     hub: SystemCommunicationHub = globalCommunicationHub
   ) => {
@@ -652,7 +652,7 @@ export const SystemMessageDecorators = {
   /**
    * Automatically send entity lifecycle messages
    */
-  withEntityLifecycle: <T extends SystemMessage>(
+  withEntityLifecycle: (
     systemId: string,
     hub: SystemCommunicationHub = globalCommunicationHub
   ) => {

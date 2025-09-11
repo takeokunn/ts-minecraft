@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+
 
 export interface HotReloadConfig {
   enabled: boolean
@@ -393,32 +393,6 @@ export class HotReloadManager {
     }
   }
 
-  private restorePreservedState(): void {
-    if (!this.config.enableStatePreservation) return
-
-    try {
-      // Restore from localStorage
-      const preserved = localStorage.getItem('hot-reload-preserved-state')
-      if (preserved) {
-        const state = JSON.parse(preserved)
-        
-        Object.entries(state).forEach(([key, value]) => {
-          this.setStateValue(key, value)
-        })
-        
-        console.log('🔄 State restored from storage')
-        localStorage.removeItem('hot-reload-preserved-state')
-      }
-      
-      // Restore from HMR data
-      Object.entries(this.state.preservedState).forEach(([key, value]) => {
-        this.setStateValue(key, value)
-      })
-      
-    } catch (error) {
-      console.error('❌ Failed to restore preserved state:', error)
-    }
-  }
 
   private setStateValue(key: string, value: any): void {
     // In a real implementation, you would set state in your application
@@ -577,11 +551,11 @@ export class HotReloadManager {
   public manualReload(): void {
     console.log('🔄 Manual reload triggered')
     
-    const changes: FileChange[] = [{
+    this.queueChanges([{
       path: 'Manual Reload',
       type: 'changed',
       timestamp: Date.now()
-    }]
+    }])
     
     this.processFileChanges()
   }

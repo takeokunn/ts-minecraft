@@ -4,8 +4,9 @@
  */
 
 import { ComponentName, ComponentOfName } from '@/core/components'
-import { Entity } from '@/core/entities'
-import { QueryConfig, EntityPredicate, QueryMetrics, startQueryContext, finalizeQueryContext } from './builder'
+import { EntityId } from '@/core/entities'
+import { QueryEntity } from './builder'
+import { QueryConfig, QueryMetrics, startQueryContext, finalizeQueryContext } from './builder'
 import { QueryCache, globalQueryCache, CacheKeyGenerator, CachedQueryResult, CachedQueryMetrics } from './cache'
 import { ArchetypeQuery } from './archetype-query'
 
@@ -24,13 +25,13 @@ interface QueryPlan {
  * Component index for fast lookups
  */
 class ComponentIndex {
-  private componentToEntities: Map<ComponentName, Set<Entity>> = new Map()
-  private entityToComponents: Map<Entity, Set<ComponentName>> = new Map()
+  private componentToEntities: Map<ComponentName, Set<QueryEntity>> = new Map()
+  private entityToComponents: Map<QueryEntity, Set<ComponentName>> = new Map()
 
   /**
    * Add entity to component indices
    */
-  addEntity(entity: Entity): void {
+  addEntity(entity: QueryEntity): void {
     const components = Object.keys(entity.components) as ComponentName[]
     this.entityToComponents.set(entity, new Set(components))
 
@@ -45,7 +46,7 @@ class ComponentIndex {
   /**
    * Remove entity from component indices
    */
-  removeEntity(entity: Entity): void {
+  removeEntity(entity: QueryEntity): void {
     const components = this.entityToComponents.get(entity)
     if (!components) return
 
@@ -65,7 +66,7 @@ class ComponentIndex {
   /**
    * Get entities that have a specific component
    */
-  getEntitiesWithComponent(component: ComponentName): ReadonlyArray<Entity> {
+  getEntitiesWithComponent(component: ComponentName): ReadonlyArray<QueryEntity> {
     const entitySet = this.componentToEntities.get(component)
     return entitySet ? Array.from(entitySet) : []
   }
@@ -73,11 +74,11 @@ class ComponentIndex {
   /**
    * Get intersection of entities having all required components
    */
-  getEntitiesWithAllComponents(components: ReadonlyArray<ComponentName>): ReadonlyArray<Entity> {
+  getEntitiesWithAllComponents(components: ReadonlyArray<ComponentName>): ReadonlyArray<QueryEntity> {
     if (components.length === 0) return []
 
     // Start with entities having the rarest component (smallest set)
-    let candidateEntities: Set<Entity> | undefined
+    let candidateEntities: Set<QueryEntity> | undefined
 
     // Sort components by entity count (rarest first)
     const sortedComponents = [...components].sort((a, b) => {
@@ -152,13 +153,13 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
   /**
    * Execute optimized query with automatic performance tuning
    */
-  async execute(entities?: ReadonlyArray<Entity>): Promise<CachedQueryResult<ReadonlyArray<Entity>>> {
-    const plan = this.createExecutionPlan(entities)
+  async execute(entities?: ReadonlyArray<QueryEntity>): Promise<CachedQueryResult<ReadonlyArray<QueryEntity>>> {
+    const plan = this.createExecutionPlan(entities?.map(entity => entity.id))
     const context = startQueryContext()
 
     // Try cache first if enabled
     if (plan.useCache && plan.cacheKey) {
-      const cachedResult = this.cache.get<ReadonlyArray<Entity>>(plan.cacheKey)
+      const cachedResult = this.cache.get<ReadonlyArray<EntityId>>(plan.cacheKey)
       if (cachedResult) {
         const metrics: CachedQueryMetrics = {
           ...finalizeQueryContext(context),
@@ -181,7 +182,7 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
     }
 
     // Execute query based on plan
-    let resultEntities: Entity[]
+    let resultEntities: QueryEntity[]
 
     switch (plan.indexStrategy) {
       case 'component':
@@ -209,13 +210,13 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
       this.cache.set(
         plan.cacheKey,
         resultEntities,
-        this.config.withComponents as ComponentName[]
+        [...this.config.withComponents] as ComponentName[]
       )
     }
 
     const metrics: CachedQueryMetrics = {
       ...finalizeQueryContext(context),
-      cacheKey: plan.cacheKey,
+      ...(plan.cacheKey && { cacheKey: plan.cacheKey }),
       cacheHit: false,
       cacheInvalidations: 0,
     }
@@ -224,14 +225,14 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
       data: resultEntities,
       metrics,
       fromCache: false,
-      cacheKey: plan.cacheKey,
+      ...(plan.cacheKey && { cacheKey: plan.cacheKey }),
     }
   }
 
   /**
    * Execute using component index for fast intersection
    */
-  private executeWithComponentIndex(context: { metrics: QueryMetrics }): Entity[] {
+  private executeWithComponentIndex(context: { metrics: QueryMetrics }): QueryEntity[] {
     // Get entities with all required components using index
     let candidates = OptimizedQuery.componentIndex.getEntitiesWithAllComponents(
       this.config.withComponents
@@ -255,7 +256,7 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
   /**
    * Execute using hybrid archetype + component index strategy
    */
-  private executeHybridStrategy(entities: ReadonlyArray<Entity> | undefined, context: { metrics: QueryMetrics }): Entity[] {
+  private executeHybridStrategy(entities: ReadonlyArray<QueryEntity> | undefined, context: { metrics: QueryMetrics }): QueryEntity[] {
     // Use component index for initial filtering if no entity list provided
     if (!entities) {
       return this.executeWithComponentIndex(context)
@@ -272,10 +273,10 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
   /**
    * Apply predicate with async support for complex filtering
    */
-  private async applyPredicateAsync(entities: Entity[], context: { metrics: QueryMetrics }): Promise<Entity[]> {
+  private async applyPredicateAsync(entities: QueryEntity[], _context: { metrics: QueryMetrics }): Promise<QueryEntity[]> {
     if (!this.config.predicate) return entities
 
-    const result: Entity[] = []
+    const result: QueryEntity[] = []
     const batchSize = 100 // Process in batches to avoid blocking
 
     for (let i = 0; i < entities.length; i += batchSize) {
@@ -302,8 +303,8 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
 
       // Add entities that passed the predicate
       for (let j = 0; j < batch.length; j++) {
-        if (batchResults[j]) {
-          result.push(batch[j])
+        if (batchResults[j] && batch[j] !== undefined) {
+          result.push(batch[j]!)
         }
       }
 
@@ -319,7 +320,7 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
   /**
    * Create execution plan based on query characteristics
    */
-  private createExecutionPlan(entities?: ReadonlyArray<Entity>): QueryPlan {
+  private createExecutionPlan(entities?: ReadonlyArray<EntityId>): QueryPlan {
     if (this.cachedPlan) {
       return this.cachedPlan
     }
@@ -368,7 +369,7 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
   /**
    * Add entity to optimization indices
    */
-  static addEntity(entity: Entity): void {
+  static addEntity(entity: QueryEntity): void {
     OptimizedQuery.componentIndex.addEntity(entity)
     ArchetypeQuery.addEntity(entity)
   }
@@ -376,7 +377,7 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
   /**
    * Remove entity from optimization indices
    */
-  static removeEntity(entity: Entity): void {
+  static removeEntity(entity: QueryEntity): void {
     OptimizedQuery.componentIndex.removeEntity(entity)
     ArchetypeQuery.removeEntity(entity)
   }
@@ -384,7 +385,7 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
   /**
    * Update entity in optimization indices
    */
-  static updateEntity(entity: Entity): void {
+  static updateEntity(entity: QueryEntity): void {
     OptimizedQuery.componentIndex.removeEntity(entity)
     OptimizedQuery.componentIndex.addEntity(entity)
     ArchetypeQuery.removeEntity(entity)
@@ -436,4 +437,25 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
   clearExecutionPlan(): void {
     this.cachedPlan = undefined
   }
+}
+
+// Convenience functions for test compatibility
+export const addEntityToOptimizedQuery = (entity: QueryEntity): void => {
+  OptimizedQuery.addEntity(entity)
+}
+
+export const removeEntityFromOptimizedQuery = (entity: QueryEntity): void => {
+  OptimizedQuery.removeEntity(entity)
+}
+
+export const updateEntityInOptimizedQuery = (entity: QueryEntity): void => {
+  OptimizedQuery.updateEntity(entity)
+}
+
+export const getOptimizationStats = () => {
+  return OptimizedQuery.getOptimizationStats()
+}
+
+export const invalidateOptimizedQueryCache = (modifiedComponents: ComponentName[]): number => {
+  return OptimizedQuery.invalidateCache(modifiedComponents)
 }

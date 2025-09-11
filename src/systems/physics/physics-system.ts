@@ -9,14 +9,14 @@
  * - Performance monitoring and adaptive processing
  */
 
-import { Effect, pipe, Array as EffArray, Duration } from 'effect'
-import { queries, createArchetypeQuery, trackPerformance } from '@/core/queries'
-import { World, Clock, SpatialGrid } from '@/runtime/services'
+import { Effect, Array as EffArray, Duration } from 'effect'
+import { ArchetypeQuery, trackPerformance } from '@/core/queries'
+import { World, SpatialGrid } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
 import { Position, Velocity, Acceleration, Mass, ColliderComponent } from '@/core/components'
 import { FRICTION, GRAVITY, TERMINAL_VELOCITY, AIR_RESISTANCE } from '@/domain/world-constants'
 import { toFloat } from '@/core/common'
-import { AABB } from '@/domain/geometry'
+
 
 /**
  * Physics system configuration
@@ -191,7 +191,7 @@ export const createPhysicsSystem = (
     const startTime = Date.now()
 
     // Use optimized archetype query for physics entities
-    const physicsQuery = createArchetypeQuery()
+    const physicsQuery = ArchetypeQuery()
       .with('position', 'velocity', 'acceleration', 'mass')
       .maybe('collider', 'player')
       .execute()

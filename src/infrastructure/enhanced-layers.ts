@@ -105,7 +105,7 @@ export const EnhancedAppLive = Layer.mergeAll(
  * Includes all optimizations and monitoring
  */
 export const ProductionOptimizedLive = EnhancedAppLive.pipe(
-  Layer.tapLayer(
+  Layer.tap(
     Effect.gen(function* () {
       // Initialize performance monitoring
       yield* Effect.log('Enhanced infrastructure initialized with optimizations:')
@@ -130,7 +130,7 @@ export const ProductionOptimizedLive = EnhancedAppLive.pipe(
  * Development layer with debug features
  */
 export const DevelopmentEnhancedLive = EnhancedAppLive.pipe(
-  Layer.tapLayer(
+  Layer.tap(
     Effect.gen(function* () {
       yield* Effect.log('Development mode with enhanced infrastructure')
       yield* Effect.log('Debug features enabled:')
@@ -195,7 +195,7 @@ export const LowMemoryLive = Layer.mergeAll(
   WorldOptimizedLive, // But with smaller cache sizes
   RendererLive
 ).pipe(
-  Layer.tapLayer(
+  Layer.tap(
     Effect.log('Low memory configuration active - reduced cache sizes')
   )
 )
@@ -286,7 +286,7 @@ export const getEnhancedRuntimeLayer = (options?: {
  * Layer with comprehensive performance monitoring
  */
 export const MonitoredEnhancedLive = EnhancedAppLive.pipe(
-  Layer.tapLayer(
+  Layer.tap(
     Effect.gen(function* () {
       // Start performance monitoring
       yield* Effect.fork(

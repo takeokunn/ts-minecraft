@@ -67,7 +67,7 @@ export class PerformanceProfiler {
     return data
   }
 
-  update(currentDeltaTime: number): void {
+  update(_currentDeltaTime: number): void {
     if (!this.isRunning) return
 
     const currentTime = performance.now()

@@ -7,8 +7,8 @@ import {
   Position3D,
   Block,
 } from './shared/protocol'
-import Alea from 'alea'
-import { createNoise2D } from 'simplex-noise'
+
+
 
 /**
  * Legacy computation worker - migrated to new typed worker system
@@ -22,7 +22,7 @@ export * from './terrain-generation.worker'
 const computationHandler = (
   request: TerrainGenerationRequest,
   context: any
-): Effect.Effect<TerrainGenerationResponse> =>
+): Effect.Effect<TerrainGenerationResponse, never, never> =>
   Effect.gen(function* () {
     // Forward to terrain generation logic
     const startTime = Date.now()

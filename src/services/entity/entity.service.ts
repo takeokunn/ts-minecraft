@@ -17,67 +17,60 @@ import * as Data from 'effect/Data'
 import * as HashMap from 'effect/HashMap'
 import * as Array from 'effect/Array'
 import * as Option from 'effect/Option'
-import * as Set from 'effect/Set'
 import * as Ref from 'effect/Ref'
-import * as Match from 'effect/Match'
+
 
 // Core imports
 import { EntityId } from '../../core/entities'
-import { ComponentName, Components, AnyComponent, globalRegistry } from '../../core/components'
+import { ComponentName, Components } from '../../core/components'
 import { Position } from '../../core/values'
 import {
   EntityNotFoundError,
-  EntityAlreadyExistsError,
-  InvalidEntityStateError,
   EntityCreationError,
   EntityDestructionError,
-  EntityArchetypeMismatchError,
-  StaleEntityReferenceError,
   EntityLimitExceededError,
   ComponentNotFoundError,
-  InvalidComponentDataError,
   ComponentAlreadyExistsError,
-  ComponentTypeMismatchError,
 } from '../../core/errors'
 
 // ===== ENTITY SERVICE INTERFACE =====
 
 export interface EntityServiceInterface {
   // Entity lifecycle
-  readonly createEntity: (components?: Partial<Components>) => Effect.Effect<EntityId, EntityCreationError | EntityLimitExceededError>
-  readonly destroyEntity: (entityId: EntityId) => Effect.Effect<void, EntityNotFoundError | EntityDestructionError>
-  readonly entityExists: (entityId: EntityId) => Effect.Effect<boolean, never>
-  readonly getEntity: (entityId: EntityId) => Effect.Effect<Entity, EntityNotFoundError>
-  readonly getEntityCount: () => Effect.Effect<number, never>
+  readonly createEntity: (components?: Partial<Components>) => Effect.Effect<EntityId, typeof EntityCreationError | typeof EntityLimitExceededError, never>
+  readonly destroyEntity: (entityId: EntityId) => Effect.Effect<void, typeof EntityNotFoundError | typeof EntityDestructionError, never>
+  readonly entityExists: (entityId: EntityId) => Effect.Effect<boolean, never, never>
+  readonly getEntity: (entityId: EntityId) => Effect.Effect<Entity, typeof EntityNotFoundError, never>
+  readonly getEntityCount: () => Effect.Effect<number, never, never>
 
   // Component management
-  readonly addComponent: <T extends ComponentName>(entityId: EntityId, componentName: T, componentData: Components[T]) => Effect.Effect<void, EntityNotFoundError | ComponentAlreadyExistsError>
-  readonly removeComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) => Effect.Effect<void, EntityNotFoundError | ComponentNotFoundError>
-  readonly getComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) => Effect.Effect<Components[T], EntityNotFoundError | ComponentNotFoundError>
-  readonly hasComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) => Effect.Effect<boolean, never>
-  readonly updateComponent: <T extends ComponentName>(entityId: EntityId, componentName: T, updater: (current: Components[T]) => Components[T]) => Effect.Effect<void, EntityNotFoundError | ComponentNotFoundError>
+  readonly addComponent: <T extends ComponentName>(entityId: EntityId, componentName: T, componentData: Components[T]) => Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentAlreadyExistsError, never>
+  readonly removeComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) => Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentNotFoundError, never>
+  readonly getComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) => Effect.Effect<Components[T], typeof EntityNotFoundError | typeof ComponentNotFoundError, never>
+  readonly hasComponent: <T extends ComponentName>(entityId: EntityId, componentName: T) => Effect.Effect<boolean, never, never>
+  readonly updateComponent: <T extends ComponentName>(entityId: EntityId, componentName: T, updater: (current: Components[T]) => Components[T]) => Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentNotFoundError, never>
 
   // Archetype queries
-  readonly queryEntities: (requiredComponents: readonly ComponentName[]) => Effect.Effect<readonly EntityId[], never>
-  readonly queryEntitiesWithComponents: <T extends readonly ComponentName[]>(requiredComponents: T) => Effect.Effect<readonly EntityWithComponents<T>[], never>
-  readonly findEntitiesInRadius: (center: Position, radius: number, componentFilter?: readonly ComponentName[]) => Effect.Effect<readonly EntityId[], never>
-  readonly findEntitiesByArchetype: (archetypeId: string) => Effect.Effect<readonly EntityId[], never>
+  readonly queryEntities: (requiredComponents: readonly ComponentName[]) => Effect.Effect<readonly EntityId[], never, never>
+  readonly queryEntitiesWithComponents: <T extends readonly ComponentName[]>(requiredComponents: T) => Effect.Effect<readonly EntityWithComponents<T, never, never>[], never>
+  readonly findEntitiesInRadius: (center: Position, radius: number, componentFilter?: readonly ComponentName[]) => Effect.Effect<readonly EntityId[], never, never>
+  readonly findEntitiesByArchetype: (archetypeId: string) => Effect.Effect<readonly EntityId[], never, never>
 
   // Entity state management
-  readonly getEntityComponents: (entityId: EntityId) => Effect.Effect<Partial<Components>, EntityNotFoundError>
-  readonly getEntityArchetype: (entityId: EntityId) => Effect.Effect<ArchetypeInfo, EntityNotFoundError>
-  readonly serializeEntity: (entityId: EntityId) => Effect.Effect<SerializedEntity, EntityNotFoundError>
-  readonly deserializeEntity: (serializedEntity: SerializedEntity) => Effect.Effect<EntityId, EntityCreationError>
+  readonly getEntityComponents: (entityId: EntityId) => Effect.Effect<Partial<Components, never, never>, typeof EntityNotFoundError>
+  readonly getEntityArchetype: (entityId: EntityId) => Effect.Effect<ArchetypeInfo, typeof EntityNotFoundError, never>
+  readonly serializeEntity: (entityId: EntityId) => Effect.Effect<SerializedEntity, typeof EntityNotFoundError, never>
+  readonly deserializeEntity: (serializedEntity: SerializedEntity) => Effect.Effect<EntityId, typeof EntityCreationError, never>
 
   // Bulk operations
-  readonly createEntitiesBatch: (entitiesData: readonly Partial<Components>[]) => Effect.Effect<readonly EntityId[], EntityCreationError | EntityLimitExceededError>
-  readonly destroyEntitiesBatch: (entityIds: readonly EntityId[]) => Effect.Effect<readonly EntityId[], EntityNotFoundError | EntityDestructionError>
-  readonly updateEntitiesBatch: <T extends ComponentName>(entityIds: readonly EntityId[], componentName: T, updater: (current: Components[T]) => Components[T]) => Effect.Effect<void, EntityNotFoundError | ComponentNotFoundError>
+  readonly createEntitiesBatch: (entitiesData: readonly Partial<Components>[]) => Effect.Effect<readonly EntityId[], typeof EntityCreationError | typeof EntityLimitExceededError, never>
+  readonly destroyEntitiesBatch: (entityIds: readonly EntityId[]) => Effect.Effect<readonly EntityId[], typeof EntityNotFoundError | typeof EntityDestructionError, never>
+  readonly updateEntitiesBatch: <T extends ComponentName>(entityIds: readonly EntityId[], componentName: T, updater: (current: Components[T]) => Components[T]) => Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentNotFoundError, never>
 
   // Performance and debugging
-  readonly getEntityStats: () => Effect.Effect<EntityStats, never>
-  readonly validateEntityIntegrity: (entityId: EntityId) => Effect.Effect<EntityIntegrityResult, EntityNotFoundError>
-  readonly optimizeArchetypes: () => Effect.Effect<ArchetypeOptimizationResult, never>
+  readonly getEntityStats: () => Effect.Effect<EntityStats, never, never>
+  readonly validateEntityIntegrity: (entityId: EntityId) => Effect.Effect<EntityIntegrityResult, typeof EntityNotFoundError, never>
+  readonly optimizeArchetypes: () => Effect.Effect<ArchetypeOptimizationResult, never, never>
 }
 
 // ===== SUPPORTING TYPES =====
@@ -196,10 +189,10 @@ export class EntityService extends Context.Tag('EntityService')<
       const getEntityArchetypeId = (components: Partial<Components>): string =>
         generateArchetypeId(Object.keys(components) as ComponentName[])
 
-      const incrementEntityId = (): Effect.Effect<EntityId, never> =>
+      const incrementEntityId = (): Effect.Effect<EntityId, never, never> =>
         Ref.modify(nextEntityId, id => [id as EntityId, id + 1])
 
-      const validateEntityLimit = (currentCount: number): Effect.Effect<void, EntityLimitExceededError> =>
+      const validateEntityLimit = (currentCount: number): Effect.Effect<void, typeof EntityLimitExceededError, never> =>
         Effect.when(
           Effect.fail(EntityLimitExceededError({
             message: `Entity limit exceeded: ${currentCount}/${MAX_ENTITIES}`,
@@ -210,7 +203,7 @@ export class EntityService extends Context.Tag('EntityService')<
         )
 
       // Entity lifecycle implementation
-      const createEntity = (components: Partial<Components> = {}): Effect.Effect<EntityId, EntityCreationError | EntityLimitExceededError> =>
+      const createEntity = (components: Partial<Components> = {}): Effect.Effect<EntityId, typeof EntityCreationError | typeof EntityLimitExceededError, never> =>
         Effect.gen(function* () {
           const currentEntities = yield* Ref.get(entities)
           const currentCount = HashMap.size(currentEntities)
@@ -249,7 +242,7 @@ export class EntityService extends Context.Tag('EntityService')<
           )
         )
 
-      const destroyEntity = (entityId: EntityId): Effect.Effect<void, EntityNotFoundError | EntityDestructionError> =>
+      const destroyEntity = (entityId: EntityId): Effect.Effect<void, typeof EntityNotFoundError | typeof EntityDestructionError, never> =>
         Effect.gen(function* () {
           const currentEntities = yield* Ref.get(entities)
           const entity = HashMap.get(currentEntities, entityId)
@@ -279,13 +272,13 @@ export class EntityService extends Context.Tag('EntityService')<
           }
         })
 
-      const entityExists = (entityId: EntityId): Effect.Effect<boolean, never> =>
+      const entityExists = (entityId: EntityId): Effect.Effect<boolean, never, never> =>
         Effect.gen(function* () {
           const currentEntities = yield* Ref.get(entities)
           return HashMap.has(currentEntities, entityId)
         })
 
-      const getEntity = (entityId: EntityId): Effect.Effect<Entity, EntityNotFoundError> =>
+      const getEntity = (entityId: EntityId): Effect.Effect<Entity, typeof EntityNotFoundError, never> =>
         Effect.gen(function* () {
           const currentEntities = yield* Ref.get(entities)
           const entity = HashMap.get(currentEntities, entityId)
@@ -304,7 +297,7 @@ export class EntityService extends Context.Tag('EntityService')<
         entityId: EntityId,
         componentName: T,
         componentData: Components[T]
-      ): Effect.Effect<void, EntityNotFoundError | ComponentAlreadyExistsError> =>
+      ): Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentAlreadyExistsError, never> =>
         Effect.gen(function* () {
           const entity = yield* getEntity(entityId)
           const currentComponents = yield* Ref.get(entityComponents)
@@ -351,7 +344,7 @@ export class EntityService extends Context.Tag('EntityService')<
       const removeComponent = <T extends ComponentName>(
         entityId: EntityId,
         componentName: T
-      ): Effect.Effect<void, EntityNotFoundError | ComponentNotFoundError> =>
+      ): Effect.Effect<void, typeof EntityNotFoundError | typeof ComponentNotFoundError, never> =>
         Effect.gen(function* () {
           const entity = yield* getEntity(entityId)
           const currentComponents = yield* Ref.get(entityComponents)
@@ -398,7 +391,7 @@ export class EntityService extends Context.Tag('EntityService')<
       const getComponent = <T extends ComponentName>(
         entityId: EntityId,
         componentName: T
-      ): Effect.Effect<Components[T], EntityNotFoundError | ComponentNotFoundError> =>
+      ): Effect.Effect<Components[T], typeof EntityNotFoundError | typeof ComponentNotFoundError, never> =>
         Effect.gen(function* () {
           yield* getEntity(entityId) // Validate entity exists
           const currentComponents = yield* Ref.get(entityComponents)
@@ -426,7 +419,7 @@ export class EntityService extends Context.Tag('EntityService')<
       const hasComponent = <T extends ComponentName>(
         entityId: EntityId,
         componentName: T
-      ): Effect.Effect<boolean, never> =>
+      ): Effect.Effect<boolean, never, never> =>
         Effect.gen(function* () {
           const currentComponents = yield* Ref.get(entityComponents)
           const entityComps = HashMap.get(currentComponents, entityId)
@@ -438,7 +431,7 @@ export class EntityService extends Context.Tag('EntityService')<
         })
 
       // Query implementation with caching
-      const queryEntities = (requiredComponents: readonly ComponentName[]): Effect.Effect<readonly EntityId[], never> =>
+      const queryEntities = (requiredComponents: readonly ComponentName[]): Effect.Effect<readonly EntityId[], never, never> =>
         Effect.gen(function* () {
           const cacheKey = requiredComponents.join('|')
           const cache = yield* Ref.get(queryCache)
@@ -480,7 +473,7 @@ export class EntityService extends Context.Tag('EntityService')<
         archetypeId: string,
         componentNames: readonly ComponentName[],
         countDelta: number
-      ): Effect.Effect<void, never> =>
+      ): Effect.Effect<void, never, never> =>
         Ref.update(archetypes, archetypes => {
           const existing = HashMap.get(archetypes, archetypeId)
           const archetype = Option.getOrElse(existing, () => ({
@@ -498,19 +491,19 @@ export class EntityService extends Context.Tag('EntityService')<
           return HashMap.set(archetypes, archetypeId, updated)
         })
 
-      const updateCreateStats = (): Effect.Effect<void, never> =>
+      const updateCreateStats = (): Effect.Effect<void, never, never> =>
         Ref.update(entityStats, stats => Data.struct({
           ...stats,
           totalCreated: stats.totalCreated + 1,
         }))
 
-      const updateDestroyStats = (): Effect.Effect<void, never> =>
+      const updateDestroyStats = (): Effect.Effect<void, never, never> =>
         Ref.update(entityStats, stats => Data.struct({
           ...stats,
           totalDestroyed: stats.totalDestroyed + 1,
         }))
 
-      const updateQueryStats = (queryTime: number): Effect.Effect<void, never> =>
+      const updateQueryStats = (queryTime: number): Effect.Effect<void, never, never> =>
         Ref.update(entityStats, stats => Data.struct({
           ...stats,
           totalQueries: stats.totalQueries + 1,
@@ -576,7 +569,7 @@ export class EntityService extends Context.Tag('EntityService')<
             return results
           }),
 
-        findEntitiesInRadius: (center: Position, radius: number, componentFilter?: readonly ComponentName[]) =>
+        findEntitiesInRadius: () =>
           // Implementation would use spatial indexing
           Effect.succeed([]),
 

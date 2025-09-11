@@ -40,7 +40,7 @@ export interface WorkerHandlerContext {
 export type WorkerHandler<TInput, TOutput> = (
   input: TInput,
   context: WorkerHandlerContext
-) => Effect.Effect<TOutput>
+) => Effect.Effect<TOutput, never, never>
 
 /**
  * Worker configuration
@@ -79,7 +79,7 @@ export const createTypedWorker = <TInput, TOutput>(
   /**
    * Handle incoming worker messages
    */
-  const handleMessage = (event: MessageEvent): Effect.Effect<void> =>
+  const handleMessage = (event: MessageEvent): Effect.Effect<void, never, never> =>
     Effect.gen(function* () {
       const message = event.data
 
@@ -158,7 +158,7 @@ export const createTypedWorker = <TInput, TOutput>(
   /**
    * Start the worker
    */
-  const start = (): Effect.Effect<void> =>
+  const start = (): Effect.Effect<void, never, never> =>
     Effect.gen(function* () {
       // Set up message handler
       self.onmessage = (event) => {
@@ -178,7 +178,7 @@ export const createTypedWorker = <TInput, TOutput>(
   /**
    * Stop the worker
    */
-  const stop = (): Effect.Effect<void> =>
+  const stop = (): Effect.Effect<void, never, never> =>
     Effect.sync(() => {
       self.onmessage = null
     })
@@ -254,7 +254,7 @@ export const createTypedWorkerClient = <TInput, TOutput>(
     )
     
     // Request queue for rate limiting
-    const requestQueue = yield* Queue.bounded<() => Effect.Effect<TOutput>>(
+    const requestQueue = yield* Queue.bounded<TInput>(
       config.maxConcurrentRequests ?? 10
     )
 
@@ -264,7 +264,7 @@ export const createTypedWorkerClient = <TInput, TOutput>(
     /**
      * Handle incoming worker messages
      */
-    const handleMessage = (event: MessageEvent): Effect.Effect<void> =>
+    const handleMessage = (event: MessageEvent): Effect.Effect<void, never, never> =>
       Effect.gen(function* () {
         const message = event.data
 
@@ -345,7 +345,7 @@ export const createTypedWorkerClient = <TInput, TOutput>(
         sharedBuffer?: SharedArrayBuffer
         priority?: number
       }
-    ): Effect.Effect<TOutput> =>
+    ): Effect.Effect<TOutput, never, never> =>
       Effect.gen(function* () {
         const messageId = createMessageId()
         
@@ -410,13 +410,13 @@ export const createTypedWorkerClient = <TInput, TOutput>(
     /**
      * Get worker capabilities
      */
-    const getCapabilities = (): Effect.Effect<WorkerReady['capabilities'] | null> =>
+    const getCapabilities = (): Effect.Effect<WorkerReady['capabilities'] | null, never, never> =>
       Ref.get(capabilities)
 
     /**
      * Terminate worker and clean up
      */
-    const terminate = (): Effect.Effect<void> =>
+    const terminate = (): Effect.Effect<void, never, never> =>
       Effect.gen(function* () {
         // Clear all pending requests
         const pending = yield* Ref.get(pendingRequests)
@@ -440,6 +440,7 @@ export const createTypedWorkerClient = <TInput, TOutput>(
   })
 }
 
+
 // ============================================
 // Utility Functions
 // ============================================
@@ -451,7 +452,7 @@ export const createWorkerFactory = <TInput, TOutput>(
   workerScript: string,
   config: WorkerClientConfig<TInput, TOutput>
 ) => {
-  return (): Effect.Effect<Awaited<ReturnType<typeof createTypedWorkerClient<TInput, TOutput>>>> =>
+  return (): Effect.Effect<Awaited<ReturnType<typeof createTypedWorkerClient<TInput, TOutput, never>>>> =>
     Effect.gen(function* () {
       const worker = new Worker(workerScript, { type: 'module' })
       return yield* createTypedWorkerClient(worker, config)
@@ -462,7 +463,7 @@ export const createWorkerFactory = <TInput, TOutput>(
  * Worker pool for managing multiple worker instances
  */
 export const createWorkerPool = <TInput, TOutput>(
-  factory: () => Effect.Effect<Awaited<ReturnType<typeof createTypedWorkerClient<TInput, TOutput>>>>,
+  factory: () => Effect.Effect<Awaited<ReturnType<typeof createTypedWorkerClient<TInput, TOutput, never>>>>,
   poolSize: number = 4
 ) => {
   return Effect.gen(function* () {
@@ -479,7 +480,7 @@ export const createWorkerPool = <TInput, TOutput>(
     /**
      * Get next available worker
      */
-    const getWorker = (): Effect.Effect<Awaited<ReturnType<typeof createTypedWorkerClient<TInput, TOutput>>>> =>
+    const getWorker = (): Effect.Effect<Awaited<ReturnType<typeof createTypedWorkerClient<TInput, TOutput, never>>>> =>
       Effect.gen(function* () {
         const index = yield* Ref.get(currentIndex)
         yield* Ref.update(currentIndex, (i) => (i + 1) % workers.length)
@@ -492,7 +493,7 @@ export const createWorkerPool = <TInput, TOutput>(
     const sendRequest = (
       input: TInput,
       options?: Parameters<Awaited<ReturnType<typeof createTypedWorkerClient<TInput, TOutput>>>['sendRequest']>[1]
-    ): Effect.Effect<TOutput> =>
+    ): Effect.Effect<TOutput, never, never> =>
       Effect.gen(function* () {
         const worker = yield* getWorker()
         return yield* worker.sendRequest(input, options)
@@ -501,7 +502,7 @@ export const createWorkerPool = <TInput, TOutput>(
     /**
      * Terminate all workers
      */
-    const terminate = (): Effect.Effect<void> =>
+    const terminate = (): Effect.Effect<void, never, never> =>
       Effect.all(workers.map(worker => worker.terminate()), { concurrency: 'unbounded' }).pipe(
         Effect.asVoid
       )

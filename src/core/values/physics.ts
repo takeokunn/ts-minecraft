@@ -1,5 +1,7 @@
 import * as S from '@effect/schema/Schema'
-import { Brand, Data } from 'effect'
+import { Brand } from 'effect'
+
+type Struct<T> = T
 
 // Mass with branded types for physics calculations
 export type Mass = number & Brand.Brand<'Mass'>
@@ -34,13 +36,13 @@ export const Force3DSchema = S.Struct({
   fz: ForceSchema,
 })
 
-export type Force3D = Data.Struct<{
+export type Force3D = Struct<{
   readonly fx: Force
   readonly fy: Force
   readonly fz: Force
 }>
 
-export const Force3D = Data.struct<Force3D>()
+export const Force3D = Struct<Force3D>()
 
 export const makeForce3D = (fx: number, fy: number, fz: number): Force3D =>
   Force3D({
@@ -75,13 +77,13 @@ export const Acceleration3DSchema = S.Struct({
   az: AccelerationSchema,
 })
 
-export type Acceleration3D = Data.Struct<{
+export type Acceleration3D = Struct<{
   readonly ax: Acceleration
   readonly ay: Acceleration
   readonly az: Acceleration
 }>
 
-export const Acceleration3D = Data.struct<Acceleration3D>()
+export const Acceleration3D = Struct<Acceleration3D>()
 
 export const makeAcceleration3D = (ax: number, ay: number, az: number): Acceleration3D =>
   Acceleration3D({

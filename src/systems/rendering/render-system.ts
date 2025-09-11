@@ -10,8 +10,8 @@
  * - Asynchronous render preparation
  */
 
-import { Effect, pipe, Array as EffArray, Queue, Duration, Chunk } from 'effect'
-import { queries, createArchetypeQuery, trackPerformance } from '@/core/queries'
+import { Effect, Array as EffArray, Queue, Duration } from 'effect'
+import { ArchetypeQuery, trackPerformance } from '@/core/queries'
 import { World, Renderer } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
 import { Position, MeshComponent, MaterialComponent, CameraComponent, RenderableComponent } from '@/core/components'
@@ -345,18 +345,17 @@ export const createRenderSystem = (
   const processor = new RenderProcessor(renderConfig)
 
   return (context: SystemContext) => Effect.gen(function* ($) {
-    const world = yield* $(World)
     const renderer = yield* $(Renderer)
     
     const startTime = Date.now()
 
     // Get all renderable entities
-    const renderableQuery = createArchetypeQuery()
+    const renderableQuery = ArchetypeQuery()
       .with('position', 'mesh', 'material', 'renderable')
       .execute()
 
     // Get camera entities
-    const cameraQuery = createArchetypeQuery()
+    const cameraQuery = ArchetypeQuery()
       .with('camera', 'position')
       .execute()
 

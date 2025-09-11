@@ -1,5 +1,5 @@
 import * as S from "@effect/schema/Schema"
-import { blockTypeNames } from '@/core/values/block-type'
+import { blockTypes } from '../values/block-type'
 import { Effect } from 'effect'
 
 export const BlockDefinitionSchema = S.Struct({
@@ -15,7 +15,7 @@ export type BlockDefinition = S.Schema.Type<typeof BlockDefinitionSchema>
 
 const BlockDefinitionsSchema = S.Struct(
   Object.fromEntries(
-    blockTypeNames.map((name) => [name, BlockDefinitionSchema]),
+    blockTypes.map((name) => [name, BlockDefinitionSchema]),
   ),
 )
 export type BlockDefinitions = S.Schema.Type<typeof BlockDefinitionsSchema>

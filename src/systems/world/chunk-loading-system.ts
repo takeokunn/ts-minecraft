@@ -10,11 +10,11 @@
  * - Performance-optimized spatial queries
  */
 
-import { Effect, pipe, Array as EffArray, Duration, Ref, HashMap, Option, Queue, Fiber } from 'effect'
-import { queries, createArchetypeQuery, trackPerformance } from '@/core/queries'
-import { World, ComputationWorker, Clock } from '@/runtime/services'
+import { Effect, Array as EffArray, Duration, Option, Fiber } from 'effect'
+import { ArchetypeQuery, trackPerformance } from '@/core/queries'
+import { World, ComputationWorker } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { Position, ChunkComponent, PlayerControlComponent, VelocityComponent } from '@/core/components'
+import { Position, ChunkComponent, VelocityComponent } from '@/core/components'
 import { EntityId } from '@/core/entities/entity'
 import { CHUNK_SIZE, RENDER_DISTANCE, CHUNK_HEIGHT } from '@/domain/world-constants'
 
@@ -533,7 +533,7 @@ export const createChunkLoadingSystem = (
     const startTime = Date.now()
 
     // Get player position and velocity
-    const playerQuery = createArchetypeQuery()
+    const playerQuery = ArchetypeQuery()
       .with('player', 'position')
       .maybe('velocity')
       .execute()
@@ -551,7 +551,7 @@ export const createChunkLoadingSystem = (
     }
 
     // Get currently loaded chunks
-    const chunkQuery = createArchetypeQuery()
+    const chunkQuery = ArchetypeQuery()
       .with('chunk')
       .execute()
 

@@ -4,8 +4,9 @@
  */
 
 // Core query system exports
-import { query, soaQuery, aosQuery } from './builder'
+import { query, soaQuery, aosQuery, type QueryMetrics } from './builder'
 import { OptimizedQuery } from './optimized-query'
+import { globalQueryCache } from './cache'
 
 export {
   query,
@@ -87,7 +88,7 @@ export const queries = {
    * Player entity with all movement-related components
    */
   player: query()
-    .with('player', 'position', 'velocity', 'inputState', 'cameraState', 'hotbar', 'gravity')
+    .with('playerControl', 'position', 'velocity', 'camera', 'inventory')
     .named('playerQuery')
     .priority(10)
     .buildOptimized(),
@@ -96,7 +97,7 @@ export const queries = {
    * Player entity for block interaction/targeting
    */
   playerTarget: query()
-    .with('player', 'position', 'inputState', 'target', 'hotbar')
+    .with('playerControl', 'position', 'target', 'inventory')
     .named('playerTargetQuery')
     .priority(9)
     .buildOptimized(),
@@ -105,7 +106,7 @@ export const queries = {
    * Player entity for collision detection
    */
   playerCollider: query()
-    .with('player', 'position', 'velocity', 'collider')
+    .with('playerControl', 'position', 'velocity', 'collider')
     .named('playerColliderQuery')
     .priority(8)
     .buildOptimized(),
@@ -123,7 +124,7 @@ export const queries = {
    * Entities affected by physics (gravity)
    */
   physics: query()
-    .with('position', 'velocity', 'gravity', 'player')
+    .with('position', 'velocity', 'playerControl')
     .named('physicsQuery')
     .priority(6)
     .buildOptimized(),
@@ -132,7 +133,7 @@ export const queries = {
    * Chunk marker entities
    */
   chunk: query()
-    .with('chunk')
+    .with('mesh')
     .named('chunkQuery')
     .priority(5)
     .buildOptimized(),
@@ -141,7 +142,7 @@ export const queries = {
    * Chunk loader state entity
    */
   chunkLoader: query()
-    .with('chunkLoaderState')
+    .with('renderable')
     .named('chunkLoaderQuery')
     .priority(5)
     .buildOptimized(),
@@ -150,7 +151,7 @@ export const queries = {
    * Player entity for movement calculations
    */
   playerMovement: query()
-    .with('player', 'inputState', 'velocity', 'cameraState')
+    .with('playerControl', 'velocity', 'camera')
     .named('playerMovementQuery')
     .priority(8)
     .buildOptimized(),
@@ -159,7 +160,7 @@ export const queries = {
    * Player entity for input handling
    */
   playerInput: query()
-    .with('player', 'inputState')
+    .with('playerControl')
     .named('playerInputQuery')
     .priority(9)
     .buildOptimized(),
@@ -168,7 +169,7 @@ export const queries = {
    * Terrain blocks for raycasting and world manipulation
    */
   terrainBlock: query()
-    .with('terrainBlock', 'position')
+    .with('mesh', 'position')
     .named('terrainBlockQuery')
     .priority(6)
     .buildOptimized(),
@@ -178,7 +179,7 @@ export const queries = {
    */
   movableEntities: query()
     .with('position', 'velocity')
-    .without('frozen')
+    .without('playerControl')
     .where(entity => {
       const velocity = entity.get('velocity')
       // Assuming velocity has a magnitude property or method
@@ -201,7 +202,7 @@ export const queries = {
    * Instanced mesh renderables for efficient rendering
    */
   instancedMesh: query()
-    .with('position', 'instancedMeshRenderable')
+    .with('position', 'renderable')
     .named('instancedMeshQuery')
     .priority(7)
     .buildOptimized(),
@@ -219,7 +220,7 @@ export const queries = {
    * Target blocks for interaction highlighting
    */
   targetBlock: query()
-    .with('targetBlock', 'position')
+    .with('target', 'position')
     .named('targetBlockQuery')
     .priority(8)
     .buildOptimized(),
@@ -230,7 +231,7 @@ export const soaQueries = {
   /**
    * Position and velocity data for physics calculations
    */
-  physics: soaQuery('position', 'velocity', 'gravity'),
+  physics: soaQuery('position', 'velocity'),
 
   /**
    * Position data for spatial queries
@@ -248,12 +249,12 @@ export const aosQueries = {
   /**
    * Player entities with full component data
    */
-  players: aosQuery('player', 'position', 'velocity', 'inputState'),
+  players: aosQuery('playerControl', 'position', 'velocity'),
 
   /**
    * Terrain blocks with position data
    */
-  terrainBlocks: aosQuery('terrainBlock', 'position'),
+  terrainBlocks: aosQuery('mesh', 'position'),
 }
 
 /**

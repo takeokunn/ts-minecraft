@@ -1,24 +1,17 @@
-import { Data, pipe } from 'effect'
-import * as S from "@effect/schema/Schema"
+type Struct<T> = T
 import { Position, type Position as PositionType } from '../coordinates/position.value'
+import { AABBSchema } from '@/domain/geometry'
 
 /**
  * AABB (Axis-Aligned Bounding Box) Value Object
  * Represents a 3D bounding box for collision detection
  */
 
-// Schema definition
-export const AABBSchema = S.Struct({
-  minX: S.Number.pipe(S.finite()),
-  minY: S.Number.pipe(S.finite()),
-  minZ: S.Number.pipe(S.finite()),
-  maxX: S.Number.pipe(S.finite()),
-  maxY: S.Number.pipe(S.finite()),
-  maxZ: S.Number.pipe(S.finite()),
-})
+// Re-export schema from domain
+export { AABBSchema }
 
-// Type definition using Data.Struct for immutability
-export type AABB = Data.Struct<{
+// Type definition using Struct for immutability
+export type AABB = Struct<{
   readonly minX: number
   readonly minY: number
   readonly minZ: number
@@ -28,7 +21,7 @@ export type AABB = Data.Struct<{
 }>
 
 // Factory function
-export const AABB = Data.struct<AABB>()
+export const AABB = Struct<AABB>()
 
 // Create AABB from min and max points
 export const create = (

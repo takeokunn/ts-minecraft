@@ -1,5 +1,9 @@
 import { Data } from 'effect'
 
+type TaggedError<Tag extends string, Value> = {
+  readonly _tag: Tag
+} & Value
+
 /**
  * Error recovery strategy types
  */
@@ -15,7 +19,7 @@ export type RecoveryStrategy =
  */
 export interface ErrorContext {
   readonly timestamp: Date
-  readonly stackTrace?: string
+  readonly stackTrace: string
   readonly metadata?: Record<string, unknown>
   readonly recoveryStrategy: RecoveryStrategy
   readonly severity: 'low' | 'medium' | 'high' | 'critical'
@@ -31,20 +35,23 @@ export interface BaseErrorData {
 /**
  * Error class constructor type
  */
-export type ErrorConstructor<TData extends BaseErrorData> = new (
-  data: Omit<TData, 'context'>,
-  options?: Partial<Pick<ErrorContext, 'recoveryStrategy' | 'severity' | 'metadata'>>
-) => Data.TaggedError<string, TData>
+export type ErrorConstructor<TData extends BaseErrorData> = {
+  new (
+    data: Omit<TData, 'context'>,
+    options?: Partial<Pick<ErrorContext, 'recoveryStrategy' | 'severity' | 'metadata'>>
+  ): TaggedError<string, TData>
+  (...args: any[]): any
+}
 
 /**
  * Parent error class type constraint
  */
-export type ParentErrorClass = new (...args: any[]) => Data.TaggedError<string, any>
+export type ParentErrorClass = new (...args: any[]) => TaggedError<string, any>
 
 /**
  * Enhanced error logging function
  */
-export function logError(error: Data.TaggedError<string, BaseErrorData>): void {
+export function logError(error: TaggedError<string, BaseErrorData>): void {
   const { context } = error
   console.error({
     type: error._tag,
@@ -63,7 +70,7 @@ export function logError(error: Data.TaggedError<string, BaseErrorData>): void {
 export function createRecoveryHandler<T>(
   strategy: RecoveryStrategy,
   fallbackValue?: T
-): (error: Data.TaggedError<string, BaseErrorData>) => T | never {
+): (error: TaggedError<string, BaseErrorData>) => T | never {
   return (error) => {
     logError(error)
     
@@ -102,70 +109,68 @@ export function defineError<TData extends Record<string, unknown>>(
   defaultRecoveryStrategy: RecoveryStrategy = 'terminate',
   defaultSeverity: ErrorContext['severity'] = 'medium'
 ): ErrorConstructor<TData & BaseErrorData> {
-  class GeneratedError extends Data.TaggedError(name)<TData & BaseErrorData> {
-    constructor(
-      data: TData,
-      options: Partial<Pick<ErrorContext, 'recoveryStrategy' | 'severity' | 'metadata'>> = {}
-    ) {
-      const context: ErrorContext = {
-        timestamp: new Date(),
-        stackTrace: new Error().stack,
-        recoveryStrategy: options.recoveryStrategy || defaultRecoveryStrategy,
-        severity: options.severity || defaultSeverity,
-        metadata: options.metadata
+  // Create the error constructor function
+  function GeneratedErrorConstructor(
+    data: TData,
+    options: Partial<Pick<ErrorContext, 'recoveryStrategy' | 'severity' | 'metadata'>> = {}
+  ) {
+    const context: ErrorContext = {
+      timestamp: new Date(),
+      stackTrace: new Error().stack || '',
+      recoveryStrategy: options.recoveryStrategy || defaultRecoveryStrategy,
+      severity: options.severity || defaultSeverity,
+      ...(options.metadata && { metadata: options.metadata })
+    }
+
+    const errorData = { ...data, context } as TData & BaseErrorData
+    const TaggedErrorClass = Data.TaggedError(name)<TData & BaseErrorData>
+    const error = new TaggedErrorClass(errorData as any) as unknown as TaggedError<string, TData & BaseErrorData>
+    
+    // Add methods to the error instance
+    Object.assign(error, {
+      getRecoveryStrategy(): RecoveryStrategy {
+        return context.recoveryStrategy
+      },
+
+      getSeverity(): ErrorContext['severity'] {
+        return context.severity
+      },
+
+      createRecoveryHandler<T>(fallbackValue?: T) {
+        return createRecoveryHandler(context.recoveryStrategy, fallbackValue)
+      },
+
+      log(): void {
+        logError(error)
       }
-
-      super({ ...data, context } as TData & BaseErrorData)
-    }
-
-    /**
-     * Get recovery strategy for this error
-     */
-    getRecoveryStrategy(): RecoveryStrategy {
-      return this.context.recoveryStrategy
-    }
-
-    /**
-     * Get severity level
-     */
-    getSeverity(): ErrorContext['severity'] {
-      return this.context.severity
-    }
-
-    /**
-     * Create a recovery handler for this error
-     */
-    createRecoveryHandler<T>(fallbackValue?: T) {
-      return createRecoveryHandler(this.getRecoveryStrategy(), fallbackValue)
-    }
-
-    /**
-     * Log this error with structured format
-     */
-    log(): void {
-      logError(this)
-    }
+    })
+    
+    return error
   }
 
   // If parent class provided, set up inheritance
   if (ParentClass) {
-    Object.setPrototypeOf(GeneratedError.prototype, ParentClass.prototype)
+    Object.setPrototypeOf(GeneratedErrorConstructor.prototype, ParentClass.prototype)
   }
 
-  return GeneratedError as ErrorConstructor<TData & BaseErrorData>
+  return GeneratedErrorConstructor as any as ErrorConstructor<TData & BaseErrorData>
 }
 
 /**
  * Error aggregation for batch error handling
  */
 export class ErrorAggregator {
-  private errors: Array<Data.TaggedError<string, BaseErrorData>> = []
+  private errors: Array<TaggedError<string, BaseErrorData>> = []
 
-  add(error: Data.TaggedError<string, BaseErrorData>): void {
+  constructor(initialErrors: Array<TaggedError<string, BaseErrorData>> = []) {
+    this.errors = [...initialErrors]
+  }
+
+  add(error: TaggedError<string, BaseErrorData>): void {
     this.errors.push(error)
   }
 
-  getErrors(): ReadonlyArray<Data.TaggedError<string, BaseErrorData>> {
+  getErrors(): ReadonlyArray<TaggedError<string, BaseErrorData>> {
     return this.errors
   }
 
@@ -173,13 +178,13 @@ export class ErrorAggregator {
     return this.errors.length > 0
   }
 
-  getErrorsByType<T extends Data.TaggedError<string, BaseErrorData>>(
+  getErrorsByType<T extends TaggedError<string, BaseErrorData>>(
     type: string
   ): T[] {
     return this.errors.filter(error => error._tag === type) as T[]
   }
 
-  getBySeverity(severity: ErrorContext['severity']): Array<Data.TaggedError<string, BaseErrorData>> {
+  getBySeverity(severity: ErrorContext['severity']): Array<TaggedError<string, BaseErrorData>> {
     return this.errors.filter(error => error.context.severity === severity)
   }
 
@@ -198,7 +203,7 @@ export class ErrorAggregator {
     totalErrors: number
     errorsBySeverity: Record<ErrorContext['severity'], number>
     errorsByType: Record<string, number>
-    criticalErrors: Array<Data.TaggedError<string, BaseErrorData>>
+    criticalErrors: Array<TaggedError<string, BaseErrorData>>
   } {
     const errorsBySeverity = {
       low: 0,
@@ -208,7 +213,7 @@ export class ErrorAggregator {
     }
 
     const errorsByType: Record<string, number> = {}
-    const criticalErrors: Array<Data.TaggedError<string, BaseErrorData>> = []
+    const criticalErrors: Array<TaggedError<string, BaseErrorData>> = []
 
     this.errors.forEach(error => {
       errorsBySeverity[error.context.severity]++

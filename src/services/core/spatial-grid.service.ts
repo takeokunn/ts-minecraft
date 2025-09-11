@@ -8,10 +8,10 @@ import { AABB } from '@/domain/geometry'
 export class SpatialGrid extends Context.Tag('SpatialGrid')<
   SpatialGrid,
   {
-    readonly add: (entityId: EntityId, aabb: AABB) => Effect.Effect<void>
-    readonly remove: (entityId: EntityId) => Effect.Effect<void>
-    readonly update: (entityId: EntityId, aabb: AABB) => Effect.Effect<void>
-    readonly query: (aabb: AABB) => Effect.Effect<Set<EntityId>>
-    readonly clear: () => Effect.Effect<void>
+    readonly add: (entityId: EntityId, aabb: AABB) => Effect.Effect<void, never, never>
+    readonly remove: (entityId: EntityId) => Effect.Effect<void, never, never>
+    readonly update: (entityId: EntityId, aabb: AABB) => Effect.Effect<void, never, never>
+    readonly query: (aabb: AABB) => Effect.Effect<Set<EntityId, never, never>>
+    readonly clear: () => Effect.Effect<void, never, never>
   }
 >() {}

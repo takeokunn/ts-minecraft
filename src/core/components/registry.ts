@@ -19,21 +19,21 @@ import * as Option from 'effect/Option'
 export interface ComponentMeta {
   readonly id: string
   readonly category: 'physics' | 'rendering' | 'gameplay' | 'world'
-  readonly schema: S.Schema<any, any, never>
+  readonly schema: S.Schema<any, any, any>
   readonly priority?: number
   readonly dependencies?: readonly string[]
   readonly conflictsWith?: readonly string[]
 }
 
 // Component registry state
-export interface ComponentRegistryState extends Data.Data<ComponentRegistryState> {
+export interface ComponentRegistryState {
   readonly components: HashMap.HashMap<string, ComponentMeta>
   readonly archetypes: HashMap.HashMap<string, ArchetypeInfo>
   readonly soaBuffers: HashMap.HashMap<string, SoABuffer>
 }
 
 // Archetype information for query optimization
-export interface ArchetypeInfo extends Data.Data<ArchetypeInfo> {
+export interface ArchetypeInfo {
   readonly signature: readonly string[]
   readonly entities: readonly number[]
   readonly storageLayout: StorageLayout
@@ -43,7 +43,7 @@ export interface ArchetypeInfo extends Data.Data<ArchetypeInfo> {
 export type StorageLayout = 'AoS' | 'SoA' | 'Hybrid'
 
 // SoA buffer for performance-critical components
-export interface SoABuffer extends Data.Data<SoABuffer> {
+export interface SoABuffer {
   readonly componentId: string
   readonly capacity: number
   readonly length: number
@@ -66,7 +66,7 @@ export class ComponentRegistry {
   /**
    * Register a component with automatic metadata extraction
    */
-  register<T>(meta: ComponentMeta): void {
+  register(meta: ComponentMeta): void {
     this.state = Data.struct({
       ...this.state,
       components: HashMap.set(this.state.components, meta.id, meta),
@@ -100,7 +100,10 @@ export class ComponentRegistry {
    * Create or get archetype for component signature
    */
   getArchetype(componentIds: readonly string[]): ArchetypeInfo {
-    const signature = Array.sort(componentIds, (a, b) => a.localeCompare(b))
+    const signature = Array.sort(componentIds, (a: string, b: string) => {
+      const result = a.localeCompare(b)
+      return result < 0 ? -1 : result > 0 ? 1 : 0
+    })
     const archetypeKey = signature.join('|')
     
     return Option.getOrElse(
@@ -119,7 +122,7 @@ export class ComponentRegistry {
   /**
    * Query entities by component requirements
    */
-  query(required: readonly string[], optional: readonly string[] = []): QueryResult {
+  query(required: readonly string[], _optional: readonly string[] = []): QueryResult {
     const archetype = this.getArchetype(required)
     return {
       entities: archetype.entities,
@@ -167,7 +170,7 @@ export class ComponentRegistry {
     })
   }
 
-  private initializeSoABuffer(componentId: string, schema: S.Schema<any, any, never>): void {
+  private initializeSoABuffer(componentId: string, _schema: S.Schema<any, any, any>): void {
     const buffer = Data.struct({
       componentId,
       capacity: 1024, // Initial capacity
@@ -195,12 +198,12 @@ export class ComponentRegistry {
     return physicsComponents.length > componentIds.length / 2 ? 'SoA' : 'AoS'
   }
 
-  private getEntityComponent<T>(entityId: number, componentId: string): Option.Option<T> {
+  private getEntityComponent<T>(_entityId: number, _componentId: string): Option.Option<T> {
     // Implementation for component retrieval
     return Option.none()
   }
 
-  private hasEntityComponent(entityId: number, componentId: string): boolean {
+  private hasEntityComponent(_entityId: number, _componentId: string): boolean {
     // Implementation for component existence check
     return false
   }
@@ -214,7 +217,7 @@ export class ComponentRegistry {
     return Array.reduce(
       Array.fromIterable(HashMap.values(this.state.soaBuffers)),
       0,
-      (acc, buffer) => acc + buffer.data.byteLength
+      (acc, buffer) => acc + (buffer as SoABuffer).data.byteLength
     )
   }
 }
@@ -240,7 +243,7 @@ export const globalRegistry = new ComponentRegistry()
 
 // Decorator for automatic component registration
 export const RegisterComponent = (meta: Omit<ComponentMeta, 'schema'>) => 
-  <T extends S.Schema<any, any, never>>(schema: T): T => {
+  <T extends S.Schema<any, any, any>>(schema: T): T => {
     globalRegistry.register({
       ...meta,
       schema,

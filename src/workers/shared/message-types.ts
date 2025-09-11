@@ -1,4 +1,4 @@
-import * as S from "/schema/Schema"
+import * as S from '@effect/schema/Schema'
 import { ChunkCoordinates } from '@/core/values/coordinates'
 import { BlockTypeSchema } from '@/core/values/block-type'
 

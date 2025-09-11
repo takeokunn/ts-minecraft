@@ -3,9 +3,9 @@ import { queries, QueryProfiler } from '@/core/queries'
 import { FRICTION, GRAVITY, TERMINAL_VELOCITY } from '@/domain/world-constants'
 import { Clock, World } from '@/runtime/services'
 import { toFloat } from '@/core/common'
-import { Position, Velocity, PositionComponent, VelocityComponent, GravityComponent } from '@/core/components'
+import { Position, Velocity } from '@/core/components'
 import { SystemContext } from './core/scheduler'
-import { globalCommunicationHub, SystemCommunicationUtils } from './core/system-communication'
+import { globalCommunicationHub } from './core/system-communication'
 
 const applyGravity = (isGrounded: boolean, deltaTime: number, gravityScale = 1.0) => (velocity: Velocity): Velocity => {
   if (isGrounded) {

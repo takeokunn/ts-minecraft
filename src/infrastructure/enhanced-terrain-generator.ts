@@ -1,9 +1,8 @@
-import { Layer, Effect, Ref, Duration } from 'effect'
+import { Layer, Effect, Ref } from 'effect'
 import { TerrainGenerator } from '@/services/world/terrain-generator.service'
 import { ChunkCoordinates } from '@/core/values/coordinates/chunk-coordinates.value'
 import { TypedWorkerManager } from '@/services/worker/typed-worker-manager.service'
 import { WASMIntegrationService } from './wasm-integration'
-import * as S from "/schema/Schema"
 
 // --- Enhanced Configuration ---
 
@@ -190,57 +189,6 @@ const BIOMES: Record<string, BiomeDefinition> = {
   },
 }
 
-// --- Schema Definitions ---
-
-const TerrainGenerationRequest = S.Struct({
-  type: S.Literal('generate-terrain'),
-  coordinates: S.Struct({
-    x: S.Number,
-    z: S.Number,
-  }),
-  params: S.Struct({
-    seed: S.Number,
-    octaves: S.Number,
-    persistence: S.Number,
-    lacunarity: S.Number,
-    scale: S.Number,
-    seaLevel: S.Number,
-    maxHeight: S.Number,
-  }),
-  features: S.Struct({
-    biomes: S.Boolean,
-    caves: S.Boolean,
-    ores: S.Boolean,
-    structures: S.Boolean,
-  }),
-})
-
-const TerrainGenerationResponse = S.Struct({
-  coordinates: S.Struct({
-    x: S.Number,
-    z: S.Number,
-  }),
-  blocks: S.Array(S.Number),
-  heightMap: S.Array(S.Number),
-  biomes: S.Array(S.String),
-  structures: S.Array(S.Struct({
-    type: S.String,
-    position: S.Tuple(S.Number, S.Number, S.Number),
-  })),
-  caves: S.Array(S.Struct({
-    position: S.Tuple(S.Number, S.Number, S.Number),
-    radius: S.Number,
-  })),
-  ores: S.Array(S.Struct({
-    type: S.String,
-    position: S.Tuple(S.Number, S.Number, S.Number),
-  })),
-  metadata: S.Struct({
-    generationTime: S.Number,
-    version: S.String,
-    checksum: S.String,
-  }),
-})
 
 // --- Utility Functions ---
 
@@ -255,8 +203,8 @@ const getChunkCacheKey = (coords: ChunkCoordinates): string => {
  * Calculate biome at world coordinates
  */
 const calculateBiome = (
-  worldX: number,
-  worldZ: number,
+  _worldX: number,
+  _worldZ: number,
   temperature: number,
   humidity: number,
   elevation: number
@@ -307,9 +255,9 @@ const generateStructures = (
  * Generate cave system
  */
 const generateCaves = (
-  chunkX: number,
-  chunkZ: number,
-  seed: number
+  _chunkX: number,
+  _chunkZ: number,
+  _seed: number
 ): Array<{ position: [number, number, number]; radius: number }> => {
   const caves: Array<{ position: [number, number, number]; radius: number }> = []
   
@@ -334,9 +282,9 @@ const generateCaves = (
  * Generate ore deposits
  */
 const generateOres = (
-  chunkX: number,
-  chunkZ: number,
-  seed: number
+  _chunkX: number,
+  _chunkZ: number,
+  _seed: number
 ): Array<{ type: string; position: [number, number, number] }> => {
   const ores: Array<{ type: string; position: [number, number, number] }> = []
   
@@ -378,7 +326,7 @@ const compressChunkData = (data: EnhancedChunkData): ArrayBuffer => {
 /**
  * Decompress chunk data
  */
-const decompressChunkData = (buffer: ArrayBuffer, coords: ChunkCoordinates): EnhancedChunkData => {
+const decompressChunkData = (buffer: ArrayBuffer, coords: ChunkCoordinates) => {
   const jsonString = new TextDecoder().decode(buffer)
   const parsed = JSON.parse(jsonString)
   
@@ -490,7 +438,7 @@ export const EnhancedTerrainGeneratorLive = Layer.effect(
     
     yield* startCacheOptimization()
     
-    return TerrainGenerator.of({
+    return {
       generateChunkTerrain: (coords: ChunkCoordinates) =>
         Effect.gen(function* () {
           const state = yield* Ref.get(stateRef)
@@ -683,7 +631,7 @@ export const EnhancedTerrainGeneratorLive = Layer.effect(
           const compressCount = Math.floor(sortedEntries.length * 0.3)
           
           for (let i = 0; i < compressCount; i++) {
-            const [key, entry] = sortedEntries[i]
+            const [_key, entry] = sortedEntries[i]
             if (!entry.isCompressed) {
               const compressed = compressChunkData(entry.data)
               entry.memoryUsage = compressed.byteLength
@@ -693,7 +641,7 @@ export const EnhancedTerrainGeneratorLive = Layer.effect(
           
           return state
         }),
-    })
+    }
   }).pipe(
     Effect.provide(TypedWorkerManager),
     Effect.provide(WASMIntegrationService)

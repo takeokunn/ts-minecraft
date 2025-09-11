@@ -15,6 +15,14 @@
  * - Performance optimization and monitoring
  */
 
+import { Effect } from 'effect'
+import { WorldService } from './world/world.service'
+import { EntityService } from './entity/entity.service'
+import { PhysicsService } from './physics/physics.service'
+import { RenderService } from './render/render.service'
+import { InputService } from './input/input.service'
+import { NetworkService } from './network/network.service'
+
 // ===== CORE SERVICE EXPORTS =====
 
 // Service interfaces and implementations
@@ -31,7 +39,7 @@ export type {
   WorldLoadResult,
   WorldTickResult,
   WorldStats,
-  RaycastResult,
+  RaycastResult as WorldRaycastResult,
 } from './world/world.service'
 
 export { EntityService } from './entity/entity.service'

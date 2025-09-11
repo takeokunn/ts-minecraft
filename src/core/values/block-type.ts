@@ -1,5 +1,7 @@
 import * as S from '@effect/schema/Schema'
-import { Data, Match } from 'effect'
+import { Match } from 'effect'
+
+type Struct<T> = T
 
 // Define all block types as a const array for type safety
 export const blockTypes = [
@@ -15,8 +17,11 @@ export const blockTypes = [
   'iron_ore',
   'coal_ore',
   'log',
+  'oakLog',
   'leaves',
   'glass',
+  'plank',
+  'brick',
   'lapis_ore',
   'lapis_block',
   'sandstone',
@@ -61,7 +66,7 @@ export const BlockPropertiesSchema = S.Struct({
   flammable: S.Boolean,
 })
 
-export type BlockProperties = Data.Struct<{
+export type BlockProperties = Struct<{
   readonly isSolid: boolean
   readonly isTransparent: boolean
   readonly isFluid: boolean
@@ -70,7 +75,7 @@ export type BlockProperties = Data.Struct<{
   readonly flammable: boolean
 }>
 
-export const BlockProperties = Data.struct<BlockProperties>()
+export const BlockProperties = Struct<BlockProperties>()
 
 export const defaultBlockProperties: BlockProperties = BlockProperties({
   isSolid: true,
@@ -87,12 +92,12 @@ export const TextureCoordinatesSchema = S.Struct({
   v: S.Number.pipe(S.finite(), S.between(0, 16)),
 })
 
-export type TextureCoordinates = Data.Struct<{
+export type TextureCoordinates = Struct<{
   readonly u: number
   readonly v: number
 }>
 
-export const TextureCoordinates = Data.struct<TextureCoordinates>()
+export const TextureCoordinates = Struct<TextureCoordinates>()
 
 export const makeTextureCoordinates = (u: number, v: number): TextureCoordinates =>
   TextureCoordinates({ u, v })
@@ -106,7 +111,7 @@ export const BlockTexturesSchema = S.Struct({
   west: TextureCoordinatesSchema,
 })
 
-export type BlockTextures = Data.Struct<{
+export type BlockTextures = Struct<{
   readonly top: TextureCoordinates
   readonly bottom: TextureCoordinates
   readonly north: TextureCoordinates
@@ -115,7 +120,7 @@ export type BlockTextures = Data.Struct<{
   readonly west: TextureCoordinates
 }>
 
-export const BlockTextures = Data.struct<BlockTextures>()
+export const BlockTextures = Struct<BlockTextures>()
 
 export const uniformBlockTextures = (coords: TextureCoordinates): BlockTextures =>
   BlockTextures({
@@ -134,13 +139,13 @@ export const BlockDefinitionSchema = S.Struct({
   textures: BlockTexturesSchema,
 })
 
-export type BlockDefinition = Data.Struct<{
+export type BlockDefinition = Struct<{
   readonly type: BlockType
   readonly properties: BlockProperties
   readonly textures: BlockTextures
 }>
 
-export const BlockDefinition = Data.struct<BlockDefinition>()
+export const BlockDefinition = Struct<BlockDefinition>()
 
 export const makeBlockDefinition = (
   type: BlockType,

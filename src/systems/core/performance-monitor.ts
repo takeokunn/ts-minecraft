@@ -11,10 +11,10 @@
  * - Historical performance data
  */
 
-import { Effect, pipe, Duration, Ref, HashMap, Array as EffArray, Option } from 'effect'
+import { Option } from 'effect'
 import { SystemConfig, SystemContext } from './scheduler'
-import { SystemCommunicationHub } from './system-communication'
-import { QueryProfiler } from '@/core/queries'
+
+
 
 /**
  * Performance metric types

@@ -173,6 +173,9 @@ export default defineConfig(({ mode }) => {
             if (id.includes('node_modules')) {
               return 'vendor'
             }
+            
+            // Default fallback
+            return undefined
           } : {
             // Development: simpler chunking
             'effect-core': ['effect', '@effect/platform', '@effect/schema'],
@@ -265,23 +268,23 @@ export default defineConfig(({ mode }) => {
     },
 
     // 実験的機能
-    experimental: {
-      renderBuiltUrl: isProd ? (filename) => {
+    experimental: isProd ? {
+      renderBuiltUrl: (filename: string) => {
         return `/${filename}`
-      } : undefined
-    },
+      }
+    } : {},
 
     // テスト設定（CI/CD最適化版）
     test: {
-    include: ['src/__test__/*.spec.ts', 'src/**/*.spec.ts', 'scripts/**/*.spec.ts'],
-    environment: 'jsdom',
-    globals: true,
-    testTimeout: 10000,
-    hookTimeout: 10000,
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html', 'lcov', 'json-summary'],
-      exclude: [
+      include: ['src/__test__/*.spec.ts', 'src/**/*.spec.ts', 'scripts/**/*.spec.ts'],
+      environment: 'jsdom',
+      globals: true,
+      testTimeout: 10000,
+      hookTimeout: 10000,
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'json', 'html', 'lcov', 'json-summary'],
+        exclude: [
         'src/index.ts', 
         'vite.config*.ts', 
         'src/@types/*', 
@@ -312,32 +315,33 @@ export default defineConfig(({ mode }) => {
       all: true,
       clean: true,
       skipFull: false,
-      reportsDirectory: './coverage'
-    },
-    deps: {
-      optimizer: {
-        web: {
-          include: ['effect', '@effect/platform', '@effect/schema', 'three']
+      reportsDirectory: './coverage',
+      },
+      deps: {
+        optimizer: {
+          web: {
+            include: ['effect', '@effect/platform', '@effect/schema', 'three']
+          },
         },
       },
-    },
-    setupFiles: ['./src/test-utils/setup/setup.ts'],
-    pool: 'threads',
-    poolOptions: {
-      threads: {
-        singleThread: false,
-        useAtomics: true
+      setupFiles: ['./src/test-utils/setup/setup.ts'],
+      pool: 'threads',
+      poolOptions: {
+        threads: {
+          singleThread: false,
+          useAtomics: true
+        }
+      },
+      // CI環境での並列実行設定
+      maxConcurrency: process.env.CI ? 4 : 1,
+      // リポーターの設定
+      reporters: process.env.CI 
+        ? ['verbose', 'json', 'junit']
+        : ['verbose'],
+      outputFile: {
+        json: './test-results.json',
+        junit: './test-results.xml'
       }
-    },
-    // CI環境での並列実行設定
-    maxConcurrency: process.env.CI ? 4 : undefined,
-    // リポーターの設定
-    reporters: process.env.CI 
-      ? ['verbose', 'json', 'junit']
-      : ['verbose'],
-    outputFile: {
-      json: './test-results.json',
-      junit: './test-results.xml'
     }
   }
 })

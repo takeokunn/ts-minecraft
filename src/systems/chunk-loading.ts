@@ -1,4 +1,4 @@
-import { Effect, Option, HashMap, Ref, ReadonlyArray } from 'effect'
+import { Effect, Option, HashMap, ReadonlyArray } from 'effect'
 import { EntityId } from '@/core/entities/entity'
 import { queries } from '@/core/queries'
 import { CHUNK_SIZE, RENDER_DISTANCE } from '@/domain/world-constants'

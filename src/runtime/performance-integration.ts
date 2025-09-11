@@ -1,4 +1,4 @@
-import { Effect, Ref, Schedule, Duration, pipe } from 'effect'
+import { Effect, Ref, Duration } from 'effect'
 import { Context } from 'effect'
 import { 
   Profile, 
@@ -10,7 +10,7 @@ import {
   startPerformanceMonitoring,
   defaultPerformanceConfig
 } from '@/core/performance'
-import { GameLoopConfig } from './loop'
+
 import { EnhancedMemoryPoolService } from './memory-pools-enhanced'
 import { StartupOptimizerService } from './startup-optimizer'
 import { LatencyOptimizerService } from './latency-optimizer'
@@ -78,7 +78,7 @@ export interface PerformanceIntegration {
   readonly runPerformanceBenchmark: (durationMs: number) => Effect.Effect<{
     baseline: RuntimePerformanceMetrics
     optimized: RuntimePerformanceMetrics
-    improvement: Record<string, number>
+    improvement: Record<string, number, never>
   }, never, never>
   readonly startContinuousMonitoring: () => Effect.Effect<void, never, never>
   readonly stopContinuousMonitoring: () => Effect.Effect<void, never, never>
@@ -155,7 +155,6 @@ export const createPerformanceIntegration = (): Effect.Effect<PerformanceIntegra
           }
           
           if (startupService._tag === 'Some') {
-            const progress = yield* startupService.value.getProgress()
             startupMetrics = {
               lastStartupTime: 2000, // Placeholder
               serviceInitializationTimes: {},

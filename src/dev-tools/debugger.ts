@@ -4,7 +4,7 @@ import { PerformanceProfiler } from './performance-profiler'
 import { DevConsole } from './dev-console'
 import { EntityInspector } from './entity-inspector'
 import { Effect } from 'effect'
-import { PerformanceDashboard, FPSCounter, Metrics, MemoryDetector } from '../core/performance'
+import { PerformanceDashboard } from '../core/performance'
 
 export interface DebuggerState {
   showOverlay: boolean
@@ -310,12 +310,13 @@ export class GameDebugger {
     const entityCount = this.getEntityCount()
     
     // Get real-time performance metrics
-    Effect.runSync(
-      Effect.gen(() => {
-        return PerformanceDashboard.getRealTimeMetrics()
+    const metrics = Effect.runSync(
+      Effect.gen(function* () {
+        return yield* PerformanceDashboard.getRealTimeMetrics()
       })
-    ).then(metrics => {
-      content.innerHTML = `
+    ) as { fps: number; memoryUsage: number; memoryPercentage: number; activeLeaks: number; profiledOperations: number }
+    
+    content.innerHTML = `
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 10px;">
           <div><strong>Frame:</strong> ${this.currentFrame}</div>
           <div><strong>Status:</strong> ${this.isPaused ? '⏸️ Paused' : '▶️ Running'}</div>
@@ -334,17 +335,6 @@ export class GameDebugger {
           F12: Toggle | Ctrl+Shift+P: Pause | Ctrl+Shift+S: Step | Ctrl+Shift+R: Record
         </div>
       `
-    }).catch(() => {
-      // Fallback for when performance system is not available
-      content.innerHTML = `
-        <div><strong>Frame:</strong> ${this.currentFrame}</div>
-        <div><strong>FPS:</strong> ${stats.fps.toFixed(1)}</div>
-        <div><strong>Frame Time:</strong> ${stats.frameTime.toFixed(2)}ms</div>
-        <div><strong>Memory:</strong> ${stats.memoryUsage.toFixed(1)}MB</div>
-        <div><strong>Entities:</strong> ${entityCount}</div>
-        <div><strong>Status:</strong> ${this.isPaused ? '⏸️ Paused' : '▶️ Running'}</div>
-      `
-    })
   }
 
   private getEntityCount(): number {
@@ -395,20 +385,13 @@ export class GameDebugger {
     const content = this.detailsPanel.querySelector('#details-content')
     if (!content) return
 
-    Effect.runSync(
-      Effect.gen(() => {
-        return PerformanceDashboard.generateReport()
+    const report = Effect.runSync(
+      Effect.gen(function* () {
+        return yield* PerformanceDashboard.generateReport()
       })
-    ).then(report => {
-      content.innerHTML = `<pre style="font-size: 9px; line-height: 1.2; white-space: pre-wrap;">${report}</pre>`
-    }).catch(() => {
-      content.innerHTML = `
-        <div>Performance system not available</div>
-        <div>Watched Entities: ${Array.from(this.state.watchedEntities).join(', ')}</div>
-        <div>Breakpoints: ${this.breakpoints.size}</div>
-        <div>Recording: ${this.state.recordingSession ? 'Active' : 'Inactive'}</div>
-      `
-    })
+    ) as string
+    
+    content.innerHTML = `<pre style="font-size: 9px; line-height: 1.2; white-space: pre-wrap;">${report}</pre>`
   }
 
   // Breakpoint system
@@ -423,7 +406,7 @@ export class GameDebugger {
   }
 
   private checkBreakpoints(): void {
-    this.breakpoints.forEach((breakpoint, id) => {
+    this.breakpoints.forEach((breakpoint) => {
       if (breakpoint.enabled && this.evaluateBreakpointCondition(breakpoint)) {
         breakpoint.hitCount++
         this.onBreakpointHit(breakpoint)
@@ -431,7 +414,7 @@ export class GameDebugger {
     })
   }
 
-  private evaluateBreakpointCondition(breakpoint: DebugBreakpoint): boolean {
+  private evaluateBreakpointCondition(_breakpoint: DebugBreakpoint): boolean {
     // Implement condition evaluation logic
     return false // Placeholder
   }

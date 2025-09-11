@@ -16,8 +16,8 @@ export const RaycastLive = Layer.effect(
         return Option.fromNullable(intersects[0])
       })
 
-    return Raycast.of({
+    return {
       raycast,
-    })
+    }
   }),
 )

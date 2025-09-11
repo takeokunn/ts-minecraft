@@ -1,4 +1,4 @@
-import { Effect, Ref, Queue, Option, Array } from 'effect'
+import { Effect, Array } from 'effect'
 import { EntityId } from '@/core/entities/entity'
 import { ComponentName, ComponentOfName } from '@/core/components'
 import { EffectObjectPool, createEffectPool, PoolableObject } from '@/core/performance'
@@ -132,8 +132,8 @@ export class ManagedParticle implements PoolableParticle {
   private position = { x: 0, y: 0, z: 0 }
   private velocity = { x: 0, y: 0, z: 0 }
   private life = 0
-  private maxLife = 0
-  private type = ''
+  private _maxLife = 0
+  private _type = ''
   
   initialize(
     id: string,
@@ -146,8 +146,8 @@ export class ManagedParticle implements PoolableParticle {
     this.position = { ...position }
     this.velocity = { ...velocity }
     this.life = life
-    this.maxLife = life
-    this.type = type
+    this._maxLife = life
+    this._type = type
     return this
   }
   
@@ -268,7 +268,7 @@ export interface MemoryPoolManager {
     componentName: T,
     entityId: EntityId,
     data: Partial<ComponentOfName<T>>
-  ) => Effect.Effect<PoolableComponent<T>, never, never>
+  ) => Effect.Effect<PoolableComponent<T, never, never>, never, never>
   readonly releaseComponent: <T extends ComponentName>(
     component: PoolableComponent<T>
   ) => Effect.Effect<void, never, never>
@@ -295,7 +295,7 @@ export interface MemoryPoolManager {
   // Pool statistics and management
   readonly getPoolStats: () => Effect.Effect<{
     entities: { available: number; inUse: number; total: number }
-    components: Map<ComponentName, { available: number; inUse: number; total: number }>
+    components: Map<ComponentName, { available: number; inUse: number; total: number }, never>
     particles: { available: number; inUse: number; total: number }
     chunkData: { available: number; inUse: number; total: number }
   }, never, never>

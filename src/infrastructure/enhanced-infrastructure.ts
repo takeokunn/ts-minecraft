@@ -30,10 +30,6 @@ import { ShaderManagerLive } from './shader-manager'
 import { TextureManagerLive } from './texture-manager'
 
 // Services
-import { World } from '@/runtime/services'
-import { SpatialGrid } from '@/runtime/services'
-import { MaterialManager } from '@/runtime/services'
-import { TerrainGenerator } from '@/services/world/terrain-generator.service'
 
 // --- Infrastructure Configuration ---
 
@@ -200,13 +196,13 @@ export const EnhancedInfrastructureLayer = Layer.mergeAll(
 // --- Infrastructure Service ---
 
 export interface InfrastructureService {
-  initialize: () => Effect.Effect<void>
-  getStatus: () => Effect.Effect<InfrastructureStatus>
-  optimizePerformance: () => Effect.Effect<void>
-  enableWebGPU: () => Effect.Effect<boolean>
-  enableWASM: () => Effect.Effect<boolean>
-  exportMetrics: () => Effect.Effect<string>
-  shutdown: () => Effect.Effect<void>
+  initialize: () => Effect.Effect<void, never, never>
+  getStatus: () => Effect.Effect<InfrastructureStatus, never, never>
+  optimizePerformance: () => Effect.Effect<void, never, never>
+  enableWebGPU: () => Effect.Effect<boolean, never, never>
+  enableWASM: () => Effect.Effect<boolean, never, never>
+  exportMetrics: () => Effect.Effect<string, never, never>
+  shutdown: () => Effect.Effect<void, never, never>
 }
 
 export const InfrastructureService = Effect.Tag<InfrastructureService>('InfrastructureService')
@@ -215,12 +211,8 @@ export const InfrastructureServiceLive = Layer.effect(
   InfrastructureService,
   Effect.gen(function* (_) {
     // Get all infrastructure services
-    const world = yield* _(World)
-    const spatialGrid = yield* _(SpatialGrid)
-    const materialManager = yield* _(MaterialManager)
-    const terrainGenerator = yield* _(TerrainGenerator)
     
-    return InfrastructureService.of({
+    return {
       initialize: () =>
         Effect.gen(function* () {
           console.log('🚀 Initializing Enhanced Infrastructure Layer...')
@@ -396,7 +388,8 @@ export const InfrastructureServiceLive = Layer.effect(
 
       exportMetrics: () =>
         Effect.gen(function* () {
-          const status = yield* _(Effect.serviceRef.getStatus())
+          const infrastructure = yield* Effect.Service(InfrastructureService)
+          const status = yield* infrastructure.getStatus()
           
           const metricsReport = {
             timestamp: new Date().toISOString(),
@@ -404,14 +397,14 @@ export const InfrastructureServiceLive = Layer.effect(
             status,
             summary: {
               componentsEnabled: Object.values(INFRASTRUCTURE_CONFIG).filter(Boolean).length,
-              memoryUsage: status.performance.memoryUsage,
-              currentFPS: status.performance.currentFPS,
-              totalEntities: status.worldOptimization.metrics.totalEntities,
-              loadedChunks: status.worldOptimization.metrics.loadedChunks,
-              activeMaterials: status.materialManager.metrics.totalMaterials,
-              generatedChunks: status.terrainGenerator.metrics.chunksGenerated,
-              activeWorkers: status.workers.metrics.activeWorkers,
-              wasmModules: status.wasm.metrics.totalModules,
+              memoryUsage: (status as any).performance.memoryUsage,
+              currentFPS: (status as any).performance.currentFPS,
+              totalEntities: (status as any).worldOptimization.metrics.totalEntities,
+              loadedChunks: (status as any).worldOptimization.metrics.loadedChunks,
+              activeMaterials: (status as any).materialManager.metrics.totalMaterials,
+              generatedChunks: (status as any).terrainGenerator.metrics.chunksGenerated,
+              activeWorkers: (status as any).workers.metrics.activeWorkers,
+              wasmModules: (status as any).wasm.metrics.totalModules,
             }
           }
           
@@ -441,7 +434,7 @@ export const InfrastructureServiceLive = Layer.effect(
           
           console.log('✅ Enhanced Infrastructure Layer shut down successfully')
         }),
-    })
+    }
   })
 ).pipe(
   Layer.provide(EnhancedInfrastructureLayer)

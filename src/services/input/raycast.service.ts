@@ -22,6 +22,6 @@ export class Raycast extends Context.Tag('Raycast')<
       origin: Position,
       direction: { x: number; y: number; z: number },
       maxDistance: number
-    ) => Effect.Effect<Option.Option<RayHit>>
+    ) => Effect.Effect<Option.Option<RayHit, never, never>>
   }
 >() {}

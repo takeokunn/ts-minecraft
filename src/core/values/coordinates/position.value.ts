@@ -1,5 +1,6 @@
-import { Data, pipe } from 'effect'
 import * as S from "@effect/schema/Schema"
+
+type Struct<T> = T
 
 /**
  * Position Value Object - Represents a 3D position in the world
@@ -18,15 +19,15 @@ export const PositionSchema = S.Struct({
   z: S.Number.pipe(S.finite()),
 })
 
-// Type definition using Data.Struct for immutability
-export type Position = Data.Struct<{
+// Type definition using Struct for immutability
+export type Position = Struct<{
   readonly x: number
   readonly y: number
   readonly z: number
 }>
 
 // Factory function
-export const Position = Data.struct<Position>()
+export const Position = Struct<Position>()
 
 // Create a position with validation
 export const create = (x: number, y: number, z: number): Position =>

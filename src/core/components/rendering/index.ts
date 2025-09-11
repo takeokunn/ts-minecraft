@@ -9,7 +9,7 @@
  * - Camera system with frustum culling
  */
 
-import * as S from "@effect/schema/Schema"
+import * as S from '@effect/schema/Schema'
 import * as Data from 'effect/Data'
 import { RegisterComponent } from '../registry'
 
@@ -115,7 +115,7 @@ export const MaterialComponent = RegisterComponent({
     // Shader program reference
     shaderId: S.optional(S.String),
     // Custom uniforms
-    uniforms: S.optional(S.Record(S.String, S.Union(S.Number, S.Array(S.Number)))),
+    uniforms: S.optional(S.Record({ key: S.String, value: S.Union(S.Number, S.Array(S.Number)) })),
   })
 )
 

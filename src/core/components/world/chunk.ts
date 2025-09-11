@@ -1,6 +1,6 @@
-import * as S from "@effect/schema/Schema"
-import { ChunkX, ChunkZ } from '@/core/common'
-import { BlockTypeSchema } from '@/core/values/block-type'
+import * as S from '@effect/schema/Schema'
+import { ChunkX, ChunkZ } from '../../common'
+import { BlockTypeSchema } from '../../values/block-type'
 
 /**
  * Chunk Component - Represents a chunk of terrain blocks
@@ -22,3 +22,6 @@ export const ChunkLoaderStateComponent = S.Struct({
 })
 
 export type ChunkLoaderStateComponent = S.Schema.Type<typeof ChunkLoaderStateComponent>
+
+// Aliases for backward compatibility
+export { ChunkComponent as Chunk }

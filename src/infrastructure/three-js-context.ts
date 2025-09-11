@@ -56,6 +56,6 @@ export const ThreeJsContextLive = Layer.scoped(
       ),
     )
 
-    return ThreeJsContext.of({ renderer, scene, camera })
+    return { renderer, scene, camera }
   }),
 )

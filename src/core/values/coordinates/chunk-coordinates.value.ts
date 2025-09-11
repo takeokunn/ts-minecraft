@@ -1,5 +1,6 @@
-import { Data, pipe } from 'effect'
 import * as S from "@effect/schema/Schema"
+
+type Struct<T> = T
 import { Position, CHUNK_SIZE } from './position.value'
 
 /**
@@ -13,14 +14,14 @@ export const ChunkCoordinatesSchema = S.Struct({
   z: S.Int,
 })
 
-// Type definition using Data.Struct for immutability
-export type ChunkCoordinates = Data.Struct<{
+// Type definition using Struct for immutability
+export type ChunkCoordinates = Struct<{
   readonly x: number
   readonly z: number
 }>
 
 // Factory function
-export const ChunkCoordinates = Data.struct<ChunkCoordinates>()
+export const ChunkCoordinates = Struct<ChunkCoordinates>()
 
 // Create chunk coordinates
 export const create = (x: number, z: number): ChunkCoordinates =>

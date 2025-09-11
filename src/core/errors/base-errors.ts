@@ -1,5 +1,8 @@
-import { Data } from 'effect'
-import { defineError, type BaseErrorData, type RecoveryStrategy } from './generator'
+import { defineError, type BaseErrorData } from './generator'
+
+type TaggedError<Tag extends string, Value> = {
+  readonly _tag: Tag
+} & Value
 
 /**
  * Root error class for all game-related errors
@@ -104,17 +107,18 @@ export const InputError = defineError<{
  * Utility function to create error hierarchy chain
  */
 export function createErrorChain(
-  errors: Array<Data.TaggedError<string, BaseErrorData>>
-): Data.TaggedError<string, BaseErrorData & { chain: Array<string> }> {
+  errors: Array<TaggedError<string, BaseErrorData>>
+): TaggedError<string, BaseErrorData & { chain: Array<string> }> {
   const chain = errors.map(error => error._tag)
-  const rootError = errors[0]
   
-  return defineError<{ chain: Array<string> }>(
+  const ErrorChainConstructor = defineError<{ chain: Array<string> }>(
     'ErrorChain',
     GameError,
     'terminate',
     'critical'
-  )({ chain }, { 
+  )
+  
+  return new ErrorChainConstructor({ chain }, { 
     metadata: { 
       originalErrors: errors.map(e => ({ type: e._tag, message: JSON.stringify(e) }))
     }
@@ -125,7 +129,7 @@ export function createErrorChain(
  * Error hierarchy validation
  */
 export function validateErrorHierarchy(
-  error: Data.TaggedError<string, BaseErrorData>
+  error: TaggedError<string, BaseErrorData>
 ): boolean {
   // Check if error has proper context
   if (!error.context) return false
@@ -146,7 +150,7 @@ export function validateErrorHierarchy(
  * Get error ancestry chain
  */
 export function getErrorAncestry(
-  error: Data.TaggedError<string, BaseErrorData>
+  error: TaggedError<string, BaseErrorData>
 ): string[] {
   const ancestry: string[] = [error._tag]
   

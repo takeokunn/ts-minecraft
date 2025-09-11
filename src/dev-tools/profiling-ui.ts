@@ -1,6 +1,6 @@
 import { PerformanceProfiler } from './performance-profiler'
 import { Effect } from 'effect'
-import { PerformanceDashboard, FPSCounter, Metrics, MemoryDetector } from '../core/performance'
+import { PerformanceDashboard } from '../core/performance'
 
 export interface ProfilingUIConfig {
   updateInterval: number
@@ -549,7 +549,7 @@ export class ProfilingUI {
         Effect.gen(() => {
           return PerformanceDashboard.getRealTimeMetrics()
         })
-      ).then(metrics => {
+      ).then((metrics: { fps: number; memoryUsage: number }) => {
         fps = metrics.fps
         memory = metrics.memoryUsage / 1024 / 1024 // Convert to MB
       }).catch(() => {
@@ -776,4 +776,9 @@ export class ProfilingUI {
     this.canvases.clear()
     this.contexts.clear()
   }
+}
+
+// Factory function for compatibility
+export const createProfilingUI = (config?: Partial<ProfilingUIConfig>): ProfilingUI => {
+  return new ProfilingUI(config)
 }

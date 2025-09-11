@@ -6,9 +6,9 @@ import { Context, Effect } from 'effect'
 export class Clock extends Context.Tag('Clock')<
   Clock,
   {
-    readonly getDelta: () => Effect.Effect<number>
-    readonly getElapsedTime: () => Effect.Effect<number>
-    readonly start: () => Effect.Effect<void>
-    readonly stop: () => Effect.Effect<void>
+    readonly getDelta: () => Effect.Effect<number, never, never>
+    readonly getElapsedTime: () => Effect.Effect<number, never, never>
+    readonly start: () => Effect.Effect<void, never, never>
+    readonly stop: () => Effect.Effect<void, never, never>
   }
 >() {}

@@ -1,7 +1,7 @@
 import { defineError } from './generator'
 import { ComponentError } from './base-errors'
-import type { EntityId } from '@/core/values/entity-id'
-import type { ComponentName } from '@/core/components'
+import type { EntityId } from '../values/entity-id'
+import type { ComponentName } from '../components/index'
 
 /**
  * Component not found on entity

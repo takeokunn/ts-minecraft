@@ -1,4 +1,4 @@
-import { Effect, HashMap, HashSet, Layer, Ref, Option, ReadonlyArray, Array as EffectArray } from 'effect'
+import { Effect, HashMap, HashSet, Layer, Ref, Option, Array as _EffectArray } from 'effect'
 import { pipe } from 'effect/Function'
 import type { EntityId } from '@/core/entities/entity'
 import type { AABB } from '@/domain/geometry'
@@ -61,7 +61,7 @@ const cellPool = new ObjectPool<SpatialCell>(
     cellKey: '',
     lastAccessed: 0,
   }),
-  (cell) => {
+  (cell: SpatialCell) => {
     cell.entities.clear()
     cell.lastAccessed = 0
     return cell
@@ -118,7 +118,7 @@ const forEachCellInAABB = (aabb: AABB, callback: (key: string, x: number, y: num
 /**
  * Create octree node for hierarchical queries
  */
-const createOctant = (bounds: AABB, depth: number, parent: SpatialOctant | null): SpatialOctant => ({
+const _createOctant = (bounds: AABB, depth: number, parent: SpatialOctant | null): SpatialOctant => ({
   bounds,
   entities: new Set(),
   children: null,
@@ -129,23 +129,24 @@ const createOctant = (bounds: AABB, depth: number, parent: SpatialOctant | null)
 /**
  * Split octant when entity limit is exceeded
  */
-const splitOctant = (octant: SpatialOctant): SpatialOctant[] => {
+const _splitOctant = (octant: SpatialOctant): SpatialOctant[] => {
   const { bounds } = octant
   const midX = (bounds.minX + bounds.maxX) / 2
   const midY = (bounds.minY + bounds.maxY) / 2
   const midZ = (bounds.minZ + bounds.maxZ) / 2
 
   return [
-    createOctant({ minX: bounds.minX, minY: bounds.minY, minZ: bounds.minZ, maxX: midX, maxY: midY, maxZ: midZ }, octant.depth + 1, octant),
-    createOctant({ minX: midX, minY: bounds.minY, minZ: bounds.minZ, maxX: bounds.maxX, maxY: midY, maxZ: midZ }, octant.depth + 1, octant),
-    createOctant({ minX: bounds.minX, minY: midY, minZ: bounds.minZ, maxX: midX, maxY: bounds.maxY, maxZ: midZ }, octant.depth + 1, octant),
-    createOctant({ minX: midX, minY: midY, minZ: bounds.minZ, maxX: bounds.maxX, maxY: bounds.maxY, maxZ: midZ }, octant.depth + 1, octant),
-    createOctant({ minX: bounds.minX, minY: bounds.minY, minZ: midZ, maxX: midX, maxY: midY, maxZ: bounds.maxZ }, octant.depth + 1, octant),
-    createOctant({ minX: midX, minY: bounds.minY, minZ: midZ, maxX: bounds.maxX, maxY: midY, maxZ: bounds.maxZ }, octant.depth + 1, octant),
-    createOctant({ minX: bounds.minX, minY: midY, minZ: midZ, maxX: midX, maxY: bounds.maxY, maxZ: bounds.maxZ }, octant.depth + 1, octant),
-    createOctant({ minX: midX, minY: midY, minZ: midZ, maxX: bounds.maxX, maxY: bounds.maxY, maxZ: bounds.maxZ }, octant.depth + 1, octant),
+    _createOctant({ minX: bounds.minX, minY: bounds.minY, minZ: bounds.minZ, maxX: midX, maxY: midY, maxZ: midZ }, octant.depth + 1, octant),
+    _createOctant({ minX: midX, minY: bounds.minY, minZ: bounds.minZ, maxX: bounds.maxX, maxY: midY, maxZ: midZ }, octant.depth + 1, octant),
+    _createOctant({ minX: bounds.minX, minY: midY, minZ: bounds.minZ, maxX: midX, maxY: bounds.maxY, maxZ: midZ }, octant.depth + 1, octant),
+    _createOctant({ minX: midX, minY: midY, minZ: bounds.minZ, maxX: bounds.maxX, maxY: bounds.maxY, maxZ: midZ }, octant.depth + 1, octant),
+    _createOctant({ minX: bounds.minX, minY: bounds.minY, minZ: midZ, maxX: midX, maxY: midY, maxZ: bounds.maxZ }, octant.depth + 1, octant),
+    _createOctant({ minX: midX, minY: bounds.minY, minZ: midZ, maxX: bounds.maxX, maxY: midY, maxZ: bounds.maxZ }, octant.depth + 1, octant),
+    _createOctant({ minX: bounds.minX, minY: midY, minZ: midZ, maxX: midX, maxY: bounds.maxY, maxZ: bounds.maxZ }, octant.depth + 1, octant),
+    _createOctant({ minX: midX, minY: midY, minZ: midZ, maxX: bounds.maxX, maxY: bounds.maxY, maxZ: bounds.maxZ }, octant.depth + 1, octant),
   ]
 }
+
 
 /**
  * Optimized pure functions with performance improvements
@@ -313,7 +314,6 @@ const addPure = (grid: HashMap.HashMap<string, HashSet.HashSet<EntityId>>, entit
   return newGrid
 }
 
-const queryPure = (grid: HashMap.HashMap<string, HashSet.HashSet<EntityId>>, aabb: AABB): ReadonlyArray<EntityId> => {
   let potentialCollisions = HashSet.empty<EntityId>()
   forEachCellInAABB(aabb, (key) => {
     const cell = HashMap.get(grid, key)
@@ -322,7 +322,7 @@ const queryPure = (grid: HashMap.HashMap<string, HashSet.HashSet<EntityId>>, aab
     }
   })
   return Array.from(potentialCollisions)
-}
+
 
 // --- Enhanced Effect Service ---
 
@@ -359,7 +359,7 @@ export const SpatialGridLive = Layer.effect(
 
     yield* startOptimization()
 
-    return SpatialGrid.of({
+    return {
       // Legacy compatibility methods
       clear: () => 
         Effect.all([
@@ -418,7 +418,7 @@ export const SpatialGridLive = Layer.effect(
         ),
 
       // Frustum culling support
-      queryFrustum: (frustumPlanes: ReadonlyArray<{ normal: { x: number; y: number; z: number }; distance: number }>) => 
+      queryFrustum: () => 
         Ref.get(gridRef).pipe(
           Effect.map((state) => {
             // Simplified frustum culling - could be enhanced with actual plane-AABB tests
@@ -431,7 +431,7 @@ export const SpatialGridLive = Layer.effect(
             return Array.from(allEntities)
           })
         ),
-    })
+    }
   }),
 )
 

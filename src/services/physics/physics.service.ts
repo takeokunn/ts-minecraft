@@ -19,22 +19,20 @@ import * as Array from 'effect/Array'
 import * as Option from 'effect/Option'
 import * as Set from 'effect/Set'
 import * as Ref from 'effect/Ref'
-import * as Schedule from 'effect/Schedule'
+import * as Ref from 'effect/Ref'
+
 
 // Core imports
 import { EntityId } from '../../core/entities'
-import { Position } from '../../core/values'
+
 import { AABB } from '../../core/values/geometry'
 import {
   CollisionDetectionError,
   PhysicsSimulationError,
   RigidBodyError,
   GravityError,
-  VelocityLimitError,
   ConstraintViolationError,
   RaycastError,
-  PhysicsEngineError,
-  CollisionShapeError,
   PhysicsMaterialError,
 } from '../../core/errors'
 
@@ -42,46 +40,46 @@ import {
 
 export interface PhysicsServiceInterface {
   // Rigid body management
-  readonly createRigidBody: (entityId: EntityId, bodyDef: RigidBodyDefinition) => Effect.Effect<RigidBodyId, RigidBodyError>
-  readonly destroyRigidBody: (bodyId: RigidBodyId) => Effect.Effect<void, RigidBodyError>
-  readonly getRigidBody: (bodyId: RigidBodyId) => Effect.Effect<RigidBody, RigidBodyError>
-  readonly updateRigidBody: (bodyId: RigidBodyId, updates: Partial<RigidBodyState>) => Effect.Effect<void, RigidBodyError>
+  readonly createRigidBody: (entityId: EntityId, bodyDef: RigidBodyDefinition) => Effect.Effect<RigidBodyId, typeof RigidBodyError, never>
+  readonly destroyRigidBody: (bodyId: RigidBodyId) => Effect.Effect<void, typeof RigidBodyError, never>
+  readonly getRigidBody: (bodyId: RigidBodyId) => Effect.Effect<RigidBody, typeof RigidBodyError, never>
+  readonly updateRigidBody: (bodyId: RigidBodyId, updates: Partial<RigidBodyState>) => Effect.Effect<void, typeof RigidBodyError, never>
 
   // Physics simulation
-  readonly step: (deltaTime: number) => Effect.Effect<PhysicsStepResult, PhysicsSimulationError>
-  readonly setGravity: (gravity: Vector3) => Effect.Effect<void, GravityError>
-  readonly getGravity: () => Effect.Effect<Vector3, never>
-  readonly setTimeScale: (scale: number) => Effect.Effect<void, PhysicsSimulationError>
+  readonly step: (deltaTime: number) => Effect.Effect<PhysicsStepResult, typeof PhysicsSimulationError, never>
+  readonly setGravity: (gravity: Vector3) => Effect.Effect<void, typeof GravityError, never>
+  readonly getGravity: () => Effect.Effect<Vector3, never, never>
+  readonly setTimeScale: (scale: number) => Effect.Effect<void, typeof PhysicsSimulationError, never>
 
   // Collision detection
-  readonly checkCollisions: () => Effect.Effect<readonly CollisionPair[], CollisionDetectionError>
-  readonly testCollision: (bodyA: RigidBodyId, bodyB: RigidBodyId) => Effect.Effect<CollisionResult, CollisionDetectionError>
-  readonly getCollisionPairs: (bodyId: RigidBodyId) => Effect.Effect<readonly RigidBodyId[], never>
+  readonly checkCollisions: () => Effect.Effect<readonly CollisionPair[], typeof CollisionDetectionError, never>
+  readonly testCollision: (bodyA: RigidBodyId, bodyB: RigidBodyId) => Effect.Effect<CollisionResult, typeof CollisionDetectionError, never>
+  readonly getCollisionPairs: (bodyId: RigidBodyId) => Effect.Effect<readonly RigidBodyId[], never, never>
 
   // Ray casting
-  readonly raycast: (ray: Ray, options?: RaycastOptions) => Effect.Effect<RaycastResult, RaycastError>
-  readonly raycastAll: (ray: Ray, options?: RaycastOptions) => Effect.Effect<readonly RaycastHit[], RaycastError>
-  readonly sphereCast: (sphere: Sphere, direction: Vector3, maxDistance: number) => Effect.Effect<SpherecastResult, RaycastError>
+  readonly raycast: (ray: Ray, options?: RaycastOptions) => Effect.Effect<RaycastResult, typeof RaycastError, never>
+  readonly raycastAll: (ray: Ray, options?: RaycastOptions) => Effect.Effect<readonly RaycastHit[], typeof RaycastError, never>
+  readonly sphereCast: (sphere: Sphere, direction: Vector3, maxDistance: number) => Effect.Effect<SpherecastResult, typeof RaycastError, never>
 
   // Shape queries
-  readonly overlapSphere: (sphere: Sphere) => Effect.Effect<readonly RigidBodyId[], never>
-  readonly overlapBox: (box: OrientedBox) => Effect.Effect<readonly RigidBodyId[], never>
-  readonly getClosestPoint: (point: Vector3, bodyId: RigidBodyId) => Effect.Effect<Vector3, RigidBodyError>
+  readonly overlapSphere: (sphere: Sphere) => Effect.Effect<readonly RigidBodyId[], never, never>
+  readonly overlapBox: (box: OrientedBox) => Effect.Effect<readonly RigidBodyId[], never, never>
+  readonly getClosestPoint: (point: Vector3, bodyId: RigidBodyId) => Effect.Effect<Vector3, typeof RigidBodyError, never>
 
   // Constraints and joints
-  readonly createConstraint: (constraintDef: ConstraintDefinition) => Effect.Effect<ConstraintId, ConstraintViolationError>
-  readonly destroyConstraint: (constraintId: ConstraintId) => Effect.Effect<void, ConstraintViolationError>
-  readonly updateConstraint: (constraintId: ConstraintId, params: ConstraintParameters) => Effect.Effect<void, ConstraintViolationError>
+  readonly createConstraint: (constraintDef: ConstraintDefinition) => Effect.Effect<ConstraintId, typeof ConstraintViolationError, never>
+  readonly destroyConstraint: (constraintId: ConstraintId) => Effect.Effect<void, typeof ConstraintViolationError, never>
+  readonly updateConstraint: (constraintId: ConstraintId, params: ConstraintParameters) => Effect.Effect<void, typeof ConstraintViolationError, never>
 
   // Physics materials
-  readonly createMaterial: (materialDef: PhysicsMaterialDefinition) => Effect.Effect<PhysicsMaterialId, PhysicsMaterialError>
-  readonly destroyMaterial: (materialId: PhysicsMaterialId) => Effect.Effect<void, PhysicsMaterialError>
-  readonly assignMaterial: (bodyId: RigidBodyId, materialId: PhysicsMaterialId) => Effect.Effect<void, RigidBodyError | PhysicsMaterialError>
+  readonly createMaterial: (materialDef: PhysicsMaterialDefinition) => Effect.Effect<PhysicsMaterialId, typeof PhysicsMaterialError, never>
+  readonly destroyMaterial: (materialId: PhysicsMaterialId) => Effect.Effect<void, typeof PhysicsMaterialError, never>
+  readonly assignMaterial: (bodyId: RigidBodyId, materialId: PhysicsMaterialId) => Effect.Effect<void, typeof RigidBodyError | typeof PhysicsMaterialError, never>
 
   // Performance and debugging
-  readonly getPhysicsStats: () => Effect.Effect<PhysicsStats, never>
-  readonly enableDebugVisualization: (enabled: boolean) => Effect.Effect<void, never>
-  readonly getDebugData: () => Effect.Effect<PhysicsDebugData, never>
+  readonly getPhysicsStats: () => Effect.Effect<PhysicsStats, never, never>
+  readonly enableDebugVisualization: (enabled: boolean) => Effect.Effect<void, never, never>
+  readonly getDebugData: () => Effect.Effect<PhysicsDebugData, never, never>
 }
 
 // ===== SUPPORTING TYPES =====
@@ -369,10 +367,9 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
       const MAX_SUBSTEPS = 10
       const FIXED_TIMESTEP = 1/60
       const SLEEP_THRESHOLD = 0.01
-      const COLLISION_MARGIN = 0.01
 
       // Helper functions
-      const generateId = (): Effect.Effect<string, never> =>
+      const generateId = (): Effect.Effect<string, never, never> =>
         Ref.modify(nextId, id => [(id + 1).toString(), id + 1])
 
       const createRigidBodyId = (id: string): RigidBodyId => id as RigidBodyId
@@ -395,7 +392,7 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
       const vectorLength = (v: Vector3): number =>
         Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
 
-      const vectorNormalize = (v: Vector3): Vector3 => {
+      const _vectorNormalize = (v: Vector3): Vector3 => {
         const length = vectorLength(v)
         return length > 0 ? vectorScale(v, 1 / length) : { x: 0, y: 0, z: 0 }
       }
@@ -404,7 +401,7 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
         a.x * b.x + a.y * b.y + a.z * b.z
 
       // Rigid body management implementation
-      const createRigidBody = (entityId: EntityId, bodyDef: RigidBodyDefinition): Effect.Effect<RigidBodyId, RigidBodyError> =>
+      const createRigidBody = (entityId: EntityId, bodyDef: RigidBodyDefinition): Effect.Effect<RigidBodyId, typeof RigidBodyError, never> =>
         Effect.gen(function* () {
           try {
             const id = createRigidBodyId(yield* generateId())
@@ -444,7 +441,7 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
           }
         })
 
-      const destroyRigidBody = (bodyId: RigidBodyId): Effect.Effect<void, RigidBodyError> =>
+      const destroyRigidBody = (bodyId: RigidBodyId): Effect.Effect<void, typeof RigidBodyError, never> =>
         Effect.gen(function* () {
           const bodies = yield* Ref.get(rigidBodies)
           const body = HashMap.get(bodies, bodyId)
@@ -463,7 +460,7 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
           currentIndex.remove(bodyId)
         })
 
-      const getRigidBody = (bodyId: RigidBodyId): Effect.Effect<RigidBody, RigidBodyError> =>
+      const getRigidBody = (bodyId: RigidBodyId): Effect.Effect<RigidBody, typeof RigidBodyError, never> =>
         Effect.gen(function* () {
           const bodies = yield* Ref.get(rigidBodies)
           const body = HashMap.get(bodies, bodyId)
@@ -478,7 +475,7 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
         }).pipe(Effect.flatMap(Effect.succeed))
 
       // Physics simulation implementation
-      const step = (deltaTime: number): Effect.Effect<PhysicsStepResult, PhysicsSimulationError> =>
+      const step = (deltaTime: number): Effect.Effect<PhysicsStepResult, typeof PhysicsSimulationError, never> =>
         Effect.gen(function* () {
           const startTime = Date.now()
           const scale = yield* Ref.get(timeScale)
@@ -540,11 +537,10 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
         })
 
       // Collision detection implementation
-      const checkCollisions = (): Effect.Effect<readonly CollisionPair[], CollisionDetectionError> =>
+      const checkCollisions = (): Effect.Effect<readonly CollisionPair[], typeof CollisionDetectionError, never> =>
         Effect.gen(function* () {
           try {
             const bodies = yield* Ref.get(rigidBodies)
-            const bodyArray = Array.fromIterable(HashMap.values(bodies))
             const collisionPairs: CollisionPair[] = []
 
             // Broad phase collision detection using spatial index
@@ -579,7 +575,7 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
           }
         })
 
-      const raycast = (ray: Ray, options: RaycastOptions = {}): Effect.Effect<RaycastResult, RaycastError> =>
+      const raycast = (ray: Ray, options: RaycastOptions = {}): Effect.Effect<RaycastResult, typeof RaycastError, never> =>
         Effect.gen(function* () {
           try {
             const maxDistance = options.maxDistance ?? 1000
@@ -618,7 +614,7 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
         })
 
       // Physics material management
-      const createMaterial = (materialDef: PhysicsMaterialDefinition): Effect.Effect<PhysicsMaterialId, PhysicsMaterialError> =>
+      const createMaterial = (materialDef: PhysicsMaterialDefinition): Effect.Effect<PhysicsMaterialId, typeof PhysicsMaterialError, never> =>
         Effect.gen(function* () {
           try {
             const id = createMaterialId(yield* generateId())
@@ -640,7 +636,7 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
         })
 
       // Helper function implementations
-      const integrateRigidBodies = (deltaTime: number): Effect.Effect<void, never> =>
+      const integrateRigidBodies = (_deltaTime: number): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           const bodies = yield* Ref.get(rigidBodies)
           const currentGravity = yield* Ref.get(gravity)
@@ -682,10 +678,10 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
           yield* Ref.set(rigidBodies, updatedBodies)
         })
 
-      const detectCollisions = (): Effect.Effect<readonly CollisionPair[], never> =>
+      const detectCollisions = (): Effect.Effect<readonly CollisionPair[], never, never> =>
         checkCollisions().pipe(Effect.orElse(() => Effect.succeed([])))
 
-      const solveConstraints = (deltaTime: number): Effect.Effect<number, never> =>
+      const solveConstraints = (deltaTime: number): Effect.Effect<number, never, never> =>
         Effect.gen(function* () {
           const currentConstraints = yield* Ref.get(constraints)
           const constraintArray = Array.fromIterable(HashMap.values(currentConstraints))
@@ -698,7 +694,7 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
           return constraintArray.length
         })
 
-      const resolveCollisions = (collisionPairs: readonly CollisionPair[], deltaTime: number): Effect.Effect<void, never> =>
+      const resolveCollisions = (collisionPairs: readonly CollisionPair[], deltaTime: number): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           const bodies = yield* Ref.get(rigidBodies)
 
@@ -712,7 +708,7 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
           }
         })
 
-      const updateSpatialIndex = (): Effect.Effect<void, never> =>
+      const updateSpatialIndex = (): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           const bodies = yield* Ref.get(rigidBodies)
           const currentIndex = yield* Ref.get(spatialIndex)
@@ -725,7 +721,7 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
           }
         })
 
-      const updatePhysicsStats = (simulationTime: number): Effect.Effect<void, never> =>
+      const updatePhysicsStats = (simulationTime: number): Effect.Effect<void, never, never> =>
         Ref.update(physicsStats, stats => Data.struct({
           ...stats,
           totalSteps: stats.totalSteps + 1,
@@ -734,7 +730,7 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
         }))
 
       // Additional helper function stubs (would be fully implemented)
-      const testCollisionBetweenBodies = (bodyA: RigidBody, bodyB: RigidBody): Effect.Effect<CollisionResult, never> =>
+      const testCollisionBetweenBodies = (bodyA: RigidBody, bodyB: RigidBody): Effect.Effect<CollisionResult, never, never> =>
         Effect.succeed({
           isColliding: false,
           contactPoints: [],
@@ -745,13 +741,13 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
       const calculateSeparatingVelocity = (bodyA: RigidBody, bodyB: RigidBody, normal: Vector3): number =>
         vectorDot(vectorAdd(bodyA.state.linearVelocity, vectorScale(bodyB.state.linearVelocity, -1)), normal)
 
-      const testRayAgainstBody = (ray: Ray, body: RigidBody, ignoreBackfaces: boolean): RaycastHit | null =>
+      const testRayAgainstBody = (_ray: Ray, _body: RigidBody, _ignoreBackfaces: boolean): RaycastHit | null =>
         null // Implementation would perform actual ray-shape intersection
 
-      const solveConstraint = (constraint: Constraint, deltaTime: number): Effect.Effect<void, never> =>
+      const solveConstraint = (_constraint: Constraint, _deltaTime: number): Effect.Effect<void, never, never> =>
         Effect.succeed(undefined)
 
-      const resolveCollisionPair = (bodyA: RigidBody, bodyB: RigidBody, collision: CollisionPair): Effect.Effect<void, never> =>
+      const resolveCollisionPair = (_bodyA: RigidBody, _bodyB: RigidBody, _collision: CollisionPair): Effect.Effect<void, never, never> =>
         Effect.succeed(undefined)
 
       const calculateBounds = (body: RigidBody): AABB => ({
@@ -796,10 +792,10 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
           }),
 
         raycast,
-        raycastAll: (ray: Ray, options?: RaycastOptions) =>
+        raycastAll: () =>
           // Would return all hits instead of just the closest
           Effect.succeed([]),
-        sphereCast: (sphere: Sphere, direction: Vector3, maxDistance: number) =>
+        sphereCast: (maxDistance: number) =>
           Effect.succeed({
             hit: false,
             hitPoint: Option.none(),
@@ -809,18 +805,18 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
             penetration: 0,
           }),
 
-        overlapSphere: (sphere: Sphere) => Effect.succeed([]),
-        overlapBox: (box: OrientedBox) => Effect.succeed([]),
-        getClosestPoint: (point: Vector3, bodyId: RigidBodyId) => Effect.succeed(point),
+        overlapSphere: () => Effect.succeed([]),
+        overlapBox: () => Effect.succeed([]),
+        getClosestPoint: (point: Vector3) => Effect.succeed(point),
 
-        createConstraint: (constraintDef: ConstraintDefinition) =>
+        createConstraint: () =>
           Effect.gen(function* () {
             const id = createConstraintId(yield* generateId())
             // Implementation would create actual constraint
             return id
           }),
-        destroyConstraint: (constraintId: ConstraintId) => Effect.succeed(undefined),
-        updateConstraint: (constraintId: ConstraintId, params: ConstraintParameters) => Effect.succeed(undefined),
+        destroyConstraint: () => Effect.succeed(undefined),
+        updateConstraint: () => Effect.succeed(undefined),
 
         createMaterial,
         destroyMaterial: (materialId: PhysicsMaterialId) =>
@@ -869,7 +865,6 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
         getDebugData: () =>
           Effect.gen(function* () {
             const bodies = yield* Ref.get(rigidBodies)
-            const currentConstraints = yield* Ref.get(constraints)
             
             return {
               bodies: Array.fromIterable(HashMap.values(bodies)).map(body => ({
@@ -890,10 +885,12 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
   )
 }
 
+
+
 // Supporting classes and interfaces
 class SpatialIndex {
-  insert(id: RigidBodyId, bounds: AABB): void {}
-  remove(id: RigidBodyId): void {}
+  insert(_id: RigidBodyId, _bounds: AABB): void {}
+  remove(_id: RigidBodyId): void {}
   clear(): void {}
   getBroadPhasePairs(): Array<[RigidBodyId, RigidBodyId]> { return [] }
 }

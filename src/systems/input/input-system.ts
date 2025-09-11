@@ -10,11 +10,11 @@
  * - Performance-optimized input polling
  */
 
-import { Effect, pipe, Array as EffArray, Duration, Ref, HashMap, Option } from 'effect'
-import { queries, createArchetypeQuery, trackPerformance } from '@/core/queries'
-import { World, InputManager, Clock } from '@/runtime/services'
+import { Effect, Duration, Option } from 'effect'
+import { ArchetypeQuery, trackPerformance } from '@/core/queries'
+import { World, InputManager } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { PlayerControlComponent, InputStateComponent, CameraStateComponent, VelocityComponent } from '@/core/components'
+import { InputStateComponent, CameraComponent, VelocityComponent } from '@/core/components'
 
 /**
  * Input system configuration
@@ -374,7 +374,7 @@ export const createInputSystem = (
     )
 
     // Query entities that need input updates
-    const playerQuery = createArchetypeQuery()
+    const playerQuery = ArchetypeQuery()
       .with('player', 'inputState')
       .maybe('cameraState', 'velocity')
       .execute()
@@ -399,11 +399,11 @@ export const createInputSystem = (
           yield* $(world.updateComponent(entityId, 'inputState', newInputState))
 
           // Update camera state if present
-          const cameraState = playerQuery.getComponent<CameraStateComponent>(entityId, 'cameraState')
+          const cameraState = playerQuery.getComponent<CameraComponent>(entityId, 'cameraState')
           if (cameraState._tag === 'Some') {
             const currentCamera = (cameraState as any).value
 
-            const newCameraState: Partial<CameraStateComponent> = {
+            const newCameraState: Partial<CameraComponent> = {
               ...currentCamera,
               pitch: Math.max(-89, Math.min(89, currentCamera.pitch + 
                 (processedActions.look_up - processedActions.look_down) * inputConfig.mouseSensitivity

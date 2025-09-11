@@ -13,90 +13,88 @@
 import * as Effect from 'effect/Effect'
 import * as Context from 'effect/Context'
 import * as Layer from 'effect/Layer'
-import * as Data from 'effect/Data'
+
 import * as HashMap from 'effect/HashMap'
 import * as Array from 'effect/Array'
 import * as Option from 'effect/Option'
 import * as Set from 'effect/Set'
 import * as Ref from 'effect/Ref'
+import * as Ref from 'effect/Ref'
 import * as Queue from 'effect/Queue'
-import * as Schedule from 'effect/Schedule'
+
 import * as Match from 'effect/Match'
 
 // Core imports
-import { Position } from '../../core/values'
-import {
-  InputNotAvailableError,
-} from '../../core/errors'
+
 
 // ===== INPUT SERVICE INTERFACE =====
 
 export interface InputServiceInterface {
   // Input state querying
-  readonly isKeyDown: (key: KeyCode) => Effect.Effect<boolean, never>
-  readonly isKeyPressed: (key: KeyCode) => Effect.Effect<boolean, never>
-  readonly isKeyReleased: (key: KeyCode) => Effect.Effect<boolean, never>
-  readonly getKeyPressedKeys: () => Effect.Effect<readonly KeyCode[], never>
+  readonly isKeyDown: (key: KeyCode) => Effect.Effect<boolean, never, never>
+  readonly isKeyPressed: (key: KeyCode) => Effect.Effect<boolean, never, never>
+  readonly isKeyReleased: (key: KeyCode) => Effect.Effect<boolean, never, never>
+  readonly getKeyPressedKeys: () => Effect.Effect<readonly KeyCode[], never, never>
 
   // Mouse input
-  readonly getMousePosition: () => Effect.Effect<MousePosition, never>
-  readonly getMouseDelta: () => Effect.Effect<MouseDelta, never>
-  readonly isMouseButtonDown: (button: MouseButton) => Effect.Effect<boolean, never>
-  readonly isMouseButtonPressed: (button: MouseButton) => Effect.Effect<boolean, never>
-  readonly isMouseButtonReleased: (button: MouseButton) => Effect.Effect<boolean, never>
-  readonly getScrollDelta: () => Effect.Effect<ScrollDelta, never>
+  readonly getMousePosition: () => Effect.Effect<MousePosition, never, never>
+  readonly getMouseDelta: () => Effect.Effect<MouseDelta, never, never>
+  readonly isMouseButtonDown: (button: MouseButton) => Effect.Effect<boolean, never, never>
+  readonly isMouseButtonPressed: (button: MouseButton) => Effect.Effect<boolean, never, never>
+  readonly isMouseButtonReleased: (button: MouseButton) => Effect.Effect<boolean, never, never>
+  readonly getScrollDelta: () => Effect.Effect<ScrollDelta, never, never>
 
   // Gamepad support
-  readonly getConnectedGamepads: () => Effect.Effect<readonly GamepadId[], never>
-  readonly isGamepadButtonDown: (gamepadId: GamepadId, button: GamepadButton) => Effect.Effect<boolean, never>
-  readonly getGamepadAxis: (gamepadId: GamepadId, axis: GamepadAxis) => Effect.Effect<number, never>
-  readonly getGamepadVibration: (gamepadId: GamepadId) => Effect.Effect<VibrationState, never>
-  readonly setGamepadVibration: (gamepadId: GamepadId, vibration: VibrationConfig) => Effect.Effect<void, never>
+  readonly getConnectedGamepads: () => Effect.Effect<readonly GamepadId[], never, never>
+  readonly isGamepadButtonDown: (gamepadId: GamepadId, button: GamepadButton) => Effect.Effect<boolean, never, never>
+  readonly getGamepadAxis: (gamepadId: GamepadId, axis: GamepadAxis) => Effect.Effect<number, never, never>
+  readonly getGamepadVibration: (gamepadId: GamepadId) => Effect.Effect<VibrationState, never, never>
+  readonly setGamepadVibration: (gamepadId: GamepadId, vibration: VibrationConfig) => Effect.Effect<void, never, never>
 
   // Touch input (for mobile/tablet support)
-  readonly getTouchPoints: () => Effect.Effect<readonly TouchPoint[], never>
-  readonly isTouchActive: (touchId: TouchId) => Effect.Effect<boolean, never>
-  readonly getTouchGestures: () => Effect.Effect<readonly Gesture[], never>
+  readonly getTouchPoints: () => Effect.Effect<readonly TouchPoint[], never, never>
+  readonly isTouchActive: (touchId: TouchId) => Effect.Effect<boolean, never, never>
+  readonly getTouchGestures: () => Effect.Effect<readonly Gesture[], never, never>
 
   // Action mapping system
-  readonly mapAction: (actionName: string, binding: InputBinding) => Effect.Effect<void, never>
-  readonly unmapAction: (actionName: string) => Effect.Effect<void, never>
-  readonly isActionActive: (actionName: string) => Effect.Effect<boolean, never>
-  readonly getActionValue: (actionName: string) => Effect.Effect<number, never>
-  readonly getActionVector: (actionName: string) => Effect.Effect<Vector2, never>
+  readonly mapAction: (actionName: string, binding: InputBinding) => Effect.Effect<void, never, never>
+  readonly unmapAction: (actionName: string) => Effect.Effect<void, never, never>
+  readonly isActionActive: (actionName: string) => Effect.Effect<boolean, never, never>
+  readonly getActionValue: (actionName: string) => Effect.Effect<number, never, never>
+  readonly getActionVector: (actionName: string) => Effect.Effect<Vector2, never, never>
 
   // Input events
-  readonly subscribeToInputEvents: (callback: InputEventCallback) => Effect.Effect<SubscriptionId, never>
-  readonly unsubscribeFromInputEvents: (subscriptionId: SubscriptionId) => Effect.Effect<void, never>
-  readonly subscribeToAction: (actionName: string, callback: ActionCallback) => Effect.Effect<SubscriptionId, never>
+  readonly subscribeToInputEvents: (callback: InputEventCallback) => Effect.Effect<SubscriptionId, never, never>
+  readonly unsubscribeFromInputEvents: (subscriptionId: SubscriptionId) => Effect.Effect<void, never, never>
+  readonly subscribeToAction: (actionName: string, callback: ActionCallback) => Effect.Effect<SubscriptionId, never, never>
 
   // Input context and modes
-  readonly pushInputContext: (context: InputContext) => Effect.Effect<void, never>
-  readonly popInputContext: () => Effect.Effect<Option.Option<InputContext>, never>
-  readonly getCurrentInputContext: () => Effect.Effect<Option.Option<InputContext>, never>
-  readonly setInputMode: (mode: InputMode) => Effect.Effect<void, never>
+  readonly pushInputContext: (context: InputContext) => Effect.Effect<void, never, never>
+  readonly popInputContext: () => Effect.Effect<Option.Option<InputContext, never, never>, never>
+  readonly getCurrentInputContext: () => Effect.Effect<Option.Option<InputContext, never, never>, never>
+  readonly setInputMode: (mode: InputMode) => Effect.Effect<void, never, never>
 
   // Input recording and playback
-  readonly startRecording: (config?: RecordingConfig) => Effect.Effect<RecordingId, never>
-  readonly stopRecording: (recordingId: RecordingId) => Effect.Effect<InputRecording, never>
-  readonly playbackRecording: (recording: InputRecording, options?: PlaybackOptions) => Effect.Effect<void, never>
+  readonly startRecording: (config?: RecordingConfig) => Effect.Effect<RecordingId, never, never>
+  readonly stopRecording: (recordingId: RecordingId) => Effect.Effect<InputRecording, never, never>
+  readonly playbackRecording: (recording: InputRecording, options?: PlaybackOptions) => Effect.Effect<void, never, never>
 
   // Configuration and settings
-  readonly loadInputMappings: (mappings: InputMappings) => Effect.Effect<void, never>
-  readonly saveInputMappings: () => Effect.Effect<InputMappings, never>
-  readonly resetToDefaultMappings: () => Effect.Effect<void, never>
-  readonly setInputSensitivity: (device: InputDevice, sensitivity: number) => Effect.Effect<void, never>
+  readonly loadInputMappings: (mappings: InputMappings) => Effect.Effect<void, never, never>
+  readonly saveInputMappings: () => Effect.Effect<InputMappings, never, never>
+  readonly resetToDefaultMappings: () => Effect.Effect<void, never, never>
+  readonly setInputSensitivity: (device: InputDevice, sensitivity: number) => Effect.Effect<void, never, never>
 
   // System integration
-  readonly lockPointer: () => Effect.Effect<void, never>
-  readonly unlockPointer: () => Effect.Effect<void, never>
-  readonly isPointerLocked: () => Effect.Effect<boolean, never>
-  readonly requestFullscreen: () => Effect.Effect<void, never>
+  readonly lockPointer: () => Effect.Effect<void, never, never>
+  readonly unlockPointer: () => Effect.Effect<void, never, never>
+  readonly isPointerLocked: () => Effect.Effect<boolean, never, never>
+  readonly requestFullscreen: () => Effect.Effect<void, never, never>
 
   // Performance and debugging
-  readonly getInputStats: () => Effect.Effect<InputStats, never>
-  readonly enableDebugMode: (enabled: boolean) => Effect.Effect<void, never>
-  readonly getDebugInfo: () => Effect.Effect<InputDebugInfo, never>
+  readonly getInputStats: () => Effect.Effect<InputStats, never, never>
+  readonly enableDebugMode: (enabled: boolean) => Effect.Effect<void, never, never>
+  readonly getDebugInfo: () => Effect.Effect<InputDebugInfo, never, never>
 }
 
 // ===== SUPPORTING TYPES =====
@@ -348,7 +346,6 @@ export class InputService extends Context.Tag('InputService')<
       
       const recordings = yield* Ref.make(HashMap.empty<RecordingId, InputRecording>())
       const activeRecordings = yield* Ref.make(Set.empty<RecordingId>())
-      const playbackState = yield* Ref.make<Option.Option<PlaybackState>>(Option.none())
       
       const inputStats = yield* Ref.make({
         totalEvents: 0,
@@ -365,16 +362,14 @@ export class InputService extends Context.Tag('InputService')<
       const nextId = yield* Ref.make(0)
 
       // Helper functions
-      const generateId = (): Effect.Effect<string, never> =>
+      const generateId = (): Effect.Effect<string, never, never> =>
         Ref.modify(nextId, id => [(id + 1).toString(), id + 1])
 
-      const createGamepadId = (id: string): GamepadId => id as GamepadId
-      const createTouchId = (id: string): TouchId => id as TouchId
       const createSubscriptionId = (id: string): SubscriptionId => id as SubscriptionId
       const createRecordingId = (id: string): RecordingId => id as RecordingId
 
       // Input state management
-      const updateKeyState = (key: KeyCode, pressed: boolean): Effect.Effect<void, never> =>
+      const updateKeyState = (key: KeyCode, pressed: boolean): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           const currentStates = yield* Ref.get(keyStates)
           const existingState = HashMap.get(currentStates, key)
@@ -403,14 +398,14 @@ export class InputService extends Context.Tag('InputService')<
           }
         })
 
-      const updateMousePosition = (position: MousePosition, delta: MouseDelta): Effect.Effect<void, never> =>
+      const updateMousePosition = (position: MousePosition, delta: MouseDelta): Effect.Effect<void, never, never> =>
         Ref.update(mouseState, state => ({
           ...state,
           position,
           delta,
         }))
 
-      const updateMouseButton = (button: MouseButton, pressed: boolean): Effect.Effect<void, never> =>
+      const updateMouseButton = (button: MouseButton, pressed: boolean): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           const currentState = yield* Ref.get(mouseState)
           const existingPressed = HashMap.get(currentState.buttons, button)
@@ -438,7 +433,7 @@ export class InputService extends Context.Tag('InputService')<
         })
 
       // Event processing
-      const processInputEvent = (event: InputEvent): Effect.Effect<void, never> =>
+      const processInputEvent = (event: InputEvent): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           // Update internal state based on event type
           yield* Match.value(event.type).pipe(
@@ -490,7 +485,7 @@ export class InputService extends Context.Tag('InputService')<
           }
         })
 
-      const processActionMappings = (event: InputEvent): Effect.Effect<void, never> =>
+      const processActionMappings = (event: InputEvent): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           const mappings = yield* Ref.get(actionMappings)
           const contextStack = yield* Ref.get(inputContextStack)
@@ -514,7 +509,7 @@ export class InputService extends Context.Tag('InputService')<
           }
         })
 
-      const calculateActionValue = (binding: InputBinding, event: InputEvent): Effect.Effect<number, never> =>
+      const calculateActionValue = (binding: InputBinding, event: InputEvent): Effect.Effect<number, never, never> =>
         Effect.gen(function* () {
           // Simplified implementation - would be more sophisticated in practice
           if (binding.type === 'button' && event.type === 'keyDown') {
@@ -523,7 +518,7 @@ export class InputService extends Context.Tag('InputService')<
           return 0
         })
 
-      const notifyActionSubscribers = (actionName: string, value: number, pressed: boolean): Effect.Effect<void, never> =>
+      const notifyActionSubscribers = (actionName: string, _value: number, _pressed: boolean): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           const subscriptions = yield* Ref.get(actionSubscriptions)
           const actionSubs = HashMap.get(subscriptions, actionName)
@@ -545,14 +540,12 @@ export class InputService extends Context.Tag('InputService')<
         })
 
       // Gesture recognition
-      const recognizeGestures = (touchPoints: readonly TouchPoint[]): Effect.Effect<readonly Gesture[], never> =>
         Effect.gen(function* () {
           // Simplified gesture recognition - would be more sophisticated
           const recognizedGestures: Gesture[] = []
           
           if (touchPoints.length === 1) {
             // Single touch gestures (tap, swipe, etc.)
-            const touch = touchPoints[0]
             // Implementation would analyze touch movement patterns
           }
           
@@ -565,7 +558,7 @@ export class InputService extends Context.Tag('InputService')<
         })
 
       // Recording and playback
-      const recordInputEvent = (event: InputEvent): Effect.Effect<void, never> =>
+      const recordInputEvent = (event: InputEvent): Effect.Effect<void, never, never> =>
         Effect.gen(function* () {
           const activeRecs = yield* Ref.get(activeRecordings)
           const recordingsMap = yield* Ref.get(recordings)
@@ -725,7 +718,7 @@ export class InputService extends Context.Tag('InputService')<
             })
           }),
 
-        getGamepadVibration: (gamepadId: GamepadId) =>
+        getGamepadVibration: () =>
           Effect.succeed({
             lowFrequency: 0,
             highFrequency: 0,
@@ -733,7 +726,7 @@ export class InputService extends Context.Tag('InputService')<
             remainingTime: 0,
           }),
 
-        setGamepadVibration: (gamepadId: GamepadId, vibration: VibrationConfig) =>
+        setGamepadVibration: () =>
           Effect.succeed(undefined),
 
         // Touch input
@@ -774,7 +767,7 @@ export class InputService extends Context.Tag('InputService')<
             return Option.isSome(binding) ? 1 : 0
           }),
 
-        getActionVector: (actionName: string) =>
+        getActionVector: () =>
           Effect.succeed({ x: 0, y: 0 }),
 
         // Event subscriptions
@@ -788,7 +781,7 @@ export class InputService extends Context.Tag('InputService')<
         unsubscribeFromInputEvents: (subscriptionId: SubscriptionId) =>
           Ref.update(eventSubscriptions, HashMap.remove(subscriptionId)),
 
-        subscribeToAction: (actionName: string, callback: ActionCallback) =>
+        subscribeToAction: (actionName: string) =>
           Effect.gen(function* () {
             const id = createSubscriptionId(yield* generateId())
             // Store action-specific callback (simplified implementation)
@@ -829,7 +822,7 @@ export class InputService extends Context.Tag('InputService')<
           Ref.set(currentInputMode, mode),
 
         // Recording and playback
-        startRecording: (config?: RecordingConfig) =>
+        startRecording: () =>
           Effect.gen(function* () {
             const id = createRecordingId(yield* generateId())
             const recording: InputRecording = {
@@ -866,7 +859,7 @@ export class InputService extends Context.Tag('InputService')<
             }))
           }),
 
-        playbackRecording: (recording: InputRecording, options?: PlaybackOptions) =>
+        playbackRecording: () =>
           Effect.succeed(undefined),
 
         // Configuration
@@ -886,7 +879,7 @@ export class InputService extends Context.Tag('InputService')<
         resetToDefaultMappings: () =>
           Ref.set(actionMappings, HashMap.empty()),
 
-        setInputSensitivity: (device: InputDevice, sensitivity: number) =>
+        setInputSensitivity: () =>
           Effect.succeed(undefined),
 
         // System integration

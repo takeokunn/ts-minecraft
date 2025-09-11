@@ -10,7 +10,7 @@ export const EntityIdSchema = S.String.pipe(
   S.annotations({
     title: 'EntityId',
     description: 'Unique identifier for an entity in the ECS system',
-    examples: ['entity-1', 'entity-uuid-123'],
+    examples: [EntityId('entity-1'), EntityId('entity-uuid-123')],
   }),
 )
 
@@ -28,3 +28,13 @@ export const makeEntityIdValue = (value: string) =>
 
 export const isEntityId = (value: unknown): value is EntityId =>
   typeof value === 'string' && value.length > 0
+
+// Additional functions for test compatibility
+export const createEntityId = (value: string): EntityId => makeEntityId(value)
+
+export const generateEntityId = (): EntityId => {
+  const uuid = `entity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  return makeEntityId(uuid)
+}
+
+export const entityIdToString = (entityId: EntityId): string => entityId

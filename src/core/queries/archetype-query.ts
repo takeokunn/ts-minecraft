@@ -4,8 +4,8 @@
  */
 
 import { ComponentName, ComponentOfName } from '@/core/components'
-import { Entity } from '@/core/entities'
-import { QueryConfig, EntityPredicate, QueryMetrics, startQueryContext, finalizeQueryContext } from './builder'
+import { EntityId } from '@/core/entities'
+import { QueryConfig, QueryMetrics, startQueryContext, finalizeQueryContext, QueryEntity } from './builder'
 
 /**
  * Archetype signature for efficient entity matching
@@ -20,7 +20,7 @@ export interface ArchetypeSignature {
  * Archetype-based entity group for O(1) query matching
  */
 export class Archetype {
-  private entities: Set<Entity> = new Set()
+  private entities: Set<QueryEntity> = new Set()
   private componentMask: bigint
   private static componentIndices: Map<ComponentName, number> = new Map()
   private static nextIndex = 0
@@ -44,21 +44,21 @@ export class Archetype {
   /**
    * Add entity to this archetype
    */
-  addEntity(entity: Entity): void {
+  addEntity(entity: QueryEntity): void {
     this.entities.add(entity)
   }
 
   /**
    * Remove entity from this archetype
    */
-  removeEntity(entity: Entity): void {
+  removeEntity(entity: QueryEntity): void {
     this.entities.delete(entity)
   }
 
   /**
    * Get all entities in this archetype
    */
-  getEntities(): ReadonlyArray<Entity> {
+  getEntities(): ReadonlyArray<QueryEntity> {
     return Array.from(this.entities)
   }
 
@@ -110,7 +110,7 @@ export class Archetype {
  */
 export class ArchetypeManager {
   private archetypes: Map<string, Archetype> = new Map()
-  private entityToArchetype: Map<Entity, Archetype> = new Map()
+  private entityToArchetype: Map<QueryEntity, Archetype> = new Map()
 
   /**
    * Create archetype signature from component sets
@@ -151,7 +151,7 @@ export class ArchetypeManager {
   /**
    * Add entity to appropriate archetype
    */
-  addEntity(entity: Entity): void {
+  addEntity(entity: QueryEntity): void {
     // Remove from current archetype if exists
     this.removeEntity(entity)
 
@@ -167,7 +167,7 @@ export class ArchetypeManager {
   /**
    * Remove entity from its archetype
    */
-  removeEntity(entity: Entity): void {
+  removeEntity(entity: QueryEntity): void {
     const currentArchetype = this.entityToArchetype.get(entity)
     if (currentArchetype) {
       currentArchetype.removeEntity(entity)
@@ -193,11 +193,11 @@ export class ArchetypeManager {
   /**
    * Get all entities across all archetypes
    */
-  getAllEntities(): ReadonlyArray<Entity> {
-    const entities: Entity[] = []
+  getAllEntities(): ReadonlyArray<EntityId> {
+    const entities: EntityId[] = []
     
     for (const archetype of this.archetypes.values()) {
-      entities.push(...archetype.getEntities())
+      entities.push(...archetype.getEntities().map(entity => entity.id))
     }
     
     return entities
@@ -236,13 +236,13 @@ export class ArchetypeQuery<T extends ReadonlyArray<ComponentName>> {
   /**
    * Execute query using archetype-based filtering
    */
-  execute(entities?: ReadonlyArray<Entity>): {
-    entities: ReadonlyArray<Entity>
+  execute(entities?: ReadonlyArray<QueryEntity>): {
+    entities: ReadonlyArray<QueryEntity>
     metrics: QueryMetrics
   } {
     const context = startQueryContext()
 
-    let resultEntities: Entity[]
+    let resultEntities: QueryEntity[]
 
     if (entities) {
       // Direct entity filtering (fallback mode)
@@ -266,9 +266,9 @@ export class ArchetypeQuery<T extends ReadonlyArray<ComponentName>> {
     }
   }
 
-  private executeArchetypeQuery(context: { metrics: QueryMetrics }): Entity[] {
+  private executeArchetypeQuery(context: { metrics: QueryMetrics }): QueryEntity[] {
     const matchingArchetypes = ArchetypeQuery.archetypeManager.findMatchingArchetypes(this.signature)
-    const entities: Entity[] = []
+    const entities: QueryEntity[] = []
 
     for (const archetype of matchingArchetypes) {
       const archetypeEntities = archetype.getEntities()
@@ -279,8 +279,8 @@ export class ArchetypeQuery<T extends ReadonlyArray<ComponentName>> {
     return entities
   }
 
-  private executeDirectFilter(entities: ReadonlyArray<Entity>, context: { metrics: QueryMetrics }): Entity[] {
-    const result: Entity[] = []
+  private executeDirectFilter(entities: ReadonlyArray<QueryEntity>, context: { metrics: QueryMetrics }): QueryEntity[] {
+    const result: QueryEntity[] = []
     
     for (const entity of entities) {
       context.metrics.entitiesScanned++
@@ -305,10 +305,10 @@ export class ArchetypeQuery<T extends ReadonlyArray<ComponentName>> {
     return result
   }
 
-  private applyPredicate(entities: Entity[], context: { metrics: QueryMetrics }): Entity[] {
+  private applyPredicate(entities: QueryEntity[], _context: { metrics: QueryMetrics }): QueryEntity[] {
     if (!this.config.predicate) return entities
 
-    const result: Entity[] = []
+    const result: QueryEntity[] = []
 
     for (const entity of entities) {
       const entityProxy = {
@@ -336,14 +336,14 @@ export class ArchetypeQuery<T extends ReadonlyArray<ComponentName>> {
   /**
    * Add entity to archetype system
    */
-  static addEntity(entity: Entity): void {
+  static addEntity(entity: QueryEntity): void {
     ArchetypeQuery.archetypeManager.addEntity(entity)
   }
 
   /**
    * Remove entity from archetype system
    */
-  static removeEntity(entity: Entity): void {
+  static removeEntity(entity: QueryEntity): void {
     ArchetypeQuery.archetypeManager.removeEntity(entity)
   }
 
@@ -372,4 +372,21 @@ export class ArchetypeQuery<T extends ReadonlyArray<ComponentName>> {
   get forbiddenComponents(): ReadonlyArray<ComponentName> {
     return this.config.withoutComponents || []
   }
+}
+
+// Convenience functions for test compatibility
+export const addEntityToArchetype = (entity: QueryEntity): void => {
+  ArchetypeQuery.addEntity(entity)
+}
+
+export const removeEntityFromArchetype = (entity: QueryEntity): void => {
+  ArchetypeQuery.removeEntity(entity)
+}
+
+export const getArchetypeStats = () => {
+  return ArchetypeQuery.getArchetypeStats()
+}
+
+export const resetArchetypes = (): void => {
+  ArchetypeQuery.reset()
 }

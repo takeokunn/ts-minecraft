@@ -5,7 +5,7 @@ import { Effect, Schema as S, pipe } from 'effect'
  */
 export type WorkerHandler<TIn, TOut> = (
   input: TIn
-) => Effect.Effect<TOut>
+) => Effect.Effect<TOut, never, never>
 
 /**
  * Worker configuration
@@ -109,13 +109,16 @@ export const createWorkerClient = <TIn, TOut>(
     timeout?: number
   }
 ) => {
-  const sendMessage = (input: TIn): Effect.Effect<TOut> =>
+  const sendMessage = (input: TIn): Effect.Effect<TOut, Error, never> =>
     Effect.gen(function* () {
       // Encode input
-      const encoded = yield* S.encode(config.inputSchema)(input)
+      const encoded = yield* Effect.mapError(
+        S.encode(config.inputSchema)(input),
+        error => new Error(`Encode error: ${error}`)
+      )
       
       // Send message and wait for response
-      const response = yield* Effect.async<WorkerSuccessMessage<TOut> | WorkerErrorMessage>((resume) => {
+      const response = yield* Effect.async<WorkerSuccessMessage<TOut> | WorkerErrorMessage, Error>((resume) => {
         const handler = (e: MessageEvent) => {
           const message = e.data
           if (message.type === 'success' || message.type === 'error') {
@@ -142,7 +145,10 @@ export const createWorkerClient = <TIn, TOut>(
       }
       
       // Decode output
-      return yield* S.decode(config.outputSchema)(response.data)
+      return yield* Effect.mapError(
+        S.decode(config.outputSchema)(response.data),
+        error => new Error(`Decode error: ${error}`)
+      )
     })
   
   return {

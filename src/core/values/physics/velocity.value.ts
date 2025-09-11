@@ -1,5 +1,7 @@
-import { Data, pipe } from 'effect'
+import { pipe } from 'effect'
 import * as S from "@effect/schema/Schema"
+
+type Struct<T> = T
 
 /**
  * Velocity Value Object - Represents 3D velocity/movement vector
@@ -19,15 +21,15 @@ export const VelocitySchema = S.Struct({
   dz: S.Number.pipe(S.finite(), S.clamp(MIN_VELOCITY, MAX_VELOCITY)),
 })
 
-// Type definition using Data.Struct for immutability
-export type Velocity = Data.Struct<{
+// Type definition using Struct for immutability
+export type Velocity = Struct<{
   readonly dx: number
   readonly dy: number
   readonly dz: number
 }>
 
 // Factory function
-export const Velocity = Data.struct<Velocity>()
+export const Velocity = Struct<Velocity>()
 
 // Create velocity with clamping
 export const create = (dx: number, dy: number, dz: number): Velocity =>

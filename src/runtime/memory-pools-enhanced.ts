@@ -1,5 +1,5 @@
-import { Effect, Ref, Queue, Option, Array, Schedule, Duration } from 'effect'
-import { EntityId } from '@/core/entities/entity'
+import { Effect, Ref, Schedule, Duration } from 'effect'
+
 import { ComponentName, ComponentOfName } from '@/core/components'
 import { EffectObjectPool, createEffectPool, PoolableObject } from '@/core/performance'
 import { MemoryDetector, Profile } from '@/core/performance'
@@ -192,7 +192,7 @@ export interface EnhancedMemoryPoolManager {
   
   // Pool optimization
   readonly optimizePools: () => Effect.Effect<void, never, never>
-  readonly getUsageStats: () => Effect.Effect<Map<string, PoolUsageStats>, never, never>
+  readonly getUsageStats: () => Effect.Effect<Map<string, PoolUsageStats, never>, never, never>
   readonly resizePoolsBasedOnUsage: () => Effect.Effect<void, never, never>
   readonly defragmentPools: () => Effect.Effect<void, never, never>
   
@@ -477,7 +477,7 @@ export const createEnhancedMemoryPoolManager = (): Effect.Effect<EnhancedMemoryP
  */
 export const monitorEnhancedPoolPerformance = (): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
-    const manager = yield* Effect.service(EnhancedMemoryPoolService)
+    const manager = yield* Effect.Service(EnhancedMemoryPoolService)
     
     yield* Profile.start('enhanced_pool_monitoring')
     

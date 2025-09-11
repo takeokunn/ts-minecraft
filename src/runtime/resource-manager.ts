@@ -1,4 +1,4 @@
-import { Effect, Ref, Cache, Duration, Schedule, Queue, Option, pipe } from 'effect'
+import { Effect, Ref, Duration, Schedule, Queue, Option } from 'effect'
 import { Context } from 'effect'
 import { Profile, MemoryDetector, Metrics } from '@/core/performance'
 
@@ -66,7 +66,7 @@ export const defaultResourceConfig: ResourceManagerConfig = {
  * Resource cache with LRU eviction and memory management
  */
 interface ResourceCache {
-  readonly get: <T>(id: string) => Effect.Effect<Option.Option<Resource<T>>, never, never>
+  readonly get: <T>(id: string) => Effect.Effect<Option.Option<Resource<T, never, never>>, never, never>
   readonly set: <T>(resource: Resource<T>) => Effect.Effect<void, never, never>
   readonly remove: (id: string) => Effect.Effect<void, never, never>
   readonly clear: () => Effect.Effect<void, never, never>
@@ -84,7 +84,7 @@ interface ResourceCache {
  */
 interface LoadingQueue {
   readonly enqueue: <T>(request: ResourceRequest<T>) => Effect.Effect<void, never, never>
-  readonly dequeue: () => Effect.Effect<Option.Option<ResourceRequest>, never, never>
+  readonly dequeue: () => Effect.Effect<Option.Option<ResourceRequest, never, never>, never, never>
   readonly clear: () => Effect.Effect<void, never, never>
   readonly size: () => Effect.Effect<number, never, never>
 }
@@ -275,8 +275,8 @@ const createLoadingQueue = (): Effect.Effect<LoadingQueue, never, never> =>
  * Main Resource Manager
  */
 export interface ResourceManager {
-  readonly load: <T>(request: ResourceRequest<T>) => Effect.Effect<Resource<T>, unknown, never>
-  readonly get: <T>(id: string) => Effect.Effect<Option.Option<Resource<T>>, never, never>
+  readonly load: <T>(request: ResourceRequest<T>) => Effect.Effect<Resource<T, never, never>, unknown, never>
+  readonly get: <T>(id: string) => Effect.Effect<Option.Option<Resource<T, never, never>>, never, never>
   readonly preload: (ids: string[], type: ResourceType) => Effect.Effect<void, never, never>
   readonly unload: (id: string) => Effect.Effect<void, never, never>
   readonly cleanup: () => Effect.Effect<void, never, never>

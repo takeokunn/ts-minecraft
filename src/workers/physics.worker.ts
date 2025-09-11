@@ -19,7 +19,6 @@ import {
 const PHYSICS_TIMESTEP = 1 / 60 // 60 FPS physics
 const COLLISION_EPSILON = 0.001
 const RESTITUTION_COEFFICIENT = 0.6
-const FRICTION_COEFFICIENT = 0.8
 const MAX_VELOCITY = 50 // Terminal velocity
 const MIN_VELOCITY = 0.01 // Velocity threshold for sleep
 
@@ -403,7 +402,7 @@ const solveConstraints = (
 const physicsSimulationHandler = (
   request: PhysicsSimulationRequest,
   context: any
-): Effect.Effect<PhysicsSimulationResponse> =>
+): Effect.Effect<PhysicsSimulationResponse, never, never> =>
   Effect.gen(function* () {
     const startTime = performance.now()
     
@@ -422,7 +421,6 @@ const physicsSimulationHandler = (
         integrateBody(body, stepDeltaTime, request.gravity, request.worldBounds)
       )
       
-      const integrationTime = performance.now() - integrationStartTime
       
       // Collision detection phase
       const collisionStartTime = performance.now()
@@ -438,7 +436,6 @@ const physicsSimulationHandler = (
         }
       }
       
-      const collisionDetectionTime = performance.now() - collisionStartTime
       
       // Collision resolution
       const bodyMap = new Map(currentBodies.map(body => [body.id, body]))

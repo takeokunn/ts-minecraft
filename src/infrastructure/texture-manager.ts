@@ -1,5 +1,5 @@
-import { Effect, Layer, Ref, HashMap, Option, Duration } from 'effect'
-import { pipe } from 'effect/Function'
+import { Effect, Layer, Ref, Option } from 'effect'
+
 import * as THREE from 'three'
 import { ObjectPool } from '@/core/performance/object-pool'
 
@@ -181,7 +181,7 @@ const BLOCK_TEXTURES = {
 
 const texturePool = new ObjectPool<THREE.Texture>(
   () => new THREE.Texture(),
-  (texture) => {
+  (texture: THREE.Texture) => {
     texture.dispose()
     return new THREE.Texture()
   },
@@ -190,7 +190,7 @@ const texturePool = new ObjectPool<THREE.Texture>(
 
 const canvasPool = new ObjectPool<HTMLCanvasElement>(
   () => document.createElement('canvas'),
-  (canvas) => {
+  (canvas: HTMLCanvasElement) => {
     const ctx = canvas.getContext('2d')
     if (ctx) {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -316,7 +316,7 @@ const createTextureAtlas = (atlasIndex: number): TextureAtlas => {
 /**
  * Load image data
  */
-const loadImageData = (path: string): Effect.Effect<ImageData> =>
+const loadImageData = (path: string): Effect.Effect<ImageData, never, never> =>
   Effect.async<ImageData>((resume) => {
     const img = new Image()
     img.crossOrigin = 'anonymous'
@@ -436,7 +436,7 @@ const initializeTextures = (state: TextureManagerState): TextureManagerState => 
   }
 }
 
-const addTextureMetadata = (
+const _addTextureMetadata = (
   state: TextureManagerState,
   name: string,
   metadata: TextureMetadata
@@ -457,16 +457,16 @@ const addTextureMetadata = (
 // --- Main Service ---
 
 export interface TextureManagerService {
-  loadTexture: (name: string) => Effect.Effect<THREE.Texture>
-  getTexture: (name: string) => Effect.Effect<Option.Option<THREE.Texture>>
-  getAtlasCoords: (name: string) => Effect.Effect<Option.Option<TextureAtlasCoords>>
-  preloadEssentials: () => Effect.Effect<void>
-  createAnimatedTexture: (name: string, frames: string[], frameRate: number) => Effect.Effect<AnimatedTexture>
-  updateAnimations: (deltaTime: number) => Effect.Effect<void>
-  getTextureAtlas: (atlasIndex: number) => Effect.Effect<Option.Option<THREE.Texture>>
-  optimizeAtlases: () => Effect.Effect<void>
-  getStats: () => Effect.Effect<TextureManagerState['stats']>
-  dispose: () => Effect.Effect<void>
+  loadTexture: (name: string) => Effect.Effect<THREE.Texture, never, never>
+  getTexture: (name: string) => Effect.Effect<Option.Option<THREE.Texture, never, never>>
+  getAtlasCoords: (name: string) => Effect.Effect<Option.Option<TextureAtlasCoords, never, never>>
+  preloadEssentials: () => Effect.Effect<void, never, never>
+  createAnimatedTexture: (name: string, frames: string[], frameRate: number) => Effect.Effect<AnimatedTexture, never, never>
+  updateAnimations: (deltaTime: number) => Effect.Effect<void, never, never>
+  getTextureAtlas: (atlasIndex: number) => Effect.Effect<Option.Option<THREE.Texture, never, never>>
+  optimizeAtlases: () => Effect.Effect<void, never, never>
+  getStats: () => Effect.Effect<TextureManagerState['stats'], never, never>
+  dispose: () => Effect.Effect<void, never, never>
 }
 
 export const TextureManagerService = Effect.Tag<TextureManagerService>('TextureManagerService')
@@ -500,7 +500,7 @@ export const TextureManagerLive = Layer.effect(
       atlases: new Map([[0, initialAtlas]])
     })))
     
-    return TextureManagerService.of({
+    return {
       loadTexture: (name: string) =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
@@ -646,7 +646,7 @@ export const TextureManagerLive = Layer.effect(
           ))
           
           const animatedTexture: AnimatedTexture = {
-            frames: frameTextures.map((texture, i) => ({
+            frames: frameTextures.map((texture: THREE.Texture) => ({
               texture,
               duration: 1000 / frameRate // Convert to milliseconds
             })),
@@ -664,7 +664,7 @@ export const TextureManagerLive = Layer.effect(
           return animatedTexture
         }),
       
-      updateAnimations: (deltaTime: number) =>
+      updateAnimations: () =>
         Effect.gen(function* () {
           yield* _(Ref.update(stateRef, state => {
             const newAnimatedTextures = new Map(state.animatedTextures)
@@ -741,7 +741,7 @@ export const TextureManagerLive = Layer.effect(
           
           // Calculate memory usage
           let memoryUsage = 0
-          for (const atlas of state.atlases.values()) {
+          for (const _atlas of state.atlases.values()) {
             memoryUsage += CONFIG.ATLAS_SIZE * CONFIG.ATLAS_SIZE * 4 // RGBA
           }
           
@@ -775,7 +775,7 @@ export const TextureManagerLive = Layer.effect(
           
           yield* _(Ref.set(stateRef, initialState))
         })
-    })
+    }
   }),
 )
 

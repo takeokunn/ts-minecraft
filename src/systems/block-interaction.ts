@@ -4,7 +4,7 @@ import { Hotbar, InputState, Position, TargetBlock, TargetNone } from '@/core/co
 import { queries } from '@/core/queries'
 import { World } from '@/runtime/services'
 import { EntityId } from '@/core/entities/entity'
-import { Float, toFloat } from '@/core/common'
+import { toFloat } from '@/core/common'
 
 const handleDestroyBlock = (world: World, entityId: EntityId, target: TargetBlock) =>
   Effect.gen(function* () {

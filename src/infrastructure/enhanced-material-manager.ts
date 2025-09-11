@@ -1,6 +1,6 @@
 import { MaterialManager } from '@/runtime/services'
-import { Effect, Layer, HashMap, Ref, Option, Duration } from 'effect'
-import { pipe } from 'effect/Function'
+import { Effect, Layer, Ref } from 'effect'
+
 import { MaterialNotFoundError } from '@/core/errors'
 import * as THREE from 'three'
 import { ObjectPool } from '@/core/performance/object-pool'
@@ -197,7 +197,7 @@ const MATERIAL_CONFIGS: Record<string, MaterialConfig> = {
 
 const materialPool = new ObjectPool<THREE.Material>(
   () => new THREE.MeshStandardMaterial(),
-  (material) => {
+  (material: THREE.Material) => {
     material.dispose()
     return new THREE.MeshStandardMaterial()
   },
@@ -206,7 +206,7 @@ const materialPool = new ObjectPool<THREE.Material>(
 
 const uniformsPool = new ObjectPool<Record<string, THREE.IUniform>>(
   () => ({}),
-  (uniforms) => {
+  (uniforms: Record<string, THREE.IUniform>) => {
     Object.keys(uniforms).forEach(key => delete uniforms[key])
     return uniforms
   },
@@ -329,7 +329,8 @@ export const EnhancedMaterialManagerLive = Layer.effect(
         yield* _(Effect.all(
           essentials.map(name => 
             Effect.gen(function* () {
-              return yield* _(Effect.serviceRef.getMaterial(name))
+              const materialManager = yield* Effect.Service(MaterialManager)
+              return yield* materialManager.getMaterial(name)
             }).pipe(Effect.catchAll(() => Effect.void))
           ),
           { concurrency: 4 }
@@ -338,7 +339,7 @@ export const EnhancedMaterialManagerLive = Layer.effect(
     
     yield* _(preloadEssentials())
     
-    return MaterialManager.of({
+    return {
       getMaterial: (name: string, variant?: string) =>
         Effect.gen(function* () {
           const state = yield* _(Ref.get(stateRef))
@@ -509,7 +510,7 @@ export const EnhancedMaterialManagerLive = Layer.effect(
           
           yield* _(Ref.set(stateRef, initialState))
         }),
-    })
+    }
   }),
 )
 

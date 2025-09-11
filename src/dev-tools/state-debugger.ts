@@ -699,7 +699,7 @@ export class StateDebugger {
         <div>
           <h4 style="color: #00ccff; margin: 0 0 8px 0;">Components</h4>
           <div style="background: rgba(255, 255, 255, 0.05); padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto;">
-            ${Array.from(snapshot.components.entries()).map(([id, component]) => `
+            ${Array.from(snapshot.components.entries()).map(([_id, component]) => `
               <div style="margin-bottom: 8px; padding: 6px; background: rgba(255, 255, 255, 0.05); border-radius: 3px;">
                 <div style="font-weight: bold;">${component.type}</div>
                 <div style="font-size: 10px; color: #888;">Entity: ${component.entityId}</div>

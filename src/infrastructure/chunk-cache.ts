@@ -1,9 +1,9 @@
-import { Effect, Layer, Ref, HashMap, HashSet, Option, ReadonlyArray, Duration } from 'effect'
-import { pipe } from 'effect/Function'
-import type { EntityId } from '@/core/entities/entity'
+import { Effect, Layer, Ref, Option } from 'effect'
+
 import type { Chunk } from '@/core/components/world/chunk'
 import { ObjectPool } from '@/core/performance/object-pool'
-import { ChunkManager } from '@/runtime/services'
+import { ChunkManager } from '@/services'
+import { toChunkX, toChunkZ } from '@/core/common'
 
 // --- Configuration ---
 
@@ -24,11 +24,11 @@ const CONFIG = {
 export interface ChunkCacheEntry {
   readonly chunk: Chunk
   readonly compressedData?: Uint8Array
-  readonly lastAccessed: number
-  readonly accessCount: number
-  readonly isDirty: boolean
-  readonly isLoading: boolean
-  readonly loadPromise?: Promise<Chunk>
+  lastAccessed: number
+  accessCount: number
+  isDirty: boolean
+  isLoading: boolean
+  loadPromise?: Promise<Chunk>
   readonly priority: number
   readonly size: number
 }
@@ -103,7 +103,7 @@ const cacheNodePool = new ObjectPool<CacheNode>(
     prev: null,
     next: null,
   }),
-  (node) => {
+  (node: CacheNode) => {
     node.key = ''
     node.entry.lastAccessed = 0
     node.entry.accessCount = 0
@@ -180,8 +180,8 @@ const decompressChunk = (data: Uint8Array, chunkX: number, chunkZ: number): Chun
   }
 
   return {
-    chunkX,
-    chunkZ,
+    chunkX: toChunkX(chunkX),
+    chunkZ: toChunkZ(chunkZ),
     blocks,
     entities: [],
     blockEntities: [],
@@ -218,10 +218,12 @@ const createCacheEntry = (chunk: Chunk, priority: ChunkPriority): ChunkCacheEntr
 const moveToFront = (state: ChunkCacheState, node: CacheNode): ChunkCacheState => {
   if (node === state.lruHead) return state
 
+  // Calculate new tail before mutation
+  const newTail = node === state.lruTail ? node.prev : state.lruTail
+
   // Remove node from current position
   if (node.prev) node.prev.next = node.next
   if (node.next) node.next.prev = node.prev
-  if (node === state.lruTail) state.lruTail = node.prev
 
   // Move to front
   node.prev = null
@@ -229,7 +231,6 @@ const moveToFront = (state: ChunkCacheState, node: CacheNode): ChunkCacheState =
   if (state.lruHead) state.lruHead.prev = node
   
   const newHead = node
-  const newTail = state.lruTail || node
 
   return {
     ...state,
@@ -278,8 +279,17 @@ const addToL1Cache = (state: ChunkCacheState, key: string, entry: ChunkCacheEntr
         ...removedNode.entry,
         compressedData: compressChunk(removedNode.entry.chunk),
       }
-      newState.l2Cache.set(removedNode.key, compressedEntry)
-      newState.l1Cache.delete(removedNode.key)
+      const newL2Cache = new Map(newState.l2Cache)
+      newL2Cache.set(removedNode.key, compressedEntry)
+      
+      const newL1Cache = new Map(newState.l1Cache)
+      newL1Cache.delete(removedNode.key)
+      
+      newState = {
+        ...newState,
+        l1Cache: newL1Cache,
+        l2Cache: newL2Cache,
+      }
       cacheNodePool.release(removedNode)
     }
   }
@@ -287,7 +297,7 @@ const addToL1Cache = (state: ChunkCacheState, key: string, entry: ChunkCacheEntr
   // Add new node to front
   node.next = newState.lruHead
   if (newState.lruHead) newState.lruHead.prev = node
-  if (!newState.lruTail) newState.lruTail = node
+  const newTail = newState.lruTail || node
 
   const newL1Cache = new Map(newState.l1Cache)
   newL1Cache.set(key, node)
@@ -296,6 +306,7 @@ const addToL1Cache = (state: ChunkCacheState, key: string, entry: ChunkCacheEntr
     ...newState,
     l1Cache: newL1Cache,
     lruHead: node,
+    lruTail: newTail,
   }
 }
 
@@ -560,7 +571,7 @@ export const ChunkCacheLive = Layer.effect(
 
     yield* startOptimization()
 
-    return ChunkManager.of({
+    return {
       getChunk: (chunkX: number, chunkZ: number) =>
         Effect.gen(function* () {
           const key = `${chunkX},${chunkZ}`
@@ -629,7 +640,7 @@ export const ChunkCacheLive = Layer.effect(
           }
           yield* Ref.set(cacheRef, initialState)
         }),
-    })
+    }
   }),
 )
 
