@@ -16,7 +16,7 @@ import { World, InputManager as _InputManager } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
 import { Position, CameraComponent, TargetComponent, InputStateComponent } from '@/core/components'
 import { EntityId } from '@/core/entities/entity'
-import { BlockType, BlockPosition } from '@/core/values'
+import { BlockType, BlockPosition } from '@/domain/value-objects'
 import * as THREE from 'three'
 
 /**

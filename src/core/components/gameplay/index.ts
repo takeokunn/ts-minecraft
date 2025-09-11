@@ -9,7 +9,7 @@
  * - Target system with multiple target types
  */
 
-import * as S from "@effect/schema/Schema"
+import * as S from "effect/Schema"
 import * as Data from 'effect/Data'
 import { RegisterComponent } from '../registry'
 
@@ -474,4 +474,32 @@ export type {
   HotbarComponent as Hotbar,
   PlayerComponent as PlayerType,
   InputStateComponent as InputStateType,
+  CameraStateComponent as CameraState,
+  TargetComponent as TargetBlock,
 }
+
+// Additional type aliases for backward compatibility  
+export type TargetNone = { _tag: 'none' }
+export type InputState = InputStateComponent
+export type Player = PlayerComponent
+export type CameraState = CameraStateComponent
+
+// Aggregate all gameplay components for easy import
+export const GameplayComponentFactories = {
+  // Add factory functions here if needed
+} as const
+
+export const GameplayComponents = {
+  Health: HealthComponent,
+  Inventory: InventoryComponent,
+  PlayerControl: PlayerControlComponent,
+  AI: AIComponent,
+  Target: TargetComponent,
+  Player: PlayerComponent,
+  InputState: InputStateComponent,
+  CameraState: CameraStateComponent,
+  Hotbar: HotbarComponent,
+  Gravity: GravityComponent,
+  Frozen: FrozenComponent,
+  Disabled: DisabledComponent,
+} as const

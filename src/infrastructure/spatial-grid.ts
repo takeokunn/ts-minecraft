@@ -314,16 +314,6 @@ const addPure = (grid: HashMap.HashMap<string, HashSet.HashSet<EntityId>>, entit
   return newGrid
 }
 
-  let potentialCollisions = HashSet.empty<EntityId>()
-  forEachCellInAABB(aabb, (key) => {
-    const cell = HashMap.get(grid, key)
-    if (cell._tag === 'Some') {
-      potentialCollisions = HashSet.union(potentialCollisions, cell.value)
-    }
-  })
-  return Array.from(potentialCollisions)
-
-
 // --- Enhanced Effect Service ---
 
 export const SpatialGridLive = Layer.effect(

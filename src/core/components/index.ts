@@ -10,7 +10,7 @@
  * - Performance monitoring and optimization hints
  */
 
-import * as S from 'effect/Schema'
+import * as S from '@effect/schema/Schema'
 import * as Data from 'effect/Data'
 import * as Array from 'effect/Array'
 import * as Option from 'effect/Option'

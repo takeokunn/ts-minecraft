@@ -1,9 +1,16 @@
+// Domain Layer Exports
+
+// Entities
+export * from './entities'
+
+// Value Objects
+export * from './value-objects'
+
+// Domain Services
+export * from './services'
+
+// Legacy exports for compatibility
 export * from './archetypes'
 export * from './block-types'
-export * from './camera-logic'
-export * from './common'
-export * from './geometry'
-export * from './queries'
-export * from './types'
-export * from './world'
 export * from './world-constants'
+export * from './world'

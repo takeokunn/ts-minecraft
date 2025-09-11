@@ -1,5 +1,5 @@
 import * as S from "@effect/schema/Schema"
-import { ChunkCoordinatesSchema } from '@/core/values/coordinates'
+import { ChunkCoordinatesSchema } from '@/domain/value-objects/coordinates'
 
 
 /**

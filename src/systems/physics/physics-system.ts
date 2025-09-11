@@ -13,9 +13,10 @@ import { Effect, Array as EffArray, Duration } from 'effect'
 import { ArchetypeQuery, trackPerformance } from '@/core/queries'
 import { World, SpatialGrid } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { Position, Velocity, Acceleration, Mass, ColliderComponent } from '@/core/components'
+import { PositionComponent, VelocityComponent, AccelerationComponent, MassComponent, ColliderComponent } from '@/core/components'
 import { FRICTION, GRAVITY, TERMINAL_VELOCITY, AIR_RESISTANCE } from '@/domain/world-constants'
 import { toFloat } from '@/core/common'
+import { createAABB } from '@/domain/geometry'
 
 
 /**
@@ -36,9 +37,9 @@ export interface PhysicsConfig {
  * Physics calculation result
  */
 interface PhysicsResult {
-  readonly newPosition: Position
-  readonly newVelocity: Velocity
-  readonly newAcceleration: Acceleration
+  readonly newPosition: PositionComponent
+  readonly newVelocity: VelocityComponent
+  readonly newAcceleration: AccelerationComponent
 }
 
 /**
@@ -46,10 +47,10 @@ interface PhysicsResult {
  */
 interface BulkPhysicsData {
   readonly entityIds: readonly number[]
-  readonly positions: readonly Position[]
-  readonly velocities: readonly Velocity[]
-  readonly accelerations: readonly Acceleration[]
-  readonly masses: readonly Mass[]
+  readonly positions: readonly PositionComponent[]
+  readonly velocities: readonly VelocityComponent[]
+  readonly accelerations: readonly AccelerationComponent[]
+  readonly masses: readonly MassComponent[]
   readonly isGrounded: readonly boolean[]
 }
 
@@ -91,16 +92,16 @@ class PhysicsProcessor {
       const gravityForce = this.config.enableGravity ? this.calculateGravity(mass, isGrounded) : { x: 0, y: 0, z: 0 }
       const airResistanceForce = this.config.enableAirResistance ? this.calculateAirResistance(velocity) : { x: 0, y: 0, z: 0 }
       
-      const newAcceleration = new Acceleration({
+      const newAcceleration: AccelerationComponent = {
         x: toFloat((gravityForce.x + airResistanceForce.x) / mass.value),
         y: toFloat((gravityForce.y + airResistanceForce.y) / mass.value),
         z: toFloat((gravityForce.z + airResistanceForce.z) / mass.value),
-      })
+      }
 
       // Integrate acceleration into velocity (Euler integration)
-      let newVelocityX = velocity.dx + acceleration.x * deltaTime
-      let newVelocityY = velocity.dy + acceleration.y * deltaTime
-      let newVelocityZ = velocity.dz + acceleration.z * deltaTime
+      let newVelocityX = velocity.x + acceleration.x * deltaTime
+      let newVelocityY = velocity.y + acceleration.y * deltaTime
+      let newVelocityZ = velocity.z + acceleration.z * deltaTime
 
       // Apply friction if grounded
       if (this.config.enableFriction && isGrounded) {
@@ -123,18 +124,18 @@ class PhysicsProcessor {
         newVelocityZ *= scale
       }
 
-      const newVelocity = new Velocity({
-        dx: toFloat(newVelocityX),
-        dy: toFloat(newVelocityY),
-        dz: toFloat(newVelocityZ),
-      })
+      const newVelocity: VelocityComponent = {
+        x: toFloat(newVelocityX),
+        y: toFloat(newVelocityY),
+        z: toFloat(newVelocityZ),
+      }
 
       // Integrate velocity into position (Euler integration)
-      const newPosition = new Position({
-        x: toFloat(position.x + newVelocity.dx * deltaTime),
-        y: toFloat(position.y + newVelocity.dy * deltaTime),
-        z: toFloat(position.z + newVelocity.dz * deltaTime),
-      })
+      const newPosition: PositionComponent = {
+        x: toFloat(position.x + newVelocity.x * deltaTime),
+        y: toFloat(position.y + newVelocity.y * deltaTime),
+        z: toFloat(position.z + newVelocity.z * deltaTime),
+      }
 
       results.push({
         newPosition,
@@ -149,7 +150,7 @@ class PhysicsProcessor {
   /**
    * Calculate gravity force
    */
-  private calculateGravity(mass: Mass, isGrounded: boolean): { x: number, y: number, z: number } {
+  private calculateGravity(mass: MassComponent, isGrounded: boolean): { x: number, y: number, z: number } {
     if (isGrounded) {
       return { x: 0, y: 0, z: 0 }
     }
@@ -164,13 +165,13 @@ class PhysicsProcessor {
   /**
    * Calculate air resistance force
    */
-  private calculateAirResistance(velocity: Velocity): { x: number, y: number, z: number } {
+  private calculateAirResistance(velocity: VelocityComponent): { x: number, y: number, z: number } {
     const resistance = AIR_RESISTANCE
     
     return {
-      x: -velocity.dx * Math.abs(velocity.dx) * resistance,
-      y: -velocity.dy * Math.abs(velocity.dy) * resistance,
-      z: -velocity.dz * Math.abs(velocity.dz) * resistance,
+      x: -velocity.x * Math.abs(velocity.x) * resistance,
+      y: -velocity.y * Math.abs(velocity.y) * resistance,
+      z: -velocity.z * Math.abs(velocity.z) * resistance,
     }
   }
 }
@@ -191,7 +192,7 @@ export const createPhysicsSystem = (
     const startTime = Date.now()
 
     // Use optimized archetype query for physics entities
-    const physicsQuery = ArchetypeQuery()
+    const physicsQuery = ArchetypeQuery.create()
       .with('position', 'velocity', 'acceleration', 'mass')
       .maybe('collider', 'player')
       .execute()
@@ -200,16 +201,16 @@ export const createPhysicsSystem = (
     const bulkData: BulkPhysicsData = {
       entityIds: physicsQuery.entities,
       positions: physicsQuery.entities.map(entityId => 
-        physicsQuery.getComponent<Position>(entityId, 'position')
+        physicsQuery.getComponent<PositionComponent>(entityId, 'position')
       ).filter(opt => opt._tag === 'Some').map(opt => (opt as any).value),
       velocities: physicsQuery.entities.map(entityId => 
-        physicsQuery.getComponent<Velocity>(entityId, 'velocity')
+        physicsQuery.getComponent<VelocityComponent>(entityId, 'velocity')
       ).filter(opt => opt._tag === 'Some').map(opt => (opt as any).value),
       accelerations: physicsQuery.entities.map(entityId => 
-        physicsQuery.getComponent<Acceleration>(entityId, 'acceleration')
+        physicsQuery.getComponent<AccelerationComponent>(entityId, 'acceleration')
       ).filter(opt => opt._tag === 'Some').map(opt => (opt as any).value),
       masses: physicsQuery.entities.map(entityId => 
-        physicsQuery.getComponent<Mass>(entityId, 'mass')
+        physicsQuery.getComponent<MassComponent>(entityId, 'mass')
       ).filter(opt => opt._tag === 'Some').map(opt => (opt as any).value),
       isGrounded: physicsQuery.entities.map(entityId => {
         const player = physicsQuery.getComponent<any>(entityId, 'player')
@@ -236,14 +237,7 @@ export const createPhysicsSystem = (
           if (physicsConfig.spatialPartitioning) {
             const collider = physicsQuery.getComponent<ColliderComponent>(entityId, 'collider')
             if (collider._tag === 'Some') {
-              const aabb = new AABB(
-                result.newPosition.x - collider.value.width / 2,
-                result.newPosition.y,
-                result.newPosition.z - collider.value.depth / 2,
-                result.newPosition.x + collider.value.width / 2,
-                result.newPosition.y + collider.value.height,
-                result.newPosition.z + collider.value.depth / 2
-              )
+              const aabb = createAABB(result.newPosition, collider.value)
               yield* $(spatialGrid.add(entityId, aabb))
             }
           }

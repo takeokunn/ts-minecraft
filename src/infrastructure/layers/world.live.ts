@@ -6,7 +6,7 @@ import { EntityId, toEntityId } from '@/core/entities/entity'
 import { Archetype } from '@/domain/archetypes'
 import { ComponentName, ComponentOfName } from '@/core/components'
 import { ChunkCoordinates, ChunkData } from '@/domain/chunk'
-import { BlockType } from '@/core/values/block-type'
+import { BlockType } from '@/domain/value-objects/block-type.vo'
 import { ComponentNotFoundError } from '@/core/errors'
 
 /**

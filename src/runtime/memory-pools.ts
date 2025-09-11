@@ -1,4 +1,4 @@
-import { Effect, Array } from 'effect'
+import { Effect, Array, Schedule, Duration, Context } from 'effect'
 import { EntityId } from '@/core/entities/entity'
 import { ComponentName, ComponentOfName } from '@/core/components'
 import { EffectObjectPool, createEffectPool, PoolableObject } from '@/core/performance'
@@ -77,7 +77,7 @@ export interface PoolableComponent<T extends ComponentName> extends PoolableObje
 export class ManagedComponent<T extends ComponentName> implements PoolableComponent<T> {
   public name: T
   public entityId: EntityId = '' as EntityId
-  private data: any = {}
+  private data: ComponentOfName<T> = {} as ComponentOfName<T>
   
   constructor(componentName: T, defaultData: ComponentOfName<T>) {
     this.name = componentName
@@ -180,8 +180,8 @@ export class ManagedParticle implements PoolableParticle {
     this.position = { x: 0, y: 0, z: 0 }
     this.velocity = { x: 0, y: 0, z: 0 }
     this.life = 0
-    this.maxLife = 0
-    this.type = ''
+    this._maxLife = 0
+    this._type = ''
   }
 }
 
@@ -255,7 +255,7 @@ export class ManagedChunkData implements PoolableChunkData {
  */
 export interface MemoryPoolManager {
   readonly entityPool: EffectObjectPool<PoolableEntity>
-  readonly componentPools: Map<ComponentName, EffectObjectPool<PoolableComponent<any>>>
+  readonly componentPools: Map<ComponentName, EffectObjectPool<PoolableComponent<ComponentName>>>
   readonly particlePool: EffectObjectPool<PoolableParticle>
   readonly chunkDataPool: EffectObjectPool<PoolableChunkData>
   
@@ -268,7 +268,7 @@ export interface MemoryPoolManager {
     componentName: T,
     entityId: EntityId,
     data: Partial<ComponentOfName<T>>
-  ) => Effect.Effect<PoolableComponent<T, never, never>, never, never>
+  ) => Effect.Effect<PoolableComponent<T>, never, never>
   readonly releaseComponent: <T extends ComponentName>(
     component: PoolableComponent<T>
   ) => Effect.Effect<void, never, never>
@@ -295,7 +295,7 @@ export interface MemoryPoolManager {
   // Pool statistics and management
   readonly getPoolStats: () => Effect.Effect<{
     entities: { available: number; inUse: number; total: number }
-    components: Map<ComponentName, { available: number; inUse: number; total: number }, never>
+    components: Map<ComponentName, { available: number; inUse: number; total: number }>
     particles: { available: number; inUse: number; total: number }
     chunkData: { available: number; inUse: number; total: number }
   }, never, never>
@@ -316,7 +316,7 @@ export const createMemoryPoolManager = (): Effect.Effect<MemoryPoolManager, neve
     )
     
     // Create component pools (will be created on-demand)
-    const componentPools = new Map<ComponentName, EffectObjectPool<PoolableComponent<any>>>()
+    const componentPools = new Map<ComponentName, EffectObjectPool<PoolableComponent<ComponentName>>>()
     
     // Create particle pool
     const particlePool = yield* createEffectPool(

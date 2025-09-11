@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "typecheck": "tsc --pretty",
+    "type-check": "tsc --pretty",
     "test": "vitest",
     "lint": "oxlint --deny-warnings --allow no-restricted-globals",
     "lint:fix": "oxlint --fix",

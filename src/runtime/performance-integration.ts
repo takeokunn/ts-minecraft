@@ -78,11 +78,11 @@ export interface PerformanceIntegration {
   readonly runPerformanceBenchmark: (durationMs: number) => Effect.Effect<{
     baseline: RuntimePerformanceMetrics
     optimized: RuntimePerformanceMetrics
-    improvement: Record<string, number, never>
+    improvement: Record<string, number>
   }, never, never>
   readonly startContinuousMonitoring: () => Effect.Effect<void, never, never>
   readonly stopContinuousMonitoring: () => Effect.Effect<void, never, never>
-  readonly exportPerformanceData: () => Effect.Effect<any, never, never>
+  readonly exportPerformanceData: () => Effect.Effect<unknown, never, never>
 }
 
 /**
@@ -408,13 +408,13 @@ export const createPerformanceIntegration = (): Effect.Effect<PerformanceIntegra
               
               // Record key metrics
               yield* Metrics.recordGauge('runtime.optimization.overall_score', 
-                metrics.optimizationScores.overallScore, 'score')
+                metrics.optimizationScores.overallScore, {})
               yield* Metrics.recordGauge('runtime.optimization.gameloop_score', 
-                metrics.optimizationScores.gameLoopScore, 'score')
+                metrics.optimizationScores.gameLoopScore, {})
               yield* Metrics.recordGauge('runtime.optimization.memory_score', 
-                metrics.optimizationScores.memoryScore, 'score')
+                metrics.optimizationScores.memoryScore, {})
               yield* Metrics.recordGauge('runtime.optimization.latency_score', 
-                metrics.optimizationScores.latencyScore, 'score')
+                metrics.optimizationScores.latencyScore, {})
               
               yield* Effect.sleep(Duration.seconds(5))
             }

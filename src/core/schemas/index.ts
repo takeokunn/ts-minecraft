@@ -70,12 +70,12 @@ export type Gravity = S.Schema.Type<typeof GravitySchema>
 // Gameplay Components
 export const PlayerSchema = S.Struct({
   isGrounded: S.Boolean,
-  isSprinting: S.optional(S.Boolean).pipe(S.withDefault(() => false)),
-  isCrouching: S.optional(S.Boolean).pipe(S.withDefault(() => false)),
-  isFlying: S.optional(S.Boolean).pipe(S.withDefault(() => false)),
-  health: S.optional(S.Number.pipe(S.finite(), S.clamp(0, 20))).pipe(S.withDefault(() => 20)),
-  hunger: S.optional(S.Number.pipe(S.finite(), S.clamp(0, 20))).pipe(S.withDefault(() => 20)),
-  experience: S.optional(S.Number.pipe(S.int(), S.nonNegative())).pipe(S.withDefault(() => 0)),
+  isSprinting: S.optional(S.Boolean).pipe(S.withDefaults({ constructor: () => false, decoding: () => false })),
+  isCrouching: S.optional(S.Boolean).pipe(S.withDefaults({ constructor: () => false, decoding: () => false })),
+  isFlying: S.optional(S.Boolean).pipe(S.withDefaults({ constructor: () => false, decoding: () => false })),
+  health: S.optional(S.Number.pipe(S.finite(), S.clamp(0, 20))).pipe(S.withDefaults({ constructor: () => 20, decoding: () => 20 })),
+  hunger: S.optional(S.Number.pipe(S.finite(), S.clamp(0, 20))).pipe(S.withDefaults({ constructor: () => 20, decoding: () => 20 })),
+  experience: S.optional(S.Number.pipe(S.int(), S.nonNegative())).pipe(S.withDefaults({ constructor: () => 0, decoding: () => 0 })),
 })
 export type Player = S.Schema.Type<typeof PlayerSchema>
 
@@ -92,8 +92,8 @@ export const InputStateSchema = S.Struct({
   interact: S.Boolean,
   inventory: S.Boolean,
   menu: S.Boolean,
-  mouseDeltaX: S.optional(S.Number.pipe(S.finite())).pipe(S.withDefault(() => 0)),
-  mouseDeltaY: S.optional(S.Number.pipe(S.finite())).pipe(S.withDefault(() => 0)),
+  mouseDeltaX: S.optional(S.Number.pipe(S.finite())).pipe(S.withDefaults({ constructor: () => 0, decoding: () => 0 })),
+  mouseDeltaY: S.optional(S.Number.pipe(S.finite())).pipe(S.withDefaults({ constructor: () => 0, decoding: () => 0 })),
   isLocked: S.Boolean,
 })
 export type InputState = S.Schema.Type<typeof InputStateSchema>
@@ -102,10 +102,10 @@ export type InputState = S.Schema.Type<typeof InputStateSchema>
 export const CameraSchema = S.Struct({
   pitch: S.Number.pipe(S.finite(), S.clamp(-Math.PI / 2, Math.PI / 2)),
   yaw: S.Number.pipe(S.finite()),
-  fov: S.optional(S.Number.pipe(S.positive(), S.finite())).pipe(S.withDefault(() => 75)),
-  near: S.optional(S.Number.pipe(S.positive(), S.finite())).pipe(S.withDefault(() => 0.1)),
-  far: S.optional(S.Number.pipe(S.positive(), S.finite())).pipe(S.withDefault(() => 1000)),
-  isActive: S.optional(S.Boolean).pipe(S.withDefault(() => false)),
+  fov: S.optional(S.Number.pipe(S.positive(), S.finite())).pipe(S.withDefaults({ constructor: () => 75, decoding: () => 75 })),
+  near: S.optional(S.Number.pipe(S.positive(), S.finite())).pipe(S.withDefaults({ constructor: () => 0.1, decoding: () => 0.1 })),
+  far: S.optional(S.Number.pipe(S.positive(), S.finite())).pipe(S.withDefaults({ constructor: () => 1000, decoding: () => 1000 })),
+  isActive: S.optional(S.Boolean).pipe(S.withDefaults({ constructor: () => false, decoding: () => false })),
 })
 export type Camera = S.Schema.Type<typeof CameraSchema>
 

@@ -1,6 +1,6 @@
 import { Layer, Effect, Ref, HashMap } from 'effect'
 import { MaterialManager } from '@/services/rendering/material-manager'
-import { BlockType } from '@/core/values/block-type'
+import { BlockType } from '@/domain/value-objects/block-type.vo'
 
 /**
  * Production implementation of MaterialManager service

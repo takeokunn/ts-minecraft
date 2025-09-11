@@ -211,7 +211,7 @@ export const createLatencyOptimizer = (
             inputTime: timestamp
           }))
           
-          yield* Metrics.recordGauge('latency.input_timestamp', timestamp, 'ms')
+          yield* Metrics.recordGauge('latency.input_timestamp', timestamp, {})
         }),
       
       recordUpdateComplete: (timestamp: number) =>
@@ -368,8 +368,8 @@ export const createLatencyOptimizer = (
           // Record metrics
           yield* Metrics.recordTimer('frame.actual_time', actualFrameTime)
           yield* Metrics.recordTimer('frame.optimal_time', optimalTiming)
-          yield* Metrics.recordGauge('frame.debt', debt, 'ms')
-          yield* Metrics.recordGauge('frame.prediction_confidence', prediction.confidenceLevel, 'ratio')
+          yield* Metrics.recordGauge('frame.debt', debt, {})
+          yield* Metrics.recordGauge('frame.prediction_confidence', prediction.confidenceLevel, {})
           
           yield* Profile.end('frame_timing_optimization')
         }),
@@ -379,7 +379,7 @@ export const createLatencyOptimizer = (
           const clampedFrames = Math.max(0, Math.min(frames, 3)) // 0-3 frames ahead
           
           yield* Effect.logInfo(`Adjusting render ahead to ${clampedFrames} frames`)
-          yield* Metrics.recordGauge('frame.render_ahead', clampedFrames, 'frames')
+          yield* Metrics.recordGauge('frame.render_ahead', clampedFrames, {})
           
           // Simulate render ahead adjustment
           // In a real implementation, this would adjust the graphics pipeline
@@ -391,7 +391,7 @@ export const createLatencyOptimizer = (
           yield* Effect.logInfo('Low latency mode enabled')
           
           // Implement low latency optimizations
-          yield* Metrics.recordGauge('frame.low_latency_mode', 1, 'boolean')
+          yield* Metrics.recordGauge('frame.low_latency_mode', 1, {})
           
           // In a real implementation:
           // - Reduce render ahead frames
@@ -405,7 +405,7 @@ export const createLatencyOptimizer = (
           yield* Ref.set(lowLatencyMode, false)
           yield* Effect.logInfo('Low latency mode disabled')
           
-          yield* Metrics.recordGauge('frame.low_latency_mode', 0, 'boolean')
+          yield* Metrics.recordGauge('frame.low_latency_mode', 0, {})
         }),
       
       isLowLatencyMode: () => Ref.get(lowLatencyMode)

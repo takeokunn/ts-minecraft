@@ -1,4 +1,4 @@
-import { Effect, Ref, Schedule, Duration } from 'effect'
+import { Effect, Ref, Schedule, Duration, Context } from 'effect'
 
 import { ComponentName, ComponentOfName } from '@/core/components'
 import { EffectObjectPool, createEffectPool, PoolableObject } from '@/core/performance'
@@ -21,27 +21,27 @@ import { MemoryDetector, Profile } from '@/core/performance'
 export interface PoolableTemporaryObject extends PoolableObject {
   readonly type: 'vector' | 'matrix' | 'ray' | 'plane' | 'calculation' | 'buffer'
   
-  initialize(type: string, data?: any): this
-  getData(): any
-  setData(data: any): this
+  initialize(type: string, data?: unknown): this
+  getData(): unknown
+  setData(data: unknown): this
   getSize(): number
 }
 
 export class ManagedTemporaryObject implements PoolableTemporaryObject {
   public type: 'vector' | 'matrix' | 'ray' | 'plane' | 'calculation' | 'buffer' = 'calculation'
-  private data: any = null
+  private data: unknown = null
   
-  initialize(type: string, data?: any): this {
-    this.type = type as any
+  initialize(type: string, data?: unknown): this {
+    this.type = type as 'vector' | 'matrix' | 'ray' | 'plane' | 'calculation' | 'buffer'
     this.data = data || null
     return this
   }
   
-  getData(): any {
+  getData(): unknown {
     return this.data
   }
   
-  setData(data: any): this {
+  setData(data: unknown): this {
     this.data = data
     return this
   }
@@ -192,7 +192,7 @@ export interface EnhancedMemoryPoolManager {
   
   // Pool optimization
   readonly optimizePools: () => Effect.Effect<void, never, never>
-  readonly getUsageStats: () => Effect.Effect<Map<string, PoolUsageStats, never>, never, never>
+  readonly getUsageStats: () => Effect.Effect<Map<string, PoolUsageStats>, never, never>
   readonly resizePoolsBasedOnUsage: () => Effect.Effect<void, never, never>
   readonly defragmentPools: () => Effect.Effect<void, never, never>
   
@@ -264,7 +264,7 @@ export const createEnhancedMemoryPoolManager = (): Effect.Effect<EnhancedMemoryP
       arrayBufferPools,
       float32ArrayPools,
       
-      acquireTemporary: (type: string, data?: any) =>
+      acquireTemporary: (type: string, data?: unknown) =>
         Effect.gen(function* () {
           const obj = yield* temporaryObjectPool.acquire
           obj.initialize(type, data)
@@ -406,7 +406,7 @@ export const createEnhancedMemoryPoolManager = (): Effect.Effect<EnhancedMemoryP
           switch (level) {
             case 'low':
               // Light cleanup - just defragment
-              yield* Effect.fork(Effect.delay(Duration.millis(100))(Effect.void))
+              yield* Effect.fork(Effect.delay(Duration.millis(100))(Effect.succeed(undefined)))
               break
               
             case 'medium':
@@ -477,7 +477,7 @@ export const createEnhancedMemoryPoolManager = (): Effect.Effect<EnhancedMemoryP
  */
 export const monitorEnhancedPoolPerformance = (): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
-    const manager = yield* Effect.Service(EnhancedMemoryPoolService)
+    const manager = yield* EnhancedMemoryPoolService
     
     yield* Profile.start('enhanced_pool_monitoring')
     
@@ -535,7 +535,7 @@ export class EnhancedMemoryPoolService extends Context.Tag('EnhancedMemoryPoolSe
  */
 export const withTemporaryObject = <R, E, A>(
   type: string,
-  data: any,
+  data: unknown,
   fn: (obj: PoolableTemporaryObject) => Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, R | EnhancedMemoryPoolService> =>
   Effect.gen(function* () {

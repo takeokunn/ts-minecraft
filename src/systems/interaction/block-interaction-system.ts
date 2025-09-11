@@ -15,7 +15,7 @@ import { ArchetypeQuery, trackPerformance } from '@/core/queries'
 import { World } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
 import { Position, InputStateComponent, TargetComponent, HotbarComponent } from '@/core/components'
-import { BlockType, BlockPosition } from '@/core/values'
+import { BlockType, BlockPosition } from '@/domain/value-objects'
 
 import { EntityId } from '@/core/entities/entity'
 import * as THREE from 'three'

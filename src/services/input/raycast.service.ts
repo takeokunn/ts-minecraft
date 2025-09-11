@@ -1,6 +1,6 @@
 import { Context, Effect, Option } from 'effect'
 import { EntityId } from '@/core/entities/entity'
-import { Position } from '@/core/values/coordinates'
+import { Position } from '@/domain/value-objects/coordinates'
 
 /**
  * Ray hit result

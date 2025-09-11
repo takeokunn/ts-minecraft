@@ -540,11 +540,11 @@ export class RenderService extends Context.Tag('RenderService')<
 
           // Clean up scene resources
           for (const renderableId of scene.value.renderables) {
-            yield* destroyRenderable(renderableId).pipe(Effect.orElse(() => Effect.succeed(undefined)))
+            yield* destroyRenderable(renderableId).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
           }
 
           for (const lightId of scene.value.lights) {
-            yield* destroyLight(lightId).pipe(Effect.orElse(() => Effect.succeed(undefined)))
+            yield* destroyLight(lightId).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
           }
 
           yield* Ref.update(scenes, HashMap.remove(sceneId))

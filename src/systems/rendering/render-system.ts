@@ -14,7 +14,7 @@ import { Effect, Array as EffArray, Queue, Duration } from 'effect'
 import { ArchetypeQuery, trackPerformance } from '@/core/queries'
 import { World, Renderer } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { Position, MeshComponent, MaterialComponent, CameraComponent, RenderableComponent } from '@/core/components'
+import { PositionComponent, MeshComponent, MaterialComponent, CameraComponent, RenderableComponent } from '@/core/components'
 import * as THREE from 'three'
 
 /**
@@ -36,7 +36,7 @@ export interface RenderConfig {
  */
 interface RenderableEntity {
   readonly entityId: number
-  readonly position: Position
+  readonly position: PositionComponent
   readonly mesh: MeshComponent
   readonly material: MaterialComponent
   readonly renderable: RenderableComponent
@@ -73,7 +73,7 @@ interface RenderCommand {
 interface CameraFrustum {
   readonly camera: CameraComponent
   readonly frustum: THREE.Frustum
-  readonly position: Position
+  readonly position: PositionComponent
   readonly viewMatrix: THREE.Matrix4
   readonly projectionMatrix: THREE.Matrix4
 }
@@ -152,11 +152,8 @@ class RenderProcessor {
     return renderables.filter(entity => {
       // Simple sphere-frustum test
       const position = new THREE.Vector3(entity.position.x, entity.position.y, entity.position.z)
-      const radius = Math.max(
-        entity.mesh.boundingBox?.width || 1,
-        entity.mesh.boundingBox?.height || 1,
-        entity.mesh.boundingBox?.depth || 1
-      ) / 2
+      // Default bounding sphere radius for mesh
+      const radius = 1.0
 
       return camera.frustum.intersectsSphere(new THREE.Sphere(position, radius))
     })
@@ -167,7 +164,7 @@ class RenderProcessor {
    */
   private calculateLOD(
     renderables: RenderableEntity[],
-    cameraPosition: Position
+    cameraPosition: PositionComponent
   ): RenderableEntity[] {
     return renderables.map(entity => {
       const distance = this.calculateDistance(entity.position, cameraPosition)
@@ -184,7 +181,7 @@ class RenderProcessor {
   /**
    * Calculate distance between two positions
    */
-  private calculateDistance(pos1: Position, pos2: Position): number {
+  private calculateDistance(pos1: PositionComponent, pos2: PositionComponent): number {
     const dx = pos1.x - pos2.x
     const dy = pos1.y - pos2.y
     const dz = pos1.z - pos2.z
@@ -212,8 +209,10 @@ class RenderProcessor {
     const groups = new Map<string, RenderableEntity[]>()
 
     for (const entity of renderables) {
-      // Group by mesh + material + LOD level
-      const key = `${entity.mesh.id}_${entity.material.id}_${entity.lodLevel}`
+      // Group by mesh geometry type + material properties + LOD level
+      const meshKey = entity.mesh.geometry.type
+      const materialKey = `${entity.material.albedo.r}-${entity.material.albedo.g}-${entity.material.albedo.b}`
+      const key = `${meshKey}_${materialKey}_${entity.lodLevel}`
       
       if (!groups.has(key)) {
         groups.set(key, [])
@@ -245,8 +244,8 @@ class RenderProcessor {
 
       commands.push({
         type: 'instanced',
-        meshId: batch[0].mesh.id,
-        materialId: batch[0].material.id,
+        meshId: batch[0].mesh.geometry.type,
+        materialId: `${batch[0].material.albedo.r}-${batch[0].material.albedo.g}-${batch[0].material.albedo.b}`,
         transforms: instanceMatrix,
         count: batch.length,
         priority: this.calculateRenderPriority(batch[0]),
@@ -268,8 +267,8 @@ class RenderProcessor {
 
       return {
         type: 'single',
-        meshId: entity.mesh.id,
-        materialId: entity.material.id,
+        meshId: entity.mesh.geometry.type,
+        materialId: `${entity.material.albedo.r}-${entity.material.albedo.g}-${entity.material.albedo.b}`,
         transforms: transform,
         count: 1,
         priority: this.calculateRenderPriority(entity),
@@ -350,18 +349,18 @@ export const createRenderSystem = (
     const startTime = Date.now()
 
     // Get all renderable entities
-    const renderableQuery = ArchetypeQuery()
+    const renderableQuery = ArchetypeQuery.create()
       .with('position', 'mesh', 'material', 'renderable')
       .execute()
 
     // Get camera entities
-    const cameraQuery = ArchetypeQuery()
+    const cameraQuery = ArchetypeQuery.create()
       .with('camera', 'position')
       .execute()
 
     // Extract renderable data
     const renderableEntities: RenderableEntity[] = renderableQuery.entities.map(entityId => {
-      const position = renderableQuery.getComponent<Position>(entityId, 'position')
+      const position = renderableQuery.getComponent<PositionComponent>(entityId, 'position')
       const mesh = renderableQuery.getComponent<MeshComponent>(entityId, 'mesh')
       const material = renderableQuery.getComponent<MaterialComponent>(entityId, 'material')
       const renderable = renderableQuery.getComponent<RenderableComponent>(entityId, 'renderable')
@@ -385,7 +384,7 @@ export const createRenderSystem = (
     // Extract camera data
     const cameraFrustums: CameraFrustum[] = cameraQuery.entities.map(entityId => {
       const camera = cameraQuery.getComponent<CameraComponent>(entityId, 'camera')
-      const position = cameraQuery.getComponent<Position>(entityId, 'position')
+      const position = cameraQuery.getComponent<PositionComponent>(entityId, 'position')
 
       if (camera._tag === 'Some' && position._tag === 'Some') {
         const cameraComp = (camera as any).value
@@ -405,13 +404,10 @@ export const createRenderSystem = (
         )
 
         // Set up view matrix
+        const target = cameraComp.target || { x: positionComp.x, y: positionComp.y, z: positionComp.z - 1 }
         viewMatrix.lookAt(
           new THREE.Vector3(positionComp.x, positionComp.y, positionComp.z),
-          new THREE.Vector3(
-            positionComp.x + cameraComp.direction.x,
-            positionComp.y + cameraComp.direction.y,
-            positionComp.z + cameraComp.direction.z
-          ),
+          new THREE.Vector3(target.x, target.y, target.z),
           new THREE.Vector3(cameraComp.up.x, cameraComp.up.y, cameraComp.up.z)
         )
 
@@ -433,7 +429,7 @@ export const createRenderSystem = (
     // Process renderables asynchronously if enabled
     const renderCommands = renderConfig.asyncRenderPrep
       ? yield* $(Effect.promise(() => processor.processRenderables(renderableEntities, cameraFrustums)))
-      : processor.processRenderables(renderableEntities, cameraFrustums)
+      : yield* $(Effect.promise(() => processor.processRenderables(renderableEntities, cameraFrustums)))
 
     // Submit render commands to renderer
     yield* $(

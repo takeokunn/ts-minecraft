@@ -1,6 +1,6 @@
 import { Layer, Effect, Ref } from 'effect'
 import { TerrainGenerator } from '@/services/world/terrain-generator.service'
-import { ChunkCoordinates } from '@/core/values/coordinates/chunk-coordinates.value'
+import { ChunkCoordinates } from '@/domain/value-objects/coordinates/chunk-coordinates.value'
 import { WorkerManager } from '@/services/worker/worker-manager.service'
 import * as S from "/schema/Schema"
 

@@ -7,7 +7,7 @@ import { Profile, MemoryDetector, Metrics } from '@/core/performance'
  */
 export type ResourceType = 'texture' | 'audio' | 'mesh' | 'shader' | 'chunk' | 'config'
 
-export interface Resource<T = any> {
+export interface Resource<T = unknown> {
   readonly id: string
   readonly type: ResourceType
   readonly data: T
@@ -19,7 +19,7 @@ export interface Resource<T = any> {
 
 export type ResourcePriority = 'critical' | 'high' | 'normal' | 'low'
 
-export interface ResourceRequest<T = any> {
+export interface ResourceRequest<T = unknown> {
   readonly id: string
   readonly type: ResourceType
   readonly priority: ResourcePriority
@@ -66,7 +66,7 @@ export const defaultResourceConfig: ResourceManagerConfig = {
  * Resource cache with LRU eviction and memory management
  */
 interface ResourceCache {
-  readonly get: <T>(id: string) => Effect.Effect<Option.Option<Resource<T, never, never>>, never, never>
+  readonly get: <T>(id: string) => Effect.Effect<Option.Option<Resource<T>>, never, never>
   readonly set: <T>(resource: Resource<T>) => Effect.Effect<void, never, never>
   readonly remove: (id: string) => Effect.Effect<void, never, never>
   readonly clear: () => Effect.Effect<void, never, never>
@@ -84,7 +84,7 @@ interface ResourceCache {
  */
 interface LoadingQueue {
   readonly enqueue: <T>(request: ResourceRequest<T>) => Effect.Effect<void, never, never>
-  readonly dequeue: () => Effect.Effect<Option.Option<ResourceRequest, never, never>, never, never>
+  readonly dequeue: () => Effect.Effect<Option.Option<ResourceRequest>, never, never>
   readonly clear: () => Effect.Effect<void, never, never>
   readonly size: () => Effect.Effect<number, never, never>
 }
@@ -94,7 +94,7 @@ interface LoadingQueue {
  */
 const createResourceCache = (config: ResourceManagerConfig): Effect.Effect<ResourceCache, never, never> =>
   Effect.gen(function* () {
-    const cache = new Map<string, Resource>()
+    const cache = new Map<string, Resource<unknown>>()
     const accessOrder = yield* Ref.make<string[]>([])
     const memoryUsage = yield* Ref.make(0)
     const stats = yield* Ref.make({
@@ -115,8 +115,9 @@ const createResourceCache = (config: ResourceManagerConfig): Effect.Effect<Resou
         const currentMemory = yield* Ref.get(memoryUsage)
         
         // Evict until under memory threshold
-        while (order.length > 0 && currentMemory > config.gcThreshold) {
-          const oldestId = order[0]
+        let currentOrder = order
+        while (currentOrder.length > 0 && currentMemory > config.gcThreshold) {
+          const oldestId = currentOrder[0]
           const resource = cache.get(oldestId)
           
           if (resource) {
@@ -128,8 +129,7 @@ const createResourceCache = (config: ResourceManagerConfig): Effect.Effect<Resou
           }
           
           yield* Ref.update(accessOrder, o => o.slice(1))
-          const newOrder = yield* Ref.get(accessOrder)
-          order.splice(0, order.length, ...newOrder)
+          currentOrder = yield* Ref.get(accessOrder)
         }
       })
     
@@ -275,8 +275,8 @@ const createLoadingQueue = (): Effect.Effect<LoadingQueue, never, never> =>
  * Main Resource Manager
  */
 export interface ResourceManager {
-  readonly load: <T>(request: ResourceRequest<T>) => Effect.Effect<Resource<T, never, never>, unknown, never>
-  readonly get: <T>(id: string) => Effect.Effect<Option.Option<Resource<T, never, never>>, never, never>
+  readonly load: <T>(request: ResourceRequest<T>) => Effect.Effect<Resource<T>, unknown, never>
+  readonly get: <T>(id: string) => Effect.Effect<Option.Option<Resource<T>>, never, never>
   readonly preload: (ids: string[], type: ResourceType) => Effect.Effect<void, never, never>
   readonly unload: (id: string) => Effect.Effect<void, never, never>
   readonly cleanup: () => Effect.Effect<void, never, never>
@@ -321,7 +321,7 @@ export const createResourceManager = (
                   return
                 }
                 
-                const resource: Resource = {
+                const resource: Resource<unknown> = {
                   id: request.id,
                   type: request.type,
                   data,
@@ -449,7 +449,7 @@ export const createResourceManager = (
           for (const id of ids) {
             // Create a dummy request for preloading
             // In a real implementation, you'd have a registry of known resources
-            const request: ResourceRequest = {
+            const request: ResourceRequest<unknown> = {
               id,
               type,
               priority: 'low',
@@ -538,7 +538,7 @@ export const loadAudio = (
 export const loadMesh = (
   url: string,
   priority: ResourcePriority = 'normal'
-): ResourceRequest<any> => ({
+): ResourceRequest<unknown> => ({
   id: url,
   type: 'mesh',
   priority,

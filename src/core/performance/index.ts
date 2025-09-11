@@ -35,10 +35,10 @@ export {
   initializeProfiler,
   measure,
   withProfiling,
-  measureBatch
+  measureBatch,
+  Profile
 } from './profiler'
 export type {
-  Profile,
   ProfileMeasurement,
   ProfilerConfig,
   ProfilerState,
@@ -49,10 +49,10 @@ export {
   initializeMetrics,
   timed,
   counted,
-  withMetrics
+  withMetrics,
+  Metrics
 } from './metrics'
 export type {
-  Metrics,
   MetricValue,
   MetricSeries,
   MetricType,

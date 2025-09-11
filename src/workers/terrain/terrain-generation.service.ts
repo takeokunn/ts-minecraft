@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { GenerateChunkMessage, ChunkGenerationResult } from '../shared/message-types'
-import { BlockType } from '@/core/values/block-type'
+import { BlockType } from '@/domain/value-objects/block-type.vo'
 import { createNoise2D } from 'simplex-noise'
 import alea from 'alea'
 

@@ -1,7 +1,7 @@
 import { defineError } from './generator'
 import { PhysicsError } from './base-errors'
-import type { EntityId } from '@/core/values/entity-id'
-import type { Position } from '@/core/values/coordinates'
+import type { EntityId } from '@/domain/value-objects/entity-id.vo'
+import type { Position } from '@/domain/value-objects/coordinates'
 
 /**
  * Collision detection computation failed

@@ -14,9 +14,9 @@ import { Effect, Array as EffArray, Duration, Option } from 'effect'
 import { ArchetypeQuery, trackPerformance } from '@/core/queries'
 import { World, SpatialGrid } from '@/runtime/services'
 import { SystemFunction, SystemConfig, SystemContext } from '../core/scheduler'
-import { Position, VelocityComponent, ColliderComponent, MassComponent } from '@/core/components'
+import { PositionComponent, VelocityComponent, ColliderComponent, MassComponent } from '@/core/components'
 import { EntityId } from '@/core/entities/entity'
-import { AABB } from '@/domain/geometry'
+import { AABB, createAABB as domainCreateAABB } from '@/domain/geometry'
 import { toFloat } from '@/core/common'
 
 /**
@@ -47,7 +47,7 @@ export type CollisionShape = 'box' | 'sphere' | 'capsule' | 'mesh'
 export interface CollisionInfo {
   readonly entityA: EntityId
   readonly entityB: EntityId
-  readonly contactPoint: Position
+  readonly contactPoint: PositionComponent
   readonly contactNormal: { x: number, y: number, z: number }
   readonly penetration: number
   readonly relativeVelocity: number
@@ -73,7 +73,7 @@ interface CollisionPair {
 interface CollisionResponse {
   readonly entityId: EntityId
   readonly velocityChange: VelocityComponent
-  readonly positionCorrection: Position
+  readonly positionCorrection: PositionComponent
   readonly impulse: { x: number, y: number, z: number }
 }
 
@@ -130,18 +130,8 @@ export const CollisionUtils = {
   /**
    * Create AABB from position and collider
    */
-  createAABB: (position: Position, collider: ColliderComponent): AABB => {
-    const halfWidth = collider.width / 2
-    const halfDepth = collider.depth / 2
-    
-    return new AABB(
-      position.x - halfWidth,
-      position.y,
-      position.z - halfDepth,
-      position.x + halfWidth,
-      position.y + collider.height,
-      position.z + halfDepth
-    )
+  createAABB: (position: PositionComponent, collider: ColliderComponent): AABB => {
+    return domainCreateAABB(position, collider)
   },
 
   /**
@@ -163,7 +153,7 @@ export const CollisionUtils = {
   /**
    * Calculate contact point
    */
-  calculateContactPoint: (a: AABB, b: AABB): Position => {
+  calculateContactPoint: (a: AABB, b: AABB): PositionComponent => {
     return {
       x: (Math.max(a.minX, b.minX) + Math.min(a.maxX, b.maxX)) / 2,
       y: (Math.max(a.minY, b.minY) + Math.min(a.maxY, b.maxY)) / 2,
@@ -180,9 +170,9 @@ export const CollisionUtils = {
     normal: { x: number, y: number, z: number }
   ): number => {
     const relVel = {
-      x: velA.dx - velB.dx,
-      y: velA.dy - velB.dy,
-      z: velA.dz - velB.dz,
+      x: velA.x - velB.x,
+      y: velA.y - velB.y,
+      z: velA.z - velB.z,
     }
     
     return relVel.x * normal.x + relVel.y * normal.y + relVel.z * normal.z
@@ -206,7 +196,7 @@ class CollisionProcessor {
   async processCollisions(
     entities: {
       entityId: EntityId
-      position: Position
+      position: PositionComponent
       velocity: VelocityComponent
       collider: ColliderComponent
       mass: Option.Option<MassComponent>
@@ -256,7 +246,7 @@ class CollisionProcessor {
   private async broadPhaseDetection(
     entities: {
       entityId: EntityId
-      position: Position
+      position: PositionComponent
       velocity: VelocityComponent
       collider: ColliderComponent
       mass: Option.Option<MassComponent>
@@ -330,7 +320,7 @@ class CollisionProcessor {
     pairs: CollisionPair[],
     entities: {
       entityId: EntityId
-      position: Position
+      position: PositionComponent
       velocity: VelocityComponent
       collider: ColliderComponent
       mass: Option.Option<MassComponent>
@@ -369,13 +359,13 @@ class CollisionProcessor {
   private detectCollision(
     entityA: {
       entityId: EntityId
-      position: Position
+      position: PositionComponent
       velocity: VelocityComponent
       collider: ColliderComponent
     },
     entityB: {
       entityId: EntityId
-      position: Position
+      position: PositionComponent
       velocity: VelocityComponent
       collider: ColliderComponent
     },
@@ -427,7 +417,7 @@ class CollisionProcessor {
     collisions: CollisionInfo[],
     entities: {
       entityId: EntityId
-      position: Position
+      position: PositionComponent
       velocity: VelocityComponent
       collider: ColliderComponent
       mass: Option.Option<MassComponent>
@@ -463,15 +453,15 @@ class CollisionProcessor {
 
       // Apply impulse to velocities
       const velocityChangeA: VelocityComponent = {
-        dx: toFloat(entityA.velocity.dx + impulse.x / massA),
-        dy: toFloat(entityA.velocity.dy + impulse.y / massA),
-        dz: toFloat(entityA.velocity.dz + impulse.z / massA),
+        x: toFloat(entityA.velocity.x + impulse.x / massA),
+        y: toFloat(entityA.velocity.y + impulse.y / massA),
+        z: toFloat(entityA.velocity.z + impulse.z / massA),
       }
 
       const velocityChangeB: VelocityComponent = {
-        dx: toFloat(entityB.velocity.dx - impulse.x / massB),
-        dy: toFloat(entityB.velocity.dy - impulse.y / massB),
-        dz: toFloat(entityB.velocity.dz - impulse.z / massB),
+        x: toFloat(entityB.velocity.x - impulse.x / massB),
+        y: toFloat(entityB.velocity.y - impulse.y / massB),
+        z: toFloat(entityB.velocity.z - impulse.z / massB),
       }
 
       // Position correction to prevent sinking
@@ -481,13 +471,13 @@ class CollisionProcessor {
       const correctionMagnitude = Math.max(collision.penetration - slop, 0) * 
                                  correctionPercent / (1/massA + 1/massB)
 
-      const positionCorrectionA: Position = {
+      const positionCorrectionA: PositionComponent = {
         x: toFloat(entityA.position.x + collision.contactNormal.x * correctionMagnitude / massA),
         y: toFloat(entityA.position.y + collision.contactNormal.y * correctionMagnitude / massA),
         z: toFloat(entityA.position.z + collision.contactNormal.z * correctionMagnitude / massA),
       }
 
-      const positionCorrectionB: Position = {
+      const positionCorrectionB: PositionComponent = {
         x: toFloat(entityB.position.x - collision.contactNormal.x * correctionMagnitude / massB),
         y: toFloat(entityB.position.y - collision.contactNormal.y * correctionMagnitude / massB),
         z: toFloat(entityB.position.z - collision.contactNormal.z * correctionMagnitude / massB),
@@ -515,7 +505,7 @@ class CollisionProcessor {
   /**
    * Update spatial grid
    */
-  private updateSpatialGrid(entities: { entityId: EntityId; position: Position }[]): void {
+  private updateSpatialGrid(entities: { entityId: EntityId; position: PositionComponent }[]): void {
     this.spatialGrid.clear()
 
     for (const entity of entities) {
@@ -534,7 +524,7 @@ class CollisionProcessor {
   /**
    * Get nearby entities using spatial grid
    */
-  private getNearbyEntities(position: Position): EntityId[] {
+  private getNearbyEntities(position: PositionComponent): EntityId[] {
     const nearby: EntityId[] = []
     const cellX = Math.floor(position.x / this.config.spatialGridCellSize)
     const cellZ = Math.floor(position.z / this.config.spatialGridCellSize)
@@ -558,8 +548,8 @@ class CollisionProcessor {
    */
   private calculateCollisionPriority(entityA: any, entityB: any): number {
     // Higher velocity = higher priority
-    const velMagA = Math.sqrt(entityA.velocity.dx ** 2 + entityA.velocity.dy ** 2 + entityA.velocity.dz ** 2)
-    const velMagB = Math.sqrt(entityB.velocity.dx ** 2 + entityB.velocity.dy ** 2 + entityB.velocity.dz ** 2)
+    const velMagA = Math.sqrt(entityA.velocity.x ** 2 + entityA.velocity.y ** 2 + entityA.velocity.z ** 2)
+    const velMagB = Math.sqrt(entityB.velocity.x ** 2 + entityB.velocity.y ** 2 + entityB.velocity.z ** 2)
     
     // Higher mass = higher priority
     const massA = Option.match(entityA.mass, { onNone: () => 1, onSome: m => m.value })
@@ -642,7 +632,7 @@ export const createCollisionSystem = (
     const startTime = Date.now()
 
     // Query entities with collision components
-    const collisionQuery = ArchetypeQuery()
+    const collisionQuery = ArchetypeQuery.create()
       .with('position', 'velocity', 'collider')
       .maybe('mass', 'acceleration')
       .execute()
@@ -653,7 +643,7 @@ export const createCollisionSystem = (
 
     // Extract collision entities
     const entities = collisionQuery.entities.map(entityId => {
-      const position = collisionQuery.getComponent<Position>(entityId, 'position')
+      const position = collisionQuery.getComponent<PositionComponent>(entityId, 'position')
       const velocity = collisionQuery.getComponent<VelocityComponent>(entityId, 'velocity')
       const collider = collisionQuery.getComponent<ColliderComponent>(entityId, 'collider')
       const mass = collisionQuery.getComponent<MassComponent>(entityId, 'mass')

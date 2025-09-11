@@ -18,7 +18,7 @@ import { World } from '@/runtime/services'
 import { ObjectPool } from '@/core/performance/object-pool'
 import { AdvancedSpatialGridState } from './spatial-grid'
 import { ChunkCacheState } from './chunk-cache'
-import * as S from "/schema/Schema"
+import * as S from "@effect/schema/Schema"
 
 // Import errors from centralized location
 import {
@@ -678,7 +678,14 @@ export const WorldOptimizedLive = Layer.effect(
         ),
 
       getComponentUnsafe: <T extends ComponentName>(entityId: EntityId, componentName: T) =>
-        Effect.serviceRef.getComponent(entityId, componentName).pipe(
+        Effect.gen(function* () {
+          const s = yield* _(Ref.get(state))
+          const componentStorage = s.components[componentName]
+          if (!componentStorage) {
+            return Effect.fail(new ComponentNotFoundError(entityId, componentName))
+          }
+          return HashMap.get(componentStorage.data, entityId)
+        }).pipe(
           Effect.flatten,
           Effect.mapError(() => new ComponentNotFoundError(entityId, componentName)),
         ),
@@ -745,26 +752,39 @@ export const WorldOptimizedLive = Layer.effect(
         ),
 
       queryUnsafe: <T extends ReadonlyArray<ComponentName>>(q: LegacyQuery<T> | OptimizedQuery<T>) =>
-        Effect.serviceRef.query(q).pipe(
-          Effect.map((results) =>
-            results.map(([entityId, components]) => {
+        Ref.get(state).pipe(
+          Effect.map((s) => {
+            const [, results] = queryOptimized(s, q)
+            return results.map(([entityId, components]) => {
               return [entityId, ...components]
-            }),
-          ),
+            })
+          }),
         ),
 
       querySingle: <T extends ReadonlyArray<ComponentName>>(q: LegacyQuery<T> | OptimizedQuery<T>) =>
-        Effect.serviceRef.query(q).pipe(Effect.map((results) => Option.fromNullable(results[0]))),
+        Ref.get(state).pipe(
+          Effect.map((s) => {
+            const [, results] = queryOptimized(s, q)
+            return Option.fromNullable(results[0])
+          })
+        ),
 
       querySingleUnsafe: <T extends ReadonlyArray<ComponentName>>(q: LegacyQuery<T> | OptimizedQuery<T>) =>
-        Effect.serviceRef.querySingle(q).pipe(
-          Effect.flatten,
-          Effect.mapError(() => new QuerySingleResultNotFoundError({ query: q, resultCount: 0, expectedCount: 1 })),
+        Ref.get(state).pipe(
+          Effect.flatMap((s) => {
+            const [, results] = queryOptimized(s, q)
+            const result = Option.fromNullable(results[0])
+            return Option.match(result, {
+              onNone: () => Effect.fail(new QuerySingleResultNotFoundError({ query: q, resultCount: 0, expectedCount: 1 })),
+              onSome: (value) => Effect.succeed(value)
+            })
+          })
         ),
 
       querySoA: <T extends ReadonlyArray<ComponentName>>(query: LegacyQuery<T> | OptimizedQuery<T>) =>
-        Effect.serviceRef.query(query).pipe(
-          Effect.map((results) => {
+        Ref.get(state).pipe(
+          Effect.map((s) => {
+            const [, results] = queryOptimized(s, query)
             const entities = results.map(([entityId]) => entityId)
             const components = Object.fromEntries(
               query.components.map((name, i) => [name, results.map(([, ...components]) => components[i])]),
@@ -788,9 +808,11 @@ export const WorldOptimizedLive = Layer.effect(
         })),
 
       getVoxel: (x: number, y: number, z: number) =>
-        Effect.serviceRef.getChunk(Math.floor(x / 16), Math.floor(z / 16)).pipe(
-          Effect.map(
-            Option.match({
+        Ref.get(state).pipe(
+          Effect.map((s) => {
+            const chunkKey = getChunkKey(Math.floor(x / 16), Math.floor(z / 16))
+            const chunkOpt = HashMap.get(s.chunks, chunkKey)
+            return Option.match(chunkOpt, {
               onNone: () => Option.none<Voxel>(),
               onSome: (chunk) => {
                 const vec: Vector3 = [x, y, z] as unknown as Vector3
@@ -805,14 +827,16 @@ export const WorldOptimizedLive = Layer.effect(
                 }
                 return Option.some(voxel)
               },
-            }),
-          ),
+            })
+          }),
         ),
 
       setVoxel: (x: number, y: number, z: number, voxel: Voxel) =>
-        Effect.serviceRef.getChunk(Math.floor(x / 16), Math.floor(z / 16)).pipe(
-          Effect.flatMap(
-            Option.match({
+        Ref.get(state).pipe(
+          Effect.flatMap((s) => {
+            const chunkKey = getChunkKey(Math.floor(x / 16), Math.floor(z / 16))
+            const chunkOpt = HashMap.get(s.chunks, chunkKey)
+            return Option.match(chunkOpt, {
               onNone: () => Effect.void,
               onSome: (chunk) => {
                 const vec: Vector3 = [x, y, z] as unknown as Vector3
@@ -820,10 +844,13 @@ export const WorldOptimizedLive = Layer.effect(
                 const newBlocks = [...chunk.blocks]
                 newBlocks[index] = voxel.blockType
                 const newChunk: Chunk = { ...chunk, blocks: newBlocks }
-                return Effect.serviceRef.setChunk(chunk.chunkX, chunk.chunkZ, newChunk)
+                return Ref.update(state, (prevState) => ({
+                  ...prevState,
+                  chunks: HashMap.set(prevState.chunks, chunkKey, newChunk),
+                }))
               },
-            }),
-          ),
+            })
+          })
         ),
 
       // Enhanced methods

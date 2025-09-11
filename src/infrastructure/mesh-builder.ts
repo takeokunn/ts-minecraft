@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import type { Chunk } from '@/core/components/world/chunk'
 import { ObjectPool } from '@/core/performance/object-pool'
 import { createTypedWorkerClient, WorkerClientConfig } from '@/workers/base/typed-worker'
-import * as S from "/schema/Schema"
+import * as S from "@effect/schema/Schema"
 
 // --- Configuration ---
 
@@ -516,7 +516,7 @@ export const MeshBuilderLive = Layer.effect(
     const workerClientConfig: WorkerClientConfig<MeshGenerationRequest, MeshGenerationResponse> = {
       inputSchema: MeshGenerationRequestSchema,
       outputSchema: MeshGenerationResponseSchema,
-      timeout: Duration.seconds(10),
+      timeout: 10000, // 10 seconds in milliseconds
       maxConcurrentRequests: 4,
     }
 

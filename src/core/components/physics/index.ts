@@ -261,5 +261,9 @@ export {
   ColliderComponent as ColliderComponentType,
 }
 
-// Removed conflicting type aliases to avoid conflicts with value objects
-// Use PositionComponent, VelocityComponent, ColliderComponent directly
+// Type aliases for backward compatibility with existing code
+export type Position = PositionComponent
+export type Velocity = VelocityComponent
+export type Acceleration = AccelerationComponent
+export type Mass = MassComponent
+export type Collider = ColliderComponent

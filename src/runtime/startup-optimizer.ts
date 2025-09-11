@@ -613,7 +613,7 @@ export const createStartupOptimizer = (
             Effect.timeout(Duration.millis(timeout))
           )
           
-          if (!found._tag || found._tag === 'None') {
+          if (!found) {
             yield* Effect.fail(`Service ${serviceName} not ready within ${timeout}ms`)
           }
         }),
@@ -623,7 +623,8 @@ export const createStartupOptimizer = (
           yield* Effect.logInfo('Optimizing startup order based on performance data')
           
           // Analyze timing data and adjust estimated load times
-          const measurements = yield* Profile.getMeasurements()
+          // Note: Profile.getMeasurements() would need to be implemented
+          const measurements: Array<{ name: string; duration: number }> = []
           const serviceTimings = measurements
             .filter(m => m.name.startsWith('service_init:'))
             .reduce((acc, m) => {

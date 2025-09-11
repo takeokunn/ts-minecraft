@@ -25,7 +25,7 @@ import * as Ref from 'effect/Ref'
 // Core imports
 import { EntityId } from '../../core/entities'
 
-import { AABB } from '../../core/values/geometry'
+import { AABB } from '../../core/values/geometry/aabb.value'
 import {
   CollisionDetectionError,
   PhysicsSimulationError,
@@ -679,7 +679,7 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
         })
 
       const detectCollisions = (): Effect.Effect<readonly CollisionPair[], never, never> =>
-        checkCollisions().pipe(Effect.orElse(() => Effect.succeed([])))
+        checkCollisions().pipe(Effect.catchAll(() => Effect.succeed([])))
 
       const solveConstraints = (deltaTime: number): Effect.Effect<number, never, never> =>
         Effect.gen(function* () {
@@ -751,8 +751,12 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
         Effect.succeed(undefined)
 
       const calculateBounds = (body: RigidBody): AABB => ({
-        min: { x: body.state.position.x - 1, y: body.state.position.y - 1, z: body.state.position.z - 1 },
-        max: { x: body.state.position.x + 1, y: body.state.position.y + 1, z: body.state.position.z + 1 },
+        minX: body.state.position.x - 1,
+        minY: body.state.position.y - 1,
+        minZ: body.state.position.z - 1,
+        maxX: body.state.position.x + 1,
+        maxY: body.state.position.y + 1,
+        maxZ: body.state.position.z + 1,
       })
 
       // Return the service implementation
@@ -785,7 +789,7 @@ export class PhysicsService extends Context.Tag('PhysicsService')<
           }),
         getCollisionPairs: (bodyId: RigidBodyId) =>
           Effect.gen(function* () {
-            const collisions = yield* checkCollisions().pipe(Effect.orElse(() => Effect.succeed([])))
+            const collisions = yield* checkCollisions().pipe(Effect.catchAll(() => Effect.succeed([])))
             return collisions
               .filter(pair => pair.bodyA === bodyId || pair.bodyB === bodyId)
               .map(pair => pair.bodyA === bodyId ? pair.bodyB : pair.bodyA)

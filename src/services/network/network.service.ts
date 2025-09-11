@@ -714,7 +714,7 @@ export class NetworkService extends Context.Tag('NetworkService')<
             for (const connectionId of server.value.connections) {
               if (!Set.has(excludeSet, connectionId)) {
                 yield* sendMessageToConnection(connectionId, message).pipe(
-                  Effect.orElse(() => Effect.succeed(undefined))
+                  Effect.catchAll(() => Effect.succeed(undefined))
                 )
               }
             }

@@ -9,20 +9,21 @@
  * - Performance optimizations through archetype caching
  */
 
-import * as S from "@effect/schema/Schema"
+import * as S from "effect/Schema"
 import * as Data from 'effect/Data'
 import * as HashMap from 'effect/HashMap'
 import * as Array from 'effect/Array'
 import * as Option from 'effect/Option'
 
-// Base component interface
-export interface ComponentMeta {
+// Base component interface with improved typing
+export interface ComponentMeta<TSchema = S.Schema<any, any, any>> {
   readonly id: string
   readonly category: 'physics' | 'rendering' | 'gameplay' | 'world'
-  readonly schema: S.Schema<any, any, any>
+  readonly schema: TSchema
   readonly priority?: number
   readonly dependencies?: readonly string[]
   readonly conflictsWith?: readonly string[]
+  readonly _tag: string // Discriminated union tag
 }
 
 // Component registry state
@@ -39,8 +40,8 @@ export interface ArchetypeInfo {
   readonly storageLayout: StorageLayout
 }
 
-// Storage layout configuration
-export type StorageLayout = 'AoS' | 'SoA' | 'Hybrid'
+// Storage layout configuration with enhanced options
+export type StorageLayout = 'AoS' | 'SoA' | 'Hybrid' | 'none'
 
 // SoA buffer for performance-critical components
 export interface SoABuffer {
@@ -49,6 +50,37 @@ export interface SoABuffer {
   readonly length: number
   readonly data: ArrayBuffer
   readonly views: Record<string, Float32Array | Int32Array | Uint8Array>
+}
+
+// Enhanced component type with generic parameter
+export type Component<T = unknown> = {
+  readonly _tag: string
+  readonly data: T
+}
+
+// Type guard for component validation
+export function isComponent<T>(value: unknown, tag: string): value is Component<T> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    '_tag' in value &&
+    (value as any)._tag === tag &&
+    'data' in value
+  )
+}
+
+// Type guard for checking if entity has component
+export function hasComponent<T extends Record<string, Component>>(
+  entity: T, 
+  componentId: keyof T
+): componentId is keyof T {
+  return componentId in entity && isComponent(entity[componentId], componentId as string)
+}
+
+// Enhanced entity type with generic components
+export type Entity<TComponents extends Record<string, Component> = Record<string, Component>> = {
+  readonly id: number
+  readonly components: TComponents
 }
 
 // Registry implementation
@@ -66,7 +98,7 @@ export class ComponentRegistry {
   /**
    * Register a component with automatic metadata extraction
    */
-  register(meta: ComponentMeta): void {
+  register<TSchema extends S.Schema<any, any, any>>(meta: ComponentMeta<TSchema>): void {
     this.state = Data.struct({
       ...this.state,
       components: HashMap.set(this.state.components, meta.id, meta),
@@ -79,10 +111,12 @@ export class ComponentRegistry {
   }
 
   /**
-   * Get component metadata
+   * Get component metadata with type safety
    */
-  getComponent(id: string): Option.Option<ComponentMeta> {
-    return HashMap.get(this.state.components, id)
+  getComponent<TSchema extends S.Schema<any, any, any>>(
+    id: string
+  ): Option.Option<ComponentMeta<TSchema>> {
+    return HashMap.get(this.state.components, id) as Option.Option<ComponentMeta<TSchema>>
   }
 
   /**
@@ -120,16 +154,20 @@ export class ComponentRegistry {
   }
 
   /**
-   * Query entities by component requirements
+   * Query entities by component requirements with enhanced type safety
    */
-  query(required: readonly string[], _optional: readonly string[] = []): QueryResult {
-    const archetype = this.getArchetype(required)
+  query<TComponents extends Record<string, Component>>(
+    required: readonly (keyof TComponents)[], 
+    _optional: readonly string[] = []
+  ): QueryResult<TComponents> {
+    const componentIds = required as readonly string[]
+    const archetype = this.getArchetype(componentIds)
     return {
       entities: archetype.entities,
-      getComponent: <T>(entityId: number, componentId: string) => 
-        this.getEntityComponent<T>(entityId, componentId),
-      hasComponent: (entityId: number, componentId: string) =>
-        this.hasEntityComponent(entityId, componentId),
+      getComponent: <T>(entityId: number, componentId: keyof TComponents) => 
+        this.getEntityComponent<T>(entityId, componentId as string),
+      hasComponent: (entityId: number, componentId: keyof TComponents) =>
+        this.hasEntityComponent(entityId, componentId as string),
       storageLayout: archetype.storageLayout,
     }
   }
@@ -222,11 +260,11 @@ export class ComponentRegistry {
   }
 }
 
-// Query result interface
-export interface QueryResult {
+// Enhanced query result interface with generic typing
+export interface QueryResult<TComponents extends Record<string, Component> = Record<string, Component>> {
   readonly entities: readonly number[]
-  readonly getComponent: <T>(entityId: number, componentId: string) => Option.Option<T>
-  readonly hasComponent: (entityId: number, componentId: string) => boolean
+  readonly getComponent: <T>(entityId: number, componentId: keyof TComponents) => Option.Option<T>
+  readonly hasComponent: (entityId: number, componentId: keyof TComponents) => boolean
   readonly storageLayout: StorageLayout
 }
 
@@ -241,12 +279,20 @@ export interface RegistryMetrics {
 // Global registry instance
 export const globalRegistry = new ComponentRegistry()
 
-// Decorator for automatic component registration
-export const RegisterComponent = (meta: Omit<ComponentMeta, 'schema'>) => 
-  <T extends S.Schema<any, any, any>>(schema: T): T => {
+// Enhanced decorator for automatic component registration with typing
+export const RegisterComponent = <TSchema extends S.Schema<any, any, any>>(
+  meta: Omit<ComponentMeta<TSchema>, 'schema' | '_tag'>
+) => 
+  (schema: TSchema): TSchema => {
     globalRegistry.register({
       ...meta,
       schema,
+      _tag: meta.id, // Use ID as discriminated union tag
     })
     return schema
   }
+
+// Exhaustive check helper for discriminated unions
+export function exhaustiveCheck(value: never): never {
+  throw new Error(`Unhandled discriminated union member: ${JSON.stringify(value)}`)
+}
