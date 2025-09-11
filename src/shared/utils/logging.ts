@@ -7,6 +7,7 @@
 
 import * as Effect from 'effect/Effect'
 import * as Console from 'effect/Console'
+import * as Ref from 'effect/Ref'
 import { pipe } from 'effect/Function'
 
 // Log levels
@@ -40,38 +41,62 @@ const DEFAULT_CONFIG: LoggerConfig = {
   includeStackTrace: false,
 }
 
-// Global logger state
-class LoggerState {
-  private config: LoggerConfig = DEFAULT_CONFIG
-  private entries: LogEntry[] = []
-
-  updateConfig(config: Partial<LoggerConfig>): void {
-    this.config = { ...this.config, ...config }
-  }
-
-  getConfig(): LoggerConfig {
-    return { ...this.config }
-  }
-
-  addEntry(entry: LogEntry): void {
-    this.entries.push(entry)
-    
-    // Keep only the last 1000 entries to prevent memory leaks
-    if (this.entries.length > 1000) {
-      this.entries = this.entries.slice(-1000)
-    }
-  }
-
-  getEntries(): LogEntry[] {
-    return [...this.entries]
-  }
-
-  clearEntries(): void {
-    this.entries = []
-  }
+// Logger state using Effect-TS Ref
+interface LoggerStateData {
+  config: LoggerConfig
+  entries: LogEntry[]
 }
 
-const loggerState = new LoggerState()
+// Initial logger state
+const initialLoggerState: LoggerStateData = {
+  config: DEFAULT_CONFIG,
+  entries: [],
+}
+
+// Global logger state ref
+const loggerStateRef = Ref.unsafeMake(initialLoggerState)
+
+// Functional logger state operations
+const LoggerStateOps = {
+  updateConfig: (config: Partial<LoggerConfig>) =>
+    Ref.update(loggerStateRef, state => ({
+      ...state,
+      config: { ...state.config, ...config }
+    })),
+
+  getConfig: () =>
+    pipe(
+      Ref.get(loggerStateRef),
+      Effect.map(state => ({ ...state.config }))
+    ),
+
+  addEntry: (entry: LogEntry) =>
+    Ref.update(loggerStateRef, state => {
+      const newEntries = [...state.entries, entry]
+      
+      // Keep only the last 1000 entries to prevent memory leaks
+      const limitedEntries = newEntries.length > 1000 
+        ? newEntries.slice(-1000) 
+        : newEntries
+      
+      return {
+        ...state,
+        entries: limitedEntries
+      }
+    }),
+
+  getEntries: () =>
+    pipe(
+      Ref.get(loggerStateRef),
+      Effect.map(state => [...state.entries])
+    ),
+
+  clearEntries: () =>
+    Ref.update(loggerStateRef, state => ({
+      ...state,
+      entries: []
+    })),
+}
 
 // Log level hierarchy for filtering
 const LOG_LEVELS: Record<LogLevel, number> = {
@@ -83,9 +108,11 @@ const LOG_LEVELS: Record<LogLevel, number> = {
 }
 
 // Check if log level should be output
-function shouldLog(level: LogLevel): boolean {
-  return LOG_LEVELS[level] >= LOG_LEVELS[loggerState.getConfig().level]
-}
+const shouldLog = (level: LogLevel): Effect.Effect<boolean, never, never> =>
+  pipe(
+    LoggerStateOps.getConfig(),
+    Effect.map(config => LOG_LEVELS[level] >= LOG_LEVELS[config.level])
+  )
 
 // Create log entry
 function createLogEntry(
@@ -108,30 +135,34 @@ function createLogEntry(
 }
 
 // Format log entry for console output
-function formatForConsole(entry: LogEntry): string {
-  const timestamp = entry.timestamp.toISOString()
-  const level = entry.level.toUpperCase().padEnd(8)
-  const component = `[${entry.component}]`.padEnd(20)
-  
-  let output = `${timestamp} ${level} ${component} ${entry.message}`
-  
-  if (entry.context && Object.keys(entry.context).length > 0) {
-    output += `\n  Context: ${JSON.stringify(entry.context, null, 2)}`
-  }
-  
-  if (entry.error) {
-    output += `\n  Error: ${entry.error.message}`
-    if (loggerState.getConfig().includeStackTrace && entry.error.stack) {
-      output += `\n  Stack: ${entry.error.stack}`
-    }
-  }
-  
-  if (entry.tags && entry.tags.length > 0) {
-    output += `\n  Tags: ${entry.tags.join(', ')}`
-  }
-  
-  return output
-}
+const formatForConsole = (entry: LogEntry): Effect.Effect<string, never, never> =>
+  pipe(
+    LoggerStateOps.getConfig(),
+    Effect.map(config => {
+      const timestamp = entry.timestamp.toISOString()
+      const level = entry.level.toUpperCase().padEnd(8)
+      const component = `[${entry.component}]`.padEnd(20)
+      
+      let output = `${timestamp} ${level} ${component} ${entry.message}`
+      
+      if (entry.context && Object.keys(entry.context).length > 0) {
+        output += `\n  Context: ${JSON.stringify(entry.context, null, 2)}`
+      }
+      
+      if (entry.error) {
+        output += `\n  Error: ${entry.error.message}`
+        if (config.includeStackTrace && entry.error.stack) {
+          output += `\n  Stack: ${entry.error.stack}`
+        }
+      }
+      
+      if (entry.tags && entry.tags.length > 0) {
+        output += `\n  Tags: ${entry.tags.join(', ')}`
+      }
+      
+      return output
+    })
+  )
 
 // Core logging function
 function log(
@@ -142,46 +173,54 @@ function log(
   error?: Error,
   tags?: string[]
 ): Effect.Effect<void, never, never> {
-  const actualComponent = component || loggerState.getConfig().component || 'Unknown'
-  
-  if (!shouldLog(level)) {
-    return Effect.void
-  }
-  
-  const entry = createLogEntry(level, message, actualComponent, context, error, tags)
-  loggerState.addEntry(entry)
-  
-  if (!loggerState.getConfig().enableConsole) {
-    return Effect.void
-  }
-  
-  if (loggerState.getConfig().enableStructured) {
-    return Console.log(JSON.stringify(entry, null, 2))
-  } else {
-    const formatted = formatForConsole(entry)
-    
-    switch (level) {
-      case 'debug':
-        return Console.debug(formatted)
-      case 'info':
-        return Console.info(formatted)
-      case 'warn':
-        return Console.warn(formatted)
-      case 'error':
-      case 'critical':
-        return Console.error(formatted)
-    }
-  }
+  return pipe(
+    Effect.gen(function* (_) {
+      const config = yield* _(LoggerStateOps.getConfig())
+      const actualComponent = component || config.component || 'Unknown'
+      
+      const shouldOutput = yield* _(shouldLog(level))
+      if (!shouldOutput) {
+        return
+      }
+      
+      const entry = createLogEntry(level, message, actualComponent, context, error, tags)
+      yield* _(LoggerStateOps.addEntry(entry))
+      
+      if (!config.enableConsole) {
+        return
+      }
+      
+      if (config.enableStructured) {
+        yield* _(Console.log(JSON.stringify(entry, null, 2)))
+      } else {
+        const formatted = yield* _(formatForConsole(entry))
+        
+        switch (level) {
+          case 'debug':
+            yield* _(Console.debug(formatted))
+            break
+          case 'info':
+            yield* _(Console.info(formatted))
+            break
+          case 'warn':
+            yield* _(Console.warn(formatted))
+            break
+          case 'error':
+          case 'critical':
+            yield* _(Console.error(formatted))
+            break
+        }
+      }
+    })
+  )
 }
 
 // Public logging interface
 export const Logger = {
   // Configuration
-  configure: (config: Partial<LoggerConfig>) => {
-    loggerState.updateConfig(config)
-  },
+  configure: (config: Partial<LoggerConfig>) => LoggerStateOps.updateConfig(config),
 
-  getConfig: () => loggerState.getConfig(),
+  getConfig: () => LoggerStateOps.getConfig(),
 
   // Logging methods
   debug: (message: string, component?: string, context?: Record<string, unknown>, tags?: string[]) =>
@@ -218,18 +257,27 @@ export const Logger = {
   }),
 
   // Log retrieval and management
-  getEntries: () => loggerState.getEntries(),
+  getEntries: () => LoggerStateOps.getEntries(),
   
-  clearEntries: () => loggerState.clearEntries(),
+  clearEntries: () => LoggerStateOps.clearEntries(),
   
   getEntriesByLevel: (level: LogLevel) => 
-    loggerState.getEntries().filter(entry => entry.level === level),
+    pipe(
+      LoggerStateOps.getEntries(),
+      Effect.map(entries => entries.filter(entry => entry.level === level))
+    ),
   
   getEntriesByComponent: (component: string) =>
-    loggerState.getEntries().filter(entry => entry.component === component),
+    pipe(
+      LoggerStateOps.getEntries(),
+      Effect.map(entries => entries.filter(entry => entry.component === component))
+    ),
   
   getEntriesByTag: (tag: string) =>
-    loggerState.getEntries().filter(entry => entry.tags?.includes(tag)),
+    pipe(
+      LoggerStateOps.getEntries(),
+      Effect.map(entries => entries.filter(entry => entry.tags?.includes(tag)))
+    ),
 
   // Performance logging helpers
   performance: {

@@ -5,32 +5,44 @@
  * including hierarchical error structures and specific error implementations.
  */
 
-// Core error generation system
+// Core error generation system - functional approach
 export {
-  defineError,
-  createRecoveryHandler,
+  createErrorContext,
   logError,
+  createRecoveryHandler,
+  createTaggedError,
   ErrorAggregator,
   type RecoveryStrategy,
   type ErrorContext,
   type BaseErrorData,
-  type ErrorConstructor,
-  type ParentErrorClass,
+  type ErrorAggregatorState,
 } from '@domain/errors/generator'
 
-// Base error hierarchy
+// Base error hierarchy - functional schemas
 export {
   GameError,
+  createGameError,
   DomainError,
+  createDomainError,
   EntityError,
+  createEntityError,
   ComponentError,
+  createComponentError,
   WorldError,
+  createWorldError,
   PhysicsError,
+  createPhysicsError,
   SystemError,
+  createSystemError,
   ResourceError,
+  createResourceError,
   RenderingError,
+  createRenderingError,
   NetworkError,
+  createNetworkError,
   InputError,
+  createInputError,
+  ErrorChain,
   createErrorChain,
   validateErrorHierarchy,
   getErrorAncestry,
@@ -117,32 +129,23 @@ export {
   WorldTickError,
 }
 
-// Physics subsystem errors
-import {
-  CollisionDetectionError,
-  PhysicsSimulationError,
-  RigidBodyError,
-  GravityError,
-  VelocityLimitError,
-  ConstraintViolationError,
-  RaycastError,
-  PhysicsEngineError,
-  CollisionShapeError,
-  PhysicsMaterialError,
-} from '@domain/errors/physics-errors'
-
+// Physics subsystem errors - functional schemas
 export {
   CollisionDetectionError,
+  createCollisionDetectionError,
   PhysicsSimulationError,
+  createPhysicsSimulationError,
   RigidBodyError,
+  createRigidBodyError,
   GravityError,
-  VelocityLimitError,
+  createGravityError,
   ConstraintViolationError,
+  createConstraintViolationError,
   RaycastError,
-  PhysicsEngineError,
-  CollisionShapeError,
+  createRaycastError,
   PhysicsMaterialError,
-}
+  createPhysicsMaterialError,
+} from '@domain/errors/physics-errors'
 
 // System execution errors
 import {

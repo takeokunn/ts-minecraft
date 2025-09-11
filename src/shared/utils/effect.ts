@@ -1,4 +1,4 @@
-import { Effect, pipe, Schedule } from 'effect'
+import { Effect, pipe, Schedule, Ref } from 'effect'
 
 /**
  * Effect utilities for consistent error handling and patterns
@@ -121,55 +121,73 @@ export const batchOperations =
     })
 
 /**
- * Add circuit breaker pattern
+ * Circuit breaker pattern - functional implementation
  */
-export class CircuitBreaker<A, E, R> {
-  private failureCount = 0
-  private lastFailureTime = 0
-  private state: 'closed' | 'open' | 'half-open' = 'closed'
+export interface CircuitBreakerState {
+  readonly failureCount: number
+  readonly lastFailureTime: number
+  readonly state: 'closed' | 'open' | 'half-open'
+}
 
-  constructor(
-    private readonly threshold: number,
-    private readonly timeout: number,
-  ) {}
+export interface CircuitBreakerConfig {
+  readonly threshold: number
+  readonly timeout: number
+}
 
-  execute(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E | Error, R> {
-    return Effect.gen(
-      function* (this: CircuitBreaker<A, E, R>) {
+export const createCircuitBreaker = (config: CircuitBreakerConfig) => 
+  Effect.gen(function* () {
+    const stateRef = yield* Ref.make<CircuitBreakerState>({
+      failureCount: 0,
+      lastFailureTime: 0,
+      state: 'closed'
+    })
+
+    const execute = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E | Error, R> =>
+      Effect.gen(function* () {
         const now = Date.now()
+        const currentState = yield* Ref.get(stateRef)
 
-        // Check if circuit should be reset
-        if (this.state === 'open' && now - this.lastFailureTime > this.timeout) {
-          this.state = 'half-open'
+        // Check if circuit should be reset to half-open
+        if (currentState.state === 'open' && now - currentState.lastFailureTime > config.timeout) {
+          yield* Ref.update(stateRef, state => ({ ...state, state: 'half-open' }))
         }
 
+        const updatedState = yield* Ref.get(stateRef)
+
         // If circuit is open, fail fast
-        if (this.state === 'open') {
+        if (updatedState.state === 'open') {
           return yield* Effect.fail(new Error('Circuit breaker is open'))
         }
 
         return yield* effect.pipe(
-          Effect.tap(() => {
+          Effect.tap(() => 
             // Success - reset failure count
-            this.failureCount = 0
-            this.state = 'closed'
-          }),
-          Effect.tapError(() =>
-            Effect.sync(() => {
-              // Failure - increment count
-              this.failureCount++
-              this.lastFailureTime = now
-
-              if (this.failureCount >= this.threshold) {
-                this.state = 'open'
-              }
-            }),
+            Ref.update(stateRef, state => ({
+              failureCount: 0,
+              lastFailureTime: state.lastFailureTime,
+              state: 'closed'
+            }))
           ),
+          Effect.tapError(() =>
+            Effect.gen(function* () {
+              // Failure - increment count and potentially open circuit
+              yield* Ref.update(stateRef, state => {
+                const newFailureCount = state.failureCount + 1
+                return {
+                  failureCount: newFailureCount,
+                  lastFailureTime: now,
+                  state: newFailureCount >= config.threshold ? 'open' : state.state
+                }
+              })
+            })
+          )
         )
-      }.bind(this),
-    )
-  }
-}
+      })
+
+    const getState = () => Ref.get(stateRef)
+
+    return { execute, getState } as const
+  })
 
 /**
  * Memoize effect results

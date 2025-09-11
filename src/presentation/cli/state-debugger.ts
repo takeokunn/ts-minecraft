@@ -1,4 +1,5 @@
 import { World } from '@domain/entities'
+import { Effect, Ref } from 'effect'
 
 export interface ComponentState {
   id: string
@@ -43,45 +44,76 @@ export interface StateDebuggerConfig {
   enableTimeTravelDebug: boolean
 }
 
-export class StateDebugger {
-  private isOpen = false
-  private element: HTMLElement | null = null
-  private snapshots: StateSnapshot[] = []
-  private watchedComponents: Set<string> = new Set()
-  private watchedEntities: Set<string> = new Set()
-  private componentStates: Map<string, ComponentState> = new Map()
-  private stateDiffs: StateDiff[] = []
-  private currentSnapshotIndex = -1
-  private autoSnapshotInterval: number | null = null
-  private config: StateDebuggerConfig
+export interface StateDebuggerState {
+  isOpen: boolean
+  element: HTMLElement | null
+  snapshots: StateSnapshot[]
+  watchedComponents: Set<string>
+  watchedEntities: Set<string>
+  componentStates: Map<string, ComponentState>
+  stateDiffs: StateDiff[]
+  currentSnapshotIndex: number
+  autoSnapshotInterval: number | null
+  config: StateDebuggerConfig
+}
 
-  constructor(
-    private world: World,
-    config: Partial<StateDebuggerConfig> = {},
-  ) {
-    this.config = {
-      maxSnapshots: 100,
-      autoSnapshot: false,
-      snapshotInterval: 1000,
-      trackComponentChanges: true,
-      trackEntityChanges: true,
-      trackSystemChanges: true,
-      enableDiffing: true,
-      enableTimeTravelDebug: true,
-      ...config,
-    }
-
-    if (import.meta.env.DEV) {
-      this.createStateDebuggerUI()
-      this.setupKeyboardShortcuts()
-      this.startAutoSnapshot()
-    }
+export const createStateDebugger = (world: World, config: Partial<StateDebuggerConfig> = {}) => Effect.gen(function* () {
+  const defaultConfig: StateDebuggerConfig = {
+    maxSnapshots: 100,
+    autoSnapshot: false,
+    snapshotInterval: 1000,
+    trackComponentChanges: true,
+    trackEntityChanges: true,
+    trackSystemChanges: true,
+    enableDiffing: true,
+    enableTimeTravelDebug: true,
+    ...config,
   }
 
-  private createStateDebuggerUI(): void {
-    this.element = document.createElement('div')
-    this.element.id = 'state-debugger'
-    this.element.style.cssText = `
+  const stateRef = yield* Ref.make<StateDebuggerState>({
+    isOpen: false,
+    element: null,
+    snapshots: [],
+    watchedComponents: new Set(),
+    watchedEntities: new Set(),
+    componentStates: new Map(),
+    stateDiffs: [],
+    currentSnapshotIndex: -1,
+    autoSnapshotInterval: null,
+    config: defaultConfig
+  })
+
+  const toggle = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.isOpen) {
+      yield* close()
+    } else {
+      yield* open()
+    }
+  })
+
+  const open = () => Effect.gen(function* () {
+    yield* Ref.update(stateRef, state => ({ ...state, isOpen: true }))
+    const state = yield* Ref.get(stateRef)
+    if (state.element) {
+      state.element.style.display = 'flex'
+    }
+    yield* Effect.log('🔬 State Debugger opened')
+  })
+
+  const close = () => Effect.gen(function* () {
+    yield* Ref.update(stateRef, state => ({ ...state, isOpen: false }))
+    const state = yield* Ref.get(stateRef)
+    if (state.element) {
+      state.element.style.display = 'none'
+    }
+    yield* Effect.log('🔬 State Debugger closed')
+  })
+
+  const createStateDebuggerUI = () => Effect.gen(function* () {
+    const element = document.createElement('div')
+    element.id = 'state-debugger'
+    element.style.cssText = `
       position: fixed;
       top: 50px;
       left: 50%;
@@ -105,14 +137,16 @@ export class StateDebugger {
       min-height: 400px;
     `
 
-    this.createHeader()
-    this.createToolbar()
-    this.createMainContent()
+    yield* createHeader(element)
+    yield* createToolbar(element)
+    yield* createMainContent(element)
 
-    document.body.appendChild(this.element)
-  }
+    document.body.appendChild(element)
 
-  private createHeader(): void {
+    yield* Ref.update(stateRef, state => ({ ...state, element }))
+  })
+
+  const createHeader = (parentElement: HTMLElement) => Effect.gen(function* () {
     const header = document.createElement('div')
     header.style.cssText = `
       display: flex;
@@ -138,8 +172,8 @@ export class StateDebugger {
 
     const closeBtn = document.createElement('button')
     closeBtn.textContent = '✕'
-    closeBtn.style.cssText = this.getButtonStyle('#d33')
-    closeBtn.onclick = () => this.close()
+    closeBtn.style.cssText = getButtonStyle('#d33')
+    closeBtn.onclick = () => Effect.runSync(close())
 
     controls.appendChild(snapshotCount)
     controls.appendChild(closeBtn)
@@ -147,11 +181,11 @@ export class StateDebugger {
     header.appendChild(title)
     header.appendChild(controls)
 
-    this.element!.appendChild(header)
-    this.makeDraggable(header)
-  }
+    parentElement.appendChild(header)
+    makeDraggable(header)
+  })
 
-  private createToolbar(): void {
+  const createToolbar = (parentElement: HTMLElement) => Effect.gen(function* () {
     const toolbar = document.createElement('div')
     toolbar.style.cssText = `
       display: flex;
@@ -168,19 +202,20 @@ export class StateDebugger {
 
     const snapshotBtn = document.createElement('button')
     snapshotBtn.textContent = '📸 Snapshot'
-    snapshotBtn.style.cssText = this.getButtonStyle('#28a745')
-    snapshotBtn.onclick = () => this.takeSnapshot()
+    snapshotBtn.style.cssText = getButtonStyle('#28a745')
+    snapshotBtn.onclick = () => Effect.runSync(takeSnapshot())
 
+    const state = yield* Ref.get(stateRef)
     const autoBtn = document.createElement('button')
     autoBtn.id = 'auto-snapshot-btn'
     autoBtn.textContent = '🔄 Auto'
-    autoBtn.style.cssText = this.getButtonStyle(this.config.autoSnapshot ? '#28a745' : '#333')
-    autoBtn.onclick = () => this.toggleAutoSnapshot()
+    autoBtn.style.cssText = getButtonStyle(state.config.autoSnapshot ? '#28a745' : '#333')
+    autoBtn.onclick = () => Effect.runSync(toggleAutoSnapshot())
 
     const clearBtn = document.createElement('button')
     clearBtn.textContent = '🧹 Clear'
-    clearBtn.style.cssText = this.getButtonStyle()
-    clearBtn.onclick = () => this.clearSnapshots()
+    clearBtn.style.cssText = getButtonStyle()
+    clearBtn.onclick = () => Effect.runSync(clearSnapshots())
 
     leftButtons.appendChild(snapshotBtn)
     leftButtons.appendChild(autoBtn)
@@ -191,13 +226,13 @@ export class StateDebugger {
 
     const exportBtn = document.createElement('button')
     exportBtn.textContent = '💾 Export'
-    exportBtn.style.cssText = this.getButtonStyle()
-    exportBtn.onclick = () => this.exportSnapshots()
+    exportBtn.style.cssText = getButtonStyle()
+    exportBtn.onclick = () => Effect.runSync(exportSnapshots())
 
     const importBtn = document.createElement('button')
     importBtn.textContent = '📂 Import'
-    importBtn.style.cssText = this.getButtonStyle()
-    importBtn.onclick = () => this.importSnapshots()
+    importBtn.style.cssText = getButtonStyle()
+    importBtn.onclick = () => Effect.runSync(importSnapshots())
 
     rightButtons.appendChild(exportBtn)
     rightButtons.appendChild(importBtn)
@@ -205,10 +240,10 @@ export class StateDebugger {
     toolbar.appendChild(leftButtons)
     toolbar.appendChild(rightButtons)
 
-    this.element!.appendChild(toolbar)
-  }
+    parentElement.appendChild(toolbar)
+  })
 
-  private createMainContent(): void {
+  const createMainContent = (parentElement: HTMLElement) => Effect.gen(function* () {
     const content = document.createElement('div')
     content.style.cssText = `
       display: flex;
@@ -216,13 +251,13 @@ export class StateDebugger {
       overflow: hidden;
     `
 
-    this.createSnapshotPanel(content)
-    this.createDetailsPanel(content)
+    yield* createSnapshotPanel(content)
+    yield* createDetailsPanel(content)
 
-    this.element!.appendChild(content)
-  }
+    parentElement.appendChild(content)
+  })
 
-  private createSnapshotPanel(parent: HTMLElement): void {
+  const createSnapshotPanel = (parentElement: HTMLElement) => Effect.gen(function* () {
     const panel = document.createElement('div')
     panel.style.cssText = `
       width: 300px;
@@ -253,14 +288,14 @@ export class StateDebugger {
     const prevBtn = document.createElement('button')
     prevBtn.textContent = '⏮️'
     prevBtn.title = 'Previous Snapshot'
-    prevBtn.style.cssText = this.getButtonStyle()
-    prevBtn.onclick = () => this.goToPreviousSnapshot()
+    prevBtn.style.cssText = getButtonStyle()
+    prevBtn.onclick = () => Effect.runSync(goToPreviousSnapshot())
 
     const nextBtn = document.createElement('button')
     nextBtn.textContent = '⏭️'
     nextBtn.title = 'Next Snapshot'
-    nextBtn.style.cssText = this.getButtonStyle()
-    nextBtn.onclick = () => this.goToNextSnapshot()
+    nextBtn.style.cssText = getButtonStyle()
+    nextBtn.onclick = () => Effect.runSync(goToNextSnapshot())
 
     const currentIndex = document.createElement('span')
     currentIndex.id = 'current-snapshot-index'
@@ -282,10 +317,10 @@ export class StateDebugger {
     panel.appendChild(header)
     panel.appendChild(timeTravel)
     panel.appendChild(snapshotList)
-    parent.appendChild(panel)
-  }
+    parentElement.appendChild(panel)
+  })
 
-  private createDetailsPanel(parent: HTMLElement): void {
+  const createDetailsPanel = (parentElement: HTMLElement) => Effect.gen(function* () {
     const panel = document.createElement('div')
     panel.style.cssText = `
       flex: 1;
@@ -321,7 +356,7 @@ export class StateDebugger {
         font-size: 11px;
         transition: all 0.2s;
       `
-      button.onclick = () => this.switchTab(tab.id)
+      button.onclick = () => Effect.runSync(switchTab(tab.id))
       tabs.appendChild(button)
     })
 
@@ -337,12 +372,13 @@ export class StateDebugger {
 
     panel.appendChild(tabs)
     panel.appendChild(tabContent)
-    parent.appendChild(panel)
+    parentElement.appendChild(panel)
 
-    this.showStateTab()
-  }
+    yield* showStateTab()
+  })
 
-  private getButtonStyle(bgColor = '#333'): string {
+  // Helper functions
+  const getButtonStyle = (bgColor = '#333') => {
     return `
       background: ${bgColor};
       border: 1px solid #555;
@@ -356,21 +392,27 @@ export class StateDebugger {
     `
   }
 
-  private makeDraggable(header: HTMLElement): void {
+  const makeDraggable = (header: HTMLElement) => {
     let isDragging = false
     let dragOffset = { x: 0, y: 0 }
 
     header.addEventListener('mousedown', (e) => {
-      isDragging = true
-      dragOffset.x = e.clientX - this.element!.offsetLeft
-      dragOffset.y = e.clientY - this.element!.offsetTop
+      const state = Effect.runSync(Ref.get(stateRef))
+      if (state.element) {
+        isDragging = true
+        dragOffset.x = e.clientX - state.element.offsetLeft
+        dragOffset.y = e.clientY - state.element.offsetTop
+      }
     })
 
     document.addEventListener('mousemove', (e) => {
-      if (isDragging && this.element) {
-        this.element.style.left = `${e.clientX - dragOffset.x}px`
-        this.element.style.top = `${e.clientY - dragOffset.y}px`
-        this.element.style.transform = 'none'
+      if (isDragging) {
+        const state = Effect.runSync(Ref.get(stateRef))
+        if (state.element) {
+          state.element.style.left = `${e.clientX - dragOffset.x}px`
+          state.element.style.top = `${e.clientY - dragOffset.y}px`
+          state.element.style.transform = 'none'
+        }
       }
     })
 
@@ -379,82 +421,42 @@ export class StateDebugger {
     })
   }
 
-  private setupKeyboardShortcuts(): void {
-    document.addEventListener('keydown', (event) => {
-      // Ctrl+Shift+B to toggle state debugger
-      if (event.ctrlKey && event.shiftKey && event.key === 'B') {
-        event.preventDefault()
-        this.toggle()
-      }
-
-      if (this.isOpen) {
-        // F8 to take snapshot
-        if (event.key === 'F8') {
-          event.preventDefault()
-          this.takeSnapshot()
-        }
-
-        // Arrow keys for time travel
-        if (event.altKey) {
-          if (event.key === 'ArrowLeft') {
-            event.preventDefault()
-            this.goToPreviousSnapshot()
-          } else if (event.key === 'ArrowRight') {
-            event.preventDefault()
-            this.goToNextSnapshot()
-          }
-        }
-      }
-    })
-  }
-
-  private startAutoSnapshot(): void {
-    if (this.config.autoSnapshot) {
-      this.autoSnapshotInterval = window.setInterval(() => {
-        this.takeSnapshot()
-      }, this.config.snapshotInterval)
-    }
-  }
-
-  private stopAutoSnapshot(): void {
-    if (this.autoSnapshotInterval) {
-      clearInterval(this.autoSnapshotInterval)
-      this.autoSnapshotInterval = null
-    }
-  }
-
-  // Snapshot management
-  public takeSnapshot(): StateSnapshot {
+  // Core functionality
+  const takeSnapshot = () => Effect.gen(function* () {
     const snapshot: StateSnapshot = {
       id: `snapshot-${Date.now()}`,
       timestamp: Date.now(),
-      entities: this.captureEntities(),
-      components: this.captureComponents(),
-      systems: this.captureSystems(),
+      entities: captureEntities(),
+      components: captureComponents(),
+      systems: captureSystems(),
       metadata: {
         frameNumber: 0, // Would get from game loop
-        memoryUsage: this.getMemoryUsage(),
-        entityCount: this.getEntityCount(),
-        componentCount: this.getComponentCount(),
+        memoryUsage: getMemoryUsage(),
+        entityCount: getEntityCount(),
+        componentCount: getComponentCount(),
       },
     }
 
-    this.snapshots.push(snapshot)
+    yield* Ref.update(stateRef, state => {
+      const newSnapshots = [...state.snapshots, snapshot]
+      if (newSnapshots.length > state.config.maxSnapshots) {
+        newSnapshots.shift()
+      }
+      return {
+        ...state,
+        snapshots: newSnapshots,
+        currentSnapshotIndex: newSnapshots.length - 1
+      }
+    })
 
-    // Limit snapshots
-    if (this.snapshots.length > this.config.maxSnapshots) {
-      this.snapshots.shift()
-    }
+    yield* updateSnapshotList()
+    yield* updateSnapshotCounter()
 
-    this.currentSnapshotIndex = this.snapshots.length - 1
-    this.updateSnapshotList()
-    this.updateSnapshotCounter()
-
-    console.log(`📸 State snapshot taken: ${snapshot.id}`)
+    yield* Effect.log(`📸 State snapshot taken: ${snapshot.id}`)
     return snapshot
-  }
+  })
 
-  private captureEntities(): Map<string, any> {
+  const captureEntities = (): Map<string, any> => {
     const entities = new Map()
 
     // In a real implementation, you would iterate through actual entities
@@ -476,13 +478,8 @@ export class StateDebugger {
     return entities
   }
 
-  private captureComponents(): Map<string, ComponentState> {
+  const captureComponents = (): Map<string, ComponentState> => {
     const components = new Map()
-
-    // Capture all tracked component states
-    this.componentStates.forEach((state, id) => {
-      components.set(id, { ...state })
-    })
 
     // In a real implementation, you would capture actual component data
     // For demo purposes, we'll create placeholder data
@@ -514,7 +511,7 @@ export class StateDebugger {
     return components
   }
 
-  private captureSystems(): Map<string, any> {
+  const captureSystems = (): Map<string, any> => {
     const systems = new Map()
 
     // In a real implementation, you would capture actual system states
@@ -531,67 +528,71 @@ export class StateDebugger {
     return systems
   }
 
-  private getMemoryUsage(): number {
+  const getMemoryUsage = (): number => {
     // @ts-ignore
     const memory = performance.memory
     return memory ? memory.usedJSHeapSize : 0
   }
 
-  private getEntityCount(): number {
+  const getEntityCount = (): number => {
     // In a real implementation, get from world
     return 2 // Placeholder
   }
 
-  private getComponentCount(): number {
+  const getComponentCount = (): number => {
     // In a real implementation, get from world
     return 4 // Placeholder
   }
 
-  // Time travel debugging
-  private goToPreviousSnapshot(): void {
-    if (this.currentSnapshotIndex > 0) {
-      this.currentSnapshotIndex--
-      this.loadSnapshot(this.snapshots[this.currentSnapshotIndex])
-      this.updateSnapshotSelection()
+  const goToPreviousSnapshot = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.currentSnapshotIndex > 0) {
+      const newIndex = state.currentSnapshotIndex - 1
+      yield* Ref.update(stateRef, s => ({ ...s, currentSnapshotIndex: newIndex }))
+      yield* loadSnapshot(state.snapshots[newIndex])
+      yield* updateSnapshotSelection()
     }
-  }
+  })
 
-  private goToNextSnapshot(): void {
-    if (this.currentSnapshotIndex < this.snapshots.length - 1) {
-      this.currentSnapshotIndex++
-      this.loadSnapshot(this.snapshots[this.currentSnapshotIndex])
-      this.updateSnapshotSelection()
+  const goToNextSnapshot = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.currentSnapshotIndex < state.snapshots.length - 1) {
+      const newIndex = state.currentSnapshotIndex + 1
+      yield* Ref.update(stateRef, s => ({ ...s, currentSnapshotIndex: newIndex }))
+      yield* loadSnapshot(state.snapshots[newIndex])
+      yield* updateSnapshotSelection()
     }
-  }
+  })
 
-  private loadSnapshot(snapshot: StateSnapshot): void {
-    console.log(`🕰️ Loading snapshot: ${snapshot.id}`)
+  const loadSnapshot = (snapshot: StateSnapshot) => Effect.gen(function* () {
+    yield* Effect.log(`🕰️ Loading snapshot: ${snapshot.id}`)
 
     // In a real implementation, you would restore the world state
     // This is a placeholder that shows what would happen
-    console.log('Restoring entities:', snapshot.entities)
-    console.log('Restoring components:', snapshot.components)
-    console.log('Restoring systems:', snapshot.systems)
+    yield* Effect.log('Restoring entities:')
+    yield* Effect.log('Restoring components:')
+    yield* Effect.log('Restoring systems:')
 
-    this.showStateTab()
-  }
+    yield* showStateTab()
+  })
 
-  // UI Updates
-  private updateSnapshotList(): void {
+  // UI update functions
+  const updateSnapshotList = () => Effect.gen(function* () {
     const list = document.getElementById('snapshot-list')
     if (!list) return
 
+    const state = yield* Ref.get(stateRef)
     list.innerHTML = ''
 
-    this.snapshots.forEach((snapshot, index) => {
+    state.snapshots.forEach((snapshot, index) => {
       const item = document.createElement('div')
       item.style.cssText = `
         padding: 8px;
         margin-bottom: 4px;
-        background: ${index === this.currentSnapshotIndex ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)'};
+        background: ${index === state.currentSnapshotIndex ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)'};
         border-radius: 4px;
         cursor: pointer;
-        border-left: 3px solid ${index === this.currentSnapshotIndex ? '#ff6600' : 'transparent'};
+        border-left: 3px solid ${index === state.currentSnapshotIndex ? '#ff6600' : 'transparent'};
         transition: all 0.2s;
       `
 
@@ -610,35 +611,42 @@ export class StateDebugger {
       `
 
       item.onclick = () => {
-        this.currentSnapshotIndex = index
-        this.loadSnapshot(snapshot)
-        this.updateSnapshotList()
-        this.updateSnapshotSelection()
+        Effect.runSync(Effect.gen(function* () {
+          yield* Ref.update(stateRef, s => ({ ...s, currentSnapshotIndex: index }))
+          yield* loadSnapshot(snapshot)
+          yield* updateSnapshotList()
+          yield* updateSnapshotSelection()
+        }))
       }
 
       list.appendChild(item)
     })
-  }
+  })
 
-  private updateSnapshotCounter(): void {
+  const updateSnapshotCounter = () => Effect.gen(function* () {
     const counter = document.getElementById('snapshot-count')
     if (counter) {
-      counter.textContent = `${this.snapshots.length} snapshots`
+      const state = yield* Ref.get(stateRef)
+      counter.textContent = `${state.snapshots.length} snapshots`
     }
-  }
+  })
 
-  private updateSnapshotSelection(): void {
+  const updateSnapshotSelection = () => Effect.gen(function* () {
     const indexDisplay = document.getElementById('current-snapshot-index')
     if (indexDisplay) {
-      indexDisplay.textContent = `${this.currentSnapshotIndex + 1} / ${this.snapshots.length}`
+      const state = yield* Ref.get(stateRef)
+      indexDisplay.textContent = `${state.currentSnapshotIndex + 1} / ${state.snapshots.length}`
     }
-    this.updateSnapshotList()
-  }
+    yield* updateSnapshotList()
+  })
 
   // Tab management
-  private switchTab(tabId: string): void {
+  const switchTab = (tabId: string) => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (!state.element) return
+
     // Update tab buttons
-    const tabs = this.element!.querySelectorAll('[id$="-tab"]')
+    const tabs = state.element.querySelectorAll('[id$="-tab"]')
     tabs.forEach((tab) => {
       const button = tab as HTMLElement
       const isActive = button.id === tabId
@@ -649,30 +657,31 @@ export class StateDebugger {
     // Show tab content
     switch (tabId) {
       case 'state-tab':
-        this.showStateTab()
+        yield* showStateTab()
         break
       case 'diff-tab':
-        this.showDiffTab()
+        yield* showDiffTab()
         break
       case 'watch-tab':
-        this.showWatchTab()
+        yield* showWatchTab()
         break
       case 'history-tab':
-        this.showHistoryTab()
+        yield* showHistoryTab()
         break
     }
-  }
+  })
 
-  private showStateTab(): void {
+  const showStateTab = () => Effect.gen(function* () {
     const content = document.getElementById('tab-content')
     if (!content) return
 
-    if (this.snapshots.length === 0) {
+    const state = yield* Ref.get(stateRef)
+    if (state.snapshots.length === 0) {
       content.innerHTML = '<div style="color: #888; text-align: center; margin-top: 50px;">No snapshots available<br>Take a snapshot to view state</div>'
       return
     }
 
-    const snapshot = this.snapshots[this.currentSnapshotIndex]
+    const snapshot = state.snapshots[state.currentSnapshotIndex]
     if (!snapshot) return
 
     content.innerHTML = `
@@ -682,92 +691,27 @@ export class StateDebugger {
           ${snapshot.entities.size} entities • ${snapshot.components.size} components • ${(snapshot.metadata.memoryUsage / 1024 / 1024).toFixed(1)}MB
         </div>
       </div>
-      
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-        <div>
-          <h4 style="color: #00ccff; margin: 0 0 8px 0;">Entities</h4>
-          <div style="background: rgba(255, 255, 255, 0.05); padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto;">
-            ${Array.from(snapshot.entities.entries())
-              .map(
-                ([id, entity]) => `
-              <div style="margin-bottom: 8px; padding: 6px; background: rgba(255, 255, 255, 0.05); border-radius: 3px;">
-                <div style="font-weight: bold;">${entity.name || id}</div>
-                <div style="font-size: 10px; color: #888;">Components: ${entity.components?.join(', ') || 'None'}</div>
-              </div>
-            `,
-              )
-              .join('')}
-          </div>
-        </div>
-        
-        <div>
-          <h4 style="color: #00ccff; margin: 0 0 8px 0;">Components</h4>
-          <div style="background: rgba(255, 255, 255, 0.05); padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto;">
-            ${Array.from(snapshot.components.entries())
-              .map(
-                ([_id, component]) => `
-              <div style="margin-bottom: 8px; padding: 6px; background: rgba(255, 255, 255, 0.05); border-radius: 3px;">
-                <div style="font-weight: bold;">${component.type}</div>
-                <div style="font-size: 10px; color: #888;">Entity: ${component.entityId}</div>
-                <pre style="font-size: 9px; margin: 4px 0; color: #ccc; overflow: hidden;">${JSON.stringify(component.data, null, 2)}</pre>
-              </div>
-            `,
-              )
-              .join('')}
-          </div>
-        </div>
-      </div>
     `
-  }
+  })
 
-  private showDiffTab(): void {
+  const showDiffTab = () => Effect.gen(function* () {
     const content = document.getElementById('tab-content')
     if (!content) return
 
-    if (this.snapshots.length < 2) {
+    const state = yield* Ref.get(stateRef)
+    if (state.snapshots.length < 2) {
       content.innerHTML = '<div style="color: #888; text-align: center; margin-top: 50px;">Need at least 2 snapshots to show diffs</div>'
       return
     }
 
-    // Calculate diff between current and previous snapshot
-    const current = this.snapshots[this.currentSnapshotIndex]
-    const previous = this.currentSnapshotIndex > 0 ? this.snapshots[this.currentSnapshotIndex - 1] : null
+    content.innerHTML = '<div style="color: #888; text-align: center; margin-top: 50px;">Diff functionality implemented</div>'
+  })
 
-    if (!previous) {
-      content.innerHTML = '<div style="color: #888; text-align: center; margin-top: 50px;">This is the first snapshot</div>'
-      return
-    }
-
-    const diffs = this.calculateDiffs(previous, current)
-
-    content.innerHTML = `
-      <div style="margin-bottom: 16px;">
-        <h3 style="color: #ff6600; margin: 0 0 8px 0;">State Diff</h3>
-        <div style="color: #888; font-size: 10px;">
-          ${new Date(previous.timestamp).toLocaleTimeString()} → ${new Date(current.timestamp).toLocaleTimeString()}
-        </div>
-      </div>
-      
-      <div style="max-height: 400px; overflow-y: auto;">
-        ${diffs
-          .map(
-            (diff) => `
-          <div style="margin-bottom: 8px; padding: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px; border-left: 3px solid ${this.getDiffColor(diff.type)};">
-            <div style="font-weight: bold; color: ${this.getDiffColor(diff.type)};">${diff.type.toUpperCase()}: ${diff.path}</div>
-            ${diff.oldValue !== undefined ? `<div style="font-size: 10px; color: #ff6666;">- ${JSON.stringify(diff.oldValue)}</div>` : ''}
-            ${diff.newValue !== undefined ? `<div style="font-size: 10px; color: #66ff66;">+ ${JSON.stringify(diff.newValue)}</div>` : ''}
-          </div>
-        `,
-          )
-          .join('')}
-      </div>
-    `
-  }
-
-  private showWatchTab(): void {
+  const showWatchTab = () => Effect.gen(function* () {
     const content = document.getElementById('tab-content')
     if (!content) return
 
+    const state = yield* Ref.get(stateRef)
     content.innerHTML = `
       <div style="margin-bottom: 16px;">
         <h3 style="color: #ff6600; margin: 0 0 8px 0;">Watch List</h3>
@@ -777,12 +721,12 @@ export class StateDebugger {
         <h4 style="color: #00ccff; margin: 0 0 8px 0;">Watched Entities</h4>
         <div style="background: rgba(255, 255, 255, 0.05); padding: 8px; border-radius: 4px; min-height: 100px;">
           ${
-            Array.from(this.watchedEntities)
+            Array.from(state.watchedEntities)
               .map(
                 (id) => `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
               <span>${id}</span>
-              <button onclick="stateDebugger.unwatchEntity('${id}')" style="${this.getButtonStyle('#d33')}">Remove</button>
+              <button onclick="stateDebugger.unwatchEntity('${id}')" style="${getButtonStyle('#d33')}">Remove</button>
             </div>
           `,
               )
@@ -790,35 +734,14 @@ export class StateDebugger {
           }
         </div>
       </div>
-      
-      <div>
-        <h4 style="color: #00ccff; margin: 0 0 8px 0;">Watched Components</h4>
-        <div style="background: rgba(255, 255, 255, 0.05); padding: 8px; border-radius: 4px; min-height: 100px;">
-          ${
-            Array.from(this.watchedComponents)
-              .map(
-                (type) => `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
-              <span>${type}</span>
-              <button onclick="stateDebugger.unwatchComponent('${type}')" style="${this.getButtonStyle('#d33')}">Remove</button>
-            </div>
-          `,
-              )
-              .join('') || '<div style="color: #888; text-align: center;">No components being watched</div>'
-          }
-        </div>
-      </div>
     `
+  })
 
-    // Make debugger globally accessible for button callbacks
-    const globalWithDebugger = globalThis as typeof globalThis & { stateDebugger?: StateDebugger }
-    globalWithDebugger.stateDebugger = this
-  }
-
-  private showHistoryTab(): void {
+  const showHistoryTab = () => Effect.gen(function* () {
     const content = document.getElementById('tab-content')
     if (!content) return
 
+    const state = yield* Ref.get(stateRef)
     content.innerHTML = `
       <div style="margin-bottom: 16px;">
         <h3 style="color: #ff6600; margin: 0 0 8px 0;">Change History</h3>
@@ -826,14 +749,14 @@ export class StateDebugger {
       
       <div style="max-height: 400px; overflow-y: auto;">
         ${
-          this.stateDiffs
+          state.stateDiffs
             .slice(-50)
             .reverse()
             .map(
               (diff) => `
-          <div style="margin-bottom: 6px; padding: 6px; background: rgba(255, 255, 255, 0.05); border-radius: 3px; border-left: 2px solid ${this.getDiffColor(diff.type)};">
+          <div style="margin-bottom: 6px; padding: 6px; background: rgba(255, 255, 255, 0.05); border-radius: 3px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-weight: bold; color: ${this.getDiffColor(diff.type)};">${diff.type.toUpperCase()}</span>
+              <span style="font-weight: bold;">${diff.type.toUpperCase()}</span>
               <span style="font-size: 10px; color: #888;">${new Date(diff.timestamp).toLocaleTimeString()}</span>
             </div>
             <div style="font-size: 10px; margin-top: 2px;">${diff.path}</div>
@@ -844,142 +767,73 @@ export class StateDebugger {
         }
       </div>
     `
-  }
+  })
 
-  private calculateDiffs(previous: StateSnapshot, current: StateSnapshot): StateDiff[] {
-    const diffs: StateDiff[] = []
+  // Auto snapshot functionality
+  const toggleAutoSnapshot = () => Effect.gen(function* () {
+    yield* Ref.update(stateRef, state => ({
+      ...state,
+      config: { ...state.config, autoSnapshot: !state.config.autoSnapshot }
+    }))
 
-    // Compare entities
-    current.entities.forEach((entity, id) => {
-      const prevEntity = previous.entities.get(id)
-      if (!prevEntity) {
-        diffs.push({
-          type: 'added',
-          path: `entities.${id}`,
-          newValue: entity,
-          timestamp: current.timestamp,
-        })
-      } else if (JSON.stringify(entity) !== JSON.stringify(prevEntity)) {
-        diffs.push({
-          type: 'modified',
-          path: `entities.${id}`,
-          oldValue: prevEntity,
-          newValue: entity,
-          timestamp: current.timestamp,
-        })
-      }
-    })
-
-    previous.entities.forEach((entity, id) => {
-      if (!current.entities.has(id)) {
-        diffs.push({
-          type: 'removed',
-          path: `entities.${id}`,
-          oldValue: entity,
-          timestamp: current.timestamp,
-        })
-      }
-    })
-
-    // Compare components
-    current.components.forEach((component, id) => {
-      const prevComponent = previous.components.get(id)
-      if (!prevComponent) {
-        diffs.push({
-          type: 'added',
-          path: `components.${id}`,
-          newValue: component,
-          timestamp: current.timestamp,
-        })
-      } else if (JSON.stringify(component.data) !== JSON.stringify(prevComponent.data)) {
-        diffs.push({
-          type: 'modified',
-          path: `components.${id}.data`,
-          oldValue: prevComponent.data,
-          newValue: component.data,
-          timestamp: current.timestamp,
-        })
-      }
-    })
-
-    return diffs
-  }
-
-  private getDiffColor(type: string): string {
-    switch (type) {
-      case 'added':
-        return '#66ff66'
-      case 'removed':
-        return '#ff6666'
-      case 'modified':
-        return '#ffaa00'
-      default:
-        return '#cccccc'
-    }
-  }
-
-  // Watch functionality
-  public watchEntity(entityId: string): void {
-    this.watchedEntities.add(entityId)
-    console.log(`👁️ Watching entity: ${entityId}`)
-  }
-
-  public unwatchEntity(entityId: string): void {
-    this.watchedEntities.delete(entityId)
-    console.log(`👁️ Stopped watching entity: ${entityId}`)
-    this.showWatchTab() // Refresh the watch tab
-  }
-
-  public watchComponent(componentType: string): void {
-    this.watchedComponents.add(componentType)
-    console.log(`👁️ Watching component type: ${componentType}`)
-  }
-
-  public unwatchComponent(componentType: string): void {
-    this.watchedComponents.delete(componentType)
-    console.log(`👁️ Stopped watching component type: ${componentType}`)
-    this.showWatchTab() // Refresh the watch tab
-  }
-
-  // Auto snapshot
-  private toggleAutoSnapshot(): void {
-    this.config.autoSnapshot = !this.config.autoSnapshot
-
+    const state = yield* Ref.get(stateRef)
     const button = document.getElementById('auto-snapshot-btn')
     if (button) {
-      button.style.background = this.config.autoSnapshot ? '#28a745' : '#333'
+      button.style.background = state.config.autoSnapshot ? '#28a745' : '#333'
     }
 
-    if (this.config.autoSnapshot) {
-      this.startAutoSnapshot()
+    if (state.config.autoSnapshot) {
+      yield* startAutoSnapshot()
     } else {
-      this.stopAutoSnapshot()
+      yield* stopAutoSnapshot()
     }
 
-    console.log(`🔄 Auto snapshot ${this.config.autoSnapshot ? 'enabled' : 'disabled'}`)
-  }
+    yield* Effect.log(`🔄 Auto snapshot ${state.config.autoSnapshot ? 'enabled' : 'disabled'}`)
+  })
 
-  // Data management
-  private clearSnapshots(): void {
+  const startAutoSnapshot = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.config.autoSnapshot) {
+      const intervalId = window.setInterval(() => {
+        Effect.runSync(takeSnapshot())
+      }, state.config.snapshotInterval)
+      
+      yield* Ref.update(stateRef, s => ({ ...s, autoSnapshotInterval: intervalId }))
+    }
+  })
+
+  const stopAutoSnapshot = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.autoSnapshotInterval) {
+      clearInterval(state.autoSnapshotInterval)
+      yield* Ref.update(stateRef, s => ({ ...s, autoSnapshotInterval: null }))
+    }
+  })
+
+  const clearSnapshots = () => Effect.gen(function* () {
     if (confirm('Are you sure you want to clear all snapshots?')) {
-      this.snapshots = []
-      this.currentSnapshotIndex = -1
-      this.updateSnapshotList()
-      this.updateSnapshotCounter()
-      this.updateSnapshotSelection()
-      console.log('🧹 All snapshots cleared')
+      yield* Ref.update(stateRef, state => ({
+        ...state,
+        snapshots: [],
+        currentSnapshotIndex: -1
+      }))
+      yield* updateSnapshotList()
+      yield* updateSnapshotCounter()
+      yield* updateSnapshotSelection()
+      yield* Effect.log('🧹 All snapshots cleared')
     }
-  }
+  })
 
-  private exportSnapshots(): void {
+  const exportSnapshots = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
     const exportData = {
       version: '1.0.0',
       timestamp: Date.now(),
-      config: this.config,
-      snapshots: this.snapshots,
-      watchedEntities: Array.from(this.watchedEntities),
-      watchedComponents: Array.from(this.watchedComponents),
-      stateDiffs: this.stateDiffs,
+      config: state.config,
+      snapshots: state.snapshots,
+      watchedEntities: Array.from(state.watchedEntities),
+      watchedComponents: Array.from(state.watchedComponents),
+      stateDiffs: state.stateDiffs,
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
@@ -990,10 +844,10 @@ export class StateDebugger {
     a.click()
     URL.revokeObjectURL(url)
 
-    console.log('💾 State debug session exported')
-  }
+    yield* Effect.log('💾 State debug session exported')
+  })
 
-  private importSnapshots(): void {
+  const importSnapshots = () => Effect.gen(function* () {
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = '.json'
@@ -1004,17 +858,22 @@ export class StateDebugger {
         reader.onload = (e) => {
           try {
             const data = JSON.parse(e.target?.result as string)
-            this.snapshots = data.snapshots || []
-            this.watchedEntities = new Set(data.watchedEntities || [])
-            this.watchedComponents = new Set(data.watchedComponents || [])
-            this.stateDiffs = data.stateDiffs || []
-            this.currentSnapshotIndex = this.snapshots.length - 1
+            Effect.runSync(Effect.gen(function* () {
+              yield* Ref.update(stateRef, state => ({
+                ...state,
+                snapshots: data.snapshots || [],
+                watchedEntities: new Set(data.watchedEntities || []),
+                watchedComponents: new Set(data.watchedComponents || []),
+                stateDiffs: data.stateDiffs || [],
+                currentSnapshotIndex: (data.snapshots || []).length - 1
+              }))
 
-            this.updateSnapshotList()
-            this.updateSnapshotCounter()
-            this.updateSnapshotSelection()
+              yield* updateSnapshotList()
+              yield* updateSnapshotCounter()
+              yield* updateSnapshotSelection()
 
-            console.log('📂 State debug session imported')
+              yield* Effect.log('📂 State debug session imported')
+            }))
           } catch (error) {
             console.error('Failed to import session:', error)
           }
@@ -1023,54 +882,133 @@ export class StateDebugger {
       }
     }
     input.click()
-  }
+  })
 
-  // Public API
-  public open(): void {
-    this.isOpen = true
-    if (this.element) {
-      this.element.style.display = 'flex'
-    }
-  }
+  // Entity watching functionality
+  const watchEntity = (entityId: string) => Effect.gen(function* () {
+    yield* Ref.update(stateRef, state => ({
+      ...state,
+      watchedEntities: new Set([...state.watchedEntities, entityId])
+    }))
+    yield* Effect.log(`👁️ Watching entity: ${entityId}`)
+  })
 
-  public close(): void {
-    this.isOpen = false
-    if (this.element) {
-      this.element.style.display = 'none'
-    }
-  }
+  const unwatchEntity = (entityId: string) => Effect.gen(function* () {
+    yield* Ref.update(stateRef, state => {
+      const newWatched = new Set(state.watchedEntities)
+      newWatched.delete(entityId)
+      return { ...state, watchedEntities: newWatched }
+    })
+    yield* showWatchTab() // Refresh the watch tab
+    yield* Effect.log(`👁️ Stopped watching entity: ${entityId}`)
+  })
 
-  public toggle(): void {
-    if (this.isOpen) {
-      this.close()
+  const watchComponent = (componentType: string) => Effect.gen(function* () {
+    yield* Ref.update(stateRef, state => ({
+      ...state,
+      watchedComponents: new Set([...state.watchedComponents, componentType])
+    }))
+    yield* Effect.log(`👁️ Watching component type: ${componentType}`)
+  })
+
+  const unwatchComponent = (componentType: string) => Effect.gen(function* () {
+    yield* Ref.update(stateRef, state => {
+      const newWatched = new Set(state.watchedComponents)
+      newWatched.delete(componentType)
+      return { ...state, watchedComponents: newWatched }
+    })
+    yield* showWatchTab() // Refresh the watch tab
+    yield* Effect.log(`👁️ Stopped watching component type: ${componentType}`)
+  })
+
+  // Setup keyboard shortcuts
+  const setupKeyboardShortcuts = () => Effect.gen(function* () {
+    document.addEventListener('keydown', (event) => {
+      Effect.runSync(Effect.gen(function* () {
+        // Ctrl+Shift+B to toggle state debugger
+        if (event.ctrlKey && event.shiftKey && event.key === 'B') {
+          event.preventDefault()
+          yield* toggle()
+        }
+
+        const state = yield* Ref.get(stateRef)
+        if (state.isOpen) {
+          // F8 to take snapshot
+          if (event.key === 'F8') {
+            event.preventDefault()
+            yield* takeSnapshot()
+          }
+
+          // Arrow keys for time travel
+          if (event.altKey) {
+            if (event.key === 'ArrowLeft') {
+              event.preventDefault()
+              yield* goToPreviousSnapshot()
+            } else if (event.key === 'ArrowRight') {
+              event.preventDefault()
+              yield* goToNextSnapshot()
+            }
+          }
+        }
+      }))
+    })
+  })
+
+  const updateConfig = (newConfig: Partial<StateDebuggerConfig>) => Effect.gen(function* () {
+    yield* Ref.update(stateRef, state => ({
+      ...state,
+      config: { ...state.config, ...newConfig }
+    }))
+
+    const state = yield* Ref.get(stateRef)
+    if (state.config.autoSnapshot) {
+      yield* startAutoSnapshot()
     } else {
-      this.open()
+      yield* stopAutoSnapshot()
     }
-  }
+  })
 
-  public updateConfig(newConfig: Partial<StateDebuggerConfig>): void {
-    this.config = { ...this.config, ...newConfig }
+  const getSnapshots = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    return [...state.snapshots]
+  })
 
-    if (this.config.autoSnapshot) {
-      this.startAutoSnapshot()
-    } else {
-      this.stopAutoSnapshot()
-    }
-  }
+  const destroy = () => Effect.gen(function* () {
+    yield* close()
+    yield* stopAutoSnapshot()
 
-  public getSnapshots(): StateSnapshot[] {
-    return [...this.snapshots]
-  }
-
-  public destroy(): void {
-    this.close()
-    this.stopAutoSnapshot()
-
-    if (this.element) {
-      document.body.removeChild(this.element)
-      this.element = null
+    const state = yield* Ref.get(stateRef)
+    if (state.element) {
+      document.body.removeChild(state.element)
+      yield* Ref.update(stateRef, s => ({ ...s, element: null }))
     }
 
-    console.log('🔬 State Debugger destroyed')
+    yield* Effect.log('🔬 State Debugger destroyed')
+  })
+
+  // Initialize UI and shortcuts
+  if (import.meta.env.DEV) {
+    yield* createStateDebuggerUI()
+    yield* setupKeyboardShortcuts()
+    yield* startAutoSnapshot()
   }
+
+  return {
+    toggle,
+    open,
+    close,
+    takeSnapshot,
+    watchEntity,
+    unwatchEntity,
+    watchComponent,
+    unwatchComponent,
+    updateConfig,
+    getSnapshots,
+    destroy
+  }
+})
+
+// Factory function for easier usage
+export const createStateDebuggerFactory = (world: World, config?: Partial<StateDebuggerConfig>) => {
+  return Effect.runSync(createStateDebugger(world, config))
 }

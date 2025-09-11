@@ -1,3 +1,5 @@
+import { Effect, Ref } from 'effect'
+
 // Interface for global state objects
 interface GlobalGameState {
   gameState?: unknown
@@ -35,186 +37,194 @@ export interface HotReloadState {
   preservedState: Record<string, any>
 }
 
-export class HotReloadManager {
-  private config: HotReloadConfig
-  private state: HotReloadState
-  private watcher: any = null
-  private debounceTimeout: number | null = null
-  private overlay: HTMLElement | null = null
-  private isReloading = false
-
-  constructor(config: Partial<HotReloadConfig> = {}) {
-    this.config = {
-      enabled: true,
-      watchPatterns: ['src/**/*.ts', 'src/**/*.js', 'src/**/*.json', 'src/**/*.css', 'public/**/*'],
-      ignoredPatterns: ['**/node_modules/**', '**/dist/**', '**/coverage/**', '**/*.d.ts', '**/.git/**'],
-      debounceMs: 300,
-      enableLiveReload: true,
-      enableStatePreservation: true,
-      preservedStateKeys: ['gameState', 'userSettings', 'debugState', 'playerPosition'],
-      ...config,
-    }
-
-    this.state = {
-      isActive: false,
-      lastReload: 0,
-      totalReloads: 0,
-      watchedFiles: new Set(),
-      pendingChanges: [],
-      preservedState: {},
-    }
-
-    if (import.meta.env.DEV && this.config.enabled) {
-      this.initialize()
-    }
+export const createHotReloadManager = (config: Partial<HotReloadConfig> = {}) => Effect.gen(function* () {
+  const defaultConfig: HotReloadConfig = {
+    enabled: true,
+    watchPatterns: ['src/**/*.ts', 'src/**/*.js', 'src/**/*.json', 'src/**/*.css', 'public/**/*'],
+    ignoredPatterns: ['**/node_modules/**', '**/dist/**', '**/coverage/**', '**/*.d.ts', '**/.git/**'],
+    debounceMs: 300,
+    enableLiveReload: true,
+    enableStatePreservation: true,
+    preservedStateKeys: ['gameState', 'userSettings', 'debugState', 'playerPosition'],
+    ...config,
   }
 
-  private async initialize(): Promise<void> {
+  const stateRef = yield* Ref.make<HotReloadState>({
+    isActive: false,
+    lastReload: 0,
+    totalReloads: 0,
+    watchedFiles: new Set(),
+    pendingChanges: [],
+    preservedState: {},
+  })
+
+  const watcherRef = yield* Ref.make<any>(null)
+  const debounceTimeoutRef = yield* Ref.make<number | null>(null)
+  const overlayRef = yield* Ref.make<HTMLElement | null>(null)
+  const isReloadingRef = yield* Ref.make(false)
+
+  const initialize = () => Effect.gen(function* () {
     try {
-      console.log('🔥 Initializing Hot Reload Manager...')
+      yield* Effect.log('🔥 Initializing Hot Reload Manager...')
 
       // Setup HMR if available
       if (import.meta.hot) {
-        this.setupViteHMR()
+        yield* setupViteHMR()
       }
 
       // Setup file watching for custom hot reload
-      await this.setupFileWatcher()
+      yield* setupFileWatcher()
 
       // Create UI overlay
-      this.createReloadOverlay()
+      yield* createReloadOverlay()
 
       // Setup keyboard shortcuts
-      this.setupKeyboardShortcuts()
+      yield* setupKeyboardShortcuts()
 
-      this.state.isActive = true
-      console.log('🔥 Hot Reload Manager initialized')
+      yield* Ref.update(stateRef, state => ({ ...state, isActive: true }))
+      yield* Effect.log('🔥 Hot Reload Manager initialized')
     } catch (error) {
-      console.error('❌ Failed to initialize Hot Reload Manager:', error)
-      this.config.onError?.(error as Error)
+      yield* Effect.log(`❌ Failed to initialize Hot Reload Manager: ${error}`)
+      defaultConfig.onError?.(error as Error)
     }
-  }
+  })
 
-  private setupViteHMR(): void {
+  const setupViteHMR = () => Effect.gen(function* () {
     if (!import.meta.hot) return
 
-    console.log('🔥 Setting up Vite HMR integration...')
+    yield* Effect.log('🔥 Setting up Vite HMR integration...')
 
     // Accept HMR updates for specific modules
     import.meta.hot.accept((newModule) => {
-      console.log('🔄 HMR update received:', newModule)
-      this.handleHMRUpdate(newModule)
+      Effect.runSync(Effect.gen(function* () {
+        yield* Effect.log(`🔄 HMR update received: ${newModule}`)
+        yield* handleHMRUpdate(newModule)
+      }))
     })
 
     // Handle HMR disposal
     import.meta.hot.dispose((data) => {
-      console.log('🗑️ HMR disposal, preserving state...')
-      this.preserveCurrentState(data)
+      Effect.runSync(Effect.gen(function* () {
+        yield* Effect.log('🗑️ HMR disposal, preserving state...')
+        yield* preserveCurrentState(data)
+      }))
     })
 
     // Handle full reload
     import.meta.hot.on('vite:beforeFullReload', () => {
-      console.log('🔄 Full reload triggered, preserving state...')
-      this.preserveStateToStorage()
+      Effect.runSync(Effect.gen(function* () {
+        yield* Effect.log('🔄 Full reload triggered, preserving state...')
+        yield* preserveStateToStorage()
+      }))
     })
 
     // Custom HMR events
     import.meta.hot.on('dev-tools:reload', (data) => {
-      console.log('🔧 Dev tools reload event:', data)
-      this.handleDevToolsReload(data)
+      Effect.runSync(Effect.gen(function* () {
+        yield* Effect.log(`🔧 Dev tools reload event: ${data}`)
+        yield* handleDevToolsReload(data)
+      }))
     })
-  }
+  })
 
-  private async setupFileWatcher(): Promise<void> {
-    // In a real implementation, you would use a file watcher library
-    // For now, we'll simulate file watching with periodic checks
-
-    console.log('👁️ Setting up file watcher...')
+  const setupFileWatcher = () => Effect.gen(function* () {
+    yield* Effect.log('👁️ Setting up file watcher...')
 
     // Simulate file watching with polling (for demo purposes)
-    setInterval(() => {
-      this.checkForFileChanges()
+    const intervalId = setInterval(() => {
+      Effect.runSync(checkForFileChanges())
     }, 1000)
-  }
 
-  private checkForFileChanges(): void {
-    // In a real implementation, this would check actual file system changes
-    // For now, we'll simulate occasional changes for demo purposes
+    yield* Ref.set(watcherRef, { close: () => clearInterval(intervalId) })
+  })
 
+  const checkForFileChanges = () => Effect.gen(function* () {
+    // Simulate occasional changes for demo purposes
     if (Math.random() < 0.01) {
-      // 1% chance per second
       const simulatedChange: FileChange = {
         path: `src/components/test-${Date.now()}.ts`,
         type: 'changed',
         timestamp: Date.now(),
       }
 
-      this.handleFileChange(simulatedChange)
+      yield* handleFileChange(simulatedChange)
     }
-  }
+  })
 
-  private handleFileChange(change: FileChange): void {
-    console.log(`📁 File ${change.type}: ${change.path}`)
+  const handleFileChange = (change: FileChange) => Effect.gen(function* () {
+    yield* Effect.log(`📁 File ${change.type}: ${change.path}`)
 
-    this.state.pendingChanges.push(change)
-    this.state.watchedFiles.add(change.path)
+    yield* Ref.update(stateRef, state => ({
+      ...state,
+      pendingChanges: [...state.pendingChanges, change],
+      watchedFiles: new Set([...state.watchedFiles, change.path])
+    }))
 
     // Debounce multiple rapid changes
-    if (this.debounceTimeout) {
-      clearTimeout(this.debounceTimeout)
+    const currentTimeout = yield* Ref.get(debounceTimeoutRef)
+    if (currentTimeout) {
+      clearTimeout(currentTimeout)
     }
 
-    this.debounceTimeout = window.setTimeout(() => {
-      this.processFileChanges()
-    }, this.config.debounceMs)
-  }
+    const newTimeout = window.setTimeout(() => {
+      Effect.runSync(processFileChanges())
+    }, defaultConfig.debounceMs)
 
-  private async processFileChanges(): Promise<void> {
-    if (this.state.pendingChanges.length === 0 || this.isReloading) return
+    yield* Ref.set(debounceTimeoutRef, newTimeout)
+  })
 
-    this.isReloading = true
-    const changes = [...this.state.pendingChanges]
-    this.state.pendingChanges = []
+  const processFileChanges = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    const isReloading = yield* Ref.get(isReloadingRef)
+    
+    if (state.pendingChanges.length === 0 || isReloading) return
+
+    yield* Ref.set(isReloadingRef, true)
+    const changes = [...state.pendingChanges]
+    yield* Ref.update(stateRef, s => ({ ...s, pendingChanges: [] }))
 
     try {
-      console.log(`🔄 Processing ${changes.length} file changes...`)
+      yield* Effect.log(`🔄 Processing ${changes.length} file changes...`)
 
       // Show reload overlay
-      this.showReloadOverlay(changes)
+      yield* showReloadOverlay(changes)
 
       // Preserve state before reload
-      if (this.config.enableStatePreservation) {
-        this.preserveCurrentState()
+      if (defaultConfig.enableStatePreservation) {
+        yield* preserveCurrentState()
       }
 
       // Attempt hot module replacement
-      const success = await this.attemptHotReload(changes)
+      const success = yield* attemptHotReload(changes)
 
-      if (!success && this.config.enableLiveReload) {
+      if (!success && defaultConfig.enableLiveReload) {
         // Fallback to full page reload
-        console.log('🔄 Hot reload failed, performing full reload...')
-        this.performFullReload()
+        yield* Effect.log('🔄 Hot reload failed, performing full reload...')
+        yield* performFullReload()
       } else {
         // Hide overlay after successful hot reload
         setTimeout(() => {
-          this.hideReloadOverlay()
+          Effect.runSync(hideReloadOverlay())
         }, 1000)
       }
 
-      this.state.totalReloads++
-      this.state.lastReload = Date.now()
+      yield* Ref.update(stateRef, s => ({
+        ...s,
+        totalReloads: s.totalReloads + 1,
+        lastReload: Date.now()
+      }))
 
-      this.config.onReload?.(changes)
+      defaultConfig.onReload?.(changes)
     } catch (error) {
-      console.error('❌ Hot reload failed:', error)
-      this.config.onError?.(error as Error)
-      this.showReloadError(error as Error)
+      yield* Effect.log(`❌ Hot reload failed: ${error}`)
+      defaultConfig.onError?.(error as Error)
+      yield* showReloadError(error as Error)
     } finally {
-      this.isReloading = false
+      yield* Ref.set(isReloadingRef, false)
     }
-  }
+  })
 
-  private async attemptHotReload(changes: FileChange[]): Promise<boolean> {
+  const attemptHotReload = (changes: FileChange[]) => Effect.gen(function* () {
     try {
       // Categorize changes
       const componentChanges = changes.filter((c) => c.path.includes('components/'))
@@ -223,26 +233,26 @@ export class HotReloadManager {
 
       // Handle different types of changes
       if (styleChanges.length > 0) {
-        return await this.reloadStyles(styleChanges)
+        return yield* reloadStyles(styleChanges)
       }
 
       if (componentChanges.length > 0) {
-        return await this.reloadComponents(componentChanges)
+        return yield* reloadComponents(componentChanges)
       }
 
       if (systemChanges.length > 0) {
-        return await this.reloadSystems(systemChanges)
+        return yield* reloadSystems(systemChanges)
       }
 
       return false // Fallback to full reload
     } catch (error) {
-      console.error('❌ Hot reload attempt failed:', error)
+      yield* Effect.log(`❌ Hot reload attempt failed: ${error}`)
       return false
     }
-  }
+  })
 
-  private async reloadStyles(changes: FileChange[]): Promise<boolean> {
-    console.log('🎨 Hot reloading styles...')
+  const reloadStyles = (changes: FileChange[]) => Effect.gen(function* () {
+    yield* Effect.log('🎨 Hot reloading styles...')
 
     try {
       // Reload CSS files
@@ -254,115 +264,91 @@ export class HotReloadManager {
         }
       }
 
-      console.log('✅ Styles reloaded successfully')
+      yield* Effect.log('✅ Styles reloaded successfully')
       return true
     } catch (error) {
-      console.error('❌ Style reload failed:', error)
+      yield* Effect.log(`❌ Style reload failed: ${error}`)
       return false
     }
-  }
+  })
 
-  private async reloadComponents(changes: FileChange[]): Promise<boolean> {
-    console.log('🧩 Hot reloading components...')
+  const reloadComponents = (changes: FileChange[]) => Effect.gen(function* () {
+    yield* Effect.log('🧩 Hot reloading components...')
 
     try {
-      // In a real implementation, you would:
-      // 1. Parse the changed component files
-      // 2. Update the component registry
-      // 3. Re-render affected parts of the UI
-      // 4. Preserve component state where possible
-
       for (const change of changes) {
-        console.log(`🔄 Reloading component: ${change.path}`)
-
-        // Simulate component reload
-        await this.simulateModuleReload(change.path)
+        yield* Effect.log(`🔄 Reloading component: ${change.path}`)
+        yield* simulateModuleReload(change.path)
       }
 
-      console.log('✅ Components reloaded successfully')
+      yield* Effect.log('✅ Components reloaded successfully')
       return true
     } catch (error) {
-      console.error('❌ Component reload failed:', error)
+      yield* Effect.log(`❌ Component reload failed: ${error}`)
       return false
     }
-  }
+  })
 
-  private async reloadSystems(changes: FileChange[]): Promise<boolean> {
-    console.log('⚙️ Hot reloading systems...')
+  const reloadSystems = (changes: FileChange[]) => Effect.gen(function* () {
+    yield* Effect.log('⚙️ Hot reloading systems...')
 
     try {
-      // In a real implementation, you would:
-      // 1. Stop affected systems
-      // 2. Reload system modules
-      // 3. Restart systems with preserved state
-
       for (const change of changes) {
-        console.log(`🔄 Reloading system: ${change.path}`)
-
-        // Simulate system reload
-        await this.simulateModuleReload(change.path)
+        yield* Effect.log(`🔄 Reloading system: ${change.path}`)
+        yield* simulateModuleReload(change.path)
       }
 
-      console.log('✅ Systems reloaded successfully')
+      yield* Effect.log('✅ Systems reloaded successfully')
       return true
     } catch (error) {
-      console.error('❌ System reload failed:', error)
+      yield* Effect.log(`❌ System reload failed: ${error}`)
       return false
     }
-  }
+  })
 
-  private async simulateModuleReload(path: string): Promise<void> {
-    // Simulate async module reload
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log(`📦 Module reloaded: ${path}`)
-        resolve()
-      }, 100)
-    })
-  }
+  const simulateModuleReload = (path: string) => Effect.gen(function* () {
+    yield* Effect.sleep('100 millis')
+    yield* Effect.log(`📦 Module reloaded: ${path}`)
+  })
 
-  private preserveCurrentState(data?: any): void {
-    if (!this.config.enableStatePreservation) return
+  const preserveCurrentState = (data?: any) => Effect.gen(function* () {
+    if (!defaultConfig.enableStatePreservation) return
 
-    console.log('💾 Preserving current state...')
+    yield* Effect.log('💾 Preserving current state...')
 
     // Preserve state to the data object (for HMR)
     if (data) {
-      this.config.preservedStateKeys.forEach((key) => {
-        const value = this.getStateValue(key)
+      defaultConfig.preservedStateKeys.forEach((key) => {
+        const value = getStateValue(key)
         if (value !== undefined) {
           data[key] = value
-          this.state.preservedState[key] = value
         }
       })
     }
 
     // Also preserve to localStorage as backup
-    this.preserveStateToStorage()
-  }
+    yield* preserveStateToStorage()
+  })
 
-  private preserveStateToStorage(): void {
+  const preserveStateToStorage = () => Effect.gen(function* () {
     try {
       const stateToPreserve: Record<string, any> = {}
 
-      this.config.preservedStateKeys.forEach((key) => {
-        const value = this.getStateValue(key)
+      defaultConfig.preservedStateKeys.forEach((key) => {
+        const value = getStateValue(key)
         if (value !== undefined) {
           stateToPreserve[key] = value
         }
       })
 
       localStorage.setItem('hot-reload-preserved-state', JSON.stringify(stateToPreserve))
-      console.log('💾 State preserved to storage')
+      yield* Effect.log('💾 State preserved to storage')
     } catch (error) {
-      console.error('❌ Failed to preserve state to storage:', error)
+      yield* Effect.log(`❌ Failed to preserve state to storage: ${error}`)
     }
-  }
+  })
 
-  private getStateValue(key: string): any {
-    // In a real implementation, you would get state from your application
-    // This is a placeholder that would need to be customized
-
+  const getStateValue = (key: string): any => {
     const globalState = globalThis as typeof globalThis & GlobalGameState
 
     switch (key) {
@@ -379,10 +365,7 @@ export class HotReloadManager {
     }
   }
 
-  private setStateValue(key: string, value: any): void {
-    // In a real implementation, you would set state in your application
-    // This is a placeholder that would need to be customized
-
+  const setStateValue = (key: string, value: any): void => {
     const globalState = globalThis as typeof globalThis & GlobalGameState
 
     switch (key) {
@@ -403,15 +386,15 @@ export class HotReloadManager {
     }
   }
 
-  private performFullReload(): void {
-    console.log('🔄 Performing full page reload...')
+  const performFullReload = () => Effect.gen(function* () {
+    yield* Effect.log('🔄 Performing full page reload...')
     window.location.reload()
-  }
+  })
 
-  private createReloadOverlay(): void {
-    this.overlay = document.createElement('div')
-    this.overlay.id = 'hot-reload-overlay'
-    this.overlay.style.cssText = `
+  const createReloadOverlay = () => Effect.gen(function* () {
+    const overlay = document.createElement('div')
+    overlay.id = 'hot-reload-overlay'
+    overlay.style.cssText = `
       position: fixed;
       top: 20px;
       right: 20px;
@@ -428,15 +411,17 @@ export class HotReloadManager {
       min-width: 200px;
     `
 
-    document.body.appendChild(this.overlay)
-  }
+    document.body.appendChild(overlay)
+    yield* Ref.set(overlayRef, overlay)
+  })
 
-  private showReloadOverlay(changes: FileChange[]): void {
-    if (!this.overlay) return
+  const showReloadOverlay = (changes: FileChange[]) => Effect.gen(function* () {
+    const overlay = yield* Ref.get(overlayRef)
+    if (!overlay) return
 
     const changeList = changes.map((c) => `• ${c.type}: ${c.path.split('/').pop()}`).join('<br>')
 
-    this.overlay.innerHTML = `
+    overlay.innerHTML = `
       <div style="display: flex; align-items: center; margin-bottom: 8px;">
         <div style="margin-right: 8px;">🔥</div>
         <div><strong>Hot Reloading...</strong></div>
@@ -449,19 +434,21 @@ export class HotReloadManager {
       </div>
     `
 
-    this.overlay.style.display = 'block'
-  }
+    overlay.style.display = 'block'
+  })
 
-  private hideReloadOverlay(): void {
-    if (this.overlay) {
-      this.overlay.style.display = 'none'
+  const hideReloadOverlay = () => Effect.gen(function* () {
+    const overlay = yield* Ref.get(overlayRef)
+    if (overlay) {
+      overlay.style.display = 'none'
     }
-  }
+  })
 
-  private showReloadError(error: Error): void {
-    if (!this.overlay) return
+  const showReloadError = (error: Error) => Effect.gen(function* () {
+    const overlay = yield* Ref.get(overlayRef)
+    if (!overlay) return
 
-    this.overlay.innerHTML = `
+    overlay.innerHTML = `
       <div style="display: flex; align-items: center; margin-bottom: 8px;">
         <div style="margin-right: 8px;">❌</div>
         <div><strong>Reload Failed</strong></div>
@@ -474,45 +461,42 @@ export class HotReloadManager {
       </div>
     `
 
-    this.overlay.style.display = 'block'
+    overlay.style.display = 'block'
 
     // Auto-hide after 5 seconds
     setTimeout(() => {
-      this.hideReloadOverlay()
+      Effect.runSync(hideReloadOverlay())
     }, 5000)
-  }
+  })
 
-  private setupKeyboardShortcuts(): void {
+  const setupKeyboardShortcuts = () => Effect.gen(function* () {
     document.addEventListener('keydown', (event) => {
-      // Ctrl+R for manual reload
-      if (event.ctrlKey && event.key === 'r') {
-        event.preventDefault()
-        this.manualReload()
-      }
+      Effect.runSync(Effect.gen(function* () {
+        // Ctrl+R for manual reload
+        if (event.ctrlKey && event.key === 'r') {
+          event.preventDefault()
+          yield* manualReload()
+        }
 
-      // Ctrl+Shift+R for force reload
-      if (event.ctrlKey && event.shiftKey && event.key === 'R') {
-        event.preventDefault()
-        this.forceReload()
-      }
+        // Ctrl+Shift+R for force reload
+        if (event.ctrlKey && event.shiftKey && event.key === 'R') {
+          event.preventDefault()
+          yield* forceReload()
+        }
 
-      // F5 for standard reload
-      if (event.key === 'F5') {
-        event.preventDefault()
-        this.forceReload()
-      }
+        // F5 for standard reload
+        if (event.key === 'F5') {
+          event.preventDefault()
+          yield* forceReload()
+        }
+      }))
     })
-  }
+  })
 
-  private handleHMRUpdate(newModule: any): void {
-    console.log('🔄 Handling HMR update:', newModule)
+  const handleHMRUpdate = (newModule: any) => Effect.gen(function* () {
+    yield* Effect.log(`🔄 Handling HMR update: ${newModule}`)
 
-    // In a real implementation, you would:
-    // 1. Update the module in your application
-    // 2. Re-render affected components
-    // 3. Preserve relevant state
-
-    this.showReloadOverlay([
+    yield* showReloadOverlay([
       {
         path: 'HMR Update',
         type: 'changed',
@@ -521,12 +505,12 @@ export class HotReloadManager {
     ])
 
     setTimeout(() => {
-      this.hideReloadOverlay()
+      Effect.runSync(hideReloadOverlay())
     }, 1000)
-  }
+  })
 
-  private handleDevToolsReload(data: any): void {
-    console.log('🔧 Handling dev tools reload:', data)
+  const handleDevToolsReload = (data: any) => Effect.gen(function* () {
+    yield* Effect.log(`🔧 Handling dev tools reload: ${data}`)
 
     // Custom dev tools reload logic
     if (data.type === 'debugger') {
@@ -534,82 +518,106 @@ export class HotReloadManager {
     } else if (data.type === 'console') {
       // Reload dev console
     }
-  }
+  })
 
   // Public API
-  public manualReload(): void {
-    console.log('🔄 Manual reload triggered')
+  const manualReload = () => Effect.gen(function* () {
+    yield* Effect.log('🔄 Manual reload triggered')
 
-    this.queueChanges([
-      {
+    yield* Ref.update(stateRef, state => ({
+      ...state,
+      pendingChanges: [...state.pendingChanges, {
         path: 'Manual Reload',
         type: 'changed',
         timestamp: Date.now(),
-      },
-    ])
+      }]
+    }))
 
-    this.processFileChanges()
-  }
+    yield* processFileChanges()
+  })
 
-  public forceReload(): void {
-    console.log('🔄 Force reload triggered')
-    this.performFullReload()
-  }
+  const forceReload = () => Effect.gen(function* () {
+    yield* Effect.log('🔄 Force reload triggered')
+    yield* performFullReload()
+  })
 
-  public enable(): void {
-    this.config.enabled = true
-    this.state.isActive = true
-    console.log('🔥 Hot reload enabled')
-  }
+  const enable = () => Effect.gen(function* () {
+    yield* Ref.update(stateRef, state => ({ ...state, isActive: true }))
+    yield* Effect.log('🔥 Hot reload enabled')
+  })
 
-  public disable(): void {
-    this.config.enabled = false
-    this.state.isActive = false
+  const disable = () => Effect.gen(function* () {
+    yield* Ref.update(stateRef, state => ({ ...state, isActive: false }))
 
-    if (this.debounceTimeout) {
-      clearTimeout(this.debounceTimeout)
+    const currentTimeout = yield* Ref.get(debounceTimeoutRef)
+    if (currentTimeout) {
+      clearTimeout(currentTimeout)
     }
 
-    console.log('🔥 Hot reload disabled')
-  }
+    yield* Effect.log('🔥 Hot reload disabled')
+  })
 
-  public getState(): HotReloadState {
-    return { ...this.state }
-  }
+  const getState = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    return { ...state }
+  })
 
-  public getConfig(): HotReloadConfig {
-    return { ...this.config }
-  }
+  const getConfig = () => Effect.gen(function* () {
+    return { ...defaultConfig }
+  })
 
-  public updateConfig(newConfig: Partial<HotReloadConfig>): void {
-    this.config = { ...this.config, ...newConfig }
-    console.log('🔥 Hot reload config updated')
-  }
+  const updateConfig = (newConfig: Partial<HotReloadConfig>) => Effect.gen(function* () {
+    Object.assign(defaultConfig, newConfig)
+    yield* Effect.log('🔥 Hot reload config updated')
+  })
 
-  public destroy(): void {
-    this.disable()
+  const destroy = () => Effect.gen(function* () {
+    yield* disable()
 
-    if (this.overlay) {
-      document.body.removeChild(this.overlay)
-      this.overlay = null
+    const overlay = yield* Ref.get(overlayRef)
+    if (overlay) {
+      document.body.removeChild(overlay)
+      yield* Ref.set(overlayRef, null)
     }
 
-    if (this.watcher) {
-      this.watcher.close?.()
-      this.watcher = null
+    const watcher = yield* Ref.get(watcherRef)
+    if (watcher) {
+      watcher.close?.()
+      yield* Ref.set(watcherRef, null)
     }
 
-    console.log('🔥 Hot Reload Manager destroyed')
+    yield* Effect.log('🔥 Hot Reload Manager destroyed')
+  })
+
+  // Initialize in development mode
+  if (import.meta.env.DEV && defaultConfig.enabled) {
+    yield* initialize()
   }
+
+  return {
+    manualReload,
+    forceReload,
+    enable,
+    disable,
+    getState,
+    getConfig,
+    updateConfig,
+    destroy
+  }
+})
+
+// Factory function for easier usage
+export const createHotReloadManagerFactory = (config?: Partial<HotReloadConfig>) => {
+  return Effect.runSync(createHotReloadManager(config))
 }
-
-// Export singleton instance for easy use
-export const hotReloadManager = new HotReloadManager()
 
 // Auto-initialize on module load in development
 if (import.meta.env.DEV) {
   // Restore any preserved state from previous hot reload
   setTimeout(() => {
-    hotReloadManager.getState()
+    Effect.runSync(Effect.gen(function* () {
+      const manager = yield* createHotReloadManager()
+      yield* manager.getState()
+    }))
   }, 100)
 }

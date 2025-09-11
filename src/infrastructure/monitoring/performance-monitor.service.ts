@@ -12,7 +12,7 @@
  * - Historical performance data
  */
 
-import { Effect, Context, Layer, Option, Ref } from 'effect'
+import { Effect, Context, Layer, Option, Ref, Schema } from 'effect'
 
 /**
  * Performance metric types
@@ -129,15 +129,10 @@ export interface PerformanceMonitorConfig {
 /**
  * Performance monitor errors
  */
-export class PerformanceMonitorError extends Error {
-  readonly _tag = 'PerformanceMonitorError'
-  constructor(
-    message: string,
-    readonly cause?: unknown,
-  ) {
-    super(message)
-  }
-}
+export class PerformanceMonitorError extends Schema.TaggedError<PerformanceMonitorError>()('PerformanceMonitorError', {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown)
+}) {}
 
 /**
  * Performance Monitor Service interface

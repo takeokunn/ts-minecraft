@@ -34,7 +34,7 @@ export interface IBrowserClockAdapter extends IClockPort {
   readonly reset: () => Effect.Effect<void, never, never>
 }
 
-export class BrowserClockAdapter extends Context.GenericTag('BrowserClockAdapter')<BrowserClockAdapter, IBrowserClockAdapter>() {}
+export const BrowserClockAdapter = Context.GenericTag<IBrowserClockAdapter>('BrowserClockAdapter')
 
 /**
  * Browser Clock Adapter Layer

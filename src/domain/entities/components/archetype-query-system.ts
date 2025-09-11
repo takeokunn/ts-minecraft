@@ -11,69 +11,92 @@ import { globalRegistry } from '@domain/entities/components/registry'
 import type { ArchetypeInfo, StorageLayout, QueryResult } from '@domain/entities/components/registry'
 
 /**
- * Archetype query builder for optimized component access
+ * Archetype query state
  */
-export class ArchetypeQuery {
-  private requiredComponents: readonly string[] = []
-  private optionalComponents: readonly string[] = []
-  private excludedComponents: readonly string[] = []
+interface ArchetypeQueryState {
+  readonly requiredComponents: readonly string[]
+  readonly optionalComponents: readonly string[]
+  readonly excludedComponents: readonly string[]
+}
 
-  static create(): ArchetypeQuery {
-    return new ArchetypeQuery()
+/**
+ * Create an archetype query with empty state
+ */
+const createArchetypeQueryState = (): ArchetypeQueryState => ({
+  requiredComponents: [],
+  optionalComponents: [],
+  excludedComponents: [],
+})
+
+/**
+ * Add required components to the query
+ */
+const withComponents = <T extends string>(
+  state: ArchetypeQueryState,
+  ...componentIds: T[]
+): ArchetypeQueryState => ({
+  ...state,
+  requiredComponents: [...state.requiredComponents, ...componentIds],
+})
+
+/**
+ * Add optional components to the query
+ */
+const maybeComponents = <T extends string>(
+  state: ArchetypeQueryState,
+  ...componentIds: T[]
+): ArchetypeQueryState => ({
+  ...state,
+  optionalComponents: [...state.optionalComponents, ...componentIds],
+})
+
+/**
+ * Exclude components from the query
+ */
+const withoutComponents = <T extends string>(
+  state: ArchetypeQueryState,
+  ...componentIds: T[]
+): ArchetypeQueryState => ({
+  ...state,
+  excludedComponents: [...state.excludedComponents, ...componentIds],
+})
+
+/**
+ * Execute the archetype query and return results
+ */
+const executeArchetypeQuery = (state: ArchetypeQueryState): ArchetypeQueryResult => {
+  const registry = globalRegistry
+  const archetype = registry.getArchetype(state.requiredComponents)
+
+  // Filter entities that don't have excluded components
+  const filteredEntities = archetype.entities.filter((entityId) => {
+    return !state.excludedComponents.some((componentId) => 
+      registry.query([componentId]).hasComponent(entityId, componentId)
+    )
+  })
+
+  return {
+    entities: filteredEntities,
+    archetype,
+    getComponent: <T>(entityId: number, componentId: string) => 
+      registry.query([componentId]).getComponent<T>(entityId, componentId),
+    hasComponent: (entityId: number, componentId: string) => 
+      registry.query([componentId]).hasComponent(entityId, componentId),
+    requiredComponents: state.requiredComponents,
+    optionalComponents: state.optionalComponents,
+    storageLayout: archetype.storageLayout,
   }
+}
 
-  /**
-   * Add required components to the query
-   */
-  with<T extends string>(...componentIds: T[]): ArchetypeQuery {
-    return Data.struct({
-      ...this,
-      requiredComponents: [...this.requiredComponents, ...componentIds],
-    })
-  }
-
-  /**
-   * Add optional components to the query
-   */
-  maybe<T extends string>(...componentIds: T[]): ArchetypeQuery {
-    return Data.struct({
-      ...this,
-      optionalComponents: [...this.optionalComponents, ...componentIds],
-    })
-  }
-
-  /**
-   * Exclude components from the query
-   */
-  without<T extends string>(...componentIds: T[]): ArchetypeQuery {
-    return Data.struct({
-      ...this,
-      excludedComponents: [...this.excludedComponents, ...componentIds],
-    })
-  }
-
-  /**
-   * Execute the query and return results
-   */
-  execute(): ArchetypeQueryResult {
-    const registry = globalRegistry
-    const archetype = registry.getArchetype(this.requiredComponents)
-
-    // Filter entities that don't have excluded components
-    const filteredEntities = archetype.entities.filter((entityId) => {
-      return !this.excludedComponents.some((componentId) => registry.query([componentId]).hasComponent(entityId, componentId))
-    })
-
-    return {
-      entities: filteredEntities,
-      archetype,
-      getComponent: <T>(entityId: number, componentId: string) => registry.query([componentId]).getComponent<T>(entityId, componentId),
-      hasComponent: (entityId: number, componentId: string) => registry.query([componentId]).hasComponent(entityId, componentId),
-      requiredComponents: this.requiredComponents,
-      optionalComponents: this.optionalComponents,
-      storageLayout: archetype.storageLayout,
-    }
-  }
+/**
+ * Functional archetype query builder
+ */
+export const ArchetypeQuery = {
+  create: createArchetypeQueryState,
+  with: withComponents,
+  maybe: maybeComponents,
+  without: withoutComponents,
+  execute: executeArchetypeQuery,
 }
 
 export interface ArchetypeQueryResult {
@@ -94,4 +117,4 @@ export const query = (components: readonly string[]): QueryResult => globalRegis
 /**
  * Create archetype query builder
  */
-export const createArchetypeQuery = (): ArchetypeQuery => ArchetypeQuery.create()
+export const createArchetypeQuery = () => ArchetypeQuery.create()

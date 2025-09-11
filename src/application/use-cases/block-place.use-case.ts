@@ -4,12 +4,17 @@ import { WorldDomainService } from '@domain/services/world-domain.service'
 import { EntityDomainService } from '@domain/services/entity-domain.service'
 import { RaycastDomainService } from '@domain/services/raycast-domain.service'
 
-export class BlockPlaceUseCase extends Context.Tag('BlockPlaceUseCase')<
-  BlockPlaceUseCase,
-  {
-    readonly execute: (command: BlockInteractionCommand) => Effect.Effect<void, Error>
-  }
->() {}
+/**
+ * Block Place Use Case Service interface
+ */
+export interface BlockPlaceUseCaseService {
+  readonly execute: (command: BlockInteractionCommand) => Effect.Effect<void, Error>
+}
+
+/**
+ * Block Place Use Case Service
+ */
+export const BlockPlaceUseCase = Context.GenericTag<BlockPlaceUseCaseService>('BlockPlaceUseCase')
 
 export const BlockPlaceUseCaseLive = Layer.succeed(BlockPlaceUseCase, {
   execute: (command) =>
@@ -42,7 +47,7 @@ export const BlockPlaceUseCaseLive = Layer.succeed(BlockPlaceUseCase, {
       // Trigger chunk updates if necessary (this method doesn't exist in worldService, so we'll comment it out)
       // yield* worldService.markChunkForUpdate(targetPosition)
     }),
-})
+} satisfies BlockPlaceUseCaseService)
 
 const validateBlockPlacement = (command: BlockInteractionCommand, worldService: any, entityService: any) =>
   Effect.gen(function* () {

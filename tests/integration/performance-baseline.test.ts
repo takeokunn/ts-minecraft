@@ -15,20 +15,20 @@ import {
   AppLayer,
   DomainLayer,
   InfrastructureLayer 
-} from '../../src/layers'
+} from '@/layers'
 
 // Import domain services and ports
 import { 
   WorldDomainService, 
   PhysicsDomainService, 
   EntityDomainService 
-} from '../../src/layers'
+} from '@/layers'
 
 import { 
   MathPort, 
   RenderPort, 
   PerformanceMonitorPort 
-} from '../../src/domain/ports'
+} from '@domain/ports'
 
 // Performance tracking utilities
 interface PerformanceMetric {

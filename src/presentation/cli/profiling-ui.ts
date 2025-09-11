@@ -1,5 +1,5 @@
 import { PerformanceProfiler } from '@presentation/cli/performance-profiler'
-import { Effect } from 'effect'
+import { Effect, Ref } from 'effect'
 import { PerformanceDashboard } from '@infrastructure/performance'
 
 export interface ProfilingUIConfig {
@@ -41,60 +41,51 @@ export interface SystemMetrics {
   thermalState?: string
 }
 
-export class ProfilingUI {
-  private isOpen = false
-  private element: HTMLElement | null = null
-  private canvases: Map<string, HTMLCanvasElement> = new Map()
-  private contexts: Map<string, CanvasRenderingContext2D> = new Map()
-  private updateInterval: number | null = null
-  private chartData: ChartData
-  private config: ProfilingUIConfig
-  private startTime = Date.now()
-
-  constructor(
-    private performanceProfiler?: PerformanceProfiler,
-    config: Partial<ProfilingUIConfig> = {},
-  ) {
-    this.config = {
-      updateInterval: 100,
-      maxDataPoints: 300, // 30 seconds at 100ms intervals
-      showFPSGraph: true,
-      showMemoryGraph: true,
-      showFrameTimeGraph: true,
-      showSystemMetrics: true,
-      showHeatmap: false,
-      enableExport: true,
-      graphHeight: 120,
-      graphColors: {
-        fps: '#00ff00',
-        memory: '#ff6600',
-        frameTime: '#0099ff',
-        background: '#111111',
-        grid: '#333333',
-        text: '#cccccc',
-      },
-      ...config,
-    }
-
-    this.chartData = {
-      timestamps: [],
-      fps: [],
-      memory: [],
-      frameTime: [],
-      drawCalls: [],
-      triangles: [],
-    }
-
-    if (import.meta.env.DEV) {
-      this.createProfilingUI()
-      this.setupKeyboardShortcuts()
-    }
+export const createProfilingUI = (
+  performanceProfiler?: PerformanceProfiler,
+  config: Partial<ProfilingUIConfig> = {}
+) => Effect.gen(function* () {
+  const defaultConfig: ProfilingUIConfig = {
+    updateInterval: 100,
+    maxDataPoints: 300, // 30 seconds at 100ms intervals
+    showFPSGraph: true,
+    showMemoryGraph: true,
+    showFrameTimeGraph: true,
+    showSystemMetrics: true,
+    showHeatmap: false,
+    enableExport: true,
+    graphHeight: 120,
+    graphColors: {
+      fps: '#00ff00',
+      memory: '#ff6600',
+      frameTime: '#0099ff',
+      background: '#111111',
+      grid: '#333333',
+      text: '#cccccc',
+    },
+    ...config,
   }
 
-  private createProfilingUI(): void {
-    this.element = document.createElement('div')
-    this.element.id = 'profiling-ui'
-    this.element.style.cssText = `
+  const isOpenRef = yield* Ref.make(false)
+  const elementRef = yield* Ref.make<HTMLElement | null>(null)
+  const canvasesRef = yield* Ref.make<Map<string, HTMLCanvasElement>>(new Map())
+  const contextsRef = yield* Ref.make<Map<string, CanvasRenderingContext2D>>(new Map())
+  const updateIntervalRef = yield* Ref.make<number | null>(null)
+  const startTimeRef = yield* Ref.make(Date.now())
+
+  const chartDataRef = yield* Ref.make<ChartData>({
+    timestamps: [],
+    fps: [],
+    memory: [],
+    frameTime: [],
+    drawCalls: [],
+    triangles: [],
+  })
+
+  const createProfilingUIElement = () => Effect.gen(function* () {
+    const element = document.createElement('div')
+    element.id = 'profiling-ui'
+    element.style.cssText = `
       position: fixed;
       bottom: 20px;
       left: 20px;
@@ -113,15 +104,16 @@ export class ProfilingUI {
       backdrop-filter: blur(10px);
     `
 
-    this.createHeader()
-    this.createGraphsContainer()
-    this.createMetricsPanel()
-    this.createControlsPanel()
+    yield* createHeader(element)
+    yield* createGraphsContainer(element)
+    yield* createMetricsPanel(element)
+    yield* createControlsPanel(element)
 
-    document.body.appendChild(this.element)
-  }
+    document.body.appendChild(element)
+    yield* Ref.set(elementRef, element)
+  })
 
-  private createHeader(): void {
+  const createHeader = (parentElement: HTMLElement) => Effect.gen(function* () {
     const header = document.createElement('div')
     header.style.cssText = `
       display: flex;
@@ -160,20 +152,20 @@ export class ProfilingUI {
     const exportBtn = document.createElement('button')
     exportBtn.textContent = '💾'
     exportBtn.title = 'Export Data'
-    exportBtn.style.cssText = this.getButtonStyle()
-    exportBtn.onclick = () => this.exportData()
+    exportBtn.style.cssText = getButtonStyle()
+    exportBtn.onclick = () => Effect.runSync(exportData())
 
     const settingsBtn = document.createElement('button')
     settingsBtn.textContent = '⚙️'
     settingsBtn.title = 'Settings'
-    settingsBtn.style.cssText = this.getButtonStyle()
-    settingsBtn.onclick = () => this.toggleSettings()
+    settingsBtn.style.cssText = getButtonStyle()
+    settingsBtn.onclick = () => Effect.runSync(toggleSettings())
 
     const closeBtn = document.createElement('button')
     closeBtn.textContent = '✕'
     closeBtn.title = 'Close'
-    closeBtn.style.cssText = this.getButtonStyle('#d33')
-    closeBtn.onclick = () => this.close()
+    closeBtn.style.cssText = getButtonStyle('#d33')
+    closeBtn.onclick = () => Effect.runSync(close())
 
     controls.appendChild(recordingIndicator)
     controls.appendChild(timer)
@@ -184,10 +176,10 @@ export class ProfilingUI {
     header.appendChild(title)
     header.appendChild(controls)
 
-    this.element!.appendChild(header)
-  }
+    parentElement.appendChild(header)
+  })
 
-  private createGraphsContainer(): void {
+  const createGraphsContainer = (parentElement: HTMLElement) => Effect.gen(function* () {
     const container = document.createElement('div')
     container.id = 'graphs-container'
     container.style.cssText = `
@@ -196,24 +188,22 @@ export class ProfilingUI {
       overflow-y: auto;
     `
 
-    if (this.config.showFPSGraph) {
-      this.createGraph('fps', 'FPS Graph', this.config.graphColors.fps)
+    if (defaultConfig.showFPSGraph) {
+      yield* createGraph(container, 'fps', 'FPS Graph', defaultConfig.graphColors.fps)
     }
 
-    if (this.config.showFrameTimeGraph) {
-      this.createGraph('frameTime', 'Frame Time (ms)', this.config.graphColors.frameTime)
+    if (defaultConfig.showFrameTimeGraph) {
+      yield* createGraph(container, 'frameTime', 'Frame Time (ms)', defaultConfig.graphColors.frameTime)
     }
 
-    if (this.config.showMemoryGraph) {
-      this.createGraph('memory', 'Memory Usage (MB)', this.config.graphColors.memory)
+    if (defaultConfig.showMemoryGraph) {
+      yield* createGraph(container, 'memory', 'Memory Usage (MB)', defaultConfig.graphColors.memory)
     }
 
-    this.element!.appendChild(container)
-  }
+    parentElement.appendChild(container)
+  })
 
-  private createGraph(id: string, title: string, color: string): void {
-    const container = document.getElementById('graphs-container')!
-
+  const createGraph = (container: HTMLElement, id: string, title: string, color: string) => Effect.gen(function* () {
     const graphContainer = document.createElement('div')
     graphContainer.style.cssText = 'margin-bottom: 16px;'
 
@@ -229,25 +219,29 @@ export class ProfilingUI {
     const canvasContainer = document.createElement('div')
     canvasContainer.style.cssText = `
       position: relative;
-      background: ${this.config.graphColors.background};
+      background: ${defaultConfig.graphColors.background};
       border: 1px solid #333;
       border-radius: 4px;
     `
 
     const canvas = document.createElement('canvas')
     canvas.width = 468 // Container width minus padding
-    canvas.height = this.config.graphHeight
+    canvas.height = defaultConfig.graphHeight
     canvas.style.cssText = `
       display: block;
       width: 100%;
-      height: ${this.config.graphHeight}px;
+      height: ${defaultConfig.graphHeight}px;
     `
 
     const ctx = canvas.getContext('2d')!
     ctx.imageSmoothingEnabled = false
 
-    this.canvases.set(id, canvas)
-    this.contexts.set(id, ctx)
+    const canvases = yield* Ref.get(canvasesRef)
+    const contexts = yield* Ref.get(contextsRef)
+    canvases.set(id, canvas)
+    contexts.set(id, ctx)
+    yield* Ref.set(canvasesRef, canvases)
+    yield* Ref.set(contextsRef, contexts)
 
     // Add value overlay
     const valueOverlay = document.createElement('div')
@@ -270,10 +264,10 @@ export class ProfilingUI {
     graphContainer.appendChild(titleElement)
     graphContainer.appendChild(canvasContainer)
     container.appendChild(graphContainer)
-  }
+  })
 
-  private createMetricsPanel(): void {
-    if (!this.config.showSystemMetrics) return
+  const createMetricsPanel = (parentElement: HTMLElement) => Effect.gen(function* () {
+    if (!defaultConfig.showSystemMetrics) return
 
     const panel = document.createElement('div')
     panel.id = 'metrics-panel'
@@ -303,10 +297,10 @@ export class ProfilingUI {
 
     panel.appendChild(title)
     panel.appendChild(metricsGrid)
-    this.element!.appendChild(panel)
-  }
+    parentElement.appendChild(panel)
+  })
 
-  private createControlsPanel(): void {
+  const createControlsPanel = (parentElement: HTMLElement) => Effect.gen(function* () {
     const panel = document.createElement('div')
     panel.id = 'controls-panel'
     panel.style.cssText = `
@@ -325,27 +319,27 @@ export class ProfilingUI {
     const startBtn = document.createElement('button')
     startBtn.id = 'start-btn'
     startBtn.textContent = '▶️ Start'
-    startBtn.style.cssText = this.getButtonStyle('#28a745')
-    startBtn.onclick = () => this.startProfiling()
+    startBtn.style.cssText = getButtonStyle('#28a745')
+    startBtn.onclick = () => Effect.runSync(startProfiling())
 
     const pauseBtn = document.createElement('button')
     pauseBtn.id = 'pause-btn'
     pauseBtn.textContent = '⏸️ Pause'
-    pauseBtn.style.cssText = this.getButtonStyle('#ffc107')
-    pauseBtn.onclick = () => this.pauseProfiling()
+    pauseBtn.style.cssText = getButtonStyle('#ffc107')
+    pauseBtn.onclick = () => Effect.runSync(pauseProfiling())
     pauseBtn.disabled = true
 
     const stopBtn = document.createElement('button')
     stopBtn.id = 'stop-btn'
     stopBtn.textContent = '⏹️ Stop'
-    stopBtn.style.cssText = this.getButtonStyle('#dc3545')
-    stopBtn.onclick = () => this.stopProfiling()
+    stopBtn.style.cssText = getButtonStyle('#dc3545')
+    stopBtn.onclick = () => Effect.runSync(stopProfiling())
     stopBtn.disabled = true
 
     const clearBtn = document.createElement('button')
     clearBtn.textContent = '🧹 Clear'
-    clearBtn.style.cssText = this.getButtonStyle()
-    clearBtn.onclick = () => this.clearData()
+    clearBtn.style.cssText = getButtonStyle()
+    clearBtn.onclick = () => Effect.runSync(clearData())
 
     leftControls.appendChild(startBtn)
     leftControls.appendChild(pauseBtn)
@@ -364,10 +358,10 @@ export class ProfilingUI {
 
     panel.appendChild(leftControls)
     panel.appendChild(rightControls)
-    this.element!.appendChild(panel)
-  }
+    parentElement.appendChild(panel)
+  })
 
-  private getButtonStyle(bgColor = '#333'): string {
+  const getButtonStyle = (bgColor = '#333') => {
     return `
       background: ${bgColor};
       border: 1px solid #555;
@@ -382,43 +376,48 @@ export class ProfilingUI {
     `
   }
 
-  private setupKeyboardShortcuts(): void {
+  const setupKeyboardShortcuts = () => Effect.gen(function* () {
     document.addEventListener('keydown', (event) => {
-      // Ctrl+Shift+M to toggle profiling UI
-      if (event.ctrlKey && event.shiftKey && event.key === 'M') {
-        event.preventDefault()
-        this.toggle()
-      }
-
-      if (this.isOpen) {
-        // Space to start/pause
-        if (event.code === 'Space' && event.target === document.body) {
+      Effect.runSync(Effect.gen(function* () {
+        // Ctrl+Shift+M to toggle profiling UI
+        if (event.ctrlKey && event.shiftKey && event.key === 'M') {
           event.preventDefault()
-          if (this.updateInterval) {
-            this.pauseProfiling()
-          } else {
-            this.startProfiling()
+          yield* toggle()
+        }
+
+        const isOpen = yield* Ref.get(isOpenRef)
+        if (isOpen) {
+          // Space to start/pause
+          if (event.code === 'Space' && event.target === document.body) {
+            event.preventDefault()
+            const updateInterval = yield* Ref.get(updateIntervalRef)
+            if (updateInterval) {
+              yield* pauseProfiling()
+            } else {
+              yield* startProfiling()
+            }
+          }
+
+          // Escape to stop
+          if (event.key === 'Escape') {
+            yield* stopProfiling()
           }
         }
-
-        // Escape to stop
-        if (event.key === 'Escape') {
-          this.stopProfiling()
-        }
-      }
+      }))
     })
-  }
+  })
 
-  private startProfiling(): void {
-    if (this.updateInterval) return
+  const startProfiling = () => Effect.gen(function* () {
+    const updateInterval = yield* Ref.get(updateIntervalRef)
+    if (updateInterval) return
 
-    console.log('📊 Starting performance profiling...')
-    this.startTime = Date.now()
+    yield* Effect.log('📊 Starting performance profiling...')
+    yield* Ref.set(startTimeRef, Date.now())
 
     // Update button states
-    this.updateButtonState('start', true)
-    this.updateButtonState('pause', false)
-    this.updateButtonState('stop', false)
+    yield* updateButtonState('start', true)
+    yield* updateButtonState('pause', false)
+    yield* updateButtonState('stop', false)
 
     // Update recording indicator
     const indicator = document.getElementById('recording-indicator')
@@ -427,29 +426,33 @@ export class ProfilingUI {
     }
 
     // Start performance profiler if available
-    this.performanceProfiler?.startRecording()
+    performanceProfiler?.startRecording()
 
     // Start update loop
-    this.updateInterval = window.setInterval(() => {
-      this.updateData()
-      this.updateGraphs()
-      this.updateMetrics()
-      this.updateTimer()
-    }, this.config.updateInterval)
+    const intervalId = window.setInterval(() => {
+      Effect.runSync(Effect.gen(function* () {
+        yield* updateData()
+        yield* updateGraphs()
+        yield* updateMetrics()
+        yield* updateTimer()
+      }))
+    }, defaultConfig.updateInterval)
 
-    this.updateStats('Recording...')
-  }
+    yield* Ref.set(updateIntervalRef, intervalId)
+    yield* updateStats('Recording...')
+  })
 
-  private pauseProfiling(): void {
-    if (!this.updateInterval) return
+  const pauseProfiling = () => Effect.gen(function* () {
+    const updateInterval = yield* Ref.get(updateIntervalRef)
+    if (!updateInterval) return
 
-    clearInterval(this.updateInterval)
-    this.updateInterval = null
+    clearInterval(updateInterval)
+    yield* Ref.set(updateIntervalRef, null)
 
     // Update button states
-    this.updateButtonState('start', false)
-    this.updateButtonState('pause', true)
-    this.updateButtonState('stop', false)
+    yield* updateButtonState('start', false)
+    yield* updateButtonState('pause', true)
+    yield* updateButtonState('stop', false)
 
     // Update recording indicator
     const indicator = document.getElementById('recording-indicator')
@@ -457,20 +460,21 @@ export class ProfilingUI {
       indicator.style.background = '#ffaa00'
     }
 
-    this.updateStats('Paused')
-    console.log('⏸️ Performance profiling paused')
-  }
+    yield* updateStats('Paused')
+    yield* Effect.log('⏸️ Performance profiling paused')
+  })
 
-  private stopProfiling(): void {
-    if (this.updateInterval) {
-      clearInterval(this.updateInterval)
-      this.updateInterval = null
+  const stopProfiling = () => Effect.gen(function* () {
+    const updateInterval = yield* Ref.get(updateIntervalRef)
+    if (updateInterval) {
+      clearInterval(updateInterval)
+      yield* Ref.set(updateIntervalRef, null)
     }
 
     // Update button states
-    this.updateButtonState('start', false)
-    this.updateButtonState('pause', true)
-    this.updateButtonState('stop', true)
+    yield* updateButtonState('start', false)
+    yield* updateButtonState('pause', true)
+    yield* updateButtonState('stop', true)
 
     // Update recording indicator
     const indicator = document.getElementById('recording-indicator')
@@ -479,56 +483,58 @@ export class ProfilingUI {
     }
 
     // Stop performance profiler
-    const data = this.performanceProfiler?.stopRecording()
+    const data = performanceProfiler?.stopRecording()
     if (data) {
-      console.log('📊 Performance profiling stopped. Data points:', data.length)
+      yield* Effect.log(`📊 Performance profiling stopped. Data points: ${data.length}`)
     }
 
-    this.updateStats(`Stopped (${this.chartData.timestamps.length} samples)`)
-    console.log('⏹️ Performance profiling stopped')
-  }
+    const chartData = yield* Ref.get(chartDataRef)
+    yield* updateStats(`Stopped (${chartData.timestamps.length} samples)`)
+    yield* Effect.log('⏹️ Performance profiling stopped')
+  })
 
-  private clearData(): void {
-    this.chartData = {
+  const clearData = () => Effect.gen(function* () {
+    yield* Ref.set(chartDataRef, {
       timestamps: [],
       fps: [],
       memory: [],
       frameTime: [],
       drawCalls: [],
       triangles: [],
-    }
+    })
 
-    this.updateGraphs()
-    this.updateStats('Cleared')
-    console.log('🧹 Performance data cleared')
-  }
+    yield* updateGraphs()
+    yield* updateStats('Cleared')
+    yield* Effect.log('🧹 Performance data cleared')
+  })
 
-  private updateButtonState(buttonId: string, disabled: boolean): void {
+  const updateButtonState = (buttonId: string, disabled: boolean) => Effect.gen(function* () {
     const button = document.getElementById(`${buttonId}-btn`) as HTMLButtonElement
     if (button) {
       button.disabled = disabled
       button.style.opacity = disabled ? '0.5' : '1'
     }
-  }
+  })
 
-  private updateStats(status: string): void {
+  const updateStats = (status: string) => Effect.gen(function* () {
     const display = document.getElementById('stats-display')
     if (display) {
       display.textContent = status
     }
-  }
+  })
 
-  private updateTimer(): void {
+  const updateTimer = () => Effect.gen(function* () {
     const timer = document.getElementById('session-timer')
     if (timer) {
-      const elapsed = Date.now() - this.startTime
+      const startTime = yield* Ref.get(startTimeRef)
+      const elapsed = Date.now() - startTime
       const minutes = Math.floor(elapsed / 60000)
       const seconds = Math.floor((elapsed % 60000) / 1000)
       timer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
     }
-  }
+  })
 
-  private updateData(): void {
+  const updateData = () => Effect.gen(function* () {
     const now = Date.now()
 
     // Get current performance metrics
@@ -536,8 +542,8 @@ export class ProfilingUI {
     let memory = 0
     let frameTime = 16.67
 
-    if (this.performanceProfiler) {
-      const stats = this.performanceProfiler.getStats()
+    if (performanceProfiler) {
+      const stats = performanceProfiler.getStats()
       fps = stats.fps
       memory = stats.memoryUsage
       frameTime = stats.frameTime
@@ -545,62 +551,60 @@ export class ProfilingUI {
 
     // Try to get real-time metrics from performance system
     try {
-      Effect.runSync(
-        Effect.gen(() => {
-          return PerformanceDashboard.getRealTimeMetrics()
-        }),
+      const metrics = yield* Effect.tryPromise(() => 
+        Effect.runSync(Effect.gen(() => PerformanceDashboard.getRealTimeMetrics()))
       )
-        .then((metrics: { fps: number; memoryUsage: number }) => {
-          fps = metrics.fps
-          memory = metrics.memoryUsage / 1024 / 1024 // Convert to MB
-        })
-        .catch(() => {
-          // Use fallback values
-        })
+      fps = metrics.fps
+      memory = metrics.memoryUsage / 1024 / 1024 // Convert to MB
     } catch {
       // Use fallback values
     }
 
     // Add data points
-    this.chartData.timestamps.push(now)
-    this.chartData.fps.push(fps)
-    this.chartData.memory.push(memory)
-    this.chartData.frameTime.push(frameTime)
-    this.chartData.drawCalls.push(Math.floor(Math.random() * 200)) // Placeholder
-    this.chartData.triangles.push(Math.floor(Math.random() * 50000)) // Placeholder
+    const chartData = yield* Ref.get(chartDataRef)
+    const newChartData = {
+      timestamps: [...chartData.timestamps, now],
+      fps: [...chartData.fps, fps],
+      memory: [...chartData.memory, memory],
+      frameTime: [...chartData.frameTime, frameTime],
+      drawCalls: [...chartData.drawCalls, Math.floor(Math.random() * 200)], // Placeholder
+      triangles: [...chartData.triangles, Math.floor(Math.random() * 50000)], // Placeholder
+    }
 
     // Limit data points
-    const maxPoints = this.config.maxDataPoints
-    if (this.chartData.timestamps.length > maxPoints) {
-      this.chartData.timestamps = this.chartData.timestamps.slice(-maxPoints)
-      this.chartData.fps = this.chartData.fps.slice(-maxPoints)
-      this.chartData.memory = this.chartData.memory.slice(-maxPoints)
-      this.chartData.frameTime = this.chartData.frameTime.slice(-maxPoints)
-      this.chartData.drawCalls = this.chartData.drawCalls.slice(-maxPoints)
-      this.chartData.triangles = this.chartData.triangles.slice(-maxPoints)
+    const maxPoints = defaultConfig.maxDataPoints
+    if (newChartData.timestamps.length > maxPoints) {
+      Object.keys(newChartData).forEach(key => {
+        newChartData[key as keyof ChartData] = newChartData[key as keyof ChartData].slice(-maxPoints)
+      })
     }
-  }
 
-  private updateGraphs(): void {
-    this.updateGraph('fps', this.chartData.fps, 0, 120, this.config.graphColors.fps)
-    this.updateGraph('frameTime', this.chartData.frameTime, 0, 50, this.config.graphColors.frameTime)
-    this.updateGraph('memory', this.chartData.memory, 0, Math.max(100, Math.max(...this.chartData.memory) * 1.2), this.config.graphColors.memory)
-  }
+    yield* Ref.set(chartDataRef, newChartData)
+  })
 
-  private updateGraph(id: string, data: number[], min: number, max: number, color: string): void {
-    const ctx = this.contexts.get(id)
-    const canvas = this.canvases.get(id)
+  const updateGraphs = () => Effect.gen(function* () {
+    const chartData = yield* Ref.get(chartDataRef)
+    yield* updateGraph('fps', chartData.fps, 0, 120, defaultConfig.graphColors.fps)
+    yield* updateGraph('frameTime', chartData.frameTime, 0, 50, defaultConfig.graphColors.frameTime)
+    yield* updateGraph('memory', chartData.memory, 0, Math.max(100, Math.max(...chartData.memory) * 1.2), defaultConfig.graphColors.memory)
+  })
+
+  const updateGraph = (id: string, data: number[], min: number, max: number, color: string) => Effect.gen(function* () {
+    const contexts = yield* Ref.get(contextsRef)
+    const canvases = yield* Ref.get(canvasesRef)
+    const ctx = contexts.get(id)
+    const canvas = canvases.get(id)
     if (!ctx || !canvas) return
 
     const width = canvas.width
     const height = canvas.height
 
     // Clear canvas
-    ctx.fillStyle = this.config.graphColors.background
+    ctx.fillStyle = defaultConfig.graphColors.background
     ctx.fillRect(0, 0, width, height)
 
     // Draw grid
-    ctx.strokeStyle = this.config.graphColors.grid
+    ctx.strokeStyle = defaultConfig.graphColors.grid
     ctx.lineWidth = 1
 
     // Horizontal grid lines
@@ -656,9 +660,9 @@ export class ProfilingUI {
       const currentValue = data[data.length - 1]
       valueOverlay.textContent = currentValue.toFixed(1)
     }
-  }
+  })
 
-  private updateMetrics(): void {
+  const updateMetrics = () => Effect.gen(function* () {
     const grid = document.getElementById('metrics-grid')
     if (!grid) return
 
@@ -702,22 +706,25 @@ export class ProfilingUI {
 
       grid.appendChild(metricElement)
     })
-  }
+  })
 
-  private exportData(): void {
+  const exportData = () => Effect.gen(function* () {
+    const chartData = yield* Ref.get(chartDataRef)
+    const startTime = yield* Ref.get(startTimeRef)
+    
     const exportData = {
       timestamp: Date.now(),
-      startTime: this.startTime,
-      duration: Date.now() - this.startTime,
-      config: this.config,
-      chartData: this.chartData,
+      startTime,
+      duration: Date.now() - startTime,
+      config: defaultConfig,
+      chartData,
       summary: {
-        avgFPS: this.chartData.fps.length > 0 ? this.chartData.fps.reduce((a, b) => a + b, 0) / this.chartData.fps.length : 0,
-        minFPS: this.chartData.fps.length > 0 ? Math.min(...this.chartData.fps) : 0,
-        maxFPS: this.chartData.fps.length > 0 ? Math.max(...this.chartData.fps) : 0,
-        avgMemory: this.chartData.memory.length > 0 ? this.chartData.memory.reduce((a, b) => a + b, 0) / this.chartData.memory.length : 0,
-        maxMemory: this.chartData.memory.length > 0 ? Math.max(...this.chartData.memory) : 0,
-        samples: this.chartData.timestamps.length,
+        avgFPS: chartData.fps.length > 0 ? chartData.fps.reduce((a, b) => a + b, 0) / chartData.fps.length : 0,
+        minFPS: chartData.fps.length > 0 ? Math.min(...chartData.fps) : 0,
+        maxFPS: chartData.fps.length > 0 ? Math.max(...chartData.fps) : 0,
+        avgMemory: chartData.memory.length > 0 ? chartData.memory.reduce((a, b) => a + b, 0) / chartData.memory.length : 0,
+        maxMemory: chartData.memory.length > 0 ? Math.max(...chartData.memory) : 0,
+        samples: chartData.timestamps.length,
       },
     }
 
@@ -729,58 +736,81 @@ export class ProfilingUI {
     a.click()
     URL.revokeObjectURL(url)
 
-    console.log('📊 Performance data exported:', exportData.summary)
-  }
+    yield* Effect.log(`📊 Performance data exported: ${JSON.stringify(exportData.summary)}`)
+  })
 
-  private toggleSettings(): void {
+  const toggleSettings = () => Effect.gen(function* () {
     // Settings panel implementation would go here
-    console.log('⚙️ Settings panel (not implemented)')
-  }
+    yield* Effect.log('⚙️ Settings panel (not implemented)')
+  })
 
   // Public API
-  public open(): void {
-    this.isOpen = true
-    if (this.element) {
-      this.element.style.display = 'flex'
+  const open = () => Effect.gen(function* () {
+    yield* Ref.set(isOpenRef, true)
+    const element = yield* Ref.get(elementRef)
+    if (element) {
+      element.style.display = 'flex'
     }
-  }
+  })
 
-  public close(): void {
-    this.isOpen = false
-    this.stopProfiling()
-    if (this.element) {
-      this.element.style.display = 'none'
+  const close = () => Effect.gen(function* () {
+    yield* Ref.set(isOpenRef, false)
+    yield* stopProfiling()
+    const element = yield* Ref.get(elementRef)
+    if (element) {
+      element.style.display = 'none'
     }
-  }
+  })
 
-  public toggle(): void {
-    if (this.isOpen) {
-      this.close()
+  const toggle = () => Effect.gen(function* () {
+    const isOpen = yield* Ref.get(isOpenRef)
+    if (isOpen) {
+      yield* close()
     } else {
-      this.open()
+      yield* open()
     }
-  }
+  })
 
-  public updateConfig(newConfig: Partial<ProfilingUIConfig>): void {
-    this.config = { ...this.config, ...newConfig }
-  }
+  const updateConfig = (newConfig: Partial<ProfilingUIConfig>) => Effect.gen(function* () {
+    Object.assign(defaultConfig, newConfig)
+  })
 
-  public getChartData(): ChartData {
-    return { ...this.chartData }
-  }
+  const getChartData = () => Effect.gen(function* () {
+    const chartData = yield* Ref.get(chartDataRef)
+    return { ...chartData }
+  })
 
-  public destroy(): void {
-    this.close()
-    if (this.element) {
-      document.body.removeChild(this.element)
-      this.element = null
+  const destroy = () => Effect.gen(function* () {
+    yield* close()
+    const element = yield* Ref.get(elementRef)
+    if (element) {
+      document.body.removeChild(element)
+      yield* Ref.set(elementRef, null)
     }
-    this.canvases.clear()
-    this.contexts.clear()
-  }
-}
+    yield* Ref.set(canvasesRef, new Map())
+    yield* Ref.set(contextsRef, new Map())
+  })
 
-// Factory function for compatibility
-export const createProfilingUI = (config?: Partial<ProfilingUIConfig>): ProfilingUI => {
-  return new ProfilingUI(config)
+  // Initialize UI and shortcuts
+  if (import.meta.env.DEV) {
+    yield* createProfilingUIElement()
+    yield* setupKeyboardShortcuts()
+  }
+
+  return {
+    open,
+    close,
+    toggle,
+    updateConfig,
+    getChartData,
+    destroy
+  }
+})
+
+// Factory function for easier usage
+export const createProfilingUIFactory = (
+  performanceProfiler?: PerformanceProfiler,
+  config?: Partial<ProfilingUIConfig>
+) => {
+  return Effect.runSync(createProfilingUI(performanceProfiler, config))
 }

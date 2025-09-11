@@ -22,105 +22,57 @@ import { TerrainGenerationDomainService } from '@domain/services/terrain-generat
 /**
  * Technical noise implementation using browser APIs
  * This is the infrastructure-specific implementation detail
+ * 
+ * Functional implementation that eliminates class-based pattern
  */
-class InfrastructureNoise {
-  /**
-   * Browser-optimized noise function using Math.sin/cos
-   * In production, this would use WebAssembly or Worker-based noise libraries
-   */
-  static simplexNoise = (x: number, y: number, z: number, seed: number): number => {
-    // Technical implementation using browser Math APIs
-    const n = Math.sin(x * 0.01 + seed) * Math.cos(y * 0.01 + seed) * Math.sin(z * 0.01 + seed)
-    return (n + 1) / 2 // Normalize to 0-1
-  }
 
-  /**
-   * WebGL-optimized noise for future GPU acceleration
-   */
-  static webglNoise = (x: number, y: number, z: number, seed: number): number => {
-    // Placeholder for WebGL-based noise computation
-    return this.simplexNoise(x, y, z, seed)
-  }
-
-  /**
-   * Worker-threaded noise for CPU-intensive operations
-   */
-  static workerNoise = async (x: number, y: number, z: number, seed: number): Promise<number> => {
-    // Placeholder for Worker-based noise computation
-    return this.simplexNoise(x, y, z, seed)
-  }
+/**
+ * Browser-optimized noise function using Math.sin/cos
+ * In production, this would use WebAssembly or Worker-based noise libraries
+ */
+const simplexNoise = (x: number, y: number, z: number, seed: number): number => {
+  // Technical implementation using browser Math APIs
+  const n = Math.sin(x * 0.01 + seed) * Math.cos(y * 0.01 + seed) * Math.sin(z * 0.01 + seed)
+  return (n + 1) / 2 // Normalize to 0-1
 }
+
+/**
+ * WebGL-optimized noise for future GPU acceleration
+ */
+const webglNoise = (x: number, y: number, z: number, seed: number): number => {
+  // Placeholder for WebGL-based noise computation
+  return simplexNoise(x, y, z, seed)
+}
+
+/**
+ * Worker-threaded noise for CPU-intensive operations
+ */
+const workerNoise = async (x: number, y: number, z: number, seed: number): Promise<number> => {
+  // Placeholder for Worker-based noise computation
+  return simplexNoise(x, y, z, seed)
+}
+
+/**
+ * Infrastructure noise utilities - functional interface
+ */
+const InfrastructureNoise = {
+  simplexNoise,
+  webglNoise,
+  workerNoise,
+} as const
 
 /**
  * Infrastructure adapter for terrain generation
  * Focuses on technical implementation and resource management
  */
-export class TerrainGeneratorAdapter implements ITerrainGenerator {
-  private domainService: TerrainGenerationDomainService
-  private noiseProvider: typeof InfrastructureNoise.simplexNoise
-
-  constructor() {
-    this.domainService = new TerrainGenerationDomainService()
-    this.noiseProvider = InfrastructureNoise.simplexNoise
-  }
-
-  /**
-   * Technical implementation that delegates business logic to domain service
-   * and handles infrastructure concerns like performance monitoring and caching
-   */
-  generateTerrain = (request: TerrainGenerationRequest): Effect.Effect<TerrainGenerationResult, never, never> =>
-    Effect.gen(function* () {
-      const startTime = performance.now()
-      
-      // Technical validation of infrastructure capabilities
-      yield* this.validateInfrastructureCapabilities()
-      
-      // Delegate to domain service for business logic
-      const result = yield* this.domainService.generateTerrain(request)
-      
-      // Infrastructure-specific performance monitoring
-      const infraTime = performance.now() - startTime
-      yield* this.logPerformanceMetrics(infraTime, result.blockCount)
-      
-      return result
-    }.bind(this))
-
-  /**
-   * Generate height map using infrastructure-specific noise implementation
-   */
-  generateHeightMap = (
-    coordinates: ChunkCoordinates,
-    seed: number,
-    noise: NoiseSettings,
-  ): Effect.Effect<readonly number[], never, never> =>
-    Effect.gen(function* () {
-      // Delegate to domain service for business logic
-      return yield* this.domainService.generateHeightMap(coordinates, seed, noise)
-    }.bind(this))
-
-  /**
-   * Get biome configuration using infrastructure-specific biome generation
-   */
-  getBiome = (x: number, z: number, seed: number): Effect.Effect<BiomeConfig, never, never> =>
-    Effect.gen(function* () {
-      // Delegate to domain service for business logic
-      return yield* this.domainService.getBiome(x, z, seed)
-    }.bind(this))
-
-  /**
-   * Check if terrain generation is available on this platform
-   */
-  isAvailable = (): Effect.Effect<boolean, never, never> =>
-    Effect.gen(function* () {
-      // Check if infrastructure dependencies are available
-      // In a real implementation, this would check for WebGL, noise libraries, etc.
-      return typeof performance !== 'undefined' && typeof Math !== 'undefined'
-    })
+export const createTerrainGeneratorAdapter = () => Effect.gen(function* () {
+  const domainService = new TerrainGenerationDomainService()
+  const noiseProvider = InfrastructureNoise.simplexNoise
 
   /**
    * Infrastructure-specific validation of capabilities
    */
-  private validateInfrastructureCapabilities = (): Effect.Effect<void, never, never> =>
+  const validateInfrastructureCapabilities = (): Effect.Effect<void, never, never> =>
     Effect.gen(function* () {
       // Technical validation: check browser capabilities, memory, etc.
       const hasRequiredAPIs = typeof performance !== 'undefined' && 
@@ -143,7 +95,7 @@ export class TerrainGeneratorAdapter implements ITerrainGenerator {
   /**
    * Infrastructure-specific performance monitoring
    */
-  private logPerformanceMetrics = (
+  const logPerformanceMetrics = (
     duration: number,
     blockCount: number,
   ): Effect.Effect<void, never, never> =>
@@ -168,36 +120,96 @@ export class TerrainGeneratorAdapter implements ITerrainGenerator {
         // navigator.sendBeacon('/api/metrics', JSON.stringify(metrics))
       }
     })
-}
+
+  return {
+    /**
+     * Technical implementation that delegates business logic to domain service
+     * and handles infrastructure concerns like performance monitoring and caching
+     */
+    generateTerrain: (request: TerrainGenerationRequest): Effect.Effect<TerrainGenerationResult, never, never> =>
+      Effect.gen(function* () {
+        const startTime = performance.now()
+        
+        // Technical validation of infrastructure capabilities
+        yield* validateInfrastructureCapabilities()
+        
+        // Delegate to domain service for business logic
+        const result = yield* domainService.generateTerrain(request)
+        
+        // Infrastructure-specific performance monitoring
+        const infraTime = performance.now() - startTime
+        yield* logPerformanceMetrics(infraTime, result.blockCount)
+        
+        return result
+      }),
+
+    /**
+     * Generate height map using infrastructure-specific noise implementation
+     */
+    generateHeightMap: (
+      coordinates: ChunkCoordinates,
+      seed: number,
+      noise: NoiseSettings,
+    ): Effect.Effect<readonly number[], never, never> =>
+      Effect.gen(function* () {
+        // Delegate to domain service for business logic
+        return yield* domainService.generateHeightMap(coordinates, seed, noise)
+      }),
+
+    /**
+     * Get biome configuration using infrastructure-specific biome generation
+     */
+    getBiome: (x: number, z: number, seed: number): Effect.Effect<BiomeConfig, never, never> =>
+      Effect.gen(function* () {
+        // Delegate to domain service for business logic
+        return yield* domainService.getBiome(x, z, seed)
+      }),
+
+    /**
+     * Check if terrain generation is available on this platform
+     */
+    isAvailable: (): Effect.Effect<boolean, never, never> =>
+      Effect.gen(function* () {
+        // Check if infrastructure dependencies are available
+        // In a real implementation, this would check for WebGL, noise libraries, etc.
+        return typeof performance !== 'undefined' && typeof Math !== 'undefined'
+      })
+  } satisfies ITerrainGenerator
+})
 
 /**
  * Live layer for Terrain Generator Adapter
  */
-export const TerrainGeneratorAdapterLive = Layer.succeed(
+export const TerrainGeneratorAdapterLive = Layer.effect(
   TerrainGeneratorPort,
-  new TerrainGeneratorAdapter(),
+  createTerrainGeneratorAdapter()
 )
 
 /**
  * Terrain Generator Adapter with custom configuration
  */
-export const createTerrainGeneratorAdapter = (config?: {
+export const createCustomTerrainGeneratorAdapter = (config?: {
   noiseLibrary?: 'math' | 'simplex' | 'perlin'
   enableGPUAcceleration?: boolean
   enableWorkerThreads?: boolean
 }) => {
-  const adapter = new TerrainGeneratorAdapter()
-  
-  // Configure noise provider based on capabilities
-  if (config?.enableGPUAcceleration && typeof WebGLRenderingContext !== 'undefined') {
-    // Configure WebGL-based noise
-  }
-  
-  if (config?.enableWorkerThreads && typeof Worker !== 'undefined') {
-    // Configure Worker-based noise
-  }
-  
-  return Layer.succeed(TerrainGeneratorPort, adapter)
+  return Layer.effect(
+    TerrainGeneratorPort,
+    Effect.gen(function* () {
+      const adapter = yield* createTerrainGeneratorAdapter()
+      
+      // Configure noise provider based on capabilities
+      if (config?.enableGPUAcceleration && typeof WebGLRenderingContext !== 'undefined') {
+        // Configure WebGL-based noise - future enhancement
+      }
+      
+      if (config?.enableWorkerThreads && typeof Worker !== 'undefined') {
+        // Configure Worker-based noise - future enhancement
+      }
+      
+      return adapter
+    })
+  )
 }
 
 /**

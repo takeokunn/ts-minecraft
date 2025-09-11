@@ -10,7 +10,7 @@
  * - Effect-TS integration with fiber-based concurrency
  */
 
-import { Effect, Context, Layer, Ref, Array, Option, Duration, Fiber, Clock as EffectClock, pipe, Data } from 'effect'
+import { Effect, Context, Layer, Ref, Array, Option, Duration, Fiber, Clock as EffectClock, pipe, Schema } from 'effect'
 import { ClockPort } from '@domain/ports/clock.port'
 import { WorldDomainService as World } from '@domain/services/world-domain.service'
 
@@ -88,12 +88,15 @@ export interface SchedulerConfig {
 }
 
 /**
- * Scheduler errors
+ * Scheduler errors - Schema.TaggedError pattern
  */
-export class SchedulerError extends Data.TaggedError('SchedulerError')<{
-  readonly message: string
-  readonly cause?: unknown
-}> {}
+export const SchedulerError = Schema.TaggedError(
+  'SchedulerError',
+  Schema.Struct({
+    message: Schema.String,
+    cause: Schema.optional(Schema.Unknown)
+  })
+)
 
 /**
  * System Scheduler Service interface
@@ -101,7 +104,7 @@ export class SchedulerError extends Data.TaggedError('SchedulerError')<{
 export interface SystemSchedulerService {
   readonly registerSystem: (config: SystemConfig, system: SystemFunction) => Effect.Effect<void>
   readonly unregisterSystem: (systemId: string) => Effect.Effect<void>
-  readonly executeFrame: () => Effect.Effect<void, SchedulerError, World | ClockPort>
+  readonly executeFrame: () => Effect.Effect<void, Schema.Schema.Type<typeof SchedulerError>, World | ClockPort>
   readonly getSystemMetrics: (systemId: string) => Effect.Effect<Option.Option<SystemMetrics>>
   readonly getAllMetrics: () => Effect.Effect<Map<string, SystemMetrics>>
   readonly resetMetrics: () => Effect.Effect<void>
@@ -295,7 +298,9 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
             yield* pipe(
               registeredSystem.system(context),
               Effect.timeout(registeredSystem.config.maxExecutionTime),
-              Effect.catchTag('TimeoutException', () => Effect.fail(new SchedulerError(`System ${systemId} exceeded maximum execution time`))),
+              Effect.catchTag('TimeoutException', () => Effect.fail(new SchedulerError({ 
+                message: `System ${systemId} exceeded maximum execution time` 
+              }))),
             )
 
             const endTime = yield* EffectClock.currentTimeMillis
@@ -316,7 +321,10 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
             yield* updateSystemMetrics(systemId, executionTime, Option.some(error instanceof Error ? error : new Error(String(error))))
 
             // Re-throw error for handling by scheduler
-            yield* Effect.fail(new SchedulerError(`System ${systemId} execution failed`, error))
+            yield* Effect.fail(new SchedulerError({ 
+              message: `System ${systemId} execution failed`, 
+              cause: error 
+            }))
           }
         })
 

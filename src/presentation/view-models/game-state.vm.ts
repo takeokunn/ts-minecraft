@@ -99,9 +99,18 @@ const GameStateViewModelLive = Effect.gen(function* ($) {
   }
 })
 
-export class GameStateViewModel extends Context.GenericTag('GameStateViewModel')<
-  GameStateViewModel,
-  GameStateViewModelInterface & { updateGameRunningState: (isRunning: boolean, isPaused?: boolean) => Effect.Effect<void, never, never> }
->() {
-  static readonly Live: Layer.Layer<GameStateViewModel, never, QueryHandlers> = Layer.effect(GameStateViewModel, GameStateViewModelLive)
+// Extended interface for internal usage
+export interface GameStateViewModelExtended extends GameStateViewModelInterface {
+  readonly updateGameRunningState: (isRunning: boolean, isPaused?: boolean) => Effect.Effect<void, never, never>
 }
+
+// Create context tag for dependency injection
+export const GameStateViewModel = Context.GenericTag<GameStateViewModelExtended>('GameStateViewModel')
+
+// Layer for dependency injection
+export const GameStateViewModelLive: Layer.Layer<GameStateViewModel, never, QueryHandlers> = 
+  Layer.effect(GameStateViewModel, GameStateViewModelLive)
+
+// Factory function for direct usage
+export const createGameStateViewModel = (queryHandlers: any) => 
+  Effect.runSync(Effect.provide(GameStateViewModelLive, Layer.succeed(QueryHandlers, queryHandlers)))

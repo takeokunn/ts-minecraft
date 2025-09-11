@@ -6,7 +6,7 @@
  */
 
 // World Repository
-export { WorldRepositoryImpl, WorldRepositoryService, WorldRepositoryLive, WorldRepositoryUtils, type IWorldRepository } from '@infrastructure/repositories/world.repository'
+export { createWorldRepository, WorldRepositoryService, WorldRepositoryLive, WorldRepositoryUtils, type IWorldRepository } from '@infrastructure/repositories/world.repository'
 
 // Entity Repository
 export {

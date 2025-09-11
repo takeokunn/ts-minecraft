@@ -17,7 +17,7 @@ import { ComponentName } from '@domain/entities/components'
 export const GameError = Schema.TaggedError("GameError")({
   message: Schema.String,
   timestamp: Schema.optional(Schema.Number),
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 
 /**
@@ -26,7 +26,7 @@ export const GameError = Schema.TaggedError("GameError")({
 export const DomainError = Schema.TaggedError("DomainError")({
   message: Schema.String,
   timestamp: Schema.optional(Schema.Number),
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 
 /**
@@ -35,7 +35,7 @@ export const DomainError = Schema.TaggedError("DomainError")({
 export const InfrastructureError = Schema.TaggedError("InfrastructureError")({
   message: Schema.String,
   timestamp: Schema.optional(Schema.Number),
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 
 /**
@@ -44,7 +44,7 @@ export const InfrastructureError = Schema.TaggedError("InfrastructureError")({
 export const ApplicationError = Schema.TaggedError("ApplicationError")({
   message: Schema.String,
   timestamp: Schema.optional(Schema.Number),
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 
 // ===== ENTITY SUBSYSTEM ERRORS =====
@@ -53,21 +53,21 @@ export const EntityNotFoundError = Schema.TaggedError("EntityNotFoundError")({
   message: Schema.String,
   entityId: Schema.String,
   timestamp: Schema.optional(Schema.Number),
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 
 export const EntityAlreadyExistsError = Schema.TaggedError("EntityAlreadyExistsError")({
   message: Schema.String,
   entityId: Schema.String,
   timestamp: Schema.optional(Schema.Number),
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 
 export const EntityCreationError = Schema.TaggedError("EntityCreationError")({
   message: Schema.String,
   cause: Schema.optional(Schema.Unknown),
   timestamp: Schema.optional(Schema.Number),
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 
 export const EntityDestructionError = Schema.TaggedError("EntityDestructionError")({
@@ -75,7 +75,7 @@ export const EntityDestructionError = Schema.TaggedError("EntityDestructionError
   entityId: Schema.String,
   cause: Schema.optional(Schema.Unknown),
   timestamp: Schema.optional(Schema.Number),
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 
 export const EntityLimitExceededError = Schema.TaggedError("EntityLimitExceededError")({
@@ -83,7 +83,7 @@ export const EntityLimitExceededError = Schema.TaggedError("EntityLimitExceededE
   limit: Schema.Number,
   current: Schema.Number,
   timestamp: Schema.optional(Schema.Number),
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 
 export const InvalidEntityStateError = Schema.TaggedError("InvalidEntityStateError")({
@@ -91,295 +91,245 @@ export const InvalidEntityStateError = Schema.TaggedError("InvalidEntityStateErr
   entityId: Schema.String,
   state: Schema.String,
   timestamp: Schema.optional(Schema.Number),
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 
 // ===== COMPONENT SUBSYSTEM ERRORS =====
 
-export class ComponentNotFoundError extends DomainError {
-  readonly _tag = 'ComponentNotFoundError' as const
-  constructor(data: { readonly entityId: EntityId; readonly componentName: ComponentName; readonly message?: string }) {
-    super({
-      message: data.message || `Component ${data.componentName} not found on entity ${data.entityId}`,
-      timestamp: Date.now(),
-      context: { entityId: data.entityId, componentName: data.componentName },
-    })
-  }
-}
+export const ComponentNotFoundError = Schema.TaggedError("ComponentNotFoundError")({
+  message: Schema.String,
+  entityId: Schema.String,
+  componentName: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class ComponentAlreadyExistsError extends DomainError {
-  readonly _tag = 'ComponentAlreadyExistsError' as const
-  constructor(data: { readonly entityId: EntityId; readonly componentName: ComponentName; readonly message?: string }) {
-    super({
-      message: data.message || `Component ${data.componentName} already exists on entity ${data.entityId}`,
-      timestamp: Date.now(),
-      context: { entityId: data.entityId, componentName: data.componentName },
-    })
-  }
-}
+export const ComponentAlreadyExistsError = Schema.TaggedError("ComponentAlreadyExistsError")({
+  message: Schema.String,
+  entityId: Schema.String,
+  componentName: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class InvalidComponentDataError extends DomainError {
-  readonly _tag = 'InvalidComponentDataError' as const
-  constructor(data: { readonly componentName: ComponentName; readonly validationErrors: readonly string[]; readonly message?: string }) {
-    super({
-      message: data.message || `Invalid component data for ${data.componentName}: ${data.validationErrors.join(', ')}`,
-      timestamp: Date.now(),
-      context: { componentName: data.componentName, validationErrors: data.validationErrors },
-    })
-  }
-}
+export const InvalidComponentDataError = Schema.TaggedError("InvalidComponentDataError")({
+  message: Schema.String,
+  componentName: Schema.String,
+  validationErrors: Schema.Array(Schema.String),
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class ComponentTypeMismatchError extends DomainError {
-  readonly _tag = 'ComponentTypeMismatchError' as const
-  constructor(data: { readonly componentName: ComponentName; readonly expectedType: string; readonly actualType: string }) {
-    super({
-      message: `Component type mismatch for ${data.componentName}: expected ${data.expectedType}, got ${data.actualType}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const ComponentTypeMismatchError = Schema.TaggedError("ComponentTypeMismatchError")({
+  message: Schema.String,
+  componentName: Schema.String,
+  expectedType: Schema.String,
+  actualType: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
 // ===== WORLD SUBSYSTEM ERRORS =====
 
-export class ChunkNotLoadedError extends DomainError {
-  readonly _tag = 'ChunkNotLoadedError' as const
-  constructor(data: { readonly chunkX: number; readonly chunkZ: number; readonly message?: string }) {
-    super({
-      message: data.message || `Chunk not loaded: (${data.chunkX}, ${data.chunkZ})`,
-      timestamp: Date.now(),
-      context: { chunkX: data.chunkX, chunkZ: data.chunkZ },
-    })
-  }
-}
+export const ChunkNotLoadedError = Schema.TaggedError("ChunkNotLoadedError")({
+  message: Schema.String,
+  chunkX: Schema.Number,
+  chunkZ: Schema.Number,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class ChunkGenerationError extends DomainError {
-  readonly _tag = 'ChunkGenerationError' as const
-  constructor(data: { readonly chunkX: number; readonly chunkZ: number; readonly reason: string }) {
-    super({
-      message: `Chunk generation failed for (${data.chunkX}, ${data.chunkZ}): ${data.reason}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const ChunkGenerationError = Schema.TaggedError("ChunkGenerationError")({
+  message: Schema.String,
+  chunkX: Schema.Number,
+  chunkZ: Schema.Number,
+  reason: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class InvalidPositionError extends DomainError {
-  readonly _tag = 'InvalidPositionError' as const
-  constructor(data: { readonly x: number; readonly y: number; readonly z: number; readonly reason?: string }) {
-    super({
-      message: `Invalid position (${data.x}, ${data.y}, ${data.z})${data.reason ? ': ' + data.reason : ''}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const InvalidPositionError = Schema.TaggedError("InvalidPositionError")({
+  message: Schema.String,
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number,
+  reason: Schema.optional(Schema.String),
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class BlockNotFoundError extends DomainError {
-  readonly _tag = 'BlockNotFoundError' as const
-  constructor(data: { readonly x: number; readonly y: number; readonly z: number; readonly message?: string }) {
-    super({
-      message: data.message || `Block not found at (${data.x}, ${data.y}, ${data.z})`,
-      timestamp: Date.now(),
-      context: { x: data.x, y: data.y, z: data.z },
-    })
-  }
-}
+export const BlockNotFoundError = Schema.TaggedError("BlockNotFoundError")({
+  message: Schema.String,
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class WorldStateError extends DomainError {
-  readonly _tag = 'WorldStateError' as const
-  constructor(data: { readonly operation: string; readonly reason: string }) {
-    super({
-      message: `World state error during ${data.operation}: ${data.reason}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const WorldStateError = Schema.TaggedError("WorldStateError")({
+  message: Schema.String,
+  operation: Schema.String,
+  reason: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
 // ===== PHYSICS SUBSYSTEM ERRORS =====
 
-export class CollisionDetectionError extends DomainError {
-  readonly _tag = 'CollisionDetectionError' as const
-  constructor(data: { readonly entityId: EntityId; readonly reason: string }) {
-    super({
-      message: `Collision detection failed for entity ${data.entityId}: ${data.reason}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const CollisionDetectionError = Schema.TaggedError("CollisionDetectionError")({
+  message: Schema.String,
+  entityId: Schema.String,
+  reason: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class PhysicsSimulationError extends DomainError {
-  readonly _tag = 'PhysicsSimulationError' as const
-  constructor(data: { readonly step?: number; readonly reason: string; readonly deltaTime?: number; readonly timeScale?: number }) {
-    super({
-      message: `Physics simulation failed${data.step ? ` at step ${data.step}` : ''}: ${data.reason}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const PhysicsSimulationError = Schema.TaggedError("PhysicsSimulationError")({
+  message: Schema.String,
+  step: Schema.optional(Schema.Number),
+  reason: Schema.String,
+  deltaTime: Schema.optional(Schema.Number),
+  timeScale: Schema.optional(Schema.Number),
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class RaycastError extends DomainError {
-  readonly _tag = 'RaycastError' as const
-  constructor(data: { readonly reason: string; readonly ray?: { origin: { x: number; y: number; z: number }; direction: { x: number; y: number; z: number } }; readonly cause?: unknown }) {
-    super({
-      message: `Raycast failed: ${data.reason}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const RaycastError = Schema.TaggedError("RaycastError")({
+  message: Schema.String,
+  reason: Schema.String,
+  ray: Schema.optional(Schema.Struct({
+    origin: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
+    direction: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number })
+  })),
+  cause: Schema.optional(Schema.Unknown),
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class RigidBodyError extends DomainError {
-  readonly _tag = 'RigidBodyError' as const
-  constructor(data: { readonly message: string; readonly entityId?: EntityId; readonly bodyId?: string; readonly cause?: unknown }) {
-    super({
-      message: data.message,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const RigidBodyError = Schema.TaggedError("RigidBodyError")({
+  message: Schema.String,
+  entityId: Schema.optional(Schema.String),
+  bodyId: Schema.optional(Schema.String),
+  cause: Schema.optional(Schema.Unknown),
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class GravityError extends DomainError {
-  readonly _tag = 'GravityError' as const
-  constructor(data: { readonly message: string; readonly gravityVector?: { x: number; y: number; z: number }; readonly cause?: unknown }) {
-    super({
-      message: data.message,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const GravityError = Schema.TaggedError("GravityError")({
+  message: Schema.String,
+  gravityVector: Schema.optional(Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number })),
+  cause: Schema.optional(Schema.Unknown),
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class ConstraintViolationError extends DomainError {
-  readonly _tag = 'ConstraintViolationError' as const
-  constructor(data: { readonly constraintId: string; readonly entityIds: readonly EntityId[]; readonly constraintType: string; readonly violation: string }) {
-    super({
-      message: `Constraint violation in ${data.constraintType} constraint ${data.constraintId}: ${data.violation}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const ConstraintViolationError = Schema.TaggedError("ConstraintViolationError")({
+  message: Schema.String,
+  constraintId: Schema.String,
+  entityIds: Schema.Array(Schema.String),
+  constraintType: Schema.String,
+  violation: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class PhysicsMaterialError extends DomainError {
-  readonly _tag = 'PhysicsMaterialError' as const
-  constructor(data: { readonly message: string; readonly materialName?: string; readonly entityId?: EntityId; readonly materialId?: string; readonly cause?: unknown }) {
-    super({
-      message: data.message,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const PhysicsMaterialError = Schema.TaggedError("PhysicsMaterialError")({
+  message: Schema.String,
+  materialName: Schema.optional(Schema.String),
+  entityId: Schema.optional(Schema.String),
+  materialId: Schema.optional(Schema.String),
+  cause: Schema.optional(Schema.Unknown),
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class VelocityLimitError extends DomainError {
-  readonly _tag = 'VelocityLimitError' as const
-  constructor(data: { readonly entityId: EntityId; readonly currentVelocity: { x: number; y: number; z: number }; readonly maxVelocity: number; readonly reason: string }) {
-    super({
-      message: `Velocity limit exceeded for entity ${data.entityId}: ${data.reason}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const VelocityLimitError = Schema.TaggedError("VelocityLimitError")({
+  message: Schema.String,
+  entityId: Schema.String,
+  currentVelocity: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
+  maxVelocity: Schema.Number,
+  reason: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class CollisionShapeError extends DomainError {
-  readonly _tag = 'CollisionShapeError' as const
-  constructor(data: { readonly entityId: EntityId; readonly shapeType: string; readonly reason: string; readonly shapeData?: unknown }) {
-    super({
-      message: `Collision shape error for entity ${data.entityId} (${data.shapeType}): ${data.reason}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const CollisionShapeError = Schema.TaggedError("CollisionShapeError")({
+  message: Schema.String,
+  entityId: Schema.String,
+  shapeType: Schema.String,
+  reason: Schema.String,
+  shapeData: Schema.optional(Schema.Unknown),
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class PhysicsEngineError extends InfrastructureError {
-  readonly _tag = 'PhysicsEngineError' as const
-  constructor(data: { readonly engineName: string; readonly initializationStep: string; readonly reason: string; readonly configuration?: Record<string, unknown> }) {
-    super({
-      message: `Physics engine initialization failed for ${data.engineName} at ${data.initializationStep}: ${data.reason}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const PhysicsEngineError = Schema.TaggedError("PhysicsEngineError")({
+  message: Schema.String,
+  engineName: Schema.String,
+  initializationStep: Schema.String,
+  reason: Schema.String,
+  configuration: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
 // ===== SYSTEM ERRORS =====
 
-export class SystemExecutionError extends ApplicationError {
-  readonly _tag = 'SystemExecutionError' as const
-  constructor(data: { readonly systemName: string; readonly reason: string; readonly entityId?: EntityId }) {
-    super({
-      message: `System execution failed for ${data.systemName}: ${data.reason}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const SystemExecutionError = Schema.TaggedError("SystemExecutionError")({
+  message: Schema.String,
+  systemName: Schema.String,
+  reason: Schema.String,
+  entityId: Schema.optional(Schema.String),
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class QueryExecutionError extends DomainError {
-  readonly _tag = 'QueryExecutionError' as const
-  constructor(data: { readonly queryType: string; readonly reason: string; readonly components?: readonly ComponentName[] }) {
-    super({
-      message: `Query execution failed for ${data.queryType}: ${data.reason}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const QueryExecutionError = Schema.TaggedError("QueryExecutionError")({
+  message: Schema.String,
+  queryType: Schema.String,
+  reason: Schema.String,
+  components: Schema.optional(Schema.Array(Schema.String)),
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class SystemInitializationError extends ApplicationError {
-  readonly _tag = 'SystemInitializationError' as const
-  constructor(data: { readonly systemName: string; readonly reason: string }) {
-    super({
-      message: `System initialization failed for ${data.systemName}: ${data.reason}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const SystemInitializationError = Schema.TaggedError("SystemInitializationError")({
+  message: Schema.String,
+  systemName: Schema.String,
+  reason: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
 // ===== RESOURCE ERRORS =====
 
-export class ResourceNotFoundError extends InfrastructureError {
-  readonly _tag = 'ResourceNotFoundError' as const
-  constructor(data: { readonly resourceId: string; readonly resourceType: string }) {
-    super({
-      message: `Resource not found: ${data.resourceType} with id ${data.resourceId}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const ResourceNotFoundError = Schema.TaggedError("ResourceNotFoundError")({
+  message: Schema.String,
+  resourceId: Schema.String,
+  resourceType: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-export class ResourceLoadError extends InfrastructureError {
-  readonly _tag = 'ResourceLoadError' as const
-  constructor(data: { readonly resourceId: string; readonly reason: string }) {
-    super({
-      message: `Failed to load resource ${data.resourceId}: ${data.reason}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const ResourceLoadError = Schema.TaggedError("ResourceLoadError")({
+  message: Schema.String,
+  resourceId: Schema.String,
+  reason: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
 // ===== VALIDATION ERRORS =====
 
-export class ValidationError extends DomainError {
-  readonly _tag = 'ValidationError' as const
-  constructor(data: { readonly field: string; readonly value: unknown; readonly constraint: string }) {
-    super({
-      message: `Validation failed for field ${data.field}: ${data.constraint}`,
-      timestamp: Date.now(),
-      context: data,
-    })
-  }
-}
+export const ValidationError = Schema.TaggedError("ValidationError")({
+  message: Schema.String,
+  field: Schema.String,
+  value: Schema.Unknown,
+  constraint: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
 // ===== ERROR UTILITIES =====
 
@@ -387,44 +337,49 @@ export class ValidationError extends DomainError {
  * Union type of all domain errors for comprehensive error handling
  */
 export type DomainErrors =
-  | EntityNotFoundError
-  | EntityAlreadyExistsError
-  | EntityCreationError
-  | EntityDestructionError
-  | EntityLimitExceededError
-  | InvalidEntityStateError
-  | ComponentNotFoundError
-  | ComponentAlreadyExistsError
-  | InvalidComponentDataError
-  | ComponentTypeMismatchError
-  | ChunkNotLoadedError
-  | ChunkGenerationError
-  | InvalidPositionError
-  | BlockNotFoundError
-  | WorldStateError
-  | CollisionDetectionError
-  | PhysicsSimulationError
-  | RaycastError
-  | RigidBodyError
-  | GravityError
-  | ConstraintViolationError
-  | PhysicsMaterialError
-  | VelocityLimitError
-  | CollisionShapeError
-  | SystemExecutionError
-  | QueryExecutionError
-  | SystemInitializationError
-  | ValidationError
+  | Schema.Schema.Type<typeof EntityNotFoundError>
+  | Schema.Schema.Type<typeof EntityAlreadyExistsError>
+  | Schema.Schema.Type<typeof EntityCreationError>
+  | Schema.Schema.Type<typeof EntityDestructionError>
+  | Schema.Schema.Type<typeof EntityLimitExceededError>
+  | Schema.Schema.Type<typeof InvalidEntityStateError>
+  | Schema.Schema.Type<typeof ComponentNotFoundError>
+  | Schema.Schema.Type<typeof ComponentAlreadyExistsError>
+  | Schema.Schema.Type<typeof InvalidComponentDataError>
+  | Schema.Schema.Type<typeof ComponentTypeMismatchError>
+  | Schema.Schema.Type<typeof ChunkNotLoadedError>
+  | Schema.Schema.Type<typeof ChunkGenerationError>
+  | Schema.Schema.Type<typeof InvalidPositionError>
+  | Schema.Schema.Type<typeof BlockNotFoundError>
+  | Schema.Schema.Type<typeof WorldStateError>
+  | Schema.Schema.Type<typeof CollisionDetectionError>
+  | Schema.Schema.Type<typeof PhysicsSimulationError>
+  | Schema.Schema.Type<typeof RaycastError>
+  | Schema.Schema.Type<typeof RigidBodyError>
+  | Schema.Schema.Type<typeof GravityError>
+  | Schema.Schema.Type<typeof ConstraintViolationError>
+  | Schema.Schema.Type<typeof PhysicsMaterialError>
+  | Schema.Schema.Type<typeof VelocityLimitError>
+  | Schema.Schema.Type<typeof CollisionShapeError>
+  | Schema.Schema.Type<typeof SystemExecutionError>
+  | Schema.Schema.Type<typeof QueryExecutionError>
+  | Schema.Schema.Type<typeof SystemInitializationError>
+  | Schema.Schema.Type<typeof ValidationError>
 
 /**
  * Union type of all infrastructure errors
  */
-export type InfrastructureErrors = ResourceNotFoundError | ResourceLoadError | PhysicsEngineError
+export type InfrastructureErrors = 
+  | Schema.Schema.Type<typeof ResourceNotFoundError>
+  | Schema.Schema.Type<typeof ResourceLoadError>
+  | Schema.Schema.Type<typeof PhysicsEngineError>
 
 /**
  * Union type of all application errors
  */
-export type ApplicationErrors = SystemExecutionError | SystemInitializationError
+export type ApplicationErrors = 
+  | Schema.Schema.Type<typeof SystemExecutionError>
+  | Schema.Schema.Type<typeof SystemInitializationError>
 
 /**
  * Union type of all possible game errors
@@ -459,22 +414,22 @@ export const ErrorCategories = {
 /**
  * Type guard utilities for error classification
  */
-export const isEntityError = (error: AllGameErrors): error is EntityNotFoundError | EntityAlreadyExistsError | EntityCreationError | EntityDestructionError | EntityLimitExceededError | InvalidEntityStateError =>
+export const isEntityError = (error: AllGameErrors): error is Schema.Schema.Type<typeof EntityNotFoundError> | Schema.Schema.Type<typeof EntityAlreadyExistsError> | Schema.Schema.Type<typeof EntityCreationError> | Schema.Schema.Type<typeof EntityDestructionError> | Schema.Schema.Type<typeof EntityLimitExceededError> | Schema.Schema.Type<typeof InvalidEntityStateError> =>
   ErrorCategories.Entity.includes(error._tag as any)
 
-export const isComponentError = (error: AllGameErrors): error is ComponentNotFoundError | ComponentAlreadyExistsError | InvalidComponentDataError | ComponentTypeMismatchError =>
+export const isComponentError = (error: AllGameErrors): error is Schema.Schema.Type<typeof ComponentNotFoundError> | Schema.Schema.Type<typeof ComponentAlreadyExistsError> | Schema.Schema.Type<typeof InvalidComponentDataError> | Schema.Schema.Type<typeof ComponentTypeMismatchError> =>
   ErrorCategories.Component.includes(error._tag as any)
 
-export const isWorldError = (error: AllGameErrors): error is ChunkNotLoadedError | ChunkGenerationError | InvalidPositionError | BlockNotFoundError | WorldStateError =>
+export const isWorldError = (error: AllGameErrors): error is Schema.Schema.Type<typeof ChunkNotLoadedError> | Schema.Schema.Type<typeof ChunkGenerationError> | Schema.Schema.Type<typeof InvalidPositionError> | Schema.Schema.Type<typeof BlockNotFoundError> | Schema.Schema.Type<typeof WorldStateError> =>
   ErrorCategories.World.includes(error._tag as any)
 
-export const isPhysicsError = (error: AllGameErrors): error is CollisionDetectionError | PhysicsSimulationError | RaycastError | RigidBodyError | GravityError | ConstraintViolationError | PhysicsMaterialError | VelocityLimitError | CollisionShapeError =>
+export const isPhysicsError = (error: AllGameErrors): error is Schema.Schema.Type<typeof CollisionDetectionError> | Schema.Schema.Type<typeof PhysicsSimulationError> | Schema.Schema.Type<typeof RaycastError> | Schema.Schema.Type<typeof RigidBodyError> | Schema.Schema.Type<typeof GravityError> | Schema.Schema.Type<typeof ConstraintViolationError> | Schema.Schema.Type<typeof PhysicsMaterialError> | Schema.Schema.Type<typeof VelocityLimitError> | Schema.Schema.Type<typeof CollisionShapeError> =>
   ErrorCategories.Physics.includes(error._tag as any)
 
-export const isSystemError = (error: AllGameErrors): error is SystemExecutionError | QueryExecutionError | SystemInitializationError =>
+export const isSystemError = (error: AllGameErrors): error is Schema.Schema.Type<typeof SystemExecutionError> | Schema.Schema.Type<typeof QueryExecutionError> | Schema.Schema.Type<typeof SystemInitializationError> =>
   ErrorCategories.System.includes(error._tag as any)
 
-export const isResourceError = (error: AllGameErrors): error is ResourceNotFoundError | ResourceLoadError =>
+export const isResourceError = (error: AllGameErrors): error is Schema.Schema.Type<typeof ResourceNotFoundError> | Schema.Schema.Type<typeof ResourceLoadError> =>
   ErrorCategories.Resource.includes(error._tag as any)
 
 /**

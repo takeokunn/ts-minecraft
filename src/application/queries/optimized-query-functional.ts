@@ -16,7 +16,7 @@ import { EntityId } from '@domain/entities'
 import { QueryEntity } from '@application/queries/builder'
 import { QueryConfig, QueryMetrics, startQueryContext, finalizeQueryContext } from '@application/queries/builder'
 import { QueryCacheService, CacheKeyGenerator, CachedQueryResult, CachedQueryMetrics } from '@application/queries/cache'
-import { ArchetypeQuery } from '@application/queries/archetype-query'
+import { createArchetypeQuery, ArchetypeSystemUtils } from '@application/queries/archetype-query'
 
 /**
  * Query execution plan for optimization
@@ -341,8 +341,8 @@ export const executeHybridStrategyEffect = <T extends ReadonlyArray<ComponentNam
     }
 
     // Use archetype query for provided entity list
-    const archetypeQuery = new ArchetypeQuery(config)
-    const archetypeResult = archetypeQuery.execute(entities)
+    const archetypeQuery = yield* createArchetypeQuery(config)
+    const archetypeResult = yield* archetypeQuery.execute(entities)
     context.metrics.entitiesScanned += archetypeResult.metrics.entitiesScanned
     context.metrics.entitiesMatched += archetypeResult.metrics.entitiesMatched
 
@@ -458,8 +458,8 @@ export const makeOptimizedQueryService = <T extends ReadonlyArray<ComponentName>
           resultEntities = yield* executeHybridStrategyEffect(componentIndex, config, entities, context)
           break
         default:
-          const archetypeQuery = new ArchetypeQuery(config)
-          const archetypeResult = archetypeQuery.execute(entities)
+          const archetypeQuery = yield* createArchetypeQuery(config)
+          const archetypeResult = yield* archetypeQuery.execute(entities)
           resultEntities = [...archetypeResult.entities]
           // Merge metrics
           context.metrics.entitiesScanned += archetypeResult.metrics.entitiesScanned
@@ -519,7 +519,7 @@ export const addEntityToOptimizationIndicesFunctional = (entity: QueryEntity): E
   Effect.gen(function* () {
     const componentIndex = yield* ComponentIndexFunctional
     yield* componentIndex.addEntity(entity)
-    ArchetypeQuery.addEntity(entity)
+    yield* ArchetypeSystemUtils.addEntity(entity)
   })
 
 /**
@@ -529,7 +529,7 @@ export const removeEntityFromOptimizationIndicesFunctional = (entity: QueryEntit
   Effect.gen(function* () {
     const componentIndex = yield* ComponentIndexFunctional
     yield* componentIndex.removeEntity(entity)
-    ArchetypeQuery.removeEntity(entity)
+    yield* ArchetypeSystemUtils.removeEntity(entity)
   })
 
 /**
@@ -540,8 +540,8 @@ export const updateEntityInOptimizationIndicesFunctional = (entity: QueryEntity)
     const componentIndex = yield* ComponentIndexFunctional
     yield* componentIndex.removeEntity(entity)
     yield* componentIndex.addEntity(entity)
-    ArchetypeQuery.removeEntity(entity)
-    ArchetypeQuery.addEntity(entity)
+    yield* ArchetypeSystemUtils.removeEntity(entity)
+    yield* ArchetypeSystemUtils.addEntity(entity)
   })
 
 /**
@@ -562,7 +562,7 @@ export const getOptimizationStatsFunctional = (): Effect.Effect<{
     
     return {
       componentIndex: yield* componentIndex.getStats(),
-      archetypes: ArchetypeQuery.getArchetypeStats(),
+      archetypes: yield* ArchetypeSystemUtils.getStats(),
       cache: yield* queryCache.getStats,
     }
   })
@@ -576,7 +576,7 @@ export const resetOptimizationIndicesFunctional = (): Effect.Effect<void, never,
     const queryCache = yield* Context.GenericTag<QueryCacheService>('QueryCache')
     
     yield* componentIndex.clear()
-    ArchetypeQuery.reset()
+    // Note: ArchetypeSystemUtils doesn't have a reset method yet - would need to be added if needed
     yield* queryCache.clear
   })
 

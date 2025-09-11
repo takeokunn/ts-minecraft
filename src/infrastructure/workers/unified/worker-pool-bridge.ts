@@ -4,7 +4,7 @@
  * and the unified worker system
  */
 
-import { Effect, Layer, Context, Data } from 'effect'
+import { Effect, Layer, Context, Schema } from 'effect'
 import { WorkerManagerService, WorkerManagerServiceLive, type WorkerType as UnifiedWorkerType } from '@infrastructure/workers/unified/worker-manager'
 // Legacy types recreated here to avoid dependency on deprecated worker-pool.layer.ts
 
@@ -33,17 +33,17 @@ export interface WorkerStats {
   lastActivity: number
 }
 
-export class WorkerError extends Data.TaggedError('WorkerError')<{
-  readonly message: string
-  readonly workerId?: string
-  readonly taskId?: string
-}> {}
+export class WorkerError extends Schema.TaggedError<WorkerError>()('WorkerError', {
+  message: Schema.String,
+  workerId: Schema.optional(Schema.String),
+  taskId: Schema.optional(Schema.String)
+}) {}
 
-export class WorkerTimeoutError extends Data.TaggedError('WorkerTimeoutError')<{
-  readonly message: string
-  readonly taskId: string
-  readonly timeout: number
-}> {}
+export class WorkerTimeoutError extends Schema.TaggedError<WorkerTimeoutError>()('WorkerTimeoutError', {
+  message: Schema.String,
+  taskId: Schema.String,
+  timeout: Schema.Number
+}) {}
 
 export interface WorkerConfig {
   type: PerformanceWorkerType

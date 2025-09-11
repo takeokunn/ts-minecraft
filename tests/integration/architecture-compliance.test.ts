@@ -16,7 +16,7 @@ import {
   InfrastructureLayer, 
   ApplicationServicesLayer,
   TestLayer 
-} from '../../src/layers'
+} from '@/layers'
 
 // Import all ports
 import { 
@@ -31,14 +31,14 @@ import {
   RaycastPort,
   MeshGeneratorPort,
   SystemCommunicationPort
-} from '../../src/domain/ports'
+} from '@domain/ports'
 
 // Import services
 import { 
   WorldDomainService, 
   PhysicsDomainService, 
   EntityDomainService 
-} from '../../src/layers'
+} from '@/layers'
 
 describe('Architecture Compliance', () => {
   describe('Domain Layer Purity', () => {

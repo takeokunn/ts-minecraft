@@ -59,7 +59,10 @@ interface QueryHandlersService {
   readonly getNearbyEntities: (position: { x: number; y: number; z: number }, radius: number) => Effect.Effect<PlayerQueryResult[], Error, never>
 }
 
-export class QueryHandlers extends Context.Tag('QueryHandlers')<QueryHandlers, QueryHandlersService>() {}
+/**
+ * Query Handlers Service
+ */
+export const QueryHandlers = Context.GenericTag<QueryHandlersService>('QueryHandlers')
 
 export const QueryHandlersLive: Layer.Layer<QueryHandlers, never, typeof WorldDomainService | typeof EntityDomainService | typeof PhysicsDomainService> = Layer.effect(
   QueryHandlers,

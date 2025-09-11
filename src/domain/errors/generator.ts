@@ -16,7 +16,7 @@ export type RecoveryStrategy =
 export const ErrorContext = Schema.Struct({
   timestamp: Schema.DateFromSelf,
   stackTrace: Schema.String,
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
   recoveryStrategy: Schema.Literal('retry', 'fallback', 'ignore', 'terminate', 'user-prompt'),
   severity: Schema.Literal('low', 'medium', 'high', 'critical'),
 })

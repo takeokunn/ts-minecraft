@@ -220,7 +220,7 @@ export interface IWebGPUAdapter {
   readonly dispose: () => Effect.Effect<void, never, never>
 }
 
-export class WebGPUAdapter extends Context.GenericTag('WebGPUAdapter')<WebGPUAdapter, IWebGPUAdapter>() {}
+export const WebGPUAdapter = Context.GenericTag<IWebGPUAdapter>('WebGPUAdapter')
 
 /**
  * Utility functions

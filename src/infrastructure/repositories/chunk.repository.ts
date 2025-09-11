@@ -118,7 +118,7 @@ export interface IChunkRepository {
   readonly validateChunkData: (coordinate: ChunkCoordinate) => Effect.Effect<boolean, never, never>
 }
 
-export class ChunkRepository extends Context.GenericTag('ChunkRepository')<ChunkRepository, IChunkRepository>() {}
+export const ChunkRepository = Context.GenericTag<IChunkRepository>('ChunkRepository')
 
 /**
  * Chunk repository state
@@ -155,20 +155,19 @@ const estimateChunkMemorySize = (chunk: Chunk): number => {
 /**
  * Chunk Repository Implementation
  */
-export class ChunkRepositoryImpl implements IChunkRepository {
-  constructor(private readonly stateRef: Ref.Ref<ChunkRepositoryState>) {}
+export const createChunkRepository = (stateRef: Ref.Ref<ChunkRepositoryState>): IChunkRepository => {
 
-  readonly getChunk = (coordinate: ChunkCoordinate): Effect.Effect<Option.Option<Chunk>, never, never> =>
+  const getChunk = (coordinate: ChunkCoordinate): Effect.Effect<Option.Option<Chunk>, never, never> =>
     Effect.gen(
       function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
+        const state = yield* _(Ref.get(stateRef))
         const key = chunkKey(coordinate)
         const chunk = HashMap.get(state.chunks, key)
 
         // Update last accessed time
         if (Option.isSome(chunk)) {
           yield* _(
-            this.updateChunkMetadata(coordinate, (metadata) => ({
+            updateChunkMetadata(coordinate, (metadata) => ({
               ...metadata,
               lastAccessed: Date.now(),
             })),
@@ -176,13 +175,13 @@ export class ChunkRepositoryImpl implements IChunkRepository {
         }
 
         return chunk
-      }.bind(this),
+      },
     )
 
-  readonly setChunk = (chunk: Chunk): Effect.Effect<void, never, never> =>
+  const setChunk = (chunk: Chunk): Effect.Effect<void, never, never> =>
     Effect.gen(
       function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
+        const state = yield* _(Ref.get(stateRef))
         const coordinate = { x: chunk.chunkX, z: chunk.chunkZ }
         const key = chunkKey(coordinate)
         const now = Date.now()
@@ -223,20 +222,20 @@ export class ChunkRepositoryImpl implements IChunkRepository {
         const newSpatialIndex = HashMap.set(state.spatialIndex, regionKey_, new Set([...existingRegion, key]))
 
         yield* _(
-          Ref.update(this.stateRef, (s) => ({
+          Ref.update(stateRef, (s) => ({
             ...s,
             chunks: HashMap.set(s.chunks, key, chunk),
             metadata: HashMap.set(s.metadata, key, metadata),
             spatialIndex: newSpatialIndex,
           })),
         )
-      }.bind(this),
+      },
     )
 
-  readonly removeChunk = (coordinate: ChunkCoordinate): Effect.Effect<boolean, never, never> =>
+  const removeChunk = (coordinate: ChunkCoordinate): Effect.Effect<boolean, never, never> =>
     Effect.gen(
       function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
+        const state = yield* _(Ref.get(stateRef))
         const key = chunkKey(coordinate)
 
         if (!HashMap.has(state.chunks, key)) {
@@ -251,7 +250,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
         const newSpatialIndex = newRegion.size > 0 ? HashMap.set(state.spatialIndex, regionKey_, newRegion) : HashMap.remove(state.spatialIndex, regionKey_)
 
         yield* _(
-          Ref.update(this.stateRef, (s) => ({
+          Ref.update(stateRef, (s) => ({
             ...s,
             chunks: HashMap.remove(s.chunks, key),
             metadata: HashMap.remove(s.metadata, key),
@@ -260,29 +259,29 @@ export class ChunkRepositoryImpl implements IChunkRepository {
         )
 
         return true
-      }.bind(this),
+      },
     )
 
-  readonly hasChunk = (coordinate: ChunkCoordinate): Effect.Effect<boolean, never, never> =>
+  const hasChunk = (coordinate: ChunkCoordinate): Effect.Effect<boolean, never, never> =>
     Effect.gen(
       function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
+        const state = yield* _(Ref.get(stateRef))
         return HashMap.has(state.chunks, chunkKey(coordinate))
-      }.bind(this),
+      },
     )
 
-  readonly getChunkMetadata = (coordinate: ChunkCoordinate): Effect.Effect<Option.Option<ChunkMetadata>, never, never> =>
+  const getChunkMetadata = (coordinate: ChunkCoordinate): Effect.Effect<Option.Option<ChunkMetadata>, never, never> =>
     Effect.gen(
       function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
+        const state = yield* _(Ref.get(stateRef))
         return HashMap.get(state.metadata, chunkKey(coordinate))
-      }.bind(this),
+      },
     )
 
-  readonly updateChunkMetadata = (coordinate: ChunkCoordinate, updater: (metadata: ChunkMetadata) => ChunkMetadata): Effect.Effect<boolean, never, never> =>
+  const updateChunkMetadata = (coordinate: ChunkCoordinate, updater: (metadata: ChunkMetadata) => ChunkMetadata): Effect.Effect<boolean, never, never> =>
     Effect.gen(
       function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
+        const state = yield* _(Ref.get(stateRef))
         const key = chunkKey(coordinate)
         const existingMetadata = HashMap.get(state.metadata, key)
 
@@ -293,42 +292,42 @@ export class ChunkRepositoryImpl implements IChunkRepository {
         const updatedMetadata = updater(existingMetadata.value)
 
         yield* _(
-          Ref.update(this.stateRef, (s) => ({
+          Ref.update(stateRef, (s) => ({
             ...s,
             metadata: HashMap.set(s.metadata, key, updatedMetadata),
           })),
         )
 
         return true
-      }.bind(this),
+      },
     )
 
-  readonly markChunkDirty = (coordinate: ChunkCoordinate): Effect.Effect<void, never, never> =>
+  const markChunkDirty = (coordinate: ChunkCoordinate): Effect.Effect<void, never, never> =>
     Effect.gen(
       function* (_) {
         yield* _(
-          this.updateChunkMetadata(coordinate, (metadata) => ({
+          updateChunkMetadata(coordinate, (metadata) => ({
             ...metadata,
             isDirty: true,
             lastModified: Date.now(),
           })),
         )
-      }.bind(this),
+      },
     )
 
-  readonly markChunkClean = (coordinate: ChunkCoordinate): Effect.Effect<void, never, never> =>
+  const markChunkClean = (coordinate: ChunkCoordinate): Effect.Effect<void, never, never> =>
     Effect.gen(
       function* (_) {
         yield* _(
-          this.updateChunkMetadata(coordinate, (metadata) => ({
+          updateChunkMetadata(coordinate, (metadata) => ({
             ...metadata,
             isDirty: false,
           })),
         )
-      }.bind(this),
+      },
     )
 
-  readonly getChunks = (coordinates: ReadonlyArray<ChunkCoordinate>): Effect.Effect<HashMap.HashMap<string, Chunk>, never, never> =>
+  const getChunks = (coordinates: ReadonlyArray<ChunkCoordinate>): Effect.Effect<HashMap.HashMap<string, Chunk>, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(this.stateRef))
@@ -353,7 +352,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly setChunks = (chunks: ReadonlyArray<Chunk>): Effect.Effect<void, never, never> =>
+  const setChunks = (chunks: ReadonlyArray<Chunk>): Effect.Effect<void, never, never> =>
     Effect.gen(
       function* (_) {
         for (const chunk of chunks) {
@@ -362,7 +361,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly removeChunks = (coordinates: ReadonlyArray<ChunkCoordinate>): Effect.Effect<number, never, never> =>
+  const removeChunks = (coordinates: ReadonlyArray<ChunkCoordinate>): Effect.Effect<number, never, never> =>
     Effect.gen(
       function* (_) {
         let removedCount = 0
@@ -374,7 +373,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly getChunksInRadius = (center: ChunkCoordinate, radius: number): Effect.Effect<ReadonlyArray<Chunk>, never, never> =>
+  const getChunksInRadius = (center: ChunkCoordinate, radius: number): Effect.Effect<ReadonlyArray<Chunk>, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(this.stateRef))
@@ -396,7 +395,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly getChunksInArea = (minX: number, minZ: number, maxX: number, maxZ: number): Effect.Effect<ReadonlyArray<Chunk>, never, never> =>
+  const getChunksInArea = (minX: number, minZ: number, maxX: number, maxZ: number): Effect.Effect<ReadonlyArray<Chunk>, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(this.stateRef))
@@ -412,7 +411,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly findChunks = (options: ChunkQueryOptions): Effect.Effect<ReadonlyArray<Chunk>, never, never> =>
+  const findChunks = (options: ChunkQueryOptions): Effect.Effect<ReadonlyArray<Chunk>, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(this.stateRef))
@@ -474,7 +473,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly getBlock = (chunkCoord: ChunkCoordinate, blockIndex: number): Effect.Effect<Option.Option<BlockType>, never, never> =>
+  const getBlock = (chunkCoord: ChunkCoordinate, blockIndex: number): Effect.Effect<Option.Option<BlockType>, never, never> =>
     Effect.gen(
       function* (_) {
         const chunkOpt = yield* _(this.getChunk(chunkCoord))
@@ -492,7 +491,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly setBlock = (chunkCoord: ChunkCoordinate, blockIndex: number, blockType: BlockType): Effect.Effect<boolean, never, never> =>
+  const setBlock = (chunkCoord: ChunkCoordinate, blockIndex: number, blockType: BlockType): Effect.Effect<boolean, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(this.stateRef))
@@ -537,7 +536,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly updateBlocks = (chunkCoord: ChunkCoordinate, updates: ReadonlyArray<{ index: number; blockType: BlockType }>): Effect.Effect<boolean, never, never> =>
+  const updateBlocks = (chunkCoord: ChunkCoordinate, updates: ReadonlyArray<{ index: number; blockType: BlockType }>): Effect.Effect<boolean, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(this.stateRef))
@@ -585,7 +584,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
     )
 
   // Simplified implementations of remaining methods
-  readonly getChunkChanges = (chunkCoord?: ChunkCoordinate, since?: number): Effect.Effect<ReadonlyArray<ChunkChange>, never, never> =>
+  const getChunkChanges = (chunkCoord?: ChunkCoordinate, since?: number): Effect.Effect<ReadonlyArray<ChunkChange>, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(this.stateRef))
@@ -603,7 +602,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly clearChangeHistory = (before?: number): Effect.Effect<number, never, never> =>
+  const clearChangeHistory = (before?: number): Effect.Effect<number, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(this.stateRef))
@@ -622,7 +621,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly setGenerationStage = (coordinate: ChunkCoordinate, stage: ChunkMetadata['generationStage']): Effect.Effect<void, never, never> =>
+  const setGenerationStage = (coordinate: ChunkCoordinate, stage: ChunkMetadata['generationStage']): Effect.Effect<void, never, never> =>
     Effect.gen(
       function* (_) {
         yield* _(
@@ -635,7 +634,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly getChunksByGenerationStage = (stage: ChunkMetadata['generationStage']): Effect.Effect<ReadonlyArray<ChunkCoordinate>, never, never> =>
+  const getChunksByGenerationStage = (stage: ChunkMetadata['generationStage']): Effect.Effect<ReadonlyArray<ChunkCoordinate>, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(this.stateRef))
@@ -651,7 +650,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly getIncompleteChunks = (): Effect.Effect<ReadonlyArray<ChunkCoordinate>, never, never> =>
+  const getIncompleteChunks = (): Effect.Effect<ReadonlyArray<ChunkCoordinate>, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(this.stateRef))
@@ -667,7 +666,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly getChunkStats = (): Effect.Effect<ChunkStats, never, never> =>
+  const getChunkStats = (): Effect.Effect<ChunkStats, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(this.stateRef))
@@ -704,7 +703,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly unloadOldChunks = (maxAge: number, maxCount?: number): Effect.Effect<number, never, never> =>
+  const unloadOldChunks = (maxAge: number, maxCount?: number): Effect.Effect<number, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(this.stateRef))
@@ -722,7 +721,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly compactStorage = (): Effect.Effect<void, never, never> =>
+  const compactStorage = (): Effect.Effect<void, never, never> =>
     Effect.gen(
       function* (_) {
         // Remove empty regions from spatial index
@@ -735,7 +734,7 @@ export class ChunkRepositoryImpl implements IChunkRepository {
       }.bind(this),
     )
 
-  readonly validateChunkData = (coordinate: ChunkCoordinate): Effect.Effect<boolean, never, never> =>
+  const validateChunkData = (coordinate: ChunkCoordinate): Effect.Effect<boolean, never, never> =>
     Effect.gen(
       function* (_) {
         const chunkOpt = yield* _(this.getChunk(coordinate))
@@ -760,8 +759,38 @@ export class ChunkRepositoryImpl implements IChunkRepository {
         const validBlocks = chunk.blocks.every((block) => typeof block === 'string' && block.length > 0)
 
         return validBlocks
-      }.bind(this),
+      },
     )
+
+  // Return the complete implementation
+  return {
+    getChunk,
+    setChunk,
+    removeChunk,
+    hasChunk,
+    getChunkMetadata,
+    updateChunkMetadata,
+    markChunkDirty,
+    markChunkClean,
+    getChunks: getChunks as any,
+    setChunks: setChunks as any,
+    removeChunks: removeChunks as any,
+    getChunksInRadius: getChunksInRadius as any,
+    getChunksInArea: getChunksInArea as any,
+    findChunks: findChunks as any,
+    getBlock: getBlock as any,
+    setBlock: setBlock as any,
+    updateBlocks: updateBlocks as any,
+    getChunkChanges: getChunkChanges as any,
+    clearChangeHistory: clearChangeHistory as any,
+    setGenerationStage: setGenerationStage as any,
+    getChunksByGenerationStage: getChunksByGenerationStage as any,
+    getIncompleteChunks: getIncompleteChunks as any,
+    getChunkStats: getChunkStats as any,
+    unloadOldChunks: unloadOldChunks as any,
+    compactStorage: compactStorage as any,
+    validateChunkData: validateChunkData as any
+  } satisfies IChunkRepository
 }
 
 /**
@@ -780,6 +809,6 @@ export const ChunkRepositoryLive = Layer.effect(
 
     const stateRef = yield* _(Ref.make(initialState))
 
-    return new ChunkRepositoryImpl(stateRef)
+    return createChunkRepository(stateRef)
   }),
 )

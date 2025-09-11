@@ -40,7 +40,8 @@ export interface Notification {
   readonly duration: number
 }
 
-export class UIController extends Context.Tag('UIController')<UIController, UIControllerInterface>() {}
+// Create context tag for dependency injection
+export const UIController = Context.GenericTag<UIControllerInterface>('UIController')
 
 export const UIControllerLive: Layer.Layer<UIController, never, never> = Layer.effect(
   UIController,
@@ -126,3 +127,7 @@ export const UIControllerLive: Layer.Layer<UIController, never, never> = Layer.e
     } satisfies UIControllerInterface
   }),
 )
+
+// Factory function for direct usage
+export const createUIController = () => 
+  Effect.runSync(UIControllerLive)

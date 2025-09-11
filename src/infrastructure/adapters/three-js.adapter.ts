@@ -97,7 +97,7 @@ export interface IThreeJsContext {
   readonly canvas: HTMLCanvasElement
 }
 
-export class ThreeJsContext extends Context.GenericTag('ThreeJsContext')<ThreeJsContext, IThreeJsContext>() {}
+export const ThreeJsContext = Context.GenericTag<IThreeJsContext>('ThreeJsContext')
 
 /**
  * Three.js Renderer Adapter interface - extends IRenderPort
@@ -107,7 +107,7 @@ export interface IThreeJsAdapter extends IRenderPort {
   readonly processRenderQueue: () => Effect.Effect<void, RenderError, never>
 }
 
-export class ThreeJsAdapter extends Context.GenericTag('ThreeJsAdapter')<ThreeJsAdapter, IThreeJsAdapter>() {}
+export const ThreeJsAdapter = Context.GenericTag<IThreeJsAdapter>('ThreeJsAdapter')
 
 /**
  * Three.js Adapter implementation

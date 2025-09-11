@@ -12,91 +12,105 @@ export interface WorldGenerateCommand {
   readonly biomes?: string[]
 }
 
-export class WorldGenerateUseCase extends Context.Tag('WorldGenerateUseCase')<
+/**
+ * World Generate Use Case Service interface
+ */
+export interface WorldGenerateUseCaseService {
+  readonly execute: (command: WorldGenerateCommand) => Effect.Effect<void, Error>
+  readonly generateBiome: (chunkX: number, chunkZ: number, biomeType: string) => Effect.Effect<void, Error>
+  readonly generateStructure: (position: { x: number; y: number; z: number }, structureType: string) => Effect.Effect<void, Error>
+}
+
+/**
+ * World Generate Use Case Service
+ */
+export const WorldGenerateUseCase = Context.GenericTag<WorldGenerateUseCaseService>('WorldGenerateUseCase')
+
+export const WorldGenerateUseCaseLive = Layer.effect(
   WorldGenerateUseCase,
-  {
-    readonly execute: (command: WorldGenerateCommand) => Effect.Effect<void, Error>
-    readonly generateBiome: (chunkX: number, chunkZ: number, biomeType: string) => Effect.Effect<void, Error>
-    readonly generateStructure: (position: { x: number; y: number; z: number }, structureType: string) => Effect.Effect<void, Error>
-  }
->() {}
+  Effect.gen(function* () {
+    const executeGenerate = (command: WorldGenerateCommand) =>
+      Effect.gen(function* (_) {
+        const worldService = yield* _(WorldDomainService)
+        const terrainGenerator = yield* _(TerrainGeneratorPort)
+        const meshGenerator = yield* _(MeshGeneratorPort)
+        const worldManagement = yield* _(WorldManagementDomainServicePort)
 
-export const WorldGenerateUseCaseLive = Layer.succeed(WorldGenerateUseCase, {
-  execute: (command) =>
-    Effect.gen(function* (_) {
-      const worldService = yield* _(WorldDomainService)
-      const terrainGenerator = yield* _(TerrainGeneratorPort)
-      const meshGenerator = yield* _(MeshGeneratorPort)
-      const worldManagement = yield* _(WorldManagementDomainServicePort)
+        // Initialize world generation with new domain services
+        yield* _(Effect.log(`Starting world generation with seed: ${command.seed}`))
 
-      // Initialize world generation with new domain services
-      yield* _(Effect.log(`Starting world generation with seed: ${command.seed}`))
+        // Generate base terrain using TerrainGenerationDomainService
+        yield* _(generateBaseTerrain(command, terrainGenerator))
 
-      // Generate base terrain using TerrainGenerationDomainService
-      yield* _(generateBaseTerrain(command, terrainGenerator))
+        // Generate biomes if specified
+        if (command.biomes && command.biomes.length > 0) {
+          yield* _(generateBiomes(command, terrainGenerator))
+        }
 
-      // Generate biomes if specified
-      if (command.biomes && command.biomes.length > 0) {
-        yield* _(generateBiomes(command, terrainGenerator))
-      }
+        // Generate structures if enabled
+        if (command.generateStructures) {
+          yield* _(generateWorldStructures(command, worldService))
+        }
 
-      // Generate structures if enabled
-      if (command.generateStructures) {
-        yield* _(generateWorldStructures(command, worldService))
-      }
+        // Initialize spawn point
+        yield* _(generateSpawnPoint(command, worldService))
 
-      // Initialize spawn point
-      yield* _(generateSpawnPoint(command, worldService))
+        yield* _(Effect.log(`World generation completed with seed: ${command.seed}`))
+      })
 
-      yield* _(Effect.log(`World generation completed with seed: ${command.seed}`))
-    }),
+    const generateBiome = (chunkX: number, chunkZ: number, biomeType: string) =>
+      Effect.gen(function* (_) {
+        const worldService = yield* _(WorldDomainService)
 
-  generateBiome: (chunkX, chunkZ, biomeType) =>
-    Effect.gen(function* (_) {
-      const worldService = yield* _(WorldDomainService)
+        // Generate biome-specific terrain features
+        const biomeFeatures = yield* _(worldService.generateBiomeFeatures(chunkX, chunkZ, biomeType))
 
-      // Generate biome-specific terrain features
-      const biomeFeatures = yield* _(worldService.generateBiomeFeatures(chunkX, chunkZ, biomeType))
+        // Apply biome-specific block variations
+        yield* _(worldService.applyBiomeBlockVariations(chunkX, chunkZ, biomeType))
 
-      // Apply biome-specific block variations
-      yield* _(worldService.applyBiomeBlockVariations(chunkX, chunkZ, biomeType))
+        // Generate biome-specific vegetation
+        yield* _(worldService.generateBiomeVegetation(chunkX, chunkZ, biomeType, biomeFeatures))
 
-      // Generate biome-specific vegetation
-      yield* _(worldService.generateBiomeVegetation(chunkX, chunkZ, biomeType, biomeFeatures))
+        yield* _(Effect.log(`Biome ${biomeType} generated for chunk ${chunkX}, ${chunkZ}`))
+      })
 
-      yield* _(Effect.log(`Biome ${biomeType} generated for chunk ${chunkX}, ${chunkZ}`))
-    }),
+    const generateStructure = (position: { x: number; y: number; z: number }, structureType: string) =>
+      Effect.gen(function* (_) {
+        const worldService = yield* _(WorldDomainService)
 
-  generateStructure: (position, structureType) =>
-    Effect.gen(function* (_) {
-      const worldService = yield* _(WorldDomainService)
+        // Validate structure placement
+        const canPlace = yield* _(worldService.canPlaceStructure(position, structureType))
 
-      // Validate structure placement
-      const canPlace = yield* _(worldService.canPlaceStructure(position, structureType))
+        if (!canPlace) {
+          return yield* _(Effect.fail(new Error(`Cannot place structure ${structureType} at position`)))
+        }
 
-      if (!canPlace) {
-        return yield* _(Effect.fail(new Error(`Cannot place structure ${structureType} at position`)))
-      }
+        // Generate structure blueprint
+        const blueprint = yield* _(worldService.generateStructureBlueprint(structureType))
 
-      // Generate structure blueprint
-      const blueprint = yield* _(worldService.generateStructureBlueprint(structureType))
+        // Place structure blocks
+        yield* _(worldService.placeStructureBlocks(position, blueprint))
 
-      // Place structure blocks
-      yield* _(worldService.placeStructureBlocks(position, blueprint))
+        // Add structure metadata
+        yield* _(
+          worldService.addStructureMetadata({
+            position,
+            structureType,
+            blueprint,
+            generatedAt: Date.now(),
+          }),
+        )
 
-      // Add structure metadata
-      yield* _(
-        worldService.addStructureMetadata({
-          position,
-          structureType,
-          blueprint,
-          generatedAt: Date.now(),
-        }),
-      )
+        yield* _(Effect.log(`Structure ${structureType} generated at ${position.x}, ${position.y}, ${position.z}`))
+      })
 
-      yield* _(Effect.log(`Structure ${structureType} generated at ${position.x}, ${position.y}, ${position.z}`))
-    }),
-})
+    return {
+      execute: executeGenerate,
+      generateBiome,
+      generateStructure
+    } satisfies WorldGenerateUseCaseService
+  })
+)
 
 const generateBaseTerrain = (command: WorldGenerateCommand, terrainGenerator: any) =>
   Effect.gen(function* (_) {

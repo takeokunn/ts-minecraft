@@ -21,7 +21,10 @@ interface CommandHandlersService {
   readonly handleWorldGenerate: (command: WorldGenerateCommand) => Effect.Effect<void, ValidationError | WorldStateError | SystemExecutionError, WorldGenerateUseCase>
 }
 
-export class CommandHandlers extends Context.Tag('CommandHandlers')<CommandHandlers, CommandHandlersService>() {}
+/**
+ * Command Handlers Service
+ */
+export const CommandHandlers = Context.GenericTag<CommandHandlersService>('CommandHandlers')
 
 export const CommandHandlersLive: Layer.Layer<CommandHandlers, never, PlayerMoveUseCase | BlockPlaceUseCase | ChunkLoadUseCase | WorldGenerateUseCase> = Layer.effect(
   CommandHandlers,

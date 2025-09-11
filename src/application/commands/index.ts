@@ -1,2 +1,2 @@
-export * from './block-interaction'
-export * from './player-movement'
+export { BlockInteractionCommand } from './block-interaction'
+export { PlayerMovementCommand } from './player-movement'

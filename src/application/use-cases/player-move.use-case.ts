@@ -4,12 +4,17 @@ import { PhysicsDomainService } from '@domain/services/physics-domain.service'
 import { WorldDomainService } from '@domain/services/world-domain.service'
 import { EntityDomainService } from '@domain/services/entity-domain.service'
 
-export class PlayerMoveUseCase extends Context.Tag('PlayerMoveUseCase')<
-  PlayerMoveUseCase,
-  {
-    readonly execute: (command: PlayerMovementCommand) => Effect.Effect<void, Error>
-  }
->() {}
+/**
+ * Player Move Use Case Service interface
+ */
+export interface PlayerMoveUseCaseService {
+  readonly execute: (command: PlayerMovementCommand) => Effect.Effect<void, Error>
+}
+
+/**
+ * Player Move Use Case Service
+ */
+export const PlayerMoveUseCase = Context.GenericTag<PlayerMoveUseCaseService>('PlayerMoveUseCase')
 
 export const PlayerMoveUseCaseLive = Layer.succeed(PlayerMoveUseCase, {
   execute: (command) =>
@@ -41,7 +46,7 @@ export const PlayerMoveUseCaseLive = Layer.succeed(PlayerMoveUseCase, {
       // Apply movement effects (sounds, particles, etc.)
       yield* _(applyMovementEffects(command))
     }),
-})
+} satisfies PlayerMoveUseCaseService)
 
 const applyMovementEffects = (command: PlayerMovementCommand) =>
   Effect.gen(function* (_) {

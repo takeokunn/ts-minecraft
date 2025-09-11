@@ -110,16 +110,17 @@ interface VertexAttributes {
 
 /**
  * Advanced mesh generation algorithms
+ * Pure functional module for enhanced mesh processing
  */
-class EnhancedMeshAlgorithms {
+export const EnhancedMeshAlgorithms = {
   /**
    * Generate cube faces for a block with enhanced occlusion culling
    */
-  static generateEnhancedBlockFaces(
+  generateEnhancedBlockFaces: (
     block: GeneratedBlock,
     neighborLookup: { readonly [key: string]: GeneratedBlock | null },
     options: EnhancedMeshOptimizations,
-  ): readonly EnhancedBlockFace[] {
+  ): readonly EnhancedBlockFace[] => {
     const { x, y, z } = block.position
     const faces: EnhancedBlockFace[] = []
 
@@ -178,7 +179,7 @@ class EnhancedMeshAlgorithms {
     faceDefinitions.forEach((faceDef, faceIndex) => {
       // Enhanced occlusion culling
       const neighbor = neighborLookup[faceDef.neighborKey]
-      const shouldRender = this.shouldRenderEnhancedFace(neighbor, block, faceDef.name, options.cullMode ?? 'basic')
+      const shouldRender = EnhancedMeshAlgorithms.shouldRenderEnhancedFace(neighbor, block, faceDef.name, options.cullMode ?? 'basic')
 
       if (shouldRender) {
         const blockColor = BlockPropertiesUtils.getBlockColor(block.blockType)
@@ -201,7 +202,7 @@ class EnhancedMeshAlgorithms {
 
         // Add ambient occlusion if enabled
         if (options.enableAmbientOcclusion) {
-          const aoValues = this.calculateAmbientOcclusion(
+          const aoValues = EnhancedMeshAlgorithms.calculateAmbientOcclusion(
             block.position, 
             faceDef.name, 
             neighborLookup
@@ -212,8 +213,8 @@ class EnhancedMeshAlgorithms {
         // Set texture/material ID for texture atlas
         if (options.enableTextureAtlas) {
           const textureInfo = BlockPropertiesUtils.getBlockTextures(block.blockType)
-          face.textureId = this.getTextureId(textureInfo, faceDef.name)
-          face.materialId = this.getMaterialId(block.blockType)
+          face.textureId = EnhancedMeshAlgorithms.getTextureId(textureInfo, faceDef.name)
+          face.materialId = EnhancedMeshAlgorithms.getMaterialId(block.blockType)
         }
 
         faces.push(face)
@@ -221,17 +222,17 @@ class EnhancedMeshAlgorithms {
     })
 
     return faces
-  }
+  },
 
   /**
    * Enhanced face culling with multiple modes
    */
-  private static shouldRenderEnhancedFace(
+  shouldRenderEnhancedFace: (
     neighbor: GeneratedBlock | null,
     currentBlock: GeneratedBlock,
     faceDirection: FaceDirectionType,
     cullMode: CullingMode,
-  ): boolean {
+  ): boolean => {
     switch (cullMode) {
       case 'none':
         return true
@@ -260,20 +261,20 @@ class EnhancedMeshAlgorithms {
       default:
         return true
     }
-  }
+  },
 
   /**
    * Calculate ambient occlusion values for face vertices
    */
-  private static calculateAmbientOcclusion(
+  calculateAmbientOcclusion: (
     blockPos: Position3D,
     faceDirection: FaceDirectionType,
     neighborLookup: { readonly [key: string]: GeneratedBlock | null },
-  ): readonly number[] {
+  ): readonly number[] => {
     const aoValues: number[] = []
 
     // Define the vertex positions for each face
-    const vertexOffsets = this.getVertexOffsetsForFace(faceDirection)
+    const vertexOffsets = EnhancedMeshAlgorithms.getVertexOffsetsForFace(faceDirection)
 
     vertexOffsets.forEach(offset => {
       const vertexPos = {
@@ -283,7 +284,7 @@ class EnhancedMeshAlgorithms {
       }
 
       // Sample surrounding blocks for AO calculation
-      const aoSamples = this.getAOSamples(vertexPos, faceDirection)
+      const aoSamples = EnhancedMeshAlgorithms.getAOSamples(vertexPos, faceDirection)
       let occludedCount = 0
 
       aoSamples.forEach(samplePos => {
@@ -301,12 +302,12 @@ class EnhancedMeshAlgorithms {
     })
 
     return aoValues
-  }
+  },
 
   /**
    * Get vertex offsets for a specific face direction
    */
-  private static getVertexOffsetsForFace(faceDirection: FaceDirectionType): readonly Position3D[] {
+  getVertexOffsetsForFace: (faceDirection: FaceDirectionType): readonly Position3D[] => {
     switch (faceDirection) {
       case FaceDirection.FRONT: // +Z
         return [
@@ -353,12 +354,12 @@ class EnhancedMeshAlgorithms {
       default:
         return []
     }
-  }
+  },
 
   /**
    * Get AO sampling positions around a vertex
    */
-  private static getAOSamples(vertexPos: Position3D, faceDirection: FaceDirectionType): readonly Position3D[] {
+  getAOSamples: (vertexPos: Position3D, faceDirection: FaceDirectionType): readonly Position3D[] => {
     // Simplified AO sampling - sample neighboring positions
     const samples: Position3D[] = []
     
@@ -378,38 +379,38 @@ class EnhancedMeshAlgorithms {
     }
 
     return samples
-  }
+  },
 
   /**
    * Get texture ID for a block face
    */
-  private static getTextureId(textureInfo: any, faceDirection: FaceDirectionType): number {
+  getTextureId: (textureInfo: any, faceDirection: FaceDirectionType): number => {
     // Simple texture ID mapping - in a real implementation this would use a texture atlas
     if ('all' in textureInfo) {
-      return this.hashStringToId(textureInfo.all)
+      return EnhancedMeshAlgorithms.hashStringToId(textureInfo.all)
     }
 
     switch (faceDirection) {
       case FaceDirection.TOP:
-        return this.hashStringToId(textureInfo.top ?? textureInfo.all ?? 'default')
+        return EnhancedMeshAlgorithms.hashStringToId(textureInfo.top ?? textureInfo.all ?? 'default')
       case FaceDirection.BOTTOM:
-        return this.hashStringToId(textureInfo.bottom ?? textureInfo.all ?? 'default')
+        return EnhancedMeshAlgorithms.hashStringToId(textureInfo.bottom ?? textureInfo.all ?? 'default')
       default:
-        return this.hashStringToId(textureInfo.sides ?? textureInfo.all ?? 'default')
+        return EnhancedMeshAlgorithms.hashStringToId(textureInfo.sides ?? textureInfo.all ?? 'default')
     }
-  }
+  },
 
   /**
    * Get material ID for a block type
    */
-  private static getMaterialId(blockType: BlockType): number {
-    return this.hashStringToId(blockType)
-  }
+  getMaterialId: (blockType: BlockType): number => {
+    return EnhancedMeshAlgorithms.hashStringToId(blockType)
+  },
 
   /**
    * Hash a string to a numeric ID
    */
-  private static hashStringToId(str: string): number {
+  hashStringToId: (str: string): number => {
     let hash = 0
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i)
@@ -417,30 +418,30 @@ class EnhancedMeshAlgorithms {
       hash = hash & hash // Convert to 32-bit integer
     }
     return Math.abs(hash)
-  }
+  },
 
   /**
    * Greedy meshing algorithm with enhanced features
    */
-  static generateEnhancedGreedyMesh(
+  generateEnhancedGreedyMesh: (
     chunkData: ChunkData,
     neighbors?: { readonly [key: string]: ChunkData },
     options?: EnhancedMeshOptimizations,
-  ): VertexAttributes & { readonly indices: readonly number[] } {
+  ): VertexAttributes & { readonly indices: readonly number[] } => {
     // For this implementation, we use enhanced naive meshing as a base
     // A full greedy meshing implementation would involve analyzing adjacent faces
     // and merging them into larger quads to reduce vertex count
-    return this.generateEnhancedNaiveMesh(chunkData, neighbors, options)
-  }
+    return EnhancedMeshAlgorithms.generateEnhancedNaiveMesh(chunkData, neighbors, options)
+  },
 
   /**
    * Enhanced naive meshing algorithm
    */
-  static generateEnhancedNaiveMesh(
+  generateEnhancedNaiveMesh: (
     chunkData: ChunkData,
     neighbors?: { readonly [key: string]: ChunkData },
     options?: EnhancedMeshOptimizations,
-  ): VertexAttributes & { readonly indices: readonly number[] } {
+  ): VertexAttributes & { readonly indices: readonly number[] } => {
     const positions: number[] = []
     const normals: number[] = []
     const uvs: number[] = []
@@ -448,14 +449,14 @@ class EnhancedMeshAlgorithms {
     const colors: number[] = []
     const ambientOcclusion: number[] = []
 
-    const neighborLookup = this.createNeighborLookup(chunkData, neighbors)
+    const neighborLookup = EnhancedMeshAlgorithms.createNeighborLookup(chunkData, neighbors)
     let vertexOffset = 0
 
     // Process each solid block
     chunkData.blocks
       .filter((block) => block.blockType !== 'air')
       .forEach((block) => {
-        const blockFaces = this.generateEnhancedBlockFaces(block, neighborLookup, options ?? {})
+        const blockFaces = EnhancedMeshAlgorithms.generateEnhancedBlockFaces(block, neighborLookup, options ?? {})
 
         blockFaces.forEach((face) => {
           // Add vertex data
@@ -492,15 +493,15 @@ class EnhancedMeshAlgorithms {
     if (ambientOcclusion.length > 0) result.ambientOcclusion = ambientOcclusion
 
     return result
-  }
+  },
 
   /**
    * Create neighbor lookup table from chunk data
    */
-  private static createNeighborLookup(
+  createNeighborLookup: (
     chunkData: ChunkData,
     neighbors?: { readonly [key: string]: ChunkData },
-  ): { readonly [key: string]: GeneratedBlock | null } {
+  ): { readonly [key: string]: GeneratedBlock | null } => {
     const lookup: { [key: string]: GeneratedBlock | null } = {}
 
     // Add current chunk blocks
@@ -521,126 +522,20 @@ class EnhancedMeshAlgorithms {
 
     return lookup
   }
-}
+} as const
 
 /**
  * Enhanced Mesh Generation Service Implementation
+ * Pure functional service factory for mesh generation with Effect-TS
  */
-export class EnhancedMeshGenerationService implements IMeshGenerator {
-  generateMesh = (request: EnhancedMeshGenerationRequest): Effect.Effect<MeshGenerationResult, never, never> =>
-    Effect.gen(function* () {
-      const startTime = performance.now()
-      const { chunkData, neighbors, algorithm, optimizations, options, lodLevel } = request
-      
-      const opts = options || MeshGeneratorHelpers.createDefaultOptions()
-      const enhancedOpts = request.enhancedOptimizations || this.createDefaultEnhancedOptimizations(optimizations)
-      const meshAlg = request.meshAlgorithm || algorithm || 'naive'
-
-      // Generate base mesh data using enhanced algorithms
-      const meshingStart = performance.now()
-      let meshData = this.generateMeshByEnhancedAlgorithm(meshAlg, chunkData, neighbors, enhancedOpts)
-      const meshingTime = performance.now() - meshingStart
-
-      // Apply enhanced optimizations
-      const optimizationStart = performance.now()
-      meshData = this.applyEnhancedOptimizations(meshData, enhancedOpts)
-      const optimizationTime = performance.now() - optimizationStart
-
-      // Create transferable vertex attributes
-      const vertexAttributes = MeshGeneratorHelpers.createTransferableVertexData(
-        meshData.position,
-        opts.generateNormals && meshData.normal ? meshData.normal : undefined,
-        opts.generateUVs && meshData.uv ? meshData.uv : undefined,
-      )
-
-      // Create vertex buffer with enhanced attributes
-      const vertexBuffer: VertexBuffer = {
-        attributes: {
-          ...vertexAttributes,
-          colors: meshData.color ? meshData.color : undefined,
-          ambientOcclusion: meshData.ambientOcclusion ? meshData.ambientOcclusion : undefined,
-        },
-        vertexCount: meshData.position.length / 3,
-        stride: this.calculateVertexStride(meshData),
-        interleaved: false,
-      }
-
-      // Create index buffer
-      const indexBuffer: IndexBuffer = MeshGeneratorHelpers.createTransferableIndexBuffer(meshData.indices)
-
-      // Calculate bounds
-      const bounds: BoundingVolume = MeshGeneratorHelpers.calculateMeshBounds(meshData.position)
-
-      // Create final mesh data
-      const generatedMeshData: GeneratedMeshData = {
-        vertexBuffer,
-        indexBuffer,
-        bounds,
-        materials: [], // Simplified - would include actual materials based on block types
-      }
-
-      // Enhanced performance metrics
-      const totalTime = performance.now() - startTime
-      const metrics: MeshGenerationMetrics = {
-        totalTime,
-        meshingTime,
-        optimizationTime,
-        inputBlocks: chunkData.blocks.length,
-        outputVertices: vertexBuffer.vertexCount,
-        outputTriangles: indexBuffer.count / 3,
-        facesCulled: this.calculateCulledFaces(chunkData.blocks.length, indexBuffer.count),
-        verticesWelded: 0, // Would be calculated during vertex welding
-        outputMemoryUsage: this.calculateMemoryUsage(meshData),
-        meshQuality: this.calculateMeshQuality(meshData),
-      }
-
-      return {
-        meshData: generatedMeshData,
-        chunkCoordinates: chunkData.coordinates,
-        algorithm: meshAlg,
-        lodLevel,
-        generationTime: totalTime,
-        metrics,
-      } satisfies MeshGenerationResult
-    })
-
-  generateNaiveMesh = (
-    chunkData: ChunkData,
-    options?: MeshGenerationOptions,
-  ): Effect.Effect<GeneratedMeshData, never, never> =>
-    Effect.gen(function* () {
-      const meshData = EnhancedMeshAlgorithms.generateEnhancedNaiveMesh(chunkData, undefined, {})
-      return yield* this.createGeneratedMeshData(meshData, options)
-    })
-
-  generateGreedyMesh = (
-    chunkData: ChunkData,
-    options?: MeshGenerationOptions,
-  ): Effect.Effect<GeneratedMeshData, never, never> =>
-    Effect.gen(function* () {
-      const meshData = EnhancedMeshAlgorithms.generateEnhancedGreedyMesh(chunkData, undefined, {})
-      return yield* this.createGeneratedMeshData(meshData, options)
-    })
-
-  calculateBounds = (positions: Float32Array): Effect.Effect<BoundingVolume, never, never> =>
-    Effect.gen(function* () {
-      return MeshGeneratorHelpers.calculateMeshBounds(positions)
-    })
-
-  isAvailable = (): Effect.Effect<boolean, never, never> =>
-    Effect.gen(function* () {
-      return true // Always available as it's pure logic
-    })
-
-  /**
-   * Generate mesh data using enhanced algorithms
-   */
-  private generateMeshByEnhancedAlgorithm(
+export const createEnhancedMeshGenerationService = (): IMeshGenerator => {
+  // Helper functions for the service
+  const generateMeshByEnhancedAlgorithm = (
     algorithm: MeshAlgorithm,
     chunkData: ChunkData,
     neighbors?: { readonly [key: string]: ChunkData },
     options?: EnhancedMeshOptimizations,
-  ): VertexAttributes & { readonly indices: readonly number[] } {
+  ): VertexAttributes & { readonly indices: readonly number[] } => {
     switch (algorithm) {
       case 'greedy':
         return EnhancedMeshAlgorithms.generateEnhancedGreedyMesh(chunkData, neighbors, options)
@@ -657,114 +552,131 @@ export class EnhancedMeshGenerationService implements IMeshGenerator {
     }
   }
 
-  /**
-   * Apply enhanced mesh optimizations
-   */
-  private applyEnhancedOptimizations(
+  const applyVertexWelding = (
     meshData: VertexAttributes & { readonly indices: readonly number[] },
-    optimizations: EnhancedMeshOptimizations,
-  ): VertexAttributes & { readonly indices: readonly number[] } {
-    let optimized = { ...meshData }
-
-    // Vertex welding optimization
-    if (optimizations.enableVertexWelding) {
-      optimized = this.applyVertexWelding(optimized)
-    }
-
-    // Index optimization for GPU cache efficiency
-    if (optimizations.enableIndexOptimization) {
-      optimized = this.applyIndexOptimization(optimized)
-    }
-
-    // LOD optimization
-    if (optimizations.enableLOD?.enabled) {
-      optimized = this.applyLODOptimization(optimized, optimizations.enableLOD)
-    }
-
-    // GPU-specific optimizations
-    if (optimizations.optimizeForGPU) {
-      optimized = this.applyGPUOptimizations(optimized)
-    }
-
-    return optimized
-  }
-
-  /**
-   * Apply vertex welding to reduce duplicate vertices
-   */
-  private applyVertexWelding(
-    meshData: VertexAttributes & { readonly indices: readonly number[] },
-  ): VertexAttributes & { readonly indices: readonly number[] } {
+  ): VertexAttributes & { readonly indices: readonly number[] } => {
     // Simplified vertex welding implementation
     // In a full implementation, this would find vertices within a threshold and merge them
     return meshData
   }
 
-  /**
-   * Apply index optimization for better GPU cache performance
-   */
-  private applyIndexOptimization(
+  const applyIndexOptimization = (
     meshData: VertexAttributes & { readonly indices: readonly number[] },
-  ): VertexAttributes & { readonly indices: readonly number[] } {
+  ): VertexAttributes & { readonly indices: readonly number[] } => {
     // Simplified index optimization
     // In a full implementation, this would use algorithms like Forsyth vertex cache optimization
     return meshData
   }
 
-  /**
-   * Apply Level of Detail optimization
-   */
-  private applyLODOptimization(
+  const applyLODOptimization = (
     meshData: VertexAttributes & { readonly indices: readonly number[] },
     lodSettings: LODSettings,
-  ): VertexAttributes & { readonly indices: readonly number[] } {
+  ): VertexAttributes & { readonly indices: readonly number[] } => {
     // Simplified LOD implementation
     // Would reduce vertices and faces based on LOD settings
     return meshData
   }
 
-  /**
-   * Apply GPU-specific optimizations
-   */
-  private applyGPUOptimizations(
+  const applyGPUOptimizations = (
     meshData: VertexAttributes & { readonly indices: readonly number[] },
-  ): VertexAttributes & { readonly indices: readonly number[] } {
+  ): VertexAttributes & { readonly indices: readonly number[] } => {
     // GPU optimizations like vertex attribute interleaving
     return meshData
   }
 
-  /**
-   * Create default enhanced optimizations
-   */
-  private createDefaultEnhancedOptimizations(baseOpts?: MeshOptimizations): EnhancedMeshOptimizations {
-    return {
-      enableFaceCulling: baseOpts?.enableFaceCulling ?? true,
-      enableVertexWelding: baseOpts?.enableVertexWelding ?? false,
-      enableIndexOptimization: baseOpts?.enableIndexOptimization ?? false,
-      enableVertexColors: true,
-      enableAmbientOcclusion: false,
-      enableTextureAtlas: false,
-      cullMode: 'basic',
-      optimizeForGPU: false,
-      enableLOD: {
-        enabled: false,
-        maxDistance: 100,
-        levels: [
-          { distance: 25, vertexReduction: 0.0, faceReduction: 0.0 },
-          { distance: 50, vertexReduction: 0.25, faceReduction: 0.25 },
-          { distance: 100, vertexReduction: 0.5, faceReduction: 0.5 },
-        ],
-      },
+  const applyEnhancedOptimizations = (
+    meshData: VertexAttributes & { readonly indices: readonly number[] },
+    optimizations: EnhancedMeshOptimizations,
+  ): VertexAttributes & { readonly indices: readonly number[] } => {
+    let optimized = { ...meshData }
+
+    // Vertex welding optimization
+    if (optimizations.enableVertexWelding) {
+      optimized = applyVertexWelding(optimized)
     }
+
+    // Index optimization for GPU cache efficiency
+    if (optimizations.enableIndexOptimization) {
+      optimized = applyIndexOptimization(optimized)
+    }
+
+    // LOD optimization
+    if (optimizations.enableLOD?.enabled) {
+      optimized = applyLODOptimization(optimized, optimizations.enableLOD)
+    }
+
+    // GPU-specific optimizations
+    if (optimizations.optimizeForGPU) {
+      optimized = applyGPUOptimizations(optimized)
+    }
+
+    return optimized
   }
 
-  /**
-   * Create generated mesh data from vertex attributes
-   */
-  private createGeneratedMeshData(
+  const createDefaultEnhancedOptimizations = (baseOpts?: MeshOptimizations): EnhancedMeshOptimizations => ({
+    enableFaceCulling: baseOpts?.enableFaceCulling ?? true,
+    enableVertexWelding: baseOpts?.enableVertexWelding ?? false,
+    enableIndexOptimization: baseOpts?.enableIndexOptimization ?? false,
+    enableVertexColors: true,
+    enableAmbientOcclusion: false,
+    enableTextureAtlas: false,
+    cullMode: 'basic',
+    optimizeForGPU: false,
+    enableLOD: {
+      enabled: false,
+      maxDistance: 100,
+      levels: [
+        { distance: 25, vertexReduction: 0.0, faceReduction: 0.0 },
+        { distance: 50, vertexReduction: 0.25, faceReduction: 0.25 },
+        { distance: 100, vertexReduction: 0.5, faceReduction: 0.5 },
+      ],
+    },
+  })
+
+  const calculateVertexStride = (meshData: VertexAttributes & { readonly indices: readonly number[] }): number => {
+    let stride = 3 * 4 // position (3 floats)
+    if (meshData.normal) stride += 3 * 4 // normal (3 floats)
+    if (meshData.uv) stride += 2 * 4 // uv (2 floats)
+    if (meshData.color) stride += 3 * 4 // color (3 floats)
+    if (meshData.ambientOcclusion) stride += 1 * 4 // ao (1 float)
+    return stride
+  }
+
+  const calculateCulledFaces = (inputBlocks: number, outputIndices: number): number => {
+    const maxPossibleFaces = inputBlocks * 6 // 6 faces per block
+    const outputFaces = outputIndices / 6 // 6 indices per face (2 triangles)
+    return Math.max(0, maxPossibleFaces - outputFaces)
+  }
+
+  const calculateMemoryUsage = (meshData: VertexAttributes & { readonly indices: readonly number[] }): number => {
+    let memoryUsage = 0
+    
+    memoryUsage += meshData.position.length * 4 // positions
+    if (meshData.normal) memoryUsage += meshData.normal.length * 4 // normals
+    if (meshData.uv) memoryUsage += meshData.uv.length * 4 // uvs
+    if (meshData.color) memoryUsage += meshData.color.length * 4 // colors
+    if (meshData.ambientOcclusion) memoryUsage += meshData.ambientOcclusion.length * 4 // ao
+    memoryUsage += meshData.indices.length * 4 // indices
+
+    return memoryUsage
+  }
+
+  const calculateMeshQuality = (meshData: VertexAttributes & { readonly indices: readonly number[] }): number => {
+    // Simple quality metric based on triangle count and vertex reuse
+    const vertexCount = meshData.position.length / 3
+    const triangleCount = meshData.indices.length / 3
+    
+    if (triangleCount === 0) return 0
+    
+    // Higher vertex reuse indicates better quality/optimization
+    const vertexReuseRatio = triangleCount / vertexCount
+    return Math.min(1.0, vertexReuseRatio / 2.0) // Normalize to 0-1 range
+  }
+
+  const createGeneratedMeshData = (
     meshData: VertexAttributes & { readonly indices: readonly number[] },
     options?: MeshGenerationOptions,
-  ): Effect.Effect<GeneratedMeshData, never, never> {
+  ): Effect.Effect<GeneratedMeshData, never, never> => {
     const opts = options || MeshGeneratorHelpers.createDefaultOptions()
 
     const vertexAttributes = MeshGeneratorHelpers.createTransferableVertexData(
@@ -780,7 +692,7 @@ export class EnhancedMeshGenerationService implements IMeshGenerator {
         ambientOcclusion: meshData.ambientOcclusion ? meshData.ambientOcclusion : undefined,
       },
       vertexCount: meshData.position.length / 3,
-      stride: this.calculateVertexStride(meshData),
+      stride: calculateVertexStride(meshData),
       interleaved: false,
     }
 
@@ -796,56 +708,112 @@ export class EnhancedMeshGenerationService implements IMeshGenerator {
     } satisfies GeneratedMeshData)
   }
 
-  /**
-   * Calculate vertex stride based on available attributes
-   */
-  private calculateVertexStride(meshData: VertexAttributes & { readonly indices: readonly number[] }): number {
-    let stride = 3 * 4 // position (3 floats)
-    if (meshData.normal) stride += 3 * 4 // normal (3 floats)
-    if (meshData.uv) stride += 2 * 4 // uv (2 floats)
-    if (meshData.color) stride += 3 * 4 // color (3 floats)
-    if (meshData.ambientOcclusion) stride += 1 * 4 // ao (1 float)
-    return stride
-  }
+  // Return the service implementation
+  return {
+    generateMesh: (request: EnhancedMeshGenerationRequest): Effect.Effect<MeshGenerationResult, never, never> =>
+      Effect.gen(function* () {
+        const startTime = performance.now()
+        const { chunkData, neighbors, algorithm, optimizations, options, lodLevel } = request
+        
+        const opts = options || MeshGeneratorHelpers.createDefaultOptions()
+        const enhancedOpts = request.enhancedOptimizations || createDefaultEnhancedOptimizations(optimizations)
+        const meshAlg = request.meshAlgorithm || algorithm || 'naive'
 
-  /**
-   * Calculate number of faces culled during generation
-   */
-  private calculateCulledFaces(inputBlocks: number, outputIndices: number): number {
-    const maxPossibleFaces = inputBlocks * 6 // 6 faces per block
-    const outputFaces = outputIndices / 6 // 6 indices per face (2 triangles)
-    return Math.max(0, maxPossibleFaces - outputFaces)
-  }
+        // Generate base mesh data using enhanced algorithms
+        const meshingStart = performance.now()
+        let meshData = generateMeshByEnhancedAlgorithm(meshAlg, chunkData, neighbors, enhancedOpts)
+        const meshingTime = performance.now() - meshingStart
 
-  /**
-   * Calculate memory usage of mesh data
-   */
-  private calculateMemoryUsage(meshData: VertexAttributes & { readonly indices: readonly number[] }): number {
-    let memoryUsage = 0
-    
-    memoryUsage += meshData.position.length * 4 // positions
-    if (meshData.normal) memoryUsage += meshData.normal.length * 4 // normals
-    if (meshData.uv) memoryUsage += meshData.uv.length * 4 // uvs
-    if (meshData.color) memoryUsage += meshData.color.length * 4 // colors
-    if (meshData.ambientOcclusion) memoryUsage += meshData.ambientOcclusion.length * 4 // ao
-    memoryUsage += meshData.indices.length * 4 // indices
+        // Apply enhanced optimizations
+        const optimizationStart = performance.now()
+        meshData = applyEnhancedOptimizations(meshData, enhancedOpts)
+        const optimizationTime = performance.now() - optimizationStart
 
-    return memoryUsage
-  }
+        // Create transferable vertex attributes
+        const vertexAttributes = MeshGeneratorHelpers.createTransferableVertexData(
+          meshData.position,
+          opts.generateNormals && meshData.normal ? meshData.normal : undefined,
+          opts.generateUVs && meshData.uv ? meshData.uv : undefined,
+        )
 
-  /**
-   * Calculate mesh quality metric
-   */
-  private calculateMeshQuality(meshData: VertexAttributes & { readonly indices: readonly number[] }): number {
-    // Simple quality metric based on triangle count and vertex reuse
-    const vertexCount = meshData.position.length / 3
-    const triangleCount = meshData.indices.length / 3
-    
-    if (triangleCount === 0) return 0
-    
-    // Higher vertex reuse indicates better quality/optimization
-    const vertexReuseRatio = triangleCount / vertexCount
-    return Math.min(1.0, vertexReuseRatio / 2.0) // Normalize to 0-1 range
+        // Create vertex buffer with enhanced attributes
+        const vertexBuffer: VertexBuffer = {
+          attributes: {
+            ...vertexAttributes,
+            colors: meshData.color ? meshData.color : undefined,
+            ambientOcclusion: meshData.ambientOcclusion ? meshData.ambientOcclusion : undefined,
+          },
+          vertexCount: meshData.position.length / 3,
+          stride: calculateVertexStride(meshData),
+          interleaved: false,
+        }
+
+        // Create index buffer
+        const indexBuffer: IndexBuffer = MeshGeneratorHelpers.createTransferableIndexBuffer(meshData.indices)
+
+        // Calculate bounds
+        const bounds: BoundingVolume = MeshGeneratorHelpers.calculateMeshBounds(meshData.position)
+
+        // Create final mesh data
+        const generatedMeshData: GeneratedMeshData = {
+          vertexBuffer,
+          indexBuffer,
+          bounds,
+          materials: [], // Simplified - would include actual materials based on block types
+        }
+
+        // Enhanced performance metrics
+        const totalTime = performance.now() - startTime
+        const metrics: MeshGenerationMetrics = {
+          totalTime,
+          meshingTime,
+          optimizationTime,
+          inputBlocks: chunkData.blocks.length,
+          outputVertices: vertexBuffer.vertexCount,
+          outputTriangles: indexBuffer.count / 3,
+          facesCulled: calculateCulledFaces(chunkData.blocks.length, indexBuffer.count),
+          verticesWelded: 0, // Would be calculated during vertex welding
+          outputMemoryUsage: calculateMemoryUsage(meshData),
+          meshQuality: calculateMeshQuality(meshData),
+        }
+
+        return {
+          meshData: generatedMeshData,
+          chunkCoordinates: chunkData.coordinates,
+          algorithm: meshAlg,
+          lodLevel,
+          generationTime: totalTime,
+          metrics,
+        } satisfies MeshGenerationResult
+      }),
+
+    generateNaiveMesh: (
+      chunkData: ChunkData,
+      options?: MeshGenerationOptions,
+    ): Effect.Effect<GeneratedMeshData, never, never> =>
+      Effect.gen(function* () {
+        const meshData = EnhancedMeshAlgorithms.generateEnhancedNaiveMesh(chunkData, undefined, {})
+        return yield* createGeneratedMeshData(meshData, options)
+      }),
+
+    generateGreedyMesh: (
+      chunkData: ChunkData,
+      options?: MeshGenerationOptions,
+    ): Effect.Effect<GeneratedMeshData, never, never> =>
+      Effect.gen(function* () {
+        const meshData = EnhancedMeshAlgorithms.generateEnhancedGreedyMesh(chunkData, undefined, {})
+        return yield* createGeneratedMeshData(meshData, options)
+      }),
+
+    calculateBounds: (positions: Float32Array): Effect.Effect<BoundingVolume, never, never> =>
+      Effect.gen(function* () {
+        return MeshGeneratorHelpers.calculateMeshBounds(positions)
+      }),
+
+    isAvailable: (): Effect.Effect<boolean, never, never> =>
+      Effect.gen(function* () {
+        return true // Always available as it's pure logic
+      })
   }
 }
 
@@ -854,7 +822,7 @@ export class EnhancedMeshGenerationService implements IMeshGenerator {
  */
 export const EnhancedMeshGenerationServiceLive = Layer.succeed(
   MeshGeneratorPort,
-  new EnhancedMeshGenerationService(),
+  createEnhancedMeshGenerationService(),
 )
 
 /**
@@ -869,7 +837,7 @@ export const MeshGenerationService = Context.GenericTag<MeshGenerationService>('
  */
 export const meshGenerationServiceLive = Layer.succeed(
   MeshGenerationService,
-  new EnhancedMeshGenerationService(),
+  createEnhancedMeshGenerationService(),
 )
 
 // Re-export original service for backward compatibility

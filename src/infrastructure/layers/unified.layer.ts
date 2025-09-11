@@ -62,63 +62,48 @@ export type RenderCommandType =
 /**
  * Clock Service - Provides time and delta time for game loop
  */
-export class Clock extends Context.Tag('Clock')<
-  Clock,
-  {
-    readonly getDelta: () => Effect.Effect<number>
-    readonly getElapsedTime: () => Effect.Effect<number>
-    readonly start: () => Effect.Effect<void>
-    readonly stop: () => Effect.Effect<void>
-  }
->() {}
+export const Clock = Context.GenericTag<{
+  readonly getDelta: () => Effect.Effect<number>
+  readonly getElapsedTime: () => Effect.Effect<number>
+  readonly start: () => Effect.Effect<void>
+  readonly stop: () => Effect.Effect<void>
+}>('Clock')
 
 /**
  * Stats Service - Performance monitoring
  */
-export class Stats extends Context.Tag('Stats')<
-  Stats,
-  {
-    readonly begin: () => Effect.Effect<void>
-    readonly end: () => Effect.Effect<void>
-    readonly getStats: () => Effect.Effect<PerformanceStats>
-  }
->() {}
+export const Stats = Context.GenericTag<{
+  readonly begin: () => Effect.Effect<void>
+  readonly end: () => Effect.Effect<void>
+  readonly getStats: () => Effect.Effect<PerformanceStats>
+}>('Stats')
 
 /**
  * Renderer Service - Manages 3D rendering operations
  */
-export class Renderer extends Context.Tag('Renderer')<
-  Renderer,
-  {
-    readonly renderQueue: Queue.Queue<RenderCommandType>
-    readonly updateCamera: (position: THREE.Vector3, rotation: THREE.Euler) => Effect.Effect<void>
-  }
->() {}
+export const Renderer = Context.GenericTag<{
+  readonly renderQueue: Queue.Queue<RenderCommandType>
+  readonly updateCamera: (position: THREE.Vector3, rotation: THREE.Euler) => Effect.Effect<void>
+}>('Renderer')
 
 /**
  * InputManager Service - Handles user input
  */
-export class InputManager extends Context.Tag('InputManager')<
-  InputManager,
-  {
-    readonly initialize: () => Effect.Effect<void>
-    readonly getInputState: () => Effect.Effect<InputState>
-    readonly updateInputState: (state: InputState) => Effect.Effect<void>
-    readonly dispose: () => Effect.Effect<void>
-  }
->() {}
+export const InputManager = Context.GenericTag<{
+  readonly initialize: () => Effect.Effect<void>
+  readonly getInputState: () => Effect.Effect<InputState>
+  readonly updateInputState: (state: InputState) => Effect.Effect<void>
+  readonly dispose: () => Effect.Effect<void>
+}>('InputManager')
 
 /**
  * MaterialManager Service - Manages Three.js materials
  */
-export class MaterialManager extends Context.Tag('MaterialManager')<
-  MaterialManager,
-  {
-    readonly getMaterial: (name: string) => Effect.Effect<THREE.Material>
-    readonly createMaterial: (name: string, config: any) => Effect.Effect<THREE.Material>
-    readonly disposeMaterials: () => Effect.Effect<void>
-  }
->() {}
+export const MaterialManager = Context.GenericTag<{
+  readonly getMaterial: (name: string) => Effect.Effect<THREE.Material>
+  readonly createMaterial: (name: string, config: any) => Effect.Effect<THREE.Material>
+  readonly disposeMaterials: () => Effect.Effect<void>
+}>('MaterialManager')
 
 /**
  * SpatialGrid Service - Spatial partitioning for performance

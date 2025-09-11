@@ -6,93 +6,20 @@
  * and disposal using Three.js APIs.
  */
 
-import { Effect, Layer, Context } from 'effect'
+import { Effect, Layer, Context, Ref } from 'effect'
 import { IMaterialManager, MaterialManagerPort } from '@domain/ports/material-manager.port'
 import * as THREE from 'three'
 
 /**
  * Three.js Material Manager Adapter
  */
-export class MaterialManagerAdapter implements IMaterialManager {
-  private materials = new Map<string, THREE.Material>()
-
-  /**
-   * Get or create a material by name
-   */
-  getMaterial = (name: string): Effect.Effect<THREE.Material, Error, never> =>
-    Effect.gen(function* () {
-      const existing = this.materials.get(name)
-      if (existing) {
-        return existing
-      }
-
-      // Create default materials based on name
-      const material = yield* this.createDefaultMaterial(name)
-      this.materials.set(name, material)
-      return material
-    })
-
-  /**
-   * Create material with specific configuration
-   */
-  createMaterial = (name: string, config: any): Effect.Effect<THREE.Material, Error, never> =>
-    Effect.gen(function* () {
-      let material: THREE.Material
-
-      switch (config.type || 'standard') {
-        case 'basic':
-          material = new THREE.MeshBasicMaterial(config)
-          break
-        case 'standard':
-          material = new THREE.MeshStandardMaterial(config)
-          break
-        case 'physical':
-          material = new THREE.MeshPhysicalMaterial(config)
-          break
-        default:
-          material = new THREE.MeshStandardMaterial(config)
-      }
-
-      this.materials.set(name, material)
-      return material
-    })
-
-  /**
-   * Dispose all materials
-   */
-  disposeMaterials = (): Effect.Effect<void, never, never> =>
-    Effect.gen(function* () {
-      for (const material of this.materials.values()) {
-        material.dispose()
-      }
-      this.materials.clear()
-    })
-
-  /**
-   * Check if material exists
-   */
-  hasMaterial = (name: string): Effect.Effect<boolean, never, never> =>
-    Effect.succeed(this.materials.has(name))
-
-  /**
-   * Remove specific material
-   */
-  removeMaterial = (name: string): Effect.Effect<void, never, never> =>
-    Effect.gen(function* () {
-      const material = this.materials.get(name)
-      if (material) {
-        material.dispose()
-        this.materials.delete(name)
-      }
-    })
-
-  isAvailable = (): Effect.Effect<boolean, never, never> =>
-    Effect.succeed(typeof THREE !== 'undefined')
+export const createMaterialManagerAdapter = () => Effect.gen(function* () {
+  const materialsRef = yield* Ref.make<Map<string, THREE.Material>>(new Map())
 
   /**
    * Create default material based on name
    */
-  private createDefaultMaterial = (name: string): Effect.Effect<THREE.Material, Error, never> =>
+  const createDefaultMaterial = (name: string): Effect.Effect<THREE.Material, Error, never> =>
     Effect.gen(function* () {
       switch (name) {
         case 'chunk':
@@ -117,14 +44,106 @@ export class MaterialManagerAdapter implements IMaterialManager {
           })
       }
     })
-}
+
+  return {
+    /**
+     * Get or create a material by name
+     */
+    getMaterial: (name: string): Effect.Effect<THREE.Material, Error, never> =>
+      Effect.gen(function* () {
+        const materials = yield* Ref.get(materialsRef)
+        const existing = materials.get(name)
+        if (existing) {
+          return existing
+        }
+
+        // Create default materials based on name
+        const material = yield* createDefaultMaterial(name)
+        yield* Ref.update(materialsRef, materials => {
+          const newMaterials = new Map(materials)
+          newMaterials.set(name, material)
+          return newMaterials
+        })
+        return material
+      }),
+
+    /**
+     * Create material with specific configuration
+     */
+    createMaterial: (name: string, config: any): Effect.Effect<THREE.Material, Error, never> =>
+      Effect.gen(function* () {
+        let material: THREE.Material
+
+        switch (config.type || 'standard') {
+          case 'basic':
+            material = new THREE.MeshBasicMaterial(config)
+            break
+          case 'standard':
+            material = new THREE.MeshStandardMaterial(config)
+            break
+          case 'physical':
+            material = new THREE.MeshPhysicalMaterial(config)
+            break
+          default:
+            material = new THREE.MeshStandardMaterial(config)
+        }
+
+        yield* Ref.update(materialsRef, materials => {
+          const newMaterials = new Map(materials)
+          newMaterials.set(name, material)
+          return newMaterials
+        })
+        return material
+      }),
+
+    /**
+     * Dispose all materials
+     */
+    disposeMaterials: (): Effect.Effect<void, never, never> =>
+      Effect.gen(function* () {
+        const materials = yield* Ref.get(materialsRef)
+        for (const material of materials.values()) {
+          material.dispose()
+        }
+        yield* Ref.set(materialsRef, new Map())
+      }),
+
+    /**
+     * Check if material exists
+     */
+    hasMaterial: (name: string): Effect.Effect<boolean, never, never> =>
+      Ref.get(materialsRef).pipe(
+        Effect.map(materials => materials.has(name))
+      ),
+
+    /**
+     * Remove specific material
+     */
+    removeMaterial: (name: string): Effect.Effect<void, never, never> =>
+      Effect.gen(function* () {
+        const materials = yield* Ref.get(materialsRef)
+        const material = materials.get(name)
+        if (material) {
+          material.dispose()
+          yield* Ref.update(materialsRef, materials => {
+            const newMaterials = new Map(materials)
+            newMaterials.delete(name)
+            return newMaterials
+          })
+        }
+      }),
+
+    isAvailable: (): Effect.Effect<boolean, never, never> =>
+      Effect.succeed(typeof THREE !== 'undefined')
+  } satisfies IMaterialManager
+})
 
 /**
  * Live layer for Material Manager Adapter
  */
-export const MaterialManagerAdapterLive = Layer.succeed(
+export const MaterialManagerAdapterLive = Layer.effect(
   MaterialManagerPort,
-  new MaterialManagerAdapter(),
+  createMaterialManagerAdapter()
 )
 
 /**

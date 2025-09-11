@@ -10,7 +10,7 @@
  * - Customizable targeting behaviors
  */
 
-import { Effect, Array as _EffArray, Duration, Option } from 'effect'
+import { Effect, Array as _EffArray, Duration, Option, Context, Layer, Ref } from 'effect'
 import { ArchetypeQuery } from '@domain/entities/components/archetype-query-system'
 // Domain layer should not depend on application layer services
 // Removed dependencies:
@@ -280,19 +280,35 @@ export const TargetingUtils = {
 }
 
 /**
+ * Targeting processor state
+ */
+interface TargetingProcessorState {
+  readonly targetCandidates: TargetCandidate[]
+  readonly raycastCache: Map<string, RaycastHit>
+  readonly targetValidationCache: Map<string, boolean>
+  readonly config: TargetConfig
+}
+
+/**
+ * Create targeting processor state
+ */
+const createTargetingProcessorState = (config: TargetConfig): TargetingProcessorState => ({
+  targetCandidates: [],
+  raycastCache: new Map(),
+  targetValidationCache: new Map(),
+  config,
+})
+
+/**
  * Advanced targeting processor with Effect-TS patterns
  */
-class TargetingProcessor {
-  private targetCandidates: TargetCandidate[] = []
-  private raycastCache = new Map<string, RaycastHit>()
-  private targetValidationCache = new Map<string, boolean>()
-
-  constructor(private config: TargetConfig) {}
+const TargetingProcessor = {
 
   /**
    * Process targeting for all players using Effect
    */
-  processTargeting(
+  processTargeting: (
+    state: TargetingProcessorState,
     players: {
       entityId: EntityId
       position: Position
@@ -301,7 +317,7 @@ class TargetingProcessor {
       currentTarget: Option.Option<TargetComponent>
     }[],
     worldPort: WorldPort,
-  ): Effect.Effect<
+  ) => Effect.Effect<
     {
       targetUpdates: Map<EntityId, TargetComponent>
       raycastResults: Map<EntityId, RaycastHit[]>
@@ -310,13 +326,13 @@ class TargetingProcessor {
     never,
     never
   > {
-    return Effect.gen(function* () {
+    return (state, players, worldPort) => Effect.gen(function* () {
       const targetUpdates = new Map<EntityId, TargetComponent>()
       const raycastResults = new Map<EntityId, RaycastHit[]>()
       const validationErrors: string[] = []
 
       const results = yield* Effect.all(
-        players.map(player => this.processPlayerTargeting(player, worldPort)),
+        players.map(player => TargetingProcessor.processPlayerTargeting(state, player, worldPort)),
         { concurrency: 4 }
       )
 
@@ -345,13 +361,14 @@ class TargetingProcessor {
         raycastResults,
         validationErrors,
       }
-    }).bind(this)
-  }
+    })
+  },
 
   /**
    * Process targeting for a single player using Effect
    */
-  private processPlayerTargeting(
+  processPlayerTargeting: (
+    state: TargetingProcessorState,
     player: {
       entityId: EntityId
       position: Position
@@ -360,25 +377,25 @@ class TargetingProcessor {
       currentTarget: Option.Option<TargetComponent>
     },
     worldPort: WorldPort,
-  ): Effect.Effect<TargetSelectionResult, never, never> {
-    return Effect.gen(function* () {
+  ) => Effect.Effect<TargetSelectionResult, never, never> {
+    return (state, player, worldPort) => Effect.gen(function* () {
       // Create ray from camera
       const ray = TargetingUtils.createRayFromCamera(player.position, player.cameraState)
 
       // Perform raycast
-      const raycastHits = yield* this.performRaycast(ray, worldPort)
+      const raycastHits = yield* TargetingProcessor.performRaycast(state, ray, worldPort)
 
       // Generate target candidates
-      const candidates = yield* this.generateTargetCandidates(ray, raycastHits, player.position, worldPort)
+      const candidates = yield* TargetingProcessor.generateTargetCandidates(state, ray, raycastHits, player.position, worldPort)
 
       // Filter and prioritize candidates
-      const filteredCandidates = this.filterAndPrioritizeCandidates(candidates)
+      const filteredCandidates = TargetingProcessor.filterAndPrioritizeCandidates(state, candidates)
 
       // Select primary target
       const primary = filteredCandidates.length > 0 ? Option.some(filteredCandidates[0]!) : Option.none<TargetCandidate>()
 
       // Select secondary targets
-      const secondary = this.config.multiTargetSelection ? filteredCandidates.slice(1, this.config.maxTargets) : []
+      const secondary = state.config.multiTargetSelection ? filteredCandidates.slice(1, state.config.maxTargets) : []
 
       return {
         primary,
@@ -386,17 +403,21 @@ class TargetingProcessor {
         raycastHits,
         validationErrors: [],
       }
-    }).bind(this)
-  }
+    })
+  },
 
   /**
    * Perform raycast with optimizations using Effect
    */
-  private performRaycast(ray: Ray, worldPort: WorldPort): Effect.Effect<RaycastHit[], never, never> {
-    return Effect.gen(function* () {
+  performRaycast: (
+    state: TargetingProcessorState,
+    ray: Ray,
+    worldPort: WorldPort
+  ) => Effect.Effect<RaycastHit[], never, never> {
+    return (state, ray, worldPort) => Effect.gen(function* () {
       const hits: RaycastHit[] = []
-      const stepSize = this.config.raycastStepSize
-      const maxDistance = this.config.maxTargetDistance
+      const stepSize = state.config.raycastStepSize
+      const maxDistance = state.config.maxTargetDistance
 
       // Step along ray
       for (let distance = 0; distance < maxDistance; distance += stepSize) {
@@ -409,7 +430,7 @@ class TargetingProcessor {
         const position: Position = { x: point.x, y: point.y, z: point.z }
 
         // Check for block collision
-        if (this.config.enableBlockTargeting) {
+        if (state.config.enableBlockTargeting) {
           const blockPos = TargetingUtils.worldToBlockPosition(position)
           const voxel = yield* worldPort.getVoxel(blockPos.x, blockPos.y, blockPos.z)
 
@@ -432,14 +453,20 @@ class TargetingProcessor {
       }
 
       return hits
-    }).bind(this)
-  }
+    })
+  },
 
   /**
    * Generate target candidates from raycast results using Effect
    */
-  private generateTargetCandidates(_ray: Ray, hits: RaycastHit[], _playerPosition: Position, worldPort: WorldPort): Effect.Effect<TargetCandidate[], never, never> {
-    return Effect.gen(function* () {
+  generateTargetCandidates: (
+    state: TargetingProcessorState,
+    _ray: Ray,
+    hits: RaycastHit[],
+    _playerPosition: Position,
+    worldPort: WorldPort
+  ) => Effect.Effect<TargetCandidate[], never, never> {
+    return (state, _ray, hits, _playerPosition, worldPort) => Effect.gen(function* () {
       const candidates: TargetCandidate[] = []
 
       for (const hit of hits) {
@@ -460,7 +487,7 @@ class TargetingProcessor {
               isValid: true,
             }
 
-            if (TargetingUtils.validateTarget(candidate, this.config)) {
+            if (TargetingUtils.validateTarget(candidate, state.config)) {
               candidates.push(candidate)
             }
           }
@@ -480,7 +507,7 @@ class TargetingProcessor {
               isValid: true,
             }
 
-            if (TargetingUtils.validateTarget(candidate, this.config)) {
+            if (TargetingUtils.validateTarget(candidate, state.config)) {
               candidates.push(candidate)
             }
           }
@@ -488,40 +515,45 @@ class TargetingProcessor {
       }
 
       return candidates
-    }).bind(this)
-  }
+    })
+  },
 
   /**
    * Filter and prioritize candidates
    */
-  private filterAndPrioritizeCandidates(candidates: TargetCandidate[]): TargetCandidate[] {
-    // Apply filters
-    let filteredCandidates = candidates.filter((candidate) => TargetingUtils.validateTarget(candidate, this.config))
+  filterAndPrioritizeCandidates: (
+    state: TargetingProcessorState,
+    candidates: TargetCandidate[]
+  ) => TargetCandidate[] {
+    return (state, candidates) => {
+      // Apply filters
+      let filteredCandidates = candidates.filter((candidate) => TargetingUtils.validateTarget(candidate, state.config))
 
-    // Calculate priorities
-    filteredCandidates = filteredCandidates.map((candidate) => ({
-      ...candidate,
-      priority: TargetingUtils.calculateTargetPriority(candidate, this.config),
-    }))
+      // Calculate priorities
+      filteredCandidates = filteredCandidates.map((candidate) => ({
+        ...candidate,
+        priority: TargetingUtils.calculateTargetPriority(candidate, state.config),
+      }))
 
-    // Sort by priority (highest first)
-    return filteredCandidates.sort((a, b) => b.priority - a.priority)
-  }
+      // Sort by priority (highest first)
+      return filteredCandidates.sort((a, b) => b.priority - a.priority)
+    }
+  },
 
   /**
    * Get processor statistics
    */
-  getStats(): {
+  getStats: (state: TargetingProcessorState) => {
     candidateCount: number
     raycastCacheSize: number
     validationCacheSize: number
   } {
-    return {
-      candidateCount: this.targetCandidates.length,
-      raycastCacheSize: this.raycastCache.size,
-      validationCacheSize: this.targetValidationCache.size,
-    }
-  }
+    return (state) => ({
+      candidateCount: state.targetCandidates.length,
+      raycastCacheSize: state.raycastCache.size,
+      validationCacheSize: state.targetValidationCache.size,
+    })
+  },
 }
 
 // ===== TARGETING DOMAIN SERVICE =====
@@ -555,11 +587,15 @@ export const AdvancedTargetingServiceLive = Layer.effect(
   Effect.gen(function* () {
     const worldPort = yield* WorldPort
 
-    // Create processor with default config
-    let processor = new TargetingProcessor(defaultTargetConfig)
+    // Create processor state with default config
+    const processorStateRef = yield* Ref.make(createTargetingProcessorState(defaultTargetConfig))
 
     return AdvancedTargetingService.of({
-      processTargeting: (players) => processor.processTargeting(players, worldPort),
+      processTargeting: (players) =>
+        Effect.gen(function* () {
+          const processorState = yield* Ref.get(processorStateRef)
+          return yield* TargetingProcessor.processTargeting(processorState, players, worldPort)
+        }),
       updateTargetConfig: (config) =>
         Effect.gen(function* () {
           const targetConfig = {
@@ -567,9 +603,12 @@ export const AdvancedTargetingServiceLive = Layer.effect(
             ...config,
             targetFilters: [...defaultTargetFilters, ...(config.targetFilters || [])],
           }
-          processor = new TargetingProcessor(targetConfig)
+          yield* Ref.set(processorStateRef, createTargetingProcessorState(targetConfig))
         }),
-      getStats: () => Effect.succeed(processor.getStats()),
+      getStats: () => Effect.gen(function* () {
+        const processorState = yield* Ref.get(processorStateRef)
+        return TargetingProcessor.getStats(processorState)
+      }),
     })
   })
 )

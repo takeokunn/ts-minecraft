@@ -1,7 +1,6 @@
-import { Effect, Option, HashMap } from 'effect'
+import { Effect, Option, HashMap, Context, Layer } from 'effect'
 import { ReadonlyArray } from 'effect/ReadonlyArray'
 import { EntityId } from '@domain/entities'
-import { queries } from '@application/queries'
 import { CHUNK_SIZE, RENDER_DISTANCE } from '@domain/constants/world-constants'
 import { WorldDomainService } from '@domain/services/world-domain.service'
 import { ChunkLoadUseCase } from '@application/use-cases/chunk-load.use-case'
@@ -73,47 +72,82 @@ const getPlayerChunk = (position: Position): ChunkCoord => ({
   z: Math.floor(position.z / CHUNK_SIZE),
 })
 
-export const chunkLoadingWorkflow = Effect.gen(function* (_) {
-  const worldService = yield* _(WorldDomainService)
-  const chunkLoadUseCase = yield* _(ChunkLoadUseCase)
-
-  // Get current player position
-  const playerPosition = yield* _(worldService.getPlayerPosition())
-
-  if (!playerPosition) {
-    yield* _(Effect.log('No player position found, skipping chunk loading'))
-    return
+/**
+ * Chunk Loading Workflow Service interface
+ */
+export interface ChunkLoadingWorkflowService {
+  readonly executeChunkLoading: () => Effect.Effect<void, Error>
+  readonly calculateUpdates: (currentPlayerChunk: ChunkCoord, loadedChunks: HashMap.HashMap<string, EntityId>, renderDistance: number) => {
+    toLoad: ReadonlyArray<ChunkCoord>
+    toUnload: ReadonlyArray<EntityId>
   }
+}
 
-  const currentPlayerChunk = getPlayerChunk(playerPosition)
+/**
+ * Chunk Loading Workflow Service
+ */
+export const ChunkLoadingWorkflow = Context.GenericTag<ChunkLoadingWorkflowService>('ChunkLoadingWorkflow')
 
-  // Get currently loaded chunks
-  const loadedChunks = yield* _(worldService.getLoadedChunks())
-  const loadedChunkMap = HashMap.fromIterable(loadedChunks.map((chunk) => [ChunkCoord.asString({ x: chunk.chunkX, z: chunk.chunkZ }), chunk]))
+export const ChunkLoadingWorkflowLive = Layer.effect(
+  ChunkLoadingWorkflow,
+  Effect.gen(function* () {
+    const executeChunkLoading = () =>
+      Effect.gen(function* (_) {
+        const worldService = yield* _(WorldDomainService)
+        const chunkLoadUseCase = yield* _(ChunkLoadUseCase)
 
-  const { toLoad, toUnload } = calculateChunkUpdates(
-    currentPlayerChunk,
-    HashMap.map(loadedChunkMap, (chunk) => chunk.chunkX.toString()), // Convert to simple mapping for compatibility
-    RENDER_DISTANCE,
-  )
+        // Get current player position
+        const playerPosition = yield* _(worldService.getPlayerPosition())
 
-  // Load new chunks
-  yield* _(
-    Effect.forEach(
-      toLoad,
-      (coord) =>
-        chunkLoadUseCase.execute({
-          chunkX: coord.x,
-          chunkZ: coord.z,
-          priority: 'medium',
-          requesterId: 'chunk-loading-workflow',
-        }),
-      { concurrency: 4, discard: true },
-    ),
-  )
+        if (!playerPosition) {
+          yield* _(Effect.log('No player position found, skipping chunk loading'))
+          return
+        }
 
-  // Unload distant chunks
-  yield* _(Effect.forEach(toUnload, (entityId) => worldService.unloadChunk(entityId), { concurrency: 4, discard: true }))
+        const currentPlayerChunk = getPlayerChunk(playerPosition)
 
-  yield* _(Effect.log(`Chunk loading workflow completed: ${toLoad.length} loaded, ${toUnload.length} unloaded`))
+        // Get currently loaded chunks
+        const loadedChunks = yield* _(worldService.getLoadedChunks())
+        const loadedChunkMap = HashMap.fromIterable(loadedChunks.map((chunk) => [ChunkCoord.asString({ x: chunk.chunkX, z: chunk.chunkZ }), chunk]))
+
+        const { toLoad, toUnload } = calculateChunkUpdates(
+          currentPlayerChunk,
+          HashMap.map(loadedChunkMap, (chunk) => chunk.chunkX.toString()), // Convert to simple mapping for compatibility
+          RENDER_DISTANCE,
+        )
+
+        // Load new chunks
+        yield* _(
+          Effect.forEach(
+            toLoad,
+            (coord) =>
+              chunkLoadUseCase.execute({
+                chunkX: coord.x,
+                chunkZ: coord.z,
+                priority: 'medium',
+                requesterId: 'chunk-loading-workflow',
+              }),
+            { concurrency: 4, discard: true },
+          ),
+        )
+
+        // Unload distant chunks
+        yield* _(Effect.forEach(toUnload, (entityId) => worldService.unloadChunk(entityId), { concurrency: 4, discard: true }))
+
+        yield* _(Effect.log(`Chunk loading workflow completed: ${toLoad.length} loaded, ${toUnload.length} unloaded`))
+      })
+
+    return {
+      executeChunkLoading,
+      calculateUpdates: calculateChunkUpdates
+    } satisfies ChunkLoadingWorkflowService
+  })
+)
+
+/**
+ * Legacy function to maintain compatibility
+ */
+export const chunkLoadingWorkflow = Effect.gen(function* (_) {
+  const workflow = yield* _(ChunkLoadingWorkflow)
+  yield* _(workflow.executeChunkLoading())
 })

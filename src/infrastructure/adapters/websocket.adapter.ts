@@ -108,7 +108,7 @@ export interface IWebSocketAdapter {
   >
 }
 
-export class WebSocketAdapter extends Context.GenericTag('WebSocketAdapter')<WebSocketAdapter, IWebSocketAdapter>() {}
+export const WebSocketAdapter = Context.GenericTag<IWebSocketAdapter>('WebSocketAdapter')
 
 /**
  * WebSocket adapter state

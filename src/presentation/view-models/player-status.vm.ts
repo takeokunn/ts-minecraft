@@ -79,6 +79,13 @@ const PlayerStatusViewModelLive = Effect.gen(function* ($) {
   }
 })
 
-export class PlayerStatusViewModel extends Context.GenericTag('PlayerStatusViewModel')<PlayerStatusViewModel, PlayerStatusViewModelInterface>() {
-  static readonly Live: Layer.Layer<PlayerStatusViewModel, never, QueryHandlers> = Layer.effect(PlayerStatusViewModel, PlayerStatusViewModelLive)
-}
+// Create context tag for dependency injection
+export const PlayerStatusViewModel = Context.GenericTag<PlayerStatusViewModelInterface>('PlayerStatusViewModel')
+
+// Layer for dependency injection
+export const PlayerStatusViewModelLive: Layer.Layer<PlayerStatusViewModel, never, QueryHandlers> = 
+  Layer.effect(PlayerStatusViewModel, PlayerStatusViewModelLive)
+
+// Factory function for direct usage
+export const createPlayerStatusViewModel = (queryHandlers: any) => 
+  Effect.runSync(Effect.provide(PlayerStatusViewModelLive, Layer.succeed(QueryHandlers, queryHandlers)))

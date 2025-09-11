@@ -7,8 +7,8 @@
  */
 
 import { Layer, Effect, Context, Ref, Queue } from 'effect'
-import { MathPort, RenderPort, WorldRepositoryPort, TerrainGeneratorPort, SpatialGridPort } from '../../src/domain/ports'
-import { WorldDomainService, PhysicsDomainService, EntityDomainService } from '../../src/layers'
+import { MathPort, RenderPort, WorldRepositoryPort, TerrainGeneratorPort, SpatialGridPort } from '@domain/ports'
+import { WorldDomainService, PhysicsDomainService, EntityDomainService } from '@infrastructure/layers'
 
 // Mock implementations for all ports
 const mockMathPortImpl = {

@@ -1,4 +1,93 @@
-export * from './cli'
-export * from './controllers'
-export * from './view-models'
-export * from './web'
+// Controllers - Named exports for better tree-shaking
+export { 
+  DebugController, 
+  DebugControllerLive,
+  createDebugController,
+  type DebugControllerInterface,
+  type DebugState,
+  GameController, 
+  GameControllerLive,
+  createGameController,
+  type GameControllerInterface,
+  type GameControllerState,
+  UIController, 
+  UIControllerLive,
+  createUIController,
+  type UIControllerInterface,
+  type UIState,
+  type HotbarItem,
+  type Notification 
+} from './controllers'
+
+// View Models - Named exports for better tree-shaking
+export { 
+  GameStateViewModel,
+  GameStateViewModelLive,
+  createGameStateViewModel,
+  type GameStateViewModelInterface,
+  type GameStateViewModelExtended,
+  type GameStateView,
+  type MemoryUsage,
+  PlayerStatusViewModel,
+  PlayerStatusViewModelLive,
+  createPlayerStatusViewModel,
+  type PlayerStatusViewModelInterface,
+  type PlayerStatusView,
+  type Position3D,
+  type HealthStatus,
+  WorldInfoViewModel,
+  WorldInfoViewModelLive,
+  createWorldInfoViewModel,
+  type WorldInfoViewModelInterface,
+  type WorldInfoView,
+  type TimeInfo,
+  type WeatherInfo 
+} from './view-models'
+
+// CLI Tools - Named exports for better tree-shaking
+export { 
+  createGameDebugger,
+  createGameDebuggerFactory,
+  type GameDebuggerState,
+  type GameDebuggerConfig,
+  createPerformanceProfiler,
+  createPerformanceProfilerFactory,
+  type PerformanceProfilerState,
+  type PerformanceRecord,
+  type PerformanceStats,
+  createDevConsole,
+  createDevConsoleFactory,
+  type ConsoleCommand,
+  type DevConsoleState,
+  createEntityInspector,
+  createEntityInspectorFactory,
+  type EntityInspectorState,
+  type EntityInspectorConfig,
+  type EntityInfo,
+  createWorldEditor,
+  createWorldEditorFactory,
+  type WorldEditorState,
+  type WorldEditorConfig,
+  type WorldEditAction,
+  createNetworkInspector,
+  createNetworkInspectorFactory,
+  type NetworkInspectorState,
+  type NetworkInspectorConfig,
+  createDevToolsManager,
+  createDevToolsManagerFactory,
+  type DevToolsState,
+  type DevToolsConfig,
+  createStateDebugger,
+  createStateDebuggerFactory,
+  type StateDebuggerState,
+  type StateDebuggerConfig,
+  type ComponentState,
+  type StateSnapshot,
+  type StateDiff,
+  defaultCliConfig 
+} from './cli'
+
+// Web application entry point
+export { 
+  startWebApplication 
+} from './web'

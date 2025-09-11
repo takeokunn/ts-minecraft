@@ -11,7 +11,7 @@
  * - Performance monitoring for communication overhead
  */
 
-import { Effect, Context, Layer, Queue, Option, Ref, PubSub } from 'effect'
+import { Effect, Context, Layer, Queue, Option, Ref, PubSub, Schema } from 'effect'
 import { EntityId } from '@domain/entities'
 
 /**
@@ -106,15 +106,10 @@ export interface CommunicationConfig {
 /**
  * Communication errors
  */
-export class CommunicationError extends Error {
-  readonly _tag = 'CommunicationError'
-  constructor(
-    message: string,
-    readonly cause?: unknown,
-  ) {
-    super(message)
-  }
-}
+export class CommunicationError extends Schema.TaggedError<CommunicationError>()('CommunicationError', {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown)
+}) {}
 
 /**
  * System Communication Service interface

@@ -1,3 +1,5 @@
+import { Effect, Ref } from 'effect'
+
 export interface NetworkRequest {
   id: string
   url: string
@@ -13,58 +15,50 @@ export interface NetworkRequest {
   response?: any
 }
 
-export class NetworkInspector {
-  private isOpen: boolean = false
-  private inspectorElement: HTMLElement | null = null
-  private requests: NetworkRequest[] = []
-  private isRecording: boolean = true
-  private maxRequests: number = 1000
+export const createNetworkInspector = () => Effect.gen(function* () {
+  const isOpenRef = yield* Ref.make(false)
+  const inspectorElementRef = yield* Ref.make<HTMLElement | null>(null)
+  const requestsRef = yield* Ref.make<NetworkRequest[]>([])
+  const isRecordingRef = yield* Ref.make(true)
+  const maxRequestsRef = yield* Ref.make(1000)
 
-  // オリジナルのメソッドを保存
-  private originalFetch: typeof fetch
-  private originalXHROpen: any
-  private originalXHRSend: any
+  // Store original methods
+  const originalFetchRef = yield* Ref.make(window.fetch)
+  const originalXHROpenRef = yield* Ref.make(XMLHttpRequest.prototype.open)
+  const originalXHRSendRef = yield* Ref.make(XMLHttpRequest.prototype.send)
 
-  constructor() {
-    this.originalFetch = window.fetch
-    this.originalXHROpen = XMLHttpRequest.prototype.open
-    this.originalXHRSend = XMLHttpRequest.prototype.send
-
-    if (import.meta.env.DEV) {
-      this.createInspectorUI()
-      this.setupNetworkInterception()
-    }
-  }
-
-  toggle(): void {
-    if (this.isOpen) {
-      this.close()
+  const toggle = () => Effect.gen(function* () {
+    const isOpen = yield* Ref.get(isOpenRef)
+    if (isOpen) {
+      yield* close()
     } else {
-      this.open()
+      yield* open()
     }
-  }
+  })
 
-  open(): void {
-    this.isOpen = true
-    if (this.inspectorElement) {
-      this.inspectorElement.style.display = 'block'
-      this.refreshRequestList()
+  const open = () => Effect.gen(function* () {
+    yield* Ref.set(isOpenRef, true)
+    const element = yield* Ref.get(inspectorElementRef)
+    if (element) {
+      element.style.display = 'block'
+      yield* refreshRequestList()
     }
-    console.log('🌐 Network Inspector opened')
-  }
+    yield* Effect.log('🌐 Network Inspector opened')
+  })
 
-  close(): void {
-    this.isOpen = false
-    if (this.inspectorElement) {
-      this.inspectorElement.style.display = 'none'
+  const close = () => Effect.gen(function* () {
+    yield* Ref.set(isOpenRef, false)
+    const element = yield* Ref.get(inspectorElementRef)
+    if (element) {
+      element.style.display = 'none'
     }
-    console.log('🌐 Network Inspector closed')
-  }
+    yield* Effect.log('🌐 Network Inspector closed')
+  })
 
-  private createInspectorUI(): void {
-    this.inspectorElement = document.createElement('div')
-    this.inspectorElement.id = 'network-inspector'
-    this.inspectorElement.style.cssText = `
+  const createInspectorUI = () => Effect.gen(function* () {
+    const inspectorElement = document.createElement('div')
+    inspectorElement.id = 'network-inspector'
+    inspectorElement.style.cssText = `
       position: fixed;
       bottom: 10px;
       right: 10px;
@@ -81,14 +75,15 @@ export class NetworkInspector {
       flex-direction: column;
     `
 
-    this.createHeader()
-    this.createContent()
+    yield* createHeader(inspectorElement)
+    yield* createContent(inspectorElement)
 
-    document.body.appendChild(this.inspectorElement)
-    this.setupEventListeners()
-  }
+    document.body.appendChild(inspectorElement)
+    yield* Ref.set(inspectorElementRef, inspectorElement)
+    yield* setupEventListeners()
+  })
 
-  private createHeader(): void {
+  const createHeader = (parentElement: HTMLElement) => Effect.gen(function* () {
     const header = document.createElement('div')
     header.style.cssText = `
       background: #333;
@@ -106,28 +101,29 @@ export class NetworkInspector {
     const controls = document.createElement('div')
     controls.style.cssText = 'display: flex; gap: 5px; align-items: center;'
 
+    const isRecording = yield* Ref.get(isRecordingRef)
     const recordToggle = document.createElement('button')
-    recordToggle.textContent = this.isRecording ? '⏸️' : '▶️'
+    recordToggle.textContent = isRecording ? '⏸️' : '▶️'
     recordToggle.title = 'Toggle Recording'
     recordToggle.style.cssText = 'background: #555; border: none; color: white; padding: 2px 6px; border-radius: 3px; cursor: pointer;'
-    recordToggle.onclick = () => this.toggleRecording(recordToggle)
+    recordToggle.onclick = () => Effect.runSync(toggleRecording(recordToggle))
 
     const clearButton = document.createElement('button')
     clearButton.textContent = '🧹'
     clearButton.title = 'Clear'
     clearButton.style.cssText = 'background: #555; border: none; color: white; padding: 2px 6px; border-radius: 3px; cursor: pointer;'
-    clearButton.onclick = () => this.clearRequests()
+    clearButton.onclick = () => Effect.runSync(clearRequests())
 
     const exportButton = document.createElement('button')
     exportButton.textContent = '💾'
     exportButton.title = 'Export'
     exportButton.style.cssText = 'background: #555; border: none; color: white; padding: 2px 6px; border-radius: 3px; cursor: pointer;'
-    exportButton.onclick = () => this.exportRequests()
+    exportButton.onclick = () => Effect.runSync(exportRequests())
 
     const closeButton = document.createElement('button')
     closeButton.textContent = '✕'
     closeButton.style.cssText = 'background: #d33; border: none; color: white; padding: 2px 6px; border-radius: 3px; cursor: pointer;'
-    closeButton.onclick = () => this.close()
+    closeButton.onclick = () => Effect.runSync(close())
 
     controls.appendChild(recordToggle)
     controls.appendChild(clearButton)
@@ -137,14 +133,14 @@ export class NetworkInspector {
     header.appendChild(title)
     header.appendChild(controls)
 
-    this.inspectorElement!.appendChild(header)
-  }
+    parentElement.appendChild(header)
+  })
 
-  private createContent(): void {
+  const createContent = (parentElement: HTMLElement) => Effect.gen(function* () {
     const content = document.createElement('div')
     content.style.cssText = 'flex: 1; display: flex; flex-direction: column; min-height: 0;'
 
-    // フィルターバー
+    // Filter bar
     const filterBar = document.createElement('div')
     filterBar.style.cssText = 'padding: 5px; border-bottom: 1px solid #333; display: flex; gap: 10px; align-items: center;'
 
@@ -177,7 +173,7 @@ export class NetworkInspector {
     filterBar.appendChild(statusFilter)
     filterBar.appendChild(searchInput)
 
-    // リクエストリスト
+    // Request list
     const requestList = document.createElement('div')
     requestList.id = 'request-list'
     requestList.style.cssText = `
@@ -189,24 +185,28 @@ export class NetworkInspector {
     content.appendChild(filterBar)
     content.appendChild(requestList)
 
-    this.inspectorElement!.appendChild(content)
-  }
+    parentElement.appendChild(content)
+  })
 
-  private setupEventListeners(): void {
-    // フィルターイベントの設定は省略
-    // 実際の実装では、フィルター要素にイベントリスナーを設定
-  }
+  const setupEventListeners = () => Effect.gen(function* () {
+    // Filter event setup is omitted for brevity
+    // In actual implementation, would set up event listeners on filter elements
+  })
 
-  private setupNetworkInterception(): void {
-    // Fetchの傍受
+  const setupNetworkInterception = () => Effect.gen(function* () {
+    const originalFetch = yield* Ref.get(originalFetchRef)
+    const originalXHROpen = yield* Ref.get(originalXHROpenRef)
+    const originalXHRSend = yield* Ref.get(originalXHRSendRef)
+
+    // Intercept Fetch
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       const startTime = performance.now()
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
 
-      const requestId = this.generateRequestId()
+      const requestId = generateRequestId()
 
-      // リクエスト情報を記録
+      // Record request information
       const request: Partial<NetworkRequest> = {
         id: requestId,
         url,
@@ -218,19 +218,19 @@ export class NetworkInspector {
       }
 
       try {
-        const response = await this.originalFetch(input, init)
+        const response = await originalFetch(input, init)
         const endTime = performance.now()
 
-        // レスポンス情報を追加
+        // Add response information
         const completeRequest: NetworkRequest = {
           ...(request as NetworkRequest),
           status: response.status,
           duration: endTime - startTime,
-          requestSize: this.estimateSize(init?.body),
-          responseSize: this.estimateSize(response),
+          requestSize: estimateSize(init?.body),
+          responseSize: estimateSize(response),
         }
 
-        this.addRequest(completeRequest)
+        Effect.runSync(addRequest(completeRequest))
         return response
       } catch (error) {
         const endTime = performance.now()
@@ -239,31 +239,30 @@ export class NetworkInspector {
           ...(request as NetworkRequest),
           status: 0,
           duration: endTime - startTime,
-          requestSize: this.estimateSize(init?.body),
+          requestSize: estimateSize(init?.body),
           responseSize: 0,
         }
 
-        this.addRequest(completeRequest)
+        Effect.runSync(addRequest(completeRequest))
         throw error
       }
     }
 
-    // XMLHttpRequestの傍受
-    const self = this
+    // Intercept XMLHttpRequest
     XMLHttpRequest.prototype.open = function (method: string, url: string | URL, ...args: any[]) {
-      this._networkInspector = {
-        id: self.generateRequestId(),
+      ;(this as any)._networkInspector = {
+        id: generateRequestId(),
         method,
         url: url.toString(),
         startTime: performance.now(),
         timestamp: Date.now(),
       }
 
-      return self.originalXHROpen.call(this, method, url, ...args)
+      return originalXHROpen.call(this, method, url, ...args)
     }
 
     XMLHttpRequest.prototype.send = function (body?: Document | XMLHttpRequestBodyInit | null) {
-      const requestInfo = this._networkInspector
+      const requestInfo = (this as any)._networkInspector
 
       if (requestInfo) {
         this.addEventListener('loadend', () => {
@@ -276,59 +275,65 @@ export class NetworkInspector {
             status: this.status,
             timestamp: requestInfo.timestamp,
             duration: endTime - requestInfo.startTime,
-            requestSize: self.estimateSize(body),
-            responseSize: self.estimateSize(this.responseText),
+            requestSize: estimateSize(body),
+            responseSize: estimateSize(this.responseText),
             type: 'XHR',
             headers: {},
             payload: body,
             response: this.responseText,
           }
 
-          self.addRequest(request)
+          Effect.runSync(addRequest(request))
         })
       }
 
-      return self.originalXHRSend.call(this, body)
+      return originalXHRSend.call(this, body)
     }
-  }
+  })
 
-  private generateRequestId(): string {
+  const generateRequestId = (): string => {
     return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
-  private estimateSize(data: any): number {
+  const estimateSize = (data: any): number => {
     if (!data) return 0
     if (typeof data === 'string') return new Blob([data]).size
     if (data instanceof ArrayBuffer) return data.byteLength
     if (data instanceof FormData) {
-      // FormDataのサイズは正確に計算できないため推定値
+      // FormData size cannot be calculated precisely, so use an estimate
       return 1024 // 1KB as estimate
     }
     return JSON.stringify(data).length
   }
 
-  private addRequest(request: NetworkRequest): void {
-    if (!this.isRecording) return
+  const addRequest = (request: NetworkRequest) => Effect.gen(function* () {
+    const isRecording = yield* Ref.get(isRecordingRef)
+    if (!isRecording) return
 
-    this.requests.unshift(request) // 新しいリクエストを先頭に追加
+    const requests = yield* Ref.get(requestsRef)
+    const newRequests = [request, ...requests] // Add new request to the beginning
 
-    // リクエスト数を制限
-    if (this.requests.length > this.maxRequests) {
-      this.requests = this.requests.slice(0, this.maxRequests)
+    // Limit number of requests
+    const maxRequests = yield* Ref.get(maxRequestsRef)
+    const limitedRequests = newRequests.length > maxRequests ? newRequests.slice(0, maxRequests) : newRequests
+
+    yield* Ref.set(requestsRef, limitedRequests)
+
+    const isOpen = yield* Ref.get(isOpenRef)
+    if (isOpen) {
+      yield* refreshRequestList()
     }
+  })
 
-    if (this.isOpen) {
-      this.refreshRequestList()
-    }
-  }
-
-  private refreshRequestList(): void {
-    const requestList = this.inspectorElement?.querySelector('#request-list')
+  const refreshRequestList = () => Effect.gen(function* () {
+    const inspectorElement = yield* Ref.get(inspectorElementRef)
+    const requestList = inspectorElement?.querySelector('#request-list')
     if (!requestList) return
 
     requestList.innerHTML = ''
 
-    this.requests.forEach((request) => {
+    const requests = yield* Ref.get(requestsRef)
+    requests.forEach((request) => {
       const requestElement = document.createElement('div')
       requestElement.style.cssText = `
         padding: 5px 8px;
@@ -347,7 +352,7 @@ export class NetworkInspector {
         requestElement.style.background = 'transparent'
       }
 
-      const statusColor = this.getStatusColor(request.status)
+      const statusColor = getStatusColor(request.status)
       const url = request.url.length > 40 ? '...' + request.url.slice(-40) : request.url
 
       requestElement.innerHTML = `
@@ -358,16 +363,16 @@ export class NetworkInspector {
         <div style="display: flex; gap: 10px; font-size: 9px;">
           <span style="color: ${statusColor};">${request.status}</span>
           <span>${request.duration.toFixed(0)}ms</span>
-          <span>${this.formatSize(request.responseSize)}</span>
+          <span>${formatSize(request.responseSize)}</span>
         </div>
       `
 
-      requestElement.onclick = () => this.showRequestDetails(request)
+      requestElement.onclick = () => Effect.runSync(showRequestDetails(request))
       requestList.appendChild(requestElement)
     })
-  }
+  })
 
-  private getStatusColor(status: number): string {
+  const getStatusColor = (status: number): string => {
     if (status >= 200 && status < 300) return '#0f0'
     if (status >= 300 && status < 400) return '#ff0'
     if (status >= 400 && status < 500) return '#f80'
@@ -375,41 +380,45 @@ export class NetworkInspector {
     return '#888'
   }
 
-  private formatSize(bytes: number): string {
+  const formatSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes}B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
   }
 
-  private showRequestDetails(request: NetworkRequest): void {
-    console.group(`🌐 Request Details: ${request.method} ${request.url}`)
-    console.log('Status:', request.status)
-    console.log('Duration:', `${request.duration.toFixed(2)}ms`)
-    console.log('Request Size:', this.formatSize(request.requestSize))
-    console.log('Response Size:', this.formatSize(request.responseSize))
-    console.log('Headers:', request.headers)
-    if (request.payload) console.log('Payload:', request.payload)
-    if (request.response) console.log('Response:', request.response)
-    console.groupEnd()
-  }
+  const showRequestDetails = (request: NetworkRequest) => Effect.gen(function* () {
+    yield* Effect.log(`🌐 Request Details: ${request.method} ${request.url}`)
+    yield* Effect.log(`Status: ${request.status}`)
+    yield* Effect.log(`Duration: ${request.duration.toFixed(2)}ms`)
+    yield* Effect.log(`Request Size: ${formatSize(request.requestSize)}`)
+    yield* Effect.log(`Response Size: ${formatSize(request.responseSize)}`)
+    yield* Effect.log(`Headers: ${JSON.stringify(request.headers)}`)
+    if (request.payload) yield* Effect.log(`Payload: ${JSON.stringify(request.payload)}`)
+    if (request.response) yield* Effect.log(`Response: ${JSON.stringify(request.response)}`)
+  })
 
-  private toggleRecording(button: HTMLButtonElement): void {
-    this.isRecording = !this.isRecording
-    button.textContent = this.isRecording ? '⏸️' : '▶️'
-    console.log(`🌐 Network recording ${this.isRecording ? 'started' : 'stopped'}`)
-  }
+  const toggleRecording = (button: HTMLButtonElement) => Effect.gen(function* () {
+    const isRecording = yield* Ref.get(isRecordingRef)
+    const newRecordingState = !isRecording
+    yield* Ref.set(isRecordingRef, newRecordingState)
+    button.textContent = newRecordingState ? '⏸️' : '▶️'
+    yield* Effect.log(`🌐 Network recording ${newRecordingState ? 'started' : 'stopped'}`)
+  })
 
-  private clearRequests(): void {
-    this.requests = []
-    this.refreshRequestList()
-    console.log('🧹 Network requests cleared')
-  }
+  const clearRequests = () => Effect.gen(function* () {
+    yield* Ref.set(requestsRef, [])
+    yield* refreshRequestList()
+    yield* Effect.log('🧹 Network requests cleared')
+  })
 
-  private exportRequests(): void {
+  const exportRequests = () => Effect.gen(function* () {
+    const requests = yield* Ref.get(requestsRef)
+    const summary = yield* getNetworkSummary()
+    
     const data = {
       timestamp: Date.now(),
-      requests: this.requests,
-      summary: this.getNetworkSummary(),
+      requests,
+      summary,
     }
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -423,25 +432,27 @@ export class NetworkInspector {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    console.log('💾 Network requests exported')
-  }
+    yield* Effect.log('💾 Network requests exported')
+  })
 
-  getNetworkSummary(): any {
+  const getNetworkSummary = () => Effect.gen(function* () {
+    const requests = yield* Ref.get(requestsRef)
+    
     const summary = {
-      totalRequests: this.requests.length,
-      successfulRequests: this.requests.filter((r) => r.status >= 200 && r.status < 300).length,
-      failedRequests: this.requests.filter((r) => r.status >= 400).length,
+      totalRequests: requests.length,
+      successfulRequests: requests.filter((r) => r.status >= 200 && r.status < 300).length,
+      failedRequests: requests.filter((r) => r.status >= 400).length,
       averageResponseTime: 0,
       totalDataTransferred: 0,
       requestsByMethod: {} as Record<string, number>,
       requestsByStatus: {} as Record<string, number>,
     }
 
-    if (this.requests.length > 0) {
-      summary.averageResponseTime = this.requests.reduce((sum, r) => sum + r.duration, 0) / this.requests.length
-      summary.totalDataTransferred = this.requests.reduce((sum, r) => sum + r.responseSize, 0)
+    if (requests.length > 0) {
+      summary.averageResponseTime = requests.reduce((sum, r) => sum + r.duration, 0) / requests.length
+      summary.totalDataTransferred = requests.reduce((sum, r) => sum + r.responseSize, 0)
 
-      this.requests.forEach((request) => {
+      requests.forEach((request) => {
         summary.requestsByMethod[request.method] = (summary.requestsByMethod[request.method] || 0) + 1
         const statusGroup = `${Math.floor(request.status / 100)}xx`
         summary.requestsByStatus[statusGroup] = (summary.requestsByStatus[statusGroup] || 0) + 1
@@ -449,13 +460,35 @@ export class NetworkInspector {
     }
 
     return summary
+  })
+
+  const restore = () => Effect.gen(function* () {
+    // Restore original methods
+    const originalFetch = yield* Ref.get(originalFetchRef)
+    const originalXHROpen = yield* Ref.get(originalXHROpenRef)
+    const originalXHRSend = yield* Ref.get(originalXHRSendRef)
+
+    window.fetch = originalFetch
+    XMLHttpRequest.prototype.open = originalXHROpen
+    XMLHttpRequest.prototype.send = originalXHRSend
+  })
+
+  // Initialize UI and network interception in development mode
+  if (import.meta.env.DEV) {
+    yield* createInspectorUI()
+    yield* setupNetworkInterception()
   }
 
-  // 復元機能
-  restore(): void {
-    // オリジナルのメソッドを復元
-    window.fetch = this.originalFetch
-    XMLHttpRequest.prototype.open = this.originalXHROpen
-    XMLHttpRequest.prototype.send = this.originalXHRSend
+  return {
+    toggle,
+    open,
+    close,
+    getNetworkSummary,
+    restore
   }
+})
+
+// Factory function for easier usage
+export const createNetworkInspectorFactory = () => {
+  return Effect.runSync(createNetworkInspector())
 }

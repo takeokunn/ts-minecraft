@@ -423,8 +423,9 @@ type BufferId = string & { readonly _brand: 'BufferId' }
 
 // ===== RENDER SERVICE TAG =====
 
-export class RenderService extends Context.GenericTag('RenderService')<RenderService, RenderServiceInterface>() {
-  static readonly Live = Layer.effect(
+export const RenderService = Context.GenericTag<RenderServiceInterface>('RenderService')
+
+export const RenderServiceLive = Layer.effect(
     RenderService,
     Effect.gen(function* () {
       // Dependencies would be provided by proper service composition
@@ -1110,7 +1111,7 @@ export class RenderService extends Context.GenericTag('RenderService')<RenderSer
             performanceImprovement: 0,
           }),
 
-        preloadResources: () => Effect.succeed(undefined),
+        preloadResources: (resources: readonly ResourceRequest[]) => Effect.succeed(undefined),
       }
     }),
   )

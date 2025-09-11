@@ -1,2 +1,80 @@
-export * from './common'
-export * from './game'
+// Common types
+export type {
+  Maybe,
+  Optional,
+  Nullable,
+  Fn,
+  AsyncFn,
+  EventHandler,
+  Callback,
+  DeepPartial,
+  DeepRequired,
+  Mutable,
+  NonEmptyArray,
+  Head,
+  Tail,
+  StringKeys,
+  NumberKeys,
+  Brand,
+  ID,
+  Result,
+  Success,
+  Failure,
+  Point2D,
+  Point3D,
+  Size2D,
+  Size3D,
+  Rect,
+  Box3D,
+  Timestamp,
+  Duration,
+  EntityID,
+  ComponentID,
+  SystemID,
+  MetricName,
+  MetricValue,
+  PerformanceMetric,
+  ConfigValue,
+  Config,
+  EventType,
+  EventPayload,
+  GameEvent,
+  State,
+  StateUpdate,
+  StateSelector
+} from './common'
+
+// Game-specific types
+export type {
+  BlockType,
+  WorldPosition,
+  ChunkPosition,
+  BlockPosition,
+  ChunkID,
+  ChunkData,
+  PlayerID,
+  PlayerInput,
+  GameMode,
+  BiomeType,
+  TerrainFeature,
+  ItemType,
+  ItemStack,
+  InventorySlot,
+  Inventory,
+  Velocity,
+  CollisionBox,
+  RenderDistance,
+  LODLevel,
+  MeshData,
+  ServerMessage,
+  ClientMessage,
+  GameMetrics,
+  WorldEvent,
+  GameState
+} from './game'
+
+// Schemas and constants
+export {
+  BlockTypeSchema,
+  blockTypeNames
+} from './game'

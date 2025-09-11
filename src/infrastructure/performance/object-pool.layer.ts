@@ -178,129 +178,163 @@ export const ObjectPoolServiceLive = Layer.succeed(
  * Specialized pools for common objects
  */
 
-// Vector3 pool
-export class PooledVector3 implements PoolableObject {
-  x: number = 0
-  y: number = 0
-  z: number = 0
-
-  set(x: number, y: number, z: number): this {
-    this.x = x
-    this.y = y
-    this.z = z
-    return this
-  }
-
-  copy(other: { x: number; y: number; z: number }): this {
-    this.x = other.x
-    this.y = other.y
-    this.z = other.z
-    return this
-  }
-
-  add(other: { x: number; y: number; z: number }): this {
-    this.x += other.x
-    this.y += other.y
-    this.z += other.z
-    return this
-  }
-
-  sub(other: { x: number; y: number; z: number }): this {
-    this.x -= other.x
-    this.y -= other.y
-    this.z -= other.z
-    return this
-  }
-
-  scale(scalar: number): this {
-    this.x *= scalar
-    this.y *= scalar
-    this.z *= scalar
-    return this
-  }
-
-  reset(): void {
-    this.x = 0
-    this.y = 0
-    this.z = 0
-  }
+// Vector3 pool functional implementation
+export interface PooledVector3 extends PoolableObject {
+  x: number
+  y: number
+  z: number
+  set(x: number, y: number, z: number): this
+  copy(other: { x: number; y: number; z: number }): this
+  add(other: { x: number; y: number; z: number }): this
+  sub(other: { x: number; y: number; z: number }): this
+  scale(scalar: number): this
 }
 
-// Matrix4 pool
-export class PooledMatrix4 implements PoolableObject {
-  elements: Float32Array = new Float32Array(16)
+export const createPooledVector3 = (): PooledVector3 => {
+  const vector3 = {
+    x: 0,
+    y: 0,
+    z: 0,
 
-  constructor() {
-    this.identity()
-  }
+    set(x: number, y: number, z: number) {
+      this.x = x
+      this.y = y
+      this.z = z
+      return this
+    },
 
-  identity(): this {
-    const e = this.elements
-    e[0] = 1
-    e[4] = 0
-    e[8] = 0
-    e[12] = 0
-    e[1] = 0
-    e[5] = 1
-    e[9] = 0
-    e[13] = 0
-    e[2] = 0
-    e[6] = 0
-    e[10] = 1
-    e[14] = 0
-    e[3] = 0
-    e[7] = 0
-    e[11] = 0
-    e[15] = 1
-    return this
-  }
+    copy(other: { x: number; y: number; z: number }) {
+      this.x = other.x
+      this.y = other.y
+      this.z = other.z
+      return this
+    },
 
-  copy(other: { elements: Float32Array }): this {
-    this.elements.set(other.elements)
-    return this
-  }
+    add(other: { x: number; y: number; z: number }) {
+      this.x += other.x
+      this.y += other.y
+      this.z += other.z
+      return this
+    },
 
-  reset(): void {
-    this.identity()
+    sub(other: { x: number; y: number; z: number }) {
+      this.x -= other.x
+      this.y -= other.y
+      this.z -= other.z
+      return this
+    },
+
+    scale(scalar: number) {
+      this.x *= scalar
+      this.y *= scalar
+      this.z *= scalar
+      return this
+    },
+
+    reset() {
+      this.x = 0
+      this.y = 0
+      this.z = 0
+    }
   }
+  return vector3
 }
 
-// AABB pool
-export class PooledAABB implements PoolableObject {
-  minX: number = 0
-  minY: number = 0
-  minZ: number = 0
-  maxX: number = 0
-  maxY: number = 0
-  maxZ: number = 0
+// Matrix4 pool functional implementation
+export interface PooledMatrix4 extends PoolableObject {
+  elements: Float32Array
+  identity(): this
+  copy(other: { elements: Float32Array }): this
+}
 
-  set(minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): this {
-    this.minX = minX
-    this.minY = minY
-    this.minZ = minZ
-    this.maxX = maxX
-    this.maxY = maxY
-    this.maxZ = maxZ
-    return this
+export const createPooledMatrix4 = (): PooledMatrix4 => {
+  const matrix4 = {
+    elements: new Float32Array(16),
+
+    identity() {
+      const e = this.elements
+      e[0] = 1
+      e[4] = 0
+      e[8] = 0
+      e[12] = 0
+      e[1] = 0
+      e[5] = 1
+      e[9] = 0
+      e[13] = 0
+      e[2] = 0
+      e[6] = 0
+      e[10] = 1
+      e[14] = 0
+      e[3] = 0
+      e[7] = 0
+      e[11] = 0
+      e[15] = 1
+      return this
+    },
+
+    copy(other: { elements: Float32Array }) {
+      this.elements.set(other.elements)
+      return this
+    },
+
+    reset() {
+      this.identity()
+    }
   }
+  
+  matrix4.identity()
+  return matrix4
+}
 
-  copy(other: { minX: number; minY: number; minZ: number; maxX: number; maxY: number; maxZ: number }): this {
-    this.minX = other.minX
-    this.minY = other.minY
-    this.minZ = other.minZ
-    this.maxX = other.maxX
-    this.maxY = other.maxY
-    this.maxZ = other.maxZ
-    return this
-  }
+// AABB pool functional implementation
+export interface PooledAABB extends PoolableObject {
+  minX: number
+  minY: number
+  minZ: number
+  maxX: number
+  maxY: number
+  maxZ: number
+  set(minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): this
+  copy(other: { minX: number; minY: number; minZ: number; maxX: number; maxY: number; maxZ: number }): this
+}
 
-  reset(): void {
-    this.minX = 0
-    this.minY = 0
-    this.minZ = 0
-    this.maxX = 0
-    this.maxY = 0
-    this.maxZ = 0
+export const createPooledAABB = (): PooledAABB => {
+  return {
+    minX: 0,
+    minY: 0,
+    minZ: 0,
+    maxX: 0,
+    maxY: 0,
+    maxZ: 0,
+
+    set(minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number) {
+      this.minX = minX
+      this.minY = minY
+      this.minZ = minZ
+      this.maxX = maxX
+      this.maxY = maxY
+      this.maxZ = maxZ
+      return this
+    },
+
+    copy(other: { minX: number; minY: number; minZ: number; maxX: number; maxY: number; maxZ: number }) {
+      this.minX = other.minX
+      this.minY = other.minY
+      this.minZ = other.minZ
+      this.maxX = other.maxX
+      this.maxY = other.maxY
+      this.maxZ = other.maxZ
+      return this
+    },
+
+    reset() {
+      this.minX = 0
+      this.minY = 0
+      this.minZ = 0
+      this.maxX = 0
+      this.maxY = 0
+      this.maxZ = 0
+    }
   }
 }
 
@@ -328,17 +362,17 @@ export const aabbPoolConfig: ObjectPoolConfig = {
  */
 export const createVector3Pool = Effect.gen(function* () {
   const service = yield* ObjectPoolService
-  return yield* service.createPool(() => new PooledVector3(), vector3PoolConfig)
+  return yield* service.createPool(createPooledVector3, vector3PoolConfig)
 })
 
 export const createMatrix4Pool = Effect.gen(function* () {
   const service = yield* ObjectPoolService
-  return yield* service.createPool(() => new PooledMatrix4(), matrix4PoolConfig)
+  return yield* service.createPool(createPooledMatrix4, matrix4PoolConfig)
 })
 
 export const createAABBPool = Effect.gen(function* () {
   const service = yield* ObjectPoolService
-  return yield* service.createPool(() => new PooledAABB(), aabbPoolConfig)
+  return yield* service.createPool(createPooledAABB, aabbPoolConfig)
 })
 
 /**

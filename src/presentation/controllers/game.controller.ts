@@ -26,7 +26,8 @@ export interface GameControllerState {
   readonly loadedChunks: number
 }
 
-export class GameController extends Context.Tag('GameController')<GameController, GameControllerInterface>() {}
+// Create context tag for dependency injection
+export const GameController = Context.GenericTag<GameControllerInterface>('GameController')
 
 export const GameControllerLive: Layer.Layer<GameController, never, CommandHandlers | QueryHandlers> = Layer.effect(
   GameController,
@@ -91,3 +92,13 @@ export const GameControllerLive: Layer.Layer<GameController, never, CommandHandl
     } satisfies GameControllerInterface
   }),
 )
+
+// Factory function for direct usage
+export const createGameController = (commandHandlers: any, queryHandlers: any) => 
+  Effect.runSync(Effect.provide(
+    GameControllerLive, 
+    Layer.mergeAll(
+      Layer.succeed(CommandHandlers, commandHandlers),
+      Layer.succeed(QueryHandlers, queryHandlers)
+    )
+  ))

@@ -105,7 +105,7 @@ export interface IEntityRepository {
   readonly compactStorage: () => Effect.Effect<void, never, never>
 }
 
-export class EntityRepository extends Context.GenericTag('EntityRepository')<EntityRepository, IEntityRepository>() {}
+export const EntityRepository = Context.GenericTag<IEntityRepository>('EntityRepository')
 
 /**
  * Entity repository state
@@ -322,7 +322,7 @@ export const createEntityRepository = (
       },
     )
 
-  readonly removeComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<boolean, never, never> =>
+  const removeComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<boolean, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(stateRef))
@@ -394,7 +394,7 @@ export const createEntityRepository = (
       },
     )
 
-  readonly getComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<Option.Option<ComponentOfName<T>>, never, never> =>
+  const getComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<Option.Option<ComponentOfName<T>>, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(stateRef))
@@ -402,7 +402,7 @@ export const createEntityRepository = (
       },
     )
 
-  readonly hasComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<boolean, never, never> =>
+  const hasComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<boolean, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(stateRef))
@@ -414,7 +414,7 @@ export const createEntityRepository = (
       },
     )
 
-  readonly updateComponent = <T extends ComponentName>(
+  const updateComponent = <T extends ComponentName>(
     entityId: EntityId,
     componentName: T,
     updater: (current: ComponentOfName<T>) => ComponentOfName<T>,
@@ -474,7 +474,7 @@ export const createEntityRepository = (
     )
 
   // Simplified implementations of remaining methods for brevity
-  readonly createEntities = (archetypes: ReadonlyArray<Archetype>): Effect.Effect<ReadonlyArray<EntityId>, never, never> =>
+  const createEntities = (archetypes: ReadonlyArray<Archetype>): Effect.Effect<ReadonlyArray<EntityId>, never, never> =>
     Effect.gen(
       function* (_) {
         const entityIds: EntityId[] = []
@@ -486,7 +486,7 @@ export const createEntityRepository = (
       },
     )
 
-  readonly destroyEntities = (entityIds: ReadonlyArray<EntityId>): Effect.Effect<number, never, never> =>
+  const destroyEntities = (entityIds: ReadonlyArray<EntityId>): Effect.Effect<number, never, never> =>
     Effect.gen(
       function* (_) {
         let count = 0
@@ -498,7 +498,7 @@ export const createEntityRepository = (
       },
     )
 
-  readonly cloneEntity = (entityId: EntityId): Effect.Effect<Option.Option<EntityId>, never, never> =>
+  const cloneEntity = (entityId: EntityId): Effect.Effect<Option.Option<EntityId>, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(stateRef))
@@ -524,7 +524,7 @@ export const createEntityRepository = (
       },
     )
 
-  readonly findEntitiesByComponents = (componentNames: ReadonlyArray<ComponentName>, options?: EntityQueryOptions): Effect.Effect<ReadonlyArray<EntityMetadata>, never, never> =>
+  const findEntitiesByComponents = (componentNames: ReadonlyArray<ComponentName>, options?: EntityQueryOptions): Effect.Effect<ReadonlyArray<EntityMetadata>, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(stateRef))
@@ -560,7 +560,7 @@ export const createEntityRepository = (
       },
     )
 
-  readonly findEntitiesByArchetype = (archetypeKey: string): Effect.Effect<ReadonlyArray<EntityMetadata>, never, never> =>
+  const findEntitiesByArchetype = (archetypeKey: string): Effect.Effect<ReadonlyArray<EntityMetadata>, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(stateRef))
@@ -580,7 +580,7 @@ export const createEntityRepository = (
       },
     )
 
-  readonly countEntities = (componentNames?: ReadonlyArray<ComponentName>): Effect.Effect<number, never, never> =>
+  const countEntities = (componentNames?: ReadonlyArray<ComponentName>): Effect.Effect<number, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(stateRef))
@@ -596,7 +596,7 @@ export const createEntityRepository = (
       },
     )
 
-  readonly getEntityChanges = (entityId?: EntityId, since?: number): Effect.Effect<ReadonlyArray<EntityChange>, never, never> =>
+  const getEntityChanges = (entityId?: EntityId, since?: number): Effect.Effect<ReadonlyArray<EntityChange>, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(stateRef))
@@ -614,7 +614,7 @@ export const createEntityRepository = (
       },
     )
 
-  readonly clearChangeHistory = (before?: number): Effect.Effect<number, never, never> =>
+  const clearChangeHistory = (before?: number): Effect.Effect<number, never, never> =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(stateRef))
@@ -633,7 +633,7 @@ export const createEntityRepository = (
       },
     )
 
-  readonly getRepositoryStats = () =>
+  const getRepositoryStats = () =>
     Effect.gen(
       function* (_) {
         const state = yield* _(Ref.get(stateRef))

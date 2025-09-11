@@ -100,83 +100,181 @@ export interface CompiledQuery {
 }
 
 // ============================================================================
+// Query Builder State
+// ============================================================================
+
+interface QueryBuilderState {
+  readonly name: string
+  readonly expression: QueryExpression | null
+  readonly requiredComponents: Set<ComponentName>
+  readonly forbiddenComponents: Set<ComponentName>
+  readonly conditions: QueryCondition[]
+}
+
+const createQueryBuilderState = (
+  name: string,
+): QueryBuilderState => ({
+  name,
+  expression: null,
+  requiredComponents: new Set(),
+  forbiddenComponents: new Set(),
+  conditions: [],
+})
+
+// ============================================================================
 // Query Builder Implementation
 // ============================================================================
 
-class QueryBuilderImpl implements QueryBuilder {
-  private expression: QueryExpression | null = null
-  private requiredComponents: Set<ComponentName> = new Set()
-  private forbiddenComponents: Set<ComponentName> = new Set()
-  private conditions: QueryCondition[] = []
+const createQueryBuilder = (
+  state: QueryBuilderState,
+  queryService: QueryService,
+  builderService: QueryBuilderService
+): QueryBuilder => ({
+  with: (...components: ComponentName[]) => 
+    QueryBuilderImpl.with(state, queryService, builderService, ...components),
+  
+  without: (...components: ComponentName[]) => 
+    QueryBuilderImpl.without(state, queryService, builderService, ...components),
+  
+  where: (field: string, operator: QueryCondition['operator'], value: unknown) => 
+    QueryBuilderImpl.where(state, queryService, builderService, field, operator, value),
+  
+  and: (builder: (q: QueryBuilder) => QueryBuilder) => 
+    QueryBuilderImpl.and(state, queryService, builderService, builder),
+  
+  or: (builder: (q: QueryBuilder) => QueryBuilder) => 
+    QueryBuilderImpl.or(state, queryService, builderService, builder),
+  
+  not: (builder: (q: QueryBuilder) => QueryBuilder) => 
+    QueryBuilderImpl.not(state, queryService, builderService, builder),
+  
+  execute: () => QueryBuilderImpl.execute(state, queryService),
+  stream: () => QueryBuilderImpl.stream(state, queryService),
+  count: () => QueryBuilderImpl.count(state, queryService),
+  exists: () => QueryBuilderImpl.exists(state, queryService),
+  first: () => QueryBuilderImpl.first(state, queryService),
+  cached: (ttl?: Duration.Duration) => QueryBuilderImpl.cached(state, queryService, ttl),
+  parallel: (batchSize?: number) => QueryBuilderImpl.parallel(state, queryService, batchSize),
+  lazy: () => QueryBuilderImpl.lazy(state, queryService),
+  explain: () => QueryBuilderImpl.explain(state, builderService),
+  getCost: () => QueryBuilderImpl.getCost(state, builderService),
+  getPlan: () => QueryBuilderImpl.getPlan(state, builderService),
+})
 
-  constructor(
-    private name: string,
-    private queryService: QueryService,
-    private builderService: QueryBuilderService,
-  ) {}
+const QueryBuilderImpl = {
 
-  with(...components: ComponentName[]): QueryBuilder {
-    components.forEach((c) => this.requiredComponents.add(c))
-    return this
-  }
+  with: (
+    state: QueryBuilderState,
+    queryService: QueryService,
+    builderService: QueryBuilderService,
+    ...components: ComponentName[]
+  ): QueryBuilder => {
+    const newState = {
+      ...state,
+      requiredComponents: new Set([...state.requiredComponents, ...components]),
+    }
+    return createQueryBuilder(newState, queryService, builderService)
+  },
 
-  without(...components: ComponentName[]): QueryBuilder {
-    components.forEach((c) => this.forbiddenComponents.add(c))
-    return this
-  }
+  without: (
+    state: QueryBuilderState,
+    queryService: QueryService,
+    builderService: QueryBuilderService,
+    ...components: ComponentName[]
+  ): QueryBuilder => {
+    const newState = {
+      ...state,
+      forbiddenComponents: new Set([...state.forbiddenComponents, ...components]),
+    }
+    return createQueryBuilder(newState, queryService, builderService)
+  },
 
-  where(field: string, operator: QueryCondition['operator'], value: unknown): QueryBuilder {
-    this.conditions.push({ field, operator, value })
-    return this
-  }
+  where: (
+    state: QueryBuilderState,
+    queryService: QueryService,
+    builderService: QueryBuilderService,
+    field: string,
+    operator: QueryCondition['operator'],
+    value: unknown
+  ): QueryBuilder => {
+    const newState = {
+      ...state,
+      conditions: [...state.conditions, { field, operator, value }],
+    }
+    return createQueryBuilder(newState, queryService, builderService)
+  },
 
-  and(builder: (q: QueryBuilder) => QueryBuilder): QueryBuilder {
-    const subQuery = new QueryBuilderImpl(this.name + '_and', this.queryService, this.builderService)
-    builder(subQuery)
-
+  and: (
+    state: QueryBuilderState,
+    queryService: QueryService,
+    builderService: QueryBuilderService,
+    builder: (q: QueryBuilder) => QueryBuilder
+  ): QueryBuilder => {
+    const subQueryState = createQueryBuilderState(state.name + '_and')
+    const subQuery = createQueryBuilder(subQueryState, queryService, builderService)
+    const builtSubQuery = builder(subQuery)
+    
     const newExpression: QueryExpression = {
       type: 'node',
       value: {
         operator: 'AND',
-        children: [this.buildExpression(), subQuery.buildExpression()],
+        children: [
+          QueryBuilderImpl.buildExpression(state), 
+          QueryBuilderImpl.buildExpression((builtSubQuery as any).state)
+        ],
       },
     }
+    
+    const newState = { ...state, expression: newExpression }
+    return createQueryBuilder(newState, queryService, builderService)
+  },
 
-    this.expression = newExpression
-    return this
-  }
-
-  or(builder: (q: QueryBuilder) => QueryBuilder): QueryBuilder {
-    const subQuery = new QueryBuilderImpl(this.name + '_or', this.queryService, this.builderService)
-    builder(subQuery)
-
+  or: (
+    state: QueryBuilderState,
+    queryService: QueryService,
+    builderService: QueryBuilderService,
+    builder: (q: QueryBuilder) => QueryBuilder
+  ): QueryBuilder => {
+    const subQueryState = createQueryBuilderState(state.name + '_or')
+    const subQuery = createQueryBuilder(subQueryState, queryService, builderService)
+    const builtSubQuery = builder(subQuery)
+    
     const newExpression: QueryExpression = {
       type: 'node',
       value: {
         operator: 'OR',
-        children: [this.buildExpression(), subQuery.buildExpression()],
+        children: [
+          QueryBuilderImpl.buildExpression(state), 
+          QueryBuilderImpl.buildExpression((builtSubQuery as any).state)
+        ],
       },
     }
+    
+    const newState = { ...state, expression: newExpression }
+    return createQueryBuilder(newState, queryService, builderService)
+  },
 
-    this.expression = newExpression
-    return this
-  }
-
-  not(builder: (q: QueryBuilder) => QueryBuilder): QueryBuilder {
-    const subQuery = new QueryBuilderImpl(this.name + '_not', this.queryService, this.builderService)
-    builder(subQuery)
-
+  not: (
+    state: QueryBuilderState,
+    queryService: QueryService,
+    builderService: QueryBuilderService,
+    builder: (q: QueryBuilder) => QueryBuilder
+  ): QueryBuilder => {
+    const subQueryState = createQueryBuilderState(state.name + '_not')
+    const subQuery = createQueryBuilder(subQueryState, queryService, builderService)
+    const builtSubQuery = builder(subQuery)
+    
     const newExpression: QueryExpression = {
       type: 'node',
       value: {
         operator: 'NOT',
-        children: [subQuery.buildExpression()],
+        children: [QueryBuilderImpl.buildExpression((builtSubQuery as any).state)],
       },
     }
-
-    this.expression = newExpression
-    return this
-  }
+    
+    const newState = { ...state, expression: newExpression }
+    return createQueryBuilder(newState, queryService, builderService)
+  },
 
   private buildExpression(): QueryExpression {
     if (this.expression) return this.expression

@@ -10,7 +10,7 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { Effect, Layer } from 'effect'
 
 // Import layers and all ports
-import { TestLayer } from '../../src/layers'
+import { TestLayer } from '@infrastructure/layers'
 import { 
   MathPort,
   RenderPort,
@@ -23,10 +23,10 @@ import {
   RaycastPort,
   MeshGeneratorPort,
   SystemCommunicationPort
-} from '../../src/domain/ports'
+} from '@domain/ports'
 
 // Import test utilities
-import { Vector3Data, QuaternionData, RayData } from '../../src/domain/ports/math.port'
+import { Vector3Data, QuaternionData, RayData } from '@domain/ports/math.port'
 
 describe('Port/Adapter Integration Tests', () => {
   describe('Math Port Implementation', () => {

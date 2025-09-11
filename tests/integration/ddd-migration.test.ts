@@ -15,7 +15,7 @@ import {
   DomainLayer, 
   InfrastructureLayer, 
   ApplicationServicesLayer
-} from '../../src/layers'
+} from '@/layers'
 
 // Import test layer
 import { TestLayer } from './test-layer'
@@ -29,7 +29,7 @@ import {
   WorldError,
   PhysicsError,
   SystemError
-} from '../../src/domain/errors'
+} from '@domain/errors'
 
 // Import domain ports
 import { 
@@ -38,14 +38,14 @@ import {
   WorldRepositoryPort,
   TerrainGeneratorPort,
   SpatialGridPort 
-} from '../../src/domain/ports'
+} from '@domain/ports'
 
 // Import domain services from unified layer (working implementation)
 import { 
   WorldDomainService, 
   PhysicsDomainService, 
   EntityDomainService 
-} from '../../src/infrastructure/layers/unified.layer'
+} from '@infrastructure/layers/unified.layer'
 
 describe('DDD Migration Validation', () => {
   describe('Layer Boundary Enforcement', () => {

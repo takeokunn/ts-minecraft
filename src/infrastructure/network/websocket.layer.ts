@@ -345,8 +345,9 @@ interface MessageSubscription {
 
 // ===== NETWORK SERVICE TAG =====
 
-export class NetworkService extends Context.GenericTag('NetworkService')<NetworkService, NetworkServiceInterface>() {
-  static readonly Live = Layer.effect(
+export const NetworkService = Context.GenericTag<NetworkServiceInterface>('NetworkService')
+
+export const NetworkServiceLive = Layer.effect(
     NetworkService,
     Effect.gen(function* () {
       // Internal state
@@ -781,7 +782,7 @@ export class NetworkService extends Context.GenericTag('NetworkService')<Network
         banPlayer: () => Effect.succeed(undefined),
 
         // State synchronization
-        syncEntityState: (connectionId: ConnectionId, state: EntityState) =>
+        syncEntityState: (connectionId: ConnectionId, entityId: EntityId, state: EntityState) =>
           Effect.gen(function* () {
             const message: NetworkMessage<EntityState> = {
               type: 'entityUpdate',

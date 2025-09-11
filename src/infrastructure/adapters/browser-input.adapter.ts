@@ -47,7 +47,7 @@ export interface IBrowserInputAdapter extends IInputPort {
   readonly processEvents: () => Effect.Effect<void, never, never>
 }
 
-export class BrowserInputAdapter extends Context.GenericTag('BrowserInputAdapter')<BrowserInputAdapter, IBrowserInputAdapter>() {}
+export const BrowserInputAdapter = Context.GenericTag<IBrowserInputAdapter>('BrowserInputAdapter')
 
 /**
  * Browser Input Adapter Layer

@@ -1,10 +1,11 @@
-import { GameDebugger } from '@presentation/cli/debugger'
-import { PerformanceProfiler } from '@presentation/cli/performance-profiler'
-import { DevConsole } from '@presentation/cli/dev-console'
-import { EntityInspector } from '@presentation/cli/entity-inspector'
-import { WorldEditor } from '@presentation/cli/world-editor'
-import { NetworkInspector } from '@presentation/cli/network-inspector'
-import { World } from '@presentation/entities'
+import { createGameDebugger } from '@presentation/cli/debugger'
+import { createPerformanceProfiler } from '@presentation/cli/performance-profiler'
+import { createDevConsole } from '@presentation/cli/dev-console'
+import { createEntityInspector } from '@presentation/cli/entity-inspector'
+import { createWorldEditor } from '@presentation/cli/world-editor'
+import { createNetworkInspector } from '@presentation/cli/network-inspector'
+import { World } from '@domain/entities'
+import { Effect, Ref, pipe } from 'effect'
 
 export interface DevToolsConfig {
   enableDebugger: boolean
@@ -17,84 +18,100 @@ export interface DevToolsConfig {
   showWelcome: boolean
 }
 
-export class DevToolsManager {
-  private gameDebugger: GameDebugger | null = null
-  private performanceProfiler: PerformanceProfiler | null = null
-  private devConsole: DevConsole | null = null
-  private entityInspector: EntityInspector | null = null
-  private worldEditor: WorldEditor | null = null
-  private networkInspector: NetworkInspector | null = null
+export interface DevToolsState {
+  gameDebugger: any | null
+  performanceProfiler: any | null
+  devConsole: any | null
+  entityInspector: any | null
+  worldEditor: any | null
+  networkInspector: any | null
+  isEnabled: boolean
+  config: DevToolsConfig
+  toolbarElement: HTMLElement | null
+}
 
-  private isEnabled: boolean = false
-  private config: DevToolsConfig
-  private toolbarElement: HTMLElement | null = null
-
-  constructor(
-    private world: World,
-    config: Partial<DevToolsConfig> = {},
-  ) {
-    this.config = {
-      enableDebugger: true,
-      enablePerformanceProfiler: true,
-      enableDevConsole: true,
-      enableEntityInspector: true,
-      enableWorldEditor: true,
-      enableNetworkInspector: true,
-      autoStart: true,
-      showWelcome: true,
-      ...config,
-    }
-
-    // 開発環境でのみ有効
-    if (import.meta.env.DEV) {
-      this.initialize()
-    }
+export const createDevToolsManager = (world: World, config: Partial<DevToolsConfig> = {}) => Effect.gen(function* () {
+  const defaultConfig: DevToolsConfig = {
+    enableDebugger: true,
+    enablePerformanceProfiler: true,
+    enableDevConsole: true,
+    enableEntityInspector: true,
+    enableWorldEditor: true,
+    enableNetworkInspector: true,
+    autoStart: true,
+    showWelcome: true,
+    ...config,
   }
 
-  private initialize(): void {
-    console.log('🔧 Initializing Development Tools...')
+  const stateRef = yield* Ref.make<DevToolsState>({
+    gameDebugger: null,
+    performanceProfiler: null,
+    devConsole: null,
+    entityInspector: null,
+    worldEditor: null,
+    networkInspector: null,
+    isEnabled: false,
+    config: defaultConfig,
+    toolbarElement: null,
+  })
+
+  // 開発環境でのみ有効
+  if (import.meta.env.DEV) {
+    yield* initialize()
+  }
+
+  const initialize = () => Effect.gen(function* () {
+    yield* Effect.log('🔧 Initializing Development Tools...')
+
+    const state = yield* Ref.get(stateRef)
 
     // 各ツールを初期化
-    if (this.config.enableDebugger) {
-      this.gameDebugger = new GameDebugger(this.world)
+    if (state.config.enableDebugger) {
+      const gameDebugger = yield* createGameDebugger(world)
+      yield* Ref.update(stateRef, s => ({ ...s, gameDebugger }))
     }
 
-    if (this.config.enablePerformanceProfiler) {
-      this.performanceProfiler = new PerformanceProfiler()
+    if (state.config.enablePerformanceProfiler) {
+      const performanceProfiler = yield* createPerformanceProfiler()
+      yield* Ref.update(stateRef, s => ({ ...s, performanceProfiler }))
     }
 
-    if (this.config.enableDevConsole) {
-      this.devConsole = new DevConsole(this.world)
+    if (state.config.enableDevConsole) {
+      const devConsole = yield* createDevConsole(world)
+      yield* Ref.update(stateRef, s => ({ ...s, devConsole }))
     }
 
-    if (this.config.enableEntityInspector) {
-      this.entityInspector = new EntityInspector(this.world)
+    if (state.config.enableEntityInspector) {
+      const entityInspector = yield* createEntityInspector(world)
+      yield* Ref.update(stateRef, s => ({ ...s, entityInspector }))
     }
 
-    if (this.config.enableWorldEditor) {
-      this.worldEditor = new WorldEditor(this.world)
+    if (state.config.enableWorldEditor) {
+      const worldEditor = yield* createWorldEditor(world)
+      yield* Ref.update(stateRef, s => ({ ...s, worldEditor }))
     }
 
-    if (this.config.enableNetworkInspector) {
-      this.networkInspector = new NetworkInspector()
+    if (state.config.enableNetworkInspector) {
+      const networkInspector = yield* createNetworkInspector()
+      yield* Ref.update(stateRef, s => ({ ...s, networkInspector }))
     }
 
-    this.createToolbar()
-    this.setupGlobalKeyboardShortcuts()
+    yield* createToolbar()
+    yield* setupGlobalKeyboardShortcuts()
 
-    if (this.config.autoStart) {
-      this.enable()
+    if (state.config.autoStart) {
+      yield* enable()
     }
 
-    if (this.config.showWelcome) {
-      this.showWelcomeMessage()
+    if (state.config.showWelcome) {
+      yield* showWelcomeMessage()
     }
-  }
+  })
 
-  private createToolbar(): void {
-    this.toolbarElement = document.createElement('div')
-    this.toolbarElement.id = 'dev-tools-toolbar'
-    this.toolbarElement.style.cssText = `
+  const createToolbar = () => Effect.gen(function* () {
+    const toolbarElement = document.createElement('div')
+    toolbarElement.id = 'dev-tools-toolbar'
+    toolbarElement.style.cssText = `
       position: fixed;
       top: 50%;
       left: 10px;
@@ -111,13 +128,13 @@ export class DevToolsManager {
 
     // ツールバーの各ボタンを作成
     const buttons = [
-      { icon: '🔧', title: 'Toggle Debugger (F12)', action: () => this.toggleDebugger() },
-      { icon: '🖥️', title: 'Toggle Console (Ctrl+Shift+D)', action: () => this.toggleConsole() },
-      { icon: '🔍', title: 'Toggle Inspector (Ctrl+Shift+I)', action: () => this.toggleEntityInspector() },
-      { icon: '🏗️', title: 'Toggle World Editor (Ctrl+Shift+W)', action: () => this.toggleWorldEditor() },
-      { icon: '🌐', title: 'Toggle Network Inspector (Ctrl+Shift+N)', action: () => this.toggleNetworkInspector() },
-      { icon: '📊', title: 'Toggle Performance (Ctrl+Shift+P)', action: () => this.togglePerformanceProfiler() },
-      { icon: '❌', title: 'Close Dev Tools', action: () => this.disable() },
+      { icon: '🔧', title: 'Toggle Debugger (F12)', action: () => Effect.runSync(toggleDebugger()) },
+      { icon: '🖥️', title: 'Toggle Console (Ctrl+Shift+D)', action: () => Effect.runSync(toggleConsole()) },
+      { icon: '🔍', title: 'Toggle Inspector (Ctrl+Shift+I)', action: () => Effect.runSync(toggleEntityInspector()) },
+      { icon: '🏗️', title: 'Toggle World Editor (Ctrl+Shift+W)', action: () => Effect.runSync(toggleWorldEditor()) },
+      { icon: '🌐', title: 'Toggle Network Inspector (Ctrl+Shift+N)', action: () => Effect.runSync(toggleNetworkInspector()) },
+      { icon: '📊', title: 'Toggle Performance (Ctrl+Shift+P)', action: () => Effect.runSync(togglePerformanceProfiler()) },
+      { icon: '❌', title: 'Close Dev Tools', action: () => Effect.runSync(disable()) },
     ]
 
     buttons.forEach(({ icon, title, action }) => {
@@ -147,49 +164,53 @@ export class DevToolsManager {
       }
       button.onclick = action
 
-      this.toolbarElement!.appendChild(button)
+      toolbarElement.appendChild(button)
     })
 
-    document.body.appendChild(this.toolbarElement)
-  }
+    document.body.appendChild(toolbarElement)
+    yield* Ref.update(stateRef, state => ({ ...state, toolbarElement }))
+  })
 
-  private setupGlobalKeyboardShortcuts(): void {
+  const setupGlobalKeyboardShortcuts = () => Effect.gen(function* () {
     document.addEventListener('keydown', (event) => {
-      if (!this.isEnabled) return
+      Effect.runSync(Effect.gen(function* () {
+        const state = yield* Ref.get(stateRef)
+        if (!state.isEnabled) return
 
-      if (event.ctrlKey && event.shiftKey) {
-        switch (event.key.toUpperCase()) {
-          case 'D':
-            event.preventDefault()
-            this.toggleConsole()
-            break
-          case 'I':
-            event.preventDefault()
-            this.toggleEntityInspector()
-            break
-          case 'W':
-            event.preventDefault()
-            this.toggleWorldEditor()
-            break
-          case 'N':
-            event.preventDefault()
-            this.toggleNetworkInspector()
-            break
-          case 'P':
-            event.preventDefault()
-            this.togglePerformanceProfiler()
-            break
+        if (event.ctrlKey && event.shiftKey) {
+          switch (event.key.toUpperCase()) {
+            case 'D':
+              event.preventDefault()
+              yield* toggleConsole()
+              break
+            case 'I':
+              event.preventDefault()
+              yield* toggleEntityInspector()
+              break
+            case 'W':
+              event.preventDefault()
+              yield* toggleWorldEditor()
+              break
+            case 'N':
+              event.preventDefault()
+              yield* toggleNetworkInspector()
+              break
+            case 'P':
+              event.preventDefault()
+              yield* togglePerformanceProfiler()
+              break
+          }
+        } else if (event.key === 'F12') {
+          event.preventDefault()
+          yield* toggleDebugger()
         }
-      } else if (event.key === 'F12') {
-        event.preventDefault()
-        this.toggleDebugger()
-      }
+      }))
     })
-  }
+  })
 
-  private showWelcomeMessage(): void {
-    setTimeout(() => {
-      console.log(`
+  const showWelcomeMessage = () => Effect.gen(function* () {
+    yield* Effect.delay(1000)
+    yield* Effect.log(`
 ╔═══════════════════════════════════════════════╗
 ║          🔧 TypeScript Minecraft             ║
 ║            Development Tools                 ║
@@ -200,158 +221,224 @@ export class DevToolsManager {
 ║  Ctrl+Shift+W       - World Editor           ║
 ║  Ctrl+Shift+N       - Network Inspector      ║
 ║  Ctrl+Shift+P       - Performance Profiler   ║
-╚═══════════════════════════════════════════════╝
-      `)
-    }, 1000)
-  }
+╚═══════════════════════════════════════════════╝`)
+  })
 
   // 公開API
-  enable(): void {
-    this.isEnabled = true
-    if (this.gameDebugger) this.gameDebugger.enable()
-    if (this.performanceProfiler) this.performanceProfiler.start()
-    if (this.toolbarElement) this.toolbarElement.style.display = 'flex'
-    console.log('🔧 Development Tools enabled')
-  }
-
-  disable(): void {
-    this.isEnabled = false
-    this.closeAllTools()
-    if (this.gameDebugger) this.gameDebugger.disable()
-    if (this.performanceProfiler) this.performanceProfiler.stop()
-    if (this.toolbarElement) this.toolbarElement.style.display = 'none'
-    console.log('🔧 Development Tools disabled')
-  }
-
-  toggle(): void {
-    if (this.isEnabled) {
-      this.disable()
-    } else {
-      this.enable()
+  const enable = () => Effect.gen(function* () {
+    yield* Ref.update(stateRef, state => ({ ...state, isEnabled: true }))
+    const state = yield* Ref.get(stateRef)
+    
+    if (state.gameDebugger && state.gameDebugger.enable) {
+      yield* Effect.tryPromise(() => state.gameDebugger.enable())
     }
-  }
+    if (state.performanceProfiler && state.performanceProfiler.start) {
+      yield* Effect.tryPromise(() => state.performanceProfiler.start())
+    }
+    if (state.toolbarElement) {
+      state.toolbarElement.style.display = 'flex'
+    }
+    yield* Effect.log('🔧 Development Tools enabled')
+  })
 
-  private closeAllTools(): void {
-    if (this.devConsole) this.devConsole.close()
-    if (this.entityInspector) this.entityInspector.close()
-    if (this.worldEditor) this.worldEditor.close()
-    if (this.networkInspector) this.networkInspector.close()
-  }
+  const disable = () => Effect.gen(function* () {
+    yield* Ref.update(stateRef, state => ({ ...state, isEnabled: false }))
+    const state = yield* Ref.get(stateRef)
+    
+    yield* closeAllTools()
+    if (state.gameDebugger && state.gameDebugger.disable) {
+      yield* Effect.tryPromise(() => state.gameDebugger.disable())
+    }
+    if (state.performanceProfiler && state.performanceProfiler.stop) {
+      yield* Effect.tryPromise(() => state.performanceProfiler.stop())
+    }
+    if (state.toolbarElement) {
+      state.toolbarElement.style.display = 'none'
+    }
+    yield* Effect.log('🔧 Development Tools disabled')
+  })
+
+  const toggle = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.isEnabled) {
+      yield* disable()
+    } else {
+      yield* enable()
+    }
+  })
+
+  const closeAllTools = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.devConsole && state.devConsole.close) {
+      yield* Effect.tryPromise(() => state.devConsole.close())
+    }
+    if (state.entityInspector && state.entityInspector.close) {
+      yield* Effect.tryPromise(() => state.entityInspector.close())
+    }
+    if (state.worldEditor && state.worldEditor.close) {
+      yield* Effect.tryPromise(() => state.worldEditor.close())
+    }
+    if (state.networkInspector && state.networkInspector.close) {
+      yield* Effect.tryPromise(() => state.networkInspector.close())
+    }
+  })
 
   // 個別ツールの制御メソッド
-  toggleDebugger(): void {
-    if (this.gameDebugger) {
-      this.gameDebugger.toggle()
+  const toggleDebugger = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.gameDebugger && state.gameDebugger.toggle) {
+      yield* Effect.tryPromise(() => state.gameDebugger.toggle())
     }
-  }
+  })
 
-  toggleConsole(): void {
-    if (this.devConsole) {
-      this.devConsole.toggle()
+  const toggleConsole = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.devConsole && state.devConsole.toggle) {
+      yield* Effect.tryPromise(() => state.devConsole.toggle())
     }
-  }
+  })
 
-  toggleEntityInspector(): void {
-    if (this.entityInspector) {
-      this.entityInspector.toggle()
+  const toggleEntityInspector = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.entityInspector && state.entityInspector.toggle) {
+      yield* Effect.tryPromise(() => state.entityInspector.toggle())
     }
-  }
+  })
 
-  toggleWorldEditor(): void {
-    if (this.worldEditor) {
-      this.worldEditor.toggle()
+  const toggleWorldEditor = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.worldEditor && state.worldEditor.toggle) {
+      yield* Effect.tryPromise(() => state.worldEditor.toggle())
     }
-  }
+  })
 
-  toggleNetworkInspector(): void {
-    if (this.networkInspector) {
-      this.networkInspector.toggle()
+  const toggleNetworkInspector = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.networkInspector && state.networkInspector.toggle) {
+      yield* Effect.tryPromise(() => state.networkInspector.toggle())
     }
-  }
+  })
 
-  togglePerformanceProfiler(): void {
-    if (this.performanceProfiler) {
+  const togglePerformanceProfiler = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.performanceProfiler) {
       // パフォーマンスプロファイラーのUI表示/非表示を切り替え
-      console.log('📊 Performance profiler toggled')
+      yield* Effect.log('📊 Performance profiler toggled')
     }
-  }
+  })
 
   // ゲームループから呼び出すメソッド
-  update(deltaTime: number): void {
-    if (!this.isEnabled) return
+  const update = (deltaTime: number) => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (!state.isEnabled) return
 
-    if (this.gameDebugger) {
-      this.gameDebugger.update(deltaTime)
+    if (state.gameDebugger && state.gameDebugger.update) {
+      yield* Effect.tryPromise(() => state.gameDebugger.update(deltaTime))
     }
 
-    if (this.performanceProfiler) {
-      this.performanceProfiler.update(deltaTime)
+    if (state.performanceProfiler && state.performanceProfiler.update) {
+      yield* Effect.tryPromise(() => state.performanceProfiler.update(deltaTime))
     }
-  }
+  })
 
   // 統計情報の取得
-  getStats(): any {
-    if (!this.isEnabled) return null
+  const getStats = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (!state.isEnabled) return null
 
     return {
-      enabled: this.isEnabled,
+      enabled: state.isEnabled,
       tools: {
-        debugger: !!this.gameDebugger,
-        console: !!this.devConsole,
-        entityInspector: !!this.entityInspector,
-        worldEditor: !!this.worldEditor,
-        networkInspector: !!this.networkInspector,
-        performanceProfiler: !!this.performanceProfiler,
+        debugger: !!state.gameDebugger,
+        console: !!state.devConsole,
+        entityInspector: !!state.entityInspector,
+        worldEditor: !!state.worldEditor,
+        networkInspector: !!state.networkInspector,
+        performanceProfiler: !!state.performanceProfiler,
       },
-      performance: this.performanceProfiler?.getStats() || null,
-      network: this.networkInspector?.getNetworkSummary() || null,
-      worldEditor: this.worldEditor?.getStats() || null,
-      entityInspector: this.entityInspector?.getEntityStats() || null,
+      performance: state.performanceProfiler?.getStats?.() || null,
+      network: state.networkInspector?.getNetworkSummary?.() || null,
+      worldEditor: state.worldEditor?.getStats?.() || null,
+      entityInspector: state.entityInspector?.getEntityStats?.() || null,
     }
-  }
+  })
 
   // 設定の更新
-  updateConfig(newConfig: Partial<DevToolsConfig>): void {
-    this.config = { ...this.config, ...newConfig }
-    console.log('🔧 Dev tools config updated:', this.config)
-  }
+  const updateConfig = (newConfig: Partial<DevToolsConfig>) => Effect.gen(function* () {
+    yield* Ref.update(stateRef, state => ({
+      ...state,
+      config: { ...state.config, ...newConfig }
+    }))
+    const state = yield* Ref.get(stateRef)
+    yield* Effect.log('🔧 Dev tools config updated:', state.config)
+  })
 
   // パフォーマンス記録
-  startPerformanceRecording(): void {
-    if (this.gameDebugger) {
-      this.gameDebugger.startPerformanceRecording()
+  const startPerformanceRecording = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.gameDebugger && state.gameDebugger.startPerformanceRecording) {
+      yield* Effect.tryPromise(() => state.gameDebugger.startPerformanceRecording())
     }
-  }
+  })
 
-  stopPerformanceRecording(): any {
-    if (this.gameDebugger) {
-      return this.gameDebugger.stopPerformanceRecording()
+  const stopPerformanceRecording = () => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    if (state.gameDebugger && state.gameDebugger.stopPerformanceRecording) {
+      return yield* Effect.tryPromise(() => state.gameDebugger.stopPerformanceRecording())
     }
     return null
-  }
+  })
 
   // エクスポート機能
-  exportAllData(): any {
+  const exportAllData = () => Effect.gen(function* () {
     const timestamp = Date.now()
+    const stats = yield* getStats()
+    const state = yield* Ref.get(stateRef)
+    
     return {
       timestamp,
       version: '1.0.0',
-      stats: this.getStats(),
-      performance: this.performanceProfiler?.exportPerformanceData(),
-      network: this.networkInspector?.getNetworkSummary(),
-      worldEditor: this.worldEditor?.getStats(),
+      stats,
+      performance: state.performanceProfiler?.exportPerformanceData?.(),
+      network: state.networkInspector?.getNetworkSummary?.(),
+      worldEditor: state.worldEditor?.getStats?.(),
     }
-  }
+  })
 
   // クリーンアップ
-  destroy(): void {
-    this.disable()
-    if (this.toolbarElement) {
-      document.body.removeChild(this.toolbarElement)
+  const destroy = () => Effect.gen(function* () {
+    yield* disable()
+    const state = yield* Ref.get(stateRef)
+    if (state.toolbarElement) {
+      document.body.removeChild(state.toolbarElement)
     }
-    if (this.networkInspector) {
-      this.networkInspector.restore()
+    if (state.networkInspector && state.networkInspector.restore) {
+      yield* Effect.tryPromise(() => state.networkInspector.restore())
     }
-    console.log('🔧 Development Tools destroyed')
+    yield* Effect.log('🔧 Development Tools destroyed')
+  })
+
+  return {
+    enable,
+    disable,
+    toggle,
+    toggleDebugger,
+    toggleConsole,
+    toggleEntityInspector,
+    toggleWorldEditor,
+    toggleNetworkInspector,
+    togglePerformanceProfiler,
+    update,
+    getStats,
+    updateConfig,
+    startPerformanceRecording,
+    stopPerformanceRecording,
+    exportAllData,
+    destroy
   }
+})
+
+// Factory function for easier usage
+export const createDevToolsManagerFactory = (world: World, config?: Partial<DevToolsConfig>) => {
+  return Effect.runSync(createDevToolsManager(world, config))
 }
