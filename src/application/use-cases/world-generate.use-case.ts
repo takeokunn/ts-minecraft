@@ -1,5 +1,5 @@
-import { Effect, Layer } from "effect"
-import { WorldService } from "../../domain/services/world.service"
+import { Effect, Layer, Context } from "effect"
+import { WorldDomainService } from "../../domain/services/world-domain.service"
 
 export interface WorldGenerateCommand {
   readonly seed: number
@@ -9,25 +9,28 @@ export interface WorldGenerateCommand {
   readonly biomes?: string[]
 }
 
-export interface WorldGenerateUseCase {
-  readonly execute: (command: WorldGenerateCommand) => Effect.Effect<void, Error>
-  readonly generateBiome: (
-    chunkX: number,
-    chunkZ: number,
-    biomeType: string
-  ) => Effect.Effect<void, Error>
-  readonly generateStructure: (
-    position: { x: number; y: number; z: number },
-    structureType: string
-  ) => Effect.Effect<void, Error>
-}
+export class WorldGenerateUseCase extends Context.Tag("WorldGenerateUseCase")<
+  WorldGenerateUseCase,
+  {
+    readonly execute: (command: WorldGenerateCommand) => Effect.Effect<void, Error>
+    readonly generateBiome: (
+      chunkX: number,
+      chunkZ: number,
+      biomeType: string
+    ) => Effect.Effect<void, Error>
+    readonly generateStructure: (
+      position: { x: number; y: number; z: number },
+      structureType: string
+    ) => Effect.Effect<void, Error>
+  }
+>() {}
 
-export const WorldGenerateUseCase = Layer.succeed(
-  "WorldGenerateUseCase",
-  WorldGenerateUseCase.of({
+export const WorldGenerateUseCaseLive = Layer.succeed(
+  WorldGenerateUseCase,
+  {
     execute: (command) =>
       Effect.gen(function* (_) {
-        const worldService = yield* _(WorldService)
+        const worldService = yield* _(WorldDomainService)
 
         // Initialize world generation parameters
         yield* _(
@@ -60,7 +63,7 @@ export const WorldGenerateUseCase = Layer.succeed(
 
     generateBiome: (chunkX, chunkZ, biomeType) =>
       Effect.gen(function* (_) {
-        const worldService = yield* _(WorldService)
+        const worldService = yield* _(WorldDomainService)
 
         // Generate biome-specific terrain features
         const biomeFeatures = yield* _(
@@ -84,7 +87,7 @@ export const WorldGenerateUseCase = Layer.succeed(
 
     generateStructure: (position, structureType) =>
       Effect.gen(function* (_) {
-        const worldService = yield* _(WorldService)
+        const worldService = yield* _(WorldDomainService)
 
         // Validate structure placement
         const canPlace = yield* _(
@@ -121,12 +124,12 @@ export const WorldGenerateUseCase = Layer.succeed(
           Effect.log(`Structure ${structureType} generated at ${position.x}, ${position.y}, ${position.z}`)
         )
       })
-  })
+  }
 )
 
 const generateBaseTerrain = (
   command: WorldGenerateCommand,
-  worldService: WorldService
+  worldService: WorldDomainService
 ) =>
   Effect.gen(function* (_) {
     switch (command.worldType) {
@@ -146,7 +149,7 @@ const generateBaseTerrain = (
 
 const generateBiomes = (
   command: WorldGenerateCommand,
-  worldService: WorldService
+  worldService: WorldDomainService
 ) =>
   Effect.gen(function* (_) {
     const biomeMap = yield* _(
@@ -162,7 +165,7 @@ const generateBiomes = (
 
 const generateWorldStructures = (
   command: WorldGenerateCommand,
-  worldService: WorldService
+  worldService: WorldDomainService
 ) =>
   Effect.gen(function* (_) {
     // Generate villages
@@ -183,7 +186,7 @@ const generateWorldStructures = (
 
 const generateSpawnPoint = (
   command: WorldGenerateCommand,
-  worldService: WorldService
+  worldService: WorldDomainService
 ) =>
   Effect.gen(function* (_) {
     const spawnPoint = yield* _(
@@ -199,7 +202,4 @@ const generateSpawnPoint = (
     )
   })
 
-export const WorldGenerateUseCaseLive = Layer.provide(
-  WorldGenerateUseCase,
-  WorldService
-)
+// Layer dependencies will be provided by the main Application layer

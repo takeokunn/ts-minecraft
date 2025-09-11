@@ -4,7 +4,7 @@ import type { ChunkCoordinates, Position } from '@/domain/value-objects/coordina
 import type { BlockType } from '@/domain/value-objects/block-type.vo'
 import type { LegacyQuery, OptimizedQuery } from '@/domain/queries'
 import type { ComponentName } from '@/domain/entities/components'
-import * as ParseResult from '@effect/schema/ParseResult'
+import * as ParseResult from 'effect/ParseResult'
 
 /**
  * Chunk not loaded in memory

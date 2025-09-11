@@ -1,18 +1,85 @@
 import { Layer, Effect } from 'effect'
-import { Renderer } from '@/infrastructure/services/renderer.service'
-import { InputManager } from '@/infrastructure/services/input-manager.service'
-import { Clock } from '@/infrastructure/services/clock.service'
-import { Stats } from '@/infrastructure/services/stats.service'
-import { SpatialGrid } from '@/infrastructure/services/spatial-grid.service'
-import { MaterialManager } from '@/infrastructure/services/material-manager.service'
-import { ComputationWorker } from '@/infrastructure/services/computation-worker.service'
 
 /**
- * Consolidated Layer implementations for dependency injection
- * Provides production implementations of all services
+ * Unified Layer implementations for dependency injection
+ * All service definitions and implementations are now consolidated in unified.layer.ts
  */
 
-// Re-export individual layer implementations
+// Import from unified layer
+import {
+  // Core Services
+  ClockLive,
+  StatsLive,
+  SpatialGridLive,
+  MaterialManagerLive,
+  TerrainGeneratorLive,
+  RenderCommandLive,
+  RaycastLive,
+  
+  // World Services
+  WorldLive,
+  ChunkManagerLive,
+  
+  // Worker Services
+  WorkerManagerLive,
+  
+  // Rendering Services
+  RendererLive,
+  
+  // Input Services
+  InputManagerLive,
+  
+  // UI Services
+  UIServiceLive,
+  
+  // Domain Services
+  WorldDomainServiceLive,
+  PhysicsDomainServiceLive,
+  EntityDomainServiceLive,
+  
+  // Service Definitions (Context Tags)
+  Clock,
+  Stats,
+  SpatialGrid,
+  MaterialManager,
+  TerrainGenerator,
+  RenderCommand,
+  Raycast,
+  World,
+  ChunkManager,
+  WorkerManager,
+  Renderer,
+  InputManager,
+  UIService,
+  WorldDomainService,
+  PhysicsDomainService,
+  EntityDomainService,
+  
+  // Layer compositions
+  DomainServicesLive,
+  CoreServicesLive,
+  WorldServicesLive,
+  WorkerServicesLive,
+  RenderingServicesLive,
+  InputServicesLive,
+  UIServicesLive,
+  UnifiedAppLive,
+  MinimalLive,
+  HeadlessLive,
+  DevelopmentLive,
+  ProductionLive,
+  buildCustomLayer,
+  getRuntimeLayer,
+  
+  // Type exports
+  type PerformanceStats,
+  type InputState,
+  type RenderCommandType,
+  type RaycastResult,
+  type WorldState
+} from './unified.layer'
+
+// Re-export individual layer implementations for backwards compatibility
 export { WorldLive } from './world.live'
 export { RendererLive } from './renderer.live'
 export { InputManagerLive } from './input-manager.live'
@@ -23,154 +90,57 @@ export { MaterialManagerLive } from './material-manager.live'
 export { WorkerManagerLive } from './worker-manager.live'
 export { ChunkManagerLive } from './chunk-manager.live'
 export { TerrainGeneratorLive } from './terrain-generator.live'
+export { RenderCommandLive } from './render-command.live'
+export { RaycastLive } from './raycast.live'
+export { UIServiceLive } from './ui-service.live'
 
-// Import implementations
-import { WorldLive } from './world.live'
-import { RendererLive } from './renderer.live'
-import { InputManagerLive } from './input-manager.live'
-import { ClockLive } from './clock.live'
-import { StatsLive } from './stats.live'
-import { SpatialGridLive } from './spatial-grid.live'
-import { MaterialManagerLive } from './material-manager.live'
-import { WorkerManagerLive } from './worker-manager.live'
-import { ChunkManagerLive } from './chunk-manager.live'
-import { TerrainGeneratorLive } from './terrain-generator.live'
+// Re-export domain service implementations
+export { WorldDomainServiceLive, PhysicsDomainServiceLive, EntityDomainServiceLive }
 
-/**
- * Core services layer - essential services without dependencies
- */
-export const CoreServicesLive = Layer.mergeAll(
-  ClockLive,
-  StatsLive,
-  SpatialGridLive,
-  MaterialManagerLive
-)
+// Re-export service definitions
+export {
+  Clock,
+  Stats,
+  SpatialGrid,
+  MaterialManager,
+  TerrainGenerator,
+  RenderCommand,
+  Raycast,
+  World,
+  ChunkManager,
+  WorkerManager,
+  Renderer,
+  InputManager,
+  UIService,
+  WorldDomainService,
+  PhysicsDomainService,
+  EntityDomainService
+}
 
-/**
- * World services layer - world and chunk management
- */
-export const WorldServicesLive = Layer.mergeAll(
-  WorldLive,
-  ChunkManagerLive
-).pipe(
-  Layer.provide(CoreServicesLive)
-)
+// Re-export types
+export type {
+  PerformanceStats,
+  InputState,
+  RenderCommandType,
+  RaycastResult,
+  WorldState
+}
 
-/**
- * Worker services layer - background processing
- */
-export const WorkerServicesLive = Layer.mergeAll(
-  WorkerManagerLive,
-  TerrainGeneratorLive
-).pipe(
-  Layer.provide(CoreServicesLive)
-)
-
-/**
- * Rendering services layer - visual output
- */
-export const RenderingServicesLive = RendererLive.pipe(
-  Layer.provide(MaterialManagerLive)
-)
-
-/**
- * Input services layer - user interaction
- */
-export const InputServicesLive = InputManagerLive
-
-/**
- * Complete application layer - all services composed
- */
-export const AppLive = Layer.mergeAll(
+// Re-export layer compositions from unified layer
+export {
+  DomainServicesLive,
+  CoreServicesLive,
   WorldServicesLive,
   WorkerServicesLive,
   RenderingServicesLive,
   InputServicesLive,
-  CoreServicesLive
-)
-
-/**
- * Test layer - all services with test implementations
- */
-export const AppTest = Layer.mergeAll(
-  // Import from test-utils when needed
-  CoreServicesLive // Use real core services even in tests
-)
-
-/**
- * Layer presets for different runtime configurations
- */
-
-/**
- * Minimal layer - just core services for unit tests
- */
-export const MinimalLive = CoreServicesLive
-
-/**
- * Headless layer - no rendering or input (for server/simulation)
- */
-export const HeadlessLive = Layer.mergeAll(
-  WorldServicesLive,
-  WorkerServicesLive,
-  CoreServicesLive
-)
-
-/**
- * Development layer - includes debug services
- */
-export const DevelopmentLive = AppLive.pipe(
-  Layer.tap(
-    Effect.log('Development environment initialized')
-  )
-)
-
-/**
- * Production layer - optimized for performance
- */
-export const ProductionLive = AppLive.pipe(
-  Layer.tap(
-    Effect.log('Production environment initialized')
-  )
-)
-
-/**
- * Helper to build custom layer compositions
- */
-export const buildCustomLayer = (
-  config: {
-    world?: boolean
-    rendering?: boolean
-    input?: boolean
-    workers?: boolean
-    core?: boolean
-  }
-) => {
-  const layers: Layer.Layer<any, any, any>[] = []
-  
-  if (config.core !== false) layers.push(CoreServicesLive)
-  if (config.world) layers.push(WorldServicesLive)
-  if (config.rendering) layers.push(RenderingServicesLive)
-  if (config.input) layers.push(InputServicesLive)
-  if (config.workers) layers.push(WorkerServicesLive)
-  
-  return layers.length > 0 
-    ? Layer.mergeAll(...layers)
-    : Layer.empty
-}
-
-/**
- * Runtime configuration based on environment
- */
-export const getRuntimeLayer = () => {
-  const env = process.env.NODE_ENV
-  
-  switch (env) {
-    case 'production':
-      return ProductionLive
-    case 'test':
-      return AppTest
-    case 'development':
-    default:
-      return DevelopmentLive
-  }
-}
+  UIServicesLive,
+  UnifiedAppLive as AppLive, // Map UnifiedAppLive to AppLive for compatibility
+  UnifiedAppLive as AppTest, // Use same layer for tests for now
+  MinimalLive,
+  HeadlessLive,
+  DevelopmentLive,
+  ProductionLive,
+  buildCustomLayer,
+  getRuntimeLayer
+} from './unified.layer'

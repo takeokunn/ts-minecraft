@@ -1,24 +1,197 @@
 import { Effect, Queue, Ref, Duration } from 'effect'
 import * as S from 'effect/Schema'
-import {
-  WorkerRequest,
-  WorkerResponse,
-  WorkerError,
-  WorkerReady,
-  MessageId,
-  createMessageId,
-  extractTransferables,
-  detectWorkerCapabilities,
-  validateMessage,
-  encodeMessage,
-  SharedBufferDescriptor,
-  createSharedBuffer,
-  createTypedArrayView,
-} from './protocol'
 
 /**
  * Advanced typed worker system with SharedArrayBuffer and Transferable Objects support
+ * Simplified version for the unified worker system
  */
+
+// ============================================
+// Core Message Types
+// ============================================
+
+export type MessageId = string
+
+/**
+ * Create unique message ID
+ */
+export const createMessageId = (): MessageId =>
+  `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+/**
+ * Base message structure
+ */
+export const BaseMessage = S.Struct({
+  id: S.String,
+  timestamp: S.Number.pipe(S.positive)
+}).pipe(S.identifier('BaseMessage'))
+
+/**
+ * Worker request message
+ */
+export const WorkerRequest = <TPayload extends S.Schema<any>>(payloadSchema: TPayload) =>
+  S.Struct({
+    ...BaseMessage.fields,
+    type: S.Literal('request'),
+    payload: payloadSchema,
+    sharedBuffer: S.optional(S.Unknown),
+    transferables: S.optional(S.Array(S.String))
+  }).pipe(S.identifier('WorkerRequest'))
+
+/**
+ * Worker response message
+ */
+export const WorkerResponse = <TData extends S.Schema<any>>(dataSchema: TData) =>
+  S.Struct({
+    ...BaseMessage.fields,
+    type: S.Literal('response'),
+    data: dataSchema,
+    transferables: S.optional(S.Array(S.String)),
+    sharedBuffer: S.optional(S.Unknown)
+  }).pipe(S.identifier('WorkerResponse'))
+
+/**
+ * Worker error message
+ */
+export const WorkerError = S.Struct({
+  ...BaseMessage.fields,
+  type: S.Literal('error'),
+  error: S.Struct({
+    name: S.String,
+    message: S.String,
+    stack: S.optional(S.String)
+  })
+}).pipe(S.identifier('WorkerError'))
+
+/**
+ * Worker ready signal
+ */
+export const WorkerReady = S.Struct({
+  type: S.Literal('ready'),
+  timestamp: S.Number.pipe(S.positive),
+  capabilities: S.Struct({
+    supportsSharedArrayBuffer: S.Boolean,
+    supportsTransferableObjects: S.Boolean,
+    supportsWasm: S.Boolean,
+    maxMemory: S.Number.pipe(S.positive),
+    threadCount: S.Number.pipe(S.int(), S.positive)
+  })
+}).pipe(S.identifier('WorkerReady'))
+
+export type WorkerReady = S.Schema.Type<typeof WorkerReady>
+
+// ============================================
+// Worker Capabilities Detection
+// ============================================
+
+/**
+ * Detect worker capabilities
+ */
+export const detectWorkerCapabilities = (): WorkerReady['capabilities'] => ({
+  supportsSharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
+  supportsTransferableObjects: typeof ArrayBuffer !== 'undefined',
+  supportsWasm: typeof WebAssembly !== 'undefined',
+  maxMemory: 100 * 1024 * 1024, // 100MB default
+  threadCount: navigator?.hardwareConcurrency || 4
+})
+
+// ============================================
+// Message Validation and Encoding
+// ============================================
+
+/**
+ * Validate message against schema
+ */
+export const validateMessage = <T>(schema: S.Schema<T>, message: unknown) =>
+  S.decodeUnknown(schema)(message)
+
+/**
+ * Encode message with transferables extraction
+ */
+export const encodeMessage = <T>(schema: S.Schema<T>, data: T) =>
+  Effect.gen(function* () {
+    const transferables = extractTransferables(data)
+    return {
+      message: data,
+      transferables
+    }
+  })
+
+/**
+ * Extract transferable objects from data
+ */
+export const extractTransferables = (data: any): ArrayBufferView[] => {
+  const transferables: ArrayBufferView[] = []
+  
+  const extract = (obj: any) => {
+    if (obj instanceof ArrayBuffer || obj instanceof ArrayBufferView) {
+      transferables.push(obj)
+    } else if (obj && typeof obj === 'object') {
+      Object.values(obj).forEach(extract)
+    } else if (Array.isArray(obj)) {
+      obj.forEach(extract)
+    }
+  }
+  
+  extract(data)
+  return transferables
+}
+
+// ============================================
+// SharedArrayBuffer Support
+// ============================================
+
+/**
+ * Shared buffer descriptor
+ */
+export interface SharedBufferDescriptor {
+  name: string
+  size: number
+  type: 'Float32' | 'Int32' | 'Uint32' | 'Uint8'
+}
+
+/**
+ * Create shared buffer
+ */
+export const createSharedBuffer = (descriptor: SharedBufferDescriptor): SharedArrayBuffer => {
+  const elementSize = getElementSize(descriptor.type)
+  const buffer = new SharedArrayBuffer(descriptor.size * elementSize)
+  return buffer
+}
+
+/**
+ * Create typed array view from shared buffer
+ */
+export const createTypedArrayView = <T extends ArrayBufferView>(
+  buffer: SharedArrayBuffer,
+  type: SharedBufferDescriptor['type']
+): T => {
+  switch (type) {
+    case 'Float32':
+      return new Float32Array(buffer) as T
+    case 'Int32':
+      return new Int32Array(buffer) as T
+    case 'Uint32':
+      return new Uint32Array(buffer) as T
+    case 'Uint8':
+      return new Uint8Array(buffer) as T
+    default:
+      throw new Error(`Unsupported array type: ${type}`)
+  }
+}
+
+/**
+ * Get element size for typed arrays
+ */
+const getElementSize = (type: SharedBufferDescriptor['type']): number => {
+  switch (type) {
+    case 'Float32': return 4
+    case 'Int32': return 4
+    case 'Uint32': return 4
+    case 'Uint8': return 1
+    default: return 4
+  }
+}
 
 // ============================================
 // Worker Handler Types
@@ -55,165 +228,21 @@ export interface TypedWorkerConfig<TInput, TOutput> {
 }
 
 // ============================================
-// Worker Implementation
+// Worker Client Configuration
 // ============================================
 
 /**
- * Create a typed worker with advanced features
+ * Worker client configuration
  */
-export const createTypedWorker = <TInput, TOutput>(
-  config: TypedWorkerConfig<TInput, TOutput>
-) => {
-  // Initialize shared buffers
-  const sharedBuffers = new Map<string, SharedArrayBuffer>()
-  
-  if (config.sharedBuffers) {
-    for (const descriptor of config.sharedBuffers) {
-      const buffer = createSharedBuffer(descriptor)
-      sharedBuffers.set(descriptor.name, buffer)
-    }
-  }
-
-  const capabilities = detectWorkerCapabilities()
-
-  /**
-   * Handle incoming worker messages
-   */
-  const handleMessage = (event: MessageEvent): Effect.Effect<void, never, never> =>
-    Effect.gen(function* () {
-      const message = event.data
-
-      // Validate message format
-      const request = yield* validateMessage(
-        WorkerRequest(config.inputSchema),
-        message
-      ).pipe(
-        Effect.catchAll((error) =>
-          Effect.fail(new Error(`Invalid message format: ${error}`))
-        )
-      )
-
-      // Create handler context
-      const context: WorkerHandlerContext = {
-        messageId: request.id,
-        timestamp: Date.now(),
-        sharedBuffer: request.sharedBuffer,
-        capabilities,
-      }
-
-      // Process request with handler
-      const result = yield* config.handler(request.payload, context).pipe(
-        Effect.timeout(config.timeout ?? Duration.seconds(30)),
-        Effect.catchAll((error) =>
-          Effect.gen(function* () {
-            // Send error response
-            const errorMessage: WorkerError = {
-              id: request.id,
-              type: 'error',
-              error: {
-                name: error instanceof Error ? error.name : 'UnknownError',
-                message: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined,
-              },
-              timestamp: Date.now(),
-            }
-
-            self.postMessage(errorMessage)
-            return yield* Effect.fail(error)
-          })
-        )
-      )
-
-      // Encode response
-      const encoded = yield* encodeMessage(config.outputSchema, result)
-
-      // Create response message
-      const response: WorkerResponse<TOutput> = {
-        id: request.id,
-        type: 'response',
-        data: result,
-        timestamp: Date.now(),
-        transferables: encoded.transferables.length > 0 
-          ? encoded.transferables.map((_, i) => `transferable_${i}`)
-          : undefined,
-        sharedBuffer: sharedBuffers.size > 0 
-          ? Array.from(sharedBuffers.values())[0]
-          : undefined,
-      }
-
-      // Post message with transferables
-      if (encoded.transferables.length > 0) {
-        self.postMessage(response, { transfer: encoded.transferables })
-      } else {
-        self.postMessage(response)
-      }
-    }).pipe(
-      Effect.catchAll((error) => 
-        Effect.sync(() => {
-          console.error(`Worker ${config.name} error:`, error)
-        })
-      )
-    )
-
-  /**
-   * Start the worker
-   */
-  const start = (): Effect.Effect<void, never, never> =>
-    Effect.gen(function* () {
-      // Set up message handler
-      self.onmessage = (event) => {
-        Effect.runPromise(handleMessage(event))
-      }
-
-      // Send ready signal
-      const readyMessage: WorkerReady = {
-        type: 'ready',
-        timestamp: Date.now(),
-        capabilities,
-      }
-
-      self.postMessage(readyMessage)
-    })
-
-  /**
-   * Stop the worker
-   */
-  const stop = (): Effect.Effect<void, never, never> =>
-    Effect.sync(() => {
-      self.onmessage = null
-    })
-
-  /**
-   * Get shared buffer by name
-   */
-  const getSharedBuffer = (name: string): SharedArrayBuffer | undefined =>
-    sharedBuffers.get(name)
-
-  /**
-   * Create typed array view from shared buffer
-   */
-  const createView = <T extends ArrayBufferView>(
-    bufferName: string,
-    type: SharedBufferDescriptor['type']
-  ): T | undefined => {
-    const buffer = sharedBuffers.get(bufferName)
-    if (!buffer) return undefined
-    
-    return createTypedArrayView<T>(buffer, type)
-  }
-
-  return {
-    start,
-    stop,
-    getSharedBuffer,
-    createView,
-    capabilities,
-    config,
-  }
+export interface WorkerClientConfig<TInput, TOutput> {
+  inputSchema: S.Schema<TInput>
+  outputSchema: S.Schema<TOutput>
+  timeout?: Duration.Duration
+  maxConcurrentRequests?: number
 }
 
 // ============================================
-// Worker Client Types
+// Pending Request Tracking
 // ============================================
 
 /**
@@ -224,16 +253,6 @@ interface PendingRequest<TOutput> {
   reject: (error: Error) => void
   timestamp: number
   timeout?: NodeJS.Timeout
-}
-
-/**
- * Worker client configuration
- */
-export interface WorkerClientConfig<TInput, TOutput> {
-  inputSchema: S.Schema<TInput>
-  outputSchema: S.Schema<TOutput>
-  timeout?: Duration.Duration
-  maxConcurrentRequests?: number
 }
 
 // ============================================
@@ -329,7 +348,13 @@ export const createTypedWorkerClient = <TInput, TOutput>(
             request.reject(error)
           }
         }
-      })
+      }).pipe(
+        Effect.catchAll((error) => 
+          Effect.sync(() => {
+            console.error('Worker client message handling error:', error)
+          })
+        )
+      )
 
     // Set up message listener
     worker.addEventListener('message', (event) => {
@@ -350,9 +375,9 @@ export const createTypedWorkerClient = <TInput, TOutput>(
         const messageId = createMessageId()
         
         // Create request
-        const request: WorkerRequest<TInput> = {
+        const request = {
           id: messageId,
-          type: 'request',
+          type: 'request' as const,
           payload: input,
           timestamp: Date.now(),
           sharedBuffer: options?.sharedBuffer,
@@ -436,82 +461,6 @@ export const createTypedWorkerClient = <TInput, TOutput>(
       sendRequest,
       getCapabilities,
       terminate,
-    }
-  })
-}
-
-
-// ============================================
-// Utility Functions
-// ============================================
-
-/**
- * Create a worker factory function
- */
-export const createWorkerFactory = <TInput, TOutput>(
-  workerScript: string,
-  config: WorkerClientConfig<TInput, TOutput>
-) => {
-  return (): Effect.Effect<Awaited<ReturnType<typeof createTypedWorkerClient<TInput, TOutput, never>>>> =>
-    Effect.gen(function* () {
-      const worker = new Worker(workerScript, { type: 'module' })
-      return yield* createTypedWorkerClient(worker, config)
-    })
-}
-
-/**
- * Worker pool for managing multiple worker instances
- */
-export const createWorkerPool = <TInput, TOutput>(
-  factory: () => Effect.Effect<Awaited<ReturnType<typeof createTypedWorkerClient<TInput, TOutput, never>>>>,
-  poolSize: number = 4
-) => {
-  return Effect.gen(function* () {
-    // Create worker instances
-    const workers: Awaited<ReturnType<typeof createTypedWorkerClient<TInput, TOutput>>>[] = []
-    for (let i = 0; i < poolSize; i++) {
-      const worker = yield* factory()
-      workers.push(worker)
-    }
-
-    // Round-robin index
-    const currentIndex = yield* Ref.make(0)
-
-    /**
-     * Get next available worker
-     */
-    const getWorker = (): Effect.Effect<Awaited<ReturnType<typeof createTypedWorkerClient<TInput, TOutput, never>>>> =>
-      Effect.gen(function* () {
-        const index = yield* Ref.get(currentIndex)
-        yield* Ref.update(currentIndex, (i) => (i + 1) % workers.length)
-        return workers[index]
-      })
-
-    /**
-     * Send request to worker pool
-     */
-    const sendRequest = (
-      input: TInput,
-      options?: Parameters<Awaited<ReturnType<typeof createTypedWorkerClient<TInput, TOutput>>>['sendRequest']>[1]
-    ): Effect.Effect<TOutput, never, never> =>
-      Effect.gen(function* () {
-        const worker = yield* getWorker()
-        return yield* worker.sendRequest(input, options)
-      })
-
-    /**
-     * Terminate all workers
-     */
-    const terminate = (): Effect.Effect<void, never, never> =>
-      Effect.all(workers.map(worker => worker.terminate()), { concurrency: 'unbounded' }).pipe(
-        Effect.asVoid
-      )
-
-    return {
-      sendRequest,
-      getWorker,
-      terminate,
-      poolSize: workers.length,
     }
   })
 }

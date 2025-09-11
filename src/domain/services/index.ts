@@ -1,14 +1,17 @@
 /**
- * Domain Services - Core business logic services
+ * Domain Services - Pure business logic services without infrastructure dependencies
  * 
  * This module exports domain services that contain the core business logic
  * of the Minecraft game, following DDD (Domain-Driven Design) principles.
+ * All services are pure domain logic with port interfaces for external dependencies.
  */
 
-// Entity Management Service
-export { EntityService } from './entity.service'
+// Entity Domain Service
+export { EntityDomainService } from './entity-domain.service'
 export type {
-  EntityServiceInterface,
+  EntityDomainServiceInterface,
+  EntityRepositoryPort,
+  EntityQueryPort,
   Entity,
   ArchetypeInfo,
   SerializedEntity,
@@ -21,17 +24,16 @@ export type {
   ArchetypeOptimizationResult,
   EntityWithComponents,
   StorageLayout,
-} from './entity.service'
+} from './entity-domain.service'
 
-// Physics Simulation Service
-export { PhysicsService } from './physics.service'
+// Physics Domain Service
+export { PhysicsDomainService } from './physics-domain.service'
 export type {
-  PhysicsServiceInterface,
+  PhysicsDomainServiceInterface,
+  PhysicsPort,
   RigidBodyId,
   ConstraintId,
   PhysicsMaterialId,
-  Vector3,
-  Quaternion,
   RigidBodyDefinition,
   RigidBodyState,
   RigidBody,
@@ -41,18 +43,30 @@ export type {
   CollisionPair,
   ContactPoint,
   CollisionResult,
-  Ray,
   RaycastOptions,
   RaycastResult,
   RaycastHit,
   PhysicsStats,
   PhysicsMemoryUsage,
   PhysicsPerformanceMetrics,
-} from './physics.service'
+} from './physics-domain.service'
 
-// Raycast Service
-export { Raycast } from './raycast.service'
-export type { RayHit } from './raycast.service'
+// Raycast Domain Service
+export { RaycastDomainService } from './raycast-domain.service'
+export type { 
+  Ray,
+  RayHit,
+  GeometryPort,
+  AABB as RaycastAABB
+} from './raycast-domain.service'
+
+// World Domain Service
+export { WorldDomainService, WorldDomainServiceLive } from './world-domain.service'
+export type {
+  WorldState,
+  WorldRepositoryPort,
+  ChunkRepositoryPort
+} from './world-domain.service'
 
 // Camera Logic Service
 export { CameraLogic } from './camera-logic'

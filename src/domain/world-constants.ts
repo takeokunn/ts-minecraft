@@ -1,5 +1,5 @@
-import { ColliderComponent } from '@/domain/entities/components'
-import { toFloat } from './common'
+import { ColliderComponent } from './entities/components'
+import { toFloat } from './value-objects/common'
 
 // World Generation Constants
 export const CHUNK_SIZE = 10

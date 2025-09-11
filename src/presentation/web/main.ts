@@ -17,7 +17,7 @@ import { collisionSystem } from '../../domain/services/collision-system.service'
 import { inputPollingSystem } from '../../application/services/input-polling.service'
 import { physicsSystem } from '../../domain/services/physics-system.service'
 import { playerMovementSystem } from '../../application/commands/player-movement'
-import { uiSystem } from '../../presentation/ui-system.service'
+import { uiUpdateWorkflow } from '../../application/workflows/ui-update'
 import { updatePhysicsWorldSystem } from '../../domain/services/spatial-grid-system.service'
 import { updateTargetSystem } from '../../domain/services/targeting.service'
 import { worldUpdateSystem } from '../../application/workflows/world-update'
@@ -44,7 +44,7 @@ export const gameSystems = [
   blockInteractionSystem,
   chunkLoadingSystem,
   worldUpdateSystem,
-  uiSystem,
+  uiUpdateWorkflow,
 ]
 
 export const main = (player: Archetype) =>

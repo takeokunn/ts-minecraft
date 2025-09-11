@@ -1,26 +1,2 @@
-import { Layer, Effect, Ref, HashMap } from 'effect'
-import { MaterialManager } from '@/infrastructure/services/material-manager.service'
-import { BlockType } from '@/domain/value-objects/block-type.vo'
-
-/**
- * Production implementation of MaterialManager service
- */
-export const MaterialManagerLive = Layer.effect(
-  MaterialManager,
-  Effect.gen(function* () {
-    const materials = yield* Ref.make(HashMap.empty<BlockType, any>())
-    
-    return MaterialManager.of({
-      getMaterial: (blockType: BlockType) => 
-        Ref.get(materials).pipe(
-          Effect.map(m => HashMap.get(m, blockType))
-        ),
-      
-      loadTexture: () =>
-        Effect.succeed(undefined),
-      
-      createMaterial: () =>
-        Effect.succeed(undefined)
-    })
-  })
-)
+// Re-export from unified layer
+export { MaterialManagerLive, MaterialManager } from './unified.layer'

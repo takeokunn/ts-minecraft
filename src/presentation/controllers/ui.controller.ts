@@ -4,6 +4,8 @@ import { Effect, Context, Ref } from 'effect'
  * UI Controller
  * ユーザーインターフェース要素の制御を担当する薄いコントローラー層
  * HUD、メニュー、インベントリなどのUI状態管理
+ * 
+ * Note: Presentation層として、ビジネスロジックを含まず、UI状態の管理のみを行う
  */
 export interface UIControllerInterface {
   readonly showHUD: (visible: boolean) => Effect.Effect<void, never, never>

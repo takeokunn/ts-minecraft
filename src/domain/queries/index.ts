@@ -34,8 +34,9 @@ export {
   terrainBlockQuery
 } from '../queries'
 
-// Re-export queries object from application layer  
-export { queries } from '../../application/queries'
+// Domain layer should not depend on application layer
+// Removed dependency: export { queries } from '../../application/queries'
+// Use queryConfigs instead for domain-level query configurations
 
 import { 
   OptimizedQueryService,

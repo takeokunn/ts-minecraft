@@ -11,7 +11,7 @@
  */
 
 import { Effect, Context, Layer, Ref, Array, Option, Duration, Fiber, Clock as EffectClock, pipe } from 'effect'
-import { Clock } from '@/infrastructure/services/clock.service'
+import { Clock } from '@/infrastructure/layers/unified.layer'
 import { WorldService as World } from '@/application/services/world.service'
 import { QueryProfiler } from '@/domain/queries'
 

@@ -11,10 +11,35 @@
  */
 
 import { Effect, Array as _EffArray, Duration, Option } from 'effect'
-import { ArchetypeQuery, trackPerformance } from '@/domain/queries'
-import { WorldService } from '@/application/services/world.service'
-import { InputManager as _InputManager } from '@/application/services/input-manager.service'
-import { SystemFunction, SystemConfig, SystemContext } from '@/application/workflows/system-scheduler.service'
+import { ArchetypeQuery } from '@/domain/queries'
+// Domain layer should not depend on application layer services
+// Removed dependencies:
+// - WorldService from '@/application/services/world.service'
+// - InputManager from '@/application/services/input-manager.service'
+// - SystemFunction, SystemConfig, SystemContext from '@/application/workflows/system-scheduler.service'
+
+// Port interfaces for external dependencies
+export interface WorldPort {
+  readonly getVoxel: (x: number, y: number, z: number) => Effect.Effect<Option.Option<BlockType>, never, never>
+  readonly updateComponent: (entityId: EntityId, componentName: string, data: unknown) => Effect.Effect<void, never, never>
+}
+
+export interface SystemContext {
+  readonly frameId: number
+}
+
+export interface SystemConfig {
+  readonly id: string
+  readonly name: string
+  readonly priority: 'low' | 'normal' | 'high'
+  readonly phase: 'update' | 'render'
+  readonly dependencies: readonly string[]
+  readonly conflicts: readonly string[]
+  readonly maxExecutionTime: Duration.Duration
+  readonly enableProfiling: boolean
+}
+
+export type SystemFunction = (context: SystemContext) => Effect.Effect<void, never, never>
 import { Position, CameraComponent, TargetComponent, InputStateComponent } from '@/domain/entities/components'
 import { EntityId } from '@/domain/entities'
 import { BlockType, BlockPosition } from '@/domain/value-objects'
@@ -280,7 +305,7 @@ class TargetingProcessor {
       inputState: InputStateComponent
       currentTarget: Option.Option<TargetComponent>
     }[],
-    world: any
+    worldPort: WorldPort
   ): Promise<{
     targetUpdates: Map<EntityId, TargetComponent>
     raycastResults: Map<EntityId, RaycastHit[]>
@@ -328,7 +353,7 @@ class TargetingProcessor {
       inputState: InputStateComponent
       currentTarget: Option.Option<TargetComponent>
     },
-    world: any
+    worldPort: WorldPort
   ): Promise<TargetSelectionResult> {
     // Create ray from camera
     const ray = TargetingUtils.createRayFromCamera(player.position, player.cameraState)
@@ -368,7 +393,7 @@ class TargetingProcessor {
   /**
    * Perform raycast with optimizations
    */
-  private async performRaycast(ray: THREE.Ray, world: any): Promise<RaycastHit[]> {
+  private async performRaycast(ray: THREE.Ray, worldPort: WorldPort): Promise<RaycastHit[]> {
     const hits: RaycastHit[] = []
     const stepSize = this.config.raycastStepSize
     const maxDistance = this.config.maxTargetDistance
@@ -381,7 +406,7 @@ class TargetingProcessor {
       // Check for block collision
       if (this.config.enableBlockTargeting) {
         const blockPos = TargetingUtils.worldToBlockPosition(position)
-        const voxel = await world.getVoxel(blockPos.x, blockPos.y, blockPos.z)
+        const voxel = await Effect.runPromise(worldPort.getVoxel(blockPos.x, blockPos.y, blockPos.z))
         
         if (Option.isSome(voxel)) {
           hits.push({
@@ -411,7 +436,7 @@ class TargetingProcessor {
     _ray: THREE.Ray,
     hits: RaycastHit[],
     _playerPosition: Position,
-    world: any
+    worldPort: WorldPort
   ): Promise<TargetCandidate[]> {
     const candidates: TargetCandidate[] = []
     
@@ -419,11 +444,11 @@ class TargetingProcessor {
       if (hit.hit) {
         // Create block candidate
         if (Option.isSome(hit.blockPosition)) {
-          const blockType = await world.getVoxel(
+          const blockType = await Effect.runPromise(worldPort.getVoxel(
             hit.blockPosition.value.x,
             hit.blockPosition.value.y,
             hit.blockPosition.value.z
-          )
+          ))
           
           const candidate: TargetCandidate = {
             type: 'block',
@@ -515,8 +540,7 @@ export const createUpdateTargetSystem = (
   }
   const processor = new TargetingProcessor(targetConfig)
 
-  return (context: SystemContext) => Effect.gen(function* ($) {
-    const world = yield* $(World)
+  return (context: SystemContext, worldPort: WorldPort) => Effect.gen(function* ($) {
     
     const startTime = Date.now()
 
@@ -548,7 +572,7 @@ export const createUpdateTargetSystem = (
 
     // Process targeting
     const result = yield* $(
-      Effect.promise(() => processor.processTargeting(players, world))
+      Effect.promise(() => processor.processTargeting(players, worldPort))
     )
 
     // Apply target updates
@@ -556,7 +580,7 @@ export const createUpdateTargetSystem = (
       Effect.forEach(
         Array.from(result.targetUpdates.entries()),
         ([entityId, target]) => Effect.gen(function* ($) {
-          yield* $(world.updateComponent(entityId, 'target', target))
+          yield* $(worldPort.updateComponent(entityId, 'target', target))
         }),
         { concurrency: 'inherit', discard: true }
       )
@@ -570,7 +594,8 @@ export const createUpdateTargetSystem = (
     // Performance tracking
     const endTime = Date.now()
     const executionTime = endTime - startTime
-    trackPerformance('update-target', 'write', executionTime)
+    // Note: Performance tracking should be handled by infrastructure layer
+    // trackPerformance('update-target', 'write', executionTime)
 
     // Debug logging
     if (context.frameId % 60 === 0) {

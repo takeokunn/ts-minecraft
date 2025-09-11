@@ -1,21 +1,24 @@
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Context } from "effect"
 import { BlockInteractionCommand } from "../commands/block-interaction"
-import { WorldService } from "../../domain/services/world.service"
-import { EntityService } from "../../domain/services/entity.service"
-import { RaycastService } from "../../domain/services/raycast.service"
+import { WorldDomainService } from "../../domain/services/world-domain.service"
+import { EntityDomainService } from "../../domain/services/entity-domain.service"
+import { RaycastDomainService } from "../../domain/services/raycast-domain.service"
 
-export interface BlockPlaceUseCase {
-  readonly execute: (command: BlockInteractionCommand) => Effect.Effect<void, Error>
-}
+export class BlockPlaceUseCase extends Context.Tag("BlockPlaceUseCase")<
+  BlockPlaceUseCase,
+  {
+    readonly execute: (command: BlockInteractionCommand) => Effect.Effect<void, Error>
+  }
+>() {}
 
-export const BlockPlaceUseCase = Layer.succeed(
-  "BlockPlaceUseCase",
-  BlockPlaceUseCase.of({
+export const BlockPlaceUseCaseLive = Layer.succeed(
+  BlockPlaceUseCase,
+  {
     execute: (command) =>
       Effect.gen(function* (_) {
-        const worldService = yield* _(WorldService)
-        const entityService = yield* _(EntityService)
-        const raycastService = yield* _(RaycastService)
+        const worldService = yield* _(WorldDomainService)
+        const entityService = yield* _(EntityDomainService)
+        const raycastService = yield* _(RaycastDomainService)
 
         // Validate player can place block
         const canPlace = yield* _(
@@ -53,13 +56,13 @@ export const BlockPlaceUseCase = Layer.succeed(
         // Trigger chunk updates if necessary
         yield* _(worldService.markChunkForUpdate(targetPosition))
       })
-  })
+  }
 )
 
 const validateBlockPlacement = (
   command: BlockInteractionCommand,
-  worldService: WorldService,
-  entityService: EntityService
+  worldService: WorldDomainService,
+  entityService: EntityDomainService
 ) =>
   Effect.gen(function* (_) {
     // Check if player has the block in inventory
@@ -88,7 +91,4 @@ const applyPlacementEffects = (
     yield* _(Effect.log(`Block placed at ${position.x}, ${position.y}, ${position.z}`))
   })
 
-export const BlockPlaceUseCaseLive = Layer.provide(
-  BlockPlaceUseCase,
-  Layer.mergeAll(WorldService, EntityService, RaycastService)
-)
+// Layer dependencies will be provided by the main Application layer

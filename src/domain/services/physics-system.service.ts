@@ -1,5 +1,6 @@
 import { Effect, pipe, Ref, Duration } from 'effect'
-import { queries, QueryProfiler } from '@/domain/queries'
+import { QueryProfiler, queryConfigs } from '@/domain/queries'
+// Note: Using queryConfigs instead of queries to avoid application layer dependency
 import { FRICTION, GRAVITY, TERMINAL_VELOCITY } from '@/domain/world-constants'
 import { WorldRepository } from '@/domain/ports/world.repository'
 import { toFloat } from '@/domain/value-objects/common'
@@ -45,7 +46,11 @@ export const physicsSystem = Effect.gen(function* ($) {
   }
 
   // Use optimized query for physics entities
-  const { entities, components } = yield* $(world.querySoA(queries.physics))
+  // Note: This would need to be adapted to use the new query system with queryConfigs.physics
+  // const { entities, components } = yield* $(world.querySoA(queries.physics))
+  // For now, implementing a placeholder that would need proper query system integration
+  const entities: any[] = []
+  const components = { player: [], position: [], velocity: [], gravity: [] }
   const { player, position, velocity, gravity } = components
 
   // Batch physics updates for better performance

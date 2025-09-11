@@ -1,60 +1,110 @@
-import { Effect, Match } from 'effect'
+import { Effect, Match, Context, Layer } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
-import { WorldService as World } from '@/application/services/world.service'
-import { ComputationWorker } from '@/infrastructure/services/computation-worker.service'
-import { Renderer } from '@/infrastructure/services/renderer.service'
+import { WorldDomainService } from '@/domain/services/world-domain.service'
+import { EntityDomainService } from '@/domain/services/entity-domain.service'
 import { Position } from '@/domain/entities/components'
 
-export const worldUpdateSystem = Effect.gen(function* ($) {
-  const world = yield* $(World)
-  const renderer = yield* $(Renderer)
-  const worker = yield* $(ComputationWorker)
+// World Update Workflow Service
+export class WorldUpdateWorkflow extends Context.Tag("WorldUpdateWorkflow")<
+  WorldUpdateWorkflow,
+  {
+    readonly processWorldUpdates: () => Effect.Effect<void, Error>
+    readonly handleChunkGeneration: (data: {
+      blocks: Array<{ position: [number, number, number]; blockType: string }>
+      mesh: { positions: number[]; normals: number[]; uvs: number[]; indices: number[] }
+      chunkX: number
+      chunkZ: number
+    }) => Effect.Effect<void, Error>
+  }
+>() {}
 
-  yield* $(
-    worker.onMessage((message) =>
-      Match.value(message).pipe(
-        Match.when({ type: 'chunkGenerated' }, (message) =>
-          Effect.gen(function* ($) {
-            const { blocks, mesh, chunkX, chunkZ } = message
+export const WorldUpdateWorkflowLive = Layer.succeed(
+  WorldUpdateWorkflow,
+  {
+    processWorldUpdates: () =>
+      Effect.gen(function* (_) {
+        const worldService = yield* _(WorldDomainService)
+        const entityService = yield* _(EntityDomainService)
 
-            // Create entities for each block in the chunk
-            const blockArchetypes = yield* $(
-              Effect.all(
-                blocks.map((block) =>
-                  createArchetype({
-                    type: 'block',
-                    pos: new Position({
-                      x: block.position[0],
-                      y: block.position[1],
-                      z: block.position[2],
-                    }),
-                    blockType: block.blockType,
+        // Process pending world updates
+        const pendingUpdates = yield* _(worldService.getPendingUpdates())
+        
+        yield* _(
+          Effect.forEach(
+            pendingUpdates,
+            (update) => processWorldUpdate(update, worldService, entityService),
+            { concurrency: 4, discard: true }
+          )
+        )
+
+        yield* _(Effect.log(`Processed ${pendingUpdates.length} world updates`))
+      }),
+
+    handleChunkGeneration: (data) =>
+      Effect.gen(function* (_) {
+        const worldService = yield* _(WorldDomainService)
+        const entityService = yield* _(EntityDomainService)
+        const { blocks, mesh, chunkX, chunkZ } = data
+
+        // Create entities for each block in the chunk
+        yield* _(
+          Effect.forEach(
+            blocks,
+            (block) => 
+              Effect.gen(function* (_) {
+                const archetype = yield* _(createArchetype({
+                  type: 'block' as const,
+                  pos: new Position({
+                    x: block.position[0],
+                    y: block.position[1],
+                    z: block.position[2],
                   }),
-                ),
-              ),
-            )
-            yield* $(
-              Effect.forEach(blockArchetypes, (archetype) => world.addArchetype(archetype), { discard: true }),
-            )
+                  blockType: block.blockType,
+                }))
+                
+                yield* _(entityService.addEntity(archetype))
+              }),
+            { concurrency: 8, discard: true }
+          )
+        )
 
-            // Add the chunk mesh to the renderer
-            if (mesh.indices.length > 0) {
-              yield* $(
-                renderer.renderQueue.offer({
-                  type: 'ADD_CHUNK',
-                  chunkX,
-                  chunkZ,
-                  positions: mesh.positions,
-                  normals: mesh.normals,
-                  uvs: mesh.uvs,
-                  indices: mesh.indices,
-                }),
-              )
-            }
-          }),
-        ),
-        Match.orElse(() => Effect.void),
-      ),
-    ),
-  )
-})
+        // Store chunk mesh data
+        if (mesh.indices.length > 0) {
+          yield* _(
+            worldService.storeChunkMesh({
+              chunkX,
+              chunkZ,
+              positions: mesh.positions,
+              normals: mesh.normals,
+              uvs: mesh.uvs,
+              indices: mesh.indices,
+            })
+          )
+        }
+
+        yield* _(Effect.log(`Chunk generation completed for chunk ${chunkX}, ${chunkZ} with ${blocks.length} blocks`))
+      })
+  }
+)
+
+const processWorldUpdate = (
+  update: any,
+  worldService: WorldDomainService,
+  entityService: EntityDomainService
+) =>
+  Effect.gen(function* (_) {
+    // Process different types of world updates
+    switch (update.type) {
+      case 'BLOCK_PLACED':
+        yield* _(worldService.updateBlock(update.position, update.blockType))
+        break
+      case 'BLOCK_DESTROYED':
+        yield* _(worldService.removeBlock(update.position))
+        break
+      case 'CHUNK_MODIFIED':
+        yield* _(worldService.markChunkForUpdate(update.chunkCoordinate))
+        break
+      default:
+        yield* _(Effect.log(`Unknown update type: ${update.type}`))
+    }
+  })

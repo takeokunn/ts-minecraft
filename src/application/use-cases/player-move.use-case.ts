@@ -1,21 +1,24 @@
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Context } from "effect"
 import { PlayerMovementCommand } from "../commands/player-movement"
-import { PhysicsService } from "../../domain/services/physics.service"
-import { WorldService } from "../../domain/services/world.service"
-import { EntityService } from "../../domain/services/entity.service"
+import { PhysicsDomainService } from "../../domain/services/physics-domain.service"
+import { WorldDomainService } from "../../domain/services/world-domain.service"
+import { EntityDomainService } from "../../domain/services/entity-domain.service"
 
-export interface PlayerMoveUseCase {
-  readonly execute: (command: PlayerMovementCommand) => Effect.Effect<void, Error>
-}
+export class PlayerMoveUseCase extends Context.Tag("PlayerMoveUseCase")<
+  PlayerMoveUseCase,
+  {
+    readonly execute: (command: PlayerMovementCommand) => Effect.Effect<void, Error>
+  }
+>() {}
 
-export const PlayerMoveUseCase = Layer.succeed(
-  "PlayerMoveUseCase",
-  PlayerMoveUseCase.of({
+export const PlayerMoveUseCaseLive = Layer.succeed(
+  PlayerMoveUseCase,
+  {
     execute: (command) =>
       Effect.gen(function* (_) {
-        const physicsService = yield* _(PhysicsService)
-        const worldService = yield* _(WorldService)
-        const entityService = yield* _(EntityService)
+        const physicsService = yield* _(PhysicsDomainService)
+        const worldService = yield* _(WorldDomainService)
+        const entityService = yield* _(EntityDomainService)
 
         // Validate movement
         const isValidMove = yield* _(
@@ -39,12 +42,16 @@ export const PlayerMoveUseCase = Layer.succeed(
         )
 
         // Check for chunk loading requirements
-        yield* _(worldService.checkChunkRequirements(command.position))
+        const chunkCoord = { 
+          x: Math.floor(command.position.x / 16), 
+          z: Math.floor(command.position.z / 16) 
+        }
+        yield* _(worldService.ensureChunkLoaded(chunkCoord))
 
         // Apply movement effects (sounds, particles, etc.)
         yield* _(applyMovementEffects(command))
       })
-  })
+  }
 )
 
 const applyMovementEffects = (command: PlayerMovementCommand) =>
@@ -54,7 +61,4 @@ const applyMovementEffects = (command: PlayerMovementCommand) =>
     yield* _(Effect.log(`Movement effects applied for entity ${command.entityId}`))
   })
 
-export const PlayerMoveUseCaseLive = Layer.provide(
-  PlayerMoveUseCase,
-  Layer.mergeAll(PhysicsService, WorldService, EntityService)
-)
+// Layer dependencies will be provided by the main Application layer

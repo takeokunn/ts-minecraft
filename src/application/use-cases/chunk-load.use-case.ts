@@ -1,5 +1,5 @@
-import { Effect, Layer } from "effect"
-import { WorldService } from "../../domain/services/world.service"
+import { Effect, Layer, Context } from "effect"
+import { WorldDomainService } from "../../domain/services/world-domain.service"
 
 export interface ChunkLoadCommand {
   readonly chunkX: number
@@ -8,20 +8,23 @@ export interface ChunkLoadCommand {
   readonly requesterId?: string
 }
 
-export interface ChunkLoadUseCase {
-  readonly execute: (command: ChunkLoadCommand) => Effect.Effect<void, Error>
-  readonly preloadChunksAroundPosition: (
-    position: { x: number; z: number },
-    radius: number
-  ) => Effect.Effect<void, Error>
-}
+export class ChunkLoadUseCase extends Context.Tag("ChunkLoadUseCase")<
+  ChunkLoadUseCase,
+  {
+    readonly execute: (command: ChunkLoadCommand) => Effect.Effect<void, Error>
+    readonly preloadChunksAroundPosition: (
+      position: { x: number; z: number },
+      radius: number
+    ) => Effect.Effect<void, Error>
+  }
+>() {}
 
-export const ChunkLoadUseCase = Layer.succeed(
-  "ChunkLoadUseCase",
-  ChunkLoadUseCase.of({
+export const ChunkLoadUseCaseLive = Layer.succeed(
+  ChunkLoadUseCase,
+  {
     execute: (command) =>
       Effect.gen(function* (_) {
-        const worldService = yield* _(WorldService)
+        const worldService = yield* _(WorldDomainService)
 
         // Check if chunk is already loaded
         const isLoaded = yield* _(
@@ -59,7 +62,7 @@ export const ChunkLoadUseCase = Layer.succeed(
 
     preloadChunksAroundPosition: (position, radius) =>
       Effect.gen(function* (_) {
-        const worldService = yield* _(WorldService)
+        const worldService = yield* _(WorldDomainService)
         
         // Calculate chunk coordinates
         const centerChunkX = Math.floor(position.x / 16)
@@ -97,12 +100,12 @@ export const ChunkLoadUseCase = Layer.succeed(
           )
         )
       })
-  })
+  }
 )
 
 const processChunkLoading = (
   command: ChunkLoadCommand,
-  worldService: WorldService
+  worldService: WorldDomainService
 ) =>
   Effect.gen(function* (_) {
     // Generate terrain data
@@ -145,7 +148,4 @@ const processChunkLoading = (
     )
   })
 
-export const ChunkLoadUseCaseLive = Layer.provide(
-  ChunkLoadUseCase,
-  WorldService
-)
+// Layer dependencies will be provided by the main Application layer

@@ -249,36 +249,41 @@ const make = (config: WorkerManagerConfig = defaultConfig) =>
         let workerScript: string
         let clientConfig: WorkerClientConfig<any, any>
 
-        switch (type) {
-          case 'terrain':
-            workerScript = new URL('../terrain-generation.worker.ts', import.meta.url).href
-            clientConfig = {
-              inputSchema: TerrainGenerationRequest,
-              outputSchema: TerrainGenerationResponse,
-              timeout: config.terrain.timeout,
-              maxConcurrentRequests: config.terrain.maxConcurrency
-            }
-            break
-          case 'physics':
-            workerScript = new URL('../physics.worker.ts', import.meta.url).href
-            clientConfig = {
-              inputSchema: PhysicsSimulationRequest,
-              outputSchema: PhysicsSimulationResponse,
-              timeout: config.physics.timeout,
-              maxConcurrentRequests: config.physics.maxConcurrency
-            }
-            break
-          case 'mesh':
-            workerScript = new URL('../mesh-generation.ts', import.meta.url).href
-            clientConfig = {
-              inputSchema: MeshGenerationRequest,
-              outputSchema: MeshGenerationResponse,
-              timeout: config.mesh.timeout,
-              maxConcurrentRequests: config.mesh.maxConcurrency
-            }
-            break
-          default:
-            return yield* Effect.fail(new Error(`Unsupported worker type: ${type}`))
+        // Worker script mapping with better error handling
+        const workerScripts: Record<WorkerType, string> = {
+          terrain: new URL('../workers/terrain-generation.worker.ts', import.meta.url).href,
+          physics: new URL('../workers/physics.worker.ts', import.meta.url).href,
+          mesh: new URL('../workers/mesh-generation.worker.ts', import.meta.url).href,
+          lighting: new URL('../workers/lighting.worker.ts', import.meta.url).href,
+          computation: new URL('../workers/computation.worker.ts', import.meta.url).href
+        }
+
+        const inputSchemas: Record<WorkerType, any> = {
+          terrain: TerrainGenerationRequest,
+          physics: PhysicsSimulationRequest,
+          mesh: MeshGenerationRequest,
+          lighting: TerrainGenerationRequest, // Temporary - needs lighting protocol
+          computation: PhysicsSimulationRequest // Temporary - needs computation protocol
+        }
+
+        const outputSchemas: Record<WorkerType, any> = {
+          terrain: TerrainGenerationResponse,
+          physics: PhysicsSimulationResponse,
+          mesh: MeshGenerationResponse,
+          lighting: TerrainGenerationResponse, // Temporary
+          computation: PhysicsSimulationResponse // Temporary
+        }
+
+        if (!workerScripts[type]) {
+          return yield* Effect.fail(new Error(`Unsupported worker type: ${type}`))
+        }
+
+        workerScript = workerScripts[type]
+        clientConfig = {
+          inputSchema: inputSchemas[type],
+          outputSchema: outputSchemas[type],
+          timeout: config[type].timeout,
+          maxConcurrentRequests: config[type].maxConcurrency
         }
 
         const worker = new Worker(workerScript, { type: 'module' })

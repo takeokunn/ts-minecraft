@@ -1,44 +1,10 @@
 /**
- * Workers module main exports
- * Provides complete worker system with type safety and advanced features
+ * Unified Worker System - Complete implementation
+ * Provides advanced worker management with type safety, pooling, and Effect integration
  */
 
-// Base worker system
+// Unified worker system - primary exports
+export * from './unified'
+
+// Base worker functionality (still available for advanced usage)
 export * from './base'
-
-// Shared protocol
-export * from './shared'
-
-// Legacy compatibility (for gradual migration)
-export { createWorker, createWorkerClient } from './shared/worker-base'
-export type { WorkerHandler as LegacyWorkerHandler, WorkerConfig } from './shared/worker-base'
-
-// Message types (legacy - for backward compatibility)
-export * from './messages'
-
-// Main worker exports - use these for new implementations
-export {
-  createTypedWorker,
-  createTypedWorkerClient,
-  createWorkerFactory,
-  createWorkerPool,
-} from './base/typed-worker'
-
-export type {
-  TypedWorkerConfig,
-  WorkerClientConfig,
-  WorkerHandler,
-  WorkerHandlerContext,
-} from './base/typed-worker'
-
-// Protocol types
-export type {
-  TerrainGenerationRequest,
-  TerrainGenerationResponse,
-  PhysicsSimulationRequest,
-  PhysicsSimulationResponse,
-  MeshGenerationRequest,
-  MeshGenerationResponse,
-  LightingCalculationRequest,
-  LightingCalculationResponse,
-} from './shared/protocol'

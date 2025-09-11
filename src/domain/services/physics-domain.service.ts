@@ -343,14 +343,14 @@ export interface DebugColor {
   readonly a: number
 }
 
-// ===== PHYSICS SERVICE TAG =====
+// ===== PHYSICS DOMAIN SERVICE TAG =====
 
-export class PhysicsService extends Context.GenericTag('PhysicsService')<
-  PhysicsService,
-  PhysicsServiceInterface
+export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainService')<
+  PhysicsDomainService,
+  PhysicsDomainServiceInterface
 >() {
   static readonly Live = Layer.effect(
-    PhysicsService,
+    PhysicsDomainService,
     Effect.gen(function* () {
       // Dependencies would be provided by proper service composition
       // const entityService = yield* EntityServiceDep

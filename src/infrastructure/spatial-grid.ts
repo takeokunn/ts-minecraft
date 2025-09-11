@@ -2,7 +2,7 @@ import { Effect, HashMap, HashSet, Layer, Ref, Option, Array as _EffectArray } f
 import { pipe } from 'effect/Function'
 import type { EntityId } from '@/domain/entities'
 import type { AABB } from '@/domain/geometry'
-import { SpatialGrid } from '@/infrastructure/services/spatial-grid.service'
+import { SpatialGrid } from '@/infrastructure/layers/unified.layer'
 import { ObjectPool } from '@/infrastructure/performance/object-pool'
 
 // Optimized configuration

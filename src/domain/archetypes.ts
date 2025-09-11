@@ -10,7 +10,7 @@ import {
 } from '@/domain/entities/components'
 import { ChunkX, ChunkZ, toFloat, toInt } from './common'
 import { BLOCK_COLLIDER, GRAVITY, PLAYER_COLLIDER } from './world-constants'
-import * as ParseResult from '@effect/schema/ParseResult'
+import * as ParseResult from 'effect/ParseResult'
 
 const PlayerArchetypeBuilder = S.Struct({
   type: S.Literal('player'),

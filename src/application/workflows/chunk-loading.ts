@@ -3,8 +3,8 @@ import { ReadonlyArray } from 'effect/ReadonlyArray'
 import { EntityId } from '@/domain/entities'
 import { playerQuery, chunkQuery } from '@/domain/queries'
 import { CHUNK_SIZE, RENDER_DISTANCE } from '@/domain/world-constants'
-import { WorldService as World } from '@/application/services/world.service'
-import { ComputationWorker } from '@/infrastructure/services/computation-worker.service'
+import { WorldDomainService } from '@/domain/services/world-domain.service'
+import { ChunkLoadUseCase } from '../use-cases/chunk-load.use-case'
 import { Position } from '@/domain/entities/components'
 
 type ChunkCoord = { readonly x: number; readonly z: number }
@@ -73,52 +73,57 @@ const getPlayerChunk = (position: Position): ChunkCoord => ({
   z: Math.floor(position.z / CHUNK_SIZE),
 })
 
-export const chunkLoadingSystem = Effect.gen(function* ($) {
-  const world = yield* $(World)
-  const worker = yield* $(ComputationWorker)
-  const { components: playerComponents } = yield* $(world.querySoA(playerQuery))
-  const playerPosition = Option.fromNullable(playerComponents.position[0])
+export const chunkLoadingWorkflow = Effect.gen(function* (_) {
+  const worldService = yield* _(WorldDomainService)
+  const chunkLoadUseCase = yield* _(ChunkLoadUseCase)
 
-  yield* $(
-    Option.match(playerPosition, {
-      onNone: () => Effect.void, // No player, do nothing
-      onSome: (position) =>
-        Effect.gen(function* ($) {
-          const currentPlayerChunk = getPlayerChunk(position)
+  // Get current player position
+  const playerPosition = yield* _(worldService.getPlayerPosition())
+  
+  if (!playerPosition) {
+    yield* _(Effect.log("No player position found, skipping chunk loading"))
+    return
+  }
 
-          const { entities: loadedChunkEntities, components: chunkComponents } = yield* $(
-            world.querySoA(chunkQuery),
-          )
-          const loadedChunks = HashMap.make(
-            ...ReadonlyArray.map(loadedChunkEntities, (entityId, i) => {
-              const chunk = chunkComponents.chunk[i]
-              return [ChunkCoord.asString(chunk), entityId] as const
-            }),
-          )
+  const currentPlayerChunk = getPlayerChunk(playerPosition)
 
-          const { toLoad, toUnload } = calculateChunkUpdates(
-            currentPlayerChunk,
-            loadedChunks,
-            RENDER_DISTANCE,
-          )
-
-          const loadEffects = ReadonlyArray.map(toLoad, (coord) =>
-            worker.postTask({
-              type: 'generateChunk',
-              chunkX: coord.x,
-              chunkZ: coord.z,
-            }),
-          )
-
-          const unloadEffects = ReadonlyArray.map(toUnload, (entityId) => world.removeEntity(entityId))
-
-          yield* $(
-            Effect.all(ReadonlyArray.appendAll(loadEffects, unloadEffects), {
-              discard: true,
-              concurrency: 'unbounded',
-            }),
-          )
-        }),
-    }),
+  // Get currently loaded chunks
+  const loadedChunks = yield* _(worldService.getLoadedChunks())
+  const loadedChunkMap = HashMap.fromIterable(
+    loadedChunks.map(chunk => [
+      ChunkCoord.asString({ x: chunk.chunkX, z: chunk.chunkZ }), 
+      chunk
+    ])
   )
+
+  const { toLoad, toUnload } = calculateChunkUpdates(
+    currentPlayerChunk,
+    HashMap.map(loadedChunkMap, chunk => chunk.chunkX.toString()), // Convert to simple mapping for compatibility
+    RENDER_DISTANCE,
+  )
+
+  // Load new chunks
+  yield* _(
+    Effect.forEach(
+      toLoad,
+      (coord) => chunkLoadUseCase.execute({
+        chunkX: coord.x,
+        chunkZ: coord.z,
+        priority: "medium",
+        requesterId: "chunk-loading-workflow"
+      }),
+      { concurrency: 4, discard: true }
+    )
+  )
+
+  // Unload distant chunks
+  yield* _(
+    Effect.forEach(
+      toUnload,
+      (entityId) => worldService.unloadChunk(entityId),
+      { concurrency: 4, discard: true }
+    )
+  )
+
+  yield* _(Effect.log(`Chunk loading workflow completed: ${toLoad.length} loaded, ${toUnload.length} unloaded`))
 })
