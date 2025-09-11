@@ -1,26 +1,31 @@
 import { Effect } from 'effect'
-import { createAABB } from '/value-objects/physics/aabb.vo'
-import { queryConfigs } from '/queries'
-import { SpatialGridPort } from '/ports/spatial-grid.port'
-import { WorldRepository } from '/ports/world.repository'
+import { createAABB } from '@domain/value-objects/physics/aabb.vo'
+import { SpatialGridPort } from '@domain/ports/spatial-grid.port'
+import { WorldRepositoryPortPort } from '@domain/ports/world-repository.port'
 
 export const spatialGridSystem = Effect.gen(function* (_) {
-  const world = yield* _(WorldRepository)
+  const world = yield* _(WorldRepositoryPortPort)
   const spatialGrid = yield* _(SpatialGridPort)
 
   yield* _(spatialGrid.clear())
 
-  const { entities, components } = yield* _(world.querySoA(queries.positionCollider))
-  const { position, collider } = components
+  // Query entities with position and collider components for spatial grid
+  const queryResult = yield* _(world.query(['position', 'collider']))
+  const entities = queryResult.entities
 
   yield* _(
     Effect.forEach(
       entities,
-      (entityId, i) => {
-        const currentPosition = position[i]
-        const currentCollider = collider[i]
-        const aabb = createAABB(currentPosition, currentCollider)
-        return spatialGrid.insert(entityId, aabb)
+      (entityId) => {
+        // Get components for this entity
+        const position = queryResult.getComponent(entityId, 'position')
+        const collider = queryResult.getComponent(entityId, 'collider')
+        
+        if (position && collider) {
+          const aabb = createAABB(position, collider)
+          return spatialGrid.insert(entityId, aabb)
+        }
+        return Effect.void
       },
       { discard: true, concurrency: 'unbounded' },
     ),

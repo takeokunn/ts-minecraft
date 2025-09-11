@@ -1,8 +1,8 @@
 import { Effect, Layer, Context } from 'effect'
-import { WorldDomainService } from '../../domain/services/world-domain.service'
-import { TerrainGenerationDomainService, TerrainGeneratorPort } from '../../domain/services/terrain-generation-domain.service'
-import { MeshGenerationDomainService, MeshGeneratorPort } from '../../domain/services/mesh-generation-domain.service'
-import { WorldManagementDomainService, WorldManagementDomainServicePort } from '../../domain/services/world-management-domain.service'
+import { WorldDomainService } from '@domain/services/world-domain.service'
+import { TerrainGenerationDomainService, TerrainGeneratorPort } from '@domain/services/terrain-generation-domain.service'
+import { MeshGenerationDomainService, MeshGeneratorPort } from '@domain/services/mesh-generation-domain.service'
+import { WorldManagementDomainService, WorldManagementDomainServicePort } from '@domain/services/world-management-domain.service'
 
 export interface WorldGenerateCommand {
   readonly seed: number

@@ -1,8 +1,8 @@
 import * as S from 'effect/Schema'
 import { HashMap } from 'effect'
-import { EntityId } from '../value-objects/entity-id.vo'
-import { ChunkCoordinate } from '../value-objects/coordinates/chunk-coordinate.vo'
-import { Position } from '../value-objects/coordinates/position.vo'
+import { EntityId } from '@domain/value-objects/entity-id.vo'
+import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordinate.vo'
+import { Position } from '@domain/value-objects/coordinates/position.vo'
 import { Player } from './player.entity'
 import { Chunk } from './chunk.entity'
 

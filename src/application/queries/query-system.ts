@@ -7,7 +7,7 @@
  */
 
 import { OptimizedQuery } from './optimized-query'
-import { globalQueryCache } from './cache'
+import { globalQueryCacheLayer } from './cache'
 
 /**
  * Query system utilities
@@ -45,11 +45,17 @@ export const querySystem = {
 
   /**
    * Cleanup expired cache entries
+   * Note: These methods require Effect runtime context
    */
-  cleanupCache: () => globalQueryCache.cleanup(),
+  cleanupCache: () => {
+    throw new Error('cleanupCache requires Effect runtime context. Use Effect.provide(globalQueryCacheLayer) instead.')
+  },
 
   /**
    * Get cache statistics
+   * Note: These methods require Effect runtime context
    */
-  getCacheStats: () => globalQueryCache.getStats(),
+  getCacheStats: () => {
+    throw new Error('getCacheStats requires Effect runtime context. Use Effect.provide(globalQueryCacheLayer) instead.')
+  },
 }

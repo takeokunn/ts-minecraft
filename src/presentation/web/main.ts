@@ -1,9 +1,9 @@
 import { Effect, Layer } from 'effect'
-import { createArchetype } from '../../domain/archetypes'
-import { ApplicationLayer } from '../../application/application-layer'
-import { UnifiedAppLive } from '../../infrastructure/layers/unified.layer'
-import { GameController, GameControllerLive } from '../controllers/game.controller'
-import { UIController, UIControllerLive } from '../controllers/ui.controller'
+import { createArchetype } from '@domain/archetypes'
+import { ApplicationLayer } from '@application/application-layer'
+import { UnifiedAppLive } from '@infrastructure/layers/unified.layer'
+import { GameController, GameControllerLive } from '@presentation/controllers/game.controller'
+import { UIController, UIControllerLive } from '@presentation/controllers/ui.controller'
 
 /**
  * Web Browser Main Entry Point

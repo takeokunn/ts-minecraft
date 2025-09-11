@@ -1,20 +1,18 @@
 import { Layer, Effect, Context, Ref, Queue, Option, HashMap } from 'effect'
 import * as THREE from 'three'
-import { EntityId } from '/value-objects/schemas/index'
-import { Chunk } from '/entities/chunk.entity'
-import { ChunkCoordinate } from '/value-objects/coordinates/chunk-coordinate.vo'
+import { EntityId } from '@domain/value-objects/schemas/index'
+import { Chunk } from '@domain/entities/chunk.entity'
+import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordinate.vo'
 
 /**
  * Unified Layer Implementation
  * 
- * MIGRATION NOTICE: This layer is being refactored to use the Adapter pattern.
- * New services use concrete adapters from /infrastructure/adapters/
- * Legacy services are maintained for backward compatibility but will delegate to adapters.
- * 
- * Architecture:
- * - Domain services contain pure business logic
- * - Infrastructure adapters implement port interfaces with technical details
- * - This unified layer provides Effect-TS service definitions for the application layer
+ * ARCHITECTURE: DDD-compliant infrastructure layer
+ * - Pure technical implementations only
+ * - Business logic moved to domain layer
+ * - Adapters implement domain ports with concrete technology
+ * - Services provide Effect-TS definitions for application layer
+ * - Clean separation between domain and infrastructure concerns
  */
 
 // ============================================================================
@@ -199,8 +197,10 @@ export class WorkerManager extends Context.Tag('WorkerManager')<
   }
 >() {}
 
-// TerrainGenerator now uses the adapter pattern from infrastructure/adapters
-// This service tag is kept for compatibility but will delegate to the adapter
+/**
+ * TerrainGenerator Service - Infrastructure noise generation
+ * Provides raw noise data that domain services interpret into game content
+ */
 export class TerrainGenerator extends Context.Tag('TerrainGenerator')<
   TerrainGenerator,
   {
@@ -750,15 +750,12 @@ export const WorkerManagerLive: Layer.Layer<WorkerManager, never, never> = Layer
 )
 
 /**
- * TerrainGenerator Live Implementation - Now delegates to adapter
- * This maintains backward compatibility while using the new adapter pattern
+ * TerrainGenerator Live Implementation - Uses infrastructure noise generation
+ * Provides technical noise generation capabilities to domain services
  */
 export const TerrainGeneratorLive: Layer.Layer<TerrainGenerator, never, never> = Layer.effect(
   TerrainGenerator,
   Effect.gen(function* () {
-    // Import the terrain generator adapter for delegation
-    const { TerrainGeneratorAdapterLive } = yield* Effect.promise(() => import('../adapters/terrain-generator.adapter'))
-    
     const seed = yield* Ref.make(12345)
     const config = yield* Ref.make({
       amplitude: 50,
@@ -1353,16 +1350,24 @@ export const SystemServicesLive = Layer.mergeAll(
 )
 
 /**
- * Complete unified application layer - all services composed
+ * Complete unified infrastructure layer - all technical services composed
  * Layer dependency order: Domain -> Core -> World -> Infrastructure -> System
+ * 
+ * CLEAN ARCHITECTURE: Infrastructure layer only contains technical implementations
+ * - No business logic at this layer
+ * - All domain decisions delegated to domain services
+ * - Adapters implement ports with concrete technology choices
  */
-export const UnifiedAppLive = Layer.mergeAll(
+export const UnifiedInfrastructureLive = Layer.mergeAll(
   DomainServicesLive, 
   CoreServicesLive, 
   WorldServicesLive, 
   InfrastructureServicesLive,
   SystemServicesLive
 )
+
+// Alias for backward compatibility
+export const UnifiedAppLive = UnifiedInfrastructureLive
 
 /**
  * Layer presets for different runtime configurations

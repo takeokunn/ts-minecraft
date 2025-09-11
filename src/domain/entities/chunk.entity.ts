@@ -1,6 +1,6 @@
 import * as S from 'effect/Schema'
-import { ChunkCoordinate } from '../value-objects/coordinates/chunk-coordinate.vo'
-import { Block } from './block.entity'
+import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordinate.vo'
+import { Block } from '@domain/entities/block.entity'
 
 export const CHUNK_SIZE = 16
 export const CHUNK_HEIGHT = 256

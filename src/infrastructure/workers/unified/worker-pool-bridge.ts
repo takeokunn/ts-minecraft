@@ -6,14 +6,75 @@
 
 import { Effect, Layer, Context } from 'effect'
 import { WorkerManagerService, WorkerManagerServiceLive, type WorkerType as UnifiedWorkerType } from './worker-manager'
-import { 
-  WorkerPoolService as PerformanceWorkerPoolService,
-  type WorkerType as PerformanceWorkerType,
-  type WorkerTask,
-  type WorkerStats,
-  WorkerError,
-  WorkerTimeoutError
-} from '../../performance/worker-pool.layer'
+// Legacy types recreated here to avoid dependency on deprecated worker-pool.layer.ts
+
+export type PerformanceWorkerType = 'compute' | 'physics' | 'terrain' | 'pathfinding' | 'rendering' | 'compression'
+
+export type TaskPriority = 'low' | 'normal' | 'high' | 'critical'
+
+export interface WorkerTask {
+  id: string
+  type: PerformanceWorkerType
+  operation: string
+  data: unknown
+  transferables?: unknown[]
+  priority: TaskPriority
+  timeout?: number
+}
+
+export interface WorkerStats {
+  workerId: string
+  type: PerformanceWorkerType
+  status: 'idle' | 'busy' | 'error'
+  tasksCompleted: number
+  totalExecutionTime: number
+  averageExecutionTime: number
+  currentTask?: string
+  lastActivity: number
+}
+
+export class WorkerError extends Error {
+  constructor(options: { message: string; workerId?: string; taskId?: string }) {
+    super(options.message)
+    this.name = 'WorkerError'
+  }
+}
+
+export class WorkerTimeoutError extends Error {
+  constructor(options: { message: string; taskId: string; timeout: number }) {
+    super(options.message)
+    this.name = 'WorkerTimeoutError'
+  }
+}
+
+export interface WorkerConfig {
+  type: PerformanceWorkerType
+  scriptUrl: string
+  minWorkers: number
+  maxWorkers: number
+  idleTimeout: number
+  maxTasksPerWorker: number
+  enableSharedMemory: boolean
+}
+
+interface PerformanceWorkerPoolService {
+  readonly createPool: (config: WorkerConfig) => Effect.Effect<void, WorkerError>
+  readonly execute: <T>(task: WorkerTask) => Effect.Effect<T, WorkerError | WorkerTimeoutError>
+  readonly executeBatch: <T>(tasks: ReadonlyArray<WorkerTask>) => Effect.Effect<ReadonlyArray<T>, WorkerError>
+  readonly stream: <T, R>(type: PerformanceWorkerType, operation: string, input: any) => any
+  readonly broadcast: (type: PerformanceWorkerType, message: unknown) => Effect.Effect<void>
+  readonly resize: (type: PerformanceWorkerType, newSize: number) => Effect.Effect<void>
+  readonly getStats: () => Effect.Effect<ReadonlyArray<WorkerStats>>
+  readonly terminate: (type?: PerformanceWorkerType) => Effect.Effect<void>
+  readonly getPoolSize: (type: PerformanceWorkerType) => Effect.Effect<{
+    active: number
+    idle: number
+    total: number
+  }>
+}
+
+const PerformanceWorkerPoolService = Context.GenericTag<PerformanceWorkerPoolService>('PerformanceWorkerPoolService')
+
 import { ComputationRequest, ComputationResponse, type ComputationType } from './protocols'
 
 /**

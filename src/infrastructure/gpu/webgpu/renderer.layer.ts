@@ -23,7 +23,7 @@ import * as Ref from 'effect/Ref'
 import * as _Queue from 'effect/Queue'
 
 // Core imports
-import { EntityId } from '/entities'
+import { EntityId } from '@domain/entities'
 
 import {
   RenderingError,
@@ -34,7 +34,7 @@ import {
   RenderTargetError,
   MeshDataError,
   GraphicsContextError,
-} from '../errors'
+} from '@domain/errors'
 
 // ===== RENDER SERVICE INTERFACE =====
 

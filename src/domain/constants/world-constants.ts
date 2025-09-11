@@ -17,7 +17,7 @@ export {
   NOISE_SCALE,
   TERRAIN_HEIGHT_MULTIPLIER,
   CAVE_THRESHOLD,
-} from '/constants/world'
+} from '@shared/constants/world'
 
 // Re-export physics constants for domain convenience
 export {
@@ -32,7 +32,7 @@ export {
   PLAYER_HEIGHT,
   PLAYER_COLLIDER,
   BLOCK_COLLIDER,
-} from '/constants/physics'
+} from '@shared/constants/physics'
 
 // Domain-specific derived constants
 export const CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT

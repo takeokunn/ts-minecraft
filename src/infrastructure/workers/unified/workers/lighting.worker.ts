@@ -4,7 +4,7 @@
  */
 
 import { Effect } from 'effect'
-import { TerrainGenerationRequest, TerrainGenerationResponse } from '../protocols/terrain.protocol'
+import { TerrainGenerationRequest, TerrainGenerationResponse } from '@infrastructure/workers/unified/protocols/terrain.protocol'
 
 // Initialize worker capabilities
 const workerCapabilities = {

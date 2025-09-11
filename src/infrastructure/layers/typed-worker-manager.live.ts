@@ -8,7 +8,7 @@ export {
   type WorkerHandler,
   type TypedWorkerConfig,
   type WorkerClientConfig,
-} from '../workers/base/typed-worker'
+} from '@infrastructure/workers/base/typed-worker'
 
 // Export the worker pool functionality
-export { createWorkerPool, createMultipleWorkerPools, type WorkerPoolConfig, type PoolMetrics, type WorkerPoolService } from '../workers/unified/worker-pool'
+export { createWorkerPool, createMultipleWorkerPools, type WorkerPoolConfig, type PoolMetrics, type WorkerPoolService } from '@infrastructure/workers/unified/worker-pool'

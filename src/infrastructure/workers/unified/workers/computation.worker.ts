@@ -4,7 +4,7 @@
  */
 
 import { Effect } from 'effect'
-import { PhysicsSimulationRequest, PhysicsSimulationResponse } from '../protocols/physics.protocol'
+import { PhysicsSimulationRequest, PhysicsSimulationResponse } from '@infrastructure/workers/unified/protocols/physics.protocol'
 
 // Initialize worker capabilities
 const workerCapabilities = {

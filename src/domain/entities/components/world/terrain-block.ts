@@ -1,5 +1,5 @@
 import * as S from 'effect/Schema'
-import { RegisterComponent } from '../registry'
+import { RegisterComponent } from '@domain/entities/components/registry'
 
 /**
  * TerrainBlock Component - Marks entity as a terrain block

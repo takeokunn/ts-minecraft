@@ -10,9 +10,9 @@
  * - Effect-TS integration with fiber-based concurrency
  */
 
-import { Effect, Context, Layer, Ref, Array, Option, Duration, Fiber, Clock as EffectClock, pipe } from 'effect'
-import { ClockPort } from '/ports/clock.port'
-import { WorldDomainService as World } from '../../domain/services/world-domain.service'
+import { Effect, Context, Layer, Ref, Array, Option, Duration, Fiber, Clock as EffectClock, pipe, Data } from 'effect'
+import { ClockPort } from '@domain/ports/clock.port'
+import { WorldDomainService as World } from '@domain/services/world-domain.service'
 
 /**
  * System execution priority levels
@@ -90,15 +90,10 @@ export interface SchedulerConfig {
 /**
  * Scheduler errors
  */
-export class SchedulerError extends Error {
-  readonly _tag = 'SchedulerError'
-  constructor(
-    message: string,
-    readonly cause?: unknown,
-  ) {
-    super(message)
-  }
-}
+export class SchedulerError extends Data.TaggedError('SchedulerError')<{
+  readonly message: string
+  readonly cause?: unknown
+}> {}
 
 /**
  * System Scheduler Service interface

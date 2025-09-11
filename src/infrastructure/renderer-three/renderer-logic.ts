@@ -1,7 +1,7 @@
-import { Clock, MaterialManager, Renderer, type RenderCommand } from '/layers/unified.layer'
+import { Clock, MaterialManager, Renderer, type RenderCommand } from '@infrastructure/layers/unified.layer'
 import { Effect, Layer, Match, Queue, Ref } from 'effect'
 import * as THREE from 'three'
-import { ThreeJsContext } from '../three-js-context'
+import { ThreeJsContext } from '@infrastructure/adapters/three-js.adapter'
 
 /**
  * Three.js Renderer Implementation Logic

@@ -15,9 +15,9 @@ import * as Ref from 'effect/Ref'
 import * as Option from 'effect/Option'
 import * as Array from 'effect/Array'
 
-import { EntityId, toEntityId } from '/entities'
-import { type Components, type ComponentName, type ComponentOfName, componentNamesSet } from '/entities/components'
-import { Archetype } from '/archetypes'
+import { EntityId, toEntityId } from '@domain/entities'
+import { type Components, type ComponentName, type ComponentOfName, componentNamesSet } from '@domain/entities/components'
+import { Archetype } from '@domain/archetypes'
 
 /**
  * Entity metadata and tracking

@@ -1,5 +1,5 @@
 import * as S from 'effect/Schema'
-import { blockTypes } from '/value-objects/block-type.vo'
+import { blockTypes } from '@domain/value-objects/block-type.vo'
 import { Effect } from 'effect'
 
 export const BlockDefinitionSchema = S.Struct({

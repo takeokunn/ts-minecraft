@@ -1,10 +1,10 @@
 import { Effect, Layer, Context } from 'effect'
-import { PlayerMovementCommand } from '../commands/player-movement'
-import { BlockInteractionCommand } from '../commands/block-interaction'
-import { PlayerMoveUseCase } from '../use-cases/player-move.use-case'
-import { BlockPlaceUseCase } from '../use-cases/block-place.use-case'
-import { ChunkLoadUseCase, ChunkLoadCommand } from '../use-cases/chunk-load.use-case'
-import { WorldGenerateUseCase, WorldGenerateCommand } from '../use-cases/world-generate.use-case'
+import { PlayerMovementCommand } from '@application/commands/player-movement'
+import { BlockInteractionCommand } from '@application/commands/block-interaction'
+import { PlayerMoveUseCase } from '@application/use-cases/player-move.use-case'
+import { BlockPlaceUseCase } from '@application/use-cases/block-place.use-case'
+import { ChunkLoadUseCase, ChunkLoadCommand } from '@application/use-cases/chunk-load.use-case'
+import { WorldGenerateUseCase, WorldGenerateCommand } from '@application/use-cases/world-generate.use-case'
 
 // Service interface
 interface CommandHandlersService {

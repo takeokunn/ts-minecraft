@@ -1,16 +1,15 @@
-import { Archetype } from '/archetypes'
-import { Vector3Float as Vector3 } from '/value-objects/common'
-import { Chunk, componentNamesSet, type Components, ComponentSchemas, type ComponentName, type ComponentOfName } from '/entities/components'
-import { type EntityId, toEntityId } from '/entities'
-import { toChunkIndex } from '/geometry'
-import { type LegacyQuery, type OptimizedQuery } from '/queries'
-import { type Voxel } from '/world'
-import { WorldService as World } from '/services/world.service'
+import { Archetype } from '@domain/archetypes'
+import { Vector3Float as Vector3 } from '@domain/value-objects/common'
+import { Chunk, componentNamesSet, type Components, ComponentSchemas, type ComponentName, type ComponentOfName } from '@domain/entities/components'
+import { type EntityId, toEntityId } from '@domain/entities'
+import { toChunkIndex } from '@domain/geometry'
+import { type Voxel } from '@domain/world'
+import { WorldService as World } from '@domain/services/world.service'
 import { Effect, HashMap, HashSet, Layer, Option, Ref } from 'effect'
-import * as S from '/schemas/Schema'
+import * as S from '@domain/schemas/Schema'
 
 // Import errors from centralized location
-import { ComponentNotFoundError, QuerySingleResultNotFoundError, ComponentDecodeError } from '/errors'
+import { ComponentNotFoundError, QuerySingleResultNotFoundError, ComponentDecodeError } from '@domain/errors'
 
 // --- Data Types ---
 
@@ -135,10 +134,10 @@ export const WorldLive = Layer.effect(
         Effect.asVoid,
       )
 
-    const query = <T extends ReadonlyArray<ComponentName>>(query: LegacyQuery<T> | OptimizedQuery<T>) =>
+    const query = <T extends ReadonlyArray<ComponentName>>(query: { componentNames: T }) =>
       Ref.get(state).pipe(
         Effect.map((s) => {
-          const requiredComponents = HashSet.fromIterable(query.components)
+          const requiredComponents = HashSet.fromIterable(query.componentNames)
           const matchingArchetypes = HashMap.filter(s.archetypes, (_, key) => {
             const archetypeComponents = HashSet.fromIterable(key.split(','))
             return HashSet.isSubset(requiredComponents, archetypeComponents)
@@ -159,7 +158,7 @@ export const WorldLive = Layer.effect(
         }),
       )
 
-    const queryUnsafe = <T extends ReadonlyArray<ComponentName>>(q: LegacyQuery<T> | OptimizedQuery<T>) =>
+    const queryUnsafe = <T extends ReadonlyArray<ComponentName>>(q: { componentNames: T }) =>
       query(q).pipe(
         Effect.map((results) =>
           results.map(([entityId, components]) => {
@@ -168,18 +167,18 @@ export const WorldLive = Layer.effect(
         ),
       )
 
-    const querySingle = <T extends ReadonlyArray<ComponentName>>(q: LegacyQuery<T> | OptimizedQuery<T>) => query(q).pipe(Effect.map((results) => Option.fromNullable(results[0])))
+    const querySingle = <T extends ReadonlyArray<ComponentName>>(q: { componentNames: T }) => query(q).pipe(Effect.map((results) => Option.fromNullable(results[0])))
 
-    const querySingleUnsafe = <T extends ReadonlyArray<ComponentName>>(q: LegacyQuery<T> | OptimizedQuery<T>) =>
+    const querySingleUnsafe = <T extends ReadonlyArray<ComponentName>>(q: { componentNames: T }) =>
       querySingle(q).pipe(
         Effect.flatten,
         Effect.mapError(() => new QuerySingleResultNotFoundError({ query: q, resultCount: 0, expectedCount: 1 })),
       )
 
-    const querySoA = <T extends ReadonlyArray<ComponentName>>(query: LegacyQuery<T> | OptimizedQuery<T>) =>
+    const querySoA = <T extends ReadonlyArray<ComponentName>>(query: { componentNames: T }) =>
       Ref.get(state).pipe(
         Effect.map((s) => {
-          const requiredComponents = HashSet.fromIterable(query.components)
+          const requiredComponents = HashSet.fromIterable(query.componentNames)
           const matchingArchetypes = HashMap.filter(s.archetypes, (_, key) => {
             const archetypeComponents = HashSet.fromIterable(key.split(','))
             return HashSet.isSubset(requiredComponents, archetypeComponents)

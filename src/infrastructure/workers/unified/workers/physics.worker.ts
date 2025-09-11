@@ -14,7 +14,7 @@ import {
   PhysicsBody,
   vectorOps,
   zeroVector3,
-} from '../protocols/physics.protocol'
+} from '@infrastructure/workers/unified/protocols/physics.protocol'
 
 // Initialize worker capabilities
 const workerCapabilities = {

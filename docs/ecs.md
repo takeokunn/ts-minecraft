@@ -1,18 +1,18 @@
 > **Summary**
-> このドキュメントは、本プロジェクトのコアアーキテクチャであるEntity Component System (ECS)とEffect-TSの統合モデルについて解説します。Entity, Component, Archetype, Query, System, Worldの各要素がどのように連携し、データ指向設計と関数型プログラミングを両立させているかを説明します。
+> このドキュメントは、本プロジェクトのコアアーキテクチャであるEntity Component System (ECS)とDomain-Driven Design (DDD)、Effect-TSの統合モデルについて解説します。Entity, Component, Archetype, Query, System, Worldの各要素がDDDレイヤーでどのように配置され、データ指向設計と関数型プログラミング、ドメイン駆動設計を三位一体で実現しているかを説明します。
 
-# ECS (Entity Component System) with Effect
+# ECS with DDD Architecture and Effect-TS
 
-本プロジェクトのアーキテクチャは、伝統的なEntity Component System (ECS) パターンと、関数型プログラミングライブラリである **[Effect](https://effect.website/)** を深く統合させた独自のモデルに基づいています。これにより、データ指向設計のパフォーマンス上の利点と、関数型プログラミングの持つ堅牢性・テスト容易性を両立させています。
+本プロジェクトのアーキテクチャは、**Entity Component System (ECS)** パターンを **Domain-Driven Design (DDD)** アーキテクチャと統合し、関数型プログラミングライブラリである **[Effect-TS](https://effect.website/)** で実装した革新的なモデルです。これにより、データ指向設計のパフォーマンス、DDDのビジネスロジック表現力、Effect-TSの堅牢性を同時に実現しています。
 
-このアーキテクチャは、主に6つの要素で構成されます。
+このアーキテクチャは、DDD層構造の中でECSの6つの要素が明確に配置されています。
 
-- **[Entity (エンティティ)](#entity-エンティティ)**: ゲーム内に存在する「モノ」を識別するID。
-- **[Component (コンポーネント)](#component-コンポーネント)**: エンティティの特性を表す純粋なデータ。
-- **[Archetype (アーキタイプ)](#archetype-アーキタイプ)**: エンティティを生成するためのテンプレート。
-- **[Query (クエリ)](#query-クエリ)**: 特定の条件に合うエンティティ群を効率的に検索するための定義。
-- **[System (システム)](#system-システム)**: エンティティとコンポーネントを操作するゲームロジック。
-- **[World (ワールド)](#world-ワールド)**: 上記のすべてを管理する中央サービス。
+- **[Entity (エンティティ)](#entity-エンティティ)**: ドメイン層でビジネス概念として定義される識別子
+- **[Component (コンポーネント)](#component-コンポーネント)**: ドメイン層の純粋なデータ表現
+- **[Archetype (アーキタイプ)](#archetype-アーキタイプ)**: アプリケーション層のエンティティ生成パターン
+- **[Query (クエリ)](#query-クエリ)**: アプリケーション層の効率的なデータ取得仕組み
+- **[System (システム)](#system-システム)**: アプリケーション層のビジネスワークフロー
+- **[World (ワールド)](#world-ワールド)**: ドメイン層のAggregate Rootとして機能する中央管理者
 
 ---
 
@@ -85,7 +85,7 @@ export const playerMovementQuery: Query = createQuery({
 ```typescript
 // src/systems/player-movement.ts (概念コード)
 import { Effect } from 'effect'
-import { playerMovementQuery } from '@/domain/queries'
+import { playerMovementQuery } from '@/application/queries'
 import { World } from '@/domain/world'
 import { InputManager } from '@/infrastructure/input-browser'
 import { PLAYER_SPEED } from '@/domain/world-constants'
@@ -139,3 +139,312 @@ yield * _(gameLoop(systems))
 ```
 
 これにより、フレームごとにどのシステムがどの順番で実行されるかが明確に制御されます。詳細は **[システムスケジューラ](./system-scheduler.md)** のドキュメントを参照してください。
+
+---
+
+## DDD層構造におけるECS配置
+
+本プロジェクトでは、ECSの各要素がDDDの層構造に明確に配置されています。これにより、ビジネスロジックの整理とパフォーマンスの両立を実現しています。
+
+### Domain Layer (ドメイン層)
+
+#### Entity ID とビジネスエンティティ
+
+```typescript
+// src/domain/entities/entity.entity.ts
+export type EntityId = string & Brand.Brand<'EntityId'>
+export const EntityId = Brand.nominal<EntityId>()
+
+// ビジネスエンティティはData.Classで定義
+export class Player extends Data.Class<{
+  readonly id: EntityId
+  readonly name: string
+}> {
+  static readonly schema = S.Struct({
+    id: EntityIdSchema,
+    name: S.String.pipe(S.minLength(1))
+  })
+}
+```
+
+#### Component Schema定義
+
+```typescript
+// src/domain/entities/components/physics/physics-components.ts
+export const Position = S.Struct({
+  x: S.Number.pipe(S.finite()),
+  y: S.Number.pipe(S.between(0, 255)),
+  z: S.Number.pipe(S.finite())
+})
+export type Position = S.Schema.Type<typeof Position>
+
+export const Velocity = S.Struct({
+  dx: S.Number.pipe(S.finite()),
+  dy: S.Number.pipe(S.finite()),
+  dz: S.Number.pipe(S.finite())
+})
+export type Velocity = S.Schema.Type<typeof Velocity>
+```
+
+#### World as Aggregate Root
+
+```typescript
+// src/domain/entities/world.entity.ts
+export class World extends Data.Class<{
+  readonly seed: number
+  readonly loadedChunks: ReadonlyMap<string, Chunk>
+  readonly entities: ReadonlySet<EntityId>
+}> {
+  // Aggregateとしてのビジネスルール
+  canPlaceBlock(position: Position, blockType: BlockType): boolean {
+    // ドメインルールの実装
+    if (position.y === 0) return false // 岩盤層には設置不可
+    return true
+  }
+  
+  // 整合性を保つメソッド
+  addEntity(entity: EntityId): Effect.Effect<World, EntityError> {
+    return Effect.gen(function* () {
+      if (this.entities.has(entity)) {
+        return yield* Effect.fail(new EntityAlreadyExistsError({ entity }))
+      }
+      
+      return new World({
+        ...this,
+        entities: new Set([...this.entities, entity])
+      })
+    })
+  }
+}
+```
+
+### Application Layer (アプリケーション層)
+
+#### クエリシステム
+
+```typescript
+// src/application/queries/queries.ts
+export const movableEntitiesQuery = createQuery({
+  all: [Position, Velocity],
+  none: [Frozen]
+})
+
+export const renderableEntitiesQuery = createQuery({
+  all: [Position, Mesh],
+  any: [Visible, AlwaysRender]
+})
+```
+
+#### Archetypeパターン
+
+```typescript
+// src/application/use-cases/entity-creation.use-case.ts
+export const createPlayerUseCase = (
+  name: string,
+  spawnPosition: Position
+): Effect.Effect<EntityId, PlayerCreationError, WorldService | EntityService> =>
+  Effect.gen(function* () {
+    const world = yield* WorldService
+    const entityService = yield* EntityService
+    
+    // ドメインエンティティの作成
+    const player = new Player({ 
+      id: EntityId(crypto.randomUUID()),
+      name 
+    })
+    
+    // ECSエンティティとコンポーネントの作成
+    const entityId = yield* entityService.createEntity()
+    yield* entityService.addComponent(entityId, 'position', spawnPosition)
+    yield* entityService.addComponent(entityId, 'player', player)
+    yield* entityService.addComponent(entityId, 'health', { current: 100, max: 100 })
+    
+    // Worldに追加
+    yield* world.addEntity(entityId)
+    
+    return entityId
+  })
+```
+
+#### システム as ワークフロー
+
+```typescript
+// src/application/workflows/player-movement.ts
+export const playerMovementWorkflow = Effect.gen(function* () {
+  const world = yield* WorldService
+  const physics = yield* PhysicsService
+  const input = yield* InputService
+  
+  // クエリによるエンティティ取得
+  const { entities, components } = yield* world.querySoA(movableEntitiesQuery)
+  
+  // ビジネスロジックの適用
+  for (let i = 0; i < entities.length; i++) {
+    const inputState = components.input[i]
+    const currentPos = components.position[i]
+    
+    // ドメインサービスによる移動計算
+    const newVelocity = yield* physics.calculateMovement(inputState)
+    const newPosition = yield* physics.applyMovement(currentPos, newVelocity)
+    
+    // 整合性チェック
+    const canMove = yield* world.validateMovement(entities[i], newPosition)
+    
+    if (canMove) {
+      components.position[i] = newPosition
+      components.velocity[i] = newVelocity
+    }
+  }
+})
+```
+
+### Infrastructure Layer (インフラ層)
+
+#### ワールドリポジトリ実装
+
+```typescript
+// src/infrastructure/repositories/world.repository.ts
+export const worldRepositoryLive = Layer.effect(
+  WorldRepository,
+  Effect.gen(function* () {
+    const storage = yield* StorageService
+    
+    return WorldRepository.of({
+      save: (world) =>
+        Effect.gen(function* () {
+          // ECSデータのシリアライゼーション
+          const worldData = {
+            seed: world.seed,
+            chunks: Array.from(world.loadedChunks.entries()),
+            entities: Array.from(world.entities)
+          }
+          
+          yield* storage.write('world.json', JSON.stringify(worldData))
+        }),
+        
+      load: () =>
+        Effect.gen(function* () {
+          const data = yield* storage.read('world.json')
+          const worldData = JSON.parse(data)
+          
+          return new World({
+            seed: worldData.seed,
+            loadedChunks: new Map(worldData.chunks),
+            entities: new Set(worldData.entities)
+          })
+        })
+    })
+  })
+)
+```
+
+### Presentation Layer (プレゼンテーション層)
+
+#### コントローラー
+
+```typescript
+// src/presentation/controllers/game.controller.ts
+export const gameController = Effect.gen(function* () {
+  const playerMovement = yield* PlayerMovementUseCase
+  const blockPlacement = yield* BlockPlacementUseCase
+  
+  return {
+    handlePlayerInput: (input: PlayerInput) =>
+      Match.value(input.type).pipe(
+        Match.when('move', () => playerMovement(input.playerId, input.direction)),
+        Match.when('place', () => blockPlacement(input.playerId, input.position, input.blockType)),
+        Match.orElse(() => Effect.unit)
+      )
+  }
+})
+```
+
+## DDD + ECS統合のメリット
+
+### 1. 明確な責任分界
+
+- **Domain Layer**: ビジネスルールとエンティティの定義
+- **Application Layer**: ユースケースとECSシステムの実装
+- **Infrastructure Layer**: データ永続化とパフォーマンス最適化
+- **Presentation Layer**: ユーザーインターフェース
+
+### 2. テスタビリティ
+
+```typescript
+// ドメインロジックのテスト
+describe('World Business Logic', () => {
+  it.effect('should prevent block placement at bedrock level', () =>
+    Effect.gen(function* () {
+      const world = createTestWorld()
+      const canPlace = world.canPlaceBlock(
+        new Position({ x: 10, y: 0, z: 10 }),
+        BlockType.Stone
+      )
+      expect(canPlace).toBe(false)
+    })
+  )
+})
+
+// アプリケーションワークフローのテスト
+describe('Player Movement Workflow', () => {
+  it.effect('should move player when input is valid', () =>
+    Effect.gen(function* () {
+      const workflow = yield* PlayerMovementWorkflow
+      const initialPosition = yield* getPlayerPosition('player1')
+      
+      yield* workflow()
+      
+      const newPosition = yield* getPlayerPosition('player1')
+      expect(newPosition).not.toEqual(initialPosition)
+    }).pipe(
+      Effect.provide(TestApplicationLayer)
+    )
+  )
+})
+```
+
+### 3. パフォーマンス最適化
+
+- **SoA (Structure of Arrays)**: キャッシュ効率の最適化
+- **Query最適化**: 事前計算されたインデックスによる高速検索
+- **Layer分離**: 必要な部分のみの更新
+
+### 4. 拡張性
+
+新しいコンポーネントやシステムの追加が各層で独立して可能：
+
+```typescript
+// 新しいコンポーネント追加（Domain Layer）
+export const MagicPower = S.Struct({
+  mana: S.Number.pipe(S.between(0, 1000)),
+  spells: S.Array(SpellSchema)
+})
+
+// 新しいシステム追加（Application Layer）
+export const magicSystem = Effect.gen(function* () {
+  const world = yield* WorldService
+  const { entities, components } = yield* world.querySoA(magicQuery)
+  
+  // 魔法システムのロジック
+})
+
+// 新しいアダプター追加（Infrastructure Layer）
+export const magicEffectRendererLive = Layer.effect(
+  MagicEffectRenderer,
+  Effect.gen(function* () {
+    // 魔法エフェクトのレンダリング実装
+  })
+)
+```
+
+## まとめ
+
+DDD + ECS + Effect-TSの統合により、以下を同時に実現：
+
+1. **ビジネスロジックの明確性**: DDDによる適切な関心事の分離
+2. **高いパフォーマンス**: ECSによるデータ指向設計
+3. **型安全性**: Effect-TSによる包括的な型システム
+4. **テスタビリティ**: 純粋関数による予測可能なテスト
+5. **保守性**: 明確な層構造による変更の局所化
+
+この統合アーキテクチャは、複雑なゲームエンジンを構築する際の強力な基盤を提供します。

@@ -16,8 +16,8 @@ import {
   createTransferableIndexBuffer,
   calculateMeshBounds,
   createDefaultOptimizations,
-} from '../protocols/mesh.protocol'
-import { Block, Position3D, ChunkData } from '../protocols/terrain.protocol'
+} from '@infrastructure/workers/unified/protocols/mesh.protocol'
+import { Block, Position3D, ChunkData } from '@infrastructure/workers/unified/protocols/terrain.protocol'
 
 // Initialize worker capabilities
 const workerCapabilities = {

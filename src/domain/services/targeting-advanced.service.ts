@@ -11,7 +11,7 @@
  */
 
 import { Effect, Array as _EffArray, Duration, Option } from 'effect'
-import { ArchetypeQuery } from '/queries'
+import { ArchetypeQuery } from '@domain/entities/components/archetype-query-system'
 // Domain layer should not depend on application layer services
 // Removed dependencies:
 // - WorldService from '/services/world.service'
@@ -23,6 +23,8 @@ export interface WorldPort {
   readonly getVoxel: (x: number, y: number, z: number) => Effect.Effect<Option.Option<BlockType>, never, never>
   readonly updateComponent: (entityId: EntityId, componentName: string, data: unknown) => Effect.Effect<void, never, never>
 }
+
+export const WorldPort = Context.GenericTag<WorldPort>('WorldPort')
 
 export interface SystemContext {
   readonly frameId: number
@@ -40,10 +42,11 @@ export interface SystemConfig {
 }
 
 export type SystemFunction = (context: SystemContext) => Effect.Effect<void, never, never>
-import { Position, CameraComponent, TargetComponent, InputStateComponent } from '/entities/components'
-import { EntityId } from '/entities'
-import { BlockType, BlockPosition } from '/value-objects'
-import * as THREE from 'three'
+import { Position, CameraComponent, TargetComponent, InputStateComponent } from '@domain/entities/components'
+import { EntityId } from '@domain/entities'
+import { BlockType, BlockPosition } from '@domain/value-objects'
+import { Vector3, makeVector3, normalize, add, multiply } from '@domain/value-objects/math/vector3.vo'
+import { Ray } from '@domain/ports/raycast.port'
 
 /**
  * Target system configuration
@@ -103,7 +106,7 @@ export interface TargetCandidate {
 interface RaycastHit {
   readonly hit: boolean
   readonly position: Position
-  readonly normal: THREE.Vector3
+  readonly normal: Vector3
   readonly distance: number
   readonly entityId: Option.Option<EntityId>
   readonly blockPosition: Option.Option<BlockPosition>
@@ -193,16 +196,22 @@ export const TargetingUtils = {
   /**
    * Create ray from camera
    */
-  createRayFromCamera: (position: Position, camera: CameraComponent): THREE.Ray => {
-    const origin = new THREE.Vector3(position.x, position.y, position.z)
+  createRayFromCamera: (position: Position, camera: CameraComponent): Ray => {
+    const origin = { x: position.x, y: position.y, z: position.z }
 
     // Convert pitch/yaw to direction vector
     const pitchRad = (camera.pitch * Math.PI) / 180
     const yawRad = (camera.yaw * Math.PI) / 180
 
-    const direction = new THREE.Vector3(Math.cos(pitchRad) * Math.sin(yawRad), -Math.sin(pitchRad), Math.cos(pitchRad) * Math.cos(yawRad)).normalize()
+    const direction = normalize(
+      makeVector3(
+        Math.cos(pitchRad) * Math.sin(yawRad),
+        -Math.sin(pitchRad),
+        Math.cos(pitchRad) * Math.cos(yawRad)
+      )
+    )
 
-    return new THREE.Ray(origin, direction)
+    return { origin, direction: { x: direction.x, y: direction.y, z: direction.z } }
   },
 
   /**
@@ -271,7 +280,7 @@ export const TargetingUtils = {
 }
 
 /**
- * Advanced targeting processor
+ * Advanced targeting processor with Effect-TS patterns
  */
 class TargetingProcessor {
   private targetCandidates: TargetCandidate[] = []
@@ -281,9 +290,9 @@ class TargetingProcessor {
   constructor(private config: TargetConfig) {}
 
   /**
-   * Process targeting for all players
+   * Process targeting for all players using Effect
    */
-  async processTargeting(
+  processTargeting(
     players: {
       entityId: EntityId
       position: Position
@@ -292,46 +301,57 @@ class TargetingProcessor {
       currentTarget: Option.Option<TargetComponent>
     }[],
     worldPort: WorldPort,
-  ): Promise<{
-    targetUpdates: Map<EntityId, TargetComponent>
-    raycastResults: Map<EntityId, RaycastHit[]>
-    validationErrors: string[]
-  }> {
-    const targetUpdates = new Map<EntityId, TargetComponent>()
-    const raycastResults = new Map<EntityId, RaycastHit[]>()
-    const validationErrors: string[] = []
+  ): Effect.Effect<
+    {
+      targetUpdates: Map<EntityId, TargetComponent>
+      raycastResults: Map<EntityId, RaycastHit[]>
+      validationErrors: string[]
+    },
+    never,
+    never
+  > {
+    return Effect.gen(function* () {
+      const targetUpdates = new Map<EntityId, TargetComponent>()
+      const raycastResults = new Map<EntityId, RaycastHit[]>()
+      const validationErrors: string[] = []
 
-    for (const player of players) {
-      const result = await this.processPlayerTargeting(player, world)
+      const results = yield* Effect.all(
+        players.map(player => this.processPlayerTargeting(player, worldPort)),
+        { concurrency: 4 }
+      )
 
-      if (Option.isSome(result.primary)) {
-        const target: TargetComponent = {
-          position: result.primary.value.position,
-          entityId: result.primary.value.entityId,
-          blockType: result.primary.value.blockType,
-          distance: result.primary.value.distance,
-          normal: new THREE.Vector3(0, 1, 0), // Would be calculated from raycast
-          isValid: result.primary.value.isValid,
+      results.forEach((result, index) => {
+        const player = players[index]!
+        
+        if (Option.isSome(result.primary)) {
+          const target: TargetComponent = {
+            position: result.primary.value.position,
+            entityId: result.primary.value.entityId,
+            blockType: result.primary.value.blockType,
+            distance: result.primary.value.distance,
+            normal: makeVector3(0, 1, 0), // Would be calculated from raycast
+            isValid: result.primary.value.isValid,
+          }
+
+          targetUpdates.set(player.entityId, target)
         }
 
-        targetUpdates.set(player.entityId, target)
+        raycastResults.set(player.entityId, result.raycastHits)
+        validationErrors.push(...result.validationErrors)
+      })
+
+      return {
+        targetUpdates,
+        raycastResults,
+        validationErrors,
       }
-
-      raycastResults.set(player.entityId, result.raycastHits)
-      validationErrors.push(...result.validationErrors)
-    }
-
-    return {
-      targetUpdates,
-      raycastResults,
-      validationErrors,
-    }
+    }).bind(this)
   }
 
   /**
-   * Process targeting for a single player
+   * Process targeting for a single player using Effect
    */
-  private async processPlayerTargeting(
+  private processPlayerTargeting(
     player: {
       entityId: EntityId
       position: Position
@@ -340,124 +360,135 @@ class TargetingProcessor {
       currentTarget: Option.Option<TargetComponent>
     },
     worldPort: WorldPort,
-  ): Promise<TargetSelectionResult> {
-    // Create ray from camera
-    const ray = TargetingUtils.createRayFromCamera(player.position, player.cameraState)
+  ): Effect.Effect<TargetSelectionResult, never, never> {
+    return Effect.gen(function* () {
+      // Create ray from camera
+      const ray = TargetingUtils.createRayFromCamera(player.position, player.cameraState)
 
-    // Perform raycast
-    const raycastHits = await this.performRaycast(ray, world)
+      // Perform raycast
+      const raycastHits = yield* this.performRaycast(ray, worldPort)
 
-    // Generate target candidates
-    const candidates = await this.generateTargetCandidates(ray, raycastHits, player.position, world)
+      // Generate target candidates
+      const candidates = yield* this.generateTargetCandidates(ray, raycastHits, player.position, worldPort)
 
-    // Filter and prioritize candidates
-    const filteredCandidates = this.filterAndPrioritizeCandidates(candidates)
+      // Filter and prioritize candidates
+      const filteredCandidates = this.filterAndPrioritizeCandidates(candidates)
 
-    // Select primary target
-    const primary = filteredCandidates.length > 0 ? Option.some(filteredCandidates[0]!) : Option.none<TargetCandidate>()
+      // Select primary target
+      const primary = filteredCandidates.length > 0 ? Option.some(filteredCandidates[0]!) : Option.none<TargetCandidate>()
 
-    // Select secondary targets
-    const secondary = this.config.multiTargetSelection ? filteredCandidates.slice(1, this.config.maxTargets) : []
+      // Select secondary targets
+      const secondary = this.config.multiTargetSelection ? filteredCandidates.slice(1, this.config.maxTargets) : []
 
-    return {
-      primary,
-      secondary,
-      raycastHits,
-      validationErrors: [],
-    }
+      return {
+        primary,
+        secondary,
+        raycastHits,
+        validationErrors: [],
+      }
+    }).bind(this)
   }
 
   /**
-   * Perform raycast with optimizations
+   * Perform raycast with optimizations using Effect
    */
-  private async performRaycast(ray: THREE.Ray, worldPort: WorldPort): Promise<RaycastHit[]> {
-    const hits: RaycastHit[] = []
-    const stepSize = this.config.raycastStepSize
-    const maxDistance = this.config.maxTargetDistance
+  private performRaycast(ray: Ray, worldPort: WorldPort): Effect.Effect<RaycastHit[], never, never> {
+    return Effect.gen(function* () {
+      const hits: RaycastHit[] = []
+      const stepSize = this.config.raycastStepSize
+      const maxDistance = this.config.maxTargetDistance
 
-    // Step along ray
-    for (let distance = 0; distance < maxDistance; distance += stepSize) {
-      const point = ray.at(distance, new THREE.Vector3())
-      const position: Position = { x: point.x, y: point.y, z: point.z }
+      // Step along ray
+      for (let distance = 0; distance < maxDistance; distance += stepSize) {
+        // Calculate point along ray: origin + direction * distance
+        const directionVector = makeVector3(ray.direction.x, ray.direction.y, ray.direction.z)
+        const scaledDirection = multiply(directionVector, distance)
+        const originVector = makeVector3(ray.origin.x, ray.origin.y, ray.origin.z)
+        const point = add(originVector, scaledDirection)
+        
+        const position: Position = { x: point.x, y: point.y, z: point.z }
 
-      // Check for block collision
-      if (this.config.enableBlockTargeting) {
-        const blockPos = TargetingUtils.worldToBlockPosition(position)
-        const voxel = await Effect.runPromise(worldPort.getVoxel(blockPos.x, blockPos.y, blockPos.z))
+        // Check for block collision
+        if (this.config.enableBlockTargeting) {
+          const blockPos = TargetingUtils.worldToBlockPosition(position)
+          const voxel = yield* worldPort.getVoxel(blockPos.x, blockPos.y, blockPos.z)
 
-        if (Option.isSome(voxel)) {
-          hits.push({
-            hit: true,
-            position,
-            normal: new THREE.Vector3(0, 1, 0), // Simplified
-            distance,
-            entityId: Option.none(),
-            blockPosition: Option.some(blockPos),
-            material: Option.some('block'), // Simplified
-          })
-          break // First hit stops the ray
+          if (Option.isSome(voxel)) {
+            hits.push({
+              hit: true,
+              position,
+              normal: makeVector3(0, 1, 0), // Simplified
+              distance,
+              entityId: Option.none(),
+              blockPosition: Option.some(blockPos),
+              material: Option.some('block'), // Simplified
+            })
+            break // First hit stops the ray
+          }
         }
+
+        // Check for entity collisions would go here
+        // This would require querying entities at the ray position
       }
 
-      // Check for entity collisions would go here
-      // This would require querying entities at the ray position
-    }
-
-    return hits
+      return hits
+    }).bind(this)
   }
 
   /**
-   * Generate target candidates from raycast results
+   * Generate target candidates from raycast results using Effect
    */
-  private async generateTargetCandidates(_ray: THREE.Ray, hits: RaycastHit[], _playerPosition: Position, worldPort: WorldPort): Promise<TargetCandidate[]> {
-    const candidates: TargetCandidate[] = []
+  private generateTargetCandidates(_ray: Ray, hits: RaycastHit[], _playerPosition: Position, worldPort: WorldPort): Effect.Effect<TargetCandidate[], never, never> {
+    return Effect.gen(function* () {
+      const candidates: TargetCandidate[] = []
 
-    for (const hit of hits) {
-      if (hit.hit) {
-        // Create block candidate
-        if (Option.isSome(hit.blockPosition)) {
-          const blockType = await Effect.runPromise(worldPort.getVoxel(hit.blockPosition.value.x, hit.blockPosition.value.y, hit.blockPosition.value.z))
+      for (const hit of hits) {
+        if (hit.hit) {
+          // Create block candidate
+          if (Option.isSome(hit.blockPosition)) {
+            const blockType = yield* worldPort.getVoxel(hit.blockPosition.value.x, hit.blockPosition.value.y, hit.blockPosition.value.z)
 
-          const candidate: TargetCandidate = {
-            type: 'block',
-            position: hit.position,
-            entityId: Option.none(),
-            blockType,
-            distance: hit.distance,
-            size: 1.0, // Standard block size
-            velocity: Option.none(),
-            priority: 1.0,
-            isValid: true,
+            const candidate: TargetCandidate = {
+              type: 'block',
+              position: hit.position,
+              entityId: Option.none(),
+              blockType,
+              distance: hit.distance,
+              size: 1.0, // Standard block size
+              velocity: Option.none(),
+              priority: 1.0,
+              isValid: true,
+            }
+
+            if (TargetingUtils.validateTarget(candidate, this.config)) {
+              candidates.push(candidate)
+            }
           }
 
-          if (TargetingUtils.validateTarget(candidate, this.config)) {
-            candidates.push(candidate)
-          }
-        }
+          // Create entity candidate
+          if (Option.isSome(hit.entityId)) {
+            // Would query entity data here
+            const candidate: TargetCandidate = {
+              type: 'entity',
+              position: hit.position,
+              entityId: hit.entityId,
+              blockType: Option.none(),
+              distance: hit.distance,
+              size: 2.0, // Would be calculated from entity collider
+              velocity: Option.none(), // Would be retrieved from entity
+              priority: 1.0,
+              isValid: true,
+            }
 
-        // Create entity candidate
-        if (Option.isSome(hit.entityId)) {
-          // Would query entity data here
-          const candidate: TargetCandidate = {
-            type: 'entity',
-            position: hit.position,
-            entityId: hit.entityId,
-            blockType: Option.none(),
-            distance: hit.distance,
-            size: 2.0, // Would be calculated from entity collider
-            velocity: Option.none(), // Would be retrieved from entity
-            priority: 1.0,
-            isValid: true,
-          }
-
-          if (TargetingUtils.validateTarget(candidate, this.config)) {
-            candidates.push(candidate)
+            if (TargetingUtils.validateTarget(candidate, this.config)) {
+              candidates.push(candidate)
+            }
           }
         }
       }
-    }
 
-    return candidates
+      return candidates
+    }).bind(this)
   }
 
   /**
@@ -493,20 +524,69 @@ class TargetingProcessor {
   }
 }
 
+// ===== TARGETING DOMAIN SERVICE =====
+
+export interface AdvancedTargetingService {
+  readonly processTargeting: (
+    players: readonly {
+      entityId: EntityId
+      position: Position
+      cameraState: CameraComponent
+      inputState: InputStateComponent
+      currentTarget: Option.Option<TargetComponent>
+    }[]
+  ) => Effect.Effect<
+    {
+      targetUpdates: Map<EntityId, TargetComponent>
+      raycastResults: Map<EntityId, RaycastHit[]>
+      validationErrors: string[]
+    },
+    never,
+    never
+  >
+  readonly updateTargetConfig: (config: Partial<TargetConfig>) => Effect.Effect<void, never, never>
+  readonly getStats: () => Effect.Effect<{ candidateCount: number; raycastCacheSize: number; validationCacheSize: number }, never, never>
+}
+
+export const AdvancedTargetingService = Context.GenericTag<AdvancedTargetingService>('AdvancedTargetingService')
+
+export const AdvancedTargetingServiceLive = Layer.effect(
+  AdvancedTargetingService,
+  Effect.gen(function* () {
+    const worldPort = yield* WorldPort
+
+    // Create processor with default config
+    let processor = new TargetingProcessor(defaultTargetConfig)
+
+    return AdvancedTargetingService.of({
+      processTargeting: (players) => processor.processTargeting(players, worldPort),
+      updateTargetConfig: (config) =>
+        Effect.gen(function* () {
+          const targetConfig = {
+            ...defaultTargetConfig,
+            ...config,
+            targetFilters: [...defaultTargetFilters, ...(config.targetFilters || [])],
+          }
+          processor = new TargetingProcessor(targetConfig)
+        }),
+      getStats: () => Effect.succeed(processor.getStats()),
+    })
+  })
+)
+
 /**
- * Create optimized update target system
+ * Create optimized update target system with Effect-TS patterns
  */
 export const createUpdateTargetSystem = (config: Partial<TargetConfig> = {}): SystemFunction => {
-  const targetConfig = {
-    ...defaultTargetConfig,
-    ...config,
-    targetFilters: [...defaultTargetFilters, ...(config.targetFilters || [])],
-  }
-  const processor = new TargetingProcessor(targetConfig)
-
-  return (context: SystemContext, worldPort: WorldPort) =>
-    Effect.gen(function* ($) {
+  return (context: SystemContext) =>
+    Effect.gen(function* () {
       const startTime = Date.now()
+      const targetingService = yield* AdvancedTargetingService
+
+      // Update config if needed
+      if (Object.keys(config).length > 0) {
+        yield* targetingService.updateTargetConfig(config)
+      }
 
       // Query players with targeting capability
       const playerQuery = ArchetypeQuery().with('player', 'position', 'cameraState', 'inputState').maybe('target').execute()
@@ -531,21 +611,23 @@ export const createUpdateTargetSystem = (config: Partial<TargetConfig> = {}): Sy
             currentTarget: Option.isSome(currentTarget) ? Option.some(currentTarget.value) : Option.none(),
           }
         })
-        .filter((player) => player.position && player.cameraState && player.inputState)
+        .filter((player) => player.position && player.cameraState && player.inputState) as {
+        entityId: EntityId
+        position: Position
+        cameraState: CameraComponent
+        inputState: InputStateComponent
+        currentTarget: Option.Option<TargetComponent>
+      }[]
 
       // Process targeting
-      const result = yield* $(Effect.promise(() => processor.processTargeting(players, worldPort)))
+      const result = yield* targetingService.processTargeting(players)
 
-      // Apply target updates
-      yield* $(
-        Effect.forEach(
-          Array.from(result.targetUpdates.entries()),
-          ([entityId, target]) =>
-            Effect.gen(function* ($) {
-              yield* $(worldPort.updateComponent(entityId, 'target', target))
-            }),
-          { concurrency: 'inherit', discard: true },
-        ),
+      // Apply target updates via world port
+      const worldPort = yield* WorldPort
+      yield* Effect.forEach(
+        Array.from(result.targetUpdates.entries()),
+        ([entityId, target]) => worldPort.updateComponent(entityId, 'target', target),
+        { concurrency: 'inherit', discard: true }
       )
 
       // Log validation errors
@@ -556,12 +638,10 @@ export const createUpdateTargetSystem = (config: Partial<TargetConfig> = {}): Sy
       // Performance tracking
       const endTime = Date.now()
       const executionTime = endTime - startTime
-      // Note: Performance tracking should be handled by infrastructure layer
-      // trackPerformance('update-target', 'write', executionTime)
 
       // Debug logging
       if (context.frameId % 60 === 0) {
-        const stats = processor.getStats()
+        const stats = yield* targetingService.getStats()
         const targetCount = result.targetUpdates.size
         console.debug(`Update Target System - Targets: ${targetCount}, Candidates: ${stats.candidateCount}, Time: ${executionTime}ms`)
       }

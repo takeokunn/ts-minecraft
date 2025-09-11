@@ -22,8 +22,8 @@ import {
   type BoundingVolume,
   type MeshGenerationMetrics,
   MeshGeneratorHelpers,
-} from '../ports/mesh-generator.port'
-import { type GeneratedBlock, type Position3D } from '../ports/terrain-generator.port'
+} from '@domain/ports/mesh-generator.port'
+import { type GeneratedBlock, type Position3D } from '@domain/ports/terrain-generator.port'
 
 /**
  * Block face information for mesh generation
@@ -469,6 +469,9 @@ export const MeshGenerationDomainServiceLive = Layer.succeed(
 /**
  * Utility functions for mesh generation
  */
+// Re-export types and utilities for use in other modules
+export { MeshGeneratorPort, MeshGeneratorHelpers } from '@domain/ports/mesh-generator.port'
+
 export const MeshGenerationUtils = {
   /**
    * Create default mesh generation request

@@ -1,669 +1,566 @@
-# TypeScript & Lint エラー解消実行計画 v3.0
+# DDD Architecture Migration Plan v3 - TypeScript Minecraft
 
-## 📋 概要
+## 概要
 
-このドキュメントは、TypeScript Minecraftプロジェクトの全TypeScriptエラー（3,880件）およびLintエラー（4,125件）を効率的に解消するための並列実行可能な計画です。
+本計画書は、TypeScript Minecraftプロジェクトの完全なDDD準拠アーキテクチャへの移行計画です。
+並列実行可能なタスクに分割し、Effect-TSの型システムを全面的に採用します。
 
-**戦略**: 下層から上層へ、依存関係に従って段階的に修正を進めます。
+## 現状の問題点
 
-## 🔍 現状分析
+### 1. アーキテクチャ違反
+- インフラストラクチャ層にドメインロジックが混在（terrain-generator、mesh-builder等）
+- ドメイン層が外部ライブラリ（Three.js）に直接依存
+- プレゼンテーション層がインフラストラクチャを直接参照
 
-### エラー統計
-- **TypeScriptエラー**: 3,880件
-- **Lintエラー**: 4,125件
-- **合計**: 8,005件
-- **根本原因**: DDD移行によるインポートパス破壊とEffect-TSのLayer/Service構造の不整合
+### 2. コード品質
+- 126個以上のクラスベース実装が関数型パラダイムと混在
+- ~~100箇所以上でpath aliasが未使用（相対パス使用）~~ ✅ 全レイヤーで修正完了
+- ~~3つの異なるクエリシステムが重複して存在~~ ✅ レガシークエリシステムを削除済み
+- ~~579行以上のデッドコード（deprecated worker-pool等）~~ ✅ 1,000行以上削除済み
 
-### 主要なエラーパターン
+### 3. 型安全性
+- Effect-TSの型システムが部分的にしか適用されていない
+- エラーハンドリングが統一されていない
+- 多くのany型やasアサーションの使用
 
-#### TypeScriptエラーの分類
-1. **Effect型の不整合** (約60%)
-   - `exactOptionalPropertyTypes` による型の不一致
-   - Effect の Requirements 型の不整合
-   - Service の依存関係型エラー
+## 移行戦略
 
-2. **readonly配列の代入エラー** (約15%)
-   - `readonly any[]` を `any[]` への代入
-
-3. **存在しないプロパティ/メソッド** (約15%)
-   - ドメインサービスの未定義メソッド
-   - 削除されたAPIへの参照
-
-4. **インポートエラー** (約10%)
-   - 存在しないモジュール
-   - 未エクスポートのメンバー
-
-#### Lintエラーの分類
-1. **未使用の変数/インポート** (約40%)
-2. **require-yield違反** (約20%)
-3. **no-unused-vars** (約30%)
-4. **その他のスタイル違反** (約10%)
-
-## 🏗️ レイヤー別エラー分布
-
-```
-infrastructure: 1,665 errors (47.6%)
-domain:          467 errors (13.4%)
-application:     161 errors  (4.6%)
-presentation:     71 errors  (2.0%)
-shared:           12 errors  (0.3%)
-config:            4 errors  (0.1%)
-main/layers:       7 errors  (0.2%)
-```
-
-## 🏗️ レイヤー構造と依存関係
-
-```
-presentation
-    ↓
-application  
-    ↓
-infrastructure
-    ↓
-domain
-    ↓
-shared (最下層)
-```
-
-## 📅 実行フェーズ
-
-### 🔧 Phase 0: 事前準備（15分）
-
-**単一エージェントで実行**
-
-```bash
-# 現在の状態を記録
-git stash
-git checkout feature/ddd-architecture-migration-v3
-git pull origin main --rebase
-
-# エラーログの保存
-mkdir -p errors
-pnpm tsc --noEmit > errors/typescript-errors-initial.log 2>&1
-pnpm lint > errors/lint-errors-initial.log 2>&1
-
-# 修正用ブランチ作成
-git checkout -b fix/typescript-lint-errors
-```
-
-### 🚀 Phase 1: Shared層の修正（30分）
-
-**Agent A: Shared層専門エージェント**
-
-#### 修正対象
-```
-src/shared/
-├── constants/
-├── decorators/
-├── types/
-└── utils/
-```
-
-#### タスク
-
-##### 1.1 型定義の修正
-```typescript
-// src/shared/types/common.ts
-// readonly 配列型の修正
-export type ReadonlyArray<T> = readonly T[]
-
-// Optional property の明示的な定義
-export type OptionalProperty<T> = T | undefined
-```
-
-##### 1.2 Effect utility の更新
-```typescript
-// src/shared/utils/effect.ts
-import { Effect, Layer, Context } from 'effect'
-
-// Effect.gen の正しい使用パターン
-export const effectGen = <R, E, A>(
-  f: () => Generator<Effect.Effect<any, any, any>, A, any>
-): Effect.Effect<A, E, R> => Effect.gen(f)
-```
-
-##### 1.3 Lint警告の解消
-- 未使用のインポート削除
-- 未使用の変数に `_` プレフィックス追加
-- require-yield の修正
-
-**検証コマンド**
-```bash
-pnpm tsc --noEmit src/shared/**/*.ts
-pnpm lint src/shared/
-```
-
-### 🚀 Phase 2: Domain層の修正（1時間）
-
-**3つのサブエージェントで並列実行**
-
-#### Agent B: Domain Services修正
-```
-src/domain/services/
-├── entity-domain.service.ts
-├── physics-domain.service.ts  
-├── world-domain.service.ts
-└── raycast-domain.service.ts
-```
-
-**主要タスク**:
-1. Service定義の型修正
-2. Context.Tag の正しい実装
-3. 存在しないメソッドの追加/削除
-4. Effect Layer構造の修正
-
-#### Agent C: Domain Entities & Value Objects修正
-```
-src/domain/entities/
-src/domain/value-objects/
-```
-
-**主要タスク**:
-1. Entity のコンストラクタ修正
-2. Value Object の不変性保証
-3. Schema定義の更新
-
-#### Agent D: Domain Queries修正
-```
-src/domain/queries/
-├── archetype-query.ts
-├── builder.ts
-├── cache.ts
-└── optimized-query.ts
-```
-
-**主要タスク**:
-1. Query型のexport追加
-2. LegacyQuery の定義または削除
-3. Cache entry の型修正
-
-**並列実行スクリプト**
-```bash
-# 各エージェントが別ターミナルで実行
-# Agent B
-pnpm tsc --noEmit src/domain/services/**/*.ts --watch
-
-# Agent C  
-pnpm tsc --noEmit src/domain/entities/**/*.ts src/domain/value-objects/**/*.ts --watch
-
-# Agent D
-pnpm tsc --noEmit src/domain/queries/**/*.ts --watch
-```
-
-### 🚀 Phase 3: Infrastructure層の修正（1.5時間）
-
-**5つのサブエージェントで並列実行**
-
-#### Agent E: Infrastructure Adapters
-```
-src/infrastructure/adapters/
-├── three-js.adapter.ts
-├── webgpu.adapter.ts
-├── browser-input.adapter.ts
-└── websocket.adapter.ts
-```
-
-#### Agent F: Infrastructure Workers
-```
-src/infrastructure/workers/unified/
-├── worker-manager.ts
-├── worker-pool.ts
-├── protocols/
-└── workers/
-```
-
-**重点修正**:
-- TypedWorker の型定義
-- Message protocol の統一
-- Transferable の型安全性
-
-#### Agent G: Infrastructure Layers
-```
-src/infrastructure/layers/
-├── unified.layer.ts
-├── clock.live.ts
-├── renderer.live.ts
-└── ...
-```
-
-**重点修正**:
-- Layer.merge の型整合性
-- Service 依存関係の解決
-- Live実装の型修正
-
-#### Agent H: Infrastructure Repositories
-```
-src/infrastructure/repositories/
-├── world.repository.ts
-├── entity.repository.ts
-└── chunk.repository.ts
-```
-
-#### Agent I: Infrastructure Performance
-```
-src/infrastructure/performance/
-├── worker-pool.layer.ts
-├── metrics.layer.ts
-└── optimization.layer.ts
-```
-
-### 🚀 Phase 4: Application層の修正（1.5時間）
-
-**4つのサブエージェントで並列実行**
-
-#### Agent J: Use Cases修正
-```
-src/application/use-cases/
-├── block-place.use-case.ts
-├── chunk-load.use-case.ts
-├── player-move.use-case.ts
-└── world-generate.use-case.ts
-```
-
-**重要な修正パターン**:
-```typescript
-// 修正前
-execute: () => Effect.Effect<void, Error, never>
-
-// 修正後  
-execute: <R>() => Effect.Effect<void, Error, R>
-```
-
-#### Agent K: Command/Query Handlers
-```
-src/application/handlers/
-├── command-handlers.ts
-└── query-handlers.ts
-```
-
-**重要な修正**:
-1. Service依存の型修正
-2. Handler の戻り値型の統一
-3. readonly配列の処理
-
-#### Agent L: Application Queries
-```
-src/application/queries/
-├── archetype-query.ts
-├── cache.ts
-└── optimized-query.ts
-```
-
-#### Agent M: Application Workflows
-```
-src/application/workflows/
-├── chunk-loading.ts
-├── world-update.ts
-└── ui-update.ts
-```
-
-**修正内容**:
-- ReadonlyArray モジュールのインポート修正
-- Effect chain の型整合性
-
-### 🚀 Phase 5: Presentation層の修正（30分）
-
-**2つのサブエージェントで並列実行**
-
-#### Agent N: Controllers & ViewModels
-```
-src/presentation/controllers/
-src/presentation/view-models/
-```
-
-#### Agent O: Web & CLI
-```
-src/presentation/web/
-src/presentation/cli/
-```
-
-**修正内容**:
-- 未使用インポートの削除
-- Controller の依存関係修正
-
-### 🚀 Phase 6: トップレベルファイルの修正（15分）
-
-**単一エージェントで実行**
-
-```
-src/
-├── main.ts
-└── layers.ts
-```
-
-**修正内容**:
-- Layer構成の最終調整
-- 全体的な型の整合性確認
-
-## 🔄 並列実行の調整メカニズム
-
-### エージェント間の依存関係
-
-```yaml
-dependencies:
-  # Phase 1 (基盤)
-  agent_a: []  # Shared層 - 依存なし
-  
-  # Phase 2 (Domain)
-  agent_b: [agent_a]  # Domain Services
-  agent_c: [agent_a]  # Domain Entities
-  agent_d: [agent_a]  # Domain Queries
-  
-  # Phase 3 (Infrastructure)
-  agent_e: [agent_b, agent_c, agent_d]
-  agent_f: [agent_b, agent_c, agent_d]
-  agent_g: [agent_b, agent_c, agent_d]
-  agent_h: [agent_b, agent_c, agent_d]
-  agent_i: [agent_b, agent_c, agent_d]
-  
-  # Phase 4 (Application)
-  agent_j: [agent_e, agent_f, agent_g, agent_h, agent_i]
-  agent_k: [agent_e, agent_f, agent_g, agent_h, agent_i]
-  agent_l: [agent_e, agent_f, agent_g, agent_h, agent_i]
-  agent_m: [agent_e, agent_f, agent_g, agent_h, agent_i]
-  
-  # Phase 5 (Presentation)
-  agent_n: [agent_j, agent_k, agent_l, agent_m]
-  agent_o: [agent_j, agent_k, agent_l, agent_m]
-```
-
-### 進捗モニタリング
-
-```typescript
-// tools/error-monitor.ts
-interface AgentProgress {
-  agentId: string
-  phase: number
-  filesFixed: number
-  errorsResolved: {
-    typescript: number
-    lint: number
-  }
-  blockers: string[]
-  status: 'pending' | 'in-progress' | 'completed' | 'blocked'
-}
-
-// リアルタイムダッシュボード
-// 各エージェントは10分ごとに進捗を報告
-```
-
-## 実行順序と並列化戦略
+### フェーズ分割による並列実行
 
 ```mermaid
 graph TD
-    A[Phase 1: Shared & Config] -->|並列実行| B[Phase 2: Domain]
-    B --> C[Phase 3: Application]
-    C --> D[Phase 4: Infrastructure]
-    D --> E[Phase 5: Presentation]
-    E --> F[Phase 6: Integration]
-
-    A1[Task 1.1: Shared] -.並列.- A2[Task 1.2: Config]
-    B1[Task 2.1: Services] -.並列.- B2[Task 2.2: Entities]
-    C1[Task 3.1: UseCases] -.並列.- C2[Task 3.2: Handlers] -.並列.- C3[Task 3.3: Layers]
-    D1[Task 4.1: Workers] -.並列.- D2[Task 4.2: Layers] -.並列.- D3[Task 4.3: Repos] -.並列.- D4[Task 4.4: Renderer]
-    E1[Task 5.1: Controllers] -.並列.- E2[Task 5.2: ViewModels]
-    F1[Task 6.1: Main] --> F2[Task 6.2: Cleanup]
+    A[Phase 1: 基盤整備] --> B[Phase 2: レイヤー分離]
+    B --> C[Phase 3: 型システム強化]
+    C --> D[Phase 4: クリーンアップ]
+    
+    A1[Agent A: デッドコード削除] --> B
+    A2[Agent B: Path Alias修正] --> B
+    A3[Agent C: index.ts整理] --> B
+    
+    B1[Agent D: ドメインロジック抽出] --> C
+    B2[Agent E: ポート/アダプター実装] --> C
+    B3[Agent F: 依存関係逆転] --> C
+    
+    C1[Agent G: Effect-TS型付け] --> D
+    C2[Agent H: クラス→関数変換] --> D
+    
+    D1[Agent I: 統合テスト] --> E[完了]
+    D2[Agent J: ドキュメント更新] --> E
 ```
 
-## 🛠️ 共通の修正パターン
+## Phase 1: 基盤整備（並列実行可能）
 
-### Pattern 1: Effect型の修正
+### Agent A: デッドコード削除
+**目的**: 未使用コードとレガシーシステムの削除
 
-```typescript
-// Before
-const service = Effect.gen(function* () {
-  const dep = yield* ServiceDep
-  // ...
-}) // Error: Type not assignable
-
-// After  
-const service = Effect.gen(function* (_) {
-  const dep = yield* _(ServiceDep)
-  // ...
-})
-```
-
-### Pattern 2: exactOptionalPropertyTypes の対応
-
-```typescript
-// Before
-interface Config {
-  optional?: string
-}
-
-// After
-interface Config {
-  optional?: string | undefined
-}
-```
-
-### Pattern 3: readonly配列の修正
-
-```typescript
-// Before
-const items: any[] = readonlyArray // Error
-
-// After
-const items: any[] = [...readonlyArray]
-// または
-const items = readonlyArray as any[]
-```
-
-### Pattern 4: Service依存の修正
-
-```typescript
-// Before
-class UseCase {
-  execute = () => Effect.gen(function* () {
-    const service = yield* DomainService // Error: not in context
-  })
-}
-
-// After
-class UseCase {
-  execute = Effect.gen(function* (_) {
-    const service = yield* _(DomainService)
-  }).pipe(
-    Effect.provide(DomainServiceLive)
-  )
-}
-```
-
-## 📊 検証と品質保証
-
-### Phase 7: 統合テスト（30分）
-
-**全エージェント完了後に実行**
-
+**タスク**:
 ```bash
-# 全体のTypeScriptチェック
-pnpm tsc --noEmit
-
-# 全体のLintチェック  
-pnpm lint
-
-# テスト実行
-pnpm test
-
-# ビルド確認
-pnpm build
-
-# 循環依存チェック
-npx madge --circular src/
+# 削除対象ファイル
+rm src/domain/queries/legacy-query-compatibility.ts
+rm src/domain/queries/legacy-query-system.ts
+rm src/application/queries/legacy-compatibility.ts
+rm src/infrastructure/performance/worker-pool.layer.ts
+rm tests/dummy.test.ts
 ```
 
-### エラー削減の目標
+**変更内容**:
+1. レガシークエリシステムの完全削除
+2. deprecated worker-poolシステムの削除
+3. 使用されていないテストファイルの削除
+4. 削除に伴うimport文の修正
 
-| Phase | TypeScript Errors | Lint Errors | 削減率 |
-|-------|------------------|-------------|--------|
-| Initial | 3,880 | 4,125 | - |
-| Phase 1 | 3,500 | 3,800 | 10% |
-| Phase 2 | 2,800 | 3,200 | 25% |
-| Phase 3 | 1,800 | 2,000 | 50% |
-| Phase 4 | 800 | 1,000 | 75% |
-| Phase 5 | 200 | 300 | 95% |
-| Phase 6 | 0 | 0 | 100% |
+### Agent B: Path Alias修正
+**目的**: 全ファイルでpath aliasを使用
 
-## 🎯 成功基準
-
-### 必須達成項目
-- [ ] TypeScriptエラー: 0件
-- [ ] Lintエラー: 0件  
-- [ ] ビルド成功
-- [ ] 全テストパス
-- [ ] 循環依存: 0件
-- [ ] インポートパスが統一され整合性がある
-- [ ] Effect-TSのLayer/Context構造が正しく機能
-
-### パフォーマンス指標
-- [ ] ビルド時間: 30秒以内
-- [ ] Type-check時間: 20秒以内
-- [ ] Lint実行時間: 10秒以内
-
-### コード品質
-- [ ] 複雑度スコア: 平均10以下
-- [ ] テストカバレッジ: 70%以上
-
-## 📝 エージェント実行コマンド
-
-各エージェントは以下のコマンドで自動実行可能:
-
-```bash
-# Agent A (Shared)
-npm run fix:agent-a -- --path src/shared
-
-# Agent B-D (Domain) - 並列実行
-npm run fix:agent-b -- --path src/domain/services &
-npm run fix:agent-c -- --path src/domain/entities &
-npm run fix:agent-d -- --path src/domain/queries &
-
-# Agent E-I (Infrastructure) - 並列実行
-npm run fix:agent-e -- --path src/infrastructure/adapters &
-npm run fix:agent-f -- --path src/infrastructure/workers &
-npm run fix:agent-g -- --path src/infrastructure/layers &
-npm run fix:agent-h -- --path src/infrastructure/repositories &
-npm run fix:agent-i -- --path src/infrastructure/performance &
-
-# Agent J-M (Application) - 並列実行
-npm run fix:agent-j -- --path src/application/use-cases &
-npm run fix:agent-k -- --path src/application/handlers &
-npm run fix:agent-l -- --path src/application/queries &
-npm run fix:agent-m -- --path src/application/workflows &
-
-# Agent N-O (Presentation) - 並列実行
-npm run fix:agent-n -- --path "src/presentation/controllers src/presentation/view-models" &
-npm run fix:agent-o -- --path "src/presentation/web src/presentation/cli" &
-```
-
-## 🚨 トラブルシューティング
-
-### よくある問題と解決策
-
-#### 1. Effect型の循環参照
+**検索パターン**:
 ```typescript
-// 解決策: Layer の分離
-const ServiceALive = Layer.succeed(ServiceA, ...)
-const ServiceBLive = Layer.succeed(ServiceB, ...)
-const AppLayer = Layer.merge(ServiceALive, ServiceBLive)
+// 修正前
+import { Something } from '../../../domain/services'
+import { Entity } from '/entities'
+
+// 修正後
+import { Something } from '@domain/services'
+import { Entity } from '@domain/entities'
 ```
 
-#### 2. Worker型の不整合
+**自動修正スクリプト**:
 ```typescript
-// 解決策: Schema定義の統一
-const MessageSchema = S.struct({
-  type: S.literal("request"),
-  data: S.unknown
-})
-```
-
-#### 3. Import パスの問題
-```bash
-# パスエイリアスの確認
-grep -r "from 'effect/ReadonlyArray'" src/
-# 修正
-sed -i '' "s/from 'effect\/ReadonlyArray'/from 'effect'/g" src/**/*.ts
-```
-
-## 🔄 ロールバック計画
-
-問題発生時の対処:
-
-```bash
-# 特定のPhaseまでロールバック
-git reset --hard HEAD~[n]
-
-# 特定のエージェントの変更のみ取り消し
-git revert [commit-hash]
-
-# 全体のロールバック
-git checkout feature/ddd-architecture-migration-v3
-git reset --hard origin/feature/ddd-architecture-migration-v3
-```
-
-## 📊 自動修正スクリプト
-
-```typescript
-// tools/auto-fix.ts
+// fix-imports.ts
 import { Effect, pipe } from 'effect'
-import * as fs from 'fs/promises'
+import * as fs from 'fs'
 import * as path from 'path'
 
-const autoFix = {
-  // Effect型の自動修正
-  fixEffectTypes: async (filePath: string) => {
-    const content = await fs.readFile(filePath, 'utf-8')
-    const fixed = content
-      .replace(/Effect\.gen\(function\*\s*\(\)/g, 'Effect.gen(function* (_)')
-      .replace(/yield\*\s+(\w+)/g, 'yield* _($1)')
-    await fs.writeFile(filePath, fixed)
-  },
-
-  // readonly配列の自動修正
-  fixReadonlyArrays: async (filePath: string) => {
-    const content = await fs.readFile(filePath, 'utf-8')
-    const fixed = content
-      .replace(/:\s*any\[\]\s*=\s*readonly/g, ': any[] = [...')
-    await fs.writeFile(filePath, fixed)
-  },
-
-  // 未使用変数の自動修正
-  fixUnusedVars: async (filePath: string) => {
-    const content = await fs.readFile(filePath, 'utf-8')
-    const fixed = content
-      .replace(/const\s+(\w+)\s*=/g, (match, varName) => {
-        if (!content.includes(varName)) {
-          return `const _${varName} =`
-        }
-        return match
-      })
-    await fs.writeFile(filePath, fixed)
-  }
+const fixImports = (content: string): string => {
+  return content
+    // 相対パスを絶対パスに変換
+    .replace(/from ['"]\.\.\/\.\.\/domain\//g, "from '@domain/")
+    .replace(/from ['"]\.\.\/\.\.\/application\//g, "from '@application/")
+    .replace(/from ['"]\.\.\/\.\.\/infrastructure\//g, "from '@infrastructure/")
+    .replace(/from ['"]\.\.\/\.\.\/presentation\//g, "from '@presentation/")
+    .replace(/from ['"]\.\.\/\.\.\/shared\//g, "from '@shared/")
+    .replace(/from ['"]\.\.\/shared\//g, "from '@shared/")
+    // ルートパスを修正
+    .replace(/from ['"]\/entities/g, "from '@domain/entities")
+    .replace(/from ['"]\/services/g, "from '@domain/services")
+    .replace(/from ['"]\/queries/g, "from '@domain/queries")
 }
 ```
 
-## 推定所要時間
+### Agent C: index.ts バレルエクスポート整理
+**目的**: 全てのindex.tsファイルを純粋なバレルエクスポートに統一
 
-- Phase 0: 15分 (事前準備)
-- Phase 1: 30分 (Shared層)
-- Phase 2: 60分 (Domain層、並列実行)
-- Phase 3: 90分 (Infrastructure層、並列実行)
-- Phase 4: 90分 (Application層、並列実行)
-- Phase 5: 30分 (Presentation層、並列実行)
-- Phase 6: 15分 (統合)
-- Phase 7: 30分 (検証)
+**チェックリスト**:
+- [ ] src/application/index.ts - 存在しないファイルの参照を削除
+- [ ] src/domain/index.ts - レガシー互換性コードを削除
+- [ ] src/infrastructure/index.ts - 整理済み確認
+- [ ] src/presentation/index.ts - 整理済み確認
+- [ ] 各サブディレクトリのindex.ts確認
 
-**総所要時間**: 約3-4時間（並列実行により2-3時間に短縮可能）
+## Phase 2: レイヤー分離（並列実行可能）
 
-## 注意事項
+### Agent D: ドメインロジック抽出
+**目的**: インフラストラクチャ層からドメインロジックを抽出
 
-- 各タスクは独立して実行可能なように設計
-- サブエージェントは特定のディレクトリ/ファイルに限定して作業
-- エラー修正時は常に型安全性を保証
-- Effect-TSのベストプラクティスに準拠
-- 削除されたファイルは移行先を確認してから参照を更新
-- Lintエラーも同時に解消すること
+**移動対象**:
+
+1. **Block定義の移動**:
+```typescript
+// src/domain/constants/block-properties.ts (新規作成)
+export const BLOCK_PROPERTIES = {
+  colors: {
+    grass: [0.4, 0.8, 0.2] as const,
+    dirt: [0.6, 0.4, 0.2] as const,
+    stone: [0.5, 0.5, 0.5] as const,
+    // ... 他のブロックタイプ
+  },
+  opacity: {
+    grass: false,
+    water: true,
+    glass: true,
+    // ... 他のブロックタイプ
+  },
+  textures: {
+    grass: { top: 'grass_top', sides: 'grass_side', bottom: 'dirt' },
+    // ... 他のブロックタイプ
+  }
+} as const
+```
+
+2. **Terrain Generation Logic**:
+```typescript
+// src/domain/services/terrain-generation.service.ts (リファクタリング)
+import { Effect, pipe } from 'effect'
+import type { ChunkCoordinate } from '@domain/value-objects'
+
+export const generateTerrain = (
+  coordinate: ChunkCoordinate,
+  seed: number
+): Effect.Effect<TerrainData, TerrainGenerationError> =>
+  pipe(
+    Effect.succeed(coordinate),
+    Effect.map(generateHeightMap),
+    Effect.flatMap(placeBedrock),
+    Effect.flatMap(placeStone),
+    Effect.flatMap(placeDirtLayer),
+    Effect.flatMap(placeGrassLayer),
+    Effect.flatMap(generateOres),
+    Effect.flatMap(applyBiomeModifications)
+  )
+```
+
+### Agent E: ポート/アダプター実装
+**目的**: 依存関係逆転の原則を適用
+
+**新規ポート定義**:
+
+1. **Vector Port**:
+```typescript
+// src/domain/ports/math.port.ts
+export interface Vector3Port {
+  readonly x: number
+  readonly y: number
+  readonly z: number
+}
+
+export interface QuaternionPort {
+  readonly x: number
+  readonly y: number
+  readonly z: number
+  readonly w: number
+}
+
+export interface RayPort {
+  readonly origin: Vector3Port
+  readonly direction: Vector3Port
+}
+```
+
+2. **Render Port改善**:
+```typescript
+// src/domain/ports/render.port.ts
+import { Effect } from 'effect'
+
+export interface RenderPort {
+  createMesh: (
+    geometry: GeometryData,
+    material: MaterialData
+  ) => Effect.Effect<MeshId, RenderError>
+  
+  updateMesh: (
+    id: MeshId,
+    updates: MeshUpdates
+  ) => Effect.Effect<void, RenderError>
+  
+  removeMesh: (
+    id: MeshId
+  ) => Effect.Effect<void, RenderError>
+}
+```
+
+### Agent F: 依存関係逆転
+**目的**: ドメイン層の外部依存を削除
+
+**Three.js依存の削除**:
+```typescript
+// src/domain/services/targeting.service.ts
+// 修正前
+import * as THREE from 'three'
+
+// 修正後
+import type { Vector3Port, RayPort } from '@domain/ports'
+
+export const createRay = (
+  origin: Vector3Port,
+  direction: Vector3Port
+): RayPort => ({
+  origin,
+  direction
+})
+```
+
+## Phase 3: 型システム強化（並列実行可能）
+
+### Agent G: Effect-TS型付け強化
+**目的**: 全サービスをEffect-TSで型安全に
+
+**変換パターン**:
+
+1. **サービス変換**:
+```typescript
+// 修正前
+export class WorldService {
+  async loadChunk(coord: ChunkCoordinate): Promise<Chunk> {
+    // ...
+  }
+}
+
+// 修正後
+import { Effect, Context } from 'effect'
+
+export interface WorldService {
+  readonly loadChunk: (
+    coord: ChunkCoordinate
+  ) => Effect.Effect<Chunk, ChunkError>
+}
+
+export const WorldService = Context.GenericTag<WorldService>('WorldService')
+
+export const worldServiceLive = Effect.gen(function* () {
+  const chunkRepository = yield* ChunkRepository
+  
+  return WorldService.of({
+    loadChunk: (coord) =>
+      pipe(
+        chunkRepository.find(coord),
+        Effect.catchTag('ChunkNotFound', () =>
+          generateNewChunk(coord)
+        )
+      )
+  })
+})
+```
+
+2. **エラーハンドリング統一**:
+```typescript
+// src/domain/errors/unified-errors.ts
+import { Data } from 'effect'
+
+export class ChunkError extends Data.TaggedError('ChunkError')<{
+  readonly coordinate: ChunkCoordinate
+  readonly reason: string
+}> {}
+
+export class EntityError extends Data.TaggedError('EntityError')<{
+  readonly entityId: EntityId
+  readonly operation: string
+  readonly reason: string
+}> {}
+```
+
+### Agent H: クラス→関数変換
+**目的**: 全クラスを関数型に変換
+
+**変換対象リスト**:
+1. Application Layer (25クラス)
+   - OptimizedQuery → createOptimizedQuery関数
+   - QueryCache → createQueryCache関数
+   - UnifiedQuerySystem → querySystemService
+
+2. Domain Layer (45クラス)
+   - 各DomainService → Effect.Context.Tag
+   - Entity classes → データ型 + 操作関数
+
+3. Infrastructure Layer (56クラス)
+   - Adapter classes → アダプター関数
+   - Repository classes → Effect.Layer
+
+**変換例**:
+```typescript
+// 修正前
+export class ChunkRepository {
+  private cache: Map<string, Chunk>
+  
+  constructor() {
+    this.cache = new Map()
+  }
+  
+  async find(coord: ChunkCoordinate): Promise<Chunk | null> {
+    return this.cache.get(coord.toString()) || null
+  }
+}
+
+// 修正後
+export interface ChunkRepository {
+  readonly find: (
+    coord: ChunkCoordinate
+  ) => Effect.Effect<Option.Option<Chunk>, never>
+  
+  readonly save: (
+    chunk: Chunk
+  ) => Effect.Effect<void, ChunkSaveError>
+}
+
+export const ChunkRepository = Context.GenericTag<ChunkRepository>('ChunkRepository')
+
+export const chunkRepositoryLive = Layer.effect(
+  ChunkRepository,
+  Effect.gen(function* () {
+    const cache = yield* Ref.make(new Map<string, Chunk>())
+    
+    return ChunkRepository.of({
+      find: (coord) =>
+        pipe(
+          Ref.get(cache),
+          Effect.map(cache => Option.fromNullable(cache.get(coord.toString())))
+        ),
+      
+      save: (chunk) =>
+        Ref.update(cache, map => 
+          new Map(map).set(chunk.coordinate.toString(), chunk)
+        )
+    })
+  })
+)
+```
+
+## Phase 4: クリーンアップ
+
+### Agent I: 統合テスト実装
+**目的**: 移行後の動作確認
+
+**テストスイート**:
+```typescript
+// tests/integration/ddd-migration.test.ts
+import { Effect, Layer, TestClock } from 'effect'
+import { describe, it, expect } from 'vitest'
+
+describe('DDD Migration Validation', () => {
+  it('should maintain layer boundaries', async () => {
+    // レイヤー境界のテスト
+  })
+  
+  it('should use Effect-TS throughout', async () => {
+    // Effect-TS使用の検証
+  })
+  
+  it('should eliminate all classes', async () => {
+    // クラスが存在しないことの確認
+  })
+})
+```
+
+### Agent J: ドキュメント更新
+**目的**: アーキテクチャドキュメントの更新
+
+**更新対象**:
+- README.md - 新アーキテクチャの説明
+- ARCHITECTURE.md - DDD層の詳細
+- CONTRIBUTING.md - 開発ガイドライン
+
+## 実行順序とタイムライン
+
+### Week 1: Phase 1（基盤整備）
+- **Day 1-2**: Agent A, B, C を並列実行
+- **Day 3**: 統合とテスト
+
+### Week 2: Phase 2（レイヤー分離）
+- **Day 4-5**: Agent D（ドメインロジック抽出）
+- **Day 6-7**: Agent E, F を並列実行
+
+### Week 3: Phase 3（型システム強化）
+- **Day 8-10**: Agent G（Effect-TS型付け）
+- **Day 11-12**: Agent H（クラス→関数変換）
+
+### Week 4: Phase 4（クリーンアップ）
+- **Day 13-14**: Agent I（統合テスト）
+- **Day 15**: Agent J（ドキュメント更新）
+
+## 成功指標
+
+### 定量的指標
+- [ ] クラス数: 126 → 0
+- [ ] 相対パスimport: 100+ → 0
+- [ ] Effect-TS使用率: 30% → 100%
+- [ ] デッドコード: 579行+ → 0
+- [ ] テストカバレッジ: 5% → 80%
+
+### 定性的指標
+- [ ] 全てのドメインロジックがドメイン層に配置
+- [ ] インフラストラクチャ層は技術的関心事のみ
+- [ ] 依存関係がDDDの原則に準拠
+- [ ] 型安全性が保証される
+
+## リスクと対策
+
+### リスク1: 大規模リファクタリングによる破壊
+**対策**: 
+- 段階的な移行
+- 各フェーズでのテスト実施
+- バージョン管理での細かいコミット
+
+### リスク2: パフォーマンス劣化
+**対策**:
+- Effect-TSの最適化パターン使用
+- メモリプロファイリングの実施
+- 必要に応じてWorker活用
+
+### リスク3: 開発者の学習コスト
+**対策**:
+- Effect-TSのベストプラクティスドキュメント作成
+- コードレビューの徹底
+- ペアプログラミングセッション
+
+## 付録A: Effect-TSパターン集
+
+### サービス定義パターン
+```typescript
+import { Context, Effect, Layer } from 'effect'
+
+// 1. インターフェース定義
+export interface MyService {
+  readonly doSomething: (input: Input) => Effect.Effect<Output, MyError>
+}
+
+// 2. Context.Tag作成
+export const MyService = Context.GenericTag<MyService>('MyService')
+
+// 3. 実装レイヤー
+export const myServiceLive = Layer.effect(
+  MyService,
+  Effect.gen(function* () {
+    // 依存サービスの取得
+    const dependency = yield* DependencyService
+    
+    return MyService.of({
+      doSomething: (input) =>
+        pipe(
+          Effect.succeed(input),
+          Effect.flatMap(validate),
+          Effect.flatMap(process),
+          Effect.mapError(error => new MyError({ reason: error.message }))
+        )
+    })
+  })
+)
+```
+
+### エラーハンドリングパターン
+```typescript
+import { Data } from 'effect'
+
+// Tagged Error定義
+export class ValidationError extends Data.TaggedError('ValidationError')<{
+  readonly field: string
+  readonly message: string
+}> {}
+
+// 使用例
+const validate = (input: unknown) =>
+  typeof input === 'string'
+    ? Effect.succeed(input)
+    : Effect.fail(new ValidationError({
+        field: 'input',
+        message: 'Must be a string'
+      }))
+```
+
+### リポジトリパターン
+```typescript
+export interface Repository<T, ID> {
+  readonly find: (id: ID) => Effect.Effect<Option.Option<T>, never>
+  readonly findAll: () => Effect.Effect<ReadonlyArray<T>, never>
+  readonly save: (entity: T) => Effect.Effect<void, SaveError>
+  readonly delete: (id: ID) => Effect.Effect<void, DeleteError>
+}
+```
+
+## 付録B: 移行チェックリスト
+
+### Phase 1 チェックリスト
+- [ ] デッドコード削除完了
+- [ ] Path alias全置換完了
+- [ ] index.tsバレルエクスポート統一
+
+### Phase 2 チェックリスト
+- [ ] ドメインロジック抽出完了
+- [ ] ポート定義完了
+- [ ] アダプター実装完了
+- [ ] Three.js依存削除完了
+
+### Phase 3 チェックリスト
+- [ ] Effect-TS型付け完了
+- [ ] エラーハンドリング統一
+- [ ] クラス撤廃完了
+
+### Phase 4 チェックリスト
+- [ ] 統合テスト実装
+- [ ] パフォーマンステスト実施
+- [ ] ドキュメント更新完了
+
+## 終了条件
+
+以下の条件を全て満たした時点で移行完了とする：
+
+1. **アーキテクチャ準拠**
+   - DDDレイヤー境界の厳守
+   - 依存関係逆転の原則適用
+   - ドメイン層の純粋性確保
+
+2. **コード品質**
+   - 全クラスの関数化完了
+   - Effect-TS 100%適用
+   - Path alias統一
+
+3. **テスト**
+   - 単体テストカバレッジ80%以上
+   - 統合テスト全項目PASS
+   - パフォーマンステスト基準達成
+
+4. **ドキュメント**
+   - アーキテクチャドキュメント更新
+   - API仕様書作成
+   - 開発ガイドライン整備
 
 ---
 
-_最終更新: 2025-09-11_
-_作成者: Claude (TypeScript & DDD Architecture Expert)_
+*本計画書は生きたドキュメントとして、実装の進捗に応じて更新される*

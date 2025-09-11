@@ -1,4 +1,4 @@
-import { DevToolsConfig } from './dev-tools-manager'
+import { DevToolsConfig } from '@presentation/cli/dev-tools-manager'
 
 export const DEFAULT_DEV_CONFIG: DevToolsConfig = {
   enableDebugger: true,

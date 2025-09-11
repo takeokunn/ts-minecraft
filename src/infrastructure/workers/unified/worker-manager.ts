@@ -1,6 +1,6 @@
 import { Effect, Queue, Ref, Duration, Layer, Context } from 'effect'
 import * as S from 'effect/Schema'
-import { createTypedWorkerClient, createWorkerPool, type WorkerClientConfig } from '../base/typed-worker'
+import { createTypedWorkerClient, createWorkerPool, type WorkerClientConfig } from '@infrastructure/workers/base/typed-worker'
 import {
   TerrainGenerationRequest,
   TerrainGenerationResponse,

@@ -1,7 +1,7 @@
 import { Effect, Layer, Ref } from 'effect'
 import { pipe } from 'effect/Function'
 import * as THREE from 'three'
-import { ObjectPool } from '/performance/object-pool'
+import { ObjectPool } from '@infrastructure/performance/object-pool'
 
 // --- Configuration ---
 

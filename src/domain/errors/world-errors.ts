@@ -1,9 +1,8 @@
 import { defineError } from './generator'
 import { WorldError } from './base-errors'
-import type { ChunkCoordinates, Position } from '/value-objects/coordinates'
-import type { BlockType } from '/value-objects/block-type.vo'
-import type { LegacyQuery, OptimizedQuery } from '/queries'
-import type { ComponentName } from '/entities/components'
+import type { ChunkCoordinates, Position } from '@domain/value-objects/coordinates'
+import type { BlockType } from '@domain/value-objects/block-type.vo'
+import type { ComponentName } from '@domain/entities/components'
 import * as ParseResult from 'effect/ParseResult'
 
 /**
@@ -73,7 +72,7 @@ export const ArchetypeNotFoundError = defineError<{
  * Recovery: Return first result or use fallback entity
  */
 export const QuerySingleResultNotFoundError = defineError<{
-  readonly query: LegacyQuery<ReadonlyArray<ComponentName>> | OptimizedQuery<ReadonlyArray<ComponentName>>
+  readonly query: { componentNames: ReadonlyArray<ComponentName> }
   readonly resultCount: number
   readonly expectedCount: 1
 }>('QuerySingleResultNotFoundError', WorldError, 'fallback', 'medium')

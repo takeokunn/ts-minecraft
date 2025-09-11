@@ -1,8 +1,8 @@
 import { Effect, Layer, Context } from 'effect'
-import { PlayerMovementCommand } from '../commands/player-movement'
-import { PhysicsDomainService } from '../../domain/services/physics-domain.service'
-import { WorldDomainService } from '../../domain/services/world-domain.service'
-import { EntityDomainService } from '../../domain/services/entity-domain.service'
+import { PlayerMovementCommand } from '@application/commands/player-movement'
+import { PhysicsDomainService } from '@domain/services/physics-domain.service'
+import { WorldDomainService } from '@domain/services/world-domain.service'
+import { EntityDomainService } from '@domain/services/entity-domain.service'
 
 export class PlayerMoveUseCase extends Context.Tag('PlayerMoveUseCase')<
   PlayerMoveUseCase,

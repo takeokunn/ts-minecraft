@@ -19,10 +19,10 @@ import * as Option from 'effect/Option'
 import * as Ref from 'effect/Ref'
 
 // Core imports
-import { EntityId } from '../entities'
-import { ComponentName, Components } from '../entities/components'
-import { Position } from '../value-objects'
-import { EntityNotFoundError, EntityCreationError, EntityDestructionError, EntityLimitExceededError, ComponentNotFoundError, ComponentAlreadyExistsError } from '../errors'
+import { EntityId } from '@domain/entities'
+import { ComponentName, Components } from '@domain/entities/components'
+import { Position } from '@domain/value-objects'
+import { EntityNotFoundError, EntityCreationError, EntityDestructionError, EntityLimitExceededError, ComponentNotFoundError, ComponentAlreadyExistsError } from '@domain/errors'
 
 // Port interfaces for external dependencies
 export interface EntityRepositoryPort {

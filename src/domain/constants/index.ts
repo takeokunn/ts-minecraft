@@ -1,4 +1,4 @@
-// Domain constants
-export * from './world-constants'
 export * from './archetypes'
+export * from './block-properties'
 export * from './block-types'
+export * from './world-constants'

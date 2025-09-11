@@ -1,5 +1,5 @@
 import * as S from 'effect/Schema'
-import { ChunkCoordinatesSchema } from '/value-objects/coordinates'
+import { ChunkCoordinatesSchema } from '@domain/value-objects/coordinates'
 import { Position3D, Block, ChunkData } from './terrain.protocol'
 
 /**

@@ -20,7 +20,7 @@ import {
   type TerrainGenerationResult,
   type TerrainGenerationRequest,
   TerrainGeneratorHelpers,
-} from '../ports/terrain-generator.port'
+} from '@domain/ports/terrain-generator.port'
 
 /**
  * Simple noise function for terrain generation
@@ -273,6 +273,9 @@ export const TerrainGenerationDomainServiceLive = Layer.succeed(
 /**
  * Utility functions for terrain generation
  */
+// Re-export types and utilities for use in other modules
+export { TerrainGeneratorPort, TerrainGeneratorHelpers } from '@domain/ports/terrain-generator.port'
+
 export const TerrainGenerationUtils = {
   /**
    * Create default terrain generation request

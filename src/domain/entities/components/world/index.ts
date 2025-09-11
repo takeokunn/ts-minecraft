@@ -1,8 +1,3 @@
-/**
- * World Components
- * Components related to world structure and terrain
- */
-
 export {
   ChunkComponent,
   ChunkLoaderStateComponent,
@@ -10,14 +5,11 @@ export {
   type ChunkComponent as ChunkComponentType,
   type ChunkLoaderStateComponent as ChunkLoaderStateComponentType,
 } from './chunk'
-
+export * from './component-utils'
 export {
   TerrainBlockComponent,
   TargetBlockComponent,
-  TargetBlockComponent as TargetBlock,
+  TargetBlockComponent as WorldTargetBlock,
   type TerrainBlockComponent as TerrainBlockComponentType,
   type TargetBlockComponent as TargetBlockComponentType,
 } from './terrain-block'
-
-// Component utilities and factories
-export * from './component-utils'

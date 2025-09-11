@@ -11,9 +11,9 @@
 
 import { Effect, Ref, HashMap, Option, Context, Layer } from 'effect'
 import * as ReadonlyArray from 'effect/ReadonlyArray'
-import { EntityId } from '../value-objects/entity-id.vo'
-import { Chunk } from '../entities/chunk.entity'
-import { ChunkCoordinate } from '../value-objects/coordinates/chunk-coordinate.vo'
+import { EntityId } from '@domain/value-objects/entity-id.vo'
+import { Chunk } from '@domain/entities/chunk.entity'
+import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordinate.vo'
 
 // Port interfaces for external dependencies
 export interface WorldRepositoryPort {

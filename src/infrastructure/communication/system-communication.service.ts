@@ -12,7 +12,7 @@
  */
 
 import { Effect, Context, Layer, Queue, Option, Ref, PubSub } from 'effect'
-import { EntityId } from '/entities'
+import { EntityId } from '@domain/entities'
 
 /**
  * System message type

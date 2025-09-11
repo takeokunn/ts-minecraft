@@ -187,5 +187,4 @@ export type { PerformanceStats, InputState, RenderCommandType, RaycastResult, Wo
 export { AppLayer as CompleteAppLayer }
 export { DomainLayer as DomainServicesLayer }
 export { InfrastructureLayer as InfrastructureServicesLayer }
-export { ApplicationLayer as ApplicationServicesLayer }
 export { PresentationLayer as PresentationServicesLayer }

@@ -1,11 +1,11 @@
 import { Effect } from 'effect'
-import { Archetype, createArchetype } from './domain/archetypes'
+import { Archetype, createArchetype } from '@domain/archetypes'
 import { World } from '@infrastructure/layers/unified.layer'
-import { getAppLayer } from './layers'
-import { blockInteractionSystem } from './application/commands/block-interaction'
-import { playerMovementSystem } from './application/commands/player-movement'
-import { chunkLoadingSystem } from './application/workflows/chunk-loading'
-import { worldUpdateSystem } from './application/workflows/world-update'
+import { getAppLayer } from '@/layers'
+import { blockInteractionSystem } from '@application/commands/block-interaction'
+import { playerMovementSystem } from '@application/commands/player-movement'
+import { chunkLoadingSystem } from '@application/workflows/chunk-loading'
+import { worldUpdateSystem } from '@application/workflows/world-update'
 
 // Simplified game systems for initial integration
 export const gameSystems = [playerMovementSystem, blockInteractionSystem, chunkLoadingSystem, worldUpdateSystem]

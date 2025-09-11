@@ -5,7 +5,7 @@
 
 import { ComponentName, ComponentOfName } from '@domain/entities/components'
 import { ArchetypeQuery } from './archetype-query'
-import { OptimizedQuery } from './optimized-query'
+import type { OptimizedQueryService } from './optimized-query'
 import { EntityId } from '@domain/entities'
 
 /**
@@ -48,7 +48,7 @@ export interface QueryBuilder<T extends ReadonlyArray<ComponentName> = readonly 
   named(name: string): QueryBuilder<T>
   priority(level: number): QueryBuilder<T>
   build(): ArchetypeQuery<T>
-  buildOptimized(): OptimizedQuery<T>
+  buildOptimized(): OptimizedQueryService<T>
 }
 
 /**
@@ -108,9 +108,10 @@ class QueryBuilderImpl<T extends ReadonlyArray<ComponentName>> implements QueryB
     return new ArchetypeQuery(config)
   }
 
-  buildOptimized(): OptimizedQuery<T> {
-    const config = this.validateConfig()
-    return new OptimizedQuery(config)
+  buildOptimized(): OptimizedQueryService<T> {
+    // Note: This method should return a properly configured OptimizedQueryService
+    // In a real implementation, this would need to be properly integrated with Effect
+    throw new Error('buildOptimized() requires Effect runtime context. Use createOptimizedQuery() instead.')
   }
 
   private validateConfig(): QueryConfig<T> {

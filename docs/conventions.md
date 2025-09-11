@@ -92,33 +92,161 @@ pnpm exec tsc
 モジュールのimportパスは、可読性と一貫性のため、以下のいずれかに統一します。
 
 - **`@/`**: `src` ディレクトリの絶対パスエイリアス。ネストが深いファイルからのimportに推奨されます。
-  - 例: `import { movableQuery } from '@/domain/queries';`
+  - 例: `import { movableQuery } from '@/application/queries';`
 - **`./` または `../`**: 同じディレクトリ、または親ディレクトリからの相対パス。
   - 例: `import { createPlayer } from './archetypes';`
 
 ---
 
-## 5. アーキテクチャ原則
+## 5. DDD アーキテクチャ原則
 
-プロジェクトは、**Effect-TS** を全面的に採用した **Entity Component System (ECS)** アーキテクチャに基づいています。
+プロジェクトは、**Domain-Driven Design (DDD)** 原則に基づき、**Effect-TS** を全面的に採用した **Entity Component System (ECS)** アーキテクチャで構築されています。
+
+### レイヤー分離の厳守
+
+- **Domain Layer**: 外部依存なしの純粋なビジネスロジック
+- **Application Layer**: ドメインロジックの組み合わせによるユースケース実装
+- **Infrastructure Layer**: 技術的実装とドメインポートの具象化
+- **Presentation Layer**: ユーザーインターフェースとコントローラー
+
+### 依存関係の方向
+
+```mermaid
+graph TD
+    A[Presentation] --> B[Application]
+    B --> C[Domain]
+    D[Infrastructure] --> C
+```
+
+- **上位レイヤーは下位レイヤーに依存可能**
+- **下位レイヤーは上位レイヤーに依存禁止**
+- **インフラストラクチャはドメインポートを実装**
+
+### Effect-TS パターンの標準化
+
+#### サービス定義パターン
+```typescript
+// 1. インターフェース定義
+export interface MyService {
+  readonly operation: (input: Input) => Effect.Effect<Output, MyError>
+}
+
+// 2. Context.Tag作成
+export const MyService = Context.GenericTag<MyService>('MyService')
+
+// 3. Layer実装
+export const myServiceLive = Layer.effect(
+  MyService,
+  Effect.gen(function* () {
+    const dependency = yield* DependencyService
+    return MyService.of({
+      operation: (input) => pipe(
+        validateInput(input),
+        Effect.flatMap(processInput)
+      )
+    })
+  })
+)
+```
+
+#### エラーハンドリングパターン
+```typescript
+// Tagged Errorの定義
+export class ValidationError extends Data.TaggedError('ValidationError')<{
+  readonly field: string
+  readonly value: unknown
+}> {}
+
+// 使用例
+const operation = pipe(
+  validateInput(input),
+  Effect.catchTag('ValidationError', handleValidationError),
+  Effect.catchAll(handleUnexpectedError)
+)
+```
 
 ### パフォーマンス
 
 - **高速な動作**: システム、特にゲームループ内で実行される処理は、常にパフォーマンスを意識して実装します。不要なメモリアロケーションを避け、GC（ガベージコレクション）の負荷を最小限に抑える設計を心がけます。
 - **`querySoA` の原則**: `World` サービスからエンティティを取得する際は、パフォーマンス上の理由から `world.querySoA()` に一本化します。これは中間オブジェクトの生成を完全に排除し、GC負荷を最小化します。
+- **不変性**: すべてのデータ構造は不変であり、変更時は新しいインスタンスを作成します。
 
 ### テスト容易性
 
 - **純粋な関数**: システムやロジックは、可能な限り純粋な関数として実装します。これにより、副作用から隔離され、テストが容易になります。
+- **Effect-TS テスト**: `@effect/vitest` を使用し、すべてのテストは Effect プログラムとして記述します。
 - **PBT（Property-Based Testing）**: 純粋な関数で構成されたロジックは、Property-Based Testingとの相性が非常に良いです。テストの記述は必須ではありませんが、将来的なテスト導入を容易にするため、この設計を推奨します。
 
-### その他
+#### テストパターン例
+```typescript
+import { describe, it, expect } from '@effect/vitest'
 
-- **コンポーネントは純粋なデータ**: `domain/components.ts` で定義されるコンポーネントは、`@effect/schema` を用いた純粋なデータコンテナです。
-- **システムは単一責任**: `systems/` 内の各システムは、明確に定義された単一の責務を持ちます。
-- **クエリは共通化**: `domain/queries.ts` でクエリを一元管理します。
-- **エンティティ生成はArchetype**: `domain/archetypes.ts` で定義されたファクトリ関数を通じてエンティティを生成します。
+describe('MyService', () => {
+  it.effect('should process data correctly', () =>
+    Effect.gen(function* () {
+      const service = yield* MyService
+      const result = yield* service.operation(testInput)
+      expect(result).toEqual(expectedOutput)
+    }).pipe(
+      Effect.provide(TestMyServiceLayer)
+    )
+  )
+})
+```
+
+### DDD 固有の原則
+
+- **Aggregate の整合性**: Aggregate Root を通じてのみ内部エンティティを変更
+- **Value Object の不変性**: 値オブジェクトは `Data.Class` で定義し、変更時は新しいインスタンスを作成
+- **Domain Service**: 複数の Entity にまたがる複雑なビジネスロジックを担当
+- **Repository as Port**: ドメイン層でインターフェースを定義し、インフラ層で実装
+
+#### Entity 定義例
+```typescript
+export class Player extends Data.Class<{
+  readonly id: EntityId
+  readonly name: string
+  readonly position: Position
+}> {
+  static readonly schema = S.Struct({
+    id: EntityIdSchema,
+    name: S.String.pipe(S.minLength(1)),
+    position: PositionSchema
+  })
+  
+  // ビジネスロジックメソッド
+  moveTo(newPosition: Position): Player {
+    return new Player({
+      ...this,
+      position: newPosition
+    })
+  }
+}
+```
+
+### ECS 統合
+
+- **コンポーネントは純粋なデータ**: `domain/entities/components/` で定義されるコンポーネントは、`@effect/schema` を用いた純粋なデータコンテナです。
+- **システムは Application Layer**: ECS システムは Application Layer のワークフローとして実装します。
+- **クエリは最適化**: `application/queries/` でクエリを一元管理し、パフォーマンス最適化を行います。
+- **エンティティ生成は Use Case**: エンティティの生成は Application Layer の Use Case を通じて行います。
 - **依存性の注入 (DI)**: 依存関係はすべてEffectの `Context` と `Layer` によって管理されます。
+
+#### ECS システム例
+```typescript
+export const playerMovementSystem = Effect.gen(function* () {
+  const world = yield* WorldService
+  const physics = yield* PhysicsService
+  
+  const { entities, components } = yield* world.querySoA(movableQuery)
+  
+  for (let i = 0; i < entities.length; i++) {
+    const velocity = yield* physics.calculateVelocity(components.input[i])
+    components.position.x[i] += velocity.dx
+    components.position.y[i] += velocity.dy
+    components.position.z[i] += velocity.dz
+  }
+})
 
 ---
 

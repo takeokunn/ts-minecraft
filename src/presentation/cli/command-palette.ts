@@ -1,8 +1,8 @@
-import { GameDebugger } from './debugger'
-import { DevConsole } from './dev-console'
-import { EntityInspector } from './entity-inspector'
-import { PerformanceProfiler } from './performance-profiler'
-import { hotReloadManager } from './hot-reload'
+import { GameDebugger } from '@presentation/cli/debugger'
+import { DevConsole } from '@presentation/cli/dev-console'
+import { EntityInspector } from '@presentation/cli/entity-inspector'
+import { PerformanceProfiler } from '@presentation/cli/performance-profiler'
+import { hotReloadManager } from '@presentation/cli/hot-reload'
 
 export interface Command {
   id: string

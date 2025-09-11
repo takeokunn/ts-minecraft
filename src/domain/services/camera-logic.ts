@@ -1,7 +1,7 @@
-import { vec3 } from 'gl-matrix'
-import { Match, Option } from 'effect'
-import { CameraComponent, PositionComponent, TargetComponent } from '/entities/components'
-import { Float, toFloat, Vector3Float } from './common'
+import { Effect, Match, Option } from 'effect'
+import { CameraComponent, PositionComponent, TargetComponent } from '@domain/entities/components'
+import { Float, toFloat, Vector3Float } from '@domain/value-objects/common'
+import { Vector3Port } from '@domain/ports/math.port'
 
 const PI_HALF = Math.PI / 2
 
@@ -41,28 +41,31 @@ export const updateCameraPosition = (
   targetPosition: Option.Option<PositionComponent>,
   deltaTime: number,
   damping: number = 0.1,
-): PositionComponent => {
+) => Effect.gen(function* ($) {
+  const vector3 = yield* $(Vector3Port)
+  
   return Option.match(targetPosition, {
-    onNone: () => currentPosition,
-    onSome: (targetPos) => {
-      const newPositionVec = vec3.create()
-      const { x, y, z } = currentPosition
-      const currentPositionVec: Vector3Float = [toFloat(x), toFloat(y), toFloat(z)]
-      const targetPositionVec: Vector3Float = [toFloat(targetPos.x), toFloat(targetPos.y), toFloat(targetPos.z)]
-      vec3.lerp(newPositionVec, currentPositionVec, targetPositionVec, deltaTime * damping)
+    onNone: () => Effect.succeed(currentPosition),
+    onSome: (targetPos) => Effect.gen(function* ($) {
+      const currentVec = { x: currentPosition.x, y: currentPosition.y, z: currentPosition.z }
+      const targetVec = { x: targetPos.x, y: targetPos.y, z: targetPos.z }
+      const lerpResult = yield* $(vector3.lerp(currentVec, targetVec, deltaTime * damping))
       return {
-        x: toFloat(newPositionVec[0]),
-        y: toFloat(newPositionVec[1]),
-        z: toFloat(newPositionVec[2]),
+        x: toFloat(lerpResult.x),
+        y: toFloat(lerpResult.y),
+        z: toFloat(lerpResult.z),
       }
-    },
+    })
   })
-}
+})
 
-export const getCameraLookAt = (cameraPosition: PositionComponent): Vector3Float => {
-  const lookAt = vec3.create()
-  const { x, y, z } = cameraPosition
-  const currentPosition = [toFloat(x), toFloat(y), toFloat(z)]
-  vec3.add(lookAt, currentPosition, [0, 0, -1]) // Look forward
-  return [toFloat(lookAt[0]), toFloat(lookAt[1]), toFloat(lookAt[2])]
-}
+export const getCameraLookAt = (cameraPosition: PositionComponent) => Effect.gen(function* ($) {
+  const vector3 = yield* $(Vector3Port)
+  
+  const currentVec = { x: cameraPosition.x, y: cameraPosition.y, z: cameraPosition.z }
+  const forwardVec = { x: 0, y: 0, z: -1 } // Look forward
+  const lookAtResult = yield* $(vector3.add(currentVec, forwardVec))
+  
+  const lookAt: Vector3Float = [toFloat(lookAtResult.x), toFloat(lookAtResult.y), toFloat(lookAtResult.z)]
+  return lookAt
+})

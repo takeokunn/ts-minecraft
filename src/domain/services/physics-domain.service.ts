@@ -16,13 +16,13 @@ import * as Data from 'effect/Data'
 import * as HashMap from 'effect/HashMap'
 import * as Array from 'effect/Array'
 import * as Option from 'effect/Option'
-import * as Set from 'effect/Set'
+import * as HashSet from 'effect/HashSet'
 import * as Ref from 'effect/Ref'
 
 // Core imports
-import { EntityId } from '../entities'
-import { Vector3, Position } from '../value-objects'
-import { CollisionDetectionError, PhysicsSimulationError, RigidBodyError, GravityError, ConstraintViolationError, RaycastError, PhysicsMaterialError } from '../errors'
+import { EntityId } from '@domain/entities'
+import { Vector3, Position } from '@domain/value-objects'
+import { CollisionDetectionError, PhysicsSimulationError, RigidBodyError, GravityError, ConstraintViolationError, RaycastError, PhysicsMaterialError } from '@domain/errors'
 
 // Port interfaces for external dependencies
 export interface PhysicsPort {
@@ -342,7 +342,7 @@ export interface DebugColor {
 
 // ===== PHYSICS DOMAIN SERVICE TAG =====
 
-export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainService')<PhysicsDomainService, PhysicsDomainServiceInterface>() {
+export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainService')<PhysicsDomainService, PhysicsDomainServiceInterface> {
   static readonly Live = Layer.effect(
     PhysicsDomainService,
     Effect.gen(function* () {
@@ -591,7 +591,7 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
           try {
             const maxDistance = options.maxDistance ?? 1000
             const ignoreBackfaces = options.ignoreBackfaces ?? false
-            const ignoreBodies = Set.fromIterable(options.ignoreBodies ?? [])
+            const ignoreBodies = HashSet.fromIterable(options.ignoreBodies ?? [])
 
             const bodies = yield* Ref.get(rigidBodies)
             let closestHit: RaycastHit | null = null
@@ -599,7 +599,7 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
 
             // Test ray against all bodies
             for (const body of HashMap.values(bodies)) {
-              if (Set.has(ignoreBodies, body.id)) continue
+              if (HashSet.has(ignoreBodies, body.id)) continue
 
               const hitResult = testRayAgainstBody(ray, body, ignoreBackfaces)
               if (hitResult && hitResult.distance < closestDistance) {

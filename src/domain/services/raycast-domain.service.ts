@@ -9,8 +9,8 @@
  */
 
 import { Context, Effect, Option, Layer } from 'effect'
-import { EntityId } from '../entities'
-import { Position, Vector3 } from '../value-objects'
+import { EntityId } from '@domain/entities'
+import { Position, Vector3 } from '@domain/value-objects'
 
 /**
  * Ray definition

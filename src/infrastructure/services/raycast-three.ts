@@ -1,7 +1,7 @@
-import { Raycast } from '/services/raycast.service'
+import { Raycast } from '@domain/services/raycast.service'
 import { Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
-import { ThreeJsContext } from '../adapters/three-js.adapter'
+import { ThreeJsContext } from '@infrastructure/adapters/three-js.adapter'
 
 export const RaycastLive = Layer.effect(
   Raycast,

@@ -1,10 +1,10 @@
-import { GameDebugger } from './debugger'
-import { PerformanceProfiler } from './performance-profiler'
-import { DevConsole } from './dev-console'
-import { EntityInspector } from './entity-inspector'
-import { WorldEditor } from './world-editor'
-import { NetworkInspector } from './network-inspector'
-import { World } from '/entities'
+import { GameDebugger } from '@presentation/cli/debugger'
+import { PerformanceProfiler } from '@presentation/cli/performance-profiler'
+import { DevConsole } from '@presentation/cli/dev-console'
+import { EntityInspector } from '@presentation/cli/entity-inspector'
+import { WorldEditor } from '@presentation/cli/world-editor'
+import { NetworkInspector } from '@presentation/cli/network-inspector'
+import { World } from '@presentation/entities'
 
 export interface DevToolsConfig {
   enableDebugger: boolean

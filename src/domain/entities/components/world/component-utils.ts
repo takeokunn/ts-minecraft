@@ -2,7 +2,7 @@
  * World component utilities and factory functions
  */
 import { ChunkComponent, ChunkLoaderStateComponent, TerrainBlockComponent, TargetBlockComponent } from './chunk'
-import { toChunkX, toChunkZ } from '../../common'
+import { toChunkX, toChunkZ } from '@domain/entities/common'
 
 // Type definitions
 import type { ChunkComponent as ChunkComponentType, ChunkLoaderStateComponent as ChunkLoaderStateComponentType } from './chunk'
@@ -21,7 +21,7 @@ export const WorldComponents = {
   Chunk: ChunkComponent,
   ChunkLoaderState: ChunkLoaderStateComponent,
   TerrainBlock: TerrainBlockComponent,
-  TargetBlock: TargetBlockComponent,
+  WorldTargetBlock: TargetBlockComponent,
 } as const
 
 // World component factory functions (simple constructors for data-only components)

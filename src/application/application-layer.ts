@@ -1,20 +1,20 @@
 import { Layer } from 'effect'
-import { CommandHandlersLive } from './handlers/command-handlers'
-import { QueryHandlersLive } from './handlers/query-handlers'
-import { PlayerMoveUseCaseLive } from './use-cases/player-move.use-case'
-import { BlockPlaceUseCaseLive } from './use-cases/block-place.use-case'
-import { ChunkLoadUseCaseLive } from './use-cases/chunk-load.use-case'
-import { WorldGenerateUseCaseLive } from './use-cases/world-generate.use-case'
-import { WorldUpdateWorkflowLive } from './workflows/world-update'
-import { UIUpdateWorkflowLive } from './workflows/ui-update'
-import { SystemSchedulerServiceLive } from './workflows/system-scheduler.service'
+import { CommandHandlersLive } from '@application/handlers/command-handlers'
+import { QueryHandlersLive } from '@application/handlers/query-handlers'
+import { PlayerMoveUseCaseLive } from '@application/use-cases/player-move.use-case'
+import { BlockPlaceUseCaseLive } from '@application/use-cases/block-place.use-case'
+import { ChunkLoadUseCaseLive } from '@application/use-cases/chunk-load.use-case'
+import { WorldGenerateUseCaseLive } from '@application/use-cases/world-generate.use-case'
+import { WorldUpdateWorkflowLive } from '@application/workflows/world-update'
+import { UIUpdateWorkflowLive } from '@application/workflows/ui-update'
+import { SystemSchedulerServiceLive } from '@application/workflows/system-scheduler.service'
 // Removed direct infrastructure dependencies - using ports instead
 
 // Import new domain services that the application layer depends on
-import { TerrainGenerationDomainServiceLive } from '../domain/services/terrain-generation-domain.service'
-import { MeshGenerationDomainServiceLive } from '../domain/services/mesh-generation-domain.service'
-import { WorldManagementDomainServiceLive } from '../domain/services/world-management-domain.service'
-import { UnifiedQuerySystemLive } from './queries/unified-query-system'
+import { TerrainGenerationDomainServiceLive } from '@domain/services/terrain-generation-domain.service'
+import { MeshGenerationDomainServiceLive } from '@domain/services/mesh-generation-domain.service'
+import { WorldManagementDomainServiceLive } from '@domain/services/world-management-domain.service'
+import { UnifiedQuerySystemLive } from '@application/queries/unified-query-system'
 
 /**
  * Complete Application Layer with all use cases, handlers, and workflows

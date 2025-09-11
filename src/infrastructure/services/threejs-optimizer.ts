@@ -1,8 +1,8 @@
 import { Effect, Layer, Ref } from 'effect'
 
 import * as THREE from 'three'
-import type { EntityId } from '/entities'
-import { ObjectPool } from '/performance/object-pool'
+import type { EntityId } from '@domain/entities'
+import { ObjectPool } from '@infrastructure/performance/object-pool'
 
 // --- Configuration ---
 

@@ -10,7 +10,7 @@ import * as Effect from 'effect/Effect'
 import * as Context from 'effect/Context'
 import * as Layer from 'effect/Layer'
 import * as Ref from 'effect/Ref'
-import { IClockPort } from '/ports/clock.port'
+import { IClockPort } from '@domain/ports/clock.port'
 
 /**
  * Clock state interface

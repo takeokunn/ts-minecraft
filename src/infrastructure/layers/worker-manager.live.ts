@@ -2,4 +2,4 @@
 export { WorkerManagerLive, WorkerManager } from './unified.layer'
 
 // Export the full unified worker system for advanced usage
-export * from '../workers/unified'
+export * from '@infrastructure/workers/unified'

@@ -14,9 +14,9 @@ import * as Ref from 'effect/Ref'
 import * as Option from 'effect/Option'
 import * as Array from 'effect/Array'
 
-import { Chunk } from '/entities/components/world/chunk'
-import { BlockType } from '/value-objects/block-type.vo'
-import { ChunkCoordinate } from '/value-objects/coordinates/chunk-coordinate.vo'
+import { Chunk } from '@domain/entities/components/world/chunk'
+import { BlockType } from '@domain/value-objects/block-type.vo'
+import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordinate.vo'
 
 /**
  * Chunk metadata for tracking generation status and performance metrics

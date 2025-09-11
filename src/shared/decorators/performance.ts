@@ -2,7 +2,7 @@
  * Performance-related decorators
  */
 
-import { debounce as debounceUtil, throttle as throttleUtil, memoize as memoizeUtil } from '../utils/common'
+import { debounce as debounceUtil, throttle as throttleUtil, memoize as memoizeUtil } from '@shared/utils/common'
 
 /**
  * Measure execution time of a method

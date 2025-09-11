@@ -1,11 +1,11 @@
 import { Effect, Option, HashMap } from 'effect'
 import { ReadonlyArray } from 'effect/ReadonlyArray'
-import { EntityId } from '/entities'
-import { queries } from '/queries'
+import { EntityId } from '@domain/entities'
+import { queries } from '@application/queries'
 import { CHUNK_SIZE, RENDER_DISTANCE } from '@domain/constants/world-constants'
-import { WorldDomainService } from '/services/world-domain.service'
-import { ChunkLoadUseCase } from '../use-cases/chunk-load.use-case'
-import { Position } from '/entities/components'
+import { WorldDomainService } from '@domain/services/world-domain.service'
+import { ChunkLoadUseCase } from '@application/use-cases/chunk-load.use-case'
+import { Position } from '@domain/entities/components'
 
 type ChunkCoord = { readonly x: number; readonly z: number }
 

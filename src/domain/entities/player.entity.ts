@@ -1,7 +1,7 @@
 import * as S from 'effect/Schema'
-import { EntityId } from '../value-objects/entity-id.vo'
-import { Position } from '../value-objects/coordinates/position.vo'
-import { Velocity } from '../value-objects/physics/velocity.vo'
+import { EntityId } from '@domain/value-objects/entity-id.vo'
+import { Position } from '@domain/value-objects/coordinates/position.vo'
+import { Velocity } from '@domain/value-objects/physics/velocity.vo'
 
 export const PlayerInventory = S.Array(
   S.Struct({

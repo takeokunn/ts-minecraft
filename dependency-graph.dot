@@ -1,5 +1,0 @@
-
-✖ Error: Graphviz could not be found. Ensure that "gvpr" is in your $PATH. Error: spawn gvpr ENOENT
-    at checkGraphvizInstalled (/Users/take/ghq/github.com/takeokunn/ts-minecraft/node_modules/.pnpm/madge@8.0.0_typescript@5.9.2/node_modules/madge/lib/graph.js:33:10)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-

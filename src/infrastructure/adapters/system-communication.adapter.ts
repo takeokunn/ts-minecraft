@@ -7,8 +7,8 @@
  */
 
 import { Layer } from 'effect'
-import { SystemCommunicationPort } from '../../domain/ports/system-communication.port'
-import { SystemCommunicationService, SystemCommunicationServiceLive } from '../communication/system-communication.service'
+import { SystemCommunicationPort } from '@domain/ports/system-communication.port'
+import { SystemCommunicationService, SystemCommunicationServiceLive } from '@infrastructure/communication/system-communication.service'
 
 /**
  * System Communication Adapter

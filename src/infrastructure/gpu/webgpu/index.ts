@@ -1,11 +1,3 @@
-/**
- * WebGPU Infrastructure - GPU-accelerated rendering services
- *
- * This module provides WebGPU-based rendering infrastructure services
- * for high-performance graphics rendering.
- */
-
-// Renderer Layer (formerly RenderService)
 export { RenderService } from './renderer.layer'
 export type {
   RenderServiceInterface,

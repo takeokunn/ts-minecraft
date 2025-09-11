@@ -1,8 +1,8 @@
 import { Effect, Layer, Context } from 'effect'
-import { WorldDomainService } from '../../domain/services/world-domain.service'
-import { TerrainGeneratorPort } from '../../domain/services/terrain-generation-domain.service'
-import { MeshGeneratorPort, MeshGeneratorHelpers } from '../../domain/services/mesh-generation-domain.service'
-import { WorldManagementDomainServicePort } from '../../domain/services/world-management-domain.service'
+import { WorldDomainService } from '@domain/services/world-domain.service'
+import { TerrainGeneratorPort } from '@domain/services/terrain-generation-domain.service'
+import { MeshGeneratorPort, MeshGeneratorHelpers } from '@domain/services/mesh-generation-domain.service'
+import { WorldManagementDomainServicePort } from '@domain/services/world-management-domain.service'
 
 export interface ChunkLoadCommand {
   readonly chunkX: number
@@ -21,42 +21,42 @@ export class ChunkLoadUseCase extends Context.Tag('ChunkLoadUseCase')<
 
 export const ChunkLoadUseCaseLive = Layer.succeed(ChunkLoadUseCase, {
   execute: (command) =>
-    Effect.gen(function* (_) {
-      const worldService = yield* _(WorldDomainService)
-      const worldManagement = yield* _(WorldManagementDomainServicePort)
-      const terrainGenerator = yield* _(TerrainGeneratorPort)
-      const meshGenerator = yield* _(MeshGeneratorPort)
+    Effect.gen(function* () {
+      const worldService = yield* WorldDomainService
+      const worldManagement = yield* WorldManagementDomainServicePort
+      const terrainGenerator = yield* TerrainGeneratorPort
+      const meshGenerator = yield* MeshGeneratorPort
 
       // Use the new WorldManagementDomainService for chunk loading
       const coordinates = { x: command.chunkX, z: command.chunkZ }
       const priority = command.priority === 'high' ? 3 : command.priority === 'medium' ? 2 : 1
 
       // Check if chunk is already loaded using world management service
-      const metadata = yield* _(worldManagement.getChunkMetadata(coordinates))
+      const metadata = yield* worldManagement.getChunkMetadata(coordinates)
       
       if (metadata && metadata.status === 'loaded') {
-        yield* _(Effect.log(`Chunk ${command.chunkX}, ${command.chunkZ} already loaded`))
+        yield* Effect.log(`Chunk ${command.chunkX}, ${command.chunkZ} already loaded`)
         return
       }
 
       if (metadata && (metadata.status === 'loading' || metadata.status === 'generating' || metadata.status === 'meshing')) {
-        yield* _(Effect.log(`Chunk ${command.chunkX}, ${command.chunkZ} already in progress`))
+        yield* Effect.log(`Chunk ${command.chunkX}, ${command.chunkZ} already in progress`)
         return
       }
 
       // Load chunk using world management domain service
-      const result = yield* _(worldManagement.loadChunk(coordinates, priority))
+      const result = yield* worldManagement.loadChunk(coordinates, priority)
       
       if (result.success) {
-        yield* _(Effect.log(`Chunk ${command.chunkX}, ${command.chunkZ} loaded successfully in ${result.loadTime}ms`))
+        yield* Effect.log(`Chunk ${command.chunkX}, ${command.chunkZ} loaded successfully in ${result.loadTime}ms`)
       } else {
-        yield* _(Effect.log(`Failed to load chunk ${command.chunkX}, ${command.chunkZ}: ${result.error}`))
+        yield* Effect.log(`Failed to load chunk ${command.chunkX}, ${command.chunkZ}: ${result.error}`)
       }
     }),
 
   preloadChunksAroundPosition: (position, radius) =>
-    Effect.gen(function* (_) {
-      const worldService = yield* _(WorldDomainService)
+    Effect.gen(function* () {
+      const worldService = yield* WorldDomainService
 
       // Calculate chunk coordinates
       const centerChunkX = Math.floor(position.x / 16)
@@ -84,12 +84,10 @@ export const ChunkLoadUseCaseLive = Layer.succeed(ChunkLoadUseCase, {
       }
 
       // Execute chunk loading commands in parallel with concurrency control
-      yield* _(
-        Effect.forEach(
-          chunksToLoad,
-          (command) => ChunkLoadUseCase.execute(command),
-          { concurrency: 4 }, // Limit concurrent chunk loads
-        ),
+      yield* Effect.forEach(
+        chunksToLoad,
+        (command) => ChunkLoadUseCase.execute(command),
+        { concurrency: 4 }, // Limit concurrent chunk loads
       )
     }),
 })

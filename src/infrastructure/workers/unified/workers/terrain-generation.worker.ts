@@ -4,7 +4,7 @@
  */
 
 import { Effect, Duration } from 'effect'
-import { createTypedWorker, type TypedWorkerConfig, type WorkerHandlerContext } from '../../base/typed-worker'
+import { createTypedWorker, type TypedWorkerConfig, type WorkerHandlerContext } from '@infrastructure/workers/base/typed-worker'
 import {
   TerrainGenerationRequest,
   TerrainGenerationResponse,
@@ -15,7 +15,7 @@ import {
   createDefaultNoiseSettings,
   createTransferableMeshData,
   PerformanceMetrics,
-} from '../protocols/terrain.protocol'
+} from '@infrastructure/workers/unified/protocols/terrain.protocol'
 
 /**
  * Simple noise function for terrain generation

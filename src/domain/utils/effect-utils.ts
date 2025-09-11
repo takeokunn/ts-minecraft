@@ -1,5 +1,5 @@
 import { Effect, pipe, Schedule } from 'effect'
-import { DomainError } from './errors'
+import { DomainError } from '@domain/utils/errors'
 
 /**
  * Effect utilities for consistent error handling and patterns

@@ -1,10 +1,10 @@
 import { Effect, Match } from 'effect'
-import * as S from '/schemas/Schema'
-import { hotbarSlots } from './block'
-import { BlockTypeSchema } from './block-types'
-import { CameraComponent, type PartialComponents, PositionComponent, PartialComponentsSchema } from '/entities/components'
-import { ChunkX, ChunkZ, toFloat, toInt } from './common'
-import { BLOCK_COLLIDER, GRAVITY, PLAYER_COLLIDER } from './world-constants'
+import * as S from 'effect/Schema'
+import { hotbarSlots } from '@domain/constants/block'
+import { BlockTypeSchema } from '@domain/constants/block-types'
+import { CameraComponent, type PartialComponents, PositionComponent, PartialComponentsSchema } from '@domain/entities/components'
+import { ChunkX, ChunkZ, toFloat, toInt } from '@domain/constants/common'
+import { BLOCK_COLLIDER, GRAVITY, PLAYER_COLLIDER } from '@domain/constants/world-constants'
 import * as ParseResult from 'effect/ParseResult'
 
 const PlayerArchetypeBuilder = S.Struct({

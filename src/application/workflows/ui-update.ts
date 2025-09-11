@@ -1,6 +1,7 @@
 import { Effect, Context, Layer } from 'effect'
-import { EntityDomainService } from '/services/entity-domain.service'
-import { WorldDomainService } from '/services/world-domain.service'
+import { EntityDomainService } from '@domain/services/entity-domain.service'
+import { WorldDomainService } from '@domain/services/world-domain.service'
+import { PerformanceMonitorPort } from '@domain/ports/performance-monitor.port'
 
 /**
  * UI Update Workflow Service
@@ -17,71 +18,105 @@ export class UIUpdateWorkflow extends Context.Tag('UIUpdateWorkflow')<
   }
 >() {}
 
-export const UIUpdateWorkflowLive = Layer.succeed(UIUpdateWorkflow, {
-  updatePlayerUI: (playerId) =>
-    Effect.gen(function* (_) {
-      const entityService = yield* _(EntityDomainService)
+export const UIUpdateWorkflowLive = Layer.effect(
+  UIUpdateWorkflow,
+  Effect.gen(function* (_) {
+    const performanceMonitor = yield* _(PerformanceMonitorPort)
 
-      // Get player data
-      const player = yield* _(entityService.getEntity(playerId))
-      const position = yield* _(entityService.getEntityPosition(playerId))
+    return {
+      updatePlayerUI: (playerId) =>
+        Effect.gen(function* (_) {
+          yield* _(performanceMonitor.startSystem('ui-player-update'))
 
-      if (!player || !position) {
-        yield* _(Effect.log(`Player ${playerId} not found for UI update`))
-        return
-      }
+          const entityService = yield* _(EntityDomainService)
 
-      // Update various UI components
-      yield* _(UIUpdateWorkflow.updateHotbar(playerId))
-      yield* _(UIUpdateWorkflow.updateHealthBar(playerId))
+          try {
+            // Get player data
+            const player = yield* _(entityService.getEntity(playerId))
+            const position = yield* _(entityService.getEntityPosition(playerId))
 
-      yield* _(Effect.log(`Player UI updated for ${playerId}`))
-    }),
+            if (!player || !position) {
+              yield* _(Effect.log(`Player ${playerId} not found for UI update`))
+              return
+            }
 
-  updateWorldUI: () =>
-    Effect.gen(function* (_) {
-      const worldService = yield* _(WorldDomainService)
+            // Update various UI components
+            yield* _(UIUpdateWorkflow.updateHotbar(playerId))
+            yield* _(UIUpdateWorkflow.updateHealthBar(playerId))
 
-      // Get world statistics for UI display
-      const loadedChunks = yield* _(worldService.getLoadedChunks())
+            yield* _(performanceMonitor.recordMetric('execution_time', 'ui-player-update', 1, 'update'))
+            yield* _(Effect.log(`Player UI updated for ${playerId}`))
+          } finally {
+            yield* _(performanceMonitor.endSystem('ui-player-update'))
+          }
+        }),
 
-      // Update world statistics display
-      yield* _(Effect.log(`World UI updated: ${loadedChunks.length} chunks loaded`))
-    }),
+      updateWorldUI: () =>
+        Effect.gen(function* (_) {
+          yield* _(performanceMonitor.startSystem('ui-world-update'))
 
-  updateHotbar: (playerId) =>
-    Effect.gen(function* (_) {
-      const entityService = yield* _(EntityDomainService)
+          const worldService = yield* _(WorldDomainService)
 
-      // Get player inventory for hotbar
-      const inventory = yield* _(entityService.getEntityInventory(playerId))
+          try {
+            // Get world statistics for UI display
+            const loadedChunks = yield* _(worldService.getLoadedChunks())
 
-      if (!inventory) {
-        yield* _(Effect.log(`No inventory found for player ${playerId}`))
-        return
-      }
+            yield* _(performanceMonitor.recordMetric('execution_time', 'ui-world-update', loadedChunks.length, 'chunks'))
+            yield* _(Effect.log(`World UI updated: ${loadedChunks.length} chunks loaded`))
+          } finally {
+            yield* _(performanceMonitor.endSystem('ui-world-update'))
+          }
+        }),
 
-      // Extract hotbar items (first 9 items typically)
-      const hotbarItems = inventory.slice(0, 9)
+      updateHotbar: (playerId) =>
+        Effect.gen(function* (_) {
+          yield* _(performanceMonitor.startSystem('ui-hotbar-update'))
 
-      yield* _(Effect.log(`Hotbar updated for player ${playerId} with ${hotbarItems.length} items`))
-    }),
+          const entityService = yield* _(EntityDomainService)
 
-  updateHealthBar: (playerId) =>
-    Effect.gen(function* (_) {
-      const entityService = yield* _(EntityDomainService)
+          try {
+            // Get player inventory for hotbar
+            const inventory = yield* _(entityService.getEntityInventory(playerId))
 
-      // Get player health
-      const health = yield* _(entityService.getEntityHealth(playerId))
+            if (!inventory) {
+              yield* _(Effect.log(`No inventory found for player ${playerId}`))
+              return
+            }
 
-      if (health === undefined) {
-        yield* _(Effect.log(`No health found for player ${playerId}`))
-        return
-      }
+            // Extract hotbar items (first 9 items typically)
+            const hotbarItems = inventory.slice(0, 9)
 
-      yield* _(Effect.log(`Health bar updated for player ${playerId}: ${health}`))
-    }),
-})
+            yield* _(performanceMonitor.recordMetric('execution_time', 'ui-hotbar-update', hotbarItems.length, 'items'))
+            yield* _(Effect.log(`Hotbar updated for player ${playerId} with ${hotbarItems.length} items`))
+          } finally {
+            yield* _(performanceMonitor.endSystem('ui-hotbar-update'))
+          }
+        }),
+
+      updateHealthBar: (playerId) =>
+        Effect.gen(function* (_) {
+          yield* _(performanceMonitor.startSystem('ui-health-update'))
+
+          const entityService = yield* _(EntityDomainService)
+
+          try {
+            // Get player health
+            const health = yield* _(entityService.getEntityHealth(playerId))
+
+            if (health === undefined) {
+              yield* _(Effect.log(`No health found for player ${playerId}`))
+              return
+            }
+
+            yield* _(performanceMonitor.recordMetric('execution_time', 'ui-health-update', health, 'health'))
+            yield* _(Effect.log(`Health bar updated for player ${playerId}: ${health}`))
+          } finally {
+            yield* _(performanceMonitor.endSystem('ui-health-update'))
+          }
+        }),
+    }
+  }),
+)
 
 /**
  * Create UI update workflow factory function to maintain compatibility

@@ -1,5 +1,5 @@
-import { ColliderComponent } from '../../domain/entities/components'
-import { toFloat } from '../utils/math'
+import { ColliderComponent } from '@domain/entities/components'
+import { toFloat } from '@shared/utils/math'
 
 /**
  * Physics and movement constants

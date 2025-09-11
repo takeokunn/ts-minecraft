@@ -7,8 +7,8 @@
  */
 
 import { Layer } from 'effect'
-import { PerformanceMonitorPort } from '../../domain/ports/performance-monitor.port'
-import { PerformanceMonitorService, PerformanceMonitorServiceLive } from '../monitoring/performance-monitor.service'
+import { PerformanceMonitorPort } from '@domain/ports/performance-monitor.port'
+import { PerformanceMonitorService, PerformanceMonitorServiceLive } from '@infrastructure/monitoring/performance-monitor.service'
 
 /**
  * Performance Monitor Adapter

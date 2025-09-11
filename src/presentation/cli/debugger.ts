@@ -1,10 +1,10 @@
-import { World } from '/entities'
-import { Query } from '../domain/queries'
-import { PerformanceProfiler } from './performance-profiler'
-import { DevConsole } from './dev-console'
-import { EntityInspector } from './entity-inspector'
+import { World } from '@presentation/entities'
+import { UnifiedQuerySystemService } from '@application/queries/unified-query-system'
+import { PerformanceProfiler } from '@presentation/cli/performance-profiler'
+import { DevConsole } from '@presentation/cli/dev-console'
+import { EntityInspector } from '@presentation/cli/entity-inspector'
 import { Effect } from 'effect'
-import { PerformanceDashboard } from '../../infrastructure/performance'
+import { PerformanceDashboard } from '@infrastructure/performance'
 
 export interface DebuggerState {
   showOverlay: boolean

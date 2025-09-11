@@ -1,6 +1,6 @@
 import { Effect, Queue, Ref, Duration, Context, Layer, Schedule } from 'effect'
 import * as S from 'effect/Schema'
-import { createTypedWorkerClient, type WorkerClientConfig } from '../base/typed-worker'
+import { createTypedWorkerClient, type WorkerClientConfig } from '@infrastructure/workers/base/typed-worker'
 
 /**
  * Advanced Worker Pool Management System
