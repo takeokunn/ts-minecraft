@@ -1,5 +1,5 @@
 import { Layer, Effect, Ref, HashMap } from 'effect'
-import { ChunkManager } from '@/services/world/chunk-manager.service'
+import { ChunkManager } from '@/infrastructure/services/chunk-manager.service'
 import { ChunkCoordinates } from '@/domain/value-objects/coordinates/chunk-coordinates.value'
 import { Chunk } from '@/domain/entities/components/world/chunk'
 

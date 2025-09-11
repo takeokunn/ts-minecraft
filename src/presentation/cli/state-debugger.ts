@@ -787,7 +787,8 @@ export class StateDebugger {
     `
 
     // Make debugger globally accessible for button callbacks
-    ;(window as any).stateDebugger = this
+    const globalWithDebugger = globalThis as typeof globalThis & { stateDebugger?: StateDebugger }
+    globalWithDebugger.stateDebugger = this
   }
 
   private showHistoryTab(): void {

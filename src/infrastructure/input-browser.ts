@@ -1,4 +1,4 @@
-import { InputManager } from '@/runtime/services'
+import { InputManager } from '@/infrastructure/services/input-manager.service'
 import { Context, Effect, Layer, Ref, Queue } from 'effect'
 
 export type DomEvent =

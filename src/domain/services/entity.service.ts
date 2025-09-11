@@ -158,7 +158,7 @@ export type EntityWithComponents<T extends readonly ComponentName[]> = {
 
 // ===== ENTITY SERVICE TAG =====
 
-export class EntityService extends Context.Tag('EntityService')<
+export class EntityService extends Context.GenericTag('EntityService')<
   EntityService,
   EntityServiceInterface
 >() {

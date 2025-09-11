@@ -8,5 +8,5 @@ export type EntityId = S.Schema.Type<typeof EntityIdSchema>
 
 export const toEntityId = S.decodeUnknownSync(EntityIdSchema)
 
-// Re-export World from runtime services for compatibility
-export { World } from '@/runtime/services'
+// Re-export WorldState from domain entities for compatibility
+export { WorldState as World } from './world.entity'

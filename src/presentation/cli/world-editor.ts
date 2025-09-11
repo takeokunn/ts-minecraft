@@ -198,8 +198,14 @@ export class WorldEditor {
   }
 
   private executeAction(tool: string, position: { x: number; y: number; z: number }): void {
+    const validTypes = ['place', 'remove', 'replace'] as const
+    if (!validTypes.includes(tool as any)) {
+      console.warn(`Invalid tool type: ${tool}`)
+      return
+    }
+    
     const action: WorldEditAction = {
-      type: tool as any,
+      type: tool as 'place' | 'remove' | 'replace',
       position
     }
 

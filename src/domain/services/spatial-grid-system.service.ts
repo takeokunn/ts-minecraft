@@ -1,0 +1,28 @@
+import { Effect } from 'effect'
+import { createAABB } from '@/domain/geometry'
+import { queries } from '@/domain/queries'
+import { SpatialGridPort } from '@/domain/ports/spatial-grid.port'
+import { WorldRepository } from '@/domain/ports/world.repository'
+
+export const updatePhysicsWorldSystem = Effect.gen(function* (_) {
+  const world = yield* _(WorldRepository)
+  const spatialGrid = yield* _(SpatialGridPort)
+
+  yield* _(spatialGrid.clear())
+
+  const { entities, components } = yield* _(world.querySoA(queries.positionCollider))
+  const { position, collider } = components
+
+  yield* _(
+    Effect.forEach(
+      entities,
+      (entityId, i) => {
+        const currentPosition = position[i]
+        const currentCollider = collider[i]
+        const aabb = createAABB(currentPosition, currentCollider)
+        return spatialGrid.insert(entityId, aabb)
+      },
+      { discard: true, concurrency: 'unbounded' },
+    ),
+  )
+})

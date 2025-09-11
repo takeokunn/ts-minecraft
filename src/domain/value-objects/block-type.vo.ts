@@ -1,4 +1,4 @@
-import * as S from '@effect/schema/Schema'
+import * as S from 'effect/Schema'
 
 // Define all block types as a const array for type safety
 export const blockTypes = [

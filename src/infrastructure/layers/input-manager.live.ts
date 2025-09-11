@@ -1,5 +1,5 @@
 import { Layer, Effect, Ref } from 'effect'
-import { InputManager } from '@/services/input/input-manager'
+import { InputManager } from '@/application/services/input-manager.service'
 
 /**
  * Production implementation of InputManager service

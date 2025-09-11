@@ -67,7 +67,7 @@ export async function loadChunk(coords: ChunkCoordinates) {
 import { Context, Effect, Layer } from 'effect'
 
 // Define service interface
-export class MyService extends Context.Tag('MyService')<
+export class MyService extends Context.GenericTag('MyService')<
   MyService,
   {
     readonly doSomething: (input: string) => Effect.Effect<void>
@@ -203,7 +203,7 @@ export const healthSystem = Effect.gen(function* () {
 
 1. Define in `src/runtime/services.ts`:
 ```typescript
-export class AudioService extends Context.Tag('AudioService')<
+export class AudioService extends Context.GenericTag('AudioService')<
   AudioService,
   { playSound: (name: string) => Effect.Effect<void> }
 >() {}

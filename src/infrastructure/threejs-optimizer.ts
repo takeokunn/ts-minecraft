@@ -2,7 +2,7 @@ import { Effect, Layer, Ref } from 'effect'
 
 import * as THREE from 'three'
 import type { EntityId } from '@/domain/entities'
-import { ObjectPool } from '@/domain/performance/object-pool'
+import { ObjectPool } from '@/infrastructure/performance/object-pool'
 
 // --- Configuration ---
 
@@ -284,7 +284,7 @@ const performFrustumCulling = (
     if (!object.visible) continue
     
     // Get object bounding sphere or box
-    const geometry = (object as any).geometry as THREE.BufferGeometry
+    const geometry = (object as THREE.Mesh).geometry as THREE.BufferGeometry
     if (geometry && geometry.boundingSphere) {
       geometry.computeBoundingSphere()
       const sphere = geometry.boundingSphere.clone()
@@ -709,7 +709,7 @@ export const ThreeJSOptimizerLive = Layer.effect(
             batch.instances.dispose()
             batch.geometry.dispose()
             if (batch.material && 'dispose' in batch.material) {
-              (batch.material as any).dispose()
+              (batch.material as { dispose: () => void }).dispose()
             }
           }
           
@@ -720,7 +720,7 @@ export const ThreeJSOptimizerLive = Layer.effect(
             }
             for (const material of lodConfig.materials) {
               if ('dispose' in material) {
-                (material as any).dispose()
+                (material as { dispose: () => void }).dispose()
               }
             }
           }
@@ -730,7 +730,7 @@ export const ThreeJSOptimizerLive = Layer.effect(
             batch.geometry.dispose()
             batch.mergedGeometry.dispose()
             if ('dispose' in batch.material) {
-              (batch.material as any).dispose()
+              (batch.material as { dispose: () => void }).dispose()
             }
           }
           

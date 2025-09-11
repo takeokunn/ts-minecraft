@@ -15,7 +15,7 @@ export interface RayHit {
 /**
  * Raycast Service - Performs raycasting for selection and interaction
  */
-export class Raycast extends Context.Tag('Raycast')<
+export class Raycast extends Context.GenericTag('Raycast')<
   Raycast,
   {
     readonly cast: (

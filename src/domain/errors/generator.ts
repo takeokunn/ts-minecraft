@@ -124,7 +124,7 @@ export function defineError<TData extends Record<string, unknown>>(
 
     const errorData = { ...data, context } as TData & BaseErrorData
     const TaggedErrorClass = Data.TaggedError(name)<TData & BaseErrorData>
-    const error = new TaggedErrorClass(errorData as any) as unknown as TaggedError<string, TData & BaseErrorData>
+    const error = new TaggedErrorClass(errorData) as unknown as TaggedError<string, TData & BaseErrorData>
     
     // Add methods to the error instance
     Object.assign(error, {
@@ -153,7 +153,7 @@ export function defineError<TData extends Record<string, unknown>>(
     Object.setPrototypeOf(GeneratedErrorConstructor.prototype, ParentClass.prototype)
   }
 
-  return GeneratedErrorConstructor as any as ErrorConstructor<TData & BaseErrorData>
+  return GeneratedErrorConstructor as unknown as ErrorConstructor<TData & BaseErrorData>
 }
 
 /**

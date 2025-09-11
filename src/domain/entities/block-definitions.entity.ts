@@ -1,4 +1,4 @@
-import * as S from "@effect/schema/Schema"
+import * as S from "effect/Schema"
 import { blockTypes } from '@/domain/value-objects/block-type.vo'
 import { Effect } from 'effect'
 

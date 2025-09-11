@@ -1,5 +1,5 @@
-import { ComputationWorker } from '@/runtime/services'
-import { IncomingMessage, OutgoingMessage } from '@/workers/messages'
+import { ComputationWorker } from '@/infrastructure/services/computation-worker.service'
+import { IncomingMessage, OutgoingMessage } from '@/infrastructure/workers/messages'
 import { Effect, Layer, Scope } from 'effect'
 
 export const ComputationWorkerLive = Layer.scoped(
@@ -10,7 +10,7 @@ export const ComputationWorkerLive = Layer.scoped(
         Effect.sync(
           () =>
             new Worker(
-              new URL('../workers/computation.worker.ts', import.meta.url),
+              new URL('./workers/computation.worker.ts', import.meta.url),
               { type: 'module' },
             ),
         ),

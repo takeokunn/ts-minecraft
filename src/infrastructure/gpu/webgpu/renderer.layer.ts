@@ -423,7 +423,7 @@ type BufferId = string & { readonly _brand: 'BufferId' }
 
 // ===== RENDER SERVICE TAG =====
 
-export class RenderService extends Context.Tag('RenderService')<
+export class RenderService extends Context.GenericTag('RenderService')<
   RenderService,
   RenderServiceInterface
 >() {

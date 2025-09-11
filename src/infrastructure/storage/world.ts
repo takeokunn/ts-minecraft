@@ -12,7 +12,7 @@ import { type EntityId, toEntityId } from '@/domain/entities'
 import { toChunkIndex } from '@/domain/geometry'
 import { type LegacyQuery, type OptimizedQuery } from '@/domain/queries'
 import { type Voxel } from '@/domain/world'
-import { World } from '@/runtime/services'
+import { WorldService as World } from '@/application/services/world.service'
 import { Effect, HashMap, HashSet, Layer, Option, Ref } from 'effect'
 import * as S from "/schema/Schema"
 
@@ -140,7 +140,7 @@ export const WorldLive = Layer.effect(
                 return S.decode(ComponentSchemas[componentName])(updated).pipe(
                   Effect.mapError((error) => new ComponentDecodeError(entityId, componentName, error)),
                   Effect.flatMap((decoded) => {
-                    const newComponentMap = HashMap.set(s.components[componentName], entityId, decoded as any)
+                    const newComponentMap = HashMap.set(s.components[componentName], entityId, decoded as unknown)
                     const newComponents = { ...s.components, [componentName]: newComponentMap }
                     return Ref.set(state, { ...s, components: newComponents })
                   })

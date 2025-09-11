@@ -1,7 +1,7 @@
 import { Layer, Effect, Ref } from 'effect'
-import { TerrainGenerator } from '@/services/world/terrain-generator.service'
+import { TerrainGenerator } from '@/infrastructure/services/terrain-generator.service'
 import { ChunkCoordinates } from '@/domain/value-objects/coordinates/chunk-coordinates.value'
-import { TypedWorkerManager } from '@/services/worker/typed-worker-manager.service'
+import { TypedWorkerManager } from '@/infrastructure/services/typed-worker-manager.service'
 import { WASMIntegrationService } from './wasm-integration'
 
 // --- Enhanced Configuration ---
@@ -688,7 +688,7 @@ const generateTerrainLocal = (
       return Math.floor(params.seaLevel + noise * (params.maxHeight - params.seaLevel))
     }),
     biomes: new Array(CONFIG.CHUNK_SIZE ** 2).fill('plains'),
-    structures: generateStructures(coords.x, coords.z, biomes.get('plains')!, params.seed),
+    structures: generateStructures(coords.x, coords.z, biomes.get('plains') ?? { type: 'plains', temperature: 0.5, humidity: 0.5 }, params.seed),
     caves: generateCaves(coords.x, coords.z, params.seed),
     ores: generateOres(coords.x, coords.z, params.seed),
   })

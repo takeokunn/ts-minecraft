@@ -133,9 +133,9 @@ export class CommandPalette {
       keywords: ['clear', 'clean', 'empty'],
       icon: '🧹',
       execute: () => {
-        if (this.devConsole) {
-          // Access the private method through any
-          (this.devConsole as any).executeCommand('clear')
+        if (this.devConsole && 'executeCommand' in this.devConsole && typeof this.devConsole.executeCommand === 'function') {
+          // Use type assertion with interface check
+          (this.devConsole as DevConsole & { executeCommand(cmd: string): void }).executeCommand('clear')
         }
       },
       enabled: () => !!this.devConsole
@@ -162,9 +162,9 @@ export class CommandPalette {
       keywords: ['refresh', 'reload', 'update'],
       icon: '🔄',
       execute: () => {
-        if (this.entityInspector) {
-          // Access the private method through any
-          (this.entityInspector as any).refreshEntityList()
+        if (this.entityInspector && 'refreshEntityList' in this.entityInspector && typeof this.entityInspector.refreshEntityList === 'function') {
+          // Use type assertion with interface check
+          (this.entityInspector as EntityInspector & { refreshEntityList(): void }).refreshEntityList()
         }
       },
       enabled: () => !!this.entityInspector
@@ -301,8 +301,9 @@ export class CommandPalette {
       keywords: ['garbage', 'collection', 'gc', 'memory'],
       icon: '🗑️',
       execute: () => {
-        if ((window as any).gc) {
-          (window as any).gc()
+        const globalWithGC = globalThis as typeof globalThis & { gc?: () => void }
+        if (globalWithGC.gc) {
+          globalWithGC.gc()
           console.log('Garbage collection triggered')
         } else {
           console.warn('Garbage collection not available. Use --expose-gc flag.')

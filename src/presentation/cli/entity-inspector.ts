@@ -310,7 +310,8 @@ export class EntityInspector {
     this.detailsElement.innerHTML = html
 
     // グローバルに公開（ボタンから呼び出すため）
-    ;(window as any).entityInspector = this
+    const globalWithEntityInspector = globalThis as typeof globalThis & { entityInspector?: EntityInspector }
+    globalWithEntityInspector.entityInspector = this
   }
 
   private startAutoRefresh(): void {

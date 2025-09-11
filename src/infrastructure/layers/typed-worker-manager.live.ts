@@ -1,10 +1,10 @@
 import { Layer, Effect, Ref, Duration } from 'effect'
 import * as S from "/schema/Schema"
-import { TypedWorkerManager, WorkerManagerConfig, WorkerType } from '@/services/worker/typed-worker-manager.service'
+import { TypedWorkerManager, WorkerManagerConfig, WorkerType } from '@/infrastructure/services/typed-worker-manager.service'
 import {
   createWorkerFactory,
   createWorkerPool,
-} from '@/workers/base/typed-worker'
+} from '@/infrastructure/workers/base/typed-worker'
 import {
   TerrainGenerationRequest,
   TerrainGenerationResponse,
@@ -14,7 +14,7 @@ import {
   MeshGenerationResponse,
   LightingCalculationRequest,
   LightingCalculationResponse,
-} from '@/workers/shared/protocol'
+} from '@/infrastructure/workers/shared/protocol'
 
 /**
  * Live implementation of TypedWorkerManager
@@ -31,22 +31,22 @@ const WORKER_CONFIGS: Record<WorkerType, {
   outputSchema: S.Schema<any>
 }> = {
   terrain: {
-    script: '/workers/terrain-generation.worker.js',
+    script: '/infrastructure/workers/terrain-generation.worker.js',
     inputSchema: TerrainGenerationRequest,
     outputSchema: TerrainGenerationResponse,
   },
   physics: {
-    script: '/workers/physics.worker.js',
+    script: '/infrastructure/workers/physics.worker.js',
     inputSchema: PhysicsSimulationRequest,
     outputSchema: PhysicsSimulationResponse,
   },
   mesh: {
-    script: '/workers/mesh-generation.worker.js', // To be created
+    script: '/infrastructure/workers/mesh-generation.worker.js', // To be created
     inputSchema: MeshGenerationRequest,
     outputSchema: MeshGenerationResponse,
   },
   lighting: {
-    script: '/workers/lighting.worker.js', // To be created
+    script: '/infrastructure/workers/lighting.worker.js', // To be created
     inputSchema: LightingCalculationRequest,
     outputSchema: LightingCalculationResponse,
   },

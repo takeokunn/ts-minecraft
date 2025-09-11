@@ -1,7 +1,7 @@
 import { Effect, Layer, Ref, Option } from 'effect'
 
-import { ObjectPool } from '@/domain/performance/object-pool'
-import { createTypedWorkerClient, WorkerClientConfig } from '@/workers/base/typed-worker'
+import { ObjectPool } from '@/infrastructure/performance/object-pool'
+import { createTypedWorkerClient, WorkerClientConfig } from '@/infrastructure/workers/base/typed-worker'
 
 
 // --- Configuration ---
@@ -340,12 +340,13 @@ const profileWASMFunction = (
   ...func,
   func: (...args: any[]) => {
     const startTime = performance.now()
-    const startMemory = (performance as any).memory?.usedJSHeapSize || 0
+    const performanceWithMemory = performance as typeof performance & { memory?: { usedJSHeapSize: number } }
+    const startMemory = performanceWithMemory.memory?.usedJSHeapSize || 0
     
     const result = func.func(...args)
     
     const endTime = performance.now()
-    const endMemory = (performance as any).memory?.usedJSHeapSize || 0
+    const endMemory = performanceWithMemory.memory?.usedJSHeapSize || 0
     const executionTime = endTime - startTime
     const memoryDelta = endMemory - startMemory
     
@@ -604,8 +605,9 @@ export const WASMIntegrationLive = Layer.effect(
       optimizeMemory: () =>
         Effect.gen(function* () {
           // Force garbage collection if available
-          if ((globalThis as any).gc) {
-            (globalThis as any).gc()
+          const globalWithGC = globalThis as typeof globalThis & { gc?: () => void }
+          if (globalWithGC.gc) {
+            globalWithGC.gc()
           }
           
           // Clear unused memory buffers

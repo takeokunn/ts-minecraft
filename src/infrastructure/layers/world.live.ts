@@ -1,6 +1,6 @@
 import { Layer, Effect, Ref, Option } from 'effect'
 import * as HashMap from 'effect/HashMap'
-import { World } from '@/services/world'
+import { WorldService } from '@/application/services/world.service'
 import { WorldState } from '@/domain/world'
 import { EntityId, toEntityId } from '@/domain/entities'
 import { Archetype } from '@/domain/archetypes'
@@ -13,7 +13,7 @@ import { ComponentNotFoundError } from '@/domain/errors'
  * Production implementation of World service
  */
 export const WorldLive = Layer.effect(
-  World,
+  WorldService,
   Effect.gen(function* () {
     // Initialize world state
     const initialState: WorldState = {
@@ -66,7 +66,7 @@ export const WorldLive = Layer.effect(
                   [componentName]: HashMap.set(
                     newState.components[componentName],
                     entityId,
-                    component as any
+                    component as unknown
                   )
                 }
               }
@@ -139,7 +139,7 @@ export const WorldLive = Layer.effect(
           const newComponentMap = HashMap.set(
             s.components[componentName],
             entityId,
-            updated as any
+            updated as unknown
           )
           const newComponents = {
             ...s.components,

@@ -1,4 +1,4 @@
-import { Clock } from '@/runtime/services'
+import { Clock } from '@/infrastructure/services/clock.service'
 import { Console, Effect, Layer, Ref } from 'effect'
 import * as THREE from 'three'
 

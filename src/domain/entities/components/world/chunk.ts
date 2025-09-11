@@ -1,4 +1,4 @@
-import * as S from '@effect/schema/Schema'
+import * as S from 'effect/Schema'
 import { ChunkX, ChunkZ } from '../../common'
 import { BlockTypeSchema } from '@/domain/value-objects/block-type.vo'
 import { RegisterComponent } from '../registry'

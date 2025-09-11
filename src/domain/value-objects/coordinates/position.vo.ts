@@ -1,4 +1,4 @@
-import * as S from '@effect/schema/Schema'
+import * as S from 'effect/Schema'
 import { pipe } from 'effect'
 
 export const X = pipe(S.Number, S.finite, S.brand('X'))

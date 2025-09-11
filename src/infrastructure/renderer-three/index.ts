@@ -1,4 +1,7 @@
-import { Clock, MaterialManager, Renderer, RenderCommand } from '@/runtime/services'
+import { Clock } from '@/infrastructure/services/clock.service'
+import { MaterialManager } from '@/infrastructure/services/material-manager.service'
+import { Renderer } from '@/infrastructure/services/renderer.service'
+import { RenderCommand } from '@/infrastructure/services/render-command.service'
 import { Effect, Layer, Match, Queue, Ref } from 'effect'
 import * as THREE from 'three'
 import { ThreeJsContext } from '../three-js-context'

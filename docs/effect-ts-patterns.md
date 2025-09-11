@@ -6,7 +6,7 @@
 
 ```typescript
 // Service interface with Context.Tag
-export class WorldService extends Context.Tag('WorldService')<
+export class WorldService extends Context.GenericTag('WorldService')<
   WorldService,
   {
     readonly getChunk: (coords: ChunkCoordinates) => Effect.Effect<Chunk, ChunkNotLoadedError>

@@ -35,8 +35,10 @@ export class Archetype {
       if (!Archetype.componentIndices.has(component)) {
         Archetype.componentIndices.set(component, Archetype.nextIndex++)
       }
-      const index = Archetype.componentIndices.get(component)!
-      mask |= 1n << BigInt(index)
+      const index = Archetype.componentIndices.get(component)
+      if (index !== undefined) {
+        mask |= 1n << BigInt(index)
+      }
     }
     return mask
   }
@@ -322,7 +324,8 @@ export class ArchetypeQuery<T extends ReadonlyArray<ComponentName>> {
       }
 
       try {
-        if (this.config.predicate(entityProxy as any)) {
+        const typedProxy = entityProxy as unknown as Parameters<NonNullable<typeof this.config.predicate>>[0]
+        if (this.config.predicate(typedProxy)) {
           result.push(entity)
         }
       } catch (error) {

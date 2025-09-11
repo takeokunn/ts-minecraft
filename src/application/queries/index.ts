@@ -183,7 +183,9 @@ export const queries = {
     .where(entity => {
       const velocity = entity.get('velocity')
       // Assuming velocity has a magnitude property or method
-      return (velocity as any).magnitude > 0
+      return velocity && typeof velocity === 'object' && 'magnitude' in velocity && 
+             typeof (velocity as { magnitude: unknown }).magnitude === 'number' && 
+             (velocity as { magnitude: number }).magnitude > 0
     })
     .named('movableEntitiesQuery')
     .priority(7)

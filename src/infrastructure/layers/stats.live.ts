@@ -1,5 +1,5 @@
 import { Layer, Effect, Ref } from 'effect'
-import { Stats } from '@/services/core/stats'
+import { Stats } from '@/infrastructure/services/stats.service'
 
 /**
  * Production implementation of Stats service
@@ -56,7 +56,7 @@ export const StatsLive = Layer.effect(
           // Estimate memory usage (would need actual implementation in browser)
           const memory = typeof performance !== 'undefined' && 
                         'memory' in performance
-            ? (performance as any).memory.usedJSHeapSize / 1048576
+            ? (performance as { memory: MemoryInfo }).memory.usedJSHeapSize / 1048576
             : 100
           
           return {

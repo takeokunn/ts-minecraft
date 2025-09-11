@@ -1,7 +1,7 @@
 import { Effect, Layer, Ref } from 'effect'
 import { pipe } from 'effect/Function'
 import * as THREE from 'three'
-import { ObjectPool } from '@/domain/performance/object-pool'
+import { ObjectPool } from '@/infrastructure/performance/object-pool'
 
 // --- Configuration ---
 
@@ -389,7 +389,7 @@ const compileThreeJSShader = (
       
       return {
         success: true,
-        shader: material as any, // Type compatibility
+        shader: material as unknown as ShaderMaterial,
         warnings,
         compilationTime
       }

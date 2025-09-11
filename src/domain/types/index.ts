@@ -1,4 +1,4 @@
-import * as S from '@effect/schema/Schema'
+import * as S from 'effect/Schema'
 import { EntityId } from '@/domain/value-objects/entity-id.vo'
 import { PlacedBlockSchema } from '@/domain/entities'
 import { ChunkX, ChunkZ } from './common'

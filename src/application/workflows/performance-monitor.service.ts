@@ -694,8 +694,8 @@ export const PerformanceUtils = {
     Effect.gen(function* () {
       const monitor = yield* PerformanceMonitorService
       
-      if (typeof performance !== 'undefined' && (performance as any).memory) {
-        const memory = (performance as any).memory
+      if (typeof performance !== 'undefined' && 'memory' in performance) {
+        const memory = (performance as { memory: MemoryInfo }).memory
         yield* monitor.recordMetric('memory_usage', systemId, memory.usedJSHeapSize / 1024 / 1024, 'MB')
       }
     }),

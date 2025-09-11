@@ -20,6 +20,23 @@ import {
   AoSQueryServiceLive
 } from './builder'
 
+// Legacy query instances
+export { 
+  playerQuery,
+  playerTargetQuery, 
+  playerColliderQuery,
+  positionColliderQuery,
+  physicsQuery,
+  chunkQuery,
+  chunkLoaderQuery,
+  playerMovementQuery,
+  playerInputQuery,
+  terrainBlockQuery
+} from '../queries'
+
+// Re-export queries object from application layer  
+export { queries } from '../../application/queries'
+
 import { 
   OptimizedQueryService,
   OptimizedQueryServiceLive,
@@ -249,7 +266,9 @@ export const queryConfigs = {
     predicate: (entity: any) => {
       const velocity = entity.get('velocity')
       // Assuming velocity has a magnitude property or method
-      return (velocity as any).magnitude > 0
+      return velocity && typeof velocity === 'object' && 'magnitude' in velocity && 
+             typeof (velocity as { magnitude: unknown }).magnitude === 'number' && 
+             (velocity as { magnitude: number }).magnitude > 0
     },
     priority: 7,
   },

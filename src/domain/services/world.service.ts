@@ -1,6 +1,6 @@
 import { Effect, Ref, HashMap, Option, Context, Layer } from 'effect'
 import * as ReadonlyArray from 'effect/ReadonlyArray'
-import { Entity } from '../services/entity.service'
+import { Entity } from './entity.service'
 import { EntityId } from '../value-objects/entity-id.vo'
 import { Chunk } from '../entities/chunk.entity'
 import { ChunkCoordinate } from '../value-objects/coordinates/chunk-coordinate.vo'

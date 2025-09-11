@@ -621,8 +621,9 @@ export class DevConsole {
         switch (action) {
           case 'gc':
             this.print('Triggering garbage collection...')
-            if ((window as any).gc) {
-              (window as any).gc()
+            const globalWithGC = globalThis as typeof globalThis & { gc?: () => void }
+            if (globalWithGC.gc) {
+              globalWithGC.gc()
               this.print('Garbage collection completed')
             } else {
               this.print('Garbage collection not available (use --expose-gc flag)')

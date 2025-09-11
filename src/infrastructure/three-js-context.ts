@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from 'effect'
 import * as THREE from 'three'
 
-export class ThreeJsContext extends Context.Tag('ThreeJsContext')<
+export class ThreeJsContext extends Context.GenericTag('ThreeJsContext')<
   ThreeJsContext,
   {
     readonly renderer: THREE.WebGLRenderer

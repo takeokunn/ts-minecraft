@@ -1,4 +1,4 @@
-import * as S from '@effect/schema/Schema'
+import * as S from 'effect/Schema'
 
 export const Velocity = S.Struct({
   _tag: S.Literal('Velocity'),

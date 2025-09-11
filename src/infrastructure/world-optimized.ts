@@ -14,11 +14,11 @@ import { type EntityId, toEntityId } from '@/domain/entities'
 import { toChunkIndex } from '@/domain/geometry'
 import { type LegacyQuery, type OptimizedQuery } from '@/domain/queries'
 import { type Voxel } from '@/domain/world'
-import { World } from '@/runtime/services'
-import { ObjectPool } from '@/domain/performance/object-pool'
+import { WorldService as World } from '@/application/services/world.service'
+import { ObjectPool } from '@/infrastructure/performance/object-pool'
 import { AdvancedSpatialGridState } from './spatial-grid'
 import { ChunkCacheState } from './chunk-cache'
-import * as S from "@effect/schema/Schema"
+import * as S from "effect/Schema"
 
 // Import errors from centralized location
 import {
@@ -135,7 +135,7 @@ const _archetypePool = new ObjectPool<Archetype>(
   () => ({} as Archetype),
   (archetype) => {
     // Clear all properties
-    Object.keys(archetype).forEach(key => delete (archetype as any)[key])
+    Object.keys(archetype).forEach(key => delete (archetype as Record<string, any>)[key])
     return archetype
   },
   1000
@@ -711,7 +711,7 @@ export const WorldOptimizedLive = Layer.effect(
                     Effect.mapError((error) => new ComponentDecodeError(entityId, componentName, error)),
                     Effect.flatMap((decoded) => {
                       // Update component data
-                      const newData = HashMap.set(componentStorage.data, entityId, decoded as any)
+                      const newData = HashMap.set(componentStorage.data, entityId, decoded as unknown)
                       const newDirty = new Set(componentStorage.dirty)
                       newDirty.add(entityId)
                       

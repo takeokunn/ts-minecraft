@@ -1,11 +1,12 @@
-import { Effect, Match, Duration } from 'effect'
+import { Effect, Match, Duration, Option } from 'effect'
 import { CameraState, InputState, Player, Velocity } from '@/domain/entities/components'
-import { queries, QueryProfiler } from '@/domain/queries'
+import { playerMovementQuery } from '@/domain/queries'
+import { QueryProfiler } from '@/domain/queries'
 import { DECELERATION, JUMP_FORCE, MIN_VELOCITY_THRESHOLD, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@/domain/world-constants'
-import { World } from '@/runtime/services'
+import { WorldService } from '@/application/services/world.service'
 import { Float, toFloat } from '@/domain/value-objects/common'
-import { SystemContext } from './core/scheduler'
-import { globalCommunicationHub } from './core/system-communication'
+import { SystemContext } from '../workflows/system-scheduler.service'
+import { SystemCommunicationService } from '../workflows/system-communication.service'
 
 export const calculateHorizontalVelocity = (
   input: Pick<InputState, 'forward' | 'backward' | 'left' | 'right' | 'sprint'>,
@@ -57,10 +58,10 @@ export const applyDeceleration = (velocity: Pick<Velocity, 'dx' | 'dz'>): Pick<V
   return { dx, dz }
 }
 
-export const playerMovementSystem = (context?: SystemContext) => Effect.gen(function* ($) {
+export const playerMovementSystem = (context?: SystemContext) => Effect.gen(function* () {
   const startTime = Date.now()
-  const world = yield* $(World)
-  const { entities, components } = yield* $(world.querySoA(queries.playerMovement))
+  const world = yield* WorldService
+  const { entities, components } = yield* world.querySoA(playerMovementQuery)
   const { player, inputState, velocity, cameraState } = components
 
   // Batch movement updates for better performance
@@ -98,8 +99,8 @@ export const playerMovementSystem = (context?: SystemContext) => Effect.gen(func
 
     movementUpdates.push({
       entityId,
-      velocity: new Velocity({ dx, dy: newDy, dz }),
-      player: new Player({ isGrounded: newIsGrounded }),
+      velocity: { dx, dy: newDy, dz },
+      player: { isGrounded: newIsGrounded, isMainPlayer: currentPlayer.isMainPlayer, name: currentPlayer.name },
       hasInput: hasHorizontalInput || currentInputState.jump,
     })
   }
@@ -120,19 +121,21 @@ export const playerMovementSystem = (context?: SystemContext) => Effect.gen(func
   // Send movement notifications for entities that had input
   const entitiesWithInput = movementUpdates.filter(u => u.hasInput)
   if (entitiesWithInput.length > 0) {
+    const communicationService = yield* $(SystemCommunicationService)
     yield* $(
-      globalCommunicationHub.sendMessage(
-        'player_moved',
-        {
+      communicationService.sendMessage({
+        id: `player_moved_${context?.frameId || Date.now()}`,
+        type: 'player_moved',
+        priority: 'normal',
+        sender: 'player-movement',
+        recipients: [],
+        data: {
           entities: entitiesWithInput.map(u => u.entityId),
           frameId: context?.frameId || 0,
         },
-        {
-          sender: 'player-movement',
-          priority: 'normal',
-          frameId: context?.frameId || 0,
-        }
-      )
+        timestamp: Date.now(),
+        frameId: context?.frameId || 0,
+      })
     )
   }
 
@@ -211,15 +214,16 @@ export const PlayerMovementUtils = {
    */
   applyMovementImpulse: (entityId: any, impulse: { x: number; y: number; z: number }) =>
     Effect.gen(function* ($) {
-      const world = yield* $(World)
-      const velocity = yield* $(world.getComponent(entityId, 'velocity'))
+      const world = yield* WorldService
+      const velocityOption = yield* $(world.getComponent(entityId, 'velocity'))
       
-      if (velocity) {
-        const newVelocity = new Velocity({
+      if (Option.isSome(velocityOption)) {
+        const velocity = velocityOption.value
+        const newVelocity = {
           dx: toFloat(velocity.dx + impulse.x),
           dy: toFloat(velocity.dy + impulse.y),
           dz: toFloat(velocity.dz + impulse.z),
-        })
+        }
         
         yield* $(world.updateComponent(entityId, 'velocity', newVelocity))
       }

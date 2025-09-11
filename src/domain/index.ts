@@ -9,7 +9,7 @@ export * from './value-objects'
 // Domain Services
 export * from './services'
 
-// Legacy exports for compatibility
+// Core domain exports
 export * from './archetypes'
 export * from './block-types'
 export * from './world-constants'

@@ -1,7 +1,7 @@
 import { Effect, Layer, Ref, Option } from 'effect'
 
 import * as THREE from 'three'
-import { ObjectPool } from '@/domain/performance/object-pool'
+import { ObjectPool } from '@/infrastructure/performance/object-pool'
 
 // --- Configuration ---
 
@@ -657,7 +657,7 @@ export const TextureManagerLive = Layer.effect(
               texture = createProceduralTexture(frameName, new THREE.Color(0x888888))
               yield* _(Ref.update(stateRef, s => ({
                 ...s,
-                cache: new Map([...s.cache, [frameName, texture!]])
+                cache: new Map([...s.cache, [frameName, texture]])
               })))
             }
             frameTextures.push(texture)

@@ -4,7 +4,7 @@ import { PerformanceProfiler } from './performance-profiler'
 import { DevConsole } from './dev-console'
 import { EntityInspector } from './entity-inspector'
 import { Effect } from 'effect'
-import { PerformanceDashboard } from '../domain/performance'
+import { PerformanceDashboard } from '../../infrastructure/performance'
 
 export interface DebuggerState {
   showOverlay: boolean

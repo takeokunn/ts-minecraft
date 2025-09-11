@@ -1,6 +1,8 @@
 import { Effect, Match } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
-import { ComputationWorker, Renderer, World } from '@/runtime/services'
+import { WorldService as World } from '@/application/services/world.service'
+import { ComputationWorker } from '@/infrastructure/services/computation-worker.service'
+import { Renderer } from '@/infrastructure/services/renderer.service'
 import { Position } from '@/domain/entities/components'
 
 export const worldUpdateSystem = Effect.gen(function* ($) {

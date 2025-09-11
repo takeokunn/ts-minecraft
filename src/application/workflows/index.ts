@@ -7,3 +7,5 @@
 export * from './system-scheduler.service'
 export * from './system-communication.service'
 export * from './performance-monitor.service'
+export * from './chunk-loading'
+export * from './world-update'

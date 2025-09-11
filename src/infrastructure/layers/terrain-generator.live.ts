@@ -1,7 +1,7 @@
 import { Layer, Effect, Ref } from 'effect'
-import { TerrainGenerator } from '@/services/world/terrain-generator.service'
+import { TerrainGenerator } from '@/infrastructure/services/terrain-generator.service'
+import { WorkerManager } from '@/infrastructure/services/worker-manager.service'
 import { ChunkCoordinates } from '@/domain/value-objects/coordinates/chunk-coordinates.value'
-import { WorkerManager } from '@/services/worker/worker-manager.service'
 import * as S from "/schema/Schema"
 
 /**

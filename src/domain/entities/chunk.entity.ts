@@ -1,4 +1,4 @@
-import * as S from '@effect/schema/Schema'
+import * as S from 'effect/Schema'
 import { ChunkCoordinate } from '../value-objects/coordinates/chunk-coordinate.vo'
 import { Block } from './block.entity'
 

@@ -64,7 +64,7 @@ export function isComponent<T>(value: unknown, tag: string): value is Component<
     typeof value === 'object' &&
     value !== null &&
     '_tag' in value &&
-    (value as any)._tag === tag &&
+    (value as { _tag: unknown })._tag === tag &&
     'data' in value
   )
 }

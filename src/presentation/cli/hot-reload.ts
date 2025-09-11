@@ -1,4 +1,12 @@
 
+// Interface for global state objects
+interface GlobalGameState {
+  gameState?: unknown
+  userSettings?: unknown
+  debugState?: unknown
+  playerPosition?: unknown
+  [key: string]: unknown
+}
 
 export interface HotReloadConfig {
   enabled: boolean
@@ -229,7 +237,7 @@ export class HotReloadManager {
     try {
       // Categorize changes
       const componentChanges = changes.filter(c => c.path.includes('components/'))
-      const systemChanges = changes.filter(c => c.path.includes('systems/'))
+      const systemChanges = changes.filter(c => c.path.includes('services/') || c.path.includes('workflows/'))
       const styleChanges = changes.filter(c => c.path.includes('.css'))
       
       // Handle different types of changes
@@ -379,17 +387,19 @@ export class HotReloadManager {
     // In a real implementation, you would get state from your application
     // This is a placeholder that would need to be customized
     
+    const globalState = globalThis as typeof globalThis & GlobalGameState
+    
     switch (key) {
       case 'gameState':
-        return (window as any).gameState
+        return globalState.gameState
       case 'userSettings':
-        return (window as any).userSettings
+        return globalState.userSettings
       case 'debugState':
-        return (window as any).debugState
+        return globalState.debugState
       case 'playerPosition':
-        return (window as any).playerPosition
+        return globalState.playerPosition
       default:
-        return (window as any)[key]
+        return globalState[key]
     }
   }
 
@@ -398,21 +408,23 @@ export class HotReloadManager {
     // In a real implementation, you would set state in your application
     // This is a placeholder that would need to be customized
     
+    const globalState = globalThis as typeof globalThis & GlobalGameState
+    
     switch (key) {
       case 'gameState':
-        (window as any).gameState = value
+        globalState.gameState = value
         break
       case 'userSettings':
-        (window as any).userSettings = value
+        globalState.userSettings = value
         break
       case 'debugState':
-        (window as any).debugState = value
+        globalState.debugState = value
         break
       case 'playerPosition':
-        (window as any).playerPosition = value
+        globalState.playerPosition = value
         break
       default:
-        (window as any)[key] = value
+        globalState[key] = value
     }
   }
 

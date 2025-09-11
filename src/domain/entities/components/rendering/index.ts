@@ -9,7 +9,7 @@
  * - Camera system with frustum culling
  */
 
-import * as S from '@effect/schema/Schema'
+import * as S from 'effect/Schema'
 import * as Data from 'effect/Data'
 import { RegisterComponent } from '../registry'
 

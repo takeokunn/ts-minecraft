@@ -1,15 +1,11 @@
 import { Layer, Effect } from 'effect'
-import { 
-  Renderer, 
-  InputManager, 
-  Clock, 
-  Stats, 
-  SpatialGrid,
-  MaterialManager,
-  WorkerManager,
-  ChunkManager,
-  TerrainGenerator
-} from '@/services'
+import { Renderer } from '@/infrastructure/services/renderer.service'
+import { InputManager } from '@/infrastructure/services/input-manager.service'
+import { Clock } from '@/infrastructure/services/clock.service'
+import { Stats } from '@/infrastructure/services/stats.service'
+import { SpatialGrid } from '@/infrastructure/services/spatial-grid.service'
+import { MaterialManager } from '@/infrastructure/services/material-manager.service'
+import { ComputationWorker } from '@/infrastructure/services/computation-worker.service'
 
 /**
  * Consolidated Layer implementations for dependency injection

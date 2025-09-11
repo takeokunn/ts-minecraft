@@ -1,5 +1,5 @@
 import { Layer, Effect, Ref } from 'effect'
-import { Clock } from '@/services/core/clock'
+import { Clock } from '@/infrastructure/services/clock.service'
 
 /**
  * Production implementation of Clock service

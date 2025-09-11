@@ -2,9 +2,9 @@ import { Effect, Layer } from 'effect'
 
 import * as THREE from 'three'
 import type { Chunk } from '@/domain/entities/components/world/chunk'
-import { ObjectPool } from '@/domain/performance/object-pool'
-import { createTypedWorkerClient, WorkerClientConfig } from '@/workers/base/typed-worker'
-import * as S from "@effect/schema/Schema"
+import { ObjectPool } from '@/infrastructure/performance/object-pool'
+import { createTypedWorkerClient, WorkerClientConfig } from '@/infrastructure/workers/base/typed-worker'
+import * as S from "effect/Schema"
 
 // --- Configuration ---
 
@@ -522,7 +522,7 @@ export const MeshBuilderLive = Layer.effect(
 
     const workerClient = CONFIG.WORKER_ENABLED 
       ? yield* _(createTypedWorkerClient(
-          new Worker('/workers/mesh-generation.worker.js'), 
+          new Worker('/infrastructure/workers/mesh-generation.worker.js'), 
           workerClientConfig
         ))
       : null
@@ -638,7 +638,10 @@ export const MeshBuilderLive = Layer.effect(
               )
               optimizedIndices.push(newIndex)
             } else {
-              optimizedIndices.push(positionMap.get(key)!)
+              const index = positionMap.get(key)
+              if (index !== undefined) {
+                optimizedIndices.push(index)
+              }
             }
           }
 

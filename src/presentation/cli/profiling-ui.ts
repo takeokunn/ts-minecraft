@@ -1,6 +1,6 @@
 import { PerformanceProfiler } from './performance-profiler'
 import { Effect } from 'effect'
-import { PerformanceDashboard } from '../domain/performance'
+import { PerformanceDashboard } from '../../infrastructure/performance'
 
 export interface ProfilingUIConfig {
   updateInterval: number

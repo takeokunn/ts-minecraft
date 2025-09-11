@@ -335,7 +335,7 @@ interface MessageSubscription {
 
 // ===== NETWORK SERVICE TAG =====
 
-export class NetworkService extends Context.Tag('NetworkService')<
+export class NetworkService extends Context.GenericTag('NetworkService')<
   NetworkService,
   NetworkServiceInterface
 >() {

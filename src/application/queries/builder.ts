@@ -257,7 +257,7 @@ export class AoSQuery<T extends ReadonlyArray<ComponentName>> {
 
         result.push({
           entity,
-          components: entityComponents as any,
+          components: entityComponents as Record<ComponentName, unknown>,
         })
       }
     }

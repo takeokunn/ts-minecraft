@@ -1,5 +1,5 @@
 import { Layer, Effect, Queue } from 'effect'
-import { Renderer } from '@/services/rendering/renderer'
+import { Renderer } from '@/infrastructure/services/renderer.service'
 import { RenderCommand } from '@/domain/rendering'
 
 /**

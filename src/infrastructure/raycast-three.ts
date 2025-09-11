@@ -1,4 +1,4 @@
-import { Raycast } from '@/runtime/services'
+import { Raycast } from '@/infrastructure/services/raycast.service'
 import { Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
 import { ThreeJsContext } from './three-js-context'

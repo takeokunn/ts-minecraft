@@ -1,6 +1,6 @@
 import { Layer, Effect, Ref, Queue } from 'effect'
-import { WorkerManager } from '@/services/worker/worker-manager.service'
-import { createWorkerClient } from '@/workers/shared/worker-base'
+import { WorkerManager } from '@/infrastructure/services/worker-manager.service'
+import { createWorkerClient } from '@/infrastructure/workers/shared/worker-base'
 import * as S from "/schema/Schema"
 
 /**
@@ -21,7 +21,7 @@ export const WorkerManagerLive = Layer.effect(
     // Create a new worker
     const createWorker = (type: string) =>
       Effect.gen(function* () {
-        const workerUrl = `/workers/${type}.worker.js`
+        const workerUrl = `/infrastructure/workers/${type}.worker.js`
         const worker = new Worker(workerUrl, { type: 'module' })
         
         // Store worker reference

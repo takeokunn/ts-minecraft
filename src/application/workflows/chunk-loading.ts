@@ -1,9 +1,10 @@
 import { Effect, Option, HashMap } from 'effect'
 import { ReadonlyArray } from 'effect/ReadonlyArray'
 import { EntityId } from '@/domain/entities'
-import { queries } from '@/domain/queries'
+import { playerQuery, chunkQuery } from '@/domain/queries'
 import { CHUNK_SIZE, RENDER_DISTANCE } from '@/domain/world-constants'
-import { ComputationWorker, World } from '@/runtime/services'
+import { WorldService as World } from '@/application/services/world.service'
+import { ComputationWorker } from '@/infrastructure/services/computation-worker.service'
 import { Position } from '@/domain/entities/components'
 
 type ChunkCoord = { readonly x: number; readonly z: number }
@@ -75,7 +76,7 @@ const getPlayerChunk = (position: Position): ChunkCoord => ({
 export const chunkLoadingSystem = Effect.gen(function* ($) {
   const world = yield* $(World)
   const worker = yield* $(ComputationWorker)
-  const { components: playerComponents } = yield* $(world.querySoA(queries.player))
+  const { components: playerComponents } = yield* $(world.querySoA(playerQuery))
   const playerPosition = Option.fromNullable(playerComponents.position[0])
 
   yield* $(
@@ -86,7 +87,7 @@ export const chunkLoadingSystem = Effect.gen(function* ($) {
           const currentPlayerChunk = getPlayerChunk(position)
 
           const { entities: loadedChunkEntities, components: chunkComponents } = yield* $(
-            world.querySoA(queries.chunk),
+            world.querySoA(chunkQuery),
           )
           const loadedChunks = HashMap.make(
             ...ReadonlyArray.map(loadedChunkEntities, (entityId, i) => {

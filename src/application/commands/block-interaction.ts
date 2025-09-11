@@ -1,19 +1,20 @@
 import { Effect, Match, Option } from 'effect'
 import { createArchetype } from '@/domain/archetypes'
 import { Hotbar, InputState, Position, TargetBlock, TargetNone } from '@/domain/entities/components'
-import { queries } from '@/domain/queries'
-import { World } from '@/runtime/services'
+import { playerTargetQuery } from '@/domain/queries'
+import { WorldService } from '@/application/services/world.service'
+import { EntityService } from '@/domain/services/entity.service'
 import { EntityId } from '@/domain/entities'
 import { toFloat } from '@/domain/value-objects/common'
 
-const handleDestroyBlock = (world: World, entityId: EntityId, target: TargetBlock) =>
+const handleDestroyBlock = (world: WorldService, entityId: EntityId, target: TargetBlock) =>
   Effect.gen(function* () {
     yield* world.removeEntity(target.entityId)
-    yield* world.updateComponent(entityId, 'target', new TargetNone({}))
+    yield* world.updateComponent(entityId, 'target', { _tag: 'none' })
   })
 
 const handlePlaceBlock = (
-  world: World,
+  world: WorldService,
   entityId: EntityId,
   target: TargetBlock,
   hotbar: Hotbar,
@@ -27,11 +28,11 @@ const handlePlaceBlock = (
           Match.when('air', () => Effect.void),
           Match.orElse((blockType) =>
             Effect.gen(function* () {
-              const newPosition = new Position({
+              const newPosition = {
                 x: toFloat(target.position.x + target.face[0]),
                 y: toFloat(target.position.y + target.face[1]),
                 z: toFloat(target.position.z + target.face[2]),
-              })
+              }
 
               const newBlockArchetype = yield* createArchetype({
                 type: 'block',
@@ -48,8 +49,8 @@ const handlePlaceBlock = (
   )
 
 export const blockInteractionSystem = Effect.gen(function* () {
-  const world = yield* World
-  const { entities, components } = yield* world.querySoA(queries.playerTarget)
+  const world = yield* WorldService
+  const { entities, components } = yield* world.querySoA(playerTargetQuery)
 
   yield* Effect.forEach(
     entities,

@@ -397,14 +397,14 @@ export const InfrastructureServiceLive = Layer.effect(
             status,
             summary: {
               componentsEnabled: Object.values(INFRASTRUCTURE_CONFIG).filter(Boolean).length,
-              memoryUsage: (status as any).performance.memoryUsage,
-              currentFPS: (status as any).performance.currentFPS,
-              totalEntities: (status as any).worldOptimization.metrics.totalEntities,
-              loadedChunks: (status as any).worldOptimization.metrics.loadedChunks,
-              activeMaterials: (status as any).materialManager.metrics.totalMaterials,
-              generatedChunks: (status as any).terrainGenerator.metrics.chunksGenerated,
-              activeWorkers: (status as any).workers.metrics.activeWorkers,
-              wasmModules: (status as any).wasm.metrics.totalModules,
+              memoryUsage: status.performance?.memoryUsage ?? 0,
+              currentFPS: status.performance?.currentFPS ?? 0,
+              totalEntities: status.worldOptimization?.metrics?.totalEntities ?? 0,
+              loadedChunks: status.worldOptimization?.metrics?.loadedChunks ?? 0,
+              activeMaterials: status.materialManager?.metrics?.totalMaterials ?? 0,
+              generatedChunks: status.terrainGenerator?.metrics?.chunksGenerated ?? 0,
+              activeWorkers: status.workers?.metrics?.activeWorkers ?? 0,
+              wasmModules: status.wasm?.metrics?.totalModules ?? 0,
             }
           }
           

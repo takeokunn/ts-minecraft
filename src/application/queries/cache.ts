@@ -218,7 +218,7 @@ export class QueryCache {
   getEntries(): Array<{ key: string; entry: CacheEntry }> {
     return Array.from(this.cache.entries()).map(([key, entry]) => ({
       key,
-      entry: { ...entry, dependencies: Array.from(entry.dependencies) } as any,
+      entry: { ...entry, dependencies: Array.from(entry.dependencies) },
     }))
   }
 
@@ -243,11 +243,14 @@ export class QueryCache {
         break
       case EvictionPolicy.FIFO:
       default:
-        keyToEvict = this.cache.keys().next().value!
+        const firstKey = this.cache.keys().next().value
+        keyToEvict = firstKey ?? ''
         break
     }
 
-    this.cache.delete(keyToEvict)
+    if (keyToEvict) {
+      this.cache.delete(keyToEvict)
+    }
     this.stats.evictions++
   }
 

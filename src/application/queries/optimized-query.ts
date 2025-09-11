@@ -248,7 +248,9 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
     // Filter out entities with forbidden components
     if (this.config.withoutComponents && this.config.withoutComponents.length > 0) {
       candidates = candidates.filter(entity => {
-        return !this.config.withoutComponents!.some(comp => 
+        const withoutComponents = this.config.withoutComponents
+        if (!withoutComponents) return true
+        return !withoutComponents.some(comp => 
           entity.components[comp] !== undefined
         )
       })
@@ -299,7 +301,8 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
         }
 
         try {
-          return await Promise.resolve(this.config.predicate!(entityProxy as any))
+          const typedProxy = entityProxy as unknown as Parameters<NonNullable<typeof this.config.predicate>>[0]
+          return await Promise.resolve(this.config.predicate!(typedProxy))
         } catch (error) {
           console.warn(`Predicate error for entity ${entity.id}:`, error)
           return false
@@ -308,8 +311,9 @@ export class OptimizedQuery<T extends ReadonlyArray<ComponentName>> {
 
       // Add entities that passed the predicate
       for (let j = 0; j < batch.length; j++) {
-        if (batchResults[j] && batch[j] !== undefined) {
-          result.push(batch[j]!)
+        const entity = batch[j]
+        if (batchResults[j] && entity !== undefined) {
+          result.push(entity)
         }
       }
 

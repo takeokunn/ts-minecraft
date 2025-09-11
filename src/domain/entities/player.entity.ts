@@ -1,4 +1,4 @@
-import * as S from '@effect/schema/Schema'
+import * as S from 'effect/Schema'
 import { EntityId } from '../value-objects/entity-id.vo'
 import { Position } from '../value-objects/coordinates/position.vo'
 import { Velocity } from '../value-objects/physics/velocity.vo'

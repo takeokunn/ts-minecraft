@@ -189,7 +189,7 @@ const createResourceServiceImpl = (
           yield* oldestResource.dispose
           yield* Ref.update(cache, map => {
             const newMap = new Map(map)
-            newMap.delete(oldestKey!)
+            newMap.delete(oldestKey)
             return newMap
           })
           return 1

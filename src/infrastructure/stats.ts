@@ -1,4 +1,4 @@
-import { Stats } from '@/runtime/services'
+import { Stats } from '@/infrastructure/services/stats.service'
 import { Effect, Layer } from 'effect'
 import StatsJs from 'stats.js'
 
