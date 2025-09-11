@@ -1,4 +1,4 @@
-import { World } from '@/domain/entities'
+import { World } from '/entities'
 import { Query } from '../domain/queries'
 import { PerformanceProfiler } from './performance-profiler'
 import { DevConsole } from './dev-console'

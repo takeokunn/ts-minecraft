@@ -1,8 +1,8 @@
 import { Effect, Duration } from 'effect'
-import { CameraState, InputState, Player, Velocity } from '@/domain/entities/components'
-import { DECELERATION, JUMP_FORCE, MIN_VELOCITY_THRESHOLD, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@/domain/world-constants'
+import { CameraState, InputState, Player, Velocity } from '@domain/entities/components'
+import { DECELERATION, JUMP_FORCE, MIN_VELOCITY_THRESHOLD, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@domain/constants/world-constants'
 // Removed direct service dependency - commands should be data-only
-import { Float, toFloat } from '@/domain/value-objects/common'
+import { Float, toFloat } from '@domain/value-objects/common'
 // Removed unused import - commands should be pure data structures
 
 // Command interface for CQRS pattern

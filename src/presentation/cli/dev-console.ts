@@ -1,4 +1,4 @@
-import { World } from '@/domain/entities'
+import { World } from '/entities'
 
 export interface ConsoleCommand {
   name: string

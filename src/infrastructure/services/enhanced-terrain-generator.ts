@@ -1,7 +1,7 @@
 import { Layer, Effect, Ref } from 'effect'
-import { TerrainGenerator } from '@/infrastructure/services/terrain-generator.service'
-import { ChunkCoordinates } from '@/domain/value-objects/coordinates/chunk-coordinates.value'
-import { TypedWorkerManager } from '@/infrastructure/services/typed-worker-manager.service'
+import { TerrainGenerator } from '/services/terrain-generator.service'
+import { ChunkCoordinates } from '/value-objects/coordinates/chunk-coordinates.value'
+import { TypedWorkerManager } from '/services/typed-worker-manager.service'
 import { WASMIntegrationService } from './wasm-integration'
 
 // --- Enhanced Configuration ---

@@ -8,9 +8,9 @@
 
 import * as Effect from 'effect/Effect'
 import * as Context from 'effect/Context'
-import { EntityId } from '@/domain/entities'
-import { queries } from '@/domain/queries'
-import { SoAResult } from '@/domain/types'
+import { EntityId } from '/entities'
+import { queryConfigs } from '/queries'
+import { SoAResult } from '/types'
 
 export interface IWorldRepository {
   // Component management

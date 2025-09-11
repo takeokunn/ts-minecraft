@@ -15,13 +15,13 @@ import * as Ref from 'effect/Ref'
 import * as Option from 'effect/Option'
 import * as S from 'effect/Schema'
 
-import { IWorldRepository } from '@/domain/ports/world.repository'
-import { EntityId, toEntityId } from '@/domain/entities'
-import { Archetype } from '@/domain/archetypes'
-import { type Components, type ComponentName, type ComponentOfName, ComponentSchemas, componentNamesSet } from '@/domain/entities/components'
-import { queries } from '@/domain/queries'
-import { SoAResult } from '@/domain/types'
-import { ComponentNotFoundError, QuerySingleResultNotFoundError, ComponentDecodeError } from '@/domain/errors'
+import { IWorldRepository } from '/ports/world.repository'
+import { EntityId, toEntityId } from '/entities'
+import { Archetype } from '/archetypes'
+import { type Components, type ComponentName, type ComponentOfName, ComponentSchemas, componentNamesSet } from '/entities/components'
+import { queryConfigs } from '/queries'
+import { SoAResult } from '/types'
+import { ComponentNotFoundError, QuerySingleResultNotFoundError, ComponentDecodeError } from '/errors'
 
 /**
  * Internal storage types

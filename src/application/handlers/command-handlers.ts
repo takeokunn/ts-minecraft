@@ -8,10 +8,10 @@ import { WorldGenerateUseCase, WorldGenerateCommand } from '../use-cases/world-g
 
 // Service interface
 interface CommandHandlersService {
-  readonly handlePlayerMovement: (command: PlayerMovementCommand) => Effect.Effect<void, Error, never>
-  readonly handleBlockInteraction: (command: BlockInteractionCommand) => Effect.Effect<void, Error, never>
-  readonly handleChunkLoad: (command: ChunkLoadCommand) => Effect.Effect<void, Error, never>
-  readonly handleWorldGenerate: (command: WorldGenerateCommand) => Effect.Effect<void, Error, never>
+  readonly handlePlayerMovement: (command: PlayerMovementCommand) => Effect.Effect<void, Error, PlayerMoveUseCase>
+  readonly handleBlockInteraction: (command: BlockInteractionCommand) => Effect.Effect<void, Error, BlockPlaceUseCase>
+  readonly handleChunkLoad: (command: ChunkLoadCommand) => Effect.Effect<void, Error, ChunkLoadUseCase>
+  readonly handleWorldGenerate: (command: WorldGenerateCommand) => Effect.Effect<void, Error, WorldGenerateUseCase>
 }
 
 export class CommandHandlers extends Context.Tag('CommandHandlers')<CommandHandlers, CommandHandlersService>() {}
@@ -20,7 +20,7 @@ export const CommandHandlersLive: Layer.Layer<CommandHandlers, never, PlayerMove
   CommandHandlers,
   Effect.gen(function* () {
     return {
-      handlePlayerMovement: (command: PlayerMovementCommand): Effect.Effect<void, Error, never> =>
+      handlePlayerMovement: (command: PlayerMovementCommand): Effect.Effect<void, Error, PlayerMoveUseCase> =>
         Effect.gen(function* () {
           const playerMoveUseCase = yield* PlayerMoveUseCase
 
@@ -34,7 +34,7 @@ export const CommandHandlersLive: Layer.Layer<CommandHandlers, never, PlayerMove
           yield* Effect.log(`Player movement command executed for entity ${command.entityId}`)
         }),
 
-      handleBlockInteraction: (command: BlockInteractionCommand): Effect.Effect<void, Error, never> =>
+      handleBlockInteraction: (command: BlockInteractionCommand): Effect.Effect<void, Error, BlockPlaceUseCase> =>
         Effect.gen(function* () {
           const blockPlaceUseCase = yield* BlockPlaceUseCase
 
@@ -48,7 +48,7 @@ export const CommandHandlersLive: Layer.Layer<CommandHandlers, never, PlayerMove
           yield* Effect.log(`Block interaction command executed: ${command.action} at ${command.position.x}, ${command.position.y}, ${command.position.z}`)
         }),
 
-      handleChunkLoad: (command: ChunkLoadCommand): Effect.Effect<void, Error, never> =>
+      handleChunkLoad: (command: ChunkLoadCommand): Effect.Effect<void, Error, ChunkLoadUseCase> =>
         Effect.gen(function* () {
           const chunkLoadUseCase = yield* ChunkLoadUseCase
 
@@ -62,7 +62,7 @@ export const CommandHandlersLive: Layer.Layer<CommandHandlers, never, PlayerMove
           yield* Effect.log(`Chunk load command executed for chunk ${command.chunkX}, ${command.chunkZ}`)
         }),
 
-      handleWorldGenerate: (command: WorldGenerateCommand): Effect.Effect<void, Error, never> =>
+      handleWorldGenerate: (command: WorldGenerateCommand): Effect.Effect<void, Error, WorldGenerateUseCase> =>
         Effect.gen(function* () {
           const worldGenerateUseCase = yield* WorldGenerateUseCase
 

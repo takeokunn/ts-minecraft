@@ -1,5 +1,5 @@
 import { Effect, Context, Layer, Ref } from 'effect'
-import { QueryHandlers } from '@/application/handlers/query-handlers'
+import { QueryHandlers } from '@application/handlers/query-handlers'
 
 /**
  * Game State View Model - Simplified

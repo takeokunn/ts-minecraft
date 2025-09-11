@@ -1,7 +1,7 @@
 import { Effect, Layer, Ref, Option } from 'effect'
 
 import * as THREE from 'three'
-import { ObjectPool } from '@/infrastructure/performance/object-pool'
+import { ObjectPool } from '/performance/object-pool'
 
 // --- Configuration ---
 

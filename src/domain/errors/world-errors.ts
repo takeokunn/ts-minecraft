@@ -1,9 +1,9 @@
 import { defineError } from './generator'
 import { WorldError } from './base-errors'
-import type { ChunkCoordinates, Position } from '@/domain/value-objects/coordinates'
-import type { BlockType } from '@/domain/value-objects/block-type.vo'
-import type { LegacyQuery, OptimizedQuery } from '@/domain/queries'
-import type { ComponentName } from '@/domain/entities/components'
+import type { ChunkCoordinates, Position } from '/value-objects/coordinates'
+import type { BlockType } from '/value-objects/block-type.vo'
+import type { LegacyQuery, OptimizedQuery } from '/queries'
+import type { ComponentName } from '/entities/components'
 import * as ParseResult from 'effect/ParseResult'
 
 /**

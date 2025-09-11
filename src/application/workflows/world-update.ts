@@ -1,8 +1,8 @@
 import { Effect, Match, Context, Layer } from 'effect'
-import { createArchetype } from '@/domain/archetypes'
-import { WorldDomainService } from '@/domain/services/world-domain.service'
-import { EntityDomainService } from '@/domain/services/entity-domain.service'
-import { Position } from '@/domain/entities/components'
+import { createArchetype } from '/archetypes'
+import { WorldDomainService } from '/services/world-domain.service'
+import { EntityDomainService } from '/services/entity-domain.service'
+import { Position } from '/entities/components'
 
 // World Update Workflow Service
 export class WorldUpdateWorkflow extends Context.Tag('WorldUpdateWorkflow')<

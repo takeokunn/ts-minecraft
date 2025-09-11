@@ -1,20 +1,20 @@
 import { Effect, Layer, Ref, HashMap, HashSet, Option } from 'effect'
 
-import { Archetype } from '@/domain/archetypes'
-import { Vector3Float as Vector3 } from '@/domain/value-objects/common'
-import { Chunk, componentNamesSet, type Components, ComponentSchemas, type ComponentName, type ComponentOfName } from '@/domain/entities/components'
-import { type EntityId, toEntityId } from '@/domain/entities'
-import { toChunkIndex } from '@/domain/geometry'
-import { type LegacyQuery, type OptimizedQuery } from '@/domain/queries'
-import { type Voxel } from '@/domain/world'
-import { WorldService as World } from '@/application/services/world.service'
-import { ObjectPool } from '@/infrastructure/performance/object-pool'
+import { Archetype } from '/archetypes'
+import { Vector3Float as Vector3 } from '/value-objects/common'
+import { Chunk, componentNamesSet, type Components, ComponentSchemas, type ComponentName, type ComponentOfName } from '/entities/components'
+import { type EntityId, toEntityId } from '/entities'
+import { toChunkIndex } from '/geometry'
+import { type LegacyQuery, type OptimizedQuery } from '/queries'
+import { type Voxel } from '/world'
+import { WorldService as World } from '/services/world.service'
+import { ObjectPool } from '/performance/object-pool'
 import { AdvancedSpatialGridState } from './spatial-grid'
 import { ChunkCacheState } from './chunk-cache'
 import * as S from 'effect/Schema'
 
 // Import errors from centralized location
-import { ComponentNotFoundError, QuerySingleResultNotFoundError, ComponentDecodeError } from '@/domain/errors'
+import { ComponentNotFoundError, QuerySingleResultNotFoundError, ComponentDecodeError } from '/errors'
 
 // --- Optimization Configuration ---
 

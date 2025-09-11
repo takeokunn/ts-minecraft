@@ -1,10 +1,10 @@
 import { HashMap, HashSet } from 'effect'
-import { type ComponentName, type ComponentOfName, ChunkComponent } from '@/domain/entities/components'
+import { type ComponentName, type ComponentOfName, ChunkComponent } from '/entities/components'
 import { PlacedBlock } from './block'
 import { EntityId } from './entity'
 
 // Import errors from centralized location
-export { EntityNotFoundError, ComponentNotFoundError } from '@/domain/errors'
+export { EntityNotFoundError, ComponentNotFoundError } from '/errors'
 
 // --- Data Types ---
 export type Voxel = PlacedBlock

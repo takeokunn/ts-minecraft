@@ -1,6 +1,6 @@
-import { GameMode, RenderDistance } from '@/shared/types'
-import { CHUNK_SIZE, RENDER_DISTANCE as DEFAULT_RENDER_DISTANCE } from '@/shared/constants/world'
-import { PLAYER_SPEED, JUMP_FORCE, GRAVITY } from '@/shared/constants/physics'
+import { GameMode, RenderDistance } from '@shared/types'
+import { CHUNK_SIZE, RENDER_DISTANCE as DEFAULT_RENDER_DISTANCE } from '@shared/constants/world'
+import { PLAYER_SPEED, JUMP_FORCE, GRAVITY } from '@shared/constants/physics'
 
 /**
  * Game-specific configuration

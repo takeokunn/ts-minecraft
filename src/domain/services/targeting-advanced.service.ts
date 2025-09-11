@@ -11,12 +11,12 @@
  */
 
 import { Effect, Array as _EffArray, Duration, Option } from 'effect'
-import { ArchetypeQuery } from '@/domain/queries'
+import { ArchetypeQuery } from '/queries'
 // Domain layer should not depend on application layer services
 // Removed dependencies:
-// - WorldService from '@/application/services/world.service'
-// - InputManager from '@/application/services/input-manager.service'
-// - SystemFunction, SystemConfig, SystemContext from '@/application/workflows/system-scheduler.service'
+// - WorldService from '/services/world.service'
+// - InputManager from '/services/input-manager.service'
+// - SystemFunction, SystemConfig, SystemContext from '/workflows/system-scheduler.service'
 
 // Port interfaces for external dependencies
 export interface WorldPort {
@@ -40,9 +40,9 @@ export interface SystemConfig {
 }
 
 export type SystemFunction = (context: SystemContext) => Effect.Effect<void, never, never>
-import { Position, CameraComponent, TargetComponent, InputStateComponent } from '@/domain/entities/components'
-import { EntityId } from '@/domain/entities'
-import { BlockType, BlockPosition } from '@/domain/value-objects'
+import { Position, CameraComponent, TargetComponent, InputStateComponent } from '/entities/components'
+import { EntityId } from '/entities'
+import { BlockType, BlockPosition } from '/value-objects'
 import * as THREE from 'three'
 
 /**

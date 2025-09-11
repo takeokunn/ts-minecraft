@@ -1,13 +1,13 @@
 import { Effect, Option } from 'effect'
 // Target types are used as plain objects, not constructors
-import { queries } from '@/domain/queries'
-import { WorldRepository } from '@/domain/ports/world.repository'
-import { RaycastPort } from '@/domain/ports/raycast.port'
-import { Int, Vector3Int } from '@/domain/value-objects/common'
-import { EntityId } from '@/domain/entities'
+import { queryConfigs } from '/queries'
+import { WorldRepository } from '/ports/world.repository'
+import { RaycastPort } from '/ports/raycast.port'
+import { Int, Vector3Int } from '/value-objects/common'
+import { EntityId } from '/entities'
 import * as THREE from 'three'
 
-const getTarget = (hit: import('@/domain/ports/raycast.port').RaycastHit) => {
+const getTarget = (hit: import('/ports/raycast.port').RaycastHit) => {
   const targetEntityId = hit.entityId
   const position = hit.point
   const face = hit.normal

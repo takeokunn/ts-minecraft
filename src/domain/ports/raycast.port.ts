@@ -9,7 +9,7 @@
 import * as Effect from 'effect/Effect'
 import * as Context from 'effect/Context'
 import * as Option from 'effect/Option'
-import { EntityId } from '@/domain/entities'
+import { EntityId } from '/entities'
 
 export interface Ray {
   readonly origin: { x: number; y: number; z: number }

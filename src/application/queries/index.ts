@@ -1,72 +1,21 @@
 /**
- * Application Queries - Barrel Exports
+ * Application Queries - Pure Barrel Exports
  * 
- * This module provides a clean interface for all query-related functionality
- * in the application layer, following DDD principles by keeping the index
- * as a pure barrel export without logic.
+ * This module provides a unified interface for all query-related functionality.
+ * All logic has been extracted to separate files to maintain pure barrel exports.
  */
 
-// Core query system exports
-export {
-  query,
-  soaQuery,
-  aosQuery,
-  type QueryBuilder,
-  type QueryConfig,
-  type EntityPredicate,
-  type QueryMetrics,
-  type QueryContext,
-  type SoAQuery,
-  type SoAQueryResult,
-  type AoSQuery,
-  type AoSQueryResult,
-  startQueryContext,
-  finalizeQueryContext,
-} from './builder'
+// Unified Query System - Primary interface
+export * from './unified-query-system'
 
-export { ArchetypeQuery, type ArchetypeSignature, type Archetype, type ArchetypeManager } from './archetype-query'
+// Legacy query system exports (for backward compatibility)
+export * from './builder'
+export * from './archetype-query'
+export * from './optimized-query'
+export * from './cache'
+export * from './predefined-queries'
+export * from './query-profiler'
+export * from './query-system'
 
-export { OptimizedQuery } from './optimized-query'
-
-export { QueryCache, globalQueryCache, CacheKeyGenerator, EvictionPolicy, type CacheConfig, type CacheStats, type CachedQueryResult, type CachedQueryMetrics } from './cache'
-
-// Predefined queries
-export { queries, soaQueries, aosQueries } from './predefined-queries'
-
-// Query profiler
-export { QueryProfiler } from './query-profiler'
-
-// Query system utilities
-export { querySystem } from './query-system'
-
-// Legacy query compatibility layer
-import { ComponentName } from '@/domain/entities/components'
-
-/**
- * Legacy Query interface for backward compatibility
- */
-export interface LegacyQuery<T extends ReadonlyArray<ComponentName> = ReadonlyArray<ComponentName>> {
-  readonly name: string
-  readonly components: T
-  readonly set: ReadonlySet<ComponentName>
-}
-
-/**
- * Legacy query result type for backward compatibility
- */
-export type LegacyQueryResult<T extends ReadonlyArray<ComponentName>> = {
-  [K in keyof T]: T[K] extends ComponentName ? ComponentName : T[K]
-}
-
-/**
- * Create legacy query for backward compatibility
- * @deprecated Use the new query builder API instead
- */
-export const createQuery = <T extends ReadonlyArray<ComponentName>>(name: string, components: T): LegacyQuery<T> => {
-  const set = new Set(components)
-  return {
-    name,
-    components,
-    set,
-  }
-}
+// Legacy compatibility layer
+export * from './legacy-compatibility'

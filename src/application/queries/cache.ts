@@ -213,7 +213,7 @@ export class QueryCache {
   getEntries(): Array<{ key: string; entry: CacheEntry }> {
     return Array.from(this.cache.entries()).map(([key, entry]) => ({
       key,
-      entry: { ...entry, dependencies: Array.from(entry.dependencies) },
+      entry,
     }))
   }
 

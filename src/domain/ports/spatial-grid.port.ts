@@ -8,8 +8,8 @@
 
 import * as Effect from 'effect/Effect'
 import * as Context from 'effect/Context'
-import { EntityId } from '@/domain/entities'
-import { AABB } from '@/domain/value-objects/physics/aabb.vo'
+import { EntityId } from '/entities'
+import { AABB } from '/value-objects/physics/aabb.vo'
 
 export interface ISpatialGridPort {
   // Spatial queries

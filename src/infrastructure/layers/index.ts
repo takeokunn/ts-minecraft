@@ -1,123 +1,16 @@
-import { Layer, Effect } from 'effect'
-
 /**
- * Unified Layer implementations for dependency injection
- * All service definitions and implementations are now consolidated in unified.layer.ts
+ * Infrastructure Layers - Pure Barrel Exports
+ * 
+ * This module provides a clean interface for all infrastructure layer functionality.
+ * All logic has been extracted to separate files to maintain pure barrel exports.
  */
 
-// Import from unified layer
-import {
-  // Core Services
-  ClockLive,
-  StatsLive,
-  SpatialGridLive,
-  MaterialManagerLive,
-  TerrainGeneratorLive,
-  RenderCommandLive,
-  RaycastLive,
+// Unified layer - main implementation
+export * from './unified.layer'
 
-  // World Services
-  WorldLive,
-  ChunkManagerLive,
-
-  // Worker Services
-  WorkerManagerLive,
-
-  // Rendering Services
-  RendererLive,
-
-  // Input Services
-  InputManagerLive,
-
-  // UI Services
-  UIServiceLive,
-
-  // Domain Services
-  WorldDomainServiceLive,
-  PhysicsDomainServiceLive,
-  EntityDomainServiceLive,
-
-  // Service Definitions (Context Tags)
-  Clock,
-  Stats,
-  SpatialGrid,
-  MaterialManager,
-  TerrainGenerator,
-  RenderCommand,
-  Raycast,
-  World,
-  ChunkManager,
-  WorkerManager,
-  Renderer,
-  InputManager,
-  UIService,
-  WorldDomainService,
-  PhysicsDomainService,
-  EntityDomainService,
-
-  // Layer compositions
-  DomainServicesLive,
-  CoreServicesLive,
-  WorldServicesLive,
-  InfrastructureServicesLive,
-  UnifiedAppLive,
-  MinimalLive,
-  HeadlessLive,
-  DevelopmentLive,
-  ProductionLive,
-  buildCustomLayer,
-  getRuntimeLayer,
-
-  // Type exports
-  type PerformanceStats,
-  type InputState,
-  type RenderCommandType,
-  type RaycastResult,
-  type WorldState,
-} from './unified.layer'
-
-// Re-export extended worker functionality from specialized files
+// Extended worker functionality
 export * from './worker-manager.live'
 export * from './typed-worker-manager.live'
 
-// Re-export domain service implementations
-export { WorldDomainServiceLive, PhysicsDomainServiceLive, EntityDomainServiceLive }
-
-// Re-export service definitions
-export {
-  Clock,
-  Stats,
-  SpatialGrid,
-  MaterialManager,
-  TerrainGenerator,
-  RenderCommand,
-  Raycast,
-  World,
-  ChunkManager,
-  WorkerManager,
-  Renderer,
-  InputManager,
-  UIService,
-  WorldDomainService,
-  PhysicsDomainService,
-  EntityDomainService,
-}
-
-// Re-export types
-export type { PerformanceStats, InputState, RenderCommandType, RaycastResult, WorldState }
-
-// Re-export layer compositions from unified layer
-export {
-  DomainServicesLive,
-  CoreServicesLive,
-  WorldServicesLive,
-  InfrastructureServicesLive,
-  UnifiedAppLive as AppLive, // Map UnifiedAppLive to AppLive for compatibility
-  UnifiedAppLive as AppTest, // Use same layer for tests for now
-  MinimalLive,
-  HeadlessLive,
-  DevelopmentLive,
-  ProductionLive,
-  buildCustomLayer,
-  getRuntimeLayer,
-} from './unified.layer'
+// Service aliases and compatibility mappings
+export * from './service-aliases'

@@ -1,8 +1,8 @@
 import { Effect } from 'effect'
-import { createAABB } from '@/domain/value-objects/physics/aabb.vo'
-import { queries } from '@/domain/queries'
-import { SpatialGridPort } from '@/domain/ports/spatial-grid.port'
-import { WorldRepository } from '@/domain/ports/world.repository'
+import { createAABB } from '/value-objects/physics/aabb.vo'
+import { queryConfigs } from '/queries'
+import { SpatialGridPort } from '/ports/spatial-grid.port'
+import { WorldRepository } from '/ports/world.repository'
 
 export const spatialGridSystem = Effect.gen(function* (_) {
   const world = yield* _(WorldRepository)

@@ -1,9 +1,9 @@
-import { MaterialManager } from '@/infrastructure/services/material-manager.service'
+import { MaterialManager } from '/services/material-manager.service'
 import { Effect, Layer, Ref } from 'effect'
 
-import { MaterialNotFoundError } from '@/domain/errors'
+import { MaterialNotFoundError } from '/errors'
 import * as THREE from 'three'
-import { ObjectPool } from '@/infrastructure/performance/object-pool'
+import { ObjectPool } from '/performance/object-pool'
 
 // --- Configuration ---
 

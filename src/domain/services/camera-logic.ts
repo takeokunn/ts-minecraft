@@ -1,6 +1,6 @@
 import { vec3 } from 'gl-matrix'
 import { Match, Option } from 'effect'
-import { CameraComponent, PositionComponent, TargetComponent } from '@/domain/entities/components'
+import { CameraComponent, PositionComponent, TargetComponent } from '/entities/components'
 import { Float, toFloat, Vector3Float } from './common'
 
 const PI_HALF = Math.PI / 2

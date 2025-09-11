@@ -9,9 +9,9 @@
 import * as Effect from 'effect/Effect'
 import * as Context from 'effect/Context'
 import * as Option from 'effect/Option'
-import { EntityId } from '@/domain/entities'
-import { type ComponentName, type ComponentOfName } from '@/domain/entities/components'
-import { Archetype } from '@/domain/archetypes'
+import { EntityId } from '/entities'
+import { type ComponentName, type ComponentOfName } from '/entities/components'
+import { Archetype } from '/archetypes'
 
 /**
  * Entity metadata and tracking

@@ -44,7 +44,7 @@ src/infrastructure/workers/
 全てのWorkerタイプを統一管理するサービス：
 
 ```typescript
-import { WorkerManagerService } from '@/infrastructure/workers/unified'
+import { WorkerManagerService } from '@infrastructure/workers/unified'
 
 // Terrain生成
 const terrainResult = await WorkerManagerService.generateTerrain({
@@ -77,7 +77,7 @@ const meshResult = await WorkerManagerService.generateMesh({
 個別Workerプールの詳細管理：
 
 ```typescript
-import { createWorkerPool, WorkerPoolConfig } from '@/infrastructure/workers/unified'
+import { createWorkerPool, WorkerPoolConfig } from '@infrastructure/workers/unified'
 
 const terrainPoolConfig: WorkerPoolConfig = {
   name: 'terrain-pool',
@@ -113,7 +113,7 @@ const terrainPool = createWorkerPool(terrainPoolConfig)
 地形生成のための包括的なプロトコル：
 
 ```typescript
-import { TerrainGenerationRequest, TerrainGenerationResponse, Position3D, Block, ChunkData } from '@/infrastructure/workers/unified/protocols'
+import { TerrainGenerationRequest, TerrainGenerationResponse, Position3D, Block, ChunkData } from '@infrastructure/workers/unified/protocols'
 
 const request: TerrainGenerationRequest = {
   coordinates: { x: 0, z: 0 },
@@ -150,7 +150,7 @@ const request: TerrainGenerationRequest = {
 物理シミュレーションのプロトコル：
 
 ```typescript
-import { PhysicsSimulationRequest, PhysicsBody, Vector3, createPhysicsMaterial } from '@/infrastructure/workers/unified/protocols'
+import { PhysicsSimulationRequest, PhysicsBody, Vector3, createPhysicsMaterial } from '@infrastructure/workers/unified/protocols'
 
 const physicsRequest: PhysicsSimulationRequest = {
   deltaTime: 1 / 60,
@@ -192,7 +192,7 @@ import {
   MeshGenerationRequest,
   OptimizationSettings,
   createDefaultOptimizations
-} from '@/infrastructure/workers/unified/protocols'
+} from '@infrastructure/workers/unified/protocols'
 
 const meshRequest: MeshGenerationRequest = {
   chunkData: /* ChunkData from terrain generation */,
@@ -223,7 +223,7 @@ const meshRequest: MeshGenerationRequest = {
 
 ```typescript
 import { Layer } from 'effect'
-import { WorkerManagerServiceLive } from '@/infrastructure/workers/unified'
+import { WorkerManagerServiceLive } from '@infrastructure/workers/unified'
 
 const AppLayer = Layer.mergeAll(
   WorkerManagerServiceLive,
@@ -234,7 +234,7 @@ const AppLayer = Layer.mergeAll(
 ### カスタム設定
 
 ```typescript
-import { WorkerManagerServiceLiveWith } from '@/infrastructure/workers/unified'
+import { WorkerManagerServiceLiveWith } from '@infrastructure/workers/unified'
 
 const customConfig = {
   terrain: {

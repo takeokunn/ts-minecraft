@@ -1,5 +1,5 @@
 import * as S from 'effect/Schema'
-import { ChunkCoordinatesSchema } from '@/domain/value-objects/coordinates'
+import { ChunkCoordinatesSchema } from '/value-objects/coordinates'
 
 /**
  * Terrain Generation Protocol

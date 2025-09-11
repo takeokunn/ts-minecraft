@@ -23,7 +23,7 @@ import * as Ref from 'effect/Ref'
 import * as _Queue from 'effect/Queue'
 
 // Core imports
-import { EntityId } from '@/domain/entities'
+import { EntityId } from '/entities'
 
 import {
   RenderingError,

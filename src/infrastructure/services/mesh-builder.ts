@@ -1,9 +1,9 @@
 import { Effect, Layer } from 'effect'
 
 import * as THREE from 'three'
-import type { Chunk } from '@/domain/entities/components/world/chunk'
-import { ObjectPool } from '@/infrastructure/performance/object-pool'
-import { createTypedWorkerClient, WorkerClientConfig } from '@/infrastructure/workers/base/typed-worker'
+import type { Chunk } from '/entities/components/world/chunk'
+import { ObjectPool } from '/performance/object-pool'
+import { createTypedWorkerClient, WorkerClientConfig } from '/workers/base/typed-worker'
 import * as S from 'effect/Schema'
 
 // --- Configuration ---

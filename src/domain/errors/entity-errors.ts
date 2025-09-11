@@ -1,6 +1,6 @@
 import { defineError } from './generator'
 import { EntityError } from './base-errors'
-import type { EntityId } from '@/domain/value-objects/entity-id.vo'
+import type { EntityId } from '/value-objects/entity-id.vo'
 
 /**
  * Entity not found in the ECS system

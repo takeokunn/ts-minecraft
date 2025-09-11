@@ -1,11 +1,11 @@
 import { Effect } from 'effect'
 import { ReadonlyArray } from 'effect/ReadonlyArray'
-import { clampPitch } from '@/domain/camera-logic'
-import { queries } from '@/domain/queries'
-import { WorldRepository } from '@/domain/ports/world.repository'
-import { InputPort } from '@/domain/ports/input.port'
-import { toFloat } from '@/domain/value-objects/common'
-import { CameraState } from '@/domain/entities/components'
+import { clampPitch } from '/services/camera-logic'
+import { queryConfigs } from '/queries'
+import { WorldRepository } from '/ports/world.repository'
+import { InputPort } from '/ports/input.port'
+import { toFloat } from '/value-objects/common'
+import { CameraState } from '/entities/components'
 
 const MOUSE_SENSITIVITY = 0.002
 

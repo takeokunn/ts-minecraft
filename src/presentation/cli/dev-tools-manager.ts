@@ -4,7 +4,7 @@ import { DevConsole } from './dev-console'
 import { EntityInspector } from './entity-inspector'
 import { WorldEditor } from './world-editor'
 import { NetworkInspector } from './network-inspector'
-import { World } from '@/domain/entities'
+import { World } from '/entities'
 
 export interface DevToolsConfig {
   enableDebugger: boolean

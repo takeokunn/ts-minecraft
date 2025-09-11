@@ -11,7 +11,7 @@
  */
 
 import { Effect, Context, Layer, Ref, Array, Option, Duration, Fiber, Clock as EffectClock, pipe } from 'effect'
-import { ClockPort } from '@/domain/ports/clock.port'
+import { ClockPort } from '/ports/clock.port'
 import { WorldDomainService as World } from '../../domain/services/world-domain.service'
 
 /**

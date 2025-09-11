@@ -12,7 +12,7 @@ import * as Layer from 'effect/Layer'
 import * as Queue from 'effect/Queue'
 import * as Ref from 'effect/Ref'
 import * as Match from 'effect/Match'
-import { IInputPort, MouseState, KeyboardState } from '@/domain/ports/input.port'
+import { IInputPort, MouseState, KeyboardState } from '/ports/input.port'
 
 /**
  * DOM event types for input processing

@@ -13,7 +13,7 @@ import * as Queue from 'effect/Queue'
 import * as Ref from 'effect/Ref'
 import * as Match from 'effect/Match'
 import * as THREE from 'three'
-import { IRenderPort, Camera, ChunkMeshData, RenderStats } from '@/domain/ports/render.port'
+import { IRenderPort, Camera, ChunkMeshData, RenderStats } from '/ports/render.port'
 
 /**
  * Render command types for the rendering queue

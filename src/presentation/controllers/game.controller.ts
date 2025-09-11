@@ -1,9 +1,9 @@
 import { Effect, Context, Layer } from 'effect'
-import { CommandHandlers } from '@/application/handlers/command-handlers'
-import { QueryHandlers } from '@/application/handlers/query-handlers'
-import type { PlayerMovementCommand } from '@/application/commands/player-movement'
-import type { BlockInteractionCommand } from '@/application/commands/block-interaction'
-import type { WorldGenerateCommand } from '@/application/use-cases/world-generate.use-case'
+import { CommandHandlers } from '@application/handlers/command-handlers'
+import { QueryHandlers } from '@application/handlers/query-handlers'
+import type { PlayerMovementCommand } from '@application/commands/player-movement'
+import type { BlockInteractionCommand } from '@application/commands/block-interaction'
+import type { WorldGenerateCommand } from '@application/use-cases/world-generate.use-case'
 
 /**
  * Game Controller

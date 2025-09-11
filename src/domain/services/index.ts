@@ -74,3 +74,25 @@ export * from './targeting-advanced.service'
 
 // ECS services
 export * from './ecs'
+
+// Terrain Generation Domain Service
+export { TerrainGenerationDomainService, TerrainGenerationDomainServiceLive, TerrainGenerationUtils } from './terrain-generation-domain.service'
+
+// Mesh Generation Domain Service  
+export { MeshGenerationDomainService, MeshGenerationDomainServiceLive, MeshGenerationUtils } from './mesh-generation-domain.service'
+
+// World Management Domain Service
+export { 
+  WorldManagementDomainService, 
+  WorldManagementDomainServiceLive, 
+  WorldManagementUtils,
+  WorldManagementDomainServicePort
+} from './world-management-domain.service'
+export type {
+  IWorldManagementDomainService,
+  ChunkLoadingStatus,
+  ChunkMetadata,
+  WorldManagementConfig,
+  WorldManagementStats,
+  ChunkLoadResult
+} from './world-management-domain.service'

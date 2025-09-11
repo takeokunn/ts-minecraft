@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { Archetype, createArchetype } from './domain/archetypes'
-import { World } from '@/infrastructure/layers/unified.layer'
+import { World } from '@infrastructure/layers/unified.layer'
 import { getAppLayer } from './layers'
 import { blockInteractionSystem } from './application/commands/block-interaction'
 import { playerMovementSystem } from './application/commands/player-movement'

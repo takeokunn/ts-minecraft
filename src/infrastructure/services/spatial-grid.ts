@@ -1,9 +1,9 @@
 import { Effect, HashMap, HashSet, Layer, Ref, Option, Array as _EffectArray } from 'effect'
 import { pipe } from 'effect/Function'
-import type { EntityId } from '@/domain/entities'
-import type { AABB } from '@/domain/geometry'
-import { SpatialGrid } from '@/infrastructure/layers/unified.layer'
-import { ObjectPool } from '@/infrastructure/performance/object-pool'
+import type { EntityId } from '/entities'
+import type { AABB } from '/geometry'
+import { SpatialGrid } from '/layers/unified.layer'
+import { ObjectPool } from '/performance/object-pool'
 
 // Optimized configuration
 const CONFIG = {

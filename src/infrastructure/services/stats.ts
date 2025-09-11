@@ -1,4 +1,4 @@
-import { Stats } from '@/infrastructure/layers/unified.layer'
+import { Stats } from '/layers/unified.layer'
 import { Effect, Layer } from 'effect'
 import StatsJs from 'stats.js'
 

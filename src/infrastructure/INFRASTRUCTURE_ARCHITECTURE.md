@@ -210,7 +210,7 @@ export const CoreRepositories = Layer.mergeAll(WorldRepositoryLive, EntityReposi
 ### Basic Setup
 
 ```typescript
-import { BasicBrowserAdapters, CoreRepositories } from '@/infrastructure'
+import { BasicBrowserAdapters, CoreRepositories } from '@infrastructure'
 
 const AppLayer = Layer.mergeAll(BasicBrowserAdapters, CoreRepositories)
 ```
@@ -218,7 +218,7 @@ const AppLayer = Layer.mergeAll(BasicBrowserAdapters, CoreRepositories)
 ### Advanced Setup
 
 ```typescript
-import { AdvancedBrowserAdapters, AllRepositories } from '@/infrastructure'
+import { AdvancedBrowserAdapters, AllRepositories } from '@infrastructure'
 
 const AdvancedAppLayer = Layer.mergeAll(AdvancedBrowserAdapters, AllRepositories, DomainServicesLive)
 ```
@@ -226,7 +226,7 @@ const AdvancedAppLayer = Layer.mergeAll(AdvancedBrowserAdapters, AllRepositories
 ### Custom Configuration
 
 ```typescript
-import { ThreeJsRenderingLayer, WebSocketLayer, WorldRepositories } from '@/infrastructure'
+import { ThreeJsRenderingLayer, WebSocketLayer, WorldRepositories } from '@infrastructure'
 
 const CustomLayer = Layer.mergeAll(ThreeJsRenderingLayer, WebSocketLayer, WorldRepositories)
 ```

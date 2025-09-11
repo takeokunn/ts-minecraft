@@ -25,7 +25,7 @@ import * as Queue from 'effect/Queue'
 import * as Match from 'effect/Match'
 
 // Core imports
-import { EntityId } from '@/domain/entities'
+import { EntityId } from '/entities'
 import { Position } from '../value-objects'
 import { NetworkError } from '../errors'
 

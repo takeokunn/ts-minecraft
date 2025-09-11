@@ -1,7 +1,7 @@
 import { Effect, Layer, Ref, Option } from 'effect'
 
-import { ObjectPool } from '@/infrastructure/performance/object-pool'
-import { createTypedWorkerClient, WorkerClientConfig } from '@/infrastructure/workers/base/typed-worker'
+import { ObjectPool } from '/performance/object-pool'
+import { createTypedWorkerClient, WorkerClientConfig } from '/workers/base/typed-worker'
 
 // --- Configuration ---
 
