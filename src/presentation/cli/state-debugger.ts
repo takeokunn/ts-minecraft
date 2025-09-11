@@ -1,4 +1,4 @@
-import { World } from '/entities'
+import { World } from '@domain/entities'
 
 export interface ComponentState {
   id: string

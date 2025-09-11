@@ -14,9 +14,11 @@ import {
   AppLayer, 
   DomainLayer, 
   InfrastructureLayer, 
-  ApplicationServicesLayer,
-  TestLayer 
+  ApplicationServicesLayer
 } from '../../src/layers'
+
+// Import test layer
+import { TestLayer } from './test-layer'
 
 // Import domain errors for validation
 import { 
@@ -38,12 +40,12 @@ import {
   SpatialGridPort 
 } from '../../src/domain/ports'
 
-// Import domain services
+// Import domain services from unified layer (working implementation)
 import { 
   WorldDomainService, 
   PhysicsDomainService, 
   EntityDomainService 
-} from '../../src/layers'
+} from '../../src/infrastructure/layers/unified.layer'
 
 describe('DDD Migration Validation', () => {
   describe('Layer Boundary Enforcement', () => {

@@ -6,7 +6,7 @@
  */
 
 // WebSocket Layer (formerly NetworkService)
-export { NetworkService } from './websocket.layer'
+export { NetworkService } from '@infrastructure/network/websocket.layer'
 export type {
   NetworkServiceInterface,
   ServerId,
@@ -36,4 +36,4 @@ export type {
   NetworkStats,
   ConnectionInfo,
   NetworkDebugInfo,
-} from './websocket.layer'
+} from '@infrastructure/websocket.layer'

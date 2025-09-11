@@ -8,10 +8,10 @@
 import * as S from 'effect/Schema'
 
 // Import all component modules
-import * as PhysicsModule from './physics'
-import * as RenderingModule from './rendering'
-import * as GameplayModule from './gameplay'
-import * as WorldModule from './world'
+import * as PhysicsModule from '@domain/entities/components/physics'
+import * as RenderingModule from '@domain/entities/components/rendering'
+import * as GameplayModule from '@domain/entities/components/gameplay'
+import * as WorldModule from '@domain/entities/components/world'
 
 // Aggregate all component schemas for the central registry
 export const ComponentSchemas = {

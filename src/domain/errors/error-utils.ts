@@ -2,10 +2,10 @@
  * Error utilities and helper functions
  */
 
-import type { BaseErrorData, RecoveryStrategy } from './generator'
+import type { BaseErrorData, RecoveryStrategy } from '@domain/errors/generator'
 
 // Import ErrorAggregator locally to avoid circular dependency
-import { ErrorAggregator as _ErrorAggregator } from './generator'
+import { ErrorAggregator as _ErrorAggregator } from '@domain/errors/generator'
 
 // Base type for our error interface
 type TaggedError<Tag extends string, Value> = {

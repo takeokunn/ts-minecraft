@@ -1,6 +1,6 @@
-import { APP_CONFIG } from './app.config'
-import { GAME_CONFIG, getUserGameConfig } from './game.config'
-import { INFRASTRUCTURE_CONFIG, getOptimalInfrastructureConfig } from './infrastructure.config'
+import { APP_CONFIG } from '@config/app.config'
+import { GAME_CONFIG, getUserGameConfig } from '@config/game.config'
+import { INFRASTRUCTURE_CONFIG, getOptimalInfrastructureConfig } from '@config/infrastructure.config'
 
 /**
  * Configuration management utilities

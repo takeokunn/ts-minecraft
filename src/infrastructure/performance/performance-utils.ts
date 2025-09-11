@@ -2,12 +2,12 @@
  * Performance layer compositions and utilities
  */
 import { Layer } from 'effect'
-import { ObjectPoolServiceLive } from './object-pool.layer'
-import { MemoryPoolServiceLive } from './memory-pool.layer'
-import { ProfilerServiceLive } from './profiler.layer'
-import { ResourceServiceLive } from './resource.layer'
-import { StartupOptimizerServiceLive } from './startup.layer'
-import { LatencyOptimizerServiceLive } from './latency.layer'
+import { ObjectPoolServiceLive } from '@infrastructure/performance/object-pool.layer'
+import { MemoryPoolServiceLive } from '@infrastructure/performance/memory-pool.layer'
+import { ProfilerServiceLive } from '@infrastructure/performance/profiler.layer'
+import { ResourceServiceLive } from '@infrastructure/performance/resource.layer'
+import { StartupOptimizerServiceLive } from '@infrastructure/performance/startup.layer'
+import { LatencyOptimizerServiceLive } from '@infrastructure/performance/latency.layer'
 
 /**
  * Combined performance layer with default configurations

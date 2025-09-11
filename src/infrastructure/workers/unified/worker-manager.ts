@@ -12,7 +12,7 @@ import {
   LightingCalculationResponse,
   ComputationRequest,
   ComputationResponse,
-} from './protocols'
+} from '@infrastructure/protocols'
 
 /**
  * Unified Worker Manager for Minecraft

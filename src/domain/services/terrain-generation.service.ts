@@ -1023,11 +1023,11 @@ export const terrainGenerationServiceLive = Layer.succeed(
 )
 
 // Re-export original service for backward compatibility
-export * from './terrain-generation-domain.service'
+export * from '@domain/services/terrain-generation-domain.service'
 export { 
   TerrainGenerationDomainService as TerrainGenerationDomainServiceOriginal,
   TerrainGenerationDomainServiceLive as TerrainGenerationDomainServiceLiveOriginal
-} from './terrain-generation-domain.service'
+} from '@domain/services/terrain-generation-domain.service'
 
 /**
  * Utility functions for terrain generation

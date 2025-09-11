@@ -6,7 +6,7 @@
  * and rendering queries.
  */
 
-import { query, soaQuery, aosQuery } from './builder'
+import { query, soaQuery, aosQuery } from '@application/queries/builder'
 
 // Predefined optimized queries for common use cases
 export const queries = {

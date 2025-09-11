@@ -1,5 +1,5 @@
-import { defineError } from './generator'
-import { SystemError } from './base-errors'
+import { defineError } from '@domain/errors/generator'
+import { SystemError } from '@domain/errors/base-errors'
 
 /**
  * ECS system execution failed

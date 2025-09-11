@@ -4,8 +4,8 @@
  * and the unified worker system
  */
 
-import { Effect, Layer, Context } from 'effect'
-import { WorkerManagerService, WorkerManagerServiceLive, type WorkerType as UnifiedWorkerType } from './worker-manager'
+import { Effect, Layer, Context, Data } from 'effect'
+import { WorkerManagerService, WorkerManagerServiceLive, type WorkerType as UnifiedWorkerType } from '@infrastructure/workers/unified/worker-manager'
 // Legacy types recreated here to avoid dependency on deprecated worker-pool.layer.ts
 
 export type PerformanceWorkerType = 'compute' | 'physics' | 'terrain' | 'pathfinding' | 'rendering' | 'compression'
@@ -33,19 +33,17 @@ export interface WorkerStats {
   lastActivity: number
 }
 
-export class WorkerError extends Error {
-  constructor(options: { message: string; workerId?: string; taskId?: string }) {
-    super(options.message)
-    this.name = 'WorkerError'
-  }
-}
+export class WorkerError extends Data.TaggedError('WorkerError')<{
+  readonly message: string
+  readonly workerId?: string
+  readonly taskId?: string
+}> {}
 
-export class WorkerTimeoutError extends Error {
-  constructor(options: { message: string; taskId: string; timeout: number }) {
-    super(options.message)
-    this.name = 'WorkerTimeoutError'
-  }
-}
+export class WorkerTimeoutError extends Data.TaggedError('WorkerTimeoutError')<{
+  readonly message: string
+  readonly taskId: string
+  readonly timeout: number
+}> {}
 
 export interface WorkerConfig {
   type: PerformanceWorkerType
@@ -75,7 +73,7 @@ interface PerformanceWorkerPoolService {
 
 const PerformanceWorkerPoolService = Context.GenericTag<PerformanceWorkerPoolService>('PerformanceWorkerPoolService')
 
-import { ComputationRequest, ComputationResponse, type ComputationType } from './protocols'
+import { ComputationRequest, ComputationResponse, type ComputationType } from '@infrastructure/workers/unified/protocols'
 
 /**
  * Map performance worker types to unified worker types

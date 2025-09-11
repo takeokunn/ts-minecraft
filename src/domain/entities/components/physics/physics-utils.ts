@@ -10,7 +10,7 @@ import type {
   AccelerationComponent,
   MassComponent,
   ColliderComponent
-} from './physics-components'
+} from '@domain/entities/components/physics/physics-components'
 
 import {
   PositionComponent as PositionComponentSchema,
@@ -18,7 +18,7 @@ import {
   AccelerationComponent as AccelerationComponentSchema,
   MassComponent as MassComponentSchema,
   ColliderComponent as ColliderComponentSchema
-} from './physics-components'
+} from '@domain/entities/components/physics/physics-components'
 
 // Aggregate all physics components for easy import
 export const PhysicsComponents = {

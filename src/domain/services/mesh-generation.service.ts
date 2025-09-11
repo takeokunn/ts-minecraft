@@ -873,11 +873,11 @@ export const meshGenerationServiceLive = Layer.succeed(
 )
 
 // Re-export original service for backward compatibility
-export * from './mesh-generation-domain.service'
+export * from '@domain/services/mesh-generation-domain.service'
 export { 
   MeshGenerationDomainService as MeshGenerationDomainServiceOriginal,
   MeshGenerationDomainServiceLive as MeshGenerationDomainServiceLiveOriginal 
-} from './mesh-generation-domain.service'
+} from '@domain/services/mesh-generation-domain.service'
 
 /**
  * Utility functions for mesh generation

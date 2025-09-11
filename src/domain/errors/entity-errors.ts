@@ -1,5 +1,5 @@
-import { defineError } from './generator'
-import { EntityError } from './base-errors'
+import { defineError } from '@domain/errors/generator'
+import { EntityError } from '@domain/errors/base-errors'
 import type { EntityId } from '@domain/value-objects/entity-id.vo'
 
 /**

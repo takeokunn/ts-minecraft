@@ -99,4 +99,4 @@ export interface IEntityRepository {
   readonly compactStorage: () => Effect.Effect<void, never, never>
 }
 
-export class EntityRepository extends Context.GenericTag('EntityRepository')<EntityRepository, IEntityRepository>() {}
+export const EntityRepository = Context.GenericTag<IEntityRepository>('EntityRepository')

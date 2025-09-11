@@ -14,13 +14,16 @@ import {
   IVector3Port,
   IQuaternionPort,
   IRayPort,
+  IMatrix4Port,
   IMathPort,
   Vector3Data,
   QuaternionData,
   RayData,
+  Matrix4Data,
   Vector3Port,
   QuaternionPort,
   RayPort,
+  Matrix4Port,
   MathPort,
 } from '@domain/ports/math.port'
 
@@ -307,6 +310,119 @@ export const ThreeJsRayAdapterLive = Layer.succeed(
 )
 
 /**
+ * Three.js Matrix4 Adapter Implementation
+ */
+export const ThreeJsMatrix4AdapterLive = Layer.succeed(
+  Matrix4Port,
+  Matrix4Port.of({
+    create: () =>
+      Effect.succeed({
+        elements: [
+          1, 0, 0, 0,
+          0, 1, 0, 0,
+          0, 0, 1, 0,
+          0, 0, 0, 1
+        ]
+      }),
+
+    identity: () =>
+      Effect.succeed({
+        elements: [
+          1, 0, 0, 0,
+          0, 1, 0, 0,
+          0, 0, 1, 0,
+          0, 0, 0, 1
+        ]
+      }),
+
+    fromArray: (elements: readonly number[]) =>
+      Effect.succeed({
+        elements: [
+          elements[0] || 0, elements[1] || 0, elements[2] || 0, elements[3] || 0,
+          elements[4] || 0, elements[5] || 0, elements[6] || 0, elements[7] || 0,
+          elements[8] || 0, elements[9] || 0, elements[10] || 0, elements[11] || 0,
+          elements[12] || 0, elements[13] || 0, elements[14] || 0, elements[15] || 0
+        ]
+      }),
+
+    multiply: (a: Matrix4Data, b: Matrix4Data) =>
+      Effect.gen(function* (_) {
+        const matA = new THREE.Matrix4().fromArray(Array.from(a.elements))
+        const matB = new THREE.Matrix4().fromArray(Array.from(b.elements))
+        matA.multiply(matB)
+        return { elements: matA.elements as any }
+      }),
+
+    multiplyVector3: (matrix: Matrix4Data, vector: Vector3Data) =>
+      Effect.gen(function* (_) {
+        const mat = new THREE.Matrix4().fromArray(Array.from(matrix.elements))
+        const vec = new THREE.Vector3(vector.x, vector.y, vector.z)
+        vec.applyMatrix4(mat)
+        return { x: vec.x, y: vec.y, z: vec.z }
+      }),
+
+    transpose: (matrix: Matrix4Data) =>
+      Effect.gen(function* (_) {
+        const mat = new THREE.Matrix4().fromArray(Array.from(matrix.elements))
+        mat.transpose()
+        return { elements: mat.elements as any }
+      }),
+
+    invert: (matrix: Matrix4Data) =>
+      Effect.gen(function* (_) {
+        const mat = new THREE.Matrix4().fromArray(Array.from(matrix.elements))
+        mat.invert()
+        return { elements: mat.elements as any }
+      }),
+
+    translate: (matrix: Matrix4Data, vector: Vector3Data) =>
+      Effect.gen(function* (_) {
+        const mat = new THREE.Matrix4().fromArray(Array.from(matrix.elements))
+        const translation = new THREE.Matrix4().makeTranslation(vector.x, vector.y, vector.z)
+        mat.multiply(translation)
+        return { elements: mat.elements as any }
+      }),
+
+    rotate: (matrix: Matrix4Data, axis: Vector3Data, angle: number) =>
+      Effect.gen(function* (_) {
+        const mat = new THREE.Matrix4().fromArray(Array.from(matrix.elements))
+        const rotation = new THREE.Matrix4().makeRotationAxis(
+          new THREE.Vector3(axis.x, axis.y, axis.z).normalize(),
+          angle
+        )
+        mat.multiply(rotation)
+        return { elements: mat.elements as any }
+      }),
+
+    scale: (matrix: Matrix4Data, vector: Vector3Data) =>
+      Effect.gen(function* (_) {
+        const mat = new THREE.Matrix4().fromArray(Array.from(matrix.elements))
+        const scaling = new THREE.Matrix4().makeScale(vector.x, vector.y, vector.z)
+        mat.multiply(scaling)
+        return { elements: mat.elements as any }
+      }),
+
+    lookAt: (eye: Vector3Data, center: Vector3Data, up: Vector3Data) =>
+      Effect.gen(function* (_) {
+        const mat = new THREE.Matrix4()
+        mat.lookAt(
+          new THREE.Vector3(eye.x, eye.y, eye.z),
+          new THREE.Vector3(center.x, center.y, center.z),
+          new THREE.Vector3(up.x, up.y, up.z)
+        )
+        return { elements: mat.elements as any }
+      }),
+
+    perspective: (fov: number, aspect: number, near: number, far: number) =>
+      Effect.gen(function* (_) {
+        const mat = new THREE.Matrix4()
+        mat.makePerspective(-aspect * Math.tan(fov / 2), aspect * Math.tan(fov / 2), Math.tan(fov / 2), -Math.tan(fov / 2), near, far)
+        return { elements: mat.elements as any }
+      }),
+  })
+)
+
+/**
  * Combined Math Adapter Layer
  */
 export const ThreeJsMathAdapterLive = Layer.succeed(
@@ -315,17 +431,20 @@ export const ThreeJsMathAdapterLive = Layer.succeed(
     const vector3 = yield* _(Vector3Port)
     const quaternion = yield* _(QuaternionPort)
     const ray = yield* _(RayPort)
+    const matrix4 = yield* _(Matrix4Port)
 
     return MathPort.of({
       vector3,
       quaternion,
       ray,
+      matrix4,
     })
   }).pipe(Effect.provide(
     Layer.mergeAll(
       ThreeJsVector3AdapterLive,
       ThreeJsQuaternionAdapterLive,
-      ThreeJsRayAdapterLive
+      ThreeJsRayAdapterLive,
+      ThreeJsMatrix4AdapterLive
     )
   ))
 )
@@ -337,5 +456,6 @@ export const AllThreeJsMathAdaptersLive = Layer.mergeAll(
   ThreeJsVector3AdapterLive,
   ThreeJsQuaternionAdapterLive,
   ThreeJsRayAdapterLive,
+  ThreeJsMatrix4AdapterLive,
   ThreeJsMathAdapterLive
 )

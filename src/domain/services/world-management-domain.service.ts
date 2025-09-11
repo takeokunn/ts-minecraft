@@ -7,7 +7,7 @@
  */
 
 import { Effect, Context, Layer, HashMap, HashSet, Data, Ref } from 'effect'
-import { WorldDomainService } from './world-domain.service'
+import { WorldDomainService } from '@domain/services/world-domain.service'
 import { 
   TerrainGeneratorPort, 
   type ITerrainGenerator, 

@@ -17,7 +17,7 @@ import type {
   GravityComponent,
   FrozenComponent,
   DisabledComponent
-} from './gameplay-components'
+} from '@domain/entities/components/gameplay/gameplay-components'
 
 import {
   HealthComponent as HealthComponentSchema,
@@ -32,7 +32,7 @@ import {
   GravityComponent as GravityComponentSchema,
   FrozenComponent as FrozenComponentSchema,
   DisabledComponent as DisabledComponentSchema
-} from './gameplay-components'
+} from '@domain/entities/components/gameplay/gameplay-components'
 
 // ===== GAMEPLAY COMPONENT UTILITIES =====
 

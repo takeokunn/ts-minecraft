@@ -1,5 +1,5 @@
-import { defineError } from './generator'
-import { ComponentError } from './base-errors'
+import { defineError } from '@domain/errors/generator'
+import { ComponentError } from '@domain/errors/base-errors'
 import type { EntityId } from '@domain/value-objects/entity-id.vo'
 import type { ComponentName } from '@domain/entities/components/index'
 

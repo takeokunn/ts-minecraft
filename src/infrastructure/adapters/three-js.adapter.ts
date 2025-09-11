@@ -12,6 +12,7 @@ import * as Layer from 'effect/Layer'
 import * as Queue from 'effect/Queue'
 import * as Ref from 'effect/Ref'
 import * as Match from 'effect/Match'
+import * as Option from 'effect/Option'
 import * as THREE from 'three'
 import { 
   IRenderPort, 
@@ -665,6 +666,129 @@ export const ThreeJsAdapterLive = Layer.scoped(
         }
       })
 
+    // Missing methods from IRenderPort interface
+    const getMesh = (handle: MeshHandle) =>
+      Effect.gen(function* (_) {
+        try {
+          const meshMap = yield* _(Ref.get(meshHandles))
+          const mesh = meshMap.get(handle.id)
+          
+          if (!mesh) {
+            return Option.none()
+          }
+          
+          // Extract mesh data from Three.js mesh
+          const geometry = mesh.geometry as THREE.BufferGeometry
+          const positions = geometry.attributes.position?.array as Float32Array
+          const normals = geometry.attributes.normal?.array as Float32Array
+          const uvs = geometry.attributes.uv?.array as Float32Array
+          const indices = geometry.index?.array as Uint32Array
+          
+          if (!positions || !normals || !uvs || !indices) {
+            return Option.none()
+          }
+          
+          const meshData: ChunkMeshData = {
+            chunkX: handle.chunkX,
+            chunkZ: handle.chunkZ,
+            positions,
+            normals,
+            uvs,
+            indices,
+          }
+          
+          return Option.some(meshData)
+        } catch (error) {
+          return yield* _(Effect.fail(new MeshError({
+            message: 'Failed to get mesh data',
+            chunkX: handle.chunkX,
+            chunkZ: handle.chunkZ,
+            cause: error,
+          })))
+        }
+      })
+
+    const createMeshes = (meshes: ReadonlyArray<ChunkMeshData>) =>
+      Effect.gen(function* (_) {
+        const handles: MeshHandle[] = []
+        
+        for (const meshData of meshes) {
+          const handle = yield* _(createMesh(meshData))
+          handles.push(handle)
+        }
+        
+        return handles
+      })
+
+    const updateMeshes = (updates: ReadonlyArray<{ handle: MeshHandle; meshData: ChunkMeshData }>) =>
+      Effect.gen(function* (_) {
+        for (const { handle, meshData } of updates) {
+          yield* _(updateMesh(handle, meshData))
+        }
+      })
+
+    const removeMeshes = (handles: ReadonlyArray<MeshHandle>) =>
+      Effect.gen(function* (_) {
+        for (const handle of handles) {
+          yield* _(removeMesh(handle))
+        }
+      })
+
+    const getStatsStream = () =>
+      Effect.gen(function* (_) {
+        // Create a stream that emits stats every frame
+        return Effect.gen(function* (_) {
+          return yield* _(getStats())
+        })
+      })
+
+    const collectGarbage = () =>
+      Effect.gen(function* (_) {
+        try {
+          const beforeMemory = yield* _(getMemoryUsage())
+          
+          // Force garbage collection in renderer
+          threeJsContext.renderer.renderLists.dispose()
+          
+          const afterMemory = yield* _(getMemoryUsage())
+          const freedBytes = beforeMemory.totalBytes - afterMemory.totalBytes
+          
+          return { freedBytes: Math.max(0, freedBytes) }
+        } catch (error) {
+          return yield* _(Effect.fail(new ResourceError({
+            message: 'Failed to collect garbage',
+            resourceType: 'WebGLRenderer',
+            cause: error,
+          })))
+        }
+      })
+
+    const isReady = () =>
+      Effect.gen(function* (_) {
+        try {
+          // Check if renderer and context are ready
+          return threeJsContext.renderer && 
+                 threeJsContext.scene && 
+                 threeJsContext.camera &&
+                 threeJsContext.canvas.isConnected
+        } catch (error) {
+          return yield* _(Effect.fail(new RenderError({
+            message: 'Failed to check render readiness',
+            cause: error,
+          })))
+        }
+      })
+
+    const waitForReady = () =>
+      Effect.gen(function* (_) {
+        const ready = yield* _(isReady())
+        if (!ready) {
+          return yield* _(Effect.fail(new RenderError({
+            message: 'Renderer is not ready',
+          })))
+        }
+      })
+
     // Start processing render queue in background
     yield* _(processRenderQueue().pipe(Effect.forever, Effect.forkScoped))
 
@@ -679,15 +803,23 @@ export const ThreeJsAdapterLive = Layer.scoped(
       createMesh,
       updateMesh,
       removeMesh,
+      getMesh,
+      createMeshes,
+      updateMeshes,
+      removeMeshes,
       addChunkMesh,
       removeChunkMesh,
       updateChunkMesh,
       getStats,
+      getStatsStream,
       setWireframe,
       setFog,
       setLighting,
       dispose,
       getMemoryUsage,
+      collectGarbage,
+      isReady,
+      waitForReady,
     })
   }),
 )

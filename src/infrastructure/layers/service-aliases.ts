@@ -8,10 +8,10 @@
 // Import from unified layer
 import {
   UnifiedAppLive,
-} from './unified.layer'
+} from '@infrastructure/unified.layer'
 
 // Layer composition aliases for backward compatibility
 export {
   UnifiedAppLive as AppLive, // Map UnifiedAppLive to AppLive for compatibility
   UnifiedAppLive as AppTest, // Use same layer for tests for now
-} from './unified.layer'
+} from '@infrastructure/unified.layer'

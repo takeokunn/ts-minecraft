@@ -1,6 +1,6 @@
 import * as S from 'effect/Schema'
 import { ChunkCoordinatesSchema } from '@domain/value-objects/coordinates'
-import { Position3D, Block, ChunkData } from './terrain.protocol'
+import { Position3D, Block, ChunkData } from '@infrastructure/workers/unified/protocols/terrain.protocol'
 
 /**
  * Mesh Generation Protocol

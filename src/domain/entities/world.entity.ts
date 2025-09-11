@@ -3,8 +3,8 @@ import { HashMap } from 'effect'
 import { EntityId } from '@domain/value-objects/entity-id.vo'
 import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordinate.vo'
 import { Position } from '@domain/value-objects/coordinates/position.vo'
-import { Player } from './player.entity'
-import { Chunk } from './chunk.entity'
+import { Player } from '@domain/entities/player.entity'
+import { Chunk } from '@domain/entities/chunk.entity'
 
 export const WorldState = S.Struct({
   _tag: S.Literal('WorldState'),

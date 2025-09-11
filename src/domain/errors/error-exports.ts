@@ -16,7 +16,7 @@ export {
   type BaseErrorData,
   type ErrorConstructor,
   type ParentErrorClass,
-} from './generator'
+} from '@domain/errors/generator'
 
 // Base error hierarchy
 export {
@@ -34,7 +34,7 @@ export {
   createErrorChain,
   validateErrorHierarchy,
   getErrorAncestry,
-} from './base-errors'
+} from '@domain/errors/base-errors'
 
 // Entity subsystem errors
 import {
@@ -46,7 +46,7 @@ import {
   EntityArchetypeMismatchError,
   StaleEntityReferenceError,
   EntityLimitExceededError,
-} from './entity-errors'
+} from '@domain/errors/entity-errors'
 
 export {
   EntityNotFoundError,
@@ -70,7 +70,7 @@ import {
   ComponentDependencyError,
   ComponentLifecycleError,
   ComponentCapacityError,
-} from './component-errors'
+} from '@domain/errors/component-errors'
 
 export {
   ComponentNotFoundError,
@@ -99,7 +99,7 @@ import {
   WorldLoadError,
   BlockPlacementError,
   WorldTickError,
-} from './world-errors'
+} from '@domain/errors/world-errors'
 
 export {
   ChunkNotLoadedError,
@@ -129,7 +129,7 @@ import {
   PhysicsEngineError,
   CollisionShapeError,
   PhysicsMaterialError,
-} from './physics-errors'
+} from '@domain/errors/physics-errors'
 
 export {
   CollisionDetectionError,
@@ -155,7 +155,7 @@ import {
   EmptyQueryResultError,
   QueryValidationError,
   SystemSchedulerError,
-} from './system-errors'
+} from '@domain/errors/system-errors'
 
 export {
   SystemExecutionError,
@@ -178,7 +178,7 @@ import {
   WorkerTerminatedError,
   WorkerDataTransferError,
   WorkerTimeoutError,
-} from './worker-errors'
+} from '@domain/errors/worker-errors'
 
 export { WorkerCommunicationError, WorkerTaskFailedError, WorkerInitializationError, WorkerPoolExhaustedError, WorkerTerminatedError, WorkerDataTransferError, WorkerTimeoutError }
 
@@ -191,7 +191,7 @@ import {
   RenderTargetError,
   MeshDataError,
   GraphicsContextError,
-} from './rendering-errors'
+} from '@domain/errors/rendering-errors'
 
 export { TextureNotFoundError, MaterialNotFoundError, ShaderCompilationError, BufferAllocationError, RenderTargetError, MeshDataError, GraphicsContextError }
 
@@ -205,6 +205,6 @@ import {
   InputNotAvailableError,
   AssetBundleError,
   ResourcePermissionError,
-} from './resource-errors'
+} from '@domain/errors/resource-errors'
 
 export { ResourceNotFoundError, ResourceLoadError, ValidationError, ResourceCacheError, UnsupportedFormatError, InputNotAvailableError, AssetBundleError, ResourcePermissionError }

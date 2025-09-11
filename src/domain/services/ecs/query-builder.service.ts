@@ -5,8 +5,8 @@
 
 import { Effect, Context, Layer, pipe, Option, ReadonlyArray, Duration, Chunk, Stream } from 'effect'
 import * as S from 'effect/Schema'
-import { EntityId, ComponentName, Entity, QueryService, ArchetypeService, QueryMetrics } from './archetype-query.service'
-import { ComponentService } from './component.service'
+import { EntityId, ComponentName, Entity, QueryService, ArchetypeService, QueryMetrics } from '@domain/services/ecs/archetype-query.service'
+import { ComponentService } from '@domain/services/ecs/component.service'
 
 // ============================================================================
 // Schema Definitions

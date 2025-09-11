@@ -8,7 +8,7 @@
 
 import * as Effect from 'effect/Effect'
 import * as Context from 'effect/Context'
-import { ChunkCoordinates, Position3D, GeneratedBlock } from './terrain-generator.port'
+import { ChunkCoordinates, Position3D, GeneratedBlock } from '@domain/ports/terrain-generator.port'
 
 /**
  * Vertex attribute data

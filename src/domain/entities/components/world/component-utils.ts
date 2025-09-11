@@ -1,12 +1,12 @@
 /**
  * World component utilities and factory functions
  */
-import { ChunkComponent, ChunkLoaderStateComponent, TerrainBlockComponent, TargetBlockComponent } from './chunk'
-import { toChunkX, toChunkZ } from '@domain/entities/common'
+import { ChunkComponent, ChunkLoaderStateComponent, TerrainBlockComponent, TargetBlockComponent } from '@domain/entities/components/world/chunk'
+import { toChunkX, toChunkZ } from '@domain/value-objects/common'
 
 // Type definitions
-import type { ChunkComponent as ChunkComponentType, ChunkLoaderStateComponent as ChunkLoaderStateComponentType } from './chunk'
-import type { TerrainBlockComponent as TerrainBlockComponentType, TargetBlockComponent as TargetBlockComponentType } from './terrain-block'
+import type { ChunkComponent as ChunkComponentType, ChunkLoaderStateComponent as ChunkLoaderStateComponentType } from '@domain/entities/components/world/chunk'
+import type { TerrainBlockComponent as TerrainBlockComponentType, TargetBlockComponent as TargetBlockComponentType } from '@domain/entities/components/world/terrain-block'
 
 // Aggregate world component schemas for registration
 export const WorldComponentSchemas = {

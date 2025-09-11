@@ -10,7 +10,7 @@ import type {
   LightComponent,
   CameraComponent,
   RenderableComponent
-} from './rendering-components'
+} from '@domain/entities/components/rendering/rendering-components'
 
 import {
   MeshComponent as MeshComponentSchema,
@@ -18,7 +18,7 @@ import {
   LightComponent as LightComponentSchema,
   CameraComponent as CameraComponentSchema,
   RenderableComponent as RenderableComponentSchema
-} from './rendering-components'
+} from '@domain/entities/components/rendering/rendering-components'
 
 // ===== RENDERING COMPONENT UTILITIES =====
 

@@ -1,5 +1,5 @@
-import { defineError } from './generator'
-import { PhysicsError } from './base-errors'
+import { defineError } from '@domain/errors/generator'
+import { PhysicsError } from '@domain/errors/base-errors'
 import type { EntityId } from '@domain/value-objects/entity-id.vo'
 import type { Position } from '@domain/value-objects/coordinates'
 

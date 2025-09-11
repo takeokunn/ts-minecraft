@@ -294,10 +294,10 @@ const generateMeshByAlgorithm = (
 }
 
 /**
- * Mesh Generation Domain Service Implementation
+ * Mesh Generation Domain Service Implementation - Functional
  */
-export class MeshGenerationDomainService implements IMeshGenerator {
-  generateMesh = (request: MeshGenerationRequest): Effect.Effect<MeshGenerationResult, never, never> =>
+export const MeshGenerationDomainService: IMeshGenerator = {
+  generateMesh: (request: MeshGenerationRequest): Effect.Effect<MeshGenerationResult, never, never> =>
     Effect.gen(function* () {
       const startTime = performance.now()
       const { chunkData, neighbors, algorithm, optimizations, options, lodLevel } = request
@@ -371,9 +371,9 @@ export class MeshGenerationDomainService implements IMeshGenerator {
         generationTime: totalTime,
         metrics,
       } satisfies MeshGenerationResult
-    })
+    }),
 
-  generateNaiveMesh = (
+  generateNaiveMesh: (
     chunkData: ChunkData,
     options?: MeshGenerationOptions,
   ): Effect.Effect<GeneratedMeshData, never, never> =>
@@ -408,9 +408,9 @@ export class MeshGenerationDomainService implements IMeshGenerator {
         bounds,
         materials: [],
       } satisfies GeneratedMeshData
-    })
+    }),
 
-  generateGreedyMesh = (
+  generateGreedyMesh: (
     chunkData: ChunkData,
     options?: MeshGenerationOptions,
   ): Effect.Effect<GeneratedMeshData, never, never> =>
@@ -445,14 +445,14 @@ export class MeshGenerationDomainService implements IMeshGenerator {
         bounds,
         materials: [],
       } satisfies GeneratedMeshData
-    })
+    }),
 
-  calculateBounds = (positions: Float32Array): Effect.Effect<BoundingVolume, never, never> =>
+  calculateBounds: (positions: Float32Array): Effect.Effect<BoundingVolume, never, never> =>
     Effect.gen(function* () {
       return MeshGeneratorHelpers.calculateMeshBounds(positions)
-    })
+    }),
 
-  isAvailable = (): Effect.Effect<boolean, never, never> =>
+  isAvailable: (): Effect.Effect<boolean, never, never> =>
     Effect.gen(function* () {
       return true // Always available as it's pure logic
     })
@@ -463,7 +463,7 @@ export class MeshGenerationDomainService implements IMeshGenerator {
  */
 export const MeshGenerationDomainServiceLive = Layer.succeed(
   MeshGeneratorPort,
-  new MeshGenerationDomainService(),
+  MeshGenerationDomainService,
 )
 
 /**

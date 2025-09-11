@@ -7,4 +7,4 @@
 
 // === UTILITY FUNCTIONS ===
 // Core utilities from unified system
-export { startQueryContext, finalizeQueryContext } from './unified-query-system'
+export { startQueryContext, finalizeQueryContext } from '@application/queries/unified-query-system'

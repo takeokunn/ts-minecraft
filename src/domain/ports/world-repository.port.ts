@@ -157,6 +157,6 @@ export interface IWorldRepository {
   }, WorldRepositoryError, never>
 }
 
-export class WorldRepositoryPort extends Context.GenericTag('WorldRepositoryPort')<WorldRepositoryPort, IWorldRepository>() {}
+export const WorldRepositoryPort = Context.GenericTag<IWorldRepository>('WorldRepositoryPort')
 
 export { IWorldRepository as IWorldRepositoryPort }

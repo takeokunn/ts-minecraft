@@ -1,7 +1,7 @@
 import { Effect, Layer, Ref } from 'effect'
 
 import { ObjectPool } from '@infrastructure/performance/object-pool'
-// import { WASMIntegrationService } from './wasm-integration'
+// import { WASMIntegrationService } from '@infrastructure/gpu/wasm-integration'
 
 // --- Configuration ---
 

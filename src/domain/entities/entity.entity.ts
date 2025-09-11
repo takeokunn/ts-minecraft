@@ -2,4 +2,4 @@
 export { EntityId, makeEntityId } from '@domain/value-objects/entity-id.vo'
 
 // Re-export WorldState from domain entities for compatibility
-export { WorldState as World } from './world.entity'
+export { WorldState as World } from '@domain/entities/world.entity'

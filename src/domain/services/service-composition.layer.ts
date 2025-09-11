@@ -8,17 +8,17 @@
 import { Layer, Effect, Context } from 'effect'
 
 // Import all domain services
-import { EntityDomainService, EntityDomainServiceInterface } from './entity-domain.service'
-import { WorldDomainService } from './world-domain.service'
-import { PhysicsDomainService, PhysicsDomainServiceInterface } from './physics-domain.service'
-import { ChunkLoadingService, ChunkLoadingServiceLive } from './chunk-loading.service'
-import { AdvancedTargetingService, AdvancedTargetingServiceLive } from './targeting-advanced.service'
-import { MeshGenerationService, meshGenerationServiceLive } from './mesh-generation.service'
-import { WorldManagementDomainService, WorldManagementDomainServiceLive } from './world-management-domain.service'
+import { EntityDomainService, EntityDomainServiceInterface } from '@domain/services/entity-domain.service'
+import { WorldDomainService } from '@domain/services/world-domain.service'
+import { PhysicsDomainService, PhysicsDomainServiceInterface } from '@domain/services/physics-domain.service'
+import { ChunkLoadingService, ChunkLoadingServiceLive } from '@domain/services/chunk-loading.service'
+import { AdvancedTargetingService, AdvancedTargetingServiceLive } from '@domain/services/targeting-advanced.service'
+import { MeshGenerationService, meshGenerationServiceLive } from '@domain/services/mesh-generation.service'
+import { WorldManagementDomainService, WorldManagementDomainServiceLive } from '@domain/services/world-management-domain.service'
 
 // Import infrastructure adapters (these would be provided by infrastructure layer)
-import type { TerrainGeneratorPort, ChunkRepositoryPort, MeshGeneratorPort } from './chunk-loading.service'
-import type { WorldPort } from './targeting-advanced.service'
+import type { TerrainGeneratorPort, ChunkRepositoryPort, MeshGeneratorPort } from '@domain/services/chunk-loading.service'
+import type { WorldPort } from '@domain/services/targeting-advanced.service'
 
 // ===== DOMAIN SERVICE REGISTRY =====
 

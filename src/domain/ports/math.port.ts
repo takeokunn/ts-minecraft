@@ -35,6 +35,15 @@ export interface RaycastHit {
   readonly blockType?: string
 }
 
+export interface Matrix4Data {
+  readonly elements: readonly [
+    number, number, number, number,
+    number, number, number, number,
+    number, number, number, number,
+    number, number, number, number
+  ]
+}
+
 /**
  * Vector3 operations interface
  */
@@ -78,19 +87,39 @@ export interface IRayPort {
 }
 
 /**
+ * Matrix4 operations interface for transformations
+ */
+export interface IMatrix4Port {
+  readonly create: () => Effect.Effect<Matrix4Data, never, never>
+  readonly identity: () => Effect.Effect<Matrix4Data, never, never>
+  readonly fromArray: (elements: readonly number[]) => Effect.Effect<Matrix4Data, never, never>
+  readonly multiply: (a: Matrix4Data, b: Matrix4Data) => Effect.Effect<Matrix4Data, never, never>
+  readonly multiplyVector3: (matrix: Matrix4Data, vector: Vector3Data) => Effect.Effect<Vector3Data, never, never>
+  readonly transpose: (matrix: Matrix4Data) => Effect.Effect<Matrix4Data, never, never>
+  readonly invert: (matrix: Matrix4Data) => Effect.Effect<Matrix4Data, never, never>
+  readonly translate: (matrix: Matrix4Data, vector: Vector3Data) => Effect.Effect<Matrix4Data, never, never>
+  readonly rotate: (matrix: Matrix4Data, axis: Vector3Data, angle: number) => Effect.Effect<Matrix4Data, never, never>
+  readonly scale: (matrix: Matrix4Data, vector: Vector3Data) => Effect.Effect<Matrix4Data, never, never>
+  readonly lookAt: (eye: Vector3Data, center: Vector3Data, up: Vector3Data) => Effect.Effect<Matrix4Data, never, never>
+  readonly perspective: (fov: number, aspect: number, near: number, far: number) => Effect.Effect<Matrix4Data, never, never>
+}
+
+/**
  * Combined Math Port interface
  */
 export interface IMathPort {
   readonly vector3: IVector3Port
   readonly quaternion: IQuaternionPort
   readonly ray: IRayPort
+  readonly matrix4: IMatrix4Port
 }
 
 // Context tags for dependency injection
-export class Vector3Port extends Context.GenericTag('Vector3Port')<Vector3Port, IVector3Port>() {}
-export class QuaternionPort extends Context.GenericTag('QuaternionPort')<QuaternionPort, IQuaternionPort>() {}
-export class RayPort extends Context.GenericTag('RayPort')<RayPort, IRayPort>() {}
-export class MathPort extends Context.GenericTag('MathPort')<MathPort, IMathPort>() {}
+export const Vector3Port = Context.GenericTag<IVector3Port>('Vector3Port')
+export const QuaternionPort = Context.GenericTag<IQuaternionPort>('QuaternionPort')
+export const RayPort = Context.GenericTag<IRayPort>('RayPort')
+export const Matrix4Port = Context.GenericTag<IMatrix4Port>('Matrix4Port')
+export const MathPort = Context.GenericTag<IMathPort>('MathPort')
 
 // Constants for common vectors
 export const VECTOR3_CONSTANTS = {
@@ -107,4 +136,16 @@ export const VECTOR3_CONSTANTS = {
 // Constants for common quaternions
 export const QUATERNION_CONSTANTS = {
   IDENTITY: { x: 0, y: 0, z: 0, w: 1 } as const,
+} as const
+
+// Constants for common matrices
+export const MATRIX4_CONSTANTS = {
+  IDENTITY: {
+    elements: [
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1
+    ]
+  } as const,
 } as const

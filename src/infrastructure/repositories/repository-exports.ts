@@ -6,7 +6,7 @@
  */
 
 // World Repository
-export { WorldRepositoryImpl, WorldRepositoryService, WorldRepositoryLive, WorldRepositoryUtils, type IWorldRepository } from './world.repository'
+export { WorldRepositoryImpl, WorldRepositoryService, WorldRepositoryLive, WorldRepositoryUtils, type IWorldRepository } from '@infrastructure/repositories/world.repository'
 
 // Entity Repository
 export {
@@ -17,7 +17,7 @@ export {
   type EntityMetadata,
   type EntityQueryOptions,
   type EntityChange,
-} from './entity.repository'
+} from '@infrastructure/entity.repository'
 
 // Chunk Repository
 export {
@@ -29,4 +29,4 @@ export {
   type ChunkQueryOptions,
   type ChunkStats,
   type ChunkChange,
-} from './chunk.repository'
+} from '@infrastructure/chunk.repository'

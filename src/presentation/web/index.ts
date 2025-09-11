@@ -1,0 +1,1 @@
+export { startWebApplication } from './main'

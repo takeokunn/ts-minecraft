@@ -11,7 +11,7 @@ import type {
   AccelerationComponent,
   MassComponent,
   ColliderComponent
-} from './physics-components'
+} from '@domain/entities/components/physics/physics-components'
 
 // Factory for efficient position creation
 export const createPosition = (x: number, y: number, z: number): PositionComponent =>

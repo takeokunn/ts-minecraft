@@ -6,9 +6,9 @@
  */
 
 import * as Layer from 'effect/Layer'
-import { BasicBrowserAdapters, AdvancedBrowserAdapters, ProductionAdapters, AdapterUtils } from './adapters'
-import { AllRepositories, CoreRepositories } from './repositories'
-import { UnifiedAppLive, DevelopmentLive, ProductionLive, getRuntimeLayer } from './layers'
+import { BasicBrowserAdapters, AdvancedBrowserAdapters, ProductionAdapters, AdapterUtils } from '@infrastructure/adapters'
+import { AllRepositories, CoreRepositories } from '@infrastructure/repositories'
+import { UnifiedAppLive, DevelopmentLive, ProductionLive, getRuntimeLayer } from '@infrastructure/layers'
 
 /**
  * Complete infrastructure layer for development

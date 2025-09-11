@@ -6,7 +6,7 @@
  */
 
 // Entity Domain Service
-export { EntityDomainService } from './entity-domain.service'
+export { EntityDomainService } from '@domain/services/entity-domain.service'
 export type {
   EntityDomainServiceInterface,
   EntityRepositoryPort,
@@ -23,10 +23,10 @@ export type {
   ArchetypeOptimizationResult,
   EntityWithComponents,
   StorageLayout,
-} from './entity-domain.service'
+} from '@domain/services/entity-domain.service'
 
 // Physics Domain Service
-export { PhysicsDomainService } from './physics-domain.service'
+export { PhysicsDomainService } from '@domain/services/physics-domain.service'
 export type {
   PhysicsDomainServiceInterface,
   PhysicsPort,
@@ -48,31 +48,31 @@ export type {
   PhysicsStats,
   PhysicsMemoryUsage,
   PhysicsPerformanceMetrics,
-} from './physics-domain.service'
+} from '@domain/services/physics-domain.service'
 
 // Raycast Domain Service
-export { RaycastDomainService } from './raycast-domain.service'
-export type { Ray, RayHit, GeometryPort, AABB as RaycastAABB } from './raycast-domain.service'
+export { RaycastDomainService } from '@domain/services/raycast-domain.service'
+export type { Ray, RayHit, GeometryPort, AABB as RaycastAABB } from '@domain/services/raycast-domain.service'
 
 // World Domain Service
-export { WorldDomainService, WorldDomainServiceLive } from './world-domain.service'
-export type { WorldState, WorldRepositoryPort, ChunkRepositoryPort } from './world-domain.service'
+export { WorldDomainService, WorldDomainServiceLive } from '@domain/services/world-domain.service'
+export type { WorldState, WorldRepositoryPort, ChunkRepositoryPort } from '@domain/services/world-domain.service'
 
 // Camera Logic Service
-export { CameraLogic } from './camera-logic'
-export type { CameraConfig, CameraState, CameraUpdates, ViewMatrix, ProjectionMatrix } from './camera-logic'
+export { CameraLogic } from '@domain/services/camera-logic'
+export type { CameraConfig, CameraState, CameraUpdates, ViewMatrix, ProjectionMatrix } from '@domain/services/camera-logic'
 
 // Domain Systems (updated naming convention)
-export { collisionSystem } from './collision-system.service'
-export { cameraControlSystem } from './camera-control.service'
-export { spatialGridSystem } from './spatial-grid-system.service'
-export { targetingSystem } from './targeting.service'
+export { collisionSystem } from '@domain/services/collision-system.service'
+export { cameraControlSystem } from '@domain/services/camera-control.service'
+export { spatialGridSystem } from '@domain/services/spatial-grid-system.service'
+export { targetingSystem } from '@domain/services/targeting.service'
 
 // Terrain Generation Domain Service
-export { TerrainGenerationDomainService, TerrainGenerationDomainServiceLive, TerrainGenerationUtils } from './terrain-generation-domain.service'
+export { TerrainGenerationDomainService, TerrainGenerationDomainServiceLive, TerrainGenerationUtils } from '@domain/services/terrain-generation-domain.service'
 
 // Mesh Generation Domain Service  
-export { MeshGenerationDomainService, MeshGenerationDomainServiceLive, MeshGenerationUtils } from './mesh-generation-domain.service'
+export { MeshGenerationDomainService, MeshGenerationDomainServiceLive, MeshGenerationUtils } from '@domain/services/mesh-generation-domain.service'
 
 // World Management Domain Service
 export { 
@@ -80,7 +80,7 @@ export {
   WorldManagementDomainServiceLive, 
   WorldManagementUtils,
   WorldManagementDomainServicePort
-} from './world-management-domain.service'
+} from '@domain/services/world-management-domain.service'
 export type {
   IWorldManagementDomainService,
   ChunkLoadingStatus,
@@ -88,7 +88,7 @@ export type {
   WorldManagementConfig,
   WorldManagementStats,
   ChunkLoadResult
-} from './world-management-domain.service'
+} from '@domain/services/world-management-domain.service'
 
 // Material Configuration Domain Service
 export { 
@@ -97,10 +97,58 @@ export {
   MaterialConfigDomainServicePort,
   MaterialConfigNotFoundError,
   MaterialConfigValidationError
-} from './material-config-domain.service'
+} from '@domain/services/material-config-domain.service'
 export type {
   IMaterialConfigDomainService,
   MaterialConfig,
   MaterialVariant,
   MaterialType
-} from './material-config-domain.service'
+} from '@domain/services/material-config-domain.service'
+
+// Performance Domain Service
+export {
+  PerformanceDomainServiceLive,
+  PerformanceDomainServicePort,
+  PerformanceDomainUtils,
+  PerformanceAnalysisError,
+  PerformanceThresholdViolationError,
+  PERFORMANCE_THRESHOLDS
+} from '@domain/services/performance-domain.service'
+export type {
+  IPerformanceDomainService,
+  PerformanceMetric,
+  PerformanceAlert,
+  OptimizationStrategy,
+  PerformanceAnalysis,
+  GamePerformanceContext,
+  PerformanceConfig,
+  PerformanceCategory,
+  PerformanceSeverity,
+  AlertType
+} from '@domain/services/performance-domain.service'
+
+// Optimization Domain Service
+export {
+  OptimizationDomainServiceLive,
+  OptimizationDomainServicePort,
+  OptimizationDomainUtils,
+  OptimizationError,
+  LODConfigurationError,
+  CullingError,
+  OPTIMIZATION_CONSTANTS
+} from '@domain/services/optimization-domain.service'
+export type {
+  IOptimizationDomainService,
+  LODLevel,
+  LODConfiguration,
+  CullingConfiguration,
+  CullingResult,
+  BatchingStrategy,
+  RenderBatch,
+  OptimizationTargets,
+  OptimizationMetrics,
+  OptimizationDecision,
+  SpatialOptimizationData,
+  QualitySettings,
+  CullingType
+} from '@domain/services/optimization-domain.service'

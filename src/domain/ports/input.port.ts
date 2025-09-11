@@ -43,4 +43,4 @@ export interface IInputPort {
   readonly isPointerLocked: () => Effect.Effect<boolean, never, never>
 }
 
-export class InputPort extends Context.GenericTag('InputPort')<InputPort, IInputPort>() {}
+export const InputPort = Context.GenericTag<IInputPort>('InputPort')

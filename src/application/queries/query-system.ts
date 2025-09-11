@@ -6,8 +6,8 @@
  * and performance monitoring.
  */
 
-import { OptimizedQuery } from './optimized-query'
-import { globalQueryCacheLayer } from './cache'
+import { OptimizedQuery } from '@application/queries/optimized-query'
+import { globalQueryCacheLayer } from '@application/queries/cache'
 
 /**
  * Query system utilities

@@ -13,7 +13,7 @@ import type {
   TargetComponent,
   AIState,
   ItemStack
-} from './gameplay-components'
+} from '@domain/entities/components/gameplay/gameplay-components'
 
 // ===== COMPONENT FACTORIES =====
 

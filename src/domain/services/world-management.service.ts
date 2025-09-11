@@ -5,9 +5,9 @@
  * for easier access with kebab-case naming convention.
  */
 
-export * from './world-management-domain.service'
+export * from '@domain/services/world-management-domain.service'
 export { 
   WorldManagementDomainService as WorldManagementService,
   WorldManagementDomainServiceLive as WorldManagementServiceLive,
   WorldManagementDomainServicePort as WorldManagementServicePort 
-} from './world-management-domain.service'
+} from '@domain/services/world-management-domain.service'

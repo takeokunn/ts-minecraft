@@ -187,45 +187,67 @@ export type EntityWithComponents<T extends readonly ComponentName[]> = {
 
 // ===== ENTITY DOMAIN SERVICE TAG =====
 
-export class EntityDomainService extends Context.GenericTag('EntityDomainService')<EntityDomainService, EntityDomainServiceInterface>() {
-  static readonly Live = Layer.effect(
-    EntityDomainService,
-    Effect.gen(function* () {
-      // Internal state
-      const nextEntityId = yield* Ref.make(1)
-      const entities = yield* Ref.make(HashMap.empty<EntityId, Entity>())
-      const entityComponents = yield* Ref.make(HashMap.empty<EntityId, Partial<Components>>())
-      const archetypes = yield* Ref.make(HashMap.empty<string, ArchetypeInfo>())
-      const queryCache = yield* Ref.make(HashMap.empty<string, readonly EntityId[]>())
-      const entityStats = yield* Ref.make({
+// ===== ENTITY DOMAIN SERVICE FUNCTIONAL IMPLEMENTATION =====
+
+export interface EntityServiceState {
+  readonly nextEntityId: number
+  readonly entities: HashMap.HashMap<EntityId, Entity>
+  readonly entityComponents: HashMap.HashMap<EntityId, Partial<Components>>
+  readonly archetypes: HashMap.HashMap<string, ArchetypeInfo>
+  readonly queryCache: HashMap.HashMap<string, readonly EntityId[]>
+  readonly entityStats: {
+    readonly totalCreated: number
+    readonly totalDestroyed: number
+    readonly totalQueries: number
+    readonly totalQueryTime: number
+  }
+}
+
+export const EntityDomainService = Context.GenericTag<EntityDomainServiceInterface>('EntityDomainService')
+
+export const EntityDomainServiceLive = Layer.effect(
+  EntityDomainService,
+  Effect.gen(function* () {
+    // Create initial state
+    const stateRef = yield* Ref.make<EntityServiceState>({
+      nextEntityId: 1,
+      entities: HashMap.empty(),
+      entityComponents: HashMap.empty(),
+      archetypes: HashMap.empty(),
+      queryCache: HashMap.empty(),
+      entityStats: {
         totalCreated: 0,
         totalDestroyed: 0,
         totalQueries: 0,
         totalQueryTime: 0,
-      })
+      }
+    })
 
-      // Configuration
-      const MAX_ENTITIES = 100000
-      const CACHE_SIZE = 1000
+    // Configuration
+    const MAX_ENTITIES = 100000
+    const CACHE_SIZE = 1000
 
-      // Helper functions
-      const generateArchetypeId = (componentNames: readonly ComponentName[]): string => Array.fromIterable(componentNames).sort().join('|')
+    // Helper functions
+    const generateArchetypeId = (componentNames: readonly ComponentName[]): string => 
+      Array.fromIterable(componentNames).sort().join('|')
 
-      const getEntityArchetypeId = (components: Partial<Components>): string => generateArchetypeId(Object.keys(components) as ComponentName[])
+    const getEntityArchetypeId = (components: Partial<Components>): string => 
+      generateArchetypeId(Object.keys(components) as ComponentName[])
 
-      const incrementEntityId = (): Effect.Effect<EntityId, never, never> => Ref.modify(nextEntityId, (id) => [id as EntityId, id + 1])
+    const incrementEntityId = (): Effect.Effect<EntityId, never, never> => 
+      Ref.modify(stateRef, (state) => [state.nextEntityId as EntityId, { ...state, nextEntityId: state.nextEntityId + 1 }])
 
-      const validateEntityLimit = (currentCount: number): Effect.Effect<void, typeof EntityLimitExceededError, never> =>
-        Effect.when(
-          Effect.fail(
-            EntityLimitExceededError({
-              message: `Entity limit exceeded: ${currentCount}/${MAX_ENTITIES}`,
-              limit: MAX_ENTITIES,
-              current: currentCount,
-            }),
-          ),
-          () => currentCount >= MAX_ENTITIES,
-        )
+    const validateEntityLimit = (currentCount: number): Effect.Effect<void, typeof EntityLimitExceededError, never> =>
+      Effect.when(
+        Effect.fail(
+          EntityLimitExceededError({
+            message: `Entity limit exceeded: ${currentCount}/${MAX_ENTITIES}`,
+            limit: MAX_ENTITIES,
+            current: currentCount,
+          }),
+        ),
+        () => currentCount >= MAX_ENTITIES,
+      )
 
       // Entity lifecycle implementation
       const createEntity = (components: Partial<Components> = {}): Effect.Effect<EntityId, typeof EntityCreationError | typeof EntityLimitExceededError, never> =>
@@ -822,4 +844,3 @@ export class EntityDomainService extends Context.GenericTag('EntityDomainService
       }
     }),
   )
-}

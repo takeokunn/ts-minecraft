@@ -12,7 +12,7 @@
 import { Effect, Layer, Context } from 'effect'
 import { ISpatialGrid, SpatialGridPort } from '@domain/ports/spatial-grid.port'
 import type { EntityId } from '@domain/entities'
-import type { AABB } from '@domain/geometry'
+import type { AABB } from '@domain/value-objects/physics/aabb.vo'
 
 /**
  * Simple spatial grid cell for entity storage

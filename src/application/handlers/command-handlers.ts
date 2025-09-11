@@ -5,13 +5,20 @@ import { PlayerMoveUseCase } from '@application/use-cases/player-move.use-case'
 import { BlockPlaceUseCase } from '@application/use-cases/block-place.use-case'
 import { ChunkLoadUseCase, ChunkLoadCommand } from '@application/use-cases/chunk-load.use-case'
 import { WorldGenerateUseCase, WorldGenerateCommand } from '@application/use-cases/world-generate.use-case'
+import { 
+  ValidationError, 
+  SystemExecutionError, 
+  EntityNotFoundError,
+  ChunkNotLoadedError,
+  WorldStateError 
+} from '@domain/errors'
 
-// Service interface
+// Service interface with proper error types
 interface CommandHandlersService {
-  readonly handlePlayerMovement: (command: PlayerMovementCommand) => Effect.Effect<void, Error, PlayerMoveUseCase>
-  readonly handleBlockInteraction: (command: BlockInteractionCommand) => Effect.Effect<void, Error, BlockPlaceUseCase>
-  readonly handleChunkLoad: (command: ChunkLoadCommand) => Effect.Effect<void, Error, ChunkLoadUseCase>
-  readonly handleWorldGenerate: (command: WorldGenerateCommand) => Effect.Effect<void, Error, WorldGenerateUseCase>
+  readonly handlePlayerMovement: (command: PlayerMovementCommand) => Effect.Effect<void, ValidationError | SystemExecutionError | EntityNotFoundError, PlayerMoveUseCase>
+  readonly handleBlockInteraction: (command: BlockInteractionCommand) => Effect.Effect<void, ValidationError | SystemExecutionError | WorldStateError, BlockPlaceUseCase>
+  readonly handleChunkLoad: (command: ChunkLoadCommand) => Effect.Effect<void, ValidationError | ChunkNotLoadedError | SystemExecutionError, ChunkLoadUseCase>
+  readonly handleWorldGenerate: (command: WorldGenerateCommand) => Effect.Effect<void, ValidationError | WorldStateError | SystemExecutionError, WorldGenerateUseCase>
 }
 
 export class CommandHandlers extends Context.Tag('CommandHandlers')<CommandHandlers, CommandHandlersService>() {}
@@ -20,7 +27,7 @@ export const CommandHandlersLive: Layer.Layer<CommandHandlers, never, PlayerMove
   CommandHandlers,
   Effect.gen(function* () {
     return {
-      handlePlayerMovement: (command: PlayerMovementCommand): Effect.Effect<void, Error, PlayerMoveUseCase> =>
+      handlePlayerMovement: (command: PlayerMovementCommand): Effect.Effect<void, ValidationError | SystemExecutionError | EntityNotFoundError, PlayerMoveUseCase> =>
         Effect.gen(function* () {
           const playerMoveUseCase = yield* PlayerMoveUseCase
 
@@ -34,7 +41,7 @@ export const CommandHandlersLive: Layer.Layer<CommandHandlers, never, PlayerMove
           yield* Effect.log(`Player movement command executed for entity ${command.entityId}`)
         }),
 
-      handleBlockInteraction: (command: BlockInteractionCommand): Effect.Effect<void, Error, BlockPlaceUseCase> =>
+      handleBlockInteraction: (command: BlockInteractionCommand): Effect.Effect<void, ValidationError | SystemExecutionError | WorldStateError, BlockPlaceUseCase> =>
         Effect.gen(function* () {
           const blockPlaceUseCase = yield* BlockPlaceUseCase
 
@@ -48,7 +55,7 @@ export const CommandHandlersLive: Layer.Layer<CommandHandlers, never, PlayerMove
           yield* Effect.log(`Block interaction command executed: ${command.action} at ${command.position.x}, ${command.position.y}, ${command.position.z}`)
         }),
 
-      handleChunkLoad: (command: ChunkLoadCommand): Effect.Effect<void, Error, ChunkLoadUseCase> =>
+      handleChunkLoad: (command: ChunkLoadCommand): Effect.Effect<void, ValidationError | ChunkNotLoadedError | SystemExecutionError, ChunkLoadUseCase> =>
         Effect.gen(function* () {
           const chunkLoadUseCase = yield* ChunkLoadUseCase
 
@@ -62,7 +69,7 @@ export const CommandHandlersLive: Layer.Layer<CommandHandlers, never, PlayerMove
           yield* Effect.log(`Chunk load command executed for chunk ${command.chunkX}, ${command.chunkZ}`)
         }),
 
-      handleWorldGenerate: (command: WorldGenerateCommand): Effect.Effect<void, Error, WorldGenerateUseCase> =>
+      handleWorldGenerate: (command: WorldGenerateCommand): Effect.Effect<void, ValidationError | WorldStateError | SystemExecutionError, WorldGenerateUseCase> =>
         Effect.gen(function* () {
           const worldGenerateUseCase = yield* WorldGenerateUseCase
 
@@ -79,63 +86,99 @@ export const CommandHandlersLive: Layer.Layer<CommandHandlers, never, PlayerMove
   }),
 )
 
-const validatePlayerMovementCommand = (command: PlayerMovementCommand): Effect.Effect<void, Error, never> =>
+const validatePlayerMovementCommand = (command: PlayerMovementCommand): Effect.Effect<void, ValidationError, never> =>
   Effect.gen(function* () {
     if (!command.entityId) {
-      return yield* Effect.fail(new Error('Entity ID is required'))
+      return yield* Effect.fail(ValidationError({
+        field: 'entityId',
+        message: 'Entity ID is required'
+      }))
     }
 
     if (!command.position || typeof command.position.x !== 'number' || typeof command.position.y !== 'number' || typeof command.position.z !== 'number') {
-      return yield* Effect.fail(new Error('Valid position is required'))
+      return yield* Effect.fail(ValidationError({
+        field: 'position',
+        message: 'Valid position with x, y, z coordinates is required'
+      }))
     }
 
     if (!command.velocity || typeof command.velocity.dx !== 'number' || typeof command.velocity.dy !== 'number' || typeof command.velocity.dz !== 'number') {
-      return yield* Effect.fail(new Error('Valid velocity is required'))
+      return yield* Effect.fail(ValidationError({
+        field: 'velocity',
+        message: 'Valid velocity with dx, dy, dz components is required'
+      }))
     }
   })
 
-const validateBlockInteractionCommand = (command: BlockInteractionCommand): Effect.Effect<void, Error, never> =>
+const validateBlockInteractionCommand = (command: BlockInteractionCommand): Effect.Effect<void, ValidationError, never> =>
   Effect.gen(function* () {
     if (!command.entityId) {
-      return yield* Effect.fail(new Error('Entity ID is required'))
+      return yield* Effect.fail(ValidationError({
+        field: 'entityId',
+        message: 'Entity ID is required'
+      }))
     }
 
     if (!command.position || typeof command.position.x !== 'number' || typeof command.position.y !== 'number' || typeof command.position.z !== 'number') {
-      return yield* Effect.fail(new Error('Valid position is required'))
+      return yield* Effect.fail(ValidationError({
+        field: 'position',
+        message: 'Valid position with x, y, z coordinates is required'
+      }))
     }
 
     if (!['place', 'destroy'].includes(command.action)) {
-      return yield* Effect.fail(new Error("Action must be 'place' or 'destroy'"))
+      return yield* Effect.fail(ValidationError({
+        field: 'action',
+        message: "Action must be 'place' or 'destroy'"
+      }))
     }
 
     if (command.action === 'place' && !command.blockType) {
-      return yield* Effect.fail(new Error('Block type is required for place action'))
+      return yield* Effect.fail(ValidationError({
+        field: 'blockType',
+        message: 'Block type is required for place action'
+      }))
     }
   })
 
-const validateChunkLoadCommand = (command: ChunkLoadCommand): Effect.Effect<void, Error, never> =>
+const validateChunkLoadCommand = (command: ChunkLoadCommand): Effect.Effect<void, ValidationError, never> =>
   Effect.gen(function* () {
     if (typeof command.chunkX !== 'number' || typeof command.chunkZ !== 'number') {
-      return yield* Effect.fail(new Error('Valid chunk coordinates are required'))
+      return yield* Effect.fail(ValidationError({
+        field: 'chunkCoordinates',
+        message: 'Valid chunk coordinates (chunkX, chunkZ) are required'
+      }))
     }
 
     if (!['high', 'medium', 'low'].includes(command.priority)) {
-      return yield* Effect.fail(new Error("Priority must be 'high', 'medium', or 'low'"))
+      return yield* Effect.fail(ValidationError({
+        field: 'priority',
+        message: "Priority must be 'high', 'medium', or 'low'"
+      }))
     }
   })
 
-const validateWorldGenerateCommand = (command: WorldGenerateCommand): Effect.Effect<void, Error, never> =>
+const validateWorldGenerateCommand = (command: WorldGenerateCommand): Effect.Effect<void, ValidationError, never> =>
   Effect.gen(function* () {
     if (typeof command.seed !== 'number') {
-      return yield* Effect.fail(new Error('Valid seed is required'))
+      return yield* Effect.fail(ValidationError({
+        field: 'seed',
+        message: 'Valid numeric seed is required'
+      }))
     }
 
     if (!['flat', 'normal', 'amplified', 'debug'].includes(command.worldType)) {
-      return yield* Effect.fail(new Error("World type must be 'flat', 'normal', 'amplified', or 'debug'"))
+      return yield* Effect.fail(ValidationError({
+        field: 'worldType',
+        message: "World type must be 'flat', 'normal', 'amplified', or 'debug'"
+      }))
     }
 
     if (typeof command.generateStructures !== 'boolean') {
-      return yield* Effect.fail(new Error('Generate structures must be a boolean'))
+      return yield* Effect.fail(ValidationError({
+        field: 'generateStructures',
+        message: 'Generate structures must be a boolean value'
+      }))
     }
   })
 

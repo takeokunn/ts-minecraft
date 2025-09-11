@@ -8,7 +8,7 @@
 
 // === LEGACY COMPATIBILITY EXPORTS ===
 // These are maintained during migration but will be deprecated
-export { query, QueryBuilder, soaQuery, SoAQuery, aosQuery, AoSQuery } from './builder'
-export { ArchetypeQuery, Archetype, ArchetypeManager } from './archetype-query'
-export { OptimizedQuery } from './optimized-query'
-export { QueryCache, EvictionPolicy, globalQueryCacheLayer, CacheKeyGenerator } from './cache'
+export { query, QueryBuilder, soaQuery, SoAQuery, aosQuery, AoSQuery } from '@application/queries/builder'
+export { ArchetypeQuery, Archetype, ArchetypeManager } from '@application/queries/archetype-query'
+export { OptimizedQuery } from '@application/queries/optimized-query'
+export { QueryCache, EvictionPolicy, globalQueryCacheLayer, CacheKeyGenerator } from '@application/queries/cache'

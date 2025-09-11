@@ -12,13 +12,16 @@ import {
   IVector3Port,
   IQuaternionPort,
   IRayPort,
+  IMatrix4Port,
   IMathPort,
   Vector3Data,
   QuaternionData,
   RayData,
+  Matrix4Data,
   Vector3Port,
   QuaternionPort,
   RayPort,
+  Matrix4Port,
   MathPort,
 } from '@domain/ports/math.port'
 
@@ -322,6 +325,297 @@ export const NativeRayAdapterLive = Layer.succeed(
 )
 
 /**
+ * Native JavaScript Matrix4 Adapter Implementation
+ */
+export const NativeMatrix4AdapterLive = Layer.succeed(
+  Matrix4Port,
+  Matrix4Port.of({
+    create: () =>
+      Effect.succeed({
+        elements: [
+          1, 0, 0, 0,
+          0, 1, 0, 0,
+          0, 0, 1, 0,
+          0, 0, 0, 1
+        ]
+      }),
+
+    identity: () =>
+      Effect.succeed({
+        elements: [
+          1, 0, 0, 0,
+          0, 1, 0, 0,
+          0, 0, 1, 0,
+          0, 0, 0, 1
+        ]
+      }),
+
+    fromArray: (elements: readonly number[]) =>
+      Effect.succeed({
+        elements: [
+          elements[0] || 0, elements[1] || 0, elements[2] || 0, elements[3] || 0,
+          elements[4] || 0, elements[5] || 0, elements[6] || 0, elements[7] || 0,
+          elements[8] || 0, elements[9] || 0, elements[10] || 0, elements[11] || 0,
+          elements[12] || 0, elements[13] || 0, elements[14] || 0, elements[15] || 0
+        ]
+      }),
+
+    multiply: (a: Matrix4Data, b: Matrix4Data) =>
+      Effect.gen(function* (_) {
+        const ae = a.elements
+        const be = b.elements
+        const result: number[] = new Array(16)
+        
+        for (let i = 0; i < 4; i++) {
+          for (let j = 0; j < 4; j++) {
+            result[i * 4 + j] = 
+              ae[i * 4 + 0] * be[0 * 4 + j] +
+              ae[i * 4 + 1] * be[1 * 4 + j] +
+              ae[i * 4 + 2] * be[2 * 4 + j] +
+              ae[i * 4 + 3] * be[3 * 4 + j]
+          }
+        }
+        
+        return { elements: result as any }
+      }),
+
+    multiplyVector3: (matrix: Matrix4Data, vector: Vector3Data) =>
+      Effect.gen(function* (_) {
+        const m = matrix.elements
+        const x = vector.x, y = vector.y, z = vector.z
+        
+        const w = 1 / (m[3] * x + m[7] * y + m[11] * z + m[15])
+        
+        return {
+          x: (m[0] * x + m[4] * y + m[8] * z + m[12]) * w,
+          y: (m[1] * x + m[5] * y + m[9] * z + m[13]) * w,
+          z: (m[2] * x + m[6] * y + m[10] * z + m[14]) * w,
+        }
+      }),
+
+    transpose: (matrix: Matrix4Data) =>
+      Effect.gen(function* (_) {
+        const m = matrix.elements
+        return {
+          elements: [
+            m[0], m[4], m[8], m[12],
+            m[1], m[5], m[9], m[13],
+            m[2], m[6], m[10], m[14],
+            m[3], m[7], m[11], m[15]
+          ]
+        }
+      }),
+
+    invert: (matrix: Matrix4Data) =>
+      Effect.gen(function* (_) {
+        const m = matrix.elements
+        const inv = new Array(16)
+
+        inv[0] = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15] + m[9] * m[7] * m[14] + m[13] * m[6] * m[11] - m[13] * m[7] * m[10]
+        inv[4] = -m[4] * m[10] * m[15] + m[4] * m[11] * m[14] + m[8] * m[6] * m[15] - m[8] * m[7] * m[14] - m[12] * m[6] * m[11] + m[12] * m[7] * m[10]
+        inv[8] = m[4] * m[9] * m[15] - m[4] * m[11] * m[13] - m[8] * m[5] * m[15] + m[8] * m[7] * m[13] + m[12] * m[5] * m[11] - m[12] * m[7] * m[9]
+        inv[12] = -m[4] * m[9] * m[14] + m[4] * m[10] * m[13] + m[8] * m[5] * m[14] - m[8] * m[6] * m[13] - m[12] * m[5] * m[10] + m[12] * m[6] * m[9]
+        inv[1] = -m[1] * m[10] * m[15] + m[1] * m[11] * m[14] + m[9] * m[2] * m[15] - m[9] * m[3] * m[14] - m[13] * m[2] * m[11] + m[13] * m[3] * m[10]
+        inv[5] = m[0] * m[10] * m[15] - m[0] * m[11] * m[14] - m[8] * m[2] * m[15] + m[8] * m[3] * m[14] + m[12] * m[2] * m[11] - m[12] * m[3] * m[10]
+        inv[9] = -m[0] * m[9] * m[15] + m[0] * m[11] * m[13] + m[8] * m[1] * m[15] - m[8] * m[3] * m[13] - m[12] * m[1] * m[11] + m[12] * m[3] * m[9]
+        inv[13] = m[0] * m[9] * m[14] - m[0] * m[10] * m[13] - m[8] * m[1] * m[14] + m[8] * m[2] * m[13] + m[12] * m[1] * m[10] - m[12] * m[2] * m[9]
+        inv[2] = m[1] * m[6] * m[15] - m[1] * m[7] * m[14] - m[5] * m[2] * m[15] + m[5] * m[3] * m[14] + m[13] * m[2] * m[7] - m[13] * m[3] * m[6]
+        inv[6] = -m[0] * m[6] * m[15] + m[0] * m[7] * m[14] + m[4] * m[2] * m[15] - m[4] * m[3] * m[14] - m[12] * m[2] * m[7] + m[12] * m[3] * m[6]
+        inv[10] = m[0] * m[5] * m[15] - m[0] * m[7] * m[13] - m[4] * m[1] * m[15] + m[4] * m[3] * m[13] + m[12] * m[1] * m[7] - m[12] * m[3] * m[5]
+        inv[14] = -m[0] * m[5] * m[14] + m[0] * m[6] * m[13] + m[4] * m[1] * m[14] - m[4] * m[2] * m[13] - m[12] * m[1] * m[6] + m[12] * m[2] * m[5]
+        inv[3] = -m[1] * m[6] * m[11] + m[1] * m[7] * m[10] + m[5] * m[2] * m[11] - m[5] * m[3] * m[10] - m[9] * m[2] * m[7] + m[9] * m[3] * m[6]
+        inv[7] = m[0] * m[6] * m[11] - m[0] * m[7] * m[10] - m[4] * m[2] * m[11] + m[4] * m[3] * m[10] + m[8] * m[2] * m[7] - m[8] * m[3] * m[6]
+        inv[11] = -m[0] * m[5] * m[11] + m[0] * m[7] * m[9] + m[4] * m[1] * m[11] - m[4] * m[3] * m[9] - m[8] * m[1] * m[7] + m[8] * m[3] * m[5]
+        inv[15] = m[0] * m[5] * m[10] - m[0] * m[6] * m[9] - m[4] * m[1] * m[10] + m[4] * m[2] * m[9] + m[8] * m[1] * m[6] - m[8] * m[2] * m[5]
+
+        const det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12]
+        
+        if (det === 0) {
+          return { elements: matrix.elements } // Return original if not invertible
+        }
+        
+        const invDet = 1.0 / det
+        for (let i = 0; i < 16; i++) {
+          inv[i] *= invDet
+        }
+        
+        return { elements: inv as any }
+      }),
+
+    translate: (matrix: Matrix4Data, vector: Vector3Data) =>
+      Effect.gen(function* (_) {
+        const translation = [
+          1, 0, 0, 0,
+          0, 1, 0, 0,
+          0, 0, 1, 0,
+          vector.x, vector.y, vector.z, 1
+        ]
+        
+        return yield* _(Effect.succeed({ elements: translation as any }).pipe(
+          Effect.flatMap(t => Effect.succeed(t).pipe(
+            Effect.flatMap(t => {
+              const ae = matrix.elements
+              const be = t.elements
+              const result: number[] = new Array(16)
+              
+              for (let i = 0; i < 4; i++) {
+                for (let j = 0; j < 4; j++) {
+                  result[i * 4 + j] = 
+                    ae[i * 4 + 0] * be[0 * 4 + j] +
+                    ae[i * 4 + 1] * be[1 * 4 + j] +
+                    ae[i * 4 + 2] * be[2 * 4 + j] +
+                    ae[i * 4 + 3] * be[3 * 4 + j]
+                }
+              }
+              
+              return Effect.succeed({ elements: result as any })
+            })
+          ))
+        ))
+      }),
+
+    rotate: (matrix: Matrix4Data, axis: Vector3Data, angle: number) =>
+      Effect.gen(function* (_) {
+        const axisMag = Math.sqrt(axis.x * axis.x + axis.y * axis.y + axis.z * axis.z)
+        if (axisMag === 0) return matrix
+        
+        const x = axis.x / axisMag
+        const y = axis.y / axisMag
+        const z = axis.z / axisMag
+        
+        const cos = Math.cos(angle)
+        const sin = Math.sin(angle)
+        const t = 1 - cos
+        
+        const rotation = [
+          cos + x * x * t,     x * y * t - z * sin, x * z * t + y * sin, 0,
+          y * x * t + z * sin, cos + y * y * t,     y * z * t - x * sin, 0,
+          z * x * t - y * sin, z * y * t + x * sin, cos + z * z * t,     0,
+          0,                   0,                   0,                   1
+        ]
+        
+        const ae = matrix.elements
+        const be = rotation
+        const result: number[] = new Array(16)
+        
+        for (let i = 0; i < 4; i++) {
+          for (let j = 0; j < 4; j++) {
+            result[i * 4 + j] = 
+              ae[i * 4 + 0] * be[0 * 4 + j] +
+              ae[i * 4 + 1] * be[1 * 4 + j] +
+              ae[i * 4 + 2] * be[2 * 4 + j] +
+              ae[i * 4 + 3] * be[3 * 4 + j]
+          }
+        }
+        
+        return { elements: result as any }
+      }),
+
+    scale: (matrix: Matrix4Data, vector: Vector3Data) =>
+      Effect.gen(function* (_) {
+        const scaling = [
+          vector.x, 0, 0, 0,
+          0, vector.y, 0, 0,
+          0, 0, vector.z, 0,
+          0, 0, 0, 1
+        ]
+        
+        const ae = matrix.elements
+        const be = scaling
+        const result: number[] = new Array(16)
+        
+        for (let i = 0; i < 4; i++) {
+          for (let j = 0; j < 4; j++) {
+            result[i * 4 + j] = 
+              ae[i * 4 + 0] * be[0 * 4 + j] +
+              ae[i * 4 + 1] * be[1 * 4 + j] +
+              ae[i * 4 + 2] * be[2 * 4 + j] +
+              ae[i * 4 + 3] * be[3 * 4 + j]
+          }
+        }
+        
+        return { elements: result as any }
+      }),
+
+    lookAt: (eye: Vector3Data, center: Vector3Data, up: Vector3Data) =>
+      Effect.gen(function* (_) {
+        const zAxis = {
+          x: eye.x - center.x,
+          y: eye.y - center.y,
+          z: eye.z - center.z
+        }
+        const zLen = Math.sqrt(zAxis.x * zAxis.x + zAxis.y * zAxis.y + zAxis.z * zAxis.z)
+        if (zLen === 0) {
+          return {
+            elements: [
+              1, 0, 0, 0,
+              0, 1, 0, 0,
+              0, 0, 1, 0,
+              0, 0, 0, 1
+            ]
+          }
+        }
+        zAxis.x /= zLen
+        zAxis.y /= zLen
+        zAxis.z /= zLen
+        
+        const xAxis = {
+          x: up.y * zAxis.z - up.z * zAxis.y,
+          y: up.z * zAxis.x - up.x * zAxis.z,
+          z: up.x * zAxis.y - up.y * zAxis.x
+        }
+        const xLen = Math.sqrt(xAxis.x * xAxis.x + xAxis.y * xAxis.y + xAxis.z * xAxis.z)
+        if (xLen === 0) {
+          return {
+            elements: [
+              1, 0, 0, 0,
+              0, 1, 0, 0,
+              0, 0, 1, 0,
+              0, 0, 0, 1
+            ]
+          }
+        }
+        xAxis.x /= xLen
+        xAxis.y /= xLen
+        xAxis.z /= xLen
+        
+        const yAxis = {
+          x: zAxis.y * xAxis.z - zAxis.z * xAxis.y,
+          y: zAxis.z * xAxis.x - zAxis.x * xAxis.z,
+          z: zAxis.x * xAxis.y - zAxis.y * xAxis.x
+        }
+        
+        return {
+          elements: [
+            xAxis.x, yAxis.x, zAxis.x, 0,
+            xAxis.y, yAxis.y, zAxis.y, 0,
+            xAxis.z, yAxis.z, zAxis.z, 0,
+            -(xAxis.x * eye.x + xAxis.y * eye.y + xAxis.z * eye.z),
+            -(yAxis.x * eye.x + yAxis.y * eye.y + yAxis.z * eye.z),
+            -(zAxis.x * eye.x + zAxis.y * eye.y + zAxis.z * eye.z),
+            1
+          ]
+        }
+      }),
+
+    perspective: (fov: number, aspect: number, near: number, far: number) =>
+      Effect.gen(function* (_) {
+        const f = Math.tan(Math.PI * 0.5 - 0.5 * fov)
+        const rangeInv = 1.0 / (near - far)
+        
+        return {
+          elements: [
+            f / aspect, 0, 0, 0,
+            0, f, 0, 0,
+            0, 0, (near + far) * rangeInv, -1,
+            0, 0, near * far * rangeInv * 2, 0
+          ]
+        }
+      }),
+  })
+)
+
+/**
  * Combined Native Math Adapter Layer
  */
 export const NativeMathAdapterLive = Layer.succeed(
@@ -330,17 +624,20 @@ export const NativeMathAdapterLive = Layer.succeed(
     const vector3 = yield* _(Vector3Port)
     const quaternion = yield* _(QuaternionPort)
     const ray = yield* _(RayPort)
+    const matrix4 = yield* _(Matrix4Port)
 
     return MathPort.of({
       vector3,
       quaternion,
       ray,
+      matrix4,
     })
   }).pipe(Effect.provide(
     Layer.mergeAll(
       NativeVector3AdapterLive,
       NativeQuaternionAdapterLive,
-      NativeRayAdapterLive
+      NativeRayAdapterLive,
+      NativeMatrix4AdapterLive
     )
   ))
 )
@@ -352,5 +649,6 @@ export const AllNativeMathAdaptersLive = Layer.mergeAll(
   NativeVector3AdapterLive,
   NativeQuaternionAdapterLive,
   NativeRayAdapterLive,
+  NativeMatrix4AdapterLive,
   NativeMathAdapterLive
 )

@@ -2,11 +2,11 @@
  * Adapter utilities and layer compositions
  */
 import * as Layer from 'effect/Layer'
-import { ThreeJsAdapterLive, ThreeJsContextLive } from './three-js.adapter'
-import { BrowserInputAdapterLive } from './browser-input.adapter'
-import { BrowserClockAdapterLive } from './clock.adapter'
-import { WebGPUAdapterLive } from './webgpu.adapter'
-import { WebSocketAdapterLive } from './websocket.adapter'
+import { ThreeJsAdapterLive, ThreeJsContextLive } from '@infrastructure/adapters/three-js.adapter'
+import { BrowserInputAdapterLive } from '@infrastructure/adapters/browser-input.adapter'
+import { BrowserClockAdapterLive } from '@infrastructure/adapters/clock.adapter'
+import { WebGPUAdapterLive } from '@infrastructure/adapters/webgpu.adapter'
+import { WebSocketAdapterLive } from '@infrastructure/adapters/websocket.adapter'
 
 /**
  * Adapter Layer combinations for easy setup

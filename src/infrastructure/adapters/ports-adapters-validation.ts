@@ -28,7 +28,7 @@ import {
 import {
   AllThreeJsMathAdaptersLive,
   AllNativeMathAdaptersLive,
-} from './adapter-exports'
+} from '@infrastructure/adapter-exports'
 
 /**
  * Test Math Port implementations

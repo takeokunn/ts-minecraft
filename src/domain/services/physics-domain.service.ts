@@ -340,110 +340,125 @@ export interface DebugColor {
   readonly a: number
 }
 
-// ===== PHYSICS DOMAIN SERVICE TAG =====
+// ===== PHYSICS DOMAIN SERVICE FUNCTIONAL IMPLEMENTATION =====
 
-export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainService')<PhysicsDomainService, PhysicsDomainServiceInterface> {
-  static readonly Live = Layer.effect(
-    PhysicsDomainService,
-    Effect.gen(function* () {
-      // Dependencies would be provided by proper service composition
-      // const entityService = yield* EntityServiceDep
-      // const worldService = yield* WorldServiceDep
+export interface PhysicsServiceState {
+  readonly rigidBodies: HashMap.HashMap<RigidBodyId, RigidBody>
+  readonly constraints: HashMap.HashMap<ConstraintId, Constraint>
+  readonly materials: HashMap.HashMap<PhysicsMaterialId, PhysicsMaterial>
+  readonly spatialIndex: ReturnType<typeof SpatialIndex.create>
+  readonly gravity: Vector3
+  readonly timeScale: number
+  readonly debugEnabled: boolean
+  readonly nextId: number
+  readonly physicsStats: PhysicsStats
+}
 
-      // Internal state
-      const rigidBodies = yield* Ref.make(HashMap.empty<RigidBodyId, RigidBody>())
-      const constraints = yield* Ref.make(HashMap.empty<ConstraintId, Constraint>())
-      const materials = yield* Ref.make(HashMap.empty<PhysicsMaterialId, PhysicsMaterial>())
-      const spatialIndex = yield* Ref.make(new SpatialIndex())
-      const gravity = yield* Ref.make<Vector3>({ x: 0, y: -9.81, z: 0 })
-      const timeScale = yield* Ref.make(1.0)
-      const debugEnabled = yield* Ref.make(false)
-      const nextId = yield* Ref.make(0)
+export const PhysicsDomainService = Context.GenericTag<PhysicsDomainServiceInterface>('PhysicsDomainService')
 
-      const physicsStats = yield* Ref.make({
+export const PhysicsDomainServiceLive = Layer.effect(
+  PhysicsDomainService,
+  Effect.gen(function* () {
+    // Create initial state
+    const stateRef = yield* Ref.make<PhysicsServiceState>({
+      rigidBodies: HashMap.empty(),
+      constraints: HashMap.empty(),
+      materials: HashMap.empty(),
+      spatialIndex: SpatialIndex.create(),
+      gravity: { x: 0, y: -9.81, z: 0 },
+      timeScale: 1.0,
+      debugEnabled: false,
+      nextId: 0,
+      physicsStats: {
         totalSteps: 0,
         totalSimulationTime: 0,
         avgStepTime: 0,
         bodiesProcessed: 0,
         constraintsSolved: 0,
-      })
-
-      // Configuration constants
-      const MAX_SUBSTEPS = 10
-      const FIXED_TIMESTEP = 1 / 60
-      const SLEEP_THRESHOLD = 0.01
-
-      // Helper functions
-      const generateId = (): Effect.Effect<string, never, never> => Ref.modify(nextId, (id) => [(id + 1).toString(), id + 1])
-
-      const createRigidBodyId = (id: string): RigidBodyId => id as RigidBodyId
-      const createConstraintId = (id: string): ConstraintId => id as ConstraintId
-      const createMaterialId = (id: string): PhysicsMaterialId => id as PhysicsMaterialId
-
-      // Vector math utilities
-      const vectorAdd = (a: Vector3, b: Vector3): Vector3 => ({
-        x: a.x + b.x,
-        y: a.y + b.y,
-        z: a.z + b.z,
-      })
-
-      const vectorScale = (v: Vector3, scale: number): Vector3 => ({
-        x: v.x * scale,
-        y: v.y * scale,
-        z: v.z * scale,
-      })
-
-      const vectorLength = (v: Vector3): number => Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
-
-      const _vectorNormalize = (v: Vector3): Vector3 => {
-        const length = vectorLength(v)
-        return length > 0 ? vectorScale(v, 1 / length) : { x: 0, y: 0, z: 0 }
       }
+    })
 
-      const vectorDot = (a: Vector3, b: Vector3): number => a.x * b.x + a.y * b.y + a.z * b.z
+    // Configuration constants
+    const MAX_SUBSTEPS = 10
+    const FIXED_TIMESTEP = 1 / 60
+    const SLEEP_THRESHOLD = 0.01
 
-      // Rigid body management implementation
-      const createRigidBody = (entityId: EntityId, bodyDef: RigidBodyDefinition): Effect.Effect<RigidBodyId, typeof RigidBodyError, never> =>
-        Effect.gen(function* () {
-          try {
-            const id = createRigidBodyId(yield* generateId())
+    // Helper functions
+    const generateId = (): Effect.Effect<string, never, never> => 
+      Ref.modify(stateRef, (state) => [(state.nextId + 1).toString(), { ...state, nextId: state.nextId + 1 }])
 
-            const rigidBody: RigidBody = {
-              id,
+    const createRigidBodyId = (id: string): RigidBodyId => id as RigidBodyId
+    const createConstraintId = (id: string): ConstraintId => id as ConstraintId
+    const createMaterialId = (id: string): PhysicsMaterialId => id as PhysicsMaterialId
+
+    // Vector math utilities
+    const vectorAdd = (a: Vector3, b: Vector3): Vector3 => ({
+      x: a.x + b.x,
+      y: a.y + b.y,
+      z: a.z + b.z,
+    })
+
+    const vectorScale = (v: Vector3, scale: number): Vector3 => ({
+      x: v.x * scale,
+      y: v.y * scale,
+      z: v.z * scale,
+    })
+
+    const vectorLength = (v: Vector3): number => Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
+
+    const _vectorNormalize = (v: Vector3): Vector3 => {
+      const length = vectorLength(v)
+      return length > 0 ? vectorScale(v, 1 / length) : { x: 0, y: 0, z: 0 }
+    }
+
+    const vectorDot = (a: Vector3, b: Vector3): number => a.x * b.x + a.y * b.y + a.z * b.z
+
+    // Rigid body management implementation
+    const createRigidBody = (entityId: EntityId, bodyDef: RigidBodyDefinition): Effect.Effect<RigidBodyId, typeof RigidBodyError, never> =>
+      Effect.gen(function* () {
+        const id = createRigidBodyId(yield* generateId())
+
+        // Validate body definition
+        if (!bodyDef.shape || !bodyDef.position || typeof bodyDef.mass !== 'number' || bodyDef.mass < 0) {
+          return yield* Effect.fail(
+            RigidBodyError({
+              message: 'Invalid rigid body definition provided',
               entityId,
-              definition: bodyDef,
-              state: {
-                position: bodyDef.position,
-                rotation: bodyDef.rotation,
-                linearVelocity: { x: 0, y: 0, z: 0 },
-                angularVelocity: { x: 0, y: 0, z: 0 },
-                force: { x: 0, y: 0, z: 0 },
-                torque: { x: 0, y: 0, z: 0 },
-              },
-              shape: bodyDef.shape,
-              material: Option.fromNullable(bodyDef.material),
-              isActive: true,
-              sleepState: 'awake',
-            }
+              bodyId: id
+            }),
+          )
+        }
 
-            yield* Ref.update(rigidBodies, HashMap.set(id, rigidBody))
+        const rigidBody: RigidBody = {
+          id,
+          entityId,
+          definition: bodyDef,
+          state: {
+            position: bodyDef.position,
+            rotation: bodyDef.rotation,
+            linearVelocity: { x: 0, y: 0, z: 0 },
+            angularVelocity: { x: 0, y: 0, z: 0 },
+            force: { x: 0, y: 0, z: 0 },
+            torque: { x: 0, y: 0, z: 0 },
+          },
+          shape: bodyDef.shape,
+          material: Option.fromNullable(bodyDef.material),
+          isActive: true,
+          sleepState: 'awake',
+        }
 
-            // Update spatial index
-            const currentIndex = yield* Ref.get(spatialIndex)
-            const bounds = calculateBounds(rigidBody)
-            currentIndex.insert(id, bounds)
+        yield* Ref.update(stateRef, (state) => ({
+          ...state,
+          rigidBodies: HashMap.set(state.rigidBodies, id, rigidBody)
+        }))
 
-            return id
-          } catch (error) {
-            return yield* Effect.fail(
-              RigidBodyError({
-                message: `Failed to create rigid body: ${error}`,
-                entityId,
-                cause: error,
-              }),
-            )
-          }
-        })
+        // Update spatial index
+        const state = yield* Ref.get(stateRef)
+        const bounds = calculateBounds(rigidBody)
+        state.spatialIndex.insert(id, bounds)
+
+        return id
+      })
 
       const destroyRigidBody = (bodyId: RigidBodyId): Effect.Effect<void, typeof RigidBodyError, never> =>
         Effect.gen(function* () {
@@ -494,160 +509,181 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
           let constraintsSolved = 0
           let collisionsProcessed = 0
 
-          try {
-            // Substep simulation for stability
-            while (remainingTime > 0 && substeps < MAX_SUBSTEPS) {
-              const stepTime = Math.min(remainingTime, FIXED_TIMESTEP)
-
-              // Integration step
-              yield* integrateRigidBodies(stepTime)
-
-              // Collision detection
-              const collisionPairs = yield* detectCollisions()
-              collisionsProcessed += collisionPairs.length
-
-              // Constraint solving
-              const constraintCount = yield* solveConstraints(stepTime)
-              constraintsSolved += constraintCount
-
-              // Collision response
-              yield* resolveCollisions(collisionPairs, stepTime)
-
-              // Update spatial index
-              yield* updateSpatialIndex()
-
-              remainingTime -= stepTime
-              substeps++
-            }
-
-            const bodies = yield* Ref.get(rigidBodies)
-            bodiesUpdated = HashMap.size(bodies)
-
-            const simulationTime = Date.now() - startTime
-            yield* updatePhysicsStats(simulationTime)
-
-            return {
-              deltaTime: scaledDeltaTime,
-              substeps,
-              bodiesUpdated,
-              constraintsSolved,
-              collisionsProcessed,
-              simulationTime,
-            }
-          } catch (error) {
+          // Validate deltaTime
+          if (deltaTime <= 0 || !Number.isFinite(deltaTime)) {
             return yield* Effect.fail(
               PhysicsSimulationError({
-                message: `Physics step failed: ${error}`,
-                deltaTime: scaledDeltaTime,
-                cause: error,
-              }),
+                message: 'Invalid deltaTime - must be positive and finite',
+                deltaTime: scaledDeltaTime
+              })
             )
+          }
+
+          // Substep simulation for stability
+          while (remainingTime > 0 && substeps < MAX_SUBSTEPS) {
+            const stepTime = Math.min(remainingTime, FIXED_TIMESTEP)
+
+            // Integration step
+            yield* integrateRigidBodies(stepTime)
+
+            // Collision detection
+            const collisionPairs = yield* detectCollisions()
+            collisionsProcessed += collisionPairs.length
+
+            // Constraint solving
+            const constraintCount = yield* solveConstraints(stepTime)
+            constraintsSolved += constraintCount
+
+            // Collision response
+            yield* resolveCollisions(collisionPairs, stepTime)
+
+            // Update spatial index
+            yield* updateSpatialIndex()
+
+            remainingTime -= stepTime
+            substeps++
+          }
+
+          const bodies = yield* Ref.get(rigidBodies)
+          bodiesUpdated = HashMap.size(bodies)
+
+          const simulationTime = Date.now() - startTime
+          yield* updatePhysicsStats(simulationTime)
+
+          return {
+            deltaTime: scaledDeltaTime,
+            substeps,
+            bodiesUpdated,
+            constraintsSolved,
+            collisionsProcessed,
+            simulationTime,
           }
         })
 
       // Collision detection implementation
       const checkCollisions = (): Effect.Effect<readonly CollisionPair[], typeof CollisionDetectionError, never> =>
         Effect.gen(function* () {
-          try {
-            const bodies = yield* Ref.get(rigidBodies)
-            const collisionPairs: CollisionPair[] = []
+          const bodies = yield* Ref.get(rigidBodies)
+          const collisionPairs: CollisionPair[] = []
 
-            // Broad phase collision detection using spatial index
-            const currentIndex = yield* Ref.get(spatialIndex)
-            const broadPhasePairs = currentIndex.getBroadPhasePairs()
-
-            // Narrow phase collision detection
-            for (const [bodyAId, bodyBId] of broadPhasePairs) {
-              const bodyA = HashMap.get(bodies, bodyAId)
-              const bodyB = HashMap.get(bodies, bodyBId)
-
-              if (Option.isSome(bodyA) && Option.isSome(bodyB)) {
-                const collision = yield* testCollisionBetweenBodies(bodyA.value, bodyB.value)
-                if (collision.isColliding) {
-                  collisionPairs.push({
-                    bodyA: bodyAId,
-                    bodyB: bodyBId,
-                    contactPoints: collision.contactPoints,
-                    separatingVelocity: calculateSeparatingVelocity(bodyA.value, bodyB.value, collision.normal),
-                    penetrationDepth: collision.contactPoints.length > 0 ? collision.contactPoints[0].penetration : 0,
-                  })
-                }
-              }
-            }
-
-            return collisionPairs
-          } catch (error) {
+          // Broad phase collision detection using spatial index
+          const currentIndex = yield* Ref.get(spatialIndex)
+          
+          if (!currentIndex) {
             return yield* Effect.fail(
               CollisionDetectionError({
-                message: `Collision detection failed: ${error}`,
-                cause: error,
-              }),
+                message: 'Spatial index not available for collision detection',
+                affectedBodies: []
+              })
             )
           }
+
+          const broadPhasePairs = currentIndex.getBroadPhasePairs()
+
+          // Narrow phase collision detection
+          for (const [bodyAId, bodyBId] of broadPhasePairs) {
+            const bodyA = HashMap.get(bodies, bodyAId)
+            const bodyB = HashMap.get(bodies, bodyBId)
+
+            if (Option.isSome(bodyA) && Option.isSome(bodyB)) {
+              const collision = yield* testCollisionBetweenBodies(bodyA.value, bodyB.value)
+              if (collision.isColliding) {
+                collisionPairs.push({
+                  bodyA: bodyAId,
+                  bodyB: bodyBId,
+                  contactPoints: collision.contactPoints,
+                  separatingVelocity: calculateSeparatingVelocity(bodyA.value, bodyB.value, collision.normal),
+                  penetrationDepth: collision.contactPoints.length > 0 ? collision.contactPoints[0].penetration : 0,
+                })
+              }
+            }
+          }
+
+          return collisionPairs
         })
 
       const raycast = (ray: Ray, options: RaycastOptions = {}): Effect.Effect<RaycastResult, typeof RaycastError, never> =>
         Effect.gen(function* () {
-          try {
-            const maxDistance = options.maxDistance ?? 1000
-            const ignoreBackfaces = options.ignoreBackfaces ?? false
-            const ignoreBodies = HashSet.fromIterable(options.ignoreBodies ?? [])
-
-            const bodies = yield* Ref.get(rigidBodies)
-            let closestHit: RaycastHit | null = null
-            let closestDistance = maxDistance
-
-            // Test ray against all bodies
-            for (const body of HashMap.values(bodies)) {
-              if (HashSet.has(ignoreBodies, body.id)) continue
-
-              const hitResult = testRayAgainstBody(ray, body, ignoreBackfaces)
-              if (hitResult && hitResult.distance < closestDistance) {
-                closestDistance = hitResult.distance
-                closestHit = hitResult
-              }
-            }
-
-            return {
-              hit: closestHit !== null,
-              hitPoint: closestHit ? Option.some(closestHit.point) : Option.none(),
-              hitNormal: closestHit ? Option.some(closestHit.normal) : Option.none(),
-              hitBody: closestHit ? Option.some(closestHit.body) : Option.none(),
-              distance: closestDistance,
-            }
-          } catch (error) {
+          // Validate ray parameters
+          if (!ray.origin || !ray.direction) {
             return yield* Effect.fail(
               RaycastError({
-                message: `Raycast failed: ${error}`,
+                message: 'Invalid ray parameters - origin and direction required',
                 ray,
-                cause: error,
-              }),
+                maxDistance: options.maxDistance ?? 1000
+              })
             )
+          }
+
+          const maxDistance = options.maxDistance ?? 1000
+          const ignoreBackfaces = options.ignoreBackfaces ?? false
+          const ignoreBodies = HashSet.fromIterable(options.ignoreBodies ?? [])
+
+          if (maxDistance <= 0) {
+            return yield* Effect.fail(
+              RaycastError({
+                message: 'Invalid max distance - must be positive',
+                ray,
+                maxDistance
+              })
+            )
+          }
+
+          const bodies = yield* Ref.get(rigidBodies)
+          let closestHit: RaycastHit | null = null
+          let closestDistance = maxDistance
+
+          // Test ray against all bodies
+          for (const body of HashMap.values(bodies)) {
+            if (HashSet.has(ignoreBodies, body.id)) continue
+
+            const hitResult = testRayAgainstBody(ray, body, ignoreBackfaces)
+            if (hitResult && hitResult.distance < closestDistance) {
+              closestDistance = hitResult.distance
+              closestHit = hitResult
+            }
+          }
+
+          return {
+            hit: closestHit !== null,
+            hitPoint: closestHit ? Option.some(closestHit.point) : Option.none(),
+            hitNormal: closestHit ? Option.some(closestHit.normal) : Option.none(),
+            hitBody: closestHit ? Option.some(closestHit.body) : Option.none(),
+            distance: closestDistance,
           }
         })
 
       // Physics material management
       const createMaterial = (materialDef: PhysicsMaterialDefinition): Effect.Effect<PhysicsMaterialId, typeof PhysicsMaterialError, never> =>
         Effect.gen(function* () {
-          try {
-            const id = createMaterialId(yield* generateId())
-
-            const material: PhysicsMaterial = {
-              id,
-              definition: materialDef,
-            }
-
-            yield* Ref.update(materials, HashMap.set(id, material))
-            return id
-          } catch (error) {
+          // Validate material definition
+          if (!materialDef.name || typeof materialDef.name !== 'string') {
             return yield* Effect.fail(
               PhysicsMaterialError({
-                message: `Failed to create physics material: ${error}`,
-                materialName: materialDef.name,
-                cause: error,
-              }),
+                message: 'Invalid material definition - name is required',
+                materialName: materialDef.name || '<undefined>'
+              })
             )
           }
+
+          if (materialDef.friction < 0 || materialDef.restitution < 0 || materialDef.density <= 0) {
+            return yield* Effect.fail(
+              PhysicsMaterialError({
+                message: 'Invalid material properties - friction/restitution must be non-negative, density must be positive',
+                materialName: materialDef.name
+              })
+            )
+          }
+
+          const id = createMaterialId(yield* generateId())
+
+          const material: PhysicsMaterial = {
+            id,
+            definition: materialDef,
+          }
+
+          yield* Ref.update(materials, HashMap.set(id, material))
+          return id
         })
 
       // Helper function implementations
@@ -913,16 +949,24 @@ export class PhysicsDomainService extends Context.GenericTag('PhysicsDomainServi
       }
     }),
   )
-}
 
-// Supporting classes and interfaces
-class SpatialIndex {
-  insert(_id: RigidBodyId, _bounds: AABB): void {}
-  remove(_id: RigidBodyId): void {}
-  clear(): void {}
-  getBroadPhasePairs(): Array<[RigidBodyId, RigidBodyId]> {
-    return []
-  }
+// Supporting functional implementations
+export const SpatialIndex = {
+  create: () => ({
+    entries: new Map<string, AABB>(),
+    insert: function(id: RigidBodyId, bounds: AABB): void {
+      this.entries.set(id, bounds)
+    },
+    remove: function(id: RigidBodyId): void {
+      this.entries.delete(id)
+    },
+    clear: function(): void {
+      this.entries.clear()
+    },
+    getBroadPhasePairs: function(): Array<[RigidBodyId, RigidBodyId]> {
+      return []
+    }
+  })
 }
 
 interface Constraint {

@@ -1,5 +1,5 @@
-import { defineError } from './generator'
-import { ResourceError, InputError, NetworkError as BaseNetworkError } from './base-errors'
+import { defineError } from '@domain/errors/generator'
+import { ResourceError, InputError, NetworkError as BaseNetworkError } from '@domain/errors/base-errors'
 
 /**
  * Resource not found at specified path

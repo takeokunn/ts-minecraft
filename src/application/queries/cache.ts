@@ -6,7 +6,7 @@
 import { Context, Effect, Layer, Ref } from 'effect'
 import { ComponentName } from '@domain/entities/components'
 
-import { QueryMetrics } from './builder'
+import { QueryMetrics } from '@application/queries/builder'
 
 /**
  * Cache entry with metadata

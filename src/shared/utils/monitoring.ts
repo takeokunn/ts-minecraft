@@ -8,7 +8,7 @@
 import * as Effect from 'effect/Effect'
 import * as Ref from 'effect/Ref'
 import { pipe } from 'effect/Function'
-import { Logger } from './logging'
+import { Logger } from '@shared/utils/logging'
 
 // Performance metrics
 export interface PerformanceMetrics {

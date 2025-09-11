@@ -1,11 +1,12 @@
 /**
- * Archetype-based Query System
- * Provides high-performance entity querying using archetype patterns
+ * Archetype-based Query System (Functional)
+ * Provides high-performance entity querying using archetype patterns with Effect-TS
  */
 
+import { Effect, pipe, Ref, Context, Layer, Data } from 'effect'
 import { ComponentName, ComponentOfName } from '@domain/entities/components'
 import { EntityId } from '@domain/entities'
-import { QueryConfig, QueryMetrics, startQueryContext, finalizeQueryContext, QueryEntity } from './builder'
+import { QueryConfig, QueryMetrics, startQueryContext, finalizeQueryContext, QueryEntity } from '@application/queries/builder'
 
 /**
  * Archetype signature for efficient entity matching
@@ -17,369 +18,528 @@ export interface ArchetypeSignature {
 }
 
 /**
- * Archetype-based entity group for O(1) query matching
+ * Archetype state interface for functional implementation
  */
-export class Archetype {
-  private entities: Set<QueryEntity> = new Set()
-  private componentMask: bigint
-  private static componentIndices: Map<ComponentName, number> = new Map()
-  private static nextIndex = 0
+export interface ArchetypeState {
+  readonly entities: Set<QueryEntity>
+  readonly componentMask: bigint
+  readonly signature: ArchetypeSignature
+}
 
-  constructor(public readonly signature: ArchetypeSignature) {
-    this.componentMask = this.computeComponentMask(signature.required)
-  }
+/**
+ * Component indexing state
+ */
+export interface ComponentIndexingState {
+  readonly componentIndices: Map<ComponentName, number>
+  readonly nextIndex: number
+}
 
-  private computeComponentMask(components: ReadonlySet<ComponentName>): bigint {
-    let mask = 0n
-    for (const component of components) {
-      if (!Archetype.componentIndices.has(component)) {
-        Archetype.componentIndices.set(component, Archetype.nextIndex++)
+/**
+ * Functional archetype operations
+ */
+export const ArchetypeFunctions = {
+  /**
+   * Compute component mask for given components
+   */
+  computeComponentMask: (components: ReadonlySet<ComponentName>) =>
+    Effect.gen(function* () {
+      const indexingRef = yield* ComponentIndexing
+      const indexingState = yield* Ref.get(indexingRef)
+      
+      let mask = 0n
+      let newIndices = new Map(indexingState.componentIndices)
+      let nextIndex = indexingState.nextIndex
+      
+      for (const component of components) {
+        if (!newIndices.has(component)) {
+          newIndices.set(component, nextIndex++)
+        }
+        const index = newIndices.get(component)
+        if (index !== undefined) {
+          mask |= 1n << BigInt(index)
+        }
       }
-      const index = Archetype.componentIndices.get(component)
-      if (index !== undefined) {
-        mask |= 1n << BigInt(index)
+      
+      // Update indexing state if needed
+      if (nextIndex !== indexingState.nextIndex) {
+        yield* Ref.set(indexingRef, {
+          componentIndices: newIndices,
+          nextIndex
+        })
       }
-    }
-    return mask
-  }
+      
+      return mask
+    }),
 
   /**
-   * Add entity to this archetype
+   * Create archetype state
    */
-  addEntity(entity: QueryEntity): void {
-    this.entities.add(entity)
-  }
+  create: (signature: ArchetypeSignature) =>
+    Effect.gen(function* () {
+      const componentMask = yield* ArchetypeFunctions.computeComponentMask(signature.required)
+      
+      return {
+        entities: new Set<QueryEntity>(),
+        componentMask,
+        signature
+      } as ArchetypeState
+    }),
 
   /**
-   * Remove entity from this archetype
+   * Add entity to archetype
    */
-  removeEntity(entity: QueryEntity): void {
-    this.entities.delete(entity)
-  }
+  addEntity: (entity: QueryEntity) => (archetype: ArchetypeState) =>
+    Effect.succeed({
+      ...archetype,
+      entities: new Set([...archetype.entities, entity])
+    }),
 
   /**
-   * Get all entities in this archetype
+   * Remove entity from archetype
    */
-  getEntities(): ReadonlyArray<QueryEntity> {
-    return Array.from(this.entities)
-  }
+  removeEntity: (entity: QueryEntity) => (archetype: ArchetypeState) =>
+    Effect.succeed({
+      ...archetype,
+      entities: new Set([...archetype.entities].filter(e => e.id !== entity.id))
+    }),
 
   /**
-   * Check if this archetype matches the given signature
+   * Get all entities from archetype
    */
-  matches(signature: ArchetypeSignature): boolean {
-    // Check that all required components are present
-    for (const required of signature.required) {
-      if (!this.signature.required.has(required)) {
-        return false
+  getEntities: (archetype: ArchetypeState) =>
+    Effect.succeed(Array.from(archetype.entities)),
+
+  /**
+   * Check if archetype matches signature
+   */
+  matches: (signature: ArchetypeSignature) => (archetype: ArchetypeState) =>
+    Effect.succeed(() => {
+      // Check that all required components are present
+      for (const required of signature.required) {
+        if (!archetype.signature.required.has(required)) {
+          return false
+        }
       }
-    }
 
-    // Check that no forbidden components are present
-    for (const forbidden of signature.forbidden) {
-      if (this.signature.required.has(forbidden)) {
-        return false
+      // Check that no forbidden components are present
+      for (const forbidden of signature.forbidden) {
+        if (archetype.signature.required.has(forbidden)) {
+          return false
+        }
       }
-    }
 
-    return true
-  }
+      return true
+    }).pipe(Effect.map(fn => fn())),
 
   /**
    * Fast bit-mask based matching
    */
-  matchesMask(requiredMask: bigint, forbiddenMask: bigint): boolean {
-    // All required components must be present
-    if ((this.componentMask & requiredMask) !== requiredMask) {
-      return false
-    }
-
-    // No forbidden components should be present
-    if ((this.componentMask & forbiddenMask) !== 0n) {
-      return false
-    }
-
-    return true
-  }
-
-  get size(): number {
-    return this.entities.size
-  }
-}
-
-/**
- * Archetype manager for efficient entity organization
- */
-export class ArchetypeManager {
-  private archetypes: Map<string, Archetype> = new Map()
-  private entityToArchetype: Map<QueryEntity, Archetype> = new Map()
-
-  /**
-   * Create archetype signature from component sets
-   */
-  createSignature(required: ReadonlyArray<ComponentName>, forbidden: ReadonlyArray<ComponentName> = []): ArchetypeSignature {
-    const requiredSet = new Set(required)
-    const forbiddenSet = new Set(forbidden)
-
-    const sortedRequired = [...requiredSet].sort()
-    const sortedForbidden = [...forbiddenSet].sort()
-
-    const hash = `req:${sortedRequired.join(',')}|forb:${sortedForbidden.join(',')}`
-
-    return {
-      required: requiredSet,
-      forbidden: forbiddenSet,
-      hash,
-    }
-  }
-
-  /**
-   * Get or create archetype for given signature
-   */
-  getOrCreateArchetype(signature: ArchetypeSignature): Archetype {
-    let archetype = this.archetypes.get(signature.hash)
-
-    if (!archetype) {
-      archetype = new Archetype(signature)
-      this.archetypes.set(signature.hash, archetype)
-    }
-
-    return archetype
-  }
-
-  /**
-   * Add entity to appropriate archetype
-   */
-  addEntity(entity: QueryEntity): void {
-    // Remove from current archetype if exists
-    this.removeEntity(entity)
-
-    // Determine entity's archetype based on components
-    const componentNames = Object.keys(entity.components) as ComponentName[]
-    const signature = this.createSignature(componentNames, [])
-    const archetype = this.getOrCreateArchetype(signature)
-
-    archetype.addEntity(entity)
-    this.entityToArchetype.set(entity, archetype)
-  }
-
-  /**
-   * Remove entity from its archetype
-   */
-  removeEntity(entity: QueryEntity): void {
-    const currentArchetype = this.entityToArchetype.get(entity)
-    if (currentArchetype) {
-      currentArchetype.removeEntity(entity)
-      this.entityToArchetype.delete(entity)
-    }
-  }
-
-  /**
-   * Find all archetypes matching the given signature
-   */
-  findMatchingArchetypes(signature: ArchetypeSignature): ReadonlyArray<Archetype> {
-    const matching: Archetype[] = []
-
-    for (const archetype of this.archetypes.values()) {
-      if (archetype.matches(signature)) {
-        matching.push(archetype)
+  matchesMask: (requiredMask: bigint, forbiddenMask: bigint) => (archetype: ArchetypeState) =>
+    Effect.succeed(() => {
+      // All required components must be present
+      if ((archetype.componentMask & requiredMask) !== requiredMask) {
+        return false
       }
-    }
 
-    return matching
-  }
+      // No forbidden components should be present
+      if ((archetype.componentMask & forbiddenMask) !== 0n) {
+        return false
+      }
 
-  /**
-   * Get all entities across all archetypes
-   */
-  getAllEntities(): ReadonlyArray<EntityId> {
-    const entities: EntityId[] = []
-
-    for (const archetype of this.archetypes.values()) {
-      entities.push(...archetype.getEntities().map((entity) => entity.id))
-    }
-
-    return entities
-  }
+      return true
+    }).pipe(Effect.map(fn => fn())),
 
   /**
-   * Get archetype statistics
+   * Get archetype size
    */
-  getStats() {
-    return {
-      totalArchetypes: this.archetypes.size,
-      totalEntities: this.entityToArchetype.size,
-      archetypeDistribution: Array.from(this.archetypes.entries()).map(([hash, archetype]) => ({
-        hash,
-        entityCount: archetype.size,
-        components: Array.from(archetype.signature.required),
-      })),
-    }
-  }
+  getSize: (archetype: ArchetypeState) =>
+    Effect.succeed(archetype.entities.size)
 }
 
 /**
- * High-performance archetype-based query
+ * Component indexing service
  */
-export class ArchetypeQuery<T extends ReadonlyArray<ComponentName>> {
-  private signature: ArchetypeSignature
-  private static archetypeManager = new ArchetypeManager()
+export const ComponentIndexing = Context.GenericTag<Ref.Ref<ComponentIndexingState>>('ComponentIndexing')
 
-  constructor(private config: QueryConfig<T>) {
-    this.signature = ArchetypeQuery.archetypeManager.createSignature(config.withComponents, config.withoutComponents || [])
-  }
+export const ComponentIndexingLive = Layer.effect(
+  ComponentIndexing,
+  pipe(
+    Ref.make<ComponentIndexingState>({
+      componentIndices: new Map(),
+      nextIndex: 0
+    }),
+    Effect.succeed
+  )
+)
 
-  /**
-   * Execute query using archetype-based filtering
-   */
-  execute(entities?: ReadonlyArray<QueryEntity>): {
+/**
+ * Archetype manager state interface
+ */
+export interface ArchetypeManagerState {
+  readonly archetypes: Map<string, ArchetypeState>
+  readonly entityToArchetype: Map<QueryEntity, ArchetypeState>
+}
+
+/**
+ * Archetype manager service interface
+ */
+export interface ArchetypeManagerService {
+  readonly createSignature: (
+    required: ReadonlyArray<ComponentName>,
+    forbidden?: ReadonlyArray<ComponentName>
+  ) => Effect.Effect<ArchetypeSignature>
+  readonly getOrCreateArchetype: (signature: ArchetypeSignature) => Effect.Effect<ArchetypeState>
+  readonly addEntity: (entity: QueryEntity) => Effect.Effect<void>
+  readonly removeEntity: (entity: QueryEntity) => Effect.Effect<void>
+  readonly findMatchingArchetypes: (signature: ArchetypeSignature) => Effect.Effect<ReadonlyArray<ArchetypeState>>
+  readonly getAllEntities: () => Effect.Effect<ReadonlyArray<EntityId>>
+  readonly getStats: () => Effect.Effect<{
+    totalArchetypes: number
+    totalEntities: number
+    archetypeDistribution: Array<{
+      hash: string
+      entityCount: number
+      components: ComponentName[]
+    }>
+  }>
+}
+
+/**
+ * Archetype manager service tag
+ */
+export const ArchetypeManager = Context.GenericTag<ArchetypeManagerService>('ArchetypeManager')
+
+/**
+ * Archetype manager implementation
+ */
+export const ArchetypeManagerLive = Layer.effect(
+  ArchetypeManager,
+  Effect.gen(function* () {
+    const stateRef = yield* Ref.make<ArchetypeManagerState>({
+      archetypes: new Map(),
+      entityToArchetype: new Map()
+    })
+
+    const createSignature = (
+      required: ReadonlyArray<ComponentName>,
+      forbidden: ReadonlyArray<ComponentName> = []
+    ) => Effect.succeed({
+      required: new Set(required),
+      forbidden: new Set(forbidden),
+      hash: `req:${[...new Set(required)].sort().join(',')}|forb:${[...new Set(forbidden)].sort().join(',')}`
+    })
+
+    const getOrCreateArchetype = (signature: ArchetypeSignature) =>
+      Effect.gen(function* () {
+        const state = yield* Ref.get(stateRef)
+        let archetype = state.archetypes.get(signature.hash)
+
+        if (!archetype) {
+          archetype = yield* ArchetypeFunctions.create(signature)
+          const newArchetypes = new Map(state.archetypes)
+          newArchetypes.set(signature.hash, archetype)
+          
+          yield* Ref.set(stateRef, {
+            ...state,
+            archetypes: newArchetypes
+          })
+        }
+
+        return archetype
+      })
+
+    const addEntity = (entity: QueryEntity) =>
+      Effect.gen(function* () {
+        // Remove from current archetype if exists
+        yield* removeEntity(entity)
+
+        // Determine entity's archetype based on components
+        const componentNames = Object.keys(entity.components) as ComponentName[]
+        const signature = yield* createSignature(componentNames, [])
+        const archetype = yield* getOrCreateArchetype(signature)
+        
+        const updatedArchetype = yield* ArchetypeFunctions.addEntity(entity)(archetype)
+        
+        // Update state
+        const state = yield* Ref.get(stateRef)
+        const newArchetypes = new Map(state.archetypes)
+        const newEntityToArchetype = new Map(state.entityToArchetype)
+        
+        newArchetypes.set(signature.hash, updatedArchetype)
+        newEntityToArchetype.set(entity, updatedArchetype)
+        
+        yield* Ref.set(stateRef, {
+          archetypes: newArchetypes,
+          entityToArchetype: newEntityToArchetype
+        })
+      })
+
+    const removeEntity = (entity: QueryEntity) =>
+      Effect.gen(function* () {
+        const state = yield* Ref.get(stateRef)
+        const currentArchetype = state.entityToArchetype.get(entity)
+        
+        if (currentArchetype) {
+          const updatedArchetype = yield* ArchetypeFunctions.removeEntity(entity)(currentArchetype)
+          
+          const newArchetypes = new Map(state.archetypes)
+          const newEntityToArchetype = new Map(state.entityToArchetype)
+          
+          newArchetypes.set(currentArchetype.signature.hash, updatedArchetype)
+          newEntityToArchetype.delete(entity)
+          
+          yield* Ref.set(stateRef, {
+            archetypes: newArchetypes,
+            entityToArchetype: newEntityToArchetype
+          })
+        }
+      })
+
+    const findMatchingArchetypes = (signature: ArchetypeSignature) =>
+      Effect.gen(function* () {
+        const state = yield* Ref.get(stateRef)
+        const matching: ArchetypeState[] = []
+
+        for (const archetype of state.archetypes.values()) {
+          const matches = yield* ArchetypeFunctions.matches(signature)(archetype)
+          if (matches) {
+            matching.push(archetype)
+          }
+        }
+
+        return matching
+      })
+
+    const getAllEntities = () =>
+      Effect.gen(function* () {
+        const state = yield* Ref.get(stateRef)
+        const entities: EntityId[] = []
+
+        for (const archetype of state.archetypes.values()) {
+          const archetypeEntities = yield* ArchetypeFunctions.getEntities(archetype)
+          entities.push(...archetypeEntities.map(entity => entity.id))
+        }
+
+        return entities
+      })
+
+    const getStats = () =>
+      Effect.gen(function* () {
+        const state = yield* Ref.get(stateRef)
+        
+        const archetypeDistribution: Array<{
+          hash: string
+          entityCount: number
+          components: ComponentName[]
+        }> = []
+        
+        for (const [hash, archetype] of state.archetypes.entries()) {
+          const size = yield* ArchetypeFunctions.getSize(archetype)
+          archetypeDistribution.push({
+            hash,
+            entityCount: size,
+            components: Array.from(archetype.signature.required)
+          })
+        }
+
+        return {
+          totalArchetypes: state.archetypes.size,
+          totalEntities: state.entityToArchetype.size,
+          archetypeDistribution
+        }
+      })
+
+    return {
+      createSignature,
+      getOrCreateArchetype,
+      addEntity,
+      removeEntity,
+      findMatchingArchetypes,
+      getAllEntities,
+      getStats
+    } satisfies ArchetypeManagerService
+  })
+)
+
+/**
+ * High-performance archetype-based query interface
+ */
+export interface ArchetypeQueryService<T extends ReadonlyArray<ComponentName>> {
+  readonly execute: (entities?: ReadonlyArray<QueryEntity>) => Effect.Effect<{
     entities: ReadonlyArray<QueryEntity>
     metrics: QueryMetrics
-  } {
-    const context = startQueryContext()
+  }>
+  readonly name: string
+  readonly components: T
+  readonly forbiddenComponents: ReadonlyArray<ComponentName>
+}
 
-    let resultEntities: QueryEntity[]
+/**
+ * Create archetype-based query
+ */
+export const createArchetypeQuery = <T extends ReadonlyArray<ComponentName>>(
+  config: QueryConfig<T>
+) =>
+  Effect.gen(function* () {
+    const archetypeManager = yield* ArchetypeManager
+    const signature = yield* archetypeManager.createSignature(config.withComponents, config.withoutComponents || [])
 
-    if (entities) {
-      // Direct entity filtering (fallback mode)
-      resultEntities = this.executeDirectFilter(entities, context)
-    } else {
-      // Archetype-based querying (optimized mode)
-      resultEntities = this.executeArchetypeQuery(context)
-    }
+    const executeArchetypeQuery = (context: { metrics: QueryMetrics }) =>
+      Effect.gen(function* () {
+        const matchingArchetypes = yield* archetypeManager.findMatchingArchetypes(signature)
+        const entities: QueryEntity[] = []
 
-    // Apply predicate if specified
-    if (this.config.predicate) {
-      resultEntities = this.applyPredicate(resultEntities, context)
-    }
+        for (const archetype of matchingArchetypes) {
+          const archetypeEntities = yield* ArchetypeFunctions.getEntities(archetype)
+          context.metrics.entitiesScanned += archetypeEntities.length
+          entities.push(...archetypeEntities)
+        }
 
-    context.metrics.entitiesMatched = resultEntities.length
-    const metrics = finalizeQueryContext(context)
+        return entities
+      })
 
-    return {
-      entities: resultEntities,
-      metrics,
-    }
-  }
+    const executeDirectFilter = (entities: ReadonlyArray<QueryEntity>, context: { metrics: QueryMetrics }) =>
+      Effect.gen(function* () {
+        const result: QueryEntity[] = []
 
-  private executeArchetypeQuery(context: { metrics: QueryMetrics }): QueryEntity[] {
-    const matchingArchetypes = ArchetypeQuery.archetypeManager.findMatchingArchetypes(this.signature)
-    const entities: QueryEntity[] = []
+        for (const entity of entities) {
+          context.metrics.entitiesScanned++
 
-    for (const archetype of matchingArchetypes) {
-      const archetypeEntities = archetype.getEntities()
-      context.metrics.entitiesScanned += archetypeEntities.length
-      entities.push(...archetypeEntities)
-    }
+          // Check required components
+          const hasRequired = config.withComponents.every((comp) => entity.components[comp] !== undefined)
 
-    return entities
-  }
+          if (!hasRequired) continue
 
-  private executeDirectFilter(entities: ReadonlyArray<QueryEntity>, context: { metrics: QueryMetrics }): QueryEntity[] {
-    const result: QueryEntity[] = []
+          // Check forbidden components
+          const hasForbidden = (config.withoutComponents || []).some((comp) => entity.components[comp] !== undefined)
 
-    for (const entity of entities) {
-      context.metrics.entitiesScanned++
+          if (hasForbidden) continue
 
-      // Check required components
-      const hasRequired = this.config.withComponents.every((comp) => entity.components[comp] !== undefined)
-
-      if (!hasRequired) continue
-
-      // Check forbidden components
-      const hasForbidden = (this.config.withoutComponents || []).some((comp) => entity.components[comp] !== undefined)
-
-      if (hasForbidden) continue
-
-      result.push(entity)
-    }
-
-    return result
-  }
-
-  private applyPredicate(entities: QueryEntity[], _context: { metrics: QueryMetrics }): QueryEntity[] {
-    if (!this.config.predicate) return entities
-
-    const result: QueryEntity[] = []
-
-    for (const entity of entities) {
-      const entityProxy = {
-        get: <K extends ComponentName>(componentName: K) => {
-          return entity.components[componentName] as ComponentOfName<K>
-        },
-        has: <K extends ComponentName>(componentName: K) => {
-          return entity.components[componentName] !== undefined
-        },
-        id: entity.id,
-      }
-
-      try {
-        const typedProxy = entityProxy as unknown as Parameters<NonNullable<typeof this.config.predicate>>[0]
-        if (this.config.predicate(typedProxy)) {
           result.push(entity)
         }
-      } catch (error) {
-        console.warn(`Predicate error for entity ${entity.id}:`, error)
-      }
-    }
 
-    return result
-  }
+        return result
+      })
 
+    const applyPredicate = (entities: QueryEntity[], _context: { metrics: QueryMetrics }) =>
+      Effect.gen(function* () {
+        if (!config.predicate) return entities
+
+        const result: QueryEntity[] = []
+
+        for (const entity of entities) {
+          const entityProxy = {
+            get: <K extends ComponentName>(componentName: K) => {
+              return entity.components[componentName] as ComponentOfName<K>
+            },
+            has: <K extends ComponentName>(componentName: K) => {
+              return entity.components[componentName] !== undefined
+            },
+            id: entity.id,
+          }
+
+          try {
+            const typedProxy = entityProxy as unknown as Parameters<NonNullable<typeof config.predicate>>[0]
+            if (config.predicate!(typedProxy)) {
+              result.push(entity)
+            }
+          } catch (error) {
+            console.warn(`Predicate error for entity ${entity.id}:`, error)
+          }
+        }
+
+        return result
+      })
+
+    const execute = (entities?: ReadonlyArray<QueryEntity>) =>
+      Effect.gen(function* () {
+        const context = startQueryContext()
+
+        let resultEntities: QueryEntity[]
+
+        if (entities) {
+          // Direct entity filtering (fallback mode)
+          resultEntities = yield* executeDirectFilter(entities, context)
+        } else {
+          // Archetype-based querying (optimized mode)
+          resultEntities = yield* executeArchetypeQuery(context)
+        }
+
+        // Apply predicate if specified
+        if (config.predicate) {
+          resultEntities = yield* applyPredicate(resultEntities, context)
+        }
+
+        context.metrics.entitiesMatched = resultEntities.length
+        const metrics = finalizeQueryContext(context)
+
+        return {
+          entities: resultEntities,
+          metrics,
+        }
+      })
+
+    return {
+      execute,
+      name: config.name,
+      components: config.withComponents,
+      forbiddenComponents: config.withoutComponents || []
+    } satisfies ArchetypeQueryService<T>
+  })
+
+/**
+ * Archetype system utilities - functional interface
+ */
+export const ArchetypeSystemUtils = {
   /**
    * Add entity to archetype system
    */
-  static addEntity(entity: QueryEntity): void {
-    ArchetypeQuery.archetypeManager.addEntity(entity)
-  }
+  addEntity: (entity: QueryEntity) =>
+    Effect.gen(function* () {
+      const archetypeManager = yield* ArchetypeManager
+      yield* archetypeManager.addEntity(entity)
+    }),
 
   /**
    * Remove entity from archetype system
    */
-  static removeEntity(entity: QueryEntity): void {
-    ArchetypeQuery.archetypeManager.removeEntity(entity)
-  }
+  removeEntity: (entity: QueryEntity) =>
+    Effect.gen(function* () {
+      const archetypeManager = yield* ArchetypeManager
+      yield* archetypeManager.removeEntity(entity)
+    }),
 
   /**
-   * Get archetype manager statistics
+   * Get archetype system statistics
    */
-  static getArchetypeStats() {
-    return ArchetypeQuery.archetypeManager.getStats()
-  }
-
-  /**
-   * Reset archetype system (useful for testing)
-   */
-  static reset(): void {
-    ArchetypeQuery.archetypeManager = new ArchetypeManager()
-  }
-
-  get name(): string {
-    return this.config.name
-  }
-
-  get components(): T {
-    return this.config.withComponents
-  }
-
-  get forbiddenComponents(): ReadonlyArray<ComponentName> {
-    return this.config.withoutComponents || []
-  }
+  getStats: () =>
+    Effect.gen(function* () {
+      const archetypeManager = yield* ArchetypeManager
+      return yield* archetypeManager.getStats()
+    })
 }
 
-// Convenience functions for test compatibility
-export const addEntityToArchetype = (entity: QueryEntity): void => {
-  ArchetypeQuery.addEntity(entity)
-}
+// Legacy compatibility functions (deprecated - use ArchetypeSystemUtils instead)
+export const addEntityToArchetype = (entity: QueryEntity) => 
+  pipe(
+    ArchetypeSystemUtils.addEntity(entity),
+    Effect.provide(ArchetypeManagerLive),
+    Effect.provide(ComponentIndexingLive),
+    Effect.runSync
+  )
 
-export const removeEntityFromArchetype = (entity: QueryEntity): void => {
-  ArchetypeQuery.removeEntity(entity)
-}
+export const removeEntityFromArchetype = (entity: QueryEntity) => 
+  pipe(
+    ArchetypeSystemUtils.removeEntity(entity),
+    Effect.provide(ArchetypeManagerLive),
+    Effect.provide(ComponentIndexingLive),
+    Effect.runSync
+  )
 
-export const getArchetypeStats = () => {
-  return ArchetypeQuery.getArchetypeStats()
-}
-
-export const resetArchetypes = (): void => {
-  ArchetypeQuery.reset()
-}
+export const getArchetypeStats = () => 
+  pipe(
+    ArchetypeSystemUtils.getStats(),
+    Effect.provide(ArchetypeManagerLive),
+    Effect.provide(ComponentIndexingLive),
+    Effect.runSync
+  )

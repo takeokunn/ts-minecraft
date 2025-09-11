@@ -200,10 +200,22 @@ const generateBiomeMap = (biome: BiomeConfig): readonly string[] => {
 }
 
 /**
- * Terrain Generation Domain Service Implementation
+ * Terrain Generation Domain Service Interface
+ * Defines the contract for terrain generation operations
  */
-export class TerrainGenerationDomainService implements ITerrainGenerator {
-  generateTerrain = (request: TerrainGenerationRequest): Effect.Effect<TerrainGenerationResult, never, never> =>
+export interface TerrainGenerationDomainService extends ITerrainGenerator {}
+
+/**
+ * Terrain Generation Domain Service Context Tag
+ */
+export const TerrainGenerationDomainService = Context.GenericTag<TerrainGenerationDomainService>('TerrainGenerationDomainService')
+
+/**
+ * Terrain Generation Domain Service Implementation
+ * Pure business logic implementation following Effect-TS patterns
+ */
+const createTerrainGenerationService = (): TerrainGenerationDomainService => ({
+  generateTerrain: (request: TerrainGenerationRequest): Effect.Effect<TerrainGenerationResult, never, never> =>
     Effect.gen(function* () {
       const startTime = performance.now()
       const { coordinates, seed, biome, noise, features } = request
@@ -227,18 +239,18 @@ export class TerrainGenerationDomainService implements ITerrainGenerator {
         generationTime,
         blockCount: blocks.length,
       } satisfies TerrainGenerationResult
-    })
+    }),
 
-  generateHeightMap = (
+  generateHeightMap: (
     coordinates: ChunkCoordinates,
     seed: number,
     noise: NoiseSettings,
   ): Effect.Effect<readonly number[], never, never> =>
     Effect.gen(function* () {
       return generateHeightMapLogic(coordinates.x, coordinates.z, seed, noise)
-    })
+    }),
 
-  getBiome = (x: number, z: number, seed: number): Effect.Effect<BiomeConfig, never, never> =>
+  getBiome: (x: number, z: number, seed: number): Effect.Effect<BiomeConfig, never, never> =>
     Effect.gen(function* () {
       // Simplified biome generation based on noise
       const biomeNoise = simpleNoise(x * 0.001, 0, z * 0.001, seed + 54321)
@@ -254,21 +266,34 @@ export class TerrainGenerationDomainService implements ITerrainGenerator {
       } else {
         return TerrainGeneratorHelpers.createDefaultBiome('plains')
       }
-    })
+    }),
 
-  isAvailable = (): Effect.Effect<boolean, never, never> =>
+  isAvailable: (): Effect.Effect<boolean, never, never> =>
     Effect.gen(function* () {
       return true // Always available as it's pure logic
     })
-}
+})
 
 /**
  * Live layer for Terrain Generation Domain Service
  */
-export const TerrainGenerationDomainServiceLive = Layer.succeed(
-  TerrainGeneratorPort,
-  new TerrainGenerationDomainService(),
+export const TerrainGenerationDomainServiceLive = Layer.effect(
+  TerrainGenerationDomainService,
+  Effect.gen(function* () {
+    return TerrainGenerationDomainService.of(createTerrainGenerationService())
+  })
 )
+
+/**
+ * Legacy compatibility layer - provides the service via the port pattern
+ */
+export const TerrainGeneratorPortLive = Layer.effect(
+  TerrainGeneratorPort,
+  Effect.gen(function* () {
+    const service = yield* TerrainGenerationDomainService
+    return TerrainGeneratorPort.of(service)
+  })
+).pipe(Layer.provide(TerrainGenerationDomainServiceLive))
 
 /**
  * Utility functions for terrain generation

@@ -28,4 +28,4 @@ export interface IClockPort {
   readonly getTimeScale: () => Effect.Effect<number, never, never>
 }
 
-export class ClockPort extends Context.GenericTag('ClockPort')<ClockPort, IClockPort>() {}
+export const ClockPort = Context.GenericTag<IClockPort>('ClockPort')

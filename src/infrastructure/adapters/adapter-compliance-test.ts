@@ -29,7 +29,7 @@ import {
 import {
   AllThreeJsMathAdaptersLive,
   AllNativeMathAdaptersLive,
-} from './adapter-exports'
+} from '@infrastructure/adapter-exports'
 
 /**
  * Test that adapter correctly implements port interface

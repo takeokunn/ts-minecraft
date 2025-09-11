@@ -23,7 +23,7 @@ export {
   PooledVector3,
   PooledMatrix4,
   PooledAABB,
-} from './object-pool.layer'
+} from '@infrastructure/object-pool.layer'
 
 // Memory Pool Layer
 export {
@@ -42,7 +42,7 @@ export {
   withPooledMemory,
   acquireBatch,
   releaseBatch,
-} from './memory-pool.layer'
+} from '@infrastructure/memory-pool.layer'
 
 // Profiler Layer
 export {
@@ -58,7 +58,7 @@ export {
   profileSync,
   profileBatch,
   withSession,
-} from './profiler.layer'
+} from '@infrastructure/profiler.layer'
 
 // Resource Layer
 export {
@@ -75,7 +75,7 @@ export {
   withResource,
   loadBatch,
   createLoader,
-} from './resource.layer'
+} from '@infrastructure/resource.layer'
 
 // Startup Layer
 export {
@@ -91,7 +91,7 @@ export {
   createCriticalPathItem,
   measureStartupPerformance,
   createOptimizedStartup,
-} from './startup.layer'
+} from '@infrastructure/startup.layer'
 
 // Latency Layer
 export {
@@ -107,4 +107,4 @@ export {
   createLatencyTarget,
   withBatching,
   withCaching,
-} from './latency.layer'
+} from '@infrastructure/latency.layer'

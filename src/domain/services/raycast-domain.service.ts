@@ -46,7 +46,7 @@ export interface AABB {
 /**
  * Raycast Domain Service - Pure domain raycast calculations
  */
-export class RaycastDomainService extends Context.GenericTag('RaycastDomainService')<
+export class RaycastDomainService extends Context.Tag('RaycastDomainService')<
   RaycastDomainService,
   {
     readonly validateRay: (ray: Ray) => Effect.Effect<boolean>

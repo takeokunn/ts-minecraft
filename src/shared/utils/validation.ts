@@ -196,70 +196,101 @@ export const Validators = {
         : Effect.fail(createValidationError(message, context, value)),
 }
 
-// Validation chain builder
-export class ValidationChain<T> {
-  private rules: ValidationRule<T>[] = []
+// Validation chain state
+interface ValidationChainState<T> {
+  readonly initialValue: T
+  readonly context?: ValidationContext
+  readonly rules: ReadonlyArray<ValidationRule<T>>
+}
 
-  constructor(private initialValue: T, private context?: ValidationContext) {}
+// Validation chain builder functions
+export const ValidationChain = {
+  /**
+   * Create a new validation chain
+   */
+  create: <T>(initialValue: T, context?: ValidationContext): ValidationChainState<T> => ({
+    initialValue,
+    context,
+    rules: [],
+  }),
 
-  // Add a validation rule
-  rule(validator: ValidatorFn<T>, name?: string, message?: string): ValidationChain<T> {
-    this.rules.push({
-      name: name || `rule-${this.rules.length}`,
-      validate: validator,
-      message,
-    })
-    return this
-  }
-
-  // Add multiple validators
-  with(...validators: ValidatorFn<T>[]): ValidationChain<T> {
-    validators.forEach((validator, index) => {
-      this.rules.push({
-        name: `validator-${this.rules.length}`,
+  /**
+   * Add a validation rule
+   */
+  rule: <T>(
+    state: ValidationChainState<T>,
+    validator: ValidatorFn<T>,
+    name?: string,
+    message?: string
+  ): ValidationChainState<T> => ({
+    ...state,
+    rules: [
+      ...state.rules,
+      {
+        name: name || `rule-${state.rules.length}`,
         validate: validator,
-      })
-    })
-    return this
-  }
+        message,
+      },
+    ],
+  }),
 
-  // Execute all validation rules
-  validate(): ValidationResult<T> {
-    return pipe(
-      Effect.succeed(this.initialValue),
+  /**
+   * Add multiple validators
+   */
+  with: <T>(
+    state: ValidationChainState<T>,
+    ...validators: ValidatorFn<T>[]
+  ): ValidationChainState<T> => ({
+    ...state,
+    rules: [
+      ...state.rules,
+      ...validators.map((validator, index) => ({
+        name: `validator-${state.rules.length + index}`,
+        validate: validator,
+      })),
+    ],
+  }),
+
+  /**
+   * Execute all validation rules
+   */
+  validate: <T>(state: ValidationChainState<T>): ValidationResult<T> =>
+    pipe(
+      Effect.succeed(state.initialValue),
       Effect.flatMap(value => {
-        return this.rules.reduce(
+        return state.rules.reduce(
           (acc, rule) => 
             pipe(
               acc,
-              Effect.flatMap(v => rule.validate(v, this.context))
+              Effect.flatMap(v => rule.validate(v, state.context))
             ),
           Effect.succeed(value)
         )
       })
-    )
-  }
+    ),
 
-  // Execute validation and return result with rule details
-  validateDetailed(): Effect.Effect<{
+  /**
+   * Execute validation and return result with rule details
+   */
+  validateDetailed: <T>(state: ValidationChainState<T>): Effect.Effect<{
     value: T
     passed: string[]
     failed: Array<{ rule: string; error: ValidationError }>
-  }, never, never> {
+  }, never, never> => {
     const results = {
-      value: this.initialValue,
+      value: state.initialValue,
       passed: [] as string[],
       failed: [] as Array<{ rule: string; error: ValidationError }>,
     }
 
     return pipe(
-      this.rules.reduce(
+      state.rules.reduce(
         (acc, rule) => 
           pipe(
             acc,
             Effect.flatMap(currentValue =>
               pipe(
-                rule.validate(currentValue, this.context),
+                rule.validate(currentValue, state.context),
                 Effect.map(validValue => {
                   results.passed.push(rule.name)
                   return validValue
@@ -271,18 +302,18 @@ export class ValidationChain<T> {
               )
             )
           ),
-        Effect.succeed(this.initialValue)
+        Effect.succeed(state.initialValue)
       ),
       Effect.map(() => results)
     )
-  }
+  },
 }
 
 // Validation utilities
 export const ValidationUtils = {
   // Create a validation chain
   validate: <T>(value: T, context?: ValidationContext) =>
-    new ValidationChain(value, context),
+    ValidationChain.create(value, context),
 
   // Validate using Schema
   validateSchema: <I, A>(schema: Schema.Schema<A, I>) =>

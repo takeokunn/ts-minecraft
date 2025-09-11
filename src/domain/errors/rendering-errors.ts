@@ -1,5 +1,5 @@
-import { defineError } from './generator'
-import { RenderingError as BaseRenderingError } from './base-errors'
+import { defineError } from '@domain/errors/generator'
+import { RenderingError as BaseRenderingError } from '@domain/errors/base-errors'
 
 /**
  * General rendering operation failed

@@ -138,4 +138,4 @@ export interface IRenderPort {
   readonly waitForReady: () => Effect.Effect<void, RenderError, never>
 }
 
-export class RenderPort extends Context.GenericTag('RenderPort')<RenderPort, IRenderPort>() {}
+export const RenderPort = Context.GenericTag<IRenderPort>('RenderPort')

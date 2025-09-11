@@ -1,9 +1,9 @@
 import { Effect, Match } from 'effect'
 import * as S from 'effect/Schema'
-import { hotbarSlots } from '@domain/constants/block'
+import { hotbarSlots } from '@domain/entities/block.entity'
 import { BlockTypeSchema } from '@domain/constants/block-types'
 import { CameraComponent, type PartialComponents, PositionComponent, PartialComponentsSchema } from '@domain/entities/components'
-import { ChunkX, ChunkZ, toFloat, toInt } from '@domain/constants/common'
+import { ChunkX, ChunkZ, toFloat, toInt } from '@domain/value-objects/common'
 import { BLOCK_COLLIDER, GRAVITY, PLAYER_COLLIDER } from '@domain/constants/world-constants'
 import * as ParseResult from 'effect/ParseResult'
 

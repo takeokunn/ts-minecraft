@@ -1,4 +1,4 @@
-import { query } from './'
+import { query } from '@application/'
 
 /**
  * Query for the main player entity, including all components needed for movement and interaction.

@@ -12,7 +12,7 @@ import type {
   CameraComponent,
   RenderableComponent,
   MeshGeometry
-} from './rendering-components'
+} from '@domain/entities/components/rendering/rendering-components'
 
 // ===== COMPONENT FACTORIES =====
 

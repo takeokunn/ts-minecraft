@@ -7,8 +7,8 @@
 
 import * as Data from 'effect/Data'
 import * as Option from 'effect/Option'
-import { globalRegistry } from './registry'
-import type { ArchetypeInfo, StorageLayout, QueryResult } from './registry'
+import { globalRegistry } from '@domain/entities/components/registry'
+import type { ArchetypeInfo, StorageLayout, QueryResult } from '@domain/entities/components/registry'
 
 /**
  * Archetype query builder for optimized component access

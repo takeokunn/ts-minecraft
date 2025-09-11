@@ -14,6 +14,11 @@ import * as ReadonlyArray from 'effect/ReadonlyArray'
 import { EntityId } from '@domain/value-objects/entity-id.vo'
 import { Chunk } from '@domain/entities/chunk.entity'
 import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordinate.vo'
+import { 
+  ChunkNotLoadedError, 
+  InvalidPositionError, 
+  WorldStateError 
+} from '@domain/errors'
 
 // Port interfaces for external dependencies
 export interface WorldRepositoryPort {
@@ -53,18 +58,18 @@ export const makeEmptyWorldState = (): WorldState => ({
  * Provides pure domain methods for managing world state
  */
 export const WorldDomainService = Context.GenericTag<{
-  readonly validateWorldState: (state: WorldState) => Effect.Effect<boolean>
-  readonly addEntityToWorld: (entityId: EntityId, entityData: unknown) => Effect.Effect<void>
-  readonly removeEntityFromWorld: (entityId: EntityId) => Effect.Effect<void>
-  readonly addChunkToWorld: (chunk: Chunk) => Effect.Effect<void>
-  readonly removeChunkFromWorld: (coordinate: ChunkCoordinate) => Effect.Effect<void>
-  readonly updateWorldTimestamp: (state: WorldState) => Effect.Effect<WorldState>
+  readonly validateWorldState: (state: WorldState) => Effect.Effect<boolean, WorldStateError>
+  readonly addEntityToWorld: (entityId: EntityId, entityData: unknown) => Effect.Effect<void, WorldStateError>
+  readonly removeEntityFromWorld: (entityId: EntityId) => Effect.Effect<void, WorldStateError>
+  readonly addChunkToWorld: (chunk: Chunk) => Effect.Effect<void, WorldStateError>
+  readonly removeChunkFromWorld: (coordinate: ChunkCoordinate) => Effect.Effect<void, WorldStateError>
+  readonly updateWorldTimestamp: (state: WorldState) => Effect.Effect<WorldState, WorldStateError>
   readonly calculateChunkKey: (coordinate: ChunkCoordinate) => string
-  readonly validateChunkCoordinate: (coordinate: ChunkCoordinate) => Effect.Effect<boolean>
-  // Missing query methods
-  readonly isChunkLoaded: (chunkX: number, chunkZ: number) => Effect.Effect<boolean>
-  readonly getChunk: (chunkX: number, chunkZ: number) => Effect.Effect<Chunk>
-  readonly getLoadedChunks: () => Effect.Effect<readonly Chunk[]>
+  readonly validateChunkCoordinate: (coordinate: ChunkCoordinate) => Effect.Effect<boolean, InvalidPositionError>
+  // Query methods with proper error types
+  readonly isChunkLoaded: (chunkX: number, chunkZ: number) => Effect.Effect<boolean, never>
+  readonly getChunk: (chunkX: number, chunkZ: number) => Effect.Effect<Chunk, ChunkNotLoadedError>
+  readonly getLoadedChunks: () => Effect.Effect<readonly Chunk[], never>
 }>('WorldDomainService')
 
 /**
@@ -75,31 +80,83 @@ export const WorldDomainServiceLive = Layer.effect(
   WorldDomainService,
   Effect.gen(function* () {
     return WorldDomainService.of({
-      validateWorldState: (state) => Effect.succeed(state._tag === 'WorldState' && typeof state.timestamp === 'number' && state.timestamp > 0),
+      validateWorldState: (state) => 
+        state._tag === 'WorldState' && typeof state.timestamp === 'number' && state.timestamp > 0
+          ? Effect.succeed(true)
+          : Effect.fail(WorldStateError({
+              operation: 'validateWorldState',
+              reason: 'Invalid world state structure or timestamp',
+              stateVersion: state.timestamp
+            })),
 
-      addEntityToWorld: (entityId, entityData) => Effect.succeed(undefined), // Pure function - would return updated state
+      addEntityToWorld: (entityId, entityData) => 
+        entityData && entityId
+          ? Effect.succeed(undefined) // Pure function - would return updated state
+          : Effect.fail(WorldStateError({
+              operation: 'addEntityToWorld',
+              reason: 'Invalid entity data or ID provided'
+            })),
 
-      removeEntityFromWorld: (entityId) => Effect.succeed(undefined), // Pure function - would return updated state
+      removeEntityFromWorld: (entityId) => 
+        entityId
+          ? Effect.succeed(undefined) // Pure function - would return updated state  
+          : Effect.fail(WorldStateError({
+              operation: 'removeEntityFromWorld',
+              reason: 'Invalid entity ID provided'
+            })),
 
-      addChunkToWorld: (chunk) => Effect.succeed(undefined), // Pure function - would return updated state
+      addChunkToWorld: (chunk) => 
+        chunk && chunk.coordinate
+          ? Effect.succeed(undefined) // Pure function - would return updated state
+          : Effect.fail(WorldStateError({
+              operation: 'addChunkToWorld', 
+              reason: 'Invalid chunk data provided'
+            })),
 
-      removeChunkFromWorld: (coordinate) => Effect.succeed(undefined), // Pure function - would return updated state
+      removeChunkFromWorld: (coordinate) => 
+        coordinate
+          ? Effect.succeed(undefined) // Pure function - would return updated state
+          : Effect.fail(WorldStateError({
+              operation: 'removeChunkFromWorld',
+              reason: 'Invalid chunk coordinate provided'
+            })),
 
       updateWorldTimestamp: (state) =>
-        Effect.succeed({
-          ...state,
-          timestamp: Date.now(),
-        }),
+        state._tag === 'WorldState' 
+          ? Effect.succeed({
+              ...state,
+              timestamp: Date.now(),
+            })
+          : Effect.fail(WorldStateError({
+              operation: 'updateWorldTimestamp',
+              reason: 'Invalid world state provided',
+              stateVersion: state.timestamp
+            })),
 
       calculateChunkKey: (coordinate) => `${coordinate.x},${coordinate.z}`,
 
       validateChunkCoordinate: (coordinate) =>
-        Effect.succeed(Number.isInteger(coordinate.x) && Number.isInteger(coordinate.z) && Math.abs(coordinate.x) < 30000000 && Math.abs(coordinate.z) < 30000000),
+        Number.isInteger(coordinate.x) && Number.isInteger(coordinate.z) && 
+        Math.abs(coordinate.x) < 30000000 && Math.abs(coordinate.z) < 30000000
+          ? Effect.succeed(true)
+          : Effect.fail(InvalidPositionError({
+              position: { x: coordinate.x, y: 0, z: coordinate.z },
+              reason: 'Chunk coordinate out of valid bounds or not integer',
+              validBounds: { 
+                min: { x: -30000000, y: 0, z: -30000000 }, 
+                max: { x: 30000000, y: 0, z: 30000000 } 
+              }
+            })),
 
-      // Missing query method implementations
+      // Query method implementations with proper error handling
       isChunkLoaded: (chunkX, chunkZ) => Effect.succeed(false), // TODO: Implement with proper chunk storage
 
-      getChunk: (chunkX, chunkZ) => Effect.fail(new Error(`Chunk at ${chunkX}, ${chunkZ} not found`)), // TODO: Implement with proper chunk storage
+      getChunk: (chunkX, chunkZ) => 
+        Effect.fail(ChunkNotLoadedError({
+          coordinates: { x: chunkX, z: chunkZ },
+          requestedOperation: 'getChunk',
+          loadingState: 'not-requested'
+        })), // TODO: Implement with proper chunk storage
 
       getLoadedChunks: () => Effect.succeed([]), // TODO: Implement with proper chunk storage
     })

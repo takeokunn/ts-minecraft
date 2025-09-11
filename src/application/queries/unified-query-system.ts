@@ -281,22 +281,23 @@ export interface IUnifiedQuerySystem {
 }
 
 /**
- * Unified Query implementation
+ * Create a unified query implementation
  */
-class UnifiedQuery<T = unknown> implements IUnifiedQuery<T> {
-  constructor(
-    public readonly name: string,
-    public readonly components: readonly ComponentName[],
-    private readonly system: UnifiedQuerySystem,
-    private readonly predicates: readonly QueryPredicate<T>[] = [],
-    private readonly selector?: ComponentSelector<T, any>,
-    private readonly limitCount?: number,
-    private readonly orderCompareFn?: (a: T, b: T) => number,
-    private readonly cacheKey?: string,
-    private readonly cacheTTL?: number,
-  ) {}
+export const createUnifiedQuery = <T = unknown>(
+  name: string,
+  components: readonly ComponentName[],
+  system: IUnifiedQuerySystem,
+  predicates: readonly QueryPredicate<T>[] = [],
+  selector?: ComponentSelector<T, any>,
+  limitCount?: number,
+  orderCompareFn?: (a: T, b: T) => number,
+  cacheKey?: string,
+  cacheTTL?: number,
+): IUnifiedQuery<T> => ({
+  name,
+  components,
 
-  execute(context?: QueryExecutionContext): Effect.Effect<UnifiedQueryResult<T>, never, never> {
+  execute: (context?: QueryExecutionContext): Effect.Effect<UnifiedQueryResult<T>, never, never> => {
     const startTime = performance.now()
     const ctx: QueryExecutionContext = context || {
       timestamp: Date.now(),
@@ -309,38 +310,38 @@ class UnifiedQuery<T = unknown> implements IUnifiedQuery<T> {
     let entities: readonly T[] = []
     
     // Apply predicates
-    if (this.predicates.length > 0) {
+    if (predicates.length > 0) {
       entities = entities.filter(entity => 
-        this.predicates.every(predicate => predicate(entity))
+        predicates.every(predicate => predicate(entity))
       )
     }
 
     // Apply selector
-    if (this.selector) {
-      entities = entities.map(this.selector)
+    if (selector) {
+      entities = entities.map(selector)
     }
 
     // Apply ordering
-    if (this.orderCompareFn) {
-      entities = [...entities].sort(this.orderCompareFn)
+    if (orderCompareFn) {
+      entities = [...entities].sort(orderCompareFn)
     }
 
     // Apply limit
-    if (this.limitCount !== undefined) {
-      entities = entities.slice(0, this.limitCount)
+    if (limitCount !== undefined) {
+      entities = entities.slice(0, limitCount)
     }
 
     const executionTime = performance.now() - startTime
     const metrics: QueryPerformanceMetrics = {
-      queryName: this.name,
+      queryName: name,
       executionTime,
       entitiesProcessed: entities.length,
       entitiesScanned: entities.length,
       entitiesMatched: entities.length,
-      cacheHitRate: this.cacheKey ? 0.8 : 0, // Mock cache hit rate
+      cacheHitRate: cacheKey ? 0.8 : 0, // Mock cache hit rate
       cacheHits: 0,
       cacheMisses: 0,
-      optimizationApplied: this.components.length > 1,
+      optimizationApplied: components.length > 1,
       indexStrategy: 'hybrid',
     }
 
@@ -350,97 +351,87 @@ class UnifiedQuery<T = unknown> implements IUnifiedQuery<T> {
       metrics,
       context: ctx,
     })
-  }
+  },
 
-  where(predicate: QueryPredicate<T>): IUnifiedQuery<T> {
-    return new UnifiedQuery(
-      this.name,
-      this.components,
-      this.system,
-      [...this.predicates, predicate],
-      this.selector,
-      this.limitCount,
-      this.orderCompareFn,
-      this.cacheKey,
-      this.cacheTTL,
-    )
-  }
+  where: (predicate: QueryPredicate<T>): IUnifiedQuery<T> =>
+    createUnifiedQuery(
+      name,
+      components,
+      system,
+      [...predicates, predicate],
+      selector,
+      limitCount,
+      orderCompareFn,
+      cacheKey,
+      cacheTTL,
+    ),
 
-  select<R>(selector: ComponentSelector<T, R>): IUnifiedQuery<R> {
-    return new UnifiedQuery<R>(
-      this.name,
-      this.components,
-      this.system,
+  select: <R>(newSelector: ComponentSelector<T, R>): IUnifiedQuery<R> =>
+    createUnifiedQuery<R>(
+      name,
+      components,
+      system,
       [] as readonly QueryPredicate<R>[], // Reset predicates for new type
-      selector as unknown as ComponentSelector<R, any>,
-      this.limitCount,
+      newSelector as unknown as ComponentSelector<R, any>,
+      limitCount,
       undefined, // Reset order compareFn for new type
-      this.cacheKey,
-      this.cacheTTL,
-    )
-  }
+      cacheKey,
+      cacheTTL,
+    ),
 
-  limit(count: number): IUnifiedQuery<T> {
-    return new UnifiedQuery(
-      this.name,
-      this.components,
-      this.system,
-      this.predicates,
-      this.selector,
+  limit: (count: number): IUnifiedQuery<T> =>
+    createUnifiedQuery(
+      name,
+      components,
+      system,
+      predicates,
+      selector,
       count,
-      this.orderCompareFn,
-      this.cacheKey,
-      this.cacheTTL,
-    )
-  }
+      orderCompareFn,
+      cacheKey,
+      cacheTTL,
+    ),
 
-  orderBy(compareFn: (a: T, b: T) => number): IUnifiedQuery<T> {
-    return new UnifiedQuery(
-      this.name,
-      this.components,
-      this.system,
-      this.predicates,
-      this.selector,
-      this.limitCount,
+  orderBy: (compareFn: (a: T, b: T) => number): IUnifiedQuery<T> =>
+    createUnifiedQuery(
+      name,
+      components,
+      system,
+      predicates,
+      selector,
+      limitCount,
       compareFn,
-      this.cacheKey,
-      this.cacheTTL,
-    )
-  }
+      cacheKey,
+      cacheTTL,
+    ),
 
-  cached(key: string, ttl?: number): IUnifiedQuery<T> {
-    return new UnifiedQuery(
-      this.name,
-      this.components,
-      this.system,
-      this.predicates,
-      this.selector,
-      this.limitCount,
-      this.orderCompareFn,
+  cached: (key: string, ttl?: number): IUnifiedQuery<T> =>
+    createUnifiedQuery(
+      name,
+      components,
+      system,
+      predicates,
+      selector,
+      limitCount,
+      orderCompareFn,
       key,
       ttl,
-    )
-  }
-}
+    ),
+})
 
 /**
- * Unified Query Builder implementation
+ * Create a unified query builder implementation
  */
-class UnifiedQueryBuilder implements IUnifiedQueryBuilder {
-  constructor(private readonly system: UnifiedQuerySystem) {}
+export const createUnifiedQueryBuilder = (system: IUnifiedQuerySystem): IUnifiedQueryBuilder => ({
+  withComponents: <T extends readonly ComponentName[]>(components: T): IUnifiedQuery<T> =>
+    createUnifiedQuery<T>(`Query_${components.join('_')}`, components, system),
 
-  withComponents<T extends readonly ComponentName[]>(components: T): IUnifiedQuery<T> {
-    return new UnifiedQuery<T>(`Query_${components.join('_')}`, components, this.system)
-  }
+  withArchetype: (signature: string): IUnifiedQuery<unknown> =>
+    createUnifiedQuery(`ArchetypeQuery_${signature}`, [], system),
 
-  withArchetype(signature: string): IUnifiedQuery<unknown> {
-    return new UnifiedQuery(`ArchetypeQuery_${signature}`, [], this.system)
-  }
-
-  cached(key: string, ttl?: number): IUnifiedQuery<unknown> {
-    return new UnifiedQuery(`CachedQuery_${key}`, [], this.system, [], undefined, undefined, undefined, key, ttl)
-  }
-}
+  cached: (key: string, ttl?: number): IUnifiedQuery<unknown> =>
+    createUnifiedQuery(`CachedQuery_${key}`, [], system, [], undefined, undefined, undefined, key, ttl)
+})
 
 /**
  * Internal state interfaces
@@ -506,16 +497,14 @@ export const archetypeMatchesMask = (archetypeMask: bigint, requiredMask: bigint
 }
 
 /**
- * Comprehensive unified query system implementation
+ * Create a comprehensive unified query system implementation
  */
-export class UnifiedQuerySystem implements IUnifiedQuerySystem {
-  private stateRef: Ref.Ref<UnifiedQuerySystemState>
-  private builder: IUnifiedQueryBuilder
-  private config: UnifiedQueryConfig
-
-  constructor(config: UnifiedQueryConfig, stateRef?: Ref.Ref<UnifiedQuerySystemState>) {
-    this.config = config
-    this.stateRef = stateRef || Ref.unsafeMake<UnifiedQuerySystemState>({
+export const createUnifiedQuerySystem = (
+  config: UnifiedQueryConfig,
+  stateRef?: Ref.Ref<UnifiedQuerySystemState>
+): Effect.Effect<IUnifiedQuerySystem, never, never> =>
+  Effect.gen(function* () {
+    const systemStateRef = stateRef || (yield* Ref.make<UnifiedQuerySystemState>({
       queryMetrics: HashMap.empty(),
       queryCache: HashMap.empty(),
       cachedPlans: HashMap.empty(),
@@ -535,250 +524,226 @@ export class UnifiedQuerySystem implements IUnifiedQuerySystem {
         memoryUsage: 0,
         hitRate: 0,
       },
-    })
-    this.builder = new UnifiedQueryBuilder(this)
-  }
+    }))
 
-  createQuery<T extends readonly ComponentName[]>(name: string, components: T): IUnifiedQuery<T> {
-    return new UnifiedQuery<T>(name, components, this)
-  }
+    const calculateMemoryUsage = (cache: HashMap.HashMap<string, CacheEntry>): number =>
+      HashMap.reduce(cache, 0, (sum, entry) => sum + entry.size)
 
-  createArchetypeQuery(name: string, signature: string): IUnifiedQuery<unknown> {
-    return new UnifiedQuery(name, [], this, [], undefined, undefined, undefined, `archetype_${signature}`)
-  }
-
-  executeQuery<T>(query: IUnifiedQuery<T>, context?: QueryExecutionContext): Effect.Effect<UnifiedQueryResult<T>, never, never> {
-    return query.execute(context)
-  }
-
-  getMetrics(queryName: string): Effect.Effect<Option.Option<QueryPerformanceMetrics>, never, never> {
-    const self = this
-    return Effect.gen(function* () {
-      const state = yield* Ref.get(self.stateRef)
-      return HashMap.get(state.queryMetrics, queryName)
-    })
-  }
-
-  clearCache(): Effect.Effect<void, never, never> {
-    const self = this
-    return Effect.gen(function* () {
-      yield* Ref.update(self.stateRef, (state) => ({
-        ...state,
-        queryCache: HashMap.empty(),
-        cacheStats: {
-          ...state.cacheStats,
-          totalEntries: 0,
-          memoryUsage: 0,
-        },
-      }))
-    })
-  }
-
-  getBuilder(): IUnifiedQueryBuilder {
-    return this.builder
-  }
-
-  // Advanced methods for entity management
-  addEntity(entity: QueryEntity): Effect.Effect<void, never, never> {
-    const self = this
-    return Effect.gen(function* () {
-      // Add to component index
-      yield* self.addToComponentIndex(entity)
-      // Add to archetype system
-      yield* self.addToArchetypeSystem(entity)
-    })
-  }
-
-  removeEntity(entity: QueryEntity): Effect.Effect<void, never, never> {
-    const self = this
-    return Effect.gen(function* () {
-      // Remove from component index
-      yield* self.removeFromComponentIndex(entity)
-      // Remove from archetype system
-      yield* self.removeFromArchetypeSystem(entity)
-    })
-  }
-
-  invalidateCache(modifiedComponents: ComponentName[]): Effect.Effect<number, never, never> {
-    const self = this
-    return Effect.gen(function* () {
-      const state = yield* Ref.get(self.stateRef)
-      const modifiedSet = new Set(modifiedComponents)
-      let invalidated = 0
-
-      const newCache = HashMap.filter(state.queryCache, (_key, entry) => {
-        const hasIntersection = [...entry.dependencies].some((dep) => modifiedSet.has(dep))
-        if (hasIntersection) {
-          invalidated++
-          return false
+    const computeComponentMask = (components: ReadonlySet<ComponentName>, componentIndex: ComponentIndexState): bigint => {
+      let mask = 0n
+      for (const component of components) {
+        let index = HashMap.get(componentIndex.componentIndices, component)
+        if (Option.isNone(index)) {
+          index = Option.some(componentIndex.nextIndex)
+          // Would need to update componentIndex state here in actual implementation
         }
-        return true
-      })
-
-      yield* Ref.update(self.stateRef, (state) => ({
-        ...state,
-        queryCache: newCache,
-        cacheStats: {
-          ...state.cacheStats,
-          totalEntries: HashMap.size(newCache),
-          memoryUsage: self.calculateMemoryUsage(newCache),
-        },
-      }))
-
-      return invalidated
-    })
-  }
-
-  private addToComponentIndex(entity: QueryEntity): Effect.Effect<void, never, never> {
-    const self = this
-    return Effect.gen(function* () {
-      const components = Object.keys(entity.components) as ComponentName[]
-      
-      yield* Ref.update(self.stateRef, (state) => {
-        let newComponentToEntities = state.componentIndex.componentToEntities
-        let newEntityToComponents = state.componentIndex.entityToComponents
-
-        // Update component to entities mapping
-        for (const component of components) {
-          const existingEntities = HashMap.get(newComponentToEntities, component)
-          const entitySet = Option.isSome(existingEntities) ? existingEntities.value : new Set<QueryEntity>()
-          entitySet.add(entity)
-          newComponentToEntities = HashMap.set(newComponentToEntities, component, entitySet)
-        }
-
-        // Update entity to components mapping
-        newEntityToComponents = HashMap.set(newEntityToComponents, entity, new Set(components))
-
-        return {
-          ...state,
-          componentIndex: {
-            ...state.componentIndex,
-            componentToEntities: newComponentToEntities,
-            entityToComponents: newEntityToComponents,
-          },
-        }
-      })
-    })
-  }
-
-  private removeFromComponentIndex(entity: QueryEntity): Effect.Effect<void, never, never> {
-    const self = this
-    return Effect.gen(function* () {
-      yield* Ref.update(self.stateRef, (state) => {
-        const componentsOption = HashMap.get(state.componentIndex.entityToComponents, entity)
-
-        if (Option.isNone(componentsOption)) return state
-
-        const components = componentsOption.value
-        let newComponentToEntities = state.componentIndex.componentToEntities
-
-        for (const component of components) {
-          const entitySetOption = HashMap.get(newComponentToEntities, component)
-          if (Option.isSome(entitySetOption)) {
-            const entitySet = entitySetOption.value
-            entitySet.delete(entity)
-
-            if (entitySet.size === 0) {
-              newComponentToEntities = HashMap.remove(newComponentToEntities, component)
-            } else {
-              newComponentToEntities = HashMap.set(newComponentToEntities, component, entitySet)
-            }
-          }
-        }
-
-        return {
-          ...state,
-          componentIndex: {
-            ...state.componentIndex,
-            componentToEntities: newComponentToEntities,
-            entityToComponents: HashMap.remove(state.componentIndex.entityToComponents, entity),
-          },
-        }
-      })
-    })
-  }
-
-  private addToArchetypeSystem(entity: QueryEntity): Effect.Effect<void, never, never> {
-    const self = this
-    return Effect.gen(function* () {
-      // Remove from current archetype if exists
-      yield* self.removeFromArchetypeSystem(entity)
-
-      // Determine entity's archetype based on components
-      const componentNames = Object.keys(entity.components) as ComponentName[]
-      const signature = createArchetypeSignature(componentNames, [])
-
-      yield* Ref.update(self.stateRef, (state) => {
-        const existingArchetypeOption = HashMap.get(state.archetypes, signature.hash)
-        let archetype: ArchetypeState
-
-        if (Option.isSome(existingArchetypeOption)) {
-          archetype = existingArchetypeOption.value
-        } else {
-          // Create new archetype
-          archetype = {
-            entities: new Set<QueryEntity>(),
-            signature,
-            componentMask: self.computeComponentMask(signature.required, state.componentIndex),
-          }
-        }
-
-        archetype.entities.add(entity)
-
-        return {
-          ...state,
-          archetypes: HashMap.set(state.archetypes, signature.hash, archetype),
-          entityToArchetype: HashMap.set(state.entityToArchetype, entity, archetype),
-        }
-      })
-    })
-  }
-
-  private removeFromArchetypeSystem(entity: QueryEntity): Effect.Effect<void, never, never> {
-    const self = this
-    return Effect.gen(function* () {
-      yield* Ref.update(self.stateRef, (state) => {
-        const currentArchetypeOption = HashMap.get(state.entityToArchetype, entity)
-
-        if (Option.isNone(currentArchetypeOption)) return state
-
-        const currentArchetype = currentArchetypeOption.value
-        currentArchetype.entities.delete(entity)
-
-        // Clean up empty archetype
-        let newArchetypes = state.archetypes
-        if (currentArchetype.entities.size === 0) {
-          newArchetypes = HashMap.remove(state.archetypes, currentArchetype.signature.hash)
-        }
-
-        return {
-          ...state,
-          archetypes: newArchetypes,
-          entityToArchetype: HashMap.remove(state.entityToArchetype, entity),
-        }
-      })
-    })
-  }
-
-  private computeComponentMask(components: ReadonlySet<ComponentName>, componentIndex: ComponentIndexState): bigint {
-    let mask = 0n
-
-    for (const component of components) {
-      let index = HashMap.get(componentIndex.componentIndices, component)
-      if (Option.isNone(index)) {
-        index = Option.some(componentIndex.nextIndex)
-        // Would need to update componentIndex state here in actual implementation
+        mask |= 1n << BigInt(index.value)
       }
-      mask |= 1n << BigInt(index.value)
+      return mask
     }
 
-    return mask
-  }
+    const addToComponentIndex = (entity: QueryEntity): Effect.Effect<void, never, never> =>
+      Effect.gen(function* () {
+        const components = Object.keys(entity.components) as ComponentName[]
+        
+        yield* Ref.update(systemStateRef, (state) => {
+          let newComponentToEntities = state.componentIndex.componentToEntities
+          let newEntityToComponents = state.componentIndex.entityToComponents
 
-  private calculateMemoryUsage(cache: HashMap.HashMap<string, CacheEntry>): number {
-    return HashMap.reduce(cache, 0, (sum, entry) => sum + entry.size)
-  }
-}
+          // Update component to entities mapping
+          for (const component of components) {
+            const existingEntities = HashMap.get(newComponentToEntities, component)
+            const entitySet = Option.isSome(existingEntities) ? existingEntities.value : new Set<QueryEntity>()
+            entitySet.add(entity)
+            newComponentToEntities = HashMap.set(newComponentToEntities, component, entitySet)
+          }
+
+          // Update entity to components mapping
+          newEntityToComponents = HashMap.set(newEntityToComponents, entity, new Set(components))
+
+          return {
+            ...state,
+            componentIndex: {
+              ...state.componentIndex,
+              componentToEntities: newComponentToEntities,
+              entityToComponents: newEntityToComponents,
+            },
+          }
+        })
+      })
+
+    const removeFromComponentIndex = (entity: QueryEntity): Effect.Effect<void, never, never> =>
+      Effect.gen(function* () {
+        yield* Ref.update(systemStateRef, (state) => {
+          const componentsOption = HashMap.get(state.componentIndex.entityToComponents, entity)
+
+          if (Option.isNone(componentsOption)) return state
+
+          const components = componentsOption.value
+          let newComponentToEntities = state.componentIndex.componentToEntities
+
+          for (const component of components) {
+            const entitySetOption = HashMap.get(newComponentToEntities, component)
+            if (Option.isSome(entitySetOption)) {
+              const entitySet = entitySetOption.value
+              entitySet.delete(entity)
+
+              if (entitySet.size === 0) {
+                newComponentToEntities = HashMap.remove(newComponentToEntities, component)
+              } else {
+                newComponentToEntities = HashMap.set(newComponentToEntities, component, entitySet)
+              }
+            }
+          }
+
+          return {
+            ...state,
+            componentIndex: {
+              ...state.componentIndex,
+              componentToEntities: newComponentToEntities,
+              entityToComponents: HashMap.remove(state.componentIndex.entityToComponents, entity),
+            },
+          }
+        })
+      })
+
+    const removeFromArchetypeSystem = (entity: QueryEntity): Effect.Effect<void, never, never> =>
+      Effect.gen(function* () {
+        yield* Ref.update(systemStateRef, (state) => {
+          const currentArchetypeOption = HashMap.get(state.entityToArchetype, entity)
+
+          if (Option.isNone(currentArchetypeOption)) return state
+
+          const currentArchetype = currentArchetypeOption.value
+          currentArchetype.entities.delete(entity)
+
+          // Clean up empty archetype
+          let newArchetypes = state.archetypes
+          if (currentArchetype.entities.size === 0) {
+            newArchetypes = HashMap.remove(state.archetypes, currentArchetype.signature.hash)
+          }
+
+          return {
+            ...state,
+            archetypes: newArchetypes,
+            entityToArchetype: HashMap.remove(state.entityToArchetype, entity),
+          }
+        })
+      })
+
+    const addToArchetypeSystem = (entity: QueryEntity): Effect.Effect<void, never, never> =>
+      Effect.gen(function* () {
+        // Remove from current archetype if exists
+        yield* removeFromArchetypeSystem(entity)
+
+        // Determine entity's archetype based on components
+        const componentNames = Object.keys(entity.components) as ComponentName[]
+        const signature = createArchetypeSignature(componentNames, [])
+
+        yield* Ref.update(systemStateRef, (state) => {
+          const existingArchetypeOption = HashMap.get(state.archetypes, signature.hash)
+          let archetype: ArchetypeState
+
+          if (Option.isSome(existingArchetypeOption)) {
+            archetype = existingArchetypeOption.value
+          } else {
+            // Create new archetype
+            archetype = {
+              entities: new Set<QueryEntity>(),
+              signature,
+              componentMask: computeComponentMask(signature.required, state.componentIndex),
+            }
+          }
+
+          archetype.entities.add(entity)
+
+          return {
+            ...state,
+            archetypes: HashMap.set(state.archetypes, signature.hash, archetype),
+            entityToArchetype: HashMap.set(state.entityToArchetype, entity, archetype),
+          }
+        })
+      })
+
+    const system: IUnifiedQuerySystem = {
+      createQuery: <T extends readonly ComponentName[]>(name: string, components: T): IUnifiedQuery<T> =>
+        createUnifiedQuery<T>(name, components, system),
+
+      createArchetypeQuery: (name: string, signature: string): IUnifiedQuery<unknown> =>
+        createUnifiedQuery(name, [], system, [], undefined, undefined, undefined, `archetype_${signature}`),
+
+      executeQuery: <T>(query: IUnifiedQuery<T>, context?: QueryExecutionContext): Effect.Effect<UnifiedQueryResult<T>, never, never> =>
+        query.execute(context),
+
+      getMetrics: (queryName: string): Effect.Effect<Option.Option<QueryPerformanceMetrics>, never, never> =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(systemStateRef)
+          return HashMap.get(state.queryMetrics, queryName)
+        }),
+
+      clearCache: (): Effect.Effect<void, never, never> =>
+        Effect.gen(function* () {
+          yield* Ref.update(systemStateRef, (state) => ({
+            ...state,
+            queryCache: HashMap.empty(),
+            cacheStats: {
+              ...state.cacheStats,
+              totalEntries: 0,
+              memoryUsage: 0,
+            },
+          }))
+        }),
+
+      getBuilder: (): IUnifiedQueryBuilder => createUnifiedQueryBuilder(system),
+
+      // Advanced methods for entity management
+      addEntity: (entity: QueryEntity): Effect.Effect<void, never, never> =>
+        Effect.gen(function* () {
+          // Add to component index
+          yield* addToComponentIndex(entity)
+          // Add to archetype system
+          yield* addToArchetypeSystem(entity)
+        }),
+
+      removeEntity: (entity: QueryEntity): Effect.Effect<void, never, never> =>
+        Effect.gen(function* () {
+          // Remove from component index
+          yield* removeFromComponentIndex(entity)
+          // Remove from archetype system
+          yield* removeFromArchetypeSystem(entity)
+        }),
+
+      invalidateCache: (modifiedComponents: ComponentName[]): Effect.Effect<number, never, never> =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(systemStateRef)
+          const modifiedSet = new Set(modifiedComponents)
+          let invalidated = 0
+
+          const newCache = HashMap.filter(state.queryCache, (_key, entry) => {
+            const hasIntersection = [...entry.dependencies].some((dep) => modifiedSet.has(dep))
+            if (hasIntersection) {
+              invalidated++
+              return false
+            }
+            return true
+          })
+
+          yield* Ref.update(systemStateRef, (state) => ({
+            ...state,
+            queryCache: newCache,
+            cacheStats: {
+              ...state.cacheStats,
+              totalEntries: HashMap.size(newCache),
+              memoryUsage: calculateMemoryUsage(newCache),
+            },
+          }))
+
+          return invalidated
+        }),
+    }
+
+    return system
+  })
 
 /**
  * Unified Query System service tag
@@ -841,7 +806,7 @@ export const UnifiedQuerySystemLive = Layer.effect(
       yield* Effect.fork(cleanupEffect)
     }
 
-    return new UnifiedQuerySystem(defaultUnifiedQueryConfig, stateRef)
+    return yield* createUnifiedQuerySystem(defaultUnifiedQueryConfig, stateRef)
   })
 )
 
@@ -957,9 +922,9 @@ export const PredefinedQueries = {
 }
 
 /**
- * Create unified query system with custom configuration
+ * Create unified query system layer with custom configuration
  */
-export const createUnifiedQuerySystem = (config: Partial<UnifiedQueryConfig> = {}) =>
+export const createUnifiedQuerySystemLayer = (config: Partial<UnifiedQueryConfig> = {}) =>
   Layer.effect(
     UnifiedQuerySystemService,
     Effect.gen(function* () {
@@ -985,6 +950,6 @@ export const createUnifiedQuerySystem = (config: Partial<UnifiedQueryConfig> = {
           hitRate: 0,
         },
       })
-      return new UnifiedQuerySystem(finalConfig, stateRef)
+      return yield* createUnifiedQuerySystem(finalConfig, stateRef)
     })
   )

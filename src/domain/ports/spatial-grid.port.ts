@@ -34,4 +34,4 @@ export interface ISpatialGridPort {
   readonly queryNearest: (position: { x: number; y: number; z: number }, maxResults?: number) => Effect.Effect<ReadonlyArray<EntityId>, never, never>
 }
 
-export class SpatialGridPort extends Context.GenericTag('SpatialGridPort')<SpatialGridPort, ISpatialGridPort>() {}
+export const SpatialGridPort = Context.GenericTag<ISpatialGridPort>('SpatialGridPort')

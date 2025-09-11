@@ -74,164 +74,212 @@ export type Entity<TComponents extends Record<string, Component> = Record<string
   readonly components: TComponents
 }
 
-// Registry implementation
-export class ComponentRegistry {
-  private state: ComponentRegistryState
+// Functional Component Registry
+import * as Effect from 'effect/Effect'
+import * as Ref from 'effect/Ref'
 
-  constructor() {
-    this.state = Data.struct({
+// Registry service implementation with functional pattern
+export const ComponentRegistry = {
+  /**
+   * Create a new registry state
+   */
+  create: () => Effect.gen(function* () {
+    const stateRef = yield* Ref.make<ComponentRegistryState>(Data.struct({
       components: HashMap.empty(),
       archetypes: HashMap.empty(),
       soaBuffers: HashMap.empty(),
-    })
-  }
+    }))
+    return stateRef
+  }),
 
   /**
    * Register a component with automatic metadata extraction
    */
-  register<TSchema extends S.Schema<any, any, any>>(meta: ComponentMeta<TSchema>): void {
-    this.state = Data.struct({
-      ...this.state,
-      components: HashMap.set(this.state.components, meta.id, meta),
+  register: <TSchema extends S.Schema<any, any, any>>(
+    stateRef: Ref.Ref<ComponentRegistryState>,
+    meta: ComponentMeta<TSchema>
+  ) => Effect.gen(function* () {
+    const currentState = yield* Ref.get(stateRef)
+    const newState = Data.struct({
+      ...currentState,
+      components: HashMap.set(currentState.components, meta.id, meta),
     })
+    
+    yield* Ref.set(stateRef, newState)
 
     // Initialize SoA buffer for physics and performance-critical components
     if (meta.category === 'physics' || meta.priority === 1) {
-      this.initializeSoABuffer(meta.id, meta.schema)
+      yield* initializeSoABuffer(stateRef, meta.id, meta.schema)
     }
-  }
+  }),
 
   /**
    * Get component metadata with type safety
    */
-  getComponent<TSchema extends S.Schema<any, any, any>>(id: string): Option.Option<ComponentMeta<TSchema>> {
-    return HashMap.get(this.state.components, id) as Option.Option<ComponentMeta<TSchema>>
-  }
+  getComponent: <TSchema extends S.Schema<any, any, any>>(
+    stateRef: Ref.Ref<ComponentRegistryState>,
+    id: string
+  ) => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    return HashMap.get(state.components, id) as Option.Option<ComponentMeta<TSchema>>
+  }),
 
   /**
    * Get all components in a category
    */
-  getComponentsByCategory(category: ComponentMeta['category']): readonly ComponentMeta[] {
-    return Array.fromIterable(HashMap.values(HashMap.filter(this.state.components, (meta) => meta.category === category)))
-  }
+  getComponentsByCategory: (
+    stateRef: Ref.Ref<ComponentRegistryState>,
+    category: ComponentMeta['category']
+  ) => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    return Array.fromIterable(HashMap.values(HashMap.filter(state.components, (meta) => meta.category === category)))
+  }),
 
   /**
    * Create or get archetype for component signature
    */
-  getArchetype(componentIds: readonly string[]): ArchetypeInfo {
+  getArchetype: (
+    stateRef: Ref.Ref<ComponentRegistryState>,
+    componentIds: readonly string[]
+  ) => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
     const signature = Array.sort(componentIds, (a: string, b: string) => {
       const result = a.localeCompare(b)
       return result < 0 ? -1 : result > 0 ? 1 : 0
     })
     const archetypeKey = signature.join('|')
 
-    return Option.getOrElse(HashMap.get(this.state.archetypes, archetypeKey), () => {
-      const archetype = this.createArchetype(signature)
-      this.state = Data.struct({
-        ...this.state,
-        archetypes: HashMap.set(this.state.archetypes, archetypeKey, archetype),
+    return Option.getOrElse(HashMap.get(state.archetypes, archetypeKey), () => {
+      const archetype = createArchetype(state, signature)
+      const newState = Data.struct({
+        ...state,
+        archetypes: HashMap.set(state.archetypes, archetypeKey, archetype),
       })
+      Effect.runSync(Ref.set(stateRef, newState))
       return archetype
     })
-  }
+  }),
 
   /**
    * Query entities by component requirements with enhanced type safety
    */
-  query<TComponents extends Record<string, Component>>(required: readonly (keyof TComponents)[], _optional: readonly string[] = []): QueryResult<TComponents> {
+  query: <TComponents extends Record<string, Component>>(
+    stateRef: Ref.Ref<ComponentRegistryState>,
+    required: readonly (keyof TComponents)[],
+    _optional: readonly string[] = []
+  ) => Effect.gen(function* () {
     const componentIds = required as readonly string[]
-    const archetype = this.getArchetype(componentIds)
+    const archetype = yield* ComponentRegistry.getArchetype(stateRef, componentIds)
     return {
       entities: archetype.entities,
-      getComponent: <T>(entityId: number, componentId: keyof TComponents) => this.getEntityComponent<T>(entityId, componentId as string),
-      hasComponent: (entityId: number, componentId: keyof TComponents) => this.hasEntityComponent(entityId, componentId as string),
+      getComponent: <T>(entityId: number, componentId: keyof TComponents) => 
+        getEntityComponent<T>(stateRef, entityId, componentId as string),
+      hasComponent: (entityId: number, componentId: keyof TComponents) => 
+        hasEntityComponent(stateRef, entityId, componentId as string),
       storageLayout: archetype.storageLayout,
     }
-  }
+  }),
 
   /**
    * Convert storage layout for performance optimization
    */
-  convertStorageLayout(componentId: string, targetLayout: StorageLayout): void {
-    const soaBuffer = HashMap.get(this.state.soaBuffers, componentId)
+  convertStorageLayout: (
+    stateRef: Ref.Ref<ComponentRegistryState>,
+    componentId: string,
+    targetLayout: StorageLayout
+  ) => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    const soaBuffer = HashMap.get(state.soaBuffers, componentId)
     if (Option.isSome(soaBuffer)) {
-      // Perform SoA/AoS conversion logic here
-      this.performStorageConversion(soaBuffer.value, targetLayout)
+      yield* performStorageConversion(soaBuffer.value, targetLayout)
     }
-  }
+  }),
 
   /**
    * Get performance metrics
    */
-  getMetrics(): RegistryMetrics {
+  getMetrics: (stateRef: Ref.Ref<ComponentRegistryState>) => Effect.gen(function* () {
+    const state = yield* Ref.get(stateRef)
+    const memoryUsage = yield* calculateMemoryUsage(state)
     return {
-      componentCount: HashMap.size(this.state.components),
-      archetypeCount: HashMap.size(this.state.archetypes),
-      soaBufferCount: HashMap.size(this.state.soaBuffers),
-      totalMemoryUsage: this.calculateMemoryUsage(),
+      componentCount: HashMap.size(state.components),
+      archetypeCount: HashMap.size(state.archetypes),
+      soaBufferCount: HashMap.size(state.soaBuffers),
+      totalMemoryUsage: memoryUsage,
     }
-  }
-
-  // Private methods
-
-  private createArchetype(componentIds: readonly string[]): ArchetypeInfo {
-    // Determine optimal storage layout based on component types
-    const storageLayout = this.determineOptimalStorageLayout(componentIds)
-
-    return Data.struct({
-      signature: componentIds,
-      entities: [],
-      storageLayout,
-    })
-  }
-
-  private initializeSoABuffer(componentId: string, _schema: S.Schema<any, any, any>): void {
-    const buffer = Data.struct({
-      componentId,
-      capacity: 1024, // Initial capacity
-      length: 0,
-      data: new ArrayBuffer(1024 * 32), // 32 bytes per component initially
-      views: {},
-    })
-
-    this.state = Data.struct({
-      ...this.state,
-      soaBuffers: HashMap.set(this.state.soaBuffers, componentId, buffer),
-    })
-  }
-
-  private determineOptimalStorageLayout(componentIds: readonly string[]): StorageLayout {
-    const physicsComponents = componentIds.filter((id) => {
-      const meta = HashMap.get(this.state.components, id)
-      return Option.match(meta, {
-        onNone: () => false,
-        onSome: (m) => m.category === 'physics',
-      })
-    })
-
-    // Use SoA for physics-heavy archetypes, AoS for mixed archetypes
-    return physicsComponents.length > componentIds.length / 2 ? 'SoA' : 'AoS'
-  }
-
-  private getEntityComponent<T>(_entityId: number, _componentId: string): Option.Option<T> {
-    // Implementation for component retrieval
-    return Option.none()
-  }
-
-  private hasEntityComponent(_entityId: number, _componentId: string): boolean {
-    // Implementation for component existence check
-    return false
-  }
-
-  private performStorageConversion(buffer: SoABuffer, targetLayout: StorageLayout): void {
-    // Implementation for storage layout conversion
-    console.log(`Converting storage layout to ${targetLayout} for component ${buffer.componentId}`)
-  }
-
-  private calculateMemoryUsage(): number {
-    return Array.reduce(Array.fromIterable(HashMap.values(this.state.soaBuffers)), 0, (acc, buffer) => acc + (buffer as SoABuffer).data.byteLength)
-  }
+  }),
 }
+
+// Helper functions
+
+const createArchetype = (state: ComponentRegistryState, componentIds: readonly string[]): ArchetypeInfo => {
+  const storageLayout = determineOptimalStorageLayout(state, componentIds)
+  return Data.struct({
+    signature: componentIds,
+    entities: [],
+    storageLayout,
+  })
+}
+
+const initializeSoABuffer = (
+  stateRef: Ref.Ref<ComponentRegistryState>,
+  componentId: string,
+  _schema: S.Schema<any, any, any>
+) => Effect.gen(function* () {
+  const buffer = Data.struct({
+    componentId,
+    capacity: 1024,
+    length: 0,
+    data: new ArrayBuffer(1024 * 32),
+    views: {},
+  })
+
+  const currentState = yield* Ref.get(stateRef)
+  const newState = Data.struct({
+    ...currentState,
+    soaBuffers: HashMap.set(currentState.soaBuffers, componentId, buffer),
+  })
+  yield* Ref.set(stateRef, newState)
+})
+
+const determineOptimalStorageLayout = (state: ComponentRegistryState, componentIds: readonly string[]): StorageLayout => {
+  const physicsComponents = componentIds.filter((id) => {
+    const meta = HashMap.get(state.components, id)
+    return Option.match(meta, {
+      onNone: () => false,
+      onSome: (m) => m.category === 'physics',
+    })
+  })
+  return physicsComponents.length > componentIds.length / 2 ? 'SoA' : 'AoS'
+}
+
+const getEntityComponent = <T>(
+  _stateRef: Ref.Ref<ComponentRegistryState>,
+  _entityId: number,
+  _componentId: string
+): Effect.Effect<Option.Option<T>, never, never> => Effect.succeed(Option.none())
+
+const hasEntityComponent = (
+  _stateRef: Ref.Ref<ComponentRegistryState>,
+  _entityId: number,
+  _componentId: string
+): Effect.Effect<boolean, never, never> => Effect.succeed(false)
+
+const performStorageConversion = (
+  buffer: SoABuffer,
+  targetLayout: StorageLayout
+): Effect.Effect<void, never, never> => Effect.gen(function* () {
+  console.log(`Converting storage layout to ${targetLayout} for component ${buffer.componentId}`)
+})
+
+const calculateMemoryUsage = (state: ComponentRegistryState): Effect.Effect<number, never, never> =>
+  Effect.succeed(
+    Array.reduce(
+      Array.fromIterable(HashMap.values(state.soaBuffers)), 
+      0, 
+      (acc, buffer) => acc + (buffer as SoABuffer).data.byteLength
+    )
+  )
 
 // Enhanced query result interface with generic typing
 export interface QueryResult<TComponents extends Record<string, Component> = Record<string, Component>> {
@@ -249,18 +297,19 @@ export interface RegistryMetrics {
   readonly totalMemoryUsage: number
 }
 
-// Global registry instance
-export const globalRegistry = new ComponentRegistry()
+// Global registry instance using functional pattern
+export const createGlobalRegistry = () => Effect.runSync(ComponentRegistry.create())
 
 // Enhanced decorator for automatic component registration with typing
 export const RegisterComponent =
   <TSchema extends S.Schema<any, any, any>>(meta: Omit<ComponentMeta<TSchema>, 'schema' | '_tag'>) =>
   (schema: TSchema): TSchema => {
-    globalRegistry.register({
+    const registryRef = createGlobalRegistry()
+    Effect.runSync(ComponentRegistry.register(registryRef, {
       ...meta,
       schema,
       _tag: meta.id, // Use ID as discriminated union tag
-    })
+    }))
     return schema
   }
 

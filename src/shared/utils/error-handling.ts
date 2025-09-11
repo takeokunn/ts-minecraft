@@ -7,8 +7,8 @@
 
 import * as Effect from 'effect/Effect'
 import { pipe } from 'effect/Function'
-import { Logger } from './logging'
-import { PerformanceMonitor } from './monitoring'
+import { Logger } from '@shared/utils/logging'
+import { PerformanceMonitor } from '@shared/utils/monitoring'
 import type { AllGameErrors } from '@domain/errors'
 
 // Error handling strategies

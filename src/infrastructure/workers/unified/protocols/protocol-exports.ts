@@ -13,7 +13,7 @@ export {
   createDefaultBiome, 
   createDefaultNoiseSettings, 
   createDefaultTerrainFeatures 
-} from './terrain.protocol'
+} from '@infrastructure/terrain.protocol'
 
 // Re-export commonly used types and utilities from physics protocol
 export { 
@@ -24,7 +24,7 @@ export {
   identityQuaternion, 
   createPhysicsMaterial, 
   vectorOps 
-} from './physics.protocol'
+} from '@infrastructure/physics.protocol'
 
 // Re-export commonly used types and utilities from mesh protocol
 export { 
@@ -33,7 +33,7 @@ export {
   createDefaultOptimizations, 
   createDefaultLighting as createDefaultMeshLighting, 
   extractMeshTransferables 
-} from './mesh.protocol'
+} from '@infrastructure/mesh.protocol'
 
 // Re-export commonly used types and utilities from lighting protocol
 export {
@@ -45,7 +45,7 @@ export {
   createDefaultAOSettings,
   worldTimeToSkyLight,
   extractLightingTransferables
-} from './lighting.protocol'
+} from '@infrastructure/lighting.protocol'
 
 // Re-export commonly used types and utilities from computation protocol
 export {
@@ -58,7 +58,7 @@ export {
   createDefaultCompressionParams,
   distance3D,
   extractComputationTransferables
-} from './computation.protocol'
+} from '@infrastructure/computation.protocol'
 
 // Re-export commonly used types and utilities from error handling protocol
 export {
@@ -75,4 +75,4 @@ export {
   createDefaultErrorHandlingConfig,
   isRetryableError,
   categorizeError
-} from './error-handling.protocol'
+} from '@infrastructure/error-handling.protocol'

@@ -5,7 +5,7 @@
 
 import { Effect, Context, Layer, HashMap, HashSet, ReadonlyArray, Option, pipe, Ref, Cache, Duration, Fiber, FiberRef, Chunk, Stream, Schedule, Metric } from 'effect'
 import * as S from 'effect/Schema'
-import { EntityId, ComponentName, Entity, QueryMetrics } from './archetype-query.service'
+import { EntityId, ComponentName, Entity, QueryMetrics } from '@domain/services/ecs/archetype-query.service'
 
 // ============================================================================
 // Schema Definitions

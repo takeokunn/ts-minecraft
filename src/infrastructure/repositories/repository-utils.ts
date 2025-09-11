@@ -2,9 +2,9 @@
  * Repository utilities and helper functions
  */
 import * as Layer from 'effect/Layer'
-import { WorldRepositoryLive } from './world.repository'
-import { EntityRepositoryLive } from './entity.repository'
-import { ChunkRepositoryLive } from './chunk.repository'
+import { WorldRepositoryLive } from '@infrastructure/repositories/world.repository'
+import { EntityRepositoryLive } from '@infrastructure/repositories/entity.repository'
+import { ChunkRepositoryLive } from '@infrastructure/repositories/chunk.repository'
 
 /**
  * Repository Layer combinations for easy setup

@@ -1,5 +1,5 @@
 import { Effect, Ref, Schedule } from 'effect'
-import { Metrics } from './metrics'
+import { Metrics } from '@infrastructure/performance/metrics'
 
 /**
  * Memory leak detection system with advanced monitoring capabilities

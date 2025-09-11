@@ -1,5 +1,5 @@
-import { defineError } from './generator'
-import { WorldError } from './base-errors'
+import { defineError } from '@domain/errors/generator'
+import { WorldError } from '@domain/errors/base-errors'
 import type { ChunkCoordinates, Position } from '@domain/value-objects/coordinates'
 import type { BlockType } from '@domain/value-objects/block-type.vo'
 import type { ComponentName } from '@domain/entities/components'

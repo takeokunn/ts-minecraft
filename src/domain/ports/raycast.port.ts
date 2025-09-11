@@ -51,4 +51,4 @@ export interface IRaycastPort {
   ) => Effect.Effect<Option.Option<RaycastHit>, never, never>
 }
 
-export class RaycastPort extends Context.GenericTag('RaycastPort')<RaycastPort, IRaycastPort>() {}
+export const RaycastPort = Context.GenericTag<IRaycastPort>('RaycastPort')

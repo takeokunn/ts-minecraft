@@ -1,5 +1,5 @@
 import { Effect, Ref } from 'effect'
-import { Metrics } from './metrics'
+import { Metrics } from '@infrastructure/performance/metrics'
 
 /**
  * FPS counter and frame drop detection system

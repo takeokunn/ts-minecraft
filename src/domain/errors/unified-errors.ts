@@ -5,103 +5,94 @@
  * All domain operations should use these error types for consistent error handling.
  */
 
-import { Data } from 'effect'
+import { Data, Schema } from 'effect'
 import { EntityId } from '@domain/entities'
 import { ComponentName } from '@domain/entities/components'
 
-// ===== BASE ERROR HIERARCHY =====
+// ===== BASE ERROR HIERARCHY USING SCHEMA.TAGGEDERROR =====
 
 /**
- * Base game error - all game errors extend from this
+ * Base game error schema
  */
-export abstract class GameError extends Data.TaggedError('GameError')<{
-  readonly message: string
-  readonly timestamp?: number
-  readonly context?: Record<string, unknown>
-}> {}
+export const GameError = Schema.TaggedError("GameError")({
+  message: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+})
 
 /**
  * Domain-level errors for business logic violations
  */
-export abstract class DomainError extends GameError {}
+export const DomainError = Schema.TaggedError("DomainError")({
+  message: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+})
 
 /**
  * Infrastructure-level errors for external system failures
  */
-export abstract class InfrastructureError extends GameError {}
+export const InfrastructureError = Schema.TaggedError("InfrastructureError")({
+  message: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+})
 
 /**
  * Application-level errors for use case failures
  */
-export abstract class ApplicationError extends GameError {}
+export const ApplicationError = Schema.TaggedError("ApplicationError")({
+  message: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+})
 
 // ===== ENTITY SUBSYSTEM ERRORS =====
 
-export class EntityNotFoundError extends DomainError {
-  readonly _tag = 'EntityNotFoundError' as const
-  constructor(data: { readonly entityId: EntityId; readonly message?: string }) {
-    super({
-      message: data.message || `Entity not found: ${data.entityId}`,
-      timestamp: Date.now(),
-      context: { entityId: data.entityId },
-    })
-  }
-}
+export const EntityNotFoundError = Schema.TaggedError("EntityNotFoundError")({
+  message: Schema.String,
+  entityId: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+})
 
-export class EntityAlreadyExistsError extends DomainError {
-  readonly _tag = 'EntityAlreadyExistsError' as const
-  constructor(data: { readonly entityId: EntityId; readonly message?: string }) {
-    super({
-      message: data.message || `Entity already exists: ${data.entityId}`,
-      timestamp: Date.now(),
-      context: { entityId: data.entityId },
-    })
-  }
-}
+export const EntityAlreadyExistsError = Schema.TaggedError("EntityAlreadyExistsError")({
+  message: Schema.String,
+  entityId: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+})
 
-export class EntityCreationError extends DomainError {
-  readonly _tag = 'EntityCreationError' as const
-  constructor(data: { readonly message: string; readonly cause?: unknown }) {
-    super({
-      message: data.message,
-      timestamp: Date.now(),
-      context: { cause: data.cause },
-    })
-  }
-}
+export const EntityCreationError = Schema.TaggedError("EntityCreationError")({
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+})
 
-export class EntityDestructionError extends DomainError {
-  readonly _tag = 'EntityDestructionError' as const
-  constructor(data: { readonly entityId: EntityId; readonly message?: string; readonly cause?: unknown }) {
-    super({
-      message: data.message || `Failed to destroy entity: ${data.entityId}`,
-      timestamp: Date.now(),
-      context: { entityId: data.entityId, cause: data.cause },
-    })
-  }
-}
+export const EntityDestructionError = Schema.TaggedError("EntityDestructionError")({
+  message: Schema.String,
+  entityId: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+})
 
-export class EntityLimitExceededError extends DomainError {
-  readonly _tag = 'EntityLimitExceededError' as const
-  constructor(data: { readonly limit: number; readonly current: number; readonly message?: string }) {
-    super({
-      message: data.message || `Entity limit exceeded: ${data.current}/${data.limit}`,
-      timestamp: Date.now(),
-      context: { limit: data.limit, current: data.current },
-    })
-  }
-}
+export const EntityLimitExceededError = Schema.TaggedError("EntityLimitExceededError")({
+  message: Schema.String,
+  limit: Schema.Number,
+  current: Schema.Number,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+})
 
-export class InvalidEntityStateError extends DomainError {
-  readonly _tag = 'InvalidEntityStateError' as const
-  constructor(data: { readonly entityId: EntityId; readonly state: string; readonly message?: string }) {
-    super({
-      message: data.message || `Invalid entity state: ${data.state} for entity ${data.entityId}`,
-      timestamp: Date.now(),
-      context: { entityId: data.entityId, state: data.state },
-    })
-  }
-}
+export const InvalidEntityStateError = Schema.TaggedError("InvalidEntityStateError")({
+  message: Schema.String,
+  entityId: Schema.String,
+  state: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+})
 
 // ===== COMPONENT SUBSYSTEM ERRORS =====
 

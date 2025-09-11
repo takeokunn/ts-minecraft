@@ -1,2 +1,2 @@
-export * from './error-exports'
-export * from './error-utils'
+export * from '@domain/errors/error-exports'
+export * from '@domain/errors/error-utils'

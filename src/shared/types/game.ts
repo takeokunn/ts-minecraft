@@ -1,5 +1,5 @@
 import * as S from 'effect/Schema'
-import { Point3D, ID, Brand } from './common'
+import { Point3D, ID, Brand } from '@shared/types/common'
 
 /**
  * Game-specific types for Minecraft-like functionality
