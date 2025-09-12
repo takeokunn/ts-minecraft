@@ -205,7 +205,7 @@ const createEnvironmentConfig = (mode: string): GameConfig => {
 }
 
 // Deep merge utility for partial config updates
-const deepMerge = <T extends Record<string, any>>(target: T, source: Partial<T>): T => {
+const deepMerge = <T extends Record<string, unknown>>(target: T, source: Partial<T>): T => {
   const result = { ...target }
   
   for (const key in source) {

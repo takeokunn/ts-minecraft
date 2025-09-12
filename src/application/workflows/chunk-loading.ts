@@ -2,8 +2,8 @@ import { Effect, Option, HashMap, Context, Layer } from 'effect'
 import { ReadonlyArray } from 'effect/ReadonlyArray'
 import { EntityId } from '@domain/entities'
 import { CHUNK_SIZE, RENDER_DISTANCE } from '@shared/constants/world'
-import { WorldDomainService } from '@domain/services/world-domain.service'
-import { ChunkLoadUseCase } from '@application/use-cases/chunk-load.use-case'
+import { WorldDomainService } from '@domain/services/world.domain-service'
+import { ChunkLoadUseCase } from '@application/use-cases/chunk-load.usecase'
 import { Position } from '@domain/entities/components'
 
 type ChunkCoord = { readonly x: number; readonly z: number }

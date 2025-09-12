@@ -583,6 +583,225 @@ const cacheMetrics = {
 }
 
 // ============================================================================
+// Advanced Cache Patterns and Decorators
+// ============================================================================
+
+/**
+ * Write-through cache pattern
+ */
+export const createWriteThroughCache = <T>(loader: (key: string) => Effect.Effect<T>, writer: (key: string, value: T) => Effect.Effect<void>) =>
+  Effect.gen(function* () {
+    const cache = yield* MultiLevelCacheService
+    
+    return {
+      get: (key: string) =>
+        cache.get<T>(key).pipe(
+          Effect.catchTag('CacheMissError', () =>
+            Effect.gen(function* () {
+              const value = yield* loader(key)
+              yield* cache.set(key, value, { level: 'L1' })
+              return value
+            })
+          )
+        ),
+        
+      set: (key: string, value: T) =>
+        Effect.gen(function* () {
+          // Write to both cache and persistent storage
+          yield* Effect.all([
+            cache.set(key, value, { level: 'L1' }),
+            writer(key, value)
+          ])
+        }),
+        
+      invalidate: (key: string) =>
+        Effect.gen(function* () {
+          yield* cache.invalidate(key)
+        })
+    }
+  })
+
+/**
+ * Write-behind (write-back) cache pattern
+ */
+export const createWriteBehindCache = <T>(
+  loader: (key: string) => Effect.Effect<T>, 
+  writer: (key: string, value: T) => Effect.Effect<void>,
+  flushInterval: Duration.Duration = Duration.seconds(30)
+) =>
+  Effect.gen(function* () {
+    const cache = yield* MultiLevelCacheService
+    const dirtyKeys = yield* Ref.make(new Set<string>())
+    const pendingWrites = yield* Ref.make(new Map<string, T>())
+    
+    const flushPendingWrites = Effect.gen(function* () {
+      const pending = yield* Ref.get(pendingWrites)
+      const dirty = yield* Ref.get(dirtyKeys)
+      
+      if (pending.size === 0) return
+      
+      yield* Effect.logDebug(`Flushing ${pending.size} pending writes`)
+      
+      // Write all pending entries
+      yield* Effect.forEach(
+        Array.from(pending.entries()),
+        ([key, value]) => writer(key, value),
+        { concurrency: 5 }
+      )
+      
+      // Clear pending writes
+      yield* Ref.set(pendingWrites, new Map())
+      yield* Ref.set(dirtyKeys, new Set())
+      
+      yield* Effect.logDebug('Flush completed successfully')
+    }).pipe(
+      Effect.catchAll((error) => 
+        Effect.logError('Failed to flush pending writes:', error)
+      )
+    )
+    
+    const flushFiber = yield* Effect.fork(
+      Effect.repeat(flushPendingWrites, Schedule.fixed(flushInterval))
+    )
+    
+    return {
+      get: (key: string) =>
+        cache.get<T>(key).pipe(
+          Effect.catchTag('CacheMissError', () =>
+            Effect.gen(function* () {
+              const value = yield* loader(key)
+              yield* cache.set(key, value, { level: 'L1' })
+              return value
+            })
+          )
+        ),
+        
+      set: (key: string, value: T) =>
+        Effect.gen(function* () {
+          // Write to cache immediately
+          yield* cache.set(key, value, { level: 'L1' })
+          
+          // Mark for background write
+          yield* Ref.update(pendingWrites, (pending) => {
+            const newPending = new Map(pending)
+            newPending.set(key, value)
+            return newPending
+          })
+          
+          yield* Ref.update(dirtyKeys, (dirty) => {
+            const newDirty = new Set(dirty)
+            newDirty.add(key)
+            return newDirty
+          })
+        }),
+        
+      flush: () => flushPendingWrites,
+      
+      stop: () => Fiber.interrupt(flushFiber),
+      
+      getStats: () =>
+        Effect.gen(function* () {
+          const pending = yield* Ref.get(pendingWrites)
+          const dirty = yield* Ref.get(dirtyKeys)
+          
+          return {
+            pendingWrites: pending.size,
+            dirtyKeys: dirty.size
+          }
+        })
+    }
+  })
+
+/**
+ * Refresh-ahead cache pattern
+ */
+export const createRefreshAheadCache = <T>(
+  loader: (key: string) => Effect.Effect<T>,
+  refreshThreshold: number = 0.8, // Refresh when 80% of TTL has elapsed
+  defaultTtl: Duration.Duration = Duration.minutes(10)
+) =>
+  Effect.gen(function* () {
+    const cache = yield* MultiLevelCacheService
+    const refreshTimes = yield* Ref.make(new Map<string, number>())
+    const refreshQueue = yield* Queue.bounded<string>(1000)
+    
+    const backgroundRefresh = (key: string) =>
+      Effect.gen(function* () {
+        yield* Effect.logDebug(`Background refresh for key: ${key}`)
+        const value = yield* loader(key)
+        yield* cache.set(key, value, { level: 'L1', ttl: defaultTtl })
+        
+        // Update refresh time
+        yield* Ref.update(refreshTimes, (times) => {
+          const newTimes = new Map(times)
+          newTimes.set(key, Date.now())
+          return newTimes
+        })
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.logError(`Background refresh failed for key ${key}:`, error)
+        )
+      )
+    
+    // Start background refresh worker
+    const refreshWorker = yield* Effect.fork(
+      Effect.forever(
+        Effect.gen(function* () {
+          const key = yield* Queue.take(refreshQueue)
+          yield* backgroundRefresh(key)
+        })
+      )
+    )
+    
+    return {
+      get: (key: string) =>
+        Effect.gen(function* () {
+          const cached = yield* cache.get<T>(key).pipe(
+            Effect.catchTag('CacheMissError', () => Effect.succeed(Option.none()))
+          )
+          
+          if (Option.isSome(cached)) {
+            // Check if we should refresh in background
+            const refreshTime = yield* Ref.get(refreshTimes)
+            const lastRefresh = refreshTime.get(key) || 0
+            const timeSinceRefresh = Date.now() - lastRefresh
+            const shouldRefresh = timeSinceRefresh > Duration.toMillis(defaultTtl) * refreshThreshold
+            
+            if (shouldRefresh) {
+              // Queue for background refresh (non-blocking)
+              yield* Queue.offer(refreshQueue, key).pipe(
+                Effect.catchAll(() => Effect.unit) // Ignore queue full errors
+              )
+            }
+            
+            return cached.value
+          } else {
+            // Cache miss - load synchronously
+            const value = yield* loader(key)
+            yield* cache.set(key, value, { level: 'L1', ttl: defaultTtl })
+            
+            yield* Ref.update(refreshTimes, (times) => {
+              const newTimes = new Map(times)
+              newTimes.set(key, Date.now())
+              return newTimes
+            })
+            
+            return value
+          }
+        }),
+        
+      preload: (keys: string[]) =>
+        Effect.forEach(
+          keys,
+          (key) => backgroundRefresh(key),
+          { concurrency: 5 }
+        ),
+        
+      stop: () => Fiber.interrupt(refreshWorker)
+    }
+  })
+
+// ============================================================================
 // Cache Decorators
 // ============================================================================
 

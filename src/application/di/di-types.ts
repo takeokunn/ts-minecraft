@@ -13,11 +13,22 @@ export type {
 
 export type { BlockInteractionCommand } from '@application/commands/block-interaction'
 
-export type { ChunkLoadCommand } from '@application/use-cases/chunk-load.use-case'
+export type { ChunkLoadCommand } from '@application/use-cases/chunk-load.usecase'
 
-export type { WorldGenerateCommand } from '@application/use-cases/world-generate.use-case'
+export type { WorldGenerateCommand } from '@application/use-cases/world-generate.usecase'
 
-export type { PlayerQuery, ChunkQuery, WorldStateQuery, EntityQuery, PlayerQueryResult, ChunkQueryResult, WorldStateQueryResult } from '@application/handlers/query-handlers'
+export type { PlayerQuery, ChunkQuery, WorldStateQuery, EntityQuery, PlayerQueryResult, ChunkQueryResult, WorldStateQueryResult } from '@application/handlers/query.handler'
 
 // System configuration types
-export type { SystemConfig, SystemContext, SystemMetrics, SystemFunction, SystemPriority, SystemPhase, SchedulerConfig } from '@application/workflows/system-scheduler.service'
+export type { SystemConfig, SystemContext, SystemMetrics, SystemFunction, SystemPriority, SystemPhase, SchedulerConfig } from '@application/workflows/system-scheduler'
+
+// Main DI Types namespace
+export const DITypes = {
+  // Identifiers for dependency injection
+  WorldDomainService: Symbol.for('WorldDomainService'),
+  EntityDomainService: Symbol.for('EntityDomainService'),
+  PhysicsDomainService: Symbol.for('PhysicsDomainService'),
+  ClockPort: Symbol.for('ClockPort'),
+  SystemCommunicationPort: Symbol.for('SystemCommunicationPort'),
+  PerformanceMonitorPort: Symbol.for('PerformanceMonitorPort'),
+} as const

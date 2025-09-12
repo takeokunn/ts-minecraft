@@ -1,14 +1,31 @@
 /**
  * Common types used across the application
+ * Effect-TS compliant type definitions
  */
 
-// Basic utility types
-export type Maybe<T> = T | null | undefined
+import * as Either from 'effect/Either'
+import * as Option from 'effect/Option'
+import * as Effect from 'effect/Effect'
+import * as Brand from 'effect/Brand'
+import { NonEmptyReadonlyArray } from 'effect/Array'
+
+// JSON value type for better type safety than unknown
+export type JsonValue = 
+  | string 
+  | number 
+  | boolean 
+  | null 
+  | JsonValue[] 
+  | { [key: string]: JsonValue }
+
+// Basic utility types - Effect-TS compliant
+export type Maybe<T> = Option.Option<T>
 export type Optional<T> = T | undefined
 export type Nullable<T> = T | null
 
-// Function types
-export type Fn<T = void> = () => T
+// Function types - Effect-TS patterns
+export type EffectFn<T = void, E = never, R = never> = () => Effect.Effect<T, E, R>
+export type SyncFn<T = void> = () => T
 export type AsyncFn<T = void> = () => Promise<T>
 export type EventHandler<T = Event> = (event: T) => void
 export type Callback<T = void, R = void> = (arg: T) => R
@@ -26,22 +43,34 @@ export type Mutable<T> = {
   -readonly [P in keyof T]: T[P]
 }
 
-// Array utility types
-export type NonEmptyArray<T> = [T, ...T[]]
-export type Head<T extends readonly unknown[]> = T extends readonly [infer H, ...unknown[]] ? H : never
-export type Tail<T extends readonly unknown[]> = T extends readonly [unknown, ...infer Rest] ? Rest : never
+// Array utility types - Effect-TS compliant
+export type NonEmptyArray<T> = NonEmptyReadonlyArray<T>
+export type Head<T extends readonly JsonValue[]> = T extends readonly [infer H, ...JsonValue[]] ? H : never
+export type Tail<T extends readonly JsonValue[]> = T extends readonly [JsonValue, ...infer Rest] ? Rest : never
 
 // String utility types
 export type StringKeys<T> = Extract<keyof T, string>
 export type NumberKeys<T> = Extract<keyof T, number>
 
-// Brand types for better type safety
-export type Brand<T, B> = T & { readonly __brand: B }
-export type ID<T extends string = string> = Brand<string, T>
+// Brand types for better type safety - Using Effect-TS Brand
+export type ID<T extends string = string> = string & Brand.Brand<T>
 
-// Result type for error handling
-export type Result<T, E = Error> = Success<T> | Failure<E>
+// Export Brand namespace for external use
+export { Brand }
+
+// Result type for error handling - Effect-TS Either-based
+export type Result<T, E = Error> = Either.Either<T, E>
+export const Result = {
+  success: <T>(data: T): Result<T, never> => Either.right(data),
+  failure: <E>(error: E): Result<never, E> => Either.left(error),
+  fromEither: <T, E>(either: Either.Either<T, E>): Result<T, E> => either,
+  toEither: <T, E>(result: Result<T, E>): Either.Either<T, E> => result,
+}
+
+// Legacy type aliases for backward compatibility (deprecated)
+/** @deprecated Use Result<T, E> instead */
 export type Success<T> = { success: true; data: T }
+/** @deprecated Use Result<T, E> instead */
 export type Failure<E> = { success: false; error: E }
 
 // Coordinate types
@@ -53,8 +82,8 @@ export type Rect = Point2D & Size2D
 export type Box3D = Point3D & Size3D
 
 // Time-related types
-export type Timestamp = Brand<number, 'Timestamp'>
-export type Duration = Brand<number, 'Duration'>
+export type Timestamp = number & Brand.Brand<'Timestamp'>
+export type Duration = number & Brand.Brand<'Duration'>
 
 // Entity-related types
 export type EntityID = ID<'Entity'>
@@ -77,7 +106,7 @@ export type Config = Record<string, ConfigValue>
 
 // Event types
 export type EventType = string
-export type EventPayload = Record<string, unknown>
+export type EventPayload = Record<string, JsonValue>
 export type GameEvent<T extends EventType = EventType, P extends EventPayload = EventPayload> = {
   type: T
   payload: P
@@ -85,6 +114,6 @@ export type GameEvent<T extends EventType = EventType, P extends EventPayload = 
 }
 
 // State management
-export type State = Record<string, unknown>
+export type State = Record<string, JsonValue>
 export type StateUpdate<T extends State> = Partial<T> | ((prev: T) => Partial<T>)
 export type StateSelector<T extends State, R> = (state: T) => R

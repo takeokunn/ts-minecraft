@@ -1,7 +1,18 @@
 import * as S from 'effect/Schema'
-import { pipe } from 'effect'
+import { Effect, pipe } from 'effect'
+import type { ParseResult } from 'effect/ParseResult'
 
-export const EntityId = pipe(S.String, S.uuid, S.brand('EntityId'))
+export const EntityId = pipe(S.String, S.brand('EntityId'))
 export type EntityId = S.Schema.Type<typeof EntityId>
 
-export const makeEntityId = () => S.decodeSync(EntityId)(crypto.randomUUID())
+export const makeEntityId = (): Effect.Effect<EntityId, ParseResult.ParseError> =>
+  pipe(
+    crypto.randomUUID(),
+    S.decode(EntityId)
+  )
+
+export const fromString = (value: unknown): Effect.Effect<EntityId, ParseResult.ParseError> =>
+  pipe(
+    value,
+    S.decode(EntityId)
+  )

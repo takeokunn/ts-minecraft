@@ -18,7 +18,7 @@
 import * as Effect from 'effect/Effect'
 import * as Context from 'effect/Context'
 import * as Layer from 'effect/Layer'
-import * as Data from 'effect/Data'
+import * as S from '@effect/schema/Schema'
 import * as HashMap from 'effect/HashMap'
 import * as Array from 'effect/Array'
 import * as Option from 'effect/Option'
@@ -136,18 +136,21 @@ export const defaultPhysicsConfig: PhysicsConfig = {
 /**
  * Physics error constructors
  */
-export class PhysicsEntityNotFoundError extends Data.TaggedError('PhysicsEntityNotFoundError')<{
-  readonly entityId: EntityId
-}> {}
+export const PhysicsEntityNotFoundError = S.TaggedError<PhysicsEntityNotFoundError>()('PhysicsEntityNotFoundError', {
+  entityId: EntityId
+})
+export interface PhysicsEntityNotFoundError extends S.Schema.Type<typeof PhysicsEntityNotFoundError> {}
 
-export class InvalidPhysicsComponentError extends Data.TaggedError('InvalidPhysicsComponentError')<{
-  readonly entityId: EntityId
-  readonly reason: string
-}> {}
+export const InvalidPhysicsComponentError = S.TaggedError<InvalidPhysicsComponentError>()('InvalidPhysicsComponentError', {
+  entityId: EntityId,
+  reason: S.String
+})
+export interface InvalidPhysicsComponentError extends S.Schema.Type<typeof InvalidPhysicsComponentError> {}
 
-export class PhysicsSimulationError extends Data.TaggedError('PhysicsSimulationError')<{
-  readonly reason: string
-}> {}
+export const PhysicsSimulationError = S.TaggedError<PhysicsSimulationError>()('PhysicsSimulationError', {
+  reason: S.String
+})
+export interface PhysicsSimulationError extends S.Schema.Type<typeof PhysicsSimulationError> {}
 
 /**
  * Apply gravity to physics component
@@ -158,7 +161,7 @@ export const applyGravityEffect = (stateRef: Ref.Ref<PhysicsState>, entityId: En
     const componentOpt = HashMap.get(state.entities, entityId)
 
     if (Option.isNone(componentOpt)) {
-      return yield* Effect.fail(new PhysicsEntityNotFoundError({ entityId }))
+      return yield* Effect.fail(PhysicsEntityNotFoundError({ entityId }))
     }
 
     const component = componentOpt.value
@@ -198,7 +201,7 @@ export const updateVelocityEffect = (stateRef: Ref.Ref<PhysicsState>, entityId: 
     const componentOpt = HashMap.get(state.entities, entityId)
 
     if (Option.isNone(componentOpt)) {
-      return yield* Effect.fail(new PhysicsEntityNotFoundError({ entityId }))
+      return yield* Effect.fail(PhysicsEntityNotFoundError({ entityId }))
     }
 
     const component = componentOpt.value
@@ -258,7 +261,7 @@ export const updatePositionEffect = (stateRef: Ref.Ref<PhysicsState>, entityId: 
     const componentOpt = HashMap.get(state.entities, entityId)
 
     if (Option.isNone(componentOpt)) {
-      return yield* Effect.fail(new PhysicsEntityNotFoundError({ entityId }))
+      return yield* Effect.fail(PhysicsEntityNotFoundError({ entityId }))
     }
 
     const component = componentOpt.value
@@ -289,7 +292,7 @@ export const applyForceEffect = (stateRef: Ref.Ref<PhysicsState>, entityId: Enti
     const componentOpt = HashMap.get(state.entities, entityId)
 
     if (Option.isNone(componentOpt)) {
-      return yield* Effect.fail(new PhysicsEntityNotFoundError({ entityId }))
+      return yield* Effect.fail(PhysicsEntityNotFoundError({ entityId }))
     }
 
     const component = componentOpt.value
@@ -330,7 +333,7 @@ export const applyImpulseEffect = (stateRef: Ref.Ref<PhysicsState>, entityId: En
     const componentOpt = HashMap.get(state.entities, entityId)
 
     if (Option.isNone(componentOpt)) {
-      return yield* Effect.fail(new PhysicsEntityNotFoundError({ entityId }))
+      return yield* Effect.fail(PhysicsEntityNotFoundError({ entityId }))
     }
 
     const component = componentOpt.value
@@ -403,7 +406,7 @@ export const updatePhysicsComponentEffect = (
     const componentOpt = HashMap.get(state.entities, entityId)
 
     if (Option.isNone(componentOpt)) {
-      return yield* Effect.fail(new PhysicsEntityNotFoundError({ entityId }))
+      return yield* Effect.fail(PhysicsEntityNotFoundError({ entityId }))
     }
 
     const updatedComponent = updater(componentOpt.value)
@@ -596,24 +599,24 @@ export const simulatePhysicsEffect = (stateRef: Ref.Ref<PhysicsState>, deltaTime
  */
 export const makePhysicsDomainService = (stateRef: Ref.Ref<PhysicsState>): IPhysicsDomainServiceFunctional => ({
   // Core physics operations
-  applyGravity: (entityId: EntityId, deltaTime: number) => applyGravityEffect(stateRef, entityId, deltaTime).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
+  applyGravity: (entityId: EntityId, deltaTime: number) => applyGravityEffect(stateRef, entityId, deltaTime).pipe(Effect.mapError((e) => PhysicsError({ message: e.message }))),
   updateVelocity: (entityId: EntityId, deltaTime: number) =>
-    updateVelocityEffect(stateRef, entityId, deltaTime).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
+    updateVelocityEffect(stateRef, entityId, deltaTime).pipe(Effect.mapError((e) => PhysicsError({ message: e.message }))),
   updatePosition: (entityId: EntityId, deltaTime: number) =>
-    updatePositionEffect(stateRef, entityId, deltaTime).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
-  applyForce: (entityId: EntityId, force: Vector3) => applyForceEffect(stateRef, entityId, force).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
-  applyImpulse: (entityId: EntityId, impulse: Vector3) => applyImpulseEffect(stateRef, entityId, impulse).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
+    updatePositionEffect(stateRef, entityId, deltaTime).pipe(Effect.mapError((e) => PhysicsError({ message: e.message }))),
+  applyForce: (entityId: EntityId, force: Vector3) => applyForceEffect(stateRef, entityId, force).pipe(Effect.mapError((e) => PhysicsError({ message: e.message }))),
+  applyImpulse: (entityId: EntityId, impulse: Vector3) => applyImpulseEffect(stateRef, entityId, impulse).pipe(Effect.mapError((e) => PhysicsError({ message: e.message }))),
 
   // Physics component management
   addPhysicsComponent: (entityId: EntityId, component: PhysicsComponent) => addPhysicsComponentEffect(stateRef, entityId, component),
   removePhysicsComponent: (entityId: EntityId) => removePhysicsComponentEffect(stateRef, entityId),
   getPhysicsComponent: (entityId: EntityId) => getPhysicsComponentEffect(stateRef, entityId),
   updatePhysicsComponent: (entityId: EntityId, updater: (component: PhysicsComponent) => PhysicsComponent) =>
-    updatePhysicsComponentEffect(stateRef, entityId, updater).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
+    updatePhysicsComponentEffect(stateRef, entityId, updater).pipe(Effect.mapError((e) => PhysicsError({ message: e.message }))),
 
   // Collision detection and response
   checkCollisions: () => checkCollisionsEffect(stateRef),
-  resolveCollision: (collision: CollisionData) => resolveCollisionEffect(stateRef, collision).pipe(Effect.mapError((e) => new CollisionError({ message: e.message }))),
+  resolveCollision: (collision: CollisionData) => resolveCollisionEffect(stateRef, collision).pipe(Effect.mapError((e) => CollisionError({ message: e.message }))),
   isCollidingWith: (entityA: EntityId, entityB: EntityId) =>
     Effect.gen(function* () {
       const collisions = yield* checkCollisionsEffect(stateRef)
@@ -684,13 +687,13 @@ export const makePhysicsDomainService = (stateRef: Ref.Ref<PhysicsState>): IPhys
     Effect.gen(function* () {
       const componentOpt = yield* getPhysicsComponentEffect(stateRef, entityId)
       if (Option.isNone(componentOpt)) {
-        return yield* Effect.fail(new PhysicsError({ message: `Entity ${entityId} has no physics component` }))
+        return yield* Effect.fail(PhysicsError({ message: `Entity ${entityId} has no physics component` }))
       }
       return componentOpt.value.velocity
     }),
 
   setVelocity: (entityId: EntityId, velocity: Vector3) =>
-    updatePhysicsComponentEffect(stateRef, entityId, (component) => ({ ...component, velocity })).pipe(Effect.mapError((e) => new PhysicsError({ message: e.message }))),
+    updatePhysicsComponentEffect(stateRef, entityId, (component) => ({ ...component, velocity })).pipe(Effect.mapError((e) => PhysicsError({ message: e.message }))),
 
   // Simulation control
   simulatePhysics: (deltaTime: number) => simulatePhysicsEffect(stateRef, deltaTime),

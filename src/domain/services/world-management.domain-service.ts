@@ -6,8 +6,9 @@
  * high-level world operations that orchestrate other domain services.
  */
 
-import { Effect, Context, Layer, HashMap, HashSet, Data, Ref } from 'effect'
-import { WorldDomainService } from '@domain/services/world-domain.service'
+import { Effect, Context, Layer, HashMap, HashSet, Ref } from 'effect'
+import * as S from '@effect/schema/Schema'
+import { WorldDomainService } from '@domain/services/world.domain-service'
 import { TerrainGeneratorPort, type ITerrainGenerator, type TerrainGenerationRequest, type ChunkCoordinates, TerrainGeneratorHelpers } from '@domain/ports/terrain-generator.port'
 import { MeshGeneratorPort, type IMeshGenerator, type MeshGenerationRequest, type ChunkData, MeshGeneratorHelpers } from '@domain/ports/mesh-generator.port'
 import { WorldRepositoryPort } from '@domain/ports/world-repository.port'
@@ -113,19 +114,25 @@ export interface IWorldManagementDomainService {
 /**
  * World Management Domain Service Errors
  */
-export class ChunkGenerationLimitExceededError extends Data.TaggedError('ChunkGenerationLimitExceededError')<{
-  readonly limit: number
-  readonly current: number
-}> {}
+export const ChunkGenerationLimitExceededError = S.TaggedError<ChunkGenerationLimitExceededError>()('ChunkGenerationLimitExceededError', {
+  limit: S.Number,
+  current: S.Number
+})
+export interface ChunkGenerationLimitExceededError extends S.Schema.Type<typeof ChunkGenerationLimitExceededError> {}
 
-export class ChunkLoadFailedError extends Data.TaggedError('ChunkLoadFailedError')<{
-  readonly coordinates: ChunkCoordinates
-  readonly reason: string
-}> {}
+export const ChunkLoadFailedError = S.TaggedError<ChunkLoadFailedError>()('ChunkLoadFailedError', {
+  coordinates: S.Struct({
+    x: S.Number,
+    z: S.Number
+  }),
+  reason: S.String
+})
+export interface ChunkLoadFailedError extends S.Schema.Type<typeof ChunkLoadFailedError> {}
 
-export class WorldManagementConfigError extends Data.TaggedError('WorldManagementConfigError')<{
-  readonly invalidFields: readonly string[]
-}> {}
+export const WorldManagementConfigError = S.TaggedError<WorldManagementConfigError>()('WorldManagementConfigError', {
+  invalidFields: S.Array(S.String)
+})
+export interface WorldManagementConfigError extends S.Schema.Type<typeof WorldManagementConfigError> {}
 
 // Helper functions
 const getChunkKey = (coordinates: ChunkCoordinates): string => `${coordinates.x},${coordinates.z}`
@@ -250,7 +257,7 @@ export const WorldManagementDomainServiceLive = Layer.effect(
         const generations = yield* Ref.get(currentGenerations)
         if (generations >= config.maxConcurrentGenerations) {
           return yield* Effect.fail(
-            new ChunkGenerationLimitExceededError({
+            ChunkGenerationLimitExceededError({
               limit: config.maxConcurrentGenerations,
               current: generations,
             }),
@@ -315,7 +322,7 @@ export const WorldManagementDomainServiceLive = Layer.effect(
           yield* Ref.update(currentGenerations, (n) => n - 1)
 
           return yield* Effect.fail(
-            new ChunkLoadFailedError({
+            ChunkLoadFailedError({
               coordinates,
               reason: error instanceof Error ? error.message : 'Unknown error',
             }),

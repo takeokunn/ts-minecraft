@@ -7,9 +7,10 @@ import * as S from 'effect/Schema'
 // Basic validated primitives
 export const PositiveNumber = S.Number.pipe(
   S.positive(),
+  S.finite(),
   S.annotations({
     title: 'Positive Number',
-    description: 'A positive number greater than 0'
+    description: 'A positive finite number greater than 0'
   })
 )
 
@@ -23,9 +24,10 @@ export const NonNegativeNumber = S.Number.pipe(
 
 export const PositiveInteger = S.Int.pipe(
   S.positive(),
+  S.finite(),
   S.annotations({
     title: 'Positive Integer',
-    description: 'A positive integer greater than 0'
+    description: 'A positive finite integer greater than 0'
   })
 )
 
@@ -37,8 +39,7 @@ export const NonNegativeInteger = S.Int.pipe(
   })
 )
 
-export const NonEmptyString = S.String.pipe(
-  S.nonEmpty(),
+export const NonEmptyString = S.NonEmptyString.pipe(
   S.annotations({
     title: 'Non-empty String',
     description: 'A string that is not empty'
@@ -209,8 +210,7 @@ export const Position3D = S.Struct({
   })
 )
 
-export const KeyBinding = S.String.pipe(
-  S.nonEmpty(),
+export const KeyBinding = S.NonEmptyString.pipe(
   S.annotations({
     title: 'Key Binding',
     description: 'A keyboard key binding identifier'
@@ -226,11 +226,10 @@ export const HttpUrl = S.String.pipe(
   })
 )
 
-export const OptionalHttpUrl = S.optional(HttpUrl)
+export const OptionalHttpUrl = S.Union(HttpUrl, S.Undefined)
 
 // File path validation
-export const FilePath = S.String.pipe(
-  S.nonEmpty(),
+export const FilePath = S.NonEmptyString.pipe(
   S.annotations({
     title: 'File Path',
     description: 'A valid file path'

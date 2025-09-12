@@ -3,7 +3,8 @@ export type {
   Maybe,
   Optional,
   Nullable,
-  Fn,
+  EffectFn,
+  SyncFn,
   AsyncFn,
   EventHandler,
   Callback,
@@ -15,7 +16,6 @@ export type {
   Tail,
   StringKeys,
   NumberKeys,
-  Brand,
   ID,
   Result,
   Success,
@@ -43,6 +43,9 @@ export type {
   StateUpdate,
   StateSelector,
 } from './common'
+
+// Export Brand namespace for external use
+export { Brand } from './common'
 
 // Game-specific types
 export type {
@@ -75,3 +78,6 @@ export type {
 
 // Schemas and constants
 export { BlockTypeSchema, blockTypeNames } from './game'
+
+// External type definitions
+export * from './external'

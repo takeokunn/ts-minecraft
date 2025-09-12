@@ -1,165 +1,119 @@
-import { Effect, pipe, Option, Schema as S, Ref } from 'effect'
-import { APP_CONFIG } from '@config/app.config'
-import { GAME_CONFIG, getUserGameConfig } from '@config/game.config'
-import { INFRASTRUCTURE_CONFIG, getOptimalInfrastructureConfig } from '@config/infrastructure.config'
-
-// Configuration errors
-export class ConfigValidationError extends S.TaggedError<ConfigValidationError>()('ConfigValidationError', {
-  section: S.String,
-  details: S.String,
-}) {}
+import { Effect, Layer, pipe } from 'effect'
+import { ConfigService, ConfigServiceLive } from './services/config.service'
+import { AppConfigService } from './services/app-config.service' 
+import { GameConfigService } from './services/game-config.service'
+import { InfrastructureConfigService } from './services/infrastructure-config.service'
+import type { AppConfig } from './schemas/app.schema'
+import type { GameConfig } from './schemas/game.schema'
+import type { InfrastructureConfig } from './schemas/infrastructure.schema'
 
 /**
- * Configuration management utilities
+ * Configuration utilities using Effect-TS services
  */
 
-// Combined configuration object
-export interface ApplicationConfiguration {
-  app: typeof APP_CONFIG
-  game: ReturnType<typeof getUserGameConfig>
-  infrastructure: ReturnType<typeof getOptimalInfrastructureConfig>
-}
+// Re-export configuration types
+export type { AppConfig, GameConfig, InfrastructureConfig }
 
-// Main configuration factory
-export const createConfiguration = (): Effect.Effect<ApplicationConfiguration, ConfigValidationError, never> =>
+// Re-export errors from the centralized location
+export { 
+  ConfigValidationError,
+  ConfigLoadError,
+  ConfigSaveError,
+  ConfigParseError,
+  ConfigEnvironmentError,
+  ConfigServiceError,
+  ConfigMigrationError,
+  ConfigPermissionError,
+  ConfigNetworkError,
+  ConfigError
+} from './errors/config-errors'
+
+// Main configuration access
+export const getAppConfig = (): Effect.Effect<AppConfig, never, ConfigService> =>
   Effect.gen(function* () {
-    const config: ApplicationConfiguration = {
-      app: APP_CONFIG,
-      game: getUserGameConfig(),
-      infrastructure: getOptimalInfrastructureConfig(),
-    }
-    
-    yield* validateConfiguration(config)
-    return config
+    const service = yield* ConfigService
+    return yield* service.getApp()
   })
 
-// Configuration reference for state management
-export const createConfigRef = (): Effect.Effect<Ref.Ref<ApplicationConfiguration>, ConfigValidationError, never> =>
+export const getGameConfig = (): Effect.Effect<GameConfig, never, ConfigService> =>
   Effect.gen(function* () {
-    const initialConfig = yield* createConfiguration()
-    return yield* Ref.make(initialConfig)
+    const service = yield* ConfigService
+    return yield* service.getGame()
   })
 
-// Configuration utilities with validation
-export const reloadConfiguration = (configRef: Ref.Ref<ApplicationConfiguration>): Effect.Effect<ApplicationConfiguration, ConfigValidationError, never> =>
+export const getInfrastructureConfig = (): Effect.Effect<InfrastructureConfig, never, ConfigService> =>
   Effect.gen(function* () {
-    const newConfig = yield* createConfiguration()
-    yield* Ref.set(configRef, newConfig)
-    return newConfig
+    const service = yield* ConfigService
+    return yield* service.getInfrastructure()
   })
 
-// Type-safe configuration accessor
-export const getConfig = <K extends keyof ApplicationConfiguration>(
-  configRef: Ref.Ref<ApplicationConfiguration>,
-  section: K
-): Effect.Effect<ApplicationConfiguration[K], never, never> =>
+// Configuration operations
+export const reloadConfiguration = (): Effect.Effect<void, never, ConfigService> =>
   Effect.gen(function* () {
-    const config = yield* Ref.get(configRef)
-    return config[section]
+    const service = yield* ConfigService
+    return yield* service.reload()
   })
 
-// Environment-specific configuration flags
-export const isProduction = (configRef: Ref.Ref<ApplicationConfiguration>): Effect.Effect<boolean, never, never> =>
+export const validateConfiguration = (): Effect.Effect<boolean, never, ConfigService> =>
   Effect.gen(function* () {
-    const config = yield* Ref.get(configRef)
-    return config.app.environment === 'production'
+    const service = yield* ConfigService
+    return yield* service.validate()
   })
 
-export const isDevelopment = (configRef: Ref.Ref<ApplicationConfiguration>): Effect.Effect<boolean, never, never> =>
-  Effect.gen(function* () {
-    const config = yield* Ref.get(configRef)
-    return config.app.environment === 'development'
-  })
+// Environment helpers
+export const getEnvironment = (): Effect.Effect<'development' | 'production' | 'test', never, ConfigService> =>
+  pipe(
+    getAppConfig(),
+    Effect.map(config => config.environment)
+  )
 
-export const isTest = (configRef: Ref.Ref<ApplicationConfiguration>): Effect.Effect<boolean, never, never> =>
-  Effect.gen(function* () {
-    const config = yield* Ref.get(configRef)
-    return config.app.environment === 'test'
-  })
+export const isProduction = (): Effect.Effect<boolean, never, ConfigService> =>
+  pipe(
+    getEnvironment(),
+    Effect.map(env => env === 'production')
+  )
 
-// Debug configuration helper
-export const isDebugEnabled = (configRef: Ref.Ref<ApplicationConfiguration>): Effect.Effect<boolean, never, never> =>
-  Effect.gen(function* () {
-    const config = yield* Ref.get(configRef)
-    const isDev = yield* isDevelopment(configRef)
-    return config.app.debug || isDev
-  })
+export const isDevelopment = (): Effect.Effect<boolean, never, ConfigService> =>
+  pipe(
+    getEnvironment(),
+    Effect.map(env => env === 'development')
+  )
+
+export const isTest = (): Effect.Effect<boolean, never, ConfigService> =>
+  pipe(
+    getEnvironment(),
+    Effect.map(env => env === 'test')
+  )
 
 // Feature flag helpers
-export const isFeatureEnabled = (
-  configRef: Ref.Ref<ApplicationConfiguration>,
-  feature: keyof typeof APP_CONFIG.features
-): Effect.Effect<boolean, never, never> =>
+export const isFeatureEnabled = (feature: string): Effect.Effect<boolean, never, ConfigService> =>
   Effect.gen(function* () {
-    const config = yield* Ref.get(configRef)
-    return config.app.features[feature]
+    const service = yield* ConfigService
+    return yield* service.isFeatureEnabled(feature)
   })
 
-// Enhanced configuration validation using Effect patterns
-export const validateConfiguration = (config: ApplicationConfiguration): Effect.Effect<boolean, ConfigValidationError> =>
-  Effect.gen(function* () {
-    // Use Option for null checking
-    const appConfig = Option.fromNullable(config.app)
-    const gameConfig = Option.fromNullable(config.game)
-    const infraConfig = Option.fromNullable(config.infrastructure)
+// Debug mode helper
+export const isDebugEnabled = (): Effect.Effect<boolean, never, ConfigService> =>
+  pipe(
+    Effect.all({
+      appConfig: getAppConfig(),
+      isDev: isDevelopment()
+    }),
+    Effect.map(({ appConfig, isDev }) => appConfig.debug || isDev)
+  )
 
-    if (Option.isNone(appConfig) || Option.isNone(gameConfig) || Option.isNone(infraConfig)) {
-      return yield* Effect.fail(
-        new ConfigValidationError({
-          section: 'all',
-          details: 'Missing required configuration sections',
-        }),
-      )
-    }
+// Default configuration provider
+export const ConfigLive = ConfigServiceLive
 
-    // Validate app config with Effect.tryPromise
-    yield* Effect.tryPromise({
-      try: async () => {
-        const { safeValidateAppConfig } = await import('./app.config')
-        if (!safeValidateAppConfig(config.app)) {
-          throw new Error('App configuration validation failed')
-        }
-      },
-      catch: (error) =>
-        new ConfigValidationError({
-          section: 'app',
-          details: String(error),
-        }),
-    })
+// Convenience function to run configuration operations
+export const runWithConfig = <A, E>(
+  effect: Effect.Effect<A, E, ConfigService>
+): Effect.Effect<A, E> =>
+  Effect.provide(effect, ConfigLive)
 
-    // Validate game config with Effect.tryPromise
-    yield* Effect.tryPromise({
-      try: async () => {
-        const { validateGameConfig } = await import('./game.config')
-        if (!validateGameConfig(config.game)) {
-          throw new Error('Game configuration validation failed')
-        }
-      },
-      catch: (error) =>
-        new ConfigValidationError({
-          section: 'game',
-          details: String(error),
-        }),
-    })
-
-    return true
-  })
-
-// Initialize configuration validation with proper Effect handling
-export const initializeConfiguration = (): Effect.Effect<Ref.Ref<ApplicationConfiguration>, ConfigValidationError, never> =>
-  Effect.gen(function* () {
-    const configRef = yield* createConfigRef()
-    
-    // Log configuration in development mode
-    const isDev = yield* isDevelopment(configRef)
-    
-    if (isDev) {
-      const config = yield* Ref.get(configRef)
-      yield* Effect.log("Configuration Loaded")
-      yield* Effect.log(`App Config: ${JSON.stringify(config.app, null, 2)}`)
-      yield* Effect.log(`Game Config: ${JSON.stringify(config.game, null, 2)}`)
-      yield* Effect.log(`Infrastructure Config: ${JSON.stringify(config.infrastructure, null, 2)}`)
-    }
-    
-    return configRef
-  })
+// Export service constructors for advanced usage
+export { ConfigService, ConfigServiceLive }
+export { AppConfigService } from './services/app-config.service'
+export { GameConfigService } from './services/game-config.service'  
+export { InfrastructureConfigService } from './services/infrastructure-config.service'
+export { CapabilityDetectionService } from './services/capability-detection.service'

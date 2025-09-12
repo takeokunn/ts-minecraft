@@ -78,3 +78,8 @@ export const ComponentCategories = {
   Rendering: RenderingModule.RenderingComponents,
   Gameplay: GameplayModule.GameplayComponents,
 } as const
+
+// Partial Components type and schema for archetype creation
+export type PartialComponents = Partial<Components>
+
+export const PartialComponentsSchema = S.partial(S.Struct(ComponentSchemas))

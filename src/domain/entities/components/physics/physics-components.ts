@@ -50,6 +50,21 @@ export const VelocityComponent = RegisterComponent({
 )
 
 export type VelocityComponent = S.Schema.Type<typeof VelocityComponent>
+// Velocity type for use in movement calculations - matches usage in application layer
+export type Velocity = {
+  dx: number
+  dy: number
+  dz: number
+}
+
+// Component type uses x,y,z but can be mapped to dx,dy,dz
+export type PhysicsVelocity = {
+  x: number
+  y: number
+  z: number
+  damping?: number
+  maxMagnitude?: number
+}
 
 // ===== ACCELERATION COMPONENT =====
 

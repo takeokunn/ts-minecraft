@@ -29,12 +29,6 @@ const initialize = Effect.gen(function* () {
   const gameController = yield* GameController
   const uiController = yield* UIController
 
-  // プレイヤーアーキタイプの作成 (simplified for now)
-  // const player = yield* createArchetype({
-  //   type: 'player',
-  //   pos: { x: 0, y: 80, z: 0 },
-  // })
-
   // UI初期化
   yield* uiController.showHUD(true)
   yield* uiController.showCrosshair(true)

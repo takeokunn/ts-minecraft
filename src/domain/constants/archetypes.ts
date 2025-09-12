@@ -61,7 +61,7 @@ export const createInputState = () => ({
  * @param builder - The archetype builder specifying the type and parameters.
  * @returns An archetype object (a partial set of components).
  */
-export const createArchetype = (builder: ArchetypeBuilder): Effect.Effect<Archetype, ParseResult.ParseError, never> => {
+export const createArchetype = (builder: ArchetypeBuilder): Effect.Effect<Archetype, ParseResult.ParseError> => {
   return Effect.gen(function* () {
     const decodedBuilder = yield* S.decodeUnknown(ArchetypeBuilder)(builder)
     const inputState = createInputState()

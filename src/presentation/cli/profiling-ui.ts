@@ -1,4 +1,4 @@
-import { PerformanceProfiler } from '@presentation/cli/performance-profiler'
+import { createPerformanceProfiler, type PerformanceStats } from '@presentation/cli/performance-profiler'
 import { Effect, Ref } from 'effect'
 
 export interface ProfilingUIConfig {
@@ -40,7 +40,9 @@ export interface SystemMetrics {
   thermalState?: string
 }
 
-export const createProfilingUI = (performanceProfiler?: PerformanceProfiler, config: Partial<ProfilingUIConfig> = {}) =>
+type PerformanceProfilerInstance = Effect.Effect.Success<ReturnType<typeof createPerformanceProfiler>>
+
+export const createProfilingUI = (performanceProfiler?: PerformanceProfilerInstance, config: Partial<ProfilingUIConfig> = {}) =>
   Effect.gen(function* () {
     const defaultConfig: ProfilingUIConfig = {
       updateInterval: 100,

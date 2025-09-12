@@ -236,17 +236,25 @@ export const EntityDomainServiceLive = Layer.effect(
       return generateArchetypeId(componentKeys)
     }
 
-    const incrementEntityId = (): Effect.Effect<EntityId, never, never> =>
-      Ref.modify(stateRef, (state) => {
-        const nextId = state.nextEntityId
-        if (TypeGuards.EntityId.is(nextId)) {
-          return [nextId, { ...state, nextEntityId: state.nextEntityId + 1 }]
+    const incrementEntityId = (): Effect.Effect<EntityId, EntityCreationError, never> =>
+      Effect.gen(function* () {
+        const currentState = yield* Ref.get(stateRef)
+        const nextId = currentState.nextEntityId
+        
+        if (!TypeGuards.EntityId.is(nextId)) {
+          yield* Effect.logError(`Entity ID type validation failed for ID: ${nextId}. This indicates a system error.`)
+          return yield* Effect.fail(EntityCreationError({
+            message: `Failed to generate valid EntityId: ${nextId}`,
+            entityId: undefined
+          }))
         }
-        // If type guard fails, we have a system error - this should never happen in normal operation
-        // We'll return the raw value but wrapped as EntityId for compatibility while logging the issue
-        console.warn(`Entity ID type validation failed for ID: ${nextId}. This may indicate a system error.`)
-        const safeEntityId: EntityId = nextId as EntityId
-        return [safeEntityId, { ...state, nextEntityId: state.nextEntityId + 1 }]
+        
+        yield* Ref.update(stateRef, (state) => ({
+          ...state,
+          nextEntityId: state.nextEntityId + 1
+        }))
+        
+        return nextId
       })
 
     const validateEntityLimit = (currentCount: number): Effect.Effect<void, typeof EntityLimitExceededError, never> =>
@@ -494,8 +502,8 @@ export const EntityDomainServiceLive = Layer.effect(
           )
         }
 
-        // Type assertion is safe here as we've validated the component exists
-        return component as Components[T]
+        // Component exists, return with proper typing
+        return component
       })
 
     const hasComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<boolean, never, never> =>
@@ -687,7 +695,7 @@ export const EntityDomainServiceLive = Layer.effect(
 
           return {
             id: entityId,
-            components: components as Record<ComponentName, unknown>,
+            components,
             archetype: entity.archetype,
             metadata: {
               generation: entity.generation,
@@ -835,7 +843,11 @@ export const EntityDomainServiceLive = Layer.effect(
             return yield* Effect.fail(EntityNotFoundError)
           }
           // TODO: Extract position from entity components - returning mock for now
-          return { x: 0, y: 0, z: 0 } as Position
+          return yield* Effect.fail(ComponentNotFoundError({
+            message: 'Position component extraction not yet implemented',
+            entityId,
+            componentName: 'position'
+          }))
         }),
 
       getAllEntities: () =>

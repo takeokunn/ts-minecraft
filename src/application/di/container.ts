@@ -14,9 +14,9 @@
 import { Layer } from 'effect'
 
 // Domain Services
-import { WorldDomainService } from '@domain/services/world-domain.service'
-import { EntityDomainService } from '@domain/services/entity-domain.service'
-import { PhysicsDomainService } from '@domain/services/physics-domain.service'
+import { WorldDomainService } from '@domain/services/world.domain-service'
+import { EntityDomainService } from '@domain/services/entity.domain-service'
+import { PhysicsDomainService } from '@domain/services/physics.domain-service'
 
 // Domain Ports (for infrastructure dependencies)
 import { ClockPort } from '@domain/ports/clock.port'
@@ -24,15 +24,15 @@ import { SystemCommunicationPort } from '@domain/ports/system-communication.port
 import { PerformanceMonitorPort } from '@domain/ports/performance-monitor.port'
 
 // Application Layer Components
-import { CommandHandlersLive } from '@application/handlers/command-handlers'
-import { QueryHandlersLive } from '@application/handlers/query-handlers'
-import { PlayerMoveUseCaseLive } from '@application/use-cases/player-move.use-case'
-import { BlockPlaceUseCaseLive } from '@application/use-cases/block-place.use-case'
-import { ChunkLoadUseCaseLive } from '@application/use-cases/chunk-load.use-case'
-import { WorldGenerateUseCaseLive } from '@application/use-cases/world-generate.use-case'
+import { CommandHandlersLive } from '@application/handlers/command.handler'
+import { QueryHandlersLive } from '@application/handlers/query.handler'
+import { PlayerMoveUseCaseLive } from '@application/use-cases/player-move.usecase'
+import { BlockPlaceUseCaseLive } from '@application/use-cases/block-place.usecase'
+import { ChunkLoadUseCaseLive } from '@application/use-cases/chunk-load.usecase'
+import { WorldGenerateUseCaseLive } from '@application/use-cases/world-generate.usecase'
 import { WorldUpdateWorkflowLive } from '@application/workflows/world-update'
 import { UIUpdateWorkflowLive } from '@application/workflows/ui-update'
-import { SystemSchedulerServiceLive } from '@application/workflows/system-scheduler.service'
+import { SystemSchedulerLive } from '@application/workflows/system-scheduler'
 
 /**
  * Application Layer Dependencies
@@ -70,7 +70,7 @@ export const ApplicationLayerComplete = Layer.mergeAll(
   UIUpdateWorkflowLive,
 
   // System Services
-  SystemSchedulerServiceLive(),
+  SystemSchedulerLive(),
 )
 
 /**
@@ -113,3 +113,7 @@ export const validateApplicationLayer = (): string[] => {
 }
 
 // Types are already exported inline above
+
+// Export aliases for backward compatibility
+export const Container = ApplicationLayerComplete
+export const DIContainer = createApplicationContainer

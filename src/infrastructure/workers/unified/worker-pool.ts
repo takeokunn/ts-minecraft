@@ -1,152 +1,85 @@
-import { Effect, Queue, Ref, Duration, Context, Layer, Schedule } from 'effect'
-import * as S from 'effect/Schema'
+import { Effect, Queue, Ref, Duration as EffectDuration, Context, Layer, Schedule } from 'effect'
+import * as S from '@effect/schema/Schema'
 import { createTypedWorkerClient, type WorkerClientConfig } from '@infrastructure/workers/base/typed-worker'
+import {
+  WorkerPoolSchemas,
+  type WorkerPoolConfig,
+  type WorkerInstance,
+  type QueuedRequest,
+  type PoolMetrics,
+  type PoolStrategy,
+  type LoadBalanceStrategy,
+  type HealthStatus,
+  type RequestOptions,
+  type ScaleOptions,
+  validateWorkerPoolConfig,
+  validateWorkerInstance,
+  validatePoolMetrics,
+  createDefaultWorkerPoolConfig,
+  createEmptyPoolMetrics,
+} from '@infrastructure/workers/schemas/worker-pool.schema'
+import {
+  MessageId,
+  WorkerId,
+  MessagePriority,
+  Timestamp,
+  Duration,
+  createMessageId,
+  createWorkerId,
+} from '@infrastructure/workers/schemas/worker-messages.schema'
 
 /**
- * Advanced Worker Pool Management System
- * Handles dynamic scaling, load balancing, and health monitoring
+ * Advanced Worker Pool Management System with Complete Type Safety
+ * Handles dynamic scaling, load balancing, and health monitoring using @effect/schema
  */
 
-// ============================================
-// Types and Interfaces
-// ============================================
-
-export type PoolStrategy = 'fixed' | 'dynamic' | 'adaptive'
-export type LoadBalanceStrategy = 'round-robin' | 'least-busy' | 'priority' | 'random'
-export type HealthStatus = 'healthy' | 'degraded' | 'unhealthy' | 'terminated'
-
-export interface WorkerPoolConfig {
-  name: string
-  workerScript: string
-  inputSchema: S.Schema<any>
-  outputSchema: S.Schema<any>
-
-  // Pool sizing
-  minWorkers: number
-  maxWorkers: number
-  initialWorkers: number
-  strategy: PoolStrategy
-
-  // Performance settings
-  maxConcurrentRequests: number
-  requestTimeout: Duration.Duration
-  idleTimeout: Duration.Duration
-
-  // Load balancing
-  loadBalanceStrategy: LoadBalanceStrategy
-
-  // Health monitoring
-  healthCheckInterval: Duration.Duration
-  healthCheckTimeout: Duration.Duration
-  maxConsecutiveFailures: number
-
-  // Auto-scaling (for dynamic strategy)
-  scaleUpThreshold: number // CPU/queue utilization %
-  scaleDownThreshold: number // CPU/queue utilization %
-  scaleUpCooldown: Duration.Duration
-  scaleDownCooldown: Duration.Duration
-
-  // Advanced features
-  enableSharedArrayBuffer: boolean
-  enableTransferableObjects: boolean
-  warmupRequests?: any[]
+// Re-export the schema-based types for convenience
+export type { 
+  WorkerPoolConfig,
+  WorkerInstance,
+  QueuedRequest,
+  PoolMetrics,
+  PoolStrategy,
+  LoadBalanceStrategy,
+  HealthStatus,
+  RequestOptions,
+  ScaleOptions
 }
 
-export interface WorkerInstance {
-  id: string
-  worker: Worker
-  client: Awaited<ReturnType<typeof createTypedWorkerClient<any, any>>>
-  status: HealthStatus
-  createdAt: number
-  lastUsed: number
-
-  // Metrics
-  totalRequests: number
-  activeRequests: number
-  completedRequests: number
-  failedRequests: number
-  averageResponseTime: number
-  consecutiveFailures: number
-
-  // Resource usage
-  memoryUsage: number
-  cpuUsage: number
-}
-
-export interface PoolMetrics {
-  totalWorkers: number
-  activeWorkers: number
-  idleWorkers: number
-  unhealthyWorkers: number
-
-  totalRequests: number
-  completedRequests: number
-  failedRequests: number
-  averageResponseTime: number
-
-  queueLength: number
-  queueUtilization: number
-
-  memoryUsage: number
-  cpuUtilization: number
-
-  lastScaleEvent: number | null
-  scaleEvents: Array<{
-    timestamp: number
-    action: 'scale-up' | 'scale-down'
-    reason: string
-    workerCount: number
-  }>
-}
-
-export interface QueuedRequest {
-  id: string
-  payload: any
-  priority: number
-  timeout: Duration.Duration
-  createdAt: number
-  resolve: (value: any) => void
-  reject: (error: Error) => void
-  retryCount: number
-}
+// All type definitions are now handled by the schema system
 
 // ============================================
-// Worker Pool Service Interface
+// Enhanced Worker Pool Service Interface with Schema Validation
 // ============================================
 
 export interface WorkerPoolService {
   /**
-   * Submit request to the pool
+   * Submit validated request to the pool
    */
   readonly submit: <TInput, TOutput>(
     payload: TInput,
-    options?: {
-      priority?: number
-      timeout?: Duration.Duration
-      retryCount?: number
-      preferredWorkerId?: string
-    },
-  ) => Effect.Effect<TOutput, never, never>
+    options?: RequestOptions,
+  ) => Effect.Effect<TOutput, S.ParseResult.ParseError, never>
 
   /**
-   * Get pool metrics
+   * Get validated pool metrics
    */
   readonly getMetrics: () => Effect.Effect<PoolMetrics, never, never>
 
   /**
-   * Get worker information
+   * Get worker information with validation
    */
-  readonly getWorker: (workerId: string) => Effect.Effect<WorkerInstance | null, never, never>
+  readonly getWorker: (workerId: WorkerId) => Effect.Effect<WorkerInstance | null, never, never>
 
   /**
-   * Get all workers
+   * Get all workers with validation
    */
   readonly getWorkers: () => Effect.Effect<WorkerInstance[], never, never>
 
   /**
-   * Scale pool manually
+   * Scale pool with validated options
    */
-  readonly scale: (targetSize: number, reason?: string) => Effect.Effect<void, never, never>
+  readonly scale: (options: ScaleOptions) => Effect.Effect<void, S.ParseResult.ParseError, never>
 
   /**
    * Remove unhealthy workers
@@ -154,66 +87,96 @@ export interface WorkerPoolService {
   readonly removeUnhealthyWorkers: () => Effect.Effect<number, never, never>
 
   /**
-   * Shutdown pool
+   * Shutdown pool gracefully
    */
-  readonly shutdown: () => Effect.Effect<void, never, never>
+  readonly shutdown: (graceful?: boolean, drainTimeout?: Duration) => Effect.Effect<void, never, never>
 
   /**
-   * Restart specific worker
+   * Restart specific worker with validation
    */
-  readonly restartWorker: (workerId: string) => Effect.Effect<boolean, never, never>
+  readonly restartWorker: (workerId: WorkerId, reason?: string) => Effect.Effect<boolean, never, never>
 
   /**
-   * Pause/resume pool
+   * Pause pool operations
    */
-  readonly pause: () => Effect.Effect<void, never, never>
-  readonly resume: () => Effect.Effect<void, never, never>
+  readonly pause: (reason?: string) => Effect.Effect<void, never, never>
+  
+  /**
+   * Resume pool operations  
+   */
+  readonly resume: (reason?: string) => Effect.Effect<void, never, never>
+
+  /**
+   * Validate and update pool configuration
+   */
+  readonly updateConfig: (config: Partial<WorkerPoolConfig>) => Effect.Effect<void, S.ParseResult.ParseError, never>
+
+  /**
+   * Get pool configuration
+   */
+  readonly getConfig: () => Effect.Effect<WorkerPoolConfig, never, never>
+
+  /**
+   * Drain pool (complete existing requests, don't accept new ones)
+   */
+  readonly drain: (timeout?: Duration) => Effect.Effect<void, never, never>
 }
 
 export const WorkerPoolService = Context.GenericTag<WorkerPoolService>('WorkerPoolService')
 
 // ============================================
-// Implementation
+// Enhanced Implementation with Schema Validation
 // ============================================
 
-const make = (config: WorkerPoolConfig) =>
+const make = (inputConfig: WorkerPoolConfig) =>
   Effect.gen(function* () {
-    // Worker instances
-    const workers = yield* Ref.make<Map<string, WorkerInstance>>(new Map())
+    // Validate configuration using schema
+    const config = yield* Effect.try(() => validateWorkerPoolConfig(inputConfig))
 
-    // Request queue with priority
-    const requestQueue = yield* Queue.bounded<QueuedRequest>(1000)
+    // Worker instances with schema-based types
+    const workers = yield* Ref.make<Map<WorkerId, WorkerInstance>>(new Map())
 
-    // Pool metrics
-    const metrics = yield* Ref.make<PoolMetrics>({
-      totalWorkers: 0,
-      activeWorkers: 0,
-      idleWorkers: 0,
-      unhealthyWorkers: 0,
-      totalRequests: 0,
-      completedRequests: 0,
-      failedRequests: 0,
-      averageResponseTime: 0,
-      queueLength: 0,
-      queueUtilization: 0,
-      memoryUsage: 0,
-      cpuUtilization: 0,
-      lastScaleEvent: null,
-      scaleEvents: [],
+    // Request queue with backpressure and schema validation
+    const requestQueue = yield* Queue.bounded<QueuedRequest>(config.maxQueueSize || 1000)
+    
+    // Backpressure queue for high priority requests
+    const highPriorityQueue = yield* Queue.bounded<QueuedRequest>(config.maxHighPriorityQueueSize || 100)
+    
+    // Backpressure metrics
+    const backpressureMetrics = yield* Ref.make<{
+      queueFull: boolean
+      droppedRequests: number
+      lastBackpressureTime: Timestamp
+      backpressureEvents: number
+    }>({
+      queueFull: false,
+      droppedRequests: 0,
+      lastBackpressureTime: 0 as Timestamp,
+      backpressureEvents: 0,
     })
 
-    // Pool state
+    // Pool metrics with schema validation
+    const metrics = yield* Ref.make<PoolMetrics>(createEmptyPoolMetrics())
+
+    // Enhanced pool state
     const poolState = yield* Ref.make<{
       isPaused: boolean
       isShuttingDown: boolean
-      lastScaleUp: number
-      lastScaleDown: number
+      isDraining: boolean
+      lastScaleUp: Timestamp
+      lastScaleDown: Timestamp
+      configVersion: number
     }>({
       isPaused: false,
       isShuttingDown: false,
-      lastScaleUp: 0,
-      lastScaleDown: 0,
+      isDraining: false,
+      lastScaleUp: 0 as Timestamp,
+      lastScaleDown: 0 as Timestamp,
+      configVersion: 1,
     })
+
+    // Configuration reference for dynamic updates
+    const currentConfig = yield* Ref.make<WorkerPoolConfig>(config)
 
     /**
      * Create a new worker instance
@@ -366,7 +329,7 @@ const make = (config: WorkerPoolConfig) =>
       })
 
     /**
-     * Process request queue
+     * Process request queue with priority handling
      */
     const processQueue = (): Effect.Effect<void, never, never> =>
       Effect.gen(function* () {
@@ -377,23 +340,49 @@ const make = (config: WorkerPoolConfig) =>
             continue
           }
 
-          const request = yield* Queue.take(requestQueue)
+          // Check high priority queue first
+          const highPrioritySize = yield* Queue.size(highPriorityQueue)
+          const regularSize = yield* Queue.size(requestQueue)
+          
+          let request: QueuedRequest
+          
+          if (highPrioritySize > 0) {
+            // Process high priority requests first
+            request = yield* Queue.take(highPriorityQueue)
+          } else if (regularSize > 0) {
+            // Process regular priority requests
+            request = yield* Queue.take(requestQueue)
+          } else {
+            // No requests available, wait a bit
+            yield* Effect.sleep(Duration.millis(10))
+            continue
+          }
+          
           const worker = yield* getBestWorker()
 
           if (!worker) {
             // No available workers, check if we can scale up
             yield* autoScale()
 
-            // Re-queue request
-            yield* Queue.offer(requestQueue, request)
+            // Re-queue request to appropriate queue based on priority
+            const targetQueue = request.priority > 7 ? highPriorityQueue : requestQueue
+            yield* Queue.offer(targetQueue, request).pipe(
+              Effect.catchTag('QueueFull', () => {
+                // If we can't re-queue, reject the request
+                request.reject(new Error('WorkerPoolFullError: Cannot re-queue request after failed processing'))
+                return Effect.void
+              })
+            )
             yield* Effect.sleep(Duration.millis(50))
             continue
           }
 
-          // Execute request
+          // Execute request with enhanced error handling
           const result = executeRequest(worker, request).pipe(
             Effect.timeout(request.timeout),
             Effect.catchAll((error) => {
+              // Enhanced error logging for debugging
+              console.warn(`Request ${request.id} failed:`, error)
               request.reject(error instanceof Error ? error : new Error(String(error)))
               return Effect.void
             }),
@@ -544,12 +533,14 @@ const make = (config: WorkerPoolConfig) =>
       })
 
     /**
-     * Update metrics
+     * Update metrics with enhanced backpressure tracking
      */
     const updateMetrics = (): Effect.Effect<void, never, never> =>
       Effect.gen(function* () {
         const workerMap = yield* Ref.get(workers)
-        const queueSize = yield* Queue.size(requestQueue)
+        const regularQueueSize = yield* Queue.size(requestQueue)
+        const highPriorityQueueSize = yield* Queue.size(highPriorityQueue)
+        const backpressure = yield* Ref.get(backpressureMetrics)
 
         const healthyWorkers = Array.from(workerMap.values()).filter((w) => w.status === 'healthy')
         const activeWorkers = healthyWorkers.filter((w) => w.activeRequests > 0)
@@ -559,6 +550,9 @@ const make = (config: WorkerPoolConfig) =>
         const completedRequests = Array.from(workerMap.values()).reduce((sum, w) => sum + w.completedRequests, 0)
         const failedRequests = Array.from(workerMap.values()).reduce((sum, w) => sum + w.failedRequests, 0)
         const avgResponseTime = Array.from(workerMap.values()).reduce((sum, w) => sum + w.averageResponseTime, 0) / workerMap.size || 0
+        
+        const totalQueueSize = regularQueueSize + highPriorityQueueSize
+        const maxQueueCapacity = (config.maxQueueSize || 1000) + (config.maxHighPriorityQueueSize || 100)
 
         yield* Ref.update(metrics, (m) => ({
           ...m,
@@ -570,8 +564,21 @@ const make = (config: WorkerPoolConfig) =>
           completedRequests,
           failedRequests,
           averageResponseTime: avgResponseTime,
-          queueLength: queueSize,
-          queueUtilization: (queueSize / 1000) * 100, // Based on queue capacity
+          queueLength: totalQueueSize,
+          queueUtilization: (totalQueueSize / maxQueueCapacity) * 100,
+          
+          // Enhanced backpressure metrics
+          regularQueueLength: regularQueueSize,
+          highPriorityQueueLength: highPriorityQueueSize,
+          backpressureActive: backpressure.queueFull,
+          droppedRequests: backpressure.droppedRequests,
+          backpressureEvents: backpressure.backpressureEvents,
+          lastBackpressureTime: backpressure.lastBackpressureTime,
+          
+          // Performance indicators
+          throughput: completedRequests > 0 ? (completedRequests / (Date.now() - (m.startTime || Date.now()))) * 1000 : 0,
+          errorRate: totalRequests > 0 ? (failedRequests / totalRequests) * 100 : 0,
+          utilizationRate: workerMap.size > 0 ? (activeWorkers.length / workerMap.size) * 100 : 0,
         }))
       })
 
@@ -598,6 +605,12 @@ const make = (config: WorkerPoolConfig) =>
       submit: <TInput, TOutput>(payload: TInput, options = {}) =>
         Effect.gen(function* () {
           const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+          const state = yield* Ref.get(poolState)
+          
+          // Check if pool is paused or shutting down
+          if (state.isPaused || state.isShuttingDown) {
+            return yield* Effect.fail(new Error('WorkerPool is paused or shutting down'))
+          }
 
           const request = yield* Effect.async<TOutput>((resume) => {
             const queuedRequest: QueuedRequest = {
@@ -611,13 +624,120 @@ const make = (config: WorkerPoolConfig) =>
               retryCount: 0,
             }
 
-            Effect.runPromise(Queue.offer(requestQueue, queuedRequest))
+            // Enhanced backpressure mechanism
+            const submitWithBackpressure = Effect.gen(function* () {
+              const isHighPriority = (options.priority || 0) > 7
+              const targetQueue = isHighPriority ? highPriorityQueue : requestQueue
+              
+              // Try to offer to the appropriate queue
+              const offered = yield* Queue.offer(targetQueue, queuedRequest).pipe(
+                Effect.catchTag('QueueFull', () => Effect.succeed(false))
+              )
+              
+              if (!offered) {
+                // Handle backpressure based on strategy
+                const backpressureStrategy = config.backpressureStrategy || 'reject'
+                
+                yield* Ref.update(backpressureMetrics, (metrics) => ({
+                  ...metrics,
+                  queueFull: true,
+                  backpressureEvents: metrics.backpressureEvents + 1,
+                  lastBackpressureTime: Date.now() as Timestamp,
+                }))
+                
+                switch (backpressureStrategy) {
+                  case 'reject':
+                    queuedRequest.reject(new Error('WorkerPoolFullError: Queue is full, request rejected'))
+                    break
+                    
+                  case 'drop_oldest':
+                    // Drop oldest request from regular queue
+                    const droppedRequest = yield* Queue.take(requestQueue).pipe(
+                      Effect.timeout(EffectDuration.millis(10)),
+                      Effect.catchAll(() => Effect.succeed(null))
+                    )
+                    
+                    if (droppedRequest) {
+                      droppedRequest.reject(new Error('WorkerPoolFullError: Request dropped due to backpressure'))
+                      yield* Ref.update(backpressureMetrics, (metrics) => ({
+                        ...metrics,
+                        droppedRequests: metrics.droppedRequests + 1,
+                      }))
+                    }
+                    
+                    // Try to add the new request
+                    yield* Queue.offer(targetQueue, queuedRequest).pipe(
+                      Effect.catchTag('QueueFull', () => {
+                        queuedRequest.reject(new Error('WorkerPoolFullError: Still no space after drop'))
+                        return Effect.void
+                      })
+                    )
+                    break
+                    
+                  case 'block':
+                    // Block until space is available (with timeout)
+                    yield* Queue.offer(targetQueue, queuedRequest).pipe(
+                      Effect.timeout(EffectDuration.millis(config.backpressureTimeout || 30000)),
+                      Effect.catchTag('TimeoutException', () => {
+                        queuedRequest.reject(new Error('WorkerPoolFullError: Timeout waiting for queue space'))
+                        return Effect.void
+                      })
+                    )
+                    break
+                    
+                  case 'scale_up':
+                    // Attempt to scale up the pool
+                    if (config.strategy === 'dynamic' || config.strategy === 'adaptive') {
+                      yield* autoScale()
+                    }
+                    
+                    // Try again after potential scaling
+                    yield* Effect.sleep(EffectDuration.millis(100))
+                    const retryOffered = yield* Queue.offer(targetQueue, queuedRequest).pipe(
+                      Effect.catchTag('QueueFull', () => Effect.succeed(false))
+                    )
+                    
+                    if (!retryOffered) {
+                      queuedRequest.reject(new Error('WorkerPoolFullError: Still no space after scale attempt'))
+                    }
+                    break
+                    
+                  default:
+                    queuedRequest.reject(new Error('WorkerPoolFullError: Queue is full'))
+                }
+              } else {
+                // Successfully queued, reset backpressure flag
+                yield* Ref.update(backpressureMetrics, (metrics) => ({
+                  ...metrics,
+                  queueFull: false,
+                }))
+              }
+            })
+            
+            Effect.runPromise(submitWithBackpressure)
           })
 
           return yield* request
         }),
 
-      getMetrics: () => Ref.get(metrics),
+      getMetrics: () => 
+        Effect.gen(function* () {
+          const baseMetrics = yield* Ref.get(metrics)
+          const backpressure = yield* Ref.get(backpressureMetrics)
+          const queueSize = yield* Queue.size(requestQueue)
+          const highPriorityQueueSize = yield* Queue.size(highPriorityQueue)
+          
+          return {
+            ...baseMetrics,
+            queueLength: queueSize + highPriorityQueueSize,
+            regularQueueLength: queueSize,
+            highPriorityQueueLength: highPriorityQueueSize,
+            backpressureActive: backpressure.queueFull,
+            droppedRequests: backpressure.droppedRequests,
+            backpressureEvents: backpressure.backpressureEvents,
+            lastBackpressureTime: backpressure.lastBackpressureTime,
+          }
+        }),
 
       getWorker: (workerId) =>
         Effect.gen(function* () {

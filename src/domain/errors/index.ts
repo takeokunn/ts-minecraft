@@ -1,126 +1,134 @@
-// Error types and creation functions
+// Core error system
 export {
-  // Core error system
   createErrorContext,
   logError,
   createRecoveryHandler,
   createTaggedError,
+  createErrorFactory,
   ErrorAggregator,
   type RecoveryStrategy,
   type ErrorContext,
   type BaseErrorData,
   type ErrorAggregatorState,
-  // Base errors
+} from '@domain/errors/generator'
+
+// Unified error system - all domain errors in one place using Schema.TaggedError
+export {
+  // Base error hierarchy
   GameError,
-  createGameError,
   DomainError,
-  createDomainError,
-  EntityError,
-  createEntityError,
-  ComponentError,
-  createComponentError,
-  WorldError,
-  createWorldError,
-  PhysicsError,
-  createPhysicsError,
-  SystemError,
-  createSystemError,
-  ResourceError,
-  createResourceError,
-  RenderingError,
-  createRenderingError,
-  NetworkError,
-  createNetworkError,
-  InputError,
-  createInputError,
-  ErrorChain,
-  createErrorChain,
-  validateErrorHierarchy,
-  getErrorAncestry,
-  // Entity errors
+  InfrastructureError,
+  ApplicationError,
+  
+  // Entity subsystem errors
   EntityNotFoundError,
   EntityAlreadyExistsError,
-  InvalidEntityStateError,
   EntityCreationError,
   EntityDestructionError,
-  EntityArchetypeMismatchError,
-  StaleEntityReferenceError,
   EntityLimitExceededError,
-  // Component errors
+  InvalidEntityStateError,
+  
+  // Component subsystem errors
   ComponentNotFoundError,
-  InvalidComponentDataError,
   ComponentAlreadyExistsError,
-  ComponentSerializationError,
-  ComponentDeserializationError,
+  InvalidComponentDataError,
   ComponentTypeMismatchError,
-  ComponentDependencyError,
-  ComponentLifecycleError,
-  ComponentCapacityError,
-  // World errors
+  
+  // World subsystem errors
   ChunkNotLoadedError,
+  ChunkGenerationError,
   InvalidPositionError,
   BlockNotFoundError,
-  InvalidBlockTypeError,
   WorldStateError,
-  ArchetypeNotFoundError,
-  QuerySingleResultNotFoundError,
-  ComponentDecodeError,
-  ChunkGenerationError,
-  WorldSaveError,
-  WorldLoadError,
-  BlockPlacementError,
-  WorldTickError,
-  // Physics errors
+  
+  // Physics subsystem errors
   CollisionDetectionError,
-  createCollisionDetectionError,
   PhysicsSimulationError,
-  createPhysicsSimulationError,
-  RigidBodyError,
-  createRigidBodyError,
-  GravityError,
-  createGravityError,
-  ConstraintViolationError,
-  createConstraintViolationError,
   RaycastError,
-  createRaycastError,
+  RigidBodyError,
+  GravityError,
+  ConstraintViolationError,
   PhysicsMaterialError,
-  createPhysicsMaterialError,
+  VelocityLimitError,
+  CollisionShapeError,
+  PhysicsEngineError,
+  
   // System errors
   SystemExecutionError,
-  InvalidSystemStateError,
-  SystemInitializationError,
-  SystemDependencyError,
-  SystemPerformanceError,
   QueryExecutionError,
-  EmptyQueryResultError,
-  QueryValidationError,
-  SystemSchedulerError,
-  // Worker errors
-  WorkerCommunicationError,
-  WorkerTaskFailedError,
-  WorkerInitializationError,
-  WorkerPoolExhaustedError,
-  WorkerTerminatedError,
-  WorkerDataTransferError,
-  WorkerTimeoutError,
-  // Rendering errors
-  TextureNotFoundError,
-  MaterialNotFoundError,
-  ShaderCompilationError,
-  BufferAllocationError,
-  RenderTargetError,
-  MeshDataError,
-  GraphicsContextError,
+  SystemInitializationError,
+  
   // Resource errors
   ResourceNotFoundError,
   ResourceLoadError,
+  
+  // Validation errors
   ValidationError,
-  ResourceCacheError,
-  UnsupportedFormatError,
-  InputNotAvailableError,
-  AssetBundleError,
-  ResourcePermissionError,
-} from '@domain/errors/error-exports'
+  
+  // Adapter errors
+  MeshGenerationError,
+  MeshOptimizationError,
+  TerrainGenerationError,
+  NoiseGenerationError,
+  AdapterInitializationError,
+  ExternalLibraryError,
+  
+  // Error type unions
+  type DomainErrors,
+  type InfrastructureErrors,
+  type ApplicationErrors,
+  type AllGameErrors,
+  
+  // Error utilities
+  ErrorCategories,
+  isEntityError,
+  isComponentError,
+  isWorldError,
+  isPhysicsError,
+  isSystemError,
+  isResourceError,
+  isAdapterError,
+  getErrorSeverity,
+  getRecoveryStrategy,
+  
+  // Factory functions for creating error instances
+  createGameError,
+  createDomainError,
+  createInfrastructureError,
+  createApplicationError,
+  createEntityNotFoundError,
+  createEntityAlreadyExistsError,
+  createEntityCreationError,
+  createEntityDestructionError,
+  createEntityLimitExceededError,
+  createInvalidEntityStateError,
+  createComponentNotFoundError,
+  createComponentAlreadyExistsError,
+  createInvalidComponentDataError,
+  createComponentTypeMismatchError,
+  createChunkNotLoadedError,
+  createChunkGenerationError,
+  createInvalidPositionError,
+  createBlockNotFoundError,
+  createWorldStateError,
+  createCollisionDetectionError,
+  createPhysicsSimulationError,
+  createRaycastError,
+  createRigidBodyError,
+  createGravityError,
+  createSystemExecutionError,
+  createQueryExecutionError,
+  createSystemInitializationError,
+  createResourceNotFoundError,
+  createResourceLoadError,
+  createValidationError as createUnifiedValidationError,
+  createMeshGenerationError,
+  createMeshOptimizationError,
+  createTerrainGenerationError,
+  createNoiseGenerationError,
+  createAdapterInitializationError,
+  createExternalLibraryError,
+} from '@domain/errors/unified-errors'
 
 // Schema validation errors  
 export {
@@ -142,4 +150,18 @@ export {
 } from '@domain/errors/validation-errors'
 
 // Error utilities
-export { ErrorUtils, type ErrorPatternMatcher, type ErrorRecoveryStrategy, type ErrorAnalysisResult, type ErrorReport, type ValidationResult } from '@domain/errors/error-utils'
+export { 
+  globalErrorAggregator,
+  isRecoverableError,
+  getErrorSeverity as getErrorSeverityUtil,
+  isCriticalError,
+  createTypedErrorHandler,
+  generateDetailedErrorReport,
+  type SchemaTaggedError,
+  type AllGameErrors,
+  type ErrorPatternMatcher, 
+  type ErrorRecoveryStrategy, 
+  type ErrorAnalysisResult, 
+  type ErrorReport, 
+  type ValidationResult 
+} from '@domain/errors/error-utils'

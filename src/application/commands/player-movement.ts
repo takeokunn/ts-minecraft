@@ -1,5 +1,10 @@
 import { Effect, Duration } from 'effect'
-import { CameraState, InputState, Player, Velocity } from '@domain/entities/components'
+import { 
+  CameraState, 
+  InputState, 
+  Player 
+} from '@domain/entities/components/gameplay/gameplay-components'
+import { Velocity } from '@domain/entities/components/physics/physics-components'
 import { DECELERATION, JUMP_FORCE, MIN_VELOCITY_THRESHOLD, PLAYER_SPEED, SPRINT_MULTIPLIER } from '@domain/constants/world-constants'
 // Removed direct service dependency - commands should be data-only
 import { Float, toFloat } from '@domain/value-objects/common'
@@ -17,8 +22,8 @@ export interface PlayerMovementCommand {
 }
 
 export const calculateHorizontalVelocity = (
-  input: Pick<InputState, 'forward' | 'backward' | 'left' | 'right' | 'sprint'>,
-  camera: Pick<CameraState, 'yaw'>,
+  input: { forward: boolean; backward: boolean; left: boolean; right: boolean; sprint: boolean },
+  camera: { yaw: number },
 ): { dx: Float; dz: Float } => {
   const speed = input.sprint ? PLAYER_SPEED * SPRINT_MULTIPLIER : PLAYER_SPEED
   const moveX = (input.right ? 1 : 0) - (input.left ? 1 : 0)
@@ -56,7 +61,7 @@ const clampToZero = (value: number): Float => {
   return toFloat(Math.abs(value) < MIN_VELOCITY_THRESHOLD ? 0 : value)
 }
 
-export const applyDeceleration = (velocity: Pick<Velocity, 'dx' | 'dz'>): Pick<Velocity, 'dx' | 'dz'> => {
+export const applyDeceleration = (velocity: { dx: number; dz: number }): { dx: number; dz: number } => {
   const dx = clampToZero(velocity.dx * DECELERATION)
   const dz = clampToZero(velocity.dz * DECELERATION)
   return { dx, dz }
@@ -134,7 +139,7 @@ export const PlayerMovementUtils = {
   /**
    * Calculate movement impulse (pure function - no side effects in commands)
    */
-  calculateMovementImpulse: (currentVelocity: Pick<Velocity, 'dx' | 'dy' | 'dz'>, impulse: { x: number; y: number; z: number }): Pick<Velocity, 'dx' | 'dy' | 'dz'> => {
+  calculateMovementImpulse: (currentVelocity: { dx: number; dy: number; dz: number }, impulse: { x: number; y: number; z: number }): { dx: number; dy: number; dz: number } => {
     return {
       dx: toFloat(currentVelocity.dx + impulse.x),
       dy: toFloat(currentVelocity.dy + impulse.y),
@@ -151,11 +156,11 @@ export const smoothedMovementCalculation = {
    * Apply smooth acceleration/deceleration
    */
   smoothVelocityChange: (
-    currentVelocity: Pick<Velocity, 'dx' | 'dz'>,
-    targetVelocity: Pick<Velocity, 'dx' | 'dz'>,
+    currentVelocity: { dx: number; dz: number },
+    targetVelocity: { dx: number; dz: number },
     deltaTime: number,
     acceleration = 20.0,
-  ): Pick<Velocity, 'dx' | 'dz'> => {
+  ): { dx: number; dz: number } => {
     const maxChange = acceleration * deltaTime
 
     const dx = currentVelocity.dx + Math.sign(targetVelocity.dx - currentVelocity.dx) * Math.min(maxChange, Math.abs(targetVelocity.dx - currentVelocity.dx))

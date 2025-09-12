@@ -9,7 +9,7 @@
 import * as Effect from 'effect/Effect'
 import * as Context from 'effect/Context'
 import { EntityId } from '@domain/entities'
-import { AABB } from '@domain/value-objects/physics/aabb.vo'
+import { AABB } from '@domain/value-objects/physics/aabb.value-object'
 
 export interface ISpatialGridPort {
   // Spatial queries

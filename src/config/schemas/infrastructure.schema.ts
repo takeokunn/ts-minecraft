@@ -420,8 +420,7 @@ export const DevelopmentConfigSchema = S.Struct({
 
 // Asset Management Configuration Schema
 export const AssetConfigSchema = S.Struct({
-  baseUrl: S.String.pipe(
-    S.nonEmpty(),
+  baseUrl: S.NonEmptyString.pipe(
     S.annotations({
       title: 'Asset Base URL',
       description: 'Base URL for asset loading'

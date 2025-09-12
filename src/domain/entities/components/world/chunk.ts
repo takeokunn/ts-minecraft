@@ -1,6 +1,6 @@
 import * as S from 'effect/Schema'
 import { ChunkX, ChunkZ } from '@domain/value-objects/common'
-import { BlockTypeSchema } from '@domain/value-objects/block-type.vo'
+import { BlockTypeSchema } from '@domain/value-objects/block-type.value-object'
 import { RegisterComponent } from '@domain/entities/components/registry'
 
 /**

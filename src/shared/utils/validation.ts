@@ -13,14 +13,24 @@ import { Brand } from 'effect/Brand'
 // Note: Using local ValidationError definition to avoid domain layer dependency
 import * as Data from 'effect/Data'
 
+// JSON value type for better type safety than unknown
+export type JsonValue = 
+  | string 
+  | number 
+  | boolean 
+  | null 
+  | JsonValue[] 
+  | { [key: string]: JsonValue }
+
 export interface ValidationError extends Data.Case {
   readonly _tag: 'ValidationError'
   readonly message: string
   readonly field?: string
+  readonly value?: JsonValue
   readonly component?: string
   readonly operation?: string
-  readonly metadata?: Record<string, unknown>
-  readonly cause?: unknown
+  readonly metadata?: Record<string, JsonValue>
+  readonly cause?: Error | ParseResult.ParseError | null
 }
 
 export const ValidationError = Data.tagged<ValidationError>('ValidationError')
@@ -33,7 +43,7 @@ export interface ValidationContext {
   field?: string
   component?: string
   operation?: string
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, JsonValue>
 }
 
 // Custom validation function type
@@ -47,7 +57,7 @@ export interface ValidationRule<T> {
 }
 
 // Create a validation error with context
-const createValidationError = (message: string, context?: ValidationContext, cause?: unknown): ValidationError =>
+const createValidationError = (message: string, context?: ValidationContext, cause?: Error | ParseResult.ParseError | null): ValidationError =>
   ValidationError({
     message: `Validation failed: ${message}`,
     field: context?.field,
@@ -162,7 +172,7 @@ export const Validators = {
       ),
 
   // Object validators
-  hasProperty: <T extends Record<string, unknown>>(property: keyof T, schema: Schema.Schema<T>) =>
+  hasProperty: <T extends Record<string, JsonValue>>(property: keyof T, schema: Schema.Schema<T>) =>
     <I>(value: I, context?: ValidationContext): ValidationResult<T> =>
       pipe(
         Schema.decodeUnknown(schema)(value),
@@ -263,8 +273,8 @@ export const ValidationChain = {
   > => {
     const results = {
       value: state.initialValue,
-      passed: [] as string[],
-      failed: [] as Array<{ rule: string; error: ValidationError }>,
+      passed: [] as string[], // Type annotation for empty array initialization
+      failed: [] as Array<{ rule: string; error: ValidationError }>, // Type annotation for empty array initialization
     }
 
     return pipe(
@@ -308,8 +318,8 @@ export const ValidationUtils = {
       ),
 
   // Validate object properties
-  validateObject: <T extends Record<string, unknown>>(value: T, validators: Partial<{ [K in keyof T]: ValidatorFn<T[K]> }>, context?: ValidationContext): ValidationResult<T> => {
-    const entries = Object.entries(validators) as Array<[keyof T, ValidatorFn<T[keyof T]>]>
+  validateObject: <T extends Record<string, JsonValue>>(value: T, validators: Partial<{ [K in keyof T]: ValidatorFn<T[K]> }>, context?: ValidationContext): ValidationResult<T> => {
+    const entries = Object.entries(validators) as Array<[keyof T, ValidatorFn<T[keyof T]>]> // Safe assertion: Object.entries guarantees this structure
 
     return pipe(
       entries.reduce(
@@ -345,7 +355,7 @@ export const ValidationUtils = {
               ),
             ),
           ),
-        Effect.succeed([] as T[]),
+        Effect.succeed([] as T[]), // Type annotation for empty array initialization
       ),
     )
   },
@@ -412,7 +422,7 @@ export const GameValidators = {
 
   // Entity ID Schema
   EntityIdSchema: Schema.String.pipe(
-    Schema.nonEmpty(),
+    Schema.minLength(1),
     Schema.brand('EntityId')
   ),
 
@@ -421,6 +431,52 @@ export const GameValidators = {
     x: Schema.Number.pipe(Schema.int()),
     z: Schema.Number.pipe(Schema.int()),
   }),
+
+  // Enhanced Position Schema with constraints
+  PositionSchemaConstrained: Schema.Struct({
+    x: Schema.Number.pipe(Schema.between(-30000000, 30000000)), // Minecraft world limits
+    y: Schema.Number.pipe(Schema.between(-64, 320)), // Minecraft Y limits
+    z: Schema.Number.pipe(Schema.between(-30000000, 30000000)),
+  }),
+
+  // Entity ID Number Schema (for compatibility)
+  EntityIdNumberSchema: Schema.Number.pipe(
+    Schema.int(),
+    Schema.positive(),
+    Schema.brand('EntityIdNumber')
+  ),
+
+  // Component Schema for ECS components
+  ComponentSchema: Schema.Record({ 
+    key: Schema.String, 
+    value: Schema.Unknown 
+  }),
+
+  // Enhanced Component Schema with metadata
+  ComponentDataSchema: Schema.Struct({
+    type: Schema.String.pipe(Schema.minLength(1)),
+    data: Schema.Unknown,
+    metadata: Schema.optional(Schema.Record({ 
+      key: Schema.String, 
+      value: Schema.Unknown 
+    })),
+  }),
+
+  // Block coordinate Schema
+  BlockCoordinateSchema: Schema.Struct({
+    x: Schema.Number.pipe(Schema.int()),
+    y: Schema.Number.pipe(Schema.int()),
+    z: Schema.Number.pipe(Schema.int()),
+  }),
+
+  // Dimension Schema
+  DimensionSchema: Schema.Literal('overworld', 'nether', 'end'),
+
+  // Direction Schema
+  DirectionSchema: Schema.Literal('north', 'south', 'east', 'west', 'up', 'down'),
+
+  // Face Direction Schema
+  FaceDirectionSchema: Schema.Literal('front', 'back', 'right', 'left', 'top', 'bottom'),
 
   // Position validation
   position: <I>(value: I, context?: ValidationContext): ValidationResult<{ x: number; y: number; z: number }> =>
@@ -457,6 +513,62 @@ export const GameValidators = {
         Schema.decodeUnknown(schema)(value),
         Effect.mapError((parseError) => createValidationError('Invalid component data', context, parseError))
       ),
+
+  // Enhanced position validation with constraints
+  positionConstrained: <I>(value: I, context?: ValidationContext): ValidationResult<{ x: number; y: number; z: number }> =>
+    pipe(
+      Schema.decodeUnknown(GameValidators.PositionSchemaConstrained)(value),
+      Effect.mapError((parseError) => createValidationError('Invalid position (outside world bounds)', context, parseError))
+    ),
+
+  // Entity ID Number validation
+  entityIdNumber: <I>(value: I, context?: ValidationContext): ValidationResult<number & Brand<'EntityIdNumber'>> =>
+    pipe(
+      Schema.decodeUnknown(GameValidators.EntityIdNumberSchema)(value),
+      Effect.mapError((parseError) => createValidationError('Invalid numeric entity ID', context, parseError))
+    ),
+
+  // Component validation
+  component: <I>(value: I, context?: ValidationContext): ValidationResult<Record<string, JsonValue>> =>
+    pipe(
+      Schema.decodeUnknown(GameValidators.ComponentSchema)(value),
+      Effect.mapError((parseError) => createValidationError('Invalid component', context, parseError))
+    ),
+
+  // Component data with metadata validation
+  componentWithMetadata: <I>(value: I, context?: ValidationContext): ValidationResult<{ type: string; data: JsonValue; metadata?: Record<string, JsonValue> }> =>
+    pipe(
+      Schema.decodeUnknown(GameValidators.ComponentDataSchema)(value),
+      Effect.mapError((parseError) => createValidationError('Invalid component data with metadata', context, parseError))
+    ),
+
+  // Block coordinate validation
+  blockCoordinate: <I>(value: I, context?: ValidationContext): ValidationResult<{ x: number; y: number; z: number }> =>
+    pipe(
+      Schema.decodeUnknown(GameValidators.BlockCoordinateSchema)(value),
+      Effect.mapError((parseError) => createValidationError('Invalid block coordinate', context, parseError))
+    ),
+
+  // Dimension validation
+  dimension: <I>(value: I, context?: ValidationContext): ValidationResult<'overworld' | 'nether' | 'end'> =>
+    pipe(
+      Schema.decodeUnknown(GameValidators.DimensionSchema)(value),
+      Effect.mapError((parseError) => createValidationError('Invalid dimension', context, parseError))
+    ),
+
+  // Direction validation
+  direction: <I>(value: I, context?: ValidationContext): ValidationResult<'north' | 'south' | 'east' | 'west' | 'up' | 'down'> =>
+    pipe(
+      Schema.decodeUnknown(GameValidators.DirectionSchema)(value),
+      Effect.mapError((parseError) => createValidationError('Invalid direction', context, parseError))
+    ),
+
+  // Face Direction validation
+  faceDirection: <I>(value: I, context?: ValidationContext): ValidationResult<'front' | 'back' | 'right' | 'left' | 'top' | 'bottom'> =>
+    pipe(
+      Schema.decodeUnknown(GameValidators.FaceDirectionSchema)(value),
+      Effect.mapError((parseError) => createValidationError('Invalid face direction', context, parseError))
+    ),
 }
 
 // Export helper for creating component-specific validators

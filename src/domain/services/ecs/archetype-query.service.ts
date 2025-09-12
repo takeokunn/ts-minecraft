@@ -52,14 +52,16 @@ export type QueryMetrics = S.Schema.Type<typeof QueryMetrics>
 // Error Definitions
 // ============================================================================
 
-export class ArchetypeError extends S.TaggedError<ArchetypeError>()('ArchetypeError', {
+export const ArchetypeError = S.TaggedError<ArchetypeError>()('ArchetypeError', {
   message: S.String,
-}) {}
+})
+export interface ArchetypeError extends S.Schema.Type<typeof ArchetypeError> {}
 
-export class QueryError extends S.TaggedError<QueryError>()('QueryError', {
+export const QueryError = S.TaggedError<QueryError>()('QueryError', {
   message: S.String,
   queryName: S.optional(S.String),
-}) {}
+})
+export interface QueryError extends S.Schema.Type<typeof QueryError> {}
 
 // ============================================================================
 // Archetype Service
@@ -489,11 +491,7 @@ export const parallelQueries = <T extends ReadonlyArray<Effect.Effect<unknown, u
   { [K in keyof T]: T[K] extends Effect.Effect<infer A, unknown, unknown> ? A : never },
   T[number] extends Effect.Effect<unknown, infer E, unknown> ? E : never,
   T[number] extends Effect.Effect<unknown, unknown, infer R> ? R : never
-> => Effect.all(queries, { concurrency: 'unbounded' }) as Effect.Effect<
-  { [K in keyof T]: T[K] extends Effect.Effect<infer A, unknown, unknown> ? A : never },
-  T[number] extends Effect.Effect<unknown, infer E, unknown> ? E : never,
-  T[number] extends Effect.Effect<unknown, unknown, infer R> ? R : never
->
+> => Effect.all(queries, { concurrency: 'unbounded' })
 
 export const batchQuery = <T extends ReadonlyArray<ComponentName>>(queries: ReadonlyArray<{ name: string; components: T }>) =>
   Effect.gen(function* () {

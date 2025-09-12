@@ -1,5 +1,5 @@
 import * as S from 'effect/Schema'
-import { Point3D, ID, Brand } from '@shared/types/common'
+import { Point3D, ID, Brand, JsonValue } from '@shared/types/common'
 
 /**
  * Game-specific types for Minecraft-like functionality
@@ -52,7 +52,7 @@ export type ItemType = BlockType | 'tool_pickaxe' | 'tool_shovel' | 'tool_axe' |
 export type ItemStack = {
   type: ItemType
   count: number
-  metadata?: Record<string, any>
+  metadata?: Record<string, JsonValue>
 }
 export type InventorySlot = ItemStack | null
 export type Inventory = InventorySlot[]
@@ -65,7 +65,7 @@ export type CollisionBox = {
 }
 
 // Rendering
-export type RenderDistance = Brand<number, 'RenderDistance'>
+export type RenderDistance = number & Brand<'RenderDistance'>
 export type LODLevel = 0 | 1 | 2 | 3
 export type MeshData = {
   vertices: Float32Array
@@ -77,7 +77,7 @@ export type MeshData = {
 // Network/Multiplayer
 export type ServerMessage = {
   type: string
-  data: any
+  data: JsonValue
   timestamp: number
 }
 export type ClientMessage = ServerMessage

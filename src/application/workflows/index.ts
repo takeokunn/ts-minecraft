@@ -3,15 +3,15 @@ export { ChunkLoadingWorkflow, ChunkLoadingWorkflowLive } from './chunk-loading'
 
 // System Scheduler Service
 export {
-  SystemSchedulerService,
-  SystemSchedulerServiceLive,
+  SystemScheduler,
+  SystemSchedulerLive,
   SchedulerError,
   SystemConfig,
   SystemMetrics,
   SystemContext,
-  createSystemSchedulerService,
+  createSystemScheduler,
   defaultSchedulerConfig,
-} from './system-scheduler.service'
+} from './system-scheduler'
 
 // UI Update Workflow
 export { UIUpdateWorkflow, UIUpdateWorkflowLive, createUIUpdateWorkflow } from './ui-update'

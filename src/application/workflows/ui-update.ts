@@ -1,6 +1,6 @@
 import { Effect, Context, Layer } from 'effect'
-import { EntityDomainService } from '@domain/services/entity-domain.service'
-import { WorldDomainService } from '@domain/services/world-domain.service'
+import { EntityDomainService } from '@domain/services/entity.domain-service'
+import { WorldDomainService } from '@domain/services/world.domain-service'
 import { PerformanceMonitorPort } from '@domain/ports/performance-monitor.port'
 
 /**

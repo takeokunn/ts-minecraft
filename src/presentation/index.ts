@@ -40,6 +40,8 @@ export {
   createNetworkInspector,
   createDevToolsManager,
   createStateDebugger,
+  createCommandPalette,
+  createHotReloadManager,
   defaultCliConfig,
 } from './cli'
 

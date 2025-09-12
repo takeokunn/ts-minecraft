@@ -1,5 +1,5 @@
-import { Effect, pipe, Schedule } from 'effect'
-import { DomainError } from '@domain/errors/base-errors'
+import { Effect, pipe, Schedule, Option, Ref } from 'effect'
+import { DomainError } from '@domain/errors/unified-errors'
 
 /**
  * Effect utilities for consistent error handling and patterns
@@ -183,13 +183,11 @@ const shouldTransitionToHalfOpen = (state: CircuitBreakerState, config: CircuitB
 /**
  * Circuit breaker functional implementation using Ref for state management
  */
-export const createCircuitBreaker = <A, E, R>(config: CircuitBreakerConfig) => {
-  const { Ref } = Effect
-
-  return Effect.gen(function* () {
+export const createCircuitBreaker = <A, E, R>(config: CircuitBreakerConfig) =>
+  Effect.gen(function* () {
     const stateRef = yield* Ref.make(createCircuitBreakerState())
 
-    const execute = (effect: Effect.Effect<A, E, R>): Effect.Effect<A, E | Error, R> =>
+    const execute = (effect: Effect.Effect<A, E, R>): Effect.Effect<A, Error | E, R> =>
       Effect.gen(function* () {
         const now = Date.now()
         const currentState = yield* Ref.get(stateRef)
@@ -208,13 +206,12 @@ export const createCircuitBreaker = <A, E, R>(config: CircuitBreakerConfig) => {
 
         return yield* effect.pipe(
           Effect.tap(() => Ref.update(stateRef, onCircuitBreakerSuccess)),
-          Effect.tapError(() => Ref.update(stateRef, (state) => onCircuitBreakerFailure(state, config, now))),
+          Effect.tapError(() => Ref.update(stateRef, (state: CircuitBreakerState) => onCircuitBreakerFailure(state, config, now))),
         )
       })
 
     return { execute }
   })
-}
 
 /**
  * Memoize effect results
@@ -225,17 +222,17 @@ export const memoize = <Args extends readonly unknown[], A, E, R>(f: (...args: A
   return (...args: Args) => {
     const key = JSON.stringify(args)
 
-    if (cache.has(key)) {
-      const cachedValue = cache.get(key)
-      // If cache.has(key) is true, then cache.get(key) cannot be undefined
-      // This is safe because Map.has() guarantees the key exists
-      return Effect.succeed(cachedValue as NonNullable<typeof cachedValue>)
-    }
-
-    return f(...args).pipe(
-      Effect.tap((result) => {
-        cache.set(key, result)
-      }),
+    return pipe(
+      Option.fromNullable(cache.get(key)),
+      Option.match({
+        onNone: () => 
+          f(...args).pipe(
+            Effect.tap((result) => {
+              cache.set(key, result)
+            }),
+          ),
+        onSome: (cachedValue) => Effect.succeed(cachedValue)
+      })
     )
   }
 }

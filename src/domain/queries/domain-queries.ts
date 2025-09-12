@@ -37,8 +37,8 @@ export interface PlayerTargetQueryResult {
 
 // Domain query service interface
 export interface DomainQueryService {
-  readonly executePlayerQuery: () => Effect.Effect<PlayerQueryResult, never, never>
-  readonly executePlayerTargetQuery: () => Effect.Effect<PlayerTargetQueryResult, never, never>
+  readonly executePlayerQuery: () => Effect.Effect<PlayerQueryResult, never>
+  readonly executePlayerTargetQuery: () => Effect.Effect<PlayerTargetQueryResult, never>
 }
 
 /**

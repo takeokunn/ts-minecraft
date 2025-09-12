@@ -17,7 +17,7 @@ const Uint32ArraySchema = S.transform(S.Array(S.Number), S.instanceOf(Uint32Arra
   encode: (u32arr) => Array.from(u32arr),
 })
 
-export type SoAResult<C extends Record<string, S.Schema<unknown, unknown, unknown>>> = {
+export type SoAResult<C extends Record<string, S.Schema.Schema<unknown, unknown>>> = {
   readonly entities: ReadonlyArray<EntityId>
   readonly components: { readonly [K in keyof C]: Array<S.Schema.Type<C[K]>> }
 }

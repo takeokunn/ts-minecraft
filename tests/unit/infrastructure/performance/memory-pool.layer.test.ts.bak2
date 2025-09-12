@@ -1,0 +1,1342 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { Effect, Layer, Duration, Option, TestClock, TestContext } from 'effect'
+import { 
+  MemoryPoolService,
+  MemoryPoolServiceLive,
+  MemoryPoolError,
+  PoolExhaustedError,
+  defaultMemoryPoolConfig,
+  highPerformanceConfig,
+  memoryConservativeConfig,
+  createFloat32Pool,
+  createBufferPool,
+  withPooledMemory,
+  withPooledMemoryOrFallback,
+  acquireBatch,
+  tryAcquireBatch,
+  releaseBatch,
+  PoolUtils
+} from '@infrastructure/performance/memory-pool.layer'
+
+describe('MemoryPoolLayer', () => {
+  let testLayer: Layer.Layer<MemoryPoolService>
+
+  beforeEach(() => {
+    testLayer = MemoryPoolServiceLive
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  describe('Basic Pool Operations', () => {
+    describe('createPool', () => {
+      it('should create a memory pool with basic configuration', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => new ArrayBuffer(1024),
+              (buffer) => { new Uint8Array(buffer).fill(0) },
+              { ...defaultMemoryPoolConfig, initialSize: 5, maxSize: 10 }
+            )
+            
+            const size = yield* pool.size
+            const capacity = yield* pool.capacity
+            
+            return { size, capacity }
+          }), testLayer)
+        )
+
+        expect(result.size).toBe(5)
+        expect(result.capacity).toBe(10)
+      })
+
+      it('should handle factory function errors during initialization', async () => {
+        const result = await Effect.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            yield* service.createPool(
+              () => { throw new Error('Factory error') },
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 2, maxSize: 10 }
+            )
+          }), testLayer)
+        )
+
+        expect(Effect.isFailure(result)).toBe(true)
+        if (Effect.isFailure(result)) {
+          expect(result.cause._tag).toBe('Fail')
+          expect((result.cause.error as MemoryPoolError)._tag).toBe('MemoryPoolError')
+        }
+      })
+
+      it('should initialize with correct pool name and metrics', async () => {
+        const poolName = 'test-pool'
+        
+        const metrics = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({}),
+              () => {},
+              { ...defaultMemoryPoolConfig, poolName, initialSize: 3 }
+            )
+            
+            return yield* pool.getMetrics
+          }), testLayer)
+        )
+
+        expect(metrics.poolName).toBe(poolName)
+        expect(metrics.totalAllocated).toBe(3)
+        expect(metrics.currentInUse).toBe(0)
+        expect(metrics.peakUsage).toBe(0)
+      })
+    })
+
+    describe('acquire and release operations', () => {
+      it('should acquire items from the pool', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ value: Math.random() }),
+              (item) => { item.value = 0 },
+              { ...defaultMemoryPoolConfig, initialSize: 2, maxSize: 10 }
+            )
+            
+            const item1 = yield* pool.acquire
+            const item2 = yield* pool.acquire
+            
+            const inUseCount = yield* pool.inUseCount
+            const availableCount = yield* pool.availableCount
+            
+            return { item1, item2, inUseCount, availableCount }
+          }), testLayer)
+        )
+
+        expect(result.item1).toBeDefined()
+        expect(result.item2).toBeDefined()
+        expect(result.inUseCount).toBe(2)
+        expect(result.availableCount).toBe(0)
+      })
+
+      it('should release items back to the pool', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ value: Math.random() }),
+              (item) => { item.value = 0 },
+              { ...defaultMemoryPoolConfig, initialSize: 2, maxSize: 10 }
+            )
+            
+            const item = yield* pool.acquire
+            yield* pool.release(item)
+            
+            const inUseCount = yield* pool.inUseCount
+            const availableCount = yield* pool.availableCount
+            
+            return { inUseCount, availableCount }
+          }), testLayer)
+        )
+
+        expect(result.inUseCount).toBe(0)
+        expect(result.availableCount).toBe(2)
+      })
+
+      it('should create new items when pool is empty', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ id: Date.now() }),
+              (item) => { item.id = 0 },
+              { ...defaultMemoryPoolConfig, initialSize: 1, maxSize: 5 }
+            )
+            
+            // Acquire all initial items plus create new ones
+            const item1 = yield* pool.acquire
+            const item2 = yield* pool.acquire // This should create a new item
+            
+            const metrics = yield* pool.getMetrics
+            
+            return { item1, item2, metrics }
+          }), testLayer)
+        )
+
+        expect(result.item1).toBeDefined()
+        expect(result.item2).toBeDefined()
+        expect(result.metrics.totalAllocated).toBe(2)
+        expect(result.metrics.missCount).toBe(1)
+      })
+
+      it('should handle reset function errors gracefully', async () => {
+        const resetError = await Effect.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({}),
+              () => { throw new Error('Reset failed') },
+              { ...defaultMemoryPoolConfig, initialSize: 1, maxSize: 10 }
+            )
+            
+            const item = yield* pool.acquire
+            yield* pool.release(item)
+          }), testLayer)
+        )
+
+        expect(Effect.isFailure(resetError)).toBe(true)
+      })
+
+      it('should reject releasing items not from the pool', async () => {
+        const releaseError = await Effect.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({}),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 1, maxSize: 10 }
+            )
+            
+            const foreignItem = {}
+            yield* pool.release(foreignItem)
+          }), testLayer)
+        )
+
+        expect(Effect.isFailure(releaseError)).toBe(true)
+      })
+    })
+
+    describe('tryAcquire operations', () => {
+      it('should return Some when items are available', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ value: 42 }),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 1, maxSize: 10 }
+            )
+            
+            const maybeItem = yield* pool.tryAcquire
+            return Option.isSome(maybeItem) ? maybeItem.value : null
+          }), testLayer)
+        )
+
+        expect(result).toBeDefined()
+        expect(result?.value).toBe(42)
+      })
+
+      it('should return None when no items are available and at max capacity', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({}),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 1, maxSize: 1 }
+            )
+            
+            // Acquire the only available item
+            yield* pool.acquire
+            
+            // Try to acquire when pool is exhausted
+            const maybeItem = yield* pool.tryAcquire
+            return Option.isNone(maybeItem)
+          }), testLayer)
+        )
+
+        expect(result).toBe(true)
+      })
+    })
+
+    describe('acquireWithTimeout operations', () => {
+      it('should acquire item within timeout', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ value: 'test' }),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 1, maxSize: 10 }
+            )
+            
+            const item = yield* pool.acquireWithTimeout(Duration.seconds(1))
+            return item
+          }), testLayer)
+        )
+
+        expect(result).toBeDefined()
+        expect(result.value).toBe('test')
+      })
+
+      it('should timeout when no items become available', async () => {
+        const timeoutError = await Effect.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({}),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 0, maxSize: 0 }
+            )
+            
+            yield* pool.acquireWithTimeout(Duration.millis(10))
+          }).pipe(
+            Layer.provide(testLayer),
+            Effect.provide(TestContext.TestContext)
+          )
+        )
+
+        expect(Effect.isFailure(timeoutError)).toBe(true)
+      })
+    })
+  })
+
+  describe('Pool Exhaustion and Backpressure', () => {
+    it('should throw PoolExhaustedError when pool is at capacity', async () => {
+      const exhaustedError = await Effect.runPromiseExit(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          const pool = yield* service.createPool(
+            () => ({}),
+            () => {},
+            { ...defaultMemoryPoolConfig, initialSize: 1, maxSize: 1 }
+          )
+          
+          // Acquire the only item
+          yield* pool.acquire
+          
+          // Try to acquire another item
+          yield* pool.acquire
+        }), testLayer)
+      )
+
+      expect(Effect.isFailure(exhaustedError)).toBe(true)
+      if (Effect.isFailure(exhaustedError)) {
+        expect(result.cause._tag).toBe('Fail')
+        expect((result.cause.error as PoolExhaustedError)._tag).toBe('PoolExhaustedError')
+      }
+    })
+
+    it('should handle backpressure when enabled', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          const pool = yield* service.createPool(
+            () => ({}),
+            () => {},
+            { 
+              ...defaultMemoryPoolConfig, 
+              initialSize: 2, 
+              maxSize: 10,
+              enableBackpressure: true,
+              backpressureThreshold: 2
+            }
+          )
+          
+          // Acquire items to approach backpressure threshold
+          const item1 = yield* pool.acquire
+          const item2 = yield* pool.acquire
+          
+          const metrics = yield* pool.getMetrics
+          
+          return { item1, item2, metrics }
+        }), testLayer)
+      )
+
+      expect(result.metrics.currentInUse).toBe(2)
+      // Should have logged backpressure warning
+    })
+  })
+
+  describe('Batch Operations', () => {
+    describe('releaseAll', () => {
+      it('should release all items back to the pool', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ id: Math.random() }),
+              (item) => { item.id = 0 },
+              { ...defaultMemoryPoolConfig, initialSize: 0, maxSize: 10 }
+            )
+            
+            // Acquire multiple items
+            const item1 = yield* pool.acquire
+            const item2 = yield* pool.acquire
+            
+            const beforeRelease = yield* pool.inUseCount
+            
+            yield* pool.releaseAll([item1, item2])
+            
+            const afterRelease = yield* pool.inUseCount
+            const available = yield* pool.availableCount
+            
+            return { beforeRelease, afterRelease, available }
+          }), testLayer)
+        )
+
+        expect(result.beforeRelease).toBe(2)
+        expect(result.afterRelease).toBe(0)
+        expect(result.available).toBe(2)
+      })
+
+      it('should handle reset failures gracefully in batch release', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            let resetCallCount = 0
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ id: Math.random() }),
+              () => {
+                resetCallCount++
+                if (resetCallCount === 1) {
+                  throw new Error('First reset fails')
+                }
+              },
+              { ...defaultMemoryPoolConfig, initialSize: 0, maxSize: 10 }
+            )
+            
+            const item1 = yield* pool.acquire
+            const item2 = yield* pool.acquire
+            
+            yield* pool.releaseAll([item1, item2])
+            
+            const metrics = yield* pool.getMetrics
+            
+            return metrics
+          }), testLayer)
+        )
+
+        // Should still update metrics despite reset failures
+        expect(result.currentInUse).toBe(0)
+      })
+    })
+  })
+
+  describe('Pool Management', () => {
+    describe('clear', () => {
+      it('should clear all items and reset metrics', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({}),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 5, maxSize: 10 }
+            )
+            
+            // Acquire some items
+            yield* pool.acquire
+            yield* pool.acquire
+            
+            const beforeClear = yield* pool.getMetrics
+            
+            yield* pool.clear
+            
+            const afterClear = yield* pool.getMetrics
+            const size = yield* pool.size
+            const inUse = yield* pool.inUseCount
+            
+            return { beforeClear, afterClear, size, inUse }
+          }), testLayer)
+        )
+
+        expect(result.beforeClear.totalAllocated).toBe(5)
+        expect(result.afterClear.totalAllocated).toBe(0)
+        expect(result.size).toBe(0)
+        expect(result.inUse).toBe(0)
+      })
+    })
+
+    describe('optimize', () => {
+      it('should optimize pool by removing underutilized items', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({}),
+              () => {},
+              { 
+                ...defaultMemoryPoolConfig, 
+                initialSize: 10, 
+                maxSize: 20,
+                shrinkThreshold: 0.5
+              }
+            )
+            
+            const beforeOptimize = yield* pool.size
+            
+            // Optimize should shrink the pool due to low utilization
+            yield* pool.optimize
+            
+            const afterOptimize = yield* pool.size
+            const metrics = yield* pool.getMetrics
+            
+            return { beforeOptimize, afterOptimize, metrics }
+          }), testLayer)
+        )
+
+        expect(result.beforeOptimize).toBe(10)
+        expect(result.afterOptimize).toBeLessThan(10)
+        expect(result.metrics.fragmentationRatio).toBeGreaterThan(0)
+      })
+    })
+
+    describe('resize', () => {
+      it('should resize pool to new maximum capacity', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({}),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 5, maxSize: 10 }
+            )
+            
+            const originalCapacity = yield* pool.capacity
+            
+            yield* pool.resize(20)
+            
+            const newCapacity = yield* pool.capacity
+            
+            return { originalCapacity, newCapacity }
+          }), testLayer)
+        )
+
+        expect(result.originalCapacity).toBe(10)
+        expect(result.newCapacity).toBe(20)
+      })
+
+      it('should reject resizing below initial size', async () => {
+        const resizeError = await Effect.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({}),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 5, maxSize: 10 }
+            )
+            
+            yield* pool.resize(3) // Below initial size
+          }), testLayer)
+        )
+
+        expect(Effect.isFailure(resizeError)).toBe(true)
+      })
+    })
+
+    describe('warmUp', () => {
+      it('should pre-allocate additional items', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({}),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 2, maxSize: 10 }
+            )
+            
+            const beforeWarmUp = yield* pool.size
+            
+            yield* pool.warmUp(5)
+            
+            const afterWarmUp = yield* pool.size
+            const metrics = yield* pool.getMetrics
+            
+            return { beforeWarmUp, afterWarmUp, metrics }
+          }), testLayer)
+        )
+
+        expect(result.beforeWarmUp).toBe(2)
+        expect(result.afterWarmUp).toBe(7) // 2 + 5
+        expect(result.metrics.totalAllocated).toBe(7)
+      })
+
+      it('should respect maximum capacity during warm-up', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({}),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 8, maxSize: 10 }
+            )
+            
+            const beforeWarmUp = yield* pool.size
+            
+            yield* pool.warmUp(5) // Should only add 2 more items
+            
+            const afterWarmUp = yield* pool.size
+            
+            return { beforeWarmUp, afterWarmUp }
+          }), testLayer)
+        )
+
+        expect(result.beforeWarmUp).toBe(8)
+        expect(result.afterWarmUp).toBe(10) // Capped at maxSize
+      })
+    })
+  })
+
+  describe('TypedArray Pool', () => {
+    it('should create Float32Array pool with correct configuration', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          const pool = yield* service.createTypedArrayPool(
+            'Float32',
+            16,
+            { ...defaultMemoryPoolConfig, initialSize: 2, maxSize: 10, poolName: 'float32-test' }
+          )
+          
+          const buffer = yield* pool.acquire
+          const float32Array = new Float32Array(buffer)
+          
+          const metrics = yield* pool.getMetrics
+          
+          return { 
+            bufferSize: buffer.byteLength,
+            arrayLength: float32Array.length,
+            poolName: metrics.poolName
+          }
+        }), testLayer)
+      )
+
+      expect(result.bufferSize).toBe(64) // 16 * 4 bytes
+      expect(result.arrayLength).toBe(16)
+      expect(result.poolName).toBe('float32-test')
+    })
+
+    it('should handle different typed array types', async () => {
+      const types = ['Float32', 'Float64', 'Int32', 'Uint32', 'Int16', 'Uint16'] as const
+      
+      for (const type of types) {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createTypedArrayPool(
+              type,
+              8,
+              { ...defaultMemoryPoolConfig, initialSize: 1, maxSize: 5 }
+            )
+            
+            const buffer = yield* pool.acquire
+            
+            return buffer.byteLength
+          }), testLayer)
+        )
+
+        const expectedSizes = {
+          Float32: 32, Float64: 64, Int32: 32, Uint32: 32, Int16: 16, Uint16: 16
+        }
+        
+        expect(result).toBe(expectedSizes[type])
+      }
+    })
+
+    it('should validate array length', async () => {
+      const invalidLengthError = await Effect.runPromiseExit(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          yield* service.createTypedArrayPool(
+            'Float32',
+            0, // Invalid length
+            defaultMemoryPoolConfig
+          )
+        }), testLayer)
+      )
+
+      expect(Effect.isFailure(invalidLengthError)).toBe(true)
+    })
+
+    it('should warn about large arrays', async () => {
+      // Test should capture warning logs for arrays > 50MB
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          const pool = yield* service.createTypedArrayPool(
+            'Float32',
+            13 * 1024 * 1024, // > 50MB
+            { ...defaultMemoryPoolConfig, initialSize: 1, maxSize: 2 }
+          )
+          
+          return yield* pool.size
+        }), testLayer)
+      )
+
+      expect(result).toBe(1) // Should still create the pool
+    })
+
+    it('should efficiently reset typed arrays', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          const pool = yield* service.createTypedArrayPool(
+            'Float32',
+            4,
+            { ...defaultMemoryPoolConfig, initialSize: 1, maxSize: 5 }
+          )
+          
+          const buffer = yield* pool.acquire
+          const array = new Float32Array(buffer)
+          
+          // Modify the array
+          array[0] = 42
+          array[1] = 24
+          
+          expect(array[0]).toBe(42)
+          expect(array[1]).toBe(24)
+          
+          yield* pool.release(buffer)
+          
+          // Acquire again and check it's reset
+          const buffer2 = yield* pool.acquire
+          const array2 = new Float32Array(buffer2)
+          
+          return { 
+            isReset: array2[0] === 0 && array2[1] === 0,
+            isSameBuffer: buffer === buffer2
+          }
+        }), testLayer)
+      )
+
+      expect(result.isReset).toBe(true)
+      expect(result.isSameBuffer).toBe(true)
+    })
+  })
+
+  describe('Buffer Pool', () => {
+    it('should create buffer pool with correct size', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          const pool = yield* service.createBufferPool(
+            2048,
+            { ...defaultMemoryPoolConfig, initialSize: 2, maxSize: 10 }
+          )
+          
+          const buffer = yield* pool.acquire
+          const metrics = yield* pool.getMetrics
+          
+          return { 
+            bufferSize: buffer.byteLength,
+            poolName: metrics.poolName
+          }
+        }), testLayer)
+      )
+
+      expect(result.bufferSize).toBe(2048)
+      expect(result.poolName).toBe('buffer-2048')
+    })
+
+    it('should validate buffer size', async () => {
+      const invalidSizeError = await Effect.runPromiseExit(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          yield* service.createBufferPool(
+            -1024, // Invalid size
+            defaultMemoryPoolConfig
+          )
+        }), testLayer)
+      )
+
+      expect(Effect.isFailure(invalidSizeError)).toBe(true)
+    })
+
+    it('should warn about large buffers', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          const pool = yield* service.createBufferPool(
+            101 * 1024 * 1024, // > 100MB
+            { ...defaultMemoryPoolConfig, initialSize: 1, maxSize: 2 }
+          )
+          
+          return yield* pool.size
+        }), testLayer)
+      )
+
+      expect(result).toBe(1) // Should still create the pool
+    })
+  })
+
+  describe('Shared Pool Management', () => {
+    it('should create and manage shared pools', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          
+          const pool1 = yield* service.createSharedPool(
+            () => ({ id: 1 }),
+            () => {},
+            defaultMemoryPoolConfig,
+            'shared-test-pool'
+          )
+          
+          // Try to create the same pool again
+          const pool2 = yield* service.createSharedPool(
+            () => ({ id: 2 }),
+            () => {},
+            defaultMemoryPoolConfig,
+            'shared-test-pool'
+          )
+          
+          const item1 = yield* pool1.acquire
+          const item2 = yield* pool2.acquire
+          
+          return { 
+            isSamePool: pool1 === pool2,
+            item1,
+            item2
+          }
+        }), testLayer)
+      )
+
+      expect(result.isSamePool).toBe(true)
+      expect(result.item1).toBeDefined()
+      expect(result.item2).toBeDefined()
+    })
+
+    it('should get metrics for specific shared pool', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          
+          yield* service.createSharedPool(
+            () => ({}),
+            () => {},
+            { ...defaultMemoryPoolConfig, initialSize: 3 },
+            'metrics-test-pool'
+          )
+          
+          const specificMetrics = yield* service.getPoolMetrics('metrics-test-pool')
+          const allMetrics = yield* service.getPoolMetrics()
+          
+          return { 
+            specificMetrics: specificMetrics[0],
+            allMetricsCount: allMetrics.length
+          }
+        }), testLayer)
+      )
+
+      expect(result.specificMetrics.poolName).toBe('metrics-test-pool')
+      expect(result.specificMetrics.totalAllocated).toBe(3)
+      expect(result.allMetricsCount).toBeGreaterThanOrEqual(1)
+    })
+
+    it('should return empty array for non-existent pool', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          return yield* service.getPoolMetrics('non-existent-pool')
+        }), testLayer)
+      )
+
+      expect(result).toEqual([])
+    })
+  })
+
+  describe('Background Optimization', () => {
+    it('should start background optimization', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          
+          // Create a shared pool first
+          yield* service.createSharedPool(
+            () => ({}),
+            () => {},
+            defaultMemoryPoolConfig,
+            'optimization-test-pool'
+          )
+          
+          const fiber = yield* service.startBackgroundOptimization(Duration.seconds(1))
+          
+          // Let it run briefly
+          yield* Effect.sleep(Duration.millis(100))
+          
+          const isRunning = !fiber.unsafeGet()._tag // Check if fiber is still running
+          
+          return { isRunning }
+        }).pipe(
+          Layer.provide(testLayer),
+          Effect.provide(TestContext.TestContext)
+        )
+      )
+
+      expect(result.isRunning).toBeDefined()
+    })
+  })
+
+  describe('Performance Monitoring', () => {
+    it('should track acquisition and release times', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          const pool = yield* service.createPool(
+            () => ({}),
+            () => {},
+            { ...defaultMemoryPoolConfig, enableMetrics: true, initialSize: 2 }
+          )
+          
+          const startTime = performance.now()
+          
+          const item = yield* pool.acquire
+          yield* pool.release(item)
+          
+          const endTime = performance.now()
+          const metrics = yield* pool.getMetrics
+          
+          return { 
+            duration: endTime - startTime,
+            avgAcquireTime: metrics.averageAcquireTime,
+            avgReleaseTime: metrics.averageReleaseTime,
+            hitRate: metrics.hitRate
+          }
+        }), testLayer)
+      )
+
+      expect(result.avgAcquireTime).toBeGreaterThanOrEqual(0)
+      expect(result.avgReleaseTime).toBeGreaterThanOrEqual(0)
+      expect(result.hitRate).toBeGreaterThanOrEqual(0)
+    })
+
+    it('should track hit rate correctly', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          const pool = yield* service.createPool(
+            () => ({}),
+            () => {},
+            { ...defaultMemoryPoolConfig, enableMetrics: true, initialSize: 1, maxSize: 10 }
+          )
+          
+          // First acquire should be a hit (from initial pool)
+          const item1 = yield* pool.acquire
+          yield* pool.release(item1)
+          
+          const metricsAfterHit = yield* pool.getMetrics
+          
+          // Acquire when pool is empty, forcing creation of new item
+          const item2 = yield* pool.acquire
+          const item3 = yield* pool.acquire // This should be a miss
+          
+          const metricsAfterMiss = yield* pool.getMetrics
+          
+          return { 
+            hitRateAfterHit: metricsAfterHit.hitRate,
+            hitRateAfterMiss: metricsAfterMiss.hitRate,
+            missCount: metricsAfterMiss.missCount
+          }
+        }), testLayer)
+      )
+
+      expect(result.hitRateAfterHit).toBe(1) // 100% hit rate initially
+      expect(result.hitRateAfterMiss).toBeLessThan(1) // Should decrease after miss
+      expect(result.missCount).toBe(1)
+    })
+  })
+
+  describe('Utility Functions', () => {
+    describe('withPooledMemory', () => {
+      it('should automatically acquire and release items', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ value: 42 }),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 2 }
+            )
+            
+            const processedValue = yield* withPooledMemory(pool, (item) => 
+              Effect.succeed(item.value * 2)
+            )
+            
+            const metrics = yield* pool.getMetrics
+            
+            return { processedValue, inUse: metrics.currentInUse }
+          }), testLayer)
+        )
+
+        expect(result.processedValue).toBe(84)
+        expect(result.inUse).toBe(0) // Should be released automatically
+      })
+
+      it('should release item even when effect fails', async () => {
+        const result = await Effect.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ value: 42 }),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 2 }
+            )
+            
+            yield* withPooledMemory(pool, () => 
+              Effect.fail(new Error('Processing failed'))
+            )
+            
+            return yield* pool.getMetrics
+          }), testLayer)
+        )
+
+        expect(Effect.isFailure(result)).toBe(true)
+        
+        // Check that item was still released
+        const metrics = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ value: 42 }),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 2 }
+            )
+            return yield* pool.getMetrics
+          }), testLayer)
+        )
+        
+        expect(metrics.currentInUse).toBe(0)
+      })
+    })
+
+    describe('withPooledMemoryOrFallback', () => {
+      it('should use pool when items are available', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ source: 'pool' }),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 1, maxSize: 5 }
+            )
+            
+            const processedValue = yield* withPooledMemoryOrFallback(
+              pool,
+              () => ({ source: 'factory' }),
+              (item) => Effect.succeed(item.source)
+            )
+            
+            return processedValue
+          }), testLayer)
+        )
+
+        expect(result).toBe('pool')
+      })
+
+      it('should use factory when pool is empty', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ source: 'pool' }),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 1, maxSize: 1 }
+            )
+            
+            // Exhaust the pool
+            yield* pool.acquire
+            
+            const processedValue = yield* withPooledMemoryOrFallback(
+              pool,
+              () => ({ source: 'factory' }),
+              (item) => Effect.succeed(item.source)
+            )
+            
+            return processedValue
+          }), testLayer)
+        )
+
+        expect(result).toBe('factory')
+      })
+    })
+
+    describe('batch operations', () => {
+      it('should acquire multiple items in batch', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ id: Math.random() }),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 5, maxSize: 10 }
+            )
+            
+            const items = yield* acquireBatch(pool, 3)
+            const inUseCount = yield* pool.inUseCount
+            
+            return { itemCount: items.length, inUseCount }
+          }), testLayer)
+        )
+
+        expect(result.itemCount).toBe(3)
+        expect(result.inUseCount).toBe(3)
+      })
+
+      it('should try to acquire batch with partial success', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ id: Math.random() }),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 2, maxSize: 2 }
+            )
+            
+            const items = yield* tryAcquireBatch(pool, 5) // Try to acquire more than available
+            
+            return items.length
+          }), testLayer)
+        )
+
+        expect(result).toBe(2) // Should only get available items
+      })
+
+      it('should release batch of items', async () => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* MemoryPoolService
+            const pool = yield* service.createPool(
+              () => ({ id: Math.random() }),
+              () => {},
+              { ...defaultMemoryPoolConfig, initialSize: 0, maxSize: 10 }
+            )
+            
+            const items = yield* acquireBatch(pool, 3)
+            
+            const beforeRelease = yield* pool.inUseCount
+            
+            yield* releaseBatch(pool, items)
+            
+            const afterRelease = yield* pool.inUseCount
+            const available = yield* pool.availableCount
+            
+            return { beforeRelease, afterRelease, available }
+          }), testLayer)
+        )
+
+        expect(result.beforeRelease).toBe(3)
+        expect(result.afterRelease).toBe(0)
+        expect(result.available).toBe(3)
+      })
+    })
+  })
+
+  describe('Pool Configurations', () => {
+    it('should use default configuration correctly', () => {
+      expect(defaultMemoryPoolConfig.maxSize).toBe(1000)
+      expect(defaultMemoryPoolConfig.initialSize).toBe(10)
+      expect(defaultMemoryPoolConfig.enableMetrics).toBe(true)
+      expect(defaultMemoryPoolConfig.enableBackpressure).toBe(true)
+    })
+
+    it('should use high performance configuration correctly', () => {
+      expect(highPerformanceConfig.maxSize).toBe(10000)
+      expect(highPerformanceConfig.initialSize).toBe(100)
+      expect(highPerformanceConfig.growthFactor).toBe(1.5)
+    })
+
+    it('should use memory conservative configuration correctly', () => {
+      expect(memoryConservativeConfig.maxSize).toBe(100)
+      expect(memoryConservativeConfig.initialSize).toBe(5)
+      expect(memoryConservativeConfig.enableMetrics).toBe(false)
+    })
+  })
+
+  describe('Specialized Pool Creators', () => {
+    it('should create Float32 pool with correct configuration', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const pool = yield* createFloat32Pool(16, { 
+            ...defaultMemoryPoolConfig, 
+            initialSize: 2, 
+            maxSize: 5 
+          })
+          
+          const buffer = yield* pool.acquire
+          const metrics = yield* pool.getMetrics
+          
+          return { 
+            bufferSize: buffer.byteLength,
+            poolName: metrics.poolName
+          }
+        }), testLayer)
+      )
+
+      expect(result.bufferSize).toBe(64) // 16 * 4 bytes
+      expect(result.poolName).toBe('float32-16')
+    })
+
+    it('should create buffer pool with correct configuration', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const pool = yield* createBufferPool(2048, { 
+            ...defaultMemoryPoolConfig, 
+            initialSize: 2, 
+            maxSize: 5 
+          })
+          
+          const buffer = yield* pool.acquire
+          const metrics = yield* pool.getMetrics
+          
+          return { 
+            bufferSize: buffer.byteLength,
+            poolName: metrics.poolName
+          }
+        }), testLayer)
+      )
+
+      expect(result.bufferSize).toBe(2048)
+      expect(result.poolName).toBe('buffer-2048')
+    })
+  })
+
+  describe('PoolUtils', () => {
+    it('should create optimized pool with auto-optimization', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const pool = yield* PoolUtils.createOptimizedPool(
+            () => ({ value: Math.random() }),
+            () => {},
+            { 
+              ...defaultMemoryPoolConfig, 
+              initialSize: 3, 
+              maxSize: 10,
+              enableAutoOptimization: true
+            }
+          )
+          
+          const size = yield* pool.size
+          const metrics = yield* pool.getMetrics
+          
+          return { size, metrics }
+        }), testLayer)
+      )
+
+      expect(result.size).toBe(6) // Initial + warm-up
+      expect(result.metrics.totalAllocated).toBe(6)
+    })
+
+    it('should monitor pool health', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          const pool = yield* service.createPool(
+            () => ({ value: Math.random() }),
+            () => {},
+            { ...defaultMemoryPoolConfig, initialSize: 2, maxSize: 10 }
+          )
+          
+          // Acquire items to increase utilization
+          yield* pool.acquire
+          yield* pool.acquire
+          
+          const healthMetrics = yield* PoolUtils.monitorPoolHealth(pool, {
+            utilizationWarning: 0.5,
+            memoryPressureWarning: 0.5
+          })
+          
+          return healthMetrics
+        }), testLayer)
+      )
+
+      expect(result).toBeDefined()
+      expect(result.currentInUse).toBe(2)
+    })
+
+    it('should create pool cluster', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const pools = yield* PoolUtils.createPoolCluster([
+            {
+              name: 'cluster-pool-1',
+              factory: () => ({ id: 1 }),
+              reset: () => {},
+              config: { ...defaultMemoryPoolConfig, initialSize: 2, maxSize: 5 }
+            },
+            {
+              name: 'cluster-pool-2',
+              factory: () => ({ id: 2 }),
+              reset: () => {},
+              config: { ...defaultMemoryPoolConfig, initialSize: 3, maxSize: 7 }
+            }
+          ])
+          
+          return pools.size
+        }), testLayer)
+      )
+
+      expect(result).toBe(2)
+    })
+  })
+
+  describe('Edge Cases and Error Handling', () => {
+    it('should handle concurrent access correctly', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          const pool = yield* service.createPool(
+            () => ({ id: Math.random() }),
+            () => {},
+            { ...defaultMemoryPoolConfig, initialSize: 5, maxSize: 10 }
+          )
+          
+          // Simulate concurrent access
+          const concurrentAcquires = Array.from({ length: 8 }, (_, i) => 
+            Effect.gen(function* () {
+              const item = yield* pool.acquire
+              yield* Effect.sleep(Duration.millis(10)) // Simulate work
+              yield* pool.release(item)
+              return i
+            })
+          )
+          
+          const results = yield* Effect.all(concurrentAcquires, { concurrency: 'unbounded' })
+          const finalMetrics = yield* pool.getMetrics
+          
+          return { 
+            completedTasks: results.length,
+            finalInUse: finalMetrics.currentInUse
+          }
+        }).pipe(
+          Layer.provide(testLayer),
+          Effect.provide(TestContext.TestContext)
+        )
+      )
+
+      expect(result.completedTasks).toBe(8)
+      expect(result.finalInUse).toBe(0) // All items should be released
+    })
+
+    it('should handle memory pressure scenarios', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* MemoryPoolService
+          const pool = yield* service.createPool(
+            () => ({ data: new Array(1000).fill(0) }), // Larger objects
+            (item) => { item.data.fill(0) },
+            { ...defaultMemoryPoolConfig, initialSize: 10, maxSize: 50 }
+          )
+          
+          const metrics = yield* pool.getMetrics
+          
+          // Optimize to see memory pressure handling
+          yield* pool.optimize
+          
+          const optimizedMetrics = yield* pool.getMetrics
+          
+          return { 
+            initialMemoryPressure: metrics.memoryPressure,
+            optimizedMemoryPressure: optimizedMetrics.memoryPressure
+          }
+        }), testLayer)
+      )
+
+      expect(result.initialMemoryPressure).toBeDefined()
+      expect(result.optimizedMemoryPressure).toBeDefined()
+    })
+  })
+})

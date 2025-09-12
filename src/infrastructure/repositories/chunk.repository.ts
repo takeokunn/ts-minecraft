@@ -123,7 +123,7 @@ export const ChunkRepository = Context.GenericTag<IChunkRepository>('ChunkReposi
 /**
  * Chunk repository state
  */
-interface ChunkRepositoryState {
+export interface ChunkRepositoryState {
   readonly chunks: HashMap.HashMap<string, Chunk>
   readonly metadata: HashMap.HashMap<string, ChunkMetadata>
   readonly changes: Array<ChunkChange>
@@ -311,415 +311,381 @@ export const createChunkRepository = (stateRef: Ref.Ref<ChunkRepositoryState>): 
     })
 
   const getChunks = (coordinates: ReadonlyArray<ChunkCoordinate>): Effect.Effect<HashMap.HashMap<string, Chunk>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
-        const result = HashMap.empty<string, Chunk>()
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      let result = HashMap.empty<string, Chunk>()
 
-        for (const coordinate of coordinates) {
-          const key = chunkKey(coordinate)
-          const chunk = HashMap.get(state.chunks, key)
-          if (Option.isSome(chunk)) {
-            HashMap.set(result, key, chunk.value)
-            // Update last accessed time
-            yield* _(
-              this.updateChunkMetadata(coordinate, (metadata) => ({
-                ...metadata,
-                lastAccessed: Date.now(),
-              })),
-            )
-          }
+      for (const coordinate of coordinates) {
+        const key = chunkKey(coordinate)
+        const chunk = HashMap.get(state.chunks, key)
+        if (Option.isSome(chunk)) {
+          result = HashMap.set(result, key, chunk.value)
+          // Update last accessed time
+          yield* _(
+            updateChunkMetadata(coordinate, (metadata) => ({
+              ...metadata,
+              lastAccessed: Date.now(),
+            })),
+          )
         }
+      }
 
-        return result
-      }.bind(this),
-    )
+      return result
+    })
 
   const setChunks = (chunks: ReadonlyArray<Chunk>): Effect.Effect<void, never, never> =>
-    Effect.gen(
-      function* (_) {
-        for (const chunk of chunks) {
-          yield* _(this.setChunk(chunk))
-        }
-      }.bind(this),
-    )
+    Effect.gen(function* (_) {
+      for (const chunk of chunks) {
+        yield* _(setChunk(chunk))
+      }
+    })
 
   const removeChunks = (coordinates: ReadonlyArray<ChunkCoordinate>): Effect.Effect<number, never, never> =>
-    Effect.gen(
-      function* (_) {
-        let removedCount = 0
-        for (const coordinate of coordinates) {
-          const removed = yield* _(this.removeChunk(coordinate))
-          if (removed) removedCount++
-        }
-        return removedCount
-      }.bind(this),
-    )
+    Effect.gen(function* (_) {
+      let removedCount = 0
+      for (const coordinate of coordinates) {
+        const removed = yield* _(removeChunk(coordinate))
+        if (removed) removedCount++
+      }
+      return removedCount
+    })
 
   const getChunksInRadius = (center: ChunkCoordinate, radius: number): Effect.Effect<ReadonlyArray<Chunk>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
-        const chunks: Chunk[] = []
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const chunks: Chunk[] = []
 
-        for (const [key, chunk] of HashMap.entries(state.chunks)) {
-          const coordinate = parseChunkKey(key)
-          const distance = calculateDistance(center, coordinate)
-          if (distance <= radius) {
-            chunks.push(chunk)
-          }
+      for (const [key, chunk] of HashMap.entries(state.chunks)) {
+        const coordinate = parseChunkKey(key)
+        const distance = calculateDistance(center, coordinate)
+        if (distance <= radius) {
+          chunks.push(chunk)
         }
+      }
 
-        return chunks.sort((a, b) => {
-          const distA = calculateDistance(center, { x: a.chunkX, z: a.chunkZ })
-          const distB = calculateDistance(center, { x: b.chunkX, z: b.chunkZ })
-          return distA - distB
-        })
-      }.bind(this),
-    )
+      return chunks.sort((a, b) => {
+        const distA = calculateDistance(center, { x: a.chunkX, z: a.chunkZ })
+        const distB = calculateDistance(center, { x: b.chunkX, z: b.chunkZ })
+        return distA - distB
+      })
+    })
 
   const getChunksInArea = (minX: number, minZ: number, maxX: number, maxZ: number): Effect.Effect<ReadonlyArray<Chunk>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
-        const chunks: Chunk[] = []
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const chunks: Chunk[] = []
 
-        for (const [_, chunk] of HashMap.entries(state.chunks)) {
-          if (chunk.chunkX >= minX && chunk.chunkX <= maxX && chunk.chunkZ >= minZ && chunk.chunkZ <= maxZ) {
-            chunks.push(chunk)
-          }
+      for (const [_, chunk] of HashMap.entries(state.chunks)) {
+        if (chunk.chunkX >= minX && chunk.chunkX <= maxX && chunk.chunkZ >= minZ && chunk.chunkZ <= maxZ) {
+          chunks.push(chunk)
         }
+      }
 
-        return chunks
-      }.bind(this),
-    )
+      return chunks
+    })
 
   const findChunks = (options: ChunkQueryOptions): Effect.Effect<ReadonlyArray<Chunk>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
-        let chunks = Array.from(HashMap.values(state.chunks))
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      let chunks = Array.from(HashMap.values(state.chunks))
 
-        // Apply filters
-        if (options.center && options.radius) {
-          chunks = chunks.filter((chunk) => {
-            const distance = calculateDistance(options.center!, { x: chunk.chunkX, z: chunk.chunkZ })
-            return distance <= options.radius!
-          })
-        }
+      // Apply filters
+      if (options.center && options.radius) {
+        chunks = chunks.filter((chunk) => {
+          const distance = calculateDistance(options.center!, { x: chunk.chunkX, z: chunk.chunkZ })
+          return distance <= options.radius!
+        })
+      }
 
-        if (options.generationStage || options.onlyDirty) {
-          chunks = chunks.filter((chunk) => {
-            const metadata = HashMap.get(state.metadata, chunkKey({ x: chunk.chunkX, z: chunk.chunkZ }))
-            if (Option.isNone(metadata)) return false
+      if (options.generationStage || options.onlyDirty) {
+        chunks = chunks.filter((chunk) => {
+          const metadata = HashMap.get(state.metadata, chunkKey({ x: chunk.chunkX, z: chunk.chunkZ }))
+          if (Option.isNone(metadata)) return false
 
-            const meta = metadata.value
-            if (options.generationStage && meta.generationStage !== options.generationStage) return false
-            if (options.onlyDirty && !meta.isDirty) return false
+          const meta = metadata.value
+          if (options.generationStage && meta.generationStage !== options.generationStage) return false
+          if (options.onlyDirty && !meta.isDirty) return false
 
-            return true
-          })
-        }
+          return true
+        })
+      }
 
-        // Apply sorting
-        if (options.sortBy) {
-          chunks = chunks.sort((a, b) => {
-            const metaA = HashMap.get(state.metadata, chunkKey({ x: a.chunkX, z: a.chunkZ }))
-            const metaB = HashMap.get(state.metadata, chunkKey({ x: b.chunkX, z: b.chunkZ }))
+      // Apply sorting
+      if (options.sortBy) {
+        chunks = chunks.sort((a, b) => {
+          const metaA = HashMap.get(state.metadata, chunkKey({ x: a.chunkX, z: a.chunkZ }))
+          const metaB = HashMap.get(state.metadata, chunkKey({ x: b.chunkX, z: b.chunkZ }))
 
-            if (Option.isNone(metaA) || Option.isNone(metaB)) return 0
+          if (Option.isNone(metaA) || Option.isNone(metaB)) return 0
 
-            switch (options.sortBy) {
-              case 'lastAccessed':
-                return metaB.value.lastAccessed - metaA.value.lastAccessed
-              case 'lastModified':
-                return metaB.value.lastModified - metaA.value.lastModified
-              case 'generatedAt':
-                return metaB.value.generatedAt - metaA.value.generatedAt
-              case 'distance':
-                if (!options.center) return 0
-                const distA = calculateDistance(options.center, { x: a.chunkX, z: a.chunkZ })
-                const distB = calculateDistance(options.center, { x: b.chunkX, z: b.chunkZ })
-                return distA - distB
-              default:
-                return 0
-            }
-          })
-        }
+          switch (options.sortBy) {
+            case 'lastAccessed':
+              return metaB.value.lastAccessed - metaA.value.lastAccessed
+            case 'lastModified':
+              return metaB.value.lastModified - metaA.value.lastModified
+            case 'generatedAt':
+              return metaB.value.generatedAt - metaA.value.generatedAt
+            case 'distance':
+              if (!options.center) return 0
+              const distA = calculateDistance(options.center, { x: a.chunkX, z: a.chunkZ })
+              const distB = calculateDistance(options.center, { x: b.chunkX, z: b.chunkZ })
+              return distA - distB
+            default:
+              return 0
+          }
+        })
+      }
 
-        // Apply pagination
-        let result = chunks
-        if (options.offset) result = result.slice(options.offset)
-        if (options.limit) result = result.slice(0, options.limit)
+      // Apply pagination
+      let result = chunks
+      if (options.offset) result = result.slice(options.offset)
+      if (options.limit) result = result.slice(0, options.limit)
 
-        return result
-      }.bind(this),
-    )
+      return result
+    })
 
   const getBlock = (chunkCoord: ChunkCoordinate, blockIndex: number): Effect.Effect<Option.Option<BlockType>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const chunkOpt = yield* _(this.getChunk(chunkCoord))
+    Effect.gen(function* (_) {
+      const chunkOpt = yield* _(getChunk(chunkCoord))
 
-        if (Option.isNone(chunkOpt)) {
-          return Option.none()
-        }
+      if (Option.isNone(chunkOpt)) {
+        return Option.none()
+      }
 
-        const chunk = chunkOpt.value
-        if (blockIndex < 0 || blockIndex >= chunk.blocks.length) {
-          return Option.none()
-        }
+      const chunk = chunkOpt.value
+      if (blockIndex < 0 || blockIndex >= chunk.blocks.length) {
+        return Option.none()
+      }
 
-        return Option.some(chunk.blocks[blockIndex])
-      }.bind(this),
-    )
+      return Option.some(chunk.blocks[blockIndex])
+    })
 
   const setBlock = (chunkCoord: ChunkCoordinate, blockIndex: number, blockType: BlockType): Effect.Effect<boolean, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
-        const key = chunkKey(chunkCoord)
-        const chunkOpt = HashMap.get(state.chunks, key)
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const key = chunkKey(chunkCoord)
+      const chunkOpt = HashMap.get(state.chunks, key)
 
-        if (Option.isNone(chunkOpt)) {
-          return false
-        }
+      if (Option.isNone(chunkOpt)) {
+        return false
+      }
 
-        const chunk = chunkOpt.value
-        if (blockIndex < 0 || blockIndex >= chunk.blocks.length) {
-          return false
-        }
+      const chunk = chunkOpt.value
+      if (blockIndex < 0 || blockIndex >= chunk.blocks.length) {
+        return false
+      }
 
-        const previousBlockType = chunk.blocks[blockIndex]
-        const newBlocks = [...chunk.blocks]
-        newBlocks[blockIndex] = blockType
+      const previousBlockType = chunk.blocks[blockIndex]
+      const newBlocks = [...chunk.blocks]
+      newBlocks[blockIndex] = blockType
 
-        const updatedChunk: Chunk = { ...chunk, blocks: newBlocks }
+      const updatedChunk: Chunk = { ...chunk, blocks: newBlocks }
 
-        // Record change
-        const change: ChunkChange = {
-          chunkCoordinate: chunkCoord,
-          blockIndex,
-          previousBlockType,
-          newBlockType: blockType,
-          timestamp: Date.now(),
-        }
+      // Record change
+      const change: ChunkChange = {
+        chunkCoordinate: chunkCoord,
+        blockIndex,
+        previousBlockType,
+        newBlockType: blockType,
+        timestamp: Date.now(),
+      }
 
-        yield* _(
-          Ref.update(this.stateRef, (s) => ({
-            ...s,
-            chunks: HashMap.set(s.chunks, key, updatedChunk),
-            changes: [...s.changes.slice(-s.maxChangeHistory + 1), change],
-          })),
-        )
+      yield* _(
+        Ref.update(stateRef, (s) => ({
+          ...s,
+          chunks: HashMap.set(s.chunks, key, updatedChunk),
+          changes: [...s.changes.slice(-s.maxChangeHistory + 1), change],
+        })),
+      )
 
-        yield* _(this.markChunkDirty(chunkCoord))
+      yield* _(markChunkDirty(chunkCoord))
 
-        return true
-      }.bind(this),
-    )
+      return true
+    })
 
   const updateBlocks = (chunkCoord: ChunkCoordinate, updates: ReadonlyArray<{ index: number; blockType: BlockType }>): Effect.Effect<boolean, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
-        const key = chunkKey(chunkCoord)
-        const chunkOpt = HashMap.get(state.chunks, key)
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const key = chunkKey(chunkCoord)
+      const chunkOpt = HashMap.get(state.chunks, key)
 
-        if (Option.isNone(chunkOpt)) {
-          return false
+      if (Option.isNone(chunkOpt)) {
+        return false
+      }
+
+      const chunk = chunkOpt.value
+      const newBlocks = [...chunk.blocks]
+      const changes: ChunkChange[] = []
+      const now = Date.now()
+
+      for (const update of updates) {
+        if (update.index >= 0 && update.index < newBlocks.length) {
+          const previousBlockType = newBlocks[update.index]
+          newBlocks[update.index] = update.blockType
+
+          changes.push({
+            chunkCoordinate: chunkCoord,
+            blockIndex: update.index,
+            previousBlockType,
+            newBlockType: update.blockType,
+            timestamp: now,
+          })
         }
+      }
 
-        const chunk = chunkOpt.value
-        const newBlocks = [...chunk.blocks]
-        const changes: ChunkChange[] = []
-        const now = Date.now()
+      const updatedChunk: Chunk = { ...chunk, blocks: newBlocks }
 
-        for (const update of updates) {
-          if (update.index >= 0 && update.index < newBlocks.length) {
-            const previousBlockType = newBlocks[update.index]
-            newBlocks[update.index] = update.blockType
+      yield* _(
+        Ref.update(stateRef, (s) => ({
+          ...s,
+          chunks: HashMap.set(s.chunks, key, updatedChunk),
+          changes: [...s.changes.slice(-s.maxChangeHistory + changes.length), ...changes],
+        })),
+      )
 
-            changes.push({
-              chunkCoordinate: chunkCoord,
-              blockIndex: update.index,
-              previousBlockType,
-              newBlockType: update.blockType,
-              timestamp: now,
-            })
-          }
-        }
+      yield* _(markChunkDirty(chunkCoord))
 
-        const updatedChunk: Chunk = { ...chunk, blocks: newBlocks }
-
-        yield* _(
-          Ref.update(this.stateRef, (s) => ({
-            ...s,
-            chunks: HashMap.set(s.chunks, key, updatedChunk),
-            changes: [...s.changes.slice(-s.maxChangeHistory + changes.length), ...changes],
-          })),
-        )
-
-        yield* _(this.markChunkDirty(chunkCoord))
-
-        return true
-      }.bind(this),
-    )
+      return true
+    })
 
   // Simplified implementations of remaining methods
   const getChunkChanges = (chunkCoord?: ChunkCoordinate, since?: number): Effect.Effect<ReadonlyArray<ChunkChange>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
-        let changes = state.changes
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      let changes = state.changes
 
-        if (chunkCoord) {
-          changes = changes.filter((change) => change.chunkCoordinate.x === chunkCoord.x && change.chunkCoordinate.z === chunkCoord.z)
-        }
+      if (chunkCoord) {
+        changes = changes.filter((change) => change.chunkCoordinate.x === chunkCoord.x && change.chunkCoordinate.z === chunkCoord.z)
+      }
 
-        if (since) {
-          changes = changes.filter((change) => change.timestamp >= since)
-        }
+      if (since) {
+        changes = changes.filter((change) => change.timestamp >= since)
+      }
 
-        return changes
-      }.bind(this),
-    )
+      return changes
+    })
 
   const clearChangeHistory = (before?: number): Effect.Effect<number, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
-        const cutoff = before ?? Date.now()
-        const oldChanges = state.changes.filter((change) => change.timestamp < cutoff)
-        const newChanges = state.changes.filter((change) => change.timestamp >= cutoff)
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const cutoff = before ?? Date.now()
+      const oldChanges = state.changes.filter((change) => change.timestamp < cutoff)
+      const newChanges = state.changes.filter((change) => change.timestamp >= cutoff)
 
-        yield* _(
-          Ref.update(this.stateRef, (s) => ({
-            ...s,
-            changes: newChanges,
-          })),
-        )
+      yield* _(
+        Ref.update(stateRef, (s) => ({
+          ...s,
+          changes: newChanges,
+        })),
+      )
 
-        return oldChanges.length
-      }.bind(this),
-    )
+      return oldChanges.length
+    })
 
   const setGenerationStage = (coordinate: ChunkCoordinate, stage: ChunkMetadata['generationStage']): Effect.Effect<void, never, never> =>
-    Effect.gen(
-      function* (_) {
-        yield* _(
-          this.updateChunkMetadata(coordinate, (metadata) => ({
-            ...metadata,
-            generationStage: stage,
-            lastModified: Date.now(),
-          })),
-        )
-      }.bind(this),
-    )
+    Effect.gen(function* (_) {
+      yield* _(
+        updateChunkMetadata(coordinate, (metadata) => ({
+          ...metadata,
+          generationStage: stage,
+          lastModified: Date.now(),
+        })),
+      )
+    })
 
   const getChunksByGenerationStage = (stage: ChunkMetadata['generationStage']): Effect.Effect<ReadonlyArray<ChunkCoordinate>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
-        const coordinates: ChunkCoordinate[] = []
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const coordinates: ChunkCoordinate[] = []
 
-        for (const [key, metadata] of HashMap.entries(state.metadata)) {
-          if (metadata.generationStage === stage) {
-            coordinates.push(parseChunkKey(key))
-          }
+      for (const [key, metadata] of HashMap.entries(state.metadata)) {
+        if (metadata.generationStage === stage) {
+          coordinates.push(parseChunkKey(key))
         }
+      }
 
-        return coordinates
-      }.bind(this),
-    )
+      return coordinates
+    })
 
   const getIncompleteChunks = (): Effect.Effect<ReadonlyArray<ChunkCoordinate>, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
-        const coordinates: ChunkCoordinate[] = []
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const coordinates: ChunkCoordinate[] = []
 
-        for (const [key, metadata] of HashMap.entries(state.metadata)) {
-          if (metadata.generationStage !== 'complete') {
-            coordinates.push(parseChunkKey(key))
-          }
+      for (const [key, metadata] of HashMap.entries(state.metadata)) {
+        if (metadata.generationStage !== 'complete') {
+          coordinates.push(parseChunkKey(key))
         }
+      }
 
-        return coordinates
-      }.bind(this),
-    )
+      return coordinates
+    })
 
   const getChunkStats = (): Effect.Effect<ChunkStats, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
 
-        const totalChunks = HashMap.size(state.chunks)
-        let dirtyChunks = 0
-        let memoryUsage = 0
-        let totalBlocks = 0
-        let totalNonAirBlocks = 0
-        const chunksByStage: Record<ChunkMetadata['generationStage'], number> = {
-          empty: 0,
-          terrain: 0,
-          features: 0,
-          decorations: 0,
-          complete: 0,
-        }
+      const totalChunks = HashMap.size(state.chunks)
+      let dirtyChunks = 0
+      let memoryUsage = 0
+      let totalBlocks = 0
+      let totalNonAirBlocks = 0
+      const chunksByStage: Record<ChunkMetadata['generationStage'], number> = {
+        empty: 0,
+        terrain: 0,
+        features: 0,
+        decorations: 0,
+        complete: 0,
+      }
 
-        for (const metadata of HashMap.values(state.metadata)) {
-          if (metadata.isDirty) dirtyChunks++
-          memoryUsage += metadata.memorySize
-          totalBlocks += metadata.blockCount
-          totalNonAirBlocks += metadata.nonAirBlockCount
-          chunksByStage[metadata.generationStage]++
-        }
+      for (const metadata of HashMap.values(state.metadata)) {
+        if (metadata.isDirty) dirtyChunks++
+        memoryUsage += metadata.memorySize
+        totalBlocks += metadata.blockCount
+        totalNonAirBlocks += metadata.nonAirBlockCount
+        chunksByStage[metadata.generationStage]++
+      }
 
-        return {
-          totalChunks,
-          loadedChunks: totalChunks,
-          dirtyChunks,
-          memoryUsage,
-          averageBlockDensity: totalBlocks > 0 ? totalNonAirBlocks / totalBlocks : 0,
-          chunksByStage,
-        }
-      }.bind(this),
-    )
+      return {
+        totalChunks,
+        loadedChunks: totalChunks,
+        dirtyChunks,
+        memoryUsage,
+        averageBlockDensity: totalBlocks > 0 ? totalNonAirBlocks / totalBlocks : 0,
+        chunksByStage,
+      }
+    })
 
   const unloadOldChunks = (maxAge: number, maxCount?: number): Effect.Effect<number, never, never> =>
-    Effect.gen(
-      function* (_) {
-        const state = yield* _(Ref.get(this.stateRef))
-        const now = Date.now()
-        const cutoff = now - maxAge
+    Effect.gen(function* (_) {
+      const state = yield* _(Ref.get(stateRef))
+      const now = Date.now()
+      const cutoff = now - maxAge
 
-        const oldChunks = Array.from(HashMap.entries(state.metadata))
-          .filter(([_, metadata]) => metadata.lastAccessed < cutoff && !metadata.isDirty)
-          .sort(([_, a], [__, b]) => a.lastAccessed - b.lastAccessed)
-          .slice(0, maxCount)
-          .map(([key, _]) => parseChunkKey(key))
+      const oldChunks = Array.from(HashMap.entries(state.metadata))
+        .filter(([_, metadata]) => metadata.lastAccessed < cutoff && !metadata.isDirty)
+        .sort(([_, a], [__, b]) => a.lastAccessed - b.lastAccessed)
+        .slice(0, maxCount)
+        .map(([key, _]) => parseChunkKey(key))
 
-        const unloadedCount = yield* _(this.removeChunks(oldChunks))
-        return unloadedCount
-      }.bind(this),
-    )
+      const unloadedCount = yield* _(removeChunks(oldChunks))
+      return unloadedCount
+    })
 
   const compactStorage = (): Effect.Effect<void, never, never> =>
-    Effect.gen(
-      function* (_) {
-        // Remove empty regions from spatial index
-        yield* _(
-          Ref.update(this.stateRef, (s) => ({
-            ...s,
-            spatialIndex: HashMap.filter(s.spatialIndex, (regionChunks) => regionChunks.size > 0),
-          })),
-        )
-      }.bind(this),
-    )
+    Effect.gen(function* (_) {
+      // Remove empty regions from spatial index
+      yield* _(
+        Ref.update(stateRef, (s) => ({
+          ...s,
+          spatialIndex: HashMap.filter(s.spatialIndex, (regionChunks) => regionChunks.size > 0),
+        })),
+      )
+    })
 
   const validateChunkData = (coordinate: ChunkCoordinate): Effect.Effect<boolean, never, never> =>
     Effect.gen(function* (_) {
-      const chunkOpt = yield* _(this.getChunk(coordinate))
+      const chunkOpt = yield* _(getChunk(coordinate))
 
       if (Option.isNone(chunkOpt)) {
         return false
@@ -753,24 +719,24 @@ export const createChunkRepository = (stateRef: Ref.Ref<ChunkRepositoryState>): 
     updateChunkMetadata,
     markChunkDirty,
     markChunkClean,
-    getChunks: getChunks as any,
-    setChunks: setChunks as any,
-    removeChunks: removeChunks as any,
-    getChunksInRadius: getChunksInRadius as any,
-    getChunksInArea: getChunksInArea as any,
-    findChunks: findChunks as any,
-    getBlock: getBlock as any,
-    setBlock: setBlock as any,
-    updateBlocks: updateBlocks as any,
-    getChunkChanges: getChunkChanges as any,
-    clearChangeHistory: clearChangeHistory as any,
-    setGenerationStage: setGenerationStage as any,
-    getChunksByGenerationStage: getChunksByGenerationStage as any,
-    getIncompleteChunks: getIncompleteChunks as any,
-    getChunkStats: getChunkStats as any,
-    unloadOldChunks: unloadOldChunks as any,
-    compactStorage: compactStorage as any,
-    validateChunkData: validateChunkData as any,
+    getChunks,
+    setChunks,
+    removeChunks,
+    getChunksInRadius,
+    getChunksInArea,
+    findChunks,
+    getBlock,
+    setBlock,
+    updateBlocks,
+    getChunkChanges,
+    clearChangeHistory,
+    setGenerationStage,
+    getChunksByGenerationStage,
+    getIncompleteChunks,
+    getChunkStats,
+    unloadOldChunks,
+    compactStorage,
+    validateChunkData,
   } satisfies IChunkRepository
 }
 

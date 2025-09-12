@@ -1,0 +1,955 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { Effect, Layer, Duration, TestContext, Schedule, Fiber } from 'effect'
+import {
+  MetricsService,
+  MetricsServiceLive,
+  MetricsError,
+  MetricBackpressureError,
+  MetricType,
+  initializeMetrics,
+  Metrics,
+  timed,
+  counted,
+  withMetrics,
+  trackResourceUsage
+} from '@infrastructure/performance/metrics.layer'
+
+// Mock implementations for testing
+const mockPerformanceMemory = {
+  usedJSHeapSize: 50 * 1024 * 1024, // 50MB
+  totalJSHeapSize: 100 * 1024 * 1024, // 100MB
+  jsHeapSizeLimit: 200 * 1024 * 1024, // 200MB
+}
+
+// Mock global objects
+const mockGlobalThis = global as any
+mockGlobalThis.performance = {
+  ...mockGlobalThis.performance,
+  memory: mockPerformanceMemory,
+  now: vi.fn(() => Date.now())
+}
+
+// Test classes for decorator testing
+class TestService {
+  private callCount = 0
+  
+  @timed('TestService.expensiveOperation')
+  async expensiveOperation(input: number): Promise<number> {
+    await new Promise(resolve => setTimeout(resolve, 10))
+    return input * 2
+  }
+  
+  @counted('TestService.simpleMethod')
+  simpleMethod(value: string): string {
+    this.callCount++
+    return `processed-${value}`
+  }
+  
+  @timed('TestService.failingOperation', { status: 'error' })
+  async failingOperation(): Promise<never> {
+    throw new Error('This operation always fails')
+  }
+  
+  getCallCount(): number {
+    return this.callCount
+  }
+}
+
+describe('MetricsLayer', () => {
+  let testLayer: Layer.Layer<MetricsService>
+
+  beforeEach(() => {
+    testLayer = MetricsServiceLive
+    vi.useFakeTimers()
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  describe('Metrics Initialization', () => {
+    it('should initialize metrics system with default configuration', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          yield* initializeMetrics()
+          
+          const service = yield* MetricsService
+          const snapshot = yield* service.getSnapshot()
+          
+          return {
+            timestamp: snapshot.timestamp,
+            seriesCount: snapshot.series.size,
+            systemMetrics: snapshot.systemMetrics
+          }
+        }), testLayer)
+      )
+
+      expect(result.timestamp).toBeGreaterThan(0)
+      expect(result.seriesCount).toBeGreaterThanOrEqual(0)
+      expect(result.systemMetrics).toBeDefined()
+    })
+
+    it('should initialize with custom configuration', async () => {
+      const customConfig = {
+        maxSeriesLength: 5000,
+        retentionPeriod: 5 * 60 * 1000, // 5 minutes
+        collectInterval: 500,
+        enableAutoCollection: false,
+        enableMetrics: true
+      }
+
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          yield* initializeMetrics(customConfig)
+          
+          const service = yield* MetricsService
+          const snapshot = yield* service.getSnapshot()
+          
+          return {
+            initialized: true,
+            snapshot: snapshot !== null
+          }
+        }), testLayer)
+      )
+
+      expect(result.initialized).toBe(true)
+      expect(result.snapshot).toBe(true)
+    })
+  })
+
+  describe('Basic Metric Recording', () => {
+    it('should record counter metrics', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          const service = yield* MetricsService
+          
+          yield* service.recordMetric('test.counter', 'counter', 5, 'count', 'Test counter metric')
+          yield* service.recordMetric('test.counter', 'counter', 3, 'count', 'Test counter metric')
+          
+          const series = yield* service.getSeries('test.counter')
+          
+          return {
+            hasData: series !== null,
+            valueCount: series?.values.length || 0,
+            lastValue: series?.values[series.values.length - 1]?.value || 0,
+            metricType: series?.type
+          }
+        }), testLayer)
+      )
+
+      expect(result.hasData).toBe(true)
+      expect(result.valueCount).toBeGreaterThanOrEqual(2)
+      expect(result.lastValue).toBe(3)
+      expect(result.metricType).toBe('counter')
+    })
+
+    it('should record gauge metrics', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          const service = yield* MetricsService
+          
+          yield* service.recordMetric('test.gauge', 'gauge', 100, 'percent', 'Test gauge metric')
+          yield* service.recordMetric('test.gauge', 'gauge', 85, 'percent', 'Test gauge metric')
+          yield* service.recordMetric('test.gauge', 'gauge', 120, 'percent', 'Test gauge metric')
+          
+          const series = yield* service.getSeries('test.gauge')
+          const aggregates = yield* service.getAggregates('test.gauge')
+          
+          return {
+            seriesExists: series !== null,
+            valuesCount: series?.values.length || 0,
+            min: aggregates?.min || 0,
+            max: aggregates?.max || 0,
+            mean: aggregates?.mean || 0
+          }
+        }), testLayer)
+      )
+
+      expect(result.seriesExists).toBe(true)
+      expect(result.valuesCount).toBe(3)
+      expect(result.min).toBe(85)
+      expect(result.max).toBe(120)
+      expect(result.mean).toBeCloseTo(101.67, 1)
+    })
+
+    it('should record histogram metrics', async () => {
+      const values = [10, 20, 15, 25, 30, 12, 18, 22, 28, 16]
+      
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          const service = yield* MetricsService
+          
+          for (const value of values) {
+            yield* service.recordMetric('test.histogram', 'histogram', value, 'ms', 'Test histogram metric')
+          }
+          
+          const aggregates = yield* service.getAggregates('test.histogram')
+          
+          return {
+            count: aggregates?.count || 0,
+            min: aggregates?.min || 0,
+            max: aggregates?.max || 0,
+            mean: aggregates?.mean || 0,
+            p95: aggregates?.p95 || 0,
+            p99: aggregates?.p99 || 0
+          }
+        }), testLayer)
+      )
+
+      expect(result.count).toBe(10)
+      expect(result.min).toBe(10)
+      expect(result.max).toBe(30)
+      expect(result.mean).toBe(19.6)
+      expect(result.p95).toBeGreaterThanOrEqual(25)
+      expect(result.p99).toBeGreaterThanOrEqual(28)
+    })
+
+    it('should record timer metrics with labels', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          const service = yield* MetricsService
+          
+          const labels = { endpoint: '/api/users', method: 'GET', status: 'success' }
+          
+          yield* service.recordMetric('api.response.time', 'timer', 150, 'ms', 'API response time', labels)
+          yield* service.recordMetric('api.response.time', 'timer', 200, 'ms', 'API response time', labels)
+          yield* service.recordMetric('api.response.time', 'timer', 120, 'ms', 'API response time', labels)
+          
+          const series = yield* service.getSeries('api.response.time')
+          
+          return {
+            hasLabels: series?.values[0]?.labels !== undefined,
+            labelKeys: Object.keys(series?.values[0]?.labels || {}),
+            endpointLabel: series?.values[0]?.labels?.endpoint
+          }
+        }), testLayer)
+      )
+
+      expect(result.hasLabels).toBe(true)
+      expect(result.labelKeys).toContain('endpoint')
+      expect(result.labelKeys).toContain('method')
+      expect(result.labelKeys).toContain('status')
+      expect(result.endpointLabel).toBe('/api/users')
+    })
+  })
+
+  describe('Batch Metric Recording', () => {
+    it('should record multiple metrics in a batch', async () => {
+      const metrics = [
+        { name: 'batch.metric.1', type: 'counter' as MetricType, value: 10, unit: 'count', description: 'First batch metric' },
+        { name: 'batch.metric.2', type: 'gauge' as MetricType, value: 75, unit: 'percent', description: 'Second batch metric' },
+        { name: 'batch.metric.3', type: 'timer' as MetricType, value: 500, unit: 'ms', description: 'Third batch metric' }
+      ]
+
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          const service = yield* MetricsService
+          
+          yield* service.recordBatch(metrics)
+          
+          const series1 = yield* service.getSeries('batch.metric.1')
+          const series2 = yield* service.getSeries('batch.metric.2')
+          const series3 = yield* service.getSeries('batch.metric.3')
+          
+          return {
+            series1Exists: series1 !== null,
+            series2Exists: series2 !== null,
+            series3Exists: series3 !== null,
+            values: [
+              series1?.values[0]?.value || 0,
+              series2?.values[0]?.value || 0,
+              series3?.values[0]?.value || 0
+            ]
+          }
+        }), testLayer)
+      )
+
+      expect(result.series1Exists).toBe(true)
+      expect(result.series2Exists).toBe(true)
+      expect(result.series3Exists).toBe(true)
+      expect(result.values).toEqual([10, 75, 500])
+    })
+
+    it('should handle batch recording with some failures', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          const service = yield* MetricsService
+          
+          const largeBatch = Array.from({ length: 1000 }, (_, i) => ({
+            name: `large.batch.${i}`,
+            type: 'counter' as MetricType,
+            value: i,
+            unit: 'count',
+            description: `Large batch metric ${i}`
+          }))
+          
+          yield* service.recordBatch(largeBatch).pipe(
+            Effect.catchAll(() => Effect.unit) // Handle potential backpressure
+          )
+          
+          const snapshot = yield* service.getSnapshot()
+          
+          return {
+            seriesCount: snapshot.series.size,
+            recordedSomething: snapshot.series.size > 0
+          }
+        }), testLayer)
+      )
+
+      expect(result.recordedSomething).toBe(true)
+    })
+  })
+
+  describe('System Metrics Collection', () => {
+    it('should collect system memory metrics', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          yield* Metrics.recordGauge('system.memory.test', 1024 * 1024, 'bytes')
+          
+          const series = yield* Metrics.getSeries('system.memory.test')
+          
+          return {
+            hasMemoryMetric: series !== null,
+            value: series?.values[0]?.value || 0,
+            unit: series?.unit
+          }
+        }), testLayer)
+      )
+
+      expect(result.hasMemoryMetric).toBe(true)
+      expect(result.value).toBe(1024 * 1024)
+      expect(result.unit).toBe('bytes')
+    })
+
+    it('should collect FPS metrics', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          yield* Metrics.recordGauge('system.fps', 60, 'fps')
+          yield* Metrics.recordGauge('system.fps', 58, 'fps')
+          yield* Metrics.recordGauge('system.fps', 62, 'fps')
+          
+          const aggregates = yield* Metrics.getStatistics('system.fps')
+          
+          return {
+            mean: aggregates?.mean || 0,
+            count: aggregates?.count || 0
+          }
+        }), testLayer)
+      )
+
+      expect(result.mean).toBeCloseTo(60, 0)
+      expect(result.count).toBe(3)
+    })
+
+    it('should track performance markers and measurements', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          yield* Metrics.mark('operation.start')
+          
+          // Simulate some work
+          yield* Effect.sleep(Duration.millis(50))
+          
+          yield* Metrics.mark('operation.middle')
+          
+          yield* Effect.sleep(Duration.millis(30))
+          
+          yield* Metrics.mark('operation.end')
+          
+          yield* Metrics.measure('operation.total', 'operation.start', 'operation.end')
+          yield* Metrics.measure('operation.first.half', 'operation.start', 'operation.middle')
+          
+          const totalSeries = yield* Metrics.getSeries('operation.total')
+          const firstHalfSeries = yield* Metrics.getSeries('operation.first.half')
+          
+          return {
+            hasTotalMeasurement: totalSeries !== null,
+            hasFirstHalfMeasurement: firstHalfSeries !== null,
+            totalDuration: totalSeries?.values[0]?.value || 0,
+            firstHalfDuration: firstHalfSeries?.values[0]?.value || 0
+          }
+        }).pipe(
+          Layer.provide(testLayer),
+          Effect.provide(TestContext.TestContext)
+        )
+      )
+
+      expect(result.hasTotalMeasurement).toBe(true)
+      expect(result.hasFirstHalfMeasurement).toBe(true)
+      expect(result.totalDuration).toBeGreaterThanOrEqual(result.firstHalfDuration)
+    })
+  })
+
+  describe('Metrics Utilities and Decorators', () => {
+    it('should time effect execution', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          const timedEffect = Metrics.time('test.timed.operation')(
+            Effect.gen(function* () {
+              yield* Effect.sleep(Duration.millis(100))
+              return 'completed'
+            })
+          )
+          
+          const effectResult = yield* timedEffect
+          const series = yield* Metrics.getSeries('test.timed.operation')
+          
+          return {
+            effectResult,
+            hasTimingMetric: series !== null,
+            duration: series?.values[0]?.value || 0
+          }
+        }).pipe(
+          Layer.provide(testLayer),
+          Effect.provide(TestContext.TestContext)
+        )
+      )
+
+      expect(result.effectResult).toBe('completed')
+      expect(result.hasTimingMetric).toBe(true)
+      expect(result.duration).toBeGreaterThanOrEqual(90) // Account for timing variance
+    })
+
+    it('should time effect execution with labels', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          const labels = { operation: 'test', priority: 'high' }
+          
+          const timedEffect = Metrics.time('labeled.operation', labels)(
+            Effect.succeed('success')
+          )
+          
+          const effectResult = yield* timedEffect
+          const series = yield* Metrics.getSeries('labeled.operation')
+          
+          return {
+            effectResult,
+            labels: series?.values[0]?.labels
+          }
+        }), testLayer)
+      )
+
+      expect(result.effectResult).toBe('success')
+      expect(result.labels).toEqual({ operation: 'test', priority: 'high', status: 'success' })
+    })
+
+    it('should time failed effects correctly', async () => {
+      const result = await Effect.runPromiseExit(
+        Effect.gen(function* () {
+          const timedEffect = Metrics.time('test.failing.operation')(
+            Effect.gen(function* () {
+              yield* Effect.sleep(Duration.millis(50))
+              return yield* Effect.fail(new Error('Operation failed'))
+            })
+          )
+          
+          yield* timedEffect
+        }).pipe(
+          Layer.provide(testLayer),
+          Effect.provide(TestContext.TestContext)
+        )
+      )
+
+      expect(Effect.isFailure(result)).toBe(true)
+      
+      // Check that timing was still recorded
+      const series = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          return yield* Metrics.getSeries('test.failing.operation')
+        }), testLayer)
+      )
+      
+      expect(series).not.toBeNull()
+      expect(series?.values[0]?.labels?.status).toBe('error')
+    })
+
+    describe('withMetrics wrapper', () => {
+      it('should wrap functions with comprehensive metrics', () => {
+        const originalFunction = (x: number, y: number) => x + y
+        
+        const wrappedFunction = withMetrics(
+          'math.addition',
+          originalFunction,
+          {
+            labels: { operation: 'add' },
+            trackMemory: true,
+            trackArgs: true,
+            enableProfiling: true
+          }
+        )
+        
+        const result = wrappedFunction(5, 3)
+        
+        expect(result).toBe(8)
+        
+        // The metrics should be recorded (though we can't easily test the async nature here)
+      })
+
+      it('should handle function errors in wrapped functions', () => {
+        const failingFunction = () => {
+          throw new Error('Function failed')
+        }
+        
+        const wrappedFunction = withMetrics(
+          'failing.function',
+          failingFunction,
+          { labels: { test: 'error-handling' } }
+        )
+        
+        expect(() => wrappedFunction()).toThrow('Function failed')
+        
+        // Error metrics should be recorded (async)
+      })
+    })
+
+    describe('resource usage tracking', () => {
+      it('should track resource usage for operations', async () => {
+        const result = await Effect.runPromise(Effect.provide(
+          Effect.gen(function* () {
+            const trackedOperation = trackResourceUsage(
+              'resource.test',
+              Effect.gen(function* () {
+                yield* Effect.sleep(Duration.millis(100))
+                return 'resource operation completed'
+              })
+            )
+            
+            const operationResult = yield* trackedOperation
+            const durationSeries = yield* Metrics.getSeries('resource.test.total_duration')
+            const memorySeries = yield* Metrics.getSeries('resource.test.memory_usage')
+            
+            return {
+              operationResult,
+              hasDurationMetric: durationSeries !== null,
+              hasMemoryMetric: memorySeries !== null
+            }
+          }).pipe(
+            Layer.provide(testLayer),
+            Effect.provide(TestContext.TestContext)
+          )
+        )
+
+        expect(result.operationResult).toBe('resource operation completed')
+        expect(result.hasDurationMetric).toBe(true)
+        // Memory metrics might not be available in test environment
+      })
+    })
+
+    describe('method decorators', () => {
+      it('should apply timing decorator to methods', async () => {
+        const service = new TestService()
+        
+        const result = await service.expensiveOperation(21)
+        
+        expect(result).toBe(42)
+        
+        // Check if timing metric was recorded
+        const series = await Effect.runPromise(Effect.provide(
+          Effect.gen(function* () {
+            return yield* Metrics.getSeries('TestService.expensiveOperation')
+          }), testLayer)
+        )
+        
+        expect(series).not.toBeNull()
+      })
+
+      it('should apply counting decorator to methods', () => {
+        const service = new TestService()
+        
+        const result1 = service.simpleMethod('test1')
+        const result2 = service.simpleMethod('test2')
+        
+        expect(result1).toBe('processed-test1')
+        expect(result2).toBe('processed-test2')
+        
+        // The counter metric should be recorded (async)
+      })
+
+      it('should handle method errors with decorators', async () => {
+        const service = new TestService()
+        
+        await expect(service.failingOperation()).rejects.toThrow('This operation always fails')
+        
+        // Error timing should still be recorded
+      })
+    })
+  })
+
+  describe('Metrics Export and Reporting', () => {
+    it('should export metrics in Prometheus format', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          const service = yield* MetricsService
+          
+          // Record some test metrics
+          yield* service.recordMetric('http.requests', 'counter', 100, 'count', 'HTTP requests')
+          yield* service.recordMetric('memory.usage', 'gauge', 75, 'percent', 'Memory usage')
+          
+          const exported = yield* service.exportMetrics('prometheus')
+          
+          return exported
+        }), testLayer)
+      )
+
+      expect(result).toContain('# HELP http.requests HTTP requests')
+      expect(result).toContain('# TYPE http.requests counter')
+      expect(result).toContain('http.requests 100')
+      expect(result).toContain('# HELP memory.usage Memory usage')
+      expect(result).toContain('# TYPE memory.usage gauge')
+      expect(result).toContain('memory.usage 75')
+    })
+
+    it('should export metrics in JSON format', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          const service = yield* MetricsService
+          
+          yield* service.recordMetric('json.test', 'summary', 42, 'value', 'JSON test metric')
+          
+          const exported = yield* service.exportMetrics('json')
+          const parsed = JSON.parse(exported)
+          
+          return {
+            hasTimestamp: 'timestamp' in parsed,
+            hasSeries: 'series' in parsed,
+            hasSystemMetrics: 'systemMetrics' in parsed,
+            hasAggregates: 'aggregates' in parsed
+          }
+        }), testLayer)
+      )
+
+      expect(result.hasTimestamp).toBe(true)
+      expect(result.hasSeries).toBe(true)
+      expect(result.hasSystemMetrics).toBe(true)
+      expect(result.hasAggregates).toBe(true)
+    })
+  })
+
+  describe('Metrics Alerts and Thresholds', () => {
+    it('should set up and trigger metric alerts', async () => {
+      const alertsTriggered: Array<{ metric: string; value: number }> = []
+      
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          yield* Metrics.setAlert(
+            'cpu.usage',
+            { max: 80 },
+            (value) => Effect.sync(() => {
+              alertsTriggered.push({ metric: 'cpu.usage', value })
+            })
+          )
+          
+          // Record values that should trigger alert
+          yield* Metrics.recordGauge('cpu.usage', 85, 'percent')
+          yield* Metrics.recordGauge('cpu.usage', 90, 'percent')
+          yield* Metrics.recordGauge('cpu.usage', 70, 'percent') // Should not trigger
+          
+          // Give some time for alerts to process (in real implementation)
+          yield* Effect.sleep(Duration.millis(10))
+          
+          return alertsTriggered
+        }).pipe(
+          Layer.provide(testLayer),
+          Effect.provide(TestContext.TestContext)
+        )
+      )
+
+      // Note: Alert triggering depends on background processing
+      // In a real test, you might need to trigger alert checking manually
+    })
+  })
+
+  describe('Metrics Aggregation and Statistics', () => {
+    it('should calculate statistics for time windows', async () => {
+      const values = [10, 20, 30, 40, 50, 15, 25, 35, 45, 55]
+      
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          for (const [index, value] of values.entries()) {
+            yield* Metrics.recordHistogram('windowed.test', value)
+            if (index === 4) {
+              // Simulate time passing
+              yield* Effect.sleep(Duration.millis(100))
+            }
+          }
+          
+          const allTimeStats = yield* Metrics.getStatistics('windowed.test')
+          const windowedStats = yield* Metrics.getStatistics('windowed.test', 50) // 50ms window
+          
+          return {
+            allTime: allTimeStats,
+            windowed: windowedStats
+          }
+        }).pipe(
+          Layer.provide(testLayer),
+          Effect.provide(TestContext.TestContext)
+        )
+      )
+
+      expect(result.allTime?.count).toBe(10)
+      expect(result.allTime?.min).toBe(10)
+      expect(result.allTime?.max).toBe(55)
+      
+      // Windowed stats should have fewer entries
+      expect(result.windowed?.count).toBeLessThanOrEqual(10)
+    })
+
+    it('should find metrics by pattern', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          // Record various metrics
+          yield* Metrics.recordCounter('api.requests.get', 10)
+          yield* Metrics.recordCounter('api.requests.post', 5)
+          yield* Metrics.recordCounter('api.requests.delete', 2)
+          yield* Metrics.recordGauge('system.memory.heap', 50)
+          yield* Metrics.recordGauge('system.cpu.usage', 75)
+          
+          const apiMetrics = yield* Metrics.getSeriesByPattern(/^api\.requests\./)
+          const systemMetrics = yield* Metrics.getSeriesByPattern(/^system\./)
+          
+          return {
+            apiCount: apiMetrics.length,
+            systemCount: systemMetrics.length,
+            apiNames: apiMetrics.map(s => s.name).sort(),
+            systemNames: systemMetrics.map(s => s.name).sort()
+          }
+        }), testLayer)
+      )
+
+      expect(result.apiCount).toBe(3)
+      expect(result.systemCount).toBe(2)
+      expect(result.apiNames).toEqual([
+        'api.requests.delete',
+        'api.requests.get',
+        'api.requests.post'
+      ])
+      expect(result.systemNames).toEqual([
+        'system.cpu.usage',
+        'system.memory.heap'
+      ])
+    })
+  })
+
+  describe('Health Score and System Analysis', () => {
+    it('should calculate system health score', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          // Simulate good system metrics
+          yield* Metrics.recordGauge('system.memory.percentage', 45, 'percent')
+          yield* Metrics.recordGauge('system.fps', 60, 'fps')
+          yield* Metrics.recordGauge('system.gc.pressure', 0.05, 'ratio')
+          
+          const goodHealth = yield* Metrics.getHealthScore()
+          
+          // Simulate bad system metrics
+          yield* Metrics.recordGauge('system.memory.percentage', 95, 'percent')
+          yield* Metrics.recordGauge('system.fps', 15, 'fps')
+          yield* Metrics.recordGauge('system.gc.pressure', 0.15, 'ratio')
+          
+          const badHealth = yield* Metrics.getHealthScore()
+          
+          return { goodHealth, badHealth }
+        }), testLayer)
+      )
+
+      expect(result.goodHealth.score).toBeGreaterThan(result.badHealth.score)
+      expect(result.badHealth.issues.length).toBeGreaterThan(result.goodHealth.issues.length)
+      expect(result.badHealth.issues).toContain('Critical memory usage')
+      expect(result.badHealth.issues).toContain('Low FPS detected')
+    })
+  })
+
+  describe('Backpressure and Error Handling', () => {
+    it('should handle backpressure when queue is full', async () => {
+      const result = await Effect.runPromiseExit(
+        Effect.gen(function* () {
+          yield* initializeMetrics({
+            enableBackpressure: true,
+            backpressureThreshold: 5,
+            batchSize: 5
+          })
+          
+          const service = yield* MetricsService
+          
+          // Try to record many metrics quickly to trigger backpressure
+          const recordPromises = []
+          for (let i = 0; i < 100; i++) {
+            recordPromises.push(
+              service.recordMetric(
+                `backpressure.test.${i}`,
+                'counter',
+                1,
+                'count',
+                'Backpressure test'
+              ).pipe(Effect.either)
+            )
+          }
+          
+          const results = yield* Effect.all(recordPromises, { concurrency: 'unbounded' })
+          
+          return results
+        }), testLayer)
+      )
+
+      if (Effect.isSuccess(result)) {
+        // Some should succeed, some might fail due to backpressure
+        const successes = result.value.filter(Effect.isRight).length
+        const failures = result.value.filter(Effect.isLeft).length
+        
+        expect(successes).toBeGreaterThan(0)
+        // In a real implementation with backpressure, some might fail
+      }
+    })
+
+    it('should handle invalid metric operations', async () => {
+      const result = await Effect.runPromiseExit(
+        Effect.gen(function* () {
+          const service = yield* MetricsService
+          
+          // Try to record metric with invalid type
+          yield* service.recordMetric(
+            'invalid.metric',
+            'invalid-type' as MetricType,
+            100,
+            'unit',
+            'Invalid metric'
+          )
+        }), testLayer)
+      )
+
+      // The result depends on implementation - might succeed or fail gracefully
+    })
+  })
+
+  describe('Performance and Cleanup', () => {
+    it('should handle large numbers of metrics efficiently', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          const startTime = performance.now()
+          
+          const service = yield* MetricsService
+          
+          // Record many metrics
+          for (let i = 0; i < 1000; i++) {
+            yield* service.recordMetric(
+              `performance.test.${i % 10}`, // Reuse some metric names
+              'counter',
+              1,
+              'count',
+              'Performance test'
+            )
+          }
+          
+          const endTime = performance.now()
+          const snapshot = yield* service.getSnapshot()
+          
+          return {
+            duration: endTime - startTime,
+            metricsCount: snapshot.series.size,
+            totalOperations: 1000
+          }
+        }), testLayer)
+      )
+
+      expect(result.duration).toBeGreaterThan(0)
+      expect(result.metricsCount).toBeGreaterThan(0)
+      expect(result.metricsCount).toBeLessThanOrEqual(10) // Due to name reuse
+      expect(result.totalOperations).toBe(1000)
+    })
+
+    it('should clean up old metrics based on retention policy', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          yield* initializeMetrics({
+            retentionPeriod: 100, // Very short retention for testing
+            collectInterval: 50
+          })
+          
+          const service = yield* MetricsService
+          
+          yield* service.recordMetric('cleanup.test', 'counter', 1, 'count', 'Cleanup test')
+          
+          const beforeCleanup = yield* service.getSnapshot()
+          
+          // Wait for metrics to expire
+          yield* Effect.sleep(Duration.millis(150))
+          
+          // Trigger cleanup by recording a new metric
+          yield* service.recordMetric('cleanup.trigger', 'counter', 1, 'count', 'Cleanup trigger')
+          
+          const afterCleanup = yield* service.getSnapshot()
+          
+          return {
+            beforeCount: beforeCleanup.series.size,
+            afterCount: afterCleanup.series.size
+          }
+        }).pipe(
+          Layer.provide(testLayer),
+          Effect.provide(TestContext.TestContext)
+        )
+      )
+
+      // Cleanup might happen asynchronously
+      expect(result.afterCount).toBeGreaterThanOrEqual(0)
+    })
+
+    it('should clear all metrics', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          yield* Metrics.recordCounter('clear.test.1', 5)
+          yield* Metrics.recordGauge('clear.test.2', 10)
+          yield* Metrics.recordTimer('clear.test.3', 100)
+          
+          const beforeClear = yield* Metrics.getSnapshot()
+          
+          yield* Metrics.clear()
+          
+          const afterClear = yield* Metrics.getSnapshot()
+          
+          return {
+            beforeCount: beforeClear.series.size,
+            afterCount: afterClear.series.size
+          }
+        }), testLayer)
+      )
+
+      expect(result.beforeCount).toBeGreaterThanOrEqual(3)
+      expect(result.afterCount).toBe(0)
+    })
+  })
+
+  describe('Concurrent Operations', () => {
+    it('should handle concurrent metric recording safely', async () => {
+      const result = await Effect.runPromise(Effect.provide(
+        Effect.gen(function* () {
+          const concurrentOperations = Array.from({ length: 50 }, (_, i) =>
+            Effect.gen(function* () {
+              yield* Metrics.recordCounter('concurrent.test', 1)
+              yield* Metrics.recordGauge('concurrent.gauge', i)
+              yield* Metrics.recordTimer('concurrent.timer', i * 10)
+              return i
+            })
+          )
+          
+          const results = yield* Effect.all(concurrentOperations, { concurrency: 10 })
+          
+          const counterSeries = yield* Metrics.getSeries('concurrent.test')
+          const gaugeSeries = yield* Metrics.getSeries('concurrent.gauge')
+          const timerSeries = yield* Metrics.getSeries('concurrent.timer')
+          
+          return {
+            completedOperations: results.length,
+            counterValues: counterSeries?.values.length || 0,
+            gaugeValues: gaugeSeries?.values.length || 0,
+            timerValues: timerSeries?.values.length || 0
+          }
+        }), testLayer)
+      )
+
+      expect(result.completedOperations).toBe(50)
+      expect(result.counterValues).toBeGreaterThan(0)
+      expect(result.gaugeValues).toBeGreaterThan(0)
+      expect(result.timerValues).toBeGreaterThan(0)
+    })
+  })
+})

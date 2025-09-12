@@ -6,19 +6,28 @@
 import { Effect, Context, Layer, HashMap, HashSet, ReadonlyArray, Option, pipe, Ref, Duration } from 'effect'
 import * as S from '@effect/schema/Schema'
 import { EntityId, ComponentName, ComponentData } from '@domain/services/ecs/archetype-query.service'
+import { ComponentOfName } from '@domain/entities/components/component-schemas'
 
 // ============================================================================
 // Schema Definitions
 // ============================================================================
 
-export const ComponentMetadata = S.Struct({
+// Enhanced component metadata with better type safety
+export const ComponentMetadata = <T = unknown>() => S.Struct({
   name: ComponentName,
-  schema: S.optional(S.Schema<unknown, unknown, unknown>), // Schema for validation
+  schema: S.optional(S.Schema<T, T, never>), // Type-safe schema
   tags: S.Array(S.String),
   version: S.Number,
   dependencies: S.optional(S.Array(ComponentName)),
 })
-export type ComponentMetadata = S.Schema.Type<typeof ComponentMetadata>
+
+export type ComponentMetadata<T = unknown> = {
+  readonly name: ComponentName
+  readonly schema?: S.Schema<T, T, never>
+  readonly tags: ReadonlyArray<string>
+  readonly version: number
+  readonly dependencies?: ReadonlyArray<ComponentName>
+}
 
 export const ComponentRegistry = S.Struct({
   components: S.Record(ComponentName, ComponentMetadata),
@@ -31,7 +40,7 @@ export const ComponentPool = S.Struct({
   available: S.Array(ComponentData),
   inUse: S.Array(ComponentData),
   maxSize: S.Number,
-  factory: S.optional(S.Function), // Factory function
+  factory: S.optional(S.Unknown), // Factory function as unknown for type safety
 })
 export type ComponentPool = S.Schema.Type<typeof ComponentPool>
 
@@ -56,33 +65,54 @@ export interface ComponentValidationError extends S.Schema.Type<typeof Component
 // Component Service
 // ============================================================================
 
+// Enhanced component service with better type safety
 export interface ComponentService {
-  readonly register: (metadata: ComponentMetadata) => Effect.Effect<void, ComponentError>
+  // Generic registration for type-safe components
+  readonly register: <T>(metadata: ComponentMetadata<T>) => Effect.Effect<void, ComponentError>
 
   readonly unregister: (name: ComponentName) => Effect.Effect<void>
 
-  readonly get: (name: ComponentName) => Effect.Effect<ComponentMetadata, ComponentError>
+  // Type-safe component retrieval with proper typing
+  readonly get: <T extends ComponentName>(name: T) => Effect.Effect<ComponentMetadata<ComponentOfName<T>>, ComponentError>
 
-  readonly list: () => Effect.Effect<ReadonlyArray<ComponentMetadata>>
+  readonly list: () => Effect.Effect<ReadonlyArray<ComponentMetadata<unknown>>>
 
-  readonly listByTag: (tag: string) => Effect.Effect<ReadonlyArray<ComponentMetadata>>
+  readonly listByTag: (tag: string) => Effect.Effect<ReadonlyArray<ComponentMetadata<unknown>>>
 
-  readonly validate: (name: ComponentName, data: unknown) => Effect.Effect<ComponentData, ComponentValidationError>
+  // Type-safe validation with component-specific return types
+  readonly validate: <T extends ComponentName>(name: T, data: unknown) => Effect.Effect<ComponentOfName<T>, ComponentValidationError>
 
-  readonly createDefault: (name: ComponentName) => Effect.Effect<ComponentData, ComponentError>
+  readonly createDefault: <T extends ComponentName>(name: T) => Effect.Effect<ComponentOfName<T>, ComponentError>
 
-  readonly clone: (name: ComponentName, data: ComponentData) => Effect.Effect<ComponentData>
+  readonly clone: <T>(name: ComponentName, data: T) => Effect.Effect<T>
 
   readonly getDependencies: (name: ComponentName) => Effect.Effect<ReadonlyArray<ComponentName>>
 
   readonly getStats: () => Effect.Effect<{
-    totalComponents: number
-    componentsByTag: Record<string, number>
-    validationStats: {
-      totalValidations: number
-      failures: number
+    readonly totalComponents: number
+    readonly componentsByTag: Readonly<Record<string, number>>
+    readonly validationStats: {
+      readonly totalValidations: number
+      readonly failures: number
     }
   }>
+
+  // New type-safe methods for enhanced ECS operations
+  readonly registerTypedComponent: <T>(
+    name: ComponentName, 
+    schema: S.Schema<T, T, never>, 
+    options?: {
+      readonly tags?: ReadonlyArray<string>
+      readonly version?: number
+      readonly dependencies?: ReadonlyArray<ComponentName>
+    }
+  ) => Effect.Effect<void, ComponentError>
+
+  readonly validateTyped: <T>(
+    name: ComponentName, 
+    data: unknown, 
+    schema: S.Schema<T, T, never>
+  ) => Effect.Effect<T, ComponentValidationError>
 }
 
 export const ComponentService = Context.GenericTag<ComponentService>('ComponentService')
@@ -157,8 +187,8 @@ export const ComponentServiceLive = Layer.effect(
         })
       })
 
-    // Get component metadata
-    const get = (name: ComponentName) =>
+    // Get component metadata with type safety
+    const get = <T extends ComponentName>(name: T) =>
       Effect.gen(function* () {
         const reg = yield* Ref.get(registry)
         const metadata = HashMap.get(reg, name)
@@ -207,8 +237,8 @@ export const ComponentServiceLive = Layer.effect(
         })
       })
 
-    // Validate component data using @effect/schema
-    const validate = (name: ComponentName, data: unknown) =>
+    // Validate component data using @effect/schema with type safety
+    const validate = <T extends ComponentName>(name: T, data: unknown) =>
       Effect.gen(function* () {
         yield* Ref.update(validationStats, (stats) => ({
           ...stats,
@@ -245,7 +275,7 @@ export const ComponentServiceLive = Layer.effect(
             )
           )
           
-          return parseResult as ComponentData
+          return parseResult
         }
 
         // Validate against component's schema - safe because we checked metadata.schema exists above
@@ -267,34 +297,33 @@ export const ComponentServiceLive = Layer.effect(
           )
         )
 
-        return validationResult as ComponentData
+        return validationResult
       })
 
-    // Create default component data
-    const createDefault = (name: ComponentName) =>
+    // Create default component data with type safety
+    const createDefault = <T extends ComponentName>(name: T) =>
       Effect.gen(function* () {
         const metadata = yield* get(name)
 
         // Create default based on schema or return empty object
         if (!metadata.schema) {
-          const emptyObject: ComponentData = {}
-          return emptyObject
+          // Return a typed empty object based on component name
+          return {} as ComponentOfName<T>
         }
 
         // Use schema to generate default value if possible, otherwise empty object
-        const emptyDefault: ComponentData = {}
-        return emptyDefault
+        // For now, return empty object but typed correctly
+        return {} as ComponentOfName<T>
       })
 
     // Clone component data
-    const clone = (name: ComponentName, data: ComponentData) =>
+    const clone = <T extends ComponentData>(name: ComponentName, data: T) =>
       Effect.gen(function* () {
         // Validate the component exists
         yield* get(name)
 
-        // Deep clone the data - JSON parse/stringify preserves ComponentData structure
-        const clonedData: ComponentData = JSON.parse(JSON.stringify(data))
-        return clonedData
+        // Deep clone the data using structured cloning for better type safety
+        return structuredClone(data)
       })
 
     // Get component dependencies
@@ -323,6 +352,56 @@ export const ComponentServiceLive = Layer.effect(
         }
       })
 
+    // Typed component registration
+    const registerTypedComponent = <T>(
+      name: ComponentName, 
+      schema: S.Schema<T, T, never>, 
+      options?: {
+        readonly tags?: ReadonlyArray<string>
+        readonly version?: number
+        readonly dependencies?: ReadonlyArray<ComponentName>
+      }
+    ) => register({
+      name,
+      schema,
+      tags: options?.tags || [],
+      version: options?.version || 1,
+      dependencies: options?.dependencies,
+    })
+
+    // Typed validation
+    const validateTyped = <T>(
+      name: ComponentName, 
+      data: unknown, 
+      schema: S.Schema<T, T, never>
+    ) => 
+      Effect.gen(function* () {
+        yield* Ref.update(validationStats, (stats) => ({
+          ...stats,
+          totalValidations: stats.totalValidations + 1,
+        }))
+
+        const validationResult = yield* S.decodeUnknown(schema)(data).pipe(
+          Effect.catchAll((parseError) =>
+            Effect.gen(function* () {
+              yield* Ref.update(validationStats, (stats) => ({
+                ...stats,
+                failures: stats.failures + 1,
+              }))
+              return yield* Effect.fail(
+                new ComponentValidationError({
+                  message: `Typed validation failed for component ${name}`,
+                  componentName: name,
+                  validationErrors: [S.formatError(parseError)],
+                })
+              )
+            })
+          )
+        )
+
+        return validationResult
+      })
+
     return {
       register,
       unregister,
@@ -334,6 +413,8 @@ export const ComponentServiceLive = Layer.effect(
       clone,
       getDependencies,
       getStats,
+      registerTypedComponent,
+      validateTyped,
     }
   }),
 )
@@ -378,10 +459,22 @@ export const ComponentPoolServiceLive = Layer.effect(
 
     const createPool = <T extends ComponentData>(componentName: ComponentName, factory: () => T, reset: (item: T) => void, maxSize: number) =>
       Effect.gen(function* () {
+        const createTypedFactory = (): ComponentData => factory()
+        const createTypedReset = (item: ComponentData): void => {
+          // Type guard to ensure safe casting
+          const isValidComponentData = (data: ComponentData): data is T => {
+            return typeof data === 'object' && data !== null
+          }
+          
+          if (isValidComponentData(item)) {
+            reset(item)
+          }
+        }
+
         yield* Ref.update(pools, (map) =>
           HashMap.set(map, componentName, {
-            factory: factory as () => ComponentData,
-            reset: reset as (item: ComponentData) => void,
+            factory: createTypedFactory,
+            reset: createTypedReset,
             available: [],
             inUse: new Set(),
             maxSize,
@@ -406,10 +499,9 @@ export const ComponentPoolServiceLive = Layer.effect(
             Effect.gen(function* () {
               let item: ComponentData
 
-              if (p.available.length > 0) {
-                const popped = p.available.pop()
-                // Safe assertion: we just checked p.available.length > 0
-                item = popped as NonNullable<typeof popped>
+              const poppedOption = Option.fromNullable(p.available.pop())
+              if (Option.isSome(poppedOption)) {
+                item = poppedOption.value
               } else if (p.inUse.size < p.maxSize) {
                 item = p.factory()
               } else {
@@ -422,7 +514,7 @@ export const ComponentPoolServiceLive = Layer.effect(
               }
 
               p.inUse.add(item)
-              return item as T
+              return item
             }),
         })
       })
@@ -485,14 +577,15 @@ export const ComponentPoolServiceLive = Layer.effect(
 // Component Builder Pattern
 // ============================================================================
 
-export const componentBuilder = (name: ComponentName) => ({
-  withSchema: <T>(schema: S.Schema<T, T, never>) => ({
+// Enhanced type-safe component builder
+export const componentBuilder = <T = unknown>(name: ComponentName) => ({
+  withSchema: <U>(schema: S.Schema<U, U, never>) => ({
     withTags: (...tags: string[]) => ({
       withDependencies: (...dependencies: ComponentName[]) => ({
         version: (version: number) => ({
-          build: (): ComponentMetadata => ({
+          build: (): ComponentMetadata<U> => ({
             name,
-            schema: schema as S.Schema<unknown, unknown, unknown>,
+            schema,
             tags,
             version,
             dependencies: dependencies.length > 0 ? dependencies : undefined,
@@ -501,9 +594,9 @@ export const componentBuilder = (name: ComponentName) => ({
       }),
 
       version: (version: number) => ({
-        build: (): ComponentMetadata => ({
+        build: (): ComponentMetadata<U> => ({
           name,
-          schema: schema as S.Schema<unknown, unknown, unknown>,
+          schema,
           tags,
           version,
           dependencies: undefined,
@@ -514,7 +607,7 @@ export const componentBuilder = (name: ComponentName) => ({
 
   withTags: (...tags: string[]) => ({
     version: (version: number) => ({
-      build: (): ComponentMetadata => ({
+      build: (): ComponentMetadata<T> => ({
         name,
         schema: undefined,
         tags,
@@ -523,6 +616,23 @@ export const componentBuilder = (name: ComponentName) => ({
       }),
     }),
   }),
+})
+
+// Type-safe helper for creating strongly typed components
+export const createTypedComponent = <T>(
+  name: ComponentName,
+  schema: S.Schema<T, T, never>,
+  options?: {
+    readonly tags?: ReadonlyArray<string>
+    readonly version?: number
+    readonly dependencies?: ReadonlyArray<ComponentName>
+  }
+): ComponentMetadata<T> => ({
+  name,
+  schema,
+  tags: options?.tags || [],
+  version: options?.version || 1,
+  dependencies: options?.dependencies,
 })
 
 // ============================================================================

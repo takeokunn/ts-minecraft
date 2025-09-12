@@ -83,7 +83,7 @@ export interface ArchetypeSignature {
 /**
  * Component cache entry with metadata
  */
-interface CacheEntry<T = any> {
+interface CacheEntry<T = QueryEntity[]> {
   data: T
   timestamp: number
   accessCount: number
@@ -181,7 +181,7 @@ export interface QueryContext {
 /**
  * Start query execution context
  */
-export function startQueryContext(queryName: string = 'unknown'): QueryContext {
+export function startQueryContext(queryName?: string): QueryContext {
   return {
     startTime: performance.now(),
     metrics: {
@@ -217,7 +217,7 @@ export function finalizeQueryContext(context: QueryContext): QueryPerformanceMet
 /**
  * Unified query result
  */
-export interface UnifiedQueryResult<T = unknown> {
+export interface UnifiedQueryResult<T = QueryEntity[]> {
   readonly entities: readonly T[]
   readonly count: number
   readonly metrics: QueryPerformanceMetrics
@@ -227,12 +227,12 @@ export interface UnifiedQueryResult<T = unknown> {
 /**
  * Query predicate function
  */
-export type QueryPredicate<T = unknown> = (entity: T) => boolean
+export type QueryPredicate<T = QueryEntity> = (entity: T) => boolean
 
 /**
  * Component selector function
  */
-export type ComponentSelector<T = unknown, R = unknown> = (entity: T) => R
+export type ComponentSelector<T = QueryEntity, R = ComponentOfName<ComponentName>> = (entity: T) => R
 
 /**
  * Unified Query Builder interface
@@ -246,18 +246,18 @@ export interface IUnifiedQueryBuilder {
   /**
    * Create an optimized archetype query
    */
-  readonly withArchetype: (signature: string) => IUnifiedQuery<unknown>
+  readonly withArchetype: (signature: string) => IUnifiedQuery<QueryEntity[]>
 
   /**
    * Create a cached query
    */
-  readonly cached: (key: string, ttl?: number) => IUnifiedQuery<unknown>
+  readonly cached: (key: string, ttl?: number) => IUnifiedQuery<QueryEntity[]>
 }
 
 /**
  * Unified Query interface
  */
-export interface IUnifiedQuery<T = unknown> {
+export interface IUnifiedQuery<T = QueryEntity[]> {
   readonly name: string
   readonly components: readonly ComponentName[]
   readonly execute: (context?: QueryExecutionContext) => Effect.Effect<UnifiedQueryResult<T>, never, never>
@@ -273,7 +273,7 @@ export interface IUnifiedQuery<T = unknown> {
  */
 export interface IUnifiedQuerySystem {
   readonly createQuery: <T extends readonly ComponentName[]>(name: string, components: T) => IUnifiedQuery<T>
-  readonly createArchetypeQuery: (name: string, signature: string) => IUnifiedQuery<unknown>
+  readonly createArchetypeQuery: (name: string, signature: string) => IUnifiedQuery<QueryEntity[]>
   readonly executeQuery: <T>(query: IUnifiedQuery<T>, context?: QueryExecutionContext) => Effect.Effect<UnifiedQueryResult<T>, never, never>
   readonly getMetrics: (queryName: string) => Effect.Effect<Option.Option<QueryPerformanceMetrics>, never, never>
   readonly clearCache: () => Effect.Effect<void, never, never>
@@ -283,12 +283,12 @@ export interface IUnifiedQuerySystem {
 /**
  * Create a unified query implementation
  */
-export const createUnifiedQuery = <T = unknown>(
+export const createUnifiedQuery = <T = QueryEntity[]>(
   name: string,
   components: readonly ComponentName[],
   system: IUnifiedQuerySystem,
   predicates: readonly QueryPredicate<T>[] = [],
-  selector?: ComponentSelector<T, any>,
+  selector?: ComponentSelector<QueryEntity, ComponentOfName<ComponentName>>,
   limitCount?: number,
   orderCompareFn?: (a: T, b: T) => number,
   cacheKey?: string,
@@ -360,7 +360,7 @@ export const createUnifiedQuery = <T = unknown>(
       components,
       system,
       [] as readonly QueryPredicate<R>[], // Reset predicates for new type
-      newSelector as unknown as ComponentSelector<R, any>,
+      newSelector as ComponentSelector<QueryEntity, R>,
       limitCount,
       undefined, // Reset order compareFn for new type
       cacheKey,
@@ -380,9 +380,9 @@ export const createUnifiedQuery = <T = unknown>(
 export const createUnifiedQueryBuilder = (system: IUnifiedQuerySystem): IUnifiedQueryBuilder => ({
   withComponents: <T extends readonly ComponentName[]>(components: T): IUnifiedQuery<T> => createUnifiedQuery<T>(`Query_${components.join('_')}`, components, system),
 
-  withArchetype: (signature: string): IUnifiedQuery<unknown> => createUnifiedQuery(`ArchetypeQuery_${signature}`, [], system),
+  withArchetype: (signature: string): IUnifiedQuery<QueryEntity[]> => createUnifiedQuery(`ArchetypeQuery_${signature}`, [], system),
 
-  cached: (key: string, ttl?: number): IUnifiedQuery<unknown> => createUnifiedQuery(`CachedQuery_${key}`, [], system, [], undefined, undefined, undefined, key, ttl),
+  cached: (key: string, ttl?: number): IUnifiedQuery<QueryEntity[]> => createUnifiedQuery(`CachedQuery_${key}`, [], system, [], undefined, undefined, undefined, key, ttl),
 })
 
 /**
@@ -618,7 +618,7 @@ export const createUnifiedQuerySystem = (config: UnifiedQueryConfig, stateRef?: 
     const system: IUnifiedQuerySystem = {
       createQuery: <T extends readonly ComponentName[]>(name: string, components: T): IUnifiedQuery<T> => createUnifiedQuery<T>(name, components, system),
 
-      createArchetypeQuery: (name: string, signature: string): IUnifiedQuery<unknown> =>
+      createArchetypeQuery: (name: string, signature: string): IUnifiedQuery<QueryEntity[]> =>
         createUnifiedQuery(name, [], system, [], undefined, undefined, undefined, `archetype_${signature}`),
 
       executeQuery: <T>(query: IUnifiedQuery<T>, context?: QueryExecutionContext): Effect.Effect<UnifiedQueryResult<T>, never, never> => query.execute(context),

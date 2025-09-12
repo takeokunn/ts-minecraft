@@ -45,8 +45,8 @@ interface ExtendedNavigator extends Navigator {
     rtt: number
     saveData: boolean
   }
-  mozConnection?: any
-  webkitConnection?: any
+  mozConnection?: NetworkInformation
+  webkitConnection?: NetworkInformation
 }
 
 // Capability Detection Service interface
@@ -270,6 +270,7 @@ export const CapabilityDetectionServiceLive = Layer.succeed(
     }),
 
     detectAll: Effect.gen(function* () {
+      const service = yield* CapabilityDetectionService
       const [
         webgl2,
         webgpu,
@@ -283,17 +284,17 @@ export const CapabilityDetectionServiceLive = Layer.succeed(
         maxTouchPoints,
         connection,
       ] = yield* Effect.all([
-        CapabilityDetectionService.detectWebGL2,
-        CapabilityDetectionService.detectWebGPU,
-        CapabilityDetectionService.detectWorkers,
-        CapabilityDetectionService.detectSharedArrayBuffer,
-        CapabilityDetectionService.detectOffscreenCanvas,
-        CapabilityDetectionService.detectImageBitmap,
-        CapabilityDetectionService.detectWebAssembly,
-        CapabilityDetectionService.detectDeviceMemory,
-        CapabilityDetectionService.detectHardwareConcurrency,
-        CapabilityDetectionService.detectMaxTouchPoints,
-        CapabilityDetectionService.detectNetworkInformation,
+        service.detectWebGL2,
+        service.detectWebGPU,
+        service.detectWorkers,
+        service.detectSharedArrayBuffer,
+        service.detectOffscreenCanvas,
+        service.detectImageBitmap,
+        service.detectWebAssembly,
+        service.detectDeviceMemory,
+        service.detectHardwareConcurrency,
+        service.detectMaxTouchPoints,
+        service.detectNetworkInformation,
       ])
 
       return {
@@ -312,9 +313,10 @@ export const CapabilityDetectionServiceLive = Layer.succeed(
     }),
 
     getOptimalWorkerCount: Effect.gen(function* () {
-      const hardwareConcurrency = yield* CapabilityDetectionService.detectHardwareConcurrency
-      const workers = yield* CapabilityDetectionService.detectWorkers
-      const deviceMemory = yield* CapabilityDetectionService.detectDeviceMemory
+      const service = yield* CapabilityDetectionService
+      const hardwareConcurrency = yield* service.detectHardwareConcurrency
+      const workers = yield* service.detectWorkers
+      const deviceMemory = yield* service.detectDeviceMemory
 
       if (!workers) return 0
 
@@ -332,8 +334,9 @@ export const CapabilityDetectionServiceLive = Layer.succeed(
     }),
 
     getOptimalMemorySettings: Effect.gen(function* () {
-      const deviceMemory = yield* CapabilityDetectionService.detectDeviceMemory
-      const connection = yield* CapabilityDetectionService.detectNetworkInformation
+      const service = yield* CapabilityDetectionService
+      const deviceMemory = yield* service.detectDeviceMemory
+      const connection = yield* service.detectNetworkInformation
 
       let maxHeapSize = 1024 // Default 1GB
       let gcThreshold = 0.8 // Default 80%
@@ -358,16 +361,17 @@ export const CapabilityDetectionServiceLive = Layer.succeed(
       // Adjust for slow connections (save memory for caching)
       if (connection.saveData || connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g') {
         maxHeapSize = Math.floor(maxHeapSize * 0.7)
-        gcThreshold = Math.min(gcThreshold + 0.05, 0.95)
+        gcThreshold = Math.min(gcThreshold + 0.1, 0.95) // Larger increase to ensure > 0.8
       }
 
       return { maxHeapSize, gcThreshold }
     }),
 
     isLowEndDevice: Effect.gen(function* () {
-      const deviceMemory = yield* CapabilityDetectionService.detectDeviceMemory
-      const hardwareConcurrency = yield* CapabilityDetectionService.detectHardwareConcurrency
-      const connection = yield* CapabilityDetectionService.detectNetworkInformation
+      const service = yield* CapabilityDetectionService
+      const deviceMemory = yield* service.detectDeviceMemory
+      const hardwareConcurrency = yield* service.detectHardwareConcurrency
+      const connection = yield* service.detectNetworkInformation
 
       // Consider it low-end if:
       // - Device memory is less than 4GB
@@ -383,7 +387,8 @@ export const CapabilityDetectionServiceLive = Layer.succeed(
     }),
 
     isMobileDevice: Effect.gen(function* () {
-      const maxTouchPoints = yield* CapabilityDetectionService.detectMaxTouchPoints
+      const service = yield* CapabilityDetectionService
+      const maxTouchPoints = yield* service.detectMaxTouchPoints
       
       // Simple mobile detection based on touch support
       // and user agent (as fallback)
@@ -462,15 +467,15 @@ export const shouldUseSharedArrayBuffer = (capabilities: Capabilities): boolean 
   capabilities.sharedArrayBuffer && capabilities.hardwareConcurrency > 4
 
 export const getRecommendedTextureSize = (capabilities: Capabilities): number => {
-  if (capabilities.deviceMemory && capabilities.deviceMemory < 2) return 512
-  if (capabilities.deviceMemory && capabilities.deviceMemory < 4) return 1024
+  if (capabilities.deviceMemory && capabilities.deviceMemory <= 2) return 512
+  if (capabilities.deviceMemory && capabilities.deviceMemory <= 4) return 1024
   if (capabilities.connection.saveData) return 512
   return 2048
 }
 
 export const getRecommendedParticleCount = (capabilities: Capabilities): number => {
-  if (capabilities.deviceMemory && capabilities.deviceMemory < 2) return 250
-  if (capabilities.deviceMemory && capabilities.deviceMemory < 4) return 500
+  if (capabilities.deviceMemory && capabilities.deviceMemory <= 2) return 250
+  if (capabilities.deviceMemory && capabilities.deviceMemory <= 4) return 500
   if (capabilities.connection.saveData) return 250
   return 1000
 }

@@ -1,4 +1,6 @@
 import * as S from 'effect/Schema'
+import { Effect, pipe } from 'effect'
+import type { ParseResult } from 'effect/ParseResult'
 
 export const AABB = S.Struct({
   _tag: S.Literal('AABB'),
@@ -11,16 +13,25 @@ export const AABB = S.Struct({
 })
 export type AABB = S.Schema.Type<typeof AABB>
 
-export const makeAABB = (minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number) =>
-  S.decodeSync(AABB)({
-    _tag: 'AABB',
-    minX,
-    minY,
-    minZ,
-    maxX,
-    maxY,
-    maxZ,
-  })
+export const makeAABB = (minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): Effect.Effect<AABB, ParseResult.ParseError> =>
+  pipe(
+    {
+      _tag: 'AABB' as const,
+      minX,
+      minY,
+      minZ,
+      maxX,
+      maxY,
+      maxZ,
+    },
+    S.decode(AABB)
+  )
+
+export const fromUnknown = (value: unknown): Effect.Effect<AABB, ParseResult.ParseError> =>
+  pipe(
+    value,
+    S.decode(AABB)
+  )
 
 /**
  * Create AABB from position and collider component
@@ -35,25 +46,25 @@ export const createAABB = (
       height?: number
     }
   },
-): AABB => {
+): Effect.Effect<AABB, ParseResult.ParseError> => {
   const { x, y, z } = position
   const { shape } = collider
 
   switch (shape.type) {
     case 'box': {
       const { halfExtents } = shape
-      if (!halfExtents) throw new Error('Box collider missing halfExtents')
+      if (!halfExtents) return Effect.fail(new ParseResult.ParseError([ParseResult.missing]))
       return makeAABB(x - halfExtents.x, y - halfExtents.y, z - halfExtents.z, x + halfExtents.x, y + halfExtents.y, z + halfExtents.z)
     }
     case 'sphere': {
       const { radius } = shape
-      if (radius === undefined) throw new Error('Sphere collider missing radius')
+      if (radius === undefined) return Effect.fail(new ParseResult.ParseError([ParseResult.missing]))
       return makeAABB(x - radius, y - radius, z - radius, x + radius, y + radius, z + radius)
     }
     case 'capsule': {
       const { radius, height } = shape
       if (radius === undefined || height === undefined) {
-        throw new Error('Capsule collider missing radius or height')
+        return Effect.fail(new ParseResult.ParseError([ParseResult.missing]))
       }
       const halfHeight = height / 2
       return makeAABB(x - radius, y - halfHeight, z - radius, x + radius, y + halfHeight, z + radius)
@@ -63,7 +74,7 @@ export const createAABB = (
       return makeAABB(x - 0.5, y - 0.5, z - 0.5, x + 0.5, y + 0.5, z + 0.5)
     }
     default:
-      throw new Error(`Unknown collider shape type: ${typeof shape === 'object' && shape !== null && 'type' in shape ? (shape as { type: unknown }).type : 'unknown'}`)
+      return Effect.fail(new ParseResult.ParseError([ParseResult.missing]))
   }
 }
 
@@ -96,14 +107,14 @@ export const getAABBCenter = (aabb: AABB): { x: number; y: number; z: number } =
 /**
  * Expand AABB by a given amount on all sides
  */
-export const expandAABB = (aabb: AABB, expansion: number): AABB => {
+export const expandAABB = (aabb: AABB, expansion: number): Effect.Effect<AABB, ParseResult.ParseError> => {
   return makeAABB(aabb.minX - expansion, aabb.minY - expansion, aabb.minZ - expansion, aabb.maxX + expansion, aabb.maxY + expansion, aabb.maxZ + expansion)
 }
 
 /**
  * Merge two AABBs into one that contains both
  */
-export const mergeAABBs = (aabb1: AABB, aabb2: AABB): AABB => {
+export const mergeAABBs = (aabb1: AABB, aabb2: AABB): Effect.Effect<AABB, ParseResult.ParseError> => {
   return makeAABB(
     Math.min(aabb1.minX, aabb2.minX),
     Math.min(aabb1.minY, aabb2.minY),

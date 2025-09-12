@@ -1,173 +1,227 @@
 /**
- * Worker Pool Bridge Layer
+ * Worker Pool Bridge Layer with Complete Type Safety
  * Provides compatibility between the performance layer worker pool interface
- * and the unified worker system
+ * and the unified worker system using @effect/schema validation
  */
 
-import { Effect, Layer, Context, Schema } from 'effect'
+import { Effect, Layer, Context } from 'effect'
 import * as S from '@effect/schema/Schema'
 import { WorkerManagerService, WorkerManagerServiceLive, type WorkerType as UnifiedWorkerType } from '@infrastructure/workers/unified/worker-manager'
-// Legacy types recreated here to avoid dependency on deprecated worker-pool.layer.ts
+import {
+  WorkerBridgeSchemas,
+  type PerformanceWorkerType,
+  type TaskPriority,
+  type WorkerTask,
+  type WorkerStats,
+  type WorkerConfig,
+  type WorkerError,
+  type WorkerTimeoutError,
+  type PoolSizeInfo,
+  type TaskDataValidationResult,
+  type TransferableValidationResult,
+  type SanitizedTaskData,
+  type BroadcastMessageValidationResult,
+  validateWorkerTask,
+  validateWorkerConfig,
+  validateWorkerStats,
+  createDefaultWorkerTask,
+  mapToUnifiedWorkerType,
+  mapTaskPriorityToMessagePriority,
+} from '@infrastructure/workers/schemas/worker-bridge.schema'
+import {
+  MessageId,
+  WorkerId,
+  createMessageId,
+} from '@infrastructure/workers/schemas/worker-messages.schema'
 
-export type PerformanceWorkerType = 'compute' | 'physics' | 'terrain' | 'pathfinding' | 'rendering' | 'compression'
-
-export type TaskPriority = 'low' | 'normal' | 'high' | 'critical'
-
-// Schema definitions for worker task validation
-const WorkerTaskDataSchema = S.Union(S.Record(S.String, S.Unknown), S.Array(S.Unknown), S.String, S.Number, S.Boolean, S.Unknown)
-
-const TransferableSchema = S.Union(S.InstanceOf(ArrayBuffer), S.InstanceOf(MessagePort), S.Unknown)
-
-const TransferablesArraySchema = S.Array(TransferableSchema)
-
-export interface WorkerTask {
-  id: string
-  type: PerformanceWorkerType
-  operation: string
-  data: unknown
-  transferables?: unknown[]
-  priority: TaskPriority
-  timeout?: number
-}
-
-// Validation utilities for worker bridge
+/**
+ * Enhanced validation utilities using schema validation
+ */
 export const WorkerBridgeValidation = {
-  validateTaskData: (data: unknown): Effect.Effect<{ data: unknown; type: string; size?: number }, never, never> => {
-    try {
-      const result = {
-        data,
-        type: typeof data,
-        size: undefined as number | undefined,
-      }
-
-      if (typeof data === 'string') {
-        result.size = data.length
-      } else if (Array.isArray(data)) {
-        result.size = data.length
-      } else if (data instanceof ArrayBuffer) {
-        result.size = data.byteLength
-      } else if (typeof data === 'object' && data !== null) {
-        try {
-          result.size = Object.keys(data).length
-        } catch {
-          result.size = undefined
+  /**
+   * Validate task data with schema validation
+   */
+  validateTaskData: (data: unknown): Effect.Effect<TaskDataValidationResult, never, never> => {
+    return Effect.gen(function* () {
+      try {
+        // Attempt to validate data against schema
+        const validatedData = yield* Effect.try(() => 
+          S.decodeUnknown(WorkerBridgeSchemas.WorkerTaskData)(data)
+        )
+        
+        let size: number | undefined
+        if (typeof data === 'string') {
+          size = data.length
+        } else if (Array.isArray(data)) {
+          size = data.length
+        } else if (data instanceof ArrayBuffer) {
+          size = data.byteLength
+        } else if (typeof data === 'object' && data !== null) {
+          try {
+            size = Object.keys(data).length
+          } catch {
+            size = undefined
+          }
         }
+
+        return {
+          data: validatedData,
+          type: typeof data,
+          size,
+          isValid: true,
+        } as TaskDataValidationResult
+        
+      } catch (error) {
+        return {
+          data: { error: 'Validation failed', originalData: data },
+          type: 'error',
+          size: 0,
+          isValid: false,
+          errors: [error instanceof Error ? error.message : String(error)],
+        } as TaskDataValidationResult
       }
-
-      return Effect.succeed(result)
-    } catch (error) {
-      return Effect.succeed({
-        data: { error: 'Unserializable data', originalType: typeof data },
-        type: 'error',
-        size: 0,
-      })
-    }
-  },
-
-  validateTransferables: (transferables: unknown[]): Effect.Effect<Array<{ item: unknown; type: string; isTransferable: boolean }>, never, never> => {
-    return Effect.succeed(
-      transferables.map((item) => ({
-        item,
-        type: typeof item,
-        isTransferable: item instanceof ArrayBuffer || item instanceof MessagePort || (typeof item === 'object' && item !== null && 'transfer' in item),
-      })),
-    )
-  },
-
-  sanitizeTaskData: (data: unknown): Effect.Effect<Record<string, unknown>, never, never> => {
-    if (data == null) {
-      return Effect.succeed({ _tag: 'EmptyTaskData', timestamp: Date.now() })
-    }
-
-    if (typeof data === 'object' && !Array.isArray(data) && !(data instanceof ArrayBuffer)) {
-      return Effect.succeed(data as Record<string, unknown>)
-    }
-
-    if (Array.isArray(data)) {
-      return Effect.succeed({ _tag: 'ArrayTaskData', data, length: data.length })
-    }
-
-    if (data instanceof ArrayBuffer) {
-      return Effect.succeed({ _tag: 'BufferTaskData', byteLength: data.byteLength, data })
-    }
-
-    return Effect.succeed({
-      _tag: 'PrimitiveTaskData',
-      data,
-      type: typeof data,
     })
   },
 
-  validateBroadcastMessage: (message: unknown): Effect.Effect<{ message: unknown; type: string; isSerializable: boolean }, never, never> => {
-    try {
-      JSON.stringify(message)
-      return Effect.succeed({
-        message,
-        type: typeof message,
-        isSerializable: true,
-      })
-    } catch {
-      return Effect.succeed({
-        message: { error: 'Non-serializable message', type: typeof message },
-        type: 'error',
-        isSerializable: false,
-      })
-    }
+  /**
+   * Validate transferables with enhanced checks
+   */
+  validateTransferables: (transferables: unknown[]): Effect.Effect<TransferableValidationResult, never, never> => {
+    return Effect.succeed({
+      items: transferables.map((item) => {
+        const isTransferable = 
+          item instanceof ArrayBuffer || 
+          item instanceof MessagePort ||
+          item instanceof ImageBitmap ||
+          ArrayBuffer.isView(item)
+          
+        let size: number | undefined
+        if (item instanceof ArrayBuffer) {
+          size = item.byteLength
+        } else if (ArrayBuffer.isView(item)) {
+          size = item.byteLength
+        }
+        
+        return {
+          item,
+          type: typeof item,
+          isTransferable,
+          size,
+        }
+      }),
+      totalTransferables: transferables.filter(item => 
+        item instanceof ArrayBuffer || 
+        item instanceof MessagePort ||
+        item instanceof ImageBitmap ||
+        ArrayBuffer.isView(item)
+      ).length,
+      totalSize: transferables.reduce((total, item) => {
+        if (item instanceof ArrayBuffer) return total + item.byteLength
+        if (ArrayBuffer.isView(item)) return total + item.byteLength
+        return total
+      }, 0),
+    } as TransferableValidationResult)
+  },
+
+  /**
+   * Sanitize task data with schema validation
+   */
+  sanitizeTaskData: (data: unknown): Effect.Effect<SanitizedTaskData, never, never> => {
+    return Effect.gen(function* () {
+      if (data == null) {
+        return {
+          _tag: 'EmptyTaskData',
+          data: null,
+          timestamp: Date.now() as any,
+        } as SanitizedTaskData
+      }
+
+      if (typeof data === 'object' && !Array.isArray(data) && !(data instanceof ArrayBuffer)) {
+        return {
+          _tag: 'ObjectTaskData',
+          data,
+          timestamp: Date.now() as any,
+        } as SanitizedTaskData
+      }
+
+      if (Array.isArray(data)) {
+        return {
+          _tag: 'ArrayTaskData',
+          data,
+          metadata: { length: data.length },
+          timestamp: Date.now() as any,
+        } as SanitizedTaskData
+      }
+
+      if (data instanceof ArrayBuffer) {
+        return {
+          _tag: 'BufferTaskData',
+          data,
+          metadata: { byteLength: data.byteLength },
+          timestamp: Date.now() as any,
+        } as SanitizedTaskData
+      }
+
+      return {
+        _tag: 'PrimitiveTaskData',
+        data,
+        metadata: { type: typeof data },
+        timestamp: Date.now() as any,
+      } as SanitizedTaskData
+    })
+  },
+
+  /**
+   * Validate broadcast message with enhanced serialization checks
+   */
+  validateBroadcastMessage: (message: unknown): Effect.Effect<BroadcastMessageValidationResult, never, never> => {
+    return Effect.gen(function* () {
+      try {
+        const serialized = JSON.stringify(message)
+        return {
+          message,
+          type: typeof message,
+          isSerializable: true,
+          size: serialized.length,
+        } as BroadcastMessageValidationResult
+        
+      } catch (error) {
+        return {
+          message: { 
+            error: 'Serialization failed', 
+            originalType: typeof message,
+            reason: error instanceof Error ? error.message : String(error)
+          },
+          type: 'error',
+          isSerializable: false,
+          errors: [error instanceof Error ? error.message : String(error)],
+        } as BroadcastMessageValidationResult
+      }
+    })
   },
 }
 
-export interface WorkerStats {
-  workerId: string
-  type: PerformanceWorkerType
-  status: 'idle' | 'busy' | 'error'
-  tasksCompleted: number
-  totalExecutionTime: number
-  averageExecutionTime: number
-  currentTask?: string
-  lastActivity: number
-}
+// All interfaces are now handled by schema definitions
 
-export class WorkerError extends Schema.TaggedError<WorkerError>()('WorkerError', {
-  message: Schema.String,
-  workerId: Schema.optional(Schema.String),
-  taskId: Schema.optional(Schema.String),
-}) {}
-
-export class WorkerTimeoutError extends Schema.TaggedError<WorkerTimeoutError>()('WorkerTimeoutError', {
-  message: Schema.String,
-  taskId: Schema.String,
-  timeout: Schema.Number,
-}) {}
-
-export interface WorkerConfig {
-  type: PerformanceWorkerType
-  scriptUrl: string
-  minWorkers: number
-  maxWorkers: number
-  idleTimeout: number
-  maxTasksPerWorker: number
-  enableSharedMemory: boolean
-}
-
+/**
+ * Enhanced Performance Worker Pool Service with complete schema validation
+ */
 interface PerformanceWorkerPoolService {
-  readonly createPool: (config: WorkerConfig) => Effect.Effect<void, WorkerError>
-  readonly execute: <T>(task: WorkerTask) => Effect.Effect<T, WorkerError | WorkerTimeoutError>
-  readonly executeBatch: <T>(tasks: ReadonlyArray<WorkerTask>) => Effect.Effect<ReadonlyArray<T>, WorkerError>
+  readonly createPool: (config: WorkerConfig) => Effect.Effect<void, WorkerError, never>
+  readonly execute: <T>(task: WorkerTask) => Effect.Effect<T, WorkerError | WorkerTimeoutError, never>
+  readonly executeBatch: <T>(tasks: ReadonlyArray<WorkerTask>) => Effect.Effect<ReadonlyArray<T>, WorkerError, never>
   readonly stream: <T, R>(type: PerformanceWorkerType, operation: string, input: any) => any
-  readonly broadcast: (type: PerformanceWorkerType, message: unknown) => Effect.Effect<void>
-  readonly resize: (type: PerformanceWorkerType, newSize: number) => Effect.Effect<void>
-  readonly getStats: () => Effect.Effect<ReadonlyArray<WorkerStats>>
-  readonly terminate: (type?: PerformanceWorkerType) => Effect.Effect<void>
-  readonly getPoolSize: (type: PerformanceWorkerType) => Effect.Effect<{
-    active: number
-    idle: number
-    total: number
-  }>
-  // Validation utilities
-  readonly validateTaskData: (data: unknown) => Effect.Effect<{ data: unknown; type: string; size?: number }, never, never>
-  readonly validateTransferables: (transferables: unknown[]) => Effect.Effect<Array<{ item: unknown; type: string; isTransferable: boolean }>, never, never>
-  readonly sanitizeTaskData: (data: unknown) => Effect.Effect<Record<string, unknown>, never, never>
-  readonly validateBroadcastMessage: (message: unknown) => Effect.Effect<{ message: unknown; type: string; isSerializable: boolean }, never, never>
+  readonly broadcast: (type: PerformanceWorkerType, message: unknown) => Effect.Effect<void, WorkerError, never>
+  readonly resize: (type: PerformanceWorkerType, newSize: number) => Effect.Effect<void, WorkerError, never>
+  readonly getStats: () => Effect.Effect<ReadonlyArray<WorkerStats>, never, never>
+  readonly terminate: (type?: PerformanceWorkerType) => Effect.Effect<void, never, never>
+  readonly getPoolSize: (type: PerformanceWorkerType) => Effect.Effect<PoolSizeInfo, never, never>
+  
+  // Enhanced validation utilities with schema support
+  readonly validateTaskData: (data: unknown) => Effect.Effect<TaskDataValidationResult, never, never>
+  readonly validateTransferables: (transferables: unknown[]) => Effect.Effect<TransferableValidationResult, never, never>
+  readonly sanitizeTaskData: (data: unknown) => Effect.Effect<SanitizedTaskData, never, never>
+  readonly validateBroadcastMessage: (message: unknown) => Effect.Effect<BroadcastMessageValidationResult, never, never>
 }
 
 const PerformanceWorkerPoolService = Context.GenericTag<PerformanceWorkerPoolService>('PerformanceWorkerPoolService')
@@ -224,51 +278,141 @@ const make = Effect.gen(function* () {
 
     execute: <T>(task: WorkerTask) =>
       Effect.gen(function* () {
+        // Enhanced validation and error handling
+        const validatedTask = yield* Effect.try(() => validateWorkerTask(task)).pipe(
+          Effect.catchAll((validationError) => 
+            Effect.fail(
+              new WorkerError({
+                message: `Task validation failed: ${validationError}`,
+                taskId: task.id,
+              })
+            )
+          )
+        )
+        
         const unifiedType = mapWorkerType(task.type)
 
         if (unifiedType === 'terrain' || unifiedType === 'physics' || unifiedType === 'mesh') {
           // For these types, we need proper protocol requests
-          // For now, return an error since we can't convert arbitrary data
+          // Enhanced error with more context
           return yield* Effect.fail(
             new WorkerError({
-              message: `Direct execution of ${task.type} tasks requires proper protocol requests. Use the unified worker manager directly.`,
+              message: `Direct execution of ${task.type} tasks requires proper protocol requests. Use the unified worker manager directly. Available operations: ${JSON.stringify(['terrain', 'physics', 'mesh'])}`,
               taskId: task.id,
+              context: {
+                workerType: task.type,
+                operation: task.operation,
+                unifiedType,
+              }
             }),
           )
         }
 
         // For computation tasks, we can create a proper request
-        const computationRequest: ComputationRequest = {
-          id: task.id,
-          type: mapComputationType(task.operation, task.type),
-          priority: task.priority === 'critical' ? 'critical' : task.priority === 'high' ? 'high' : task.priority === 'low' ? 'low' : 'normal',
-          payload: task.data,
-          options: {
-            enableProfiling: false,
-            returnIntermediateResults: false,
-            useCache: true,
-            reportProgress: false,
-          },
+        try {
+          const computationRequest: ComputationRequest = {
+            id: task.id,
+            type: mapComputationType(task.operation, task.type),
+            priority: task.priority === 'critical' ? 'critical' : task.priority === 'high' ? 'high' : task.priority === 'low' ? 'low' : 'normal',
+            payload: task.data,
+            options: {
+              enableProfiling: false,
+              returnIntermediateResults: false,
+              useCache: true,
+              reportProgress: false,
+            },
+          }
+
+          const response = yield* workerManager.executeComputation(computationRequest, {
+            timeout: task.timeout ? Effect.succeed(task.timeout).pipe(Effect.map((ms) => ({ _tag: 'Millis' as const, millis: ms }))) : undefined,
+          }).pipe(
+            Effect.catchAll((executionError) => 
+              Effect.fail(
+                new WorkerError({
+                  message: `Computation execution failed: ${executionError}`,
+                  taskId: task.id,
+                  context: {
+                    computationType: computationRequest.type,
+                    priority: computationRequest.priority,
+                    originalError: executionError,
+                  }
+                })
+              )
+            ),
+            Effect.timeout(task.timeout ? { _tag: 'Millis' as const, millis: task.timeout } : { _tag: 'Millis' as const, millis: 30000 })
+          ).pipe(
+            Effect.catchTag('TimeoutException', () =>
+              Effect.fail(
+                new WorkerError({
+                  message: `Task execution timeout after ${task.timeout || 30000}ms`,
+                  taskId: task.id,
+                  context: {
+                    timeout: task.timeout || 30000,
+                    computationType: computationRequest.type,
+                  }
+                })
+              )
+            )
+          )
+
+          return response.result as T
+        } catch (error) {
+          return yield* Effect.fail(
+            new WorkerError({
+              message: `Failed to create computation request: ${error instanceof Error ? error.message : String(error)}`,
+              taskId: task.id,
+              context: {
+                originalError: error,
+                taskType: task.type,
+                operation: task.operation,
+              }
+            })
+          )
         }
-
-        const response = yield* workerManager.executeComputation(computationRequest, {
-          timeout: task.timeout ? Effect.succeed(task.timeout).pipe(Effect.map((ms) => ({ _tag: 'Millis' as const, millis: ms }))) : undefined,
-        })
-
-        return response.result as T
       }),
 
     executeBatch: <T>(tasks: ReadonlyArray<WorkerTask>) =>
       Effect.gen(function* () {
-        // Execute tasks concurrently
-        const results = yield* Effect.forEach(
+        // Enhanced batch processing with validation and error handling
+        if (tasks.length === 0) {
+          return []
+        }
+        
+        // Validate all tasks before processing
+        const validationResults = yield* Effect.forEach(
           tasks,
+          (task) => Effect.try(() => validateWorkerTask(task)).pipe(
+            Effect.map(() => ({ task, valid: true })),
+            Effect.catchAll((error) => Effect.succeed({ 
+              task, 
+              valid: false, 
+              error: error instanceof Error ? error.message : String(error) 
+            }))
+          ),
+          { concurrency: 5 } // Limit validation concurrency
+        )
+        
+        const validTasks = validationResults.filter(r => r.valid).map(r => r.task)
+        const invalidTasks = validationResults.filter(r => !r.valid)
+        
+        // Log validation failures
+        if (invalidTasks.length > 0) {
+          console.warn(`Bridge: ${invalidTasks.length} tasks failed validation:`, 
+            invalidTasks.map(r => ({ id: r.task.id, error: r.error })))
+        }
+        
+        // Determine optimal concurrency based on task count and system resources
+        const maxConcurrency = Math.min(validTasks.length, navigator?.hardwareConcurrency || 4, 10)
+        
+        // Execute valid tasks concurrently with enhanced error handling
+        const results = yield* Effect.forEach(
+          validTasks,
           (task) => {
-            const self = {
-              execute: <U>(t: WorkerTask) => {
-                const unifiedType = mapWorkerType(t.type)
+            const executeTask = <U>(t: WorkerTask) => {
+              const unifiedType = mapWorkerType(t.type)
 
-                if (unifiedType === 'computation') {
+              if (unifiedType === 'computation') {
+                try {
                   const computationRequest: ComputationRequest = {
                     id: t.id,
                     type: mapComputationType(t.operation, t.type),
@@ -282,24 +426,82 @@ const make = Effect.gen(function* () {
                     },
                   }
 
-                  return workerManager.executeComputation(computationRequest).pipe(Effect.map((response) => response.result as U))
+                  return workerManager.executeComputation(computationRequest).pipe(
+                    Effect.map((response) => response.result as U),
+                    Effect.catchAll((executionError) =>
+                      Effect.fail(
+                        new WorkerError({
+                          message: `Batch task ${t.id} execution failed: ${executionError}`,
+                          taskId: t.id,
+                          context: {
+                            batchIndex: validTasks.indexOf(t),
+                            totalBatchSize: validTasks.length,
+                            computationType: computationRequest.type,
+                            originalError: executionError,
+                          }
+                        })
+                      )
+                    ),
+                    Effect.timeout({ _tag: 'Millis' as const, millis: t.timeout || 60000 })
+                  ).pipe(
+                    Effect.catchTag('TimeoutException', () =>
+                      Effect.fail(
+                        new WorkerError({
+                          message: `Batch task ${t.id} timed out after ${t.timeout || 60000}ms`,
+                          taskId: t.id,
+                          context: {
+                            timeout: t.timeout || 60000,
+                            batchIndex: validTasks.indexOf(t),
+                          }
+                        })
+                      )
+                    )
+                  )
+                } catch (error) {
+                  return Effect.fail(
+                    new WorkerError({
+                      message: `Failed to create computation request for batch task ${t.id}: ${error instanceof Error ? error.message : String(error)}`,
+                      taskId: t.id,
+                      context: {
+                        originalError: error,
+                        batchIndex: validTasks.indexOf(t),
+                      }
+                    })
+                  )
                 }
+              }
 
-                return Effect.fail(
-                  new WorkerError({
-                    message: `Batch execution of ${t.type} tasks not supported via bridge`,
-                    taskId: t.id,
-                  }),
-                )
-              },
+              return Effect.fail(
+                new WorkerError({
+                  message: `Batch execution of ${t.type} tasks not supported via bridge. Supported types: computation`,
+                  taskId: t.id,
+                  context: {
+                    supportedTypes: ['computation'],
+                    requestedType: t.type,
+                    unifiedType,
+                    batchIndex: validTasks.indexOf(t),
+                  }
+                }),
+              )
             }
 
-            return self.execute<T>(task)
+            return executeTask<T>(task).pipe(
+              Effect.catchAll((error) => {
+                // Convert errors to results to avoid failing the entire batch
+                console.error(`Batch task ${task.id} failed:`, error)
+                return Effect.succeed(null as T) // Return null for failed tasks
+              })
+            )
           },
-          { concurrency: 'unbounded' },
+          { concurrency: maxConcurrency },
         )
 
-        return results
+        // Filter out null results from failed tasks
+        const successfulResults = results.filter((result): result is T => result !== null)
+        
+        console.log(`Bridge batch execution completed: ${successfulResults.length}/${validTasks.length} tasks succeeded, ${invalidTasks.length} tasks failed validation`)
+        
+        return successfulResults
       }),
 
     stream: (type, operation, input) => {

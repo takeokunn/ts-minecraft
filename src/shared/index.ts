@@ -72,7 +72,6 @@ export {
   ValidationError,
   SystemError,
   EntityError,
-  type AllGameErrors,
   // Monitoring utilities (used in shared utils)
   type PerformanceMetrics,
   PerformanceMonitor,
@@ -108,4 +107,10 @@ export {
   Vector3,
   type Vector3Type,
   createVector3,
+  // Functional utilities (decorator replacements)
+  debounce,
+  throttle,
+  memoize,
+  withMeasurement,
+  withTiming,
 } from './utils'

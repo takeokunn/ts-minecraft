@@ -2,23 +2,21 @@
  * Mesh Generator Adapter
  *
  * Infrastructure adapter that provides technical implementation of mesh generation
- * by delegating to domain services and handling infrastructure-specific concerns.
+ * using functional programming patterns with Effect-TS and Context.GenericTag.
  * This adapter focuses on technical integration and resource management.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Context } from 'effect'
 import {
-  IMeshGenerator,
-  MeshGeneratorPort,
   MeshGenerationRequest,
   MeshGenerationResult,
   ChunkData,
   GeneratedMeshData,
   MeshGenerationOptions,
   BoundingVolume,
-  MeshGeneratorHelpers,
 } from '@domain/ports/mesh-generator.port'
-import { MeshGenerationDomainService } from '@domain/services/mesh-generation-domain.service'
+import { MeshGenerationDomainService } from '@domain/services/mesh-generation.domain-service'
+import { MeshGenerationError, MeshOptimizationError, ExternalLibraryError } from '@domain/errors'
 
 /**
  * Infrastructure-specific mesh optimization utilities
@@ -92,10 +90,28 @@ const InfrastructureMeshOptimization = {
 } as const
 
 /**
+ * Mesh Generator Adapter Service Interface
+ * Defines the contract for mesh generation with proper error handling
+ */
+export interface MeshGeneratorAdapter {
+  readonly generateMesh: (request: MeshGenerationRequest) => Effect.Effect<MeshGenerationResult, MeshGenerationError | ExternalLibraryError>
+  readonly generateNaiveMesh: (chunkData: ChunkData, options?: MeshGenerationOptions) => Effect.Effect<GeneratedMeshData, MeshGenerationError | ExternalLibraryError>
+  readonly generateGreedyMesh: (chunkData: ChunkData, options?: MeshGenerationOptions) => Effect.Effect<GeneratedMeshData, MeshGenerationError | ExternalLibraryError>
+  readonly calculateBounds: (positions: Float32Array) => Effect.Effect<BoundingVolume, MeshGenerationError>
+  readonly isAvailable: () => Effect.Effect<boolean, never>
+  readonly optimizeMesh: (meshData: GeneratedMeshData) => Effect.Effect<GeneratedMeshData, MeshOptimizationError>
+}
+
+/**
+ * Context tag for Mesh Generator Adapter dependency injection
+ */
+export const MeshGeneratorAdapter = Context.GenericTag<MeshGeneratorAdapter>('@app/MeshGeneratorAdapter')
+
+/**
  * Infrastructure adapter for mesh generation
  * Focuses on technical implementation and resource management
  */
-export const createMeshGeneratorAdapter = () =>
+const createMeshGeneratorAdapter = () =>
   Effect.gen(function* () {
     const domainService = new MeshGenerationDomainService()
 
@@ -215,15 +231,23 @@ export const createMeshGeneratorAdapter = () =>
        * Technical implementation that delegates business logic to domain service
        * and handles infrastructure concerns like GPU optimization and caching
        */
-      generateMesh: (request: MeshGenerationRequest): Effect.Effect<MeshGenerationResult, never, never> =>
+      generateMesh: (request: MeshGenerationRequest): Effect.Effect<MeshGenerationResult, MeshGenerationError | ExternalLibraryError> =>
         Effect.gen(function* () {
           const startTime = performance.now()
 
           // Technical validation of infrastructure capabilities
           yield* validateInfrastructureCapabilities()
 
-          // Delegate to domain service for business logic
-          const result = yield* domainService.generateMesh(request)
+          // Delegate to domain service for business logic with error handling
+          const result = yield* Effect.try({
+            try: () => domainService.generateMesh(request),
+            catch: (e) => new MeshGenerationError({ 
+              message: `Failed to generate mesh: ${e}`,
+              algorithm: request.algorithm,
+              cause: e,
+              timestamp: Date.now()
+            })
+          }).pipe(Effect.flatten)
 
           // Infrastructure-specific optimizations
           const optimizedResult = yield* applyInfrastructureOptimizations(result)
@@ -236,12 +260,56 @@ export const createMeshGeneratorAdapter = () =>
         }),
 
       /**
+       * Optimize mesh data using infrastructure-specific optimizations
+       */
+      optimizeMesh: (meshData: GeneratedMeshData): Effect.Effect<GeneratedMeshData, MeshOptimizationError> =>
+        Effect.try({
+          try: () => {
+            // Apply infrastructure-specific mesh optimizations
+            const optimizedVertexBuffer = InfrastructureMeshOptimization.createOptimizedVertexBuffer(
+              new Float32Array(meshData.vertexBuffer.attributes.positions)
+            )
+            const optimizedIndices = InfrastructureMeshOptimization.optimizeIndexBuffer(
+              new Uint32Array(meshData.indexBuffer.data)
+            )
+            
+            return {
+              ...meshData,
+              vertexBuffer: {
+                ...meshData.vertexBuffer,
+                interleaved: true
+              },
+              indexBuffer: {
+                ...meshData.indexBuffer,
+                data: Array.from(optimizedIndices)
+              }
+            }
+          },
+          catch: (e) => new MeshOptimizationError({
+            message: `Failed to optimize mesh: ${e}`,
+            meshId: 'unknown',
+            optimizationType: 'gpu-optimization',
+            cause: e,
+            timestamp: Date.now()
+          })
+        }),
+
+      /**
        * Generate naive mesh using infrastructure-optimized implementation
        */
-      generateNaiveMesh: (chunkData: ChunkData, options?: MeshGenerationOptions): Effect.Effect<GeneratedMeshData, never, never> =>
+      generateNaiveMesh: (chunkData: ChunkData, options?: MeshGenerationOptions): Effect.Effect<GeneratedMeshData, MeshGenerationError | ExternalLibraryError> =>
         Effect.gen(function* () {
-          // Delegate to domain service for business logic
-          const result = yield* domainService.generateNaiveMesh(chunkData, options)
+          // Delegate to domain service for business logic with error handling
+          const result = yield* Effect.try({
+            try: () => domainService.generateNaiveMesh(chunkData, options),
+            catch: (e) => new MeshGenerationError({
+              message: `Failed to generate naive mesh: ${e}`,
+              chunkId: `${chunkData.position.x}-${chunkData.position.y}-${chunkData.position.z}`,
+              algorithm: 'naive',
+              cause: e,
+              timestamp: Date.now()
+            })
+          }).pipe(Effect.flatten)
 
           // Apply infrastructure-specific optimizations
           return yield* optimizeMeshData(result)
@@ -250,10 +318,19 @@ export const createMeshGeneratorAdapter = () =>
       /**
        * Generate greedy mesh using infrastructure-optimized implementation
        */
-      generateGreedyMesh: (chunkData: ChunkData, options?: MeshGenerationOptions): Effect.Effect<GeneratedMeshData, never, never> =>
+      generateGreedyMesh: (chunkData: ChunkData, options?: MeshGenerationOptions): Effect.Effect<GeneratedMeshData, MeshGenerationError | ExternalLibraryError> =>
         Effect.gen(function* () {
-          // Delegate to domain service for business logic
-          const result = yield* domainService.generateGreedyMesh(chunkData, options)
+          // Delegate to domain service for business logic with error handling
+          const result = yield* Effect.try({
+            try: () => domainService.generateGreedyMesh(chunkData, options),
+            catch: (e) => new MeshGenerationError({
+              message: `Failed to generate greedy mesh: ${e}`,
+              chunkId: `${chunkData.position.x}-${chunkData.position.y}-${chunkData.position.z}`,
+              algorithm: 'greedy',
+              cause: e,
+              timestamp: Date.now()
+            })
+          }).pipe(Effect.flatten)
 
           // Apply infrastructure-specific optimizations
           return yield* optimizeMeshData(result)
@@ -262,34 +339,38 @@ export const createMeshGeneratorAdapter = () =>
       /**
        * Calculate bounds using infrastructure-optimized algorithms
        */
-      calculateBounds: (positions: Float32Array): Effect.Effect<BoundingVolume, never, never> =>
-        Effect.gen(function* () {
-          // Delegate to domain service for business logic
-          return yield* domainService.calculateBounds(positions)
-        }),
+      calculateBounds: (positions: Float32Array): Effect.Effect<BoundingVolume, MeshGenerationError> =>
+        Effect.try({
+          try: () => domainService.calculateBounds(positions),
+          catch: (e) => new MeshGenerationError({
+            message: `Failed to calculate mesh bounds: ${e}`,
+            cause: e,
+            timestamp: Date.now()
+          })
+        }).pipe(Effect.flatten),
 
       /**
        * Check if mesh generation is available on this platform
        */
-      isAvailable: (): Effect.Effect<boolean, never, never> =>
-        Effect.gen(function* () {
+      isAvailable: (): Effect.Effect<boolean, never> =>
+        Effect.sync(() => {
           // Check if infrastructure dependencies are available
           return typeof performance !== 'undefined' && typeof Float32Array !== 'undefined' && typeof Uint32Array !== 'undefined'
         }),
-    } satisfies IMeshGenerator
+    } satisfies MeshGeneratorAdapter
   })
 
 /**
  * Live layer for Mesh Generator Adapter
  */
-export const MeshGeneratorAdapterLive = Layer.effect(MeshGeneratorPort, createMeshGeneratorAdapter())
+export const MeshGeneratorAdapterLive = Layer.effect(MeshGeneratorAdapter, createMeshGeneratorAdapter())
 
 /**
  * Mesh Generator Adapter with custom configuration
  */
 export const createCustomMeshGeneratorAdapter = (config?: { enableGPUOptimization?: boolean; enableVertexCacheOptimization?: boolean; enableMemoryPooling?: boolean }) => {
   return Layer.effect(
-    MeshGeneratorPort,
+    MeshGeneratorAdapter,
     Effect.gen(function* () {
       const adapter = yield* createMeshGeneratorAdapter()
 

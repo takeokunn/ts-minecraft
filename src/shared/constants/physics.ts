@@ -1,4 +1,4 @@
-import { toFloat } from '@shared/utils/math'
+// Remove invalid import - use plain numbers instead
 
 /**
  * Physics and movement constants
@@ -32,13 +32,13 @@ export interface SimpleCollider {
 
 // --- Colliders ---
 export const PLAYER_COLLIDER: SimpleCollider = {
-  width: toFloat(0.6),
-  height: toFloat(PLAYER_HEIGHT),
-  depth: toFloat(0.6),
+  width: 0.6,
+  height: PLAYER_HEIGHT,
+  depth: 0.6,
 }
 
 export const BLOCK_COLLIDER: SimpleCollider = {
-  width: toFloat(1),
-  height: toFloat(1),
-  depth: toFloat(1),
+  width: 1,
+  height: 1,
+  depth: 1,
 }

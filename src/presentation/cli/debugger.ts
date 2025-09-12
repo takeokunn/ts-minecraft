@@ -15,12 +15,9 @@
 
 import * as Effect from 'effect/Effect'
 import * as Ref from 'effect/Ref'
-import * as S from '@effect/schema/Schema'
-import { isRecord, hasProperty, isVector3, getSafeNumberProperty } from '@shared/utils/type-guards'
-import { pipe } from 'effect/Function'
-import { World } from '@presentation/entities'
-import { UnifiedQuerySystemService } from '@application/queries/unified-query-system'
-import { PerformanceProfiler } from '@presentation/cli/performance-profiler'
+import { isRecord, hasProperty, isVector3 } from '@shared/utils/type-guards'
+import { WorldState } from '@domain/entities'
+import { createPerformanceProfiler } from '@presentation/cli/performance-profiler'
 import { createDevConsole } from '@presentation/cli/dev-console'
 import { createEntityInspector } from '@presentation/cli/entity-inspector'
 import type { PerformanceProfilerTool, DevConsoleTool, EntityInspectorTool } from '@presentation/cli/dev-tools-manager'
@@ -38,30 +35,6 @@ const isValidPosition = (value: unknown): value is { x: number; y: number; z: nu
   return isVector3(value)
 }
 
-const WatchedEntityDataSchema = S.Array(
-  S.Struct({
-    entityId: S.String,
-    components: S.Record(S.String, S.Unknown),
-    position: S.optional(
-      S.Struct({
-        x: S.Number,
-        y: S.Number,
-        z: S.Number,
-      }),
-    ),
-    metadata: S.Record(S.String, S.Unknown),
-  }),
-)
-
-const SystemMetricsSchema = S.Record(S.String, S.Union(S.Number, S.String, S.Boolean, S.Array(S.Unknown), S.Record(S.String, S.Unknown)))
-
-const PerformanceStatsSchema = S.Struct({
-  frameTime: S.Number,
-  drawCalls: S.Number,
-  triangles: S.Number,
-  memoryUsage: S.optional(S.Number),
-  fps: S.optional(S.Number),
-})
 
 // Validation utilities
 const validateWatchedEntityData = (
@@ -164,7 +137,7 @@ export interface DebugBreakpoint {
 export interface DebugBreakpointContext {
   frame: number
   breakpoint: DebugBreakpoint
-  world: World
+  world: WorldState
 }
 
 export interface DebugSession {
@@ -250,7 +223,7 @@ const defaultConfig: GameDebuggerConfig = {
 /**
  * Create Game Debugger functional module
  */
-export const createGameDebugger = (world: World, config: Partial<GameDebuggerConfig> = {}) =>
+export const createGameDebugger = (world: WorldState, config: Partial<GameDebuggerConfig> = {}) =>
   Effect.gen(function* () {
     const finalConfig = { ...defaultConfig, ...config }
 
@@ -286,7 +259,7 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
      * Initialize debugger components
      */
     const initializeComponents = Effect.gen(function* () {
-      const performanceProfiler = yield* Effect.tryPromise(() => Effect.runSync(Effect.gen(() => new PerformanceProfiler())))
+      const performanceProfiler = yield* createPerformanceProfiler()
       const devConsole = yield* createDevConsole(world)
       const entityInspector = yield* createEntityInspector(world)
 
@@ -1010,5 +983,5 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
  */
 const createGameDebuggerFactory =
   (config: Partial<GameDebuggerConfig> = {}) =>
-  (world: World) =>
+  (world: WorldState) =>
     createGameDebugger(world, config)

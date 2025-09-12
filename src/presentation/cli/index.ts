@@ -15,5 +15,9 @@ export { createDevToolsManager, type DevToolsState, type DevToolsConfig } from '
 
 export { createStateDebugger, type StateDebuggerState, type StateDebuggerConfig, type ComponentState, type StateSnapshot, type StateDiff } from './state-debugger'
 
+export { createCommandPalette, type CommandPaletteState, type CommandPaletteConfig, type Command, type CommandRegistry } from './command-palette'
+
+export { createHotReloadManager, type HotReloadState, type HotReloadConfig, type FileWatcher, type ReloadOverlayItem } from './hot-reload'
+
 // CLI configuration
 export { defaultCliConfig } from './config'

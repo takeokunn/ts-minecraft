@@ -192,7 +192,7 @@ const MonitoringStateOps = {
 const getMemoryMetrics = (): Effect.Effect<PerformanceMetrics['memory'], never, never> =>
   Effect.sync(() => {
     if (typeof window !== 'undefined' && 'performance' in window && 'memory' in performance) {
-      const memory = (performance as PerformanceWithMemory).memory
+      const memory = (performance as PerformanceWithMemory).memory // Safe assertion: we've checked 'memory' exists above
       return {
         used: memory.usedJSHeapSize,
         total: memory.totalJSHeapSize,

@@ -491,24 +491,24 @@ export const BlockPropertiesUtils = {
    * Get texture mapping for a block type
    */
   getBlockTextures: (blockType: BlockType) => {
-    return BLOCK_TEXTURES[blockType] ?? BLOCK_TEXTURES.stone
+    return BLOCK_TEXTURES[blockType as keyof typeof BLOCK_TEXTURES] ?? BLOCK_TEXTURES.stone
   },
 
   /**
    * Check if a block type has animated textures
    */
   hasAnimatedTexture: (blockType: BlockType): boolean => {
-    const textures = BLOCK_TEXTURES[blockType]
-    return 'animated' in textures && textures.animated === true
+    const textures = BLOCK_TEXTURES[blockType as keyof typeof BLOCK_TEXTURES]
+    return textures && 'animated' in textures && textures.animated === true
   },
 
   /**
    * Check if a block type is emissive (self-illuminated)
    */
   isBlockEmissive: (blockType: BlockType): boolean => {
-    const textures = BLOCK_TEXTURES[blockType]
-    const opacity = BLOCK_OPACITY[blockType]
-    return ('emissive' in textures && textures.emissive === true) || ('isEmissive' in opacity && opacity.isEmissive === true)
+    const textures = BLOCK_TEXTURES[blockType as keyof typeof BLOCK_TEXTURES]
+    const opacity = BLOCK_OPACITY[blockType as keyof typeof BLOCK_OPACITY]
+    return (textures && 'emissive' in textures && textures.emissive === true) || (opacity && 'isEmissive' in opacity && opacity.isEmissive === true)
   },
 
   /**

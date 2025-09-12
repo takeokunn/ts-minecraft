@@ -8,33 +8,37 @@
 
 import * as Effect from 'effect/Effect'
 import * as Context from 'effect/Context'
-import * as Data from 'effect/Data'
+import * as S from '@effect/schema/Schema'
 import * as Option from 'effect/Option'
 import * as Schedule from 'effect/Schedule'
 
 // Error types for rendering operations
-export class RenderError extends Data.TaggedError('RenderError')<{
-  readonly message: string
-  readonly cause?: unknown
-}> {}
+export const RenderError = S.TaggedError<RenderError>()('RenderError', {
+  message: S.String,
+  cause: S.optional(S.Unknown)
+})
+export interface RenderError extends S.Schema.Type<typeof RenderError> {}
 
-export class MeshError extends Data.TaggedError('MeshError')<{
-  readonly message: string
-  readonly chunkX: number
-  readonly chunkZ: number
-  readonly cause?: unknown
-}> {}
+export const MeshError = S.TaggedError<MeshError>()('MeshError', {
+  message: S.String,
+  chunkX: S.Number,
+  chunkZ: S.Number,
+  cause: S.optional(S.Unknown)
+})
+export interface MeshError extends S.Schema.Type<typeof MeshError> {}
 
-export class CameraError extends Data.TaggedError('CameraError')<{
-  readonly message: string
-  readonly cause?: unknown
-}> {}
+export const CameraError = S.TaggedError<CameraError>()('CameraError', {
+  message: S.String,
+  cause: S.optional(S.Unknown)
+})
+export interface CameraError extends S.Schema.Type<typeof CameraError> {}
 
-export class ResourceError extends Data.TaggedError('ResourceError')<{
-  readonly message: string
-  readonly resourceType: string
-  readonly cause?: unknown
-}> {}
+export const ResourceError = S.TaggedError<ResourceError>()('ResourceError', {
+  message: S.String,
+  resourceType: S.String,
+  cause: S.optional(S.Unknown)
+})
+export interface ResourceError extends S.Schema.Type<typeof ResourceError> {}
 
 // Domain-specific types (no external library dependencies)
 export interface Camera {

@@ -8,52 +8,58 @@
 
 import * as Effect from 'effect/Effect'
 import * as Context from 'effect/Context'
-import * as Data from 'effect/Data'
+import * as S from '@effect/schema/Schema'
 import { EntityId } from '@domain/entities'
 
 // Error types for world repository operations
-export class WorldRepositoryError extends Data.TaggedError('WorldRepositoryError')<{
-  readonly message: string
-  readonly operation: string
-  readonly timestamp?: number
-  readonly cause?: unknown
-}> {}
+export const WorldRepositoryError = S.TaggedError<WorldRepositoryError>()('WorldRepositoryError', {
+  message: S.String,
+  operation: S.String,
+  timestamp: S.optional(S.Number),
+  cause: S.optional(S.Unknown)
+})
+export interface WorldRepositoryError extends S.Schema.Type<typeof WorldRepositoryError> {}
 
-export class EntityNotFoundError extends Data.TaggedError('EntityNotFoundError')<{
-  readonly entityId: EntityId
-  readonly message: string
-  readonly requestedOperation: string
-}> {}
+export const EntityNotFoundError = S.TaggedError<EntityNotFoundError>()('EntityNotFoundError', {
+  entityId: EntityId,
+  message: S.String,
+  requestedOperation: S.String
+})
+export interface EntityNotFoundError extends S.Schema.Type<typeof EntityNotFoundError> {}
 
-export class ComponentError extends Data.TaggedError('ComponentError')<{
-  readonly entityId: EntityId
-  readonly componentType: string
-  readonly message: string
-  readonly operation: 'create' | 'read' | 'update' | 'delete'
-  readonly cause?: unknown
-}> {}
+export const ComponentError = S.TaggedError<ComponentError>()('ComponentError', {
+  entityId: EntityId,
+  componentType: S.String,
+  message: S.String,
+  operation: S.Literal('create', 'read', 'update', 'delete'),
+  cause: S.optional(S.Unknown)
+})
+export interface ComponentError extends S.Schema.Type<typeof ComponentError> {}
 
-export class QueryError extends Data.TaggedError('QueryError')<{
-  readonly message: string
-  readonly queryType: string
-  readonly componentTypes: ReadonlyArray<string>
-  readonly entityCount?: number
-  readonly cause?: unknown
-}> {}
+export const QueryError = S.TaggedError<QueryError>()('QueryError', {
+  message: S.String,
+  queryType: S.String,
+  componentTypes: S.Array(S.String),
+  entityCount: S.optional(S.Number),
+  cause: S.optional(S.Unknown)
+})
+export interface QueryError extends S.Schema.Type<typeof QueryError> {}
 
-export class TransactionError extends Data.TaggedError('TransactionError')<{
-  readonly message: string
-  readonly operationCount: number
-  readonly failedOperationIndex?: number
-  readonly cause?: unknown
-}> {}
+export const TransactionError = S.TaggedError<TransactionError>()('TransactionError', {
+  message: S.String,
+  operationCount: S.Number,
+  failedOperationIndex: S.optional(S.Number),
+  cause: S.optional(S.Unknown)
+})
+export interface TransactionError extends S.Schema.Type<typeof TransactionError> {}
 
-export class ValidationError extends Data.TaggedError('ValidationError')<{
-  readonly entityId: EntityId
-  readonly componentType: string
-  readonly invalidFields: ReadonlyArray<string>
-  readonly message: string
-}> {}
+export const ValidationError = S.TaggedError<ValidationError>()('ValidationError', {
+  entityId: EntityId,
+  componentType: S.String,
+  invalidFields: S.Array(S.String),
+  message: S.String
+})
+export interface ValidationError extends S.Schema.Type<typeof ValidationError> {}
 
 // Query result types (technology-agnostic)
 export interface QueryResult<T = unknown> {

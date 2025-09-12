@@ -1,6 +1,5 @@
 import { World } from '@domain/entities'
 import { Effect, Ref } from 'effect'
-import * as Option from 'effect/Option'
 
 export interface ConsoleCommand {
   name: string

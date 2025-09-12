@@ -2,22 +2,20 @@
  * Terrain Generator Adapter
  *
  * Infrastructure adapter that provides technical implementation of terrain generation
- * by delegating to domain services and handling infrastructure-specific concerns.
+ * using functional programming patterns with Effect-TS and Context.GenericTag.
  * This adapter focuses on technical integration and resource management.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Context } from 'effect'
 import {
-  ITerrainGenerator,
-  TerrainGeneratorPort,
   TerrainGenerationRequest,
   TerrainGenerationResult,
   ChunkCoordinates,
   NoiseSettings,
   BiomeConfig,
-  TerrainGeneratorHelpers,
 } from '@domain/ports/terrain-generator.port'
-import { TerrainGenerationDomainService } from '@domain/services/terrain-generation-domain.service'
+import { TerrainGenerationDomainService } from '@domain/services/terrain-generation.domain-service'
+import { TerrainGenerationError, NoiseGenerationError, ExternalLibraryError } from '@domain/errors'
 
 /**
  * Technical noise implementation using browser APIs
@@ -62,10 +60,27 @@ const InfrastructureNoise = {
 } as const
 
 /**
+ * Terrain Generator Adapter Service Interface
+ * Defines the contract for terrain generation with proper error handling
+ */
+export interface TerrainGeneratorAdapter {
+  readonly generateTerrain: (request: TerrainGenerationRequest) => Effect.Effect<TerrainGenerationResult, TerrainGenerationError | ExternalLibraryError>
+  readonly generateHeightMap: (coordinates: ChunkCoordinates, seed: number, noise: NoiseSettings) => Effect.Effect<readonly number[], TerrainGenerationError | NoiseGenerationError>
+  readonly getBiome: (x: number, z: number, seed: number) => Effect.Effect<BiomeConfig, TerrainGenerationError>
+  readonly isAvailable: () => Effect.Effect<boolean, never>
+  readonly generateNoise: (x: number, y: number, z: number, seed: number) => Effect.Effect<number, NoiseGenerationError>
+}
+
+/**
+ * Context tag for Terrain Generator Adapter dependency injection
+ */
+export const TerrainGeneratorAdapter = Context.GenericTag<TerrainGeneratorAdapter>('@app/TerrainGeneratorAdapter')
+
+/**
  * Infrastructure adapter for terrain generation
  * Focuses on technical implementation and resource management
  */
-export const createTerrainGeneratorAdapter = () =>
+const createTerrainGeneratorAdapter = () =>
   Effect.gen(function* () {
     const domainService = new TerrainGenerationDomainService()
     const noiseProvider = InfrastructureNoise.simplexNoise
@@ -122,15 +137,24 @@ export const createTerrainGeneratorAdapter = () =>
        * Technical implementation that delegates business logic to domain service
        * and handles infrastructure concerns like performance monitoring and caching
        */
-      generateTerrain: (request: TerrainGenerationRequest): Effect.Effect<TerrainGenerationResult, never, never> =>
+      generateTerrain: (request: TerrainGenerationRequest): Effect.Effect<TerrainGenerationResult, TerrainGenerationError | ExternalLibraryError> =>
         Effect.gen(function* () {
           const startTime = performance.now()
 
           // Technical validation of infrastructure capabilities
           yield* validateInfrastructureCapabilities()
 
-          // Delegate to domain service for business logic
-          const result = yield* domainService.generateTerrain(request)
+          // Delegate to domain service for business logic with error handling
+          const result = yield* Effect.try({
+            try: () => domainService.generateTerrain(request),
+            catch: (e) => new TerrainGenerationError({
+              message: `Failed to generate terrain: ${e}`,
+              coordinates: request.coordinates,
+              seed: request.seed,
+              cause: e,
+              timestamp: Date.now()
+            })
+          }).pipe(Effect.flatten)
 
           // Infrastructure-specific performance monitoring
           const infraTime = performance.now() - startTime
@@ -140,46 +164,76 @@ export const createTerrainGeneratorAdapter = () =>
         }),
 
       /**
+       * Generate noise using infrastructure-specific noise implementation
+       */
+      generateNoise: (x: number, y: number, z: number, seed: number): Effect.Effect<number, NoiseGenerationError> =>
+        Effect.try({
+          try: () => {
+            return noiseProvider(x, y, z, seed)
+          },
+          catch: (e) => new NoiseGenerationError({
+            message: `Failed to generate noise: ${e}`,
+            coordinates: { x, y, z },
+            seed,
+            noiseType: 'simplex',
+            cause: e,
+            timestamp: Date.now()
+          })
+        }),
+
+      /**
        * Generate height map using infrastructure-specific noise implementation
        */
-      generateHeightMap: (coordinates: ChunkCoordinates, seed: number, noise: NoiseSettings): Effect.Effect<readonly number[], never, never> =>
-        Effect.gen(function* () {
-          // Delegate to domain service for business logic
-          return yield* domainService.generateHeightMap(coordinates, seed, noise)
-        }),
+      generateHeightMap: (coordinates: ChunkCoordinates, seed: number, noise: NoiseSettings): Effect.Effect<readonly number[], TerrainGenerationError | NoiseGenerationError> =>
+        Effect.try({
+          try: () => domainService.generateHeightMap(coordinates, seed, noise),
+          catch: (e) => new TerrainGenerationError({
+            message: `Failed to generate height map: ${e}`,
+            coordinates: { x: coordinates.x, z: coordinates.z },
+            seed,
+            cause: e,
+            timestamp: Date.now()
+          })
+        }).pipe(Effect.flatten),
 
       /**
        * Get biome configuration using infrastructure-specific biome generation
        */
-      getBiome: (x: number, z: number, seed: number): Effect.Effect<BiomeConfig, never, never> =>
-        Effect.gen(function* () {
-          // Delegate to domain service for business logic
-          return yield* domainService.getBiome(x, z, seed)
-        }),
+      getBiome: (x: number, z: number, seed: number): Effect.Effect<BiomeConfig, TerrainGenerationError> =>
+        Effect.try({
+          try: () => domainService.getBiome(x, z, seed),
+          catch: (e) => new TerrainGenerationError({
+            message: `Failed to get biome configuration: ${e}`,
+            coordinates: { x, z },
+            seed,
+            cause: e,
+            timestamp: Date.now()
+          })
+        }).pipe(Effect.flatten),
 
       /**
        * Check if terrain generation is available on this platform
        */
-      isAvailable: (): Effect.Effect<boolean, never, never> =>
-        Effect.gen(function* () {
+      isAvailable: (): Effect.Effect<boolean, never> =>
+        Effect.sync(() => {
           // Check if infrastructure dependencies are available
           // In a real implementation, this would check for WebGL, noise libraries, etc.
           return typeof performance !== 'undefined' && typeof Math !== 'undefined'
         }),
-    } satisfies ITerrainGenerator
+    } satisfies TerrainGeneratorAdapter
   })
 
 /**
  * Live layer for Terrain Generator Adapter
  */
-export const TerrainGeneratorAdapterLive = Layer.effect(TerrainGeneratorPort, createTerrainGeneratorAdapter())
+export const TerrainGeneratorAdapterLive = Layer.effect(TerrainGeneratorAdapter, createTerrainGeneratorAdapter())
 
 /**
  * Terrain Generator Adapter with custom configuration
  */
 export const createCustomTerrainGeneratorAdapter = (config?: { noiseLibrary?: 'math' | 'simplex' | 'perlin'; enableGPUAcceleration?: boolean; enableWorkerThreads?: boolean }) => {
   return Layer.effect(
-    TerrainGeneratorPort,
+    TerrainGeneratorAdapter,
     Effect.gen(function* () {
       const adapter = yield* createTerrainGeneratorAdapter()
 

@@ -1,268 +1,310 @@
 /**
- * Unified Application Layer Composition
+ * Optimized Layer Composition System
  *
- * This file provides the main layer composition using the unified infrastructure
- * layer system. All services are now consolidated in the unified.layer.ts file.
+ * This file provides a clean, optimized layer composition system with:
+ * - Core architectural layers (Domain, Infrastructure, Application, Presentation)
+ * - Environment-specific layer configurations
+ * - Simplified layer composition without unnecessary complexity
+ * - TaggedError handling for layer composition failures
  */
 
-import { Layer } from 'effect'
+import { Layer, Effect, Schema, pipe } from 'effect'
 
 // Import unified infrastructure layers
 import {
-  // Layer compositions
   DomainServicesLive,
   CoreServicesLive,
-  WorldServicesLive,
-  WorkerServicesLive,
   RenderingServicesLive,
   InputServicesLive,
   UIServicesLive,
-  UnifiedAppLive,
-
-  // Preset configurations
-  MinimalLive,
-  HeadlessLive,
-  DevelopmentLive,
   ProductionLive,
-  buildCustomLayer,
-  getRuntimeLayer,
-
-  // Service definitions for dependency injection
-  Clock,
-  Stats,
-  World,
-  ChunkManager,
-  Renderer,
-  InputManager,
-  MaterialManager,
-  SpatialGrid,
-  TerrainGenerator,
-  WorkerManager,
-  RenderCommand,
-  Raycast,
-  UIService,
-  WorldDomainService,
-  PhysicsDomainService,
-  EntityDomainService,
-
-  // Types
-  type PerformanceStats,
-  type InputState,
-  type RenderCommandType,
-  type RaycastResult,
-  type WorldState,
+  MinimalLive,
 } from '@infrastructure/layers/unified.layer'
-
-// Import optimized layer compositions
-import {
-  EssentialServicesLive,
-  GameLogicServicesLive,
-  RenderingStackLive,
-  ComputeServicesLive,
-  OptimizedDevelopmentLive,
-  OptimizedProductionLive,
-  OptimizedTestLive,
-  OptimizedServerLive,
-  FullClientLive,
-  MinimalClientLive,
-  buildOptimizedLayer,
-  getOptimizedLayer,
-  type LayerConfig,
-} from '@infrastructure/layers/optimized-compositions'
 
 // Import application layer
 import { ApplicationLayer } from '@application/application-layer'
 
+// ===== TAGGED ERROR DEFINITIONS =====
+
+/**
+ * Layer composition error for layer merging and dependency injection failures
+ */
+export class LayerCompositionError extends Schema.TaggedError<LayerCompositionError>()('LayerCompositionError', {
+  message: Schema.String,
+  timestamp: Schema.optional(Schema.Number),
+  cause: Schema.optional(Schema.Unknown),
+  layerName: Schema.optional(Schema.String), // which layer failed to compose
+  stage: Schema.optional(Schema.String), // composition stage that failed
+}) {}
+
+/**
+ * Helper function to safely merge layers with error handling
+ */
+const safeMergeAll = <A, E, R>(...layers: ReadonlyArray<Layer.Layer<A, E, R>>): Layer.Layer<A, LayerCompositionError | E, R> =>
+  pipe(
+    Layer.mergeAll(...layers),
+    Layer.catchAll((error) =>
+      Layer.fail(
+        new LayerCompositionError({
+          message: 'Layer merge failed',
+          timestamp: Date.now(),
+          cause: error,
+          stage: 'layer_merge',
+        })
+      )
+    )
+  )
+
+/**
+ * Helper function to safely provide layer with error handling
+ */
+const safeProvide = <A, E, R, E2, R2>(
+  effect: Effect.Effect<A, E, R>,
+  layer: Layer.Layer<R, E2, R2>
+): Effect.Effect<A, LayerCompositionError | E | E2, R2> =>
+  pipe(
+    effect,
+    Effect.provide(layer),
+    Effect.catchAll((error) =>
+      new LayerCompositionError({
+        message: 'Layer provide failed',
+        timestamp: Date.now(),
+        cause: error,
+        stage: 'layer_provide',
+      })
+    )
+  )
+
 // Import infrastructure adapters
 import { 
-  SystemCommunicationLive, 
-  PerformanceMonitorLive,
   CompleteAdapterLayer,
-  DevelopmentAdapterLayer,
   ProductionAdapterLayer,
   MinimalAdapterLayer,
 } from '@infrastructure/adapters'
 
-// ===== LAYER COMPOSITIONS BY ARCHITECTURE TIER =====
+// ===== CORE ARCHITECTURAL LAYERS =====
 
 /**
- * Domain Layer - Pure domain logic services
- * Contains business rules and domain entities
+ * Domain Layer - Pure domain logic and business rules
  */
-export const DomainLayer = DomainServicesLive
+const DomainLayer = DomainServicesLive
 
 /**
- * Infrastructure Layer - Technical infrastructure services
- * Contains implementations of ports defined by domain/application layers
+ * Infrastructure Layer - Technical infrastructure services and port implementations
+ * Includes error handling for layer composition failures
  */
-export const InfrastructureLayer = Layer.mergeAll(CoreServicesLive, RenderingServicesLive, InputServicesLive, WorkerServicesLive)
-
-/**
- * Application Layer - Application services and use cases
- * Orchestrates domain services to implement business use cases
- */
-export const ApplicationServicesLayer = ApplicationLayer
-
-/**
- * Presentation Layer - UI and presentation services
- * Handles user interface and external communication
- */
-export const PresentationLayer = UIServicesLive
-
-// ===== COMPLETE APPLICATION LAYERS =====
-
-/**
- * Complete unified application layer - all services composed
- * This is the main layer used in production
- * Includes ALL adapters that provide port implementations for complete hexagonal architecture
- */
-export const AppLayer = Layer.mergeAll(
-  UnifiedAppLive, 
-  CompleteAdapterLayer,  // ALL port adapters for complete hexagonal architecture
-  ApplicationLayer
+const InfrastructureLayer = pipe(
+  Layer.mergeAll(
+    CoreServicesLive,
+    RenderingServicesLive,
+    InputServicesLive
+  ),
+  Layer.catchAll((error) =>
+    Layer.fail(
+      new LayerCompositionError({
+        message: 'Infrastructure layer composition failed',
+        timestamp: Date.now(),
+        cause: error,
+        layerName: 'InfrastructureLayer',
+        stage: 'infrastructure_merge',
+      })
+    )
+  )
 )
 
 /**
- * Development layer with debug capabilities  
- * Uses development-specific adapter configurations
+ * Core Layers - Domain + Infrastructure
+ * Foundation layers required by all applications
  */
-export const DevLayer = Layer.mergeAll(
-  OptimizedDevelopmentLive,
-  DevelopmentAdapterLayer,
-  ApplicationLayer
+const CoreLayers = pipe(
+  Layer.mergeAll(DomainLayer, InfrastructureLayer),
+  Layer.catchAll((error) =>
+    Layer.fail(
+      new LayerCompositionError({
+        message: 'Core layers composition failed',
+        timestamp: Date.now(),
+        cause: error,
+        layerName: 'CoreLayers',
+        stage: 'core_merge',
+      })
+    )
+  )
 )
 
 /**
- * Production optimized layer
- * Uses production-optimized adapter configurations
+ * Application Layer - Core layers + Application services
+ * Business use cases and application orchestration
  */
-export const ProdLayer = Layer.mergeAll(
-  OptimizedProductionLive,
-  ProductionAdapterLayer,
-  ApplicationLayer
+const ApplicationLayerComposed = pipe(
+  Layer.mergeAll(CoreLayers, ApplicationLayer),
+  Layer.catchAll((error) =>
+    Layer.fail(
+      new LayerCompositionError({
+        message: 'Application layer composition failed',
+        timestamp: Date.now(),
+        cause: error,
+        layerName: 'ApplicationLayerComposed',
+        stage: 'application_merge',
+      })
+    )
+  )
 )
 
 /**
- * Minimal layer for unit testing
- * Uses minimal set of adapters for testing
+ * Full Stack Layer - Application layer + Presentation layer
+ * Complete application with UI capabilities
  */
-export const TestLayer = Layer.mergeAll(
-  OptimizedTestLive,
-  MinimalAdapterLayer,
-  ApplicationLayer
+const FullStackLayer = pipe(
+  Layer.mergeAll(ApplicationLayerComposed, UIServicesLive),
+  Layer.catchAll((error) =>
+    Layer.fail(
+      new LayerCompositionError({
+        message: 'Full stack layer composition failed',
+        timestamp: Date.now(),
+        cause: error,
+        layerName: 'FullStackLayer',
+        stage: 'fullstack_merge',
+      })
+    )
+  )
 )
 
-/**
- * Headless layer for server/simulation (no UI/input)
- */
-export const ServerLayer = OptimizedServerLive
-
-// ===== OPTIMIZED LAYER COMPOSITIONS =====
+// ===== ENVIRONMENT-SPECIFIC LAYER CREATION =====
 
 /**
- * Essential services only - minimal memory footprint
+ * Create environment-specific layer with appropriate adapters and optimizations
+ * Includes TaggedError handling for layer composition failures
  */
-export const EssentialLayer = EssentialServicesLive
+export const createEnvironmentLayer = (env: 'production' | 'development' | 'test') => {
+  try {
+    switch (env) {
+      case 'production':
+        return pipe(
+          Layer.mergeAll(
+            FullStackLayer,
+            ProductionLive,
+            ProductionAdapterLayer
+          ),
+          Layer.catchAll((error) =>
+            Layer.fail(
+              new LayerCompositionError({
+                message: `Production layer composition failed`,
+                timestamp: Date.now(),
+                cause: error,
+                layerName: 'ProductionLayer',
+                stage: 'production_merge',
+              })
+            )
+          )
+        )
+      
+      case 'development':
+        return pipe(
+          Layer.mergeAll(
+            FullStackLayer,
+            CompleteAdapterLayer
+          ),
+          Layer.catchAll((error) =>
+            Layer.fail(
+              new LayerCompositionError({
+                message: `Development layer composition failed`,
+                timestamp: Date.now(),
+                cause: error,
+                layerName: 'DevelopmentLayer',
+                stage: 'development_merge',
+              })
+            )
+          )
+        )
+      
+      case 'test':
+        return pipe(
+          Layer.mergeAll(
+            ApplicationLayerComposed, // No UI layer for tests
+            MinimalLive,
+            MinimalAdapterLayer
+          ),
+          Layer.catchAll((error) =>
+            Layer.fail(
+              new LayerCompositionError({
+                message: `Test layer composition failed`,
+                timestamp: Date.now(),
+                cause: error,
+                layerName: 'TestLayer',
+                stage: 'test_merge',
+              })
+            )
+          )
+        )
+    }
+  } catch (error) {
+    return Layer.fail(
+      new LayerCompositionError({
+        message: `Environment layer creation failed for: ${env}`,
+        timestamp: Date.now(),
+        cause: error,
+        layerName: `${env}Layer`,
+        stage: 'environment_creation',
+      })
+    )
+  }
+}
+
+// ===== SIMPLIFIED APP LAYER FUNCTION =====
 
 /**
- * Game logic without rendering - ideal for simulation
+ * Get appropriate application layer based on environment
+ * Includes comprehensive error handling with TaggedError pattern
  */
-export const GameLogicLayer = GameLogicServicesLive
-
-/**
- * Complete rendering pipeline
- */
-export const RenderingLayer = RenderingStackLive
-
-/**
- * Background computation services
- */
-export const ComputeLayer = ComputeServicesLive
-
-/**
- * Full client experience
- */
-export const FullClientLayer = FullClientLive
-
-/**
- * Minimal client for lightweight operation
- */
-export const MinimalClientLayer = MinimalClientLive
-
-// ===== ENVIRONMENT-BASED LAYER SELECTION =====
-
-/**
- * Get appropriate layer based on environment
- */
-export const getAppLayer = (environment: 'development' | 'production' | 'test' | 'server' = 'development') => {
-  switch (environment) {
-    case 'production':
-      return ProdLayer
-    case 'test':
-      return TestLayer
-    case 'server':
-      return ServerLayer
-    case 'development':
-    default:
-      return DevLayer
+export const getAppLayer = (environment: 'development' | 'production' | 'test' = 'development') => {
+  try {
+    return createEnvironmentLayer(environment)
+  } catch (error) {
+    return Layer.fail(
+      new LayerCompositionError({
+        message: `Failed to get app layer for environment: ${environment}`,
+        timestamp: Date.now(),
+        cause: error,
+        layerName: 'AppLayer',
+        stage: 'environment_selection',
+      })
+    )
   }
 }
 
 /**
- * Get runtime layer (automatically detects environment)
- * Uses optimized compositions for better performance
+ * Safe layer composition with comprehensive error handling
+ * Returns an Effect that can be used with proper error handling
  */
-export const getAutoLayer = () => getOptimizedLayer(process.env.NODE_ENV)
+export const safeGetAppLayer = (environment: 'development' | 'production' | 'test' = 'development') =>
+  pipe(
+    Effect.try(() => getAppLayer(environment)),
+    Effect.catchAll((error) =>
+      Effect.fail(
+        new LayerCompositionError({
+          message: `Layer composition failed for environment: ${environment}`,
+          timestamp: Date.now(),
+          cause: error,
+          layerName: 'SafeAppLayer',
+          stage: 'safe_composition',
+        })
+      )
+    )
+  )
+
+// ===== PUBLIC LAYER EXPORTS =====
 
 /**
- * Legacy runtime layer function (for backward compatibility)
+ * Core architectural layers for modular composition
  */
-export const getLegacyAutoLayer = getRuntimeLayer
-
-// ===== CUSTOM LAYER BUILDER =====
-
-/**
- * Build optimized custom layer composition for specific use cases
- */
-export const createOptimizedLayer = buildOptimizedLayer
-
-/**
- * Build custom layer composition for specific use cases (legacy)
- */
-export const createCustomLayer = buildCustomLayer
-
-// ===== SERVICE EXPORTS FOR DEPENDENCY INJECTION =====
-
 export {
-  // Infrastructure Services
-  Clock,
-  Stats,
-  World,
-  ChunkManager,
-  Renderer,
-  InputManager,
-  MaterialManager,
-  SpatialGrid,
-  TerrainGenerator,
-  WorkerManager,
-  RenderCommand,
-  Raycast,
-  UIService,
-
-  // Domain Services
-  WorldDomainService,
-  PhysicsDomainService,
-  EntityDomainService,
+  DomainLayer,
+  InfrastructureLayer,
+  ApplicationLayerComposed as ApplicationLayer,
+  FullStackLayer
 }
 
-// ===== TYPE EXPORTS =====
-
-export type { PerformanceStats, InputState, RenderCommandType, RaycastResult, WorldState }
-
-// ===== BACKWARDS COMPATIBILITY =====
-
-// Legacy exports for existing code
-export { AppLayer as CompleteAppLayer }
-export { DomainLayer as DomainServicesLayer }
-export { InfrastructureLayer as InfrastructureServicesLayer }
-export { PresentationLayer as PresentationServicesLayer }
+/**
+ * Main application layer - development environment by default
+ */
+export const AppLayer = createEnvironmentLayer('development')

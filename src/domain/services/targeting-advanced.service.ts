@@ -45,7 +45,7 @@ export type SystemFunction = (context: SystemContext) => Effect.Effect<void, nev
 import { Position, CameraComponent, TargetComponent, InputStateComponent } from '@domain/entities/components'
 import { EntityId } from '@domain/entities'
 import { BlockType, BlockPosition } from '@domain/value-objects'
-import { Vector3, makeVector3, normalize, add, multiply } from '@domain/value-objects/math/vector3.vo'
+import { Vector3, makeVector3, normalize, add, multiply } from '@domain/value-objects/math/vector3.value-object'
 import { Ray } from '@domain/ports/raycast.port'
 
 /**

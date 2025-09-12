@@ -1,9 +1,15 @@
 /**
- * Mesh Generation Worker
- * Dedicated worker for generating 3D meshes from voxel data
+ * Enhanced Mesh Generation Worker with Complete Schema Validation
+ * Dedicated worker for generating 3D meshes from voxel data using @effect/schema
  */
 
 import { Effect } from 'effect'
+import {
+  createTypedWorker,
+  detectWorkerCapabilities,
+  type TypedWorkerConfig,
+  type WorkerHandlerContext,
+} from '@infrastructure/workers/base/typed-worker'
 import {
   MeshGenerationRequest,
   MeshGenerationResponse,
@@ -12,21 +18,24 @@ import {
   IndexBuffer,
   MeshPerformanceMetrics,
   BoundingVolume,
-  createTransferableVertexData,
-  createTransferableIndexBuffer,
-  calculateMeshBounds,
   createDefaultOptimizations,
 } from '@infrastructure/workers/unified/protocols/mesh.protocol'
 import { Block, Position3D, ChunkData } from '@infrastructure/workers/unified/protocols/terrain.protocol'
+import { WorkerError } from '@infrastructure/workers/schemas/worker-messages.schema'
 
-// Initialize worker capabilities
-const workerCapabilities = {
-  supportsSharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
-  supportsTransferableObjects: typeof ArrayBuffer !== 'undefined',
-  supportsWasm: typeof WebAssembly !== 'undefined',
-  maxMemory: 150 * 1024 * 1024, // 150MB for mesh generation
-  threadCount: 1,
-}
+// Initialize enhanced worker capabilities
+const workerCapabilities = detectWorkerCapabilities()
+workerCapabilities.supportedOperations = [
+  'mesh_generation',
+  'naive_meshing', 
+  'greedy_meshing',
+  'marching_cubes',
+  'dual_contouring',
+  'face_culling',
+  'vertex_welding',
+  'lod_generation',
+]
+workerCapabilities.maxMemory = 150 * 1024 * 1024 // 150MB for mesh generation
 
 /**
  * Block face data structure
@@ -235,126 +244,298 @@ function applyOptimizations(
 }
 
 /**
- * Main mesh generation handler
+ * Enhanced mesh generation handler with schema validation
  */
-const meshGenerationHandler = (request: MeshGenerationRequest): Effect.Effect<MeshGenerationResponse, never, never> =>
+const meshGenerationHandler = (
+  request: MeshGenerationRequest,
+  context: WorkerHandlerContext
+): Effect.Effect<MeshGenerationResponse, WorkerError, never> =>
   Effect.gen(function* () {
     const startTime = performance.now()
 
-    const { chunkData, neighbors, algorithm, optimizations, options } = request
-    const opts = options || {
-      generateNormals: true,
-      generateTangents: false,
-      generateUVs: true,
-      generateColors: false,
-      generateLightmap: false,
+    try {
+      const { chunkData, neighbors, algorithm, optimizations, options } = request
+      const opts = options || {
+        generateNormals: true,
+        generateTangents: false,
+        generateUVs: true,
+        generateColors: false,
+        generateLightmap: false,
+      }
+
+      // Validate chunk data
+      if (!chunkData || !chunkData.blocks) {
+        return yield* Effect.fail({
+          id: context.messageId,
+          type: 'error' as const,
+          messageType: 'mesh',
+          timestamp: Date.now() as any,
+          workerId: context.workerId,
+          error: {
+            name: 'ValidationError',
+            message: 'Invalid chunk data provided',
+            code: 'INVALID_CHUNK_DATA',
+          },
+        } as WorkerError)
+      }
+
+      // Generate base mesh data
+      const meshingStart = performance.now()
+      let meshData = generateMeshData(algorithm, chunkData, neighbors, optimizations)
+      const meshingTime = performance.now() - meshingStart
+
+      // Apply optimizations
+      const optimizationStart = performance.now()
+      if (optimizations) {
+        meshData = applyOptimizations(meshData, optimizations)
+      }
+      const optimizationTime = performance.now() - optimizationStart
+
+      // Create transferable vertex attributes with validation
+      const vertexAttributes = yield* Effect.try(() => {
+        return createTransferableVertexData(
+          meshData.positions, 
+          opts.generateNormals ? meshData.normals : undefined, 
+          opts.generateUVs ? meshData.uvs : undefined
+        )
+      }).pipe(
+        Effect.catchAll((error) => 
+          Effect.fail({
+            id: context.messageId,
+            type: 'error' as const,
+            messageType: 'mesh',
+            timestamp: Date.now() as any,
+            workerId: context.workerId,
+            error: {
+              name: 'MeshGenerationError',
+              message: `Failed to create vertex attributes: ${error}`,
+              code: 'VERTEX_CREATION_FAILED',
+            },
+          } as WorkerError)
+        )
+      )
+
+      // Create vertex buffer
+      const vertexBuffer: VertexBuffer = {
+        attributes: vertexAttributes,
+        vertexCount: meshData.positions.length / 3,
+        stride: 8 * 4, // position(3) + normal(3) + uv(2) * 4 bytes
+        interleaved: false,
+      }
+
+      // Create index buffer with validation
+      const indexBuffer: IndexBuffer = yield* Effect.try(() => {
+        return createTransferableIndexBuffer(meshData.indices)
+      }).pipe(
+        Effect.catchAll((error) => 
+          Effect.fail({
+            id: context.messageId,
+            type: 'error' as const,
+            messageType: 'mesh',
+            timestamp: Date.now() as any,
+            workerId: context.workerId,
+            error: {
+              name: 'MeshGenerationError',
+              message: `Failed to create index buffer: ${error}`,
+              code: 'INDEX_CREATION_FAILED',
+            },
+          } as WorkerError)
+        )
+      )
+
+      // Calculate bounds with validation
+      const bounds: BoundingVolume = yield* Effect.try(() => {
+        return calculateMeshBounds(new Float32Array(meshData.positions))
+      }).pipe(
+        Effect.catchAll((error) => 
+          Effect.fail({
+            id: context.messageId,
+            type: 'error' as const,
+            messageType: 'mesh',
+            timestamp: Date.now() as any,
+            workerId: context.workerId,
+            error: {
+              name: 'MeshGenerationError',
+              message: `Failed to calculate bounds: ${error}`,
+              code: 'BOUNDS_CALCULATION_FAILED',
+            },
+          } as WorkerError)
+        )
+      )
+
+      // Create final mesh data
+      const generatedMeshData: GeneratedMeshData = {
+        vertexBuffer,
+        indexBuffer,
+        materials: [], // Simplified - would include actual materials
+        bounds,
+      }
+
+      // Performance metrics
+      const totalTime = performance.now() - startTime
+      const metrics: MeshPerformanceMetrics = {
+        totalTime,
+        meshingTime,
+        optimizationTime,
+        inputBlocks: chunkData.blocks.length,
+        outputVertices: vertexBuffer.vertexCount,
+        outputTriangles: indexBuffer.count / 3,
+        facesCulled: 0, // Would be calculated during face culling
+        verticesWelded: 0, // Would be calculated during vertex welding
+        outputMemoryUsage: meshData.positions.length * 4 + meshData.indices.length * 4,
+        meshQuality: 1.0, // Simplified quality metric
+      }
+
+      return {
+        meshData: generatedMeshData,
+        metrics,
+        chunkCoordinates: chunkData.coordinates,
+        algorithm,
+        lodLevel: request.lodLevel,
+        success: true,
+        workerId: context.workerId?.toString() || `mesh-worker-${Date.now()}`,
+        generationTime: totalTime,
+      } as MeshGenerationResponse
+
+    } catch (error) {
+      return yield* Effect.fail({
+        id: context.messageId,
+        type: 'error' as const,
+        messageType: 'mesh',
+        timestamp: Date.now() as any,
+        workerId: context.workerId,
+        error: {
+          name: 'UnexpectedError',
+          message: `Unexpected error in mesh generation: ${error instanceof Error ? error.message : String(error)}`,
+          stack: error instanceof Error ? error.stack : undefined,
+          code: 'UNEXPECTED_ERROR',
+        },
+      } as WorkerError)
     }
-
-    // Generate base mesh data
-    const meshingStart = performance.now()
-    let meshData = generateMeshData(algorithm, chunkData, neighbors, optimizations)
-    const meshingTime = performance.now() - meshingStart
-
-    // Apply optimizations
-    const optimizationStart = performance.now()
-    if (optimizations) {
-      meshData = applyOptimizations(meshData, optimizations)
-    }
-    const optimizationTime = performance.now() - optimizationStart
-
-    // Create transferable vertex attributes
-    const vertexAttributes = createTransferableVertexData(meshData.positions, opts.generateNormals ? meshData.normals : undefined, opts.generateUVs ? meshData.uvs : undefined)
-
-    // Create vertex buffer
-    const vertexBuffer: VertexBuffer = {
-      attributes: vertexAttributes,
-      vertexCount: meshData.positions.length / 3,
-      stride: 8 * 4, // position(3) + normal(3) + uv(2) * 4 bytes
-      interleaved: false,
-    }
-
-    // Create index buffer
-    const indexBuffer: IndexBuffer = createTransferableIndexBuffer(meshData.indices)
-
-    // Calculate bounds
-    const bounds: BoundingVolume = calculateMeshBounds(new Float32Array(meshData.positions))
-
-    // Create final mesh data
-    const generatedMeshData: GeneratedMeshData = {
-      vertexBuffer,
-      indexBuffer,
-      materials: [], // Simplified - would include actual materials
-      bounds,
-    }
-
-    // Performance metrics
-    const totalTime = performance.now() - startTime
-    const metrics: MeshPerformanceMetrics = {
-      totalTime,
-      meshingTime,
-      optimizationTime,
-      inputBlocks: chunkData.blocks.length,
-      outputVertices: vertexBuffer.vertexCount,
-      outputTriangles: indexBuffer.count / 3,
-      facesCulled: 0, // Would be calculated during face culling
-      verticesWelded: 0, // Would be calculated during vertex welding
-      outputMemoryUsage: meshData.positions.length * 4 + meshData.indices.length * 4,
-      meshQuality: 1.0, // Simplified quality metric
-    }
-
-    return {
-      meshData: generatedMeshData,
-      metrics,
-      chunkCoordinates: chunkData.coordinates,
-      algorithm,
-      lodLevel: request.lodLevel,
-      success: true,
-      workerId: `mesh-worker-${Date.now()}`,
-      generationTime: totalTime,
-    } as MeshGenerationResponse
   })
 
-// Worker message handling
-self.onmessage = async (event) => {
-  const { id, type, payload, timestamp } = event.data
-
-  if (type === 'capabilities') {
-    self.postMessage({
-      type: 'ready',
-      timestamp: Date.now(),
-      capabilities: workerCapabilities,
-    })
-    return
+/**
+ * Create transferable vertex data
+ */
+function createTransferableVertexData(
+  positions: number[],
+  normals?: number[],
+  uvs?: number[]
+): { [key: string]: ArrayBufferView } {
+  const attributes: { [key: string]: ArrayBufferView } = {
+    position: new Float32Array(positions)
   }
+  
+  if (normals) {
+    attributes.normal = new Float32Array(normals)
+  }
+  
+  if (uvs) {
+    attributes.uv = new Float32Array(uvs)
+  }
+  
+  return attributes
+}
 
-  if (type === 'request') {
-    try {
-      const response = await Effect.runPromise(meshGenerationHandler(payload))
-
-      self.postMessage({
-        id,
-        type: 'response',
-        data: response,
-        timestamp: Date.now(),
-      })
-    } catch (error) {
-      self.postMessage({
-        id,
-        type: 'error',
-        error: {
-          name: error instanceof Error ? error.name : 'Error',
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        },
-        timestamp: Date.now(),
-      })
-    }
+/**
+ * Create transferable index buffer
+ */
+function createTransferableIndexBuffer(indices: number[]): IndexBuffer {
+  const indexArray = indices.length > 65535 ? new Uint32Array(indices) : new Uint16Array(indices)
+  
+  return {
+    data: indexArray,
+    count: indices.length,
+    type: indices.length > 65535 ? 'uint32' : 'uint16',
   }
 }
 
-// Send ready signal
-self.postMessage({
-  type: 'ready',
-  timestamp: Date.now(),
-  capabilities: workerCapabilities,
-})
+/**
+ * Calculate mesh bounding volume
+ */
+function calculateMeshBounds(positions: Float32Array): BoundingVolume {
+  if (positions.length === 0) {
+    return {
+      min: { x: 0, y: 0, z: 0 },
+      max: { x: 0, y: 0, z: 0 },
+      center: { x: 0, y: 0, z: 0 },
+      radius: 0,
+    }
+  }
+  
+  let minX = Infinity, minY = Infinity, minZ = Infinity
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
+  
+  for (let i = 0; i < positions.length; i += 3) {
+    const x = positions[i]
+    const y = positions[i + 1]
+    const z = positions[i + 2]
+    
+    if (x < minX) minX = x
+    if (x > maxX) maxX = x
+    if (y < minY) minY = y
+    if (y > maxY) maxY = y
+    if (z < minZ) minZ = z
+    if (z > maxZ) maxZ = z
+  }
+  
+  const center = {
+    x: (minX + maxX) / 2,
+    y: (minY + maxY) / 2,
+    z: (minZ + maxZ) / 2,
+  }
+  
+  // Calculate radius as distance from center to furthest point
+  let maxRadiusSquared = 0
+  for (let i = 0; i < positions.length; i += 3) {
+    const dx = positions[i] - center.x
+    const dy = positions[i + 1] - center.y
+    const dz = positions[i + 2] - center.z
+    const distanceSquared = dx * dx + dy * dy + dz * dz
+    if (distanceSquared > maxRadiusSquared) {
+      maxRadiusSquared = distanceSquared
+    }
+  }
+  
+  return {
+    min: { x: minX, y: minY, z: minZ },
+    max: { x: maxX, y: maxY, z: maxZ },
+    center,
+    radius: Math.sqrt(maxRadiusSquared),
+  }
+}
+
+/**
+ * Initialize the worker with complete schema validation
+ */
+const workerConfig: TypedWorkerConfig<typeof MeshGenerationRequest, typeof MeshGenerationResponse> = {
+  workerType: 'mesh',
+  name: 'mesh-generation.worker.ts',
+  inputSchema: MeshGenerationRequest,
+  outputSchema: MeshGenerationResponse,
+  handler: meshGenerationHandler,
+  supportedOperations: workerCapabilities.supportedOperations,
+  maxConcurrentRequests: 4,
+  timeout: { _tag: 'Millis' as const, millis: 30000 } as any, // 30 seconds
+}
+
+// Initialize the typed worker
+Effect.runPromise(
+  createTypedWorker(workerConfig).pipe(
+    Effect.tapError((error) => {
+      console.error('Failed to initialize mesh generation worker:', error)
+      self.postMessage({
+        type: 'error',
+        error: {
+          name: 'WorkerInitializationError',
+          message: `Failed to initialize worker: ${error}`,
+          code: 'INIT_FAILED',
+        },
+        timestamp: Date.now(),
+      })
+    }),
+    Effect.tap(() => {
+      console.log('Mesh generation worker initialized successfully')
+    })
+  )
+)

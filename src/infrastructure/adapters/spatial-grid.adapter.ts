@@ -1,7 +1,8 @@
 /**
  * Spatial Grid Adapter
  *
- * Infrastructure adapter that implements spatial indexing using concrete data structures.
+ * Infrastructure adapter that implements spatial indexing using concrete data structures
+ * with functional programming patterns using Effect-TS and Context.GenericTag.
  * This adapter provides the technical implementation while delegating business logic
  * to the domain layer via appropriate ports.
  *
@@ -10,7 +11,6 @@
  */
 
 import { Effect, Layer, Context, Ref } from 'effect'
-import { ISpatialGrid, SpatialGridPort } from '@domain/ports/spatial-grid.port'
 import type { EntityId } from '@domain/entities'
 import type { AABB } from '@domain/value-objects/physics/aabb.vo'
 
@@ -38,6 +38,25 @@ interface SpatialGridState {
 }
 
 /**
+ * Spatial Grid Adapter Service Interface
+ * Defines the contract for spatial indexing with proper error handling
+ */
+export interface SpatialGridAdapter {
+  readonly addEntity: (entityId: EntityId, bounds: AABB) => Effect.Effect<void, never>
+  readonly removeEntity: (entityId: EntityId) => Effect.Effect<void, never>
+  readonly queryRegion: (bounds: AABB) => Effect.Effect<ReadonlyArray<EntityId>, never>
+  readonly clear: () => Effect.Effect<void, never>
+  readonly getCellCount: () => Effect.Effect<number, never>
+  readonly getEntityCount: () => Effect.Effect<number, never>
+  readonly isAvailable: () => Effect.Effect<boolean, never>
+}
+
+/**
+ * Context tag for Spatial Grid Adapter dependency injection
+ */
+export const SpatialGridAdapter = Context.GenericTag<SpatialGridAdapter>('@app/SpatialGridAdapter')
+
+/**
  * Simple hash-based spatial grid implementation
  *
  * This is a basic infrastructure adapter that handles:
@@ -47,7 +66,7 @@ interface SpatialGridState {
  *
  * Complex spatial algorithms are delegated to domain services.
  */
-export const createSpatialGridAdapter = () =>
+const createSpatialGridAdapter = () =>
   Effect.gen(function* () {
     const stateRef = yield* Ref.make<SpatialGridState>({
       cells: new Map(),
@@ -87,7 +106,7 @@ export const createSpatialGridAdapter = () =>
     }
 
     return {
-      addEntity: (entityId: EntityId, bounds: AABB): Effect.Effect<void, never, never> =>
+      addEntity: (entityId: EntityId, bounds: AABB): Effect.Effect<void, never> =>
         Effect.gen(function* () {
           const state = yield* Ref.get(stateRef)
 
@@ -125,7 +144,7 @@ export const createSpatialGridAdapter = () =>
           state.entityToCell.set(entityId, affectedCells)
         }),
 
-      removeEntity: (entityId: EntityId): Effect.Effect<void, never, never> =>
+      removeEntity: (entityId: EntityId): Effect.Effect<void, never> =>
         Effect.gen(function* () {
           const state = yield* Ref.get(stateRef)
           const cellKeys = state.entityToCell.get(entityId)
@@ -144,7 +163,7 @@ export const createSpatialGridAdapter = () =>
           state.entityToCell.delete(entityId)
         }),
 
-      queryRegion: (bounds: AABB): Effect.Effect<ReadonlyArray<EntityId>, never, never> =>
+      queryRegion: (bounds: AABB): Effect.Effect<ReadonlyArray<EntityId>, never> =>
         Effect.gen(function* () {
           const state = yield* Ref.get(stateRef)
           const result = new Set<EntityId>()
@@ -162,24 +181,24 @@ export const createSpatialGridAdapter = () =>
           return Array.from(result)
         }),
 
-      clear: (): Effect.Effect<void, never, never> =>
+      clear: (): Effect.Effect<void, never> =>
         Ref.update(stateRef, () => ({
           cells: new Map(),
           entityToCell: new Map(),
         })),
 
-      getCellCount: (): Effect.Effect<number, never, never> => Ref.get(stateRef).pipe(Effect.map((state) => state.cells.size)),
+      getCellCount: (): Effect.Effect<number, never> => Ref.get(stateRef).pipe(Effect.map((state) => state.cells.size)),
 
-      getEntityCount: (): Effect.Effect<number, never, never> => Ref.get(stateRef).pipe(Effect.map((state) => state.entityToCell.size)),
+      getEntityCount: (): Effect.Effect<number, never> => Ref.get(stateRef).pipe(Effect.map((state) => state.entityToCell.size)),
 
-      isAvailable: (): Effect.Effect<boolean, never, never> => Effect.succeed(true),
-    } satisfies ISpatialGrid
+      isAvailable: (): Effect.Effect<boolean, never> => Effect.succeed(true),
+    } satisfies SpatialGridAdapter
   })
 
 /**
  * Live layer for Spatial Grid Adapter
  */
-export const SpatialGridAdapterLive = Layer.effect(SpatialGridPort, createSpatialGridAdapter())
+export const SpatialGridAdapterLive = Layer.effect(SpatialGridAdapter, createSpatialGridAdapter())
 
 /**
  * Infrastructure utilities for spatial grid operations

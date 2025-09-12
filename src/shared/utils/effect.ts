@@ -1,4 +1,9 @@
-import { Effect, pipe, Schedule, Ref } from 'effect'
+import * as Effect from 'effect/Effect'
+import * as Schedule from 'effect/Schedule'
+import * as Ref from 'effect/Ref'
+import * as Duration from 'effect/Duration'
+import * as Clock from 'effect/Clock'
+import { pipe } from 'effect/Function'
 
 /**
  * Effect utilities for consistent error handling and patterns
@@ -7,16 +12,26 @@ import { Effect, pipe, Schedule, Ref } from 'effect'
 /**
  * Add error logging to an effect
  */
-export const withErrorLog = <A, E, R>(effect: Effect.Effect<A, E, R>, context: string) => effect.pipe(Effect.tapError((error) => Effect.logError(`[${context}] Error:`, error)))
+export const withErrorLog = <A, E, R>(effect: Effect.Effect<A, E, R>, context: string) => 
+  pipe(effect, Effect.tapError((error) => Effect.logError(`[${context}] Error:`, error)))
 
 /**
  * Add timing information to an effect
  */
 export const withTiming = <A, E, R>(effect: Effect.Effect<A, E, R>, label: string) =>
   Effect.gen(function* () {
-    const start = Date.now()
-    const result = yield* effect
-    const duration = Date.now() - start
+    const start = yield* Clock.currentTimeMillis
+    const result = yield* pipe(
+      effect,
+      Effect.tapError((error) => 
+        Effect.gen(function* () {
+          const currentTime = yield* Clock.currentTimeMillis
+          return yield* Effect.log(`[${label}] Failed after ${currentTime - start}ms: ${error}`)
+        })
+      )
+    )
+    const end = yield* Clock.currentTimeMillis
+    const duration = end - start
     yield* Effect.log(`[${label}] completed in ${duration}ms`)
     return result
   })
@@ -25,11 +40,14 @@ export const withTiming = <A, E, R>(effect: Effect.Effect<A, E, R>, label: strin
  * Retry with exponential backoff
  */
 export const retryWithBackoff = <A, E, R>(effect: Effect.Effect<A, E, R>, maxRetries: number = 3, initialDelay: number = 100) =>
-  effect.pipe(
-    Effect.retry({
-      times: maxRetries,
-      schedule: pipe(Schedule.exponential(initialDelay), Schedule.intersect(Schedule.recurs(maxRetries))),
-    }),
+  pipe(
+    effect,
+    Effect.retry(
+      pipe(
+        Schedule.exponential(Duration.millis(initialDelay)),
+        Schedule.intersect(Schedule.recurs(maxRetries))
+      )
+    )
   )
 
 /**
@@ -45,7 +63,7 @@ export const cached = <A, E, R>(effect: Effect.Effect<A, E, R>, ttl: number): Ef
   let cache: { value: A; expiry: number } | undefined
 
   return Effect.gen(function* () {
-    const now = Date.now()
+    const now = yield* Clock.currentTimeMillis
 
     if (cache && cache.expiry > now) {
       return cache.value
@@ -72,9 +90,10 @@ export const withCleanup = <A, E, R>(effect: Effect.Effect<A, E, R>, cleanup: Ef
  */
 export const withPerformanceMonitoring = <A, E, R>(effect: Effect.Effect<A, E, R>, name: string, threshold: number = 100) =>
   Effect.gen(function* () {
-    const start = performance.now()
+    const start = yield* Clock.currentTimeMillis
     const result = yield* effect
-    const duration = performance.now() - start
+    const end = yield* Clock.currentTimeMillis
+    const duration = end - start
 
     if (duration > threshold) {
       yield* Effect.logWarning(`[Performance] ${name} took ${duration.toFixed(2)}ms (threshold: ${threshold}ms)`)
@@ -86,17 +105,16 @@ export const withPerformanceMonitoring = <A, E, R>(effect: Effect.Effect<A, E, R
 /**
  * Combine multiple effects with fallback
  */
-export const withFallback = <A, E, R, E2, R2>(primary: Effect.Effect<A, E, R>, fallback: Effect.Effect<A, E2, R2>) => primary.pipe(Effect.catchAll(() => fallback))
+export const withFallback = <A, E, R, E2, R2>(primary: Effect.Effect<A, E, R>, fallback: Effect.Effect<A, E2, R2>) => pipe(primary, Effect.catchAll(() => fallback))
 
 /**
  * Add timeout with custom error
  */
 export const withTimeout = <A, E, R>(effect: Effect.Effect<A, E, R>, duration: number, timeoutError: E) =>
-  effect.pipe(
-    Effect.timeoutFail({
-      duration: `${duration} millis`,
-      onTimeout: () => timeoutError,
-    }),
+  pipe(
+    effect,
+    Effect.timeout(Duration.millis(duration)),
+    Effect.mapError(() => timeoutError)
   )
 
 /**
@@ -144,12 +162,12 @@ export const createCircuitBreaker = (config: CircuitBreakerConfig) =>
 
     const execute = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E | Error, R> =>
       Effect.gen(function* () {
-        const now = Date.now()
+        const now = yield* Clock.currentTimeMillis
         const currentState = yield* Ref.get(stateRef)
 
         // Check if circuit should be reset to half-open
         if (currentState.state === 'open' && now - currentState.lastFailureTime > config.timeout) {
-          yield* Ref.update(stateRef, (state) => ({ ...state, state: 'half-open' }))
+          yield* Ref.update(stateRef, (state) => ({ ...state, state: 'half-open' as const }))
         }
 
         const updatedState = yield* Ref.get(stateRef)
@@ -159,28 +177,30 @@ export const createCircuitBreaker = (config: CircuitBreakerConfig) =>
           return yield* Effect.fail(new Error('Circuit breaker is open'))
         }
 
-        return yield* effect.pipe(
+        return yield* pipe(
+          effect,
           Effect.tap(() =>
             // Success - reset failure count
             Ref.update(stateRef, (state) => ({
               failureCount: 0,
               lastFailureTime: state.lastFailureTime,
-              state: 'closed',
+              state: 'closed' as const,
             })),
           ),
           Effect.tapError(() =>
             Effect.gen(function* () {
+              const currentTime = yield* Clock.currentTimeMillis
               // Failure - increment count and potentially open circuit
               yield* Ref.update(stateRef, (state) => {
                 const newFailureCount = state.failureCount + 1
                 return {
                   failureCount: newFailureCount,
-                  lastFailureTime: now,
+                  lastFailureTime: currentTime,
                   state: newFailureCount >= config.threshold ? 'open' : state.state,
                 }
               })
             }),
-          ),
+          )
         )
       })
 
@@ -192,7 +212,7 @@ export const createCircuitBreaker = (config: CircuitBreakerConfig) =>
 /**
  * Memoize effect results
  */
-export const memoize = <Args extends ReadonlyArray<any>, A, E, R>(f: (...args: Args) => Effect.Effect<A, E, R>): ((...args: Args) => Effect.Effect<A, E, R>) => {
+export const memoize = <Args extends ReadonlyArray<string | number | boolean>, A, E, R>(f: (...args: Args) => Effect.Effect<A, E, R>): ((...args: Args) => Effect.Effect<A, E, R>) => {
   const cache = new Map<string, A>()
 
   return (...args: Args) => {
@@ -202,10 +222,11 @@ export const memoize = <Args extends ReadonlyArray<any>, A, E, R>(f: (...args: A
       return Effect.succeed(cache.get(key)!)
     }
 
-    return f(...args).pipe(
+    return pipe(
+      f(...args),
       Effect.tap((result) => {
         cache.set(key, result)
-      }),
+      })
     )
   }
 }

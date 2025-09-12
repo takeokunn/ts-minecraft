@@ -1,21 +1,26 @@
 import { Effect, Match, Context, Layer } from 'effect'
 import { UnifiedQuerySystemService } from '@application/queries/unified-query-system'
-import { WorldDomainService } from '@domain/services/world-domain.service'
-import { EntityDomainService } from '@domain/services/entity-domain.service'
+import { WorldDomainService } from '@domain/services/world.domain-service'
+import { EntityDomainService } from '@domain/services/entity.domain-service'
 import { Position } from '@domain/entities/components/world/index'
 import { PerformanceMonitorPort } from '@domain/ports/performance-monitor.port'
+import { 
+  SystemExecutionError,
+  WorldStateError,
+  ValidationError
+} from '@domain/errors'
 
 /**
  * World Update Workflow Service interface
  */
 export interface WorldUpdateWorkflowService {
-  readonly processWorldUpdates: () => Effect.Effect<void, Error>
+  readonly processWorldUpdates: () => Effect.Effect<void, SystemExecutionError | WorldStateError>
   readonly handleChunkGeneration: (data: {
     blocks: Array<{ position: [number, number, number]; blockType: string }>
     mesh: { positions: number[]; normals: number[]; uvs: number[]; indices: number[] }
     chunkX: number
     chunkZ: number
-  }) => Effect.Effect<void, Error>
+  }) => Effect.Effect<void, SystemExecutionError | WorldStateError>
 }
 
 /**
@@ -25,26 +30,26 @@ export const WorldUpdateWorkflow = Context.GenericTag<WorldUpdateWorkflowService
 
 export const WorldUpdateWorkflowLive = Layer.effect(
   WorldUpdateWorkflow,
-  Effect.gen(function* (_) {
-    const performanceMonitor = yield* _(PerformanceMonitorPort)
+  Effect.gen(function* () {
+    const performanceMonitor = yield* PerformanceMonitorPort
 
     const processWorldUpdates = () =>
-      Effect.gen(function* (_) {
-        yield* _(performanceMonitor.startSystem('world-update-workflow'))
+      Effect.gen(function* () {
+        yield* performanceMonitor.startSystem('world-update-workflow')
 
-        const worldService = yield* _(WorldDomainService)
-        const entityService = yield* _(EntityDomainService)
+        const worldService = yield* WorldDomainService
+        const entityService = yield* EntityDomainService
 
         try {
           // Process pending world updates
-          const pendingUpdates = yield* _(worldService.getPendingUpdates())
+          const pendingUpdates = yield* worldService.getPendingUpdates()
 
-          yield* _(Effect.forEach(pendingUpdates, (update) => processWorldUpdate(update, worldService, entityService), { concurrency: 4, discard: true }))
+          yield* Effect.forEach(pendingUpdates, (update) => processWorldUpdate(update, worldService, entityService), { concurrency: 4, discard: true })
 
-          yield* _(performanceMonitor.recordMetric('execution_time', 'world-update-workflow', pendingUpdates.length, 'updates'))
-          yield* _(Effect.log(`Processed ${pendingUpdates.length} world updates`))
+          yield* performanceMonitor.recordMetric('execution_time', 'world-update-workflow', pendingUpdates.length, 'updates')
+          yield* Effect.log(`Processed ${pendingUpdates.length} world updates`)
         } finally {
-          yield* _(performanceMonitor.endSystem('world-update-workflow'))
+          yield* performanceMonitor.endSystem('world-update-workflow')
         }
       })
 
@@ -54,64 +59,60 @@ export const WorldUpdateWorkflowLive = Layer.effect(
       chunkX: number
       chunkZ: number
     }) =>
-      Effect.gen(function* (_) {
-        yield* _(performanceMonitor.startSystem('chunk-generation-workflow'))
+      Effect.gen(function* () {
+        yield* performanceMonitor.startSystem('chunk-generation-workflow')
 
-        const worldService = yield* _(WorldDomainService)
-        const entityService = yield* _(EntityDomainService)
+        const worldService = yield* WorldDomainService
+        const entityService = yield* EntityDomainService
         const { blocks, mesh, chunkX, chunkZ } = data
 
         try {
           // Create entities for each block in the chunk
-          yield* _(
-            Effect.forEach(
-              blocks,
-              (block) =>
-                Effect.gen(function* (_) {
-                  const querySystem = yield* _(UnifiedQuerySystemService)
+          yield* Effect.forEach(
+            blocks,
+            (block) =>
+              Effect.gen(function* () {
+                const querySystem = yield* UnifiedQuerySystemService
 
-                  // Create block entity with components
-                  const blockEntity = {
-                    id: `block_${chunkX}_${chunkZ}_${block.position[0]}_${block.position[1]}_${block.position[2]}`,
-                    components: {
-                      Position: new Position({
-                        x: block.position[0],
-                        y: block.position[1],
-                        z: block.position[2],
-                      }),
-                      BlockType: block.blockType,
-                      ChunkCoordinate: { x: chunkX, z: chunkZ },
-                    },
-                  }
+                // Create block entity with components
+                const blockEntity = {
+                  id: `block_${chunkX}_${chunkZ}_${block.position[0]}_${block.position[1]}_${block.position[2]}`,
+                  components: {
+                    Position: new Position({
+                      x: block.position[0],
+                      y: block.position[1],
+                      z: block.position[2],
+                    }),
+                    BlockType: block.blockType,
+                    ChunkCoordinate: { x: chunkX, z: chunkZ },
+                  },
+                }
 
-                  // Add entity to unified query system for indexing
-                  yield* _(querySystem.addEntity(blockEntity))
+                // Add entity to unified query system for indexing
+                yield* querySystem.addEntity(blockEntity)
 
-                  // Add entity to domain service
-                  yield* _(entityService.addEntity(blockEntity))
-                }),
-              { concurrency: 8, discard: true },
-            ),
+                // Add entity to domain service
+                yield* entityService.addEntity(blockEntity)
+              }),
+            { concurrency: 8, discard: true },
           )
 
           // Store chunk mesh data
           if (mesh.indices.length > 0) {
-            yield* _(
-              worldService.storeChunkMesh({
-                chunkX,
-                chunkZ,
-                positions: mesh.positions,
-                normals: mesh.normals,
-                uvs: mesh.uvs,
-                indices: mesh.indices,
-              }),
-            )
+            yield* worldService.storeChunkMesh({
+              chunkX,
+              chunkZ,
+              positions: mesh.positions,
+              normals: mesh.normals,
+              uvs: mesh.uvs,
+              indices: mesh.indices,
+            })
           }
 
-          yield* _(performanceMonitor.recordMetric('execution_time', 'chunk-generation-workflow', blocks.length, 'blocks'))
-          yield* _(Effect.log(`Chunk generation completed for chunk ${chunkX}, ${chunkZ} with ${blocks.length} blocks`))
+          yield* performanceMonitor.recordMetric('execution_time', 'chunk-generation-workflow', blocks.length, 'blocks')
+          yield* Effect.log(`Chunk generation completed for chunk ${chunkX}, ${chunkZ} with ${blocks.length} blocks`)
         } finally {
-          yield* _(performanceMonitor.endSystem('chunk-generation-workflow'))
+          yield* performanceMonitor.endSystem('chunk-generation-workflow')
         }
       })
 
@@ -123,19 +124,19 @@ export const WorldUpdateWorkflowLive = Layer.effect(
 )
 
 const processWorldUpdate = (update: { type: string; [key: string]: unknown }, worldService: WorldDomainService, entityService: EntityDomainService) =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     // Process different types of world updates
     switch (update.type) {
       case 'BLOCK_PLACED':
-        yield* _(worldService.updateBlock(update.position, update.blockType))
+        yield* worldService.updateBlock(update.position, update.blockType)
         break
       case 'BLOCK_DESTROYED':
-        yield* _(worldService.removeBlock(update.position))
+        yield* worldService.removeBlock(update.position)
         break
       case 'CHUNK_MODIFIED':
-        yield* _(worldService.markChunkForUpdate(update.chunkCoordinate))
+        yield* worldService.markChunkForUpdate(update.chunkCoordinate)
         break
       default:
-        yield* _(Effect.log(`Unknown update type: ${update.type}`))
+        yield* Effect.log(`Unknown update type: ${update.type}`)
     }
   })

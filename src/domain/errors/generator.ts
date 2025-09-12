@@ -49,7 +49,7 @@ export const createErrorContext = (
 /**
  * Enhanced error logging function - pure functional approach
  */
-export const logError = (error: { _tag: string } & BaseErrorData): Effect.Effect<void, never, never> =>
+export const logError = (error: { _tag: string } & BaseErrorData): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const { context } = error
     console.error({
@@ -67,7 +67,7 @@ export const logError = (error: { _tag: string } & BaseErrorData): Effect.Effect
  * Creates an error recovery handler - functional approach
  */
 export const createRecoveryHandler =
-  <T, E extends { _tag: string } & BaseErrorData>(strategy: RecoveryStrategy, fallbackValue?: T): ((error: E) => Effect.Effect<T, E, never>) =>
+  <T, E extends { _tag: string } & BaseErrorData>(strategy: RecoveryStrategy, fallbackValue?: T): ((error: E) => Effect.Effect<T, E>) =>
   (error: E) =>
     Effect.gen(function* () {
       yield* logError(error)
@@ -99,8 +99,40 @@ export const createRecoveryHandler =
 
 /**
  * Create a tagged error using Schema.TaggedError - pure functional approach
+ * 
+ * @example
+ * ```typescript
+ * const MyError = createTaggedError('MyError', Schema.Struct({
+ *   message: Schema.String,
+ *   context: ErrorContext
+ * }))
+ * ```
  */
-export const createTaggedError = <Tag extends string, Data extends BaseErrorData>(tag: Tag, schema: Schema.Schema<Data, Data, never>) => Schema.TaggedError(tag)<Data>(schema)
+export const createTaggedError = <Tag extends string, Data extends BaseErrorData>(
+  tag: Tag, 
+  schema: Schema.Schema<Data, Data, never>
+) => Schema.TaggedError(tag)(schema)
+
+/**
+ * Create error factory function for a tagged error schema
+ * 
+ * @example
+ * ```typescript
+ * const MyError = createTaggedError('MyError', Schema.Struct({
+ *   message: Schema.String,
+ *   context: ErrorContext
+ * }))
+ * 
+ * const createMyError = createErrorFactory(MyError)
+ * const error = createMyError({ 
+ *   message: 'Something went wrong',
+ *   context: createErrorContext()
+ * })
+ * ```
+ */
+export const createErrorFactory = <T extends { _tag: string } & BaseErrorData>(
+  errorSchema: Schema.Schema<T, T, never>
+) => (data: Omit<T, '_tag'>): T => errorSchema(data as T)
 
 /**
  * Error aggregation state type
@@ -160,7 +192,7 @@ export const ErrorAggregator = {
   /**
    * Log all errors in state
    */
-  logAll: (state: ErrorAggregatorState): Effect.Effect<void, never, never> =>
+  logAll: (state: ErrorAggregatorState): Effect.Effect<void, never> =>
     Effect.gen(function* () {
       for (const error of state.errors) {
         yield* logError(error)

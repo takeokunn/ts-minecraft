@@ -5,8 +5,8 @@
  * for easier access with kebab-case naming convention.
  */
 
-export * from '@domain/services/material-config-domain.service'
+export * from '@domain/services/material-config.domain-service'
 export {
   MaterialConfigDomainServiceLive as MaterialConfigServiceLive,
   MaterialConfigDomainServicePort as MaterialConfigServicePort,
-} from '@domain/services/material-config-domain.service'
+} from '@domain/services/material-config.domain-service'

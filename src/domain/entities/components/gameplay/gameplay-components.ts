@@ -282,6 +282,11 @@ export const PlayerComponent = RegisterComponent({
   }),
 )
 export type PlayerComponent = S.Schema.Type<typeof PlayerComponent>
+export type Player = {
+  isMainPlayer: boolean
+  name: string
+  isGrounded: boolean
+}
 
 export const InputStateComponent = RegisterComponent({
   id: 'inputState',
@@ -301,6 +306,17 @@ export const InputStateComponent = RegisterComponent({
   }),
 )
 export type InputStateComponent = S.Schema.Type<typeof InputStateComponent>
+export type InputState = {
+  forward: boolean
+  backward: boolean
+  left: boolean
+  right: boolean
+  jump: boolean
+  sneak: boolean
+  sprint: boolean
+  interact: boolean
+  attack: boolean
+}
 
 export const CameraStateComponent = RegisterComponent({
   id: 'cameraState',
@@ -315,6 +331,12 @@ export const CameraStateComponent = RegisterComponent({
   }),
 )
 export type CameraStateComponent = S.Schema.Type<typeof CameraStateComponent>
+export type CameraState = {
+  yaw: number
+  pitch: number
+  roll: number
+  fov: number
+}
 
 export const HotbarComponent = RegisterComponent({
   id: 'hotbar',

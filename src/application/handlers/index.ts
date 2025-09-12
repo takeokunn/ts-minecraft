@@ -1,2 +1,2 @@
-export { CommandHandlers, CommandHandlersLive } from './command-handlers'
-export { QueryHandlers, QueryHandlersLive } from './query-handlers'
+export { CommandHandlers, CommandHandlersLive } from './command.handler'
+export { QueryHandlers, QueryHandlersLive } from './query.handler'

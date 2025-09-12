@@ -12,9 +12,9 @@
 import { Effect, Ref, HashMap, Option, Context, Layer } from 'effect'
 import * as S from '@effect/schema/Schema'
 import * as ReadonlyArray from 'effect/ReadonlyArray'
-import { EntityId } from '@domain/value-objects/entity-id.vo'
+import { EntityId } from '@domain/value-objects/entity-id.value-object'
 import { Chunk } from '@domain/entities/chunk.entity'
-import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordinate.vo'
+import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordinate.value-object'
 import { ChunkNotLoadedError, InvalidPositionError, WorldStateError } from '@domain/errors'
 
 // Port interfaces for external dependencies

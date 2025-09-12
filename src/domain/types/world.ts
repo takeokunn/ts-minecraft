@@ -1,7 +1,7 @@
 import { HashMap, HashSet } from 'effect'
 import { type ComponentName, type ComponentOfName, ChunkComponent } from '@domain/entities/components'
 import { PlacedBlock } from '@domain/entities/block.entity'
-import { EntityId } from '@domain/value-objects/entity-id.vo'
+import { EntityId } from '@domain/value-objects/entity-id.value-object'
 
 // Import errors from centralized location
 export { EntityNotFoundError, ComponentNotFoundError } from '@domain/errors'

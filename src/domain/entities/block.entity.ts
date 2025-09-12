@@ -2,10 +2,10 @@ import { Match, Option } from 'effect'
 import * as S from 'effect/Schema'
 import { Vector3Int, Vector3IntSchema } from '@domain/value-objects/common'
 import { blockDefinitions } from '@domain/entities/block-definitions.entity'
-import { BlockType, BlockTypeSchema } from '@domain/value-objects/block-type.vo'
+import { BlockType, BlockTypeSchema } from '@domain/value-objects/block-type.value-object'
 import { ATLAS_WIDTH_IN_TILES } from '@shared/constants/texture'
 
-export type { BlockType } from '@domain/value-objects/block-type.vo'
+export type { BlockType } from '@domain/value-objects/block-type.value-object'
 
 // --- Schemas ---
 

@@ -1,5 +1,5 @@
 import * as S from 'effect/Schema'
-import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordinate.vo'
+import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordinate.value-object'
 import { Block } from '@domain/entities/block.entity'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@shared/constants/world'
 

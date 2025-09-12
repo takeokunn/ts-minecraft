@@ -7,7 +7,7 @@ export {
   type GameStateViewModelExtended,
   type GameStateView,
   type MemoryUsage,
-} from './game-state.vm'
+} from './game-state.view-model'
 
 export {
   PlayerStatusViewModel,
@@ -17,7 +17,7 @@ export {
   type PlayerStatusView,
   type Position3D,
   type HealthStatus,
-} from './player-status.vm'
+} from './player-status.view-model'
 
 export {
   WorldInfoViewModel,
@@ -27,4 +27,4 @@ export {
   type WorldInfoView,
   type TimeInfo,
   type WeatherInfo,
-} from './world-info.vm'
+} from './world-info.view-model'

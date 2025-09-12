@@ -183,10 +183,13 @@ export const Schemas = {
 export type SchemaType<K extends keyof typeof Schemas> = S.Schema.Type<(typeof Schemas)[K]>
 
 /**
- * Validation helpers
+ * Validation helpers using Effect-TS patterns
  */
-export const decode = <K extends keyof typeof Schemas>(schemaKey: K, value: unknown) => S.decodeUnknown(Schemas[schemaKey])(value)
+export const decode = <K extends keyof typeof Schemas>(schemaKey: K, value: unknown) => 
+  S.decodeUnknown(Schemas[schemaKey])(value)
 
-export const encode = <K extends keyof typeof Schemas>(schemaKey: K, value: SchemaType<K>) => S.encode(Schemas[schemaKey])(value as SchemaType<K>)
+export const encode = <K extends keyof typeof Schemas>(schemaKey: K, value: SchemaType<K>) => 
+  S.encode(Schemas[schemaKey])(value)
 
-export const validate = <K extends keyof typeof Schemas>(schemaKey: K, value: unknown) => S.validateSync(Schemas[schemaKey])(value)
+export const validate = <K extends keyof typeof Schemas>(schemaKey: K, value: unknown) => 
+  S.validate(Schemas[schemaKey])(value)

@@ -816,11 +816,11 @@ export const MeshGenerationService = Context.GenericTag<MeshGenerationService>('
 export const meshGenerationServiceLive = Layer.succeed(MeshGenerationService, createEnhancedMeshGenerationService())
 
 // Re-export original service for backward compatibility
-export * from '@domain/services/mesh-generation-domain.service'
+export * from '@domain/services/mesh-generation.domain-service'
 export {
   MeshGenerationDomainService as MeshGenerationDomainServiceOriginal,
   MeshGenerationDomainServiceLive as MeshGenerationDomainServiceLiveOriginal,
-} from '@domain/services/mesh-generation-domain.service'
+} from '@domain/services/mesh-generation.domain-service'
 
 /**
  * Utility functions for mesh generation

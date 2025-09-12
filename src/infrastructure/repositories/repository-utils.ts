@@ -5,6 +5,8 @@ import * as Layer from 'effect/Layer'
 import { WorldRepositoryLive } from '@infrastructure/repositories/world.repository'
 import { EntityRepositoryLive } from '@infrastructure/repositories/entity.repository'
 import { ChunkRepositoryLive } from '@infrastructure/repositories/chunk.repository'
+import { ComponentRepositoryLive } from '@infrastructure/repositories/component.repository'
+import { PhysicsRepositoryLive } from '@infrastructure/repositories/physics.repository'
 
 /**
  * Repository Layer combinations for easy setup
@@ -13,7 +15,13 @@ import { ChunkRepositoryLive } from '@infrastructure/repositories/chunk.reposito
 /**
  * Complete repository layer with all implementations
  */
-export const AllRepositories = Layer.mergeAll(WorldRepositoryLive, EntityRepositoryLive, ChunkRepositoryLive)
+export const AllRepositories = Layer.mergeAll(
+  WorldRepositoryLive,
+  EntityRepositoryLive,
+  ChunkRepositoryLive,
+  ComponentRepositoryLive,
+  PhysicsRepositoryLive
+)
 
 /**
  * Core repositories needed for basic gameplay
@@ -26,9 +34,22 @@ export const CoreRepositories = Layer.mergeAll(WorldRepositoryLive, EntityReposi
 export const WorldRepositories = Layer.mergeAll(WorldRepositoryLive, ChunkRepositoryLive)
 
 /**
+ * Physics-focused repositories for physics simulation
+ */
+export const PhysicsRepositories = Layer.mergeAll(
+  EntityRepositoryLive,
+  ComponentRepositoryLive,
+  PhysicsRepositoryLive
+)
+
+/**
  * Entity-focused repositories for gameplay systems
  */
-export const EntityRepositories = Layer.mergeAll(WorldRepositoryLive, EntityRepositoryLive)
+export const EntityRepositories = Layer.mergeAll(
+  WorldRepositoryLive,
+  EntityRepositoryLive,
+  ComponentRepositoryLive
+)
 
 /**
  * Repository utilities and helpers (internal)

@@ -12,12 +12,24 @@ import * as Clock from 'effect/Clock'
 import * as S from '@effect/schema/Schema'
 import { pipe } from 'effect/Function'
 
+// JSON value type for better type safety than unknown
+export type JsonValue = 
+  | string 
+  | number 
+  | boolean 
+  | null 
+  | JsonValue[] 
+  | { [key: string]: JsonValue }
+
+// Error-related types for better type safety
+export type ErrorLike = Error | string | { _tag: string; message?: string }
+
 // Log levels
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'critical'
 
 // Enhanced schema definitions for comprehensive validation
 const LogContextSchema = S.Union(
-  S.Record(S.String, S.Unknown),
+  S.Record({ key: S.String, value: S.Any }),
   S.Null,
   S.Undefined
 )
@@ -30,18 +42,18 @@ const ErrorLikeSchema = S.Union(
     message: S.optional(S.String),
     stack: S.optional(S.String)
   }),
-  S.Unknown
+  S.Any
 )
 
 const StateSchema = S.Union(
-  S.Record(S.String, S.Unknown),
+  S.Record({ key: S.String, value: S.Unknown }),
   S.Array(S.Unknown),
   S.String,
   S.Number,
   S.Boolean,
   S.Null,
   S.Undefined,
-  S.Unknown
+  S.Any
 )
 
 const LogLevelSchema = S.Literal('debug', 'info', 'warn', 'error', 'critical')
@@ -54,13 +66,13 @@ const LogEntrySchema = S.Struct({
   level: LogLevelSchema,
   component: ComponentSchema,
   message: S.String,
-  context: S.optional(S.Record(S.String, S.Unknown)),
+  context: S.optional(S.Record({ key: S.String, value: S.Any })),
   error: S.optional(S.InstanceOf(Error)),
   tags: S.optional(TagsSchema)
 })
 
 // Enhanced type guards and validators using Schema.parse
-const validateLogContext = (context: unknown): Effect.Effect<Record<string, unknown>, never, never> => {
+const validateLogContext = (context: JsonValue | null | undefined): Effect.Effect<Record<string, JsonValue>, never, never> => {
   return pipe(
     S.decodeUnknown(LogContextSchema)(context),
     Effect.match({
@@ -68,20 +80,20 @@ const validateLogContext = (context: unknown): Effect.Effect<Record<string, unkn
         // Provide fallback for invalid context
         if (context == null) return {}
         if (typeof context === 'object' && !Array.isArray(context)) {
-          return context as Record<string, unknown>
+          return context as Record<string, JsonValue> // Safe assertion: we've validated it's an object
         }
         return { value: context, type: typeof context, raw: String(context) }
       },
       onSuccess: (validated) => {
         if (validated == null) return {}
-        return validated as Record<string, unknown>
+        return validated as Record<string, JsonValue> // Safe assertion: Schema validation ensures correct type
       }
     }),
     Effect.succeed
   )
 }
 
-const validateError = (error: unknown): Effect.Effect<Error, never, never> => {
+const validateError = (error: ErrorLike | null | undefined): Effect.Effect<Error, never, never> => {
   return pipe(
     S.decodeUnknown(ErrorLikeSchema)(error),
     Effect.match({
@@ -111,7 +123,7 @@ const validateError = (error: unknown): Effect.Effect<Error, never, never> => {
   )
 }
 
-const validateState = (state: unknown): Effect.Effect<Record<string, unknown>, never, never> => {
+const validateState = (state: JsonValue | null | undefined): Effect.Effect<Record<string, JsonValue>, never, never> => {
   return pipe(
     S.decodeUnknown(StateSchema)(state),
     Effect.match({
@@ -147,7 +159,7 @@ export interface LogEntry {
   level: LogLevel
   component: string
   message: string
-  context?: Record<string, unknown>
+  context?: Record<string, JsonValue>
   error?: Error
   tags?: string[]
 }
@@ -245,7 +257,7 @@ function createLogEntry(
   level: LogLevel,
   message: string,
   component: string,
-  context?: Record<string, unknown>,
+  context?: Record<string, JsonValue>,
   error?: Error,
   tags?: string[],
 ): Effect.Effect<LogEntry, never, Clock.Clock> {
@@ -296,7 +308,7 @@ const formatForConsole = (entry: LogEntry): Effect.Effect<string, never, never> 
   )
 
 // Core logging function with validation
-function log(level: LogLevel, message: string, component?: string, context?: unknown, error?: unknown, tags?: string[]): Effect.Effect<void, never, Clock.Clock> {
+function log(level: LogLevel, message: string, component?: string, context?: JsonValue | null, error?: ErrorLike | null, tags?: string[]): Effect.Effect<void, never, Clock.Clock> {
   return pipe(
     Effect.gen(function* (_) {
       const config = yield* _(LoggerStateOps.getConfig())
@@ -356,21 +368,21 @@ export const Logger = {
   validateState: validateState,
   
   // Schema validators for external use
-  validateLogEntry: (entry: unknown): Effect.Effect<LogEntry, string, never> => {
+  validateLogEntry: (entry: JsonValue | null): Effect.Effect<LogEntry, string, never> => {
     return pipe(
       S.decodeUnknown(LogEntrySchema)(entry),
       Effect.mapError((error) => `Invalid log entry: ${error}`)
     )
   },
   
-  validateLogLevel: (level: unknown): Effect.Effect<LogLevel, string, never> => {
+  validateLogLevel: (level: JsonValue | null): Effect.Effect<LogLevel, string, never> => {
     return pipe(
       S.decodeUnknown(LogLevelSchema)(level),
       Effect.mapError((error) => `Invalid log level: ${error}`)
     )
   },
   
-  validateTags: (tags: unknown): Effect.Effect<string[], string, never> => {
+  validateTags: (tags: JsonValue | null): Effect.Effect<string[], string, never> => {
     return pipe(
       S.decodeUnknown(TagsSchema)(tags),
       Effect.mapError((error) => `Invalid tags: ${error}`)
@@ -386,27 +398,27 @@ export const Logger = {
   TagsSchema,
 
   // Logging methods with unknown type validation
-  debug: (message: string, component?: string, context?: unknown, tags?: string[]) => log('debug', message, component, context, undefined, tags),
+  debug: (message: string, component?: string, context?: JsonValue | null, tags?: string[]) => log('debug', message, component, context, undefined, tags),
 
-  info: (message: string, component?: string, context?: unknown, tags?: string[]) => log('info', message, component, context, undefined, tags),
+  info: (message: string, component?: string, context?: JsonValue | null, tags?: string[]) => log('info', message, component, context, undefined, tags),
 
-  warn: (message: string, component?: string, context?: unknown, tags?: string[]) => log('warn', message, component, context, undefined, tags),
+  warn: (message: string, component?: string, context?: JsonValue | null, tags?: string[]) => log('warn', message, component, context, undefined, tags),
 
-  error: (message: string, component?: string, error?: unknown, context?: unknown, tags?: string[]) => log('error', message, component, context, error, tags),
+  error: (message: string, component?: string, error?: ErrorLike | null, context?: JsonValue | null, tags?: string[]) => log('error', message, component, context, error, tags),
 
-  critical: (message: string, component?: string, error?: unknown, context?: unknown, tags?: string[]) => log('critical', message, component, context, error, tags),
+  critical: (message: string, component?: string, error?: ErrorLike | null, context?: JsonValue | null, tags?: string[]) => log('critical', message, component, context, error, tags),
 
   // Utility methods with unknown type validation
   withComponent: (component: string) => ({
-    debug: (message: string, context?: unknown, tags?: string[]) => log('debug', message, component, context, undefined, tags),
+    debug: (message: string, context?: JsonValue | null, tags?: string[]) => log('debug', message, component, context, undefined, tags),
 
-    info: (message: string, context?: unknown, tags?: string[]) => log('info', message, component, context, undefined, tags),
+    info: (message: string, context?: JsonValue | null, tags?: string[]) => log('info', message, component, context, undefined, tags),
 
-    warn: (message: string, context?: unknown, tags?: string[]) => log('warn', message, component, context, undefined, tags),
+    warn: (message: string, context?: JsonValue | null, tags?: string[]) => log('warn', message, component, context, undefined, tags),
 
-    error: (message: string, error?: unknown, context?: unknown, tags?: string[]) => log('error', message, component, context, error, tags),
+    error: (message: string, error?: ErrorLike | null, context?: JsonValue | null, tags?: string[]) => log('error', message, component, context, error, tags),
 
-    critical: (message: string, error?: unknown, context?: unknown, tags?: string[]) => log('critical', message, component, context, error, tags),
+    critical: (message: string, error?: ErrorLike | null, context?: JsonValue | null, tags?: string[]) => log('critical', message, component, context, error, tags),
   }),
 
   // Log retrieval and management
@@ -434,11 +446,11 @@ export const Logger = {
 
   // Performance logging helpers
   performance: {
-    start: (operation: string, component?: string): Effect.Effect<{ end: (context?: unknown) => Effect.Effect<void, never, Clock.Clock> }, never, Clock.Clock> => 
+    start: (operation: string, component?: string): Effect.Effect<{ end: (context?: JsonValue | null) => Effect.Effect<void, never, Clock.Clock> }, never, Clock.Clock> => 
       Effect.gen(function* () {
         const startTime = yield* Clock.currentTimeNanos
         return {
-          end: (context?: unknown) =>
+          end: (context?: JsonValue | null) =>
             Effect.gen(function* () {
               const endTime = yield* Clock.currentTimeNanos
               const duration = Number(endTime - startTime) / 1_000_000 // Convert to milliseconds
@@ -459,7 +471,7 @@ export const Logger = {
         }
       }),
 
-    measure: <T, E, R>(operation: string, effect: Effect.Effect<T, E, R>, component?: string, context?: unknown): Effect.Effect<T, E, R | Clock.Clock> => {
+    measure: <T, E, R>(operation: string, effect: Effect.Effect<T, E, R>, component?: string, context?: JsonValue | null): Effect.Effect<T, E, R | Clock.Clock> => {
       return pipe(
         Clock.currentTimeNanos,
         Effect.flatMap((startTime) =>
@@ -497,7 +509,7 @@ export const createComponentLogger = (component: string) => Logger.withComponent
 
 // Development helpers with proper unknown handling
 export const DevLogger = {
-  logState: (state: unknown, component?: string, label?: string) =>
+  logState: (state: JsonValue | null, component?: string, label?: string) =>
     Effect.gen(function* () {
       const validatedState = yield* validateState(state)
       return yield* Logger.debug(`State${label ? ` (${label})` : ''}`, component, validatedState, ['state'])
@@ -511,7 +523,7 @@ export const DevLogger = {
       }),
     ),
 
-  logError: (error: unknown, component?: string, operation?: string) =>
+  logError: (error: ErrorLike | null, component?: string, operation?: string) =>
     Effect.gen(function* () {
       const validatedError = yield* validateError(error)
       return yield* Logger.error(`${operation ? `${operation} failed` : 'Operation failed'}`, component, validatedError, { operation }, ['error'])

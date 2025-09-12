@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { createAABB } from '@domain/value-objects/physics/aabb.vo'
+import { createAABB } from '@domain/value-objects/physics/aabb.value-object'
 import { SpatialGridPort } from '@domain/ports/spatial-grid.port'
 import { WorldRepositoryPortPort } from '@domain/ports/world-repository.port'
 

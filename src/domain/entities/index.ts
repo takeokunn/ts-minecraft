@@ -1,7 +1,8 @@
 // Domain Entities - Named exports for better tree-shaking and explicit dependencies
 
 // Player Entity
-export { PlayerInventory, Player, PlayerBusinessLogic, createPlayer, type Player as PlayerType } from './player.entity'
+export { PlayerInventory, Player, PlayerBusinessLogic, createPlayer } from './player.entity'
+export type { Player as PlayerType } from './player.entity'
 
 // Block Entity
 export {
@@ -22,10 +23,12 @@ export {
 export type { BlockType } from './block.entity'
 
 // Chunk Entity
-export { Chunk, makeEmptyChunk, ChunkBusinessLogic, type Chunk as ChunkType } from './chunk.entity'
+export { Chunk, makeEmptyChunk, ChunkBusinessLogic } from './chunk.entity'
+export type { Chunk as ChunkType } from './chunk.entity'
 
 // World Entity
-export { WorldState, type WorldState as WorldStateType } from './world.entity'
+export { WorldState } from './world.entity'
+export type { WorldState as WorldStateType } from './world.entity'
 
 // Entity Base
 export type * from './entity.entity'

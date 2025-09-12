@@ -8,7 +8,18 @@
 
 import * as S from 'effect/Schema'
 import * as Effect from 'effect/Effect'
+import * as Predicate from 'effect/Predicate'
+import * as Option from 'effect/Option'
 import { pipe } from 'effect'
+
+// JSON value type for better type safety than unknown
+export type JsonValue = 
+  | string 
+  | number 
+  | boolean 
+  | null 
+  | JsonValue[] 
+  | { [key: string]: JsonValue }
 import { ComponentNameSchema, type ComponentName } from '@domain/entities/components/component-schemas'
 import { BlockTypeSchema } from '@domain/constants/block-types'
 import { BlockPropertiesUtils } from '@domain/constants/block-properties'
@@ -22,10 +33,10 @@ export type { BlockType } from '@domain/constants/block-types'
 export const FaceDirectionSchema = S.Literal('front', 'back', 'right', 'left', 'top', 'bottom')
 export type FaceDirection = S.Schema.Type<typeof FaceDirectionSchema>
 
-export const isFaceDirection = (value: unknown): value is FaceDirection =>
+export const isFaceDirection = (value: JsonValue | null | undefined): value is FaceDirection =>
   S.is(FaceDirectionSchema)(value)
 
-export const safeParseFaceDirection = (value: unknown): Effect.Effect<FaceDirection, S.ParseResult.ParseError> =>
+export const safeParseFaceDirection = (value: JsonValue | null | undefined): Effect.Effect<FaceDirection, S.ParseResult.ParseError> =>
   pipe(value, S.decode(FaceDirectionSchema))
 
 /**
@@ -34,19 +45,19 @@ export const safeParseFaceDirection = (value: unknown): Effect.Effect<FaceDirect
 export const EntityIdNumberSchema = pipe(S.Number, S.int(), S.positive(), S.brand('EntityId'))
 export type EntityIdNumber = S.Schema.Type<typeof EntityIdNumberSchema>
 
-export const isEntityIdNumber = (value: unknown): value is EntityIdNumber =>
+export const isEntityIdNumber = (value: JsonValue | null | undefined): value is EntityIdNumber =>
   S.is(EntityIdNumberSchema)(value)
 
-export const safeParseEntityIdNumber = (value: unknown): Effect.Effect<EntityIdNumber, S.ParseResult.ParseError> =>
+export const safeParseEntityIdNumber = (value: JsonValue | null | undefined): Effect.Effect<EntityIdNumber, S.ParseResult.ParseError> =>
   pipe(value, S.decode(EntityIdNumberSchema))
 
 /**
  * BlockType Validation Functions
  */
-export const isBlockType = (value: unknown): value is S.Schema.Type<typeof BlockTypeSchema> =>
+export const isBlockType = (value: JsonValue | null | undefined): value is S.Schema.Type<typeof BlockTypeSchema> =>
   S.is(BlockTypeSchema)(value)
 
-export const safeParseBlockType = (value: unknown): Effect.Effect<S.Schema.Type<typeof BlockTypeSchema>, S.ParseResult.ParseError> =>
+export const safeParseBlockType = (value: JsonValue | null | undefined): Effect.Effect<S.Schema.Type<typeof BlockTypeSchema>, S.ParseResult.ParseError> =>
   pipe(value, S.decode(BlockTypeSchema))
 
 /**
@@ -63,16 +74,16 @@ export const safeParseBlockTypeFromString = (value: string): Effect.Effect<keyof
 /**
  * ComponentName Validation Functions
  */
-export const isComponentName = (value: unknown): value is ComponentName =>
+export const isComponentName = (value: JsonValue | null | undefined): value is ComponentName =>
   S.is(ComponentNameSchema)(value)
 
-export const safeParseComponentName = (value: unknown): Effect.Effect<ComponentName, S.ParseResult.ParseError> =>
+export const safeParseComponentName = (value: JsonValue | null | undefined): Effect.Effect<ComponentName, S.ParseResult.ParseError> =>
   pipe(value, S.decode(ComponentNameSchema))
 
 /**
  * Array validation helpers
  */
-export const safeParseComponentNameArray = (value: unknown): Effect.Effect<readonly ComponentName[], S.ParseResult.ParseError> =>
+export const safeParseComponentNameArray = (value: JsonValue | null | undefined): Effect.Effect<readonly ComponentName[], S.ParseResult.ParseError> =>
   pipe(value, S.decode(S.Array(ComponentNameSchema)))
 
 /**
@@ -109,7 +120,7 @@ export const validateObjectKeysAsComponentNames = <T>(
     const validatedObj = validatedKeys.reduce((acc, key) => {
       acc[key] = obj[key]
       return acc
-    }, {} as Record<ComponentName, T>)
+    }, {} as Record<ComponentName, T>) // Safe assertion: all keys have been validated as ComponentName
     
     return validatedObj
   })
@@ -118,12 +129,12 @@ export const validateObjectKeysAsComponentNames = <T>(
  * Biome surface/subsurface block validation for terrain generation
  */
 export interface BiomeBlockConfig {
-  readonly surfaceBlock: unknown
-  readonly subsurfaceBlock: unknown
+  readonly surfaceBlock: JsonValue
+  readonly subsurfaceBlock: JsonValue
 }
 
 export const validateBiomeBlockType = (
-  block: unknown
+  block: JsonValue
 ): Effect.Effect<S.Schema.Type<typeof BlockTypeSchema>, Error> =>
   Effect.gen(function* () {
     // First try the schema validation
@@ -143,7 +154,7 @@ export const validateBiomeBlockType = (
  * Synchronous biome block validation with fallback
  */
 export const validateBiomeBlockTypeSync = (
-  block: unknown,
+  block: JsonValue,
   fallback: S.Schema.Type<typeof BlockTypeSchema>
 ): S.Schema.Type<typeof BlockTypeSchema> => {
   // First try the schema validation
@@ -151,9 +162,10 @@ export const validateBiomeBlockTypeSync = (
     return block
   }
   
-  // Fallback for compatibility with block properties
+  // Fallback for compatibility with block properties - no type assertion needed
   if (typeof block === 'string' && isValidBlockTypeString(block)) {
-    return block as S.Schema.Type<typeof BlockTypeSchema>
+    // Safe because isValidBlockTypeString ensures the block is a valid key
+    return block
   }
   
   return fallback
@@ -190,67 +202,92 @@ export const TypeGuards = {
 /**
  * Safe component name utilities
  */
-export const getValidComponentNames = (components: Record<string, unknown>): string[] => {
+export const getValidComponentNames = (components: Record<string, JsonValue>): string[] => {
   return Object.keys(components).filter((key) => 
     typeof key === 'string' && key.length > 0
   )
 }
 
-export const getValidComponentNamesAsComponentNames = (components: Record<string, unknown>): ComponentName[] => {
-  return Object.keys(components).filter((key) => 
+export const getValidComponentNamesAsComponentNames = (components: Record<string, JsonValue>): ComponentName[] => {
+  return Object.keys(components).filter((key): key is ComponentName => 
     typeof key === 'string' && key.length > 0 && isComponentName(key)
-  ) as ComponentName[]
+  )
 }
 
 /**
- * Common type guards and utility functions
+ * Common type guards and utility functions using Effect-TS Predicate
  */
-export const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
+export const isRecord = Predicate.isRecord
 
-export const hasProperty = <T extends Record<string, unknown>>(
+// Enhanced record validation with Option
+export const parseRecord = (value: JsonValue | null | undefined): Option.Option<Record<string, JsonValue>> =>
+  pipe(
+    value,
+    Option.fromPredicate(isRecord)
+  )
+
+export const hasProperty = <T extends Record<string, JsonValue>>(
   obj: T, 
   key: string | symbol
 ): key is keyof T => {
   return Object.prototype.hasOwnProperty.call(obj, key)
 }
 
-export const isFunction = (value: unknown): value is Function => {
-  return typeof value === 'function'
+export const isFunction = Predicate.isFunction
+
+// Enhanced boolean parsing with Option
+export const parseBoolean = (value: JsonValue | null | undefined): Option.Option<boolean> => {
+  if (typeof value === 'boolean') return Option.some(value)
+  if (typeof value === 'string') {
+    const lower = value.toLowerCase()
+    if (lower === 'true') return Option.some(true)
+    if (lower === 'false') return Option.some(false)
+  }
+  if (typeof value === 'number') return Option.some(value !== 0)
+  return Option.none()
 }
 
-export const safeBoolean = (value: unknown): boolean => {
-  if (typeof value === 'boolean') return value
-  if (typeof value === 'string') return value.toLowerCase() === 'true'
-  if (typeof value === 'number') return value !== 0
-  return false
+export const safeBoolean = (value: JsonValue | null | undefined): boolean => {
+  return pipe(
+    parseBoolean(value),
+    Option.getOrElse(() => false)
+  )
 }
 
-export const isVector3 = (value: unknown): value is { x: number; y: number; z: number } => {
-  return isRecord(value) && 
-    typeof (value as any).x === 'number' && 
-    typeof (value as any).y === 'number' && 
-    typeof (value as any).z === 'number'
+// Vector3 Schema for type-safe validation
+export const Vector3Schema = S.Struct({
+  x: S.Number,
+  y: S.Number,
+  z: S.Number
+})
+export type Vector3 = S.Schema.Type<typeof Vector3Schema>
+
+export const isVector3 = (value: JsonValue | null | undefined): value is Vector3 => {
+  return S.is(Vector3Schema)(value)
 }
 
-export const getSafeNumberProperty = (obj: Record<string, unknown>, prop: string): number | undefined => {
-  return hasProperty(obj, prop) && typeof obj[prop] === 'number' ? obj[prop] as number : undefined
+export const safeParseVector3 = (value: JsonValue | null | undefined): Effect.Effect<Vector3, S.ParseResult.ParseError> =>
+  pipe(value, S.decode(Vector3Schema))
+
+export const getSafeNumberProperty = (obj: Record<string, JsonValue>, prop: string): number | undefined => {
+  if (!hasProperty(obj, prop)) return undefined
+  const value = obj[prop]
+  return typeof value === 'number' ? value : undefined
 }
 
-export const isHTMLElement = (element: unknown): element is HTMLElement => {
+export const isHTMLElement = (element: JsonValue | null | undefined | Element): element is HTMLElement => {
   return element instanceof HTMLElement
 }
 
-export const isHTMLInputElement = (element: unknown): element is HTMLInputElement => {
+export const isHTMLInputElement = (element: JsonValue | null | undefined | Element): element is HTMLInputElement => {
   return element instanceof HTMLInputElement
 }
 
-export const hasFiles = (target: unknown): target is { files: FileList } => {
+export const hasFiles = (target: JsonValue | null | undefined | EventTarget): target is { files: FileList } => {
   return isRecord(target) && hasProperty(target, 'files') && target.files instanceof FileList
 }
 
-export const hasPerformanceMemory = (performance: Performance): performance is Performance & { memory: any } => {
+export const hasPerformanceMemory = (performance: Performance): performance is Performance & { memory: JsonValue } => {
   return hasProperty(performance, 'memory')
 }
 
@@ -258,11 +295,19 @@ export const hasPerformanceObserver = (): boolean => {
   return typeof PerformanceObserver !== 'undefined'
 }
 
-export const safeParseNumber = (value: unknown): number | undefined => {
-  if (typeof value === 'number') return isNaN(value) ? undefined : value
+// Enhanced number parsing with Option
+export const parseNumber = (value: JsonValue | null | undefined): Option.Option<number> => {
+  if (typeof value === 'number') return isNaN(value) ? Option.none() : Option.some(value)
   if (typeof value === 'string') {
     const parsed = parseFloat(value)
-    return isNaN(parsed) ? undefined : parsed
+    return isNaN(parsed) ? Option.none() : Option.some(parsed)
   }
-  return undefined
+  return Option.none()
+}
+
+export const safeParseNumber = (value: JsonValue | null | undefined): number | undefined => {
+  return pipe(
+    parseNumber(value),
+    Option.getOrElse(() => undefined as number | undefined)
+  )
 }

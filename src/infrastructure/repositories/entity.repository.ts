@@ -116,7 +116,7 @@ export const EntityRepository = Context.GenericTag<IEntityRepository>('EntityRep
 /**
  * Entity repository state
  */
-interface EntityRepositoryState {
+export interface EntityRepositoryState {
   readonly nextEntityId: number
   readonly entityMetadata: HashMap.HashMap<EntityId, EntityMetadata>
   readonly componentStorage: {

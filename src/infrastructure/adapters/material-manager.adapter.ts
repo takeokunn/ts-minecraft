@@ -1,56 +1,84 @@
 /**
  * Material Manager Adapter
  *
- * Infrastructure adapter that provides concrete Three.js material management.
+ * Infrastructure adapter that provides concrete Three.js material management
+ * using functional programming patterns with Effect-TS and Context.GenericTag.
  * This adapter handles the technical aspects of material creation, caching,
  * and disposal using Three.js APIs.
  */
 
 import { Effect, Layer, Context, Ref } from 'effect'
-import { IMaterialManager, MaterialManagerPort } from '@domain/ports/material-manager.port'
 import * as THREE from 'three'
+import { ExternalLibraryError } from '@domain/errors'
+
+/**
+ * Material Manager Adapter Service Interface
+ * Defines the contract for material management with proper error handling
+ */
+export interface MaterialManagerAdapter {
+  readonly getMaterial: (name: string) => Effect.Effect<THREE.Material, ExternalLibraryError>
+  readonly createMaterial: (name: string, config: any) => Effect.Effect<THREE.Material, ExternalLibraryError>
+  readonly disposeMaterials: () => Effect.Effect<void, never>
+  readonly hasMaterial: (name: string) => Effect.Effect<boolean, never>
+  readonly removeMaterial: (name: string) => Effect.Effect<void, never>
+  readonly isAvailable: () => Effect.Effect<boolean, never>
+}
+
+/**
+ * Context tag for Material Manager Adapter dependency injection
+ */
+export const MaterialManagerAdapter = Context.GenericTag<MaterialManagerAdapter>('@app/MaterialManagerAdapter')
 
 /**
  * Three.js Material Manager Adapter
  */
-export const createMaterialManagerAdapter = () =>
+const createMaterialManagerAdapter = () =>
   Effect.gen(function* () {
     const materialsRef = yield* Ref.make<Map<string, THREE.Material>>(new Map())
 
     /**
      * Create default material based on name
      */
-    const createDefaultMaterial = (name: string): Effect.Effect<THREE.Material, Error, never> =>
-      Effect.gen(function* () {
-        switch (name) {
-          case 'chunk':
-            return new THREE.MeshStandardMaterial({
-              vertexColors: true,
-              metalness: 0,
-              roughness: 1,
-            })
-          case 'water':
-            return new THREE.MeshStandardMaterial({
-              color: 0x006994,
-              transparent: true,
-              opacity: 0.8,
-            })
-          case 'grass':
-            return new THREE.MeshStandardMaterial({
-              color: 0x4a5d23,
-            })
-          default:
-            return new THREE.MeshStandardMaterial({
-              color: 0xcccccc,
-            })
-        }
+    const createDefaultMaterial = (name: string): Effect.Effect<THREE.Material, ExternalLibraryError> =>
+      Effect.try({
+        try: () => {
+          switch (name) {
+            case 'chunk':
+              return new THREE.MeshStandardMaterial({
+                vertexColors: true,
+                metalness: 0,
+                roughness: 1,
+              })
+            case 'water':
+              return new THREE.MeshStandardMaterial({
+                color: 0x006994,
+                transparent: true,
+                opacity: 0.8,
+              })
+            case 'grass':
+              return new THREE.MeshStandardMaterial({
+                color: 0x4a5d23,
+              })
+            default:
+              return new THREE.MeshStandardMaterial({
+                color: 0xcccccc,
+              })
+          }
+        },
+        catch: (e) => new ExternalLibraryError({
+          message: `Failed to create default material: ${e}`,
+          libraryName: 'three.js',
+          operation: 'createMaterial',
+          cause: e,
+          timestamp: Date.now()
+        })
       })
 
     return {
       /**
        * Get or create a material by name
        */
-      getMaterial: (name: string): Effect.Effect<THREE.Material, Error, never> =>
+      getMaterial: (name: string): Effect.Effect<THREE.Material, ExternalLibraryError> =>
         Effect.gen(function* () {
           const materials = yield* Ref.get(materialsRef)
           const existing = materials.get(name)
@@ -71,23 +99,29 @@ export const createMaterialManagerAdapter = () =>
       /**
        * Create material with specific configuration
        */
-      createMaterial: (name: string, config: any): Effect.Effect<THREE.Material, Error, never> =>
+      createMaterial: (name: string, config: any): Effect.Effect<THREE.Material, ExternalLibraryError> =>
         Effect.gen(function* () {
-          let material: THREE.Material
-
-          switch (config.type || 'standard') {
-            case 'basic':
-              material = new THREE.MeshBasicMaterial(config)
-              break
-            case 'standard':
-              material = new THREE.MeshStandardMaterial(config)
-              break
-            case 'physical':
-              material = new THREE.MeshPhysicalMaterial(config)
-              break
-            default:
-              material = new THREE.MeshStandardMaterial(config)
-          }
+          const material = yield* Effect.try({
+            try: () => {
+              switch (config.type || 'standard') {
+                case 'basic':
+                  return new THREE.MeshBasicMaterial(config)
+                case 'standard':
+                  return new THREE.MeshStandardMaterial(config)
+                case 'physical':
+                  return new THREE.MeshPhysicalMaterial(config)
+                default:
+                  return new THREE.MeshStandardMaterial(config)
+              }
+            },
+            catch: (e) => new ExternalLibraryError({
+              message: `Failed to create material: ${e}`,
+              libraryName: 'three.js',
+              operation: 'createMaterial',
+              cause: e,
+              timestamp: Date.now()
+            })
+          })
 
           yield* Ref.update(materialsRef, (materials) => {
             const newMaterials = new Map(materials)
@@ -131,14 +165,14 @@ export const createMaterialManagerAdapter = () =>
           }
         }),
 
-      isAvailable: (): Effect.Effect<boolean, never, never> => Effect.succeed(typeof THREE !== 'undefined'),
-    } satisfies IMaterialManager
+      isAvailable: (): Effect.Effect<boolean, never> => Effect.succeed(typeof THREE !== 'undefined'),
+    } satisfies MaterialManagerAdapter
   })
 
 /**
  * Live layer for Material Manager Adapter
  */
-export const MaterialManagerAdapterLive = Layer.effect(MaterialManagerPort, createMaterialManagerAdapter())
+export const MaterialManagerAdapterLive = Layer.effect(MaterialManagerAdapter, createMaterialManagerAdapter())
 
 /**
  * Material Manager Adapter utilities

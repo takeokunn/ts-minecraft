@@ -14,25 +14,15 @@
 
 import * as Effect from 'effect/Effect'
 import * as Ref from 'effect/Ref'
-import * as S from '@effect/schema/Schema'
 import { pipe } from 'effect/Function'
 import { createGameDebugger } from '@presentation/cli/debugger'
-import { isRecord, hasProperty, isFunction, safeBoolean } from '@shared/utils/type-guards'
+import { isRecord, hasProperty, isFunction } from '@shared/utils/type-guards'
 import { createDevConsole } from '@presentation/cli/dev-console'
 import { createEntityInspector } from '@presentation/cli/entity-inspector'
-import { PerformanceProfiler } from '@presentation/cli/performance-profiler'
+import { createPerformanceProfiler } from '@presentation/cli/performance-profiler'
 import { createHotReloadManager } from '@presentation/cli/hot-reload'
-import { Logger } from '@shared/utils/logging'
 import type { GameDebuggerTool, DevConsoleTool, EntityInspectorTool, PerformanceProfilerTool } from '@presentation/cli/dev-tools-manager'
 
-// Schema definitions for hot reload manager validation
-const HotReloadManagerSchema = S.Struct({
-  reload: S.Function,
-  watch: S.Function,
-  unwatch: S.Function,
-  getState: S.optional(S.Function),
-  isEnabled: S.optional(S.Boolean),
-})
 
 // Validation utility for hot reload manager
 const validateHotReloadManager = (

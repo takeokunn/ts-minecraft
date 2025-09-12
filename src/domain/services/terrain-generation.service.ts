@@ -966,11 +966,11 @@ export const TerrainGenerationService = Context.GenericTag<TerrainGenerationServ
 export const terrainGenerationServiceLive = Layer.succeed(TerrainGenerationService, createEnhancedTerrainGenerationService())
 
 // Re-export original service for backward compatibility
-export * from '@domain/services/terrain-generation-domain.service'
+export * from '@domain/services/terrain-generation.domain-service'
 export {
   TerrainGenerationDomainService as TerrainGenerationDomainServiceOriginal,
   TerrainGenerationDomainServiceLive as TerrainGenerationDomainServiceLiveOriginal,
-} from '@domain/services/terrain-generation-domain.service'
+} from '@domain/services/terrain-generation.domain-service'
 
 /**
  * Utility functions for terrain generation

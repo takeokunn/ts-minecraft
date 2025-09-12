@@ -1,7 +1,54 @@
 // Enhanced utility exports with Effect-TS patterns
 
+// Functional programming utilities (Effect-TS based)
+export {
+  // Array utilities
+  chunk, flatten, unique, groupBy,
+  safeHead, safeLast, safeGet,
+  
+  // Control flow
+  debounce, throttle, memoize,
+  retryWithPolicy, compose, forEachParallel,
+  
+  // Conditional
+  when, unless, tapWhen,
+  
+  // Measurement & Resource management
+  withTiming, withMeasurement, bracket,
+  
+  // Concurrency
+  raceAll, sequence, traverse,
+  
+  // Error handling
+  tryCatch, fromPromise, fromCallback,
+  
+  // Effects
+  filterEffect, foldEffect,
+  
+  // Math
+  safeDivide,
+  
+  // Complete functional utilities namespace
+  Functional,
+} from './functional'
 
-
+// Effect utilities
+export {
+  withErrorLog,
+  withTiming as effectWithTiming,
+  retryWithBackoff,
+  forEachWithConcurrency,
+  cached,
+  withCleanup,
+  withPerformanceMonitoring,
+  withFallback,
+  withTimeout,
+  batchOperations,
+  type CircuitBreakerState,
+  type CircuitBreakerConfig,
+  createCircuitBreaker,
+  memoize as effectMemoize,
+} from './effect'
 
 // Error handling utilities (used across layers)
 export {

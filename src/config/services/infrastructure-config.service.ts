@@ -150,7 +150,7 @@ const createEnvironmentInfrastructureConfig = (mode: string): InfrastructureConf
 }
 
 // Deep merge utility for infrastructure config
-const deepMergeInfraConfig = <T extends Record<string, any>>(
+const deepMergeInfraConfig = <T extends Record<string, unknown>>(
   target: T,
   source: Partial<T>
 ): T => {

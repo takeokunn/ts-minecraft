@@ -1,19 +1,19 @@
 import { Layer } from 'effect'
-import { CommandHandlersLive } from '@application/handlers/command-handlers'
-import { QueryHandlersLive } from '@application/handlers/query-handlers'
-import { PlayerMoveUseCaseLive } from '@application/use-cases/player-move.use-case'
-import { BlockPlaceUseCaseLive } from '@application/use-cases/block-place.use-case'
-import { ChunkLoadUseCaseLive } from '@application/use-cases/chunk-load.use-case'
-import { WorldGenerateUseCaseLive } from '@application/use-cases/world-generate.use-case'
+import { CommandHandlersLive } from '@application/handlers/command.handler'
+import { QueryHandlersLive } from '@application/handlers/query.handler'
+import { PlayerMoveUseCaseLive } from '@application/use-cases/player-move.usecase'
+import { BlockPlaceUseCaseLive } from '@application/use-cases/block-place.usecase'
+import { ChunkLoadUseCaseLive } from '@application/use-cases/chunk-load.usecase'
+import { WorldGenerateUseCaseLive } from '@application/use-cases/world-generate.usecase'
 import { WorldUpdateWorkflowLive } from '@application/workflows/world-update'
 import { UIUpdateWorkflowLive } from '@application/workflows/ui-update'
-import { SystemSchedulerServiceLive } from '@application/workflows/system-scheduler.service'
+import { SystemSchedulerLive } from '@application/workflows/system-scheduler'
 // Removed direct infrastructure dependencies - using ports instead
 
 // Import new domain services that the application layer depends on
-import { TerrainGenerationDomainServiceLive } from '@domain/services/terrain-generation-domain.service'
-import { MeshGenerationDomainServiceLive } from '@domain/services/mesh-generation-domain.service'
-import { WorldManagementDomainServiceLive } from '@domain/services/world-management-domain.service'
+import { TerrainGenerationDomainServiceLive } from '@domain/services/terrain-generation.domain-service'
+import { MeshGenerationDomainServiceLive } from '@domain/services/mesh-generation.domain-service'
+import { WorldManagementDomainServiceLive } from '@domain/services/world-management.domain-service'
 import { UnifiedQuerySystemLive } from '@application/queries/unified-query-system'
 import { DomainQueryServiceLive } from '@application/queries/domain-query-service'
 
@@ -58,7 +58,7 @@ export const ApplicationLayer = Layer.mergeAll(
   UIUpdateWorkflowLive,
 
   // System Services
-  SystemSchedulerServiceLive(),
+  SystemSchedulerLive(),
   // Note: SystemCommunication and PerformanceMonitor are now provided via adapters
   // They should be provided at the infrastructure layer level
 )
