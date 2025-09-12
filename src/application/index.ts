@@ -1,19 +1,17 @@
-// Application Layer Exports
+// Application Layer - Core exports only
 export { ApplicationLayer } from './application-layer'
 
-// Commands
+// Commands - Used in presentation controllers and main.ts
 export { PlayerMovementCommand } from './commands/player-movement'
 export { BlockInteractionCommand } from './commands/block-interaction'
 
-// Dependency Injection
-export { Container, DIContainer } from './di/container'
-export { DITypes } from './di/di-types'
+// Note: DI container exports removed as they are unused in the current architecture
 
-// Handlers
+// Handlers - Core handlers used in presentation layer
 export { CommandHandlers, CommandHandlersLive } from './handlers/command-handlers'
 export { QueryHandlers, QueryHandlersLive } from './handlers/query-handlers'
 
-// Queries
+// Queries - Core query system used in CLI
 export {
   query,
   QueryBuilder,
@@ -21,19 +19,17 @@ export {
   aosQuery,
   UnifiedQuerySystemService,
   UnifiedQuerySystemLive,
-  ArchetypeManager,
-  ArchetypeManagerLive,
   QueryCache,
   globalQueryCacheLayer,
 } from './queries'
 
-// Use Cases
+// Use Cases - Core use cases with commands used in handlers
 export { PlayerMoveUseCase, PlayerMoveUseCaseLive } from './use-cases/player-move.use-case'
 export { BlockPlaceUseCase, BlockPlaceUseCaseLive } from './use-cases/block-place.use-case'
 export { ChunkLoadUseCase, ChunkLoadUseCaseLive, ChunkLoadCommand } from './use-cases/chunk-load.use-case'
 export { WorldGenerateUseCase, WorldGenerateUseCaseLive, WorldGenerateCommand } from './use-cases/world-generate.use-case'
 
-// Workflows
+// Workflows (used in main.ts)
 export { UIUpdateWorkflow, UIUpdateWorkflowLive } from './workflows/ui-update'
 export { WorldUpdateWorkflow, WorldUpdateWorkflowLive } from './workflows/world-update'
 export { ChunkLoadingWorkflow, ChunkLoadingWorkflowLive } from './workflows/chunk-loading'

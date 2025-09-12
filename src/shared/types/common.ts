@@ -28,8 +28,8 @@ export type Mutable<T> = {
 
 // Array utility types
 export type NonEmptyArray<T> = [T, ...T[]]
-export type Head<T extends readonly any[]> = T extends readonly [infer H, ...any[]] ? H : never
-export type Tail<T extends readonly any[]> = T extends readonly [any, ...infer Rest] ? Rest : never
+export type Head<T extends readonly unknown[]> = T extends readonly [infer H, ...unknown[]] ? H : never
+export type Tail<T extends readonly unknown[]> = T extends readonly [unknown, ...infer Rest] ? Rest : never
 
 // String utility types
 export type StringKeys<T> = Extract<keyof T, string>
@@ -77,7 +77,7 @@ export type Config = Record<string, ConfigValue>
 
 // Event types
 export type EventType = string
-export type EventPayload = Record<string, any>
+export type EventPayload = Record<string, unknown>
 export type GameEvent<T extends EventType = EventType, P extends EventPayload = EventPayload> = {
   type: T
   payload: P
@@ -85,6 +85,6 @@ export type GameEvent<T extends EventType = EventType, P extends EventPayload = 
 }
 
 // State management
-export type State = Record<string, any>
+export type State = Record<string, unknown>
 export type StateUpdate<T extends State> = Partial<T> | ((prev: T) => Partial<T>)
 export type StateSelector<T extends State, R> = (state: T) => R

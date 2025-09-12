@@ -1,5 +1,6 @@
 import { Effect, Ref, Schedule } from 'effect'
 import { Metrics } from '@infrastructure/performance/metrics'
+import { hasPerformanceMemory, hasPerformanceObserver } from '@shared/utils/type-guards'
 
 /**
  * Memory leak detection system with advanced monitoring capabilities
@@ -95,11 +96,11 @@ export const initializeMemoryDetector = (config?: Partial<MemoryDetectorConfig>)
  * Get current memory snapshot
  */
 const getMemorySnapshot = (): MemorySnapshot | null => {
-  if (typeof performance === 'undefined' || !(performance as any).memory) {
+  if (typeof performance === 'undefined' || !hasPerformanceMemory(performance)) {
     return null
   }
 
-  const memory = (performance as any).memory
+  const memory = performance.memory
   const timestamp = Date.now()
   const usedJSHeapSize = memory.usedJSHeapSize
   const totalJSHeapSize = memory.totalJSHeapSize
@@ -162,13 +163,13 @@ const startMemoryMonitoring = (): Effect.Effect<void, never, never> =>
 const setupGCMonitoring = (): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     // Note: This is browser-specific and may not work in all environments
-    if (typeof (window as any)?.PerformanceObserver === 'undefined') {
+    if (!hasPerformanceObserver()) {
       yield* Effect.logInfo('GC monitoring not available in this environment')
       return
     }
 
     try {
-      const observer = new (window as any).PerformanceObserver((list: any) => {
+      const observer = new PerformanceObserver((list) => {
         const entries = list.getEntries()
 
         for (const entry of entries) {

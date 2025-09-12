@@ -8,6 +8,7 @@
  */
 
 import { Effect, Context, Layer } from 'effect'
+import { Schema } from '@effect/schema'
 import { BlockPropertiesUtils, type BlockProperties, type BlockMaterialProperties } from '@domain/constants/block-properties'
 import { BlockType } from '@domain/constants/block-types'
 
@@ -179,19 +180,19 @@ export interface IMaterialConfigDomainService {
 /**
  * Domain errors
  */
-export class MaterialConfigNotFoundError extends Error {
-  readonly _tag = 'MaterialConfigNotFoundError'
-  constructor(public readonly materialName: string) {
-    super(`Material configuration not found: ${materialName}`)
-  }
-}
+export const MaterialConfigNotFoundError = Schema.TaggedError<MaterialConfigNotFoundError>()('MaterialConfigNotFoundError', {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+  materialName: Schema.String,
+})
+export type MaterialConfigNotFoundError = Schema.Schema.Type<typeof MaterialConfigNotFoundError>
 
-export class MaterialConfigValidationError extends Error {
-  readonly _tag = 'MaterialConfigValidationError'
-  constructor(public readonly reason: string) {
-    super(`Material configuration validation failed: ${reason}`)
-  }
-}
+export const MaterialConfigValidationError = Schema.TaggedError<MaterialConfigValidationError>()('MaterialConfigValidationError', {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+  reason: Schema.String,
+})
+export type MaterialConfigValidationError = Schema.Schema.Type<typeof MaterialConfigValidationError>
 
 /**
  * Pure domain functions for material configuration logic
@@ -201,7 +202,12 @@ const getMaterialConfigPure = (name: string): Effect.Effect<MaterialConfig, Mate
   Effect.gen(function* () {
     const config = DOMAIN_MATERIAL_CONFIGS[name]
     if (!config) {
-      throw new MaterialConfigNotFoundError(name)
+      yield* Effect.fail(
+        MaterialConfigNotFoundError.make({
+          message: `Material configuration not found: ${name}`,
+          materialName: name,
+        }),
+      )
     }
     return config
   })
@@ -267,26 +273,51 @@ const validateMaterialConfigPure = (config: MaterialConfig): Effect.Effect<boole
   Effect.gen(function* () {
     // Validate opacity range
     if (config.properties.opacity < 0 || config.properties.opacity > 1) {
-      throw new MaterialConfigValidationError('Opacity must be between 0 and 1')
+      yield* Effect.fail(
+        MaterialConfigValidationError.make({
+          message: 'Material configuration validation failed: Opacity must be between 0 and 1',
+          reason: 'Opacity must be between 0 and 1',
+        }),
+      )
     }
 
     // Validate metalness range
     if (config.properties.metalness < 0 || config.properties.metalness > 1) {
-      throw new MaterialConfigValidationError('Metalness must be between 0 and 1')
+      yield* Effect.fail(
+        MaterialConfigValidationError.make({
+          message: 'Material configuration validation failed: Metalness must be between 0 and 1',
+          reason: 'Metalness must be between 0 and 1',
+        }),
+      )
     }
 
     // Validate roughness range
     if (config.properties.roughness < 0 || config.properties.roughness > 1) {
-      throw new MaterialConfigValidationError('Roughness must be between 0 and 1')
+      yield* Effect.fail(
+        MaterialConfigValidationError.make({
+          message: 'Material configuration validation failed: Roughness must be between 0 and 1',
+          reason: 'Roughness must be between 0 and 1',
+        }),
+      )
     }
 
     // Validate transparency consistency
     if (config.properties.transparent && config.properties.opacity === 1) {
-      throw new MaterialConfigValidationError('Transparent materials should have opacity < 1')
+      yield* Effect.fail(
+        MaterialConfigValidationError.make({
+          message: 'Material configuration validation failed: Transparent materials should have opacity < 1',
+          reason: 'Transparent materials should have opacity < 1',
+        }),
+      )
     }
 
     if (!config.properties.transparent && config.properties.opacity < 1) {
-      throw new MaterialConfigValidationError('Non-transparent materials should have opacity = 1')
+      yield* Effect.fail(
+        MaterialConfigValidationError.make({
+          message: 'Material configuration validation failed: Non-transparent materials should have opacity = 1',
+          reason: 'Non-transparent materials should have opacity = 1',
+        }),
+      )
     }
 
     return true
@@ -311,13 +342,14 @@ const materialConfigDomainService: IMaterialConfigDomainService = {
 
 /**
  * Context tag for dependency injection
+ * Uses standardized naming convention: ServiceName + Type
  */
-export const MaterialConfigDomainServicePort = Context.GenericTag<IMaterialConfigDomainService>('@domain/MaterialConfigDomainService')
+export const MaterialConfigDomainService = Context.GenericTag<IMaterialConfigDomainService>('MaterialConfigDomainService')
 
 /**
  * Live layer for Material Configuration Domain Service
  */
-export const MaterialConfigDomainServiceLive = Layer.succeed(MaterialConfigDomainServicePort, materialConfigDomainService)
+export const MaterialConfigDomainServiceLive = Layer.succeed(MaterialConfigDomainService, materialConfigDomainService)
 
 /**
  * Utility functions for material configuration

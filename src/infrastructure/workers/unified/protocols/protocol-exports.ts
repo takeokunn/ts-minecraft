@@ -6,10 +6,10 @@
  */
 
 // Re-export commonly used types and utilities from terrain protocol
-export { type Position3D, type Block, type ChunkData, createDefaultBiome, createDefaultNoiseSettings, createDefaultTerrainFeatures } from '@infrastructure/terrain.protocol'
+export { type Position3D, type Block, type ChunkData, createDefaultBiome, createDefaultNoiseSettings, createDefaultTerrainFeatures } from './terrain.protocol'
 
 // Re-export commonly used types and utilities from physics protocol
-export { type Vector3, type PhysicsBody, type CollisionEvent, zeroVector3, identityQuaternion, createPhysicsMaterial, vectorOps } from '@infrastructure/physics.protocol'
+export { type Vector3, type PhysicsBody, type CollisionEvent, zeroVector3, identityQuaternion, createPhysicsMaterial, vectorOps } from './physics.protocol'
 
 // Re-export commonly used types and utilities from mesh protocol
 export {
@@ -18,7 +18,7 @@ export {
   createDefaultOptimizations,
   createDefaultLighting as createDefaultMeshLighting,
   extractMeshTransferables,
-} from '@infrastructure/mesh.protocol'
+} from './mesh.protocol'
 
 // Re-export commonly used types and utilities from lighting protocol
 export {
@@ -30,7 +30,7 @@ export {
   createDefaultAOSettings,
   worldTimeToSkyLight,
   extractLightingTransferables,
-} from '@infrastructure/lighting.protocol'
+} from './lighting.protocol'
 
 // Re-export commonly used types and utilities from computation protocol
 export {
@@ -43,7 +43,7 @@ export {
   createDefaultCompressionParams,
   distance3D,
   extractComputationTransferables,
-} from '@infrastructure/computation.protocol'
+} from './computation.protocol'
 
 // Re-export commonly used types and utilities from error handling protocol
 export {
@@ -60,4 +60,4 @@ export {
   createDefaultErrorHandlingConfig,
   isRetryableError,
   categorizeError,
-} from '@infrastructure/error-handling.protocol'
+} from './error-handling.protocol'

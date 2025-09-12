@@ -87,7 +87,7 @@ export interface PhysicsDomainServiceInterface {
   // Missing query methods used by handlers
   readonly getEntityVelocity: (entityId: EntityId) => Effect.Effect<Vector3, never, never>
   readonly isEntityGrounded: (entityId: EntityId) => Effect.Effect<boolean, never, never>
-  readonly getAllPhysicsObjects: () => Effect.Effect<readonly any[], never, never>
+  readonly getAllPhysicsObjects: () => Effect.Effect<readonly RigidBody[], never, never>
 }
 
 // ===== SUPPORTING TYPES =====

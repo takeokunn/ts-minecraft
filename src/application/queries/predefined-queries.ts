@@ -7,6 +7,42 @@
  */
 
 import { query, soaQuery, aosQuery } from '@application/queries/builder'
+import * as S from '@effect/schema/Schema'
+import { Effect } from 'effect'
+
+// Schema definitions for velocity validation
+const VelocitySchema = S.Struct({
+  magnitude: S.Number,
+  x: S.optional(S.Number),
+  y: S.optional(S.Number),
+  z: S.optional(S.Number),
+})
+
+// Validation utility for velocity components
+const validateVelocity = (velocity: unknown): Effect.Effect<{ magnitude: number; x?: number; y?: number; z?: number } | null, never, never> => {
+  if (velocity == null) return Effect.succeed(null)
+
+  if (typeof velocity === 'object' && velocity !== null) {
+    const v = velocity as Record<string, unknown>
+    if ('magnitude' in v && typeof v.magnitude === 'number') {
+      return Effect.succeed({
+        magnitude: v.magnitude,
+        x: typeof v.x === 'number' ? v.x : undefined,
+        y: typeof v.y === 'number' ? v.y : undefined,
+        z: typeof v.z === 'number' ? v.z : undefined,
+      })
+    }
+  }
+
+  return Effect.succeed(null)
+}
+
+// Safe velocity check function
+const hasValidVelocity = (entity: { get?: (key: string) => unknown }) => {
+  const velocity = entity.get?.('velocity')
+  const validatedVelocity = Effect.runSync(validateVelocity(velocity))
+  return validatedVelocity !== null && validatedVelocity.magnitude > 0
+}
 
 // Predefined optimized queries for common use cases
 export const queries = {
@@ -63,23 +99,7 @@ export const queries = {
   /**
    * Movable entities (have velocity and position, not frozen)
    */
-  movableEntities: query()
-    .with('position', 'velocity')
-    .without('playerControl')
-    .where((entity) => {
-      const velocity = entity.get('velocity')
-      // Assuming velocity has a magnitude property or method
-      return (
-        velocity &&
-        typeof velocity === 'object' &&
-        'magnitude' in velocity &&
-        typeof (velocity as { magnitude: unknown }).magnitude === 'number' &&
-        (velocity as { magnitude: number }).magnitude > 0
-      )
-    })
-    .named('movableEntitiesQuery')
-    .priority(7)
-    .buildOptimized(),
+  movableEntities: query().with('position', 'velocity').without('playerControl').where(hasValidVelocity).named('movableEntitiesQuery').priority(7).buildOptimized(),
 
   /**
    * Renderable entities with positions

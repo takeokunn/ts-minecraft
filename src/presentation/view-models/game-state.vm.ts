@@ -57,7 +57,7 @@ const GameStateViewModelLive = Effect.gen(function* ($) {
       // 表示用のメモリ使用量計算（純粋な変換処理）
       const getMemoryUsage = (): MemoryUsage => {
         if (typeof performance !== 'undefined' && 'memory' in performance) {
-          const memory = (performance as any).memory
+          const memory = (performance as PerformanceWithMemory).memory
           const used = memory.usedJSHeapSize || 0
           const total = memory.totalJSHeapSize || 0
           return {
@@ -111,4 +111,13 @@ export const GameStateViewModel = Context.GenericTag<GameStateViewModelExtended>
 export const GameStateViewModelLive: Layer.Layer<GameStateViewModel, never, QueryHandlers> = Layer.effect(GameStateViewModel, GameStateViewModelLive)
 
 // Factory function for direct usage
-export const createGameStateViewModel = (queryHandlers: any) => Effect.runSync(Effect.provide(GameStateViewModelLive, Layer.succeed(QueryHandlers, queryHandlers)))
+// Performance memory interface for type safety
+interface PerformanceWithMemory extends Performance {
+  memory: {
+    usedJSHeapSize: number
+    totalJSHeapSize: number
+    jsHeapSizeLimit: number
+  }
+}
+
+export const createGameStateViewModel = (queryHandlers: QueryHandlers) => Effect.runSync(Effect.provide(GameStateViewModelLive, Layer.succeed(QueryHandlers, queryHandlers)))

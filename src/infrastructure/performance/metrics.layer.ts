@@ -107,8 +107,8 @@ const startAutoCollection = (): Effect.Effect<void, never, never> =>
  * Get current memory usage
  */
 const getMemoryUsage = (): { used: number; total: number; percentage: number } | null => {
-  if (typeof performance !== 'undefined' && (performance as any).memory) {
-    const memory = (performance as any).memory
+  if (typeof performance !== 'undefined' && (performance as Performance & { memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number } }).memory) {
+    const memory = (performance as Performance & { memory: { usedJSHeapSize: number; jsHeapSizeLimit: number } }).memory
     const used = memory.usedJSHeapSize
     const total = memory.jsHeapSizeLimit
     return {
@@ -490,11 +490,11 @@ export const Metrics = {
  * Decorator to automatically record method execution time
  */
 export const timed = (metricName?: string, labels?: Record<string, string>) => {
-  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
+  return function (target: object, propertyName: string, descriptor: PropertyDescriptor) {
     const method = descriptor.value
     const name = metricName || `${target.constructor.name}.${propertyName}.duration`
 
-    descriptor.value = function (...args: any[]) {
+    descriptor.value = function (...args: unknown[]) {
       const start = performance.now()
 
       try {
@@ -522,11 +522,11 @@ export const timed = (metricName?: string, labels?: Record<string, string>) => {
  * Decorator to count method invocations
  */
 export const counted = (metricName?: string, labels?: Record<string, string>) => {
-  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
+  return function (target: object, propertyName: string, descriptor: PropertyDescriptor) {
     const method = descriptor.value
     const name = metricName || `${target.constructor.name}.${propertyName}.calls`
 
-    descriptor.value = function (...args: any[]) {
+    descriptor.value = function (...args: unknown[]) {
       Effect.runSync(Metrics.increment(name, labels))
       return method.apply(this, args)
     }

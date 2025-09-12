@@ -155,19 +155,16 @@ export const ArchetypeFunctions = {
 }
 
 /**
- * Component indexing service
+ * Component indexing service (internal use only)
  */
-export const ComponentIndexing = Context.GenericTag<Ref.Ref<ComponentIndexingState>>('ComponentIndexing')
+const ComponentIndexing = Context.GenericTag<Ref.Ref<ComponentIndexingState>>('ComponentIndexing')
 
-export const ComponentIndexingLive = Layer.effect(
+const ComponentIndexingLive = Layer.effect(
   ComponentIndexing,
-  pipe(
-    Ref.make<ComponentIndexingState>({
-      componentIndices: new Map(),
-      nextIndex: 0,
-    }),
-    Effect.succeed,
-  ),
+  Ref.make<ComponentIndexingState>({
+    componentIndices: new Map(),
+    nextIndex: 0,
+  }),
 )
 
 /**

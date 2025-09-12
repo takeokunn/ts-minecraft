@@ -170,7 +170,7 @@ export interface WorkerPoolService {
   readonly resume: () => Effect.Effect<void, never, never>
 }
 
-export const WorkerPoolService = Context.GenericTag<WorkerPoolService>('@services/WorkerPoolService')
+export const WorkerPoolService = Context.GenericTag<WorkerPoolService>('WorkerPoolService')
 
 // ============================================
 // Implementation

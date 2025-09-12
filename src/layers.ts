@@ -53,6 +53,23 @@ import {
   type WorldState,
 } from '@infrastructure/layers/unified.layer'
 
+// Import optimized layer compositions
+import {
+  EssentialServicesLive,
+  GameLogicServicesLive,
+  RenderingStackLive,
+  ComputeServicesLive,
+  OptimizedDevelopmentLive,
+  OptimizedProductionLive,
+  OptimizedTestLive,
+  OptimizedServerLive,
+  FullClientLive,
+  MinimalClientLive,
+  buildOptimizedLayer,
+  getOptimizedLayer,
+  type LayerConfig,
+} from '@infrastructure/layers/optimized-compositions'
+
 // Import application layer
 import { ApplicationLayer } from '@application/application-layer'
 
@@ -97,22 +114,54 @@ export const AppLayer = Layer.mergeAll(UnifiedAppLive, SystemCommunicationLive()
 /**
  * Development layer with debug capabilities
  */
-export const DevLayer = DevelopmentLive
+export const DevLayer = OptimizedDevelopmentLive
 
 /**
  * Production optimized layer
  */
-export const ProdLayer = ProductionLive
+export const ProdLayer = OptimizedProductionLive
 
 /**
  * Minimal layer for unit testing
  */
-export const TestLayer = MinimalLive
+export const TestLayer = OptimizedTestLive
 
 /**
  * Headless layer for server/simulation (no UI/input)
  */
-export const ServerLayer = HeadlessLive
+export const ServerLayer = OptimizedServerLive
+
+// ===== OPTIMIZED LAYER COMPOSITIONS =====
+
+/**
+ * Essential services only - minimal memory footprint
+ */
+export const EssentialLayer = EssentialServicesLive
+
+/**
+ * Game logic without rendering - ideal for simulation
+ */
+export const GameLogicLayer = GameLogicServicesLive
+
+/**
+ * Complete rendering pipeline
+ */
+export const RenderingLayer = RenderingStackLive
+
+/**
+ * Background computation services
+ */
+export const ComputeLayer = ComputeServicesLive
+
+/**
+ * Full client experience
+ */
+export const FullClientLayer = FullClientLive
+
+/**
+ * Minimal client for lightweight operation
+ */
+export const MinimalClientLayer = MinimalClientLive
 
 // ===== ENVIRONMENT-BASED LAYER SELECTION =====
 
@@ -135,13 +184,24 @@ export const getAppLayer = (environment: 'development' | 'production' | 'test' |
 
 /**
  * Get runtime layer (automatically detects environment)
+ * Uses optimized compositions for better performance
  */
-export const getAutoLayer = getRuntimeLayer
+export const getAutoLayer = () => getOptimizedLayer(process.env.NODE_ENV)
+
+/**
+ * Legacy runtime layer function (for backward compatibility)
+ */
+export const getLegacyAutoLayer = getRuntimeLayer
 
 // ===== CUSTOM LAYER BUILDER =====
 
 /**
- * Build custom layer composition for specific use cases
+ * Build optimized custom layer composition for specific use cases
+ */
+export const createOptimizedLayer = buildOptimizedLayer
+
+/**
+ * Build custom layer composition for specific use cases (legacy)
  */
 export const createCustomLayer = buildCustomLayer
 

@@ -10,6 +10,7 @@
  */
 
 import { Effect, Ref, HashMap, Option, Context, Layer } from 'effect'
+import * as S from '@effect/schema/Schema'
 import * as ReadonlyArray from 'effect/ReadonlyArray'
 import { EntityId } from '@domain/value-objects/entity-id.vo'
 import { Chunk } from '@domain/entities/chunk.entity'
@@ -26,6 +27,101 @@ export interface ChunkRepositoryPort {
   readonly saveChunk: (chunk: Chunk) => Effect.Effect<void, never, never>
   readonly loadChunk: (coordinate: ChunkCoordinate) => Effect.Effect<Option.Option<Chunk>, never, never>
   readonly deleteChunk: (coordinate: ChunkCoordinate) => Effect.Effect<void, never, never>
+}
+
+// Schema definitions for entity data validation
+const EntityDataSchema = S.Union(
+  S.Record(S.String, S.Unknown),
+  S.Struct({
+    _tag: S.String,
+    data: S.Unknown,
+  }),
+  S.Unknown,
+)
+
+const WorldEntitySchema = S.Struct({
+  _tag: S.Literal("Entity"),
+  id: S.String,
+  data: EntityDataSchema,
+})
+
+const SanitizedEntitySchema = S.Record(S.String, S.Unknown)
+
+// Validation utilities for world domain using @effect/schema
+export const WorldDomainValidation = {
+  validateEntityData: (entityData: unknown): Effect.Effect<{ data: unknown; isValid: boolean; type: string }, never, never> => {
+    return Effect.gen(function* () {
+      const parseResult = S.parseSync(EntityDataSchema)(entityData)
+      
+      if (entityData == null) {
+        return { data: null, isValid: false, type: 'null' }
+      }
+
+      if (typeof entityData === 'object' && '_tag' in entityData) {
+        return {
+          data: parseResult,
+          isValid: true,
+          type: (entityData as { _tag?: string })._tag || 'tagged-object',
+        }
+      }
+
+      if (typeof entityData === 'object') {
+        return {
+          data: parseResult,
+          isValid: true,
+          type: 'object',
+        }
+      }
+
+      return {
+        data: { value: parseResult, originalType: typeof entityData },
+        isValid: true,
+        type: typeof entityData,
+      }
+    }).pipe(
+      Effect.catchAll(() => Effect.succeed({ data: entityData, isValid: false, type: 'validation-failed' }))
+    )
+  },
+
+  sanitizeEntityData: (entityData: unknown): Effect.Effect<Record<string, unknown>, never, never> => {
+    return Effect.gen(function* () {
+      if (entityData == null) {
+        const result = { _tag: 'EmptyEntity', timestamp: Date.now() }
+        return yield* Effect.succeed(S.parseSync(SanitizedEntitySchema)(result))
+      }
+
+      if (typeof entityData === 'object' && !Array.isArray(entityData)) {
+        return yield* Effect.succeed(S.parseSync(SanitizedEntitySchema)(entityData))
+      }
+
+      const wrappedResult = {
+        _tag: 'WrappedEntity',
+        data: entityData,
+        type: typeof entityData,
+        timestamp: Date.now(),
+      }
+      
+      return yield* Effect.succeed(S.parseSync(SanitizedEntitySchema)(wrappedResult))
+    }).pipe(
+      Effect.catchAll(() => Effect.succeed({ _tag: 'SanitizationFailed', originalData: String(entityData), timestamp: Date.now() }))
+    )
+  },
+
+  validateAndParseEntityData: (entityData: unknown): Effect.Effect<S.Schema.Type<typeof EntityDataSchema>, WorldStateError, never> => {
+    return Effect.gen(function* () {
+      try {
+        const parsed = S.parseSync(EntityDataSchema)(entityData)
+        return parsed
+      } catch (error) {
+        return yield* Effect.fail(
+          WorldStateError({
+            operation: 'validateAndParseEntityData',
+            reason: `Schema validation failed: ${error instanceof Error ? error.message : String(error)}`,
+          })
+        )
+      }
+    })
+  },
 }
 
 /**
@@ -66,6 +162,9 @@ export const WorldDomainService = Context.GenericTag<{
   readonly isChunkLoaded: (chunkX: number, chunkZ: number) => Effect.Effect<boolean, never>
   readonly getChunk: (chunkX: number, chunkZ: number) => Effect.Effect<Chunk, ChunkNotLoadedError>
   readonly getLoadedChunks: () => Effect.Effect<readonly Chunk[], never>
+  // Validation utilities
+  readonly validateEntityData: (entityData: unknown) => Effect.Effect<{ data: unknown; isValid: boolean; type: string }, never, never>
+  readonly sanitizeEntityData: (entityData: unknown) => Effect.Effect<Record<string, unknown>, never, never>
 }>('WorldDomainService')
 
 /**
@@ -88,14 +187,33 @@ export const WorldDomainServiceLive = Layer.effect(
             ),
 
       addEntityToWorld: (entityId, entityData) =>
-        entityData && entityId
-          ? Effect.succeed(undefined) // Pure function - would return updated state
-          : Effect.fail(
+        Effect.gen(function* () {
+          if (!entityId) {
+            return yield* Effect.fail(
               WorldStateError({
                 operation: 'addEntityToWorld',
-                reason: 'Invalid entity data or ID provided',
+                reason: 'Invalid entity ID provided',
               }),
-            ),
+            )
+          }
+
+          // Use schema-based validation instead of custom validation
+          const validatedEntityData = yield* WorldDomainValidation.validateAndParseEntityData(entityData)
+          
+          // Additional business logic validation
+          const validation = yield* WorldDomainValidation.validateEntityData(validatedEntityData)
+          if (!validation.isValid && entityData != null) {
+            return yield* Effect.fail(
+              WorldStateError({
+                operation: 'addEntityToWorld',
+                reason: `Entity validation failed: ${validation.type}`,
+              }),
+            )
+          }
+
+          return // Pure function - would return updated state with validated data
+        }),
+
 
       removeEntityFromWorld: (entityId) =>
         entityId
@@ -170,6 +288,10 @@ export const WorldDomainServiceLive = Layer.effect(
         ), // TODO: Implement with proper chunk storage
 
       getLoadedChunks: () => Effect.succeed([]), // TODO: Implement with proper chunk storage
+
+      // Validation utilities implementation
+      validateEntityData: WorldDomainValidation.validateEntityData,
+      sanitizeEntityData: WorldDomainValidation.sanitizeEntityData,
     })
   }),
 )

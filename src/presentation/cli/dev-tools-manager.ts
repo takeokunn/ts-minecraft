@@ -7,6 +7,63 @@ import { createNetworkInspector } from '@presentation/cli/network-inspector'
 import { World } from '@domain/entities'
 import { Effect, Ref, pipe } from 'effect'
 
+// Type definitions for tool statistics
+export interface ConsoleCommand {
+  name: string
+  description: string
+  execute: (args: string[]) => Promise<void> | void
+  autocomplete?: (partial: string) => string[]
+}
+
+export interface EntityInspectorStats {
+  entityCount: number
+  componentCounts: Record<string, number>
+  systemCounts: Record<string, number>
+  memoryUsage: number
+}
+
+export interface WorldEditorStats {
+  chunkCount: number
+  loadedChunks: number
+  activeChunks: number
+  terrainModifications: number
+  lastUpdate: number
+}
+
+export interface NetworkSummary {
+  totalRequests: number
+  pendingRequests: number
+  failedRequests: number
+  averageLatency: number
+  bandwidth: { up: number; down: number }
+}
+
+export interface PerformanceStats {
+  fps: number
+  frameTime: number
+  memoryUsage: number
+  drawCalls: number
+  triangles: number
+  gpuUtilization: number
+}
+
+export interface PerformanceData {
+  sessionId: string
+  startTime: number
+  endTime: number
+  samples: PerformanceSample[]
+  metadata: Record<string, unknown>
+}
+
+export interface PerformanceSample {
+  timestamp: number
+  fps: number
+  frameTime: number
+  memoryUsage: number
+  cpuUsage: number
+  gpuUsage: number
+}
+
 export interface DevToolsConfig {
   enableDebugger: boolean
   enablePerformanceProfiler: boolean
@@ -18,13 +75,61 @@ export interface DevToolsConfig {
   showWelcome: boolean
 }
 
+// CLI Tool interfaces
+export interface GameDebuggerTool {
+  enable: () => Effect.Effect<void, never, never>
+  disable: () => Effect.Effect<void, never, never>
+  toggle: () => Effect.Effect<void, never, never>
+  update: (deltaTime: number) => Effect.Effect<void, never, never>
+  togglePause: () => Effect.Effect<void, never, never>
+  stepFrame: () => Effect.Effect<void, never, never>
+  toggleRecording: () => Effect.Effect<void, never, never>
+  startPerformanceRecording?: () => Effect.Effect<void, never, never>
+  stopPerformanceRecording?: () => Effect.Effect<PerformanceData | null, never, never>
+}
+
+export interface DevConsoleTool {
+  toggle: () => Effect.Effect<void, never, never>
+  open: () => Effect.Effect<void, never, never>
+  close: () => Effect.Effect<void, never, never>
+  addCommand: (command: ConsoleCommand) => Effect.Effect<void, never, never>
+  removeCommand: (name: string) => Effect.Effect<void, never, never>
+}
+
+export interface EntityInspectorTool {
+  toggle: () => Effect.Effect<void, never, never>
+  close: () => Effect.Effect<void, never, never>
+  getEntityStats?: () => EntityInspectorStats
+}
+
+export interface WorldEditorTool {
+  toggle: () => Effect.Effect<void, never, never>
+  close: () => Effect.Effect<void, never, never>
+  getStats?: () => WorldEditorStats
+}
+
+export interface NetworkInspectorTool {
+  toggle: () => Effect.Effect<void, never, never>
+  close: () => Effect.Effect<void, never, never>
+  getNetworkSummary?: () => NetworkSummary
+  restore: () => Effect.Effect<void, never, never>
+}
+
+export interface PerformanceProfilerTool {
+  start: () => Effect.Effect<void, never, never>
+  stop: () => Effect.Effect<void, never, never>
+  update?: (deltaTime: number) => void
+  getStats?: () => PerformanceStats
+  exportPerformanceData?: () => PerformanceData
+}
+
 export interface DevToolsState {
-  gameDebugger: any | null
-  performanceProfiler: any | null
-  devConsole: any | null
-  entityInspector: any | null
-  worldEditor: any | null
-  networkInspector: any | null
+  gameDebugger: GameDebuggerTool | null
+  performanceProfiler: PerformanceProfilerTool | null
+  devConsole: DevConsoleTool | null
+  entityInspector: EntityInspectorTool | null
+  worldEditor: WorldEditorTool | null
+  networkInspector: NetworkInspectorTool | null
   isEnabled: boolean
   config: DevToolsConfig
   toolbarElement: HTMLElement | null

@@ -14,12 +14,13 @@
 
 import * as Effect from 'effect/Effect'
 import * as Ref from 'effect/Ref'
+import * as Option from 'effect/Option'
 import { World } from '@domain/entities'
 
 export interface EntityInfo {
   id: string
   name: string
-  components: any[]
+  components: unknown[]
   position?: { x: number; y: number; z: number }
   active: boolean
 }
@@ -232,21 +233,23 @@ export const createEntityInspector = (world: World, config: Partial<EntityInspec
         })
 
         // Drag functionality
-        const header = inspectorElement.querySelector('div') as HTMLElement
-        header.style.cursor = 'move'
+        const header = inspectorElement.querySelector('div')
+        if (header && isHTMLElement(header)) {
+          header.style.cursor = 'move'
 
-        header.addEventListener('mousedown', (e) => {
-          Effect.runSync(
-            Ref.update(stateRef, (s) => ({
-              ...s,
-              dragState: {
-                isDragging: true,
-                dragOffsetX: e.clientX - inspectorElement.offsetLeft,
-                dragOffsetY: e.clientY - inspectorElement.offsetTop,
-              },
-            })),
-          )
-        })
+          header.addEventListener('mousedown', (e) => {
+            Effect.runSync(
+              Ref.update(stateRef, (s) => ({
+                ...s,
+                dragState: {
+                  isDragging: true,
+                  dragOffsetX: e.clientX - inspectorElement.offsetLeft,
+                  dragOffsetY: e.clientY - inspectorElement.offsetTop,
+                },
+              })),
+            )
+          })
+        }
 
         document.addEventListener('mousemove', (e) => {
           Effect.runSync(
@@ -347,7 +350,10 @@ export const createEntityInspector = (world: World, config: Partial<EntityInspec
 
         entityElement.onclick = () => Effect.runSync(selectEntity(entity.id))
 
-        state.entityListElement!.appendChild(entityElement)
+        const entityListElement = state.entityListElement
+        if (entityListElement) {
+          entityListElement.appendChild(entityElement)
+        }
       })
     })
 
@@ -362,9 +368,11 @@ export const createEntityInspector = (world: World, config: Partial<EntityInspec
       if (!entityElements) return
 
       for (let i = 0; i < entityElements.length; i++) {
-        const element = entityElements[i] as HTMLElement
-        const text = element.textContent?.toLowerCase() || ''
-        element.style.display = text.includes(searchTerm) ? 'block' : 'none'
+        const element = entityElements[i]
+        if (isHTMLElement(element)) {
+          const text = element.textContent?.toLowerCase() || ''
+          element.style.display = text.includes(searchTerm) ? 'block' : 'none'
+        }
       }
     })
 
@@ -435,7 +443,14 @@ export const createEntityInspector = (world: World, config: Partial<EntityInspec
         state.detailsElement.innerHTML = html
 
         // Expose actions globally for button callbacks
-        const globalWithActions = globalThis as typeof globalThis & { entityInspectorActions?: any }
+        // Safe cast: extending globalThis with additional properties for HTML button callbacks
+        const globalWithActions = globalThis as typeof globalThis & {
+          entityInspectorActions?: {
+            deleteEntity: (id: string) => void
+            toggleEntity: (id: string) => void
+            cloneEntity: (id: string) => void
+          }
+        }
         globalWithActions.entityInspectorActions = {
           deleteEntity: (id: string) => Effect.runSync(deleteEntity(id)),
           toggleEntity: (id: string) => Effect.runSync(toggleEntity(id)),
@@ -602,9 +617,16 @@ export const createEntityInspector = (world: World, config: Partial<EntityInspec
   })
 
 /**
+ * Type guard functions
+ */
+const isHTMLElement = (element: Element | null): element is HTMLElement => {
+  return element !== null && element instanceof HTMLElement
+}
+
+/**
  * Create entity inspector factory for easier usage
  */
-export const createEntityInspectorFactory =
+const createEntityInspectorFactory =
   (config: Partial<EntityInspectorConfig> = {}) =>
   (world: World) =>
     createEntityInspector(world, config)

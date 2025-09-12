@@ -11,7 +11,7 @@ import { WorldDomainService } from '@domain/services/world-domain.service'
 import { TerrainGeneratorPort, type ITerrainGenerator, type TerrainGenerationRequest, type ChunkCoordinates, TerrainGeneratorHelpers } from '@domain/ports/terrain-generator.port'
 import { MeshGeneratorPort, type IMeshGenerator, type MeshGenerationRequest, type ChunkData, MeshGeneratorHelpers } from '@domain/ports/mesh-generator.port'
 import { WorldRepositoryPort } from '@domain/ports/world-repository.port'
-import { CHUNK_SIZE } from '@domain/constants/world-constants'
+import { CHUNK_SIZE } from '@shared/constants/world'
 import { EntityId } from '@domain/entities'
 
 /**

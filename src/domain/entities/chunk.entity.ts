@@ -1,9 +1,7 @@
 import * as S from 'effect/Schema'
 import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordinate.vo'
 import { Block } from '@domain/entities/block.entity'
-
-export const CHUNK_SIZE = 16
-export const CHUNK_HEIGHT = 256
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@shared/constants/world'
 
 export const Chunk = S.Struct({
   _tag: S.Literal('Chunk'),

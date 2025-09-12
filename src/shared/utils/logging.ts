@@ -8,10 +8,137 @@
 import * as Effect from 'effect/Effect'
 import * as Console from 'effect/Console'
 import * as Ref from 'effect/Ref'
+import * as S from '@effect/schema/Schema'
 import { pipe } from 'effect/Function'
 
 // Log levels
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'critical'
+
+// Enhanced schema definitions for comprehensive validation
+const LogContextSchema = S.Union(
+  S.Record(S.String, S.Unknown),
+  S.Null,
+  S.Undefined
+)
+
+const ErrorLikeSchema = S.Union(
+  S.InstanceOf(Error),
+  S.String,
+  S.Struct({
+    _tag: S.String,
+    message: S.optional(S.String),
+    stack: S.optional(S.String)
+  }),
+  S.Unknown
+)
+
+const StateSchema = S.Union(
+  S.Record(S.String, S.Unknown),
+  S.Array(S.Unknown),
+  S.String,
+  S.Number,
+  S.Boolean,
+  S.Null,
+  S.Undefined,
+  S.Unknown
+)
+
+const LogLevelSchema = S.Literal('debug', 'info', 'warn', 'error', 'critical')
+const TagsSchema = S.Array(S.String)
+const ComponentSchema = S.String
+
+// Schema for complete log entry validation
+const LogEntrySchema = S.Struct({
+  timestamp: S.InstanceOf(Date),
+  level: LogLevelSchema,
+  component: ComponentSchema,
+  message: S.String,
+  context: S.optional(S.Record(S.String, S.Unknown)),
+  error: S.optional(S.InstanceOf(Error)),
+  tags: S.optional(TagsSchema)
+})
+
+// Enhanced type guards and validators using Schema.parse
+const validateLogContext = (context: unknown): Effect.Effect<Record<string, unknown>, never, never> => {
+  return pipe(
+    S.decodeUnknown(LogContextSchema)(context),
+    Effect.match({
+      onFailure: () => {
+        // Provide fallback for invalid context
+        if (context == null) return {}
+        if (typeof context === 'object' && !Array.isArray(context)) {
+          return context as Record<string, unknown>
+        }
+        return { value: context, type: typeof context, raw: String(context) }
+      },
+      onSuccess: (validated) => {
+        if (validated == null) return {}
+        return validated as Record<string, unknown>
+      }
+    }),
+    Effect.succeed
+  )
+}
+
+const validateError = (error: unknown): Effect.Effect<Error, never, never> => {
+  return pipe(
+    S.decodeUnknown(ErrorLikeSchema)(error),
+    Effect.match({
+      onFailure: () => {
+        // Fallback error creation for invalid schemas
+        if (error instanceof Error) return error
+        if (typeof error === 'string') return new Error(error)
+        return new Error(String(error))
+      },
+      onSuccess: (validated) => {
+        if (validated instanceof Error) return validated
+        if (typeof validated === 'string') return new Error(validated)
+        if (typeof validated === 'object' && validated !== null && '_tag' in validated) {
+          const message = 'message' in validated && typeof validated.message === 'string'
+            ? validated.message 
+            : `Error: ${validated._tag}`
+          const error = new Error(message)
+          if ('stack' in validated && typeof validated.stack === 'string') {
+            error.stack = validated.stack
+          }
+          return error
+        }
+        return new Error(String(validated))
+      }
+    }),
+    Effect.succeed
+  )
+}
+
+const validateState = (state: unknown): Effect.Effect<Record<string, unknown>, never, never> => {
+  return pipe(
+    S.decodeUnknown(StateSchema)(state),
+    Effect.match({
+      onFailure: () => {
+        try {
+          return {
+            state: typeof state === 'object' && state !== null ? state : { value: state, type: typeof state },
+          }
+        } catch {
+          return { state: '[Unserializable]', type: typeof state }
+        }
+      },
+      onSuccess: (validated) => {
+        try {
+          return {
+            state: typeof validated === 'object' && validated !== null 
+              ? validated 
+              : { value: validated, type: typeof validated },
+            isValid: true
+          }
+        } catch {
+          return { state: '[Unserializable]', type: typeof validated, isValid: false }
+        }
+      }
+    }),
+    Effect.succeed
+  )
+}
 
 // Log entry structure
 export interface LogEntry {
@@ -112,17 +239,28 @@ const shouldLog = (level: LogLevel): Effect.Effect<boolean, never, never> =>
     Effect.map((config) => LOG_LEVELS[level] >= LOG_LEVELS[config.level]),
   )
 
-// Create log entry
-function createLogEntry(level: LogLevel, message: string, component: string, context?: Record<string, unknown>, error?: Error, tags?: string[]): LogEntry {
-  return {
-    timestamp: new Date(),
-    level,
-    component,
-    message,
-    context,
-    error,
-    tags,
-  }
+// Create log entry with validation
+function createLogEntry(
+  level: LogLevel,
+  message: string,
+  component: string,
+  context?: Record<string, unknown>,
+  error?: Error,
+  tags?: string[],
+): Effect.Effect<LogEntry, never, never> {
+  return Effect.gen(function* () {
+    const validatedContext = context ? yield* validateLogContext(context) : undefined
+
+    return {
+      timestamp: new Date(),
+      level,
+      component,
+      message,
+      context: validatedContext,
+      error,
+      tags,
+    }
+  })
 }
 
 // Format log entry for console output
@@ -155,8 +293,8 @@ const formatForConsole = (entry: LogEntry): Effect.Effect<string, never, never> 
     }),
   )
 
-// Core logging function
-function log(level: LogLevel, message: string, component?: string, context?: Record<string, unknown>, error?: Error, tags?: string[]): Effect.Effect<void, never, never> {
+// Core logging function with validation
+function log(level: LogLevel, message: string, component?: string, context?: unknown, error?: unknown, tags?: string[]): Effect.Effect<void, never, never> {
   return pipe(
     Effect.gen(function* (_) {
       const config = yield* _(LoggerStateOps.getConfig())
@@ -167,7 +305,11 @@ function log(level: LogLevel, message: string, component?: string, context?: Rec
         return
       }
 
-      const entry = createLogEntry(level, message, actualComponent, context, error, tags)
+      // Validate inputs
+      const validatedContext = context ? yield* _(validateLogContext(context)) : undefined
+      const validatedError = error ? yield* _(validateError(error)) : undefined
+
+      const entry = yield* _(createLogEntry(level, message, actualComponent, validatedContext, validatedError, tags))
       yield* _(LoggerStateOps.addEntry(entry))
 
       if (!config.enableConsole) {
@@ -206,28 +348,63 @@ export const Logger = {
 
   getConfig: () => LoggerStateOps.getConfig(),
 
-  // Logging methods
-  debug: (message: string, component?: string, context?: Record<string, unknown>, tags?: string[]) => log('debug', message, component, context, undefined, tags),
+  // Enhanced schema validation utilities
+  validateContext: validateLogContext,
+  validateError: validateError,
+  validateState: validateState,
+  
+  // Schema validators for external use
+  validateLogEntry: (entry: unknown): Effect.Effect<LogEntry, string, never> => {
+    return pipe(
+      S.decodeUnknown(LogEntrySchema)(entry),
+      Effect.mapError((error) => `Invalid log entry: ${error}`)
+    )
+  },
+  
+  validateLogLevel: (level: unknown): Effect.Effect<LogLevel, string, never> => {
+    return pipe(
+      S.decodeUnknown(LogLevelSchema)(level),
+      Effect.mapError((error) => `Invalid log level: ${error}`)
+    )
+  },
+  
+  validateTags: (tags: unknown): Effect.Effect<string[], string, never> => {
+    return pipe(
+      S.decodeUnknown(TagsSchema)(tags),
+      Effect.mapError((error) => `Invalid tags: ${error}`)
+    )
+  },
+  
+  // Schema exports for external validation
+  LogContextSchema,
+  ErrorLikeSchema,
+  StateSchema,
+  LogEntrySchema,
+  LogLevelSchema,
+  TagsSchema,
 
-  info: (message: string, component?: string, context?: Record<string, unknown>, tags?: string[]) => log('info', message, component, context, undefined, tags),
+  // Logging methods with unknown type validation
+  debug: (message: string, component?: string, context?: unknown, tags?: string[]) => log('debug', message, component, context, undefined, tags),
 
-  warn: (message: string, component?: string, context?: Record<string, unknown>, tags?: string[]) => log('warn', message, component, context, undefined, tags),
+  info: (message: string, component?: string, context?: unknown, tags?: string[]) => log('info', message, component, context, undefined, tags),
 
-  error: (message: string, component?: string, error?: Error, context?: Record<string, unknown>, tags?: string[]) => log('error', message, component, context, error, tags),
+  warn: (message: string, component?: string, context?: unknown, tags?: string[]) => log('warn', message, component, context, undefined, tags),
 
-  critical: (message: string, component?: string, error?: Error, context?: Record<string, unknown>, tags?: string[]) => log('critical', message, component, context, error, tags),
+  error: (message: string, component?: string, error?: unknown, context?: unknown, tags?: string[]) => log('error', message, component, context, error, tags),
 
-  // Utility methods
+  critical: (message: string, component?: string, error?: unknown, context?: unknown, tags?: string[]) => log('critical', message, component, context, error, tags),
+
+  // Utility methods with unknown type validation
   withComponent: (component: string) => ({
-    debug: (message: string, context?: Record<string, unknown>, tags?: string[]) => log('debug', message, component, context, undefined, tags),
+    debug: (message: string, context?: unknown, tags?: string[]) => log('debug', message, component, context, undefined, tags),
 
-    info: (message: string, context?: Record<string, unknown>, tags?: string[]) => log('info', message, component, context, undefined, tags),
+    info: (message: string, context?: unknown, tags?: string[]) => log('info', message, component, context, undefined, tags),
 
-    warn: (message: string, context?: Record<string, unknown>, tags?: string[]) => log('warn', message, component, context, undefined, tags),
+    warn: (message: string, context?: unknown, tags?: string[]) => log('warn', message, component, context, undefined, tags),
 
-    error: (message: string, error?: Error, context?: Record<string, unknown>, tags?: string[]) => log('error', message, component, context, error, tags),
+    error: (message: string, error?: unknown, context?: unknown, tags?: string[]) => log('error', message, component, context, error, tags),
 
-    critical: (message: string, error?: Error, context?: Record<string, unknown>, tags?: string[]) => log('critical', message, component, context, error, tags),
+    critical: (message: string, error?: unknown, context?: unknown, tags?: string[]) => log('critical', message, component, context, error, tags),
   }),
 
   // Log retrieval and management
@@ -258,25 +435,28 @@ export const Logger = {
     start: (operation: string, component?: string) => {
       const startTime = performance.now()
       return {
-        end: (context?: Record<string, unknown>) => {
+        end: (context?: unknown) => {
           const duration = performance.now() - startTime
-          return log(
-            'debug',
-            `${operation} completed`,
-            component,
-            {
-              ...context,
-              duration: `${duration.toFixed(2)}ms`,
-              operation,
-            },
-            undefined,
-            ['performance'],
-          )
+          return Effect.gen(function* () {
+            const validatedContext = context ? yield* validateLogContext(context) : {}
+            return yield* log(
+              'debug',
+              `${operation} completed`,
+              component,
+              {
+                ...validatedContext,
+                duration: `${duration.toFixed(2)}ms`,
+                operation,
+              },
+              undefined,
+              ['performance'],
+            )
+          })
         },
       }
     },
 
-    measure: <T>(operation: string, effect: Effect.Effect<T, any, any>, component?: string, context?: Record<string, unknown>): Effect.Effect<T, any, never> => {
+    measure: <T>(operation: string, effect: Effect.Effect<T, any, any>, component?: string, context?: unknown): Effect.Effect<T, any, never> => {
       return pipe(
         Effect.sync(() => performance.now()),
         Effect.flatMap((startTime) =>
@@ -284,19 +464,22 @@ export const Logger = {
             effect,
             Effect.tap((result) => {
               const duration = performance.now() - startTime
-              return log(
-                'debug',
-                `${operation} completed`,
-                component,
-                {
-                  ...context,
-                  duration: `${duration.toFixed(2)}ms`,
-                  operation,
-                  result: typeof result === 'object' ? 'Object' : String(result),
-                },
-                undefined,
-                ['performance'],
-              )
+              return Effect.gen(function* () {
+                const validatedContext = context ? yield* validateLogContext(context) : {}
+                return yield* log(
+                  'debug',
+                  `${operation} completed`,
+                  component,
+                  {
+                    ...validatedContext,
+                    duration: `${duration.toFixed(2)}ms`,
+                    operation,
+                    result: typeof result === 'object' ? 'Object' : String(result),
+                  },
+                  undefined,
+                  ['performance'],
+                )
+              })
             }),
           ),
         ),
@@ -308,14 +491,25 @@ export const Logger = {
 // Export commonly used logger instances
 export const createComponentLogger = (component: string) => Logger.withComponent(component)
 
-// Development helpers
+// Development helpers with proper unknown handling
 export const DevLogger = {
-  logState: (state: unknown, component?: string, label?: string) => Logger.debug(`State${label ? ` (${label})` : ''}`, component, { state }, ['state']),
+  logState: (state: unknown, component?: string, label?: string) =>
+    Effect.gen(function* () {
+      const validatedState = yield* validateState(state)
+      return yield* Logger.debug(`State${label ? ` (${label})` : ''}`, component, validatedState, ['state'])
+    }),
 
-  logEffect: <T>(label: string, component?: string) => Effect.tap<T>((value: T) => Logger.debug(`Effect: ${label}`, component, { value }, ['effect'])),
+  logEffect: <T>(label: string, component?: string) =>
+    Effect.tap<T>((value: T) =>
+      Effect.gen(function* () {
+        const validatedValue = yield* validateState(value)
+        return yield* Logger.debug(`Effect: ${label}`, component, { value: validatedValue }, ['effect'])
+      }),
+    ),
 
-  logError: (error: unknown, component?: string, operation?: string) => {
-    const errorObj = error instanceof Error ? error : new Error(String(error))
-    return Logger.error(`${operation ? `${operation} failed` : 'Operation failed'}`, component, errorObj, { operation }, ['error'])
-  },
+  logError: (error: unknown, component?: string, operation?: string) =>
+    Effect.gen(function* () {
+      const validatedError = yield* validateError(error)
+      return yield* Logger.error(`${operation ? `${operation} failed` : 'Operation failed'}`, component, validatedError, { operation }, ['error'])
+    }),
 }

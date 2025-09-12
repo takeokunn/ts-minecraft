@@ -327,7 +327,7 @@ export const ThreeJsMatrix4AdapterLive = Layer.succeed(
         const matA = new THREE.Matrix4().fromArray(Array.from(a.elements))
         const matB = new THREE.Matrix4().fromArray(Array.from(b.elements))
         matA.multiply(matB)
-        return { elements: matA.elements as any }
+        return { elements: Array.from(matA.elements) }
       }),
 
     multiplyVector3: (matrix: Matrix4Data, vector: Vector3Data) =>
@@ -342,14 +342,14 @@ export const ThreeJsMatrix4AdapterLive = Layer.succeed(
       Effect.gen(function* (_) {
         const mat = new THREE.Matrix4().fromArray(Array.from(matrix.elements))
         mat.transpose()
-        return { elements: mat.elements as any }
+        return { elements: Array.from(mat.elements) }
       }),
 
     invert: (matrix: Matrix4Data) =>
       Effect.gen(function* (_) {
         const mat = new THREE.Matrix4().fromArray(Array.from(matrix.elements))
         mat.invert()
-        return { elements: mat.elements as any }
+        return { elements: Array.from(mat.elements) }
       }),
 
     translate: (matrix: Matrix4Data, vector: Vector3Data) =>
@@ -357,7 +357,7 @@ export const ThreeJsMatrix4AdapterLive = Layer.succeed(
         const mat = new THREE.Matrix4().fromArray(Array.from(matrix.elements))
         const translation = new THREE.Matrix4().makeTranslation(vector.x, vector.y, vector.z)
         mat.multiply(translation)
-        return { elements: mat.elements as any }
+        return { elements: Array.from(mat.elements) }
       }),
 
     rotate: (matrix: Matrix4Data, axis: Vector3Data, angle: number) =>
@@ -365,7 +365,7 @@ export const ThreeJsMatrix4AdapterLive = Layer.succeed(
         const mat = new THREE.Matrix4().fromArray(Array.from(matrix.elements))
         const rotation = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(axis.x, axis.y, axis.z).normalize(), angle)
         mat.multiply(rotation)
-        return { elements: mat.elements as any }
+        return { elements: Array.from(mat.elements) }
       }),
 
     scale: (matrix: Matrix4Data, vector: Vector3Data) =>
@@ -373,21 +373,21 @@ export const ThreeJsMatrix4AdapterLive = Layer.succeed(
         const mat = new THREE.Matrix4().fromArray(Array.from(matrix.elements))
         const scaling = new THREE.Matrix4().makeScale(vector.x, vector.y, vector.z)
         mat.multiply(scaling)
-        return { elements: mat.elements as any }
+        return { elements: Array.from(mat.elements) }
       }),
 
     lookAt: (eye: Vector3Data, center: Vector3Data, up: Vector3Data) =>
       Effect.gen(function* (_) {
         const mat = new THREE.Matrix4()
         mat.lookAt(new THREE.Vector3(eye.x, eye.y, eye.z), new THREE.Vector3(center.x, center.y, center.z), new THREE.Vector3(up.x, up.y, up.z))
-        return { elements: mat.elements as any }
+        return { elements: Array.from(mat.elements) }
       }),
 
     perspective: (fov: number, aspect: number, near: number, far: number) =>
       Effect.gen(function* (_) {
         const mat = new THREE.Matrix4()
         mat.makePerspective(-aspect * Math.tan(fov / 2), aspect * Math.tan(fov / 2), Math.tan(fov / 2), -Math.tan(fov / 2), near, far)
-        return { elements: mat.elements as any }
+        return { elements: Array.from(mat.elements) }
       }),
   }),
 )

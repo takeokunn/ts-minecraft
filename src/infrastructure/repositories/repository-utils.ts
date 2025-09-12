@@ -31,9 +31,9 @@ export const WorldRepositories = Layer.mergeAll(WorldRepositoryLive, ChunkReposi
 export const EntityRepositories = Layer.mergeAll(WorldRepositoryLive, EntityRepositoryLive)
 
 /**
- * Repository utilities and helpers
+ * Repository utilities and helpers (internal)
  */
-export const RepositoryUtils = {
+const RepositoryUtils = {
   /**
    * Estimate total memory usage across all repositories
    */
@@ -132,9 +132,9 @@ export const RepositoryUtils = {
 }
 
 /**
- * Repository configuration and factory functions
+ * Repository configuration and factory functions (internal)
  */
-export const RepositoryFactory = {
+const RepositoryFactory = {
   /**
    * Create repositories with custom configuration
    */
@@ -169,9 +169,9 @@ export const RepositoryFactory = {
 }
 
 /**
- * Repository health monitoring
+ * Repository health monitoring (internal)
  */
-export const RepositoryHealth = {
+const RepositoryHealth = {
   /**
    * Check if all repositories are healthy
    */

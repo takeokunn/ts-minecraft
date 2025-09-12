@@ -8,7 +8,7 @@ export {
   PlacedBlockSchema,
   FaceNameSchema,
   hotbarSlots,
-  ATLAS_SIZE_IN_TILES,
+  // ATLAS_SIZE_IN_TILES, // Removed - use ATLAS_WIDTH_IN_TILES from @shared/constants/texture
   TILE_SIZE,
   getUvForFace,
   isBlockTransparent,
@@ -22,7 +22,7 @@ export {
 export type { BlockType } from './block.entity'
 
 // Chunk Entity
-export { CHUNK_SIZE, CHUNK_HEIGHT, Chunk, makeEmptyChunk, ChunkBusinessLogic, type Chunk as ChunkType } from './chunk.entity'
+export { Chunk, makeEmptyChunk, ChunkBusinessLogic, type Chunk as ChunkType } from './chunk.entity'
 
 // World Entity
 export { WorldState, type WorldState as WorldStateType } from './world.entity'

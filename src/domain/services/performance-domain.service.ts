@@ -7,6 +7,7 @@
  */
 
 import { Effect, Context, Layer } from 'effect'
+import * as S from '@effect/schema/Schema'
 
 /**
  * Performance threshold configurations (domain business rules)
@@ -47,6 +48,10 @@ export type PerformanceCategory = 'fps' | 'memory' | 'latency' | 'cpu' | 'networ
 export type PerformanceSeverity = 'excellent' | 'good' | 'acceptable' | 'poor' | 'critical'
 export type AlertType = 'info' | 'warning' | 'error' | 'critical'
 
+// Schema definitions for metadata validation
+const MetadataSchema = S.Record(S.String, S.Unknown)
+const PerformanceMetadataSchema = S.optional(MetadataSchema)
+
 /**
  * Domain-specific performance metrics
  */
@@ -60,8 +65,22 @@ export interface PerformanceMetric {
 }
 
 /**
- * Performance alert (domain entity)
+ * Performance alert (domain entity) with schema validation
  */
+const PerformanceAlertSchema = S.Struct({
+  id: S.String,
+  category: S.Literal('fps', 'memory', 'latency', 'cpu', 'network', 'gpu', 'disk'),
+  type: S.Literal('info', 'warning', 'error', 'critical'),
+  severity: S.Literal('excellent', 'good', 'acceptable', 'poor', 'critical'),
+  message: S.String,
+  threshold: S.Number,
+  actualValue: S.Number,
+  timestamp: S.Number,
+  resolved: S.Boolean,
+  resolutionTimestamp: S.optional(S.Number),
+  metadata: PerformanceMetadataSchema,
+})
+
 export interface PerformanceAlert {
   readonly id: string
   readonly category: PerformanceCategory
@@ -146,23 +165,21 @@ export interface PerformanceConfig {
 /**
  * Domain errors
  */
-export class PerformanceAnalysisError extends Error {
-  readonly _tag = 'PerformanceAnalysisError'
-  constructor(public readonly reason: string) {
-    super(`Performance analysis failed: ${reason}`)
-  }
-}
+export const PerformanceAnalysisError = Schema.TaggedError<PerformanceAnalysisError>()('PerformanceAnalysisError', {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+  reason: Schema.String,
+})
+export type PerformanceAnalysisError = Schema.Schema.Type<typeof PerformanceAnalysisError>
 
-export class PerformanceThresholdViolationError extends Error {
-  readonly _tag = 'PerformanceThresholdViolationError'
-  constructor(
-    public readonly category: PerformanceCategory,
-    public readonly value: number,
-    public readonly threshold: number,
-  ) {
-    super(`Performance threshold violation: ${category} value ${value} exceeds threshold ${threshold}`)
-  }
-}
+export const PerformanceThresholdViolationError = Schema.TaggedError<PerformanceThresholdViolationError>()('PerformanceThresholdViolationError', {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+  category: Schema.String,
+  value: Schema.Number,
+  threshold: Schema.Number,
+})
+export type PerformanceThresholdViolationError = Schema.Schema.Type<typeof PerformanceThresholdViolationError>
 
 /**
  * Pure domain functions for performance analysis
@@ -230,13 +247,23 @@ const createPerformanceMetric = (category: PerformanceCategory, value: number, t
     disk: 'MB/s',
   }
 
+  // Validate metadata using schema
+  const validatedMetadata = metadata ? (() => {
+    try {
+      return S.parseSync(MetadataSchema)(metadata)
+    } catch {
+      // Fallback to safe metadata structure if validation fails
+      return { _validationFailed: true, originalData: String(metadata) }
+    }
+  })() : undefined
+
   return {
     category,
     value,
     timestamp,
     severity,
     unit: units[category],
-    metadata,
+    metadata: validatedMetadata,
   }
 }
 
@@ -474,7 +501,12 @@ const analyzePerformancePure = (
 ): Effect.Effect<PerformanceAnalysis, PerformanceAnalysisError, never> =>
   Effect.gen(function* () {
     if (metrics.length === 0) {
-      throw new PerformanceAnalysisError('No metrics provided for analysis')
+      yield* Effect.fail(
+        PerformanceAnalysisError.make({
+          message: 'Performance analysis failed: No metrics provided for analysis',
+          reason: 'No metrics provided for analysis',
+        }),
+      )
     }
 
     // Calculate category scores
@@ -627,7 +659,12 @@ const validatePerformanceThresholdsPure = (config: PerformanceConfig): Effect.Ef
       config.thresholds.fps.acceptable >= config.thresholds.fps.good ||
       config.thresholds.fps.good >= config.thresholds.fps.excellent
     ) {
-      throw new PerformanceAnalysisError('FPS thresholds must be in ascending order')
+      yield* Effect.fail(
+        PerformanceAnalysisError.make({
+          message: 'Performance analysis failed: FPS thresholds must be in ascending order',
+          reason: 'FPS thresholds must be in ascending order',
+        }),
+      )
     }
 
     // Validate memory thresholds
@@ -636,7 +673,12 @@ const validatePerformanceThresholdsPure = (config: PerformanceConfig): Effect.Ef
       config.thresholds.memory.moderate >= config.thresholds.memory.high ||
       config.thresholds.memory.high >= config.thresholds.memory.critical
     ) {
-      throw new PerformanceAnalysisError('Memory thresholds must be in ascending order')
+      yield* Effect.fail(
+        PerformanceAnalysisError.make({
+          message: 'Performance analysis failed: Memory thresholds must be in ascending order',
+          reason: 'Memory thresholds must be in ascending order',
+        }),
+      )
     }
 
     return true
@@ -694,13 +736,14 @@ const performanceDomainService: IPerformanceDomainService = {
 
 /**
  * Context tag for dependency injection
+ * Standardized naming: ServiceName + DomainService
  */
-export const PerformanceDomainServicePort = Context.GenericTag<IPerformanceDomainService>('@domain/PerformanceDomainService')
+export const PerformanceDomainService = Context.GenericTag<IPerformanceDomainService>('PerformanceDomainService')
 
 /**
  * Live layer for Performance Domain Service
  */
-export const PerformanceDomainServiceLive = Layer.succeed(PerformanceDomainServicePort, performanceDomainService)
+export const PerformanceDomainServiceLive = Layer.succeed(PerformanceDomainService, performanceDomainService)
 
 /**
  * Utility functions for performance domain operations

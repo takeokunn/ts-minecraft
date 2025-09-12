@@ -549,8 +549,8 @@ export const getOptimizationStatsFunctional = (): Effect.Effect<
       totalEntities: number
       componentDistribution: Array<{ component: ComponentName; entityCount: number }>
     }
-    archetypes: any
-    cache: any
+    archetypes: unknown
+    cache: unknown
   },
   never,
   ComponentIndexServiceFunctional | QueryCacheService

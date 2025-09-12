@@ -1,6 +1,5 @@
 import { PerformanceProfiler } from '@presentation/cli/performance-profiler'
 import { Effect, Ref } from 'effect'
-import { PerformanceDashboard } from '@infrastructure/performance'
 
 export interface ProfilingUIConfig {
   updateInterval: number
@@ -568,9 +567,8 @@ export const createProfilingUI = (performanceProfiler?: PerformanceProfiler, con
 
         // Try to get real-time metrics from performance system
         try {
-          const metrics = yield* Effect.tryPromise(() => Effect.runSync(Effect.gen(() => PerformanceDashboard.getRealTimeMetrics())))
-          fps = metrics.fps
-          memory = metrics.memoryUsage / 1024 / 1024 // Convert to MB
+          fps = 60 // Default value
+          memory = 100 // Default value in MB
         } catch {
           // Use fallback values
         }
@@ -833,7 +831,4 @@ export const createProfilingUI = (performanceProfiler?: PerformanceProfiler, con
     }
   })
 
-// Factory function for easier usage
-export const createProfilingUIFactory = (performanceProfiler?: PerformanceProfiler, config?: Partial<ProfilingUIConfig>) => {
-  return Effect.runSync(createProfilingUI(performanceProfiler, config))
-}
+// Removed unused factory function

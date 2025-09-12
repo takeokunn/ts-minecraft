@@ -94,5 +94,5 @@ export const GameControllerLive: Layer.Layer<GameController, never, CommandHandl
 )
 
 // Factory function for direct usage
-export const createGameController = (commandHandlers: any, queryHandlers: any) =>
+export const createGameController = (commandHandlers: CommandHandlers, queryHandlers: QueryHandlers) =>
   Effect.runSync(Effect.provide(GameControllerLive, Layer.mergeAll(Layer.succeed(CommandHandlers, commandHandlers), Layer.succeed(QueryHandlers, queryHandlers))))

@@ -1,4 +1,5 @@
-import { Effect, Layer, Context } from 'effect'
+import { Effect, Layer, Context, pipe } from 'effect'
+import { CHUNK_SIZE } from '@shared/constants/world'
 import { PlayerMovementCommand } from '@application/commands/player-movement'
 import { PhysicsDomainService } from '@domain/services/physics-domain.service'
 import { WorldDomainService } from '@domain/services/world-domain.service'
@@ -18,41 +19,41 @@ export const PlayerMoveUseCase = Context.GenericTag<PlayerMoveUseCaseService>('P
 
 export const PlayerMoveUseCaseLive = Layer.succeed(PlayerMoveUseCase, {
   execute: (command) =>
-    Effect.gen(function* (_) {
-      const physicsService = yield* _(PhysicsDomainService)
-      const worldService = yield* _(WorldDomainService)
-      const entityService = yield* _(EntityDomainService)
-
-      // Validate movement
-      const isValidMove = yield* _(physicsService.validateMovement(command.entityId, command.position, command.velocity))
-
-      if (!isValidMove) {
-        return yield* _(Effect.fail(new Error('Invalid movement')))
-      }
-
-      // Update entity position
-      yield* _(entityService.updatePosition(command.entityId, command.position))
-
-      // Update physics world
-      yield* _(physicsService.updateEntityVelocity(command.entityId, command.velocity))
-
-      // Check for chunk loading requirements
-      const chunkCoord = {
-        x: Math.floor(command.position.x / 16),
-        z: Math.floor(command.position.z / 16),
-      }
-      yield* _(worldService.ensureChunkLoaded(chunkCoord))
-
-      // Apply movement effects (sounds, particles, etc.)
-      yield* _(applyMovementEffects(command))
-    }),
+    pipe(
+      Effect.all({
+        physicsService: PhysicsDomainService,
+        worldService: WorldDomainService,
+        entityService: EntityDomainService,
+      }),
+      Effect.flatMap(({ physicsService, worldService, entityService }) =>
+        pipe(
+          physicsService.validateMovement(command.entityId, command.position, command.velocity),
+          Effect.flatMap((isValidMove) =>
+            isValidMove
+              ? pipe(
+                  Effect.all([entityService.updatePosition(command.entityId, command.position), physicsService.updateEntityVelocity(command.entityId, command.velocity)]),
+                  Effect.flatMap(() => {
+                    const chunkCoord = {
+                      x: Math.floor(command.position.x / CHUNK_SIZE),
+                      z: Math.floor(command.position.z / CHUNK_SIZE),
+                    }
+                    return pipe(
+                      worldService.ensureChunkLoaded(chunkCoord),
+                      Effect.flatMap(() => applyMovementEffects(command)),
+                    )
+                  }),
+                )
+              : Effect.fail(new Error('Invalid movement')),
+          ),
+        ),
+      ),
+    ),
 } satisfies PlayerMoveUseCaseService)
 
 const applyMovementEffects = (command: PlayerMovementCommand) =>
-  Effect.gen(function* (_) {
-    // Apply visual and audio effects for movement
-    // This could include footstep sounds, particle effects, etc.
-    yield* _(Effect.log(`Movement effects applied for entity ${command.entityId}`))
-  })
+  pipe(
+    Effect.log(`Movement effects applied for entity ${command.entityId}`),
+    Effect.asVoid
+  )
 
 // Layer dependencies will be provided by the main Application layer

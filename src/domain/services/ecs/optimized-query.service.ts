@@ -76,7 +76,7 @@ export const IndexService = Context.GenericTag<IndexService>('IndexService')
 // ============================================================================
 
 export interface QueryOptimizerService {
-  readonly analyze: (queryId: string, components: ReadonlyArray<ComponentName>, conditions?: ReadonlyArray<any>) => Effect.Effect<ExecutionPlan>
+  readonly analyze: (queryId: string, components: ReadonlyArray<ComponentName>, conditions?: ReadonlyArray<unknown>) => Effect.Effect<ExecutionPlan>
 
   readonly optimize: (plan: ExecutionPlan) => Effect.Effect<ExecutionPlan>
 
@@ -319,7 +319,7 @@ export const QueryOptimizerServiceLive = Layer.effect(
       indexMisses: 0,
     })
 
-    const analyze = (queryId: string, components: ReadonlyArray<ComponentName>, conditions?: ReadonlyArray<any>) =>
+    const analyze = (queryId: string, components: ReadonlyArray<ComponentName>, conditions?: ReadonlyArray<unknown>) =>
       Effect.gen(function* () {
         const steps: ExecutionPlan['steps'] = []
         const optimizations: QueryOptimization[] = []

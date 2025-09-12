@@ -4,10 +4,88 @@
  */
 
 import { Effect, pipe } from 'effect'
+import * as S from '@effect/schema/Schema'
 import { ComponentName, ComponentOfName } from '@domain/entities/components'
 import { createArchetypeQuery, type ArchetypeQueryService } from '@application/queries/archetype-query'
 import type { OptimizedQueryService } from '@application/queries/optimized-query'
 import { EntityId } from '@domain/entities'
+
+// Schema definitions for query system validation
+const ComponentDataSchema = S.Union(S.Record(S.String, S.Unknown), S.Struct({ _tag: S.String, data: S.Unknown }), S.String, S.Number, S.Boolean, S.Array(S.Unknown), S.Unknown)
+
+// Validation utilities for query system
+export const QueryValidation = {
+  validateComponentData: (data: unknown): Effect.Effect<{ data: unknown; type: string; isValid: boolean }, never, never> => {
+    if (data == null) {
+      return Effect.succeed({ data: null, type: 'null', isValid: false })
+    }
+
+    if (typeof data === 'object' && '_tag' in data) {
+      return Effect.succeed({ data, type: (data as { _tag: string })._tag, isValid: true })
+    }
+
+    if (typeof data === 'object' && !Array.isArray(data)) {
+      return Effect.succeed({ data, type: 'object', isValid: true })
+    }
+
+    if (Array.isArray(data)) {
+      return Effect.succeed({ data, type: 'array', isValid: true })
+    }
+
+    return Effect.succeed({
+      data: { value: data, originalType: typeof data },
+      type: typeof data,
+      isValid: true,
+    })
+  },
+
+  validateQueryEntity: (entity: unknown): Effect.Effect<QueryEntity, string, never> => {
+    try {
+      if (typeof entity !== 'object' || entity === null) {
+        return Effect.fail('Entity must be an object')
+      }
+
+      const entityObj = entity as Record<string, unknown>
+      if (!entityObj.id) {
+        return Effect.fail('Entity must have an id')
+      }
+
+      if (!entityObj.components || typeof entityObj.components !== 'object') {
+        return Effect.fail('Entity must have components object')
+      }
+
+      return Effect.succeed({
+        id: entityObj.id,
+        components: entityObj.components,
+      } as QueryEntity)
+    } catch (error) {
+      return Effect.fail(`Invalid entity format: ${String(error)}`)
+    }
+  },
+
+  validateComponentsRecord: (components: Record<string, unknown>): Effect.Effect<Record<ComponentName, unknown>, never, never> => {
+    return Effect.gen(function* () {
+      const validatedComponents: Record<string, unknown> = {}
+
+      for (const [key, value] of Object.entries(components)) {
+        const validation = yield* QueryValidation.validateComponentData(value)
+        validatedComponents[key] = validation.data
+      }
+
+      return validatedComponents as Record<ComponentName, unknown>
+    })
+  },
+
+  sanitizeUnknownArray: (arr: unknown[]): Effect.Effect<Array<{ value: unknown; type: string; index: number }>, never, never> => {
+    return Effect.succeed(
+      arr.map((item, index) => ({
+        value: item,
+        type: typeof item,
+        index,
+      })),
+    )
+  },
+}
 
 /**
  * Entity interface for query system
@@ -186,7 +264,11 @@ export const createSoAQuery = <T extends ReadonlyArray<ComponentName>>(component
 
           // Add components to arrays
           for (const componentName of components) {
-            componentArrays[componentName]!.push(entity.components[componentName])
+            const componentArray = componentArrays[componentName]
+            const component = entity.components[componentName]
+            if (componentArray && component !== undefined) {
+              componentArray.push(component)
+            }
           }
         }
       }
@@ -244,7 +326,7 @@ export const createAoSQuery = <T extends ReadonlyArray<ComponentName>>(component
     Effect.gen(function* () {
       const result: Array<{
         entity: QueryEntity
-        components: any
+        components: Record<string, unknown>
       }> = []
 
       for (const entity of entities) {

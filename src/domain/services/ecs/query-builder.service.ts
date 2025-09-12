@@ -4,9 +4,108 @@
  */
 
 import { Effect, Context, Layer, pipe, Option, ReadonlyArray, Duration, Chunk, Stream } from 'effect'
-import * as S from 'effect/Schema'
+import * as S from '@effect/schema/Schema'
 import { EntityId, ComponentName, Entity, QueryService, ArchetypeService, QueryMetrics } from '@domain/services/ecs/archetype-query.service'
 import { ComponentService } from '@domain/services/ecs/component.service'
+
+// ============================================================================
+// Value validation utilities
+// ============================================================================
+
+// Schema definitions for query value validation
+const QueryValueSchema = S.Union(
+  S.String,
+  S.Number,
+  S.Boolean,
+  S.Null,
+  S.Array(S.Unknown),
+  S.Record(S.String, S.Unknown),
+  S.Unknown
+)
+
+const validateQueryValue = (value: unknown): Effect.Effect<unknown, never, never> => {
+  return Effect.gen(function* () {
+    try {
+      const validated = S.parseSync(QueryValueSchema)(value)
+      return validated
+    } catch {
+      // Fall back to original logic if schema validation fails
+      if (value == null) return null
+      if (Array.isArray(value)) return value
+      if (typeof value === 'object') return value
+      return value
+    }
+  })
+}
+
+const validateFieldValue = (entity: Entity, field: string): Effect.Effect<unknown, never, never> => {
+  return Effect.gen(function* () {
+    try {
+      const fieldParts = field.split('.')
+      let current: unknown = entity
+
+      for (const part of fieldParts) {
+        if (current == null) return null
+
+        // Use schema validation for safer type checking
+        const objectSchema = S.Record(S.String, S.Unknown)
+        const parseResult = S.parseSync(objectSchema)(current)
+        
+        if (typeof parseResult === 'object' && parseResult !== null && part in parseResult) {
+          current = (parseResult as Record<string, unknown>)[part]
+        } else {
+          return null
+        }
+      }
+
+      // Validate the final value using our query value schema
+      const validatedResult = yield* validateQueryValue(current)
+      return validatedResult
+    } catch {
+      return null
+    }
+  })
+}
+
+const validateConditionValue = (value: unknown, operator: QueryCondition['operator'], expected: unknown): Effect.Effect<boolean, never, never> => {
+  return Effect.gen(function* () {
+    try {
+      const validatedValue = yield* validateQueryValue(value)
+      const validatedExpected = yield* validateQueryValue(expected)
+
+      switch (operator) {
+        case '=':
+          return validatedValue === validatedExpected
+        case '!=':
+          return validatedValue !== validatedExpected
+        case '>':
+          return typeof validatedValue === 'number' && typeof validatedExpected === 'number' ? validatedValue > validatedExpected : false
+        case '<':
+          return typeof validatedValue === 'number' && typeof validatedExpected === 'number' ? validatedValue < validatedExpected : false
+        case '>=':
+          return typeof validatedValue === 'number' && typeof validatedExpected === 'number' ? validatedValue >= validatedExpected : false
+        case '<=':
+          return typeof validatedValue === 'number' && typeof validatedExpected === 'number' ? validatedValue <= validatedExpected : false
+        case 'IN':
+          return Array.isArray(validatedExpected) ? validatedExpected.includes(validatedValue) : false
+        case 'NOT_IN':
+          return Array.isArray(validatedExpected) ? !validatedExpected.includes(validatedValue) : true
+        case 'CONTAINS':
+          if (typeof validatedValue === 'string' && typeof validatedExpected === 'string') {
+            return validatedValue.includes(validatedExpected)
+          }
+          if (Array.isArray(validatedValue)) {
+            return validatedValue.includes(validatedExpected)
+          }
+          return false
+        default:
+          return false
+      }
+    } catch {
+      return false
+    }
+  })
+}
 
 // ============================================================================
 // Schema Definitions
@@ -111,9 +210,12 @@ interface QueryBuilderState {
   readonly conditions: QueryCondition[]
 }
 
-const createQueryBuilderState = (
-  name: string,
-): QueryBuilderState => ({
+// Internal interface that exposes state for internal operations
+interface QueryBuilderInternal extends QueryBuilder {
+  readonly state: QueryBuilderState
+}
+
+const createQueryBuilderState = (name: string): QueryBuilderState => ({
   name,
   expression: null,
   requiredComponents: new Set(),
@@ -125,29 +227,20 @@ const createQueryBuilderState = (
 // Query Builder Implementation
 // ============================================================================
 
-const createQueryBuilder = (
-  state: QueryBuilderState,
-  queryService: QueryService,
-  builderService: QueryBuilderService
-): QueryBuilder => ({
-  with: (...components: ComponentName[]) => 
-    QueryBuilderImpl.with(state, queryService, builderService, ...components),
-  
-  without: (...components: ComponentName[]) => 
-    QueryBuilderImpl.without(state, queryService, builderService, ...components),
-  
-  where: (field: string, operator: QueryCondition['operator'], value: unknown) => 
-    QueryBuilderImpl.where(state, queryService, builderService, field, operator, value),
-  
-  and: (builder: (q: QueryBuilder) => QueryBuilder) => 
-    QueryBuilderImpl.and(state, queryService, builderService, builder),
-  
-  or: (builder: (q: QueryBuilder) => QueryBuilder) => 
-    QueryBuilderImpl.or(state, queryService, builderService, builder),
-  
-  not: (builder: (q: QueryBuilder) => QueryBuilder) => 
-    QueryBuilderImpl.not(state, queryService, builderService, builder),
-  
+const createQueryBuilder = (state: QueryBuilderState, queryService: QueryService, builderService: QueryBuilderService): QueryBuilderInternal => ({
+  state,
+  with: (...components: ComponentName[]) => QueryBuilderImpl.with(state, queryService, builderService, ...components),
+
+  without: (...components: ComponentName[]) => QueryBuilderImpl.without(state, queryService, builderService, ...components),
+
+  where: (field: string, operator: QueryCondition['operator'], value: unknown) => QueryBuilderImpl.where(state, queryService, builderService, field, operator, value),
+
+  and: (builder: (q: QueryBuilder) => QueryBuilder) => QueryBuilderImpl.and(state, queryService, builderService, builder),
+
+  or: (builder: (q: QueryBuilder) => QueryBuilder) => QueryBuilderImpl.or(state, queryService, builderService, builder),
+
+  not: (builder: (q: QueryBuilder) => QueryBuilder) => QueryBuilderImpl.not(state, queryService, builderService, builder),
+
   execute: () => QueryBuilderImpl.execute(state, queryService),
   stream: () => QueryBuilderImpl.stream(state, queryService),
   count: () => QueryBuilderImpl.count(state, queryService),
@@ -162,13 +255,7 @@ const createQueryBuilder = (
 })
 
 const QueryBuilderImpl = {
-
-  with: (
-    state: QueryBuilderState,
-    queryService: QueryService,
-    builderService: QueryBuilderService,
-    ...components: ComponentName[]
-  ): QueryBuilder => {
+  with: (state: QueryBuilderState, queryService: QueryService, builderService: QueryBuilderService, ...components: ComponentName[]): QueryBuilder => {
     const newState = {
       ...state,
       requiredComponents: new Set([...state.requiredComponents, ...components]),
@@ -176,12 +263,7 @@ const QueryBuilderImpl = {
     return createQueryBuilder(newState, queryService, builderService)
   },
 
-  without: (
-    state: QueryBuilderState,
-    queryService: QueryService,
-    builderService: QueryBuilderService,
-    ...components: ComponentName[]
-  ): QueryBuilder => {
+  without: (state: QueryBuilderState, queryService: QueryService, builderService: QueryBuilderService, ...components: ComponentName[]): QueryBuilder => {
     const newState = {
       ...state,
       forbiddenComponents: new Set([...state.forbiddenComponents, ...components]),
@@ -195,7 +277,7 @@ const QueryBuilderImpl = {
     builderService: QueryBuilderService,
     field: string,
     operator: QueryCondition['operator'],
-    value: unknown
+    value: unknown,
   ): QueryBuilder => {
     const newState = {
       ...state,
@@ -204,90 +286,69 @@ const QueryBuilderImpl = {
     return createQueryBuilder(newState, queryService, builderService)
   },
 
-  and: (
-    state: QueryBuilderState,
-    queryService: QueryService,
-    builderService: QueryBuilderService,
-    builder: (q: QueryBuilder) => QueryBuilder
-  ): QueryBuilder => {
+  and: (state: QueryBuilderState, queryService: QueryService, builderService: QueryBuilderService, builder: (q: QueryBuilder) => QueryBuilder): QueryBuilder => {
     const subQueryState = createQueryBuilderState(state.name + '_and')
     const subQuery = createQueryBuilder(subQueryState, queryService, builderService)
     const builtSubQuery = builder(subQuery)
-    
+
     const newExpression: QueryExpression = {
       type: 'node',
       value: {
         operator: 'AND',
-        children: [
-          QueryBuilderImpl.buildExpression(state), 
-          QueryBuilderImpl.buildExpression((builtSubQuery as any).state)
-        ],
+        children: [QueryBuilderImpl.buildExpression(state), QueryBuilderImpl.buildExpression((builtSubQuery as QueryBuilderInternal).state)],
       },
     }
-    
+
     const newState = { ...state, expression: newExpression }
     return createQueryBuilder(newState, queryService, builderService)
   },
 
-  or: (
-    state: QueryBuilderState,
-    queryService: QueryService,
-    builderService: QueryBuilderService,
-    builder: (q: QueryBuilder) => QueryBuilder
-  ): QueryBuilder => {
+  or: (state: QueryBuilderState, queryService: QueryService, builderService: QueryBuilderService, builder: (q: QueryBuilder) => QueryBuilder): QueryBuilder => {
     const subQueryState = createQueryBuilderState(state.name + '_or')
     const subQuery = createQueryBuilder(subQueryState, queryService, builderService)
     const builtSubQuery = builder(subQuery)
-    
+
     const newExpression: QueryExpression = {
       type: 'node',
       value: {
         operator: 'OR',
-        children: [
-          QueryBuilderImpl.buildExpression(state), 
-          QueryBuilderImpl.buildExpression((builtSubQuery as any).state)
-        ],
+        children: [QueryBuilderImpl.buildExpression(state), QueryBuilderImpl.buildExpression((builtSubQuery as QueryBuilderInternal).state)],
       },
     }
-    
+
     const newState = { ...state, expression: newExpression }
     return createQueryBuilder(newState, queryService, builderService)
   },
 
-  not: (
-    state: QueryBuilderState,
-    queryService: QueryService,
-    builderService: QueryBuilderService,
-    builder: (q: QueryBuilder) => QueryBuilder
-  ): QueryBuilder => {
+  not: (state: QueryBuilderState, queryService: QueryService, builderService: QueryBuilderService, builder: (q: QueryBuilder) => QueryBuilder): QueryBuilder => {
     const subQueryState = createQueryBuilderState(state.name + '_not')
     const subQuery = createQueryBuilder(subQueryState, queryService, builderService)
     const builtSubQuery = builder(subQuery)
-    
+
     const newExpression: QueryExpression = {
       type: 'node',
       value: {
         operator: 'NOT',
-        children: [QueryBuilderImpl.buildExpression((builtSubQuery as any).state)],
+        children: [QueryBuilderImpl.buildExpression((builtSubQuery as QueryBuilderInternal).state)],
       },
     }
-    
+
     const newState = { ...state, expression: newExpression }
     return createQueryBuilder(newState, queryService, builderService)
   },
 
-  private buildExpression(): QueryExpression {
-    if (this.expression) return this.expression
+  buildExpression(state: QueryBuilderState): QueryExpression {
+    if (state.expression) return state.expression
 
     const expressions: QueryExpression[] = []
 
     // Add component requirements
-    this.requiredComponents.forEach((comp) => {
+    state.requiredComponents.forEach((comp) => {
       expressions.push({ type: 'component', value: comp })
     })
 
     // Add forbidden components as NOT expressions
-    this.forbiddenComponents.forEach((comp) => {
+    state.forbiddenComponents.forEach((comp) => {
       expressions.push({
         type: 'node',
         value: {
@@ -298,7 +359,7 @@ const QueryBuilderImpl = {
     })
 
     // Add conditions
-    this.conditions.forEach((cond) => {
+    state.conditions.forEach((cond) => {
       expressions.push({ type: 'condition', value: cond })
     })
 
@@ -307,7 +368,7 @@ const QueryBuilderImpl = {
     }
 
     if (expressions.length === 1) {
-      return expressions[0]
+      return expressions[0]!
     }
 
     return {
@@ -317,100 +378,64 @@ const QueryBuilderImpl = {
         children: expressions,
       },
     }
-  }
+  },
 
-  execute(): Effect.Effect<ReadonlyArray<Entity>> {
+  execute(state: QueryBuilderState, queryService: QueryService): Effect.Effect<ReadonlyArray<Entity>> {
     return Effect.gen(function* () {
-      const required = Array.from(this.requiredComponents)
-      const forbidden = Array.from(this.forbiddenComponents)
+      const required = Array.from(state.requiredComponents)
+      const forbidden = Array.from(state.forbiddenComponents)
 
-      const result = yield* this.queryService.execute(this.name, required, forbidden, this.buildPredicate())
+      const result = yield* queryService.execute(state.name, required, forbidden, QueryBuilderImpl.buildPredicate(state))
 
       return result.entities
     })
-  }
+  },
 
-  private buildPredicate(): ((entity: Entity) => boolean) | undefined {
-    if (this.conditions.length === 0) return undefined
+  buildPredicate(state: QueryBuilderState): ((entity: Entity) => boolean) | undefined {
+    if (state.conditions.length === 0) return undefined
 
     return (entity: Entity) => {
-      for (const condition of this.conditions) {
-        const value = this.getFieldValue(entity, condition.field)
+      for (const condition of state.conditions) {
+        const value = QueryBuilderImpl.getFieldValue(entity, condition.field)
 
-        if (!this.evaluateCondition(value, condition.operator, condition.value)) {
+        if (!QueryBuilderImpl.evaluateCondition(value, condition.operator, condition.value)) {
           return false
         }
       }
       return true
     }
-  }
+  },
 
-  private getFieldValue(entity: Entity, field: string): unknown {
-    const parts = field.split('.')
-    let value: any = entity
+  getFieldValue: (entity: Entity, field: string) => Effect.runSync(validateFieldValue(entity, field)),
 
-    for (const part of parts) {
-      if (value && typeof value === 'object' && part in value) {
-        value = value[part]
-      } else {
-        return undefined
-      }
-    }
+  evaluateCondition: (value: unknown, operator: QueryCondition['operator'], expected: unknown) => Effect.runSync(validateConditionValue(value, operator, expected)),
 
-    return value
-  }
+  stream(state: QueryBuilderState, queryService: QueryService): Stream.Stream<Entity> {
+    return Stream.fromIterableEffect(QueryBuilderImpl.execute(state, queryService))
+  },
 
-  private evaluateCondition(value: unknown, operator: QueryCondition['operator'], expected: unknown): boolean {
-    switch (operator) {
-      case '=':
-        return value === expected
-      case '!=':
-        return value !== expected
-      case '>':
-        return Number(value) > Number(expected)
-      case '<':
-        return Number(value) < Number(expected)
-      case '>=':
-        return Number(value) >= Number(expected)
-      case '<=':
-        return Number(value) <= Number(expected)
-      case 'IN':
-        return Array.isArray(expected) && expected.includes(value)
-      case 'NOT_IN':
-        return Array.isArray(expected) && !expected.includes(value)
-      case 'CONTAINS':
-        return String(value).includes(String(expected))
-      default:
-        return false
-    }
-  }
+  count(state: QueryBuilderState, queryService: QueryService): Effect.Effect<number> {
+    return Effect.map(QueryBuilderImpl.execute(state, queryService), (entities) => entities.length)
+  },
 
-  stream(): Stream.Stream<Entity> {
-    return Stream.fromIterableEffect(this.execute())
-  }
+  exists(state: QueryBuilderState, queryService: QueryService): Effect.Effect<boolean> {
+    return Effect.map(QueryBuilderImpl.execute(state, queryService), (entities) => entities.length > 0)
+  },
 
-  count(): Effect.Effect<number> {
-    return Effect.map(this.execute(), (entities) => entities.length)
-  }
+  first(state: QueryBuilderState, queryService: QueryService): Effect.Effect<Option.Option<Entity>> {
+    return Effect.map(QueryBuilderImpl.execute(state, queryService), (entities) => ReadonlyArray.head(entities))
+  },
 
-  exists(): Effect.Effect<boolean> {
-    return Effect.map(this.execute(), (entities) => entities.length > 0)
-  }
+  cached(state: QueryBuilderState, queryService: QueryService, ttl: Duration.Duration = Duration.seconds(1)): Effect.Effect<ReadonlyArray<Entity>> {
+    const required = Array.from(state.requiredComponents)
+    const forbidden = Array.from(state.forbiddenComponents)
 
-  first(): Effect.Effect<Option.Option<Entity>> {
-    return Effect.map(this.execute(), (entities) => ReadonlyArray.head(entities))
-  }
+    return queryService.cached(state.name, required, forbidden, ttl)
+  },
 
-  cached(ttl: Duration.Duration = Duration.seconds(1)): Effect.Effect<ReadonlyArray<Entity>> {
-    const required = Array.from(this.requiredComponents)
-    const forbidden = Array.from(this.forbiddenComponents)
-
-    return this.queryService.cached(this.name, required, forbidden, ttl)
-  }
-
-  parallel(batchSize: number = 100): Effect.Effect<ReadonlyArray<Entity>> {
+  parallel(state: QueryBuilderState, queryService: QueryService, batchSize: number = 100): Effect.Effect<ReadonlyArray<Entity>> {
     return Effect.gen(function* () {
-      const entities = yield* this.execute()
+      const entities = yield* QueryBuilderImpl.execute(state, queryService)
 
       // Process entities in parallel batches
       const batches = Chunk.fromIterable(entities).pipe(Chunk.chunksOf(batchSize))
@@ -419,27 +444,27 @@ const QueryBuilderImpl = {
 
       return results.flat()
     })
-  }
+  },
 
-  lazy(): Effect.Effect<() => Effect.Effect<ReadonlyArray<Entity>>> {
-    const executeQuery = this.execute.bind(this)
+  lazy(state: QueryBuilderState, queryService: QueryService): Effect.Effect<() => Effect.Effect<ReadonlyArray<Entity>>> {
+    const executeQuery = () => QueryBuilderImpl.execute(state, queryService)
     return Effect.succeed(() => executeQuery())
-  }
+  },
 
-  explain(): Effect.Effect<string> {
-    return this.builderService.explain(this.buildExpression())
-  }
+  explain(state: QueryBuilderState, builderService: QueryBuilderService): Effect.Effect<string> {
+    return builderService.explain(QueryBuilderImpl.buildExpression(state))
+  },
 
-  getCost(): Effect.Effect<number> {
+  getCost(state: QueryBuilderState, builderService: QueryBuilderService): Effect.Effect<number> {
     return Effect.gen(function* () {
-      const plan = yield* this.getPlan()
+      const plan = yield* QueryBuilderImpl.getPlan(state, builderService)
       return plan.estimatedCost
     })
-  }
+  },
 
-  getPlan(): Effect.Effect<QueryPlan> {
-    return this.builderService.optimize(this.buildExpression())
-  }
+  getPlan(state: QueryBuilderState, builderService: QueryBuilderService): Effect.Effect<QueryPlan> {
+    return builderService.optimize(QueryBuilderImpl.buildExpression(state))
+  },
 }
 
 // ============================================================================
@@ -454,7 +479,8 @@ export const QueryBuilderServiceLive = Layer.effect(
     const componentService = yield* ComponentService
 
     const create = (name: string): QueryBuilder => {
-      return new QueryBuilderImpl(name, queryService, service)
+      const state = createQueryBuilderState(name)
+      return createQueryBuilder(state, queryService, service)
     }
 
     const optimize = (expression: QueryExpression): Effect.Effect<QueryPlan> =>

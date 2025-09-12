@@ -50,10 +50,13 @@ export interface EntityChange {
   readonly entityId: EntityId
   readonly changeType: 'created' | 'updated' | 'destroyed'
   readonly componentName?: ComponentName
-  readonly previousValue?: unknown
-  readonly newValue?: unknown
+  readonly previousValue?: ComponentValue
+  readonly newValue?: ComponentValue
   readonly timestamp: number
 }
+
+// Type for component values in change tracking
+export type ComponentValue = Record<string, unknown>
 
 /**
  * Entity Repository interface
@@ -128,8 +131,16 @@ const getArchetypeKey = (componentTypes: ReadonlySet<ComponentName>): string => 
   return Array.from(componentTypes).sort().join(',')
 }
 
+/**
+ * Type guard to check if a string is a valid ComponentName
+ */
+const isComponentName = (name: string): name is ComponentName => {
+  return componentNamesSet.has(name as ComponentName)
+}
+
 const parseArchetypeKey = (key: string): ReadonlySet<ComponentName> => {
-  return new Set(key.split(',') as ComponentName[])
+  const components = key.split(',')
+  return new Set(components.filter(isComponentName))
 }
 
 /**
@@ -142,7 +153,9 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
       const entityId = toEntityId(state.nextEntityId)
       const now = Date.now()
 
-      const componentTypes = archetype ? new Set(Object.keys(archetype) as ComponentName[]) : new Set<ComponentName>()
+      const componentTypes = archetype
+        ? new Set(Object.keys(archetype).filter(isComponentName))
+        : new Set<ComponentName>()
       const archetypeKey = getArchetypeKey(componentTypes)
 
       const metadata: EntityMetadata = {
@@ -158,11 +171,12 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
       let newComponentStorage = state.componentStorage
       if (archetype) {
         for (const [componentName, component] of Object.entries(archetype)) {
-          if (componentNamesSet.has(componentName as ComponentName)) {
-            const typedName = componentName as ComponentName
+          if (isComponentName(componentName)) {
+            const currentStorage = newComponentStorage[componentName]
             newComponentStorage = {
               ...newComponentStorage,
-              [typedName]: HashMap.set(newComponentStorage[typedName], entityId, component as any),
+              // Safe cast: componentName is verified by isComponentName type guard
+              [componentName]: HashMap.set(currentStorage, entityId, component as ComponentOfName<ComponentName>),
             }
           }
         }
@@ -268,9 +282,10 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
       }
 
       // Update component storage
+      const currentStorage = state.componentStorage[componentName]
       const newComponentStorage = {
         ...state.componentStorage,
-        [componentName]: HashMap.set(state.componentStorage[componentName], entityId, component as any),
+        [componentName]: HashMap.set(currentStorage, entityId, component),
       }
 
       // Update entity metadata
@@ -391,7 +406,8 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
   const getComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<Option.Option<ComponentOfName<T>>, never, never> =>
     Effect.gen(function* (_) {
       const state = yield* _(Ref.get(stateRef))
-      return HashMap.get(state.componentStorage[componentName], entityId) as Option.Option<ComponentOfName<T>>
+      const componentOption = HashMap.get(state.componentStorage[componentName], entityId)
+      return componentOption as Option.Option<ComponentOfName<T>>
     })
 
   const hasComponent = <T extends ComponentName>(entityId: EntityId, componentName: T): Effect.Effect<boolean, never, never> =>
@@ -417,14 +433,16 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
         return false
       }
 
-      const current = currentOpt.value as ComponentOfName<T>
+      const current = currentOpt.value
       const updated = updater(current)
       const now = Date.now()
 
       // Update component storage
+      const currentStorage = state.componentStorage[componentName]
       const newComponentStorage = {
         ...state.componentStorage,
-        [componentName]: HashMap.set(state.componentStorage[componentName], entityId, updated as any),
+        // Safe cast: T extends ComponentName ensures type compatibility
+        [componentName]: HashMap.set(currentStorage, entityId, updated as ComponentOfName<ComponentName>),
       }
 
       // Update entity metadata timestamp
@@ -466,7 +484,7 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
     Effect.gen(function* (_) {
       const entityIds: EntityId[] = []
       for (const archetype of archetypes) {
-        const entityId = yield* _(this.createEntity(archetype))
+        const entityId = yield* _(createEntity(archetype))
         entityIds.push(entityId)
       }
       return entityIds
@@ -476,7 +494,7 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
     Effect.gen(function* (_) {
       let count = 0
       for (const entityId of entityIds) {
-        const destroyed = yield* _(this.destroyEntity(entityId))
+        const destroyed = yield* _(destroyEntity(entityId))
         if (destroyed) count++
       }
       return count
@@ -498,11 +516,12 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
       for (const componentName of metadata.componentTypes) {
         const componentOpt = HashMap.get(state.componentStorage[componentName], entityId)
         if (Option.isSome(componentOpt)) {
-          archetype[componentName] = componentOpt.value as any
+          // Safe cast: componentName from metadata.componentTypes is guaranteed to be valid
+          archetype[componentName] = componentOpt.value as ComponentOfName<ComponentName>
         }
       }
 
-      const newEntityId = yield* _(this.createEntity(archetype))
+      const newEntityId = yield* _(createEntity(archetype))
       return Option.some(newEntityId)
     })
 
@@ -522,9 +541,10 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
       // Apply sorting and pagination if specified
       let result = matchingEntities
       if (options?.sortBy) {
+        const sortBy = options.sortBy
         result = result.sort((a, b) => {
-          const aVal = a[options.sortBy!]
-          const bVal = b[options.sortBy!]
+          const aVal = a[sortBy]
+          const bVal = b[sortBy]
           const order = options.sortOrder === 'desc' ? -1 : 1
           return aVal < bVal ? -order : aVal > bVal ? order : 0
         })
@@ -609,7 +629,9 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
     Effect.gen(function* (_) {
       const state = yield* _(Ref.get(stateRef))
 
-      const componentCounts = Object.fromEntries(Array.from(componentNamesSet).map((name) => [name, HashMap.size(state.componentStorage[name])])) as Record<ComponentName, number>
+      const componentCounts = Object.fromEntries(
+        Array.from(componentNamesSet).map((name) => [name, HashMap.size(state.componentStorage[name])])
+      ) as Record<ComponentName, number>
 
       const archetypeCounts = Object.fromEntries(Array.from(state.archetypeToEntities).map(([key, entitySet]) => [key, HashSet.size(entitySet)]))
 
@@ -640,19 +662,19 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
     entityExists,
     getEntityMetadata,
     addComponent,
-    removeComponent: removeComponent as any, // Will be properly implemented
-    getComponent: getComponent as any, // Will be properly implemented
-    hasComponent: hasComponent as any, // Will be properly implemented
-    updateComponent: updateComponent as any, // Will be properly implemented
-    createEntities: createEntities as any, // Will be properly implemented
-    destroyEntities: destroyEntities as any, // Will be properly implemented
-    cloneEntity: cloneEntity as any, // Will be properly implemented
-    findEntitiesByComponents: findEntitiesByComponents as any, // Will be properly implemented
-    findEntitiesByArchetype: findEntitiesByArchetype as any, // Will be properly implemented
-    countEntities: countEntities as any, // Will be properly implemented
-    getEntityChanges: getEntityChanges as any, // Will be properly implemented
-    clearChangeHistory: clearChangeHistory as any, // Will be properly implemented
-    getRepositoryStats: getRepositoryStats as any, // Will be properly implemented
+    removeComponent,
+    getComponent,
+    hasComponent,
+    updateComponent,
+    createEntities,
+    destroyEntities,
+    cloneEntity,
+    findEntitiesByComponents,
+    findEntitiesByArchetype,
+    countEntities,
+    getEntityChanges,
+    clearChangeHistory,
+    getRepositoryStats,
     compactStorage,
   }
 }
@@ -666,7 +688,9 @@ export const EntityRepositoryLive = Layer.effect(
     const initialState: EntityRepositoryState = {
       nextEntityId: 0,
       entityMetadata: HashMap.empty(),
-      componentStorage: Object.fromEntries(Array.from(componentNamesSet).map((name) => [name, HashMap.empty()])) as EntityRepositoryState['componentStorage'],
+      componentStorage: Object.fromEntries(
+        Array.from(componentNamesSet).map((name) => [name, HashMap.empty()])
+      ) as Record<ComponentName, HashMap.HashMap<EntityId, ComponentValue>>,
       archetypeToEntities: HashMap.empty(),
       changes: [],
       maxChangeHistory: 1000,

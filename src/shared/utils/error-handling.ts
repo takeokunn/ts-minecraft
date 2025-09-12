@@ -6,15 +6,191 @@
  */
 
 import * as Effect from 'effect/Effect'
+import * as S from '@effect/schema/Schema'
 import { pipe } from 'effect/Function'
 import { Logger } from '@shared/utils/logging'
 import { PerformanceMonitor } from '@shared/utils/monitoring'
-import type { AllGameErrors } from '@domain/errors'
+// Note: Using local error types definition to avoid domain layer dependency
+export type AllGameErrors = Error | ValidationError | SystemError | EntityError
+
+// Local error classes to avoid domain dependency
+export class SystemError extends Error {
+  constructor(message: string, public readonly cause?: unknown) {
+    super(message)
+    this.name = 'SystemError'
+  }
+}
+
+export class EntityError extends Error {
+  constructor(message: string, public readonly entityId?: string, public readonly cause?: unknown) {
+    super(message)
+    this.name = 'EntityError'
+  }
+}
+
+export class ValidationError extends Error {
+  public readonly context?: {
+    field?: string
+    component?: string
+    operation?: string
+    metadata?: Record<string, unknown>
+    cause?: unknown
+  }
+
+  constructor(options: { message: string; context?: ValidationError['context'] }) {
+    super(options.message)
+    this.name = 'ValidationError'
+    this.context = options.context
+  }
+}
+
+/**
+ * Type guard to check if window has gc function
+ */
+const hasGarbageCollector = (win: Window): win is Window & { gc: () => void } => {
+  return 'gc' in win && typeof (win as any).gc === 'function'
+}
 
 // Error handling strategies
 export type ErrorHandlingStrategy = 'ignore' | 'log' | 'retry' | 'fallback' | 'terminate' | 'recover'
 
-// Error context for better reporting
+// Enhanced Schema definitions for error handling validation
+const ErrorSchema = S.Union(
+  S.InstanceOf(Error),
+  S.String,
+  S.Struct({
+    _tag: S.String,
+    message: S.optional(S.String)
+  }),
+  S.Unknown
+)
+
+const MetadataSchema = S.Union(
+  S.Record(S.String, S.Unknown),
+  S.Null,
+  S.Undefined
+)
+
+const FallbackValueSchema = S.Unknown
+const ErrorArraySchema = S.Array(S.Unknown)
+const RecoveryFunctionSchema = S.Function
+const ErrorStackSchema = S.optional(S.String)
+
+// Schema for error context validation
+const ErrorHandlingContextSchema = S.Struct({
+  component: S.optional(S.String),
+  operation: S.optional(S.String),
+  retryCount: S.optional(S.Number),
+  maxRetries: S.optional(S.Number),
+  fallbackValue: S.optional(S.Unknown),
+  metadata: S.optional(S.Record(S.String, S.Unknown))
+})
+
+// Enhanced type guards and validators using Schema.parse
+const validateError = (error: unknown): Effect.Effect<Error, never, never> => {
+  return pipe(
+    S.decodeUnknown(ErrorSchema)(error),
+    Effect.match({
+      onFailure: () => {
+        // If schema validation fails, create error from unknown value
+        if (error instanceof Error) return error
+        if (typeof error === 'string') return new Error(error)
+        if (typeof error === 'object' && error !== null && '_tag' in error) {
+          const taggedError = error as { _tag: unknown }
+          const tag = typeof taggedError._tag === 'string' ? taggedError._tag : String(taggedError._tag)
+          return new Error(`Tagged Error: ${tag}`)
+        }
+        return new Error(String(error))
+      },
+      onSuccess: (validated) => {
+        if (validated instanceof Error) return validated
+        if (typeof validated === 'string') return new Error(validated)
+        if (typeof validated === 'object' && validated !== null && '_tag' in validated) {
+          const message = 'message' in validated && typeof validated.message === 'string' 
+            ? validated.message 
+            : `Tagged Error: ${validated._tag}`
+          return new Error(message)
+        }
+        return new Error(String(validated))
+      }
+    }),
+    Effect.succeed
+  )
+}
+
+const validateMetadata = (metadata: unknown): Effect.Effect<Record<string, unknown>, never, never> => {
+  return pipe(
+    S.decodeUnknown(MetadataSchema)(metadata),
+    Effect.match({
+      onFailure: () => {
+        // Fallback validation for invalid schema
+        if (metadata == null) return {}
+        if (typeof metadata === 'object' && !Array.isArray(metadata)) {
+          return metadata as Record<string, unknown>
+        }
+        return { value: metadata, type: typeof metadata }
+      },
+      onSuccess: (validated) => {
+        if (validated == null) return {}
+        return validated as Record<string, unknown>
+      }
+    }),
+    Effect.succeed
+  )
+}
+
+const validateFallbackValue = <T>(value: unknown): Effect.Effect<T, never, never> => {
+  return pipe(
+    S.decodeUnknown(FallbackValueSchema)(value),
+    Effect.match({
+      onFailure: () => value as T,
+      onSuccess: (validated) => validated as T
+    }),
+    Effect.succeed
+  )
+}
+
+const validateErrorArray = (errors: unknown[]): Effect.Effect<Array<{ error: Error; originalValue: unknown }>, never, never> => {
+  return pipe(
+    S.decodeUnknown(ErrorArraySchema)(errors),
+    Effect.match({
+      onFailure: () => {
+        // Fallback: treat as array of unknown values
+        return Array.isArray(errors) ? errors : [errors]
+      },
+      onSuccess: (validated) => validated
+    }),
+    Effect.flatMap((errorArray) => 
+      Effect.gen(function* () {
+        const validatedErrors: Array<{ error: Error; originalValue: unknown }> = []
+        for (const error of errorArray) {
+          const validatedError = yield* validateError(error)
+          validatedErrors.push({ error: validatedError, originalValue: error })
+        }
+        return validatedErrors
+      })
+    )
+  )
+}
+
+const shouldRetryValidator = (fn: unknown): ((error: unknown) => boolean) => {
+  return pipe(
+    S.decodeUnknown(RecoveryFunctionSchema)(fn),
+    Effect.match({
+      onFailure: () => () => true, // Default: retry all errors
+      onSuccess: (validatedFn) => (error: unknown) => {
+        try {
+          return Boolean(validatedFn(error))
+        } catch {
+          return false // If function throws, don't retry
+        }
+      }
+    }),
+    Effect.runSync
+  )
+}
+
+// Error context for better reporting with validated metadata
 export interface ErrorHandlingContext {
   component?: string
   operation?: string
@@ -24,7 +200,7 @@ export interface ErrorHandlingContext {
   metadata?: Record<string, unknown>
 }
 
-// Retry configuration
+// Retry configuration with validated shouldRetry function
 export interface RetryConfig {
   maxAttempts: number
   delay: number
@@ -41,7 +217,7 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxDelay: 5000,
 }
 
-// Error handler interface
+// Error handler interface with unknown validation
 export interface ErrorHandler<E, R> {
   handle: (error: E, context?: ErrorHandlingContext) => Effect.Effect<R, never, never>
   canHandle: (error: unknown) => error is E
@@ -55,78 +231,95 @@ export const ErrorHandlers = {
     canHandle: (): error is E => true,
   }),
 
-  // Log errors and continue
+  // Log errors and continue with validation
   log: <E>(component?: string): ErrorHandler<E, void> => ({
     handle: (error, context) =>
-      Logger.error('Error handled by log handler', component || context?.component, error instanceof Error ? error : new Error(String(error)), { ...context, strategy: 'log' }, [
-        'error-handler',
-      ]),
+      Effect.gen(function* () {
+        const validatedError = yield* validateError(error)
+        const validatedMetadata = context?.metadata ? yield* validateMetadata(context.metadata) : undefined
+        const validatedContext = context ? { ...context, metadata: validatedMetadata } : undefined
+        return yield* Logger.error('Error handled by log handler', component || context?.component, validatedError, { ...validatedContext, strategy: 'log' }, ['error-handler'])
+      }),
     canHandle: (): error is E => true,
   }),
 
-  // Provide fallback value
+  // Provide fallback value with validation
   fallback: <E, T>(value: T): ErrorHandler<E, T> => ({
     handle: (error, context) =>
-      pipe(
-        Logger.warn('Error handled with fallback value', context?.component, { error: String(error), fallback: value }, ['error-handler', 'fallback']),
-        Effect.map(() => value),
-      ),
+      Effect.gen(function* () {
+        const validatedFallback = yield* validateFallbackValue<T>(value)
+        const validatedError = yield* validateError(error)
+        yield* Logger.warn('Error handled with fallback value', context?.component, { error: validatedError.message, fallback: String(validatedFallback) }, [
+          'error-handler',
+          'fallback',
+        ])
+        return validatedFallback
+      }),
     canHandle: (): error is E => true,
   }),
 
-  // Terminate on critical errors
+  // Terminate on critical errors with validation
   terminate: <E>(message?: string): ErrorHandler<E, never> => ({
     handle: (error, context) =>
-      pipe(
-        Logger.critical(message || 'Critical error - terminating', context?.component, error instanceof Error ? error : new Error(String(error)), context, [
-          'error-handler',
-          'terminate',
-        ]),
-        Effect.flatMap(() => Effect.dieMessage('Application terminated due to critical error')),
-      ),
+      Effect.gen(function* () {
+        const validatedError = yield* validateError(error)
+        const validatedMetadata = context?.metadata ? yield* validateMetadata(context.metadata) : undefined
+        const validatedContext = context ? { ...context, metadata: validatedMetadata } : undefined
+        yield* Logger.critical(message || 'Critical error - terminating', context?.component, validatedError, validatedContext, ['error-handler', 'terminate'])
+        return yield* Effect.dieMessage('Application terminated due to critical error')
+      }),
     canHandle: (): error is E => true,
   }),
 
-  // Custom recovery function
+  // Custom recovery function with validation
   recover: <E, T>(recoveryFn: (error: E, context?: ErrorHandlingContext) => T): ErrorHandler<E, T> => ({
     handle: (error, context) =>
-      pipe(
-        Effect.try(() => recoveryFn(error, context)),
-        Effect.catchAll((recoveryError) =>
-          pipe(
-            Logger.error(
-              'Recovery function failed',
-              context?.component,
-              recoveryError instanceof Error ? recoveryError : new Error(String(recoveryError)),
-              { originalError: String(error), context },
-              ['error-handler', 'recovery-failed'],
-            ),
-            Effect.flatMap(() => Effect.die(recoveryError)),
-          ),
-        ),
-      ),
+      Effect.gen(function* () {
+        const validatedError = yield* validateError(error)
+        const validatedMetadata = context?.metadata ? yield* validateMetadata(context.metadata) : undefined
+        const validatedContext = context ? { ...context, metadata: validatedMetadata } : undefined
+
+        try {
+          const result = recoveryFn(error, validatedContext)
+          return yield* validateFallbackValue<T>(result)
+        } catch (recoveryError) {
+          const validatedRecoveryError = yield* validateError(recoveryError)
+          yield* Logger.error('Recovery function failed', context?.component, validatedRecoveryError, { originalError: validatedError.message, context: validatedContext }, [
+            'error-handler',
+            'recovery-failed',
+          ])
+          return yield* Effect.die(recoveryError)
+        }
+      }),
     canHandle: (): error is E => true,
   }),
 }
 
 // Error recovery utilities
 export const ErrorRecovery = {
-  // Retry with exponential backoff
+  // Retry with exponential backoff and validation
   withRetry: <T, E>(effect: Effect.Effect<T, E, never>, config: Partial<RetryConfig> = {}, context?: ErrorHandlingContext): Effect.Effect<T, E, never> => {
-    const retryConfig = { ...DEFAULT_RETRY_CONFIG, ...config }
+    const retryConfig = {
+      ...DEFAULT_RETRY_CONFIG,
+      ...config,
+      shouldRetry: config.shouldRetry ? shouldRetryValidator(config.shouldRetry) : undefined,
+    }
 
     const retry = (attempt: number, lastError: E): Effect.Effect<T, E, never> => {
       if (attempt >= retryConfig.maxAttempts) {
-        return pipe(
-          Logger.error(
+        return Effect.gen(function* () {
+          const validatedError = yield* validateError(lastError)
+          const validatedMetadata = context?.metadata ? yield* validateMetadata(context.metadata) : undefined
+          const validatedContext = context ? { ...context, metadata: validatedMetadata } : undefined
+          yield* Logger.error(
             `Operation failed after ${attempt} attempts`,
             context?.component,
-            lastError instanceof Error ? lastError : new Error(String(lastError)),
-            { ...context, attempts: attempt, strategy: 'retry-exhausted' },
+            validatedError,
+            { ...validatedContext, attempts: attempt, strategy: 'retry-exhausted' },
             ['error-handler', 'retry-failed'],
-          ),
-          Effect.flatMap(() => Effect.fail(lastError)),
-        )
+          )
+          return yield* Effect.fail(lastError)
+        })
       }
 
       const delay = Math.min(retryConfig.delay * Math.pow(retryConfig.backoffMultiplier, attempt), retryConfig.maxDelay)
@@ -141,13 +334,14 @@ export const ErrorRecovery = {
                 return Effect.fail(error)
               }
 
-              return pipe(
-                Logger.warn(`Retry attempt ${attempt + 1}/${retryConfig.maxAttempts}`, context?.component, { error: String(error), delay, attempt: attempt + 1 }, [
+              return Effect.gen(function* () {
+                const validatedError = yield* validateError(error)
+                yield* Logger.warn(`Retry attempt ${attempt + 1}/${retryConfig.maxAttempts}`, context?.component, { error: validatedError.message, delay, attempt: attempt + 1 }, [
                   'error-handler',
                   'retry',
-                ]),
-                Effect.flatMap(() => retry(attempt + 1, error)),
-              )
+                ])
+                return yield* retry(attempt + 1, error)
+              })
             }),
           ),
         ),
@@ -284,8 +478,8 @@ export const PerformanceAwareErrorHandling = {
             Effect.flatMap(() =>
               // Force garbage collection if available
               Effect.sync(() => {
-                if (typeof window !== 'undefined' && (window as any).gc) {
-                  ;(window as any).gc()
+                if (typeof window !== 'undefined' && hasGarbageCollector(window)) {
+                  window.gc()
                 }
               }),
             ),
@@ -315,7 +509,7 @@ export const ErrorReporting = {
     )
   },
 
-  // Generate comprehensive error report
+  // Generate comprehensive error report with validation
   generateErrorReport: (
     errors: unknown[],
     context?: ErrorHandlingContext,
@@ -329,24 +523,41 @@ export const ErrorReporting = {
         type: string
         message: string
         stack?: string
-        metadata?: unknown
+        metadata?: Record<string, unknown>
       }>
     },
     never,
     never
   > => {
-    return Effect.sync(() => {
+    return Effect.gen(function* () {
+      const validatedErrors = yield* validateErrorArray(errors)
+      const validatedMetadata = context?.metadata ? yield* validateMetadata(context.metadata) : undefined
+      const validatedContext = context ? { ...context, metadata: validatedMetadata } : undefined
+
       const errorTypes: Record<string, number> = {}
-      const processedErrors = errors.map((error) => {
-        const errorType = error instanceof Error ? error.constructor.name : typeof error === 'object' && error && '_tag' in error ? (error as any)._tag : typeof error
+      const processedErrors = validatedErrors.map(({ error, originalValue }) => {
+        const errorType =
+          error instanceof Error
+            ? error.constructor.name
+            : typeof originalValue === 'object' && originalValue && '_tag' in originalValue
+              ? (() => {
+                  const taggedValue = originalValue as { _tag: unknown }
+                  return typeof taggedValue._tag === 'string' ? taggedValue._tag : String(taggedValue._tag)
+                })()
+              : typeof originalValue
 
         errorTypes[errorType] = (errorTypes[errorType] || 0) + 1
 
         return {
           type: errorType,
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          metadata: error instanceof Error ? undefined : error,
+          message: error.message,
+          stack: error.stack,
+          metadata:
+            error instanceof Error
+              ? undefined
+              : typeof originalValue === 'object' && originalValue !== null
+                ? (originalValue as Record<string, unknown>)
+                : { value: originalValue, type: typeof originalValue },
         }
       })
 
@@ -354,16 +565,71 @@ export const ErrorReporting = {
         timestamp: new Date().toISOString(),
         totalErrors: errors.length,
         errorTypes,
-        context,
+        context: validatedContext,
         errors: processedErrors,
       }
     })
   },
 }
 
-// Component-specific error handling
+// Enhanced validation for error handling context
+const validateErrorHandlingContext = (context: unknown): Effect.Effect<ErrorHandlingContext, never, never> => {
+  return pipe(
+    S.decodeUnknown(ErrorHandlingContextSchema)(context),
+    Effect.match({
+      onFailure: () => {
+        // Provide sensible defaults for invalid context
+        if (context == null) return {}
+        if (typeof context === 'object' && !Array.isArray(context)) {
+          return context as ErrorHandlingContext
+        }
+        return { metadata: { value: context, type: typeof context } }
+      },
+      onSuccess: (validated) => validated
+    }),
+    Effect.succeed
+  )
+}
+
+// Schema validation for retry configuration
+const RetryConfigSchema = S.Struct({
+  maxAttempts: S.Number,
+  delay: S.Number, 
+  backoffMultiplier: S.Number,
+  maxDelay: S.Number,
+  shouldRetry: S.optional(S.Function)
+})
+
+const validateRetryConfig = (config: unknown): Effect.Effect<RetryConfig, never, never> => {
+  return pipe(
+    S.decodeUnknown(S.partial(RetryConfigSchema))(config),
+    Effect.match({
+      onFailure: () => DEFAULT_RETRY_CONFIG,
+      onSuccess: (validated) => ({ ...DEFAULT_RETRY_CONFIG, ...validated })
+    }),
+    Effect.succeed
+  )
+}
+
+// Export validation utilities
+export const ErrorValidation = {
+  validateError,
+  validateMetadata,
+  validateFallbackValue,
+  validateErrorArray,
+  validateErrorHandlingContext,
+  validateRetryConfig,
+  shouldRetryValidator,
+  // Schema exports for external use
+  ErrorSchema,
+  MetadataSchema,
+  ErrorHandlingContextSchema,
+  RetryConfigSchema,
+}
+
+// Component-specific error handling with validation
 export const createComponentErrorHandler = (component: string) => ({
-  // Handle errors with component context
+  // Handle errors with component context and validation
   handle: <T, E>(effect: Effect.Effect<T, E, never>, strategy: ErrorHandlingStrategy = 'log', fallbackValue?: T): Effect.Effect<T, never, never> => {
     const context: ErrorHandlingContext = { component }
 
@@ -378,10 +644,13 @@ export const createComponentErrorHandler = (component: string) => ({
         return pipe(
           effect,
           Effect.catchAll((error) =>
-            pipe(
-              ErrorHandlers.log(component).handle(error, context),
-              Effect.map(() => fallbackValue as T),
-            ),
+            Effect.gen(function* () {
+              yield* ErrorHandlers.log(component).handle(error, context)
+              if (fallbackValue !== undefined) {
+                return yield* validateFallbackValue<T>(fallbackValue)
+              }
+              return yield* Effect.die('No fallback value provided for log strategy')
+            }),
           ),
         )
 
@@ -392,12 +661,17 @@ export const createComponentErrorHandler = (component: string) => ({
         if (fallbackValue !== undefined) {
           return pipe(
             effect,
-            Effect.catchAll(() => Effect.succeed(fallbackValue)),
+            Effect.catchAll(() => validateFallbackValue<T>(fallbackValue)),
           )
         }
         return pipe(
           effect,
-          Effect.catchAll((error) => pipe(ErrorHandlers.log(component).handle(error, context), Effect.die)),
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              yield* ErrorHandlers.log(component).handle(error, context)
+              return yield* Effect.die('No fallback value provided for fallback strategy')
+            }),
+          ),
         )
 
       case 'terminate':
@@ -412,10 +686,10 @@ export const createComponentErrorHandler = (component: string) => ({
           Effect.catchAll((error) => {
             // Default recovery: log and use fallback if available
             if (fallbackValue !== undefined) {
-              return pipe(
-                ErrorHandlers.log(component).handle(error, context),
-                Effect.map(() => fallbackValue),
-              )
+              return Effect.gen(function* () {
+                yield* ErrorHandlers.log(component).handle(error, context)
+                return yield* validateFallbackValue<T>(fallbackValue)
+              })
             }
             return ErrorHandlers.terminate(component).handle(error, context)
           }),
@@ -424,7 +698,15 @@ export const createComponentErrorHandler = (component: string) => ({
       default:
         return pipe(
           effect,
-          Effect.catchAll((error) => ErrorHandlers.log(component).handle(error, context) as Effect.Effect<T, never, never>),
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              yield* ErrorHandlers.log(component).handle(error, context)
+              if (fallbackValue !== undefined) {
+                return yield* validateFallbackValue<T>(fallbackValue)
+              }
+              return yield* Effect.die('No fallback value provided for default strategy')
+            }),
+          ),
         )
     }
   },

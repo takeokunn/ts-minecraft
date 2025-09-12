@@ -8,7 +8,7 @@
 import { Effect, Context, Layer, Queue, Ref, HashMap, Option, Duration, Schedule, Data } from 'effect'
 import { EntityId } from '@domain/entities'
 import { ChunkNotLoadedError, ChunkGenerationError, WorldStateError } from '@domain/errors/unified-errors'
-import { CHUNK_SIZE } from '@domain/constants/world-constants'
+import { CHUNK_SIZE } from '@shared/constants/world'
 
 // ===== CHUNK LOADING DOMAIN TYPES =====
 

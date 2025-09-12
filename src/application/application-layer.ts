@@ -15,6 +15,7 @@ import { TerrainGenerationDomainServiceLive } from '@domain/services/terrain-gen
 import { MeshGenerationDomainServiceLive } from '@domain/services/mesh-generation-domain.service'
 import { WorldManagementDomainServiceLive } from '@domain/services/world-management-domain.service'
 import { UnifiedQuerySystemLive } from '@application/queries/unified-query-system'
+import { DomainQueryServiceLive } from '@application/queries/domain-query-service'
 
 /**
  * Complete Application Layer with all use cases, handlers, and workflows
@@ -33,6 +34,9 @@ import { UnifiedQuerySystemLive } from '@application/queries/unified-query-syste
 export const ApplicationLayer = Layer.mergeAll(
   // Query System (unified ECS queries)
   UnifiedQuerySystemLive,
+
+  // Domain Query Service (breaks circular dependencies)
+  DomainQueryServiceLive,
 
   // Domain Services (required by use cases)
   TerrainGenerationDomainServiceLive,
@@ -78,7 +82,7 @@ export const ApplicationUtils = {
   /**
    * Create a command with timestamp
    */
-  createCommand: <T extends Record<string, any>>(command: Omit<T, 'timestamp'>): T & { timestamp: number } =>
+  createCommand: <T extends Record<string, unknown>>(command: Omit<T, 'timestamp'>): T & { timestamp: number } =>
     ({
       ...command,
       timestamp: Date.now(),
@@ -87,11 +91,15 @@ export const ApplicationUtils = {
   /**
    * Validate command structure
    */
-  validateCommand: (command: any) => {
-    if (!command.timestamp) {
+  validateCommand: (command: unknown) => {
+    if (typeof command !== 'object' || command === null) {
+      throw new Error('Command must be an object')
+    }
+    const commandObj = command as Record<string, unknown>
+    if (!('timestamp' in commandObj)) {
       throw new Error('Command must have a timestamp')
     }
-    if (typeof command.timestamp !== 'number') {
+    if (typeof commandObj.timestamp !== 'number') {
       throw new Error('Command timestamp must be a number')
     }
     return true
@@ -100,7 +108,7 @@ export const ApplicationUtils = {
   /**
    * Create query result with metadata
    */
-  createQueryResult: <T>(data: T, metadata: Record<string, any> = {}) => ({
+  createQueryResult: <T>(data: T, metadata: Record<string, unknown> = {}) => ({
     data,
     metadata: {
       ...metadata,

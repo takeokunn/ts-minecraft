@@ -1,7 +1,7 @@
 import { Effect, Option } from 'effect'
 // Target types are used as plain objects, not constructors
-import { playerTargetQuery } from '@application/queries/queries'
-import { WorldRepositoryPortPort } from '@domain/ports/world-repository.port'
+import { DomainQueryService } from '@domain/queries/domain-queries'
+import { WorldRepositoryPort } from '@domain/ports/world-repository.port'
 import { RaycastPort } from '@domain/ports/raycast.port'
 import { Int, Vector3Int } from '@domain/value-objects/common'
 import { EntityId } from '@domain/entities'
@@ -32,7 +32,8 @@ export const targetingSystem = Effect.gen(function* ($) {
     onSome: getTarget,
   })
 
-  const { entities } = yield* $(world.querySoA(playerTargetQuery))
+  const domainQuery = yield* $(DomainQueryService)
+  const { entities } = yield* $(domainQuery.executePlayerTargetQuery())
 
   yield* $(
     Effect.forEach(

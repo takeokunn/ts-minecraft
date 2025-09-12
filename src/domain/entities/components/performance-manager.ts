@@ -71,7 +71,7 @@ export const ComponentPerformanceManager = {
   /**
    * Get optimization suggestions for components
    */
-  getOptimizationSuggestions: (metricsRef: Ref.Ref<HashMap.HashMap<string, PerformanceMetric>>, registryRef: Ref.Ref<any>) =>
+  getOptimizationSuggestions: (metricsRef: Ref.Ref<HashMap.HashMap<string, PerformanceMetric>>, registryRef: Ref.Ref<ComponentRegistry>) =>
     Effect.gen(function* () {
       const metrics = yield* Ref.get(metricsRef)
       const filteredMetrics = Array.fromIterable(HashMap.values(metrics)).filter((metric) => metric.suggestedOptimization !== 'none')
@@ -93,7 +93,7 @@ export const ComponentPerformanceManager = {
   /**
    * Apply optimization suggestions automatically
    */
-  applyOptimizations: (metricsRef: Ref.Ref<HashMap.HashMap<string, PerformanceMetric>>, registryRef: Ref.Ref<any>) =>
+  applyOptimizations: (metricsRef: Ref.Ref<HashMap.HashMap<string, PerformanceMetric>>, registryRef: Ref.Ref<ComponentRegistry>) =>
     Effect.gen(function* () {
       const suggestions = yield* ComponentPerformanceManager.getOptimizationSuggestions(metricsRef, registryRef)
 
@@ -124,7 +124,7 @@ const calculateOptimizationSuggestion = (metric: PerformanceMetric): StorageLayo
   return 'none'
 }
 
-const getCurrentLayout = (registryRef: Ref.Ref<any>, componentId: string): Effect.Effect<StorageLayout, never, never> =>
+const getCurrentLayout = (registryRef: Ref.Ref<ComponentRegistry>, componentId: string): Effect.Effect<StorageLayout, never, never> =>
   Effect.gen(function* () {
     const archetype = yield* ComponentRegistry.getArchetype(registryRef, [componentId])
     return archetype.storageLayout
@@ -167,8 +167,8 @@ export const createPerformanceManager = () => Effect.runSync(ComponentPerformanc
 export const trackPerformance = (metricsRef: Ref.Ref<HashMap.HashMap<string, PerformanceMetric>>, componentId: string, accessType: 'read' | 'write', duration: number) =>
   ComponentPerformanceManager.trackComponentAccess(metricsRef, componentId, accessType, duration)
 
-export const getOptimizationSuggestions = (metricsRef: Ref.Ref<HashMap.HashMap<string, PerformanceMetric>>, registryRef: Ref.Ref<any>) =>
+export const getOptimizationSuggestions = (metricsRef: Ref.Ref<HashMap.HashMap<string, PerformanceMetric>>, registryRef: Ref.Ref<ComponentRegistry>) =>
   ComponentPerformanceManager.getOptimizationSuggestions(metricsRef, registryRef)
 
-export const applyOptimizations = (metricsRef: Ref.Ref<HashMap.HashMap<string, PerformanceMetric>>, registryRef: Ref.Ref<any>) =>
+export const applyOptimizations = (metricsRef: Ref.Ref<HashMap.HashMap<string, PerformanceMetric>>, registryRef: Ref.Ref<ComponentRegistry>) =>
   ComponentPerformanceManager.applyOptimizations(metricsRef, registryRef)

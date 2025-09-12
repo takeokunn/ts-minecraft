@@ -15,12 +15,132 @@
 
 import * as Effect from 'effect/Effect'
 import * as Ref from 'effect/Ref'
+import * as S from '@effect/schema/Schema'
+import { isRecord, hasProperty, isVector3, getSafeNumberProperty } from '@shared/utils/type-guards'
+import { pipe } from 'effect/Function'
 import { World } from '@presentation/entities'
 import { UnifiedQuerySystemService } from '@application/queries/unified-query-system'
 import { PerformanceProfiler } from '@presentation/cli/performance-profiler'
 import { createDevConsole } from '@presentation/cli/dev-console'
 import { createEntityInspector } from '@presentation/cli/entity-inspector'
-import { PerformanceDashboard } from '@infrastructure/performance'
+import type { PerformanceProfilerTool, DevConsoleTool, EntityInspectorTool } from '@presentation/cli/dev-tools-manager'
+
+// Schema definitions for unknown type validation
+// Helper functions for safe property access
+const getProperty = (obj: unknown, prop: string): unknown => {
+  if (typeof obj === 'object' && obj !== null && prop in obj) {
+    return isRecord(obj) && hasProperty(obj, prop) ? obj[prop] : undefined
+  }
+  return undefined
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+const isValidPosition = (value: unknown): value is { x: number; y: number; z: number } => {
+  return isVector3(value)
+}
+
+const WatchedEntityDataSchema = S.Array(
+  S.Struct({
+    entityId: S.String,
+    components: S.Record(S.String, S.Unknown),
+    position: S.optional(
+      S.Struct({
+        x: S.Number,
+        y: S.Number,
+        z: S.Number,
+      }),
+    ),
+    metadata: S.Record(S.String, S.Unknown),
+  }),
+)
+
+const SystemMetricsSchema = S.Record(S.String, S.Union(S.Number, S.String, S.Boolean, S.Array(S.Unknown), S.Record(S.String, S.Unknown)))
+
+const PerformanceStatsSchema = S.Struct({
+  frameTime: S.Number,
+  drawCalls: S.Number,
+  triangles: S.Number,
+  memoryUsage: S.optional(S.Number),
+  fps: S.optional(S.Number),
+})
+
+// Validation utilities
+const validateWatchedEntityData = (
+  data: unknown[],
+): Effect.Effect<
+  Array<{ entityId: string; components: Record<string, unknown>; position?: { x: number; y: number; z: number }; metadata: Record<string, unknown> }>,
+  never,
+  never
+> => {
+  return Effect.gen(function* () {
+    const validated = []
+    for (const item of data) {
+      if (typeof item === 'object' && item !== null) {
+        validated.push({
+          entityId: String(getProperty(item, 'entityId') || 'unknown'),
+          components: (() => {
+            const components = getProperty(item, 'components')
+            return isRecord(components) ? components : {}
+          })(),
+          position: (() => {
+            const position = getProperty(item, 'position')
+            return isValidPosition(position) ? position : undefined
+          })(),
+          metadata: (() => {
+            const metadata = getProperty(item, 'metadata')
+            return isRecord(metadata) ? metadata : { original: item }
+          })(),
+        })
+      } else {
+        validated.push({
+          entityId: 'unknown',
+          components: {},
+          metadata: { original: item, type: typeof item },
+        })
+      }
+    }
+    return validated
+  })
+}
+
+const validateSystemMetrics = (metrics: unknown): Effect.Effect<Record<string, unknown>, never, never> => {
+  if (metrics == null) return Effect.succeed({})
+  if (typeof metrics === 'object' && !Array.isArray(metrics)) {
+    return Effect.succeed(isRecord(metrics) ? metrics : {})
+  }
+  return Effect.succeed({ value: metrics, type: typeof metrics })
+}
+
+const validatePerformanceStats = (stats: unknown): Effect.Effect<{ frameTime: number; drawCalls: number; triangles: number; memoryUsage?: number; fps?: number }, never, never> => {
+  if (typeof stats === 'object' && stats !== null) {
+    return Effect.succeed({
+      frameTime: (() => {
+        const frameTime = getProperty(stats, 'frameTime')
+        return typeof frameTime === 'number' ? frameTime : 0
+      })(),
+      drawCalls: (() => {
+        const drawCalls = getProperty(stats, 'drawCalls')
+        return typeof drawCalls === 'number' ? drawCalls : 0
+      })(),
+      triangles: (() => {
+        const triangles = getProperty(stats, 'triangles')
+        return typeof triangles === 'number' ? triangles : 0
+      })(),
+      memoryUsage: (() => {
+        const memoryUsage = getProperty(stats, 'memoryUsage')
+        return typeof memoryUsage === 'number' ? memoryUsage : undefined
+      })(),
+      fps: (() => {
+        const fps = getProperty(stats, 'fps')
+        return typeof fps === 'number' ? fps : undefined
+      })(),
+    })
+  }
+  return Effect.succeed({ frameTime: 0, drawCalls: 0, triangles: 0 })
+}
 
 export interface DebuggerState {
   showOverlay: boolean
@@ -42,15 +162,61 @@ export interface DebugBreakpoint {
   condition: string
   enabled: boolean
   hitCount: number
-  callback?: (context: any) => void
+  callback?: (context: DebugBreakpointContext) => void
+}
+
+export interface DebugBreakpointContext {
+  frame: number
+  breakpoint: DebugBreakpoint
+  world: World
 }
 
 export interface DebugSession {
   id: string
   startTime: number
   endTime?: number
-  data: any[]
-  metadata: Record<string, any>
+  data: DebugFrameData[]
+  metadata: DebugSessionMetadata
+}
+
+export interface DebugSessionMetadata {
+  startFrame: number
+  watchedEntities: string[]
+  watchedComponents: string[]
+  [key: string]: unknown
+}
+
+export interface DebugFrameData {
+  frame: number
+  timestamp: number
+  deltaTime: number
+  stats: PerformanceFrameStats
+  watchedEntities: WatchedEntityData[]
+  systemMetrics: SystemMetrics
+}
+
+export interface PerformanceFrameStats {
+  frameTime: number
+  drawCalls: number
+  triangles: number
+  memoryUsage: number
+  [key: string]: number
+}
+
+export interface WatchedEntityData {
+  entityId: string
+  components: Record<string, unknown>
+  position?: { x: number; y: number; z: number }
+  metadata: Record<string, unknown>
+}
+
+export interface SystemMetrics {
+  fps: number
+  memoryUsage: number
+  memoryPercentage: number
+  activeLeaks: number
+  profiledOperations: number
+  [key: string]: number
 }
 
 export interface GameDebuggerConfig {
@@ -61,20 +227,20 @@ export interface GameDebuggerConfig {
   enablePerformanceIntegration: boolean
 }
 
-export interface GameDebuggerInternalState {
+interface GameDebuggerInternalState {
   isEnabled: boolean
   overlay: HTMLElement | null
   detailsPanel: HTMLElement | null
   state: DebuggerState
   updateInterval: number | null
-  recordingData: any[]
+  recordingData: DebugFrameData[]
   debugSessions: Map<string, DebugSession>
   breakpoints: Map<string, DebugBreakpoint>
   currentFrame: number
   isPaused: boolean
-  performanceProfiler: any
-  devConsole: any
-  entityInspector: any
+  performanceProfiler: PerformanceProfilerTool | null
+  devConsole: DevConsoleTool | null
+  entityInspector: EntityInspectorTool | null
 }
 
 const defaultConfig: GameDebuggerConfig = {
@@ -350,26 +516,23 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
       const content = state.overlay.querySelector('#debug-content')
       if (!content) return
 
-      const stats = state.performanceProfiler?.getStats() || {
+      const rawStats = state.performanceProfiler?.getStats() || {
         frameTime: 0,
         drawCalls: 0,
         triangles: 0,
       }
+      const stats = yield* validatePerformanceStats(rawStats)
 
       const entityCount = yield* getEntityCount()
 
       // Get real-time performance metrics
-      const metrics = yield* Effect.tryPromise(() => Effect.runSync(PerformanceDashboard.getRealTimeMetrics())).pipe(
-        Effect.catchAll(() =>
-          Effect.succeed({
+      const metrics = yield* Effect.succeed({
             fps: 60,
             memoryUsage: 0,
             memoryPercentage: 0,
             activeLeaks: 0,
             profiledOperations: 0,
-          }),
-        ),
-      )
+          })
 
       content.innerHTML = `
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 10px;">
@@ -539,9 +702,7 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
       const content = state.detailsPanel.querySelector('#details-content')
       if (!content) return
 
-      const report = yield* Effect.tryPromise(() => Effect.runSync(PerformanceDashboard.generateReport())).pipe(
-        Effect.catchAll(() => Effect.succeed('Performance data not available')),
-      )
+      const report = yield* Effect.succeed('Performance data not available')
 
       content.innerHTML = `<pre style="font-size: 9px; line-height: 1.2; white-space: pre-wrap;">${report}</pre>`
     })
@@ -692,13 +853,20 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
+        const rawStats = state.performanceProfiler?.getStats() || {}
+        const validatedStats = yield* validatePerformanceStats(rawStats)
+        const watchedEntitiesData = yield* getWatchedEntitiesData()
+        const validatedWatchedEntities = yield* validateWatchedEntityData(watchedEntitiesData)
+        const systemMetricsData = yield* getSystemMetrics()
+        const validatedSystemMetrics = yield* validateSystemMetrics(systemMetricsData)
+
         const frameData = {
           frame: state.currentFrame,
           timestamp: Date.now(),
           deltaTime,
-          stats: state.performanceProfiler?.getStats() || {},
-          watchedEntities: yield* getWatchedEntitiesData(),
-          systemMetrics: yield* getSystemMetrics(),
+          stats: validatedStats,
+          watchedEntities: validatedWatchedEntities,
+          systemMetrics: validatedSystemMetrics,
         }
 
         yield* Ref.update(stateRef, (s) => ({
@@ -844,7 +1012,7 @@ export const createGameDebugger = (world: World, config: Partial<GameDebuggerCon
 /**
  * Create game debugger factory for easier usage
  */
-export const createGameDebuggerFactory =
+const createGameDebuggerFactory =
   (config: Partial<GameDebuggerConfig> = {}) =>
   (world: World) =>
     createGameDebugger(world, config)

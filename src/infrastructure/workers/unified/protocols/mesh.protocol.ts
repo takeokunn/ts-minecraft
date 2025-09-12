@@ -479,9 +479,9 @@ export const createDefaultLighting = (): LightingSettings => ({
 })
 
 /**
- * Create transferable vertex buffer data
+ * Create transferable vertex buffer data (internal utility)
  */
-export const createTransferableVertexData = (positions: number[], normals?: number[], uvs?: number[], colors?: number[]): VertexAttribute[] => {
+const createTransferableVertexData = (positions: number[], normals?: number[], uvs?: number[], colors?: number[]): VertexAttribute[] => {
   const attributes: VertexAttribute[] = []
 
   attributes.push({
@@ -522,9 +522,9 @@ export const createTransferableVertexData = (positions: number[], normals?: numb
 }
 
 /**
- * Create transferable index buffer
+ * Create transferable index buffer (internal utility)
  */
-export const createTransferableIndexBuffer = (indices: number[]): IndexBuffer => {
+const createTransferableIndexBuffer = (indices: number[]): IndexBuffer => {
   const maxIndex = Math.max(...indices)
   const useUint32 = maxIndex > 65535
 
@@ -581,19 +581,19 @@ export const extractMeshTransferables = (meshData: GeneratedMeshData): ArrayBuff
 }
 
 /**
- * Validate mesh generation request
+ * Validate mesh generation request (internal utility)
  */
-export const validateMeshRequest = (request: unknown) => S.decodeUnknown(MeshGenerationRequest)(request)
+const validateMeshRequest = (request: unknown) => S.decodeUnknown(MeshGenerationRequest)(request)
 
 /**
- * Validate mesh generation response
+ * Validate mesh generation response (internal utility)
  */
-export const validateMeshResponse = (response: unknown) => S.decodeUnknown(MeshGenerationResponse)(response)
+const validateMeshResponse = (response: unknown) => S.decodeUnknown(MeshGenerationResponse)(response)
 
 /**
- * Calculate mesh bounds from vertex data
+ * Calculate mesh bounds from vertex data (internal utility)
  */
-export const calculateMeshBounds = (positions: Float32Array): BoundingVolume => {
+const calculateMeshBounds = (positions: Float32Array): BoundingVolume => {
   let minX = Infinity,
     minY = Infinity,
     minZ = Infinity

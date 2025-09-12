@@ -154,7 +154,7 @@ export interface WorkerManagerService {
   readonly shutdown: () => Effect.Effect<void, never, never>
 }
 
-export const WorkerManagerService = Context.GenericTag<WorkerManagerService>('@services/WorkerManagerService')
+export const WorkerManagerService = Context.GenericTag<WorkerManagerService>('WorkerManagerService')
 
 // ============================================
 // Configuration

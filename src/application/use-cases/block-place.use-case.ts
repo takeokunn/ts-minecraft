@@ -49,7 +49,7 @@ export const BlockPlaceUseCaseLive = Layer.succeed(BlockPlaceUseCase, {
     }),
 } satisfies BlockPlaceUseCaseService)
 
-const validateBlockPlacement = (command: BlockInteractionCommand, worldService: any, entityService: any) =>
+const validateBlockPlacement = (command: BlockInteractionCommand, worldService: unknown, entityService: unknown) =>
   Effect.gen(function* () {
     // Check if player has the block in inventory (commented out since method doesn't exist)
     // const hasBlock = yield* entityService.hasItemInInventory(command.entityId, command.blockType)

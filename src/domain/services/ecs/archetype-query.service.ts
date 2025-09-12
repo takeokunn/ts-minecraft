@@ -483,13 +483,17 @@ export const createQuery = <T extends ReadonlyArray<ComponentName>>(name: string
 // Optimized Query Patterns
 // ============================================================================
 
-export const parallelQueries = <T extends ReadonlyArray<Effect.Effect<any, any, any>>>(
+export const parallelQueries = <T extends ReadonlyArray<Effect.Effect<unknown, unknown, unknown>>>(
   queries: T,
 ): Effect.Effect<
-  { [K in keyof T]: T[K] extends Effect.Effect<infer A, any, any> ? A : never },
-  T[number] extends Effect.Effect<any, infer E, any> ? E : never,
-  T[number] extends Effect.Effect<any, any, infer R> ? R : never
-> => Effect.all(queries, { concurrency: 'unbounded' }) as any
+  { [K in keyof T]: T[K] extends Effect.Effect<infer A, unknown, unknown> ? A : never },
+  T[number] extends Effect.Effect<unknown, infer E, unknown> ? E : never,
+  T[number] extends Effect.Effect<unknown, unknown, infer R> ? R : never
+> => Effect.all(queries, { concurrency: 'unbounded' }) as Effect.Effect<
+  { [K in keyof T]: T[K] extends Effect.Effect<infer A, unknown, unknown> ? A : never },
+  T[number] extends Effect.Effect<unknown, infer E, unknown> ? E : never,
+  T[number] extends Effect.Effect<unknown, unknown, infer R> ? R : never
+>
 
 export const batchQuery = <T extends ReadonlyArray<ComponentName>>(queries: ReadonlyArray<{ name: string; components: T }>) =>
   Effect.gen(function* () {

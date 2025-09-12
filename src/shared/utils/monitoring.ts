@@ -192,7 +192,7 @@ const MonitoringStateOps = {
 const getMemoryMetrics = (): Effect.Effect<PerformanceMetrics['memory'], never, never> =>
   Effect.sync(() => {
     if (typeof window !== 'undefined' && 'performance' in window && 'memory' in performance) {
-      const memory = (performance as any).memory
+      const memory = (performance as PerformanceWithMemory).memory
       return {
         used: memory.usedJSHeapSize,
         total: memory.totalJSHeapSize,
@@ -203,7 +203,16 @@ const getMemoryMetrics = (): Effect.Effect<PerformanceMetrics['memory'], never, 
   })
 
 // Performance measurement utilities
-const measureFrameTime = <T>(effect: Effect.Effect<T, any, any>): Effect.Effect<T, any, never> =>
+// Performance memory interface for type safety
+interface PerformanceWithMemory extends Performance {
+  memory: {
+    usedJSHeapSize: number
+    totalJSHeapSize: number
+    jsHeapSizeLimit: number
+  }
+}
+
+const measureFrameTime = <T, E>(effect: Effect.Effect<T, E, never>): Effect.Effect<T, E, never> =>
   pipe(
     Effect.sync(() => performance.now()),
     Effect.flatMap((startTime) =>
@@ -270,7 +279,7 @@ export const PerformanceMonitor = {
   // Timing measurements
   measureFrame: measureFrameTime,
 
-  measureUpdate: <T>(effect: Effect.Effect<T, any, any>) =>
+  measureUpdate: <T, E>(effect: Effect.Effect<T, E, never>) =>
     pipe(
       Effect.sync(() => performance.now()),
       Effect.flatMap((startTime) =>
@@ -294,7 +303,7 @@ export const PerformanceMonitor = {
       ),
     ),
 
-  measureRender: <T>(effect: Effect.Effect<T, any, any>) =>
+  measureRender: <T, E>(effect: Effect.Effect<T, E, never>) =>
     pipe(
       Effect.sync(() => performance.now()),
       Effect.flatMap((startTime) =>
@@ -352,13 +361,15 @@ export const HealthMonitor = {
         yield* _(MonitoringStateOps.updateHealthCheck(component, result))
         return result
       } catch (error) {
+        const validatedError = yield* _(Logger.validateError(error))
         const errorCheck = {
           component,
           status: 'error' as const,
-          message: error instanceof Error ? error.message : 'Health check failed',
+          message: validatedError.message,
           timestamp: new Date(),
         }
         yield* _(MonitoringStateOps.updateHealthCheck(component, errorCheck))
+        yield* _(Logger.error('Health check failed', 'PerformanceMonitor', validatedError, { component }, ['monitoring', 'health-check']))
         return errorCheck
       }
     }),
@@ -404,7 +415,7 @@ export const HealthMonitor = {
 // Monitoring decorators for common use cases
 export const withMonitoring =
   <T>(operation: string, component?: string) =>
-  (effect: Effect.Effect<T, any, any>): Effect.Effect<T, any, never> =>
+  <T, E>(effect: Effect.Effect<T, E, never>): Effect.Effect<T, E, never> =>
     pipe(
       Effect.sync(() => performance.now()),
       Effect.flatMap((startTime) =>
@@ -431,7 +442,7 @@ export const withMonitoring =
 export const createComponentMonitor = (component: string) => ({
   updateMetrics: (metrics: Partial<PerformanceMetrics>) => PerformanceMonitor.updateMetrics(metrics),
 
-  measureOperation: <T>(operation: string, effect: Effect.Effect<T, any, any>) => withMonitoring(operation, component)(effect),
+  measureOperation: <T, E>(operation: string, effect: Effect.Effect<T, E, never>) => withMonitoring(operation, component)(effect),
 
   registerHealthCheck: (checkFn: () => Effect.Effect<Omit<HealthCheck, 'timestamp'>, never, never>) => registerHealthCheck(component, checkFn),
 

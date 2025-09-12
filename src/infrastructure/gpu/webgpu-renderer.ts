@@ -1,4 +1,5 @@
 import { Effect, Layer, Ref } from 'effect'
+import { CHUNK_SIZE } from '@shared/constants/world'
 
 import { ObjectPool } from '@infrastructure/performance/object-pool'
 // import { WASMIntegrationService } from '@infrastructure/gpu/wasm-integration'
@@ -222,7 +223,8 @@ fn fs_main(input: FragmentInput) -> @location(0) vec4<f32> {
 /**
  * Terrain generation compute shader
  */
-const TERRAIN_COMPUTE_SHADER = `
+const TERRAIN_COMPUTE_SHADER =
+  `
 struct TerrainParams {
   chunk_x: i32,
   chunk_z: i32,
@@ -277,12 +279,20 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let x = global_id.x;
   let z = global_id.y;
   
-  if (x >= 16u || z >= 16u) {
+  if (x >= ` +
+  CHUNK_SIZE +
+  `u || z >= ` +
+  CHUNK_SIZE +
+  `u) {
     return;
   }
   
-  let world_x = f32(params.chunk_x * 16 + i32(x));
-  let world_z = f32(params.chunk_z * 16 + i32(z));
+  let world_x = f32(params.chunk_x * ` +
+  CHUNK_SIZE +
+  ` + i32(x));
+  let world_z = f32(params.chunk_z * ` +
+  CHUNK_SIZE +
+  ` + i32(z));
   
   let height_noise = fractal_noise(vec2<f32>(world_x, world_z) + vec2<f32>(f32(params.seed)));
   let height = params.sea_level + height_noise * (params.max_height - params.sea_level);

@@ -1,6 +1,13 @@
+import { Effect, pipe, Option, Schema as S } from 'effect'
 import { APP_CONFIG } from '@config/app.config'
 import { GAME_CONFIG, getUserGameConfig } from '@config/game.config'
 import { INFRASTRUCTURE_CONFIG, getOptimalInfrastructureConfig } from '@config/infrastructure.config'
+
+// Configuration errors
+export class ConfigValidationError extends S.TaggedError<ConfigValidationError>()('ConfigValidationError', {
+  section: S.String,
+  details: S.String,
+}) {}
 
 /**
  * Configuration management utilities
@@ -51,35 +58,55 @@ export const isDebugEnabled = () => CONFIG.app.debug || isDevelopment()
 // Feature flag helpers
 export const isFeatureEnabled = (feature: keyof typeof CONFIG.app.features): boolean => CONFIG.app.features[feature]
 
-// Enhanced configuration validation using individual validators
-export const validateConfiguration = (config: ApplicationConfiguration): boolean => {
-  try {
-    // Use schema-based validation for each section
-    if (!config.app || !config.game || !config.infrastructure) {
-      console.error('Missing required configuration sections')
-      return false
+// Enhanced configuration validation using Effect patterns
+export const validateConfiguration = (config: ApplicationConfiguration): Effect.Effect<boolean, ConfigValidationError> =>
+  Effect.gen(function* () {
+    // Use Option for null checking
+    const appConfig = Option.fromNullable(config.app)
+    const gameConfig = Option.fromNullable(config.game)
+    const infraConfig = Option.fromNullable(config.infrastructure)
+
+    if (Option.isNone(appConfig) || Option.isNone(gameConfig) || Option.isNone(infraConfig)) {
+      return yield* Effect.fail(
+        new ConfigValidationError({
+          section: 'all',
+          details: 'Missing required configuration sections',
+        }),
+      )
     }
 
-    // Validate app config with schema
-    import('./app.config').then(({ safeValidateAppConfig }) => {
-      if (!safeValidateAppConfig(config.app)) {
-        throw new Error('App configuration validation failed')
-      }
+    // Validate app config with Effect.tryPromise
+    yield* Effect.tryPromise({
+      try: async () => {
+        const { safeValidateAppConfig } = await import('./app.config')
+        if (!safeValidateAppConfig(config.app)) {
+          throw new Error('App configuration validation failed')
+        }
+      },
+      catch: (error) =>
+        new ConfigValidationError({
+          section: 'app',
+          details: String(error),
+        }),
     })
 
-    // Validate game config
-    import('./game.config').then(({ validateGameConfig }) => {
-      if (!validateGameConfig(config.game)) {
-        throw new Error('Game configuration validation failed')
-      }
+    // Validate game config with Effect.tryPromise
+    yield* Effect.tryPromise({
+      try: async () => {
+        const { validateGameConfig } = await import('./game.config')
+        if (!validateGameConfig(config.game)) {
+          throw new Error('Game configuration validation failed')
+        }
+      },
+      catch: (error) =>
+        new ConfigValidationError({
+          section: 'game',
+          details: String(error),
+        }),
     })
 
     return true
-  } catch (error) {
-    console.error('Configuration validation error:', error)
-    return false
-  }
-}
+  })
 
 // Initialize configuration validation
 if (!validateConfiguration(CONFIG)) {

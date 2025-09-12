@@ -1,11 +1,13 @@
 import { World } from '@domain/entities'
-import { Effect, Ref } from 'effect'
+import { Effect, Ref, pipe } from 'effect'
+import { Logger } from '@shared/utils/logging'
+import { isHTMLElement, isHTMLInputElement, hasFiles } from '@shared/utils/type-guards'
 
 export interface ComponentState {
   id: string
   type: string
   entityId: string
-  data: any
+  data: unknown
   lastModified: number
   version: number
   dependencies: string[]
@@ -28,8 +30,8 @@ export interface StateSnapshot {
 export interface StateDiff {
   type: 'added' | 'removed' | 'modified'
   path: string
-  oldValue?: any
-  newValue?: any
+  oldValue?: unknown
+  newValue?: unknown
   timestamp: number
 }
 
@@ -668,10 +670,11 @@ export const createStateDebugger = (world: World, config: Partial<StateDebuggerC
         // Update tab buttons
         const tabs = state.element.querySelectorAll('[id$="-tab"]')
         tabs.forEach((tab) => {
-          const button = tab as HTMLElement
-          const isActive = button.id === tabId
-          button.style.background = isActive ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
-          button.style.color = isActive ? 'white' : '#888'
+          if (isHTMLElement(tab)) {
+            const isActive = tab.id === tabId
+            tab.style.background = isActive ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+            tab.style.color = isActive ? 'white' : '#888'
+          }
         })
 
         // Show tab content
@@ -882,9 +885,10 @@ export const createStateDebugger = (world: World, config: Partial<StateDebuggerC
         input.type = 'file'
         input.accept = '.json'
         input.onchange = (e) => {
-          const file = (e.target as HTMLInputElement).files?.[0]
-          if (file) {
-            const reader = new FileReader()
+          if (hasFiles(e.target)) {
+            const file = e.target.files[0]
+            if (file) {
+              const reader = new FileReader()
             reader.onload = (e) => {
               try {
                 const data = JSON.parse(e.target?.result as string)
@@ -907,10 +911,14 @@ export const createStateDebugger = (world: World, config: Partial<StateDebuggerC
                   }),
                 )
               } catch (error) {
-                console.error('Failed to import session:', error)
+                yield* pipe(
+                  Logger.error('Failed to import session', 'StateDebugger', error),
+                  Effect.runSync
+                )
               }
             }
-            reader.readAsText(file)
+              reader.readAsText(file)
+            }
           }
         }
         input.click()
@@ -1050,7 +1058,4 @@ export const createStateDebugger = (world: World, config: Partial<StateDebuggerC
     }
   })
 
-// Factory function for easier usage
-export const createStateDebuggerFactory = (world: World, config?: Partial<StateDebuggerConfig>) => {
-  return Effect.runSync(createStateDebugger(world, config))
-}
+// Removed unused factory function

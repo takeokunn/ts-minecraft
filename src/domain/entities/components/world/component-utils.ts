@@ -25,13 +25,13 @@ export const WorldComponents = {
 } as const
 
 // World component factory functions (simple constructors for data-only components)
-export const createChunk = (chunkX: number, chunkZ: number, blocks: any[]): ChunkComponentType => ({
+export const createChunk = (chunkX: number, chunkZ: number, blocks: Array<import('@domain/value-objects/block-type.vo').BlockType>): ChunkComponentType => ({
   chunkX: toChunkX(chunkX),
   chunkZ: toChunkZ(chunkZ),
   blocks,
 })
 
-export const createChunkLoaderState = (loadedChunks: any): ChunkLoaderStateComponentType => ({
+export const createChunkLoaderState = (loadedChunks: ReadonlySet<string>): ChunkLoaderStateComponentType => ({
   loadedChunks,
 })
 

@@ -112,7 +112,7 @@ export const WorldGenerateUseCaseLive = Layer.effect(
   }),
 )
 
-const generateBaseTerrain = (command: WorldGenerateCommand, terrainGenerator: any) =>
+const generateBaseTerrain = (command: WorldGenerateCommand, terrainGenerator: unknown) =>
   Effect.gen(function* (_) {
     // Use the new TerrainGenerationDomainService for terrain generation
     yield* _(Effect.log(`Generating ${command.worldType} terrain with seed ${command.seed}`))
@@ -125,7 +125,7 @@ const generateBaseTerrain = (command: WorldGenerateCommand, terrainGenerator: an
     yield* _(Effect.log(`Base terrain generation completed for world type: ${command.worldType}`))
   })
 
-const generateBiomes = (command: WorldGenerateCommand, terrainGenerator: any) =>
+const generateBiomes = (command: WorldGenerateCommand, terrainGenerator: unknown) =>
   Effect.gen(function* (_) {
     yield* _(Effect.log(`Generating biomes for world with seed ${command.seed}`))
 

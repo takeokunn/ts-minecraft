@@ -1,5 +1,6 @@
 import { Layer, Effect, Context, Ref, Queue, Option, HashMap } from 'effect'
 import * as THREE from 'three'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@shared/constants/world'
 import { EntityId } from '@domain/value-objects/schemas/index'
 import { Chunk } from '@domain/entities/chunk.entity'
 import { ChunkCoordinate } from '@domain/value-objects/coordinates/chunk-coordinate.vo'
@@ -755,7 +756,7 @@ export const TerrainGeneratorLive: Layer.Layer<TerrainGenerator, never, never> =
         Effect.gen(function* () {
           const currentSeed = yield* Ref.get(seed)
           // Simplified implementation - in production would use the full adapter
-          const chunkSize = 16
+          const chunkSize = CHUNK_SIZE
           const blocks = new Uint8Array(chunkSize * chunkSize * chunkSize)
           const heightMap: number[] = []
 
@@ -1302,8 +1303,9 @@ export const UIServicesLive = UIServiceLive
 
 /**
  * Infrastructure services layer - background processing, rendering, input, UI
+ * Note: RendererLive is part of RenderingServicesLive to avoid duplication
  */
-export const InfrastructureServicesLive = Layer.mergeAll(WorkerManagerLive, RendererLive, InputManagerLive, UIServiceLive)
+export const InfrastructureServicesLive = Layer.mergeAll(WorkerServicesLive, RenderingServicesLive, InputServicesLive, UIServicesLive)
 
 /**
  * System services layer - communication and monitoring adapters

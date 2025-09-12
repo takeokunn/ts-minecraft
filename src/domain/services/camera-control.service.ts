@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { ReadonlyArray } from 'effect/ReadonlyArray'
 import { clampPitch } from '@domain/services/camera-logic'
-import { playerQuery } from '@application/queries/queries'
+import { DomainQueryService } from '@domain/queries/domain-queries'
 import { WorldRepositoryPort } from '@domain/ports/world-repository.port'
 import { InputPort } from '@domain/ports/input.port'
 import { toFloat } from '@domain/value-objects/common'
@@ -18,7 +18,8 @@ export const cameraControlSystem = Effect.gen(function* (_) {
     Effect.when(
       () => mouseDelta.dx !== 0 || mouseDelta.dy !== 0,
       Effect.gen(function* (_) {
-        const { entities, components } = yield* _(world.querySoA(playerQuery))
+        const domainQuery = yield* _(DomainQueryService)
+        const { entities, components } = yield* _(domainQuery.executePlayerQuery())
         const { cameraState } = components
 
         const deltaPitch = -mouseDelta.dy * MOUSE_SENSITIVITY

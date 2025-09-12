@@ -351,23 +351,23 @@ export const ServiceCompositionUtils = {
     // Create mock implementations of external ports
     const mockTerrainGenerator = Layer.succeed(TerrainGeneratorPort, {
       generateTerrain: (_coords) => Effect.fail(new Error('Mock terrain generator')),
-    } as any)
+    } satisfies Partial<import('@domain/ports/terrain-generator.port').TerrainGeneratorPort>)
 
     const mockChunkRepository = Layer.succeed(ChunkRepositoryPort, {
       saveChunk: () => Effect.void,
       loadChunk: () => Effect.succeed(Option.none()),
       deleteChunk: () => Effect.void,
       chunkExists: () => Effect.succeed(false),
-    } as any)
+    } satisfies Partial<import('@domain/ports/chunk-repository.port').ChunkRepositoryPort>)
 
     const mockMeshGenerator = Layer.succeed(MeshGeneratorPort, {
       generateMesh: () => Effect.succeed({}),
-    } as any)
+    } satisfies Partial<import('@domain/ports/mesh-generator.port').MeshGeneratorPort>)
 
     const mockWorldPort = Layer.succeed(WorldPort, {
       getVoxel: () => Effect.succeed(Option.none()),
       updateComponent: () => Effect.void,
-    } as any)
+    } satisfies Partial<import('@domain/ports/world.port').WorldPort>)
 
     const mockPorts = Layer.mergeAll(mockTerrainGenerator, mockChunkRepository, mockMeshGenerator, mockWorldPort)
 

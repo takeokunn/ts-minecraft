@@ -14,11 +14,57 @@
 
 import * as Effect from 'effect/Effect'
 import * as Ref from 'effect/Ref'
+import * as S from '@effect/schema/Schema'
+import { pipe } from 'effect/Function'
 import { createGameDebugger } from '@presentation/cli/debugger'
+import { isRecord, hasProperty, isFunction, safeBoolean } from '@shared/utils/type-guards'
 import { createDevConsole } from '@presentation/cli/dev-console'
 import { createEntityInspector } from '@presentation/cli/entity-inspector'
 import { PerformanceProfiler } from '@presentation/cli/performance-profiler'
 import { createHotReloadManager } from '@presentation/cli/hot-reload'
+import type { GameDebuggerTool, DevConsoleTool, EntityInspectorTool, PerformanceProfilerTool } from '@presentation/cli/dev-tools-manager'
+
+// Schema definitions for hot reload manager validation
+const HotReloadManagerSchema = S.Struct({
+  reload: S.Function,
+  watch: S.Function,
+  unwatch: S.Function,
+  getState: S.optional(S.Function),
+  isEnabled: S.optional(S.Boolean),
+})
+
+// Validation utility for hot reload manager
+const validateHotReloadManager = (
+  manager: unknown,
+): Effect.Effect<{ reload: Function; watch: Function; unwatch: Function; getState?: Function; isEnabled?: boolean }, never, never> => {
+  if (manager == null) {
+    return Effect.succeed({
+      reload: () => {},
+      watch: () => {},
+      unwatch: () => {},
+      getState: () => ({}),
+      isEnabled: false,
+    })
+  }
+
+  if (isRecord(manager)) {
+    return Effect.succeed({
+      reload: hasProperty(manager, 'reload') && isFunction(manager.reload) ? manager.reload : () => {},
+      watch: hasProperty(manager, 'watch') && isFunction(manager.watch) ? manager.watch : () => {},
+      unwatch: hasProperty(manager, 'unwatch') && isFunction(manager.unwatch) ? manager.unwatch : () => {},
+      getState: hasProperty(manager, 'getState') && isFunction(manager.getState) ? manager.getState : undefined,
+      isEnabled: hasProperty(manager, 'isEnabled') && typeof manager.isEnabled === 'boolean' ? manager.isEnabled : false,
+    })
+  }
+
+  return Effect.succeed({
+    reload: () => {},
+    watch: () => {},
+    unwatch: () => {},
+    getState: () => ({ value: manager, type: typeof manager }),
+    isEnabled: false,
+  })
+}
 
 export interface Command {
   id: string
@@ -53,11 +99,11 @@ export interface CommandPaletteState {
   selectedIndex: number
   searchQuery: string
   commandHistory: string[]
-  gameDebugger: any
-  devConsole: any
-  entityInspector: any
-  performanceProfiler: any
-  hotReloadManager: any
+  gameDebugger: GameDebuggerTool | null
+  devConsole: DevConsoleTool | null
+  entityInspector: EntityInspectorTool | null
+  performanceProfiler: PerformanceProfilerTool | null
+  hotReloadManager: { reload: Function; watch: Function; unwatch: Function; getState?: Function; isEnabled?: boolean } | null
 }
 
 const defaultConfig: CommandPaletteConfig = {
@@ -75,10 +121,10 @@ const defaultConfig: CommandPaletteConfig = {
  * Create Command Palette functional module
  */
 export const createCommandPalette = (
-  gameDebugger?: any,
-  devConsole?: any,
-  entityInspector?: any,
-  performanceProfiler?: PerformanceProfiler,
+  gameDebugger?: GameDebuggerTool,
+  devConsole?: DevConsoleTool,
+  entityInspector?: EntityInspectorTool,
+  performanceProfiler?: PerformanceProfilerTool,
   config: Partial<CommandPaletteConfig> = {},
 ) =>
   Effect.gen(function* () {
@@ -429,7 +475,10 @@ export const createCommandPalette = (
                 if (!categories.has(cmd.category)) {
                   categories.set(cmd.category, [])
                 }
-                categories.get(cmd.category)!.push(cmd)
+                const categoryCommands = categories.get(cmd.category)
+                if (categoryCommands) {
+                  categoryCommands.push(cmd)
+                }
               })
 
               console.log('Available Commands:')
@@ -1040,10 +1089,4 @@ export const createCommandPalette = (
     }
   })
 
-/**
- * Create command palette factory for easier usage
- */
-export const createCommandPaletteFactory =
-  (config: Partial<CommandPaletteConfig> = {}) =>
-  (gameDebugger?: any, devConsole?: any, entityInspector?: any, performanceProfiler?: PerformanceProfiler) =>
-    createCommandPalette(gameDebugger, devConsole, entityInspector, performanceProfiler, config)
+// Removed unused factory function

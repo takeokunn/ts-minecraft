@@ -2,6 +2,7 @@ import { Clock, MaterialManager, Renderer, type RenderCommand } from '@infrastru
 import { Effect, Layer, Match, Queue, Ref } from 'effect'
 import * as THREE from 'three'
 import { ThreeJsContext } from '@infrastructure/adapters/three-js.adapter'
+import { CHUNK_SIZE } from '@shared/constants/world'
 
 /**
  * Three.js Renderer Implementation Logic
@@ -27,7 +28,7 @@ export const RendererLive = Layer.scoped(
             geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
             geometry.setIndex(Array.from(indices))
             const mesh = new THREE.Mesh(geometry, material)
-            mesh.position.set(chunkX * 16, 0, chunkZ * 16)
+            mesh.position.set(chunkX * CHUNK_SIZE, 0, chunkZ * CHUNK_SIZE)
             threeJsContext.scene.add(mesh)
             yield* _(Ref.update(chunkMeshes, (map) => map.set(`${chunkX},${chunkZ}`, mesh)))
           }),

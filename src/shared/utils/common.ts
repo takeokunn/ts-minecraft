@@ -1,29 +1,61 @@
 /**
  * Common utility functions used across the application
+ * Enhanced with Effect-TS patterns for better functional programming
  */
 
+import { Effect, Option, Either, pipe } from 'effect'
+
 /**
- * Type guard for non-null values
+ * Type guard for non-null values - deprecated, use Option.fromNullable instead
+ * @deprecated Use Effect-TS Option.fromNullable for better functional programming patterns
  */
 export const isNotNull = <T>(value: T | null): value is T => value !== null
 
 /**
- * Type guard for non-undefined values
+ * Type guard for non-undefined values - deprecated, use Option.fromNullable instead
+ * @deprecated Use Effect-TS Option.fromNullable for better functional programming patterns
  */
 export const isNotUndefined = <T>(value: T | undefined): value is T => value !== undefined
 
 /**
- * Type guard for non-nullish values
+ * Type guard for non-nullish values - deprecated, use Option.fromNullable instead
+ * @deprecated Use Effect-TS Option.fromNullable for better functional programming patterns
  */
 export const isNotNullish = <T>(value: T | null | undefined): value is T => value !== null && value !== undefined
 
 /**
- * Safe array access with default value
+ * Effect-TS compliant safe value access using Option
  */
-export const safeArrayAccess = <T>(array: T[], index: number, defaultValue: T): T => {
-  const value = array[index]
-  return index >= 0 && index < array.length && value !== undefined ? value : defaultValue
-}
+export const safeOption = <T>(value: T | null | undefined): Option.Option<T> =>
+  Option.fromNullable(value)
+
+/**
+ * Effect-TS compliant safe value access with default
+ */
+export const safeValue = <T>(value: T | null | undefined, defaultValue: T): T =>
+  pipe(
+    Option.fromNullable(value),
+    Option.getOrElse(() => defaultValue)
+  )
+
+/**
+ * Safe array access with default value - now using Effect-TS Option
+ */
+export const safeArrayAccess = <T>(array: T[], index: number, defaultValue: T): T =>
+  pipe(
+    Option.fromNullable(array[index]),
+    Option.filter(() => index >= 0 && index < array.length),
+    Option.getOrElse(() => defaultValue)
+  )
+
+/**
+ * Effect-TS compliant safe array access returning Option
+ */
+export const safeArrayAccessOption = <T>(array: T[], index: number): Option.Option<T> =>
+  pipe(
+    Option.fromNullable(array[index]),
+    Option.filter(() => index >= 0 && index < array.length)
+  )
 
 /**
  * Deep clone an object (simple implementation)
@@ -45,7 +77,7 @@ export const deepClone = <T>(obj: T): T => {
 /**
  * Debounce function - shared utility for both function and decorator use
  */
-export const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): ((...args: Parameters<T>) => void) => {
+export const debounce = <T extends (...args: readonly unknown[]) => unknown>(func: T, wait: number): ((...args: Parameters<T>) => void) => {
   let timeout: NodeJS.Timeout | null = null
 
   return (...args: Parameters<T>) => {
@@ -57,7 +89,7 @@ export const debounce = <T extends (...args: any[]) => any>(func: T, wait: numbe
 /**
  * Throttle function - shared utility for both function and decorator use
  */
-export const throttle = <T extends (...args: any[]) => any>(func: T, wait: number): ((...args: Parameters<T>) => void) => {
+export const throttle = <T extends (...args: readonly unknown[]) => unknown>(func: T, wait: number): ((...args: Parameters<T>) => void) => {
   let lastTime = 0
 
   return (...args: Parameters<T>) => {
@@ -83,7 +115,7 @@ export const range = (start: number, end: number, step = 1): number[] => {
 /**
  * Create memoized version of a function - shared utility for both function and decorator use
  */
-export const memoize = <T extends (...args: any[]) => any>(fn: T): T => {
+export const memoize = <T extends (...args: readonly unknown[]) => unknown>(fn: T): T => {
   const cache = new Map<string, ReturnType<T>>()
 
   return ((...args: Parameters<T>): ReturnType<T> => {
@@ -170,7 +202,8 @@ export const formatBytes = (bytes: number, decimals = 2): string => {
 export const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
- * Retry function with exponential backoff
+ * Retry function with exponential backoff - legacy Promise-based version
+ * @deprecated Use Effect-TS retry utilities from shared/utils/effect.ts
  */
 export const retry = async <T>(fn: () => Promise<T>, maxAttempts = 3, baseDelay = 1000): Promise<T> => {
   let attempts = 0
@@ -189,3 +222,39 @@ export const retry = async <T>(fn: () => Promise<T>, maxAttempts = 3, baseDelay 
 
   throw new Error('Max attempts reached')
 }
+
+/**
+ * Effect-TS compliant retry with Either for error handling
+ */
+export const retryWithEither = <A, E>(
+  effect: Effect.Effect<A, E>, 
+  maxAttempts = 3, 
+  baseDelay = 1000
+): Effect.Effect<A, E> =>
+  pipe(
+    effect,
+    Effect.retry({
+      times: maxAttempts,
+      schedule: pipe(
+        Effect.schedule.exponential(`${baseDelay} millis`),
+        Effect.schedule.intersect(Effect.schedule.recurs(maxAttempts))
+      )
+    })
+  )
+
+/**
+ * Effect-TS compliant validation with Either
+ */
+export const validateWithEither = <T, E>(
+  value: unknown,
+  validator: (value: unknown) => Either.Either<T, E>
+): Either.Either<T, E> => validator(value)
+
+/**
+ * Effect-TS compliant async operation with proper error handling
+ */
+export const safeAsync = <A>(fn: () => Promise<A>): Effect.Effect<A, Error> =>
+  Effect.tryPromise({
+    try: fn,
+    catch: (error) => error instanceof Error ? error : new Error(String(error))
+  })

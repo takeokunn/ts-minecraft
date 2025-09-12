@@ -2,12 +2,10 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { Effect, Layer, pipe } from 'effect'
 import { FileSystem, FileSystemLive, ImageProcessor, ImageProcessorLive, Logger, LoggerLive } from './services'
+import { TEXTURE_TILE_SIZE as TILE_SIZE, ATLAS_WIDTH_IN_TILES } from '../src/shared/constants/texture.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-
-const TILE_SIZE = 16 // Each texture is 16x16 pixels
-const ATLAS_WIDTH_IN_TILES = 16
 
 const texturesDir = path.join(__dirname, '../public/texture')
 const outputAtlasPath = path.join(texturesDir, 'texture.png')

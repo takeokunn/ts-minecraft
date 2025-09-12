@@ -296,7 +296,7 @@ const createWASMFunction = (name: string, func: Function, params: WASMFunction['
   name,
   params,
   returns,
-  func: (...args: any[]) => {
+  func: (...args: unknown[]) => {
     // Type validation and conversion
     const convertedArgs = args.map((arg, index) => {
       const paramType = params[index]
@@ -325,7 +325,7 @@ const createWASMFunction = (name: string, func: Function, params: WASMFunction['
  */
 const profileWASMFunction = (func: WASMFunction, profiles: Map<string, WASMPerformanceProfile>): WASMFunction => ({
   ...func,
-  func: (...args: any[]) => {
+  func: (...args: unknown[]) => {
     const startTime = performance.now()
     const performanceWithMemory = performance as typeof performance & { memory?: { usedJSHeapSize: number } }
     const startMemory = performanceWithMemory.memory?.usedJSHeapSize || 0
@@ -438,7 +438,7 @@ const wasmBufferPool = new ObjectPool<ArrayBuffer>(
 export interface WASMIntegrationService {
   loadModule: (name: string, bytes: Uint8Array, imports?: WebAssembly.Imports) => Effect.Effect<WASMModule, never, never>
   getFunction: (moduleName: string, functionName: string) => Effect.Effect<Option.Option<WASMFunction, never, never>>
-  callFunction: (moduleName: string, functionName: string, ...args: any[]) => Effect.Effect<any, never, never>
+  callFunction: (moduleName: string, functionName: string, ...args: unknown[]) => Effect.Effect<unknown, never, never>
   createMemoryBuffer: (name: string, size: number, shared?: boolean) => Effect.Effect<WASMMemoryBuffer, never, never>
   getMemoryBuffer: (name: string) => Effect.Effect<Option.Option<WASMMemoryBuffer, never, never>>
   enableProfiling: (enabled: boolean) => Effect.Effect<void, never, never>
@@ -548,7 +548,7 @@ export const WASMIntegrationLive = Layer.effect(
           return Option.fromNullable(state.functions.get(fullName))
         }),
 
-      callFunction: (moduleName: string, functionName: string, ...args: any[]) =>
+      callFunction: (moduleName: string, functionName: string, ...args: unknown[]) =>
         Effect.gen(function* () {
           const funcOpt = yield* _(Effect.serviceRef.getFunction(moduleName, functionName))
 

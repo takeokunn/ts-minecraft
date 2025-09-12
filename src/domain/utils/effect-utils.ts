@@ -130,7 +130,7 @@ export const batchOperations =
 /**
  * Circuit breaker state
  */
-interface CircuitBreakerState {
+export interface CircuitBreakerState {
   readonly failureCount: number
   readonly lastFailureTime: number
   readonly state: 'closed' | 'open' | 'half-open'
@@ -139,7 +139,7 @@ interface CircuitBreakerState {
 /**
  * Circuit breaker configuration
  */
-interface CircuitBreakerConfig {
+export interface CircuitBreakerConfig {
   readonly threshold: number
   readonly timeout: number
 }
@@ -219,7 +219,7 @@ export const createCircuitBreaker = <A, E, R>(config: CircuitBreakerConfig) => {
 /**
  * Memoize effect results
  */
-export const memoize = <Args extends ReadonlyArray<any>, A, E, R>(f: (...args: Args) => Effect.Effect<A, E, R>): ((...args: Args) => Effect.Effect<A, E, R>) => {
+export const memoize = <Args extends readonly unknown[], A, E, R>(f: (...args: Args) => Effect.Effect<A, E, R>): ((...args: Args) => Effect.Effect<A, E, R>) => {
   const cache = new Map<string, A>()
 
   return (...args: Args) => {

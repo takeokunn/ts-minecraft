@@ -120,7 +120,7 @@ const findOldestTTLKey = (cache: Map<string, CacheEntry>): string => {
   return oldestKey
 }
 
-const estimateSize = (data: any): number => {
+const estimateSize = (data: unknown): number => {
   try {
     return JSON.stringify(data).length * 2 // Rough estimation
   } catch {

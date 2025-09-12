@@ -3,6 +3,7 @@ import * as S from 'effect/Schema'
 import { Vector3Int, Vector3IntSchema } from '@domain/value-objects/common'
 import { blockDefinitions } from '@domain/entities/block-definitions.entity'
 import { BlockType, BlockTypeSchema } from '@domain/value-objects/block-type.vo'
+import { ATLAS_WIDTH_IN_TILES } from '@shared/constants/texture'
 
 export type { BlockType } from '@domain/value-objects/block-type.vo'
 
@@ -21,8 +22,8 @@ export type FaceName = S.Schema.Type<typeof FaceNameSchema>
 
 export const hotbarSlots: ReadonlyArray<BlockType> = ['grass', 'dirt', 'stone', 'cobblestone', 'oakLog', 'plank', 'glass', 'brick', 'sand']
 
-export const ATLAS_SIZE_IN_TILES = 16
-export const TILE_SIZE = 1 / ATLAS_SIZE_IN_TILES
+// Use ATLAS_WIDTH_IN_TILES from @shared/constants/texture instead of ATLAS_SIZE_IN_TILES
+export const TILE_SIZE = 1 / ATLAS_WIDTH_IN_TILES
 
 // --- Functions ---
 

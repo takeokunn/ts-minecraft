@@ -293,9 +293,9 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
 
           const startTime = yield* EffectClock.currentTimeMillis
 
-          try {
-            // Execute system with timeout
-            yield* pipe(
+          yield* pipe(
+            // Execute system with timeout using Effect patterns
+            pipe(
               registeredSystem.system(context),
               Effect.timeout(registeredSystem.config.maxExecutionTime),
               Effect.catchTag('TimeoutException', () =>
@@ -305,33 +305,39 @@ export const SystemSchedulerServiceLive = (config: SchedulerConfig = defaultSche
                   }),
                 ),
               ),
+            ),
+            Effect.tap(() => 
+              Effect.gen(function* () {
+                const endTime = yield* EffectClock.currentTimeMillis
+                const executionTime = endTime - startTime
+
+                // Update metrics
+                yield* updateSystemMetrics(systemId, executionTime, Option.none())
+
+                // Profile query performance if enabled
+                if (config.enableProfiling) {
+                  yield* Effect.log(`System ${systemId} executed in ${executionTime}ms`)
+                }
+              })
+            ),
+            Effect.catchAll((error) =>
+              Effect.gen(function* () {
+                const endTime = yield* EffectClock.currentTimeMillis
+                const executionTime = endTime - startTime
+
+                // Update metrics with error
+                yield* updateSystemMetrics(systemId, executionTime, Option.some(error instanceof Error ? error : new Error(String(error))))
+
+                // Re-throw error for handling by scheduler
+                return yield* Effect.fail(
+                  new SchedulerError({
+                    message: `System ${systemId} execution failed`,
+                    cause: error,
+                  }),
+                )
+              })
             )
-
-            const endTime = yield* EffectClock.currentTimeMillis
-            const executionTime = endTime - startTime
-
-            // Update metrics
-            yield* updateSystemMetrics(systemId, executionTime, Option.none())
-
-            // Profile query performance if enabled
-            if (config.enableProfiling) {
-              yield* Effect.log(`System ${systemId} executed in ${executionTime}ms`)
-            }
-          } catch (error) {
-            const endTime = yield* EffectClock.currentTimeMillis
-            const executionTime = endTime - startTime
-
-            // Update metrics with error
-            yield* updateSystemMetrics(systemId, executionTime, Option.some(error instanceof Error ? error : new Error(String(error))))
-
-            // Re-throw error for handling by scheduler
-            yield* Effect.fail(
-              new SchedulerError({
-                message: `System ${systemId} execution failed`,
-                cause: error,
-              }),
-            )
-          }
+          )
         })
 
       /**

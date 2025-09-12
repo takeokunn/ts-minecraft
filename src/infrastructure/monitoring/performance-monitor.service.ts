@@ -659,8 +659,8 @@ export const PerformanceUtils = {
    * Create performance monitoring decorator for system functions
    */
   withPerformanceMonitoring:
-    <Args extends readonly unknown[], Return>(systemId: string, originalMethod: (...args: Args) => Effect.Effect<Return, any, any>) =>
-    (...args: Args): Effect.Effect<Return, any, any> =>
+    <Args extends readonly unknown[], Return, Error, Requirements>(systemId: string, originalMethod: (...args: Args) => Effect.Effect<Return, Error, Requirements>) =>
+    (...args: Args): Effect.Effect<Return, Error, Requirements | PerformanceMonitorService> =>
       Effect.gen(function* () {
         const monitor = yield* PerformanceMonitorService
 

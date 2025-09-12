@@ -105,4 +105,4 @@ export const WorldInfoViewModel = Context.GenericTag<WorldInfoViewModelInterface
 export const WorldInfoViewModelLive: Layer.Layer<WorldInfoViewModel, never, QueryHandlers> = Layer.effect(WorldInfoViewModel, WorldInfoViewModelLive)
 
 // Factory function for direct usage
-export const createWorldInfoViewModel = (queryHandlers: any) => Effect.runSync(Effect.provide(WorldInfoViewModelLive, Layer.succeed(QueryHandlers, queryHandlers)))
+export const createWorldInfoViewModel = (queryHandlers: QueryHandlers) => Effect.runSync(Effect.provide(WorldInfoViewModelLive, Layer.succeed(QueryHandlers, queryHandlers)))

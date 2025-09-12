@@ -2,19 +2,30 @@ import { Effect, Layer, Ref, Option } from 'effect'
 
 import * as THREE from 'three'
 import { ObjectPool } from '@infrastructure/performance/object-pool'
+import {
+  ATLAS_SIZE,
+  TEXTURE_TILE_SIZE,
+  MAX_MIPMAPS,
+  ANISOTROPY,
+  COMPRESSION_ENABLED,
+  LAZY_LOADING,
+  PRELOAD_ESSENTIALS,
+  CACHE_SIZE,
+  STREAMING_ENABLED,
+} from '@shared/constants/texture'
 
 // --- Configuration ---
 
 const CONFIG = {
-  ATLAS_SIZE: 2048, // 2K texture atlas
-  TILE_SIZE: 16, // Individual texture size
-  MAX_MIPMAPS: 4,
-  ANISOTROPY: 16,
-  COMPRESSION_ENABLED: true,
-  LAZY_LOADING: true,
-  PRELOAD_ESSENTIALS: true,
-  CACHE_SIZE: 256,
-  STREAMING_ENABLED: true,
+  ATLAS_SIZE,
+  TILE_SIZE: TEXTURE_TILE_SIZE,
+  MAX_MIPMAPS,
+  ANISOTROPY,
+  COMPRESSION_ENABLED,
+  LAZY_LOADING,
+  PRELOAD_ESSENTIALS,
+  CACHE_SIZE,
+  STREAMING_ENABLED,
 } as const
 
 // --- Texture Manager Types ---

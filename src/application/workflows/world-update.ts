@@ -122,7 +122,7 @@ export const WorldUpdateWorkflowLive = Layer.effect(
   }),
 )
 
-const processWorldUpdate = (update: any, worldService: WorldDomainService, entityService: EntityDomainService) =>
+const processWorldUpdate = (update: { type: string; [key: string]: unknown }, worldService: WorldDomainService, entityService: EntityDomainService) =>
   Effect.gen(function* (_) {
     // Process different types of world updates
     switch (update.type) {

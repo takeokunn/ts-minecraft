@@ -1,4 +1,5 @@
 import { Effect, Ref } from 'effect'
+import { isRecord, hasProperty } from '@shared/utils/type-guards'
 
 export interface NetworkRequest {
   id: string
@@ -11,8 +12,16 @@ export interface NetworkRequest {
   responseSize: number
   type: 'XHR' | 'Fetch' | 'WebSocket' | 'Worker'
   headers: Record<string, string>
-  payload?: any
-  response?: any
+  payload?: unknown
+  response?: unknown
+}
+
+export interface NetworkInspectorInfo {
+  id: string
+  method: string
+  url: string
+  startTime: number
+  timestamp: number
 }
 
 export const createNetworkInspector = () =>
@@ -258,8 +267,10 @@ export const createNetworkInspector = () =>
         }
 
         // Intercept XMLHttpRequest
-        XMLHttpRequest.prototype.open = function (method: string, url: string | URL, ...args: any[]) {
-          ;(this as any)._networkInspector = {
+        XMLHttpRequest.prototype.open = function (method: string, url: string | URL, ...args: unknown[]) {
+          // Safely add network inspector data
+          const xhrWithInspector = this as XMLHttpRequest & { _networkInspector?: NetworkInspectorInfo }
+          xhrWithInspector._networkInspector = {
             id: generateRequestId(),
             method,
             url: url.toString(),
@@ -271,7 +282,8 @@ export const createNetworkInspector = () =>
         }
 
         XMLHttpRequest.prototype.send = function (body?: Document | XMLHttpRequestBodyInit | null) {
-          const requestInfo = (this as any)._networkInspector
+          const xhrWithInspector = this as XMLHttpRequest & { _networkInspector?: NetworkInspectorInfo }
+          const requestInfo = xhrWithInspector._networkInspector
 
           if (requestInfo) {
             this.addEventListener('loadend', () => {
@@ -304,7 +316,7 @@ export const createNetworkInspector = () =>
       return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     }
 
-    const estimateSize = (data: any): number => {
+    const estimateSize = (data: unknown): number => {
       if (!data) return 0
       if (typeof data === 'string') return new Blob([data]).size
       if (data instanceof ArrayBuffer) return data.byteLength
@@ -506,6 +518,6 @@ export const createNetworkInspector = () =>
   })
 
 // Factory function for easier usage
-export const createNetworkInspectorFactory = () => {
+const createNetworkInspectorFactory = () => {
   return Effect.runSync(createNetworkInspector())
 }

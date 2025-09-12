@@ -7,6 +7,7 @@
  */
 
 import { Effect, Context, Layer, pipe } from 'effect'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@shared/constants/world'
 import { BlockType, BLOCK_MATERIAL_PROPERTIES, BlockPropertiesUtils } from '@domain/constants/block-properties'
 import {
   TerrainGeneratorPort,
@@ -208,7 +209,7 @@ export const TerrainGenerationAlgorithms = {
    */
   generateAdvancedHeightMap: (chunkX: number, chunkZ: number, seed: number, noiseSettings: AdvancedNoiseSettings, biome: EnhancedBiomeConfig): readonly number[] => {
     const heightMap: number[] = []
-    const chunkSize = 16
+    const chunkSize = CHUNK_SIZE
 
     // Generate base terrain height using primary noise
     const baseHeights = TerrainGenerationAlgorithms.generateBaseHeightLayer(chunkX, chunkZ, seed, noiseSettings)
@@ -238,7 +239,7 @@ export const TerrainGenerationAlgorithms = {
    */
   generateBaseHeightLayer: (chunkX: number, chunkZ: number, seed: number, noiseSettings: AdvancedNoiseSettings): readonly number[] => {
     const heights: number[] = []
-    const chunkSize = 16
+    const chunkSize = CHUNK_SIZE
 
     for (let z = 0; z < chunkSize; z++) {
       for (let x = 0; x < chunkSize; x++) {
@@ -259,7 +260,7 @@ export const TerrainGenerationAlgorithms = {
    */
   generateMountainLayer: (chunkX: number, chunkZ: number, seed: number, noiseSettings: AdvancedNoiseSettings, biome: EnhancedBiomeConfig): readonly number[] => {
     const heights: number[] = []
-    const chunkSize = 16
+    const chunkSize = CHUNK_SIZE
 
     const mountainSettings: AdvancedNoiseSettings = {
       ...noiseSettings,
@@ -296,7 +297,7 @@ export const TerrainGenerationAlgorithms = {
    */
   generateValleyLayer: (chunkX: number, chunkZ: number, seed: number, noiseSettings: AdvancedNoiseSettings, biome: EnhancedBiomeConfig): readonly number[] => {
     const heights: number[] = []
-    const chunkSize = 16
+    const chunkSize = CHUNK_SIZE
 
     const valleySettings: AdvancedNoiseSettings = {
       ...noiseSettings,
@@ -368,8 +369,8 @@ export const BiomeAwareBlockPlacement = {
     seed: number,
   ): readonly GeneratedBlock[] => {
     const blocks: GeneratedBlock[] = []
-    const chunkSize = 16
-    const maxHeight = 256
+    const chunkSize = CHUNK_SIZE
+    const maxHeight = CHUNK_HEIGHT
 
     for (let y = 0; y < maxHeight; y++) {
       for (let z = 0; z < chunkSize; z++) {

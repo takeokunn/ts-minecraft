@@ -446,7 +446,7 @@ export const SystemCommunicationUtils = {
   /**
    * Create standard entity event message
    */
-  createEntityMessage: (type: 'created' | 'destroyed' | 'updated', entityId: EntityId, sender: string, componentData?: any): Omit<SystemMessage, 'id' | 'timestamp'> => ({
+  createEntityMessage: (type: 'created' | 'destroyed' | 'updated', entityId: EntityId, sender: string, componentData?: unknown): Omit<SystemMessage, 'id' | 'timestamp'> => ({
     type: type === 'created' ? 'entity_created' : type === 'destroyed' ? 'entity_destroyed' : 'component_updated',
     priority: 'normal',
     sender,
@@ -463,7 +463,7 @@ export const SystemCommunicationUtils = {
     action: 'added' | 'removed' | 'updated',
     entityId: EntityId,
     componentName: string,
-    componentData: any,
+    componentData: unknown,
     sender: string,
   ): Omit<SystemMessage, 'id' | 'timestamp'> => ({
     type: action === 'added' ? 'component_added' : action === 'removed' ? 'component_removed' : 'component_updated',
@@ -478,7 +478,7 @@ export const SystemCommunicationUtils = {
   /**
    * Create physics event message
    */
-  createPhysicsMessage: (event: 'collision' | 'movement' | 'force_applied', entities: EntityId[], data: any, sender: string): Omit<SystemMessage, 'id' | 'timestamp'> => ({
+  createPhysicsMessage: (event: 'collision' | 'movement' | 'force_applied', entities: EntityId[], data: unknown, sender: string): Omit<SystemMessage, 'id' | 'timestamp'> => ({
     type: event === 'collision' ? 'collision_detected' : 'physics_updated',
     priority: 'high',
     sender,

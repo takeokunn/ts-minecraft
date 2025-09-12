@@ -203,13 +203,7 @@ export const TargetingUtils = {
     const pitchRad = (camera.pitch * Math.PI) / 180
     const yawRad = (camera.yaw * Math.PI) / 180
 
-    const direction = normalize(
-      makeVector3(
-        Math.cos(pitchRad) * Math.sin(yawRad),
-        -Math.sin(pitchRad),
-        Math.cos(pitchRad) * Math.cos(yawRad)
-      )
-    )
+    const direction = normalize(makeVector3(Math.cos(pitchRad) * Math.sin(yawRad), -Math.sin(pitchRad), Math.cos(pitchRad) * Math.cos(yawRad)))
 
     return { origin, direction: { x: direction.x, y: direction.y, z: direction.z } }
   },
@@ -303,7 +297,6 @@ const createTargetingProcessorState = (config: TargetConfig): TargetingProcessor
  * Advanced targeting processor with Effect-TS patterns
  */
 const TargetingProcessor = {
-
   /**
    * Process targeting for all players using Effect
    */
@@ -317,7 +310,7 @@ const TargetingProcessor = {
       currentTarget: Option.Option<TargetComponent>
     }[],
     worldPort: WorldPort,
-  ) => Effect.Effect<
+  ): Effect.Effect<
     {
       targetUpdates: Map<EntityId, TargetComponent>
       raycastResults: Map<EntityId, RaycastHit[]>
@@ -325,20 +318,20 @@ const TargetingProcessor = {
     },
     never,
     never
-  > {
-    return (state, players, worldPort) => Effect.gen(function* () {
+  > =>
+    Effect.gen(function* () {
       const targetUpdates = new Map<EntityId, TargetComponent>()
       const raycastResults = new Map<EntityId, RaycastHit[]>()
       const validationErrors: string[] = []
 
       const results = yield* Effect.all(
-        players.map(player => TargetingProcessor.processPlayerTargeting(state, player, worldPort)),
-        { concurrency: 4 }
+        players.map((player) => TargetingProcessor.processPlayerTargeting(state, player, worldPort)),
+        { concurrency: 4 },
       )
 
       results.forEach((result, index) => {
         const player = players[index]!
-        
+
         if (Option.isSome(result.primary)) {
           const target: TargetComponent = {
             position: result.primary.value.position,
@@ -361,8 +354,7 @@ const TargetingProcessor = {
         raycastResults,
         validationErrors,
       }
-    })
-  },
+    }),
 
   /**
    * Process targeting for a single player using Effect
@@ -377,8 +369,8 @@ const TargetingProcessor = {
       currentTarget: Option.Option<TargetComponent>
     },
     worldPort: WorldPort,
-  ) => Effect.Effect<TargetSelectionResult, never, never> {
-    return (state, player, worldPort) => Effect.gen(function* () {
+  ): Effect.Effect<TargetSelectionResult, never, never> =>
+    Effect.gen(function* () {
       // Create ray from camera
       const ray = TargetingUtils.createRayFromCamera(player.position, player.cameraState)
 
@@ -403,18 +395,13 @@ const TargetingProcessor = {
         raycastHits,
         validationErrors: [],
       }
-    })
-  },
+    }),
 
   /**
    * Perform raycast with optimizations using Effect
    */
-  performRaycast: (
-    state: TargetingProcessorState,
-    ray: Ray,
-    worldPort: WorldPort
-  ) => Effect.Effect<RaycastHit[], never, never> {
-    return (state, ray, worldPort) => Effect.gen(function* () {
+  performRaycast: (state: TargetingProcessorState, ray: Ray, worldPort: WorldPort): Effect.Effect<RaycastHit[], never, never> =>
+    Effect.gen(function* () {
       const hits: RaycastHit[] = []
       const stepSize = state.config.raycastStepSize
       const maxDistance = state.config.maxTargetDistance
@@ -426,7 +413,7 @@ const TargetingProcessor = {
         const scaledDirection = multiply(directionVector, distance)
         const originVector = makeVector3(ray.origin.x, ray.origin.y, ray.origin.z)
         const point = add(originVector, scaledDirection)
-        
+
         const position: Position = { x: point.x, y: point.y, z: point.z }
 
         // Check for block collision
@@ -453,8 +440,7 @@ const TargetingProcessor = {
       }
 
       return hits
-    })
-  },
+    }),
 
   /**
    * Generate target candidates from raycast results using Effect
@@ -464,9 +450,9 @@ const TargetingProcessor = {
     _ray: Ray,
     hits: RaycastHit[],
     _playerPosition: Position,
-    worldPort: WorldPort
-  ) => Effect.Effect<TargetCandidate[], never, never> {
-    return (state, _ray, hits, _playerPosition, worldPort) => Effect.gen(function* () {
+    worldPort: WorldPort,
+  ): Effect.Effect<TargetCandidate[], never, never> =>
+    Effect.gen(function* () {
       const candidates: TargetCandidate[] = []
 
       for (const hit of hits) {
@@ -515,45 +501,39 @@ const TargetingProcessor = {
       }
 
       return candidates
-    })
-  },
+    }),
 
   /**
    * Filter and prioritize candidates
    */
-  filterAndPrioritizeCandidates: (
-    state: TargetingProcessorState,
-    candidates: TargetCandidate[]
-  ) => TargetCandidate[] {
-    return (state, candidates) => {
-      // Apply filters
-      let filteredCandidates = candidates.filter((candidate) => TargetingUtils.validateTarget(candidate, state.config))
+  filterAndPrioritizeCandidates: (state: TargetingProcessorState, candidates: TargetCandidate[]): TargetCandidate[] => {
+    // Apply filters
+    let filteredCandidates = candidates.filter((candidate) => TargetingUtils.validateTarget(candidate, state.config))
 
-      // Calculate priorities
-      filteredCandidates = filteredCandidates.map((candidate) => ({
-        ...candidate,
-        priority: TargetingUtils.calculateTargetPriority(candidate, state.config),
-      }))
+    // Calculate priorities
+    filteredCandidates = filteredCandidates.map((candidate) => ({
+      ...candidate,
+      priority: TargetingUtils.calculateTargetPriority(candidate, state.config),
+    }))
 
-      // Sort by priority (highest first)
-      return filteredCandidates.sort((a, b) => b.priority - a.priority)
-    }
+    // Sort by priority (highest first)
+    return filteredCandidates.sort((a, b) => b.priority - a.priority)
   },
 
   /**
    * Get processor statistics
    */
-  getStats: (state: TargetingProcessorState) => {
+  getStats: (
+    state: TargetingProcessorState,
+  ): {
     candidateCount: number
     raycastCacheSize: number
     validationCacheSize: number
-  } {
-    return (state) => ({
-      candidateCount: state.targetCandidates.length,
-      raycastCacheSize: state.raycastCache.size,
-      validationCacheSize: state.targetValidationCache.size,
-    })
-  },
+  } => ({
+    candidateCount: state.targetCandidates.length,
+    raycastCacheSize: state.raycastCache.size,
+    validationCacheSize: state.targetValidationCache.size,
+  }),
 }
 
 // ===== TARGETING DOMAIN SERVICE =====
@@ -566,7 +546,7 @@ export interface AdvancedTargetingService {
       cameraState: CameraComponent
       inputState: InputStateComponent
       currentTarget: Option.Option<TargetComponent>
-    }[]
+    }[],
   ) => Effect.Effect<
     {
       targetUpdates: Map<EntityId, TargetComponent>
@@ -605,12 +585,13 @@ export const AdvancedTargetingServiceLive = Layer.effect(
           }
           yield* Ref.set(processorStateRef, createTargetingProcessorState(targetConfig))
         }),
-      getStats: () => Effect.gen(function* () {
-        const processorState = yield* Ref.get(processorStateRef)
-        return TargetingProcessor.getStats(processorState)
-      }),
+      getStats: () =>
+        Effect.gen(function* () {
+          const processorState = yield* Ref.get(processorStateRef)
+          return TargetingProcessor.getStats(processorState)
+        }),
     })
-  })
+  }),
 )
 
 /**
@@ -663,11 +644,10 @@ export const createUpdateTargetSystem = (config: Partial<TargetConfig> = {}): Sy
 
       // Apply target updates via world port
       const worldPort = yield* WorldPort
-      yield* Effect.forEach(
-        Array.from(result.targetUpdates.entries()),
-        ([entityId, target]) => worldPort.updateComponent(entityId, 'target', target),
-        { concurrency: 'inherit', discard: true }
-      )
+      yield* Effect.forEach(Array.from(result.targetUpdates.entries()), ([entityId, target]) => worldPort.updateComponent(entityId, 'target', target), {
+        concurrency: 'inherit',
+        discard: true,
+      })
 
       // Log validation errors
       for (const error of result.validationErrors) {

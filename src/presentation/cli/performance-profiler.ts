@@ -458,4 +458,4 @@ export const createPerformanceProfiler = () =>
   })
 
 // Factory function for easier instantiation
-export const createPerformanceProfilerFactory = () => createPerformanceProfiler()
+const createPerformanceProfilerFactory = () => createPerformanceProfiler()

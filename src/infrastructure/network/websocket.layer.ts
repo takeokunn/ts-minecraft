@@ -19,7 +19,6 @@ import * as Array from 'effect/Array'
 import * as Option from 'effect/Option'
 import * as Set from 'effect/Set'
 import * as Ref from 'effect/Ref'
-import * as Ref from 'effect/Ref'
 import * as Queue from 'effect/Queue'
 
 import * as Match from 'effect/Match'
@@ -102,6 +101,37 @@ export interface ClientConfig {
   readonly authToken?: string
   readonly reconnectAttempts: number
   readonly reconnectDelay: number
+}
+
+// Schema for network message validation
+const NetworkMessageSchema = <T, A = T, R = never>(payloadSchema: S.Schema<T, A, R>) =>
+  S.Struct({
+    type: S.String,
+    payload: payloadSchema,
+    timestamp: S.Number,
+    playerId: S.optional(S.String),
+    roomId: S.optional(S.String),
+    reliable: S.Boolean,
+    priority: S.Literal('low', 'normal', 'high', 'critical'),
+  })
+
+// Generic message validation
+const validateNetworkMessage = <T, A = T, R = never>(message: unknown, payloadSchema: S.Schema<T, A, R>): Effect.Effect<NetworkMessage<T>, typeof NetworkError, never> => {
+  return Effect.gen(function* () {
+    try {
+      const messageSchema = NetworkMessageSchema(payloadSchema)
+      const validated = S.parseSync(messageSchema)(message)
+      return validated as NetworkMessage<T>
+    } catch (error) {
+      return yield* Effect.fail(
+        NetworkError({
+          operation: 'validateNetworkMessage',
+          reason: `Invalid message format: ${error instanceof Error ? error.message : String(error)}`,
+          networkContext: 'message-validation',
+        })
+      )
+    }
+  })
 }
 
 export interface NetworkMessage<T = unknown> {
@@ -348,93 +378,94 @@ interface MessageSubscription {
 export const NetworkService = Context.GenericTag<NetworkServiceInterface>('NetworkService')
 
 export const NetworkServiceLive = Layer.effect(
-    NetworkService,
-    Effect.gen(function* () {
-      // Internal state
-      const servers = yield* Ref.make(HashMap.empty<ServerId, Server>())
-      const connections = yield* Ref.make(HashMap.empty<ConnectionId, Connection>())
-      const rooms = yield* Ref.make(HashMap.empty<RoomId, Room>())
-      const players = yield* Ref.make(HashMap.empty<PlayerId, PlayerInfo>())
-      const messageSubscriptions = yield* Ref.make(HashMap.empty<SubscriptionId, MessageSubscription>())
+  NetworkService,
+  Effect.gen(function* () {
+    // Internal state
+    const servers = yield* Ref.make(HashMap.empty<ServerId, Server>())
+    const connections = yield* Ref.make(HashMap.empty<ConnectionId, Connection>())
+    const rooms = yield* Ref.make(HashMap.empty<RoomId, Room>())
+    const players = yield* Ref.make(HashMap.empty<PlayerId, PlayerInfo>())
+    const messageSubscriptions = yield* Ref.make(HashMap.empty<SubscriptionId, MessageSubscription>())
 
-      const networkStats = yield* Ref.make({
-        totalConnections: 0,
-        messagesSent: 0,
-        messagesReceived: 0,
-        bytesTransmitted: 0,
-        bytesReceived: 0,
-        startTime: Date.now(),
+    const networkStats = yield* Ref.make({
+      totalConnections: 0,
+      messagesSent: 0,
+      messagesReceived: 0,
+      bytesTransmitted: 0,
+      bytesReceived: 0,
+      startTime: Date.now(),
+    })
+
+    const debugMode = yield* Ref.make(false)
+    const nextId = yield* Ref.make(0)
+
+    // Helper functions
+    const generateId = (): Effect.Effect<string, never, never> => Ref.modify(nextId, (id) => [(id + 1).toString(), id + 1])
+
+    const createServerId = (id: string): ServerId => id as ServerId
+    const createConnectionId = (id: string): ConnectionId => id as ConnectionId
+    const createPlayerId = (id: string): PlayerId => id as PlayerId
+    const createRoomId = (id: string): RoomId => id as RoomId
+    const createSubscriptionId = (id: string): SubscriptionId => id as SubscriptionId
+
+    // Message serialization
+    const serializeMessage = <T>(message: NetworkMessage<T>): Uint8Array => {
+      // Simplified serialization - would use a proper binary format
+      const json = JSON.stringify(message)
+      return new TextEncoder().encode(json)
+    }
+
+    const deserializeMessage = <T>(data: Uint8Array): NetworkMessage<T> => {
+      // Simplified deserialization
+      const json = new TextDecoder().decode(data)
+      return JSON.parse(json) as NetworkMessage<T>
+    }
+
+    // Connection management
+    const createConnection = (socket: NetworkSocket): Effect.Effect<ConnectionId, never, never> =>
+      Effect.gen(function* () {
+        const id = createConnectionId(yield* generateId())
+        const messageQueue = yield* Queue.unbounded<NetworkMessage>()
+
+        const connection: Connection = {
+          id,
+          socket,
+          status: 'connecting',
+          compressionEnabled: false,
+          messageQueue,
+          stats: {
+            connectedAt: new Date(),
+            lastActivity: new Date(),
+            messagesSent: 0,
+            messagesReceived: 0,
+            bytesTransmitted: 0,
+            bytesReceived: 0,
+            ping: 0,
+            packetLoss: 0,
+          },
+        }
+
+        yield* Ref.update(connections, HashMap.set(id, connection))
+        yield* Ref.update(networkStats, (stats) => ({
+          ...stats,
+          totalConnections: stats.totalConnections + 1,
+        }))
+
+        return id
       })
 
-      const debugMode = yield* Ref.make(false)
-      const nextId = yield* Ref.make(0)
+    const updateConnectionStatus = (connectionId: ConnectionId, status: ConnectionStatus): Effect.Effect<void, never, never> =>
+      Ref.update(connections, (connections) => {
+        const connection = HashMap.get(connections, connectionId)
+        if (Option.isSome(connection)) {
+          const updated = Data.struct({ ...connection.value, status })
+          return HashMap.set(connections, connectionId, updated)
+        }
+        return connections
+      })
 
-      // Helper functions
-      const generateId = (): Effect.Effect<string, never, never> => Ref.modify(nextId, (id) => [(id + 1).toString(), id + 1])
-
-      const createServerId = (id: string): ServerId => id as ServerId
-      const createConnectionId = (id: string): ConnectionId => id as ConnectionId
-      const createPlayerId = (id: string): PlayerId => id as PlayerId
-      const createRoomId = (id: string): RoomId => id as RoomId
-      const createSubscriptionId = (id: string): SubscriptionId => id as SubscriptionId
-
-      // Message serialization
-      const serializeMessage = <T>(message: NetworkMessage<T>): Uint8Array => {
-        // Simplified serialization - would use a proper binary format
-        const json = JSON.stringify(message)
-        return new TextEncoder().encode(json)
-      }
-
-      const deserializeMessage = <T>(data: Uint8Array): NetworkMessage<T> => {
-        // Simplified deserialization
-        const json = new TextDecoder().decode(data)
-        return JSON.parse(json) as NetworkMessage<T>
-      }
-
-      // Connection management
-      const createConnection = (socket: NetworkSocket): Effect.Effect<ConnectionId, never, never> =>
-        Effect.gen(function* () {
-          const id = createConnectionId(yield* generateId())
-          const messageQueue = yield* Queue.unbounded<NetworkMessage>()
-
-          const connection: Connection = {
-            id,
-            socket,
-            status: 'connecting',
-            compressionEnabled: false,
-            messageQueue,
-            stats: {
-              connectedAt: new Date(),
-              lastActivity: new Date(),
-              messagesSent: 0,
-              messagesReceived: 0,
-              bytesTransmitted: 0,
-              bytesReceived: 0,
-              ping: 0,
-              packetLoss: 0,
-            },
-          }
-
-          yield* Ref.update(connections, HashMap.set(id, connection))
-          yield* Ref.update(networkStats, (stats) => ({
-            ...stats,
-            totalConnections: stats.totalConnections + 1,
-          }))
-
-          return id
-        })
-
-      const updateConnectionStatus = (connectionId: ConnectionId, status: ConnectionStatus): Effect.Effect<void, never, never> =>
-        Ref.update(connections, (connections) => {
-          const connection = HashMap.get(connections, connectionId)
-          if (Option.isSome(connection)) {
-            const updated = Data.struct({ ...connection.value, status })
-            return HashMap.set(connections, connectionId, updated)
-          }
-          return connections
-        })
-
-      // Message processing
+    // Message processing helper function
+    const processIncomingMessage = <T>(connectionId: ConnectionId, data: Uint8Array): Effect.Effect<void, never, never> =>
       Effect.gen(function* () {
         try {
           const message = deserializeMessage<T>(data)
@@ -459,444 +490,589 @@ export const NetworkServiceLive = Layer.effect(
         }
       })
 
-      const processMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
-        Effect.gen(function* () {
-          yield* Match.value(message.type).pipe(
-            Match.when('ping', () => handlePingMessage(connectionId, message)),
-            Match.when('pong', () => handlePongMessage(connectionId, message)),
-            Match.when('playerJoin', () => handlePlayerJoinMessage(connectionId, message)),
-            Match.when('playerLeave', () => handlePlayerLeaveMessage(connectionId, message)),
-            Match.when('stateSync', () => handleStateSyncMessage(connectionId, message)),
-            Match.orElse(() => Effect.succeed(undefined)),
-          )
-        })
+    const processMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
+      Effect.gen(function* () {
+        yield* Match.value(message.type).pipe(
+          Match.when('ping', () => handlePingMessage(connectionId, message)),
+          Match.when('pong', () => handlePongMessage(connectionId, message)),
+          Match.when('playerJoin', () => handlePlayerJoinMessage(connectionId, message)),
+          Match.when('playerLeave', () => handlePlayerLeaveMessage(connectionId, message)),
+          Match.when('stateSync', () => handleStateSyncMessage(connectionId, message)),
+          Match.orElse(() => Effect.succeed(undefined)),
+        )
+      })
 
-      const handlePingMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
+    const handlePingMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
+      Effect.gen(function* () {
+        const pongMessage: NetworkMessage<{ timestamp: number }> = {
+          type: 'pong',
+          payload: { timestamp: message.timestamp },
+          timestamp: Date.now(),
+          reliable: true,
+          priority: 'high',
+        }
+        yield* sendMessageToConnection(connectionId, pongMessage)
+      })
+
+    const handlePongMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
+      Effect.gen(function* () {
+        // Calculate ping from timestamp
+        const ping = Date.now() - message.timestamp
+        yield* updateConnectionPing(connectionId, ping)
+      })
+
+    const handlePlayerJoinMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> => Effect.succeed(undefined) // Implementation would handle player authentication and room assignment
+
+    const handlePlayerLeaveMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> => Effect.succeed(undefined) // Implementation would handle cleanup
+
+    const handleStateSyncMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> => Effect.succeed(undefined) // Implementation would handle state synchronization
+
+    const sendMessageToConnection = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, typeof NetworkError, never> =>
+      Effect.gen(function* () {
+        const connectionsMap = yield* Ref.get(connections)
+        const connection = HashMap.get(connectionsMap, connectionId)
+
+        if (Option.isNone(connection)) {
+          return yield* Effect.fail(
+            NetworkError({
+              message: `Connection not found: ${connectionId}`,
+              connectionId,
+            }),
+          )
+        }
+
+        try {
+          const serialized = serializeMessage(message)
+
+          // In a real implementation, this would send over WebSocket/UDP/TCP
+          // For now, we'll just queue the message
+          yield* Queue.offer(connection.value.messageQueue, message)
+
+          // Update stats
+          yield* updateConnectionStats(connectionId, 'sent', serialized.length)
+          yield* Ref.update(networkStats, (stats) => ({
+            ...stats,
+            messagesSent: stats.messagesSent + 1,
+            bytesTransmitted: stats.bytesTransmitted + serialized.length,
+          }))
+        } catch (error) {
+          return yield* Effect.fail(
+            NetworkError({
+              message: `Failed to send message: ${error}`,
+              connectionId,
+              cause: error,
+            }),
+          )
+        }
+      })
+
+    const updateConnectionStats = (connectionId: ConnectionId, operation: 'sent' | 'received', bytes: number): Effect.Effect<void, never, never> =>
+      Ref.update(connections, (connections) => {
+        const connection = HashMap.get(connections, connectionId)
+        if (Option.isSome(connection)) {
+          const updatedStats =
+            operation === 'sent'
+              ? {
+                  ...connection.value.stats,
+                  messagesSent: connection.value.stats.messagesSent + 1,
+                  bytesTransmitted: connection.value.stats.bytesTransmitted + bytes,
+                  lastActivity: new Date(),
+                }
+              : {
+                  ...connection.value.stats,
+                  messagesReceived: connection.value.stats.messagesReceived + 1,
+                  bytesReceived: connection.value.stats.bytesReceived + bytes,
+                  lastActivity: new Date(),
+                }
+
+          const updated = Data.struct({ ...connection.value, stats: updatedStats })
+          return HashMap.set(connections, connectionId, updated)
+        }
+        return connections
+      })
+
+    const updateConnectionPing = (connectionId: ConnectionId, ping: number): Effect.Effect<void, never, never> =>
+      Ref.update(connections, (connections) => {
+        const connection = HashMap.get(connections, connectionId)
+        if (Option.isSome(connection)) {
+          const updatedStats = { ...connection.value.stats, ping }
+          const updated = Data.struct({ ...connection.value, stats: updatedStats })
+          return HashMap.set(connections, connectionId, updated)
+        }
+        return connections
+      })
+
+    const notifyMessageSubscribers = <T>(message: NetworkMessage<T>, connectionId: ConnectionId): Effect.Effect<void, never, never> =>
+      Effect.gen(function* () {
+        const subscriptions = yield* Ref.get(messageSubscriptions)
+        const relevantSubs = Array.fromIterable(HashMap.values(subscriptions)).filter((sub) => sub.messageType === message.type)
+
+        for (const sub of relevantSubs) {
+          try {
+            yield* sub.handler(message, connectionId)
+          } catch (error) {
+            console.error('Message handler error:', error)
+          }
+        }
+      })
+
+    // Compression utilities
+    const _compressData = (data: Uint8Array): Uint8Array => {
+      // Simplified compression - would use LZ4, gzip, or custom compression
+      return data
+    }
+
+    const _decompressData = (data: Uint8Array): Uint8Array => {
+      // Simplified decompression
+      return data
+    }
+
+    // Room management
+    const createRoomInternal = (config: RoomConfig, hostPlayerId: PlayerId): Effect.Effect<RoomId, never, never> =>
+      Effect.gen(function* () {
+        const id = createRoomId(yield* generateId())
+
+        const room: Room = {
+          id,
+          config,
+          status: 'waiting',
+          players: Set.make(hostPlayerId),
+          hostPlayer: hostPlayerId,
+          createdAt: new Date(),
+        }
+
+        yield* Ref.update(rooms, HashMap.set(id, room))
+        return id
+      })
+
+    // Return the service implementation
+    return {
+      // Connection management
+      startServer: (config: ServerConfig) =>
         Effect.gen(function* () {
-          const pongMessage: NetworkMessage<{ timestamp: number }> = {
-            type: 'pong',
-            payload: { timestamp: message.timestamp },
+          const id = createServerId(yield* generateId())
+
+          const server: Server = {
+            id,
+            config,
+            status: 'starting',
+            connections: Set.empty(),
+            rooms: Set.empty(),
+            startTime: new Date(),
+          }
+
+          yield* Ref.update(servers, HashMap.set(id, server))
+
+          // In real implementation, would start WebSocket/TCP server
+          yield* Ref.update(servers, (servers) => {
+            const existing = HashMap.get(servers, id)
+            if (Option.isSome(existing)) {
+              const updated = Data.struct({ ...existing.value, status: 'running' as ServerStatus })
+              return HashMap.set(servers, id, updated)
+            }
+            return servers
+          })
+
+          return id
+        }),
+
+      stopServer: (serverId: ServerId) =>
+        Effect.gen(function* () {
+          const serversMap = yield* Ref.get(servers)
+          const server = HashMap.get(serversMap, serverId)
+
+          if (Option.isNone(server)) {
+            return yield* Effect.fail(
+              NetworkError({
+                message: `Server not found: ${serverId}`,
+                serverId,
+              }),
+            )
+          }
+
+          // Disconnect all connections
+          const connectionsMap = yield* Ref.get(connections)
+          for (const connectionId of server.value.connections) {
+            const connection = HashMap.get(connectionsMap, connectionId)
+            if (Option.isSome(connection)) {
+              yield* updateConnectionStatus(connectionId, 'disconnected')
+            }
+          }
+
+          yield* Ref.update(servers, HashMap.remove(serverId))
+        }),
+
+      connectToServer: (config: ClientConfig) =>
+        Effect.gen(function* () {
+          // Simulate creating a connection
+          const socket: NetworkSocket = {
+            address: config.serverAddress,
+            port: config.serverPort,
+            connected: false,
+          }
+
+          const connectionId = yield* createConnection(socket)
+          yield* updateConnectionStatus(connectionId, 'connected')
+
+          return connectionId
+        }),
+
+      disconnect: (connectionId: ConnectionId) =>
+        Effect.gen(function* () {
+          yield* updateConnectionStatus(connectionId, 'disconnected')
+          yield* Ref.update(connections, HashMap.remove(connectionId))
+        }),
+
+      getConnectionStatus: (connectionId: ConnectionId) =>
+        Effect.gen(function* () {
+          const connectionsMap = yield* Ref.get(connections)
+          const connection = HashMap.get(connectionsMap, connectionId)
+          return Option.match(connection, {
+            onNone: () => 'disconnected',
+            onSome: (conn) => conn.status,
+          })
+        }),
+
+      // Message handling
+      sendMessage: <T>(connectionId: ConnectionId, message: NetworkMessage<T>) => sendMessageToConnection(connectionId, message),
+
+      broadcastMessage: <T>(serverId: ServerId, message: NetworkMessage<T>, excludeConnections?: readonly ConnectionId[]) =>
+        Effect.gen(function* () {
+          const serversMap = yield* Ref.get(servers)
+          const server = HashMap.get(serversMap, serverId)
+
+          if (Option.isNone(server)) {
+            return yield* Effect.fail(
+              NetworkError({
+                message: `Server not found: ${serverId}`,
+                serverId,
+              }),
+            )
+          }
+
+          const excludeSet = Set.fromIterable(excludeConnections ?? [])
+
+          for (const connectionId of server.value.connections) {
+            if (!Set.has(excludeSet, connectionId)) {
+              yield* sendMessageToConnection(connectionId, message).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
+            }
+          }
+        }),
+
+      subscribeToMessages: <T>(messageType: MessageType, handler: MessageHandler<T>) =>
+        Effect.gen(function* () {
+          const id = createSubscriptionId(yield* generateId())
+          const subscription: MessageSubscription = {
+            id,
+            messageType,
+            handler: handler as MessageHandler<unknown>,
+          }
+          yield* Ref.update(messageSubscriptions, HashMap.set(id, subscription))
+          return id
+        }),
+
+      unsubscribeFromMessages: (subscriptionId: SubscriptionId) => Ref.update(messageSubscriptions, HashMap.remove(subscriptionId)),
+
+      // Player management
+      authenticatePlayer: (connectionId: ConnectionId, credentials: PlayerCredentials) =>
+        Effect.gen(function* () {
+          const playerId = createPlayerId(credentials.username)
+
+          const playerInfo: PlayerInfo = {
+            id: playerId,
+            username: credentials.username,
+            connectionId,
+            joinTime: new Date(),
+            lastActivity: new Date(),
+            ping: 0,
+          }
+
+          yield* Ref.update(players, HashMap.set(playerId, playerInfo))
+          yield* updateConnectionStatus(connectionId, 'authenticated')
+
+          return playerId
+        }),
+
+      getConnectedPlayers: () =>
+        Effect.gen(function* () {
+          const playersMap = yield* Ref.get(players)
+          return Array.fromIterable(HashMap.values(playersMap))
+        }),
+
+      kickPlayer: (playerId: PlayerId) =>
+        Effect.gen(function* () {
+          const playersMap = yield* Ref.get(players)
+          const player = HashMap.get(playersMap, playerId)
+
+          if (Option.isSome(player)) {
+            yield* updateConnectionStatus(player.value.connectionId, 'disconnected')
+            yield* Ref.update(players, HashMap.remove(playerId))
+          }
+        }),
+
+      banPlayer: () => Effect.succeed(undefined),
+
+      // State synchronization
+      syncEntityState: (connectionId: ConnectionId, entityId: EntityId, state: EntityState) =>
+        Effect.gen(function* () {
+          const message: NetworkMessage<EntityState> = {
+            type: 'entityUpdate',
+            payload: state,
+            timestamp: Date.now(),
+            reliable: true,
+            priority: 'normal',
+          }
+          yield* sendMessageToConnection(connectionId, message)
+        }),
+
+      syncWorldState: (connectionId: ConnectionId, worldData: WorldSyncData) =>
+        Effect.gen(function* () {
+          const message: NetworkMessage<WorldSyncData> = {
+            type: 'worldUpdate',
+            payload: worldData,
+            timestamp: Date.now(),
+            reliable: true,
+            priority: 'normal',
+          }
+          yield* sendMessageToConnection(connectionId, message)
+        }),
+
+      requestStateSync: (connectionId: ConnectionId, syncRequest: StateSyncRequest) =>
+        Effect.gen(function* () {
+          const message: NetworkMessage<StateSyncRequest> = {
+            type: 'stateSync',
+            payload: syncRequest,
             timestamp: Date.now(),
             reliable: true,
             priority: 'high',
           }
-          yield* sendMessageToConnection(connectionId, pongMessage)
-        })
-
-      const handlePongMessage = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, never, never> =>
-        Effect.gen(function* () {
-          // Calculate ping from timestamp
-          const ping = Date.now() - message.timestamp
-          yield* updateConnectionPing(connectionId, ping)
-        })
-
-      const handlePlayerJoinMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> => Effect.succeed(undefined) // Implementation would handle player authentication and room assignment
-
-      const handlePlayerLeaveMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> => Effect.succeed(undefined) // Implementation would handle cleanup
-
-      const handleStateSyncMessage = <T>(_connectionId: ConnectionId, _message: NetworkMessage<T>): Effect.Effect<void, never, never> => Effect.succeed(undefined) // Implementation would handle state synchronization
-
-      const sendMessageToConnection = <T>(connectionId: ConnectionId, message: NetworkMessage<T>): Effect.Effect<void, typeof NetworkError, never> =>
-        Effect.gen(function* () {
-          const connectionsMap = yield* Ref.get(connections)
-          const connection = HashMap.get(connectionsMap, connectionId)
-
-          if (Option.isNone(connection)) {
-            return yield* Effect.fail(
-              NetworkError({
-                message: `Connection not found: ${connectionId}`,
-                connectionId,
-              }),
-            )
-          }
-
-          try {
-            const serialized = serializeMessage(message)
-
-            // In a real implementation, this would send over WebSocket/UDP/TCP
-            // For now, we'll just queue the message
-            yield* Queue.offer(connection.value.messageQueue, message)
-
-            // Update stats
-            yield* updateConnectionStats(connectionId, 'sent', serialized.length)
-            yield* Ref.update(networkStats, (stats) => ({
-              ...stats,
-              messagesSent: stats.messagesSent + 1,
-              bytesTransmitted: stats.bytesTransmitted + serialized.length,
-            }))
-          } catch (error) {
-            return yield* Effect.fail(
-              NetworkError({
-                message: `Failed to send message: ${error}`,
-                connectionId,
-                cause: error,
-              }),
-            )
-          }
-        })
-
-      const updateConnectionStats = (connectionId: ConnectionId, operation: 'sent' | 'received', bytes: number): Effect.Effect<void, never, never> =>
-        Ref.update(connections, (connections) => {
-          const connection = HashMap.get(connections, connectionId)
-          if (Option.isSome(connection)) {
-            const updatedStats =
-              operation === 'sent'
-                ? {
-                    ...connection.value.stats,
-                    messagesSent: connection.value.stats.messagesSent + 1,
-                    bytesTransmitted: connection.value.stats.bytesTransmitted + bytes,
-                    lastActivity: new Date(),
-                  }
-                : {
-                    ...connection.value.stats,
-                    messagesReceived: connection.value.stats.messagesReceived + 1,
-                    bytesReceived: connection.value.stats.bytesReceived + bytes,
-                    lastActivity: new Date(),
-                  }
-
-            const updated = Data.struct({ ...connection.value, stats: updatedStats })
-            return HashMap.set(connections, connectionId, updated)
-          }
-          return connections
-        })
-
-      const updateConnectionPing = (connectionId: ConnectionId, ping: number): Effect.Effect<void, never, never> =>
-        Ref.update(connections, (connections) => {
-          const connection = HashMap.get(connections, connectionId)
-          if (Option.isSome(connection)) {
-            const updatedStats = { ...connection.value.stats, ping }
-            const updated = Data.struct({ ...connection.value, stats: updatedStats })
-            return HashMap.set(connections, connectionId, updated)
-          }
-          return connections
-        })
-
-      const notifyMessageSubscribers = <T>(message: NetworkMessage<T>, connectionId: ConnectionId): Effect.Effect<void, never, never> =>
-        Effect.gen(function* () {
-          const subscriptions = yield* Ref.get(messageSubscriptions)
-          const relevantSubs = Array.fromIterable(HashMap.values(subscriptions)).filter((sub) => sub.messageType === message.type)
-
-          for (const sub of relevantSubs) {
-            try {
-              yield* sub.handler(message, connectionId)
-            } catch (error) {
-              console.error('Message handler error:', error)
-            }
-          }
-        })
-
-      // Compression utilities
-      const _compressData = (data: Uint8Array): Uint8Array => {
-        // Simplified compression - would use LZ4, gzip, or custom compression
-        return data
-      }
-
-      const _decompressData = (data: Uint8Array): Uint8Array => {
-        // Simplified decompression
-        return data
-      }
+          yield* sendMessageToConnection(connectionId, message)
+        }),
 
       // Room management
-      const createRoomInternal = (config: RoomConfig, hostPlayerId: PlayerId): Effect.Effect<RoomId, never, never> =>
+      createRoom: (config: RoomConfig) =>
         Effect.gen(function* () {
-          const id = createRoomId(yield* generateId())
+          // For now, create with system as host
+          const systemPlayerId = createPlayerId('system')
+          return yield* createRoomInternal(config, systemPlayerId)
+        }),
 
-          const room: Room = {
-            id,
-            config,
-            status: 'waiting',
-            players: Set.make(hostPlayerId),
-            hostPlayer: hostPlayerId,
-            createdAt: new Date(),
-          }
+      destroyRoom: (roomId: RoomId) =>
+        Effect.gen(function* () {
+          const roomsMap = yield* Ref.get(rooms)
+          const room = HashMap.get(roomsMap, roomId)
 
-          yield* Ref.update(rooms, HashMap.set(id, room))
-          return id
-        })
-
-      // Return the service implementation
-      return {
-        // Connection management
-        startServer: (config: ServerConfig) =>
-          Effect.gen(function* () {
-            const id = createServerId(yield* generateId())
-
-            const server: Server = {
-              id,
-              config,
-              status: 'starting',
-              connections: Set.empty(),
-              rooms: Set.empty(),
-              startTime: new Date(),
-            }
-
-            yield* Ref.update(servers, HashMap.set(id, server))
-
-            // In real implementation, would start WebSocket/TCP server
-            yield* Ref.update(servers, (servers) => {
-              const existing = HashMap.get(servers, id)
-              if (Option.isSome(existing)) {
-                const updated = Data.struct({ ...existing.value, status: 'running' as ServerStatus })
-                return HashMap.set(servers, id, updated)
-              }
-              return servers
-            })
-
-            return id
-          }),
-
-        stopServer: (serverId: ServerId) =>
-          Effect.gen(function* () {
-            const serversMap = yield* Ref.get(servers)
-            const server = HashMap.get(serversMap, serverId)
-
-            if (Option.isNone(server)) {
-              return yield* Effect.fail(
-                NetworkError({
-                  message: `Server not found: ${serverId}`,
-                  serverId,
-                }),
-              )
-            }
-
-            // Disconnect all connections
-            const connectionsMap = yield* Ref.get(connections)
-            for (const connectionId of server.value.connections) {
-              const connection = HashMap.get(connectionsMap, connectionId)
-              if (Option.isSome(connection)) {
-                yield* updateConnectionStatus(connectionId, 'disconnected')
-              }
-            }
-
-            yield* Ref.update(servers, HashMap.remove(serverId))
-          }),
-
-        connectToServer: (config: ClientConfig) =>
-          Effect.gen(function* () {
-            // Simulate creating a connection
-            const socket: NetworkSocket = {
-              address: config.serverAddress,
-              port: config.serverPort,
-              connected: false,
-            }
-
-            const connectionId = yield* createConnection(socket)
-            yield* updateConnectionStatus(connectionId, 'connected')
-
-            return connectionId
-          }),
-
-        disconnect: (connectionId: ConnectionId) =>
-          Effect.gen(function* () {
-            yield* updateConnectionStatus(connectionId, 'disconnected')
-            yield* Ref.update(connections, HashMap.remove(connectionId))
-          }),
-
-        getConnectionStatus: (connectionId: ConnectionId) =>
-          Effect.gen(function* () {
-            const connectionsMap = yield* Ref.get(connections)
-            const connection = HashMap.get(connectionsMap, connectionId)
-            return Option.match(connection, {
-              onNone: () => 'disconnected',
-              onSome: (conn) => conn.status,
-            })
-          }),
-
-        // Message handling
-        sendMessage: <T>(connectionId: ConnectionId, message: NetworkMessage<T>) => sendMessageToConnection(connectionId, message),
-
-        broadcastMessage: <T>(serverId: ServerId, message: NetworkMessage<T>, excludeConnections?: readonly ConnectionId[]) =>
-          Effect.gen(function* () {
-            const serversMap = yield* Ref.get(servers)
-            const server = HashMap.get(serversMap, serverId)
-
-            if (Option.isNone(server)) {
-              return yield* Effect.fail(
-                NetworkError({
-                  message: `Server not found: ${serverId}`,
-                  serverId,
-                }),
-              )
-            }
-
-            const excludeSet = Set.fromIterable(excludeConnections ?? [])
-
-            for (const connectionId of server.value.connections) {
-              if (!Set.has(excludeSet, connectionId)) {
-                yield* sendMessageToConnection(connectionId, message).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
-              }
-            }
-          }),
-
-        subscribeToMessages: <T>(messageType: MessageType, handler: MessageHandler<T>) =>
-          Effect.gen(function* () {
-            const id = createSubscriptionId(yield* generateId())
-            const subscription: MessageSubscription = {
-              id,
-              messageType,
-              handler: handler as MessageHandler<unknown>,
-            }
-            yield* Ref.update(messageSubscriptions, HashMap.set(id, subscription))
-            return id
-          }),
-
-        unsubscribeFromMessages: (subscriptionId: SubscriptionId) => Ref.update(messageSubscriptions, HashMap.remove(subscriptionId)),
-
-        // Player management
-        authenticatePlayer: (connectionId: ConnectionId, credentials: PlayerCredentials) =>
-          Effect.gen(function* () {
-            const playerId = createPlayerId(credentials.username)
-
-            const playerInfo: PlayerInfo = {
-              id: playerId,
-              username: credentials.username,
-              connectionId,
-              joinTime: new Date(),
-              lastActivity: new Date(),
-              ping: 0,
-            }
-
-            yield* Ref.update(players, HashMap.set(playerId, playerInfo))
-            yield* updateConnectionStatus(connectionId, 'authenticated')
-
-            return playerId
-          }),
-
-        getConnectedPlayers: () =>
-          Effect.gen(function* () {
-            const playersMap = yield* Ref.get(players)
-            return Array.fromIterable(HashMap.values(playersMap))
-          }),
-
-        kickPlayer: (playerId: PlayerId) =>
-          Effect.gen(function* () {
-            const playersMap = yield* Ref.get(players)
-            const player = HashMap.get(playersMap, playerId)
-
-            if (Option.isSome(player)) {
-              yield* updateConnectionStatus(player.value.connectionId, 'disconnected')
-              yield* Ref.update(players, HashMap.remove(playerId))
-            }
-          }),
-
-        banPlayer: () => Effect.succeed(undefined),
-
-        // State synchronization
-        syncEntityState: (connectionId: ConnectionId, entityId: EntityId, state: EntityState) =>
-          Effect.gen(function* () {
-            const message: NetworkMessage<EntityState> = {
-              type: 'entityUpdate',
-              payload: state,
-              timestamp: Date.now(),
-              reliable: true,
-              priority: 'normal',
-            }
-            yield* sendMessageToConnection(connectionId, message)
-          }),
-
-        syncWorldState: (connectionId: ConnectionId, worldData: WorldSyncData) =>
-          Effect.gen(function* () {
-            const message: NetworkMessage<WorldSyncData> = {
-              type: 'worldUpdate',
-              payload: worldData,
-              timestamp: Date.now(),
-              reliable: true,
-              priority: 'normal',
-            }
-            yield* sendMessageToConnection(connectionId, message)
-          }),
-
-        requestStateSync: (connectionId: ConnectionId, syncRequest: StateSyncRequest) =>
-          Effect.gen(function* () {
-            const message: NetworkMessage<StateSyncRequest> = {
-              type: 'stateSync',
-              payload: syncRequest,
+          if (Option.isSome(room)) {
+            // Notify all players in room
+            const _leaveMessage = {
+              type: 'roomLeave',
+              payload: { roomId },
               timestamp: Date.now(),
               reliable: true,
               priority: 'high',
             }
-            yield* sendMessageToConnection(connectionId, message)
-          }),
 
-        // Room management
-        createRoom: (config: RoomConfig) =>
-          Effect.gen(function* () {
-            // For now, create with system as host
-            const systemPlayerId = createPlayerId('system')
-            return yield* createRoomInternal(config, systemPlayerId)
-          }),
+            // Would send to all players in room
+            yield* Ref.update(rooms, HashMap.remove(roomId))
+          }
+        }),
 
-        destroyRoom: (roomId: RoomId) =>
-          Effect.gen(function* () {
-            const roomsMap = yield* Ref.get(rooms)
-            const room = HashMap.get(roomsMap, roomId)
+      joinRoom: (roomId: RoomId) =>
+        Effect.gen(function* () {
+          const roomsMap = yield* Ref.get(rooms)
+          const room = HashMap.get(roomsMap, roomId)
 
-            if (Option.isSome(room)) {
-              // Notify all players in room
-              const _leaveMessage = {
-                type: 'roomLeave',
-                payload: { roomId },
-                timestamp: Date.now(),
-                reliable: true,
-                priority: 'high',
-              }
+          if (Option.isNone(room)) {
+            return yield* Effect.fail(
+              NetworkError({
+                message: `Room not found: ${roomId}`,
+                roomId,
+              }),
+            )
+          }
 
-              // Would send to all players in room
-              yield* Ref.update(rooms, HashMap.remove(roomId))
+          // Add player to room (simplified implementation)
+          // Would check capacity, authentication, etc.
+        }),
+
+      leaveRoom: () => Effect.succeed(undefined),
+
+      getRoomInfo: (roomId: RoomId) =>
+        Effect.gen(function* () {
+          const roomsMap = yield* Ref.get(rooms)
+          const room = HashMap.get(roomsMap, roomId)
+
+          if (Option.isNone(room)) {
+            return yield* Effect.fail(
+              NetworkError({
+                message: `Room not found: ${roomId}`,
+                roomId,
+              }),
+            )
+          }
+
+          return {
+            id: room.value.id,
+            name: room.value.config.name,
+            currentPlayers: Set.size(room.value.players),
+            maxPlayers: room.value.config.maxPlayers,
+            isPrivate: room.value.config.isPrivate,
+            gameMode: room.value.config.gameMode,
+            status: room.value.status,
+            createdAt: room.value.createdAt,
+            hostPlayer: room.value.hostPlayer,
+          }
+        }),
+
+      listRooms: () =>
+        Effect.gen(function* () {
+          const roomsMap = yield* Ref.get(rooms)
+          return Array.fromIterable(HashMap.values(roomsMap)).map((room) => ({
+            id: room.id,
+            name: room.config.name,
+            currentPlayers: Set.size(room.players),
+            maxPlayers: room.config.maxPlayers,
+            isPrivate: room.config.isPrivate,
+            gameMode: room.config.gameMode,
+            status: room.status,
+            createdAt: room.createdAt,
+            hostPlayer: room.hostPlayer,
+          }))
+        }),
+
+      // Network optimization
+      enableCompression: (connectionId: ConnectionId, enabled: boolean) =>
+        Ref.update(connections, (connections) => {
+          const connection = HashMap.get(connections, connectionId)
+          if (Option.isSome(connection)) {
+            const updated = Data.struct({ ...connection.value, compressionEnabled: enabled })
+            return HashMap.set(connections, connectionId, updated)
+          }
+          return connections
+        }),
+
+      setTickRate: (serverId: ServerId, tickRate: number) =>
+        Effect.gen(function* () {
+          if (tickRate <= 0 || tickRate > 120) {
+            return yield* Effect.fail(
+              NetworkError({
+                message: `Invalid tick rate: ${tickRate}`,
+                serverId,
+              }),
+            )
+          }
+
+          yield* Ref.update(servers, (servers) => {
+            const server = HashMap.get(servers, serverId)
+            if (Option.isSome(server)) {
+              const updatedConfig = { ...server.value.config, tickRate }
+              const updated = Data.struct({ ...server.value, config: updatedConfig })
+              return HashMap.set(servers, serverId, updated)
             }
-          }),
+            return servers
+          })
+        }),
 
-        joinRoom: (roomId: RoomId) =>
-          Effect.gen(function* () {
-            const roomsMap = yield* Ref.get(rooms)
-            const room = HashMap.get(roomsMap, roomId)
+      optimizeNetworkTraffic: () =>
+        Effect.succeed({
+          bandwidthSaved: 0,
+          messagesOptimized: 0,
+          compressionRatio: 0,
+          latencyImprovement: 0,
+        }),
 
-            if (Option.isNone(room)) {
-              return yield* Effect.fail(
-                NetworkError({
-                  message: `Room not found: ${roomId}`,
-                  roomId,
-                }),
-              )
-            }
+      // Monitoring and debugging
+      getNetworkStats: () =>
+        Effect.gen(function* () {
+          const stats = yield* Ref.get(networkStats)
+          const connectionsMap = yield* Ref.get(connections)
+          const activeConnections = Array.fromIterable(HashMap.values(connectionsMap)).filter((conn) => conn.status === 'connected' || conn.status === 'authenticated')
 
-            // Add player to room (simplified implementation)
-            // Would check capacity, authentication, etc.
-          }),
+          const averagePing = activeConnections.length > 0 ? activeConnections.reduce((sum, conn) => sum + conn.stats.ping, 0) / activeConnections.length : 0
 
-        leaveRoom: () => Effect.succeed(undefined),
+          return {
+            totalConnections: stats.totalConnections,
+            activeConnections: activeConnections.length,
+            messagesSent: stats.messagesSent,
+            messagesReceived: stats.messagesReceived,
+            bytesTransmitted: stats.bytesTransmitted,
+            bytesReceived: stats.bytesReceived,
+            averagePing,
+            packetLoss: 0, // Would calculate from connection stats
+            compressionRatio: 0, // Would calculate from compression stats
+            uptime: Date.now() - stats.startTime,
+          }
+        }),
 
-        getRoomInfo: (roomId: RoomId) =>
-          Effect.gen(function* () {
-            const roomsMap = yield* Ref.get(rooms)
-            const room = HashMap.get(roomsMap, roomId)
+      getConnectionInfo: (connectionId: ConnectionId) =>
+        Effect.gen(function* () {
+          const connectionsMap = yield* Ref.get(connections)
+          const connection = HashMap.get(connectionsMap, connectionId)
 
-            if (Option.isNone(room)) {
-              return yield* Effect.fail(
-                NetworkError({
-                  message: `Room not found: ${roomId}`,
-                  roomId,
-                }),
-              )
-            }
+          return Option.match(connection, {
+            onNone: () => ({
+              id: connectionId,
+              address: 'unknown',
+              port: 0,
+              connectedAt: new Date(),
+              lastActivity: new Date(),
+              messagesSent: 0,
+              messagesReceived: 0,
+              bytesTransmitted: 0,
+              bytesReceived: 0,
+              ping: 0,
+              packetLoss: 0,
+              compressionEnabled: false,
+            }),
+            onSome: (conn) => ({
+              id: conn.id,
+              address: conn.socket.address,
+              port: conn.socket.port,
+              connectedAt: conn.stats.connectedAt,
+              lastActivity: conn.stats.lastActivity,
+              messagesSent: conn.stats.messagesSent,
+              messagesReceived: conn.stats.messagesReceived,
+              bytesTransmitted: conn.stats.bytesTransmitted,
+              bytesReceived: conn.stats.bytesReceived,
+              ping: conn.stats.ping,
+              packetLoss: conn.stats.packetLoss,
+              compressionEnabled: conn.compressionEnabled,
+            }),
+          })
+        }),
 
-            return {
-              id: room.value.id,
-              name: room.value.config.name,
-              currentPlayers: Set.size(room.value.players),
-              maxPlayers: room.value.config.maxPlayers,
-              isPrivate: room.value.config.isPrivate,
-              gameMode: room.value.config.gameMode,
-              status: room.value.status,
-              createdAt: room.value.createdAt,
-              hostPlayer: room.value.hostPlayer,
-            }
-          }),
+      enableDebugMode: (enabled: boolean) => Ref.set(debugMode, enabled),
 
-        listRooms: () =>
-          Effect.gen(function* () {
-            const roomsMap = yield* Ref.get(rooms)
-            return Array.fromIterable(HashMap.values(roomsMap)).map((room) => ({
+      getDebugInfo: () =>
+        Effect.gen(function* () {
+          const serversMap = yield* Ref.get(servers)
+          const connectionsMap = yield* Ref.get(connections)
+          const roomsMap = yield* Ref.get(rooms)
+
+          return {
+            servers: Array.fromIterable(HashMap.values(serversMap)).map((server) => ({
+              id: server.id,
+              config: server.config,
+              status: server.status,
+              connectedPlayers: Set.size(server.connections),
+              rooms: Set.size(server.rooms),
+              uptime: Date.now() - server.startTime.getTime(),
+            })),
+            connections: Array.fromIterable(HashMap.values(connectionsMap)).map((conn) => ({
+              id: conn.id,
+              address: conn.socket.address,
+              port: conn.socket.port,
+              connectedAt: conn.stats.connectedAt,
+              lastActivity: conn.stats.lastActivity,
+              messagesSent: conn.stats.messagesSent,
+              messagesReceived: conn.stats.messagesReceived,
+              bytesTransmitted: conn.stats.bytesTransmitted,
+              bytesReceived: conn.stats.bytesReceived,
+              ping: conn.stats.ping,
+              packetLoss: conn.stats.packetLoss,
+              compressionEnabled: conn.compressionEnabled,
+            })),
+            rooms: Array.fromIterable(HashMap.values(roomsMap)).map((room) => ({
               id: room.id,
               name: room.config.name,
               currentPlayers: Set.size(room.players),
@@ -906,157 +1082,11 @@ export const NetworkServiceLive = Layer.effect(
               status: room.status,
               createdAt: room.createdAt,
               hostPlayer: room.hostPlayer,
-            }))
-          }),
-
-        // Network optimization
-        enableCompression: (connectionId: ConnectionId, enabled: boolean) =>
-          Ref.update(connections, (connections) => {
-            const connection = HashMap.get(connections, connectionId)
-            if (Option.isSome(connection)) {
-              const updated = Data.struct({ ...connection.value, compressionEnabled: enabled })
-              return HashMap.set(connections, connectionId, updated)
-            }
-            return connections
-          }),
-
-        setTickRate: (serverId: ServerId, tickRate: number) =>
-          Effect.gen(function* () {
-            if (tickRate <= 0 || tickRate > 120) {
-              return yield* Effect.fail(
-                NetworkError({
-                  message: `Invalid tick rate: ${tickRate}`,
-                  serverId,
-                }),
-              )
-            }
-
-            yield* Ref.update(servers, (servers) => {
-              const server = HashMap.get(servers, serverId)
-              if (Option.isSome(server)) {
-                const updatedConfig = { ...server.value.config, tickRate }
-                const updated = Data.struct({ ...server.value, config: updatedConfig })
-                return HashMap.set(servers, serverId, updated)
-              }
-              return servers
-            })
-          }),
-
-        optimizeNetworkTraffic: () =>
-          Effect.succeed({
-            bandwidthSaved: 0,
-            messagesOptimized: 0,
-            compressionRatio: 0,
-            latencyImprovement: 0,
-          }),
-
-        // Monitoring and debugging
-        getNetworkStats: () =>
-          Effect.gen(function* () {
-            const stats = yield* Ref.get(networkStats)
-            const connectionsMap = yield* Ref.get(connections)
-            const activeConnections = Array.fromIterable(HashMap.values(connectionsMap)).filter((conn) => conn.status === 'connected' || conn.status === 'authenticated')
-
-            const averagePing = activeConnections.length > 0 ? activeConnections.reduce((sum, conn) => sum + conn.stats.ping, 0) / activeConnections.length : 0
-
-            return {
-              totalConnections: stats.totalConnections,
-              activeConnections: activeConnections.length,
-              messagesSent: stats.messagesSent,
-              messagesReceived: stats.messagesReceived,
-              bytesTransmitted: stats.bytesTransmitted,
-              bytesReceived: stats.bytesReceived,
-              averagePing,
-              packetLoss: 0, // Would calculate from connection stats
-              compressionRatio: 0, // Would calculate from compression stats
-              uptime: Date.now() - stats.startTime,
-            }
-          }),
-
-        getConnectionInfo: (connectionId: ConnectionId) =>
-          Effect.gen(function* () {
-            const connectionsMap = yield* Ref.get(connections)
-            const connection = HashMap.get(connectionsMap, connectionId)
-
-            return Option.match(connection, {
-              onNone: () => ({
-                id: connectionId,
-                address: 'unknown',
-                port: 0,
-                connectedAt: new Date(),
-                lastActivity: new Date(),
-                messagesSent: 0,
-                messagesReceived: 0,
-                bytesTransmitted: 0,
-                bytesReceived: 0,
-                ping: 0,
-                packetLoss: 0,
-                compressionEnabled: false,
-              }),
-              onSome: (conn) => ({
-                id: conn.id,
-                address: conn.socket.address,
-                port: conn.socket.port,
-                connectedAt: conn.stats.connectedAt,
-                lastActivity: conn.stats.lastActivity,
-                messagesSent: conn.stats.messagesSent,
-                messagesReceived: conn.stats.messagesReceived,
-                bytesTransmitted: conn.stats.bytesTransmitted,
-                bytesReceived: conn.stats.bytesReceived,
-                ping: conn.stats.ping,
-                packetLoss: conn.stats.packetLoss,
-                compressionEnabled: conn.compressionEnabled,
-              }),
-            })
-          }),
-
-        enableDebugMode: (enabled: boolean) => Ref.set(debugMode, enabled),
-
-        getDebugInfo: () =>
-          Effect.gen(function* () {
-            const serversMap = yield* Ref.get(servers)
-            const connectionsMap = yield* Ref.get(connections)
-            const roomsMap = yield* Ref.get(rooms)
-
-            return {
-              servers: Array.fromIterable(HashMap.values(serversMap)).map((server) => ({
-                id: server.id,
-                config: server.config,
-                status: server.status,
-                connectedPlayers: Set.size(server.connections),
-                rooms: Set.size(server.rooms),
-                uptime: Date.now() - server.startTime.getTime(),
-              })),
-              connections: Array.fromIterable(HashMap.values(connectionsMap)).map((conn) => ({
-                id: conn.id,
-                address: conn.socket.address,
-                port: conn.socket.port,
-                connectedAt: conn.stats.connectedAt,
-                lastActivity: conn.stats.lastActivity,
-                messagesSent: conn.stats.messagesSent,
-                messagesReceived: conn.stats.messagesReceived,
-                bytesTransmitted: conn.stats.bytesTransmitted,
-                bytesReceived: conn.stats.bytesReceived,
-                ping: conn.stats.ping,
-                packetLoss: conn.stats.packetLoss,
-                compressionEnabled: conn.compressionEnabled,
-              })),
-              rooms: Array.fromIterable(HashMap.values(roomsMap)).map((room) => ({
-                id: room.id,
-                name: room.config.name,
-                currentPlayers: Set.size(room.players),
-                maxPlayers: room.config.maxPlayers,
-                isPrivate: room.config.isPrivate,
-                gameMode: room.config.gameMode,
-                status: room.status,
-                createdAt: room.createdAt,
-                hostPlayer: room.hostPlayer,
-              })),
-              messageQueues: [], // Would populate from actual queue stats
-              networkTraffic: [], // Would populate from traffic sampling
-            }
-          }),
-      }
-    }),
-  )
-}
+            })),
+            messageQueues: [], // Would populate from actual queue stats
+            networkTraffic: [], // Would populate from traffic sampling
+          }
+        }),
+    }
+  }),
+)

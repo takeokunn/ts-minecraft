@@ -69,18 +69,13 @@ export { spatialGridSystem } from '@domain/services/spatial-grid-system.service'
 export { targetingSystem } from '@domain/services/targeting.service'
 
 // Terrain Generation Domain Service
-export { TerrainGenerationDomainService, TerrainGenerationDomainServiceLive, TerrainGenerationUtils } from '@domain/services/terrain-generation-domain.service'
+export { TerrainGenerationDomainService, TerrainGenerationDomainServiceLive } from '@domain/services/terrain-generation-domain.service'
 
 // Mesh Generation Domain Service
-export { MeshGenerationDomainService, MeshGenerationDomainServiceLive, MeshGenerationUtils } from '@domain/services/mesh-generation-domain.service'
+export { MeshGenerationDomainService, MeshGenerationDomainServiceLive } from '@domain/services/mesh-generation-domain.service'
 
 // World Management Domain Service
-export {
-  WorldManagementDomainService,
-  WorldManagementDomainServiceLive,
-  WorldManagementUtils,
-  WorldManagementDomainServicePort,
-} from '@domain/services/world-management-domain.service'
+export { WorldManagementDomainService, WorldManagementDomainServiceLive, WorldManagementDomainServicePort } from '@domain/services/world-management-domain.service'
 export type {
   IWorldManagementDomainService,
   ChunkLoadingStatus,
@@ -93,7 +88,6 @@ export type {
 // Material Configuration Domain Service
 export {
   MaterialConfigDomainServiceLive,
-  MaterialConfigUtils,
   MaterialConfigDomainServicePort,
   MaterialConfigNotFoundError,
   MaterialConfigValidationError,
@@ -104,7 +98,6 @@ export type { IMaterialConfigDomainService, MaterialConfig, MaterialVariant, Mat
 export {
   PerformanceDomainServiceLive,
   PerformanceDomainServicePort,
-  PerformanceDomainUtils,
   PerformanceAnalysisError,
   PerformanceThresholdViolationError,
   PERFORMANCE_THRESHOLDS,
@@ -126,7 +119,6 @@ export type {
 export {
   OptimizationDomainServiceLive,
   OptimizationDomainServicePort,
-  OptimizationDomainUtils,
   OptimizationError,
   LODConfigurationError,
   CullingError,

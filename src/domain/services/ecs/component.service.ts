@@ -3,7 +3,8 @@
  * Handles component registration, validation, and lifecycle management
  */
 
-import { Effect, Context, Layer, HashMap, HashSet, ReadonlyArray, Option, pipe, Ref, Duration, Schema as S } from 'effect'
+import { Effect, Context, Layer, HashMap, HashSet, ReadonlyArray, Option, pipe, Ref, Duration } from 'effect'
+import * as S from '@effect/schema/Schema'
 import { EntityId, ComponentName, ComponentData } from '@domain/services/ecs/archetype-query.service'
 
 // ============================================================================
@@ -12,7 +13,7 @@ import { EntityId, ComponentName, ComponentData } from '@domain/services/ecs/arc
 
 export const ComponentMetadata = S.Struct({
   name: ComponentName,
-  schema: S.optional(S.Unknown), // Schema for validation
+  schema: S.optional(S.Schema<unknown, unknown, unknown>), // Schema for validation
   tags: S.Array(S.String),
   version: S.Number,
   dependencies: S.optional(S.Array(ComponentName)),
@@ -30,7 +31,7 @@ export const ComponentPool = S.Struct({
   available: S.Array(ComponentData),
   inUse: S.Array(ComponentData),
   maxSize: S.Number,
-  factory: S.optional(S.Unknown), // Factory function
+  factory: S.optional(S.Function), // Factory function
 })
 export type ComponentPool = S.Schema.Type<typeof ComponentPool>
 
@@ -204,7 +205,7 @@ export const ComponentServiceLive = Layer.effect(
         })
       })
 
-    // Validate component data
+    // Validate component data using @effect/schema
     const validate = (name: ComponentName, data: unknown) =>
       Effect.gen(function* () {
         yield* Ref.update(validationStats, (stats) => ({
@@ -214,32 +215,50 @@ export const ComponentServiceLive = Layer.effect(
 
         const metadata = yield* get(name)
 
-        // If no schema, accept any data
+        // If no schema, use basic unknown validation
         if (!metadata.schema) {
-          return data as ComponentData
+          try {
+            // Use a basic schema to ensure data is valid
+            const basicSchema = S.Union(S.Record(S.String, S.Unknown), S.Unknown)
+            const validated = S.parseSync(basicSchema)(data)
+            return validated as ComponentData
+          } catch (error) {
+            yield* Ref.update(validationStats, (stats) => ({
+              ...stats,
+              failures: stats.failures + 1,
+            }))
+            return yield* Effect.fail(
+              new ComponentValidationError({
+                message: `Basic validation failed for component ${name}`,
+                componentName: name,
+                validationErrors: [`Schema parsing error: ${error instanceof Error ? error.message : String(error)}`],
+              })
+            )
+          }
         }
 
-        // Validate against schema
+        // Validate against component's schema
         const result = yield* Effect.try({
           try: () => {
-            // Here we would use the actual schema validation
-            // For now, we'll do basic type checking
-            return data as ComponentData
+            const validated = S.parseSync(metadata.schema!)(data)
+            return validated as ComponentData
           },
           catch: (error) => {
-            yield *
-              Ref.update(validationStats, (stats) => ({
-                ...stats,
-                failures: stats.failures + 1,
-              }))
-
             return new ComponentValidationError({
-              message: `Validation failed for component ${name}`,
+              message: `Schema validation failed for component ${name}`,
               componentName: name,
-              validationErrors: [String(error)],
+              validationErrors: [`Schema parsing error: ${error instanceof Error ? error.message : String(error)}`],
             })
           },
         })
+
+        if (result instanceof ComponentValidationError) {
+          yield* Ref.update(validationStats, (stats) => ({
+            ...stats,
+            failures: stats.failures + 1,
+          }))
+          return yield* Effect.fail(result)
+        }
 
         return result
       })
@@ -462,7 +481,7 @@ export const componentBuilder = (name: ComponentName) => ({
         version: (version: number) => ({
           build: (): ComponentMetadata => ({
             name,
-            schema: schema as any,
+            schema: schema as S.Schema<unknown, unknown, unknown>,
             tags,
             version,
             dependencies: dependencies.length > 0 ? dependencies : undefined,
@@ -473,7 +492,7 @@ export const componentBuilder = (name: ComponentName) => ({
       version: (version: number) => ({
         build: (): ComponentMetadata => ({
           name,
-          schema: schema as any,
+          schema: schema as S.Schema<unknown, unknown, unknown>,
           tags,
           version,
           dependencies: undefined,

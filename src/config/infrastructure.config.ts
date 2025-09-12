@@ -2,6 +2,13 @@
  * Infrastructure and technical configuration
  */
 
+/**
+ * Type guard to check if navigator has deviceMemory property
+ */
+const hasDeviceMemoryAPI = (nav: Navigator): nav is Navigator & { deviceMemory: number } => {
+  return 'deviceMemory' in nav && typeof (nav as any).deviceMemory === 'number'
+}
+
 export interface InfrastructureConfig {
   // Rendering configuration
   rendering: {
@@ -265,7 +272,7 @@ const createInfrastructureConfig = (): InfrastructureConfig => {
   // Feature detection and capability adjustment
   if (typeof navigator !== 'undefined') {
     // Adjust based on device capabilities
-    const memory = (navigator as any).deviceMemory
+    const memory = hasDeviceMemoryAPI(navigator) ? navigator.deviceMemory : undefined
     if (memory && memory < 4) {
       // Low memory device
       config.memory.maxHeapSize = 512

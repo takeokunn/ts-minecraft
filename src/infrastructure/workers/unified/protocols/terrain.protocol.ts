@@ -360,14 +360,14 @@ export const extractMeshTransferables = (meshData: MeshData): ArrayBufferView[] 
 }
 
 /**
- * Validate terrain generation request
+ * Validate terrain generation request (internal utility)
  */
-export const validateTerrainRequest = (request: unknown) => S.decodeUnknown(TerrainGenerationRequest)(request)
+const validateTerrainRequest = (request: unknown) => S.decodeUnknown(TerrainGenerationRequest)(request)
 
 /**
- * Validate terrain generation response
+ * Validate terrain generation response (internal utility)
  */
-export const validateTerrainResponse = (response: unknown) => S.decodeUnknown(TerrainGenerationResponse)(response)
+const validateTerrainResponse = (response: unknown) => S.decodeUnknown(TerrainGenerationResponse)(response)
 
 /**
  * Create default biome settings

@@ -16,7 +16,7 @@ import * as Array from 'effect/Array'
 import * as Option from 'effect/Option'
 
 // Base component interface with improved typing
-export interface ComponentMeta<TSchema = S.Schema<any, any, any>> {
+export interface ComponentMeta<TSchema = S.Schema<unknown, unknown, unknown>> {
   readonly id: string
   readonly category: 'physics' | 'rendering' | 'gameplay' | 'world'
   readonly schema: TSchema
@@ -98,7 +98,7 @@ export const ComponentRegistry = {
   /**
    * Register a component with automatic metadata extraction
    */
-  register: <TSchema extends S.Schema<any, any, any>>(stateRef: Ref.Ref<ComponentRegistryState>, meta: ComponentMeta<TSchema>) =>
+  register: <TSchema extends S.Schema<unknown, unknown, unknown>>(stateRef: Ref.Ref<ComponentRegistryState>, meta: ComponentMeta<TSchema>) =>
     Effect.gen(function* () {
       const currentState = yield* Ref.get(stateRef)
       const newState = Data.struct({
@@ -117,7 +117,7 @@ export const ComponentRegistry = {
   /**
    * Get component metadata with type safety
    */
-  getComponent: <TSchema extends S.Schema<any, any, any>>(stateRef: Ref.Ref<ComponentRegistryState>, id: string) =>
+  getComponent: <TSchema extends S.Schema<unknown, unknown, unknown>>(stateRef: Ref.Ref<ComponentRegistryState>, id: string) =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
       return HashMap.get(state.components, id) as Option.Option<ComponentMeta<TSchema>>
@@ -209,7 +209,7 @@ const createArchetype = (state: ComponentRegistryState, componentIds: readonly s
   })
 }
 
-const initializeSoABuffer = (stateRef: Ref.Ref<ComponentRegistryState>, componentId: string, _schema: S.Schema<any, any, any>) =>
+const initializeSoABuffer = (stateRef: Ref.Ref<ComponentRegistryState>, componentId: string, _schema: S.Schema<unknown, unknown, unknown>) =>
   Effect.gen(function* () {
     const buffer = Data.struct({
       componentId,
@@ -272,7 +272,7 @@ export const createGlobalRegistry = () => Effect.runSync(ComponentRegistry.creat
 
 // Enhanced decorator for automatic component registration with typing
 export const RegisterComponent =
-  <TSchema extends S.Schema<any, any, any>>(meta: Omit<ComponentMeta<TSchema>, 'schema' | '_tag'>) =>
+  <TSchema extends S.Schema<unknown, unknown, unknown>>(meta: Omit<ComponentMeta<TSchema>, 'schema' | '_tag'>) =>
   (schema: TSchema): TSchema => {
     const registryRef = createGlobalRegistry()
     Effect.runSync(

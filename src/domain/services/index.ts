@@ -1,15 +1,96 @@
-export * from './ecs'
-export * from './entity-domain.service'
-export * from './world-domain.service'
-export * from './physics-domain.service'
-export * from './chunk-loading.service'
-export * from './targeting-advanced.service'
-export * from './mesh-generation.service'
-export * from './material-config.service'
-export * from './terrain-generation.service'
-export * from './world-management.service'
-export * from './world-management-domain.service'
-export * from './performance-domain.service'
-export * from './optimization-domain.service'
-export * from './service-composition.layer'
+// Re-export from service-exports which already has organized named exports
 export * from './service-exports'
+
+// ECS system exports
+export {
+  // Core ECS types and services
+  EntityId,
+  ComponentName,
+  ComponentData,
+  Entity,
+  ArchetypeSignature,
+  Archetype,
+  QueryMetrics,
+  ArchetypeError,
+  QueryError,
+  ArchetypeService,
+  ArchetypeServiceLive,
+  QueryService,
+  QueryServiceLive,
+  createQuery,
+  parallelQueries,
+  batchQuery,
+  // Component services
+  ComponentMetadata,
+  ComponentRegistry,
+  ComponentPool,
+  ComponentError,
+  ComponentValidationError,
+  ComponentService,
+  ComponentServiceLive,
+  ComponentPoolService,
+  ComponentPoolServiceLive,
+  componentBuilder,
+  batchRegister,
+  validateComponents,
+  ComponentSystemLive,
+  // System layers
+  ECSSystemLive,
+  // Optimized query services
+  IndexType,
+  Index,
+  QueryOptimization,
+  ExecutionPlan,
+  IndexService,
+  QueryOptimizerService,
+  ParallelQueryExecutor,
+  IndexServiceLive,
+  QueryOptimizerServiceLive,
+  ParallelQueryExecutorLive,
+  OptimizedQuerySystemLive,
+  queryMetrics,
+  withMetrics,
+  createOptimizedQuery,
+  // Query builder services
+  QueryOperator,
+  QueryCondition,
+  QueryNode,
+  QueryExpression,
+  QueryPlan,
+  QueryBuilderService,
+  QueryBuilderServiceLive,
+  query,
+  find,
+  exclude,
+  spatialQuery,
+  tagQuery,
+  hierarchyQuery,
+} from './ecs'
+
+export type {
+  // ECS types
+  EntityIdType,
+  ComponentNameType,
+  ComponentDataType,
+  EntityType,
+  ArchetypeSignatureType,
+  ArchetypeType,
+  QueryMetricsType,
+  ComponentMetadataType,
+  ComponentRegistryType,
+  ComponentPoolType,
+  IndexTypeType,
+  IndexType as IndexTypeAlias,
+  QueryOptimizationType,
+  ExecutionPlanType,
+  QueryOperatorType,
+  QueryConditionType,
+  QueryNodeType,
+  QueryExpressionType,
+  QueryPlanType,
+  QueryBuilder,
+  CompiledQuery,
+} from './ecs'
+
+// Service composition layer
+export * from './service-composition.layer'

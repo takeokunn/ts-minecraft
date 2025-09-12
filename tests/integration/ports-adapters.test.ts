@@ -8,6 +8,7 @@
 
 import { describe, it, expect, beforeAll } from 'vitest'
 import { Effect, Layer } from 'effect'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@shared/constants/world'
 
 // Import layers and all ports
 import { TestLayer } from '@infrastructure/layers'
@@ -424,11 +425,11 @@ describe('Port/Adapter Integration Tests', () => {
         expect(generatedChunk.x).toBe(0)
         expect(generatedChunk.z).toBe(0)
         expect(generatedChunk.blocks).toBeDefined()
-        expect(generatedChunk.blocks.length).toBe(16 * 16 * 16)
+        expect(generatedChunk.blocks.length).toBe(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
 
         // Test height map generation
         const heightMap = yield* terrainGenerator.generateHeightMap(chunkCoords, seed)
-        expect(heightMap.length).toBe(16 * 16)
+        expect(heightMap.length).toBe(CHUNK_SIZE * CHUNK_SIZE)
 
         // Test biome generation
         const biome = yield* terrainGenerator.getBiome(chunkCoords, seed)
@@ -458,7 +459,7 @@ describe('Port/Adapter Integration Tests', () => {
         for (const config of configs) {
           const chunk = yield* terrainGenerator.generateChunk({ x: 0, z: 0 }, config.seed)
           expect(chunk.blocks).toBeDefined()
-          expect(chunk.blocks.length).toBe(16 * 16 * 16)
+          expect(chunk.blocks.length).toBe(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
         }
 
         return true

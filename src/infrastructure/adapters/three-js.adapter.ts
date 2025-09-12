@@ -14,6 +14,7 @@ import * as Ref from 'effect/Ref'
 import * as Match from 'effect/Match'
 import * as Option from 'effect/Option'
 import * as THREE from 'three'
+import { CHUNK_SIZE } from '@shared/constants/world'
 import {
   IRenderPort,
   Camera,
@@ -163,7 +164,7 @@ export const ThreeJsAdapterLive = Layer.scoped(
 
               const wireframe = yield* _(Ref.get(isWireframe))
               const mesh = new THREE.Mesh(geometry, wireframe ? wireframeMaterial : chunkMaterial)
-              mesh.position.set(meshData.chunkX * 16, 0, meshData.chunkZ * 16)
+              mesh.position.set(meshData.chunkX * CHUNK_SIZE, 0, meshData.chunkZ * CHUNK_SIZE)
 
               const id = yield* _(generateMeshId())
               const handle: MeshHandle = { id, chunkX: meshData.chunkX, chunkZ: meshData.chunkZ }
@@ -269,7 +270,7 @@ export const ThreeJsAdapterLive = Layer.scoped(
 
               const wireframe = yield* _(Ref.get(isWireframe))
               const mesh = new THREE.Mesh(geometry, wireframe ? wireframeMaterial : chunkMaterial)
-              mesh.position.set(chunkX * 16, 0, chunkZ * 16)
+              mesh.position.set(chunkX * CHUNK_SIZE, 0, chunkZ * CHUNK_SIZE)
 
               threeJsContext.scene.add(mesh)
               yield* _(Ref.update(chunkMeshes, (map) => map.set(`${chunkX},${chunkZ}`, mesh)))

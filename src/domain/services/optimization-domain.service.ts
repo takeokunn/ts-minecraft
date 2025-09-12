@@ -7,6 +7,7 @@
  */
 
 import { Effect, Context, Layer } from 'effect'
+import { Schema } from '@effect/schema'
 import type { EntityId } from '@domain/entities'
 
 /**
@@ -140,26 +141,26 @@ export interface QualitySettings {
 /**
  * Domain errors
  */
-export class OptimizationError extends Error {
-  readonly _tag = 'OptimizationError'
-  constructor(public readonly reason: string) {
-    super(`Optimization failed: ${reason}`)
-  }
-}
+export const OptimizationError = Schema.TaggedError<OptimizationError>()('OptimizationError', {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+  reason: Schema.String,
+})
+export type OptimizationError = Schema.Schema.Type<typeof OptimizationError>
 
-export class LODConfigurationError extends Error {
-  readonly _tag = 'LODConfigurationError'
-  constructor(public readonly reason: string) {
-    super(`LOD configuration error: ${reason}`)
-  }
-}
+export const LODConfigurationError = Schema.TaggedError<LODConfigurationError>()('LODConfigurationError', {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+  reason: Schema.String,
+})
+export type LODConfigurationError = Schema.Schema.Type<typeof LODConfigurationError>
 
-export class CullingError extends Error {
-  readonly _tag = 'CullingError'
-  constructor(public readonly reason: string) {
-    super(`Culling error: ${reason}`)
-  }
-}
+export const CullingError = Schema.TaggedError<CullingError>()('CullingError', {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+  reason: Schema.String,
+})
+export type CullingError = Schema.Schema.Type<typeof CullingError>
 
 /**
  * Optimization constants and defaults
@@ -459,7 +460,12 @@ export interface IOptimizationDomainService {
 const calculateLODPure = (entityId: EntityId, distance: number, config: LODConfiguration): Effect.Effect<LODConfiguration, LODConfigurationError, never> =>
   Effect.gen(function* () {
     if (config.levels.length === 0) {
-      throw new LODConfigurationError('LOD configuration must have at least one level')
+      yield* Effect.fail(
+        LODConfigurationError.make({
+          message: 'LOD configuration error: LOD configuration must have at least one level',
+          reason: 'LOD configuration must have at least one level',
+        }),
+      )
     }
 
     if (!config.enabled) {
@@ -537,7 +543,12 @@ const optimizeBatchingPure = (
     }
 
     if (strategy.maxBatchSize <= 0) {
-      throw new OptimizationError('Batch size must be positive')
+      yield* Effect.fail(
+        OptimizationError.make({
+          message: 'Optimization failed: Batch size must be positive',
+          reason: 'Batch size must be positive',
+        }),
+      )
     }
 
     return createOptimalBatches(entities, spatialData, strategy)
@@ -625,23 +636,48 @@ const adjustQualityDynamicallyPure = (
 const validateOptimizationTargetsPure = (targets: OptimizationTargets): Effect.Effect<boolean, OptimizationError, never> =>
   Effect.gen(function* () {
     if (targets.targetFPS <= 0) {
-      throw new OptimizationError('Target FPS must be positive')
+      yield* Effect.fail(
+        OptimizationError.make({
+          message: 'Optimization failed: Target FPS must be positive',
+          reason: 'Target FPS must be positive',
+        }),
+      )
     }
 
     if (targets.maxDrawCalls <= 0) {
-      throw new OptimizationError('Max draw calls must be positive')
+      yield* Effect.fail(
+        OptimizationError.make({
+          message: 'Optimization failed: Max draw calls must be positive',
+          reason: 'Max draw calls must be positive',
+        }),
+      )
     }
 
     if (targets.maxTriangles <= 0) {
-      throw new OptimizationError('Max triangles must be positive')
+      yield* Effect.fail(
+        OptimizationError.make({
+          message: 'Optimization failed: Max triangles must be positive',
+          reason: 'Max triangles must be positive',
+        }),
+      )
     }
 
     if (targets.maxMemoryUsage <= 0) {
-      throw new OptimizationError('Max memory usage must be positive')
+      yield* Effect.fail(
+        OptimizationError.make({
+          message: 'Optimization failed: Max memory usage must be positive',
+          reason: 'Max memory usage must be positive',
+        }),
+      )
     }
 
     if (targets.lodBias < -1.0 || targets.lodBias > 1.0) {
-      throw new OptimizationError('LOD bias must be between -1.0 and 1.0')
+      yield* Effect.fail(
+        OptimizationError.make({
+          message: 'Optimization failed: LOD bias must be between -1.0 and 1.0',
+          reason: 'LOD bias must be between -1.0 and 1.0',
+        }),
+      )
     }
 
     return true
@@ -662,12 +698,12 @@ const optimizationDomainService: IOptimizationDomainService = {
 /**
  * Context tag for dependency injection
  */
-export const OptimizationDomainServicePort = Context.GenericTag<IOptimizationDomainService>('@domain/OptimizationDomainService')
+export const OptimizationDomainService = Context.GenericTag<IOptimizationDomainService>('OptimizationDomainService')
 
 /**
  * Live layer for Optimization Domain Service
  */
-export const OptimizationDomainServiceLive = Layer.succeed(OptimizationDomainServicePort, optimizationDomainService)
+export const OptimizationDomainServiceLive = Layer.succeed(OptimizationDomainService, optimizationDomainService)
 
 /**
  * Utility functions for optimization domain operations

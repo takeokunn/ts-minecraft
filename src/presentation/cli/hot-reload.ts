@@ -1,11 +1,100 @@
 import { Effect, Ref } from 'effect'
+import * as S from '@effect/schema/Schema'
+import { pipe } from 'effect/Function'
+import { isRecord, hasProperty, safeParseNumber } from '@shared/utils/type-guards'
 
-// Interface for global state objects
+// Type definitions for file system watcher and module namespace
+interface FileSystemWatcher {
+  close(): void
+}
+
+interface ModuleNamespace {
+  [key: string]: unknown
+}
+
+// Schema definitions for game state validation
+const GameStateSchema = S.Record(S.String, S.Unknown)
+const UserSettingsSchema = S.Record(S.String, S.Unknown)
+const DebugStateSchema = S.Record(S.String, S.Unknown)
+const PlayerPositionSchema = S.Struct({
+  x: S.Number,
+  y: S.Number,
+  z: S.Number,
+  rotation: S.optional(
+    S.Struct({
+      pitch: S.Number,
+      yaw: S.Number,
+    }),
+  ),
+})
+
+// Validation utilities
+const validateGameState = (state: unknown): Effect.Effect<Record<string, unknown>, never, never> => {
+  if (state == null) return Effect.succeed({})
+  if (typeof state === 'object' && !Array.isArray(state)) {
+    return Effect.succeed(state as Record<string, unknown>)
+  }
+  return Effect.succeed({ value: state, type: typeof state })
+}
+
+const validateUserSettings = (settings: unknown): Effect.Effect<Record<string, unknown>, never, never> => {
+  if (settings == null) return Effect.succeed({})
+  if (typeof settings === 'object' && !Array.isArray(settings)) {
+    return Effect.succeed(settings as Record<string, unknown>)
+  }
+  return Effect.succeed({ value: settings, type: typeof settings })
+}
+
+const validateDebugState = (state: unknown): Effect.Effect<Record<string, unknown>, never, never> => {
+  if (state == null) return Effect.succeed({})
+  if (typeof state === 'object' && !Array.isArray(state)) {
+    return Effect.succeed(state as Record<string, unknown>)
+  }
+  return Effect.succeed({ value: state, type: typeof state })
+}
+
+const validatePlayerPosition = (position: unknown): Effect.Effect<{ x: number; y: number; z: number; rotation?: { pitch: number; yaw: number } }, never, never> => {
+  if (position == null) return Effect.succeed({ x: 0, y: 0, z: 0 })
+
+  if (isRecord(position)) {
+    const validatedPos = {
+      x: hasProperty(position, 'x') && typeof position.x === 'number' ? position.x : 0,
+      y: hasProperty(position, 'y') && typeof position.y === 'number' ? position.y : 0,
+      z: hasProperty(position, 'z') && typeof position.z === 'number' ? position.z : 0,
+      rotation: undefined as { pitch: number; yaw: number } | undefined,
+    }
+
+    // Validate rotation if present
+    if (hasProperty(position, 'rotation') && isRecord(position.rotation)) {
+      const rotation = position.rotation
+      if (
+        hasProperty(rotation, 'pitch') &&
+        hasProperty(rotation, 'yaw') &&
+        typeof rotation.pitch === 'number' &&
+        typeof rotation.yaw === 'number'
+      ) {
+        validatedPos.rotation = { pitch: rotation.pitch, yaw: rotation.yaw }
+      }
+    }
+
+    return Effect.succeed(validatedPos)
+  }
+
+  return Effect.succeed({ x: 0, y: 0, z: 0 })
+}
+
+const validateUnknownStateValue = (value: unknown): Effect.Effect<unknown, never, never> => {
+  // For unknown values, we just return them as-is for now
+  // but we could add more sophisticated validation here
+  return Effect.succeed(value)
+}
+
+// Interface for global state objects with validated types
 interface GlobalGameState {
-  gameState?: unknown
-  userSettings?: unknown
-  debugState?: unknown
-  playerPosition?: unknown
+  gameState?: Record<string, unknown>
+  userSettings?: Record<string, unknown>
+  debugState?: Record<string, unknown>
+  playerPosition?: { x: number; y: number; z: number; rotation?: { pitch: number; yaw: number } }
   [key: string]: unknown
 }
 
@@ -34,7 +123,7 @@ export interface HotReloadState {
   totalReloads: number
   watchedFiles: Set<string>
   pendingChanges: FileChange[]
-  preservedState: Record<string, any>
+  preservedState: Record<string, unknown>
 }
 
 export const createHotReloadManager = (config: Partial<HotReloadConfig> = {}) =>
@@ -59,7 +148,7 @@ export const createHotReloadManager = (config: Partial<HotReloadConfig> = {}) =>
       preservedState: {},
     })
 
-    const watcherRef = yield* Ref.make<any>(null)
+    const watcherRef = yield* Ref.make<FileSystemWatcher | null>(null)
     const debounceTimeoutRef = yield* Ref.make<number | null>(null)
     const overlayRef = yield* Ref.make<HTMLElement | null>(null)
     const isReloadingRef = yield* Ref.make(false)
@@ -331,7 +420,7 @@ export const createHotReloadManager = (config: Partial<HotReloadConfig> = {}) =>
         yield* Effect.log(`📦 Module reloaded: ${path}`)
       })
 
-    const preserveCurrentState = (data?: any) =>
+    const preserveCurrentState = (data?: Record<string, unknown>) =>
       Effect.gen(function* () {
         if (!defaultConfig.enableStatePreservation) return
 
@@ -339,12 +428,12 @@ export const createHotReloadManager = (config: Partial<HotReloadConfig> = {}) =>
 
         // Preserve state to the data object (for HMR)
         if (data) {
-          defaultConfig.preservedStateKeys.forEach((key) => {
-            const value = getStateValue(key)
+          for (const key of defaultConfig.preservedStateKeys) {
+            const value = yield* getStateValue(key)
             if (value !== undefined) {
               data[key] = value
             }
-          })
+          }
         }
 
         // Also preserve to localStorage as backup
@@ -354,14 +443,14 @@ export const createHotReloadManager = (config: Partial<HotReloadConfig> = {}) =>
     const preserveStateToStorage = () =>
       Effect.gen(function* () {
         try {
-          const stateToPreserve: Record<string, any> = {}
+          const stateToPreserve: Record<string, unknown> = {}
 
-          defaultConfig.preservedStateKeys.forEach((key) => {
-            const value = getStateValue(key)
+          for (const key of defaultConfig.preservedStateKeys) {
+            const value = yield* getStateValue(key)
             if (value !== undefined) {
               stateToPreserve[key] = value
             }
-          })
+          }
 
           localStorage.setItem('hot-reload-preserved-state', JSON.stringify(stateToPreserve))
           yield* Effect.log('💾 State preserved to storage')
@@ -370,24 +459,25 @@ export const createHotReloadManager = (config: Partial<HotReloadConfig> = {}) =>
         }
       })
 
-    const getStateValue = (key: string): any => {
-      const globalState = globalThis as typeof globalThis & GlobalGameState
+    const getStateValue = (key: string) =>
+      Effect.gen(function* () {
+        const globalState = globalThis as typeof globalThis & GlobalGameState
 
-      switch (key) {
-        case 'gameState':
-          return globalState.gameState
-        case 'userSettings':
-          return globalState.userSettings
-        case 'debugState':
-          return globalState.debugState
-        case 'playerPosition':
-          return globalState.playerPosition
-        default:
-          return globalState[key]
-      }
-    }
+        switch (key) {
+          case 'gameState':
+            return yield* validateGameState(globalState.gameState)
+          case 'userSettings':
+            return yield* validateUserSettings(globalState.userSettings)
+          case 'debugState':
+            return yield* validateDebugState(globalState.debugState)
+          case 'playerPosition':
+            return yield* validatePlayerPosition(globalState.playerPosition)
+          default:
+            return yield* validateUnknownStateValue(globalState[key])
+        }
+      })
 
-    const setStateValue = (key: string, value: any): void => {
+    const setStateValue = (key: string, value: unknown): void => {
       const globalState = globalThis as typeof globalThis & GlobalGameState
 
       switch (key) {
@@ -523,7 +613,7 @@ export const createHotReloadManager = (config: Partial<HotReloadConfig> = {}) =>
         })
       })
 
-    const handleHMRUpdate = (newModule: any) =>
+    const handleHMRUpdate = (newModule: ModuleNamespace) =>
       Effect.gen(function* () {
         yield* Effect.log(`🔄 Handling HMR update: ${newModule}`)
 
@@ -540,7 +630,7 @@ export const createHotReloadManager = (config: Partial<HotReloadConfig> = {}) =>
         }, 1000)
       })
 
-    const handleDevToolsReload = (data: any) =>
+    const handleDevToolsReload = (data: Record<string, unknown>) =>
       Effect.gen(function* () {
         yield* Effect.log(`🔧 Handling dev tools reload: ${data}`)
 
@@ -649,10 +739,7 @@ export const createHotReloadManager = (config: Partial<HotReloadConfig> = {}) =>
     }
   })
 
-// Factory function for easier usage
-export const createHotReloadManagerFactory = (config?: Partial<HotReloadConfig>) => {
-  return Effect.runSync(createHotReloadManager(config))
-}
+// Removed unused factory function
 
 // Auto-initialize on module load in development
 if (import.meta.env.DEV) {

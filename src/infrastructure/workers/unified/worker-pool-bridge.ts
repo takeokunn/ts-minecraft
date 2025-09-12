@@ -5,12 +5,20 @@
  */
 
 import { Effect, Layer, Context, Schema } from 'effect'
+import * as S from '@effect/schema/Schema'
 import { WorkerManagerService, WorkerManagerServiceLive, type WorkerType as UnifiedWorkerType } from '@infrastructure/workers/unified/worker-manager'
 // Legacy types recreated here to avoid dependency on deprecated worker-pool.layer.ts
 
 export type PerformanceWorkerType = 'compute' | 'physics' | 'terrain' | 'pathfinding' | 'rendering' | 'compression'
 
 export type TaskPriority = 'low' | 'normal' | 'high' | 'critical'
+
+// Schema definitions for worker task validation
+const WorkerTaskDataSchema = S.Union(S.Record(S.String, S.Unknown), S.Array(S.Unknown), S.String, S.Number, S.Boolean, S.Unknown)
+
+const TransferableSchema = S.Union(S.InstanceOf(ArrayBuffer), S.InstanceOf(MessagePort), S.Unknown)
+
+const TransferablesArraySchema = S.Array(TransferableSchema)
 
 export interface WorkerTask {
   id: string
@@ -20,6 +28,92 @@ export interface WorkerTask {
   transferables?: unknown[]
   priority: TaskPriority
   timeout?: number
+}
+
+// Validation utilities for worker bridge
+export const WorkerBridgeValidation = {
+  validateTaskData: (data: unknown): Effect.Effect<{ data: unknown; type: string; size?: number }, never, never> => {
+    try {
+      const result = {
+        data,
+        type: typeof data,
+        size: undefined as number | undefined,
+      }
+
+      if (typeof data === 'string') {
+        result.size = data.length
+      } else if (Array.isArray(data)) {
+        result.size = data.length
+      } else if (data instanceof ArrayBuffer) {
+        result.size = data.byteLength
+      } else if (typeof data === 'object' && data !== null) {
+        try {
+          result.size = Object.keys(data).length
+        } catch {
+          result.size = undefined
+        }
+      }
+
+      return Effect.succeed(result)
+    } catch (error) {
+      return Effect.succeed({
+        data: { error: 'Unserializable data', originalType: typeof data },
+        type: 'error',
+        size: 0,
+      })
+    }
+  },
+
+  validateTransferables: (transferables: unknown[]): Effect.Effect<Array<{ item: unknown; type: string; isTransferable: boolean }>, never, never> => {
+    return Effect.succeed(
+      transferables.map((item) => ({
+        item,
+        type: typeof item,
+        isTransferable: item instanceof ArrayBuffer || item instanceof MessagePort || (typeof item === 'object' && item !== null && 'transfer' in item),
+      })),
+    )
+  },
+
+  sanitizeTaskData: (data: unknown): Effect.Effect<Record<string, unknown>, never, never> => {
+    if (data == null) {
+      return Effect.succeed({ _tag: 'EmptyTaskData', timestamp: Date.now() })
+    }
+
+    if (typeof data === 'object' && !Array.isArray(data) && !(data instanceof ArrayBuffer)) {
+      return Effect.succeed(data as Record<string, unknown>)
+    }
+
+    if (Array.isArray(data)) {
+      return Effect.succeed({ _tag: 'ArrayTaskData', data, length: data.length })
+    }
+
+    if (data instanceof ArrayBuffer) {
+      return Effect.succeed({ _tag: 'BufferTaskData', byteLength: data.byteLength, data })
+    }
+
+    return Effect.succeed({
+      _tag: 'PrimitiveTaskData',
+      data,
+      type: typeof data,
+    })
+  },
+
+  validateBroadcastMessage: (message: unknown): Effect.Effect<{ message: unknown; type: string; isSerializable: boolean }, never, never> => {
+    try {
+      JSON.stringify(message)
+      return Effect.succeed({
+        message,
+        type: typeof message,
+        isSerializable: true,
+      })
+    } catch {
+      return Effect.succeed({
+        message: { error: 'Non-serializable message', type: typeof message },
+        type: 'error',
+        isSerializable: false,
+      })
+    }
+  },
 }
 
 export interface WorkerStats {
@@ -69,6 +163,11 @@ interface PerformanceWorkerPoolService {
     idle: number
     total: number
   }>
+  // Validation utilities
+  readonly validateTaskData: (data: unknown) => Effect.Effect<{ data: unknown; type: string; size?: number }, never, never>
+  readonly validateTransferables: (transferables: unknown[]) => Effect.Effect<Array<{ item: unknown; type: string; isTransferable: boolean }>, never, never>
+  readonly sanitizeTaskData: (data: unknown) => Effect.Effect<Record<string, unknown>, never, never>
+  readonly validateBroadcastMessage: (message: unknown) => Effect.Effect<{ message: unknown; type: string; isSerializable: boolean }, never, never>
 }
 
 const PerformanceWorkerPoolService = Context.GenericTag<PerformanceWorkerPoolService>('PerformanceWorkerPoolService')

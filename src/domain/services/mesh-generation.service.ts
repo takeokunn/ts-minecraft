@@ -370,20 +370,26 @@ export const EnhancedMeshAlgorithms = {
   /**
    * Get texture ID for a block face
    */
-  getTextureId: (textureInfo: any, faceDirection: FaceDirectionType): number => {
+  getTextureId: (textureInfo: unknown, faceDirection: FaceDirectionType): number => {
     // Simple texture ID mapping - in a real implementation this would use a texture atlas
-    if ('all' in textureInfo) {
-      return EnhancedMeshAlgorithms.hashStringToId(textureInfo.all)
+    if (typeof textureInfo === 'object' && textureInfo !== null && 'all' in textureInfo) {
+      return EnhancedMeshAlgorithms.hashStringToId((textureInfo as { all: string }).all)
     }
 
-    switch (faceDirection) {
-      case FaceDirection.TOP:
-        return EnhancedMeshAlgorithms.hashStringToId(textureInfo.top ?? textureInfo.all ?? 'default')
-      case FaceDirection.BOTTOM:
-        return EnhancedMeshAlgorithms.hashStringToId(textureInfo.bottom ?? textureInfo.all ?? 'default')
-      default:
-        return EnhancedMeshAlgorithms.hashStringToId(textureInfo.sides ?? textureInfo.all ?? 'default')
+    if (typeof textureInfo === 'object' && textureInfo !== null) {
+      const textureObj = textureInfo as Record<string, string>
+      switch (faceDirection) {
+        case FaceDirection.TOP:
+          return EnhancedMeshAlgorithms.hashStringToId(textureObj.top ?? textureObj.all ?? 'default')
+        case FaceDirection.BOTTOM:
+          return EnhancedMeshAlgorithms.hashStringToId(textureObj.bottom ?? textureObj.all ?? 'default')
+        default:
+          return EnhancedMeshAlgorithms.hashStringToId(textureObj.sides ?? textureObj.all ?? 'default')
+      }
     }
+    
+    // Fallback for non-object textureInfo
+    return EnhancedMeshAlgorithms.hashStringToId('default')
   },
 
   /**

@@ -1,105 +1,64 @@
-// Error handling utilities
-export {
-  type ErrorHandlingStrategy,
-  type ErrorHandlingContext,
-  type RetryConfig,
-  type ErrorHandler,
-  ErrorHandlers,
-  ErrorRecovery,
-  PerformanceAwareErrorHandling,
-  ErrorReporting,
-  createComponentErrorHandler,
-  withErrorHandling,
-  handleError,
-  recoverFromError,
-  reportErrors,
-} from './error-handling'
+// Enhanced utility exports with Context.Tag standards
 
-// Logging utilities
-export { type LogLevel, type LogEntry, type LoggerConfig, Logger, createComponentLogger, DevLogger } from './logging'
-
-// Monitoring utilities
-export {
-  type PerformanceMetrics,
-  type HealthCheck,
-  type SystemStatus,
-  type MonitoringConfig,
-  registerHealthCheck,
-  PerformanceMonitor,
-  HealthMonitor,
-  withMonitoring,
-  createComponentMonitor,
-} from './monitoring'
-
-// Validation utilities
-export {
-  type ValidationResult,
-  type ValidationContext,
-  type ValidatorFn,
-  type ValidationRule,
-  Validators,
-  ValidationChain,
-  ValidationUtils,
-  GameValidators,
-  createComponentValidator,
-} from './validation'
-
-// Common utilities
+// Common utilities (used across layers)
 export {
   isNotNull,
   isNotUndefined,
-  isNotNullish,
-  safeArrayAccess,
   deepClone,
-  debounce,
-  throttle,
-  range,
-  memoize,
-  groupBy,
-  unique,
-  chunk,
-  flatten,
   generateId,
-  formatBytes,
   sleep,
   retry,
 } from './common'
 
 // Effect utilities
 export {
-  withErrorLog,
-  withTiming,
-  retryWithBackoff,
-  forEachWithConcurrency,
-  cached,
-  withCleanup,
-  withPerformanceMonitoring,
-  withFallback,
-  withTimeout,
-  batchOperations,
-  createCircuitBreaker,
-  memoize,
-  type CircuitBreakerState,
-  type CircuitBreakerConfig,
+  // Re-exported from effect utils if needed
 } from './effect'
 
-// Math utilities
+// Error handling utilities (used across layers)
+export {
+  type ErrorHandlingStrategy,
+  type RetryConfig,
+  ErrorHandlers,
+  withErrorHandling,
+  handleError,
+} from './error-handling'
+
+// Logging utilities (used in error handling and monitoring)
+export {
+  type LogLevel,
+  type LogEntry,
+  Logger,
+} from './logging'
+
+// Math utilities (used in physics)
 export {
   Float,
-  type Float as FloatType,
+  type FloatType,
   toFloat,
   Int,
-  type Int as IntType,
+  type IntType,
   toInt,
   clamp,
   lerp,
-  smoothstep,
-  inverseLerp,
-  Vector2,
-  type Vector2 as Vector2Type,
-  createVector2,
   Vector3,
-  type Vector3 as Vector3Type,
+  type Vector3Type,
   createVector3,
-  VectorOps,
 } from './math'
+
+// Monitoring utilities (used in shared utils)
+export {
+  type PerformanceMetrics,
+  PerformanceMonitor,
+} from './monitoring'
+
+// Validation utilities
+export {
+  type ValidationResult,
+  Validators,
+} from './validation'
+
+// Context tag standards
+export {
+  // Context tag utilities if any
+} from './context-tag-standards'

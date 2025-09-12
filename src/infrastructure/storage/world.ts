@@ -7,6 +7,7 @@ import { type Voxel } from '@domain/world'
 import { WorldService as World } from '@domain/services/world.service'
 import { Effect, HashMap, HashSet, Layer, Option, Ref } from 'effect'
 import * as S from '@domain/schemas/Schema'
+import { CHUNK_SIZE } from '@shared/constants/world'
 
 // Import errors from centralized location
 import { ComponentNotFoundError, QuerySingleResultNotFoundError, ComponentDecodeError } from '@domain/errors'
@@ -216,7 +217,7 @@ export const WorldLive = Layer.effect(
       }))
 
     const getVoxel = (x: number, y: number, z: number) =>
-      getChunk(Math.floor(x / 16), Math.floor(z / 16)).pipe(
+      getChunk(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)).pipe(
         Effect.map(
           Option.match({
             onNone: () => Option.none<Voxel>(),
@@ -238,7 +239,7 @@ export const WorldLive = Layer.effect(
       )
 
     const setVoxel = (x: number, y: number, z: number, voxel: Voxel) =>
-      getChunk(Math.floor(x / 16), Math.floor(z / 16)).pipe(
+      getChunk(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)).pipe(
         Effect.flatMap(
           Option.match({
             onNone: () => Effect.void,

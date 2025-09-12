@@ -9,7 +9,22 @@ import * as Effect from 'effect/Effect'
 import * as Schema from '@effect/schema/Schema'
 import * as ParseResult from '@effect/schema/ParseResult'
 import { pipe } from 'effect/Function'
-import { ValidationError } from '@domain/errors'
+// Note: Using local ValidationError definition to avoid domain layer dependency
+export class ValidationError extends Error {
+  public readonly context?: {
+    field?: string
+    component?: string
+    operation?: string
+    metadata?: Record<string, unknown>
+    cause?: unknown
+  }
+
+  constructor(options: { message: string; context?: ValidationError['context'] }) {
+    super(options.message)
+    this.name = 'ValidationError'
+    this.context = options.context
+  }
+}
 
 // Common validation result types
 export type ValidationResult<T> = Effect.Effect<T, ValidationError, never>

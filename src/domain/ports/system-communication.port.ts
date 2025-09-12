@@ -43,17 +43,17 @@ export interface SystemMessage {
   readonly priority: MessagePriority
   readonly sender: string
   readonly recipients: readonly string[]
-  readonly payload: any
+  readonly payload: unknown
   readonly timestamp: number
   readonly frameId: number
   readonly expirationTime?: number
-  readonly metadata?: Record<string, any>
+  readonly metadata?: Record<string, unknown>
 }
 
 /**
  * Message handler function
  */
-export type MessageHandler<T = any> = (message: SystemMessage<T>) => Effect.Effect<void, Error>
+export type MessageHandler<T = unknown> = (message: SystemMessage<T>) => Effect.Effect<void, Error>
 
 /**
  * Message filter function
@@ -81,12 +81,12 @@ export interface CommunicationStats {
 export interface SystemCommunicationPort {
   readonly sendMessage: (
     type: SystemMessageType,
-    payload: any,
+    payload: unknown,
     options: {
       sender: string
       recipients?: string[]
       priority?: MessagePriority
-      metadata?: Record<string, any>
+      metadata?: Record<string, unknown>
       expirationMs?: number
       frameId?: number
     },

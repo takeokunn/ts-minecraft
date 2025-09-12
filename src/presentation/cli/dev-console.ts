@@ -1,11 +1,12 @@
 import { World } from '@domain/entities'
 import { Effect, Ref } from 'effect'
+import * as Option from 'effect/Option'
 
 export interface ConsoleCommand {
   name: string
   description: string
   parameters?: string[]
-  execute: (args: string[]) => any
+  execute: (args: string[]) => Effect.Effect<unknown, unknown, never>
 }
 
 export interface DevConsoleState {
@@ -161,8 +162,11 @@ export const createDevConsole = (world: World) =>
             Effect.gen(function* () {
               switch (event.key) {
                 case 'Enter':
-                  yield* executeCommand(state.inputElement!.value)
-                  state.inputElement!.value = ''
+                  if (state.inputElement) {
+                    const value = state.inputElement.value
+                    yield* executeCommand(value)
+                    state.inputElement.value = ''
+                  }
                   break
                 case 'Escape':
                   yield* close()
@@ -206,21 +210,25 @@ export const createDevConsole = (world: World) =>
 
         yield* Ref.update(stateRef, (s) => ({ ...s, historyIndex: newHistoryIndex }))
 
-        if (newHistoryIndex === -1) {
-          state.inputElement!.value = ''
-        } else {
-          state.inputElement!.value = state.commandHistory[newHistoryIndex] || ''
+        if (state.inputElement) {
+          if (newHistoryIndex === -1) {
+            state.inputElement.value = ''
+          } else {
+            state.inputElement.value = state.commandHistory[newHistoryIndex] || ''
+          }
         }
       })
 
     const autocomplete = () =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        const input = state.inputElement!.value
+        if (!state.inputElement) return
+
+        const input = state.inputElement.value
         const commands = Array.from(state.commands.keys()).filter((cmd) => cmd.startsWith(input))
 
         if (commands.length === 1) {
-          state.inputElement!.value = commands[0] + ' '
+          state.inputElement.value = commands[0] + ' '
         } else if (commands.length > 1) {
           yield* print(`Available commands: ${commands.join(', ')}`)
         }
@@ -382,6 +390,6 @@ export const createDevConsole = (world: World) =>
   })
 
 // Factory function for easier usage
-export const createDevConsoleFactory = (world: World) => {
+const createDevConsoleFactory = (world: World) => {
   return Effect.runSync(createDevConsole(world))
 }

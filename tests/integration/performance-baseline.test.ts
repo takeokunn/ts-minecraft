@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { Effect, Layer, Duration, Clock, TestClock } from 'effect'
+import { Effect, Layer, Duration, Clock, TestClock, Ref } from 'effect'
 
 // Import layers and services
 import { TestLayer, AppLayer, DomainLayer, InfrastructureLayer } from '@/layers'
@@ -25,66 +25,86 @@ interface PerformanceMetric {
   timestamp: number
 }
 
-class PerformanceTracker {
-  private metrics: PerformanceMetric[] = []
+// Functional PerformanceTracker using Effect-TS patterns
+interface PerformanceTracker {
+  readonly measure: <T>(operation: string, fn: () => Promise<T>) => Effect.Effect<T, never, never>
+  readonly getMetrics: Effect.Effect<PerformanceMetric[], never, never>
+  readonly getAverageFor: (operation: string) => Effect.Effect<{ avgDuration: number; avgMemory: number }, never, never>
+  readonly clear: Effect.Effect<void, never, never>
+}
 
-  async measure<T>(operation: string, fn: () => Promise<T>): Promise<T> {
-    const startMemory = process.memoryUsage().heapUsed
-    const startTime = performance.now()
+const createPerformanceTracker = Effect.gen(function* () {
+  const metricsRef = yield* Ref.make<PerformanceMetric[]>([])
 
-    const result = await fn()
+  const measure = <T>(operation: string, fn: () => Promise<T>): Effect.Effect<T, never, never> =>
+    Effect.gen(function* () {
+      const startMemory = process.memoryUsage().heapUsed
+      const startTime = performance.now()
 
-    const endTime = performance.now()
-    const endMemory = process.memoryUsage().heapUsed
+      const result = yield* Effect.promise(() => fn())
 
-    this.metrics.push({
-      operation,
-      duration: endTime - startTime,
-      memoryUsed: endMemory - startMemory,
-      timestamp: Date.now(),
+      const endTime = performance.now()
+      const endMemory = process.memoryUsage().heapUsed
+
+      const metric: PerformanceMetric = {
+        operation,
+        duration: endTime - startTime,
+        memoryUsed: endMemory - startMemory,
+        timestamp: Date.now(),
+      }
+
+      yield* Ref.update(metricsRef, (metrics) => [...metrics, metric])
+
+      return result
     })
 
-    return result
-  }
+  const getMetrics: Effect.Effect<PerformanceMetric[], never, never> = Effect.gen(function* () {
+    const metrics = yield* Ref.get(metricsRef)
+    return [...metrics]
+  })
 
-  getMetrics(): PerformanceMetric[] {
-    return [...this.metrics]
-  }
+  const getAverageFor = (operation: string): Effect.Effect<{ avgDuration: number; avgMemory: number }, never, never> =>
+    Effect.gen(function* () {
+      const metrics = yield* Ref.get(metricsRef)
+      const operationMetrics = metrics.filter((m) => m.operation === operation)
 
-  getAverageFor(operation: string): { avgDuration: number; avgMemory: number } {
-    const operationMetrics = this.metrics.filter((m) => m.operation === operation)
-    if (operationMetrics.length === 0) {
-      return { avgDuration: 0, avgMemory: 0 }
-    }
+      if (operationMetrics.length === 0) {
+        return { avgDuration: 0, avgMemory: 0 }
+      }
 
-    const avgDuration = operationMetrics.reduce((sum, m) => sum + m.duration, 0) / operationMetrics.length
-    const avgMemory = operationMetrics.reduce((sum, m) => sum + m.memoryUsed, 0) / operationMetrics.length
+      const avgDuration = operationMetrics.reduce((sum, m) => sum + m.duration, 0) / operationMetrics.length
+      const avgMemory = operationMetrics.reduce((sum, m) => sum + m.memoryUsed, 0) / operationMetrics.length
 
-    return { avgDuration, avgMemory }
-  }
+      return { avgDuration, avgMemory }
+    })
 
-  clear(): void {
-    this.metrics = []
-  }
-}
+  const clear: Effect.Effect<void, never, never> = Ref.set(metricsRef, [])
+
+  return {
+    measure,
+    getMetrics,
+    getAverageFor,
+    clear,
+  } satisfies PerformanceTracker
+})
 
 describe('Performance Baseline Tests', () => {
   let performanceTracker: PerformanceTracker
 
-  beforeAll(() => {
-    performanceTracker = new PerformanceTracker()
+  beforeAll(async () => {
+    performanceTracker = await Effect.runPromise(createPerformanceTracker)
   })
 
-  afterAll(() => {
+  afterAll(async () => {
     // Log final performance summary
-    const metrics = performanceTracker.getMetrics()
+    const metrics = await Effect.runPromise(performanceTracker.getMetrics)
     console.log('\n=== Performance Summary ===')
 
     const operations = [...new Set(metrics.map((m) => m.operation))]
-    operations.forEach((op) => {
-      const { avgDuration, avgMemory } = performanceTracker.getAverageFor(op)
+    for (const op of operations) {
+      const { avgDuration, avgMemory } = await Effect.runPromise(performanceTracker.getAverageFor(op))
       console.log(`${op}: ${avgDuration.toFixed(2)}ms avg, ${(avgMemory / 1024).toFixed(2)}KB avg memory`)
-    })
+    }
   })
 
   describe('Memory Usage Patterns', () => {
@@ -116,11 +136,11 @@ describe('Performance Baseline Tests', () => {
         return result
       }
 
-      const finalSum = await performanceTracker.measure('memory-heavy-operations', memoryTest)
+      const finalSum = await Effect.runPromise(Effect.runPromise(performanceTracker.measure('memory-heavy-operations', memoryTest)))
 
       expect(finalSum).toBeDefined()
 
-      const { avgMemory } = performanceTracker.getAverageFor('memory-heavy-operations')
+      const { avgMemory } = await Effect.runPromise(performanceTracker.getAverageFor('memory-heavy-operations'))
 
       // Memory usage should be reasonable (less than 10MB for 1000 operations)
       expect(avgMemory).toBeLessThan(10 * 1024 * 1024)
@@ -162,7 +182,7 @@ describe('Performance Baseline Tests', () => {
         return finalMemory - initialMemory
       }
 
-      const memoryDiff = await performanceTracker.measure('resource-cleanup', cleanupTest)
+      const memoryDiff = await Effect.runPromise(performanceTracker.measure('resource-cleanup', cleanupTest))
 
       // Memory difference should be minimal after cleanup
       expect(Math.abs(memoryDiff)).toBeLessThan(5 * 1024 * 1024) // 5MB tolerance
@@ -199,7 +219,7 @@ describe('Performance Baseline Tests', () => {
         return measurements
       }
 
-      const measurements = await performanceTracker.measure('memory-stability', stableMemoryTest)
+      const measurements = await Effect.runPromise(performanceTracker.measure('memory-stability', stableMemoryTest))
 
       // Memory usage should be relatively stable across iterations
       const avg = measurements.reduce((a, b) => a + b, 0) / measurements.length
@@ -238,10 +258,10 @@ describe('Performance Baseline Tests', () => {
 
       // Run multiple times to get average
       for (let i = 0; i < 100; i++) {
-        await performanceTracker.measure('effect-composition', compositionTest)
+        await Effect.runPromise(performanceTracker.measure('effect-composition', compositionTest))
       }
 
-      const { avgDuration } = performanceTracker.getAverageFor('effect-composition')
+      const { avgDuration } = await Effect.runPromise(performanceTracker.getAverageFor('effect-composition'))
 
       // Effect composition should be fast (less than 1ms on average)
       expect(avgDuration).toBeLessThan(1)
@@ -271,11 +291,11 @@ describe('Performance Baseline Tests', () => {
         return results
       }
 
-      const results = await performanceTracker.measure('concurrent-operations', concurrencyTest)
+      const results = await Effect.runPromise(performanceTracker.measure('concurrent-operations', concurrencyTest))
 
       expect(results).toHaveLength(50)
 
-      const { avgDuration } = performanceTracker.getAverageFor('concurrent-operations')
+      const { avgDuration } = await Effect.runPromise(performanceTracker.getAverageFor('concurrent-operations'))
 
       // Concurrent operations should complete reasonably fast
       expect(avgDuration).toBeLessThan(100) // 100ms for 50 concurrent operations
@@ -316,12 +336,12 @@ describe('Performance Baseline Tests', () => {
         return { successCount, errorCount }
       }
 
-      const results = await performanceTracker.measure('error-handling', errorHandlingTest)
+      const results = await Effect.runPromise(performanceTracker.measure('error-handling', errorHandlingTest))
 
       expect(results.successCount + results.errorCount).toBe(100)
       expect(results.errorCount).toBe(10) // Every 10th operation should fail
 
-      const { avgDuration } = performanceTracker.getAverageFor('error-handling')
+      const { avgDuration } = await Effect.runPromise(performanceTracker.getAverageFor('error-handling'))
 
       // Error handling should not significantly slow down operations
       expect(avgDuration).toBeLessThan(50)
@@ -375,14 +395,14 @@ describe('Performance Baseline Tests', () => {
       }
 
       // Measure both approaches
-      const nativeResult = await performanceTracker.measure('native-operations', nativeTest)
-      const effectResult = await performanceTracker.measure('effect-operations', effectTest)
+      const nativeResult = await Effect.runPromise(performanceTracker.measure('native-operations', nativeTest))
+      const effectResult = await Effect.runPromise(performanceTracker.measure('effect-operations', effectTest))
 
       expect(nativeResult).toBeDefined()
       expect(effectResult).toBeDefined()
 
-      const nativeMetrics = performanceTracker.getAverageFor('native-operations')
-      const effectMetrics = performanceTracker.getAverageFor('effect-operations')
+      const nativeMetrics = await Effect.runPromise(performanceTracker.getAverageFor('native-operations'))
+      const effectMetrics = await Effect.runPromise(performanceTracker.getAverageFor('effect-operations'))
 
       // Effect overhead should be reasonable (less than 10x native performance)
       const overhead = effectMetrics.avgDuration / nativeMetrics.avgDuration
@@ -420,7 +440,7 @@ describe('Performance Baseline Tests', () => {
         return endTime - startTime
       }
 
-      const initTime = await performanceTracker.measure('layer-initialization', layerInitTest)
+      const initTime = await Effect.runPromise(performanceTracker.measure('layer-initialization', layerInitTest))
 
       // Layer initialization should be fast (less than 100ms)
       expect(initTime).toBeLessThan(100)
@@ -447,9 +467,9 @@ describe('Performance Baseline Tests', () => {
         )
       }
 
-      await performanceTracker.measure('service-lookup', lookupTest)
+      await Effect.runPromise(performanceTracker.measure('service-lookup', lookupTest))
 
-      const { avgDuration } = performanceTracker.getAverageFor('service-lookup')
+      const { avgDuration } = await Effect.runPromise(performanceTracker.getAverageFor('service-lookup'))
 
       // Service lookups should be efficient
       expect(avgDuration).toBeLessThan(50) // 50ms for 1000 lookups
@@ -515,7 +535,7 @@ describe('Performance Baseline Tests', () => {
         )
       }
 
-      const baselines = await performanceTracker.measure('vector-baselines', vectorBaseline)
+      const baselines = await Effect.runPromise(performanceTracker.measure('vector-baselines', vectorBaseline))
 
       // Establish baseline expectations (these can be adjusted based on hardware)
       expect(baselines.create).toBeLessThan(0.1) // 0.1ms per create
@@ -563,7 +583,7 @@ describe('Performance Baseline Tests', () => {
         )
       }
 
-      const baselines = await performanceTracker.measure('domain-baselines', domainBaseline)
+      const baselines = await Effect.runPromise(performanceTracker.measure('domain-baselines', domainBaseline))
 
       // Domain operations should be very fast
       expect(baselines.validatePosition).toBeLessThan(0.5) // 0.5ms per validation
@@ -608,7 +628,7 @@ describe('Performance Baseline Tests', () => {
         )
       }
 
-      const systemMetrics = await performanceTracker.measure('system-baseline', systemBaseline)
+      const systemMetrics = await Effect.runPromise(performanceTracker.measure('system-baseline', systemBaseline))
 
       // System should maintain 60fps (16.67ms per frame budget)
       expect(systemMetrics.avgTickTime).toBeLessThan(16) // Average tick under 16ms

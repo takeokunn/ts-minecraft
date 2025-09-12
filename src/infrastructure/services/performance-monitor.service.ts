@@ -148,18 +148,28 @@ export interface PerformanceMonitorState {
 /**
  * Get memory information
  */
-const getMemoryInfo = (): MemoryMetrics => {
-  const performance_any = performance as any
-  const memory = performance_any.memory
+/**
+ * Type guard to check if performance has memory property
+ */
+const hasMemoryAPI = (perf: Performance): perf is Performance & {
+  memory: {
+    usedJSHeapSize: number
+    totalJSHeapSize: number
+    jsHeapSizeLimit: number
+  }
+} => {
+  return 'memory' in perf && typeof (perf as any).memory === 'object'
+}
 
+const getMemoryInfo = (): MemoryMetrics => {
   let jsHeapUsed = 0
   let jsHeapTotal = 0
   let jsHeapLimit = 0
 
-  if (memory) {
-    jsHeapUsed = memory.usedJSHeapSize || 0
-    jsHeapTotal = memory.totalJSHeapSize || 0
-    jsHeapLimit = memory.jsHeapSizeLimit || 0
+  if (hasMemoryAPI(performance)) {
+    jsHeapUsed = performance.memory.usedJSHeapSize || 0
+    jsHeapTotal = performance.memory.totalJSHeapSize || 0
+    jsHeapLimit = performance.memory.jsHeapSizeLimit || 0
   }
 
   // Estimate GPU memory (would need WebGPU or WebGL context for real data)
@@ -244,7 +254,7 @@ const startProfiling = (functionName: string): void => {
   if (!CONFIG.PROFILING_ENABLED) return
 
   const startTime = performance.now()
-  const memoryStart = (performance as any).memory?.usedJSHeapSize || 0
+  const memoryStart = hasMemoryAPI(performance) ? performance.memory.usedJSHeapSize : 0
 
   profilingMap.set(functionName, { startTime, memoryStart })
 }
@@ -256,7 +266,7 @@ const endProfiling = (functionName: string, profilingData: Map<string, Profiling
   if (!CONFIG.PROFILING_ENABLED) return
 
   const endTime = performance.now()
-  const memoryEnd = (performance as any).memory?.usedJSHeapSize || 0
+  const memoryEnd = hasMemoryAPI(performance) ? performance.memory.usedJSHeapSize : 0
 
   const startData = profilingMap.get(functionName)
   if (!startData) return

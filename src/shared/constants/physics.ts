@@ -1,4 +1,3 @@
-import { ColliderComponent } from '@domain/entities/components'
 import { toFloat } from '@shared/utils/math'
 
 /**
@@ -20,14 +19,25 @@ export const PLAYER_HEIGHT = 1.8
 export const COLLISION_MARGIN = 0.01
 export const MAX_COLLISION_ITERATIONS = 10
 
+// Physics Time Configuration
+export const PHYSICS_TIME_STEP = 1 / 60 // 60 FPS
+export const MAX_PHYSICS_SUBSTEPS = 3
+
+// Simple collider interface for shared constants (to avoid domain layer dependency)
+export interface SimpleCollider {
+  width: number
+  height: number
+  depth: number
+}
+
 // --- Colliders ---
-export const PLAYER_COLLIDER: ColliderComponent = {
+export const PLAYER_COLLIDER: SimpleCollider = {
   width: toFloat(0.6),
   height: toFloat(PLAYER_HEIGHT),
   depth: toFloat(0.6),
 }
 
-export const BLOCK_COLLIDER: ColliderComponent = {
+export const BLOCK_COLLIDER: SimpleCollider = {
   width: toFloat(1),
   height: toFloat(1),
   depth: toFloat(1),

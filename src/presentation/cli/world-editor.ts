@@ -14,6 +14,7 @@
 
 import * as Effect from 'effect/Effect'
 import * as Ref from 'effect/Ref'
+import * as Option from 'effect/Option'
 import { World } from '@domain/entities'
 
 export interface WorldEditAction {
@@ -174,20 +175,26 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
         }
 
         // Tool selection
-        const toolSelect = editorElement.querySelector('#tool-select') as HTMLSelectElement
-        if (toolSelect) {
+        const toolSelect = editorElement.querySelector('#tool-select')
+        if (toolSelect && isHTMLSelectElement(toolSelect)) {
           toolSelect.addEventListener('change', (e) => {
-            const tool = (e.target as HTMLSelectElement).value
-            Effect.runSync(Ref.update(stateRef, (s) => ({ ...s, selectedTool: tool })))
+            const target = e.target
+            if (isHTMLSelectElement(target)) {
+              const tool = target.value
+              Effect.runSync(Ref.update(stateRef, (s) => ({ ...s, selectedTool: tool })))
+            }
           })
         }
 
         // Block type selection
-        const blockSelect = editorElement.querySelector('#block-select') as HTMLSelectElement
-        if (blockSelect) {
+        const blockSelect = editorElement.querySelector('#block-select')
+        if (blockSelect && isHTMLSelectElement(blockSelect)) {
           blockSelect.addEventListener('change', (e) => {
-            const blockType = (e.target as HTMLSelectElement).value
-            Effect.runSync(Ref.update(stateRef, (s) => ({ ...s, selectedBlockType: blockType })))
+            const target = e.target
+            if (isHTMLSelectElement(target)) {
+              const blockType = target.value
+              Effect.runSync(Ref.update(stateRef, (s) => ({ ...s, selectedBlockType: blockType })))
+            }
           })
         }
 
@@ -311,19 +318,19 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
      */
     const executeAction = (tool: string, position: { x: number; y: number; z: number }) =>
       Effect.gen(function* () {
-        const validTypes = ['place', 'remove', 'replace'] as const
-        if (!validTypes.includes(tool as any)) {
+        const toolTypeOption = parseToolType(tool)
+        if (Option.isNone(toolTypeOption)) {
           console.warn(`Invalid tool type: ${tool}`)
           return
         }
 
         const state = yield* Ref.get(stateRef)
         const action: WorldEditAction = {
-          type: tool as 'place' | 'remove' | 'replace',
+          type: toolTypeOption.value,
           position,
         }
 
-        switch (tool) {
+        switch (toolTypeOption.value) {
           case 'place':
             action.blockType = state.selectedBlockType
             yield* placeBlock(position, state.selectedBlockType)
@@ -541,7 +548,7 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
     /**
      * Import world data
      */
-    const importWorld = (data: any) =>
+    const importWorld = (data: unknown) =>
       Effect.gen(function* () {
         console.log('📁 Importing world data...', data)
         // World import logic would go here
@@ -574,9 +581,24 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
   })
 
 /**
+ * Type guard functions
+ */
+const isHTMLSelectElement = (element: Element | EventTarget | null): element is HTMLSelectElement => {
+  return element !== null && element instanceof HTMLSelectElement
+}
+
+const isValidToolType = (tool: string): tool is 'place' | 'remove' | 'replace' => {
+  return tool === 'place' || tool === 'remove' || tool === 'replace'
+}
+
+const parseToolType = (tool: string): Option.Option<'place' | 'remove' | 'replace'> => {
+  return isValidToolType(tool) ? Option.some(tool) : Option.none()
+}
+
+/**
  * Create world editor factory for easier usage
  */
-export const createWorldEditorFactory =
+const createWorldEditorFactory =
   (config: Partial<WorldEditorConfig> = {}) =>
   (world: World) =>
     createWorldEditor(world, config)

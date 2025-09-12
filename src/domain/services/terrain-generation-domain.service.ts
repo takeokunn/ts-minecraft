@@ -8,6 +8,7 @@
  */
 
 import { Effect, Context, Layer } from 'effect'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@shared/constants/world'
 import {
   TerrainGeneratorPort,
   type ITerrainGenerator,
@@ -37,7 +38,7 @@ const simpleNoise = (x: number, y: number, z: number, seed: number): number => {
  */
 const generateHeightMapLogic = (chunkX: number, chunkZ: number, seed: number, noiseSettings: NoiseSettings): readonly number[] => {
   const heightMap: number[] = []
-  const chunkSize = 16
+  const chunkSize = CHUNK_SIZE
 
   for (let z = 0; z < chunkSize; z++) {
     for (let x = 0; x < chunkSize; x++) {
@@ -79,8 +80,8 @@ const generateBlocksLogic = (
   seed: number,
 ): readonly GeneratedBlock[] => {
   const blocks: GeneratedBlock[] = []
-  const chunkSize = 16
-  const maxHeight = 256
+  const chunkSize = CHUNK_SIZE
+  const maxHeight = CHUNK_HEIGHT
 
   for (let y = 0; y < maxHeight; y++) {
     for (let z = 0; z < chunkSize; z++) {
@@ -175,7 +176,7 @@ const calculateLightLevel = (y: number, terrainHeight: number): number => {
  * Simplified single-biome implementation
  */
 const generateBiomeMap = (biome: BiomeConfig): readonly string[] => {
-  return new Array(16 * 16).fill(biome.type)
+  return new Array(CHUNK_SIZE * CHUNK_SIZE).fill(biome.type)
 }
 
 /**

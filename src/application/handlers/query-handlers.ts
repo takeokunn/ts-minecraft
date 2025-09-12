@@ -24,20 +24,40 @@ export interface EntityQuery {
 }
 
 // Query result types
+export interface InventoryItem {
+  readonly id: string
+  readonly quantity: number
+  readonly durability?: number
+}
+
+export interface Block {
+  readonly type: string
+  readonly position: { x: number; y: number; z: number }
+  readonly metadata?: Record<string, unknown>
+}
+
+export interface PhysicsObject {
+  readonly id: string
+  readonly type: 'static' | 'dynamic' | 'kinematic'
+  readonly position: { x: number; y: number; z: number }
+  readonly velocity?: { dx: number; dy: number; dz: number }
+  readonly mass?: number
+}
+
 export interface PlayerQueryResult {
   readonly entityId: string
   readonly position: { x: number; y: number; z: number }
   readonly velocity: { dx: number; dy: number; dz: number }
   readonly isGrounded: boolean
   readonly health: number
-  readonly inventory: any[]
+  readonly inventory: InventoryItem[]
 }
 
 export interface ChunkQueryResult {
   readonly chunkX: number
   readonly chunkZ: number
   readonly isLoaded: boolean
-  readonly blocks?: any[]
+  readonly blocks?: Block[]
   readonly entities?: string[]
   readonly lastModified: number
 }
@@ -45,7 +65,7 @@ export interface ChunkQueryResult {
 export interface WorldStateQueryResult {
   readonly chunks?: ChunkQueryResult[] | undefined
   readonly entities?: PlayerQueryResult[] | undefined
-  readonly physicsObjects?: any[] | undefined
+  readonly physicsObjects?: PhysicsObject[] | undefined
   readonly timestamp: number
 }
 
@@ -129,7 +149,7 @@ export const QueryHandlersLive: Layer.Layer<QueryHandlers, never, typeof WorldDo
 
           let chunks: ChunkQueryResult[] | undefined
           let entities: PlayerQueryResult[] | undefined
-          let physicsObjects: any[] | undefined
+          let physicsObjects: PhysicsObject[] | undefined
 
           // Get chunks if requested (mock implementation)
           if (query.includeChunks) {

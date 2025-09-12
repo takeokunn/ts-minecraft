@@ -4,6 +4,7 @@
  */
 
 import { Effect, Duration } from 'effect'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@shared/constants/world'
 import { createTypedWorker, type TypedWorkerConfig, type WorkerHandlerContext } from '@infrastructure/workers/base/typed-worker'
 import {
   TerrainGenerationRequest,
@@ -31,7 +32,7 @@ function simpleNoise(x: number, y: number, z: number, seed: number): number {
  */
 function generateHeightMap(chunkX: number, chunkZ: number, seed: number, noiseSettings: any): number[] {
   const heightMap: number[] = []
-  const chunkSize = 16
+  const chunkSize = CHUNK_SIZE
 
   for (let z = 0; z < chunkSize; z++) {
     for (let x = 0; x < chunkSize; x++) {
@@ -63,7 +64,7 @@ function generateHeightMap(chunkX: number, chunkZ: number, seed: number, noiseSe
  */
 function generateBlocks(chunkX: number, chunkZ: number, heightMap: number[], biome: any, features: any): Block[] {
   const blocks: Block[] = []
-  const chunkSize = 16
+  const chunkSize = CHUNK_SIZE
   const maxHeight = 256
 
   for (let y = 0; y < maxHeight; y++) {

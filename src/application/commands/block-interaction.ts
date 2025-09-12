@@ -7,7 +7,7 @@ export interface BlockInteractionCommand {
   readonly position: { x: number; y: number; z: number }
   readonly direction: { x: number; y: number; z: number }
   readonly blockType?: string
-  readonly metadata?: Record<string, any>
+  readonly metadata?: Record<string, unknown>
   readonly timestamp: number
 }
 

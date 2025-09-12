@@ -58,7 +58,7 @@ const resolveAxis =
 const getNearbyAABBs = (
   entityId: EntityId,
   nearbyEntityIds: ReadonlySet<EntityId>,
-  world: any, // Simplified - would need proper typing
+  world: unknown, // Simplified - would need proper typing
 ) =>
   Effect.gen(function* () {
     const aabbs: AABB[] = []

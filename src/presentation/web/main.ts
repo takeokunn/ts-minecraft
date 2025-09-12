@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect'
-import { createArchetype } from '@domain/archetypes'
+import { createArchetype } from '@domain'
 import { ApplicationLayer } from '@application/application-layer'
 import { UnifiedAppLive } from '@infrastructure/layers/unified.layer'
 import { GameController, GameControllerLive } from '@presentation/controllers/game.controller'

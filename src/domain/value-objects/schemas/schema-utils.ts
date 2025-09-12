@@ -187,6 +187,6 @@ export type SchemaType<K extends keyof typeof Schemas> = S.Schema.Type<(typeof S
  */
 export const decode = <K extends keyof typeof Schemas>(schemaKey: K, value: unknown) => S.decodeUnknown(Schemas[schemaKey])(value)
 
-export const encode = <K extends keyof typeof Schemas>(schemaKey: K, value: SchemaType<K>) => S.encode(Schemas[schemaKey])(value as any)
+export const encode = <K extends keyof typeof Schemas>(schemaKey: K, value: SchemaType<K>) => S.encode(Schemas[schemaKey])(value as SchemaType<K>)
 
 export const validate = <K extends keyof typeof Schemas>(schemaKey: K, value: unknown) => S.validateSync(Schemas[schemaKey])(value)

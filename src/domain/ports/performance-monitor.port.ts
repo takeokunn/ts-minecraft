@@ -33,7 +33,7 @@ export interface PerformanceMetric {
   readonly unit: string
   readonly timestamp: number
   readonly frameId: number
-  readonly metadata?: Record<string, any>
+  readonly metadata?: Record<string, unknown>
 }
 
 /**
@@ -103,7 +103,7 @@ export interface PerformanceMonitorPort {
   readonly startSystem: (systemId: string) => Effect.Effect<void>
   readonly endSystem: (systemId: string) => Effect.Effect<void>
   readonly endFrame: () => Effect.Effect<FramePerformanceSummary>
-  readonly recordMetric: (type: PerformanceMetricType, systemId: string, value: number, unit: string, metadata?: Record<string, any>) => Effect.Effect<void>
+  readonly recordMetric: (type: PerformanceMetricType, systemId: string, value: number, unit: string, metadata?: Record<string, unknown>) => Effect.Effect<void>
   readonly getSystemStats: (systemId: string, type: PerformanceMetricType) => Effect.Effect<Option.Option<PerformanceStats>>
   readonly getSystemProfile: (systemId: string) => Effect.Effect<SystemPerformanceProfile>
   readonly getActiveAlerts: () => Effect.Effect<readonly PerformanceAlert[]>

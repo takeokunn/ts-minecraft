@@ -122,5 +122,24 @@ export {
   ResourcePermissionError,
 } from '@domain/errors/error-exports'
 
+// Schema validation errors  
+export {
+  SchemaValidationError,
+  createSchemaValidationError,
+  UnknownTypeError,
+  createUnknownTypeError,
+  TypeGuardError,
+  createTypeGuardError,
+  ExternalDataValidationError,
+  DeserializationError,
+  TypeAssertionError,
+  ValidationHelpers,
+  SchemaValidationUtils,
+  withValidation,
+  createValidationError,
+  validateError,
+  ValidationErrorValidation
+} from '@domain/errors/validation-errors'
+
 // Error utilities
 export { ErrorUtils, type ErrorPatternMatcher, type ErrorRecoveryStrategy, type ErrorAnalysisResult, type ErrorReport, type ValidationResult } from '@domain/errors/error-utils'

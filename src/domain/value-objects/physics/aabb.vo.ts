@@ -63,7 +63,7 @@ export const createAABB = (
       return makeAABB(x - 0.5, y - 0.5, z - 0.5, x + 0.5, y + 0.5, z + 0.5)
     }
     default:
-      throw new Error(`Unknown collider shape type: ${(shape as any).type}`)
+      throw new Error(`Unknown collider shape type: ${typeof shape === 'object' && shape !== null && 'type' in shape ? (shape as { type: unknown }).type : 'unknown'}`)
   }
 }
 
