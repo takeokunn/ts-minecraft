@@ -1,2 +1,2 @@
-export * from './position.vo'
-export * from './chunk-coordinate.vo'
+export * from './position.value-object'
+export * from './chunk-coordinate.value-object'

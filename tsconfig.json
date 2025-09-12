@@ -29,7 +29,6 @@
     "allowSyntheticDefaultImports": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
       "@test/*": ["test/*"],
       "@domain/*": ["src/domain/*"],
       "@application/*": ["src/application/*"],

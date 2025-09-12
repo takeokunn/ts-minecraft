@@ -14,10 +14,13 @@ import * as HashSet from 'effect/HashSet'
 import * as Ref from 'effect/Ref'
 import * as Option from 'effect/Option'
 import * as Array from 'effect/Array'
+import * as Schema from 'effect/Schema'
+import * as ParseResult from 'effect/ParseResult'
 
 import { EntityId, toEntityId } from '@domain/entities'
-import { type Components, type ComponentName, type ComponentOfName, componentNamesSet } from '@domain/entities/components'
+import { type Components, type ComponentName, type ComponentOfName, componentNamesSet, ComponentSchemas } from '@domain/entities/components'
 import { Archetype } from '@domain/archetypes'
+import { hasProperty, isRecord } from '@shared/utils/type-guards'
 
 /**
  * Entity metadata and tracking
@@ -77,7 +80,7 @@ export interface IEntityRepository {
     entityId: EntityId,
     componentName: T,
     updater: (current: ComponentOfName<T>) => ComponentOfName<T>,
-  ) => Effect.Effect<boolean, never, never>
+  ) => Effect.Effect<boolean, string, never>
 
   // Bulk operations
   readonly createEntities: (archetypes: ReadonlyArray<Archetype>) => Effect.Effect<ReadonlyArray<EntityId>, never, never>
@@ -135,7 +138,31 @@ const getArchetypeKey = (componentTypes: ReadonlySet<ComponentName>): string => 
  * Type guard to check if a string is a valid ComponentName
  */
 const isComponentName = (name: string): name is ComponentName => {
-  return componentNamesSet.has(name as ComponentName)
+  return componentNamesSet.has(name)
+}
+
+/**
+ * Safely decode and validate a component with its schema
+ */
+const validateComponent = <T extends ComponentName>(
+  componentName: T,
+  componentData: unknown
+): Effect.Effect<ComponentOfName<T>, ParseResult.ParseError, never> => {
+  const schema = ComponentSchemas[componentName] as Schema.Schema<ComponentOfName<T>, unknown, never>
+  return Schema.decode(schema)(componentData)
+}
+
+/**
+ * Validate archetype object structure
+ */
+const validateArchetype = (
+  archetype: unknown
+): Effect.Effect<Archetype, string, never> => {
+  if (!isRecord(archetype)) {
+    return Effect.fail('Archetype must be an object')
+  }
+  
+  return Effect.succeed(archetype as Archetype)
 }
 
 const parseArchetypeKey = (key: string): ReadonlySet<ComponentName> => {
@@ -170,13 +197,18 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
       // Add components if provided
       let newComponentStorage = state.componentStorage
       if (archetype) {
-        for (const [componentName, component] of Object.entries(archetype)) {
+        const validatedArchetype = yield* _(validateArchetype(archetype))
+        for (const [componentName, component] of Object.entries(validatedArchetype)) {
           if (isComponentName(componentName)) {
+            // Validate the component against its schema
+            const validatedComponent = yield* _(validateComponent(componentName, component).pipe(
+              Effect.catchAll(() => Effect.fail(`Invalid component ${componentName} for entity ${entityId}`))
+            ))
+            
             const currentStorage = newComponentStorage[componentName]
             newComponentStorage = {
               ...newComponentStorage,
-              // Safe cast: componentName is verified by isComponentName type guard
-              [componentName]: HashMap.set(currentStorage, entityId, component as ComponentOfName<ComponentName>),
+              [componentName]: HashMap.set(currentStorage, entityId, validatedComponent),
             }
           }
         }
@@ -424,7 +456,7 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
     entityId: EntityId,
     componentName: T,
     updater: (current: ComponentOfName<T>) => ComponentOfName<T>,
-  ): Effect.Effect<boolean, never, never> =>
+  ): Effect.Effect<boolean, string, never> =>
     Effect.gen(function* (_) {
       const state = yield* _(Ref.get(stateRef))
       const currentOpt = HashMap.get(state.componentStorage[componentName], entityId)
@@ -437,12 +469,16 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
       const updated = updater(current)
       const now = Date.now()
 
+      // Validate the updated component
+      const validatedComponent = yield* _(validateComponent(componentName, updated).pipe(
+        Effect.catchAll(() => Effect.fail(`Invalid component update for ${componentName} on entity ${entityId}`))
+      ))
+      
       // Update component storage
       const currentStorage = state.componentStorage[componentName]
       const newComponentStorage = {
         ...state.componentStorage,
-        // Safe cast: T extends ComponentName ensures type compatibility
-        [componentName]: HashMap.set(currentStorage, entityId, updated as ComponentOfName<ComponentName>),
+        [componentName]: HashMap.set(currentStorage, entityId, validatedComponent),
       }
 
       // Update entity metadata timestamp
@@ -512,12 +548,15 @@ export const createEntityRepository = (stateRef: Ref.Ref<EntityRepositoryState>)
       const metadata = metadataOpt.value
       const archetype: Archetype = {}
 
-      // Copy all components
+      // Copy all components with validation
       for (const componentName of metadata.componentTypes) {
         const componentOpt = HashMap.get(state.componentStorage[componentName], entityId)
         if (Option.isSome(componentOpt)) {
-          // Safe cast: componentName from metadata.componentTypes is guaranteed to be valid
-          archetype[componentName] = componentOpt.value as ComponentOfName<ComponentName>
+          // Validate component before copying
+          const validatedComponent = yield* _(validateComponent(componentName, componentOpt.value).pipe(
+            Effect.catchAll(() => Effect.fail(`Invalid component ${componentName} when cloning entity ${entityId}`))
+          ))
+          archetype[componentName] = validatedComponent
         }
       }
 

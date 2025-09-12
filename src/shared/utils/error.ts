@@ -11,44 +11,44 @@ import { pipe } from 'effect/Function'
 import { Logger } from '@shared/utils/logging'
 import { PerformanceMonitor } from '@shared/utils/monitoring'
 // Note: Using local error types definition to avoid domain layer dependency
+import * as Data from 'effect/Data'
 export type AllGameErrors = Error | ValidationError | SystemError | EntityError
 
 // Local error classes to avoid domain dependency
-export class SystemError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
-    super(message)
-    this.name = 'SystemError'
-  }
+export interface SystemError extends Data.Case {
+  readonly _tag: 'SystemError'
+  readonly message: string
+  readonly cause?: unknown
 }
 
-export class EntityError extends Error {
-  constructor(message: string, public readonly entityId?: string, public readonly cause?: unknown) {
-    super(message)
-    this.name = 'EntityError'
-  }
+export const SystemError = Data.tagged<SystemError>('SystemError')
+
+export interface EntityError extends Data.Case {
+  readonly _tag: 'EntityError'
+  readonly message: string
+  readonly entityId?: string
+  readonly cause?: unknown
 }
 
-export class ValidationError extends Error {
-  public readonly context?: {
-    field?: string
-    component?: string
-    operation?: string
-    metadata?: Record<string, unknown>
-    cause?: unknown
-  }
+export const EntityError = Data.tagged<EntityError>('EntityError')
 
-  constructor(options: { message: string; context?: ValidationError['context'] }) {
-    super(options.message)
-    this.name = 'ValidationError'
-    this.context = options.context
-  }
+export interface ValidationError extends Data.Case {
+  readonly _tag: 'ValidationError'
+  readonly message: string
+  readonly field?: string
+  readonly component?: string
+  readonly operation?: string
+  readonly metadata?: Record<string, unknown>
+  readonly cause?: unknown
 }
+
+export const ValidationError = Data.tagged<ValidationError>('ValidationError')
 
 /**
  * Type guard to check if window has gc function
  */
 const hasGarbageCollector = (win: Window): win is Window & { gc: () => void } => {
-  return 'gc' in win && typeof (win as any).gc === 'function'
+  return 'gc' in win && typeof (win as Window & { gc?: () => void }).gc === 'function'
 }
 
 // Error handling strategies
@@ -61,18 +61,17 @@ const ErrorSchema = S.Union(
   S.Struct({
     _tag: S.String,
     message: S.optional(S.String)
-  }),
-  S.Unknown
+  })
 )
 
 const MetadataSchema = S.Union(
-  S.Record(S.String, S.Unknown),
+  S.Record(S.String, S.Any),
   S.Null,
   S.Undefined
 )
 
-const FallbackValueSchema = S.Unknown
-const ErrorArraySchema = S.Array(S.Unknown)
+const FallbackValueSchema = S.Any
+const ErrorArraySchema = S.Array(S.Any)
 const RecoveryFunctionSchema = S.Function
 const ErrorStackSchema = S.optional(S.String)
 
@@ -82,22 +81,22 @@ const ErrorHandlingContextSchema = S.Struct({
   operation: S.optional(S.String),
   retryCount: S.optional(S.Number),
   maxRetries: S.optional(S.Number),
-  fallbackValue: S.optional(S.Unknown),
-  metadata: S.optional(S.Record(S.String, S.Unknown))
+  fallbackValue: S.optional(S.Any),
+  metadata: S.optional(S.Record(S.String, S.Any))
 })
 
 // Enhanced type guards and validators using Schema.parse
-const validateError = (error: unknown): Effect.Effect<Error, never, never> => {
+const validateError = <E>(error: E): Effect.Effect<Error, never> => {
   return pipe(
     S.decodeUnknown(ErrorSchema)(error),
     Effect.match({
       onFailure: () => {
-        // If schema validation fails, create error from unknown value
+        // If schema validation fails, create error from value
         if (error instanceof Error) return error
         if (typeof error === 'string') return new Error(error)
         if (typeof error === 'object' && error !== null && '_tag' in error) {
-          const taggedError = error as { _tag: unknown }
-          const tag = typeof taggedError._tag === 'string' ? taggedError._tag : String(taggedError._tag)
+          const taggedError = error as { _tag: string | number }
+          const tag = String(taggedError._tag)
           return new Error(`Tagged Error: ${tag}`)
         }
         return new Error(String(error))
@@ -118,7 +117,7 @@ const validateError = (error: unknown): Effect.Effect<Error, never, never> => {
   )
 }
 
-const validateMetadata = (metadata: unknown): Effect.Effect<Record<string, unknown>, never, never> => {
+const validateMetadata = <M>(metadata: M): Effect.Effect<Record<string, any>, never> => {
   return pipe(
     S.decodeUnknown(MetadataSchema)(metadata),
     Effect.match({
@@ -126,20 +125,20 @@ const validateMetadata = (metadata: unknown): Effect.Effect<Record<string, unkno
         // Fallback validation for invalid schema
         if (metadata == null) return {}
         if (typeof metadata === 'object' && !Array.isArray(metadata)) {
-          return metadata as Record<string, unknown>
+          return metadata as Record<string, any>
         }
         return { value: metadata, type: typeof metadata }
       },
       onSuccess: (validated) => {
         if (validated == null) return {}
-        return validated as Record<string, unknown>
+        return validated as Record<string, any>
       }
     }),
     Effect.succeed
   )
 }
 
-const validateFallbackValue = <T>(value: unknown): Effect.Effect<T, never, never> => {
+const validateFallbackValue = <T, V>(value: V): Effect.Effect<T, never> => {
   return pipe(
     S.decodeUnknown(FallbackValueSchema)(value),
     Effect.match({
@@ -150,19 +149,19 @@ const validateFallbackValue = <T>(value: unknown): Effect.Effect<T, never, never
   )
 }
 
-const validateErrorArray = (errors: unknown[]): Effect.Effect<Array<{ error: Error; originalValue: unknown }>, never, never> => {
+const validateErrorArray = <E>(errors: E[]): Effect.Effect<Array<{ error: Error; originalValue: E }>, never> => {
   return pipe(
     S.decodeUnknown(ErrorArraySchema)(errors),
     Effect.match({
       onFailure: () => {
-        // Fallback: treat as array of unknown values
+        // Fallback: treat as array of values
         return Array.isArray(errors) ? errors : [errors]
       },
       onSuccess: (validated) => validated
     }),
     Effect.flatMap((errorArray) => 
       Effect.gen(function* () {
-        const validatedErrors: Array<{ error: Error; originalValue: unknown }> = []
+        const validatedErrors: Array<{ error: Error; originalValue: E }> = []
         for (const error of errorArray) {
           const validatedError = yield* validateError(error)
           validatedErrors.push({ error: validatedError, originalValue: error })
@@ -173,12 +172,12 @@ const validateErrorArray = (errors: unknown[]): Effect.Effect<Array<{ error: Err
   )
 }
 
-const shouldRetryValidator = (fn: unknown): ((error: unknown) => boolean) => {
+const shouldRetryValidator = <F>(fn: F): ((error: any) => boolean) => {
   return pipe(
     S.decodeUnknown(RecoveryFunctionSchema)(fn),
     Effect.match({
       onFailure: () => () => true, // Default: retry all errors
-      onSuccess: (validatedFn) => (error: unknown) => {
+      onSuccess: (validatedFn) => (error: any) => {
         try {
           return Boolean(validatedFn(error))
         } catch {
@@ -196,8 +195,8 @@ export interface ErrorHandlingContext {
   operation?: string
   retryCount?: number
   maxRetries?: number
-  fallbackValue?: unknown
-  metadata?: Record<string, unknown>
+  fallbackValue?: any
+  metadata?: Record<string, any>
 }
 
 // Retry configuration with validated shouldRetry function
@@ -206,7 +205,7 @@ export interface RetryConfig {
   delay: number
   backoffMultiplier: number
   maxDelay: number
-  shouldRetry?: (error: unknown) => boolean
+  shouldRetry?: (error: any) => boolean
 }
 
 // Default retry configuration

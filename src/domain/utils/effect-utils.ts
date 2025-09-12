@@ -226,7 +226,10 @@ export const memoize = <Args extends readonly unknown[], A, E, R>(f: (...args: A
     const key = JSON.stringify(args)
 
     if (cache.has(key)) {
-      return Effect.succeed(cache.get(key)!)
+      const cachedValue = cache.get(key)
+      // If cache.has(key) is true, then cache.get(key) cannot be undefined
+      // This is safe because Map.has() guarantees the key exists
+      return Effect.succeed(cachedValue as NonNullable<typeof cachedValue>)
     }
 
     return f(...args).pipe(

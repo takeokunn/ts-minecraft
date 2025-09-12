@@ -1,318 +1,268 @@
 /**
- * Type Guard Utilities for TypeScript type safety
- * 
- * This module provides type guards to replace unsafe type assertions (as operators)
- * with safe runtime type checking, improving type safety throughout the application.
+ * Type Guards and Validation Utilities for Domain Types
+ *
+ * This module provides type-safe validation functions to replace
+ * type assertions (as) throughout the domain layer.
+ * Uses Effect-TS patterns for proper error handling.
  */
 
-import * as Option from 'effect/Option'
+import * as S from 'effect/Schema'
+import * as Effect from 'effect/Effect'
+import { pipe } from 'effect'
+import { ComponentNameSchema, type ComponentName } from '@domain/entities/components/component-schemas'
+import { BlockTypeSchema } from '@domain/constants/block-types'
+import { BlockPropertiesUtils } from '@domain/constants/block-properties'
+
+// Re-export BlockType from proper location
+export type { BlockType } from '@domain/constants/block-types'
 
 /**
- * DOM Element Type Guards
+ * Schema and Type Guard for FaceDirection
  */
-export const isHTMLElement = (element: Element | EventTarget | null): element is HTMLElement => {
-  return element !== null && element instanceof HTMLElement
-}
+export const FaceDirectionSchema = S.Literal('front', 'back', 'right', 'left', 'top', 'bottom')
+export type FaceDirection = S.Schema.Type<typeof FaceDirectionSchema>
 
-export const isHTMLInputElement = (element: Element | EventTarget | null): element is HTMLInputElement => {
-  return element !== null && element instanceof HTMLInputElement
-}
+export const isFaceDirection = (value: unknown): value is FaceDirection =>
+  S.is(FaceDirectionSchema)(value)
 
-export const isHTMLSelectElement = (element: Element | EventTarget | null): element is HTMLSelectElement => {
-  return element !== null && element instanceof HTMLSelectElement
-}
+export const safeParseFaceDirection = (value: unknown): Effect.Effect<FaceDirection, S.ParseResult.ParseError> =>
+  pipe(value, S.decode(FaceDirectionSchema))
 
-export const isHTMLDivElement = (element: Element | EventTarget | null): element is HTMLDivElement => {
-  return element !== null && element instanceof HTMLDivElement
-}
+/**
+ * Schema and Type Guard for EntityId (number-based for compatibility with current service)
+ */
+export const EntityIdNumberSchema = pipe(S.Number, S.int(), S.positive(), S.brand('EntityId'))
+export type EntityIdNumber = S.Schema.Type<typeof EntityIdNumberSchema>
 
-export const isHTMLButtonElement = (element: Element | EventTarget | null): element is HTMLButtonElement => {
-  return element !== null && element instanceof HTMLButtonElement
-}
+export const isEntityIdNumber = (value: unknown): value is EntityIdNumber =>
+  S.is(EntityIdNumberSchema)(value)
 
-export const isHTMLTextAreaElement = (element: Element | EventTarget | null): element is HTMLTextAreaElement => {
-  return element !== null && element instanceof HTMLTextAreaElement
+export const safeParseEntityIdNumber = (value: unknown): Effect.Effect<EntityIdNumber, S.ParseResult.ParseError> =>
+  pipe(value, S.decode(EntityIdNumberSchema))
+
+/**
+ * BlockType Validation Functions
+ */
+export const isBlockType = (value: unknown): value is S.Schema.Type<typeof BlockTypeSchema> =>
+  S.is(BlockTypeSchema)(value)
+
+export const safeParseBlockType = (value: unknown): Effect.Effect<S.Schema.Type<typeof BlockTypeSchema>, S.ParseResult.ParseError> =>
+  pipe(value, S.decode(BlockTypeSchema))
+
+/**
+ * Alternative BlockType validation using block properties (for compatibility)
+ */
+export const isValidBlockTypeString = (value: string): value is keyof typeof import('@domain/constants/block-properties').BLOCK_COLORS =>
+  BlockPropertiesUtils.isValidBlockType(value)
+
+export const safeParseBlockTypeFromString = (value: string): Effect.Effect<keyof typeof import('@domain/constants/block-properties').BLOCK_COLORS, Error> =>
+  isValidBlockTypeString(value) 
+    ? Effect.succeed(value)
+    : Effect.fail(new Error(`Invalid block type: ${value}`))
+
+/**
+ * ComponentName Validation Functions
+ */
+export const isComponentName = (value: unknown): value is ComponentName =>
+  S.is(ComponentNameSchema)(value)
+
+export const safeParseComponentName = (value: unknown): Effect.Effect<ComponentName, S.ParseResult.ParseError> =>
+  pipe(value, S.decode(ComponentNameSchema))
+
+/**
+ * Array validation helpers
+ */
+export const safeParseComponentNameArray = (value: unknown): Effect.Effect<readonly ComponentName[], S.ParseResult.ParseError> =>
+  pipe(value, S.decode(S.Array(ComponentNameSchema)))
+
+/**
+ * Synchronous ComponentName array validation
+ */
+export const validateComponentNameArraySync = (keys: readonly string[]): ComponentName[] => {
+  const validKeys: ComponentName[] = []
+  for (const key of keys) {
+    if (isComponentName(key)) {
+      validKeys.push(key)
+    }
+  }
+  return validKeys
 }
 
 /**
- * Safe DOM Element Access with Option types
+ * Object key validation helpers
  */
-export const getElementByIdSafe = (id: string): Option.Option<HTMLElement> => {
-  const element = document.getElementById(id)
-  return element ? Option.some(element) : Option.none()
+export const validateObjectKeysAsComponentNames = <T>(
+  obj: Record<string, T>
+): Effect.Effect<Record<ComponentName, T>, Error> =>
+  Effect.gen(function* () {
+    const keys = Object.keys(obj)
+    const validatedKeys: ComponentName[] = []
+    
+    for (const key of keys) {
+      if (isComponentName(key)) {
+        validatedKeys.push(key)
+      } else {
+        return yield* Effect.fail(new Error(`Invalid component name: ${key}`))
+      }
+    }
+    
+    const validatedObj = validatedKeys.reduce((acc, key) => {
+      acc[key] = obj[key]
+      return acc
+    }, {} as Record<ComponentName, T>)
+    
+    return validatedObj
+  })
+
+/**
+ * Biome surface/subsurface block validation for terrain generation
+ */
+export interface BiomeBlockConfig {
+  readonly surfaceBlock: unknown
+  readonly subsurfaceBlock: unknown
 }
 
-export const getInputElementByIdSafe = (id: string): Option.Option<HTMLInputElement> => {
-  const element = document.getElementById(id)
-  return element && isHTMLInputElement(element) ? Option.some(element) : Option.none()
-}
+export const validateBiomeBlockType = (
+  block: unknown
+): Effect.Effect<S.Schema.Type<typeof BlockTypeSchema>, Error> =>
+  Effect.gen(function* () {
+    // First try the schema validation
+    if (typeof block === 'string' && isBlockType(block)) {
+      return yield* safeParseBlockType(block)
+    }
+    
+    // Fallback for compatibility with block properties
+    if (typeof block === 'string' && isValidBlockTypeString(block)) {
+      return yield* safeParseBlockTypeFromString(block)
+    }
+    
+    return yield* Effect.fail(new Error(`Invalid biome block type: ${block}`))
+  })
 
-export const getSelectElementByIdSafe = (id: string): Option.Option<HTMLSelectElement> => {
-  const element = document.getElementById(id)
-  return element && isHTMLSelectElement(element) ? Option.some(element) : Option.none()
-}
-
-export const querySelectorSafe = <T extends Element>(
-  selector: string,
-  parent: ParentNode = document,
-  typeGuard: (element: Element | null) => element is T
-): Option.Option<T> => {
-  const element = parent.querySelector(selector)
-  return typeGuard(element) ? Option.some(element) : Option.none()
+/**
+ * Synchronous biome block validation with fallback
+ */
+export const validateBiomeBlockTypeSync = (
+  block: unknown,
+  fallback: S.Schema.Type<typeof BlockTypeSchema>
+): S.Schema.Type<typeof BlockTypeSchema> => {
+  // First try the schema validation
+  if (typeof block === 'string' && isBlockType(block)) {
+    return block
+  }
+  
+  // Fallback for compatibility with block properties
+  if (typeof block === 'string' && isValidBlockTypeString(block)) {
+    return block as S.Schema.Type<typeof BlockTypeSchema>
+  }
+  
+  return fallback
 }
 
 /**
- * Object Type Guards
+ * Safe alternatives to type assertions
  */
-export const hasProperty = <K extends string | number | symbol>(
-  obj: unknown,
-  key: K
-): obj is Record<K, unknown> => {
-  return typeof obj === 'object' && obj !== null && key in obj
+export const TypeGuards = {
+  FaceDirection: {
+    is: isFaceDirection,
+    parse: safeParseFaceDirection,
+  },
+  EntityId: {
+    is: isEntityIdNumber,
+    parse: safeParseEntityIdNumber,
+  },
+  BlockType: {
+    is: isBlockType,
+    parse: safeParseBlockType,
+    parseFromString: safeParseBlockTypeFromString,
+    validate: validateBiomeBlockType,
+    validateSync: validateBiomeBlockTypeSync,
+  },
+  ComponentName: {
+    is: isComponentName,
+    parse: safeParseComponentName,
+    parseArray: safeParseComponentNameArray,
+    validateObjectKeys: validateObjectKeysAsComponentNames,
+    validateArraySync: validateComponentNameArraySync,
+  },
+} as const
+
+/**
+ * Safe component name utilities
+ */
+export const getValidComponentNames = (components: Record<string, unknown>): string[] => {
+  return Object.keys(components).filter((key) => 
+    typeof key === 'string' && key.length > 0
+  )
 }
 
+export const getValidComponentNamesAsComponentNames = (components: Record<string, unknown>): ComponentName[] => {
+  return Object.keys(components).filter((key) => 
+    typeof key === 'string' && key.length > 0 && isComponentName(key)
+  ) as ComponentName[]
+}
+
+/**
+ * Common type guards and utility functions
+ */
 export const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-export const isStringRecord = (value: unknown): value is Record<string, string> => {
-  if (!isRecord(value)) return false
-  return Object.values(value).every((v) => typeof v === 'string')
+export const hasProperty = <T extends Record<string, unknown>>(
+  obj: T, 
+  key: string | symbol
+): key is keyof T => {
+  return Object.prototype.hasOwnProperty.call(obj, key)
 }
 
-export const isNumberRecord = (value: unknown): value is Record<string, number> => {
-  if (!isRecord(value)) return false
-  return Object.values(value).every((v) => typeof v === 'number')
-}
-
-/**
- * Tagged Union Type Guards
- */
-export const hasTag = <T extends string>(
-  obj: unknown,
-  tag: T
-): obj is { _tag: T } => {
-  return hasProperty(obj, '_tag') && obj._tag === tag
-}
-
-export const isTaggedUnion = (obj: unknown): obj is { _tag: string } => {
-  return hasProperty(obj, '_tag') && typeof obj._tag === 'string'
-}
-
-/**
- * Array Type Guards
- */
-export const isArrayOf = <T>(
-  value: unknown,
-  itemGuard: (item: unknown) => item is T
-): value is T[] => {
-  return Array.isArray(value) && value.every(itemGuard)
-}
-
-export const isStringArray = (value: unknown): value is string[] => {
-  return isArrayOf(value, (item): item is string => typeof item === 'string')
-}
-
-export const isNumberArray = (value: unknown): value is number[] => {
-  return isArrayOf(value, (item): item is number => typeof item === 'number')
-}
-
-/**
- * Function Type Guards
- */
 export const isFunction = (value: unknown): value is Function => {
   return typeof value === 'function'
 }
 
-export const isAsyncFunction = (value: unknown): value is (...args: unknown[]) => Promise<unknown> => {
-  return isFunction(value) && value.constructor.name === 'AsyncFunction'
+export const safeBoolean = (value: unknown): boolean => {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') return value.toLowerCase() === 'true'
+  if (typeof value === 'number') return value !== 0
+  return false
 }
 
-/**
- * Browser API Type Guards
- */
-export const hasPerformanceMemory = (perf: Performance): perf is Performance & { memory: unknown } => {
-  return 'memory' in perf && typeof (perf as Performance & { memory?: unknown }).memory === 'object'
+export const isVector3 = (value: unknown): value is { x: number; y: number; z: number } => {
+  return isRecord(value) && 
+    typeof (value as any).x === 'number' && 
+    typeof (value as any).y === 'number' && 
+    typeof (value as any).z === 'number'
 }
 
-export const hasDeviceMemory = (nav: Navigator): nav is Navigator & { deviceMemory: number } => {
-  return 'deviceMemory' in nav && typeof (nav as Navigator & { deviceMemory?: number }).deviceMemory === 'number'
+export const getSafeNumberProperty = (obj: Record<string, unknown>, prop: string): number | undefined => {
+  return hasProperty(obj, prop) && typeof obj[prop] === 'number' ? obj[prop] as number : undefined
+}
+
+export const isHTMLElement = (element: unknown): element is HTMLElement => {
+  return element instanceof HTMLElement
+}
+
+export const isHTMLInputElement = (element: unknown): element is HTMLInputElement => {
+  return element instanceof HTMLInputElement
+}
+
+export const hasFiles = (target: unknown): target is { files: FileList } => {
+  return isRecord(target) && hasProperty(target, 'files') && target.files instanceof FileList
+}
+
+export const hasPerformanceMemory = (performance: Performance): performance is Performance & { memory: any } => {
+  return hasProperty(performance, 'memory')
 }
 
 export const hasPerformanceObserver = (): boolean => {
-  return typeof window !== 'undefined' && 'PerformanceObserver' in window
+  return typeof PerformanceObserver !== 'undefined'
 }
 
-export const hasGarbageCollection = (): boolean => {
-  return typeof window !== 'undefined' && 'gc' in window && isFunction((window as Window & { gc?: () => void }).gc)
-}
-
-/**
- * Vector and Math Type Guards
- */
-export interface Vector3 {
-  x: number
-  y: number
-  z: number
-}
-
-export interface Vector2 {
-  x: number
-  y: number
-}
-
-export const isVector3 = (value: unknown): value is Vector3 => {
-  return (
-    isRecord(value) &&
-    hasProperty(value, 'x') &&
-    hasProperty(value, 'y') &&
-    hasProperty(value, 'z') &&
-    typeof value.x === 'number' &&
-    typeof value.y === 'number' &&
-    typeof value.z === 'number'
-  )
-}
-
-export const isVector2 = (value: unknown): value is Vector2 => {
-  return (
-    isRecord(value) &&
-    hasProperty(value, 'x') &&
-    hasProperty(value, 'y') &&
-    typeof value.x === 'number' &&
-    typeof value.y === 'number'
-  )
-}
-
-export interface Matrix4 {
-  elements: number[]
-}
-
-export const isMatrix4 = (value: unknown): value is Matrix4 => {
-  return (
-    isRecord(value) &&
-    hasProperty(value, 'elements') &&
-    isNumberArray(value.elements) &&
-    value.elements.length === 16
-  )
-}
-
-/**
- * Entity and Component Type Guards
- */
-export const hasEntityId = (obj: unknown): obj is { entityId: string } => {
-  return hasProperty(obj, 'entityId') && typeof obj.entityId === 'string'
-}
-
-export const hasComponents = (obj: unknown): obj is { components: unknown } => {
-  return hasProperty(obj, 'components')
-}
-
-export const hasPosition = (obj: unknown): obj is { position: Vector3 } => {
-  return hasProperty(obj, 'position') && isVector3(obj.position)
-}
-
-export const hasMetadata = (obj: unknown): obj is { metadata: Record<string, unknown> } => {
-  return hasProperty(obj, 'metadata') && isRecord(obj.metadata)
-}
-
-/**
- * File and Event Type Guards
- */
-export const isFileList = (value: unknown): value is FileList => {
-  return value instanceof FileList
-}
-
-export const hasFiles = (
-  target: EventTarget | null
-): target is HTMLInputElement & { files: FileList } => {
-  return isHTMLInputElement(target) && target.files instanceof FileList
-}
-
-/**
- * Error Type Guards
- */
-export const isError = (value: unknown): value is Error => {
-  return value instanceof Error
-}
-
-export const isErrorWithMessage = (value: unknown): value is { message: string } => {
-  return hasProperty(value, 'message') && typeof value.message === 'string'
-}
-
-/**
- * Safe type conversion utilities
- */
-export const safeParseNumber = (value: unknown): Option.Option<number> => {
-  if (typeof value === 'number' && !isNaN(value)) {
-    return Option.some(value)
-  }
+export const safeParseNumber = (value: unknown): number | undefined => {
+  if (typeof value === 'number') return isNaN(value) ? undefined : value
   if (typeof value === 'string') {
     const parsed = parseFloat(value)
-    return !isNaN(parsed) ? Option.some(parsed) : Option.none()
+    return isNaN(parsed) ? undefined : parsed
   }
-  return Option.none()
-}
-
-export const safeParseInt = (value: unknown): Option.Option<number> => {
-  if (typeof value === 'number' && Number.isInteger(value)) {
-    return Option.some(value)
-  }
-  if (typeof value === 'string') {
-    const parsed = parseInt(value, 10)
-    return !isNaN(parsed) ? Option.some(parsed) : Option.none()
-  }
-  return Option.none()
-}
-
-export const safeString = (value: unknown): Option.Option<string> => {
-  return typeof value === 'string' ? Option.some(value) : Option.none()
-}
-
-export const safeBoolean = (value: unknown): Option.Option<boolean> => {
-  return typeof value === 'boolean' ? Option.some(value) : Option.none()
-}
-
-/**
- * Component-specific type guards for the Minecraft project
- */
-export interface ComponentValue {
-  type?: string
-  [key: string]: unknown
-}
-
-export const isComponentValue = (value: unknown): value is ComponentValue => {
-  return isRecord(value)
-}
-
-export const hasComponentType = (
-  value: unknown,
-  expectedType: string
-): value is ComponentValue & { type: string } => {
-  return isComponentValue(value) && hasProperty(value, 'type') && value.type === expectedType
-}
-
-/**
- * Safe property access
- */
-export const getSafeProperty = <T>(
-  obj: unknown,
-  key: string,
-  typeGuard: (value: unknown) => value is T
-): Option.Option<T> => {
-  if (hasProperty(obj, key) && typeGuard(obj[key])) {
-    return Option.some(obj[key])
-  }
-  return Option.none()
-}
-
-export const getSafeStringProperty = (obj: unknown, key: string): Option.Option<string> => {
-  return getSafeProperty(obj, key, (value): value is string => typeof value === 'string')
-}
-
-export const getSafeNumberProperty = (obj: unknown, key: string): Option.Option<number> => {
-  return getSafeProperty(obj, key, (value): value is number => typeof value === 'number')
-}
-
-export const getSafeBooleanProperty = (obj: unknown, key: string): Option.Option<boolean> => {
-  return getSafeProperty(obj, key, (value): value is boolean => typeof value === 'boolean')
+  return undefined
 }

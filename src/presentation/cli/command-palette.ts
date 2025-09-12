@@ -22,6 +22,7 @@ import { createDevConsole } from '@presentation/cli/dev-console'
 import { createEntityInspector } from '@presentation/cli/entity-inspector'
 import { PerformanceProfiler } from '@presentation/cli/performance-profiler'
 import { createHotReloadManager } from '@presentation/cli/hot-reload'
+import { Logger } from '@shared/utils/logging'
 import type { GameDebuggerTool, DevConsoleTool, EntityInspectorTool, PerformanceProfilerTool } from '@presentation/cli/dev-tools-manager'
 
 // Schema definitions for hot reload manager validation

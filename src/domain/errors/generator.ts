@@ -100,7 +100,7 @@ export const createRecoveryHandler =
 /**
  * Create a tagged error using Schema.TaggedError - pure functional approach
  */
-export const createTaggedError = <Tag extends string, Data extends BaseErrorData>(tag: Tag, schema: Schema.Schema<Data, any, never>) => Schema.TaggedError(tag)<Data>(schema)
+export const createTaggedError = <Tag extends string, Data extends BaseErrorData>(tag: Tag, schema: Schema.Schema<Data, Data, never>) => Schema.TaggedError(tag)<Data>(schema)
 
 /**
  * Error aggregation state type

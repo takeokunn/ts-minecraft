@@ -15,7 +15,9 @@
 import * as Effect from 'effect/Effect'
 import * as Ref from 'effect/Ref'
 import * as Option from 'effect/Option'
+import * as Clock from 'effect/Clock'
 import { World } from '@domain/entities'
+import { Logger } from '@shared/utils/logging'
 
 export interface WorldEditAction {
   type: 'place' | 'remove' | 'replace'
@@ -276,7 +278,7 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
       }
 
       yield* Ref.update(stateRef, (s) => ({ ...s, isOpen: true }))
-      console.log('🏗️ World Editor opened')
+      yield* Logger.info('World Editor opened', 'WorldEditor')
     })
 
     /**
@@ -289,7 +291,7 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
       }
 
       yield* Ref.update(stateRef, (s) => ({ ...s, isOpen: false }))
-      console.log('🏗️ World Editor closed')
+      yield* Logger.info('World Editor closed', 'WorldEditor')
     })
 
     /**
@@ -355,7 +357,7 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
      */
     const placeBlock = (position: { x: number; y: number; z: number }, blockType: string) =>
       Effect.gen(function* () {
-        console.log(`Placing ${blockType} at (${position.x}, ${position.y}, ${position.z})`)
+        yield* Logger.debug('Block placement', 'WorldEditor', { blockType, position })
         // Actual block placement logic would go here
       })
 
@@ -364,7 +366,7 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
      */
     const removeBlock = (position: { x: number; y: number; z: number }) =>
       Effect.gen(function* () {
-        console.log(`Removing block at (${position.x}, ${position.y}, ${position.z})`)
+        yield* Logger.debug('Block removal', 'WorldEditor', { position })
         // Actual block removal logic would go here
       })
 
@@ -373,7 +375,7 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
      */
     const replaceBlock = (position: { x: number; y: number; z: number }, blockType: string) =>
       Effect.gen(function* () {
-        console.log(`Replacing block at (${position.x}, ${position.y}, ${position.z}) with ${blockType}`)
+        yield* Logger.debug('Block replacement', 'WorldEditor', { position, blockType })
         // Actual block replacement logic would go here
       })
 
@@ -391,7 +393,7 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
      */
     const fillSelectedArea = Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
-      console.log(`Filling selected area with ${state.selectedBlockType}`)
+      yield* Logger.info('Area fill operation', 'WorldEditor', { blockType: state.selectedBlockType })
       // Actual area filling logic would go here
     })
 
@@ -436,7 +438,7 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
       yield* Ref.update(stateRef, (s) => ({ ...s, historyIndex: s.historyIndex - 1 }))
       yield* updateUI()
 
-      console.log('🔄 Undo action:', action)
+      yield* Logger.debug('Undo action executed', 'WorldEditor', { action })
     })
 
     /**
@@ -452,7 +454,7 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
       yield* Ref.update(stateRef, (s) => ({ ...s, historyIndex: newIndex }))
       yield* updateUI()
 
-      console.log('🔄 Redo action:', action)
+      yield* Logger.debug('Redo action executed', 'WorldEditor', { action })
     })
 
     /**
@@ -528,18 +530,19 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
         historyIndex: -1,
       }))
       yield* updateUI()
-      console.log('🧹 World editor history cleared')
+      yield* Logger.info('World editor history cleared', 'WorldEditor')
     })
 
     /**
      * Export world data
      */
     const exportWorld = Effect.gen(function* () {
-      console.log('💾 Exporting world data...')
+      yield* Logger.info('Exporting world data', 'WorldEditor')
       const state = yield* Ref.get(stateRef)
       // World export logic would go here
+      const timestamp = yield* Clock.currentTimeMillis
       return {
-        timestamp: Date.now(),
+        timestamp,
         actions: state.actionHistory.length,
         message: 'World export feature not implemented yet',
       }
@@ -550,7 +553,7 @@ export const createWorldEditor = (world: World, config: Partial<WorldEditorConfi
      */
     const importWorld = (data: unknown) =>
       Effect.gen(function* () {
-        console.log('📁 Importing world data...', data)
+        yield* Logger.info('Importing world data', 'WorldEditor', { data })
         // World import logic would go here
       })
 

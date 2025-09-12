@@ -5,8 +5,12 @@ import * as Effect from 'effect/Effect'
 
 // Schema definitions for unknown type validation
 const ErrorSchema = S.Union(S.InstanceOf(Error), S.String, S.Unknown)
-const ConfigurationSchema = S.Record(S.String, S.Unknown)
-const InvalidResultsSchema = S.Array(S.Unknown)
+const ConfigurationSchema = S.Record(S.String, S.Union(S.String, S.Number, S.Boolean, S.Null, S.Array(S.Unknown)))
+const InvalidResultsSchema = S.Array(S.Union(S.String, S.Number, S.Boolean, S.Null, S.Object, S.Array(S.Unknown)))
+const TaggedErrorSchema = S.Struct({
+  _tag: S.String,
+  message: S.optional(S.String)
+})
 
 // Validation utilities for system errors
 export const SystemErrorValidation = {
@@ -18,7 +22,13 @@ export const SystemErrorValidation = {
       return Effect.succeed({ message: error, type: 'string' })
     }
     if (typeof error === 'object' && error !== null && '_tag' in error) {
-      return Effect.succeed({ message: `Tagged Error: ${(error as any)._tag}`, type: (error as any)._tag })
+      return S.decodeUnknown(TaggedErrorSchema)(error).pipe(
+        Effect.match({
+          onFailure: () => Effect.succeed({ message: String(error), type: 'unknown-object' }),
+          onSuccess: (taggedError) => Effect.succeed({ message: `Tagged Error: ${taggedError._tag}`, type: taggedError._tag })
+        }),
+        Effect.flatten
+      )
     }
     return Effect.succeed({ message: String(error), type: typeof error })
   },
@@ -26,7 +36,13 @@ export const SystemErrorValidation = {
   validateConfiguration: (config: unknown): Effect.Effect<Record<string, unknown>, never, never> => {
     if (config == null) return Effect.succeed({})
     if (typeof config === 'object' && !Array.isArray(config)) {
-      return Effect.succeed(config as Record<string, unknown>)
+      return S.decodeUnknown(S.Record(S.String, S.Unknown))(config).pipe(
+        Effect.match({
+          onFailure: () => Effect.succeed({ value: config, type: typeof config }),
+          onSuccess: (validConfig) => Effect.succeed(validConfig)
+        }),
+        Effect.flatten
+      )
     }
     return Effect.succeed({ value: config, type: typeof config })
   },

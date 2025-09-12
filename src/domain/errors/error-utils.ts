@@ -52,8 +52,9 @@ export function isCriticalError(error: AllGameErrors): boolean {
  */
 export function createTypedErrorHandler<T extends AllGameErrors>(errorType: string, handler: (error: T) => void) {
   return (error: AllGameErrors) => {
+    // Type guard: if the error has the expected _tag, we can safely treat it as type T
     if (error._tag === errorType) {
-      handler(error as T)
+      handler(error as T) // Safe assertion after tag check
     }
   }
 }
@@ -80,11 +81,11 @@ export function generateDetailedErrorReport(): {
   const errors = globalErrorAggregator.getErrors()
 
   const recoverabilityStats = {
-    recoverable: errors.filter((e: any) => isRecoverableError(e)).length,
-    nonRecoverable: errors.filter((e: any) => !isRecoverableError(e)).length,
+    recoverable: errors.filter((e: AllGameErrors) => isRecoverableError(e)).length,
+    nonRecoverable: errors.filter((e: AllGameErrors) => !isRecoverableError(e)).length,
   }
 
-  const criticalErrors = report.criticalErrors.map((error: any) => ({
+  const criticalErrors = report.criticalErrors.map((error: AllGameErrors & { context: { timestamp: Date } }) => ({
     type: error._tag,
     message: JSON.stringify(error),
     timestamp: error.context.timestamp.toISOString(),

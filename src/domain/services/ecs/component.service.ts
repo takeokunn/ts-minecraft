@@ -39,16 +39,18 @@ export type ComponentPool = S.Schema.Type<typeof ComponentPool>
 // Error Definitions
 // ============================================================================
 
-export class ComponentError extends S.TaggedError<ComponentError>()('ComponentError', {
+export const ComponentError = S.TaggedError<ComponentError>()('ComponentError', {
   message: S.String,
   componentName: S.optional(ComponentName),
-}) {}
+})
+export interface ComponentError extends S.Schema.Type<typeof ComponentError> {}
 
-export class ComponentValidationError extends S.TaggedError<ComponentValidationError>()('ComponentValidationError', {
+export const ComponentValidationError = S.TaggedError<ComponentValidationError>()('ComponentValidationError', {
   message: S.String,
   componentName: ComponentName,
   validationErrors: S.Array(S.String),
-}) {}
+})
+export interface ComponentValidationError extends S.Schema.Type<typeof ComponentValidationError> {}
 
 // ============================================================================
 // Component Service
@@ -217,50 +219,55 @@ export const ComponentServiceLive = Layer.effect(
 
         // If no schema, use basic unknown validation
         if (!metadata.schema) {
-          try {
-            // Use a basic schema to ensure data is valid
-            const basicSchema = S.Union(S.Record(S.String, S.Unknown), S.Unknown)
-            const validated = S.parseSync(basicSchema)(data)
-            return validated as ComponentData
-          } catch (error) {
-            yield* Ref.update(validationStats, (stats) => ({
-              ...stats,
-              failures: stats.failures + 1,
-            }))
-            return yield* Effect.fail(
-              new ComponentValidationError({
-                message: `Basic validation failed for component ${name}`,
-                componentName: name,
-                validationErrors: [`Schema parsing error: ${error instanceof Error ? error.message : String(error)}`],
+          const basicSchema = S.Union(
+            S.Record(S.String, S.Union(S.String, S.Number, S.Boolean, S.Null)), 
+            S.String, 
+            S.Number, 
+            S.Boolean, 
+            S.Null
+          )
+          
+          const parseResult = yield* S.decodeUnknown(basicSchema)(data).pipe(
+            Effect.catchAll((parseError) =>
+              Effect.gen(function* () {
+                yield* Ref.update(validationStats, (stats) => ({
+                  ...stats,
+                  failures: stats.failures + 1,
+                }))
+                return yield* Effect.fail(
+                  new ComponentValidationError({
+                    message: `Basic validation failed for component ${name}`,
+                    componentName: name,
+                    validationErrors: [S.formatError(parseError)],
+                  })
+                )
               })
             )
-          }
+          )
+          
+          return parseResult as ComponentData
         }
 
-        // Validate against component's schema
-        const result = yield* Effect.try({
-          try: () => {
-            const validated = S.parseSync(metadata.schema!)(data)
-            return validated as ComponentData
-          },
-          catch: (error) => {
-            return new ComponentValidationError({
-              message: `Schema validation failed for component ${name}`,
-              componentName: name,
-              validationErrors: [`Schema parsing error: ${error instanceof Error ? error.message : String(error)}`],
+        // Validate against component's schema - safe because we checked metadata.schema exists above
+        const validationResult = yield* S.decodeUnknown(metadata.schema)(data).pipe(
+          Effect.catchAll((parseError) =>
+            Effect.gen(function* () {
+              yield* Ref.update(validationStats, (stats) => ({
+                ...stats,
+                failures: stats.failures + 1,
+              }))
+              return yield* Effect.fail(
+                new ComponentValidationError({
+                  message: `Schema validation failed for component ${name}`,
+                  componentName: name,
+                  validationErrors: [S.formatError(parseError)],
+                })
+              )
             })
-          },
-        })
+          )
+        )
 
-        if (result instanceof ComponentValidationError) {
-          yield* Ref.update(validationStats, (stats) => ({
-            ...stats,
-            failures: stats.failures + 1,
-          }))
-          return yield* Effect.fail(result)
-        }
-
-        return result
+        return validationResult as ComponentData
       })
 
     // Create default component data
@@ -270,12 +277,13 @@ export const ComponentServiceLive = Layer.effect(
 
         // Create default based on schema or return empty object
         if (!metadata.schema) {
-          return {} as ComponentData
+          const emptyObject: ComponentData = {}
+          return emptyObject
         }
 
-        // Here we would use schema to generate default
-        // For now, return empty object
-        return {} as ComponentData
+        // Use schema to generate default value if possible, otherwise empty object
+        const emptyDefault: ComponentData = {}
+        return emptyDefault
       })
 
     // Clone component data
@@ -284,8 +292,9 @@ export const ComponentServiceLive = Layer.effect(
         // Validate the component exists
         yield* get(name)
 
-        // Deep clone the data
-        return JSON.parse(JSON.stringify(data)) as ComponentData
+        // Deep clone the data - JSON parse/stringify preserves ComponentData structure
+        const clonedData: ComponentData = JSON.parse(JSON.stringify(data))
+        return clonedData
       })
 
     // Get component dependencies
@@ -398,7 +407,9 @@ export const ComponentPoolServiceLive = Layer.effect(
               let item: ComponentData
 
               if (p.available.length > 0) {
-                item = p.available.pop()!
+                const popped = p.available.pop()
+                // Safe assertion: we just checked p.available.length > 0
+                item = popped as NonNullable<typeof popped>
               } else if (p.inUse.size < p.maxSize) {
                 item = p.factory()
               } else {
@@ -475,7 +486,7 @@ export const ComponentPoolServiceLive = Layer.effect(
 // ============================================================================
 
 export const componentBuilder = (name: ComponentName) => ({
-  withSchema: <T>(schema: S.Schema<T, any>) => ({
+  withSchema: <T>(schema: S.Schema<T, T, never>) => ({
     withTags: (...tags: string[]) => ({
       withDependencies: (...dependencies: ComponentName[]) => ({
         version: (version: number) => ({

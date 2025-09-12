@@ -74,7 +74,7 @@ export const ValidationErrorValidation = {
     const actualType = value === null ? 'null' 
       : value === undefined ? 'undefined'
       : Array.isArray(value) ? 'array'
-      : typeof value === 'object' && '_tag' in (value as any) ? `tagged:${(value as any)._tag}`
+      : typeof value === 'object' && value !== null && '_tag' in value ? `tagged:${(value as { _tag: string })._tag}`
       : typeof value
 
     return Effect.succeed({

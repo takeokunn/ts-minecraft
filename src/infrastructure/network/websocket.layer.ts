@@ -121,7 +121,7 @@ const validateNetworkMessage = <T, A = T, R = never>(message: unknown, payloadSc
     try {
       const messageSchema = NetworkMessageSchema(payloadSchema)
       const validated = S.parseSync(messageSchema)(message)
-      return validated as NetworkMessage<T>
+      return validated
     } catch (error) {
       return yield* Effect.fail(
         NetworkError({
@@ -402,11 +402,41 @@ export const NetworkServiceLive = Layer.effect(
     // Helper functions
     const generateId = (): Effect.Effect<string, never, never> => Ref.modify(nextId, (id) => [(id + 1).toString(), id + 1])
 
-    const createServerId = (id: string): ServerId => id as ServerId
-    const createConnectionId = (id: string): ConnectionId => id as ConnectionId
-    const createPlayerId = (id: string): PlayerId => id as PlayerId
-    const createRoomId = (id: string): RoomId => id as RoomId
-    const createSubscriptionId = (id: string): SubscriptionId => id as SubscriptionId
+    // Safe ID creators using branded types with validation
+    const createServerId = (id: string): ServerId => {
+      if (!id || typeof id !== 'string') {
+        throw new Error('ServerId must be a non-empty string')
+      }
+      return id as ServerId
+    }
+    
+    const createConnectionId = (id: string): ConnectionId => {
+      if (!id || typeof id !== 'string') {
+        throw new Error('ConnectionId must be a non-empty string')
+      }
+      return id as ConnectionId
+    }
+    
+    const createPlayerId = (id: string): PlayerId => {
+      if (!id || typeof id !== 'string') {
+        throw new Error('PlayerId must be a non-empty string')
+      }
+      return id as PlayerId
+    }
+    
+    const createRoomId = (id: string): RoomId => {
+      if (!id || typeof id !== 'string') {
+        throw new Error('RoomId must be a non-empty string')
+      }
+      return id as RoomId
+    }
+    
+    const createSubscriptionId = (id: string): SubscriptionId => {
+      if (!id || typeof id !== 'string') {
+        throw new Error('SubscriptionId must be a non-empty string')
+      }
+      return id as SubscriptionId
+    }
 
     // Message serialization
     const serializeMessage = <T>(message: NetworkMessage<T>): Uint8Array => {
@@ -418,7 +448,19 @@ export const NetworkServiceLive = Layer.effect(
     const deserializeMessage = <T>(data: Uint8Array): NetworkMessage<T> => {
       // Simplified deserialization
       const json = new TextDecoder().decode(data)
-      return JSON.parse(json) as NetworkMessage<T>
+      try {
+        const parsed = JSON.parse(json)
+        // Basic structure validation
+        if (typeof parsed !== 'object' || parsed === null) {
+          throw new Error('Message must be an object')
+        }
+        if (!('type' in parsed) || !('payload' in parsed)) {
+          throw new Error('Message must have type and payload properties')
+        }
+        return parsed as NetworkMessage<T>
+      } catch (error) {
+        throw new Error(`Failed to deserialize message: ${error instanceof Error ? error.message : String(error)}`)
+      }
     }
 
     // Connection management

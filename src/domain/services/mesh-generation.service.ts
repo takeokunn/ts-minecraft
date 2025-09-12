@@ -6,8 +6,9 @@
  * technology-agnostic geometry processing logic.
  */
 
-import { Effect, Context, Layer, pipe } from 'effect'
+import { Effect, Context, Layer, pipe, Clock } from 'effect'
 import { BlockType, BlockPropertiesUtils } from '@domain/constants/block-properties'
+import { type FaceDirection } from '@shared/utils/type-guards'
 import {
   MeshGeneratorPort,
   type IMeshGenerator,
@@ -95,7 +96,7 @@ const FaceDirection = {
   BOTTOM: 'bottom',
 } as const
 
-type FaceDirectionType = (typeof FaceDirection)[keyof typeof FaceDirection]
+type FaceDirectionType = FaceDirection
 
 /**
  * Vertex attribute configuration
@@ -128,7 +129,7 @@ export const EnhancedMeshAlgorithms = {
     const faceDefinitions = [
       // Front face (+Z)
       {
-        name: FaceDirection.FRONT as FaceDirectionType,
+        name: FaceDirection.FRONT,
         positions: [x, y, z + 1, x + 1, y, z + 1, x + 1, y + 1, z + 1, x, y + 1, z + 1],
         normals: [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
         neighborKey: `${x},${y},${z + 1}`,
@@ -136,7 +137,7 @@ export const EnhancedMeshAlgorithms = {
       },
       // Back face (-Z)
       {
-        name: FaceDirection.BACK as FaceDirectionType,
+        name: FaceDirection.BACK,
         positions: [x + 1, y, z, x, y, z, x, y + 1, z, x + 1, y + 1, z],
         normals: [0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1],
         neighborKey: `${x},${y},${z - 1}`,
@@ -144,7 +145,7 @@ export const EnhancedMeshAlgorithms = {
       },
       // Right face (+X)
       {
-        name: FaceDirection.RIGHT as FaceDirectionType,
+        name: FaceDirection.RIGHT,
         positions: [x + 1, y, z + 1, x + 1, y, z, x + 1, y + 1, z, x + 1, y + 1, z + 1],
         normals: [1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0],
         neighborKey: `${x + 1},${y},${z}`,
@@ -152,7 +153,7 @@ export const EnhancedMeshAlgorithms = {
       },
       // Left face (-X)
       {
-        name: FaceDirection.LEFT as FaceDirectionType,
+        name: FaceDirection.LEFT,
         positions: [x, y, z, x, y, z + 1, x, y + 1, z + 1, x, y + 1, z],
         normals: [-1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0],
         neighborKey: `${x - 1},${y},${z}`,
@@ -160,7 +161,7 @@ export const EnhancedMeshAlgorithms = {
       },
       // Top face (+Y)
       {
-        name: FaceDirection.TOP as FaceDirectionType,
+        name: FaceDirection.TOP,
         positions: [x, y + 1, z + 1, x + 1, y + 1, z + 1, x + 1, y + 1, z, x, y + 1, z],
         normals: [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],
         neighborKey: `${x},${y + 1},${z}`,
@@ -168,7 +169,7 @@ export const EnhancedMeshAlgorithms = {
       },
       // Bottom face (-Y)
       {
-        name: FaceDirection.BOTTOM as FaceDirectionType,
+        name: FaceDirection.BOTTOM,
         positions: [x, y, z, x + 1, y, z, x + 1, y, z + 1, x, y, z + 1],
         normals: [0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0],
         neighborKey: `${x},${y - 1},${z}`,
@@ -693,9 +694,9 @@ export const createEnhancedMeshGenerationService = (): IMeshGenerator => {
 
   // Return the service implementation
   return {
-    generateMesh: (request: EnhancedMeshGenerationRequest): Effect.Effect<MeshGenerationResult, never, never> =>
+    generateMesh: (request: EnhancedMeshGenerationRequest): Effect.Effect<MeshGenerationResult, never, Clock.Clock> =>
       Effect.gen(function* () {
-        const startTime = performance.now()
+        const startTime = yield* Clock.currentTimeNanos
         const { chunkData, neighbors, algorithm, optimizations, options, lodLevel } = request
 
         const opts = options || MeshGeneratorHelpers.createDefaultOptions()
@@ -703,14 +704,16 @@ export const createEnhancedMeshGenerationService = (): IMeshGenerator => {
         const meshAlg = request.meshAlgorithm || algorithm || 'naive'
 
         // Generate base mesh data using enhanced algorithms
-        const meshingStart = performance.now()
+        const meshingStart = yield* Clock.currentTimeNanos
         let meshData = generateMeshByEnhancedAlgorithm(meshAlg, chunkData, neighbors, enhancedOpts)
-        const meshingTime = performance.now() - meshingStart
+        const meshingEnd = yield* Clock.currentTimeNanos
+        const meshingTime = Number(meshingEnd - meshingStart) / 1_000_000 // Convert to milliseconds
 
         // Apply enhanced optimizations
-        const optimizationStart = performance.now()
+        const optimizationStart = yield* Clock.currentTimeNanos
         meshData = applyEnhancedOptimizations(meshData, enhancedOpts)
-        const optimizationTime = performance.now() - optimizationStart
+        const optimizationEnd = yield* Clock.currentTimeNanos
+        const optimizationTime = Number(optimizationEnd - optimizationStart) / 1_000_000 // Convert to milliseconds
 
         // Create transferable vertex attributes
         const vertexAttributes = MeshGeneratorHelpers.createTransferableVertexData(
@@ -746,7 +749,8 @@ export const createEnhancedMeshGenerationService = (): IMeshGenerator => {
         }
 
         // Enhanced performance metrics
-        const totalTime = performance.now() - startTime
+        const endTime = yield* Clock.currentTimeNanos
+        const totalTime = Number(endTime - startTime) / 1_000_000 // Convert to milliseconds
         const metrics: MeshGenerationMetrics = {
           totalTime,
           meshingTime,

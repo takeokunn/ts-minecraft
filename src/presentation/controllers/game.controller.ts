@@ -1,4 +1,4 @@
-import { Effect, Context, Layer } from 'effect'
+import { Effect, Context, Layer, Random, Clock } from 'effect'
 import { CommandHandlers } from '@application/handlers/command-handlers'
 import { QueryHandlers } from '@application/handlers/query-handlers'
 import type { PlayerMovementCommand } from '@application/commands/player-movement'
@@ -11,7 +11,7 @@ import type { WorldGenerateCommand } from '@application/use-cases/world-generate
  * ビジネスロジックは含まず、適切なアプリケーション層への委譲のみを行う
  */
 export interface GameControllerInterface {
-  readonly initializeWorld: (seed?: string) => Effect.Effect<void, Error, never>
+  readonly initializeWorld: (seed?: string) => Effect.Effect<void, Error, Random.Random | Clock.Clock>
   readonly pauseGame: () => Effect.Effect<void, never, never>
   readonly resumeGame: () => Effect.Effect<void, never, never>
   readonly handlePlayerMovement: (command: PlayerMovementCommand) => Effect.Effect<void, Error, never>
@@ -35,13 +35,20 @@ export const GameControllerLive: Layer.Layer<GameController, never, CommandHandl
     const commandHandlers = yield* CommandHandlers
     const queryHandlers = yield* QueryHandlers
 
-    const initializeWorld = (seed?: string): Effect.Effect<void, Error, never> =>
+    const initializeWorld = (seed?: string): Effect.Effect<void, Error, Random.Random | Clock.Clock> =>
       Effect.gen(function* () {
+        const generatedSeed = seed
+          ? Effect.succeed(seed)
+          : Effect.map(Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER), (n) => n.toString(36))
+        
+        const seedValue = yield* generatedSeed
+        const currentTime = yield* Clock.currentTimeMillis
+        
         const worldGenerateCommand: WorldGenerateCommand = {
-          seed: seed || Math.random().toString(36).substring(7),
+          seed: seedValue,
           worldType: 'default',
           generateStructures: true,
-          timestamp: Date.now(),
+          timestamp: currentTime,
         }
 
         yield* commandHandlers.handleWorldGenerate(worldGenerateCommand)

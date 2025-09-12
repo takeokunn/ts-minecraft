@@ -9,6 +9,7 @@
 import { Effect, Context, Layer, pipe } from 'effect'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@shared/constants/world'
 import { BlockType, BLOCK_MATERIAL_PROPERTIES, BlockPropertiesUtils } from '@domain/constants/block-properties'
+import { TypeGuards, validateBiomeBlockTypeSync } from '@shared/utils/type-guards'
 import {
   TerrainGeneratorPort,
   type ITerrainGenerator,
@@ -474,7 +475,7 @@ export const BiomeAwareBlockPlacement = {
 
     // Subsurface layer
     if (y <= terrainHeight - rules.surfaceDepth) {
-      return biome.subsurfaceBlock as BlockType
+      return validateBiomeBlockTypeSync(biome.subsurfaceBlock, 'dirt')
     }
 
     // Surface layer with vegetation
@@ -484,7 +485,7 @@ export const BiomeAwareBlockPlacement = {
         return BiomeAwareBlockPlacement.selectVegetationBlock(biome, seed)
       }
 
-      return biome.surfaceBlock as BlockType
+      return validateBiomeBlockTypeSync(biome.surfaceBlock, 'grass')
     }
 
     // Above-surface features (trees, etc.)
@@ -586,7 +587,7 @@ export const BiomeAwareBlockPlacement = {
       case 'snow':
         return 'snow'
       default:
-        return biome.surfaceBlock as BlockType
+        return validateBiomeBlockTypeSync(biome.surfaceBlock, 'grass')
     }
   },
 

@@ -99,3 +99,19 @@ export {
   runPortsAdaptersValidation,
   implementationSummary,
 } from '@infrastructure/adapters/ports-adapters-validation'
+
+// Complete adapter layer compositions
+export {
+  CompleteAdapterLayer,
+  EssentialAdaptersLayer,
+  MathAdaptersLayer,
+  RenderingAdaptersLayer,
+  IOAdaptersLayer,
+  MinimalAdapterLayer,
+  DevelopmentAdapterLayer,
+  ProductionAdapterLayer,
+  getAdapterLayer,
+  getAutoAdapterLayer,
+  validateAdapterCompliance,
+  hexagonalArchitectureSummary,
+} from '@infrastructure/adapters/complete-adapter-layer'

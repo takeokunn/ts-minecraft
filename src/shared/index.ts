@@ -32,8 +32,6 @@ export {
   CAVE_THRESHOLD,
 } from './constants'
 
-// Decorators - Essential decorators only
-export { measureTime, throttle, debounce, memoize } from './decorators'
 
 // Types - Core types only (used in game config)
 export type {
@@ -78,16 +76,26 @@ export {
   // Monitoring utilities (used in shared utils)
   type PerformanceMetrics,
   PerformanceMonitor,
-  // Validation utilities
+  // Validation utilities (Schema-based)
   type ValidationResult,
+  type ValidationContext,
   Validators,
-  // Common utilities
-  isNotNull,
-  isNotUndefined,
-  deepClone,
-  generateId,
-  sleep,
-  retry,
+  ValidationChain,
+  ValidationUtils,
+  GameValidators,
+  // Common type guards
+  isRecord,
+  hasProperty,
+  isFunction,
+  safeBoolean,
+  isVector3,
+  getSafeNumberProperty,
+  isHTMLElement,
+  isHTMLInputElement,
+  hasFiles,
+  hasPerformanceMemory,
+  hasPerformanceObserver,
+  safeParseNumber,
   // Math utilities (used in physics)
   Float,
   type FloatType,

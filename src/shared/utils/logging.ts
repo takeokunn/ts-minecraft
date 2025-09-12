@@ -8,6 +8,7 @@
 import * as Effect from 'effect/Effect'
 import * as Console from 'effect/Console'
 import * as Ref from 'effect/Ref'
+import * as Clock from 'effect/Clock'
 import * as S from '@effect/schema/Schema'
 import { pipe } from 'effect/Function'
 
@@ -247,12 +248,13 @@ function createLogEntry(
   context?: Record<string, unknown>,
   error?: Error,
   tags?: string[],
-): Effect.Effect<LogEntry, never, never> {
+): Effect.Effect<LogEntry, never, Clock.Clock> {
   return Effect.gen(function* () {
     const validatedContext = context ? yield* validateLogContext(context) : undefined
-
+    const currentTime = yield* Clock.currentTimeMillis
+    
     return {
-      timestamp: new Date(),
+      timestamp: new Date(currentTime),
       level,
       component,
       message,
@@ -294,7 +296,7 @@ const formatForConsole = (entry: LogEntry): Effect.Effect<string, never, never> 
   )
 
 // Core logging function with validation
-function log(level: LogLevel, message: string, component?: string, context?: unknown, error?: unknown, tags?: string[]): Effect.Effect<void, never, never> {
+function log(level: LogLevel, message: string, component?: string, context?: unknown, error?: unknown, tags?: string[]): Effect.Effect<void, never, Clock.Clock> {
   return pipe(
     Effect.gen(function* (_) {
       const config = yield* _(LoggerStateOps.getConfig())
@@ -432,39 +434,41 @@ export const Logger = {
 
   // Performance logging helpers
   performance: {
-    start: (operation: string, component?: string) => {
-      const startTime = performance.now()
-      return {
-        end: (context?: unknown) => {
-          const duration = performance.now() - startTime
-          return Effect.gen(function* () {
-            const validatedContext = context ? yield* validateLogContext(context) : {}
-            return yield* log(
-              'debug',
-              `${operation} completed`,
-              component,
-              {
-                ...validatedContext,
-                duration: `${duration.toFixed(2)}ms`,
-                operation,
-              },
-              undefined,
-              ['performance'],
-            )
-          })
-        },
-      }
-    },
+    start: (operation: string, component?: string): Effect.Effect<{ end: (context?: unknown) => Effect.Effect<void, never, Clock.Clock> }, never, Clock.Clock> => 
+      Effect.gen(function* () {
+        const startTime = yield* Clock.currentTimeNanos
+        return {
+          end: (context?: unknown) =>
+            Effect.gen(function* () {
+              const endTime = yield* Clock.currentTimeNanos
+              const duration = Number(endTime - startTime) / 1_000_000 // Convert to milliseconds
+              const validatedContext = context ? yield* validateLogContext(context) : {}
+              return yield* log(
+                'debug',
+                `${operation} completed`,
+                component,
+                {
+                  ...validatedContext,
+                  duration: `${duration.toFixed(2)}ms`,
+                  operation,
+                },
+                undefined,
+                ['performance'],
+              )
+            })
+        }
+      }),
 
-    measure: <T>(operation: string, effect: Effect.Effect<T, any, any>, component?: string, context?: unknown): Effect.Effect<T, any, never> => {
+    measure: <T, E, R>(operation: string, effect: Effect.Effect<T, E, R>, component?: string, context?: unknown): Effect.Effect<T, E, R | Clock.Clock> => {
       return pipe(
-        Effect.sync(() => performance.now()),
+        Clock.currentTimeNanos,
         Effect.flatMap((startTime) =>
           pipe(
             effect,
-            Effect.tap((result) => {
-              const duration = performance.now() - startTime
-              return Effect.gen(function* () {
+            Effect.tap((result) =>
+              Effect.gen(function* () {
+                const endTime = yield* Clock.currentTimeNanos
+                const duration = Number(endTime - startTime) / 1_000_000 // Convert to milliseconds
                 const validatedContext = context ? yield* validateLogContext(context) : {}
                 return yield* log(
                   'debug',
@@ -480,7 +484,7 @@ export const Logger = {
                   ['performance'],
                 )
               })
-            }),
+            ),
           ),
         ),
       )

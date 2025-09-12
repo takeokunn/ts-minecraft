@@ -9,22 +9,21 @@ import * as Effect from 'effect/Effect'
 import * as Schema from '@effect/schema/Schema'
 import * as ParseResult from '@effect/schema/ParseResult'
 import { pipe } from 'effect/Function'
+import { Brand } from 'effect/Brand'
 // Note: Using local ValidationError definition to avoid domain layer dependency
-export class ValidationError extends Error {
-  public readonly context?: {
-    field?: string
-    component?: string
-    operation?: string
-    metadata?: Record<string, unknown>
-    cause?: unknown
-  }
+import * as Data from 'effect/Data'
 
-  constructor(options: { message: string; context?: ValidationError['context'] }) {
-    super(options.message)
-    this.name = 'ValidationError'
-    this.context = options.context
-  }
+export interface ValidationError extends Data.Case {
+  readonly _tag: 'ValidationError'
+  readonly message: string
+  readonly field?: string
+  readonly component?: string
+  readonly operation?: string
+  readonly metadata?: Record<string, unknown>
+  readonly cause?: unknown
 }
+
+export const ValidationError = Data.tagged<ValidationError>('ValidationError')
 
 // Common validation result types
 export type ValidationResult<T> = Effect.Effect<T, ValidationError, never>
@@ -49,101 +48,138 @@ export interface ValidationRule<T> {
 
 // Create a validation error with context
 const createValidationError = (message: string, context?: ValidationContext, cause?: unknown): ValidationError =>
-  new ValidationError({
+  ValidationError({
     message: `Validation failed: ${message}`,
-    context: {
-      field: context?.field,
-      component: context?.component,
-      operation: context?.operation,
-      metadata: context?.metadata,
-      cause,
-    },
+    field: context?.field,
+    component: context?.component,
+    operation: context?.operation,
+    metadata: context?.metadata,
+    cause,
   })
 
 // Basic validators
 export const Validators = {
-  // Primitive type validators
-  isNumber: (value: unknown, context?: ValidationContext): ValidationResult<number> => {
-    if (typeof value !== 'number' || isNaN(value)) {
-      return Effect.fail(createValidationError(`Expected number, got ${typeof value}`, context, value))
-    }
-    return Effect.succeed(value)
-  },
+  // Schema-based validators
+  number: Schema.Number,
+  string: Schema.String,
+  boolean: Schema.Boolean,
+  
+  // Primitive type validators using Schema
+  isNumber: <I>(value: I, context?: ValidationContext): ValidationResult<number> =>
+    pipe(
+      Schema.decodeUnknown(Schema.Number)(value),
+      Effect.mapError((parseError) => 
+        createValidationError(`Expected number, got ${typeof value}`, context, parseError)
+      )
+    ),
 
-  isString: (value: unknown, context?: ValidationContext): ValidationResult<string> => {
-    if (typeof value !== 'string') {
-      return Effect.fail(createValidationError(`Expected string, got ${typeof value}`, context, value))
-    }
-    return Effect.succeed(value)
-  },
+  isString: <I>(value: I, context?: ValidationContext): ValidationResult<string> =>
+    pipe(
+      Schema.decodeUnknown(Schema.String)(value),
+      Effect.mapError((parseError) => 
+        createValidationError(`Expected string, got ${typeof value}`, context, parseError)
+      )
+    ),
 
-  isBoolean: (value: unknown, context?: ValidationContext): ValidationResult<boolean> => {
-    if (typeof value !== 'boolean') {
-      return Effect.fail(createValidationError(`Expected boolean, got ${typeof value}`, context, value))
-    }
-    return Effect.succeed(value)
-  },
+  isBoolean: <I>(value: I, context?: ValidationContext): ValidationResult<boolean> =>
+    pipe(
+      Schema.decodeUnknown(Schema.Boolean)(value),
+      Effect.mapError((parseError) => 
+        createValidationError(`Expected boolean, got ${typeof value}`, context, parseError)
+      )
+    ),
 
-  isArray: <T>(value: unknown, context?: ValidationContext): ValidationResult<T[]> => {
-    if (!Array.isArray(value)) {
-      return Effect.fail(createValidationError(`Expected array, got ${typeof value}`, context, value))
-    }
-    return Effect.succeed(value as T[])
-  },
+  isArray: <T, I>(elementSchema: Schema.Schema<T, I>) => 
+    <Input>(value: Input, context?: ValidationContext): ValidationResult<T[]> =>
+      pipe(
+        Schema.decodeUnknown(Schema.Array(elementSchema))(value),
+        Effect.mapError((parseError) => 
+          createValidationError(`Expected array, got ${typeof value}`, context, parseError)
+        )
+      ),
 
   // Numeric validators
   isPositive: (value: number, context?: ValidationContext): ValidationResult<number> =>
-    value > 0 ? Effect.succeed(value) : Effect.fail(createValidationError('Must be positive', context, value)),
+    pipe(
+      Schema.decodeUnknown(Schema.Number.pipe(Schema.positive()))(value),
+      Effect.mapError(() => createValidationError('Must be positive', context, value))
+    ),
 
   isNonNegative: (value: number, context?: ValidationContext): ValidationResult<number> =>
-    value >= 0 ? Effect.succeed(value) : Effect.fail(createValidationError('Must be non-negative', context, value)),
+    pipe(
+      Schema.decodeUnknown(Schema.Number.pipe(Schema.nonNegative()))(value),
+      Effect.mapError(() => createValidationError('Must be non-negative', context, value))
+    ),
 
   isInteger: (value: number, context?: ValidationContext): ValidationResult<number> =>
-    Number.isInteger(value) ? Effect.succeed(value) : Effect.fail(createValidationError('Must be an integer', context, value)),
+    pipe(
+      Schema.decodeUnknown(Schema.Number.pipe(Schema.int()))(value),
+      Effect.mapError(() => createValidationError('Must be an integer', context, value))
+    ),
 
-  inRange:
-    (min: number, max: number) =>
+  inRange: (min: number, max: number) =>
     (value: number, context?: ValidationContext): ValidationResult<number> =>
-      value >= min && value <= max ? Effect.succeed(value) : Effect.fail(createValidationError(`Must be between ${min} and ${max}`, context, { value, min, max })),
+      pipe(
+        Schema.decodeUnknown(Schema.Number.pipe(Schema.between(min, max)))(value),
+        Effect.mapError(() => createValidationError(`Must be between ${min} and ${max}`, context, { value, min, max }))
+      ),
 
   // String validators
-  minLength:
-    (min: number) =>
+  minLength: (min: number) =>
     (value: string, context?: ValidationContext): ValidationResult<string> =>
-      value.length >= min ? Effect.succeed(value) : Effect.fail(createValidationError(`Minimum length is ${min}`, context, { value, length: value.length, min })),
+      pipe(
+        Schema.decodeUnknown(Schema.String.pipe(Schema.minLength(min)))(value),
+        Effect.mapError(() => createValidationError(`Minimum length is ${min}`, context, { value, length: value.length, min }))
+      ),
 
-  maxLength:
-    (max: number) =>
+  maxLength: (max: number) =>
     (value: string, context?: ValidationContext): ValidationResult<string> =>
-      value.length <= max ? Effect.succeed(value) : Effect.fail(createValidationError(`Maximum length is ${max}`, context, { value, length: value.length, max })),
+      pipe(
+        Schema.decodeUnknown(Schema.String.pipe(Schema.maxLength(max)))(value),
+        Effect.mapError(() => createValidationError(`Maximum length is ${max}`, context, { value, length: value.length, max }))
+      ),
 
-  matches:
-    (pattern: RegExp, patternName?: string) =>
+  matches: (pattern: RegExp, patternName?: string) =>
     (value: string, context?: ValidationContext): ValidationResult<string> =>
-      pattern.test(value) ? Effect.succeed(value) : Effect.fail(createValidationError(`Must match ${patternName || 'pattern'}`, context, { value, pattern: pattern.toString() })),
+      pipe(
+        Schema.decodeUnknown(Schema.String.pipe(Schema.pattern(pattern)))(value),
+        Effect.mapError(() => createValidationError(`Must match ${patternName || 'pattern'}`, context, { value, pattern: pattern.toString() }))
+      ),
 
-  // Array validators
-  minItems:
-    <T>(min: number) =>
-    (value: T[], context?: ValidationContext): ValidationResult<T[]> =>
-      value.length >= min ? Effect.succeed(value) : Effect.fail(createValidationError(`Minimum ${min} items required`, context, { value, length: value.length, min })),
+  // Array validators  
+  minItems: <T>(min: number, elementSchema: Schema.Schema<T>) =>
+    <I>(value: I, context?: ValidationContext): ValidationResult<T[]> =>
+      pipe(
+        Schema.decodeUnknown(Schema.Array(elementSchema).pipe(Schema.minItems(min)))(value),
+        Effect.mapError(() => createValidationError(`Minimum ${min} items required`, context, { value, min }))
+      ),
 
-  maxItems:
-    <T>(max: number) =>
-    (value: T[], context?: ValidationContext): ValidationResult<T[]> =>
-      value.length <= max ? Effect.succeed(value) : Effect.fail(createValidationError(`Maximum ${max} items allowed`, context, { value, length: value.length, max })),
+  maxItems: <T>(max: number, elementSchema: Schema.Schema<T>) =>
+    <I>(value: I, context?: ValidationContext): ValidationResult<T[]> =>
+      pipe(
+        Schema.decodeUnknown(Schema.Array(elementSchema).pipe(Schema.maxItems(max)))(value),
+        Effect.mapError(() => createValidationError(`Maximum ${max} items allowed`, context, { value, max }))
+      ),
 
   // Object validators
-  hasProperty:
-    <T>(property: keyof T) =>
-    (value: T, context?: ValidationContext): ValidationResult<T> =>
-      property in value ? Effect.succeed(value) : Effect.fail(createValidationError(`Missing required property: ${String(property)}`, context, { value, property })),
+  hasProperty: <T extends Record<string, unknown>>(property: keyof T, schema: Schema.Schema<T>) =>
+    <I>(value: I, context?: ValidationContext): ValidationResult<T> =>
+      pipe(
+        Schema.decodeUnknown(schema)(value),
+        Effect.flatMap((obj) => 
+          property in obj 
+            ? Effect.succeed(obj)
+            : Effect.fail(createValidationError(`Missing required property: ${String(property)}`, context, { value, property }))
+        )
+      ),
 
-  // Custom validators
-  custom:
-    <T>(predicate: (value: T) => boolean, message: string) =>
-    (value: T, context?: ValidationContext): ValidationResult<T> =>
-      predicate(value) ? Effect.succeed(value) : Effect.fail(createValidationError(message, context, value)),
+  // Custom validators with Schema
+  custom: <A, I>(schema: Schema.Schema<A, I>, message: string) =>
+    (value: I, context?: ValidationContext): ValidationResult<A> =>
+      pipe(
+        Schema.decodeUnknown(schema)(value),
+        Effect.mapError(() => createValidationError(message, context, value))
+      ),
 }
 
 // Validation chain state
@@ -360,38 +396,67 @@ export const ValidationUtils = {
 
 // Common validation schemas for game entities
 export const GameValidators = {
-  // Position validation
-  position: ValidationUtils.validateObject({
-    x: Validators.isNumber,
-    y: Validators.isNumber,
-    z: Validators.isNumber,
+  // Position Schema
+  PositionSchema: Schema.Struct({
+    x: Schema.Number,
+    y: Schema.Number,
+    z: Schema.Number,
   }),
 
-  // Vector3 validation
-  vector3: ValidationUtils.validateObject({
-    x: Validators.isNumber,
-    y: Validators.isNumber,
-    z: Validators.isNumber,
+  // Vector3 Schema
+  Vector3Schema: Schema.Struct({
+    x: Schema.Number,
+    y: Schema.Number,
+    z: Schema.Number,
   }),
 
-  // Entity ID validation
-  entityId: pipe(
-    Validators.isString,
-    (validator) => (value: unknown, context?: ValidationContext) =>
-      pipe(
-        validator(value, context),
-        Effect.flatMap((str) => (str.length > 0 ? Effect.succeed(str) : Effect.fail(createValidationError('Entity ID cannot be empty', context, str)))),
-      ),
+  // Entity ID Schema
+  EntityIdSchema: Schema.String.pipe(
+    Schema.nonEmpty(),
+    Schema.brand('EntityId')
   ),
 
-  // Chunk coordinate validation
-  chunkCoordinate: ValidationUtils.validateObject({
-    x: pipe(Validators.isNumber, Validators.isInteger),
-    z: pipe(Validators.isNumber, Validators.isInteger),
+  // Chunk coordinate Schema
+  ChunkCoordinateSchema: Schema.Struct({
+    x: Schema.Number.pipe(Schema.int()),
+    z: Schema.Number.pipe(Schema.int()),
   }),
 
+  // Position validation
+  position: <I>(value: I, context?: ValidationContext): ValidationResult<{ x: number; y: number; z: number }> =>
+    pipe(
+      Schema.decodeUnknown(GameValidators.PositionSchema)(value),
+      Effect.mapError((parseError) => createValidationError('Invalid position', context, parseError))
+    ),
+
+  // Vector3 validation  
+  vector3: <I>(value: I, context?: ValidationContext): ValidationResult<{ x: number; y: number; z: number }> =>
+    pipe(
+      Schema.decodeUnknown(GameValidators.Vector3Schema)(value),
+      Effect.mapError((parseError) => createValidationError('Invalid vector3', context, parseError))
+    ),
+
+  // Entity ID validation
+  entityId: <I>(value: I, context?: ValidationContext): ValidationResult<string & Brand<'EntityId'>> =>
+    pipe(
+      Schema.decodeUnknown(GameValidators.EntityIdSchema)(value),
+      Effect.mapError((parseError) => createValidationError('Invalid entity ID', context, parseError))
+    ),
+
+  // Chunk coordinate validation
+  chunkCoordinate: <I>(value: I, context?: ValidationContext): ValidationResult<{ x: number; z: number }> =>
+    pipe(
+      Schema.decodeUnknown(GameValidators.ChunkCoordinateSchema)(value),
+      Effect.mapError((parseError) => createValidationError('Invalid chunk coordinate', context, parseError))
+    ),
+
   // Component data validation
-  componentData: <T extends Record<string, unknown>>(validators: { [K in keyof T]: ValidatorFn<T[K]> }) => ValidationUtils.validateObject(validators),
+  componentData: <T>(schema: Schema.Schema<T>) => 
+    <I>(value: I, context?: ValidationContext): ValidationResult<T> =>
+      pipe(
+        Schema.decodeUnknown(schema)(value),
+        Effect.mapError((parseError) => createValidationError('Invalid component data', context, parseError))
+      ),
 }
 
 // Export helper for creating component-specific validators

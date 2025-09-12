@@ -3,7 +3,6 @@
  */
 
 import * as S from 'effect/Schema'
-import type { Schema } from 'effect/Schema'
 
 // Schema definitions for type safety and validation
 export const LoggingConfigSchema = S.Struct({

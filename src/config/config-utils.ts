@@ -1,4 +1,4 @@
-import { Effect, pipe, Option, Schema as S } from 'effect'
+import { Effect, pipe, Option, Schema as S, Ref } from 'effect'
 import { APP_CONFIG } from '@config/app.config'
 import { GAME_CONFIG, getUserGameConfig } from '@config/game.config'
 import { INFRASTRUCTURE_CONFIG, getOptimalInfrastructureConfig } from '@config/infrastructure.config'
@@ -21,42 +21,79 @@ export interface ApplicationConfiguration {
 }
 
 // Main configuration factory
-export const createConfiguration = (): ApplicationConfiguration => ({
-  app: APP_CONFIG,
-  game: getUserGameConfig(),
-  infrastructure: getOptimalInfrastructureConfig(),
-})
+export const createConfiguration = (): Effect.Effect<ApplicationConfiguration, ConfigValidationError, never> =>
+  Effect.gen(function* () {
+    const config: ApplicationConfiguration = {
+      app: APP_CONFIG,
+      game: getUserGameConfig(),
+      infrastructure: getOptimalInfrastructureConfig(),
+    }
+    
+    yield* validateConfiguration(config)
+    return config
+  })
 
-// Export the main configuration instance
-export const CONFIG = createConfiguration()
+// Configuration reference for state management
+export const createConfigRef = (): Effect.Effect<Ref.Ref<ApplicationConfiguration>, ConfigValidationError, never> =>
+  Effect.gen(function* () {
+    const initialConfig = yield* createConfiguration()
+    return yield* Ref.make(initialConfig)
+  })
 
 // Configuration utilities with validation
-export const reloadConfiguration = (): ApplicationConfiguration => {
-  const newConfig = createConfiguration()
-
-  // Validate the new configuration before applying
-  if (!validateConfiguration(newConfig)) {
-    console.error('Failed to reload configuration - validation failed')
-    return CONFIG // Return existing config on failure
-  }
-
-  Object.assign(CONFIG, newConfig)
-  return CONFIG
-}
+export const reloadConfiguration = (configRef: Ref.Ref<ApplicationConfiguration>): Effect.Effect<ApplicationConfiguration, ConfigValidationError, never> =>
+  Effect.gen(function* () {
+    const newConfig = yield* createConfiguration()
+    yield* Ref.set(configRef, newConfig)
+    return newConfig
+  })
 
 // Type-safe configuration accessor
-export const getConfig = <K extends keyof ApplicationConfiguration>(section: K): ApplicationConfiguration[K] => CONFIG[section]
+export const getConfig = <K extends keyof ApplicationConfiguration>(
+  configRef: Ref.Ref<ApplicationConfiguration>,
+  section: K
+): Effect.Effect<ApplicationConfiguration[K], never, never> =>
+  Effect.gen(function* () {
+    const config = yield* Ref.get(configRef)
+    return config[section]
+  })
 
 // Environment-specific configuration flags
-export const isProduction = () => CONFIG.app.environment === 'production'
-export const isDevelopment = () => CONFIG.app.environment === 'development'
-export const isTest = () => CONFIG.app.environment === 'test'
+export const isProduction = (configRef: Ref.Ref<ApplicationConfiguration>): Effect.Effect<boolean, never, never> =>
+  Effect.gen(function* () {
+    const config = yield* Ref.get(configRef)
+    return config.app.environment === 'production'
+  })
+
+export const isDevelopment = (configRef: Ref.Ref<ApplicationConfiguration>): Effect.Effect<boolean, never, never> =>
+  Effect.gen(function* () {
+    const config = yield* Ref.get(configRef)
+    return config.app.environment === 'development'
+  })
+
+export const isTest = (configRef: Ref.Ref<ApplicationConfiguration>): Effect.Effect<boolean, never, never> =>
+  Effect.gen(function* () {
+    const config = yield* Ref.get(configRef)
+    return config.app.environment === 'test'
+  })
 
 // Debug configuration helper
-export const isDebugEnabled = () => CONFIG.app.debug || isDevelopment()
+export const isDebugEnabled = (configRef: Ref.Ref<ApplicationConfiguration>): Effect.Effect<boolean, never, never> =>
+  Effect.gen(function* () {
+    const config = yield* Ref.get(configRef)
+    const isDev = yield* isDevelopment(configRef)
+    return config.app.debug || isDev
+  })
 
 // Feature flag helpers
-export const isFeatureEnabled = (feature: keyof typeof CONFIG.app.features): boolean => CONFIG.app.features[feature]
+export const isFeatureEnabled = (
+  configRef: Ref.Ref<ApplicationConfiguration>,
+  feature: keyof typeof APP_CONFIG.features
+): Effect.Effect<boolean, never, never> =>
+  Effect.gen(function* () {
+    const config = yield* Ref.get(configRef)
+    return config.app.features[feature]
+  })
 
 // Enhanced configuration validation using Effect patterns
 export const validateConfiguration = (config: ApplicationConfiguration): Effect.Effect<boolean, ConfigValidationError> =>
@@ -108,16 +145,21 @@ export const validateConfiguration = (config: ApplicationConfiguration): Effect.
     return true
   })
 
-// Initialize configuration validation
-if (!validateConfiguration(CONFIG)) {
-  throw new Error('Configuration validation failed')
-}
-
-// Development-only configuration logging
-if (isDevelopment()) {
-  console.group('🔧 Configuration Loaded')
-  console.log('App Config:', CONFIG.app)
-  console.log('Game Config:', CONFIG.game)
-  console.log('Infrastructure Config:', CONFIG.infrastructure)
-  console.groupEnd()
-}
+// Initialize configuration validation with proper Effect handling
+export const initializeConfiguration = (): Effect.Effect<Ref.Ref<ApplicationConfiguration>, ConfigValidationError, never> =>
+  Effect.gen(function* () {
+    const configRef = yield* createConfigRef()
+    
+    // Log configuration in development mode
+    const isDev = yield* isDevelopment(configRef)
+    
+    if (isDev) {
+      const config = yield* Ref.get(configRef)
+      yield* Effect.log("Configuration Loaded")
+      yield* Effect.log(`App Config: ${JSON.stringify(config.app, null, 2)}`)
+      yield* Effect.log(`Game Config: ${JSON.stringify(config.game, null, 2)}`)
+      yield* Effect.log(`Infrastructure Config: ${JSON.stringify(config.infrastructure, null, 2)}`)
+    }
+    
+    return configRef
+  })

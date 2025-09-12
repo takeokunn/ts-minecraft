@@ -21,7 +21,9 @@ export const QueryValidation = {
     }
 
     if (typeof data === 'object' && '_tag' in data) {
-      return Effect.succeed({ data, type: (data as { _tag: string })._tag, isValid: true })
+      const taggedData = data as Record<string, unknown>
+      const tag = typeof taggedData._tag === 'string' ? taggedData._tag : 'unknown'
+      return Effect.succeed({ data, type: tag, isValid: true })
     }
 
     if (typeof data === 'object' && !Array.isArray(data)) {
@@ -45,6 +47,7 @@ export const QueryValidation = {
         return Effect.fail('Entity must be an object')
       }
 
+      // Safe assertion after null/object check
       const entityObj = entity as Record<string, unknown>
       if (!entityObj.id) {
         return Effect.fail('Entity must have an id')
@@ -57,7 +60,7 @@ export const QueryValidation = {
       return Effect.succeed({
         id: entityObj.id,
         components: entityObj.components,
-      } as QueryEntity)
+      } satisfies QueryEntity)
     } catch (error) {
       return Effect.fail(`Invalid entity format: ${String(error)}`)
     }
@@ -72,6 +75,7 @@ export const QueryValidation = {
         validatedComponents[key] = validation.data
       }
 
+      // Components are validated above, safe to cast
       return validatedComponents as Record<ComponentName, unknown>
     })
   },

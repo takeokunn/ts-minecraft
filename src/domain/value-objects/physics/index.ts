@@ -1,2 +1,2 @@
-export * from './velocity.vo'
-export * from './aabb.vo'
+export * from './velocity.value-object'
+export * from './aabb.value-object'

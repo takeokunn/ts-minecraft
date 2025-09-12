@@ -74,7 +74,14 @@ import {
 import { ApplicationLayer } from '@application/application-layer'
 
 // Import infrastructure adapters
-import { SystemCommunicationLive, PerformanceMonitorLive } from '@infrastructure/adapters'
+import { 
+  SystemCommunicationLive, 
+  PerformanceMonitorLive,
+  CompleteAdapterLayer,
+  DevelopmentAdapterLayer,
+  ProductionAdapterLayer,
+  MinimalAdapterLayer,
+} from '@infrastructure/adapters'
 
 // ===== LAYER COMPOSITIONS BY ARCHITECTURE TIER =====
 
@@ -107,24 +114,43 @@ export const PresentationLayer = UIServicesLive
 /**
  * Complete unified application layer - all services composed
  * This is the main layer used in production
- * Includes the adapters that provide the port implementations
+ * Includes ALL adapters that provide port implementations for complete hexagonal architecture
  */
-export const AppLayer = Layer.mergeAll(UnifiedAppLive, SystemCommunicationLive(), PerformanceMonitorLive(), ApplicationLayer)
+export const AppLayer = Layer.mergeAll(
+  UnifiedAppLive, 
+  CompleteAdapterLayer,  // ALL port adapters for complete hexagonal architecture
+  ApplicationLayer
+)
 
 /**
- * Development layer with debug capabilities
+ * Development layer with debug capabilities  
+ * Uses development-specific adapter configurations
  */
-export const DevLayer = OptimizedDevelopmentLive
+export const DevLayer = Layer.mergeAll(
+  OptimizedDevelopmentLive,
+  DevelopmentAdapterLayer,
+  ApplicationLayer
+)
 
 /**
  * Production optimized layer
+ * Uses production-optimized adapter configurations
  */
-export const ProdLayer = OptimizedProductionLive
+export const ProdLayer = Layer.mergeAll(
+  OptimizedProductionLive,
+  ProductionAdapterLayer,
+  ApplicationLayer
+)
 
 /**
  * Minimal layer for unit testing
+ * Uses minimal set of adapters for testing
  */
-export const TestLayer = OptimizedTestLive
+export const TestLayer = Layer.mergeAll(
+  OptimizedTestLive,
+  MinimalAdapterLayer,
+  ApplicationLayer
+)
 
 /**
  * Headless layer for server/simulation (no UI/input)

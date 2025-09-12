@@ -71,7 +71,7 @@ src/shared/
 │   ├── index.ts
 │   ├── common.ts
 │   ├── game.ts
-│   └── external.d.ts    # → types/に移動
+│   └── external.d.ts    # → src/@types/ に移動
 ├── utils/
 │   ├── index.ts
 │   ├── common.ts         # → functional.ts に改名

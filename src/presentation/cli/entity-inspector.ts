@@ -13,6 +13,7 @@
  */
 
 import * as Effect from 'effect/Effect'
+import { isHTMLElement } from '@shared/utils/type-guards'
 import * as Ref from 'effect/Ref'
 import * as Option from 'effect/Option'
 import { World } from '@domain/entities'
@@ -617,11 +618,8 @@ export const createEntityInspector = (world: World, config: Partial<EntityInspec
   })
 
 /**
- * Type guard functions
+ * Type guard functions (now imported from shared)
  */
-const isHTMLElement = (element: Element | null): element is HTMLElement => {
-  return element !== null && element instanceof HTMLElement
-}
 
 /**
  * Create entity inspector factory for easier usage

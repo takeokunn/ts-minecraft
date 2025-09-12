@@ -1,7 +1,7 @@
 import * as S from 'effect/Schema'
-import { EntityId } from '@domain/value-objects/entity-id.vo'
+import { EntityId } from '@domain/value-objects/entity-id.value-object'
 import { PlacedBlockSchema } from '@domain/entities'
-import { ChunkX, ChunkZ } from '@shared/types/common'
+import { ChunkX, ChunkZ } from '@domain/value-objects/common'
 
 /**
  * Domain type utilities and schema definitions
@@ -17,7 +17,7 @@ const Uint32ArraySchema = S.transform(S.Array(S.Number), S.instanceOf(Uint32Arra
   encode: (u32arr) => Array.from(u32arr),
 })
 
-export type SoAResult<C extends Record<string, S.Schema<any, any>>> = {
+export type SoAResult<C extends Record<string, S.Schema<unknown, unknown, unknown>>> = {
   readonly entities: ReadonlyArray<EntityId>
   readonly components: { readonly [K in keyof C]: Array<S.Schema.Type<C[K]>> }
 }

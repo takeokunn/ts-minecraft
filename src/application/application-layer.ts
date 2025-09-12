@@ -82,11 +82,14 @@ export const ApplicationUtils = {
   /**
    * Create a command with timestamp
    */
-  createCommand: <T extends Record<string, unknown>>(command: Omit<T, 'timestamp'>): T & { timestamp: number } =>
-    ({
+  createCommand: <T extends Record<string, unknown>>(command: Omit<T, 'timestamp'>): T & { timestamp: number } => {
+    const result = {
       ...command,
       timestamp: Date.now(),
-    }) as T & { timestamp: number },
+    }
+    // Type assertion is safe here as we're adding the timestamp property
+    return result as T & { timestamp: number }
+  },
 
   /**
    * Validate command structure
@@ -95,11 +98,12 @@ export const ApplicationUtils = {
     if (typeof command !== 'object' || command === null) {
       throw new Error('Command must be an object')
     }
+    // Safe assertion after null/object check
     const commandObj = command as Record<string, unknown>
     if (!('timestamp' in commandObj)) {
       throw new Error('Command must have a timestamp')
     }
-    if (typeof commandObj.timestamp !== 'number') {
+    if (typeof commandObj['timestamp'] !== 'number') {
       throw new Error('Command timestamp must be a number')
     }
     return true

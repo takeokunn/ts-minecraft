@@ -63,16 +63,19 @@ const environment = (import.meta.env.MODE as 'development' | 'production' | 'tes
 const AppLive = initialize.pipe(Effect.provide(getAppLayer(environment)))
 
 // Application entry point
-console.log('TypeScript Minecraft - Phase 3 Integration')
-console.log('Environment:', environment)
+const appStartup = pipe(
+  Effect.log('TypeScript Minecraft - Phase 3 Integration'),
+  Effect.flatMap(() => Effect.log(`Environment: ${environment}`)),
+  Effect.flatMap(() => AppLive)
+)
 
 /* v8 ignore next 3 */
 if (import.meta.env.PROD) {
-  Effect.runFork(AppLive)
+  Effect.runFork(appStartup)
 } else {
   // Development mode - run with error handling
-  Effect.runPromise(AppLive).then(
-    () => console.log('Application completed successfully'),
-    (error) => console.error('Application failed:', error),
+  Effect.runPromise(appStartup).then(
+    () => Effect.runSync(Effect.log('Application completed successfully')),
+    (error) => Effect.runSync(Effect.logError('Application failed:', error)),
   )
 }

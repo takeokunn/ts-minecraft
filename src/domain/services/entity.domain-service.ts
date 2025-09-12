@@ -23,6 +23,7 @@ import { EntityId } from '@domain/entities'
 import { ComponentName, Components } from '@domain/entities/components'
 import { Position } from '@domain/value-objects'
 import { EntityNotFoundError, EntityCreationError, EntityDestructionError, EntityLimitExceededError, ComponentNotFoundError, ComponentAlreadyExistsError } from '@domain/errors'
+import { TypeGuards, validateComponentNameArraySync } from '@shared/utils/type-guards'
 
 // Port interfaces for external dependencies
 export interface EntityRepositoryPort {
@@ -230,10 +231,23 @@ export const EntityDomainServiceLive = Layer.effect(
     // Helper functions
     const generateArchetypeId = (componentNames: readonly ComponentName[]): string => Array.fromIterable(componentNames).sort().join('|')
 
-    const getEntityArchetypeId = (components: Partial<Components>): string => generateArchetypeId(Object.keys(components) as ComponentName[])
+    const getEntityArchetypeId = (components: Partial<Components>): string => {
+      const componentKeys = validateComponentNameArraySync(Object.keys(components))
+      return generateArchetypeId(componentKeys)
+    }
 
     const incrementEntityId = (): Effect.Effect<EntityId, never, never> =>
-      Ref.modify(stateRef, (state) => [state.nextEntityId as EntityId, { ...state, nextEntityId: state.nextEntityId + 1 }])
+      Ref.modify(stateRef, (state) => {
+        const nextId = state.nextEntityId
+        if (TypeGuards.EntityId.is(nextId)) {
+          return [nextId, { ...state, nextEntityId: state.nextEntityId + 1 }]
+        }
+        // If type guard fails, we have a system error - this should never happen in normal operation
+        // We'll return the raw value but wrapped as EntityId for compatibility while logging the issue
+        console.warn(`Entity ID type validation failed for ID: ${nextId}. This may indicate a system error.`)
+        const safeEntityId: EntityId = nextId as EntityId
+        return [safeEntityId, { ...state, nextEntityId: state.nextEntityId + 1 }]
+      })
 
     const validateEntityLimit = (currentCount: number): Effect.Effect<void, typeof EntityLimitExceededError, never> =>
       Effect.when(
@@ -259,9 +273,10 @@ export const EntityDomainServiceLive = Layer.effect(
         const archetypeId = getEntityArchetypeId(components)
         const now = new Date()
 
+        const componentKeys = validateComponentNameArraySync(Object.keys(components))
         const entity: Entity = {
           id: entityId,
-          components: Set.fromIterable(Object.keys(components) as ComponentName[]),
+          components: Set.fromIterable(componentKeys),
           archetype: archetypeId,
           generation: 1,
           createdAt: now,
@@ -271,7 +286,7 @@ export const EntityDomainServiceLive = Layer.effect(
         // Update state
         yield* Ref.update(entities, HashMap.set(entityId, entity))
         yield* Ref.update(entityComponents, HashMap.set(entityId, components))
-        yield* updateArchetypeStats(archetypeId, Object.keys(components) as ComponentName[], 1)
+        yield* updateArchetypeStats(archetypeId, componentKeys, 1)
         yield* updateCreateStats()
 
         // Clear query cache
@@ -391,7 +406,8 @@ export const EntityDomainServiceLive = Layer.effect(
 
         // Update archetype statistics
         yield* updateArchetypeStats(entity.archetype, Array.fromIterable(entity.components), -1)
-        yield* updateArchetypeStats(newArchetypeId, Object.keys(updatedComponents) as ComponentName[], 1)
+        const updatedComponentKeys = validateComponentNameArraySync(Object.keys(updatedComponents))
+        yield* updateArchetypeStats(newArchetypeId, updatedComponentKeys, 1)
 
         // Clear query cache
         yield* Ref.set(queryCache, HashMap.empty())
@@ -442,7 +458,8 @@ export const EntityDomainServiceLive = Layer.effect(
 
         // Update archetype statistics
         yield* updateArchetypeStats(entity.archetype, Array.fromIterable(entity.components), -1)
-        yield* updateArchetypeStats(newArchetypeId, Object.keys(updatedComponents) as ComponentName[], 1)
+        const updatedComponentKeys = validateComponentNameArraySync(Object.keys(updatedComponents))
+        yield* updateArchetypeStats(newArchetypeId, updatedComponentKeys, 1)
 
         // Clear query cache
         yield* Ref.set(queryCache, HashMap.empty())
@@ -477,6 +494,7 @@ export const EntityDomainServiceLive = Layer.effect(
           )
         }
 
+        // Type assertion is safe here as we've validated the component exists
         return component as Components[T]
       })
 

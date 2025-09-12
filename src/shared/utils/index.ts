@@ -1,19 +1,7 @@
-// Enhanced utility exports with Context.Tag standards
+// Enhanced utility exports with Effect-TS patterns
 
-// Common utilities (used across layers)
-export {
-  isNotNull,
-  isNotUndefined,
-  deepClone,
-  generateId,
-  sleep,
-  retry,
-} from './common'
 
-// Effect utilities
-export {
-  // Re-exported from effect utils if needed
-} from './effect'
+
 
 // Error handling utilities (used across layers)
 export {
@@ -22,7 +10,10 @@ export {
   ErrorHandlers,
   withErrorHandling,
   handleError,
-} from './error-handling'
+  SystemError,
+  EntityError,
+  ValidationError,
+} from './error'
 
 // Logging utilities (used in error handling and monitoring)
 export {
@@ -52,13 +43,46 @@ export {
   PerformanceMonitor,
 } from './monitoring'
 
-// Validation utilities
+// Validation utilities (Schema-based)
 export {
   type ValidationResult,
+  type ValidationContext,
+  type ValidatorFn,
   Validators,
+  ValidationChain,
+  ValidationUtils,
+  GameValidators,
+  createComponentValidator,
 } from './validation'
 
-// Context tag standards
+
+// Type guards and validation utilities
 export {
-  // Context tag utilities if any
-} from './context-tag-standards'
+  type FaceDirection,
+  type EntityIdNumber,
+  TypeGuards,
+  validateBiomeBlockType,
+  validateBiomeBlockTypeSync,
+  validateComponentNameArraySync,
+  isBlockType,
+  isFaceDirection,
+  isEntityIdNumber,
+  isComponentName,
+  safeParseBlockType,
+  safeParseFaceDirection,
+  safeParseEntityIdNumber,
+  safeParseComponentName,
+  // Common type guards
+  isRecord,
+  hasProperty,
+  isFunction,
+  safeBoolean,
+  isVector3,
+  getSafeNumberProperty,
+  isHTMLElement,
+  isHTMLInputElement,
+  hasFiles,
+  hasPerformanceMemory,
+  hasPerformanceObserver,
+  safeParseNumber,
+} from './type-guards'

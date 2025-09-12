@@ -417,7 +417,7 @@ export const isEntityError = (
   | Schema.Schema.Type<typeof EntityCreationError>
   | Schema.Schema.Type<typeof EntityDestructionError>
   | Schema.Schema.Type<typeof EntityLimitExceededError>
-  | Schema.Schema.Type<typeof InvalidEntityStateError> => ErrorCategories.Entity.includes(error._tag as any)
+  | Schema.Schema.Type<typeof InvalidEntityStateError> => ErrorCategories.Entity.includes(error._tag as (typeof ErrorCategories.Entity)[number])
 
 export const isComponentError = (
   error: AllGameErrors,
@@ -425,7 +425,7 @@ export const isComponentError = (
   | Schema.Schema.Type<typeof ComponentNotFoundError>
   | Schema.Schema.Type<typeof ComponentAlreadyExistsError>
   | Schema.Schema.Type<typeof InvalidComponentDataError>
-  | Schema.Schema.Type<typeof ComponentTypeMismatchError> => ErrorCategories.Component.includes(error._tag as any)
+  | Schema.Schema.Type<typeof ComponentTypeMismatchError> => ErrorCategories.Component.includes(error._tag as (typeof ErrorCategories.Component)[number])
 
 export const isWorldError = (
   error: AllGameErrors,
@@ -434,7 +434,7 @@ export const isWorldError = (
   | Schema.Schema.Type<typeof ChunkGenerationError>
   | Schema.Schema.Type<typeof InvalidPositionError>
   | Schema.Schema.Type<typeof BlockNotFoundError>
-  | Schema.Schema.Type<typeof WorldStateError> => ErrorCategories.World.includes(error._tag as any)
+  | Schema.Schema.Type<typeof WorldStateError> => ErrorCategories.World.includes(error._tag as (typeof ErrorCategories.World)[number])
 
 export const isPhysicsError = (
   error: AllGameErrors,
@@ -447,15 +447,15 @@ export const isPhysicsError = (
   | Schema.Schema.Type<typeof ConstraintViolationError>
   | Schema.Schema.Type<typeof PhysicsMaterialError>
   | Schema.Schema.Type<typeof VelocityLimitError>
-  | Schema.Schema.Type<typeof CollisionShapeError> => ErrorCategories.Physics.includes(error._tag as any)
+  | Schema.Schema.Type<typeof CollisionShapeError> => ErrorCategories.Physics.includes(error._tag as (typeof ErrorCategories.Physics)[number])
 
 export const isSystemError = (
   error: AllGameErrors,
 ): error is Schema.Schema.Type<typeof SystemExecutionError> | Schema.Schema.Type<typeof QueryExecutionError> | Schema.Schema.Type<typeof SystemInitializationError> =>
-  ErrorCategories.System.includes(error._tag as any)
+  ErrorCategories.System.includes(error._tag as (typeof ErrorCategories.System)[number])
 
 export const isResourceError = (error: AllGameErrors): error is Schema.Schema.Type<typeof ResourceNotFoundError> | Schema.Schema.Type<typeof ResourceLoadError> =>
-  ErrorCategories.Resource.includes(error._tag as any)
+  ErrorCategories.Resource.includes(error._tag as (typeof ErrorCategories.Resource)[number])
 
 /**
  * Error severity classification

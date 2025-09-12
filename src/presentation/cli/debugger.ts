@@ -34,10 +34,6 @@ const getProperty = (obj: unknown, prop: string): unknown => {
   return undefined
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 const isValidPosition = (value: unknown): value is { x: number; y: number; z: number } => {
   return isVector3(value)
 }
