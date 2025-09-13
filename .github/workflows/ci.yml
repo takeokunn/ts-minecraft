@@ -19,7 +19,7 @@ on:
 env:
   PNPM_VERSION: 10
   NODE_VERSION: 20
-  CACHE_VERSION: v2  # Updated cache version for better optimization
+  CACHE_VERSION: v2 # Updated cache version for better optimization
   CI: true
   NODE_OPTIONS: '--max-old-space-size=4096'
 
@@ -330,50 +330,50 @@ jobs:
         id: benchmark
         run: |
           echo "📊 Running performance benchmarks..."
-          
+
           # Run custom performance tests if they exist
           if [ -f "scripts/performance-test.js" ]; then
             pnpm performance:test
           fi
-          
+
           # Memory usage test
           MEMORY_BASELINE=500
           CURRENT_MEMORY=$(node -e "console.log(process.memoryUsage().heapUsed / 1024 / 1024)" | cut -d'.' -f1)
-          
+
           echo "Memory usage: ${CURRENT_MEMORY}MB (baseline: ${MEMORY_BASELINE}MB)"
-          
+
           if [ $CURRENT_MEMORY -gt $((MEMORY_BASELINE * 2)) ]; then
             echo "❌ Memory usage ${CURRENT_MEMORY}MB exceeds threshold"
             exit 1
           fi
-          
+
           # Bundle load time simulation
           echo "Simulating bundle load time..."
           BUNDLE_SIZE=$(du -sb dist | cut -f1)
           LOAD_TIME=$((BUNDLE_SIZE / 1000000))  # Rough estimate in seconds
-          
+
           echo "Estimated load time: ${LOAD_TIME}s"
-          
+
           RESULTS="{\"memory\": $CURRENT_MEMORY, \"loadTime\": $LOAD_TIME, \"bundleSize\": $BUNDLE_SIZE}"
           echo "results=$RESULTS" >> $GITHUB_OUTPUT
-          
+
           echo "✅ Performance tests completed"
 
       - name: Performance quality gate
         run: |
           echo "📋 Performance Quality Gate:"
-          
+
           MEMORY=$(echo '${{ steps.benchmark.outputs.results }}' | jq -r '.memory')
           LOAD_TIME=$(echo '${{ steps.benchmark.outputs.results }}' | jq -r '.loadTime')
-          
+
           echo "- Memory usage: ${MEMORY}MB (threshold: 1000MB)"
           echo "- Load time: ${LOAD_TIME}s (threshold: 10s)"
-          
+
           if [ "$MEMORY" -gt 1000 ] || [ "$LOAD_TIME" -gt 10 ]; then
             echo "❌ Performance quality gate failed"
             exit 1
           fi
-          
+
           echo "✅ Performance quality gate passed"
 
       - name: Upload performance report
@@ -402,7 +402,7 @@ jobs:
           echo "- Security: ${{ needs.security.result }}"
           echo "- E2E: ${{ needs.e2e.result }}"
           echo "- Performance: ${{ needs.performance.result }}"
-          
+
           if [[ "${{ needs.quality.result }}" != "success" ]] || 
              [[ "${{ needs.test.result }}" != "success" ]] || 
              [[ "${{ needs.build.result }}" != "success" ]]; then

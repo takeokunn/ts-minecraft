@@ -3,7 +3,7 @@
     "target": "ES2022",
     "useDefineForClassFields": false,
     "module": "ESNext",
-    "lib": ["DOM", "DOM.Iterable", "WebWorker", "ESNext", "ESNext.SharedMemory"],
+    "lib": ["DOM", "DOM.Iterable", "WebWorker", "ES2015", "ES2017", "ES2018", "ES2019", "ES2020", "ES2021", "ES2022", "ESNext", "ESNext.SharedMemory"],
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
@@ -29,10 +29,15 @@
     "allowSyntheticDefaultImports": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@test/*": ["test/*"]
+      "@test/*": ["test/*"],
+      "@domain/*": ["src/domain/*"],
+      "@application/*": ["src/application/*"],
+      "@infrastructure/*": ["src/infrastructure/*"],
+      "@presentation/*": ["src/presentation/*"],
+      "@shared/*": ["src/shared/*"],
+      "@config/*": ["src/config/*"]
     },
-    "types": ["vite/client"]
+    "types": ["vite/client", "@webgpu/types"]
   },
   "include": ["src", "test", "vite.config.ts"]
 }

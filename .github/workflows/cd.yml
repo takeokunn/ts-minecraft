@@ -10,7 +10,7 @@ on:
 env:
   PNPM_VERSION: 10
   NODE_VERSION: 20
-  CACHE_VERSION: v2  # Updated for better caching
+  CACHE_VERSION: v2 # Updated for better caching
   CI: true
   NODE_OPTIONS: '--max-old-space-size=4096'
 
@@ -177,28 +177,28 @@ jobs:
         run: |
           STAGING_URL="${{ steps.deployment.outputs.page_url }}"
           echo "Running comprehensive smoke tests on $STAGING_URL"
-          
+
           # Basic connectivity test
           curl -f "$STAGING_URL" > /dev/null || exit 1
           echo "✅ Basic connectivity test passed"
-          
+
           # Check if JavaScript bundles load properly
           if curl -s "$STAGING_URL" | grep -q "script.*\.js"; then
             echo "✅ JavaScript bundles detected"
           else
             echo "⚠️ No JavaScript bundles found - may indicate build issues"
           fi
-          
+
           # Performance check - response time
           RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}' "$STAGING_URL")
           echo "Response time: ${RESPONSE_TIME}s"
-          
+
           if (( $(echo "$RESPONSE_TIME > 5.0" | bc -l) )); then
             echo "⚠️ Slow response time detected: ${RESPONSE_TIME}s"
           else
             echo "✅ Response time acceptable: ${RESPONSE_TIME}s"
           fi
-          
+
           # Check HTTP status codes for critical paths
           STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$STAGING_URL")
           if [ "$STATUS_CODE" = "200" ]; then
@@ -207,7 +207,7 @@ jobs:
             echo "❌ HTTP status check failed ($STATUS_CODE)"
             exit 1
           fi
-          
+
           echo "✅ All staging smoke tests passed"
 
       - name: Notify deployment success
@@ -246,13 +246,13 @@ jobs:
       - name: Run production health checks
         run: |
           echo "🏥 Running comprehensive production health checks..."
-          
+
           PRODUCTION_URL="https://production.example.com"
-          
+
           # Critical path availability check
           echo "Checking critical paths..."
           CRITICAL_PATHS=("/" "/api/health" "/assets/js" "/assets/css")
-          
+
           for path in "${CRITICAL_PATHS[@]}"; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${PRODUCTION_URL}${path}" || echo "000")
             if [[ "$STATUS" =~ ^[23][0-9][0-9]$ ]]; then
@@ -262,22 +262,22 @@ jobs:
               exit 1
             fi
           done
-          
+
           # Performance health check
           echo "Checking performance metrics..."
           RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}' "$PRODUCTION_URL")
           echo "Production response time: ${RESPONSE_TIME}s"
-          
+
           if (( $(echo "$RESPONSE_TIME > 3.0" | bc -l) )); then
             echo "❌ Production response time too slow: ${RESPONSE_TIME}s"
             exit 1
           fi
-          
+
           # CDN cache check
           echo "Checking CDN cache headers..."
           CACHE_CONTROL=$(curl -s -I "$PRODUCTION_URL" | grep -i "cache-control" || echo "none")
           echo "Cache-Control: $CACHE_CONTROL"
-          
+
           # SSL certificate check
           echo "Checking SSL certificate..."
           if curl -s -I "$PRODUCTION_URL" | grep -q "HTTP/2 200"; then
@@ -285,7 +285,7 @@ jobs:
           else
             echo "⚠️ SSL or HTTP/2 issues detected"
           fi
-          
+
           echo "✅ All production health checks passed"
 
       - name: Update deployment metrics

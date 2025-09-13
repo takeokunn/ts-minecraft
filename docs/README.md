@@ -1,84 +1,73 @@
-# ts-minecraft
+# TypeScript Minecraft ドキュメント
 
-本プロジェクトは、TypeScriptと関数型プログラミングの原則を用いて、Minecraftライクな3Dサンドボックスゲームを構築する試みです。
-アーキテクチャの根幹に **Entity Component System (ECS)** を据え、**[Effect-TS](https://effect.website/)** を全面的に採用することで、極めて堅牢で、テスト容易性が高く、ハイパフォーマンスなゲームの実現を目指します。
+このドキュメントは、Effect-TS 3.17+の最新パターンを採用したTypeScript Minecraft Cloneプロジェクトの技術的な詳細、アーキテクチャ、開発ガイドラインを網羅した中央ハブです。プロジェクト全体でクラス不使用・完全関数型アプローチを採用し、Schema.Struct、Context.GenericTag、Match.value、早期リターンパターンを駆使して高品質なゲーム開発を実現しています。
 
-## コアコンセプト
+## 📖 ドキュメント構成
 
-- **データ指向設計 (ECS):** ゲームのすべての状態をプレーンなデータ（コンポーネント）として管理します。ロジック（システム）とデータを明確に分離することで、見通しが良く、パフォーマンスのボトルネックを特定しやすい構造を実現します。
-
-- **純粋関数型プログラミング:** ゲームのロジックはすべて副作用のない純粋な関数として記述することを目指します。副作用（描画、入力、非同期処理など）は `Effect` データ型を用いて厳密に分離・管理し、コードの予測可能性とテスト容易性を最大限に高めます。
-
-- **型安全性と不変性:** TypeScriptの強力な型システムと、`@effect/schema` を活用し、実行時エラーの撲滅を目指します。すべてのデータ構造は原則として不変（immutable）とし、状態変更を安全かつ予測可能にします。
-
-## アーキテクチャ: Effect-TSネイティブなECS
-
-ECSの各要素をEffect-TSの思想に基づいて再定義しています。
-
-- **Entity (エンティティ):** 一意なIDを持つゲーム世界のすべての「モノ」。
-- **Component (コンポーネント):** `@effect/schema` を用いて定義される、状態を持たない純粋なデータ。エンティティの特性を定義します（例: `Position`, `Velocity`）。
-- **System (システム):** `Effect<void, E, R>` として表現される純粋なプログラム。コンポーネントを読み取り、ロジックを実行し、新しい状態を計算します。
-  - `R` (Context): システムが必要とする依存関係（`World`, `Renderer`など）を型レベルで明示します。
-- **World (ワールド):** すべてのエンティティとコンポーネントの状態を保持する唯一の信頼できる情報源（Source of Truth）です。
-
-ゲームループも `Effect` のスケジューラによって駆動される宣言的なプログラムとして構築されており、これにより複雑な処理フローを安全かつシンプルに記述できます。
-
-## なぜEffect-TSなのか？
-
-従来のTypeScript開発が抱える副作用管理、暗黙的な依存関係、煩雑なエラー処理といった課題を、Effect-TSは包括的に解決します。本プロジェクトでは、Effect-TSを全面的に採用することで、`any`や`unknown`、`as`による型アサーションを撲滅し、アプリケーションの堅牢性を根本から高めることを目指します。
-
-- **副作用の完全な分離 (`Effect`):** ファイルI/O、DOM操作、API呼び出しといった副作用を伴う処理はすべて `Effect` でラップされます。`Effect<A, E, R>` は、「成功時に`A`型、失敗時に`E`型を返し、`R`型の依存関係を必要とする処理」を記述した不変のデータ構造です。副作用の実行はアプリケーションの最上位層（`main.ts`）に一任され、ビジネスロジックを純粋に保ちます。
-
-- **明示的な依存性注入 (DI):** `Context` と `Layer` の仕組みにより、コンポーネントが何に依存しているかが型シグネチャ（`R`）レベルで明確になります。これにより、テスト時に実装をモックに差し替えることが極めて容易になります。
-
-- **型安全なエラーハンドリング:** `Effect` は、発生しうるエラーの型を `E` として表現します。`try...catch`文を`Effect.try`や`Effect.catchAll`に置き換えることで、どのようなエラーを処理する必要があるかがコンパイル時に強制され、エラーハンドリングの漏れを防ぎます。
-
-- **`any`, `unknown`, `as` の撲滅:** `Effect` のパイプライン (`pipe`, `Effect.flatMap`, `Effect.map`) を活用し、型推論を最大限に活かすことで、これらの型を排除します。型が不明な値は `@effect/schema` を使って安全にデコード・バリデーションします。型アサーションが必要な場面では、`Effect.fromEither` や `Effect.fromOption` を用いて、失敗する可能性を型で表現します。
-
-Effect-TSを採用することで、本作は単なる「TypeScriptで書かれたゲーム」ではなく、「型安全で、テスト容易性が高く、宣言的なコードで構築された、極めて堅牢なアプリケーション」となることを目指します。
+プロジェクトのドキュメントは、以下の主要なセクションに分かれています。
 
 ---
 
-## ドキュメント
+### 🚀 00. はじめに
+プロジェクトの全体像を理解し、開発を始めるための導入セクションです。
 
-### 1. プロジェクト概要
+- **[プロジェクト概要](./00-introduction/00-project-overview.md)**: プロジェクトのビジョン、目標、そして中核となるコンセプトについて説明します。
+- **[スタートガイド](./00-introduction/01-getting-started.md)**: 開発環境のセットアップ手順と、プロジェクトの実行方法を解説します。
 
-- [**使用技術 (Technologies)**](./technologies.md)
-- [**プロジェクト規約 (Conventions)**](./conventions.md)
-- [**パフォーマンス設計 (Performance)**](./performance.md)
+---
 
-### 2. アーキテクチャ
+### 🏗️ 01. アーキテクチャ
+本プロジェクトの根幹をなす設計思想、原則、そしてシステム構造について詳述します。
 
-- [**ディレクトリ構成 (Directory Structure)**](./directory-structure.md)
-- [**ECS設計 (Entity Component System)**](./ecs.md)
-- [**World内部設計 (World Architecture)**](./world-performance.md)
-- [**システム実行順序 (System Scheduler)**](./system-scheduler.md)
+- **[README.md](./01-architecture/README.md)**: アーキテクチャセクションの概要です。
+- **[全体設計](./01-architecture/00-overall-design.md)**: DDD, ECS, Effect-TSを組み合わせた統合アーキテクチャの全体像を解説します。
+- **[設計原則](./01-architecture/01-design-principles.md)**: コードの品質と一貫性を保つための基本原則を定義します。
+- **[DDD戦略的設計](./01-architecture/02-ddd-strategic-design.md)**: ドメイン駆動設計の戦略的アプローチと境界づけられたコンテキストについて説明します。
+- **[技術スタック](./01-architecture/03-technology-stack.md)**: 使用している主要なライブラリとツールセットの詳細です。
+- **[レイヤードアーキテクチャ](./01-architecture/04-layered-architecture.md)**: システムを構成する各層の役割と責務を定義します。
+- **[ECS統合](./01-architecture/05-ecs-integration.md)**: Entity Component Systemアーキテクチャの統合方法について解説します。
+- **[Effect-TSパターン](./01-architecture/06-effect-ts-patterns.md)**: プロジェクト全体で採用しているEffect-TS 3.17+の最新パターン（Schema.Struct、Context.GenericTag、Match.value、早期リターン）とコーディングパターン集です。
 
-### 3. 機能仕様
+---
 
-#### データモデル
+### 📋 02. 仕様
+ゲームを構成する各システムの機能仕様と技術的な実装詳細について説明します。
 
-- [**コンポーネント一覧 (Components)**](./components-list.md)
-- [**アーキタイプ一覧 (Archetypes)**](./archetypes-list.md)
-- [**クエリ一覧 (Queries)**](./queries-list.md)
+- **[README.md](./02-specifications/README.md)**: 仕様セクションの概要です。
+- **コア機能**:
+  - **[概要](./02-specifications/00-core-features/README.md)**
+  - ワールド管理、プレイヤー、ブロック、レンダリング、物理、インベントリなど、ゲームの基本的な要素に関する仕様。
+- **拡張機能**:
+  - **[概要](./02-specifications/01-enhanced-features/README.md)**
+  - レッドストーン回路、天候システム、Mob AI、マルチプレイヤーなど、より高度な機能に関する仕様。
+- **API設計**:
+  - **[概要](./02-specifications/02-api-design/README.md)**
+  - ドメイン、アプリケーション、インフラストラクチャ間のAPIコントラクトとイベントバスの仕様。
+- **データモデル**:
+  - **[概要](./02-specifications/03-data-models/README.md)**
+  - ワールドデータ、チャンクフォーマット、セーブファイル形式など、主要なデータ構造の定義。
 
-#### ワールドとプレイヤー
+---
 
-- [**World (API, ライフサイクル, etc)**](./world.md)
-- [**Player (入力, 移動, etc)**](./player.md)
-- [**Camera (カメラ制御)**](./camera.md)
+### 📚 03. ガイド
+開発プロセスを円滑に進めるための各種ガイドラインとベストプラクティス集です。
 
-#### 物理エンジン
+- **[README.md](./03-guides/README.md)**: ガイドセクションの概要です。
+- **[開発規約](./03-guides/00-development-conventions.md)**: Effect-TS 3.17+準拠のコーディングスタイル、命名規則、Schema.TaggedErrorによるエラーハンドリングなど、遵守すべき最新規約をまとめています。
+- **[エントリーポイント](./03-guides/01-entry-points.md)**: アプリケーションの起動シーケンスと主要な処理の流れを解説します。
+- **[テストガイド](./03-guides/02-testing-guide.md)**: ユニットテスト、統合テストの作成方法とテスト戦略について説明します。
+- **[パフォーマンス最適化](./03-guides/03-performance-optimization.md)**: プロファイリングとパフォーマンスチューニングのテクニック集です。
+- **[エラー解決](./03-guides/04-error-resolution.md)**: TypeScriptとEffect-TSの一般的なエラーと解決方法をまとめています。
+- **[包括的テスト戦略](./03-guides/05-comprehensive-testing-strategy.md)**: Flaky Test完全排除を含む網羅的なテスト設計戦略です。
+- **[高度なテスト技法](./03-guides/06-advanced-testing-techniques.md)**: 契約テスト、ビジュアルリグレッションテスト等の高度な技法を解説します。
+- **[Effect-TSテストパターン](./03-guides/07-effect-ts-testing-patterns.md)**: Effect-TS 3.17+完全準拠のテスト実装パターン専用ガイドです。
+- **[デバッグガイド](./03-guides/09-debugging-guide.md)**: Effect-TS特有のデバッグ手法とパフォーマンス分析について解説します。
 
-- [**Physics (物理, 衝突検知)**](./physics.md)
+---
 
-#### レンダリングとUI
+### 📎 04. 付録
+プロジェクトに関連する補足情報やリファレンス資料です。
 
-- [**Rendering (レンダリング, UI)**](./rendering.md)
-
-### 4. 開発プロセス
-
-- [**ブランチ戦略 (Branch Strategy)**](./branch-strategy.md)
-- [**CI/CD パイプライン**](./cicd.md)
-- [**テスト戦略 (Testing Strategy)**](./testing-strategy.md)
-- [**テストガイド (Testing Guide)**](./testing.md)
+- **[README.md](./04-appendix/README.md)**: 付録セクションの概要です。
+- **[用語集](./04-appendix/00-glossary.md)**: プロジェクト固有の用語や技術用語の定義集です。
+- **[アセットソース](./04-appendix/01-asset-sources.md)**: ゲーム内で使用しているテクスチャやサウンドなどのアセットの出所とライセンス情報です。
