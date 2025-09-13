@@ -11,31 +11,32 @@ Minecraft クローンのクラフティングシステムは、アイテムの�
 ```typescript
 import { Schema, Effect, ReadonlyArray, Option } from "effect"
 
-// レシピ型定義
+// レシピ型定義（最新Schemaパターン）
 export const CraftingRecipe = Schema.Struct({
-  id: Schema.String,
-  pattern: Schema.Array(Schema.Array(Schema.optional(Schema.String))),
+  _tag: Schema.Literal("CraftingRecipe"),
+  id: Schema.String.pipe(Schema.brand("RecipeId")),
+  pattern: Schema.Array(Schema.Array(Schema.Optional(Schema.String))),
   ingredients: Schema.Record(Schema.String, ItemMatcher),
   result: ItemStack,
-  shapeless: Schema.optional(Schema.Boolean),
+  shapeless: Schema.Optional(Schema.Boolean),
   category: Schema.Literal("crafting", "smelting", "smithing", "stonecutting")
 })
 
 export type CraftingRecipe = Schema.Schema.Type<typeof CraftingRecipe>
 
-// アイテムマッチャー
+// アイテムマッチャー（Tagged Unionパターン）
 export const ItemMatcher = Schema.Union(
   Schema.Struct({
-    type: Schema.Literal("exact"),
-    itemId: Schema.String
+    _tag: Schema.Literal("exact"),
+    itemId: Schema.String.pipe(Schema.brand("ItemId"))
   }),
   Schema.Struct({
-    type: Schema.Literal("tag"),
+    _tag: Schema.Literal("tag"),
     tag: Schema.String  // "minecraft:planks", "minecraft:logs" など
   }),
   Schema.Struct({
-    type: Schema.Literal("custom"),
-    matcher: Schema.Unknown  // カスタムマッチング関数
+    _tag: Schema.Literal("custom"),
+    matcher: Schema.Function  // カスタムマッチング関数
   })
 )
 
@@ -45,48 +46,70 @@ export type ItemMatcher = Schema.Schema.Type<typeof ItemMatcher>
 ### 2.2 レシピ登録と検索
 
 ```typescript
-// レシピレジストリ
-export interface RecipeRegistry {
-  readonly recipes: ReadonlyMap<RecipeId, CraftingRecipe>
-  readonly byResult: ReadonlyMap<ItemId, ReadonlyArray<CraftingRecipe>>
-  readonly byCategory: ReadonlyMap<RecipeCategory, ReadonlyArray<CraftingRecipe>>
-}
+// レシピレジストリ（Schema定義）
+const RecipeRegistry = Schema.Struct({
+  _tag: Schema.Literal("RecipeRegistry"),
+  recipes: Schema.Map({
+    key: Schema.String.pipe(Schema.brand("RecipeId")),
+    value: CraftingRecipe
+  }),
+  byResult: Schema.Map({
+    key: Schema.String.pipe(Schema.brand("ItemId")),
+    value: Schema.Array(CraftingRecipe)
+  }),
+  byCategory: Schema.Map({
+    key: Schema.String.pipe(Schema.brand("RecipeCategory")),
+    value: Schema.Array(CraftingRecipe)
+  })
+})
+type RecipeRegistry = Schema.Schema.Type<typeof RecipeRegistry>
 
 export const RecipeRegistryOperations = {
-  // レシピ登録
+  // レシピ登録（早期リターン最適化）
   register: (
     registry: RecipeRegistry,
     recipe: CraftingRecipe
   ): Effect.Effect<RecipeRegistry, RegistrationError> =>
     Effect.gen(function* () {
-      // 重複チェック
+      // 早期リターンで重複チェック
       if (registry.recipes.has(recipe.id)) {
-        return yield* new DuplicateRecipeError({ recipeId: recipe.id })
+        return yield* Effect.fail(new DuplicateRecipeError({ recipeId: recipe.id }))
       }
 
       // レシピ検証
       yield* validateRecipe(recipe)
 
+      // 不変更新でパフォーマンス最適化
+      const updatedRecipes = new Map([...registry.recipes, [recipe.id, recipe]])
+      const updatedByResult = updateResultIndex(registry.byResult, recipe)
+      const updatedByCategory = updateCategoryIndex(registry.byCategory, recipe)
+
       return {
-        recipes: new Map([...registry.recipes, [recipe.id, recipe]]),
-        byResult: updateResultIndex(registry.byResult, recipe),
-        byCategory: updateCategoryIndex(registry.byCategory, recipe)
+        ...registry,
+        recipes: updatedRecipes,
+        byResult: updatedByResult,
+        byCategory: updatedByCategory
       }
     }),
 
-  // パターンマッチング
+  // パターンマッチング（Match.valueで型安全な処理）
   findMatchingRecipe: (
     registry: RecipeRegistry,
     grid: CraftingGrid
   ): Effect.Effect<Option.Option<CraftingRecipe>, MatchError> =>
     Effect.gen(function* () {
-      // 形状付きレシピの検索
-      const shapedMatch = yield* findShapedMatch(registry.recipes, grid)
-      if (Option.isSome(shapedMatch)) return shapedMatch
+      // 並列検索でパフォーマンス最適化
+      const [shapedMatch, shapelessMatch] = yield* Effect.all([
+        findShapedMatch(registry.recipes, grid),
+        findShapelessMatch(registry.recipes, grid)
+      ], { concurrency: 2 })
 
-      // 形状なしレシピの検索
-      const shapelessMatch = yield* findShapelessMatch(registry.recipes, grid)
-      return shapelessMatch
+      // Match.valueでOptionの結合
+      return Match.value(shapedMatch).pipe(
+        Match.when(Option.isSome, (some) => Option.some(some.value)),
+        Match.when(Option.isNone, () => shapelessMatch),
+        Match.exhaustive
+      )
     })
 }
 ```
@@ -96,8 +119,9 @@ export const RecipeRegistryOperations = {
 ### 3.1 グリッド実装
 
 ```typescript
-// クラフティンググリッド
-export interface CraftingGrid {
+// クラフティンググリッド（Schema定義）
+const CraftingGrid = Schema.Struct({
+  _tag: Schema.Literal("CraftingGrid"),
   readonly width: number
   readonly height: number
   readonly slots: ReadonlyArray<ReadonlyArray<Option.Option<ItemStack>>>

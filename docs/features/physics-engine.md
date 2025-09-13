@@ -32,38 +32,37 @@ TypeScript Minecraftの物理エンジンは、リアルタイム衝突検知、
 ### AABB (Axis-Aligned Bounding Box) 定義
 
 ```typescript
-const AABB = S.Struct({
-  _tag: S.Literal('AABB'),
-  minX: S.Number,
-  minY: S.Number, 
-  minZ: S.Number,
-  maxX: S.Number,
-  maxY: S.Number,
-  maxZ: S.Number,
+const AABB = Schema.Struct({
+  _tag: Schema.Literal("AABB"),
+  minX: Schema.Number,
+  minY: Schema.Number,
+  minZ: Schema.Number,
+  maxX: Schema.Number,
+  maxY: Schema.Number,
+  maxZ: Schema.Number,
 })
 
-type AABB = S.Schema.Type<typeof AABB>
+type AABB = Schema.Schema.Type<typeof AABB>
 ```
 
 ### 交差判定アルゴリズム
 
 ```typescript
+// 純粋関数で早期リターン最適化
 const areAABBsIntersecting = (aabb1: AABB, aabb2: AABB): boolean => {
-  return aabb1.minX <= aabb2.maxX && 
-         aabb1.maxX >= aabb2.minX && 
-         aabb1.minY <= aabb2.maxY && 
-         aabb1.maxY >= aabb2.minY && 
-         aabb1.minZ <= aabb2.maxZ && 
-         aabb1.maxZ >= aabb2.minZ
+  if (aabb1.minX > aabb2.maxX || aabb1.maxX < aabb2.minX) return false
+  if (aabb1.minY > aabb2.maxY || aabb1.maxY < aabb2.minY) return false
+  if (aabb1.minZ > aabb2.maxZ || aabb1.maxZ < aabb2.minZ) return false
+  return true
 }
 ```
 
 ### AABB操作関数
 
 ```typescript
-// AABB作成
+// AABB作成（純粋関数）
 const createAABB = (position: Vector3, size: Vector3): AABB => ({
-  _tag: 'AABB',
+  _tag: "AABB",
   minX: position.x - size.x / 2,
   minY: position.y - size.y / 2,
   minZ: position.z - size.z / 2,
@@ -83,9 +82,9 @@ const expandAABB = (aabb: AABB, expansion: number): AABB => ({
   maxZ: aabb.maxZ + expansion,
 })
 
-// AABB統合
+// AABB統合（純粋関数）
 const mergeAABBs = (aabb1: AABB, aabb2: AABB): AABB => ({
-  _tag: 'AABB',
+  _tag: "AABB",
   minX: Math.min(aabb1.minX, aabb2.minX),
   minY: Math.min(aabb1.minY, aabb2.minY),
   minZ: Math.min(aabb1.minZ, aabb2.minZ),
@@ -115,43 +114,54 @@ const calculateAABBVolume = (aabb: AABB): number => {
 ### 物理コンポーネント
 
 ```typescript
-// 速度コンポーネント
-interface VelocityComponent {
-  readonly _tag: 'VelocityComponent'
-  readonly velocity: Vector3
-  readonly maxSpeed: number
-  readonly damping: number
-}
+// Vector3スキーマ定義
+const Vector3Schema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number,
+})
 
-// 重力コンポーネント  
-interface GravityComponent {
-  readonly _tag: 'GravityComponent'
-  readonly acceleration: number
-  readonly terminalVelocity: number
-  readonly enabled: boolean
-}
+// 速度コンポーネント
+const VelocityComponent = Schema.Struct({
+  _tag: Schema.Literal("VelocityComponent"),
+  velocity: Vector3Schema,
+  maxSpeed: Schema.Number,
+  damping: Schema.Number,
+})
+type VelocityComponent = Schema.Schema.Type<typeof VelocityComponent>
+
+// 重力コンポーネント
+const GravityComponent = Schema.Struct({
+  _tag: Schema.Literal("GravityComponent"),
+  acceleration: Schema.Number,
+  terminalVelocity: Schema.Number,
+  enabled: Schema.Boolean,
+})
+type GravityComponent = Schema.Schema.Type<typeof GravityComponent>
 
 // 衝突コンポーネント
-interface ColliderComponent {
-  readonly _tag: 'ColliderComponent'
-  readonly aabb: AABB
-  readonly isSolid: boolean
-  readonly friction: number
-  readonly bounciness: number
-}
+const ColliderComponent = Schema.Struct({
+  _tag: Schema.Literal("ColliderComponent"),
+  aabb: AABB,
+  isSolid: Schema.Boolean,
+  friction: Schema.Number,
+  bounciness: Schema.Number,
+})
+type ColliderComponent = Schema.Schema.Type<typeof ColliderComponent>
 ```
 
 ### 物理計算システム
 
 ```typescript
 const PhysicsSystem = {
-  // 重力適用
+  // 重力適用（純粋関数）
   applyGravity: (velocity: Vector3, gravity: GravityComponent, deltaTime: number): Vector3 => {
+    // 早期リターンで不要な計算を回避
     if (!gravity.enabled) return velocity
-    
+
     const newY = velocity.y - gravity.acceleration * deltaTime
     const clampedY = Math.max(newY, -gravity.terminalVelocity)
-    
+
     return { ...velocity, y: clampedY }
   },
 
@@ -172,12 +182,13 @@ const PhysicsSystem = {
     }
   },
 
-  // 最大速度制限
+  // 最大速度制限（純粋関数）
   limitSpeed: (velocity: Vector3, maxSpeed: number): Vector3 => {
     const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z)
+    // 早期リターンで不要な計算を回避
     if (speed <= maxSpeed) return velocity
-    
-    const scale = maxSpeed / speed
+
+    const scale = maxSpeed / Math.max(speed, Number.EPSILON) // ゼロ除算回避
     return {
       x: velocity.x * scale,
       y: velocity.y * scale,
@@ -301,12 +312,22 @@ const RaycastSystem = {
 
         // ブロック存在チェック
         const block = yield* worldRepository.getBlock(blockX, blockY, blockZ)
-        if (Option.isSome(block) && block.value.isSolid) {
-          return {
-            hit: true,
-            point: currentPoint,
-            distance: currentDistance,
-          }
+
+        // Match.valueでOption型を安全に処理
+        const hitResult = Match.value(block).pipe(
+          Match.when(Option.isSome, (some) =>
+            some.value.isSolid ? Option.some({
+              hit: true,
+              point: currentPoint,
+              distance: currentDistance,
+            }) : Option.none()
+          ),
+          Match.when(Option.isNone, () => Option.none()),
+          Match.exhaustive
+        )
+
+        if (Option.isSome(hitResult)) {
+          return hitResult.value
         }
 
         currentDistance += stepSize

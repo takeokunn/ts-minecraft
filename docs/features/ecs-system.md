@@ -39,35 +39,35 @@ type ComponentData = unknown
 // コンポーネントスキーマ
 interface ComponentSchema<T> {
   readonly name: ComponentName
-  readonly schema: S.Schema<T, T, never>
+  readonly schema: Schema.Schema<T, T, never>
   readonly factory?: () => T
 }
 
 // 位置コンポーネント
-const PositionComponent = S.Struct({
-  _tag: S.Literal('PositionComponent'),
-  x: S.Number,
-  y: S.Number,
-  z: S.Number
+const PositionComponent = Schema.Struct({
+  _tag: Schema.Literal('PositionComponent'),
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number
 })
-type PositionComponent = S.Schema.Type<typeof PositionComponent>
+type PositionComponent = Schema.Schema.Type<typeof PositionComponent>
 
 // 速度コンポーネント
-const VelocityComponent = S.Struct({
-  _tag: S.Literal('VelocityComponent'),
-  x: S.Number,
-  y: S.Number,
-  z: S.Number
+const VelocityComponent = Schema.Struct({
+  _tag: Schema.Literal('VelocityComponent'),
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number
 })
-type VelocityComponent = S.Schema.Type<typeof VelocityComponent>
+type VelocityComponent = Schema.Schema.Type<typeof VelocityComponent>
 
 // 健康コンポーネント
-const HealthComponent = S.Struct({
-  _tag: S.Literal('HealthComponent'),
-  current: S.Number,
-  maximum: S.Number
+const HealthComponent = Schema.Struct({
+  _tag: Schema.Literal('HealthComponent'),
+  current: Schema.Number,
+  maximum: Schema.Number
 })
-type HealthComponent = S.Schema.Type<typeof HealthComponent>
+type HealthComponent = Schema.Schema.Type<typeof HealthComponent>
 ```
 
 ### コンポーネント登録システム
@@ -82,15 +82,17 @@ interface ComponentRegistry {
   readonly query: (components: ReadonlyArray<ComponentName>) => Effect.Effect<QueryResult>
 }
 
+const ComponentRegistry = Context.GenericTag<ComponentRegistry>("@app/ComponentRegistry")
+
 const ComponentRegistryLive = Layer.effect(
   ComponentRegistry,
   Effect.gen(function* () {
     // コンポーネントスキーマの保存
-    const schemas = yield* Ref.make(new Map<ComponentName, S.Schema<unknown>>())
-    
+    const schemas = yield* Ref.make(new Map<ComponentName, Schema.Schema<unknown>>())
+
     // エンティティのコンポーネントデータ
     const entityComponents = yield* Ref.make(new Map<EntityId, Map<ComponentName, unknown>>())
-    
+
     // アーキタイプ管理
     const archetypes = yield* Ref.make(new Map<string, Set<EntityId>>())
 
@@ -115,7 +117,9 @@ const ComponentRegistryLive = Layer.effect(
         const schema = schemaMap.get(componentName)
         
         if (schema) {
-          yield* S.decodeUnknown(schema)(data)
+          yield* Schema.decodeUnknownEither(schema)(data).pipe(
+            Effect.mapError(error => new ComponentError({ message: "Invalid component data", cause: error }))
+          )
         }
 
         // コンポーネント設定
@@ -145,12 +149,14 @@ const ComponentRegistryLive = Layer.effect(
 
 ```typescript
 // システム実行フェーズ定義
-type SystemPhase = 
-  | 'input'        // 入力処理
-  | 'logic'        // ゲームロジック
-  | 'physics'      // 物理計算
-  | 'rendering'    // レンダリング
-  | 'cleanup'      // クリーンアップ
+const SystemPhase = Schema.Literal(
+  "input",        // 入力処理
+  "logic",        // ゲームロジック
+  "physics",      // 物理計算
+  "rendering",    // レンダリング
+  "cleanup"       // クリーンアップ
+)
+type SystemPhase = Schema.Schema.Type<typeof SystemPhase>
 
 interface SystemScheduler {
   readonly registerSystem: (phase: SystemPhase, system: System) => Effect.Effect<void>
@@ -158,24 +164,24 @@ interface SystemScheduler {
   readonly executeFrame: (deltaTime: number) => Effect.Effect<void>
 }
 
+const SystemScheduler = Context.GenericTag<SystemScheduler>("@app/SystemScheduler")
+
 const SystemSchedulerLive = Layer.effect(
   SystemScheduler,
   Effect.gen(function* () {
     const systems = yield* Ref.make(new Map<SystemPhase, System[]>([
-      ['input', []],
-      ['logic', []],
-      ['physics', []],
-      ['rendering', []],
-      ['cleanup', []]
+      ["input", []],
+      ["logic", []],
+      ["physics", []],
+      ["rendering", []],
+      ["cleanup", []]
     ]))
 
     const executeFrame = (deltaTime: number) =>
       Effect.gen(function* () {
-        const phases: SystemPhase[] = ['input', 'logic', 'physics', 'rendering', 'cleanup']
-        
-        for (const phase of phases) {
-          yield* executePhase(phase, deltaTime)
-        }
+        const phases: SystemPhase[] = ["input", "logic", "physics", "rendering", "cleanup"]
+
+        yield* Effect.forEach(phases, phase => executePhase(phase, deltaTime), { concurrency: 1 })
       })
 
     const executePhase = (phase: SystemPhase, deltaTime: number) =>
@@ -184,10 +190,15 @@ const SystemSchedulerLive = Layer.effect(
         const phaseSystems = systemMap.get(phase) || []
         
         // 並列実行可能なシステムは並列処理
+        const concurrency = Match.value(phase).pipe(
+          Match.when("logic", () => "unbounded" as const),
+          Match.orElse(() => 1)
+        )
+
         yield* Effect.forEach(
           phaseSystems,
           system => system.update(deltaTime),
-          { concurrency: phase === 'logic' ? 'unbounded' : 1 }
+          { concurrency }
         )
       })
 
@@ -225,6 +236,8 @@ interface ArchetypeService {
   readonly getStats: () => Effect.Effect<ArchetypeStats>
   readonly clear: () => Effect.Effect<void>
 }
+
+const ArchetypeService = Context.GenericTag<ArchetypeService>("@app/ArchetypeService")
 ```
 
 ### Archetype最適化アルゴリズム
@@ -272,24 +285,18 @@ const ArchetypeServiceLive = Layer.effect(
         return matches
       })
 
-    // アーキタイプマッチング判定
+    // アーキタイプマッチング判定（純粋関数）
     const archetypeMatches = (archetype: Archetype, signature: ArchetypeSignature): boolean => {
       const archetypeSet = archetype.components
-      
-      // 必須コンポーネントチェック
-      for (const required of signature.required) {
-        if (!archetypeSet.has(required)) {
-          return false
-        }
-      }
-      
-      // 禁止コンポーネントチェック
-      for (const forbidden of signature.forbidden) {
-        if (archetypeSet.has(forbidden)) {
-          return false
-        }
-      }
-      
+
+      // 早期リターン: 必須コンポーネントチェック
+      const hasAllRequired = signature.required.every(required => archetypeSet.has(required))
+      if (!hasAllRequired) return false
+
+      // 早期リターン: 禁止コンポーネントチェック
+      const hasForbidden = signature.forbidden.some(forbidden => archetypeSet.has(forbidden))
+      if (hasForbidden) return false
+
       return true
     }
 
@@ -385,6 +392,8 @@ interface QueryService {
   readonly invalidateCache: (componentName: ComponentName) => Effect.Effect<void>
 }
 
+const QueryService = Context.GenericTag<QueryService>("@app/QueryService")
+
 const QueryServiceLive = Layer.effect(
   QueryService,
   Effect.gen(function* () {
@@ -418,13 +427,15 @@ const QueryServiceLive = Layer.effect(
         }
 
         // フィルタ適用
-        const filteredEntities = query.filter 
-          ? yield* Effect.forEach(entities, entity => 
+        const filteredEntities = query.filter
+          ? yield* Effect.forEach(entities, entity =>
               Effect.gen(function* () {
                 const entityData = yield* getEntity(entity)
                 return query.filter!(entityData) ? Option.some(entity) : Option.none()
-              }).pipe(Effect.map(Option.getOrElse(() => null)))
-            ).pipe(Effect.map(results => results.filter(Boolean)))
+              })
+            ).pipe(
+              Effect.map(options => options.filter(Option.isSome).map(option => option.value))
+            )
           : entities
 
         const result: QueryResult = {
@@ -468,6 +479,8 @@ interface PerformanceManager {
   readonly getAllStats: () => Effect.Effect<ReadonlyArray<SystemPerformanceStats>>
   readonly optimizeSystemOrder: () => Effect.Effect<ReadonlyArray<string>>
 }
+
+const PerformanceManager = Context.GenericTag<PerformanceManager>("@app/PerformanceManager")
 
 const PerformanceManagerLive = Layer.effect(
   PerformanceManager,
@@ -601,17 +614,17 @@ const ECSOptimizer = {
 
 ```typescript
 const MovementSystem: System = {
-  name: 'MovementSystem',
-  phase: 'logic',
-  
+  name: "MovementSystem",
+  phase: "logic",
+
   update: (deltaTime: number) =>
     Effect.gen(function* () {
       const queryService = yield* QueryService
       
       // 位置と速度を持つエンティティを取得
       const query: Query = {
-        with: ['position', 'velocity'],
-        without: ['static']
+        with: ["position", "velocity"],
+        without: ["static"]
       }
       
       const result = yield* queryService.executeQuery(query)
@@ -619,20 +632,21 @@ const MovementSystem: System = {
       yield* Effect.forEach(
         result.entities,
         entityId => Effect.gen(function* () {
-          const position = result.getComponent<PositionComponent>(entityId, 'position')
-          const velocity = result.getComponent<VelocityComponent>(entityId, 'velocity')
-          
-          if (position && velocity) {
-            const newPosition: PositionComponent = {
-              _tag: 'PositionComponent',
-              x: position.x + velocity.x * deltaTime,
-              y: position.y + velocity.y * deltaTime,
-              z: position.z + velocity.z * deltaTime
-            }
-            
-            const componentRegistry = yield* ComponentRegistry
-            yield* componentRegistry.setComponent(entityId, 'position', newPosition)
+          const position = result.getComponent<PositionComponent>(entityId, "position")
+          const velocity = result.getComponent<VelocityComponent>(entityId, "velocity")
+
+          // 早期リターンでガード句
+          if (!position || !velocity) return
+
+          const newPosition: PositionComponent = {
+            _tag: "PositionComponent",
+            x: position.x + velocity.x * deltaTime,
+            y: position.y + velocity.y * deltaTime,
+            z: position.z + velocity.z * deltaTime
           }
+
+          const componentRegistry = yield* ComponentRegistry
+          yield* componentRegistry.setComponent(entityId, "position", newPosition)
         }),
         { concurrency: 'unbounded' }
       )
@@ -644,9 +658,9 @@ const MovementSystem: System = {
 
 ```typescript
 const RenderSystem: System = {
-  name: 'RenderSystem',
-  phase: 'rendering',
-  
+  name: "RenderSystem",
+  phase: "rendering",
+
   update: (deltaTime: number) =>
     Effect.gen(function* () {
       const queryService = yield* QueryService
@@ -654,8 +668,8 @@ const RenderSystem: System = {
       
       // レンダリング可能なエンティティクエリ
       const query: Query = {
-        with: ['position', 'mesh'],
-        without: ['hidden']
+        with: ["position", "mesh"],
+        without: ["hidden"]
       }
       
       const result = yield* queryService.executeQuery(query)
@@ -664,12 +678,13 @@ const RenderSystem: System = {
       yield* Effect.forEach(
         result.entities,
         entityId => Effect.gen(function* () {
-          const position = result.getComponent<PositionComponent>(entityId, 'position')
-          const mesh = result.getComponent<MeshComponent>(entityId, 'mesh')
-          
-          if (position && mesh) {
-            yield* renderPort.updateMeshPosition(mesh.handle, position)
-          }
+          const position = result.getComponent<PositionComponent>(entityId, "position")
+          const mesh = result.getComponent<MeshComponent>(entityId, "mesh")
+
+          // 早期リターンでガード句
+          if (!position || !mesh) return
+
+          yield* renderPort.updateMeshPosition(mesh.handle, position)
         }),
         { concurrency: 'unbounded' }
       )

@@ -37,14 +37,64 @@ src/application/
 
 ```typescript
 // src/application/use-cases/world-generate.usecase.ts
-export interface WorldGenerateCommand {
-  readonly seed: number
-  readonly worldType: 'flat' | 'normal' | 'amplified' | 'debug'
-  readonly generateStructures: boolean
-  readonly worldSize?: 'small' | 'medium' | 'large' | 'infinite'
-  readonly biomes?: string[]
-}
+import { Schema, Effect, Context, Layer } from "effect"
 
+// Schemaベースのコマンド定義
+const WorldType = Schema.Union(
+  Schema.Literal("flat"),
+  Schema.Literal("normal"),
+  Schema.Literal("amplified"),
+  Schema.Literal("debug")
+)
+
+const WorldSize = Schema.Union(
+  Schema.Literal("small"),
+  Schema.Literal("medium"),
+  Schema.Literal("large"),
+  Schema.Literal("infinite")
+)
+
+const WorldGenerateCommand = Schema.Struct({
+  seed: Schema.Number.pipe(Schema.int()),
+  worldType: WorldType,
+  generateStructures: Schema.Boolean,
+  worldSize: Schema.optional(WorldSize),
+  biomes: Schema.optional(Schema.Array(Schema.String))
+})
+type WorldGenerateCommand = Schema.Schema.Type<typeof WorldGenerateCommand>
+
+// エラー型定義
+const ValidationError = Schema.Struct({
+  _tag: Schema.Literal("ValidationError"),
+  field: Schema.String,
+  message: Schema.String,
+  value: Schema.Unknown
+})
+type ValidationError = Schema.Schema.Type<typeof ValidationError>
+
+const TerrainGenerationError = Schema.Struct({
+  _tag: Schema.Literal("TerrainGenerationError"),
+  reason: Schema.String,
+  chunkCoordinates: Schema.optional(Schema.Struct({ x: Schema.Number, z: Schema.Number })),
+  seed: Schema.optional(Schema.Number)
+})
+type TerrainGenerationError = Schema.Schema.Type<typeof TerrainGenerationError>
+
+const MeshGenerationError = Schema.Struct({
+  _tag: Schema.Literal("MeshGenerationError"),
+  reason: Schema.String,
+  geometryType: Schema.String
+})
+type MeshGenerationError = Schema.Schema.Type<typeof MeshGenerationError>
+
+const WorldStateError = Schema.Struct({
+  _tag: Schema.Literal("WorldStateError"),
+  operation: Schema.String,
+  reason: Schema.String
+})
+type WorldStateError = Schema.Schema.Type<typeof WorldStateError>
+
+// サービスインターフェース
 export interface WorldGenerateUseCaseService {
   readonly execute: (command: WorldGenerateCommand) => Effect.Effect<
     void,
@@ -58,7 +108,20 @@ export interface WorldGenerateUseCaseService {
   >
 }
 
-export const WorldGenerateUseCase = Context.GenericTag<WorldGenerateUseCaseService>('WorldGenerateUseCase')
+// 新しい Context.Tag 記法
+export const WorldGenerateUseCase = Context.GenericTag<WorldGenerateUseCaseService>("@app/WorldGenerateUseCase")
+
+// 依存サービスのインターフェース定義
+interface WorldDomainService {
+  readonly initializeWorld: (terrain: unknown) => Effect.Effect<void, WorldStateError, never>
+}
+const WorldDomainService = Context.GenericTag<WorldDomainService>("@app/WorldDomainService")
+
+interface TerrainGenerationDomainService {
+  readonly generateTerrain: (seed: number) => Effect.Effect<unknown, TerrainGenerationError, never>
+  readonly generateBiome: (chunkX: number, chunkZ: number, biomeType: string) => Effect.Effect<void, TerrainGenerationError, never>
+}
+const TerrainGenerationDomainService = Context.GenericTag<TerrainGenerationDomainService>("@app/TerrainGenerationDomainService")
 
 export const WorldGenerateUseCaseLive = Layer.effect(
   WorldGenerateUseCase,
@@ -66,23 +129,60 @@ export const WorldGenerateUseCaseLive = Layer.effect(
     const worldService = yield* WorldDomainService
     const terrainService = yield* TerrainGenerationDomainService
 
-    return WorldGenerateUseCase.of({
-      execute: (command) => Effect.gen(function* () {
-        // コマンド検証
-        const validated = yield* validateWorldGenerateCommand(command)
+    return {
+      execute: (command: WorldGenerateCommand) => Effect.gen(function* () {
+        // 早期リターン: Schema バリデーション
+        const validated = yield* Schema.decodeUnknown(WorldGenerateCommand)(command).pipe(
+          Effect.mapError((error) => ({
+            _tag: "ValidationError" as const,
+            field: "WorldGenerateCommand",
+            message: "Command validation failed",
+            value: command
+          }))
+        )
+
+        // 早期リターン: シード値検証
+        if (validated.seed < 0) {
+          return yield* Effect.fail({
+            _tag: "ValidationError" as const,
+            field: "seed",
+            message: "Seed must be non-negative",
+            value: validated.seed
+          })
+        }
 
         // 基本地形生成
         const terrain = yield* terrainService.generateTerrain(validated.seed)
 
         // ワールド初期化
         yield* worldService.initializeWorld(terrain)
+        yield* Effect.logInfo(`World generated with seed: ${validated.seed}, type: ${validated.worldType}`)
       }),
 
-      generateBiome: (chunkX, chunkZ, biomeType) => Effect.gen(function* () {
-        // バイオーム生成ロジック
+      generateBiome: (chunkX: number, chunkZ: number, biomeType: string) => Effect.gen(function* () {
+        // 早期リターン: パラメータ検証
+        if (!Number.isInteger(chunkX) || !Number.isInteger(chunkZ)) {
+          return yield* Effect.fail({
+            _tag: "ValidationError" as const,
+            field: "chunkCoordinates",
+            message: "Chunk coordinates must be integers",
+            value: { chunkX, chunkZ }
+          })
+        }
+
+        if (!biomeType || biomeType.length === 0) {
+          return yield* Effect.fail({
+            _tag: "ValidationError" as const,
+            field: "biomeType",
+            message: "Biome type cannot be empty",
+            value: biomeType
+          })
+        }
+
         yield* terrainService.generateBiome(chunkX, chunkZ, biomeType)
+        yield* Effect.logInfo(`Generated biome '${biomeType}' at chunk (${chunkX}, ${chunkZ})`)
       })
-    })
+    }
   })
 )
 ```
@@ -97,13 +197,57 @@ export const WorldGenerateUseCaseLive = Layer.effect(
 
 ```typescript
 // src/application/use-cases/player-move.usecase.ts
-export interface PlayerMovementCommand {
-  readonly entityId: string
-  readonly direction: { x: number; y: number; z: number }
-  readonly deltaTime: number
-  readonly sprint: boolean
-  readonly sneak: boolean
-}
+// Schemaベースのプレイヤー移動コマンド
+const Direction = Schema.Struct({
+  x: Schema.Number.pipe(Schema.between(-1, 1)),
+  y: Schema.Number.pipe(Schema.between(-1, 1)),
+  z: Schema.Number.pipe(Schema.between(-1, 1))
+})
+
+const PlayerMovementCommand = Schema.Struct({
+  entityId: Schema.String.pipe(Schema.brand("EntityId")),
+  direction: Direction,
+  deltaTime: Schema.Number.pipe(Schema.positive()),
+  sprint: Schema.Boolean,
+  sneak: Schema.Boolean
+})
+type PlayerMovementCommand = Schema.Schema.Type<typeof PlayerMovementCommand>
+
+// 追加のエラー型定義
+const EntityNotFoundError = Schema.Struct({
+  _tag: Schema.Literal("EntityNotFoundError"),
+  entityId: Schema.String,
+  message: Schema.String
+})
+type EntityNotFoundError = Schema.Schema.Type<typeof EntityNotFoundError>
+
+const InvalidPositionError = Schema.Struct({
+  _tag: Schema.Literal("InvalidPositionError"),
+  position: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
+  reason: Schema.String
+})
+type InvalidPositionError = Schema.Schema.Type<typeof InvalidPositionError>
+
+const ChunkNotLoadedError = Schema.Struct({
+  _tag: Schema.Literal("ChunkNotLoadedError"),
+  chunkCoords: Schema.Struct({ x: Schema.Number, z: Schema.Number }),
+  operation: Schema.String
+})
+type ChunkNotLoadedError = Schema.Schema.Type<typeof ChunkNotLoadedError>
+
+const PhysicsSimulationError = Schema.Struct({
+  _tag: Schema.Literal("PhysicsSimulationError"),
+  reason: Schema.String,
+  entityId: Schema.String
+})
+type PhysicsSimulationError = Schema.Schema.Type<typeof PhysicsSimulationError>
+
+const CollisionDetectionError = Schema.Struct({
+  _tag: Schema.Literal("CollisionDetectionError"),
+  reason: Schema.String,
+  position: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number })
+})
+type CollisionDetectionError = Schema.Schema.Type<typeof CollisionDetectionError>
 
 export interface PlayerMoveUseCaseService {
   readonly execute: (command: PlayerMovementCommand) => Effect.Effect<
@@ -114,7 +258,20 @@ export interface PlayerMoveUseCaseService {
   >
 }
 
-export const PlayerMoveUseCase = Context.GenericTag<PlayerMoveUseCaseService>('PlayerMoveUseCase')
+export const PlayerMoveUseCase = Context.GenericTag<PlayerMoveUseCaseService>("@app/PlayerMoveUseCase")
+
+// 依存サービスのインターフェース定義
+interface EntityDomainService {
+  readonly getEntity: (entityId: string) => Effect.Effect<{ id: string; position: { x: number; y: number; z: number } }, EntityNotFoundError, never>
+  readonly updatePosition: (entityId: string, velocity: { x: number; y: number; z: number }) => Effect.Effect<void, never, never>
+}
+const EntityDomainService = Context.GenericTag<EntityDomainService>("@app/EntityDomainService")
+
+interface PhysicsDomainService {
+  readonly calculateVelocity: (entity: unknown, direction: { x: number; y: number; z: number }, deltaTime: number, modifiers: { sprint: boolean; sneak: boolean }) => Effect.Effect<{ x: number; y: number; z: number }, PhysicsSimulationError, never>
+  readonly detectCollision: (position: { x: number; y: number; z: number }, velocity: { x: number; y: number; z: number }) => Effect.Effect<boolean, CollisionDetectionError, never>
+}
+const PhysicsDomainService = Context.GenericTag<PhysicsDomainService>("@app/PhysicsDomainService")
 
 export const PlayerMoveUseCaseLive = Layer.effect(
   PlayerMoveUseCase,
@@ -123,36 +280,63 @@ export const PlayerMoveUseCaseLive = Layer.effect(
     const physicsService = yield* PhysicsDomainService
     const worldService = yield* WorldDomainService
 
-    return PlayerMoveUseCase.of({
-      execute: (command) => Effect.gen(function* () {
+    return {
+      execute: (command: PlayerMovementCommand) => Effect.gen(function* () {
+        // 早期リターン: Schema バリデーション
+        const validated = yield* Schema.decodeUnknown(PlayerMovementCommand)(command).pipe(
+          Effect.mapError((error) => ({
+            _tag: "ValidationError" as const,
+            field: "PlayerMovementCommand",
+            message: "Command validation failed",
+            value: command
+          }))
+        )
+
+        // 早期リターン: デルタタイム検証
+        if (validated.deltaTime > 1.0) {
+          return yield* Effect.fail({
+            _tag: "ValidationError" as const,
+            field: "deltaTime",
+            message: "Delta time too large",
+            value: validated.deltaTime
+          })
+        }
+
         // エンティティ取得
-        const entity = yield* entityService.getEntity(EntityId.make(command.entityId))
+        const entity = yield* entityService.getEntity(validated.entityId)
 
         // 速度計算
         const velocity = yield* physicsService.calculateVelocity(
           entity,
-          command.direction,
-          command.deltaTime,
-          { sprint: command.sprint, sneak: command.sneak }
+          validated.direction,
+          validated.deltaTime,
+          { sprint: validated.sprint, sneak: validated.sneak }
         )
 
         // 衝突検出
-        const collision = yield* physicsService.detectCollision(
+        const hasCollision = yield* physicsService.detectCollision(
           entity.position,
           velocity
         )
 
-        // 位置更新
-        if (!collision) {
+        // 早期リターン: 衝突なしの場合のみ位置更新
+        if (!hasCollision) {
           yield* entityService.updatePosition(entity.id, velocity)
+          yield* Effect.logInfo(`Player ${entity.id} moved to new position`)
+        } else {
+          yield* Effect.logInfo(`Player ${entity.id} movement blocked by collision`)
         }
 
         // チャンク境界チェック
-        yield* worldService.checkChunkBoundary(entity.position)
+        yield* checkChunkBoundary(entity.position)
       })
-    })
+    }
   })
 )
+
+// 補助関数
+const checkChunkBoundary = (position: { x: number; y: number; z: number }): Effect.Effect<void, ChunkNotLoadedError, never> =>
+  Effect.logInfo(`Checking chunk boundary for position: ${JSON.stringify(position)}`)
 ```
 
 **機能:**
@@ -165,13 +349,44 @@ export const PlayerMoveUseCaseLive = Layer.effect(
 
 ```typescript
 // src/application/use-cases/block-place.usecase.ts
-export interface BlockInteractionCommand {
-  readonly playerId: string
-  readonly position: { x: number; y: number; z: number }
-  readonly action: 'place' | 'break'
-  readonly blockType?: number
-  readonly face?: 'top' | 'bottom' | 'north' | 'south' | 'east' | 'west'
-}
+// ブロック操作コマンドの Schema 定義
+const BlockAction = Schema.Union(
+  Schema.Literal("place"),
+  Schema.Literal("break")
+)
+
+const BlockFace = Schema.Union(
+  Schema.Literal("top"),
+  Schema.Literal("bottom"),
+  Schema.Literal("north"),
+  Schema.Literal("south"),
+  Schema.Literal("east"),
+  Schema.Literal("west")
+)
+
+const Position = Schema.Struct({
+  x: Schema.Number.pipe(Schema.int()),
+  y: Schema.Number.pipe(Schema.int()),
+  z: Schema.Number.pipe(Schema.int())
+})
+
+const BlockInteractionCommand = Schema.Struct({
+  playerId: Schema.String.pipe(Schema.brand("PlayerId")),
+  position: Position,
+  action: BlockAction,
+  blockType: Schema.optional(Schema.Number.pipe(Schema.nonnegative())),
+  face: Schema.optional(BlockFace)
+})
+type BlockInteractionCommand = Schema.Schema.Type<typeof BlockInteractionCommand>
+
+// 追加のエラー型
+const RaycastError = Schema.Struct({
+  _tag: Schema.Literal("RaycastError"),
+  reason: Schema.String,
+  startPosition: Position,
+  direction: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number })
+})
+type RaycastError = Schema.Schema.Type<typeof RaycastError>
 
 export interface BlockPlaceUseCaseService {
   readonly execute: (command: BlockInteractionCommand) => Effect.Effect<
@@ -182,7 +397,7 @@ export interface BlockPlaceUseCaseService {
   >
 }
 
-export const BlockPlaceUseCase = Context.GenericTag<BlockPlaceUseCaseService>('BlockPlaceUseCase')
+export const BlockPlaceUseCase = Context.GenericTag<BlockPlaceUseCaseService>("@app/BlockPlaceUseCase")
 
 export const BlockPlaceUseCaseLive = Layer.effect(
   BlockPlaceUseCase,
@@ -460,63 +675,215 @@ export const PredefinedQueries = {
 
 ```typescript
 // src/application/commands/block-interaction.ts
-export interface BlockCommand {
-  execute(): Effect.Effect<void, CommandError>
-  undo(): Effect.Effect<void, CommandError>
-  canExecute(): Effect.Effect<boolean>
-}
 
-export class PlaceBlockCommand implements BlockCommand {
-  constructor(
-    private position: Position,
-    private blockType: BlockType,
-    private replacedBlock?: Block
-  ) {}
-  
-  execute = () => Effect.gen(function* () {
-    // 現在のブロック保存（undo用）
-    this.replacedBlock = yield* getBlock(this.position)
-    
-    // ブロック配置
-    yield* placeBlock(this.position, this.blockType)
-    
-    // メッシュ更新
-    yield* updateChunkMesh(getChunkCoordinate(this.position))
-  })
-  
-  undo = () => Effect.gen(function* () {
-    if (!this.replacedBlock) {
-      return yield* Effect.fail(new UndoError("No block to restore"))
-    }
-    
-    // 元のブロック復元
-    yield* placeBlock(this.position, this.replacedBlock.type)
-    yield* updateChunkMesh(getChunkCoordinate(this.position))
-  })
-}
+// コマンドをtagged unionとして定義
+type BlockCommand =
+  | { readonly _tag: "PlaceBlock"; readonly position: Position; readonly blockType: BlockType; readonly replacedBlock?: Block }
+  | { readonly _tag: "RemoveBlock"; readonly position: Position; readonly originalBlock: Block }
+  | { readonly _tag: "ReplaceBlock"; readonly position: Position; readonly newBlockType: BlockType; readonly originalBlock: Block }
+
+// コマンド実行関数
+const executeBlockCommand = (command: BlockCommand): Effect.Effect<BlockCommand, CommandError> =>
+  Match.value(command).pipe(
+    Match.tag("PlaceBlock", ({ position, blockType }) =>
+      Effect.gen(function* () {
+        // 現在のブロック保存（undo用）
+        const replacedBlock = yield* getBlock(position)
+
+        // ブロック配置
+        yield* placeBlock(position, blockType)
+
+        // メッシュ更新
+        yield* updateChunkMesh(getChunkCoordinate(position))
+
+        // undo情報を含むコマンドを返す
+        return { _tag: "PlaceBlock" as const, position, blockType, replacedBlock }
+      })
+    ),
+    Match.tag("RemoveBlock", ({ position, originalBlock }) =>
+      Effect.gen(function* () {
+        yield* removeBlock(position)
+        yield* updateChunkMesh(getChunkCoordinate(position))
+        return command
+      })
+    ),
+    Match.tag("ReplaceBlock", ({ position, newBlockType, originalBlock }) =>
+      Effect.gen(function* () {
+        yield* placeBlock(position, newBlockType)
+        yield* updateChunkMesh(getChunkCoordinate(position))
+        return command
+      })
+    ),
+    Match.exhaustive
+  )
+
+// undo実行関数
+const undoBlockCommand = (command: BlockCommand): Effect.Effect<void, CommandError> =>
+  Match.value(command).pipe(
+    Match.tag("PlaceBlock", ({ position, replacedBlock }) =>
+      Effect.gen(function* () {
+        if (!replacedBlock) {
+          return yield* Effect.fail(new UndoError("No block to restore"))
+        }
+
+        // 元のブロック復元
+        yield* placeBlock(position, replacedBlock.type)
+        yield* updateChunkMesh(getChunkCoordinate(position))
+      })
+    ),
+    Match.tag("RemoveBlock", ({ position, originalBlock }) =>
+      Effect.gen(function* () {
+        // 削除したブロックを復元
+        yield* placeBlock(position, originalBlock.type)
+        yield* updateChunkMesh(getChunkCoordinate(position))
+      })
+    ),
+    Match.tag("ReplaceBlock", ({ position, originalBlock }) =>
+      Effect.gen(function* () {
+        // 元のブロックに戻す
+        yield* placeBlock(position, originalBlock.type)
+        yield* updateChunkMesh(getChunkCoordinate(position))
+      })
+    ),
+    Match.exhaustive
+  )
+
+// コマンド実行可能性チェック
+const canExecuteBlockCommand = (command: BlockCommand): Effect.Effect<boolean, never> =>
+  Match.value(command).pipe(
+    Match.tag("PlaceBlock", ({ position, blockType }) =>
+      Effect.gen(function* () {
+        const isValid = yield* validateBlockPosition(position)
+        const hasPermission = yield* checkBlockPlacePermission(position)
+        return isValid && hasPermission
+      })
+    ),
+    Match.tag("RemoveBlock", ({ position }) =>
+      Effect.gen(function* () {
+        const blockExists = yield* blockExistsAt(position)
+        const hasPermission = yield* checkBlockRemovePermission(position)
+        return blockExists && hasPermission
+      })
+    ),
+    Match.tag("ReplaceBlock", ({ position, newBlockType }) =>
+      Effect.gen(function* () {
+        const isValid = yield* validateBlockPosition(position)
+        const hasPermission = yield* checkBlockReplacePermission(position)
+        return isValid && hasPermission
+      })
+    ),
+    Match.exhaustive
+  )
 ```
 
 ### プレイヤー移動コマンド
 
-```typescript  
+```typescript
 // src/application/commands/player-movement.ts
-export class MovePlayerCommand implements BlockCommand {
-  constructor(
-    private playerId: EntityId,
-    private fromPosition: Position,
-    private toPosition: Position
-  ) {}
-  
-  execute = () => Effect.gen(function* () {
-    yield* setPlayerPosition(this.playerId, this.toPosition)
-    yield* updatePlayerChunk(this.playerId, this.toPosition)
-  })
-  
-  undo = () => Effect.gen(function* () {
-    yield* setPlayerPosition(this.playerId, this.fromPosition)
-    yield* updatePlayerChunk(this.playerId, this.fromPosition)
-  })
-}
+
+// プレイヤー移動コマンドをtagged unionとして定義
+type PlayerMovementCommand =
+  | { readonly _tag: "MovePlayer"; readonly playerId: EntityId; readonly fromPosition: Position; readonly toPosition: Position }
+  | { readonly _tag: "TeleportPlayer"; readonly playerId: EntityId; readonly fromPosition: Position; readonly toPosition: Position }
+  | { readonly _tag: "RotatePlayer"; readonly playerId: EntityId; readonly fromRotation: Rotation; readonly toRotation: Rotation }
+
+// プレイヤー移動コマンド実行関数
+const executePlayerMovementCommand = (command: PlayerMovementCommand): Effect.Effect<PlayerMovementCommand, CommandError> =>
+  Match.value(command).pipe(
+    Match.tag("MovePlayer", ({ playerId, fromPosition, toPosition }) =>
+      Effect.gen(function* () {
+        // プレイヤー位置更新
+        yield* setPlayerPosition(playerId, toPosition)
+
+        // チャンク更新
+        yield* updatePlayerChunk(playerId, toPosition)
+
+        // 物理演算更新
+        yield* updatePlayerPhysics(playerId, toPosition)
+
+        return command
+      })
+    ),
+    Match.tag("TeleportPlayer", ({ playerId, fromPosition, toPosition }) =>
+      Effect.gen(function* () {
+        // 瞬間移動（物理演算なし）
+        yield* setPlayerPosition(playerId, toPosition)
+        yield* updatePlayerChunk(playerId, toPosition)
+
+        // テレポートエフェクト
+        yield* playTeleportEffect(playerId, fromPosition, toPosition)
+
+        return command
+      })
+    ),
+    Match.tag("RotatePlayer", ({ playerId, fromRotation, toRotation }) =>
+      Effect.gen(function* () {
+        // プレイヤー回転更新
+        yield* setPlayerRotation(playerId, toRotation)
+
+        // カメラ更新
+        yield* updatePlayerCamera(playerId, toRotation)
+
+        return command
+      })
+    ),
+    Match.exhaustive
+  )
+
+// プレイヤー移動コマンドのundo関数
+const undoPlayerMovementCommand = (command: PlayerMovementCommand): Effect.Effect<void, CommandError> =>
+  Match.value(command).pipe(
+    Match.tag("MovePlayer", ({ playerId, fromPosition }) =>
+      Effect.gen(function* () {
+        yield* setPlayerPosition(playerId, fromPosition)
+        yield* updatePlayerChunk(playerId, fromPosition)
+        yield* updatePlayerPhysics(playerId, fromPosition)
+      })
+    ),
+    Match.tag("TeleportPlayer", ({ playerId, fromPosition }) =>
+      Effect.gen(function* () {
+        yield* setPlayerPosition(playerId, fromPosition)
+        yield* updatePlayerChunk(playerId, fromPosition)
+        yield* playTeleportEffect(playerId, fromPosition, fromPosition)
+      })
+    ),
+    Match.tag("RotatePlayer", ({ playerId, fromRotation }) =>
+      Effect.gen(function* () {
+        yield* setPlayerRotation(playerId, fromRotation)
+        yield* updatePlayerCamera(playerId, fromRotation)
+      })
+    ),
+    Match.exhaustive
+  )
+
+// プレイヤー移動コマンド実行可能性チェック
+const canExecutePlayerMovementCommand = (command: PlayerMovementCommand): Effect.Effect<boolean, never> =>
+  Match.value(command).pipe(
+    Match.tag("MovePlayer", ({ playerId, toPosition }) =>
+      Effect.gen(function* () {
+        const playerExists = yield* playerExistsById(playerId)
+        const positionValid = yield* validatePlayerPosition(toPosition)
+        const chunkLoaded = yield* isChunkLoadedAt(toPosition)
+        return playerExists && positionValid && chunkLoaded
+      })
+    ),
+    Match.tag("TeleportPlayer", ({ playerId, toPosition }) =>
+      Effect.gen(function* () {
+        const playerExists = yield* playerExistsById(playerId)
+        const positionValid = yield* validatePlayerPosition(toPosition)
+        const hasPermission = yield* checkTeleportPermission(playerId)
+        return playerExists && positionValid && hasPermission
+      })
+    ),
+    Match.tag("RotatePlayer", ({ playerId, toRotation }) =>
+      Effect.gen(function* () {
+        const playerExists = yield* playerExistsById(playerId)
+        const rotationValid = yield* validatePlayerRotation(toRotation)
+        return playerExists && rotationValid
+      })
+    ),
+    Match.exhaustive
+  )
 ```
 
 ## 5. Handlers（ハンドラー）

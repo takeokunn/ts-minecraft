@@ -1,6 +1,6 @@
 # パフォーマンス最適化ガイド
 
-このドキュメントでは、ts-minecraftプロジェクトでのパフォーマンス最適化の手法、プロファイリング方法、計測・モニタリング技術について説明します。
+このドキュメントでは、最新のEffect-TSパターン（2024年版）を活用したts-minecraftプロジェクトでのパフォーマンス最適化の手法、プロファイリング方法、計測・モニタリング技術について説明します。Schema-based型安全性と関数型プログラミングによる最適化戦略を中心に扱います。
 
 ## パフォーマンス最適化の基本戦略
 
@@ -30,28 +30,64 @@ const optimizationStrategies = {
 }
 ```
 
-### 2. Effect-TSを使った最適化
+### 2. 最新Effect-TSパターンによる最適化
 
 ```typescript
-import { Effect, Duration, Cache } from 'effect'
+import { Match } from "effect"
 
-// 計算量の多い処理をキャッシュ化
-const expensiveCalculation = (input: ComplexData) =>
+const PerformanceMetrics = Schema.Struct({
+  startTime: Schema.Number,
+  endTime: Schema.Number,
+  duration: Schema.Number,
+  memoryUsage: Schema.Number
+})
+
+type PerformanceMetrics = Schema.Schema.Type<typeof PerformanceMetrics>
+
+const CacheConfig = Schema.Struct({
+  capacity: Schema.Number.pipe(Schema.positive()),
+  ttlMinutes: Schema.Number.pipe(Schema.positive()),
+  enableCompression: Schema.Boolean
+})
+
+type CacheConfig = Schema.Schema.Type<typeof CacheConfig>
+
+// 純粋関数としての性能測定ロジック
+const calculateDuration = (startTime: number, endTime: number): number =>
+  Math.max(0, endTime - startTime)
+
+const formatDuration = (duration: number): string =>
+  `${duration.toFixed(2)}ms`
+
+// 計算量の多い処理を型安全にキャッシュ化
+const expensiveCalculation = (input: ComplexData): Effect.Effect<ProcessedData, CalculationError> =>
   Effect.gen(function* () {
+    // 早期リターン: 入力検証
+    if (!input || Object.keys(input).length === 0) {
+      return yield* Effect.fail({
+        _tag: "CalculationError" as const,
+        message: "Invalid input data"
+      })
+    }
+
     const startTime = yield* Effect.sync(() => performance.now())
     const result = yield* computeHeavyOperation(input)
-    const duration = yield* Effect.sync(() => performance.now() - startTime)
-    
-    yield* Effect.logInfo(`Calculation completed in ${duration.toFixed(2)}ms`)
+    const endTime = yield* Effect.sync(() => performance.now())
+
+    const duration = calculateDuration(startTime, endTime)
+    const formattedDuration = formatDuration(duration)
+
+    yield* Effect.logInfo(`Calculation completed in ${formattedDuration}`)
     return result
   })
 
-// TTLキャッシュで最適化
-const cachedCalculation = Cache.make({
-  capacity: 256,
-  timeToLive: Duration.minutes(5),
-  lookup: expensiveCalculation,
-})
+// Schema-basedキャッシュ設定
+const createOptimizedCache = (config: CacheConfig): Effect.Effect<Cache.Cache<ProcessedData, ComplexData>, never> =>
+  Cache.make({
+    capacity: config.capacity,
+    timeToLive: Duration.minutes(config.ttlMinutes),
+    lookup: expensiveCalculation
+  })
 ```
 
 ## プロファイリング方法

@@ -1,6 +1,6 @@
 # Infrastructure層 - 技術詳細・外部システム連携
 
-Infrastructure層は、外部技術（データベース、ファイルシステム、ネットワーク、UI フレームワーク等）との結合部分を担う層です。Domain層のポートを実装し、技術的な詳細を抽象化します。
+Infrastructure層は、外部技術（データベース、ファイルシステム、ネットワーク、UI フレームワーク等）との結合部分を担う層です。Domain層のポートを関数型で実装し、Effect-TSによる型安全な副作用管理と技術的な詳細を抽象化します。
 
 ## アーキテクチャ構成
 
@@ -25,32 +25,105 @@ Domain層のポートを実装する技術アダプター群。
 #### Three.js Adapter
 ```typescript
 // src/infrastructure/adapters/three-js.adapter.ts
-export const ThreeJSAdapter: IRenderPort = {
-  renderChunk: (meshData: MeshData) =>
-    Effect.gen(function* () {
+import { Match } from "effect"
+
+const RenderError = Schema.Struct({
+  _tag: Schema.Literal("RenderError"),
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown)
+})
+
+type RenderError = Schema.Schema.Type<typeof RenderError>
+
+interface IRenderPort {
+  readonly renderChunk: (meshData: MeshData) => Effect.Effect<void, RenderError>
+  readonly updateCamera: (camera: CameraState) => Effect.Effect<void, RenderError>
+  readonly dispose: () => Effect.Effect<void, never>
+}
+
+const ThreeJSRenderPort = Context.GenericTag<IRenderPort>("@app/ThreeJSRenderPort")
+
+// 純粋関数としてメッシュ作成ロジックを分離
+const createGeometry = (meshData: MeshData): THREE.BufferGeometry => {
+  const geometry = new THREE.BufferGeometry()
+  geometry.setIndex(meshData.indices)
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(meshData.vertices, 3))
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(meshData.normals, 3))
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(meshData.uvs, 2))
+  return geometry
+}
+
+const validateMeshData = (meshData: MeshData): boolean =>
+  meshData.vertices.length > 0 &&
+  meshData.indices.length > 0 &&
+  meshData.normals.length > 0 &&
+  meshData.uvs.length > 0
+
+const renderChunk = (meshData: MeshData): Effect.Effect<void, RenderError> =>
+  Effect.gen(function* () {
+    // 早期リターン: メッシュデータ検証
+    if (!validateMeshData(meshData)) {
+      return yield* Effect.fail({
+        _tag: "RenderError" as const,
+        message: "Invalid mesh data"
+      })
+    }
+
+    try {
       // Three.jsメッシュ作成
-      const geometry = new THREE.BufferGeometry()
-      geometry.setIndex(meshData.indices)
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(meshData.vertices, 3))
-      geometry.setAttribute('normal', new THREE.Float32BufferAttribute(meshData.normals, 3))
-      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(meshData.uvs, 2))
-      
+      const geometry = createGeometry(meshData)
+
       // マテリアル適用
       const material = yield* getMaterial(meshData.materialId)
       const mesh = new THREE.Mesh(geometry, material)
-      
+
       // シーンに追加
       yield* addToScene(mesh)
-    }),
-    
-  updateCamera: (camera: CameraState) =>
-    Effect.gen(function* () {
+    } catch (error) {
+      return yield* Effect.fail({
+        _tag: "RenderError" as const,
+        message: "Failed to render chunk",
+        cause: error
+      })
+    }
+  })
+
+const updateCamera = (camera: CameraState): Effect.Effect<void, RenderError> =>
+  Effect.gen(function* () {
+    // 早期リターン: カメラ状態検証
+    if (!camera.position || !camera.target) {
+      return yield* Effect.fail({
+        _tag: "RenderError" as const,
+        message: "Invalid camera state"
+      })
+    }
+
+    try {
       const threeCamera = yield* getThreeCamera()
       threeCamera.position.set(camera.position.x, camera.position.y, camera.position.z)
       threeCamera.lookAt(camera.target.x, camera.target.y, camera.target.z)
       threeCamera.updateProjectionMatrix()
+    } catch (error) {
+      return yield* Effect.fail({
+        _tag: "RenderError" as const,
+        message: "Failed to update camera",
+        cause: error
+      })
+    }
+  })
+
+const makeThreeJSAdapterLive = Effect.gen(function* () {
+  return ThreeJSRenderPort.of({
+    renderChunk,
+    updateCamera,
+    dispose: () => Effect.gen(function* () {
+      yield* cleanupScene()
+      yield* disposeRenderer()
     })
-}
+  })
+})
+
+const ThreeJSAdapterLive = Layer.effect(ThreeJSRenderPort, makeThreeJSAdapterLive)
 ```
 
 **機能:**
@@ -202,47 +275,162 @@ export const NativeMathAdapter: IMathPort = {
 ### World Repository
 ```typescript
 // src/infrastructure/repositories/world.repository.ts
-export const WorldRepositoryLive = Layer.succeed(
-  WorldRepositoryPort,
-  {
-    saveWorld: (world: WorldState) =>
-      Effect.gen(function* () {
-        // IndexedDB保存
+
+const WorldNotFoundError = Schema.Struct({
+  _tag: Schema.Literal("WorldNotFoundError"),
+  worldId: Schema.String,
+  message: Schema.String
+})
+
+type WorldNotFoundError = Schema.Schema.Type<typeof WorldNotFoundError>
+
+const DatabaseError = Schema.Struct({
+  _tag: Schema.Literal("DatabaseError"),
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown)
+})
+
+type DatabaseError = Schema.Schema.Type<typeof DatabaseError>
+
+interface WorldRepositoryPort {
+  readonly saveWorld: (world: WorldState) => Effect.Effect<void, DatabaseError>
+  readonly loadWorld: (id: string) => Effect.Effect<WorldState, WorldNotFoundError | DatabaseError>
+  readonly queryEntities: <T>(query: Query) => Effect.Effect<T[], DatabaseError>
+  readonly deleteWorld: (id: string) => Effect.Effect<void, DatabaseError>
+}
+
+const WorldRepository = Context.GenericTag<WorldRepositoryPort>("@app/WorldRepository")
+
+// 純粋関数として抽出
+const serializeWorldState = (world: WorldState): string => JSON.stringify(world)
+
+const deserializeWorldState = (data: string): Effect.Effect<WorldState, DatabaseError> =>
+  Effect.try({
+    try: () => JSON.parse(data) as WorldState,
+    catch: (error) => ({
+      _tag: "DatabaseError" as const,
+      message: "Failed to deserialize world state",
+      cause: error
+    })
+  })
+
+const validateWorldId = (id: string): boolean =>
+  id != null && id.trim().length > 0 && id.length <= 100
+
+const saveWorld = (world: WorldState): Effect.Effect<void, DatabaseError> =>
+  Effect.gen(function* () {
+    // 早期リターン: ワールド状態検証
+    if (!world.id || !validateWorldId(world.id)) {
+      return yield* Effect.fail({
+        _tag: "DatabaseError" as const,
+        message: "Invalid world ID"
+      })
+    }
+
+    try {
+      // IndexedDB保存
+      const db = yield* getIndexedDB()
+      const transaction = db.transaction(['worlds'], 'readwrite')
+      const store = transaction.objectStore('worlds')
+
+      const serializedData = serializeWorldState(world)
+
+      yield* Effect.promise(() => store.put({
+        id: world.id,
+        data: serializedData,
+        timestamp: Date.now()
+      }))
+    } catch (error) {
+      return yield* Effect.fail({
+        _tag: "DatabaseError" as const,
+        message: "Failed to save world",
+        cause: error
+      })
+    }
+  })
+
+const loadWorld = (id: string): Effect.Effect<WorldState, WorldNotFoundError | DatabaseError> =>
+  Effect.gen(function* () {
+    // 早期リターン: ID検証
+    if (!validateWorldId(id)) {
+      return yield* Effect.fail({
+        _tag: "WorldNotFoundError" as const,
+        worldId: id,
+        message: "Invalid world ID"
+      })
+    }
+
+    try {
+      const db = yield* getIndexedDB()
+      const transaction = db.transaction(['worlds'], 'readonly')
+      const store = transaction.objectStore('worlds')
+
+      const result = yield* Effect.promise(() => store.get(id))
+
+      if (!result) {
+        return yield* Effect.fail({
+          _tag: "WorldNotFoundError" as const,
+          worldId: id,
+          message: `World with ID ${id} not found`
+        })
+      }
+
+      return yield* deserializeWorldState(result.data)
+    } catch (error) {
+      return yield* Effect.fail({
+        _tag: "DatabaseError" as const,
+        message: "Failed to load world",
+        cause: error
+      })
+    }
+  })
+
+const queryEntities = <T>(query: Query): Effect.Effect<T[], DatabaseError> =>
+  Effect.gen(function* () {
+    try {
+      // ECSクエリ実行
+      const world = yield* getCurrentWorld()
+      const entities = world.entities.filter(query.predicate)
+      return entities.map(query.selector) as T[]
+    } catch (error) {
+      return yield* Effect.fail({
+        _tag: "DatabaseError" as const,
+        message: "Failed to query entities",
+        cause: error
+      })
+    }
+  })
+
+const makeWorldRepositoryLive = Effect.gen(function* () {
+  return WorldRepository.of({
+    saveWorld,
+    loadWorld,
+    queryEntities,
+    deleteWorld: (id: string) => Effect.gen(function* () {
+      if (!validateWorldId(id)) {
+        return yield* Effect.fail({
+          _tag: "DatabaseError" as const,
+          message: "Invalid world ID"
+        })
+      }
+
+      try {
         const db = yield* getIndexedDB()
         const transaction = db.transaction(['worlds'], 'readwrite')
         const store = transaction.objectStore('worlds')
-        
-        yield* Effect.promise(() => store.put({
-          id: world.id,
-          data: JSON.stringify(world),
-          timestamp: Date.now()
-        }))
-      }),
-      
-    loadWorld: (id: string) =>
-      Effect.gen(function* () {
-        const db = yield* getIndexedDB()
-        const transaction = db.transaction(['worlds'], 'readonly')
-        const store = transaction.objectStore('worlds')
-        
-        const result = yield* Effect.promise(() => store.get(id))
-        
-        if (!result) {
-          return yield* Effect.fail(new WorldNotFoundError(id))
-        }
-        
-        return JSON.parse(result.data) as WorldState
-      }),
-      
-    queryEntities: <T>(query: Query) =>
-      Effect.gen(function* () {
-        // ECSクエリ実行
-        const world = yield* getCurrentWorld()
-        const entities = world.entities.filter(query.predicate)
-        return entities.map(query.selector) as T[]
-      })
-  }
-)
+        yield* Effect.promise(() => store.delete(id))
+      } catch (error) {
+        return yield* Effect.fail({
+          _tag: "DatabaseError" as const,
+          message: "Failed to delete world",
+          cause: error
+        })
+      }
+    })
+  })
+})
+
+const WorldRepositoryLive = Layer.effect(WorldRepository, makeWorldRepositoryLive)
 ```
 
 ### Entity Repository

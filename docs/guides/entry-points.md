@@ -1,6 +1,6 @@
 # エントリーポイント解説
 
-このドキュメントでは、ts-minecraftプロジェクトの各エントリーポイントと起動フローについて詳しく解説します。
+このドキュメントでは、最新のEffect-TSパターン（2024年版）を使用したts-minecraftプロジェクトの各エントリーポイントと起動フローについて詳しく解説します。Schema-based設定、関数型アプローチ、型安全な初期化プロセスを中心に扱います。
 
 ## 主要エントリーポイント
 
@@ -9,26 +9,77 @@
 アプリケーション全体の中核となるエントリーポイントです。ゲームエンジンの初期化とゲームループの管理を行います。
 
 ```typescript
-// メイン関数の構造
-const main = (player: Archetype): Effect.Effect<void, AppInitError | GameLoopError, World> =>
-  pipe(
-    World,
-    Effect.tap(() => Effect.log(`Application starting with player: ${JSON.stringify(player)}`)),
-    Effect.flatMap((world) =>
-      pipe(
-        world.initialize(),
-        Effect.catchAll((error) =>
-          new AppInitError({
-            message: 'World initialization failed',
-            timestamp: Date.now(),
-            cause: error,
-            stage: 'world_initialization',
-          })
-        ),
-        Effect.flatMap(() => gameLoop(gameSystems)),
-      ),
-    ),
-  )
+// Schema-based設定管理
+const AppConfigSchema = Schema.Struct({
+  world: Schema.Struct({
+    seed: Schema.Number.pipe(Schema.int()),
+    renderDistance: Schema.Number.pipe(Schema.positive()),
+    simulationDistance: Schema.Number.pipe(Schema.positive())
+  }),
+  player: Schema.Struct({
+    name: Schema.String.pipe(Schema.minLength(1)),
+    gameMode: Schema.Literal("CREATIVE", "SURVIVAL"),
+    position: Schema.Struct({
+      x: Schema.Number,
+      y: Schema.Number,
+      z: Schema.Number
+    })
+  }),
+  performance: Schema.Struct({
+    targetFPS: Schema.Number.pipe(Schema.positive()),
+    enableVSync: Schema.Boolean,
+    enablePerformanceMonitoring: Schema.Boolean
+  })
+})
+
+type AppConfig = Schema.Schema.Type<typeof AppConfigSchema>
+
+const AppInitError = Schema.Struct({
+  _tag: Schema.Literal("AppInitError"),
+  message: Schema.String,
+  stage: Schema.String,
+  timestamp: Schema.Number,
+  cause: Schema.optional(Schema.Unknown)
+})
+
+type AppInitError = Schema.Schema.Type<typeof AppInitError>
+
+// 関数型メイン関数の構造
+const main = (configInput: unknown): Effect.Effect<void, AppInitError, never> =>
+  Effect.gen(function* () {
+    // 早期リターン: 設定バリデーション
+    const config = yield* Schema.decodeUnknownEither(AppConfigSchema)(configInput).pipe(
+      Effect.mapError(error => ({
+        _tag: "AppInitError" as const,
+        message: "Invalid application config",
+        stage: "config_validation",
+        timestamp: Date.now(),
+        cause: error
+      }))
+    )
+
+    yield* Effect.logInfo(`Application starting with config: ${JSON.stringify(config)}`)
+
+    // 段階的な初期化プロセス
+    const worldService = yield* initializeWorld(config.world)
+    const playerService = yield* initializePlayer(config.player, worldService)
+    const renderService = yield* initializeRenderer(config.performance)
+
+    // ゲームループ開始
+    yield* startGameLoop({
+      world: worldService,
+      player: playerService,
+      renderer: renderService,
+      targetFPS: config.performance.targetFPS
+    })
+  })
+
+// 純粋関数としての初期化ロジック分離
+const validateConfig = (config: AppConfig): boolean =>
+  config.world.seed !== 0 &&
+  config.player.name.trim().length > 0 &&
+  config.performance.targetFPS > 0 &&
+  config.performance.targetFPS <= 120
 ```
 
 **主な責任**:

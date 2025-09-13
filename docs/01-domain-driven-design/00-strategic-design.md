@@ -1,5 +1,9 @@
 # DDD戦略的設計
 
+```typescript
+import { Effect, Match, Option } from "effect"
+```
+
 ## 1. ドメインコンテキストマップ
   
 TypeScript Minecraft Cloneのドメインは、複数の境界づけられたコンテキスト（Bounded Context）に分割されます。
@@ -199,24 +203,23 @@ export interface BoundingBox {
 export const fromMinecraftProtocol = (
   packet: MinecraftPacket
 ): Effect.Effect<PlayerAction, ConversionError> =>
-  Effect.gen(function* () {
-    switch (packet.type) {
-      case "player_position":
-        return {
-          _tag: "Move",
-          direction: calculateDirection(packet.data),
-          sprint: packet.data.sprinting
-        }
-      case "block_place":
-        return {
-          _tag: "PlaceBlock",
-          position: packet.data.position,
-          block: packet.data.blockId
-        }
-      default:
-        return yield* Effect.fail(new UnknownPacketError(packet))
-    }
-  })
+  Match.value(packet.type).pipe(
+    Match.when("player_position", () =>
+      Effect.succeed({
+        _tag: "Move" as const,
+        direction: calculateDirection(packet.data),
+        sprint: packet.data.sprinting
+      })
+    ),
+    Match.when("block_place", () =>
+      Effect.succeed({
+        _tag: "PlaceBlock" as const,
+        position: packet.data.position,
+        block: packet.data.blockId
+      })
+    ),
+    Match.orElse(() => Effect.fail(new UnknownPacketError(packet)))
+  )
 ```
 
 ### 3.2 統合パターン
@@ -298,8 +301,11 @@ export const worldAggregateInvariants = {
 export const worldAggregateOperations = {
   loadChunk: (world: WorldAggregate, coordinate: ChunkCoordinate) =>
     Effect.gen(function* () {
-      // トランザクション境界
-      yield* validateChunkLoadable(world, coordinate)
+      // 早期リターン: チャンクロード可能性チェック
+      const loadable = yield* validateChunkLoadable(world, coordinate)
+      if (!loadable) {
+        return yield* Effect.fail(new ChunkNotLoadableError({ coordinate }))
+      }
 
       const chunk = yield* generateOrLoadChunk(coordinate)
       const adjacentUpdates = yield* updateAdjacentChunks(world, chunk)
@@ -313,8 +319,9 @@ export const worldAggregateOperations = {
         ])
       }
 
-      // 不変条件のチェック
-      if (!worldAggregateInvariants.adjacentChunkConsistency(updatedWorld)) {
+      // 早期リターン: 不変条件チェック
+      const isConsistent = worldAggregateInvariants.adjacentChunkConsistency(updatedWorld)
+      if (!isConsistent) {
         return yield* Effect.fail(new InvariantViolationError())
       }
 
@@ -363,10 +370,15 @@ export interface ItemStack {
 export const playerAggregateOperations = {
   addItem: (player: PlayerAggregate, item: ItemStack) =>
     Effect.gen(function* () {
+      // 早期リターン: 空きスロットチェック
       const emptySlot = findEmptySlot(player.inventory)
-
       if (!emptySlot) {
         return yield* Effect.fail(new InventoryFullError())
+      }
+
+      // 早期リターン: アイテム有効性チェック
+      if (item.count <= 0) {
+        return yield* Effect.fail(new InvalidItemError({ item }))
       }
 
       return {
@@ -380,14 +392,19 @@ export const playerAggregateOperations = {
 
   equipItem: (player: PlayerAggregate, slotIndex: number) =>
     Effect.gen(function* () {
-      const item = player.inventory.slots[slotIndex]
+      // 早期リターン: スロット範囲チェック
+      if (slotIndex < 0 || slotIndex >= player.inventory.slots.length) {
+        return yield* Effect.fail(new InvalidSlotIndexError({ slotIndex }))
+      }
 
+      // 早期リターン: アイテム存在チェック
+      const item = player.inventory.slots[slotIndex]
       if (!item) {
         return yield* Effect.fail(new SlotEmptyError())
       }
 
+      // 早期リターン: 装備可能性チェック
       const equipmentSlot = getEquipmentSlot(item.item)
-
       if (!equipmentSlot) {
         return yield* Effect.fail(new NotEquipableError())
       }

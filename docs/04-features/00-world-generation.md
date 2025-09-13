@@ -8,26 +8,26 @@ TypeScript Minecraft Cloneのワールド生成システムは、プロシージ
 ### 2.1 生成パイプライン
 
 ```typescript
-// ワールド生成パイプライン
+// ワールド生成パイプライン（純粋関数ベースアプローチ）
 export const generateWorld = (seed: WorldSeed): Effect.Effect<World, GenerationError> =>
   Effect.gen(function* () {
     // 1. シード初期化
     const rng = yield* initializeRNG(seed)
 
-    // 2. バイオームマップ生成
-    const biomeMap = yield* generateBiomeMap(rng)
+    // 2. 生成タスクを並列実行で最適化
+    const [biomeMap, heightMap] = yield* Effect.all([
+      generateBiomeMap(rng),
+      generateHeightMap(rng)
+    ], { concurrency: 2 })
 
-    // 3. 高度マップ生成
-    const heightMap = yield* generateHeightMap(rng, biomeMap)
-
-    // 4. 地形特徴生成
+    // 3. 地形特徴生成（前段階の結果を利用）
     const features = yield* generateTerrainFeatures(rng, heightMap, biomeMap)
 
-    // 5. 構造物配置
-    const structures = yield* placeStructures(rng, features)
-
-    // 6. 初期エンティティ配置
-    const entities = yield* spawnInitialEntities(rng, biomeMap)
+    // 4. 構造物とエンティティを並列配置
+    const [structures, entities] = yield* Effect.all([
+      placeStructures(rng, features),
+      spawnInitialEntities(rng, biomeMap)
+    ], { concurrency: 2 })
 
     return createWorld({
       seed,
@@ -43,45 +43,55 @@ export const generateWorld = (seed: WorldSeed): Effect.Effect<World, GenerationE
 ### 2.2 チャンクベース生成
 
 ```typescript
-export interface ChunkGenerator {
-  generate: (
-    coordinate: ChunkCoordinate,
-    seed: WorldSeed
-  ) => Effect.Effect<Chunk, ChunkGenerationError>
+// チャンク生成サービスの定義
+interface ChunkGeneratorService {
+  readonly generate: (coordinate: ChunkCoordinate, seed: WorldSeed) => Effect.Effect<Chunk, ChunkGenerationError>
 }
 
-export const ChunkGeneratorLive: ChunkGenerator = {
-  generate: (coordinate, seed) =>
-    Effect.gen(function* () {
-      // チャンク固有のシード生成
-      const chunkSeed = combineSeeds(seed, coordinate)
-      const rng = yield* ChunkRNG.create(chunkSeed)
+const ChunkGeneratorService = Context.GenericTag<ChunkGeneratorService>("@app/ChunkGeneratorService")
 
-      // チャンクの基本地形生成
-      const terrain = yield* generateChunkTerrain(rng, coordinate)
+export const ChunkGeneratorServiceLive = Layer.effect(
+  ChunkGeneratorService,
+  Effect.gen(function* () => {
+    const generate = (coordinate: ChunkCoordinate, seed: WorldSeed) =>
+      Effect.gen(function* () {
+        // チャンク固有のシード生成（純粋関数）
+        const chunkSeed = combineSeeds(seed, coordinate)
+        const rng = yield* ChunkRNG.create(chunkSeed)
 
-      // バイオーム固有の特徴追加
-      const biome = yield* determineBiome(coordinate, seed)
-      const biomeFeatures = yield* applyBiomeFeatures(terrain, biome, rng)
+        // バイオーム決定を早期に実行
+        const biome = yield* determineBiome(coordinate, seed)
 
-      // ブロック配列の生成
-      const blocks = yield* generateBlockArray(biomeFeatures)
+        // 並列生成で最適化
+        const [terrain, lighting] = yield* Effect.all([
+          generateChunkTerrain(rng, coordinate),
+          Effect.succeed(calculateInitialLighting) // 軽量な初期値
+        ], { concurrency: 2 })
 
-      // 照明の初期計算
-      const lighting = yield* calculateInitialLighting(blocks)
+        // バイオーム特徴適用
+        const biomeFeatures = yield* applyBiomeFeatures(terrain, biome, rng)
 
-      return Chunk.create({
-        coordinate,
-        blocks,
-        biome,
-        lighting,
-        metadata: {
-          generatedAt: yield* Clock.currentTime,
-          version: CHUNK_FORMAT_VERSION
-        }
+        // ブロック配列生成
+        const blocks = yield* generateBlockArray(biomeFeatures)
+
+        // 最終照明計算
+        const finalLighting = yield* lighting(blocks)
+
+        return Chunk.create({
+          coordinate,
+          blocks,
+          biome,
+          lighting: finalLighting,
+          metadata: {
+            generatedAt: yield* Clock.currentTime,
+            version: CHUNK_FORMAT_VERSION
+          }
+        })
       })
-    })
-}
+
+    return ChunkGeneratorService.of({ generate })
+  })
+)
 ```
 
 ## 3. ノイズ関数による地形生成
@@ -89,15 +99,18 @@ export const ChunkGeneratorLive: ChunkGenerator = {
 ### 3.1 Simplex Noiseの活用
 
 ```typescript
-// ノイズ生成システム
+// ノイズ生成システム（純粋関数ベース）
 
-// 多層ノイズによる地形生成
-export interface NoiseConfig {
-  readonly octaves: number
-  readonly persistence: number
-  readonly lacunarity: number
-  readonly scale: number
-  readonly offset: Position
+// 多層ノイズによる地形生成（Schema定義）
+const NoiseConfig = Schema.Struct({
+  _tag: Schema.Literal("NoiseConfig"),
+  octaves: Schema.Number,
+  persistence: Schema.Number,
+  lacunarity: Schema.Number,
+  scale: Schema.Number,
+  offset: PositionSchema
+})
+type NoiseConfig = Schema.Schema.Type<typeof NoiseConfig>
 }
 
 export const generateHeightNoise = (

@@ -62,12 +62,22 @@ interface IThreeJsContext {
   readonly canvas: HTMLCanvasElement
 }
 
+const ThreeJsContext = Context.GenericTag<IThreeJsContext>("@app/ThreeJsContext")
+
 // コンテキスト初期化
 const ThreeJsContextLive = Layer.scoped(
   ThreeJsContext,
   Effect.gen(function* () {
     // Canvas取得
-    const canvas = document.getElementById('minecraft-canvas') as HTMLCanvasElement
+    const canvas = document.getElementById("minecraft-canvas") as HTMLCanvasElement
+
+    // 早期リターンでエラーハンドリング
+    if (!canvas) {
+      return yield* Effect.fail(new InfrastructureError({
+        message: "Canvas element not found",
+        timestamp: Date.now()
+      }))
+    }
     
     // レンダラー作成
     const renderer = new THREE.WebGLRenderer({ 
@@ -100,23 +110,55 @@ const ThreeJsContextLive = Layer.scoped(
 ### レンダリングコマンドキュー
 
 ```typescript
-type RenderCommand =
-  | { readonly type: 'CREATE_MESH'; readonly meshData: ChunkMeshData }
-  | { readonly type: 'UPDATE_MESH'; readonly handle: MeshHandle; readonly meshData: ChunkMeshData }
-  | { readonly type: 'REMOVE_MESH'; readonly handle: MeshHandle }
-  | { readonly type: 'UPDATE_CAMERA'; readonly camera: Camera }
-  | { readonly type: 'RENDER_FRAME' }
-  | { readonly type: 'SET_LIGHTING'; readonly config: LightingConfig }
+// レンダリングコマンドのTagged Union定義
+const RenderCommand = Schema.Union(
+  Schema.Struct({
+    _tag: Schema.Literal("CREATE_MESH"),
+    meshData: ChunkMeshDataSchema
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("UPDATE_MESH"),
+    handle: MeshHandleSchema,
+    meshData: ChunkMeshDataSchema
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("REMOVE_MESH"),
+    handle: MeshHandleSchema
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("UPDATE_CAMERA"),
+    camera: CameraSchema
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("RENDER_FRAME")
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("SET_LIGHTING"),
+    config: LightingConfigSchema
+  })
+)
+type RenderCommand = Schema.Schema.Type<typeof RenderCommand>
 
 // コマンド処理システム
+// コマンド処理システム（Match.valueでパターンマッチング）
 const processRenderQueue = () =>
   Queue.take(renderQueue).pipe(
-    Effect.flatMap(processCommand),
+    Effect.flatMap(command =>
+      Match.value(command).pipe(
+        Match.tag("CREATE_MESH", ({ meshData }) => createMesh(meshData)),
+        Match.tag("UPDATE_MESH", ({ handle, meshData }) => updateMesh(handle, meshData)),
+        Match.tag("REMOVE_MESH", ({ handle }) => removeMesh(handle)),
+        Match.tag("UPDATE_CAMERA", ({ camera }) => updateCamera(camera)),
+        Match.tag("RENDER_FRAME", () => renderFrame()),
+        Match.tag("SET_LIGHTING", ({ config }) => setLighting(config)),
+        Match.exhaustive
+      )
+    ),
     Effect.catchAll((error) =>
       Effect.gen(function* () {
-        yield* Effect.logError('Render command processing failed', error)
+        yield* Effect.logError("Render command processing failed", error)
         return yield* Effect.fail(new InfrastructureError({
-          message: 'Render queue processing failed',
+          message: "Render queue processing failed",
           timestamp: Date.now()
         }))
       })
@@ -131,16 +173,20 @@ const processRenderQueue = () =>
 Greedy Meshingは、隣接する同じブロックを単一のクアッドにまとめることで、レンダリング負荷を大幅に削減するアルゴリズム。
 
 ```typescript
-interface MeshData {
-  readonly positions: Float32Array
-  readonly normals: Float32Array  
-  readonly uvs: Float32Array
-  readonly indices: Uint32Array
-  readonly vertexCount: number
-}
+// メッシュデータのスキーマ定義
+const MeshData = Schema.Struct({
+  _tag: Schema.Literal("MeshData"),
+  positions: Schema.instanceOf(Float32Array),
+  normals: Schema.instanceOf(Float32Array),
+  uvs: Schema.instanceOf(Float32Array),
+  indices: Schema.instanceOf(Uint32Array),
+  vertexCount: Schema.Number
+})
+type MeshData = Schema.Schema.Type<typeof MeshData>
 
-const generateGreedyMesh = (chunkData: ChunkData): Effect.Effect<GeneratedMeshData> =>
+const generateGreedyMesh = (chunkData: ChunkData): Effect.Effect<GeneratedMeshData, MeshGenerationError> =>
   Effect.gen(function* () {
+    // 純粋関数でメッシュデータ生成
     const meshData = greedyMeshingAlgorithm(chunkData)
     
     const vertexAttributes = MeshGeneratorHelpers.createTransferableVertexData(
@@ -176,6 +222,7 @@ const generateGreedyMesh = (chunkData: ChunkData): Effect.Effect<GeneratedMeshDa
 ### Greedy Meshingの実装詳細
 
 ```typescript
+// Greedy Meshingアルゴリズム（純粋関数）
 const greedyMeshingAlgorithm = (chunkData: ChunkData): MeshData => {
   const positions: number[] = []
   const normals: number[] = []
@@ -220,12 +267,13 @@ const greedyMeshingAlgorithm = (chunkData: ChunkData): MeshData => {
   }
 
   return {
+    _tag: "MeshData",
     positions: new Float32Array(positions),
     normals: new Float32Array(normals),
     uvs: new Float32Array(uvs),
     indices: new Uint32Array(indices),
     vertexCount: positions.length / 3
-  }
+  } satisfies MeshData
 }
 
 const generateQuadsFromMask = (

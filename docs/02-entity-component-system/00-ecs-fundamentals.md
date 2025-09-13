@@ -1,5 +1,9 @@
 # ECS基礎概念
 
+```typescript
+import { Effect, Schema, Context, Match, Option } from "effect"
+```
+
 ## 1. Entity Component System とは
 
 Entity Component System (ECS) は、ゲームオブジェクトを**Entity（エンティティ）**、**Component（コンポーネント）**、**System（システム）**の3つの要素に分離する、データ指向のアーキテクチャパターンです。
@@ -72,27 +76,30 @@ export interface EntityManager {
 コンポーネントは純粋なデータ構造です。ロジックを含みません。
 
 ```typescript
-// コンポーネントの定義原則
+// コンポーネントの定義原則（最新Schemaパターン）
 
-// 1. 純粋なデータ構造
-export interface PositionComponent {
-  readonly x: number
-  readonly y: number
-  readonly z: number
-}
+// 1. Schema.Structによる純粋なデータ構造
+export const PositionComponent = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number
+})
+export type PositionComponent = Schema.Schema.Type<typeof PositionComponent>
 
-// 2. 単一責任
-export interface VelocityComponent {
-  readonly dx: number
-  readonly dy: number
-  readonly dz: number
-}
+// 2. 単一責任の原則
+export const VelocityComponent = Schema.Struct({
+  dx: Schema.Number,
+  dy: Schema.Number,
+  dz: Schema.Number
+})
+export type VelocityComponent = Schema.Schema.Type<typeof VelocityComponent>
 
-// 3. 直交性（独立性）
-export interface HealthComponent {
-  readonly current: number
-  readonly max: number
-}
+// 3. 直交性（独立性）の保持
+export const HealthComponent = Schema.Struct({
+  current: Schema.Number,
+  max: Schema.Number
+})
+export type HealthComponent = Schema.Schema.Type<typeof HealthComponent>
 
 // ❌ アンチパターン：複数の責任
 type BadComponent = {
@@ -135,9 +142,24 @@ export const MovementSystem: System<{
 
   update: (entities, { position, velocity }, deltaTime) =>
     Effect.gen(function* () {
+      // 早期リターン: エンティティ存在チェック
+      if (entities.length === 0) {
+        return
+      }
+
+      // 早期リターン: デルタタイム有効性チェック
+      if (deltaTime <= 0) {
+        return
+      }
+
       for (const entity of entities) {
         const pos = yield* position.get(entity)
         const vel = yield* velocity.get(entity)
+
+        // 早期リターン: 静止状態チェック
+        if (vel.dx === 0 && vel.dy === 0 && vel.dz === 0) {
+          continue
+        }
 
         const newPosition = {
           x: pos.x + vel.dx * deltaTime,
@@ -397,7 +419,13 @@ export interface EffectSystem<R, E> {
   ) => Effect.Effect<void, E, R>
 }
 
-// リソース依存を持つシステム
+// リソース依存を持つシステム（最新Context.GenericTagパターン）
+export interface NetworkService {
+  readonly syncPosition: (entity: EntityId, position: PositionComponent) => Effect.Effect<void, NetworkError>
+}
+
+export const NetworkService = Context.GenericTag<NetworkService>("@app/NetworkService")
+
 export const NetworkSyncSystem: EffectSystem<NetworkService, NetworkError> = {
   name: "NetworkSync",
   query: { all: ["NetworkId", "Position"] },
@@ -406,8 +434,19 @@ export const NetworkSyncSystem: EffectSystem<NetworkService, NetworkError> = {
     Effect.gen(function* () {
       const network = yield* NetworkService
 
+      // 早期リターン: エンティティ存在チェック
+      if (result.entities.length === 0) {
+        return
+      }
+
       for (const entity of result.entities) {
         const position = result.components.position.get(entity)
+
+        // 早期リターン: 位置データ有効性チェック
+        if (!position) {
+          continue
+        }
+
         yield* network.syncPosition(entity, position)
       }
     })

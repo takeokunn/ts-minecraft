@@ -90,7 +90,9 @@ export const createUser = (
   data: unknown
 ): Effect.Effect<User, ValidationError> =>
   Effect.gen(function* () {
-    const validated = yield* Schema.decodeUnknown(User)(data)
+    const validated = yield* Schema.decodeUnknownEither(User)(data).pipe(
+      Effect.mapError(error => new ValidationError({ cause: error }))
+    )
     return validated
   })
 

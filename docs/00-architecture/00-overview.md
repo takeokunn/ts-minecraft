@@ -48,7 +48,7 @@ TypeScript Minecraft Cloneは、以下の3つの設計パラダイムを**厳密
 ### 2.2 Effect-TSによる厳密な型システム
 
 ```typescript
-import { Effect, Layer, Schema, pipe, Option, Either } from "effect"
+import { Effect, Layer, Schema, pipe, Option, Either, Match, Context } from "effect"
 
 // すべての操作はEffect型で表現
 type Operation<A, E = never, R = never> = Effect.Effect<A, E, R>
@@ -68,7 +68,7 @@ export interface WorldService {
   readonly saveWorld: (world: World) => Effect.Effect<void, SaveError>
 }
 
-export const WorldService = Context.GenericTag<WorldService>("WorldService")
+export const WorldService = Context.GenericTag<WorldService>("@app/WorldService")
 
 export const WorldServiceLive = Layer.effect(
   WorldService,

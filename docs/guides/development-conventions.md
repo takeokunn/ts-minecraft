@@ -1,28 +1,79 @@
 # 開発規約
 
-このドキュメントでは、ts-minecraftプロジェクトで使用する開発規約とアーキテクチャパターンについて説明します。
+このドキュメントでは、最新のEffect-TSパターン（2024年版）を活用したts-minecraftプロジェクトで使用する開発規約とアーキテクチャパターンについて説明します。Schema-first開発、関数型プログラミング、型安全性を重視した規約を中心に扱います。
 
 ## 基本設計思想
 
-### Effect-TS中心の設計
+### Schema-first開発アプローチ
 
-すべての副作用をEffect-TSで管理し、純粋関数型プログラミングの原則に従います：
+すべてのデータ構造はSchema.Structから始まり、型安全なバリデーションと変換を行います：
 
 ```typescript
-import { Effect } from "effect"
+import { Schema } from "@effect/schema"
+import { Match } from "effect"
 
-// ❌ 避けるべき書き方
-function impureFunction() {
-  console.log("副作用を含む処理") // 直接的な副作用
-  return Math.random() // 純粋でない
-}
-
-// ✅ 推奨される書き方
-const pureEffect = Effect.gen(function* () {
-  yield* Console.log("適切に管理された副作用")
-  const random = yield* Random.next
-  return random
+// ✅ Schema-first開発パターン
+const PlayerSchema = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("PlayerId")),
+  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(50)),
+  position: Schema.Struct({
+    x: Schema.Number,
+    y: Schema.Number,
+    z: Schema.Number
+  }),
+  health: Schema.Number.pipe(Schema.clamp(0, 100)),
+  level: Schema.Number.pipe(Schema.int(), Schema.positive())
 })
+
+type Player = Schema.Schema.Type<typeof PlayerSchema>
+
+// ❌ 避けるべきData.struct使用
+const OldPlayer = Data.struct<Player>({
+  id: "",
+  name: "",
+  position: { x: 0, y: 0, z: 0 },
+  health: 100,
+  level: 1
+})
+```
+
+### 早期リターンパターン
+
+バリデーション段階での即座な失敗処理を必須とします：
+
+```typescript
+// ✅ 早期リターンによる効率的な処理
+const validateAndProcessPlayer = (input: unknown): Effect.Effect<ProcessedPlayer, ValidationError> =>
+  Effect.gen(function* () {
+    // 早期リターン: 基本バリデーション
+    if (!input || typeof input !== "object") {
+      return yield* Effect.fail({
+        _tag: "ValidationError" as const,
+        message: "Input must be an object",
+        field: "root"
+      })
+    }
+
+    // 早期リターン: Schema検証
+    const player = yield* Schema.decodeUnknownEither(PlayerSchema)(input).pipe(
+      Effect.mapError(error => ({
+        _tag: "ValidationError" as const,
+        message: "Schema validation failed",
+        field: error.path?.toString() || "unknown"
+      }))
+    )
+
+    // 早期リターン: ビジネスロジック検証
+    if (player.health <= 0) {
+      return yield* Effect.fail({
+        _tag: "ValidationError" as const,
+        message: "Player must be alive",
+        field: "health"
+      })
+    }
+
+    return yield* processValidPlayer(player)
+  })
 ```
 
 ### 不変性の維持

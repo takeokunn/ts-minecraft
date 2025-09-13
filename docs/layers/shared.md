@@ -76,33 +76,51 @@ export interface Failure<E> {
 #### Schema定義（@effect/schema）
 ```typescript
 // Schema-based validation
-export const Point2DSchema = S.Struct({
-  x: S.Number,
-  y: S.Number
+const Point2DSchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number
 })
 
-export const Point3DSchema = S.Struct({
-  x: S.Number,
-  y: S.Number,
-  z: S.Number
+const Point3DSchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number
 })
 
-export const EntityIDSchema = S.String.pipe(S.brand('EntityID'))
-export const TimestampSchema = S.Number.pipe(S.brand('Timestamp'))
+const EntityIDSchema = Schema.String.pipe(Schema.brand("EntityID"))
+const TimestampSchema = Schema.Number.pipe(Schema.brand("Timestamp"))
 
-// 型ガード
-export const isPoint2D = (value: unknown): value is Point2D =>
-  S.is(Point2DSchema)(value)
+type Point2D = Schema.Schema.Type<typeof Point2DSchema>
+type Point3D = Schema.Schema.Type<typeof Point3DSchema>
+type EntityID = Schema.Schema.Type<typeof EntityIDSchema>
+type Timestamp = Schema.Schema.Type<typeof TimestampSchema>
 
-export const isPoint3D = (value: unknown): value is Point3D =>
-  S.is(Point3DSchema)(value)
+// 安全なデコード関数
+const decodePoint2D = (input: unknown): Effect.Effect<Point2D, ValidationError> =>
+  Schema.decodeUnknownEither(Point2DSchema)(input).pipe(
+    Effect.mapError(error => createValidationError("Invalid Point2D", error))
+  )
 
-// ブランド型コンストラクタ
-export const createEntityID = (id: string): EntityID =>
-  id as EntityID
+const decodePoint3D = (input: unknown): Effect.Effect<Point3D, ValidationError> =>
+  Schema.decodeUnknownEither(Point3DSchema)(input).pipe(
+    Effect.mapError(error => createValidationError("Invalid Point3D", error))
+  )
 
-export const createTimestamp = (): Timestamp =>
-  Date.now() as Timestamp
+// 純粋な型ガード関数
+const isPoint2D = (value: unknown): value is Point2D =>
+  Schema.is(Point2DSchema)(value)
+
+const isPoint3D = (value: unknown): value is Point3D =>
+  Schema.is(Point3DSchema)(value)
+
+// 安全なコンストラクタ
+const createEntityID = (id: string): Effect.Effect<EntityID, ValidationError> =>
+  Schema.decodeUnknownEither(EntityIDSchema)(id).pipe(
+    Effect.mapError(error => createValidationError("Invalid EntityID", error))
+  )
+
+const createTimestamp = (): Effect.Effect<Timestamp, never> =>
+  Effect.sync(() => Date.now() as Timestamp)
 ```
 
 ### ゲーム固有型定義
@@ -121,34 +139,55 @@ export type BlockType =
   | 'SAND'
   | 'GRAVEL'
 
-export const BlockTypeSchema = S.Literal(
+const BlockTypeSchema = Schema.Literal(
   'AIR', 'STONE', 'DIRT', 'GRASS', 'WATER', 'LAVA', 'SAND', 'GRAVEL'
 )
 
-// 座標系
-export interface WorldPosition {
-  readonly x: number
-  readonly y: number
-  readonly z: number
-}
+type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>
 
-export interface ChunkPosition {
-  readonly x: number
-  readonly z: number
-}
+// 座標系のSchema定義
+const WorldPositionSchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number
+})
 
-export interface BlockPosition {
-  readonly x: number
-  readonly y: number
-  readonly z: number
-  readonly chunkX: number
-  readonly chunkZ: number
-}
+const ChunkPositionSchema = Schema.Struct({
+  x: Schema.Number,
+  z: Schema.Number
+})
 
-// ゲーム状態
-export type GameMode = 'CREATIVE' | 'SURVIVAL' | 'ADVENTURE' | 'SPECTATOR'
-export type Difficulty = 'PEACEFUL' | 'EASY' | 'NORMAL' | 'HARD'
-export type Weather = 'CLEAR' | 'RAIN' | 'STORM' | 'SNOW'
+const BlockPositionSchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number,
+  chunkX: Schema.Number,
+  chunkZ: Schema.Number
+})
+
+type WorldPosition = Schema.Schema.Type<typeof WorldPositionSchema>
+type ChunkPosition = Schema.Schema.Type<typeof ChunkPositionSchema>
+type BlockPosition = Schema.Schema.Type<typeof BlockPositionSchema>
+
+// 座標系のコンストラクタ関数（純粋関数）
+const createWorldPosition = (x: number, y: number, z: number): WorldPosition => ({ x, y, z })
+const createChunkPosition = (x: number, z: number): ChunkPosition => ({ x, z })
+const createBlockPosition = (
+  x: number,
+  y: number,
+  z: number,
+  chunkX: number,
+  chunkZ: number
+): BlockPosition => ({ x, y, z, chunkX, chunkZ })
+
+// ゲーム状態のSchema定義
+const GameModeSchema = Schema.Literal('CREATIVE', 'SURVIVAL', 'ADVENTURE', 'SPECTATOR')
+const DifficultySchema = Schema.Literal('PEACEFUL', 'EASY', 'NORMAL', 'HARD')
+const WeatherSchema = Schema.Literal('CLEAR', 'RAIN', 'STORM', 'SNOW')
+
+type GameMode = Schema.Schema.Type<typeof GameModeSchema>
+type Difficulty = Schema.Schema.Type<typeof DifficultySchema>
+type Weather = Schema.Schema.Type<typeof WeatherSchema>
 
 // バイオーム
 export type BiomeType = 
@@ -524,44 +563,87 @@ export const throttle = <T extends (...args: any[]) => any>(
 
 ```typescript
 // src/shared/utils/effect.ts
-// エラーハンドリング
-export const withErrorLog = <A, E, R>(
+import { Match } from "effect"
+
+const ErrorLogLevel = Schema.Literal("DEBUG", "INFO", "WARN", "ERROR")
+type ErrorLogLevel = Schema.Schema.Type<typeof ErrorLogLevel>
+
+// 早期リターン対応のエラーハンドリング
+const withErrorLog = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
-  message?: string
+  message?: string,
+  level: ErrorLogLevel = "ERROR"
 ): Effect.Effect<A, E, R> =>
   Effect.tapError(effect, (error) =>
-    Effect.sync(() => console.error(message || 'Effect error:', error))
+    Effect.gen(function* () {
+      // 早期リターン: 無効なレベル
+      if (!Schema.is(ErrorLogLevel)(level)) {
+        return
+      }
+
+      const logMessage = message || 'Effect error:'
+
+      yield* Match.value(level).pipe(
+        Match.when("DEBUG", () => Effect.sync(() => console.debug(logMessage, error))),
+        Match.when("INFO", () => Effect.sync(() => console.info(logMessage, error))),
+        Match.when("WARN", () => Effect.sync(() => console.warn(logMessage, error))),
+        Match.when("ERROR", () => Effect.sync(() => console.error(logMessage, error))),
+        Match.exhaustive
+      )
+    })
   )
 
-// パフォーマンス測定
-export const withTiming = <A, E, R>(
+// パフォーマンス測定（純粋関数化）
+const measureExecutionTime = (startTime: number, endTime: number): number =>
+  Math.max(0, endTime - startTime)
+
+const formatExecutionTime = (time: number): string =>
+  `${time.toFixed(2)}ms`
+
+const withTiming = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   label: string
 ): Effect.Effect<A, E, R> =>
   Effect.gen(function* () {
+    // 早期リターン: ラベル検証
+    if (!label || label.trim().length === 0) {
+      return yield* effect
+    }
+
     const start = yield* Effect.sync(() => performance.now())
     const result = yield* effect
     const end = yield* Effect.sync(() => performance.now())
-    
-    yield* Effect.sync(() =>
-      console.log(`${label}: ${(end - start).toFixed(2)}ms`)
-    )
-    
+
+    const executionTime = measureExecutionTime(start, end)
+    const formattedTime = formatExecutionTime(executionTime)
+
+    yield* Effect.sync(() => console.log(`${label.trim()}: ${formattedTime}`))
+
     return result
   })
 
-// リトライ機能
-export const retryWithBackoff = <A, E, R>(
+// リトライ設定のバリデーション
+const validateRetryConfig = (maxAttempts: number, baseDelay: number): boolean =>
+  maxAttempts > 0 && maxAttempts <= 10 && baseDelay > 0 && baseDelay <= 60000
+
+const retryWithBackoff = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   maxAttempts: number,
   baseDelay: number = 1000
 ): Effect.Effect<A, E, R> =>
-  Effect.retry(
-    effect,
-    Schedule.exponential(baseDelay).pipe(
-      Schedule.intersect(Schedule.recurs(maxAttempts - 1))
+  Effect.gen(function* () {
+    // 早期リターン: パラメータ検証
+    if (!validateRetryConfig(maxAttempts, baseDelay)) {
+      return yield* effect
+    }
+
+    return yield* Effect.retry(
+      effect,
+      Schedule.exponential(`${baseDelay} millis`).pipe(
+        Schedule.intersect(Schedule.recurs(maxAttempts - 1))
+      )
     )
-  )
+  })
 
 // 並行処理
 export const forEachWithConcurrency = <A, B, E, R>(

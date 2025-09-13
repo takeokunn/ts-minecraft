@@ -1,6 +1,6 @@
 # Presentation層 - ユーザーインターフェース・制御
 
-Presentation層は、ユーザーとアプリケーションの間のインターフェースを担う層です。MVVMパターンを採用し、UI表示、ユーザー操作の処理、開発者ツールを提供します。
+Presentation層は、ユーザーとアプリケーションの間のインターフェースを担う層です。関数型MVVMパターンを採用し、Effect-TSによる型安全なUI状態管理、ユーザー操作の処理、開発者ツールを提供します。
 
 ## アーキテクチャ構成
 
@@ -20,58 +20,101 @@ MVVMパターンのコントローラー層。ユーザー操作をアプリケ�
 ### Game Controller
 ```typescript
 // src/presentation/controllers/game.controller.ts
-export interface GameControllerService {
-  startGame: (config: GameConfig) => Effect.Effect<void, GameStartError>
-  pauseGame: () => Effect.Effect<void>
-  stopGame: () => Effect.Effect<void, GameStopError>
-  handleInput: (input: InputEvent) => Effect.Effect<void>
-  updateGameState: (deltaTime: number) => Effect.Effect<void>
+import { Match } from "effect"
+
+const GameStartError = Schema.Struct({
+  _tag: Schema.Literal("GameStartError"),
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown)
+})
+
+type GameStartError = Schema.Schema.Type<typeof GameStartError>
+
+const GameStopError = Schema.Struct({
+  _tag: Schema.Literal("GameStopError"),
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown)
+})
+
+type GameStopError = Schema.Schema.Type<typeof GameStopError>
+
+interface GameControllerService {
+  readonly startGame: (config: GameConfig) => Effect.Effect<void, GameStartError>
+  readonly pauseGame: () => Effect.Effect<void>
+  readonly stopGame: () => Effect.Effect<void, GameStopError>
+  readonly handleInput: (input: InputEvent) => Effect.Effect<void>
+  readonly updateGameState: (deltaTime: number) => Effect.Effect<void>
 }
 
-export const GameController: GameControllerService = {
-  startGame: (config: GameConfig) =>
-    Effect.gen(function* () {
-      // ゲーム初期化
-      yield* initializeWorld(config.worldConfig)
-      yield* createPlayer(config.playerConfig)
-      
-      // レンダリング開始
-      yield* startRenderLoop()
-      
-      // 入力システム初期化
-      yield* initializeInputSystem()
-      
-      // ゲームループ開始
-      yield* startGameLoop()
+const GameController = Context.GenericTag<GameControllerService>("@app/GameController")
+
+const startGame = (config: GameConfig): Effect.Effect<void, GameStartError> =>
+  Effect.gen(function* () {
+    // 早期リターン: 設定検証
+    if (!config.worldConfig) {
+      return yield* Effect.fail({
+        _tag: "GameStartError" as const,
+        message: "World config is required"
+      })
+    }
+
+    // ゲーム初期化
+    yield* initializeWorld(config.worldConfig)
+    yield* createPlayer(config.playerConfig)
+
+    // レンダリング開始
+    yield* startRenderLoop()
+
+    // 入力システム初期化
+    yield* initializeInputSystem()
+
+    // ゲームループ開始
+    yield* startGameLoop()
+  })
+
+const handleInput = (input: InputEvent): Effect.Effect<void> =>
+  Match.value(input).pipe(
+    Match.tag("MOVE", (moveInput) => handlePlayerMovement(moveInput)),
+    Match.tag("BLOCK_PLACE", (placeInput) => handleBlockPlacement(placeInput)),
+    Match.tag("INVENTORY", () => handleInventoryToggle()),
+    Match.exhaustive
+  )
+
+const updateGameState = (deltaTime: number): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    // 早期リターン: デルタタイム検証
+    if (deltaTime <= 0) {
+      return yield* Effect.unit
+    }
+
+    // アプリケーション層のワールド更新呼び出し
+    yield* updateWorld(deltaTime)
+
+    // ビューモデル更新
+    yield* updateGameStateViewModel(deltaTime)
+
+    // UI更新
+    yield* updateUI()
+  })
+
+const makeGameControllerLive = Effect.gen(function* () {
+  return GameController.of({
+    startGame,
+    pauseGame: () => Effect.gen(function* () {
+      yield* pauseGameLoop()
+      yield* pauseRenderLoop()
     }),
-    
-  handleInput: (input: InputEvent) =>
-    Effect.gen(function* () {
-      switch (input.type) {
-        case 'MOVE':
-          yield* handlePlayerMovement(input as MovementInput)
-          break
-        case 'BLOCK_PLACE':
-          yield* handleBlockPlacement(input as BlockPlaceInput)
-          break
-        case 'INVENTORY':
-          yield* handleInventoryToggle()
-          break
-      }
+    stopGame: (config: GameConfig) => Effect.gen(function* () {
+      yield* stopGameLoop()
+      yield* stopRenderLoop()
+      yield* cleanupResources()
     }),
-    
-  updateGameState: (deltaTime: number) =>
-    Effect.gen(function* () {
-      // アプリケーション層のワールド更新呼び出し
-      yield* updateWorld(deltaTime)
-      
-      // ビューモデル更新
-      yield* updateGameStateViewModel(deltaTime)
-      
-      // UI更新
-      yield* updateUI()
-    })
-}
+    handleInput,
+    updateGameState
+  })
+})
+
+const GameControllerLive = Layer.effect(GameController, makeGameControllerLive)
 ```
 
 **機能:**
@@ -145,68 +188,123 @@ export const UIController: UIControllerService = {
 ### Debug Controller
 ```typescript
 // src/presentation/controllers/debug.controller.ts
-export interface DebugControllerService {
-  toggleDebugMode: () => Effect.Effect<void>
-  showEntityInspector: () => Effect.Effect<void>
-  showPerformanceProfiler: () => Effect.Effect<void>
-  executeDebugCommand: (command: string) => Effect.Effect<string>
+import { Match } from "effect"
+
+interface DebugControllerService {
+  readonly toggleDebugMode: () => Effect.Effect<void>
+  readonly showEntityInspector: () => Effect.Effect<void>
+  readonly showPerformanceProfiler: () => Effect.Effect<void>
+  readonly executeDebugCommand: (command: string) => Effect.Effect<string>
 }
 
-export const DebugController: DebugControllerService = {
-  toggleDebugMode: () =>
-    Effect.gen(function* () {
-      const isDebug = yield* getDebugMode()
-      
-      if (isDebug) {
-        yield* disableDebugOverlay()
-        yield* hideDebugInfo()
-      } else {
-        yield* enableDebugOverlay()
-        yield* showDebugInfo()
-      }
-      
-      yield* setDebugMode(!isDebug)
+const DebugController = Context.GenericTag<DebugControllerService>("@app/DebugController")
+
+const toggleDebugMode = (): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const isDebug = yield* getDebugMode()
+
+    const action = isDebug
+      ? Effect.gen(function* () {
+          yield* disableDebugOverlay()
+          yield* hideDebugInfo()
+        })
+      : Effect.gen(function* () {
+          yield* enableDebugOverlay()
+          yield* showDebugInfo()
+        })
+
+    yield* action
+    yield* setDebugMode(!isDebug)
+  })
+
+const showEntityInspector = (): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    // 全エンティティ取得
+    const entities = yield* getAllEntities()
+
+    // エンティティリスト表示
+    const inspector = yield* getEntityInspector()
+    inspector.updateEntityList(entities)
+    inspector.show()
+  })
+
+// 単一責務の関数に分割
+const handleTeleportCommand = (args: string[]): Effect.Effect<string> =>
+  Effect.gen(function* () {
+    const [x, y, z] = args.map(Number)
+
+    // 早期リターン: 座標検証
+    if (isNaN(x) || isNaN(y) || isNaN(z)) {
+      return "Invalid coordinates. Usage: tp <x> <y> <z>"
+    }
+
+    yield* teleportPlayer(makePosition(x, y, z))
+    return `Teleported to ${x}, ${y}, ${z}`
+  })
+
+const handleGiveCommand = (args: string[]): Effect.Effect<string> =>
+  Effect.gen(function* () {
+    const itemType = args[0]
+    const count = parseInt(args[1]) || 1
+
+    // 早期リターン: アイテムタイプ検証
+    if (!itemType) {
+      return "Item type is required. Usage: give <itemType> [count]"
+    }
+
+    if (count <= 0) {
+      return "Count must be greater than 0"
+    }
+
+    yield* giveItem(itemType, count)
+    return `Gave ${count} ${itemType}`
+  })
+
+const handleTimeCommand = (args: string[]): Effect.Effect<string> =>
+  Effect.gen(function* () {
+    const time = args[0]
+
+    // 早期リターン: 時間値検証
+    if (!time) {
+      return "Time value is required. Usage: time <time>"
+    }
+
+    yield* setWorldTime(time)
+    return `Time set to ${time}`
+  })
+
+const executeDebugCommand = (command: string): Effect.Effect<string> =>
+  Effect.gen(function* () {
+    // 早期リターン: コマンド検証
+    if (!command.trim()) {
+      return "Command is empty"
+    }
+
+    const parts = command.trim().split(' ')
+    const cmd = parts[0]
+    const args = parts.slice(1)
+
+    return yield* Match.value(cmd).pipe(
+      Match.when("tp", () => handleTeleportCommand(args)),
+      Match.when("give", () => handleGiveCommand(args)),
+      Match.when("time", () => handleTimeCommand(args)),
+      Match.orElse(() => Effect.succeed(`Unknown command: ${cmd}`))
+    )
+  })
+
+const makeDebugControllerLive = Effect.gen(function* () {
+  return DebugController.of({
+    toggleDebugMode,
+    showEntityInspector,
+    showPerformanceProfiler: () => Effect.gen(function* () {
+      const profiler = yield* getPerformanceProfiler()
+      profiler.show()
     }),
-    
-  showEntityInspector: () =>
-    Effect.gen(function* () {
-      // 全エンティティ取得
-      const entities = yield* getAllEntities()
-      
-      // エンティティリスト表示
-      const inspector = yield* getEntityInspector()
-      inspector.updateEntityList(entities)
-      inspector.show()
-    }),
-    
-  executeDebugCommand: (command: string) =>
-    Effect.gen(function* () {
-      const parts = command.split(' ')
-      const cmd = parts[0]
-      const args = parts.slice(1)
-      
-      switch (cmd) {
-        case 'tp':
-          const [x, y, z] = args.map(Number)
-          yield* teleportPlayer(makePosition(x, y, z))
-          return `Teleported to ${x}, ${y}, ${z}`
-          
-        case 'give':
-          const itemType = args[0]
-          const count = parseInt(args[1]) || 1
-          yield* giveItem(itemType, count)
-          return `Gave ${count} ${itemType}`
-          
-        case 'time':
-          const time = args[0]
-          yield* setWorldTime(time)
-          return `Time set to ${time}`
-          
-        default:
-          return `Unknown command: ${cmd}`
-      }
-    })
-}
+    executeDebugCommand
+  })
+})
+
+const DebugControllerLive = Layer.effect(DebugController, makeDebugControllerLive)
 ```
 
 **機能:**
@@ -222,52 +320,121 @@ export const DebugController: DebugControllerService = {
 ### Game State View Model
 ```typescript
 // src/presentation/view-models/game-state.view-model.ts
-export interface GameStateViewModel {
-  readonly isPlaying: boolean
-  readonly isPaused: boolean
-  readonly isLoading: boolean
-  readonly currentFPS: number
-  readonly frameTime: number
-  readonly loadingProgress: number
-  readonly errorMessage: string | null
+
+const GameStateData = Schema.Struct({
+  isPlaying: Schema.Boolean,
+  isPaused: Schema.Boolean,
+  isLoading: Schema.Boolean,
+  currentFPS: Schema.Number,
+  frameTime: Schema.Number,
+  loadingProgress: Schema.Number.pipe(Schema.clamp(0, 100)),
+  errorMessage: Schema.NullOr(Schema.String)
+})
+
+type GameStateData = Schema.Schema.Type<typeof GameStateData>
+
+interface GameStateViewModelService {
+  readonly getState: () => Effect.Effect<GameStateData>
+  readonly updateFPS: (fps: number) => Effect.Effect<void>
+  readonly setLoading: (isLoading: boolean, progress?: number) => Effect.Effect<void>
+  readonly setError: (error: string | null) => Effect.Effect<void>
+  readonly setPlaying: (isPlaying: boolean) => Effect.Effect<void>
 }
 
-export const GameStateViewModelLive = Layer.succeed(
-  GameStateViewModelService,
-  {
-    state: {
-      isPlaying: false,
-      isPaused: false,
-      isLoading: false,
-      currentFPS: 60,
-      frameTime: 16.67,
-      loadingProgress: 0,
-      errorMessage: null
-    },
-    
+const GameStateViewModel = Context.GenericTag<GameStateViewModelService>("@app/GameStateViewModel")
+
+const createInitialState = (): GameStateData => ({
+  isPlaying: false,
+  isPaused: false,
+  isLoading: false,
+  currentFPS: 60,
+  frameTime: 16.67,
+  loadingProgress: 0,
+  errorMessage: null
+})
+
+// 純粋関数として状態更新ロジックを分離
+const calculateFrameTime = (fps: number): number => 1000 / Math.max(fps, 1)
+
+const validateFPS = (fps: number): boolean => fps > 0 && fps <= 1000
+
+const updateFPS = (currentState: GameStateData, fps: number): Effect.Effect<GameStateData> =>
+  Effect.gen(function* () {
+    // 早期リターン: FPS検証
+    if (!validateFPS(fps)) {
+      return currentState
+    }
+
+    const newState = {
+      ...currentState,
+      currentFPS: fps,
+      frameTime: calculateFrameTime(fps)
+    }
+
+    yield* notifyStateChange('fps', fps)
+    return newState
+  })
+
+const setLoading = (
+  currentState: GameStateData,
+  isLoading: boolean,
+  progress?: number
+): Effect.Effect<GameStateData> =>
+  Effect.gen(function* () {
+    const newState = {
+      ...currentState,
+      isLoading,
+      loadingProgress: progress !== undefined ? Math.max(0, Math.min(100, progress)) : currentState.loadingProgress
+    }
+
+    yield* notifyStateChange('loading', { isLoading, progress })
+    return newState
+  })
+
+const setError = (currentState: GameStateData, error: string | null): Effect.Effect<GameStateData> =>
+  Effect.gen(function* () {
+    const newState = {
+      ...currentState,
+      errorMessage: error
+    }
+
+    yield* notifyStateChange('error', error)
+    return newState
+  })
+
+const makeGameStateViewModelLive = Effect.gen(function* () {
+  const stateRef = yield* Ref.make(createInitialState())
+
+  return GameStateViewModel.of({
+    getState: () => Ref.get(stateRef),
+
     updateFPS: (fps: number) =>
       Effect.gen(function* () {
-        this.state.currentFPS = fps
-        this.state.frameTime = 1000 / fps
-        yield* notifyStateChange('fps', fps)
+        const currentState = yield* Ref.get(stateRef)
+        const newState = yield* updateFPS(currentState, fps)
+        yield* Ref.set(stateRef, newState)
       }),
-      
+
     setLoading: (isLoading: boolean, progress?: number) =>
       Effect.gen(function* () {
-        this.state.isLoading = isLoading
-        if (progress !== undefined) {
-          this.state.loadingProgress = progress
-        }
-        yield* notifyStateChange('loading', { isLoading, progress })
+        const currentState = yield* Ref.get(stateRef)
+        const newState = yield* setLoading(currentState, isLoading, progress)
+        yield* Ref.set(stateRef, newState)
       }),
-      
+
     setError: (error: string | null) =>
       Effect.gen(function* () {
-        this.state.errorMessage = error
-        yield* notifyStateChange('error', error)
-      })
-  }
-)
+        const currentState = yield* Ref.get(stateRef)
+        const newState = yield* setError(currentState, error)
+        yield* Ref.set(stateRef, newState)
+      }),
+
+    setPlaying: (isPlaying: boolean) =>
+      Ref.update(stateRef, (state) => ({ ...state, isPlaying, isPaused: false }))
+  })
+})
+
+const GameStateViewModelLive = Layer.effect(GameStateViewModel, makeGameStateViewModelLive)
 ```
 
 ### Player Status View Model

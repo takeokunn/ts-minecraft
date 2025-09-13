@@ -2,7 +2,7 @@
 
 ## 概要
 
-このドキュメントは、TypeScript MinecraftプロジェクトにおけるTypeScriptコンパイルエラーの解決ガイドです。Effect-TSベースのDDDアーキテクチャ移行に伴う型エラーとその解決方法を記載しています。
+このドキュメントは、TypeScript MinecraftプロジェクトにおけるTypeScriptコンパイルエラーの解決ガイドです。最新のEffect-TSパターン（2024年版）とSchema-baseエラー定義によるDDDアーキテクチャ移行に伴う型エラーとその解決方法を記載しています。
 
 ## 現在のエラー状況
 
@@ -10,44 +10,64 @@
 
 プロジェクトにおける主要なTypeScriptエラーは以下のカテゴリに分類されます：
 
-1. **Effect型の不一致** - Effect型のエラーパラメータの不整合
-2. **Layerの構成エラー** - DI LayerとServiceの型不一致
-3. **コンストラクタ呼び出しエラー** - `new`キーワードの欠落
-4. **型パラメータの不一致** - ジェネリック型の不整合
+1. **Schema検証エラー** - Schema.Structとバリデーション関連の不整合
+2. **Context.GenericTag型エラー** - "@app/ServiceName"パターンの型不一致
+3. **Match式の網羅性エラー** - Match.exhaustiveの型安全性
+4. **早期リターンパターンエラー** - 条件分岐での型推論問題
+5. **純粋関数の副作用エラー** - Effect分離での型不整合
 
 ## 一般的なエラーパターンと解決方法
 
-### 1. Effect型のエラー伝播問題
+### 1. Schema検証エラーの解決
 
 #### エラーパターン
 ```typescript
-// ❌ エラー: Effect<void, never, never> に Effect<void, SomeError, Service> を代入できない
-const handler = Effect.gen(function* () {
-  const service = yield* SomeService
-  yield* service.operation() // この操作がエラーを返す可能性がある
+// ❌ エラー: Schema.Structの型不一致
+const UserData = Data.struct<{ name: string; age: number }>({
+  name: "",
+  age: 0
 })
+
+const validateUser = (input: unknown): Effect.Effect<UserData, ValidationError> =>
+  Effect.succeed(input as UserData) // 危険な型キャスト
 ```
 
 #### 解決方法
 ```typescript
-// ✅ 正しい: エラーを適切に処理
-const handler = Effect.gen(function* () {
-  const service = yield* SomeService
-  yield* service.operation()
-}).pipe(
-  Effect.catchTag('SomeError', (error) =>
-    Effect.logError(`Operation failed: ${error.message}`)
-  ),
-  Effect.catchAll(() => Effect.unit) // すべてのエラーを処理
-)
+// ✅ 正しい: Schema.Structによる安全なバリデーション
+const UserSchema = Schema.Struct({
+  name: Schema.String,
+  age: Schema.Number.pipe(Schema.int(), Schema.positive())
+})
+
+type User = Schema.Schema.Type<typeof UserSchema>
+
+const ValidationError = Schema.Struct({
+  _tag: Schema.Literal("ValidationError"),
+  message: Schema.String,
+  field: Schema.optional(Schema.String)
+})
+
+type ValidationError = Schema.Schema.Type<typeof ValidationError>
+
+const validateUser = (input: unknown): Effect.Effect<User, ValidationError> =>
+  Schema.decodeUnknownEither(UserSchema)(input).pipe(
+    Effect.mapError(error => ({
+      _tag: "ValidationError" as const,
+      message: "User validation failed",
+      field: error.path?.toString()
+    }))
+  )
 ```
 
-### 2. Layer構成の型不一致
+### 2. Context.GenericTagパターンの型エラー
 
 #### エラーパターン
 ```typescript
-// ❌ エラー: Layer<Service, never, never> がプロパティを欠いている
-export const ServiceLive: Layer.Layer<ServiceType> = Layer.effect(
+// ❌ エラー: 古いContext.Tag使用パターン
+const ServiceTag = Context.Tag<ServiceInterface>()
+
+export const ServiceLive: Layer.Layer<ServiceInterface> = Layer.effect(
   ServiceTag,
   Effect.succeed({
     // プロパティが不足
@@ -57,55 +77,164 @@ export const ServiceLive: Layer.Layer<ServiceType> = Layer.effect(
 
 #### 解決方法
 ```typescript
-// ✅ 正しい: すべての必須プロパティを実装
-export const ServiceLive = Layer.effect(
-  ServiceTag,
-  Effect.gen(function* () {
-    const dependency = yield* DependencyService
+// ✅ 正しい: "@app/ServiceName"パターンで型安全なService定義
+interface GameServiceInterface {
+  readonly startGame: (config: GameConfig) => Effect.Effect<void, GameError>
+  readonly stopGame: () => Effect.Effect<void, never>
+  readonly getState: () => Effect.Effect<GameState, never>
+}
 
-    return ServiceTag.of({
-      method1: (param) => Effect.succeed(result),
-      method2: (param) => Effect.succeed(result),
-      // すべての必須メソッドを実装
+const GameService = Context.GenericTag<GameServiceInterface>("@app/GameService")
+
+const makeGameServiceLive = Effect.gen(function* () {
+  const worldService = yield* WorldService
+  const playerService = yield* PlayerService
+
+  return GameService.of({
+    startGame: (config) => Effect.gen(function* () {
+      // 早期リターン: 設定検証
+      if (!config.worldConfig) {
+        return yield* Effect.fail({
+          _tag: "GameError" as const,
+          message: "World config is required"
+        })
+      }
+
+      yield* worldService.initialize(config.worldConfig)
+      yield* playerService.spawn(config.playerConfig)
+    }),
+
+    stopGame: () => Effect.gen(function* () {
+      yield* worldService.cleanup()
+      yield* playerService.despawn()
+    }),
+
+    getState: () => Effect.gen(function* () {
+      const worldState = yield* worldService.getState()
+      const playerState = yield* playerService.getState()
+      return { world: worldState, player: playerState }
     })
   })
-)
+})
+
+const GameServiceLive = Layer.effect(GameService, makeGameServiceLive)
 ```
 
-### 3. エラークラスのコンストラクタ問題
+### 3. Match式の網羅性エラー
 
 #### エラーパターン
 ```typescript
-// ❌ エラー: Value is not callable. Did you mean to include 'new'?
-Effect.fail(ValidationError({ message: "Invalid input" }))
-```
-
-#### 解決方法
-```typescript
-// ✅ 正しい: newキーワードを使用
-Effect.fail(new ValidationError({ message: "Invalid input" }))
-```
-
-### 4. ジェネリック型パラメータの問題
-
-#### エラーパターン
-```typescript
-// ❌ エラー: 型パラメータが一致しない
-interface Service<T> {
-  process: (input: T) => Effect.Effect<void, never>
-}
-
-const impl: Service<string> = {
-  process: (input: number) => Effect.unit // 型が一致しない
+// ❌ エラー: switch文での型安全性不足
+const handleAction = (action: GameAction): Effect.Effect<void> => {
+  switch (action.type) {
+    case "MOVE":
+      return handleMove(action)
+    case "ATTACK":
+      return handleAttack(action)
+    // 他のケースが漏れている
+  }
 }
 ```
 
 #### 解決方法
 ```typescript
-// ✅ 正しい: 型パラメータを一致させる
-const impl: Service<string> = {
-  process: (input: string) => Effect.unit
+// ✅ 正しい: Match.exhaustiveによる網羅性保証
+import { Match } from "effect"
+
+type GameAction =
+  | { readonly _tag: "Move"; readonly direction: Direction; readonly playerId: string }
+  | { readonly _tag: "Attack"; readonly target: EntityId; readonly playerId: string }
+  | { readonly _tag: "UseItem"; readonly item: ItemId; readonly playerId: string }
+
+const handleAction = (action: GameAction): Effect.Effect<void, GameError> =>
+  Match.value(action).pipe(
+    Match.tag("Move", ({ direction, playerId }) =>
+      Effect.gen(function* () {
+        // 早期リターン: プレイヤー検証
+        const player = yield* findPlayer(playerId)
+        if (!player) {
+          return yield* Effect.fail({
+            _tag: "GameError" as const,
+            message: "Player not found"
+          })
+        }
+        yield* movePlayer(player, direction)
+      })
+    ),
+    Match.tag("Attack", ({ target, playerId }) => handleAttack(target, playerId)),
+    Match.tag("UseItem", ({ item, playerId }) => handleUseItem(item, playerId)),
+    Match.exhaustive // コンパイル時に全ケース網羅を保証
+  )
+```
+
+### 4. 早期リターンパターンの型推論エラー
+
+#### エラーパターン
+```typescript
+// ❌ エラー: 条件分岐での型推論が失敗
+const processData = (input: unknown): Effect.Effect<ProcessedData, ValidationError> => {
+  if (!input) {
+    return Effect.fail(new ValidationError({ message: "Input is required" })) // 型エラー
+  }
+
+  // 処理続行
+  return Effect.succeed(processInput(input))
 }
+```
+
+#### 解決方法
+```typescript
+// ✅ 正しい: 早期リターンでのyield*使用
+const processData = (input: unknown): Effect.Effect<ProcessedData, ValidationError> =>
+  Effect.gen(function* () {
+    // 早期リターン: 入力検証
+    if (!input) {
+      return yield* Effect.fail({
+        _tag: "ValidationError" as const,
+        message: "Input is required"
+      })
+    }
+
+    // 型ガードでの安全な処理
+    if (typeof input !== "object" || input === null) {
+      return yield* Effect.fail({
+        _tag: "ValidationError" as const,
+        message: "Input must be an object"
+      })
+    }
+
+    // バリデーション済みデータでの処理続行
+    return yield* processValidInput(input)
+  })
+```
+
+### 5. 純粋関数の副作用分離エラー
+
+#### エラーパターン
+```typescript
+// ❌ エラー: 純粋関数内での副作用
+const calculateDistance = (from: Position, to: Position): number => {
+  console.log("Calculating distance") // 副作用が混入
+  return Math.sqrt((to.x - from.x) ** 2 + (to.y - from.y) ** 2)
+}
+```
+
+#### 解決方法
+```typescript
+// ✅ 正しい: 純粋関数とEffect操作の分離
+const calculateDistance = (from: Position, to: Position): number =>
+  Math.sqrt((to.x - from.x) ** 2 + (to.y - from.y) ** 2)
+
+const calculateDistanceWithLogging = (
+  from: Position,
+  to: Position
+): Effect.Effect<number, never> =>
+  Effect.gen(function* () {
+    yield* Effect.log("Calculating distance")
+    const distance = calculateDistance(from, to)
+    yield* Effect.log(`Distance calculated: ${distance}`)
+    return distance
+  })
 ```
 
 ## レイヤー別エラー解決戦略

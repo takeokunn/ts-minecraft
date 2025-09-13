@@ -11,9 +11,10 @@ Minecraft クローンのインベントリシステムは、アイテムの保�
 ```typescript
 import { Schema } from "effect"
 
-// アイテムスキーマ
+// アイテムスキーマ（最新のSchemaパターン）
 export const ItemStack = Schema.Struct({
-  itemId: Schema.String,
+  _tag: Schema.Literal("ItemStack"),
+  itemId: Schema.String.pipe(Schema.brand("ItemId")),
   count: Schema.Number.pipe(Schema.between(1, 64)),
   metadata: Schema.optional(
     Schema.Struct({
@@ -26,9 +27,10 @@ export const ItemStack = Schema.Struct({
 
 export type ItemStack = Schema.Schema.Type<typeof ItemStack>
 
-// アイテム定義
+// アイテム定義（型安全性強化）
 export const ItemDefinition = Schema.Struct({
-  id: Schema.String,
+  _tag: Schema.Literal("ItemDefinition"),
+  id: Schema.String.pipe(Schema.brand("ItemId")),
   name: Schema.String,
   maxStackSize: Schema.Number.pipe(Schema.between(1, 64)),
   category: Schema.Literal("block", "tool", "weapon", "armor", "food", "material"),
@@ -43,52 +45,63 @@ export type ItemDefinition = Schema.Schema.Type<typeof ItemDefinition>
 ```typescript
 import { Effect, Option, ReadonlyArray } from "effect"
 
-// インベントリスロット
-export interface InventorySlot {
-  readonly index: number
-  readonly item: Option.Option<ItemStack>
-  readonly acceptFilter?: (item: ItemStack) => boolean
-}
+// インベントリスロット（Schema定義）
+const InventorySlot = Schema.Struct({
+  _tag: Schema.Literal("InventorySlot"),
+  index: Schema.Number,
+  item: Schema.Option(ItemStack),
+  acceptFilter: Schema.optional(Schema.Function)
+})
+type InventorySlot = Schema.Schema.Type<typeof InventorySlot>
 
-// インベントリインターフェース
-export interface Inventory {
-  readonly id: InventoryId
-  readonly type: InventoryType
-  readonly slots: ReadonlyArray<InventorySlot>
-  readonly size: number
-}
+// インベントリタイプ
+const InventoryType = Schema.Literal(
+  "player",
+  "chest",
+  "furnace",
+  "crafting",
+  "enchanting"
+)
+type InventoryType = Schema.Schema.Type<typeof InventoryType>
 
-export type InventoryType =
-  | "player"
-  | "chest"
-  | "furnace"
-  | "crafting"
-  | "enchanting"
+// インベントリインターフェース（Schema定義）
+const Inventory = Schema.Struct({
+  _tag: Schema.Literal("Inventory"),
+  id: Schema.String.pipe(Schema.brand("InventoryId")),
+  type: InventoryType,
+  slots: Schema.Array(InventorySlot),
+  size: Schema.Number
+})
+type Inventory = Schema.Schema.Type<typeof Inventory>
 
 // インベントリ操作
 export const InventoryOperations = {
-  // アイテム追加
+  // アイテム追加（早期リターン最適化）
   addItem: (
     inventory: Inventory,
     item: ItemStack
   ): Effect.Effect<Inventory, InventoryFullError> =>
     Effect.gen(function* () {
+      // Match.valueでOption処理を型安全に
       const emptySlot = ReadonlyArray.findFirst(
         inventory.slots,
         slot => Option.isNone(slot.item)
       )
 
-      if (Option.isNone(emptySlot)) {
-        return yield* Effect.fail(InventoryFullError.create(inventory.id))
-      }
-
-      const updatedSlots = ReadonlyArray.modify(
-        inventory.slots,
-        emptySlot.value.index,
-        slot => ({ ...slot, item: Option.some(item) })
-      )
-
-      return { ...inventory, slots: updatedSlots }
+      return Match.value(emptySlot).pipe(
+        Match.when(Option.isNone, () =>
+          Effect.fail(InventoryFullError.create(inventory.id))
+        ),
+        Match.when(Option.isSome, ({ value: slot }) => {
+          const updatedSlots = ReadonlyArray.modify(
+            inventory.slots,
+            slot.index,
+            s => ({ ...s, item: Option.some(item) })
+          )
+          return Effect.succeed({ ...inventory, slots: updatedSlots })
+        }),
+        Match.exhaustive
+      ).pipe(Effect.flatten)
     }),
 
   // アイテム移動

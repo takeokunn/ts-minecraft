@@ -222,53 +222,100 @@ export interface ArchetypeState {
   readonly count: number
 }
 
-export class ArchetypeQuery {
-  static addEntity(entity: QueryEntity) {
-    return addEntityToArchetype(entity)
-  }
+// ArchetypeQuery を純粋関数として実装
+export const ArchetypeQueryFunctions = {
+  addEntity: (entity: QueryEntity): Effect.Effect<void, ArchetypeError> =>
+    addEntityToArchetype(entity),
 
-  static removeEntity(entity: QueryEntity) {
-    return removeEntityFromArchetype(entity)
-  }
+  removeEntity: (entity: QueryEntity): Effect.Effect<void, ArchetypeError> =>
+    removeEntityFromArchetype(entity),
 
-  static getArchetypeStats() {
-    return getArchetypeStats()
-  }
+  getArchetypeStats: (): Effect.Effect<ArchetypeStats, never> =>
+    getArchetypeStats(),
 
-  static reset() {
-    // アーキタイプデータのクリア
-  }
+  reset: (): Effect.Effect<void, never> =>
+    Effect.sync(() => {
+      // アーキタイプデータのクリア
+      clearArchetypeData()
+    })
 }
 
-// アーキタイプ管理サービス
-export const ArchetypeManagerLive = Layer.effect(
-  ArchetypeManagerService,
-  Effect.gen(function* () {
-    const state = yield* Ref.make<ArchetypeManagerState>({
-      archetypes: new Map(),
-      entityToArchetype: new Map(),
-      nextArchetypeId: 0,
+// アーキタイプクエリビルダー関数
+export const createArchetypeQuery = (signature: ArchetypeSignature) => ({
+  signature,
+  execute: (): Effect.Effect<ReadonlyArray<QueryResult>, QueryError> =>
+    Effect.gen(function* () {
+      const archetypeManager = yield* ArchetypeManagerService
+      return yield* archetypeManager.queryArchetype(signature)
     })
+})
+
+// 複合クエリビルダー関数
+export const buildComplexQuery = (config: {
+  all?: ComponentName[]
+  any?: ComponentName[]
+  none?: ComponentName[]
+  changed?: ComponentName[]
+}): Effect.Effect<ArchetypeQuery, QueryBuildError> =>
+  Effect.gen(function* () {
+    const allComponents = new Set(config.all ?? [])
+    const anyComponents = new Set(config.any ?? [])
+    const noneComponents = new Set(config.none ?? [])
+    const changedComponents = new Set(config.changed ?? [])
+
+    // クエリ検証
+    if (allComponents.size === 0 && anyComponents.size === 0) {
+      return yield* Effect.fail(new QueryBuildError("Query must specify at least one component"))
+    }
+
+    const signature: ArchetypeSignature = {
+      components: allComponents,
+      hash: generateQueryHash(allComponents, anyComponents, noneComponents, changedComponents)
+    }
+
+    return createArchetypeQuery(signature)
+  })
+
+// アーキタイプマネージャーインターフェース
+interface ArchetypeManagerInterface {
+  readonly createArchetype: (signature: ArchetypeSignature) => Effect.Effect<string, ArchetypeError>
+  readonly addEntityToArchetype: (entityId: EntityId, archetypeId: string, components: Components) => Effect.Effect<void, ArchetypeError>
+  readonly removeEntity: (entityId: EntityId) => Effect.Effect<void, ArchetypeError>
+  readonly queryArchetype: (signature: ArchetypeSignature) => Effect.Effect<ReadonlyArray<QueryResult>, QueryError>
+  readonly findOrCreateArchetype: (signature: ArchetypeSignature) => Effect.Effect<string, ArchetypeError>
+  readonly getStats: () => Effect.Effect<ArchetypeManagerStats, never>
+}
+
+// Context Tag
+export const ArchetypeManagerService = Context.GenericTag<ArchetypeManagerInterface>("ArchetypeManagerService")
+
+// アーキタイプ管理サービスの実装
+const makeArchetypeManager = Effect.gen(function* () {
+  const state = yield* Ref.make<ArchetypeManagerState>({
+    archetypes: new Map(),
+    entityToArchetype: new Map(),
+    nextArchetypeId: 0,
+  })
 
     return ArchetypeManagerService.of({
       createArchetype: (signature: ArchetypeSignature) =>
         Effect.gen(function* () {
           const currentState = yield* Ref.get(state)
           const archetypeId = `archetype_${currentState.nextArchetypeId}`
-          
+
           const newArchetype: ArchetypeState = {
             entities: [],
             componentArrays: createComponentArrays(signature.components),
             capacity: INITIAL_ARCHETYPE_CAPACITY,
             count: 0,
           }
-          
+
           yield* Ref.update(state, (s) => ({
             ...s,
             archetypes: new Map(s.archetypes).set(archetypeId, newArchetype),
             nextArchetypeId: s.nextArchetypeId + 1,
           }))
-          
+
           return archetypeId
         }),
 
@@ -289,22 +336,81 @@ export const ArchetypeManagerLive = Layer.effect(
           })
         }),
 
+      removeEntity: (entityId: EntityId) =>
+        Effect.gen(function* () {
+          yield* Ref.update(state, (s) => {
+            const archetypeId = s.entityToArchetype.get(entityId)
+            if (!archetypeId) {
+              return s
+            }
+
+            const archetype = s.archetypes.get(archetypeId)
+            if (!archetype) {
+              return s
+            }
+
+            const updatedArchetype = removeEntityFromArchetypeState(archetype, entityId)
+            return {
+              ...s,
+              archetypes: new Map(s.archetypes).set(archetypeId, updatedArchetype),
+              entityToArchetype: new Map(s.entityToArchetype).delete(entityId),
+            }
+          })
+        }),
+
       queryArchetype: (signature: ArchetypeSignature) =>
         Effect.gen(function* () {
           const currentState = yield* Ref.get(state)
           const matchingArchetypes = Array.from(currentState.archetypes.entries())
-            .filter(([_, archetype]) => 
+            .filter(([_, archetype]) =>
               isSignatureMatching(archetype.componentArrays, signature)
             )
-          
+
           return matchingArchetypes.map(([id, archetype]) => ({
             archetypeId: id,
             entities: archetype.entities,
             components: archetype.componentArrays,
           }))
         }),
+
+      findOrCreateArchetype: (signature: ArchetypeSignature) =>
+        Effect.gen(function* () {
+          const currentState = yield* Ref.get(state)
+
+          // 既存のアーキタイプを検索
+          const existingArchetype = Array.from(currentState.archetypes.entries())
+            .find(([_, archetype]) =>
+              isExactSignatureMatch(archetype.componentArrays, signature)
+            )
+
+          if (existingArchetype) {
+            return existingArchetype[0]
+          }
+
+          // 新規作成
+          return yield* createArchetype(signature)
+        }),
+
+      getStats: () =>
+        Effect.gen(function* () {
+          const currentState = yield* Ref.get(state)
+          const totalEntities = Array.from(currentState.archetypes.values())
+            .reduce((sum, archetype) => sum + archetype.entities.length, 0)
+
+          return {
+            totalArchetypes: currentState.archetypes.size,
+            totalEntities,
+            averageEntitiesPerArchetype: totalEntities / Math.max(1, currentState.archetypes.size),
+            memoryUsage: calculateArchetypeMemoryUsage(currentState.archetypes)
+          }
+        })
     })
   })
+
+// Live Layer
+export const ArchetypeManagerLive = Layer.effect(
+  ArchetypeManagerService,
+  makeArchetypeManager
 )
 ```
 

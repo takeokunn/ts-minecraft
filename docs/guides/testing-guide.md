@@ -1,6 +1,6 @@
 # テスティングガイド
 
-このドキュメントでは、ts-minecraftプロジェクトでのテスト作成方法とEffect-TSを使ったテストパターンについて説明します。
+このドキュメントでは、最新のEffect-TSパターン（2024年版）を活用したts-minecraftプロジェクトでのテスト作成方法について説明します。Schema-basedバリデーション、Property-Based Testing、関数型テストパターンを中心に扱います。
 
 ## テスト環境
 
@@ -29,14 +29,44 @@ export default defineConfig({
 
 ## 基本的なテスト構造
 
-### Effect-TSでの単体テスト
+### Schema-basedテストパターン
 
 ```typescript
 import { describe, it, expect } from 'vitest'
-import { Effect, Exit } from 'effect'
+import { Effect, Exit, Schema } from 'effect'
+import { Match } from "effect"
 
-describe('EntityService', () => {
-  it('should create entity successfully', async () => {
+// テスト用のSchema定義
+const TestPlayerSchema = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("TestPlayerId")),
+  name: Schema.String.pipe(Schema.minLength(1)),
+  position: Schema.Struct({
+    x: Schema.Number,
+    y: Schema.Number,
+    z: Schema.Number
+  }),
+  health: Schema.Number.pipe(Schema.clamp(0, 100))
+})
+
+type TestPlayer = Schema.Schema.Type<typeof TestPlayerSchema>
+
+// Property-Based Testing用のジェネレーター
+const generateTestPlayer = (): TestPlayer => ({
+  id: `player-${Math.random().toString(36)}` as TestPlayer["id"],
+  name: `Player${Math.floor(Math.random() * 1000)}`,
+  position: {
+    x: Math.random() * 1000 - 500,
+    y: Math.random() * 256,
+    z: Math.random() * 1000 - 500
+  },
+  health: Math.floor(Math.random() * 101)
+})
+
+describe('PlayerService', () => {
+  it('should validate player data with early return pattern', async () => {
+    const validPlayer = generateTestPlayer()
+    const invalidPlayer = { ...validPlayer, health: -10 }
+
     const program = Effect.gen(function* () {
       const service = yield* EntityService
       const entity = yield* service.create({ name: "test" })
