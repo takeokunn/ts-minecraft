@@ -1,3 +1,15 @@
+---
+title: "02 Specifications - セクション概要"
+description: "02 Specifications - セクション概要に関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "10分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # 拡張機能仕様書
 
 Minecraft Cloneの高度なゲーム機能と体験向上のための仕様書です。これらはコア機能に加えて、より豊かで奥深いゲーム体験を提供します。

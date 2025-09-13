@@ -1,3 +1,15 @@
+---
+title: "10 Multiplayer Architecture"
+description: "10 Multiplayer Architectureに関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'architecture', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "25分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # Multiplayer Architecture 設計書
 
 ## 1. 概要

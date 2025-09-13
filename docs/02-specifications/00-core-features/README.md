@@ -1,3 +1,15 @@
+---
+title: "02 Specifications - セクション概要"
+description: "02 Specifications - セクション概要に関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "10分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # コア機能仕様書
 
 Minecraft Cloneの基本的なゲーム機能に関する仕様書です。これらは最小限の実行可能な製品としてのMinecraft体験を提供するために必要な機能群です。

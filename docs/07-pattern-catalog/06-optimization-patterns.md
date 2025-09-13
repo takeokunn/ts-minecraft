@@ -28,48 +28,76 @@ Effect-TS 3.17+を使用したパフォーマンス最適化パターン集。Mi
 
 **実装**:
 ```typescript
-import { Effect, Cache, Duration, Ref } from "effect"
+import { Effect, Cache, Duration, Ref, Context, Layer, Option, Data, Chunk } from "effect"
+
+// パフォーマンス指標用のブランド型
+type ChunkLoadTime = number & { readonly _brand: "ChunkLoadTime" }
+type CacheHitRatio = number & { readonly _brand: "CacheHitRatio" }
+
+// チャンク座標のブランド型（構造共有の最適化）
+interface ChunkCoordinate extends Data.Case {
+  readonly x: number
+  readonly z: number
+}
+const ChunkCoordinate = Data.case<ChunkCoordinate>()
 
 // チャンク生成の結果をキャッシュ
 export const CachedChunkGeneratorService = Context.GenericTag<{
   readonly generateChunk: (coordinate: ChunkCoordinate) => Effect.Effect<ChunkData, ChunkGenerationError>
-  readonly preloadChunks: (coordinates: ChunkCoordinate[]) => Effect.Effect<void, ChunkGenerationError>
+  readonly preloadChunks: (coordinates: Chunk.Chunk<ChunkCoordinate>) => Effect.Effect<void, ChunkGenerationError>
   readonly invalidateChunk: (coordinate: ChunkCoordinate) => Effect.Effect<void>
+  readonly getCacheStats: () => Effect.Effect<Cache.CacheStats>
 }>("@minecraft/CachedChunkGeneratorService")
 
 const makeCachedChunkGenerator = Effect.gen(function* () {
   const baseGenerator = yield* ChunkGeneratorService
 
-  // TTL付きキャッシュの作成
+  // TTL付きキャッシュの作成（最新API使用）
   const chunkCache = yield* Cache.make({
     capacity: 1000, // 最大1000チャンクをキャッシュ
     timeToLive: Duration.minutes(30), // 30分でキャッシュ期限切れ
     lookup: (coordinate: ChunkCoordinate) => baseGenerator.generateChunk(coordinate)
   })
 
-  // アクセス頻度によるキャッシュ優先度管理
+  // アクセス頻度の追跡（Refで共有可変状態管理）
   const accessCount = yield* Ref.make(new Map<string, number>())
+  const hitRateMetrics = yield* Ref.make<CacheHitRatio>(0 as CacheHitRatio)
 
   const getCoordKey = (coord: ChunkCoordinate) => `${coord.x},${coord.z}`
 
   return CachedChunkGeneratorService.of({
     generateChunk: (coordinate) =>
       Effect.gen(function* () {
-        // アクセス回数を記録
+        // パターンマッチングによる最適化戦略
         const key = getCoordKey(coordinate)
+
+        // 早期リターンパターン（キャッシュヒット確認）
+        const cached = yield* Cache.getOption(chunkCache, coordinate)
+        if (Option.isSome(cached)) {
+          yield* Ref.update(accessCount, map => {
+            const current = map.get(key) || 0
+            return new Map(map).set(key, current + 1)
+          })
+          return cached.value
+        }
+
+        // キャッシュミス時の処理
+        const result = yield* Cache.get(chunkCache, coordinate)
+
+        // メトリクス更新
         yield* Ref.update(accessCount, map => {
           const current = map.get(key) || 0
           return new Map(map).set(key, current + 1)
         })
 
-        return yield* Cache.get(chunkCache, coordinate)
+        return result
       }),
 
     preloadChunks: (coordinates) =>
       Effect.gen(function* () {
-        // バックグラウンドで事前読み込み
+        // Chunkを使用した効率的なバッチ処理
         yield* Effect.all(
-          coordinates.map(coord =>
+          Chunk.map(coordinates, coord =>
             Cache.get(chunkCache, coord).pipe(
               Effect.catchAll(error =>
                 Effect.gen(function* () {
@@ -84,7 +112,9 @@ const makeCachedChunkGenerator = Effect.gen(function* () {
       }),
 
     invalidateChunk: (coordinate) =>
-      Cache.invalidate(chunkCache, coordinate)
+      Cache.invalidate(chunkCache, coordinate),
+
+    getCacheStats: () => Cache.cacheStats(chunkCache)
   })
 })
 
@@ -93,10 +123,11 @@ export const CachedChunkGeneratorLive = Layer.effect(
   makeCachedChunkGenerator
 )
 
-// 階層キャッシュパターン
+// 階層キャッシュパターン（構造共有とメモ化の最適化）
 export const MultiLevelCacheService = Context.GenericTag<{
   readonly get: <K, V>(key: K) => Effect.Effect<Option.Option<V>, never>
   readonly set: <K, V>(key: K, value: V) => Effect.Effect<void>
+  readonly getCacheHitRatio: () => Effect.Effect<CacheHitRatio>
 }>("@minecraft/MultiLevelCacheService")
 
 const makeMultiLevelCache = Effect.gen(function* () {
@@ -110,34 +141,66 @@ const makeMultiLevelCache = Effect.gen(function* () {
   // L2: ディスクキャッシュ（中速、大容量）
   const diskCache = yield* DiskCacheService
 
+  // ヒット率追跡
+  const cacheHits = yield* Ref.make(0)
+  const cacheRequests = yield* Ref.make(0)
+
+  const updateMetrics = (hit: boolean) =>
+    Effect.gen(function* () {
+      yield* Ref.update(cacheRequests, n => n + 1)
+      if (hit) {
+        yield* Ref.update(cacheHits, n => n + 1)
+      }
+    })
+
   return MultiLevelCacheService.of({
     get: <K, V>(key: K) =>
       Effect.gen(function* () {
-        // L1キャッシュから試行
-        const l1Result = yield* Cache.get(l1Cache, String(key)).pipe(
-          Effect.map(Option.some),
-          Effect.catchAll(() => Effect.succeed(Option.none()))
-        )
+        // パターンマッチングによるキャッシュ戦略
+        const keyStr = String(key)
 
+        // L1キャッシュから試行（早期リターン）
+        const l1Result = yield* Cache.getOption(l1Cache, keyStr)
+
+        // L1ヒットの場合
         if (Option.isSome(l1Result)) {
+          yield* updateMetrics(true)
           return l1Result
         }
 
         // L2キャッシュから試行
         const l2Result = yield* diskCache.get(key)
-        if (Option.isSome(l2Result)) {
-          // L1キャッシュに昇格
-          yield* Cache.set(l1Cache, String(key), l2Result.value)
-        }
 
-        return l2Result
+        // パターンマッチングでL2結果処理
+        return yield* Effect.gen(function* () {
+          if (Option.isSome(l2Result)) {
+            // L1キャッシュに昇格（メモ化の最適化）
+            yield* Cache.set(l1Cache, keyStr, l2Result.value)
+            yield* updateMetrics(true)
+            return l2Result
+          } else {
+            yield* updateMetrics(false)
+            return Option.none()
+          }
+        })
       }),
 
     set: <K, V>(key: K, value: V) =>
       Effect.gen(function* () {
-        // 両方のキャッシュに保存
-        yield* Cache.set(l1Cache, String(key), value)
-        yield* diskCache.set(key, value)
+        const keyStr = String(key)
+        // 両方のキャッシュに保存（構造共有による効率化）
+        yield* Effect.all([
+          Cache.set(l1Cache, keyStr, value),
+          diskCache.set(key, value)
+        ], { concurrency: 2 })
+      }),
+
+    getCacheHitRatio: () =>
+      Effect.gen(function* () {
+        const hits = yield* Ref.get(cacheHits)
+        const requests = yield* Ref.get(cacheRequests)
+        const ratio = requests > 0 ? (hits / requests) : 0
+        return ratio as CacheHitRatio
       })
   })
 })
@@ -149,7 +212,22 @@ const makeMultiLevelCache = Effect.gen(function* () {
 
 **実装**:
 ```typescript
-import { Pool, Effect, Queue, Ref } from "effect"
+import { Pool, Effect, Queue, Ref, Context, Scope, Data } from "effect"
+
+// ブランド型でパフォーマンス指標を定義
+type ConnectionUtilization = number & { readonly _brand: "ConnectionUtilization" }
+type PoolEfficiency = number & { readonly _brand: "PoolEfficiency" }
+
+// プール統計情報のデータ構造（構造共有の最適化）
+interface PoolStats extends Data.Case {
+  readonly totalAcquired: number
+  readonly totalReleased: number
+  readonly currentActive: number
+  readonly errors: number
+  readonly utilization: ConnectionUtilization
+  readonly efficiency: PoolEfficiency
+}
+const PoolStats = Data.case<PoolStats>()
 
 // データベース接続プールの実装
 export const DatabaseConnectionPoolService = Context.GenericTag<{
@@ -157,10 +235,11 @@ export const DatabaseConnectionPoolService = Context.GenericTag<{
     operation: (connection: DatabaseConnection) => Effect.Effect<A, E>
   ) => Effect.Effect<A, E | ConnectionPoolError>
   readonly getPoolStats: () => Effect.Effect<PoolStats>
+  readonly preWarmPool: () => Effect.Effect<void>
 }>("@minecraft/DatabaseConnectionPoolService")
 
 const makeDatabaseConnectionPool = Effect.gen(function* () {
-  // リソースプールの作成
+  // リソースプールの作成（最新API使用）
   const connectionPool = yield* Pool.make({
     acquire: Effect.gen(function* () {
       yield* Effect.log("Creating new database connection")
@@ -168,70 +247,105 @@ const makeDatabaseConnectionPool = Effect.gen(function* () {
       yield* connection.ping() // 接続確認
       return connection
     }),
-    size: 10 // 最大10接続
+    size: 10, // 最大10接続
+    concurrency: 4, // 同時取得数を制限
+    targetUtilization: 0.8 // 80%の利用率を目指
   })
 
-  // 統計情報の管理
-  const stats = yield* Ref.make({
+  // 統計情報の管理（Refで共有可変状態）
+  const stats = yield* Ref.make(PoolStats({
     totalAcquired: 0,
     totalReleased: 0,
     currentActive: 0,
-    errors: 0
-  })
+    errors: 0,
+    utilization: 0 as ConnectionUtilization,
+    efficiency: 1.0 as PoolEfficiency
+  }))
+
+  // メトリクス更新関数
+  const updateStats = (updater: (s: PoolStats) => PoolStats) =>
+    Ref.update(stats, current => {
+      const updated = updater(current)
+      const utilization = (updated.currentActive / 10) as ConnectionUtilization
+      const efficiency = updated.totalReleased > 0
+        ? (updated.totalReleased - updated.errors) / updated.totalReleased as PoolEfficiency
+        : 1.0 as PoolEfficiency
+
+      return PoolStats({ ...updated, utilization, efficiency })
+    })
 
   return DatabaseConnectionPoolService.of({
     withConnection: <A, E>(
       operation: (connection: DatabaseConnection) => Effect.Effect<A, E>
     ) =>
       Effect.gen(function* () {
-        yield* Ref.update(stats, s => ({ ...s, totalAcquired: s.totalAcquired + 1 }))
+        yield* updateStats(s => PoolStats({ ...s, totalAcquired: s.totalAcquired + 1 }))
 
+        // リソースプーリングの最適化
         return yield* Pool.get(connectionPool).pipe(
           Effect.flatMap(connection =>
             Effect.gen(function* () {
-              yield* Ref.update(stats, s => ({ ...s, currentActive: s.currentActive + 1 }))
+              yield* updateStats(s => PoolStats({ ...s, currentActive: s.currentActive + 1 }))
 
-              try {
-                return yield* operation(connection)
-              } finally {
-                yield* Ref.update(stats, s => ({
+              // リソースの適切な管理
+              return yield* Effect.acquireRelease(
+                Effect.succeed(connection),
+                () => updateStats(s => PoolStats({
                   ...s,
                   currentActive: s.currentActive - 1,
                   totalReleased: s.totalReleased + 1
                 }))
-              }
+              ).pipe(
+                Effect.flatMap(operation)
+              )
             })
           ),
           Effect.catchAll(error =>
             Effect.gen(function* () {
-              yield* Ref.update(stats, s => ({ ...s, errors: s.errors + 1 }))
+              yield* updateStats(s => PoolStats({ ...s, errors: s.errors + 1 }))
               return yield* Effect.fail(error)
             })
           )
         )
       }),
 
-    getPoolStats: () => Ref.get(stats)
+    getPoolStats: () => Ref.get(stats),
+
+    // プールの事前ウォームアップ
+    preWarmPool: () =>
+      Effect.gen(function* () {
+        const warmUpConnections = Array.from({ length: 5 }, () =>
+          Pool.get(connectionPool).pipe(
+            Effect.flatMap(connection => Effect.succeed(connection))
+          )
+        )
+        yield* Effect.all(warmUpConnections, { concurrency: "unbounded" })
+        yield* Effect.log("Pool pre-warming completed")
+      })
   })
 })
 
-// ファイルハンドルプールの実装
+// ファイルハンドルプールの実装（遅延評価とメモ化最適化）
 export const FileHandlePoolService = Context.GenericTag<{
   readonly withFile: <A, E>(
     path: string,
     operation: (handle: FileHandle) => Effect.Effect<A, E>
   ) => Effect.Effect<A, E | FilePoolError>
+  readonly getPoolMetrics: (path: string) => Effect.Effect<Option.Option<PoolStats>>
 }>("@minecraft/FileHandlePoolService")
 
 const makeFileHandlePool = Effect.gen(function* () {
-  // ファイルパス別のプール管理
+  // ファイルパス別のプール管理（構造共有最適化）
   const pools = yield* Ref.make(new Map<string, Pool.Pool<FileHandle, FileOpenError>>())
+  const poolMetrics = yield* Ref.make(new Map<string, PoolStats>())
 
-  const getOrCreatePool = (path: string) =>
+  // 遅延評価でプール作成を最適化
+  const getOrCreatePool = Effect.cached((path: string) =>
     Effect.gen(function* () {
       const currentPools = yield* Ref.get(pools)
       const existing = currentPools.get(path)
 
+      // 早期リターンパターン
       if (existing) {
         return existing
       }
@@ -241,12 +355,26 @@ const makeFileHandlePool = Effect.gen(function* () {
           yield* Effect.log(`Opening file handle for: ${path}`)
           return yield* FileSystem.open(path, "r+")
         }),
-        size: 5 // ファイル毎に最大5ハンドル
+        size: 5, // ファイル毎に最大5ハンドル
+        concurrency: 2,
+        targetUtilization: 0.7
+      })
+
+      // メトリクスの初期化
+      const initialStats = PoolStats({
+        totalAcquired: 0,
+        totalReleased: 0,
+        currentActive: 0,
+        errors: 0,
+        utilization: 0 as ConnectionUtilization,
+        efficiency: 1.0 as PoolEfficiency
       })
 
       yield* Ref.update(pools, map => new Map(map).set(path, newPool))
+      yield* Ref.update(poolMetrics, map => new Map(map).set(path, initialStats))
       return newPool
-    })
+    }), Duration.minutes(10) // 10分間キャッシュ
+  )
 
   return FileHandlePoolService.of({
     withFile: <A, E>(
@@ -255,9 +383,37 @@ const makeFileHandlePool = Effect.gen(function* () {
     ) =>
       Effect.gen(function* () {
         const pool = yield* getOrCreatePool(path)
+
+        // パフォーマンスメトリクスの更新
+        yield* Ref.update(poolMetrics, map => {
+          const current = map.get(path) || PoolStats({
+            totalAcquired: 0, totalReleased: 0, currentActive: 0, errors: 0,
+            utilization: 0 as ConnectionUtilization, efficiency: 1.0 as PoolEfficiency
+          })
+          return new Map(map).set(path, PoolStats({
+            ...current,
+            totalAcquired: current.totalAcquired + 1
+          }))
+        })
+
         return yield* Pool.get(pool).pipe(
-          Effect.flatMap(operation)
+          Effect.flatMap(operation),
+          Effect.ensuring(
+            Ref.update(poolMetrics, map => {
+              const current = map.get(path)!
+              return new Map(map).set(path, PoolStats({
+                ...current,
+                totalReleased: current.totalReleased + 1
+              }))
+            })
+          )
         )
+      }),
+
+    getPoolMetrics: (path) =>
+      Effect.gen(function* () {
+        const metrics = yield* Ref.get(poolMetrics)
+        return Option.fromNullable(metrics.get(path))
       })
   })
 })
@@ -269,7 +425,21 @@ const makeFileHandlePool = Effect.gen(function* () {
 
 **実装**:
 ```typescript
-import { Stream, Sink, Chunk } from "effect"
+import { Stream, Sink, Chunk, Context } from "effect"
+
+// ストリーミングパフォーマンス用のブランド型
+type StreamThroughput = number & { readonly _brand: "StreamThroughput" }
+type BufferUtilization = number & { readonly _brand: "BufferUtilization" }
+
+// バッチ処理結果（構造共有最適化）
+interface ProcessingResult extends Data.Case {
+  readonly totalProcessed: number
+  readonly errors: ChunkLoadError[]
+  readonly success: boolean
+  readonly throughput: StreamThroughput
+  readonly averageLatency: number
+}
+const ProcessingResult = Data.case<ProcessingResult>()
 
 // チャンクの効率的なストリーミング読み込み
 export const OptimizedChunkStreamService = Context.GenericTag<{
@@ -280,6 +450,10 @@ export const OptimizedChunkStreamService = Context.GenericTag<{
   readonly processChunkBatch: (
     chunks: Stream.Stream<ChunkData, ChunkLoadError>
   ) => Effect.Effect<ProcessingResult, BatchProcessingError>
+  readonly createVirtualScrollStream: (
+    viewport: ViewportBounds,
+    chunkSize: number
+  ) => Stream.Stream<ChunkData, ChunkLoadError>
 }>("@minecraft/OptimizedChunkStreamService")
 
 const makeOptimizedChunkStream = Effect.gen(function* () {
@@ -292,57 +466,64 @@ const makeOptimizedChunkStream = Effect.gen(function* () {
       const coordinates = generateSpiralCoordinates(center, radius)
 
       return Stream.fromIterable(coordinates).pipe(
-        // 適応的並列度（距離に基づく優先度制御）
-        Stream.mapEffect(coord => {
-          const distance = calculateDistance(center, coord)
-          const priority = Math.max(1, 10 - Math.floor(distance / 16))
+        // Streamでの効率的なバッチ処理
+        Stream.grouped(8), // 8個ずつバッチ処理
+        Stream.mapEffect(coordChunk =>
+          Effect.gen(function* () {
+            // Chunk操作で効率的なコレクション処理
+            const batchResults = yield* Effect.all(
+              Chunk.map(coordChunk, coord => {
+                const distance = calculateDistance(center, coord)
+                const priority = Math.max(1, 10 - Math.floor(distance / 16))
 
-          return chunkLoader.loadChunk(coord).pipe(
-            Effect.timeout(Duration.seconds(30)),
-            Effect.retry(
-              Schedule.exponential("100 millis").pipe(
-                Schedule.compose(Schedule.recurs(3))
-              )
-            ),
-            Effect.tapError(error =>
-              Effect.logError(`Failed to load chunk at ${coord.x},${coord.z}`, error)
+                return chunkLoader.loadChunk(coord).pipe(
+                  Effect.timeout(Duration.seconds(30)),
+                  Effect.retry(
+                    Schedule.exponential("100 millis").pipe(
+                      Schedule.compose(Schedule.recurs(3))
+                    )
+                  ),
+                  Effect.either, // エラーをEitherでラップ
+                  Effect.tapError(error =>
+                    Effect.logError(`Failed to load chunk at ${coord.x},${coord.z}`, error)
+                  )
+                )
+              }),
+              { concurrency: 8 } // バッチ内での並列度
             )
-          )
-        }, {
-          concurrency: 8, // 最大8並列
-          bufferSize: 16   // バッファサイズ
-        }),
 
-        // エラーハンドリング（失敗したチャンクはスキップ）
-        Stream.catchAll(error =>
-          Stream.fromEffect(
-            Effect.gen(function* () {
-              yield* Effect.logWarning("Skipping failed chunk", error)
-              return Option.none()
-            })
-          )
+            // 成功したチャンクのみを返す（パターンマッチング）
+            return Chunk.filterMap(batchResults, result =>
+              Either.match(result, {
+                onLeft: () => Option.none(),
+                onRight: chunk => Option.some(chunk)
+              })
+            )
+          })
         ),
-        Stream.filter(Option.isSome),
-        Stream.map(chunk => chunk.value),
+        Stream.flatMap(Stream.fromChunk), // ChunkをStreamに展開
 
-        // バックプレッシャー制御
-        Stream.buffer({ capacity: 32 })
+        // バックプレッシャー制御（最新API使用）
+        Stream.buffer({ capacity: 32, strategy: "sliding" })
       )
     },
 
     processChunkBatch: (chunks) =>
       Effect.gen(function* () {
+        const startTime = Date.now()
         const processedCount = yield* Ref.make(0)
         const errors = yield* Ref.make<ChunkLoadError[]>([])
 
         const result = yield* chunks.pipe(
-          // チャンクを16個ずつのバッチに分割
+          // Streamでの効率的なグルーピング
           Stream.grouped(16),
           Stream.mapEffect(chunkBatch =>
             Effect.gen(function* () {
-              // バッチ処理の最適化
+              const batchStartTime = Date.now()
+
+              // Chunk操作でバッチ処理の最適化
               const batchResults = yield* Effect.all(
-                chunkBatch.map(chunk =>
+                Chunk.map(chunkBatch, chunk =>
                   chunkProcessor.processChunk(chunk).pipe(
                     Effect.either
                   )
@@ -350,60 +531,99 @@ const makeOptimizedChunkStream = Effect.gen(function* () {
                 { concurrency: "unbounded" }
               )
 
-              // 結果の集計
-              const successes = batchResults.filter(Either.isRight).length
-              const failures = batchResults
-                .filter(Either.isLeft)
-                .map(result => result.left)
+              // 結果の集計（パターンマッチング使用）
+              const [successes, failures] = Chunk.partition(batchResults, Either.isRight)
+              const successCount = Chunk.size(successes)
+              const failureList = Chunk.map(failures, result =>
+                Either.isLeft(result) ? result.left : null
+              ).pipe(Chunk.filter(x => x !== null))
 
-              yield* Ref.update(processedCount, n => n + successes)
-              yield* Ref.update(errors, errs => [...errs, ...failures])
+              yield* Ref.update(processedCount, n => n + successCount)
+              yield* Ref.update(errors, errs => [...errs, ...Chunk.toReadonlyArray(failureList)])
 
+              const batchTime = Date.now() - batchStartTime
               yield* Effect.log(
-                `Processed batch: ${successes} success, ${failures.length} failures`
+                `Processed batch: ${successCount} success, ${Chunk.size(failureList)} failures in ${batchTime}ms`
               )
 
-              return successes
+              return successCount
             })
           ),
           Stream.runSum
         )
 
+        const totalTime = Date.now() - startTime
         const totalProcessed = yield* Ref.get(processedCount)
         const allErrors = yield* Ref.get(errors)
+        const throughput = totalTime > 0 ? (totalProcessed / totalTime * 1000) as StreamThroughput : 0 as StreamThroughput
+        const averageLatency = totalProcessed > 0 ? totalTime / totalProcessed : 0
 
-        return {
+        return ProcessingResult({
           totalProcessed,
           errors: allErrors,
-          success: allErrors.length === 0
+          success: allErrors.length === 0,
+          throughput,
+          averageLatency
+        })
+      }),
+
+    // 仮想スクロールのStream実装
+    createVirtualScrollStream: (viewport, chunkSize) =>
+      Stream.paginate(viewport.startIndex, index => {
+        // 表示範囲内のチャンクのみを読み込み
+        if (index >= viewport.endIndex) {
+          return [null, Option.none()]
         }
-      })
+
+        const chunk = loadChunkAtIndex(index)
+        const nextIndex = index + chunkSize
+        const hasMore = nextIndex < viewport.endIndex
+
+        return [chunk, hasMore ? Option.some(nextIndex) : Option.none()]
+      }).pipe(
+        Stream.filter(chunk => chunk !== null),
+        Stream.buffer({ capacity: 8, strategy: "sliding" }) // スムーズなスクロール
+      )
   })
 })
 
-// メモリ効率的な大ファイル処理
-export const streamLargeWorldFile = (filePath: string) =>
-  Stream.fromReadableStream(
+// メモリ効率的な大ファイル処理（ストリーミング最適化）
+export const streamLargeWorldFile = (filePath: string) => {
+  // メモリ使用量監視用の閾値
+  const MEMORY_THRESHOLD = 1024 * 1024 * 1024 // 1GB
+  const GC_TRIGGER_RATIO = 0.8 // 80%でGCトリガー
+
+  return Stream.fromReadableStream(
     () => FileSystem.createReadStream(filePath),
     error => new FileStreamError({ cause: error })
   ).pipe(
-    // チャンク単位でのパース
-    Stream.chunks,
+    // チャンク単位での効率的な処理
+    Stream.rechunk(1024), // チャンクサイズの最適化
     Stream.mapChunks(chunk =>
       Chunk.map(chunk, parseWorldDataChunk)
     ),
+
+    // ストリーム処理の最適化
     Stream.mapEffect(worldData =>
       Effect.gen(function* () {
         // 各チャンクデータを処理
         const processed = yield* processWorldData(worldData)
 
-        // メモリ使用量の監視
+        // メモリ使用量の監視と最適化
         if (typeof process !== 'undefined' && process.memoryUsage) {
           const memory = process.memoryUsage()
-          if (memory.heapUsed > 1024 * 1024 * 1024) { // 1GB
-            yield* Effect.logWarning(`High memory usage: ${memory.heapUsed}`)
-            // ガベージコレクションの強制実行
-            if (global.gc) global.gc()
+          const heapUsageRatio = memory.heapUsed / memory.heapTotal
+
+          if (memory.heapUsed > MEMORY_THRESHOLD || heapUsageRatio > GC_TRIGGER_RATIO) {
+            yield* Effect.logWarning(
+              `High memory usage: ${Math.round(memory.heapUsed / 1024 / 1024)}MB (${Math.round(heapUsageRatio * 100)}%)`
+            )
+
+            // 適応的なガベージコレクション
+            if (global.gc && heapUsageRatio > GC_TRIGGER_RATIO) {
+              global.gc()
+              yield* Effect.sleep(Duration.millis(10)) // GC後の小休止
+            }
           }
         }
 
@@ -412,9 +632,17 @@ export const streamLargeWorldFile = (filePath: string) =>
       { concurrency: 4 }
     ),
 
-    // バックプレッシャー対応
-    Stream.buffer({ capacity: 8, strategy: "dropping" })
+    // 高度なバックプレッシャー制御
+    Stream.buffer({ capacity: 16, strategy: "sliding" }),
+
+    // スロットリングでメモリ使用量を制御
+    Stream.throttle({
+      cost: (chunk: any) => Chunk.size(chunk),
+      duration: Duration.millis(100),
+      units: 10 // 100msあたり10チャンク
+    })
   )
+}
 ```
 
 ## Pattern 4: Memory Management with Ref
@@ -423,22 +651,32 @@ export const streamLargeWorldFile = (filePath: string) =>
 
 **実装**:
 ```typescript
-import { Ref, WeakRef, FiberRef } from "effect"
+import { Ref, FiberRef, Scope, Data, Queue } from "effect"
+
+// メモリ管理用のブランド型
+type MemoryUsage = number & { readonly _brand: "MemoryUsage" }
+type CacheEfficiency = number & { readonly _brand: "CacheEfficiency" }
+
+// キャッシュエントリ（構造共有最適化）
+interface CacheEntry<V> extends Data.Case {
+  readonly value: V
+  readonly createdAt: number
+  readonly ttl: number
+  readonly accessCount: number
+  readonly lastAccessed: number
+  readonly priority: number // アクセス頻度ベースの優先度
+}
+const CacheEntry = Data.case<CacheEntry<unknown>>()
 
 // 自動クリーンアップ付きキャッシュ
 export const SelfCleaningCacheService = Context.GenericTag<{
   readonly get: <K, V>(key: K) => Effect.Effect<Option.Option<V>>
   readonly set: <K, V>(key: K, value: V, ttl?: Duration.Duration) => Effect.Effect<void>
   readonly cleanup: () => Effect.Effect<number> // 削除された項目数を返す
+  readonly getMemoryUsage: () => Effect.Effect<MemoryUsage>
+  readonly getCacheEfficiency: () => Effect.Effect<CacheEfficiency>
 }>("@minecraft/SelfCleaningCacheService")
 
-interface CacheEntry<V> {
-  readonly value: V
-  readonly createdAt: number
-  readonly ttl: number
-  readonly accessCount: number
-  readonly lastAccessed: number
-}
 
 const makeSelfCleaningCache = Effect.gen(function* () {
   const cache = yield* Ref.make(new Map<string, CacheEntry<unknown>>())
@@ -993,7 +1231,12 @@ export const conditionalChunkGeneration = (
 
 **実装**:
 ```typescript
-import { Metric, MetricKeyType, Duration } from "effect"
+import { Metric, MetricKeyType, Duration, Data, Chunk } from "effect"
+
+// パフォーマンス測定用のブランド型
+type ResponseTime = number & { readonly _brand: "ResponseTime" }
+type ThroughputRate = number & { readonly _brand: "ThroughputRate" }
+type ConcurrencyLevel = number & { readonly _brand: "ConcurrencyLevel" }
 
 // パフォーマンス監視サービス
 export const PerformanceMonitorService = Context.GenericTag<{
@@ -1001,40 +1244,61 @@ export const PerformanceMonitorService = Context.GenericTag<{
   readonly recordMetric: (name: string, value: number, tags?: Record<string, string>) => Effect.Effect<void>
   readonly getMetrics: () => Effect.Effect<MetricsSnapshot>
   readonly startProfiling: (sampleInterval?: Duration.Duration) => Effect.Effect<ProfilerSession>
+  readonly createBenchmark: <A, E>(name: string, effect: Effect.Effect<A, E>) => Effect.Effect<BenchmarkResult<A>, E>
 }>("@minecraft/PerformanceMonitorService")
 
 interface PerformanceTimer {
-  readonly stop: () => Effect.Effect<number> // elapsed time in milliseconds
+  readonly stop: () => Effect.Effect<ResponseTime> // elapsed time in milliseconds
+  readonly lap: () => Effect.Effect<ResponseTime> // intermediate timing
 }
 
-interface MetricsSnapshot {
+// 構造共有最適化されたメトリクススナップショット
+interface MetricsSnapshot extends Data.Case {
   readonly counters: Record<string, number>
   readonly histograms: Record<string, HistogramData>
   readonly gauges: Record<string, number>
+  readonly timestamp: number
+  readonly memoryUsage: MemoryUsage
 }
+const MetricsSnapshot = Data.case<MetricsSnapshot>()
 
-interface HistogramData {
+interface HistogramData extends Data.Case {
   readonly count: number
   readonly mean: number
   readonly p50: number
   readonly p95: number
   readonly p99: number
+  readonly min: number
+  readonly max: number
 }
+const HistogramData = Data.case<HistogramData>()
+
+// ベンチマーク結果
+interface BenchmarkResult<A> extends Data.Case {
+  readonly result: A
+  readonly duration: ResponseTime
+  readonly memoryDelta: MemoryUsage
+  readonly gcCount: number
+}
+const BenchmarkResult = Data.case<BenchmarkResult<unknown>>()
 
 const makePerformanceMonitor = Effect.gen(function* () {
-  // メトリクス定義
+  // メトリクス定義（最新のEffect-TS Metric API使用）
   const chunkLoadTime = Metric.histogram(
     "chunk_load_duration",
     MetricKeyType.Histogram({
-      boundaries: [10, 50, 100, 500, 1000, 5000] // milliseconds
+      boundaries: Chunk.fromIterable([10, 50, 100, 500, 1000, 5000]) // milliseconds
     })
   )
 
   const entityCount = Metric.gauge("active_entities", MetricKeyType.Gauge())
   const chunkCacheHitRate = Metric.counter("chunk_cache_hits", MetricKeyType.Counter())
+  const throughputMetric = Metric.frequency("operations_per_second")
+  const concurrencyMetric = Metric.gauge("active_concurrent_operations", MetricKeyType.Gauge())
 
-  const activeTimers = yield* Ref.make(new Map<string, number>())
+  const activeTimers = yield* Ref.make(new Map<string, { startTime: number; lapTimes: number[] }>())
   const customMetrics = yield* Ref.make(new Map<string, number[]>())
+  const benchmarkHistory = yield* Ref.make(new Map<string, BenchmarkResult<unknown>[]>())
 
   return PerformanceMonitorService.of({
     startTiming: (operation) =>

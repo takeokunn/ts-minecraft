@@ -1,3 +1,15 @@
+---
+title: "18 Input Controls"
+description: "18 Input Controlsに関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "10分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # 入力制御システム
 
 TypeScript Minecraftのキーボード・マウス・ゲームパッド操作を統合した入力制御システム。柔軟な入力マッピングと複数デバイスの同時サポートにより、快適な操作体験を提供する。

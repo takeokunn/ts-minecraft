@@ -1,3 +1,15 @@
+---
+title: "03 Data Flow Diagram"
+description: "03 Data Flow Diagramに関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "10分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # データフロー図
 
 ## 概要
@@ -6,70 +18,118 @@ TypeScript Minecraftにおけるデータの流れを視覚的に表現した仕
 
 ## レイヤー間データフロー
 
+DDD（Domain-Driven Design）の4層アーキテクチャに基づくデータフローを可視化しています。各層は明確な責務を持ち、依存関係の方向が適切に制御されています。
+
 ```mermaid
+%%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
 graph TB
-    subgraph "Presentation Layer"
-        UI[UI Components]
-        INPUT[Input Handler]
-        RENDER[Renderer]
+    subgraph PresentationLayer ["プレゼンテーション層 (Presentation Layer)"]
+        UI["UI Components<br/>🖥️ React Components<br/>表示・ユーザーインターフェース"]
+        INPUT["Input Handler<br/>⌨️ 入力処理<br/>キーボード・マウス・タッチ"]
+        RENDER["Renderer<br/>🎨 レンダリング<br/>Three.js・WebGL"]
     end
 
-    subgraph "Application Layer"
-        UC[Use Cases]
-        CMD[Commands]
-        QRY[Queries]
-        EVT[Event Handlers]
+    subgraph ApplicationLayer ["アプリケーション層 (Application Layer)"]
+        UC["Use Cases<br/>📋 ユースケース<br/>Effect.gen + ビジネスフロー"]
+        CMD["Commands<br/>📝 コマンド<br/>CQRS・状態変更"]
+        QRY["Queries<br/>🔍 クエリ<br/>データ取得・検索"]
+        EVT["Event Handlers<br/>📡 イベントハンドラー<br/>ドメインイベント処理"]
     end
 
-    subgraph "Domain Layer"
-        ENT[Entities]
-        VO[Value Objects]
-        DS[Domain Services]
-        DR[Domain Rules]
+    subgraph DomainLayer ["ドメイン層 (Domain Layer)"]
+        ENT["Entities<br/>🎯 エンティティ<br/>Schema.Struct + ID"]
+        VO["Value Objects<br/>💎 値オブジェクト<br/>Brand型 + 不変"]
+        DS["Domain Services<br/>🔧 ドメインサービス<br/>Context.GenericTag"]
+        DR["Domain Rules<br/>📏 ドメインルール<br/>純粋関数・制約"]
     end
 
-    subgraph "Infrastructure Layer"
-        DB[Storage]
-        NET[Network]
-        GPU[WebGL]
-        AUDIO[Audio System]
+    subgraph InfrastructureLayer ["インフラストラクチャ層 (Infrastructure Layer)"]
+        DB["Storage<br/>💾 ストレージ<br/>永続化・キャッシュ"]
+        NET["Network<br/>🌐 ネットワーク<br/>WebSocket・HTTP"]
+        GPU["WebGL<br/>🎮 GPU処理<br/>シェーダー・レンダリング"]
+        AUDIO["Audio System<br/>🔊 音響システム<br/>Web Audio API"]
     end
 
+    %% Presentation to Application
     UI --> CMD
     INPUT --> CMD
+
+    %% Application orchestration
     CMD --> UC
     UC --> DS
-    DS --> ENT
-    ENT --> VO
     UC --> QRY
     QRY --> DB
-    DS --> DR
     EVT --> UC
     UC --> EVT
+
+    %% Domain relationships
+    DS --> ENT
+    ENT --> VO
+    DS --> DR
+
+    %% Infrastructure connections
     RENDER --> GPU
     UC --> NET
     AUDIO --> UI
+
+    classDef presentationStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0d47a1
+    classDef applicationStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#1b5e20
+    classDef domainStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#e65100
+    classDef infrastructureStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
+
+    class UI,INPUT,RENDER presentationStyle
+    class UC,CMD,QRY,EVT applicationStyle
+    class ENT,VO,DS,DR domainStyle
+    class DB,NET,GPU,AUDIO infrastructureStyle
 ```
 
 ## コアゲームループのデータフロー
 
-```mermaid
-sequenceDiagram
-    participant Input
-    participant GameLoop
-    participant Physics
-    participant World
-    participant Renderer
-    participant EventBus
+ゲームエンジンの心臓部である60FPS固定フレームレートのメインループにおける、各システム間のデータ協調を詳細に示しています。
 
-    Input->>GameLoop: User Input
-    GameLoop->>Physics: Update Request
-    Physics->>World: Position Updates
-    World->>EventBus: State Change Events
-    EventBus->>GameLoop: Event Notifications
-    GameLoop->>Renderer: Render Frame
-    Renderer->>GameLoop: Frame Complete
-    GameLoop->>GameLoop: Calculate Delta Time
+```mermaid
+%%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
+sequenceDiagram
+    participant Input as 🎮 Input System
+    participant GameLoop as ⚙️ Game Loop
+    participant Physics as 📐 Physics Engine
+    participant World as 🌍 World Manager
+    participant ECS as 🤖 ECS Systems
+    participant Renderer as 🎨 Renderer
+    participant EventBus as 📡 Event Bus
+
+    Note over Input, EventBus: 16.67ms (60FPS) フレーム処理サイクル
+
+    %% Input Phase
+    Input->>GameLoop: プレイヤー入力 (PlayerAction[])
+    GameLoop->>GameLoop: deltaTime 計算 & バリデーション
+
+    %% Update Phase (Systems parallel execution)
+    par ECSシステム更新
+        GameLoop->>ECS: MovementSystem.update(deltaTime)
+        ECS->>World: エンティティ位置更新要求
+        World-->>ECS: 更新完了
+    and 物理演算
+        GameLoop->>Physics: 物理シミュレーション実行
+        Physics->>World: 衝突・重力適用結果
+        World-->>Physics: 物理状態更新完了
+    end
+
+    %% Event Propagation
+    World->>EventBus: ドメインイベント発行<br/>(BlockChanged, ChunkLoaded)
+    EventBus->>GameLoop: 集約イベント通知
+
+    %% Render Phase
+    GameLoop->>Renderer: フレーム描画要求<br/>renderFrame(ViewData)
+    Renderer->>World: 可視チャンク・エンティティ取得
+    World-->>Renderer: レンダリングデータ
+    Renderer->>Renderer: フラスタムカリング & バッチング
+    Renderer->>GameLoop: フレーム描画完了
+
+    %% Cleanup & Next Frame
+    GameLoop->>GameLoop: パフォーマンス計測<br/>メモリ管理・GC制御
+
+    Note over Input, EventBus: Effect.gen による型安全な<br/>非同期処理合成とエラーハンドリング
 ```
 
 ## プレイヤーアクションフロー
@@ -155,42 +215,45 @@ export const BlockPlacementFlow = {
 
 ## チャンクロードフロー
 
+プレイヤーの移動に応じて動的にワールドチャンクをロード・アンロードする高度なストリーミングシステムのデータフローを示しています。
+
 ```mermaid
+%%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
 graph LR
-    subgraph "Trigger"
-        PM[Player Movement]
-        WL[World Load]
+    subgraph Trigger ["🎯 トリガー検出"]
+        PM["Player Movement<br/>🚶‍♂️ プレイヤー移動<br/>位置変化・視線方向"]
+        WL["World Load<br/>🌍 ワールドロード<br/>初期読み込み・復帰"]
     end
 
-    subgraph "Detection"
-        CD[Chunk Distance Check]
-        CQ[Load Queue]
+    subgraph Detection ["🔍 距離判定・キュー管理"]
+        CD["Chunk Distance Check<br/>📏 チャンク距離計算<br/>render distance 基準"]
+        CQ["Load Queue<br/>📋 ロードキュー<br/>優先度順・並列制御"]
     end
 
-    subgraph "Loading"
-        CS[Check Storage]
-        CG[Generate New]
-        CL[Load Existing]
+    subgraph Loading ["💾 データロード処理"]
+        CS["Check Storage<br/>🗂️ ストレージ確認<br/>既存データ検索"]
+        CG["Generate New<br/>⚡ 新規生成<br/>地形・構造物・バイオーム"]
+        CL["Load Existing<br/>📂 既存ロード<br/>保存データ復元"]
     end
 
-    subgraph "Processing"
-        CP[Parse Data]
-        CB[Build Meshes]
-        CE[Create Entities]
+    subgraph Processing ["🔧 データ処理・構築"]
+        CP["Parse Data<br/>📊 データ解析<br/>バリデーション・変換"]
+        CB["Build Meshes<br/>🎨 メッシュ構築<br/>グリーディメッシング"]
+        CE["Create Entities<br/>🤖 エンティティ生成<br/>ECS統合・配置"]
     end
 
-    subgraph "Integration"
-        WU[World Update]
-        RU[Renderer Update]
-        EU[ECS Update]
+    subgraph Integration ["🔗 システム統合"]
+        WU["World Update<br/>🌍 ワールド更新<br/>状態反映・イベント"]
+        RU["Renderer Update<br/>🎭 レンダラー更新<br/>描画リスト・バッチング"]
+        EU["ECS Update<br/>⚙️ ECSシステム更新<br/>エンティティ登録・有効化"]
     end
 
     PM --> CD
     WL --> CD
     CD --> CQ
     CQ --> CS
-    CS -->|Not Found| CG
-    CS -->|Found| CL
+    CS -->|"❌ Not Found<br/>新規生成要"| CG
+    CS -->|"✅ Found<br/>既存データ"| CL
     CG --> CP
     CL --> CP
     CP --> CB
@@ -199,6 +262,18 @@ graph LR
     CE --> EU
     RU --> WU
     EU --> WU
+
+    classDef triggerStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0d47a1
+    classDef detectionStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#1b5e20
+    classDef loadingStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#e65100
+    classDef processingStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
+    classDef integrationStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
+
+    class PM,WL triggerStyle
+    class CD,CQ detectionStyle
+    class CS,CG,CL loadingStyle
+    class CP,CB,CE processingStyle
+    class WU,RU,EU integrationStyle
 ```
 
 ### チャンクロード実装
@@ -389,35 +464,38 @@ export const InventoryDataFlow = {
 
 ## レンダリングパイプライン
 
+高性能なWebGL/Three.jsベースの3Dレンダリングパイプラインの詳細なデータフローを示しています。フラスタムカリング、バッチング、マルチパスレンダリングによる最適化を実現しています。
+
 ```mermaid
+%%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
 graph TD
-    subgraph "Data Collection"
-        WS[World State]
-        PS[Player State]
-        ES[Entity State]
+    subgraph DataCollection ["📊 データ収集フェーズ"]
+        WS["World State<br/>🌍 ワールド状態<br/>チャンク・ブロック・光源"]
+        PS["Player State<br/>👤 プレイヤー状態<br/>カメラ・視点・位置"]
+        ES["Entity State<br/>🤖 エンティティ状態<br/>位置・モデル・アニメーション"]
     end
 
-    subgraph "Culling"
-        FC[Frustum Culling]
-        OC[Occlusion Culling]
-        LOD[LOD Selection]
+    subgraph Culling ["✂️ カリング最適化"]
+        FC["Frustum Culling<br/>📐 視錐台カリング<br/>視野外オブジェクト除外"]
+        OC["Occlusion Culling<br/>🚫 遮蔽カリング<br/>隠れたオブジェクト除外"]
+        LOD["LOD Selection<br/>📏 詳細度選択<br/>距離ベース品質調整"]
     end
 
-    subgraph "Batching"
-        MB[Mesh Batching]
-        IB[Instance Batching]
-        TB[Texture Batching]
+    subgraph Batching ["📦 バッチング最適化"]
+        MB["Mesh Batching<br/>🎨 メッシュバッチング<br/>同材質オブジェクト結合"]
+        IB["Instance Batching<br/>🔄 インスタンスバッチング<br/>同一メッシュ大量描画"]
+        TB["Texture Batching<br/>🖼️ テクスチャバッチング<br/>テクスチャアトラス活用"]
     end
 
-    subgraph "Rendering"
-        OP[Opaque Pass]
-        TP[Transparent Pass]
-        PP[Post Processing]
+    subgraph Rendering ["🎭 レンダリングパス"]
+        OP["Opaque Pass<br/>⚫ 不透明パス<br/>Z-buffer + シャドウマップ"]
+        TP["Transparent Pass<br/>💎 透明パス<br/>アルファブレンディング"]
+        PP["Post Processing<br/>✨ ポストプロセス<br/>トーンマップ・アンチエイリアス"]
     end
 
-    subgraph "Output"
-        FB[Frame Buffer]
-        SC[Screen]
+    subgraph Output ["🖥️ 出力"]
+        FB["Frame Buffer<br/>🖼️ フレームバッファ<br/>RGBA + 深度バッファ"]
+        SC["Screen<br/>📺 画面出力<br/>Canvas・ディスプレイ"]
     end
 
     WS --> FC
@@ -433,6 +511,18 @@ graph TD
     TP --> PP
     PP --> FB
     FB --> SC
+
+    classDef dataStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0d47a1
+    classDef cullingStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#1b5e20
+    classDef batchingStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#e65100
+    classDef renderingStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
+    classDef outputStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
+
+    class WS,PS,ES dataStyle
+    class FC,OC,LOD cullingStyle
+    class MB,IB,TB batchingStyle
+    class OP,TP,PP renderingStyle
+    class FB,SC outputStyle
 ```
 
 ### レンダリング実装

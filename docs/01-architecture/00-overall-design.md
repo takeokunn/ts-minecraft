@@ -1,3 +1,15 @@
+---
+title: "統合アーキテクチャ概要 - 全体設計"
+description: "DDD×ECS×Effect-TSの統合アーキテクチャによるTypeScript Minecraft実装。4層アーキテクチャと純粋関数型プログラミングの設計原則。"
+category: "architecture"
+difficulty: "advanced"
+tags: ["overall-design", "ddd", "ecs", "effect-ts", "integration", "system-architecture"]
+prerequisites: ["basic-typescript", "ddd-fundamentals", "effect-ts-basics"]
+estimated_reading_time: "25分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # 統合アーキテクチャ概要
 
 ## 1. プロジェクトビジョン
@@ -14,44 +26,154 @@ TypeScript Minecraft Cloneは、以下の3つの設計パラダイムを**厳密
 
 ### 2.1 設計の三位一体
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     純粋関数型コア (Effect-TS)                  │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              ドメイン駆動設計 (DDD)                    │   │
-│  │  ┌───────────────────────────────────────────────┐  │   │
-│  │  │      エンティティコンポーネントシステム (ECS)         │  │   │
-│  │  │   • エンティティ (純粋なID)                      │  │   │
-│  │  │   • コンポーネント (Schemaによる不変データ)   │  │   │
-│  │  │   • システム (Effect関数)                      │  │   │
-│  │  └───────────────────────────────────────────────┘  │   │
-│  │   • アグリゲート (一貫性の境界)                     │   │
-│  │   • 値オブジェクト (不変なSchema)                   │   │
-│  │   • ドメインサービス (純粋関数)                     │   │
-│  └─────────────────────────────────────────────────────┘   │
-│   • Effect<A, E, R> (副作用管理)                          │
-│   • Layer (依存性注入)                                    │
-│   • Schema (型安全なバリデーションとシリアライゼーション) │
-└─────────────────────────────────────────────────────────────┘
+三つの設計パラダイムの統合構造を以下に示します。各層が相互に補完し合い、高品質なソフトウェアアーキテクチャを実現しています。
+
+```mermaid
+%%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
+graph TD
+    subgraph EffectTS ["純粋関数型コア (Effect-TS)"]
+        subgraph DDD ["ドメイン駆動設計 (DDD)"]
+            subgraph ECS ["エンティティコンポーネントシステム (ECS)"]
+                Entity["エンティティ<br/>(純粋なID)"]
+                Component["コンポーネント<br/>(Schemaによる不変データ)"]
+                System["システム<br/>(Effect関数)"]
+            end
+
+            Aggregate["アグリゲート<br/>(一貫性の境界)"]
+            ValueObject["値オブジェクト<br/>(不変なSchema)"]
+            DomainService["ドメインサービス<br/>(純粋関数)"]
+        end
+
+        EffectCore["Effect&lt;A, E, R&gt;<br/>(副作用管理)"]
+        Layer["Layer<br/>(依存性注入)"]
+        Schema["Schema<br/>(型安全なバリデーション)"]
+    end
+
+    Entity -.-> Component
+    Component -.-> System
+    System --> Aggregate
+    Aggregate --> ValueObject
+    ValueObject --> DomainService
+    DomainService --> EffectCore
+    EffectCore --> Layer
+    Layer --> Schema
+
+    classDef effectBox fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0d47a1
+    classDef dddBox fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
+    classDef ecsBox fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#1b5e20
+
+    class EffectTS,EffectCore,Layer,Schema effectBox
+    class DDD,Aggregate,ValueObject,DomainService dddBox
+    class ECS,Entity,Component,System ecsBox
 ```
 
 ### 2.2 4層アーキテクチャ
 
+Clean ArchitectureとDDDの原則に基づく、依存関係の明確な4層構造です。内側の層は外側の層に依存せず、高い保守性を実現しています。
+
+```mermaid
+%%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
+graph TB
+    subgraph Presentation ["プレゼンテーション層"]
+        UI["UI Components<br/>React + Effect-TS Hooks"]
+        Controller["コントローラー<br/>入力処理・画面制御"]
+        View["ビュー<br/>表示ロジック"]
+    end
+
+    subgraph Application ["アプリケーション層"]
+        UseCase["ユースケース<br/>Effect.gen + 業務フロー"]
+        Command["コマンド<br/>CQRS パターン"]
+        Query["クエリ<br/>データ取得・検索"]
+        Workflow["ワークフロー<br/>Match.value + 状態遷移"]
+    end
+
+    subgraph Domain ["ドメイン層"]
+        Entity2["エンティティ<br/>Schema.Struct + 不変性"]
+        ValueObj["値オブジェクト<br/>Brand型 + バリデーション"]
+        DomainSvc["ドメインサービス<br/>Context.GenericTag"]
+        BusinessRule["ビジネスルール<br/>純粋関数"]
+    end
+
+    subgraph Infrastructure ["インフラストラクチャ層"]
+        WebGL["Three.js<br/>WebGLアダプター"]
+        Storage["ストレージ<br/>Layer.effect"]
+        Network["ネットワーク<br/>WebSocket + HTTP"]
+        Physics["物理エンジン<br/>ECS統合"]
+    end
+
+    UI --> Command
+    Controller --> UseCase
+    View --> Query
+    Command --> UseCase
+    UseCase --> DomainSvc
+    DomainSvc --> Entity2
+    Entity2 --> ValueObj
+    Query --> Storage
+    UseCase --> Workflow
+    Workflow --> BusinessRule
+    Controller --> WebGL
+    Storage --> Network
+    WebGL --> Physics
+
+    classDef presentationLayer fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0d47a1
+    classDef applicationLayer fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
+    classDef domainLayer fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#1b5e20
+    classDef infrastructureLayer fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#e65100
+
+    class UI,Controller,View presentationLayer
+    class UseCase,Command,Query,Workflow applicationLayer
+    class Entity2,ValueObj,DomainSvc,BusinessRule domainLayer
+    class WebGL,Storage,Network,Physics infrastructureLayer
 ```
-┌───────────────────────────────────┐
-│        プレゼンテーション層         │  ← React + Effect-TS Hooks
-│    (コントローラー, ビュー, UI)     │
-├───────────────────────────────────┤
-│        アプリケーション層          │  ← ユースケース + ワークフロー
-│     (Effect.gen + Match.value)   │     (コマンドパターン)
-├───────────────────────────────────┤
-│          ドメイン層            │  ← Schema.Struct + サービス
-│   (純粋関数 + バリデーション) │     (Context.GenericTag)
-├───────────────────────────────────┤
-│       インフラストラクチャ層       │  ← Three.js + WebGLアダプター
-│      (Layer.effect + ポート)      │     (ECS + 物理エンジン)
-└───────────────────────────────────┘
+
+### 2.3 データフローとアーキテクチャレイヤー間の相互作用
+
+以下の図は、ユーザーアクションから最終的な状態更新までの完全なデータフローを示しています。
+
+```mermaid
+%%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
+sequenceDiagram
+    participant U as User
+    participant P as Presentation
+    participant A as Application
+    participant D as Domain
+    participant I as Infrastructure
+
+    Note over U, I: プレイヤーブロック配置シーケンス
+
+    U->>P: マウスクリック
+    P->>P: 入力バリデーション
+    P->>A: PlaceBlockCommand
+
+    A->>A: Effect.gen でフロー開始
+    A->>D: 座標変換要求
+    D->>A: 世界座標
+
+    A->>D: ブロック配置可能性チェック
+    D->>D: ビジネスルール適用
+    D->>A: 配置許可結果
+
+    alt 配置可能
+        A->>D: ドメインサービス実行
+        D->>D: ブロックエンティティ生成
+        D->>A: 新ブロックエンティティ
+
+        A->>I: 永続化要求
+        I->>I: チャンクデータ更新
+        I->>A: 永続化完了
+
+        A->>I: レンダリング更新要求
+        I->>I: WebGL メッシュ更新
+        I->>A: 描画完了
+
+        A->>P: 成功イベント
+        P->>U: 視覚的フィードバック
+    else 配置不可
+        A->>P: エラーイベント
+        P->>U: エラー表示
+    end
+
+    Note over U, I: すべてのフローがEffect型で管理され、<br/>エラーハンドリングと型安全性を保証
 ```
 
 ## 3. 主要な特徴と開発ガイドライン

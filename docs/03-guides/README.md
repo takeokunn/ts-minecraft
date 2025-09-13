@@ -1,3 +1,15 @@
+---
+title: "03 Guides - セクション概要"
+description: "03 Guides - セクション概要に関する詳細な説明とガイド。"
+category: "guide"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "5分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # 開発ガイド
 
 TypeScript Minecraft Cloneプロジェクトの開発、テスト、運用に関する実践的なガイド集です。

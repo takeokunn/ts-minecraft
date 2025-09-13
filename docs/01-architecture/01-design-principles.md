@@ -1,3 +1,15 @@
+---
+title: "設計原則"
+description: "設計原則に関する詳細な説明とガイド。"
+category: "architecture"
+difficulty: "advanced"
+tags: ['typescript', 'minecraft', 'architecture']
+prerequisites: ['basic-typescript', 'effect-ts-fundamentals']
+estimated_reading_time: "15分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # 設計原則
 
 ## 1. 基本哲学

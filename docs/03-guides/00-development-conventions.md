@@ -1,3 +1,15 @@
+---
+title: "開発規約 - Effect-TS 3.17+準拠コーディングガイド"
+description: "Effect-TS 3.17+最新パターンによるSchema-first開発、純粋関数型プログラミング、完全型安全性を実現するための包括的コーディング規約とベストプラクティス。"
+category: "guide"
+difficulty: "intermediate"
+tags: ["development-conventions", "effect-ts", "schema", "functional-programming", "coding-standards", "best-practices", "typescript"]
+prerequisites: ["basic-typescript", "effect-ts-fundamentals"]
+estimated_reading_time: "25分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # 開発規約
 
 このドキュメントでは、Effect-TS 3.17+の最新パターンを活用したts-minecraftプロジェクトの開発規約について説明します。Schema-first開発、純粋関数型プログラミング、完全な型安全性を実現するための規約を定めています。

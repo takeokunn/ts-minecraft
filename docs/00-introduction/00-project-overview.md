@@ -1,3 +1,15 @@
+---
+title: "TypeScript Minecraft Clone - プロジェクト概要"
+description: "Effect-TS 3.17+を活用した純粋関数型Minecraftクローンのビジョンとコンセプト。DDD×ECS統合アーキテクチャによる高品質ゲーム開発の全体像。"
+category: "introduction"
+difficulty: "beginner"
+tags: ["project-overview", "vision", "effect-ts", "ddd", "ecs", "functional-programming", "minecraft"]
+prerequisites: ["basic-typescript"]
+estimated_reading_time: "15分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # TypeScript Minecraft Clone - 完全ドキュメント
 
 ## 🎮 プロジェクト概要

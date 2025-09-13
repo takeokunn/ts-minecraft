@@ -1,3 +1,15 @@
+---
+title: "02 Specifications - セクション概要"
+description: "02 Specifications - セクション概要に関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "10分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # データモデル仕様書
 
 TypeScript Minecraft Cloneプロジェクトのデータ構造、永続化、ストレージに関する仕様書です。

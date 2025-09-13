@@ -1,3 +1,15 @@
+---
+title: "11 Scene Management System"
+description: "11 Scene Management Systemに関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "15分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # Scene Management System（シーン管理システム）
 
 ## 概要

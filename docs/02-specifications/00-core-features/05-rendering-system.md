@@ -1,3 +1,15 @@
+---
+title: "05 Rendering System"
+description: "05 Rendering Systemに関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "15分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # レンダリングシステム
 
 TypeScript Minecraft Cloneのレンダリングシステムは、Three.jsを基盤とした高性能レンダリングパイプラインで、WebGPU統合アーキテクチャにより、Greedy Meshingアルゴリズムと先進的なポストプロセシング効果を提供します。

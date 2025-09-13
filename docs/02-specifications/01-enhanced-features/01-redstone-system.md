@@ -1,3 +1,15 @@
+---
+title: "01 Redstone System"
+description: "01 Redstone Systemに関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "30分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # Redstone System - レッドストーン回路システム
 
 ## 概要

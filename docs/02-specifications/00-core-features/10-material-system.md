@@ -1,3 +1,15 @@
+---
+title: "10 Material System"
+description: "10 Material Systemに関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "30分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # マテリアルシステム - マテリアル・素材システム
 
 ## 概要

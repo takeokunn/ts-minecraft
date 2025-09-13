@@ -1,3 +1,15 @@
+---
+title: "Pattern Catalog - セクション概要"
+description: "Pattern Catalog - セクション概要に関する詳細な説明とガイド。"
+category: "reference"
+difficulty: "advanced"
+tags: ['typescript', 'minecraft']
+prerequisites: ['basic-typescript', 'effect-ts-fundamentals']
+estimated_reading_time: "10分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # Effect-TS Pattern Catalog
 
 TypeScript Minecraft CloneプロジェクトでのEffect-TS実装パターン集。すべてのパターンはEffect-TS 3.17+の最新機能を活用し、関数型プログラミングの原則に従っています。

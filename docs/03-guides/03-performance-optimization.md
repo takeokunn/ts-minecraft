@@ -1,3 +1,15 @@
+---
+title: "03 Performance Optimization"
+description: "03 Performance Optimizationに関する詳細な説明とガイド。"
+category: "guide"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "30分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # パフォーマンス最適化ガイド
 
 このドキュメントでは、最新のEffect-TSパターン（2024年版）を活用したts-minecraftプロジェクトでのパフォーマンス最適化の手法、プロファイリング方法、計測・モニタリング技術について説明します。Schema-based型安全性と関数型プログラミングによる最適化戦略を中心に扱います。

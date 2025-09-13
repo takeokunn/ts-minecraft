@@ -1,3 +1,15 @@
+---
+title: "Player Controls"
+description: "Player Controlsに関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "25分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # プレイヤー制御
 
 TypeScript Minecraftのプレイヤー制御システムは、マウス・キーボード入力の処理、プレイヤー移動、ブロック配置・破壊、インベントリ管理、及びターゲティングシステムを統合的に提供する。Effect-TSによる関数型アプローチにより、レスポンシブで予測可能な操作体験を実現している。

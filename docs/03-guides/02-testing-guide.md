@@ -1,3 +1,15 @@
+---
+title: "02 Testing Guide"
+description: "02 Testing Guideに関する詳細な説明とガイド。"
+category: "guide"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'testing']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "15分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # テスティングガイド
 
 このドキュメントでは、最新のEffect-TSパターン（2024年版）を活用したts-minecraftプロジェクトでのテスト作成方法について説明します。Schema-basedバリデーション、Property-Based Testing、関数型テストパターンを中心に扱います。

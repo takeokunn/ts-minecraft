@@ -1,3 +1,15 @@
+---
+title: "04 Error Resolution"
+description: "04 Error Resolutionに関する詳細な説明とガイド。"
+category: "guide"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "15分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # TypeScript Error Resolution Guide
 
 ## 概要

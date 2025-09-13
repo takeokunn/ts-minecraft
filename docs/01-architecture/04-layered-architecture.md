@@ -1,3 +1,15 @@
+---
+title: "レイヤードアーキテクチャ"
+description: "レイヤードアーキテクチャに関する詳細な説明とガイド。"
+category: "architecture"
+difficulty: "advanced"
+tags: ['typescript', 'minecraft', 'architecture']
+prerequisites: ['basic-typescript', 'effect-ts-fundamentals']
+estimated_reading_time: "10分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # 4層アーキテクチャ
 
 TypeScript Minecraftプロジェクトは、DDD（ドメイン駆動設計）の原則に基づき、明確に分離された4つのレイヤーで構成されています。これにより、関心事の分離、保守性、テスト容易性を高めています。

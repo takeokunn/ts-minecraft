@@ -1,3 +1,15 @@
+---
+title: "07 Effect Ts Testing Patterns"
+description: "07 Effect Ts Testing Patternsに関する詳細な説明とガイド。"
+category: "guide"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'effect-ts', 'testing']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "30分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # Effect-TS 3.17+ 完全準拠テストパターンガイド
 
 このドキュメントでは、TypeScript MinecraftプロジェクトにおけるEffect-TS 3.17+の最新パターンに完全準拠したテスト実装方法を提供します。すべてのテストコードは純粋関数型アプローチに従い、最新APIを使用しています。

@@ -1,3 +1,15 @@
+---
+title: "09 Debugging Guide"
+description: "09 Debugging Guideに関する詳細な説明とガイド。"
+category: "guide"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "25分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # デバッグガイド
 
 ## 概要
@@ -904,38 +916,6 @@ export const initializeDevTools = () => {
 ```
 
 ## 開発ツール設定
-
-### VSCode設定
-
-```json
-{
-  "launch": {
-    "version": "0.2.0",
-    "configurations": [
-      {
-        "type": "node",
-        "request": "launch",
-        "name": "Debug Minecraft",
-        "skipFiles": ["<node_internals>/**"],
-        "program": "${workspaceFolder}/src/main.ts",
-        "preLaunchTask": "npm: build",
-        "outFiles": ["${workspaceFolder}/dist/**/*.js"],
-        "env": {
-          "NODE_ENV": "development",
-          "DEBUG": "minecraft:*",
-          "FORCE_COLOR": "1"
-        },
-        "runtimeArgs": [
-          "--inspect",
-          "--enable-source-maps",
-          "--expose-gc"
-        ],
-        "console": "integratedTerminal"
-      }
-    ]
-  }
-}
-```
 
 ### Chrome DevTools設定
 

@@ -1,3 +1,15 @@
+---
+title: "スタートガイド - 開発環境セットアップ"
+description: "TypeScript Minecraft Clone開発環境の構築手順とワークフロー。Node.js、pnpmセットアップからコマンド実行まで完全ガイド。"
+category: "introduction"
+difficulty: "beginner"
+tags: ["setup", "development-environment", "nodejs", "pnpm", "workflow"]
+prerequisites: ["basic-terminal-knowledge"]
+estimated_reading_time: "12分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # スタートガイド
 
 このガイドでは、TypeScript Minecraft Cloneプロジェクトの開発環境をセットアップし、基本的な開発ワークフローを開始するまでの手順を説明します。
@@ -10,9 +22,6 @@
 - **Node.js**: `v18.0.0` 以上 (LTS版を推奨)
 - **pnpm**: `v8.0.0` 以上
 - **Git**: `v2.30.0` 以上
-
-### 推奨エディタ
-- **Visual Studio Code** または **WebStorm**
 
 ## 2. セットアップ手順
 
@@ -53,17 +62,7 @@ VITE_RENDER_DISTANCE=8
 VITE_ENABLE_WEBGPU=false
 ```
 
-## 3. VS Code の設定 (推奨)
-
-Visual Studio Codeを使用する場合、以下の設定を行うことで開発体験が向上します。
-
-### 推奨拡張機能
-プロジェクトには推奨拡張機能のリスト (`.vscode/extensions.json`) が含まれています。VS Codeが通知を表示したら、インストールしてください。
-
-### ワークスペース設定
-プロジェクトの `.vscode/settings.json` には、保存時の自動フォーマットなどの設定が含まれています。VS Codeがワークスペースの設定を使用するよう許可してください。
-
-## 4. 主要な開発コマンド
+## 3. 主要な開発コマンド
 
 プロジェクトの操作には、以下の `pnpm` スクリプトを使用します。
 

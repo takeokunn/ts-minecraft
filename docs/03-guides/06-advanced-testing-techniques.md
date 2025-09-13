@@ -1,3 +1,15 @@
+---
+title: "06 Advanced Testing Techniques"
+description: "06 Advanced Testing Techniquesに関する詳細な説明とガイド。"
+category: "guide"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'testing']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "25分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # 高度なテスト技法ガイド
 
 このドキュメントでは、TypeScript Minecraftプロジェクトにおける高度なテスト技法と、テストの保守性・効率性を最大化するための実践的なパターンを提供します。

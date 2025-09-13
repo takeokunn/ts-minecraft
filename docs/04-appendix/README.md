@@ -1,3 +1,15 @@
+---
+title: "04 Appendix - セクション概要"
+description: "04 Appendix - セクション概要に関する詳細な説明とガイド。"
+category: "reference"
+difficulty: "beginner"
+tags: ['typescript', 'minecraft']
+prerequisites: []
+estimated_reading_time: "5分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # 付録
 
 TypeScript Minecraft Cloneプロジェクトに関する参考情報とリソース集です。

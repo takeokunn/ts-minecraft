@@ -1,3 +1,15 @@
+---
+title: "01 Entry Points"
+description: "01 Entry Pointsに関する詳細な説明とガイド。"
+category: "guide"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "10分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # エントリーポイント解説
 
 このドキュメントでは、最新のEffect-TSパターン（2024年版）を使用したts-minecraftプロジェクトの各エントリーポイントと起動フローについて詳しく解説します。Schema-based設定、関数型アプローチ、型安全な初期化プロセスを中心に扱います。

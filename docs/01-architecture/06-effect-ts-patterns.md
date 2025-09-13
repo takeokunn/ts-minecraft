@@ -1,3 +1,15 @@
+---
+title: "Effect-TS 利用パターン - 関数型プログラミング実践"
+description: "Effect-TS 3.17+の最新パターンによる純粋関数型プログラミング実践ガイド。Schema.Struct、Context.GenericTag、Match.valueを活用した高品質コード作成。"
+category: "architecture"
+difficulty: "advanced"
+tags: ["effect-ts", "functional-programming", "schema", "context", "patterns", "best-practices"]
+prerequisites: ["typescript-advanced", "effect-ts-fundamentals", "functional-programming-basics"]
+estimated_reading_time: "45分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # Effect-TS 利用パターン
 
 TypeScript Minecraftプロジェクトでは、**Effect-TS 3.17+** を全面的に採用し、型安全で合成可能な純粋関数型プログラミングを実践しています。この文書では、プロジェクト全体で遵守すべきEffect-TSの最新パターンを解説します。
@@ -5,6 +17,118 @@ TypeScript Minecraftプロジェクトでは、**Effect-TS 3.17+** を全面的�
 ## 1. 基本思想: すべてはEffect
 
 あらゆる副作用（ファイルI/O、ネットワーク、DOM操作、乱数生成、現在時刻の取得など）は `Effect` 型でカプセル化します。これにより、副作用を型シグネチャレベルで明示し、プログラムの予測可能性とテスト容易性を高めます。
+
+### 1.1 Effect-TSアーキテクチャ概観
+
+以下の図は、Effect-TS 3.17+パターンによる純粋関数型プログラミングアーキテクチャを示しています。
+
+```mermaid
+%%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
+graph TB
+    subgraph EffectCore ["Effect コア抽象化"]
+        subgraph DataLayer ["データ層 - Schema駆動"]
+            SchemaStruct["Schema.Struct<br/>📋 データ定義<br/>型安全・バリデーション"]
+            BrandTypes["Brand Types<br/>🏷️ 型安全性強化<br/>PlayerId, EntityId"]
+            ValidationLayer["Validation Layer<br/>✅ 実行時検証<br/>decode・encode"]
+        end
+
+        subgraph EffectLayer ["Effect管理層"]
+            EffectGen["Effect.gen<br/>🔄 合成パターン<br/>yield* + 線形フロー"]
+            ErrorHandling["Error Handling<br/>❌ 型安全エラー<br/>catchTag・fail"]
+            ResourceMgmt["Resource Management<br/>🔧 リソース管理<br/>acquire・release"]
+        end
+
+        subgraph ServiceLayer ["サービス層"]
+            ContextTag["Context.GenericTag<br/>🏢 サービス定義<br/>@app/ServiceName"]
+            LayerSystem["Layer System<br/>🧱 依存性注入<br/>Layer.effect・provide"]
+            ServiceComposition["Service Composition<br/>🔗 合成・組み立て<br/>pipe・compose"]
+        end
+    end
+
+    subgraph PatternLayer ["パターン適用層"]
+        subgraph MatchingLayer ["パターンマッチング"]
+            MatchValue["Match.value<br/>🎯 安全なマッチング<br/>網羅性チェック"]
+            TaggedUnions["Tagged Unions<br/>📝 判別可能合併型<br/>_tag ベース"]
+        end
+
+        subgraph FunctionalLayer ["関数型パターン"]
+            PureFunctions["Pure Functions<br/>🧮 純粋関数<br/>副作用分離"]
+            ImmutableData["Immutable Data<br/>📚 不変データ<br/>ReadonlyArray・HashMap"]
+            EarlyReturn["Early Return<br/>⚡ 早期リターン<br/>ガード節・フェイルファスト"]
+        end
+    end
+
+    SchemaStruct --> ValidationLayer
+    ValidationLayer --> BrandTypes
+    BrandTypes --> EffectGen
+
+    EffectGen --> ErrorHandling
+    ErrorHandling --> ResourceMgmt
+    ResourceMgmt --> ContextTag
+
+    ContextTag --> LayerSystem
+    LayerSystem --> ServiceComposition
+
+    ServiceComposition --> MatchValue
+    MatchValue --> TaggedUnions
+    TaggedUnions --> PureFunctions
+
+    PureFunctions --> ImmutableData
+    ImmutableData --> EarlyReturn
+
+    classDef dataStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0d47a1
+    classDef effectStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#1b5e20
+    classDef serviceStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#e65100
+    classDef patternStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
+    classDef functionalStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
+
+    class SchemaStruct,BrandTypes,ValidationLayer dataStyle
+    class EffectGen,ErrorHandling,ResourceMgmt effectStyle
+    class ContextTag,LayerSystem,ServiceComposition serviceStyle
+    class MatchValue,TaggedUnions patternStyle
+    class PureFunctions,ImmutableData,EarlyReturn functionalStyle
+```
+
+### 1.2 Effect-TSデータフロー
+
+以下は、典型的なEffect-TSアプリケーションにおけるデータの流れを示しています。すべての副作用がEffect型で管理され、型安全な合成が実現されています。
+
+```mermaid
+%%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
+sequenceDiagram
+    participant Client as クライアント
+    participant Schema as Schema層
+    participant Service as サービス層
+    participant Effect as Effect層
+    participant Infrastructure as インフラ層
+
+    Note over Client, Infrastructure: プレイヤー移動処理のEffect-TSフロー
+
+    Client->>Schema: 生データ (unknown)
+    Schema->>Schema: Schema.decodeUnknown
+    alt バリデーション成功
+        Schema->>Service: 型安全データ (PlayerAction)
+        Service->>Service: Context.GenericTag 解決
+        Service->>Effect: Effect.gen フロー開始
+
+        Effect->>Effect: yield* 早期リターン検証
+        alt 検証成功
+            Effect->>Infrastructure: 副作用実行要求
+            Infrastructure->>Infrastructure: 実際のI/O処理
+            Infrastructure->>Effect: 結果または失敗
+            Effect->>Effect: Effect.catchTag エラーハンドリング
+            Effect->>Service: 成功結果
+            Service->>Client: 型安全な結果
+        else 検証失敗
+            Effect->>Service: Effect.fail(ValidationError)
+            Service->>Client: 型安全なエラー
+        end
+    else バリデーション失敗
+        Schema->>Client: Schema.DecodeError
+    end
+
+    Note over Client, Infrastructure: 全フローが型安全で、<br/>副作用が明示的に管理される
+```
 
 ```typescript
 // Effect<SuccessType, ErrorType, RequirementType>
@@ -15,8 +139,17 @@ const Position = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
   z: Schema.Number,
-});
+}).pipe(
+  Schema.annotations({
+    identifier: "Position",
+    title: "3D座標",
+    description: "ワールド内の3次元座標を表す"
+  })
+);
 type Position = Schema.Schema.Type<typeof Position>;
+
+// ✅ 最新パターン: Context要件の明示的管理
+interface AppServices extends WorldService, PlayerService, ChunkService {}
 ```
 
 ## 2. 主要な利用パターン
@@ -26,44 +159,98 @@ type Position = Schema.Schema.Type<typeof Position>;
 **Effect-TS 3.17+ 最新パターン**: `Effect.gen` と `yield*` を使用した線形な処理フローが推奨されます。これにより、非同期処理を同期的に記述でき、可読性が向上します。
 
 ```typescript
-import { Effect } from "effect";
+import { Effect, Schema, Context, Stream, Match } from "effect";
 
-// ✅ 最新パターン（Effect.gen + yield*）
+// ✅ 最新パターン（Effect.gen + yield* + Schema統合）
 const complexOperation = Effect.gen(function* () {
   const config = yield* getConfig();
-  const data = yield* fetchData(config.apiUrl);
+
+  // ✅ Schema検証付きデータ取得
+  const data = yield* fetchData(config.apiUrl).pipe(
+    Effect.flatMap(raw => Schema.decodeUnknown(DataSchema)(raw))
+  );
+
   const processed = yield* processData(data);
   yield* saveResult(processed);
   return processed;
 });
 
-// ✅ エラーハンドリングを含む場合
+// ✅ 早期リターンパターンと包括的エラーハンドリング
 const operationWithErrorHandling = Effect.gen(function* () {
   const config = yield* getConfig();
 
-  // 早期リターンパターン
+  // ✅ 早期リターン: 設定検証
   if (!config.enabled) {
-    return yield* Effect.fail(new ConfigDisabledError());
+    return yield* Effect.fail(
+      Schema.encodeSync(ConfigError)({
+        _tag: "ConfigDisabledError",
+        message: "設定が無効です"
+      })
+    );
   }
 
+  // ✅ 包括的エラー処理とフォールバック
   const data = yield* fetchData(config.apiUrl).pipe(
-    Effect.catchTag("NetworkError", () =>
-      Effect.succeed(defaultData)
-    )
+    Effect.catchTags({
+      NetworkError: (error) =>
+        Effect.gen(function* () {
+          yield* Effect.log(`ネットワークエラー: ${error.message}, デフォルトデータを使用`);
+          return defaultData;
+        }),
+      TimeoutError: () =>
+        Effect.gen(function* () {
+          yield* Effect.log("タイムアウト: キャッシュデータを試行");
+          return yield* getCachedData().pipe(
+            Effect.orElse(() => Effect.succeed(defaultData))
+          );
+        })
+    })
   );
 
   return yield* processData(data);
 });
 
-// ✅ 並列処理の場合
+// ✅ 高度な並列処理とバッチング
 const parallelOperation = Effect.gen(function* () {
-  const [userData, configData, settingsData] = yield* Effect.all([
-    fetchUserData(),
-    fetchConfigData(),
-    fetchSettingsData()
-  ], { concurrency: "unbounded" });
+  // ✅ bindAllで並列実行とエラー処理
+  const result = yield* Effect.Do.pipe(
+    Effect.bind("timestamp", () => Effect.sync(() => Date.now())),
+    Effect.bindAll(
+      ({ timestamp }) => ({
+        userData: fetchUserData().pipe(
+          Effect.timeout("5 seconds"),
+          Effect.retry(Schedule.exponential("100 millis", 2).pipe(
+            Schedule.compose(Schedule.recurs(3))
+          ))
+        ),
+        configData: fetchConfigData(),
+        settingsData: fetchSettingsData()
+      }),
+      { concurrency: "unbounded", mode: "either" }
+    ),
+    Effect.tap(({ timestamp }) =>
+      Effect.log(`並列操作完了: ${Date.now() - timestamp}ms`)
+    )
+  );
 
-  return { userData, configData, settingsData };
+  // ✅ エラー結果の処理
+  const userData = yield* Match.value(result.userData).pipe(
+    Match.tag("Right", ({ right }) => Effect.succeed(right)),
+    Match.tag("Left", ({ left }) =>
+      Effect.gen(function* () {
+        yield* Effect.log(`ユーザーデータ取得失敗: ${left}`);
+        return yield* getDefaultUserData();
+      })
+    ),
+    Match.exhaustive
+  );
+
+  return {
+    userData,
+    configData: result.configData,
+    settingsData: result.settingsData,
+    timestamp: result.timestamp
+  };
 });
 ```
 
@@ -72,14 +259,104 @@ const parallelOperation = Effect.gen(function* () {
 `class` や `interface` の代わりに `Schema.Struct` を用いて、すべてのデータ構造を定義します。これにより、型定義と実行時バリデーションを同時に実現します。
 
 ```typescript
-import { Schema } from "effect";
+import { Schema, Brand } from "effect";
 
+// ✅ 最新パターン: 包括的Schema定義とバリデーション
 const Position = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number,
-});
+  x: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(-30_000_000),
+    Schema.lessThanOrEqualTo(30_000_000)
+  ),
+  y: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(-64),
+    Schema.lessThanOrEqualTo(320)
+  ),
+  z: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(-30_000_000),
+    Schema.lessThanOrEqualTo(30_000_000)
+  )
+}).pipe(
+  Schema.annotations({
+    identifier: "Position",
+    title: "Minecraft座標",
+    description: "Minecraftワールドの有効な座標範囲内の3D位置"
+  })
+);
 type Position = Schema.Schema.Type<typeof Position>;
+
+// ✅ Brand型による型安全性の向上
+const ChunkId = Schema.String.pipe(
+  Schema.pattern(/^chunk_-?\d+_-?\d+$/),
+  Schema.brand("ChunkId")
+);
+type ChunkId = Schema.Schema.Type<typeof ChunkId>;
+
+const EntityId = Schema.String.pipe(
+  Schema.uuid(),
+  Schema.brand("EntityId")
+);
+type EntityId = Schema.Schema.Type<typeof EntityId>;
+
+// ✅ 複雑なSchema組み合わせ
+const Block = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("BlockId")),
+  metadata: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Union(
+        Schema.String,
+        Schema.Number,
+        Schema.Boolean
+      )
+    })
+  ),
+  lightLevel: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(0),
+    Schema.lessThanOrEqualTo(15)
+  ),
+  hardness: Schema.Number.pipe(Schema.nonNegative())
+}).pipe(
+  Schema.annotations({
+    identifier: "Block",
+    title: "ブロック",
+    description: "Minecraftワールドのブロック定義"
+  })
+);
+type Block = Schema.Schema.Type<typeof Block>;
+
+// ✅ Union型とパターンマッチング連携
+const Direction = Schema.Literal("north", "south", "east", "west", "up", "down");
+type Direction = Schema.Schema.Type<typeof Direction>;
+
+// ✅ 実行時バリデーション関数
+const validatePosition = (input: unknown): Effect.Effect<Position, Schema.ParseError> =>
+  Schema.decodeUnknown(Position)(input);
+
+const encodePosition = (position: Position): unknown =>
+  Schema.encodeSync(Position)(position);
+
+// ✅ カスタムSchema変換
+const Vector3 = Schema.transform(
+  Schema.Struct({
+    x: Schema.Number,
+    y: Schema.Number,
+    z: Schema.Number
+  }),
+  Position,
+  {
+    decode: ({ x, y, z }) => ({ x: Math.round(x), y: Math.round(y), z: Math.round(z) }),
+    encode: (position) => position
+  }
+).pipe(
+  Schema.annotations({
+    identifier: "Vector3",
+    title: "Vector3からPositionへの変換"
+  })
+);
 ```
 
 ### 2.3. `Context.GenericTag` によるサービス定義（最新パターン）
@@ -120,71 +397,188 @@ type BlockSetError = Schema.Schema.Type<typeof BlockSetError>;
 サービスの具体的な実装は `Layer` を用いて提供します。これにより、実装とインターフェースが分離され、テスト時にはモック実装に容易に差し替えられます。
 
 ```typescript
-import { Layer, Effect } from "effect";
+import { Layer, Effect, Context, Resource, ManagedRuntime } from "effect";
 
-// ✅ 最新パターン（Effect.genを使った複雑な初期化）
+// ✅ 最新パターン: リソース管理とスケーラブルな初期化
 const makeWorldServiceLive = Effect.gen(function* () {
-  // 依存サービスの取得
+  // ✅ 依存サービスの取得と型安全性
   const chunkService = yield* ChunkService;
   const blockService = yield* BlockService;
+  const logger = yield* Logger;
+  const metrics = yield* Metrics;
 
-  // 初期化処理
-  yield* Effect.log("WorldServiceを初期化中");
+  // ✅ リソース取得と初期化
+  const worldConfig = yield* loadWorldConfig();
   const worldBounds = yield* loadWorldBounds();
+
+  // ✅ ヘルスチェック
+  yield* logger.info("WorldServiceを初期化中");
+  yield* metrics.incrementCounter("world_service_initializations");
+
+  // ✅ より堅牢なバリデーション関数
+  const validatePosition = (pos: Position): Effect.Effect<boolean, never> =>
+    Effect.sync(() =>
+      pos.x >= worldBounds.min.x && pos.x <= worldBounds.max.x &&
+      pos.y >= worldBounds.min.y && pos.y <= worldBounds.max.y &&
+      pos.z >= worldBounds.min.z && pos.z <= worldBounds.max.z
+    );
 
   return WorldService.of({
     getBlock: (pos) =>
       Effect.gen(function* () {
-        // 早期リターン: 位置検証
-        const isValid = yield* isValidPosition(pos, worldBounds);
-        if (!isValid) {
-          return yield* Effect.fail({
-            _tag: "BlockNotFoundError" as const,
-            position: pos,
-            message: `位置 ${pos.x},${pos.y},${pos.z} は範囲外です`
-          });
-        }
+        // ✅ 早期リターン: Schema検証
+        yield* validatePosition(pos).pipe(
+          Effect.filterOrFail(
+            (isValid) => isValid,
+            () => ({
+              _tag: "BlockNotFoundError" as const,
+              position: pos,
+              message: `座標 ${pos.x},${pos.y},${pos.z} は範囲外です`,
+              bounds: worldBounds
+            })
+          )
+        );
 
-        // ブロック取得
-        const chunk = yield* chunkService.getChunkForPosition(pos);
+        // ✅ メトリクス収集
+        yield* metrics.incrementCounter("block_get_requests");
+
+        // ✅ 並列データ取得
+        const chunk = yield* chunkService.getChunkForPosition(pos).pipe(
+          Effect.timeout("2 seconds"),
+          Effect.retry(Schedule.exponential("100 millis").pipe(
+            Schedule.compose(Schedule.recurs(3))
+          ))
+        );
+
         const block = yield* blockService.getBlockFromChunk(chunk, pos);
+
+        yield* logger.debug(`ブロック取得: ${pos.x},${pos.y},${pos.z} = ${block.id}`);
         return block;
       }),
 
     setBlock: (pos, block) =>
       Effect.gen(function* () {
-        // バリデーション
-        const isValid = yield* isValidPosition(pos, worldBounds);
-        if (!isValid) {
-          return yield* Effect.fail({
-            _tag: "BlockSetError" as const,
-            position: pos,
-            reason: "位置が範囲外です"
-          });
-        }
+        // ✅ 包括的バリデーション
+        yield* validatePosition(pos).pipe(
+          Effect.filterOrFail(
+            (isValid) => isValid,
+            () => ({
+              _tag: "BlockSetError" as const,
+              position: pos,
+              reason: "位置が範囲外です",
+              bounds: worldBounds
+            })
+          )
+        );
 
-        // ブロック設置
-        yield* blockService.setBlock(pos, block);
-        yield* Effect.log(`ブロックを ${pos.x},${pos.y},${pos.z} に設置しました`);
+        // ✅ ブロック設置前の状態確認
+        const existingBlock = yield* blockService.getBlockFromPosition(pos).pipe(
+          Effect.option
+        );
+
+        // ✅ アトミックな更新操作
+        yield* blockService.setBlock(pos, block).pipe(
+          Effect.zipLeft(metrics.incrementCounter("block_set_operations"))
+        );
+
+        yield* logger.info(
+          `ブロック設置: ${pos.x},${pos.y},${pos.z} ${existingBlock._tag === "Some" ? `(${existingBlock.value.id} → ${block.id})` : `(空 → ${block.id})`}`
+        );
+
+        // ✅ 隣接ブロック更新通知
+        yield* notifyAdjacentBlocks(pos, block);
       }),
 
-    getChunk: chunkService.getChunk,
-    isValidPosition: (pos) => isValidPosition(pos, worldBounds)
+    getChunk: (chunkId) =>
+      chunkService.getChunk(chunkId).pipe(
+        Effect.tap(() => metrics.incrementCounter("chunk_requests")),
+        Effect.timeout("5 seconds")
+      ),
+
+    isValidPosition: validatePosition,
+
+    // ✅ 新しいメソッド: バッチ処理
+    getBlocks: (positions) =>
+      Effect.gen(function* () {
+        // ✅ 早期リターン: 空の配列
+        if (positions.length === 0) {
+          return [];
+        }
+
+        yield* metrics.incrementCounter("batch_block_requests");
+
+        // ✅ バッチサイズでの処理
+        const batchSize = 50;
+        const batches = ReadonlyArray.chunksOf(positions, batchSize);
+        const results: Block[] = [];
+
+        for (const batch of batches) {
+          const batchResults = yield* Effect.all(
+            ReadonlyArray.map(batch, pos => getBlock(pos)),
+            { concurrency: "unbounded" }
+          );
+          results.push(...batchResults);
+        }
+
+        return results;
+      })
   });
 });
 
-const WorldServiceLive = Layer.effect(WorldService, makeWorldServiceLive);
+// ✅ Layerチェーンによる依存関係管理
+const WorldServiceLive = Layer.effect(WorldService, makeWorldServiceLive).pipe(
+  Layer.provideMerge(
+    Layer.mergeAll(
+      ChunkServiceLive,
+      BlockServiceLive,
+      LoggerLive,
+      MetricsLive
+    )
+  )
+);
 
-// ✅ テスト用モック実装
+// ✅ 環境別Layer設定
+const WorldServiceDev = WorldServiceLive.pipe(
+  Layer.provide(Layer.succeed(WorldConfig, developmentConfig))
+);
+
+const WorldServiceProd = WorldServiceLive.pipe(
+  Layer.provide(Layer.succeed(WorldConfig, productionConfig))
+);
+
+// ✅ テスト用Layer（改善版）
 const WorldServiceTest = Layer.succeed(
   WorldService,
   WorldService.of({
-    getBlock: () => Effect.succeed(testBlock),
+    getBlock: (pos) => Effect.succeed({
+      id: "minecraft:stone" as any,
+      metadata: undefined,
+      lightLevel: 0,
+      hardness: 1.5
+    }),
     setBlock: () => Effect.void,
-    getChunk: () => Effect.succeed(testChunk),
-    isValidPosition: () => Effect.succeed(true)
+    getChunk: () => Effect.succeed({
+      id: "test_chunk" as any,
+      position: { x: 0, z: 0 },
+      blocks: new Uint8Array(4096),
+      entities: []
+    }),
+    isValidPosition: () => Effect.succeed(true),
+    getBlocks: () => Effect.succeed([])
   })
 );
+
+// ✅ ManagedRuntimeによる高レベルAPI
+export const createWorldRuntime = (environment: "dev" | "prod" | "test" = "dev") => {
+  const layer = Match.value(environment).pipe(
+    Match.tag("dev", () => WorldServiceDev),
+    Match.tag("prod", () => WorldServiceProd),
+    Match.tag("test", () => WorldServiceTest),
+    Match.exhaustive
+  );
+
+  return ManagedRuntime.make(layer);
+};
 ```
 
 ### 2.5. `Match.value` によるパターンマッチング
@@ -870,132 +1264,310 @@ const updateLightLevelsAsync = (
 **最新Effect-TSパターン**: Fiber管理とStream処理を活用した高度な非同期パターンです。
 
 ```typescript
-import { Effect, Fiber, Stream, Schedule, Duration } from "effect";
+import { Effect, Fiber, Stream, Schedule, Duration, STM, TRef, Queue, Scope } from "effect";
 
-// ✅ Fiberによる並行処理とキャンセレーション
+// ✅ 最新パターン: 高度なFiber管理とSTMによる状態管理
 const GameLoop = Schema.Struct({
-  tickRate: Schema.Number.pipe(Schema.positive()),
+  tickRate: Schema.Number.pipe(Schema.positive(), Schema.lessThanOrEqualTo(100)),
   isRunning: Schema.Boolean,
-  lastTick: Schema.Number.pipe(Schema.brand("Timestamp"))
-});
+  lastTick: Schema.Number.pipe(Schema.brand("Timestamp")),
+  totalTicks: Schema.Number.pipe(Schema.nonNegative()),
+  averageDeltaTime: Schema.Number.pipe(Schema.nonNegative())
+}).pipe(
+  Schema.annotations({
+    identifier: "GameLoop",
+    title: "ゲームループ状態",
+    description: "ゲームループの実行状態とパフォーマンス統計"
+  })
+);
 type GameLoop = Schema.Schema.Type<typeof GameLoop>;
 
-// ✅ ゲームループの実装（Fiber使用）
-const runGameLoop = (tickRate: number): Effect.Effect<Fiber.RuntimeFiber<void, never>, never> =>
+// ✅ STMによる状態管理とアトミックな更新
+const createGameLoopState = (): Effect.Effect<{
+  gameLoopRef: TRef.TRef<GameLoop>,
+  commandQueue: Queue.Queue<GameCommand>,
+  supervisorRef: TRef.TRef<Option.Option<Fiber.RuntimeFiber<void, never>>>
+}, never> =>
   Effect.gen(function* () {
+    const gameLoopRef = yield* TRef.make({
+      tickRate: 20,
+      isRunning: false,
+      lastTick: Date.now() as any,
+      totalTicks: 0,
+      averageDeltaTime: 16.67
+    });
+
+    const commandQueue = yield* Queue.bounded<GameCommand>(1000);
+    const supervisorRef = yield* TRef.make(Option.none<Fiber.RuntimeFiber<void, never>>());
+
+    return { gameLoopRef, commandQueue, supervisorRef };
+  });
+
+// ✅ 改良されたゲームループ（STM + Stream）
+const runGameLoop = (
+  tickRate: number,
+  gameState: {
+    gameLoopRef: TRef.TRef<GameLoop>,
+    commandQueue: Queue.Queue<GameCommand>,
+    supervisorRef: TRef.TRef<Option.Option<Fiber.RuntimeFiber<void, never>>>
+  }
+): Effect.Effect<Fiber.RuntimeFiber<void, never>, never> =>
+  Effect.gen(function* () {
+    // ✅ ゲームループのメインファイバー
     const gameLoopFiber = yield* Effect.fork(
-      Stream.repeatEffect(
-        Effect.gen(function* () {
-          yield* processTick();
-          yield* Effect.sleep(Duration.millis(1000 / tickRate));
-        })
-      ).pipe(
+      Stream.fromSchedule(Schedule.fixed(Duration.millis(1000 / tickRate))).pipe(
+        Stream.zipWithIndex,
+        Stream.mapEffect(([_, tickIndex]) =>
+          Effect.gen(function* () {
+            const startTime = yield* Effect.sync(() => performance.now());
+
+            // ✅ STMでアトミックな状態更新
+            yield* STM.gen(function* () {
+              const current = yield* STM.get(gameState.gameLoopRef);
+              const newState: GameLoop = {
+                ...current,
+                lastTick: Date.now() as any,
+                totalTicks: current.totalTicks + 1,
+                isRunning: true
+              };
+              yield* STM.set(gameState.gameLoopRef, newState);
+            }).pipe(STM.commit);
+
+            // ✅ コマンド処理
+            const commands = yield* Queue.takeAll(gameState.commandQueue);
+            yield* processCommands(commands);
+
+            // ✅ システム更新
+            const deltaTime = yield* Effect.sync(() => performance.now() - startTime);
+            yield* processSystemsParallel(deltaTime);
+
+            // ✅ パフォーマンス統計更新
+            yield* STM.gen(function* () {
+              const current = yield* STM.get(gameState.gameLoopRef);
+              const newAverage = (current.averageDeltaTime * 0.9) + (deltaTime * 0.1);
+              yield* STM.modify(gameState.gameLoopRef, state => ({
+                ...state,
+                averageDeltaTime: newAverage
+              }));
+            }).pipe(STM.commit);
+
+            if (deltaTime > 50) { // 50ms以上の場合は警告
+              yield* Effect.log(`長時間の tick 処理: ${deltaTime.toFixed(2)}ms (Tick: ${tickIndex})`);
+            }
+          })
+        ),
         Stream.runDrain
       )
     );
 
+    // ✅ スーパーバイザーに登録
+    yield* STM.set(gameState.supervisorRef, Option.some(gameLoopFiber)).pipe(STM.commit);
     yield* Effect.log(`ゲームループ開始 @ ${tickRate} TPS`);
+
     return gameLoopFiber;
   });
 
-// ✅ システム更新の並行実行
+// ✅ 高度な並行システム処理（パイプライン最適化）
 const processSystemsParallel = (deltaTime: number): Effect.Effect<void, SystemError> =>
   Effect.gen(function* () {
-    // 並行実行可能なシステム
-    const independentSystems = [
-      updateRenderingSystem(deltaTime),
+    // ✅ Stage 1: 独立システムの並行実行
+    const stage1Systems = [
+      updateInputSystem(deltaTime),
       updateSoundSystem(deltaTime),
-      updateParticleSystem(deltaTime)
+      updateParticleSystem(deltaTime),
+      updateUISystem(deltaTime)
     ];
 
-    // 依存関係があるシステム（順次実行）
-    const dependentSystems = [
+    yield* Effect.all(stage1Systems, {
+      concurrency: "unbounded",
+      batching: true
+    });
+
+    // ✅ Stage 2: 物理とMovement（依存関係あり）
+    const stage2Systems = [
       updateMovementSystem(deltaTime),
-      updatePhysicsSystem(deltaTime),
-      updateCollisionSystem(deltaTime)
+      updatePhysicsSystem(deltaTime)
     ];
 
-    // 独立システムを並行実行
-    yield* Effect.all(independentSystems, { concurrency: "unbounded" });
-
-    // 依存システムを順次実行
-    for (const system of dependentSystems) {
+    for (const system of stage2Systems) {
       yield* system;
     }
+
+    // ✅ Stage 3: 結果に依存するシステム
+    const stage3Systems = [
+      updateCollisionSystem(deltaTime),
+      updateRenderingSystem(deltaTime),
+      updateNetworkingSystem(deltaTime)
+    ];
+
+    yield* Effect.all(stage3Systems, {
+      concurrency: 3,
+      batching: true
+    });
   });
 
-// ✅ Stream を使った継続的データ処理
+// ✅ Stream + STM による高度な入力処理
 const processPlayerInputs = (): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    const inputStream = yield* createInputEventStream();
+    // ✅ 入力キューの作成
+    const inputQueue = yield* Queue.bounded<PlayerInput>(256);
+    const processedInputsRef = yield* TRef.make(0);
 
-    yield* inputStream.pipe(
-      // 入力イベントをバッファリング（16ms間隔）
-      Stream.buffer({ capacity: 64, strategy: "dropping" }),
+    // ✅ 入力収集ストリーム
+    const inputCollectorFiber = yield* Effect.fork(
+      createInputEventStream().pipe(
+        Stream.buffer({ capacity: 64, strategy: "dropping" }),
+        Stream.filter(input => validateInput(input)),
+        Stream.tap(input => Queue.offer(inputQueue, input)),
+        Stream.runDrain
+      )
+    );
 
-      // 無効な入力をフィルタ
-      Stream.filter(input => validateInput(input)),
+    // ✅ 入力処理ストリーム（バッチ処理）
+    yield* Stream.fromQueue(inputQueue).pipe(
+      Stream.groupedWithin(10, Duration.millis(16)), // 最大10個または16ms
+      Stream.mapEffect(inputs =>
+        Effect.gen(function* () {
+          if (inputs.length === 0) return;
 
-      // バッチ処理（最大10イベント）
-      Stream.chunks,
-      Stream.map(chunk => ReadonlyArray.fromIterable(chunk)),
-      Stream.filter(batch => batch.length > 0),
+          // ✅ 入力の前処理とデデュープ
+          const dedupedInputs = deduplicateInputs(inputs);
 
-      // 並列処理
-      Stream.mapEffect(
-        batch => Effect.all(
-          ReadonlyArray.map(batch, input => processInput(input)),
-          { concurrency: 4 }
-        )
+          // ✅ 並列処理
+          yield* Effect.all(
+            ReadonlyArray.map(dedupedInputs, input =>
+              processInput(input).pipe(
+                Effect.catchAll(error =>
+                  Effect.gen(function* () {
+                    yield* Effect.log(`入力処理エラー: ${error}`);
+                  })
+                )
+              )
+            ),
+            { concurrency: 4 }
+          );
+
+          // ✅ 統計更新
+          yield* STM.update(processedInputsRef, count => count + inputs.length).pipe(
+            STM.commit
+          );
+        })
       ),
-
-      // エラーハンドリング
-      Stream.catchAllCause(cause =>
-        Stream.fromEffect(
-          Effect.gen(function* () {
-            yield* Effect.log(`入力処理失敗: ${cause}`);
-            return [];
-          })
-        )
-      ),
-
-      // 実行
       Stream.runDrain
     );
+
+    // ✅ クリーンアップ
+    yield* Fiber.interrupt(inputCollectorFiber);
   });
 
-// ✅ リソース管理とクリーンアップ
-const withWorldSession = <A, E>(
-  operation: Effect.Effect<A, E>
-): Effect.Effect<A, E> =>
-  Effect.acquireUseRelease(
-    // リソース取得
+// ✅ スコープ管理によるリソース管理（改良版）
+const withWorldSession = <A, E, R>(
+  operation: Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R> =>
+  Effect.scoped(
     Effect.gen(function* () {
+      // ✅ スコープ内でのリソース管理
       yield* Effect.log("ワールドセッションを初期化中");
-      const world = yield* createWorld();
-      const systems = yield* initializeSystems();
-      return { world, systems };
-    }),
 
-    // リソース使用
-    ({ world, systems }) =>
-      Effect.gen(function* () {
-        yield* startSystems(systems);
-        const result = yield* operation;
-        return result;
-      }),
+      // ✅ リソース取得（自動的にスコープで管理される）
+      const world = yield* Effect.acquireRelease(
+        createWorld(),
+        world => Effect.gen(function* () {
+          yield* Effect.log("ワールドを保存中");
+          yield* saveWorld(world);
+        })
+      );
 
-    // リソース解放
-    ({ world, systems }) =>
-      Effect.gen(function* () {
-        yield* Effect.log("ワールドセッションをクリーンアップ中");
-        yield* stopSystems(systems);
-        yield* saveWorld(world);
-        yield* releaseResources();
-      }).pipe(
-        Effect.orDie  // クリーンアップは必ず実行
-      )
+      const systems = yield* Effect.acquireRelease(
+        initializeSystems(),
+        systems => Effect.gen(function* () {
+          yield* Effect.log("システムを停止中");
+          yield* stopSystems(systems);
+        })
+      );
+
+      const networkSession = yield* Effect.acquireRelease(
+        startNetworkSession(),
+        session => Effect.gen(function* () {
+          yield* Effect.log("ネットワークセッションを終了中");
+          yield* stopNetworkSession(session);
+        })
+      );
+
+      // ✅ システム開始
+      yield* startSystems(systems);
+      yield* Effect.log("ワールドセッション開始完了");
+
+      // ✅ 操作実行
+      const result = yield* operation;
+
+      yield* Effect.log("ワールドセッション正常終了");
+      return result;
+    })
   );
+
+// ✅ STM を使った高度な状態管理例
+const createSharedGameState = () =>
+  Effect.gen(function* () {
+    const playersRef = yield* TRef.make(new Map<string, Player>());
+    const worldStateRef = yield* TRef.make<WorldState>({
+      time: 0,
+      weather: "clear",
+      difficulty: "normal"
+    });
+    const metricsRef = yield* TRef.make({
+      totalPlayers: 0,
+      ticksPerSecond: 0,
+      memoryUsage: 0
+    });
+
+    // ✅ アトミックなプレイヤー操作
+    const addPlayer = (player: Player): Effect.Effect<boolean, never> =>
+      STM.gen(function* () {
+        const players = yield* STM.get(playersRef);
+        if (players.has(player.id)) {
+          return false; // 既に存在
+        }
+
+        const newPlayers = new Map(players).set(player.id, player);
+        yield* STM.set(playersRef, newPlayers);
+
+        // ✅ メトリクス更新も同じトランザクション内
+        yield* STM.update(metricsRef, metrics => ({
+          ...metrics,
+          totalPlayers: newPlayers.size
+        }));
+
+        return true;
+      }).pipe(STM.commit);
+
+    // ✅ 複合操作（複数の状態を同時に更新）
+    const advanceTime = (deltaTime: number): Effect.Effect<void, never> =>
+      STM.gen(function* () {
+        const worldState = yield* STM.get(worldStateRef);
+        const newTime = worldState.time + deltaTime;
+
+        // ✅ 時間に応じた天候変化
+        let newWeather = worldState.weather;
+        if (newTime > 12000 && worldState.weather === "clear") {
+          newWeather = Math.random() > 0.8 ? "rain" : "clear";
+        }
+
+        yield* STM.set(worldStateRef, {
+          ...worldState,
+          time: newTime % 24000, // 24時間サイクル
+          weather: newWeather
+        });
+      }).pipe(STM.commit);
+
+    return {
+      addPlayer,
+      advanceTime,
+      getPlayers: () => STM.get(playersRef).pipe(STM.commit),
+      getWorldState: () => STM.get(worldStateRef).pipe(STM.commit),
+      getMetrics: () => STM.get(metricsRef).pipe(STM.commit)
+    };
+  });
 ```
 
 ### 4.4. Property-Based Testing (PBT) 対応パターン
@@ -1166,16 +1738,211 @@ fc.property(
 */
 ```
 
-## 5. まとめ
+## 5. 最新Effect-TS統合パターン（2024年最新）
+
+### 5.1. ManagedRuntimeによる統合アプリケーション管理
+
+**Effect-TS 3.17+ 最新パターン**: アプリケーション全体のライフサイクルとリソース管理を統一的に扱います。
+
+```typescript
+import { ManagedRuntime, Layer, Effect, Schedule, Duration } from "effect";
+
+// ✅ 統合アプリケーションLayer
+const AppLayer = Layer.mergeAll(
+  // コアサービス
+  WorldServiceLive,
+  PlayerServiceLive,
+  ChunkServiceLive,
+
+  // インフラストラクチャ
+  LoggerLive,
+  MetricsLive,
+  DatabaseLive,
+
+  // 外部システム
+  NetworkServiceLive,
+  FileSystemLive
+).pipe(
+  Layer.provide(ConfigLive),
+  Layer.tapError(error =>
+    Effect.gen(function* () {
+      yield* Effect.logError(`アプリケーション初期化失敗: ${error}`);
+      yield* Effect.die(error);
+    })
+  )
+);
+
+// ✅ アプリケーションランタイム
+export const AppRuntime = ManagedRuntime.make(AppLayer);
+
+// ✅ 統合ヘルスチェック
+const healthCheck = (): Effect.Effect<HealthStatus, HealthCheckError> =>
+  Effect.gen(function* () {
+    const worldService = yield* WorldService;
+    const playerService = yield* PlayerService;
+    const networkService = yield* NetworkService;
+
+    // ✅ 並列ヘルスチェック
+    const checks = yield* Effect.all([
+      worldService.healthCheck().pipe(Effect.timeout("2 seconds")),
+      playerService.healthCheck().pipe(Effect.timeout("2 seconds")),
+      networkService.healthCheck().pipe(Effect.timeout("2 seconds"))
+    ], {
+      concurrency: "unbounded",
+      mode: "either"
+    });
+
+    const healthStatus = analyzeHealthResults(checks);
+
+    yield* Effect.log(`ヘルスチェック完了: ${healthStatus.status}`);
+    return healthStatus;
+  });
+
+// ✅ グレースフルシャットダウン
+const gracefulShutdown = (signal: string): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    yield* Effect.log(`シャットダウンシグナル受信: ${signal}`);
+
+    // ✅ 段階的シャットダウン
+    yield* Effect.log("新しい接続を拒否中...");
+    yield* stopAcceptingNewConnections();
+
+    yield* Effect.log("既存の接続を完了待ち...");
+    yield* waitForExistingConnections().pipe(
+      Effect.timeout("30 seconds"),
+      Effect.orElse(() => Effect.log("タイムアウト: 強制終了"))
+    );
+
+    yield* Effect.log("リソースクリーンアップ中...");
+    yield* AppRuntime.dispose();
+
+    yield* Effect.log("シャットダウン完了");
+  });
+
+// ✅ メインアプリケーション
+const main = Effect.gen(function* () {
+  // ✅ シグナルハンドラー設定
+  yield* Effect.addFinalizer(() => gracefulShutdown("CLEANUP"));
+
+  // ✅ ヘルスチェック開始
+  const healthCheckFiber = yield* Effect.fork(
+    healthCheck().pipe(
+      Effect.repeat(Schedule.fixed("30 seconds")),
+      Effect.forever
+    )
+  );
+
+  // ✅ メインゲームループ開始
+  const gameState = yield* createGameLoopState();
+  const gameLoopFiber = yield* runGameLoop(20, gameState);
+
+  // ✅ アプリケーション実行
+  yield* Effect.log("TypeScript Minecraft サーバー開始");
+  yield* Effect.never; // 永続実行
+});
+
+// ✅ アプリケーション起動
+export const startApplication = () =>
+  AppRuntime.runPromise(main).catch(error => {
+    console.error("アプリケーション起動失敗:", error);
+    process.exit(1);
+  });
+```
+
+### 5.2. Schema駆動API設計
+
+```typescript
+// ✅ API Schema定義
+const PlayerActionRequest = Schema.Struct({
+  playerId: Schema.String.pipe(Schema.uuid(), Schema.brand("PlayerId")),
+  action: Schema.Union(
+    Schema.Struct({
+      _tag: Schema.Literal("Move"),
+      direction: Schema.Literal("north", "south", "east", "west"),
+      distance: Schema.Number.pipe(Schema.positive(), Schema.lessThanOrEqualTo(10))
+    }),
+    Schema.Struct({
+      _tag: Schema.Literal("PlaceBlock"),
+      position: Position,
+      blockType: Schema.String.pipe(Schema.brand("BlockType"))
+    }),
+    Schema.Struct({
+      _tag: Schema.Literal("Chat"),
+      message: Schema.String.pipe(Schema.nonEmpty(), Schema.maxLength(256))
+    })
+  ),
+  timestamp: Schema.Number.pipe(Schema.brand("Timestamp"))
+}).pipe(
+  Schema.annotations({
+    identifier: "PlayerActionRequest",
+    title: "プレイヤーアクション要求",
+    description: "クライアントからのプレイヤーアクション要求"
+  })
+);
+
+const PlayerActionResponse = Schema.Struct({
+  success: Schema.Boolean,
+  result: Schema.optional(Schema.Unknown),
+  error: Schema.optional(Schema.String),
+  serverTimestamp: Schema.Number.pipe(Schema.brand("Timestamp"))
+});
+
+// ✅ 型安全APIハンドラー
+const handlePlayerAction = (
+  request: Schema.Schema.Type<typeof PlayerActionRequest>
+): Effect.Effect<Schema.Schema.Type<typeof PlayerActionResponse>, ApiError> =>
+  Effect.gen(function* () {
+    const startTime = yield* Effect.sync(() => Date.now());
+
+    const result = yield* Match.value(request.action).pipe(
+      Match.tag("Move", ({ direction, distance }) =>
+        movePlayer(request.playerId, direction, distance)
+      ),
+      Match.tag("PlaceBlock", ({ position, blockType }) =>
+        placeBlock(request.playerId, position, blockType)
+      ),
+      Match.tag("Chat", ({ message }) =>
+        sendChatMessage(request.playerId, message)
+      ),
+      Match.exhaustive
+    ).pipe(
+      Effect.catchTag("InvalidAction", () =>
+        Effect.succeed({ _tag: "ActionRejected" as const })
+      )
+    );
+
+    return {
+      success: true,
+      result,
+      error: undefined,
+      serverTimestamp: Date.now() as any
+    };
+  }).pipe(
+    Effect.catchAll(error =>
+      Effect.succeed({
+        success: false,
+        result: undefined,
+        error: String(error),
+        serverTimestamp: Date.now() as any
+      })
+    )
+  );
+```
+
+## 6. まとめ
 
 **Effect-TS 3.17+ の最新パターン**を活用することで、以下のメリットを享受できます。
 
 ### 必須パターン（Effect-TS 3.17+）
-- **✅ Schema.Struct**: すべてのデータ定義とBrand型による型安全性
+- **✅ Schema.Struct + annotations**: すべてのデータ定義とBrand型による型安全性
 - **✅ Context.GenericTag**: サービス定義の統一 (`@app/ServiceName`)
 - **✅ Effect.gen + yield***: 非同期処理の線形化と早期リターン
-- **✅ Match.value**: 網羅的パターンマッチングとMatch.exhaustive
-- **✅ Layer.effect**: 依存性注入の標準化と初期化/クリーンアップ
+- **✅ Match.value + Match.exhaustive**: 網羅的パターンマッチング
+- **✅ Layer.effect + Layer.mergeAll**: 依存性注入の標準化と初期化/クリーンアップ
+- **✅ STM + TRef**: アトミックな状態管理と並行制御
+- **✅ Stream + Queue**: 高性能データストリーミング
+- **✅ ManagedRuntime**: アプリケーションレベルのリソース管理
+- **✅ Effect.scoped**: 自動リソース管理
 - **✅ ReadonlyArray**: 関数型データ操作とバッチ処理
 - **✅ 純粋関数分離**: PBTテスト可能な小さく焦点を絞った関数設計
 
@@ -1186,8 +1953,26 @@ fc.property(
 - ❌ if/else/switchの多用（Match.valueを使用）
 - ❌ async/await, Promise（Effect.genを使用）
 - ❌ mutableな操作（不変データ構造を使用）
+- ❌ 手動リソース管理（Effect.scoped, ManagedRuntimeを使用）
+- ❌ グローバル状態（STM + TRefによる管理された状態を使用）
 
 > **重要**: `Schema.TaggedError`は正しいパターンであり継続使用。ただし、通常の`class`キーワードでのビジネスロジック定義は完全禁止。
+
+### 高度なパフォーマンス最適化パターン
+- **✅ Effect.all + concurrency**: 並列処理とバッチング最適化
+- **✅ Stream.buffer + groupedWithin**: 効率的なデータストリーミング
+- **✅ STM transactions**: 高速並行状態管理
+- **✅ Schedule strategies**: インテリジェントな再試行とバックオフ
+- **✅ Resource pooling**: Effect.acquireReleaseによるリソースプール
+- **✅ Structured concurrency**: Fiberベースの並行性管理
+
+### 最新の統合パターン
+- **✅ ManagedRuntime**: アプリケーション全体のライフサイクル管理
+- **✅ Schema-driven APIs**: 型安全なAPI設計と実行時検証
+- **✅ Effect.scoped + Effect.acquireRelease**: 自動リソース管理
+- **✅ Layer composition**: モジュラーな依存性注入
+- **✅ Error boundaries**: 構造化されたエラーハンドリング
+- **✅ Metrics and observability**: ビルトインの監視と計測
 
 ### 関数型プログラミング原則
 - **✅ 単一責任**: 一つの関数は一つの責任のみ持つ
@@ -1204,17 +1989,80 @@ fc.property(
 - **✅ Web Worker統合**: CPU集約的処理のオフロード
 - **✅ メモリプール**: オブジェクト生成コストの削減
 
-### テスト戦略
+### テスト戦略（Effect-TS 3.17+ 対応）
 - **✅ Property-Based Testing**: 純粋関数の包括的検証
-- **✅ レイヤーベーステスト**: Layer.succeedによるモック注入
-- **✅ 効果の分離**: 副作用と純粋計算の分離テスト
+- **✅ Layer-based Testing**: Layer.succeedによるモック注入とテスト環境分離
+- **✅ Effect Testing**: Effect.runSyncとEffect.runPromiseによる効果のテスト
+- **✅ STM Testing**: トランザクショナルメモリのアトミック性テスト
+- **✅ Stream Testing**: ストリーム処理のパイプラインテスト
+- **✅ Schema Testing**: データ検証とエンコーディング/デコーディングテスト
+- **✅ 統合テスト**: ManagedRuntimeによるエンドツーエンドテスト
 
-このガイドに従うことで、TypeScript Minecraftプロジェクトは**最新のEffect-TSパターン**を活用した、保守性・テスト性・パフォーマンスに優れたコードベースを実現できます。
+```typescript
+// ✅ 最新テストパターン例
+import { Effect, Layer, TestClock, TestContext } from "effect";
 
-**重要な原則:**
-- 通常の`class`キーワードは完全排除（`Schema.TaggedError`のみ例外）
-- すべてのビジネスロジックは`Schema.Struct` + 純粋関数で実装
-- `Context.GenericTag`による統一されたサービス定義
-- `Match.value`による型安全なパターンマッチング
+const testWorldService = Layer.succeed(
+  WorldService,
+  WorldService.of({
+    getBlock: () => Effect.succeed(mockBlock),
+    setBlock: () => Effect.succeed(void 0)
+  })
+);
 
-すべての新機能開発および既存コードのリファクタリングは、ここに示されたパターンに厳密に従って実行してください。
+const testLayer = Layer.mergeAll(testWorldService, TestContext.TestContext);
+
+const testEffect = movePlayer("test-player", Position.of(0, 0, 0)).pipe(
+  Effect.provide(testLayer)
+);
+
+// アサーション
+const result = await Effect.runPromise(testEffect);
+expect(result.success).toBe(true);
+```
+
+## 7. 実践的ガイドライン
+
+### 7.1. 開発ワークフロー
+1. **Schema定義**: まずデータ構造をSchema.Structで定義
+2. **純粋関数実装**: ビジネスロジックを純粋関数として分離実装
+3. **Effect統合**: 副作用を伴う操作をEffect.genで統合
+4. **Layer組み立て**: 依存関係をLayerで構成
+5. **テスト作成**: 各レイヤーでの単体・統合テスト実装
+6. **ManagedRuntime統合**: アプリケーション全体の統合
+
+### 7.2. パフォーマンス考慮事項
+- **バッチ処理**: ReadonlyArray.chunksOfとEffect.allを活用
+- **並列処理**: concurrency: "unbounded"で最大性能を引き出す
+- **ストリーミング**: Stream.bufferでメモリ効率を最適化
+- **リソース管理**: Effect.acquireReleaseで確実なクリーンアップ
+- **状態管理**: STMで競合状態を排除
+
+### 7.3. エラー戦略
+- **構造化エラー**: Schema.TaggedErrorによる型安全なエラー定義
+- **エラー境界**: Effect.catchTagsによる包括的エラーハンドリング
+- **再試行戦略**: Scheduleによるインテリジェントなリトライ
+- **フォールバック**: Effect.orElseによる代替処理
+
+このガイドに従うことで、TypeScript Minecraftプロジェクトは**最新のEffect-TS 3.17+パターン**を活用した、保守性・テスト性・パフォーマンスに優れたコードベースを実現できます。
+
+## 重要な原則（厳守）
+
+### ✅ 採用必須パターン
+- **Schema.Struct + Brand型**: すべてのデータ定義
+- **Context.GenericTag**: サービス定義統一 (`@app/ServiceName`)
+- **Effect.gen + yield***: 非同期処理の標準化
+- **Match.value + exhaustive**: パターンマッチング
+- **STM + TRef**: 並行状態管理
+- **Stream + Queue**: データストリーミング
+- **ManagedRuntime**: アプリケーション管理
+- **純粋関数分離**: ビジネスロジックの関数型実装
+
+### ❌ 完全禁止パターン
+- **通常のclassキーワード**: ビジネスロジックでの使用禁止
+- **Data.Class/Data.TaggedError**: 古いAPI、Schema系で代替
+- **async/await/Promise**: Effect.genで代替
+- **手動リソース管理**: Effect.scopedで代替
+- **グローバル状態**: STMによる管理状態で代替
+
+すべての新機能開発および既存コードのリファクタリングは、ここに示されたEffect-TS 3.17+パターンに厳密に従って実行してください。このガイドラインは、プロジェクトの技術的負債を防ぎ、長期的な保守性を保証します。

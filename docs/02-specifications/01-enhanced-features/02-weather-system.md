@@ -1,3 +1,15 @@
+---
+title: "02 Weather System"
+description: "02 Weather Systemに関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "25分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # Weather System - 動的天候システム
 
 ## 概要
