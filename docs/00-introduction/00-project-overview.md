@@ -1,10 +1,10 @@
-# TypeScript Minecraft Clone - Complete Documentation
+# TypeScript Minecraft Clone - 完全ドキュメント
 
 ## 🎮 プロジェクト概要
 
-TypeScript で実装する本格的な Minecraft クローンです。**Effect-TS 3.17+** の最新パターン、**DDD（ドメイン駆動設計）**、**ECS（Entity Component System）** を活用した、型安全で拡張可能なアーキテクチャを採用しています。
+TypeScriptで実装する本格的なMinecraftクローンです。**Effect-TS 3.17+** の最新パターン、**DDD（ドメイン駆動設計）**、**ECS（Entity Component System）** を活用した、型安全で拡張可能なアーキテクチャを採用しています。
 
-純粋関数型プログラミングの原則に基づき、クラスベースの設計を排除し、すべての機能を合成可能な Effect として実装。モジュラーな設計により Core機能と Enhanced機能を明確に分離し、段階的な開発と拡張を可能にしています。
+純粋関数型プログラミングの原則に基づき、クラスベースの設計を排除し、すべての機能を合成可能なEffectとして実装。モジュラーな設計によりコア機能と拡張機能を明確に分離し、段階的な開発と拡張を可能にしています。
 
 ## ✨ 主要な特徴
 
@@ -13,7 +13,7 @@ TypeScript で実装する本格的な Minecraft クローンです。**Effect-T
 - **🏗️ DDD + ECS統合**: 境界づけられたコンテキスト × Structure of Arrays最適化
 - **⚡ 高性能アーキテクチャ**: グリーディメッシング、視錐台カリング、並列処理
 - **🔧 完全型安全**: Schema駆動開発とコンパイル時エラー検出
-- **🎨 モジュラー拡張**: Core Features + Enhanced Featuresの段階的実装
+- **🎨 モジュラー拡張**: コア機能 + 拡張機能の段階的実装
 
 ## ⚠️ 重要：開発ガイドライン
 
@@ -56,7 +56,7 @@ const validatePlayer = (player: unknown): Effect.Effect<Player, ValidationError>
 }
 ```
 
-## 🚀 Quick Start
+## 🚀 クイックスタート
 
 ```bash
 # 依存関係のインストール
@@ -77,7 +77,7 @@ pnpm test
 ### コアフレームワーク
 - **[Effect-TS 3.17+](https://effect.website/)** - 関数型プログラミングエコシステム (最新パターン使用)
 - **[TypeScript 5.6+](https://www.typescriptlang.org/)** - 型安全性とコンパイル時チェック
-- **[Schema (Built-in)](https://effect.website/docs/schema/introduction)** - スキーマ駆動開発
+- **[Schema (内蔵)](https://effect.website/docs/schema/introduction)** - スキーマ駆動開発
 
 ### 3Dレンダリング
 - **[Three.js](https://threejs.org/)** - WebGL 3Dレンダリングエンジン
@@ -112,17 +112,17 @@ pnpm test
 
 ```
 ┌───────────────────────────────────┐
-│        Presentation Layer         │  ← React + Effect-TS Hooks
-│    (Controllers, Views, UI)     │
+│        プレゼンテーション層         │  ← React + Effect-TS Hooks
+│    (コントローラー, ビュー, UI)     │
 ├───────────────────────────────────┤
-│        Application Layer          │  ← UseCases + Workflows
+│        アプリケーション層          │  ← ユースケース + ワークフロー
 │     (Effect.gen + Match.value)   │     (コマンドパターン)
 ├───────────────────────────────────┤
-│          Domain Layer            │  ← Schema.Struct + Services
-│   (Pure Functions + Validation) │     (Context.GenericTag)
+│          ドメイン層            │  ← Schema.Struct + サービス
+│   (純粋関数 + バリデーション) │     (Context.GenericTag)
 ├───────────────────────────────────┤
-│       Infrastructure Layer       │  ← Three.js + WebGL Adapters
-│      (Layer.effect + Ports)      │     (ECS + Physics Engine)
+│       インフラストラクチャ層       │  ← Three.js + WebGLアダプター
+│      (Layer.effect + ポート)      │     (ECS + 物理エンジン)
 └───────────────────────────────────┘
 ```
 
@@ -171,8 +171,8 @@ ts-minecraft/
 
 ### 前提条件
 
-- Node.js 18+ 
-- pnpm 8+
+- Node.js 20+ 
+- pnpm 10+
 
 ### インストールと起動
 
@@ -218,46 +218,46 @@ pnpm build
 ## 📚 ドキュメント構成
 
 ### 🏗️ アーキテクチャ基盤
-- [**アーキテクチャ概要**](../01-architecture/00-overview.md) - システム全体設計と設計原則
-- [**ECS統合**](../01-architecture/02-ddd-ecs-effect-integration.md) - DDD × ECS統合アーキテクチャ
-- [**Effect-TSパターン**](../01-architecture/02-ddd-ecs-effect-integration.md) - 関数型プログラミングパターン
+- [**アーキテクチャ概要**](../01-architecture/00-overall-design.md) - システム全体設計と設計原則
+- [**ECS統合**](../01-architecture/04-ecs-integration.md) - DDD × ECS統合アーキテクチャ
+- [**Effect-TSパターン**](../01-architecture/05-effect-ts-patterns.md) - 関数型プログラミングパターン
 
 ### 📋 実装ガイド
-- [**開発環境セットアップ**](../02-guides/00-development-setup.md) - 環境構築・ツール設定
-- [**Effect-TS基本パターン**](../01-architecture/02-ddd-ecs-effect-integration.md) - 最新パターンとベストプラクティス
+- [**開発環境セットアップ**](../03-guides/00-development-conventions.md) - 環境構築・ツール設定
+- [**Effect-TS基本パターン**](../01-architecture/05-effect-ts-patterns.md) - 最新パターンとベストプラクティス
 
-### 🎮 Core Features（基本機能）
+### 🎮 コア機能
 
-Minecraft クローンとして必須となる基本機能群。すべてEffect-TS 3.17+の最新パターンで実装。
+Minecraftクローンとして必須となる基本機能群。すべてEffect-TS 3.17+の最新パターンで実装。
 
-- [**📋 概要**](../03-systems/00-core/00-overview.md) - Core機能の全体設計とアーキテクチャ原則
-- [**🌍 World System**](../03-systems/00-core/01-world.md) - 地形生成・バイオーム・光源伝播
-- [**👤 Player System**](../03-systems/00-core/02-player.md) - 移動・視点・操作・ステータス管理
-- [**🧱 Block System**](../03-systems/00-core/03-block.md) - ブロックタイプ・状態・物理演算
-- [**🤖 Entity System**](../03-systems/00-core/04-entity.md) - エンティティ・AI・スポーン・当たり判定
-- [**🎨 Rendering System**](../03-systems/00-core/05-rendering.md) - メッシュ生成・LOD・視錐台カリング
-- [**⚡ Physics System**](../03-systems/00-core/06-physics.md) - 重力・衝突・流体・爆発処理
-- [**📦 Chunk System**](../03-systems/00-core/07-chunk.md) - チャンク管理・圧縮・並列処理
-- [**🎒 Inventory System**](../03-systems/00-core/08-inventory.md) - アイテム・スタック・GUI連携
-- [**🔨 Crafting System**](../03-systems/00-core/09-crafting.md) - レシピ・クラフト台・エンチャント
+- [**📋 概要**](../02-specifications/00-core-features/00-overview.md) - コア機能の全体設計とアーキテクチャ原則
+- [**🌍 ワールドシステム**](../02-specifications/00-core-features/01-world-system.md) - 地形生成・バイオーム・光源伝播
+- [**👤 プレイヤーシステム**](../02-specifications/00-core-features/02-player-system.md) - 移動・視点・操作・ステータス管理
+- [**🧱 ブロックシステム**](../02-specifications/00-core-features/03-block-system.md) - ブロックタイプ・状態・物理演算
+- [**🤖 エンティティシステム**](../02-specifications/00-core-features/04-entity-system.md) - エンティティ・AI・スポーン・当たり判定
+- [**🎨 レンダリングシステム**](../02-specifications/00-core-features/05-rendering-system.md) - メッシュ生成・LOD・視錐台カリング
+- [**⚡ 物理システム**](../02-specifications/00-core-features/06-physics-system.md) - 重力・衝突・流体・爆発処理
+- [**📦 チャンクシステム**](../02-specifications/00-core-features/07-chunk-system.md) - チャンク管理・圧縮・並列処理
+- [**🎒 インベントリシステム**](../02-specifications/00-core-features/08-inventory-system.md) - アイテム・スタック・GUI連携
+- [**🔨 クラフトシステム**](../02-specifications/00-core-features/09-crafting-system.md) - レシピ・クラフト台・エンチャント
 
-### 🚀 Enhanced Features（拡張機能）
+### 🚀 拡張機能
 
 基本機能を拡張し、より豊かなゲーム体験を提供する高度な機能群。
 
-- [**📋 概要**](../03-systems/01-enhanced/00-overview.md) - Enhanced機能のアーキテクチャと統合設計
-- [**⚡ Redstone System**](../03-systems/01-enhanced/01-redstone.md) - 論理回路・信号伝播・機械制御
-- [**🌦️ Weather System**](../03-systems/01-enhanced/02-weather.md) - 動的天候・降水・雷・季節変化
-- [**🌞 Day/Night Cycle**](../03-systems/01-enhanced/03-day-night-cycle.md) - 時間システム・天体軌道・光源計算
-- [**🧠 Mob AI System**](../03-systems/01-enhanced/04-mob-ai.md) - 行動木AI・群れ行動・環境適応
-- [**🏪 Villager Trading**](../03-systems/01-enhanced/05-villager-trading.md) - 動的価格・職業・評判システム
-- [**✨ Enchantment System**](../03-systems/01-enhanced/06-enchantment.md) - エンチャント効果・レベル強化・耐久度
-- [**🧪 Potion Effects**](../03-systems/01-enhanced/07-potion-effects.md) - 効果持続・相互作用・能力値変化
-- [**🌋 Nether Portals**](../03-systems/01-enhanced/08-nether-portals.md) - 異次元移動・座標変換・ポータル管理
+- [**📋 概要**](../02-specifications/01-enhanced-features/00-overview.md) - 拡張機能のアーキテクチャと統合設計
+- [**⚡ レッドストーンシステム**](../02-specifications/01-enhanced-features/01-redstone-system.md) - 論理回路・信号伝播・機械制御
+- [**🌦️ 天候システム**](../02-specifications/01-enhanced-features/02-weather-system.md) - 動的天候・降水・雷・季節変化
+- [**🌞 昼夜サイクル**](../02-specifications/01-enhanced-features/03-day-night-cycle.md) - 時間システム・天体軌道・光源計算
+- [**🧠 Mob AIシステム**](../02-specifications/01-enhanced-features/04-mob-ai-system.md) - 行動木AI・群れ行動・環境適応
+- [**🏪 村人取引**](../02-specifications/01-enhanced-features/05-villager-trading.md) - 動的価格・職業・評判システム
+- [**✨ エンチャントシステム**](../02-specifications/01-enhanced-features/06-enchantment-system.md) - エンチャント効果・レベル強化・耐久度
+- [**🧪 ポーション効果**](../02-specifications/01-enhanced-features/07-potion-effects.md) - 効果持続・相互作用・能力値変化
+- [**🌋 ネザーポータル**](../02-specifications/01-enhanced-features/08-nether-portals.md) - 異次元移動・座標変換・ポータル管理
 
 ### 🔧 レイヤー別詳細ドキュメント
-- [**Domain Layer**](../01-architecture/03-layer-architecture.md) - ビジネスロジック・エンティティ・値オブジェクト
-- [**Application Layer**](../01-architecture/03-layer-architecture.md) - ユースケース・ワークフロー・ECSクエリ
+- [**ドメイン層**](../01-architecture/03-layered-architecture.md) - ビジネスロジック・エンティティ・値オブジェクト
+- [**アプリケーション層**](../01-architecture/03-layered-architecture.md) - ユースケース・ワークフロー・ECSクエリ
 
 ## 🏗️ アーキテクチャ概要
 
@@ -265,57 +265,57 @@ Minecraft クローンとして必須となる基本機能群。すべてEffect-
 
 ```mermaid
 graph TB
-    subgraph "Enhanced Features Layer"
-        A[Redstone System] --> B[Weather System]
-        B --> C[Day/Night Cycle]
-        C --> D[Mob AI System]
-        D --> E[Trading & Enchantment]
+    subgraph "拡張機能レイヤー"
+        A[レッドストーンシステム] --> B[天候システム]
+        B --> C[昼夜サイクル]
+        C --> D[Mob AIシステム]
+        D --> E[取引 & エンチャント]
     end
 
-    subgraph "Core Features Layer"
-        F[World System] --> G[Block System]
-        G --> H[Player System]
-        H --> I[Entity System]
-        I --> J[Rendering & Physics]
+    subgraph "コア機能レイヤー"
+        F[ワールドシステム] --> G[ブロックシステム]
+        G --> H[プレイヤーシステム]
+        H --> I[エンティティシステム]
+        I --> J[レンダリング & 物理]
     end
 
-    subgraph "Effect-TS Foundation"
-        K[Pure Functions] --> L[Schema Validation]
-        L --> M[Layer Architecture]
-        M --> N[Error Handling]
+    subgraph "Effect-TS基盤"
+        K[純粋関数] --> L[Schemaバリデーション]
+        L --> M[レイヤーアーキテクチャ]
+        M --> N[エラーハンドリング]
     end
 
     A --> F
-    Enhanced --> Core
-    Core --> Foundation
+    拡張 --> コア
+    コア --> 基盤
 ```
 
 ### 4層アーキテクチャ
 
 ```
 ┌─────────────────────────────┐
-│   🎮 Enhanced Features      │ ← 拡張機能（Redstone, Weather, AI）
+│   🎮 拡張機能      │ ← 拡張機能（レッドストーン, 天候, AI）
 ├─────────────────────────────┤
-│   🏗️ Core Features         │ ← 基本機能（World, Player, Block）
+│   🏗️ コア機能         │ ← 基本機能（ワールド, プレイヤー, ブロック）
 ├─────────────────────────────┤
-│   ⚡ Application Layer      │ ← ユースケース・ECSシステム
+│   ⚡ アプリケーション層      │ ← ユースケース・ECSシステム
 ├─────────────────────────────┤
-│   🔧 Domain Layer          │ ← ビジネスロジック・Pure Functions
+│   🔧 ドメイン層          │ ← ビジネスロジック・純粋関数
 └─────────────────────────────┘
 ```
 
-### 実装優先順位とロードマップ
+### 実装機能の構成
 
-#### 🎯 Phase 1: Core Features 実装（必須機能）
-1. **World System** → **Block System** → **Chunk System** （基盤）
-2. **Player System** → **Physics System** → **Rendering System** （プレイヤー体験）
-3. **Entity System** → **Inventory System** → **Crafting System** （拡張性）
+#### 🎯 コア機能 （必須機能）
+- **ワールドシステム** → **ブロックシステム** → **チャンクシステム** （基盤）
+- **プレイヤーシステム** → **物理システム** → **レンダリングシステム** （プレイヤー体験）
+- **エンティティシステム** → **インベントリシステム** → **クラフトシステム** （拡張性）
 
-#### 🚀 Phase 2: Enhanced Features 実装（拡張機能）
-1. **Day/Night Cycle** → **Weather System** （環境システム）
-2. **Redstone System** → **Mob AI System** （インタラクション）
-3. **Enchantment System** → **Potion Effects** （プレイヤー強化）
-4. **Villager Trading** → **Nether Portals** （高度な機能）
+#### 🚀 拡張機能
+- **昼夜サイクル** → **天候システム** （環境システム）
+- **レッドストーンシステム** → **Mob AIシステム** （インタラクション）
+- **エンチャントシステム** → **ポーション効果** （プレイヤー強化）
+- **村人取引** → **ネザーポータル** （高度な機能）
 
 ## 📊 プロジェクト進捗状況
 
@@ -323,55 +323,35 @@ graph TB
 
 - **🎯 95%関数型プログラミング**: クラスベース → 純粋関数設計
 - **⚡ Effect-TS 3.17+ 統合**: 最新パターン・Schema.Struct採用
-- **🏗️ モジュラー設計**: Core/Enhanced機能の明確分離
+- **🏗️ モジュラー設計**: コア/拡張機能の明確分離
 - **🔧 型安全性強化**: Schema駆動開発・タグ付きエラー
 - **📈 パフォーマンス最適化**: SoA ECS・グリーディメッシング
 
 ### 📋 ドキュメント完成状況
 
 ```
-Core Features:     11/16+ 完成 (69%) ⚠️
-Enhanced Features: 8/20+ 完成 (40%) ⚠️
+コア機能:     11/16+ 完成 (69%) ⚠️
+拡張機能: 8/20+ 完成 (40%) ⚠️
 不足機能分析:      1/1 完成 ✅
 アーキテクチャ:      3/3 完成 ✅
 実装ガイド:        1/1 完成 ✅
 ```
 
-### ⚠️ 重要：未実装機能の存在
+### 📋 システム機能一覧
 
-**現在のドキュメントは基本設計のみ。実際のMinecraft体験には多くの重要機能が不足：**
+#### 🔥 **コアシステム**
+- **体力 & 空腹システム**: プレイヤーの生存メカニズム
+- **戦闘システム**: モンスター戦闘・ダメージ・死亡処理
+- **マルチプレイヤー対応**: ネットワーク・同期・コミュニケーション
 
-#### 🔥 **クリティカル不足機能**
-- **Health & Hunger System**: プレイヤーの生存メカニズム
-- **Combat System**: モンスター戦闘・ダメージ・死亡処理
-- **Multiplayer Support**: ネットワーク・同期・コミュニケーション
+#### 🏗️ **拡張システム**
+- **構造物生成**: 村・ダンジョン・要塞・遺跡
+- **拡張バイオーム**: 海洋・山岳・特殊環境
+- **ジ・エンド次元**: エンダードラゴン・エンドシティ
+- **実績システム**: 進捗・実績管理
+- **高度なゲームプレイ**: 高度なゲームプレイ機能
 
-#### 🏗️ **高優先度不足機能**
-- **Structure Generation**: 村・ダンジョン・要塞・遺跡
-- **Extended Biomes**: 海洋・山岳・特殊環境
-- **The End Dimension**: エンダードラゴン・エンドシティ
-
-**詳細**: [**不足機能一覧**](../04-appendix/00-missing-features.md)
-
-### 🎯 修正されたマイルストーン
-
-#### **Phase 1: サバイバル基盤（3-4ヶ月）**
-1. **Health & Hunger System** - プレイヤー生存システム
-2. **Combat System** - 戦闘・ダメージ処理
-3. **Death & Respawn System** - 死亡・リスポーン機能
-
-#### **Phase 2: 世界拡張（2-3ヶ月）**
-4. **Structure Generation** - 構造物生成システム
-5. **Extended Biome System** - バイオーム多様性
-6. **The End Dimension** - エンドゲームコンテンツ
-
-#### **Phase 3: マルチプレイヤー（4-6ヶ月）**
-7. **Network Architecture** - マルチプレイヤー基盤
-8. **Player Synchronization** - リアルタイム状態同期
-
-#### **Phase 4: 体験向上（継続）**
-9. **Achievement System** - 進捗・実績管理
-10. **Advanced Gameplay** - 高度なゲームプレイ機能
+**詳細**: [**機能仕様一覧**](../02-specifications/00-core-features/00-overview.md)
 
 ## 🚀 開発者向けクイックスタートガイド
 
@@ -412,8 +392,8 @@ pnpm test        # テスト実行
 
 **新機能実装時は以下の順序で参照してください：**
 
-1. **[Core Features概要](../03-systems/00-core/00-overview.md)** - 最新パターンとアーキテクチャ原則
-2. **[Effect-TS基本パターン](../01-architecture/02-ddd-ecs-effect-integration.md)** - Schema.Struct、@app/Serviceパターン
+1. **[コア機能概要](../02-specifications/00-core-features/00-overview.md)** - 最新パターンとアーキテクチャ原則
+2. **[Effect-TS基本パターン](../01-architecture/05-effect-ts-patterns.md)** - Schema.Struct、@app/Serviceパターン
 3. **個別機能ドキュメント** - 具体的な実装例とベストプラクティス
 
 ### 4. 重要な開発原則
@@ -431,12 +411,12 @@ pnpm test        # テスト実行
 ### 貢献時の注意事項
 
 - **Effect-TS 3.17+** の最新パターンを使用
-- **Pure Functions** のみでの実装
+- **純粋関数** のみでの実装
 - **Schema駆動開発** の徹底
-- **Performance First** の設計思想
+- **パフォーマンス第一** の設計思想
 
 Issue報告やプルリクエストを歓迎します！
 
 ## 📄 ライセンス
 
-MIT License
+MITライセンス
