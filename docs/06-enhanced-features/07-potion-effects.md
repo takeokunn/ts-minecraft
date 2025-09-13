@@ -1,1822 +1,1673 @@
-# Potion Effects System - ポーション効果システム
+# Potion Effects System
 
-## 概要
+The Potion Effects System provides temporary and persistent status effects for entities in the TypeScript Minecraft clone. Built with Effect-TS 3.17+ functional architecture and DDD layer separation, this system manages complex effect interactions, brewing mechanics, and visual feedback while maintaining type safety and predictable behavior.
 
-Potion Effects Systemは、Minecraftの世界で一時的・永続的なステータス効果を管理するシステムです。効果の持続時間管理、複数効果の相互作用、プレイヤー能力値への影響、視覚効果とパーティクルを実装します。Effect-TSの関数型プログラミングとSTMを活用し、一貫性のある効果システムを提供します。
+## System Overview and Responsibilities
 
-## システム設計原理
+The Potion Effects System serves as an enhanced feature built on top of Player and Crafting Systems, providing:
 
-### Potion Effects Core Types
+- **Effect Definition & Management**: Comprehensive effect type definitions with amplification and duration control
+- **Brewing Mechanics**: Full brewing stand functionality with recipe validation and progression
+- **Effect Application Logic**: Type-safe effect stacking, overriding, and removal mechanisms
+- **Effect Interactions**: Complex interaction patterns including conflicts, enhancements, and neutralization
+- **Visual Integration**: Particle systems, UI overlays, and screen effects
+- **Status Calculations**: Real-time modification of entity attributes (speed, damage, health)
+- **Persistence**: Effect serialization and world save integration
+- **Performance Optimization**: ECS integration with Structure of Arrays patterns
 
-ポーション効果システムの基本型定義です。
+### Architecture Overview
 
-```typescript
-import { Effect, Layer, Context, Schema, STM, Ref, pipe, Match } from "effect"
-import { Brand } from "effect"
+```
+Domain/
+├── PotionEffect/         # Core effect definitions and calculations
+├── BrewingSystem/        # Brewing mechanics and recipes
+├── EffectInteraction/    # Complex interaction rules and resolution
+└── StatusCalculation/    # Pure functions for attribute modification
 
-// Domain Types
-export type EffectDuration = Brand.Brand<number, "EffectDuration"> // milliseconds
-export const EffectDuration = pipe(
-  Schema.Number,
-  Schema.int(),
-  Schema.positive(),
-  Schema.brand("EffectDuration")
-)
+Application/
+├── EffectManager/        # Effect lifecycle management
+├── BrewingProcess/       # Brewing workflow coordination
+├── EffectApplication/    # Application strategies and validation
+└── EffectPersistence/    # Save/load coordination
 
-export type EffectAmplifier = Brand.Brand<number, "EffectAmplifier"> // 0-255
-export const EffectAmplifier = pipe(
-  Schema.Number,
-  Schema.int(),
-  Schema.between(0, 255),
-  Schema.brand("EffectAmplifier")
-)
-
-export type EffectPotency = Brand.Brand<number, "EffectPotency"> // 0.0-2.0
-export const EffectPotency = pipe(
-  Schema.Number,
-  Schema.between(0, 2),
-  Schema.brand("EffectPotency")
-)
-
-// Effect Types
-export const PotionEffectType = Schema.Literal(
-  // Beneficial Effects
-  "speed",              // 移動速度上昇
-  "slowness",           // 移動速度低下
-  "haste",              // 採掘速度上昇
-  "mining_fatigue",     // 採掘速度低下
-  "strength",           // 攻撃力上昇
-  "instant_health",     // 即座回復
-  "instant_damage",     // 即座ダメージ
-  "jump_boost",         // ジャンプ力上昇
-  "nausea",             // 吐き気
-  "regeneration",       // 再生
-  "resistance",         // ダメージ耐性
-  "fire_resistance",    // 火炎耐性
-  "water_breathing",    // 水中呼吸
-  "invisibility",       // 透明化
-  "blindness",          // 盲目
-  "night_vision",       // 暗視
-  "hunger",             // 空腹
-  "weakness",           // 攻撃力低下
-  "poison",             // 毒
-  "wither",             // ウィザー
-  "health_boost",       // 体力増強
-  "absorption",         // ダメージ吸収
-  "saturation",         // 満腹度回復
-  "glowing",            // 発光
-  "levitation",         // 浮遊
-  "luck",               // 幸運
-  "bad_luck",           // 不運
-  "slow_falling",       // 低速落下
-  "conduit_power",      // コンジットパワー
-  "dolphins_grace",     // イルカの好意
-  "bad_omen",           // 不吉な予感
-  "hero_of_the_village", // 村の英雄
-  "darkness"            // 暗闇
-)
-
-export type PotionEffectType = Schema.Schema.Type<typeof PotionEffectType>
-
-// Effect Categories
-export const EffectCategory = Schema.Literal(
-  "beneficial",   // 有益な効果
-  "harmful",      // 有害な効果
-  "neutral",      // 中立的な効果
-  "instant"       // 即座効果
-)
-
-export type EffectCategory = Schema.Schema.Type<typeof EffectCategory>
-
-// Potion Effect Definition
-export const PotionEffect = Schema.Struct({
-  id: Schema.String,
-  type: PotionEffectType,
-  amplifier: EffectAmplifier,
-  duration: EffectDuration,
-  remainingDuration: EffectDuration,
-  category: EffectCategory,
-  isInstant: Schema.Boolean,
-  showParticles: Schema.Boolean,
-  showIcon: Schema.Boolean,
-  isAmbient: Schema.Boolean, // From beacon effects
-  source: Schema.Struct({
-    type: Schema.Literal("potion", "splash_potion", "lingering_potion", "tipped_arrow", "beacon", "food", "command", "entity"),
-    sourceId: Schema.optional(Schema.String),
-    caster: Schema.optional(Schema.String) // Entity that caused this effect
-  }),
-  potency: EffectPotency,
-  stackable: Schema.Boolean,
-  overridable: Schema.Boolean,
-  createdAt: Schema.DateTimeUtc,
-  lastTick: Schema.DateTimeUtc,
-  tickInterval: Schema.Number, // How often the effect ticks (in milliseconds)
-  metadata: Schema.Record(Schema.String, Schema.Unknown)
-})
-
-export type PotionEffect = Schema.Schema.Type<typeof PotionEffect>
-
-// Effect Instance (applied to entity)
-export const ActiveEffect = Schema.Struct({
-  effect: PotionEffect,
-  targetEntityId: Schema.String,
-  appliedAt: Schema.DateTimeUtc,
-  lastUpdate: Schema.DateTimeUtc,
-  totalTicksApplied: Schema.Number,
-  suspended: Schema.Boolean, // Can be suspended by milk or other effects
-  immunityEndTime: Schema.optional(Schema.DateTimeUtc) // Temporary immunity
-})
-
-export type ActiveEffect = Schema.Schema.Type<typeof ActiveEffect>
-
-// Effect Modifier
-export const EffectModifier = Schema.Struct({
-  attribute: Schema.Literal(
-    "movement_speed", "attack_damage", "max_health", "armor", "armor_toughness",
-    "attack_speed", "luck", "knockback_resistance", "follow_range", "flying_speed"
-  ),
-  operation: Schema.Literal("add", "multiply_base", "multiply_total"),
-  value: Schema.Number,
-  uuid: Schema.String
-})
-
-export type EffectModifier = Schema.Schema.Type<typeof EffectModifier>
-
-// Effect Definition Template
-export const EffectTemplate = Schema.Struct({
-  type: PotionEffectType,
-  displayName: Schema.String,
-  description: Schema.String,
-  category: EffectCategory,
-  isInstant: Schema.Boolean,
-  defaultDuration: EffectDuration,
-  maxDuration: EffectDuration,
-  maxAmplifier: EffectAmplifier,
-  tickInterval: Schema.Number,
-  color: Schema.Struct({
-    r: Schema.Number.pipe(Schema.between(0, 255)),
-    g: Schema.Number.pipe(Schema.between(0, 255)),
-    b: Schema.Number.pipe(Schema.between(0, 255))
-  }),
-  particleType: Schema.String,
-  soundEffect: Schema.optional(Schema.String),
-  modifiers: Schema.Array(EffectModifier),
-  conflictsWith: Schema.Array(PotionEffectType),
-  immunityDuration: Schema.Number, // Duration of immunity after effect ends
-  canBeAmplified: Schema.Boolean,
-  canBeExtended: Schema.Boolean,
-  removedByMilk: Schema.Boolean,
-  hiddenWhenAmbient: Schema.Boolean
-})
-
-export type EffectTemplate = Schema.Schema.Type<typeof EffectTemplate>
-
-// Effect Interaction
-export const EffectInteraction = Schema.Struct({
-  primaryEffect: PotionEffectType,
-  secondaryEffect: PotionEffectType,
-  interactionType: Schema.Literal("cancel", "amplify", "reduce", "transform", "combine"),
-  resultEffect: Schema.optional(PotionEffectType),
-  priority: Schema.Number,
-  conditions: Schema.Array(Schema.String)
-})
-
-export type EffectInteraction = Schema.Schema.Type<typeof EffectInteraction>
+Infrastructure/
+├── EffectStorage/        # Data persistence implementation
+├── ParticleRenderer/     # Visual effect rendering
+├── EffectTimer/          # Time-based effect management
+└── PerformanceCache/     # Optimization and caching
 ```
 
-### Potion Effects Engine
+## Effect Definition System
 
-ポーション効果エンジンの実装です。
+### Core Effect Types
 
 ```typescript
-// Potion Effects Engine
-interface PotionEffectsEngine {
-  readonly applyEffect: (
-    entityId: string,
-    effect: PotionEffect,
-    world: World
-  ) => Effect.Effect<ActiveEffect, EffectError>
+// Domain Layer - Effect Type Definitions
+const PotionEffectType = Schema.Literal(
+  "Speed", "Slowness", "Haste", "MiningFatigue",
+  "Strength", "InstantHealth", "InstantDamage", "JumpBoost",
+  "Nausea", "Regeneration", "Resistance", "FireResistance",
+  "WaterBreathing", "Invisibility", "Blindness", "NightVision",
+  "Hunger", "Weakness", "Poison", "Wither",
+  "HealthBoost", "Absorption", "Saturation", "Glowing",
+  "Levitation", "Luck", "Unluck", "SlowFalling",
+  "ConduitPower", "DolphinsGrace", "BadOmen", "HeroOfTheVillage"
+)
 
-  readonly removeEffect: (
-    entityId: string,
-    effectType: PotionEffectType
-  ) => Effect.Effect<void, EffectError>
+type PotionEffectType = Schema.Schema.Type<typeof PotionEffectType>
 
-  readonly updateActiveEffects: (
-    entityId: string,
-    deltaTime: number
-  ) => Effect.Effect<ReadonlyArray<ActiveEffect>, never>
+// Effect Instance Definition
+const PotionEffect = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("EffectId")),
+  type: PotionEffectType,
+  amplifier: Schema.Number.pipe(
+    Schema.clamp(0, 255),
+    Schema.brand("EffectAmplifier")
+  ),
+  duration: Schema.Number.pipe(
+    Schema.positive(),
+    Schema.brand("EffectDuration") // in ticks (1 tick = 50ms)
+  ),
+  remainingDuration: Schema.Number.pipe(Schema.brand("EffectDuration")),
+  showParticles: Schema.Boolean.pipe(Schema.default(true)),
+  showIcon: Schema.Boolean.pipe(Schema.default(true)),
+  ambient: Schema.Boolean.pipe(Schema.default(false)), // beacon effects
+  source: Schema.Struct({
+    type: Schema.Literal("Potion", "Splash", "Lingering", "Arrow", "Beacon", "Food", "Command", "Natural"),
+    sourceId: Schema.optional(Schema.String),
+    appliedBy: Schema.optional(Schema.String) // Entity ID that applied this effect
+  }),
+  hiddenEffect: Schema.optional(PotionEffectType), // For suspicious stew
+  factorData: Schema.optional(Schema.Record(Schema.String, Schema.Number))
+})
 
-  readonly getActiveEffects: (
-    entityId: string
-  ) => Effect.Effect<ReadonlyArray<ActiveEffect>, never>
+type PotionEffect = Schema.Schema.Type<typeof PotionEffect>
 
-  readonly hasEffect: (
-    entityId: string,
-    effectType: PotionEffectType
-  ) => Effect.Effect<boolean, never>
+// Effect Properties Template
+const EffectProperties = Schema.Struct({
+  type: PotionEffectType,
+  category: Schema.Literal("Beneficial", "Harmful", "Neutral"),
+  instant: Schema.Boolean,
+  color: Schema.Struct({
+    r: Schema.Number.pipe(Schema.clamp(0, 255)),
+    g: Schema.Number.pipe(Schema.clamp(0, 255)),
+    b: Schema.Number.pipe(Schema.clamp(0, 255))
+  }),
+  baseValue: Schema.Number,
+  scalingFactor: Schema.Number,
+  maxAmplifier: Schema.Number.pipe(Schema.default(3)),
+  tickInterval: Schema.Number.pipe(Schema.default(20)), // ticks between applications
+  conflictsWith: Schema.Array(PotionEffectType),
+  enhancesWith: Schema.Array(PotionEffectType),
+  neutralizesWith: Schema.Array(PotionEffectType)
+})
 
-  readonly processEffectInteractions: (
-    entityId: string,
-    newEffect: PotionEffect
-  ) => Effect.Effect<ReadonlyArray<PotionEffect>, never>
+type EffectProperties = Schema.Schema.Type<typeof EffectProperties>
+```
 
-  readonly calculateEffectModifiers: (
-    entity: Entity,
-    effects: ReadonlyArray<ActiveEffect>
-  ) => Effect.Effect<EntityModifiers, never>
+### Pure Effect Calculations
 
-  readonly clearAllEffects: (
-    entityId: string,
-    reason: ClearReason
-  ) => Effect.Effect<void, never>
-
-  readonly immunizeToEffect: (
-    entityId: string,
-    effectType: PotionEffectType,
-    duration: number
-  ) => Effect.Effect<void, never>
+```typescript
+// Pure function for effect value calculation
+const calculateEffectValue = (
+  effect: PotionEffect,
+  properties: EffectProperties
+): number => {
+  const amplifierMultiplier = effect.amplifier + 1
+  return properties.baseValue + (properties.scalingFactor * amplifierMultiplier)
 }
 
-export const PotionEffectsEngine = Context.GenericTag<PotionEffectsEngine>("@app/PotionEffectsEngine")
+// Duration calculations
+const calculateRemainingTicks = (
+  effect: PotionEffect,
+  currentTick: number,
+  startTick: number
+): number => Math.max(0, effect.duration - (currentTick - startTick))
 
-export const PotionEffectsEngineLive = Layer.effect(
-  PotionEffectsEngine,
-  Effect.gen(function* () {
-    const activeEffects = yield* Ref.make<Map<string, ReadonlyArray<ActiveEffect>>>(new Map())
-    const effectTemplates = yield* Ref.make<Map<PotionEffectType, EffectTemplate>>(new Map())
-    const effectInteractions = yield* Ref.make<ReadonlyArray<EffectInteraction>>([])
-    const immunities = yield* Ref.make<Map<string, Map<PotionEffectType, number>>>(new Map())
+// Effect strength comparison
+const compareEffectStrength = (
+  effect1: PotionEffect,
+  effect2: PotionEffect
+): number => {
+  if (effect1.type !== effect2.type) return 0
 
-    // Initialize effect templates
-    yield* initializeEffectTemplates()
+  const amplifierDiff = effect1.amplifier - effect2.amplifier
+  if (amplifierDiff !== 0) return amplifierDiff
 
-    const applyEffect = (
-      entityId: string,
-      effect: PotionEffect,
-      world: World
-    ) => STM.gen(function* () {
-      const currentEffects = yield* STM.fromRef(activeEffects)
-      const entityEffects = currentEffects.get(entityId) || []
+  return effect1.remainingDuration - effect2.remainingDuration
+}
 
-      // Check immunity
-      const immunityMap = yield* STM.fromRef(immunities)
-      const entityImmunities = immunityMap.get(entityId)
-      if (entityImmunities?.has(effect.type)) {
-        const immunityEnd = entityImmunities.get(effect.type)!
-        if (Date.now() < immunityEnd) {
-          return yield* STM.fail(new EffectError(`Entity ${entityId} is immune to ${effect.type}`))
-        }
-      }
+// Effect applicability check
+const canApplyEffect = (
+  newEffect: PotionEffect,
+  existingEffects: readonly PotionEffect[],
+  properties: EffectProperties
+): boolean => {
+  const conflicting = existingEffects.find(existing =>
+    properties.conflictsWith.includes(existing.type)
+  )
 
-      // Process interactions with existing effects
-      const interactionResults = yield* STM.succeed(
-        processEffectInteractionsSync(effect, entityEffects)
-      )
+  if (conflicting) return false
 
-      let finalEffect = effect
-      let updatedEffects = [...entityEffects]
+  const sameType = existingEffects.find(existing =>
+    existing.type === newEffect.type
+  )
 
-      // Apply interaction results
-      for (const interaction of interactionResults) {
-        const interactionResult = Match.value(interaction.type).pipe(
-          Match.when("cancel", () => ({
-            updatedEffects: updatedEffects.filter(e => e.effect.type !== interaction.targetEffect),
-            finalEffect
-          })),
-          Match.when("amplify", () => ({
-            updatedEffects,
-            finalEffect: {
-              ...finalEffect,
-              amplifier: Math.min(255, finalEffect.amplifier + interaction.modifier) as EffectAmplifier
-            }
-          })),
-          Match.when("reduce", () => ({
-            updatedEffects,
-            finalEffect: {
-              ...finalEffect,
-              duration: Math.max(1000, finalEffect.duration - interaction.modifier) as EffectDuration
-            }
-          })),
-          Match.when("transform", () => ({
-            updatedEffects,
-            finalEffect: interaction.resultEffectType ? {
-              ...finalEffect,
-              type: interaction.resultEffectType
-            } : finalEffect
-          })),
-          Match.orElse(() => ({ updatedEffects, finalEffect }))
-        )
+  if (!sameType) return true
 
-        updatedEffects = interactionResult.updatedEffects
-        finalEffect = interactionResult.finalEffect
-      }
-
-      // Check if effect already exists
-      const existingEffectIndex = updatedEffects.findIndex(e => e.effect.type === finalEffect.type)
-
-      if (existingEffectIndex >= 0) {
-        const existingEffect = updatedEffects[existingEffectIndex]
-
-        // Determine how to combine
-        if (finalEffect.stackable) {
-          // Stack amplifier
-          const newAmplifier = Math.min(255,
-            existingEffect.effect.amplifier + finalEffect.amplifier
-          ) as EffectAmplifier
-
-          finalEffect = {
-            ...finalEffect,
-            amplifier: newAmplifier,
-            duration: Math.max(existingEffect.effect.remainingDuration, finalEffect.duration) as EffectDuration
-          }
-        } else if (finalEffect.overridable) {
-          // Use stronger effect
-          if (finalEffect.amplifier > existingEffect.effect.amplifier ||
-              (finalEffect.amplifier === existingEffect.effect.amplifier &&
-               finalEffect.duration > existingEffect.effect.remainingDuration)) {
-            // Keep new effect
-          } else {
-            // Keep existing effect
-            return existingEffect
-          }
-        } else {
-          // Cannot override, keep existing
-          return existingEffect
-        }
-
-        updatedEffects[existingEffectIndex] = {
-          ...existingEffect,
-          effect: finalEffect,
-          appliedAt: new Date(),
-          lastUpdate: new Date(),
-          totalTicksApplied: 0
-        }
-      } else {
-        // Add new effect
-        const activeEffect: ActiveEffect = {
-          effect: {
-            ...finalEffect,
-            remainingDuration: finalEffect.duration
-          },
-          targetEntityId: entityId,
-          appliedAt: new Date(),
-          lastUpdate: new Date(),
-          totalTicksApplied: 0,
-          suspended: false
-        }
-
-        updatedEffects.push(activeEffect)
-      }
-
-      // Update state
-      yield* STM.setRef(activeEffects, currentEffects.set(entityId, updatedEffects))
-
-      // Apply instant effects immediately
-      if (finalEffect.isInstant) {
-        yield* STM.succeed(Effect.runSync(applyInstantEffect(entityId, finalEffect, world)))
-      }
-
-      return updatedEffects[updatedEffects.length - 1]
-    })
-
-    const removeEffect = (
-      entityId: string,
-      effectType: PotionEffectType
-    ) => Effect.gen(function* () {
-      yield* Ref.update(activeEffects, map => {
-        const entityEffects = map.get(entityId) || []
-        const updatedEffects = entityEffects.filter(e => e.effect.type !== effectType)
-        return map.set(entityId, updatedEffects)
-      })
-
-      // Apply removal side effects
-      yield* applyEffectRemovalSideEffects(entityId, effectType)
-    })
-
-    const updateActiveEffects = (
-      entityId: string,
-      deltaTime: number
-    ) => Effect.gen(function* () {
-      const effectsMap = yield* Ref.get(activeEffects)
-      const entityEffects = effectsMap.get(entityId) || []
-
-      const updatedEffects: ActiveEffect[] = []
-      const expiredEffects: ActiveEffect[] = []
-
-      for (const activeEffect of entityEffects) {
-        if (activeEffect.suspended) {
-          updatedEffects.push(activeEffect)
-          continue
-        }
-
-        const newRemainingDuration = Math.max(0,
-          activeEffect.effect.remainingDuration - deltaTime
-        ) as EffectDuration
-
-        const shouldTick = Date.now() - activeEffect.lastUpdate.getTime() >= activeEffect.effect.tickInterval
-
-        if (newRemainingDuration <= 0 && !activeEffect.effect.isInstant) {
-          expiredEffects.push(activeEffect)
-          continue
-        }
-
-        let updatedEffect = {
-          ...activeEffect,
-          effect: {
-            ...activeEffect.effect,
-            remainingDuration: newRemainingDuration
-          },
-          lastUpdate: shouldTick ? new Date() : activeEffect.lastUpdate,
-          totalTicksApplied: shouldTick ? activeEffect.totalTicksApplied + 1 : activeEffect.totalTicksApplied
-        }
-
-        // Apply tick effects
-        if (shouldTick && !activeEffect.effect.isInstant) {
-          yield* applyEffectTick(entityId, updatedEffect.effect)
-        }
-
-        updatedEffects.push(updatedEffect)
-      }
-
-      // Handle expired effects
-      for (const expiredEffect of expiredEffects) {
-        yield* applyEffectExpiration(entityId, expiredEffect.effect)
-      }
-
-      yield* Ref.update(activeEffects, map => map.set(entityId, updatedEffects))
-
-      return updatedEffects
-    })
-
-    const getActiveEffects = (entityId: string) => Effect.gen(function* () {
-      const effectsMap = yield* Ref.get(activeEffects)
-      return effectsMap.get(entityId) || []
-    })
-
-    const hasEffect = (
-      entityId: string,
-      effectType: PotionEffectType
-    ) => Effect.gen(function* () {
-      const entityEffects = yield* getActiveEffects(entityId)
-      return entityEffects.some(e => e.effect.type === effectType)
-    })
-
-    const processEffectInteractions = (
-      entityId: string,
-      newEffect: PotionEffect
-    ) => Effect.gen(function* () {
-      const interactions = yield* Ref.get(effectInteractions)
-      const entityEffects = yield* getActiveEffects(entityId)
-
-      const resultEffects: PotionEffect[] = [newEffect]
-
-      for (const interaction of interactions) {
-        if (interaction.primaryEffect === newEffect.type) {
-          const hasSecondary = entityEffects.some(e => e.effect.type === interaction.secondaryEffect)
-
-          if (hasSecondary) {
-            const modifiedEffect = yield* applyInteraction(newEffect, interaction)
-            resultEffects[0] = modifiedEffect
-          }
-        }
-      }
-
-      return resultEffects
-    })
-
-    const calculateEffectModifiers = (
-      entity: Entity,
-      effects: ReadonlyArray<ActiveEffect>
-    ) => Effect.gen(function* () {
-      let modifiers: EntityModifiers = {
-        movementSpeed: 1.0,
-        attackDamage: 1.0,
-        maxHealth: entity.maxHealth,
-        armor: 0,
-        attackSpeed: 1.0,
-        luck: 0,
-        jumpHeight: 1.0,
-        visibility: 1.0,
-        regenerationRate: 0
-      }
-
-      const templates = yield* Ref.get(effectTemplates)
-
-      for (const activeEffect of effects) {
-        const template = templates.get(activeEffect.effect.type)
-        if (!template) continue
-
-        const amplifier = activeEffect.effect.amplifier
-        const potency = activeEffect.effect.potency
-
-        modifiers = Match.value(activeEffect.effect.type).pipe(
-          Match.when("speed", () => ({
-            ...modifiers,
-            movementSpeed: modifiers.movementSpeed * (1 + (0.2 * (amplifier + 1)) * potency)
-          })),
-          Match.when("slowness", () => ({
-            ...modifiers,
-            movementSpeed: modifiers.movementSpeed * Math.max(0.1, 1 - (0.15 * (amplifier + 1)) * potency)
-          })),
-          Match.when("strength", () => ({
-            ...modifiers,
-            attackDamage: modifiers.attackDamage + 3 * (amplifier + 1) * potency
-          })),
-          Match.when("weakness", () => ({
-            ...modifiers,
-            attackDamage: modifiers.attackDamage - 4 * (amplifier + 1) * potency
-          })),
-          Match.when("jump_boost", () => ({
-            ...modifiers,
-            jumpHeight: modifiers.jumpHeight + 0.5 * (amplifier + 1) * potency
-          })),
-          Match.when("haste", () => ({
-            ...modifiers,
-            attackSpeed: modifiers.attackSpeed * (1 + (0.1 * (amplifier + 1)) * potency)
-          })),
-          Match.when("mining_fatigue", () => ({
-            ...modifiers,
-            attackSpeed: modifiers.attackSpeed * Math.max(0.1, 1 - (0.3 * (amplifier + 1)) * potency)
-          })),
-          Match.when("resistance", () => ({
-            ...modifiers,
-            armor: modifiers.armor + 2 * (amplifier + 1) * potency
-          })),
-          Match.when("absorption", () => ({
-            ...modifiers,
-            maxHealth: modifiers.maxHealth + 4 * (amplifier + 1) * potency
-          })),
-          Match.when("health_boost", () => ({
-            ...modifiers,
-            maxHealth: modifiers.maxHealth + 4 * (amplifier + 1) * potency
-          })),
-          Match.when("luck", () => ({
-            ...modifiers,
-            luck: modifiers.luck + (amplifier + 1) * potency
-          })),
-          Match.when("bad_luck", () => ({
-            ...modifiers,
-            luck: modifiers.luck - (amplifier + 1) * potency
-          })),
-          Match.when("invisibility", () => ({
-            ...modifiers,
-            visibility: 0
-          })),
-          Match.when("glowing", () => ({
-            ...modifiers,
-            visibility: 2.0
-          })),
-          Match.when("regeneration", () => ({
-            ...modifiers,
-            regenerationRate: modifiers.regenerationRate + (amplifier + 1) * potency
-          })),
-          Match.orElse(() => modifiers)
-        )
-      }
-
-      return modifiers
-    })
-
-    const clearAllEffects = (
-      entityId: string,
-      reason: ClearReason
-    ) => Effect.gen(function* () {
-      const entityEffects = yield* getActiveEffects(entityId)
-
-      for (const activeEffect of entityEffects) {
-        const template = yield* Effect.map(
-          Ref.get(effectTemplates),
-          templates => templates.get(activeEffect.effect.type)
-        )
-
-        // Only clear effects that can be cleared by this reason
-        const canClear = reason === "milk" ? template?.removedByMilk ?? true :
-                        reason === "death" ? true :
-                        reason === "command" ? true :
-                        false
-
-        if (canClear) {
-          yield* applyEffectRemovalSideEffects(entityId, activeEffect.effect.type)
-        }
-      }
-
-      yield* Ref.update(activeEffects, map => {
-        if (reason === "milk") {
-          const filteredEffects = (map.get(entityId) || []).filter(e => {
-            const template = effectTemplates.get(e.effect.type)
-            return template && !template.removedByMilk
-          })
-          return map.set(entityId, filteredEffects)
-        } else {
-          return map.set(entityId, [])
-        }
-      })
-    })
-
-    const immunizeToEffect = (
-      entityId: string,
-      effectType: PotionEffectType,
-      duration: number
-    ) => Effect.gen(function* () {
-      const endTime = Date.now() + duration
-
-      yield* Ref.update(immunities, map => {
-        const entityImmunities = map.get(entityId) || new Map()
-        entityImmunities.set(effectType, endTime)
-        return map.set(entityId, entityImmunities)
-      })
-    })
-
-    return {
-      applyEffect: (entityId, effect, world) => STM.commit(applyEffect(entityId, effect, world)),
-      removeEffect,
-      updateActiveEffects,
-      getActiveEffects,
-      hasEffect,
-      processEffectInteractions,
-      calculateEffectModifiers,
-      clearAllEffects,
-      immunizeToEffect
-    } as const
-  })
-)
+  return compareEffectStrength(newEffect, sameType) > 0
+}
 ```
 
-### Potion Brewing System
+## Potion Brewing System
 
-ポーション醸造システムです。
+### Brewing Recipe Definitions
 
 ```typescript
-// Potion Brewing System
-interface PotionBrewingSystem {
+// Brewing Ingredient Types
+const BrewingIngredient = Schema.Struct({
+  type: Schema.Literal(
+    "NetherWart", "RedstoneDust", "GlowstoneDust", "Gunpowder", "DragonBreath",
+    "FermentedSpiderEye", "MagmaCream", "Sugar", "RabbitFoot", "GlisteringMelon",
+    "SpiderEye", "GoldenCarrot", "BlazePowder", "GhastTear", "TurtleHelmet",
+    "PhantomMembrane", "Pufferfish", "GoldIngot", "Redstone"
+  ),
+  count: Schema.Number.pipe(Schema.positive(), Schema.default(1)),
+  nbt: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+})
+
+type BrewingIngredient = Schema.Schema.Type<typeof BrewingIngredient>
+
+// Brewing Recipe Structure
+const BrewingRecipe = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("RecipeId")),
+  name: Schema.String,
+  ingredient: BrewingIngredient,
+  basePotion: Schema.Literal("Water", "Awkward", "Thick", "Mundane"),
+  resultPotion: Schema.Struct({
+    type: PotionEffectType,
+    amplifier: Schema.Number.pipe(Schema.default(0)),
+    duration: Schema.Number.pipe(Schema.default(3600)) // 3 minutes in ticks
+  }),
+  brewingTime: Schema.Number.pipe(Schema.default(400)), // 20 seconds in ticks
+  fuelCost: Schema.Number.pipe(Schema.default(1)),
+  successRate: Schema.Number.pipe(Schema.clamp(0, 1), Schema.default(1))
+})
+
+type BrewingRecipe = Schema.Schema.Type<typeof BrewingRecipe>
+
+// Potion Modification Types
+const PotionModification = Schema.Literal("Extended", "Enhanced", "Splash", "Lingering")
+type PotionModification = Schema.Schema.Type<typeof PotionModification>
+
+const ModificationRecipe = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("ModificationId")),
+  baseEffectType: PotionEffectType,
+  modification: PotionModification,
+  ingredient: BrewingIngredient,
+  durationMultiplier: Schema.Number.pipe(Schema.default(1)),
+  amplifierBonus: Schema.Number.pipe(Schema.default(0)),
+  splashRadius: Schema.optional(Schema.Number),
+  lingeringDuration: Schema.optional(Schema.Number)
+})
+
+type ModificationRecipe = Schema.Schema.Type<typeof ModificationRecipe>
+```
+
+### Brewing Station Management
+
+```typescript
+// Application Layer - Brewing Process
+interface BrewingSystemInterface {
   readonly startBrewing: (
-    brewingStandId: string,
+    stationId: string,
     ingredients: BrewingIngredients,
-    fuelLevel: number
+    recipe: BrewingRecipe
   ) => Effect.Effect<BrewingProcess, BrewingError>
 
   readonly updateBrewing: (
     processId: string,
-    deltaTime: number
+    deltaTicks: number
   ) => Effect.Effect<BrewingProcess, BrewingError>
 
   readonly completeBrewing: (
     processId: string
-  ) => Effect.Effect<ReadonlyArray<PotionItem>, BrewingError>
+  ) => Effect.Effect<readonly PotionItem[], BrewingError>
 
-  readonly createCustomPotion: (
-    basePotion: PotionType,
-    modifiers: ReadonlyArray<BrewingModifier>
-  ) => Effect.Effect<PotionItem, BrewingError>
-
-  readonly analyzeBrewingRecipe: (
-    ingredient: string,
-    basePotions: ReadonlyArray<PotionType>
-  ) => Effect.Effect<ReadonlyArray<BrewingResult>, never>
+  readonly validateRecipe: (
+    ingredients: BrewingIngredients
+  ) => Effect.Effect<Option.Option<BrewingRecipe>, never>
 
   readonly calculateBrewingTime: (
     recipe: BrewingRecipe,
     efficiency: number
   ) => Effect.Effect<number, never>
-
-  readonly validateBrewingCombination: (
-    ingredients: BrewingIngredients
-  ) => Effect.Effect<boolean, never>
 }
 
-export const PotionBrewingSystem = Context.GenericTag<PotionBrewingSystem>("@app/PotionBrewingSystem")
+const BrewingSystem = Context.GenericTag<BrewingSystemInterface>("@app/BrewingSystem")
 
-export const PotionBrewingSystemLive = Layer.effect(
-  PotionBrewingSystem,
+// Brewing Station State
+const BrewingStation = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("BrewingStationId")),
+  position: Position,
+  fuel: Schema.Number.pipe(Schema.clamp(0, 20)),
+  slots: Schema.Struct({
+    ingredient: Schema.NullOr(ItemStack),
+    bottles: Schema.Tuple(
+      Schema.NullOr(ItemStack),
+      Schema.NullOr(ItemStack),
+      Schema.NullOr(ItemStack)
+    )
+  }),
+  brewingProgress: Schema.Number.pipe(Schema.clamp(0, 400)),
+  isActive: Schema.Boolean,
+  efficiency: Schema.Number.pipe(Schema.clamp(0.5, 2.0), Schema.default(1.0))
+})
+
+type BrewingStation = Schema.Schema.Type<typeof BrewingStation>
+
+// Brewing Process State
+const BrewingProcess = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("ProcessId")),
+  stationId: Schema.String.pipe(Schema.brand("BrewingStationId")),
+  recipe: BrewingRecipe,
+  startTick: Schema.Number,
+  totalTicks: Schema.Number,
+  remainingTicks: Schema.Number,
+  stage: Schema.Literal("Preparing", "Brewing", "Complete", "Failed"),
+  bubbleIntensity: Schema.Number.pipe(Schema.clamp(0, 1)),
+  fuelConsumed: Schema.Number
+})
+
+type BrewingProcess = Schema.Schema.Type<typeof BrewingProcess>
+```
+
+## Effect Application and Removal Mechanisms
+
+### Effect Management Service
+
+```typescript
+// Application Layer - Effect Management
+interface EffectManagerInterface {
+  readonly applyEffect: (
+    entityId: EntityId,
+    effect: PotionEffect,
+    force?: boolean
+  ) => Effect.Effect<ActiveEffect, EffectError>
+
+  readonly removeEffect: (
+    entityId: EntityId,
+    effectType: PotionEffectType
+  ) => Effect.Effect<void, EffectError>
+
+  readonly removeAllEffects: (
+    entityId: EntityId,
+    category?: EffectCategory
+  ) => Effect.Effect<void, EffectError>
+
+  readonly getActiveEffects: (
+    entityId: EntityId
+  ) => Effect.Effect<readonly ActiveEffect[], never>
+
+  readonly hasEffect: (
+    entityId: EntityId,
+    effectType: PotionEffectType
+  ) => Effect.Effect<boolean, never>
+
+  readonly updateEffects: (
+    entityId: EntityId,
+    deltaTicks: number
+  ) => Effect.Effect<readonly ActiveEffect[], EffectError>
+
+  readonly getEffectAmplifier: (
+    entityId: EntityId,
+    effectType: PotionEffectType
+  ) => Effect.Effect<number, never>
+}
+
+const EffectManager = Context.GenericTag<EffectManagerInterface>("@app/EffectManager")
+
+// Active Effect State
+const ActiveEffect = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("ActiveEffectId")),
+  entityId: EntityId,
+  effect: PotionEffect,
+  appliedTick: Schema.Number,
+  lastTickApplied: Schema.Number,
+  ticksActive: Schema.Number,
+  suspended: Schema.Boolean.pipe(Schema.default(false)),
+  immunityEndTick: Schema.optional(Schema.Number)
+})
+
+type ActiveEffect = Schema.Schema.Type<typeof ActiveEffect>
+```
+
+### Effect Application Logic
+
+```typescript
+// Effect application with interaction handling
+const applyEffectToEntity = (
+  entityId: EntityId,
+  effect: PotionEffect,
+  currentTick: number,
+  force: boolean = false
+): Effect.Effect<ActiveEffect, EffectError> =>
   Effect.gen(function* () {
-    const activeBrewingProcesses = yield* Ref.make<Map<string, BrewingProcess>>(new Map())
-    const brewingRecipes = yield* Ref.make<Map<string, BrewingRecipe>>(new Map())
+    // Early return: Entity validation
+    const entity = yield* EntityManager.getEntity(entityId)
+    if (!entity) {
+      return yield* Effect.fail(createEffectError("Entity not found", entityId))
+    }
 
-    // Initialize brewing recipes
-    yield* initializeBrewingRecipes()
+    // Early return: Effect properties validation
+    const properties = yield* getEffectProperties(effect.type)
+    if (!properties) {
+      return yield* Effect.fail(createEffectError("Unknown effect type", effect.type))
+    }
 
-    const startBrewing = (
-      brewingStandId: string,
-      ingredients: BrewingIngredients,
-      fuelLevel: number
-    ) => Effect.gen(function* () {
-      if (fuelLevel <= 0) {
-        return yield* Effect.fail(new BrewingError("No fuel in brewing stand"))
-      }
+    // Get existing effects
+    const existingEffects = yield* EffectStorage.getEntityEffects(entityId)
 
-      const isValid = yield* validateBrewingCombination(ingredients)
-      if (!isValid) {
-        return yield* Effect.fail(new BrewingError("Invalid brewing combination"))
-      }
+    // Process interactions
+    const interactionResult = yield* processEffectInteraction(effect, existingEffects, properties)
 
-      const recipe = yield* findMatchingRecipe(ingredients)
-      if (!recipe) {
-        return yield* Effect.fail(new BrewingError("No recipe found for ingredients"))
-      }
+    return yield* Match.value(interactionResult).pipe(
+      Match.tag("Apply", () => addNewEffect(entityId, effect, currentTick)),
+      Match.tag("Replace", ({ oldEffect }) =>
+        Effect.gen(function* () {
+          yield* removeEffectFromEntity(entityId, oldEffect.effect.type)
+          return yield* addNewEffect(entityId, effect, currentTick)
+        })
+      ),
+      Match.tag("Enhance", ({ existingEffect, newAmplifier, newDuration }) =>
+        enhanceExistingEffect(entityId, existingEffect, newAmplifier, newDuration)
+      ),
+      Match.tag("Stack", ({ existingEffect }) =>
+        stackEffectAmplifier(entityId, existingEffect, effect.amplifier)
+      ),
+      Match.tag("Block", () =>
+        Effect.fail(createEffectError("Effect application blocked by existing effect"))
+      ),
+      Match.tag("Neutralize", ({ neutralizedEffects }) =>
+        Effect.gen(function* () {
+          yield* Effect.forEach(neutralizedEffects, neutralized =>
+            removeEffectFromEntity(entityId, neutralized.effect.type)
+          )
+          return yield* addNewEffect(entityId, effect, currentTick)
+        })
+      ),
+      Match.exhaustive
+    )
+  })
 
-      const brewingTime = yield* calculateBrewingTime(recipe, 1.0)
+// Effect removal with cleanup
+const removeEffectFromEntity = (
+  entityId: EntityId,
+  effectType: PotionEffectType
+): Effect.Effect<void, EffectError> =>
+  Effect.gen(function* () {
+    const activeEffect = yield* EffectStorage.getEntityEffect(entityId, effectType)
 
-      const process: BrewingProcess = {
-        id: crypto.randomUUID(),
-        brewingStandId,
-        recipe,
-        ingredients,
-        startTime: new Date(),
-        totalTime: brewingTime,
-        remainingTime: brewingTime,
-        fuelConsumed: 0,
-        stage: "brewing",
-        efficiency: 1.0,
-        bubbleIntensity: 1.0,
-        expectedResults: recipe.results
-      }
+    if (!activeEffect) return
 
-      yield* Ref.update(activeBrewingProcesses, map => map.set(process.id, process))
+    // Apply removal side effects
+    yield* applyEffectRemovalSideEffects(entityId, activeEffect)
 
-      return process
+    // Remove from storage
+    yield* EffectStorage.removeEntityEffect(entityId, effectType)
+
+    // Update entity attributes
+    yield* recalculateEntityAttributes(entityId)
+
+    // Trigger removal events
+    yield* EventBus.publish({
+      type: "EffectRemoved",
+      entityId,
+      effectType,
+      wasExpired: false,
+      timestamp: Date.now()
     })
+  })
+```
 
-    const updateBrewing = (
-      processId: string,
-      deltaTime: number
-    ) => Effect.gen(function* () {
-      const processes = yield* Ref.get(activeBrewingProcesses)
-      const process = processes.get(processId)
+## Effect Interaction System
 
-      if (!process) {
-        return yield* Effect.fail(new BrewingError(`Process not found: ${processId}`))
+### Interaction Patterns
+
+```typescript
+// Effect Interaction Result Types
+type EffectInteractionResult =
+  | { readonly _tag: "Apply" }
+  | { readonly _tag: "Replace"; readonly oldEffect: ActiveEffect }
+  | { readonly _tag: "Enhance"; readonly existingEffect: ActiveEffect; readonly newAmplifier: number; readonly newDuration: number }
+  | { readonly _tag: "Stack"; readonly existingEffect: ActiveEffect }
+  | { readonly _tag: "Block" }
+  | { readonly _tag: "Neutralize"; readonly neutralizedEffects: readonly ActiveEffect[] }
+
+// Interaction processing
+const processEffectInteraction = (
+  newEffect: PotionEffect,
+  existingEffects: readonly ActiveEffect[],
+  properties: EffectProperties
+): Effect.Effect<EffectInteractionResult, never> =>
+  Effect.gen(function* () {
+    // Check for same type effects
+    const sameTypeEffect = existingEffects.find(e => e.effect.type === newEffect.type)
+
+    if (sameTypeEffect) {
+      return yield* handleSameTypeInteraction(newEffect, sameTypeEffect, properties)
+    }
+
+    // Check for conflicting effects
+    const conflictingEffects = existingEffects.filter(e =>
+      properties.conflictsWith.includes(e.effect.type)
+    )
+
+    if (conflictingEffects.length > 0) {
+      const strongestConflict = conflictingEffects.reduce((strongest, current) =>
+        compareEffectStrength(current.effect, strongest.effect) > 0 ? current : strongest
+      )
+
+      if (compareEffectStrength(newEffect, strongestConflict.effect) > 0) {
+        return { _tag: "Replace", oldEffect: strongestConflict } as const
+      } else {
+        return { _tag: "Block" } as const
       }
+    }
 
-      const newRemainingTime = Math.max(0, process.remainingTime - deltaTime)
-      const progress = 1 - (newRemainingTime / process.totalTime)
+    // Check for neutralizing effects
+    const neutralizingEffects = existingEffects.filter(e =>
+      properties.neutralizesWith.includes(e.effect.type) ||
+      isOppositeEffect(newEffect.type, e.effect.type)
+    )
 
-      // Calculate bubble intensity based on progress
-      const bubbleIntensity = Math.sin(progress * Math.PI * 4) * 0.5 + 0.7
+    if (neutralizingEffects.length > 0) {
+      return { _tag: "Neutralize", neutralizedEffects: neutralizingEffects } as const
+    }
 
-      // Calculate fuel consumption
-      const fuelRate = 1 / 20000 // 1 fuel per 20 seconds
-      const fuelConsumed = process.fuelConsumed + (deltaTime * fuelRate)
+    // Check for enhancing effects
+    const enhancingEffects = existingEffects.filter(e =>
+      properties.enhancesWith.includes(e.effect.type)
+    )
 
-      const updatedProcess: BrewingProcess = {
-        ...process,
-        remainingTime: newRemainingTime,
-        fuelConsumed,
-        bubbleIntensity,
-        stage: newRemainingTime <= 0 ? "complete" : "brewing"
+    if (enhancingEffects.length > 0) {
+      const enhancer = enhancingEffects[0]
+      const enhancedAmplifier = Math.min(255, newEffect.amplifier + 1)
+      const enhancedDuration = Math.floor(newEffect.duration * 1.5)
+
+      return {
+        _tag: "Enhance",
+        existingEffect: enhancer,
+        newAmplifier: enhancedAmplifier,
+        newDuration: enhancedDuration
+      } as const
+    }
+
+    return { _tag: "Apply" } as const
+  })
+
+// Pure functions for effect relationships
+const isOppositeEffect = (effect1: PotionEffectType, effect2: PotionEffectType): boolean => {
+  const opposites: Record<PotionEffectType, PotionEffectType[]> = {
+    "Speed": ["Slowness"],
+    "Slowness": ["Speed"],
+    "Strength": ["Weakness"],
+    "Weakness": ["Strength"],
+    "JumpBoost": [],
+    "Haste": ["MiningFatigue"],
+    "MiningFatigue": ["Haste"],
+    "Regeneration": ["Poison", "Wither"],
+    "Poison": ["Regeneration", "InstantHealth"],
+    "InstantHealth": ["InstantDamage", "Poison", "Wither"],
+    "InstantDamage": ["InstantHealth"],
+    "Resistance": [],
+    "FireResistance": [],
+    "WaterBreathing": [],
+    "Invisibility": ["Glowing"],
+    "Glowing": ["Invisibility"],
+    "Blindness": ["NightVision"],
+    "NightVision": ["Blindness", "Darkness"],
+    "Darkness": ["NightVision"],
+    "Hunger": ["Saturation"],
+    "Saturation": ["Hunger"],
+    "Wither": ["Regeneration", "InstantHealth"],
+    "HealthBoost": [],
+    "Absorption": [],
+    "Levitation": ["SlowFalling"],
+    "SlowFalling": [],
+    "Luck": ["Unluck"],
+    "Unluck": ["Luck"],
+    "Nausea": [],
+    "ConduitPower": [],
+    "DolphinsGrace": [],
+    "BadOmen": ["HeroOfTheVillage"],
+    "HeroOfTheVillage": ["BadOmen"]
+  }
+
+  return opposites[effect1]?.includes(effect2) ?? false
+}
+
+const isEnhancingEffect = (effect1: PotionEffectType, effect2: PotionEffectType): boolean => {
+  const enhancements: Record<PotionEffectType, PotionEffectType[]> = {
+    "Speed": ["JumpBoost", "DolphinsGrace"],
+    "JumpBoost": ["Speed"],
+    "Strength": ["Haste"],
+    "Haste": ["Strength"],
+    "Regeneration": ["HealthBoost"],
+    "HealthBoost": ["Regeneration", "Absorption"],
+    "Absorption": ["HealthBoost"],
+    "NightVision": ["ConduitPower"],
+    "ConduitPower": ["NightVision", "WaterBreathing"],
+    "WaterBreathing": ["ConduitPower", "DolphinsGrace"],
+    "DolphinsGrace": ["WaterBreathing", "Speed"],
+    "Luck": ["HeroOfTheVillage"],
+    "HeroOfTheVillage": ["Luck"]
+  }
+
+  return enhancements[effect1]?.includes(effect2) ?? false
+}
+```
+
+## Visual Effects Integration
+
+### Particle System Integration
+
+```typescript
+// Effect Particle Configuration
+const EffectParticleConfig = Schema.Struct({
+  type: Schema.Literal("Ambient", "Spell", "InstantSpell", "WitchSpell", "Note", "Portal", "Enchant", "Flame", "Lava", "Footstep", "Splash", "Wake", "Smoke", "Redstone", "Snowball", "Slime", "Heart", "Barrier", "ItemCrack", "BlockCrack", "BlockDust", "DropletRain", "DropletSplash", "Sweep", "Bubble", "Cloud", "Explosion"),
+  color: Schema.Struct({
+    r: Schema.Number.pipe(Schema.clamp(0, 1)),
+    g: Schema.Number.pipe(Schema.clamp(0, 1)),
+    b: Schema.Number.pipe(Schema.clamp(0, 1)),
+    a: Schema.Number.pipe(Schema.clamp(0, 1))
+  }),
+  velocity: Vector3,
+  count: Schema.Number.pipe(Schema.positive()),
+  lifetime: Schema.Number.pipe(Schema.positive()),
+  size: Schema.Number.pipe(Schema.positive()),
+  gravity: Schema.Number
+})
+
+type EffectParticleConfig = Schema.Schema.Type<typeof EffectParticleConfig>
+
+// Effect-specific particle mappings
+const getEffectParticleConfigs = (effectType: PotionEffectType): readonly EffectParticleConfig[] => {
+  const particleMap: Record<PotionEffectType, readonly EffectParticleConfig[]> = {
+    "Speed": [{
+      type: "Spell",
+      color: { r: 0.5, g: 0.9, b: 1.0, a: 0.8 },
+      velocity: { x: 0.1, y: 0.1, z: 0.1 },
+      count: 3,
+      lifetime: 40,
+      size: 0.5,
+      gravity: -0.02
+    }],
+    "Strength": [{
+      type: "Spell",
+      color: { r: 0.9, g: 0.4, b: 0.2, a: 0.8 },
+      velocity: { x: 0.05, y: 0.15, z: 0.05 },
+      count: 4,
+      lifetime: 50,
+      size: 0.6,
+      gravity: -0.01
+    }],
+    "Regeneration": [{
+      type: "Heart",
+      color: { r: 1.0, g: 0.4, b: 0.4, a: 0.9 },
+      velocity: { x: 0.02, y: 0.2, z: 0.02 },
+      count: 2,
+      lifetime: 60,
+      size: 0.4,
+      gravity: -0.03
+    }],
+    "Poison": [{
+      type: "Spell",
+      color: { r: 0.3, g: 0.8, b: 0.3, a: 0.7 },
+      velocity: { x: 0.08, y: 0.05, z: 0.08 },
+      count: 5,
+      lifetime: 35,
+      size: 0.3,
+      gravity: 0.01
+    }],
+    "Invisibility": [{
+      type: "Spell",
+      color: { r: 0.8, g: 0.8, b: 1.0, a: 0.3 },
+      velocity: { x: 0.12, y: 0.08, z: 0.12 },
+      count: 8,
+      lifetime: 30,
+      size: 0.2,
+      gravity: -0.02
+    }],
+    "NightVision": [{
+      type: "Spell",
+      color: { r: 0.2, g: 0.2, b: 1.0, a: 0.6 },
+      velocity: { x: 0.06, y: 0.12, z: 0.06 },
+      count: 3,
+      lifetime: 45,
+      size: 0.4,
+      gravity: -0.015
+    }],
+    "FireResistance": [{
+      type: "Flame",
+      color: { r: 1.0, g: 0.6, b: 0.0, a: 0.8 },
+      velocity: { x: 0.04, y: 0.18, z: 0.04 },
+      count: 6,
+      lifetime: 25,
+      size: 0.3,
+      gravity: -0.05
+    }]
+    // Additional effects...
+  }
+
+  return particleMap[effectType] ?? []
+}
+
+// Particle Rendering Service
+interface EffectParticleRendererInterface {
+  readonly spawnEffectParticles: (
+    entityId: EntityId,
+    effect: PotionEffect,
+    position: Position,
+    intensity: number
+  ) => Effect.Effect<void, RenderError>
+
+  readonly updateParticles: (
+    deltaTicks: number
+  ) => Effect.Effect<void, never>
+
+  readonly getActiveParticleSystems: (
+    entityId: EntityId
+  ) => Effect.Effect<readonly ParticleSystem[], never>
+
+  readonly clearEntityParticles: (
+    entityId: EntityId,
+    effectType?: PotionEffectType
+  ) => Effect.Effect<void, never>
+}
+
+const EffectParticleRenderer = Context.GenericTag<EffectParticleRendererInterface>("@app/EffectParticleRenderer")
+```
+
+### UI Display System
+
+```typescript
+// Effect Status UI Components
+const EffectStatusIcon = Schema.Struct({
+  effectType: PotionEffectType,
+  amplifier: Schema.Number,
+  remainingTicks: Schema.Number,
+  color: Schema.Struct({
+    r: Schema.Number,
+    g: Schema.Number,
+    b: Schema.Number,
+    a: Schema.Number
+  }),
+  texturePath: Schema.String,
+  blinking: Schema.Boolean,
+  ambient: Schema.Boolean,
+  sortOrder: Schema.Number
+})
+
+type EffectStatusIcon = Schema.Schema.Type<typeof EffectStatusIcon>
+
+// Screen Overlay Effects
+const ScreenOverlayEffect = Schema.Struct({
+  effectType: PotionEffectType,
+  overlayType: Schema.Literal("ColorTint", "Distortion", "Border", "Vignette", "Particles"),
+  intensity: Schema.Number.pipe(Schema.clamp(0, 1)),
+  color: Schema.optional(Schema.Struct({
+    r: Schema.Number,
+    g: Schema.Number,
+    b: Schema.Number,
+    a: Schema.Number
+  })),
+  blendMode: Schema.Literal("Normal", "Multiply", "Screen", "Overlay", "Add"),
+  animationPhase: Schema.Number
+})
+
+type ScreenOverlayEffect = Schema.Schema.Type<typeof ScreenOverlayEffect>
+
+// UI Management Service
+interface EffectUIInterface {
+  readonly updateStatusDisplay: (
+    playerId: PlayerId,
+    activeEffects: readonly ActiveEffect[]
+  ) => Effect.Effect<void, UIError>
+
+  readonly createScreenOverlays: (
+    activeEffects: readonly ActiveEffect[],
+    currentTick: number
+  ) => Effect.Effect<readonly ScreenOverlayEffect[], never>
+
+  readonly showEffectNotification: (
+    playerId: PlayerId,
+    effect: PotionEffect,
+    action: "Applied" | "Removed" | "Expired" | "Enhanced"
+  ) => Effect.Effect<void, UIError>
+
+  readonly calculateStatusIconLayout: (
+    effects: readonly ActiveEffect[],
+    screenWidth: number,
+    screenHeight: number
+  ) => Effect.Effect<readonly EffectStatusIcon[], never>
+}
+
+const EffectUI = Context.GenericTag<EffectUIInterface>("@app/EffectUI")
+```
+
+## Status Effect Calculations
+
+### Attribute Modification System
+
+```typescript
+// Attribute Modifier Types
+const AttributeModifier = Schema.Struct({
+  attribute: Schema.Literal(
+    "MaxHealth", "MovementSpeed", "AttackDamage", "AttackSpeed",
+    "Armor", "ArmorToughness", "KnockbackResistance", "JumpHeight",
+    "FlyingSpeed", "Luck", "FollowRange"
+  ),
+  operation: Schema.Literal("Add", "MultiplyBase", "MultiplyTotal"),
+  value: Schema.Number,
+  uuid: Schema.String.pipe(Schema.brand("ModifierUUID"))
+})
+
+type AttributeModifier = Schema.Schema.Type<typeof AttributeModifier>
+
+// Effect to modifier mapping
+const getEffectModifiers = (
+  effect: PotionEffect
+): readonly AttributeModifier[] => {
+  const amplifier = effect.amplifier + 1
+
+  const modifierMap: Record<PotionEffectType, (amp: number) => readonly AttributeModifier[]> = {
+    "Speed": (amp) => [{
+      attribute: "MovementSpeed",
+      operation: "MultiplyBase",
+      value: 0.2 * amp,
+      uuid: `speed_${effect.id}` as AttributeModifier["uuid"]
+    }],
+    "Slowness": (amp) => [{
+      attribute: "MovementSpeed",
+      operation: "MultiplyBase",
+      value: -0.15 * amp,
+      uuid: `slowness_${effect.id}` as AttributeModifier["uuid"]
+    }],
+    "Haste": (amp) => [{
+      attribute: "AttackSpeed",
+      operation: "MultiplyBase",
+      value: 0.1 * amp,
+      uuid: `haste_${effect.id}` as AttributeModifier["uuid"]
+    }],
+    "MiningFatigue": (amp) => [{
+      attribute: "AttackSpeed",
+      operation: "MultiplyBase",
+      value: -0.1 * amp,
+      uuid: `mining_fatigue_${effect.id}` as AttributeModifier["uuid"]
+    }],
+    "Strength": (amp) => [{
+      attribute: "AttackDamage",
+      operation: "Add",
+      value: 3 * amp,
+      uuid: `strength_${effect.id}` as AttributeModifier["uuid"]
+    }],
+    "Weakness": (amp) => [{
+      attribute: "AttackDamage",
+      operation: "Add",
+      value: -4 * amp,
+      uuid: `weakness_${effect.id}` as AttributeModifier["uuid"]
+    }],
+    "JumpBoost": (amp) => [{
+      attribute: "JumpHeight",
+      operation: "Add",
+      value: 0.1 * amp,
+      uuid: `jump_boost_${effect.id}` as AttributeModifier["uuid"]
+    }],
+    "Resistance": (amp) => [{
+      attribute: "Armor",
+      operation: "Add",
+      value: 2 * amp,
+      uuid: `resistance_${effect.id}` as AttributeModifier["uuid"]
+    }],
+    "HealthBoost": (amp) => [{
+      attribute: "MaxHealth",
+      operation: "Add",
+      value: 4 * amp,
+      uuid: `health_boost_${effect.id}` as AttributeModifier["uuid"]
+    }],
+    "Absorption": (amp) => [{
+      attribute: "MaxHealth",
+      operation: "Add",
+      value: 4 * amp,
+      uuid: `absorption_${effect.id}` as AttributeModifier["uuid"]
+    }],
+    "Luck": (amp) => [{
+      attribute: "Luck",
+      operation: "Add",
+      value: amp,
+      uuid: `luck_${effect.id}` as AttributeModifier["uuid"]
+    }],
+    "Unluck": (amp) => [{
+      attribute: "Luck",
+      operation: "Add",
+      value: -amp,
+      uuid: `unluck_${effect.id}` as AttributeModifier["uuid"]
+    }]
+  }
+
+  const generator = modifierMap[effect.type]
+  return generator ? generator(amplifier) : []
+}
+
+// Status Calculation Service
+interface StatusCalculatorInterface {
+  readonly calculateEntityAttributes: (
+    entityId: EntityId,
+    baseAttributes: EntityAttributes
+  ) => Effect.Effect<EntityAttributes, never>
+
+  readonly applyModifiers: (
+    baseValue: number,
+    modifiers: readonly AttributeModifier[]
+  ) => number
+
+  readonly getEffectiveMovementSpeed: (
+    entityId: EntityId
+  ) => Effect.Effect<number, never>
+
+  readonly getEffectiveAttackDamage: (
+    entityId: EntityId
+  ) => Effect.Effect<number, never>
+}
+
+const StatusCalculator = Context.GenericTag<StatusCalculatorInterface>("@app/StatusCalculator")
+
+// Pure modifier application function
+const applyAttributeModifiers = (
+  baseValue: number,
+  modifiers: readonly AttributeModifier[]
+): number => {
+  // Group modifiers by operation type
+  const addModifiers = modifiers.filter(m => m.operation === "Add")
+  const multiplyBaseModifiers = modifiers.filter(m => m.operation === "MultiplyBase")
+  const multiplyTotalModifiers = modifiers.filter(m => m.operation === "MultiplyTotal")
+
+  // Apply additive modifiers first
+  const afterAdd = addModifiers.reduce(
+    (value, modifier) => value + modifier.value,
+    baseValue
+  )
+
+  // Apply base multiplication modifiers
+  const afterMultiplyBase = multiplyBaseModifiers.reduce(
+    (value, modifier) => value * (1 + modifier.value),
+    afterAdd
+  )
+
+  // Apply total multiplication modifiers
+  const final = multiplyTotalModifiers.reduce(
+    (value, modifier) => value * (1 + modifier.value),
+    afterMultiplyBase
+  )
+
+  return Math.max(0, final)
+}
+```
+
+## Effect Persistence and Save System
+
+### Persistence Schema
+
+```typescript
+// Serializable Effect Data
+const SerializableEffect = Schema.Struct({
+  type: PotionEffectType,
+  amplifier: Schema.Number,
+  remainingTicks: Schema.Number,
+  ambient: Schema.Boolean,
+  showParticles: Schema.Boolean,
+  showIcon: Schema.Boolean,
+  source: Schema.Struct({
+    type: Schema.String,
+    sourceId: Schema.optional(Schema.String)
+  }),
+  appliedTick: Schema.Number,
+  lastTickApplied: Schema.Number
+})
+
+type SerializableEffect = Schema.Schema.Type<typeof SerializableEffect>
+
+// Entity Effect Save Data
+const EntityEffectSaveData = Schema.Struct({
+  entityId: EntityId,
+  effects: Schema.Array(SerializableEffect),
+  lastUpdateTick: Schema.Number,
+  worldTick: Schema.Number
+})
+
+type EntityEffectSaveData = Schema.Schema.Type<typeof EntityEffectSaveData>
+
+// World Effect Data
+const WorldEffectData = Schema.Struct({
+  entities: Schema.Array(EntityEffectSaveData),
+  brewingStations: Schema.Array(BrewingStation),
+  globalEffects: Schema.Array(Schema.Struct({
+    type: Schema.String,
+    data: Schema.Record(Schema.String, Schema.Unknown)
+  })),
+  version: Schema.Number,
+  timestamp: Schema.Number
+})
+
+type WorldEffectData = Schema.Schema.Type<typeof WorldEffectData>
+```
+
+### Persistence Service
+
+```typescript
+// Persistence Management
+interface EffectPersistenceInterface {
+  readonly saveWorldEffects: (
+    worldId: WorldId
+  ) => Effect.Effect<void, PersistenceError>
+
+  readonly loadWorldEffects: (
+    worldId: WorldId
+  ) => Effect.Effect<WorldEffectData, PersistenceError>
+
+  readonly saveEntityEffects: (
+    entityId: EntityId,
+    effects: readonly ActiveEffect[]
+  ) => Effect.Effect<void, PersistenceError>
+
+  readonly loadEntityEffects: (
+    entityId: EntityId
+  ) => Effect.Effect<readonly ActiveEffect[], PersistenceError>
+
+  readonly createWorldBackup: (
+    worldId: WorldId,
+    includeEffects: boolean
+  ) => Effect.Effect<string, PersistenceError> // Returns backup path
+
+  readonly restoreFromBackup: (
+    backupPath: string
+  ) => Effect.Effect<WorldEffectData, PersistenceError>
+}
+
+const EffectPersistence = Context.GenericTag<EffectPersistenceInterface>("@app/EffectPersistence")
+
+// Serialization helpers
+const serializeActiveEffect = (activeEffect: ActiveEffect): SerializableEffect => ({
+  type: activeEffect.effect.type,
+  amplifier: activeEffect.effect.amplifier,
+  remainingTicks: activeEffect.effect.remainingDuration,
+  ambient: activeEffect.effect.ambient,
+  showParticles: activeEffect.effect.showParticles,
+  showIcon: activeEffect.effect.showIcon,
+  source: activeEffect.effect.source,
+  appliedTick: activeEffect.appliedTick,
+  lastTickApplied: activeEffect.lastTickApplied
+})
+
+const deserializeEffect = (
+  serialized: SerializableEffect,
+  currentTick: number
+): Effect.Effect<ActiveEffect, never> =>
+  Effect.gen(function* () {
+    const effect: PotionEffect = {
+      id: crypto.randomUUID() as PotionEffect["id"],
+      type: serialized.type,
+      amplifier: serialized.amplifier as PotionEffect["amplifier"],
+      duration: (serialized.remainingTicks + (currentTick - serialized.appliedTick)) as PotionEffect["duration"],
+      remainingDuration: serialized.remainingTicks as PotionEffect["remainingDuration"],
+      showParticles: serialized.showParticles,
+      showIcon: serialized.showIcon,
+      ambient: serialized.ambient,
+      source: serialized.source as PotionEffect["source"],
+      factorData: undefined
+    }
+
+    const activeEffect: ActiveEffect = {
+      id: crypto.randomUUID() as ActiveEffect["id"],
+      entityId: "" as EntityId, // Will be set by caller
+      effect,
+      appliedTick: serialized.appliedTick,
+      lastTickApplied: serialized.lastTickApplied,
+      ticksActive: currentTick - serialized.appliedTick,
+      suspended: false
+    }
+
+    return activeEffect
+  })
+```
+
+## Performance Optimization
+
+### ECS Integration and Memory Management
+
+```typescript
+// Effect Component (ECS Integration)
+interface EffectComponentArrays {
+  readonly entityIds: Int32Array
+  readonly effectTypeCounts: Int32Array
+  readonly effectTypes: Int32Array // Packed effect type enums
+  readonly amplifiers: Int32Array
+  readonly remainingDurations: Int32Array
+  readonly lastTickApplied: Int32Array
+  readonly showParticles: Int8Array // Boolean flags
+  readonly showIcons: Int8Array
+  readonly ambient: Int8Array
+  readonly particleTimers: Float32Array
+}
+
+// Structure of Arrays implementation
+const createEffectComponentArrays = (capacity: number): EffectComponentArrays => ({
+  entityIds: new Int32Array(capacity),
+  effectTypeCounts: new Int32Array(capacity),
+  effectTypes: new Int32Array(capacity * 8), // Max 8 effects per entity
+  amplifiers: new Int32Array(capacity * 8),
+  remainingDurations: new Int32Array(capacity * 8),
+  lastTickApplied: new Int32Array(capacity * 8),
+  showParticles: new Int8Array(capacity * 8),
+  showIcons: new Int8Array(capacity * 8),
+  ambient: new Int8Array(capacity * 8),
+  particleTimers: new Float32Array(capacity * 8)
+})
+
+// Batch effect updates
+const updateEffectsBatch = (
+  arrays: EffectComponentArrays,
+  deltaTicks: number,
+  currentTick: number,
+  startIndex: number,
+  endIndex: number
+): Effect.Effect<void, never> =>
+  Effect.sync(() => {
+    for (let entityIndex = startIndex; entityIndex < endIndex; entityIndex++) {
+      const entityId = arrays.entityIds[entityIndex]
+      if (entityId === 0) continue // Empty slot
+
+      const effectCount = arrays.effectTypeCounts[entityIndex]
+      const effectStartIndex = entityIndex * 8
+
+      for (let effectIndex = 0; effectIndex < effectCount; effectIndex++) {
+        const arrayIndex = effectStartIndex + effectIndex
+        const remainingDuration = arrays.remainingDurations[arrayIndex]
+
+        if (remainingDuration <= 0) {
+          // Effect expired - remove it
+          removeEffectFromArrays(arrays, entityIndex, effectIndex)
+          continue
+        }
+
+        // Update remaining duration
+        arrays.remainingDurations[arrayIndex] = Math.max(0, remainingDuration - deltaTicks)
+
+        // Update particle timers
+        arrays.particleTimers[arrayIndex] -= deltaTicks
+        if (arrays.particleTimers[arrayIndex] <= 0 && arrays.showParticles[arrayIndex]) {
+          arrays.particleTimers[arrayIndex] = 20 // Reset to 1 second
+          // Trigger particle spawn
+        }
+
+        // Apply tick effects
+        const tickInterval = getEffectTickInterval(arrays.effectTypes[arrayIndex])
+        if (currentTick - arrays.lastTickApplied[arrayIndex] >= tickInterval) {
+          arrays.lastTickApplied[arrayIndex] = currentTick
+          // Apply tick-based effect logic
+        }
       }
+    }
+  })
 
-      yield* Ref.update(activeBrewingProcesses, map => map.set(processId, updatedProcess))
+// Memory pool for effect instances
+interface EffectMemoryPool {
+  readonly activeEffects: ActiveEffect[]
+  readonly freeIndices: Set<number>
+  readonly usedCount: number
+  readonly capacity: number
+}
 
-      // Generate brewing particles and sounds
-      if (updatedProcess.stage === "brewing") {
-        yield* generateBrewingEffects(process.brewingStandId, bubbleIntensity)
-      }
+const createEffectMemoryPool = (initialCapacity: number = 10000): Effect.Effect<EffectMemoryPool, never> =>
+  Effect.sync(() => ({
+    activeEffects: new Array(initialCapacity),
+    freeIndices: new Set(Array.from({ length: initialCapacity }, (_, i) => i)),
+    usedCount: 0,
+    capacity: initialCapacity
+  }))
+```
 
-      return updatedProcess
+### Performance Monitoring and Optimization
+
+```typescript
+// Performance metrics
+const EffectPerformanceMetrics = Schema.Struct({
+  totalActiveEffects: Schema.Number,
+  effectUpdatesPerSecond: Schema.Number,
+  particleRenderTime: Schema.Number,
+  memoryUsage: Schema.Number,
+  cacheHitRate: Schema.Number,
+  averageEffectsPerEntity: Schema.Number,
+  peakEffectsThisFrame: Schema.Number
+})
+
+type EffectPerformanceMetrics = Schema.Schema.Type<typeof EffectPerformanceMetrics>
+
+// Adaptive quality system
+const adaptiveEffectQuality = (
+  performanceMetrics: EffectPerformanceMetrics,
+  targetFPS: number,
+  currentFPS: number
+): Effect.Effect<EffectQualitySettings, never> =>
+  Effect.gen(function* () {
+    const performanceRatio = currentFPS / targetFPS
+
+    let particleQuality = 1.0
+    let updateFrequency = 1
+    let maxEffectsPerEntity = 8
+    let enableScreenEffects = true
+
+    if (performanceRatio < 0.8) { // Running slow
+      particleQuality = 0.6
+      updateFrequency = 2 // Update every 2 frames
+      maxEffectsPerEntity = 6
+      enableScreenEffects = false
+    } else if (performanceRatio < 0.9) {
+      particleQuality = 0.8
+      updateFrequency = 1
+      maxEffectsPerEntity = 7
+      enableScreenEffects = true
+    }
+
+    return {
+      particleQuality,
+      updateFrequency,
+      maxEffectsPerEntity,
+      enableScreenEffects,
+      enableParticles: particleQuality > 0,
+      particleDensityMultiplier: particleQuality,
+      effectUpdateInterval: updateFrequency
+    }
+  })
+```
+
+## Implementation Examples and Code Samples
+
+### Complete Usage Example
+
+```typescript
+// Main implementation example - Potion consumption
+const drinkPotion = (
+  playerId: PlayerId,
+  potionItem: PotionItem
+): Effect.Effect<void, GameError> =>
+  Effect.gen(function* () {
+    // Early return: Player validation
+    const player = yield* PlayerManager.getPlayer(playerId)
+    if (!player) {
+      return yield* Effect.fail(createGameError("Player not found"))
+    }
+
+    // Early return: Item validation
+    const potionEffects = yield* validateAndExtractEffects(potionItem)
+    if (potionEffects.length === 0) {
+      return yield* Effect.fail(createGameError("Invalid potion - no effects"))
+    }
+
+    const currentTick = yield* WorldSystem.getCurrentTick()
+
+    // Apply all effects from the potion
+    yield* Effect.forEach(potionEffects, effect =>
+      EffectManager.applyEffect(player.entityId, effect)
+    )
+
+    // Consume the item
+    yield* PlayerInventory.removeItem(playerId, potionItem.id, 1)
+
+    // Add empty bottle
+    const emptyBottle = createGlassBottle()
+    yield* PlayerInventory.addItem(playerId, emptyBottle)
+
+    // Play consumption effects
+    yield* SoundManager.playSound(player.position, "potion.drink")
+    yield* EffectParticleRenderer.spawnEffectParticles(
+      player.entityId,
+      potionEffects[0], // Use first effect for particle color
+      player.position,
+      1.0
+    )
+
+    // Log action
+    yield* GameLogger.logAction({
+      type: "PotionConsumed",
+      playerId,
+      potionType: potionItem.type,
+      effectsApplied: potionEffects.map(e => e.type),
+      timestamp: currentTick
     })
+  })
 
-    const completeBrewing = (processId: string) => Effect.gen(function* () {
-      const processes = yield* Ref.get(activeBrewingProcesses)
-      const process = processes.get(processId)
+// Splash potion explosion
+const explodeSplashPotion = (
+  position: Position,
+  splashPotion: SplashPotionItem,
+  throwerEntityId: EntityId
+): Effect.Effect<void, GameError> =>
+  Effect.gen(function* () {
+    const splashRadius = 4.0
+    const potionEffects = yield* extractPotionEffects(splashPotion)
+    const nearbyEntities = yield* EntityManager.getEntitiesInRadius(position, splashRadius)
 
-      if (!process) {
-        return yield* Effect.fail(new BrewingError(`Process not found: ${processId}`))
-      }
+    // Apply effects to all entities in range
+    yield* Effect.forEach(nearbyEntities, entity =>
+      Effect.gen(function* () {
+        const distance = calculateDistance(position, entity.position)
+        const intensity = Math.max(0.25, 1 - (distance / splashRadius))
 
-      if (process.stage !== "complete") {
-        return yield* Effect.fail(new BrewingError("Brewing not complete"))
-      }
-
-      const results: PotionItem[] = []
-
-      for (const expectedResult of process.expectedResults) {
-        const potion = yield* createPotionFromResult(expectedResult, process.ingredients)
-        results.push(potion)
-      }
-
-      // Remove process
-      yield* Ref.update(activeBrewingProcesses, map => {
-        map.delete(processId)
-        return map
-      })
-
-      // Generate completion effects
-      yield* generateBrewingCompletionEffects(process.brewingStandId)
-
-      return results
-    })
-
-    const createCustomPotion = (
-      basePotion: PotionType,
-      modifiers: ReadonlyArray<BrewingModifier>
-    ) => Effect.gen(function* () {
-      let effects = getBasePotionEffects(basePotion)
-
-      // Apply modifiers
-      for (const modifier of modifiers) {
-        effects = yield* applyModifierToEffects(effects, modifier)
-      }
-
-      const potion: PotionItem = {
-        id: crypto.randomUUID(),
-        type: "custom_potion",
-        effects,
-        color: calculatePotionColor(effects),
-        name: generatePotionName(effects),
-        description: generatePotionDescription(effects),
-        rarity: calculatePotionRarity(effects),
-        brewTime: Date.now(),
-        brewer: "custom",
-        splash: false,
-        lingering: false,
-        metadata: {}
-      }
-
-      return potion
-    })
-
-    const analyzeBrewingRecipe = (
-      ingredient: string,
-      basePotions: ReadonlyArray<PotionType>
-    ) => Effect.gen(function* () {
-      const recipes = yield* Ref.get(brewingRecipes)
-      const results: BrewingResult[] = []
-
-      for (const [recipeId, recipe] of recipes) {
-        if (recipe.ingredient === ingredient) {
-          for (const basePotion of basePotions) {
-            if (recipe.validBasePotions.includes(basePotion)) {
-              const result: BrewingResult = {
-                recipeId,
-                resultPotion: recipe.results[0]?.type || "water",
-                brewingTime: recipe.brewingTime,
-                successChance: recipe.successChance,
-                bonusEffects: recipe.bonusEffects || []
-              }
-              results.push(result)
+        // Apply each effect with distance-based intensity
+        yield* Effect.forEach(potionEffects, baseEffect => {
+          const adjustedEffect: PotionEffect = {
+            ...baseEffect,
+            amplifier: Math.floor(baseEffect.amplifier * intensity) as PotionEffect["amplifier"],
+            duration: Math.floor(baseEffect.duration * intensity) as PotionEffect["duration"],
+            remainingDuration: Math.floor(baseEffect.duration * intensity) as PotionEffect["remainingDuration"],
+            source: {
+              type: "Splash",
+              sourceId: splashPotion.id,
+              appliedBy: throwerEntityId
             }
           }
-        }
-      }
 
-      return results
+          return EffectManager.applyEffect(entity.id, adjustedEffect)
+        })
+      })
+    )
+
+    // Create splash visual effects
+    yield* ParticleManager.spawnExplosion(position, {
+      type: "PotionSplash",
+      color: getPotionColor(splashPotion),
+      radius: splashRadius,
+      particleCount: 50
     })
 
-    const calculateBrewingTime = (
-      recipe: BrewingRecipe,
-      efficiency: number
-    ) => Effect.succeed(Math.max(1000, recipe.brewingTime / efficiency))
-
-    const validateBrewingCombination = (ingredients: BrewingIngredients) => Effect.gen(function* () {
-      // Check if ingredient is valid brewing material
-      const validIngredients = [
-        "nether_wart", "redstone", "glowstone", "gunpowder", "dragon_breath",
-        "fermented_spider_eye", "magma_cream", "sugar", "rabbit_foot", "glistering_melon",
-        "spider_eye", "golden_carrot", "blaze_powder", "ghast_tear", "turtle_helmet",
-        "phantom_membrane", "pufferfish"
-      ]
-
-      if (!validIngredients.includes(ingredients.primaryIngredient)) {
-        return false
-      }
-
-      // Check if base potions are valid
-      for (const basePotion of ingredients.basePotions) {
-        if (!isValidBasePotion(basePotion)) {
-          return false
-        }
-      }
-
-      return true
-    })
-
-    const initializeBrewingRecipes = () => Effect.gen(function* () {
-      const recipes = new Map<string, BrewingRecipe>()
-
-      // Basic potion recipes
-      recipes.set("awkward_potion", {
-        id: "awkward_potion",
-        name: "Awkward Potion",
-        ingredient: "nether_wart",
-        validBasePotions: ["water"],
-        results: [{
-          type: "awkward",
-          probability: 1.0
-        }],
-        brewingTime: 20000, // 20 seconds
-        successChance: 1.0
-      })
-
-      recipes.set("healing_potion", {
-        id: "healing_potion",
-        name: "Potion of Healing",
-        ingredient: "glistering_melon",
-        validBasePotions: ["awkward"],
-        results: [{
-          type: "healing",
-          probability: 1.0
-        }],
-        brewingTime: 20000,
-        successChance: 1.0
-      })
-
-      recipes.set("strength_potion", {
-        id: "strength_potion",
-        name: "Potion of Strength",
-        ingredient: "blaze_powder",
-        validBasePotions: ["awkward"],
-        results: [{
-          type: "strength",
-          probability: 1.0
-        }],
-        brewingTime: 20000,
-        successChance: 1.0
-      })
-
-      recipes.set("swiftness_potion", {
-        id: "swiftness_potion",
-        name: "Potion of Swiftness",
-        ingredient: "sugar",
-        validBasePotions: ["awkward"],
-        results: [{
-          type: "swiftness",
-          probability: 1.0
-        }],
-        brewingTime: 20000,
-        successChance: 1.0
-      })
-
-      // Enhancement recipes
-      recipes.set("enhanced_healing", {
-        id: "enhanced_healing",
-        name: "Potion of Healing II",
-        ingredient: "glowstone",
-        validBasePotions: ["healing"],
-        results: [{
-          type: "healing_enhanced",
-          probability: 1.0
-        }],
-        brewingTime: 20000,
-        successChance: 1.0
-      })
-
-      recipes.set("extended_strength", {
-        id: "extended_strength",
-        name: "Potion of Strength (Extended)",
-        ingredient: "redstone",
-        validBasePotions: ["strength"],
-        results: [{
-          type: "strength_extended",
-          probability: 1.0
-        }],
-        brewingTime: 20000,
-        successChance: 1.0
-      })
-
-      yield* Ref.set(brewingRecipes, recipes)
-    })
-
-    return {
-      startBrewing,
-      updateBrewing,
-      completeBrewing,
-      createCustomPotion,
-      analyzeBrewingRecipe,
-      calculateBrewingTime,
-      validateBrewingCombination
-    } as const
+    yield* SoundManager.playSound(position, "potion.splash")
   })
-)
-```
 
-### Effect Visualization System
-
-エフェクト視覚化システムです。
-
-```typescript
-// Effect Visualization System
-interface EffectVisualizationSystem {
-  readonly renderEffectParticles: (
-    entity: Entity,
-    effects: ReadonlyArray<ActiveEffect>,
-    camera: CameraState
-  ) => Effect.Effect<ParticleRenderData, never>
-
-  readonly updateEffectVisuals: (
-    entity: Entity,
-    effects: ReadonlyArray<ActiveEffect>,
-    deltaTime: number
-  ) => Effect.Effect<VisualEffectState, never>
-
-  readonly createEffectStatusIcons: (
-    effects: ReadonlyArray<ActiveEffect>,
-    uiContext: UIContext
-  ) => Effect.Effect<ReadonlyArray<StatusIcon>, never>
-
-  readonly generateEffectSounds: (
-    entity: Entity,
-    effect: ActiveEffect,
-    eventType: EffectSoundEvent
-  ) => Effect.Effect<ReadonlyArray<AudioEffect>, never>
-
-  readonly calculateEffectScreenOverlay: (
-    effects: ReadonlyArray<ActiveEffect>,
-    screenSize: { width: number; height: number }
-  ) => Effect.Effect<ScreenOverlay, never>
-
-  readonly animateEffectTransition: (
-    fromEffects: ReadonlyArray<ActiveEffect>,
-    toEffects: ReadonlyArray<ActiveEffect>,
-    duration: number
-  ) => Effect.Effect<EffectTransitionAnimation, never>
-}
-
-export const EffectVisualizationSystem = Context.GenericTag<EffectVisualizationSystem>("@app/EffectVisualizationSystem")
-
-export const EffectVisualizationSystemLive = Layer.effect(
-  EffectVisualizationSystem,
+// Lingering potion area effect
+const createLingeringPotionCloud = (
+  position: Position,
+  lingeringPotion: LingeringPotionItem,
+  duration: number = 600 // 30 seconds
+): Effect.Effect<LingeringEffectCloud, GameError> =>
   Effect.gen(function* () {
-    const particleSystems = yield* Ref.make<Map<string, EffectParticleSystem>>(new Map())
-    const visualStates = yield* Ref.make<Map<string, VisualEffectState>>(new Map())
-
-    const renderEffectParticles = (
-      entity: Entity,
-      effects: ReadonlyArray<ActiveEffect>,
-      camera: CameraState
-    ) => Effect.gen(function* () {
-      const particles: ParticleData[] = []
-
-      for (const activeEffect of effects) {
-        if (!activeEffect.effect.showParticles) continue
-
-        const particleConfig = getEffectParticleConfig(activeEffect.effect.type)
-        const particleCount = calculateParticleCount(
-          activeEffect.effect.amplifier,
-          activeEffect.effect.potency,
-          camera.distance
-        )
-
-        // Generate particles around entity
-        for (let i = 0; i < particleCount; i++) {
-          const angle = (i / particleCount) * Math.PI * 2
-          const radius = 0.5 + Math.random() * 0.3
-
-          const particle: ParticleData = {
-            id: `${activeEffect.effect.id}_${i}`,
-            type: particleConfig.type,
-            position: {
-              x: entity.position.x + Math.cos(angle) * radius,
-              y: entity.position.y + Math.random() * 2,
-              z: entity.position.z + Math.sin(angle) * radius
-            },
-            velocity: {
-              x: (Math.random() - 0.5) * 0.1,
-              y: 0.05 + Math.random() * 0.1,
-              z: (Math.random() - 0.5) * 0.1
-            },
-            color: particleConfig.color,
-            size: particleConfig.baseSize * (0.8 + Math.random() * 0.4),
-            lifespan: particleConfig.lifespan,
-            gravity: particleConfig.gravity,
-            opacity: calculateParticleOpacity(activeEffect)
-          }
-
-          particles.push(particle)
-        }
-      }
-
-      return {
-        particles,
-        entityId: entity.id,
-        timestamp: Date.now(),
-        screenSpaceEffects: calculateScreenSpaceEffects(effects),
-        distortionEffects: calculateDistortionEffects(effects)
-      }
-    })
-
-    const updateEffectVisuals = (
-      entity: Entity,
-      effects: ReadonlyArray<ActiveEffect>,
-      deltaTime: number
-    ) => Effect.gen(function* () {
-      const currentState = yield* Effect.map(
-        Ref.get(visualStates),
-        states => states.get(entity.id) || createDefaultVisualState()
-      )
-
-      let updatedState = { ...currentState }
-
-      // Update visual timers
-      updatedState.animationTime += deltaTime
-      updatedState.pulsePhase = (updatedState.animationTime / 1000) % (Math.PI * 2)
-
-      // Calculate combined visual effects
-      let brightness = 1.0
-      let saturation = 1.0
-      let hue = 0
-      let distortion = 0
-      const overlayColors: ColorOverlay[] = []
-
-      for (const activeEffect of effects) {
-        const template = getEffectTemplate(activeEffect.effect.type)
-
-        const effectResult = Match.value(activeEffect.effect.type).pipe(
-          Match.when("night_vision", () => ({
-            brightness: Math.max(brightness, 1.5),
-            saturation,
-            hue,
-            distortion,
-            updatedState,
-            overlayColors: [...overlayColors, {
-              color: { r: 0, g: 100, b: 200, a: 0.1 },
-              blendMode: "overlay" as const
-            }]
-          })),
-          Match.when("blindness", () => ({
-            brightness: Math.min(brightness, 0.1),
-            saturation,
-            hue,
-            distortion,
-            updatedState,
-            overlayColors: [...overlayColors, {
-              color: { r: 0, g: 0, b: 0, a: 0.8 },
-              blendMode: "multiply" as const
-            }]
-          })),
-          Match.when("nausea", () => ({
-            brightness,
-            saturation,
-            hue: hue + Math.sin(updatedState.pulsePhase * 3) * 30,
-            distortion: Math.max(distortion, 0.5),
-            updatedState,
-            overlayColors
-          })),
-          Match.when("invisibility", () => ({
-            brightness,
-            saturation,
-            hue,
-            distortion,
-            updatedState: {
-              ...updatedState,
-              transparency: Math.max(updatedState.transparency, 0.8)
-            },
-            overlayColors
-          })),
-          Match.when("glowing", () => ({
-            brightness,
-            saturation,
-            hue,
-            distortion,
-            updatedState: {
-              ...updatedState,
-              glowIntensity: Math.max(updatedState.glowIntensity, 1.5)
-            },
-            overlayColors
-          })),
-          Match.when("darkness", () => ({
-            brightness: Math.min(brightness, 0.2),
-            saturation,
-            hue,
-            distortion,
-            updatedState,
-            overlayColors: [...overlayColors, {
-              color: { r: 0, g: 0, b: 20, a: 0.7 },
-              blendMode: "multiply" as const
-            }]
-          })),
-          Match.when("poison", () => ({
-            brightness,
-            saturation: Math.min(saturation, 0.7),
-            hue,
-            distortion,
-            updatedState,
-            overlayColors: [...overlayColors, {
-              color: { r: 0, g: template?.color.g || 0, b: 0, a: 0.1 },
-              blendMode: "overlay" as const
-            }]
-          })),
-          Match.when("wither", () => ({
-            brightness,
-            saturation: Math.min(saturation, 0.7),
-            hue,
-            distortion,
-            updatedState,
-            overlayColors: [...overlayColors, {
-              color: { r: 0, g: template?.color.g || 0, b: 0, a: 0.1 },
-              blendMode: "overlay" as const
-            }]
-          })),
-          Match.orElse(() => ({
-            brightness,
-            saturation,
-            hue,
-            distortion,
-            updatedState,
-            overlayColors
-          }))
-        )
-
-        brightness = effectResult.brightness
-        saturation = effectResult.saturation
-        hue = effectResult.hue
-        distortion = effectResult.distortion
-        updatedState = effectResult.updatedState
-        overlayColors.splice(0, overlayColors.length, ...effectResult.overlayColors)
-      }
-
-      updatedState = {
-        ...updatedState,
-        brightness,
-        saturation,
-        hue,
-        distortion,
-        overlayColors,
-        lastUpdate: Date.now()
-      }
-
-      yield* Ref.update(visualStates, states => states.set(entity.id, updatedState))
-
-      return updatedState
-    })
-
-    const createEffectStatusIcons = (
-      effects: ReadonlyArray<ActiveEffect>,
-      uiContext: UIContext
-    ) => Effect.gen(function* () {
-      const icons: StatusIcon[] = []
-
-      const sortedEffects = [...effects].sort((a, b) => {
-        // Sort by category (beneficial first), then by remaining time
-        const categoryOrder = { beneficial: 0, neutral: 1, harmful: 2, instant: 3 }
-        const aOrder = categoryOrder[a.effect.category]
-        const bOrder = categoryOrder[b.effect.category]
-
-        if (aOrder !== bOrder) return aOrder - bOrder
-        return b.effect.remainingDuration - a.effect.remainingDuration
-      })
-
-      for (const [index, activeEffect] of sortedEffects.entries()) {
-        if (!activeEffect.effect.showIcon) continue
-
-        const template = getEffectTemplate(activeEffect.effect.type)
-        if (!template) continue
-
-        const remainingSeconds = Math.ceil(activeEffect.effect.remainingDuration / 1000)
-        const amplifierText = activeEffect.effect.amplifier > 0 ?
-          ` ${toRomanNumeral(activeEffect.effect.amplifier + 1)}` : ""
-
-        const icon: StatusIcon = {
-          id: activeEffect.effect.id,
-          texture: `effect_${activeEffect.effect.type}`,
-          position: {
-            x: uiContext.effectIconStartX + (index % 8) * 24,
-            y: uiContext.effectIconStartY + Math.floor(index / 8) * 24
-          },
-          size: 20,
-          color: template.color,
-          tooltip: {
-            title: `${template.displayName}${amplifierText}`,
-            description: template.description,
-            duration: activeEffect.effect.isInstant ? "Instant" : formatDuration(remainingSeconds),
-            amplifier: activeEffect.effect.amplifier
-          },
-          blinking: remainingSeconds <= 5 && !activeEffect.effect.isInstant,
-          opacity: activeEffect.effect.isAmbient ? 0.6 : 1.0
-        }
-
-        icons.push(icon)
-      }
-
-      return icons
-    })
-
-    const generateEffectSounds = (
-      entity: Entity,
-      effect: ActiveEffect,
-      eventType: EffectSoundEvent
-    ) => Effect.gen(function* () {
-      const sounds: AudioEffect[] = []
-
-      const soundConfig = getEffectSoundConfig(effect.effect.type)
-      if (!soundConfig) return sounds
-
-      const soundsToAdd = Match.value(eventType).pipe(
-        Match.when("applied", () => {
-          if (soundConfig.applySound) {
-            return [{
-              id: crypto.randomUUID(),
-              soundId: soundConfig.applySound,
-              position: entity.position,
-              volume: 0.7,
-              pitch: 1.0 + (Math.random() - 0.5) * 0.2,
-              category: "player" as const
-            }]
-          }
-          return []
-        }),
-        Match.when("tick", () => {
-          if (soundConfig.tickSound && Math.random() < soundConfig.tickChance) {
-            return [{
-              id: crypto.randomUUID(),
-              soundId: soundConfig.tickSound,
-              position: entity.position,
-              volume: 0.3,
-              pitch: 0.8 + (Math.random() * 0.4),
-              category: "ambient" as const
-            }]
-          }
-          return []
-        }),
-        Match.when("expired", () => {
-          if (soundConfig.expireSound) {
-            return [{
-              id: crypto.randomUUID(),
-              soundId: soundConfig.expireSound,
-              position: entity.position,
-              volume: 0.5,
-              pitch: 1.0,
-              category: "player" as const
-            }]
-          }
-          return []
-        }),
-        Match.orElse(() => [])
-      )
-
-      sounds.push(...soundsToAdd)
-
-      return sounds
-    })
-
-    const calculateEffectScreenOverlay = (
-      effects: ReadonlyArray<ActiveEffect>,
-      screenSize: { width: number; height: number }
-    ) => Effect.gen(function* () {
-      const overlays: ScreenOverlayLayer[] = []
-
-      for (const activeEffect of effects) {
-        const overlayToAdd = Match.value(activeEffect.effect.type).pipe(
-          Match.when("fire_resistance", () => ({
-            // Fire immunity border effect
-            type: "border" as const,
-            color: { r: 255, g: 100, b: 0, a: 0.3 },
-            thickness: 4,
-            animationSpeed: 2000
-          })),
-          Match.when("water_breathing", () => ({
-            // Bubble effect around screen edges
-            type: "particles" as const,
-            particleType: "bubble",
-            density: 0.3,
-            area: "edges" as const
-          })),
-          Match.when("levitation", () => ({
-            // Floating particles
-            type: "particles" as const,
-            particleType: "levitation",
-            density: 0.5,
-            area: "full" as const,
-            direction: "up" as const
-          })),
-          Match.when("slow_falling", () => ({
-            // Feather particles
-            type: "particles" as const,
-            particleType: "feather",
-            density: 0.2,
-            area: "full" as const,
-            direction: "down_slow" as const
-          })),
-          Match.orElse(() => null)
-        )
-
-        if (overlayToAdd) {
-          overlays.push(overlayToAdd)
-        }
-      }
-
-      return {
-        layers: overlays,
-        screenSize,
-        timestamp: Date.now()
-      }
-    })
-
-    return {
-      renderEffectParticles,
-      updateEffectVisuals,
-      createEffectStatusIcons,
-      generateEffectSounds,
-      calculateEffectScreenOverlay,
-      animateEffectTransition: (from, to, duration) => animateEffectTransitionImpl(from, to, duration)
-    } as const
-  })
-)
-```
-
-## Layer構成
-
-```typescript
-// Potion Effects System Layer
-export const PotionEffectsSystemLayer = Layer.mergeAll(
-  PotionEffectsEngineLive,
-  PotionBrewingSystemLive,
-  EffectVisualizationSystemLive
-).pipe(
-  Layer.provide(WorldSystemLayer),
-  Layer.provide(EventBusLayer),
-  Layer.provide(InventorySystemLayer),
-  Layer.provide(ParticleSystemLayer)
-)
-```
-
-## 使用例
-
-```typescript
-// Potion Effects System の使用例
-const examplePotionEffects = Effect.gen(function* () {
-  const effectsEngine = yield* PotionEffectsEngine
-  const brewingSystem = yield* PotionBrewingSystem
-  const visualSystem = yield* EffectVisualizationSystem
-
-  // プレイヤーエンティティ
-  const player: Entity = {
-    id: "player_001",
-    type: "player",
-    position: { x: 100, y: 64, z: 100 },
-    velocity: { x: 0, y: 0, z: 0 },
-    health: 20,
-    maxHealth: 20
-  }
-
-  // 速度上昇効果の作成と適用
-  const speedEffect: PotionEffect = {
-    id: crypto.randomUUID(),
-    type: "speed",
-    amplifier: 1 as EffectAmplifier, // Speed II
-    duration: 180000 as EffectDuration, // 3 minutes
-    remainingDuration: 180000 as EffectDuration,
-    category: "beneficial",
-    isInstant: false,
-    showParticles: true,
-    showIcon: true,
-    isAmbient: false,
-    source: {
-      type: "potion",
-      sourceId: "speed_potion_001"
-    },
-    potency: 1.0 as EffectPotency,
-    stackable: false,
-    overridable: true,
-    createdAt: new Date(),
-    lastTick: new Date(),
-    tickInterval: 1000,
-    metadata: {}
-  }
-
-  const world = yield* WorldSystem
-  const activeEffect = yield* effectsEngine.applyEffect(player.id, speedEffect, world)
-
-  yield* Effect.log(`Applied Speed II effect to player for ${speedEffect.duration / 1000} seconds`)
-
-  // 効果の確認
-  const hasSpeed = yield* effectsEngine.hasEffect(player.id, "speed")
-  yield* Effect.log(`Player has speed effect: ${hasSpeed}`)
-
-  // エンティティ修飾子の計算
-  const playerEffects = yield* effectsEngine.getActiveEffects(player.id)
-  const modifiers = yield* effectsEngine.calculateEffectModifiers(player, playerEffects)
-
-  yield* Effect.log(`Movement speed modifier: ${modifiers.movementSpeed}x`)
-
-  // 複数の効果を適用して相互作用をテスト
-  const strengthEffect: PotionEffect = {
-    id: crypto.randomUUID(),
-    type: "strength",
-    amplifier: 0 as EffectAmplifier, // Strength I
-    duration: 120000 as EffectDuration,
-    remainingDuration: 120000 as EffectDuration,
-    category: "beneficial",
-    isInstant: false,
-    showParticles: true,
-    showIcon: true,
-    isAmbient: false,
-    source: {
-      type: "potion",
-      sourceId: "strength_potion_001"
-    },
-    potency: 1.0 as EffectPotency,
-    stackable: false,
-    overridable: true,
-    createdAt: new Date(),
-    lastTick: new Date(),
-    tickInterval: 1000,
-    metadata: {}
-  }
-
-  yield* effectsEngine.applyEffect(player.id, strengthEffect, world)
-  yield* Effect.log("Applied Strength I effect")
-
-  // 効果の更新（時間経過シミュレーション）
-  for (let i = 0; i < 10; i++) {
-    yield* effectsEngine.updateActiveEffects(player.id, 1000) // 1秒ずつ
-    yield* Effect.sleep(100) // シミュレーション用の短い待機
-  }
-
-  const updatedEffects = yield* effectsEngine.getActiveEffects(player.id)
-  yield* Effect.log(`Effects after 10 seconds: ${updatedEffects.length} active`)
-  updatedEffects.forEach((effect, i) => {
-    const remainingSec = Math.ceil(effect.effect.remainingDuration / 1000)
-    yield* Effect.log(`  ${i + 1}. ${effect.effect.type}: ${remainingSec}s remaining`)
-  })
-
-  // ポーション醸造のテスト
-  const brewingIngredients: BrewingIngredients = {
-    primaryIngredient: "sugar",
-    basePotions: ["awkward"],
-    secondaryIngredients: []
-  }
-
-  const brewingProcess = yield* brewingSystem.startBrewing(
-    "brewing_stand_001",
-    brewingIngredients,
-    20 // Fuel level
-  )
-
-  yield* Effect.log(`Started brewing process: ${brewingProcess.id}`)
-  yield* Effect.log(`Expected brewing time: ${brewingProcess.totalTime / 1000} seconds`)
-
-  // 醸造進行のシミュレーション
-  let currentProcess = brewingProcess
-  while (currentProcess.stage === "brewing") {
-    yield* Effect.sleep(1000)
-    currentProcess = yield* brewingSystem.updateBrewing(currentProcess.id, 1000)
-    const progress = ((currentProcess.totalTime - currentProcess.remainingTime) / currentProcess.totalTime * 100).toFixed(1)
-    yield* Effect.log(`Brewing progress: ${progress}%`)
-  }
-
-  if (currentProcess.stage === "complete") {
-    const results = yield* brewingSystem.completeBrewing(currentProcess.id)
-    yield* Effect.log(`Brewing complete! Produced ${results.length} potions`)
-    results.forEach((potion, i) => {
-      yield* Effect.log(`  ${i + 1}. ${potion.name} (${potion.type})`)
-    })
-  }
-
-  // 視覚効果のテスト
-  const camera: CameraState = {
-    position: { x: 100, y: 70, z: 105 },
-    rotation: { x: 0, y: 0, z: 0 },
-    distance: 5,
-    fieldOfView: 70,
-    latitude: 0
-  }
-
-  const particleData = yield* visualSystem.renderEffectParticles(player, updatedEffects, camera)
-  yield* Effect.log(`Generated ${particleData.particles.length} effect particles`)
-
-  // ステータスアイコンの生成
-  const uiContext: UIContext = {
-    effectIconStartX: 10,
-    effectIconStartY: 10,
-    screenWidth: 1920,
-    screenHeight: 1080
-  }
-
-  const statusIcons = yield* visualSystem.createEffectStatusIcons(updatedEffects, uiContext)
-  yield* Effect.log(`Created ${statusIcons.length} status icons`)
-
-  // 牛乳で効果をクリア
-  yield* effectsEngine.clearAllEffects(player.id, "milk")
-  const remainingEffects = yield* effectsEngine.getActiveEffects(player.id)
-  yield* Effect.log(`Effects after drinking milk: ${remainingEffects.length}`)
-
-  return updatedEffects
-})
-
-// カスタムポーションの作成例
-const createCustomPotion = Effect.gen(function* () {
-  const brewingSystem = yield* PotionBrewingSystem
-
-  const modifiers: ReadonlyArray<BrewingModifier> = [
-    {
-      type: "amplify",
-      targetEffect: "speed",
-      value: 2 // +2 amplifier levels
-    },
-    {
-      type: "extend",
-      targetEffect: "speed",
-      value: 1.5 // 1.5x duration
-    },
-    {
-      type: "add_effect",
-      targetEffect: "jump_boost",
-      value: 1 // Jump Boost I
+    const cloudId = crypto.randomUUID()
+    const potionEffects = yield* extractPotionEffects(lingeringPotion)
+
+    const cloud: LingeringEffectCloud = {
+      id: cloudId as LingeringEffectCloud["id"],
+      position,
+      radius: 3.0,
+      effects: potionEffects,
+      remainingTicks: duration,
+      particleIntensity: 1.0,
+      reapplicationInterval: 20, // Every second
+      lastApplicationTick: 0,
+      affectedEntities: new Set()
     }
-  ]
 
-  const customPotion = yield* brewingSystem.createCustomPotion("speed", modifiers)
+    // Register the cloud for updates
+    yield* LingeringEffectManager.registerCloud(cloud)
 
-  yield* Effect.log(`Created custom potion: ${customPotion.name}`)
-  yield* Effect.log(`Effects:`)
-  customPotion.effects.forEach(effect => {
-    yield* Effect.log(`  - ${effect.type} ${effect.amplifier + 1} (${effect.duration / 1000}s)`)
+    // Initial particle spawn
+    yield* ParticleManager.spawnLingeringCloud(position, {
+      color: getPotionColor(lingeringPotion),
+      radius: cloud.radius,
+      duration
+    })
+
+    return cloud
+  })
+```
+
+### Brewing System Implementation
+
+```typescript
+// Complete brewing process
+const startBrewingProcess = (
+  brewingStandId: string,
+  recipe: BrewingRecipe,
+  basePotions: readonly PotionItem[]
+): Effect.Effect<BrewingProcess, BrewingError> =>
+  Effect.gen(function* () {
+    // Early return: Station validation
+    const station = yield* BrewingStationManager.getStation(brewingStandId)
+    if (!station) {
+      return yield* Effect.fail(createBrewingError("Brewing stand not found"))
+    }
+
+    if (station.fuel <= 0) {
+      return yield* Effect.fail(createBrewingError("No fuel in brewing stand"))
+    }
+
+    // Early return: Recipe validation
+    const isValidCombination = yield* validateBrewingCombination(recipe, basePotions)
+    if (!isValidCombination) {
+      return yield* Effect.fail(createBrewingError("Invalid brewing combination"))
+    }
+
+    const currentTick = yield* WorldSystem.getCurrentTick()
+    const brewingTime = calculateBrewingTime(recipe, station.efficiency)
+
+    const process: BrewingProcess = {
+      id: crypto.randomUUID() as BrewingProcess["id"],
+      stationId: brewingStandId as BrewingProcess["stationId"],
+      recipe,
+      startTick: currentTick,
+      totalTicks: brewingTime,
+      remainingTicks: brewingTime,
+      stage: "Brewing",
+      bubbleIntensity: 0.0,
+      fuelConsumed: 0
+    }
+
+    // Update station state
+    yield* BrewingStationManager.updateStation(brewingStandId, {
+      ...station,
+      isActive: true,
+      brewingProgress: 0
+    })
+
+    // Start visual effects
+    yield* startBrewingEffects(station.position, brewingTime)
+
+    return process
   })
 
-  return customPotion
-})
-```
+// Brewing update loop
+const updateBrewingProcess = (
+  processId: string,
+  deltaTicks: number
+): Effect.Effect<BrewingProcess, BrewingError> =>
+  Effect.gen(function* () {
+    const process = yield* BrewingProcessManager.getProcess(processId)
+    if (!process) {
+      return yield* Effect.fail(createBrewingError("Brewing process not found"))
+    }
 
-## パフォーマンス最適化
+    const newRemainingTicks = Math.max(0, process.remainingTicks - deltaTicks)
+    const progress = 1 - (newRemainingTicks / process.totalTicks)
 
-### 効果更新の最適化
+    // Calculate bubble intensity with sine wave animation
+    const bubbleIntensity = Math.sin(progress * Math.PI * 6) * 0.3 + 0.7
 
-```typescript
-// 効果更新のバッチ処理
-export const batchUpdateEffects = (
-  entityIds: ReadonlyArray<string>,
-  deltaTime: number
-) => Effect.gen(function* () {
-  const effectsEngine = yield* PotionEffectsEngine
+    // Calculate fuel consumption
+    const fuelRate = 1 / 400 // 1 fuel per 400 ticks (20 seconds)
+    const fuelConsumed = process.fuelConsumed + (deltaTicks * fuelRate)
 
-  const batches = chunkArray(entityIds, 50) // 50エンティティずつ処理
+    const updatedProcess: BrewingProcess = {
+      ...process,
+      remainingTicks: newRemainingTicks,
+      stage: newRemainingTicks <= 0 ? "Complete" : "Brewing",
+      bubbleIntensity,
+      fuelConsumed
+    }
 
-  for (const batch of batches) {
-    yield* Effect.forEach(
-      batch,
-      entityId => effectsEngine.updateActiveEffects(entityId, deltaTime),
-      { concurrency: 8 }
-    )
+    // Update visual effects
+    const station = yield* BrewingStationManager.getStation(process.stationId)
+    if (station) {
+      yield* updateBrewingEffects(station.position, bubbleIntensity, progress)
+    }
 
-    yield* Effect.sleep(1) // 短い待機でCPU使用率を制御
-  }
-})
-```
+    // Check for completion
+    if (updatedProcess.stage === "Complete") {
+      yield* completeBrewingProcess(processId)
+    }
 
-### パーティクル最適化
-
-```typescript
-// 距離ベースのパーティクル品質調整
-export const adaptiveParticleRendering = (
-  entities: ReadonlyArray<Entity>,
-  camera: CameraState,
-  performanceBudget: number
-) => Effect.gen(function* () {
-  const visualSystem = yield* EffectVisualizationSystem
-
-  // 距離でソート
-  const entitiesByDistance = entities.sort((a, b) => {
-    const distA = calculateDistance(a.position, camera.position)
-    const distB = calculateDistance(b.position, camera.position)
-    return distA - distB
+    return updatedProcess
   })
-
-  let currentCost = 0
-
-  for (const entity of entitiesByDistance) {
-    const distance = calculateDistance(entity.position, camera.position)
-    const effects = yield* PotionEffectsEngine.pipe(
-      Effect.flatMap(engine => engine.getActiveEffects(entity.id))
-    )
-
-    if (effects.length === 0) continue
-
-    // 距離に基づく品質調整
-    let qualityScale = 1.0
-    if (distance > 10) qualityScale = 0.5
-    if (distance > 20) qualityScale = 0.2
-    if (distance > 50) continue // 遠すぎる場合はスキップ
-
-    const estimatedCost = effects.length * qualityScale
-    if (currentCost + estimatedCost > performanceBudget) break
-
-    yield* visualSystem.renderEffectParticles(entity, effects, camera)
-    currentCost += estimatedCost
-  }
-})
 ```
 
-## テスト戦略
+### Testing Implementation
 
 ```typescript
+// Comprehensive test suite
 describe("Potion Effects System", () => {
-  const TestPotionEffectsLayer = Layer.mergeAll(
+  const TestLayer = Layer.mergeAll(
     PotionEffectsSystemLayer,
-    TestWorldLayer,
-    TestParticleSystemLayer
+    TestWorldSystemLayer,
+    TestEntitySystemLayer
   )
 
-  it("should apply and manage effects correctly", () =>
-    Effect.gen(function* () {
-      const effectsEngine = yield* PotionEffectsEngine
+  describe("Effect Application", () => {
+    it("should apply basic effects correctly", () =>
+      Effect.gen(function* () {
+        const effectManager = yield* EffectManager
 
-      const testEffect: PotionEffect = {
-        id: "test_effect",
-        type: "speed",
-        amplifier: 1 as EffectAmplifier,
-        duration: 60000 as EffectDuration,
-        remainingDuration: 60000 as EffectDuration,
-        category: "beneficial",
-        isInstant: false,
-        showParticles: true,
-        showIcon: true,
-        isAmbient: false,
-        source: { type: "potion" },
-        potency: 1.0 as EffectPotency,
-        stackable: false,
-        overridable: true,
-        createdAt: new Date(),
-        lastTick: new Date(),
-        tickInterval: 1000,
-        metadata: {}
-      }
+        const testEntity = createTestEntity("player")
+        const speedEffect = createSpeedEffect(1, 1200) // Speed II for 60 seconds
 
-      const world = createTestWorld()
-      const activeEffect = yield* effectsEngine.applyEffect("test_entity", testEffect, world)
+        const activeEffect = yield* effectManager.applyEffect(
+          testEntity.id,
+          speedEffect
+        )
 
-      expect(activeEffect.effect.type).toBe("speed")
-      expect(activeEffect.targetEntityId).toBe("test_entity")
+        expect(activeEffect.effect.type).toBe("Speed")
+        expect(activeEffect.effect.amplifier).toBe(1)
 
-      const hasEffect = yield* effectsEngine.hasEffect("test_entity", "speed")
-      expect(hasEffect).toBe(true)
-    }).pipe(
-      Effect.provide(TestPotionEffectsLayer),
-      Effect.runPromise
-    ))
+        const hasEffect = yield* effectManager.hasEffect(testEntity.id, "Speed")
+        expect(hasEffect).toBe(true)
 
-  it("should update effect durations correctly", () =>
-    Effect.gen(function* () {
-      const effectsEngine = yield* PotionEffectsEngine
+        const effects = yield* effectManager.getActiveEffects(testEntity.id)
+        expect(effects.length).toBe(1)
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise))
 
-      const testEffect = createTestPotionEffect("regeneration", 5000) // 5 seconds
-      const world = createTestWorld()
+    it("should handle effect interactions correctly", () =>
+      Effect.gen(function* () {
+        const effectManager = yield* EffectManager
 
-      yield* effectsEngine.applyEffect("test_entity", testEffect, world)
+        const testEntity = createTestEntity("player")
+        const speedEffect = createSpeedEffect(0, 1200) // Speed I
+        const slowEffect = createSlowEffect(0, 1200) // Slowness I
 
-      // Update by 2 seconds
-      const updatedEffects = yield* effectsEngine.updateActiveEffects("test_entity", 2000)
-      expect(updatedEffects[0].effect.remainingDuration).toBe(3000)
+        yield* effectManager.applyEffect(testEntity.id, speedEffect)
+        yield* effectManager.applyEffect(testEntity.id, slowEffect)
 
-      // Update by another 4 seconds (should expire)
-      const finalEffects = yield* effectsEngine.updateActiveEffects("test_entity", 4000)
-      expect(finalEffects.length).toBe(0)
-    }).pipe(
-      Effect.provide(TestPotionEffectsLayer),
-      Effect.runPromise
-    ))
+        // Speed and Slowness should neutralize each other
+        const effects = yield* effectManager.getActiveEffects(testEntity.id)
+        expect(effects.length).toBe(0) // Both should be neutralized
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise))
 
-  it("should calculate effect modifiers correctly", () =>
-    Effect.gen(function* () {
-      const effectsEngine = yield* PotionEffectsEngine
+    it("should calculate modifiers correctly", () =>
+      Effect.gen(function* () {
+        const statusCalculator = yield* StatusCalculator
 
-      const testEntity: Entity = {
-        id: "test_entity",
-        type: "player",
-        position: { x: 0, y: 0, z: 0 },
-        velocity: { x: 0, y: 0, z: 0 },
-        health: 20,
-        maxHealth: 20
-      }
+        const testEntity = createTestEntity("player")
+        const strengthEffect = createStrengthEffect(1, 1200) // Strength II
 
-      const speedEffect = createTestPotionEffect("speed", 60000, 1 as EffectAmplifier)
-      const world = createTestWorld()
+        yield* EffectManager.applyEffect(testEntity.id, strengthEffect)
 
-      yield* effectsEngine.applyEffect("test_entity", speedEffect, world)
-      const effects = yield* effectsEngine.getActiveEffects("test_entity")
-      const modifiers = yield* effectsEngine.calculateEffectModifiers(testEntity, effects)
+        const attackDamage = yield* statusCalculator.getEffectiveAttackDamage(testEntity.id)
+        expect(attackDamage).toBeGreaterThan(testEntity.baseAttackDamage)
+        expect(attackDamage).toBe(testEntity.baseAttackDamage + 6) // +3 per amplifier level
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise))
+  })
 
-      expect(modifiers.movementSpeed).toBeGreaterThan(1.0)
-    }).pipe(
-      Effect.provide(TestPotionEffectsLayer),
-      Effect.runPromise
-    ))
+  describe("Brewing System", () => {
+    it("should validate recipes correctly", () =>
+      Effect.gen(function* () {
+        const brewingSystem = yield* BrewingSystem
 
-  it("should brew potions correctly", () =>
-    Effect.gen(function* () {
-      const brewingSystem = yield* PotionBrewingSystem
+        const validIngredients = {
+          primaryIngredient: "Sugar" as const,
+          basePotions: ["Awkward" as const]
+        }
 
-      const ingredients: BrewingIngredients = {
-        primaryIngredient: "sugar",
-        basePotions: ["awkward"],
-        secondaryIngredients: []
-      }
+        const recipe = yield* brewingSystem.validateRecipe(validIngredients)
+        expect(Option.isSome(recipe)).toBe(true)
 
-      const process = yield* brewingSystem.startBrewing("test_stand", ingredients, 20)
-      expect(process.stage).toBe("brewing")
+        const invalidIngredients = {
+          primaryIngredient: "Diamond" as const, // Invalid brewing ingredient
+          basePotions: ["Water" as const]
+        }
 
-      // Complete the brewing
-      const updatedProcess = yield* brewingSystem.updateBrewing(process.id, process.totalTime)
-      expect(updatedProcess.stage).toBe("complete")
+        const invalidRecipe = yield* brewingSystem.validateRecipe(invalidIngredients)
+        expect(Option.isNone(invalidRecipe)).toBe(true)
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise))
 
-      const results = yield* brewingSystem.completeBrewing(process.id)
-      expect(results.length).toBeGreaterThan(0)
-      expect(results[0].type).toBe("swiftness")
-    }).pipe(
-      Effect.provide(TestPotionEffectsLayer),
-      Effect.runPromise
-    ))
+    it("should complete brewing process", () =>
+      Effect.gen(function* () {
+        const brewingSystem = yield* BrewingSystem
+
+        const recipe = createSpeedPotionRecipe()
+        const ingredients = {
+          primaryIngredient: "Sugar" as const,
+          basePotions: ["Awkward" as const]
+        }
+
+        const process = yield* brewingSystem.startBrewing(
+          "test_stand",
+          ingredients,
+          recipe
+        )
+
+        expect(process.stage).toBe("Brewing")
+
+        // Fast-forward through brewing
+        let currentProcess = process
+        while (currentProcess.stage === "Brewing") {
+          currentProcess = yield* brewingSystem.updateBrewing(
+            process.id,
+            100 // 100 ticks at a time
+          )
+        }
+
+        expect(currentProcess.stage).toBe("Complete")
+
+        const results = yield* brewingSystem.completeBrewing(process.id)
+        expect(results.length).toBeGreaterThan(0)
+        expect(results[0].effects.some(e => e.type === "Speed")).toBe(true)
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise))
+  })
+
+  describe("Performance", () => {
+    it("should handle many effects efficiently", () =>
+      Effect.gen(function* () {
+        const effectManager = yield* EffectManager
+        const entityCount = 1000
+        const effectsPerEntity = 3
+
+        // Create many entities with multiple effects
+        const entities = Array.from({ length: entityCount }, (_, i) =>
+          createTestEntity(`entity_${i}`)
+        )
+
+        const startTime = performance.now()
+
+        yield* Effect.forEach(entities, entity =>
+          Effect.gen(function* () {
+            for (let i = 0; i < effectsPerEntity; i++) {
+              const effect = createRandomEffect()
+              yield* effectManager.applyEffect(entity.id, effect)
+            }
+          })
+        )
+
+        // Update all effects
+        yield* Effect.forEach(entities, entity =>
+          effectManager.updateEffects(entity.id, 20) // 1 tick
+        )
+
+        const endTime = performance.now()
+        const duration = endTime - startTime
+
+        expect(duration).toBeLessThan(1000) // Should complete within 1 second
+
+        // Verify all effects are applied
+        const totalEffects = yield* Effect.reduce(
+          entities,
+          0,
+          (acc, entity) =>
+            Effect.gen(function* () {
+              const effects = yield* effectManager.getActiveEffects(entity.id)
+              return acc + effects.length
+            })
+        )
+
+        expect(totalEffects).toBe(entityCount * effectsPerEntity)
+      }).pipe(
+        Effect.provide(TestLayer),
+        Effect.runPromise
+      ))
+  })
 })
 ```
 
-このPotion Effects Systemは、Minecraftの世界に多様で複雑なステータス効果システムを提供します。Effect-TSの関数型プログラミングパターンを活用することで、効果の相互作用と視覚化を一貫性を保ちながら実装し、プレイヤーに豊富な戦略的選択肢を提供します。
+## Performance Optimization Strategies
+
+### Batch Processing and Memory Optimization
+
+```typescript
+// Batch effect updates for improved performance
+const batchUpdateAllEffects = (
+  entityIds: readonly EntityId[],
+  deltaTicks: number,
+  batchSize: number = 100
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const batches = chunk(entityIds, batchSize)
+
+    yield* Effect.forEach(batches, batch =>
+      Effect.gen(function* () {
+        yield* Effect.forEach(
+          batch,
+          entityId => EffectManager.updateEffects(entityId, deltaTicks),
+          { concurrency: 8 } // Process 8 entities concurrently
+        )
+
+        // Brief yield to prevent blocking
+        yield* Effect.yieldNow()
+      })
+    )
+  })
+
+// Spatial optimization for particle rendering
+const spatiallyOptimizedParticleRender = (
+  entities: readonly Entity[],
+  camera: CameraState,
+  maxRenderDistance: number = 64
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    // Sort entities by distance from camera
+    const entitiesByDistance = entities
+      .map(entity => ({
+        entity,
+        distance: calculateDistance(entity.position, camera.position)
+      }))
+      .filter(({ distance }) => distance <= maxRenderDistance)
+      .sort((a, b) => a.distance - b.distance)
+
+    // Render particles with LOD
+    yield* Effect.forEach(entitiesByDistance, ({ entity, distance }) =>
+      Effect.gen(function* () {
+        const effects = yield* EffectManager.getActiveEffects(entity.id)
+        if (effects.length === 0) return
+
+        // Calculate quality based on distance
+        let quality = 1.0
+        if (distance > 16) quality = 0.5
+        if (distance > 32) quality = 0.25
+
+        yield* EffectParticleRenderer.spawnEffectParticles(
+          entity.id,
+          effects[0], // Use primary effect for particles
+          entity.position,
+          quality
+        )
+      })
+    )
+  })
+```
+
+The Potion Effects System represents a sophisticated enhancement to the TypeScript Minecraft clone, providing rich gameplay mechanics through complex status effects, brewing systems, and visual feedback. By leveraging Effect-TS's functional architecture and maintaining strict type safety, the system delivers predictable behavior while supporting extensive customization and interaction patterns that enhance the overall gameplay experience.

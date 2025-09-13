@@ -159,10 +159,11 @@ ts-minecraft/
 │   ├── config/           # 設定管理
 │   └── shared/           # 共通ユーティリティ
 ├── docs/                 # ドキュメント
-│   ├── architecture/     # アーキテクチャガイド
-│   ├── guides/          # 開発ガイド
-│   ├── features/        # 機能説明
-│   └── layers/          # レイヤー別ドキュメント
+│   ├── 00-introduction/
+│   ├── 01-architecture/
+│   ├── 02-guides/
+│   ├── 03-systems/
+│   └── 04-appendix/
 └── tests/               # テストファイル
 ```
 
@@ -217,46 +218,46 @@ pnpm build
 ## 📚 ドキュメント構成
 
 ### 🏗️ アーキテクチャ基盤
-- [**アーキテクチャ概要**](./architecture/overview.md) - システム全体設計と設計原則
-- [**ECS統合**](./architecture/ecs-integration.md) - DDD × ECS統合アーキテクチャ
-- [**Effect-TSパターン**](./architecture/effect-patterns.md) - 関数型プログラミングパターン
+- [**アーキテクチャ概要**](../01-architecture/00-overview.md) - システム全体設計と設計原則
+- [**ECS統合**](../01-architecture/02-ddd-ecs-effect-integration.md) - DDD × ECS統合アーキテクチャ
+- [**Effect-TSパターン**](../01-architecture/02-ddd-ecs-effect-integration.md) - 関数型プログラミングパターン
 
 ### 📋 実装ガイド
-- [**開発環境セットアップ**](./04-implementation-guide/00-setup.md) - 環境構築・ツール設定
-- [**Effect-TS基本パターン**](./03-effect-ts-patterns/00-functional-core.md) - 最新パターンとベストプラクティス
+- [**開発環境セットアップ**](../02-guides/00-development-setup.md) - 環境構築・ツール設定
+- [**Effect-TS基本パターン**](../01-architecture/02-ddd-ecs-effect-integration.md) - 最新パターンとベストプラクティス
 
 ### 🎮 Core Features（基本機能）
 
 Minecraft クローンとして必須となる基本機能群。すべてEffect-TS 3.17+の最新パターンで実装。
 
-- [**📋 概要**](./05-core-features/00-overview.md) - Core機能の全体設計とアーキテクチャ原則
-- [**🌍 World System**](./05-core-features/01-world-system.md) - 地形生成・バイオーム・光源伝播
-- [**👤 Player System**](./05-core-features/02-player-system.md) - 移動・視点・操作・ステータス管理
-- [**🧱 Block System**](./05-core-features/03-block-system.md) - ブロックタイプ・状態・物理演算
-- [**🤖 Entity System**](./05-core-features/04-entity-system.md) - エンティティ・AI・スポーン・当たり判定
-- [**🎨 Rendering System**](./05-core-features/05-rendering-system.md) - メッシュ生成・LOD・視錐台カリング
-- [**⚡ Physics System**](./05-core-features/06-physics-system.md) - 重力・衝突・流体・爆発処理
-- [**📦 Chunk System**](./05-core-features/07-chunk-system.md) - チャンク管理・圧縮・並列処理
-- [**🎒 Inventory System**](./05-core-features/08-inventory-system.md) - アイテム・スタック・GUI連携
-- [**🔨 Crafting System**](./05-core-features/09-crafting-system.md) - レシピ・クラフト台・エンチャント
+- [**📋 概要**](../03-systems/00-core/00-overview.md) - Core機能の全体設計とアーキテクチャ原則
+- [**🌍 World System**](../03-systems/00-core/01-world.md) - 地形生成・バイオーム・光源伝播
+- [**👤 Player System**](../03-systems/00-core/02-player.md) - 移動・視点・操作・ステータス管理
+- [**🧱 Block System**](../03-systems/00-core/03-block.md) - ブロックタイプ・状態・物理演算
+- [**🤖 Entity System**](../03-systems/00-core/04-entity.md) - エンティティ・AI・スポーン・当たり判定
+- [**🎨 Rendering System**](../03-systems/00-core/05-rendering.md) - メッシュ生成・LOD・視錐台カリング
+- [**⚡ Physics System**](../03-systems/00-core/06-physics.md) - 重力・衝突・流体・爆発処理
+- [**📦 Chunk System**](../03-systems/00-core/07-chunk.md) - チャンク管理・圧縮・並列処理
+- [**🎒 Inventory System**](../03-systems/00-core/08-inventory.md) - アイテム・スタック・GUI連携
+- [**🔨 Crafting System**](../03-systems/00-core/09-crafting.md) - レシピ・クラフト台・エンチャント
 
 ### 🚀 Enhanced Features（拡張機能）
 
 基本機能を拡張し、より豊かなゲーム体験を提供する高度な機能群。
 
-- [**📋 概要**](./06-enhanced-features/00-overview.md) - Enhanced機能のアーキテクチャと統合設計
-- [**⚡ Redstone System**](./06-enhanced-features/01-redstone-system.md) - 論理回路・信号伝播・機械制御
-- [**🌦️ Weather System**](./06-enhanced-features/02-weather-system.md) - 動的天候・降水・雷・季節変化
-- [**🌞 Day/Night Cycle**](./06-enhanced-features/03-day-night-cycle.md) - 時間システム・天体軌道・光源計算
-- [**🧠 Mob AI System**](./06-enhanced-features/04-mob-ai-system.md) - 行動木AI・群れ行動・環境適応
-- [**🏪 Villager Trading**](./06-enhanced-features/05-villager-trading.md) - 動的価格・職業・評判システム
-- [**✨ Enchantment System**](./06-enhanced-features/06-enchantment-system.md) - エンチャント効果・レベル強化・耐久度
-- [**🧪 Potion Effects**](./06-enhanced-features/07-potion-effects.md) - 効果持続・相互作用・能力値変化
-- [**🌋 Nether Portals**](./06-enhanced-features/08-nether-portals.md) - 異次元移動・座標変換・ポータル管理
+- [**📋 概要**](../03-systems/01-enhanced/00-overview.md) - Enhanced機能のアーキテクチャと統合設計
+- [**⚡ Redstone System**](../03-systems/01-enhanced/01-redstone.md) - 論理回路・信号伝播・機械制御
+- [**🌦️ Weather System**](../03-systems/01-enhanced/02-weather.md) - 動的天候・降水・雷・季節変化
+- [**🌞 Day/Night Cycle**](../03-systems/01-enhanced/03-day-night-cycle.md) - 時間システム・天体軌道・光源計算
+- [**🧠 Mob AI System**](../03-systems/01-enhanced/04-mob-ai.md) - 行動木AI・群れ行動・環境適応
+- [**🏪 Villager Trading**](../03-systems/01-enhanced/05-villager-trading.md) - 動的価格・職業・評判システム
+- [**✨ Enchantment System**](../03-systems/01-enhanced/06-enchantment.md) - エンチャント効果・レベル強化・耐久度
+- [**🧪 Potion Effects**](../03-systems/01-enhanced/07-potion-effects.md) - 効果持続・相互作用・能力値変化
+- [**🌋 Nether Portals**](../03-systems/01-enhanced/08-nether-portals.md) - 異次元移動・座標変換・ポータル管理
 
 ### 🔧 レイヤー別詳細ドキュメント
-- [**Domain Layer**](./layers/domain.md) - ビジネスロジック・エンティティ・値オブジェクト
-- [**Application Layer**](./layers/application.md) - ユースケース・ワークフロー・ECSクエリ
+- [**Domain Layer**](../01-architecture/03-layer-architecture.md) - ビジネスロジック・エンティティ・値オブジェクト
+- [**Application Layer**](../01-architecture/03-layer-architecture.md) - ユースケース・ワークフロー・ECSクエリ
 
 ## 🏗️ アーキテクチャ概要
 
@@ -350,7 +351,7 @@ Enhanced Features: 8/20+ 完成 (40%) ⚠️
 - **Extended Biomes**: 海洋・山岳・特殊環境
 - **The End Dimension**: エンダードラゴン・エンドシティ
 
-**詳細**: [**不足機能一覧**](./07-missing-features.md)
+**詳細**: [**不足機能一覧**](../04-appendix/00-missing-features.md)
 
 ### 🎯 修正されたマイルストーン
 
@@ -411,8 +412,8 @@ pnpm test        # テスト実行
 
 **新機能実装時は以下の順序で参照してください：**
 
-1. **[Core Features概要](./05-core-features/00-overview.md)** - 最新パターンとアーキテクチャ原則
-2. **[Effect-TS基本パターン](./03-effect-ts-patterns/00-functional-core.md)** - Schema.Struct、@app/Serviceパターン
+1. **[Core Features概要](../03-systems/00-core/00-overview.md)** - 最新パターンとアーキテクチャ原則
+2. **[Effect-TS基本パターン](../01-architecture/02-ddd-ecs-effect-integration.md)** - Schema.Struct、@app/Serviceパターン
 3. **個別機能ドキュメント** - 具体的な実装例とベストプラクティス
 
 ### 4. 重要な開発原則

@@ -21,6 +21,7 @@ MVVMパターンのコントローラー層。ユーザー操作をアプリケ�
 ```typescript
 // src/presentation/controllers/game.controller.ts
 import { Match } from "effect"
+import { SceneManagerService } from "@app/SceneManagerService"
 
 const GameStartError = Schema.Struct({
   _tag: Schema.Literal("GameStartError"),
@@ -44,6 +45,10 @@ interface GameControllerService {
   readonly stopGame: () => Effect.Effect<void, GameStopError>
   readonly handleInput: (input: InputEvent) => Effect.Effect<void>
   readonly updateGameState: (deltaTime: number) => Effect.Effect<void>
+  // シーン遷移制御
+  readonly transitionToScene: (sceneType: SceneType, data?: unknown) => Effect.Effect<void, SceneTransitionError>
+  readonly showStartScreen: () => Effect.Effect<void, SceneTransitionError>
+  readonly showGameOverScreen: (gameStats?: GameStats) => Effect.Effect<void, SceneTransitionError>
 }
 
 const GameController = Context.GenericTag<GameControllerService>("@app/GameController")
@@ -97,10 +102,35 @@ const updateGameState = (deltaTime: number): Effect.Effect<void> =>
     yield* updateUI()
   })
 
+const transitionToScene = (sceneType: SceneType, data?: unknown): Effect.Effect<void, SceneTransitionError> =>
+  Effect.gen(function* () {
+    const sceneManager = yield* SceneManagerService
+    yield* sceneManager.transitionTo(sceneType, data)
+    yield* Effect.log(`Transitioned to scene: ${sceneType}`)
+  })
+
+const showStartScreen = (): Effect.Effect<void, SceneTransitionError> =>
+  Effect.gen(function* () {
+    yield* transitionToScene("StartScreen")
+    // スタート画面固有の初期化
+    yield* initializeStartScreenUI()
+    yield* startMenuBackgroundMusic()
+  })
+
+const showGameOverScreen = (gameStats?: GameStats): Effect.Effect<void, SceneTransitionError> =>
+  Effect.gen(function* () {
+    yield* transitionToScene("GameOver", gameStats)
+    // ゲームオーバー画面固有の初期化
+    yield* displayGameStats(gameStats)
+    yield* playGameOverMusic()
+  })
+
 const makeGameControllerLive = Effect.gen(function* () {
   return GameController.of({
     startGame,
     pauseGame: () => Effect.gen(function* () {
+      const sceneManager = yield* SceneManagerService
+      yield* sceneManager.pushScene("Pause") // ポーズシーンをプッシュ
       yield* pauseGameLoop()
       yield* pauseRenderLoop()
     }),
@@ -108,9 +138,13 @@ const makeGameControllerLive = Effect.gen(function* () {
       yield* stopGameLoop()
       yield* stopRenderLoop()
       yield* cleanupResources()
+      yield* showStartScreen() // スタート画面に戻る
     }),
     handleInput,
-    updateGameState
+    updateGameState,
+    transitionToScene,
+    showStartScreen,
+    showGameOverScreen
   })
 })
 
@@ -122,6 +156,8 @@ const GameControllerLive = Layer.effect(GameController, makeGameControllerLive)
 - 入力イベント処理・振り分け
 - アプリケーション層との連携
 - ゲーム状態更新
+- **シーン遷移制御**: スタート→メイン→ゲームオーバー画面の管理
+- **画面固有初期化**: 各シーンの専用UI・音楽制御
 
 ### UI Controller
 ```typescript
@@ -132,6 +168,10 @@ export interface UIControllerService {
   showSettings: () => Effect.Effect<void>
   handleMenuSelection: (menuId: string) => Effect.Effect<void>
   updateHUD: (gameState: GameState) => Effect.Effect<void>
+  // シーン固有UI制御
+  renderSceneUI: (scene: Scene) => Effect.Effect<void>
+  hideAllUI: () => Effect.Effect<void>
+  showTransitionEffect: (from: SceneType, to: SceneType) => Effect.Effect<void>
 }
 
 export const UIController: UIControllerService = {
@@ -166,15 +206,74 @@ export const UIController: UIControllerService = {
     Effect.gen(function* () {
       // ヘルスバー更新
       yield* updateHealthBar(gameState.player.health)
-      
-      // 座標表示更新  
+
+      // 座標表示更新
       yield* updatePositionDisplay(gameState.player.position)
-      
+
       // FPS表示更新
       yield* updateFPSDisplay(gameState.performance.fps)
-      
+
       // ホットバー更新
       yield* updateHotbar(gameState.player.inventory.hotbar)
+    }),
+
+  // シーン固有UI描画
+  renderSceneUI: (scene: Scene) =>
+    Effect.gen(function* () {
+      yield* hideAllUI() // 既存UI非表示
+
+      yield* Match.value(scene.type).pipe(
+        Match.when("StartScreen", () =>
+          Effect.gen(function* () {
+            yield* showMainMenu()
+            yield* showTitleLogo()
+            yield* showVersionInfo()
+          })
+        ),
+        Match.when("MainGame", () =>
+          Effect.gen(function* () {
+            yield* showGameHUD()
+            yield* showCrosshair()
+            yield* showHotbar()
+          })
+        ),
+        Match.when("GameOver", () =>
+          Effect.gen(function* () {
+            yield* showGameOverDialog(scene.data)
+            yield* showRestartButton()
+            yield* showMainMenuButton()
+          })
+        ),
+        Match.when("Pause", () =>
+          Effect.gen(function* () {
+            yield* showPauseMenu()
+            yield* showResumeButton()
+          })
+        ),
+        Match.orElse(() => Effect.unit)
+      )
+    }),
+
+  hideAllUI: () =>
+    Effect.gen(function* () {
+      yield* hideElement("main-menu")
+      yield* hideElement("game-hud")
+      yield* hideElement("pause-menu")
+      yield* hideElement("game-over-dialog")
+      yield* hideElement("inventory-modal")
+    }),
+
+  showTransitionEffect: (from: SceneType, to: SceneType) =>
+    Effect.gen(function* () {
+      // フェードアウト効果
+      yield* startFadeOut(300)
+      yield* Effect.sleep("300 millis")
+
+      // UI切り替え
+      yield* hideAllUI()
+
+      // フェードイン効果
+      yield* startFadeIn(300)
     })
 }
 ```
@@ -184,6 +283,8 @@ export const UIController: UIControllerService = {
 - HUD（ヘルスバー、座標表示等）更新
 - インベントリUI制御
 - ユーザー操作イベント処理
+- **シーン固有UI描画**: 各シーンに応じたUI要素の表示制御
+- **画面遷移エフェクト**: フェードイン・アウトによる滑らかな切り替え
 
 ### Debug Controller
 ```typescript

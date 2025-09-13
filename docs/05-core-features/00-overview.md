@@ -79,6 +79,53 @@ Core Featuresは、Minecraftクローンとして必須となる基本機能群�
 - **かまど処理**: 燃料消費・精錬時間の管理
 - **エンチャント**: 経験値消費による装備強化
 
+### 10. Material System（マテリアルシステム）
+- **マテリアル定義**: 各ブロック・アイテムのマテリアル属性
+- **ツール効率**: マテリアル別の採掘速度・適正ツール
+- **クラフト素材**: 素材の組み合わせとレシピ管理
+- **耐久度システム**: マテリアル別の耐久性とエンチャント効果
+
+### 11. Scene Management System（シーン管理システム）
+- **シーン遷移制御**: スタート→メイン→ゲームオーバー画面の管理
+- **状態機械パターン**: 関数型状態機械による型安全な遷移
+- **ライフサイクル管理**: シーンの初期化・更新・終了処理
+- **スタック管理**: シーン履歴とポップ・プッシュ操作
+
+## ⚠️ 重要な未実装機能
+
+以下の機能は**Minecraft体験にとって必須**ですが、現在のCore Featuresには含まれていません：
+
+### 🔥 クリティカル機能（即実装が必要）
+- **Health & Hunger System**: プレイヤーの生存システム
+- **Combat System**: 戦闘・ダメージ・死亡処理
+- **Mob Spawning**: モンスターの自動生成とルール
+- **Death & Respawn**: 死亡処理とリスポーン地点
+- **Sound & Music System**: 効果音・BGM・3D音響効果
+- **Food & Agriculture System**: 農業・畜産・食料システム
+- **Tool Durability System**: ツール耐久度とメンテナンス
+- **Experience & Leveling**: 経験値・レベル・スキルシステム
+
+### 🏗️ 高優先度機能（近期実装が望ましい）
+- **Structure Generation**: 村・ダンジョン・要塞の生成
+- **Extended Biomes**: 海洋・山岳・特殊バイオーム
+- **Sign & Book System**: 看板・本・文字システム
+- **Bed & Sleep System**: ベッド・睡眠・時間スキップ
+- **Command & Debug System**: ゲーム内コマンド・デバッグ機能
+- **Map & Navigation**: 地図・コンパス・座標システム
+
+### 🌱 生態系・環境機能
+- **Animal Breeding & Taming**: 動物の繁殖・手懐け
+- **Plant Growth & Forestry**: 植物の成長・伐採システム
+- **Advanced Redstone Components**: 比較器・中継器・高度な回路
+
+### 🌐 マルチプレイヤー機能
+- **Network Architecture**: クライアント・サーバー基盤
+- **Player Synchronization**: マルチプレイヤー状態同期
+- **Communication**: チャット・ボイス機能
+- **The End Dimension**: エンダードラゴン・エンドシティ
+
+詳細は [**不足機能一覧**](../07-missing-features.md) を参照してください。
+
 ## 実装ガイドライン
 
 ### 1. Layer構成パターン
@@ -94,7 +141,8 @@ export const CoreFeaturesLayer = Layer.mergeAll(
   PhysicsSystemLayer,
   ChunkSystemLayer,
   InventorySystemLayer,
-  CraftingSystemLayer
+  CraftingSystemLayer,
+  SceneSystemLayer
 ).pipe(
   Layer.provide(ConfigLayer),
   Layer.provide(LoggingLayer),
@@ -105,7 +153,8 @@ export const CoreFeaturesLayer = Layer.mergeAll(
 export const CoreFeaturesTestLayer = Layer.mergeAll(
   TestWorldSystemLayer,
   TestPlayerSystemLayer,
-  TestPhysicsSystemLayer
+  TestPhysicsSystemLayer,
+  TestSceneSystemLayer
 ).pipe(
   Layer.provide(TestConfigLayer)
 )
@@ -369,6 +418,7 @@ graph TD
 7. **Entity System** - NPC・モブ
 8. **Inventory System** - アイテム管理
 9. **Crafting System** - 製作システム
+10. **Scene Management System** - 画面遷移制御
 
 ## 次のステップ
 
@@ -388,3 +438,4 @@ graph TD
 - [04-entity-system.md](./04-entity-system.md) - エンティティ・AI・スポーン
 - [08-inventory-system.md](./08-inventory-system.md) - インベントリ・アイテム
 - [09-crafting-system.md](./09-crafting-system.md) - クラフト・レシピ・エンチャント
+- [11-scene-management-system.md](./11-scene-management-system.md) - シーン管理・画面遷移

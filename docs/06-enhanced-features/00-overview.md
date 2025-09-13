@@ -66,6 +66,54 @@ import { Schema } from "effect"
 - **異次元固有の環境とMob**
 - **ポータル構築とリンク管理**
 
+## ⚠️ 追加が必要なEnhanced Features
+
+現在の8つの機能に加えて、以下の重要な拡張機能が不足しています：
+
+### 🌊 環境・自然システム
+- **Ocean & Underwater System**: 海洋バイオーム・水中探索・海洋構造物
+- **Cave & Underground**: 巨大洞窟・鍾乳洞・地下水脈システム
+- **Disaster System**: 地震・火山・津波などの自然災害
+- **Liquid Physics Advanced**: 複雑な流体力学・マグマ・水流相互作用
+
+### 🏛️ 構造物・文明システム
+- **Ancient Structures**: 遺跡・ピラミッド・海底神殿・要塞
+- **Village Evolution**: 村の成長・拡張・文明発展システム
+- **Transportation**: 鉄道・馬車・船舶・エリトラ飛行
+- **Automation Systems**: ホッパー・ドロッパー・ピストンによる自動化
+
+### 🎯 ゲームプレイシステム
+- **Quest & Adventure**: 冒険クエスト・宝探し・ストーリーモード
+- **Economy System**: 通貨・市場・貿易・経済バランス
+- **Guild & Faction**: ギルド・派閥・領土システム
+- **Advanced Combat Mechanics**: 武器の特殊攻撃・防御技・戦闘スキル
+
+### 🔮 マジック・テクノロジー
+- **Magic System**: 魔法・呪文・魔法アイテム・魔法陣
+- **Technology Tiers**: 蒸気機関・電力・オートメーション
+- **Automation**: 自動化装置・ロボット・AI労働者
+- **Alchemy System**: 高度なポーション・化学反応・実験装置
+
+### 🎨 クリエイティブ支援
+- **Advanced Building**: 建築テンプレート・対称建築・3Dコピー
+- **Art & Decoration**: 絵画・彫刻・装飾ブロック・カスタムテクスチャ
+- **Music & Sound**: 楽器・音楽ブロック・サウンドスケープ
+- **WorldEdit Tools**: 大規模建築支援ツール・地形編集
+- **Custom Textures & Skins**: カスタムテクスチャ・スキンシステム
+
+### 🌐 ソーシャル・コミュニティ
+- **Player Housing**: 個人住宅・アパート・不動産システム
+- **Events & Festivals**: 季節イベント・祭り・コミュニティ活動
+- **Social Features**: フレンドリスト・メール・掲示板
+- **Server Management**: 権限管理・プラグイン対応・管理UI
+
+### 🎪 エンターテインメント
+- **Mini Games**: ゲーム内ミニゲーム・競技・パーティゲーム
+- **Story Mode**: ストーリー進行・NPC対話・選択肢システム
+- **Photo Mode**: スクリーンショット・動画撮影・シェア機能
+
+詳細は [**不足機能一覧**](../07-missing-features.md) を参照してください。
+
 ## Effect-TSによる拡張可能な設計
 
 ### Enhanced Feature Architecture
