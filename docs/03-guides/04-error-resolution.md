@@ -1,8 +1,84 @@
-# TypeScript Error Resolution Guide
+---
+title: "エラー解決ガイド - 体系的なTypeScriptエラー診断と修正"
+description: "Effect-TS 3.17とDDDアーキテクチャでの型エラー診断フロー、レイヤー別エラーハンドリング戦略、実践的な解決パターンを提供"
+category: "guide"
+difficulty: "intermediate"
+tags: ["error-handling", "effect-ts", "typescript", "debugging", "ddd", "troubleshooting"]
+prerequisites: ["effect-ts-fundamentals", "schema-basics", "typescript-types"]
+estimated_reading_time: "20分"
+related_patterns: ["error-handling-patterns", "service-patterns-catalog"]
+related_docs: ["../01-architecture/06c-effect-ts-error-handling.md", "../05-reference/troubleshooting/debugging-guide.md"]
+---
 
-## 概要
+# エラー解決ガイド - 体系的なTypeScriptエラー診断と修正
 
-このドキュメントは、TypeScript MinecraftプロジェクトにおけるTypeScriptコンパイルエラーの解決ガイドです。最新のEffect-TSパターン（2024年版）とSchema-baseエラー定義によるDDDアーキテクチャ移行に伴う型エラーとその解決方法を記載しています。
+## 🎯 Quick Guide（5分で問題解決）
+
+### エラー診断フロー
+```mermaid
+flowchart TD
+    A[コンパイルエラー発生] --> B{エラーカテゴリ判定}
+    B -->|Schema関連| C[Schema検証エラー]
+    B -->|Service関連| D[Context.GenericTagエラー]
+    B -->|Pattern Matching| E[Match式エラー]
+    B -->|型推論失敗| F[早期リターンエラー]
+    B -->|副作用混入| G[純粋関数エラー]
+
+    C --> H[Schema.decodeUnknownで修正]
+    D --> I[@app/ServiceNameパターンで修正]
+    E --> J[Match.exhaustiveで修正]
+    F --> K[yield*で早期リターン修正]
+    G --> L[Effect分離で修正]
+```
+
+### 緊急対応チェックリスト
+- [ ] **型チェック実行**: `pnpm type-check` でエラー確認
+- [ ] **エラー分類**: Schema / Service / Match / 早期リターン / 副作用
+- [ ] **該当パターン適用**: 下記解決パターンから選択
+- [ ] **レイヤー固有対応**: Application / Domain / Infrastructure
+- [ ] **テスト実行**: `pnpm test` で動作確認
+
+---
+
+## 📋 Problem Statement
+
+TypeScript Minecraftプロジェクトでは、Effect-TS 3.17への移行とDDDアーキテクチャ導入により、従来のTypeScript開発とは異なる型エラーパターンが発生します。
+
+### 主要課題
+1. **Schema検証エラー**: 動的バリデーションでの型安全性確保
+2. **Service型不整合**: Context.GenericTag使用での型推論問題
+3. **Pattern Matching**: Match.exhaustiveでの網羅性保証
+4. **Effect型推論**: 早期リターンパターンでの型推論失敗
+5. **副作用分離**: 純粋関数とEffect操作の境界管理
+
+---
+
+## 🔧 Solution Approach
+
+### 1. レイヤー別エラー戦略
+```mermaid
+flowchart LR
+    A[Application Layer] --> B[CommandError<br/>UseCaseError]
+    C[Domain Layer] --> D[DomainError<br/>ValidationError]
+    E[Infrastructure Layer] --> F[RepositoryError<br/>NetworkError]
+
+    B --> G[統合エラーハンドリング]
+    D --> G
+    F --> G
+```
+
+### 2. エラー診断マトリクス
+| エラーパターン | 症状 | 診断方法 | 優先度 |
+|---------------|------|--------|---------|
+| Schema検証 | `Type 'unknown' is not assignable` | Schema.decodeUnknown確認 | 🔥 高 |
+| Context.GenericTag | `Property does not exist` | @app/ServiceNameパターン確認 | 🔥 高 |
+| Match式網羅 | `Not all code paths return` | Match.exhaustive確認 | ⚠️ 中 |
+| 早期リターン | `Type inference failed` | yield*パターン確認 | ⚠️ 中 |
+| 副作用混入 | `Pure function side effect` | Effect分離確認 | 💡 低 |
+
+---
+
+## 📖 Step-by-Step Resolution Guide
 
 ## 現在のエラー状況
 

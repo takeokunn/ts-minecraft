@@ -1,3 +1,15 @@
+---
+title: "TypeScript Minecraft ドキュメント"
+description: "Effect-TS 3.17+を活用したTypeScript Minecraft Cloneプロジェクトの技術ドキュメント中央ハブ。DDD×ECS×関数型プログラミングによる高品質なゲーム開発を実現。"
+category: "reference"
+difficulty: "beginner"
+tags: ["effect-ts", "typescript", "minecraft", "documentation", "ddd", "ecs", "functional-programming"]
+prerequisites: []
+estimated_reading_time: "5分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # TypeScript Minecraft ドキュメント
 
 このドキュメントは、Effect-TS 3.17+の最新パターンを採用したTypeScript Minecraft Cloneプロジェクトの技術的な詳細、アーキテクチャ、開発ガイドラインを網羅した中央ハブです。プロジェクト全体でクラス不使用・完全関数型アプローチを採用し、Schema.Struct、Context.GenericTag、Match.value、早期リターンパターンを駆使して高品質なゲーム開発を実現しています。
@@ -61,7 +73,10 @@
 - **[包括的テスト戦略](./03-guides/05-comprehensive-testing-strategy.md)**: Flaky Test完全排除を含む網羅的なテスト設計戦略です。
 - **[高度なテスト技法](./03-guides/06-advanced-testing-techniques.md)**: 契約テスト、ビジュアルリグレッションテスト等の高度な技法を解説します。
 - **[Effect-TSテストパターン](./03-guides/07-effect-ts-testing-patterns.md)**: Effect-TS 3.17+完全準拠のテスト実装パターン専用ガイドです。
+- **[CI/CD & デプロイメント](./03-guides/08-ci-cd-deployment.md)**: GitHub Actions による自動テスト・ビルド・GitHub Pages デプロイの完全ガイドです。
 - **[デバッグガイド](./03-guides/09-debugging-guide.md)**: Effect-TS特有のデバッグ手法とパフォーマンス分析について解説します。
+- **[並列開発ワークフロー](./03-guides/10-parallel-development-workflow.md)**: GitHub Issue依存関係を活用した効率的な並列開発の完全ガイドです。
+- **[GitHub Issue管理](./03-guides/11-github-issue-management.md)**: 効率的なIssue作成・ラベル管理・マイルストーン活用の実践ガイドです。
 
 ---
 
@@ -71,3 +86,56 @@
 - **[README.md](./04-appendix/README.md)**: 付録セクションの概要です。
 - **[用語集](./04-appendix/00-glossary.md)**: プロジェクト固有の用語や技術用語の定義集です。
 - **[アセットソース](./04-appendix/01-asset-sources.md)**: ゲーム内で使用しているテクスチャやサウンドなどのアセットの出所とライセンス情報です。
+  - **使用場面**: アセット追加・ライセンス確認時
+  - **関連項目**: [レンダリングシステム](./02-specifications/00-core-features/05-rendering-system.md)
+
+---
+
+## 🎯 クイックアクション
+
+### 🚀 今すぐ始める
+- **5分体験**: [クイックスタート](./00-quickstart/README.md) → 即座にゲーム体験
+- **初回訪問**: [プロジェクト概要](./00-introduction/00-project-overview.md) → [スタートガイド](./00-introduction/01-getting-started.md)
+- **開発準備**: [開発規約](./03-guides/00-development-conventions.md) → [エントリーポイント](./03-guides/01-entry-points.md)
+- **実装参考**: [Effect-TSパターン](./01-architecture/06-effect-ts-patterns.md) → [コア機能仕様](./02-specifications/00-core-features/README.md)
+
+### 🔍 検索・参照
+- **API・設定辞書**: [リファレンス](./05-reference/README.md) → API・コード・設定完全集
+- **実働コード**: [実例集](./06-examples/README.md) → 動作するコード・チュートリアル
+- **用語確認**: [用語集](./04-appendix/00-glossary.md)
+- **エラー解決**: [エラー解決ガイド](./03-guides/04-error-resolution.md)
+- **アーキテクチャ概観**: [全体設計](./01-architecture/00-overall-design.md)
+
+### 📈 学習進度管理
+```mermaid
+pie title 学習進度
+    "Level 1 完了" : 25
+    "Level 2 進行中" : 35
+    "Level 3 準備中" : 25
+    "Level 4 未着手" : 15
+```
+
+---
+
+## 🤖 AI Agent最適化設計
+
+このドキュメント群は以下の**AI Agent親和性原則**に基づいて設計されています：
+
+### 📊 構造化データ設計
+- **階層構造**: 明確なレベル分けとブレッドクラム
+- **関連性マッピング**: 前提知識・次のステップ・関連項目の明示
+- **進度トラッキング**: 学習フェーズと完了条件の可視化
+
+### 🎯 コンテキスト最適化
+- **所要時間**: 各セクションの学習・作業時間明示
+- **難易度表示**: Level 1-4による段階的学習設計
+- **目的明確化**: 各セクションの学習目標とアウトカム定義
+
+### 🔄 相互参照強化
+- **双方向リンク**: 関連ドキュメント間の相互参照
+- **依存関係**: 学習・実装順序の明確化
+- **コンテキスト継承**: 上位概念から詳細実装への段階移行
+
+---
+
+**🎉 準備完了！あなたの学習レベルに応じて最適なスタート地点を選択し、TypeScript Minecraft開発の旅を始めましょう。**

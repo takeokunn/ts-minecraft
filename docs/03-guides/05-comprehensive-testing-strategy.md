@@ -1,71 +1,116 @@
-# 包括的テスト戦略ガイド
+---
+title: "包括的テスト戦略ガイド - レイヤー別テストアーキテクチャとProperty-Based Testing"
+description: "Effect-TS 3.17とDDDアーキテクチャでの完全テストカバレッジ、Flaky Test完全排除、Property-Based Testing、決定論的テスト実装戦略"
+category: "guide"
+difficulty: "advanced"
+tags: ["testing", "effect-ts", "vitest", "property-based-testing", "ddd", "test-architecture"]
+prerequisites: ["effect-ts-fundamentals", "schema-basics", "vitest-basics"]
+estimated_reading_time: "35分"
+related_patterns: ["effect-ts-test-patterns", "service-patterns-catalog"]
+related_docs: ["../01-architecture/06d-effect-ts-testing.md", "../05-reference/troubleshooting/debugging-guide.md"]
+---
 
-このドキュメントでは、TypeScript MinecraftプロジェクトにおけるVitestを使用した包括的なテスト設計について詳述します。DDDアーキテクチャとEffect-TSパターンに基づき、単体テストから結合テストまで、カバレッジ100%を目指す実践的なアプローチを提供します。
+# 包括的テスト戦略ガイド - Effect-TS 3.17 + Schema-First + Property-Based Testing
 
-## 目次
+## 🎯 Quick Guide（10分でテスト戦略理解）
 
-1. [テスト戦略概要](#テスト戦略概要)
-2. [Flaky Test完全排除戦略](#flaky-test完全排除戦略)
-3. [単体テスト設計](#単体テスト設計)
-4. [Property-Based Testing (PBT)](#property-based-testing-pbt)
-5. [結合テスト設計](#結合テスト設計)
-6. [レイヤー別テストガイドライン](#レイヤー別テストガイドライン)
-7. [カバレッジ戦略](#カバレッジ戦略)
-8. [テスト実装のベストプラクティス](#テスト実装のベストプラクティス)
+### テスト戦略概要図
+```mermaid
+flowchart TD
+    A[テスト戦略] --> B[Flaky Test完全排除]
+    A --> C[レイヤー別テスト]
+    A --> D[Property-Based Testing]
+    A --> E[100%カバレッジ]
 
-## テスト戦略概要
+    B --> B1[決定論的時間制御]
+    B --> B2[固定シード乱数]
+    B --> B3[完全モック化]
 
-### 基本原則
+    C --> C1[Unit Tests 70%]
+    C --> C2[Integration Tests 25%]
+    C --> C3[E2E Tests 5%]
 
-1. **Flaky Testの完全排除** - 非決定的なテストは一切許容しない
-2. **すべての関数に対応するテストを作成** - 1対1対応で網羅的にテスト
-3. **Property-Based Testingの積極活用** - エッジケースの自動発見
-4. **Effect-TSパターンの一貫使用** - 非同期処理とエラーハンドリングの統一
-5. **レイヤー独立性の維持** - 各レイヤーを独立してテスト可能に
-6. **高速なフィードバックループ** - 並列実行とインクリメンタルテスト
+    D --> D1[エッジケース自動発見]
+    D --> D2[インバリアント検証]
+    D --> D3[Fast-Check統合]
 
-### テストピラミッド
-
+    E --> E1[Mutation Testing]
+    E --> E2[カバレッジ分析]
+    E --> E3[継続的品質向上]
 ```
-         /\
-        /  \  E2E Tests (5%)
-       /----\
-      /      \  Integration Tests (25%)
-     /--------\
-    /          \  Unit Tests (70%)
-   /____________\
+
+### 緊急対応チェックリスト
+- [ ] **Flaky Test検出**: `pnpm test --reporter=verbose --retry=0`でフレイキーテスト確認
+- [ ] **カバレッジ確認**: `pnpm test:coverage`で100%達成確認
+- [ ] **Property-Based実行**: `fc.assert`パターンでエッジケース網羅
+- [ ] **決定論的検証**: `TestClock`、`Random.fromSeed`使用確認
+- [ ] **レイヤー分離**: Domain/Application/Infrastructure独立テスト
+
+---
+
+## 📋 Problem Statement
+
+TypeScript Minecraftプロジェクトでは、Effect-TS 3.17とDDDアーキテクチャの複雑性により、従来のテスト手法では以下の課題が発生します。
+
+### 主要課題
+1. **非決定的テスト**: 時間・乱数・外部依存による不安定なテスト
+2. **複雑な依存関係**: レイヤー間の結合とサービス間の依存性
+3. **エッジケース漏れ**: 手動テストケースでは発見困難な境界値問題
+4. **Effect型の複雑性**: 非同期エラーハンドリングのテスト困難性
+5. **カバレッジの不完全性**: テスト品質の客観的評価困難
+
+---
+
+## 🔧 Solution Approach
+
+### 1. ゼロトレランスFlaky Test排除戦略
+```mermaid
+graph LR
+    A[実時間依存] --> B[TestClock制御]
+    C[乱数依存] --> D[固定シード]
+    E[外部依存] --> F[完全モック]
+    G[共有状態] --> H[独立実行]
 ```
 
-## Flaky Test完全排除戦略
+### 2. 階層化テストアーキテクチャ
+| テストレベル | カバレッジ目標 | 実行速度 | 対象範囲 |
+|-------------|----------------|----------|----------|
+| **Unit Tests** | 70% | 🚀 高速（<1s） | 単一関数/クラス |
+| **Integration Tests** | 25% | ⚡ 中速（<10s） | レイヤー間結合 |
+| **E2E Tests** | 5% | 🐌 低速（<60s） | エンドツーエンド |
 
-### ゼロトレランスポリシー
+### 3. Property-Based Testing統合
+- **Fast-Check**: エッジケース自動生成
+- **Schema統合**: 型安全なテストデータ
+- **インバリアント検証**: ビジネスルール保証
 
-**このプロジェクトではFlaky Test（非決定的で時々失敗するテスト）を一切許容しません。** すべてのテストは100%決定的で、同じ条件下では必ず同じ結果を返す必要があります。
+---
 
-### Flaky Testの主要な原因と対策
+## 📖 Comprehensive Implementation Guide
 
-#### 1. タイミング依存の排除
+### Phase 1: Flaky Test完全排除実装
 
+#### 1.1 決定論的時間制御
 ```typescript
+import { TestClock, TestServices, Duration, Effect } from 'effect'
+
 // ❌ 絶対に避けるべきパターン: 実時間への依存
 describe('Animation Timer - FLAKY', () => {
   it('アニメーションが1秒後に完了する', async () => {
     const animation = startAnimation()
     await new Promise(resolve => setTimeout(resolve, 1000))
-    expect(animation.isComplete).toBe(true) // タイミングによって失敗する可能性
+    expect(animation.isComplete).toBe(true) // タイミングによって失敗
   })
 })
 
-// ✅ 決定論的なパターン: テスト用の時間制御（最新API）
-import { TestClock, TestServices, Duration } from 'effect'
-
+// ✅ 決定論的パターン: テスト用時間制御
 describe('Animation Timer - DETERMINISTIC', () => {
   it('アニメーションが1秒後に完了する', async () => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const animation = yield* startAnimation()
 
-        // テスト用の時間を進める（実時間は経過しない）
+        // テスト用時間を進める（実時間経過なし）
         yield* TestClock.adjust(Duration.seconds(1))
 
         const isComplete = yield* animation.isComplete
@@ -73,63 +118,32 @@ describe('Animation Timer - DETERMINISTIC', () => {
       }).pipe(Effect.provide(TestServices))
     )
   })
-})
-```
 
-#### 2. 非同期処理の完全制御
+  it('複数タイマーの並行実行制御', async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const timer1 = yield* Effect.delay(Effect.succeed("timer1"), "500 millis")
+        const timer2 = yield* Effect.delay(Effect.succeed("timer2"), "1000 millis")
 
-```typescript
-// ❌ 絶対に避けるべきパターン: 非制御の非同期処理
-describe('Concurrent Operations - FLAKY', () => {
-  it('複数の非同期処理が完了する', async () => {
-    const results: number[] = []
+        // 500ms進める
+        yield* TestClock.adjust(Duration.millis(500))
+        const result1 = yield* Effect.race(timer1, Effect.succeed("not-ready"))
+        expect(result1).toBe("timer1")
 
-    // 実行順序が保証されない
-    Promise.resolve(1).then(n => results.push(n))
-    Promise.resolve(2).then(n => results.push(n))
-    Promise.resolve(3).then(n => results.push(n))
-
-    await new Promise(resolve => setTimeout(resolve, 100))
-    expect(results).toEqual([1, 2, 3]) // 順序が不定で失敗する可能性
-  })
-})
-
-// ✅ 決定論的なパターン: Effect.allによる制御された並行処理
-describe('Concurrent Operations - DETERMINISTIC', () => {
-  it('複数の非同期処理が完了する', async () => {
-    const program = Effect.gen(function* () {
-      const results = yield* Effect.all(
-        [Effect.succeed(1), Effect.succeed(2), Effect.succeed(3)],
-        { concurrency: "unbounded" }
-      )
-      return results
-    })
-
-    const result = await Effect.runPromise(program)
-
-    // Effect.allは常に入力順序を保持
-    expect(result).toEqual([1, 2, 3])
-  })
-
-  it('エラーが発生しても決定的に処理される', async () => {
-    const program = Effect.gen(function* () {
-      const results = yield* Effect.allSettled([
-        Effect.succeed(1),
-        Effect.fail("error"),
-        Effect.succeed(3)
-      ])
-      return results
-    })
-
-    const results = await Effect.runPromise(program)
-    expect(results.map(Exit.isSuccess)).toEqual([true, false, true])
+        // さらに500ms進める
+        yield* TestClock.adjust(Duration.millis(500))
+        const result2 = yield* Effect.race(timer2, Effect.succeed("not-ready"))
+        expect(result2).toBe("timer2")
+      }).pipe(Effect.provide(TestServices))
+    )
   })
 })
 ```
 
-#### 3. ランダム値の固定化
-
+#### 1.2 固定シード乱数生成
 ```typescript
+import { Random, Effect } from 'effect'
+
 // ❌ 絶対に避けるべきパターン: 制御されていない乱数
 describe('Random Generation - FLAKY', () => {
   it('ランダムなアイテムを生成する', () => {
@@ -138,28 +152,30 @@ describe('Random Generation - FLAKY', () => {
   })
 })
 
-// ✅ 決定論的なパターン: シード付き乱数生成器
-import { Random } from 'effect'
-
+// ✅ 決定論的パターン: 固定シード乱数
 describe('Random Generation - DETERMINISTIC', () => {
-  it('シード付きランダムでアイテムを生成する', async () => {
-    const program = Effect.gen(function* () {
-      // 固定シードで初期化
-      const random = yield* Random.Random
-      const rng = Random.fromSeed(12345)
+  const FIXED_SEED = 12345
 
-      const item = yield* generateItemWithRng(rng)
-      return item
+  it('固定シードで一貫した結果を保証', async () => {
+    const program = Effect.gen(function* () {
+      const random1 = Random.fromSeed(FIXED_SEED)
+      const random2 = Random.fromSeed(FIXED_SEED)
+
+      const value1 = Random.nextInt(random1, 100)
+      const value2 = Random.nextInt(random2, 100)
+
+      // 同じシードからは必ず同じ値が生成される
+      expect(value1).toBe(value2)
+      return { value1, value2 }
     })
 
-    const item1 = await Effect.runPromise(program)
-    const item2 = await Effect.runPromise(program)
-
-    // 同じシードなら同じ結果
-    expect(item1).toEqual(item2)
+    // 複数回実行しても結果は同じ
+    const result1 = await Effect.runPromise(program)
+    const result2 = await Effect.runPromise(program)
+    expect(result1).toEqual(result2)
   })
 
-  it('Property-Based Testingでも決定的に実行', () => {
+  it('Property-Based Testingでの決定論的実行', () => {
     fc.assert(
       fc.property(
         fc.integer({ min: 0, max: 1000000 }),
@@ -167,27 +183,27 @@ describe('Random Generation - DETERMINISTIC', () => {
           const rng1 = Random.fromSeed(seed)
           const rng2 = Random.fromSeed(seed)
 
-          const value1 = Random.next(rng1)
-          const value2 = Random.next(rng2)
+          const value1 = Random.nextInt(rng1, 1000)
+          const value2 = Random.nextInt(rng2, 1000)
 
-          // 同じシードからは常に同じ値が生成される
           expect(value1).toBe(value2)
         }
       ),
       {
-        seed: 42, // PBTも固定シードで実行
-        numRuns: 1000, // 十分な回数でテスト
-        verbose: false // 失敗時のみ詳細表示
+        seed: 42, // PBTも固定シードで決定論的実行
+        numRuns: 1000,
+        verbose: false
       }
     )
   })
 })
 ```
 
-#### 4. 外部依存の完全モック化
-
+#### 1.3 外部依存の完全モック化
 ```typescript
-// ❌ 絶対に避けるべきパターン: 実際の外部サービスへの依存
+import { Layer, Effect, Context } from 'effect'
+
+// ❌ 絶対に避けるべきパターン: 実外部依存
 describe('Network Request - FLAKY', () => {
   it('外部APIからデータを取得する', async () => {
     const response = await fetch('https://api.example.com/data')
@@ -196,841 +212,606 @@ describe('Network Request - FLAKY', () => {
   })
 })
 
-// ✅ 決定論的なパターン: 完全にモック化された外部依存
+// ✅ 決定論的パターン: 完全モック化
+interface NetworkService {
+  readonly fetch: (url: string) => Effect.Effect<ApiResponse, NetworkError>
+  readonly post: (url: string, data: unknown) => Effect.Effect<ApiResponse, NetworkError>
+}
+
+const NetworkService = Context.GenericTag<NetworkService>("@app/NetworkService")
+
 describe('Network Request - DETERMINISTIC', () => {
-  const createMockNetworkService = (responses: Map<string, any>) =>
+  const createMockNetworkService = (
+    responses: Map<string, ApiResponse>,
+    errors: Map<string, NetworkError> = new Map()
+  ) =>
     Layer.succeed(NetworkService, {
       fetch: (url: string) => {
+        if (errors.has(url)) {
+          return Effect.fail(errors.get(url)!)
+        }
         const response = responses.get(url)
         if (!response) {
           return Effect.fail(new NetworkError(`No mock for ${url}`))
         }
         return Effect.succeed(response)
+      },
+      post: (url: string, data: unknown) => {
+        const key = `POST:${url}`
+        const response = responses.get(key)
+        if (!response) {
+          return Effect.fail(new NetworkError(`No mock for ${key}`))
+        }
+        return Effect.succeed(response)
       }
     })
 
-  it('外部APIからデータを取得する', async () => {
+  it('正常レスポンスの処理', async () => {
     const mockResponses = new Map([
       ['https://api.example.com/data', { status: 'success', data: [1, 2, 3] }]
     ])
 
     const result = await Effect.runPromise(
-      fetchExternalData('https://api.example.com/data').pipe(
-        Effect.provide(createMockNetworkService(mockResponses))
-      )
+      Effect.gen(function* () {
+        const network = yield* NetworkService
+        return yield* network.fetch('https://api.example.com/data')
+      }).pipe(Effect.provide(createMockNetworkService(mockResponses)))
     )
 
     expect(result.status).toBe('success')
     expect(result.data).toEqual([1, 2, 3])
   })
+
+  it('ネットワークエラーハンドリング', async () => {
+    const mockErrors = new Map([
+      ['https://api.example.com/error', new NetworkError('Connection timeout')]
+    ])
+
+    const exit = await Effect.runPromiseExit(
+      Effect.gen(function* () {
+        const network = yield* NetworkService
+        return yield* network.fetch('https://api.example.com/error')
+      }).pipe(Effect.provide(createMockNetworkService(new Map(), mockErrors)))
+    )
+
+    expect(Exit.isFailure(exit)).toBe(true)
+  })
+
+  it('リトライ機構のテスト', async () => {
+    let attempts = 0
+    const dynamicService = Layer.succeed(NetworkService, {
+      fetch: (url: string) => {
+        attempts++
+        if (attempts < 3) {
+          return Effect.fail(new NetworkError('Temporary error'))
+        }
+        return Effect.succeed({ status: 'success', data: 'finally-worked' })
+      }
+    })
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const network = yield* NetworkService
+        return yield* network.fetch('https://api.example.com/retry').pipe(
+          Effect.retry(Schedule.exponential("100 millis").pipe(
+            Schedule.intersect(Schedule.recurs(2))
+          ))
+        )
+      }).pipe(Effect.provide(dynamicService))
+    )
+
+    expect(attempts).toBe(3)
+    expect(result.data).toBe('finally-worked')
+  })
 })
 ```
 
-#### 5. 環境依存の排除
+### Phase 2: レイヤー別テスト戦略実装
 
+#### 2.1 Domain Layer Tests - 純粋関数とビジネスルール
 ```typescript
-// ❌ 絶対に避けるべきパターン: 環境変数への直接依存
-describe('Environment Config - FLAKY', () => {
-  it('環境設定を読み込む', () => {
-    const config = loadConfig()
-    expect(config.apiUrl).toBe(process.env.API_URL) // 環境により異なる
-  })
-})
+// domain/entities/player.test.ts
+describe('Player Domain Entity', () => {
+  describe('Value Objects', () => {
+    it('PlayerIdの一意性とバリデーション', () => {
+      const id1 = PlayerId.generate()
+      const id2 = PlayerId.generate()
 
-// ✅ 決定論的なパターン: 環境設定の注入
-describe('Environment Config - DETERMINISTIC', () => {
-  const createTestConfig = (overrides: Partial<Config> = {}): Layer.Layer<ConfigService> =>
-    Layer.succeed(ConfigService, {
-      getConfig: () => Effect.succeed({
-        apiUrl: 'https://test.api.com',
-        timeout: 5000,
-        retryCount: 3,
-        ...overrides
+      expect(id1.value).not.toBe(id2.value)
+      expect(PlayerId.isValid(id1.value)).toBe(true)
+      expect(() => PlayerId.fromString("")).toThrow(ValidationError)
+    })
+
+    it('Health値の境界条件', () => {
+      expect(() => Health.create(-1)).toThrow('Health cannot be negative')
+      expect(() => Health.create(101)).toThrow('Health cannot exceed maximum')
+
+      const health = Health.create(50)
+      expect(health.value).toBe(50)
+      expect(health.isAlive()).toBe(true)
+      expect(Health.create(0).isAlive()).toBe(false)
+    })
+
+    it('Positionの空間制約', () => {
+      const validPos = Position.create(0, 64, 0)
+      expect(validPos.isValid()).toBe(true)
+
+      expect(() => Position.create(0, -1, 0)).toThrow('Y coordinate below world limit')
+      expect(() => Position.create(0, 257, 0)).toThrow('Y coordinate above world limit')
+    })
+  })
+
+  describe('Entity Invariants', () => {
+    it('ダメージ計算のビジネスルール', () => {
+      const player = Player.create({
+        id: PlayerId.generate(),
+        name: "TestPlayer",
+        health: Health.create(100),
+        armor: Armor.create(10)
+      })
+
+      // 通常ダメージ
+      const damaged = player.takeDamage(30)
+      expect(damaged.health.value).toBe(75) // 30 - 10(armor) = 20, 100 - 20 = 80
+
+      // 防御力を超えるダメージ
+      const heavyDamaged = player.takeDamage(50)
+      expect(heavyDamaged.health.value).toBe(60) // 50 - 10 = 40, 100 - 40 = 60
+
+      // 致死ダメージ
+      const killed = player.takeDamage(200)
+      expect(killed.health.value).toBe(0)
+      expect(killed.isDead()).toBe(true)
+    })
+
+    it('インベントリ容量制限の実施', () => {
+      const player = Player.create({
+        id: PlayerId.generate(),
+        name: "TestPlayer",
+        inventory: Inventory.createEmpty(36) // 36スロット
+      })
+
+      // 容量内での追加
+      for (let i = 0; i < 36; i++) {
+        const added = player.addItem(ItemStack.create('dirt', 1))
+        expect(added.isSuccess).toBe(true)
+      }
+
+      // 容量超過
+      const overflow = player.addItem(ItemStack.create('stone', 1))
+      expect(overflow.isSuccess).toBe(false)
+      expect(overflow.error).toEqual('Inventory full')
+    })
+  })
+
+  describe('Property-Based Domain Tests', () => {
+    const playerArbitrary = fc.record({
+      name: fc.stringMatching(/^[a-zA-Z0-9_]{3,20}$/),
+      health: fc.integer({ min: 0, max: 100 }),
+      position: fc.record({
+        x: fc.float({ min: -1000, max: 1000, noNaN: true }),
+        y: fc.integer({ min: 0, max: 256 }),
+        z: fc.float({ min: -1000, max: 1000, noNaN: true })
       })
     })
 
-  it('環境設定を読み込む', async () => {
-    const config = await Effect.runPromise(
-      getApplicationConfig().pipe(
-        Effect.provide(createTestConfig({ apiUrl: 'https://custom.api.com' }))
-      )
-    )
-
-    expect(config.apiUrl).toBe('https://custom.api.com')
-  })
-})
-```
-
-#### 6. 並列テストの独立性保証
-
-```typescript
-// ❌ 絶対に避けるべきパターン: 共有状態への依存
-let sharedCounter = 0
-
-describe('Shared State - FLAKY', () => {
-  it('カウンターを増加させる', () => {
-    sharedCounter++
-    expect(sharedCounter).toBe(1) // 他のテストの実行順序に依存
-  })
-
-  it('カウンターをリセットする', () => {
-    sharedCounter = 0
-    expect(sharedCounter).toBe(0) // 実行順序により失敗
-  })
-})
-
-// ✅ 決定論的なパターン: 完全に独立したテスト
-describe('Isolated State - DETERMINISTIC', () => {
-  // 各テストで新しいインスタンスを作成
-  const createCounter = () => ({ value: 0 })
-
-  it('カウンターを増加させる', () => {
-    const counter = createCounter()
-    counter.value++
-    expect(counter.value).toBe(1)
-  })
-
-  it('カウンターをリセットする', () => {
-    const counter = createCounter()
-    counter.value = 10
-    counter.value = 0
-    expect(counter.value).toBe(0)
-  })
-
-  // Property-Based Testでのカウンター操作テスト
-  it('カウンター操作が決定的である', () => {
-    fc.assert(
-      fc.property(
-        fc.array(fc.integer({ min: -100, max: 100 }), { maxLength: 20 }),
-        (operations) => {
-          const counter = createCounter()
-          let expected = 0
-
-          operations.forEach(op => {
-            counter.value += op
-            expected += op
+    it('プレイヤー状態の不変条件', () => {
+      fc.assert(
+        fc.property(playerArbitrary, (playerData) => {
+          const player = Player.create({
+            id: PlayerId.generate(),
+            ...playerData,
+            health: Health.create(playerData.health),
+            position: Position.create(playerData.position.x, playerData.position.y, playerData.position.z)
           })
 
-          expect(counter.value).toBe(expected)
-        }
-      ),
-      { seed: 789, numRuns: 500 }
-    )
+          // 不変条件1: ヘルスは0-100の範囲内
+          expect(player.health.value).toBeGreaterThanOrEqual(0)
+          expect(player.health.value).toBeLessThanOrEqual(100)
+
+          // 不変条件2: 位置のY座標は有効範囲内
+          expect(player.position.y).toBeGreaterThanOrEqual(0)
+          expect(player.position.y).toBeLessThanOrEqual(256)
+
+          // 不変条件3: 名前は有効な形式
+          expect(player.name).toMatch(/^[a-zA-Z0-9_]{3,20}$/)
+        })
+      )
+    })
+
+    it('ダメージ計算の交換法則', () => {
+      fc.assert(
+        fc.property(
+          fc.integer({ min: 1, max: 100 }),
+          fc.integer({ min: 1, max: 50 }),
+          fc.integer({ min: 1, max: 50 }),
+          (initialHealth, damage1, damage2) => {
+            const player1 = Player.create({
+              id: PlayerId.generate(),
+              health: Health.create(initialHealth)
+            })
+
+            const player2 = Player.create({
+              id: PlayerId.generate(),
+              health: Health.create(initialHealth)
+            })
+
+            // 異なる順序でダメージを与える
+            const result1 = player1.takeDamage(damage1).takeDamage(damage2)
+            const result2 = player2.takeDamage(damage2).takeDamage(damage1)
+
+            // 最終的なヘルスは同じになるはず
+            expect(result1.health.value).toBe(result2.health.value)
+          }
+        )
+      )
+    })
   })
 })
 ```
 
-### Flaky Test検出システム
-
+#### 2.2 Application Layer Tests - Use Cases とワークフロー
 ```typescript
-// test-utils/flaky-detector.ts
-export class FlakyTestDetector {
-  private static readonly ITERATION_COUNT = 100
+// application/use-cases/player-movement.test.ts
+describe('PlayerMovementUseCase', () => {
+  interface TestDependencies {
+    playerRepository: PlayerRepository
+    worldService: WorldService
+    collisionService: CollisionService
+    eventBus: EventBus
+  }
 
-  /**
-   * テストを複数回実行してFlaky Testを検出
-   */
-  static async detectFlaky(
-    testFn: () => Promise<void>,
-    iterations: number = FlakyTestDetector.ITERATION_COUNT
-  ): Promise<{
-    isFlaky: boolean,
-    failureRate: number,
-    failures: Error[]
-  }> {
-    const failures: Error[] = []
+  const createTestDependencies = (): TestDependencies => ({
+    playerRepository: {
+      findById: vi.fn(),
+      save: vi.fn(),
+      findByPosition: vi.fn()
+    },
+    worldService: {
+      getChunkAt: vi.fn(),
+      getBlockAt: vi.fn(),
+      isChunkLoaded: vi.fn()
+    },
+    collisionService: {
+      checkCollision: vi.fn(),
+      getCollisionBounds: vi.fn()
+    },
+    eventBus: {
+      publish: vi.fn(),
+      subscribe: vi.fn()
+    }
+  })
 
-    for (let i = 0; i < iterations; i++) {
+  describe('Move Player Use Case', () => {
+    it('正常な移動の処理フロー', async () => {
+      const deps = createTestDependencies()
+      const useCase = new PlayerMovementUseCase(deps)
+
+      const mockPlayer = Player.create({
+        id: PlayerId.generate(),
+        position: Position.create(0, 64, 0)
+      })
+
+      deps.playerRepository.findById.mockResolvedValue(mockPlayer)
+      deps.worldService.isChunkLoaded.mockResolvedValue(true)
+      deps.collisionService.checkCollision.mockResolvedValue(false)
+
+      const command = PlayerMovementCommand.create({
+        playerId: mockPlayer.id.value,
+        targetPosition: Position.create(10, 64, 0),
+        timestamp: Date.now()
+      })
+
+      const result = await useCase.execute(command)
+
+      expect(result.isSuccess).toBe(true)
+      expect(deps.playerRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          position: expect.objectContaining({ x: 10, y: 64, z: 0 })
+        })
+      )
+      expect(deps.eventBus.publish).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'PlayerMoved',
+          playerId: mockPlayer.id.value
+        })
+      )
+    })
+
+    it('衝突検出による移動拒否', async () => {
+      const deps = createTestDependencies()
+      const useCase = new PlayerMovementUseCase(deps)
+
+      const mockPlayer = Player.create({
+        id: PlayerId.generate(),
+        position: Position.create(0, 64, 0)
+      })
+
+      deps.playerRepository.findById.mockResolvedValue(mockPlayer)
+      deps.worldService.isChunkLoaded.mockResolvedValue(true)
+      deps.collisionService.checkCollision.mockResolvedValue(true) // 衝突あり
+
+      const command = PlayerMovementCommand.create({
+        playerId: mockPlayer.id.value,
+        targetPosition: Position.create(10, 64, 0)
+      })
+
+      const result = await useCase.execute(command)
+
+      expect(result.isSuccess).toBe(false)
+      expect(result.error).toEqual('Movement blocked by collision')
+      expect(deps.playerRepository.save).not.toHaveBeenCalled()
+    })
+
+    it('未ロードチャンクでの移動時自動チャンクロード', async () => {
+      const deps = createTestDependencies()
+      const useCase = new PlayerMovementUseCase(deps)
+
+      const mockPlayer = Player.create({
+        id: PlayerId.generate(),
+        position: Position.create(0, 64, 0)
+      })
+
+      deps.playerRepository.findById.mockResolvedValue(mockPlayer)
+      deps.worldService.isChunkLoaded.mockResolvedValue(false) // チャンク未ロード
+      deps.worldService.loadChunk = vi.fn().mockResolvedValue(true)
+      deps.collisionService.checkCollision.mockResolvedValue(false)
+
+      const command = PlayerMovementCommand.create({
+        playerId: mockPlayer.id.value,
+        targetPosition: Position.create(100, 64, 0) // 遠くの位置
+      })
+
+      const result = await useCase.execute(command)
+
+      expect(deps.worldService.loadChunk).toHaveBeenCalledWith(
+        expect.objectContaining({ x: 6, z: 0 }) // チャンク座標
+      )
+      expect(result.isSuccess).toBe(true)
+    })
+  })
+
+  describe('Complex Movement Workflows', () => {
+    it('複数プレイヤー同時移動での整合性', async () => {
+      const deps = createTestDependencies()
+      const useCase = new PlayerMovementUseCase(deps)
+
+      const player1 = Player.create({ id: PlayerId.generate() })
+      const player2 = Player.create({ id: PlayerId.generate() })
+
+      // 両プレイヤーが同じ位置に移動しようとする
+      const targetPos = Position.create(10, 64, 0)
+
+      deps.playerRepository.findById
+        .mockResolvedValueOnce(player1)
+        .mockResolvedValueOnce(player2)
+      deps.worldService.isChunkLoaded.mockResolvedValue(true)
+      deps.collisionService.checkCollision
+        .mockResolvedValueOnce(false) // 1人目は成功
+        .mockResolvedValueOnce(true)  // 2人目は衝突で失敗
+
+      const [result1, result2] = await Promise.all([
+        useCase.execute(PlayerMovementCommand.create({
+          playerId: player1.id.value,
+          targetPosition: targetPos
+        })),
+        useCase.execute(PlayerMovementCommand.create({
+          playerId: player2.id.value,
+          targetPosition: targetPos
+        }))
+      ])
+
+      expect(result1.isSuccess).toBe(true)
+      expect(result2.isSuccess).toBe(false)
+      expect(deps.playerRepository.save).toHaveBeenCalledTimes(1)
+    })
+
+    it('Effect-TSパターンでのエラーハンドリング', async () => {
+      const program = Effect.gen(function* () {
+        const useCase = yield* PlayerMovementUseCase
+        const command = PlayerMovementCommand.create({
+          playerId: "non-existent-player",
+          targetPosition: Position.create(0, 64, 0)
+        })
+
+        return yield* useCase.execute(command).pipe(
+          Effect.catchTags({
+            PlayerNotFoundError: (error) => Effect.succeed({
+              isSuccess: false,
+              error: `Player not found: ${error.playerId}`
+            }),
+            ChunkLoadError: (error) => Effect.succeed({
+              isSuccess: false,
+              error: `Chunk loading failed: ${error.coordinate}`
+            })
+          })
+        )
+      })
+
+      const mockLayer = createMockUseCaseLayer({
+        playerRepository: {
+          findById: () => Effect.fail(new PlayerNotFoundError("non-existent-player"))
+        }
+      })
+
+      const result = await Effect.runPromise(
+        program.pipe(Effect.provide(mockLayer))
+      )
+
+      expect(result.isSuccess).toBe(false)
+      expect(result.error).toContain("Player not found")
+    })
+  })
+})
+```
+
+#### 2.3 Infrastructure Layer Tests - アダプターとリポジトリ
+```typescript
+// infrastructure/repositories/indexed-db-player-repository.test.ts
+describe('IndexedDBPlayerRepository', () => {
+  let repository: IndexedDBPlayerRepository
+  let mockDB: IDBDatabase
+
+  beforeEach(async () => {
+    // テスト用InMemory IndexedDB
+    mockDB = await createInMemoryDB('test-db', 1)
+    repository = new IndexedDBPlayerRepository(mockDB)
+  })
+
+  afterEach(async () => {
+    await repository.clear()
+    mockDB.close()
+  })
+
+  describe('基本CRUD操作', () => {
+    it('プレイヤーの保存と取得', async () => {
+      const player = TestDataBuilder.player()
+
+      await repository.save(player)
+      const retrieved = await repository.findById(player.id.value)
+
+      expect(retrieved).toEqual(player)
+    })
+
+    it('存在しないプレイヤーでOption.noneを返す', async () => {
+      const result = await repository.findById("non-existent")
+      expect(Option.isNone(result)).toBe(true)
+    })
+
+    it('プレイヤーの更新', async () => {
+      const player = TestDataBuilder.player()
+      await repository.save(player)
+
+      const updated = player.takeDamage(20)
+      await repository.save(updated)
+
+      const retrieved = await repository.findById(player.id.value)
+      expect(retrieved.health.value).toBe(updated.health.value)
+    })
+
+    it('プレイヤーの削除', async () => {
+      const player = TestDataBuilder.player()
+      await repository.save(player)
+
+      await repository.delete(player.id)
+      const retrieved = await repository.findById(player.id.value)
+
+      expect(Option.isNone(retrieved)).toBe(true)
+    })
+  })
+
+  describe('複雑なクエリ操作', () => {
+    it('位置範囲によるプレイヤー検索', async () => {
+      const players = [
+        TestDataBuilder.player({ position: Position.create(0, 64, 0) }),
+        TestDataBuilder.player({ position: Position.create(10, 64, 0) }),
+        TestDataBuilder.player({ position: Position.create(100, 64, 0) })
+      ]
+
+      await Promise.all(players.map(p => repository.save(p)))
+
+      const nearbyPlayers = await repository.findInRadius(
+        Position.create(5, 64, 0),
+        15 // 半径15ブロック
+      )
+
+      expect(nearbyPlayers).toHaveLength(2) // 最初の2人のみ
+      expect(nearbyPlayers.map(p => p.position.x)).toEqual([0, 10])
+    })
+
+    it('ページネーション付きプレイヤーリスト', async () => {
+      const players = Array.from({ length: 25 }, (_, i) =>
+        TestDataBuilder.player({ name: `Player${i}` })
+      )
+
+      await Promise.all(players.map(p => repository.save(p)))
+
+      const page1 = await repository.findAll({ offset: 0, limit: 10 })
+      const page2 = await repository.findAll({ offset: 10, limit: 10 })
+      const page3 = await repository.findAll({ offset: 20, limit: 10 })
+
+      expect(page1).toHaveLength(10)
+      expect(page2).toHaveLength(10)
+      expect(page3).toHaveLength(5)
+
+      // 重複がないことを確認
+      const allIds = [...page1, ...page2, ...page3].map(p => p.id.value)
+      const uniqueIds = new Set(allIds)
+      expect(uniqueIds.size).toBe(allIds.length)
+    })
+  })
+
+  describe('トランザクション管理', () => {
+    it('トランザクション内での操作成功', async () => {
+      const player1 = TestDataBuilder.player()
+      const player2 = TestDataBuilder.player()
+
+      await repository.transaction(async (tx) => {
+        await repository.save(player1, tx)
+        await repository.save(player2, tx)
+      })
+
+      const retrieved1 = await repository.findById(player1.id.value)
+      const retrieved2 = await repository.findById(player2.id.value)
+
+      expect(Option.isSome(retrieved1)).toBe(true)
+      expect(Option.isSome(retrieved2)).toBe(true)
+    })
+
+    it('トランザクションロールバックによる操作取り消し', async () => {
+      const player = TestDataBuilder.player()
+
       try {
-        await testFn()
+        await repository.transaction(async (tx) => {
+          await repository.save(player, tx)
+          throw new Error('Intentional error')
+        })
       } catch (error) {
-        failures.push(error as Error)
+        expect(error.message).toBe('Intentional error')
       }
-    }
 
-    return {
-      isFlaky: failures.length > 0 && failures.length < iterations,
-      failureRate: failures.length / iterations,
-      failures: failures.slice(0, 5) // 最初の5個のエラーのみ保持
-    }
-  }
-
-  /**
-   * テストスイート全体のFlaky Test検出
-   */
-  static async validateTestSuite(
-    suite: TestSuite
-  ): Promise<Map<string, FlakyTestResult>> {
-    const results = new Map<string, FlakyTestResult>()
-
-    for (const test of suite.tests) {
-      const result = await this.detectFlaky(test.fn)
-      if (result.isFlaky) {
-        results.set(test.name, result)
-      }
-    }
-
-    return results
-  }
-}
-
-// CI/CDでの使用例
-describe('Flaky Test Detection in CI', () => {
-  it.skipIf(process.env.CI !== 'true')(
-    'すべてのテストが決定的である',
-    async () => {
-      const suite = await loadTestSuite()
-      const flakyTests = await FlakyTestDetector.validateTestSuite(suite)
-
-      if (flakyTests.size > 0) {
-        const report = Array.from(flakyTests.entries())
-          .map(([name, result]) =>
-            `${name}: ${result.failureRate * 100}% failure rate`
-          )
-          .join('\n')
-
-        throw new Error(`Flaky tests detected:\n${report}`)
-      }
-    },
-    { timeout: 60000 } // Flaky Test検出には時間がかかる
-  )
-})
-```
-
-### Flaky Test修正ガイドライン
-
-```typescript
-// test-utils/flaky-fixer.ts
-export class FlakyTestFixer {
-  /**
-   * 一般的なFlaky Testパターンを検出して修正案を提示
-   */
-  static analyzeFlakyTest(testCode: string): FixSuggestion[] {
-    const suggestions: FixSuggestion[] = []
-
-    // setTimeout/setIntervalの検出
-    if (testCode.includes('setTimeout') || testCode.includes('setInterval')) {
-      suggestions.push({
-        issue: 'Direct timer usage detected',
-        solution: 'Use TestClock from Effect for deterministic time control',
-        example: 'yield* TestClock.adjust("100 millis")'
-      })
-    }
-
-    // Math.randomの検出
-    if (testCode.includes('Math.random')) {
-      suggestions.push({
-        issue: 'Uncontrolled randomness detected',
-        solution: 'Use seeded random generator from Effect',
-        example: 'const rng = Random.fromSeed(12345)'
-      })
-    }
-
-    // Date.nowの検出
-    if (testCode.includes('Date.now') || testCode.includes('new Date()')) {
-      suggestions.push({
-        issue: 'System time dependency detected',
-        solution: 'Inject clock service or use fixed timestamps',
-        example: 'const fixedTime = new Date("2024-01-01T00:00:00Z")'
-      })
-    }
-
-    // 実ネットワークリクエストの検出
-    if (testCode.includes('fetch(') && !testCode.includes('mock')) {
-      suggestions.push({
-        issue: 'Potential real network request detected',
-        solution: 'Use mocked network service',
-        example: 'Effect.provide(MockNetworkService)'
-      })
-    }
-
-    return suggestions
-  }
-}
-```
-
-### CI/CDでのFlaky Test防止
-
-```yaml
-# .github/workflows/test.yml
-name: Test Suite with Flaky Detection
-
-on:
-  pull_request:
-    types: [opened, synchronize]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        iteration: [1, 2, 3] # 各テストを3回実行
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Run tests with flaky detection
-        run: |
-          pnpm test --reporter=json --outputFile=test-results-${{ matrix.iteration }}.json
-
-      - name: Analyze test stability
-        run: |
-          node scripts/analyze-test-stability.js \
-            test-results-1.json \
-            test-results-2.json \
-            test-results-3.json
-
-      - name: Fail if flaky tests detected
-        run: |
-          if [ -f "flaky-tests.json" ]; then
-            echo "❌ Flaky tests detected:"
-            cat flaky-tests.json
-            exit 1
-          fi
-```
-
-### Flaky Test禁止の強制
-
-```typescript
-// vitest.config.ts
-import { defineConfig } from 'vitest/config'
-
-export default defineConfig({
-  test: {
-    // Flaky Test対策の設定
-    retry: 0, // リトライは許可しない（Flaky Testを隠蔽しないため）
-    testTimeout: 5000, // 短いタイムアウトで無限ループを防ぐ
-    hookTimeout: 5000,
-    isolate: true, // 各テストファイルを独立したプロセスで実行
-    pool: 'forks', // プロセス分離で状態汚染を防ぐ
-    poolOptions: {
-      forks: {
-        singleFork: false // 各テストを別プロセスで実行
-      }
-    },
-
-    // カスタムレポーター
-    reporters: [
-      'default',
-      ['./test-utils/flaky-reporter.ts'] // Flaky Test検出レポーター
-    ],
-
-    // グローバルセットアップ
-    globalSetup: './test-utils/ensure-deterministic.ts'
-  }
-})
-```
-
-## 単体テスト設計
-
-### 1. 関数単位のテスト構造
-
-各関数に対して以下の観点でテストを作成：
-
-```typescript
-import { describe, it, expect } from 'vitest'
-import { Effect, Exit, Either, Option } from 'effect'
-import * as fc from '@effect/schema/FastCheck'
-import { Schema } from '@effect/schema'
-
-// テスト対象の関数
-const calculateDamage = (
-  attackPower: number,
-  defense: number,
-  criticalMultiplier: number = 1.0
-): Effect.Effect<number, DamageCalculationError> =>
-  Effect.gen(function* () {
-    if (attackPower < 0 || defense < 0) {
-      return yield* Effect.fail(new InvalidParameterError("Negative values not allowed"))
-    }
-
-    const baseDamage = Math.max(1, attackPower - defense)
-    const finalDamage = Math.floor(baseDamage * criticalMultiplier)
-
-    return yield* Effect.succeed(finalDamage)
-  })
-
-describe('calculateDamage', () => {
-  // 1. 正常系テスト
-  describe('正常系', () => {
-    it('基本的なダメージ計算が正しく行われる', async () => {
-      const result = await Effect.runPromise(
-        calculateDamage(100, 30, 1.0)
-      )
-      expect(result).toBe(70)
-    })
-
-    it('防御力が攻撃力を上回る場合、最小ダメージ1を返す', async () => {
-      const result = await Effect.runPromise(
-        calculateDamage(30, 100, 1.0)
-      )
-      expect(result).toBe(1)
-    })
-
-    it('クリティカル倍率が適用される', async () => {
-      const result = await Effect.runPromise(
-        calculateDamage(100, 30, 2.0)
-      )
-      expect(result).toBe(140)
+      const retrieved = await repository.findById(player.id.value)
+      expect(Option.isNone(retrieved)).toBe(true)
     })
   })
 
-  // 2. 異常系テスト
-  describe('異常系', () => {
-    it('負の攻撃力でエラーを返す', async () => {
-      const exit = await Effect.runPromiseExit(
-        calculateDamage(-10, 30, 1.0)
-      )
+  describe('パフォーマンステスト', () => {
+    it('大量データ挿入のパフォーマンス', async () => {
+      const players = Array.from({ length: 1000 }, () => TestDataBuilder.player())
 
-      expect(Exit.isFailure(exit)).toBe(true)
-      if (Exit.isFailure(exit)) {
-        const error = Exit.causeFailure(exit)
-        expect(error).toBeInstanceOf(InvalidParameterError)
-      }
+      const startTime = performance.now()
+      await Promise.all(players.map(p => repository.save(p)))
+      const endTime = performance.now()
+
+      const duration = endTime - startTime
+      expect(duration).toBeLessThan(5000) // 5秒以内
+
+      const count = await repository.count()
+      expect(count).toBe(1000)
     })
 
-    it('負の防御力でエラーを返す', async () => {
-      const exit = await Effect.runPromiseExit(
-        calculateDamage(100, -30, 1.0)
+    it('インデックスによる高速検索', async () => {
+      // 大量データを準備
+      const players = Array.from({ length: 10000 }, (_, i) =>
+        TestDataBuilder.player({ name: `Player${i}` })
       )
+      await Promise.all(players.map(p => repository.save(p)))
 
-      expect(Exit.isFailure(exit)).toBe(true)
-    })
-  })
+      // 名前による検索のパフォーマンス測定
+      const startTime = performance.now()
+      const found = await repository.findByName("Player5000")
+      const endTime = performance.now()
 
-  // 3. 境界値テスト
-  describe('境界値', () => {
-    it('攻撃力0の場合', async () => {
-      const result = await Effect.runPromise(
-        calculateDamage(0, 0, 1.0)
-      )
-      expect(result).toBe(1) // 最小ダメージ
-    })
-
-    it('防御力0の場合', async () => {
-      const result = await Effect.runPromise(
-        calculateDamage(100, 0, 1.0)
-      )
-      expect(result).toBe(100)
-    })
-
-    it('最大値付近の計算', async () => {
-      const result = await Effect.runPromise(
-        calculateDamage(Number.MAX_SAFE_INTEGER - 1, 0, 1.0)
-      )
-      expect(result).toBe(Number.MAX_SAFE_INTEGER - 1)
-    })
-  })
-
-  // 4. Property-Based Testing
-  describe('Property-Based Tests', () => {
-    it('ダメージは常に1以上である', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.integer({ min: 0, max: 10000 }),
-          fc.integer({ min: 0, max: 10000 }),
-          fc.float({ min: 0.1, max: 10.0 }),
-          async (attack, defense, critical) => {
-            const result = await Effect.runPromise(
-              calculateDamage(attack, defense, critical)
-            )
-            expect(result).toBeGreaterThanOrEqual(1)
-          }
-        )
-      )
-    })
-
-    it('クリティカル倍率が高いほどダメージが増加する', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.integer({ min: 10, max: 1000 }),
-          fc.integer({ min: 0, max: 500 }),
-          fc.float({ min: 1.0, max: 2.0 }),
-          fc.float({ min: 2.1, max: 5.0 }),
-          async (attack, defense, critLow, critHigh) => {
-            const [damageLow, damageHigh] = await Effect.runPromise(
-              Effect.all([
-                calculateDamage(attack, defense, critLow),
-                calculateDamage(attack, defense, critHigh)
-              ])
-            )
-            expect(damageHigh).toBeGreaterThanOrEqual(damageLow)
-          }
-        )
-      )
-    })
-
-    it('防御力が増加するとダメージが減少する', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.integer({ min: 100, max: 1000 }),
-          fc.integer({ min: 0, max: 50 }),
-          fc.integer({ min: 51, max: 99 }),
-          async (attack, defenseLow, defenseHigh) => {
-            const [damageLow, damageHigh] = await Effect.runPromise(
-              Effect.all([
-                calculateDamage(attack, defenseLow, 1.0),
-                calculateDamage(attack, defenseHigh, 1.0)
-              ])
-            )
-            expect(damageLow).toBeGreaterThanOrEqual(damageHigh)
-          }
-        )
-      )
+      expect(Option.isSome(found)).toBe(true)
+      expect(endTime - startTime).toBeLessThan(100) // 100ms以内
     })
   })
 })
 ```
 
-### 2. Schema Validationのテスト
+### Phase 3: Property-Based Testing戦略
 
-```typescript
-import { Schema } from '@effect/schema'
-import * as ParseResult from '@effect/schema/ParseResult'
-
-// Schemaの定義
-const PlayerSchema = Schema.Struct({
-  id: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.maxLength(36),
-    Schema.brand("PlayerId")
-  ),
-  name: Schema.String.pipe(
-    Schema.minLength(3),
-    Schema.maxLength(20),
-    Schema.pattern(/^[a-zA-Z0-9_]+$/)
-  ),
-  position: Schema.Struct({
-    x: Schema.Number.pipe(Schema.finite),
-    y: Schema.Number.pipe(Schema.between(0, 256)),
-    z: Schema.Number.pipe(Schema.finite)
-  }),
-  health: Schema.Number.pipe(
-    Schema.between(0, 100),
-    Schema.int
-  ),
-  inventory: Schema.Array(
-    Schema.Struct({
-      itemId: Schema.String,
-      quantity: Schema.Number.pipe(Schema.positive, Schema.int)
-    })
-  ).pipe(Schema.maxItems(36))
-})
-
-describe('PlayerSchema Validation', () => {
-  describe('正常系バリデーション', () => {
-    it('有効なプレイヤーデータを受け入れる', () => {
-      const validPlayer = {
-        id: "player_123",
-        name: "Steve123",
-        position: { x: 100, y: 64, z: -200 },
-        health: 100,
-        inventory: [
-          { itemId: "minecraft:diamond", quantity: 5 }
-        ]
-      }
-
-      const result = Schema.decodeUnknownSync(PlayerSchema)(validPlayer)
-      expect(result).toEqual(validPlayer)
-    })
-
-    it('空のインベントリを許可する', () => {
-      const playerWithEmptyInventory = {
-        id: "player_456",
-        name: "Alex",
-        position: { x: 0, y: 128, z: 0 },
-        health: 50,
-        inventory: []
-      }
-
-      const result = Schema.decodeUnknownSync(PlayerSchema)(playerWithEmptyInventory)
-      expect(result.inventory).toHaveLength(0)
-    })
-  })
-
-  describe('異常系バリデーション', () => {
-    it('無効な名前形式を拒否する', () => {
-      const invalidNamePlayer = {
-        id: "player_789",
-        name: "Steve@123!", // 特殊文字を含む
-        position: { x: 0, y: 64, z: 0 },
-        health: 100,
-        inventory: []
-      }
-
-      expect(() =>
-        Schema.decodeUnknownSync(PlayerSchema)(invalidNamePlayer)
-      ).toThrow()
-    })
-
-    it('範囲外のヘルスを拒否する', () => {
-      const invalidHealthPlayer = {
-        id: "player_999",
-        name: "Steve",
-        position: { x: 0, y: 64, z: 0 },
-        health: 150, // 最大値を超える
-        inventory: []
-      }
-
-      expect(() =>
-        Schema.decodeUnknownSync(PlayerSchema)(invalidHealthPlayer)
-      ).toThrow()
-    })
-
-    it('Y座標の範囲外を拒否する', () => {
-      const invalidPositionPlayer = {
-        id: "player_111",
-        name: "Steve",
-        position: { x: 0, y: 300, z: 0 }, // Y座標が256を超える
-        health: 100,
-        inventory: []
-      }
-
-      expect(() =>
-        Schema.decodeUnknownSync(PlayerSchema)(invalidPositionPlayer)
-      ).toThrow()
-    })
-
-    it('インベントリサイズ上限を超えるデータを拒否する', () => {
-      const tooManyItems = Array.from({ length: 40 }, (_, i) => ({
-        itemId: `item_${i}`,
-        quantity: 1
-      }))
-
-      const invalidInventoryPlayer = {
-        id: "player_222",
-        name: "Steve",
-        position: { x: 0, y: 64, z: 0 },
-        health: 100,
-        inventory: tooManyItems
-      }
-
-      expect(() =>
-        Schema.decodeUnknownSync(PlayerSchema)(invalidInventoryPlayer)
-      ).toThrow()
-    })
-  })
-
-  describe('Property-Based Schema Testing', () => {
-    const playerArbitrary = fc.record({
-      id: fc.string({ minLength: 1, maxLength: 36 }),
-      name: fc.stringMatching(/^[a-zA-Z0-9_]{3,20}$/),
-      position: fc.record({
-        x: fc.float({ noNaN: true }),
-        y: fc.float({ min: 0, max: 256, noNaN: true }),
-        z: fc.float({ noNaN: true })
-      }),
-      health: fc.integer({ min: 0, max: 100 }),
-      inventory: fc.array(
-        fc.record({
-          itemId: fc.string({ minLength: 1 }),
-          quantity: fc.integer({ min: 1 })
-        }),
-        { maxLength: 36 }
-      )
-    })
-
-    it('すべての生成されたプレイヤーデータが有効である', () => {
-      fc.assert(
-        fc.property(playerArbitrary, (player) => {
-          const result = Effect.either(Schema.decodeUnknown(PlayerSchema)(player))
-          expect(Either.isRight(result)).toBe(true)
-        })
-      )
-    })
-
-    it('エンコード・デコードのラウンドトリップが保持される', () => {
-      fc.assert(
-        fc.property(playerArbitrary, (player) => {
-          const encoded = Schema.encodeSync(PlayerSchema)(
-            Schema.decodeUnknownSync(PlayerSchema)(player)
-          )
-          const decoded = Schema.decodeUnknownSync(PlayerSchema)(encoded)
-
-          expect(decoded).toEqual(Schema.decodeUnknownSync(PlayerSchema)(player))
-        })
-      )
-    })
-  })
-})
-```
-
-### 3. Effect-TSサービスのテスト
-
-```typescript
-import { Context, Layer, Effect } from 'effect'
-import { vi } from 'vitest'
-
-// サービス定義
-interface ChunkService {
-  readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkLoadError>
-  readonly saveChunk: (chunk: Chunk) => Effect.Effect<void, ChunkSaveError>
-  readonly generateChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkGenerationError>
-  readonly unloadChunk: (coord: ChunkCoordinate) => Effect.Effect<void, never>
-}
-
-const ChunkService = Context.GenericTag<ChunkService>("@app/ChunkService")
-
-describe('ChunkService', () => {
-  // モックサービスの作成
-  const createMockChunkService = (
-    overrides: Partial<ChunkService> = {}
-  ): Layer.Layer<ChunkService> => {
-    const defaultService: ChunkService = {
-      loadChunk: vi.fn((coord) =>
-        Effect.succeed(createMockChunk(coord))
-      ),
-      saveChunk: vi.fn(() =>
-        Effect.succeed(undefined)
-      ),
-      generateChunk: vi.fn((coord) =>
-        Effect.succeed(createMockChunk(coord))
-      ),
-      unloadChunk: vi.fn(() =>
-        Effect.succeed(undefined)
-      )
-    }
-
-    return Layer.succeed(ChunkService, {
-      ...defaultService,
-      ...overrides
-    })
-  }
-
-  describe('loadChunk', () => {
-    it('チャンクを正常にロードする', async () => {
-      const mockLayer = createMockChunkService()
-      const coord = { x: 0, z: 0 }
-
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const service = yield* ChunkService
-          return yield* service.loadChunk(coord)
-        }).pipe(Effect.provide(mockLayer))
-      )
-
-      expect(result).toBeDefined()
-      expect(result.coordinate).toEqual(coord)
-    })
-
-    it('存在しないチャンクでエラーを返す', async () => {
-      const mockLayer = createMockChunkService({
-        loadChunk: () => Effect.fail(new ChunkNotFoundError())
-      })
-
-      const exit = await Effect.runPromiseExit(
-        Effect.gen(function* () {
-          const service = yield* ChunkService
-          return yield* service.loadChunk({ x: 999, z: 999 })
-        }).pipe(Effect.provide(mockLayer))
-      )
-
-      expect(Exit.isFailure(exit)).toBe(true)
-    })
-
-    it('リトライロジックが正しく動作する', async () => {
-      let attempts = 0
-      const mockLayer = createMockChunkService({
-        loadChunk: (coord) => {
-          attempts++
-          if (attempts < 3) {
-            return Effect.fail(new TemporaryLoadError())
-          }
-          return Effect.succeed(createMockChunk(coord))
-        }
-      })
-
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const service = yield* ChunkService
-          return yield* service.loadChunk({ x: 0, z: 0 }).pipe(
-            Effect.retry(Schedule.recurs(2))
-          )
-        }).pipe(Effect.provide(mockLayer))
-      )
-
-      expect(attempts).toBe(3)
-      expect(result).toBeDefined()
-    })
-  })
-
-  describe('並行チャンクロード', () => {
-    it('複数チャンクを並行してロードする', async () => {
-      const loadedChunks: ChunkCoordinate[] = []
-      const mockLayer = createMockChunkService({
-        loadChunk: (coord) => {
-          loadedChunks.push(coord)
-          return Effect.delay(
-            Effect.succeed(createMockChunk(coord)),
-            "10 millis"
-          )
-        }
-      })
-
-      const coordinates = [
-        { x: 0, z: 0 },
-        { x: 1, z: 0 },
-        { x: 0, z: 1 },
-        { x: 1, z: 1 }
-      ]
-
-      const startTime = Date.now()
-      const results = await Effect.runPromise(
-        Effect.gen(function* () {
-          const service = yield* ChunkService
-          return yield* Effect.allPar(
-            coordinates.map(coord => service.loadChunk(coord))
-          )
-        }).pipe(Effect.provide(mockLayer))
-      )
-      const duration = Date.now() - startTime
-
-      expect(results).toHaveLength(4)
-      expect(loadedChunks).toHaveLength(4)
-      // 並行実行されているため、40ms未満で完了するはず
-      expect(duration).toBeLessThan(40)
-    })
-
-    it('一部のチャンクロードが失敗しても他は成功する', async () => {
-      const mockLayer = createMockChunkService({
-        loadChunk: (coord) => {
-          if (coord.x === 1 && coord.z === 1) {
-            return Effect.fail(new ChunkCorruptedError())
-          }
-          return Effect.succeed(createMockChunk(coord))
-        }
-      })
-
-      const coordinates = [
-        { x: 0, z: 0 },
-        { x: 1, z: 0 },
-        { x: 0, z: 1 },
-        { x: 1, z: 1 } // これは失敗する
-      ]
-
-      const results = await Effect.runPromise(
-        Effect.gen(function* () {
-          const service = yield* ChunkService
-          return yield* Effect.allSettled(
-            coordinates.map(coord => service.loadChunk(coord))
-          )
-        }).pipe(Effect.provide(mockLayer))
-      )
-
-      const successful = results.filter(Exit.isSuccess)
-      const failed = results.filter(Exit.isFailure)
-
-      expect(successful).toHaveLength(3)
-      expect(failed).toHaveLength(1)
-    })
-  })
-})
-```
-
-## Property-Based Testing (PBT)
-
-### 1. 基本的なPBTパターン
-
+#### 3.1 Fast-Check統合による自動テストケース生成
 ```typescript
 import * as fc from 'fast-check'
 import { Arbitrary } from '@effect/schema/Arbitrary'
@@ -1038,26 +819,26 @@ import { Schema } from '@effect/schema'
 
 // カスタムArbitraryの定義
 const blockTypeArbitrary = fc.oneof(
-  fc.constant('air'),
-  fc.constant('stone'),
-  fc.constant('dirt'),
-  fc.constant('grass'),
-  fc.constant('water'),
-  fc.constant('lava')
+  fc.constant(BlockType.Air),
+  fc.constant(BlockType.Stone),
+  fc.constant(BlockType.Dirt),
+  fc.constant(BlockType.Grass),
+  fc.constant(BlockType.Water),
+  fc.constant(BlockType.Lava)
 )
 
-const blockPositionArbitrary = fc.record({
+const worldPositionArbitrary = fc.record({
   x: fc.integer({ min: -30000000, max: 30000000 }),
   y: fc.integer({ min: 0, max: 256 }),
   z: fc.integer({ min: -30000000, max: 30000000 })
 })
 
 describe('Block System Properties', () => {
-  describe('ブロック配置の性質', () => {
-    it('同じ位置に2回ブロックを配置すると、最後のブロックが残る', () => {
+  describe('ブロック配置の基本性質', () => {
+    it('同一位置への重複配置では最後のブロックが残る', () => {
       fc.assert(
         fc.property(
-          blockPositionArbitrary,
+          worldPositionArbitrary,
           blockTypeArbitrary,
           blockTypeArbitrary,
           (position, type1, type2) => {
@@ -1065,16 +846,17 @@ describe('Block System Properties', () => {
             world.setBlock(position, type1)
             world.setBlock(position, type2)
 
-            expect(world.getBlock(position)).toBe(type2)
+            expect(world.getBlock(position).type).toBe(type2)
           }
-        )
+        ),
+        { numRuns: 1000 }
       )
     })
 
-    it('ブロックを配置して削除すると、元の状態に戻る', () => {
+    it('ブロック配置→削除のべき等性', () => {
       fc.assert(
         fc.property(
-          blockPositionArbitrary,
+          worldPositionArbitrary,
           blockTypeArbitrary,
           (position, blockType) => {
             const world = new WorldState()
@@ -1083,16 +865,16 @@ describe('Block System Properties', () => {
             world.setBlock(position, blockType)
             world.removeBlock(position)
 
-            expect(world.getBlock(position)).toBe(originalBlock)
+            expect(world.getBlock(position)).toEqual(originalBlock)
           }
         )
       )
     })
 
-    it('隣接ブロックの配置は互いに影響しない', () => {
+    it('隣接ブロック配置の独立性', () => {
       fc.assert(
         fc.property(
-          blockPositionArbitrary,
+          worldPositionArbitrary,
           blockTypeArbitrary,
           blockTypeArbitrary,
           (basePos, type1, type2) => {
@@ -1103,16 +885,16 @@ describe('Block System Properties', () => {
             world.setBlock(pos1, type1)
             world.setBlock(pos2, type2)
 
-            expect(world.getBlock(pos1)).toBe(type1)
-            expect(world.getBlock(pos2)).toBe(type2)
+            expect(world.getBlock(pos1).type).toBe(type1)
+            expect(world.getBlock(pos2).type).toBe(type2)
           }
         )
       )
     })
   })
 
-  describe('チャンクの性質', () => {
-    it('チャンク内のすべてのブロックが正しい座標範囲内にある', () => {
+  describe('チャンク境界の性質', () => {
+    it('チャンク内のすべてのブロックが正しい座標範囲内', () => {
       fc.assert(
         fc.property(
           fc.integer({ min: -100, max: 100 }),
@@ -1137,34 +919,102 @@ describe('Block System Properties', () => {
       )
     })
 
-    it('チャンクのシリアライズとデシリアライズが可逆である', () => {
+    it('チャンク境界跨ぎブロック配置の一貫性', () => {
       fc.assert(
         fc.property(
           fc.integer({ min: -10, max: 10 }),
           fc.integer({ min: -10, max: 10 }),
-          fc.array(
-            fc.record({
-              x: fc.integer({ min: 0, max: 15 }),
-              y: fc.integer({ min: 0, max: 255 }),
-              z: fc.integer({ min: 0, max: 15 }),
-              type: blockTypeArbitrary
-            }),
-            { minLength: 0, maxLength: 100 }
-          ),
-          (chunkX, chunkZ, blocks) => {
-            const originalChunk = new Chunk(chunkX, chunkZ)
-            blocks.forEach(block => {
-              originalChunk.setBlock(block.x, block.y, block.z, block.type)
-            })
+          blockTypeArbitrary,
+          (baseChunkX, baseChunkZ, blockType) => {
+            const world = new WorldState()
 
-            const serialized = originalChunk.serialize()
-            const deserialized = Chunk.deserialize(serialized)
+            // チャンク境界のブロック位置
+            const boundaryPos = {
+              x: baseChunkX * 16 + 15, // チャンクの右端
+              y: 64,
+              z: baseChunkZ * 16 + 8
+            }
 
-            expect(deserialized.coordinate).toEqual(originalChunk.coordinate)
-            blocks.forEach(block => {
-              expect(deserialized.getBlock(block.x, block.y, block.z))
-                .toBe(originalChunk.getBlock(block.x, block.y, block.z))
-            })
+            world.setBlock(boundaryPos, blockType)
+
+            // 隣接チャンクからもアクセス可能
+            const retrievedBlock = world.getBlock(boundaryPos)
+            expect(retrievedBlock.type).toBe(blockType)
+
+            // チャンクロード状態に関係なく一貫している
+            const chunk1 = world.getChunkAt(baseChunkX, baseChunkZ)
+            const chunk2 = world.getChunkAt(baseChunkX + 1, baseChunkZ)
+
+            expect(chunk1.getBlockAt(15, 64, 8).type).toBe(blockType)
+            expect(chunk2).toBeDefined() // 隣接チャンクも存在
+          }
+        )
+      )
+    })
+  })
+
+  describe('物理法則の不変条件', () => {
+    const entityArbitrary = fc.record({
+      position: worldPositionArbitrary.map(pos => ({ ...pos, y: Math.max(pos.y, 1) })),
+      velocity: fc.record({
+        x: fc.float({ min: -50, max: 50, noNaN: true }),
+        y: fc.float({ min: -50, max: 50, noNaN: true }),
+        z: fc.float({ min: -50, max: 50, noNaN: true })
+      }),
+      mass: fc.float({ min: 0.1, max: 100, noNaN: true }),
+      friction: fc.float({ min: 0, max: 1, noNaN: true })
+    })
+
+    it('重力による下方向加速度の一貫性', () => {
+      fc.assert(
+        fc.property(
+          entityArbitrary,
+          fc.float({ min: 0.01, max: 1, noNaN: true }),
+          (entity, deltaTime) => {
+            const physics = new PhysicsEngine()
+            const initialVelocityY = entity.velocity.y
+
+            physics.applyGravity(entity, deltaTime)
+
+            const expectedVelocityY = initialVelocityY + GRAVITY * deltaTime
+            expect(entity.velocity.y).toBeCloseTo(expectedVelocityY, 5)
+
+            // 重力は下向きなので、Y速度は減少する傾向
+            expect(entity.velocity.y).toBeLessThanOrEqual(initialVelocityY)
+          }
+        )
+      )
+    })
+
+    it('摩擦による速度減衰の単調性', () => {
+      fc.assert(
+        fc.property(
+          entityArbitrary,
+          fc.float({ min: 0.01, max: 0.1, noNaN: true }),
+          (entity, deltaTime) => {
+            fc.pre(entity.velocity.x !== 0 || entity.velocity.z !== 0) // 初期速度があることを前提
+
+            const physics = new PhysicsEngine()
+            const initialSpeed = Math.sqrt(
+              entity.velocity.x ** 2 + entity.velocity.z ** 2
+            )
+
+            physics.applyFriction(entity, deltaTime)
+
+            const finalSpeed = Math.sqrt(
+              entity.velocity.x ** 2 + entity.velocity.z ** 2
+            )
+
+            // 摩擦により速度は単調減少
+            expect(finalSpeed).toBeLessThanOrEqual(initialSpeed)
+
+            // 速度の方向は変わらない（符号は保持）
+            if (Math.abs(entity.velocity.x) > 0.001) {
+              expect(Math.sign(entity.velocity.x)).toBe(Math.sign(entity.velocity.x))
+            }
+            if (Math.abs(entity.velocity.z) > 0.001) {
+              expect(Math.sign(entity.velocity.z)).toBe(Math.sign(entity.velocity.z))
+            }
           }
         )
       )
@@ -1173,14 +1023,13 @@ describe('Block System Properties', () => {
 })
 ```
 
-### 2. 複雑なドメインロジックのPBT
-
+#### 3.2 インベントリシステムの複雑プロパティテスト
 ```typescript
 describe('Inventory Management Properties', () => {
   const itemStackArbitrary = fc.record({
     itemId: fc.stringMatching(/^[a-z]+:[a-z_]+$/),
     quantity: fc.integer({ min: 1, max: 64 }),
-    metadata: fc.option(fc.dictionary(fc.string(), fc.jsonValue))
+    metadata: fc.option(fc.dictionary(fc.string(), fc.jsonValue()))
   })
 
   const inventoryArbitrary = fc.array(
@@ -1188,76 +1037,54 @@ describe('Inventory Management Properties', () => {
     { minLength: 0, maxLength: 36 }
   )
 
-  describe('インベントリ操作の不変条件', () => {
-    it('アイテムの追加と削除が可逆である', () => {
+  describe('インベントリ操作の可逆性', () => {
+    it('アイテム追加→削除のべき等性', () => {
       fc.assert(
         fc.property(
           inventoryArbitrary,
           itemStackArbitrary,
           (initialItems, newItem) => {
-            const inventory = new Inventory()
+            const inventory = new Inventory(36)
             initialItems.forEach(item => inventory.addItem(item))
 
-            const slotBefore = inventory.findEmptySlot()
-            const added = inventory.addItem(newItem)
+            const snapshotBefore = inventory.serialize()
+            const addResult = inventory.addItem(newItem)
 
-            if (added) {
-              const removed = inventory.removeItem(newItem.itemId, newItem.quantity)
-              expect(removed).toBe(newItem.quantity)
-              expect(inventory.findEmptySlot()).toBe(slotBefore)
+            if (addResult.isSuccess) {
+              const removeResult = inventory.removeItem(newItem.itemId, newItem.quantity)
+              expect(removeResult.removedQuantity).toBe(newItem.quantity)
+
+              const snapshotAfter = inventory.serialize()
+              expect(snapshotAfter).toEqual(snapshotBefore)
             }
           }
-        )
+        ),
+        { numRuns: 500 }
       )
     })
 
-    it('インベントリの総アイテム数が容量を超えない', () => {
+    it('アイテム移動操作の対称性', () => {
       fc.assert(
         fc.property(
-          fc.array(itemStackArbitrary, { minLength: 0, maxLength: 100 }),
-          (items) => {
-            const inventory = new Inventory(36) // 36スロット
-            let addedCount = 0
+          fc.array(itemStackArbitrary, { minLength: 10, maxLength: 20 }),
+          fc.integer({ min: 0, max: 35 }),
+          fc.integer({ min: 0, max: 35 }),
+          (items, fromSlot, toSlot) => {
+            fc.pre(fromSlot !== toSlot) // 同じスロット間の移動は除外
 
-            items.forEach(item => {
-              if (inventory.addItem(item)) {
-                addedCount++
-              }
-            })
+            const inventory = new Inventory(36)
+            items.forEach(item => inventory.addItem(item))
 
-            expect(inventory.getOccupiedSlots()).toBeLessThanOrEqual(36)
-            expect(addedCount).toBeLessThanOrEqual(36)
-          }
-        )
-      )
-    })
+            const itemInFromSlot = inventory.getItemAt(fromSlot)
+            const itemInToSlot = inventory.getItemAt(toSlot)
 
-    it('スタック可能なアイテムが正しくマージされる', () => {
-      fc.assert(
-        fc.property(
-          fc.string(),
-          fc.array(
-            fc.integer({ min: 1, max: 32 }),
-            { minLength: 2, maxLength: 5 }
-          ),
-          (itemId, quantities) => {
-            const inventory = new Inventory()
-            const totalQuantity = quantities.reduce((sum, q) => sum + q, 0)
+            if (itemInFromSlot) {
+              inventory.moveItem(fromSlot, toSlot)
+              inventory.moveItem(toSlot, fromSlot) // 逆方向に移動
 
-            quantities.forEach(quantity => {
-              inventory.addItem({ itemId, quantity, stackSize: 64 })
-            })
-
-            const actualTotal = inventory.getItemCount(itemId)
-            expect(actualTotal).toBe(Math.min(totalQuantity, 64 * 36))
-
-            const stacks = inventory.getItemStacks(itemId)
-            const fullStacks = Math.floor(actualTotal / 64)
-            const remainder = actualTotal % 64
-
-            expect(stacks.filter(s => s.quantity === 64)).toHaveLength(fullStacks)
-            if (remainder > 0) {
-              expect(stacks.find(s => s.quantity === remainder)).toBeDefined()
+              // 元の状態に戻っているはず
+              expect(inventory.getItemAt(fromSlot)).toEqual(itemInFromSlot)
+              expect(inventory.getItemAt(toSlot)).toEqual(itemInToSlot)
             }
           }
         )
@@ -1265,76 +1092,168 @@ describe('Inventory Management Properties', () => {
     })
   })
 
-  describe('クラフティングシステムの性質', () => {
-    const recipeArbitrary = fc.record({
-      inputs: fc.array(
-        fc.record({
-          itemId: fc.string(),
-          quantity: fc.integer({ min: 1, max: 9 })
-        }),
-        { minLength: 1, maxLength: 9 }
-      ),
-      output: fc.record({
-        itemId: fc.string(),
-        quantity: fc.integer({ min: 1, max: 64 })
-      })
-    })
-
-    it('クラフティングは入力アイテムを消費し、出力アイテムを生成する', () => {
+  describe('容量制限の不変条件', () => {
+    it('どんな操作でも容量を超えない', () => {
       fc.assert(
         fc.property(
-          recipeArbitrary,
-          fc.integer({ min: 1, max: 10 }),
-          (recipe, craftCount) => {
-            const inventory = new Inventory()
+          fc.array(itemStackArbitrary, { minLength: 0, maxLength: 100 }),
+          (items) => {
+            const inventory = new Inventory(36)
+            let addedCount = 0
 
-            // 必要な材料を追加
-            recipe.inputs.forEach(input => {
-              inventory.addItem({
-                itemId: input.itemId,
-                quantity: input.quantity * craftCount
-              })
+            items.forEach(item => {
+              const result = inventory.addItem(item)
+              if (result.isSuccess) {
+                addedCount++
+              }
             })
 
-            // クラフティング実行
-            for (let i = 0; i < craftCount; i++) {
-              const result = inventory.craft(recipe)
-              expect(result).toBeTruthy()
+            // 不変条件1: 占有スロット数は容量以下
+            expect(inventory.getOccupiedSlots()).toBeLessThanOrEqual(36)
+
+            // 不変条件2: 追加できたアイテム数も容量以下
+            expect(addedCount).toBeLessThanOrEqual(36)
+
+            // 不変条件3: 各スロットのアイテムは有効
+            for (let i = 0; i < 36; i++) {
+              const item = inventory.getItemAt(i)
+              if (item) {
+                expect(item.quantity).toBeGreaterThan(0)
+                expect(item.quantity).toBeLessThanOrEqual(64)
+              }
             }
-
-            // 出力アイテムの確認
-            const outputCount = inventory.getItemCount(recipe.output.itemId)
-            expect(outputCount).toBe(recipe.output.quantity * craftCount)
-
-            // 入力アイテムが消費されたことを確認
-            recipe.inputs.forEach(input => {
-              const remaining = inventory.getItemCount(input.itemId)
-              expect(remaining).toBe(0)
-            })
           }
         )
       )
     })
 
-    it('材料不足の場合、クラフティングは失敗し、インベントリは変更されない', () => {
+    it('スタック可能アイテムの最適化', () => {
+      fc.assert(
+        fc.property(
+          fc.string({ minLength: 1, maxLength: 20 }),
+          fc.array(
+            fc.integer({ min: 1, max: 32 }),
+            { minLength: 2, maxLength: 5 }
+          ),
+          (itemId, quantities) => {
+            const inventory = new Inventory(36)
+            const totalQuantity = quantities.reduce((sum, q) => sum + q, 0)
+            const maxStackSize = 64
+
+            quantities.forEach(quantity => {
+              inventory.addItem({
+                itemId,
+                quantity,
+                stackSize: maxStackSize
+              })
+            })
+
+            const actualTotal = inventory.getItemCount(itemId)
+            const expectedTotal = Math.min(totalQuantity, maxStackSize * 36)
+            expect(actualTotal).toBe(expectedTotal)
+
+            const stacks = inventory.getItemStacks(itemId)
+            const fullStacks = Math.floor(actualTotal / maxStackSize)
+            const remainder = actualTotal % maxStackSize
+
+            // 最適化の確認: フルスタックが優先される
+            expect(stacks.filter(s => s.quantity === maxStackSize)).toHaveLength(fullStacks)
+
+            // 余りがある場合は1つの部分スタックのみ
+            if (remainder > 0) {
+              expect(stacks.filter(s => s.quantity === remainder)).toHaveLength(1)
+              expect(stacks.filter(s => s.quantity < maxStackSize && s.quantity !== remainder)).toHaveLength(0)
+            }
+          }
+        )
+      )
+    })
+  })
+
+  describe('クラフティングの組み合わせ爆発テスト', () => {
+    const recipeArbitrary = fc.record({
+      inputs: fc.array(
+        fc.record({
+          itemId: fc.string({ minLength: 1, maxLength: 10 }),
+          quantity: fc.integer({ min: 1, max: 9 })
+        }),
+        { minLength: 1, maxLength: 9 }
+      ),
+      output: fc.record({
+        itemId: fc.string({ minLength: 1, maxLength: 10 }),
+        quantity: fc.integer({ min: 1, max: 64 })
+      }),
+      pattern: fc.array(fc.array(fc.string(), { minLength: 3, maxLength: 3 }), { minLength: 3, maxLength: 3 })
+    })
+
+    it('クラフティングの材料保存則', () => {
+      fc.assert(
+        fc.property(
+          recipeArbitrary,
+          fc.integer({ min: 1, max: 10 }),
+          (recipe, craftCount) => {
+            const inventory = new Inventory(36)
+
+            // 十分な材料を準備
+            recipe.inputs.forEach(input => {
+              const totalNeeded = input.quantity * craftCount
+              inventory.addItem({
+                itemId: input.itemId,
+                quantity: totalNeeded,
+                stackSize: 64
+              })
+            })
+
+            const initialMaterials = recipe.inputs.map(input => ({
+              itemId: input.itemId,
+              count: inventory.getItemCount(input.itemId)
+            }))
+
+            // クラフティング実行
+            let successfulCrafts = 0
+            for (let i = 0; i < craftCount; i++) {
+              const result = inventory.craft(recipe)
+              if (result.isSuccess) {
+                successfulCrafts++
+              } else {
+                break // 材料不足で停止
+              }
+            }
+
+            // 材料消費の確認
+            recipe.inputs.forEach((input, index) => {
+              const expected = initialMaterials[index].count - (input.quantity * successfulCrafts)
+              const actual = inventory.getItemCount(input.itemId)
+              expect(actual).toBe(expected)
+            })
+
+            // 出力アイテムの確認
+            const outputCount = inventory.getItemCount(recipe.output.itemId)
+            expect(outputCount).toBe(recipe.output.quantity * successfulCrafts)
+          }
+        )
+      )
+    })
+
+    it('無効レシピでのインベントリ不変性', () => {
       fc.assert(
         fc.property(
           recipeArbitrary,
           inventoryArbitrary,
           (recipe, initialItems) => {
-            const inventory = new Inventory()
+            const inventory = new Inventory(36)
             initialItems.forEach(item => inventory.addItem(item))
 
             const snapshotBefore = inventory.serialize()
 
-            // 材料が不足している状態でクラフティング試行
+            // 材料が不十分な状態でクラフト試行
             const hasAllMaterials = recipe.inputs.every(input =>
               inventory.getItemCount(input.itemId) >= input.quantity
             )
 
             if (!hasAllMaterials) {
               const result = inventory.craft(recipe)
-              expect(result).toBeFalsy()
+              expect(result.isSuccess).toBe(false)
 
               const snapshotAfter = inventory.serialize()
               expect(snapshotAfter).toEqual(snapshotBefore)
@@ -1347,1316 +1266,392 @@ describe('Inventory Management Properties', () => {
 })
 ```
 
-### 3. 物理エンジンのPBT
+### Phase 4: 統合テストとE2Eテスト
 
+#### 4.1 レイヤー間統合テスト
 ```typescript
-describe('Physics Engine Properties', () => {
-  const vector3Arbitrary = fc.record({
-    x: fc.float({ min: -1000, max: 1000, noNaN: true }),
-    y: fc.float({ min: -1000, max: 1000, noNaN: true }),
-    z: fc.float({ min: -1000, max: 1000, noNaN: true })
-  })
+describe('Full Stack Integration Tests', () => {
+  const createIntegrationTestLayers = () => {
+    return Layer.mergeAll(
+      // Infrastructure (テスト用インメモリ実装)
+      InMemoryPlayerRepositoryLive,
+      InMemoryWorldRepositoryLive,
+      MockRenderingServiceLive,
+      MockNetworkServiceLive,
 
-  const entityArbitrary = fc.record({
-    position: vector3Arbitrary,
-    velocity: vector3Arbitrary,
-    mass: fc.float({ min: 0.1, max: 1000, noNaN: true }),
-    friction: fc.float({ min: 0, max: 1, noNaN: true })
-  })
+      // Domain Services
+      WorldDomainServiceLive,
+      EntityDomainServiceLive,
+      PhysicsDomainServiceLive,
 
-  describe('物理法則の保存', () => {
-    it('重力による落下は一定の加速度を持つ', () => {
-      fc.assert(
-        fc.property(
-          entityArbitrary,
-          fc.float({ min: 0.1, max: 1, noNaN: true }),
-          (entity, deltaTime) => {
-            const gravity = -9.81
-            const physics = new PhysicsEngine()
-
-            const initialVelocityY = entity.velocity.y
-            physics.applyGravity(entity, deltaTime)
-
-            const expectedVelocityY = initialVelocityY + gravity * deltaTime
-            expect(entity.velocity.y).toBeCloseTo(expectedVelocityY, 5)
-          }
-        )
-      )
-    })
-
-    it('運動量保存の法則が成立する', () => {
-      fc.assert(
-        fc.property(
-          entityArbitrary,
-          entityArbitrary,
-          (entity1, entity2) => {
-            const physics = new PhysicsEngine()
-
-            const totalMomentumBefore = {
-              x: entity1.mass * entity1.velocity.x + entity2.mass * entity2.velocity.x,
-              y: entity1.mass * entity1.velocity.y + entity2.mass * entity2.velocity.y,
-              z: entity1.mass * entity1.velocity.z + entity2.mass * entity2.velocity.z
-            }
-
-            physics.resolveCollision(entity1, entity2)
-
-            const totalMomentumAfter = {
-              x: entity1.mass * entity1.velocity.x + entity2.mass * entity2.velocity.x,
-              y: entity1.mass * entity1.velocity.y + entity2.mass * entity2.velocity.y,
-              z: entity1.mass * entity1.velocity.z + entity2.mass * entity2.velocity.z
-            }
-
-            expect(totalMomentumAfter.x).toBeCloseTo(totalMomentumBefore.x, 3)
-            expect(totalMomentumAfter.y).toBeCloseTo(totalMomentumBefore.y, 3)
-            expect(totalMomentumAfter.z).toBeCloseTo(totalMomentumBefore.z, 3)
-          }
-        )
-      )
-    })
-
-    it('摩擦により速度が減少するが、逆転しない', () => {
-      fc.assert(
-        fc.property(
-          entityArbitrary,
-          fc.float({ min: 0.01, max: 0.1, noNaN: true }),
-          (entity, deltaTime) => {
-            const physics = new PhysicsEngine()
-            const initialVelocity = { ...entity.velocity }
-
-            physics.applyFriction(entity, deltaTime)
-
-            // 各軸で速度の符号が変わっていないことを確認
-            if (initialVelocity.x !== 0) {
-              expect(Math.sign(entity.velocity.x)).toBe(Math.sign(initialVelocity.x))
-              expect(Math.abs(entity.velocity.x)).toBeLessThanOrEqual(Math.abs(initialVelocity.x))
-            }
-
-            if (initialVelocity.z !== 0) {
-              expect(Math.sign(entity.velocity.z)).toBe(Math.sign(initialVelocity.z))
-              expect(Math.abs(entity.velocity.z)).toBeLessThanOrEqual(Math.abs(initialVelocity.z))
-            }
-          }
-        )
-      )
-    })
-  })
-
-  describe('衝突検出の性質', () => {
-    const aabbArbitrary = fc.record({
-      min: vector3Arbitrary,
-      max: vector3Arbitrary
-    }).filter(aabb =>
-      aabb.min.x <= aabb.max.x &&
-      aabb.min.y <= aabb.max.y &&
-      aabb.min.z <= aabb.max.z
-    )
-
-    it('AABBの衝突判定は対称である', () => {
-      fc.assert(
-        fc.property(
-          aabbArbitrary,
-          aabbArbitrary,
-          (aabb1, aabb2) => {
-            const collision12 = checkAABBCollision(aabb1, aabb2)
-            const collision21 = checkAABBCollision(aabb2, aabb1)
-
-            expect(collision12).toBe(collision21)
-          }
-        )
-      )
-    })
-
-    it('自身との衝突は常に真である', () => {
-      fc.assert(
-        fc.property(
-          aabbArbitrary,
-          (aabb) => {
-            const collision = checkAABBCollision(aabb, aabb)
-            expect(collision).toBe(true)
-          }
-        )
-      )
-    })
-
-    it('包含関係にあるAABBは必ず衝突する', () => {
-      fc.assert(
-        fc.property(
-          aabbArbitrary,
-          fc.float({ min: 0.1, max: 0.9, noNaN: true }),
-          (outerAABB, scale) => {
-            const center = {
-              x: (outerAABB.min.x + outerAABB.max.x) / 2,
-              y: (outerAABB.min.y + outerAABB.max.y) / 2,
-              z: (outerAABB.min.z + outerAABB.max.z) / 2
-            }
-
-            const halfSize = {
-              x: (outerAABB.max.x - outerAABB.min.x) / 2 * scale,
-              y: (outerAABB.max.y - outerAABB.min.y) / 2 * scale,
-              z: (outerAABB.max.z - outerAABB.min.z) / 2 * scale
-            }
-
-            const innerAABB = {
-              min: {
-                x: center.x - halfSize.x,
-                y: center.y - halfSize.y,
-                z: center.z - halfSize.z
-              },
-              max: {
-                x: center.x + halfSize.x,
-                y: center.y + halfSize.y,
-                z: center.z + halfSize.z
-              }
-            }
-
-            expect(checkAABBCollision(outerAABB, innerAABB)).toBe(true)
-          }
-        )
-      )
-    })
-  })
-})
-```
-
-## 結合テスト設計
-
-### 1. レイヤー間の結合テスト
-
-```typescript
-describe('Domain-Application Layer Integration', () => {
-  // テスト用の完全なレイヤー構成
-  const createTestLayers = () => {
-    const domainLayer = Layer.mergeAll(
-      WorldServiceLive,
-      ChunkServiceLive,
-      EntityServiceLive,
-      PhysicsServiceLive
-    )
-
-    const applicationLayer = Layer.mergeAll(
+      // Application Services
       PlayerMovementUseCaseLive,
       BlockPlacementUseCaseLive,
-      ChunkLoadingWorkflowLive
-    ).pipe(Layer.provide(domainLayer))
-
-    return applicationLayer
-  }
-
-  describe('プレイヤー移動ユースケース', () => {
-    it('プレイヤーが移動すると関連するチャンクがロードされる', async () => {
-      const testLayer = createTestLayers()
-
-      const program = Effect.gen(function* () {
-        const playerMovement = yield* PlayerMovementUseCase
-        const chunkService = yield* ChunkService
-
-        // 初期位置
-        const startPosition = { x: 0, y: 64, z: 0 }
-        const player = yield* playerMovement.spawnPlayer("player1", startPosition)
-
-        // 遠距離への移動
-        const newPosition = { x: 100, y: 64, z: 100 }
-        yield* playerMovement.movePlayer(player.id, newPosition)
-
-        // 新しい位置周辺のチャンクがロードされているか確認
-        const chunkCoord = worldToChunkCoordinate(newPosition)
-        const loadedChunks = yield* chunkService.getLoadedChunks()
-
-        const expectedChunks = getChunksInRadius(chunkCoord, 3) // 視界距離3チャンク
-
-        expectedChunks.forEach(coord => {
-          expect(loadedChunks.some(c =>
-            c.x === coord.x && c.z === coord.z
-          )).toBe(true)
-        })
-
-        return loadedChunks.length
-      })
-
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(testLayer))
-      )
-
-      expect(result).toBeGreaterThan(0)
-    })
-
-    it('プレイヤーが壁に向かって移動すると衝突判定が働く', async () => {
-      const testLayer = createTestLayers()
-
-      const program = Effect.gen(function* () {
-        const playerMovement = yield* PlayerMovementUseCase
-        const worldService = yield* WorldService
-
-        // 壁を配置
-        const wallPosition = { x: 10, y: 64, z: 0 }
-        yield* worldService.setBlock(wallPosition, BlockType.Stone)
-
-        // プレイヤーを壁の手前に配置
-        const startPosition = { x: 8, y: 64, z: 0 }
-        const player = yield* playerMovement.spawnPlayer("player1", startPosition)
-
-        // 壁に向かって移動を試みる
-        const targetPosition = { x: 11, y: 64, z: 0 }
-        const result = yield* playerMovement.movePlayer(player.id, targetPosition)
-
-        // プレイヤーは壁の手前で止まるはず
-        const finalPosition = yield* playerMovement.getPlayerPosition(player.id)
-
-        expect(finalPosition.x).toBeLessThan(wallPosition.x)
-        expect(finalPosition.x).toBeGreaterThan(startPosition.x)
-
-        return finalPosition
-      })
-
-      await Effect.runPromise(
-        program.pipe(Effect.provide(testLayer))
-      )
-    })
-  })
-
-  describe('ブロック配置ユースケース', () => {
-    it('ブロック配置により物理エンティティが影響を受ける', async () => {
-      const testLayer = createTestLayers()
-
-      const program = Effect.gen(function* () {
-        const blockPlacement = yield* BlockPlacementUseCase
-        const entityService = yield* EntityService
-        const physicsService = yield* PhysicsService
-
-        // 砂エンティティを空中に配置
-        const sandEntity = yield* entityService.createEntity({
-          type: EntityType.FallingSand,
-          position: { x: 0, y: 10, z: 0 },
-          velocity: { x: 0, y: 0, z: 0 }
-        })
-
-        // 砂の下に支えとなるブロックを配置
-        const supportPosition = { x: 0, y: 5, z: 0 }
-        yield* blockPlacement.placeBlock(supportPosition, BlockType.Stone)
-
-        // 物理シミュレーションを実行
-        for (let i = 0; i < 100; i++) {
-          yield* physicsService.tick(0.05) // 50ms tick
-        }
-
-        // 砂エンティティは支えブロックの上で止まるはず
-        const finalPosition = yield* entityService.getEntityPosition(sandEntity.id)
-
-        expect(finalPosition.y).toBeGreaterThan(supportPosition.y)
-        expect(finalPosition.y).toBeLessThan(supportPosition.y + 2)
-
-        return finalPosition
-      })
-
-      await Effect.runPromise(
-        program.pipe(Effect.provide(testLayer))
-      )
-    })
-
-    it('水ブロックの配置により流体シミュレーションが開始される', async () => {
-      const testLayer = createTestLayers()
-
-      const program = Effect.gen(function* () {
-        const blockPlacement = yield* BlockPlacementUseCase
-        const worldService = yield* WorldService
-
-        // 水源を配置
-        const sourcePosition = { x: 0, y: 10, z: 0 }
-        yield* blockPlacement.placeBlock(sourcePosition, BlockType.Water)
-
-        // 流体シミュレーションのティック
-        yield* Effect.sleep("100 millis")
-
-        // 水が下方向に流れているか確認
-        const belowPosition = { x: 0, y: 9, z: 0 }
-        const belowBlock = yield* worldService.getBlock(belowPosition)
-
-        expect(belowBlock.type).toBe(BlockType.Water)
-
-        // 水平方向への拡散も確認
-        const adjacentPositions = [
-          { x: 1, y: 9, z: 0 },
-          { x: -1, y: 9, z: 0 },
-          { x: 0, y: 9, z: 1 },
-          { x: 0, y: 9, z: -1 }
-        ]
-
-        const adjacentBlocks = yield* Effect.all(
-          adjacentPositions.map(pos => worldService.getBlock(pos))
-        )
-
-        const waterCount = adjacentBlocks.filter(b => b.type === BlockType.Water).length
-        expect(waterCount).toBeGreaterThan(0)
-
-        return waterCount
-      })
-
-      await Effect.runPromise(
-        program.pipe(Effect.provide(testLayer))
-      )
-    })
-  })
-})
-```
-
-### 2. エンドツーエンド統合テスト
-
-```typescript
-describe('End-to-End Game Scenarios', () => {
-  // フルスタックのテスト環境
-  const createFullTestEnvironment = () => {
-    return Layer.mergeAll(
-      // Infrastructure
-      RenderingServiceTest,
-      InputServiceTest,
-      AudioServiceTest,
-      NetworkServiceTest,
-      StorageServiceTest,
-
-      // Domain
-      WorldServiceLive,
-      EntityServiceLive,
-      PhysicsServiceLive,
-
-      // Application
-      GameLoopServiceLive,
-      SceneManagerServiceLive,
+      ChunkLoadingWorkflowLive,
 
       // Presentation
-      UIControllerLive,
+      GameControllerLive,
       ViewModelServiceLive
     )
   }
 
-  describe('ゲームセッション全体フロー', () => {
-    it('ゲーム開始から終了までの完全なフロー', async () => {
-      const testEnv = createFullTestEnvironment()
+  describe('プレイヤー移動の完全フロー', () => {
+    it('UI入力からドメインロジック、永続化まで', async () => {
+      const testLayer = createIntegrationTestLayers()
 
       const program = Effect.gen(function* () {
-        const gameLoop = yield* GameLoopService
-        const sceneManager = yield* SceneManagerService
+        const gameController = yield* GameController
+        const playerRepository = yield* PlayerRepository
         const worldService = yield* WorldService
 
-        // ゲーム開始
-        yield* sceneManager.loadScene(SceneType.MainMenu)
-        yield* sceneManager.transitionTo(SceneType.InGame)
-
-        // ワールド生成
-        const world = yield* worldService.generateWorld({
-          seed: 12345,
-          size: { x: 256, z: 256 },
-          biomes: ['plains', 'forest', 'mountains']
+        // 1. ゲーム初期化
+        yield* gameController.initializeGame({
+          worldSeed: 12345,
+          playerName: "TestPlayer"
         })
 
-        // プレイヤーのスポーン
-        const player = yield* gameLoop.spawnPlayer({
-          name: "TestPlayer",
-          position: world.spawnPoint
+        // 2. プレイヤー情報取得
+        const player = yield* playerRepository.findByName("TestPlayer")
+        expect(Option.isSome(player)).toBe(true)
+
+        const playerId = player.value.id.value
+
+        // 3. UI入力シミュレーション（前進キー）
+        yield* gameController.handleInput({
+          type: 'keydown',
+          key: 'w',
+          playerId
         })
 
-        // ゲームループの実行（10秒間）
-        const startTime = Date.now()
-        while (Date.now() - startTime < 10000) {
-          yield* gameLoop.tick(16) // 60 FPS
-          yield* Effect.sleep("16 millis")
+        // 4. 物理更新の時間経過
+        for (let tick = 0; tick < 10; tick++) {
+          yield* gameController.updateGame(16) // 16ms tick
         }
 
-        // セーブとクリーンアップ
-        const saveData = yield* worldService.saveWorld()
-        yield* sceneManager.transitionTo(SceneType.MainMenu)
+        // 5. 最終状態確認
+        const updatedPlayer = yield* playerRepository.findById(playerId)
+        expect(updatedPlayer.value.position.z).toBeLessThan(player.value.position.z)
+
+        // 6. ワールド状態の一貫性確認
+        const playerChunk = yield* worldService.getChunkAt(
+          Math.floor(updatedPlayer.value.position.x / 16),
+          Math.floor(updatedPlayer.value.position.z / 16)
+        )
+        expect(Option.isSome(playerChunk)).toBe(true)
 
         return {
-          worldGenerated: world !== null,
-          playerSpawned: player !== null,
-          saveDataCreated: saveData !== null
+          initialPosition: player.value.position,
+          finalPosition: updatedPlayer.value.position,
+          chunkLoaded: Option.isSome(playerChunk)
         }
       })
 
       const result = await Effect.runPromise(
-        program.pipe(Effect.provide(testEnv))
+        program.pipe(Effect.provide(testLayer))
       )
 
-      expect(result.worldGenerated).toBe(true)
-      expect(result.playerSpawned).toBe(true)
-      expect(result.saveDataCreated).toBe(true)
+      expect(result.chunkLoaded).toBe(true)
+      expect(result.finalPosition.z).not.toBe(result.initialPosition.z)
     })
 
-    it('マルチプレイヤーセッションの同期', async () => {
-      const testEnv = createFullTestEnvironment()
+    it('複数プレイヤーの同期と衝突検出', async () => {
+      const testLayer = createIntegrationTestLayers()
 
       const program = Effect.gen(function* () {
-        const networkService = yield* NetworkService
-        const gameLoop = yield* GameLoopService
+        const gameController = yield* GameController
+        const playerRepository = yield* PlayerRepository
 
-        // ホストプレイヤーがセッションを作成
-        const session = yield* networkService.createSession({
-          maxPlayers: 4,
-          gameMode: "survival"
-        })
+        // 2人のプレイヤーを作成
+        const player1 = yield* gameController.createPlayer("Player1")
+        const player2 = yield* gameController.createPlayer("Player2")
 
-        // 他のプレイヤーが参加
-        const player2 = yield* networkService.joinSession(session.id, {
-          playerName: "Player2"
-        })
+        // 同じ位置に向かって移動
+        const targetPos = Position.create(10, 64, 10)
 
-        // 両プレイヤーの行動を同期
-        const hostAction = gameLoop.performAction("player1", {
-          type: "placeBlock",
-          position: { x: 10, y: 64, z: 10 },
-          blockType: BlockType.Stone
-        })
+        const movements = yield* Effect.allPar([
+          gameController.movePlayerTo(player1.id, targetPos),
+          gameController.movePlayerTo(player2.id, targetPos)
+        ])
 
-        const clientAction = gameLoop.performAction("player2", {
-          type: "breakBlock",
-          position: { x: 10, y: 64, z: 11 }
-        })
+        // 結果確認
+        const [result1, result2] = movements
+        expect(result1.success || result2.success).toBe(true)
+        expect(result1.success && result2.success).toBe(false) // 両方成功はしない
 
-        yield* Effect.all([hostAction, clientAction], { concurrency: "unbounded" })
+        const finalPlayer1 = yield* playerRepository.findById(player1.id)
+        const finalPlayer2 = yield* playerRepository.findById(player2.id)
 
-        // 同期状態の確認
-        const hostWorldState = yield* gameLoop.getWorldState("player1")
-        const clientWorldState = yield* gameLoop.getWorldState("player2")
+        const distance = calculateDistance(
+          finalPlayer1.value.position,
+          finalPlayer2.value.position
+        )
+        expect(distance).toBeGreaterThan(1.5) // 最小衝突距離
 
-        // 両プレイヤーで世界の状態が一致することを確認
-        expect(hostWorldState.blocks).toEqual(clientWorldState.blocks)
-        expect(hostWorldState.entities.length).toBe(clientWorldState.entities.length)
-
-        return {
-          sessionCreated: session !== null,
-          playerJoined: player2 !== null,
-          statesSynchronized: true
-        }
+        return { distance, movements }
       })
 
       const result = await Effect.runPromise(
-        program.pipe(Effect.provide(testEnv))
+        program.pipe(Effect.provide(testLayer))
       )
 
-      expect(result.sessionCreated).toBe(true)
-      expect(result.playerJoined).toBe(true)
-      expect(result.statesSynchronized).toBe(true)
+      expect(result.distance).toBeGreaterThan(0)
     })
   })
 
-  describe('パフォーマンス要件の検証', () => {
-    it('大規模ワールドでの60FPS維持', async () => {
-      const testEnv = createFullTestEnvironment()
+  describe('ワールド生成と持続化', () => {
+    it('ワールド生成→保存→読み込みのフルサイクル', async () => {
+      const testLayer = createIntegrationTestLayers()
 
       const program = Effect.gen(function* () {
-        const gameLoop = yield* GameLoopService
         const worldService = yield* WorldService
+        const worldRepository = yield* WorldRepository
 
-        // 大規模ワールドの生成
-        yield* worldService.generateWorld({
-          seed: 99999,
-          size: { x: 1024, z: 1024 },
-          biomes: ['all']
+        // 1. ワールド生成
+        const world = yield* worldService.generateWorld({
+          seed: 54321,
+          size: { x: 128, z: 128 },
+          biomes: ['plains', 'forest']
         })
 
-        // 多数のエンティティをスポーン
-        for (let i = 0; i < 100; i++) {
-          yield* gameLoop.spawnEntity({
-            type: EntityType.Zombie,
-            position: {
-              x: Math.random() * 100,
-              y: 64,
-              z: Math.random() * 100
-            }
-          })
-        }
+        const originalChunk = yield* worldService.getChunkAt(0, 0)
 
-        // フレームレート測定
-        const frameTimes: number[] = []
-        let lastFrameTime = Date.now()
+        // 2. ワールド保存
+        yield* worldRepository.saveWorld(world)
 
-        for (let frame = 0; frame < 600; frame++) { // 10秒間
-          const frameStart = Date.now()
-          yield* gameLoop.tick(16)
+        // 3. メモリクリア（新しいワールドサービス）
+        const freshWorldService = yield* WorldService
 
-          const frameTime = Date.now() - frameStart
-          frameTimes.push(frameTime)
+        // 4. ワールド読み込み
+        const loadedWorld = yield* worldRepository.loadWorld(world.id)
 
-          // 次のフレームまで待機
-          const elapsed = Date.now() - lastFrameTime
-          if (elapsed < 16) {
-            yield* Effect.sleep(`${16 - elapsed} millis`)
-          }
-          lastFrameTime = Date.now()
-        }
+        // 5. 内容比較
+        const loadedChunk = yield* freshWorldService.getChunkAt(0, 0)
 
-        // パフォーマンス統計
-        const avgFrameTime = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length
-        const maxFrameTime = Math.max(...frameTimes)
-        const droppedFrames = frameTimes.filter(t => t > 16.67).length
+        expect(loadedWorld.id).toBe(world.id)
+        expect(loadedWorld.seed).toBe(world.seed)
+        expect(loadedChunk.blocks).toEqual(originalChunk.value.blocks)
 
         return {
-          averageFPS: 1000 / avgFrameTime,
-          maxFrameTime,
-          droppedFramesPercent: (droppedFrames / frameTimes.length) * 100
+          originalWorld: world,
+          loadedWorld,
+          chunksMatch: loadedChunk.blocks.length === originalChunk.value.blocks.length
         }
       })
 
       const result = await Effect.runPromise(
-        program.pipe(Effect.provide(testEnv))
+        program.pipe(Effect.provide(testLayer))
       )
 
-      expect(result.averageFPS).toBeGreaterThan(55) // 平均55FPS以上
-      expect(result.maxFrameTime).toBeLessThan(33) // 最大フレーム時間33ms未満
-      expect(result.droppedFramesPercent).toBeLessThan(5) // ドロップフレーム5%未満
+      expect(result.chunksMatch).toBe(true)
+      expect(result.originalWorld.seed).toBe(result.loadedWorld.seed)
     })
+  })
+})
+```
 
-    it('メモリリークの検出', async () => {
-      const testEnv = createFullTestEnvironment()
+#### 4.2 パフォーマンス統合テスト
+```typescript
+describe('Performance Integration Tests', () => {
+  describe('スケーラビリティテスト', () => {
+    it('100プレイヤー同時接続での性能', async () => {
+      const testLayer = createPerformanceTestLayers()
 
       const program = Effect.gen(function* () {
-        const gameLoop = yield* GameLoopService
+        const gameController = yield* GameController
+        const playerRepository = yield* PlayerRepository
+
+        // 100人のプレイヤーを作成
+        const playerCreation = Array.from({ length: 100 }, (_, i) =>
+          gameController.createPlayer(`Player${i}`)
+        )
+
+        const startTime = Date.now()
+        const players = yield* Effect.allPar(playerCreation, { concurrency: 10 })
+        const creationTime = Date.now() - startTime
+
+        expect(creationTime).toBeLessThan(5000) // 5秒以内で作成
+
+        // 全プレイヤーが同時に移動
+        const moveStartTime = Date.now()
+        const movements = players.map((player, i) =>
+          gameController.movePlayerTo(
+            player.id,
+            Position.create(i * 2, 64, i * 2) // 分散配置
+          )
+        )
+
+        yield* Effect.allPar(movements, { concurrency: 20 })
+        const moveTime = Date.now() - moveStartTime
+
+        expect(moveTime).toBeLessThan(10000) // 10秒以内で移動完了
+
+        // リソース使用量確認
+        const memoryUsage = process.memoryUsage()
+        expect(memoryUsage.heapUsed).toBeLessThan(500 * 1024 * 1024) // 500MB未満
+
+        return {
+          playerCount: players.length,
+          creationTime,
+          moveTime,
+          memoryUsage: memoryUsage.heapUsed
+        }
+      })
+
+      const result = await Effect.runPromise(
+        program.pipe(Effect.provide(testLayer))
+      )
+
+      expect(result.playerCount).toBe(100)
+      expect(result.creationTime).toBeLessThan(5000)
+      expect(result.moveTime).toBeLessThan(10000)
+    })
+
+    it('大量チャンクローディングでの性能', async () => {
+      const testLayer = createPerformanceTestLayers()
+
+      const program = Effect.gen(function* () {
+        const worldService = yield* WorldService
+
+        // 10x10 = 100チャンクの生成とロード
+        const chunkCoords = []
+        for (let x = -5; x <= 4; x++) {
+          for (let z = -5; z <= 4; z++) {
+            chunkCoords.push({ x, z })
+          }
+        }
+
+        const loadStartTime = Date.now()
+        const chunks = yield* Effect.allPar(
+          chunkCoords.map(coord => worldService.loadChunk(coord)),
+          { concurrency: 5 } // 5並列でロード
+        )
+        const loadTime = Date.now() - loadStartTime
+
+        expect(loadTime).toBeLessThan(15000) // 15秒以内
+        expect(chunks).toHaveLength(100)
+
+        // 各チャンクが正しく生成されているか
+        chunks.forEach((chunk, i) => {
+          expect(chunk.coordinate).toEqual(chunkCoords[i])
+          expect(chunk.blocks.length).toBeGreaterThan(0)
+        })
+
+        // アンロード性能テスト
+        const unloadStartTime = Date.now()
+        yield* Effect.allPar(
+          chunkCoords.map(coord => worldService.unloadChunk(coord)),
+          { concurrency: 10 }
+        )
+        const unloadTime = Date.now() - unloadStartTime
+
+        expect(unloadTime).toBeLessThan(5000) // 5秒以内でアンロード
+
+        return {
+          chunkCount: chunks.length,
+          loadTime,
+          unloadTime,
+          avgLoadTimePerChunk: loadTime / chunks.length
+        }
+      })
+
+      const result = await Effect.runPromise(
+        program.pipe(Effect.provide(testLayer))
+      )
+
+      expect(result.chunkCount).toBe(100)
+      expect(result.avgLoadTimePerChunk).toBeLessThan(150) // チャンク1個あたり150ms未満
+    })
+  })
+
+  describe('メモリリークテスト', () => {
+    it('長時間実行でのメモリ安定性', async () => {
+      const testLayer = createPerformanceTestLayers()
+
+      const program = Effect.gen(function* () {
+        const gameController = yield* GameController
         const memorySnapshots: number[] = []
 
-        // メモリ使用量の記録
+        // 初期メモリ記録
         const recordMemory = () => {
           if (typeof process !== 'undefined' && process.memoryUsage) {
             memorySnapshots.push(process.memoryUsage().heapUsed)
           }
         }
 
-        // 繰り返しチャンクのロード/アンロード
+        recordMemory()
+
+        // 30分間のシミュレーション（高速実行）
         for (let cycle = 0; cycle < 100; cycle++) {
-          // チャンクロード
-          for (let x = 0; x < 10; x++) {
-            for (let z = 0; z < 10; z++) {
-              yield* gameLoop.loadChunk({ x: x + cycle * 10, z })
+          // プレイヤー作成→活動→削除のサイクル
+          const tempPlayers = yield* Effect.allPar(
+            Array.from({ length: 10 }, (_, i) =>
+              gameController.createPlayer(`temp_${cycle}_${i}`)
+            )
+          )
+
+          // アクティビティシミュレーション
+          yield* Effect.allPar(
+            tempPlayers.map(player =>
+              gameController.simulateActivity(player.id, 100) // 100アクション
+            )
+          )
+
+          // プレイヤー削除
+          yield* Effect.allPar(
+            tempPlayers.map(player => gameController.removePlayer(player.id))
+          )
+
+          if (cycle % 10 === 0) {
+            // 強制GC（テスト環境）
+            if (global.gc) {
+              global.gc()
             }
+            recordMemory()
           }
-
-          // チャンクアンロード
-          for (let x = 0; x < 10; x++) {
-            for (let z = 0; z < 10; z++) {
-              yield* gameLoop.unloadChunk({ x: x + cycle * 10, z })
-            }
-          }
-
-          // ガベージコレクションの実行を促す
-          if (global.gc) {
-            global.gc()
-          }
-
-          recordMemory()
         }
 
-        // メモリ使用量の増加傾向を分析
-        const firstHalf = memorySnapshots.slice(0, 50)
-        const secondHalf = memorySnapshots.slice(50)
+        // メモリ増加傾向の分析
+        const firstHalf = memorySnapshots.slice(0, 5)
+        const secondHalf = memorySnapshots.slice(-5)
 
-        const avgFirstHalf = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length
-        const avgSecondHalf = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length
+        const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length
+        const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length
 
-        const memoryGrowthPercent = ((avgSecondHalf - avgFirstHalf) / avgFirstHalf) * 100
+        const growthPercent = ((avgSecond - avgFirst) / avgFirst) * 100
 
         return {
-          initialMemory: memorySnapshots[0],
+          cycles: 100,
+          memoryGrowthPercent: growthPercent,
           finalMemory: memorySnapshots[memorySnapshots.length - 1],
-          memoryGrowthPercent
+          snapshots: memorySnapshots.length
         }
       })
 
       const result = await Effect.runPromise(
-        program.pipe(Effect.provide(testEnv))
+        program.pipe(Effect.provide(testLayer))
       )
 
-      // メモリ増加が10%未満であることを確認
-      expect(result.memoryGrowthPercent).toBeLessThan(10)
-    })
-  })
-})
-```
-
-## レイヤー別テストガイドライン
-
-### Domain Layer テスト
-
-```typescript
-// domain/entities/player.test.ts
-describe('Player Entity', () => {
-  describe('Value Objects', () => {
-    it('PlayerIdは一意性を保証する', () => {
-      const id1 = PlayerId.generate()
-      const id2 = PlayerId.generate()
-      expect(id1).not.toBe(id2)
-    })
-
-    it('Healthは0-100の範囲を維持する', () => {
-      expect(() => Health.create(-1)).toThrow()
-      expect(() => Health.create(101)).toThrow()
-      expect(Health.create(50).value).toBe(50)
-    })
-  })
-
-  describe('Business Rules', () => {
-    it('ダメージを受けるとヘルスが減少する', () => {
-      const player = Player.create({
-        id: PlayerId.generate(),
-        name: "TestPlayer",
-        health: Health.create(100)
-      })
-
-      const damaged = player.takeDamage(30)
-      expect(damaged.health.value).toBe(70)
-    })
-
-    it('致死ダメージで死亡状態になる', () => {
-      const player = Player.create({
-        id: PlayerId.generate(),
-        name: "TestPlayer",
-        health: Health.create(20)
-      })
-
-      const result = player.takeDamage(25)
-      expect(result.isDead).toBe(true)
-      expect(result.health.value).toBe(0)
-    })
-  })
-})
-```
-
-### Application Layer テスト
-
-```typescript
-// application/use-cases/player-movement.test.ts
-describe('PlayerMovementUseCase', () => {
-  const createMockDependencies = () => ({
-    playerRepository: {
-      findById: vi.fn(),
-      save: vi.fn()
-    },
-    worldService: {
-      checkCollision: vi.fn(),
-      getChunkAt: vi.fn()
-    },
-    eventBus: {
-      publish: vi.fn()
-    }
-  })
-
-  it('有効な移動を処理する', async () => {
-    const deps = createMockDependencies()
-    const useCase = new PlayerMovementUseCase(deps)
-
-    deps.playerRepository.findById.mockResolvedValue(mockPlayer)
-    deps.worldService.checkCollision.mockResolvedValue(false)
-
-    const result = await useCase.execute({
-      playerId: "player1",
-      targetPosition: { x: 10, y: 64, z: 10 }
-    })
-
-    expect(result.success).toBe(true)
-    expect(deps.playerRepository.save).toHaveBeenCalled()
-    expect(deps.eventBus.publish).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "PlayerMoved" })
-    )
-  })
-
-  it('衝突がある場合は移動を拒否する', async () => {
-    const deps = createMockDependencies()
-    const useCase = new PlayerMovementUseCase(deps)
-
-    deps.worldService.checkCollision.mockResolvedValue(true)
-
-    const result = await useCase.execute({
-      playerId: "player1",
-      targetPosition: { x: 10, y: 64, z: 10 }
-    })
-
-    expect(result.success).toBe(false)
-    expect(deps.playerRepository.save).not.toHaveBeenCalled()
-  })
-})
-```
-
-### Infrastructure Layer テスト
-
-```typescript
-// infrastructure/repositories/indexed-db-player-repository.test.ts
-describe('IndexedDBPlayerRepository', () => {
-  let repository: IndexedDBPlayerRepository
-
-  beforeEach(async () => {
-    // In-memory IndexedDB for testing
-    repository = new IndexedDBPlayerRepository()
-    await repository.initialize()
-  })
-
-  afterEach(async () => {
-    await repository.clear()
-  })
-
-  it('プレイヤーの保存と取得', async () => {
-    const player = createMockPlayer()
-
-    await repository.save(player)
-    const retrieved = await repository.findById(player.id)
-
-    expect(retrieved).toEqual(player)
-  })
-
-  it('存在しないプレイヤーの取得でnullを返す', async () => {
-    const result = await repository.findById("non-existent")
-    expect(result).toBeNull()
-  })
-
-  it('複数プレイヤーの一括取得', async () => {
-    const players = [
-      createMockPlayer({ id: "1" }),
-      createMockPlayer({ id: "2" }),
-      createMockPlayer({ id: "3" })
-    ]
-
-    await Promise.all(players.map(p => repository.save(p)))
-    const retrieved = await repository.findAll()
-
-    expect(retrieved).toHaveLength(3)
-    expect(retrieved.map(p => p.id)).toEqual(["1", "2", "3"])
-  })
-})
-```
-
-### Presentation Layer テスト
-
-```typescript
-// presentation/controllers/game-controller.test.ts
-describe('GameController', () => {
-  it('ユーザー入力をアプリケーション層に伝達する', async () => {
-    const mockUseCase = {
-      execute: vi.fn().mockResolvedValue({ success: true })
-    }
-
-    const controller = new GameController({
-      playerMovementUseCase: mockUseCase
-    })
-
-    await controller.handleKeyPress({ key: 'W' })
-
-    expect(mockUseCase.execute).toHaveBeenCalledWith(
-      expect.objectContaining({
-        direction: 'forward'
-      })
-    )
-  })
-
-  it('エラーを適切にUIに伝播する', async () => {
-    const mockUseCase = {
-      execute: vi.fn().mockRejectedValue(new Error("Network error"))
-    }
-
-    const mockUI = {
-      showError: vi.fn()
-    }
-
-    const controller = new GameController({
-      playerMovementUseCase: mockUseCase,
-      uiService: mockUI
-    })
-
-    await controller.handleKeyPress({ key: 'W' })
-
-    expect(mockUI.showError).toHaveBeenCalledWith("Network error")
-  })
-})
-```
-
-## カバレッジ戦略
-
-### 1. カバレッジ目標設定
-
-```typescript
-// vitest.config.ts
-export default defineConfig({
-  test: {
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html', 'lcov'],
-      thresholds: {
-        statements: 100,
-        branches: 100,
-        functions: 100,
-        lines: 100
-      },
-      exclude: [
-        'node_modules/**',
-        'dist/**',
-        '**/*.test.ts',
-        '**/*.spec.ts',
-        '**/test-utils/**',
-        '**/mocks/**'
-      ],
-      include: [
-        'src/**/*.ts'
-      ]
-    }
-  }
-})
-```
-
-### 2. カバレッジ分析と改善
-
-```typescript
-// test-utils/coverage-helper.ts
-export class CoverageAnalyzer {
-  /**
-   * 未テストのコードパスを特定
-   */
-  static findUncoveredPaths(coverageReport: CoverageReport): UncoveredPath[] {
-    const uncovered: UncoveredPath[] = []
-
-    for (const file of coverageReport.files) {
-      // 未カバーの行
-      file.lines.forEach((line, index) => {
-        if (line.count === 0) {
-          uncovered.push({
-            file: file.path,
-            line: index + 1,
-            type: 'statement'
-          })
-        }
-      })
-
-      // 未カバーの分岐
-      file.branches.forEach(branch => {
-        if (!branch.covered) {
-          uncovered.push({
-            file: file.path,
-            line: branch.line,
-            type: 'branch',
-            condition: branch.condition
-          })
-        }
-      })
-    }
-
-    return uncovered
-  }
-
-  /**
-   * テストケース生成の提案
-   */
-  static suggestTestCases(uncoveredPaths: UncoveredPath[]): TestSuggestion[] {
-    return uncoveredPaths.map(path => {
-      if (path.type === 'branch') {
-        return {
-          description: `Test ${path.condition} condition at line ${path.line}`,
-          template: generateBranchTestTemplate(path)
-        }
-      }
-
-      return {
-        description: `Cover statement at line ${path.line}`,
-        template: generateStatementTestTemplate(path)
-      }
-    })
-  }
-}
-```
-
-### 3. Mutation Testing
-
-```typescript
-// mutation-testing.config.ts
-export default {
-  mutate: [
-    'src/**/*.ts',
-    '!src/**/*.test.ts'
-  ],
-  mutators: [
-    'ConditionalExpression',
-    'LogicalOperator',
-    'ArithmeticOperator',
-    'BlockStatement',
-    'BooleanLiteral'
-  ],
-  testRunner: 'vitest',
-  thresholds: {
-    high: 90,
-    low: 70,
-    break: 60
-  }
-}
-
-// 使用例
-describe('Mutation Testing', () => {
-  it('すべてのミュータントを検出する', async () => {
-    const result = await runMutationTesting({
-      targetFile: 'src/domain/entities/player.ts',
-      testFile: 'src/domain/entities/player.test.ts'
-    })
-
-    expect(result.killedMutants / result.totalMutants).toBeGreaterThan(0.9)
-  })
-})
-```
-
-## テスト実装のベストプラクティス
-
-### 1. テストの構造化
-
-```typescript
-// テストの標準構造
-describe('[Layer]/[Module]/[Component]', () => {
-  // Arrange - 準備
-  let testSubject: ComponentUnderTest
-  let dependencies: MockDependencies
-
-  beforeEach(() => {
-    // 各テスト前の初期化
-    dependencies = createMockDependencies()
-    testSubject = new ComponentUnderTest(dependencies)
-  })
-
-  afterEach(() => {
-    // クリーンアップ
-    vi.clearAllMocks()
-  })
-
-  describe('[機能/メソッド名]', () => {
-    describe('正常系', () => {
-      it('[期待される動作の説明]', async () => {
-        // Arrange
-        const input = createValidInput()
-
-        // Act
-        const result = await testSubject.process(input)
-
-        // Assert
-        expect(result).toMatchObject({
-          success: true,
-          data: expect.any(Object)
-        })
-      })
-    })
-
-    describe('異常系', () => {
-      it('[エラー条件と期待される動作]', async () => {
-        // Arrange
-        const invalidInput = createInvalidInput()
-
-        // Act & Assert
-        await expect(testSubject.process(invalidInput))
-          .rejects.toThrow(ValidationError)
-      })
-    })
-
-    describe('境界値', () => {
-      it.each([
-        { input: MIN_VALUE, expected: MIN_RESULT },
-        { input: MAX_VALUE, expected: MAX_RESULT },
-        { input: ZERO, expected: ZERO_RESULT }
-      ])('$input の場合、$expected を返す', async ({ input, expected }) => {
-        const result = await testSubject.process(input)
-        expect(result).toBe(expected)
-      })
-    })
-  })
-})
-```
-
-### 2. テストユーティリティ
-
-```typescript
-// test-utils/builders.ts
-export class TestDataBuilder {
-  static player(overrides: Partial<Player> = {}): Player {
-    return {
-      id: faker.datatype.uuid(),
-      name: faker.internet.userName(),
-      position: { x: 0, y: 64, z: 0 },
-      health: 100,
-      inventory: [],
-      ...overrides
-    }
-  }
-
-  static chunk(x: number = 0, z: number = 0): Chunk {
-    return {
-      coordinate: { x, z },
-      blocks: generateRandomBlocks(),
-      entities: [],
-      lastModified: Date.now()
-    }
-  }
-
-  static withItems(player: Player, items: Item[]): Player {
-    return {
-      ...player,
-      inventory: [...player.inventory, ...items]
-    }
-  }
-}
-
-// test-utils/assertions.ts
-export const customMatchers = {
-  toBeWithinRange(received: number, min: number, max: number) {
-    const pass = received >= min && received <= max
-    return {
-      pass,
-      message: () =>
-        `Expected ${received} to be within range [${min}, ${max}]`
-    }
-  },
-
-  toHaveValidStructure(received: any, schema: Schema.Schema<any>) {
-    const result = Effect.either(Schema.decodeUnknown(schema)(received))
-    return {
-      pass: Either.isRight(result),
-      message: () =>
-        Either.isLeft(result)
-          ? `Validation failed: ${result.left}`
-          : 'Structure is valid'
-    }
-  }
-}
-
-// 使用
-expect.extend(customMatchers)
-```
-
-### 3. 非同期テストのパターン
-
-```typescript
-// test-utils/async-helpers.ts
-export class AsyncTestHelper {
-  /**
-   * タイムアウト付きの条件待機
-   */
-  static async waitFor(
-    condition: () => boolean | Promise<boolean>,
-    timeout: number = 5000,
-    interval: number = 100
-  ): Promise<void> {
-    const startTime = Date.now()
-
-    while (Date.now() - startTime < timeout) {
-      if (await condition()) {
-        return
-      }
-      await new Promise(resolve => setTimeout(resolve, interval))
-    }
-
-    throw new Error(`Condition not met within ${timeout}ms`)
-  }
-
-  /**
-   * イベントの発生を待機
-   */
-  static async waitForEvent<T>(
-    eventEmitter: EventEmitter,
-    eventName: string,
-    timeout: number = 5000
-  ): Promise<T> {
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error(`Event '${eventName}' not received within ${timeout}ms`))
-      }, timeout)
-
-      eventEmitter.once(eventName, (data: T) => {
-        clearTimeout(timer)
-        resolve(data)
-      })
-    })
-  }
-
-  /**
-   * 並行実行のテスト
-   */
-  static async testConcurrency<T>(
-    operations: Array<() => Promise<T>>,
-    expectedConcurrency: number
-  ): Promise<{
-    results: T[],
-    maxConcurrent: number,
-    totalTime: number
-  }> {
-    let currentConcurrent = 0
-    let maxConcurrent = 0
-    const startTime = Date.now()
-
-    const wrappedOperations = operations.map(op => async () => {
-      currentConcurrent++
-      maxConcurrent = Math.max(maxConcurrent, currentConcurrent)
-
-      try {
-        return await op()
-      } finally {
-        currentConcurrent--
-      }
-    })
-
-    const results = await Promise.all(
-      wrappedOperations.map(op => op())
-    )
-
-    return {
-      results,
-      maxConcurrent,
-      totalTime: Date.now() - startTime
-    }
-  }
-}
-
-// 使用例
-describe('Async Operations', () => {
-  it('イベントが正しく発生する', async () => {
-    const emitter = new EventEmitter()
-
-    setTimeout(() => {
-      emitter.emit('ready', { status: 'ok' })
-    }, 100)
-
-    const event = await AsyncTestHelper.waitForEvent(emitter, 'ready')
-    expect(event).toEqual({ status: 'ok' })
-  })
-
-  it('並行実行数が制限される', async () => {
-    const operations = Array.from({ length: 10 }, (_, i) =>
-      () => delay(100).then(() => i)
-    )
-
-    const result = await AsyncTestHelper.testConcurrency(operations, 3)
-    expect(result.maxConcurrent).toBeLessThanOrEqual(3)
-  })
-})
-```
-
-### 4. パフォーマンステスト
-
-```typescript
-// test-utils/performance.ts
-export class PerformanceTestHelper {
-  /**
-   * 実行時間の測定
-   */
-  static async measureExecutionTime<T>(
-    fn: () => Promise<T>,
-    iterations: number = 1
-  ): Promise<{
-    result: T,
-    averageTime: number,
-    minTime: number,
-    maxTime: number,
-    times: number[]
-  }> {
-    const times: number[] = []
-    let result: T
-
-    for (let i = 0; i < iterations; i++) {
-      const start = performance.now()
-      result = await fn()
-      const end = performance.now()
-      times.push(end - start)
-    }
-
-    return {
-      result: result!,
-      averageTime: times.reduce((a, b) => a + b, 0) / times.length,
-      minTime: Math.min(...times),
-      maxTime: Math.max(...times),
-      times
-    }
-  }
-
-  /**
-   * メモリ使用量の測定
-   */
-  static async measureMemoryUsage<T>(
-    fn: () => Promise<T>
-  ): Promise<{
-    result: T,
-    memoryDelta: number
-  }> {
-    if (typeof global.gc === 'function') {
-      global.gc()
-    }
-
-    const before = process.memoryUsage().heapUsed
-    const result = await fn()
-    const after = process.memoryUsage().heapUsed
-
-    return {
-      result,
-      memoryDelta: after - before
-    }
-  }
-
-  /**
-   * スループットの測定
-   */
-  static async measureThroughput(
-    fn: () => Promise<void>,
-    duration: number = 1000
-  ): Promise<{
-    operations: number,
-    opsPerSecond: number
-  }> {
-    const startTime = Date.now()
-    let operations = 0
-
-    while (Date.now() - startTime < duration) {
-      await fn()
-      operations++
-    }
-
-    const actualDuration = (Date.now() - startTime) / 1000
-
-    return {
-      operations,
-      opsPerSecond: operations / actualDuration
-    }
-  }
-}
-
-// 使用例
-describe('Performance Requirements', () => {
-  it('チャンク生成が100ms以内に完了する', async () => {
-    const { averageTime } = await PerformanceTestHelper.measureExecutionTime(
-      () => generateChunk(0, 0),
-      10
-    )
-
-    expect(averageTime).toBeLessThan(100)
-  })
-
-  it('1秒間に1000回以上の衝突判定が可能', async () => {
-    const { opsPerSecond } = await PerformanceTestHelper.measureThroughput(
-      () => checkCollision(entity1, entity2)
-    )
-
-    expect(opsPerSecond).toBeGreaterThan(1000)
+      // メモリ増加が15%以下であることを確認
+      expect(result.memoryGrowthPercent).toBeLessThan(15)
+      expect(result.cycles).toBe(100)
+    }, 300000) // 5分のタイムアウト
   })
 })
 ```
 
 ## まとめ
 
-このドキュメントでは、TypeScript MinecraftプロジェクトにおけるVitestを使用した包括的なテスト戦略を提供しました。
+このドキュメントでは、TypeScript MinecraftプロジェクトにおけるEffect-TS 3.17とDDDアーキテクチャに特化した包括的テスト戦略を提供しました。
 
-### 重要なポイント
+### 重要な成果
+1. **Flaky Test完全排除**: TestClock・固定シード・完全モック化による決定論的テスト
+2. **100%カバレッジ達成**: レイヤー別テスト戦略とProperty-Based Testingの組み合わせ
+3. **型安全なテスト**: Effect-TSとSchemaを活用した実行時安全性保証
+4. **スケーラブルなテストアーキテクチャ**: 大規模システムに対応できる構造化されたテスト設計
 
-1. **カバレッジ100%の達成**
-   - すべての関数に対応するテストを作成
-   - Property-Based Testingでエッジケースを網羅
-   - Mutation Testingでテストの品質を保証
+### 継続的改善のための指針
+- **カバレッジモニタリング**: 定期的なMutation Testingによる品質検証
+- **パフォーマンステスト**: 性能要件の継続的検証
+- **テストコードの保守**: テスト自体の品質とメンテナンス性の確保
 
-2. **Effect-TSパターンの活用**
-   - 非同期処理の統一的な扱い
-   - 型安全なエラーハンドリング
-   - Layerを使用した依存性注入
-
-3. **レイヤー別のテスト戦略**
-   - 各レイヤーの責務に応じたテスト設計
-   - モックとスタブの適切な使用
-   - 統合テストでの実際の動作検証
-
-4. **継続的な品質向上**
-   - カバレッジレポートの定期的な分析
-   - パフォーマンステストによる性能保証
-   - テストコードのリファクタリング
-
-このガイドラインに従うことで、高品質で保守性の高いテストスイートを構築し、プロジェクトの長期的な成功を支えることができます。
+この戦略に従うことで、高品質で信頼性の高いソフトウェアの継続的な開発と保守が可能になります。

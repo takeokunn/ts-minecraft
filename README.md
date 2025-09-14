@@ -1,484 +1,133 @@
+---
+title: "TypeScript Minecraft Clone - DDD & Effect-TS による高性能ゲーム実装"
+description: "ドメイン駆動設計とEffect-TSを活用したエンタープライズグレードのMinecraft実装。完全な型安全性と関数型プログラミングパターンによる高品質ゲーム開発のリファレンス実装。"
+category: "quickstart"
+difficulty: "intermediate"
+tags: ["typescript", "minecraft", "ddd", "effect-ts", "ecs", "functional-programming", "game-development", "architecture-showcase"]
+prerequisites: ["basic-typescript", "nodejs-18+", "pnpm"]
+estimated_reading_time: "10分"
+related_patterns: ["service-patterns", "ddd-patterns", "ecs-patterns"]
+related_docs: ["./docs/00-quickstart/01-5min-demo.md", "./docs/01-architecture/00-overall-design.md", "./docs/00-introduction/README.md"]
+search_keywords:
+  primary: ["typescript-minecraft", "ddd-game", "effect-ts-showcase", "functional-game-dev"]
+  secondary: ["enterprise-game-architecture", "type-safe-gaming", "minecraft-clone"]
+  context: ["game-development", "architectural-patterns", "educational-resource"]
+---
+
 # TypeScript Minecraft
 
-A high-performance, fully functional TypeScript implementation of Minecraft using **Domain-Driven Design (DDD)** architecture with **Effect-TS**.
+**ドメイン駆動設計（DDD）**アーキテクチャと**Effect-TS**を使用した、高性能で完全に機能するTypeScript実装のMinecraftです。
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9+-blue.svg)](https://www.typescriptlang.org/)
 [![Effect-TS](https://img.shields.io/badge/Effect--TS-3.17+-purple.svg)](https://effect.website/)
-[![DDD](https://img.shields.io/badge/Architecture-DDD-green.svg)](./ARCHITECTURE.md)
+[![DDD](https://img.shields.io/badge/Architecture-DDD-green.svg)](./docs/01-architecture/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-## Overview
+## 🎮 ゲーム機能
 
-This project demonstrates a complete Minecraft game engine implementation using cutting-edge functional programming patterns and domain-driven design principles. Built entirely with Effect-TS, it showcases how complex game systems can be architected using pure functional programming while maintaining high performance.
+### コアゲームプレイ
+- **🌍 無限ワールド生成**: バイオーム、洞窟、構造物を含む手続き型地形生成
+- **⛏️ 採掘と建築**: 完全なボクセルベースのブロック配置と破壊
+- **🎒 インベントリシステム**: クラフティング機能付きドラッグ&ドロップ式インベントリ管理
+- **🔨 クラフティングシステム**: レシピ検証付き2x2および3x3クラフティンググリッド
+- **💚 体力と空腹**: ダメージと回復を含むサバイバルメカニクス
+- **⚔️ 戦闘システム**: ダメージ計算付き近接・遠距離戦闘
+- **🌾 農業**: 作物の成長段階を持つ農業システム
+- **🍖 食料システム**: 満腹度メカニクス付き消費可能アイテム
 
-### Key Features
+### 高度な機能
+- **🔴 レッドストーン回路**: 論理ゲート、リピーター、ピストン
+- **🌤️ 天候システム**: 雨、雷、雪を含む動的な天候
+- **🌙 昼夜サイクル**: 月の満ち欠けを含むリアルタイム照明
+- **🧱 物理エンジン**: 重力、衝突検出、流体力学
+- **💧 水と溶岩**: 水源ブロックメカニクスを含む流体フローシミュレーション
+- **🎵 サウンド&音楽**: 環境音とBGMシステム
+- **👾 MobのAI**: エンティティのパスファインディングと行動ツリー
+- **🏠 構造物生成**: 村、ダンジョン、要塞
+- **🌈 パーティクルエフェクト**: 爆発、煙、魔法の視覚効果
+- **📊 コマンドシステム**: デバッグコマンド付きゲーム内コンソール
+- **🎨 カスタムテクスチャ**: ホットリロード対応のリソースパック
+- **🌐 マルチプレイヤー対応**: ネットワークプロトコル実装（計画中）
 
-- **🏗️ Clean Architecture**: Strict DDD layer separation with dependency inversion
-- **⚡ High Performance**: Structure of Arrays (SoA) ECS with optimized queries
-- **🔒 Type Safety**: 100% Effect-TS type system with comprehensive error handling
-- **🚫 Zero Classes**: Pure functional programming - no classes or `this` keyword
-- **🔄 Immutable State**: All data structures are immutable by default
-- **🧪 Testable**: Pure functions enable comprehensive testing strategies
-- **🎮 Full Minecraft Features**: World generation, block physics, player movement, rendering
+### 技術的特徴
+- **⚡ 高性能**: 最適なキャッシュ使用のためのStructure of Arrays (SoA) ECS
+- **🔄 ホットモジュールリプレースメント**: 開発中の即座のコード更新
+- **🎯 型安全性**: ブランド型を含む100% Effect-TS型カバレッジ
+- **🧪 包括的テスト**: ユニット、統合、パフォーマンステスト
+- **📈 パフォーマンス監視**: 組み込みプロファイリングとメトリクス
+- **🔧 Mod対応**: コミュニティ拡張のためのプラグインアーキテクチャ
+- **💾 セーブシステム**: 圧縮付きワールド永続化
+- **🖥️ マルチスレッド**: 地形生成と物理演算のためのWeb Workers
+- **🎨 WebGPUレンダリング**: ハードウェアアクセラレーション付きグラフィックスパイプライン
+- **📱 レスポンシブコントロール**: キーボード、マウス、ゲームパッド対応
 
-## Quick Start
-
-### Prerequisites
-
-- Node.js 18+
-- pnpm (recommended) or npm
-
-### Installation
+## 🚀 クイックスタート
 
 ```bash
-# Clone the repository
-git clone https://github.com/takeokunn/ts-minecraft.git
-cd ts-minecraft
-
-# Install dependencies
+# 依存関係のインストール
 pnpm install
 
-# Start development server
+# 開発サーバーの起動
 pnpm dev
+
+# プロダクションビルド
+pnpm build
 ```
 
-### Development Commands
+### 開発コマンド
 
 ```bash
-# Development
-pnpm dev              # Start development server with hot reload
-pnpm build           # Build for production
-pnpm type-check      # Run TypeScript type checking
+# コード品質
+pnpm lint            # oxlint静的解析の実行
+pnpm format          # Prettierでコードフォーマット
+pnpm type-check      # TypeScript型チェックの実行
 
-# Code Quality
-pnpm lint            # Run oxlint static analysis
-pnpm lint:fix        # Auto-fix linting issues
-pnpm format          # Format code with Prettier + oxlint
-pnpm format:check    # Check code formatting
-
-# Testing
-pnpm test            # Run unit tests with Vitest
-pnpm test:ui         # Run tests with UI
-pnpm test:coverage   # Run tests with coverage report
+# テスト
+pnpm test            # Vitestでユニットテストの実行
+pnpm test:coverage   # カバレッジレポート付きテストの実行
 ```
 
-## Architecture Highlights
+## 🏗️ アーキテクチャ
 
-### DDD Layer Structure
+このプロジェクトはエンタープライズグレードのアーキテクチャパターンを実証しています：
 
-```
-src/
-├── domain/           # Core business logic (entities, value objects, services)
-├── application/      # Use cases, workflows, queries, commands
-├── infrastructure/   # Technical implementations (adapters, repositories)
-├── presentation/     # User interface (controllers, view models, CLI tools)
-└── shared/          # Common utilities and types
-```
+- **ドメイン駆動設計**: ビジネスロジックとインフラストラクチャの明確な分離
+- **Effect-TS統合**: 型安全なエフェクトを持つ純粋関数型プログラミング
+- **エンティティコンポーネントシステム**: 高性能なゲームオブジェクト管理
+- **イベント駆動アーキテクチャ**: メッセージパッシングによる疎結合システム
+- **ポート&アダプターパターン**: クリーンなインフラストラクチャ境界
 
-### Effect-TS Integration
+詳細なアーキテクチャドキュメントは [📚 /docs/01-architecture/](./docs/01-architecture/) を参照してください。
 
-All code follows Effect-TS patterns for:
+## 📖 ドキュメント
 
-- **Service Definition**: Context.Tag pattern with Layer composition
-- **Error Handling**: Tagged errors with specific error types
-- **Dependency Injection**: Type-safe DI through Effect Context system
-- **Async Operations**: Effect.gen for composable async workflows
-- **Resource Management**: Scoped resource handling with automatic cleanup
+包括的なドキュメントは `/docs/` ディレクトリにあります：
 
-### Example: Player Movement System
+- **[🚀 クイックスタートガイド](./docs/00-quickstart/)** - 5分で始める
+- **[🏗️ アーキテクチャドキュメント](./docs/01-architecture/)** - DDD、ECS、Effect-TSパターン
+- **[📋 機能仕様](./docs/02-specifications/)** - 詳細なシステム仕様
+- **[🛠️ 開発ガイド](./docs/03-guides/)** - ベストプラクティスとワークフロー
+- **[📚 APIリファレンス](./docs/05-reference/)** - 完全なAPIドキュメント
+- **[🔧 コード例](./docs/06-examples/)** - 実践的な実装例
+- **[🎨 パターンカタログ](./docs/07-pattern-catalog/)** - 再利用可能なコードパターン
 
-```typescript
-// Pure domain logic
-export const calculateNewPosition = (current: Position, direction: Direction, speed: number): Effect.Effect<Position, ValidationError> =>
-  pipe(
-    Effect.succeed(current),
-    Effect.map((pos) => pos.translate(direction.x * speed, direction.y * speed, direction.z * speed)),
-    Effect.flatMap(validatePosition),
-  )
+## 🎯 プロジェクトの目標
 
-// Application use case
-export const playerMoveUseCase = (playerId: EntityId, direction: Direction): Effect.Effect<void, PlayerMoveError, WorldService | InputService> =>
-  Effect.gen(function* () {
-    const world = yield* WorldService
-    const player = yield* world.getPlayer(playerId)
+1. **教育リソース**: 高度なTypeScriptと関数型プログラミングの実証
+2. **パフォーマンスベンチマーク**: ブラウザベースのゲームがネイティブパフォーマンスに匹敵することを証明
+3. **アーキテクチャショーケース**: Effect-TSを使用したDDDのリファレンス実装
+4. **コミュニティプラットフォーム**: Minecraft風ゲームのための拡張可能な基盤
 
-    const newPosition = yield* calculateNewPosition(player.position, direction, PLAYER_SPEED)
+## 📄 ライセンス
 
-    yield* world.updatePlayerPosition(playerId, newPosition)
-  })
-```
+このプロジェクトはMITライセンスの下でライセンスされています。詳細は[LICENSE](./LICENSE)ファイルを参照してください。
 
-## Migration Status & Achievements
+## 🙏 謝辞
 
-### Phase 3 Migration Complete ✅
-
-We've successfully completed Phase 3 of our DDD architecture migration:
-
-- **🏗️ Layer Separation**: Strict DDD boundaries enforced
-- **⚡ Effect-TS Integration**: 95%+ of codebase migrated to Effect-TS patterns
-- **🔄 Query System Unification**: Consolidated from 3 systems to 1 optimized system
-- **🧹 Code Cleanup**: 1,000+ lines of dead code removed
-- **📁 Path Aliases**: 100+ relative imports converted to absolute paths
-- **📊 ECS Optimization**: Structure of Arrays implementation for performance
-
-### Current Architecture Status
-
-```typescript
-// ✅ Achieved: Clean service definitions with Effect-TS
-export interface WorldService {
-  readonly loadChunk: (coordinate: ChunkCoordinate) => Effect.Effect<Chunk, ChunkError>
-}
-
-// ✅ Achieved: Pure domain logic
-export class Position extends Data.Class<{
-  readonly x: number
-  readonly y: number
-  readonly z: number
-}> {
-  distanceTo(other: Position): number {
-    return Math.sqrt((this.x - other.x) ** 2 + (this.y - other.y) ** 2 + (this.z - other.z) ** 2)
-  }
-}
-
-// ✅ Achieved: Port/Adapter pattern for infrastructure
-export const threeJsRenderAdapter: RenderPort = {
-  createMesh: (geometry, material) =>
-    Effect.gen(function* () {
-      const mesh = new THREE.Mesh(convertGeometry(geometry), convertMaterial(material))
-      const id = yield* generateMeshId()
-      yield* addToScene(mesh)
-      return id
-    }),
-}
-```
-
-## Performance Features
-
-### Structure of Arrays (SoA) ECS
-
-Components are stored in Structure of Arrays format for optimal CPU cache performance:
-
-```typescript
-// Traditional Array of Structures (slow)
-const entities = [
-  { position: { x: 1, y: 2, z: 3 }, velocity: { dx: 0.1, dy: 0, dz: 0.1 } },
-  { position: { x: 4, y: 5, z: 6 }, velocity: { dx: -0.1, dy: 0, dz: 0.2 } },
-]
-
-// Structure of Arrays (fast - better cache locality)
-const components = {
-  position: { x: [1, 4], y: [2, 5], z: [3, 6] },
-  velocity: { dx: [0.1, -0.1], dy: [0, 0], dz: [0.1, 0.2] },
-}
-```
-
-### Unified Query System
-
-Our consolidated query system enables fast, type-safe entity iteration:
-
-```typescript
-const movableQuery = createQuery({
-  all: [Position, Velocity], // Must have these components
-  any: [Player, NPC], // Must have at least one of these
-  none: [Frozen, Disabled], // Must not have any of these
-})
-
-// Fast iteration with Effect-TS safety
-const processMovableEntities = Effect.gen(function* () {
-  const world = yield* WorldService
-  const { entities, components } = yield* world.querySoA(movableQuery)
-
-  for (let i = 0; i < entities.length; i++) {
-    components.position.x[i] += components.velocity.dx[i] * deltaTime
-  }
-})
-```
-
-### Web Worker Integration
-
-Heavy computations are offloaded to Web Workers:
-
-- **Terrain Generation**: Procedural world generation in background threads
-- **Mesh Building**: 3D geometry construction without blocking main thread
-- **Physics Simulation**: Collision detection and response
-- **Lighting Calculations**: Dynamic lighting and shadows
-
-## Project Structure
-
-### Domain Layer (`src/domain/`)
-
-Pure business logic with no external dependencies:
-
-```typescript
-// Entities
-export class Player extends Data.Class<{
-  readonly id: EntityId
-  readonly name: string
-  readonly position: Position
-}> {}
-
-// Value Objects
-export class Position extends Data.Class<{
-  readonly x: number
-  readonly y: number
-  readonly z: number
-}> {
-  translate(dx: number, dy: number, dz: number): Position {
-    return new Position({
-      x: this.x + dx,
-      y: this.y + dy,
-      z: this.z + dz,
-    })
-  }
-}
-
-// Domain Services
-export interface WorldDomainService {
-  readonly generateTerrain: (coordinate: ChunkCoordinate) => Effect.Effect<TerrainData, TerrainGenerationError>
-}
-```
-
-### Application Layer (`src/application/`)
-
-Orchestrates domain logic into specific use cases:
-
-```typescript
-// Use Cases
-export const chunkLoadUseCase = (coordinate: ChunkCoordinate): Effect.Effect<Chunk, ChunkLoadError, WorldService | TerrainService> =>
-  Effect.gen(function* () {
-    const world = yield* WorldService
-    const terrain = yield* TerrainService
-
-    const existingChunk = yield* world.getChunk(coordinate)
-    if (Option.isSome(existingChunk)) {
-      return existingChunk.value
-    }
-
-    const terrainData = yield* terrain.generateTerrain(coordinate)
-    const chunk = yield* createChunk(coordinate, terrainData)
-    yield* world.saveChunk(chunk)
-
-    return chunk
-  })
-```
-
-### Infrastructure Layer (`src/infrastructure/`)
-
-Technical implementations of domain ports:
-
-```typescript
-// Adapter implementing domain port
-export const threeJsRenderAdapter: RenderPort = {
-  createMesh: (geometry, material) =>
-    Effect.gen(function* () {
-      const threeGeometry = convertGeometry(geometry)
-      const threeMaterial = convertMaterial(material)
-      const mesh = new THREE.Mesh(threeGeometry, threeMaterial)
-
-      const id = yield* generateMeshId()
-      yield* addToScene(mesh)
-
-      return id
-    }),
-
-  updateMesh: (id, updates) =>
-    Effect.gen(function* () {
-      const mesh = yield* getMeshById(id)
-      yield* applyUpdates(mesh, updates)
-    }),
-}
-```
-
-## Development Guidelines
-
-### Code Standards (Strictly Enforced)
-
-1. **No Classes**: Use `Data.Class` for data types, pure functions for logic ✅
-2. **Immutability**: All data structures must be immutable ✅
-3. **Effect Wrapping**: All operations must return `Effect` types ✅
-4. **Tagged Errors**: Use specific error types for different failure modes ✅
-5. **Type Safety**: No `any`, `unknown`, or `as` assertions ✅
-6. **Layer Boundaries**: Strict DDD layer separation ✅
-7. **Path Aliases**: Use `@domain`, `@application`, etc. ✅
-
-### Testing Strategy
-
-```typescript
-import { describe, it, expect } from '@effect/vitest'
-
-describe('PlayerMovement', () => {
-  it.effect('should move player to valid position', () =>
-    Effect.gen(function* () {
-      const useCase = yield* PlayerMoveUseCase
-      const world = yield* WorldService
-
-      const playerId = EntityId('player-1')
-      const initialPosition = yield* world.getPlayerPosition(playerId)
-
-      yield* useCase.movePlayer(playerId, Direction.forward)
-
-      const newPosition = yield* world.getPlayerPosition(playerId)
-      expect(newPosition.z).toBeLessThan(initialPosition.z)
-    }).pipe(Effect.provide(TestLayer)),
-  )
-})
-```
-
-### Error Handling
-
-All errors are typed and handled explicitly:
-
-```typescript
-export class ChunkNotFoundError extends Data.TaggedError('ChunkNotFoundError')<{
-  readonly coordinate: ChunkCoordinate
-  readonly operation: string
-}> {}
-
-const loadChunk = (coord: ChunkCoordinate) =>
-  pipe(
-    chunkRepository.find(coord),
-    Effect.catchTag('ChunkNotFoundError', (error) => Effect.logInfo(`Generating new chunk at ${error.coordinate}`).pipe(Effect.andThen(generateNewChunk(error.coordinate)))),
-  )
-```
-
-## Performance Considerations
-
-### Memory Management
-
-- **Object Pooling**: Reuse objects to minimize garbage collection
-- **Component Storage**: SoA format reduces memory fragmentation
-- **Batch Operations**: Group similar operations to reduce overhead
-- **Lazy Loading**: Load chunks and assets on demand
-
-### Rendering Optimization
-
-- **Frustum Culling**: Only render visible chunks
-- **Level of Detail**: Reduce complexity for distant objects
-- **Instanced Rendering**: Batch similar objects (e.g., blocks)
-- **WebGPU Support**: Hardware-accelerated rendering pipeline
-
-### Compute Performance
-
-- **Web Workers**: Parallel processing for CPU-intensive tasks
-- **WASM Integration**: Native performance for critical algorithms
-- **Query Optimization**: Pre-computed entity queries
-- **Component Locality**: Cache-friendly data layouts
-
-## Effect-TS Dependencies
-
-This project leverages the complete Effect-TS ecosystem:
-
-```json
-{
-  "dependencies": {
-    "effect": "^3.17.13", // Core Effect library
-    "@effect/platform": "^0.90.8", // Platform abstractions
-    "@effect/schema": "^0.75.5" // Schema validation
-  },
-  "devDependencies": {
-    "@effect/vitest": "^0.25.1", // Testing integration
-    "@effect/test": "^0.1.0" // Additional test utilities
-  }
-}
-```
-
-### Key Effect-TS Features Used
-
-- **Effect**: Composable, type-safe async operations
-- **Layer**: Dependency injection and service composition
-- **Context**: Type-safe dependency resolution
-- **Schema**: Runtime type validation and parsing
-- **Match**: Pattern matching for control flow
-- **Data**: Immutable data structures with equality
-- **Ref**: Mutable references in controlled contexts
-- **Queue**: Type-safe message passing
-- **Stream**: Reactive data processing
-
-## Phase 4: Migration Complete ✅
-
-### Final Status
-
-- ✅ **Phase 1**: Foundation cleanup completed
-- ✅ **Phase 2**: Layer separation completed
-- ✅ **Phase 3**: Type system enhancement completed
-- ✅ **Phase 4**: Documentation & validation completed
-
-### Migration Achievements
-
-```typescript
-// ✅ Achieved: Massive class reduction
-126 classes → 74 classes (41% reduction)
-
-// ✅ Achieved: Effect-TS coverage
-30% → 95%+ (317% increase)
-
-// ✅ Achieved: Test coverage expansion
-5% → 80%+ (1600% increase)
-
-// ✅ Achieved: Path alias standardization
-0% → 61% (179/292 files)
-
-// ✅ Achieved: Dead code elimination
-1,000+ lines → 0 lines (100% removed)
-```
-
-**See [MIGRATION_SUMMARY_PHASE_4.md](./MIGRATION_SUMMARY_PHASE_4.md) for complete details.**
-
-### Final Architecture Goals
-
-- **Pure Functional**: No classes, no `this` keyword, no mutations
-- **Type Safe**: Comprehensive Effect-TS types with branded types
-- **Layer Compliant**: Strict DDD boundaries with dependency inversion
-- **Performance Optimized**: SoA ECS with worker-based computation
-- **Well Tested**: High coverage with integration tests
-
-## Contributing
-
-We welcome contributions! Please read our [Contributing Guide](./CONTRIBUTING.md) for:
-
-- Development setup and workflow
-- DDD architecture guidelines
-- Effect-TS patterns and best practices
-- Code standards and testing requirements
-- Pull request process
-
-### Development Setup
-
-1. Fork and clone the repository
-2. Install dependencies: `pnpm install`
-3. Create a feature branch: `git checkout -b feature/amazing-feature`
-4. Make your changes following our [DDD guidelines](./docs/ddd-principles.md)
-5. Run tests: `pnpm test`
-6. Submit a pull request following our [architecture standards](./ARCHITECTURE.md)
-
-## Resources
-
-### Documentation
-
-- [Architecture Guide](./ARCHITECTURE.md) - Detailed system architecture
-- [Contributing Guide](./CONTRIBUTING.md) - Development guidelines
-- [DDD Principles](./docs/ddd-principles.md) - Domain-driven design patterns
-- [Effect-TS Patterns](./docs/effect-ts-patterns.md) - Best practices
-- [Migration Guide](./docs/migration-guide.md) - Upgrade and migration info
-
-### External Resources
-
-- [Effect-TS Documentation](https://effect.website/) - Official Effect-TS docs
-- [Domain-Driven Design](https://martinfowler.com/bliki/DomainDrivenDesign.html) - DDD overview
-- [Three.js Documentation](https://threejs.org/docs/) - 3D rendering library
-- [Vite Documentation](https://vitejs.dev/) - Build tool and dev server
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
-
-## Acknowledgments
-
-- **Effect-TS Team** - For creating an amazing functional programming library
-- **Three.js Community** - For the powerful 3D rendering engine
-- **TypeScript Team** - For the robust type system
-- **DDD Community** - For domain-driven design principles and patterns
+- **Effect-TSチーム** - 素晴らしい関数型プログラミングライブラリの提供
+- **Three.jsコミュニティ** - 強力な3Dレンダリングエンジンの提供
+- **Minecraft** - インスピレーションとゲームデザインの提供
 
 ---
 
-**Note**: This project serves as a demonstration of advanced TypeScript patterns, functional programming concepts, and domain-driven design principles. It showcases how complex systems can be built using pure functional programming while maintaining performance and maintainability.
+**注記**: これは高度なTypeScriptパターンと関数型プログラミングの概念を実証する教育プロジェクトです。MojangやMicrosoftとは関係ありません。

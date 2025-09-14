@@ -1,3 +1,15 @@
+---
+title: "拡張機能仕様書 - 高度システムの完全リファレンス"
+description: "Minecraftの高度機能と体験向上のための完全仕様書。レッドストーンからマルチプレイヤーまでの高度なシステム設計。"
+category: "specification"
+difficulty: "advanced"
+tags: ["enhanced-features", "redstone-system", "weather-simulation", "multiplayer", "advanced-mechanics", "ai-systems"]
+prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "concurrent-programming", "ai-basics"]
+estimated_reading_time: "10分"
+related_patterns: ["concurrent-patterns", "state-machine-patterns", "ai-behavior-patterns"]
+related_docs: ["../00-core-features/README.md", "../README.md", "../../01-architecture/README.md"]
+---
+
 # 拡張機能仕様書
 
 Minecraft Cloneの高度なゲーム機能と体験向上のための仕様書です。これらはコア機能に加えて、より豊かで奥深いゲーム体験を提供します。

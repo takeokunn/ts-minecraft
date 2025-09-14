@@ -1,3 +1,15 @@
+---
+title: "21 Bed Sleep System"
+description: "21 Bed Sleep Systemに関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "5分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # Bed & Sleep System（睡眠・時間システム）
 
 ## 概要

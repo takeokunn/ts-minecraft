@@ -1,3 +1,15 @@
+---
+title: "イベントバス仕様 - 疬結合アーキテクチャ・メッセージング"
+description: "システム間通信、イベント伝播、疬結合アーキテクチャの完全仕様。Effect-TSでのリアクティブメッセージング。"
+category: "specification"
+difficulty: "advanced"
+tags: ["event-bus", "messaging", "loose-coupling", "reactive-patterns", "pub-sub", "event-driven"]
+prerequisites: ["effect-ts-fundamentals", "event-driven-patterns", "reactive-programming", "pub-sub-concepts"]
+estimated_reading_time: "15分"
+related_patterns: ["event-driven-patterns", "reactive-patterns", "integration-patterns"]
+related_docs: ["./00-domain-application-apis.md", "../../01-architecture/06-effect-ts-patterns.md"]
+---
+
 # Event Bus仕様
 
 ## 概要
@@ -476,6 +488,918 @@ export const PriorityEventBus = {
 ```
 
 ## Monitoring & Debugging
+
+### Advanced Event Processing Patterns
+
+#### Event Sourcing Implementation
+
+```typescript
+// =============================================================================
+// イベントソーシング実装
+// =============================================================================
+
+// Event Store Interface
+export const EventStore = Context.GenericTag<{
+  readonly append: (params: {
+    streamId: string
+    events: ReadonlyArray<StoredEvent>
+    expectedVersion: number
+  }) => Effect.Effect<void, EventStoreError>
+
+  readonly read: (params: {
+    streamId: string
+    fromVersion?: number
+    maxEvents?: number
+  }) => Stream.Stream<StoredEvent, EventStoreError>
+
+  readonly readAll: (params: {
+    fromPosition?: GlobalPosition
+    maxEvents?: number
+  }) => Stream.Stream<StoredEvent, EventStoreError>
+
+  readonly subscribe: (params: {
+    streamId?: string
+    fromPosition?: GlobalPosition
+    onEvent: (event: StoredEvent) => Effect.Effect<void>
+  }) => Effect.Effect<SubscriptionHandle, EventStoreError>
+}>()("EventStore")
+
+// Event Store Types
+export interface StoredEvent {
+  readonly streamId: string
+  readonly version: number
+  readonly globalPosition: GlobalPosition
+  readonly eventType: string
+  readonly eventData: unknown
+  readonly metadata: EventMetadata
+  readonly timestamp: number
+}
+
+export interface EventMetadata {
+  readonly correlationId?: string
+  readonly causationId?: string
+  readonly userId?: string
+  readonly source: string
+}
+
+export type GlobalPosition = number & Brand.Brand<"GlobalPosition">
+
+// InMemory Event Store実装
+export const InMemoryEventStoreLive = Layer.effect(
+  EventStore,
+  Effect.gen(function* () {
+    const streams = yield* Ref.make(new Map<string, StoredEvent[]>())
+    const allEvents = yield* Ref.make<StoredEvent[]>([])
+    const globalPosition = yield* Ref.make<GlobalPosition>(0 as GlobalPosition)
+    const subscriptions = yield* Ref.make(new Map<string, SubscriptionHandle>())
+
+    return {
+      append: (params) => Effect.gen(function* () {
+        const currentStreams = yield* Ref.get(streams)
+        const streamEvents = currentStreams.get(params.streamId) || []
+
+        // 楽観的同時制御チェック
+        if (streamEvents.length !== params.expectedVersion) {
+          yield* Effect.fail(new ConcurrencyConflictError({
+            streamId: params.streamId,
+            expectedVersion: params.expectedVersion,
+            actualVersion: streamEvents.length
+          }))
+        }
+
+        // イベントにバージョンとポジションを付与
+        const newEvents = params.events.map((event, index) => {
+          const version = params.expectedVersion + index + 1
+          const currentGlobalPos = yield* Ref.get(globalPosition)
+          const newGlobalPos = (currentGlobalPos + 1) as GlobalPosition
+
+          yield* Ref.set(globalPosition, newGlobalPos)
+
+          return {
+            streamId: params.streamId,
+            version,
+            globalPosition: newGlobalPos,
+            eventType: event.eventType,
+            eventData: event.eventData,
+            metadata: event.metadata,
+            timestamp: Date.now()
+          }
+        })
+
+        // ストリームに追加
+        const updatedStreamEvents = [...streamEvents, ...newEvents]
+        yield* Ref.update(streams, s =>
+          new Map([...s, [params.streamId, updatedStreamEvents]])
+        )
+
+        // 全イベントに追加
+        yield* Ref.update(allEvents, events => [...events, ...newEvents])
+
+        // 購読者に通知
+        const subs = yield* Ref.get(subscriptions)
+        yield* Effect.all(
+          Array.from(subs.values()).map(sub =>
+            Effect.all(
+              newEvents.map(event => sub.handler(event))
+            )
+          )
+        )
+      }),
+
+      read: (params) =>
+        Stream.gen(function* () {
+          const currentStreams = yield* Ref.get(streams)
+          const streamEvents = currentStreams.get(params.streamId) || []
+
+          const fromVersion = params.fromVersion || 0
+          const maxEvents = params.maxEvents || streamEvents.length
+
+          const eventsToReturn = streamEvents
+            .filter(e => e.version >= fromVersion)
+            .slice(0, maxEvents)
+
+          for (const event of eventsToReturn) {
+            yield* Stream.succeed(event)
+          }
+        }),
+
+      readAll: (params) =>
+        Stream.gen(function* () {
+          const events = yield* Ref.get(allEvents)
+
+          const fromPos = params.fromPosition || (0 as GlobalPosition)
+          const maxEvents = params.maxEvents || events.length
+
+          const eventsToReturn = events
+            .filter(e => e.globalPosition >= fromPos)
+            .slice(0, maxEvents)
+
+          for (const event of eventsToReturn) {
+            yield* Stream.succeed(event)
+          }
+        }),
+
+      subscribe: (params) => Effect.gen(function* () {
+        const subscriptionId = generateSubscriptionId()
+
+        const handle: SubscriptionHandle = {
+          id: subscriptionId,
+          streamId: params.streamId,
+          handler: params.onEvent,
+          fromPosition: params.fromPosition
+        }
+
+        yield* Ref.update(subscriptions, subs =>
+          new Map([...subs, [subscriptionId, handle]])
+        )
+
+        return handle
+      })
+    }
+  })
+)
+
+// Aggregate with Event Sourcing
+export abstract class EventSourcedAggregate<State, Event extends DomainEvent> {
+  constructor(
+    protected readonly id: string,
+    private state: State,
+    private version: number = 0,
+    private uncommittedEvents: Event[] = []
+  ) {}
+
+  protected abstract getInitialState(): State
+  protected abstract apply(state: State, event: Event): State
+  protected abstract validate(event: Event): Effect.Effect<void, DomainError>
+
+  // イベント適用
+  protected applyEvent(event: Event): Effect.Effect<void, DomainError> {
+    return Effect.gen(function* () {
+      yield* this.validate(event)
+
+      this.state = this.apply(this.state, event)
+      this.version++
+      this.uncommittedEvents.push(event)
+    })
+  }
+
+  // 履歴からの再構築
+  static fromHistory<A extends EventSourcedAggregate<any, any>>(
+    aggregateClass: new (...args: any[]) => A,
+    id: string,
+    events: ReadonlyArray<DomainEvent>
+  ): A {
+    const aggregate = new aggregateClass(id, undefined, 0, [])
+
+    for (const event of events) {
+      aggregate.state = aggregate.apply(aggregate.state, event as any)
+      aggregate.version++
+    }
+
+    return aggregate
+  }
+
+  // 未確定イベントの取得
+  getUncommittedEvents(): ReadonlyArray<Event> {
+    return [...this.uncommittedEvents]
+  }
+
+  // イベント確定
+  markEventsAsCommitted(): void {
+    this.uncommittedEvents = []
+  }
+
+  // 現在の状態
+  getState(): State {
+    return { ...this.state }
+  }
+
+  // 現在のバージョン
+  getVersion(): number {
+    return this.version
+  }
+}
+
+// プレイヤーのEvent Sourced実装
+export class EventSourcedPlayer extends EventSourcedAggregate<PlayerState, PlayerEvent> {
+  protected getInitialState(): PlayerState {
+    return {
+      id: this.id,
+      name: "",
+      position: { x: 0, y: 0, z: 0 } as Position,
+      health: { value: 100, max: 100 },
+      status: "active",
+      inventory: new Map(),
+      lastActivity: Date.now()
+    }
+  }
+
+  protected apply(state: PlayerState, event: PlayerEvent): PlayerState {
+    switch (event._tag) {
+      case "PlayerCreated":
+        return {
+          ...state,
+          name: event.playerName,
+          position: event.position
+        }
+
+      case "PlayerMoved":
+        return {
+          ...state,
+          position: event.to,
+          lastActivity: event.timestamp
+        }
+
+      case "PlayerDamaged":
+        return {
+          ...state,
+          health: {
+            ...state.health,
+            value: Math.max(0, state.health.value - event.damage)
+          },
+          lastActivity: event.timestamp
+        }
+
+      case "PlayerDied":
+        return {
+          ...state,
+          status: "dead",
+          lastActivity: event.timestamp
+        }
+
+      case "PlayerRespawned":
+        return {
+          ...state,
+          status: "active",
+          position: event.position,
+          health: { value: 100, max: 100 },
+          lastActivity: event.timestamp
+        }
+
+      default:
+        return state
+    }
+  }
+
+  protected validate(event: PlayerEvent): Effect.Effect<void, DomainError> {
+    return Effect.gen(function* () {
+      switch (event._tag) {
+        case "PlayerMoved":
+          if (this.getState().status === "dead") {
+            yield* Effect.fail(new InvalidOperationError({
+              message: "Dead players cannot move",
+              aggregateId: this.id
+            }))
+          }
+          break
+
+        case "PlayerDamaged":
+          if (this.getState().health.value <= 0) {
+            yield* Effect.fail(new InvalidOperationError({
+              message: "Cannot damage dead player",
+              aggregateId: this.id
+            }))
+          }
+          break
+      }
+    })
+  }
+
+  // ビジネスメソッド
+  create(params: { name: string; position: Position }): Effect.Effect<void, DomainError> {
+    return this.applyEvent({
+      _tag: "PlayerCreated",
+      playerId: this.id,
+      playerName: params.name,
+      position: params.position,
+      timestamp: Date.now()
+    })
+  }
+
+  move(to: Position): Effect.Effect<void, DomainError> {
+    return this.applyEvent({
+      _tag: "PlayerMoved",
+      playerId: this.id,
+      from: this.getState().position,
+      to,
+      timestamp: Date.now()
+    })
+  }
+
+  takeDamage(params: { amount: number; source: DamageSource }): Effect.Effect<void, DomainError> {
+    return Effect.gen(function* () {
+      yield* this.applyEvent({
+        _tag: "PlayerDamaged",
+        playerId: this.id,
+        damage: params.amount,
+        source: params.source,
+        timestamp: Date.now()
+      })
+
+      // 死亡チェック
+      if (this.getState().health.value <= 0) {
+        yield* this.applyEvent({
+          _tag: "PlayerDied",
+          playerId: this.id,
+          cause: params.source,
+          position: this.getState().position,
+          timestamp: Date.now()
+        })
+      }
+    })
+  }
+}
+```
+
+#### CQRS (Command Query Responsibility Segregation)
+
+```typescript
+// =============================================================================
+// CQRS実装パターン
+// =============================================================================
+
+// Command Side
+export interface Command {
+  readonly _tag: string
+  readonly aggregateId: string
+  readonly correlationId: string
+  readonly metadata: CommandMetadata
+}
+
+export interface CommandMetadata {
+  readonly userId?: string
+  readonly timestamp: number
+  readonly source: string
+}
+
+// Player Commands
+export type PlayerCommand =
+  | {
+      readonly _tag: "CreatePlayer"
+      readonly aggregateId: string
+      readonly correlationId: string
+      readonly metadata: CommandMetadata
+      readonly name: string
+      readonly position: Position
+    }
+  | {
+      readonly _tag: "MovePlayer"
+      readonly aggregateId: string
+      readonly correlationId: string
+      readonly metadata: CommandMetadata
+      readonly direction: Direction
+      readonly distance: number
+    }
+  | {
+      readonly _tag: "DamagePlayer"
+      readonly aggregateId: string
+      readonly correlationId: string
+      readonly metadata: CommandMetadata
+      readonly amount: number
+      readonly source: DamageSource
+    }
+
+// Command Handler
+export const PlayerCommandHandler = Context.GenericTag<{
+  readonly handle: (command: PlayerCommand) => Effect.Effect<void, CommandHandlerError>
+}>()("PlayerCommandHandler")
+
+export const PlayerCommandHandlerLive = Layer.succeed(
+  PlayerCommandHandler,
+  {
+    handle: (command) => Effect.gen(function* () {
+      const eventStore = yield* EventStore
+      const eventBus = yield* EventBusService
+
+      // Aggregateを読み込み
+      const events = yield* eventStore.read({
+        streamId: command.aggregateId
+      }).pipe(Stream.runCollect)
+
+      const domainEvents = Array.fromIterable(events).map(e => e.eventData as PlayerEvent)
+      const player = domainEvents.length > 0
+        ? EventSourcedPlayer.fromHistory(EventSourcedPlayer, command.aggregateId, domainEvents)
+        : new EventSourcedPlayer(command.aggregateId, undefined, 0, [])
+
+      // コマンド処理
+      yield* Match.value(command).pipe(
+        Match.when({ _tag: "CreatePlayer" }, (cmd) =>
+          player.create({
+            name: cmd.name,
+            position: cmd.position
+          })
+        ),
+        Match.when({ _tag: "MovePlayer" }, (cmd) => Effect.gen(function* () {
+          const currentPos = player.getState().position
+          const newPos = calculateNewPosition(currentPos, cmd.direction, cmd.distance)
+          yield* player.move(newPos)
+        })),
+        Match.when({ _tag: "DamagePlayer" }, (cmd) =>
+          player.takeDamage({
+            amount: cmd.amount,
+            source: cmd.source
+          })
+        ),
+        Match.exhaustive
+      )
+
+      // 未確定イベントを永続化
+      const uncommittedEvents = player.getUncommittedEvents()
+      if (uncommittedEvents.length > 0) {
+        const storedEvents = uncommittedEvents.map(event => ({
+          eventType: event._tag,
+          eventData: event,
+          metadata: {
+            correlationId: command.correlationId,
+            causationId: command.correlationId,
+            source: command.metadata.source,
+            userId: command.metadata.userId
+          }
+        }))
+
+        yield* eventStore.append({
+          streamId: command.aggregateId,
+          events: storedEvents,
+          expectedVersion: player.getVersion() - uncommittedEvents.length
+        })
+
+        // イベントバスに発行
+        yield* Effect.all(
+          uncommittedEvents.map(event => eventBus.publish(event))
+        )
+
+        player.markEventsAsCommitted()
+      }
+    })
+  }
+)
+
+// Query Side - Read Models
+export interface PlayerReadModel {
+  readonly id: string
+  readonly name: string
+  readonly position: Position
+  readonly health: Health
+  readonly status: PlayerStatus
+  readonly lastActivity: number
+}
+
+export const PlayerProjectionService = Context.GenericTag<{
+  readonly project: (event: PlayerEvent) => Effect.Effect<void, ProjectionError>
+  readonly getPlayer: (id: string) => Effect.Effect<Option.Option<PlayerReadModel>, QueryError>
+  readonly getPlayers: (filter?: PlayerFilter) => Effect.Effect<ReadonlyArray<PlayerReadModel>, QueryError>
+}>()("PlayerProjectionService")
+
+export const PlayerProjectionServiceLive = Layer.effect(
+  PlayerProjectionService,
+  Effect.gen(function* () {
+    const readModels = yield* Ref.make(new Map<string, PlayerReadModel>())
+
+    return {
+      project: (event) => Effect.gen(function* () {
+        const models = yield* Ref.get(readModels)
+        const currentModel = models.get(event.playerId)
+
+        const updatedModel = yield* Match.value(event).pipe(
+          Match.when({ _tag: "PlayerCreated" }, (e) =>
+            Effect.succeed({
+              id: e.playerId,
+              name: e.playerName,
+              position: e.position,
+              health: { value: 100, max: 100 },
+              status: "active" as PlayerStatus,
+              lastActivity: e.timestamp
+            })
+          ),
+          Match.when({ _tag: "PlayerMoved" }, (e) => {
+            if (!currentModel) {
+              return Effect.fail(new ProjectionError({
+                message: "Cannot project move event without existing player",
+                eventType: e._tag,
+                aggregateId: e.playerId
+              }))
+            }
+            return Effect.succeed({
+              ...currentModel,
+              position: e.to,
+              lastActivity: e.timestamp
+            })
+          }),
+          Match.when({ _tag: "PlayerDamaged" }, (e) => {
+            if (!currentModel) {
+              return Effect.fail(new ProjectionError({
+                message: "Cannot project damage event without existing player",
+                eventType: e._tag,
+                aggregateId: e.playerId
+              }))
+            }
+            return Effect.succeed({
+              ...currentModel,
+              health: {
+                ...currentModel.health,
+                value: Math.max(0, currentModel.health.value - e.damage)
+              },
+              lastActivity: e.timestamp
+            })
+          }),
+          Match.when({ _tag: "PlayerDied" }, (e) => {
+            if (!currentModel) {
+              return Effect.fail(new ProjectionError({
+                message: "Cannot project death event without existing player",
+                eventType: e._tag,
+                aggregateId: e.playerId
+              }))
+            }
+            return Effect.succeed({
+              ...currentModel,
+              status: "dead" as PlayerStatus,
+              lastActivity: e.timestamp
+            })
+          }),
+          Match.when({ _tag: "PlayerRespawned" }, (e) => {
+            if (!currentModel) {
+              return Effect.fail(new ProjectionError({
+                message: "Cannot project respawn event without existing player",
+                eventType: e._tag,
+                aggregateId: e.playerId
+              }))
+            }
+            return Effect.succeed({
+              ...currentModel,
+              status: "active" as PlayerStatus,
+              position: e.position,
+              health: { value: 100, max: 100 },
+              lastActivity: e.timestamp
+            })
+          }),
+          Match.exhaustive
+        )
+
+        yield* Ref.update(readModels, models =>
+          new Map([...models, [event.playerId, updatedModel]])
+        )
+      }),
+
+      getPlayer: (id) => Effect.gen(function* () {
+        const models = yield* Ref.get(readModels)
+        return Option.fromNullable(models.get(id))
+      }),
+
+      getPlayers: (filter) => Effect.gen(function* () {
+        const models = yield* Ref.get(readModels)
+        let players = Array.from(models.values())
+
+        if (filter?.status) {
+          players = players.filter(p => p.status === filter.status)
+        }
+
+        if (filter?.name) {
+          players = players.filter(p =>
+            p.name.toLowerCase().includes(filter.name.toLowerCase())
+          )
+        }
+
+        return players
+      })
+    }
+  })
+)
+```
+
+#### Event Replay and Debugging
+
+```typescript
+// =============================================================================
+// イベントリプレイとデバッグ機能
+// =============================================================================
+
+export const EventReplayService = Context.GenericTag<{
+  readonly replayStream: (params: {
+    streamId: string
+    fromVersion?: number
+    toVersion?: number
+    speed?: number
+  }) => Stream.Stream<ReplayEvent, ReplayError>
+
+  readonly replayAll: (params: {
+    fromPosition?: GlobalPosition
+    toPosition?: GlobalPosition
+    speed?: number
+  }) => Stream.Stream<ReplayEvent, ReplayError>
+
+  readonly createSnapshot: (params: {
+    streamId: string
+    atVersion?: number
+  }) => Effect.Effect<AggregateSnapshot, SnapshotError>
+
+  readonly restoreFromSnapshot: (
+    snapshot: AggregateSnapshot
+  ) => Effect.Effect<void, RestoreError>
+}>()("EventReplayService")
+
+export const EventReplayServiceLive = Layer.succeed(
+  EventReplayService,
+  {
+    replayStream: (params) =>
+      Stream.gen(function* () {
+        const eventStore = yield* EventStore
+        const speed = params.speed || 1
+
+        const events = yield* eventStore.read({
+          streamId: params.streamId,
+          fromVersion: params.fromVersion
+        }).pipe(
+          Stream.filter(event =>
+            !params.toVersion || event.version <= params.toVersion
+          ),
+          Stream.runCollect
+        )
+
+        for (const event of Array.fromIterable(events)) {
+          yield* Stream.succeed({
+            ...event,
+            originalTimestamp: event.timestamp,
+            replayTimestamp: Date.now()
+          })
+
+          // 速度調整のための遅延
+          if (speed < 1) {
+            yield* Stream.fromEffect(Effect.sleep(Duration.millis(1000 / speed)))
+          }
+        }
+      }),
+
+    replayAll: (params) =>
+      Stream.gen(function* () {
+        const eventStore = yield* EventStore
+        const speed = params.speed || 1
+
+        const events = yield* eventStore.readAll({
+          fromPosition: params.fromPosition,
+          maxEvents: params.toPosition
+            ? params.toPosition - (params.fromPosition || 0 as GlobalPosition)
+            : undefined
+        }).pipe(Stream.runCollect)
+
+        let lastTimestamp = 0
+
+        for (const event of Array.fromIterable(events)) {
+          // 元のタイミングを再現（速度調整付き）
+          if (lastTimestamp > 0) {
+            const delay = (event.timestamp - lastTimestamp) / speed
+            yield* Stream.fromEffect(Effect.sleep(Duration.millis(Math.max(0, delay))))
+          }
+
+          yield* Stream.succeed({
+            ...event,
+            originalTimestamp: event.timestamp,
+            replayTimestamp: Date.now()
+          })
+
+          lastTimestamp = event.timestamp
+        }
+      }),
+
+    createSnapshot: (params) => Effect.gen(function* () {
+      const eventStore = yield* EventStore
+
+      const events = yield* eventStore.read({
+        streamId: params.streamId,
+        maxEvents: params.atVersion
+      }).pipe(Stream.runCollect)
+
+      // Aggregateを再構築
+      const domainEvents = Array.fromIterable(events).map(e => e.eventData as PlayerEvent)
+      const player = EventSourcedPlayer.fromHistory(
+        EventSourcedPlayer,
+        params.streamId,
+        domainEvents
+      )
+
+      return {
+        aggregateId: params.streamId,
+        aggregateType: "Player",
+        version: player.getVersion(),
+        state: player.getState(),
+        timestamp: Date.now()
+      }
+    }),
+
+    restoreFromSnapshot: (snapshot) => Effect.gen(function* () {
+      // スナップショットからAggregateを復元する実装
+      // 実際のプロジェクトでは、適切なAggregateファクトリーを使用
+      yield* Effect.logInfo(`Restored aggregate ${snapshot.aggregateId} from snapshot at version ${snapshot.version}`)
+    })
+  }
+)
+
+// Event Debugging Tools
+export const EventDebugger = Context.GenericTag<{
+  readonly traceEvent: (event: GameEvent) => Effect.Effect<EventTrace, never>
+  readonly analyzeEventFlow: (params: {
+    correlationId: string
+    timeRange?: { start: number; end: number }
+  }) => Effect.Effect<EventFlowAnalysis, AnalysisError>
+  readonly detectAnomalies: (params: {
+    streamId?: string
+    timeRange: { start: number; end: number }
+  }) => Effect.Effect<ReadonlyArray<EventAnomaly>, AnalysisError>
+}>()("EventDebugger")
+
+export const EventDebuggerLive = Layer.effect(
+  EventDebugger,
+  Effect.gen(function* () {
+    const eventTraces = yield* Ref.make(new Map<string, EventTrace[]>())
+
+    return {
+      traceEvent: (event) => Effect.gen(function* () {
+        const trace: EventTrace = {
+          eventId: generateEventId(),
+          eventType: event._tag,
+          timestamp: Date.now(),
+          payload: event,
+          stackTrace: new Error().stack || "",
+          memoryUsage: (performance as any).memory?.usedJSHeapSize || 0,
+          threadId: "main" // WebWorkerやService Worker対応時に拡張
+        }
+
+        yield* Ref.update(eventTraces, traces => {
+          const eventTypeTraces = traces.get(event._tag) || []
+          return new Map([...traces, [event._tag, [...eventTypeTraces, trace]]])
+        })
+
+        return trace
+      }),
+
+      analyzeEventFlow: (params) => Effect.gen(function* () {
+        const eventStore = yield* EventStore
+
+        const events = yield* eventStore.readAll({
+          fromPosition: 0 as GlobalPosition
+        }).pipe(
+          Stream.filter(event =>
+            event.metadata.correlationId === params.correlationId &&
+            (!params.timeRange || (
+              event.timestamp >= params.timeRange.start &&
+              event.timestamp <= params.timeRange.end
+            ))
+          ),
+          Stream.runCollect
+        )
+
+        const sortedEvents = Array.fromIterable(events)
+          .sort((a, b) => a.timestamp - b.timestamp)
+
+        // イベントフローの分析
+        const analysis: EventFlowAnalysis = {
+          correlationId: params.correlationId,
+          totalEvents: sortedEvents.length,
+          duration: sortedEvents.length > 1
+            ? sortedEvents[sortedEvents.length - 1].timestamp - sortedEvents[0].timestamp
+            : 0,
+          eventChain: sortedEvents.map((event, index) => ({
+            sequence: index + 1,
+            eventType: event.eventType,
+            streamId: event.streamId,
+            timestamp: event.timestamp,
+            timeSinceStart: event.timestamp - (sortedEvents[0]?.timestamp || 0),
+            timeSincePrevious: index > 0
+              ? event.timestamp - sortedEvents[index - 1].timestamp
+              : 0
+          })),
+          aggregatesInvolved: Array.from(new Set(sortedEvents.map(e => e.streamId))),
+          averageProcessingTime: sortedEvents.length > 1
+            ? (sortedEvents[sortedEvents.length - 1].timestamp - sortedEvents[0].timestamp) / sortedEvents.length
+            : 0
+        }
+
+        return analysis
+      }),
+
+      detectAnomalies: (params) => Effect.gen(function* () {
+        const eventStore = yield* EventStore
+
+        const events = yield* eventStore.readAll({
+          fromPosition: 0 as GlobalPosition
+        }).pipe(
+          Stream.filter(event =>
+            (!params.streamId || event.streamId === params.streamId) &&
+            event.timestamp >= params.timeRange.start &&
+            event.timestamp <= params.timeRange.end
+          ),
+          Stream.runCollect
+        )
+
+        const sortedEvents = Array.fromIterable(events)
+          .sort((a, b) => a.timestamp - b.timestamp)
+
+        const anomalies: EventAnomaly[] = []
+
+        // 異常検出ロジック
+        for (let i = 1; i < sortedEvents.length; i++) {
+          const current = sortedEvents[i]
+          const previous = sortedEvents[i - 1]
+          const timeDiff = current.timestamp - previous.timestamp
+
+          // 1. 異常に長い間隔の検出
+          if (timeDiff > 60000) { // 1分以上
+            anomalies.push({
+              type: "LongInterval",
+              description: `Long interval detected: ${timeDiff}ms between events`,
+              streamId: current.streamId,
+              eventType: current.eventType,
+              timestamp: current.timestamp,
+              severity: "warning",
+              metadata: { intervalMs: timeDiff }
+            })
+          }
+
+          // 2. 重複イベントの検出
+          if (
+            current.eventType === previous.eventType &&
+            current.streamId === previous.streamId &&
+            timeDiff < 100 // 100ms以内
+          ) {
+            anomalies.push({
+              type: "DuplicateEvent",
+              description: "Potential duplicate event detected",
+              streamId: current.streamId,
+              eventType: current.eventType,
+              timestamp: current.timestamp,
+              severity: "error",
+              metadata: { previousEventTimestamp: previous.timestamp }
+            })
+          }
+        }
+
+        // 3. イベント頻度の異常検出
+        const eventCounts = new Map<string, number>()
+        sortedEvents.forEach(event => {
+          const key = `${event.streamId}-${event.eventType}`
+          eventCounts.set(key, (eventCounts.get(key) || 0) + 1)
+        })
+
+        eventCounts.forEach((count, key) => {
+          if (count > 1000) { // 閾値は調整可能
+            const [streamId, eventType] = key.split('-', 2)
+            anomalies.push({
+              type: "HighFrequency",
+              description: `High frequency event detected: ${count} occurrences`,
+              streamId,
+              eventType,
+              timestamp: Date.now(),
+              severity: "warning",
+              metadata: { count }
+            })
+          }
+        })
+
+        return anomalies
+      })
+    }
+  })
+)
+```
 
 ### Event Monitoring
 

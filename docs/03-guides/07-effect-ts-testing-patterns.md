@@ -1,3 +1,15 @@
+---
+title: "Effect-TS 3.17+ 最新テストパターン完全ガイド"
+description: "Effect-TS 3.17+ の最新APIと最新パターンに完全準拠したテスト実装ガイド。Schema統合、Property-Based Testing、Context.GenericTag、Match.valueなどの現代的パターンを網羅。"
+category: "guide"
+difficulty: "advanced"
+tags: ['effect-ts-3.17', 'testing', 'property-based-testing', 'schema-validation', 'fast-check', 'modern-patterns']
+prerequisites: ['effect-ts-fundamentals', 'schema-basics', 'vitest-basics', 'development-conventions']
+estimated_reading_time: "45分"
+related_patterns: ["effect-ts-test-patterns", "service-patterns-catalog", "error-handling-patterns"]
+related_docs: ["./02-testing-guide.md", "./05-comprehensive-testing-strategy.md"]
+---
+
 # Effect-TS 3.17+ 完全準拠テストパターンガイド
 
 このドキュメントでは、TypeScript MinecraftプロジェクトにおけるEffect-TS 3.17+の最新パターンに完全準拠したテスト実装方法を提供します。すべてのテストコードは純粋関数型アプローチに従い、最新APIを使用しています。

@@ -1,3 +1,15 @@
+---
+title: "アセットソース"
+description: "アセットソースに関する詳細な説明とガイド。"
+category: "reference"
+difficulty: "beginner"
+tags: ['typescript', 'minecraft']
+prerequisites: []
+estimated_reading_time: "5分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # フリーアセットの入手先
 
 Minecraftクローン開発で使用できる、ライセンスが緩やかなフリーテクスチャ、音楽、効果音の主要な入手先リストです。

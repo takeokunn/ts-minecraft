@@ -1,3 +1,15 @@
+---
+title: "用語集 - 技術用語・ドメイン概念集"
+description: "TypeScript Minecraft Cloneプロジェクトで使用される専門用語とドメイン固有概念の包括的定義集。DDD、ECS、Effect-TS、ゲーム開発用語を網羅。"
+category: "reference"
+difficulty: "beginner"
+tags: ["glossary", "terminology", "ddd", "ecs", "effect-ts", "game-development", "reference"]
+prerequisites: []
+estimated_reading_time: "15分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # 用語集
 
 このドキュメントは、TypeScript Minecraft Cloneプロジェクトで使用される主要な技術用語やドメイン固有の概念を定義します。

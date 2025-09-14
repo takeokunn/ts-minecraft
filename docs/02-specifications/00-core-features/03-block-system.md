@@ -1,3 +1,15 @@
+---
+title: "ブロックシステム仕様 - レジストリ・状態管理・相互作用"
+description: "400+ブロック定義、動的状態管理、隣接ブロック相互作用の完全仕様。Effect-TSによる型安全な値オブジェクトパターンと最適化。"
+category: "specification"
+difficulty: "intermediate"
+tags: ["block-system", "registry", "state-management", "block-interactions", "physics-integration", "value-objects"]
+prerequisites: ["effect-ts-fundamentals", "schema-basics", "value-object-patterns"]
+estimated_reading_time: "12分"
+related_patterns: ["data-modeling-patterns", "optimization-patterns", "registry-patterns"]
+related_docs: ["./07-chunk-system.md", "./05-rendering-system.md", "../../01-architecture/05-ecs-integration.md"]
+---
+
 # ブロックシステム - ブロック管理システム
 
 ## 概要
@@ -17,80 +29,221 @@
 ### ブロックスキーマ
 
 ```typescript
-import { Effect, Layer, Context, Schema, pipe, Match } from "effect"
-import { Brand, Option, ReadonlyArray } from "effect"
+import { Effect, Layer, Context, Schema, pipe, Match, Stream, Data, STM } from "effect"
+import { Brand, Option, ReadonlyArray, Queue, Ref, TRef } from "effect"
 
-// ブロックID（ブランド型）
-export const BlockId = Schema.String.pipe(
+// ブランド型定義（Effect-TS最新パターン）
+export const BlockId = pipe(
+  Schema.String,
   Schema.pattern(/^[a-z]+:[a-z_]+$/),
   Schema.brand("BlockId")
 )
 export type BlockId = Schema.Schema.Type<typeof BlockId>
 
-// ブロック状態
-export const BlockState = Schema.Struct({
-  facing: Schema.optional(
-    Schema.Literal("north", "south", "east", "west", "up", "down")
+export const Position3D = pipe(
+  Schema.Struct({
+    x: Schema.Number,
+    y: Schema.Number,
+    z: Schema.Number
+  }),
+  Schema.brand("Position3D")
+)
+export type Position3D = Schema.Schema.Type<typeof Position3D>
+
+export const ChunkId = pipe(
+  Schema.String,
+  Schema.pattern(/^chunk_\d+_\d+$/),
+  Schema.brand("ChunkId")
+)
+export type ChunkId = Schema.Schema.Type<typeof ChunkId>
+
+// ブロック状態の判別共用体（Schema.Union使用）
+export const BlockState = Schema.Union(
+  Schema.Struct({
+    _tag: Schema.Literal("directional"),
+    facing: Schema.Union(
+      Schema.Literal("north"),
+      Schema.Literal("south"),
+      Schema.Literal("east"),
+      Schema.Literal("west"),
+      Schema.Literal("up"),
+      Schema.Literal("down")
+    )
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("powered"),
+    powered: Schema.Boolean,
+    signal: pipe(Schema.Number, Schema.int(), Schema.between(0, 15))
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("fluid"),
+    waterlogged: Schema.Boolean,
+    level: pipe(Schema.Number, Schema.int(), Schema.between(0, 8))
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("interactive"),
+    open: Schema.Boolean,
+    lit: Schema.Boolean
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("structural"),
+    half: Schema.Union(Schema.Literal("top"), Schema.Literal("bottom")),
+    shape: Schema.Union(
+      Schema.Literal("straight"),
+      Schema.Literal("inner_left"),
+      Schema.Literal("inner_right"),
+      Schema.Literal("outer_left"),
+      Schema.Literal("outer_right")
+    ),
+    axis: Schema.Union(Schema.Literal("x"), Schema.Literal("y"), Schema.Literal("z"))
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("default")
+  })
+)
+export type BlockState = Schema.Schema.Type<typeof BlockState>
+
+// 物理プロパティの検証付きスキーマ
+export const BlockPhysics = Schema.Struct({
+  hardness: pipe(
+    Schema.Number,
+    Schema.nonNegative(),
+    Schema.annotations({ description: "ブロックの硬度 (0-∞)" })
   ),
-  powered: Schema.optional(Schema.Boolean),
-  waterlogged: Schema.optional(Schema.Boolean),
-  lit: Schema.optional(Schema.Boolean),
-  open: Schema.optional(Schema.Boolean),
-  half: Schema.optional(Schema.Literal("top", "bottom")),
-  shape: Schema.optional(
-    Schema.Literal("straight", "inner_left", "inner_right", "outer_left", "outer_right")
+  resistance: pipe(
+    Schema.Number,
+    Schema.nonNegative(),
+    Schema.annotations({ description: "爆発耐性 (0-∞)" })
   ),
-  axis: Schema.optional(Schema.Literal("x", "y", "z"))
+  luminance: pipe(
+    Schema.Number,
+    Schema.int(),
+    Schema.between(0, 15),
+    Schema.annotations({ description: "発光レベル (0-15)" })
+  ),
+  opacity: pipe(
+    Schema.Number,
+    Schema.int(),
+    Schema.between(0, 15),
+    Schema.annotations({ description: "光不透明度 (0-15)" })
+  ),
+  slipperiness: pipe(
+    Schema.Number,
+    Schema.between(0.4, 1.0),
+    Schema.annotations({ description: "滑りやすさ (0.4-1.0)" })
+  )
 })
 
-// ブロック属性
-export const BlockProperties = Schema.Struct({
-  hardness: pipe(Schema.Number, Schema.nonNegative()),
-  resistance: pipe(Schema.Number, Schema.nonNegative()),
-  luminance: pipe(Schema.Number, Schema.int(), Schema.between(0, 15)),
-  opacity: pipe(Schema.Number, Schema.int(), Schema.between(0, 15)),
-  flammability: pipe(Schema.Number, Schema.int(), Schema.between(0, 300)),
-  slipperiness: pipe(Schema.Number, Schema.between(0.4, 1.0)),
-  jumpVelocityModifier: Schema.Number,
-  velocityModifier: Schema.Number,
-  soundType: Schema.Literal("stone", "wood", "gravel", "grass", "metal", "glass", "wool", "sand", "snow")
+// ブロックタイプの判別共用体（Schema.Union使用）
+export const BlockType = Schema.Union(
+  Schema.Struct({
+    _tag: Schema.Literal("solid"),
+    id: BlockId,
+    name: Schema.String,
+    physics: BlockPhysics,
+    material: Schema.Union(
+      Schema.Literal("stone"),
+      Schema.Literal("wood"),
+      Schema.Literal("metal"),
+      Schema.Literal("dirt"),
+      Schema.Literal("sand")
+    ),
+    toolRequired: Schema.optional(Schema.Union(
+      Schema.Literal("pickaxe"),
+      Schema.Literal("axe"),
+      Schema.Literal("shovel")
+    )),
+    harvestLevel: Schema.optional(pipe(Schema.Number, Schema.int(), Schema.between(0, 4)))
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("fluid"),
+    id: BlockId,
+    name: Schema.String,
+    physics: BlockPhysics,
+    viscosity: pipe(Schema.Number, Schema.positive()),
+    flowRate: pipe(Schema.Number, Schema.between(1, 8))
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("interactive"),
+    id: BlockId,
+    name: Schema.String,
+    physics: BlockPhysics,
+    activationMethod: Schema.Union(
+      Schema.Literal("right_click"),
+      Schema.Literal("redstone"),
+      Schema.Literal("pressure")
+    ),
+    inventory: Schema.optional(Schema.Boolean)
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("redstone"),
+    id: BlockId,
+    name: Schema.String,
+    physics: BlockPhysics,
+    powerLevel: pipe(Schema.Number, Schema.int(), Schema.between(0, 15)),
+    isPowerSource: Schema.Boolean,
+    canTransmitPower: Schema.Boolean
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("transparent"),
+    id: BlockId,
+    name: Schema.String,
+    physics: BlockPhysics,
+    material: Schema.Union(
+      Schema.Literal("glass"),
+      Schema.Literal("ice"),
+      Schema.Literal("leaves")
+    ),
+    lightTransmission: pipe(Schema.Number, Schema.between(0, 1))
+  })
+)
+export type BlockType = Schema.Schema.Type<typeof BlockType>
+
+// ブロック配置ルールのバリデーション
+export const BlockPlacementRule = Schema.Struct({
+  canPlaceOn: Schema.Array(BlockId),
+  requiresSupport: Schema.Boolean,
+  needsSpace: Schema.Boolean,
+  environmentRequirements: Schema.optional(
+    Schema.Struct({
+      minLightLevel: Schema.optional(pipe(Schema.Number, Schema.between(0, 15))),
+      maxLightLevel: Schema.optional(pipe(Schema.Number, Schema.between(0, 15))),
+      requiresWater: Schema.optional(Schema.Boolean),
+      requiresAir: Schema.optional(Schema.Boolean)
+    })
+  )
 })
 
-// ブロック定義
+// 完全なブロック定義
 export const BlockDefinition = Schema.Struct({
-  id: BlockId,
-  name: Schema.String,
-  properties: BlockProperties,
+  blockType: BlockType,
   defaultState: BlockState,
   boundingBox: Schema.Struct({
-    min: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
-    max: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number })
+    min: Position3D,
+    max: Position3D
   }),
-  material: Schema.Literal(
-    "air", "structure_void", "portal", "carpet", "plant", "water", "lava",
-    "snow", "fire", "decoration", "web", "sculk", "buildable_glass",
-    "clay", "dirt", "grass", "ice", "sand", "sponge", "wood", "wool",
-    "stone", "metal", "repair_station", "barrier", "piston"
-  ),
-  isSolid: Schema.Boolean,
-  isTransparent: Schema.Boolean,
-  isFlammable: Schema.Boolean,
-  isReplaceable: Schema.Boolean,
-  toolRequired: Schema.optional(
-    Schema.Literal("pickaxe", "axe", "shovel", "hoe", "shears")
-  ),
-  harvestLevel: Schema.optional(
-    pipe(Schema.Number, Schema.int(), Schema.between(0, 4))
-  ),
+  placementRules: BlockPlacementRule,
   drops: Schema.Array(
     Schema.Struct({
-      item: Schema.String,
+      item: BlockId,
       count: Schema.Struct({
-        min: Schema.Number,
-        max: Schema.Number
+        min: pipe(Schema.Number, Schema.int(), Schema.positive()),
+        max: pipe(Schema.Number, Schema.int(), Schema.positive())
       }),
-      chance: pipe(Schema.Number, Schema.between(0, 1))
+      chance: pipe(Schema.Number, Schema.between(0, 1)),
+      requiresTool: Schema.optional(Schema.Boolean)
     })
+  ),
+  soundType: Schema.Union(
+    Schema.Literal("stone"),
+    Schema.Literal("wood"),
+    Schema.Literal("gravel"),
+    Schema.Literal("grass"),
+    Schema.Literal("metal"),
+    Schema.Literal("glass"),
+    Schema.Literal("wool"),
+    Schema.Literal("sand"),
+    Schema.Literal("snow")
   )
 })
 
@@ -102,162 +255,403 @@ export type BlockDefinition = Schema.Schema.Type<typeof BlockDefinition>
 ### ブロック登録サービス
 
 ```typescript
-// BlockRegistryインターフェース
-interface BlockRegistryInterface {
-  readonly register: (block: BlockDefinition) => Effect.Effect<void, RegistrationError>
+// ブロックレジストリエラー（Effect-TS最新パターン）
+export class BlockRegistrationError extends Schema.TaggedError("BlockRegistrationError")<{
+  readonly blockId: BlockId
+  readonly reason: string
+  readonly timestamp: number
+}> {}
+
+export class BlockNotFoundError extends Schema.TaggedError("BlockNotFoundError")<{
+  readonly blockId: BlockId
+  readonly searchContext: string
+}> {}
+
+export class BlockValidationError extends Schema.TaggedError("BlockValidationError")<{
+  readonly blockId: BlockId
+  readonly validationErrors: ReadonlyArray<string>
+  readonly schema: string
+}> {}
+
+export class BlockConcurrencyError extends Schema.TaggedError("BlockConcurrencyError")<{
+  readonly blockId: BlockId
+  readonly operation: string
+  readonly conflictingOperation: string
+}> {}
+
+// BlockRegistryサービス定義（STM対応・最新パターン）
+interface BlockRegistryService {
+  readonly register: (block: BlockDefinition) => Effect.Effect<void, BlockRegistrationError | BlockValidationError | BlockConcurrencyError>
+  readonly registerBatch: (blocks: ReadonlyArray<BlockDefinition>) => Effect.Effect<void, BlockRegistrationError | BlockValidationError>
   readonly get: (id: BlockId) => Effect.Effect<BlockDefinition, BlockNotFoundError>
   readonly getAll: () => Effect.Effect<ReadonlyArray<BlockDefinition>, never>
-  readonly getByMaterial: (material: string) => Effect.Effect<ReadonlyArray<BlockDefinition>, never>
-  readonly getByProperty: (
-    predicate: (props: BlockProperties) => boolean
-  ) => Effect.Effect<ReadonlyArray<BlockDefinition>, never>
+  readonly findByTag: (tag: BlockType["_tag"]) => Effect.Effect<ReadonlyArray<BlockDefinition>, never>
+  readonly findByMaterial: (material: string) => Effect.Effect<ReadonlyArray<BlockDefinition>, never>
+  readonly validatePlacement: (
+    blockType: BlockType,
+    position: Position3D,
+    world: WorldService
+  ) => Effect.Effect<boolean, BlockValidationError>
+  readonly getBlockStream: () => Stream.Stream<BlockDefinition, never>
+  readonly atomicUpdate: (
+    blockId: BlockId,
+    update: (current: BlockDefinition) => BlockDefinition
+  ) => Effect.Effect<BlockDefinition, BlockNotFoundError | BlockConcurrencyError>
 }
 
-// Context Tag（最新パターン）
-export const BlockRegistry = Context.GenericTag<BlockRegistryInterface>("@app/BlockRegistry")
+// Context Tag（@minecraft/ネームスペース）
+export const BlockRegistry = Context.GenericTag<BlockRegistryService>("@minecraft/BlockRegistry")
 
-// Live実装作成関数
+// ブロック変更イベント（Schema.Union使用）
+export const BlockChangeEvent = Schema.Union(
+  Schema.Struct({
+    _tag: Schema.Literal("block_registered"),
+    blockId: BlockId,
+    blockDefinition: BlockDefinition,
+    timestamp: Schema.Number
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("block_placed"),
+    blockId: BlockId,
+    position: Position3D,
+    newState: BlockState,
+    placer: Schema.optional(Schema.String),
+    timestamp: Schema.Number
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("block_broken"),
+    blockId: BlockId,
+    position: Position3D,
+    oldState: BlockState,
+    breaker: Schema.optional(Schema.String),
+    drops: Schema.Array(BlockId),
+    timestamp: Schema.Number
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("block_state_changed"),
+    blockId: BlockId,
+    position: Position3D,
+    oldState: BlockState,
+    newState: BlockState,
+    timestamp: Schema.Number
+  })
+)
+export type BlockChangeEvent = Schema.Schema.Type<typeof BlockChangeEvent>
+
+// Live実装作成関数（STM対応）
 const makeBlockRegistry = Effect.gen(function* () {
-  const registry = yield* Ref.make(new Map<BlockId, BlockDefinition>())
+  const registry = yield* STM.map(
+    STM.tMapEmpty<BlockId, BlockDefinition>(),
+    tmap => tmap
+  ).pipe(STM.commit)
+  const eventStream = yield* Queue.unbounded<BlockChangeEvent>()
+  const operationLock = yield* STM.map(
+    STM.tMapEmpty<BlockId, string>(),
+    tmap => tmap
+  ).pipe(STM.commit)
 
-    // バニラブロックの登録
-    const registerVanillaBlocks = Effect.gen(function* () {
-      const vanillaBlocks: BlockDefinition[] = [
-        {
-          id: "minecraft:stone" as BlockId,
-          name: "石",
-          properties: {
-            hardness: 1.5,
-            resistance: 6.0,
-            luminance: 0,
-            opacity: 15,
-            flammability: 0,
-            slipperiness: 0.6,
-            jumpVelocityModifier: 1.0,
-            velocityModifier: 1.0,
-            soundType: "stone"
-          },
-          defaultState: {},
-          boundingBox: {
-            min: { x: 0, y: 0, z: 0 },
-            max: { x: 1, y: 1, z: 1 }
-          },
-          material: "stone",
-          isSolid: true,
-          isTransparent: false,
-          isFlammable: false,
-          isReplaceable: false,
-          toolRequired: "pickaxe",
-          harvestLevel: 0,
-          drops: [{
-            item: "minecraft:cobblestone",
-            count: { min: 1, max: 1 },
-            chance: 1.0
-          }]
+  // バニラブロック定義（Schema適用・最新パターン）
+  const registerVanillaBlocks = Effect.gen(function* () {
+    const stoneBlock: BlockDefinition = {
+      blockType: {
+        _tag: "solid",
+        id: Schema.decodeSync(BlockId)("minecraft:stone"),
+        name: "石",
+        physics: {
+          hardness: 1.5,
+          resistance: 6.0,
+          luminance: 0,
+          opacity: 15,
+          slipperiness: 0.6
         },
-        {
-          id: "minecraft:grass_block" as BlockId,
-          name: "草ブロック",
-          properties: {
-            hardness: 0.6,
-            resistance: 0.6,
-            luminance: 0,
-            opacity: 15,
-            flammability: 0,
-            slipperiness: 0.6,
-            jumpVelocityModifier: 1.0,
-            velocityModifier: 1.0,
-            soundType: "grass"
-          },
-          defaultState: {},
-          boundingBox: {
-            min: { x: 0, y: 0, z: 0 },
-            max: { x: 1, y: 1, z: 1 }
-          },
-          material: "grass",
-          isSolid: true,
-          isTransparent: false,
-          isFlammable: false,
-          isReplaceable: false,
-          toolRequired: "shovel",
-          drops: [{
-            item: "minecraft:dirt",
-            count: { min: 1, max: 1 },
-            chance: 1.0
-          }]
+        material: "stone",
+        toolRequired: Option.some("pickaxe"),
+        harvestLevel: Option.some(0)
+      },
+      defaultState: { _tag: "default" },
+      boundingBox: {
+        min: Schema.decodeSync(Position3D)({ x: 0, y: 0, z: 0 }),
+        max: Schema.decodeSync(Position3D)({ x: 1, y: 1, z: 1 })
+      },
+      placementRules: {
+        canPlaceOn: [],
+        requiresSupport: false,
+        needsSpace: false
+      },
+      drops: [{
+        item: Schema.decodeSync(BlockId)("minecraft:cobblestone"),
+        count: { min: 1, max: 1 },
+        chance: 1.0,
+        requiresTool: Option.some(true)
+      }],
+      soundType: "stone"
+    }
+
+    const waterBlock: BlockDefinition = {
+      blockType: {
+        _tag: "fluid",
+        id: Schema.decodeSync(BlockId)("minecraft:water"),
+        name: "水",
+        physics: {
+          hardness: 100.0,
+          resistance: 100.0,
+          luminance: 0,
+          opacity: 3,
+          slipperiness: 0.6
         },
-        {
-          id: "minecraft:water" as BlockId,
-          name: "水",
-          properties: {
-            hardness: 100.0,
-            resistance: 100.0,
-            luminance: 0,
-            opacity: 3,
-            flammability: 0,
-            slipperiness: 0.6,
-            jumpVelocityModifier: 1.0,
-            velocityModifier: 0.5,
-            soundType: "water"
-          },
-          defaultState: {},
-          boundingBox: {
-            min: { x: 0, y: 0, z: 0 },
-            max: { x: 1, y: 0.875, z: 1 }
-          },
-          material: "water",
-          isSolid: false,
-          isTransparent: true,
-          isFlammable: false,
-          isReplaceable: true,
-          drops: []
+        viscosity: 1.0,
+        flowRate: 5
+      },
+      defaultState: { _tag: "fluid", waterlogged: true, level: 8 },
+      boundingBox: {
+        min: Schema.decodeSync(Position3D)({ x: 0, y: 0, z: 0 }),
+        max: Schema.decodeSync(Position3D)({ x: 1, y: 0.875, z: 1 })
+      },
+      placementRules: {
+        canPlaceOn: [],
+        requiresSupport: false,
+        needsSpace: true
+      },
+      drops: [],
+      soundType: "wood" // Note: water doesn't have dedicated sound type
+    }
+
+    yield* register(stoneBlock)
+    yield* register(waterBlock)
+  })
+
+  yield* registerVanillaBlocks
+
+  const register = (block: BlockDefinition) =>
+    Effect.gen(function* () {
+      // スキーマ検証（早期リターン）
+      const validationResult = yield* Schema.decodeUnknown(BlockDefinition)(block).pipe(
+        Effect.mapError(error => new BlockValidationError({
+          blockId: block.blockType.id,
+          validationErrors: [error.message],
+          schema: "BlockDefinition"
+        }))
+      )
+
+      // STMによる並行性制御
+      const result = yield* STM.gen(function* () {
+        const registryTMap = yield* STM.tMapEmpty<BlockId, BlockDefinition>()
+        const lockTMap = yield* STM.tMapEmpty<BlockId, string>()
+
+        // ロックの取得
+        const currentLock = yield* STM.tMapGet(lockTMap, block.blockType.id)
+        if (Option.isSome(currentLock)) {
+          return yield* STM.fail(new BlockConcurrencyError({
+            blockId: block.blockType.id,
+            operation: "register",
+            conflictingOperation: currentLock.value
+          }))
         }
-        // 他のバニラブロック定義...
-      ]
 
-      for (const block of vanillaBlocks) {
-        yield* register(block)
-      }
+        // ロック設定
+        yield* STM.tMapSet(lockTMap, block.blockType.id, "register")
+
+        // 重複チェック
+        const existing = yield* STM.tMapGet(registryTMap, block.blockType.id)
+        if (Option.isSome(existing)) {
+          yield* STM.tMapRemove(lockTMap, block.blockType.id)
+          return yield* STM.fail(new BlockRegistrationError({
+            blockId: block.blockType.id,
+            reason: "Block already registered",
+            timestamp: Date.now()
+          }))
+        }
+
+        // ブロック登録
+        yield* STM.tMapSet(registryTMap, block.blockType.id, validationResult)
+        yield* STM.tMapRemove(lockTMap, block.blockType.id)
+
+        return validationResult
+      }).pipe(STM.commit)
+
+      // イベント発行
+      yield* Queue.offer(eventStream, {
+        _tag: "block_registered",
+        blockId: block.blockType.id,
+        blockDefinition: result,
+        timestamp: Date.now()
+      })
     })
 
-    // 初期化時にバニラブロックを登録
-    yield* registerVanillaBlocks
+  const get = (id: BlockId) =>
+    Effect.gen(function* () {
+      const result = yield* STM.gen(function* () {
+        const registryTMap = yield* STM.tMapEmpty<BlockId, BlockDefinition>()
+        return yield* STM.tMapGet(registryTMap, id)
+      }).pipe(STM.commit)
 
-    const register = (block: BlockDefinition) =>
-      Ref.get(registry).pipe(
-        Effect.flatMap(current =>
-          current.has(block.id)
-            ? Effect.fail(new BlockAlreadyRegisteredError(block.id))
-            : Ref.update(registry, map => new Map(map).set(block.id, block))
+      // 早期リターン: ブロックが見つからない場合
+      if (Option.isNone(result)) {
+        return yield* Effect.fail(new BlockNotFoundError({
+          blockId: id,
+          searchContext: "registry_lookup"
+        }))
+      }
+
+      return result.value
+    })
+
+  const findByTag = (tag: BlockType["_tag"]) =>
+    Effect.gen(function* () {
+      const all = yield* getAll()
+      return ReadonlyArray.filter(all, block => block.blockType._tag === tag)
+    })
+
+  const findByMaterial = (material: string) =>
+    Effect.gen(function* () {
+      const all = yield* getAll()
+      return ReadonlyArray.filter(all, block =>
+        Match.value(block.blockType).pipe(
+          Match.when({ _tag: "solid" }, solid => solid.material === material),
+          Match.when({ _tag: "transparent" }, transparent => transparent.material === material),
+          Match.orElse(() => false)
         )
       )
+    })
 
-    const get = (id: BlockId) =>
-      Ref.get(registry).pipe(
-        Effect.flatMap(current => {
-          const block = current.get(id)
-          return block
-            ? Effect.succeed(block)
-            : Effect.fail(new BlockNotFoundError(id))
-        })
-      )
+  const validatePlacement = (
+    blockType: BlockType,
+    position: Position3D,
+    world: WorldService
+  ) =>
+    Effect.gen(function* () {
+      // Match.type による配置ルール検証（最新パターン）
+      return yield* pipe(
+        Match.type<BlockType>(),
+        Match.when(
+          { _tag: "fluid" },
+          (fluid) => Effect.gen(function* () {
+            const belowPos = { ...position, y: position.y - 1 }
+            const blockBelow = yield* world.getBlock(belowPos)
 
-    const getAll = () =>
-      Ref.get(registry).pipe(
-        Effect.map(current => ReadonlyArray.fromIterable(current.values()))
-      )
+            // 早期リターン: 流体は固体ブロックの上にのみ配置可能
+            if (!blockBelow || blockBelow.blockType._tag !== "solid") {
+              return false
+            }
+            return true
+          })
+        ),
+        Match.when(
+          { _tag: "redstone" },
+          (redstone) => Effect.gen(function* () {
+            const surroundingBlocks = yield* world.getSurroundingBlocks(position)
 
-    const getByMaterial = (material: string) =>
-      getAll().pipe(
-        Effect.map(blocks => ReadonlyArray.filter(blocks, block => block.material === material))
-      )
+            // 早期リターン: レッドストーン機器は導電性ブロックが必要
+            const hasConductive = surroundingBlocks.some(block =>
+              block?.blockType._tag === "solid" ||
+              block?.blockType._tag === "redstone"
+            )
 
-    const getByProperty = (predicate: (props: BlockProperties) => boolean) =>
-      getAll().pipe(
-        Effect.map(blocks => ReadonlyArray.filter(blocks, block => predicate(block.properties)))
-      )
+            if (!hasConductive) {
+              return false
+            }
+            return true
+          })
+        ),
+        Match.when(
+          { _tag: "interactive" },
+          (interactive) => Effect.gen(function* () {
+            // インタラクティブブロックの特別な配置条件
+            const hasSpace = yield* world.checkSpace(position, { width: 1, height: 2, depth: 1 })
+            if (!hasSpace) {
+              return false
+            }
+            return true
+          })
+        ),
+        Match.orElse(() => Effect.succeed(true))
+      )(blockType)
+    })
 
-    return BlockRegistry.of({ register, get, getAll, getByMaterial, getByProperty })
+  const getAll = () =>
+    Ref.get(registry).pipe(
+      Effect.map(current => ReadonlyArray.fromIterable(current.values()))
+    )
+
+  const getAll = () =>
+    STM.gen(function* () {
+      const registryTMap = yield* STM.tMapEmpty<BlockId, BlockDefinition>()
+      const entries = yield* STM.tMapToReadonlyArray(registryTMap)
+      return ReadonlyArray.map(entries, ([_, block]) => block)
+    }).pipe(STM.commit)
+
+  const getBlockStream = () =>
+    Stream.fromQueue(eventStream).pipe(
+      Stream.map(event => pipe(
+        Match.type<BlockChangeEvent>(),
+        Match.when(
+          { _tag: "block_registered" },
+          (event) => Effect.gen(function* () {
+            return event.blockDefinition
+          })
+        ),
+        Match.when(
+          { _tag: "block_placed" },
+          (event) => Effect.gen(function* () {
+            return yield* get(event.blockId)
+          })
+        ),
+        Match.orElse(() => Effect.fail(new Error("Invalid event type")))
+      )(event)),
+      Stream.mapEffect(effect => effect)
+    )
+
+  const atomicUpdate = (
+    blockId: BlockId,
+    update: (current: BlockDefinition) => BlockDefinition
+  ) =>
+    Effect.gen(function* () {
+      return yield* STM.gen(function* () {
+        const registryTMap = yield* STM.tMapEmpty<BlockId, BlockDefinition>()
+        const lockTMap = yield* STM.tMapEmpty<BlockId, string>()
+
+        // ロック取得
+        const currentLock = yield* STM.tMapGet(lockTMap, blockId)
+        if (Option.isSome(currentLock)) {
+          return yield* STM.fail(new BlockConcurrencyError({
+            blockId,
+            operation: "update",
+            conflictingOperation: currentLock.value
+          }))
+        }
+
+        yield* STM.tMapSet(lockTMap, blockId, "update")
+
+        // 現在の定義取得
+        const current = yield* STM.tMapGet(registryTMap, blockId)
+        if (Option.isNone(current)) {
+          yield* STM.tMapRemove(lockTMap, blockId)
+          return yield* STM.fail(new BlockNotFoundError({
+            blockId,
+            searchContext: "atomic_update"
+          }))
+        }
+
+        // 更新実行
+        const updated = update(current.value)
+        yield* STM.tMapSet(registryTMap, blockId, updated)
+        yield* STM.tMapRemove(lockTMap, blockId)
+
+        return updated
+      }).pipe(STM.commit)
+    })
+
+  return BlockRegistry.of({
+    register,
+    registerBatch: (blocks) => Effect.all(blocks.map(register)).pipe(Effect.asUnit),
+    get,
+    getAll,
+    findByTag,
+    findByMaterial,
+    validatePlacement,
+    getBlockStream,
+    atomicUpdate
+  })
   })
 
 // Live Layer
@@ -272,175 +666,361 @@ export const BlockRegistryLive = Layer.effect(
 ### ブロック更新サービス
 
 ```typescript
-// BlockUpdate型定義
-export type BlockUpdateType =
-  | "neighbor_changed"
-  | "random_tick"
-  | "scheduled_tick"
-  | "block_event"
+// ブロック更新エラー
+export class BlockUpdateError extends Schema.TaggedError("BlockUpdateError")<{
+  readonly position: Position3D
+  readonly updateType: string
+  readonly reason: string
+}> {}
 
-export interface BlockUpdate {
-  readonly position: WorldPosition
-  readonly type: BlockUpdateType
-  readonly source?: WorldPosition
-  readonly data?: unknown
-}
+// ブロック更新イベントの判別共用体（Schema.Union使用）
+export const BlockUpdateEvent = Schema.Union(
+  Schema.Struct({
+    _tag: Schema.Literal("neighbor_changed"),
+    position: Position3D,
+    sourcePosition: Position3D,
+    blockId: BlockId,
+    timestamp: Schema.Number
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("random_tick"),
+    position: Position3D,
+    blockId: BlockId,
+    tickRate: pipe(Schema.Number, Schema.positive()),
+    timestamp: Schema.Number
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("scheduled_tick"),
+    position: Position3D,
+    blockId: BlockId,
+    delay: pipe(Schema.Number, Schema.nonNegative()),
+    data: Schema.optional(Schema.Unknown),
+    timestamp: Schema.Number
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("physics_tick"),
+    position: Position3D,
+    blockId: BlockId,
+    force: Schema.optional(Position3D),
+    timestamp: Schema.Number
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("redstone_change"),
+    position: Position3D,
+    blockId: BlockId,
+    powerLevel: pipe(Schema.Number, Schema.int(), Schema.between(0, 15)),
+    timestamp: Schema.Number
+  })
+)
+export type BlockUpdateEvent = Schema.Schema.Type<typeof BlockUpdateEvent>
 
 // BlockUpdateServiceインターフェース
-interface BlockUpdateServiceInterface {
+interface BlockUpdateService {
   readonly scheduleUpdate: (
-    position: WorldPosition,
-    delay: number
+    position: Position3D,
+    delay: number,
+    data?: unknown
   ) => Effect.Effect<void, never>
 
-  readonly processUpdate: (
-    update: BlockUpdate
-  ) => Effect.Effect<void, UpdateError>
+  readonly processUpdateStream: () => Stream.Stream<BlockUpdateEvent, BlockUpdateError>
 
   readonly neighborChanged: (
-    position: WorldPosition,
-    source: WorldPosition
+    position: Position3D,
+    sourcePosition: Position3D
   ) => Effect.Effect<void, never>
 
-  readonly randomTick: (
-    position: WorldPosition
+  readonly startRandomTick: (
+    position: Position3D,
+    tickRate: number
+  ) => Effect.Effect<void, never>
+
+  readonly handlePhysicsUpdate: (
+    position: Position3D,
+    force?: Position3D
+  ) => Effect.Effect<void, BlockUpdateError>
+
+  readonly updateRedstoneNetwork: (
+    position: Position3D,
+    powerLevel: number
   ) => Effect.Effect<void, never>
 }
 
-// Context Tag（最新パターン）
-export const BlockUpdateService = Context.GenericTag<BlockUpdateServiceInterface>("@app/BlockUpdateService")
+// Context Tag（@minecraft/ネームスペース）
+export const BlockUpdateService = Context.GenericTag<BlockUpdateService>("@minecraft/BlockUpdateService")
 
 // Live実装作成関数
 const makeBlockUpdateService = Effect.gen(function* () {
   const world = yield* WorldService
   const physics = yield* PhysicsService
-  const updateQueue = yield* Queue.unbounded<BlockUpdate>()
+  const registry = yield* BlockRegistry
+  const updateQueue = yield* Queue.unbounded<BlockUpdateEvent>()
 
-    // 更新処理ループ
-    const processUpdateLoop = Effect.gen(function* () {
-      yield* Effect.forever(
-        Effect.gen(function* () {
-          const update = yield* Queue.take(updateQueue)
-          yield* processUpdate(update).pipe(
-            Effect.catchAll((error) =>
-              Effect.log(`ブロック更新エラー: ${error}`)
-            )
-          )
-        })
+  const scheduleUpdate = (position: Position3D, delay: number, data?: unknown) =>
+    Effect.gen(function* () {
+      const block = yield* world.getBlock(position)
+      yield* Effect.sleep(Duration.millis(delay))
+      yield* Queue.offer(updateQueue, {
+        _tag: "scheduled_tick",
+        position,
+        blockId: block.blockType.id,
+        delay,
+        data,
+        timestamp: Date.now()
+      })
+    }).pipe(Effect.forkDaemon)
+
+  const processUpdateStream = () =>
+    Stream.fromQueue(updateQueue).pipe(
+      Stream.mapEffect(event => processUpdateEvent(event)),
+      Stream.catchAll(error => Stream.succeed(error))
+    )
+
+  const processUpdateEvent = (event: BlockUpdateEvent) =>
+    Effect.gen(function* () {
+      const block = yield* world.getBlock(event.position).pipe(
+        Effect.mapError(error => new BlockUpdateError({
+          position: event.position,
+          updateType: event._tag,
+          reason: `Failed to get block: ${error.message}`
+        }))
+      )
+
+      const definition = yield* registry.get(event.blockId).pipe(
+        Effect.mapError(error => new BlockUpdateError({
+          position: event.position,
+          updateType: event._tag,
+          reason: `Block definition not found: ${error.message}`
+        }))
+      )
+
+      // Match.type による更新タイプ別処理（最新パターン）
+      return yield* pipe(
+        Match.type<BlockUpdateEvent>(),
+        Match.when(
+          { _tag: "neighbor_changed" },
+          (event) => handleNeighborChange(event.position, event.sourcePosition, definition)
+        ),
+        Match.when(
+          { _tag: "random_tick" },
+          (event) => handleRandomTick(event.position, definition, event.tickRate)
+        ),
+        Match.when(
+          { _tag: "scheduled_tick" },
+          (event) => handleScheduledTick(event.position, definition, event.data)
+        ),
+        Match.when(
+          { _tag: "physics_tick" },
+          (event) => handlePhysicsTick(event.position, definition, event.force)
+        ),
+        Match.when(
+          { _tag: "redstone_change" },
+          (event) => handleRedstoneChange(event.position, definition, event.powerLevel)
+        ),
+        Match.exhaustive
+      )(event)
+    })
+
+  const neighborChanged = (position: Position3D, sourcePosition: Position3D) =>
+    Effect.gen(function* () {
+      const block = yield* world.getBlock(position)
+      yield* Queue.offer(updateQueue, {
+        _tag: "neighbor_changed",
+        position,
+        sourcePosition,
+        blockId: block.blockType.id,
+        timestamp: Date.now()
+      })
+    })
+
+  const startRandomTick = (position: Position3D, tickRate: number) =>
+    Effect.gen(function* () {
+      const block = yield* world.getBlock(position)
+      yield* Queue.offer(updateQueue, {
+        _tag: "random_tick",
+        position,
+        blockId: block.blockType.id,
+        tickRate,
+        timestamp: Date.now()
+      })
+    })
+
+  const handlePhysicsUpdate = (position: Position3D, force?: Position3D) =>
+    Effect.gen(function* () {
+      const block = yield* world.getBlock(position)
+      yield* Queue.offer(updateQueue, {
+        _tag: "physics_tick",
+        position,
+        blockId: block.blockType.id,
+        force,
+        timestamp: Date.now()
+      })
+    })
+
+  const updateRedstoneNetwork = (position: Position3D, powerLevel: number) =>
+    Effect.gen(function* () {
+      const block = yield* world.getBlock(position)
+      yield* Queue.offer(updateQueue, {
+        _tag: "redstone_change",
+        position,
+        blockId: block.blockType.id,
+        powerLevel,
+        timestamp: Date.now()
+      })
+    })
+
+  // 具体的な更新ハンドラー（早期リターンパターン適用）
+  const handleNeighborChange = (
+    position: Position3D,
+    sourcePosition: Position3D,
+    definition: BlockDefinition
+  ) =>
+    Effect.gen(function* () {
+      // Match.type によるブロックカテゴリ別処理（最新パターン）
+      return yield* pipe(
+        Match.type<BlockType>(),
+        Match.when(
+          { _tag: "solid", material: "sand" },
+          () => handleGravityBlock(position, definition)
+        ),
+        Match.when(
+          { _tag: "redstone" },
+          (redstone) => handleRedstoneNeighborChange(position, redstone)
+        ),
+        Match.when(
+          { _tag: "fluid" },
+          (fluid) => handleFluidFlow(position, fluid)
+        ),
+        Match.when(
+          { _tag: "interactive" },
+          (interactive) => handleInteractiveNeighborChange(position, interactive)
+        ),
+        Match.orElse(() => Effect.void)
+      )(definition.blockType)
+    })
+
+  const handleRandomTick = (
+    position: Position3D,
+    definition: BlockDefinition,
+    tickRate: number
+  ) =>
+    Effect.gen(function* () {
+      // 早期リターン: ランダムティックが不要なブロック
+      if (tickRate <= 0) {
+        return
+      }
+
+      // Match.type による成長・変化処理
+      yield* pipe(
+        Match.type<BlockType>(),
+        Match.when(
+          { _tag: "solid", material: "dirt" },
+          () => spreadGrass(position)
+        ),
+        Match.when(
+          { _tag: "transparent", material: "ice" },
+          () => Effect.gen(function* () {
+            const lightLevel = yield* world.getLightLevel(position)
+            // 早期リターン: 光レベルが低い場合は融解しない
+            if (lightLevel <= 11) {
+              return
+            }
+            yield* world.setBlock(position, Schema.decodeSync(BlockId)("minecraft:water"))
+          })
+        ),
+        Match.orElse(() => Effect.void)
+      )(definition.blockType)
+    })
+
+  const handleScheduledTick = (
+    position: Position3D,
+    definition: BlockDefinition,
+    data?: unknown
+  ) =>
+    Effect.gen(function* () {
+      // データの検証
+      const validatedData = data ?
+        yield* Schema.decodeUnknown(Schema.Unknown)(data) :
+        undefined
+
+      // Match.type による遅延処理
+      yield* pipe(
+        Match.type<BlockType>(),
+        Match.when(
+          { _tag: "redstone" },
+          (redstone) => handleRedstoneScheduledTick(position, redstone, validatedData)
+        ),
+        Match.when(
+          { _tag: "interactive" },
+          (interactive) => handleInteractiveScheduledTick(position, interactive, validatedData)
+        ),
+        Match.orElse(() => Effect.void)
+      )(definition.blockType)
+    })
+
+  const handlePhysicsTick = (
+    position: Position3D,
+    definition: BlockDefinition,
+    force?: Position3D
+  ) =>
+    Effect.gen(function* () {
+      // Match.type による物理処理
+      yield* pipe(
+        Match.type<BlockType>(),
+        Match.when(
+          { _tag: "solid" },
+          (solid) => Effect.gen(function* () {
+            // 早期リターン: 重力の影響を受けないマテリアル
+            if (solid.material === "stone" || solid.material === "metal") {
+              return
+            }
+            yield* handleGravityBlock(position, definition)
+          })
+        ),
+        Match.when(
+          { _tag: "fluid" },
+          (fluid) => handleFluidPhysics(position, fluid, force)
+        ),
+        Match.orElse(() => Effect.void)
+      )(definition.blockType)
+    })
+
+  const handleRedstoneChange = (
+    position: Position3D,
+    definition: BlockDefinition,
+    powerLevel: number
+  ) =>
+    Effect.gen(function* () {
+      // 早期リターン: レッドストーン機器でない場合
+      if (definition.blockType._tag !== "redstone") {
+        return
+      }
+
+      const redstoneBlock = definition.blockType as Extract<BlockType, { _tag: "redstone" }>
+
+      // パワーレベルによる状態更新
+      const newState: BlockState = powerLevel > 0 ?
+        { _tag: "powered", powered: true, signal: powerLevel } :
+        { _tag: "default" }
+
+      yield* world.updateBlockState(position, newState)
+
+      // 隣接ブロックへの伝播
+      const neighbors = yield* world.getNeighborPositions(position)
+      yield* Effect.all(
+        neighbors.map(neighborPos =>
+          updateRedstoneNetwork(neighborPos, Math.max(0, powerLevel - 1))
+        )
       )
     })
 
-    // バックグラウンドで更新処理を実行
-    yield* Effect.forkDaemon(processUpdateLoop)
-
-    const scheduleUpdate = (position: WorldPosition, delay: number) =>
-      Effect.gen(function* () {
-        yield* Effect.sleep(Duration.millis(delay))
-        yield* Queue.offer(updateQueue, {
-          position,
-          type: "scheduled_tick"
-        })
-      }).pipe(Effect.forkDaemon)
-
-    const processUpdate = (update: BlockUpdate) =>
-      Effect.gen(function* () {
-        const block = yield* world.getBlock(update.position)
-        const definition = yield* BlockRegistry.get(block.id)
-
-        yield* Match.value(update).pipe(
-          Match.when(
-            (update): update is BlockUpdate & { type: "neighbor_changed" } =>
-              update.type === "neighbor_changed",
-            (update) => handleNeighborChange(update.position, update.source!)
-          ),
-          Match.when(
-            (update): update is BlockUpdate & { type: "random_tick" } =>
-              update.type === "random_tick",
-            (update) => handleRandomTick(update.position, definition)
-          ),
-          Match.when(
-            (update): update is BlockUpdate & { type: "scheduled_tick" } =>
-              update.type === "scheduled_tick",
-            (update) => handleScheduledTick(update.position, definition)
-          ),
-          Match.when(
-            (update): update is BlockUpdate & { type: "block_event" } =>
-              update.type === "block_event",
-            (update) => handleBlockEvent(update.position, update.data)
-          ),
-          Match.exhaustive
-        )
-      })
-
-    const neighborChanged = (position: WorldPosition, source: WorldPosition) =>
-      Queue.offer(updateQueue, {
-        position,
-        type: "neighbor_changed",
-        source
-      })
-
-    const randomTick = (position: WorldPosition) =>
-      Queue.offer(updateQueue, {
-        position,
-        type: "random_tick"
-      })
-
-    // 具体的な更新ハンドラー
-    const handleNeighborChange = (position: WorldPosition, source: WorldPosition) =>
-      world.getBlock(position).pipe(
-        Effect.flatMap(block =>
-          Match.value(block.id).pipe(
-            Match.when(
-              (id) => id === "minecraft:sand" || id === "minecraft:gravel",
-              () => handleFallingBlock(position, block)
-            ),
-            Match.when(
-              isRedstoneComponent,
-              () => updateRedstoneNetwork(position)
-            ),
-            Match.when(
-              (id) => id === "minecraft:water",
-              () => updateWaterFlow(position)
-            ),
-            Match.orElse(() => Effect.void)
-          )
-        )
-      )
-
-    const handleFallingBlock = (position: WorldPosition, block: BlockDefinition) =>
-      world.getBlock({ ...position, y: position.y - 1 }).pipe(
-        Effect.flatMap(blockBelow =>
-          blockBelow.isSolid
-            ? Effect.void // 早期リターン: 支持ブロックがある場合
-            : Effect.all([
-                physics.addFallingBlock(position, block),
-                world.setBlock(position, "minecraft:air" as BlockId)
-              ]).pipe(Effect.asVoid)
-        )
-      )
-
-    const handleRandomTick = (position: WorldPosition, definition: BlockDefinition) =>
-      Effect.gen(function* () {
-        // 草の成長
-        if (definition.id === "minecraft:grass_block") {
-          yield* spreadGrass(position)
-        }
-
-        // 作物の成長
-        if (isCrop(definition.id)) {
-          yield* growCrop(position)
-        }
-
-        // 氷の融解
-        if (definition.id === "minecraft:ice") {
-          const lightLevel = yield* world.getLightLevel(position)
-          if (lightLevel > 11) {
-            yield* world.setBlock(position, "minecraft:water" as BlockId)
-          }
-        }
-      })
-
-    return BlockUpdateService.of({ scheduleUpdate, processUpdate, neighborChanged, randomTick })
+  return BlockUpdateService.of({
+    scheduleUpdate,
+    processUpdateStream,
+    neighborChanged,
+    startRandomTick,
+    handlePhysicsUpdate,
+    updateRedstoneNetwork
+  })
   })
 
 // Live Layer
@@ -582,33 +1162,34 @@ const makeBlockInteractionService = Effect.gen(function* () {
       const block = yield* world.getBlock(position)
       const definition = yield* registry.get(block.id)
 
-      // Match パターンによるインタラクティブブロック処理
+      // Match.value パターンによるインタラクティブブロック処理（最新パターン）
       return yield* pipe(
-        block.id,
-        Match.value,
+        Match.value(block.id),
         Match.when(
-          (id) => id === "minecraft:chest",
+          Schema.decodeSync(BlockId)("minecraft:chest"),
           () => Effect.gen(function* () {
             yield* openContainer(position, player)
             return true
           })
         ),
         Match.when(
-          (id) => id === "minecraft:crafting_table",
+          Schema.decodeSync(BlockId)("minecraft:crafting_table"),
           () => Effect.gen(function* () {
             yield* openCraftingInterface(player)
             return true
           })
         ),
         Match.when(
-          (id) => id === "minecraft:door" || id === "minecraft:trapdoor",
+          (id) => id === Schema.decodeSync(BlockId)("minecraft:door") ||
+                  id === Schema.decodeSync(BlockId)("minecraft:trapdoor"),
           () => Effect.gen(function* () {
             yield* toggleDoor(position)
             return true
           })
         ),
         Match.when(
-          (id) => id === "minecraft:lever" || id === "minecraft:button",
+          (id) => id === Schema.decodeSync(BlockId)("minecraft:lever") ||
+                  id === Schema.decodeSync(BlockId)("minecraft:button"),
           () => Effect.gen(function* () {
             yield* toggleRedstone(position)
             return true
@@ -625,24 +1206,23 @@ const makeBlockInteractionService = Effect.gen(function* () {
     ) => Effect.gen(function* () {
       const block = yield* world.getBlock(position)
 
-      // Match パターンによる特殊ブロック衝突処理
+      // Match.value パターンによる特殊ブロック衝突処理
       yield* pipe(
-        block.id,
-        Match.value,
+        Match.value(block.id),
         Match.when(
-          (id) => id === "minecraft:slime_block",
+          Schema.decodeSync(BlockId)("minecraft:slime_block"),
           () => bounceEntity(entity, velocity)
         ),
         Match.when(
-          (id) => id === "minecraft:soul_sand",
+          Schema.decodeSync(BlockId)("minecraft:soul_sand"),
           () => slowEntity(entity)
         ),
         Match.when(
-          (id) => id === "minecraft:cactus",
+          Schema.decodeSync(BlockId)("minecraft:cactus"),
           () => damageEntity(entity, 1)
         ),
         Match.when(
-          (id) => id === "minecraft:lava",
+          Schema.decodeSync(BlockId)("minecraft:lava"),
           () => burnEntity(entity)
         ),
         Match.orElse(() => Effect.void)
@@ -926,13 +1506,14 @@ const makeBlockPhysicsService = Effect.gen(function* () {
   })
 })
 
-// 重力の影響を受けるブロック判定
+// 重力の影響を受けるブロック判定（最新パターン）
 const isGravityAffected = (blockId: BlockId): boolean =>
-  Match.value(blockId).pipe(
-    Match.when("minecraft:sand", () => true),
-    Match.when("minecraft:gravel", () => true),
-    Match.when("minecraft:anvil", () => true),
-    Match.when("minecraft:concrete_powder", () => true),
+  pipe(
+    Match.value(blockId),
+    Match.when(Schema.decodeSync(BlockId)("minecraft:sand"), () => true),
+    Match.when(Schema.decodeSync(BlockId)("minecraft:gravel"), () => true),
+    Match.when(Schema.decodeSync(BlockId)("minecraft:anvil"), () => true),
+    Match.when(Schema.decodeSync(BlockId)("minecraft:concrete_powder"), () => true),
     Match.orElse(() => false)
   )
 
@@ -1115,17 +1696,18 @@ const makeRedstoneService = Effect.gen(function* () {
     })
 
   const isRedstoneComponent = (blockId: BlockId): boolean =>
-    Match.value(blockId).pipe(
-      Match.when("minecraft:redstone_wire", () => true),
-      Match.when("minecraft:redstone_torch", () => true),
-      Match.when("minecraft:lever", () => true),
-      Match.when("minecraft:button", () => true),
-      Match.when("minecraft:pressure_plate", () => true),
-      Match.when("minecraft:tripwire_hook", () => true),
-      Match.when("minecraft:observer", () => true),
-      Match.when("minecraft:dispenser", () => true),
-      Match.when("minecraft:dropper", () => true),
-      Match.when("minecraft:piston", () => true),
+    pipe(
+      Match.value(blockId),
+      Match.when(Schema.decodeSync(BlockId)("minecraft:redstone_wire"), () => true),
+      Match.when(Schema.decodeSync(BlockId)("minecraft:redstone_torch"), () => true),
+      Match.when(Schema.decodeSync(BlockId)("minecraft:lever"), () => true),
+      Match.when(Schema.decodeSync(BlockId)("minecraft:button"), () => true),
+      Match.when(Schema.decodeSync(BlockId)("minecraft:pressure_plate"), () => true),
+      Match.when(Schema.decodeSync(BlockId)("minecraft:tripwire_hook"), () => true),
+      Match.when(Schema.decodeSync(BlockId)("minecraft:observer"), () => true),
+      Match.when(Schema.decodeSync(BlockId)("minecraft:dispenser"), () => true),
+      Match.when(Schema.decodeSync(BlockId)("minecraft:dropper"), () => true),
+      Match.when(Schema.decodeSync(BlockId)("minecraft:piston"), () => true),
       Match.orElse(() => false)
     )
 
@@ -1141,15 +1723,19 @@ const makeRedstoneService = Effect.gen(function* () {
     blockId: BlockId,
     powered: boolean
   ) =>
-    Match.value(blockId).pipe(
-      Match.when("minecraft:piston", () =>
-        powered ? extendPiston(position) : retractPiston(position)
+    pipe(
+      Match.value(blockId),
+      Match.when(
+        Schema.decodeSync(BlockId)("minecraft:piston"),
+        () => powered ? extendPiston(position) : retractPiston(position)
       ),
-      Match.when("minecraft:dispenser", () =>
-        powered ? activateDispenser(position) : Effect.unit
+      Match.when(
+        Schema.decodeSync(BlockId)("minecraft:dispenser"),
+        () => powered ? activateDispenser(position) : Effect.unit
       ),
-      Match.when("minecraft:redstone_lamp", () =>
-        setLampState(position, powered)
+      Match.when(
+        Schema.decodeSync(BlockId)("minecraft:redstone_lamp"),
+        () => setLampState(position, powered)
       ),
       Match.orElse(() => Effect.unit)
     )
@@ -1619,3 +2205,203 @@ export const CompleteBlockSystemLayer = Layer.mergeAll(
   Layer.provide(EntityServiceLive),
   Layer.provide(ParticleServiceLive)
 )
+```
+
+## プロパティベーステスト対応
+
+### Fast-Check統合テストパターン
+
+```typescript
+import { it } from "@effect/vitest"
+import { Arbitrary } from "fast-check"
+import { Schema } from "effect"
+
+// ブロック定義のArbitrary生成
+const blockDefinitionArbitrary: Arbitrary<BlockDefinition> = Arbitrary.record({
+  blockType: Arbitrary.oneof(
+    // Solid Block
+    Arbitrary.record({
+      blockCategory: Arbitrary.constant("solid" as const),
+      id: Arbitrary.string().map(s => Schema.decodeSync(BlockId)(`minecraft:${s.toLowerCase()}`)),
+      name: Arbitrary.string(),
+      physics: blockPhysicsArbitrary,
+      material: Arbitrary.constantFrom("stone", "wood", "metal", "dirt", "sand"),
+      toolRequired: Arbitrary.option(Arbitrary.constantFrom("pickaxe", "axe", "shovel")),
+      harvestLevel: Arbitrary.option(Arbitrary.integer({ min: 0, max: 4 }))
+    }),
+    // Fluid Block
+    Arbitrary.record({
+      blockCategory: Arbitrary.constant("fluid" as const),
+      id: Arbitrary.string().map(s => Schema.decodeSync(BlockId)(`minecraft:${s.toLowerCase()}`)),
+      name: Arbitrary.string(),
+      physics: blockPhysicsArbitrary,
+      viscosity: Arbitrary.float({ min: 0.1, max: 10.0 }),
+      flowRate: Arbitrary.integer({ min: 1, max: 8 })
+    })
+  ),
+  defaultState: blockStateArbitrary,
+  boundingBox: Arbitrary.record({
+    min: position3DArbitrary,
+    max: position3DArbitrary
+  }),
+  placementRules: blockPlacementRuleArbitrary,
+  drops: Arbitrary.array(blockDropArbitrary),
+  soundType: Arbitrary.constantFrom("stone", "wood", "gravel", "grass", "metal")
+})
+
+// 物理プロパティのArbitrary
+const blockPhysicsArbitrary: Arbitrary<BlockPhysics> = Arbitrary.record({
+  hardness: Arbitrary.float({ min: 0, max: 100 }),
+  resistance: Arbitrary.float({ min: 0, max: 1000 }),
+  luminance: Arbitrary.integer({ min: 0, max: 15 }),
+  opacity: Arbitrary.integer({ min: 0, max: 15 }),
+  slipperiness: Arbitrary.float({ min: 0.4, max: 1.0 })
+}).map(data => Schema.decodeSync(BlockPhysics)(data))
+
+// Position3DのArbitrary
+const position3DArbitrary: Arbitrary<Position3D> = Arbitrary.record({
+  x: Arbitrary.integer({ min: -1000, max: 1000 }),
+  y: Arbitrary.integer({ min: -64, max: 320 }),
+  z: Arbitrary.integer({ min: -1000, max: 1000 })
+}).map(data => Schema.decodeSync(Position3D)(data))
+
+// ブロック状態のArbitrary
+const blockStateArbitrary: Arbitrary<BlockState> = Arbitrary.oneof(
+  Arbitrary.record({
+    stateType: Arbitrary.constant("directional" as const),
+    facing: Arbitrary.constantFrom("north", "south", "east", "west", "up", "down")
+  }),
+  Arbitrary.record({
+    stateType: Arbitrary.constant("powered" as const),
+    powered: Arbitrary.boolean(),
+    signal: Arbitrary.integer({ min: 0, max: 15 })
+  }),
+  Arbitrary.record({
+    stateType: Arbitrary.constant("default" as const)
+  })
+).map(data => Schema.decodeSync(BlockState)(data))
+
+// プロパティベーステストスイート
+describe("Block System Properties", () => {
+  it.prop("ブロック登録は常に成功するか一意性エラーのみ", [blockDefinitionArbitrary])(
+    (blockDef) => Effect.gen(function* () {
+      const registry = yield* BlockRegistry
+
+      const result = yield* registry.register(blockDef).pipe(
+        Effect.either
+      )
+
+      // プロパティ: 登録は成功するか、既に存在するエラーのみ
+      return Either.match(result, {
+        onLeft: (error) =>
+          error._tag === "BlockRegistrationError" ||
+          error._tag === "BlockValidationError",
+        onRight: () => true
+      })
+    })
+  )
+
+  it.prop("ブロック配置検証は一貫性を保つ", [blockDefinitionArbitrary, position3DArbitrary])(
+    (blockDef, position) => Effect.gen(function* () {
+      const registry = yield* BlockRegistry
+      const world = yield* WorldService
+
+      yield* registry.register(blockDef)
+
+      const canPlace1 = yield* registry.validatePlacement(blockDef.blockType, position, world)
+      const canPlace2 = yield* registry.validatePlacement(blockDef.blockType, position, world)
+
+      // プロパティ: 同じ条件での配置検証結果は一貫している
+      return canPlace1 === canPlace2
+    })
+  )
+
+  it.prop("ブロック物理プロパティは範囲内", [blockDefinitionArbitrary])(
+    (blockDef) => Effect.gen(function* () {
+      // プロパティ: 物理値が仕様範囲内
+      const physics = blockDef.blockType.physics
+
+      return (
+        physics.hardness >= 0 &&
+        physics.resistance >= 0 &&
+        physics.luminance >= 0 && physics.luminance <= 15 &&
+        physics.opacity >= 0 && physics.opacity <= 15 &&
+        physics.slipperiness >= 0.4 && physics.slipperiness <= 1.0
+      )
+    })
+  )
+
+  it.prop("ブロック更新イベントは有効なスキーマに従う", [blockUpdateEventArbitrary])(
+    (updateEvent) => Effect.gen(function* () {
+      // プロパティ: 更新イベントはスキーマに適合
+      const decoded = yield* Schema.decodeUnknown(BlockUpdateEvent)(updateEvent).pipe(
+        Effect.either
+      )
+
+      return Either.isRight(decoded)
+    })
+  )
+
+  it.prop("ブロック状態遷移は可逆性を持つ", [blockStateArbitrary])(
+    (initialState) => Effect.gen(function* () {
+      const registry = yield* BlockRegistry
+      const position = Schema.decodeSync(Position3D)({ x: 0, y: 64, z: 0 })
+      const world = yield* WorldService
+
+      // 初期状態を設定
+      yield* world.setBlockState(position, initialState)
+
+      // 状態を取得
+      const retrievedState = yield* world.getBlockState(position)
+
+      // プロパティ: 設定した状態と取得した状態が一致
+      return JSON.stringify(initialState) === JSON.stringify(retrievedState)
+    })
+  )
+})
+
+// テストファクトリー関数
+export const createBlockTestFactory = () => ({
+  // テスト用ブロック定義生成
+  createTestBlock: (overrides?: Partial<BlockDefinition>): BlockDefinition => ({
+    blockType: {
+      blockCategory: "solid",
+      id: Schema.decodeSync(BlockId)("minecraft:test_block"),
+      name: "テストブロック",
+      physics: {
+        hardness: 1.0,
+        resistance: 1.0,
+        luminance: 0,
+        opacity: 15,
+        slipperiness: 0.6
+      },
+      material: "stone",
+    },
+    defaultState: { stateType: "default" },
+    boundingBox: {
+      min: Schema.decodeSync(Position3D)({ x: 0, y: 0, z: 0 }),
+      max: Schema.decodeSync(Position3D)({ x: 1, y: 1, z: 1 })
+    },
+    placementRules: {
+      canPlaceOn: [],
+      requiresSupport: false,
+      needsSpace: false
+    },
+    drops: [],
+    soundType: "stone",
+    ...overrides
+  }),
+
+  // テスト用レイヤー
+  createTestLayer: () => Layer.mergeAll(
+    TestBlockRegistryLive,
+    TestWorldServiceLive
+  ),
+
+  // アサーション関数
+  assertBlockValid: (block: BlockDefinition) =>
+    Schema.decodeUnknown(BlockDefinition)(block).pipe(
+      Effect.map(() => true),
+      Effect.catchAll(() => Effect.succeed(false))
+    )
+})

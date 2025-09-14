@@ -1,3 +1,15 @@
+---
+title: "拡張機能概要 - 高度システムとアドバンスド機能"
+description: "Minecraftクローンの拡張機能群の完全概要。レッドストーン、マルチプレイヤー、AIシステムなどの高度なシステム設計。"
+category: "specification"
+difficulty: "advanced"
+tags: ["enhanced-features", "system-overview", "advanced-mechanics", "multiplayer", "ai-systems", "circuit-simulation"]
+prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "concurrent-patterns", "core-systems"]
+estimated_reading_time: "15分"
+related_patterns: ["concurrent-patterns", "state-machine-patterns", "ai-behavior-patterns"]
+related_docs: ["../00-core-features/00-overview.md", "./01-redstone-system.md", "./10-multiplayer-architecture.md"]
+---
+
 # Enhanced Features - 拡張機能
 
 ## 概要

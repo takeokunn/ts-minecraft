@@ -1,3 +1,15 @@
+---
+title: "エンティティシステム仕様 - ECS・AI・スポーン管理"
+description: "Structure of Arrays ECSによる高性能エンティティ管理、AIステートマシン、動的スポーンシステムの完全仕様。"
+category: "specification"
+difficulty: "advanced"
+tags: ["entity-system", "ecs-architecture", "ai-behavior", "spawn-system", "structure-of-arrays", "performance"]
+prerequisites: ["effect-ts-fundamentals", "ecs-concepts", "performance-optimization"]
+estimated_reading_time: "20分"
+related_patterns: ["optimization-patterns", "state-machine-patterns", "ecs-patterns"]
+related_docs: ["./02-player-system.md", "./06-physics-system.md", "../../01-architecture/05-ecs-integration.md"]
+---
+
 # エンティティシステム - エンティティ管理システム
 
 ## 概要
@@ -17,58 +29,88 @@
 ### コアECS型
 
 ```typescript
-import { Effect, Layer, Context, Schema, pipe, Ref, STM } from "effect"
-import { Brand, Option, ReadonlyArray, HashMap } from "effect"
+import { Effect, Layer, Context, Schema, Match, pipe, Ref, STM, Stream, Queue } from "effect"
+import { Brand, Option, ReadonlyArray, HashMap, Chunk } from "effect"
+import { ParseResult } from "effect/Schema"
 
-// Entity ID（ブランド型）
-export const EntityId = Schema.UUID.pipe(Schema.brand("EntityId"))
+// Entity ID（ブランド型） - 最新パターン
+export const EntityId = Schema.String.pipe(
+  Schema.uuid(),
+  Schema.brand("EntityId")
+)
 export type EntityId = Schema.Schema.Type<typeof EntityId>
 
-// Component基底インターフェース
-export interface Component {
-  readonly _tag: string
-}
+// エンティティタイプ（ブランド型）
+export const EntityType = Schema.Literal(
+  "player", "zombie", "skeleton", "creeper", "cow", "pig", "sheep",
+  "item", "arrow", "fireball", "tnt", "boat", "minecart", "painting"
+).pipe(Schema.brand("EntityType"))
+export type EntityType = Schema.Schema.Type<typeof EntityType>
 
-// Entity定義
-export const Entity = Schema.Struct({
-  id: EntityId,
-  type: Schema.Literal(
-    "player", "zombie", "skeleton", "creeper", "cow", "pig", "sheep",
-    "item", "arrow", "fireball", "tnt", "boat", "minecart", "painting"
-  ),
-  active: Schema.Boolean,
-  createdAt: Schema.DateTimeUtc,
-  updatedAt: Schema.DateTimeUtc
+// Component基底スキーマ
+export const ComponentSchema = Schema.TaggedStruct("Component", {
+  _tag: Schema.String
 })
+export type Component = Schema.Schema.Type<typeof ComponentSchema>
 
-export type Entity = Schema.Schema.Type<typeof Entity>
+// Entity定義（最新Schemaパターン）
+export const EntitySchema = Schema.Struct({
+  id: EntityId,
+  type: EntityType,
+  active: Schema.Boolean,
+  createdAt: Schema.DateFromSelf,
+  updatedAt: Schema.DateFromSelf
+})
+export type Entity = Schema.Schema.Type<typeof EntitySchema>
 
-// Component Store
-export interface ComponentStore {
+// Entity生成エラー
+export class CreateEntityError extends Schema.TaggedError<CreateEntityError>()("CreateEntityError", {
+  entityType: EntityType,
+  reason: Schema.String
+}) {}
+
+export class EntityNotFoundError extends Schema.TaggedError<EntityNotFoundError>()("EntityNotFoundError", {
+  entityId: EntityId
+}) {}
+
+export class ComponentNotFoundError extends Schema.TaggedError<ComponentNotFoundError>()("ComponentNotFoundError", {
+  entityId: EntityId,
+  componentType: Schema.String
+}) {}
+
+// Component Storeインターフェース（Effect-TS最新パターン）
+export interface ComponentStoreInterface {
   readonly get: <T extends Component>(
     entityId: EntityId,
     componentType: string
-  ) => Option.Option<T>
+  ) => Effect.Effect<T, ComponentNotFoundError, never>
 
   readonly set: <T extends Component>(
     entityId: EntityId,
     component: T
-  ) => void
+  ) => Effect.Effect<void, never, never>
 
   readonly remove: (
     entityId: EntityId,
     componentType: string
-  ) => void
+  ) => Effect.Effect<void, ComponentNotFoundError, never>
 
   readonly getAll: <T extends Component>(
     componentType: string
-  ) => ReadonlyArray<[EntityId, T]>
+  ) => Effect.Effect<ReadonlyArray<[EntityId, T]>, never, never>
 
   readonly hasComponent: (
     entityId: EntityId,
     componentType: string
-  ) => boolean
+  ) => Effect.Effect<boolean, never, never>
+
+  readonly stream: <T extends Component>(
+    componentType: string
+  ) => Stream.Stream<[EntityId, T], never, never>
 }
+
+// Context Tag（最新パターン）
+export const ComponentStore = Context.GenericTag<ComponentStoreInterface>("@minecraft/ComponentStore")
 ```
 
 ## コアコンポーネント
@@ -76,48 +118,51 @@ export interface ComponentStore {
 ### 位置 & 移動コンポーネント
 
 ```typescript
-// Positionコンポーネント
-export const PositionComponent = Schema.Struct({
-  _tag: Schema.Literal("Position"),
+// Vector3型（ブランド型）
+export const Vector3 = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number,
-  chunk: Schema.Struct({
-    x: Schema.Number.pipe(Schema.int()),
-    z: Schema.Number.pipe(Schema.int())
-  })
+  z: Schema.Number
+}).pipe(Schema.brand("Vector3"))
+export type Vector3 = Schema.Schema.Type<typeof Vector3>
+
+// ChunkPosition型（ブランド型）
+export const ChunkPosition = Schema.Struct({
+  x: Schema.Number.pipe(Schema.int()),
+  z: Schema.Number.pipe(Schema.int())
+}).pipe(Schema.brand("ChunkPosition"))
+export type ChunkPosition = Schema.Schema.Type<typeof ChunkPosition>
+
+// Positionコンポーネント（TaggedStructパターン）
+export const PositionComponent = Schema.TaggedStruct("Position", {
+  position: Vector3,
+  chunk: ChunkPosition
 })
 export type PositionComponent = Schema.Schema.Type<typeof PositionComponent>
 
 // Velocityコンポーネント
-export const VelocityComponent = Schema.Struct({
-  _tag: Schema.Literal("Velocity"),
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number
+export const VelocityComponent = Schema.TaggedStruct("Velocity", {
+  velocity: Vector3,
+  acceleration: Schema.optional(Vector3)
 })
 export type VelocityComponent = Schema.Schema.Type<typeof VelocityComponent>
 
-// Rotationコンポーネント
-export const RotationComponent = Schema.Struct({
-  _tag: Schema.Literal("Rotation"),
-  yaw: pipe(Schema.Number, Schema.between(-180, 180)),
-  pitch: pipe(Schema.Number, Schema.between(-90, 90)),
-  roll: Schema.optional(Schema.Number)
+// Rotationコンポーネント（制約付きスキーマ）
+export const RotationComponent = Schema.TaggedStruct("Rotation", {
+  yaw: Schema.Number.pipe(Schema.between(-180, 180)),
+  pitch: Schema.Number.pipe(Schema.between(-90, 90)),
+  roll: Schema.optional(Schema.Number.pipe(Schema.between(-180, 180)))
 })
 export type RotationComponent = Schema.Schema.Type<typeof RotationComponent>
 
 // BoundingBoxコンポーネント
-export const BoundingBoxComponent = Schema.Struct({
-  _tag: Schema.Literal("BoundingBox"),
-  width: Schema.Number.pipe(Schema.positive()),
-  height: Schema.Number.pipe(Schema.positive()),
-  depth: Schema.Number.pipe(Schema.positive()),
-  offset: Schema.optional(Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number
-  }))
+export const BoundingBoxComponent = Schema.TaggedStruct("BoundingBox", {
+  size: Schema.Struct({
+    width: Schema.Number.pipe(Schema.positive()),
+    height: Schema.Number.pipe(Schema.positive()),
+    depth: Schema.Number.pipe(Schema.positive())
+  }),
+  offset: Schema.optional(Vector3)
 })
 export type BoundingBoxComponent = Schema.Schema.Type<typeof BoundingBoxComponent>
 ```
@@ -125,38 +170,57 @@ export type BoundingBoxComponent = Schema.Schema.Type<typeof BoundingBoxComponen
 ### 体力 & 戦闘コンポーネント
 
 ```typescript
-// Healthコンポーネント
-export const HealthComponent = Schema.Struct({
-  _tag: Schema.Literal("Health"),
-  current: Schema.Number.pipe(Schema.nonNegative()),
-  max: Schema.Number.pipe(Schema.positive()),
+// Health値（ブランド型）
+export const Health = Schema.Number.pipe(
+  Schema.nonNegative(),
+  Schema.brand("Health")
+)
+export type Health = Schema.Schema.Type<typeof Health>
+
+// Damage値（ブランド型）
+export const Damage = Schema.Number.pipe(
+  Schema.nonNegative(),
+  Schema.brand("Damage")
+)
+export type Damage = Schema.Schema.Type<typeof Damage>
+
+// Healthコンポーネント（最新パターン）
+export const HealthComponent = Schema.TaggedStruct("Health", {
+  current: Health,
+  max: Health,
   regeneration: Schema.Number,
-  invulnerableUntil: Schema.optional(Schema.DateTimeUtc)
+  invulnerableUntil: Schema.optional(Schema.DateFromSelf),
+  lastDamageTime: Schema.optional(Schema.DateFromSelf)
 })
 export type HealthComponent = Schema.Schema.Type<typeof HealthComponent>
 
 // Combatコンポーネント
-export const CombatComponent = Schema.Struct({
-  _tag: Schema.Literal("Combat"),
-  damage: Schema.Number.pipe(Schema.nonNegative()),
+export const CombatComponent = Schema.TaggedStruct("Combat", {
+  damage: Damage,
   attackSpeed: Schema.Number.pipe(Schema.positive()),
-  knockback: Schema.Number,
-  lastAttack: Schema.optional(Schema.DateTimeUtc),
+  knockback: Schema.Number.pipe(Schema.nonNegative()),
+  range: Schema.Number.pipe(Schema.positive()),
+  lastAttack: Schema.optional(Schema.DateFromSelf),
   target: Schema.optional(EntityId)
 })
 export type CombatComponent = Schema.Schema.Type<typeof CombatComponent>
 
+// Enchantment定義
+export const Enchantment = Schema.Struct({
+  type: Schema.String,
+  level: Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.lessThanOrEqualTo(10))
+})
+export type Enchantment = Schema.Schema.Type<typeof Enchantment>
+
 // Armorコンポーネント
-export const ArmorComponent = Schema.Struct({
-  _tag: Schema.Literal("Armor"),
+export const ArmorComponent = Schema.TaggedStruct("Armor", {
   defense: Schema.Number.pipe(Schema.nonNegative()),
   toughness: Schema.Number.pipe(Schema.nonNegative()),
-  enchantments: Schema.Array(
-    Schema.Struct({
-      type: Schema.String,
-      level: Schema.Number.pipe(Schema.int(), Schema.positive())
-    })
-  )
+  enchantments: Schema.Array(Enchantment),
+  durability: Schema.optional(Schema.Struct({
+    current: Schema.Number.pipe(Schema.nonNegative()),
+    max: Schema.Number.pipe(Schema.positive())
+  }))
 })
 export type ArmorComponent = Schema.Schema.Type<typeof ArmorComponent>
 ```
@@ -164,43 +228,62 @@ export type ArmorComponent = Schema.Schema.Type<typeof ArmorComponent>
 ### AIコンポーネント
 
 ```typescript
-// AIコンポーネント
-export const AIComponent = Schema.Struct({
-  _tag: Schema.Literal("AI"),
+// AI動作タイプ（ブランド型）
+export const AIBehavior = Schema.Literal(
+  "idle", "wander", "follow", "flee", "attack", "patrol",
+  "guard", "breed", "sleep", "eat", "swim", "pathfind"
+).pipe(Schema.brand("AIBehavior"))
+export type AIBehavior = Schema.Schema.Type<typeof AIBehavior>
+
+// AI状態（ブランド型）
+export const AIState = Schema.String.pipe(Schema.brand("AIState"))
+export type AIState = Schema.Schema.Type<typeof AIState>
+
+// Pathポイント
+export const PathPoint = Schema.Struct({
+  position: Vector3,
+  timestamp: Schema.DateFromSelf
+})
+export type PathPoint = Schema.Schema.Type<typeof PathPoint>
+
+// AIコンポーネント（最新パターン）
+export const AIComponent = Schema.TaggedStruct("AI", {
   enabled: Schema.Boolean,
-  behaviors: Schema.Array(
-    Schema.Literal(
-      "wander", "follow", "flee", "attack", "patrol",
-      "guard", "breed", "sleep", "eat", "swim"
-    )
-  ),
-  state: Schema.Struct({
-    current: Schema.String,
-    target: Schema.optional(EntityId),
-    path: Schema.optional(Schema.Array(
-      Schema.Struct({
-        x: Schema.Number,
-        y: Schema.Number,
-        z: Schema.Number
-      })
-    )),
-    memory: Schema.Record(Schema.String, Schema.Unknown)
-  })
+  behaviors: Schema.Array(AIBehavior),
+  currentState: AIState,
+  target: Schema.optional(EntityId),
+  path: Schema.optional(Schema.Array(PathPoint)),
+  memory: Schema.Record(Schema.String, Schema.Unknown),
+  lastStateChange: Schema.DateFromSelf,
+  stateTimeout: Schema.optional(Schema.Number.pipe(Schema.positive()))
 })
 export type AIComponent = Schema.Schema.Type<typeof AIComponent>
 
-// Brainコンポーネント (高度なAI)
-export const BrainComponent = Schema.Struct({
-  _tag: Schema.Literal("Brain"),
+// Sensorデータ
+export const SensorData = Schema.Struct({
+  type: Schema.String,
+  range: Schema.Number.pipe(Schema.positive()),
+  lastUpdate: Schema.DateFromSelf,
+  detectedEntities: Schema.Array(EntityId)
+})
+export type SensorData = Schema.Schema.Type<typeof SensorData>
+
+// Activityスケジュール
+export const ActivitySchedule = Schema.Struct({
+  time: Schema.Number.pipe(Schema.between(0, 24000)), // Minecraftの1日は24000tick
+  activity: Schema.String,
+  priority: Schema.Number.pipe(Schema.int(), Schema.between(1, 10))
+})
+export type ActivitySchedule = Schema.Schema.Type<typeof ActivitySchedule>
+
+// Brainコンポーネント（高度なAI）
+export const BrainComponent = Schema.TaggedStruct("Brain", {
   memories: Schema.Record(Schema.String, Schema.Unknown),
-  sensors: Schema.Array(Schema.String),
+  sensors: Schema.Array(SensorData),
   activities: Schema.Array(Schema.String),
-  schedule: Schema.optional(Schema.Struct({
-    activities: Schema.Array(Schema.Struct({
-      time: Schema.Number,
-      activity: Schema.String
-    }))
-  }))
+  schedule: Schema.optional(Schema.Array(ActivitySchedule)),
+  learningRate: Schema.Number.pipe(Schema.between(0, 1)),
+  decisionTree: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
 })
 export type BrainComponent = Schema.Schema.Type<typeof BrainComponent>
 ```
@@ -210,121 +293,223 @@ export type BrainComponent = Schema.Schema.Type<typeof BrainComponent>
 ### エンティティ管理サービス
 
 ```typescript
-// EntityManagerインターフェース
-interface EntityManagerInterface {
+// EntityManagerインターフェース（最新Effect-TSパターン）
+export interface EntityManagerInterface {
   readonly createEntity: (
-    type: Entity["type"],
+    type: EntityType,
     components: ReadonlyArray<Component>
-  ) => Effect.Effect<EntityId, CreateEntityError>
+  ) => Effect.Effect<EntityId, CreateEntityError, never>
 
   readonly destroyEntity: (
     id: EntityId
-  ) => Effect.Effect<void, EntityNotFoundError>
+  ) => Effect.Effect<void, EntityNotFoundError, never>
 
   readonly getEntity: (
     id: EntityId
-  ) => Effect.Effect<Entity, EntityNotFoundError>
+  ) => Effect.Effect<Entity, EntityNotFoundError, never>
 
   readonly addComponent: <T extends Component>(
     entityId: EntityId,
     component: T
-  ) => Effect.Effect<void, EntityNotFoundError>
+  ) => Effect.Effect<void, EntityNotFoundError, never>
 
   readonly removeComponent: (
     entityId: EntityId,
     componentType: string
-  ) => Effect.Effect<void, ComponentNotFoundError>
+  ) => Effect.Effect<void, ComponentNotFoundError, never>
 
   readonly getComponent: <T extends Component>(
     entityId: EntityId,
     componentType: string
-  ) => Effect.Effect<T, ComponentNotFoundError>
+  ) => Effect.Effect<T, ComponentNotFoundError, never>
 
   readonly query: (
     ...componentTypes: string[]
-  ) => Effect.Effect<ReadonlyArray<EntityId>, never>
+  ) => Effect.Effect<ReadonlyArray<EntityId>, never, never>
 
   readonly queryWithComponents: <T extends Component[]>(
     ...componentTypes: string[]
-  ) => Effect.Effect<ReadonlyArray<[EntityId, T]>, never>
+  ) => Effect.Effect<ReadonlyArray<[EntityId, T]>, never, never>
+
+  // Streamベースのリアルタイムクエリ
+  readonly watchEntities: (
+    ...componentTypes: string[]
+  ) => Stream.Stream<[EntityId, ReadonlyArray<Component>], never, never>
+
+  // エンティティライフサイクルイベント
+  readonly entityEvents: Stream.Stream<EntityEvent, never, never>
+
+  // バッチ処理
+  readonly batchUpdate: <T>(
+    entities: ReadonlyArray<EntityId>,
+    updater: (entityId: EntityId) => Effect.Effect<T, never, never>
+  ) => Effect.Effect<ReadonlyArray<T>, never, never>
 }
 
-// Context Tag（最新パターン）
-export const EntityManager = Context.GenericTag<EntityManagerInterface>("@app/EntityManager")
+// エンティティイベント定義
+export const EntityEvent = Schema.Union(
+  Schema.TaggedStruct("EntityCreated", {
+    entityId: EntityId,
+    entityType: EntityType,
+    timestamp: Schema.DateFromSelf
+  }),
+  Schema.TaggedStruct("EntityDestroyed", {
+    entityId: EntityId,
+    timestamp: Schema.DateFromSelf
+  }),
+  Schema.TaggedStruct("ComponentAdded", {
+    entityId: EntityId,
+    componentType: Schema.String,
+    timestamp: Schema.DateFromSelf
+  }),
+  Schema.TaggedStruct("ComponentRemoved", {
+    entityId: EntityId,
+    componentType: Schema.String,
+    timestamp: Schema.DateFromSelf
+  })
+)
+export type EntityEvent = Schema.Schema.Type<typeof EntityEvent>
 
-// Live実装作成関数
+// Context Tag（最新パターン）
+export const EntityManager = Context.GenericTag<EntityManagerInterface>("@minecraft/EntityManager")
+
+// Live実装作成関数（最新Effect-TSパターン）
 const makeEntityManager = Effect.gen(function* () {
-  // エンティティストレージ
+  // サービス依存関係
+  const componentStore = yield* ComponentStore
+  const spatialIndex = yield* SpatialIndex
+
+  // ステート管理（STMでアトミックに操作）
   const entities = yield* Ref.make(new Map<EntityId, Entity>())
-  const componentStore = yield* createComponentStore()
-  const archetypes = yield* createArchetypeManager()
+  const archetypes = yield* Ref.make(new Map<string, Set<EntityId>>())
+  const eventQueue = yield* Queue.unbounded<EntityEvent>()
+
+  // アーキタイプ管理
+  const archetypeManager = yield* createArchetypeManager(archetypes)
 
     const createEntity = (
-      type: Entity["type"],
+      type: EntityType,
       components: ReadonlyArray<Component>
     ) => Effect.gen(function* () {
-      const id = yield* generateEntityId()
+      // Entity ID生成（UUIDブランド型）
+      const id = yield* Effect.sync(() => Schema.decodeSync(EntityId)(crypto.randomUUID()))
       const now = new Date()
 
-      const entity: Entity = {
-        id,
-        type,
-        active: true,
-        createdAt: now,
-        updatedAt: now
-      }
-
-      // STMトランザクションで原子的に更新
-      yield* STM.commit(
-        STM.gen(function* () {
-          yield* STM.set(entities, (map) => new Map(map).set(id, entity))
-
-          // コンポーネントを追加
-          for (const component of components) {
-            componentStore.set(id, component)
-          }
-
-          // アーキタイプ更新
-          yield* archetypes.updateArchetype(id, components.map(c => c._tag))
+      const entity = yield* Effect.sync(() =>
+        Schema.decodeSync(EntitySchema)({
+          id,
+          type,
+          active: true,
+          createdAt: now,
+          updatedAt: now
         })
       )
 
-      // イベント発行
-      yield* publishEntityCreatedEvent(id, type)
+      // STMトランザクションで原子的更新
+      yield* STM.commit(
+        STM.gen(function* () {
+          // エンティティ登録
+          yield* STM.update(entities, (map) => new Map(map).set(id, entity))
+
+          // コンポーネント追加（バッチ処理）
+          for (const component of components) {
+            yield* STM.commit(componentStore.set(id, component))
+          }
+
+          // アーキタイプ更新
+          const componentTypes = components.map(c => c._tag)
+          yield* archetypeManager.addEntity(id, componentTypes)
+        })
+      )
+
+      // イベント発行（非同期）
+      const event = {
+        _tag: "EntityCreated" as const,
+        entityId: id,
+        entityType: type,
+        timestamp: now
+      }
+      yield* Queue.offer(eventQueue, event)
+
+      // 空間インデックス登録（Positionコンポーネントがある場合）
+      const positionComponent = components.find(c => c._tag === "Position") as PositionComponent | undefined
+      if (positionComponent) {
+        yield* spatialIndex.insert(id, positionComponent.position)
+      }
 
       return id
     })
 
     const destroyEntity = (id: EntityId) =>
       Effect.gen(function* () {
-        const entity = yield* getEntity(id)
+        // 早期リターン: エンティティ存在確認
+        const entitiesMap = yield* Ref.get(entities)
+        const entity = entitiesMap.get(id)
+        if (!entity) {
+          return yield* Effect.fail(new EntityNotFoundError({ entityId: id }))
+        }
 
-        // STMトランザクションで原子的に削除
+        // STMトランザクションで原子的削除
         yield* STM.commit(
           STM.gen(function* () {
+            // エンティティ削除
             yield* STM.update(entities, (map) => {
               const newMap = new Map(map)
               newMap.delete(id)
               return newMap
             })
 
-            // 全コンポーネントを削除
-            componentStore.removeAll(id)
+            // コンポーネント全削除
+            const componentTypes = ["Position", "Velocity", "Health", "AI", "Combat", "Armor"]
+            for (const componentType of componentTypes) {
+              yield* STM.commit(componentStore.remove(id, componentType).pipe(
+                Effect.ignore // コンポーネントがない場合は無視
+              ))
+            }
 
             // アーキタイプから削除
-            yield* archetypes.removeEntity(id)
+            yield* archetypeManager.removeEntity(id)
           })
         )
 
+        // 空間インデックスから削除
+        yield* spatialIndex.remove(id)
+
         // イベント発行
-        yield* publishEntityDestroyedEvent(id)
+        const event = {
+          _tag: "EntityDestroyed" as const,
+          entityId: id,
+          timestamp: new Date()
+        }
+        yield* Queue.offer(eventQueue, event)
       })
 
     const query = (...componentTypes: string[]) =>
       Effect.gen(function* () {
         // アーキタイプベースの高速クエリ
-        return yield* archetypes.query(componentTypes)
+        return yield* archetypeManager.query(componentTypes)
       })
+
+    const watchEntities = (...componentTypes: string[]) =>
+      Stream.fromQueue(eventQueue).pipe(
+        Stream.filter((event) =>
+          event._tag === "EntityCreated" ||
+          event._tag === "ComponentAdded"
+        ),
+        Stream.mapEffect((event) =>
+          query(...componentTypes).pipe(
+            Effect.map(entityIds =>
+              entityIds.map(id => [id, []] as [EntityId, ReadonlyArray<Component>])
+            )
+          )
+        ),
+        Stream.flatten
+      )
+
+    const batchUpdate = <T>(
+      entityIds: ReadonlyArray<EntityId>,
+      updater: (entityId: EntityId) => Effect.Effect<T, never, never>
+    ) => Effect.forEach(entityIds, updater, { concurrency: "unbounded", batching: true })
 
     const queryWithComponents = <T extends Component[]>(
       ...componentTypes: string[]
@@ -355,44 +540,71 @@ const makeEntityManager = Effect.gen(function* () {
         const entitiesMap = yield* Ref.get(entities)
         const entity = entitiesMap.get(id)
 
-        if (!entity) {
-          return yield* Effect.fail(new EntityNotFoundError(id))
-        }
-
         return entity
-      }),
+          ? Effect.succeed(entity)
+          : Effect.fail(new EntityNotFoundError({ entityId: id }))
+      }).pipe(Effect.flatten),
+
       addComponent: (entityId, component) =>
         Effect.gen(function* () {
-          yield* getEntity(entityId) // 存在確認
-          componentStore.set(entityId, component)
-          yield* archetypes.addComponentToEntity(entityId, component._tag)
+          // 早期リターン: エンティティ存在確認
+          yield* getEntity(entityId)
+
+          // STMでアトミックにコンポーネント追加
+          yield* STM.commit(
+            STM.gen(function* () {
+              yield* STM.commit(componentStore.set(entityId, component))
+              yield* archetypeManager.addComponent(entityId, component._tag)
+            })
+          )
+
+          // イベント発行
+          const event = {
+            _tag: "ComponentAdded" as const,
+            entityId,
+            componentType: component._tag,
+            timestamp: new Date()
+          }
+          yield* Queue.offer(eventQueue, event)
         }),
+
       removeComponent: (entityId, componentType) =>
         Effect.gen(function* () {
-          componentStore.remove(entityId, componentType)
-          yield* archetypes.removeComponentFromEntity(entityId, componentType)
-        }),
-      getComponent: (entityId, componentType) =>
-        Effect.gen(function* () {
-          const component = componentStore.get(entityId, componentType)
+          yield* STM.commit(
+            STM.gen(function* () {
+              yield* STM.commit(componentStore.remove(entityId, componentType))
+              yield* archetypeManager.removeComponent(entityId, componentType)
+            })
+          )
 
-          if (Option.isNone(component)) {
-            return yield* Effect.fail(
-              new ComponentNotFoundError(entityId, componentType)
-            )
+          // イベント発行
+          const event = {
+            _tag: "ComponentRemoved" as const,
+            entityId,
+            componentType,
+            timestamp: new Date()
           }
-
-          return Option.getOrThrow(component)
+          yield* Queue.offer(eventQueue, event)
         }),
+
+      getComponent: (entityId, componentType) =>
+        componentStore.get(entityId, componentType),
+
       query,
-      queryWithComponents
+      queryWithComponents,
+      watchEntities,
+      entityEvents: Stream.fromQueue(eventQueue),
+      batchUpdate
     })
   })
 
-// Live Layer
+// Live Layer（依存関係あり）
 export const EntityManagerLive = Layer.effect(
   EntityManager,
   makeEntityManager
+).pipe(
+  Layer.provide(ComponentStoreLive),
+  Layer.provide(SpatialIndexLive)
 )
 ```
 
@@ -401,126 +613,301 @@ export const EntityManagerLive = Layer.effect(
 ### 移動システム
 
 ```typescript
-// MovementSystemインターフェース
-interface MovementSystemInterface {
-  readonly update: (deltaTime: number) => Effect.Effect<void, never>
+// Movementエラー定義
+export class MovementError extends Schema.TaggedError<MovementError>()("MovementError", {
+  entityId: EntityId,
+  reason: Schema.String
+}) {}
+
+export class CollisionError extends Schema.TaggedError<CollisionError>()("CollisionError", {
+  entityId: EntityId,
+  position: Vector3,
+  collisionType: Schema.String
+}) {}
+
+// MovementSystemインターフェース（最新パターン）
+export interface MovementSystemInterface {
+  readonly update: (
+    deltaTime: number
+  ) => Effect.Effect<void, never, never>
+
   readonly moveEntity: (
     entityId: EntityId,
     velocity: Vector3
-  ) => Effect.Effect<void, MovementError>
+  ) => Effect.Effect<void, MovementError, never>
+
+  readonly teleportEntity: (
+    entityId: EntityId,
+    position: Vector3
+  ) => Effect.Effect<void, MovementError, never>
+
+  // Streamベースの移動イベント
+  readonly movementEvents: Stream.Stream<MovementEvent, never, never>
+
+  // バッチ移動処理
+  readonly batchMove: (
+    movements: ReadonlyArray<{ entityId: EntityId; velocity: Vector3 }>
+  ) => Effect.Effect<void, MovementError, never>
 }
 
-// Context Tag（最新パターン）
-export const MovementSystem = Context.GenericTag<MovementSystemInterface>("@app/MovementSystem")
+// 移動イベント定義
+export const MovementEvent = Schema.Union(
+  Schema.TaggedStruct("EntityMoved", {
+    entityId: EntityId,
+    from: Vector3,
+    to: Vector3,
+    velocity: Vector3,
+    timestamp: Schema.DateFromSelf
+  }),
+  Schema.TaggedStruct("CollisionDetected", {
+    entityId: EntityId,
+    position: Vector3,
+    normal: Vector3,
+    timestamp: Schema.DateFromSelf
+  })
+)
+export type MovementEvent = Schema.Schema.Type<typeof MovementEvent>
 
-// Live実装作成関数
+// Context Tag（最新パターン）
+export const MovementSystem = Context.GenericTag<MovementSystemInterface>("@minecraft/MovementSystem")
+
+// Live実装作成関数（最新Effect-TSパターン）
 const makeMovementSystem = Effect.gen(function* () {
+  // 依存サービス
   const entityManager = yield* EntityManager
-  const physics = yield* PhysicsService
-  const world = yield* WorldService
+  const physicsService = yield* PhysicsService
+  const worldService = yield* WorldService
+  const spatialIndex = yield* SpatialIndex
+
+  // イベントキュー
+  const movementEventQueue = yield* Queue.unbounded<MovementEvent>()
 
     const update = (deltaTime: number) =>
-      entityManager.queryWithComponents<[PositionComponent, VelocityComponent]>("Position", "Velocity").pipe(
-        Effect.flatMap(entities =>
-          Effect.forEach(
-            entities,
-            ([entityId, [position, velocity]]) =>
-              updateEntityPosition(entityId, position, velocity, deltaTime),
-            { concurrency: "unbounded" }
-          )
+      Effect.gen(function* () {
+        // Position + Velocityを持つエンティティをストリーム処理
+        const movableEntities = yield* entityManager.queryWithComponents<
+          [PositionComponent, VelocityComponent]
+        >("Position", "Velocity")
+
+        // バッチ処理でパフォーマンス最適化
+        yield* Effect.forEach(
+          Chunk.fromIterable(movableEntities),
+          ([entityId, [position, velocity]]) =>
+            updateEntityPosition(entityId, position, velocity, deltaTime),
+          {
+            concurrency: "inherit",
+            batching: true,
+            discard: true
+          }
         )
-      )
+      })
 
     const updateEntityPosition = (
       entityId: EntityId,
       position: PositionComponent,
       velocity: VelocityComponent,
       deltaTime: number
-    ) => {
-      // 純粋関数として分離
-      const calculateNewPosition = (pos: PositionComponent, vel: VelocityComponent, dt: number) => ({
-        x: pos.x + vel.x * dt,
-        y: pos.y + vel.y * dt,
-        z: pos.z + vel.z * dt
+    ) => Effect.gen(function* () {
+      // 純粋関数: 新位置計算
+      const calculateNewPosition = (
+        currentPos: Vector3,
+        vel: Vector3,
+        dt: number
+      ): Vector3 => ({
+        x: currentPos.x + vel.x * dt,
+        y: currentPos.y + vel.y * dt,
+        z: currentPos.z + vel.z * dt
       })
 
-      const applyGravity = (vel: VelocityComponent, dt: number) => ({
+      // 純粋関数: 重力適用
+      const applyGravity = (vel: Vector3, dt: number): Vector3 => ({
         ...vel,
-        y: vel.y - 9.81 * dt // 重力加速度
+        y: vel.y - 9.81 * dt // Minecraftの重力加速度
       })
 
-      const newPosition = calculateNewPosition(position, velocity, deltaTime)
+      const currentPos = position.position
+      const currentVel = velocity.velocity
+      const newPosition = calculateNewPosition(currentPos, currentVel, deltaTime)
+      const newVelocity = applyGravity(currentVel, deltaTime)
 
-      return entityManager.getComponent<BoundingBoxComponent>(entityId, "BoundingBox").pipe(
-        Effect.orElseSucceed(() => ({
-          _tag: "BoundingBox" as const,
-          width: 0.6,
-          height: 1.8,
-          depth: 0.6
-        })),
-        Effect.flatMap(boundingBox =>
-          physics.checkCollision(newPosition, boundingBox).pipe(
-            Effect.flatMap(collision =>
-              collision.hasCollision
-                ? resolveEntityCollision(entityId, position, newPosition, velocity, collision)
-                : updateEntityComponents(entityId, newPosition, applyGravity(velocity, deltaTime))
-            )
-          )
+      // 早期リターン: BoundingBox取得
+      const boundingBox = yield* entityManager.getComponent<BoundingBoxComponent>(
+        entityId,
+        "BoundingBox"
+      ).pipe(
+        Effect.orElse(() =>
+          Effect.succeed({
+            _tag: "BoundingBox" as const,
+            size: { width: 0.6, height: 1.8, depth: 0.6 }
+          } as BoundingBoxComponent)
         )
       )
+
+      // 衝突検知
+      const collision = yield* physicsService.checkCollision(newPosition, boundingBox)
+
+      // Match.valueパターンで衝突処理
+      yield* Match.value(collision).pipe(
+        Match.when(
+          (c) => c.hasCollision,
+          (c) => resolveEntityCollision(entityId, currentPos, newPosition, newVelocity, c)
+        ),
+        Match.orElse(() => updateEntityComponents(entityId, newPosition, newVelocity))
+      )
+    })
     }
 
     const resolveEntityCollision = (
       entityId: EntityId,
-      oldPosition: PositionComponent,
+      oldPosition: Vector3,
       newPosition: Vector3,
-      velocity: VelocityComponent,
+      velocity: Vector3,
       collision: CollisionResult
-    ) =>
-      physics.resolveCollision(oldPosition, newPosition, collision).pipe(
-        Effect.flatMap(resolvedPosition => {
-          const updatedVelocity = collision.axis === "y" && velocity.y < 0
-            ? { ...velocity, y: 0 }
-            : velocity
+    ) => Effect.gen(function* () {
+      // 衝突解決
+      const resolvedPosition = yield* physicsService.resolveCollision(
+        oldPosition,
+        newPosition,
+        collision
+      )
 
-          return Effect.all([
-            entityManager.addComponent(entityId, updatedVelocity),
-            updateEntityComponents(entityId, resolvedPosition, updatedVelocity)
-          ]).pipe(Effect.asVoid)
+      // 速度調整（地面衝突時はY速度リセット）
+      const adjustedVelocity = collision.axis === "y" && velocity.y < 0
+        ? { ...velocity, y: 0 }
+        : velocity
+
+      // コンポーネント更新（STMでアトミック）
+      yield* STM.commit(
+        STM.gen(function* () {
+          yield* STM.commit(updateEntityComponents(entityId, resolvedPosition, adjustedVelocity))
         })
       )
+
+      // 衝突イベント発行
+      const collisionEvent = {
+        _tag: "CollisionDetected" as const,
+        entityId,
+        position: resolvedPosition,
+        normal: collision.normal,
+        timestamp: new Date()
+      }
+      yield* Queue.offer(movementEventQueue, collisionEvent)
+    })
 
     const updateEntityComponents = (
       entityId: EntityId,
       position: Vector3,
-      velocity: VelocityComponent
-    ) =>
-      Effect.all([
-        entityManager.addComponent(entityId, {
-          _tag: "Position" as const,
-          ...position,
-          chunk: {
-            x: Math.floor(position.x / 16),
-            z: Math.floor(position.z / 16)
-          }
-        }),
-        entityManager.addComponent(entityId, velocity)
-      ]).pipe(Effect.asVoid)
+      velocity: Vector3
+    ) => Effect.gen(function* () {
+      // チャンク位置計算
+      const chunkPos = {
+        x: Math.floor(position.x / 16),
+        z: Math.floor(position.z / 16)
+      }
+
+      // Positionコンポーネント更新
+      const newPositionComponent = {
+        _tag: "Position" as const,
+        position,
+        chunk: chunkPos
+      } as PositionComponent
+
+      // Velocityコンポーネント更新
+      const newVelocityComponent = {
+        _tag: "Velocity" as const,
+        velocity
+      } as VelocityComponent
+
+      // コンポーネント同時更新（STMでアトミック）
+      yield* STM.commit(
+        STM.gen(function* () {
+          yield* STM.commit(entityManager.addComponent(entityId, newPositionComponent))
+          yield* STM.commit(entityManager.addComponent(entityId, newVelocityComponent))
+        })
+      )
+
+      // 空間インデックス更新
+      yield* spatialIndex.update(entityId, position)
+
+      // 移動イベント発行
+      const moveEvent = {
+        _tag: "EntityMoved" as const,
+        entityId,
+        from: position, // TODO: 前の位置を保持
+        to: position,
+        velocity,
+        timestamp: new Date()
+      }
+      yield* Queue.offer(movementEventQueue, moveEvent)
+    })
 
     const moveEntity = (entityId: EntityId, velocity: Vector3) =>
       Effect.gen(function* () {
-        const position = yield* entityManager.getComponent<PositionComponent>(
-          entityId,
-          "Position"
-        )
+        // 早期リターン: エンティティ存在確認
+        yield* entityManager.getEntity(entityId)
 
-        yield* entityManager.addComponent(entityId, {
+        // Velocityコンポーネント更新
+        const velocityComponent = {
           _tag: "Velocity" as const,
-          ...velocity
-        })
-      })
+          velocity
+        } as VelocityComponent
 
-    return MovementSystem.of({ update, moveEntity })
+        yield* entityManager.addComponent(entityId, velocityComponent)
+      }).pipe(
+        Effect.mapError(
+          (error) =>
+            new MovementError({
+              entityId,
+              reason: `Failed to set velocity: ${error}`
+            })
+        )
+      )
+
+    const teleportEntity = (entityId: EntityId, position: Vector3) =>
+      Effect.gen(function* () {
+        // 早期リターン: エンティティ存在確認
+        yield* entityManager.getEntity(entityId)
+
+        // チャンク位置計算
+        const chunkPos = {
+          x: Math.floor(position.x / 16),
+          z: Math.floor(position.z / 16)
+        }
+
+        const positionComponent = {
+          _tag: "Position" as const,
+          position,
+          chunk: chunkPos
+        } as PositionComponent
+
+        yield* entityManager.addComponent(entityId, positionComponent)
+        yield* spatialIndex.update(entityId, position)
+      }).pipe(
+        Effect.mapError(
+          (error) =>
+            new MovementError({
+              entityId,
+              reason: `Failed to teleport: ${error}`
+            })
+        )
+      )
+
+    const batchMove = (
+      movements: ReadonlyArray<{ entityId: EntityId; velocity: Vector3 }>
+    ) =>
+      Effect.forEach(
+        movements,
+        ({ entityId, velocity }) => moveEntity(entityId, velocity),
+        { concurrency: "unbounded", batching: true, discard: true }
+      )
+
+    return MovementSystem.of({
+      update,
+      moveEntity,
+      teleportEntity,
+      movementEvents: Stream.fromQueue(movementEventQueue),
+      batchMove
+    })
   })
 
 // Live Layer
@@ -533,37 +920,131 @@ export const MovementSystemLive = Layer.effect(
 ### AIシステム
 
 ```typescript
-// AISystemインターフェース
-interface AISystemInterface {
-  readonly update: (deltaTime: number) => Effect.Effect<void, never>
+// AIエラー定義
+export class AIError extends Schema.TaggedError<AIError>()("AIError", {
+  entityId: EntityId,
+  reason: Schema.String,
+  state: Schema.optional(AIState)
+}) {}
+
+export class PathfindingError extends Schema.TaggedError<PathfindingError>()("PathfindingError", {
+  entityId: EntityId,
+  from: Vector3,
+  to: Vector3,
+  reason: Schema.String
+}) {}
+
+// AISystemインターフェース（最新Effect-TSパターン）
+export interface AISystemInterface {
+  readonly update: (
+    deltaTime: number
+  ) => Effect.Effect<void, never, never>
+
   readonly setTarget: (
     entityId: EntityId,
     targetId: EntityId
-  ) => Effect.Effect<void, never>
-  readonly clearTarget: (entityId: EntityId) => Effect.Effect<void, never>
+  ) => Effect.Effect<void, AIError, never>
+
+  readonly clearTarget: (
+    entityId: EntityId
+  ) => Effect.Effect<void, AIError, never>
+
+  readonly setState: (
+    entityId: EntityId,
+    state: AIState
+  ) => Effect.Effect<void, AIError, never>
+
+  // StreamベースのAIイベント
+  readonly aiEvents: Stream.Stream<AIEvent, never, never>
+
+  // AIパフォーマンスメトリクス
+  readonly getMetrics: Effect.Effect<AIMetrics, never, never>
 }
 
-// Context Tag（最新パターン）
-export const AISystem = Context.GenericTag<AISystemInterface>("@app/AISystem")
+// AIイベント定義
+export const AIEvent = Schema.Union(
+  Schema.TaggedStruct("AIStateChanged", {
+    entityId: EntityId,
+    fromState: AIState,
+    toState: AIState,
+    timestamp: Schema.DateFromSelf
+  }),
+  Schema.TaggedStruct("TargetAcquired", {
+    entityId: EntityId,
+    targetId: EntityId,
+    distance: Schema.Number.pipe(Schema.positive()),
+    timestamp: Schema.DateFromSelf
+  }),
+  Schema.TaggedStruct("PathCalculated", {
+    entityId: EntityId,
+    pathLength: Schema.Number.pipe(Schema.int(), Schema.positive()),
+    timestamp: Schema.DateFromSelf
+  })
+)
+export type AIEvent = Schema.Schema.Type<typeof AIEvent>
 
-// Live実装作成関数
+// AIメトリクス
+export const AIMetrics = Schema.Struct({
+  activeAIEntities: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  averageUpdateTime: Schema.Number.pipe(Schema.positive()),
+  pathfindingRequests: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  stateTransitions: Schema.Number.pipe(Schema.int(), Schema.nonNegative())
+})
+export type AIMetrics = Schema.Schema.Type<typeof AIMetrics>
+
+// Context Tag（最新パターン）
+export const AISystem = Context.GenericTag<AISystemInterface>("@minecraft/AISystem")
+
+// Live実装作成関数（最新Effect-TSパターン）
 const makeAISystem = Effect.gen(function* () {
+  // 依存サービス
   const entityManager = yield* EntityManager
-  const pathfinding = yield* PathfindingService
-  const movement = yield* MovementSystem
+  const pathfindingService = yield* PathfindingService
+  const movementSystem = yield* MovementSystem
+  const spatialIndex = yield* SpatialIndex
+
+  // AIイベントキューとメトリクス
+  const aiEventQueue = yield* Queue.unbounded<AIEvent>()
+  const metricsRef = yield* Ref.make<AIMetrics>({
+    activeAIEntities: 0,
+    averageUpdateTime: 0,
+    pathfindingRequests: 0,
+    stateTransitions: 0
+  })
 
     const update = (deltaTime: number) =>
       Effect.gen(function* () {
+        const startTime = Date.now()
+
+        // AIエンティティ取得（Streamベース）
         const aiEntities = yield* entityManager.queryWithComponents<
           [AIComponent, PositionComponent]
         >("AI", "Position")
 
+        // アクティブAI数更新
+        yield* Ref.update(metricsRef, metrics => ({
+          ...metrics,
+          activeAIEntities: aiEntities.length
+        }))
+
+        // バッチAI更新（コンカレンシー制限）
         yield* Effect.forEach(
-          aiEntities,
+          Chunk.fromIterable(aiEntities),
           ([entityId, [ai, position]]) =>
             updateAI(entityId, ai, position, deltaTime),
-          { concurrency: 10 } // AI処理の並列度を制限
+          {
+            concurrency: 8, // AI処理の並列度を制限
+            batching: true,
+            discard: true
+          }
         )
+
+        // パフォーマンスメトリクス更新
+        const endTime = Date.now()
+        yield* Ref.update(metricsRef, metrics => ({
+          ...metrics,
+          averageUpdateTime: (metrics.averageUpdateTime + (endTime - startTime)) / 2
+        }))
       })
 
     const updateAI = (
@@ -574,21 +1055,40 @@ const makeAISystem = Effect.gen(function* () {
     ) => Effect.gen(function* () {
       // 早期リターン: AI無効化チェック
       if (!ai.enabled) {
-        return yield* Effect.void
+        return
       }
 
-      // Match.valueパターンで状態処理
-      yield* Match.value(ai.state.current).pipe(
+      // タイムアウトチェック
+      const now = Date.now()
+      const stateAge = now - ai.lastStateChange.getTime()
+      if (ai.stateTimeout && stateAge > ai.stateTimeout * 1000) {
+        yield* setState(entityId, "idle" as AIState)
+        return
+      }
+
+      // Match.valueパターンで状態処理（最新パターン）
+      yield* Match.value(ai.currentState).pipe(
         Match.when("idle", () => handleIdleState(entityId, ai, position)),
         Match.when("wander", () => handleWanderState(entityId, ai, position, deltaTime)),
         Match.when("follow", () => handleFollowState(entityId, ai, position, deltaTime)),
         Match.when("attack", () => handleAttackState(entityId, ai, position, deltaTime)),
         Match.when("flee", () => handleFleeState(entityId, ai, position, deltaTime)),
-        Match.orElse(() => Effect.sync(() => {
-          console.warn(`不明なAI状態: ${ai.state.current}`)
-        }))
+        Match.when("pathfind", () => handlePathfindState(entityId, ai, position, deltaTime)),
+        Match.orElse((unknownState) =>
+          Effect.gen(function* () {
+            console.warn(`不明なAI状態: ${unknownState}`)
+            yield* setState(entityId, "idle" as AIState)
+          })
+        )
       )
-    })
+    }).pipe(
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          console.error(`AI更新エラー (Entity ${entityId}):`, error)
+          yield* setState(entityId, "idle" as AIState)
+        })
+      )
+    )
 
     const handleWanderState = (
       entityId: EntityId,
@@ -596,51 +1096,73 @@ const makeAISystem = Effect.gen(function* () {
       position: PositionComponent,
       deltaTime: number
     ) => Effect.gen(function* () {
-      // ランダムな目的地を設定
-      if (!ai.state.path || ai.state.path.length === 0) {
-        const target = {
-          x: position.x + (Math.random() - 0.5) * 20,
-          y: position.y,
-          z: position.z + (Math.random() - 0.5) * 20
+      // 早期リターン: パス確認
+      if (!ai.path || ai.path.length === 0) {
+        // ランダムな目的地生成
+        const wanderRadius = 15
+        const target: Vector3 = {
+          x: position.position.x + (Math.random() - 0.5) * wanderRadius * 2,
+          y: position.position.y,
+          z: position.position.z + (Math.random() - 0.5) * wanderRadius * 2
         }
 
-        const path = yield* pathfinding.findPath(
-          position,
+        // パスファインディングリクエスト
+        const path = yield* pathfindingService.findPath(
+          position.position,
           target
-        ).pipe(Effect.orElseSucceed(() => []))
+        ).pipe(
+          Effect.orElse(() => Effect.succeed([])),
+          Effect.tap(() => Ref.update(metricsRef, m => ({ ...m, pathfindingRequests: m.pathfindingRequests + 1 })))
+        )
 
-        yield* entityManager.addComponent(entityId, {
-          ...ai,
-          state: { ...ai.state, path }
-        })
+        if (path.length > 0) {
+          const pathPoints = path.map(pos => ({
+            position: pos,
+            timestamp: new Date()
+          }))
+
+          const updatedAI = {
+            ...ai,
+            path: pathPoints
+          }
+          yield* entityManager.addComponent(entityId, updatedAI)
+
+          // パスイベント発行
+          const pathEvent = {
+            _tag: "PathCalculated" as const,
+            entityId,
+            pathLength: path.length,
+            timestamp: new Date()
+          }
+          yield* Queue.offer(aiEventQueue, pathEvent)
+        }
       }
 
       // パスに沿って移動
-      if (ai.state.path && ai.state.path.length > 0) {
-        const nextPoint = ai.state.path[0]
-        const distance = calculateDistance(position, nextPoint)
+      if (ai.path && ai.path.length > 0) {
+        const nextPoint = ai.path[0]
+        const distance = calculateDistance(position.position, nextPoint.position)
 
-        if (distance < 0.5) {
-          // 次のポイントへ
-          yield* entityManager.addComponent(entityId, {
+        if (distance < 1.0) {
+          // 次のポイントへ進む
+          const updatedAI = {
             ...ai,
-            state: {
-              ...ai.state,
-              path: ai.state.path.slice(1)
-            }
-          })
+            path: ai.path.slice(1)
+          }
+          yield* entityManager.addComponent(entityId, updatedAI)
         } else {
-          // 移動
+          // 方向計算と移動
           const direction = normalize({
-            x: nextPoint.x - position.x,
+            x: nextPoint.position.x - position.position.x,
             y: 0,
-            z: nextPoint.z - position.z
+            z: nextPoint.position.z - position.position.z
           })
 
-          yield* movement.moveEntity(entityId, {
-            x: direction.x * 2,
-            y: 0,
-            z: direction.z * 2
+          const wanderSpeed = 2.0
+          yield* movementSystem.moveEntity(entityId, {
+            x: direction.x * wanderSpeed,
+            y: -0.1, // 軽い重力
+            z: direction.z * wanderSpeed
           })
         }
       }
@@ -652,84 +1174,236 @@ const makeAISystem = Effect.gen(function* () {
       position: PositionComponent,
       deltaTime: number
     ) => Effect.gen(function* () {
-      if (!ai.state.target) return
+      // 早期リターン: ターゲット確認
+      if (!ai.target) {
+        yield* setState(entityId, "idle" as AIState)
+        return
+      }
 
+      // ターゲット位置取得
       const targetPosition = yield* entityManager.getComponent<PositionComponent>(
-        ai.state.target,
+        ai.target,
         "Position"
-      ).pipe(Effect.orElse(() => {
-        // ターゲットが存在しない場合はアイドル状態へ
-        return Effect.gen(function* () {
-          yield* entityManager.addComponent(entityId, {
-            ...ai,
-            state: { ...ai.state, current: "idle", target: undefined }
+      ).pipe(
+        Effect.orElse(() =>
+          Effect.gen(function* () {
+            // ターゲット消失時の処理
+            yield* clearTarget(entityId)
+            return yield* Effect.fail(new AIError({
+              entityId,
+              reason: "ターゲットエンティティが見つかりません"
+            }))
           })
-          return yield* Effect.fail(new Error("ターゲットが見つかりません"))
-        })
-      }))
+        )
+      )
 
-      const distance = calculateDistance(position, targetPosition)
+      const distance = calculateDistance(position.position, targetPosition.position)
+      const attackRange = 2.5
+      const chaseRange = 16.0
+      const loseTargetRange = 32.0
 
-      if (distance < 2) {
-        // 攻撃範囲内
-        yield* performAttack(entityId, ai.state.target)
-      } else if (distance < 16) {
-        // 追跡
-        const path = yield* pathfinding.findPath(position, targetPosition)
-        yield* entityManager.addComponent(entityId, {
+      // Match.valueパターンで距離による動作分岐
+      yield* Match.value(distance).pipe(
+        Match.when(
+          (d) => d <= attackRange,
+          () => Effect.gen(function* () {
+            // 攻撃実行
+            yield* performAttack(entityId, ai.target!)
+          })
+        ),
+        Match.when(
+          (d) => d > attackRange && d <= chaseRange,
+          () => Effect.gen(function* () {
+            // 追跡モード
+            const path = yield* pathfindingService.findPath(
+              position.position,
+              targetPosition.position
+            ).pipe(Effect.orElse(() => Effect.succeed([])))
+
+            if (path.length > 0) {
+              const pathPoints = path.map(pos => ({
+                position: pos,
+                timestamp: new Date()
+              }))
+
+              const updatedAI = { ...ai, path: pathPoints }
+              yield* entityManager.addComponent(entityId, updatedAI)
+              yield* setState(entityId, "pathfind" as AIState)
+            }
+          })
+        ),
+        Match.orElse(() => Effect.gen(function* () {
+          // 範囲外 - ターゲットをクリア
+          yield* clearTarget(entityId)
+        }))
+      )
+    })
+
+    const handlePathfindState = (
+      entityId: EntityId,
+      ai: AIComponent,
+      position: PositionComponent,
+      deltaTime: number
+    ) => Effect.gen(function* () {
+      // パスフォロー処理
+      if (!ai.path || ai.path.length === 0) {
+        yield* setState(entityId, "idle" as AIState)
+        return
+      }
+
+      const nextPoint = ai.path[0]
+      const distance = calculateDistance(position.position, nextPoint.position)
+
+      if (distance < 1.0) {
+        // 次のポイントへ
+        const updatedAI = {
           ...ai,
-          state: { ...ai.state, path }
-        })
+          path: ai.path.slice(1)
+        }
+        yield* entityManager.addComponent(entityId, updatedAI)
+
+        // パス完了チェック
+        if (updatedAI.path.length === 0) {
+          yield* setState(entityId, ai.target ? "attack" as AIState : "wander" as AIState)
+        }
       } else {
-        // 範囲外 - アイドル状態へ
-        yield* entityManager.addComponent(entityId, {
-          ...ai,
-          state: { ...ai.state, current: "idle", target: undefined }
+        // パスに沿って移動
+        const direction = normalize({
+          x: nextPoint.position.x - position.position.x,
+          y: 0,
+          z: nextPoint.position.z - position.position.z
+        })
+
+        const moveSpeed = ai.target ? 4.0 : 2.0 // 攻撃時は高速
+        yield* movementSystem.moveEntity(entityId, {
+          x: direction.x * moveSpeed,
+          y: -0.1,
+          z: direction.z * moveSpeed
         })
       }
     })
 
+    const setState = (entityId: EntityId, newState: AIState) =>
+      Effect.gen(function* () {
+        const ai = yield* entityManager.getComponent<AIComponent>(entityId, "AI")
+        const oldState = ai.currentState
+
+        const updatedAI = {
+          ...ai,
+          currentState: newState,
+          lastStateChange: new Date()
+        }
+        yield* entityManager.addComponent(entityId, updatedAI)
+
+        // 状態変更イベント発行
+        const stateEvent = {
+          _tag: "AIStateChanged" as const,
+          entityId,
+          fromState: oldState,
+          toState: newState,
+          timestamp: new Date()
+        }
+        yield* Queue.offer(aiEventQueue, stateEvent)
+
+        // メトリクス更新
+        yield* Ref.update(metricsRef, m => ({
+          ...m,
+          stateTransitions: m.stateTransitions + 1
+        }))
+      }).pipe(
+        Effect.mapError((error) =>
+          new AIError({
+            entityId,
+            reason: `Failed to set AI state: ${error}`,
+            state: newState
+          })
+        )
+      )
+
+    const setTarget = (entityId: EntityId, targetId: EntityId) =>
+      Effect.gen(function* () {
+        const ai = yield* entityManager.getComponent<AIComponent>(entityId, "AI")
+        const targetPos = yield* entityManager.getComponent<PositionComponent>(
+          targetId,
+          "Position"
+        )
+        const entityPos = yield* entityManager.getComponent<PositionComponent>(
+          entityId,
+          "Position"
+        )
+
+        const distance = calculateDistance(entityPos.position, targetPos.position)
+
+        const updatedAI = {
+          ...ai,
+          target: targetId,
+          currentState: "attack" as AIState,
+          lastStateChange: new Date()
+        }
+        yield* entityManager.addComponent(entityId, updatedAI)
+
+        // ターゲット取得イベント
+        const targetEvent = {
+          _tag: "TargetAcquired" as const,
+          entityId,
+          targetId,
+          distance,
+          timestamp: new Date()
+        }
+        yield* Queue.offer(aiEventQueue, targetEvent)
+      }).pipe(
+        Effect.mapError((error) =>
+          new AIError({
+            entityId,
+            reason: `Failed to set target: ${error}`
+          })
+        )
+      )
+
+    const clearTarget = (entityId: EntityId) =>
+      Effect.gen(function* () {
+        const ai = yield* entityManager.getComponent<AIComponent>(entityId, "AI")
+
+        const updatedAI = {
+          ...ai,
+          target: undefined,
+          currentState: "idle" as AIState,
+          path: undefined,
+          lastStateChange: new Date()
+        }
+        yield* entityManager.addComponent(entityId, updatedAI)
+      }).pipe(
+        Effect.mapError((error) =>
+          new AIError({
+            entityId,
+            reason: `Failed to clear target: ${error}`
+          })
+        )
+      )
+
+    const getMetrics = Effect.gen(function* () {
+      return yield* Ref.get(metricsRef)
+    })
+
     return AISystem.of({
       update,
-      setTarget: (entityId, targetId) =>
-        Effect.gen(function* () {
-          const ai = yield* entityManager.getComponent<AIComponent>(
-            entityId,
-            "AI"
-          )
-
-          yield* entityManager.addComponent(entityId, {
-            ...ai,
-            state: {
-              ...ai.state,
-              current: "attack",
-              target: targetId
-            }
-          })
-        }),
-      clearTarget: (entityId) =>
-        Effect.gen(function* () {
-          const ai = yield* entityManager.getComponent<AIComponent>(
-            entityId,
-            "AI"
-          )
-
-          yield* entityManager.addComponent(entityId, {
-            ...ai,
-            state: {
-              ...ai.state,
-              current: "idle",
-              target: undefined
-            }
-          })
-        })
+      setTarget,
+      clearTarget,
+      setState,
+      aiEvents: Stream.fromQueue(aiEventQueue),
+      getMetrics
     })
   })
 
-// Live Layer
+// Live Layer（依存関係あり）
 export const AISystemLive = Layer.effect(
   AISystem,
   makeAISystem
+).pipe(
+  Layer.provide(EntityManagerLive),
+  Layer.provide(PathfindingServiceLive),
+  Layer.provide(MovementSystemLive),
+  Layer.provide(SpatialIndexLive)
 )
 ```
 
@@ -738,114 +1412,332 @@ export const AISystemLive = Layer.effect(
 ### エンティティ作成パターン
 
 ```typescript
-// EntityFactoryインターフェース
-interface EntityFactoryInterface {
+// エンティティアーキタイプ定義（Schemaベース）
+export const PlayerArchetype = Schema.Struct({
+  _tag: Schema.Literal("PlayerArchetype"),
+  name: Schema.String,
+  level: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  experience: Schema.Number.pipe(Schema.nonNegative()),
+  gameMode: Schema.Literal("survival", "creative", "adventure", "spectator")
+})
+export type PlayerArchetype = Schema.Schema.Type<typeof PlayerArchetype>
+
+export const MobArchetype = Schema.Struct({
+  _tag: Schema.Literal("MobArchetype"),
+  mobType: EntityType,
+  health: Health,
+  damage: Damage,
+  speed: Schema.Number.pipe(Schema.positive()),
+  behaviors: Schema.Array(AIBehavior),
+  hostileToPlayer: Schema.Boolean
+})
+export type MobArchetype = Schema.Schema.Type<typeof MobArchetype>
+
+export const ItemArchetype = Schema.Struct({
+  _tag: Schema.Literal("ItemArchetype"),
+  itemId: Schema.String,
+  stackSize: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  pickupDelay: Schema.Number.pipe(Schema.nonNegative()),
+  despawnTime: Schema.Number.pipe(Schema.positive())
+})
+export type ItemArchetype = Schema.Schema.Type<typeof ItemArchetype>
+
+// EntityFactoryインターフェース（最新Effect-TSパターン）
+export interface EntityFactoryInterface {
   readonly createPlayer: (
-    name: string,
+    archetype: PlayerArchetype,
     position: Vector3
-  ) => Effect.Effect<EntityId, CreateEntityError>
+  ) => Effect.Effect<EntityId, CreateEntityError, never>
 
   readonly createMob: (
-    type: MobType,
+    archetype: MobArchetype,
     position: Vector3
-  ) => Effect.Effect<EntityId, CreateEntityError>
+  ) => Effect.Effect<EntityId, CreateEntityError, never>
 
   readonly createItem: (
-    itemStack: ItemStack,
+    archetype: ItemArchetype,
     position: Vector3,
     velocity?: Vector3
-  ) => Effect.Effect<EntityId, CreateEntityError>
+  ) => Effect.Effect<EntityId, CreateEntityError, never>
 
   readonly createProjectile: (
-    type: ProjectileType,
+    projectileType: EntityType,
     position: Vector3,
     velocity: Vector3,
     owner: EntityId
-  ) => Effect.Effect<EntityId, CreateEntityError>
+  ) => Effect.Effect<EntityId, CreateEntityError, never>
+
+  // バッチ生成
+  readonly batchCreate: (
+    requests: ReadonlyArray<{
+      type: EntityType
+      archetype: unknown
+      position: Vector3
+    }>
+  ) => Effect.Effect<ReadonlyArray<EntityId>, CreateEntityError, never>
+
+  // アーキタイプファクトリ
+  readonly getArchetypeFactory: <T>(
+    type: EntityType
+  ) => Effect.Effect<(config: unknown) => T, CreateEntityError, never>
 }
 
 // Context Tag（最新パターン）
-export const EntityFactory = Context.GenericTag<EntityFactoryInterface>("@app/EntityFactory")
+export const EntityFactory = Context.GenericTag<EntityFactoryInterface>("@minecraft/EntityFactory")
 
-// Live実装作成関数
+// Live実装作成関数（Schemaベースアーキタイプ）
 const makeEntityFactory = Effect.gen(function* () {
   const entityManager = yield* EntityManager
 
-    const createPlayer = (name: string, position: Vector3) =>
-      entityManager.createEntity("player", [
-        {
-          _tag: "Position",
-          ...position,
-          chunk: { x: Math.floor(position.x / 16), z: Math.floor(position.z / 16) }
-        },
-        { _tag: "Velocity", x: 0, y: 0, z: 0 },
-        { _tag: "Rotation", yaw: 0, pitch: 0 },
-        { _tag: "BoundingBox", width: 0.6, height: 1.8, depth: 0.6 },
-        { _tag: "Health", current: 20, max: 20, regeneration: 0.1 },
-        { _tag: "PlayerData", name, level: 0, experience: 0 }
-      ])
+  // アーキタイプファクトリマップ
+  const archetypeFactories = new Map<EntityType, (config: unknown) => unknown>()
 
-    const createMob = (type: MobType, position: Vector3) => {
-      const mobConfig = getMobConfig(type)
+    const createPlayer = (archetype: PlayerArchetype, position: Vector3) =>
+      Effect.gen(function* () {
+        // プレイヤーコンポーネント群をSchemaで定義
+        const components: Component[] = [
+          {
+            _tag: "Position",
+            position,
+            chunk: {
+              x: Math.floor(position.x / 16),
+              z: Math.floor(position.z / 16)
+            }
+          } as PositionComponent,
+          {
+            _tag: "Velocity",
+            velocity: { x: 0, y: 0, z: 0 }
+          } as VelocityComponent,
+          {
+            _tag: "Rotation",
+            yaw: 0,
+            pitch: 0
+          } as RotationComponent,
+          {
+            _tag: "BoundingBox",
+            size: { width: 0.6, height: 1.8, depth: 0.6 }
+          } as BoundingBoxComponent,
+          {
+            _tag: "Health",
+            current: 20 as Health,
+            max: 20 as Health,
+            regeneration: 0.1
+          } as HealthComponent,
+          {
+            _tag: "PlayerData",
+            ...archetype
+          } as any // PlayerDataコンポーネントは別途定義が必要
+        ]
 
-      return entityManager.createEntity(type, [
-        {
-          _tag: "Position",
-          ...position,
-          chunk: { x: Math.floor(position.x / 16), z: Math.floor(position.z / 16) }
-        },
-        { _tag: "Velocity", x: 0, y: 0, z: 0 },
-        { _tag: "Rotation", yaw: Math.random() * 360 - 180, pitch: 0 },
-        {
-          _tag: "BoundingBox",
-          width: mobConfig.width,
-          height: mobConfig.height,
-          depth: mobConfig.depth
-        },
-        {
-          _tag: "Health",
-          current: mobConfig.health,
-          max: mobConfig.health,
-          regeneration: 0
-        },
-        {
-          _tag: "AI",
-          enabled: true,
-          behaviors: mobConfig.behaviors,
-          state: { current: "idle", memory: {} }
-        },
-        {
-          _tag: "Combat",
-          damage: mobConfig.damage,
-          attackSpeed: mobConfig.attackSpeed,
-          knockback: 0.4
-        }
-      ])
-    }
+        return yield* entityManager.createEntity(
+          "player" as EntityType,
+          components
+        )
+      })
+
+    const createMob = (archetype: MobArchetype, position: Vector3) =>
+      Effect.gen(function* () {
+        // Mobサイズ定義（タイプごと）
+        const sizeConfig = getMobSizeConfig(archetype.mobType)
+
+        const components: Component[] = [
+          {
+            _tag: "Position",
+            position,
+            chunk: {
+              x: Math.floor(position.x / 16),
+              z: Math.floor(position.z / 16)
+            }
+          } as PositionComponent,
+          {
+            _tag: "Velocity",
+            velocity: { x: 0, y: 0, z: 0 }
+          } as VelocityComponent,
+          {
+            _tag: "Rotation",
+            yaw: Math.random() * 360 - 180,
+            pitch: 0
+          } as RotationComponent,
+          {
+            _tag: "BoundingBox",
+            size: sizeConfig
+          } as BoundingBoxComponent,
+          {
+            _tag: "Health",
+            current: archetype.health,
+            max: archetype.health,
+            regeneration: 0
+          } as HealthComponent,
+          {
+            _tag: "AI",
+            enabled: true,
+            behaviors: archetype.behaviors,
+            currentState: "idle" as AIState,
+            target: undefined,
+            path: undefined,
+            memory: {},
+            lastStateChange: new Date()
+          } as AIComponent,
+          {
+            _tag: "Combat",
+            damage: archetype.damage,
+            attackSpeed: archetype.speed,
+            knockback: 0.4,
+            range: 2.0
+          } as CombatComponent
+        ]
+
+        return yield* entityManager.createEntity(
+          archetype.mobType,
+          components
+        )
+      })
 
     const createItem = (
-      itemStack: ItemStack,
+      archetype: ItemArchetype,
       position: Vector3,
       velocity: Vector3 = { x: 0, y: 0, z: 0 }
-    ) => entityManager.createEntity("item", [
-      {
-        _tag: "Position",
-        ...position,
-        chunk: { x: Math.floor(position.x / 16), z: Math.floor(position.z / 16) }
-      },
-      { _tag: "Velocity", ...velocity },
-      { _tag: "BoundingBox", width: 0.25, height: 0.25, depth: 0.25 },
-      { _tag: "ItemData", itemStack },
-      { _tag: "Pickup", delay: 0.5, canPickup: true }
-    ])
+    ) => Effect.gen(function* () {
+      const components: Component[] = [
+        {
+          _tag: "Position",
+          position,
+          chunk: {
+            x: Math.floor(position.x / 16),
+            z: Math.floor(position.z / 16)
+          }
+        } as PositionComponent,
+        {
+          _tag: "Velocity",
+          velocity
+        } as VelocityComponent,
+        {
+          _tag: "BoundingBox",
+          size: { width: 0.25, height: 0.25, depth: 0.25 }
+        } as BoundingBoxComponent,
+        {
+          _tag: "ItemData",
+          ...archetype
+        } as any, // ItemDataコンポーネントは別途定義が必要
+        {
+          _tag: "Pickup",
+          delay: archetype.pickupDelay,
+          canPickup: true,
+          despawnTime: Date.now() + archetype.despawnTime * 1000
+        } as any // Pickupコンポーネントは別途定義が必要
+      ]
 
-    return EntityFactory.of({ createPlayer, createMob, createItem, createProjectile })
+      return yield* entityManager.createEntity(
+        "item" as EntityType,
+        components
+      )
+    })
+
+    const createProjectile = (
+      projectileType: EntityType,
+      position: Vector3,
+      velocity: Vector3,
+      owner: EntityId
+    ) => Effect.gen(function* () {
+      const components: Component[] = [
+        {
+          _tag: "Position",
+          position,
+          chunk: {
+            x: Math.floor(position.x / 16),
+            z: Math.floor(position.z / 16)
+          }
+        } as PositionComponent,
+        {
+          _tag: "Velocity",
+          velocity
+        } as VelocityComponent,
+        {
+          _tag: "BoundingBox",
+          size: { width: 0.25, height: 0.25, depth: 0.25 }
+        } as BoundingBoxComponent,
+        {
+          _tag: "Projectile",
+          owner,
+          damage: 4 as Damage,
+          lifespan: 1200, // 60秒
+          createdAt: new Date()
+        } as any // Projectileコンポーネントは別途定義が必要
+      ]
+
+      return yield* entityManager.createEntity(
+        projectileType,
+        components
+      )
+    })
+
+    const batchCreate = (
+      requests: ReadonlyArray<{
+        type: EntityType
+        archetype: unknown
+        position: Vector3
+      }>
+    ) => Effect.gen(function* () {
+      return yield* Effect.forEach(
+        requests,
+        (request) => {
+          // タイプごとのファクトリ関数を呼び出し
+          return Match.value(request.type).pipe(
+            Match.when("player", () => createPlayer(request.archetype as PlayerArchetype, request.position)),
+            Match.when("zombie", "skeleton", "creeper", () => createMob(request.archetype as MobArchetype, request.position)),
+            Match.when("item", () => createItem(request.archetype as ItemArchetype, request.position)),
+            Match.orElse(() => Effect.fail(new CreateEntityError({
+              entityType: request.type,
+              reason: `Unknown entity type: ${request.type}`
+            })))
+          )
+        },
+        {
+          concurrency: "unbounded",
+          batching: true
+        }
+      )
+    })
+
+    const getArchetypeFactory = <T>(type: EntityType) =>
+      Effect.gen(function* () {
+        const factory = archetypeFactories.get(type)
+        if (!factory) {
+          return yield* Effect.fail(new CreateEntityError({
+            entityType: type,
+            reason: `No archetype factory found for type: ${type}`
+          }))
+        }
+        return factory as (config: unknown) => T
+      })
+
+    // サイズ設定ヘルパー
+    const getMobSizeConfig = (mobType: EntityType) => {
+      return Match.value(mobType).pipe(
+        Match.when("zombie", "skeleton", () => ({ width: 0.6, height: 1.8, depth: 0.6 })),
+        Match.when("creeper", () => ({ width: 0.6, height: 1.7, depth: 0.6 })),
+        Match.when("cow", "pig", () => ({ width: 0.9, height: 1.4, depth: 0.9 })),
+        Match.when("sheep", () => ({ width: 0.9, height: 1.3, depth: 0.9 })),
+        Match.orElse(() => ({ width: 0.6, height: 1.8, depth: 0.6 }))
+      )
+    }
+
+    return EntityFactory.of({
+      createPlayer,
+      createMob,
+      createItem,
+      createProjectile,
+      batchCreate,
+      getArchetypeFactory
+    })
   })
 
-// Live Layer
+// Live Layer（依存関係あり）
 export const EntityFactoryLive = Layer.effect(
   EntityFactory,
   makeEntityFactory
+).pipe(
+  Layer.provide(EntityManagerLive)
 )
 ```
 
@@ -1124,34 +2016,93 @@ const makeEntityMemoryPool = (initialCapacity: number = 10000) =>
 ### チャンクベース空間インデックス
 
 ```typescript
-interface SpatialIndex {
+// 空間インデックスエラー
+export class SpatialIndexError extends Schema.TaggedError<SpatialIndexError>()("SpatialIndexError", {
+  operation: Schema.String,
+  entityId: Schema.optional(EntityId),
+  reason: Schema.String
+}) {}
+
+// クエリ範囲定義
+export const QueryBounds = Schema.Struct({
+  min: Vector3,
+  max: Vector3
+}).pipe(Schema.brand("QueryBounds"))
+export type QueryBounds = Schema.Schema.Type<typeof QueryBounds>
+
+// 空間インデックスインターフェース（最新Effect-TSパターン）
+export interface SpatialIndexInterface {
   readonly insert: (
     entityId: EntityId,
     position: Vector3,
-    boundingBox: BoundingBox
-  ) => Effect.Effect<void, never>
+    boundingBox?: BoundingBoxComponent
+  ) => Effect.Effect<void, SpatialIndexError, never>
 
-  readonly remove: (entityId: EntityId) => Effect.Effect<void, never>
+  readonly remove: (
+    entityId: EntityId
+  ) => Effect.Effect<void, SpatialIndexError, never>
+
+  readonly update: (
+    entityId: EntityId,
+    newPosition: Vector3
+  ) => Effect.Effect<void, SpatialIndexError, never>
 
   readonly query: (
-    area: BoundingBox
-  ) => Effect.Effect<ReadonlyArray<EntityId>, never>
+    bounds: QueryBounds
+  ) => Effect.Effect<ReadonlyArray<EntityId>, SpatialIndexError, never>
 
   readonly nearbyEntities: (
     position: Vector3,
     radius: number
-  ) => Effect.Effect<ReadonlyArray<EntityId>, never>
+  ) => Effect.Effect<ReadonlyArray<EntityId>, SpatialIndexError, never>
+
+  // Streamベースの空間クエリ
+  readonly watchNearbyEntities: (
+    position: Vector3,
+    radius: number
+  ) => Stream.Stream<ReadonlyArray<EntityId>, SpatialIndexError, never>
+
+  // パフォーマンスメトリクス
+  readonly getMetrics: Effect.Effect<SpatialIndexMetrics, never, never>
+
+  // バッチ操作
+  readonly batchInsert: (
+    entities: ReadonlyArray<{ entityId: EntityId; position: Vector3 }>
+  ) => Effect.Effect<void, SpatialIndexError, never>
 }
 
-// 空間ハッシュによる高速近傍検索
+// メトリクス定義
+export const SpatialIndexMetrics = Schema.Struct({
+  totalEntities: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  totalChunks: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  averageEntitiesPerChunk: Schema.Number.pipe(Schema.positive()),
+  queryCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  averageQueryTime: Schema.Number.pipe(Schema.positive())
+})
+export type SpatialIndexMetrics = Schema.Schema.Type<typeof SpatialIndexMetrics>
+
+// Context Tag
+export const SpatialIndex = Context.GenericTag<SpatialIndexInterface>("@minecraft/SpatialIndex")
+
+// 空間ハッシュによる高速近傍検索（STM統合）
 const makeSpatialIndex = (chunkSize: number = 16) =>
   Effect.gen(function* () {
-    const spatialGrid = new Map<string, Set<EntityId>>()
-    const entityPositions = new Map<EntityId, Vector3>()
+    // STMで共有状態管理
+    const spatialGrid = yield* Ref.make(new Map<string, Set<EntityId>>())
+    const entityPositions = yield* Ref.make(new Map<EntityId, Vector3>())
+    const metricsRef = yield* Ref.make<SpatialIndexMetrics>({
+      totalEntities: 0,
+      totalChunks: 0,
+      averageEntitiesPerChunk: 0,
+      queryCount: 0,
+      averageQueryTime: 0
+    })
 
+    // 純粋関数: チャンクキー生成
     const getChunkKey = (x: number, z: number): string =>
       `${Math.floor(x / chunkSize)}:${Math.floor(z / chunkSize)}`
 
+    // 純粋関数: 隣接チャンク取得
     const getAdjacentChunks = (chunkKey: string): string[] => {
       const [x, z] = chunkKey.split(':').map(Number)
       const adjacent = []
@@ -1163,51 +2114,216 @@ const makeSpatialIndex = (chunkSize: number = 16) =>
       return adjacent
     }
 
+    // 純粋関数: 距離計算
+    const calculateDistance3D = (pos1: Vector3, pos2: Vector3): number =>
+      Math.sqrt(
+        Math.pow(pos1.x - pos2.x, 2) +
+        Math.pow(pos1.y - pos2.y, 2) +
+        Math.pow(pos1.z - pos2.z, 2)
+      )
+
     const insert = (
       entityId: EntityId,
       position: Vector3,
-      boundingBox: BoundingBox
-    ) => Effect.sync(() => {
+      boundingBox?: BoundingBoxComponent
+    ) => Effect.gen(function* () {
       const chunkKey = getChunkKey(position.x, position.z)
 
-      if (!spatialGrid.has(chunkKey)) {
-        spatialGrid.set(chunkKey, new Set())
-      }
+      // STMでアトミックに更新
+      yield* STM.commit(
+        STM.gen(function* () {
+          // グリッド更新
+          yield* STM.update(spatialGrid, (grid) => {
+            const newGrid = new Map(grid)
+            if (!newGrid.has(chunkKey)) {
+              newGrid.set(chunkKey, new Set())
+            }
+            newGrid.get(chunkKey)!.add(entityId)
+            return newGrid
+          })
 
-      spatialGrid.get(chunkKey)!.add(entityId)
-      entityPositions.set(entityId, position)
-    })
+          // 位置更新
+          yield* STM.update(entityPositions, (positions) =>
+            new Map(positions).set(entityId, position)
+          )
+        })
+      )
+
+      // メトリクス更新
+      yield* Ref.update(metricsRef, (metrics) => {
+        const grid = Ref.unsafeGet(spatialGrid)
+        return {
+          ...metrics,
+          totalEntities: Ref.unsafeGet(entityPositions).size,
+          totalChunks: grid.size,
+          averageEntitiesPerChunk: grid.size > 0 ? Ref.unsafeGet(entityPositions).size / grid.size : 0
+        }
+      })
+    }).pipe(
+      Effect.mapError((error) =>
+        new SpatialIndexError({
+          operation: "insert",
+          entityId,
+          reason: `Failed to insert entity: ${error}`
+        })
+      )
+    )
+
+    const remove = (entityId: EntityId) =>
+      Effect.gen(function* () {
+        const positions = yield* Ref.get(entityPositions)
+        const position = positions.get(entityId)
+
+        if (!position) {
+          return yield* Effect.fail(new SpatialIndexError({
+            operation: "remove",
+            entityId,
+            reason: "Entity not found in spatial index"
+          }))
+        }
+
+        const chunkKey = getChunkKey(position.x, position.z)
+
+        yield* STM.commit(
+          STM.gen(function* () {
+            yield* STM.update(spatialGrid, (grid) => {
+              const newGrid = new Map(grid)
+              const chunk = newGrid.get(chunkKey)
+              if (chunk) {
+                chunk.delete(entityId)
+                if (chunk.size === 0) {
+                  newGrid.delete(chunkKey)
+                }
+              }
+              return newGrid
+            })
+
+            yield* STM.update(entityPositions, (positions) => {
+              const newPositions = new Map(positions)
+              newPositions.delete(entityId)
+              return newPositions
+            })
+          })
+        )
+      })
+
+    const update = (entityId: EntityId, newPosition: Vector3) =>
+      Effect.gen(function* () {
+        // 削除して再挿入
+        yield* remove(entityId).pipe(Effect.ignore) // エラーを無視
+        yield* insert(entityId, newPosition)
+      })
 
     const nearbyEntities = (position: Vector3, radius: number) =>
-      Effect.sync(() => {
+      Effect.gen(function* () {
+        const startTime = Date.now()
         const chunkKey = getChunkKey(position.x, position.z)
         const adjacentChunks = getAdjacentChunks(chunkKey)
+
+        const grid = yield* Ref.get(spatialGrid)
+        const positions = yield* Ref.get(entityPositions)
         const nearby: EntityId[] = []
 
         for (const chunk of adjacentChunks) {
-          const entities = spatialGrid.get(chunk)
+          const entities = grid.get(chunk)
           if (!entities) continue
 
           for (const entityId of entities) {
-            const entityPos = entityPositions.get(entityId)
+            const entityPos = positions.get(entityId)
             if (!entityPos) continue
 
-            const distance = Math.sqrt(
-              Math.pow(position.x - entityPos.x, 2) +
-              Math.pow(position.y - entityPos.y, 2) +
-              Math.pow(position.z - entityPos.z, 2)
-            )
-
+            const distance = calculateDistance3D(position, entityPos)
             if (distance <= radius) {
               nearby.push(entityId)
             }
           }
         }
 
+        // メトリクス更新
+        const endTime = Date.now()
+        yield* Ref.update(metricsRef, (metrics) => ({
+          ...metrics,
+          queryCount: metrics.queryCount + 1,
+          averageQueryTime: (metrics.averageQueryTime + (endTime - startTime)) / 2
+        }))
+
         return nearby
       })
 
-    return { insert, remove, query, nearbyEntities }
+    const query = (bounds: QueryBounds) =>
+      Effect.gen(function* () {
+        const grid = yield* Ref.get(spatialGrid)
+        const positions = yield* Ref.get(entityPositions)
+        const result: EntityId[] = []
+
+        // 範囲内のチャンクを取得
+        const minChunkX = Math.floor(bounds.min.x / chunkSize)
+        const maxChunkX = Math.floor(bounds.max.x / chunkSize)
+        const minChunkZ = Math.floor(bounds.min.z / chunkSize)
+        const maxChunkZ = Math.floor(bounds.max.z / chunkSize)
+
+        for (let x = minChunkX; x <= maxChunkX; x++) {
+          for (let z = minChunkZ; z <= maxChunkZ; z++) {
+            const chunkKey = `${x}:${z}`
+            const entities = grid.get(chunkKey)
+            if (!entities) continue
+
+            for (const entityId of entities) {
+              const pos = positions.get(entityId)
+              if (!pos) continue
+
+              // 範囲チョック
+              if (
+                pos.x >= bounds.min.x && pos.x <= bounds.max.x &&
+                pos.y >= bounds.min.y && pos.y <= bounds.max.y &&
+                pos.z >= bounds.min.z && pos.z <= bounds.max.z
+              ) {
+                result.push(entityId)
+              }
+            }
+          }
+        }
+
+        return result
+      })
+
+    const watchNearbyEntities = (position: Vector3, radius: number) =>
+      Stream.repeatEffect(
+        nearbyEntities(position, radius).pipe(
+          Effect.delay("100 millis") // 100msごとに更新
+        )
+      )
+
+    const batchInsert = (
+      entities: ReadonlyArray<{ entityId: EntityId; position: Vector3 }>
+    ) =>
+      Effect.forEach(
+        entities,
+        ({ entityId, position }) => insert(entityId, position),
+        { concurrency: "unbounded", batching: true, discard: true }
+      )
+
+    const getMetrics = Effect.gen(function* () {
+      return yield* Ref.get(metricsRef)
+    })
+
+    return {
+      insert,
+      remove,
+      update,
+      query,
+      nearbyEntities,
+      watchNearbyEntities,
+      getMetrics,
+      batchInsert
+    }
+  })
+
+// Live Layer
+export const SpatialIndexLive = Layer.effect(
+  SpatialIndex,
+  makeSpatialIndex(16) // 16ブロックチャンク
+)
   })
 ```
 
@@ -1401,18 +2517,361 @@ const processInteraction = (entityA: EntityId, entityB: EntityId) =>
 ## 完全なエンティティシステムレイヤー
 
 ```typescript
+// コンポーネントストアLive実装
+const makeComponentStore = Effect.gen(function* () {
+  const storage = yield* Ref.make(new Map<string, Map<EntityId, Component>>())
+  const eventQueue = yield* Queue.unbounded<{ entityId: EntityId; componentType: string; operation: "add" | "remove" }>()
+
+  const get = <T extends Component>(entityId: EntityId, componentType: string) =>
+    Effect.gen(function* () {
+      const store = yield* Ref.get(storage)
+      const componentMap = store.get(componentType)
+      const component = componentMap?.get(entityId)
+
+      return component
+        ? Effect.succeed(component as T)
+        : Effect.fail(new ComponentNotFoundError({ entityId, componentType }))
+    }).pipe(Effect.flatten)
+
+  const set = <T extends Component>(entityId: EntityId, component: T) =>
+    Effect.gen(function* () {
+      yield* STM.commit(
+        STM.update(storage, (store) => {
+          const newStore = new Map(store)
+          if (!newStore.has(component._tag)) {
+            newStore.set(component._tag, new Map())
+          }
+          newStore.get(component._tag)!.set(entityId, component)
+          return newStore
+        })
+      )
+
+      yield* Queue.offer(eventQueue, {
+        entityId,
+        componentType: component._tag,
+        operation: "add"
+      })
+    })
+
+  const remove = (entityId: EntityId, componentType: string) =>
+    Effect.gen(function* () {
+      const store = yield* Ref.get(storage)
+      const componentMap = store.get(componentType)
+
+      if (!componentMap?.has(entityId)) {
+        return yield* Effect.fail(new ComponentNotFoundError({ entityId, componentType }))
+      }
+
+      yield* STM.commit(
+        STM.update(storage, (store) => {
+          const newStore = new Map(store)
+          newStore.get(componentType)?.delete(entityId)
+          return newStore
+        })
+      )
+
+      yield* Queue.offer(eventQueue, {
+        entityId,
+        componentType,
+        operation: "remove"
+      })
+    })
+
+  const getAll = <T extends Component>(componentType: string) =>
+    Effect.gen(function* () {
+      const store = yield* Ref.get(storage)
+      const componentMap = store.get(componentType)
+      return componentMap
+        ? Array.from(componentMap.entries()) as ReadonlyArray<[EntityId, T]>
+        : []
+    })
+
+  const hasComponent = (entityId: EntityId, componentType: string) =>
+    Effect.gen(function* () {
+      const store = yield* Ref.get(storage)
+      return store.get(componentType)?.has(entityId) ?? false
+    })
+
+  const stream = <T extends Component>(componentType: string) =>
+    Stream.fromQueue(eventQueue).pipe(
+      Stream.filter(event => event.componentType === componentType),
+      Stream.mapEffect(event =>
+        get<T>(event.entityId, componentType).pipe(
+          Effect.map(component => [event.entityId, component] as [EntityId, T]),
+          Effect.orElse(() => Effect.succeed(null))
+        )
+      ),
+      Stream.filterMap(Option.fromNullable)
+    )
+
+  return ComponentStore.of({
+    get,
+    set,
+    remove,
+    getAll,
+    hasComponent,
+    stream
+  })
+})
+
+export const ComponentStoreLive = Layer.effect(
+  ComponentStore,
+  makeComponentStore
+)
+
+// 統合エンティティシステムレイヤー（最新パターン）
 export const EntitySystemLayer = Layer.mergeAll(
+  ComponentStoreLive,
+  SpatialIndexLive,
   EntityManagerLive,
   MovementSystemLive,
   AISystemLive,
-  EntityFactoryLive,
-  SpatialIndexLive,
-  BatchProcessorLive,
-  ParticleSystemLive,
-  InventorySystemLive
+  EntityFactoryLive
 ).pipe(
+  // 外部依存サービス
   Layer.provide(PhysicsServiceLive),
   Layer.provide(WorldServiceLive),
-  Layer.provide(PathfindingServiceLive),
-  Layer.provide(EntityMemoryPoolLive)
+  Layer.provide(PathfindingServiceLive)
 )
+
+// メインゲームループ統合
+const updateEntitySystems = (deltaTime: number) =>
+  Effect.gen(function* () {
+    // 並列システム更新
+    const movementSystem = yield* MovementSystem
+    const aiSystem = yield* AISystem
+
+    yield* Effect.all([
+      movementSystem.update(deltaTime),
+      aiSystem.update(deltaTime)
+    ], {
+      concurrency: 2,
+      batching: false
+    })
+  })
+
+// メトリクス収集
+const collectSystemMetrics = Effect.gen(function* () {
+  const aiSystem = yield* AISystem
+  const spatialIndex = yield* SpatialIndex
+
+  const aiMetrics = yield* aiSystem.getMetrics
+  const spatialMetrics = yield* spatialIndex.getMetrics
+
+  return {
+    ai: aiMetrics,
+    spatial: spatialMetrics,
+    timestamp: new Date()
+  }
+})
+
+// システムヘルスチェック
+const performSystemHealthCheck = Effect.gen(function* () {
+  const entityManager = yield* EntityManager
+
+  // 全エンティティ数取得
+  const allPositions = yield* entityManager.query("Position")
+  const allAI = yield* entityManager.query("AI")
+
+  return {
+    totalEntities: allPositions.length,
+    activeAI: allAI.length,
+    healthy: allPositions.length > 0,
+    lastCheck: new Date()
+  }
+})
+
+// システムユーティリティ
+export const EntitySystemUtils = {
+  updateEntitySystems,
+  collectSystemMetrics,
+  performSystemHealthCheck
+}
+```
+
+## 性能最適化パターン
+
+### Streamベースリアルタイム処理
+
+```typescript
+// エンティティイベントストリームパイプライン
+const createEntityEventPipeline = Effect.gen(function* () {
+  const entityManager = yield* EntityManager
+  const aiSystem = yield* AISystem
+  const movementSystem = yield* MovementSystem
+
+  // エンティティ作成イベントストリーム
+  const entityCreationStream = entityManager.entityEvents.pipe(
+    Stream.filter(event => event._tag === "EntityCreated"),
+    Stream.mapEffect((event) => Effect.gen(function* () {
+      console.log(`Entity created: ${event.entityId}`)
+      // 初期化処理
+      return event
+    }))
+  )
+
+  // AI状態変更ストリーム
+  const aiStateStream = aiSystem.aiEvents.pipe(
+    Stream.filter(event => event._tag === "AIStateChanged"),
+    Stream.mapEffect((event) => Effect.gen(function* () {
+      console.log(`AI state changed: ${event.entityId} ${event.fromState} -> ${event.toState}`)
+      return event
+    }))
+  )
+
+  // 移動イベントストリーム
+  const movementStream = movementSystem.movementEvents.pipe(
+    Stream.filter(event => event._tag === "EntityMoved"),
+    Stream.bufferChunks({ n: 100, duration: "10 millis" }), // バッファリング
+    Stream.mapEffect((events) => Effect.gen(function* () {
+      console.log(`Batch processed ${events.length} movement events`)
+      return events
+    }))
+  )
+
+  // ストリーム結合
+  const combinedEventStream = Stream.merge(
+    entityCreationStream,
+    aiStateStream,
+    movementStream
+  )
+
+  return combinedEventStream
+})
+
+// パフォーマンスモニタリング
+const createPerformanceMonitor = Effect.gen(function* () {
+  const metricsStream = Stream.repeatEffect(
+    collectSystemMetrics.pipe(
+      Effect.delay("1 seconds")
+    )
+  )
+
+  const alertStream = metricsStream.pipe(
+    Stream.filter(metrics =>
+      metrics.ai.averageUpdateTime > 16 || // 16ms以上の場合アラート
+      metrics.spatial.averageQueryTime > 5
+    ),
+    Stream.mapEffect(metrics => Effect.gen(function* () {
+      console.warn("パフォーマンスアラート:", metrics)
+      return metrics
+    }))
+  )
+
+  return {
+    metricsStream,
+    alertStream
+  }
+})
+```
+
+### メモリ効率最適化
+
+```typescript
+// オブジェクトプールパターン
+const createEntityObjectPool = <T>(factory: () => T, resetFn: (obj: T) => void) =>
+  Effect.gen(function* () {
+    const pool = yield* Queue.bounded<T>(1000)
+    const activeCount = yield* Ref.make(0)
+
+    const acquire = Effect.gen(function* () {
+      const fromPool = yield* Queue.poll(pool)
+
+      return Match.value(fromPool).pipe(
+        Match.when(Option.isSome, (obj) => Effect.succeed(obj.value)),
+        Match.orElse(() => Effect.sync(() => factory()))
+      )
+    })
+
+    const release = (obj: T) => Effect.gen(function* () {
+      resetFn(obj)
+      yield* Queue.offer(pool, obj)
+    })
+
+    return { acquire, release }
+  })
+
+// TypedArrayベースのComponentストレージ
+const createTypedArrayComponentStorage = (capacity: number) =>
+  Effect.gen(function* () {
+    // Positionコンポーネント用TypedArray
+    const positionArrays = {
+      x: new Float32Array(capacity),
+      y: new Float32Array(capacity),
+      z: new Float32Array(capacity),
+      chunkX: new Int32Array(capacity),
+      chunkZ: new Int32Array(capacity)
+    }
+
+    // Velocityコンポーネント用TypedArray
+    const velocityArrays = {
+      x: new Float32Array(capacity),
+      y: new Float32Array(capacity),
+      z: new Float32Array(capacity)
+    }
+
+    const entityIndexMap = yield* Ref.make(new Map<EntityId, number>())
+    const freeIndices = yield* Ref.make(new Set(Array.from({ length: capacity }, (_, i) => i)))
+
+    const allocateIndex = Effect.gen(function* () {
+      const free = yield* Ref.get(freeIndices)
+      if (free.size === 0) {
+        return yield* Effect.fail(new Error("インデックスプールが枯渇しました"))
+      }
+
+      const index = free.values().next().value
+      yield* Ref.update(freeIndices, (set) => {
+        const newSet = new Set(set)
+        newSet.delete(index)
+        return newSet
+      })
+
+      return index
+    })
+
+    const setPositionComponent = (index: number, component: PositionComponent) =>
+      Effect.sync(() => {
+        positionArrays.x[index] = component.position.x
+        positionArrays.y[index] = component.position.y
+        positionArrays.z[index] = component.position.z
+        positionArrays.chunkX[index] = component.chunk.x
+        positionArrays.chunkZ[index] = component.chunk.z
+      })
+
+    const getPositionComponent = (index: number): PositionComponent => ({
+      _tag: "Position",
+      position: {
+        x: positionArrays.x[index],
+        y: positionArrays.y[index],
+        z: positionArrays.z[index]
+      },
+      chunk: {
+        x: positionArrays.chunkX[index],
+        z: positionArrays.chunkZ[index]
+      }
+    })
+
+    // SIMD最適化対応のバッチ更新
+    const updatePositionsBatch = (
+      indices: ReadonlyArray<number>,
+      deltaPositions: { x: Float32Array; y: Float32Array; z: Float32Array }
+    ) => Effect.sync(() => {
+      for (let i = 0; i < indices.length; i++) {
+        const idx = indices[i]
+        positionArrays.x[idx] += deltaPositions.x[i]
+        positionArrays.y[idx] += deltaPositions.y[i]
+        positionArrays.z[idx] += deltaPositions.z[i]
+
+        // チャンク位置更新
+        positionArrays.chunkX[idx] = Math.floor(positionArrays.x[idx] / 16)
+        positionArrays.chunkZ[idx] = Math.floor(positionArrays.z[idx] / 16)
+      }
+    })
+
+    return {
+      allocateIndex,
+      setPositionComponent,
+      getPositionComponent,
+      updatePositionsBatch
+    }
+  })

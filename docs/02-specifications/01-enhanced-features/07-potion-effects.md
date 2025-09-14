@@ -1,3 +1,15 @@
+---
+title: "07 Potion Effects"
+description: "07 Potion Effectsに関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'effect-ts', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "30分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # Potion Effects System
 
 The Potion Effects System provides temporary and persistent status effects for entities in the TypeScript Minecraft clone. Built with Effect-TS 3.17+ functional architecture and DDD layer separation, this system manages complex effect interactions, brewing mechanics, and visual feedback while maintaining type safety and predictable behavior.

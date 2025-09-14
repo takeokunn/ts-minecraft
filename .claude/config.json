@@ -1,0 +1,220 @@
+{
+  "$schema": "https://schemas.anthropic.com/claude-code/config.schema.json",
+  "version": "1.0.0",
+  "name": "TypeScript Minecraft Clone - Development Configuration",
+  "description": "Professional-grade development configuration for TypeScript Minecraft Clone project with DDD×ECS×Effect-TS architecture",
+
+  "settings": {
+    "autoSave": true,
+    "confirmFileOperations": true,
+    "maxFileSize": "10MB",
+    "backupBeforeEdit": true,
+    "enableTelemetry": false,
+    "verboseLogging": false
+  },
+
+  "permissions": {
+    "fileSystem": {
+      "read": ["**/*"],
+      "write": ["**/*"],
+      "delete": ["dist/**", "build/**", "node_modules/.cache/**", "coverage/**", ".vite/**"],
+      "exclude": [".env*", "**/*.key", "**/*.pem", "**/secrets/**"]
+    },
+    "network": {
+      "allowOutbound": true,
+      "allowedDomains": [
+        "registry.npmjs.org",
+        "github.com",
+        "api.github.com",
+        "raw.githubusercontent.com",
+        "docs.anthropic.com",
+        "unpkg.com",
+        "cdn.jsdelivr.net"
+      ]
+    },
+    "execution": {
+      "allowShellCommands": true,
+      "allowedCommands": [
+        "npm", "yarn", "pnpm", "bun",
+        "git", "gh",
+        "node", "npx",
+        "tsc", "eslint", "prettier",
+        "vitest", "jest",
+        "vite", "webpack"
+      ]
+    }
+  },
+
+  "aliases": {
+    "analyze": "/project-analyze",
+    "setup": "/quality-setup",
+    "update": "/deps-update",
+    "clean": "/project-clean",
+    "ci": "/github-setup",
+    "review": "use code-reviewer agent",
+    "design": "use architecture-designer agent"
+  },
+
+  "hooks": {
+    "beforeFileWrite": [
+      {
+        "pattern": "**/*.{ts,tsx,js,jsx}",
+        "command": "prettier --check",
+        "failOnError": false,
+        "message": "Consider running prettier formatting"
+      }
+    ],
+    "afterFileWrite": [
+      {
+        "pattern": "package.json",
+        "command": "npm install",
+        "async": true,
+        "message": "Installing updated dependencies..."
+      }
+    ],
+    "beforeCommit": [
+      {
+        "command": "npm run lint",
+        "failOnError": true,
+        "message": "Running lint check before commit"
+      },
+      {
+        "command": "npm run test",
+        "failOnError": true,
+        "message": "Running tests before commit"
+      }
+    ]
+  },
+
+  "agents": {
+    "code-reviewer": {
+      "description": "Professional code review with security and performance analysis",
+      "specialties": ["TypeScript", "Effect-TS", "Three.js", "DDD", "ECS"],
+      "maxContextLength": 32000,
+      "temperature": 0.1
+    },
+    "architecture-designer": {
+      "description": "System architecture design and optimization specialist",
+      "specialties": ["DDD", "ECS", "Microservices", "Event-Driven", "Functional Programming"],
+      "maxContextLength": 64000,
+      "temperature": 0.2
+    },
+    "performance-optimizer": {
+      "description": "Code and system performance optimization specialist",
+      "specialties": ["Three.js", "WebGL", "Memory Management", "Bundle Optimization"],
+      "maxContextLength": 32000,
+      "temperature": 0.1
+    },
+    "test-engineer": {
+      "description": "Comprehensive testing strategy and implementation specialist",
+      "specialties": ["Vitest", "E2E Testing", "Performance Testing", "Effect-TS Testing"],
+      "maxContextLength": 32000,
+      "temperature": 0.1
+    }
+  },
+
+  "commands": {
+    "project-analyze": {
+      "description": "Comprehensive project analysis and recommendations",
+      "permissions": ["fileSystem.read", "execution.allowShellCommands"],
+      "timeout": "30s"
+    },
+    "quality-setup": {
+      "description": "Automated quality tools configuration",
+      "permissions": ["fileSystem.write", "execution.allowShellCommands", "network.allowOutbound"],
+      "timeout": "300s"
+    },
+    "deps-update": {
+      "description": "Safe dependency updates with validation",
+      "permissions": ["fileSystem.write", "execution.allowShellCommands", "network.allowOutbound"],
+      "timeout": "600s"
+    },
+    "github-setup": {
+      "description": "Automated CI/CD workflow generation",
+      "permissions": ["fileSystem.write"],
+      "timeout": "60s"
+    },
+    "project-clean": {
+      "description": "Comprehensive project cleanup",
+      "permissions": ["fileSystem.delete", "execution.allowShellCommands"],
+      "timeout": "120s"
+    }
+  },
+
+  "contextSources": {
+    "documentation": {
+      "paths": ["docs/**/*.md", "README.md", "CHANGELOG.md"],
+      "priority": "high"
+    },
+    "configuration": {
+      "paths": ["*.config.{js,ts,json}", ".*rc*", "package.json", "tsconfig.json"],
+      "priority": "high"
+    },
+    "source": {
+      "paths": ["src/**/*.{ts,tsx,js,jsx}"],
+      "priority": "medium",
+      "excludePatterns": ["**/*.test.{ts,tsx,js,jsx}", "**/*.spec.{ts,tsx,js,jsx}"]
+    },
+    "tests": {
+      "paths": ["src/**/*.test.{ts,tsx,js,jsx}", "test/**/*", "__tests__/**/*"],
+      "priority": "low"
+    }
+  },
+
+  "qualityGates": {
+    "typescript": {
+      "strict": true,
+      "noUnusedLocals": true,
+      "noUnusedParameters": true,
+      "exactOptionalPropertyTypes": true
+    },
+    "testing": {
+      "minCoverage": 90,
+      "requireTests": ["src/**/*.{ts,tsx}"],
+      "excludeFromCoverage": ["**/*.d.ts", "**/*.config.*"]
+    },
+    "security": {
+      "auditDependencies": true,
+      "checkForSecrets": true,
+      "validateInputs": true
+    }
+  },
+
+  "integrations": {
+    "github": {
+      "enabled": true,
+      "features": {
+        "actions": true,
+        "dependabot": true,
+        "codeql": true,
+        "discussions": false
+      }
+    },
+    "npm": {
+      "enabled": true,
+      "registry": "https://registry.npmjs.org/",
+      "publishConfig": {
+        "access": "public",
+        "tag": "latest"
+      }
+    }
+  },
+
+  "workspace": {
+    "rootPatterns": ["package.json", "tsconfig.json", ".git"],
+    "ignorePatterns": [
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      "coverage/**",
+      ".vite/**",
+      ".next/**",
+      "*.log"
+    ],
+    "fileWatchers": {
+      "package.json": "dependency-check",
+      "tsconfig.json": "type-check",
+      "src/**/*.{ts,tsx}": "compile-check"
+    }
+  }
+}

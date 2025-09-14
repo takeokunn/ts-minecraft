@@ -1,3 +1,15 @@
+---
+title: "08 Nether Portals"
+description: "08 Nether Portalsに関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "30分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # Nether Portals System - ネザーポータル・異次元システム
 
 ## 概要

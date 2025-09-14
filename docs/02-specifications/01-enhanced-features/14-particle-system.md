@@ -1,3 +1,19 @@
+---
+title: "パーティクルシステム仕様 - 視覚エフェクト・物理シミュレーション・レンダリング最適化"
+description: "Minecraft Cloneの包括的パーティクルシステム。爆発、煙、魔法エフェクトの物理ベース視覚効果。WebGL最適化とEffect-TS並行処理による高性能レンダリング実装。"
+category: "specification"
+difficulty: "advanced"
+tags: ["particle-system", "visual-effects", "rendering", "webgl", "physics", "performance", "graphics"]
+prerequisites: ["webgl-basics", "physics-fundamentals", "effect-ts-concurrency", "3d-mathematics"]
+estimated_reading_time: "22分"
+related_patterns: ["rendering-patterns", "physics-patterns", "optimization-patterns"]
+related_docs: ["./00-overview.md", "../00-core-features/05-rendering-system.md", "../00-core-features/06-physics-system.md"]
+search_keywords:
+  primary: ["particle-system", "visual-effects", "explosion-effects", "particle-physics"]
+  secondary: ["webgl-particles", "game-graphics", "minecraft-effects"]
+  context: ["3d-rendering", "game-development", "visual-programming"]
+---
+
 # Particle System - パーティクルシステム
 
 ## 概要

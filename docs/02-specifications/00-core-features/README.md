@@ -1,3 +1,15 @@
+---
+title: "コア機能仕様書 - 基本システムの完全リファレンス"
+description: "Minecraftクローンの基本機能群の完全仕様書。ワールド管理からレンダリングまでのシステム設計。"
+category: "specification"
+difficulty: "intermediate"
+tags: ["core-features", "system-overview", "ecs-architecture", "world-management", "player-system"]
+prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "ecs-basics"]
+estimated_reading_time: "10分"
+related_patterns: ["service-patterns", "data-modeling-patterns", "system-integration-patterns"]
+related_docs: ["./00-overview.md", "../README.md", "../../01-architecture/05-ecs-integration.md"]
+---
+
 # コア機能仕様書
 
 Minecraft Cloneの基本的なゲーム機能に関する仕様書です。これらは最小限の実行可能な製品としてのMinecraft体験を提供するために必要な機能群です。

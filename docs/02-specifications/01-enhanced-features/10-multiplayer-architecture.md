@@ -1,3 +1,15 @@
+---
+title: "マルチプレイヤーアーキテクチャ仕様 - ネットワーク同期・並行処理"
+description: "マルチプレイヤーゲームのネットワークアーキテクチャ、リアルタイム同期、冪突解決の完全仕様。サーバー・クライアントアーキテクチャ。"
+category: "specification"
+difficulty: "advanced"
+tags: ["multiplayer", "networking", "real-time-sync", "conflict-resolution", "server-client", "websocket", "distributed-systems"]
+prerequisites: ["effect-ts-fundamentals", "networking-concepts", "distributed-systems", "concurrent-programming"]
+estimated_reading_time: "25分"
+related_patterns: ["concurrent-patterns", "event-driven-patterns", "network-sync-patterns"]
+related_docs: ["../00-core-features/22-game-loop-system.md", "../../01-architecture/06-effect-ts-patterns.md"]
+---
+
 # Multiplayer Architecture 設計書
 
 ## 1. 概要

@@ -1,3 +1,15 @@
+---
+title: "技術スタック"
+description: "技術スタックに関する詳細な説明とガイド。"
+category: "architecture"
+difficulty: "advanced"
+tags: ['typescript', 'minecraft', 'architecture']
+prerequisites: ['basic-typescript', 'effect-ts-fundamentals']
+estimated_reading_time: "5分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # 技術スタック
 
 TypeScript Minecraft Cloneは、モダンで高性能なWeb技術と関数型プログラミングの原則を組み合わせた堅牢な技術スタックを採用しています。

@@ -1,3 +1,15 @@
+---
+title: "10 Material System"
+description: "10 Material Systemに関する詳細な説明とガイド。"
+category: "specification"
+difficulty: "intermediate"
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: "30分"
+last_updated: "2025-09-14"
+version: "1.0.0"
+---
+
 # マテリアルシステム - マテリアル・素材システム
 
 ## 概要
@@ -18,20 +30,29 @@
 ### マテリアルスキーマ
 
 ```typescript
-import { Effect, Layer, Context, Schema, pipe, Match } from "effect"
-import { Brand, Option, ReadonlyArray } from "effect"
+import { Effect, Layer, Context, Schema, pipe, Match, Brand } from "effect"
+import { Option, ReadonlyArray } from "effect"
 
-// マテリアルID（ブランド型）
+// ブランド型の定義（最新パターン）
 export const MaterialId = Schema.String.pipe(
   Schema.pattern(/^[a-z]+:[a-z_]+$/),
   Schema.brand("MaterialId")
 )
 export type MaterialId = Schema.Schema.Type<typeof MaterialId>
 
-// 物理的特性
+export const Hardness = pipe(Schema.Number, Schema.between(0, 10), Schema.brand("Hardness"))
+export type Hardness = Schema.Schema.Type<typeof Hardness>
+
+export const BlastResistance = pipe(Schema.Number, Schema.nonNegative(), Schema.brand("BlastResistance"))
+export type BlastResistance = Schema.Schema.Type<typeof BlastResistance>
+
+export const Density = pipe(Schema.Number, Schema.positive(), Schema.brand("Density"))
+export type Density = Schema.Schema.Type<typeof Density>
+
+// 物理的特性（型安全性の向上）
 export const PhysicalProperties = Schema.Struct({
-  density: pipe(Schema.Number, Schema.positive()), // kg/m³
-  hardness: pipe(Schema.Number, Schema.between(0, 10)), // モース硬度スケール
+  density: Density, // kg/m³
+  hardness: Hardness, // モース硬度スケール
   elasticity: pipe(Schema.Number, Schema.between(0, 1)), // 弾性係数
   friction: pipe(Schema.Number, Schema.between(0, 2)), // 摩擦係数
   viscosity: pipe(Schema.Number, Schema.nonNegative()), // 粘度（流体用）
@@ -110,13 +131,24 @@ export const EnvironmentalProperties = Schema.Struct({
   }))
 })
 
-// インタラクション特性
+// ツールタイプ（判別共用体）
+export const ToolType = Schema.Literal("hand", "pickaxe", "axe", "shovel", "hoe", "shears", "sword")
+export type ToolType = Schema.Schema.Type<typeof ToolType>
+
+// ツール効果性（ブランド型）
+export const Efficiency = pipe(Schema.Number, Schema.between(0, 10), Schema.brand("Efficiency"))
+export type Efficiency = Schema.Schema.Type<typeof Efficiency>
+
+export const DurabilityDamage = pipe(Schema.Number, Schema.between(0, 5), Schema.brand("DurabilityDamage"))
+export type DurabilityDamage = Schema.Schema.Type<typeof DurabilityDamage>
+
+// インタラクション特性（型安全性の向上）
 export const InteractionProperties = Schema.Struct({
   toolEffectiveness: Schema.Record(
-    Schema.Literal("hand", "pickaxe", "axe", "shovel", "hoe", "shears", "sword"),
+    ToolType,
     Schema.Struct({
-      efficiency: pipe(Schema.Number, Schema.between(0, 10)),
-      durabilityDamage: pipe(Schema.Number, Schema.between(0, 5))
+      efficiency: Efficiency,
+      durabilityDamage: DurabilityDamage
     })
   ),
   enchantmentAffinity: Schema.Record(
@@ -139,7 +171,7 @@ export const InteractionProperties = Schema.Struct({
       time: Schema.Optional(Schema.Number)
     }))
   })),
-  explosionResistance: pipe(Schema.Number, Schema.nonNegative()),
+  explosionResistance: BlastResistance,
   fireSpread: Schema.Struct({
     igniteChance: pipe(Schema.Number, Schema.between(0, 1)),
     burnTime: Schema.Optional(pipe(Schema.Number, Schema.positive())),
@@ -147,29 +179,72 @@ export const InteractionProperties = Schema.Struct({
   })
 })
 
-// メインマテリアル定義
+// マテリアルカテゴリ（判別共用体）
+export const MaterialCategory = Schema.Literal(
+  "stone", "metal", "organic", "liquid", "gas", "composite",
+  "magical", "synthetic", "crystal", "ceramic", "glass"
+)
+export type MaterialCategory = Schema.Schema.Type<typeof MaterialCategory>
+
+// マテリアル状態（判別共用体）
+export const MaterialState = Schema.Literal("solid", "liquid", "gas", "plasma")
+export type MaterialState = Schema.Schema.Type<typeof MaterialState>
+
+// レアリティ（判別共用体）
+export const MaterialRarity = Schema.Literal("common", "uncommon", "rare", "epic", "legendary")
+export type MaterialRarity = Schema.Schema.Type<typeof MaterialRarity>
+
+// メインマテリアル定義（早期リターン・浅いネストの原則に従った構造）
 export const MaterialDefinition = Schema.Struct({
   id: MaterialId,
   name: Schema.String,
   description: Schema.Optional(Schema.String),
-  category: Schema.Literal(
-    "stone", "metal", "organic", "liquid", "gas", "composite",
-    "magical", "synthetic", "crystal", "ceramic", "glass"
-  ),
-  state: Schema.Literal("solid", "liquid", "gas", "plasma"),
+  category: MaterialCategory,
+  state: MaterialState,
   physical: PhysicalProperties,
   visual: VisualProperties,
   acoustic: AcousticProperties,
   environmental: EnvironmentalProperties,
   interaction: InteractionProperties,
   tags: Schema.Array(Schema.String), // "flammable", "transparent", "conductive"
-  rarity: Schema.Literal("common", "uncommon", "rare", "epic", "legendary"),
+  rarity: MaterialRarity,
   version: pipe(Schema.Number, Schema.int(), Schema.positive()),
   created: Schema.DateTimeUtc,
   lastModified: Schema.DateTimeUtc
 })
 
 export type MaterialDefinition = Schema.Schema.Type<typeof MaterialDefinition>
+
+// カスタムエラー型（TaggedError パターン）
+export class MaterialNotFoundError extends Schema.TaggedError<MaterialNotFoundError>(
+  "MaterialNotFoundError"
+)("MaterialNotFoundError", {
+  materialId: MaterialId
+}) {
+  get message() {
+    return `マテリアルが見つかりません: ${this.materialId}`
+  }
+}
+
+export class RegistrationError extends Schema.TaggedError<RegistrationError>(
+  "RegistrationError"
+)("RegistrationError", {
+  message: Schema.String
+}) {
+  get message() {
+    return `登録エラー: ${this.message}`
+  }
+}
+
+export class UpdateError extends Schema.TaggedError<UpdateError>(
+  "UpdateError"
+)("UpdateError", {
+  message: Schema.String
+}) {
+  get message() {
+    return `更新エラー: ${this.message}`
+  }
+}
 ```
 
 ## マテリアルレジストリ
@@ -177,11 +252,11 @@ export type MaterialDefinition = Schema.Schema.Type<typeof MaterialDefinition>
 ### 高性能マテリアルレジストリ
 
 ```typescript
-// MaterialRegistryインターフェース
+// MaterialRegistryインターフェース（最新のEffect-TSパターン）
 interface MaterialRegistryInterface {
   readonly register: (material: MaterialDefinition) => Effect.Effect<void, RegistrationError>
   readonly get: (id: MaterialId) => Effect.Effect<MaterialDefinition, MaterialNotFoundError>
-  readonly getByCategory: (category: string) => Effect.Effect<ReadonlyArray<MaterialDefinition>, never>
+  readonly getByCategory: (category: MaterialCategory) => Effect.Effect<ReadonlyArray<MaterialDefinition>, never>
   readonly getByTags: (tags: ReadonlyArray<string>) => Effect.Effect<ReadonlyArray<MaterialDefinition>, never>
   readonly findSimilar: (material: MaterialDefinition, threshold: number) => Effect.Effect<ReadonlyArray<MaterialDefinition>, never>
   readonly updateMaterial: (id: MaterialId, updates: Partial<MaterialDefinition>) => Effect.Effect<void, UpdateError>
@@ -189,8 +264,38 @@ interface MaterialRegistryInterface {
   readonly getStats: () => Effect.Effect<RegistryStats, never>
 }
 
-// Context Tag（最新パターン）
-export const MaterialRegistry = Context.GenericTag<MaterialRegistryInterface>("@app/MaterialRegistry")
+// Context Tag（最新の GenericTag パターン）
+export const MaterialRegistry = Context.GenericTag<MaterialRegistryInterface>("@minecraft/MaterialRegistry")
+
+// ワールド地域型（判別共用体）
+export const WorldRegion = Schema.Struct({
+  id: Schema.String,
+  biome: Schema.String,
+  position: Schema.Struct({
+    x: Schema.Number,
+    y: Schema.Number,
+    z: Schema.Number
+  }),
+  size: Schema.Struct({
+    width: Schema.Number,
+    height: Schema.Number,
+    depth: Schema.Number
+  })
+})
+export type WorldRegion = Schema.Schema.Type<typeof WorldRegion>
+
+// レジストリ統計型
+export const RegistryStats = Schema.Struct({
+  totalMaterials: Schema.Number,
+  cacheHits: Schema.Number,
+  cacheMisses: Schema.Number,
+  lastCleanup: Schema.Number,
+  memoryUsage: Schema.Number,
+  indexSize: Schema.Number,
+  cacheSize: Schema.Number,
+  hitRate: Schema.Number
+})
+export type RegistryStats = Schema.Schema.Type<typeof RegistryStats>
 
 // 高性能実装（Structure of Arrays パターン）
 const makeMaterialRegistry = Effect.gen(function* () {
@@ -223,59 +328,75 @@ const makeMaterialRegistry = Effect.gen(function* () {
 
   const register = (material: MaterialDefinition) =>
     Effect.gen(function* () {
-      const currentIds = yield* Ref.get(materialIds)
+      // バリデーション（早期リターン）
+      const validatedMaterial = yield* Schema.decodeUnknown(MaterialDefinition)(material).pipe(
+        Effect.mapError(() => new RegistrationError({ message: "無効なマテリアル定義" }))
+      )
 
-      // 重複チェック
+      const currentIds = yield* Ref.get(materialIds)
       const existingIndex = yield* Ref.get(idToIndex)
-      if (existingIndex.has(material.id)) {
-        return yield* Effect.fail(new RegistrationError(`マテリアルはすでに存在します: ${material.id}`))
+
+      // 重複チェック（早期リターン）
+      if (existingIndex.has(validatedMaterial.id)) {
+        return yield* Effect.fail(
+          new RegistrationError({ message: `マテリアルはすでに存在します: ${validatedMaterial.id}` })
+        )
       }
 
       const newIndex = currentIds.length
 
-      // 構造体配列に追加
-      yield* Ref.update(materialIds, ids => [...ids, material.id])
-      yield* Ref.update(physicalProps, props => [...props, material.physical])
-      yield* Ref.update(visualProps, props => [...props, material.visual])
-      yield* Ref.update(acousticProps, props => [...props, material.acoustic])
-      yield* Ref.update(environmentalProps, props => [...props, material.environmental])
-      yield* Ref.update(interactionProps, props => [...props, material.interaction])
+      // 構造体配列への追加（並列処理）
+      yield* Effect.all([
+        Ref.update(materialIds, ids => [...ids, validatedMaterial.id]),
+        Ref.update(physicalProps, props => [...props, validatedMaterial.physical]),
+        Ref.update(visualProps, props => [...props, validatedMaterial.visual]),
+        Ref.update(acousticProps, props => [...props, validatedMaterial.acoustic]),
+        Ref.update(environmentalProps, props => [...props, validatedMaterial.environmental]),
+        Ref.update(interactionProps, props => [...props, validatedMaterial.interaction])
+      ], { concurrency: 6 })
 
       // インデックス更新
-      yield* Ref.update(idToIndex, index => new Map(index).set(material.id, newIndex))
+      yield* Ref.update(idToIndex, index => new Map(index).set(validatedMaterial.id, newIndex))
 
-      // カテゴリインデックス更新
+      // カテゴリインデックス更新（型安全）
       yield* Ref.update(categoryIndex, index => {
-        const newIndex = new Map(index)
-        const categorySet = newIndex.get(material.category) || new Set()
+        const newIndexMap = new Map(index)
+        const categorySet = newIndexMap.get(validatedMaterial.category) || new Set()
         categorySet.add(newIndex)
-        newIndex.set(material.category, categorySet)
-        return newIndex
+        newIndexMap.set(validatedMaterial.category, categorySet)
+        return newIndexMap
       })
 
       // タグインデックス更新
-      for (const tag of material.tags) {
-        yield* Ref.update(tagIndex, index => {
+      yield* Effect.forEach(
+        validatedMaterial.tags,
+        tag => Ref.update(tagIndex, index => {
           const newTagIndex = new Map(index)
           const tagSet = newTagIndex.get(tag) || new Set()
           tagSet.add(newIndex)
           newTagIndex.set(tag, tagSet)
           return newTagIndex
-        })
-      }
+        }),
+        { concurrency: 4 }
+      )
 
-      // キャッシュに追加
-      yield* Ref.update(materialCache, cache => new Map(cache).set(material.id, material))
-
-      // 統計更新
-      yield* Ref.update(stats, s => ({ ...s, totalMaterials: s.totalMaterials + 1 }))
+      // キャッシュと統計の更新（並列処理）
+      yield* Effect.all([
+        Ref.update(materialCache, cache => new Map(cache).set(validatedMaterial.id, validatedMaterial)),
+        Ref.update(stats, s => ({ ...s, totalMaterials: s.totalMaterials + 1 }))
+      ], { concurrency: 2 })
     })
 
   const get = (id: MaterialId) =>
     Effect.gen(function* () {
-      // キャッシュチェック
+      // バリデーション（早期リターン）
+      const validatedId = yield* Schema.decodeUnknown(MaterialId)(id).pipe(
+        Effect.mapError(() => new MaterialNotFoundError({ materialId: id }))
+      )
+
+      // キャッシュチェック（早期リターン）
       const cache = yield* Ref.get(materialCache)
-      const cached = cache.get(id)
+      const cached = cache.get(validatedId)
 
       if (cached) {
         yield* Ref.update(stats, s => ({ ...s, cacheHits: s.cacheHits + 1 }))
@@ -284,35 +405,37 @@ const makeMaterialRegistry = Effect.gen(function* () {
 
       yield* Ref.update(stats, s => ({ ...s, cacheMisses: s.cacheMisses + 1 }))
 
-      // インデックスから取得
+      // インデックスから取得（早期リターン）
       const indexMap = yield* Ref.get(idToIndex)
-      const index = indexMap.get(id)
+      const index = indexMap.get(validatedId)
 
       if (index === undefined) {
-        return yield* Effect.fail(new MaterialNotFoundError(id))
+        return yield* Effect.fail(new MaterialNotFoundError({ materialId: validatedId }))
       }
 
       // 構造体配列から再構築
       const material = yield* reconstructMaterial(index)
 
       // キャッシュに保存
-      yield* Ref.update(materialCache, cache => new Map(cache).set(id, material))
+      yield* Ref.update(materialCache, cache => new Map(cache).set(validatedId, material))
 
       return material
     })
 
-  const getByCategory = (category: string) =>
+  const getByCategory = (category: MaterialCategory) =>
     Effect.gen(function* () {
+      // バリデーション（早期リターン）
+      const validatedCategory = yield* Schema.decodeUnknown(MaterialCategory)(category)
+
       const categoryIdx = yield* Ref.get(categoryIndex)
-      const indices = categoryIdx.get(category) || new Set()
+      const indices = categoryIdx.get(validatedCategory) || new Set()
 
-      const materials: MaterialDefinition[] = []
-      for (const index of indices) {
-        const material = yield* reconstructMaterial(index)
-        materials.push(material)
-      }
-
-      return materials
+      // 並列処理で材質を再構築
+      return yield* Effect.forEach(
+        Array.from(indices),
+        index => reconstructMaterial(index),
+        { concurrency: 8 }
+      )
     })
 
   const getByTags = (tags: ReadonlyArray<string>) =>
@@ -418,11 +541,15 @@ const makeMaterialRegistry = Effect.gen(function* () {
 
   const preloadForRegion = (region: WorldRegion) =>
     Effect.gen(function* () {
-      // 地域に関連するマテリアルを事前ロード
-      const regionMaterials = yield* getRegionMaterials(region)
+      // バリデーション（早期リターン）
+      const validatedRegion = yield* Schema.decodeUnknown(WorldRegion)(region)
 
-      yield* Effect.all(
-        regionMaterials.map(materialId => get(materialId)),
+      // 地域に関連するマテリアルを事前ロード
+      const regionMaterials = yield* getRegionMaterials(validatedRegion)
+
+      yield* Effect.forEach(
+        regionMaterials,
+        materialId => get(materialId),
         { concurrency: 8 }
       )
     })
@@ -516,9 +643,10 @@ const makeMaterialRegistry = Effect.gen(function* () {
 
   const getRegionMaterials = (region: WorldRegion) =>
     Effect.gen(function* () {
-      // 地域に基づくマテリアル予測（Match.value パターン）
+      // 地域に基づくマテリアル予測（最新の Match パターン）
       const biome = region.biome
-      const commonMaterials = Match.value(biome).pipe(
+
+      return Match.value(biome).pipe(
         Match.when("plains", () => [
           "minecraft:grass" as MaterialId,
           "minecraft:dirt" as MaterialId,
@@ -534,10 +662,18 @@ const makeMaterialRegistry = Effect.gen(function* () {
           "minecraft:leaves" as MaterialId,
           "minecraft:moss" as MaterialId
         ]),
-        Match.orElse(() => [] as MaterialId[])
+        Match.when("mountains", () => [
+          "minecraft:stone" as MaterialId,
+          "minecraft:granite" as MaterialId,
+          "minecraft:iron_ore" as MaterialId
+        ]),
+        Match.when("ocean", () => [
+          "minecraft:water" as MaterialId,
+          "minecraft:sand" as MaterialId,
+          "minecraft:kelp" as MaterialId
+        ]),
+        Match.exhaustive
       )
-
-      return commonMaterials
     })
 
   return MaterialRegistry.of({
@@ -564,7 +700,132 @@ export const MaterialRegistryLive = Layer.effect(
 ### 高度な物理統合
 
 ```typescript
-// MaterialPhysicsServiceインターフェース
+// Vector3D型（ブランド型）
+export const Vector3D = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number
+})
+export type Vector3D = Schema.Schema.Type<typeof Vector3D>
+
+// 物理エラー型（TaggedError）
+export class PhysicsError extends Schema.TaggedError<PhysicsError>(
+  "PhysicsError"
+)("PhysicsError", {
+  message: Schema.String
+}) {
+  get message() {
+    return `物理計算エラー: ${this.message}`
+  }
+}
+
+export class FluidError extends Schema.TaggedError<FluidError>(
+  "FluidError"
+)("FluidError", {
+  message: Schema.String
+}) {
+  get message() {
+    return `流体計算エラー: ${this.message}`
+  }
+}
+
+export class ThermalError extends Schema.TaggedError<ThermalError>(
+  "ThermalError"
+)("ThermalError", {
+  message: Schema.String
+}) {
+  get message() {
+    return `熱計算エラー: ${this.message}`
+  }
+}
+
+export class ChemicalError extends Schema.TaggedError<ChemicalError>(
+  "ChemicalError"
+)("ChemicalError", {
+  message: Schema.String
+}) {
+  get message() {
+    return `化学反応エラー: ${this.message}`
+  }
+}
+
+// 結果型の定義
+export const CollisionResult = Schema.Struct({
+  finalVelocity: Vector3D,
+  energyLoss: Schema.Number,
+  soundEffect: Schema.Struct({
+    type: Schema.String,
+    volume: Schema.Number,
+    pitch: Schema.Number
+  }),
+  particleEffect: Schema.Struct({
+    count: Schema.Number,
+    material: MaterialId,
+    duration: Schema.Number
+  }),
+  damage: Schema.Number
+})
+export type CollisionResult = Schema.Schema.Type<typeof CollisionResult>
+
+export const FluidState = Schema.Struct({
+  particles: Schema.Array(Schema.Struct({
+    position: Vector3D,
+    velocity: Vector3D,
+    density: Schema.Number,
+    pressure: Schema.Number
+  })),
+  flowRate: Schema.Number,
+  turbulence: Schema.Number,
+  surface: Schema.Array(Vector3D)
+})
+export type FluidState = Schema.Schema.Type<typeof FluidState>
+
+export const MaterialReactant = Schema.Struct({
+  materialId: MaterialId,
+  amount: Schema.Number
+})
+export type MaterialReactant = Schema.Schema.Type<typeof MaterialReactant>
+
+export const ReactionConditions = Schema.Struct({
+  temperature: Schema.Number,
+  pressure: Schema.Number,
+  time: Schema.Number
+})
+export type ReactionConditions = Schema.Schema.Type<typeof ReactionConditions>
+
+export const ReactionResult = Schema.Struct({
+  products: Schema.Array(Schema.Struct({
+    materialId: MaterialId,
+    amount: Schema.Number,
+    energy: Schema.Number
+  })),
+  energyReleased: Schema.Number,
+  reactionRate: Schema.Number,
+  byproducts: Schema.Array(Schema.Any),
+  duration: Schema.Number
+})
+export type ReactionResult = Schema.Schema.Type<typeof ReactionResult>
+
+export const MaterialStateUpdate = Schema.Struct({
+  colorChange: Schema.NullOr(Schema.String),
+  textureChange: Schema.NullOr(Schema.String),
+  propertyChanges: Schema.Record(Schema.String, Schema.Number),
+  newState: MaterialState,
+  durabilityLoss: Schema.Number
+})
+export type MaterialStateUpdate = Schema.Schema.Type<typeof MaterialStateUpdate>
+
+export const EnvironmentalConditions = Schema.Struct({
+  temperature: Schema.Number,
+  biome: Schema.Optional(Schema.String),
+  weather: Schema.Optional(Schema.Struct({
+    type: Schema.Literal("rain", "snow", "wind", "uv"),
+    intensity: Schema.Number
+  }))
+})
+export type EnvironmentalConditions = Schema.Schema.Type<typeof EnvironmentalConditions>
+
+// MaterialPhysicsServiceインターフェース（最新のEffect-TSパターン）
 interface MaterialPhysicsServiceInterface {
   readonly calculateCollision: (
     materialA: MaterialId,
@@ -604,8 +865,8 @@ interface MaterialPhysicsServiceInterface {
   ) => Effect.Effect<MaterialStateUpdate, never>
 }
 
-// Context Tag（最新パターン）
-export const MaterialPhysicsService = Context.GenericTag<MaterialPhysicsServiceInterface>("@app/MaterialPhysicsService")
+// Context Tag（最新の GenericTag パターン）
+export const MaterialPhysicsService = Context.GenericTag<MaterialPhysicsServiceInterface>("@minecraft/MaterialPhysicsService")
 
 // 高性能物理システム実装
 const makeMaterialPhysicsService = Effect.gen(function* () {
@@ -694,21 +955,31 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
     deltaTime: number
   ) =>
     Effect.gen(function* () {
-      const fluidMaterial = yield* materialRegistry.get(material)
+      // バリデーション（早期リターン）
+      const validatedMaterial = yield* Schema.decodeUnknown(MaterialId)(material)
+      const validatedPositions = yield* Schema.decodeUnknown(Schema.Array(Vector3D))(positions)
+      const validatedDeltaTime = yield* Schema.decodeUnknown(Schema.Number)(deltaTime)
 
+      const fluidMaterial = yield* materialRegistry.get(validatedMaterial)
+
+      // 液体チェック（早期リターン）
       if (fluidMaterial.state !== "liquid") {
-        return yield* Effect.fail(new FluidError("マテリアルは液体ではありません"))
+        return yield* Effect.fail(new FluidError({ message: "マテリアルは液体ではありません" }))
       }
 
-      const viscosity = fluidMaterial.physical.viscosity
-      const density = fluidMaterial.physical.density
+      // 無効な時間差チェック（早期リターン）
+      if (validatedDeltaTime <= 0) {
+        return yield* Effect.fail(new FluidError({ message: "無効な時間差です" }))
+      }
+
+      const { viscosity, density } = fluidMaterial.physical
 
       // Smoothed Particle Hydrodynamics (SPH) シミュレーション
-      const particles = positions.map((pos, index) => ({
+      const particles = validatedPositions.map((pos, index) => ({
         id: index,
         position: pos,
-        velocity: { x: 0, y: -9.81 * deltaTime, z: 0 }, // 重力
-        density: density,
+        velocity: { x: 0, y: -9.81 * validatedDeltaTime, z: 0 }, // 重力
+        density,
         pressure: 0
       }))
 
@@ -954,35 +1225,53 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
         durabilityLoss: 0
       }
 
-      // 気象による変化
+      // 気象による変化（早期リターンとパターンマッチング）
       if (conditions.weather) {
         const resistance = materialDef.environmental.weatherResistance
+        const weather = conditions.weather
 
-        const weatherEffect = Match.value(conditions.weather.type).pipe(
-          Match.when("rain", () => {
-            if (resistance.rain < conditions.weather.intensity) {
-              updates.durabilityLoss += (conditions.weather.intensity - resistance.rain) * deltaTime * 0.01
+        yield* Match.value(weather.type).pipe(
+          Match.when("rain", () => Effect.gen(function* () {
+            if (resistance.rain >= weather.intensity) return
 
-              // 金属の錆
-              if (materialDef.category === "metal" && Math.random() < 0.001) {
-                updates.colorChange = adjustColorForRust(materialDef.visual.color.primary)
-              }
+            updates.durabilityLoss += (weather.intensity - resistance.rain) * deltaTime * 0.01
+
+            // 金属の錆（確率的処理）
+            if (materialDef.category === "metal" && Math.random() < 0.001) {
+              updates.colorChange = adjustColorForRust(materialDef.visual.color.primary)
             }
-          }),
-          Match.when("uv", () => {
-            if (resistance.uv < conditions.weather.intensity) {
-              updates.durabilityLoss += (conditions.weather.intensity - resistance.uv) * deltaTime * 0.005
+          })),
+          Match.when("snow", () => Effect.gen(function* () {
+            if (resistance.snow >= weather.intensity) return
 
-              // 色褪せ
-              if (Math.random() < 0.0001) {
-                updates.colorChange = fadeColor(materialDef.visual.color.primary)
-              }
+            updates.durabilityLoss += (weather.intensity - resistance.snow) * deltaTime * 0.005
+
+            // 凍結効果
+            if (materialDef.state === "liquid" && weather.intensity > 0.8) {
+              updates.newState = "solid"
+              updates.propertyChanges["viscosity"] = materialDef.physical.viscosity * 1000
             }
-          }),
-          Match.orElse(() => void 0)
+          })),
+          Match.when("wind", () => Effect.gen(function* () {
+            if (resistance.wind >= weather.intensity) return
+
+            // 風による侵食
+            if (materialDef.physical.density < 100) {
+              updates.durabilityLoss += weather.intensity * deltaTime * 0.02
+            }
+          })),
+          Match.when("uv", () => Effect.gen(function* () {
+            if (resistance.uv >= weather.intensity) return
+
+            updates.durabilityLoss += (weather.intensity - resistance.uv) * deltaTime * 0.005
+
+            // 紫外線による色褪せ
+            if (Math.random() < 0.0001) {
+              updates.colorChange = fadeColor(materialDef.visual.color.primary)
+            }
+          })),
+          Match.exhaustive
         )
-
-        yield* Effect.sync(() => weatherEffect)
       }
 
       // 温度による相変化
@@ -1076,7 +1365,142 @@ export const MaterialPhysicsServiceLive = Layer.effect(
 ### 高度な視覚処理
 
 ```typescript
-// MaterialRenderingServiceインターフェース
+// レンダリング関連の型定義（Schema）
+export class ShaderError extends Schema.TaggedError<ShaderError>(
+  "ShaderError"
+)("ShaderError", {
+  message: Schema.String
+}) {
+  get message() {
+    return `シェーダーエラー: ${this.message}`
+  }
+}
+
+export class TextureError extends Schema.TaggedError<TextureError>(
+  "TextureError"
+)("TextureError", {
+  message: Schema.String
+}) {
+  get message() {
+    return `テクスチャエラー: ${this.message}`
+  }
+}
+
+export class AtlasError extends Schema.TaggedError<AtlasError>(
+  "AtlasError"
+)("AtlasError", {
+  message: Schema.String
+}) {
+  get message() {
+    return `アトラスエラー: ${this.message}`
+  }
+}
+
+export class RenderError extends Schema.TaggedError<RenderError>(
+  "RenderError"
+)("RenderError", {
+  message: Schema.String
+}) {
+  get message() {
+    return `レンダリングエラー: ${this.message}`
+  }
+}
+
+export const ShaderProgram = Schema.Struct({
+  id: Schema.String,
+  vertexSource: Schema.String,
+  fragmentSource: Schema.String,
+  uniforms: Schema.Record(Schema.String, Schema.Any),
+  compiled: Schema.Boolean
+})
+export type ShaderProgram = Schema.Schema.Type<typeof ShaderProgram>
+
+export const Texture = Schema.Struct({
+  width: Schema.Number,
+  height: Schema.Number,
+  data: Schema.Any, // Uint8Array
+  format: Schema.String
+})
+export type Texture = Schema.Schema.Type<typeof Texture>
+
+export const LightSource = Schema.Struct({
+  direction: Vector3D,
+  color: Schema.Struct({
+    r: Schema.Number,
+    g: Schema.Number,
+    b: Schema.Number
+  }),
+  intensity: Schema.Number
+})
+export type LightSource = Schema.Schema.Type<typeof LightSource>
+
+export const LightingResult = Schema.Struct({
+  diffuse: Schema.Struct({
+    r: Schema.Number,
+    g: Schema.Number,
+    b: Schema.Number
+  }),
+  specular: Schema.Struct({
+    r: Schema.Number,
+    g: Schema.Number,
+    b: Schema.Number
+  }),
+  ambient: Schema.Struct({
+    r: Schema.Number,
+    g: Schema.Number,
+    b: Schema.Number
+  }),
+  shadow: Schema.Number
+})
+export type LightingResult = Schema.Schema.Type<typeof LightingResult>
+
+export const NormalMap = Schema.Struct({
+  width: Schema.Number,
+  height: Schema.Number,
+  data: Schema.Any, // Uint8Array
+  format: Schema.String
+})
+export type NormalMap = Schema.Schema.Type<typeof NormalMap>
+
+export const TextureCoords = Schema.Struct({
+  u: Schema.Number,
+  v: Schema.Number,
+  width: Schema.Number,
+  height: Schema.Number
+})
+export type TextureCoords = Schema.Schema.Type<typeof TextureCoords>
+
+export const TextureAtlas = Schema.Struct({
+  width: Schema.Number,
+  height: Schema.Number,
+  data: Schema.Any, // Uint8Array
+  textureCoords: Schema.Record(MaterialId, TextureCoords),
+  format: Schema.String
+})
+export type TextureAtlas = Schema.Schema.Type<typeof TextureAtlas>
+
+export const LODMaterial = Schema.extend(MaterialDefinition, Schema.Struct({
+  lodLevel: Schema.Number
+}))
+export type LODMaterial = Schema.Schema.Type<typeof LODMaterial>
+
+export const RenderInstance = Schema.Struct({
+  materialId: MaterialId,
+  position: Vector3D,
+  rotation: Vector3D,
+  scale: Vector3D
+})
+export type RenderInstance = Schema.Schema.Type<typeof RenderInstance>
+
+export const RenderResult = Schema.Struct({
+  drawCalls: Schema.Number,
+  triangles: Schema.Number,
+  materialGroups: Schema.Number,
+  renderTime: Schema.Number
+})
+export type RenderResult = Schema.Schema.Type<typeof RenderResult>
+
+// MaterialRenderingServiceインターフェース（最新のEffect-TSパターン）
 interface MaterialRenderingServiceInterface {
   readonly generateShader: (material: MaterialDefinition) => Effect.Effect<ShaderProgram, ShaderError>
   readonly createTexture: (material: MaterialDefinition, resolution: number) => Effect.Effect<Texture, TextureError>
@@ -1092,8 +1516,8 @@ interface MaterialRenderingServiceInterface {
   readonly batchRender: (materials: ReadonlyArray<RenderInstance>) => Effect.Effect<RenderResult, RenderError>
 }
 
-// Context Tag（最新パターン）
-export const MaterialRenderingService = Context.GenericTag<MaterialRenderingServiceInterface>("@app/MaterialRenderingService")
+// Context Tag（最新の GenericTag パターン）
+export const MaterialRenderingService = Context.GenericTag<MaterialRenderingServiceInterface>("@minecraft/MaterialRenderingService")
 
 // 高性能レンダリングシステム実装
 const makeMaterialRenderingService = Effect.gen(function* () {
@@ -1431,21 +1855,61 @@ const makeMaterialRenderingService = Effect.gen(function* () {
 
           let normal = { x: 0, y: 0, z: 1 }
 
-          // 材質カテゴリに応じたパターン生成
-          switch (material.category) {
-            case "stone":
-              normal = generateStoneNormal(x / resolution, y / resolution, material.physical.roughness)
-              break
-            case "metal":
-              normal = generateMetalNormal(x / resolution, y / resolution, material.physical.hardness)
-              break
-            case "organic":
-              normal = generateOrganicNormal(x / resolution, y / resolution, material.physical.density)
-              break
-            case "liquid":
-              normal = generateLiquidNormal(x / resolution, y / resolution, material.physical.viscosity)
-              break
-          }
+          // 材質カテゴリに応じたパターン生成（パターンマッチング）
+          normal = Match.value(material.category).pipe(
+            Match.when("stone", () => generateStoneNormal(
+              x / resolution,
+              y / resolution,
+              material.physical.roughness
+            )),
+            Match.when("metal", () => generateMetalNormal(
+              x / resolution,
+              y / resolution,
+              material.physical.hardness
+            )),
+            Match.when("organic", () => generateOrganicNormal(
+              x / resolution,
+              y / resolution,
+              material.physical.density
+            )),
+            Match.when("liquid", () => generateLiquidNormal(
+              x / resolution,
+              y / resolution,
+              material.physical.viscosity
+            )),
+            Match.when("gas", () => ({ x: 0, y: 0, z: 1 })), // ガスは平坦
+            Match.when("composite", () => generateCompositeNormal(
+              x / resolution,
+              y / resolution,
+              material.physical
+            )),
+            Match.when("magical", () => generateMagicalNormal(
+              x / resolution,
+              y / resolution,
+              material.visual.luminance
+            )),
+            Match.when("synthetic", () => generateSyntheticNormal(
+              x / resolution,
+              y / resolution,
+              material.physical.hardness
+            )),
+            Match.when("crystal", () => generateCrystalNormal(
+              x / resolution,
+              y / resolution,
+              material.visual.reflectivity
+            )),
+            Match.when("ceramic", () => generateCeramicNormal(
+              x / resolution,
+              y / resolution,
+              material.physical.roughness
+            )),
+            Match.when("glass", () => generateGlassNormal(
+              x / resolution,
+              y / resolution,
+              material.visual.opacity
+            )),
+            Match.exhaustive
+          )
 
           // 法線を[0,1]範囲に正規化
           normalData[index] = Math.floor((normal.x + 1) * 127.5)     // R
@@ -1616,7 +2080,122 @@ export const MaterialRenderingServiceLive = Layer.effect(
 ### 高度な音響処理
 
 ```typescript
-// MaterialSoundServiceインターフェース
+// 音響関連の型定義（Schema）
+export class AudioError extends Schema.TaggedError<AudioError>(
+  "AudioError"
+)("AudioError", {
+  message: Schema.String
+}) {
+  get message() {
+    return `音響エラー: ${this.message}`
+  }
+}
+
+export const MaterialSoundType = Schema.Literal("footstep", "break", "place", "hit", "ambient")
+export type MaterialSoundType = Schema.Schema.Type<typeof MaterialSoundType>
+
+export const SoundInstance = Schema.Struct({
+  id: Schema.String,
+  file: Schema.String,
+  position: Vector3D,
+  volume: Schema.Number,
+  pitch: Schema.Number,
+  reverb: Schema.Number,
+  echo: Schema.Number,
+  dampening: Schema.Number
+})
+export type SoundInstance = Schema.Schema.Type<typeof SoundInstance>
+
+export const Room = Schema.Struct({
+  id: Schema.String,
+  width: Schema.Number,
+  height: Schema.Number,
+  depth: Schema.Number,
+  humidity: Schema.Number,
+  temperature: Schema.Number
+})
+export type Room = Schema.Schema.Type<typeof Room>
+
+export const AcousticProperties = Schema.Struct({
+  attenuation: Schema.Number,
+  reverberation: Schema.Number,
+  reflections: Schema.Array(Schema.Any),
+  directPath: Schema.Number,
+  totalDelay: Schema.Number,
+  frequency_response: Schema.Array(Schema.Struct({
+    frequency: Schema.Number,
+    attenuation: Schema.Number
+  }))
+})
+export type AcousticProperties = Schema.Schema.Type<typeof AcousticProperties>
+
+export const AmbientSound = Schema.Struct({
+  type: Schema.String,
+  position: Vector3D,
+  volume: Schema.Number,
+  frequency: Schema.Number,
+  duration: Schema.Number
+})
+export type AmbientSound = Schema.Schema.Type<typeof AmbientSound>
+
+export const WeatherConditions = Schema.Struct({
+  rain: Schema.Optional(Schema.Struct({
+    intensity: Schema.Number
+  })),
+  wind: Schema.Optional(Schema.Struct({
+    speed: Schema.Number
+  }))
+})
+export type WeatherConditions = Schema.Schema.Type<typeof WeatherConditions>
+
+export const AcousticEnvironment = Schema.Struct({
+  id: Schema.String,
+  volume: Schema.Number,
+  surfaceArea: Schema.Number,
+  materials: Schema.Array(MaterialDefinition),
+  complexity: Schema.Number
+})
+export type AcousticEnvironment = Schema.Schema.Type<typeof AcousticEnvironment>
+
+export const ReverbParameters = Schema.Struct({
+  rt60: Schema.Number,
+  earlyReflections: Schema.Array(Schema.Any),
+  lateReverberation: Schema.Number,
+  density: Schema.Number,
+  diffusion: Schema.Number,
+  frequencyResponse: Schema.Array(Schema.Struct({
+    frequency: Schema.Number,
+    absorption: Schema.Number
+  })),
+  predelay: Schema.Number
+})
+export type ReverbParameters = Schema.Schema.Type<typeof ReverbParameters>
+
+export const EchoPoint = Schema.Struct({
+  position: Vector3D,
+  delay: Schema.Number,
+  intensity: Schema.Number,
+  frequency_shift: Schema.Number
+})
+export type EchoPoint = Schema.Schema.Type<typeof EchoPoint>
+
+export const EchoEffect = Schema.Struct({
+  totalDelay: Schema.Number,
+  echoPoints: Schema.Array(EchoPoint),
+  finalIntensity: Schema.Number,
+  path: Schema.Array(Vector3D)
+})
+export type EchoEffect = Schema.Schema.Type<typeof EchoEffect>
+
+export const AudioEngine = Context.GenericTag<{
+  readonly playSound: (params: SoundInstance) => Effect.Effect<SoundInstance, AudioError>
+}>("@minecraft/AudioEngine")
+
+export const AudioEngineLive = Layer.succeed(AudioEngine, {
+  playSound: (params) => Effect.succeed(params)
+})
+
+// MaterialSoundServiceインターフェース（最新のEffect-TSパターン）
 interface MaterialSoundServiceInterface {
   readonly playMaterialSound: (
     materialId: MaterialId,
@@ -1648,8 +2227,8 @@ interface MaterialSoundServiceInterface {
   ) => Effect.Effect<EchoEffect, never>
 }
 
-// Context Tag（最新パターン）
-export const MaterialSoundService = Context.GenericTag<MaterialSoundServiceInterface>("@app/MaterialSoundService")
+// Context Tag（最新の GenericTag パターン）
+export const MaterialSoundService = Context.GenericTag<MaterialSoundServiceInterface>("@minecraft/MaterialSoundService")
 
 // 高度な音響処理実装
 const makeMaterialSoundService = Effect.gen(function* () {
@@ -1667,33 +2246,29 @@ const makeMaterialSoundService = Effect.gen(function* () {
     intensity: number
   ) =>
     Effect.gen(function* () {
-      const material = yield* materialRegistry.get(materialId)
+      // バリデーション（早期リターン）
+      const validatedMaterialId = yield* Schema.decodeUnknown(MaterialId)(materialId)
+      const validatedSoundType = yield* Schema.decodeUnknown(MaterialSoundType)(soundType)
+      const validatedPosition = yield* Schema.decodeUnknown(Vector3D)(position)
+
+      const material = yield* materialRegistry.get(validatedMaterialId)
       const acoustic = material.acoustic
 
-      // 音響ファイルの選択
-      let soundFiles: ReadonlyArray<string>
-      switch (soundType) {
-        case "footstep":
-          soundFiles = acoustic.footstepSounds
-          break
-        case "break":
-          soundFiles = acoustic.breakSounds
-          break
-        case "place":
-          soundFiles = acoustic.placeSounds
-          break
-        case "hit":
-          soundFiles = acoustic.hitSounds
-          break
-        case "ambient":
-          soundFiles = acoustic.ambientSounds || []
-          break
-        default:
-          soundFiles = acoustic.footstepSounds
-      }
+      // 音響ファイルの選択（パターンマッチング）
+      const soundFiles = Match.value(validatedSoundType).pipe(
+        Match.when("footstep", () => acoustic.footstepSounds),
+        Match.when("break", () => acoustic.breakSounds),
+        Match.when("place", () => acoustic.placeSounds),
+        Match.when("hit", () => acoustic.hitSounds),
+        Match.when("ambient", () => acoustic.ambientSounds || []),
+        Match.exhaustive
+      )
 
+      // 早期リターン（音響ファイルが存在しない場合）
       if (soundFiles.length === 0) {
-        return yield* Effect.fail(new AudioError("マテリアルに利用可能なサウンドファイルがありません"))
+        return yield* Effect.fail(new AudioError({
+          message: `マテリアル ${validatedMaterialId} に ${validatedSoundType} 音響ファイルがありません`
+        }))
       }
 
       // ランダムに音響ファイルを選択
@@ -1710,10 +2285,11 @@ const makeMaterialSoundService = Effect.gen(function* () {
       const adjustedVolume = volume * Math.sqrt(densityFactor)
       const adjustedPitch = pitch * (1 + hardnessFactor * 0.1)
 
-      // 音響再生
+      // 音響再生（バリデーション済みデータを使用）
       const soundInstance = yield* audioEngine.playSound({
+        id: `sound_${Date.now()}_${Math.random()}`,
         file: selectedSound,
-        position,
+        position: validatedPosition,
         volume: Math.min(adjustedVolume, 1),
         pitch: Math.max(0.5, Math.min(adjustedPitch, 2.0)),
         reverb: acoustic.reverb || 0,
