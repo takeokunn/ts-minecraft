@@ -7,7 +7,7 @@ tags: ["game-mechanics", "minecraft", "design-philosophy", "player-experience", 
 prerequisites: ["game-development-basics", "minecraft-knowledge"]
 estimated_reading_time: "12分"
 related_patterns: ["data-modeling-patterns", "ecs-patterns"]
-related_docs: ["../architecture/overview.md", "./00-core-features/overview.md"]
+related_docs: ["../architecture/overview.md", "./core-features/overview.md"]
 ---
 
 # ゲームメカニクス設計哲学 - Minecraft体験の再現と革新

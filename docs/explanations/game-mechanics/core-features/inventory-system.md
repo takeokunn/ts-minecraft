@@ -7,7 +7,7 @@ tags: ["inventory-system", "item-management", "player-system", "ui-system", "per
 prerequisites: ["effect-ts-fundamentals", "schema-basics", "ddd-concepts"]
 estimated_reading_time: "12分"
 related_patterns: ["data-modeling-patterns", "service-patterns", "validation-patterns"]
-related_docs: ["./player-system.md", "../01-enhanced-features/villager-trading.md", "../../01-architecture/05-ecs-integration.md"]
+related_docs: ["./player-system.md", "../enhanced-features/villager-trading.md", "../../01-architecture/05-ecs-integration.md"]
 ---
 
 # インベントリシステム

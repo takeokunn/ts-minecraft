@@ -23,11 +23,11 @@ TypeScript Minecraftのコア機能実装における実践的なガイドライ
 ### アーキテクチャと設計
 
 #### 設計原則
-- [アーキテクチャ原則](../../explanations/game-mechanics/00-core-features/architecture-principles.md) - Effect-TS + ECS設計思想
-- [実装パターン](../../explanations/game-mechanics/00-core-features/implementation-patterns.md) - 具体的な実装例とコードパターン
+- [アーキテクチャ原則](../../explanations/game-mechanics/core-features/architecture-principles.md) - Effect-TS + ECS設計思想
+- [実装パターン](../../explanations/game-mechanics/core-features/implementation-patterns.md) - 具体的な実装例とコードパターン
 
 #### テスト戦略
-- [PBTテスト戦略](../../explanations/game-mechanics/00-core-features/pbt-testing-strategy.md) - Property-Based Testing統合
+- [PBTテスト戦略](../../explanations/game-mechanics/core-features/pbt-testing-strategy.md) - Property-Based Testing統合
 - [PBT実装例](../testing/pbt-implementation-examples.md) - 具体的なテスト実装
 
 ## パフォーマンス最適化
@@ -235,4 +235,4 @@ const benchmarkChunkGeneration = async () => {
 ### アーキテクチャ関連
 - [システム全体設計](../../explanations/architecture/overview.md) - 全体アーキテクチャ
 - [DDD戦略的設計](../../explanations/architecture/domain-application-apis.md) - ドメイン設計
-- [ECS統合](../../explanations/game-mechanics/00-core-features/architecture-principles.md) - ECSパターン
+- [ECS統合](../../explanations/game-mechanics/core-features/architecture-principles.md) - ECSパターン

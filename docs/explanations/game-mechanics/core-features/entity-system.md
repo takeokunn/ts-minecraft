@@ -412,9 +412,11 @@ const makeEntityManager = Effect.gen(function* () {
           yield* STM.update(entities, (map) => new Map(map).set(id, entity))
 
           // コンポーネント追加（バッチ処理）
-          for (const component of components) {
-            yield* STM.commit(componentStore.set(id, component))
-          }
+          yield* pipe(
+            components,
+            Array.map((component) => STM.commit(componentStore.set(id, component))),
+            STM.all
+          )
 
           // アーキタイプ更新
           const componentTypes = components.map(c => c._tag)
@@ -461,11 +463,15 @@ const makeEntityManager = Effect.gen(function* () {
 
             // コンポーネント全削除
             const componentTypes = ["Position", "Velocity", "Health", "AI", "Combat", "Armor"]
-            for (const componentType of componentTypes) {
-              yield* STM.commit(componentStore.remove(id, componentType).pipe(
-                Effect.ignore // コンポーネントがない場合は無視
-              ))
-            }
+            yield* pipe(
+              componentTypes,
+              Array.map((componentType) =>
+                STM.commit(componentStore.remove(id, componentType).pipe(
+                  Effect.ignore // コンポーネントがない場合は無視
+                ))
+              ),
+              STM.all
+            )
 
             // アーキタイプから削除
             yield* archetypeManager.removeEntity(id)
@@ -517,18 +523,29 @@ const makeEntityManager = Effect.gen(function* () {
       const entityIds = yield* query(...componentTypes)
       const results: [EntityId, T][] = []
 
-      for (const id of entityIds) {
-        const components = componentTypes.map(type =>
-          componentStore.get(id, type)
-        )
+      yield* pipe(
+        entityIds,
+        Array.map((id) =>
+          Effect.gen(function* () {
+            const components = yield* pipe(
+              componentTypes,
+              Array.map((type) => componentStore.get(id, type)),
+              Effect.all
+            )
 
-        if (components.every(Option.isSome)) {
-          results.push([
-            id,
-            components.map(Option.getOrThrow) as T
-          ])
-        }
-      }
+            return Match.value(components.every(Option.isSome)).pipe(
+              Match.when(true, () => Option.some([
+                id,
+                components.map(Option.getOrThrow) as T
+              ] as [EntityId, T])),
+              Match.when(false, () => Option.none()),
+              Match.exhaustive
+            )
+          })
+        ),
+        Effect.all,
+        Effect.map(Array.filterMap((x) => x))
+      )
 
       return results
     })
@@ -1807,18 +1824,24 @@ const createPositionStorage = (capacity: number) =>
       deltaY: Float32Array,
       deltaZ: Float32Array
     ) => Effect.sync(() => {
-      for (let i = 0; i < indices.length; i++) {
-        const idx = indices[i]
-        if (activeSlots.has(idx)) {
-          xArray[idx] += deltaX[i]
-          yArray[idx] += deltaY[i]
-          zArray[idx] += deltaZ[i]
+      pipe(
+        indices,
+        Array.forEachWithIndex((i, idx) => {
+          Match.value(activeSlots.has(idx)).pipe(
+            Match.when(true, () => {
+              xArray[idx] += deltaX[i]
+              yArray[idx] += deltaY[i]
+              zArray[idx] += deltaZ[i]
 
-          // チャンク位置更新
-          chunkXArray[idx] = Math.floor(xArray[idx] / 16)
-          chunkZArray[idx] = Math.floor(zArray[idx] / 16)
-        }
-      }
+              // チャンク位置更新
+              chunkXArray[idx] = Math.floor(xArray[idx] / 16)
+              chunkZArray[idx] = Math.floor(zArray[idx] / 16)
+            }),
+            Match.when(false, () => void 0),
+            Match.exhaustive
+          )
+        })
+      )
     })
 
     return { setPosition, getPosition, updatePositionsBatch, activeSlots }
@@ -1890,16 +1913,15 @@ const makeArchetypeManager = Effect.gen(function* () {
       const allArchetypes = yield* Ref.get(archetypes)
       const matchingEntities: EntityId[] = []
 
-      for (const [_, archetype] of allArchetypes) {
-        // 全ての必要コンポーネントを持つアーキタイプかチェック
-        const hasAllComponents = componentTypes.every(type =>
-          archetype.componentTypes.has(type)
-        )
-
-        if (hasAllComponents) {
-          matchingEntities.push(...archetype.entities)
-        }
-      }
+      const matchingEntities = pipe(
+        Array.from(allArchetypes.values()),
+        Array.filter((archetype) =>
+          componentTypes.every(type =>
+            archetype.componentTypes.has(type)
+          )
+        ),
+        Array.flatMap((archetype) => Array.from(archetype.entities))
+      )
 
       return matchingEntities
     })

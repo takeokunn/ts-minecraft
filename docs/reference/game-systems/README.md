@@ -7,7 +7,7 @@ tags: ["effect-ts", "schema", "ddd", "data-modeling", "performance", "persistenc
 prerequisites: ["effect-ts-fundamentals", "schema-basics", "ddd-concepts"]
 estimated_reading_time: "20分"
 related_patterns: ["data-modeling-patterns", "service-patterns", "error-handling-patterns"]
-related_docs: ["../00-core-features/07-chunk-system.md", "../../01-architecture/02-ddd-strategic-design.md"]
+related_docs: ["../../explanations/game-mechanics/core-features/chunk-system.md", "../../01-architecture/02-ddd-strategic-design.md"]
 ---
 
 # データモデル仕様書
@@ -954,7 +954,7 @@ describe("World Data Persistence", () => {
 ## 🔗 関連ドキュメント
 
 - **[API設計](../02-api-design/)** - データアクセスAPI
-- **[コア機能](../00-core-features/)** - データ利用システム
+- **[コア機能](../../explanations/game-mechanics/core-features/)** - データ利用システム
 - **[セキュリティ仕様](../04-security-specification.md)** - データ保護要件
 - **[アーキテクチャ](../../01-architecture/)** - システム設計基盤
 

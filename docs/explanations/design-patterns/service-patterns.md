@@ -114,14 +114,17 @@ machine_readable:
 // 実際のベンチマークコード例
 const benchmarkServicePerformance = Effect.gen(function* () {
   const iterations = 1000
-  const testPlayers = Array.from({ length: 100 }, (_, i) =>
-    PlayerId(`player_${i}`))
+  const testPlayers = pipe(
+    Array.range(0, 99),
+    Array.map(i => PlayerId(`player_${i}`))
+  )
 
   // Effect-TS実装のベンチマーク
   const effectStart = performance.now()
-  yield* Effect.all(
-    testPlayers.map(id => PlayerService.getPlayer(id)),
-    { concurrency: 10 }
+  yield* pipe(
+    testPlayers,
+    Array.map(id => PlayerService.getPlayer(id)),
+    Effect.all({ concurrency: 10 })
   )
   const effectEnd = performance.now()
 
@@ -149,33 +152,42 @@ const benchmarkServicePerformance = Effect.gen(function* () {
 #### ❌ Before: 従来のPromise実装
 ```typescript
 // 型安全性が不十分、エラーハンドリングが複雑
-interface OldPlayerService {
-  private validatePlayer(data: any): boolean {
-    return data && typeof data.name === 'string' && data.name.length > 0
-  }
+// クラスベースの実装（非推奨）
+const PlayerData = Schema.Struct({
+  name: Schema.String,
+  position: Schema.Unknown
+})
 
-  async createPlayer(name: string, position: any): Promise<Player | null> {
-    try {
-      if (!this.validatePlayer({ name, position })) {
-        throw new Error('Invalid player data')
-      }
+const validatePlayerData = (data: unknown) =>
+  pipe(
+    Schema.decodeUnknown(PlayerData)(data),
+    Effect.mapError(() => "Invalid player data")
+  )
 
-      const player = {
-        id: Math.random().toString(),
-        name,
-        position,
-        createdAt: new Date()
-      }
+const createPlayerImperative = (name: string, position: unknown, database: Database) =>
+  Effect.gen(function* () {
+    // 命令的スタイル（非推奨）
+    const validationResult = yield* validatePlayerData({ name, position })
 
-      // データベース保存（エラー処理が不完全）
-      await this.database.save(player)
-      return player
-    } catch (error) {
-      console.error('Player creation failed:', error)
-      return null // エラー情報が失われる
+    // if文の使用（非推奨 - Matchを使うべき）
+    if (!validationResult) {
+      return yield* Effect.fail(new Error('Invalid player data'))
     }
-  }
-}
+
+    const player = {
+      id: Math.random().toString(),
+      name,
+      position,
+      createdAt: new Date()
+    }
+
+    // try-catch的な処理（非推奨）
+    const saveResult = yield* database.save(player).pipe(
+      Effect.catchAll(() => Effect.succeed(null))
+    )
+
+    return saveResult ? player : null // null返しは非推奨
+  })
 ```
 
 #### ✅ After: Effect-TS最新実装
@@ -223,64 +235,65 @@ const makeBasicService: Effect.Effect<BasicService, never, never> =
         const startTime = Date.now()
         const correlationId = crypto.randomUUID()
 
-        try {
-          // Schema検証（詳細エラー情報付き）
-          const validInput = yield* Schema.decodeUnknown(ProcessInput)(input).pipe(
-            Effect.mapError(parseError => new ProcessingError({
-              operation: "input_validation",
-              reason: `Schema validation failed: ${Schema.formatErrors(parseError.errors)}`,
-              timestamp: new Date(startTime),
+        // Schema検証をパイプラインで構成
+        const validInput = yield* pipe(
+          input,
+          Schema.decodeUnknown(ProcessInput),
+          Effect.mapError(parseError => new ProcessingError({
+            operation: "input_validation",
+            reason: `Schema validation failed: ${Schema.formatErrors(parseError.errors)}`,
+            timestamp: new Date(startTime),
+            retryCount: 0,
+            correlationId
+          }))
+        )
+
+        // ビジネスロジック実行（関数合成パターン）
+        const processInput = (input: ProcessInput) => pipe(
+          Effect.log(`Processing input: ${input}`),
+          Effect.flatMap(() => Effect.sleep(Duration.millis(10))),
+          Effect.map(() => input.toUpperCase() as ProcessOutput),
+          Effect.tap(() => Effect.log(`Processing completed: ${input.toUpperCase()}`))
+        )
+
+        const result = yield* pipe(
+          validInput,
+          processInput,
+          // リトライ戦略（条件付き）
+          Effect.retry(
+            Schedule.exponential(Duration.millis(100)).pipe(
+              Schedule.intersect(Schedule.recurs(3)),
+              Schedule.whileInput((error: unknown) =>
+                error instanceof ProcessingError && error.reason.includes("temporary")
+              )
+            )
+          ),
+          // タイムアウト設定
+          Effect.timeout(Duration.seconds(5)),
+          // タイムアウト時のカスタムエラー
+          Effect.catchTag("TimeoutException", () =>
+            Effect.fail(new ProcessingError({
+              operation: "process",
+              reason: "Processing timed out after 5 seconds",
+              timestamp: new Date(),
               retryCount: 0,
               correlationId
             }))
-          )
-
-          // ビジネスロジック実行（観測可能な処理）
-          const result = yield* Effect.gen(function* () {
-            yield* Effect.log(`Processing input: ${validInput}`)
-
-            // 複雑な処理のシミュレーション
-            yield* Effect.sleep(Duration.millis(10))
-
-            const processed = validInput.toUpperCase() as ProcessOutput
-
-            yield* Effect.log(`Processing completed: ${processed}`)
-            return processed
-          }).pipe(
-            // リトライ戦略（条件付き）
-            Effect.retry(
-              Schedule.exponential(Duration.millis(100)).pipe(
-                Schedule.intersect(Schedule.recurs(3)),
-                Schedule.whileInput((error: unknown) =>
-                  error instanceof ProcessingError && error.reason.includes("temporary")
-                )
-              )
-            ),
-            // タイムアウト設定
-            Effect.timeout(Duration.seconds(5)),
-            // タイムアウト時のカスタムエラー
-            Effect.catchTag("TimeoutException", () =>
-              Effect.fail(new ProcessingError({
-                operation: "process",
-                reason: "Processing timed out after 5 seconds",
-                timestamp: new Date(),
-                retryCount: 0,
-                correlationId
-              }))
+          ),
+          // エラーハンドリングをパイプラインに統合
+          Effect.catchAll(error =>
+            pipe(
+              Ref.update(errorCount, n => n + 1),
+              Effect.flatMap(() => Effect.fail(error as ProcessingError))
             )
           )
+        )
 
-          // 成功メトリクス記録
-          const duration = Date.now() - startTime
-          yield* Effect.log(`Processing successful in ${duration}ms`)
+        // 成功メトリクス記録
+        const duration = Date.now() - startTime
+        yield* Effect.log(`Processing successful in ${duration}ms`)
 
-          return result
-
-        } catch (error) {
-          // エラーメトリクス更新
-          yield* Ref.update(errorCount, n => n + 1)
-          yield* Effect.fail(error as ProcessingError)
-        }
+        return result
       }),
 
       // メトリクス取得メソッド（監視用）
@@ -577,15 +590,12 @@ const makeCachingService = Effect.gen(function* () {
   const isExpired = (entry: CacheEntry, now: number): boolean =>
     entry.expiresAt < now
 
-  const evictExpiredEntries = (cacheMap: Map<CacheKey, CacheEntry>, now: number): Map<CacheKey, CacheEntry> => {
-    const filtered = new Map<CacheKey, CacheEntry>()
-    for (const [key, entry] of cacheMap.entries()) {
-      if (!isExpired(entry, now)) {
-        filtered.set(key, entry)
-      }
-    }
-    return filtered
-  }
+  const evictExpiredEntries = (cacheMap: Map<CacheKey, CacheEntry>, now: number): Map<CacheKey, CacheEntry> =>
+    pipe(
+      Array.from(cacheMap.entries()),
+      Array.filter(([_, entry]) => !isExpired(entry, now)),
+      entries => new Map(entries)
+    )
 
   const expensiveComputation = (key: CacheKey): Effect.Effect<CacheValue, ComputationError> =>
     pipe(
@@ -603,27 +613,40 @@ const makeCachingService = Effect.gen(function* () {
       const now = Date.now()
       const currentCache = yield* Ref.get(cache)
 
-      // Early return for cache miss
-      if (!currentCache.has(key)) {
-        yield* Ref.update(stats, s => ({ ...s, misses: s.misses + 1 }))
-        return Option.none()
-      }
-
-      const entry = currentCache.get(key)!
-
-      // Early return for expired entry
-      if (isExpired(entry, now)) {
-        yield* Ref.update(cache, c => {
-          const newCache = new Map(c)
-          newCache.delete(key)
-          return newCache
-        })
-        yield* Ref.update(stats, s => ({ ...s, misses: s.misses + 1 }))
-        return Option.none()
-      }
-
-      yield* Ref.update(stats, s => ({ ...s, hits: s.hits + 1 }))
-      return Option.some(entry.value)
+      // Pattern matching for cache lookup instead of if/else
+      return pipe(
+        Option.fromNullable(currentCache.get(key)),
+        Option.match({
+          onNone: () => pipe(
+            Ref.update(stats, s => ({ ...s, misses: s.misses + 1 })),
+            Effect.map(() => Option.none<CacheValue>())
+          ),
+          onSome: (entry) =>
+            Match.value({ entry, isExpired: isExpired(entry, now) }).pipe(
+              Match.when(
+                { isExpired: true },
+                () => pipe(
+                  Ref.update(cache, c => {
+                    const newCache = new Map(c)
+                    newCache.delete(key)
+                    return newCache
+                  }),
+                  Effect.flatMap(() => Ref.update(stats, s => ({ ...s, misses: s.misses + 1 }))),
+                  Effect.map(() => Option.none<CacheValue>())
+                )
+              ),
+              Match.when(
+                { isExpired: false },
+                ({ entry }) => pipe(
+                  Ref.update(stats, s => ({ ...s, hits: s.hits + 1 })),
+                  Effect.map(() => Option.some(entry.value))
+                )
+              ),
+              Match.exhaustive
+            )
+        }),
+        Effect.flatten
+      )
     })
 
   const setCachedValue = (key: CacheKey, value: CacheValue): Effect.Effect<void, never> =>
@@ -638,16 +661,23 @@ const makeCachingService = Effect.gen(function* () {
       yield* Ref.update(cache, currentCache => {
         const cleaned = evictExpiredEntries(currentCache, now)
 
-        // Evict oldest entry if cache is full
-        if (cleaned.size >= config.maxSize) {
-          const oldest = Array.from(cleaned.entries())
-            .sort(([, a], [, b]) => a.createdAt - b.createdAt)[0]
-          if (oldest) {
-            cleaned.delete(oldest[0])
-          }
-        }
+        // Evict oldest entry if cache is full using functional approach
+        const finalCache = Match.value(cleaned.size >= config.maxSize).pipe(
+          Match.when(true, () => pipe(
+            Array.from(cleaned.entries()),
+            Array.sort(([, a], [, b]) => a.createdAt - b.createdAt),
+            Array.head,
+            Option.map(([oldestKey]) => {
+              cleaned.delete(oldestKey)
+              return cleaned
+            }),
+            Option.getOrElse(() => cleaned)
+          )),
+          Match.when(false, () => cleaned),
+          Match.exhaustive
+        )
 
-        return new Map(cleaned).set(key, entry)
+        return new Map(finalCache).set(key, entry)
       })
     })
 
@@ -894,32 +924,48 @@ const makeResourceService = Effect.gen(function* () {
         const resources = yield* Ref.get(activeResources)
         const pool = yield* Ref.get(resourcePool)
 
-        let cleanedCount = 0
-        const cleanedResources = new Map<ResourceId, ResourceState>()
-        const cleanedPool = new Map<ResourceId, Resource>()
+        // Use functional Array operations instead of for loop
+        const resourceEntries = Array.from(resources.entries())
+        const poolEntries = Array.from(pool.entries())
 
-        for (const [id, state] of resources.entries()) {
-          const shouldCleanup = Match.value(state).pipe(
-            Match.when({ _tag: "available" }, () => {
-              const resource = pool.get(id)
-              return resource && (now - resource.lastAccessed) > config.idleTimeoutMs
-            }),
-            Match.when({ _tag: "released" }, (s) =>
-              (now - s.releasedAt) > config.idleTimeoutMs
-            ),
-            Match.orElse(() => false)
-          )
+        const { cleanedResources, cleanedPool, cleanedCount } = pipe(
+          resourceEntries,
+          Array.reduce(
+            {
+              cleanedResources: new Map<ResourceId, ResourceState>(),
+              cleanedPool: new Map<ResourceId, Resource>(),
+              cleanedCount: 0
+            },
+            (acc, [id, state]) => {
+              const shouldCleanup = Match.value(state).pipe(
+                Match.when({ _tag: "available" }, () => {
+                  const resource = pool.get(id)
+                  return resource && (now - resource.lastAccessed) > config.idleTimeoutMs
+                }),
+                Match.when({ _tag: "released" }, (s) =>
+                  (now - s.releasedAt) > config.idleTimeoutMs
+                ),
+                Match.orElse(() => false)
+              )
 
-          if (shouldCleanup) {
-            cleanedCount++
-          } else {
-            cleanedResources.set(id, state)
-            const resource = pool.get(id)
-            if (resource) {
-              cleanedPool.set(id, resource)
+              return Match.value(shouldCleanup).pipe(
+                Match.when(true, () => ({
+                  ...acc,
+                  cleanedCount: acc.cleanedCount + 1
+                })),
+                Match.when(false, () => {
+                  const resource = pool.get(id)
+                  return {
+                    cleanedResources: new Map(acc.cleanedResources).set(id, state),
+                    cleanedPool: resource ? new Map(acc.cleanedPool).set(id, resource) : acc.cleanedPool,
+                    cleanedCount: acc.cleanedCount
+                  }
+                }),
+                Match.exhaustive
+              )
             }
-          }
-        }
+          )
+        )
 
         yield* Ref.set(activeResources, cleanedResources)
         yield* Ref.set(resourcePool, cleanedPool)
@@ -946,36 +992,78 @@ export const ResourceServiceLive = Layer.effect(ResourceService, makeResourceSer
 
 ## Anti-Patterns (避けるべき)
 
-### ❌ Anti-Pattern 1: Promise-based Services
+### ❌ Anti-Pattern 1: Class-based Services
 ```typescript
-// Promise を使わない（Effect を使う）
+// クラスベースを使わない（Schema + 純粋関数を使う）
+// ❌ 悪い例: クラスベース
+class GameService {
+  constructor(private dependencies: Dependencies) {}
+
+  async processGame(input: any): Promise<any> {
+    // 命令的な処理
+    if (!input) return null
+
+    try {
+      const result = await this.heavyComputation(input)
+      return result
+    } catch (error) {
+      throw new Error("Processing failed")
+    }
+  }
+}
+
+// ✅ 良い例: Schema + 純粋関数
+const GameInput = Schema.Struct({
+  data: Schema.String,
+  priority: Schema.Literal("high", "medium", "low")
+}).pipe(Schema.brand("GameInput"))
+
+const GameOutput = Schema.Struct({
+  result: Schema.String,
+  processedAt: Schema.DateTimeUtc
+}).pipe(Schema.brand("GameOutput"))
+
+const GameServiceError = Schema.TaggedError("GameServiceError")({
+  operation: Schema.String,
+  reason: Schema.String,
+  timestamp: Schema.DateTimeUtc
+})
+
 interface GameServiceInterface {
   readonly processGame: (input: GameInput) => Effect.Effect<GameOutput, GameServiceError>
 }
 
 const GameService = Context.GenericTag<GameServiceInterface>("@minecraft/GameService")
 
-const GameServiceError = Schema.TaggedError("GameServiceError")({
-  message: Schema.String,
-  originalError: Schema.optional(Schema.Unknown)
-})
-
 const makeGameService = Effect.gen(function* () {
   const dependencies = yield* Dependencies
 
+  const processGameLogic = (input: GameInput) => pipe(
+    heavyComputation(input),
+    Effect.map(result => ({
+      result,
+      processedAt: new Date()
+    } as GameOutput))
+  )
+
   return GameService.of({
-    processGame: (input) => Effect.gen(function* () {
-      const result = yield* heavyComputation(input)
-      return result
-    })
+    processGame: (input) => pipe(
+      Schema.decodeUnknown(GameInput)(input),
+      Effect.mapError(error => new GameServiceError({
+        operation: "processGame",
+        reason: `Invalid input: ${error.message}`,
+        timestamp: new Date()
+      })),
+      Effect.flatMap(processGameLogic)
+    )
   })
 })
 ```
 
 ### ❌ Anti-Pattern 2: Imperative Error Handling
 ```typescript
-// try-catch を使わない（Effect の combinators を使う）
-const badService = async (input: string) => {
+// ❌ 悪い例: try-catch と if/else の使用
+const badServiceImperative = async (input: string) => {
   try {
     const result = await someOperation(input)
     if (!result) {
@@ -987,6 +1075,55 @@ const badService = async (input: string) => {
     return "ERROR"
   }
 }
+
+// ✅ 良い例: Effect combinators と Match パターン
+const ServiceInput = Schema.String.pipe(
+  Schema.minLength(1),
+  Schema.brand("ServiceInput")
+)
+
+const ServiceOutput = Schema.String.pipe(Schema.brand("ServiceOutput"))
+
+const ServiceError = Schema.TaggedError("ServiceError")({
+  operation: Schema.String,
+  reason: Schema.String,
+  originalInput: Schema.String
+})
+
+const goodServiceFunctional = (input: string): Effect.Effect<ServiceOutput, ServiceError> =>
+  pipe(
+    Schema.decodeUnknown(ServiceInput)(input),
+    Effect.mapError(error => new ServiceError({
+      operation: "input_validation",
+      reason: `Invalid input: ${error.message}`,
+      originalInput: input
+    })),
+    Effect.flatMap(validInput =>
+      pipe(
+        someOperation(validInput),
+        Effect.flatMap(
+          Option.match({
+            onNone: () => Effect.fail(new ServiceError({
+              operation: "processing",
+              reason: "No result from operation",
+              originalInput: input
+            })),
+            onSome: (result) => Effect.succeed(result.toUpperCase() as ServiceOutput)
+          })
+        ),
+        Effect.catchAll(error =>
+          pipe(
+            Effect.log(`Processing error: ${error}`),
+            Effect.flatMap(() => Effect.fail(new ServiceError({
+              operation: "processing",
+              reason: `Operation failed: ${error}`,
+              originalInput: input
+            })))
+          )
+        )
+      )
+    )
+  )
 ```
 
 ### ❌ Anti-Pattern 3: Deep Nesting and Complex Conditionals
@@ -1044,12 +1181,59 @@ const processComplexGood = (input: ComplexInput) =>
 
 ### ❌ Anti-Pattern 4: Untyped Services
 ```typescript
-// 型安全性のないサービス
+// ❌ 悪い例: 型安全性のないサービス
 const untypedService = {
   process: (input: any) => {
+    // オプショナルチェーンと fallback（非推奨）
     return Effect.succeed(input?.data?.value || "default")
   }
 }
+
+// ✅ 良い例: Schema定義による完全な型安全性
+const ProcessingInput = Schema.Struct({
+  data: Schema.Struct({
+    value: Schema.String.pipe(Schema.minLength(1))
+  }),
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+}).pipe(Schema.brand("ProcessingInput"))
+
+const ProcessingOutput = Schema.String.pipe(
+  Schema.minLength(1),
+  Schema.brand("ProcessingOutput")
+)
+
+const ProcessingError = Schema.TaggedError("ProcessingError")({
+  phase: Schema.Literal("validation", "processing"),
+  details: Schema.String,
+  input: Schema.Unknown
+})
+
+interface TypedService {
+  readonly process: (input: ProcessingInput) => Effect.Effect<ProcessingOutput, ProcessingError>
+}
+
+const TypedService = Context.GenericTag<TypedService>("@minecraft/TypedService")
+
+const makeTypedService: Effect.Effect<TypedService, never, never> =
+  Effect.succeed(TypedService.of({
+    process: (input) => pipe(
+      // 完全な型検証
+      Schema.decodeUnknown(ProcessingInput)(input),
+      Effect.mapError(error => new ProcessingError({
+        phase: "validation",
+        details: `Schema validation failed: ${error.message}`,
+        input
+      })),
+      Effect.map(validInput => validInput.data.value as ProcessingOutput),
+      Effect.catchAll(error =>
+        Effect.fail(new ProcessingError({
+          phase: "processing",
+          details: `Processing failed: ${error}`,
+          input
+        }))
+      )
+    )
+  }))
 ```
 
 ### ✅ Modern Effect-TS Patterns
@@ -1313,30 +1497,42 @@ export const ServiceConfigLive = Layer.effect(
 
 #### **Before: 従来のPromise/async-awaitパターン**
 ```typescript
-// ❌ Before: 旧来の実装
-interface MinecraftWorldService {
-  constructor(private db: Database, private cache: Cache) {}
+// ❌ Before: 旧来のクラスベース実装
+// クラスベースの設計（非推奨）
+const ChunkCoordinate = Schema.Struct({
+  x: Schema.Number.pipe(Schema.int()),
+  z: Schema.Number.pipe(Schema.int())
+})
 
-  async loadChunk(x: number, z: number): Promise<Chunk> {
+const MinecraftChunkData = Schema.Struct({
+  id: Schema.String,
+  blocks: Schema.Array(Schema.Array(Schema.Array(Schema.String))),
+  generated: Schema.Boolean
+})
+
+// 命令的なエラーハンドリング（非推奨）
+const loadChunkImperative = (db: Database, cache: Cache) =>
+  async (x: number, z: number) => {
+    // try-catch の使用（非推奨）
     try {
-      // キャッシュチェック
-      const cached = await this.cache.get(`chunk_${x}_${z}`)
+      // if文の使用（非推奨）
+      const cached = await cache.get(`chunk_${x}_${z}`)
       if (cached) {
         return JSON.parse(cached)
       }
 
-      // データベース読み込み
-      const chunkData = await this.db.query(
+      const chunkData = await db.query(
         'SELECT * FROM chunks WHERE x = ? AND z = ?',
         [x, z]
       )
 
+      // null チェック（非推奨 - Option を使うべき）
       if (!chunkData) {
         throw new Error(`Chunk not found: ${x}, ${z}`)
       }
 
-      // キャッシュに保存
-      await this.cache.set(
+      // 副作用的なキャッシュ操作（非推奨）
+      await cache.set(
         `chunk_${x}_${z}`,
         JSON.stringify(chunkData),
         { ttl: 300 }
@@ -1349,28 +1545,37 @@ interface MinecraftWorldService {
     }
   }
 
-  async batchLoadChunks(coordinates: Array<{x: number, z: number}>): Promise<Chunk[]> {
-    const promises = coordinates.map(coord => this.loadChunk(coord.x, coord.z))
+// 手動でのPromise配列処理（非推奨）
+const batchLoadChunksImperative = (loadFn: Function) =>
+  async (coordinates: Array<{x: number, z: number}>) => {
+    // map + Promise.allSettled の手動処理（非推奨）
+    const promises = coordinates.map(coord => loadFn(coord.x, coord.z))
 
     try {
       const results = await Promise.allSettled(promises)
+      // filter + map の組み合わせ（非推奨 - filterMapを使うべき）
       return results
         .filter(result => result.status === 'fulfilled')
-        .map(result => (result as PromiseFulfilledResult<Chunk>).value)
+        .map(result => (result as PromiseFulfilledResult<any>).value)
     } catch (error) {
       throw new Error('Batch loading failed')
     }
   }
-}
 
-// 使用例（Before）
-const service = new MinecraftWorldService(database, cache)
-try {
-  const chunks = await service.batchLoadChunks(coordinates)
-  console.log(`Loaded ${chunks.length} chunks`)
-} catch (error) {
-  console.error('Error:', error.message)
-  // エラー処理が不完全
+// 命令的な使用例（非推奨）
+const loadChunksImperatively = async () => {
+  const service = {
+    loadChunk: loadChunkImperative(database, cache),
+    batchLoadChunks: batchLoadChunksImperative(loadChunkImperative(database, cache))
+  }
+
+  try {
+    const chunks = await service.batchLoadChunks(coordinates)
+    console.log(`Loaded ${chunks.length} chunks`)
+  } catch (error) {
+    console.error('Error:', error.message)
+    // エラー処理が不完全
+  }
 }
 ```
 
@@ -1473,14 +1678,11 @@ const makeWorldService = Effect.gen(function* () {
 
     batchLoadChunks: (coords) => pipe(
       coords,
-      Chunk.fromIterable,
-      Effect.forEach(
-        loadSingleChunk,
-        {
-          concurrency: 10, // 並列実行数制限
-          batching: true    // バッチング最適化
-        }
-      )
+      Array.map(loadSingleChunk),
+      Effect.all({
+        concurrency: 10, // 並列実行数制限
+        batching: true   // バッチング最適化
+      })
     ),
 
     getStats: () => Ref.get(metrics)
@@ -1524,13 +1726,22 @@ Effect.runPromise(processChunks)
 // パフォーマンス測定用のベンチマーク関数
 const benchmarkChunkLoading = Effect.gen(function* () {
   const worldService = yield* WorldService
-  const testCoordinates: ChunkCoordinate[] = Array.from({ length: 100 }, (_, i) => ({
-    x: Math.floor(i / 10),
-    z: i % 10
-  }))
 
-  // ウォームアップ
-  yield* worldService.batchLoadChunks(testCoordinates.slice(0, 10))
+  // 関数型でテスト座標を生成
+  const testCoordinates: ChunkCoordinate[] = pipe(
+    Array.range(0, 99),
+    Array.map(i => ({
+      x: Math.floor(i / 10),
+      z: i % 10
+    } as ChunkCoordinate))
+  )
+
+  // ウォームアップ（関数型スライス）
+  const warmupCoordinates = pipe(
+    testCoordinates,
+    Array.take(10)
+  )
+  yield* worldService.batchLoadChunks(warmupCoordinates)
 
   // ベンチマーク実行
   const startTime = performance.now()
@@ -1818,7 +2029,7 @@ const useEffectTSAuth = Config.boolean("USE_EFFECT_TS_AUTH").pipe(
   Config.withDefault(false)
 )
 
-// ハイブリッド実装
+// ハイブリッド実装（Match パターン使用）
 const hybridAuthService = Effect.gen(function* () {
   const useNewImplementation = yield* useEffectTSAuth
   const legacyService = yield* LegacyAuthService
@@ -1826,9 +2037,11 @@ const hybridAuthService = Effect.gen(function* () {
 
   return {
     authenticate: (credentials: AuthCredentials) =>
-      useNewImplementation
-        ? newService.authenticate(credentials)
-        : Effect.promise(() => legacyService.authenticate(credentials))
+      Match.value(useNewImplementation).pipe(
+        Match.when(true, () => newService.authenticate(credentials)),
+        Match.when(false, () => Effect.promise(() => legacyService.authenticate(credentials))),
+        Match.exhaustive
+      )
   }
 })
 ```
@@ -1838,19 +2051,29 @@ const hybridAuthService = Effect.gen(function* () {
 **Step 3.1: 依存関係の複雑なサービスの移行**
 ```typescript
 // WorldService の移行例
-// Before: 複雑な依存関係と状態管理
-interface WorldService {
-  constructor(
-    private chunkService: ChunkService,
-    private playerService: PlayerService,
-    private eventBus: EventBus
-  ) {}
+// Before: 複雑な依存関係と状態管理（クラスベース - 非推奨）
+const WorldServiceData = Schema.Struct({
+  player: Schema.Any, // Player schema
+  chunks: Schema.Array(Schema.Any) // Chunk schema array
+}).pipe(Schema.brand("WorldData"))
 
-  async loadPlayerWorld(playerId: string): Promise<WorldData> {
-    const player = await this.playerService.getPlayer(playerId)
-    const chunks = await this.chunkService.loadChunksAroundPlayer(player)
-    this.eventBus.emit('world-loaded', { playerId, chunks })
+// 命令的な実装（非推奨）
+const loadPlayerWorldImperative = (
+  chunkService: ChunkService,
+  playerService: PlayerService,
+  eventBus: EventBus
+) => async (playerId: string) => {
+  // try-catch パターン（非推奨）
+  try {
+    const player = await playerService.getPlayer(playerId)
+    const chunks = await chunkService.loadChunksAroundPlayer(player)
+
+    // 副作用的なイベント発火（非推奨）
+    eventBus.emit('world-loaded', { playerId, chunks })
+
     return { player, chunks }
+  } catch (error) {
+    throw new Error(`Failed to load world for player ${playerId}: ${error}`)
   }
 }
 
@@ -1978,11 +2201,15 @@ const performanceMonitoringService = Effect.gen(function* () {
     service: T,
     serviceName: string
   ): T => {
-    const instrumented = {} as T
+    // 関数型でオブジェクト変換
+    const serviceEntries = Object.entries(service)
 
-    for (const [methodName, method] of Object.entries(service)) {
-      if (typeof method === 'function') {
-        instrumented[methodName as keyof T] = ((...args: any[]) => {
+    const instrumentedEntries = pipe(
+      serviceEntries,
+      Array.filter(([_, method]) => typeof method === 'function'),
+      Array.map(([methodName, method]) => [
+        methodName,
+        (...args: any[]) => {
           const startTime = performance.now()
 
           return pipe(
@@ -1999,11 +2226,19 @@ const performanceMonitoringService = Effect.gen(function* () {
               Effect.flatMap(() => Effect.fail(error))
             ))
           )
-        }) as T[keyof T]
-      }
-    }
+        }
+      ] as const)
+    )
 
-    return instrumented
+    // 既存の非関数プロパティを保持
+    const nonFunctionEntries = pipe(
+      serviceEntries,
+      Array.filter(([_, value]) => typeof value !== 'function')
+    )
+
+    const allEntries = [...instrumentedEntries, ...nonFunctionEntries]
+
+    return Object.fromEntries(allEntries) as T
   }
 
   return { instrumentService }
@@ -2029,50 +2264,60 @@ const ChunkLoadingService = Effect.gen(function* () {
       const player = yield* playerService.getPlayer(playerId)
       const centerChunk = worldToChunkCoordinate(player.position)
 
-      // 読み込む必要があるチャンク座標を生成
-      const requiredChunks = generateChunkCoordinatesInRadius(
+      // 関数合成を使ったチャンク座標生成
+      const requiredChunks = pipe(
         centerChunk,
-        renderDistance
+        coord => generateChunkCoordinatesInRadius(coord, renderDistance)
       )
 
-      // 既に読み込み済みチャンクをフィルタリング
+      // 既に読み込み済みチャンクをフィルタリング（関数型）
       const currentlyLoaded = yield* renderService.getLoadedChunks()
-      const chunksToLoad = requiredChunks.filter(
-        coord => !currentlyLoaded.some(loaded =>
-          loaded.x === coord.x && loaded.z === coord.z
+      const chunksToLoad = pipe(
+        requiredChunks,
+        Array.filter(coord =>
+          pipe(
+            currentlyLoaded,
+            Array.findFirst(loaded => loaded.x === coord.x && loaded.z === coord.z),
+            Option.isNone
+          )
         )
       )
 
-      // バッチでチャンク読み込み（優先度付き）
-      const prioritizedChunks = prioritizeChunksByDistance(
+      // バッチでチャンク読み込み（関数合成とパイプライン）
+      const prioritizedChunks = pipe(
         chunksToLoad,
-        centerChunk
+        chunks => prioritizeChunksByDistance(chunks, centerChunk)
       )
 
-      yield* Effect.forEach(
+      const loadChunkWithRetry = (coord: ChunkCoordinate) => pipe(
+        worldService.loadChunk(coord),
+        Effect.flatMap(chunk => renderService.addChunkToScene(chunk)),
+        Effect.retry(Schedule.exponential("100 millis").pipe(
+          Schedule.intersect(Schedule.recurs(2))
+        ))
+      )
+
+      yield* pipe(
         prioritizedChunks,
-        (coord) => pipe(
-          worldService.loadChunk(coord),
-          Effect.flatMap(chunk => renderService.addChunkToScene(chunk)),
-          Effect.retry(Schedule.exponential("100 millis").pipe(
-            Schedule.intersect(Schedule.recurs(2))
-          ))
-        ),
-        {
+        Array.map(loadChunkWithRetry),
+        Effect.all({
           concurrency: 4, // 同時読み込み数制限
-          batching: true   // バッチング最適化
-        }
+          batching: true  // バッチング最適化
+        })
       )
 
-      // 遠すぎるチャンクをアンロード
-      const chunksToUnload = currentlyLoaded.filter(
-        loaded => calculateChunkDistance(loaded, centerChunk) > renderDistance + 2
+      // 遠すぎるチャンクをアンロード（関数型フィルタリング）
+      const chunksToUnload = pipe(
+        currentlyLoaded,
+        Array.filter(loaded =>
+          calculateChunkDistance(loaded, centerChunk) > renderDistance + 2
+        )
       )
 
-      yield* Effect.forEach(
+      yield* pipe(
         chunksToUnload,
-        (coord) => renderService.removeChunkFromScene(coord),
-        { concurrency: "unbounded" }
+        Array.map(coord => renderService.removeChunkFromScene(coord)),
+        Effect.all({ concurrency: "unbounded" })
       )
     })
 

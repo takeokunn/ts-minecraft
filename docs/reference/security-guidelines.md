@@ -83,32 +83,31 @@ import { Effect, Schema } from 'effect'
  */
 
 // HTMLサニタイザー
-export class HTMLSanitizer {
-  private static readonly DANGEROUS_TAGS = [
-    'script', 'iframe', 'object', 'embed', 'form', 'input',
-    'button', 'textarea', 'select', 'option', 'link', 'meta',
-    'style', 'base', 'title', 'head'
-  ] as const
+const DANGEROUS_TAGS = [
+  'script', 'iframe', 'object', 'embed', 'form', 'input',
+  'button', 'textarea', 'select', 'option', 'link', 'meta',
+  'style', 'base', 'title', 'head'
+] as const
 
-  private static readonly DANGEROUS_ATTRIBUTES = [
-    'onload', 'onclick', 'onmouseover', 'onmouseout', 'onfocus',
-    'onblur', 'onchange', 'onsubmit', 'onkeydown', 'onkeyup',
-    'onkeypress', 'onerror', 'javascript:', 'vbscript:', 'data:'
-  ] as const
+const DANGEROUS_ATTRIBUTES = [
+  'onload', 'onclick', 'onmouseover', 'onmouseout', 'onfocus',
+  'onblur', 'onchange', 'onsubmit', 'onkeydown', 'onkeyup',
+  'onkeypress', 'onerror', 'javascript:', 'vbscript:', 'data:'
+] as const
 
-  private static readonly ALLOWED_TAGS = [
-    'p', 'br', 'strong', 'em', 'u', 'i', 'b', 'span', 'div',
-    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li',
-    'blockquote', 'code', 'pre'
-  ] as const
+const ALLOWED_TAGS = [
+  'p', 'br', 'strong', 'em', 'u', 'i', 'b', 'span', 'div',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li',
+  'blockquote', 'code', 'pre'
+] as const
 
-  private static readonly ALLOWED_ATTRIBUTES = [
-    'class', 'id', 'style', 'title', 'alt', 'src', 'href',
-    'target', 'rel'
-  ] as const
+const ALLOWED_ATTRIBUTES = [
+  'class', 'id', 'style', 'title', 'alt', 'src', 'href',
+  'target', 'rel'
+] as const
 
-  static sanitizeHTML(input: string): Effect.Effect<string, SanitizationError> {
-    return Effect.gen(function* () {
+export const sanitizeHTML = (input: string): Effect.Effect<string, SanitizationError> =>
+  Effect.gen(function* () {
       if (!input || typeof input !== 'string') {
         return ''
       }
@@ -123,13 +122,13 @@ export class HTMLSanitizer {
         .replace(/\//g, '&#x2F;')
 
       // 危険なタグの除去
-      for (const tag of this.DANGEROUS_TAGS) {
+      for (const tag of DANGEROUS_TAGS) {
         const tagRegex = new RegExp(`<\\/?${tag}[^>]*>`, 'gi')
         sanitized = sanitized.replace(tagRegex, '')
       }
 
       // 危険な属性の除去
-      for (const attr of this.DANGEROUS_ATTRIBUTES) {
+      for (const attr of DANGEROUS_ATTRIBUTES) {
         const attrRegex = new RegExp(`\\b${attr}\\s*=\\s*['""][^'"]*['"]`, 'gi')
         sanitized = sanitized.replace(attrRegex, '')
       }
@@ -221,55 +220,60 @@ export class HTMLSanitizer {
   }
 }
 
-export class SanitizationError extends Schema.TaggedError<'SanitizationError'>()({
+export const SanitizationError = Schema.TaggedError('SanitizationError')({
   message: Schema.String,
   input: Schema.String,
   sanitizationType: Schema.Literal('html', 'json', 'url', 'css')
-}) {}
+})
 
 // CSP (Content Security Policy) 設定
-export class CSPManager {
-  static generateCSPHeader(): Effect.Effect<string, never> {
-    return Effect.sync(() => {
-      const directives = [
-        "default-src 'self'",
-        "script-src 'self' 'unsafe-eval'", // Three.js等で必要な場合のみ
-        "style-src 'self' 'unsafe-inline'", // インラインスタイル許可（制限的）
-        "img-src 'self' data: blob:",
-        "font-src 'self'",
-        "connect-src 'self' wss: ws:", // WebSocket接続用
-        "media-src 'self'",
-        "object-src 'none'",
-        "base-uri 'self'",
-        "frame-ancestors 'none'",
-        "form-action 'self'",
-        "upgrade-insecure-requests"
-      ]
+interface CSPManagerInterface {
+  readonly generateCSPHeader: () => Effect.Effect<string, never>
+  readonly generateDevelopmentCSP: () => Effect.Effect<string, never>
+}
 
-      return directives.join('; ')
-    })
-  }
+export const CSPManager = Context.GenericTag<CSPManagerInterface>('@security/CSPManager')
+
+const makeCSPManager = (): CSPManagerInterface => ({
+  generateCSPHeader: () => Effect.sync(() => {
+    const directives = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-eval'", // Three.js等で必要な場合のみ
+      "style-src 'self' 'unsafe-inline'", // インラインスタイル許可（制限的）
+      "img-src 'self' data: blob:",
+      "font-src 'self'",
+      "connect-src 'self' wss: ws:", // WebSocket接続用
+      "media-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      "upgrade-insecure-requests"
+    ]
+
+    return directives.join('; ')
+  }),
 
   // 開発環境用の緩和されたCSP
-  static generateDevelopmentCSP(): Effect.Effect<string, never> {
-    return Effect.sync(() => {
-      const directives = [
-        "default-src 'self'",
-        "script-src 'self' 'unsafe-eval' 'unsafe-inline' localhost:* 127.0.0.1:*",
-        "style-src 'self' 'unsafe-inline' localhost:* 127.0.0.1:*",
-        "img-src 'self' data: blob: localhost:* 127.0.0.1:*",
-        "font-src 'self' localhost:* 127.0.0.1:*",
-        "connect-src 'self' wss: ws: localhost:* 127.0.0.1:*",
-        "media-src 'self' localhost:* 127.0.0.1:*",
-        "object-src 'none'",
-        "base-uri 'self'",
-        "frame-ancestors 'none'"
-      ]
+  generateDevelopmentCSP: () => Effect.sync(() => {
+    const directives = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' localhost:* 127.0.0.1:*",
+      "style-src 'self' 'unsafe-inline' localhost:* 127.0.0.1:*",
+      "img-src 'self' data: blob: localhost:* 127.0.0.1:*",
+      "font-src 'self' localhost:* 127.0.0.1:*",
+      "connect-src 'self' wss: ws: localhost:* 127.0.0.1:*",
+      "media-src 'self' localhost:* 127.0.0.1:*",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "frame-ancestors 'none'"
+    ]
 
-      return directives.join('; ')
-    })
-  }
-}
+    return directives.join('; ')
+  })
+})
+
+export const CSPManagerLive = Layer.succeed(CSPManager, makeCSPManager())
 
 // 実用例：プレイヤー名のサニタイゼーション
 export const sanitizePlayerName = (name: string): Effect.Effect<string, SanitizationError> =>
@@ -302,7 +306,7 @@ export const sanitizePlayerName = (name: string): Effect.Effect<string, Sanitiza
     }
 
     // HTMLサニタイゼーション
-    const sanitized = yield* HTMLSanitizer.sanitizeHTML(name)
+    const sanitized = yield* sanitizeHTML(name)
 
     return sanitized
   })
@@ -323,7 +327,7 @@ export const sanitizeChatMessage = (message: string): Effect.Effect<string, Sani
     }
 
     // HTMLサニタイゼーション
-    let sanitized = yield* HTMLSanitizer.sanitizeHTML(message)
+    let sanitized = yield* sanitizeHTML(message)
 
     // 連続する空白の正規化
     sanitized = sanitized.replace(/\s+/g, ' ').trim()
@@ -347,15 +351,32 @@ export const sanitizeChatMessage = (message: string): Effect.Effect<string, Sani
  */
 
 // セッション管理
-export class SecureSessionManager {
-  private static readonly SESSION_TIMEOUT = 30 * 60 * 1000 // 30分
-  private static readonly MAX_SESSIONS_PER_USER = 5
-  private readonly sessions = new Map<string, SessionData>()
-  private readonly userSessions = new Map<string, Set<string>>()
+interface SecureSessionManagerInterface {
+  readonly createSession: (userId: string, metadata: SessionMetadata) => Effect.Effect<SessionToken, AuthenticationError>
+  readonly validateSession: (token: SessionToken) => Effect.Effect<SessionData, AuthenticationError>
+  readonly destroySession: (sessionId: string) => Effect.Effect<void, never>
+  readonly destroyAllUserSessions: (userId: string) => Effect.Effect<void, never>
+  readonly getSessionStats: () => Effect.Effect<SessionStats, never>
+}
 
-  constructor(private readonly secretKey: string) {
-    // 定期的なセッションクリーンアップ
-    setInterval(() => this.cleanupExpiredSessions(), 60 * 1000) // 1分間隔
+export const SecureSessionManager = Context.GenericTag<SecureSessionManagerInterface>('@security/SecureSessionManager')
+
+const makeSecureSessionManager = (secretKey: string): SecureSessionManagerInterface => {
+  const SESSION_TIMEOUT = 30 * 60 * 1000 // 30分
+  const MAX_SESSIONS_PER_USER = 5
+  const sessions = new Map<string, SessionData>()
+  const userSessions = new Map<string, Set<string>>()
+
+  // 定期的なセッションクリーンアップ
+  setInterval(() => cleanupExpiredSessions(), 60 * 1000) // 1分間隔
+
+  const cleanupExpiredSessions = (): void => {
+    const now = new Date()
+    for (const [sessionId, session] of sessions) {
+      if (session.expiresAt < now) {
+        Effect.runSync(destroySession(sessionId))
+      }
+    }
   }
 
   // セッション作成
@@ -633,18 +654,25 @@ interface SessionStats {
   readonly averageSessionAge: number // seconds
 }
 
-export class AuthenticationError extends Schema.TaggedError<'AuthenticationError'>()({
+export const AuthenticationError = Schema.TaggedError('AuthenticationError')({
   message: Schema.String,
   code: Schema.Literal(
     'SESSION_NOT_FOUND', 'SESSION_EXPIRED', 'INVALID_TOKEN',
     'INVALID_SIGNATURE', 'INVALID_PAYLOAD', 'ACCESS_DENIED'
   ),
   userId: Schema.optional(Schema.String)
-}) {}
+})
 
 // 権限管理
-export class AuthorizationManager {
-  private static readonly PERMISSIONS = {
+interface AuthorizationManagerInterface {
+  readonly hasPermission: (userRole: string, permission: string) => boolean
+  readonly validatePermission: (userRole: string, permission: string) => Effect.Effect<void, AuthenticationError>
+}
+
+export const AuthorizationManager = Context.GenericTag<AuthorizationManagerInterface>('@security/AuthorizationManager')
+
+const makeAuthorizationManager = (): AuthorizationManagerInterface => {
+  const PERMISSIONS = {
     // プレイヤー権限
     'player.move': 'プレイヤー移動',
     'player.chat': 'チャット送信',
@@ -663,44 +691,52 @@ export class AuthorizationManager {
     'mod.spectate': '観戦モード'
   } as const
 
-  private static readonly ROLES = {
+  const ROLES = {
     'guest': ['player.move', 'player.chat'],
     'player': ['player.move', 'player.chat', 'player.build', 'player.inventory'],
     'moderator': ['player.*', 'mod.*'],
     'admin': ['*'] // 全権限
   } as const
 
-  static hasPermission(userRole: string, permission: string): boolean {
-    const rolePermissions = this.ROLES[userRole as keyof typeof this.ROLES]
-    if (!rolePermissions) return false
+  return {
+    hasPermission: (userRole: string, permission: string): boolean => {
+      const rolePermissions = ROLES[userRole as keyof typeof ROLES]
+      if (!rolePermissions) return false
 
-    // 完全一致チェック
-    if (rolePermissions.includes(permission)) return true
+      // 完全一致チェック
+      if (rolePermissions.includes(permission)) return true
 
-    // ワイルドカード権限チェック
-    for (const rolePermission of rolePermissions) {
-      if (rolePermission === '*') return true
+      // ワイルドカード権限チェック
+      for (const rolePermission of rolePermissions) {
+        if (rolePermission === '*') return true
 
-      if (rolePermission.endsWith('*')) {
-        const prefix = rolePermission.slice(0, -1)
-        if (permission.startsWith(prefix)) return true
+        if (rolePermission.endsWith('*')) {
+          const prefix = rolePermission.slice(0, -1)
+          if (permission.startsWith(prefix)) return true
+        }
       }
-    }
 
-    return false
-  }
+      return false
+    },
 
-  static validatePermission(userRole: string, permission: string): Effect.Effect<void, AuthenticationError> {
-    return Effect.gen(function* () {
-      if (!AuthorizationManager.hasPermission(userRole, permission)) {
-        yield* Effect.fail(new AuthenticationError({
-          message: `Permission denied: ${permission}`,
-          code: 'ACCESS_DENIED'
-        }))
-      }
-    })
+    validatePermission: (userRole: string, permission: string): Effect.Effect<void, AuthenticationError> =>
+      Effect.gen(function* () {
+        const hasPermission = ROLES[userRole as keyof typeof ROLES]?.includes(permission) ||
+                            ROLES[userRole as keyof typeof ROLES]?.some(p =>
+                              p === '*' || (p.endsWith('*') && permission.startsWith(p.slice(0, -1)))
+                            )
+
+        if (!hasPermission) {
+          yield* Effect.fail(new AuthenticationError({
+            message: `Permission denied: ${permission}`,
+            code: 'ACCESS_DENIED'
+          }))
+        }
+      })
   }
 }
+
+export const AuthorizationManagerLive = Layer.succeed(AuthorizationManager, makeAuthorizationManager())
 ```
 
 ### **3. データ保護・暗号化**
@@ -904,10 +940,10 @@ interface HashedData {
   readonly algorithm: string
 }
 
-export class EncryptionError extends Schema.TaggedError<'EncryptionError'>()({
+export const EncryptionError = Schema.TaggedError('EncryptionError')({
   message: Schema.String,
   operation: Schema.Literal('encrypt', 'decrypt', 'hash', 'verify')
-}) {}
+})
 
 // 機密データ保護クラス
 export class SensitiveDataProtector {
@@ -1339,11 +1375,11 @@ interface CleanupReport {
   readonly errors: Array<{ dataType: DataType; error: string }>
 }
 
-export class PrivacyError extends Schema.TaggedError<'PrivacyError'>()({
+export const PrivacyError = Schema.TaggedError('PrivacyError')({
   message: Schema.String,
   userId: Schema.String,
   operation: Schema.String
-}) {}
+})
 ```
 
 ## 🚨 セキュリティ監視・インシデント対応
@@ -1759,10 +1795,10 @@ interface SecurityStats {
   readonly threatCategories: Record<string, number>
 }
 
-export class SecurityError extends Schema.TaggedError<'SecurityError'>()({
+export const SecurityError = Schema.TaggedError('SecurityError')({
   message: Schema.String,
   code: Schema.String
-}) {}
+})
 ```
 
 ## 📋 セキュリティチェックリスト

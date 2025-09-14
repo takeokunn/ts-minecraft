@@ -1372,7 +1372,7 @@ export const TestRenderingServiceLive = Layer.effect(
 - [チャンクシステム](./chunk-system.md) - レンダリング対象となる主要オブジェクトであるチャンクを管理します。
 - [マテリアルシステム](./material-system.md) - レンダリングされるオブジェクトの外観を定義します。
 - [シーン管理システム](./scene-management-system.md) - レンダリングされるシーン全体を管理します。
-- [パーティクルシステム](../../01-enhanced-features/14-particle-system.md) - パーティクルエフェクトのレンダリングを扱います。
+- [パーティクルシステム](../enhanced-features/particle-system.md) - パーティクルエフェクトのレンダリングを扱います。
 - [ECS統合](../../01-architecture/05-ecs-integration.md) - エンティティコンポーネントシステムとの統合。
 - [Effect-TSパターン](../../01-architecture/06-effect-ts-patterns.md) - Effect-TSパターンの詳細な使用法。
 

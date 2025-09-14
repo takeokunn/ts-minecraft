@@ -40,7 +40,7 @@
 **対象**: 初級〜中級 | **所要時間**: 2-4時間
 
 - 実際のゲーム機能実装を通じたプロジェクト構造の学習
-- [インタラクティブ学習ガイド](./basic-game-development/04-interactive-learning-guide.md) - ハンズオンでマスターする実践的ガイド
+- [インタラクティブ学習ガイド](./basic-game-development/interactive-learning-guide.md) - ハンズオンでマスターする実践的ガイド
 
 ### ⚡ [Effect-TS Fundamentals](./effect-ts-fundamentals/)
 **対象**: 中級 | **所要時間**: 3時間
@@ -59,7 +59,7 @@ Effect-TSの基礎から応用までの関数型プログラミングパター�
 2. **実際に動かす**: コードサンプルは必ず実行して確認
 3. **段階的に進める**: 一度にすべてを理解しようとしない
 4. **問題解決重視**: つまずいた時は[トラブルシューティングガイド](./getting-started/02-common-issues-and-solutions.md)を活用
-5. **実践的学習**: [インタラクティブガイド](./basic-game-development/04-interactive-learning-guide.md)でハンズオン体験を重視
+5. **実践的学習**: [インタラクティブガイド](./basic-game-development/interactive-learning-guide.md)でハンズオン体験を重視
 
 ## 📋 前提知識
 

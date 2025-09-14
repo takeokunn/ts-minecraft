@@ -197,12 +197,12 @@ graph TD
 ### 🏗️ 高優先度機能（近期実装が望ましい）
 
 #### 構造物生成
-- **設計アプローチ**: ✅ [実装済み](../01-enhanced-features/09-structure-generation.md) - プロシージャル生成
+- **設計アプローチ**: ✅ [実装済み](../enhanced-features/structure-generation.md) - プロシージャル生成
 - **実装パターン**: Effect-TS + ノイズベース生成・バイオーム適合性
 - **技術的考慮**: 村生成・ダンジョン・要塞・テンプレートシステム
 
 #### 拡張バイオーム
-- **設計アプローチ**: ✅ [実装済み](../01-enhanced-features/12-extended-biome-system.md) - 海洋・山岳・特殊バイオーム
+- **設計アプローチ**: ✅ [実装済み](../enhanced-features/extended-biome-system.md) - 海洋・山岳・特殊バイオーム
 - **実装パターン**: ノイズ関数 + 高度・温度・湿度パラメータ
 - **技術的考慮**: バイオーム遷移・気候システム・独自生成ルール
 

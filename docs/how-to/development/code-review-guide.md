@@ -71,13 +71,19 @@ const createPlayer = (name: string) =>
 
 ```typescript
 // ❌ Bad: 命令型スタイル・副作用あり
-class BlockManager {
-  private blocks: Map<string, Block> = new Map();
+interface BlockManagerInterface {
+  readonly addBlock: (position: Position, blockType: BlockType) => void
+}
 
-  addBlock(position: Position, blockType: BlockType): void {
-    const key = `${position.x},${position.y},${position.z}`;
-    this.blocks.set(key, { type: blockType, position }); // 副作用
-    console.log(`Block placed at ${key}`); // 副作用
+const makeBlockManager = (): BlockManagerInterface => {
+  const blocks: Map<string, Block> = new Map();
+
+  return {
+    addBlock: (position: Position, blockType: BlockType): void => {
+      const key = `${position.x},${position.y},${position.z}`;
+      blocks.set(key, { type: blockType, position }); // 副作用
+      console.log(`Block placed at ${key}`); // 副作用
+    }
   }
 }
 
@@ -274,10 +280,10 @@ const placeBlock = (world: World, position: Position, blockType: BlockType) =>
 
 ```typescript
 // 提案する改善例
-class BlockPlacementError extends Data.TaggedError("BlockPlacementError")<{
+const BlockPlacementError = Data.TaggedError("BlockPlacementError")<{
   readonly position: Position;
   readonly reason: "collision" | "invalid_position" | "permission_denied";
-}> {}
+}>
 ```
 
 ## 🔍 質問: 設計意図の確認

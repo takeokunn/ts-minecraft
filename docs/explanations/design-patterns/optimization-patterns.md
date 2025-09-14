@@ -517,12 +517,14 @@ const getMemoryPressure = (): Effect.Effect<number, never> =>
 // 非効率な逐次処理
 interface OldBlockUpdater {
   async updateBlocks(updates: BlockUpdate[]): Promise<void> {
-    for (const update of updates) {
+    // 非効率な逐次処理パターン
+    await updates.reduce(async (prev, update) => {
+      await prev
       await this.processBlockUpdate(update)
       await this.notifyNeighbors(update.position)
       await this.updateLighting(update.position)
       await this.updatePhysics(update.position)
-    }
+    }, Promise.resolve())
   }
 
   private async processBlockUpdate(update: BlockUpdate): Promise<void> {
@@ -642,12 +644,16 @@ const BlockUpdateProcessorLive = Layer.effect(
         )
 
         // 2. 隣接通知のバッチ処理
-        const neighborPositions = new Set<string>()
-        for (const update of updates) {
-          for (const neighbor of getNeighborPositions(update.position)) {
-            neighborPositions.add(`${neighbor.x},${neighbor.y},${neighbor.z}`)
-          }
-        }
+        const neighborPositions = pipe(
+          updates,
+          Array.flatMap((update) =>
+            pipe(
+              getNeighborPositions(update.position),
+              Array.map((neighbor) => `${neighbor.x},${neighbor.y},${neighbor.z}`)
+            )
+          ),
+          (positions) => new Set(positions)
+        )
 
         yield* Effect.forEach(
           Array.from(neighborPositions).slice(0, 100), // 最大100隣接

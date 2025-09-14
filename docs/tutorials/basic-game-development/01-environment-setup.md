@@ -353,7 +353,7 @@ npm install --save-dev @types/three@latest
 
 環境セットアップ完了後の学習パス：
 
-1. **[基本コンポーネント作成](./02-basic-components.md)** - Domain層の基礎実装
+1. **[基本コンポーネント作成](./basic-components.md)** - Domain層の基礎実装
 2. **[Effect-TS サービス実装](./03-effect-services.md)** - Application層の構築
 3. **[Three.js 統合](./04-threejs-integration.md)** - Infrastructure層の実装
 4. **[ゲームループ実装](./05-game-loop.md)** - 完全統合とテスト

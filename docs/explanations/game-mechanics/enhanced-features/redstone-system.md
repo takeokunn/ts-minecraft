@@ -7,7 +7,7 @@ tags: ["redstone-system", "circuit-simulation", "logic-gates", "signal-propagati
 prerequisites: ["effect-ts-fundamentals", "stm-concepts", "digital-logic"]
 estimated_reading_time: "20分"
 related_patterns: ["event-driven-patterns", "state-machine-patterns", "concurrent-patterns"]
-related_docs: ["../00-core-features/03-block-system.md", "../00-core-features/06-physics-system.md"]
+related_docs: ["../core-features/block-system.md", "../core-features/physics-system.md"]
 ---
 
 # Redstone System - レッドストーン回路システム
@@ -1831,10 +1831,10 @@ export const RedstoneProductionLayer = Layer.mergeAll(
 ## Related Documents
 
 **Core System Dependencies**:
-- [Block System](../00-core-features/03-block-system.md) - レッドストーンブロックとワイヤ
-- [Physics System](../00-core-features/06-physics-system.md) - 信号伝播と電力計算
-- [World Management System](../00-core-features/01-world-management-system.md) - チャンク内回路保存
-- [Entity System](../00-core-features/04-entity-system.md) - 可動部品とメカニクス
+- [Block System](../core-features/block-system.md) - レッドストーンブロックとワイヤ
+- [Physics System](../core-features/physics-system.md) - 信号伝播と電力計算
+- [World Management System](../core-features/world-management-system.md) - チャンク内回路保存
+- [Entity System](../core-features/entity-system.md) - 可動部品とメカニクス
 
 **Architecture Integration**:
 - [Effect-TS Patterns](../../01-architecture/06-effect-ts-patterns.md) - STMとConcurrent処理

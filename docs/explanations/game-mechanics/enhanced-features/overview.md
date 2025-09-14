@@ -7,7 +7,7 @@ tags: ["enhanced-features", "system-overview", "advanced-mechanics", "multiplaye
 prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "concurrent-patterns", "core-systems"]
 estimated_reading_time: "15分"
 related_patterns: ["concurrent-patterns", "state-machine-patterns", "ai-behavior-patterns"]
-related_docs: ["../00-core-features/00-overview.md", "./01-redstone-system.md", "./10-multiplayer-architecture.md"]
+related_docs: ["../core-features/overview.md", "./redstone-system.md", "./multiplayer-architecture.md"]
 ---
 
 # Enhanced Features - 拡張機能
@@ -758,10 +758,10 @@ describe("Enhanced Features", () => {
 ## Related Documents
 
 **Core System Dependencies**:
-- [Core Features Overview](../00-core-features/00-overview.md) - 基本システムとの統合
-- [Entity System](../00-core-features/04-entity-system.md) - モブとエンティティ管理
-- [World Management System](../00-core-features/01-world-management-system.md) - ワールド生成との連携
-- [Physics System](../00-core-features/06-physics-system.md) - 物理エンジンとの統合
+- [Core Features Overview](../core-features/overview.md) - 基本システムとの統合
+- [Entity System](../core-features/entity-system.md) - モブとエンティティ管理
+- [World Management System](../core-features/world-management-system.md) - ワールド生成との連携
+- [Physics System](../core-features/physics-system.md) - 物理エンジンとの統合
 
 **Architecture**:
 - [Overall Design](../../01-architecture/00-overall-design.md) - システム全体設計

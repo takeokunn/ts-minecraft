@@ -1470,14 +1470,14 @@ interface AdvancedFeatures {
 基本実装を完了した後の学習順序：
 
 1. **🔧 高度な機能実装**
-   - [ブロック相互作用システム](../../explanations/game-mechanics/00-core-features/03-block-system.md)
-   - [物理エンジン統合](../../explanations/game-mechanics/00-core-features/06-physics-system.md)
-   - [インベントリシステム](../../explanations/game-mechanics/00-core-features/inventory-system.md)
+   - [ブロック相互作用システム](../../explanations/game-mechanics/core-features/block-system.md)
+   - [物理エンジン統合](../../explanations/game-mechanics/core-features/physics-system.md)
+   - [インベントリシステム](../../explanations/game-mechanics/core-features/inventory-system.md)
 
 2. **⚡ パフォーマンス最適化**
    - [レンダリング最適化](../../how-to/development/03-performance-optimization.md)
    - [メモリ管理](../../explanations/design-patterns/optimization-patterns.md)
-   - [チャンク最適化](../../explanations/game-mechanics/00-core-features/07-chunk-system.md)
+   - [チャンク最適化](../../explanations/game-mechanics/core-features/chunk-system.md)
 
 3. **🌐 マルチプレイヤー対応**
    - [WebSocket統合](../../explanations/architecture/http-api-specification.md#websocket-apis)

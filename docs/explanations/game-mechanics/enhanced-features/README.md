@@ -7,7 +7,7 @@ tags: ["enhanced-features", "redstone-system", "weather-simulation", "multiplaye
 prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "concurrent-programming", "ai-basics"]
 estimated_reading_time: "10分"
 related_patterns: ["concurrent-patterns", "state-machine-patterns", "ai-behavior-patterns"]
-related_docs: ["../00-core-features/README.md", "../README.md", "../../01-architecture/README.md"]
+related_docs: ["../core-features/README.md", "../README.md", "../../01-architecture/README.md"]
 ---
 
 # 拡張機能仕様書
@@ -74,7 +74,7 @@ graph LR
 ## 🚀 開発ロードマップ
 
 ### Phase 1: 基盤システム
-**前提条件**: [コア機能](../00-core-features/) Tier1-2 完成
+**前提条件**: [コア機能](../core-features/) Tier1-2 完成
 1. **昼夜サイクル** - 時間管理基盤
 2. **天候システム** - 環境変化基盤
 3. **パーティクルシステム** - 視覚効果基盤
@@ -163,7 +163,7 @@ graph TB
 
 ## 🔗 関連ドキュメント
 
-- **[コア機能](../00-core-features/)** - 基盤システムの仕様
+- **[コア機能](../core-features/)** - 基盤システムの仕様
 - **[API設計](../02-api-design/)** - システム間インタフェース
 - **[アーキテクチャ](../../01-architecture/)** - システム設計原則
 - **[開発ガイド](../../03-guides/)** - 実装・テスト手法

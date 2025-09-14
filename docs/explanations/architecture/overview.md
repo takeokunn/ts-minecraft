@@ -57,27 +57,31 @@ Minecraftクローンの開発では、相反する要求が存在します：
 
 ```typescript
 // ❌ オブジェクト指向のみ: 美しいが遅い
-class World {
-  private entities: Map<EntityId, GameObject> = new Map()
+const entities: Map<EntityId, GameObject> = new Map()
 
-  update(deltaTime: number): void {
-    // ポリモーフィズムは美しいが、仮想関数呼び出しが高コスト
-    for (const entity of this.entities.values()) {
+function updateWorld(deltaTime: number): void {
+  // ポリモーフィズムは美しいが、仮想関数呼び出しが高コスト
+  pipe(
+    Array.from(entities.values()),
+    Array.forEach((entity) => {
       entity.update(deltaTime)  // Cache miss 多発
-    }
-  }
+    })
+  )
 }
 
 // ❌ ECS のみ: 高速だがビジネスロジックが分散
-class MovementSystem {
-  update(positions: Float32Array, velocities: Float32Array): void {
-    // 高速だが、どのような制約があるか不明
-    for (let i = 0; i < positions.length; i += 3) {
+function updateMovement(positions: Float32Array, velocities: Float32Array, deltaTime: number): void {
+  // 高速だが、どのような制約があるか不明
+  // パフォーマンスクリティカルなケースではインデックス操作を維持
+  pipe(
+    Array.range(0, Math.floor(positions.length / 3)),
+    Array.forEach((idx) => {
+      const i = idx * 3
       positions[i] += velocities[i] * deltaTime
       positions[i + 1] += velocities[i + 1] * deltaTime
       positions[i + 2] += velocities[i + 2] * deltaTime
-    }
-  }
+    })
+  )
 }
 ```
 
@@ -119,33 +123,50 @@ export const PlayerMovement = {
 }
 
 // インフラ層: 高速なECS実装
-export class MovementECS {
-  private positions = new Float32Array(MAX_ENTITIES * 3)
-  private velocities = new Float32Array(MAX_ENTITIES * 3)
-  private entityMap = new Map<PlayerId, number>()
-
-  // ドメインイベントを受け取り、ECS状態を更新
-  handlePlayerMoved = (event: PlayerMoved): Effect.Effect<void, never, never> =>
-    Effect.sync(() => {
-      const index = this.entityMap.get(event.playerId)
-      if (index !== undefined) {
-        const baseIdx = index * 3
-        this.positions[baseIdx] = event.newPosition.x
-        this.positions[baseIdx + 1] = event.newPosition.y
-        this.positions[baseIdx + 2] = event.newPosition.z
-      }
-    })
-
-  // 高速バッチ処理
-  updatePositions(deltaTime: number): void {
-    // SIMD最適化可能な実装
-    for (let i = 0; i < this.activeCount * 3; i += 3) {
-      this.positions[i] += this.velocities[i] * deltaTime
-      this.positions[i + 1] += this.velocities[i + 1] * deltaTime
-      this.positions[i + 2] += this.velocities[i + 2] * deltaTime
-    }
-  }
+interface MovementECS {
+  readonly handlePlayerMoved: (event: PlayerMoved) => Effect.Effect<void, never, never>
+  readonly updatePositions: (deltaTime: number) => void
 }
+
+const MovementECS = Context.GenericTag<MovementECS>("@minecraft/MovementECS")
+
+export const makeMovementECS = (maxEntities: number = MAX_ENTITIES) => Effect.gen(function* () {
+  const positions = new Float32Array(maxEntities * 3)
+  const velocities = new Float32Array(maxEntities * 3)
+  const entityMap = new Map<PlayerId, number>()
+  let activeCount = 0
+
+  return MovementECS.of({
+    // ドメインイベントを受け取り、ECS状態を更新
+    handlePlayerMoved: (event: PlayerMoved) =>
+      Effect.sync(() => {
+        const index = entityMap.get(event.playerId)
+        if (index !== undefined) {
+          const baseIdx = index * 3
+          positions[baseIdx] = event.newPosition.x
+          positions[baseIdx + 1] = event.newPosition.y
+          positions[baseIdx + 2] = event.newPosition.z
+        }
+      }),
+
+    // 高速バッチ処理
+    updatePositions: (deltaTime: number) => {
+      // SIMD最適化可能な実装
+      // パフォーマンスクリティカルな部分は配列操作を使用
+      pipe(
+        Array.range(0, activeCount),
+        Array.forEach((idx) => {
+          const i = idx * 3
+          positions[i] += velocities[i] * deltaTime
+          positions[i + 1] += velocities[i + 1] * deltaTime
+          positions[i + 2] += velocities[i + 2] * deltaTime
+        })
+      )
+    }
+  })
+})
+
+const MovementECSLive = Layer.effect(MovementECS, makeMovementECS())
 ```
 
 ## 統合設計の基本哲学
@@ -329,12 +350,13 @@ export const PlayerUseCase = {
 ### クリティカルパスの最適化戦略
 
 ```typescript
-export class OptimizedGameLoop {
-  private ecsWorld: ECSWorld
-  private domainServices: DomainServices
-
+// 最適化されたゲームループ（関数型アプローチ）
+export const createOptimizedGameLoop = (
+  ecsWorld: ECSWorld,
+  domainServices: DomainServices
+) => ({
   // 60FPS を維持するためのフレーム処理
-  async updateFrame(deltaTime: number): Promise<void> {
+  updateFrame: async (deltaTime: number): Promise<void> => {
     const frameStart = performance.now()
 
     // Phase 1: クリティカルパス（4ms 以内）
@@ -400,10 +422,11 @@ export class OptimizedGameLoop {
 ### メモリ効率とガベージコレクション最適化
 
 ```typescript
-export class MemoryOptimizedChunkManager {
+// メモリ最適化チャンク管理（関数型アプローチ）
+export const createMemoryOptimizedChunkManager = () => {
   // プール型オブジェクト管理
-  private chunkPool = new ObjectPool(() => new ChunkData(), 100)
-  private blockUpdatePool = new ObjectPool(() => new BlockUpdate(), 1000)
+  const chunkPool = new ObjectPool(() => new ChunkData(), 100)
+  const blockUpdatePool = new ObjectPool(() => new BlockUpdate(), 1000)
 
   // Structure of Arrays による cache-friendly データ構造
   private chunkPositions = new Int32Array(MAX_CHUNKS * 2)  // x, z

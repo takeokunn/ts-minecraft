@@ -44,24 +44,24 @@
 - **[アセット・リソース管理](./game-mechanics/asset-sources.md)**: ゲーム素材の効率的管理
 
 #### コア機能
-- [アーキテクチャ原則](./game-mechanics/00-core-features/architecture-principles.md)
-- [実装パターン](./game-mechanics/00-core-features/implementation-patterns.md)
-- [インベントリシステム](./game-mechanics/00-core-features/inventory-system.md)
-- [ワールド管理システム](./game-mechanics/00-core-features/world-management-system.md)
-- [プレイヤーシステム](./game-mechanics/00-core-features/player-system.md)
-- [ブロックシステム](./game-mechanics/00-core-features/block-system.md)
-- [エンティティシステム](./game-mechanics/00-core-features/entity-system.md)
-- [レンダリングシステム](./game-mechanics/00-core-features/rendering-system.md)
-- [物理システム](./game-mechanics/00-core-features/physics-system.md)
-- [チャンクシステム](./game-mechanics/00-core-features/chunk-system.md)
+- [アーキテクチャ原則](./game-mechanics/core-features/architecture-principles.md)
+- [実装パターン](./game-mechanics/core-features/implementation-patterns.md)
+- [インベントリシステム](./game-mechanics/core-features/inventory-system.md)
+- [ワールド管理システム](./game-mechanics/core-features/world-management-system.md)
+- [プレイヤーシステム](./game-mechanics/core-features/player-system.md)
+- [ブロックシステム](./game-mechanics/core-features/block-system.md)
+- [エンティティシステム](./game-mechanics/core-features/entity-system.md)
+- [レンダリングシステム](./game-mechanics/core-features/rendering-system.md)
+- [物理システム](./game-mechanics/core-features/physics-system.md)
+- [チャンクシステム](./game-mechanics/core-features/chunk-system.md)
 
 #### 拡張機能
-- [レッドストーンシステム](./game-mechanics/01-enhanced-features/redstone-system.md)
-- [天候システム](./game-mechanics/01-enhanced-features/weather-system.md)
-- [村人取引](./game-mechanics/01-enhanced-features/villager-trading.md)
-- [エンチャントシステム](./game-mechanics/01-enhanced-features/enchantment-system.md)
-- [ネザーポータル](./game-mechanics/01-enhanced-features/nether-portals.md)
-- [パーティクルシステム](./game-mechanics/01-enhanced-features/particle-system.md)
+- [レッドストーンシステム](./game-mechanics/enhanced-features/redstone-system.md)
+- [天候システム](./game-mechanics/enhanced-features/weather-system.md)
+- [村人取引](./game-mechanics/enhanced-features/villager-trading.md)
+- [エンチャントシステム](./game-mechanics/enhanced-features/enchantment-system.md)
+- [ネザーポータル](./game-mechanics/enhanced-features/nether-portals.md)
+- [パーティクルシステム](./game-mechanics/enhanced-features/particle-system.md)
 
 ## 🤔 このセクションが解決する疑問
 

@@ -680,7 +680,7 @@ const memoryAwareChunkManagement = Effect.gen(function* () {
 ## 🔗 関連ドキュメント
 
 - **[World Data Structure](./world-data-structure.md)** - ワールドデータ構造の詳細
-- **[Chunk System](../../explanations/game-mechanics/00-core-features/chunk-system.md)** - チャンクシステムの実装
+- **[Chunk System](../../explanations/game-mechanics/core-features/chunk-system.md)** - チャンクシステムの実装
 - **[Domain APIs](../../explanations/architecture/domain-application-apis.md)** - ドメインAPI設計
 - **[Design Patterns](../../explanations/design-patterns/README.md)** - Effect-TS使用パターン
 - **[Error Handling Guide](../../how-to/troubleshooting/error-resolution.md)** - エラーハンドリング戦略

@@ -665,7 +665,7 @@ Effect-TS SchemaとDDDパターンの組み合わせにより、実行時エラ�
 
 Phase 1のドメインレイヤー実装が完了しました！次は以下に進みましょう：
 
-**→ [Phase 2: アプリケーションサービス実装](03-application-services.md)**
+**→ [Phase 2: アプリケーションサービス実装](application-services.md)**
 
 - WorldService、PlayerServiceの実装
 - Effect-TS Context・Layerパターンの活用

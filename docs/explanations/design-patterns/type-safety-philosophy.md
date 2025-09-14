@@ -181,16 +181,14 @@ const loadPlayerData = (id: string): Effect.Effect<
 **Problem**: 隠蔽された副作用と例外
 
 ```typescript
-// ❌ 副作用が隠蔽された危険な実装 - クラスベース
-class WorldManager {
-  saveWorld(world: World): World {
-    // いつエラーが発生するかわからない
-    fs.writeFileSync('world.json', JSON.stringify(world))  // IOException?
-    this.notifyObservers(world)  // NetworkError?
-    this.updateCache(world)      // MemoryError?
+// ❌ 副作用が隠蔽された危険な実装
+function saveWorld(world: World): World {
+  // いつエラーが発生するかわからない
+  fs.writeFileSync('world.json', JSON.stringify(world))  // IOException?
+  notifyObservers(world)  // NetworkError?
+  updateCache(world)      // MemoryError?
 
-    return world  // 成功を保証できない
-  }
+  return world  // 成功を保証できない
 }
 
 // ✅ Effect-TS 関数型Serviceパターンによる完全置き換え
@@ -388,19 +386,17 @@ export const addItem = (
 
 ```typescript
 // 高速化が必要な部分での型安全性維持
-// ❌ クラスベースの危険な実装 - 可変状態と隠蔽されたエラー
-export class ChunkManager {
-  private chunks: Map<string, Chunk> = new Map()
+// ❌ 危険な実装 - 可変状態と隠蔽されたエラー
+const chunks: Map<string, Chunk> = new Map()
 
-  // クリティカルパスは型アサーションを許容
-  getBlockFast(x: number, y: number, z: number): BlockType {
-    const chunkX = Math.floor(x / 16) as ChunkCoordinate
-    const chunkZ = Math.floor(z / 16) as ChunkCoordinate
-    const chunkKey = `${chunkX},${chunkZ}`
+// クリティカルパスは型アサーションを許容
+function getBlockFast(x: number, y: number, z: number): BlockType {
+  const chunkX = Math.floor(x / 16) as ChunkCoordinate
+  const chunkZ = Math.floor(z / 16) as ChunkCoordinate
+  const chunkKey = `${chunkX},${chunkZ}`
 
-    const chunk = this.chunks.get(chunkKey)!  // ❌ null assertion
-    return chunk.blocks[y][x & 15][z & 15]    // ❌ 境界チェック省略
-  }
+  const chunk = chunks.get(chunkKey)!  // ❌ null assertion
+  return chunk.blocks[y][x & 15][z & 15]    // ❌ 境界チェック省略
 }
 
 // ✅ 関数型ChunkErrorの定義

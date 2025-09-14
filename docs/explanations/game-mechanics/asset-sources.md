@@ -742,6 +742,6 @@ export const ContentModerationPipeline = {
 
 - [パフォーマンス最適化](../architecture/performance-guidelines.md) - アセット最適化の詳細戦略
 - [セキュリティ仕様](../architecture/security-specification.md) - セキュリティ要件とベストプラクティス
-- [レンダリングシステム](./00-core-features/rendering-system.md) - Three.jsとの統合パターン
+- [レンダリングシステム](./core-features/rendering-system.md) - Three.jsとの統合パターン
 
 この包括的なアセット管理により、TypeScript Minecraft Cloneプロジェクトは法的リスクを回避しながら、高品質で一貫性のあるゲーム体験を提供できます。さらに、現代的なWeb技術を活用することで、パフォーマンスとユーザーエクスペリエンスの両面で競争力のあるゲームを実現します。

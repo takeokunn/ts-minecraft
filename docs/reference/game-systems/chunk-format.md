@@ -7,7 +7,7 @@ tags: ["chunk-format", "binary-data", "compression", "data-serialization", "worl
 prerequisites: ["effect-ts-fundamentals", "binary-data-handling", "compression-algorithms", "chunk-system"]
 estimated_reading_time: "15分"
 related_patterns: ["data-serialization-patterns", "compression-patterns", "optimization-patterns"]
-related_docs: ["../00-core-features/07-chunk-system.md", "./00-world-data-structure.md", "./02-save-file-format.md"]
+related_docs: ["../../explanations/game-mechanics/core-features/chunk-system.md", "./world-data-structure.md", "./save-file-format.md"]
 ---
 
 # チャンクフォーマット仕様

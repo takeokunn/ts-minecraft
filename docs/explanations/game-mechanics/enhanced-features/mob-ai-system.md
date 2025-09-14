@@ -7,7 +7,7 @@ tags: ["mob-ai", "behavior-tree", "pathfinding", "entity-system", "artificial-in
 prerequisites: ["effect-ts-fundamentals", "ecs-architecture", "pathfinding-algorithms", "behavior-tree-concepts"]
 estimated_reading_time: "25分"
 related_patterns: ["entity-component-patterns", "behavior-tree-patterns", "ai-decision-patterns"]
-related_docs: ["./00-overview.md", "../00-core-features/04-entity-system.md", "../00-core-features/06-physics-system.md"]
+related_docs: ["./overview.md", "../core-features/entity-system.md", "../core-features/physics-system.md"]
 search_keywords:
   primary: ["mob-ai", "behavior-tree", "pathfinding", "game-ai"]
   secondary: ["entity-behavior", "artificial-intelligence", "npc-control"]

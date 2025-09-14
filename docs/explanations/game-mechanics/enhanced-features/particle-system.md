@@ -7,7 +7,7 @@ tags: ["particle-system", "visual-effects", "rendering", "webgl", "physics", "pe
 prerequisites: ["webgl-basics", "physics-fundamentals", "effect-ts-concurrency", "3d-mathematics"]
 estimated_reading_time: "22分"
 related_patterns: ["rendering-patterns", "physics-patterns", "optimization-patterns"]
-related_docs: ["./00-overview.md", "../00-core-features/05-rendering-system.md", "../00-core-features/06-physics-system.md"]
+related_docs: ["./overview.md", "../core-features/rendering-system.md", "../core-features/physics-system.md"]
 search_keywords:
   primary: ["particle-system", "visual-effects", "explosion-effects", "particle-physics"]
   secondary: ["webgl-particles", "game-graphics", "minecraft-effects"]

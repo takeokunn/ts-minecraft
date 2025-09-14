@@ -1,198 +1,179 @@
-# Claude Code Configuration
+# 🤖 Claude Code 設定ディレクトリ
 
-このディレクトリには、開発効率を最大化するためのClaude Code用カスタムコマンドとエージェントが含まれています。
+TypeScript Minecraft CloneプロジェクトのAI Agent開発を支援する設定・テンプレート集
 
-## 📁 ディレクトリ構成
+## 📁 ディレクトリ構造
 
 ```
 .claude/
-├── README.md              # このファイル
-├── commands/              # カスタムコマンド群
-│   ├── project-analyze    # プロジェクト分析
-│   ├── quality-setup      # 品質ツール設定
-│   ├── deps-update        # 依存関係更新
-│   ├── github-setup       # CI/CD設定
-│   └── project-clean      # クリーンアップ
-└── agents/                # 専門エージェント群
-    ├── code-reviewer       # コードレビュー専門
-    └── architecture-designer # アーキテクチャ設計専門
+├── CLAUDE.md           # メインコンテキストファイル（自動読み込み）
+├── README.md           # このファイル
+├── agents/             # 専門エージェント定義
+│   ├── implementation-agent.md  # 実装担当
+│   ├── test-agent.md           # テスト担当
+│   └── review-agent.md         # レビュー担当
+├── templates/          # 再利用可能テンプレート
+│   └── github-issue.md         # Issue作成テンプレート
+├── workflows/          # 開発ワークフロー
+│   └── sprint-workflow.md      # Sprint実行手順
+└── context/           # プロジェクト固有知識
+    └── effect-patterns.md      # Effect-TSパターン集
 ```
 
-## 🛠️ Commands (カスタムコマンド)
+## 🎯 使用方法
 
-### `/project-analyze`
-プロジェクトの技術スタック、構造、設定を包括的に分析
+### 1. 基本的な使い方
 
-**機能:**
-- 言語・フレームワーク自動検出
-- パッケージマネージャー識別
-- ビルドツール・品質ツール確認
-- Git状態分析
-- 改善提案生成
-
-**対応言語:** JavaScript/TypeScript, Python, Rust, Go
-
-**使用例:**
 ```bash
-/project-analyze
+# Claude Codeを起動
+claude
+
+# プロジェクトディレクトリで作業開始
+# CLAUDE.mdが自動的に読み込まれます
 ```
 
-### `/quality-setup`
-ESLint, Prettier, テストフレームワーク等の品質ツールを自動設定
+### 2. 専門エージェントの活用
 
-**機能:**
-- 言語別最適設定の自動生成
-- package.json スクリプト自動更新
-- 設定ファイル一括作成
-- 依存関係自動インストール
-
-**使用例:**
 ```bash
-/quality-setup              # 自動検出
-/quality-setup javascript   # 言語指定
+# 実装タスク
+claude --agent implementation "Issue #123を実装して"
+
+# テスト作成
+claude --agent test "GameLoopServiceのテストを作成"
+
+# コードレビュー
+claude --agent review "PR #456をレビュー"
 ```
 
-### `/deps-update`
-プロジェクトの依存関係を安全に更新
+### 3. テンプレート使用
 
-**機能:**
-- 古いパッケージの確認
-- セキュリティ監査実行
-- 更新後の検証テスト
-- メジャーバージョン更新対応
-
-**オプション:**
-- `--check-only`: 更新せず確認のみ
-- `--major`: メジャーバージョン更新を含む
-
-**使用例:**
 ```bash
-/deps-update                # 標準更新
-/deps-update --check-only   # 確認のみ
-/deps-update --major        # メジャー更新含む
+# Issue作成
+claude "Phase 1のタスクからGitHub Issueを作成して"
+
+# Sprint計画
+claude "次のSprintの計画を立てて"
 ```
 
-### `/github-setup`
-プロジェクトタイプに応じたGitHub Actions CI/CDワークフローを自動生成
+## 🚀 クイックスタート
 
-**機能:**
-- プロジェクトタイプ自動検出
-- CI/CDワークフロー生成
-- セキュリティスキャン設定
-- Dependabot設定
+### 新規開発者向け
 
-**オプション:**
-- `--type=web|lib|game`: プロジェクトタイプ指定
+1. **環境セットアップ**
+   ```bash
+   pnpm install
+   pnpm dev
+   ```
 
-**使用例:**
-```bash
-/github-setup              # 自動検出
-/github-setup --type=game  # ゲームプロジェクト
-```
+2. **CLAUDE.md確認**
+   - プロジェクト制約を理解
+   - Effect-TSパターンを確認
 
-### `/project-clean`
-不要ファイル削除、依存関係クリーンアップ、キャッシュクリア
+3. **最初のタスク**
+   ```bash
+   claude "ROADMAPからPhase 0のタスクを開始"
+   ```
 
-**機能:**
-- ビルド生成物削除
-- キャッシュクリア
-- 一時ファイル削除
-- パッケージマネージャーキャッシュクリア
+### AI Agent向け設定
 
-**オプション:**
-- `--deep`: ディープクリーニング
-- `--confirm`: 確認なしで実行
+1. **コンテキスト優先順位**
+   - CLAUDE.md（必須制約）
+   - effect-patterns.md（実装パターン）
+   - 関連するagent定義
 
-**使用例:**
-```bash
-/project-clean             # 標準クリーニング
-/project-clean --deep      # ディープクリーニング
-```
+2. **作業フロー**
+   - Issue確認 → 実装 → テスト → PR作成
 
-## 🤖 Agents (専門エージェント)
+## 📋 チェックリスト
 
-### Code Reviewer Agent
-プロフェッショナルなコードレビューを実行
+### 実装前確認
+- [ ] CLAUDE.mdの制約を理解
+- [ ] Effect-TSパターンを確認
+- [ ] 既存コードのパターンを調査
 
-**専門領域:**
-- コード品質分析
-- セキュリティ評価
-- パフォーマンス最適化
-- テストカバレッジ確認
-- ドキュメント品質評価
-
-**対応技術:**
-- TypeScript/JavaScript (Effect-TS, Three.js対応)
-- Python, Rust, Go
-- フレームワーク固有のベストプラクティス
-
-**レビュー形式:**
-```markdown
-## Code Review Summary
-### ✅ Strengths
-### ⚠️ Issues Found
-### 🔧 Specific Recommendations
-### 📊 Quality Metrics
-### 🎯 Next Steps
-```
-
-### Architecture Designer Agent
-システムアーキテクチャの設計と最適化
-
-**専門領域:**
-- システムアーキテクチャ設計
-- 技術スタック選択
-- スケーラビリティ設計
-- データアーキテクチャ
-- セキュリティアーキテクチャ
-
-**設計パターン:**
-- Domain-Driven Design (DDD)
-- Entity Component System (ECS)
-- Effect-TS関数型アーキテクチャ
-- マイクロサービス
-- イベント駆動アーキテクチャ
-
-## 🚀 使用方法
-
-### 1. セットアップ
-プロジェクトルートに `.claude/` ディレクトリがある状態で Claude Code を実行
-
-### 2. コマンド実行
-Claude Code内で `/` を入力してコマンドを選択・実行
-
-### 3. エージェント利用
-特定の専門タスクでエージェントを指定して実行
+### PR前確認
+- [ ] テストカバレッジ80%以上
+- [ ] Effect-TS採用率95%以上
+- [ ] ドキュメント更新
 
 ## 🔧 カスタマイズ
 
-### 新しいコマンド追加
-```bash
-# .claude/commands/my-command ファイルを作成
-#!/usr/bin/env node
-// コマンドロジックを実装
-```
+### プロジェクト固有設定
 
-### 新しいエージェント追加
+`CLAUDE.md`を編集してプロジェクト固有の制約を追加：
+
 ```markdown
-# .claude/agents/my-agent ファイルを作成
-# エージェントの専門領域と指示を記載
+## プロジェクト固有ルール
+- カスタムルール1
+- カスタムルール2
 ```
 
-## 📊 品質メトリクス
+### 新規エージェント追加
 
-これらのツール群により以下の効率化を実現:
-- **開発速度**: 3-5倍向上
-- **コード品質**: 自動チェックで95%のエラー削減
-- **セットアップ時間**: 従来の1/10に短縮
-- **保守性**: 標準化により大幅改善
+`agents/`ディレクトリに新しいエージェント定義を追加：
+
+```markdown
+# CustomAgent - カスタムエージェント
+
+## 役割
+特定タスク専門のエージェント
+
+## 専門領域
+- 領域1
+- 領域2
+```
+
+## 📊 メトリクス
+
+### 品質指標
+- **Effect-TS採用率**: 95%以上
+- **テストカバレッジ**: 80%以上
+- **型カバレッジ**: 100%
+- **パフォーマンス**: 60FPS維持
+
+### 生産性指標
+- **Issue完了率**: 80%以上/Sprint
+- **PR承認率**: 初回90%以上
+- **バグ発生率**: 5%以下
 
 ## 🔗 関連リソース
 
-- [Claude Code公式ドキュメント](https://docs.anthropic.com/en/docs/claude-code)
-- [TypeScript Minecraft Clone プロジェクト](../docs/README.md)
-- [開発規約](../docs/03-guides/00-development-conventions.md)
+- [ROADMAP.md](../ROADMAP.md) - 実装計画
+- [docs/](../docs/) - プロジェクトドキュメント
+- [Effect-TS Docs](https://effect.website/) - 公式ドキュメント
+- [Claude Code Docs](https://docs.anthropic.com/claude-code/) - Claude Code公式
 
----
+## 💡 Tips
 
-**🎯 Ready for Enhanced Development! Let's Code Smarter, Not Harder!**
+### 効率的な作業のコツ
+
+1. **コンテキスト管理**
+   - `/clear`で定期的にリセット
+   - 関連ファイルを先に読み込み
+
+2. **並行処理**
+   - 複数エージェントを並行実行
+   - 独立したタスクは同時処理
+
+3. **検証自動化**
+   - CIでの自動チェック活用
+   - pre-commit hookの設定
+
+## 🆘 トラブルシューティング
+
+### よくある問題
+
+**Q: Effect-TSパターンがわからない**
+- A: `context/effect-patterns.md`を参照
+
+**Q: テストが失敗する**
+- A: test-agentを使用して修正
+
+**Q: パフォーマンスが悪い**
+- A: review-agentでボトルネック特定
+
+## 📝 更新履歴
+
+- 2024-01: 初期設定作成
+- 2024-01: Effect-TSパターン追加
+- 2024-01: Sprint workflow追加

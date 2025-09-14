@@ -1615,9 +1615,9 @@ export const MinecraftApp = Effect.gen(function* () {
 ## 関連ドキュメント
 
 **Core Systems**:
-- [Player System Specification](../../explanations/game-mechanics/00-core-features/player-system.md) - プレイヤーシステム詳細仕様
-- [Inventory System](../../explanations/game-mechanics/00-core-features/inventory-system.md) - インベントリシステム仕様
-- [Health & Hunger System](../../explanations/game-mechanics/00-core-features/health-hunger-system.md) - 体力・空腹度システム
+- [Player System Specification](../../explanations/game-mechanics/core-features/player-system.md) - プレイヤーシステム詳細仕様
+- [Inventory System](../../explanations/game-mechanics/core-features/inventory-system.md) - インベントリシステム仕様
+- [Health & Hunger System](../../explanations/game-mechanics/core-features/health-hunger-system.md) - 体力・空腹度システム
 
 **API Design**:
 - [Domain & Application APIs](../../explanations/architecture/domain-application-apis.md) - ドメイン・アプリケーション層API

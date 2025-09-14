@@ -7,7 +7,7 @@ tags: ["ddd", "ecs", "domain-integration", "architecture-patterns", "effect-ts"]
 prerequisites: ["ddd-concepts", "ecs-architecture", "effect-ts-fundamentals"]
 estimated_reading_time: "20分"
 related_patterns: ["data-modeling-patterns", "service-patterns", "functional-programming-philosophy"]
-related_docs: ["../architecture/overview.md", "../game-mechanics/00-core-features/architecture-principles.md"]
+related_docs: ["../architecture/overview.md", "../game-mechanics/core-features/architecture-principles.md"]
 ---
 
 # ドメイン統合パターン - DDD+ECS融合アーキテクチャ

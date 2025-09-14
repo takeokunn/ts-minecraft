@@ -20,7 +20,7 @@ Context7とTSDocベストプラクティスに基づく統一されたドキュ�
 - **[Troubleshooting: プレイヤーエラー](../../how-to/troubleshooting/player-errors.md)** - エラー発生時の対処法
 
 ### 🧠 背景理解を深める
-- **[Explanation: プレイヤーシステム設計](../../explanations/game-mechanics/00-core-features/02-player-system.md)** - 設計判断の背景理解
+- **[Explanation: プレイヤーシステム設計](../../explanations/game-mechanics/core-features/player-system.md)** - 設計判断の背景理解
 
 ## 📍 現在位置
 現在のドキュメント: **[Tutorials](../../../tutorials/) > [Basic Game Development](../../basic-game-development/) > プレイヤーシステム実装**

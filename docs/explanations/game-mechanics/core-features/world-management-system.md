@@ -243,13 +243,23 @@ const makeNoiseGeneratorService = Effect.gen(function* () {
       let amplitude = 1
       let maxValue = 0
 
-      for (let i = 0; i < octaves; i++) {
-        const noiseValue = yield* noise2D(x * frequency, y * frequency, seed + i)
-        total += noiseValue * amplitude
-        maxValue += amplitude
-        amplitude *= persistence
-        frequency *= lacunarity
-      }
+      yield* pipe(
+        Array.range(0, octaves),
+        Array.reduce(
+          { total: 0, maxValue: 0, amplitude: 1, frequency: 1 },
+          (acc, i) =>
+            Effect.gen(function* () {
+              const noiseValue = yield* noise2D(x * acc.frequency, y * acc.frequency, seed + i)
+              return {
+                total: acc.total + noiseValue * acc.amplitude,
+                maxValue: acc.maxValue + acc.amplitude,
+                amplitude: acc.amplitude * persistence,
+                frequency: acc.frequency * lacunarity
+              }
+            })
+        ),
+        Effect.map(({ total, maxValue }) => total / maxValue)
+      )
 
       return total / maxValue
     })
@@ -265,17 +275,28 @@ const makeNoiseGeneratorService = Effect.gen(function* () {
         let amplitude = 1
         let weight = 1
 
-        for (let i = 0; i < octaves; i++) {
-          let noiseValue = yield* noise2D(x * frequency, y * frequency, seed + i)
-          noiseValue = 1.0 - Math.abs(noiseValue)
-          noiseValue *= noiseValue
-          noiseValue *= weight
-          weight = Math.max(0, Math.min(1, noiseValue * 2))
+        const result = yield* pipe(
+          Array.range(0, octaves),
+          Array.reduce(
+            { total: 0, amplitude: 1, frequency: 1, weight: 1 },
+            (acc, i) =>
+              Effect.gen(function* () {
+                let noiseValue = yield* noise2D(x * acc.frequency, y * acc.frequency, seed + i)
+                noiseValue = 1.0 - Math.abs(noiseValue)
+                noiseValue *= noiseValue
+                noiseValue *= acc.weight
+                const newWeight = Math.max(0, Math.min(1, noiseValue * 2))
 
-          total += noiseValue * amplitude
-          amplitude *= 0.5
-          frequency *= 2
-        }
+                return {
+                  total: acc.total + noiseValue * acc.amplitude,
+                  amplitude: acc.amplitude * 0.5,
+                  frequency: acc.frequency * 2,
+                  weight: newWeight
+                }
+              })
+          )
+        )
+        total = result.total
 
         return total
       })
@@ -290,10 +311,14 @@ export const NoiseGeneratorServiceLive = Layer.effect(
 const generatePermutationTable = (): ReadonlyArray<number> => {
   const perm = Array.from({ length: 256 }, (_, i) => i)
 
-  for (let i = perm.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[perm[i], perm[j]] = [perm[j], perm[i]]
-  }
+  // Fisher-Yates シャッフルを関数型で実装
+  pipe(
+    Array.range(perm.length - 1, 0),
+    Array.forEach((i) => {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[perm[i], perm[j]] = [perm[j], perm[i]]
+    })
+  )
 
   return [...perm, ...perm]
 }
@@ -862,18 +887,26 @@ const makeChunkLoadingStrategy = Effect.gen(function* () {
       const centerChunk = worldToChunkCoord(playerPosition)
       const chunks: ChunkCoordinate[] = []
 
-      for (let dx = -viewDistance; dx <= viewDistance; dx++) {
-        for (let dz = -viewDistance; dz <= viewDistance; dz++) {
-          const distance = Math.sqrt(dx * dx + dz * dz)
-          if (distance <= viewDistance) {
-            chunks.push({
-              _tag: "ChunkCoordinate" as const,
-              x: centerChunk.x + dx,
-              z: centerChunk.z + dz
+      const chunks = pipe(
+        Array.range(-viewDistance, viewDistance),
+        Array.flatMap((dx) =>
+          pipe(
+            Array.range(-viewDistance, viewDistance),
+            Array.filterMap((dz) => {
+              const distance = Math.sqrt(dx * dx + dz * dz)
+              return Match.value(distance <= viewDistance).pipe(
+                Match.when(true, () => Option.some({
+                  _tag: "ChunkCoordinate" as const,
+                  x: centerChunk.x + dx,
+                  z: centerChunk.z + dz
+                })),
+                Match.when(false, () => Option.none()),
+                Match.exhaustive
+              )
             })
-          }
-        }
-      }
+          )
+        )
+      )
 
       // 距離順にソート
       return chunks.sort((a, b) => {
@@ -911,15 +944,19 @@ const makeChunkLoadingStrategy = Effect.gen(function* () {
       // 予測位置周辺のチャンクを優先ロード対象に
       const chunks: ChunkCoordinate[] = []
 
-      for (let dx = -viewDistance; dx <= viewDistance; dx++) {
-        for (let dz = -viewDistance; dz <= viewDistance; dz++) {
-          chunks.push({
-            _tag: "ChunkCoordinate" as const,
-            x: predictedChunk.x + dx,
-            z: predictedChunk.z + dz
-          })
-        }
-      }
+      const chunks = pipe(
+        Array.range(-viewDistance, viewDistance),
+        Array.flatMap((dx) =>
+          pipe(
+            Array.range(-viewDistance, viewDistance),
+            Array.map((dz) => ({
+              _tag: "ChunkCoordinate" as const,
+              x: predictedChunk.x + dx,
+              z: predictedChunk.z + dz
+            }))
+          )
+        )
+      )
 
       // 距離と移動方向による優先度付け
       return chunks.sort((a, b) => {
@@ -946,12 +983,13 @@ const makeChunkLoadingStrategy = Effect.gen(function* () {
 
       const chunksToUnload: ChunkCoordinate[] = []
 
-      for (const chunk of loadedChunks) {
-        let shouldUnload = true
-
-        // 全プレイヤーから十分離れているかチェック
-        for (const playerPos of playerPositions) {
-          const playerChunk = worldToChunkCoord(playerPos)
+      const chunksToUnload = pipe(
+        loadedChunks,
+        Array.filter((chunk) =>
+          pipe(
+            playerPositions,
+            Array.every((playerPos) => {
+              const playerChunk = worldToChunkCoord(playerPos)
           const distance = Math.sqrt(
             Math.pow(chunk.coordinate.x - playerChunk.x, 2) +
             Math.pow(chunk.coordinate.z - playerChunk.z, 2)

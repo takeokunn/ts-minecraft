@@ -73,13 +73,13 @@ class PlayerService {
 import { Effect, Schema, Context, Data } from "effect";
 
 // 明確なエラー型定義
-class InvalidPlayerNameError extends Data.TaggedError("InvalidPlayerNameError")<{
+const InvalidPlayerNameError = Data.TaggedError("InvalidPlayerNameError")<{
   readonly name: string;
-}> {}
+}>
 
-class DatabaseError extends Data.TaggedError("DatabaseError")<{
+const DatabaseError = Data.TaggedError("DatabaseError")<{
   readonly cause: unknown;
-}> {}
+}>
 
 // Schema による型安全なバリデーション
 const CreatePlayerRequest = Schema.Struct({
@@ -164,10 +164,10 @@ try {
 }
 
 // After: タグ付きエラー
-class ValidationError extends Data.TaggedError("ValidationError")<{
+const ValidationError = Data.TaggedError("ValidationError")<{
   readonly field: string;
   readonly message: string;
-}> {}
+}>
 
 const validateInput = (data: unknown) =>
   Schema.decodeUnknown(PlayerSchema)(data)
@@ -195,14 +195,14 @@ async function loadPlayerData(id: string): Promise<Player | null> {
 }
 
 // After: Effect ベース
-class NetworkError extends Data.TaggedError("NetworkError")<{
+const NetworkError = Data.TaggedError("NetworkError")<{
   readonly status: number;
   readonly url: string;
-}> {}
+}>
 
-class PlayerNotFoundError extends Data.TaggedError("PlayerNotFoundError")<{
+const PlayerNotFoundError = Data.TaggedError("PlayerNotFoundError")<{
   readonly id: string;
-}> {}
+}>
 
 const loadPlayerData = (id: string) =>
   Effect.gen(function* (_) {
@@ -247,20 +247,21 @@ const loadPlayerData = (id: string) =>
 
 ```typescript
 // Before: ハードコードされた依存関係
-class GameService {
-  private database = new DatabaseConnection();
-  private logger = console;
+interface GameServiceInterface {
+  readonly saveGame: (gameState: GameState) => Promise<void>
+}
 
+const makeGameService = (database: DatabaseConnection, logger: Console): GameServiceInterface => ({
   async saveGame(gameState: GameState) {
     try {
-      await this.database.save(gameState);
-      this.logger.log("Game saved");
+      await database.save(gameState);
+      logger.log("Game saved");
     } catch (error) {
-      this.logger.error("Save failed:", error);
+      logger.error("Save failed:", error);
       throw error;
     }
   }
-}
+})
 
 // After: Context による依存性注入
 interface DatabaseService {

@@ -6,7 +6,7 @@ difficulty: "expert"
 tags: ["advanced-game-systems", "multiplayer", "ai-systems", "procedural-generation", "game-economy", "mmorpg-patterns"]
 prerequisites: ["game-development-advanced", "system-architecture", "effect-ts-expert", "multiplayer-concepts"]
 estimated_reading_time: "45分"
-related_docs: ["../architecture/scalable-architecture-design.md", "./00-core-features/overview.md", "../../reference/api/game-engine-api.md"]
+related_docs: ["../architecture/scalable-architecture-design.md", "./core-features/overview.md", "../../reference/api/game-engine-api.md"]
 ---
 
 
@@ -768,16 +768,22 @@ export namespace AdvancedAI {
   })
 
   // Complex NPC Behavior Implementation
-  export class IntelligentNPC {
-    constructor(
-      private readonly personality: NPCPersonality,
-      private readonly behaviorTree: BehaviorNode,
-      private readonly pathfinding: AdvancedPathfinding,
-      private readonly worldKnowledge: WorldKnowledgeService
-    ) {}
+  export interface IntelligentNPCInterface {
+    readonly makeDecision: (situation: Situation) => Effect.Effect<Decision, DecisionError, AIServices>
+    readonly interactWithPlayer: (playerId: PlayerId, interactionType: InteractionType) => Effect.Effect<InteractionResult, InteractionError, PlayerService | DialogueService>
+  }
+
+  export const IntelligentNPC = Context.GenericTag<IntelligentNPCInterface>('@ai/IntelligentNPC')
+
+  const makeIntelligentNPC = (
+    personality: NPCPersonality,
+    behaviorTree: BehaviorNode,
+    pathfinding: AdvancedPathfinding,
+    worldKnowledge: WorldKnowledgeService
+  ): IntelligentNPCInterface => ({
 
     // Dynamic Decision Making
-    makeDecision = (situation: Situation): Effect.Effect<Decision, DecisionError, AIServices> =>
+    makeDecision: (situation: Situation): Effect.Effect<Decision, DecisionError, AIServices> =>
       Effect.gen(function* () {
         // 状況の評価
         const situationAssessment = yield* this.assessSituation(situation)
@@ -818,46 +824,53 @@ export namespace AdvancedAI {
       })
 
     // Advanced Social Interaction
-    interactWithPlayer = (
+    interactWithPlayer: (
       playerId: PlayerId,
       interactionType: InteractionType
     ): Effect.Effect<InteractionResult, InteractionError, PlayerService | DialogueService> =>
       Effect.gen(function* () {
         const player = yield* PlayerService.getPlayer(playerId)
-        const relationship = this.personality.relationships.get(playerId)
+        const relationship = personality.relationships.get(playerId)
 
         // 関係性に基づく対応の調整
-        const responseModifier = this.calculateResponseModifier(
+        const responseModifier = calculateResponseModifier(
           relationship?.reputation ?? 0,
           relationship?.trustLevel ?? 0.5
         )
 
         // コンテキスト適応型対話生成
-        const dialogue = yield* this.generateContextualDialogue(
+        const dialogue = yield* generateContextualDialogue(
           player,
           interactionType,
           responseModifier
         )
 
         // 感情の更新
-        const emotionalImpact = this.calculateEmotionalImpact(interactionType, player)
-        const newEmotionalState = this.updateEmotionalState(
-          this.personality.currentEmotion,
+        const emotionalImpact = calculateEmotionalImpact(interactionType, player)
+        const newEmotionalState = updateEmotionalState(
+          personality.currentEmotion,
           emotionalImpact
         )
 
         // 関係性の更新
-        yield* this.updateRelationship(playerId, interactionType, responseModifier)
+        yield* updateRelationship(playerId, interactionType, responseModifier)
 
         return {
           dialogue,
           emotionalState: newEmotionalState,
-          relationshipChange: this.calculateRelationshipChange(interactionType, responseModifier),
-          rewards: this.calculateRewards(player, relationship),
-          questOffers: yield* this.generateQuestOffers(player, relationship)
+          relationshipChange: calculateRelationshipChange(interactionType, responseModifier),
+          rewards: calculateRewards(player, relationship),
+          questOffers: yield* generateQuestOffers(player, relationship)
         }
       })
-  }
+  })
+
+  export const IntelligentNPCLive = (
+    personality: NPCPersonality,
+    behaviorTree: BehaviorNode,
+    pathfinding: AdvancedPathfinding,
+    worldKnowledge: WorldKnowledgeService
+  ) => Layer.succeed(IntelligentNPC, makeIntelligentNPC(personality, behaviorTree, pathfinding, worldKnowledge))
 
   // Machine Learning Integration
   export interface MLGameplayOptimizer {
@@ -881,15 +894,20 @@ export namespace AdvancedAI {
 }
 
 // Procedural Content Generation with AI
-export class ProceduralContentGenerator {
-  constructor(
-    private readonly noiseGenerator: NoiseGenerator,
-    private readonly mlOptimizer: MLGameplayOptimizer,
-    private readonly contentValidator: ContentValidator
-  ) {}
+export interface ProceduralContentGeneratorInterface {
+  readonly generateIntelligentTerrain: (coord: ChunkCoordinate, parameters: TerrainParameters) => Effect.Effect<TerrainChunk, TerrainGenerationError, NoiseService | MLService>
+}
+
+export const ProceduralContentGenerator = Context.GenericTag<ProceduralContentGeneratorInterface>('@content/ProceduralContentGenerator')
+
+const makeProceduralContentGenerator = (
+  noiseGenerator: NoiseGenerator,
+  mlOptimizer: MLGameplayOptimizer,
+  contentValidator: ContentValidator
+): ProceduralContentGeneratorInterface => ({
 
   // AI-Powered World Generation
-  generateIntelligentTerrain = (
+  generateIntelligentTerrain: (
     coord: ChunkCoordinate,
     playerHistory: PlayerActionHistory
   ): Effect.Effect<GeneratedChunk, GenerationError, TerrainService> =>
@@ -1039,16 +1057,22 @@ export namespace EconomicSystems {
   })
 
   // Auction House Implementation
-  export class GlobalAuctionHouse {
-    constructor(
-      private readonly tradingSystem: TradingSystem,
-      private readonly priceOracle: PriceOracle,
-      private readonly antiManipulation: AntiManipulationService,
-      private readonly escrowService: EscrowService
-    ) {}
+  export interface GlobalAuctionHouseInterface {
+    readonly calculateDynamicPrice: (item: ItemType, marketData: MarketData) => Effect.Effect<DynamicPrice, PriceCalculationError, PriceOracle>
+    readonly executeSecureTrade: (buyOrder: TradingOrder, sellOrder: TradingOrder) => Effect.Effect<TradeResult, TradeExecutionError, EscrowService | TradingService>
+  }
+
+  export const GlobalAuctionHouse = Context.GenericTag<GlobalAuctionHouseInterface>('@trading/GlobalAuctionHouse')
+
+  const makeGlobalAuctionHouse = (
+    tradingSystem: TradingSystem,
+    priceOracle: PriceOracle,
+    antiManipulation: AntiManipulationService,
+    escrowService: EscrowService
+  ): GlobalAuctionHouseInterface => ({
 
     // Dynamic Pricing Algorithm
-    calculateDynamicPrice = (
+    calculateDynamicPrice: (
       item: ItemType,
       marketData: MarketData
     ): Effect.Effect<DynamicPrice, PriceCalculationError, PriceOracle> =>
@@ -1136,15 +1160,22 @@ export namespace EconomicSystems {
   }
 
   // Economic Simulation & Balancing
-  export class EconomicSimulator {
-    constructor(
-      private readonly economicModel: EconomicModel,
-      private readonly inflationController: InflationController,
-      private readonly marketMaker: MarketMakerService
-    ) {}
+  export interface EconomicSimulatorInterface {
+    readonly controlInflation: (currentState: EconomicState) => Effect.Effect<InflationControlActions, EconomicError, EconomicService>
+    readonly createResourceSinks: (economicState: EconomicState) => Effect.Effect<ResourceSink[], SinkCreationError, EconomicService>
+    readonly provideMarketLiquidity: (market: TradingPair) => Effect.Effect<LiquidityResult, LiquidityError, MarketMakerService>
+  }
+
+  export const EconomicSimulator = Context.GenericTag<EconomicSimulatorInterface>('@economy/EconomicSimulator')
+
+  const makeEconomicSimulator = (
+    economicModel: EconomicModel,
+    inflationController: InflationController,
+    marketMaker: MarketMakerService
+  ): EconomicSimulatorInterface => ({
 
     // Inflation Control Algorithm
-    controlInflation = (
+    controlInflation: (
       currentState: EconomicState
     ): Effect.Effect<InflationControlActions, EconomicError, EconomicService> =>
       Effect.gen(function* () {
@@ -1262,17 +1293,22 @@ export namespace EconomicSystems {
 
 ```typescript
 // Complete Game Session Management
-export class MasterGameOrchestrator {
-  constructor(
-    private readonly playerSystem: PlayerSystemAPI,
-    private readonly worldSystem: WorldSystemAPI,
-    private readonly aiSystem: AdvancedAI.IntelligentNPC[],
-    private readonly economicSystem: EconomicSystems.TradingSystem,
-    private readonly multiplayerSystem: Multiplayer.RealtimeSyncProtocol
-  ) {}
+export interface MasterGameOrchestratorInterface {
+  readonly executeGameTick: (deltaTime: number) => Effect.Effect<GameTickResult, GameTickError, AllGameServices>
+}
+
+export const MasterGameOrchestrator = Context.GenericTag<MasterGameOrchestratorInterface>('@game/MasterGameOrchestrator')
+
+const makeMasterGameOrchestrator = (
+  playerSystem: PlayerSystemAPI,
+  worldSystem: WorldSystemAPI,
+  aiSystem: AdvancedAI.IntelligentNPC[],
+  economicSystem: EconomicSystems.TradingSystem,
+  multiplayerSystem: Multiplayer.RealtimeSyncProtocol
+): MasterGameOrchestratorInterface => ({
 
   // Complete Game Loop with All Systems
-  executeGameTick = (deltaTime: number): Effect.Effect<GameTickResult, GameTickError, AllGameServices> =>
+  executeGameTick: (deltaTime: number): Effect.Effect<GameTickResult, GameTickError, AllGameServices> =>
     Effect.gen(function* () {
       // 並列システム更新
       const systemUpdates = yield* Effect.all([
@@ -1471,7 +1507,7 @@ interface NextGenerationGameQualities {
 ### 関連ドキュメント
 
 - **[スケーラブルアーキテクチャ](../architecture/scalable-architecture-design.md)** - システム設計基盤
-- **[コアゲーム機能](./00-core-features/overview.md)** - 基本システム実装
+- **[コアゲーム機能](./core-features/overview.md)** - 基本システム実装
 - **[Game Engine API](../../reference/api/game-engine-api.md)** - API仕様詳細
 
 ---

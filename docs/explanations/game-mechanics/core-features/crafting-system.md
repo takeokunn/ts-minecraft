@@ -331,15 +331,21 @@ const matchesShapedRecipe = (
       flipVertical
     ]
 
-    for (const transform of transforms) {
-      const transformedPattern = transform(normalizedPattern)
-      const matches = yield* checkPatternMatch(
-        normalizedGrid,
-        transformedPattern,
-        recipe.ingredients
+    const result = yield* pipe(
+      transforms,
+      Array.findFirst((transform) =>
+        Effect.gen(function* () {
+          const transformedPattern = transform(normalizedPattern)
+          return yield* checkPatternMatch(
+            normalizedGrid,
+            transformedPattern,
+            recipe.ingredients
+          )
+        })
       )
-      if (matches) return true
-    }
+    )
+
+    return Option.isSome(result)
 
     return false
   })
@@ -363,15 +369,26 @@ const checkPatternMatch = (
   ingredients: Record<string, ItemMatcher>
 ): Effect.Effect<boolean> =>
   Effect.gen(function* () {
-    for (let y = 0; y < grid.height; y++) {
-      for (let x = 0; x < grid.width; x++) {
-        const gridItem = grid.slots[y]?.[x]
-        const patternKey = pattern.slots[y]?.[x]
+    const allMatches = yield* pipe(
+      Array.range(0, grid.height),
+      Array.flatMap((y) =>
+        pipe(
+          Array.range(0, grid.width),
+          Array.map((x) => ({ x, y }))
+        )
+      ),
+      Array.map(({ x, y }) =>
+        Effect.gen(function* () {
+          const gridItem = grid.slots[y]?.[x]
+          const patternKey = pattern.slots[y]?.[x]
+          return yield* matchesIngredient(gridItem, patternKey, ingredients)
+        })
+      ),
+      Effect.all,
+      Effect.map(Array.every((matches) => matches))
+    )
 
-        const matches = yield* matchesIngredient(gridItem, patternKey, ingredients)
-        if (!matches) return false
-      }
-    }
+    return allMatches
     return true
   })
 
@@ -418,25 +435,37 @@ const checkShapelessMatch = (
   const providedItems = [...items] // ミュータブルコピーで消費計算
 
   // 各必要材料に対してマッチするアイテムを探す
-  for (const requiredIngredient of requiredIngredients) {
-    let found = false
+  const allFound = pipe(
+    requiredIngredients,
+    Array.every((requiredIngredient) => {
+      const foundIndex = pipe(
+        providedItems,
+        Array.findFirstIndex((item) =>
+          item.count > 0 && matchesIngredientSync(item, requiredIngredient)
+        )
+      )
 
-    for (let i = 0; i < providedItems.length; i++) {
-      const item = providedItems[i]
+      return Match.value(foundIndex).pipe(
+        Match.when(
+          Option.isSome,
+          (idx) => {
+            const i = Option.getOrThrow(idx)
+            const item = providedItems[i]
+            // アイテムを消費
+            providedItems[i] = {
+              ...item,
+              count: Brand.nominal<ItemStackCount>(item.count - 1)
+            }
+            return true
+          }
+        ),
+        Match.when(Option.isNone, () => false),
+        Match.exhaustive
+      )
+    })
+  )
 
-      if (item.count > 0 && matchesIngredientSync(item, requiredIngredient)) {
-        // アイテムを消費
-        providedItems[i] = {
-          ...item,
-          count: Brand.nominal<ItemStackCount>(item.count - 1)
-        }
-        found = true
-        break
-      }
-    }
-
-    if (!found) return false
-  }
+  if (!allFound) return false
 
   // 余剰アイテムがないことを確認
   return providedItems.every(item => item.count === 0)

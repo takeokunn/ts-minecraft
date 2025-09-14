@@ -2332,11 +2332,11 @@ export const ApplicationLayer = Layer.mergeAll(
 ## Related Documents
 
 **Core System Integration**:
-- [World Management System](../game-mechanics/00-core-features/world-management-system.md) - ワールド管理API実装
-- [Player System](../game-mechanics/00-core-features/player-system.md) - プレイヤードメインAPI
-- [Block System](../game-mechanics/00-core-features/block-system.md) - ブロック操作API
-- [Entity System](../game-mechanics/00-core-features/entity-system.md) - エンティティ管理API
-- [Inventory System](../game-mechanics/00-core-features/inventory-system.md) - インベントリ操作API
+- [World Management System](../game-mechanics/core-features/world-management-system.md) - ワールド管理API実装
+- [Player System](../game-mechanics/core-features/player-system.md) - プレイヤードメインAPI
+- [Block System](../game-mechanics/core-features/block-system.md) - ブロック操作API
+- [Entity System](../game-mechanics/core-features/entity-system.md) - エンティティ管理API
+- [Inventory System](../game-mechanics/core-features/inventory-system.md) - インベントリ操作API
 
 **API Specifications**:
 - [Infrastructure APIs](./infrastructure-apis.md) - インフラ層API定義

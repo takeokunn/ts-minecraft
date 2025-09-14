@@ -6,7 +6,7 @@ difficulty: "beginner"
 tags: ["troubleshooting", "faq", "common-issues", "debugging", "problem-solving"]
 prerequisites: ["getting-started-basics"]
 estimated_reading_time: "15分"
-related_docs: ["./README.md", "../basic-game-development/04-interactive-learning-guide.md", "../../how-to/troubleshooting/"]
+related_docs: ["./README.md", "../basic-game-development/interactive-learning-guide.md", "../../how-to/troubleshooting/"]
 ---
 
 # 🛠️ 初心者向けトラブルシューティング - よくある問題と解決策

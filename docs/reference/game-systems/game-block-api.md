@@ -7,7 +7,7 @@ tags: ["block-api", "game-api", "block-system", "state-management", "minecraft-a
 prerequisites: ["effect-ts-fundamentals", "block-system-basics", "ddd-architecture", "ecs-patterns"]
 estimated_reading_time: "40分"
 related_patterns: ["service-patterns", "state-management-patterns", "registry-patterns"]
-related_docs: ["../02-specifications/00-core-features/03-block-system.md", "./core-apis.md", "./domain-apis.md"]
+related_docs: ["../../explanations/game-mechanics/core-features/block-system.md", "./core-apis.md", "./domain-apis.md"]
 search_keywords:
   primary: ["block-api", "minecraft-blocks", "block-management", "game-api"]
   secondary: ["block-registration", "block-state", "block-interactions"]

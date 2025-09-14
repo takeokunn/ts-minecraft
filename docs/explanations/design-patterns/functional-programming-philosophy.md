@@ -28,17 +28,15 @@ Minecraftクローンは本質的に**状態管理の複雑性**を持つアプ�
 従来のオブジェクト指向では、これらの複雑性が「暗黙の副作用」として隠蔽され、デバッグやテストが困難になりがちです。
 
 ```typescript
-// ❌ 従来のクラスベースアプローチの問題例
-class World {
-  private chunks: Map<string, Chunk> = new Map()
+// ❌ 従来の命令型アプローチの問題例
+const chunks: Map<string, Chunk> = new Map()
 
-  // 副作用が隠蔽されている - いつエラーが起きるかわからない
-  loadChunk(position: ChunkPosition): Chunk {
-    const chunk = this.loadFromFile(position) // ファイルI/Oエラー？
-    this.chunks.set(position.key, chunk)      // メモリ不足？
-    this.notifyObservers(chunk)               // 通知エラー？
-    return chunk
-  }
+// 副作用が隠蔽されている - いつエラーが起きるかわからない
+function loadChunk(position: ChunkPosition): Chunk {
+  const chunk = loadFromFile(position) // ファイルI/Oエラー？
+  chunks.set(position.key, chunk)      // メモリ不足？
+  notifyObservers(chunk)               // 通知エラー？
+  return chunk
 }
 
 // ✅ Effect-TS関数型アプローチによる改善
@@ -126,13 +124,14 @@ const loadChunk = (position: ChunkPosition): Effect.Effect<
 
 **❌ オブジェクト指向のアプローチ**:
 ```typescript
-class GameEngine {
-  async update(deltaTime: number): Promise<void> {
-    await this.physicsSystem.update(deltaTime)     // 順序依存
-    await this.renderingSystem.update(deltaTime)   // エラー時の挙動不明
-    await this.audioSystem.update(deltaTime)       // 部分失敗の扱い困難
+// 従来のクラスベースアプローチ
+const createOldGameEngine = () => ({
+  update: async (deltaTime: number): Promise<void> => {
+    await physicsSystem.update(deltaTime)     // 順序依存
+    await renderingSystem.update(deltaTime)   // エラー時の挙動不明
+    await audioSystem.update(deltaTime)       // 部分失敗の扱い困難
   }
-}
+})
 ```
 
 **✅ Effect-TS 関数型アプローチ**:
@@ -338,12 +337,15 @@ const optimizedBatchUpdate = (entities: Entity[]) =>
   Effect.sync(() => {
     // クリティカルパスは純粋な計算で最適化
     const results = new Float32Array(entities.length * 3)
-    for (let i = 0; i < entities.length; i++) {
-      const entity = entities[i]
-      results[i * 3] = entity.position.x + entity.velocity.x
-      results[i * 3 + 1] = entity.position.y + entity.velocity.y
-      results[i * 3 + 2] = entity.position.z + entity.velocity.z
-    }
+    // パフォーマンスクリティカルな場合は配列操作を使用
+    pipe(
+      entities,
+      Array.forEachWithIndex((i, entity) => {
+        results[i * 3] = entity.position.x + entity.velocity.x
+        results[i * 3 + 1] = entity.position.y + entity.velocity.y
+        results[i * 3 + 2] = entity.position.z + entity.velocity.z
+      })
+    )
     return results
   })
 ```

@@ -971,7 +971,7 @@ export const migrateChunkV1toV2 = (v1Chunk: APIVersions.V1.Chunk): APIVersions.V
 - **[アーキテクチャ概要](./overview.md)** - システム全体設計思想
 
 ### ⚙️ **システム仕様**
-- **[コア機能](../game-mechanics/00-core-features/)** - ゲーム機能の詳細仕様
+- **[コア機能](../game-mechanics/core-features/)** - ゲーム機能の詳細仕様
 - **[セキュリティ仕様](./security-specification.md)** - 認証・認可・暗号化
 
 ### 🧪 **開発・テスト**

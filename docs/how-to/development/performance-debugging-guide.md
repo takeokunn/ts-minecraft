@@ -585,58 +585,67 @@ const profileWithUserTiming = (gameLoop: () => void) => {
 
 ```typescript
 // 軽量プロファイラー
-class MinecraftProfiler {
-  private samples: Map<string, number[]> = new Map();
-  private currentSamples: Map<string, number> = new Map();
+interface MinecraftProfilerInterface {
+  readonly startSample: (name: string) => void
+  readonly endSample: (name: string) => number
+  readonly getStatistics: (name: string) => ProfilerStatistics | null
+}
 
-  startSample(name: string): void {
-    this.currentSamples.set(name, performance.now());
-  }
+const makeMinecraftProfiler = (): MinecraftProfilerInterface => {
+  const samples: Map<string, number[]> = new Map();
+  const currentSamples: Map<string, number> = new Map();
 
-  endSample(name: string): number {
-    const start = this.currentSamples.get(name);
-    if (!start) {
-      console.warn(`⚠️ Sample '${name}' was not started`);
-      return 0;
-    }
+  return {
+    startSample: (name: string): void => {
+      currentSamples.set(name, performance.now());
+    },
 
-    const duration = performance.now() - start;
-    this.currentSamples.delete(name);
+    endSample: (name: string): number => {
+      const start = currentSamples.get(name);
+      if (!start) {
+        console.warn(`⚠️ Sample '${name}' was not started`);
+        return 0;
+      }
 
-    // サンプル保存
-    if (!this.samples.has(name)) {
-      this.samples.set(name, []);
-    }
-    this.samples.get(name)!.push(duration);
+      const duration = performance.now() - start;
+      currentSamples.delete(name);
 
-    // 最大100サンプルまで保持
-    const samples = this.samples.get(name)!;
-    if (samples.length > 100) {
-      samples.shift();
-    }
+      // サンプル保存
+      if (!samples.has(name)) {
+        samples.set(name, []);
+      }
+      samples.get(name)!.push(duration);
 
-    return duration;
-  }
+      // 最大100サンプルまで保持
+      const sampleArray = samples.get(name)!;
+      if (sampleArray.length > 100) {
+        sampleArray.shift();
+      }
 
-  getStatistics(name: string) {
-    const samples = this.samples.get(name) ?? [];
-    if (samples.length === 0) {
-      return null;
-    }
+      return duration;
+    },
 
-    const sorted = [...samples].sort((a, b) => a - b);
-    const sum = samples.reduce((a, b) => a + b, 0);
+    getStatistics: (name: string) => {
+      const sampleArray = samples.get(name) ?? [];
+      if (sampleArray.length === 0) {
+        return null;
+      }
 
-    return {
-      count: samples.length,
-      average: sum / samples.length,
-      min: sorted[0],
-      max: sorted[sorted.length - 1],
-      p50: sorted[Math.floor(sorted.length * 0.5)],
-      p95: sorted[Math.floor(sorted.length * 0.95)],
-      p99: sorted[Math.floor(sorted.length * 0.99)]
-    };
-  }
+      const sorted = [...sampleArray].sort((a, b) => a - b);
+      const sum = sampleArray.reduce((a, b) => a + b, 0);
+
+      return {
+        count: sampleArray.length,
+        average: sum / sampleArray.length,
+        min: sorted[0],
+        max: sorted[sorted.length - 1],
+        p50: sorted[Math.floor(sorted.length * 0.5)],
+        p95: sorted[Math.floor(sorted.length * 0.95)],
+        p99: sorted[Math.floor(sorted.length * 0.99)]
+      };
+    },
+
+    generateReport: (): string => {
 
   generateReport(): string {
     const report = ["📊 Performance Report", "=================="];
@@ -880,22 +889,29 @@ const loadChunk_After = (coordinate: ChunkCoordinate) =>
 // 問題: ゲームを長時間プレイするとメモリ使用量が増加し続ける
 
 // 原因: Three.js オブジェクトの不適切な管理
-class ChunkManager_Before {
-  private loadedChunks = new Map<string, THREE.Group>();
+interface ChunkManagerBeforeInterface {
+  readonly loadChunk: (coordinate: ChunkCoordinate) => void
+  readonly unloadChunk: (coordinate: ChunkCoordinate) => void
+}
 
-  loadChunk(coordinate: ChunkCoordinate): void {
-    const chunkGroup = new THREE.Group();
-    // ... メッシュ生成 ...
+const makeChunkManagerBefore = (): ChunkManagerBeforeInterface => {
+  const loadedChunks = new Map<string, THREE.Group>();
 
-    this.loadedChunks.set(coordinate.toString(), chunkGroup);
-    // 問題: 古いチャンクを削除する際にdispose()を呼んでいない
-  }
+  return {
+    loadChunk: (coordinate: ChunkCoordinate): void => {
+      const chunkGroup = new THREE.Group();
+      // ... メッシュ生成 ...
 
-  unloadChunk(coordinate: ChunkCoordinate): void {
-    const chunk = this.loadedChunks.get(coordinate.toString());
-    if (chunk) {
-      scene.remove(chunk); // ❌ メモリ上にジオメトリ・テクスチャが残る
-      this.loadedChunks.delete(coordinate.toString());
+      loadedChunks.set(coordinate.toString(), chunkGroup);
+      // 問題: 古いチャンクを削除する際にdispose()を呼んでいない
+    },
+
+    unloadChunk: (coordinate: ChunkCoordinate): void => {
+      const chunk = loadedChunks.get(coordinate.toString());
+      if (chunk) {
+        scene.remove(chunk); // ❌ メモリ上にジオメトリ・テクスチャが残る
+        loadedChunks.delete(coordinate.toString());
+      }
     }
   }
 }

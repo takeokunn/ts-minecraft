@@ -107,7 +107,7 @@ api_version: "3.17.0"
 api_stability: "stable|experimental|deprecated"
 tags: ["world-api", "reference", "schema", "types"]
 related_docs:
-  - path: "../../explanations/game-mechanics/00-core-features/01-world-management-system.md"
+  - path: "../../explanations/game-mechanics/core-features/world-management-system.md"
     relationship: "explanation"
     description: "ワールドシステムの設計思想"
 ---
