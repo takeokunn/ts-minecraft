@@ -1,8 +1,7 @@
 # 自動化システム
-
 ## Issue実装コマンド
-
 ### 基本パターン
+
 ```yaml
 # Issue実装
 issue_implement:
@@ -17,18 +16,9 @@ phase_issue_create:
 # 品質チェック（GitHub Actions自動実行）
 ```
 
-## GitHub Actions品質ゲート連携
-
-Issue実装完了後、GitHub Actionsで自動品質チェックが実行されます：
-
-- TypeScript型チェック
-- Lint・コード品質
-- テストカバレッジ
-- ビルド・パフォーマンス
-
 ## GitHub Issue実行計画ベースフロー
-
 ### 1. Issue実行計画解析
+
 **AI Task Issueテンプレート**（`.github/ISSUE_TEMPLATE/ai-task.yml`）を使用
 
 ```
@@ -41,6 +31,7 @@ GitHub Issueから自動抽出:
 ```
 
 ### 2. 実行計画に沿った自動実装
+
 ```
 8段階実行ステップ（80分）:
 Step 1: 事前調査・分析（10分） → 既存パターン検索
@@ -54,6 +45,7 @@ Step 8: 品質確認・最適化（10分） → 自動検証実行
 ```
 
 ### 3. Acceptance Criteria検証
+
 ```
 Issue記載の完了条件を自動検証:
 - [ ] Effect-TSパターンでの実装完了
@@ -63,6 +55,7 @@ Issue記載の完了条件を自動検証:
 ```
 
 ### 4. 実行計画完了報告
+
 ```
 ✅ Issue #123: 実行計画完了
 📋 実行済み: Step 1✅ Step 2✅ Step 3✅ Step 4✅

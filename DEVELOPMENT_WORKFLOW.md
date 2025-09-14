@@ -1,5 +1,4 @@
 # 開発ワークフロー - Issue実装中心
-
 ## 基本フロー
 
 ```mermaid
@@ -11,8 +10,8 @@ flowchart LR
 ```
 
 ## Issue作成
-
 ### 方法1: 自動作成（ROADMAP連携）
+
 ```bash
 # Claude Agent経由
 claude "ROADMAP Phase 0 のIssueを作成して"
@@ -25,6 +24,7 @@ DRY_RUN=true ./scripts/create-phase-issues.sh 0
 ```
 
 ### 方法2: 手動作成（AI Task Issueテンプレート）
+
 GitHub Issues > New issue > **AI Agent Task** を選択
 
 **テンプレート構成:**
@@ -56,8 +56,8 @@ GitHub Issues > New issue > **AI Agent Task** を選択
 - 自動検証・自動修正機能
 
 ## Issue実装コマンド
-
 ### 基本
+
 ```bash
 claude "Issue #123 を実装して"
 ```
@@ -69,37 +69,13 @@ claude "Issue #123 を実装して"
 4. 実行計画完了報告（GitHub Actions連携）
 
 ### 品質チェック（GitHub Actions自動実行）
+
 - TypeScript型チェック
 - Lint・コード品質
 - テストカバレッジ 80%+
 - ビルド・パフォーマンステスト
 
-## 実装パターン（Effect-TS必須）
-
-```typescript
-// Service定義
-export const GameService = Context.GenericTag<GameService>("@minecraft/GameService")
-
-// Data構造
-export const Player = Schema.Struct({
-  id: Schema.String,
-  position: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number })
-})
-
-// Error定義
-export const GameError = Schema.TaggedError("GameError")({
-  type: Schema.String,
-  details: Schema.String
-})
-
-// Layer実装
-export const GameServiceLive = Layer.effect(GameService, Effect.succeed({
-  // 実装
-}))
-```
-
 ## 完了フロー
-
 ### 実装完了後
 ```
 ✅ Issue #123: 実行計画完了
@@ -110,20 +86,14 @@ export const GameServiceLive = Layer.effect(GameService, Effect.succeed({
 ```
 
 ### PR作成（別環境）
+
 - 実装完了コードをPR環境に移行
 - PR作成・レビュー申請
 - 人間レビュー・承認
 - マージ・デプロイ
 
-## ディレクトリ構造
-```
-src/domain/           # DDD ドメインロジック
-src/systems/          # ECS システム実装
-src/shared/           # 共通パターン・ユーティリティ
-docs/                 # 完全仕様書
-```
-
 ## 参照優先順位
+
 1. **GitHub Issue実行計画** - ステップバイステップ実装手順
 2. **Issue指定docs/** - 実行計画で指定された詳細仕様
 3. **Issue指定src/shared/** - 実行計画で指定された実装パターン
