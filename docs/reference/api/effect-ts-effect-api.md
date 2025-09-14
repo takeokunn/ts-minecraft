@@ -306,7 +306,7 @@ interface DatabaseConnectionService {
     operation: Effect.Effect<A, E, DatabaseConnectionService>
   ) => Effect.Effect<A, E | typeof DatabaseError.Type, DatabaseConnectionService>
 }
-const DatabaseConnection = Context.GenericTag<DatabaseConnectionService>("DatabaseConnection")
+const DatabaseConnection = Context.GenericTag<DatabaseConnectionService>("@app/DatabaseConnection")
 
 const DatabaseLive = Layer.scoped(
   DatabaseConnection,
@@ -412,7 +412,7 @@ interface UserServiceInterface {
   readonly findById: (id: string) => Effect.Effect<typeof User.Type, typeof AuthError.Type>
   readonly validatePermission: (user: typeof User.Type, action: string) => Effect.Effect<void, typeof AuthError.Type>
 }
-const UserService = Context.GenericTag<UserServiceInterface>("UserService")
+const UserService = Context.GenericTag<UserServiceInterface>("@app/UserService")
 
 // Match.valueによる条件分岐と早期リターンパターン
 const authenticateUser = (token: string) =>
@@ -487,7 +487,7 @@ interface ApiServiceInterface {
   readonly fetchPosts: (userId: string) => Effect.Effect<typeof Post.Type[], typeof ApiError.Type>
   readonly fetchUserStats: (userId: string) => Effect.Effect<{ postCount: number; lastActivity: Date }, typeof ApiError.Type>
 }
-const ApiService = Context.GenericTag<ApiServiceInterface>("ApiService")
+const ApiService = Context.GenericTag<ApiServiceInterface>("@app/ApiService")
 
 const makeUserProfileService = Effect.gen(function* () {
   const api = yield* ApiService
@@ -639,14 +639,14 @@ interface ConfigServiceInterface {
   readonly getDatabaseConfig: () => Effect.Effect<typeof DatabaseConfig.Type, typeof ConfigError.Type>
   readonly validateConfig: () => Effect.Effect<void, typeof ConfigError.Type>
 }
-const ConfigService = Context.GenericTag<ConfigServiceInterface>("ConfigService")
+const ConfigService = Context.GenericTag<ConfigServiceInterface>("@app/ConfigService")
 
 interface DatabaseServiceInterface {
   readonly query: <T>(sql: string) => Effect.Effect<T[], typeof DatabaseError.Type>
   readonly transaction: <A, E>(operation: Effect.Effect<A, E>) => Effect.Effect<A, E | typeof DatabaseError.Type>
   readonly healthCheck: () => Effect.Effect<boolean, typeof DatabaseError.Type>
 }
-const DatabaseService = Context.GenericTag<DatabaseServiceInterface>("DatabaseService")
+const DatabaseService = Context.GenericTag<DatabaseServiceInterface>("@app/DatabaseService")
 
 const ConfigError = Schema.TaggedError("ConfigError")({
   field: Schema.String,

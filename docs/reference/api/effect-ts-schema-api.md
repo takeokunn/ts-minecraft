@@ -29,9 +29,11 @@ estimated_reading_time: "20分"
 > **📚 前提知識**: Effect-TS基礎、TypeScript型システム
 
 ### 📋 関連ドキュメント
-- **概念説明**: [Effect-TSパターン](../01-architecture/06-effect-ts-patterns.md)
-- **Context API**: [Context API](./effect-ts-context-api.md)
-- **実装例**: [データモデリング](../07-pattern-catalog/03-data-modeling-patterns.md)
+- **基礎学習**: [Effect-TS 基礎チュートリアル](../../tutorials/effect-ts-fundamentals/effect-ts-basics.md) - 実践的な学習パス
+- **設計哲学**: [関数型プログラミング哲学](../../explanations/design-patterns/functional-programming-philosophy.md) - 概念的理解
+- **移行ガイド**: [Effect-TS移行ガイド](../../how-to/development/effect-ts-migration-guide.md) - 実務での適用方法
+- **Context API**: [Context API](./effect-ts-context-api.md) - サービス定義パターン
+- **データモデリング**: [データモデリングパターン](../../explanations/design-patterns/data-modeling-patterns.md) - Schema活用戦略
 
 ---
 
@@ -419,6 +421,127 @@ const validateEntity = (data: unknown): Effect.Effect<Entity, ValidationError> =
   )
 ```
 
+## 11. 統合パターンライブラリ
+
+> 📖 **使用箇所**: このセクションの各パターンは、プロジェクト全体で標準的に使用される定義集です。
+
+### 11.1 基本Effect.genパターン
+
+```typescript
+// ✅ 標準的なEffect.gen合成パターン
+const standardEffectPattern = Effect.gen(function* () {
+  // 1. 依存関係の注入
+  const service = yield* ServiceContext;
+
+  // 2. データ取得と検証
+  const rawData = yield* fetchRawData();
+  const validatedData = yield* Schema.decodeUnknown(DataSchema)(rawData);
+
+  // 3. ビジネスロジック実行
+  const result = yield* processData(validatedData);
+
+  // 4. 副作用実行（ログ、保存等）
+  yield* logOperation(result);
+  yield* saveResult(result);
+
+  return result;
+});
+
+// ✅ エラーハンドリング統合パターン
+const errorHandlingPattern = Effect.gen(function* () {
+  const result = yield* riskyOperation().pipe(
+    Effect.catchTags({
+      NetworkError: (error) => Effect.succeed(defaultValue),
+      ValidationError: (error) => Effect.fail(new ProcessingError({ cause: error }))
+    })
+  );
+  return result;
+});
+```
+
+### 11.2 標準Schema定義パターン
+
+```typescript
+// ✅ プロジェクト全体で使用する基本エンティティSchema
+export const StandardPlayerSchema = Schema.Struct({
+  id: Schema.String.pipe(
+    Schema.uuid(),
+    Schema.brand("PlayerId")
+  ),
+  name: Schema.String.pipe(
+    Schema.minLength(3),
+    Schema.maxLength(16),
+    Schema.pattern(/^[a-zA-Z0-9_]+$/),
+    Schema.brand("PlayerName")
+  ),
+  position: Schema.Struct({
+    x: Schema.Number.pipe(Schema.int(), Schema.between(-30_000_000, 30_000_000)),
+    y: Schema.Number.pipe(Schema.int(), Schema.between(-64, 320)),
+    z: Schema.Number.pipe(Schema.int(), Schema.between(-30_000_000, 30_000_000))
+  }),
+  health: Schema.Number.pipe(
+    Schema.between(0, 20),
+    Schema.brand("Health")
+  ),
+  gameMode: Schema.Literal("survival", "creative", "adventure", "spectator")
+});
+
+// ✅ 標準的なエラー定義パターン
+export const StandardErrors = {
+  PlayerNotFoundError: Schema.TaggedError("PlayerNotFoundError")({
+    playerId: Schema.String.pipe(Schema.brand("PlayerId")),
+    message: Schema.String
+  }),
+  ValidationError: Schema.TaggedError("ValidationError")({
+    field: Schema.String,
+    value: Schema.Unknown,
+    message: Schema.String
+  }),
+  NetworkError: Schema.TaggedError("NetworkError")({
+    status: Schema.Number,
+    url: Schema.String,
+    cause: Schema.optional(Schema.Unknown)
+  })
+};
+```
+
+### 11.3 Context.GenericTag標準パターン
+
+```typescript
+// ✅ サービス定義の標準パターン
+export interface StandardPlayerService {
+  readonly findById: (id: PlayerId) => Effect.Effect<Player, PlayerNotFoundError>
+  readonly create: (data: CreatePlayerData) => Effect.Effect<Player, ValidationError>
+  readonly update: (id: PlayerId, data: UpdatePlayerData) => Effect.Effect<Player, PlayerNotFoundError | ValidationError>
+}
+export const StandardPlayerService = Context.GenericTag<StandardPlayerService>("@minecraft/PlayerService")
+
+// ✅ Layer構築の標準パターン
+export const StandardPlayerServiceLive = Layer.effect(
+  StandardPlayerService,
+  Effect.gen(function* () {
+    const database = yield* DatabaseService;
+    const logger = yield* LoggerService;
+
+    return StandardPlayerService.of({
+      findById: (id) => database.findPlayer(id),
+      create: (data) => Effect.gen(function* () {
+        const validatedData = yield* Schema.decodeUnknown(CreatePlayerDataSchema)(data);
+        const player = yield* database.createPlayer(validatedData);
+        yield* logger.log(`Created player: ${player.name}`);
+        return player;
+      }),
+      update: (id, data) => Effect.gen(function* () {
+        const validatedData = yield* Schema.decodeUnknown(UpdatePlayerDataSchema)(data);
+        const player = yield* database.updatePlayer(id, validatedData);
+        yield* logger.log(`Updated player: ${id}`);
+        return player;
+      })
+    });
+  })
+);
+```
+
 ## APIリファレンス仕様
 
 ### 主要な型定義
@@ -439,5 +562,5 @@ type DecodeUnknownSync<A> = (u: unknown) => A // エラー時は例外
 ## 次のステップ
 
 - **Context API**: [Context API リファレンス](./effect-ts-context-api.md)
-- **データモデリング**: [データモデリングパターン](../07-pattern-catalog/03-data-modeling-patterns.md)
-- **エラー処理**: [エラーハンドリング](../01-architecture/06c-effect-ts-error-handling.md)
+- **データモデリング**: [データモデリングパターン](../explanations/design-patterns/03-data-modeling-patterns.md)
+- **エラー処理**: [エラーハンドリング](../explanations/architecture/06c-effect-ts-error-handling.md)

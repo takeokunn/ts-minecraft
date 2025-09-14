@@ -36,7 +36,7 @@ related_docs: ["../architecture/overview.md", "../design-patterns/domain-integra
 
 ## 🏗 システム別解説
 
-### 📦 [コア機能](./core-features/)
+### 📦 [コア機能](./core-features/README.md)
 **ゲームの基盤となる必須システム群**
 
 Minecraftの基本体験を支える中核的なシステム：
@@ -76,7 +76,7 @@ Minecraftの基本体験を支える中核的なシステム：
 - **[看板・本システム](./core-features/sign-book-system.md)** - 情報共有とストーリーテリング
 - **[マテリアルシステム](./core-features/material-system.md)** - ブロック・アイテムの特性管理
 
-### ⚡ [拡張機能](./enhanced-features/)
+### ⚡ [拡張機能](./enhanced-features/README.md)
 **ゲーム体験を豊かにする高度なシステム群**
 
 Minecraftの魅力を拡張する追加機能：
@@ -208,11 +208,11 @@ graph TB
 
 ## 🔗 関連セクション
 
-- **[Architecture](../architecture/)**: システム全体の設計思想
-- **[Design Patterns](../design-patterns/)**: 実装パターンの詳細
-- **[Tutorials](../../tutorials/)**: 実践的な学習ガイド
-- **[How-to Guides](../../how-to/)**: 具体的な実装手順
-- **[Reference](../../reference/)**: 技術仕様とAPI情報
+- **[Architecture](../architecture/README.md)**: システム全体の設計思想
+- **[Design Patterns](../design-patterns/README.md)**: 実装パターンの詳細
+- **[Tutorials](../../tutorials/README.md)**: 実践的な学習ガイド
+- **[How-to Guides](../../how-to/README.md)**: 具体的な実装手順
+- **[Reference](../../reference/README.md)**: 技術仕様とAPI情報
 
 ---
 

@@ -29,7 +29,7 @@ performance_benchmarks:
 
 このモジュールでは、TypeScript Minecraft CloneのDomain層における基本コンポーネントを作成します。Schema.Struct、Context.GenericTag、Effect.genの実践的な活用方法を習得できます。
 
-> 📍 **Navigation**: ← [環境構築](./01-environment-setup.md) | → [Effect サービス実装](./03-effect-services.md)
+> 📍 **Navigation**: ← [環境構築](./environment-setup.md) | → [Effect サービス実装](./03-effect-services.md)
 
 ## 1. Domain層アーキテクチャ概要
 

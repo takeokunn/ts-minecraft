@@ -1,13 +1,13 @@
 ---
 title: "高度なテスト技法ガイド - Property-Based Testing、ビジュアルテスト、契約テストの実践"
-description: "Effect-TS 3.17環境でのProperty-Based Testing、ビジュアルリグレッション、Contract Testing、ゴールデンファイルテストなど高度なテスト手法の包括的実装ガイド"
+description: "Effect-TS 3.17+環境でのProperty-Based Testing、ビジュアルリグレッション、Contract Testing、ゴールデンファイルテストなど高度なテスト手法の包括的実装ガイド"
 category: "guide"
 difficulty: "advanced"
 tags: ["advanced-testing", "property-based-testing", "visual-testing", "contract-testing", "effect-ts", "security-testing"]
 prerequisites: ["comprehensive-testing-strategy", "effect-ts-fundamentals", "vitest-advanced"]
 estimated_reading_time: "30分"
 related_patterns: ["effect-ts-test-patterns", "optimization-patterns-latest"]
-related_docs: ["./05-comprehensive-testing-strategy.md", "../05-reference/troubleshooting/debugging-guide.md"]
+related_docs: ["./05-comprehensive-testing-strategy.md", "../reference/troubleshooting/debugging-guide.md"]
 ---
 
 # 高度なテスト技法ガイド - Property-Based Testing、ビジュアルテスト、契約テストの実践
@@ -56,7 +56,7 @@ mindmap
 
 ## 📋 Problem Statement
 
-Effect-TS 3.17とDDDアーキテクチャを使用したTypeScript Minecraftプロジェクトでは、従来の単体・結合テストだけでは以下の課題をカバーできません。
+Effect-TS 3.17+とDDDアーキテクチャを使用したTypeScript Minecraftプロジェクトでは、従来の単体・結合テストだけでは以下の課題をカバーできません。
 
 ### 主要課題
 1. **エッジケース網羅**: 手動テストケースでは発見困難な境界値・異常系
@@ -1836,7 +1836,7 @@ const securityLogger = SecurityTestHelper.createSecurityLogger()
 
 ## まとめ
 
-この高度なテスト技法ガイドでは、TypeScript MinecraftプロジェクトでのEffect-TS 3.17を活用した包括的なテスト戦略を提供しました。
+この高度なテスト技法ガイドでは、TypeScript MinecraftプロジェクトでのEffect-TS 3.17+を活用した包括的なテスト戦略を提供しました。
 
 ### 実装した高度技法
 1. **Property-Based Testing**: Fast-Checkとシェマ統合による自動エッジケース発見

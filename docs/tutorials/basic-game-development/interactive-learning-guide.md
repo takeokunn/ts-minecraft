@@ -7,7 +7,7 @@ tags: ["interactive-learning", "hands-on", "practical", "step-by-step", "game-de
 prerequisites: ["basic-game-development-setup", "effect-ts-basics"]
 estimated_reading_time: "45分"
 estimated_coding_time: "2時間"
-related_docs: ["./01-environment-setup.md", "./02-domain-layer-architecture.md", "../effect-ts-fundamentals/effect-ts-basics.md"]
+related_docs: ["./environment-setup.md", "./domain-layer-architecture.md", "../effect-ts-fundamentals/effect-ts-basics.md"]
 ---
 
 # 🎮 インタラクティブ学習ガイド - ハンズオンでマスターするゲーム開発

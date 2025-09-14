@@ -7,7 +7,7 @@ tags: ["implementation", "effect-ts", "patterns", "code-examples"]
 prerequisites: ["effect-ts-fundamentals", "architecture-principles"]
 estimated_reading_time: "20分"
 related_patterns: ["service-patterns", "error-handling-patterns"]
-related_docs: ["./00-architecture-principles.md", "../../01-architecture/06-effect-ts-patterns.md"]
+related_docs: ["./00-architecture-principles.md", "../explanations/architecture/06-effect-ts-patterns.md"]
 ---
 
 # 実装パターン
@@ -611,5 +611,5 @@ const handleSystemError = (error: CoreSystemError) =>
 - [PBTテスト戦略](./00-pbt-testing-strategy.md) - テスト戦略
 
 **パターン集**:
-- [Effect-TSパターン](../../01-architecture/06-effect-ts-patterns.md) - 関数型パターン
-- [サービスパターン](../../07-pattern-catalog/01-service-patterns.md) - サービス実装パターン
+- [Effect-TSパターン](../explanations/architecture/06-effect-ts-patterns.md) - 関数型パターン
+- [サービスパターン](../../explanations/design-patterns/01-service-patterns.md) - サービス実装パターン

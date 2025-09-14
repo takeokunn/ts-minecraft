@@ -29,7 +29,10 @@ React/Node.js/Express.jsなど従来のJavaScript/TypeScriptエコシステム�
 
 ## 1. 移行判断とプロジェクト評価
 
-> 📖 **理論的背景**: Effect-TSの設計哲学と従来手法の比較は [関数型プログラミング哲学](../../explanations/design-patterns/functional-programming-philosophy.md) を参照してください。
+> 📖 **必須の事前学習**:
+> - **設計哲学**: [関数型プログラミング哲学](../../explanations/design-patterns/functional-programming-philosophy.md) - なぜEffect-TSなのか
+> - **基礎学習**: [Effect-TS基礎チュートリアル](../../tutorials/effect-ts-fundamentals/effect-ts-basics.md) - ハンズオン実践
+> - **APIリファレンス**: [Schema API](../../reference/api/effect-ts-schema-api.md) - 完全な型定義と使用例
 
 ### 1.1 移行対象の評価
 
@@ -66,41 +69,38 @@ npm run test:coverage
 # Step 1: 重要な型から順次Schema変換
 mkdir src/schemas src/errors
 
-# 最も使用頻度の高いエンティティから開始
+# プロジェクト標準Schema定義を使用（詳細は下記リファレンス参照）
+# ../../reference/api/effect-ts-schema-api.md#112-標準schema定義パターン
 cat > src/schemas/player.ts << 'EOF'
-import { Schema } from "effect";
+// 標準定義のインポート
+export {
+  StandardPlayerSchema as PlayerSchema,
+  StandardErrors
+} from "../../reference/api/effect-ts-schema-api";
 
-export const PlayerSchema = Schema.Struct({
-  id: Schema.String.pipe(Schema.uuid()),
-  name: Schema.String.pipe(Schema.nonEmpty(), Schema.maxLength(50)),
-  position: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number.pipe(Schema.between(-64, 320)),
-    z: Schema.Number
-  }),
-  health: Schema.Number.pipe(Schema.between(0, 20))
-});
-
-export type Player = Schema.Schema.Type<typeof PlayerSchema>;
+// プロジェクト固有のスキーマがある場合のみここに追加
 EOF
 
-# エラークラス統一
+# 標準エラー定義を使用
 cat > src/errors/player-errors.ts << 'EOF'
-import { Data } from "effect";
+// 標準エラー定義のインポート（詳細は上記リファレンス参照）
+export {
+  StandardErrors
+} from "../../reference/api/effect-ts-schema-api";
 
-export const PlayerNotFoundError = Data.TaggedError("PlayerNotFoundError")<{
-  readonly id: string;
-  readonly message: string;
-}>
-
-export const PlayerValidationError = Data.TaggedError("PlayerValidationError")<{
-  readonly field: string;
-  readonly value: unknown;
-}>
+// 移行固有のエラーのみ追加定義
+export const MigrationError = Schema.TaggedError("MigrationError")({
+  phase: Schema.String,
+  details: Schema.String
+});
 EOF
 ```
 
 ### 2.2 Phase 2: 非同期処理の移行
+
+> 📚 **Effect.genパターンの詳細**: 標準的なEffect合成パターンは [Schema API リファレンス](../../reference/api/effect-ts-schema-api.md#111-基本effectgenパターン) を参照してください。
+
+移行に特化した実用的なパターン：
 
 ```typescript
 // Before: Promise ベース
@@ -117,27 +117,16 @@ async function loadPlayerData(id: string): Promise<Player | null> {
   }
 }
 
-// After: Effect ベース
-const NetworkError = Data.TaggedError("NetworkError")<{
-  readonly status: number;
-  readonly url: string;
-}>
-
-const PlayerNotFoundError = Data.TaggedError("PlayerNotFoundError")<{
-  readonly id: string;
-}>
-
+// After: Effect ベース（移行特化パターン）
 const loadPlayerData = (id: string) =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     const url = `/api/players/${id}`;
 
-    // HTTPリクエスト（エラー型を明示）
-    const response = yield* _(
-      Effect.tryPromise({
-        try: () => fetch(url),
-        catch: (error) => new NetworkError({ status: 0, url })
-      })
-    );
+    // 標準エラー定義を使用（詳細は上記リファレンス参照）
+    const response = yield* Effect.tryPromise({
+      try: () => fetch(url),
+      catch: (error) => StandardErrors.NetworkError({ status: 0, url, cause: error })
+    });
 
     // HTTPエラーハンドリング
     if (!response.ok) {
@@ -547,7 +536,7 @@ const debuggedEffect = pipe(
 ### 7.2 継続学習リソース
 
 - **公式ドキュメント**: [Effect-TS Official Docs](https://effect.website/)
-- **プロジェクト内資料**: [Effect-TS Fundamentals](../../tutorials/effect-ts-fundamentals/)
+- **プロジェクト内資料**: [Effect-TS Fundamentals](../../tutorials/effect-ts-fundamentals/README.md)
 - **実践例**: プロジェクト内の既存移行コード参照
 
 ## まとめ

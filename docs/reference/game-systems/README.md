@@ -7,7 +7,7 @@ tags: ["effect-ts", "schema", "ddd", "data-modeling", "performance", "persistenc
 prerequisites: ["effect-ts-fundamentals", "schema-basics", "ddd-concepts"]
 estimated_reading_time: "20分"
 related_patterns: ["data-modeling-patterns", "service-patterns", "error-handling-patterns"]
-related_docs: ["../../explanations/game-mechanics/core-features/chunk-system.md", "../../01-architecture/02-ddd-strategic-design.md"]
+related_docs: ["../../explanations/game-mechanics/core-features/chunk-system.md", "../explanations/architecture/02-ddd-strategic-design.md"]
 ---
 
 # データモデル仕様書
@@ -293,7 +293,7 @@ export interface CacheService {
   readonly stats: () => Effect.Effect<CacheStats, never>
 }
 
-export const CacheService = Context.GenericTag<CacheService>("CacheService")
+export const CacheService = Context.GenericTag<CacheService>("@app/CacheService")
 
 // 実装例：多段キャッシュ戦略
 export const makeCacheService = Effect.gen(function* () {
@@ -350,7 +350,7 @@ export interface ChunkCacheService {
   readonly flushDirty: () => Effect.Effect<number, CacheError>
 }
 
-export const ChunkCacheService = Context.GenericTag<ChunkCacheService>("ChunkCacheService")
+export const ChunkCacheService = Context.GenericTag<ChunkCacheService>("@app/ChunkCacheService")
 
 // 使用例：キャッシュ駆動のチャンク管理
 export const loadChunkWithCache = (coord: ChunkCoordinate) =>
@@ -545,7 +545,7 @@ export interface ValidationService {
   readonly validateDataIntegrity: (worldData: WorldData) => Effect.Effect<WorldData, IntegrityError>
 }
 
-export const ValidationService = Context.GenericTag<ValidationService>("ValidationService")
+export const ValidationService = Context.GenericTag<ValidationService>("@app/ValidationService")
 
 // ビジネスルール定義
 export interface BusinessRule<T> {
@@ -637,7 +637,7 @@ export interface IntegrityMonitor {
   readonly repairCorruption: (issues: ReadonlyArray<IntegrityIssue>) => Effect.Effect<RepairResult, RepairError>
 }
 
-export const IntegrityMonitor = Context.GenericTag<IntegrityMonitor>("IntegrityMonitor")
+export const IntegrityMonitor = Context.GenericTag<IntegrityMonitor>("@app/IntegrityMonitor")
 
 // 整合性問題の分類
 export const IntegrityIssueSchema = Schema.TaggedUnion("type", {
@@ -768,7 +768,7 @@ export interface PerformanceMetrics {
   readonly errorRate: Counter
 }
 
-export const PerformanceMetrics = Context.GenericTag<PerformanceMetrics>("PerformanceMetrics")
+export const PerformanceMetrics = Context.GenericTag<PerformanceMetrics>("@app/PerformanceMetrics")
 
 // メトリクス装飾付きサービス
 export const withPerformanceTracking = <R, E, A>(
@@ -953,10 +953,10 @@ describe("World Data Persistence", () => {
 
 ## 🔗 関連ドキュメント
 
-- **[API設計](../02-api-design/)** - データアクセスAPI
-- **[コア機能](../../explanations/game-mechanics/core-features/)** - データ利用システム
+- **[API設計](../02-api-design/README.md)** - データアクセスAPI
+- **[コア機能](../../explanations/game-mechanics/core-features/README.md)** - データ利用システム
 - **[セキュリティ仕様](../04-security-specification.md)** - データ保護要件
-- **[アーキテクチャ](../../01-architecture/)** - システム設計基盤
+- **[アーキテクチャ](../explanations/architecture/README.md)** - システム設計基盤
 
 ---
 

@@ -7,7 +7,7 @@ tags: ["crafting-system", "recipe-management", "item-system", "inventory", "ui-s
 prerequisites: ["effect-ts-fundamentals", "schema-basics", "inventory-system-basics"]
 estimated_reading_time: "18分"
 related_patterns: ["data-modeling-patterns", "validation-patterns", "ui-integration-patterns"]
-related_docs: ["./01-inventory-system.md", "./10-material-system.md", "../../01-architecture/05-ecs-integration.md"]
+related_docs: ["./01-inventory-system.md", "./10-material-system.md", "../explanations/architecture/05-ecs-integration.md"]
 search_keywords:
   primary: ["crafting-system", "recipe-management", "item-synthesis", "crafting-grid"]
   secondary: ["minecraft-crafting", "game-mechanics", "item-combination"]
@@ -696,26 +696,43 @@ const consumeShapedIngredients = (
     const updatedSlots = grid.slots.map(row => [...row])
 
     // パターンに従って消費
-    for (let y = 0; y < recipe.pattern.length; y++) {
-      for (let x = 0; x < recipe.pattern[y].length; x++) {
-        const patternKey = recipe.pattern[y][x]
-        if (!patternKey) continue
+    yield* pipe(
+      recipe.pattern,
+      Array.mapWithIndex((y, patternRow) =>
+        pipe(
+          patternRow,
+          Array.mapWithIndex((x, patternKey) =>
+            pipe(
+              Option.fromNullable(patternKey),
+              Option.match({
+                onNone: () => Effect.succeed(undefined),
+                onSome: () =>
+                  Effect.gen(function* () {
+                    const gridSlot = updatedSlots[y]?.[x]
+                    if (!gridSlot) {
+                      return yield* Effect.fail(ConsumptionError({
+                        recipeId: recipe.id,
+                        reason: `Missing ingredient at position ${x},${y}`
+                      }))
+                    }
 
-        const gridSlot = updatedSlots[y]?.[x]
-        if (!gridSlot) {
-          return yield* Effect.fail(ConsumptionError({
-            recipeId: recipe.id,
-            reason: `Missing ingredient at position ${x},${y}`
-          }))
-        }
+                    // 1個消費
+                    const newCount = gridSlot.count - 1
+                    updatedSlots[y][x] = newCount > 0
+                      ? { ...gridSlot, count: Brand.nominal<ItemStackCount>(newCount) }
+                      : undefined
 
-        // 1個消費
-        const newCount = gridSlot.count - 1
-        updatedSlots[y][x] = newCount > 0
-          ? { ...gridSlot, count: Brand.nominal<ItemStackCount>(newCount) }
-          : undefined
-      }
-    }
+                    return Effect.succeed(undefined)
+                  })
+              })
+            )
+          ),
+          Effect.all
+        )
+      ),
+      Effect.all,
+      Effect.asVoid
+    )
 
     return {
       ...grid,
@@ -733,35 +750,58 @@ const consumeShapelessIngredients = (
     const flatSlots = updatedSlots.flat()
 
     // 各材料を消費
-    for (const requiredIngredient of recipe.ingredients) {
-      let consumed = false
+    yield* pipe(
+      recipe.ingredients,
+      Effect.reduce(
+        flatSlots,
+        (currentSlots, requiredIngredient) =>
+          Effect.gen(function* () {
+            const slotIndex = yield* pipe(
+              currentSlots,
+              Array.findFirstIndex(slot =>
+                slot &&
+                slot.count > 0 &&
+                matchesIngredientSync(slot, requiredIngredient)
+              ),
+              Effect.fromOption(() => ConsumptionError({
+                recipeId: recipe.id,
+                reason: "Insufficient ingredients for shapeless recipe"
+              }))
+            )
 
-      for (let i = 0; i < flatSlots.length; i++) {
-        const slot = flatSlots[i]
-        if (!slot || slot.count <= 0) continue
+            const slot = currentSlots[slotIndex]!
+            const newCount = slot.count - 1
+            const updatedSlots = [...currentSlots]
+            updatedSlots[slotIndex] = newCount > 0
+              ? { ...slot, count: Brand.nominal<ItemStackCount>(newCount) }
+              : undefined
 
-        if (matchesIngredientSync(slot, requiredIngredient)) {
-          const newCount = slot.count - 1
-          flatSlots[i] = newCount > 0
-            ? { ...slot, count: Brand.nominal<ItemStackCount>(newCount) }
-            : undefined
-          consumed = true
-          break
-        }
-      }
-
-      if (!consumed) {
-        return yield* Effect.fail(ConsumptionError({
-          recipeId: recipe.id,
-          reason: "Insufficient ingredients for shapeless recipe"
-        }))
-      }
-    }
+            return updatedSlots
+          })
+      ),
+      Effect.map(finalSlots => {
+        // グリッドに戻す
+        let index = 0
+        return updatedSlots.map(row =>
+          row.map(() => finalSlots[index++])
+        )
+      }),
+      Effect.map(reconstructedSlots => {
+        // 元の flatSlots を更新 (関数型アプローチ)
+        return reconstructedSlots.flat()
+      }),
+      Effect.asVoid
+    )
 
     // グリッドに戻す
-    let index = 0
-    const reconstructedSlots = updatedSlots.map(row =>
-      row.map(() => flatSlots[index++])
+    const reconstructedSlots = pipe(
+      Array.range(0, updatedSlots.length),
+      Array.map(y =>
+        pipe(
+          Array.range(0, updatedSlots[y].length),
+          Array.map(x => flatSlots[y * updatedSlots[y].length + x])
+        )
+      )
     )
 
     return {
@@ -1124,7 +1164,6 @@ export const EnchantingServiceLive = Layer.succeed(
 
         // エンチャントランダム生成アルゴリズム
         const random = createSeededRandom(seed)
-        const enchantmentOptions: Enchantment[] = []
 
         const enchantmentOptions = yield* pipe(
           Array.range(0, 3),
@@ -1133,24 +1172,31 @@ export const EnchantingServiceLive = Layer.succeed(
               const baseCost = (i + 1) * 3 + Math.floor(random() * 5)
               const levelCost = Math.min(30, baseCost + power)
 
-              if (levelCost > playerLevel) return Option.none()
-
-              const selectedEnchantment = selectRandomEnchantment(
-                availableEnchantments,
-                enchantability,
-                levelCost,
-                random
+              return pipe(
+                levelCost <= playerLevel,
+                (canAfford) => canAfford ? Option.some(levelCost) : Option.none(),
+                Option.flatMap((cost) =>
+                  pipe(
+                    selectRandomEnchantment(
+                      availableEnchantments,
+                      enchantability,
+                      cost,
+                      random
+                    ),
+                    Option.fromNullable,
+                    Option.map(selectedEnchantment => ({
+                      _tag: "Enchantment" as const,
+                      id: selectedEnchantment.id,
+                      level: selectedEnchantment.level,
+                      cost: Brand.nominal<ExperienceLevel>(cost)
+                    }))
+                  )
+                )
               )
-
-              return Option.fromNullable(selectedEnchantment).pipe(
-                Option.map(enchant => ({
-                  _tag: "Enchantment" as const,
-              id: selectedEnchantment.id,
-              level: selectedEnchantment.level,
-              cost: Brand.nominal<ExperienceLevel>(levelCost)
             })
-          }
-        }
+          ),
+          Effect.map(Array.getSomes)
+        )
 
         return enchantmentOptions
       }),
@@ -1412,13 +1458,12 @@ export const RecipeUnlockServiceLive = Layer.effect(
       playerState: PlayerUnlockState,
       unlockData: RecipeUnlockData
     ): Effect.Effect<boolean> =>
-      Effect.gen(function* () {
-        for (const condition of unlockData.conditions) {
-          const met = yield* evaluateCondition(playerState, condition)
-          if (!met) return false
-        }
-        return true
-      })
+      pipe(
+        unlockData.conditions,
+        Effect.every(condition =>
+          evaluateCondition(playerState, condition)
+        )
+      )
 
     const evaluateCondition = (
       playerState: PlayerUnlockState,
@@ -1466,11 +1511,15 @@ export const RecipeUnlockServiceLive = Layer.effect(
         // 条件チェック
         const conditionsMet = yield* checkUnlockConditions(playerState, unlockData)
         if (!conditionsMet) {
-          const unmetConditions = []
-          for (const condition of unlockData.conditions) {
-            const met = yield* evaluateCondition(playerState, condition)
-            if (!met) unmetConditions.push(condition)
-          }
+          const unmetConditions = yield* pipe(
+            unlockData.conditions,
+            Effect.filterMap(condition =>
+              Effect.gen(function* () {
+                const met = yield* evaluateCondition(playerState, condition)
+                return met ? Option.none() : Option.some(condition)
+              })
+            )
+          )
 
           return yield* Effect.fail(ConditionNotMetError({
             playerId: playerState.playerId,
@@ -1521,24 +1570,42 @@ export const RecipeUnlockServiceLive = Layer.effect(
         const unlockedRecipes: RecipeId[] = []
 
         // 自動解放対象レシピをチェック
-        for (const [recipeId, unlockData] of unlockDataStore.entries()) {
-          // 早期スキップ: 既に解放済みまたは自動解放無効
-          if (currentState.unlockedRecipes.has(recipeId) || !unlockData.autoUnlock) {
-            continue
-          }
+        const { updatedState: finalState, unlockedRecipes: newlyUnlocked } = yield* pipe(
+          Array.from(unlockDataStore.entries()),
+          Effect.reduce(
+            { updatedState: currentState, unlockedRecipes: [] as RecipeId[] },
+            (acc, [recipeId, unlockData]) =>
+              Effect.gen(function* () {
+                // 早期スキップ: 既に解放済みまたは自動解放無効
+                if (acc.updatedState.unlockedRecipes.has(recipeId) || !unlockData.autoUnlock) {
+                  return acc
+                }
 
-          const conditionsMet = yield* checkUnlockConditions(currentState, unlockData)
-          if (conditionsMet) {
-            const unlockResult = yield* unlockRecipe(currentState, recipeId).pipe(
-              Effect.option // エラーを無視して続行
-            )
+                const conditionsMet = yield* checkUnlockConditions(acc.updatedState, unlockData)
+                if (!conditionsMet) {
+                  return acc
+                }
 
-            if (Option.isSome(unlockResult)) {
-              currentState = unlockResult.value
-              unlockedRecipes.push(recipeId)
-            }
-          }
-        }
+                const unlockResult = yield* unlockRecipe(acc.updatedState, recipeId).pipe(
+                  Effect.option // エラーを無視して続行
+                )
+
+                return pipe(
+                  unlockResult,
+                  Option.match({
+                    onNone: () => acc,
+                    onSome: (newState) => ({
+                      updatedState: newState,
+                      unlockedRecipes: [...acc.unlockedRecipes, recipeId]
+                    })
+                  })
+                )
+              })
+          )
+        )
+
+        currentState = finalState
+        unlockedRecipes.push(...newlyUnlocked)
 
         return {
           updatedState: currentState,

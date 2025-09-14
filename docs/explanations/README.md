@@ -1,16 +1,15 @@
 ---
 title: "Explanations 概要 - 理解指向ドキュメント"
-description: "設計判断の背景、アーキテクチャの思想、技術選択の根拠を深く説明する理解指向ドキュメント集。プロジェクトの背景知識を提供。"
-difficulty: "intermediate"
+description: "設計判断とアーキテクチャ選択の『なぜ』を深く説明。トレードオフ・比較検討・設計思想の理論的背景を提供。"
+diataxis_type: "explanation"
+category: "explanations"
+difficulty: "intermediate-advanced"
 estimated_reading_time: "8分"
 prerequisites:
-  - "project-overview"
-  - "basic-typescript"
-learning_objectives:
-  - "Explanationsドキュメントの目的と活用方法を理解する"
-  - "設計判断とアーキテクチャの背景を把握する"
-  - "技術選択の根拠と思想を習得する"
-  - "効果的な学習パスを見つける"
+  - "basic-software-architecture"
+  - "programming-experience"
+understanding_focus: "design rationale and architectural decision background"
+cognitive_purpose: "develop deeper understanding of project design philosophy"
 related_docs:
   - "./design-patterns/README.md"
   - "./architecture/README.md"
@@ -18,28 +17,32 @@ related_docs:
 internal_links:
   - "../tutorials/README.md"
   - "../how-to/README.md"
-tags: ["explanations", "architecture", "design-decisions", "background-knowledge"]
+  - "../reference/README.md"
+tags: ["explanations", "architecture", "design-decisions", "rationale", "theory", "background-knowledge", "why"]
 ai_context:
   purpose: "explanation"
-  audience: "developers and architects seeking deep understanding of project design decisions"
-  key_concepts: ["design philosophy", "architectural thinking", "technical decision rationale"]
+  audience: "developers and architects seeking conceptual understanding and design rationale"
+  key_concepts: ["design philosophy", "architectural reasoning", "decision rationale", "conceptual understanding"]
 machine_readable: true
 ---
 
-# 🧠 Explanations - 理解指向ドキュメント
+# 🧠 Explanations - 理解指向専用ドキュメント
 
-このセクションは**理解指向**のドキュメントです。なぜその設計にしたのか、どのような思想に基づいているかを深く説明し、プロジェクトの背景知識を提供します。
+**🎯 単一責務**: 設計判断の理論的背景解説のみに特化
 
-## 🎯 このセクションの目的
+設計選択の「なぜ」を深く説明する専用セクション。アーキテクチャの判断根拠、技術選択のトレードオフ、実装思想の理論的背景を体系的に提供します。
 
-- アーキテクチャ設計の背景と理由の説明
-- 採用したデザインパターンの思想と原則
-- ゲーム機能の設計判断とトレードオフの説明
-- 技術選択の根拠と比較検討結果
+## 🎯 このセクションの単一責務
+
+**設計背景解説のみに特化した構成:**
+- アーキテクチャ設計の判断根拠と選択理由の深掘り
+- デザインパターン採用の思想と原則の理論的説明
+- ゲーム機能設計のトレードオフ分析と比較検討
+- 技術選択の根拠と代替案評価の包括的解説
 
 ## 🏛 知識体系
 
-### 🏗 [Architecture](./architecture/)
+### 🏗 [Architecture](./architecture/README.md)
 **システムアーキテクチャの設計思想**
 
 - [API設計概要](./architecture/architecture-overview.md)
@@ -50,7 +53,7 @@ machine_readable: true
 - [セキュリティ仕様](./architecture/security-specification.md)
 - [パフォーマンスガイドライン](./architecture/performance-guidelines.md)
 
-### 🎨 [Design Patterns](./design-patterns/)
+### 🎨 [Design Patterns](./design-patterns/README.md)
 **採用したデザインパターンの思想**
 
 - [サービスパターン](./design-patterns/service-patterns.md)
@@ -64,7 +67,7 @@ machine_readable: true
 - [ドメイン統合パターン](./design-patterns/domain-integration-patterns.md)
 - [型安全性哲学](./design-patterns/type-safety-philosophy.md)
 
-### 🎮 [Game Mechanics](./game-mechanics/)
+### 🎮 [Game Mechanics](./game-mechanics/README.md)
 **ゲームシステムの設計思想と実装判断**
 
 - **[設計哲学](./game-mechanics/design-philosophy.md)**: Minecraft体験の再現と革新
@@ -107,9 +110,9 @@ machine_readable: true
 
 ## 🔗 関連セクション
 
-- **[Tutorials](../tutorials/)**: 実際の使い方を学ぶ
-- **[How-to Guides](../how-to/)**: 問題解決の実践方法
-- **[Reference](../reference/)**: 詳細な技術仕様
+- **[Tutorials](../tutorials/README.md)**: 実際の使い方を学ぶ
+- **[How-to Guides](../how-to/README.md)**: 問題解決の実践方法
+- **[Reference](../reference/README.md)**: 詳細な技術仕様
 
 ---
 

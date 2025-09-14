@@ -7,7 +7,7 @@ tags: ["event-bus", "messaging", "loose-coupling", "reactive-patterns", "pub-sub
 prerequisites: ["effect-ts-fundamentals", "event-driven-patterns", "reactive-programming", "pub-sub-concepts"]
 estimated_reading_time: "15分"
 related_patterns: ["event-driven-patterns", "reactive-patterns", "integration-patterns"]
-related_docs: ["./domain-application-apis.md", "../../01-architecture/06-effect-ts-patterns.md"]
+related_docs: ["./domain-application-apis.md", "../explanations/architecture/06-effect-ts-patterns.md"]
 ---
 
 # Event Bus仕様

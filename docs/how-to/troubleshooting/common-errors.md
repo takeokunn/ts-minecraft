@@ -7,7 +7,7 @@ tags: ["troubleshooting", "common-errors", "error-resolution", "typescript", "ef
 prerequisites: ["basic-typescript", "effect-ts-fundamentals"]
 estimated_reading_time: "25分"
 related_patterns: ["error-handling-patterns", "service-patterns"]
-related_docs: ["./debugging-guide.md", "./effect-ts-troubleshooting.md", "../../03-guides/04-error-resolution.md"]
+related_docs: ["./debugging-guide.md", "./effect-ts-troubleshooting.md", "./error-resolution.md"]
 status: "complete"
 ---
 

@@ -45,8 +45,11 @@ estimated_reading_time: "20分"
 // StackBlitz: https://stackblitz.com/edit/effect-ts-minecraft-basics
 import { Effect, Schema, Console } from "@effect/platform"
 
-// 1. Schema.Struct による型安全なデータモデリング
-const PlayerSchema = Schema.Struct({
+// 📚 Schema定義の詳細は Schema API リファレンス を参照
+// → https://docs/reference/api/effect-ts-schema-api.md#11-統合パターンライブラリ
+
+// 1. 学習用の簡易PlayerSchema（実際のプロジェクトでは上記リファレンスを使用）
+const LearningPlayerSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   position: Schema.Struct({
@@ -57,39 +60,38 @@ const PlayerSchema = Schema.Struct({
   health: Schema.Number
 })
 
-type Player = Schema.Schema.Type<typeof PlayerSchema>
+type LearningPlayer = Schema.Schema.Type<typeof LearningPlayerSchema>
 
-// 2. Effect.gen による副作用の合成
-const createPlayer = (name: string) =>
+// 2. Effect.genパターン学習（標準パターンは上記リファレンスを参照）
+const createPlayerForLearning = (name: string) =>
   Effect.gen(function* () {
-    // 副作用を含む処理を線形に記述
     yield* Console.log(`Creating player: ${name}`)
 
-    const player: Player = {
-      id: crypto.randomUUID(), // 副作用: ID生成
+    const player: LearningPlayer = {
+      id: crypto.randomUUID(),
       name,
-      position: { x: 0, y: 64, z: 0 }, // スポーン地点
-      health: 20 // フルヘルス
+      position: { x: 0, y: 64, z: 0 },
+      health: 20
     }
 
-    // Schema バリデーション
-    const validatedPlayer = yield* Schema.decode(PlayerSchema)(player)
-    yield* Console.log(`Player created successfully: ${JSON.stringify(validatedPlayer)}`)
+    // 実際のプロジェクトでは StandardPlayerSchema を使用
+    const validatedPlayer = yield* Schema.decode(LearningPlayerSchema)(player)
+    yield* Console.log(`Player created: ${JSON.stringify(validatedPlayer)}`)
 
     return validatedPlayer
   })
 
-// 3. 実行例
-const program = Effect.gen(function* () {
-  const steve = yield* createPlayer("Steve")
-  const alex = yield* createPlayer("Alex")
+// 3. 学習用実行例
+const learningProgram = Effect.gen(function* () {
+  const steve = yield* createPlayerForLearning("Steve")
+  const alex = yield* createPlayerForLearning("Alex")
 
-  yield* Console.log(`Total players created: 2`)
+  yield* Console.log(`Tutorial completed: 2 players created`)
   return [steve, alex]
 })
 
 // 🎮 実行してみてください！
-// Effect.runSync(program)
+// Effect.runSync(learningProgram)
 // [/LIVE_EXAMPLE]
 
 **💡 Interactive Challenge**: 上記コードで player の health を負の値に変更して、バリデーションエラーを確認してみましょう。
@@ -321,106 +323,56 @@ const parallelOperation = Effect.gen(function* () {
 });
 ```
 
-### 2.2. `Schema` によるデータ定義とバリデーション
+### 2.2. `Schema` による学習アプローチ
 
-`class` や `interface` の代わりに `Schema.Struct` を用いて、すべてのデータ構造を定義します。これにより、型定義と実行時バリデーションを同時に実現します。
+> 📚 **完全なSchema定義**: 本格的なPosition、Player、Service定義は [Schema API リファレンス](../../reference/api/effect-ts-schema-api.md#112-標準schema定義パターン) を参照してください。
+
+チュートリアルでは、Schema.Structの**学習プロセス**に焦点を当てます：
 
 ```typescript
-// [LIVE_EXAMPLE: schema-validation]
-// 📋 Schema-Driven Development - Try it Live!
-import { Schema, Brand } from "effect";
+// [LIVE_EXAMPLE: schema-learning]
+// 📋 Schema Learning Path - Interactive Tutorial
+import { Schema, Brand, Effect } from "effect";
 
-// ✅ 最新パターン: 包括的Schema定義とバリデーション
-const Position = Schema.Struct({
-  x: Schema.Number.pipe(
-    Schema.int(),
-    Schema.greaterThanOrEqualTo(-30_000_000),
-    Schema.lessThanOrEqualTo(30_000_000)
-  ),
-  y: Schema.Number.pipe(
-    Schema.int(),
-    Schema.greaterThanOrEqualTo(-64),
-    Schema.lessThanOrEqualTo(320)
-  ),
-  z: Schema.Number.pipe(
-    Schema.int(),
-    Schema.greaterThanOrEqualTo(-30_000_000),
-    Schema.lessThanOrEqualTo(30_000_000)
-  )
-}).pipe(
-  Schema.annotations({
-    identifier: "Position",
-    title: "Minecraft座標",
-    description: "Minecraftワールドの有効な座標範囲内の3D位置"
-  })
-);
-type Position = Schema.Schema.Type<typeof Position>;
+// 🎯 学習ステップ1: 基本的なSchema構造の理解
+const LearningPositionSchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number
+});
 
-// ✅ Brand型とContext.GenericTag統合パターン
-const ChunkId = Schema.String.pipe(
-  Schema.pattern(/^chunk_-?\d+_-?\d+$/),
-  Schema.brand("ChunkId")
-);
-type ChunkId = Schema.Schema.Type<typeof ChunkId>;
+// 🎯 学習ステップ2: バリデーション追加の体験
+const ValidatedPositionSchema = Schema.Struct({
+  x: Schema.Number.pipe(Schema.int()),
+  y: Schema.Number.pipe(Schema.int(), Schema.between(-64, 320)),
+  z: Schema.Number.pipe(Schema.int())
+});
 
-const EntityId = Schema.String.pipe(
-  Schema.uuid(),
-  Schema.brand("EntityId")
-);
-type EntityId = Schema.Schema.Type<typeof EntityId>;
+// 🎯 学習ステップ3: Brand型による型安全性の理解
+const LearningPlayerId = Schema.String.pipe(Schema.brand("PlayerId"));
+type LearningPlayerId = Schema.Schema.Type<typeof LearningPlayerId>;
 
-const PlayerId = Schema.String.pipe(
-  Schema.uuid(),
-  Schema.brand("PlayerId")
-);
-type PlayerId = Schema.Schema.Type<typeof PlayerId>;
+// 🎯 学習ステップ4: 実行時バリデーションの体験
+const validateAndCreatePosition = (input: unknown) =>
+  Effect.gen(function* () {
+    // バリデーション失敗を体験できる
+    const position = yield* Schema.decodeUnknown(ValidatedPositionSchema)(input);
 
-// ✅ Context.GenericTag使用例（最新パターン）
-export interface WorldService {
-  readonly getBlock: (pos: Position) => Effect.Effect<Block, BlockNotFoundError>
-  readonly setBlock: (pos: Position, block: Block) => Effect.Effect<void, BlockSetError>
-  readonly isValidPosition: (pos: Position) => Effect.Effect<boolean, never>
-}
-export const WorldService = Context.GenericTag<WorldService>("@minecraft/WorldService")
+    yield* Effect.log(`Valid position created: ${JSON.stringify(position)}`);
+    return position;
+  });
 
-// ✅ 複雑なSchema組み合わせ
-const Block = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("BlockId")),
-  metadata: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Union(
-        Schema.String,
-        Schema.Number,
-        Schema.Boolean
-      )
-    })
-  ),
-  lightLevel: Schema.Number.pipe(
-    Schema.int(),
-    Schema.greaterThanOrEqualTo(0),
-    Schema.lessThanOrEqualTo(15)
-  ),
-  hardness: Schema.Number.pipe(Schema.nonNegative())
-}).pipe(
-  Schema.annotations({
-    identifier: "Block",
-    title: "ブロック",
-    description: "Minecraftワールドのブロック定義"
-  })
-);
-type Block = Schema.Schema.Type<typeof Block>;
+// 💡 学習練習: 次のデータでバリデーションを試してみよう
+const testInputs = [
+  { x: 10, y: 64, z: -50 },      // ✅ 正常
+  { x: 10.5, y: 64, z: -50 },    // ❌ 整数以外
+  { x: 10, y: -100, z: -50 },    // ❌ Y座標範囲外
+  { x: "10", y: 64, z: -50 }     // ❌ 文字列
+];
 
-// ✅ Union型とパターンマッチング連携
-const Direction = Schema.Literal("north", "south", "east", "west", "up", "down");
-type Direction = Schema.Schema.Type<typeof Direction>;
-
-// ✅ 実行時バリデーション関数
-const validatePosition = (input: unknown): Effect.Effect<Position, Schema.ParseError> =>
-  Schema.decodeUnknown(Position)(input);
-
-const encodePosition = (position: Position): unknown =>
-  Schema.encodeSync(Position)(position);
+// 実際のプロジェクトではStandardPlayerSchemaを使用します
+// （詳細は上記リファレンス参照）
+```
 
 // ✅ カスタムSchema変換
 const Vector3 = Schema.transform(

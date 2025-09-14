@@ -7,7 +7,7 @@ tags: ["effect-ts", "ddd", "world-data", "aggregates", "domain-modeling", "perfo
 prerequisites: ["ddd-concepts", "effect-ts-fundamentals", "schema-advanced"]
 estimated_reading_time: "35分"
 related_patterns: ["data-modeling-patterns", "service-patterns", "aggregate-patterns"]
-related_docs: ["./01-chunk-format.md", "../../01-architecture/02-ddd-strategic-design.md"]
+related_docs: ["./chunk-format.md", "../explanations/architecture/02-ddd-strategic-design.md"]
 ---
 
 # ワールドデータ構造仕様
@@ -981,7 +981,7 @@ export interface WorldGenerationService {
   ) => Effect.Effect<PopulatedChunk, GenerationError>
 }
 
-export const WorldGenerationService = Context.GenericTag<WorldGenerationService>("WorldGenerationService")
+export const WorldGenerationService = Context.GenericTag<WorldGenerationService>("@app/WorldGenerationService")
 
 // 実装例
 export const makeWorldGenerationService = Effect.gen(function* () {
@@ -1098,7 +1098,7 @@ export interface DataIntegrityService {
   ) => Effect.Effect<RepairResult, RepairError>
 }
 
-export const DataIntegrityService = Context.GenericTag<DataIntegrityService>("DataIntegrityService")
+export const DataIntegrityService = Context.GenericTag<DataIntegrityService>("@app/DataIntegrityService")
 
 export const makeDataIntegrityService = Effect.gen(function* () {
   const logger = yield* Logger
@@ -1332,7 +1332,7 @@ export interface EventStore {
   ) => Effect.Effect<number, EventStoreError>
 }
 
-export const EventStore = Context.GenericTag<EventStore>("EventStore")
+export const EventStore = Context.GenericTag<EventStore>("@app/EventStore")
 ```
 
 ### イベントハンドラーとプロジェクション
@@ -1399,7 +1399,7 @@ export interface EventDispatcher {
   ) => Effect.Effect<Subscription, SubscriptionError>
 }
 
-export const EventDispatcher = Context.GenericTag<EventDispatcher>("EventDispatcher")
+export const EventDispatcher = Context.GenericTag<EventDispatcher>("@app/EventDispatcher")
 
 export const makeEventDispatcher = Effect.gen(function* () {
   const handlers = yield* Ref.make(new Map<string, ReadonlyArray<EventHandler<any>>>())
@@ -2009,8 +2009,8 @@ describe("Performance Benchmarks", () => {
 
 ### 次のステップ
 
-- [チャンクフォーマット仕様](./01-chunk-format.md)でより詳細な実装を確認
-- [セーブファイル仕様](./02-save-file-format.md)で永続化戦略を学習
-- [DDD戦略設計](../../01-architecture/02-ddd-strategic-design.md)でアーキテクチャ全体を理解
+- [チャンクフォーマット仕様](./chunk-format.md)でより詳細な実装を確認
+- [セーブファイル仕様](./save-file-format.md)で永続化戦略を学習
+- [DDD戦略設計](../explanations/architecture/02-ddd-strategic-design.md)でアーキテクチャ全体を理解
 
 この設計により、プロダクションレベルの品質と拡張性を備えたワールドデータ管理システムを構築できます。

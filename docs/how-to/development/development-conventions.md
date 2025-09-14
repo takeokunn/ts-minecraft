@@ -7,7 +7,7 @@ tags: ["development-conventions", "effect-ts", "schema", "functional-programming
 prerequisites: ["basic-typescript", "effect-ts-fundamentals"]
 estimated_reading_time: "25分"
 related_patterns: ["service-patterns-catalog", "error-handling-patterns", "effect-ts-test-patterns"]
-related_docs: ["../01-architecture/06-effect-ts-patterns.md", "./02-testing-guide.md"]
+related_docs: ["../explanations/architecture/06-effect-ts-patterns.md", "./02-testing-guide.md"]
 ai_context:
   primary_concepts: ["schema-first-development", "pure-functional-programming", "type-safety", "coding-conventions", "best-practices"]
   prerequisite_knowledge: ["typescript-intermediate", "functional-programming-basics", "effect-ts-fundamentals", "code-quality-principles"]

@@ -23,8 +23,8 @@ estimated_reading_time: "20分"
 
 ### 📋 関連ドキュメント
 - **概念説明**: [Effect-TSパターン](./06-effect-ts-patterns.md)
-- **APIリファレンス**: [Effect-TS Schema API](../05-reference/effect-ts-schema-api.md)
-- **実践例**: [エラーハンドリング例](../06-examples/02-advanced-patterns/01-effect-composition.md)
+- **APIリファレンス**: [Effect-TS Schema API](../reference/effect-ts-schema-api.md)
+- **実践例**: [エラーハンドリング例](../examples/02-advanced-patterns/01-effect-composition.md)
 
 ---
 
@@ -374,5 +374,5 @@ const ErrorLoggerLive = Logger.replace(
 ## 次のステップ
 
 - **テスト戦略**: [Effect-TSテスト](./06d-effect-ts-testing.md)でエラーケースのテスト方法を学習
-- **実践例**: [エラーハンドリング例](../06-examples/02-advanced-patterns/01-effect-composition.md)で実装例を確認
-- **APIリファレンス**: [Effect-TS Effect API](../05-reference/effect-ts-effect-api.md)で詳細なAPI仕様を確認
+- **実践例**: [エラーハンドリング例](../examples/02-advanced-patterns/01-effect-composition.md)で実装例を確認
+- **APIリファレンス**: [Effect-TS Effect API](../reference/effect-ts-effect-api.md)で詳細なAPI仕様を確認

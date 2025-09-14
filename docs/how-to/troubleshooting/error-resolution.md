@@ -1,13 +1,13 @@
 ---
 title: "エラー解決ガイド - 体系的なTypeScriptエラー診断と修正"
-description: "Effect-TS 3.17とDDDアーキテクチャでの型エラー診断フロー、レイヤー別エラーハンドリング戦略、実践的な解決パターンを提供"
+description: "Effect-TS 3.17+とDDDアーキテクチャでの型エラー診断フロー、レイヤー別エラーハンドリング戦略、実践的な解決パターンを提供"
 category: "guide"
 difficulty: "intermediate"
 tags: ["error-handling", "effect-ts", "typescript", "debugging", "ddd", "troubleshooting"]
 prerequisites: ["effect-ts-fundamentals", "schema-basics", "typescript-types"]
 estimated_reading_time: "20分"
 related_patterns: ["error-handling-patterns", "service-patterns-catalog"]
-related_docs: ["../01-architecture/06c-effect-ts-error-handling.md", "../05-reference/troubleshooting/debugging-guide.md"]
+related_docs: ["../explanations/architecture/06c-effect-ts-error-handling.md", "../reference/troubleshooting/debugging-guide.md"]
 ---
 
 # エラー解決ガイド - 体系的なTypeScriptエラー診断と修正
@@ -42,7 +42,7 @@ flowchart TD
 
 ## 📋 Problem Statement
 
-TypeScript Minecraftプロジェクトでは、Effect-TS 3.17への移行とDDDアーキテクチャ導入により、従来のTypeScript開発とは異なる型エラーパターンが発生します。
+TypeScript Minecraftプロジェクトでは、Effect-TS 3.17+への移行とDDDアーキテクチャ導入により、従来のTypeScript開発とは異なる型エラーパターンが発生します。
 
 ### 主要課題
 1. **Schema検証エラー**: 動的バリデーションでの型安全性確保
@@ -98,14 +98,22 @@ flowchart LR
 
 #### エラーパターン
 ```typescript
-// ❌ エラー: Schema.Structの型不一致
-const UserData = Data.struct<{ name: string; age: number }>({
-  name: "",
-  age: 0
+// ❌ エラー: Schema.Structの型不一致（Data.structは廃止パターン）
+// const UserData = Data.struct<{ name: string; age: number }>({
+//   name: "",
+//   age: 0
+// })
+
+// ✅ 正しいパターン: Schema.Structを使用
+const UserDataSchema = Schema.Struct({
+  name: Schema.String,
+  age: Schema.Number
 })
+type UserData = Schema.Schema.Type<typeof UserDataSchema>
 
 const validateUser = (input: unknown): Effect.Effect<UserData, ValidationError> =>
-  Effect.succeed(input as UserData) // 危険な型キャスト
+  Schema.decodeUnknown(UserDataSchema)(input)
+    .pipe(Effect.mapError(error => new ValidationError({ cause: error })))
 ```
 
 #### 解決方法

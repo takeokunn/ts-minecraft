@@ -1365,6 +1365,6 @@ export const nixOptimizedDependencies = {
 - [Web Vitals](https://web.dev/vitals/)
 
 ### プロジェクト固有
-- [デプロイガイド](../../03-guides/02-deployment.md)
+- [デプロイガイド](../../how-to/deployment/README.md)
 - [パフォーマンス最適化](../troubleshooting/performance-issues.md)
-- [Three.js統合ガイド](../../03-guides/10-threejs-integration.md)
+- [Three.js統合ガイド](../../how-to/development/performance-optimization.md)

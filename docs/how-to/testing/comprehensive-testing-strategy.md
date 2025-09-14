@@ -1,16 +1,16 @@
 ---
 title: "包括的テスト戦略ガイド - レイヤー別テストアーキテクチャとProperty-Based Testing"
-description: "Effect-TS 3.17とDDDアーキテクチャでの完全テストカバレッジ、Flaky Test完全排除、Property-Based Testing、決定論的テスト実装戦略"
+description: "Effect-TS 3.17+とDDDアーキテクチャでの完全テストカバレッジ、Flaky Test完全排除、Property-Based Testing、決定論的テスト実装戦略"
 category: "guide"
 difficulty: "advanced"
 tags: ["testing", "effect-ts", "vitest", "property-based-testing", "ddd", "test-architecture"]
 prerequisites: ["effect-ts-fundamentals", "schema-basics", "vitest-basics"]
 estimated_reading_time: "35分"
 related_patterns: ["effect-ts-test-patterns", "service-patterns-catalog"]
-related_docs: ["../01-architecture/06d-effect-ts-testing.md", "../05-reference/troubleshooting/debugging-guide.md"]
+related_docs: ["../explanations/architecture/06d-effect-ts-testing.md", "../reference/troubleshooting/debugging-guide.md"]
 ---
 
-# 包括的テスト戦略ガイド - Effect-TS 3.17 + Schema-First + Property-Based Testing
+# 包括的テスト戦略ガイド - Effect-TS 3.17+ + Schema-First + Property-Based Testing
 
 ## 🎯 Quick Guide（10分でテスト戦略理解）
 
@@ -50,7 +50,7 @@ flowchart TD
 
 ## 📋 Problem Statement
 
-TypeScript Minecraftプロジェクトでは、Effect-TS 3.17とDDDアーキテクチャの複雑性により、従来のテスト手法では以下の課題が発生します。
+TypeScript Minecraftプロジェクトでは、Effect-TS 3.17+とDDDアーキテクチャの複雑性により、従来のテスト手法では以下の課題が発生します。
 
 ### 主要課題
 1. **非決定的テスト**: 時間・乱数・外部依存による不安定なテスト
@@ -1641,7 +1641,7 @@ describe('Performance Integration Tests', () => {
 
 ## まとめ
 
-このドキュメントでは、TypeScript MinecraftプロジェクトにおけるEffect-TS 3.17とDDDアーキテクチャに特化した包括的テスト戦略を提供しました。
+このドキュメントでは、TypeScript MinecraftプロジェクトにおけるEffect-TS 3.17+とDDDアーキテクチャに特化した包括的テスト戦略を提供しました。
 
 ### 重要な成果
 1. **Flaky Test完全排除**: TestClock・固定シード・完全モック化による決定論的テスト

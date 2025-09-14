@@ -7,7 +7,7 @@ tags: ["multiplayer", "networking", "real-time-sync", "conflict-resolution", "se
 prerequisites: ["effect-ts-fundamentals", "networking-concepts", "distributed-systems", "concurrent-programming"]
 estimated_reading_time: "25分"
 related_patterns: ["concurrent-patterns", "event-driven-patterns", "network-sync-patterns"]
-related_docs: ["../core-features/game-loop-system.md", "../../01-architecture/06-effect-ts-patterns.md"]
+related_docs: ["../core-features/game-loop-system.md", "../explanations/architecture/06-effect-ts-patterns.md"]
 ---
 
 # Multiplayer Architecture 設計書

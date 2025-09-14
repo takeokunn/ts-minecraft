@@ -7,7 +7,7 @@ tags: ["domain-api", "application-api", "ddd-patterns", "aggregate-root", "domai
 prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "aggregate-patterns", "functional-composition"]
 estimated_reading_time: "30分"
 related_patterns: ["service-patterns", "domain-modeling-patterns", "aggregate-patterns"]
-related_docs: ["./infrastructure-architecture.md", "../../01-architecture/02-ddd-strategic-design.md"]
+related_docs: ["./infrastructure-architecture.md", "../explanations/architecture/02-ddd-strategic-design.md"]
 ---
 
 # Domain & Application Layer API仕様
@@ -3521,9 +3521,9 @@ export const PlayerAggregateRepositoryLive = Layer.succeed(
 
 ## Glossary Terms Used
 
-- **Aggregate (アグリゲート)**: DDDの一貫性境界 ([詳細](../../04-appendix/00-glossary.md#aggregate))
-- **Application Service (アプリケーションサービス)**: ユースケース実現層 ([詳細](../../04-appendix/00-glossary.md#application-service))
-- **Domain Service (ドメインサービス)**: ドメインロジック層 ([詳細](../../04-appendix/00-glossary.md#domain-service))
-- **Effect (エフェクト)**: 副作用管理と型安全性 ([詳細](../../04-appendix/00-glossary.md#effect))
-- **Entity (エンティティ)**: 一意性を持つドメインオブジェクト ([詳細](../../04-appendix/00-glossary.md#entity))
-- **Value Object (値オブジェクト)**: 等価性による識別 ([詳細](../../04-appendix/00-glossary.md#value-object))
+- **Aggregate (アグリゲート)**: DDDの一貫性境界 ([詳細](../../reference/glossary.md#aggregate))
+- **Application Service (アプリケーションサービス)**: ユースケース実現層 ([詳細](../../reference/glossary.md#application-service))
+- **Domain Service (ドメインサービス)**: ドメインロジック層 ([詳細](../../reference/glossary.md#domain-service))
+- **Effect (エフェクト)**: 副作用管理と型安全性 ([詳細](../../reference/glossary.md#effect))
+- **Entity (エンティティ)**: 一意性を持つドメインオブジェクト ([詳細](../../reference/glossary.md#entity))
+- **Value Object (値オブジェクト)**: 等価性による識別 ([詳細](../../reference/glossary.md#value-object))

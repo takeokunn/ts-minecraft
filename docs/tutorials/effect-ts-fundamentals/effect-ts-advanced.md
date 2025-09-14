@@ -24,7 +24,7 @@ estimated_reading_time: "30分"
 ### 📋 関連ドキュメント
 - **基本概念**: [Effect-TSパターン](./06-effect-ts-patterns.md)
 - **実装ガイド**: [Effect-TS実装パターン](./06a-effect-ts-basics.md)
-- **APIリファレンス**: [Effect-TS Effect API](../05-reference/effect-ts-effect-api.md)
+- **APIリファレンス**: [Effect-TS Effect API](../reference/effect-ts-effect-api.md)
 
 ---
 
@@ -362,6 +362,6 @@ type Stream<Value, Error = never, Requirements = never> = {
 
 ## 次のステップ
 
-- **実装例**: [高度なパターン例](../06-examples/02-advanced-patterns/README.md)で実践的な使用例
-- **パフォーマンス**: [最適化パターン](../07-pattern-catalog/06-optimization-patterns.md)でパフォーマンスチューニング
+- **実装例**: [高度なパターン例](../examples/02-advanced-patterns/README.md)で実践的な使用例
+- **パフォーマンス**: [最適化パターン](../explanations/design-patterns/06-optimization-patterns.md)でパフォーマンスチューニング
 - **テスト**: [Effect-TSテスト](./06d-effect-ts-testing.md)で高度な機能のテスト方法

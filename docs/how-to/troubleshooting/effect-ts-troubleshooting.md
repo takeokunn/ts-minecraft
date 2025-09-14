@@ -7,7 +7,7 @@ tags: ["troubleshooting", "effect-ts", "debugging", "error-handling", "performan
 prerequisites: ["effect-ts-fundamentals", "schema-patterns", "context-patterns", "testing-patterns"]
 estimated_reading_time: "50分"
 related_patterns: ["error-handling-patterns", "service-patterns", "testing-patterns", "optimization-patterns"]
-related_docs: ["./debugging-guide.md", "./common-errors.md", "../../03-guides/04-error-resolution.md", "../../03-guides/07-effect-ts-testing-patterns.md"]
+related_docs: ["./debugging-guide.md", "./common-errors.md", "./error-resolution.md", "../testing/effect-ts-testing-patterns.md"]
 status: "complete"
 ---
 
@@ -860,8 +860,8 @@ const measureEffect = <A, E>(
 - [よくあるエラー](./common-errors.md) - 一般的なエラーパターン
 - [デバッグガイド](./debugging-guide.md) - 高度なデバッグ技術
 - [ランタイムエラー](./runtime-errors.md) - 実行時エラー対処法
-- [エラーハンドリングパターン](../../07-pattern-catalog/02-error-handling-patterns.md) - プロジェクト固有パターン
-- [開発ガイド](../../03-guides/04-error-resolution.md) - エラー解決プロセス
+- [エラーハンドリングパターン](../../explanations/design-patterns/02-error-handling-patterns.md) - プロジェクト固有パターン
+- [開発ガイド](./error-resolution.md) - エラー解決プロセス
 
 ### Effect-TS 公式リソース
 - [Effect-TS 公式ドキュメント](https://effect.website/) - 最新API仕様

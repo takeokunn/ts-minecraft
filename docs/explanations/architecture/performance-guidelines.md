@@ -7,7 +7,7 @@ tags: ["performance", "optimization", "effect-ts", "webgl", "ecs", "profiling", 
 prerequisites: ["effect-ts-fundamentals", "webgl-basics", "ecs-architecture", "performance-profiling"]
 estimated_reading_time: "30分"
 related_patterns: ["optimization-patterns", "ecs-patterns", "rendering-patterns"]
-related_docs: ["../07-pattern-catalog/06-optimization-patterns.md", "../01-architecture/05-ecs-integration.md", "../game-mechanics/core-features/chunk-system.md"]
+related_docs: ["../explanations/design-patterns/06-optimization-patterns.md", "../explanations/architecture/05-ecs-integration.md", "../game-mechanics/core-features/chunk-system.md"]
 search_keywords:
   primary: ["performance-optimization", "game-performance", "webgl-optimization", "ecs-performance"]
   secondary: ["memory-management", "rendering-optimization", "profiling-techniques"]

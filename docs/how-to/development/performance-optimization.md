@@ -7,7 +7,7 @@ tags: ["performance", "optimization", "effect-ts", "profiling", "memory-manageme
 prerequisites: ["development-conventions", "effect-ts-fundamentals", "testing-guide"]
 estimated_reading_time: "25分"
 related_patterns: ["optimization-patterns-latest", "service-patterns-catalog"]
-related_docs: ["./02-testing-guide.md", "../01-architecture/06-effect-ts-patterns.md"]
+related_docs: ["./02-testing-guide.md", "../explanations/architecture/06-effect-ts-patterns.md"]
 ---
 
 # パフォーマンス最適化実践ガイド

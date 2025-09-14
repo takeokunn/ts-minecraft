@@ -7,7 +7,7 @@ tags: ["inventory-system", "item-management", "player-system", "ui-system", "per
 prerequisites: ["effect-ts-fundamentals", "schema-basics", "ddd-concepts"]
 estimated_reading_time: "12分"
 related_patterns: ["data-modeling-patterns", "service-patterns", "validation-patterns"]
-related_docs: ["./player-system.md", "../enhanced-features/villager-trading.md", "../../01-architecture/05-ecs-integration.md"]
+related_docs: ["./player-system.md", "../enhanced-features/villager-trading.md", "../explanations/architecture/05-ecs-integration.md"]
 ---
 
 # インベントリシステム
@@ -15,6 +15,8 @@ related_docs: ["./player-system.md", "../enhanced-features/villager-trading.md",
 ## 1. 概要
 
 Minecraftクローンのインベントリシステムは、アイテムの保管、管理、転送を担当します。DDDの境界づけられたコンテキストとして設計され、ECSアーキテクチャと統合されています。
+
+> **🔗 完全なAPI仕様**: インベントリシステムの詳細な型定義、インターフェース、実装パターンは [Game Inventory API Reference](../../../reference/game-systems/game-inventory-api.md) を参照してください。
 
 ## 2. ドメインモデル
 
@@ -2813,17 +2815,17 @@ export const makeInventoryCircuitBreaker = (
 - [クラフトシステム](./crafting-system.md) - クラフト材料とインベントリ連携
 - [エンティティシステム](./entity-system.md) - アイテムドロップとエンティティ
 - [マテリアルシステム](./material-system.md) - アイテム材料とツール管理
-- [ECS統合](../../01-architecture/05-ecs-integration.md) - ECSコンポーネント設計
-- [Effect-TSパターン](../../01-architecture/06-effect-ts-patterns.md) - Schema・サービス定義
+- [ECS統合](../explanations/architecture/05-ecs-integration.md) - ECSコンポーネント設計
+- [Effect-TSパターン](../explanations/architecture/06-effect-ts-patterns.md) - Schema・サービス定義
 
 ## 用語集
 
-- **コンポーネント (Component)**: ECSにおけるデータの単位 ([詳細](../../04-appendix/00-glossary.md#component))
-- **Effect (エフェクト)**: Effect-TSの副作用管理型 ([詳細](../../04-appendix/00-glossary.md#effect))
-- **エンティティコンポーネントシステム (Entity Component System)**: ゲーム開発アーキテクチャ ([詳細](../../04-appendix/00-glossary.md#ecs))
-- **不変性 (Immutability)**: オブジェクトの状態が変更されない性質 ([詳細](../../04-appendix/00-glossary.md#immutability))
-- **スキーマ (Schema)**: 型安全なデータ定義システム ([詳細](../../04-appendix/00-glossary.md#schema))
-- **値オブジェクト (Value Object)**: DDDの戦術パターン ([詳細](../../04-appendix/00-glossary.md#value-object))
+- **コンポーネント (Component)**: ECSにおけるデータの単位 ([詳細](../../reference/glossary.md#component))
+- **Effect (エフェクト)**: Effect-TSの副作用管理型 ([詳細](../../reference/glossary.md#effect))
+- **エンティティコンポーネントシステム (Entity Component System)**: ゲーム開発アーキテクチャ ([詳細](../../reference/glossary.md#ecs))
+- **不変性 (Immutability)**: オブジェクトの状態が変更されない性質 ([詳細](../../reference/glossary.md#immutability))
+- **スキーマ (Schema)**: 型安全なデータ定義システム ([詳細](../../reference/glossary.md#schema))
+- **値オブジェクト (Value Object)**: DDDの戦術パターン ([詳細](../../reference/glossary.md#value-object))
 
 ## まとめ
 

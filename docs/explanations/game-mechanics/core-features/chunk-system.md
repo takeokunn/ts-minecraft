@@ -7,7 +7,7 @@ tags: ["chunk-system", "world-streaming", "dynamic-loading", "lod-system", "conc
 prerequisites: ["effect-ts-fundamentals", "concurrency-concepts", "memory-management"]
 estimated_reading_time: "15分"
 related_patterns: ["concurrency-patterns", "optimization-patterns", "caching-patterns"]
-related_docs: ["./03-block-system.md", "./05-rendering-system.md", "../../01-architecture/05-ecs-integration.md"]
+related_docs: ["./03-block-system.md", "./05-rendering-system.md", "../explanations/architecture/05-ecs-integration.md"]
 ---
 
 # Chunk System - Effect-TS Implementation

@@ -2253,13 +2253,13 @@ describe("World API Integration Tests", () => {
 - [Performance Guidelines](../../03-guidelines/02-performance-guidelines.md) - 性能最適化指針
 
 **Architecture**:
-- [Layered Architecture](../../01-architecture/04-layered-architecture.md) - API階層設計
-- [Effect-TS Patterns](../../01-architecture/06-effect-ts-patterns.md) - Effect実装パターン
+- [Layered Architecture](../explanations/architecture/04-layered-architecture.md) - API階層設計
+- [Effect-TS Patterns](../explanations/architecture/06-effect-ts-patterns.md) - Effect実装パターン
 
 ## Glossary Terms Used
 
-- **RESTful API**: HTTP上のリソースベースAPI ([詳細](../../04-appendix/00-glossary.md#restful-api))
-- **JWT (JSON Web Token)**: 認証トークン規格 ([詳細](../../04-appendix/00-glossary.md#jwt))
-- **Rate Limiting**: API使用頻度制限 ([詳細](../../04-appendix/00-glossary.md#rate-limiting))
-- **WebSocket**: 双方向リアルタイム通信 ([詳細](../../04-appendix/00-glossary.md#websocket))
-- **OpenAPI**: API仕様記述規格 ([詳細](../../04-appendix/00-glossary.md#openapi))
+- **RESTful API**: HTTP上のリソースベースAPI ([詳細](../../reference/glossary.md#restful-api))
+- **JWT (JSON Web Token)**: 認証トークン規格 ([詳細](../../reference/glossary.md#jwt))
+- **Rate Limiting**: API使用頻度制限 ([詳細](../../reference/glossary.md#rate-limiting))
+- **WebSocket**: 双方向リアルタイム通信 ([詳細](../../reference/glossary.md#websocket))
+- **OpenAPI**: API仕様記述規格 ([詳細](../../reference/glossary.md#openapi))

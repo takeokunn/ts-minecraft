@@ -7,7 +7,7 @@ tags: ["data-modeling", "effect-ts-schema", "ddd-aggregates", "brand-types", "do
 prerequisites: ["effect-ts-schema-advanced", "ddd-tactical-design", "typescript-advanced-types", "domain-modeling"]
 estimated_reading_time: "30分"
 related_patterns: ["data-modeling-patterns", "validation-patterns", "ddd-patterns"]
-related_docs: ["./01-chunk-format.md", "./02-save-file-format.md", "../../01-architecture/02-aggregates.md"]
+related_docs: ["./chunk-format.md", "./save-file-format.md", "../explanations/architecture/02-aggregates.md"]
 search_keywords:
   primary: ["data-modeling", "effect-ts-schema", "domain-models", "type-safety"]
   secondary: ["ddd-aggregates", "brand-types", "validation", "data-integrity"]
@@ -455,7 +455,7 @@ export const StreamingDataLoader = {
 
 | モデル | ファイル | 説明 | スキーマ複雑度 |
 |--------|----------|------|----------------|
-| **WorldData** | `00-world-data-structure.md` | ワールドの基本構造 | ⭐⭐⭐ |
+| **WorldData** | `world-data-structure.md` | ワールドの基本構造 | ⭐⭐⭐ |
 | **ChunkData** | `01-chunk-format.md` | チャンクデータ形式 | ⭐⭐⭐⭐ |
 | **SaveFormat** | `02-save-file-format.md` | セーブファイル形式 | ⭐⭐⭐⭐⭐ |
 
@@ -515,8 +515,8 @@ export interface ItemStack {
 ## 関連ドキュメント
 
 - **詳細仕様**: 各データモデルの詳細は個別のmdファイルを参照
-- **実装パターン**: [データモデリングパターン](/docs/07-pattern-catalog/03-data-modeling-patterns.md)
-- **API設計**: [ドメインAPI仕様](/docs/02-specifications/02-api-design/00-domain-application-apis.md)
-- **アーキテクチャ**: [DDD戦略設計](/docs/01-architecture/02-ddd-strategic-design.md)
+- **実装パターン**: [データモデリングパターン](/docs/explanations/design-patterns/03-data-modeling-patterns.md)
+- **API設計**: [ドメインAPI仕様](/docs/reference/02-api-design/00-domain-application-apis.md)
+- **アーキテクチャ**: [DDD戦略設計](/docs/explanations/architecture/02-ddd-strategic-design.md)
 
 このオーバービューは、TypeScript Minecraftのデータモデル設計の全体像を提供します。詳細な実装については、各専門ドキュメントを参照してください。

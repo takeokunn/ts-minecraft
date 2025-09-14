@@ -7,7 +7,7 @@ tags: ["troubleshooting", "debugging", "errors", "build-issues", "typescript", "
 prerequisites: ["basic-typescript", "development-environment"]
 estimated_reading_time: "30分"
 related_patterns: ["error-handling-patterns"]
-related_docs: ["../cli-commands/README.md", "../configuration/README.md", "../../03-guides/04-error-resolution.md"]
+related_docs: ["../development/README.md", "../../reference/configuration/README.md", "./error-resolution.md"]
 ---
 
 # トラブルシューティング
@@ -52,6 +52,10 @@ mindmap
       [メモリ不足]
       [ビルドが遅い]
       [実行時パフォーマンス]
+    初心者向け問題
+      [環境構築エラー]
+      [基本設定問題]
+      [よくある誤解]
 ```
 
 ## 🚨 緊急度別問題解決
@@ -63,6 +67,7 @@ mindmap
 | [TypeScript型エラー](#typescript-type-errors) | `pnpm build` 失敗 | 型定義確認・tsconfig調整 |
 | [依存関係エラー](#dependency-errors) | `pnpm install` 失敗 | キャッシュクリア・バージョン確認 |
 | [開発サーバー起動失敗](#dev-server-errors) | `pnpm dev` 失敗 | ポート・権限・設定確認 |
+| [初心者環境構築問題](./common-getting-started-issues.md) | 環境構築で進めない | ステップバイステップの解決策 |
 
 ### ⚡ 中緊急度（開発効率に影響）
 

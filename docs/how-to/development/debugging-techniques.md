@@ -1222,4 +1222,4 @@ export const runWithDebug = <A, E, R>(
 
 *📍 現在のドキュメント階層*: **[Home](../../README.md)** → **[How-to](../README.md)** → **[Development](./README.md)** → **デバッグ技法**
 
-*🔗 関連リソース*: [Performance Optimization](./03-performance-optimization.md) • [Development Conventions](./00-development-conventions.md) • [Troubleshooting](../troubleshooting/) • [Testing Guide](../testing/)
+*🔗 関連リソース*: [Performance Optimization](./03-performance-optimization.md) • [Development Conventions](./00-development-conventions.md) • [Troubleshooting](../troubleshooting/README.md) • [Testing Guide](../testing/README.md)

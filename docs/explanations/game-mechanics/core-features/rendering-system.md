@@ -7,7 +7,7 @@ tags: ["rendering-system", "threejs", "webgpu", "greedy-meshing", "performance",
 prerequisites: ["threejs-fundamentals", "webgl-concepts", "graphics-programming"]
 estimated_reading_time: "18分"
 related_patterns: ["optimization-patterns", "graphics-patterns", "performance-patterns"]
-related_docs: ["./03-block-system.md", "./07-chunk-system.md", "../../01-architecture/05-ecs-integration.md"]
+related_docs: ["./03-block-system.md", "./07-chunk-system.md", "../explanations/architecture/05-ecs-integration.md"]
 ---
 
 # レンダリングシステム
@@ -1373,14 +1373,14 @@ export const TestRenderingServiceLive = Layer.effect(
 - [マテリアルシステム](./material-system.md) - レンダリングされるオブジェクトの外観を定義します。
 - [シーン管理システム](./scene-management-system.md) - レンダリングされるシーン全体を管理します。
 - [パーティクルシステム](../enhanced-features/particle-system.md) - パーティクルエフェクトのレンダリングを扱います。
-- [ECS統合](../../01-architecture/05-ecs-integration.md) - エンティティコンポーネントシステムとの統合。
-- [Effect-TSパターン](../../01-architecture/06-effect-ts-patterns.md) - Effect-TSパターンの詳細な使用法。
+- [ECS統合](../explanations/architecture/05-ecs-integration.md) - エンティティコンポーネントシステムとの統合。
+- [Effect-TSパターン](../explanations/architecture/06-effect-ts-patterns.md) - Effect-TSパターンの詳細な使用法。
 
 ## 用語集
 
-- **Three.js**: レンダリングエンジンとして使用される3Dグラフィックスライブラリ。 ([詳細](../../../04-appendix/00-glossary.md#threejs))
-- **WebGPU**: 次世代のWebグラフィックスAPI。 ([詳細](../../../04-appendix/00-glossary.md#webgpu))
-- **Greedy Meshing**: ボクセルレンダリングの最適化アルゴリズム。 ([詳細](../../../04-appendix/00-glossary.md#greedy-meshing))
-- **TSL**: Three.js Shading Language。モダンなシェーダーを記述するための言語。 ([詳細](../../../04-appendix/00-glossary.md#tsl))
-- **フラスタムカリング**: カメラの視野外にあるオブジェクトを除外する最適化技術。 ([詳細](../../../04-appendix/00-glossary.md#frustum-culling))
-- **LOD**: Level of Detail。距離に応じてレンダリング品質を調整する最適化技術。 ([詳細](../../../04-appendix/00-glossary.md#lod))
+- **Three.js**: レンダリングエンジンとして使用される3Dグラフィックスライブラリ。 ([詳細](../../../reference/glossary.md#threejs))
+- **WebGPU**: 次世代のWebグラフィックスAPI。 ([詳細](../../../reference/glossary.md#webgpu))
+- **Greedy Meshing**: ボクセルレンダリングの最適化アルゴリズム。 ([詳細](../../../reference/glossary.md#greedy-meshing))
+- **TSL**: Three.js Shading Language。モダンなシェーダーを記述するための言語。 ([詳細](../../../reference/glossary.md#tsl))
+- **フラスタムカリング**: カメラの視野外にあるオブジェクトを除外する最適化技術。 ([詳細](../../../reference/glossary.md#frustum-culling))
+- **LOD**: Level of Detail。距離に応じてレンダリング品質を調整する最適化技術。 ([詳細](../../../reference/glossary.md#lod))

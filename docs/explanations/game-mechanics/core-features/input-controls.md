@@ -7,7 +7,7 @@ tags: ["input-system", "controls", "keyboard", "mouse", "gamepad", "accessibilit
 prerequisites: ["dom-events", "game-input-patterns", "accessibility-standards"]
 estimated_reading_time: "15分"
 related_patterns: ["event-handling-patterns", "ui-patterns", "accessibility-patterns"]
-related_docs: ["./02-player-system.md", "./11-scene-management-system.md", "../../03-guides/00-development-conventions.md"]
+related_docs: ["./02-player-system.md", "./11-scene-management-system.md", "../../../how-to/development/development-conventions.md"]
 search_keywords:
   primary: ["input-controls", "keyboard-input", "mouse-controls", "gamepad-support"]
   secondary: ["control-mapping", "accessibility", "user-input"]

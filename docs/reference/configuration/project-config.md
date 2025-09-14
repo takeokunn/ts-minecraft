@@ -1396,6 +1396,6 @@ jobs:
 - [EditorConfig](https://editorconfig.org/)
 
 ### プロジェクト固有
-- [開発ガイド](../../03-guides/01-development-setup.md)
-- [デプロイガイド](../../03-guides/02-deployment.md)
+- [開発ガイド](../../how-to/development/README.md)
+- [デプロイガイド](../../how-to/deployment/README.md)
 - [トラブルシューティング](../troubleshooting/README.md)

@@ -7,7 +7,7 @@ tags: ["ddd", "data-modeling", "schema", "effect-ts", "domain-design", "patterns
 prerequisites: ["effect-ts-fundamentals", "ddd-basics", "schema-design"]
 estimated_reading_time: "25分"
 related_patterns: ["service-patterns", "error-handling-patterns", "validation-patterns"]
-related_docs: ["../02-specifications/03-data-models/00-overview.md", "../01-architecture/02-aggregates.md"]
+related_docs: ["../reference/data-models/overview.md", "../explanations/architecture/aggregates.md"]
 search_keywords:
   primary: ["data-modeling-patterns", "ddd-patterns", "schema-patterns", "domain-modeling"]
   secondary: ["type-safety", "validation-patterns", "aggregate-patterns"]
@@ -40,163 +40,131 @@ DDD設計において、エンティティ（識別子を持つドメインオ�
 
 Effect-TSの`Schema.Struct`とBranded Typesを使用して、エンティティと値オブジェクトを型レベルで区別し、実行時検証を組み込みます。
 
-### Schema定義例
+### Schema定義パターン
+
+> 📚 **Schema定義の詳細**: 基本的なSchema.Struct、Brand型、Player/Positionエンティティの完全な定義は [Schema API リファレンス](../../reference/api/effect-ts-schema-api.md#11-統合パターンライブラリ) を参照してください。
+
+DDD設計におけるEntity/Value Objectパターンでは、以下の原則を適用します：
+
+**値オブジェクトの設計指針**:
+- `Schema.Struct`で不変な構造を定義
+- `Schema.annotations`でドメイン知識を埋め込み
+- バリデーションロジックをスキーマ内に組み込み
+
+**エンティティの設計指針**:
+- Brand型による識別子の型安全性確保
+- `readonly`修飾子による不変性保証
+- ドメインルールのスキーマレベルでの表現
 
 ```typescript
-import { Schema, Brand, Match, pipe, Effect } from "effect";
+// ✅ DDD特化のSchema設計例（具体的な設計パターンのみ記載）
+import { Schema, Brand, Effect } from "effect";
 
-// ✅ Value Objects（値オブジェクト）- Schema.Structで宣言的定義
-const Position = Schema.Struct({
-  x: Schema.Number.pipe(
-    Schema.int(),
-    Schema.greaterThanOrEqualTo(-30_000_000),
-    Schema.lessThanOrEqualTo(30_000_000)
-  ),
-  y: Schema.Number.pipe(
-    Schema.int(),
-    Schema.greaterThanOrEqualTo(-64),
-    Schema.lessThanOrEqualTo(320)
-  ),
-  z: Schema.Number.pipe(
-    Schema.int(),
-    Schema.greaterThanOrEqualTo(-30_000_000),
-    Schema.lessThanOrEqualTo(30_000_000)
+// 基本的なPositionやPlayerSchemaは上記リファレンスを参照
+
+// ✅ ドメイン特化のバリデーションロジック
+const ValidPlayerPosition = Schema.Struct({
+  position: Position,
+  dimension: Schema.Literal("overworld", "nether", "end")
+}).pipe(
+  Schema.filter(
+    ({ position, dimension }) => {
+      // ディメンション別の位置制約
+      if (dimension === "nether" && position.y > 128) return false;
+      if (dimension === "end" && (Math.abs(position.x) > 1000 || Math.abs(position.z) > 1000)) return false;
+      return true;
+    },
+    { message: () => "Position violates dimension constraints" }
   )
+);
+
+// ✅ ドメインルールを含む複合エンティティ
+const PlayerWithInventory = Schema.Struct({
+  player: Player,
+  inventory: InventorySchema,
+  permissions: Schema.Array(Schema.String)
 }).pipe(
-  Schema.annotations({
-    identifier: "Position",
-    title: "3D座標",
-    description: "ワールド内の3次元座標を表現する値オブジェクト"
-  })
+  Schema.filter(
+    ({ player, inventory }) => inventory.ownerId === player.id,
+    { message: () => "Inventory ownership mismatch" }
+  )
 );
-type Position = Schema.Schema.Type<typeof Position>;
-
-const Rotation = Schema.Struct({
-  yaw: Schema.Number.pipe(Schema.between(-180, 180)),
-  pitch: Schema.Number.pipe(Schema.between(-90, 90))
-}).pipe(
-  Schema.annotations({
-    identifier: "Rotation",
-    title: "回転角度",
-    description: "エンティティの向きを表す値オブジェクト"
-  })
-);
-type Rotation = Schema.Schema.Type<typeof Rotation>;
-
-// ✅ Branded Types - Brand.Brand型による意味的な型定義（最新パターン）
-type PlayerId = string & Brand.Brand<"PlayerId">;
-const PlayerId = Schema.String.pipe(
-  Schema.pattern(/^player_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
-  Schema.brand("PlayerId"),
-  Schema.annotations({
-    identifier: "PlayerId",
-    title: "プレイヤーID",
-    description: "プレイヤーを一意に識別するID"
-  })
-);
-
-type EntityId = string & Brand.Brand<"EntityId">;
-const EntityId = Schema.String.pipe(
-  Schema.uuid(),
-  Schema.brand("EntityId"),
-  Schema.annotations({
-    identifier: "EntityId",
-    title: "エンティティID",
-    description: "ゲームエンティティの一意識別子"
-  })
-);
-
-type PlayerName = string & Brand.Brand<"PlayerName">;
-type Health = number & Brand.Brand<"Health">;
-
-// ✅ Entity（エンティティ）- Readonlyによる不変性保証
-const Player = Schema.Struct({
-  readonly id: PlayerId,
-  readonly name: Schema.String.pipe(
-    Schema.minLength(3),
-    Schema.maxLength(16),
-    Schema.pattern(/^[a-zA-Z0-9_]+$/),
-    Schema.brand("PlayerName")
-  ),
-  readonly position: Position,
-  readonly rotation: Rotation,
-  readonly health: Schema.Number.pipe(
-    Schema.between(0, 20),
-    Schema.brand("Health")
-  ),
-  readonly gameMode: Schema.Literal("survival", "creative", "adventure", "spectator")
-}).pipe(
-  Schema.annotations({
-    identifier: "Player",
-    title: "プレイヤーエンティティ",
-    description: "ゲーム内のプレイヤーを表すエンティティ"
-  })
-);
-type Player = Schema.Schema.Type<typeof Player>;
 ```
 
-### 実装例
+### DDD実装の設計パターン
+
+> 📚 **基本的なEffect.genパターン**: 標準的なEffect合成とエラーハンドリングパターンは [Schema API リファレンス](../../reference/api/effect-ts-schema-api.md#111-基本effectgenパターン) を参照してください。
+
+DDDにおけるEntity/Value Objectパターンの実装では、ドメインロジックの表現に焦点を当てます：
 
 ```typescript
-// ✅ 値オブジェクトの操作（純粋関数）- 型安全な数値演算
-const calculateDistance = (from: Position, to: Position): number =>
-  Math.sqrt(
-    Math.pow(to.x - from.x, 2) +
-    Math.pow(to.y - from.y, 2) +
-    Math.pow(to.z - from.z, 2)
-  );
+// ✅ DDDドメインロジックに特化した実装例
+import { Match, pipe, Effect } from "effect";
 
-// ✅ Schema.transformによる値変換の定義
-const PositionDelta = Schema.Struct({
-  readonly deltaX: Schema.Number,
-  readonly deltaY: Schema.Number,
-  readonly deltaZ: Schema.Number
-});
-
-const movePosition = (position: Position, delta: Schema.Schema.Type<typeof PositionDelta>): Position => ({
-  x: position.x + delta.deltaX,
-  y: position.y + delta.deltaY,
-  z: position.z + delta.deltaZ
-});
-
-// ✅ Effect.gen による副作用の分離
-const updatePlayerPosition = (player: Player, newPosition: Position): Effect.Effect<Player, never> =>
+// ドメイン知識：プレイヤーの移動制限
+const validatePlayerMovement = (
+  currentPosition: Position,
+  targetPosition: Position,
+  gameMode: GameMode
+): Effect.Effect<void, MovementViolationError> =>
   Effect.gen(function* () {
-    // 位置の有効性検証
-    const validatedPosition = yield* Schema.decodeUnknown(Position)(newPosition);
+    const distance = calculateDistance(currentPosition, targetPosition);
+    const maxDistance = gameMode === "creative" ? 100 : 10;
 
-    return {
-      ...player,
-      position: validatedPosition
-    };
+    if (distance > maxDistance) {
+      yield* Effect.fail(new MovementViolationError({
+        reason: "Distance exceeds game mode limits",
+        distance,
+        maxDistance,
+        gameMode
+      }));
+    }
   });
 
-// ✅ Schema.filterによる条件付きバリデーション
-const DamageAmount = Schema.Number.pipe(
-  Schema.positive(),
-  Schema.lessThanOrEqualTo(20),
-  Schema.brand("DamageAmount")
-);
-
-const damagePlayer = (player: Player, damage: Schema.Schema.Type<typeof DamageAmount>): Effect.Effect<Player, string> =>
+// ドメインイベント：プレイヤー状態変化の業務ルール
+const applyHealthChange = (player: Player, healthChange: number): Effect.Effect<PlayerStateChanged, HealthChangeError> =>
   Effect.gen(function* () {
-    const newHealth = Math.max(0, player.health - damage) as Health;
+    const newHealth = Math.max(0, Math.min(20, player.health + healthChange));
 
-    // 死亡判定をMatch.valueで処理
-    const status = pipe(
-      newHealth,
-      Match.value,
-      Match.when(0, () => "死亡" as const),
-      Match.when((h) => h <= 5, () => "重傷" as const),
-      Match.orElse(() => "生存" as const)
+    // 死亡による副次的なドメインルール
+    const updatedPlayer = pipe(
+      Match.value(newHealth),
+      Match.when(0, () => ({
+        ...player,
+        health: 0,
+        gameMode: "spectator" as const,
+        position: getRespawnPosition(player.dimension)
+      })),
+      Match.orElse(() => ({ ...player, health: newHealth }))
     );
 
-    yield* Effect.log(`プレイヤー ${player.name} の状態: ${status}`);
+    // ドメインイベントの生成
+    return new PlayerStateChanged({
+      playerId: player.id,
+      previousHealth: player.health,
+      newHealth,
+      gameMode: updatedPlayer.gameMode,
+      timestamp: new Date().toISOString()
+    });
+  });
 
-    return {
-      ...player,
-      health: newHealth
-    };
+// ドメイン集約：複数のエンティティ間の整合性維持
+const transferItemBetweenPlayers = (
+  fromPlayer: Player,
+  toPlayer: Player,
+  itemStack: ItemStack
+): Effect.Effect<[Player, Player], TransferError> =>
+  Effect.gen(function* () {
+    // 集約内の業務ルール検証
+    yield* validateTransferPermissions(fromPlayer, toPlayer);
+    yield* validateItemOwnership(fromPlayer, itemStack);
+    yield* validateInventorySpace(toPlayer, itemStack);
+
+    // トランザクション境界内での状態変更
+    const updatedFromPlayer = removeItemFromInventory(fromPlayer, itemStack);
+    const updatedToPlayer = addItemToInventory(toPlayer, itemStack);
+
+    return [updatedFromPlayer, updatedToPlayer];
   });
 ```
 
@@ -1617,7 +1585,7 @@ type PlayerUpdateError = Data.TaggedEnum.Value<typeof PlayerUpdateError>;
 
 ## 関連ドキュメント
 
-- [Effect-TS利用パターン](../../01-architecture/06-effect-ts-patterns.md) - Effect-TS 3.17+の最新パターン詳細
-- [DDD戦略的設計](../../01-architecture/02-ddd-strategic-design.md) - ドメイン駆動設計の戦略レベル詳細
+- [Effect-TS利用パターン](../explanations/architecture/06-effect-ts-patterns.md) - Effect-TS 3.17+の最新パターン詳細
+- [DDD戦略的設計](../explanations/architecture/02-ddd-strategic-design.md) - ドメイン駆動設計の戦略レベル詳細
 - [サービスパターン](./service-patterns.md) - サービス層の設計パターン
 - [エラーハンドリングパターン](./error-handling-patterns.md) - 型安全なエラーハンドリング

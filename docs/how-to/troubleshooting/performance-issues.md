@@ -7,7 +7,7 @@ tags: ["performance", "troubleshooting", "optimization", "memory-management", "w
 prerequisites: ["performance-fundamentals", "webgl-basics", "effect-ts-intermediate"]
 estimated_reading_time: "40分"
 related_patterns: ["optimization-patterns-latest", "service-patterns"]
-related_docs: ["./debugging-guide.md", "./runtime-errors.md", "../../03-guides/05-comprehensive-testing-strategy.md"]
+related_docs: ["./debugging-guide.md", "./runtime-errors.md", "../testing/comprehensive-testing-strategy.md"]
 status: "complete"
 ---
 

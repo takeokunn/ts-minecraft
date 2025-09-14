@@ -7,7 +7,7 @@ tags: ["testing", "pbt", "property-based-testing", "fast-check", "effect-ts"]
 prerequisites: ["effect-ts-fundamentals", "testing-fundamentals", "functional-programming"]
 estimated_reading_time: "12分"
 related_patterns: ["testing-patterns", "functional-patterns"]
-related_docs: ["../../01-architecture/06d-effect-ts-testing.md", "../../07-pattern-catalog/02-testing-patterns.md"]
+related_docs: ["../explanations/architecture/06d-effect-ts-testing.md", "../../explanations/design-patterns/02-testing-patterns.md"]
 ---
 
 # PBTテスト戦略
@@ -405,8 +405,8 @@ test.prop([
 ## 関連ドキュメント
 
 **テスト関連**:
-- [Effect-TS テスト](../../01-architecture/06d-effect-ts-testing.md) - Effect-TSテストパターン
-- [テストパターン集](../../07-pattern-catalog/02-testing-patterns.md) - テストパターンカタログ
+- [Effect-TS テスト](../explanations/architecture/06d-effect-ts-testing.md) - Effect-TSテストパターン
+- [テストパターン集](../../explanations/design-patterns/02-testing-patterns.md) - テストパターンカタログ
 
 **設計関連**:
 - [アーキテクチャ原則](./00-architecture-principles.md) - 設計原則

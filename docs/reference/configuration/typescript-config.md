@@ -673,7 +673,7 @@ declare global {
 - [TypeScript Module Resolution](https://www.typescriptlang.org/docs/handbook/module-resolution.html)
 
 ### プロジェクト固有
-- [Effect-TSパターン](../../03-guides/06-effect-ts-patterns.md)
-- [Three.js統合ガイド](../../03-guides/10-threejs-integration.md)
-- [型安全性戦略](../../03-guides/03-type-safety-guide.md)
+- [Effect-TSパターン](../../how-to/development/effect-ts-migration-guide.md)
+- [Three.js統合ガイド](../../how-to/development/performance-optimization.md)
+- [型安全性戦略](../../how-to/development/security-best-practices.md)
 - [パフォーマンス最適化](../troubleshooting/performance-issues.md)

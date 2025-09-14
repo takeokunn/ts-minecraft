@@ -26,7 +26,7 @@ TypeScript Minecraft Clone開発で使用する全APIの詳細仕様を体系化
 >
 > - **参照優先**: API仕様はここを最優先で参照してください
 > - **重複削除**: 他のセクションからAPI詳細仕様を削除し、ここへ統合しました
-> - **学習支援**: [チュートリアル](../../tutorials/) では簡略版、[解説](../../explanations/) では設計思想を説明
+> - **学習支援**: [チュートリアル](../../tutorials/README.md) では簡略版、[解説](../../explanations/README.md) では設計思想を説明
 
 ## 🎯 API体系マップ
 
@@ -160,7 +160,7 @@ const PlayerSchema = Schema.Struct({
 interface WorldService {
   readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkError>
 }
-export const WorldService = Context.GenericTag<WorldService>("WorldService")
+export const WorldService = Context.GenericTag<WorldService>("@app/WorldService")
 ```
 
 ### 🥈 **Level 4: 中級API統合**
@@ -238,13 +238,13 @@ const processGameFrame = Effect.gen(function* () {
 ### 🛠️ **実装支援ツール**
 - **[Development Commands](../cli-commands/development-commands.md)** - API開発用CLI
 - **[Testing Commands](../cli-commands/testing-commands.md)** - API検証・テスト
-- **[Configuration](../configuration/)** - API関連設定
-- **[Troubleshooting](../troubleshooting/)** - API問題解決
+- **[Configuration](../configuration/README.md)** - API関連設定
+- **[Troubleshooting](../troubleshooting/README.md)** - API問題解決
 
 ### 🎯 **上級者向けリソース**
-- **[Pattern Catalog](../../07-pattern-catalog/)** - 高度な実装パターン
-- **[Performance Optimization](../../06-examples/04-performance-optimization/)** - パフォーマンス最適化技法
-- **[Architecture Guide](../../01-architecture/)** - システム設計思想
+- **[Pattern Catalog](../../explanations/design-patterns/README.md)** - 高度な実装パターン
+- **[Performance Optimization](../../examples/04-performance-optimization/README.md)** - パフォーマンス最適化技法
+- **[Architecture Guide](../explanations/architecture/README.md)** - システム設計思想
 
 ---
 

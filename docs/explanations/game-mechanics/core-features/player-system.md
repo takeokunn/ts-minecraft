@@ -7,7 +7,7 @@ tags: ["player-system", "entity-management", "state-management", "physics", "inv
 prerequisites: ["effect-ts-fundamentals", "schema-basics", "ddd-concepts"]
 estimated_reading_time: "15分"
 related_patterns: ["data-modeling-patterns", "service-patterns", "error-handling-patterns"]
-related_docs: ["./01-inventory-system.md", "./04-entity-system.md", "../../01-architecture/05-ecs-integration.md"]
+related_docs: ["./01-inventory-system.md", "./04-entity-system.md", "../explanations/architecture/05-ecs-integration.md"]
 ---
 
 # プレイヤーシステム - プレイヤー管理システム
@@ -45,357 +45,99 @@ related_docs: ["./01-inventory-system.md", "./04-entity-system.md", "../../01-ar
 
 ### プレイヤーアグリゲート
 
+プレイヤーシステムは、DDDのアグリゲートパターンを使用してプレイヤーエンティティを管理します。プレイヤーはゲーム内の最も重要な概念の一つであり、位置、統計、インベントリ、装備、権限などの複雑な状態を一貫性を保って管理します。
+
+> **🔗 完全なAPI仕様**: プレイヤーの型定義、インターフェース、実装パターンの詳細は [Game Player API Reference](../../../reference/game-systems/game-player-api.md) を参照してください。
+
+### 主要な設計概念
+
+**アグリゲートルート**:
+プレイヤーエンティティは以下の要素を統合管理します：
+- **基本情報**: ID、名前、作成日時、メタデータ
+- **物理状態**: 位置、回転、速度、物理演算パラメータ
+- **ゲーム統計**: 体力、空腹度、経験値、レベル、防御力
+- **インベントリ**: 45スロットのアイテム管理（36メイン + 9ホットバー）
+- **装備**: 6部位の装備管理（ヘルメット、胴体、脚、足、メイン、オフハンド）
+- **ゲーム状態**: ゲームモード、特殊能力、権限設定
+
+**値オブジェクトパターン**:
+- **Position3D**: 3次元空間での位置（X, Y, Z座標）
+- **Rotation**: プレイヤーの向き（ヨー・ピッチ角度）
+- **PlayerStats**: 体力や空腹度などの統計値
+- **Direction**: 移動方向の入力状態
+
+**ブランド型による型安全性**:
+Effect-TSのブランド型を使用して、IDやインデックスの混同を防ぎます：
 ```typescript
-import { Effect, Layer, Context, Schema, pipe, Match, STM, Ref, Stream } from "effect"
-import { Brand, Option } from "effect"
-
-// 値オブジェクト - 最新のEffect-TSパターン (Schema.Struct使用)
-export const PlayerId = Schema.String.pipe(
-  Schema.pattern(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
-  Schema.brand("PlayerId")
-)
-export type PlayerId = Schema.Schema.Type<typeof PlayerId>
-
-export const PlayerName = Schema.String.pipe(
-  Schema.minLength(3),
-  Schema.maxLength(16),
-  Schema.pattern(/^[a-zA-Z0-9_]+$/),
-  Schema.brand("PlayerName")
-)
-export type PlayerName = Schema.Schema.Type<typeof PlayerName>
-
-export const Experience = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand("Experience")
-)
-export type Experience = Schema.Schema.Type<typeof Experience>
-
-// 座標系の値オブジェクト
-export const Position3D = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number
-})
-export type Position3D = Schema.Schema.Type<typeof Position3D>
-
-export const Rotation = Schema.Struct({
-  yaw: Schema.Number.pipe(Schema.between(-180, 180)),
-  pitch: Schema.Number.pipe(Schema.between(-90, 90))
-})
-export type Rotation = Schema.Schema.Type<typeof Rotation>
-
-export const Velocity3D = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number
-})
-export type Velocity3D = Schema.Schema.Type<typeof Velocity3D>
-
-// プレイヤーステータス - Schema.Structによる型安全な定義
-export const PlayerStats = Schema.Struct({
-  health: pipe(
-    Schema.Number,
-    Schema.between(0, 20),
-    Schema.brand("Health")
-  ),
-  hunger: pipe(
-    Schema.Number,
-    Schema.between(0, 20),
-    Schema.brand("Hunger")
-  ),
-  saturation: pipe(
-    Schema.Number,
-    Schema.between(0, 20),
-    Schema.brand("Saturation")
-  ),
-  experience: Experience,
-  level: pipe(
-    Schema.Number,
-    Schema.int(),
-    Schema.nonNegative(),
-    Schema.brand("Level")
-  ),
-  armor: pipe(
-    Schema.Number,
-    Schema.between(0, 20),
-    Schema.brand("Armor")
-  )
-})
-export type PlayerStats = Schema.Schema.Type<typeof PlayerStats>
-
-// インベントリ
-export const ItemStack = Schema.Struct({
-  itemId: Schema.String.pipe(Schema.brand("ItemId")),
-  count: pipe(Schema.Number, Schema.int(), Schema.between(1, 64)),
-  damage: pipe(Schema.Number, Schema.int(), Schema.between(0, 1000)),
-  enchantments: Schema.Array(
-    Schema.Struct({
-      id: Schema.String,
-      level: pipe(Schema.Number, Schema.int(), Schema.between(1, 5))
-    })
-  ),
-  nbt: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
-})
-
-export type ItemStack = Schema.Schema.Type<typeof ItemStack>
-
-export const Inventory = Schema.Struct({
-  slots: Schema.Array(
-    Schema.Union(ItemStack, Schema.Null)
-  ).pipe(Schema.itemsCount(36)), // 9x4 インベントリスロット
-  hotbar: Schema.Array(
-    Schema.Union(ItemStack, Schema.Null)
-  ).pipe(Schema.itemsCount(9)),
-  selectedSlot: pipe(Schema.Number, Schema.int(), Schema.between(0, 8))
-})
-
-// 装備
-export const Equipment = Schema.Struct({
-  helmet: Schema.Union(ItemStack, Schema.Null),
-  chestplate: Schema.Union(ItemStack, Schema.Null),
-  leggings: Schema.Union(ItemStack, Schema.Null),
-  boots: Schema.Union(ItemStack, Schema.Null),
-  mainHand: Schema.Union(ItemStack, Schema.Null),
-  offHand: Schema.Union(ItemStack, Schema.Null)
-})
-
-// プレイヤーアグリゲートルート
-export const Player = Schema.Struct({
-  id: PlayerId,
-  name: PlayerName,
-  position: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number
-  }),
-  rotation: Schema.Struct({
-    yaw: pipe(Schema.Number, Schema.between(-180, 180)),
-    pitch: pipe(Schema.Number, Schema.between(-90, 90))
-  }),
-  velocity: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number
-  }),
-  stats: PlayerStats,
-  inventory: Inventory,
-  equipment: Equipment,
-  gameMode: Schema.Literal("survival", "creative", "adventure", "spectator"),
-  abilities: Schema.Struct({
-    canFly: Schema.Boolean,
-    isFlying: Schema.Boolean,
-    canBreakBlocks: Schema.Boolean,
-    canPlaceBlocks: Schema.Boolean,
-    invulnerable: Schema.Boolean,
-    walkSpeed: Schema.Number,
-    flySpeed: Schema.Number
-  })
-})
-
-export type Player = Schema.Schema.Type<typeof Player>
+// 例: PlayerId, PlayerName, Experience, Health など
+// 詳細な定義は API リファレンスを参照
 ```
 
 ## プレイヤー移動システム
 
-### 移動サービス
+### 移動の設計原則
 
-```typescript
-// プレイヤー移動サービスインターフェース
-interface PlayerMovementServiceInterface {
-  readonly move: (
-    player: Player,
-    direction: Direction,
-    deltaTime: number
-  ) => Effect.Effect<Player, MovementError>
+プレイヤー移動システムは、リアルタイム性能と物理的な一貫性を両立する高度なシステムです。以下の原則に基づいて設計されています：
 
-  readonly jump: (player: Player) => Effect.Effect<Player, JumpError>
+**物理シミュレーション**:
+- **重力システム**: Minecraft準拠の重力加速度（現実の約2倍）
+- **空気抵抗**: 水平方向の移動に摩擦係数を適用
+- **衝突検出**: ワールドジオメトリとの正確な衝突判定
+- **落下ダメージ**: 落下距離に応じたダメージ計算
 
-  readonly applyPhysics: (
-    player: Player,
-    deltaTime: number
-  ) => Effect.Effect<Player, never>
+**ゲームモード別の動作**:
+- **サバイバル**: 物理法則準拠、空腹度消費あり
+- **クリエイティブ**: 飛行可能、物理制約なし
+- **スペクテイター**: 壁抜け可能、衝突なし
+- **アドベンチャー**: サバイバル同様だが、ブロック操作制限
 
-  readonly checkCollisions: (
-    player: Player,
-    world: World
-  ) => Effect.Effect<CollisionResult, never>
-}
+**パフォーマンス最適化**:
+- **早期リターン**: 不要な計算を避ける条件分岐
+- **バッチ処理**: 複数プレイヤーの一括処理
+- **予測システム**: クライアント側での遅延補償
 
-// Context Tag（最新パターン）
-const PlayerMovementService = Context.GenericTag<PlayerMovementServiceInterface>("@app/PlayerMovementService")
+> **🔗 詳細なAPI実装**: 移動システムの具体的なインターフェース、実装パターン、使用例は [PlayerMovementService API](../../../reference/game-systems/game-player-api.md#playermovementservice---移動物理システム) を参照してください。
 
-// Live実装作成関数 - STMとRefを使った並行状態管理
-const makePlayerMovementService = Effect.gen(function* () {
-  const physics = yield* PhysicsService
-  const collision = yield* CollisionService
-  const playerStateRef = yield* Ref.make(new Map<PlayerId, Player>())
+### 主要な機能
 
-    const move = (player: Player, direction: Direction, deltaTime: number) =>
-      Effect.gen(function* () {
-        // STMによる安全な状態更新
-        return yield* STM.atomically(
-          STM.gen(function* () {
-            // 早期リターン: 移動不可条件をチェック
-            if (player.gameMode === "spectator") {
-              return player
-            }
+**基本移動**:
+- 前後左右の8方向移動
+- スプリント時の速度増加（1.3倍）
+- しゃがみ時の速度減少
+- 空腹度による移動制限
 
-            // ゲームモードによる移動速度調整
-            const speed = player.gameMode === "creative" && player.abilities.isFlying
-              ? player.abilities.flySpeed
-              : player.abilities.walkSpeed
+**ジャンプシステム**:
+- 地面判定による制御
+- ジャンプブーストエフェクト対応
+- エアジャンプ防止
+- 空腹度消費
 
-            // 移動ベクトル計算
-            const moveVector = calculateMoveVector(
-              direction,
-              player.rotation,
-              speed,
-              deltaTime
-            )
-
-            // スプリント判定
-            const isSprinting = direction.sprint && player.stats.hunger > 6
-            const finalSpeed = isSprinting ? speed * 1.3 : speed
-
-            // 新しい位置計算
-            const newPosition = {
-              x: player.position.x + moveVector.x * finalSpeed,
-              y: player.position.y + moveVector.y,
-              z: player.position.z + moveVector.z * finalSpeed
-            }
-
-            // Match パターンで移動結果を決定
-            return Match.value({ isSprinting, player, newPosition, deltaTime }).pipe(
-              Match.when(
-                ({ isSprinting }) => isSprinting,
-                ({ player, newPosition, deltaTime }) => {
-                  const newHunger = Math.max(0, player.stats.hunger - 0.1 * deltaTime)
-                  return {
-                    ...player,
-                    position: newPosition,
-                    stats: { ...player.stats, hunger: newHunger }
-                  }
-                }
-              ),
-              Match.orElse(({ player, newPosition }) => ({ ...player, position: newPosition }))
-            )
-          })
-        )
-      })
-
-    const jump = (player: Player) =>
-      Effect.gen(function* () {
-        // 地面判定
-        const isOnGround = yield* physics.isOnGround(player)
-
-        // 早期リターン: ジャンプ不可条件をチェック
-        if (!isOnGround && player.gameMode !== "creative") {
-          return yield* Effect.fail(new NotOnGroundError())
-        }
-
-        // ジャンプ力計算
-        const jumpVelocity = player.gameMode === "creative"
-          ? 0.5
-          : 0.42 // バニラMinecraftのジャンプ力
-
-        // ジャンプブーストエフェクト考慮
-        const jumpBoost = yield* getJumpBoostLevel(player)
-        const finalJumpVelocity = jumpVelocity * (1 + jumpBoost * 0.1)
-
-        // 空腹度消費
-        const newHunger = Math.max(0, player.stats.hunger - 0.05)
-
-        return {
-          ...player,
-          velocity: {
-            ...player.velocity,
-            y: finalJumpVelocity
-          },
-          stats: {
-            ...player.stats,
-            hunger: newHunger
-          }
-        }
-      })
-
-    const applyPhysics = (player: Player, deltaTime: number) =>
-      Effect.gen(function* () {
-        // 重力適用
-        const gravity = player.gameMode === "creative" && player.abilities.isFlying
-          ? 0
-          : -9.81 * 2 // Minecraftの重力は現実の約2倍
-
-        // 速度更新
-        const newVelocity = {
-          x: player.velocity.x * 0.98, // 空気抵抗
-          y: player.velocity.y + gravity * deltaTime,
-          z: player.velocity.z * 0.98
-        }
-
-        // 位置更新
-        const newPosition = {
-          x: player.position.x + newVelocity.x * deltaTime,
-          y: player.position.y + newVelocity.y * deltaTime,
-          z: player.position.z + newVelocity.z * deltaTime
-        }
-
-        // 衝突検出と解決
-        const collisionResult = yield* collision.checkPlayerCollision(
-          player,
-          newPosition
-        )
-
-        if (collisionResult.hasCollision) {
-          // 衝突時の速度リセット
-          if (collisionResult.axis === "y" && newVelocity.y < 0) {
-            // 落下ダメージ計算
-            const fallDistance = Math.abs(newVelocity.y) * deltaTime
-            if (fallDistance > 3 && player.gameMode === "survival") {
-              const damage = Math.floor(fallDistance - 3)
-              yield* applyFallDamage(player, damage)
-            }
-            newVelocity.y = 0
-          }
-        }
-
-        return {
-          ...player,
-          position: collisionResult.resolvedPosition ?? newPosition,
-          velocity: newVelocity
-        }
-      })
-
-    // 権限チェック関数群
-    const checkMovePermission = (player: Player, direction: Direction) =>
-      Effect.succeed(
-        player.gameMode !== "spectator" || player.abilities.canFly
-      )
-
-    const checkJumpPermission = (player: Player) =>
-      Effect.succeed(
-        player.gameMode !== "spectator"
-      )
-
-    return PlayerMovementService.of({
-      move,
-      jump,
-      applyPhysics,
-      checkCollisions: collision.checkPlayerCollision,
-      checkMovePermission,
-      checkJumpPermission
-    })
-  })
-
-// Live Layer
-export const PlayerMovementServiceLive = Layer.effect(
-  PlayerMovementService,
-  makePlayerMovementService
-)
-```
+**物理演算統合**:
+- フレーム単位での位置更新
+- 速度ベクトルの計算
+- 衝突解決アルゴリズム
+- ワールド境界の制約処理
 
 ## インベントリ管理
 
-### インベントリサービス
+### インベントリ統合設計
+
+プレイヤーシステムでは、インベントリ管理を中核機能として統合しています。プレイヤーのアクションの多くがアイテムの取得・使用・配置に関連するため、密接な連携が必要です。
+
+> **🔗 完全なインベントリAPI**: インベントリシステムの詳細な実装は [Game Inventory API Reference](../../../reference/game-systems/game-inventory-api.md) を参照してください。
+
+### 統合設計の要点
+
+**プレイヤー・インベントリ連携**:
+- プレイヤーアクションからのアイテム操作
+- 装備変更の自動反映
+- ゲームモード制約の適用
+- 権限チェックの統合
+
+**リアルタイム同期**:
+- UI表示との即座同期
+- マルチプレイヤー環境での状態共有
+- クライアント予測と回復処理
 
 ```typescript
 // インベントリサービスインターフェース
@@ -1762,16 +1504,16 @@ export const PlayerCache = Effect.gen(function* () {
 - [入力制御](./18-input-controls.md) - プレイヤー入力処理
 - [エンティティシステム](./04-entity-system.md) - プレイヤーエンティティ統合
 - [ワールド管理システム](./01-world-management-system.md) - ワールドとの相互作用
-- [ECS統合](../../01-architecture/05-ecs-integration.md) - ECSアーキテクチャ詳細
+- [ECS統合](../explanations/architecture/05-ecs-integration.md) - ECSアーキテクチャ詳細
 
 ## 用語集
 
-- **アグリゲート (Aggregate)**: DDDにおけるビジネスルール管理単位 ([詳細](../../04-appendix/00-glossary.md#aggregate))
-- **コンポーネント (Component)**: ECSのデータ管理単位 ([詳細](../../04-appendix/00-glossary.md#component))
-- **Effect (エフェクト)**: Effect-TSの副作用管理 ([詳細](../../04-appendix/00-glossary.md#effect))
-- **エンティティ (Entity)**: ECSの識別子とDDDのドメインオブジェクト ([詳細](../../04-appendix/00-glossary.md#entity))
-- **スキーマ (Schema)**: Effect-TSの型安全なデータ定義 ([詳細](../../04-appendix/00-glossary.md#schema))
-- **システム (System)**: ECSの処理ロジック ([詳細](../../04-appendix/00-glossary.md#system))
+- **アグリゲート (Aggregate)**: DDDにおけるビジネスルール管理単位 ([詳細](../../reference/glossary.md#aggregate))
+- **コンポーネント (Component)**: ECSのデータ管理単位 ([詳細](../../reference/glossary.md#component))
+- **Effect (エフェクト)**: Effect-TSの副作用管理 ([詳細](../../reference/glossary.md#effect))
+- **エンティティ (Entity)**: ECSの識別子とDDDのドメインオブジェクト ([詳細](../../reference/glossary.md#entity))
+- **スキーマ (Schema)**: Effect-TSの型安全なデータ定義 ([詳細](../../reference/glossary.md#schema))
+- **システム (System)**: ECSの処理ロジック ([詳細](../../reference/glossary.md#system))
 
 この実装により、TypeScript Minecraftクローンは高品質で保守可能なプレイヤーシステムを実現できます。
 

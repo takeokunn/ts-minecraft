@@ -764,9 +764,9 @@ describe("Enhanced Features", () => {
 - [Physics System](../core-features/physics-system.md) - 物理エンジンとの統合
 
 **Architecture**:
-- [Overall Design](../../01-architecture/00-overall-design.md) - システム全体設計
-- [Effect-TS Patterns](../../01-architecture/06-effect-ts-patterns.md) - 関数型プログラミングパターン
-- [ECS Integration](../../01-architecture/05-ecs-integration.md) - ECSアーキテクチャとの統合
+- [Overall Design](../explanations/architecture/00-overall-design.md) - システム全体設計
+- [Effect-TS Patterns](../explanations/architecture/06-effect-ts-patterns.md) - 関数型プログラミングパターン
+- [ECS Integration](../explanations/architecture/05-ecs-integration.md) - ECSアーキテクチャとの統合
 
 **Individual Enhanced Features**:
 - [Redstone System](./redstone-system.md) - 回路とメカニクス
@@ -782,9 +782,9 @@ describe("Enhanced Features", () => {
 
 ## Glossary Terms Used
 
-- **Concurrent Processing**: 並行処理による高性能化 ([詳細](../../04-appendix/00-glossary.md#concurrency))
-- **Domain Service (ドメインサービス)**: 複数アグリゲートにまたがるビジネスロジック ([詳細](../../04-appendix/00-glossary.md#domain-service))
-- **Effect (エフェクト)**: Effect-TSの副作用管理型 ([詳細](../../04-appendix/00-glossary.md#effect))
-- **Event Bus (イベントバス)**: ドメインイベントの発行・購読システム ([詳細](../../04-appendix/00-glossary.md#event-bus))
-- **Layer (レイヤー)**: Effect-TSの依存性注入システム ([詳細](../../04-appendix/00-glossary.md#layered-architecture))
-- **Procedural Generation (プロシージャル生成)**: アルゴリズムによる自動コンテンツ生成 ([詳細](../../04-appendix/00-glossary.md#procedural-generation))
+- **Concurrent Processing**: 並行処理による高性能化 ([詳細](../../reference/glossary.md#concurrency))
+- **Domain Service (ドメインサービス)**: 複数アグリゲートにまたがるビジネスロジック ([詳細](../../reference/glossary.md#domain-service))
+- **Effect (エフェクト)**: Effect-TSの副作用管理型 ([詳細](../../reference/glossary.md#effect))
+- **Event Bus (イベントバス)**: ドメインイベントの発行・購読システム ([詳細](../../reference/glossary.md#event-bus))
+- **Layer (レイヤー)**: Effect-TSの依存性注入システム ([詳細](../../reference/glossary.md#layered-architecture))
+- **Procedural Generation (プロシージャル生成)**: アルゴリズムによる自動コンテンツ生成 ([詳細](../../reference/glossary.md#procedural-generation))

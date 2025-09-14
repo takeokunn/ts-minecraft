@@ -18,7 +18,7 @@ related_docs:
   - "../README.md"
 internal_links:
   - "../../architecture/domain-layer-design-principles.md"
-  - "../../../tutorials/basic-game-development/02-domain-layer-architecture.md"
+  - "../../../tutorials/basic-game-development/domain-layer-architecture.md"
 ai_context:
   purpose: "explanation"
   audience: "developers and architects understanding core game systems"
@@ -136,10 +136,10 @@ graph TD
 
 ## 🔗 関連ドキュメント
 
-- **[拡張機能](../enhanced-features/)** - 高度なゲーム機能
-- **[API設計](../02-api-design/)** - システム間通信
-- **[データモデル](../03-data-models/)** - データ構造設計
-- **[アーキテクチャ](../../01-architecture/)** - システム設計思想
+- **[拡張機能](../enhanced-features/README.md)** - 高度なゲーム機能
+- **[API設計](../02-api-design/README.md)** - システム間通信
+- **[データモデル](../03-data-models/README.md)** - データ構造設計
+- **[アーキテクチャ](../explanations/architecture/README.md)** - システム設計思想
 
 ---
 

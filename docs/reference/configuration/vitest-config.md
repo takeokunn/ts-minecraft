@@ -941,6 +941,6 @@ export default defineConfig({
 - [Playwright Integration](https://playwright.dev/docs/test-runners)
 
 ### プロジェクト固有
-- [Effect-TSテストパターン](../../03-guides/07-effect-ts-testing-patterns.md)
-- [テスト戦略ガイド](../../03-guides/02-testing-guide.md)
+- [Effect-TSテストパターン](../../how-to/testing/effect-ts-testing-patterns.md)
+- [テスト戦略ガイド](../../how-to/testing/testing-guide.md)
 - [パフォーマンステスト](../troubleshooting/performance-issues.md)

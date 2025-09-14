@@ -1610,8 +1610,8 @@ const troubleshootingGuide = {
 
 ## 関連項目
 
-- [Effect-TSテストパターン](../../03-guides/07-effect-ts-testing-patterns.md)
-- [包括的テスト戦略](../../03-guides/05-comprehensive-testing-strategy.md)
+- [Effect-TSテストパターン](../../how-to/testing/effect-ts-testing-patterns.md)
+- [包括的テスト戦略](../../how-to/testing/comprehensive-testing-strategy.md)
 - [非同期パターン](./asynchronous-patterns.md)
-- [Effect-TS基礎](../01-architecture/06a-effect-ts-basics.md)
-- [エラーハンドリングパターン](../01-architecture/06c-effect-ts-error-handling.md)
+- [Effect-TS基礎](../explanations/architecture/06a-effect-ts-basics.md)
+- [エラーハンドリングパターン](../explanations/architecture/06c-effect-ts-error-handling.md)

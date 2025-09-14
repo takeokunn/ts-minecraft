@@ -22,8 +22,8 @@ estimated_reading_time: "15分"
 > **📚 前提知識**: Effect-TSパターン、TypeScript型システム
 
 ### 📋 関連ドキュメント
-- **概念説明**: [Effect-TSパターン](../01-architecture/06-effect-ts-patterns.md)
-- **実装ガイド**: [サービス設計](../01-architecture/06b-effect-ts-services.md)
+- **概念説明**: [Effect-TSパターン](../explanations/architecture/06-effect-ts-patterns.md)
+- **実装ガイド**: [サービス設計](../explanations/architecture/06b-effect-ts-services.md)
 - **Schema API**: [Schema API](./effect-ts-schema-api.md)
 
 ---
@@ -347,5 +347,5 @@ interface Layer<ROut, E = never, RIn = never> {
 ## 次のステップ
 
 - **Schema API**: [Schema API リファレンス](./effect-ts-schema-api.md)
-- **実装例**: [サービスパターン](../07-pattern-catalog/01-service-patterns.md)
-- **テスト**: [サービステスト](../03-guides/07-effect-ts-testing-patterns.md)
+- **実装例**: [サービスパターン](../explanations/design-patterns/01-service-patterns.md)
+- **テスト**: [サービステスト](../../how-to/testing/effect-ts-testing-patterns.md)

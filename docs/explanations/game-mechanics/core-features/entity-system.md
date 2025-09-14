@@ -7,7 +7,7 @@ tags: ["entity-system", "ecs-architecture", "ai-behavior", "spawn-system", "stru
 prerequisites: ["effect-ts-fundamentals", "ecs-concepts", "performance-optimization"]
 estimated_reading_time: "20分"
 related_patterns: ["optimization-patterns", "state-machine-patterns", "ecs-patterns"]
-related_docs: ["./02-player-system.md", "./06-physics-system.md", "../../01-architecture/05-ecs-integration.md"]
+related_docs: ["./02-player-system.md", "./06-physics-system.md", "../explanations/architecture/05-ecs-integration.md"]
 ---
 
 # エンティティシステム - エンティティ管理システム

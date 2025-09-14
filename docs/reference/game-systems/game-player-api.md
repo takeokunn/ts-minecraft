@@ -1,49 +1,401 @@
 ---
 title: "Game Player API Reference"
-description: "TypeScript Minecraftクローンのプレイヤー管理APIリファレンス。実装者向けの完全なAPI仕様書。"
+description: "TypeScript Minecraft Clone プレイヤー管理システムの完全APIリファレンス。Effect-TS 3.17+による型安全なプレイヤー操作、移動、インベントリ、戦闘システムの実装者向けガイド。"
 category: "reference"
-difficulty: "intermediate"
-tags: ["typescript", "minecraft", "api", "player", "reference"]
-prerequisites: ["effect-ts-basics", "domain-driven-design"]
-estimated_reading_time: "25分"
+difficulty: "advanced"
+tags: ["api-reference", "player-management", "effect-ts", "domain-api", "game-player"]
+prerequisites: ["effect-ts-fundamentals", "player-system-basics", "ddd-architecture", "ecs-patterns"]
+estimated_reading_time: "45分"
+related_patterns: ["service-patterns", "state-management-patterns", "domain-patterns"]
+related_docs: ["../../explanations/game-mechanics/core-features/player-system.md", "./game-inventory-api.md", "../api/domain-apis.md"]
+search_keywords:
+  primary: ["player-api", "minecraft-player", "player-management", "game-api"]
+  secondary: ["player-movement", "player-stats", "player-actions"]
+  context: ["minecraft-development", "game-programming", "api-reference"]
 ---
 
 
-# Player Management API Reference
+# Game Player API Reference
 
-## 概要
+TypeScript Minecraft Clone プレイヤー管理システムの完全APIリファレンスです。Effect-TS 3.17+とDDDパターンを活用した高性能プレイヤーシステムの実装ガイド。
 
-TypeScript Minecraftクローンのプレイヤー管理システムの完全なAPIリファレンスです。Effect-TS 3.17+とDDDパターンを使用し、型安全で関数型プログラミングに適したプレイヤー操作APIを提供します。
+## 📋 概要
+
+プレイヤー管理システムは以下の機能を提供します：
+
+- **プレイヤー基本操作**: エンティティの作成・更新・削除・検索
+- **移動・物理システム**: 3D移動、ジャンプ、物理演算、衝突検出
+- **インベントリ統合**: アイテム管理、装備着脱、クラフト処理
+- **アクション処理**: ブロック配置/破壊、アイテム使用、攻撃
+- **体力・生存システム**: HP、空腹度、経験値、自然回復
+- **マルチプレイヤー同期**: ネットワーク同期、予測、補間
+- **ECS統合**: 高性能なコンポーネントベースアーキテクチャ
+- **入力処理**: キーボード・マウス入力の統合ハンドリング
 
 ### システム全体像
 
-プレイヤー管理システムは以下の主要コンポーネントで構成されています：
+プレイヤー管理システムは以下の主要サービスで構成されています：
 
-- **Player Domain Service**: プレイヤーエンティティの基本操作
-- **Player Movement Service**: 移動・物理演算処理
-- **Player Inventory Service**: インベントリ・装備管理
-- **Player Action Processor**: プレイヤーアクション統合処理
-- **Player Health System**: 体力・空腹度管理
-- **Player Sync Service**: マルチプレイヤー同期
+- **PlayerService**: プレイヤーエンティティの基本CRUD操作
+- **PlayerMovementService**: 移動・物理演算・衝突検出
+- **PlayerActionProcessor**: プレイヤーアクションの統合処理
+- **HealthSystem**: 体力・空腹度・回復システム
+- **PlayerSyncService**: マルチプレイヤー同期・予測
+- **InputService**: 入力イベントの処理・変換
+- **PlayerECSSystem**: ECS統合・高性能処理
 
-## 主要インターフェース
+> **🔗 概念的理解**: プレイヤーシステムの設計思想と詳細な実装パターンは [Player System Specification](../../explanations/game-mechanics/core-features/player-system.md) を参照してください。
 
-### IPlayerService - プレイヤー基本操作
+## 📊 データ構造
+
+### コア型定義
+
+```typescript
+import { Effect, Layer, Context, Schema, pipe, Match, STM, Ref, Stream } from "effect"
+import { Brand, Option } from "effect"
+
+// ブランド型定義（型安全性確保）
+export const PlayerId = Schema.String.pipe(
+  Schema.pattern(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
+  Schema.brand("PlayerId")
+)
+export type PlayerId = Schema.Schema.Type<typeof PlayerId>
+
+export const PlayerName = Schema.String.pipe(
+  Schema.minLength(3),
+  Schema.maxLength(16),
+  Schema.pattern(/^[a-zA-Z0-9_]+$/),
+  Schema.brand("PlayerName")
+)
+export type PlayerName = Schema.Schema.Type<typeof PlayerName>
+
+export const Experience = Schema.Number.pipe(
+  Schema.nonNegative(),
+  Schema.brand("Experience")
+)
+export type Experience = Schema.Schema.Type<typeof Experience>
+```
+
+### 座標・物理系
+
+```typescript
+// 座標系の値オブジェクト
+export const Position3D = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number
+})
+export type Position3D = Schema.Schema.Type<typeof Position3D>
+
+export const Rotation = Schema.Struct({
+  yaw: Schema.Number.pipe(Schema.between(-180, 180)),
+  pitch: Schema.Number.pipe(Schema.between(-90, 90))
+})
+export type Rotation = Schema.Schema.Type<typeof Rotation>
+
+export const Velocity3D = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number
+})
+export type Velocity3D = Schema.Schema.Type<typeof Velocity3D>
+```
+
+### プレイヤー統計・状態
+
+```typescript
+// プレイヤーステータス - Schema.Structによる型安全な定義
+export const PlayerStats = Schema.Struct({
+  health: pipe(
+    Schema.Number,
+    Schema.between(0, 20),
+    Schema.brand("Health")
+  ),
+  hunger: pipe(
+    Schema.Number,
+    Schema.between(0, 20),
+    Schema.brand("Hunger")
+  ),
+  saturation: pipe(
+    Schema.Number,
+    Schema.between(0, 20),
+    Schema.brand("Saturation")
+  ),
+  experience: Experience,
+  level: pipe(
+    Schema.Number,
+    Schema.int(),
+    Schema.nonNegative(),
+    Schema.brand("Level")
+  ),
+  armor: pipe(
+    Schema.Number,
+    Schema.between(0, 20),
+    Schema.brand("Armor")
+  )
+})
+export type PlayerStats = Schema.Schema.Type<typeof PlayerStats>
+```
+
+### プレイヤーアグリゲート（ルート）
+
+```typescript
+// プレイヤーアグリゲートルート - 完全なプレイヤー表現
+export const Player = Schema.Struct({
+  id: PlayerId,
+  name: PlayerName,
+  position: Position3D,
+  rotation: Rotation,
+  velocity: Velocity3D,
+  stats: PlayerStats,
+  inventory: Schema.reference(() => Inventory), // 循環参照回避
+  equipment: Schema.reference(() => Equipment),
+  gameMode: Schema.Literal("survival", "creative", "adventure", "spectator"),
+  abilities: Schema.Struct({
+    canFly: Schema.Boolean,
+    isFlying: Schema.Boolean,
+    canBreakBlocks: Schema.Boolean,
+    canPlaceBlocks: Schema.Boolean,
+    invulnerable: Schema.Boolean,
+    walkSpeed: Schema.Number,
+    flySpeed: Schema.Number
+  }),
+  metadata: Schema.Struct({
+    createdAt: Schema.DateTimeUtc,
+    lastActive: Schema.DateTimeUtc,
+    playTime: Schema.Number.pipe(Schema.nonNegative())
+  })
+})
+export type Player = Schema.Schema.Type<typeof Player>
+```
+
+### 移動・アクション関連
+
+```typescript
+// 移動方向定義
+export const Direction = Schema.Struct({
+  forward: Schema.Boolean,
+  backward: Schema.Boolean,
+  left: Schema.Boolean,
+  right: Schema.Boolean,
+  jump: Schema.Boolean,
+  sneak: Schema.Boolean,
+  sprint: Schema.Boolean
+})
+export type Direction = Schema.Schema.Type<typeof Direction>
+
+// プレイヤーアクション（Tagged Union）
+export const PlayerAction = Schema.Union(
+  Schema.Struct({
+    _tag: Schema.Literal("Move"),
+    direction: Direction,
+    deltaTime: Schema.Number.pipe(Schema.positive())
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("Jump")
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("Attack"),
+    target: Schema.String.pipe(Schema.brand("EntityId"))
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("UseItem"),
+    item: Schema.reference(() => ItemStack),
+    target: Schema.optional(Position3D)
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("PlaceBlock"),
+    position: Position3D,
+    face: Schema.Literal("top", "bottom", "north", "south", "east", "west")
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("BreakBlock"),
+    position: Position3D
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("OpenContainer"),
+    position: Position3D
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("DropItem"),
+    slotIndex: Schema.Number.pipe(Schema.int(), Schema.between(0, 44)),
+    count: Schema.Number.pipe(Schema.int(), Schema.positive())
+  })
+)
+export type PlayerAction = Schema.Schema.Type<typeof PlayerAction>
+```
+
+## 🏗️ 主要インターフェース
+
+### PlayerService - プレイヤー基本操作
 
 ```typescript
 import { Effect, Context, Schema } from "effect"
 
-// プレイヤーサービスインターフェース
-export interface IPlayerService {
+export interface PlayerService {
+  // プレイヤー基本操作
   readonly create: (params: Schema.Schema.Type<typeof CreatePlayerParams>) => Effect.Effect<Player, PlayerCreationError>
   readonly findById: (playerId: PlayerId) => Effect.Effect<Player, PlayerNotFoundError>
   readonly updatePosition: (params: Schema.Schema.Type<typeof UpdatePositionParams>) => Effect.Effect<Player, InvalidMovementError>
   readonly updateStats: (params: Schema.Schema.Type<typeof UpdateStatsParams>) => Effect.Effect<Player, PlayerUpdateError>
+  readonly updateGameMode: (playerId: PlayerId, gameMode: Schema.Schema.Type<typeof GameMode>) => Effect.Effect<Player, PlayerUpdateError>
   readonly delete: (playerId: PlayerId) => Effect.Effect<void, PlayerNotFoundError>
+
+  // インベントリ統合操作
+  readonly addItem: (playerId: PlayerId, item: Schema.Schema.Type<typeof ItemStack>) => Effect.Effect<boolean, InventoryError>
+  readonly removeItem: (playerId: PlayerId, slot: number, quantity?: number) => Effect.Effect<ItemStack | null, InventoryError>
+  readonly swapItems: (playerId: PlayerId, slot1: number, slot2: number) => Effect.Effect<void, InventoryError>
+
+  // 体力・状態管理
+  readonly heal: (playerId: PlayerId, amount: number) => Effect.Effect<Player, never>
+  readonly damage: (playerId: PlayerId, amount: number, source: DamageSource) => Effect.Effect<Player, PlayerDeathError>
+  readonly feed: (playerId: PlayerId, food: number, saturation: number) => Effect.Effect<Player, never>
+  readonly addExperience: (playerId: PlayerId, amount: number) => Effect.Effect<Player, never>
+
+  // クエリ・検索
+  readonly findNearbyPlayers: (center: Position3D, radius: number) => Effect.Effect<ReadonlyArray<Player>, never>
+  readonly getPlayerCount: () => Effect.Effect<number, never>
+  readonly validatePlayerName: (name: string) => Effect.Effect<boolean, ValidationError>
 }
 
-// Context Tag定義（Effect-TS 3.17+最新パターン）
-export const PlayerService = Context.GenericTag<IPlayerService>("@app/PlayerService")
+export const PlayerService = Context.GenericTag<PlayerService>("@app/PlayerService")
+```
+
+### PlayerMovementService - 移動・物理システム
+
+```typescript
+export interface PlayerMovementService {
+  readonly move: (
+    player: Player,
+    direction: Direction,
+    deltaTime: number
+  ) => Effect.Effect<Player, MovementError>
+
+  readonly jump: (player: Player) => Effect.Effect<Player, JumpError>
+
+  readonly applyPhysics: (
+    player: Player,
+    deltaTime: number
+  ) => Effect.Effect<Player, never>
+
+  readonly checkCollisions: (
+    player: Player,
+    world: World
+  ) => Effect.Effect<CollisionResult, never>
+
+  readonly teleport: (
+    player: Player,
+    destination: Position3D
+  ) => Effect.Effect<Player, TeleportError>
+}
+
+export const PlayerMovementService = Context.GenericTag<PlayerMovementService>("@app/PlayerMovementService")
+```
+
+### PlayerActionProcessor - アクション処理
+
+```typescript
+export interface PlayerActionProcessor {
+  readonly process: (
+    player: Player,
+    action: PlayerAction
+  ) => Effect.Effect<Player, ActionError>
+
+  readonly validateAction: (
+    player: Player,
+    action: PlayerAction
+  ) => Effect.Effect<boolean, ValidationError>
+
+  readonly getActionCooldown: (
+    player: Player,
+    actionType: string
+  ) => Effect.Effect<number, never>
+}
+
+export const PlayerActionProcessor = Context.GenericTag<PlayerActionProcessor>("@app/PlayerActionProcessor")
+```
+
+### HealthSystem - 体力・生存システム
+
+```typescript
+export interface HealthSystem {
+  readonly damage: (
+    player: Player,
+    amount: number,
+    source: DamageSource
+  ) => Effect.Effect<Player, PlayerDeathError>
+
+  readonly heal: (
+    player: Player,
+    amount: number
+  ) => Effect.Effect<Player, never>
+
+  readonly updateHunger: (
+    player: Player,
+    deltaTime: number
+  ) => Effect.Effect<Player, never>
+
+  readonly regenerate: (
+    player: Player,
+    deltaTime: number
+  ) => Effect.Effect<Player, never>
+
+  readonly applyStatusEffects: (
+    player: Player,
+    effects: ReadonlyArray<StatusEffect>
+  ) => Effect.Effect<Player, never>
+}
+
+export const HealthSystem = Context.GenericTag<HealthSystem>("@app/HealthSystem")
+```
+
+### InputService - 入力処理
+
+```typescript
+export interface InputService {
+  readonly processInput: (
+    events: ReadonlyArray<InputEvent>
+  ) => Effect.Effect<InputState, never>
+
+  readonly getMovementDirection: (
+    state: InputState
+  ) => Effect.Effect<Direction, never>
+
+  readonly getMouseLook: (
+    state: InputState,
+    sensitivity: number
+  ) => Effect.Effect<{ deltaYaw: number; deltaPitch: number }, never>
+}
+
+export const InputService = Context.GenericTag<InputService>("@app/InputService")
+```
+
+### PlayerSyncService - マルチプレイヤー同期
+
+```typescript
+export interface PlayerSyncService {
+  readonly sendPlayerUpdate: (
+    player: Player
+  ) => Effect.Effect<void, NetworkError>
+
+  readonly receivePlayerUpdates: () => Effect.Effect<
+    ReadonlyArray<PlayerSyncData>,
+    NetworkError
+  >
+
+  readonly interpolatePlayerPosition: (
+    playerId: PlayerId,
+    currentTime: number
+  ) => Effect.Effect<Option.Option<Position3D>, never>
+
+  readonly predictPlayerMovement: (
+    player: Player,
+    input: InputState,
+    deltaTime: number
+  ) => Effect.Effect<Player, never>
+}
+
+export const PlayerSyncService = Context.GenericTag<PlayerSyncService>("@app/PlayerSyncService")
 
 // Layerベース実装パターン
 export const PlayerServiceLive = Layer.effect(
@@ -1633,10 +1985,10 @@ export const MinecraftApp = Effect.gen(function* () {
 
 ## 用語集
 
-- **Aggregate (アグリゲート)**: DDDにおけるビジネスルール管理単位 ([詳細](../04-appendix/00-glossary.md#aggregate))
-- **Effect (エフェクト)**: Effect-TSの副作用管理型 ([詳細](../04-appendix/00-glossary.md#effect))
-- **Entity Component System (ECS)**: ゲーム開発アーキテクチャ ([詳細](../04-appendix/00-glossary.md#ecs))
-- **Schema (スキーマ)**: Effect-TSの型安全なデータ定義 ([詳細](../04-appendix/00-glossary.md#schema))
-- **Service (サービス)**: ビジネスロジックを含むオブジェクト ([詳細](../04-appendix/00-glossary.md#service))
+- **Aggregate (アグリゲート)**: DDDにおけるビジネスルール管理単位 ([詳細](../reference/glossary.md#aggregate))
+- **Effect (エフェクト)**: Effect-TSの副作用管理型 ([詳細](../reference/glossary.md#effect))
+- **Entity Component System (ECS)**: ゲーム開発アーキテクチャ ([詳細](../reference/glossary.md#ecs))
+- **Schema (スキーマ)**: Effect-TSの型安全なデータ定義 ([詳細](../reference/glossary.md#schema))
+- **Service (サービス)**: ビジネスロジックを含むオブジェクト ([詳細](../reference/glossary.md#service))
 
 このAPIリファレンスにより、TypeScript Minecraftクローンの実装者は型安全で保守性の高いプレイヤー管理システムを構築できます。

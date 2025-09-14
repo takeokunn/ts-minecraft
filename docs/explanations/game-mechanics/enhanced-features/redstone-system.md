@@ -1837,8 +1837,8 @@ export const RedstoneProductionLayer = Layer.mergeAll(
 - [Entity System](../core-features/entity-system.md) - 可動部品とメカニクス
 
 **Architecture Integration**:
-- [Effect-TS Patterns](../../01-architecture/06-effect-ts-patterns.md) - STMとConcurrent処理
-- [ECS Integration](../../01-architecture/05-ecs-integration.md) - レッドストーンコンポーネント
+- [Effect-TS Patterns](../explanations/architecture/06-effect-ts-patterns.md) - STMとConcurrent処理
+- [ECS Integration](../explanations/architecture/05-ecs-integration.md) - レッドストーンコンポーネント
 - [Event Bus Specification](../02-api-design/02-event-bus-specification.md) - 回路イベント管理
 
 **Enhanced Features**:
@@ -1847,9 +1847,9 @@ export const RedstoneProductionLayer = Layer.mergeAll(
 
 ## Glossary Terms Used
 
-- **Concurrent Processing**: 並行処理による信号計算 ([詳細](../../04-appendix/00-glossary.md#concurrent))
-- **Component (コンポーネント)**: ECSにおけるレッドストーンデータ ([詳細](../../04-appendix/00-glossary.md#component))
-- **Effect (エフェクト)**: Effect-TSの副作用管理型 ([詳細](../../04-appendix/00-glossary.md#effect))
-- **Schema (スキーマ)**: レッドストーン回路の型定義 ([詳細](../../04-appendix/00-glossary.md#schema))
+- **Concurrent Processing**: 並行処理による信号計算 ([詳細](../../reference/glossary.md#concurrent))
+- **Component (コンポーネント)**: ECSにおけるレッドストーンデータ ([詳細](../../reference/glossary.md#component))
+- **Effect (エフェクト)**: Effect-TSの副作用管理型 ([詳細](../../reference/glossary.md#effect))
+- **Schema (スキーマ)**: レッドストーン回路の型定義 ([詳細](../../reference/glossary.md#schema))
 
 このRedstone Systemは、Minecraftの複雑な電子回路システムを高性能でスケーラブルな方法で実装します。Effect-TSの並行処理機能とSTMを活用することで、リアルタイムでの大規模回路シミュレーションを実現し、デバッグ・可視化機能、MOD対応、さらには理論的な量子回路やニューラルネットワークまで拡張可能な柔軟なアーキテクチャを提供します。プレイヤーには豊富な創造的表現の機会と、高度なエンジニアリング体験を提供します。

@@ -7,7 +7,7 @@ tags: ["block-system", "registry", "state-management", "block-interactions", "ph
 prerequisites: ["effect-ts-fundamentals", "schema-basics", "value-object-patterns"]
 estimated_reading_time: "12分"
 related_patterns: ["data-modeling-patterns", "optimization-patterns", "registry-patterns"]
-related_docs: ["./07-chunk-system.md", "./05-rendering-system.md", "../../01-architecture/05-ecs-integration.md"]
+related_docs: ["./07-chunk-system.md", "./05-rendering-system.md", "../explanations/architecture/05-ecs-integration.md"]
 ---
 
 # ブロックシステム - ブロック管理システム
@@ -15,6 +15,8 @@ related_docs: ["./07-chunk-system.md", "./05-rendering-system.md", "../../01-arc
 ## 概要
 
 ブロックシステムは、TypeScript Minecraftクローンの基本要素であるブロックの完全な管理システムです。Effect-TS 3.17+の最新パターン（Schema.Struct、@app/ServiceNameネームスペース）とDDDの値オブジェクトパターンを活用し、400+種類のブロックを純粋関数型で管理します。
+
+> **🔗 完全なAPI仕様**: ブロックシステムの詳細な型定義、インターフェース、実装パターンは [Game Block API Reference](../../../reference/game-systems/game-block-api.md) を参照してください。
 
 本システムは以下の機能を提供します：
 - **ブロックレジストリ**: バニラMinecraft互換の400+ブロック定義

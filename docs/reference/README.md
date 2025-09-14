@@ -1,17 +1,48 @@
-# 📖 Reference - 情報指向ドキュメント
+---
+title: "リファレンス概要 - 情報指向専用ドキュメント"
+description: "API、設定、仕様の包括的・体系的情報を辞書形式で提供。検索性と正確性を重視した技術情報集約。"
+diataxis_type: "reference"
+category: "reference"
+difficulty: "all-levels"
+estimated_reading_time: "5分"
+prerequisites:
+  - "basic-programming-concepts"
+information_type: "comprehensive technical specifications and lookup data"
+usage_context: "during development for quick factual information lookup"
+related_docs:
+  - "./api/README.md"
+  - "./configuration/README.md"
+  - "./game-systems/README.md"
+  - "./cli/README.md"
+internal_links:
+  - "../tutorials/README.md"
+  - "../how-to/README.md"
+  - "../explanations/README.md"
+tags: ["reference", "api", "specifications", "lookup", "factual-information", "technical-details"]
+ai_context:
+  purpose: "reference"
+  audience: "developers seeking factual technical information and specifications"
+  key_concepts: ["comprehensive specifications", "lookup information", "factual accuracy", "systematic organization"]
+machine_readable: true
+---
 
-このセクションは**情報指向**のドキュメントです。技術仕様、API詳細、設定オプションなど辞書的な情報を体系的に提供します。
+# 📖 Reference - 情報指向専用ドキュメント
 
-## 🎯 このセクションの目的
+**🎯 単一責務**: 正確な技術情報の体系的提供のみに特化
 
-- API仕様の詳細な説明
-- 設定ファイルの完全なオプション一覧
-- ゲームシステムの技術仕様
-- CLI コマンドの詳細な使用方法
+技術仕様、API詳細、設定オプションの辞書的・検索可能な情報を専門的に提供する専用セクション。開発時の正確なリファレンスとしての役割に完全特化。
+
+## 🎯 このセクションの単一責務
+
+**技術情報提供のみに特化した構成:**
+- API仕様・シグネチャの完全・正確な詳細記述
+- 設定ファイル・オプションの網羅的一覧と仕様
+- ゲームシステム技術仕様の辞書的・検索可能な整理
+- CLIコマンド詳細・引数・オプションの完全仕様
 
 ## 📚 リファレンス分類
 
-### 🔌 [API](./api/)
+### 🔌 [API](./api/README.md)
 **プログラムインターフェースの詳細仕様**
 
 - [コアAPI](./api/core-apis.md)
@@ -27,7 +58,7 @@
 
 - [アーキテクチャパターン集](./architecture-patterns.md) - DDD・ECS・Effect-TS統合パターン
 
-### ⚙️ [Configuration](./configuration/)
+### ⚙️ [Configuration](./configuration/README.md)
 **設定ファイルとオプション詳細**
 
 - [ビルド設定](./configuration/build-config.md)
@@ -38,7 +69,7 @@
 - [プロジェクト設定](./configuration/project-config.md)
 - [パッケージ設定](./configuration/package-json.md)
 
-### 🎮 [Game Systems](./game-systems/)
+### 🎮 [Game Systems](./game-systems/README.md)
 **ゲームシステムの技術仕様**
 
 - [ワールドAPI](./game-systems/game-world-api.md)
@@ -59,13 +90,13 @@
 
 - [セキュリティガイドライン](./security-guidelines.md) - 包括的セキュリティベストプラクティス
 
-### 💻 [CLI](./cli/)
+### 💻 [CLI](./cli/README.md)
 **コマンドラインインターフェース詳細**
 
 - [開発コマンド](./cli/development-commands.md)
 - [テストコマンド](./cli/testing-commands.md)
 
-### 🔧 [Troubleshooting](./troubleshooting/)
+### 🔧 [Troubleshooting](./troubleshooting/README.md)
 **問題解決とデバッグ**
 
 - [パフォーマンス診断](./troubleshooting/performance-diagnostics.md) - 実践的問題解決リファレンス
@@ -81,9 +112,9 @@
 
 ## 🔗 関連セクション
 
-- **[Tutorials](../tutorials/)**: 基礎的な使い方を学ぶ
-- **[How-to Guides](../how-to/)**: 実践的な問題解決方法
-- **[Explanations](../explanations/)**: 設計背景と理論的説明
+- **[Tutorials](../tutorials/README.md)**: 基礎的な使い方を学ぶ
+- **[How-to Guides](../how-to/README.md)**: 実践的な問題解決方法
+- **[Explanations](../explanations/README.md)**: 設計背景と理論的説明
 
 ---
 

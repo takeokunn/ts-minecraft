@@ -25,8 +25,8 @@ Effect-TS 3.17+の最新パターンを活用し、DDD + ECS アーキテクチ�
 > **📚 API学習アプローチ**: このチュートリアルでは学習に必要な**基本APIのみ**を紹介します
 >
 > - **簡略化**: 理解しやすさを優先した最小限のAPI仕様
-> - **完全版**: 全API仕様は [API Reference](../../reference/api/) で確認
-> - **設計理由**: アーキテクチャの判断基準は [Explanations](../../explanations/) で解説
+> - **完全版**: 全API仕様は [API Reference](../../reference/api/README.md) で確認
+> - **設計理由**: アーキテクチャの判断基準は [Explanations](../../explanations/README.md) で解説
 
 ## 🎯 チュートリアル概要
 
@@ -1545,4 +1545,4 @@ interface AdvancedFeatures {
 
 *📍 現在のドキュメント階層*: **[Home](../../README.md)** → **[Tutorials](../README.md)** → **基本ゲーム開発**
 
-*🔗 関連リソース*: [Getting Started](../getting-started/) • [Effect-TS Fundamentals](../effect-ts-fundamentals/) • [Development Guide](../../how-to/development/) • [Architecture](../../explanations/architecture/)
+*🔗 関連リソース*: [Getting Started](../getting-started/README.md) • [Effect-TS Fundamentals](../effect-ts-fundamentals/README.md) • [Development Guide](../../how-to/development/README.md) • [Architecture](../../explanations/architecture/README.md)

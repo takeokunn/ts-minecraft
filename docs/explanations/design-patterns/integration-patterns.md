@@ -1,6 +1,7 @@
 ---
 title: "07 Integration Patterns"
 description: "07 Integration Patternsに関する詳細な説明とガイド。"
+ai_context: "System integration patterns using Effect-TS for service-to-service communication, external system integration, and data persistence"
 category: "reference"
 difficulty: "advanced"
 tags: ["typescript", "minecraft"]

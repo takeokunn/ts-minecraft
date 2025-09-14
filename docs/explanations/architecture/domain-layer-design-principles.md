@@ -219,7 +219,7 @@ const program = Effect.provide(gameLogic, WorldServiceLive) // or WorldServiceTe
 ### API仕様参照
 - **[Domain APIs Complete Reference](../../reference/api/domain-apis.md)** - 完全API仕様
 - **[Core APIs](../../reference/api/core-apis.md)** - Effect-TS基盤API
-- **[Game Systems](../../reference/game-systems/)** - ゲームシステム仕様
+- **[Game Systems](../../reference/game-systems/README.md)** - ゲームシステム仕様
 
 ### 実装ガイド
 - **[Service Implementation Tutorial](../../tutorials/basic-game-development/application-services.md)** - 実装チュートリアル

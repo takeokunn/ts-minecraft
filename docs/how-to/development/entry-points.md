@@ -7,7 +7,7 @@ tags: ["entry-points", "startup", "effect-ts", "architecture", "web-workers", "i
 prerequisites: ["basic-typescript", "effect-ts-fundamentals", "development-conventions"]
 estimated_reading_time: "15分"
 related_patterns: ["service-patterns-catalog", "error-handling-patterns"]
-related_docs: ["./00-development-conventions.md", "../01-architecture/00-overall-design.md"]
+related_docs: ["./00-development-conventions.md", "../explanations/architecture/00-overall-design.md"]
 ---
 
 # エントリーポイント・起動フロー実践ガイド

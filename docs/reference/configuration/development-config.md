@@ -1415,4 +1415,4 @@ if (import.meta.env.DEV && process.env.DEVENV_ROOT) {
 ### プロジェクト固有
 - [デバッグガイド](../troubleshooting/debugging-guide.md)
 - [パフォーマンス最適化](../troubleshooting/performance-issues.md)
-- [開発ガイド](../../03-guides/01-development-setup.md)
+- [開発ガイド](../../how-to/development/README.md)

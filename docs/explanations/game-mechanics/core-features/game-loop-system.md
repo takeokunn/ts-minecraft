@@ -7,7 +7,7 @@ tags: ["game-loop", "performance", "frame-management", "fixed-timestep", "concur
 prerequisites: ["effect-ts-fundamentals", "concurrent-patterns", "performance-optimization"]
 estimated_reading_time: "15分"
 related_patterns: ["concurrent-patterns", "optimization-patterns", "system-integration-patterns"]
-related_docs: ["./05-rendering-system.md", "./06-physics-system.md", "../../01-architecture/06-effect-ts-patterns.md"]
+related_docs: ["./05-rendering-system.md", "./06-physics-system.md", "../explanations/architecture/06-effect-ts-patterns.md"]
 ---
 
 # ゲームループシステム

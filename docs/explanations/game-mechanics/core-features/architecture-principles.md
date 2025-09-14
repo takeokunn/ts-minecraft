@@ -7,7 +7,7 @@ tags: ["architecture", "effect-ts", "ecs", "design-principles"]
 prerequisites: ["effect-ts-fundamentals", "ecs-basics"]
 estimated_reading_time: "10分"
 related_patterns: ["service-patterns", "data-modeling-patterns"]
-related_docs: ["../../01-architecture/05-ecs-integration.md", "../../01-architecture/06-effect-ts-patterns.md"]
+related_docs: ["../explanations/architecture/05-ecs-integration.md", "../explanations/architecture/06-effect-ts-patterns.md"]
 ---
 
 # アーキテクチャ原則
@@ -294,9 +294,9 @@ const handleCoreError = (error: CoreSystemError) =>
 ## 関連ドキュメント
 
 **設計関連**:
-- [DDD戦略的設計](../../01-architecture/02-ddd-strategic-design.md) - 境界づけられたコンテキスト
-- [ECS統合](../../01-architecture/05-ecs-integration.md) - ECSアーキテクチャ詳細
-- [Effect-TSパターン](../../01-architecture/06-effect-ts-patterns.md) - 関数型パターン集
+- [DDD戦略的設計](../explanations/architecture/02-ddd-strategic-design.md) - 境界づけられたコンテキスト
+- [ECS統合](../explanations/architecture/05-ecs-integration.md) - ECSアーキテクチャ詳細
+- [Effect-TSパターン](../explanations/architecture/06-effect-ts-patterns.md) - 関数型パターン集
 
 **実装関連**:
 - [PBTテスト戦略](./00-pbt-testing-strategy.md) - Property-Based Testing

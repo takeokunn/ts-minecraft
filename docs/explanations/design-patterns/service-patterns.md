@@ -16,7 +16,7 @@ related_docs:
   - "./error-handling-patterns.md"
   - "./data-modeling-patterns.md"
 internal_links:
-  - "../../../tutorials/basic-game-development/02-domain-layer-architecture.md"
+  - "../../../tutorials/basic-game-development/domain-layer-architecture.md"
   - "../../../reference/api/core-apis.md"
 ai_context:
   purpose: "explanation"

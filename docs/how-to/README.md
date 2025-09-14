@@ -1,33 +1,36 @@
 ---
 title: "How-to ガイド概要 - 問題解決指向ドキュメント"
-description: "開発中の具体的な問題に対する実践的な解決方法を提供するHow-toガイド集。効率的な問題解決とベストプラクティス適用。"
-difficulty: "beginner"
+description: "開発中の具体的な問題に対するステップバイステップの実践的解決方法。即座に実行可能な手順と具体的対処法を提供。"
+diataxis_type: "how-to"
+category: "how-to-guides"
+difficulty: "all-levels"
 estimated_reading_time: "5分"
 prerequisites:
-  - "basic-typescript"
-  - "project-setup"
-learning_objectives:
-  - "適切なHow-toガイドの選択方法を理解する"
-  - "問題解決型ドキュメントの効果的な活用法を習得する"
-  - "開発中の課題に対する体系的アプローチを学ぶ"
+  - "basic-computer-skills"
+solution_approach: "問題カテゴリ別の体系的ガイド選択"
+problem_statement: "開発・運用・テスト・デプロイでの具体的問題を即座に解決したい"
 related_docs:
-  - "./development/debugging-techniques.md"
+  - "./development/README.md"
   - "./troubleshooting/README.md"
-  - "./testing/basic-testing-guide.md"
+  - "./testing/README.md"
+  - "./deployment/README.md"
 internal_links:
   - "../tutorials/README.md"
   - "../reference/README.md"
-tags: ["how-to", "problem-solving", "development-guides", "practical-solutions"]
+  - "../explanations/README.md"
+tags: ["how-to", "problem-solving", "step-by-step", "practical-solutions", "immediate-action"]
 ai_context:
   purpose: "how-to"
-  audience: "developers seeking practical solutions to specific problems"
-  key_concepts: ["problem-solving approach", "practical implementation", "troubleshooting methodology"]
+  audience: "developers needing immediate solutions to specific development problems"
+  key_concepts: ["immediate problem resolution", "practical step-by-step guidance", "action-oriented solutions"]
 machine_readable: true
 ---
 
-# 🔧 How-to Guides - 問題解決指向ドキュメント
+# 🔧 How-to Guides - 問題解決指向専用ドキュメント
 
-このセクションは**問題解決指向**のドキュメントです。開発中の具体的な問題に対する実践的な解決方法を提供します。
+**🎯 単一責務**: 具体的問題の即座解決のみに特化
+
+このセクションは**問題解決指向専用**のドキュメントです。開発中の具体的な問題に対する実践的な解決方法を提供します。
 
 ## 🤔 いつこのセクションを使うか
 
@@ -38,25 +41,28 @@ machine_readable: true
 - CI/CDやデプロイメントの設定方法を知りたい時
 
 **❌ 以下の場面には適していません：**
-- 基礎的な概念から学習したい → [Tutorials](../tutorials/)
-- API仕様や設定値を確認したい → [Reference](../reference/)
-- 設計判断の背景を理解したい → [Explanations](../explanations/)
+- 基礎的な概念から学習したい → [Tutorials](../tutorials/README.md)
+- API仕様や設定値を確認したい → [Reference](../reference/README.md)
+- 設計判断の背景を理解したい → [Explanations](../explanations/README.md)
 
-## 🎯 このセクションの目的
+## 🎯 このセクションの単一責務
 
+**問題解決のみに特化した構成:**
 - 開発・テスト・デプロイ時の具体的な問題解決
 - ベストプラクティスの実践的な適用方法
 - トラブルシューティングの手順説明
+- 即座に実行可能な解決策の提供
 
-## 🛠 解決アプローチ
+## 🛠 問題解決特化アプローチ
 
 **問題特化**: 各ガイドは特定の問題解決に焦点を絞る
 **手順重視**: 明確なステップバイステップの解決手順
 **即効性**: 迅速に実行可能な具体的ソリューション
+**実践的問題解決**: 理論より実行可能性を最優先
 
 ## 🔍 カテゴリ別ガイド
 
-### 💻 [Development](./development/)
+### 💻 [Development](./development/README.md)
 **開発プロセスに関する実践的ガイド**
 
 - [開発規約](./development/development-conventions.md)
@@ -65,7 +71,7 @@ machine_readable: true
 - [並行開発ワークフロー](./development/parallel-development-workflow.md)
 - [GitHub Issue管理](./development/github-issue-management.md)
 
-### 🧪 [Testing](./testing/)
+### 🧪 [Testing](./testing/README.md)
 **テスト実行と品質保証の具体的手順**
 
 - [テストガイド](./testing/testing-guide.md)
@@ -73,7 +79,7 @@ machine_readable: true
 - [高度なテスト技法](./testing/advanced-testing-techniques.md)
 - [Effect-TSテストパターン](./testing/effect-ts-testing-patterns.md)
 
-### 🛠 [Troubleshooting](./troubleshooting/)
+### 🛠 [Troubleshooting](./troubleshooting/README.md)
 **エラー解決と問題診断の実践的手法**
 
 - [エラー解決](./troubleshooting/error-resolution.md)
@@ -83,7 +89,7 @@ machine_readable: true
 - [パフォーマンス問題](./troubleshooting/performance-issues.md)
 - [Effect-TSトラブルシューティング](./troubleshooting/effect-ts-troubleshooting.md)
 
-### 🚀 [Deployment](./deployment/)
+### 🚀 [Deployment](./deployment/README.md)
 **デプロイメントとCI/CDの実践的設定**
 
 - [CI/CDデプロイメント](./deployment/ci-cd-deployment.md)
@@ -96,10 +102,10 @@ machine_readable: true
 
 ## 🔗 関連セクション
 
-- **[Tutorials](../tutorials/)**: 基礎学習が必要な場合
-- **[Reference](../reference/)**: 詳細な仕様が必要な場合
-- **[Explanations](../explanations/)**: 背景理解が必要な場合
+- **[Tutorials](../tutorials/README.md)**: 基礎学習が必要な場合
+- **[Reference](../reference/README.md)**: 詳細な仕様が必要な場合
+- **[Explanations](../explanations/README.md)**: 背景理解が必要な場合
 
 ---
 
-**💡 ヒント**: 問題解決に困った場合は、まず[Troubleshooting](./troubleshooting/)セクションを確認してください。
+**💡 ヒント**: 問題解決に困った場合は、まず[Troubleshooting](./troubleshooting/README.md)セクションを確認してください。

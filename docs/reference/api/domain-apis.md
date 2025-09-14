@@ -484,7 +484,7 @@ export interface WorldService {
   readonly updateWorldInfo: (metadata: Partial<WorldMetadata>) => Effect.Effect<void, never>;
 }
 
-export const WorldService = Context.GenericTag<WorldService>("WorldService")
+export const WorldService = Context.GenericTag<WorldService>("@app/WorldService")
 
 // 実装例
 export const WorldServiceLive = Layer.effect(
@@ -961,7 +961,7 @@ export interface PlayerService {
   readonly setGamemode: (id: string, gamemode: GameMode) => Effect.Effect<void, never>;
 }
 
-export const PlayerService = Context.GenericTag<PlayerService>("PlayerService")
+export const PlayerService = Context.GenericTag<PlayerService>("@app/PlayerService")
 
 // 実装
 export const PlayerServiceLive = Layer.effect(

@@ -48,7 +48,7 @@ Context7とTSDocベストプラクティスに基づく統一されたドキュ�
 - **[Explanation: プレイヤーシステム設計](../../explanations/game-mechanics/core-features/player-system.md)** - 設計判断の背景理解
 
 ## 📍 現在位置
-現在のドキュメント: **[Tutorials](../../../tutorials/) > [Basic Game Development](../../basic-game-development/) > プレイヤーシステム実装**
+現在のドキュメント: **[Tutorials](../../../tutorials/README.md) > [Basic Game Development](../../basic-game-development/README.md) > プレイヤーシステム実装**
 ```
 
 ### 2. 双方向リンクパターン
@@ -80,7 +80,7 @@ Context7とTSDocベストプラクティスに基づく統一されたドキュ�
 
 ### 詳細仕様を確認する
 - **[Reference: Effect-TS API](../../reference/api/effect-ts-api.md)**
-- **[Reference: ゲームシステム仕様](../../reference/game-systems/)**
+- **[Reference: ゲームシステム仕様](../../reference/game-systems/README.md)**
 
 ### 設計思想を理解する
 - **[Explanation: Effect-TS選択理由](../../explanations/design-patterns/why-effect-ts.md)**
@@ -92,14 +92,14 @@ Context7とTSDocベストプラクティスに基づく統一されたドキュ�
 ## 🛠 問題解決完了後のリソース
 
 ### 基礎理解を深める
-- **[Tutorial: 関連機能の学習](../../tutorials/)**
+- **[Tutorial: 関連機能の学習](../../tutorials/README.md)**
 
 ### 技術仕様を詳しく確認
-- **[Reference: 設定オプション](../../reference/configuration/)**
-- **[Reference: API詳細](../../reference/api/)**
+- **[Reference: 設定オプション](../../reference/configuration/README.md)**
+- **[Reference: API詳細](../../reference/api/README.md)**
 
 ### 設計背景を理解する
-- **[Explanation: この解決策を採用した理由](../../explanations/)**
+- **[Explanation: この解決策を採用した理由](../../explanations/README.md)**
 ```
 
 #### Referenceから他セクションへ
@@ -107,11 +107,11 @@ Context7とTSDocベストプラクティスに基づく統一されたドキュ�
 ## 📋 API理解後の学習リソース
 
 ### 実装方法を学ぶ
-- **[Tutorial: このAPIを使った実装](../../tutorials/)**
-- **[How-to: 実践的な使用方法](../../how-to/)**
+- **[Tutorial: このAPIを使った実装](../../tutorials/README.md)**
+- **[How-to: 実践的な使用方法](../../how-to/README.md)**
 
 ### 設計判断を理解する
-- **[Explanation: このAPI設計の背景](../../explanations/)**
+- **[Explanation: このAPI設計の背景](../../explanations/README.md)**
 ```
 
 #### Explanationから他セクションへ
@@ -119,11 +119,11 @@ Context7とTSDocベストプラクティスに基づく統一されたドキュ�
 ## 💡 理解後の実践ステップ
 
 ### 実際に実装してみる
-- **[Tutorial: 段階的実装学習](../../tutorials/)**
-- **[How-to: 実装時のベストプラクティス](../../how-to/)**
+- **[Tutorial: 段階的実装学習](../../tutorials/README.md)**
+- **[How-to: 実装時のベストプラクティス](../../how-to/README.md)**
 
 ### 詳細仕様を確認する
-- **[Reference: 技術詳細](../../reference/)**
+- **[Reference: 技術詳細](../../reference/README.md)**
 ```
 
 ## 4. 動的ナビゲーション強化
@@ -193,13 +193,13 @@ Context7とTSDocベストプラクティスに基づく統一されたドキュ�
 
 ### 前提となるコンセプト
 **理解しておくべき概念**:
-- **[Effect-TS基礎](../../tutorials/effect-ts-fundamentals/)** - 必須の前提知識
+- **[Effect-TS基礎](../../tutorials/effect-ts-fundamentals/README.md)** - 必須の前提知識
 - **[関数型プログラミング](../../explanations/fp-concepts.md)** - 理解推奨
 
 ### 発展的コンセプト
 **次に学ぶべき概念**:
 - **[非同期処理パターン](../../explanations/async-patterns.md)** - より高度な実装
-- **[パフォーマンス最適化](../../how-to/performance/)** - 実用化のために
+- **[パフォーマンス最適化](../../how-to/performance/README.md)** - 実用化のために
 ```
 
 ## 6. コンテキスト保持ナビゲーション

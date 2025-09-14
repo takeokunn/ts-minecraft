@@ -2456,7 +2456,7 @@ const qualityMetrics = {
 
 ## 関連項目
 
-- [Effect-TSパターン](../01-architecture/06-effect-ts-patterns.md)
+- [Effect-TSパターン](../explanations/architecture/06-effect-ts-patterns.md)
 - [エラーハンドリングパターン](./error-handling-patterns.md)
 - [テストパターン](./test-patterns.md)
 - [最適化パターン](./optimization-patterns.md)

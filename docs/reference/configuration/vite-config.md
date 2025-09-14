@@ -548,7 +548,8 @@ export default defineConfig({
           'console.log', 'console.info', 'console.warn',
           // Effect-TS pure functions
           'Effect.log', 'Effect.logInfo', 'Effect.logWarning',
-          'Schema.decodeUnknown', 'Data.struct'
+          'Schema.decodeUnknown'
+          // Note: 'Data.struct' は廃止パターンのため除外
         ],
         pure_getters: true,
 
@@ -778,6 +779,6 @@ export default defineConfig({
 - [Lightning CSS設定](https://lightningcss.dev/)
 
 ### プロジェクト固有
-- [Three.js統合ガイド](../../03-guides/10-threejs-integration.md)
-- [Effect-TS最適化](../../03-guides/11-effect-ts-optimization.md)
+- [Three.js統合ガイド](../../how-to/development/performance-optimization.md)
+- [Effect-TS最適化](../../how-to/development/effect-ts-migration-guide.md)
 - [パフォーマンス最適化](../troubleshooting/performance-issues.md)

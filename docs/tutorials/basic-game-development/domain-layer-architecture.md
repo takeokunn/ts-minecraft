@@ -675,4 +675,4 @@ Phase 1のドメインレイヤー実装が完了しました！次は以下に�
 
 *📍 現在のドキュメント階層*: **[Home](../../README.md)** → **[Tutorials](../README.md)** → **[基本ゲーム開発](README.md)** → **Phase 1: ドメインレイヤー**
 
-*🔗 関連リソース*: [Environment Setup](01-environment-setup.md) • [Effect-TS Fundamentals](../effect-ts-fundamentals/) • [DDD Architecture](../../explanations/architecture/domain-application-apis.md)
+*🔗 関連リソース*: [Environment Setup](environment-setup.md) • [Effect-TS Fundamentals](../effect-ts-fundamentals/README.md) • [DDD Architecture](../../explanations/architecture/domain-application-apis.md)
