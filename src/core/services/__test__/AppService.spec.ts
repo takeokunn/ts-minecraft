@@ -1,7 +1,7 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { AppService, AppServiceLive } from '../services/AppService'
+import { AppService, AppServiceLive } from '../AppService'
 
 describe('AppService', () => {
   it.effect('should initialize successfully', () =>

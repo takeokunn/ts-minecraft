@@ -29,26 +29,26 @@ related_docs: ["./testing-guide.md", "./comprehensive-testing-strategy.md"]
 ### 緊急時対応コマンド集
 
 ```bash
-# Effect-TS テスト環境の緊急診断
-echo "=== EFFECT-TS TEST DIAGNOSTICS ===" && \
-echo "Effect version: $(npm list effect | grep effect)" && \
-echo "Schema version: $(npm list @effect/schema | grep @effect/schema)" && \
+# Effect-TS Vitest環境の緊急診断
+echo "=== EFFECT-TS VITEST DIAGNOSTICS ===" && \
+echo "Effect version: $(pnpm list effect | grep effect)" && \
+echo "@effect/vitest version: $(pnpm list @effect/vitest | grep @effect/vitest)" && \
 echo "Vitest config:" && cat vitest.config.ts | grep -A 5 -B 5 "effect" && \
+echo "\\nTest file pattern: src/**/__test__/*.spec.ts" && \
 echo "\\nRecent test failures:" && \
 grep -r "FAILED\\|ERROR" . --include="*.log" | tail -5 || echo "No recent failures"
 
 # テスト失敗時のクリーンアップ
 rm -rf node_modules/.vitest && \
-pnpm test:clear-cache && \
 pnpm test -- --no-coverage --run
 
-# Effect-TS インポートの検証
+# Effect-TS @effect/vitest インポートの検証
 node -e "
 try {
   const E = require('effect');
   console.log('✅ Effect-TS imports:', Object.keys(E).slice(0, 10));
-  const S = require('@effect/schema');
-  console.log('✅ Schema imports:', Object.keys(S).slice(0, 5));
+  const V = require('@effect/vitest');
+  console.log('✅ @effect/vitest imports:', Object.keys(V).slice(0, 5));
 } catch (e) {
   console.error('❌ Import error:', e.message);
 }
@@ -72,15 +72,16 @@ try {
 
 ## 最新Effect-TSテスト基礎
 
-### 1. Effect.genとyield*パターン
+### 1. @effect/vitestを使ったit.effectパターン
 
 ```typescript
 import { Effect, Context, Layer, Schema, Match } from 'effect'
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 
-// ✅ 最新パターン: Effect.genとyield*の活用
-describe('Modern Effect-TS Pattern', () => {
-  it('uses Effect.gen with yield*', () =>
+// ✅ @effect/vitestパターン: it.effectの活用
+describe('Modern Effect-TS Vitest Pattern', () => {
+  it.effect('uses it.effect with Effect.gen', () =>
     Effect.gen(function* () {
       // 副作用のないセットアップ
       const world = yield* createTestWorld({ seed: 'test-seed' })
@@ -96,7 +97,7 @@ describe('Modern Effect-TS Pattern', () => {
       expect(player.name).toBe('Steve')
 
       return { world, player }
-    }).pipe(Effect.runPromise)
+    })
   )
 
   it('demonstrates early return with Match.value', () =>
@@ -510,71 +511,51 @@ describe('Parallel Processing with Effect.gen', () => {
 
 ## Property-Based Testingの統合
 
-### 1. fast-checkとEffect-TSの統合
+### 1. @effect/vitestのit.propとGenの統合
 
 ```typescript
-import * as fc from 'fast-check'
-import { Arbitrary } from '@effect/schema'
+import { Gen } from 'effect'
+import { it } from '@effect/vitest'
 
-// Schemaベースの自動テストデータ生成
-const CoordinateSchema = Schema.Struct({
-  x: Schema.Number.pipe(Schema.int(), Schema.between(-1000, 1000)),
-  y: Schema.Number.pipe(Schema.int(), Schema.between(0, 256)),
-  z: Schema.Number.pipe(Schema.int(), Schema.between(-1000, 1000))
+// Effect-TS Genベースの自動テストデータ生成
+const coordinateGen = Gen.struct({
+  x: Gen.number.pipe(Gen.filter(n => n >= -1000 && n <= 1000)),
+  y: Gen.number.pipe(Gen.filter(n => n >= 0 && n <= 256)),
+  z: Gen.number.pipe(Gen.filter(n => n >= -1000 && n <= 1000))
 })
 
-const ItemStackSchema = Schema.Struct({
-  itemId: Schema.String.pipe(Schema.brand("ItemId")),
-  quantity: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
-  durability: Schema.optional(
-    Schema.Number.pipe(Schema.between(0, 100))
-  )
+const itemStackGen = Gen.struct({
+  itemId: Gen.string.pipe(Gen.filter(s => s.length > 0)),
+  quantity: Gen.int.pipe(Gen.filter(n => n >= 1 && n <= 64)),
+  durability: Gen.option(Gen.int.pipe(Gen.filter(n => n >= 0 && n <= 100)))
 })
 
-// Arbitraryを使った自動生成
-const coordinateArbitrary = Arbitrary.make(CoordinateSchema)
-const itemStackArbitrary = Arbitrary.make(ItemStackSchema)
+describe('Property-Based Testing with @effect/vitest', () => {
+  it.prop('validates position calculations maintain invariants',
+    Gen.struct({ pos1: coordinateGen, pos2: coordinateGen }),
+    ({ pos1, pos2 }) =>
+      Effect.gen(function* () {
+        // 距離計算のテスト（プロパティ：距離は常に非負）
+        const distance = yield* calculateDistance(pos1, pos2)
 
-describe('Property-Based Testing with Effect-TS', () => {
-  it('validates position calculations maintain invariants', () =>
-    Effect.gen(function* () {
-      yield* Effect.sync(() => {
-        fc.assert(
-          fc.property(
-            coordinateArbitrary,
-            coordinateArbitrary,
-            (pos1, pos2) => {
-              const result = Effect.runSync(
-                Effect.gen(function* () {
-                  // 距離計算のテスト（プロパティ：距離は常に非負）
-                  const distance = yield* calculateDistance(pos1, pos2)
+        // 不変条件チェック
+        if (distance < 0) {
+          return false
+        }
 
-                  // 不変条件チェック
-                  if (distance < 0) {
-                    return false
-                  }
+        // 三角不等式の確認
+        const midPoint = {
+          x: (pos1.x + pos2.x) / 2,
+          y: (pos1.y + pos2.y) / 2,
+          z: (pos1.z + pos2.z) / 2
+        }
 
-                  // 三角不等式の確認
-                  const midPoint = {
-                    x: (pos1.x + pos2.x) / 2,
-                    y: (pos1.y + pos2.y) / 2,
-                    z: (pos1.z + pos2.z) / 2
-                  }
+        const dist1ToMid = yield* calculateDistance(pos1, midPoint)
+        const dist2ToMid = yield* calculateDistance(pos2, midPoint)
 
-                  const dist1ToMid = yield* calculateDistance(pos1, midPoint)
-                  const dist2ToMid = yield* calculateDistance(pos2, midPoint)
-
-                  return (dist1ToMid + dist2ToMid) >= distance * 0.99 // 浮動小数点誤差考慮
-                })
-              )
-
-              return result
-            }
-          ),
-          { numRuns: 1000 }
-        )
-      })
-    }).pipe(Effect.runPromise)
+        return (dist1ToMid + dist2ToMid) >= distance * 0.99 // 浮動小数点誤差考慮
+      }),
+    100 // numRuns
   )
 
   it('inventory operations are reversible', () =>

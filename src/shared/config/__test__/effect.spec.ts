@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Schema, Effect } from "effect";
-import { GameErrorSchema, createGameError, EffectConfig } from "./effect";
-import { BrandedTypes, PlayerIdSchema, WorldCoordinateSchema, ChunkIdSchema, BlockTypeIdSchema } from "../types/branded";
+import { GameErrorSchema, createGameError, EffectConfig } from "../effect";
+import { BrandedTypes, PlayerIdSchema, WorldCoordinateSchema, ChunkIdSchema, BlockTypeIdSchema } from "../../types/branded";
 
 describe("Effect-TS Configuration", () => {
   describe("GameError", () => {
@@ -43,7 +43,7 @@ describe("Effect-TS Configuration", () => {
       try {
         await Effect.runPromise(effect);
         expect.fail("Should have thrown an error");
-      } catch (error) {
+      } catch (error: unknown) {
         expect(EffectConfig.isGameError(error)).toBe(true);
         if (EffectConfig.isGameError(error)) {
           expect(error.message).toBe("Test error");
@@ -72,7 +72,7 @@ describe("Effect-TS Configuration", () => {
       try {
         await Effect.runPromise(invalidEffect);
         expect.fail("Should have thrown validation error");
-      } catch (error) {
+      } catch (error: unknown) {
         expect(EffectConfig.isGameError(error)).toBe(true);
         if (EffectConfig.isGameError(error)) {
           expect(error.code).toBe("VALIDATION_ERROR");
