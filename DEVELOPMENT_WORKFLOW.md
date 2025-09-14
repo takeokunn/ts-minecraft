@@ -4,9 +4,11 @@
 ```mermaid
 flowchart LR
     A[要望/Issue作成] --> B[claude "Issue #123 を実装して"]
-    B --> C[自動実装・テスト]
-    C --> D[実装完了通知]
-    D --> E[PR作成・GitHub Actions]
+    B --> C[Pre-Step: 事前確認]
+    C --> D[Step 1-8: 段階的実装]
+    D --> E[Post-Step: 文書化・PR作成]
+    E --> F[GitHub Actions: 品質確認]
+    F --> G[レビュー・マージ]
 ```
 
 ## Issue作成
@@ -50,19 +52,13 @@ GitHub Issues > New issue > **AI Agent Task** を選択
    - Step 7: 統合・エクスポート
    - Step 8: 品質確認・最適化
 
-2. **詳細な実装コード例**
-   - Effect-TS Service/Layerパターン
-   - Schema.Struct型定義
-   - vitest テストケース
-   - 完全なコード例（コピペ可能）
+2. **Acceptance Criteria（自動検証項目）**
+   - TypeScript: 0エラー
+   - ESLint: 0警告
+   - Coverage: 80%+
+   - パフォーマンステスト
 
-3. **自動実行コマンドシーケンス**
-   - エラー時の自動修正
-   - 段階的な品質チェック
-   - パフォーマンス確認
-
-**テンプレートの利点:**
-- Claude Agentが迷わず実装可能な詳細度
+**特徴:**
 - 段階的な完全機能実装が可能
 - Effect-TSベストプラクティス準拠
 - 自動検証・自動修正機能
@@ -80,10 +76,13 @@ claude "editorconfig lintを導入したい Issue を作って実装してPRま�
 ```
 
 **自動実行内容:**
-1. GitHub Issue内の実行計画解析（Step 1, 2, 3...）
-2. 各ステップを順次実行（指定された参照ドキュメント使用）
-3. Acceptance Criteria全項目検証
-4. 実行計画完了報告（GitHub Actions連携）
+1. **Pre-Step実装前確認**: `list_memories`・`@docs/`設計方針・実装方針確認・Context7ライブラリ仕様確認
+2. **GitHub Issue実行計画解析**: Step 1-8の段階的実行
+3. **各ステップ順次実行**: 指定された参照ドキュメント使用
+4. **Post-Step実装後処理**: `@docs/`更新・`write_memory`保存・品質確認
+5. **Acceptance Criteria全項目検証**
+6. **PR自動作成**: Issue完了後、Pull Request自動生成
+7. **実行計画完了報告**（GitHub Actions連携）
 
 ### 品質チェック（GitHub Actions自動実行）
 
@@ -99,7 +98,8 @@ claude "editorconfig lintを導入したい Issue を作って実装してPRま�
 📋 実行済み: Step 1✅ Step 2✅ Step 3✅ Step 4✅
 📊 品質: TypeScript✅ Lint✅ Coverage:87% Performance✅
 🎯 Acceptance Criteria: 全項目達成
-💡 次: PR作成準備完了
+📄 @docs/ 更新完了、Memory保存済み
+🔄 PR作成: 自動生成完了 (#PR番号)
 ```
 
 ### PR作成

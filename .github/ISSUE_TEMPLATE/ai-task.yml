@@ -1,49 +1,27 @@
-name: AI Agent Task
-description: AI Coding Agent自動実行用 構造化タスク
+name: AI エージェントタスク
+description: Claude Agent自動実行用 構造化実装タスク
 title: "[TASK-ID] タスク名"
-labels: ["ai-agent", "task", "execution-plan", "auto-executable"]
+labels: ["ai-agent", "task", "execution-plan", "auto-executable", "japanese"]
 assignees: ["@me"]
 body:
   - type: markdown
     attributes:
       value: |
-        ## 🤖 AI Coding Agent自動実行タスク
+        ## 🤖 Claude Agent 自動実行タスク
 
-        このテンプレートはClaude Agentが `claude "Issue #N を実装して"` で自動実行できる構造化タスクを作成します。
+        このテンプレートはClaude Agentが段階的実装を自動実行できる構造化タスクです。
 
-        **実行コマンド**: `claude "Issue #[番号] を実装して"`
+        **実行コマンド**:
+        - `claude "Issue #[番号] を実装して"`
+        - `claude "editorconfig lintを導入したい Issue を作って実装してPRまで作成して"` (ワンライナー)
 
-        ### 📚 実装前必読ドキュメント
-        AI Agentは実装開始前に以下のドキュメントを**必ず**参照してください：
-
-        1. **[docs/how-to/development/README.md](../../../docs/how-to/development/README.md)** - 開発効率化実践ガイド
-        2. **[DEVELOPMENT_WORKFLOW.md](../../../DEVELOPMENT_WORKFLOW.md)** - Issue実装中心ワークフロー
-        3. **[docs/how-to/development/development-conventions.md](../../../docs/how-to/development/development-conventions.md)** - コーディング規約
-        4. **[docs/tutorials/effect-ts-fundamentals/effect-ts-patterns.md](../../../docs/tutorials/effect-ts-fundamentals/effect-ts-patterns.md)** - Effect-TSパターン
-
-        ### 🎯 8段階実行計画（必須）
-        以下の順序で実装を進行してください：
-        - **Step 1**: 事前調査・分析（既存コード・パターン確認）
-        - **Step 2**: ディレクトリ構造作成
-        - **Step 3**: 型定義・データ構造（Schema.Struct使用）
-        - **Step 4**: Service実装（Effect-TS Service/Layerパターン）
-        - **Step 5**: ECSシステム統合
-        - **Step 6**: テスト実装（vitestでカバレッジ80%+）
-        - **Step 7**: 統合・エクスポート
-        - **Step 8**: 品質確認・最適化
-
-        ### 🚀 品質基準（必須達成）
-        - **TypeScript**: 型エラーゼロ
-        - **Lint**: oxlint通過
-        - **テストカバレッジ**: 80%以上
-        - **Effect-TSパターン**: Service/Layer/Schema準拠
-        - **パフォーマンステスト**: 実行時間検証
+        **自動実行内容**: Pre-Step → Step1-8段階実行 → Post-Step → PR自動作成
 
   - type: input
     id: task-id
     attributes:
-      label: Task ID
-      description: ROADMAPのタスクID (P0-001形式)
+      label: タスクID
+      description: ROADMAPのタスクID (P0-001形式) またはフィーチャー名
       placeholder: P0-001
     validations:
       required: true
@@ -70,8 +48,8 @@ body:
   - type: dropdown
     id: ai-guidance
     attributes:
-      label: AI実装ガイダンスレベル
-      description: AI Agentが必要とする指示の詳細度
+      label: 実装ガイダンスレベル
+      description: Claude Agentが必要とする指示の詳細度
       options:
         - "Minimal - 基本要件のみ"
         - "Standard - 通常レベルの指示"
@@ -83,97 +61,118 @@ body:
   - type: textarea
     id: ai-context
     attributes:
-      label: AI実装コンテキスト
-      description: AI Agentが参照すべき具体的なドキュメントとパターンを指定
+      label: 実装コンテキスト
+      description: Claude Agentが参照すべきドキュメント（docs/）を指定
       placeholder: |
-        ### 必読ドキュメント（実装開始前に必ず参照）
-        - docs/how-to/development/README.md - 開発効率化ガイド
-        - DEVELOPMENT_WORKFLOW.md - Issue駆動開発ワークフロー
-        - docs/how-to/development/development-conventions.md - コーディング規約
-
-        ### 実装パターン参照
-        - docs/tutorials/effect-ts-fundamentals/effect-ts-patterns.md - Effect-TSパターン
-        - src/shared/ - 実装済みコードパターン例
-
-        ### 品質基準参照
-        - docs/reference/quality/ - 品質基準とテスト要件
-        - docs/how-to/testing/ - テスト実装ガイド
+        参照: docs/reference/architecture/constraints.md
+        参照: docs/how-to/development/development-conventions.md
     validations:
       required: true
+
+  - type: dropdown
+    id: context7-libraries
+    attributes:
+      label: 主要ライブラリ
+      description: 実装で使用する主要ライブラリ（Context7で最新仕様確認）
+      options:
+        - "Effect-TS (@effect/schema, @effect/platform など)"
+        - "Three.js (3D graphics)"
+        - "Vite (build tool)"
+        - "Vitest (testing)"
+        - "TypeScript (latest features)"
+        - "その他（実行ステップで明記）"
+        - "ライブラリ使用なし"
+    validations:
+      required: true
+
+  - type: textarea
+    id: docs-updates
+    attributes:
+      label: ドキュメント更新要件
+      description: 実装完了後にdocs/へ追加すべき新しい仕様・パターン
+      placeholder: |
+        - 新しい実装パターンの記録 (docs/patterns/)
+        - API仕様の更新 (docs/reference/)
+        - 設定変更の記録 (docs/how-to/)
+        - アーキテクチャ決定の記録 (docs/explanations/)
+    validations:
+      required: false
 
   - type: textarea
     id: execution-phases
     attributes:
       label: 実行ステップ（AI Agent自動実行用）
-      description: Claude Agentが順次実行する8段階の詳細な実装ステップ
+      description: Claude Agentが参照すべきドキュメントリンクと実行手順
       placeholder: |
+        ## 🔄 実行フロー（8段階 + 前後処理）
+
+        ### Pre-Step: 実装前確認
+        1. `list_memories` - 既存実装パターン確認
+        2. `@docs/` 設計方針・実装方針確認（指定ドキュメント必読）
+        3. Context7でライブラリ最新仕様確認
+
         ### Step 1: 事前調査・分析
-        - [ ] docs/how-to/development/README.md を参照
-        - [ ] DEVELOPMENT_WORKFLOW.md でワークフロー確認
-        - [ ] 既存コードパターン調査（src/shared/内）
-        - [ ] 関連Issue・PR履歴確認
+        - 既存コード調査・影響範囲分析
+        - 参照: docs/how-to/development/analysis-phase.md
 
         ### Step 2: ディレクトリ構造作成
-        - [ ] 適切なディレクトリ配置決定
-        - [ ] index.tsファイル作成
-        - [ ] モジュール構造設計
+        - 必要なディレクトリ・ファイル作成
+        - 参照: docs/reference/architecture/directory-structure.md
 
         ### Step 3: 型定義・データ構造
-        - [ ] Schema.Struct使用した型定義
-        - [ ] Effect-TSパターンに準拠
-        - [ ] バリデーション定義
+        - Schema・型定義作成
+        - 参照: docs/tutorials/effect-ts-fundamentals/effect-ts-patterns.md
 
         ### Step 4: Service実装
-        - [ ] Effect-TS Service/Layerパターン実装
-        - [ ] 依存性注入設計
-        - [ ] エラーハンドリング実装
+        - サービス層・ビジネスロジック実装
+        - 参照: docs/reference/patterns/service-layer-patterns.md
 
         ### Step 5: ECSシステム統合
-        - [ ] システム間の連携実装
-        - [ ] コンポーネント統合
-        - [ ] イベント処理実装
+        - Entity Component System統合
+        - 参照: docs/reference/architecture/ecs-integration.md
 
         ### Step 6: テスト実装
-        - [ ] vitestテストケース作成
-        - [ ] カバレッジ80%以上達成
-        - [ ] モックとスタブ実装
+        - 単体テスト・統合テスト作成
+        - 参照: docs/how-to/testing/vitest-patterns.md
 
         ### Step 7: 統合・エクスポート
-        - [ ] モジュールエクスポート整理
-        - [ ] 他モジュールとの統合テスト
-        - [ ] ドキュメント更新
+        - モジュール統合・公開API整備
+        - 参照: docs/reference/patterns/module-exports.md
 
         ### Step 8: 品質確認・最適化
-        - [ ] TypeScript型チェック通過
-        - [ ] oxlint実行・修正
-        - [ ] パフォーマンス測定・最適化
-        - [ ] 最終的な統合テスト実行
+        - 型チェック・リント・ビルド確認
+        - 参照: docs/how-to/development/quality-gates.md
+
+        ### Post-Step: 実装後処理
+        1. `@docs/` へ新パターン記録
+        2. `write_memory` で重要パターン保存
+        3. 品質確認コマンド実行
+        4. **PR自動作成**: Issue完了後、Pull Request自動生成
     validations:
       required: true
 
   - type: textarea
     id: success-criteria
     attributes:
-      label: Acceptance Criteria（自動検証）
+      label: 完了条件（自動検証）
       description: Claude Agentが自動実行・検証する完了条件
       placeholder: |
-        ### 🎯 必須達成基準
-        - [ ] **TypeScript型チェック**: `pnpm type-check` エラーゼロ
-        - [ ] **Lintチェック**: `pnpm lint` 通過
-        - [ ] **テストカバレッジ**: `pnpm test:coverage` で80%以上
-        - [ ] **ビルド成功**: `pnpm build` エラーなし
-        - [ ] **Effect-TSパターン準拠**: Service/Layer/Schemaパターン使用
+        ## ✅ 完了条件
 
-        ### 📊 品質基準
-        - [ ] 全ての関数・メソッドにテストケース実装
-        - [ ] エラーハンドリングの適切な実装
-        - [ ] パフォーマンステストの実行・検証
-        - [ ] ドキュメント更新（必要に応じて）
+        ### 機能要件
+        - [ ] 実装機能が仕様通り動作する
+        - [ ] 既存機能に影響を与えない
+        - [ ] パフォーマンスの劣化がない
 
-        ### 🔍 統合テスト
-        - [ ] 他のシステムとの連携動作確認
-        - [ ] ECSシステムとの統合動作確認
-        - [ ] 既存機能への影響がないことを確認
+        ### 品質要件
+        - [ ] TypeScript: エラー0件
+        - [ ] ESLint: 警告0件
+        - [ ] テストカバレッジ: 80%以上
+        - [ ] ビルド: 正常に完了
+
+        ### ドキュメント要件
+        - [ ] 新パターンのdocs/記録完了
+        - [ ] メモリ保存完了
 
         参照: docs/reference/quality/acceptance-criteria.md
     validations:
@@ -182,55 +181,99 @@ body:
   - type: textarea
     id: verification-commands
     attributes:
-      label: 自動実行コマンドシーケンス
+      label: 検証コマンド
       description: Claude Agentが順次実行する検証コマンド（失敗時は自動修正試行）
       placeholder: |
-        ### 🔧 品質チェックコマンド（並列実行）
+        ## 🔧 検証コマンド
+
+        ### 品質チェック（並列実行）
         ```bash
-        # TypeScript型チェック
-        pnpm type-check
-
-        # Lint実行・自動修正
-        pnpm lint
-        pnpm lint:fix
-
-        # テスト実行・カバレッジ確認
-        pnpm test
-        pnpm test:coverage
-
-        # ビルドテスト
-        pnpm build
+        pnpm typecheck  # TypeScript型チェック
+        pnpm lint       # ESLint チェック
+        pnpm test       # テスト実行
+        pnpm build      # ビルド確認
         ```
 
-        ### 🚀 実装完了後の自動実行シーケンス
+        ### 個別確認（必要に応じて）
         ```bash
-        # 1. 品質チェック（並列実行）
-        pnpm type-check && pnpm lint && pnpm test:coverage
-
-        # 2. ビルドテスト
-        pnpm build
-
-        # 3. パフォーマンステスト（該当する場合）
-        pnpm test:performance
-
-        # 4. 統合テスト
-        pnpm test:integration
-        ```
-
-        ### 🔄 エラー時自動修正シーケンス
-        ```bash
-        # Lintエラー → 自動修正試行
-        pnpm lint:fix
-
-        # 型エラー → 該当コード確認・修正
-        pnpm type-check --verbose
-
-        # テスト失敗 → テストケース見直し
-        pnpm test --reporter=verbose
+        pnpm dev        # 開発サーバー起動確認
+        pnpm preview    # プロダクションビルド確認
         ```
 
         参照: docs/how-to/development/quality-checks.md
     validations:
       required: true
+
+  - type: dropdown
+    id: pr-auto-create
+    attributes:
+      label: PR自動作成設定
+      description: Issue実装完了後のPull Request自動作成設定
+      options:
+        - "自動作成する - Issue完了後すぐにPR作成"
+        - "手動作成 - 実装完了通知のみ"
+      default: 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: pr-template
+    attributes:
+      label: PR作成テンプレート
+      description: 自動作成されるPull Requestの内容テンプレート
+      placeholder: |
+        ## 📌 PR概要
+        - Closes #[Issue番号]
+        - **Task ID**: [タスクID]
+        - **実装内容**: [機能概要]
+
+        ## 🎯 実装詳細
+        - [主要な実装変更点]
+        - [新しく追加されたパターン/API]
+        - [アーキテクチャ変更点（あれば）]
+
+        ## 🧪 品質確認
+        - [x] pnpm typecheck - TypeScript型チェック完了
+        - [x] pnpm lint - ESLintチェック完了
+        - [x] pnpm test - テスト実行完了
+        - [x] pnpm build - ビルド確認完了
+
+        ## 📝 ドキュメント更新
+        - [x] @docs/ 新パターン記録完了
+        - [x] メモリ保存完了（重要パターン）
+
+        ## 🔄 動作確認
+        ```bash
+        pnpm dev
+        # → http://localhost:3000 で動作確認
+        ```
+      value: |
+        ## 📌 PR概要
+        - Closes #[Issue番号]
+        - **Task ID**: [タスクID]
+        - **実装内容**: [機能概要]
+
+        ## 🎯 実装詳細
+        - [主要な実装変更点]
+        - [新しく追加されたパターン/API]
+        - [アーキテクチャ変更点（あれば）]
+
+        ## 🧪 品質確認
+        - [x] pnpm typecheck - TypeScript型チェック完了
+        - [x] pnpm lint - ESLintチェック完了
+        - [x] pnpm test - テスト実行完了
+        - [x] pnpm build - ビルド確認完了
+
+        ## 📝 ドキュメント更新
+        - [x] @docs/ 新パターン記録完了
+        - [x] メモリ保存完了（重要パターン）
+
+        ## 🔄 動作確認
+        ```bash
+        pnpm dev
+        # → http://localhost:3000 で動作確認
+        ```
+    validations:
+      required: false
 
 

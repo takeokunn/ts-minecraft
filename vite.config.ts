@@ -7,17 +7,21 @@ export default defineConfig({
   publicDir: 'public',
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src')
+      '@': resolve(__dirname, './src'),
+      '@config': resolve(__dirname, './src/config'),
+      '@docs': resolve(__dirname, './docs')
     }
   },
   server: {
     port: 3000,
-    host: true
+    host: true,
+    open: true
   },
   build: {
     outDir: 'dist',
     sourcemap: true,
-    target: 'es2022'
+    target: 'es2022',
+    minify: 'esbuild'
   },
   test: {
     environment: 'node',
