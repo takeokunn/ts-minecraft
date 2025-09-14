@@ -25,7 +25,7 @@ status: "complete"
 | `pnpm lint` | ESLintチェック | 3-8秒 | コード品質のチェック |
 | `pnpm lint:fix` | ESLint自動修正 | 5-12秒 | 修正可能なリントエラーの自動修正 |
 | `pnpm format` | コード整形 | 2-5秒 | Prettierによるコード整形 |
-| `pnpm type-check` | 型チェック | 5-15秒 | TypeScriptの型チェック |
+| `pnpm typecheck` | 型チェック | 5-15秒 | TypeScriptの型チェック |
 | `pnpm check` | 全品質チェック | 10-30秒 | lint + format + type-checkの一括実行 |
 
 ## 🚀 開発コマンド
@@ -205,7 +205,7 @@ pnpm format -- --check
 TypeScriptの型チェックを実行します。
 
 ```bash
-pnpm type-check
+pnpm typecheck
 ```
 
 **チェック内容**:
@@ -218,10 +218,10 @@ pnpm type-check
 **オプション**:
 ```bash
 # 詳細エラー表示
-pnpm type-check -- --verbose
+pnpm typecheck -- --verbose
 
 # 増分チェック無効化
-pnpm type-check -- --force
+pnpm typecheck -- --force
 ```
 
 ### check
@@ -234,7 +234,7 @@ pnpm check
 **実行順序**:
 1. `pnpm lint`
 2. `pnpm format --check`
-3. `pnpm type-check`
+3. `pnpm typecheck`
 
 **CI/CD推奨**: 継続的インテグレーションで使用
 
@@ -300,7 +300,7 @@ NODE_OPTIONS="--max-old-space-size=4096" pnpm build
 #### 型チェックが遅い
 ```bash
 # 増分ビルド有効化
-pnpm type-check -- --incremental
+pnpm typecheck -- --incremental
 ```
 
 #### ESLintキャッシュ問題

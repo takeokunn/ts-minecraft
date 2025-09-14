@@ -32,7 +32,7 @@ flowchart TD
 ```
 
 ### 緊急対応チェックリスト
-- [ ] **型チェック実行**: `pnpm type-check` でエラー確認
+- [ ] **型チェック実行**: `pnpm typecheck` でエラー確認
 - [ ] **エラー分類**: Schema / Service / Match / 早期リターン / 副作用
 - [ ] **該当パターン適用**: 下記解決パターンから選択
 - [ ] **レイヤー固有対応**: Application / Domain / Infrastructure
@@ -777,21 +777,21 @@ export const RepositoryAdapterLive = Layer.effect(RepositoryPort, makeRepository
 ### 基本的な型チェック
 ```bash
 # 全体の型チェック
-pnpm type-check
+pnpm typecheck
 
 # 特定のレイヤーのみチェック
-pnpm type-check:domain
-pnpm type-check:application
-pnpm type-check:infrastructure
+pnpm typecheck:domain
+pnpm typecheck:application
+pnpm typecheck:infrastructure
 ```
 
 ### エラーの詳細表示
 ```bash
 # エラーの詳細を表示
-pnpm type-check --verbose
+pnpm typecheck --verbose
 
 # 特定ファイルのエラーのみ表示
-pnpm type-check | grep "command.handler"
+pnpm typecheck | grep "command.handler"
 ```
 
 ## トラブルシューティング

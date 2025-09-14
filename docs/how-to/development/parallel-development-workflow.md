@@ -11,7 +11,28 @@ estimated_reading_time: "12分"
 
 # 並列開発ワークフロー
 
-> **🎯 目標**: GitHub Issueの依存関係を明確にし、複数開発者が効率的に並列作業できるワークフローを構築
+> **🎯 目標**: GitHub Issueの依存関係を明確にし、Claude Agentによる自動実装を活用した効率的な並列作業ワークフローを構築
+
+## 🤖 Claude Agent並列実装
+
+### **自動並列実装フロー**
+
+```bash
+# Phase全体のIssue作成（自動並列判定）
+claude "ROADMAP Phase 0 のIssueを作成して"
+
+# 並列実行可能なIssueを同時実装
+claude "Issue #1, #2, #3 を並列で実装して"
+
+# 依存関係がある場合は順次実行
+claude "Issue #4 を実装して" # #1-3完了後
+```
+
+### **Issue実装の並列化**
+
+- **🟢 完全並列**: `parallel-safe` ラベル付きIssueは同時実装可能
+- **🟡 条件付き並列**: `parallel-conditional` ラベルは依存関係確認後
+- **🔴 順次実装**: `depends-on: #XXX` ラベルは依存Issue完了待ち
 
 ## 📋 並列作業の基本原則
 

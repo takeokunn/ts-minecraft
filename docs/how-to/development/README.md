@@ -4,12 +4,34 @@
 
 TypeScript Minecraft Clone開発における効率的な開発ワークフロー、コード品質維持、チーム協業のベストプラクティスを提供します。
 
+## 🚀 Issue駆動開発（推奨ワークフロー）
+
+### Claude Agent自動実装
+
+```bash
+# 1. Issue作成（ROADMAPから自動生成）
+claude "ROADMAP Phase 0 のIssueを作成して"
+
+# 2. Issue実装（Claude Agent自動実行）
+claude "Issue #123 を実装して"
+# → 8段階実行計画を自動実行（80分）
+
+# 3. 品質確認（GitHub Actions）
+# PR作成時に自動的に品質ゲートが実行
+```
+
+### 特徴
+
+- **完全自動化**: GitHub Issueの実行計画に基づいて自動実装
+- **品質保証**: TypeScript型チェック、100%テストカバレッジ
+- **Effect-TSパターン**: Service/Layer/Schemaの自動実装
+
 ## 🎯 このセクションの目的
 
 開発者の生産性向上と品質保証を両立する実践的な手法を提供：
 
-- 効率的な開発ワークフローの構築
-- コード品質を維持するための規約と手法
+- Claude Agentによる自動実装ワークフロー
+- Issue駆動開発による効率的な進捗管理
 - Effect-TSとモダンTypeScriptの実践的活用
 - チーム開発における協業プロセス最適化
 

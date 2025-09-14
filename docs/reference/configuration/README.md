@@ -55,7 +55,7 @@ mindmap
 pnpm install
 
 # 2. TypeScript設定確認
-pnpm type-check
+pnpm typecheck
 
 # 3. 開発サーバー起動確認
 pnpm dev

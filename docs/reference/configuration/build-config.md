@@ -803,7 +803,7 @@ jobs:
       run: pnpm install --frozen-lockfile
 
     - name: Type check
-      run: pnpm type-check
+      run: pnpm typecheck
 
     - name: Lint
       run: pnpm lint

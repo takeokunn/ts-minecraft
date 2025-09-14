@@ -166,7 +166,7 @@ const processUserInput = (input: unknown) =>
 # CI/CD パイプラインで自動実行される項目
 # レビュアーは手動確認不要
 
-✅ TypeScript型チェック:    pnpm type-check
+✅ TypeScript型チェック:    pnpm typecheck
 ✅ リント（oxlint）:        pnpm lint
 ✅ フォーマット:            pnpm format:check
 ✅ ユニットテスト:          pnpm test

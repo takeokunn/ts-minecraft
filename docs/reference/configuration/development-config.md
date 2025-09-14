@@ -968,7 +968,7 @@ export default defineConfig({
 # または
 pnpm tsc --build --clean
 rm -rf .tsbuildinfo
-pnpm type-check
+pnpm typecheck
 ```
 
 #### 4. Docker開発環境でのパフォーマンス問題

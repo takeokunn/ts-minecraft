@@ -13,6 +13,44 @@ estimated_reading_time: "10分"
 
 > **🎯 目標**: TypeScript Minecraftプロジェクトの効率的なIssue管理システムを構築
 
+## 🚀 Issue駆動開発ワークフロー
+
+### **Claude Agent自動実装フロー**
+
+```bash
+# 1. Issue作成（ROADMAPから自動生成）
+claude "ROADMAP Phase 0 のIssueを作成して"
+# または直接実行
+./scripts/create-phase-issues.sh 0
+
+# 2. Issue実装（Claude Agent自動実行）
+claude "Issue #123 を実装して"
+# → GitHub Issue内の8段階実行計画を自動実行（80分）
+
+# 3. 品質確認（GitHub Actions自動実行）
+# PR作成時に自動的に品質ゲートが実行されます
+```
+
+### **AI Task Issueテンプレート**
+
+`.github/ISSUE_TEMPLATE/ai-task.yml` を使用した構造化されたIssue作成：
+
+- **8段階実行ステップ**（80分で完全実装）
+  - Step 1: 事前調査・分析（10分）
+  - Step 2: ディレクトリ構造作成（5分）
+  - Step 3: 型定義・データ構造（15分）
+  - Step 4: Service実装（20分）
+  - Step 5: ECSシステム統合（15分）
+  - Step 6: テスト実装（20分）
+  - Step 7: 統合・エクスポート（5分）
+  - Step 8: 品質確認・最適化（10分）
+
+- **自動実行機能**
+  - Effect-TS Service/Layerパターン実装
+  - Schema.Struct型定義
+  - vitest テストケース（100%カバレッジ）
+  - 自動エラー修正・トラブルシューティング
+
 ## 📋 Issue分類体系
 
 ### 🏷️ **ラベル体系（完全版）**

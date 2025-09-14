@@ -151,7 +151,7 @@ npm run dev
 pnpm test:watch
 
 # 3. 型チェックを定期実行
-watch -n 30 'pnpm type-check'
+watch -n 30 'pnpm typecheck'
 ```
 
 ### CI/CD向けコマンド組み合わせ

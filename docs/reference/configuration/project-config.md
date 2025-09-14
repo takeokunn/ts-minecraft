@@ -393,7 +393,7 @@ temp/
 npx lint-staged
 
 # 型チェック
-pnpm type-check
+pnpm typecheck
 
 # テスト実行（変更ファイルのみ）
 pnpm test:related
@@ -414,7 +414,7 @@ npx commitlint --edit "$1"
   "*.{ts,tsx}": [
     "oxlint --fix",
     "prettier --write",
-    "pnpm type-check:file"
+    "pnpm typecheck:file"
   ],
   "*.{js,jsx}": [
     "oxlint --fix",
@@ -1025,7 +1025,7 @@ graph TD
 
     check.exec = ''
       echo "🔍 Running all checks..."
-      pnpm type-check
+      pnpm typecheck
       pnpm lint
       pnpm test
     '';

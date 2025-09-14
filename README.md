@@ -74,13 +74,26 @@ pnpm dev
 pnpm build
 ```
 
+### 開発ワークフロー（Issue実装中心）
+
+```bash
+# 1. Issue作成（ROADMAPから自動生成）
+claude "ROADMAP Phase 0 のIssueを作成して"
+
+# 2. Issue実装（Claude Agent自動実行）
+claude "Issue #123 を実装して"
+
+# 3. 品質確認（GitHub Actions自動実行）
+# PR作成時に自動的に品質ゲートが実行されます
+```
+
 ### 開発コマンド
 
 ```bash
 # コード品質
 pnpm lint            # oxlint静的解析の実行
 pnpm format          # Prettierでコードフォーマット
-pnpm type-check      # TypeScript型チェックの実行
+pnpm typecheck       # TypeScript型チェックの実行
 
 # テスト
 pnpm test            # Vitestでユニットテストの実行

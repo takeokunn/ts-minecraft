@@ -623,5 +623,5 @@ export type ChunkError =
 - [ ] Effect-TS採用率95%以上
 - [ ] TypeScript厳密設定準拠100%
 - [ ] 循環依存0件
-- [ ] テストカバレッジ80%以上
+- [ ] テストカバレッジ100%
 - [ ] ESLint警告0件
