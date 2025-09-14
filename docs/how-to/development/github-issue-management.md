@@ -25,7 +25,7 @@ claude "ROADMAP Phase 0 のIssueを作成して"
 
 # 2. Issue実装（Claude Agent自動実行）
 claude "Issue #123 を実装して"
-# → GitHub Issue内の8段階実行計画を自動実行（80分）
+# → GitHub Issue内の8段階実行計画を自動実行
 
 # 3. 品質確認（GitHub Actions自動実行）
 # PR作成時に自動的に品質ゲートが実行されます
@@ -35,15 +35,15 @@ claude "Issue #123 を実装して"
 
 `.github/ISSUE_TEMPLATE/ai-task.yml` を使用した構造化されたIssue作成：
 
-- **8段階実行ステップ**（80分で完全実装）
-  - Step 1: 事前調査・分析（10分）
-  - Step 2: ディレクトリ構造作成（5分）
-  - Step 3: 型定義・データ構造（15分）
-  - Step 4: Service実装（20分）
-  - Step 5: ECSシステム統合（15分）
-  - Step 6: テスト実装（20分）
-  - Step 7: 統合・エクスポート（5分）
-  - Step 8: 品質確認・最適化（10分）
+- **8段階実行ステップ**
+  - Step 1: 事前調査・分析
+  - Step 2: ディレクトリ構造作成
+  - Step 3: 型定義・データ構造
+  - Step 4: Service実装
+  - Step 5: ECSシステム統合
+  - Step 6: テスト実装
+  - Step 7: 統合・エクスポート
+  - Step 8: 品質確認・最適化
 
 - **自動実行機能**
   - Effect-TS Service/Layerパターン実装

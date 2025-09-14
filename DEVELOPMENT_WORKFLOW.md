@@ -28,15 +28,15 @@ DRY_RUN=true ./scripts/create-phase-issues.sh 0
 GitHub Issues > New issue > **AI Agent Task** を選択
 
 **テンプレート構成:**
-1. **実行ステップ（8段階・80分）**
-   - Step 1: 事前調査・分析（10分）
-   - Step 2: ディレクトリ構造作成（5分）
-   - Step 3: 型定義・データ構造（15分）
-   - Step 4: Service実装（20分）
-   - Step 5: ECSシステム統合（15分）
-   - Step 6: テスト実装（20分）
-   - Step 7: 統合・エクスポート（5分）
-   - Step 8: 品質確認・最適化（10分）
+1. **段階的実行ステップ（8段階）**
+   - Step 1: 事前調査・分析
+   - Step 2: ディレクトリ構造作成
+   - Step 3: 型定義・データ構造
+   - Step 4: Service実装
+   - Step 5: ECSシステム統合
+   - Step 6: テスト実装
+   - Step 7: 統合・エクスポート
+   - Step 8: 品質確認・最適化
 
 2. **詳細な実装コード例**
    - Effect-TS Service/Layerパターン
@@ -51,7 +51,7 @@ GitHub Issues > New issue > **AI Agent Task** を選択
 
 **テンプレートの利点:**
 - Claude Agentが迷わず実装可能な詳細度
-- 80分で完全な機能実装が可能
+- 段階的な完全機能実装が可能
 - Effect-TSベストプラクティス準拠
 - 自動検証・自動修正機能
 

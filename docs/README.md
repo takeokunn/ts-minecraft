@@ -76,7 +76,7 @@ claude "ROADMAP Phase 0 のIssueを作成して"
 
 # 2. Issue実装（Claude Agent自動実行）
 claude "Issue #123 を実装して"
-# → GitHub Issue内の8段階実行計画を自動実行（80分）
+# → GitHub Issue内の8段階実行計画を自動実行
 
 # 3. 品質確認（GitHub Actions自動実行）
 # PR作成時に自動的に品質ゲートが実行されます

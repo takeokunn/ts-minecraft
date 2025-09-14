@@ -26,7 +26,7 @@ claude "Issue #123 を実装して"
 
 ### 開発原則
 - **Issue中心開発**: 全ての実装はIssue番号が必須
-- **AI Agent自動実装**: 80分で完全実装（8段階ステップ）
+- **AI Agent自動実装**: 段階的な完全実装（8段階ステップ）
 - **Effect-TS必須**: Context.GenericTag/Schema.Struct/Layer.effect
 - **品質自動保証**: GitHub Actionsで品質ゲート
 - **ドキュメント同期**: 実装と同時にdocs/更新
@@ -66,7 +66,7 @@ claude "Issue #123 を実装して"
 - **Phase 7-8**: Enhanced Features - 高度な機能追加
 
 #### タスク実装基準
-- **1タスク = 1 Issue** （80分で完全実装）
+- **1タスク = 1 Issue**
 - **サイズ**: XS(30分) / S(2時間) / M(4時間) / L(6時間)
 - **優先度**: Critical / High / Medium / Low
 - **依存関係**: 明確な前提タスクを指定

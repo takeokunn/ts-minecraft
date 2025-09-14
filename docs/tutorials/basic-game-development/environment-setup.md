@@ -54,7 +54,7 @@ claude "ROADMAP Phase 0 のIssueを作成して"
 
 # 2. Issue実装（Claude Agent自動実行）
 claude "Issue #123 を実装して"
-# → GitHub Issue内の8段階実行計画を自動実行（80分）
+# → GitHub Issue内の8段階実行計画を自動実行
 
 # 3. 開発サーバー起動
 pnpm dev
