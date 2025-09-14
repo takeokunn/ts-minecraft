@@ -1,7 +1,8 @@
+Closes #xxx
+
 ## 📌 PR概要
 
 **Task ID**: [P0-001]
-**Issue**: #xxx
 **Type**: feat/fix/docs/test
 **Size**: XS/S/M/L/XL
 
@@ -9,27 +10,44 @@
 
 <!-- 何を実装したか簡潔に説明 -->
 
-## ✅ 実装チェック
+## 🧪 QA導線
 
-- [ ] TypeScript strictモード通過
-- [ ] テストカバレッジ80%以上
-- [ ] Lintエラーなし
-- [ ] Effect-TSパターン使用
-- [ ] Schema.Struct型定義
-- [ ] 60FPS/2GB以下維持
-
-## 🔧 検証結果
+### ローカル環境での動作確認手順
 
 ```bash
-# 実行したコマンドと結果
-pnpm typecheck  # ✅ No errors
-pnpm lint       # ✅ No errors
-pnpm test       # ✅ All tests pass
-pnpm build      # ✅ Build success
+# 1. ブランチ切り替え
+git checkout <branch-name>
+
+# 2. 依存関係インストール
+pnpm install
+
+# 3. 開発サーバー起動
+pnpm dev
+# → http://localhost:3000 で確認
+
+# 4. 品質チェック（オプション）
+pnpm typecheck  # 型チェック
+pnpm lint       # リントチェック
+pnpm build      # ビルド確認
 ```
 
-## 📚 関連更新
+### 動作確認ポイント
 
-- [ ] API仕様書更新
-- [ ] ドキュメント更新
-- [ ] 既存コードとの統合確認
+- [ ] 新機能が期待通り動作する
+- [ ] 既存機能に影響がない
+- [ ] パフォーマンスの劣化がない
+- [ ] エラーが発生しない
+
+### テストデータ・シナリオ
+
+<!-- QAで使用するテストデータやシナリオがあれば記載 -->
+```
+例：
+1. XXX画面を開く
+2. YYYボタンをクリック
+3. ZZZが表示されることを確認
+```
+
+## 📝 備考
+
+<!-- レビュアーへの追加情報があれば記載 -->

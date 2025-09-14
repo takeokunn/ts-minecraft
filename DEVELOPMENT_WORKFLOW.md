@@ -3,14 +3,26 @@
 
 ```mermaid
 flowchart LR
-    A[GitHub Issue作成] --> B[claude "Issue #123 を実装して"]
+    A[要望/Issue作成] --> B[claude "Issue #123 を実装して"]
     B --> C[自動実装・テスト]
     C --> D[実装完了通知]
     D --> E[PR作成・GitHub Actions]
 ```
 
 ## Issue作成
-### 方法1: 自動作成（ROADMAP連携）
+### 方法1: 自然言語からの自動作成【NEW】
+
+```bash
+# Claude経由（推奨）
+claude "editorconfig lintを導入したい Issue を作って"
+claude "/issue/create ブロック破壊アニメーションを追加"
+
+# 直接実行
+./scripts/create-issue.sh "editorconfig lintを導入したい"
+./scripts/create-issue.sh "タスク" --guidance Detailed --dry-run
+```
+
+### 方法2: ROADMAP連携での自動作成
 
 ```bash
 # Claude Agent経由
@@ -23,7 +35,7 @@ claude "ROADMAP Phase 0 のIssueを作成して"
 DRY_RUN=true ./scripts/create-phase-issues.sh 0
 ```
 
-### 方法2: 手動作成（AI Task Issueテンプレート）
+### 方法3: 手動作成（AI Task Issueテンプレート）
 
 GitHub Issues > New issue > **AI Agent Task** を選択
 
@@ -59,7 +71,12 @@ GitHub Issues > New issue > **AI Agent Task** を選択
 ### 基本
 
 ```bash
+# Claude経由（推奨）
 claude "Issue #123 を実装して"
+claude "/issue/implement 123"
+
+# ワンライナー実行（Issue作成→実装→PR作成）
+claude "editorconfig lintを導入したい Issue を作って実装してPRまで作成して"
 ```
 
 **自動実行内容:**
@@ -85,30 +102,64 @@ claude "Issue #123 を実装して"
 💡 次: PR作成準備完了
 ```
 
-### PR作成（別環境）
+### PR作成
 
-- 実装完了コードをPR環境に移行
-- PR作成・レビュー申請
-- 人間レビュー・承認
-- マージ・デプロイ
+```bash
+# Claude経由
+claude "Issue #123 のPRを作成して"
+claude "/pr/create 123"
+
+# 直接実行
+./scripts/create-pr.sh 123
+./scripts/create-pr.sh 123 --draft --no-checks
+```
+
+**自動実行内容:**
+- 品質チェック（TypeCheck/Lint/Build）並列実行
+- ブランチ作成・コミット・プッシュ
+- PRテンプレート自動生成
+- Issue自動クローズ設定（Closes #xxx）
 
 ## 参照優先順位
 
 1. **GitHub Issue実行計画** - ステップバイステップ実装手順
-2. **Issue指定docs/** - 実行計画で指定された詳細仕様
-3. **Issue指定src/shared/** - 実行計画で指定された実装パターン
-4. **Acceptance Criteria** - Issue記載の完了条件・テスト要件
+2. **docs/INDEX.md** - プロジェクト全体のSingle Source of Truth
+3. **docs/内の関連ファイル** - 実行計画で指定された詳細仕様
+4. **src/shared/** - 実装済みパターン例
+5. **Acceptance Criteria** - Issue記載の完了条件・テスト要件
 
-## 設定ファイル
+## プロジェクト構成（Single Source of Truth）
+
 ```
 .claude/
-├── CLAUDE.md         # プロジェクト情報・パターン
-├── automation.md     # Issue実装自動化
+├── CLAUDE.md         # エントリーポイント
+├── commands/         # カスタムコマンド定義【NEW】
+│   ├── index.md     # コマンドインデックス
+│   ├── issue/       # Issue管理コマンド
+│   ├── pr/          # PR管理コマンド
+│   ├── test/        # テストコマンド
+│   └── build/       # ビルドコマンド
 └── README.md         # 使用方法
 
 scripts/
-├── quality-check.sh  # 4段階品質ゲート
-└── README.md         # 品質チェック詳細
+├── lib/              # 共通ライブラリ
+│   ├── common.sh    # 共通関数
+│   ├── issue-analyzer.sh # Issue分析
+│   ├── claude-helpers.sh # Claude連携
+│   └── pr-helpers.sh # PR作成支援
+├── create-issue.sh   # Issue自動生成（リファクタリング済）
+├── create-pr.sh      # PR自動作成（リファクタリング済）
+├── create-phase-issues.sh # ROADMAP Issue作成
+├── claude-issue.sh   # Claude専用エントリーポイント
+├── test-all.sh      # テストスイート
+└── README.md         # スクリプト概要
+
+docs/                 # プロジェクト仕様
+├── INDEX.md         # ドキュメントエントリーポイント
+├── how-to/          # 実装方法
+├── tutorials/       # チュートリアル
+├── explanations/    # 設計説明
+└── reference/       # API仕様
 ```
 
 ---
