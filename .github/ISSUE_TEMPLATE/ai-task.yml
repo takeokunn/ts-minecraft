@@ -64,13 +64,76 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: context7-libraries
+    attributes:
+      label: Context7活用ライブラリ
+      description: 実装で使用する主要ライブラリ（Context7で最新仕様確認）
+      options:
+        - "Effect-TS (@effect/schema, @effect/io など)"
+        - "Three.js (3D graphics)"
+        - "Vite (build tool)"
+        - "Vitest (testing)"
+        - "TypeScript (latest features)"
+        - "その他（実行ステップで明記）"
+        - "ライブラリ使用なし"
+    validations:
+      required: true
+
+  - type: textarea
+    id: docs-updates
+    attributes:
+      label: ドキュメント更新要件
+      description: 実装完了後にdocs/へ追加すべき新しい仕様・パターン
+      placeholder: |
+        - 新しい実装パターンの記録 (docs/patterns/)
+        - API仕様の更新 (docs/reference/)
+        - 設定変更の記録 (docs/how-to/)
+        - アーキテクチャ決定の記録 (docs/explanations/)
+    validations:
+      required: false
+
   - type: textarea
     id: execution-phases
     attributes:
       label: 実行ステップ（AI Agent自動実行用）
       description: Claude Agentが参照すべきドキュメントリンクと実行手順
       placeholder: |
-        参照: docs/how-to/development/implementation-steps.md
+        ## 実行フロー（8段階 + 前後処理）
+
+        ### Pre-Step: 実装前確認
+        1. `list_memories` - 既存実装パターン確認
+        2. `@docs/` 設計方針・実装方針確認 (指定ドキュメント必読)
+        3. Context7でライブラリ最新仕様確認
+
+        ### Step 1: 事前調査・分析
+        参照: docs/how-to/development/analysis-phase.md
+
+        ### Step 2: ディレクトリ構造作成
+        参照: docs/reference/architecture/directory-structure.md
+
+        ### Step 3: 型定義・データ構造
+        参照: docs/reference/patterns/effect-ts-patterns.md
+
+        ### Step 4: Service実装
+        参照: docs/reference/patterns/service-layer-patterns.md
+
+        ### Step 5: ECSシステム統合
+        参照: docs/reference/architecture/ecs-integration.md
+
+        ### Step 6: テスト実装
+        参照: docs/how-to/testing/vitest-patterns.md
+
+        ### Step 7: 統合・エクスポート
+        参照: docs/reference/patterns/module-exports.md
+
+        ### Step 8: 品質確認・最適化
+        参照: docs/how-to/development/quality-gates.md
+
+        ### Post-Step: 実装後処理
+        1. `@docs/` へ新パターン記録
+        2. `write_memory` で重要パターン保存
+        3. 検証コマンド実行
     validations:
       required: true
 

@@ -63,10 +63,12 @@ claude "Issue #123 を実装して"
 ```
 
 **自動実行内容:**
-1. GitHub Issue内の実行計画解析（Step 1, 2, 3...）
-2. 各ステップを順次実行（指定された参照ドキュメント使用）
-3. Acceptance Criteria全項目検証
-4. 実行計画完了報告（GitHub Actions連携）
+1. **Pre-Step実装前確認**: `list_memories`・`@docs/`設計方針・実装方針確認・Context7ライブラリ仕様確認
+2. **GitHub Issue実行計画解析**: Step 1-8の段階的実行
+3. **各ステップ順次実行**: 指定された参照ドキュメント使用
+4. **Post-Step実装後処理**: `@docs/`更新・`write_memory`保存・品質確認
+5. **Acceptance Criteria全項目検証**
+6. **実行計画完了報告**（GitHub Actions連携）
 
 ### 品質チェック（GitHub Actions自動実行）
 
