@@ -22,6 +22,11 @@
 - [Effect-TS Schema API](./api/effect-ts-schema-api.md)
 - [Effect-TS Context API](./api/effect-ts-context-api.md)
 
+### 🏗️ [Architecture](./architecture-patterns.md)
+**設計原則とベストプラクティス**
+
+- [アーキテクチャパターン集](./architecture-patterns.md) - DDD・ECS・Effect-TS統合パターン
+
 ### ⚙️ [Configuration](./configuration/)
 **設定ファイルとオプション詳細**
 
@@ -42,12 +47,28 @@
 - [ワールドデータ構造](./game-systems/world-data-structure.md)
 - [チャンク形式](./game-systems/chunk-format.md)
 - [セーブファイル形式](./game-systems/save-file-format.md)
+- [ゲームロジック仕様書](./game-logic-specification.md) - Minecraft機能の完全技術仕様
+
+### 📊 [Performance & Metrics](./performance-metrics.md)
+**パフォーマンス計測と最適化**
+
+- [パフォーマンスメトリクス](./performance-metrics.md) - 計測基準とベンチマーク指標
+
+### 🔐 [Security](./security-guidelines.md)
+**セキュリティとプライバシー**
+
+- [セキュリティガイドライン](./security-guidelines.md) - 包括的セキュリティベストプラクティス
 
 ### 💻 [CLI](./cli/)
 **コマンドラインインターフェース詳細**
 
 - [開発コマンド](./cli/development-commands.md)
 - [テストコマンド](./cli/testing-commands.md)
+
+### 🔧 [Troubleshooting](./troubleshooting/)
+**問題解決とデバッグ**
+
+- [パフォーマンス診断](./troubleshooting/performance-diagnostics.md) - 実践的問題解決リファレンス
 
 ### 📝 [Glossary](./glossary.md)
 **用語集とプロジェクト固有の専門用語解説**

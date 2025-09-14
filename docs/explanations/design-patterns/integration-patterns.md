@@ -833,15 +833,20 @@ const makeHttpIntegrationService = Effect.gen(function* () {
 
         // 大きなバッチを分割（APIレート制限対応）
         const batchSize = 10
-        const batches = []
-        for (let i = 0; i < playerIds.length; i += batchSize) {
-          batches.push(playerIds.slice(i, i + batchSize))
-        }
+
+        // Effect-TSによる関数型バッチ分割
+        const batches = Array.from(
+          { length: Math.ceil(playerIds.length / batchSize) },
+          (_, i) => playerIds.slice(i * batchSize, (i + 1) * batchSize)
+        )
 
         const results: PlayerDataResponse[] = []
         const errors: Array<{ playerId: string, error: HttpIntegrationError }> = []
 
-        for (const batch of batches) {
+        // Effect.forEachによる順次処理（レート制限対応）
+        yield* Effect.forEach(
+          batches,
+          (batch) => Effect.gen(function* () {
           const batchResults = yield* Stream.fromIterable(batch).pipe(
             Stream.mapEffect(
               (playerId) =>
@@ -1457,10 +1462,15 @@ const makeChunkRepository = Effect.gen(function* () {
 
       // バッチサイズで分割（大量のIN句のパフォーマンス問題を回避）
       const batchSize = 100
-      const results: ChunkData[] = []
 
-      for (let i = 0; i < coordinates.length; i += batchSize) {
-        const batch = coordinates.slice(i, i + batchSize)
+      // Effect-TSによる関数型バッチ処理
+      const batches = Array.from(
+        { length: Math.ceil(coordinates.length / batchSize) },
+        (_, i) => coordinates.slice(i * batchSize, (i + 1) * batchSize)
+      )
+
+      const results = yield* Effect.all(
+        batches.map(batch => Effect.gen(function* () {
 
         const batchResults = yield* sql`
           SELECT x, z, data, version, updated_at FROM chunks
@@ -1709,10 +1719,15 @@ const saveChunksBatch = (chunks: ReadonlyArray<ChunkData>) => Effect.gen(functio
 
   // 大量データの場合はバッチで分割
   const batchSize = 50
-  const results = []
 
-  for (let i = 0; i < chunks.length; i += batchSize) {
-    const batch = chunks.slice(i, i + batchSize)
+  // Effect-TSによる関数型バッチ処理とトランザクション管理
+  const batches = Array.from(
+    { length: Math.ceil(chunks.length / batchSize) },
+    (_, i) => chunks.slice(i * batchSize, (i + 1) * batchSize)
+  )
+
+  const results = yield* Effect.all(
+    batches.map(batch => Effect.gen(function* () {
 
     const batchResult = yield* sql.withTransaction(
       Effect.gen(function* () {
@@ -2162,13 +2177,16 @@ const addBlockFaces = (vertices: number[], indices: number[], x: number, y: numb
   })
 
   // インデックスを追加（各面2つの三角形）
-  for (let i = 0; i < 6; i++) {
+  // Effect-TSによる関数型インデックス生成
+  const faceIndices = Array.from({ length: 6 }, (_, i) => {
     const faceStart = startIndex + i * 4
-    indices.push(
+    return [
       faceStart, faceStart + 1, faceStart + 2,
       faceStart, faceStart + 2, faceStart + 3
-    )
-  }
+    ]
+  }).flat()
+
+  indices.push(...faceIndices)
 }
 ```
 

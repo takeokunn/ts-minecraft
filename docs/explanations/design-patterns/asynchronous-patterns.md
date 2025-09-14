@@ -766,20 +766,35 @@ interface MinecraftChunkLoader {
 
   // リトライ実装（手動・不完全）
   async loadWithRetry(x: number, z: number, maxRetries = 3): Promise<Chunk> {
-    let lastError: Error
+    // ❌ 従来の命令型アプローチ - 可変状態とループに依存
+    // Effect-TSでは以下のように書き直される:
+    /*
+    return pipe(
+      this.loadChunk(x, z),
+      Effect.retry(
+        Schedule.exponential("100 millis").pipe(
+          Schedule.intersect(Schedule.recurs(maxRetries))
+        )
+      ),
+      Effect.runPromise
+    )
+    */
 
-    for (let i = 0; i <= maxRetries; i++) {
+    // 従来実装（後方互換性のため残置）
+    const attempts = Array.from({ length: maxRetries + 1 }, (_, i) => i)
+
+    return attempts.reduce(async (previousAttempt, currentIndex) => {
       try {
+        await previousAttempt
         return await this.loadChunk(x, z)
       } catch (error) {
-        lastError = error as Error
-        if (i < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 100))
+        if (currentIndex === maxRetries) {
+          throw error
         }
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, currentIndex) * 100))
+        return Promise.reject(error)
       }
-    }
-
-    throw lastError!
+    }, Promise.resolve())
   }
 }
 
@@ -1848,12 +1863,16 @@ const createRedstoneSimulator = Effect.gen(function* () {
 
         // 全ての接続ブロックを原子的に更新
         const updates = new Map(currentState)
-        for (const blockPos of connectedBlocks) {
-          const currentSignal = updates.get(blockPos)?.powered ?? false
-          const newSignal = calculateSignalStrength(blockPos, signal)
 
-          updates.set(blockPos, {
-            powered: newSignal > 0,
+        // Effect-TSによる関数型アプローチ
+        const blockUpdates = yield* Effect.all(
+          connectedBlocks.map(blockPos =>
+            Effect.gen(function* () {
+              const currentSignal = updates.get(blockPos)?.powered ?? false
+              const newSignal = yield* calculateSignalStrength(blockPos, signal)
+
+              return [blockPos, {
+                powered: newSignal > 0,
             strength: newSignal,
             lastUpdate: Date.now()
           })
@@ -1881,12 +1900,15 @@ const createRedstoneSimulator = Effect.gen(function* () {
         // 依存関係のない更新は並行実行
         const batches = groupByDependency(sortedUpdates)
 
-        for (const batch of batches) {
-          yield* Effect.all(
+        // Effect-TSによるバッチ処理の合成
+        yield* Effect.forEach(
+          batches,
+          (batch) => Effect.all(
             batch.map(update => propagateSignal(update.position, update.signal)),
             { concurrency: "unbounded" }
-          )
-        }
+          ),
+          { concurrency: 1 } // バッチは順次実行
+        )
 
         // パフォーマンスログ
         if (updates.length > 50) {
@@ -2147,20 +2169,32 @@ const ChunkLoaderServiceLive = Layer.effect(ChunkLoaderService,
 // Effect内でのコールバック地獄
 const processPlayerActions = (actions: PlayerAction[]) =>
   Effect.gen(function* () {
-    for (const action of actions) {
-      if (action.type === 'move') {
-        const player = yield* PlayerService.getPlayer(action.playerId)
-        if (player) {
-          const validMove = yield* validateMove(player, action.target)
-          if (validMove) {
-            yield* WorldService.movePlayer(player.id, action.target)
-            const nearbyPlayers = yield* WorldService.getNearbyPlayers(action.target)
-            for (const nearby of nearbyPlayers) {
-              yield* NotificationService.notify(nearby.id, `${player.name} moved nearby`)
+    // Effect-TSによる関数型コレクション処理
+    yield* Effect.forEach(
+      actions,
+      (action) => Match.value(action).pipe(
+        Match.tag("move", (moveAction) =>
+          Effect.gen(function* () {
+            const player = yield* PlayerService.getPlayer(moveAction.playerId)
+            const validMove = yield* validateMove(player, moveAction.target)
+
+            if (validMove) {
+              yield* WorldService.movePlayer(player.id, moveAction.target)
+              const nearbyPlayers = yield* WorldService.getNearbyPlayers(moveAction.target)
+
+              // 近隣プレイヤーへの通知を並行実行
+              yield* Effect.forEach(
+                nearbyPlayers,
+                (nearby) => NotificationService.notify(nearby.id, `${player.name} moved nearby`),
+                { concurrency: "unbounded" }
+              )
             }
-          }
-        }
-      }
+          })
+        ),
+        Match.orElse(() => Effect.unit)
+      ),
+      { concurrency: 1 } // アクションは順次処理
+    )
     }
   })
 ```
@@ -2203,8 +2237,22 @@ const loadWorldDataBad = async (worldId: string) => {
   const connections: DatabaseConnection[] = []
 
   try {
-    // 複数接続を作成するがクリーンアップが不完全
-    for (let i = 0; i < 10; i++) {
+    // ❌ 従来の命令型アプローチ - リソースリークのリスク
+    // Effect-TSでは以下のように安全に書き直される:
+    /*
+    yield* Effect.forEach(
+      Array.from({ length: 10 }),
+      () => Effect.acquireUseRelease(
+        createConnection(),
+        (conn) => conn.query(`SELECT * FROM chunks WHERE world_id = ?`, [worldId]),
+        (conn) => conn.close()
+      ),
+      { concurrency: "unbounded" }
+    )
+    */
+
+    // 従来実装（危険なパターンの例として保持）
+    const connectionPromises = Array.from({ length: 10 }, async (_, i) => {
       const conn = await createConnection()
       connections.push(conn)
 

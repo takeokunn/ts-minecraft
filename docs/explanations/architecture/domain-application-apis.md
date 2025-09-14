@@ -638,25 +638,38 @@ export const ChunkServiceLive = Layer.succeed(ChunkService, {
     )
 
     // ブロック配置生成
-    const blocks = new Map<string, Block>()
-    for (let x = 0; x < CHUNK_SIZE; x++) {
-      for (let z = 0; z < CHUNK_SIZE; z++) {
-        const height = heightMap[x * CHUNK_SIZE + z]
-        for (let y = 0; y <= height; y++) {
-          const blockType = determineBlockType(y, height, biome)
-          const worldPos = {
-            x: validatedParams.x * CHUNK_SIZE + x,
-            y,
-            z: validatedParams.z * CHUNK_SIZE + z
-          }
-          blocks.set(positionToKey(worldPos), Block({
-            type: blockType,
-            position: worldPos,
-            metadata: getDefaultMetadata(blockType)
-          }))
-        }
-      }
-    }
+    const blocks = yield* Effect.gen(function* () {
+      const blocksMap = new Map<string, Block>()
+
+      yield* Effect.forEach(
+        Array.from({ length: CHUNK_SIZE }, (_, x) => x),
+        (x) => Effect.forEach(
+          Array.from({ length: CHUNK_SIZE }, (_, z) => z),
+          (z) => Effect.gen(function* () {
+            const height = heightMap[x * CHUNK_SIZE + z]
+
+            yield* Effect.forEach(
+              Array.from({ length: height + 1 }, (_, y) => y),
+              (y) => Effect.sync(() => {
+                const blockType = determineBlockType(y, height, biome)
+                const worldPos = {
+                  x: validatedParams.x * CHUNK_SIZE + x,
+                  y,
+                  z: validatedParams.z * CHUNK_SIZE + z
+                }
+                blocksMap.set(positionToKey(worldPos), Block({
+                  type: blockType,
+                  position: worldPos,
+                  metadata: getDefaultMetadata(blockType)
+                }))
+              })
+            )
+          })
+        )
+      )
+
+      return blocksMap
+    })
 
     // 構造物生成
     const structures = yield* StructureGenerator.pipe(

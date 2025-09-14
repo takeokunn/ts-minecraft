@@ -32,9 +32,16 @@
 - [テストパターン](./design-patterns/test-patterns.md)
 - [最適化パターン](./design-patterns/optimization-patterns.md)
 - [統合パターン](./design-patterns/integration-patterns.md)
+- [関数型プログラミング哲学](./design-patterns/functional-programming-philosophy.md)
+- [ドメイン統合パターン](./design-patterns/domain-integration-patterns.md)
+- [型安全性哲学](./design-patterns/type-safety-philosophy.md)
 
 ### 🎮 [Game Mechanics](./game-mechanics/)
 **ゲームシステムの設計思想と実装判断**
+
+- **[設計哲学](./game-mechanics/design-philosophy.md)**: Minecraft体験の再現と革新
+- **[高度なゲームシステム](./game-mechanics/advanced-game-systems.md)**: 統合システム設計
+- **[アセット・リソース管理](./game-mechanics/asset-sources.md)**: ゲーム素材の効率的管理
 
 #### コア機能
 - [アーキテクチャ原則](./game-mechanics/00-core-features/architecture-principles.md)

@@ -33,23 +33,33 @@
 ### 🚀 [Getting Started](./getting-started/)
 **対象**: 初心者 | **所要時間**: 30分
 
-プロジェクト概要、環境セットアップ、基本概念の理解
+- プロジェクト概要、環境セットアップ、基本概念の理解
+- [初心者向けトラブルシューティング](./getting-started/02-common-issues-and-solutions.md) - よくある問題と解決策
 
 ### 🎮 [Basic Game Development](./basic-game-development/)
-**対象**: 初級〜中級 | **所要時間**: 2時間
+**対象**: 初級〜中級 | **所要時間**: 2-4時間
 
-実際のゲーム機能実装を通じたプロジェクト構造の学習
+- 実際のゲーム機能実装を通じたプロジェクト構造の学習
+- [インタラクティブ学習ガイド](./basic-game-development/04-interactive-learning-guide.md) - ハンズオンでマスターする実践的ガイド
 
 ### ⚡ [Effect-TS Fundamentals](./effect-ts-fundamentals/)
 **対象**: 中級 | **所要時間**: 3時間
 
 Effect-TSの基礎から応用までの関数型プログラミングパターン
 
+### 🌐 [Advanced Topics](./advanced-topics/)
+**対象**: 上級 | **所要時間**: 4-8時間
+
+- [マルチプレイヤー実装ガイド](./advanced-topics/multiplayer-implementation-guide.md) - リアルタイム同期とネットワーキング
+- 高度なパフォーマンス最適化とスケーリング
+
 ## 💡 学習のコツ
 
-1. **順序を守る**: Getting Started → Basic Game Development → Effect-TS Fundamentals
+1. **順序を守る**: Getting Started → Basic Game Development → Effect-TS Fundamentals → Advanced Topics
 2. **実際に動かす**: コードサンプルは必ず実行して確認
 3. **段階的に進める**: 一度にすべてを理解しようとしない
+4. **問題解決重視**: つまずいた時は[トラブルシューティングガイド](./getting-started/02-common-issues-and-solutions.md)を活用
+5. **実践的学習**: [インタラクティブガイド](./basic-game-development/04-interactive-learning-guide.md)でハンズオン体験を重視
 
 ## 📋 前提知識
 

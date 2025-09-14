@@ -214,16 +214,16 @@ const ArmorSchema = Schema.Struct({
 
 const ItemSchema = Schema.Union(WeaponSchema, ArmorSchema, FoodSchema)
 
-// 型安全なパターンマッチング
+// 型安全なパターンマッチング - Effect-TS Match.valueによる網羅的Tagged Union処理
 const getItemValue = (item: typeof ItemSchema.Type): number => {
-  switch (item._tag) {
-    case "weapon":
-      return item.damage * 10
-    case "armor":
-      return item.defense * 15
-    case "food":
-      return item.nutrition * 5
-  }
+  import { Match } from "effect"
+
+  return Match.value(item).pipe(
+    Match.tag("weapon", ({ damage }) => damage * 10),
+    Match.tag("armor", ({ defense }) => defense * 15),
+    Match.tag("food", ({ nutrition }) => nutrition * 5),
+    Match.exhaustive // コンパイル時に全ケースの処理を保証
+  )
 }
 ```
 

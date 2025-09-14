@@ -179,21 +179,29 @@ export namespace Multiplayer {
       replicas: number
     ) => Effect.Effect<ReplicationResult, ReplicationError, ShardService>
   }
+
+  export const WorldShardingService = Context.GenericTag<WorldShardingService>("@minecraft/WorldShardingService")
 }
 
-// Advanced Networking Implementation
-export class AdvancedNetworkManager {
-  constructor(
-    private readonly websocketServer: WebSocketServer,
-    private readonly webrtcPeer: WebRTCPeerConnection,
-    private readonly stateSync: RealtimeSyncProtocol,
-    private readonly conflictResolver: ConflictResolver
-  ) {}
+// Advanced Networking Implementation - Functional Approach
+export namespace AdvancedNetworking {
+  // Dependencies as Context services
+  export interface AdvancedNetworkManager {
+    readonly assessNetworkConditions: (session: PlayerSession) => Effect.Effect<NetworkConditions, NetworkError, never>
+    readonly getHistoricalWorldState: (timestamp: number) => Effect.Effect<WorldState, HistoryError, never>
+    readonly validatePlayerInput: (input: PlayerInput, state: WorldState) => Effect.Effect<boolean, ValidationError, never>
+    readonly extrapolatePosition: (position: Position, velocity: Vector3, latency: number) => Position
+  }
 
-  // Adaptive Network Protocol Selection
-  selectOptimalProtocol = (session: PlayerSession): Effect.Effect<NetworkProtocol, NetworkError, never> =>
+  export const AdvancedNetworkManager = Context.GenericTag<AdvancedNetworkManager>("@minecraft/AdvancedNetworkManager")
+
+  // Adaptive Network Protocol Selection - Pure Function
+  export const selectOptimalProtocol = (
+    session: PlayerSession
+  ): Effect.Effect<NetworkProtocol, NetworkError, AdvancedNetworkManager> =>
     Effect.gen(function* () {
-      const networkConditions = yield* this.assessNetworkConditions(session)
+      const networkManager = yield* AdvancedNetworkManager
+      const networkConditions = yield* networkManager.assessNetworkConditions(session)
 
       return Match.value(networkConditions).pipe(
         Match.when(
@@ -212,65 +220,95 @@ export class AdvancedNetworkManager {
       )
     })
 
-  // Lag Compensation System
-  compensateForLatency = (
+  // Lag Compensation System - Functional Implementation
+  export const compensateForLatency = (
     playerInput: PlayerInput,
     serverTimestamp: Timestamp,
     playerLatency: number
-  ): Effect.Effect<CompensatedInput, CompensationError, never> =>
+  ): Effect.Effect<CompensatedInput, CompensationError, AdvancedNetworkManager> =>
     Effect.gen(function* () {
+      const networkManager = yield* AdvancedNetworkManager
+
       // サーバーサイド巻き戻し
-      const historicalState = yield* this.getHistoricalWorldState(
+      const historicalState = yield* networkManager.getHistoricalWorldState(
         serverTimestamp - playerLatency
       )
 
       // 入力の妥当性検証（過去の状態で）
-      const isValidInput = yield* this.validatePlayerInput(
+      const isValidInput = yield* networkManager.validatePlayerInput(
         playerInput,
         historicalState
       )
 
-      if (!isValidInput) {
-        return yield* Effect.fail({
-          _tag: "InvalidInputError" as const,
-          input: playerInput,
-          reason: "Input not valid for historical state"
-        })
-      }
-
-      // 時間補正された入力を生成
-      return {
-        ...playerInput,
-        timestamp: serverTimestamp,
-        compensatedPosition: this.extrapolatePosition(
-          playerInput.position,
-          playerInput.velocity,
-          playerLatency
+      return Match.value(isValidInput).pipe(
+        Match.when(false, () =>
+          Effect.fail({
+            _tag: "InvalidInputError" as const,
+            input: playerInput,
+            reason: "Input not valid for historical state"
+          } as CompensationError)
         ),
-        validated: true
-      }
+        Match.when(true, () =>
+          Effect.succeed({
+            ...playerInput,
+            timestamp: serverTimestamp,
+            compensatedPosition: networkManager.extrapolatePosition(
+              playerInput.position,
+              playerInput.velocity,
+              playerLatency
+            ),
+            validated: true
+          } as CompensatedInput)
+        ),
+        Match.exhaustive
+      ).pipe(Effect.flatten)
     })
 }
 
-// Client-Side Prediction & Server Reconciliation
-export class ClientSidePrediction {
-  constructor(
-    private readonly localState: LocalGameState,
-    private readonly serverState: ServerGameState,
-    private readonly inputBuffer: InputBuffer
-  ) {}
+// Client-Side Prediction & Server Reconciliation - Functional Design
+export namespace ClientSidePrediction {
+  // Service definitions using Context.GenericTag
+  export interface LocalGameStateService {
+    readonly getCurrent: () => Effect.Effect<LocalGameState, never, never>
+    readonly setCurrent: (state: LocalGameState) => Effect.Effect<void, never, never>
+  }
 
-  // クライアントサイド予測
-  predictMovement = (input: PlayerInput): Effect.Effect<PredictedState, PredictionError, never> =>
+  export interface ServerGameStateService {
+    readonly getCurrent: () => Effect.Effect<ServerGameState, never, never>
+  }
+
+  export interface InputBufferService {
+    readonly store: (sequenceId: SequenceId, data: InputBufferEntry) => Effect.Effect<void, never, never>
+    readonly getInputsAfter: (sequenceId: SequenceId) => Effect.Effect<InputBufferEntry[], never, never>
+  }
+
+  export interface MovementSimulationService {
+    readonly simulate: (state: GameState, input: PlayerInput) => Effect.Effect<PredictedState, SimulationError, never>
+  }
+
+  export const LocalGameStateService = Context.GenericTag<LocalGameStateService>("@minecraft/LocalGameStateService")
+  export const ServerGameStateService = Context.GenericTag<ServerGameStateService>("@minecraft/ServerGameStateService")
+  export const InputBufferService = Context.GenericTag<InputBufferService>("@minecraft/InputBufferService")
+  export const MovementSimulationService = Context.GenericTag<MovementSimulationService>("@minecraft/MovementSimulationService")
+
+  // クライアントサイド予測 - Functional approach
+  export const predictMovement = (
+    input: PlayerInput
+  ): Effect.Effect<PredictedState, PredictionError, LocalGameStateService | InputBufferService | MovementSimulationService> =>
     Effect.gen(function* () {
+      const localStateService = yield* LocalGameStateService
+      const inputBufferService = yield* InputBufferService
+      const simulationService = yield* MovementSimulationService
+
       // ローカル状態で即座に予測実行
-      const predictedState = yield* this.simulateMovement(
-        this.localState.current,
+      const currentState = yield* localStateService.getCurrent()
+      const predictedState = yield* simulationService.simulate(
+        currentState,
         input
       )
 
       // 予測をバッファに記録（後で検証用）
-      yield* this.inputBuffer.store(input.sequenceId, {
+      yield* inputBufferService.store(input.sequenceId, {
         input,
         predictedState,
         timestamp: Date.now()
@@ -289,10 +327,12 @@ export class ClientSidePrediction {
       const unprocessedInputs = yield* this.inputBuffer.getInputsAfter(lastProcessedInput)
 
       // サーバー状態から再シミュレーション
-      let reconciledState = authorativeState
-      for (const bufferedInput of unprocessedInputs) {
-        reconciledState = yield* this.simulateMovement(reconciledState, bufferedInput.input)
-      }
+      const reconciledState = yield* Effect.reduce(
+        unprocessedInputs,
+        authorativeState,
+        (currentState, bufferedInput) =>
+          simulateMovement(currentState, bufferedInput.input)
+      )
 
       // 予測誤差の計算と補正
       const predictionError = this.calculatePredictionError(
@@ -300,10 +340,14 @@ export class ClientSidePrediction {
         reconciledState
       )
 
-      if (predictionError.magnitude > CORRECTION_THRESHOLD) {
-        // スムーズな補正を適用
-        yield* this.applySmoothCorrection(predictionError)
-      }
+      yield* Match.value(predictionError.magnitude).pipe(
+        Match.when(
+          (magnitude) => magnitude > CORRECTION_THRESHOLD,
+          () => applySmoothCorrection(predictionError)
+        ),
+        Match.orElse(() => Effect.succeed(undefined)),
+        Match.exhaustive
+      ).pipe(Effect.flatten)
 
       return reconciledState
     })
@@ -322,41 +366,74 @@ export namespace DistributedData {
     readonly aggregateResults: <T>(results: ShardResult<T>[]) => Effect.Effect<T, AggregationError, never>
   }
 
-  // Consistent Hashing for Load Distribution
-  export class ConsistentHashRing {
-    constructor(
-      private readonly virtualNodes: number = 150,
-      private readonly hashFunction: HashFunction = sha256
-    ) {}
+  export const DataShardingService = Context.GenericTag<DataShardingService>("@minecraft/DataShardingService")
 
-    addNode = (node: DatabaseNode): Effect.Effect<void, never, never> =>
+  // Consistent Hashing for Load Distribution - Functional Implementation
+  export namespace ConsistentHashRing {
+    // Configuration Schema
+    export const ConsistentHashRingConfig = Schema.Struct({
+      virtualNodes: Schema.Number.pipe(Schema.positive(), Schema.int()),
+      hashFunction: Schema.Function
+    })
+    export type ConsistentHashRingConfig = Schema.Schema.Type<typeof ConsistentHashRingConfig>
+
+    // Ring State Management
+    export interface ConsistentHashRingService {
+      readonly addNode: (node: DatabaseNode) => Effect.Effect<void, never, never>
+      readonly getNode: (key: string) => Effect.Effect<DatabaseNode, NodeNotFoundError, never>
+      readonly getRing: () => Effect.Effect<Map<number, DatabaseNode>, never, never>
+    }
+
+    export const ConsistentHashRingService = Context.GenericTag<ConsistentHashRingService>("@minecraft/ConsistentHashRingService")
+
+    // Pure functions for hash ring operations
+    export const addNode = (
+      node: DatabaseNode,
+      config: ConsistentHashRingConfig
+    ): Effect.Effect<void, never, ConsistentHashRingService> =>
       Effect.gen(function* () {
+        const ringService = yield* ConsistentHashRingService
+
         // 仮想ノードを配置してホットスポットを回避
-        for (let i = 0; i < this.virtualNodes; i++) {
-          const virtualNodeKey = `${node.id}:${i}`
-          const hashValue = yield* this.hashFunction(virtualNodeKey)
-          this.ring.set(hashValue, node)
-        }
+        yield* Effect.forEach(
+          Array.from({ length: config.virtualNodes }, (_, i) => i),
+          (i) => Effect.gen(function* () {
+            const virtualNodeKey = `${node.id}:${i}`
+            const hashValue = yield* Effect.promise(() => config.hashFunction(virtualNodeKey))
+            const ring = yield* ringService.getRing()
+            ring.set(hashValue, node)
+          })
+        )
       })
 
-    getNode = (key: string): Effect.Effect<DatabaseNode, NodeNotFoundError, never> =>
+    export const getNode = (
+      key: string,
+      config: ConsistentHashRingConfig
+    ): Effect.Effect<DatabaseNode, NodeNotFoundError, ConsistentHashRingService> =>
       Effect.gen(function* () {
-        const hashValue = yield* this.hashFunction(key)
+        const ringService = yield* ConsistentHashRingService
+        const hashValue = yield* Effect.promise(() => config.hashFunction(key))
+        const ring = yield* ringService.getRing()
 
         // リング上で最初に見つかるノードを返す
-        const sortedHashes = Array.from(this.ring.keys()).sort()
+        const sortedHashes = Array.from(ring.keys()).sort()
         const targetNode = sortedHashes.find(hash => hash >= hashValue) ??
                           sortedHashes[0]
 
-        const node = this.ring.get(targetNode)
-        if (!node) {
-          return yield* Effect.fail({
-            _tag: "NodeNotFoundError" as const,
-            key
-          })
-        }
+        const node = ring.get(targetNode)
 
-        return node
+        return Match.value(node).pipe(
+          Match.when(Option.isNone, () =>
+            Effect.fail({
+              _tag: "NodeNotFoundError" as const,
+              key
+            } as NodeNotFoundError)
+          ),
+          Match.when(Option.isSome, (someNode) =>
+            Effect.succeed(someNode.value)
+          ),
+          Match.exhaustive
+        ).pipe(Effect.flatten)
       })
   }
 
@@ -400,52 +477,76 @@ export namespace DistributedData {
   }
 }
 
-// Advanced Data Consistency Patterns
-export class EventualConsistencyManager {
-  constructor(
-    private readonly eventBus: EventBus,
-    private readonly sagaOrchestrator: SagaOrchestrator,
-    private readonly compensationService: CompensationService
-  ) {}
+// Advanced Data Consistency Patterns - Functional Design
+export namespace EventualConsistency {
+  // Service Interfaces
+  export interface EventualConsistencyManager {
+    readonly executeDistributedTransaction: <T>(sagaDefinition: SagaDefinition<T>) => Effect.Effect<T, SagaError, SagaOrchestrator>
+    readonly updateVectorClock: (currentClock: VectorClock, nodeId: NodeId, event: DistributedEvent) => Effect.Effect<VectorClock, never, never>
+  }
 
-  // Saga Pattern for Distributed Transactions
-  executeDistributedTransaction = <T>(
+  export const EventualConsistencyManager = Context.GenericTag<EventualConsistencyManager>("@minecraft/EventualConsistencyManager")
+
+  // Saga Pattern for Distributed Transactions - Functional Implementation
+  export const executeDistributedTransaction = <T>(
     sagaDefinition: SagaDefinition<T>
-  ): Effect.Effect<T, SagaError, SagaOrchestrator> =>
+  ): Effect.Effect<T, SagaError, SagaOrchestrator | CompensationService | SagaIdGenerator> =>
     Effect.gen(function* () {
-      const sagaId = yield* this.generateSagaId()
+      const sagaIdGenerator = yield* SagaIdGenerator
+      const compensationService = yield* CompensationService
 
-      try {
-        let result = sagaDefinition.initialState
+      const sagaId = yield* sagaIdGenerator.generate()
 
-        // 各ステップを順次実行
-        for (const step of sagaDefinition.steps) {
-          result = yield* step.execute(result)
+      const executionResult = yield* Effect.tryPromise({
+        try: () => executeSagaSteps(sagaDefinition, sagaId, compensationService),
+        catch: (error) => ({ _tag: "SagaExecutionError" as const, sagaId, cause: error } as SagaError)
+      })
 
-          // 補償アクションを記録
-          yield* this.compensationService.recordCompensation(
-            sagaId,
-            step.compensationAction
-          )
-        }
-
-        // 成功時は補償アクションをクリア
-        yield* this.compensationService.clearCompensations(sagaId)
-        return result
-
-      } catch (error) {
-        // 失敗時は補償アクションを実行
-        yield* this.compensationService.executeCompensations(sagaId)
-        return yield* Effect.fail({
-          _tag: "SagaExecutionError" as const,
-          sagaId,
-          cause: error
-        })
-      }
+      return yield* Match.value(executionResult).pipe(
+        Match.tag("Left", ({ left: error }) =>
+          Effect.gen(function* () {
+            // 失敗時は補償アクションを実行
+            yield* compensationService.executeCompensations(sagaId)
+            return yield* Effect.fail(error)
+          })
+        ),
+        Match.tag("Right", ({ right: result }) =>
+          Effect.gen(function* () {
+            // 成功時は補償アクションをクリア
+            yield* compensationService.clearCompensations(sagaId)
+            return result
+          })
+        ),
+        Match.exhaustive
+      ).pipe(Effect.flatten)
     })
 
-  // Vector Clock for Causality Tracking
-  updateVectorClock = (
+  const executeSagaSteps = async <T>(
+    sagaDefinition: SagaDefinition<T>,
+    sagaId: SagaId,
+    compensationService: CompensationService
+  ): Promise<T> => {
+    // 各ステップを順次実行
+    const result = await Effect.runPromise(
+      Effect.reduce(
+        sagaDefinition.steps,
+        sagaDefinition.initialState,
+        (currentResult, step) => Effect.gen(function* () {
+          const stepResult = yield* step.execute(currentResult)
+
+          // 補償アクションを記録
+          yield* compensationService.recordCompensation(sagaId, step.compensationAction)
+
+          return stepResult
+        })
+      )
+    )
+
+    return result
+  }
+
+  // Vector Clock for Causality Tracking - Pure Function
+  export const updateVectorClock = (
     currentClock: VectorClock,
     nodeId: NodeId,
     event: DistributedEvent
@@ -457,17 +558,40 @@ export class EventualConsistencyManager {
       newClock[nodeId] = (newClock[nodeId] || 0) + 1
 
       // イベントのベクタークロックとマージ
-      if (event.vectorClock) {
-        for (const [otherNodeId, timestamp] of Object.entries(event.vectorClock)) {
-          newClock[otherNodeId] = Math.max(
-            newClock[otherNodeId] || 0,
-            timestamp
-          )
-        }
-      }
-
-      return newClock
+      return Match.value(event.vectorClock).pipe(
+        Match.when(Option.isSome, (eventClock) => {
+          Object.entries(eventClock.value).forEach(([otherNodeId, timestamp]) => {
+            newClock[otherNodeId] = Math.max(
+              newClock[otherNodeId] || 0,
+              timestamp
+            )
+          })
+          return newClock
+        }),
+        Match.when(Option.isNone, () => newClock),
+        Match.exhaustive
+      )
     })
+
+  // Service Dependencies
+  export interface SagaOrchestrator {
+    readonly executeSaga: <T>(definition: SagaDefinition<T>) => Effect.Effect<T, SagaError, never>
+  }
+
+  export interface CompensationService {
+    readonly recordCompensation: (sagaId: SagaId, action: CompensationAction) => Effect.Effect<void, never, never>
+    readonly executeCompensations: (sagaId: SagaId) => Effect.Effect<void, CompensationError, never>
+    readonly clearCompensations: (sagaId: SagaId) => Effect.Effect<void, never, never>
+  }
+
+  export interface SagaIdGenerator {
+    readonly generate: () => Effect.Effect<SagaId, never, never>
+  }
+
+  export const SagaOrchestrator = Context.GenericTag<SagaOrchestrator>("@minecraft/SagaOrchestrator")
+  export const CompensationService = Context.GenericTag<CompensationService>("@minecraft/CompensationService")
+  export const SagaIdGenerator = Context.GenericTag<SagaIdGenerator>("@minecraft/SagaIdGenerator")
+}
 }
 ```
 
@@ -479,56 +603,107 @@ export class EventualConsistencyManager {
 
 ```typescript
 export namespace AdvancedAI {
-  // Behavior Tree Implementation
-  export abstract class BehaviorNode {
-    abstract execute(context: AIContext): Effect.Effect<NodeResult, AIError, AIServices>
+  // Behavior Tree Implementation - Functional Approach using Tagged Unions
+  export const BehaviorNodeType = Schema.Literal("sequence", "selector", "condition", "action")
+  export type BehaviorNodeType = Schema.Schema.Type<typeof BehaviorNodeType>
+
+  export const NodeResult = Schema.Literal("SUCCESS", "FAILURE", "RUNNING")
+  export type NodeResult = Schema.Schema.Type<typeof NodeResult>
+
+  // Behavior Node as Data Structure
+  export const BehaviorNode = Schema.Struct({
+    _tag: Schema.Literal("BehaviorNode"),
+    nodeType: BehaviorNodeType,
+    children: Schema.optional(Schema.Array(Schema.suspend(() => BehaviorNode))),
+    condition: Schema.optional(Schema.Function),
+    action: Schema.optional(Schema.Function)
+  })
+  export type BehaviorNode = Schema.Schema.Type<typeof BehaviorNode>
+
+  // Behavior Tree Service
+  export interface BehaviorTreeService {
+    readonly executeNode: (node: BehaviorNode, context: AIContext) => Effect.Effect<NodeResult, AIError, AIServices>
   }
+  export const BehaviorTreeService = Context.GenericTag<BehaviorTreeService>("@minecraft/BehaviorTreeService")
 
-  export class SequenceNode extends BehaviorNode {
-    constructor(private readonly children: BehaviorNode[]) {
-      super()
-    }
+  // Pure function for sequence node execution
+  export const executeSequenceNode = (
+    children: BehaviorNode[],
+    context: AIContext
+  ): Effect.Effect<NodeResult, AIError, BehaviorTreeService> =>
+    Effect.gen(function* () {
+      const treeService = yield* BehaviorTreeService
 
-    execute = (context: AIContext): Effect.Effect<NodeResult, AIError, AIServices> =>
-      Effect.gen(function* () {
-        for (const child of this.children) {
-          const result = yield* child.execute(context)
+      return yield* Effect.forEach(children, (child) =>
+        Effect.gen(function* () {
+          const result = yield* treeService.executeNode(child, context)
+          return yield* Match.value(result).pipe(
+            Match.when("FAILURE", () => Effect.fail({ type: "EARLY_EXIT", result })),
+            Match.when("RUNNING", () => Effect.fail({ type: "EARLY_EXIT", result })),
+            Match.when("SUCCESS", () => Effect.succeed(result)),
+            Match.exhaustive
+          )
+        })
+      ).pipe(
+        Effect.andThen(() => "SUCCESS" as NodeResult),
+        Effect.catchTag("EARLY_EXIT", ({ result }) => Effect.succeed(result))
+      )
+    })
 
-          if (result === "FAILURE") {
-            return "FAILURE"
-          }
+  // Pure function for selector node execution
+  export const executeSelectorNode = (
+    children: BehaviorNode[],
+    context: AIContext
+  ): Effect.Effect<NodeResult, AIError, BehaviorTreeService> =>
+    Effect.gen(function* () {
+      const treeService = yield* BehaviorTreeService
 
-          if (result === "RUNNING") {
-            return "RUNNING"
-          }
-        }
+      return yield* Effect.forEach(children, (child) =>
+        Effect.gen(function* () {
+          const result = yield* treeService.executeNode(child, context)
+          return yield* Match.value(result).pipe(
+            Match.when("SUCCESS", () => Effect.fail({ type: "EARLY_EXIT", result })),
+            Match.when("RUNNING", () => Effect.fail({ type: "EARLY_EXIT", result })),
+            Match.when("FAILURE", () => Effect.succeed(result)),
+            Match.exhaustive
+          )
+        })
+      ).pipe(
+        Effect.andThen(() => "FAILURE" as NodeResult),
+        Effect.catchTag("EARLY_EXIT", ({ result }) => Effect.succeed(result))
+      )
+    })
 
-        return "SUCCESS"
-      })
-  }
-
-  export class SelectorNode extends BehaviorNode {
-    constructor(private readonly children: BehaviorNode[]) {
-      super()
-    }
-
-    execute = (context: AIContext): Effect.Effect<NodeResult, AIError, AIServices> =>
-      Effect.gen(function* () {
-        for (const child of this.children) {
-          const result = yield* child.execute(context)
-
-          if (result === "SUCCESS") {
-            return "SUCCESS"
-          }
-
-          if (result === "RUNNING") {
-            return "RUNNING"
-          }
-        }
-
-        return "FAILURE"
-      })
-  }
+  // Main execution function using pattern matching
+  export const executeBehaviorNode = (
+    node: BehaviorNode,
+    context: AIContext
+  ): Effect.Effect<NodeResult, AIError, BehaviorTreeService> =>
+    Match.value(node.nodeType).pipe(
+      Match.when("sequence", () =>
+        executeSequenceNode(node.children || [], context)
+      ),
+      Match.when("selector", () =>
+        executeSelectorNode(node.children || [], context)
+      ),
+      Match.when("condition", () =>
+        node.condition ?
+          Effect.try({
+            try: () => node.condition!(context) ? "SUCCESS" : "FAILURE" as NodeResult,
+            catch: (error) => ({ _tag: "AIError" as const, error } as AIError)
+          }) :
+          Effect.succeed("FAILURE" as NodeResult)
+      ),
+      Match.when("action", () =>
+        node.action ?
+          Effect.try({
+            try: () => { node.action!(context); return "SUCCESS" as NodeResult },
+            catch: (error) => ({ _tag: "AIError" as const, error } as AIError)
+          }) :
+          Effect.succeed("FAILURE" as NodeResult)
+      ),
+      Match.exhaustive
+    )
 
   // Advanced Pathfinding with Flow Fields
   export interface AdvancedPathfinding {
@@ -976,16 +1151,18 @@ export namespace EconomicSystems {
         const targetInflationRate = 0.02 // 2% per year
         const currentInflationRate = currentState.inflationRate
 
-        if (currentInflationRate > targetInflationRate * 1.5) {
-          // インフレが高い場合：通貨供給量を減らす
-          return yield* this.implementDeflationary Measures(currentState)
-        } else if (currentInflationRate < targetInflationRate * 0.5) {
-          // デフレの場合：通貨供給量を増やす
-          return yield* this.implementInflationaryMeasures(currentState)
-        }
-
-        // 適正範囲内の場合：現状維持
-        return { actions: [], reason: "inflation_within_target_range" }
+        return yield* Match.value(currentInflationRate).pipe(
+          Match.when(
+            (rate) => rate > targetInflationRate * 1.5,
+            () => implementDeflationaryMeasures(currentState)
+          ),
+          Match.when(
+            (rate) => rate < targetInflationRate * 0.5,
+            () => implementInflationaryMeasures(currentState)
+          ),
+          Match.orElse(() => Effect.succeed({ actions: [], reason: "inflation_within_target_range" })),
+          Match.exhaustive
+        ).pipe(Effect.flatten)
       })
 
     // Resource Sink Implementation
@@ -1012,25 +1189,30 @@ export namespace EconomicSystems {
       Effect.gen(function* () {
         const marketDepth = yield* this.marketMaker.analyzeMarketDepth(market)
 
-        if (marketDepth.bidAskSpread > MAX_SPREAD) {
-          // スプレッドが広すぎる場合：マーケットメイキング
-          const liquidityOrders = yield* this.marketMaker.generateLiquidityOrders(
-            market,
-            marketDepth
-          )
+        return yield* Match.value(marketDepth.bidAskSpread).pipe(
+          Match.when(
+            (spread) => spread > MAX_SPREAD,
+            () => Effect.gen(function* () {
+              // スプレッドが広すぎる場合：マーケットメイキング
+              const liquidityOrders = yield* marketMaker.generateLiquidityOrders(
+                market,
+                marketDepth
+              )
 
-          yield* Effect.forEach(liquidityOrders, order =>
-            this.tradingSystem.createOrder(order)
-          )
+              yield* Effect.forEach(liquidityOrders, order =>
+                tradingSystem.createOrder(order)
+              )
 
-          return {
-            ordersPlaced: liquidityOrders.length,
-            newSpread: yield* this.marketMaker.calculateNewSpread(market),
-            liquidityAdded: liquidityOrders.reduce((sum, order) => sum + order.quantity, 0)
-          }
-        }
-
-        return { ordersPlaced: 0, newSpread: marketDepth.bidAskSpread, liquidityAdded: 0 }
+              return {
+                ordersPlaced: liquidityOrders.length,
+                newSpread: yield* marketMaker.calculateNewSpread(market),
+                liquidityAdded: liquidityOrders.reduce((sum, order) => sum + order.quantity, 0)
+              }
+            })
+          ),
+          Match.orElse(() => Effect.succeed({ ordersPlaced: 0, newSpread: marketDepth.bidAskSpread, liquidityAdded: 0 })),
+          Match.exhaustive
+        ).pipe(Effect.flatten)
       })
   }
 
@@ -1187,14 +1369,24 @@ const completeGameSystem = Effect.gen(function* () {
     const tickResult = yield* gameOrchestrator.executeGameTick(deltaTime)
 
     // Handle any critical errors
-    if (tickResult.performance.criticalErrors.length > 0) {
-      yield* gameOrchestrator.handleCriticalErrors(tickResult.performance.criticalErrors)
-    }
+    yield* Match.value(tickResult.performance.criticalErrors.length).pipe(
+      Match.when(
+        (errorCount) => errorCount > 0,
+        () => gameOrchestrator.handleCriticalErrors(tickResult.performance.criticalErrors)
+      ),
+      Match.orElse(() => Effect.succeed(undefined)),
+      Match.exhaustive
+    ).pipe(Effect.flatten)
 
     // Performance optimization
-    if (tickResult.performance.averageFrameTime > TARGET_FRAME_TIME) {
-      yield* gameOrchestrator.optimizePerformance(tickResult.performance)
-    }
+    yield* Match.value(tickResult.performance.averageFrameTime).pipe(
+      Match.when(
+        (frameTime) => frameTime > TARGET_FRAME_TIME,
+        () => gameOrchestrator.optimizePerformance(tickResult.performance)
+      ),
+      Match.orElse(() => Effect.succeed(undefined)),
+      Match.exhaustive
+    ).pipe(Effect.flatten)
 
     // Schedule next tick
     yield* Effect.sleep(Math.max(0, TARGET_FRAME_TIME - tickResult.performance.frameTime))

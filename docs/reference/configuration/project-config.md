@@ -277,11 +277,8 @@ const EnvConfigSchema = Schema.Struct({
 
 type EnvConfig = Schema.Schema.Type<typeof EnvConfigSchema>
 
-// 環境設定Context
-export class EnvConfigService extends Context.Tag('EnvConfigService')<
-  EnvConfigService,
-  EnvConfig
->() {}
+// 環境設定Context - 関数型パターン
+export const EnvConfigService = Context.GenericTag<EnvConfig>('@app/EnvConfigService')
 
 // 環境変数の読み込みと検証
 const loadEnvConfig = (): Effect.Effect<EnvConfig, Error> =>

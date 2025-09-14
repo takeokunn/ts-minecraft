@@ -470,18 +470,17 @@ const RepositoryError = Data.taggedEnum<{
 }>>
 type RepositoryError = Data.TaggedEnum.Value<typeof RepositoryError>;
 
-// ✅ Service定義パターン
-class PlayerRepository extends Context.Tag("@app/PlayerRepository")<
-  PlayerRepository,
-  {
-    readonly findById: (id: PlayerId) => Effect.Effect<Option.Option<Player>, RepositoryError>
-    readonly findByName: (name: PlayerName) => Effect.Effect<Option.Option<Player>, RepositoryError>
-    readonly save: (player: Player) => Effect.Effect<void, RepositoryError>
-    readonly delete: (id: PlayerId) => Effect.Effect<void, RepositoryError>
-    readonly findAll: () => Effect.Effect<ReadonlyArray<Player>, RepositoryError>
-    readonly findByCondition: (predicate: (player: Player) => boolean) => Effect.Effect<ReadonlyArray<Player>, RepositoryError>
-  }
->() {}
+// ✅ Service定義パターン - 関数型パターン
+interface PlayerRepositoryInterface {
+  readonly findById: (id: PlayerId) => Effect.Effect<Option.Option<Player>, RepositoryError>
+  readonly findByName: (name: PlayerName) => Effect.Effect<Option.Option<Player>, RepositoryError>
+  readonly save: (player: Player) => Effect.Effect<void, RepositoryError>
+  readonly delete: (id: PlayerId) => Effect.Effect<void, RepositoryError>
+  readonly findAll: () => Effect.Effect<ReadonlyArray<Player>, RepositoryError>
+  readonly findByCondition: (predicate: (player: Player) => boolean) => Effect.Effect<ReadonlyArray<Player>, RepositoryError>
+}
+
+const PlayerRepository = Context.GenericTag<PlayerRepositoryInterface>("@app/PlayerRepository")
 
 // ✅ 検索条件のSchemaベース定義
 const PlayerSearchCriteria = Schema.Struct({

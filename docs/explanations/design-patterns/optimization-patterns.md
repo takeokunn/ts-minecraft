@@ -141,11 +141,13 @@ const LazyChunkLoaderLive = Layer.effect(
         const toEvict = sortedByAccess.slice(0, HashMap.size(chunkCache) - maxSize)
         let evictedCount = 0
 
-        for (const [key] of toEvict) {
-          chunkCache = HashMap.remove(chunkCache, key)
-          accessTimes = HashMap.remove(accessTimes, key)
-          evictedCount++
-        }
+        yield* Effect.forEach(toEvict, ([key]) =>
+          Effect.sync(() => {
+            chunkCache = HashMap.remove(chunkCache, key)
+            accessTimes = HashMap.remove(accessTimes, key)
+            evictedCount++
+          })
+        )
 
         totalMemoryMB = HashMap.size(chunkCache) * 0.5 // 一チャンク約500KBと仮定
         return evictedCount
@@ -321,19 +323,44 @@ const EntityProcessorLive = Layer.effect(
       const cpuUsage = yield* getCpuUsage()
       const memoryPressure = yield* getMemoryPressure()
 
-      // 適応的調整アルゴリズム
-      if (cpuUsage < 70 && memoryPressure < 0.8 && throughput > lastThroughput) {
-        // リソースに余裕があり性能が向上している場合は並行数増加
-        currentConcurrency = Math.min(maxConcurrency, currentConcurrency + 1)
-        consecutiveAdjustments++
-      } else if (cpuUsage > 90 || memoryPressure > 0.9) {
-        // リソース不足の場合は並行数減少
-        currentConcurrency = Math.max(1, currentConcurrency - 1)
-        consecutiveAdjustments = 0
-      } else if (consecutiveAdjustments > 3) {
-        // 過度な調整を避ける
-        consecutiveAdjustments = 0
-      }
+      // 適応的調整アルゴリズム - Effect-TS Matchパターンで整理
+      const adjustment = Match.value({ cpuUsage, memoryPressure, throughput, lastThroughput, consecutiveAdjustments }).pipe(
+        Match.when(
+          ({ cpuUsage, memoryPressure, throughput, lastThroughput }) =>
+            cpuUsage < 70 && memoryPressure < 0.8 && throughput > lastThroughput,
+          () => ({
+            concurrency: Math.min(maxConcurrency, currentConcurrency + 1),
+            adjustments: consecutiveAdjustments + 1,
+            reason: "resource_available_performance_improved"
+          })
+        ),
+        Match.when(
+          ({ cpuUsage, memoryPressure }) => cpuUsage > 90 || memoryPressure > 0.9,
+          () => ({
+            concurrency: Math.max(1, currentConcurrency - 1),
+            adjustments: 0,
+            reason: "resource_shortage"
+          })
+        ),
+        Match.when(
+          ({ consecutiveAdjustments }) => consecutiveAdjustments > 3,
+          () => ({
+            concurrency: currentConcurrency,
+            adjustments: 0,
+            reason: "avoid_excessive_adjustments"
+          })
+        ),
+        Match.orElse(() => ({
+          concurrency: currentConcurrency,
+          adjustments: consecutiveAdjustments,
+          reason: "no_change"
+        }))
+      )
+
+      currentConcurrency = adjustment.concurrency
+      consecutiveAdjustments = adjustment.adjustments
+
+      yield* Effect.logDebug(`Concurrency adjustment: ${adjustment.reason}, new concurrency: ${currentConcurrency}`)
 
       yield* Semaphore.release(semaphore, currentConcurrency)
       yield* Metric.set(concurrencyGauge, currentConcurrency)
@@ -402,34 +429,33 @@ const EntityProcessorLive = Layer.effect(
 )
 
 // エンティティタイプ別の最適化戦略
-const getProcessingStrategy = (entityType: string): ProcessingStrategy => {
-  switch (entityType) {
-    case "player":
-      return {
-        batchSize: 1,        // プレイヤーは即座に処理
-        priority: "high",
-        memoryWeight: 2
-      }
-    case "mob":
-      return {
-        batchSize: 10,       // Mobはバッチ処理
-        priority: "medium",
-        memoryWeight: 1
-      }
-    case "item":
-      return {
-        batchSize: 50,       // アイテムは大きなバッチ
-        priority: "low",
-        memoryWeight: 0.5
-      }
-    default:
-      return {
-        batchSize: 20,
-        priority: "medium",
-        memoryWeight: 1
-      }
-  }
-}
+import { Match, pipe } from "effect"
+
+const EntityType = Schema.Literal("player", "mob", "item").pipe(
+  Schema.brand("EntityType")
+)
+type EntityType = Schema.Schema.Type<typeof EntityType>
+
+const getProcessingStrategy = (entityType: EntityType): ProcessingStrategy =>
+  pipe(
+    Match.value(entityType),
+    Match.when("player", () => ({
+      batchSize: 1,        // プレイヤーは即座に処理
+      priority: "high" as const,
+      memoryWeight: 2
+    })),
+    Match.when("mob", () => ({
+      batchSize: 10,       // Mobはバッチ処理
+      priority: "medium" as const,
+      memoryWeight: 1
+    })),
+    Match.when("item", () => ({
+      batchSize: 50,       // アイテムは大きなバッチ
+      priority: "low" as const,
+      memoryWeight: 0.5
+    })),
+    Match.exhaustive
+  )
 
 // システムリソース監視
 const getCpuUsage = (): Effect.Effect<number, never> =>
@@ -439,10 +465,8 @@ const getCpuUsage = (): Effect.Effect<number, never> =>
       const start = performance.now()
 
       // 軽量な計算負荷で測定
-      let sum = 0
-      for (let i = 0; i < 1000; i++) {
-        sum += Math.random()
-      }
+      const sum = Array.from({ length: 1000 }, () => Math.random())
+        .reduce((acc, val) => acc + val, 0)
 
       const end = performance.now()
       const executionTime = end - start

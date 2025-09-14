@@ -992,25 +992,27 @@ const badService = async (input: string) => {
 ### ❌ Anti-Pattern 3: Deep Nesting and Complex Conditionals
 ```typescript
 // ❌ 悪い例: 深いネストと複雑な条件分岐
-const processComplexBad = (input: ComplexInput) => {
-  if (input.type === "A") {
-    if (input.priority === "high") {
-      if (input.data) {
-        if (input.data.length > 0) {
-          return processHighPriorityA(input.data)
-        } else {
-          return Effect.fail(new Error("Empty data"))
-        }
-      } else {
-        return Effect.fail(new Error("No data"))
-      }
-    } else {
-      return processLowPriorityA(input)
-    }
-  } else {
-    return processTypeB(input)
-  }
-}
+const processComplexBad = (input: ComplexInput) =>
+  pipe(
+    Match.value(input),
+    Match.when(
+      (input) => input.type === "A" && input.priority === "high" && input.data && input.data.length > 0,
+      ({ data }) => processHighPriorityA(data)
+    ),
+    Match.when(
+      (input) => input.type === "A" && input.priority === "high" && (!input.data || input.data.length === 0),
+      () => Effect.fail(new Error("Empty or missing data"))
+    ),
+    Match.when(
+      (input) => input.type === "A" && input.priority !== "high",
+      (input) => processLowPriorityA(input)
+    ),
+    Match.when(
+      (input) => input.type !== "A",
+      (input) => processTypeB(input)
+    ),
+    Match.exhaustive
+  )
 
 // ✅ 良い例: Match.value を使用した平坦な構造
 const processComplexGood = (input: ComplexInput) =>

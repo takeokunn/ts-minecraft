@@ -135,15 +135,15 @@ export type Block = Schema.Schema.Type<typeof Block>
 ```typescript
 // ブロック操作のドメインロジック - 純粋関数として実装
 export const BlockOperations = {
-  // ブロック破壊可能性の判定
+  // ブロック破壊可能性の判定 - Effect-TS Match.valueによるTagged Union パターンマッチング
   isBreakable: (block: Block): boolean => {
-    switch (block.type) {
-      case "air":
-      case "water":
-        return false
-      default:
-        return true
-    }
+    import { Match } from "effect"
+
+    return Match.value(block.type).pipe(
+      Match.when("air", () => false),
+      Match.when("water", () => false),
+      Match.orElse(() => true)
+    )
   },
 
   // 設置可能性の判定
