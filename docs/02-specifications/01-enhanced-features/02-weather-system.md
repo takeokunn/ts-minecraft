@@ -1,13 +1,17 @@
 ---
-title: "02 Weather System"
-description: "02 Weather Systemに関する詳細な説明とガイド。"
+title: "天候システム仕様 - 動的気象・環境エフェクト・バイオーム連携"
+description: "Minecraft Cloneの包括的天候システム。雨・雷・雪・霧の動的生成、バイオーム固有気象、音響エフェクト、照明システム連携の完全実装仕様。"
 category: "specification"
-difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
-estimated_reading_time: "25分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+difficulty: "advanced"
+tags: ["weather-system", "environmental-effects", "biome-system", "audio-system", "lighting", "particle-effects"]
+prerequisites: ["effect-ts-fundamentals", "biome-system-basics", "audio-programming", "particle-systems"]
+estimated_reading_time: "28分"
+related_patterns: ["environmental-patterns", "audio-patterns", "biome-patterns"]
+related_docs: ["./03-day-night-cycle.md", "./12-extended-biome-system.md", "./14-particle-system.md"]
+search_keywords:
+  primary: ["weather-system", "rain-effects", "thunderstorm", "dynamic-weather"]
+  secondary: ["minecraft-weather", "environmental-simulation", "climate-system"]
+  context: ["game-atmosphere", "immersive-experience", "environmental-design"]
 ---
 
 # Weather System - 動的天候システム

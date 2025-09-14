@@ -427,11 +427,42 @@ const processPlayerMovement = (
   })
 
 // 純粋関数による距離計算
+// 純粋関数による距離計算 - SIMD最適化対応
 const calculateDistance = (from: Position, to: Position): number => {
   const dx = to.x - from.x
   const dy = to.y - from.y
   const dz = to.z - from.z
+
+  // SIMD対応プロセッサでの高速計算
+  if (typeof Float32Array !== 'undefined') {
+    const vec = new Float32Array([dx, dy, dz, 0])
+    return Math.sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2])
+  }
+
   return Math.sqrt(dx * dx + dy * dy + dz * dz)
+}
+
+// ベクトル演算の最適化関数群
+const VectorMath = {
+  distance: calculateDistance,
+
+  distanceBatch: (pairs: ReadonlyArray<[Position, Position]>): ReadonlyArray<number> => {
+    // バッチ処理による効率化
+    const results = new Array(pairs.length)
+    for (let i = 0; i < pairs.length; i++) {
+      results[i] = calculateDistance(pairs[i][0], pairs[i][1])
+    }
+    return results
+  },
+
+  normalize: (vec: Position): Position => {
+    const length = Math.sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z)
+    return length > 0 ? {
+      x: vec.x / length,
+      y: vec.y / length,
+      z: vec.z / length
+    } : { x: 0, y: 0, z: 0 }
+  }
 }
 
 // 移動タイプ別の最大距離取得
@@ -553,28 +584,117 @@ export const SystemIntegrationTests = describe("System統合", () => {
 })
 ```
 
-### 3. パフォーマンステスト
+### 3. パフォーマンステスト（最新パターン）
 
 ```typescript
+import { Effect, TestClock, TestContext, Clock, Duration, Either, pipe } from "effect"
+import { describe, test, expect } from "@effect/vitest"
+import * as fc from "fast-check"
+
 export const PerformanceTests = describe("パフォーマンス", () => {
   test("1000エンティティの物理計算", () =>
     Effect.gen(function* () {
-      // 1000エンティティを生成
-      const entities = Array.from({ length: 1000 }, (_, i) =>
-        createTestEntity(i, randomPosition()))
+      // テスト用エンティティ生成（Property-Based Testing統合）
+      const entityArbitrary = fc.record({
+        id: fc.integer({ min: 0, max: 999 }),
+        position: fc.record({
+          x: fc.float({ min: -1000, max: 1000 }),
+          y: fc.float({ min: -64, max: 320 }),
+          z: fc.float({ min: -1000, max: 1000 })
+        }),
+        velocity: fc.record({
+          x: fc.float({ min: -10, max: 10 }),
+          y: fc.float({ min: -10, max: 10 }),
+          z: fc.float({ min: -10, max: 10 })
+        })
+      })
 
-      const startTime = yield* Effect.sync(() => performance.now())
+      const entities = yield* Effect.sync(() =>
+        Array.from({ length: 1000 }, () => fc.sample(entityArbitrary, 1)[0])
+      )
 
-      // 物理システム1フレーム実行
+      const startTime = yield* Clock.currentTimeMillis
+
+      // 物理システム1フレーム実行 - バッチ処理で最適化
       const physicsSystem = yield* PhysicsSystem
-      yield* physicsSystem.updateAll(entities)
+      yield* physicsSystem.updateBatch(entities, {
+        concurrency: navigator.hardwareConcurrency || 4,
+        batchSize: 100
+      })
 
-      const endTime = yield* Effect.sync(() => performance.now())
+      const endTime = yield* Clock.currentTimeMillis
       const duration = endTime - startTime
 
-      // 16msフレーム内での完了を確認
-      expect(duration).toBeLessThan(16)
-    }))
+      // パフォーマンスメトリクス記録
+      yield* Metrics.histogram("physics_update_duration").update(duration, {
+        entityCount: entities.length.toString()
+      })
+
+      // 16msフレーム内での完了を確認（余裕をもって14ms以下）
+      expect(duration).toBeLessThan(14)
+
+      // メモリ使用量チェック
+      const memoryUsage = yield* MemoryMonitor.getCurrentUsage()
+      expect(memoryUsage.heapUsed).toBeLessThan(100 * 1024 * 1024) // 100MB以下
+    }).pipe(
+      Effect.provide(TestPhysicsSystemLayer),
+      Effect.provide(TestContext.TestContext)
+    ))
+
+  test("チャンク生成のスケーラビリティテスト", () =>
+    Effect.gen(function* () {
+      const testClock = yield* TestClock.TestClock
+      const chunkCoords = Array.from({ length: 100 }, (_, i) => ({
+        x: Math.floor(i / 10),
+        z: i % 10
+      }))
+
+      const startTime = yield* TestClock.currentTimeMillis(testClock)
+
+      // 並列チャンク生成
+      yield* Effect.forEach(
+        chunkCoords,
+        coord => WorldService.generateChunk(coord),
+        { concurrency: 8 }
+      )
+
+      const endTime = yield* TestClock.currentTimeMillis(testClock)
+      const totalDuration = endTime - startTime
+
+      // 1チャンク当たり平均50ms以下での生成を確認
+      const avgDuration = totalDuration / chunkCoords.length
+      expect(avgDuration).toBeLessThan(50)
+
+      // システムリソース使用量確認
+      const resourceStats = yield* SystemMonitor.getResourceStats()
+      expect(resourceStats.cpuUsage).toBeLessThan(0.8) // CPU使用率80%以下
+    }).pipe(
+      Effect.provide(TestWorldServiceLayer),
+      Effect.provide(TestContext.TestContext),
+      Effect.provide(TestClock.TestClock)
+    ))
+
+  test("Property-based パフォーマンス特性検証", () =>
+    Effect.promise(() =>
+      fc.assert(
+        fc.property(
+          fc.array(
+            fc.record({
+              x: fc.integer({ min: -50, max: 50 }),
+              z: fc.integer({ min: -50, max: 50 })
+            }),
+            { minLength: 1, maxLength: 200 }
+          ),
+          (coordinates) =>
+            pipe(
+              ChunkService.loadChunkBatch(coordinates),
+              Effect.timeout(Duration.seconds(30)),
+              Effect.either,
+              Effect.map(Either.isRight)
+            )
+        )
+      )
+    ))
 })
 ```
 

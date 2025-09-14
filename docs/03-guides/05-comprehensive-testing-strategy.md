@@ -10,7 +10,7 @@ related_patterns: ["effect-ts-test-patterns", "service-patterns-catalog"]
 related_docs: ["../01-architecture/06d-effect-ts-testing.md", "../05-reference/troubleshooting/debugging-guide.md"]
 ---
 
-# 包括的テスト戦略ガイド - レイヤー別テストアーキテクチャとProperty-Based Testing
+# 包括的テスト戦略ガイド - Effect-TS 3.17 + Schema-First + Property-Based Testing
 
 ## 🎯 Quick Guide（10分でテスト戦略理解）
 

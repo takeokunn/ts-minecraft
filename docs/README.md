@@ -75,6 +75,8 @@ version: "1.0.0"
 - **[Effect-TSテストパターン](./03-guides/07-effect-ts-testing-patterns.md)**: Effect-TS 3.17+完全準拠のテスト実装パターン専用ガイドです。
 - **[CI/CD & デプロイメント](./03-guides/08-ci-cd-deployment.md)**: GitHub Actions による自動テスト・ビルド・GitHub Pages デプロイの完全ガイドです。
 - **[デバッグガイド](./03-guides/09-debugging-guide.md)**: Effect-TS特有のデバッグ手法とパフォーマンス分析について解説します。
+- **[並列開発ワークフロー](./03-guides/10-parallel-development-workflow.md)**: GitHub Issue依存関係を活用した効率的な並列開発の完全ガイドです。
+- **[GitHub Issue管理](./03-guides/11-github-issue-management.md)**: 効率的なIssue作成・ラベル管理・マイルストーン活用の実践ガイドです。
 
 ---
 

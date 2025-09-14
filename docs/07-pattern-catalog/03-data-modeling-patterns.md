@@ -1,13 +1,17 @@
 ---
-title: "03 Data Modeling Patterns"
+title: "データモデリングパターン - DDD・Schema・型安全性の実践的実装"
 description: "TypeScript Minecraft プロジェクトにおけるDDD原則に基づくデータモデリングパターンの実装ガイド。Effect-TS 3.17+とSchema.Structを活用した型安全なドメインモデル設計。"
-category: "pattern"
+category: "patterns"
 difficulty: "intermediate"
-tags: ["ddd", "data-modeling", "schema", "effect-ts", "domain-design", "patterns"]
+tags: ["ddd", "data-modeling", "schema", "effect-ts", "domain-design", "patterns", "type-safety"]
 prerequisites: ["effect-ts-fundamentals", "ddd-basics", "schema-design"]
 estimated_reading_time: "25分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+related_patterns: ["service-patterns", "error-handling-patterns", "validation-patterns"]
+related_docs: ["../02-specifications/03-data-models/00-overview.md", "../01-architecture/02-aggregates.md"]
+search_keywords:
+  primary: ["data-modeling-patterns", "ddd-patterns", "schema-patterns", "domain-modeling"]
+  secondary: ["type-safety", "validation-patterns", "aggregate-patterns"]
+  context: ["functional-programming", "domain-driven-design", "typescript-patterns"]
 ---
 
 # データモデリングパターン
@@ -79,17 +83,27 @@ const Rotation = Schema.Struct({
 );
 type Rotation = Schema.Schema.Type<typeof Rotation>;
 
-// ✅ Branded Types - Brand.Brand型による意味的な型定義
+// ✅ Branded Types - Brand.Brand型による意味的な型定義（最新パターン）
 type PlayerId = string & Brand.Brand<"PlayerId">;
 const PlayerId = Schema.String.pipe(
-  Schema.pattern(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
-  Schema.brand("PlayerId")
+  Schema.pattern(/^player_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
+  Schema.brand("PlayerId"),
+  Schema.annotations({
+    identifier: "PlayerId",
+    title: "プレイヤーID",
+    description: "プレイヤーを一意に識別するID"
+  })
 );
 
 type EntityId = string & Brand.Brand<"EntityId">;
 const EntityId = Schema.String.pipe(
   Schema.uuid(),
-  Schema.brand("EntityId")
+  Schema.brand("EntityId"),
+  Schema.annotations({
+    identifier: "EntityId",
+    title: "エンティティID",
+    description: "ゲームエンティティの一意識別子"
+  })
 );
 
 type PlayerName = string & Brand.Brand<"PlayerName">;

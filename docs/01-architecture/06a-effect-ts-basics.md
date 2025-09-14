@@ -262,7 +262,7 @@ const Position = Schema.Struct({
 );
 type Position = Schema.Schema.Type<typeof Position>;
 
-// ✅ Brand型による型安全性の向上
+// ✅ Brand型とContext.GenericTag統合パターン
 const ChunkId = Schema.String.pipe(
   Schema.pattern(/^chunk_-?\d+_-?\d+$/),
   Schema.brand("ChunkId")
@@ -274,6 +274,20 @@ const EntityId = Schema.String.pipe(
   Schema.brand("EntityId")
 );
 type EntityId = Schema.Schema.Type<typeof EntityId>;
+
+const PlayerId = Schema.String.pipe(
+  Schema.uuid(),
+  Schema.brand("PlayerId")
+);
+type PlayerId = Schema.Schema.Type<typeof PlayerId>;
+
+// ✅ Context.GenericTag使用例（最新パターン）
+export interface WorldService {
+  readonly getBlock: (pos: Position) => Effect.Effect<Block, BlockNotFoundError>
+  readonly setBlock: (pos: Position, block: Block) => Effect.Effect<void, BlockSetError>
+  readonly isValidPosition: (pos: Position) => Effect.Effect<boolean, never>
+}
+export const WorldService = Context.GenericTag<WorldService>("@minecraft/WorldService")
 
 // ✅ 複雑なSchema組み合わせ
 const Block = Schema.Struct({
@@ -358,20 +372,22 @@ const processDirection = (direction: Direction) =>
     Match.exhaustive  // コンパイル時に網羅性をチェック
   );
 
-// ✅ Option型との組み合わせ
+// ✅ Option型との組み合わせ（最新Match.tags パターン）
 const handleOptionalData = (data: Option.Option<string>) =>
   Match.value(data).pipe(
-    Match.tag("Some", ({ value }) => Effect.succeed(`データ: ${value}`)),
-    Match.tag("None", () => Effect.fail(new Error("データが見つかりません"))),
-    Match.exhaustive
+    Match.tags({
+      Some: ({ value }) => Effect.succeed(`データ: ${value}`),
+      None: () => Effect.fail(new Error("データが見つかりません"))
+    })
   );
 
-// ✅ Either型との組み合わせ
+// ✅ Either型との組み合わせ（Match.tags 最新パターン）
 const handleResult = <E, A>(result: Either.Either<E, A>) =>
   Match.value(result).pipe(
-    Match.tag("Right", ({ right }) => Effect.succeed(right)),
-    Match.tag("Left", ({ left }) => Effect.fail(left)),
-    Match.exhaustive
+    Match.tags({
+      Right: ({ right }) => Effect.succeed(right),
+      Left: ({ left }) => Effect.fail(left)
+    })
   );
 
 // ✅ 複合的なパターンマッチング
@@ -564,19 +580,26 @@ interface AppServices extends WorldService, PlayerService, ChunkService {}
 
 このドキュメントで解説した基本パターンは、すべてのEffect-TSコードの基礎となります：
 
-### 必須パターン
+### 必須パターン（Effect-TS 3.17+）
 1. **Effect.gen + yield*** による線形な合成
-2. **Schema.Struct** による型安全なデータ定義
-3. **Match.value** による網羅的パターンマッチング
-4. **不変データ構造** の一貫した使用
-5. **純粋関数と副作用の分離**
-6. **早期リターンパターン** によるガード節
+2. **Schema.Struct** による型安全なデータ定義（Data.struct使用禁止）
+3. **Context.GenericTag** による依存性注入
+4. **Match.value + Match.tags** による網羅的パターンマッチング
+5. **不変データ構造** の一貫した使用
+6. **純粋関数と副作用の分離**
+7. **早期リターンパターン** による最大3レベルネスト
+8. **Effect.catchTags** による型安全エラーハンドリング
+9. **PBTフレンドリー** な単一責任関数設計
 
-### 禁止パターン
-1. **class** ベースの設計
-2. **if/else/switch** の多用
-3. **任意の型（any、unknown）** の使用
-4. **可変データ構造** の使用
-5. **try/catch** による例外処理
+### 禁止パターン（Effect-TS 3.17+）
+1. **class** ベースの設計（Context.GenericTagを使用）
+2. **Data.struct** の使用（Schema.Structを使用）
+3. **if/else/switch** の多用（Match.value + Match.tagsを使用）
+4. **任意の型（any、unknown）** の使用
+5. **可変データ構造** の使用
+6. **try/catch** による例外処理（Effect.catchTagsを使用）
+7. **3レベル超えのネスト** （早期リターンで解決）
+8. **単一責任原則違反の関数** （PBTフレンドリー設計）
+9. **手動エラーハンドリング** （Schema.TaggedError使用）
 
 これらの基本パターンを理解した上で、[サービスパターン](./06b-effect-ts-services.md)や[エラーハンドリング](./06c-effect-ts-error-handling.md)に進むことを推奨します。

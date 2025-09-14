@@ -1,12 +1,17 @@
 ---
-title: "Game Block API Reference"
-description: "TypeScript Minecraft Block管理システムの包括的なAPIリファレンス。実装者向けの詳細な技術仕様。"
+title: "ブロックAPIリファレンス - ブロック管理・状態制御・相互作用"
+description: "TypeScript Minecraft Clone ブロックシステムの包括的APIリファレンス。ブロック登録、状態管理、相互作用、レンダリング統合の完全技術仕様。"
 category: "reference"
 difficulty: "advanced"
-tags: ['typescript', 'minecraft', 'api', 'blocks']
-prerequisites: ['effect-ts', 'ddd-architecture']
-estimated_reading_time: "45分"
-version: "1.0.0"
+tags: ["block-api", "game-api", "block-system", "state-management", "minecraft-api", "effect-ts-api"]
+prerequisites: ["effect-ts-fundamentals", "block-system-basics", "ddd-architecture", "ecs-patterns"]
+estimated_reading_time: "40分"
+related_patterns: ["service-patterns", "state-management-patterns", "registry-patterns"]
+related_docs: ["../02-specifications/00-core-features/03-block-system.md", "./core-apis.md", "./domain-apis.md"]
+search_keywords:
+  primary: ["block-api", "minecraft-blocks", "block-management", "game-api"]
+  secondary: ["block-registration", "block-state", "block-interactions"]
+  context: ["minecraft-development", "game-programming", "api-reference"]
 ---
 
 # Game Block API Reference

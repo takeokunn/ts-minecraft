@@ -1,13 +1,17 @@
 ---
-title: "00 Data Models Overview"
-description: "TypeScript Minecraftのデータモデル設計概要とスキーマ定義"
+title: "データモデル設計概要 - Effect-TS Schema・DDD集約・型安全性"
+description: "TypeScript Minecraft Cloneの包括的データモデル設計。Effect-TS Schema、DDD集約パターン、ブランド型による完全型安全性とドメイン整合性の実現。"
 category: "specification"
-difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'data-models', 'schema', 'effect-ts']
-prerequisites: ['effect-ts-schema', 'ddd-basics', 'typescript-advanced']
-estimated_reading_time: "25分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+difficulty: "advanced"
+tags: ["data-modeling", "effect-ts-schema", "ddd-aggregates", "brand-types", "domain-modeling", "type-safety"]
+prerequisites: ["effect-ts-schema-advanced", "ddd-tactical-design", "typescript-advanced-types", "domain-modeling"]
+estimated_reading_time: "30分"
+related_patterns: ["data-modeling-patterns", "validation-patterns", "ddd-patterns"]
+related_docs: ["./01-chunk-format.md", "./02-save-file-format.md", "../../01-architecture/02-aggregates.md"]
+search_keywords:
+  primary: ["data-modeling", "effect-ts-schema", "domain-models", "type-safety"]
+  secondary: ["ddd-aggregates", "brand-types", "validation", "data-integrity"]
+  context: ["domain-driven-design", "functional-programming", "type-systems"]
 ---
 
 # データモデル概要

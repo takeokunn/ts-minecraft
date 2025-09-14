@@ -1,13 +1,17 @@
 ---
-title: "18 Input Controls"
-description: "18 Input Controlsに関する詳細な説明とガイド。"
+title: "入力制御システム仕様 - キーボード・マウス・ゲームパッド統合"
+description: "Minecraft Cloneの包括的入力制御システム。キーボード、マウス、ゲームパッド対応のレスポンシブ入力処理。カスタムキーバインド、マクロ機能、アクセシビリティ対応。"
 category: "specification"
 difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
-estimated_reading_time: "10分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+tags: ["input-system", "controls", "keyboard", "mouse", "gamepad", "accessibility", "user-interface"]
+prerequisites: ["dom-events", "game-input-patterns", "accessibility-standards"]
+estimated_reading_time: "15分"
+related_patterns: ["event-handling-patterns", "ui-patterns", "accessibility-patterns"]
+related_docs: ["./02-player-system.md", "./11-scene-management-system.md", "../../03-guides/00-development-conventions.md"]
+search_keywords:
+  primary: ["input-controls", "keyboard-input", "mouse-controls", "gamepad-support"]
+  secondary: ["control-mapping", "accessibility", "user-input"]
+  context: ["game-controls", "user-interface", "player-interaction"]
 ---
 
 # 入力制御システム

@@ -1,13 +1,17 @@
 ---
-title: "04 Mob Ai System"
-description: "04 Mob Ai Systemに関する詳細な説明とガイド。"
+title: "Mob AIシステム仕様 - 知的行動制御・パスファインディング・群体行動"
+description: "Minecraft Cloneにおけるモブ（生物）の人工知能システム。行動ツリー、パスファインディング、知覚システム、群体行動制御の完全仕様とEffect-TS実装パターン。"
 category: "specification"
-difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
-estimated_reading_time: "30分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+difficulty: "advanced"
+tags: ["mob-ai", "behavior-tree", "pathfinding", "entity-system", "artificial-intelligence", "ecs", "game-ai"]
+prerequisites: ["effect-ts-fundamentals", "ecs-architecture", "pathfinding-algorithms", "behavior-tree-concepts"]
+estimated_reading_time: "25分"
+related_patterns: ["entity-component-patterns", "behavior-tree-patterns", "ai-decision-patterns"]
+related_docs: ["./00-overview.md", "../00-core-features/04-entity-system.md", "../00-core-features/06-physics-system.md"]
+search_keywords:
+  primary: ["mob-ai", "behavior-tree", "pathfinding", "game-ai"]
+  secondary: ["entity-behavior", "artificial-intelligence", "npc-control"]
+  context: ["minecraft-mobs", "game-development", "ai-programming"]
 ---
 
 # Mob AI System

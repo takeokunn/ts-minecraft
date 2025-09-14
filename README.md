@@ -1,3 +1,19 @@
+---
+title: "TypeScript Minecraft Clone - DDD & Effect-TS による高性能ゲーム実装"
+description: "ドメイン駆動設計とEffect-TSを活用したエンタープライズグレードのMinecraft実装。完全な型安全性と関数型プログラミングパターンによる高品質ゲーム開発のリファレンス実装。"
+category: "quickstart"
+difficulty: "intermediate"
+tags: ["typescript", "minecraft", "ddd", "effect-ts", "ecs", "functional-programming", "game-development", "architecture-showcase"]
+prerequisites: ["basic-typescript", "nodejs-18+", "pnpm"]
+estimated_reading_time: "10分"
+related_patterns: ["service-patterns", "ddd-patterns", "ecs-patterns"]
+related_docs: ["./docs/00-quickstart/01-5min-demo.md", "./docs/01-architecture/00-overall-design.md", "./docs/00-introduction/README.md"]
+search_keywords:
+  primary: ["typescript-minecraft", "ddd-game", "effect-ts-showcase", "functional-game-dev"]
+  secondary: ["enterprise-game-architecture", "type-safe-gaming", "minecraft-clone"]
+  context: ["game-development", "architectural-patterns", "educational-resource"]
+---
+
 # TypeScript Minecraft
 
 **ドメイン駆動設計（DDD）**アーキテクチャと**Effect-TS**を使用した、高性能で完全に機能するTypeScript実装のMinecraftです。

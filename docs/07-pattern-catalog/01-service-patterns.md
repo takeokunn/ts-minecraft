@@ -29,7 +29,9 @@ type ProcessOutput = Schema.Schema.Type<typeof ProcessOutput>
 export class ProcessingError extends Schema.TaggedError<ProcessingError>()("ProcessingError", {
   operation: Schema.String,
   reason: Schema.String,
-  timestamp: Schema.Number
+  timestamp: Schema.DateFromSelf,
+  retryCount: Schema.Number,
+  correlationId: Schema.optional(Schema.String)
 }) {}
 
 // Service interface
@@ -52,8 +54,9 @@ const makeBasicService: Effect.Effect<BasicService, never, never> =
         // 処理開始のメトリクス更新
         yield* Ref.update(processingCount, n => n + 1)
 
-        // タイムスタンプ記録
+        // タイムスタンプとトレーシング情報記録
         const startTime = Date.now()
+        const correlationId = crypto.randomUUID()
 
         try {
           // Schema検証（詳細エラー情報付き）
@@ -61,7 +64,9 @@ const makeBasicService: Effect.Effect<BasicService, never, never> =
             Effect.mapError(parseError => new ProcessingError({
               operation: "input_validation",
               reason: `Schema validation failed: ${Schema.formatErrors(parseError.errors)}`,
-              timestamp: startTime
+              timestamp: new Date(startTime),
+              retryCount: 0,
+              correlationId
             }))
           )
 
@@ -93,7 +98,9 @@ const makeBasicService: Effect.Effect<BasicService, never, never> =
               Effect.fail(new ProcessingError({
                 operation: "process",
                 reason: "Processing timed out after 5 seconds",
-                timestamp: Date.now()
+                timestamp: new Date(),
+                retryCount: 0,
+                correlationId
               }))
             )
           )

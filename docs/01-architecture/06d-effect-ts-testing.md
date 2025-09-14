@@ -134,7 +134,7 @@ import { it, expect } from "@effect/vitest";
 // ✅ テスト用サービス定義
 const TestWorldService = Layer.succeed(
   WorldService,
-  WorldService.of({
+  {
     getBlock: (pos: Position) =>
       Effect.succeed({
         id: "minecraft:stone" as any,
@@ -158,7 +158,7 @@ const TestWorldService = Layer.succeed(
       }),
 
     isValidPosition: (pos: Position) => Effect.succeed(true)
-  })
+  }
 );
 
 // ✅ 統合テストレイヤー
@@ -214,7 +214,7 @@ const makeTestWorldServiceWithState = Effect.gen(function* () {
 
   const positionToKey = (pos: Position): string => `${pos.x},${pos.y},${pos.z}`;
 
-  return WorldService.of({
+  return {
     getBlock: (pos: Position) =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef);

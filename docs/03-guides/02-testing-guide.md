@@ -37,23 +37,30 @@ Effect-TS 3.17+とVitestの統合により、以下を実現：
 ### テスト環境セットアップチェックリスト
 
 - [ ] **Vitest + @effect/vitest** - Effect-TS統合テストランナー
-- [ ] **Fast-Check** - Property-based testing
+- [ ] **Fast-Check 3.0+** - Property-based testing with Schema integration
+- [ ] **@effect/schema** - Schema-first バリデーションテスト
 - [ ] **Happy-DOM/JSDOM** - DOM環境シミュレーション
-- [ ] **テストLayer** - モックサービスの実装
-- [ ] **Schema検証** - 実行時バリデーションテスト
+- [ ] **テストLayer** - Layer.effect による現代的なモックサービス実装
+- [ ] **Schema検証** - Schema.Struct による実行時バリデーションテスト
+- [ ] **TestClock & TestRandom** - 決定論的時間・乱数制御
 
 ### 基本テストパターン
 
 ```typescript
-// 1. Schema-based バリデーションテスト
+// 1. Schema.Struct による最新バリデーションテスト
 const PlayerSchema = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("PlayerId")),
+  _tag: Schema.Literal("Player"),
+  id: Schema.String.pipe(
+    Schema.brand("PlayerId"),
+    Schema.pattern(/^player_[a-f0-9-]{36}$/)
+  ),
   position: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number.pipe(Schema.between(0, 320)),
-    z: Schema.Number
+    x: Schema.Number.pipe(Schema.finite()),
+    y: Schema.Number.pipe(Schema.between(0, 320), Schema.int()),
+    z: Schema.Number.pipe(Schema.finite())
   }),
-  health: Schema.Number.pipe(Schema.clamp(0, 100))
+  health: Schema.Number.pipe(Schema.clamp(0, 100), Schema.int(), Schema.brand("Health")),
+  maxHealth: Schema.Number.pipe(Schema.clamp(0, 100), Schema.int(), Schema.brand("Health"))
 })
 
 // 2. Effect-aware テストの実行
@@ -110,10 +117,15 @@ it("should handle validation errors properly", async () => {
 プロジェクトのテスト環境をセットアップします：
 
 ```bash
-# 必要なパッケージのインストール
+# Effect-TS 3.17+ 対応の最新パッケージインストール
 npm install -D vitest @vitest/ui happy-dom
-npm install -D @effect/vitest fast-check
-npm install -D @types/node
+npm install -D @effect/vitest fast-check@^3.15.0
+npm install -D @effect/schema @effect/platform
+npm install -D @types/node typescript
+
+# Property-Based Testing 統合
+npm install -D @effect/schema@latest
+npm install -D @fast-check/vitest
 ```
 
 ```typescript

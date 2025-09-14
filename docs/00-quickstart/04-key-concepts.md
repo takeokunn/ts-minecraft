@@ -207,21 +207,18 @@ export const ItemStackSchema = Schema.Struct({
 ```typescript
 import { Context, Effect, Layer } from "effect"
 
-// サービス定義（新しいContext.GenericTag）
-export class WorldGenerationService extends Context.Tag("@services/WorldGeneration")<
-  WorldGenerationService,
-  {
-    readonly generateChunk: (coordinates: ChunkCoordinates) => Effect.Effect<Chunk, GenerationError>
-    readonly generateBiome: (seed: WorldSeed, coordinates: ChunkCoordinates) => Effect.Effect<BiomeType, never>
-    readonly placeTrees: (chunk: Chunk, biome: BiomeType) => Effect.Effect<Chunk, PlacementError>
-    readonly generateOre: (chunk: Chunk, oreType: OreType) => Effect.Effect<Chunk, never>
-  }
->() {}
+// サービス定義（Context.GenericTag使用）
+export const WorldGenerationService = Context.GenericTag<{
+  readonly generateChunk: (coordinates: ChunkCoordinates) => Effect.Effect<Chunk, GenerationError>
+  readonly generateBiome: (seed: WorldSeed, coordinates: ChunkCoordinates) => Effect.Effect<BiomeType, never>
+  readonly placeTrees: (chunk: Chunk, biome: BiomeType) => Effect.Effect<Chunk, PlacementError>
+  readonly generateOre: (chunk: Chunk, oreType: OreType) => Effect.Effect<Chunk, never>
+}>("@services/WorldGenerationService")
 
 // 実装レイヤー
 export const LiveWorldGenerationService = Layer.succeed(
   WorldGenerationService,
-  WorldGenerationService.of({
+  {
     generateChunk: (coordinates) =>
       Effect.gen(function* (_) {
         // Perlin noise による地形生成
@@ -489,17 +486,14 @@ export const safeGameOperation = <A, E extends GameError>(
 import { Context } from "effect"
 
 // サービス定義
-export class WorldGenerationService extends Context.Tag("WorldGenerationService")<
-  WorldGenerationService,
-  {
-    readonly generateChunk: (position: ChunkPosition) => Effect.Effect<Chunk, GenerationError>
-    readonly generateBiome: (seed: number) => Effect.Effect<BiomeType, never>
-    readonly placeTrees: (chunk: Chunk, biome: BiomeType) => Effect.Effect<Chunk, never>
-  }
->() {}
+export const WorldGenerationService = Context.GenericTag<{
+  readonly generateChunk: (position: ChunkPosition) => Effect.Effect<Chunk, GenerationError>
+  readonly generateBiome: (seed: number) => Effect.Effect<BiomeType, never>
+  readonly placeTrees: (chunk: Chunk, biome: BiomeType) => Effect.Effect<Chunk, never>
+}>("WorldGenerationService")
 
 // サービス実装
-export const LiveWorldGenerationService = WorldGenerationService.of({
+export const LiveWorldGenerationService = Layer.succeed(WorldGenerationService, {
   generateChunk: (position) =>
     Effect.gen(function* (_) {
       const heightMap = yield* _(generateHeightMap(position))
@@ -698,7 +692,7 @@ export const PlayerMovementSystem = Effect.gen(function* (_) {
 | パターン | 使用場面 | 基本形 |
 |----------|----------|--------|
 | **Schema.Struct** | データ検証・型定義 | `Schema.Struct({ field: Schema.String })` |
-| **Context.GenericTag** | サービス定義 | `class Service extends Context.Tag("Service")<...>` |
+| **Context.GenericTag** | サービス定義 | `Context.GenericTag<ServiceInterface>("@app/Service")` |
 | **Effect.gen** | 非同期処理組み合わせ | `Effect.gen(function* (_) { ... })` |
 | **pipe** | データ変換 | `pipe(data, transform1, transform2)` |
 | **Effect.catchAll** | エラー処理 | `effect.pipe(Effect.catchAll(handler))` |

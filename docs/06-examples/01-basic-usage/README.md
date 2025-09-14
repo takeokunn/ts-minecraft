@@ -35,6 +35,7 @@ learning_path: "初心者向け実装例"
     - Property-based testing（fast-check）
     - パフォーマンス最適化（チャンク管理・メモリプール）
   - **新機能**: 完全動作コード、包括テスト、最適化例
+  - **✅ よくある間違いと解決策**: 古いパターンから最新パターンへの移行方法を詳説
 
 ### 🏃 02. プレイヤー移動実装
 - **[プレイヤー移動](./02-player-movement.md)**
@@ -48,6 +49,7 @@ learning_path: "初心者向け実装例"
     - Property-based testing（移動検証）
     - メモリ効率的な履歴管理
   - **新機能**: 完全統合システム、高度テスト、プロファイリング
+  - **⚠️ アンチパターン対策**: 3D移動システムでのよくある落とし穴と回避方法
 
 ### 🎒 03. インベントリ管理
 - **[インベントリ管理](./03-inventory-management.md)**
@@ -61,6 +63,7 @@ learning_path: "初心者向け実装例"
     - 包括的統合テスト・Property-based testing
     - UIコンポーネント分離設計
   - **新機能**: React UI例、イベント統合、永続化システム
+  - **🚫 パフォーマンス対策**: 大量アイテム処理のボトルネックと最適化手法
 
 ## 🎯 学習の進め方
 
@@ -194,6 +197,210 @@ class BlockError extends Schema.TaggedError<BlockError>()("BlockError", {
 2. **関数型合成**: Effect.genを使った処理の組み合わせ
 3. **依存注入**: Context.GenericTagによるサービス管理
 4. **エラーハンドリング**: Schema.TaggedErrorによる型安全なエラー管理
+
+## ⚠️ よくある間違いと解決方法
+
+### 🚫 初心者が陥りやすいアンチパターン
+
+#### 1. ❌ 古いAPIパターンの混在
+
+**間違った実装:**
+```typescript
+// ❌ 非推奨：古いAPIの使用
+import { Context, Data } from "effect"
+
+// ❌ Data.struct使用（非推奨）
+const OldPosition = Data.struct({
+  x: 0,
+  y: 0,
+  z: 0
+})
+
+// ❌ Context.Tag使用（非推奨）
+const OldService = Context.Tag<ServiceInterface>("OldService")
+```
+
+**✅ 正しい実装:**
+```typescript
+// ✅ 推奨：Effect-TS 3.17+最新パターン
+import { Schema, Context } from "effect"
+
+// ✅ Schema.Struct使用
+const ModernPosition = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number
+})
+
+// ✅ Context.GenericTag使用
+interface ServiceInterface {
+  readonly method: () => Effect.Effect<void, never>
+}
+const ModernService = Context.GenericTag<ServiceInterface>("@app/ModernService")
+```
+
+#### 2. ❌ 非同期処理の誤解
+
+**間違った実装:**
+```typescript
+// ❌ 非推奨：Promiseとの混在
+const badAsyncFunction = async (): Promise<string> => {
+  const result = await Effect.runPromise(someEffect)
+  return result
+}
+
+// ❌ 非推奨：try-catch使用
+const badErrorHandling = () => {
+  try {
+    const result = Effect.runSync(riskyEffect)
+    return result
+  } catch (error) {
+    console.error("Error:", error)
+    return null
+  }
+}
+```
+
+**✅ 正しい実装:**
+```typescript
+// ✅ 推奨：Effect型で統一
+const goodAsyncFunction = (): Effect.Effect<string, MyError> =>
+  Effect.gen(function* () {
+    const result = yield* someEffect
+    return result
+  })
+
+// ✅ 推奨：Effect.catchAllでエラーハンドリング
+const goodErrorHandling = () =>
+  riskyEffect.pipe(
+    Effect.catchAll((error) =>
+      Effect.gen(function* () {
+        yield* Effect.log(`Error occurred: ${error.message}`)
+        return defaultValue
+      })
+    )
+  )
+```
+
+#### 3. ❌ 深いネストと複雑な条件分岐
+
+**間違った実装:**
+```typescript
+// ❌ 非推奨：深いネストと複雑なif文
+const badValidation = (input: unknown) => {
+  if (input) {
+    if (typeof input === "object") {
+      if ("position" in input) {
+        if (input.position) {
+          if (typeof input.position === "object") {
+            if ("x" in input.position && "y" in input.position && "z" in input.position) {
+              return processValidInput(input)
+            }
+          }
+        }
+      }
+    }
+  }
+  throw new Error("Invalid input")
+}
+```
+
+**✅ 正しい実装:**
+```typescript
+// ✅ 推奨：早期リターンとMatch.value
+const goodValidation = (input: unknown): Effect.Effect<ProcessedInput, ValidationError> =>
+  Effect.gen(function* () {
+    // 早期リターン: 基本チェック
+    if (!input || typeof input !== "object") {
+      return yield* Effect.fail(new ValidationError({ reason: "Input must be an object" }))
+    }
+
+    // Schema検証で構造チェック
+    const validatedInput = yield* Schema.decodeUnknown(InputSchema)(input).pipe(
+      Effect.mapError(error => new ValidationError({ reason: "Schema validation failed", cause: error }))
+    )
+
+    // Match.valueで型安全な処理分岐
+    return yield* pipe(
+      validatedInput,
+      Match.value,
+      Match.when({ type: "player_move" }, (data) => processPlayerMove(data)),
+      Match.when({ type: "block_place" }, (data) => processBlockPlace(data)),
+      Match.orElse(() => Effect.fail(new ValidationError({ reason: "Unknown input type" })))
+    )
+  })
+```
+
+### 🎯 品質チェックリスト
+
+以下のチェックポイントで実装品質を確認してください：
+
+#### ✅ Effect-TS準拠チェック
+- [ ] `Schema.Struct`でデータ定義している
+- [ ] `Context.GenericTag`でサービス定義している
+- [ ] `Match.value`で条件分岐している
+- [ ] `Schema.TaggedError`でエラー定義している
+- [ ] `Effect.gen`で非同期処理を合成している
+
+#### ✅ コード品質チェック
+- [ ] 関数のネストが3層以下である
+- [ ] 早期リターンパターンを活用している
+- [ ] 純粋関数と副作用が明確に分離されている
+- [ ] 型安全性が100%保たれている
+- [ ] テスタブルな構造になっている
+
+#### ✅ パフォーマンスチェック
+- [ ] 不変データ構造を使用している
+- [ ] 適切なメモ化が実装されている
+- [ ] メモリリークがない
+- [ ] O(n²)アルゴリズムを避けている
+- [ ] バッチ処理を活用している
+
+### 🛠️ デバッグのコツ
+
+#### 1. Effect.log を活用したデバッグ
+```typescript
+const debuggableFunction = (input: unknown) =>
+  Effect.gen(function* () {
+    yield* Effect.log(`Processing input: ${JSON.stringify(input)}`)
+
+    const result = yield* processInput(input)
+
+    yield* Effect.log(`Processing completed: ${JSON.stringify(result)}`)
+    return result
+  })
+```
+
+#### 2. 段階的なテスト実装
+```typescript
+// 単体テストから始める
+describe("Pure Functions", () => {
+  it("should calculate correctly", () => {
+    expect(pureCalculation(1, 2)).toBe(3)
+  })
+})
+
+// 次にEffect関数のテスト
+describe("Effect Functions", () => {
+  it("should handle effects correctly", async () => {
+    const result = await Effect.runPromise(effectFunction("test"))
+    expect(result).toEqual(expectedResult)
+  })
+})
+```
+
+### 📚 学習リソース
+
+#### 必読ドキュメント
+1. **各実装例の「よくある間違い」セクション**
+   - [ブロック配置の間違い例](./01-simple-block-placement.md#⚠️-よくある間違いとベストプラクティス)
+   - [プレイヤー移動の間違い例](./02-player-movement.md#⚠️-よくある間違いとベストプラクティス)
+   - [インベントリ管理の間違い例](./03-inventory-management.md#⚠️-よくある間違いとベストプラクティス)
+
+#### 実践的学習アプローチ
+1. **写経学習**: まず提供されたコードを正確に写して動作確認
+2. **改良実践**: 小さな機能追加や変更を試す
+3. **独自実装**: 学習した内容をベースに新しい機能を実装
 
 ## 🔗 次のステップ
 

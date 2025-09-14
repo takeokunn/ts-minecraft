@@ -98,7 +98,7 @@ export const LoadingContext = Schema.Struct({
   playerId: Schema.String,
   worldId: Schema.String,
   sessionId: Schema.String,
-  requestedAt: Schema.DateFromString,
+  requestedAt: Schema.DateFromSelf,
   priority: Schema.Literal("low", "normal", "high", "critical")
 })
 
@@ -112,7 +112,7 @@ export const GameDataSnapshot = Schema.Struct({
     key: Schema.String,
     value: Schema.Unknown
   }),
-  loadedAt: Schema.DateFromString,
+  loadedAt: Schema.DateFromSelf,
   version: Schema.String
 })
 
@@ -159,28 +159,26 @@ export interface ComplexDataLoader {
   ) => Effect.Effect<LoadingResult, LoadingError>
 }
 
-export const ComplexDataLoader = Context.GenericTag<ComplexDataLoader>("ComplexDataLoader")
+export const ComplexDataLoader = Context.GenericTag<ComplexDataLoader>("@minecraft/ComplexDataLoader")
 
 /**
  * ローディングエラーの階層
  */
-export class LoadingError extends Schema.TaggedError<LoadingError>()(
-  "LoadingError",
-  {
-    context: LoadingContext,
-    failedOperations: Schema.Array(Schema.String),
-    recoverable: Schema.Boolean,
-    originalCause: Schema.optional(Schema.String)
-  }
-) {}
+export class LoadingError extends Schema.TaggedError<LoadingError>()("LoadingError", {
+  context: LoadingContext,
+  failedOperations: Schema.Array(Schema.String),
+  recoverable: Schema.Boolean,
+  originalCause: Schema.optional(Schema.String),
+  timestamp: Schema.DateFromSelf,
+  retryCount: Schema.Number
+}) {}
 
-export class DataCorruptionError extends Schema.TaggedError<DataCorruptionError>()(
-  "DataCorruptionError",
-  {
-    affectedResources: Schema.Array(Schema.String),
-    corruptionLevel: Schema.Literal("minor", "major", "critical")
-  }
-) {}
+export class DataCorruptionError extends Schema.TaggedError<DataCorruptionError>()("DataCorruptionError", {
+  affectedResources: Schema.Array(Schema.String),
+  corruptionLevel: Schema.Literal("minor", "major", "critical"),
+  detectedAt: Schema.DateFromSelf,
+  checksum: Schema.optional(Schema.String)
+}) {}
 
 /**
  * ComplexDataLoader実装
@@ -303,14 +301,31 @@ class ComplexDataLoaderImpl implements ComplexDataLoader {
         return primaryResult.right
       }
 
-      // フォールバック実行
-      yield* Effect.logWarning("Primary loading failed, attempting fallback", {
-        primaryContext: primary,
-        fallbackContext: fallback,
-        error: primaryResult.left
-      })
-
-      return yield* this.loadGameData(fallback)
+      // Match.valueを使用した型安全なフォールバック判定
+      return yield* pipe(
+        primaryResult.left,
+        Match.value,
+        Match.when(
+          { _tag: "LoadingError", recoverable: true },
+          (error) => Effect.gen(function* () {
+            yield* Effect.logWarning("Recoverable error, attempting fallback", {
+              error: error.message,
+              retryCount: error.retryCount
+            })
+            return yield* self.loadGameData(fallback)
+          })
+        ),
+        Match.when(
+          { _tag: "DataCorruptionError", corruptionLevel: "minor" },
+          (error) => Effect.gen(function* () {
+            yield* Effect.logInfo("Minor corruption detected, using fallback", {
+              affectedResources: error.affectedResources
+            })
+            return yield* self.loadGameData(fallback)
+          })
+        ),
+        Match.orElse((error) => Effect.fail(error))
+      )
     })
   }
 }
@@ -475,18 +490,24 @@ const recoverFromTimeout = (
       timeoutMs: error.timeoutMs
     })
 
-    // タイムアウト操作に応じた個別回復
+    // タイムアウト操作に応じた個別回復（最新Match.valueパターン）
     const recoveryAction = yield* pipe(
       error.operation,
       Match.value,
       Match.when("player-data-loading", () =>
-        playerService.getCachedPlayer(context.playerId)
+        playerService.getCachedPlayer(context.playerId).pipe(
+          Effect.tapError(() => Effect.logWarning("Player cache miss, using default"))
+        )
       ),
       Match.when("world-data-loading", () =>
-        worldService.getMinimalWorld(context.worldId)
+        worldService.getMinimalWorld(context.worldId).pipe(
+          Effect.tapError(() => Effect.logWarning("World cache miss, using empty world"))
+        )
       ),
       Match.when("inventory-data-loading", () =>
-        inventoryService.getCachedInventory(context.playerId)
+        inventoryService.getCachedInventory(context.playerId).pipe(
+          Effect.tapError(() => Effect.logWarning("Inventory cache miss, using empty inventory"))
+        )
       ),
       Match.orElse(() => Effect.succeed(null))
     )
@@ -507,13 +528,22 @@ const recoverFromCorruption = (
       resources: error.affectedResources
     })
 
-    // 破損レベルに応じた回復戦略
+    // 破損レベルに応じた回復戦略（包括的エラー対応）
     const recoveryStrategy = yield* pipe(
       error.corruptionLevel,
       Match.value,
-      Match.when("critical", () => performCriticalRecovery(context)),
-      Match.when("major", () => performMajorRecovery(context)),
-      Match.when("minor", () => performMinorRecovery(context)),
+      Match.when("critical", () => Effect.gen(function* () {
+        yield* Effect.logError("Critical corruption detected, performing full recovery")
+        return yield* performCriticalRecovery(context)
+      })),
+      Match.when("major", () => Effect.gen(function* () {
+        yield* Effect.logWarning("Major corruption detected, attempting repair")
+        return yield* performMajorRecovery(context)
+      })),
+      Match.when("minor", () => Effect.gen(function* () {
+        yield* Effect.logInfo("Minor corruption detected, applying quick fix")
+        return yield* performMinorRecovery(context)
+      })),
       Match.exhaustive
     )
 

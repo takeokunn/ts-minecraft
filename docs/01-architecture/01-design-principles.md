@@ -592,7 +592,7 @@ export const generateChunk = (
 - **`namespace` の使用**: モジュールスコープで管理する。
 - **通常の`class`キーワードの使用**: `Schema.Struct` と純粋関数で代替する（`Schema.TaggedError`のみ例外）。
 - **`Data.Class` の使用**: `Schema.Struct` に移行する。
-- **`Context.Tag` の使用**: `Context.GenericTag` に移行する。
+- **`Context.Tag` の使用**: `Context.GenericTag` に移行完了。
 - **`if/else/switch` の多用**: `Match.value` パターンマッチングを使用する。
 - **可変状態**: すべてのデータ構造を不変にする。
 - **暗黙的な副作用**: 副作用はすべて `Effect` 型で明示的に管理する。
@@ -657,7 +657,8 @@ class BadPlayer {
 }
 
 // ❌ 古いAPIの使用
-const BadService = Context.Tag<BadServiceInterface>("BadService")  // 旧API
+// ❌ 非推奨パターン（旧API）
+// const BadService = Context.Tag<BadServiceInterface>("BadService")
 
 // ❌ 深いネスト
 const badValidation = (input: any) => {

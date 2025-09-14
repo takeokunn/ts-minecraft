@@ -1,6 +1,6 @@
 ---
 title: "Effect-TS サービス層パターン - 依存性注入とレイヤー管理"
-description: "Context.Tag、Layer、ManagedRuntimeを活用したサービス層の設計パターンとテスタブルなアーキテクチャの構築方法"
+description: "Context.GenericTag、Layer、ManagedRuntimeを活用したサービス層の設計パターンとテスタブルなアーキテクチャの構築方法"
 category: "architecture"
 difficulty: "intermediate"
 tags: ["effect-ts", "services", "dependency-injection", "layer", "context"]
@@ -11,43 +11,41 @@ version: "1.0.0"
 
 # Effect-TS サービス層パターン
 
-このドキュメントでは、TypeScript Minecraftプロジェクトにおける**Effect-TS 3.17+** のサービス層設計パターンを解説します。Context.Tag、Layer、ManagedRuntimeを活用した型安全で拡張可能なアーキテクチャを構築する方法を説明します。
+このドキュメントでは、TypeScript Minecraftプロジェクトにおける**Effect-TS 3.17+** のサービス層設計パターンを解説します。Context.GenericTag、Layer、ManagedRuntimeを活用した型安全で拡張可能なアーキテクチャを構築する方法を説明します。
 
 > 📖 **関連ドキュメント**: [Effect-TS 基本概念](./06a-effect-ts-basics.md) | [Effect-TS エラーハンドリング](./06c-effect-ts-error-handling.md) | [Effect-TS テスト](./06d-effect-ts-testing.md)
 
-## 1. Context.Tag によるサービス定義
+## 1. Context.GenericTag によるサービス定義
 
-**Effect-TS 3.17+ 最新パターン**: サービス（依存関係）は `Context.Tag` を用いて定義します。クラス形式の定義により型安全性を確保し、プロジェクト内での一貫性を保ちます。
+**Effect-TS 3.17+ 最新パターン**: サービス（依存関係）は `Context.GenericTag` を用いて定義します。この形式により型安全性を確保し、プロジェクト内での一貫性を保ちます。
 
 ### 1.1 基本的なサービス定義
 
 ```typescript
 import { Context, Effect, Schema } from "effect";
 
-// ✅ 最新パターン（Context.Tag）
-class WorldService extends Context.Tag("WorldService")<WorldService, {
+// ✅ 最新パターン（Context.GenericTag）
+export const WorldService = Context.GenericTag<{
   readonly getBlock: (pos: Position) => Effect.Effect<Block, BlockNotFoundError>;
   readonly setBlock: (pos: Position, block: Block) => Effect.Effect<void, BlockSetError>;
   readonly getChunk: (chunkId: ChunkId) => Effect.Effect<Chunk, ChunkNotFoundError>;
   readonly isValidPosition: (pos: Position) => Effect.Effect<boolean, never>;
-}> {}
+}>("@services/WorldService")
 
 // ✅ エラー型の定義（Schema.TaggedError使用）
-class BlockNotFoundError extends Schema.TaggedError<BlockNotFoundError>()(
-  "BlockNotFoundError",
-  {
-    position: Position,
-    message: Schema.String
-  }
-) {}
+const BlockNotFoundError = Schema.TaggedError("BlockNotFoundError", {
+  position: Position,
+  message: Schema.String,
+  timestamp: Schema.Number.pipe(Schema.brand("Timestamp"))
+});
+type BlockNotFoundError = Schema.Schema.Type<typeof BlockNotFoundError>;
 
-class BlockSetError extends Schema.TaggedError<BlockSetError>()(
-  "BlockSetError",
-  {
-    position: Position,
-    reason: Schema.String
-  }
-) {}
+const BlockSetError = Schema.TaggedError("BlockSetError", {
+  position: Position,
+  reason: Schema.String,
+  timestamp: Schema.Number.pipe(Schema.brand("Timestamp"))
+});
+type BlockSetError = Schema.Schema.Type<typeof BlockSetError>;
 
 // ✅ 複合サービスインターフェース
 interface PlayerServiceInterface {
@@ -57,7 +55,7 @@ interface PlayerServiceInterface {
   readonly addPlayer: (player: Player) => Effect.Effect<void, PlayerAddError>;
 }
 
-class PlayerService extends Context.Tag("PlayerService")<PlayerService, PlayerServiceInterface> {}
+export const PlayerService = Context.GenericTag<PlayerServiceInterface>("@minecraft/PlayerService")
 
 // ✅ インベントリサービス
 interface InventoryServiceInterface {
@@ -67,7 +65,7 @@ interface InventoryServiceInterface {
   readonly moveItem: (playerId: PlayerId, fromSlot: number, toSlot: number) => Effect.Effect<Inventory, InventoryError>;
 }
 
-class InventoryService extends Context.Tag("InventoryService")<InventoryService, InventoryServiceInterface> {}
+export const InventoryService = Context.GenericTag<InventoryServiceInterface>("@minecraft/InventoryService")
 ```
 
 ### 1.2 サービス間の依存関係
@@ -623,7 +621,7 @@ export const createPropertyTestWorldService = Layer.effect(
 
     const positionToKey = (pos: Position) => `${pos.x},${pos.y},${pos.z}`;
 
-    return WorldService.of({
+    return {
       getBlock: (pos) =>
         Effect.gen(function* () {
           const state = yield* Ref.get(worldState);

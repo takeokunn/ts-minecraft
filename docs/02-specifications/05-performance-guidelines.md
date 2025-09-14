@@ -1,19 +1,17 @@
 ---
-title: Performance Guidelines
-description: TypeScript Minecraftのパフォーマンス最適化ガイドライン
-category: specifications
-tags: [performance, optimization, effect-ts, webgl, ecs]
-related_patterns:
-  - /docs/07-pattern-catalog/06-optimization-patterns.md
-  - /docs/01-architecture/05-ecs-integration.md
-related_docs:
-  - /docs/02-specifications/00-core-features/07-chunk-system.md
-  - /docs/02-specifications/00-core-features/05-rendering-system.md
-prerequisites:
-  - Effect-TSの基本概念
-  - WebGLレンダリング
-  - ECSアーキテクチャ
-estimated_reading_time: 30min
+title: "パフォーマンスガイドライン - 高性能ゲーム最適化戦略"
+description: "TypeScript Minecraft Cloneの包括的パフォーマンス最適化ガイド。Effect-TS、WebGL、ECSアーキテクチャを活用した高性能ゲーム開発のベストプラクティスと実測データ。"
+category: "specification"
+difficulty: "advanced"
+tags: ["performance", "optimization", "effect-ts", "webgl", "ecs", "profiling", "memory-management", "rendering"]
+prerequisites: ["effect-ts-fundamentals", "webgl-basics", "ecs-architecture", "performance-profiling"]
+estimated_reading_time: "30分"
+related_patterns: ["optimization-patterns", "ecs-patterns", "rendering-patterns"]
+related_docs: ["../07-pattern-catalog/06-optimization-patterns.md", "../01-architecture/05-ecs-integration.md", "./00-core-features/07-chunk-system.md"]
+search_keywords:
+  primary: ["performance-optimization", "game-performance", "webgl-optimization", "ecs-performance"]
+  secondary: ["memory-management", "rendering-optimization", "profiling-techniques"]
+  context: ["typescript-games", "browser-performance", "3d-rendering"]
 ---
 
 # Performance Guidelines

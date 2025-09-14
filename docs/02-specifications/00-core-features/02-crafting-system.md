@@ -1,13 +1,17 @@
 ---
-title: "02 Crafting System"
-description: "02 Crafting Systemに関する詳細な説明とガイド。"
+title: "クラフティングシステム仕様 - レシピ管理・アイテム合成・UI統合"
+description: "Minecraft Cloneのクラフティングシステム完全仕様。2x2・3x3クラフティンググリッド、レシピ検証、アイテム変換システムのEffect-TS実装とECS統合パターン。"
 category: "specification"
 difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
-estimated_reading_time: "15分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+tags: ["crafting-system", "recipe-management", "item-system", "inventory", "ui-system", "game-mechanics"]
+prerequisites: ["effect-ts-fundamentals", "schema-basics", "inventory-system-basics"]
+estimated_reading_time: "18分"
+related_patterns: ["data-modeling-patterns", "validation-patterns", "ui-integration-patterns"]
+related_docs: ["./01-inventory-system.md", "./10-material-system.md", "../../01-architecture/05-ecs-integration.md"]
+search_keywords:
+  primary: ["crafting-system", "recipe-management", "item-synthesis", "crafting-grid"]
+  secondary: ["minecraft-crafting", "game-mechanics", "item-combination"]
+  context: ["minecraft-gameplay", "item-management", "player-interaction"]
 ---
 
 # クラフティングシステム
@@ -95,18 +99,18 @@ export interface CraftingRecipe extends Schema.Schema.Type<typeof CraftingRecipe
 
 ```typescript
 // レシピエラー定義
-export class DuplicateRecipeError extends Schema.TaggedError<DuplicateRecipeError>()("DuplicateRecipeError", {
+export class DuplicateRecipeError extends Schema.TaggedError("DuplicateRecipeError")<{
   recipeId: RecipeId
-}) {}
+}> {}
 
-export class InvalidRecipeError extends Schema.TaggedError<InvalidRecipeError>()("InvalidRecipeError", {
+export class InvalidRecipeError extends Schema.TaggedError("InvalidRecipeError")<{
   recipeId: RecipeId,
   reason: Schema.String
-}) {}
+}> {}
 
-export class RecipeNotFoundError extends Schema.TaggedError<RecipeNotFoundError>()("RecipeNotFoundError", {
+export class RecipeNotFoundError extends Schema.TaggedError("RecipeNotFoundError")<{
   recipeId: RecipeId
-}) {}
+}> {}
 
 export type RegistrationError = DuplicateRecipeError | InvalidRecipeError
 export type MatchError = RecipeNotFoundError

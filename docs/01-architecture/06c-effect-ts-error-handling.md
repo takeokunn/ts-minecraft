@@ -25,24 +25,23 @@ version: "1.0.0"
 import { Schema, Effect, Match } from "effect";
 
 // ✅ Schema.TaggedError ベースのエラー定義（最新パターン）
-class NetworkError extends Schema.TaggedError<NetworkError>()(
-  "NetworkError",
-  {
-    message: Schema.String.pipe(Schema.nonEmpty()),
-    code: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-    timestamp: Schema.Number.pipe(Schema.brand("Timestamp")),
-    retryCount: Schema.optional(Schema.Number.pipe(Schema.nonNegative())),
-    requestId: Schema.optional(Schema.String.pipe(Schema.uuid()))
-  }
-) {}
+const NetworkError = Schema.TaggedError("NetworkError", {
+  message: Schema.String.pipe(Schema.nonEmpty()),
+  code: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  timestamp: Schema.Number.pipe(Schema.brand("Timestamp")),
+  retryCount: Schema.optional(Schema.Number.pipe(Schema.nonNegative())),
+  requestId: Schema.optional(Schema.String.pipe(Schema.uuid()))
+});
+type NetworkError = Schema.Schema.Type<typeof NetworkError>;
 
-// ✅ エラーファクトリー関数（クラスコンストラクター使用）
+// ✅ エラーファクトリー関数（Schema最新パターン）
 const createNetworkError = (
   message: string,
   code: number,
   retryCount?: number,
   requestId?: string
-) => new NetworkError({
+) => ({
+  _tag: "NetworkError" as const,
   message,
   code,
   timestamp: Date.now() as any,
@@ -50,25 +49,21 @@ const createNetworkError = (
   requestId
 });
 
-class ValidationError extends Schema.TaggedError<ValidationError>()(
-  "ValidationError",
-  {
-    field: Schema.String.pipe(Schema.nonEmpty()),
-    value: Schema.Unknown,
-    constraints: Schema.Array(Schema.String),
-    path: Schema.optional(Schema.Array(Schema.String))
-  }
-) {}
+const ValidationError = Schema.TaggedError("ValidationError", {
+  field: Schema.String.pipe(Schema.nonEmpty()),
+  value: Schema.Unknown,
+  constraints: Schema.Array(Schema.String),
+  path: Schema.optional(Schema.Array(Schema.String))
+});
+type ValidationError = Schema.Schema.Type<typeof ValidationError>;
 
-class ChunkError extends Schema.TaggedError<ChunkError>()(
-  "ChunkError",
-  {
-    coordinate: ChunkCoordinate,
-    operation: Schema.String,
-    reason: Schema.String,
-    timestamp: Schema.Number
-  }
-) {}
+const ChunkError = Schema.TaggedError("ChunkError", {
+  coordinate: ChunkCoordinate,
+  operation: Schema.String,
+  reason: Schema.String,
+  timestamp: Schema.Number
+});
+type ChunkError = Schema.Schema.Type<typeof ChunkError>;
 
 // ✅ 階層的エラー型定義
 type GameError = NetworkError | ValidationError | ChunkError;

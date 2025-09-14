@@ -1,13 +1,17 @@
 ---
-title: "09 Debugging Guide"
-description: "09 Debugging Guideに関する詳細な説明とガイド。"
+title: "デバッグ実践ガイド - Effect-TS・ゲームループ・パフォーマンス診断"
+description: "TypeScript Minecraft Cloneの包括的デバッグガイド。Effect-TSエラー追跡、ゲームループデバッグ、メモリリーク検出、パフォーマンス分析の実践的テクニック。"
 category: "guide"
 difficulty: "intermediate"
-tags: ['typescript', 'minecraft']
-prerequisites: ['basic-typescript']
-estimated_reading_time: "25分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+tags: ["debugging", "troubleshooting", "performance", "effect-ts-debugging", "game-debugging", "profiling"]
+prerequisites: ["effect-ts-fundamentals", "browser-devtools", "performance-analysis", "debugging-techniques"]
+estimated_reading_time: "30分"
+related_patterns: ["error-handling-patterns", "debugging-patterns", "monitoring-patterns"]
+related_docs: ["./04-error-resolution.md", "./03-performance-optimization.md", "../05-reference/troubleshooting/README.md"]
+search_keywords:
+  primary: ["debugging", "troubleshooting", "error-tracking", "performance-debugging"]
+  secondary: ["game-debugging", "effect-ts-debugging", "memory-profiling"]
+  context: ["development-workflow", "problem-solving", "performance-optimization"]
 ---
 
 # デバッグガイド

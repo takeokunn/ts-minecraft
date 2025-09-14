@@ -1,6 +1,6 @@
 ---
 title: "Effect-TS 利用パターン - 関数型プログラミング実践"
-description: "Effect-TS 3.17+の最新パターンによる純粋関数型プログラミング実践ガイド。Schema.Struct、Context.Tag、Match.valueを活用した高品質コード作成。"
+description: "Effect-TS 3.17+の最新パターンによる純粋関数型プログラミング実践ガイド。Schema.Struct、Context.GenericTag、Match.tags を活用した高品質コード作成。"
 category: "architecture"
 difficulty: "advanced"
 tags: ["effect-ts", "functional-programming", "schema", "context", "patterns", "best-practices"]
@@ -2459,7 +2459,7 @@ const handlePlayerAction = (
 ### 禁止事項（古いAPIと非推奨パターン）
 - ❌ **通常のclassキーワードの使用**（Schema.Structと純粋関数で代替）
 - ❌ Data.Class, Data.TaggedError（古いAPI - Schema.Struct/Schema.TaggedErrorを使用）
-- ❌ Context.GenericTag（古いAPI - Context.Tagを使用）
+- ❌ Context.Tag（古いAPI - Context.GenericTagを使用）
 - ❌ if/else/switchの多用（Match.valueを使用）
 - ❌ async/await, Promise（Effect.genを使用）
 - ❌ mutableな操作（不変データ構造を使用）
@@ -2782,7 +2782,7 @@ Effect.runPromise(runAllTests).then(() => {
 
 ### ✅ 採用必須パターン
 - **Schema.Struct + Brand型**: すべてのデータ定義
-- **Context.Tag**: サービス定義統一 (`class extends Context.Tag`)
+- **Context.GenericTag**: サービス定義統一（最新パターン）
 - **Effect.gen + yield***: 非同期処理の標準化
 - **Match.value + exhaustive**: パターンマッチング
 - **STM + TRef**: 並行状態管理

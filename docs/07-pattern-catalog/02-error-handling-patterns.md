@@ -26,10 +26,13 @@ status: "complete"
 
 **実装例**:
 ```typescript
-// プロジェクト内の実装例
+// プロジェクト内の実装例（最新Schema.TaggedErrorパターン）
 export class ChunkGenerationError extends Schema.TaggedError<ChunkGenerationError>()("ChunkGenerationError", {
   coordinate: Schema.String,
-  reason: Schema.String
+  reason: Schema.String,
+  timestamp: Schema.DateFromSelf,
+  attemptCount: Schema.Number,
+  recoverable: Schema.Boolean
 }) {}
 
 const loadChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkData, never, ChunkService> =>
@@ -67,17 +70,23 @@ const loadChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkData, never,
 ```typescript
 // プロジェクト内の複数エラー型定義
 export class ChunkNotFoundError extends Schema.TaggedError<ChunkNotFoundError>()("ChunkNotFoundError", {
-  coordinate: Schema.String
+  coordinate: Schema.String,
+  searchedAt: Schema.DateFromSelf,
+  cacheChecked: Schema.Boolean
 }) {}
 
 export class ChunkGenerationError extends Schema.TaggedError<ChunkGenerationError>()("ChunkGenerationError", {
   coordinate: Schema.String,
-  reason: Schema.String
+  reason: Schema.String,
+  timestamp: Schema.DateFromSelf,
+  recoverable: Schema.Boolean
 }) {}
 
 export class ChunkCorruptedError extends Schema.TaggedError<ChunkCorruptedError>()("ChunkCorruptedError", {
   coordinate: Schema.String,
-  corruptionType: Schema.String
+  corruptionType: Schema.String,
+  detectedAt: Schema.DateFromSelf,
+  severity: Schema.Literal("minor", "major", "critical")
 }) {}
 
 const processChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkData, ChunkGenerationError, ChunkService> =>

@@ -873,34 +873,30 @@ const createPlayerActor = (initialPlayer: Player) =>
   createSTMActor(initialPlayer, (player: Player, message: PlayerMessage) =>
     STM.gen(function* () {
       return yield* Match.value(message).pipe(
-        Match.tag("Move", ({ position }) =>
-          STM.succeed({ ...player, position })
-        ),
-        Match.tag("TakeDamage", ({ damage }) =>
-          STM.gen(function* () {
-            const newHealth = Math.max(0, player.health - damage) as any;
-            return { ...player, health: newHealth };
-          })
-        ),
-        Match.tag("Heal", ({ amount }) =>
-          STM.gen(function* () {
-            const newHealth = Math.min(100, player.health + amount) as any;
-            return { ...player, health: newHealth };
-          })
-        ),
-        Match.tag("AddItem", ({ item }) =>
-          STM.succeed({
-            ...player,
-            // インベントリ追加ロジック（簡略化）
-          })
-        ),
-        Match.tag("RemoveItem", ({ itemId, quantity }) =>
-          STM.succeed({
-            ...player,
-            // インベントリ削除ロジック（簡略化）
-          })
-        ),
-        Match.exhaustive
+        Match.tags({
+          Move: ({ position }) =>
+            STM.succeed({ ...player, position }),
+          TakeDamage: ({ damage }) =>
+            STM.gen(function* () {
+              const newHealth = Math.max(0, player.health - damage) as any;
+              return { ...player, health: newHealth };
+            }),
+          Heal: ({ amount }) =>
+            STM.gen(function* () {
+              const newHealth = Math.min(100, player.health + amount) as any;
+              return { ...player, health: newHealth };
+            }),
+          AddItem: ({ item }) =>
+            STM.succeed({
+              ...player,
+              // インベントリ追加ロジック（簡略化）
+            }),
+          RemoveItem: ({ itemId, quantity }) =>
+            STM.succeed({
+              ...player,
+              // インベントリ削除ロジック（簡略化）
+            })
+        })
       );
     })
   );
