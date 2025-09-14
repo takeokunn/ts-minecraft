@@ -17,6 +17,7 @@
 		"test:coverage": "vitest run --coverage"
 	},
 	"dependencies": {
+		"@effect/platform": "^0.90.9",
 		"@effect/schema": "^0.75.5",
 		"effect": "^3.17.13",
 		"three": "^0.171.0"
