@@ -16,8 +16,8 @@ TypeScript Minecraft Clone開発における包括的なテスト戦略、Effect
 ## 📋 テストガイド一覧
 
 ### 🏗 基盤・戦略
-- **[テストガイド](./testing-guide.md)** - 基本的なテスト実装とベストプラクティス
-- **[包括的テスト戦略](./comprehensive-testing-strategy.md)** - プロジェクト全体のテスト戦略設計
+- **[テスティング完全ガイド](./testing-guide.md)** - 基礎からEffect-TS実践まで包括的テストガイド（初心者〜中級者向け）
+- **[包括的テスト戦略](./comprehensive-testing-strategy.md)** - エンタープライズグレードテスト戦略（上級者向け）
 
 ### ⚡ 高度なテスト技法
 - **[高度なテスト技法](./advanced-testing-techniques.md)** - プロダクション品質テストの実現

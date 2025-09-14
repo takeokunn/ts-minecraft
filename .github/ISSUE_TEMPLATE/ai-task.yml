@@ -1,0 +1,193 @@
+name: AI Agent Task
+description: AI Coding Agent向け実行計画付きタスク
+title: "[TASK-ID] タスク名"
+labels: ["ai-agent", "task", "execution-plan"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🤖 AI Coding Agent向けタスク作成
+
+        このテンプレートはAI Coding Agentが実行できる詳細な実行計画を含むIssueを作成します。
+
+  - type: input
+    id: task-id
+    attributes:
+      label: Task ID
+      description: ROADMAPのタスクID (P0-001形式)
+      placeholder: P0-001
+    validations:
+      required: true
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: 実装複雑度
+      description: AI Agentが判断する技術的複雑度
+      options:
+        - "1 - Very Simple (設定変更レベル)"
+        - "2 - Simple (単純な関数実装)"
+        - "3 - Easy (基本的な機能実装)"
+        - "4 - Medium-Easy (複数ファイル実装)"
+        - "5 - Medium (標準的な機能実装)"
+        - "6 - Medium-Hard (複雑なロジック)"
+        - "7 - Hard (アーキテクチャ変更)"
+        - "8 - Very Hard (大規模リファクタリング)"
+        - "9 - Expert (新技術・パターン導入)"
+        - "10 - Extreme (フルスタック実装)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ai-guidance
+    attributes:
+      label: AI実装ガイダンスレベル
+      description: AI Agentが必要とする指示の詳細度
+      options:
+        - "Minimal - 基本要件のみ"
+        - "Standard - 通常レベルの指示"
+        - "Detailed - 詳細な実装指示"
+        - "Expert - 高度な技術指示と制約"
+    validations:
+      required: true
+
+  - type: textarea
+    id: ai-context
+    attributes:
+      label: AI実装コンテキスト
+      description: AI Agentが参照すべき既存実装・パターン・制約
+      placeholder: |
+        **参照実装**:
+        - src/shared/services/ の既存パターン
+        - docs/reference/api/ の仕様書
+
+        **技術制約**:
+        - Effect-TS 3.17+ 必須使用
+        - Schema.Struct による型定義
+        - 60FPS維持、メモリ2GB以下
+
+        **禁止事項**:
+        - class使用禁止
+        - var/let/any/async/await禁止
+    validations:
+      required: true
+
+  - type: textarea
+    id: execution-phases
+    attributes:
+      label: 実行フェーズ設計
+      description: AI Agentが従うべき段階的実行計画
+      placeholder: |
+        **Phase 1: 分析・設計**
+        - 既存コード分析
+        - アーキテクチャ設計
+        - 実装仕様策定
+
+        **Phase 2: 実装**
+        - コア機能実装
+        - テスト作成
+        - エラーハンドリング
+
+        **Phase 3: 検証**
+        - 品質ゲート確認
+        - パフォーマンステスト
+        - 統合テスト
+
+        **Phase 4: 完了**
+        - ドキュメント更新
+        - 最終チェック
+        - デプロイ準備
+    validations:
+      required: true
+
+  - type: textarea
+    id: success-criteria
+    attributes:
+      label: AI検証可能な成功基準
+      description: AI Agentが自動判定できる客観的基準
+      placeholder: |
+        **自動検証項目**:
+        - [ ] `pnpm typecheck` エラーなし
+        - [ ] `pnpm test:coverage` 80%以上
+        - [ ] `pnpm lint` エラーなし
+        - [ ] `pnpm build` 成功
+
+        **性能基準**:
+        - [ ] 60FPS維持確認
+        - [ ] メモリ使用量2GB以下
+
+        **実装基準**:
+        - [ ] Effect-TS Context.GenericTag使用
+        - [ ] Schema.Struct型定義完了
+        - [ ] 全関数が純関数
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification-commands
+    attributes:
+      label: 検証コマンド
+      description: AI Agentが実行すべき検証コマンド一覧
+      placeholder: |
+        ```bash
+        # TypeScript型チェック
+        pnpm typecheck
+
+        # テスト実行・カバレッジ確認
+        pnpm test:coverage
+
+        # Lint・フォーマット確認
+        pnpm lint
+
+        # ビルド確認
+        pnpm build
+
+        # パフォーマンステスト (該当する場合)
+        pnpm test:performance
+
+        # 統合テスト (該当する場合)
+        pnpm test:integration
+        ```
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: ai-requirements
+    attributes:
+      label: AI Agent実装要件確認
+      description: このタスクに必要なAI Agent機能
+      options:
+        - label: "TypeScript/Effect-TS実装能力"
+          required: true
+        - label: "テスト作成・実行能力"
+          required: true
+        - label: "ドキュメント作成能力"
+        - label: "パフォーマンス最適化知識"
+        - label: "アーキテクチャ設計知識"
+        - label: "デバッグ・問題解決能力"
+        - label: "既存コード理解・統合能力"
+          required: true
+
+  - type: textarea
+    id: error-handling
+    attributes:
+      label: AI Agent向けエラーハンドリング
+      description: 実装中に発生しうる問題と対処法
+      placeholder: |
+        **よくある問題と対処法**:
+
+        1. **TypeScriptコンパイルエラー**
+           - Context7で最新Effect-TS情報確認
+           - 既存実装パターンを参照
+
+        2. **テストカバレッジ不足**
+           - 主要ロジックの単体テスト追加
+           - エラーケースのテスト実装
+
+        3. **パフォーマンス問題**
+           - メモリリーク確認
+           - 不要な再レンダリング最適化
+
+        4. **統合問題**
+           - 既存APIとの整合性確認
+           - 依存関係のバージョン確認

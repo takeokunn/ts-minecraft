@@ -42,6 +42,47 @@ Effect-TS 3.17+と最新最適化パターンによる高性能化：
 - [ ] **Custom Metrics** - ゲーム固有指標
 - [ ] **Real-time Monitoring** - 継続的な監視
 
+#### 即座に実行可能なコマンド集
+
+```bash
+# プロジェクトビルド + パフォーマンス分析
+pnpm build --analyze
+
+# 開発サーバー起動（デバッグモード）
+DEBUG=minecraft:performance pnpm dev
+
+# パフォーマンステスト実行
+pnpm test:performance
+
+# バンドルサイズ分析
+pnpx webpack-bundle-analyzer dist/stats.json
+
+# TypeScript コンパイル時間測定
+pnpx tsc --diagnostics
+
+# メモリ使用量プロファイリング
+node --inspect --max-old-space-size=4096 dist/main.js
+
+# CPU プロファイリング
+node --prof dist/main.js && node --prof-process isolate-*.log > profile.txt
+
+# Three.js のリソース使用量監視
+DEBUG=three:* pnpm dev
+```
+
+#### 継続的パフォーマンス監視
+
+```bash
+# GitHub Actionsでの自動計測
+.github/workflows/performance.yml で設定
+
+# Lighthouse CI での定期測定
+pnpx lhci autorun
+
+# Bundle Buddy によるバンドル分析
+pnpx bundle-buddy dist/main.js
+```
+
 ### 基本最適化チェックリスト
 
 ```typescript
@@ -74,7 +115,80 @@ interface ComponentStore<T> {
 }
 ```
 
+#### デバッグ・プロファイリングコマンド
+
+```bash
+# 即座に使用可能なデバッグコマンド
+
+# 1. メモリリーク検出
+node --trace-gc --trace-gc-verbose dist/main.js 2>&1 | grep "GC"
+
+# 2. V8 ヒープダンプ生成
+node --inspect --heapdump-on-out-of-memory dist/main.js
+
+# 3. Effect-TSトレース有効化
+DEBUG=effect:* pnpm dev
+
+# 4. Three.js レンダリング統計
+window.performance.mark('render-start')
+window.performance.mark('render-end')
+window.performance.measure('render-duration', 'render-start', 'render-end')
+
+# 5. Webpackバンドル最適化
+pnpx webpack-bundle-analyzer --port 8888
+
+# 6. TypeScript型チェック時間測定
+time pnpm typecheck
+
+# 7. ESLint パフォーマンス分析
+DEBUG=eslint:cli-engine pnpm lint
+
+# 8. Vitest実行時間プロファイル
+pnpm test --reporter=verbose --run
+```
+
 ## 📋 Detailed Instructions
+
+### Step 0: 即座実行 - パフォーマンス問題の緊急診断
+
+```bash
+# 🚨 クリティカル: フレームレート低下の緊急診断
+# ブラウザコンソールで即座に実行可能
+
+# 1. FPS監視開始
+let frameCount = 0;
+let lastTime = performance.now();
+const measureFPS = () => {
+  frameCount++;
+  const currentTime = performance.now();
+  if (currentTime - lastTime >= 1000) {
+    console.log(`FPS: ${Math.round(frameCount * 1000 / (currentTime - lastTime))}`);
+    frameCount = 0;
+    lastTime = currentTime;
+  }
+  requestAnimationFrame(measureFPS);
+};
+measureFPS();
+
+# 2. メモリ使用量リアルタイム監視
+setInterval(() => {
+  if (performance.memory) {
+    console.log(`Memory: ${Math.round(performance.memory.usedJSHeapSize / 1024 / 1024)}MB`);
+  }
+}, 1000);
+
+# 3. レンダリングパフォーマンス測定
+const stats = renderer.info;
+console.log(`Draw Calls: ${stats.render.calls}, Triangles: ${stats.render.triangles}`);
+
+# 4. WebGL コンテキスト情報
+const gl = renderer.getContext();
+console.log('WebGL Info:', {
+  renderer: gl.getParameter(gl.RENDERER),
+  vendor: gl.getParameter(gl.VENDOR),
+  version: gl.getParameter(gl.VERSION)
+});
+```
 
 ### Step 1: プロファイリングシステムの構築
 
@@ -95,6 +209,11 @@ const PerformanceMetric = Schema.Struct({
 })
 
 export type PerformanceMetric = Schema.Schema.Type<typeof PerformanceMetric>
+
+// 🚀 コマンドライン実行例
+// プロファイラー起動: DEBUG=profiler:* pnpm dev
+// メトリクス出力: node -e "console.log(JSON.stringify(metrics, null, 2))" > metrics.json
+// 分析実行: pnpm analyze-performance metrics.json
 
 // プロファイラーサービス
 export interface ProfilerService {

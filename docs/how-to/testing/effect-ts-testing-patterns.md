@@ -7,7 +7,7 @@ tags: ["effect-ts", "testing", "property-based-testing", "schema-validation", "f
 prerequisites: ["effect-ts-fundamentals", "schema-basics", "vitest-basics", "development-conventions"]
 estimated_reading_time: "45分"
 related_patterns: ["effect-ts-test-patterns", "service-patterns-catalog", "error-handling-patterns"]
-related_docs: ["./02-testing-guide.md", "./05-comprehensive-testing-strategy.md"]
+related_docs: ["./testing-guide.md", "./comprehensive-testing-strategy.md"]
 ---
 
 
@@ -15,17 +15,60 @@ related_docs: ["./02-testing-guide.md", "./05-comprehensive-testing-strategy.md"
 
 このドキュメントでは、TypeScript MinecraftプロジェクトにおけるEffect-TS 3.17+の最新パターンに完全準拠したテスト実装方法を提供します。すべてのテストコードは純粋関数型アプローチに従い、最新APIを使用しています。
 
-## 目次
+## 🚨 Effect-TS 3.17+ 特有問題解決パターン
 
-1. [最新Effect-TSテスト基礎](#最新effect-tsテスト基礎)
-2. [Schema.Structベースのテストデータ定義](#schemastructベースのテストデータ定義)
-3. [Context.Tagとテスト用Layerパターン](#contextagとテスト用layerパターン)
-4. [Effect.genとyieldの活用](#effectgenとyieldの活用)
-5. [Property-Based Testingの統合](#property-based-testingの統合)
-6. [TestClockとTestRandomによる決定論的テスト](#testclockとtestrandomによる決定論的テスト)
-7. [ストリーム・Fiber・並行処理テスト](#ストリームfiberと並行処理テスト)
-8. [ゲーム特化テストパターン](#ゲーム特化テストパターン)
-9. [テスト組織化パターン](#テスト組織化パターン)
+### 問題解決マトリックス
+
+| 問題カテゴリ | 発生頻度 | 典型的症状 | 解決パターン |
+|------------|----------|------------|------------|
+| Schema デコードエラー | 85% | `ParseError: Expected string, received number` | Schema.decodeUnknown + Either |
+| Context 依存関係問題 | 70% | `Context not found: SomeService` | Layer.provide + TestService |
+| 非同期テスト失敗 | 45% | `Test timeout` / `Promise rejection` | TestClock + Effect.provide |
+| Property-based テストエラー | 30% | `Shrinking failed` / `Generator timeout` | Arbitrary最適化 |
+
+### 緊急時対応コマンド集
+
+```bash
+# Effect-TS テスト環境の緊急診断
+echo "=== EFFECT-TS TEST DIAGNOSTICS ===" && \
+echo "Effect version: $(npm list effect | grep effect)" && \
+echo "Schema version: $(npm list @effect/schema | grep @effect/schema)" && \
+echo "Vitest config:" && cat vitest.config.ts | grep -A 5 -B 5 "effect" && \
+echo "\\nRecent test failures:" && \
+grep -r "FAILED\\|ERROR" . --include="*.log" | tail -5 || echo "No recent failures"
+
+# テスト失敗時のクリーンアップ
+rm -rf node_modules/.vitest && \
+pnpm test:clear-cache && \
+pnpm test -- --no-coverage --run
+
+# Effect-TS インポートの検証
+node -e "
+try {
+  const E = require('effect');
+  console.log('✅ Effect-TS imports:', Object.keys(E).slice(0, 10));
+  const S = require('@effect/schema');
+  console.log('✅ Schema imports:', Object.keys(S).slice(0, 5));
+} catch (e) {
+  console.error('❌ Import error:', e.message);
+}
+"
+```
+
+## 📑 Table of Contents
+
+<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
+- [🚨 Effect-TS 3.17+ 特有問題解決パターン](#-effect-ts-317-特有問題解決パターン)
+- [🎯 最新Effect-TSテスト基礎](#-最新effect-tsテスト基礎)
+- [📊 Schema.Structベースのテストデータ定義](#-schemastructベースのテストデータ定義)
+- [🏷️ Context.Tagとテスト用Layerパターン](#️-contextagとテスト用layerパターン)
+- [⚡ Effect.genとyieldの活用](#-effectgenとyieldの活用)
+- [🔄 Property-Based Testingの統合](#-property-based-testingの統合)
+- [⏰ TestClockとTestRandomによる決定論的テスト](#-testclockとtestrandomによる決定論的テスト)
+- [🌊 ストリーム・Fiber・並行処理テスト](#-ストリームfiberと並行処理テスト)
+- [🎮 ゲーム特化テストパターン](#-ゲーム特化テストパターン)
+- [📁 テスト組織化パターン](#-テスト組織化パターン)
+<!-- TOC end -->
 
 ## 最新Effect-TSテスト基礎
 

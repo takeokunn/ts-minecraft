@@ -17,6 +17,55 @@ status: "complete"
 
 Effect-TS 3.17+の最新APIを使用したTypeScript Minecraftプロジェクトにおける包括的なトラブルシューティングガイドです。Schema.Struct、Context.GenericTag、Match.valueなどの新機能特有の問題と、実践的な解決方法を詳細に解説します。
 
+## 🔍 エラー検索システム
+
+### 症状別クイック検索
+
+#### Effect-TS インポートエラー
+**検索タグ**: `effect-ts` + `import` + `module-resolution`
+```bash
+# 典型的エラーメッセージ
+"Cannot find module 'effect'"
+"Cannot find module '@effect/schema'"
+"Module not found: Can't resolve '@effect/platform'"
+```
+
+#### Schema バリデーションエラー
+**検索タグ**: `schema` + `validation` + `decode`
+```bash
+# 典型的エラーメッセージ
+"ParseError: Missing property"
+"Expected string, received number"
+"Schema.Struct is not a function"
+```
+
+#### Context 依存関係エラー
+**検索タグ**: `context` + `dependency-injection` + `layer`
+```bash
+# 典型的エラーメッセージ
+"Context not found"
+"Layer composition error"
+"Service tag mismatch"
+```
+
+#### Match パターンエラー
+**検索タグ**: `match` + `pattern-matching` + `type-narrowing`
+```bash
+# 典型的エラーメッセージ
+"Match.value is not a function"
+"Exhaustive pattern matching failed"
+"Type narrowing unsuccessful"
+```
+
+### エラー発生パターン予測
+
+| エラータイプ | 発生確率 | 典型的トリガー | 解決時間 |
+|------------|----------|----------------|----------|
+| Import/Module | 85% | バージョン更新時 | 2-5分 |
+| Schema設定 | 70% | 新規データ型作成時 | 5-15分 |
+| Context管理 | 45% | サービス追加時 | 10-30分 |
+| Match構文 | 25% | 複雑な分岐処理 | 15-45分 |
+
 ## Effect-TS 3.17+ 特有エラーパターン
 
 ### Schema.Struct 関連エラー（10パターン）

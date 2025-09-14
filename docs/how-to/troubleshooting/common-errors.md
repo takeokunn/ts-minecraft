@@ -1159,6 +1159,566 @@ npm ERR! peer dep missing: typescript@^5.0.0, required by effect@^3.17.13
    Effect.runPromise(checkDependencyVersions).catch(console.error)
    ```
 
+## 🔍 ゲームロジックエラー (26-35)
+
+### Error: Player movement validation failed
+
+#### 症状
+```bash
+error: PlayerMovementError: Invalid movement vector: {x: NaN, y: -Infinity, z: 0.5}
+```
+
+#### 原因
+- 物理演算でのNaN/Infinity発生
+- 入力バリデーション不備
+
+#### 解決方法
+```typescript
+// ✅ 修正後 - 移動ベクターバリデーション
+const MovementVectorSchema = Schema.Struct({
+  x: Schema.Number.pipe(
+    Schema.filter((n) => !isNaN(n) && isFinite(n), { message: "Invalid X coordinate" })
+  ),
+  y: Schema.Number.pipe(
+    Schema.filter((n) => !isNaN(n) && isFinite(n), { message: "Invalid Y coordinate" })
+  ),
+  z: Schema.Number.pipe(
+    Schema.filter((n) => !isNaN(n) && isFinite(n), { message: "Invalid Z coordinate" })
+  )
+})
+
+const validateMovement = (vector: unknown) =>
+  Schema.decodeUnknown(MovementVectorSchema)(vector)
+```
+
+### Error: Chunk generation timeout
+
+#### 症状
+```bash
+error: ChunkTimeoutError: Chunk generation exceeded 5000ms at (16, 0, -32)
+```
+
+#### 原因
+- 複雑な地形生成アルゴリズム
+- Workerプールの枚渇
+
+#### 解決方法
+```typescript
+// チャンク生成のタイムアウト制御
+const generateChunkWithTimeout = (
+  coord: ChunkCoordinate,
+  timeoutMs: number = 5000
+) =>
+  pipe(
+    generateChunk(coord),
+    Effect.timeout(Duration.millis(timeoutMs)),
+    Effect.catchTag("TimeoutException", () =>
+      Effect.succeed(generateSimplifiedChunk(coord))
+    )
+  )
+```
+
+### Error: Inventory slot conflict
+
+#### 症状
+```bash
+error: InventoryConflictError: Slot 5 already occupied by ItemType.DIAMOND_SWORD
+```
+
+#### 原因
+- 同期処理の競合状態
+- アイテムスタックロジックの不備
+
+#### 解決方法
+```typescript
+// STMを使用したアトミックなインベントリ操作
+const addToInventory = (playerId: PlayerId, item: Item) =>
+  STM.gen(function* () {
+    const inventory = yield* STM.get(playerInventories)
+    const playerInv = inventory.get(playerId) || []
+
+    const emptySlot = playerInv.findIndex(slot => slot === null)
+    if (emptySlot === -1) {
+      return yield* STM.fail(new InventoryFullError({ playerId }))
+    }
+
+    const updatedInv = [...playerInv]
+    updatedInv[emptySlot] = item
+
+    yield* STM.set(playerInventories, inventory.set(playerId, updatedInv))
+    return emptySlot
+  })
+```
+
+### Error: Block placement validation failed
+
+#### 症状
+```bash
+error: BlockPlacementError: Cannot place WATER at (10, 64, 5): conflicts with existing BEDROCK
+```
+
+#### 原因
+- ブロックルールバリデーション不備
+- 物理法則の無視
+
+#### 解決方法
+```typescript
+const BlockPlacementRule = {
+  canPlace: (blockType: BlockType, position: Position, world: World) => {
+    const existing = world.getBlock(position)
+
+    return pipe(
+      Match.value([blockType, existing?.type]),
+      Match.when(
+        ([type, existing]) => existing === "BEDROCK",
+        () => Effect.fail(new BlockPlacementError({ reason: "Cannot replace bedrock" }))
+      ),
+      Match.when(
+        ([type, existing]) => type === "WATER" && existing === "LAVA",
+        () => Effect.succeed("OBSIDIAN" as BlockType)
+      ),
+      Match.orElse(() => Effect.succeed(blockType))
+    )
+  }
+}
+```
+
+### Error: Entity component mismatch
+
+#### 症状
+```bash
+error: ComponentMismatchError: Entity 12345 missing required component: PositionComponent
+```
+
+#### 原因
+- ECSシステムのコンポーネント管理不備
+- システムの実行順序問題
+
+#### 解決方法
+```typescript
+// コンポーネント依存関係の管理
+const SystemManager = {
+  validateEntityRequirements: <T extends ComponentType[]>(
+    entityId: EntityId,
+    requiredComponents: T
+  ): Effect.Effect<boolean, ComponentMismatchError> =>
+    Effect.gen(function* () {
+      const world = yield* WorldService
+
+      for (const componentType of requiredComponents) {
+        const hasComponent = yield* world.hasComponent(entityId, componentType)
+        if (!hasComponent) {
+          return yield* Effect.fail(
+            new ComponentMismatchError({
+              entityId,
+              missingComponent: componentType
+            })
+          )
+        }
+      }
+
+      return true
+    })
+}
+```
+
+## 🔧 パフォーマンス関連エラー (36-45)
+
+### Error: Memory leak in chunk cache
+
+#### 症状
+```bash
+error: MemoryLeakError: Chunk cache exceeded 2GB, 1547 chunks not disposed
+```
+
+#### 原因
+- 使用されないチャンクのガベージコレクション失敗
+- WeakMapの不適切な使用
+
+#### 解決方法
+```typescript
+// LRUキャッシュでのメモリ管理
+class ChunkCache {
+  private cache = new Map<string, { chunk: Chunk; lastAccess: number }>()
+  private readonly maxSize = 500
+  private readonly maxAge = 30000 // 30秒
+
+  set(coord: ChunkCoordinate, chunk: Chunk) {
+    const key = `${coord.x},${coord.z}`
+
+    // キャッシュサイズ制限
+    if (this.cache.size >= this.maxSize) {
+      this.evictOldest()
+    }
+
+    this.cache.set(key, {
+      chunk,
+      lastAccess: Date.now()
+    })
+  }
+
+  private evictOldest() {
+    const entries = Array.from(this.cache.entries())
+    entries.sort((a, b) => a[1].lastAccess - b[1].lastAccess)
+
+    const toEvict = entries.slice(0, Math.floor(this.maxSize * 0.2))
+    toEvict.forEach(([key, { chunk }]) => {
+      chunk.dispose() // リソース解放
+      this.cache.delete(key)
+    })
+  }
+}
+```
+
+### Error: WebGL context exceeded resource limits
+
+#### 症状
+```bash
+error: WebGLError: CONTEXT_LOST_WEBGL: Too many vertex buffer objects
+```
+
+#### 原因
+- GPUリソースの枚渇
+- BufferGeometryの未解放
+
+#### 解決方法
+```typescript
+// WebGLリソースプール管理
+const WebGLResourceManager = {
+  geometryPool: new Map<string, THREE.BufferGeometry>(),
+  materialPool: new Map<string, THREE.Material>(),
+
+  getOrCreateGeometry: (type: GeometryType): THREE.BufferGeometry => {
+    const existing = this.geometryPool.get(type)
+    if (existing) return existing.clone()
+
+    const geometry = createGeometry(type)
+    this.geometryPool.set(type, geometry)
+    return geometry.clone()
+  },
+
+  disposeUnusedResources: () => {
+    // 使用されていないリソースを解放
+    this.geometryPool.forEach((geometry, key) => {
+      if (geometry.userData.refCount <= 0) {
+        geometry.dispose()
+        this.geometryPool.delete(key)
+      }
+    })
+  }
+}
+
+// 定期クリーンアップ
+setInterval(() => {
+  WebGLResourceManager.disposeUnusedResources()
+}, 30000) // 30秒ごと
+```
+
+### Error: Frame rate drop below threshold
+
+#### 症状
+```bash
+warn: PerformanceWarning: FPS dropped to 23, target is 60
+```
+
+#### 原因
+- Draw callの過多
+- 非効率なレンダリング
+
+#### 解決方法
+```typescript
+// レベルオブディテイル(LOD)システム
+const LODManager = {
+  updateLOD: (camera: THREE.Camera, entities: Entity[]) => {
+    entities.forEach(entity => {
+      const distance = camera.position.distanceTo(entity.position)
+
+      if (distance > 100) {
+        entity.setGeometry(lowDetailGeometry)
+        entity.material.wireframe = true
+      } else if (distance > 50) {
+        entity.setGeometry(mediumDetailGeometry)
+        entity.material.wireframe = false
+      } else {
+        entity.setGeometry(highDetailGeometry)
+        entity.material.wireframe = false
+      }
+    })
+  },
+
+  frustumCulling: (camera: THREE.Camera, entities: Entity[]) => {
+    const frustum = new THREE.Frustum()
+    const matrix = new THREE.Matrix4().multiplyMatrices(
+      camera.projectionMatrix,
+      camera.matrixWorldInverse
+    )
+    frustum.setFromProjectionMatrix(matrix)
+
+    return entities.filter(entity =>
+      frustum.intersectsObject(entity.mesh)
+    )
+  }
+}
+```
+
+### Error: Audio system initialization failed
+
+#### 症状
+```bash
+error: AudioContextError: The AudioContext was not allowed to start
+```
+
+#### 原因
+- ブラウザの自動再生ポリシー
+- ユーザーインタラクション前の初期化
+
+#### 解決方法
+```typescript
+// 遅延オーディオ初期化
+const AudioManager = {
+  audioContext: null as AudioContext | null,
+
+  initializeAudio: async (): Promise<void> => {
+    if (this.audioContext?.state === 'running') return
+
+    try {
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)()
+
+      if (this.audioContext.state === 'suspended') {
+        // ユーザーインタラクションを待つ
+        await this.waitForUserInteraction()
+        await this.audioContext.resume()
+      }
+    } catch (error) {
+      console.warn('Audio initialization failed, running in silent mode')
+    }
+  },
+
+  waitForUserInteraction: (): Promise<void> => {
+    return new Promise(resolve => {
+      const handler = () => {
+        document.removeEventListener('click', handler)
+        document.removeEventListener('keypress', handler)
+        resolve()
+      }
+      document.addEventListener('click', handler, { once: true })
+      document.addEventListener('keypress', handler, { once: true })
+    })
+  }
+}
+```
+
+### Error: Save data corruption detected
+
+#### 症状
+```bash
+error: SaveDataCorruptionError: Checksum mismatch in world save file
+```
+
+#### 原因
+- セーブデータの不完全な書き込み
+- ファイルシステムの問題
+
+#### 解決方法
+```typescript
+// チェックサム付きセーブシステム
+const SaveManager = {
+  saveWorld: async (world: World): Promise<void> => {
+    const data = JSON.stringify(world.serialize())
+    const checksum = await this.calculateChecksum(data)
+
+    const saveData = {
+      version: '1.0.0',
+      timestamp: Date.now(),
+      checksum,
+      data
+    }
+
+    // アトミックな書き込み
+    const tempFile = 'world.dat.tmp'
+    const targetFile = 'world.dat'
+
+    await fs.writeFile(tempFile, JSON.stringify(saveData))
+    await fs.rename(tempFile, targetFile)
+  },
+
+  loadWorld: async (): Promise<World> => {
+    try {
+      const saveData = JSON.parse(await fs.readFile('world.dat', 'utf-8'))
+      const calculatedChecksum = await this.calculateChecksum(saveData.data)
+
+      if (calculatedChecksum !== saveData.checksum) {
+        throw new SaveDataCorruptionError('Checksum mismatch')
+      }
+
+      return World.deserialize(JSON.parse(saveData.data))
+    } catch (error) {
+      // バックアップからの復元を試みる
+      return this.loadFromBackup()
+    }
+  },
+
+  calculateChecksum: async (data: string): Promise<string> => {
+    const encoder = new TextEncoder()
+    const dataArray = encoder.encode(data)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataArray)
+    return Array.from(new Uint8Array(hashBuffer))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+  }
+}
+```
+
+## 🔍 ネットワーク関連エラー (46-55)
+
+### Error: WebSocket connection failed
+
+#### 症状
+```bash
+error: WebSocketError: Connection failed to ws://localhost:3001/minecraft
+```
+
+#### 原因
+- サーバーが起動していない
+- ファイアウォールのブロック
+
+#### 解決方法
+```typescript
+// 再接続機能付きWebSocketラッパー
+const ReliableWebSocket = {
+  connection: null as WebSocket | null,
+  reconnectAttempts: 0,
+  maxReconnectAttempts: 5,
+  reconnectDelay: 1000,
+
+  connect: (url: string): Promise<WebSocket> => {
+    return new Promise((resolve, reject) => {
+      const ws = new WebSocket(url)
+
+      ws.onopen = () => {
+        this.connection = ws
+        this.reconnectAttempts = 0
+        resolve(ws)
+      }
+
+      ws.onerror = (error) => {
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          setTimeout(() => {
+            this.reconnectAttempts++
+            this.connect(url).then(resolve).catch(reject)
+          }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts))
+        } else {
+          reject(new WebSocketError('Max reconnection attempts reached'))
+        }
+      }
+
+      ws.onclose = () => {
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          this.connect(url)
+        }
+      }
+    })
+  }
+}
+```
+
+### Error: Player synchronization conflict
+
+#### 症状
+```bash
+error: SyncConflictError: Player position mismatch - Server: (10, 64, 5), Client: (12, 64, 7)
+```
+
+#### 原因
+- ネットワーク遅延
+- クライアント予測の精度不足
+
+#### 解決方法
+```typescript
+// クライアント予測とサーバー調整
+const PlayerSyncManager = {
+  predictMovement: (player: Player, input: InputState, deltaTime: number): Player => {
+    const velocity = this.calculateVelocity(input, deltaTime)
+    const predictedPosition = {
+      x: player.position.x + velocity.x * deltaTime,
+      y: player.position.y + velocity.y * deltaTime,
+      z: player.position.z + velocity.z * deltaTime
+    }
+
+    return { ...player, position: predictedPosition }
+  },
+
+  reconcileWithServer: (clientPlayer: Player, serverPlayer: Player): Player => {
+    const positionDiff = this.calculateDistance(clientPlayer.position, serverPlayer.position)
+
+    // 差分が大きすぎる場合はサーバーの位置を採用
+    if (positionDiff > 2.0) {
+      return { ...clientPlayer, position: serverPlayer.position }
+    }
+
+    // 小さな差分は補間で調整
+    return {
+      ...clientPlayer,
+      position: this.interpolatePosition(
+        clientPlayer.position,
+        serverPlayer.position,
+        0.1 // 補間係数
+      )
+    }
+  }
+}
+```
+
+### Error: Message queue overflow
+
+#### 症状
+```bash
+error: MessageQueueError: Network message queue exceeded 1000 messages
+```
+
+#### 原因
+- メッセージ処理速度の低下
+- ネットワーク帯域の不足
+
+#### 解決方法
+```typescript
+// メッセージ優先度付きキュー
+class PriorityMessageQueue {
+  private queues = new Map<MessagePriority, Message[]>()
+  private readonly maxSize = 1000
+
+  enqueue(message: Message): void {
+    const queue = this.queues.get(message.priority) || []
+
+    // キューサイズ制限
+    if (this.getTotalSize() >= this.maxSize) {
+      this.evictLowPriorityMessages()
+    }
+
+    queue.push(message)
+    this.queues.set(message.priority, queue)
+  }
+
+  dequeue(): Message | null {
+    // 高優先度から処理
+    for (const priority of ['CRITICAL', 'HIGH', 'NORMAL', 'LOW']) {
+      const queue = this.queues.get(priority as MessagePriority)
+      if (queue && queue.length > 0) {
+        return queue.shift()!
+      }
+    }
+    return null
+  }
+
+  private evictLowPriorityMessages(): void {
+    const lowPriorityQueue = this.queues.get('LOW')
+    if (lowPriorityQueue) {
+      lowPriorityQueue.splice(0, Math.floor(lowPriorityQueue.length / 2))
+    }
+  }
+}
+```
+
 ## 統合エラーハンドリングシステム
 
 ### プロジェクト全体のエラー管理戦略

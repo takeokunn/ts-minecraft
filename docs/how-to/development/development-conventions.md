@@ -165,6 +165,25 @@ const PlayerNotFoundError = Schema.TaggedError("PlayerNotFoundError")({
 # Effect-TS 3.17+ と関連ライブラリのインストール
 npm install effect @effect/schema @effect/platform
 npm install -D @effect/vitest fast-check
+
+# プロジェクト確認コマンド
+# バージョン確認
+npm list effect @effect/schema
+
+# TypeScript設定検証
+pnpx tsc --noEmit
+
+# ESLint設定検証
+pnpx eslint --print-config src/index.ts
+
+# プロジェクト構造検証
+tree -I 'node_modules|dist'
+
+# Effect-TSインポートテスト
+node -e "console.log(require('effect').Effect)"
+
+# パッケージ整合性チェック
+npm outdated
 ```
 
 ### Step 2: Schema-first データモデリング
@@ -507,6 +526,39 @@ const processData = (input: unknown) =>
   })
 ```
 
+#### 🔧 コーディング規約検証コマンド
+
+```bash
+# コーディング規約自動チェック
+
+# 1. Effect-TSパターン検証
+grep -r "class " src/ --include="*.ts" | grep -v "Schema.TaggedError"
+
+# 2. 禁止パターン検出
+grep -r "any\|as \|var \|let " src/ --include="*.ts" --color=always
+
+# 3. Schema.Struct使用確認
+grep -r "Schema\.Struct" src/ --include="*.ts" | wc -l
+
+# 4. Effect.gen使用確認
+grep -r "Effect\.gen" src/ --include="*.ts" | wc -l
+
+# 5. コンテキストタグ確認
+grep -r "Context\.GenericTag" src/ --include="*.ts"
+
+# 6. エラーハンドリングパターン確認
+grep -r "Schema\.TaggedError" src/ --include="*.ts"
+
+# 7. イミュータブルパターン確認
+grep -r "\.push\|\.pop\|\.splice" src/ --include="*.ts" --color=always
+
+# 8. ファイル名パターン確認
+find src/ -name "*.ts" | grep -E "[A-Z]" | head -10
+
+# 9. インポート順序確認
+head -20 src/**/*.ts | grep "import"
+```
+
 ### 3. 非効率なパフォーマンスパターン
 
 ```typescript
@@ -525,6 +577,35 @@ const updateAllEntitiesBatched = (world: World) => {
   world.systems.physics.updateAll()
   world.systems.rendering.updateAll()
 }
+```
+
+#### 📊 コード品質メトリクス測定
+
+```bash
+# コード品質統計
+
+# TypeScriptエラー数
+pnpx tsc --noEmit 2>&1 | grep "error TS" | wc -l
+
+# ESLint警告数
+pnpx eslint src/ --format json | jq '.[] | .messages | length' | awk '{sum+=$1} END {print sum}'
+
+# テストカバレッジ
+pnpm test:coverage --reporter=json | jq '.coverageMap | to_entries | map(.value.s) | add | map(if . > 0 then 1 else 0 end) | add'
+
+# コード行数統計
+find src/ -name "*.ts" -exec wc -l {} + | tail -1
+
+# 関数型パターン率
+grep -r "=>" src/ --include="*.ts" | wc -l
+
+# Effect-TSパターン遵守率
+echo "Scale: $(grep -r "Effect\.gen\|Schema\.Struct" src/ --include="*.ts" | wc -l) / $(find src/ -name "*.ts" | wc -l)"
+
+# パフォーマンスベンチマーク
+time pnpm build
+time pnpm test
+time pnpm typecheck
 ```
 
 ## 🔧 Advanced Techniques

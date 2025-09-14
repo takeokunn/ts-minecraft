@@ -349,6 +349,30 @@ npm ls @types/three
 npm install --save-dev @types/three@latest
 ```
 
+## 🔄 Learning Path
+
+### ✅ Previous Step
+**New to the project?** Start here first:
+- **[Getting Started](../getting-started/README.md)** - Project overview and basic concepts
+- ⏱️ Recommended: ~15 minutes to understand the project goals
+
+### ➡️ Next Step
+**[Basic Components](./basic-components.md)**
+- 🎯 Learning goal: Create foundational domain entities using Effect-TS patterns
+- ⏱️ Estimated time: ~25 minutes
+- 📋 Prerequisites: Environment setup completed successfully
+
+### 📊 Progress in this Series
+**Basic Game Development (1/5 completed)**
+- [x] **Current: Environment Setup**
+- [ ] [Basic Components](./basic-components.md)
+- [ ] [Domain Layer Architecture](./domain-layer-architecture.md)
+- [ ] [Application Services](./application-services.md)
+- [ ] [Interactive Learning Guide](./interactive-learning-guide.md)
+
+**🎯 Series Goal**: Build a functional Minecraft Clone prototype using Effect-TS 3.17+ and DDD patterns
+**⏱️ Estimated remaining**: ~75 minutes
+
 ## 🔗 次のステップ
 
 環境セットアップ完了後の学習パス：

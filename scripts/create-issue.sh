@@ -1,174 +1,201 @@
 #!/bin/bash
+set -euo pipefail
 
-# GitHub Issue作成スクリプト
-# Usage: ./scripts/create-issue.sh <task_id>
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/issue-core.sh"
+source "$SCRIPT_DIR/lib/ai-execution-plan.sh"
 
-set -e
+# Usage
+usage() {
+    cat << EOF
+Usage: $0 [options] <task_id>
 
-TASK_ID=$1
+Create high-quality GitHub issue with AI Agent execution plan.
 
-if [ -z "$TASK_ID" ]; then
-    echo "❌ Error: Task ID required"
-    echo "Usage: $0 <task_id>"
-    echo "Example: $0 P0-001"
+Arguments:
+    task_id     Task ID (e.g., P0-001, P1-042)
+
+Options:
+    --dry-run   Preview issue without creating
+    --force     Skip confirmation
+    --plan-only Generate execution plan only
+    --help      Show help
+
+Examples:
+    $0 P0-001
+    $0 --dry-run P1-042
+    $0 --plan-only P2-015
+EOF
+}
+
+# Parse arguments
+DRY_RUN=false
+FORCE=false
+PLAN_ONLY=false
+TASK_ID=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --dry-run) DRY_RUN=true; shift ;;
+        --force) FORCE=true; shift ;;
+        --plan-only) PLAN_ONLY=true; shift ;;
+        --help) usage; exit 0 ;;
+        P[0-8]-[0-9][0-9][0-9]) TASK_ID="$1"; shift ;;
+        *) echo "❌ Unknown option: $1"; usage; exit 1 ;;
+    esac
+done
+
+# Validate arguments
+if [[ -z "$TASK_ID" ]]; then
+    echo "❌ Task ID required"
+    usage
     exit 1
 fi
 
-echo "📝 Creating Issue for task: $TASK_ID"
-echo "====================================="
+# Generate AI-optimized issue body
+format_ai_issue() {
+    local task_section="$1"
+    local success_criteria implementation_files ai_instructions verification_commands
 
-# ROADMAPからタスク情報抽出
-TASK_INFO=$(grep -A 20 "#### $TASK_ID:" ROADMAP.md)
+    success_criteria=$(get_success_criteria "$task_section")
+    implementation_files=$(get_implementation_files "$task_section")
+    ai_instructions=$(get_ai_instructions "$task_section")
+    verification_commands=$(get_verification_commands "$task_section")
 
-if [ -z "$TASK_INFO" ]; then
-    echo "❌ Task $TASK_ID not found in ROADMAP.md"
-    exit 1
-fi
-
-# タスク名抽出
-TASK_NAME=$(echo "$TASK_INFO" | grep "^#### $TASK_ID:" | sed "s/#### $TASK_ID: //" | sed 's/ ⭐️//')
-
-# サイズ抽出
-SIZE=$(echo "$TASK_INFO" | grep "^\*\*サイズ\*\*:" | sed 's/.*サイズ\*\*: //' | cut -d' ' -f1)
-
-# タイプ抽出
-TYPE=$(echo "$TASK_INFO" | grep "^\*\*タイプ\*\*:" | sed 's/.*タイプ\*\*: //' | cut -d' ' -f1)
-
-# 優先度抽出
-PRIORITY=$(echo "$TASK_INFO" | grep "^\*\*優先度\*\*:" | sed 's/.*優先度\*\*: //' | cut -d' ' -f1)
-
-# 依存関係抽出
-DEPENDENCIES=$(echo "$TASK_INFO" | grep "^\*\*依存\*\*:" | sed 's/.*依存\*\*: //' || echo "なし")
-
-echo "📋 Task Details:"
-echo "  Name: $TASK_NAME"
-echo "  Size: $SIZE"
-echo "  Type: $TYPE"
-echo "  Priority: $PRIORITY"
-echo "  Dependencies: $DEPENDENCIES"
-
-# Issue本文生成
-ISSUE_BODY=$(cat <<EOF
+    cat << EOF
 ## 📌 タスク概要
 
-**ID**: \`$TASK_ID\`
-**サイズ**: \`$SIZE\`
-**タイプ**: \`$TYPE\`
-**優先度**: \`$PRIORITY\`
+**ID**: \`$TASK_ID\`  **サイズ**: \`$TASK_SIZE\` (${TASK_HOURS}h)  **タイプ**: \`$TASK_TYPE\`  **優先度**: \`$TASK_PRIORITY\`  **複雑度**: ${TASK_COMPLEXITY}/10
 
-$TASK_NAME の実装タスクです。
+**目標**: $TASK_NAME
 
-## 🎯 成功基準
-
-$(echo "$TASK_INFO" | sed -n '/# 成功基準/,/^#[^#]/p' | grep "^- \[" || echo "- [ ] 実装完了
-- [ ] テスト作成
-- [ ] ドキュメント更新")
+$(generate_ai_comprehensive_plan)
 
 ## 📁 実装ファイル
 
-$(echo "$TASK_INFO" | sed -n '/# 実装ファイル/,/^#[^#]/p' | grep "^-" || echo "- ROADMAPを参照")
+$(format_implementation_files "$implementation_files")
 
-## 🔗 依存関係
-
-- 依存タスク: $DEPENDENCIES
-
-## 💻 AI Agent実装指示
-
-\`\`\`
-$(echo "$TASK_INFO" | sed -n '/# AI.*指示/,/^```/p' | grep -v "^#" | grep -v "^\`\`\`" || echo "ROADMAPの詳細を参照してください")
-\`\`\`
-
-## ✅ 検証方法
+## ✅ 検証手順
 
 \`\`\`bash
-$(echo "$TASK_INFO" | sed -n '/# 検証/,/^#[^#]/p' | grep -v "^#" || echo "pnpm test
-pnpm typecheck
-pnpm lint")
+$verification_commands
 \`\`\`
 
-## 📊 メトリクス
+## 🎯 最終成功基準
 
-- 推定時間: $SIZE
-- カバレッジ目標: 80%+
-- パフォーマンス: 60FPS維持
+$(format_success_criteria "$success_criteria")
 
 ---
 
-**PR作成時のチェックリスト**:
-- [ ] Effect-TSパターンに従っている
-- [ ] Schema.Structで型定義している
-- [ ] エラーハンドリングが適切
-- [ ] テストカバレッジ80%以上
+## 📋 AI Agent向け完了チェック
+
+### 🏗️ アーキテクチャ準拠
+- [ ] Effect-TS 3.17+パターン使用 (Context.GenericTag)
+- [ ] Schema.Struct全型定義
+- [ ] クラス使用なし、純関数のみ
+- [ ] var/let/any/async/await禁止遵守
+
+### 🔧 実装品質
 - [ ] TypeScript strictモード通過
+- [ ] テストカバレッジ80%以上
 - [ ] Lintエラーなし
-- [ ] ドキュメント更新済み
+- [ ] 60FPS維持、メモリ2GB以下
+
+### 📚 ドキュメント・統合
+- [ ] API仕様書更新
+- [ ] 実装パターンドキュメント
+- [ ] E2Eテスト通過
+- [ ] CI/CD正常動作
+
+**🚀 AI Agent: このプランに従って段階的に実装し、各Phase完了時に検証を実行してください！**
 EOF
-)
+}
 
-# ラベル決定
-LABELS="task"
+# Format implementation files (helper function)
+format_implementation_files() {
+    local files="$1"
+    if [[ -n "$files" ]]; then
+        echo "$files" | sed 's/^/- /'
+    else
+        echo "- ROADMAPの実装ファイル一覧を参照"
+    fi
+}
 
-case $SIZE in
-    XS) LABELS="$LABELS,size/XS" ;;
-    S) LABELS="$LABELS,size/S" ;;
-    M) LABELS="$LABELS,size/M" ;;
-    L) LABELS="$LABELS,size/L" ;;
-    XL) LABELS="$LABELS,size/XL" ;;
-esac
+# Format success criteria (helper function)
+format_success_criteria() {
+    local criteria="$1"
+    if [[ -n "$criteria" ]]; then
+        echo "$criteria" | sed 's/^/- [ ] /'
+    else
+        echo "- [ ] 実装完了"
+        echo "- [ ] テスト作成・実行"
+        echo "- [ ] ドキュメント更新"
+        echo "- [ ] 品質ゲート通過"
+    fi
+}
 
-case $TYPE in
-    setup) LABELS="$LABELS,type:setup" ;;
-    config) LABELS="$LABELS,type:config" ;;
-    service) LABELS="$LABELS,type:feature" ;;
-    interface) LABELS="$LABELS,type:feature" ;;
-    test) LABELS="$LABELS,type:test" ;;
-    docs) LABELS="$LABELS,type:docs" ;;
-    infrastructure) LABELS="$LABELS,type:infrastructure" ;;
-esac
+# Main execution
+main() {
+    log_info "Creating AI-optimized issue for $TASK_ID"
 
-case $PRIORITY in
-    Critical) LABELS="$LABELS,priority:critical" ;;
-    High) LABELS="$LABELS,priority:high" ;;
-    Medium) LABELS="$LABELS,priority:medium" ;;
-    Low) LABELS="$LABELS,priority:low" ;;
-esac
+    # Check prerequisites
+    check_prerequisites || exit 1
 
-# Phase判定
-PHASE=$(echo "$TASK_ID" | cut -d'-' -f1)
-LABELS="$LABELS,phase:${PHASE#P}"
+    # Parse task data
+    parse_task "$TASK_ID" || exit 1
+    log_success "Task data parsed: $TASK_NAME"
 
-echo ""
-echo "🏷️  Labels: $LABELS"
+    # Get task section for formatting
+    task_section=$(get_task_section "$TASK_ID")
 
-# GitHub CLI確認
-if ! command -v gh &> /dev/null; then
-    echo "❌ GitHub CLI (gh) is not installed"
-    echo "Install: https://cli.github.com/"
-    exit 1
-fi
+    if [[ "$PLAN_ONLY" == true ]]; then
+        echo "## 🤖 AI Agent 実行計画プレビュー"
+        echo "Task: $TASK_NAME ($TASK_TYPE)"
+        echo ""
+        generate_ai_comprehensive_plan
+        return 0
+    fi
 
-# Issue作成コマンド表示
-echo ""
-echo "📦 Creating Issue with GitHub CLI..."
-echo ""
-echo "Command:"
-echo "gh issue create \\"
-echo "  --title \"[$TASK_ID] $TASK_NAME\" \\"
-echo "  --body \"$ISSUE_BODY\" \\"
-echo "  --label \"$LABELS\""
+    # Format issue
+    issue_body=$(format_ai_issue "$task_section")
+    issue_title="[$TASK_ID] $TASK_NAME"
+    labels=$(generate_labels)
 
-# 確認プロンプト
-echo ""
-read -p "Create this issue? (y/n): " -n 1 -r
-echo ""
+    # Add AI-specific labels
+    labels="$labels,ai-agent,execution-plan"
 
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    gh issue create \
-        --title "[$TASK_ID] $TASK_NAME" \
-        --body "$ISSUE_BODY" \
-        --label "$LABELS"
+    # Show preview
+    echo ""
+    echo "📋 AI Issue Preview:"
+    echo "Title: $issue_title"
+    echo "Labels: $labels"
+    echo ""
 
-    echo "✅ Issue created successfully!"
-else
-    echo "❌ Issue creation cancelled"
-fi
+    if [[ "$DRY_RUN" == true ]]; then
+        echo "--- Issue Body ---"
+        echo "$issue_body"
+        echo "--- End ---"
+        log_info "Dry run completed"
+        return 0
+    fi
+
+    # Confirmation
+    if [[ "$FORCE" == false ]]; then
+        echo "Create this AI-optimized issue? (y/n): "
+        read -r response
+        [[ "$response" =~ ^[Yy]$ ]] || { echo "Cancelled"; exit 0; }
+    fi
+
+    # Create issue
+    log_info "Creating AI-optimized GitHub issue..."
+    issue_url=$(gh issue create \
+        --title "$issue_title" \
+        --body "$issue_body" \
+        --label "$labels")
+
+    log_success "AI-optimized issue created: $issue_url"
+    echo ""
+    echo "🤖 AI Agent can now use this issue as an execution plan!"
+}
+
+main "$@"

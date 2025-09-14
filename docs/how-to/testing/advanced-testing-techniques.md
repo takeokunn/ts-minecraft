@@ -7,7 +7,7 @@ tags: ["advanced-testing", "property-based-testing", "visual-testing", "contract
 prerequisites: ["comprehensive-testing-strategy", "effect-ts-fundamentals", "vitest-advanced"]
 estimated_reading_time: "30分"
 related_patterns: ["effect-ts-test-patterns", "optimization-patterns-latest"]
-related_docs: ["./05-comprehensive-testing-strategy.md", "../reference/troubleshooting/debugging-guide.md"]
+related_docs: ["./comprehensive-testing-strategy.md", "../reference/troubleshooting/debugging-guide.md"]
 ---
 
 # 高度なテスト技法ガイド - Property-Based Testing、ビジュアルテスト、契約テストの実践

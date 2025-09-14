@@ -1,0 +1,97 @@
+name: Task Implementation
+description: ROADMAP タスク実装用 Issue
+title: "[Task ID] タスク名"
+labels: ["task"]
+body:
+  - type: input
+    id: task-id
+    attributes:
+      label: Task ID
+      description: ROADMAP のタスク ID
+      placeholder: P0-001
+    validations:
+      required: true
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      description: 推定作業時間
+      options:
+        - XS (1h)
+        - S (2h)
+        - M (4h)
+        - L (6h)
+        - XL (8h+)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      description: タスクの種類
+      options:
+        - setup
+        - config
+        - interface
+        - service
+        - feature
+        - test
+        - docs
+        - infrastructure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Critical
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 実装内容
+      description: 何を実装するか
+      placeholder: |
+        このタスクで実装する機能・改善内容を説明
+    validations:
+      required: true
+
+  - type: textarea
+    id: success-criteria
+    attributes:
+      label: 成功基準
+      placeholder: |
+        - [ ] 実装完了
+        - [ ] テスト作成・実行
+        - [ ] ドキュメント更新
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: 実装ファイル
+      placeholder: |
+        - src/domain/service/GameService.ts
+        - src/domain/service/GameService.test.ts
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 完了チェック
+      options:
+        - label: Effect-TS パターン使用
+        - label: Schema.Struct で型定義
+        - label: TypeScript strict モード通過
+        - label: テストカバレッジ 80%以上
+        - label: Lint エラーなし
+        - label: ドキュメント更新

@@ -19,32 +19,18 @@ echo "========================================"
 # Sprint関連タスクを抽出
 echo "📋 Finding tasks for Sprint $SPRINT_NUMBER..."
 
-# Sprint番号に基づくタスクID範囲設定
-case $SPRINT_NUMBER in
-    1)
-        TASK_PATTERN="P0-00[1-7]"
-        ;;
-    2)
-        TASK_PATTERN="P0-0(0[8-9]|1[0-5])"
-        ;;
-    3|4)
-        TASK_PATTERN="P1-00[1-4]"
-        ;;
-    5|6)
-        TASK_PATTERN="P1-00[5-9]|P1-01[0]"
-        ;;
-    7|8)
-        TASK_PATTERN="P1-01[1-3]"
-        ;;
-    *)
-        echo "❌ Sprint $SPRINT_NUMBER not configured"
-        echo "Please update this script with task patterns for Sprint $SPRINT_NUMBER"
-        exit 1
-        ;;
-esac
+# Sprint関連タスクを動的に抽出
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/sprint-start.sh"
 
-# タスクID収集
-TASKS=$(grep -E "^#### P[0-9]+-[0-9]+" ROADMAP.md | grep -E "$TASK_PATTERN" | sed 's/#### //' | cut -d':' -f1)
+# sprint-start.shの関数を使用してタスクを抽出
+section_start=$(find_sprint_section "$SPRINT_NUMBER") || {
+    echo "❌ Sprint $SPRINT_NUMBER not found in ROADMAP.md"
+    exit 1
+}
+
+section_end=$(get_section_end "$section_start")
+TASKS=$(extract_tasks "$section_start" "$section_end" | sed 's/:.*$//' | sed 's/^#### //')
 
 if [ -z "$TASKS" ]; then
     echo "❌ No tasks found for Sprint $SPRINT_NUMBER"
@@ -85,7 +71,7 @@ echo "$TASKS" | while IFS= read -r task_id; do
     echo -n "Creating $task_id... "
 
     # create-issue.shを非対話モードで実行
-    if ISSUE_URL=$(./scripts/create-issue-batch.sh "$task_id" 2>/dev/null); then
+    if ISSUE_URL=$(./scripts/create-issue.sh --force "$task_id" 2>/dev/null); then
         echo "✅ Created: $ISSUE_URL"
         ((CREATED++))
     else
