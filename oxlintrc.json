@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-unused-vars": "error",
+    "no-console": "off"
+  }
+}
