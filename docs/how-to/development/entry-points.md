@@ -38,13 +38,13 @@ Effect-TS 3.17+とLayerパターンにより、以下を実現：
 
 ### エントリーポイント一覧チェックリスト - 即座実行
 
-- [ ] **メインエントリー** (`src/main.ts`) - ゲームエンジンの核心
-- [ ] **Webアプリ** (`src/presentation/web/main.ts`) - UI/レンダリング
-- [ ] **メッシュWorker** - チャンク生成処理
-- [ ] **地形Worker** - 地形生成・バイオーム
-- [ ] **物理Worker** - 衝突判定・物理演算
-- [ ] **ライティングWorker** - 光の伝播計算
-- [ ] **計算Worker** - 汎用数値計算
+- [ ] **メインエントリー** (`src/main.ts`) - アプリケーション統合・初期化
+- [ ] **プレゼンテーション層** (`src/presentation/`) - UI・入力制御・レンダリング
+- [ ] **チャンクWorker** (`src/workers/chunk-worker.ts`) - チャンク生成・最適化
+- [ ] **物理Worker** (`src/workers/physics-worker.ts`) - 衝突判定・物理演算
+- [ ] **メッシュ生成Worker** (`src/workers/mesh-generation.worker.ts`) - メッシュ最適化
+- [ ] **パスファインディングWorker** (`src/workers/pathfinding-worker.ts`) - 経路探索
+- [ ] **アセットローダーWorker** (`src/workers/asset-loader.worker.ts`) - リソース読み込み
 
 ### 基本起動パターン
 

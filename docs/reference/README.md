@@ -94,9 +94,10 @@ performance_benchmark:
 - [Effect-TS Schema API](./api/effect-ts-schema-api.md)
 - [Effect-TS Context API](./api/effect-ts-context-api.md)
 
-### 🏗️ [Architecture](./architecture-patterns.md)
+### 🏗️ Architecture
 **設計原則とベストプラクティス**
 
+- [src/ディレクトリ構造設計](./architecture/src-directory-structure.md)
 - [アーキテクチャパターン集](./architecture-patterns.md) - DDD・ECS・Effect-TS統合パターン
 
 ### ⚙️ [Configuration](./configuration/README.md)

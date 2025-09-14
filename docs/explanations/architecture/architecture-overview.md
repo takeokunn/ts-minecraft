@@ -25,15 +25,16 @@ TypeScript MinecraftにおけるDDD + ECS + Effect-TS統合アーキテクチャ
 
 1. [アーキテクチャ統合の必要性](#アーキテクチャ統合の必要性)
 2. [統合設計の基本哲学](#統合設計の基本哲学)
-3. [レイヤー設計と責務分離](#レイヤー設計と責務分離)
-4. [パフォーマンスとコードの美しさの両立](#パフォーマンスとコードの美しさの両立)
-5. [設計方針](#設計方針)
-6. [アーキテクチャレイヤー](#アーキテクチャレイヤー)
-7. [API分類](#api分類)
-8. [Effect-TS統合パターン](#effect-ts統合パターン)
-9. [セキュリティ方針](#セキュリティ方針)
-10. [実世界での運用考慮](#実世界での運用考慮)
-11. [API一覧](#api一覧)
+3. [src/ディレクトリ構造](#srcディレクトリ構造)
+4. [レイヤー設計と責務分離](#レイヤー設計と責務分離)
+5. [パフォーマンスとコードの美しさの両立](#パフォーマンスとコードの美しさの両立)
+6. [設計方針](#設計方針)
+7. [アーキテクチャレイヤー](#アーキテクチャレイヤー)
+8. [API分類](#api分類)
+9. [Effect-TS統合パターン](#effect-ts統合パターン)
+10. [セキュリティ方針](#セキュリティ方針)
+11. [実世界での運用考慮](#実世界での運用考慮)
+12. [API一覧](#api一覧)
 
 ## アーキテクチャ統合の必要性
 
@@ -199,6 +200,58 @@ graph TB
     EFFECT -.->|横断的関心事| ECS
     EFFECT -.->|横断的関心事| IO
 
+```
+
+## src/ディレクトリ構造
+
+プロジェクトの実装は、統合アーキテクチャを反映した明確なディレクトリ構造に基づいています。
+
+```
+src/
+├── main.ts                      # アプリケーションエントリーポイント
+├── domain/                      # ドメイン層（コアビジネスロジック）
+├── application/                 # アプリケーション層（ユースケース・システム）
+├── infrastructure/              # インフラストラクチャ層（ECS・レンダリング）
+├── presentation/                # プレゼンテーション層（UI・入力制御）
+├── shared/                      # 共有コンポーネント（横断的関心事）
+├── types/                       # TypeScript型定義
+├── workers/                     # Web Workers（並行処理）
+└── config/                      # 設定・環境変数
+```
+
+**詳細な構造設計**: 完全な`src/`ディレクトリ構造の詳細については、[src/ディレクトリ構造設計](../../reference/architecture/src-directory-structure.md) を参照してください。
+
+### レイヤー間の依存関係
+
+```mermaid
+graph LR
+    subgraph "実装レイヤー"
+        MAIN[main.ts]
+        PRES[presentation/]
+        APP[application/]
+        DOMAIN[domain/]
+        INFRA[infrastructure/]
+        SHARED[shared/]
+        CONFIG[config/]
+        WORKERS[workers/]
+    end
+
+    MAIN --> PRES
+    MAIN --> APP
+    MAIN --> CONFIG
+
+    PRES --> APP
+    APP --> DOMAIN
+    APP --> INFRA
+    INFRA --> DOMAIN
+
+    PRES -.-> SHARED
+    APP -.-> SHARED
+    DOMAIN -.-> SHARED
+    INFRA -.-> SHARED
+
+    WORKERS --> DOMAIN
+    WORKERS --> SHARED
 ```
 
 ### 2. イベント駆動による疎結合
