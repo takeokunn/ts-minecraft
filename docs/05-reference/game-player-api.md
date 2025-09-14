@@ -471,7 +471,7 @@ const createPlayer = (params: CreatePlayerParams) => Effect.gen(function* () {
   )
 
   if (Option.isSome(existing)) {
-    return yield* Effect.fail(new PlayerCreationError({
+    return yield* Effect.fail(PlayerCreationError({
       message: "Player name already exists",
       playerName: validated.name
     }))
@@ -541,7 +541,7 @@ const updatePlayerPosition = (params: UpdatePositionParams) => Effect.gen(functi
   const maxDistance = player.gameMode === "creative" ? 100 : 10
 
   if (distance > maxDistance) {
-    return yield* Effect.fail(new InvalidMovementError({
+    return yield* Effect.fail(InvalidMovementError({
       message: "Movement distance too large",
       playerId: validated.playerId,
       actualDistance: distance,
@@ -664,7 +664,7 @@ const jumpPlayer = (playerId: PlayerId) => Effect.gen(function* () {
   )
 
   if (!collision.isOnGround && player.gameMode !== "creative") {
-    return yield* Effect.fail(new JumpError({
+    return yield* Effect.fail(JumpError({
       message: "Player is not on ground",
       playerId
     }))
@@ -727,7 +727,7 @@ const addItemToInventory = (params: AddItemParams) => Effect.gen(function* () {
       )
 
       if (canAdd === 0) {
-        return yield* Effect.fail(new InventoryFullError({
+        return yield* Effect.fail(InventoryFullError({
           message: "Cannot stack more items",
           playerId: validated.playerId
         }))
@@ -772,7 +772,7 @@ const addItemToInventory = (params: AddItemParams) => Effect.gen(function* () {
       const emptySlot = findEmptySlot(player.inventory)
 
       if (Option.isNone(emptySlot)) {
-        return yield* Effect.fail(new InventoryFullError({
+        return yield* Effect.fail(InventoryFullError({
           message: "No empty slots available",
           playerId: validated.playerId
         }))
@@ -840,7 +840,7 @@ const damagePlayer = (params: DamageParams) => Effect.gen(function* () {
   // 死亡判定
   if (newHealth === 0) {
     yield* handlePlayerDeath(player, validated.source)
-    return yield* Effect.fail(new PlayerDeathError({
+    return yield* Effect.fail(PlayerDeathError({
       message: "Player died",
       playerId: validated.playerId,
       cause: validated.source
@@ -1514,13 +1514,13 @@ const PlayerCache = Effect.gen(function* () {
 ```typescript
 // プレイヤーシステム固有エラー
 export namespace PlayerSystemErrors {
-  export class PlayerNotFoundError extends Schema.TaggedError("PlayerSystem.PlayerNotFoundError")<{
+  export const PlayerNotFoundError = Schema.TaggedError("PlayerSystem.PlayerNotFoundError")<{
     readonly playerId: string
     readonly searchContext: string
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class InvalidMovementError extends Schema.TaggedError("PlayerSystem.InvalidMovementError")<{
+  export const InvalidMovementError = Schema.TaggedError("PlayerSystem.InvalidMovementError")<{
     readonly playerId: string
     readonly currentPosition: Position3D
     readonly targetPosition: Position3D
@@ -1528,22 +1528,22 @@ export namespace PlayerSystemErrors {
     readonly maxAllowedDistance: number
     readonly actualDistance: number
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class InventoryFullError extends Schema.TaggedError("PlayerSystem.InventoryFullError")<{
+  export const InventoryFullError = Schema.TaggedError("PlayerSystem.InventoryFullError")<{
     readonly playerId: string
     readonly inventoryId: string
     readonly attemptedItem: string
     readonly availableSlots: number
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class PlayerDeathError extends Schema.TaggedError("PlayerSystem.PlayerDeathError")<{
+  export const PlayerDeathError = Schema.TaggedError("PlayerSystem.PlayerDeathError")<{
     readonly playerId: string
     readonly cause: string
     readonly position: Position3D
     readonly timestamp: number
-  }> {}
+  }>
 }
 
 // エラーハンドリングパターン

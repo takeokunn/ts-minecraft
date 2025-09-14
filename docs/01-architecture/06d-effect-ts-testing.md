@@ -10,9 +10,53 @@ last_updated: "2025-09-14"
 version: "1.0.0"
 ---
 
-# Effect-TS テスティング戦略
+# Effect-TS テスティング戦略 - PBT中心アプローチ
 
-TypeScript Minecraftプロジェクトでは、**Effect-TS 3.17+** の最新テスティングパターンを採用し、型安全で合成可能なテスト戦略を実践しています。この文書では、プロジェクト全体で遵守すべきテスト手法とパターンを解説します。
+TypeScript Minecraftプロジェクトでは、**Effect-TS 3.17+** と **fast-check** を活用したProperty-Based Testing(PBT)中心のテスト戦略を採用しています。
+
+## PBTに最適化された関数設計原則
+
+### 関数の粒度とテスタビリティ
+
+**PBTの効果を最大化するため、以下の粒度で関数を設計します：**
+
+1. **単一責任の純粋関数** - 1つの関数は1つの変換のみを行う
+2. **決定論的な振る舞い** - 同じ入力に対して常に同じ出力を返す
+3. **副作用の分離** - Effect型で副作用を明示的にラップ
+4. **小さな合成可能な単位** - 複雑なロジックは小関数の組み合わせで実現
+
+```typescript
+// ❌ PBTに不適切: 大きすぎる関数
+const processPlayerAction = (player: Player, action: Action, world: World) => {
+  // 複数の責任が混在
+  const validatedAction = validateAction(action);
+  const updatedPlayer = applyAction(player, validatedAction);
+  const worldEffects = calculateWorldEffects(updatedPlayer, world);
+  const newWorld = applyWorldEffects(world, worldEffects);
+  return { player: updatedPlayer, world: newWorld };
+};
+
+// ✅ PBTに最適: 小さく分離された純粋関数
+const validateAction = (action: Action): Effect.Effect<ValidatedAction, ActionError> =>
+  Schema.decodeUnknown(ActionSchema)(action);
+
+const applyActionToPlayer = (player: Player, action: ValidatedAction): Player => ({
+  ...player,
+  position: calculateNewPosition(player.position, action.movement),
+  stamina: calculateStamina(player.stamina, action.effort)
+});
+
+const calculateNewPosition = (current: Position, movement: Movement): Position => ({
+  x: current.x + movement.dx,
+  y: current.y + movement.dy,
+  z: current.z + movement.dz
+});
+
+const calculateStamina = (current: number, effort: number): number =>
+  Math.max(0, Math.min(100, current - effort));
+```
+
+この設計により、各関数を独立してProperty-Based Testingでテスト可能になり、高品質なコードベースを維持できます。
 
 ## 1. テストアーキテクチャ概観
 
@@ -308,16 +352,51 @@ describe("Stateful WorldService Testing", () => {
 
 ## 3. Property-Based Testing with Fast-Check
 
-### 3.1 Schema統合プロパティテスト
+### 3.1 Schema統合プロパティテスト - 小関数のテスト戦略
 
 ```typescript
 import * as fc from "fast-check";
+import { it } from "@effect/vitest";
 
-// ✅ Arbitrary生成器の定義
+// ✅ PBT最適化: 小さな純粋関数のプロパティテスト
+
+// 1. 位置計算の純粋関数
+const calculateDistance = (p1: Position, p2: Position): number =>
+  Math.sqrt(
+    Math.pow(p2.x - p1.x, 2) +
+    Math.pow(p2.y - p1.y, 2) +
+    Math.pow(p2.z - p1.z, 2)
+  );
+
+// 2. 境界チェックの純粋関数
+const isWithinBounds = (pos: Position): boolean =>
+  pos.x >= -30000000 && pos.x <= 30000000 &&
+  pos.y >= -64 && pos.y <= 320 &&
+  pos.z >= -30000000 && pos.z <= 30000000;
+
+// 3. ブロック衝突判定の純粋関数
+const willCollideWithBlock = (pos: Position, block: Block): boolean =>
+  Math.floor(pos.x) === Math.floor(block.position.x) &&
+  Math.floor(pos.y) === Math.floor(block.position.y) &&
+  Math.floor(pos.z) === Math.floor(block.position.z);
+
+// ✅ Arbitrary生成器の定義（細かい粒度）
 const PositionArbitrary = fc.record({
   x: fc.integer({ min: -30000000, max: 30000000 }),
   y: fc.integer({ min: -64, max: 320 }),
   z: fc.integer({ min: -30000000, max: 30000000 })
+});
+
+const MovementArbitrary = fc.record({
+  dx: fc.integer({ min: -10, max: 10 }),
+  dy: fc.integer({ min: -5, max: 5 }),
+  dz: fc.integer({ min: -10, max: 10 })
+});
+
+const VelocityArbitrary = fc.record({
+  vx: fc.float({ min: -20, max: 20, noNaN: true }),
+  vy: fc.float({ min: -10, max: 10, noNaN: true }),
+  vz: fc.float({ min: -20, max: 20, noNaN: true })
 });
 
 const BlockArbitrary = fc.record({
@@ -332,8 +411,76 @@ const BlockArbitrary = fc.record({
   hardness: fc.float({ min: 0, max: 100 })
 });
 
-// ✅ Property-based テストの実装
-describe("WorldService Property-Based Tests", () => {
+// ✅ Property-based テストの実装（小関数に焦点）
+describe("Pure Function Property-Based Tests", () => {
+  // 距離計算のプロパティ
+  it.prop([PositionArbitrary, PositionArbitrary])(
+    "distance calculation should be commutative",
+    (p1, p2) => {
+      const d1 = calculateDistance(p1, p2);
+      const d2 = calculateDistance(p2, p1);
+      expect(d1).toBe(d2);
+    }
+  );
+
+  it.prop([PositionArbitrary])(
+    "distance to self should be zero",
+    (pos) => {
+      expect(calculateDistance(pos, pos)).toBe(0);
+    }
+  );
+
+  it.prop([PositionArbitrary, PositionArbitrary, PositionArbitrary])(
+    "triangle inequality should hold",
+    (p1, p2, p3) => {
+      const d12 = calculateDistance(p1, p2);
+      const d23 = calculateDistance(p2, p3);
+      const d13 = calculateDistance(p1, p3);
+      expect(d13).toBeLessThanOrEqual(d12 + d23 + 0.0001); // 浮動小数点誤差を考慮
+    }
+  );
+
+  // 境界チェックのプロパティ
+  it.prop([fc.integer(), fc.integer(), fc.integer()])(
+    "boundary check should correctly identify out-of-bounds positions",
+    (x, y, z) => {
+      const pos = { x, y, z };
+      const result = isWithinBounds(pos);
+      const expected =
+        x >= -30000000 && x <= 30000000 &&
+        y >= -64 && y <= 320 &&
+        z >= -30000000 && z <= 30000000;
+      expect(result).toBe(expected);
+    }
+  );
+
+  // 移動計算のプロパティ
+  it.prop([PositionArbitrary, MovementArbitrary])(
+    "applying zero movement should not change position",
+    (pos, _) => {
+      const zeroMovement = { dx: 0, dy: 0, dz: 0 };
+      const newPos = calculateNewPosition(pos, zeroMovement);
+      expect(newPos).toEqual(pos);
+    }
+  );
+
+  it.prop([PositionArbitrary, MovementArbitrary, MovementArbitrary])(
+    "movement composition should be associative",
+    (pos, m1, m2) => {
+      const pos1 = calculateNewPosition(calculateNewPosition(pos, m1), m2);
+      const combinedMovement = {
+        dx: m1.dx + m2.dx,
+        dy: m1.dy + m2.dy,
+        dz: m1.dz + m2.dz
+      };
+      const pos2 = calculateNewPosition(pos, combinedMovement);
+      expect(pos1).toEqual(pos2);
+    }
+  );
+});
+
+// ✅ 複合関数のProperty-Based Tests
+describe("Composite Function Property-Based Tests", () => {
   it.prop([PositionArbitrary, BlockArbitrary])("block placement and retrieval should be consistent",
     async (position, block) => {
       const test = Effect.gen(function* () {
@@ -379,10 +526,56 @@ describe("WorldService Property-Based Tests", () => {
 });
 ```
 
-### 3.2 高度なプロパティテスト (インバリアント検証)
+### 3.2 高度なプロパティテスト - 合成と不変条件
+
+#### 関数合成のプロパティテスト
+
+PBTでは、小さな関数を合成した際の振る舞いを検証することが重要です：
 
 ```typescript
-// ✅ インベントリシステムのプロパティテスト
+// ✅ 関数合成のプロパティテスト
+
+// 小さな純粋関数群
+const normalizeQuantity = (quantity: number): number =>
+  Math.max(1, Math.min(64, Math.floor(quantity)));
+
+const canStackItems = (item1: ItemStack, item2: ItemStack): boolean =>
+  item1.itemId === item2.itemId &&
+  item1.metadata === item2.metadata;
+
+const mergeStacks = (stack1: ItemStack, stack2: ItemStack): [ItemStack, ItemStack | null] => {
+  if (!canStackItems(stack1, stack2)) {
+    return [stack1, stack2];
+  }
+
+  const totalQuantity = stack1.quantity + stack2.quantity;
+  if (totalQuantity <= 64) {
+    return [
+      { ...stack1, quantity: totalQuantity },
+      null
+    ];
+  }
+
+  return [
+    { ...stack1, quantity: 64 },
+    { ...stack2, quantity: totalQuantity - 64 }
+  ];
+};
+
+const splitStack = (stack: ItemStack, amount: number): [ItemStack | null, ItemStack] => {
+  const splitAmount = normalizeQuantity(amount);
+
+  if (splitAmount >= stack.quantity) {
+    return [null, stack];
+  }
+
+  return [
+    { ...stack, quantity: stack.quantity - splitAmount },
+    { ...stack, quantity: splitAmount }
+  ];
+};
+
+// ✅ Arbitraries for inventory testing
 const ItemStackArbitrary = fc.record({
   itemId: fc.oneof(
     fc.constant("minecraft:stone"),
@@ -398,7 +591,64 @@ const InventoryArbitrary = fc.record({
   maxSize: fc.constant(36)
 });
 
-describe("Inventory System Property Tests", () => {
+describe("Inventory Pure Function Property Tests", () => {
+  // 正規化関数のプロパティ
+  it.prop([fc.integer()])(
+    "normalizeQuantity should always return valid stack size",
+    (quantity) => {
+      const normalized = normalizeQuantity(quantity);
+      expect(normalized).toBeGreaterThanOrEqual(1);
+      expect(normalized).toBeLessThanOrEqual(64);
+    }
+  );
+
+  // スタック可能判定のプロパティ
+  it.prop([ItemStackArbitrary])(
+    "item should always stack with itself",
+    (item) => {
+      expect(canStackItems(item, item)).toBe(true);
+    }
+  );
+
+  // マージ関数のプロパティ
+  it.prop([ItemStackArbitrary, ItemStackArbitrary])(
+    "mergeStacks should preserve total quantity",
+    (stack1, stack2) => {
+      const [merged, remainder] = mergeStacks(stack1, stack2);
+      const totalBefore = stack1.quantity + stack2.quantity;
+      const totalAfter = merged.quantity + (remainder?.quantity ?? 0);
+
+      if (canStackItems(stack1, stack2)) {
+        expect(totalAfter).toBe(totalBefore);
+      }
+    }
+  );
+
+  // 分割関数のプロパティ
+  it.prop([ItemStackArbitrary, fc.integer({ min: 1, max: 64 })])(
+    "splitStack should preserve total quantity",
+    (stack, amount) => {
+      const [remaining, split] = splitStack(stack, amount);
+      const totalAfter = (remaining?.quantity ?? 0) + split.quantity;
+      expect(totalAfter).toBe(stack.quantity);
+    }
+  );
+
+  // 合成プロパティ: split then merge
+  it.prop([ItemStackArbitrary, fc.integer({ min: 1, max: 32 })])(
+    "split then merge should return to original",
+    (stack, amount) => {
+      const [remaining, split] = splitStack(stack, amount);
+      if (remaining !== null) {
+        const [merged, _] = mergeStacks(remaining, split);
+        expect(merged.quantity).toBe(stack.quantity);
+        expect(merged.itemId).toBe(stack.itemId);
+      }
+    }
+  );
+});
+
+describe("Inventory System Integration Tests", () => {
   it.prop([InventoryArbitrary, ItemStackArbitrary])("adding items preserves inventory invariants",
     async (inventory, itemStack) => {
       const result = addItemToInventory(inventory, itemStack);

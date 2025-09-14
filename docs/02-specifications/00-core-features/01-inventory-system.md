@@ -139,22 +139,26 @@ export const ItemDefinition = Schema.Struct({
 
 export type ItemDefinition = Schema.Schema.Type<typeof ItemDefinition>
 
-// エラー型定義（タグ付きエラー）
-export class CannotMergeStacksError extends Schema.TaggedError("CannotMergeStacks")<{
-  readonly reason: string
-  readonly stack1: ItemStack
-  readonly stack2: ItemStack
-}> {}
+// エラー型定義（タグ付きエラー - 関数形式）
+export const CannotMergeStacksError = Schema.TaggedError("CannotMergeStacks", {
+  reason: Schema.String,
+  stack1: ItemStack,
+  stack2: ItemStack
+})
 
-export class StackOverflowError extends Schema.TaggedError("StackOverflow")<{
-  readonly attempted: number
-  readonly maxAllowed: number
-}> {}
+export const StackOverflowError = Schema.TaggedError("StackOverflow", {
+  attempted: Schema.Number,
+  maxAllowed: Schema.Number
+})
 
-export class InvalidSplitAmountError extends Schema.TaggedError("InvalidSplitAmount")<{
-  readonly amount: number
-  readonly available: number
-}> {}
+export const InvalidSplitAmountError = Schema.TaggedError("InvalidSplitAmount", {
+  amount: Schema.Number,
+  available: Schema.Number
+})
+
+export type CannotMergeStacksError = Schema.Schema.Type<typeof CannotMergeStacksError>
+export type StackOverflowError = Schema.Schema.Type<typeof StackOverflowError>
+export type InvalidSplitAmountError = Schema.Schema.Type<typeof InvalidSplitAmountError>
 
 // アイテムスタック操作（Effect-based）
 export const ItemStackOperations = {
@@ -170,7 +174,7 @@ export const ItemStackOperations = {
   > =>
     ItemStackOperations.canMerge(stack1, stack2)
       ? Effect.void
-      : Effect.fail(new CannotMergeStacksError({
+      : Effect.fail(CannotMergeStacksError({
           reason: "アイテムIDまたはメタデータが異なります",
           stack1,
           stack2
@@ -222,14 +226,14 @@ export const ItemStackOperations = {
     Effect.gen(function* () {
       // 入力値検証（早期リターン）
       if (amount <= 0) {
-        return yield* Effect.fail(new InvalidSplitAmountError({
+        return yield* Effect.fail(InvalidSplitAmountError({
           amount,
           available: stack.count
         }))
       }
 
       if (amount >= stack.count) {
-        return yield* Effect.fail(new InvalidSplitAmountError({
+        return yield* Effect.fail(InvalidSplitAmountError({
           amount,
           available: stack.count
         }))
@@ -483,29 +487,34 @@ export const InventoryEvent = Schema.Union(
 
 export type InventoryEvent = Schema.Schema.Type<typeof InventoryEvent>
 
-// インベントリエラー定義
-export class InventoryNotFoundError extends Schema.TaggedError("InventoryNotFound")<{
-  readonly inventoryId: InventoryId
-  readonly context?: string
-}> {}
+// インベントリエラー定義（関数形式）
+export const InventoryNotFoundError = Schema.TaggedError("InventoryNotFound", {
+  inventoryId: InventoryId,
+  context: Schema.optionalWith(Schema.String, { default: () => undefined })
+})
 
-export class InventoryFullError extends Schema.TaggedError("InventoryFull")<{
-  readonly inventoryId: InventoryId
-  readonly attemptedItem: ItemStack
-  readonly availableSlots: number
-}> {}
+export const InventoryFullError = Schema.TaggedError("InventoryFull", {
+  inventoryId: InventoryId,
+  attemptedItem: ItemStack,
+  availableSlots: Schema.Number
+})
 
-export class SlotEmptyError extends Schema.TaggedError("SlotEmpty")<{
-  readonly inventoryId: InventoryId
-  readonly slotIndex: SlotIndex
-}> {}
+export const SlotEmptyError = Schema.TaggedError("SlotEmpty", {
+  inventoryId: InventoryId,
+  slotIndex: SlotIndex
+})
 
-export class ItemTransferFailedError extends Schema.TaggedError("ItemTransferFailed")<{
-  readonly reason: string
-  readonly fromInventoryId: InventoryId
-  readonly toInventoryId: InventoryId
-  readonly item: ItemStack
-}> {}
+export const ItemTransferFailedError = Schema.TaggedError("ItemTransferFailed", {
+  reason: Schema.String,
+  fromInventoryId: InventoryId,
+  toInventoryId: InventoryId,
+  item: ItemStack
+})
+
+export type InventoryNotFoundError = Schema.Schema.Type<typeof InventoryNotFoundError>
+export type InventoryFullError = Schema.Schema.Type<typeof InventoryFullError>
+export type SlotEmptyError = Schema.Schema.Type<typeof SlotEmptyError>
+export type ItemTransferFailedError = Schema.Schema.Type<typeof ItemTransferFailedError>
 
 // インベントリサービス定義（Effect-based）
 export interface InventoryService {
@@ -1127,20 +1136,20 @@ export const makeInventoryComponent = (
     })
   })
 
-// ECSインベントリサービスエラー
-export class ComponentCreationFailedError extends Schema.TaggedError("ComponentCreationFailed")<{
-  readonly entityId: EntityId
-  readonly reason: string
-}> {}
+// ECSインベントリサービスエラー (関数型パターン)
+export const ComponentCreationFailedError = Schema.TaggedError("ComponentCreationFailed")({
+  entityId: Schema.String.pipe(Schema.brand("EntityId")),
+  reason: Schema.String
+})
 
-export class ComponentNotFoundError extends Schema.TaggedError("ComponentNotFound")<{
-  readonly entityId: EntityId
-}> {}
+export const ComponentNotFoundError = Schema.TaggedError("ComponentNotFound")({
+  entityId: Schema.String.pipe(Schema.brand("EntityId"))
+})
 
-export class ComponentUpdateFailedError extends Schema.TaggedError("ComponentUpdateFailed")<{
-  readonly entityId: EntityId
-  readonly reason: string
-}> {}
+export const ComponentUpdateFailedError = Schema.TaggedError("ComponentUpdateFailed")({
+  entityId: Schema.String.pipe(Schema.brand("EntityId")),
+  reason: Schema.String
+})
 
 // ECSインベントリサービス定義（Effect-based）
 export interface ECSInventoryService {
@@ -2469,49 +2478,49 @@ export const InventoryError = Schema.Union(
 
 export type InventoryError = Schema.Schema.Type<typeof InventoryError>
 
-// Data型エラークラス（Effect推奨パターン）
-export class InventoryNotFoundError extends Schema.TaggedError("InventoryNotFound")<{
-  readonly inventoryId: InventoryId
-  readonly context?: string
-}> {}
+// Data型エラー定義（関数型パターン）
+export const InventoryNotFoundError = Schema.TaggedError("InventoryNotFound")({
+  inventoryId: InventoryId,
+  context: Schema.optional(Schema.String)
+})
 
-export class InventoryFullError extends Schema.TaggedError("InventoryFull")<{
-  readonly inventoryId: InventoryId
-  readonly attemptedItem: ItemStack
-  readonly availableSlots: number
-}> {}
+export const InventoryFullError = Schema.TaggedError("InventoryFull")({
+  inventoryId: InventoryId,
+  attemptedItem: ItemStack,
+  availableSlots: Schema.Number
+})
 
-export class SlotLockedError extends Schema.TaggedError("SlotLocked")<{
-  readonly inventoryId: InventoryId
-  readonly slotIndex: SlotIndex
-  readonly reason: string
-}> {}
+export const SlotLockedError = Schema.TaggedError("SlotLocked")({
+  inventoryId: InventoryId,
+  slotIndex: SlotIndex,
+  reason: Schema.String
+})
 
-export class InvalidItemStackError extends Schema.TaggedError("InvalidItemStack")<{
-  readonly itemId: ItemId
-  readonly count: number
-  readonly reason: string
-}> {}
+export const InvalidItemStackError = Schema.TaggedError("InvalidItemStack")({
+  itemId: ItemId,
+  count: Schema.Number,
+  reason: Schema.String
+})
 
-export class TransferConstraintViolationError extends Schema.TaggedError("TransferConstraintViolation")<{
-  readonly fromInventoryId: InventoryId
-  readonly toInventoryId: InventoryId
-  readonly constraint: string
-  readonly details: Record<string, unknown>
-}> {}
+export const TransferConstraintViolationError = Schema.TaggedError("TransferConstraintViolation")({
+  fromInventoryId: InventoryId,
+  toInventoryId: InventoryId,
+  constraint: Schema.String,
+  details: Schema.Record(Schema.String, Schema.Unknown)
+})
 
-export class ConcurrentModificationError extends Schema.TaggedError("ConcurrentModification")<{
-  readonly inventoryId: InventoryId
-  readonly expectedVersion: number
-  readonly actualVersion: number
-}> {}
+export const ConcurrentModificationError = Schema.TaggedError("ConcurrentModification")({
+  inventoryId: InventoryId,
+  expectedVersion: Schema.Number,
+  actualVersion: Schema.Number
+})
 
-export class NetworkSyncError extends Schema.TaggedError("NetworkSyncError")<{
-  readonly inventoryId: InventoryId
-  readonly playerId: string
-  readonly errorCode: string
-  readonly retryCount: number
-}> {}
+export const NetworkSyncError = Schema.TaggedError("NetworkSyncError")({
+  inventoryId: InventoryId,
+  playerId: Schema.String,
+  errorCode: Schema.String,
+  retryCount: Schema.Number
+})
 
 // エラーハンドリングサービス
 export interface InventoryErrorHandler {

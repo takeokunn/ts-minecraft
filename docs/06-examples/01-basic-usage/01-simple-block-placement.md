@@ -88,23 +88,23 @@ export type WorldState = typeof WorldState.Type
 ```typescript
 import { Schema } from "effect"
 
-// ❌ カスタムエラー型（Effect-TS最新パターン）
-export class BlockPlacementError extends Schema.TaggedError<BlockPlacementError>()("BlockPlacementError", {
+// ✅ カスタムエラー型（Effect-TS最新パターン）
+export const BlockPlacementError = Schema.TaggedError("BlockPlacementError", {
   message: Schema.String,
-  position: Position,
+  position: Position.schema,
   reason: Schema.Literal("position_occupied", "invalid_position", "insufficient_permissions")
-}) {}
+})
 
-export class PlayerNotFoundError extends Schema.TaggedError<PlayerNotFoundError>()("PlayerNotFoundError", {
+export const PlayerNotFoundError = Schema.TaggedError("PlayerNotFoundError", {
   playerId: PlayerId,
   message: Schema.String
-}) {}
+})
 
-export class InventoryError extends Schema.TaggedError<InventoryError>()("InventoryError", {
+export const InventoryError = Schema.TaggedError("InventoryError", {
   playerId: PlayerId,
   message: Schema.String,
   reason: Schema.Literal("empty_inventory", "block_not_found")
-}) {}
+})
 ```
 
 ### 3. サービス層（Context.GenericTag使用）
@@ -163,43 +163,43 @@ import { Effect, Either, Match, pipe } from "effect"
 import type { Block, Player, Position, BlockId, PlayerId } from "./models.js"
 
 /**
- * 🎯関数設計学習ポイント：サービス取得の純粋関数化
+ * 🎯関数設計学習ポイント：サービス取得の最適化（Effect.allが推奨）
  */
-const getBlockPlacementServices = () =>
-  Effect.all([
-    PlayerService,
-    WorldService,
-    ValidationService,
-    MetricsService
-  ], { concurrency: 4 })
+const getServices = () =>
+  Effect.all({
+    player: PlayerService,
+    world: WorldService,
+    validation: ValidationService,
+    metrics: MetricsService
+  })
 
 /**
  * 🎯関数設計学習ポイント：バリデーション統合の単一責務化
  */
-const validateBlockPlacement = (
-  validationService: any,
+const runValidations = (
+  validation: ValidationService,
   position: Position,
   blockType: Block["type"],
   playerId: PlayerId
 ) =>
-  Effect.all([
-    validationService.validatePosition(position),
-    validationService.validateBlockType(blockType),
-    validationService.validatePermissions(playerId, position)
-  ], { concurrency: 3 })
+  Effect.all({
+    position: validation.validatePosition(position),
+    blockType: validation.validateBlockType(blockType),
+    permissions: validation.validatePermissions(playerId, position)
+  })
 
 /**
- * 🎯関数設計学習ポイント：インベントリ確認の純粋関数化
+ * 🎯関数設計学習ポイント：プレイヤー情報取得の簡素化
  */
-const getPlayerInventoryInfo = (
-  playerService: any,
+const getPlayerInfo = (
+  player: PlayerService,
   playerId: PlayerId,
   blockType: Block["type"]
 ) =>
-  Effect.all([
-    playerService.getPlayer(playerId),
-    playerService.getInventoryCount(playerId, blockType)
-  ], { concurrency: 2 })
+  Effect.all({
+    player: player.getPlayer(playerId),
+    inventoryCount: player.getInventoryCount(playerId, blockType)
+  })
 
 /**
  * 🎯関数設計学習ポイント：インベントリ不足チェックのPure Function化
@@ -814,36 +814,36 @@ import { Schema } from "effect"
  * - Schema.TaggedErrorによる型安全なエラー定義
  * - 構造化されたエラー情報の管理
  */
-export class BlockPlacementError extends Schema.TaggedError<BlockPlacementError>()(
+export const BlockPlacementError = Schema.TaggedError(
   "BlockPlacementError",
   {
     reason: Schema.String,
-    position: Schema.optional(Position),
+    position: Schema.optional(Position.schema),
     details: Schema.optional(Schema.String)
   }
-) {}
+)
 
 /**
  * 無効な位置エラー
  */
-export class InvalidPositionError extends Schema.TaggedError<InvalidPositionError>()(
+export const InvalidPositionError = Schema.TaggedError(
   "InvalidPositionError",
   {
-    position: Position,
+    position: Position.schema,
     reason: Schema.String
   }
-) {}
+)
 
 /**
  * 既に存在するブロックエラー
  */
-export class BlockAlreadyExistsError extends Schema.TaggedError<BlockAlreadyExistsError>()(
+export const BlockAlreadyExistsError = Schema.TaggedError(
   "BlockAlreadyExistsError",
   {
-    position: Position,
+    position: Position.schema,
     existingBlockType: BlockType
   }
-) {}
+)
 ```
 
 ### 🔧 3. サービス定義
@@ -1146,7 +1146,7 @@ import { BlockPlacementError, InvalidPositionError, BlockAlreadyExistsError } fr
  * - Effect合成による処理の組み立て
  * - Match.valueによるパターンマッチング
  */
-export class BlockPlacementUseCase extends Context.Tag("BlockPlacementUseCase")<
+export class BlockPlacementUseCase extends Context.GenericTag("@app/BlockPlacementUseCase")<
   BlockPlacementUseCase,
   {
     readonly execute: (input: unknown) => Effect.Effect<string, BlockPlacementError | InvalidPositionError | BlockAlreadyExistsError>
@@ -2632,13 +2632,13 @@ class OldBlockService {
 **✅ 正しい実装（Schema.TaggedError使用）:**
 ```typescript
 // ✅ 推奨：Effect型による型安全エラーハンドリング
-export class BlockAlreadyExistsError extends Schema.TaggedError<BlockAlreadyExistsError>()(
+export const BlockAlreadyExistsError = Schema.TaggedError(
   "BlockAlreadyExistsError",
   {
-    position: Position,
+    position: Position.schema,
     message: Schema.String
   }
-) {}
+)
 
 export interface ModernBlockService {
   readonly placeBlock: (

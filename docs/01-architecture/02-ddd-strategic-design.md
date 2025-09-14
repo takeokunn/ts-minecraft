@@ -423,220 +423,204 @@ type WorldError = Schema.Schema.Type<typeof WorldError>
 - **実装例**: [ドメインモデリングパターン](../07-pattern-catalog/01-domain-patterns.md)
 - **テスト戦略**: [DDDテストパターン](../07-pattern-catalog/05-test-patterns.md)
 - **パフォーマンス**: [ドメイン最適化パターン](../07-pattern-catalog/06-optimization-patterns.md)
-class WorldAggregate extends Data.Class<{
-  readonly id: Schema.Schema.Type<typeof WorldId>
-  readonly seed: Schema.Schema.Type<typeof WorldSeed>
-  readonly chunks: Record<string, Chunk>
-  readonly worldBorder: WorldBorder
-  readonly spawnPoint: Position3D
-  readonly loadedChunkCount: number
-  readonly version: number
-}>() {
-  static schema = Schema.Struct({
-    id: WorldId,
-    seed: WorldSeed,
-    chunks: Schema.Record(Schema.String, Schema.Unknown),
-    worldBorder: WorldBorder.schema,
-    spawnPoint: Position3D.schema,
-    loadedChunkCount: Schema.Number.pipe(Schema.nonNegative()),
-    version: Schema.Number.pipe(Schema.brand("Version"))
-  }).pipe(
-    Schema.brand("WorldAggregate"),
-    Schema.annotations({
-      title: "ワールドアグリゲート",
-      description: "ワールドドメインのアグリゲートルート"
-    })
+const WorldAggregate = Schema.Struct({
+  id: WorldId,
+  seed: WorldSeed,
+  chunks: Schema.Record(Schema.String, Schema.Unknown),
+  worldBorder: WorldBorder.schema,
+  spawnPoint: Position3D.schema,
+  loadedChunkCount: Schema.Number.pipe(Schema.nonNegative()),
+  version: Schema.Number.pipe(Schema.brand("Version"))
+}).pipe(
+  Schema.brand("WorldAggregate"),
+  Schema.annotations({
+    title: "ワールドアグリゲート",
+    description: "ワールドドメインのアグリゲートルート"
+  })
+)
+
+interface WorldAggregate extends Schema.Schema.Type<typeof WorldAggregate> {}
+
+// ドメイン不変条件
+const validateWorldInvariants = (world: WorldAggregate): ReadonlyArray<Effect.Effect<void, { readonly _tag: string; readonly message: string }>> => {
+  return [
+    // チャンク数制限の検証
+    world.loadedChunkCount <= 1000
+      ? Effect.void
+      : Effect.fail({ _tag: "ChunkLimitExceeded", message: `チャンク数が制限を超過: ${world.loadedChunkCount}/1000` }),
+
+    // スポーン地点が境界内にある
+    world.worldBorder.containsPosition(world.spawnPoint)
+      ? Effect.void
+      : Effect.fail({ _tag: "SpawnPointOutOfBounds", message: "スポーン地点が境界外です" }),
+  ]
+}
+
+// 不変条件を検証
+const validateWorldInvariantsEffect = (world: WorldAggregate): Effect.Effect<void, { readonly _tag: string; readonly message: string }> => {
+  return Effect.allSuccesses(validateWorldInvariants(world)).pipe(
+    Effect.asVoid
   )
+}
 
-  // ドメイン不変条件
-  private invariants(): ReadonlyArray<Effect.Effect<void, { readonly _tag: string; readonly message: string }>> {
-    return [
-      // チャンク数制限の検証
-      this.loadedChunkCount <= 1000
-        ? Effect.void
-        : Effect.fail({ _tag: "ChunkLimitExceeded", message: `チャンク数が制限を超過: ${this.loadedChunkCount}/1000` }),
-
-      // スポーン地点が境界内にある
-      this.worldBorder.containsPosition(this.spawnPoint)
-        ? Effect.void
-        : Effect.fail({ _tag: "SpawnPointOutOfBounds", message: "スポーン地点が境界外です" }),
-    ]
+// ドメインルール: チャンク読み込み
+const loadChunk = (world: WorldAggregate, chunkId: string, chunk: Chunk): Effect.Effect<WorldAggregate, { readonly _tag: string; readonly message: string }> => {
+  if (world.chunks[chunkId]) {
+    return Effect.fail({ _tag: "ChunkAlreadyLoaded", message: `チャンクは既に読み込み済み: ${chunkId}` })
   }
 
-  // 不変条件を検証
-  validateInvariants(): Effect.Effect<void, { readonly _tag: string; readonly message: string }> {
-    return Effect.allSuccesses(this.invariants()).pipe(
-      Effect.asVoid
-    )
+  const newWorld: WorldAggregate = {
+    ...world,
+    chunks: { ...world.chunks, [chunkId]: chunk },
+    loadedChunkCount: world.loadedChunkCount + 1,
+    version: world.version + 1
   }
 
-  // ドメインルール: チャンク読み込み
-  loadChunk(chunkId: string, chunk: Chunk): Effect.Effect<WorldAggregate, { readonly _tag: string; readonly message: string }> {
-    if (this.chunks[chunkId]) {
-      return Effect.fail({ _tag: "ChunkAlreadyLoaded", message: `チャンクは既に読み込み済み: ${chunkId}` })
-    }
+  return validateWorldInvariantsEffect(newWorld).pipe(
+    Effect.map(() => newWorld)
+  )
+}
 
-    const newWorld = new WorldAggregate({
-      ...this,
-      chunks: { ...this.chunks, [chunkId]: chunk },
-      loadedChunkCount: this.loadedChunkCount + 1,
-      version: this.version + 1
-    })
-
-    return newWorld.validateInvariants().pipe(
-      Effect.map(() => newWorld)
-    )
+// ドメインルール: チャンク解放
+const unloadChunk = (world: WorldAggregate, chunkId: string): Effect.Effect<WorldAggregate, { readonly _tag: string; readonly message: string }> => {
+  if (!world.chunks[chunkId]) {
+    return Effect.fail({ _tag: "ChunkNotFound", message: `チャンクが見つかりません: ${chunkId}` })
   }
 
-  // ドメインルール: チャンク解放
-  unloadChunk(chunkId: string): Effect.Effect<WorldAggregate, { readonly _tag: string; readonly message: string }> {
-    if (!this.chunks[chunkId]) {
-      return Effect.fail({ _tag: "ChunkNotFound", message: `チャンクが見つかりません: ${chunkId}` })
-    }
+  const { [chunkId]: removed, ...remainingChunks } = world.chunks
 
-    const { [chunkId]: removed, ...remainingChunks } = this.chunks
+  return Effect.succeed({
+    ...world,
+    chunks: remainingChunks,
+    loadedChunkCount: world.loadedChunkCount - 1,
+    version: world.version + 1
+  })
+}
 
-    return Effect.succeed(new WorldAggregate({
-      ...this,
-      chunks: remainingChunks,
-      loadedChunkCount: this.loadedChunkCount - 1,
-      version: this.version + 1
-    }))
+const Chunk = Schema.Struct({
+  id: ChunkId,
+  coordinate: ChunkCoordinate.schema,
+  blocks: Schema.Array(Schema.Number),
+  biome: Biome,
+  heightMap: Schema.Array(Schema.Number),
+  lightMap: Schema.Array(Schema.Number),
+  version: Schema.Number.pipe(Schema.brand("Version"))
+}).pipe(
+  Schema.brand("Chunk"),
+  Schema.annotations({
+    title: "チャンクエンティティ",
+    description: "ワールドの一部を構成するチャンクエンティティ"
+  })
+)
+
+interface Chunk extends Schema.Schema.Type<typeof Chunk> {}
+
+// ✅ Match.valueによるドメインルール: ブロック取得 - 型安全な境界チェック
+const getBlockAt = (chunk: Chunk, x: number, y: number, z: number): Option.Option<number> => {
+  // ✅ 座標検証をMatch.valueで型安全かつ表現力豊かに
+  return Match.value({ x, y, z }).pipe(
+    Match.when(
+      ({ x, y, z }) => x >= 0 && x < 16 && y >= 0 && y < 256 && z >= 0 && z < 16,
+      ({ x, y, z }) => {
+        const index = y * 256 + z * 16 + x;
+        return Option.some(chunk.blocks[index] ?? 0);
+      }
+    ),
+    Match.orElse(() => Option.none()) // 無効な座標の場合
+  );
+}
+
+// ✅ Match.valueによるドメインルール: ブロック設置 - エラーハンドリング統合
+const setBlockAt = (chunk: Chunk, x: number, y: number, z: number, blockType: number): Effect.Effect<Chunk, { readonly _tag: "InvalidCoordinate" }> => {
+  // ✅ 座標バリデーションとブロック設置を統合したパターンマッチング
+  return Match.value({ x, y, z, blockType }).pipe(
+    Match.when(
+      ({ x, y, z }) => x >= 0 && x < 16 && y >= 0 && y < 256 && z >= 0 && z < 16,
+      ({ x, y, z, blockType }) => {
+        const index = y * 256 + z * 16 + x;
+        const newBlocks = [...chunk.blocks];
+        newBlocks[index] = blockType
+
+        return Effect.succeed({
+          ...chunk,
+          blocks: newBlocks,
+          version: chunk.version + 1
+        })
+      }
+    ),
+    Match.orElse(() => Effect.fail({ _tag: "InvalidCoordinate" }))
+  )
+}
+
+// ドメインルール: 高さ取得
+const getHeightAt = (chunk: Chunk, x: number, z: number): Option.Option<number> => {
+  if (x < 0 || x >= 16 || z < 0 || z >= 16) {
+    return Option.none()
+  }
+  return Option.some(chunk.heightMap[z * 16 + x] ?? 0)
+}
+
+const Block = Schema.Struct({
+  type: BlockType,
+  state: Schema.Record(Schema.String, Schema.Unknown),
+  metadata: Schema.Record(Schema.String, Schema.Unknown)
+}).pipe(
+  Schema.brand("Block"),
+  Schema.annotations({
+    title: "ブロック値オブジェクト",
+    description: "ブロックの状態とメタデータを含む値オブジェクト"
+  })
+)
+
+interface Block extends Schema.Schema.Type<typeof Block> {}
+
+// ドメインルール: ブロックの硬度取得
+const getBlockHardness = (block: Block): number => {
+  const hardnessMap: Record<string, number> = {
+    "stone": 1.5,
+    "dirt": 0.5,
+    "grass": 0.6,
+    "sand": 0.5,
+    "wood": 2.0,
+    "water": -1, // 破壊不可
+    "air": 0
+  }
+  return hardnessMap[block.type] ?? 1.0
+}
+
+// ドメインルール: 破壊可能性チェック
+const canBreakBlock = (block: Block): boolean => {
+  return getBlockHardness(block) >= 0
+}
+
+// ドメインルール: 状態更新
+const updateBlockState = (block: Block, key: string, value: unknown): Block => {
+  return {
+    ...block,
+    state: { ...block.state, [key]: value }
   }
 }
 
-class Chunk extends Data.Class<{
-  readonly id: Schema.Schema.Type<typeof ChunkId>
-  readonly coordinate: ChunkCoordinate
-  readonly blocks: ReadonlyArray<number>
-  readonly biome: Schema.Schema.Type<typeof Biome>
-  readonly heightMap: ReadonlyArray<number>
-  readonly lightMap: ReadonlyArray<number>
-  readonly version: number
-}>() {
-  static schema = Schema.Struct({
-    id: ChunkId,
-    coordinate: ChunkCoordinate.schema,
-    blocks: Schema.Array(Schema.Number),
-    biome: Biome,
-    heightMap: Schema.Array(Schema.Number),
-    lightMap: Schema.Array(Schema.Number),
-    version: Schema.Number.pipe(Schema.brand("Version"))
-  }).pipe(
-    Schema.brand("Chunk"),
-    Schema.annotations({
-      title: "チャンクエンティティ",
-      description: "ワールドの一部を構成するチャンクエンティティ"
-    })
-  )
+// ✅ Schema.TaggedErrorでエラー型を定義
+const ChunkGenerationError = Schema.TaggedError("ChunkGenerationError", {
+  coordinate: ChunkCoordinate.schema,
+  reason: Schema.String
+})
 
-  // ✅ Match.valueによるドメインルール: ブロック取得 - 型安全な境界チェック
-  getBlockAt(x: number, y: number, z: number): Option.Option<number> {
-    // ✅ 座標検証をMatch.valueで型安全かつ表現力豊かに
-    return Match.value({ x, y, z }).pipe(
-      Match.when(
-        ({ x, y, z }) => x >= 0 && x < 16 && y >= 0 && y < 256 && z >= 0 && z < 16,
-        ({ x, y, z }) => {
-          const index = y * 256 + z * 16 + x;
-          return Option.some(this.blocks[index] ?? 0);
-        }
-      ),
-      Match.orElse(() => Option.none()) // 無効な座標の場合
-    );
-  }
+const WorldPersistenceError = Schema.TaggedError("WorldPersistenceError", {
+  operation: Schema.String,
+  reason: Schema.String
+})
 
-  // ✅ Match.valueによるドメインルール: ブロック設置 - エラーハンドリング統合
-  setBlockAt(x: number, y: number, z: number, blockType: number): Effect.Effect<Chunk, { readonly _tag: "InvalidCoordinate" }> {
-    // ✅ 座標バリデーションとブロック設置を統合したパターンマッチング
-    return Match.value({ x, y, z, blockType }).pipe(
-      Match.when(
-        ({ x, y, z }) => x >= 0 && x < 16 && y >= 0 && y < 256 && z >= 0 && z < 16,
-        ({ x, y, z, blockType }) => {
-          const index = y * 256 + z * 16 + x;
-          const newBlocks = [...this.blocks];
-    newBlocks[index] = blockType
+const WorldLoadError = Schema.TaggedError("WorldLoadError", {
+  worldId: WorldId,
+  reason: Schema.String
+})
 
-    return Effect.succeed(new Chunk({
-      ...this,
-      blocks: newBlocks,
-      version: this.version + 1
-    }))
-  }
-
-  // ドメインルール: 高さ取得
-  getHeightAt(x: number, z: number): Option.Option<number> {
-    if (x < 0 || x >= 16 || z < 0 || z >= 16) {
-      return Option.none()
-    }
-    return Option.some(this.heightMap[z * 16 + x] ?? 0)
-  }
-}
-
-class Block extends Data.Class<{
-  readonly type: Schema.Schema.Type<typeof BlockType>
-  readonly state: Record<string, unknown>
-  readonly metadata: Record<string, unknown>
-}>() {
-  static schema = Schema.Struct({
-    type: BlockType,
-    state: Schema.Record(Schema.String, Schema.Unknown),
-    metadata: Schema.Record(Schema.String, Schema.Unknown)
-  }).pipe(
-    Schema.brand("Block"),
-    Schema.annotations({
-      title: "ブロック値オブジェクト",
-      description: "ブロックの状態とメタデータを含む値オブジェクト"
-    })
-  )
-
-  // ドメインルール: ブロックの硬度取得
-  getHardness(): number {
-    const hardnessMap: Record<string, number> = {
-      "stone": 1.5,
-      "dirt": 0.5,
-      "grass": 0.6,
-      "sand": 0.5,
-      "wood": 2.0,
-      "water": -1, // 破壊不可
-      "air": 0
-    }
-    return hardnessMap[this.type] ?? 1.0
-  }
-
-  // ドメインルール: 破壊可能性チェック
-  canBreak(): boolean {
-    return this.getHardness() >= 0
-  }
-
-  // ドメインルール: 状態更新
-  updateState(key: string, value: unknown): Block {
-    return new Block({
-      ...this,
-      state: { ...this.state, [key]: value }
-    })
-  }
-}
-
-// ✅ Data.TaggedErrorでエラー型を定義
-class ChunkGenerationError extends Data.TaggedError("ChunkGenerationError")<{
-  readonly coordinate: ChunkCoordinate
-  readonly reason: string
-}>() {}
-
-class WorldPersistenceError extends Data.TaggedError("WorldPersistenceError")<{
-  readonly operation: string
-  readonly reason: string
-}>() {}
-
-class WorldLoadError extends Data.TaggedError("WorldLoadError")<{
-  readonly worldId: Schema.Schema.Type<typeof WorldId>
-  readonly reason: string
-}>() {}
-
-class InvariantViolationError extends Data.TaggedError("InvariantViolationError")<{
-  readonly invariant: string
-  readonly details: string
-}>() {}
+const InvariantViolationError = Schema.TaggedError("InvariantViolationError", {
+  invariant: Schema.String,
+  details: Schema.String
+})
 
 type WorldManagementError =
   | ChunkGenerationError
@@ -798,54 +782,53 @@ class GameRules extends Data.Class<{
     })
   )
 
-  // ドメインルール: 難易度に基づく設定適用
-  static createForDifficulty(difficulty: Schema.Schema.Type<typeof Difficulty>): GameRules {
-    return Match.value(difficulty).pipe(
-      Match.when("Peaceful", () => new GameRules({
-        difficulty,
-        pvpEnabled: false,
-        keepInventory: true,
-        mobGriefing: false,
-        daylightCycle: true,
-        weatherCycle: true
-      })),
-      Match.when("Easy", () => new GameRules({
-        difficulty,
-        pvpEnabled: true,
-        keepInventory: false,
-        mobGriefing: true,
-        daylightCycle: true,
-        weatherCycle: true
-      })),
-      Match.when("Normal", () => new GameRules({
-        difficulty,
-        pvpEnabled: true,
-        keepInventory: false,
-        mobGriefing: true,
-        daylightCycle: true,
-        weatherCycle: true
-      })),
-      Match.when("Hard", () => new GameRules({
-        difficulty,
-        pvpEnabled: true,
-        keepInventory: false,
-        mobGriefing: true,
-        daylightCycle: true,
-        weatherCycle: true
-      })),
-      Match.exhaustive
-    )
-  }
+// ドメインルール: 難易度に基づく設定適用
+const createGameRulesForDifficulty = (difficulty: Schema.Schema.Type<typeof Difficulty>): GameRules => {
+  return Match.value(difficulty).pipe(
+    Match.when("Peaceful", () => ({
+      difficulty,
+      pvpEnabled: false,
+      keepInventory: true,
+      mobGriefing: false,
+      daylightCycle: true,
+      weatherCycle: true
+    })),
+    Match.when("Easy", () => ({
+      difficulty,
+      pvpEnabled: true,
+      keepInventory: false,
+      mobGriefing: true,
+      daylightCycle: true,
+      weatherCycle: true
+    })),
+    Match.when("Normal", () => ({
+      difficulty,
+      pvpEnabled: true,
+      keepInventory: false,
+      mobGriefing: true,
+      daylightCycle: true,
+      weatherCycle: true
+    })),
+    Match.when("Hard", () => ({
+      difficulty,
+      pvpEnabled: true,
+      keepInventory: false,
+      mobGriefing: true,
+      daylightCycle: true,
+      weatherCycle: true
+    })),
+    Match.exhaustive
+  )
+}
 
-  // ドメインルール: 難易度変更
-  withDifficulty(newDifficulty: Schema.Schema.Type<typeof Difficulty>): GameRules {
-    return GameRules.createForDifficulty(newDifficulty)
-  }
+// ドメインルール: 難易度変更
+const withDifficulty = (gameRules: GameRules, newDifficulty: Schema.Schema.Type<typeof Difficulty>): GameRules => {
+  return createGameRulesForDifficulty(newDifficulty)
+}
 
-  // ドメインルール: PvP設定変更
-  withPvpEnabled(enabled: boolean): GameRules {
-    return new GameRules({ ...this, pvpEnabled: enabled })
-  }
+// ドメインルール: PvP設定変更
+const withPvpEnabled = (gameRules: GameRules, enabled: boolean): GameRules => {
+  return { ...gameRules, pvpEnabled: enabled }
 }
 
 // ✅ Brand型でドメイン概念を明確化

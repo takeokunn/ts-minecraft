@@ -163,7 +163,7 @@ export const PlayerServiceLive = Layer.succeed(PlayerService, {
     // Match.valueによるパターンマッチング
     return yield* Match.value(existingPlayer).pipe(
       Match.when(Option.isSome, () =>
-        Effect.fail(new PlayerError({
+        Effect.fail(PlayerError({
           message: "Player already exists",
           playerId: validatedParams.id
         }))
@@ -226,7 +226,7 @@ export const PlayerServiceLive = Layer.succeed(PlayerService, {
         )
 
         return yield* Match.value(isBlocked).pipe(
-          Match.when(true, () => Effect.fail(new InvalidMovementError({
+          Match.when(true, () => Effect.fail(InvalidMovementError({
             message: "Movement blocked by terrain",
             playerId: validatedParams.playerId
           }))),
@@ -425,7 +425,7 @@ export const BlockServiceLive = Layer.succeed(BlockService, {
       Match.when(
         Option.isSome,
         ({ value: block }) => Match.value(block.replaceable).pipe(
-          Match.when(false, () => Effect.fail(new BlockPlacementError({
+          Match.when(false, () => Effect.fail(BlockPlacementError({
             message: "Block position already occupied by non-replaceable block",
             position: validatedParams.position
           }))),
@@ -511,7 +511,7 @@ export const BlockServiceLive = Layer.succeed(BlockService, {
 
     return yield* Match.value(breakabilityCheck).pipe(
       Match.when({ canBreak: false }, ({ reason }) =>
-        Effect.fail(new BlockBreakError({
+        Effect.fail(BlockBreakError({
           message: `Block cannot be broken: ${reason}`,
           position: validatedParams.position
         }))
@@ -1309,51 +1309,51 @@ export type PlayerCommand =
 // Player System Errors
 // =============================================================================
 export namespace PlayerSystem {
-  export class PlayerNotFoundError extends Schema.TaggedError("PlayerSystem.PlayerNotFoundError")<{
-    readonly playerId: string
-    readonly searchContext: string
-    readonly timestamp: number
-    readonly requestedBy?: string
-  }> {}
+  export const PlayerNotFoundError = Schema.TaggedError("PlayerSystem.PlayerNotFoundError", {
+    playerId: Schema.String,
+    searchContext: Schema.String,
+    timestamp: Schema.Number,
+    requestedBy: Schema.optional(Schema.String)
+  })
 
-  export class InvalidMovementError extends Schema.TaggedError("PlayerSystem.InvalidMovementError")<{
-    readonly playerId: string
-    readonly currentPosition: Position
-    readonly targetPosition: Position
-    readonly reason: string
-    readonly maxAllowedDistance: number
-    readonly actualDistance: number
-    readonly timestamp: number
-  }> {}
+  export const InvalidMovementError = Schema.TaggedError("PlayerSystem.InvalidMovementError", {
+    playerId: Schema.String,
+    currentPosition: Position.schema,
+    targetPosition: Position.schema,
+    reason: Schema.String,
+    maxAllowedDistance: Schema.Number,
+    actualDistance: Schema.Number,
+    timestamp: Schema.Number
+  })
 
-  export class InvalidDamageError extends Schema.TaggedError("PlayerSystem.InvalidDamageError")<{
-    readonly playerId: string
-    readonly damageAmount: number
-    readonly damageSource: string
-    readonly currentHealth: number
-    readonly maxHealth: number
-    readonly reason: string
-    readonly timestamp: number
-  }> {}
+  export const InvalidDamageError = Schema.TaggedError("PlayerSystem.InvalidDamageError", {
+    playerId: Schema.String,
+    damageAmount: Schema.Number,
+    damageSource: Schema.String,
+    currentHealth: Schema.Number,
+    maxHealth: Schema.Number,
+    reason: Schema.String,
+    timestamp: Schema.Number
+  })
 
-  export class PlayerInventoryFullError extends Schema.TaggedError("PlayerSystem.PlayerInventoryFullError")<{
-    readonly playerId: string
-    readonly inventoryId: string
-    readonly attemptedItem: string
-    readonly attemptedAmount: number
-    readonly availableSlots: number
-    readonly maxSlots: number
-    readonly timestamp: number
-  }> {}
+  export const PlayerInventoryFullError = Schema.TaggedError("PlayerSystem.PlayerInventoryFullError", {
+    playerId: Schema.String,
+    inventoryId: Schema.String,
+    attemptedItem: Schema.String,
+    attemptedAmount: Schema.Number,
+    availableSlots: Schema.Number,
+    maxSlots: Schema.Number,
+    timestamp: Schema.Number
+  })
 
-  export class PlayerPermissionDeniedError extends Schema.TaggedError("PlayerSystem.PlayerPermissionDeniedError")<{
-    readonly playerId: string
-    readonly action: string
-    readonly requiredPermission: string
-    readonly currentPermissions: ReadonlyArray<string>
-    readonly context: string
-    readonly timestamp: number
-  }> {}
+  export const PlayerPermissionDeniedError = Schema.TaggedError("PlayerSystem.PlayerPermissionDeniedError", {
+    playerId: Schema.String,
+    action: Schema.String,
+    requiredPermission: Schema.String,
+    currentPermissions: Schema.Array(Schema.String),
+    context: Schema.String,
+    timestamp: Schema.Number
+  })
 }
 
 export type PlayerError =
@@ -1367,52 +1367,52 @@ export type PlayerError =
 // Block System Errors
 // =============================================================================
 export namespace BlockSystem {
-  export class BlockNotFoundError extends Schema.TaggedError("BlockSystem.BlockNotFoundError")<{
-    readonly position: Position
-    readonly chunkPosition: ChunkPosition
-    readonly searchContext: string
-    readonly timestamp: number
-  }> {}
+  export const BlockNotFoundError = Schema.TaggedError("BlockSystem.BlockNotFoundError", {
+    position: Position.schema,
+    chunkPosition: ChunkPosition.schema,
+    searchContext: Schema.String,
+    timestamp: Schema.Number
+  })
 
-  export class BlockPlacementError extends Schema.TaggedError("BlockSystem.BlockPlacementError")<{
-    readonly position: Position
-    readonly blockType: string
-    readonly existingBlockType?: string
-    readonly reason: string
-    readonly canReplace: boolean
-    readonly placedBy?: string
-    readonly timestamp: number
-  }> {}
+  export const BlockPlacementError = Schema.TaggedError("BlockSystem.BlockPlacementError", {
+    position: Position.schema,
+    blockType: Schema.String,
+    existingBlockType: Schema.optional(Schema.String),
+    reason: Schema.String,
+    canReplace: Schema.Boolean,
+    placedBy: Schema.optional(Schema.String),
+    timestamp: Schema.Number
+  })
 
-  export class BlockBreakError extends Schema.TaggedError("BlockSystem.BlockBreakError")<{
-    readonly position: Position
-    readonly blockType: string
-    readonly tool?: string
-    readonly reason: string
-    readonly hardness: number
-    readonly requiredTool?: string
-    readonly brokenBy?: string
-    readonly timestamp: number
-  }> {}
+  export const BlockBreakError = Schema.TaggedError("BlockSystem.BlockBreakError", {
+    position: Position.schema,
+    blockType: Schema.String,
+    tool: Schema.optional(Schema.String),
+    reason: Schema.String,
+    hardness: Schema.Number,
+    requiredTool: Schema.optional(Schema.String),
+    brokenBy: Schema.optional(Schema.String),
+    timestamp: Schema.Number
+  })
 
-  export class BlockUpdateError extends Schema.TaggedError("BlockSystem.BlockUpdateError")<{
-    readonly position: Position
-    readonly blockType: string
-    readonly updateType: string
-    readonly oldMetadata: unknown
-    readonly newMetadata: unknown
-    readonly reason: string
-    readonly timestamp: number
-  }> {}
+  export const BlockUpdateError = Schema.TaggedError("BlockSystem.BlockUpdateError", {
+    position: Position.schema,
+    blockType: Schema.String,
+    updateType: Schema.String,
+    oldMetadata: Schema.Unknown,
+    newMetadata: Schema.Unknown,
+    reason: Schema.String,
+    timestamp: Schema.Number
+  })
 
-  export class BlockValidationError extends Schema.TaggedError("BlockSystem.BlockValidationError")<{
-    readonly position: Position
-    readonly blockType: string
-    readonly validationRule: string
-    readonly actualValue: unknown
-    readonly expectedValue: unknown
-    readonly timestamp: number
-  }> {}
+  export const BlockValidationError = Schema.TaggedError("BlockSystem.BlockValidationError", {
+    position: Position.schema,
+    blockType: Schema.String,
+    validationRule: Schema.String,
+    actualValue: Schema.Unknown,
+    expectedValue: Schema.Unknown,
+    timestamp: Schema.Number
+  })
 }
 
 export type BlockError =
@@ -1426,7 +1426,7 @@ export type BlockError =
 // Chunk System Errors
 // =============================================================================
 export namespace ChunkSystem {
-  export class ChunkGenerationError extends Schema.TaggedError("ChunkSystem.ChunkGenerationError")<{
+  export const ChunkGenerationError = Schema.TaggedError("ChunkSystem.ChunkGenerationError")<{
     readonly chunkX: number
     readonly chunkZ: number
     readonly biome: string
@@ -1439,9 +1439,9 @@ export namespace ChunkSystem {
       readonly memoryUsed: number
     }
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class ChunkLoadError extends Schema.TaggedError("ChunkSystem.ChunkLoadError")<{
+  export const ChunkLoadError = Schema.TaggedError("ChunkSystem.ChunkLoadError")<{
     readonly chunkX: number
     readonly chunkZ: number
     readonly worldId: string
@@ -1450,9 +1450,9 @@ export namespace ChunkSystem {
     readonly underlyingError?: unknown
     readonly retryCount: number
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class ChunkSaveError extends Schema.TaggedError("ChunkSystem.ChunkSaveError")<{
+  export const ChunkSaveError = Schema.TaggedError("ChunkSystem.ChunkSaveError")<{
     readonly chunkX: number
     readonly chunkZ: number
     readonly worldId: string
@@ -1461,9 +1461,9 @@ export namespace ChunkSystem {
     readonly dataSize: number
     readonly underlyingError?: unknown
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class ChunkCorruptionError extends Schema.TaggedError("ChunkSystem.ChunkCorruptionError")<{
+  export const ChunkCorruptionError = Schema.TaggedError("ChunkSystem.ChunkCorruptionError")<{
     readonly chunkX: number
     readonly chunkZ: number
     readonly worldId: string
@@ -1472,7 +1472,7 @@ export namespace ChunkSystem {
     readonly recoverable: boolean
     readonly backupAvailable: boolean
     readonly timestamp: number
-  }> {}
+  }>
 }
 
 export type ChunkError =
@@ -1485,7 +1485,7 @@ export type ChunkError =
 // World System Errors
 // =============================================================================
 export namespace WorldSystem {
-  export class WorldCreationError extends Schema.TaggedError("WorldSystem.WorldCreationError")<{
+  export const WorldCreationError = Schema.TaggedError("WorldSystem.WorldCreationError")<{
     readonly worldName: string
     readonly worldId?: string
     readonly reason: string
@@ -1494,9 +1494,9 @@ export namespace WorldSystem {
     readonly diskSpaceRequired: number
     readonly creator?: string
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class WorldLoadError extends Schema.TaggedError("WorldSystem.WorldLoadError")<{
+  export const WorldLoadError = Schema.TaggedError("WorldSystem.WorldLoadError")<{
     readonly worldId: string
     readonly worldName?: string
     readonly reason: string
@@ -1505,9 +1505,9 @@ export namespace WorldSystem {
     readonly lastModified?: number
     readonly underlyingError?: unknown
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class WorldSaveError extends Schema.TaggedError("WorldSystem.WorldSaveError")<{
+  export const WorldSaveError = Schema.TaggedError("WorldSystem.WorldSaveError")<{
     readonly worldId: string
     readonly worldName: string
     readonly reason: string
@@ -1516,9 +1516,9 @@ export namespace WorldSystem {
     readonly affectedPlayers: ReadonlyArray<string>
     readonly diskSpaceRemaining: number
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class WorldCorruptionError extends Schema.TaggedError("WorldSystem.WorldCorruptionError")<{
+  export const WorldCorruptionError = Schema.TaggedError("WorldSystem.WorldCorruptionError")<{
     readonly worldId: string
     readonly worldName: string
     readonly corruptionType: string
@@ -1527,9 +1527,9 @@ export namespace WorldSystem {
     readonly lastValidBackup?: number
     readonly detectionMethod: string
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class TerrainGenerationError extends Schema.TaggedError("WorldSystem.TerrainGenerationError")<{
+  export const TerrainGenerationError = Schema.TaggedError("WorldSystem.TerrainGenerationError")<{
     readonly center: ChunkPosition
     readonly radius: number
     readonly generationType: string
@@ -1539,7 +1539,7 @@ export namespace WorldSystem {
     readonly failureStage: string
     readonly underlyingError?: unknown
     readonly timestamp: number
-  }> {}
+  }>
 }
 
 export type WorldError =
@@ -1553,15 +1553,15 @@ export type WorldError =
 // Inventory System Errors
 // =============================================================================
 export namespace InventorySystem {
-  export class InventoryNotFoundError extends Schema.TaggedError("InventorySystem.InventoryNotFoundError")<{
+  export const InventoryNotFoundError = Schema.TaggedError("InventorySystem.InventoryNotFoundError")<{
     readonly inventoryId: string
     readonly ownerId?: string
     readonly inventoryType: string
     readonly searchContext: string
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class InventoryFullError extends Schema.TaggedError("InventorySystem.InventoryFullError")<{
+  export const InventoryFullError = Schema.TaggedError("InventorySystem.InventoryFullError")<{
     readonly inventoryId: string
     readonly ownerId?: string
     readonly itemType: string
@@ -1570,9 +1570,9 @@ export namespace InventorySystem {
     readonly totalSlots: number
     readonly usedSlots: number
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class InvalidItemError extends Schema.TaggedError("InventorySystem.InvalidItemError")<{
+  export const InvalidItemError = Schema.TaggedError("InventorySystem.InvalidItemError")<{
     readonly itemType: string
     readonly itemId?: string
     readonly reason: string
@@ -1581,9 +1581,9 @@ export namespace InventorySystem {
     readonly expectedValue: unknown
     readonly context: string
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class ItemTransferError extends Schema.TaggedError("InventorySystem.ItemTransferError")<{
+  export const ItemTransferError = Schema.TaggedError("InventorySystem.ItemTransferError")<{
     readonly sourceInventoryId: string
     readonly targetInventoryId: string
     readonly itemType: string
@@ -1592,9 +1592,9 @@ export namespace InventorySystem {
     readonly sourceSlot: number
     readonly targetSlot?: number
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class ItemDurabilityError extends Schema.TaggedError("InventorySystem.ItemDurabilityError")<{
+  export const ItemDurabilityError = Schema.TaggedError("InventorySystem.ItemDurabilityError")<{
     readonly itemType: string
     readonly itemId: string
     readonly currentDurability: number
@@ -1603,7 +1603,7 @@ export namespace InventorySystem {
     readonly isRepairable: boolean
     readonly reason: string
     readonly timestamp: number
-  }> {}
+  }>
 }
 
 export type InventoryError =
@@ -1617,15 +1617,15 @@ export type InventoryError =
 // Crafting System Errors
 // =============================================================================
 export namespace CraftingSystem {
-  export class RecipeNotFoundError extends Schema.TaggedError("CraftingSystem.RecipeNotFoundError")<{
+  export const RecipeNotFoundError = Schema.TaggedError("CraftingSystem.RecipeNotFoundError")<{
     readonly recipeId: string
     readonly recipePattern?: ReadonlyArray<ReadonlyArray<string>>
     readonly availableRecipes: ReadonlyArray<string>
     readonly searchContext: string
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class InsufficientIngredientsError extends Schema.TaggedError("CraftingSystem.InsufficientIngredientsError")<{
+  export const InsufficientIngredientsError = Schema.TaggedError("CraftingSystem.InsufficientIngredientsError")<{
     readonly recipeId: string
     readonly missingIngredients: ReadonlyArray<{
       readonly item: string
@@ -1635,9 +1635,9 @@ export namespace CraftingSystem {
     readonly inventoryId: string
     readonly craftingTableType: string
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class CraftingPermissionError extends Schema.TaggedError("CraftingSystem.CraftingPermissionError")<{
+  export const CraftingPermissionError = Schema.TaggedError("CraftingSystem.CraftingPermissionError")<{
     readonly recipeId: string
     readonly playerId: string
     readonly requiredPermission: string
@@ -1645,16 +1645,16 @@ export namespace CraftingSystem {
     readonly currentLevel?: number
     readonly reason: string
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class CraftingTableError extends Schema.TaggedError("CraftingSystem.CraftingTableError")<{
+  export const CraftingTableError = Schema.TaggedError("CraftingSystem.CraftingTableError")<{
     readonly tablePosition: Position
     readonly tableType: string
     readonly reason: string
     readonly isAccessible: boolean
     readonly requiredTable?: string
     readonly timestamp: number
-  }> {}
+  }>
 }
 
 export type CraftingError =
@@ -1667,7 +1667,7 @@ export type CraftingError =
 // Command System Errors
 // =============================================================================
 export namespace CommandSystem {
-  export class CommandNotFoundError extends Schema.TaggedError("CommandSystem.CommandNotFoundError")<{
+  export const CommandNotFoundError = Schema.TaggedError("CommandSystem.CommandNotFoundError")<{
     readonly command: string
     readonly availableCommands: ReadonlyArray<string>
     readonly similarity: ReadonlyArray<{
@@ -1676,9 +1676,9 @@ export namespace CommandSystem {
     }>
     readonly executor: string
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class InvalidArgumentsError extends Schema.TaggedError("CommandSystem.InvalidArgumentsError")<{
+  export const InvalidArgumentsError = Schema.TaggedError("CommandSystem.InvalidArgumentsError")<{
     readonly command: string
     readonly providedArgs: ReadonlyArray<string>
     readonly expectedArgs: ReadonlyArray<{
@@ -1689,9 +1689,9 @@ export namespace CommandSystem {
     readonly invalidArg: string
     readonly reason: string
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class CommandPermissionError extends Schema.TaggedError("CommandSystem.CommandPermissionError")<{
+  export const CommandPermissionError = Schema.TaggedError("CommandSystem.CommandPermissionError")<{
     readonly command: string
     readonly executor: string
     readonly requiredPermission: string
@@ -1699,9 +1699,9 @@ export namespace CommandSystem {
     readonly requiredLevel: number
     readonly currentLevel: number
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class CommandExecutionError extends Schema.TaggedError("CommandSystem.CommandExecutionError")<{
+  export const CommandExecutionError = Schema.TaggedError("CommandSystem.CommandExecutionError")<{
     readonly command: string
     readonly args: ReadonlyArray<string>
     readonly executor: string
@@ -1709,7 +1709,7 @@ export namespace CommandSystem {
     readonly underlyingError?: unknown
     readonly partialSuccess: boolean
     readonly timestamp: number
-  }> {}
+  }>
 }
 
 export type CommandError =
@@ -1722,16 +1722,16 @@ export type CommandError =
 // Query System Errors
 // =============================================================================
 export namespace QuerySystem {
-  export class InvalidQueryError extends Schema.TaggedError("QuerySystem.InvalidQueryError")<{
+  export const InvalidQueryError = Schema.TaggedError("QuerySystem.InvalidQueryError")<{
     readonly query: string
     readonly queryType: string
     readonly reason: string
     readonly validationErrors: ReadonlyArray<string>
     readonly suggestedFix?: string
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class QueryTimeoutError extends Schema.TaggedError("QuerySystem.QueryTimeoutError")<{
+  export const QueryTimeoutError = Schema.TaggedError("QuerySystem.QueryTimeoutError")<{
     readonly query: string
     readonly timeoutMs: number
     readonly elapsedMs: number
@@ -1739,25 +1739,25 @@ export namespace QuerySystem {
     readonly indexesUsed: ReadonlyArray<string>
     readonly estimatedResultCount: number
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class QueryResultLimitError extends Schema.TaggedError("QuerySystem.QueryResultLimitError")<{
+  export const QueryResultLimitError = Schema.TaggedError("QuerySystem.QueryResultLimitError")<{
     readonly query: string
     readonly requestedLimit: number
     readonly maxAllowedLimit: number
     readonly actualResultCount: number
     readonly truncated: boolean
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class IndexNotFoundError extends Schema.TaggedError("QuerySystem.IndexNotFoundError")<{
+  export const IndexNotFoundError = Schema.TaggedError("QuerySystem.IndexNotFoundError")<{
     readonly indexName: string
     readonly requiredForQuery: string
     readonly availableIndexes: ReadonlyArray<string>
     readonly performanceImpact: string
     readonly suggestedIndex?: string
     readonly timestamp: number
-  }> {}
+  }>
 }
 
 export type QueryError =
@@ -1770,7 +1770,7 @@ export type QueryError =
 // Rendering System Errors
 // =============================================================================
 export namespace RenderingSystem {
-  export class MeshGenerationError extends Schema.TaggedError("RenderingSystem.MeshGenerationError")<{
+  export const MeshGenerationError = Schema.TaggedError("RenderingSystem.MeshGenerationError")<{
     readonly chunkPosition: ChunkPosition
     readonly meshType: string
     readonly vertexCount: number
@@ -1779,9 +1779,9 @@ export namespace RenderingSystem {
     readonly reason: string
     readonly underlyingError?: unknown
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class ShaderCompilationError extends Schema.TaggedError("RenderingSystem.ShaderCompilationError")<{
+  export const ShaderCompilationError = Schema.TaggedError("RenderingSystem.ShaderCompilationError")<{
     readonly shaderType: "vertex" | "fragment" | "geometry" | "compute"
     readonly shaderName: string
     readonly compilationErrors: ReadonlyArray<string>
@@ -1789,9 +1789,9 @@ export namespace RenderingSystem {
     readonly column?: number
     readonly shaderSource?: string
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class TextureLoadError extends Schema.TaggedError("RenderingSystem.TextureLoadError")<{
+  export const TextureLoadError = Schema.TaggedError("RenderingSystem.TextureLoadError")<{
     readonly texturePath: string
     readonly textureFormat: string
     readonly dimensions: {
@@ -1802,16 +1802,16 @@ export namespace RenderingSystem {
     readonly fileSize?: number
     readonly underlyingError?: unknown
     readonly timestamp: number
-  }> {}
+  }>
 
-  export class RenderContextError extends Schema.TaggedError("RenderingSystem.RenderContextError")<{
+  export const RenderContextError = Schema.TaggedError("RenderingSystem.RenderContextError")<{
     readonly contextType: "WebGL" | "WebGPU" | "Canvas2D"
     readonly reason: string
     readonly capabilities: Record<string, boolean>
     readonly extensions: ReadonlyArray<string>
     readonly deviceInfo: string
     readonly timestamp: number
-  }> {}
+  }>
 }
 
 export type RenderingError =
@@ -2158,7 +2158,7 @@ export const placeBlockWithValidation = (params: {
 
   // 距離チェック（早期リターン）
   if (distance > MAX_PLACE_DISTANCE) {
-    return yield* Effect.fail(new InvalidMovementError({
+    return yield* Effect.fail(InvalidMovementError({
       message: "Block placement too far from player",
       playerId: validatedParams.playerId
     }))
@@ -2171,7 +2171,7 @@ export const placeBlockWithValidation = (params: {
   )
 
   if (Option.isSome(existing) && !existing.value.replaceable) {
-    return yield* Effect.fail(new BlockPlacementError({
+    return yield* Effect.fail(BlockPlacementError({
       message: "Position already occupied by non-replaceable block",
       position: validatedParams.position
     }))
@@ -2180,7 +2180,7 @@ export const placeBlockWithValidation = (params: {
   // 配置権限チェック
   const canPlace = yield* checkPlacePermission(player, validatedParams.position)
   if (!canPlace) {
-    return yield* Effect.fail(new CommandError({
+    return yield* Effect.fail(CommandError({
       message: "No permission to place block",
       command: "place_block",
       reason: "PermissionDenied"
@@ -3103,7 +3103,7 @@ export class PlayerAggregate {
     return Effect.gen(function* () {
       // ビジネスルールの検証
       yield* Effect.when(params.name.length < 1, () =>
-        Effect.fail(new PlayerCreationError({
+        Effect.fail(PlayerCreationError({
           reason: "Player name cannot be empty",
           playerId: params.id
         }))
@@ -3150,7 +3150,7 @@ export class PlayerAggregate {
     return Effect.gen(function* () {
       // ビジネスルール: 移動距離制限
       yield* Effect.when(params.distance > 10, () =>
-        Effect.fail(new InvalidMovementError({
+        Effect.fail(InvalidMovementError({
           playerId: this.id,
           reason: "Movement distance too large",
           maxAllowed: 10,
@@ -3160,7 +3160,7 @@ export class PlayerAggregate {
 
       // ビジネスルール: プレイヤーが生きている必要がある
       yield* Effect.when(this.state.health.value <= 0, () =>
-        Effect.fail(new InvalidMovementError({
+        Effect.fail(InvalidMovementError({
           playerId: this.id,
           reason: "Dead players cannot move",
           currentHealth: this.state.health.value
@@ -3196,7 +3196,7 @@ export class PlayerAggregate {
     return Effect.gen(function* () {
       // ビジネスルール: 負のダメージは不可
       yield* Effect.when(params.amount < 0, () =>
-        Effect.fail(new InvalidDamageError({
+        Effect.fail(InvalidDamageError({
           playerId: this.id,
           reason: "Damage amount cannot be negative",
           attemptedDamage: params.amount
@@ -3205,7 +3205,7 @@ export class PlayerAggregate {
 
       // ビジネスルール: 既に死んでいる場合は追加ダメージ不可
       yield* Effect.when(this.state.health.value <= 0, () =>
-        Effect.fail(new InvalidDamageError({
+        Effect.fail(InvalidDamageError({
           playerId: this.id,
           reason: "Cannot damage dead player",
           currentHealth: this.state.health.value
@@ -3257,7 +3257,7 @@ export class PlayerAggregate {
         .reduce((sum, stack) => sum + stack.amount, 0)
 
       yield* Effect.when(currentItems >= 36, () => // 標準インベントリサイズ
-        Effect.fail(new InventoryFullError({
+        Effect.fail(InventoryFullError({
           playerId: this.id,
           currentItems,
           maxItems: 36,
@@ -3300,7 +3300,7 @@ export class PlayerAggregate {
       // 健康値は0以上max以下
       yield* Effect.when(
         this.state.health.value < 0 || this.state.health.value > this.state.health.max,
-        () => Effect.fail(new InvariantViolationError({
+        () => Effect.fail(InvariantViolationError({
           aggregate: "Player",
           aggregateId: this.id,
           invariant: "Health must be between 0 and max",
@@ -3311,7 +3311,7 @@ export class PlayerAggregate {
 
       // プレイヤー名は空でない
       yield* Effect.when(this.state.name.length === 0, () =>
-        Effect.fail(new InvariantViolationError({
+        Effect.fail(InvariantViolationError({
           aggregate: "Player",
           aggregateId: this.id,
           invariant: "Player name cannot be empty",
@@ -3324,7 +3324,7 @@ export class PlayerAggregate {
         !Number.isFinite(this.state.position.x) ||
         !Number.isFinite(this.state.position.y) ||
         !Number.isFinite(this.state.position.z),
-        () => Effect.fail(new InvariantViolationError({
+        () => Effect.fail(InvariantViolationError({
           aggregate: "Player",
           aggregateId: this.id,
           invariant: "Position coordinates must be finite numbers",
@@ -3392,7 +3392,7 @@ export class PlayerAggregate {
         return i
       }
     }
-    throw new Error("No empty slots available")
+    throw Error("No empty slots available")
   }
 }
 

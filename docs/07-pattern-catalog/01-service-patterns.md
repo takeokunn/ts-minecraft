@@ -111,13 +111,13 @@ type ProcessInput = Schema.Schema.Type<typeof ProcessInput>
 type ProcessOutput = Schema.Schema.Type<typeof ProcessOutput>
 
 // Domain error with schema validation
-export class ProcessingError extends Schema.TaggedError<ProcessingError>()("ProcessingError", {
+export const ProcessingError = Schema.TaggedError("ProcessingError", {
   operation: Schema.String,
   reason: Schema.String,
   timestamp: Schema.DateFromSelf,
   retryCount: Schema.Number,
   correlationId: Schema.optional(Schema.String)
-}) {}
+})
 
 // Service interface
 export interface BasicService {
@@ -354,12 +354,12 @@ const ComplexProcessOutput = Schema.Struct({
 type ComplexProcessOutput = Schema.Schema.Type<typeof ComplexProcessOutput>
 
 // Enhanced error handling
-export class ComplexProcessingError extends Schema.TaggedError<ComplexProcessingError>()("ComplexProcessingError", {
+export const ComplexProcessingError = Schema.TaggedError("ComplexProcessingError", {
   operation: Schema.String,
   input: Schema.Unknown,
   reason: Schema.String,
   timestamp: Schema.Number
-}) {}
+})
 
 // Service interface
 export interface ComplexService {

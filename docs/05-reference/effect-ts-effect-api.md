@@ -185,13 +185,13 @@ const safeOperationGen = Effect.gen(function* () {
 ### catchTag - 特定エラーのハンドリング
 
 ```typescript
-class NetworkError extends Schema.TaggedError<NetworkError>()("NetworkError", {
+const NetworkError = Schema.TaggedError("NetworkError")({
   message: Schema.String
-}) {}
+})
 
-class ValidationError extends Schema.TaggedError<ValidationError>()("ValidationError", {
+const ValidationError = Schema.TaggedError("ValidationError")({
   field: Schema.String
-}) {}
+})
 
 // 個別のcatchTagを使用
 const handleSpecificErrors = pipe(
@@ -287,18 +287,19 @@ const Row = Schema.Struct({
   createdAt: Schema.Date
 })
 
-class DatabaseError extends Schema.TaggedError<DatabaseError>()("DatabaseError", {
+const DatabaseError = Schema.TaggedError("DatabaseError")({
   message: Schema.String,
   cause: Schema.Unknown
-}) {}
+})
 
 // Context.GenericTagを使用したモダンなサービス定義
-class DatabaseConnection extends Context.GenericTag("DatabaseConnection")<{
-  query: (sql: string) => Effect.Effect<typeof Row.Type[], DatabaseError>
-  transaction: <A, E>(
-    operation: Effect.Effect<A, E, DatabaseConnection>
-  ) => Effect.Effect<A, E | DatabaseError, DatabaseConnection>
-}>() {}
+interface DatabaseConnectionService {
+  readonly query: (sql: string) => Effect.Effect<typeof Row.Type[], typeof DatabaseError.Type>
+  readonly transaction: <A, E>(
+    operation: Effect.Effect<A, E, DatabaseConnectionService>
+  ) => Effect.Effect<A, E | typeof DatabaseError.Type, DatabaseConnectionService>
+}
+const DatabaseConnection = Context.GenericTag<DatabaseConnectionService>("DatabaseConnection")
 
 const DatabaseLive = Layer.scoped(
   DatabaseConnection,
@@ -394,16 +395,17 @@ const User = Schema.Struct({
   createdAt: Schema.Date
 })
 
-class AuthError extends Schema.TaggedError<AuthError>()("AuthError", {
+const AuthError = Schema.TaggedError("AuthError")({
   reason: Schema.Literal("invalid-credentials", "user-not-found", "token-expired", "user-inactive")
-}) {}
+})
 
 // Context.GenericTagによるモダンなサービス定義
-class UserService extends Context.GenericTag("UserService")<{
-  authenticate: (token: string) => Effect.Effect<typeof User.Type, AuthError>
-  findById: (id: string) => Effect.Effect<typeof User.Type, AuthError>
-  validatePermission: (user: typeof User.Type, action: string) => Effect.Effect<void, AuthError>
-}>() {}
+interface UserServiceInterface {
+  readonly authenticate: (token: string) => Effect.Effect<typeof User.Type, typeof AuthError.Type>
+  readonly findById: (id: string) => Effect.Effect<typeof User.Type, typeof AuthError.Type>
+  readonly validatePermission: (user: typeof User.Type, action: string) => Effect.Effect<void, typeof AuthError.Type>
+}
+const UserService = Context.GenericTag<UserServiceInterface>("UserService")
 
 // Match.valueによる条件分岐と早期リターンパターン
 const authenticateUser = (token: string) =>
@@ -414,7 +416,7 @@ const authenticateUser = (token: string) =>
     // Match.valueによる型安全な状態チェック
     yield* Match.value(user).pipe(
       Match.when({ isActive: false }, () =>
-        Effect.fail(new AuthError({ reason: "user-inactive" }))
+        Effect.fail(AuthError({ reason: "user-inactive" }))
       ),
       Match.orElse(() => Effect.void)
     )
@@ -466,18 +468,19 @@ const UserProfile = Schema.Struct({
   lastActivityAt: Schema.Date
 })
 
-class ApiError extends Schema.TaggedError<ApiError>()("ApiError", {
+const ApiError = Schema.TaggedError("ApiError")({
   statusCode: Schema.Number,
   message: Schema.String,
   endpoint: Schema.String
-}) {}
+})
 
 // Context.GenericTagによるAPIサービス定義
-class ApiService extends Context.GenericTag("ApiService")<{
-  fetchUser: (id: string) => Effect.Effect<typeof User.Type, ApiError>
-  fetchPosts: (userId: string) => Effect.Effect<typeof Post.Type[], ApiError>
-  fetchUserStats: (userId: string) => Effect.Effect<{ postCount: number; lastActivity: Date }, ApiError>
-}>() {}
+interface ApiServiceInterface {
+  readonly fetchUser: (id: string) => Effect.Effect<typeof User.Type, typeof ApiError.Type>
+  readonly fetchPosts: (userId: string) => Effect.Effect<typeof Post.Type[], typeof ApiError.Type>
+  readonly fetchUserStats: (userId: string) => Effect.Effect<{ postCount: number; lastActivity: Date }, typeof ApiError.Type>
+}
+const ApiService = Context.GenericTag<ApiServiceInterface>("ApiService")
 
 const makeUserProfileService = Effect.gen(function* () {
   const api = yield* ApiService
@@ -624,23 +627,25 @@ const AppConfig = Schema.Struct({
 })
 
 // Context.GenericTagによるサービス定義
-class ConfigService extends Context.GenericTag("ConfigService")<{
-  getConfig: () => Effect.Effect<typeof AppConfig.Type, ConfigError>
-  getDatabaseConfig: () => Effect.Effect<typeof DatabaseConfig.Type, ConfigError>
-  validateConfig: () => Effect.Effect<void, ConfigError>
-}>() {}
+interface ConfigServiceInterface {
+  readonly getConfig: () => Effect.Effect<typeof AppConfig.Type, typeof ConfigError.Type>
+  readonly getDatabaseConfig: () => Effect.Effect<typeof DatabaseConfig.Type, typeof ConfigError.Type>
+  readonly validateConfig: () => Effect.Effect<void, typeof ConfigError.Type>
+}
+const ConfigService = Context.GenericTag<ConfigServiceInterface>("ConfigService")
 
-class DatabaseService extends Context.GenericTag("DatabaseService")<{
-  query: <T>(sql: string) => Effect.Effect<T[], DatabaseError>
-  transaction: <A, E>(operation: Effect.Effect<A, E>) => Effect.Effect<A, E | DatabaseError>
-  healthCheck: () => Effect.Effect<boolean, DatabaseError>
-}>() {}
+interface DatabaseServiceInterface {
+  readonly query: <T>(sql: string) => Effect.Effect<T[], typeof DatabaseError.Type>
+  readonly transaction: <A, E>(operation: Effect.Effect<A, E>) => Effect.Effect<A, E | typeof DatabaseError.Type>
+  readonly healthCheck: () => Effect.Effect<boolean, typeof DatabaseError.Type>
+}
+const DatabaseService = Context.GenericTag<DatabaseServiceInterface>("DatabaseService")
 
-class ConfigError extends Schema.TaggedError<ConfigError>()("ConfigError", {
+const ConfigError = Schema.TaggedError("ConfigError")({
   field: Schema.String,
   message: Schema.String,
   cause: Schema.Unknown.pipe(Schema.optional())
-}) {}
+})
 
 // 設定読み込みレイヤー
 const AppConfigLive = Layer.effect(

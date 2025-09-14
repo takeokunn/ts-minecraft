@@ -870,7 +870,7 @@ const InputValidationErrorSchema = Schema.TaggedError("InputValidationError", {
   invalidEvents: Schema.Array(InputEventSchema)
 })
 
-class InputValidationError extends Schema.TaggedError(InputValidationErrorSchema) {}
+const InputValidationError = Schema.TaggedError(InputValidationErrorSchema)
 
 // デバッグサービス
 class InputDebugService extends Context.GenericTag("@input/InputDebugService")<

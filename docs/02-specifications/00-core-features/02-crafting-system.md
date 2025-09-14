@@ -99,18 +99,18 @@ export interface CraftingRecipe extends Schema.Schema.Type<typeof CraftingRecipe
 
 ```typescript
 // レシピエラー定義
-export class DuplicateRecipeError extends Schema.TaggedError("DuplicateRecipeError")<{
+export const DuplicateRecipeError = Schema.TaggedError("DuplicateRecipeError")<{
   recipeId: RecipeId
-}> {}
+}>
 
-export class InvalidRecipeError extends Schema.TaggedError("InvalidRecipeError")<{
+export const InvalidRecipeError = Schema.TaggedError("InvalidRecipeError")<{
   recipeId: RecipeId,
   reason: Schema.String
-}> {}
+}>
 
-export class RecipeNotFoundError extends Schema.TaggedError("RecipeNotFoundError")<{
+export const RecipeNotFoundError = Schema.TaggedError("RecipeNotFoundError")<{
   recipeId: RecipeId
-}> {}
+}>
 
 export type RegistrationError = DuplicateRecipeError | InvalidRecipeError
 export type MatchError = RecipeNotFoundError
@@ -156,7 +156,7 @@ export const RecipeRegistryServiceLive = Layer.effect(
 
           return patternKeys.size === ingredientKeys.size
             ? Effect.void
-            : Effect.fail(new InvalidRecipeError({
+            : Effect.fail(InvalidRecipeError({
                 recipeId: recipe.id,
                 reason: "Pattern keys don't match ingredients"
               }))
@@ -164,7 +164,7 @@ export const RecipeRegistryServiceLive = Layer.effect(
         Match.tag("shapeless", ({ ingredients }) =>
           ingredients.length > 0
             ? Effect.void
-            : Effect.fail(new InvalidRecipeError({
+            : Effect.fail(InvalidRecipeError({
                 recipeId: recipe.id,
                 reason: "Shapeless recipe must have ingredients"
               }))
@@ -176,7 +176,7 @@ export const RecipeRegistryServiceLive = Layer.effect(
       Effect.gen(function* () {
         // 早期リターンで重複チェック
         if (recipes.has(recipe.id)) {
-          return yield* Effect.fail(new DuplicateRecipeError({ recipeId: recipe.id }))
+          return yield* Effect.fail(DuplicateRecipeError({ recipeId: recipe.id }))
         }
 
         yield* validateRecipe(recipe)
@@ -213,7 +213,7 @@ export const RecipeRegistryServiceLive = Layer.effect(
       const recipe = recipes.get(id)
       return recipe
         ? Effect.succeed(recipe)
-        : Effect.fail(new RecipeNotFoundError({ recipeId: id }))
+        : Effect.fail(RecipeNotFoundError({ recipeId: id }))
     }
 
     const getRecipesByCategory = (category: RecipeCategory): Effect.Effect<ReadonlyArray<CraftingRecipe>> =>
@@ -487,21 +487,21 @@ const getItemTags = (itemId: ItemId): ReadonlyArray<string> => {
 
 ```typescript
 // クラフティングエラー定義
-export class InsufficientPermissionsError extends Schema.TaggedError<InsufficientPermissionsError>()("InsufficientPermissionsError", {
+export const InsufficientPermissionsError = Schema.TaggedError("InsufficientPermissionsError", {
   playerId: Schema.String,
   recipeId: RecipeId,
   requiredPermission: Schema.String
-}) {}
+})
 
-export class ConsumptionError extends Schema.TaggedError<ConsumptionError>()("ConsumptionError", {
+export const ConsumptionError = Schema.TaggedError("ConsumptionError", {
   recipeId: RecipeId,
   reason: Schema.String
-}) {}
+})
 
-export class ResultGenerationError extends Schema.TaggedError<ResultGenerationError>()("ResultGenerationError", {
+export const ResultGenerationError = Schema.TaggedError("ResultGenerationError", {
   recipeId: RecipeId,
   cause: Schema.String
-}) {}
+})
 
 export type CraftingError =
   | InsufficientPermissionsError
@@ -567,7 +567,7 @@ export const CraftingServiceLive = Layer.effect(
         // 早期リターン: 権限チェック
         const hasPermission = checkCraftingPermission(player, recipe)
         if (!hasPermission) {
-          return yield* Effect.fail(new InsufficientPermissionsError({
+          return yield* Effect.fail(InsufficientPermissionsError({
             playerId: player.id,
             recipeId: recipe.id,
             requiredPermission: getRequiredPermission(recipe)
@@ -577,7 +577,7 @@ export const CraftingServiceLive = Layer.effect(
         // レシピマッチング検証
         const matches = yield* gridService.matchesRecipe(grid, recipe)
         if (!matches) {
-          return yield* Effect.fail(new ConsumptionError({
+          return yield* Effect.fail(ConsumptionError({
             recipeId: recipe.id,
             reason: "Recipe pattern doesn't match grid"
           }))
@@ -674,7 +674,7 @@ const consumeShapedIngredients = (
 
         const gridSlot = updatedSlots[y]?.[x]
         if (!gridSlot) {
-          return yield* Effect.fail(new ConsumptionError({
+          return yield* Effect.fail(ConsumptionError({
             recipeId: recipe.id,
             reason: `Missing ingredient at position ${x},${y}`
           }))
@@ -722,7 +722,7 @@ const consumeShapelessIngredients = (
       }
 
       if (!consumed) {
-        return yield* Effect.fail(new ConsumptionError({
+        return yield* Effect.fail(ConsumptionError({
           recipeId: recipe.id,
           reason: "Insufficient ingredients for shapeless recipe"
         }))
@@ -781,20 +781,20 @@ export const FurnaceState = Schema.Struct({
 export interface FurnaceState extends Schema.Schema.Type<typeof FurnaceState> {}
 
 // 精錬エラー定義
-export class InsufficientFuelError extends Schema.TaggedError<InsufficientFuelError>()("InsufficientFuelError", {
+export const InsufficientFuelError = Schema.TaggedError("InsufficientFuelError", {
   furnaceId: Schema.String,
   requiredTime: Schema.Number
-}) {}
+})
 
-export class InvalidInputError extends Schema.TaggedError<InvalidInputError>()("InvalidInputError", {
+export const InvalidInputError = Schema.TaggedError("InvalidInputError", {
   itemId: ItemId,
   reason: Schema.String
-}) {}
+})
 
-export class OutputSlotFullError extends Schema.TaggedError<OutputSlotFullError>()("OutputSlotFullError", {
+export const OutputSlotFullError = Schema.TaggedError("OutputSlotFullError", {
   furnaceId: Schema.String,
   outputItem: ItemStack
-}) {}
+})
 
 export type SmeltingError =
   | InsufficientFuelError
@@ -859,7 +859,7 @@ export const FurnaceServiceLive = Layer.effect(
 
         // 早期リターン: 燃料でない場合
         if (fuelValue <= 0) {
-          return yield* Effect.fail(new InvalidInputError({
+          return yield* Effect.fail(InvalidInputError({
             itemId: fuelItem.itemId,
             reason: "Item is not a valid fuel"
           }))
@@ -903,7 +903,7 @@ export const FurnaceServiceLive = Layer.effect(
         // 燃料チェック
         if (furnaceState.fuelRemaining <= 0) {
           if (!furnaceState.fuelSlot) {
-            return yield* Effect.fail(new InsufficientFuelError({
+            return yield* Effect.fail(InsufficientFuelError({
               furnaceId: "furnace_001", // TODO: 実際のIDを使用
               requiredTime: recipe.cookingTime
             }))
@@ -924,7 +924,7 @@ export const FurnaceServiceLive = Layer.effect(
           if (furnaceState.outputSlot &&
               (furnaceState.outputSlot.itemId !== recipe.output.itemId ||
                furnaceState.outputSlot.count + recipe.output.count > 64)) {
-            return yield* Effect.fail(new OutputSlotFullError({
+            return yield* Effect.fail(OutputSlotFullError({
               furnaceId: "furnace_001",
               outputItem: recipe.output
             }))
@@ -1022,24 +1022,24 @@ export const EnchantingTableState = Schema.Struct({
 export interface EnchantingTableState extends Schema.Schema.Type<typeof EnchantingTableState> {}
 
 // エンチャントエラー定義
-export class InsufficientExperienceError extends Schema.TaggedError<InsufficientExperienceError>()("InsufficientExperienceError", {
+export const InsufficientExperienceError = Schema.TaggedError("InsufficientExperienceError", {
   required: ExperienceLevel,
   current: ExperienceLevel
-}) {}
+})
 
-export class InsufficientLapisError extends Schema.TaggedError<InsufficientLapisError>()("InsufficientLapisError", {
+export const InsufficientLapisError = Schema.TaggedError("InsufficientLapisError", {
   required: Schema.Number,
   available: Schema.Number
-}) {}
+})
 
-export class EnchantmentConflictError extends Schema.TaggedError<EnchantmentConflictError>()("EnchantmentConflictError", {
+export const EnchantmentConflictError = Schema.TaggedError("EnchantmentConflictError", {
   conflictingEnchantments: Schema.Array(EnchantmentId)
-}) {}
+})
 
-export class ItemNotEnchantableError extends Schema.TaggedError<ItemNotEnchantableError>()("ItemNotEnchantableError", {
+export const ItemNotEnchantableError = Schema.TaggedError("ItemNotEnchantableError", {
   itemId: ItemId,
   reason: Schema.String
-}) {}
+})
 
 export type EnchantmentError =
   | InsufficientExperienceError
@@ -1132,7 +1132,7 @@ export const EnchantingServiceLive = Layer.succeed(
       Effect.gen(function* () {
         // 早期リターン: 経験値チェック
         if (playerLevel < enchantment.cost) {
-          return yield* Effect.fail(new InsufficientExperienceError({
+          return yield* Effect.fail(InsufficientExperienceError({
             required: enchantment.cost,
             current: playerLevel
           }))
@@ -1141,7 +1141,7 @@ export const EnchantingServiceLive = Layer.succeed(
         // 早期リターン: ラピスラズリチェック
         const requiredLapis = Math.max(1, Math.floor(enchantment.cost / 10))
         if (lapisCount < requiredLapis) {
-          return yield* Effect.fail(new InsufficientLapisError({
+          return yield* Effect.fail(InsufficientLapisError({
             required: requiredLapis,
             available: lapisCount
           }))
@@ -1155,7 +1155,7 @@ export const EnchantingServiceLive = Layer.succeed(
             areEnchantmentsConflicting(existing.id, enchantment.id)
           )
 
-          return yield* Effect.fail(new EnchantmentConflictError({
+          return yield* Effect.fail(EnchantmentConflictError({
             conflictingEnchantments: conflicting.map(e => e.id)
           }))
         }
@@ -1324,16 +1324,16 @@ export const PlayerUnlockState = Schema.Struct({
 export interface PlayerUnlockState extends Schema.Schema.Type<typeof PlayerUnlockState> {}
 
 // 解放エラー定義
-export class ConditionNotMetError extends Schema.TaggedError<ConditionNotMetError>()("ConditionNotMetError", {
+export const ConditionNotMetError = Schema.TaggedError("ConditionNotMetError", {
   playerId: Schema.String.pipe(Schema.brand("PlayerId")),
   recipeId: RecipeId,
   unmetConditions: Schema.Array(UnlockCondition)
-}) {}
+})
 
-export class RecipeAlreadyUnlockedError extends Schema.TaggedError<RecipeAlreadyUnlockedError>()("RecipeAlreadyUnlockedError", {
+export const RecipeAlreadyUnlockedError = Schema.TaggedError("RecipeAlreadyUnlockedError", {
   playerId: Schema.String.pipe(Schema.brand("PlayerId")),
   recipeId: RecipeId
-}) {}
+})
 
 export type UnlockError = ConditionNotMetError | RecipeAlreadyUnlockedError
 
@@ -1416,7 +1416,7 @@ export const RecipeUnlockServiceLive = Layer.effect(
       Effect.gen(function* () {
         // 早期リターン: 既に解放済み
         if (playerState.unlockedRecipes.has(recipeId)) {
-          return yield* Effect.fail(new RecipeAlreadyUnlockedError({
+          return yield* Effect.fail(RecipeAlreadyUnlockedError({
             playerId: playerState.playerId,
             recipeId
           }))
@@ -1440,7 +1440,7 @@ export const RecipeUnlockServiceLive = Layer.effect(
             if (!met) unmetConditions.push(condition)
           }
 
-          return yield* Effect.fail(new ConditionNotMetError({
+          return yield* Effect.fail(ConditionNotMetError({
             playerId: playerState.playerId,
             recipeId,
             unmetConditions
