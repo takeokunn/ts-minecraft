@@ -33,16 +33,12 @@ Effect-TS の `Match` モジュールは、TypeScript における **完全な�
 import { Match, Effect, pipe, Option } from "effect"
 
 // ❌ 従来のアプローチ: 命令的で型安全性が不完全
+// if/else/switchを使った古いパターン - 使用禁止
 const processValueOld = (value: number | string | boolean) => {
-  if (typeof value === "number") {
-    if (value > 100) return "large"
-    else if (value > 50) return "medium"
-    else return "small"
-  } else if (typeof value === "string") {
-    return value.toUpperCase()
-  } else {
-    return value ? "true" : "false"
-  }
+  // 絶対に使わない: if/else の連鎖
+  // TypeScriptの型絞り込みが不完全
+  // 網羅性チェックなし
+  return "deprecated pattern"
 }
 
 // ✅ Match アプローチ: 宣言的で完全な型安全性
@@ -94,7 +90,8 @@ const dayType = (day: string) =>
 ### 2.2 述語によるマッチング
 
 ```typescript
-// 条件関数によるマッチング
+// ✅ 条件関数によるマッチング - if/elseチェーンの完全な代替
+// もはやif/else if/elseは一切不要
 const categorizeAge = (age: number) =>
   pipe(
     Match.value(age),
@@ -838,9 +835,217 @@ const manageResource = <T>(
   )
 ```
 
-## 6. 実践的な高度パターン
+## 6. forループの完全置換 - Effect-TSの反復パターン
 
-### 6.1 カスタム述語の合成とパターン構築
+### 6.1 Array.forEach による基本的な反復
+
+```typescript
+import { Array, Effect, pipe } from "effect"
+
+// ❌ 絶対に使わない: 従来のforループ
+// for (let i = 0; i < items.length; i++) { ... }
+// for (const item of items) { ... }
+
+// ✅ Array.forEach - 副作用を伴う反復
+const processItems = (items: ReadonlyArray<Item>) =>
+  Array.forEach(items, (item, index) => {
+    console.log(`Processing item ${index}: ${item.name}`)
+    // 副作用のある処理
+  })
+
+// ✅ Effect.forEach - エフェクトフルな反復
+const processItemsEffect = (items: ReadonlyArray<Item>) =>
+  Effect.forEach(items, (item) =>
+    Effect.gen(function* () {
+      yield* Effect.log(`Processing: ${item.name}`)
+      const result = yield* processItem(item)
+      return result
+    })
+  )
+```
+
+### 6.2 Array.map/filter/reduce - 変換と集約
+
+```typescript
+// ✅ 関数型の反復パターン - forループを完全に排除
+const transformData = (data: ReadonlyArray<RawData>) =>
+  pipe(
+    data,
+    // map: 各要素の変換
+    Array.map((item) => ({
+      ...item,
+      processed: true,
+      timestamp: Date.now()
+    })),
+    // filter: 条件に合う要素の抽出
+    Array.filter((item) => item.valid === true),
+    // reduce: 集約処理
+    Array.reduce(
+      { total: 0, items: [] as ProcessedData[] },
+      (acc, item) => ({
+        total: acc.total + item.value,
+        items: [...acc.items, item]
+      })
+    )
+  )
+
+// ✅ Array.flatMap - ネストした反復の平坦化
+const expandItems = (categories: ReadonlyArray<Category>) =>
+  pipe(
+    categories,
+    Array.flatMap((category) =>
+      pipe(
+        category.items,
+        Array.map((item) => ({
+          categoryId: category.id,
+          itemId: item.id,
+          combined: `${category.name}-${item.name}`
+        }))
+      )
+    )
+  )
+```
+
+### 6.3 Effect.iterate - 条件付き反復
+
+```typescript
+// ✅ Effect.iterate - while/do-whileループの代替
+const countdown = Effect.iterate(
+  10, // 初期値
+  {
+    while: (n) => n > 0, // 継続条件
+    body: (n) =>
+      Effect.gen(function* () {
+        yield* Effect.log(`Count: ${n}`)
+        yield* Effect.sleep("100 millis")
+        return n - 1
+      })
+  }
+)
+
+// ✅ STM.iterate - トランザクショナルな反復
+import { STM, TRef } from "effect"
+
+const atomicCounter = (ref: TRef.TRef<number>) =>
+  STM.iterate(
+    0,
+    {
+      while: (count) => count < 100,
+      body: (count) =>
+        STM.gen(function* () {
+          yield* TRef.update(ref, (n) => n + 1)
+          return count + 1
+        })
+    }
+  )
+```
+
+### 6.4 Stream による無限反復とチャンク処理
+
+```typescript
+import { Stream, Chunk } from "effect"
+
+// ✅ Stream.iterate - 無限シーケンスの生成
+const fibonacci = Stream.iterate(
+  [0, 1] as const,
+  ([a, b]) => [b, a + b] as const
+).pipe(
+  Stream.map(([a]) => a),
+  Stream.take(100) // 最初の100要素のみ
+)
+
+// ✅ Chunk.forEach - 効率的なチャンク反復
+const processChunks = (chunk: Chunk.Chunk<Data>) =>
+  Chunk.forEach(chunk, (data, index) => {
+    // Chunkは配列より効率的な内部表現
+    console.log(`Chunk item ${index}: ${data.id}`)
+  })
+
+// ✅ Stream.fromIterable - イテラブルからストリームへ
+const processLargeDataset = (data: Iterable<Record>) =>
+  Stream.fromIterable(data).pipe(
+    Stream.chunksOf(1000), // 1000要素ずつのチャンクに分割
+    Stream.mapEffect((chunk) =>
+      Effect.gen(function* () {
+        yield* Effect.log(`Processing chunk of ${Chunk.size(chunk)} items`)
+        return yield* processBatch(chunk)
+      })
+    ),
+    Stream.runDrain
+  )
+```
+
+### 6.5 再帰的反復パターン
+
+```typescript
+// ✅ 再帰によるツリー走査 - forループなしで実現
+const traverseTree = <A, B>(
+  tree: Tree<A>,
+  f: (value: A) => Effect.Effect<B>
+): Effect.Effect<Tree<B>> =>
+  pipe(
+    Match.value(tree),
+    Match.when(
+      { type: "leaf" },
+      ({ value }) =>
+        pipe(
+          f(value),
+          Effect.map((b) => ({ type: "leaf" as const, value: b }))
+        )
+    ),
+    Match.when(
+      { type: "branch" },
+      ({ left, right }) =>
+        Effect.gen(function* () {
+          // 並列処理で子ノードを走査
+          const [newLeft, newRight] = yield* Effect.all([
+            traverseTree(left, f),
+            traverseTree(right, f)
+          ])
+          return { type: "branch" as const, left: newLeft, right: newRight }
+        })
+    ),
+    Match.exhaustive
+  )
+
+// ✅ Array.unfold - 条件に基づく配列生成
+const generateSequence = Array.unfold(1, (n) =>
+  n <= 100
+    ? Option.some([n * 2, n + 1] as const)
+    : Option.none()
+)
+```
+
+### 6.6 並列反復パターン
+
+```typescript
+// ✅ Effect.forEach with concurrency - 並列処理
+const processInParallel = (urls: ReadonlyArray<string>) =>
+  Effect.forEach(
+    urls,
+    (url) =>
+      Effect.tryPromise({
+        try: () => fetch(url).then(r => r.json()),
+        catch: (e) => new FetchError(String(e))
+      }),
+    { concurrency: 5 } // 最大5並列
+  )
+
+// ✅ Effect.all - すべての要素を並列処理
+const parallelComputation = (inputs: ReadonlyArray<Input>) =>
+  pipe(
+    inputs,
+    Array.map((input) => computeAsync(input)),
+    Effect.all,
+    Effect.map((results) =>
+      results.reduce((acc, result) => acc + result, 0)
+    )
+  )
+```
+
+## 7. 実践的な高度パターン
+
+### 7.1 カスタム述語の合成とパターン構築
 
 ```typescript
 import { Match, pipe, Predicate } from "effect"
@@ -903,7 +1108,7 @@ const rangeValidator = pipe(
 )
 ```
 
-### 6.2 ネストしたパターンマッチングの最適化
+### 7.2 ネストしたパターンマッチングの最適化
 
 ```typescript
 // 深くネストしたオブジェクトの効率的なマッチング
@@ -977,7 +1182,7 @@ const advancedPathMatching = pipe(
 )
 ```
 
-### 6.3 動的パターンとランタイム型生成
+### 7.3 動的パターンとランタイム型生成
 
 ```typescript
 import { Schema, Match, pipe } from "effect"
@@ -1038,7 +1243,7 @@ const autoGeneratedMatcher = (user: User) => {
 }
 ```
 
-### 6.4 非同期パターンマッチングとEffect統合
+### 7.4 非同期パターンマッチングとEffect統合
 
 ```typescript
 import { Effect, Match, pipe, Option, Either } from "effect"
@@ -1117,7 +1322,7 @@ const processEventStream = Stream.mapEffect((event: StreamEvent) =>
 )
 ```
 
-### 6.5 再帰的パターンマッチング
+### 7.5 再帰的パターンマッチング
 
 ```typescript
 // 再帰的なデータ構造のマッチング
@@ -1222,9 +1427,9 @@ const evaluate = (
   )
 ```
 
-## 7. パフォーマンス最適化パターン
+## 8. パフォーマンス最適化パターン
 
-### 7.1 早期リターンの最適化
+### 8.1 早期リターンの最適化
 
 ```typescript
 // Match.whenによる早期リターン
@@ -1253,7 +1458,7 @@ const validateAndProcess = (data: unknown): Effect.Effect<ProcessedData> =>
   )
 ```
 
-### 7.2 メモ化とキャッシング
+### 8.2 メモ化とキャッシング
 
 ```typescript
 import { Cache, Duration } from "effect"
@@ -1274,9 +1479,9 @@ const memoizedPatternMatch = Cache.make({
 })
 ```
 
-## 8. 高度な型レベルパターンマッチング
+## 9. 高度な型レベルパターンマッチング
 
-### 8.1 条件型とMatchの組み合わせ
+### 9.1 条件型とMatchの組み合わせ
 
 ```typescript
 import { Match, pipe } from "effect"
@@ -1338,7 +1543,7 @@ const parseCommand = (cmd: CommandString) =>
   )
 ```
 
-### 8.2 Branded Types とパターンマッチング
+### 9.2 Branded Types とパターンマッチング
 
 ```typescript
 import { Brand, Match, pipe } from "effect"
@@ -1388,7 +1593,7 @@ const processAuthToken = (token: AuthToken) => {
 }
 ```
 
-### 8.3 Opaque Types とのパターンマッチング
+### 9.3 Opaque Types とのパターンマッチング
 
 ```typescript
 import { Match, pipe, Data } from "effect"
@@ -1428,9 +1633,9 @@ const Password = (() => {
 type Password = ReturnType<typeof Password.make>
 ```
 
-## 9. テストパターン
+## 10. テストパターン
 
-### 9.1 Match のテスト
+### 10.1 Match のテスト
 
 ```typescript
 import { describe, it, expect } from "@effect/vitest"
@@ -1446,10 +1651,13 @@ describe("GameEvent Handler", () => {
         { _tag: "ChatMessage", playerId: "p1", message: "Hello", timestamp: Date.now() }
       ]
 
-      for (const event of events) {
-        const result = yield* handleGameEvent(event)
-        expect(result).toBeDefined()
-      }
+      // ✅ Effect-TSのArray.forEach - forループの完全な代替
+      // forループは使用禁止: 代わりにArray.forEach, Effect.forEach, Stream.forEachを使用
+      const results = yield* Effect.forEach(events, (event) =>
+        handleGameEvent(event).pipe(
+          Effect.tap((result) => Effect.sync(() => expect(result).toBeDefined()))
+        )
+      )
     }))
 
   it("網羅性チェックがコンパイル時に機能する", () => {
@@ -1467,9 +1675,9 @@ describe("GameEvent Handler", () => {
 })
 ```
 
-## 10. ベストプラクティス
+## 11. ベストプラクティス
 
-### 10.1 Match 使用の原則
+### 11.1 Match 使用の原則
 
 1. **常に exhaustive を使用**: 可能な限り `Match.exhaustive` で網羅性を保証
 2. **早期リターンパターン**: 異常系を先に処理して正常系を最後に
@@ -1477,7 +1685,7 @@ describe("GameEvent Handler", () => {
 4. **型の絞り込み**: `Match.when` で型ガードを活用
 5. **再利用可能なマッチャー**: 頻出パターンは関数として抽出
 
-### 10.2 アンチパターンの回避
+### 11.2 アンチパターンの回避
 
 ```typescript
 // ❌ 避けるべき: ネストした Match

@@ -106,7 +106,7 @@ const createBlock = (type: "stone" | "dirt" | "grass") =>
 ```typescript
 // 古いAPI（使用しない）
 import { Data } from "@effect/data"
-export class Block extends Data.Struct({ /* ... */ }) {}
+// class使用は禁止 - 関数型パターンを使用
 ```
 
 ### 3. Effect.gen（非同期処理合成）

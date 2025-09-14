@@ -6,7 +6,7 @@ difficulty: "advanced"
 tags: ["game-engine", "world-system", "player-system", "rendering-engine", "physics-system", "api-reference", "typescript"]
 prerequisites: ["effect-ts-advanced", "game-development", "three.js-basics"]
 estimated_reading_time: "45分"
-related_docs: ["../game-systems/overview.md", "../../explanations/architecture/overview.md", "../configuration/game-config.md"]
+related_docs: ["../game-systems/overview.md", "../../explanations/architecture/architecture-overview.md", "../configuration/game-config.md"]
 ---
 
 

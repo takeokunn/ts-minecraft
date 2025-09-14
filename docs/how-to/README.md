@@ -1,3 +1,30 @@
+---
+title: "How-to ガイド概要 - 問題解決指向ドキュメント"
+description: "開発中の具体的な問題に対する実践的な解決方法を提供するHow-toガイド集。効率的な問題解決とベストプラクティス適用。"
+difficulty: "beginner"
+estimated_reading_time: "5分"
+prerequisites:
+  - "basic-typescript"
+  - "project-setup"
+learning_objectives:
+  - "適切なHow-toガイドの選択方法を理解する"
+  - "問題解決型ドキュメントの効果的な活用法を習得する"
+  - "開発中の課題に対する体系的アプローチを学ぶ"
+related_docs:
+  - "./development/debugging-techniques.md"
+  - "./troubleshooting/README.md"
+  - "./testing/basic-testing-guide.md"
+internal_links:
+  - "../tutorials/README.md"
+  - "../reference/README.md"
+tags: ["how-to", "problem-solving", "development-guides", "practical-solutions"]
+ai_context:
+  purpose: "how-to"
+  audience: "developers seeking practical solutions to specific problems"
+  key_concepts: ["problem-solving approach", "practical implementation", "troubleshooting methodology"]
+machine_readable: true
+---
+
 # 🔧 How-to Guides - 問題解決指向ドキュメント
 
 このセクションは**問題解決指向**のドキュメントです。開発中の具体的な問題に対する実践的な解決方法を提供します。

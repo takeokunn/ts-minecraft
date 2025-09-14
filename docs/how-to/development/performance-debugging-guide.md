@@ -589,6 +589,17 @@ interface MinecraftProfilerInterface {
   readonly startSample: (name: string) => void
   readonly endSample: (name: string) => number
   readonly getStatistics: (name: string) => ProfilerStatistics | null
+  readonly generateReport: () => string
+}
+
+type ProfilerStatistics = {
+  count: number
+  average: number
+  min: number
+  max: number
+  p50: number
+  p95: number
+  p99: number
 }
 
 const makeMinecraftProfiler = (): MinecraftProfilerInterface => {
@@ -646,32 +657,43 @@ const makeMinecraftProfiler = (): MinecraftProfilerInterface => {
     },
 
     generateReport: (): string => {
+      const report = ["📊 Performance Report", "=================="];
 
-  generateReport(): string {
-    const report = ["📊 Performance Report", "=================="];
+      for (const [name, _] of samples) {
+        const sampleArray = samples.get(name) ?? [];
+        if (sampleArray.length === 0) continue;
 
-    for (const [name, _] of this.samples) {
-      const stats = this.getStatistics(name);
-      if (!stats) continue;
+        const sorted = [...sampleArray].sort((a, b) => a - b);
+        const sum = sampleArray.reduce((a, b) => a + b, 0);
+        const stats = {
+          count: sampleArray.length,
+          average: sum / sampleArray.length,
+          min: sorted[0],
+          max: sorted[sorted.length - 1],
+          p50: sorted[Math.floor(sorted.length * 0.5)],
+          p95: sorted[Math.floor(sorted.length * 0.95)],
+          p99: sorted[Math.floor(sorted.length * 0.99)]
+        };
 
-      report.push(
-        `\n${name}:`,
-        `  Average: ${stats.average.toFixed(2)}ms`,
-        `  Min/Max: ${stats.min.toFixed(2)}ms / ${stats.max.toFixed(2)}ms`,
-        `  95th percentile: ${stats.p95.toFixed(2)}ms`
-      );
+        report.push(
+          `\n${name}:`,
+          `  Average: ${stats.average.toFixed(2)}ms`,
+          `  Min/Max: ${stats.min.toFixed(2)}ms / ${stats.max.toFixed(2)}ms`,
+          `  95th percentile: ${stats.p95.toFixed(2)}ms`
+        );
 
-      if (stats.p95 > 16.67) {
-        report.push(`  ⚠️  Performance concern detected!`);
+        if (stats.p95 > 16.67) {
+          report.push(`  ⚠️  Performance concern detected!`);
+        }
       }
-    }
 
-    return report.join('\n');
+      return report.join('\n');
+    }
   }
 }
 
 // Effect-TS との統合
-const ProfilerService = Context.GenericTag<MinecraftProfiler>("ProfilerService");
+const ProfilerService = Context.GenericTag<MinecraftProfilerInterface>("ProfilerService");
 
 const profiledEffect = <A, E, R>(
   name: string,

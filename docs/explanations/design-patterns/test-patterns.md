@@ -6,8 +6,23 @@ difficulty: "intermediate"
 tags: ["testing", "effect-vitest", "property-based-testing", "mocking", "test-patterns", "match-api", "schema-validation", "pbt-integration"]
 prerequisites: ["effect-ts-basics", "testing-fundamentals"]
 estimated_reading_time: "18分"
-dependencies: []
-status: "complete"
+learning_objectives:
+  - "@effect/vitestを使用したEffect-TSアプリケーションのテスト方法を習得する"
+  - "Property-based Testing（PBT）の実装パターンを理解する"
+  - "Match APIとSchema.TaggedErrorの効果的なテスト手法をマスターする"
+  - "包括的テスト戦略の設計と実装ができる"
+related_docs:
+  - "../../../how-to/testing/effect-ts-testing-patterns.md"
+  - "../../../how-to/testing/pbt-implementation-examples.md"
+  - "./error-handling-patterns.md"
+internal_links:
+  - "../../../reference/api/testing-utilities.md"
+  - "../../../tutorials/basic-game-development/basic-components.md"
+ai_context:
+  purpose: "explanation"
+  audience: "developers implementing comprehensive testing strategies for Effect-TS applications"
+  key_concepts: ["@effect/vitest patterns", "property-based testing", "Mock implementations", "Schema validation testing"]
+machine_readable: true
 ---
 
 # Test Patterns

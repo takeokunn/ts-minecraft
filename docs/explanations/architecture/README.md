@@ -23,7 +23,7 @@ TypeScript Minecraft Cloneプロジェクトの包括的なAPI設計仕様書で
   - Resource Pool Management
   - Advanced Error Handling with Match API
 
-- **[インフラストラクチャAPI](infrastructure-apis.md)** (1,686行) - 分散システム対応技術基盤層の実装
+- **[インフラストラクチャAPI](infrastructure-architecture.md)** (1,686行) - 分散システム対応技術基盤層の実装
   - Distributed Storage with Consistent Hashing
   - Database Connection Pooling
   - Message Queue Systems (Redis Streams, WebSocket)
@@ -58,7 +58,7 @@ TypeScript Minecraft Cloneプロジェクトの包括的なAPI設計仕様書で
 
 ### 📖 **読む順序の推奨**
 1. **初回理解**: `domain-application-apis.md` - 基本的なEffect-TSパターンの理解
-2. **技術基盤**: `infrastructure-apis.md` - 分散システムアーキテクチャの把握
+2. **技術基盤**: `infrastructure-architecture.md` - 分散システムアーキテクチャの把握
 3. **非同期通信**: `event-bus-specification.md` - Event Sourcingパターンの理解
 4. **HTTP通信**: `http-api-specification.md` - RESTful API設計の詳細
 
@@ -963,12 +963,12 @@ export const migrateChunkV1toV2 = (v1Chunk: APIVersions.V1.Chunk): APIVersions.V
 
 ### 📚 **API仕様書詳細**
 - **[ドメイン・アプリケーションAPI](domain-application-apis.md)** - DDD + Effect-TS実装詳細
-- **[インフラストラクチャAPI](infrastructure-apis.md)** - 分散システム技術基盤
+- **[インフラストラクチャAPI](infrastructure-architecture.md)** - 分散システム技術基盤
 - **[イベントバス仕様](event-bus-specification.md)** - Event Sourcing実装
 - **[HTTP API仕様](http-api-specification.md)** - RESTful + WebSocket APIs
 
 ### 🏗️ **アーキテクチャ関連**
-- **[アーキテクチャ概要](./overview.md)** - システム全体設計思想
+- **[アーキテクチャ概要](./architecture-overview.md)** - システム全体設計思想
 
 ### ⚙️ **システム仕様**
 - **[コア機能](../game-mechanics/core-features/)** - ゲーム機能の詳細仕様

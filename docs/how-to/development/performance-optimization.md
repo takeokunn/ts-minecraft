@@ -805,76 +805,104 @@ GC圧力の軽減とオブジェクト再利用：
 
 ```typescript
 // src/performance/memory-pool.ts
-import { Effect, Context, Layer } from "effect"
+import { Effect, Context, Layer, Ref } from "effect"
 
-// メモリプールのベースクラス
-export class MemoryPool<T> {
-  private available: T[] = []
-  private inUse = new Set<T>()
-  private factory: () => T
-  private reset: (item: T) => void
-  private maxSize: number
+// メモリプールのインターフェース
+export interface MemoryPool<T> {
+  readonly acquire: () => Effect.Effect<T, never, never>
+  readonly release: (item: T) => Effect.Effect<void, never, never>
+  readonly getStats: () => Effect.Effect<MemoryPoolStats, never, never>
+}
 
-  constructor(
-    factory: () => T,
-    reset: (item: T) => void,
-    initialSize: number = 10,
-    maxSize: number = 1000
-  ) {
-    this.factory = factory
-    this.reset = reset
-    this.maxSize = maxSize
+export interface MemoryPoolStats {
+  readonly available: number
+  readonly inUse: number
+  readonly total: number
+}
+
+export interface MemoryPoolConfig<T> {
+  readonly factory: () => T
+  readonly reset: (item: T) => void
+  readonly initialSize?: number
+  readonly maxSize?: number
+}
+
+// メモリプールの作成関数
+export const makeMemoryPool = <T>(
+  config: MemoryPoolConfig<T>
+): Effect.Effect<MemoryPool<T>, never, never> =>
+  Effect.gen(function* () {
+    const { factory, reset, initialSize = 10, maxSize = 1000 } = config
+
+    // 状態管理用のRef
+    const available = yield* Ref.make<T[]>([])
+    const inUse = yield* Ref.make(new Set<T>())
 
     // 初期プールを作成
+    const initialItems: T[] = []
     for (let i = 0; i < initialSize; i++) {
-      this.available.push(factory())
+      initialItems.push(factory())
     }
-  }
+    yield* Ref.set(available, initialItems)
 
-  acquire = (): Effect.Effect<T, never> => Effect.gen(function* () {
-    let item: T
+    const acquire = (): Effect.Effect<T, never, never> =>
+      Effect.gen(function* () {
+        const availableItems = yield* Ref.get(available)
+        let item: T
 
-    if (this.available.length > 0) {
-      item = this.available.pop()!
-    } else {
-      item = this.factory()
-      yield* Effect.logDebug("Memory pool: created new item (pool exhausted)")
+        if (availableItems.length > 0) {
+          const [first, ...rest] = availableItems
+          item = first
+          yield* Ref.set(available, rest)
+        } else {
+          item = factory()
+          yield* Effect.logDebug("Memory pool: created new item (pool exhausted)")
+        }
+
+        yield* Ref.update(inUse, (set) => new Set(set).add(item))
+        return item
+      })
+
+    const release = (item: T): Effect.Effect<void, never, never> =>
+      Effect.gen(function* () {
+        const currentInUse = yield* Ref.get(inUse)
+        if (!currentInUse.has(item)) {
+          yield* Effect.logWarning("Memory pool: attempted to release item not in use")
+          return
+        }
+
+        yield* Ref.update(inUse, (set) => {
+          const newSet = new Set(set)
+          newSet.delete(item)
+          return newSet
+        })
+
+        const currentAvailable = yield* Ref.get(available)
+        if (currentAvailable.length < maxSize) {
+          yield* Ref.update(available, (items) => [...items, item])
+        } else {
+          // プールが満杯の場合はGCに任せる
+          yield* Effect.logDebug("Memory pool: discarded item (pool full)")
+        }
+      })
+
+    const getStats = (): Effect.Effect<MemoryPoolStats, never, never> =>
+      Effect.gen(function* () {
+        const availableItems = yield* Ref.get(available)
+        const inUseItems = yield* Ref.get(inUse)
+        return {
+          available: availableItems.length,
+          inUse: inUseItems.size,
+          total: availableItems.length + inUseItems.size
+        }
+      })
+
+    return {
+      acquire,
+      release,
+      getStats
     }
-
-    this.inUse.add(item)
-    return item
   })
-
-  release = (item: T): Effect.Effect<void, never> => Effect.gen(function* () {
-    if (!this.inUse.has(item)) {
-      yield* Effect.logWarning("Memory pool: attempted to release item not in use")
-      return
-    }
-
-    this.inUse.delete(item)
-
-    if (this.available.length < this.maxSize) {
-      this.reset(item)
-      this.available.push(item)
-    } else {
-      // プールが満杯の場合はGCに任せる
-      yield* Effect.logDebug("Memory pool: discarded item (pool full)")
-    }
-  })
-
-  getStats = (): Effect.Effect<PoolStats, never> => Effect.succeed({
-    available: this.available.length,
-    inUse: this.inUse.size,
-    total: this.available.length + this.inUse.size,
-    maxSize: this.maxSize
-  })
-
-  clear = (): Effect.Effect<void, never> => Effect.gen(function* () {
-    this.available.length = 0
-    this.inUse.clear()
-    yield* Effect.logInfo("Memory pool cleared")
-  })
-}
 
 // ゲーム固有のオブジェクトプール
 export interface MemoryPoolService {

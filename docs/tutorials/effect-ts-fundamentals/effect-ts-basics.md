@@ -11,15 +11,24 @@ estimated_reading_time: "20分"
 
 # Effect-TS 基本概念
 
+> 📚 **最新ライブラリドキュメント**: Effect-TSの最新APIドキュメントとコード例はContext7で参照可能です。
+> ```bash
+> # Context7で最新のEffect-TSドキュメントを参照
+> # Library ID: /effect/effect
+> ```
+
 ## 🎆 Zero-Wait Learning Experience
 
 **⚙️ 学習時間2**: 30分 | **🔄 進捗フロー**: [15分 Quick Start] → **[30分 Effect-TS基礎]** → [45分 アーキテクチャ] → [60分 実装] → [15分 デプロイ]
 
 > 📍 **Navigation**: ← [Quick Start](../../getting-started/README.md) | → [Services & DI](./effect-ts-services.md)
 
-このドキュメントでは、TypeScript Minecraftプロジェクトにおける**Effect-TS 3.17+** の基本概念とコアパターンを解説します。すべての開発者が理解すべき核となるパターンに焦点を当てています。
+このドキュメントでは、TypeScript Minecraftプロジェクトにおける**Effect-TS 3.17+** の実践的なハンズオン学習を提供します。即座に実行・編集できる実例を通じて、コアパターンを体験的に習得できます。
 
-> 📖 **関連ドキュメント**: [Effect-TS サービスパターン](./effect-ts-services.md) | [Effect-TS エラーハンドリング](./effect-ts-error-handling.md)
+> 📖 **関連ドキュメント**:
+> - **理論的背景**: [関数型プログラミング哲学](../../explanations/design-patterns/functional-programming-philosophy.md)
+> - **次のステップ**: [Effect-TS サービスパターン](./effect-ts-services.md) | [Effect-TS エラーハンドリング](./effect-ts-error-handling.md)
+> - **最新APIリファレンス**: Context7で `/effect/effect` を参照
 
 ## 1. 基本思想: すべてはEffect
 
@@ -228,18 +237,24 @@ const complexOperation = Effect.gen(function* () {
 // [/LIVE_EXAMPLE]
 
 // ✅ 早期リターンパターンと包括的エラーハンドリング
+import { Match, pipe } from "effect"
+
 const operationWithErrorHandling = Effect.gen(function* () {
   const config = yield* getConfig();
 
-  // ✅ 早期リターン: 設定検証
-  if (!config.enabled) {
-    return yield* Effect.fail(
-      Schema.encodeSync(ConfigError)({
-        _tag: "ConfigDisabledError",
-        message: "設定が無効です"
-      })
-    );
-  }
+  // ✅ Match.when による設定検証 - if文の完全な代替
+  yield* pipe(
+    Match.value(config.enabled),
+    Match.when(false, () =>
+      Effect.fail(
+        Schema.encodeSync(ConfigError)({
+          _tag: "ConfigDisabledError",
+          message: "設定が無効です"
+        })
+      )
+    ),
+    Match.orElse(() => Effect.succeed(undefined))
+  )
 
   // ✅ 包括的エラー処理とフォールバック
   const data = yield* fetchData(config.apiUrl).pipe(
@@ -522,13 +537,19 @@ const updatePlayerPosition = (
   Effect.gen(function* () {
     const currentPlayer = state.players.get(playerId);
 
-    if (Option.isNone(currentPlayer)) {
-      return yield* Effect.fail({
-        _tag: "PlayerNotFoundError" as const,
-        playerId,
-        message: `プレイヤー ${playerId} が見つかりません`
-      });
-    }
+    // ✅ Option.match による型安全なパターンマッチング - if文不要
+    yield* pipe(
+      currentPlayer,
+      Option.match({
+        onNone: () =>
+          Effect.fail({
+            _tag: "PlayerNotFoundError" as const,
+            playerId,
+            message: `プレイヤー ${playerId} が見つかりません`
+          }),
+        onSome: () => Effect.succeed(undefined)
+      })
+    )
 
     const updatedPlayer = {
       ...currentPlayer.value,
@@ -577,7 +598,9 @@ const getChunkCoordinate = (position: Position): ChunkCoordinate => ({
   z: Math.floor(position.z / 16)
 });
 
-// ✅ Effect関数: 副作用あり + 早期リターンパターン
+// ✅ Effect関数: 副作用あり + Match パターン
+import { Match, pipe, Option } from "effect"
+
 const movePlayer = (
   playerId: PlayerId,
   newPosition: Position
@@ -594,27 +617,37 @@ const movePlayer = (
       }))
     );
 
-    // ✅ 早期リターン: 位置バリデーション
+    // ✅ Match.when による位置バリデーション - if文を排除
     const isValidPosition = yield* validateWorldPosition(newPosition);
-    if (!isValidPosition) {
-      return yield* Effect.fail({
-        _tag: "InvalidPositionError" as const,
-        position: newPosition,
-        message: "無効な位置です"
-      });
-    }
+    yield* pipe(
+      Match.value(isValidPosition),
+      Match.when(false, () =>
+        Effect.fail({
+          _tag: "InvalidPositionError" as const,
+          position: newPosition,
+          message: "無効な位置です"
+        })
+      ),
+      Match.orElse(() => Effect.succeed(undefined))
+    )
 
-    // ✅ 早期リターン: 移動距離チェック
+    // ✅ Match.when による移動距離チェック - if文の代替
     const distance = calculateDistance(currentPlayer.position, newPosition);
-    if (distance > MAX_MOVE_DISTANCE) {
-      return yield* Effect.fail({
-        _tag: "TooFarMoveError" as const,
-        from: currentPlayer.position,
-        to: newPosition,
-        distance,
-        maxDistance: MAX_MOVE_DISTANCE
-      });
-    }
+    yield* pipe(
+      Match.value(distance),
+      Match.when(
+        (d) => d > MAX_MOVE_DISTANCE,
+        () =>
+          Effect.fail({
+            _tag: "TooFarMoveError" as const,
+            from: currentPlayer.position,
+            to: newPosition,
+            distance,
+            maxDistance: MAX_MOVE_DISTANCE
+          })
+      ),
+      Match.orElse(() => Effect.succeed(undefined))
+    )
 
     // ✅ 正常パス: プレイヤー更新
     const updatedPlayer = {
@@ -685,7 +718,22 @@ interface AppServices extends WorldService, PlayerService, ChunkService {}
 8. **単一責任原則違反の関数** （PBTフレンドリー設計）
 9. **手動エラーハンドリング** （Schema.TaggedError使用）
 
-これらの基本パターンを理解した上で、[サービスパターン](./effect-ts-services.md)や[エラーハンドリング](./effect-ts-error-handling.md)に進むことを推奨します。
+---
+
+## 関連ドキュメント
+
+### 理論的背景
+- **設計哲学**: [関数型プログラミング哲学](../../explanations/design-patterns/functional-programming-philosophy.md) - なぜEffect-TSを選ぶのか
+- **アーキテクチャ**: [スケーラブルアーキテクチャ設計](../../explanations/architecture/scalable-architecture-design.md) - 大規模プロジェクトでの設計原則
+
+### 次のステップ
+- **サービス設計**: [Effect-TS サービス](./effect-ts-services.md) - Context.GenericTagとLayer管理
+- **エラーハンドリング**: [Effect-TS エラーハンドリング](./effect-ts-error-handling.md) - 型安全なエラー処理戦略
+- **実践パターン**: [Effect-TS パターン集](./effect-ts-patterns.md) - 高度な応用パターン
+
+### 実践的な適用
+- **移行作業**: [Effect-TS移行ガイド](../../how-to/development/effect-ts-migration-guide.md) - 既存コードからの段階的移行
+- **テスト戦略**: [Effect-TSテスト](./effect-ts-testing.md) - 効果的なテスト手法
 
 ---
 

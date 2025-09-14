@@ -7,7 +7,7 @@ tags: ["architecture-overview", "ddd", "ecs", "effect-ts", "game-architecture", 
 prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "functional-programming", "typescript-advanced"]
 estimated_reading_time: "25分"
 related_patterns: ["service-patterns", "data-modeling-patterns"]
-related_docs: ["./infrastructure-apis.md", "../design-patterns/service-patterns.md"]
+related_docs: ["./infrastructure-architecture.md", "../design-patterns/service-patterns.md"]
 ---
   topics: ["architecture", "ddd", "ecs", "effect-ts", "game-development", "enterprise-design"]
   skill_level: "advanced"
@@ -1175,7 +1175,7 @@ export const PerformanceProfiler = {
 - **内容**: ドメインサービスとアプリケーションサービスの詳細API仕様
 
 ### インフラストラクチャ API
-- **ファイル**: `01-infrastructure-apis.md`
+- **ファイル**: `infrastructure-architecture.md`
 - **内容**: 永続化、外部システム統合、ネットワーク通信API
 
 ### イベントバス仕様

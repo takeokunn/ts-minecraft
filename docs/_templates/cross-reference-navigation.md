@@ -1,3 +1,28 @@
+---
+title: "クロスリファレンスナビゲーション最適化テンプレート"
+description: "Context7とTSDocベストプラクティスに基づく統一されたドキュメント間ナビゲーション設計テンプレート"
+difficulty: "intermediate"
+estimated_reading_time: "8分"
+prerequisites:
+  - "documentation-structure"
+  - "markdown-basics"
+learning_objectives:
+  - "効果的なドキュメント間ナビゲーションの設計方法を理解する"
+  - "コンテキスト認識ナビゲーションの実装パターンを習得する"
+  - "ユーザー体験を向上させるリンク戦略を学ぶ"
+related_docs:
+  - "./yaml-frontmatter-enhanced.md"
+  - "../explanations/design-patterns/README.md"
+internal_links:
+  - "../reference/documentation-standards.md"
+tags: ["templates", "navigation", "documentation", "ux-design", "cross-references"]
+ai_context:
+  purpose: "reference"
+  audience: "documentation writers and maintainers"
+  key_concepts: ["cross-reference navigation", "context-aware linking", "user experience optimization"]
+machine_readable: true
+---
+
 # クロスリファレンスナビゲーション最適化テンプレート
 
 Context7とTSDocベストプラクティスに基づく統一されたドキュメント間ナビゲーション設計。

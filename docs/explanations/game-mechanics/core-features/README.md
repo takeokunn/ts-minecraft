@@ -6,8 +6,24 @@ difficulty: "intermediate"
 tags: ["core-features", "system-overview", "ecs-architecture", "world-management", "player-system"]
 prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "ecs-basics"]
 estimated_reading_time: "10分"
-related_patterns: ["service-patterns", "data-modeling-patterns", "system-integration-patterns"]
-related_docs: ["./00-overview.md", "../README.md", "../../01-architecture/05-ecs-integration.md"]
+learning_objectives:
+  - "Minecraftクローンのコア機能アーキテクチャを理解する"
+  - "各システムの責務と相互作用を把握する"
+  - "実装優先順位と依存関係を習得する"
+  - "ECSアーキテクチャとDDD統合パターンを理解する"
+related_docs:
+  - "./block-system.md"
+  - "./player-system.md"
+  - "./world-management-system.md"
+  - "../README.md"
+internal_links:
+  - "../../architecture/domain-layer-design-principles.md"
+  - "../../../tutorials/basic-game-development/02-domain-layer-architecture.md"
+ai_context:
+  purpose: "explanation"
+  audience: "developers and architects understanding core game systems"
+  key_concepts: ["core game systems", "system architecture", "MVP features", "ECS-DDD integration"]
+machine_readable: true
 ---
 
 # コア機能仕様書

@@ -6,7 +6,7 @@ difficulty: "advanced"
 tags: ["scalable-architecture", "clean-architecture", "effect-ts", "enterprise-patterns", "system-design", "game-engine"]
 prerequisites: ["clean-architecture-concepts", "effect-ts-advanced", "system-design-fundamentals"]
 estimated_reading_time: "30分"
-related_docs: ["./overview.md", "../design-patterns/service-patterns.md", "../../tutorials/effect-ts-fundamentals/effect-ts-advanced.md"]
+related_docs: ["./architecture-overview.md", "../design-patterns/service-patterns.md", "../../tutorials/effect-ts-fundamentals/effect-ts-advanced.md"]
 ---
 
 
@@ -246,17 +246,19 @@ export namespace Domain {
 // Application Layer: ユースケースの実行
 export namespace Application {
   // Use Case: 具体的なビジネス要求の実現
-  export class CreatePlayerUseCase {
-    constructor(
-      private readonly playerRepo: Domain.PlayerRepository,
-      private readonly eventPublisher: EventPublisher,
-      private readonly worldService: WorldService
-    ) {}
+  export interface CreatePlayerUseCase {
+    readonly execute: (command: CreatePlayerCommand) => Effect.Effect<Player, CreatePlayerError, PlayerService | WorldService>
+  }
 
-    execute = (command: CreatePlayerCommand): Effect.Effect<Player, CreatePlayerError, PlayerService | WorldService> =>
+  export const makeCreatePlayerUseCase = (
+    playerRepo: Domain.PlayerRepository,
+    eventPublisher: EventPublisher,
+    worldService: WorldService
+  ): CreatePlayerUseCase => ({
+    execute: (command: CreatePlayerCommand) =>
       Effect.gen(function* () {
         // 1. ビジネスルール検証
-        const existingPlayer = yield* this.playerRepo.findByName(command.name).pipe(
+        const existingPlayer = yield* playerRepo.findByName(command.name).pipe(
           Effect.catchTag("PlayerNotFoundError", () => Effect.succeed(null))
         )
 
@@ -268,7 +270,7 @@ export namespace Application {
         }
 
         // 2. ドメインオブジェクト作成
-        const spawnPosition = yield* this.worldService.findSafeSpawnPosition()
+        const spawnPosition = yield* worldService.findSafeSpawnPosition()
         const player = Schema.make(Domain.Player)({
           id: crypto.randomUUID() as PlayerId,
           name: command.name,
@@ -280,10 +282,10 @@ export namespace Application {
         })
 
         // 3. 永続化
-        yield* this.playerRepo.save(player)
+        yield* playerRepo.save(player)
 
         // 4. イベント発行
-        yield* this.eventPublisher.publish(
+        yield* eventPublisher.publish(
           Schema.make(Domain.PlayerCreatedEvent)({
             _tag: "PlayerCreatedEvent",
             playerId: player.id,
@@ -295,7 +297,7 @@ export namespace Application {
 
         return player
       })
-  }
+  })
 
   // Application Service: 複数ユースケースの調整
   export interface PlayerApplicationService {
@@ -430,38 +432,69 @@ export namespace Communication {
 
 ```typescript
 // Circuit Breaker Pattern: 障害時の自動復旧
-export class CircuitBreaker<A, E> {
-  constructor(
-    private readonly config: {
-      readonly failureThreshold: number
-      readonly recoveryTimeout: Duration
-      readonly requestTimeout: Duration
-    }
-  ) {}
-
-  execute = <R>(
-    operation: Effect.Effect<A, E, R>
-  ): Effect.Effect<A, E | CircuitBreakerError, R> =>
-    Effect.gen(function* () {
-      const state = yield* this.getState()
-
-      return yield* Match.value(state).pipe(
-        Match.tag("Closed", () => this.executeInClosedState(operation)),
-        Match.tag("Open", () => Effect.fail({ _tag: "CircuitBreakerOpenError" as const })),
-        Match.tag("HalfOpen", () => this.executeInHalfOpenState(operation)),
-        Match.exhaustive
-      )
-    })
-
-  private executeInClosedState = <R>(
-    operation: Effect.Effect<A, E, R>
-  ): Effect.Effect<A, E | CircuitBreakerError, R> =>
-    operation.pipe(
-      Effect.timeout(this.config.requestTimeout),
-      Effect.tapError(() => this.recordFailure()),
-      Effect.tapSuccess(() => this.recordSuccess())
-    )
+export interface CircuitBreakerConfig {
+  readonly failureThreshold: number
+  readonly recoveryTimeout: Duration
+  readonly requestTimeout: Duration
 }
+
+export interface CircuitBreaker<A, E> {
+  readonly execute: <R>(
+    operation: Effect.Effect<A, E, R>
+  ) => Effect.Effect<A, E | CircuitBreakerError, R>
+}
+
+export const makeCircuitBreaker = <A, E>(
+  config: CircuitBreakerConfig
+): Effect.Effect<CircuitBreaker<A, E>, never, never> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.make<CircuitBreakerState>("Closed")
+    const failureCount = yield* Ref.make(0)
+    const lastFailureTime = yield* Ref.make<Option.Option<Date>>(Option.none())
+
+    const recordFailure = Ref.update(failureCount, (n) => n + 1).pipe(
+      Effect.zipLeft(Ref.set(lastFailureTime, Option.some(new Date()))),
+      Effect.flatMap(() =>
+        Ref.get(failureCount).pipe(
+          Effect.flatMap((count) =>
+            count >= config.failureThreshold
+              ? Ref.set(state, "Open")
+              : Effect.void
+          )
+        )
+      )
+    )
+
+    const recordSuccess = Effect.all([
+      Ref.set(failureCount, 0),
+      Ref.set(state, "Closed")
+    ])
+
+    const executeInClosedState = <R>(
+      operation: Effect.Effect<A, E, R>
+    ): Effect.Effect<A, E | CircuitBreakerError, R> =>
+      operation.pipe(
+        Effect.timeout(config.requestTimeout),
+        Effect.tapError(() => recordFailure),
+        Effect.tapSuccess(() => recordSuccess)
+      )
+
+    const execute = <R>(
+      operation: Effect.Effect<A, E, R>
+    ): Effect.Effect<A, E | CircuitBreakerError, R> =>
+      Effect.gen(function* () {
+        const currentState = yield* Ref.get(state)
+
+        return yield* Match.value(currentState).pipe(
+          Match.tag("Closed", () => executeInClosedState(operation)),
+          Match.tag("Open", () => Effect.fail({ _tag: "CircuitBreakerOpenError" as const })),
+          Match.tag("HalfOpen", () => executeInClosedState(operation)),
+          Match.exhaustive
+        )
+      })
+
+    return { execute }
+  })
 
 // Retry with Exponential Backoff
 export const retryWithBackoff = <A, E, R>(
@@ -540,41 +573,44 @@ export namespace Observability {
 }
 
 // 実装例: 包括的な監視付きサービス
-export class ObservableWorldService implements WorldService {
-  constructor(
-    private readonly worldRepo: WorldRepository,
-    private readonly metrics: MetricsCollector,
-    private readonly tracer: DistributedTracing,
-    private readonly logger: StructuredLogger
-  ) {}
+export interface ObservableWorldService extends WorldService {
+  readonly getChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkError, ChunkRepository>
+  readonly healthCheck: () => Effect.Effect<HealthStatus, never, never>
+}
 
-  getChunk = (coord: ChunkCoordinate): Effect.Effect<Chunk, ChunkError, ChunkRepository> =>
+export const makeObservableWorldService = (
+  worldRepo: WorldRepository,
+  metrics: MetricsCollector,
+  tracer: DistributedTracing,
+  logger: StructuredLogger
+): ObservableWorldService => ({
+  getChunk: (coord: ChunkCoordinate) =>
     Effect.gen(function* () {
       // トレーシング開始
-      return yield* this.tracer.withSpan(`world.getChunk`,
+      return yield* tracer.withSpan(`world.getChunk`,
         Effect.gen(function* () {
           const startTime = Date.now()
 
           // ログ記録
-          yield* this.logger.info("Getting chunk", {
+          yield* logger.info("Getting chunk", {
             chunkX: coord.x,
             chunkZ: coord.z
           })
 
           try {
             // 実際の処理
-            const chunk = yield* this.worldRepo.findByCoordinate(coord)
+            const chunk = yield* worldRepo.findByCoordinate(coord)
 
             // メトリクス記録（成功）
-            yield* this.metrics.recordCounter("world.chunk_loads.success", 1, {
+            yield* metrics.recordCounter("world.chunk_loads.success", 1, {
               chunkType: chunk.generated ? "generated" : "loaded"
             })
 
-            yield* this.metrics.recordTimer("world.chunk_load_time",
+            yield* metrics.recordTimer("world.chunk_load_time",
               Effect.sync(() => Date.now() - startTime)
             )
 
-            yield* this.logger.info("Chunk loaded successfully", {
+            yield* logger.info("Chunk loaded successfully", {
               chunkX: coord.x,
               chunkZ: coord.z,
               loadTimeMs: Date.now() - startTime
@@ -584,11 +620,11 @@ export class ObservableWorldService implements WorldService {
 
           } catch (error) {
             // メトリクス記録（失敗）
-            yield* this.metrics.recordCounter("world.chunk_loads.failure", 1, {
+            yield* metrics.recordCounter("world.chunk_loads.failure", 1, {
               errorType: error._tag
             })
 
-            yield* this.logger.error("Failed to load chunk", error, {
+            yield* logger.error("Failed to load chunk", error, {
               chunkX: coord.x,
               chunkZ: coord.z
             })
@@ -597,13 +633,13 @@ export class ObservableWorldService implements WorldService {
           }
         })
       )
-    })
+    }),
 
   // ヘルスチェック実装
-  healthCheck = (): Effect.Effect<HealthStatus, never, never> =>
+  healthCheck: () =>
     Effect.gen(function* () {
-      const memoryUsage = yield* this.getMemoryUsage()
-      const activeChunks = yield* this.getActiveChunkCount()
+      const memoryUsage = yield* getMemoryUsage()
+      const activeChunks = yield* getActiveChunkCount()
       const dbConnection = yield* this.checkDatabaseConnection()
 
       const isHealthy =
@@ -691,26 +727,33 @@ export namespace Security {
 }
 
 // セキュアなサービス実装パターン
-export class SecurePlayerService implements PlayerService {
-  constructor(
-    private readonly playerRepo: PlayerRepository,
-    private readonly auth: AuthenticationService,
-    private readonly authz: AuthorizationService,
-    private readonly rateLimit: RateLimitService,
-    private readonly validator: ValidationService
-  ) {}
-
-  movePlayer = (
+export interface SecurePlayerService extends PlayerService {
+  readonly movePlayer: (
     authToken: AuthToken,
     playerId: PlayerId,
     movement: MovementInput
-  ): Effect.Effect<Player, PlayerMoveError, never> =>
+  ) => Effect.Effect<Player, PlayerMoveError, never>
+}
+
+export const makeSecurePlayerService = (
+  playerRepo: PlayerRepository,
+  auth: AuthenticationService,
+  authz: AuthorizationService,
+  rateLimit: RateLimitService,
+  validator: ValidationService,
+  executePlayerMovement: (playerId: PlayerId, movement: MovementInput) => Effect.Effect<Player, PlayerMoveError, never>
+): SecurePlayerService => ({
+  movePlayer: (
+    authToken: AuthToken,
+    playerId: PlayerId,
+    movement: MovementInput
+  ) =>
     Effect.gen(function* () {
       // 1. 認証
-      const principal = yield* this.auth.validateToken(authToken)
+      const principal = yield* auth.validateToken(authToken)
 
       // 2. レート制限
-      const rateLimitResult = yield* this.rateLimit.checkLimit(
+      const rateLimitResult = yield* rateLimit.checkLimit(
         `player_move:${principal.id}`,
         { requests: 60, window: "1minute" }
       )
@@ -723,7 +766,7 @@ export class SecurePlayerService implements PlayerService {
       }
 
       // 3. 認可
-      const canMove = yield* this.authz.authorize(
+      const canMove = yield* authz.authorize(
         principal,
         { type: "player", id: playerId },
         "move"
@@ -738,16 +781,16 @@ export class SecurePlayerService implements PlayerService {
       }
 
       // 4. 入力検証
-      const validMovement = yield* this.validator.validateInput(
+      const validMovement = yield* validator.validateInput(
         movement,
         MovementInputSchema
       )
 
       // 5. ビジネスロジック実行
-      yield* this.rateLimit.incrementCounter(`player_move:${principal.id}`)
-      return yield* this.executePlayerMovement(playerId, validMovement)
+      yield* rateLimit.incrementCounter(`player_move:${principal.id}`)
+      return yield* executePlayerMovement(playerId, validMovement)
     })
-}
+})
 ```
 
 ---
@@ -792,41 +835,50 @@ export namespace Performance {
 }
 
 // 自動パフォーマンス最適化システム
-export class AdaptivePerformanceManager {
-  constructor(
-    private readonly metrics: MetricsCollector,
-    private readonly cpuOpt: CPUOptimization,
-    private readonly memOpt: MemoryOptimization,
-    private readonly gpuOpt: GPUOptimization,
-    private readonly netOpt: NetworkOptimization
-  ) {}
+export interface AdaptivePerformanceManager {
+  readonly optimizeSystem: () => Effect.Effect<OptimizationResult, never, never>
+}
 
-  optimizeSystem = (): Effect.Effect<OptimizationResult, never, never> =>
+export const makeAdaptivePerformanceManager = (
+  metrics: MetricsCollector,
+  cpuOpt: CPUOptimization,
+  memOpt: MemoryOptimization,
+  gpuOpt: GPUOptimization,
+  netOpt: NetworkOptimization,
+  collectMetrics: () => Effect.Effect<PerformanceMetrics, never, never>,
+  determineOptimizationStrategy: (metrics: PerformanceMetrics) => OptimizationStrategy,
+  optimizeCPU: (strategy: CPUStrategy) => Effect.Effect<void, never, never>,
+  optimizeMemory: (strategy: MemoryStrategy) => Effect.Effect<void, never, never>,
+  optimizeGPU: (strategy: GPUStrategy) => Effect.Effect<void, never, never>,
+  optimizeNetwork: (strategy: NetworkStrategy) => Effect.Effect<void, never, never>,
+  calculateImprovements: (before: PerformanceMetrics, after: PerformanceMetrics) => Improvements
+): AdaptivePerformanceManager => ({
+  optimizeSystem: () =>
     Effect.gen(function* () {
       // パフォーマンス指標収集
-      const currentMetrics = yield* this.collectMetrics()
+      const currentMetrics = yield* collectMetrics()
 
       // 最適化戦略決定
-      const strategy = this.determineOptimizationStrategy(currentMetrics)
+      const strategy = determineOptimizationStrategy(currentMetrics)
 
       // 並列最適化実行
       const results = yield* Effect.all([
-        this.optimizeCPU(strategy.cpu),
-        this.optimizeMemory(strategy.memory),
-        this.optimizeGPU(strategy.gpu),
-        this.optimizeNetwork(strategy.network)
+        optimizeCPU(strategy.cpu),
+        optimizeMemory(strategy.memory),
+        optimizeGPU(strategy.gpu),
+        optimizeNetwork(strategy.network)
       ], { concurrency: 4 })
 
       // 結果測定
-      const improvedMetrics = yield* this.collectMetrics()
+      const improvedMetrics = yield* collectMetrics()
 
       return {
         before: currentMetrics,
         after: improvedMetrics,
-        improvements: this.calculateImprovements(currentMetrics, improvedMetrics)
+        improvements: calculateImprovements(currentMetrics, improvedMetrics)
       }
     })
-}
+})
 ```
 
 ---

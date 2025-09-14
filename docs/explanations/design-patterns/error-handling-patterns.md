@@ -6,6 +6,23 @@ difficulty: "intermediate"
 tags: ["error-handling", "schema-tagged-error", "schedule", "catch-recover", "effect-ts", "resilience"]
 prerequisites: ["effect-ts-fundamentals", "schema-basics", "service-patterns"]
 estimated_reading_time: "25分"
+learning_objectives:
+  - "Schema.TaggedErrorによる型安全なエラー定義をマスターする"
+  - "Scheduleを活用したリトライ戦略を実装できる"
+  - "catch・recoverパターンでエラーリカバリーを実現する"
+  - "ゲーム開発における堅牢性とUXを両立したエラー処理を理解する"
+related_docs:
+  - "../../../how-to/troubleshooting/effect-ts-troubleshooting.md"
+  - "./service-patterns.md"
+  - "../../game-mechanics/core-features/player-system.md"
+internal_links:
+  - "../../../reference/api/core-apis.md"
+  - "../../../tutorials/effect-ts-fundamentals/effect-ts-advanced.md"
+ai_context:
+  purpose: "reference"
+  audience: "intermediate to advanced developers working with Effect-TS error handling"
+  key_concepts: ["Schema.TaggedError", "Schedule retry patterns", "catch-recover strategies", "type-safe error processing"]
+machine_readable: true
 ---
 
 

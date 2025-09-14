@@ -13,150 +13,129 @@ estimated_reading_time: "15分"
 
 ## 概要
 
-本ドキュメントでは、Effect-TS 3.17+のコアパターンとベストプラクティスを紹介します。特定の技術や手法に関しては、以下の専門ドキュメントを参照してください。
+本ドキュメントでは、基礎概念を学んだ後の実践的なパターン集を提供します。Layer構成、サービス組み合わせ、パフォーマンス最適化など、実際の開発で必要になる応用パターンを学習できます。
 
-### 関連ドキュメント
-- [Effect-TSテスト](./effect-ts-testing.md) - Effect-TSテスト戦略
-- [Effect-TSエラーハンドリング](./effect-ts-error-handling.md) - エラー処理パターン
-- [Effect-TS高度パターン](./effect-ts-advanced.md) - 高度な実装パターン
-- [Effect-TSMatchパターン](./effect-ts-match-patterns.md) - パターンマッチング
+> 📚 **学習前提**: このドキュメントは [Effect-TS 基礎](./effect-ts-basics.md) と [Effect-TS サービス](./effect-ts-services.md) の内容を理解していることを前提としています。
+
+### 学習の流れ
+1. **基礎概念** → [Effect-TS 基礎](./effect-ts-basics.md)
+2. **サービス層** → [Effect-TS サービス](./effect-ts-services.md)
+3. **実践パターン** → **このドキュメント**
+4. **エラーハンドリング** → [Effect-TSエラーハンドリング](./effect-ts-error-handling.md)
+5. **テスト戦略** → [Effect-TSテスト](./effect-ts-testing.md)
 
 ---
 
-## 1. Effect-TSコアパターン
+## 1. 高度なLayer構成パターン
 
-### 1.1 Layer構成パターン
+### 1.1 複雑なLayer依存関係の管理
 
 ```typescript
 import { Effect, Layer, Context } from "effect"
 
-// サービス定義
-export const DatabaseService = Context.GenericTag<{
-  readonly query: (sql: string) => Effect.Effect<unknown[], DatabaseError>
-  readonly transaction: <R, E, A>(
-    effect: Effect.Effect<A, E, R>
-  ) => Effect.Effect<A, E | DatabaseError, R>
-}>("@app/DatabaseService")
+// 複数の依存関係を持つ高度なサービス
+export const AdvancedGameService = Context.GenericTag<{
+  readonly processComplexGameLogic: (input: GameInput) => Effect.Effect<GameResult, GameError>
+}>("@minecraft/AdvancedGameService")
 
-// サービス実装
-export const DatabaseServiceLive = Layer.effect(
-  DatabaseService,
+// 複数Layer合成による高度な依存性注入
+export const AdvancedGameServiceLive = Layer.effect(
+  AdvancedGameService,
   Effect.gen(function* () {
-    const pool = yield* createConnectionPool()
+    // 複数の依存サービスを取得
+    const worldService = yield* WorldService
+    const playerService = yield* PlayerService
+    const physicsEngine = yield* PhysicsEngine
+    const eventBus = yield* EventBus
 
-    return {
-      query: (sql: string) => Effect.tryPromise({
-        try: () => pool.query(sql),
-        catch: (error) => new DatabaseError({ message: String(error) })
-      }),
-      transaction: <R, E, A>(effect: Effect.Effect<A, E, R>) =>
-        Effect.acquireUseRelease(
-          Effect.tryPromise(() => pool.getConnection()),
-          (connection) => effect,
-          (connection) => Effect.sync(() => connection.release())
-        )
-    }
+    // 初期化ロジック
+    yield* Effect.log("Advanced Game Service を初期化中...")
+
+    return AdvancedGameService.of({
+      processComplexGameLogic: (input) =>
+        Effect.gen(function* () {
+          // 複数サービスを組み合わせた複雑な処理
+          const worldState = yield* worldService.getCurrentState()
+          const playerActions = yield* playerService.processInput(input)
+          const physicsUpdate = yield* physicsEngine.simulate(worldState, playerActions)
+
+          yield* eventBus.publish({ type: "GameStateUpdated", data: physicsUpdate })
+
+          return { success: true, newState: physicsUpdate }
+        })
+    })
   })
+)
+
+// 環境固有のLayer構成
+const TestEnvironmentLayers = Layer.mergeAll(
+  MockWorldService,
+  MockPlayerService,
+  MockPhysicsEngine,
+  InMemoryEventBus
+)
+
+const ProductionEnvironmentLayers = Layer.mergeAll(
+  LiveWorldService,
+  LivePlayerService,
+  LivePhysicsEngine,
+  RedisEventBus
 )
 ```
 
-### 1.2 サービス組み合わせ
+> 🔗 **基本的なサービス定義**: Context.GenericTagの基本的な使い方は [Effect-TS サービス](./effect-ts-services.md) を参照してください。
+
+## 2. 高度なエラー回復パターン
+
+> 🔗 **基本的なエラーハンドリング**: 構造化エラーとタグ付きエラーの基礎は [Effect-TS エラーハンドリング](./effect-ts-error-handling.md) を参照してください。
+
+### 2.1 複合エラー回復戦略
 
 ```typescript
-// ユーザーサービス
-export const UserService = Context.GenericTag<{
-  readonly getById: (id: string) => Effect.Effect<User, NotFoundError>
-  readonly create: (data: CreateUserData) => Effect.Effect<User, ValidationError>
-}>("@app/UserService")
-
-// メールサービス
-export const EmailService = Context.GenericTag<{
-  readonly sendWelcome: (user: User) => Effect.Effect<void, EmailError>
-}>("@app/EmailService")
-
-// サービスの組み合わせ
-export const createUserWithWelcomeEmail = (
-  userData: CreateUserData
-): Effect.Effect<User, ValidationError | EmailError, UserService | EmailService> =>
-  Effect.gen(function* () {
-    const userService = yield* UserService
-    const emailService = yield* EmailService
-
-    const user = yield* userService.create(userData)
-    yield* emailService.sendWelcome(user)
-
-    return user
-  })
-```
-
-## 2. エラーハンドリングパターン
-
-### 2.1 構造化されたエラー
-
-```typescript
-import { Schema } from "@effect/schema"
-
-// タグ付きエラー定義 - 関数型パターン
-export const ValidationError = Schema.TaggedError("ValidationError")({
-  field: Schema.String,
-  message: Schema.String,
-  value: Schema.Unknown
-})
-
-export const NotFoundError = Schema.TaggedError("NotFoundError")({
-  resource: Schema.String,
-  id: Schema.String
-})
-
-// エラー変換パターン - Match.value 使用
-import { Match } from "effect"
-
-const handleDatabaseError = (error: unknown): DatabaseError =>
-  Match.value(error).pipe(
-    Match.when(
-      (e): e is PostgresError => e instanceof PostgresError,
-      (e) => DatabaseConnectionError({
-        code: e.code,
-        detail: e.detail
-      })
-    ),
-    Match.orElse((e) => DatabaseUnknownError({
-      message: String(e)
-    }))
-  )
-```
-
-### 2.2 エラー回復戦略
-
-```typescript
-// リトライパターン
-const withRetry = <A, E>(
-  effect: Effect.Effect<A, E>,
-  maxRetries: number = 3
-): Effect.Effect<A, E> =>
+// より高度な回復戦略の組み合わせ
+const resilientGameOperation = <A>(
+  operation: Effect.Effect<A, GameError>
+): Effect.Effect<A, GameError> =>
   pipe(
-    effect,
-    Effect.retry(
-      Schedule.exponential("100 millis").pipe(
-        Schedule.compose(Schedule.recurs(maxRetries))
+    operation,
+    // 1. 一次回復: 短時間リトライ
+    Effect.retry(Schedule.exponential("50 millis").pipe(Schedule.recurs(2))),
+    // 2. 二次回復: キャッシュフォールバック
+    Effect.catchTag("NetworkError", () => loadFromCache()),
+    // 3. 三次回復: デグレード機能
+    Effect.catchAll(() => provideDegradedService())
+  )
+
+// サーキットブレーカーパターン
+const withCircuitBreaker = <A, E>(
+  effect: Effect.Effect<A, E>,
+  threshold: number = 5
+): Effect.Effect<A, E | CircuitBreakerError> =>
+  Effect.gen(function* () {
+    const failures = yield* Ref.make(0)
+    const isOpen = yield* Ref.make(false)
+
+    return yield* pipe(
+      Ref.get(isOpen),
+      Effect.flatMap((open) =>
+        open
+          ? Effect.fail(new CircuitBreakerError())
+          : pipe(
+              effect,
+              Effect.tapError(() =>
+                pipe(
+                  Ref.update(failures, (n) => n + 1),
+                  Effect.flatMap(() => Ref.get(failures)),
+                  Effect.flatMap((count) =>
+                    count >= threshold ? Ref.set(isOpen, true) : Effect.unit
+                  )
+                )
+              ),
+              Effect.tap(() => Ref.set(failures, 0))
+            )
       )
     )
-  )
-
-// フォールバックパターン
-const withFallback = <A, E>(
-  primary: Effect.Effect<A, E>,
-  fallback: Effect.Effect<A, E>
-): Effect.Effect<A, E> =>
-  Effect.catchAll(primary, (_error) => fallback)
-
-// 使用例
-const reliableUserGet = (id: string) =>
-  pipe(
-    getUserFromCache(id),
-    withFallback(getUserFromDatabase(id)),
-    withRetry(3)
-  )
+  })
 ```
 
 ## 3. Schema活用パターン

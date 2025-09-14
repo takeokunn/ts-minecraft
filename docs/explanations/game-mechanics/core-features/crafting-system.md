@@ -1126,22 +1126,25 @@ export const EnchantingServiceLive = Layer.succeed(
         const random = createSeededRandom(seed)
         const enchantmentOptions: Enchantment[] = []
 
-        for (let i = 0; i < 3; i++) {
-          const baseCost = (i + 1) * 3 + Math.floor(random() * 5)
-          const levelCost = Math.min(30, baseCost + power)
+        const enchantmentOptions = yield* pipe(
+          Array.range(0, 3),
+          Effect.forEach((i) =>
+            Effect.gen(function* () {
+              const baseCost = (i + 1) * 3 + Math.floor(random() * 5)
+              const levelCost = Math.min(30, baseCost + power)
 
-          if (levelCost > playerLevel) continue
+              if (levelCost > playerLevel) return Option.none()
 
-          const selectedEnchantment = selectRandomEnchantment(
-            availableEnchantments,
-            enchantability,
-            levelCost,
-            random
-          )
+              const selectedEnchantment = selectRandomEnchantment(
+                availableEnchantments,
+                enchantability,
+                levelCost,
+                random
+              )
 
-          if (selectedEnchantment) {
-            enchantmentOptions.push({
-              _tag: "Enchantment" as const,
+              return Option.fromNullable(selectedEnchantment).pipe(
+                Option.map(enchant => ({
+                  _tag: "Enchantment" as const,
               id: selectedEnchantment.id,
               level: selectedEnchantment.level,
               cost: Brand.nominal<ExperienceLevel>(levelCost)

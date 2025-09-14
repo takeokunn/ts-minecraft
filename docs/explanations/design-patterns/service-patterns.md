@@ -6,8 +6,23 @@ difficulty: "advanced"
 tags: ["service-patterns", "context-generic-tag", "layer", "dependency-injection", "schema-tagged-error", "effect-ts"]
 prerequisites: ["effect-ts-fundamentals", "context-usage", "schema-basics"]
 estimated_reading_time: "20分"
-related_patterns: ["error-handling-patterns", "data-modeling-patterns"]
-related_docs: ["../architecture/domain-application-apis.md"]
+learning_objectives:
+  - "Context.GenericTagによる型安全なサービス定義をマスターする"
+  - "Layerを使用した依存注入パターンを実装できる"
+  - "Schema.TaggedErrorによるエラーハンドリング統合を理解する"
+  - "テスタブルなサービス設計の原則を習得する"
+related_docs:
+  - "../architecture/domain-application-apis.md"
+  - "./error-handling-patterns.md"
+  - "./data-modeling-patterns.md"
+internal_links:
+  - "../../../tutorials/basic-game-development/02-domain-layer-architecture.md"
+  - "../../../reference/api/core-apis.md"
+ai_context:
+  purpose: "explanation"
+  audience: "advanced developers implementing service layer architecture with Effect-TS"
+  key_concepts: ["Context.GenericTag", "Layer composition", "dependency injection", "service testing patterns"]
+machine_readable: true
 ---
 
 ## コード例
@@ -34,7 +49,7 @@ related_docs: ["../architecture/domain-application-apis.md"]
     - "Resource lifecycle management"
 related_resources:
   internal_links:
-    - path: "../architecture/infrastructure-apis.md"
+    - path: "../architecture/infrastructure-architecture.md"
       relationship: "foundational-concept"
       relevance_score: 0.94
     - path: "./error-handling-patterns.md"

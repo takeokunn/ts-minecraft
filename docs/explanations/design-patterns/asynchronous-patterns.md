@@ -6,8 +6,23 @@ difficulty: "intermediate"
 tags: ["asynchronous", "effect-ts", "concurrency", "promises", "async-await"]
 prerequisites: ["effect-ts-basics", "async-fundamentals"]
 estimated_reading_time: "20分"
-dependencies: []
-status: "complete"
+learning_objectives:
+  - "Effect-TSによる非同期処理の基本概念をマスターする"
+  - "従来のPromise/async-awaitからEffect-TSへの移行パターンを理解する"
+  - "並行処理と順次処理の使い分けを習得する"
+  - "型安全で合成可能な非同期処理の実装方法を学ぶ"
+related_docs:
+  - "./error-handling-patterns.md"
+  - "./integration-patterns.md"
+  - "../../game-mechanics/core-features/game-loop-system.md"
+internal_links:
+  - "../../../reference/api/core-apis.md"
+  - "../../../how-to/development/debugging-techniques.md"
+ai_context:
+  purpose: "explanation"
+  audience: "developers transitioning from Promise-based to Effect-TS asynchronous programming"
+  key_concepts: ["Effect composition", "concurrency patterns", "type-safe async operations", "error propagation"]
+machine_readable: true
 ---
 
 # Asynchronous Patterns

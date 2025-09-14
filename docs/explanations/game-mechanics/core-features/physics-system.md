@@ -590,30 +590,36 @@ export const AABBCollisionSystem = {
       let spatialGrid = yield* SpatialGridSystem.createGrid(gridCellSize)
 
       // エンティティをグリッドに登録
-      for (const entity of entities) {
-        spatialGrid = yield* SpatialGridSystem.insertEntity(
-          spatialGrid,
+      spatialGrid = yield* Effect.reduce(
+        entities,
+        spatialGrid,
+        (grid, entity) => SpatialGridSystem.insertEntity(
+          grid,
           entity.id,
           entity.aabb
         )
-      }
+      )
 
       // 各エンティティに対して近働エンティティのみと衝突判定
       const collisionStream = Stream.fromIterable(entities).pipe(
         Stream.mapEffect((entity) =>
           SpatialGridSystem.queryRange(spatialGrid, entity.aabb).pipe(
             Stream.filter(nearbyEntityId => nearbyEntityId !== entity.id),
-            Stream.mapEffect(nearbyEntityId => {
-              const nearbyEntity = entities.find(e => e.id === nearbyEntityId)
-              if (!nearbyEntity) return Effect.fail(new Error("Entity not found"))
-
-              return AABBCollisionSystem.calculateCollisionInfo(
-                entity.id,
-                nearbyEntityId,
-                entity.aabb,
-                nearbyEntity.aabb
+            Stream.mapEffect(nearbyEntityId =>
+              pipe(
+                entities.find(e => e.id === nearbyEntityId),
+                Option.fromNullable,
+                Option.match({
+                  onNone: () => Effect.fail(new Error("Entity not found")),
+                  onSome: (nearbyEntity) => AABBCollisionSystem.calculateCollisionInfo(
+                    entity.id,
+                    nearbyEntityId,
+                    entity.aabb,
+                    nearbyEntity.aabb
+                  )
+                })
               )
-            }),
+            ),
             Stream.runCollect
           )
         ),

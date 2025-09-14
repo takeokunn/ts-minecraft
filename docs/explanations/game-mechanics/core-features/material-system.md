@@ -424,27 +424,27 @@ const makeMaterialRegistry = Effect.gen(function* () {
       const tagIdx = yield* Ref.get(tagIndex)
 
       // 共通のインデックスを見つける
-      let commonIndices: Set<number> | null = null
+      const commonIndices = yield* pipe(
+        tags,
+        Array.reduce(
+          Option.none<Set<number>>(),
+          (acc, tag) => {
+            const tagIndices = tagIdx.get(tag) || new Set()
+            return Option.match(acc, {
+              onNone: () => Option.some(new Set(tagIndices)),
+              onSome: (current) => Option.some(
+                new Set([...current].filter(x => tagIndices.has(x)))
+              )
+            })
+          }
+        ),
+        Option.getOrElse(() => new Set<number>())
+      )
 
-      for (const tag of tags) {
-        const tagIndices = tagIdx.get(tag) || new Set()
-
-        if (commonIndices === null) {
-          commonIndices = new Set(tagIndices)
-        } else {
-          commonIndices = new Set([...commonIndices].filter(x => tagIndices.has(x)))
-        }
-      }
-
-      if (!commonIndices) return []
-
-      const materials: MaterialDefinition[] = []
-      for (const index of commonIndices) {
-        const material = yield* reconstructMaterial(index)
-        materials.push(material)
-      }
-
-      return materials
+      return yield* Effect.forEach(
+        Array.fromIterable(commonIndices),
+        (index) => reconstructMaterial(index)
+      )
     })
 
   const findSimilar = (material: MaterialDefinition, threshold: number) =>

@@ -16,7 +16,7 @@
 
 - [コアAPI](./api/core-apis.md)
 - [ドメインAPI](./api/domain-apis.md)
-- [インフラストラクチャAPI](./api/infrastructure-apis.md)
+- [インフラストラクチャAPI](./api/infrastructure-api-reference.md)
 - [ユーティリティ関数](./api/utility-functions.md)
 - [Effect-TS Effect API](./api/effect-ts-effect-api.md)
 - [Effect-TS Schema API](./api/effect-ts-schema-api.md)

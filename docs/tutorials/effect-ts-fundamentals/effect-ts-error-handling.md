@@ -104,15 +104,17 @@ const placeBlock = (
       )
     )
 
-    // ブロックタイプの検証
-    if (!isValidBlockType(blockType)) {
-      return yield* Effect.fail(
+    // ブロックタイプの検証（Match.valueパターン）
+    yield* pipe(
+      Match.value(isValidBlockType(blockType)),
+      Match.when(false, () => Effect.fail(
         new InvalidBlockError({
           blockType,
           message: "Unknown block type"
         })
-      )
-    }
+      )),
+      Match.orElse(() => Effect.unit)
+    )
 
     // ブロック配置
     return yield* chunk.setBlock(position, blockType)
@@ -267,10 +269,13 @@ interface CircuitBreaker {
         Match.exhaustive
       )
 
-      if (!shouldExecute) return
-
+      // Match.when による条件分岐 - if文を排除
       return yield* pipe(
-        effect,
+        Match.value(shouldExecute),
+        Match.when(false, () => Effect.succeed(undefined)),
+        Match.orElse(() =>
+          pipe(
+            effect,
         Effect.tapError(() =>
           Effect.sync(() => {
             this.failures++
@@ -295,6 +300,8 @@ interface CircuitBreaker {
             this.failures = 0
             this.state = "closed"
           })
+        )
+          )
         )
       )
     }.bind(this))
@@ -329,15 +336,20 @@ const ErrorLoggerLive = Logger.replace(
     spans,
     annotations
   }) => {
-    if (level === "Error") {
-      // エラーを外部サービスに送信
-      sendToMonitoring({
-        level,
-        message,
-        annotations,
-        stackTrace: cause ? Cause.pretty(cause) : undefined
-      })
-    }
+    // Match.when によるログレベル判定 - if文の代替
+    pipe(
+      Match.value(level),
+      Match.when("Error", () => {
+        // エラーを外部サービスに送信
+        sendToMonitoring({
+          level,
+          message,
+          annotations,
+          stackTrace: cause ? Cause.pretty(cause) : undefined
+        })
+      }),
+      Match.orElse(() => undefined)
+    )
     // デフォルトのログ出力も実行
     Logger.defaultLogger.log({ level, message, cause, context, spans, annotations })
   })

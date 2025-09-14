@@ -311,9 +311,9 @@ graph TD
 - [シーン管理システム](./scene-management-system.md) - シーン管理・画面遷移
 
 **アーキテクチャ関連**:
-- [システム全体設計](../../architecture/overview.md) - アーキテクチャ概要
+- [システム全体設計](../../architecture/architecture-overview.md) - アーキテクチャ概要
 - [ドメイン・アプリケーションAPI](../../architecture/domain-application-apis.md) - DDD境界づけられたコンテキスト
-- [インフラストラクチャAPI](../../architecture/infrastructure-apis.md) - ECSアーキテクチャ統合
+- [インフラストラクチャAPI](../../architecture/infrastructure-architecture.md) - ECSアーキテクチャ統合
 - [データフロー図](../../architecture/data-flow-diagram.md) - システム間データフロー
 
 ## 関連用語

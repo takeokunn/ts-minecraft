@@ -214,10 +214,12 @@ const makeWorldServiceLive = Effect.gen(function* () {
     // ✅ 新しいメソッド: バッチ処理
     getBlocks: (positions) =>
       Effect.gen(function* () {
-        // ✅ 早期リターン: 空の配列
-        if (positions.length === 0) {
-          return [];
-        }
+        // ✅ 早期リターン: 空の配列（Match.valueパターン）
+        yield* pipe(
+          Match.value(positions.length === 0),
+          Match.when(true, () => Effect.succeed([] as Block[])),
+          Match.orElse(() => Effect.unit)
+        )
 
         yield* metrics.incrementCounter("batch_block_requests");
 
@@ -226,13 +228,15 @@ const makeWorldServiceLive = Effect.gen(function* () {
         const batches = ReadonlyArray.chunksOf(positions, batchSize);
         const results: Block[] = [];
 
-        for (const batch of batches) {
-          const batchResults = yield* Effect.all(
+        // Effect.forEachパターンで各バッチを処理
+        const allResults = yield* Effect.forEach(
+          batches,
+          (batch) => Effect.all(
             ReadonlyArray.map(batch, pos => getBlock(pos)),
             { concurrency: "unbounded" }
-          );
-          results.push(...batchResults);
-        }
+          )
+        );
+        const results = allResults.flat();
 
         return results;
       })
@@ -291,6 +295,8 @@ const WorldServiceTest = Layer.succeed(
 
 ```typescript
 // ✅ プレイヤーサービスの実装（WorldServiceに依存）
+import { Match, pipe, Option, Array } from "effect"
+
 const makePlayerServiceLive = Effect.gen(function* () {
   const worldService = yield* WorldService;
   const inventoryService = yield* InventoryService;
@@ -305,53 +311,66 @@ const makePlayerServiceLive = Effect.gen(function* () {
         const playerMap = yield* Ref.get(players);
         const player = playerMap.get(id);
 
-        if (!player) {
-          return yield* Effect.fail({
-            _tag: "PlayerNotFoundError" as const,
-            playerId: id,
-            message: `プレイヤー ${id} が見つかりません`
-          });
-        }
-
-        return player;
+        return yield* pipe(
+          Option.fromNullable(player),
+          Option.match({
+            onNone: () => Effect.fail({
+              _tag: "PlayerNotFoundError" as const,
+              playerId: id,
+              message: `プレイヤー ${id} が見つかりません`
+            }),
+            onSome: (p) => Effect.succeed(p)
+          })
+        );
       }),
 
     updatePosition: (id, newPos) =>
       Effect.gen(function* () {
         // ✅ 位置バリデーション（WorldServiceを使用）
         const isValid = yield* worldService.isValidPosition(newPos);
-        if (!isValid) {
-          return yield* Effect.fail({
+        yield* pipe(
+          Match.value(isValid),
+          Match.when(false, () => Effect.fail({
             _tag: "PlayerUpdateError" as const,
             reason: "無効な位置です",
             position: newPos
-          });
-        }
+          })),
+          Match.orElse(() => Effect.unit)
+        );
 
         // ✅ プレイヤー更新
         const updatedPlayer = yield* Ref.updateAndGet(players, map => {
           const current = map.get(id);
-          if (!current) return map;
-
-          const updated = {
-            ...current,
-            position: newPos,
-            lastMoved: new Date().toISOString()
-          };
-
-          return new Map(map).set(id, updated);
+          return pipe(
+            Option.fromNullable(current),
+            Option.match({
+              onNone: () => map,
+              onSome: (curr) => {
+                const updated = {
+                  ...curr,
+                  position: newPos,
+                  lastMoved: new Date().toISOString()
+                };
+                return new Map(map).set(id, updated);
+              }
+            })
+          );
         });
 
         const player = updatedPlayer.get(id);
-        if (!player) {
-          return yield* Effect.fail({
-            _tag: "PlayerUpdateError" as const,
-            reason: "プレイヤーが見つかりません"
-          });
-        }
-
-        yield* logger.info(`プレイヤー ${id} が ${newPos.x},${newPos.y},${newPos.z} に移動`);
-        return player;
+        return yield* pipe(
+          Option.fromNullable(player),
+          Option.match({
+            onNone: () => Effect.fail({
+              _tag: "PlayerUpdateError" as const,
+              reason: "プレイヤーが見つかりません"
+            }),
+            onSome: (p) => Effect.gen(function* () {
+              yield* logger.info(`プレイヤー ${id} が ${newPos.x},${newPos.y},${newPos.z} に移動`);
+              return p;
+            })
+          })
+        );
       }),
 
     getPlayersInRadius: (center, radius) =>
@@ -375,13 +394,18 @@ const makePlayerServiceLive = Effect.gen(function* () {
       Effect.gen(function* () {
         const playerMap = yield* Ref.get(players);
 
-        if (playerMap.has(player.id)) {
-          return yield* Effect.fail({
-            _tag: "PlayerAddError" as const,
-            reason: "プレイヤーは既に存在します",
-            playerId: player.id
-          });
-        }
+        // Match.when による存在チェック - if文を排除
+        yield* pipe(
+          Match.value(playerMap.has(player.id)),
+          Match.when(true, () =>
+            Effect.fail({
+              _tag: "PlayerAddError" as const,
+              reason: "プレイヤーは既に存在します",
+              playerId: player.id
+            })
+          ),
+          Match.orElse(() => Effect.succeed(undefined))
+        )
 
         yield* Ref.update(players, map => new Map(map).set(player.id, player));
         yield* logger.info(`プレイヤー ${player.id} が追加されました`);
@@ -638,13 +662,19 @@ export const createPropertyTestWorldService = Layer.effect(
           const key = positionToKey(pos);
           const block = state.get(key);
 
-          if (!block) {
-            return yield* Effect.fail({
-              _tag: "BlockNotFoundError" as const,
-              position: pos,
-              message: "ブロックが見つかりません"
-            });
-          }
+          // Option.match によるブロック存在チェック - if文不要
+          yield* pipe(
+            Option.fromNullable(block),
+            Option.match({
+              onNone: () =>
+                Effect.fail({
+                  _tag: "BlockNotFoundError" as const,
+                  position: pos,
+                  message: "ブロックが見つかりません"
+                }),
+              onSome: () => Effect.succeed(undefined)
+            })
+          )
 
           return block;
         }),
@@ -673,17 +703,12 @@ export const createPropertyTestWorldService = Layer.effect(
       getBlocks: (positions) =>
         Effect.gen(function* () {
           const state = yield* Ref.get(worldState);
-          const blocks: Block[] = [];
 
-          for (const pos of positions) {
+          // Array.filterMapパターンで有効なブロックのみを取得
+          return Array.filterMap(positions, (pos) => {
             const key = positionToKey(pos);
-            const block = state.get(key);
-            if (block) {
-              blocks.push(block);
-            }
-          }
-
-          return blocks;
+            return Option.fromNullable(state.get(key));
+          });
         })
     });
   })
@@ -705,9 +730,15 @@ export const withMetrics = <S>(
   ): T => {
     const decoratedImplementation = {} as T;
 
-    for (const [methodName, method] of Object.entries(implementation)) {
-      if (typeof method === 'function') {
-        decoratedImplementation[methodName as keyof T] = ((...args: any[]) =>
+    // Array.forEach を使用 - forループを完全に排除
+    pipe(
+      Object.entries(implementation),
+      Array.forEach(([methodName, method]) => {
+        // Match.when で関数チェック - if文を排除
+        pipe(
+          Match.value(typeof method),
+          Match.when("function", () => {
+            decoratedImplementation[methodName as keyof T] = ((...args: any[]) =>
           Effect.gen(function* () {
             const metrics = yield* Metrics;
             const startTime = Date.now();
@@ -735,8 +766,11 @@ export const withMetrics = <S>(
             }
           })
         ) as T[keyof T];
-      }
-    }
+          }),
+          Match.orElse(() => undefined)
+        )
+      })
+    )
 
     return decoratedImplementation;
   };

@@ -1,0 +1,175 @@
+name: Task Implementation
+description: ROADMAPに基づくタスク実装Issue
+title: "[Task ID] タスク名"
+labels: ["task", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 📌 タスク実装Issue
+        ROADMAPに定義されたタスクの実装Issueです。
+
+  - type: input
+    id: task-id
+    attributes:
+      label: Task ID
+      description: ROADMAPのタスクID (例: P0-001)
+      placeholder: P0-001
+    validations:
+      required: true
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Phase
+      description: 実装フェーズ
+      options:
+        - Phase 0 - 基盤構築
+        - Phase 1 - コアエンジン
+        - Phase 2 - ワールド生成
+        - Phase 3 - プレイヤー基本
+        - Phase 4 - ゲームプレイ
+        - Phase 5 - エンティティ・AI
+        - Phase 6 - 拡張機能
+        - Phase 7 - マルチプレイ
+        - Phase 8 - 最適化
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sprint
+    attributes:
+      label: Sprint
+      description: 実装Sprint
+      options:
+        - Sprint 1
+        - Sprint 2
+        - Sprint 3
+        - Sprint 4
+        - Sprint 5
+        - Sprint 6
+        - Sprint 7
+        - Sprint 8
+        - Sprint 9
+        - Sprint 10
+    validations:
+      required: true
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Task Size
+      description: タスクサイズ
+      options:
+        - XS (30分-1時間)
+        - S (1-2時間)
+        - M (2-4時間)
+        - L (4-6時間)
+        - XL (要分割)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Task Type
+      description: タスクタイプ
+      options:
+        - setup
+        - config
+        - interface
+        - service
+        - feature
+        - test
+        - docs
+        - infrastructure
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: タスク概要
+      description: タスクの詳細説明
+      placeholder: |
+        このタスクで実装する内容を説明してください。
+        - 何を実装するか
+        - なぜ必要か
+        - どのような価値を提供するか
+    validations:
+      required: true
+
+  - type: textarea
+    id: success-criteria
+    attributes:
+      label: 成功基準
+      description: タスク完了の判定基準
+      placeholder: |
+        - [ ] TypeScript strictモード通過
+        - [ ] テストカバレッジ80%以上
+        - [ ] ドキュメント更新完了
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation-files
+    attributes:
+      label: 実装ファイル
+      description: 作成・変更するファイル一覧
+      placeholder: |
+        - src/domain/service/GameService.ts
+        - src/domain/service/GameService.test.ts
+        - docs/reference/api/game-service.md
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 依存関係
+      description: 他のタスクとの依存関係
+      placeholder: |
+        - 依存: P0-001 (プロジェクト初期化)
+        - ブロック対象: P1-002
+
+  - type: textarea
+    id: ai-instructions
+    attributes:
+      label: AI Agent実装指示
+      description: AI Agentへの詳細な実装指示
+      placeholder: |
+        Effect-TSのContext.GenericTagパターンを使用して
+        GameServiceを実装してください。
+
+        参考実装: src/shared/services/ConfigService.ts
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: 検証方法
+      description: 実装の検証コマンド・手順
+      placeholder: |
+        ```bash
+        pnpm test src/domain/service/GameService.test.ts
+        pnpm typecheck
+        pnpm dev # 画面で動作確認
+        ```
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: PR前チェックリスト
+      description: PR作成前に確認する項目
+      options:
+        - label: Effect-TSパターンに従っている
+        - label: Schema.Structで型定義している
+        - label: エラーハンドリングが適切
+        - label: テストカバレッジ80%以上
+        - label: TypeScript strictモード通過
+        - label: Lintエラーなし
+        - label: ドキュメント更新済み
+        - label: パフォーマンス基準を満たす

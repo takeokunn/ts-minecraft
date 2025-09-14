@@ -22,6 +22,12 @@ estimated_reading_time: "参照時に応じて"
 
 TypeScript Minecraft Clone開発で使用する全APIの詳細仕様を体系化。Effect-TS 3.17+の最新パターンに準拠した実用的なAPIリファレンスです。
 
+> **📍 重要**: このセクションは**APIの単一情報源 (Single Source of Truth)** です
+>
+> - **参照優先**: API仕様はここを最優先で参照してください
+> - **重複削除**: 他のセクションからAPI詳細仕様を削除し、ここへ統合しました
+> - **学習支援**: [チュートリアル](../../tutorials/) では簡略版、[解説](../../explanations/) では設計思想を説明
+
 ## 🎯 API体系マップ
 
 ```mermaid
@@ -73,10 +79,10 @@ mindmap
 
 | インフラ領域 | ファイル | 主要機能 | パフォーマンス影響 |
 |-------------|---------|---------|-------------------|
-| **Rendering API** | [📋 infrastructure-apis.md](./infrastructure-apis.md#rendering-api) | Three.js統合・シーン管理 | 🔴 High |
-| **Asset API** | [📋 infrastructure-apis.md](./infrastructure-apis.md#asset-api) | テクスチャ・モデル読み込み | 🟡 Medium |
-| **Input API** | [📋 infrastructure-apis.md](./infrastructure-apis.md#input-api) | キーボード・マウス処理 | 🟢 Low |
-| **Storage API** | [📋 infrastructure-apis.md](./infrastructure-apis.md#storage-api) | セーブデータ・設定保存 | 🟡 Medium |
+| **Rendering API** | [📋 infrastructure-api-reference.md](./infrastructure-api-reference.md#rendering-api) | Three.js統合・シーン管理 | 🔴 High |
+| **Asset API** | [📋 infrastructure-api-reference.md](./infrastructure-api-reference.md#asset-api) | テクスチャ・モデル読み込み | 🟡 Medium |
+| **Input API** | [📋 infrastructure-api-reference.md](./infrastructure-api-reference.md#input-api) | キーボード・マウス処理 | 🟢 Low |
+| **Storage API** | [📋 infrastructure-api-reference.md](./infrastructure-api-reference.md#storage-api) | セーブデータ・設定保存 | 🟡 Medium |
 
 ### 🛠️ **Utility Functions** - 共通ユーティリティ
 
@@ -209,7 +215,7 @@ const processGameFrame = Effect.gen(function* () {
 |------|--------|-----------|
 | **型エラー** | [Core APIs](./core-apis.md#schema-api) | `Schema.decode`, `Schema.validate` |
 | **依存性注入** | [Core APIs](./core-apis.md#context-api) | `Context.GenericTag`, `Layer` |
-| **レンダリング問題** | [Infrastructure APIs](./infrastructure-apis.md#rendering-api) | `Three.js`, `WebGL`, `Scene` |
+| **レンダリング問題** | [Infrastructure APIs](./infrastructure-api-reference.md#rendering-api) | `Three.js`, `WebGL`, `Scene` |
 | **チャンク読み込み** | [Domain APIs](./domain-apis.md#world-api) | `loadChunk`, `ChunkCoordinate` |
 | **プレイヤー移動** | [Domain APIs](./domain-apis.md#player-api) | `movePlayer`, `Position`, `Velocity` |
 
@@ -227,7 +233,7 @@ const processGameFrame = Effect.gen(function* () {
 1. **[Schema基礎](./core-apis.md#schema-api)** → 型安全データ処理の理解
 2. **[Context システム](./core-apis.md#context-api)** → 依存性管理パターン
 3. **[Domain APIs](./domain-apis.md)** → ゲーム固有ロジック実装
-4. **[Infrastructure APIs](./infrastructure-apis.md)** → システム統合・最適化
+4. **[Infrastructure APIs](./infrastructure-api-reference.md)** → システム統合・最適化
 
 ### 🛠️ **実装支援ツール**
 - **[Development Commands](../cli-commands/development-commands.md)** - API開発用CLI

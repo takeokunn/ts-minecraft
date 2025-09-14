@@ -750,12 +750,29 @@ export const AuthorizationManagerLive = Layer.succeed(AuthorizationManager, make
  * 機密データの安全な処理と保存
  */
 
-export class DataEncryption {
-  constructor(private readonly encryptionKey: string) {}
+export interface DataEncryption {
+  readonly encrypt: (plaintext: string) => Effect.Effect<EncryptedData, EncryptionError>
+  readonly decrypt: (encryptedData: EncryptedData) => Effect.Effect<string, EncryptionError>
+}
 
-  // 文字列暗号化（AES-256-GCM シミュレーション）
-  encrypt(plaintext: string): Effect.Effect<EncryptedData, EncryptionError> {
-    return Effect.gen(this, function* () {
+export const makeDataEncryption = (
+  encryptionKey: string
+): Effect.Effect<DataEncryption, never, never> =>
+  Effect.gen(function* () {
+    const generateSecureRandom = (bytes: number) =>
+      Effect.sync(() => crypto.getRandomValues(new Uint8Array(bytes)).toString())
+
+    const simpleEncrypt = (plaintext: string, key: string, iv: string) =>
+      Effect.succeed(Buffer.from(plaintext).toString('base64'))
+
+    const simpleDecrypt = (encrypted: string, key: string, iv: string) =>
+      Effect.succeed(Buffer.from(encrypted, 'base64').toString())
+
+    const generateAuthTag = (data: string, key: string) =>
+      Effect.succeed(crypto.createHash('sha256').update(data + key).digest('hex'))
+
+    const encrypt = (plaintext: string): Effect.Effect<EncryptedData, EncryptionError> =>
+      Effect.gen(function* () {
       if (!plaintext) {
         yield* Effect.fail(new EncryptionError({
           message: 'Cannot encrypt empty data',
@@ -764,13 +781,13 @@ export class DataEncryption {
       }
 
       // 初期化ベクター生成
-      const iv = yield* this.generateSecureRandom(16)
+      const iv = yield* generateSecureRandom(16)
 
       // 簡易暗号化（実際の実装では Web Crypto API使用）
-      const encrypted = yield* this.simpleEncrypt(plaintext, this.encryptionKey, iv)
+      const encrypted = yield* simpleEncrypt(plaintext, encryptionKey, iv)
 
       // 認証タグ生成
-      const authTag = yield* this.generateAuthTag(encrypted, this.encryptionKey)
+      const authTag = yield* generateAuthTag(encrypted, encryptionKey)
 
       const result: EncryptedData = {
         data: encrypted,
@@ -783,11 +800,10 @@ export class DataEncryption {
     })
   }
 
-  // 文字列復号化
-  decrypt(encryptedData: EncryptedData): Effect.Effect<string, EncryptionError> {
-    return Effect.gen(this, function* () {
+  const decrypt = (encryptedData: EncryptedData): Effect.Effect<string, EncryptionError> =>
+    Effect.gen(function* () {
       // 認証タグ検証
-      const expectedAuthTag = yield* this.generateAuthTag(encryptedData.data, this.encryptionKey)
+      const expectedAuthTag = yield* generateAuthTag(encryptedData.data, encryptionKey)
       if (encryptedData.authTag !== expectedAuthTag) {
         yield* Effect.fail(new EncryptionError({
           message: 'Data integrity check failed',
@@ -796,37 +812,20 @@ export class DataEncryption {
       }
 
       // 復号化
-      const decrypted = yield* this.simpleDecrypt(
+      const decrypted = yield* simpleDecrypt(
         encryptedData.data,
-        this.encryptionKey,
+        encryptionKey,
         encryptedData.iv
       )
 
       return decrypted
     })
-  }
 
-  // ハッシュ生成（パスワード等）
-  hash(input: string, salt?: string): Effect.Effect<HashedData, EncryptionError> {
-    return Effect.gen(this, function* () {
-      const actualSalt = salt || (yield* this.generateSecureRandom(32))
-
-      // PBKDF2シミュレーション（実際の実装では crypto.subtle.deriveBits使用）
-      const iterations = 100000
-      const hashedValue = yield* this.pbkdf2(input, actualSalt, iterations, 256)
-
-      return {
-        hash: hashedValue,
-        salt: actualSalt,
-        iterations,
-        algorithm: 'PBKDF2'
-      }
-    })
-  }
-
-  // ハッシュ検証
-  verifyHash(input: string, hashedData: HashedData): Effect.Effect<boolean, EncryptionError> {
-    return Effect.gen(this, function* () {
+    return {
+      encrypt,
+      decrypt
+    }
+  })
       const computedHash = yield* this.pbkdf2(
         input,
         hashedData.salt,
@@ -945,34 +944,38 @@ export const EncryptionError = Schema.TaggedError('EncryptionError')({
   operation: Schema.Literal('encrypt', 'decrypt', 'hash', 'verify')
 })
 
-// 機密データ保護クラス
-export class SensitiveDataProtector {
-  constructor(private readonly encryption: DataEncryption) {}
+// 機密データ保護インターフェース
+export interface SensitiveDataProtector {
+  readonly protectPlayerSettings: (playerId: string, settings: PlayerSettings) => Effect.Effect<string, EncryptionError>
+  readonly unprotectPlayerSettings: (playerId: string, encryptedSettings: string) => Effect.Effect<PlayerSettings, EncryptionError>
+  readonly protectChatHistory: (messages: ChatMessage[]) => Effect.Effect<string, EncryptionError>
+}
 
+export const makeSensitiveDataProtector = (
+  encryption: DataEncryption
+): SensitiveDataProtector => ({
   // プレイヤー設定の暗号化保存
-  protectPlayerSettings(playerId: string, settings: PlayerSettings): Effect.Effect<string, EncryptionError> {
-    return Effect.gen(this, function* () {
+  protectPlayerSettings: (playerId: string, settings: PlayerSettings) =>
+    Effect.gen(function* () {
       const settingsJSON = JSON.stringify(settings)
-      const encrypted = yield* this.encryption.encrypt(settingsJSON)
+      const encrypted = yield* encryption.encrypt(settingsJSON)
 
       // 暗号化データをJSON文字列として返却
       return JSON.stringify(encrypted)
-    })
-  }
+    }),
 
   // プレイヤー設定の復号化
-  unprotectPlayerSettings(playerId: string, encryptedSettings: string): Effect.Effect<PlayerSettings, EncryptionError> {
-    return Effect.gen(this, function* () {
+  unprotectPlayerSettings: (playerId: string, encryptedSettings: string) =>
+    Effect.gen(function* () {
       const encryptedData = JSON.parse(encryptedSettings) as EncryptedData
-      const decryptedJSON = yield* this.encryption.decrypt(encryptedData)
+      const decryptedJSON = yield* encryption.decrypt(encryptedData)
 
       return JSON.parse(decryptedJSON) as PlayerSettings
-    })
-  }
+    }),
 
   // チャット履歴の保護
-  protectChatHistory(messages: ChatMessage[]): Effect.Effect<string, EncryptionError> {
-    return Effect.gen(this, function* () {
+  protectChatHistory: (messages: ChatMessage[]) =>
+    Effect.gen(function* () {
       // 個人情報のマスキング
       const maskedMessages = messages.map(msg => ({
         ...msg,
@@ -981,12 +984,11 @@ export class SensitiveDataProtector {
       }))
 
       const messagesJSON = JSON.stringify(maskedMessages)
-      const encrypted = yield* this.encryption.encrypt(messagesJSON)
+      const encrypted = yield* encryption.encrypt(messagesJSON)
 
       return JSON.stringify(encrypted)
     })
-  }
-}
+})
 
 interface PlayerSettings {
   readonly renderDistance: number
@@ -1018,88 +1020,104 @@ interface ChatMessage {
  * GDPR準拠のプライバシー管理
  */
 
-export class PrivacyManager {
-  private readonly dataRetentionPolicies = new Map<DataType, RetentionPolicy>()
-  private readonly consentRecords = new Map<string, ConsentRecord>()
+export interface PrivacyManager {
+  readonly recordConsent: (userId: string, consentData: ConsentData) => Effect.Effect<void, PrivacyError>
+  readonly revokeConsent: (userId: string, dataTypes: DataType[]) => Effect.Effect<void, PrivacyError>
+  readonly getConsentStatus: (userId: string) => Effect.Effect<ConsentRecord, PrivacyError>
+  readonly deleteUserData: (userId: string, dataTypes: DataType[]) => Effect.Effect<DeleteResult, PrivacyError>
+  readonly exportUserData: (userId: string) => Effect.Effect<UserDataExport, PrivacyError>
+}
 
-  constructor() {
-    this.initializeRetentionPolicies()
-  }
+export const makePrivacyManager = (): Effect.Effect<PrivacyManager, never, never> =>
+  Effect.gen(function* () {
+    const dataRetentionPolicies = yield* Ref.make(new Map<DataType, RetentionPolicy>())
+    const consentRecords = yield* Ref.make(new Map<string, ConsentRecord>())
 
-  // データ保持ポリシー初期化
-  private initializeRetentionPolicies(): void {
-    this.dataRetentionPolicies.set('player_stats', {
-      type: 'player_stats',
-      retentionPeriod: 365 * 24 * 60 * 60 * 1000, // 1年
-      autoDelete: true,
-      requiresConsent: false,
-      description: 'ゲーム統計データ'
-    })
-
-    this.dataRetentionPolicies.set('chat_logs', {
-      type: 'chat_logs',
-      retentionPeriod: 30 * 24 * 60 * 60 * 1000, // 30日
-      autoDelete: true,
-      requiresConsent: true,
-      description: 'チャット履歴'
-    })
-
-    this.dataRetentionPolicies.set('user_preferences', {
-      type: 'user_preferences',
-      retentionPeriod: 2 * 365 * 24 * 60 * 60 * 1000, // 2年
-      autoDelete: false,
-      requiresConsent: false,
-      description: 'ユーザー設定'
-    })
-
-    this.dataRetentionPolicies.set('error_logs', {
-      type: 'error_logs',
-      retentionPeriod: 90 * 24 * 60 * 60 * 1000, // 90日
-      autoDelete: true,
-      requiresConsent: false,
-      description: 'エラーログ'
-    })
-  }
-
-  // 同意記録管理
-  recordConsent(userId: string, consentData: ConsentData): Effect.Effect<void, PrivacyError> {
-    return Effect.gen(this, function* () {
-      const consentRecord: ConsentRecord = {
-        userId,
-        consentId: yield* this.generateConsentId(),
-        consentData,
-        timestamp: new Date(),
-        ipAddress: consentData.ipAddress,
-        userAgent: consentData.userAgent,
-        version: '1.0'
-      }
-
-      this.consentRecords.set(userId, consentRecord)
-
-      console.log(`🔒 Consent recorded for user ${userId}:`, {
-        analytics: consentData.analytics,
-        marketing: consentData.marketing,
-        essential: consentData.essential
+    // データ保持ポリシー初期化
+    const initializeRetentionPolicies = Effect.gen(function* () {
+      const policies = new Map<DataType, RetentionPolicy>()
+      policies.set('player_stats', {
+        type: 'player_stats',
+        retentionPeriod: 365 * 24 * 60 * 60 * 1000, // 1年
+        autoDelete: true,
+        requiresConsent: false,
+        description: 'ゲーム統計データ'
       })
+
+      policies.set('chat_logs', {
+        type: 'chat_logs',
+        retentionPeriod: 30 * 24 * 60 * 60 * 1000, // 30日
+        autoDelete: true,
+        requiresConsent: true,
+        description: 'チャット履歴'
+      })
+
+      policies.set('user_preferences', {
+        type: 'user_preferences',
+        retentionPeriod: 2 * 365 * 24 * 60 * 60 * 1000, // 2年
+        autoDelete: false,
+        requiresConsent: false,
+        description: 'ユーザー設定'
+      })
+
+      policies.set('error_logs', {
+        type: 'error_logs',
+        retentionPeriod: 90 * 24 * 60 * 60 * 1000, // 90日
+        autoDelete: true,
+        requiresConsent: false,
+        description: 'エラーログ'
+      })
+
+      yield* Ref.set(dataRetentionPolicies, policies)
     })
-  }
 
-  // 同意撤回処理
-  withdrawConsent(userId: string, dataTypes: DataType[]): Effect.Effect<void, PrivacyError> {
-    return Effect.gen(this, function* () {
-      const existingConsent = this.consentRecords.get(userId)
-      if (!existingConsent) {
-        yield* Effect.fail(new PrivacyError({
-          message: 'No consent record found',
+    yield* initializeRetentionPolicies
+
+    // 同意記録管理
+    const recordConsent = (userId: string, consentData: ConsentData): Effect.Effect<void, PrivacyError> =>
+      Effect.gen(function* () {
+        const generateConsentId = () => Effect.succeed(crypto.randomUUID())
+
+        const consentRecord: ConsentRecord = {
           userId,
-          operation: 'withdraw_consent'
-        }))
-      }
+          consentId: yield* generateConsentId(),
+          consentData,
+          timestamp: new Date(),
+          ipAddress: consentData.ipAddress,
+          userAgent: consentData.userAgent,
+          version: '1.0'
+        }
 
-      // 関連データの削除
-      yield* Effect.forEach(dataTypes, (dataType) =>
-        this.deleteUserData(userId, dataType)
-      )
+        yield* Ref.update(consentRecords, (records) => {
+          const newRecords = new Map(records)
+          newRecords.set(userId, consentRecord)
+          return newRecords
+        })
+
+        yield* Effect.log(`🔒 Consent recorded for user ${userId}:`, {
+          analytics: consentData.analytics,
+          marketing: consentData.marketing,
+          essential: consentData.essential
+        })
+      })
+
+    // 同意撤回処理
+    const revokeConsent = (userId: string, dataTypes: DataType[]): Effect.Effect<void, PrivacyError> =>
+      Effect.gen(function* () {
+        const records = yield* Ref.get(consentRecords)
+        const existingConsent = records.get(userId)
+        if (!existingConsent) {
+          yield* Effect.fail(new PrivacyError({
+            message: 'No consent record found',
+            userId,
+            operation: 'withdraw_consent'
+          }))
+        }
+
+        // 関連データの削除
+        yield* Effect.forEach(dataTypes, (dataType) =>
+          deleteUserData(userId, [dataType])
+        )
 
       // 同意記録の更新
       const updatedConsent = {
@@ -1395,34 +1413,46 @@ export const PrivacyError = Schema.TaggedError('PrivacyError')({
  * リアルタイムセキュリティ脅威検出
  */
 
-export class SecurityMonitor {
-  private readonly threats = new Map<string, ThreatData>()
-  private readonly alerts: SecurityAlert[] = []
-  private readonly rateLimiters = new Map<string, RateLimiter>()
+export interface SecurityMonitor {
+  readonly recordSecurityEvent: (event: SecurityEvent) => Effect.Effect<void, SecurityError>
+  readonly getTopThreats: (limit?: number) => Effect.Effect<ThreatSummary[], never, never>
+  readonly getThreatCategories: () => Effect.Effect<Record<string, number>, never, never>
+}
 
-  constructor() {
-    this.initializeRateLimiters()
-    this.startThreatMonitoring()
-  }
+export const makeSecurityMonitor = (): Effect.Effect<SecurityMonitor, never, never> =>
+  Effect.gen(function* () {
+    const threats = yield* Ref.make(new Map<string, ThreatData>())
+    const alerts = yield* Ref.make<SecurityAlert[]>([])
+    const rateLimiters = yield* Ref.make(new Map<string, RateLimiter>())
 
-  private initializeRateLimiters(): void {
-    // API呼び出し制限
-    this.rateLimiters.set('api_calls', new RateLimiter(100, 60000)) // 100 calls/minute
-    this.rateLimiters.set('login_attempts', new RateLimiter(5, 300000)) // 5 attempts/5min
-    this.rateLimiters.set('chat_messages', new RateLimiter(10, 30000)) // 10 messages/30sec
-    this.rateLimiters.set('block_place', new RateLimiter(1000, 60000)) // 1000 blocks/minute
-  }
+    // API呼び出し制限初期化
+    const initializeRateLimiters = Effect.gen(function* () {
+      const limiters = new Map<string, RateLimiter>()
+      limiters.set('api_calls', yield* makeRateLimiter(100, 60000)) // 100 calls/minute
+      limiters.set('login_attempts', yield* makeRateLimiter(5, 300000)) // 5 attempts/5min
+      limiters.set('chat_messages', yield* makeRateLimiter(10, 30000)) // 10 messages/30sec
+      limiters.set('block_place', yield* makeRateLimiter(1000, 60000)) // 1000 blocks/minute
+      yield* Ref.set(rateLimiters, limiters)
+    })
 
-  // セキュリティイベント記録
-  recordSecurityEvent(event: SecurityEvent): Effect.Effect<void, SecurityError> {
-    return Effect.gen(this, function* () {
-      const eventId = `event_${Date.now()}_${Math.random().toString(36).substring(2)}`
+    yield* initializeRateLimiters
 
-      // レート制限チェック
-      if (event.type !== 'info') {
-        const rateLimiter = this.rateLimiters.get(event.category)
-        if (rateLimiter && !rateLimiter.isAllowed(event.sourceIP)) {
-          yield* this.generateAlert({
+    const generateAlert = (alert: Partial<SecurityAlert>): Effect.Effect<void, never, never> =>
+      Ref.update(alerts, (list) => [...list, alert as SecurityAlert])
+
+    // セキュリティイベント記録
+    const recordSecurityEvent = (event: SecurityEvent): Effect.Effect<void, SecurityError> =>
+      Effect.gen(function* () {
+        const eventId = `event_${Date.now()}_${Math.random().toString(36).substring(2)}`
+
+        // レート制限チェック
+        if (event.type !== 'info') {
+          const limiters = yield* Ref.get(rateLimiters)
+          const rateLimiter = limiters.get(event.category)
+          if (rateLimiter) {
+            const allowed = yield* rateLimiter.isAllowed(event.sourceIP)
+            if (!allowed) {
+              yield* generateAlert({
             id: `alert_${Date.now()}`,
             type: 'rate_limit_exceeded',
             severity: 'high',
@@ -1722,37 +1752,60 @@ export class SecurityMonitor {
   }
 }
 
-// レート制限器
-class RateLimiter {
-  private readonly requests = new Map<string, number[]>()
-
-  constructor(
-    private readonly maxRequests: number,
-    private readonly windowMs: number
-  ) {}
-
-  isAllowed(identifier: string): boolean {
-    const now = Date.now()
-    const windowStart = now - this.windowMs
-
-    // 既存リクエスト履歴取得
-    let requests = this.requests.get(identifier) || []
-
-    // 期限切れリクエスト削除
-    requests = requests.filter(timestamp => timestamp > windowStart)
-
-    // 制限チェック
-    if (requests.length >= this.maxRequests) {
-      return false
-    }
-
-    // 新しいリクエスト記録
-    requests.push(now)
-    this.requests.set(identifier, requests)
-
-    return true
-  }
+// レート制限器インターフェース
+export interface RateLimiter {
+  readonly isAllowed: (identifier: string) => Effect.Effect<boolean, never, never>
+  readonly reset: (identifier?: string) => Effect.Effect<void, never, never>
 }
+
+export const makeRateLimiter = (
+  maxRequests: number,
+  windowMs: number
+): Effect.Effect<RateLimiter, never, never> =>
+  Effect.gen(function* () {
+    const requests = yield* Ref.make(new Map<string, number[]>())
+
+    const isAllowed = (identifier: string): Effect.Effect<boolean, never, never> =>
+      Effect.gen(function* () {
+        const now = Date.now()
+        const windowStart = now - windowMs
+
+        const currentRequests = yield* Ref.get(requests)
+        let userRequests = currentRequests.get(identifier) || []
+
+        // 期限切れリクエスト削除
+        userRequests = userRequests.filter(timestamp => timestamp > windowStart)
+
+        // 制限チェック
+        if (userRequests.length >= maxRequests) {
+          return false
+        }
+
+        // 新しいリクエスト記録
+        userRequests.push(now)
+        yield* Ref.update(requests, (map) => {
+          const newMap = new Map(map)
+          newMap.set(identifier, userRequests)
+          return newMap
+        })
+
+        return true
+      })
+
+    const reset = (identifier?: string): Effect.Effect<void, never, never> =>
+      identifier
+        ? Ref.update(requests, (map) => {
+            const newMap = new Map(map)
+            newMap.delete(identifier)
+            return newMap
+          })
+        : Ref.set(requests, new Map())
+
+    return {
+      isAllowed,
+      reset
+    }
+  })
 
 // 型定義
 interface SecurityEvent {

@@ -2245,7 +2245,7 @@ describe("World API Integration Tests", () => {
 
 **Core System Integration**:
 - [Domain & Application APIs](./domain-application-apis.md) - ビジネスロジック層API
-- [Infrastructure APIs](./infrastructure-apis.md) - インフラ層API
+- [Infrastructure APIs](./infrastructure-architecture.md) - インフラ層API
 - [Event Bus Specification](./event-bus-specification.md) - イベント駆動API
 
 **Security & Performance**:

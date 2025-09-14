@@ -1,3 +1,30 @@
+---
+title: "チュートリアル概要 - 学習指向ドキュメントガイド"
+description: "TypeScript Minecraft Clone の体系的学習パス。初心者から上級者まで段階的にスキルを習得できるチュートリアル集。"
+difficulty: "beginner"
+estimated_reading_time: "5分"
+prerequisites:
+  - "basic-typescript"
+  - "nodejs-installed"
+learning_objectives:
+  - "プロジェクト全体の学習パスを理解する"
+  - "適切なチュートリアルの選択方法を習得する"
+  - "効率的な学習順序を把握する"
+related_docs:
+  - "./getting-started/README.md"
+  - "./basic-game-development/01-environment-setup.md"
+  - "../how-to/README.md"
+internal_links:
+  - "./effect-ts-fundamentals/effect-ts-advanced.md"
+  - "./advanced-topics/README.md"
+tags: ["tutorials", "getting-started", "learning-path", "overview"]
+ai_context:
+  purpose: "tutorial"
+  audience: "newcomers to the project and developers wanting structured learning"
+  key_concepts: ["learning progression", "skill development", "tutorial selection"]
+machine_readable: true
+---
+
 # 📚 Tutorials - 学習指向ドキュメント
 
 このセクションは**学習指向**のドキュメントです。TypeScript Minecraft Cloneプロジェクトの理解と実装スキルを段階的に習得できます。

@@ -88,22 +88,22 @@ const makeWorldService = Effect.gen(function* () {
 Effect-TSは**副作用を型で表現**することで、これらの複雑性を制御可能にします：
 
 ```typescript
-// Effect-TSによる明示的な副作用管理
-const loadChunk = (position: ChunkPosition): Effect.Effect<
+// Effect-TSによる明示的な副作用管理の型シグネチャ
+const loadChunk: (position: ChunkPosition) => Effect.Effect<
   Chunk,                    // 成功時の結果型
   LoadChunkError,          // 可能なエラー型
   FileSystem | ChunkCache  // 必要な依存関係
-> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem
-    const cache = yield* ChunkCache
+>
 
-    const chunkData = yield* fs.readChunk(position)
-    const chunk = yield* parseChunkData(chunkData)
-    yield* cache.store(position, chunk)
+// 実装の詳細は tutorials/effect-ts-basics.md を参照
+```
 
-    return chunk
-  })
+**設計哲学の核心:**
+- **型による制約**: 副作用を型シグネチャで明示することで、隠れた依存関係を排除
+- **合成可能性**: 小さな Effect を組み合わせて複雑なシステムを構築
+- **予測可能性**: 同じ入力に対して同じ結果を保証（参照透明性）
+
+> 💡 **実装詳細**: 具体的なコード例と実装パターンは [Effect-TS 基礎](../../tutorials/effect-ts-fundamentals/effect-ts-basics.md) を参照してください。
 ```
 
 ## 設計原則の比較
@@ -135,68 +135,33 @@ const createOldGameEngine = () => ({
 ```
 
 **✅ Effect-TS 関数型アプローチ**:
-```typescript
-const GameUpdateError = Schema.TaggedError("GameUpdateError")({
-  system: Schema.Literal("physics", "rendering", "audio"),
-  reason: Schema.String,
-  deltaTime: Schema.Number
-})
 
+```typescript
+// 型安全なエラー設計
+interface GameUpdateError {
+  readonly _tag: "GameUpdateError"
+  readonly system: "physics" | "rendering" | "audio"
+  readonly reason: string
+  readonly deltaTime: number
+}
+
+// Effect型シグネチャによる明示的な契約
 interface GameEngine {
   readonly update: (deltaTime: number) => Effect.Effect<
     void,
-    typeof GameUpdateError.Type,
+    GameUpdateError,
     PhysicsSystem | RenderingSystem | AudioSystem
   >
 }
+```
 
-const GameEngine = Context.GenericTag<GameEngine>("@minecraft/GameEngine")
+**設計哲学の実現:**
+- **型による契約**: すべての依存関係とエラーが明示的
+- **並行性制御**: Effect.all による安全な並列実行
+- **リソース管理**: タイムアウトとリトライによる堅牢性
+- **合成性**: 小さなシステムから大きなシステムを構築
 
-const makeGameEngine = Effect.gen(function* () {
-  return GameEngine.of({
-    update: (deltaTime) => Effect.gen(function* () {
-      // Match.value によるフレームレート制御
-      const targetFrameTime = 16.67 // 60 FPS
-
-      yield* Match.value(deltaTime > targetFrameTime * 2).pipe(
-        Match.when(
-          true,
-          () => Effect.logWarning(`High delta time detected: ${deltaTime}ms`)
-        ),
-        Match.when(
-          false,
-          () => Effect.succeed(void 0)
-        ),
-        Match.exhaustive
-      )
-
-      // 並行実行でパフォーマンス最適化
-      yield* Effect.all([
-        physicsUpdate(deltaTime).pipe(
-          Effect.mapError((err) => GameUpdateError({ system: "physics", reason: String(err), deltaTime }))
-        ),
-        renderingUpdate(deltaTime).pipe(
-          Effect.mapError((err) => GameUpdateError({ system: "rendering", reason: String(err), deltaTime }))
-        ),
-        audioUpdate(deltaTime).pipe(
-          Effect.mapError((err) => GameUpdateError({ system: "audio", reason: String(err), deltaTime }))
-        )
-      ], { concurrency: "unbounded" })
-      .pipe(
-        Effect.timeout(Duration.millis(targetFrameTime)),  // フレームレート維持
-        Effect.retry({ times: 3, schedule: Schedule.exponential(10) }), // 指数バックオフリトライ
-        Effect.catchAll((err) =>
-          Effect.gen(function* () {
-            yield* Effect.logError(`Game update failed: ${err._tag}`)
-            return handleGameError(err)
-          })
-        )
-      )
-    })
-  })
-})
-
-const GameEngineLive = Layer.effect(GameEngine, makeGameEngine)
+> 🔗 **実装例**: 完全な実装コードは [Effect-TS Services](../../tutorials/effect-ts-fundamentals/effect-ts-services.md) を参照してください。
 ```
 
 ### 3. 依存関係管理
@@ -385,3 +350,20 @@ Effect-TSベースの関数型プログラミングは、Minecraftクローン�
 4. **保守性** - 明示的な依存関係とエラーハンドリング
 
 これらの恩恵を提供します。初期の学習コストはありますが、長期的な開発効率と品質向上において、その投資は確実に回収されるのです。
+
+---
+
+## 次のステップ
+
+### 実践的な学習
+- **ハンズオン学習**: [Effect-TS 基礎](../../tutorials/effect-ts-fundamentals/effect-ts-basics.md) - 実行可能なサンプルコードで学習
+- **サービス設計**: [Effect-TS サービス](../../tutorials/effect-ts-fundamentals/effect-ts-services.md) - 依存性注入とLayer管理
+- **応用パターン**: [Effect-TS パターン集](../../tutorials/effect-ts-fundamentals/effect-ts-patterns.md) - 高度な実装パターン
+
+### 実際の移行作業
+- **移行計画**: [Effect-TS移行ガイド](../../how-to/development/effect-ts-migration-guide.md) - 段階的な移行手順
+- **テスト戦略**: [Effect-TSテスト](../../tutorials/effect-ts-fundamentals/effect-ts-testing.md) - テスト環境構築
+
+### アーキテクチャ理解
+- **設計パターン**: [サービスパターン](./service-patterns.md) - より広範な設計原則
+- **データモデリング**: [データモデリングパターン](./data-modeling-patterns.md) - Schema活用戦略

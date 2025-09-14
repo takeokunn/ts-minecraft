@@ -415,11 +415,13 @@ export const NetworkProtocol = {
     }
 
     // 変更されたフィールドのみ送信
-    for (const key in current) {
-      if (current[key] !== previous[key]) {
-        delta.changes[key] = current[key]
-      }
-    }
+    const changes = pipe(
+      Record.keys(current),
+      Array.filter(key => current[key] !== previous[key]),
+      Array.map(key => [key, current[key]] as const),
+      Record.fromEntries
+    )
+    delta.changes = changes
 
     return Protocol.encode(delta)
   },

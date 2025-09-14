@@ -12,6 +12,13 @@ status: "complete"
 
 # Effect-TS Effect API リファレンス
 
+> 📚 **最新APIドキュメント**: Effect-TSの最新APIドキュメントはContext7で確認できます。
+> ```bash
+> # Context7で最新のEffect APIドキュメントを参照
+> # Library ID: /effect/effect
+> # Topic: "Effect core API", "Effect.gen", "Effect pipe"
+> ```
+
 ## 概要
 
 Effect型は、Effect-TSフレームワークの中核となる型で、副作用、エラー、依存関係を型安全に管理するためのモナディック構造です。

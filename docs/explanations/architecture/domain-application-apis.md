@@ -7,7 +7,7 @@ tags: ["domain-api", "application-api", "ddd-patterns", "aggregate-root", "domai
 prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "aggregate-patterns", "functional-composition"]
 estimated_reading_time: "30分"
 related_patterns: ["service-patterns", "domain-modeling-patterns", "aggregate-patterns"]
-related_docs: ["./infrastructure-apis.md", "../../01-architecture/02-ddd-strategic-design.md"]
+related_docs: ["./infrastructure-architecture.md", "../../01-architecture/02-ddd-strategic-design.md"]
 ---
 
 # Domain & Application Layer API仕様
@@ -2339,12 +2339,12 @@ export const ApplicationLayer = Layer.mergeAll(
 - [Inventory System](../game-mechanics/core-features/inventory-system.md) - インベントリ操作API
 
 **API Specifications**:
-- [Infrastructure APIs](./infrastructure-apis.md) - インフラ層API定義
+- [Infrastructure APIs](./infrastructure-architecture.md) - インフラ層API定義
 - [Event Bus Specification](./event-bus-specification.md) - イベント駆動API
 - [Data Flow Diagram](./data-flow-diagram.md) - データフロー設計
 
 **Architecture**:
-- [Architecture Overview](./overview.md) - レイヤー構成
+- [Architecture Overview](./architecture-overview.md) - レイヤー構成
 - [Design Patterns](../design-patterns/README.md) - APIパターン実装
 
 ## Advanced Testing Patterns

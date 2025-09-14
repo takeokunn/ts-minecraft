@@ -119,23 +119,19 @@ export const WorldError = Schema.TaggedError("WorldError")({
   originalError: Schema.optional(Schema.Unknown)
 })
 
-// WorldServiceインターフェース定義
+// 学習用簡略化インターフェース（実際のAPI仕様は参照セクションで確認）
+// 🔗 完全API仕様: docs/reference/api/domain-apis.md#world-api
 export interface WorldService {
-  // チャンク操作
-  readonly generateChunk: (coordinate: ChunkCoordinate) => Effect.Effect<Chunk, WorldError>
+  // 基本チャンク操作（学習ポイント）
   readonly loadChunk: (coordinate: ChunkCoordinate) => Effect.Effect<Chunk, WorldError>
   readonly saveChunk: (chunk: Chunk) => Effect.Effect<void, WorldError>
-  readonly unloadChunk: (coordinate: ChunkCoordinate) => Effect.Effect<void, never>
 
-  // ブロック操作
-  readonly getBlock: (x: number, y: number, z: number) => Effect.Effect<Block | null, WorldError>
-  readonly setBlock: (x: number, y: number, z: number, block: Block) => Effect.Effect<void, WorldError>
-  readonly breakBlock: (x: number, y: number, z: number) => Effect.Effect<Block | null, WorldError>
+  // 基本ブロック操作（学習ポイント）
+  readonly getBlock: (position: Position) => Effect.Effect<Block, BlockError>
+  readonly setBlock: (position: Position, block: Block) => Effect.Effect<void, BlockError>
 
-  // チャンク管理
-  readonly getLoadedChunks: () => Effect.Effect<ChunkCoordinate[], never>
-  readonly isChunkLoaded: (coordinate: ChunkCoordinate) => Effect.Effect<boolean, never>
-  readonly getChunkCount: () => Effect.Effect<number, never>
+  // その他のメソッドは完全API仕様を参照
+  // readonly generateChunk, unloadChunk, breakBlock, etc...
 }
 
 // Context Tag - Effect-TS 3.17+ Context.GenericTag使用

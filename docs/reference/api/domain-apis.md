@@ -49,6 +49,97 @@ mindmap
 
 ## 🌍 World API - ワールド管理システム
 
+> **📚 参照元**: このAPIは複数のドキュメントに分散していたものを統合した完全仕様です
+>
+> **🔗 関連説明**:
+> - **設計思想**: [Domain Layer Design Principles](../../explanations/architecture/domain-layer-design-principles.md)
+> - **実装方法**: [Application Services Tutorial](../../tutorials/basic-game-development/application-services.md)
+> - **ゲーム仕様**: [World Management System](../../explanations/game-mechanics/core-features/world-management-system.md)
+> - **テストパターン**: [Effect-TS Testing Patterns](../../how-to/testing/effect-ts-testing-patterns.md)
+
+### ⚡ 高頻度使用API (60FPS対応)
+
+#### WorldService - メインワールド管理
+```typescript
+/**
+ * ワールド管理の中核サービス
+ * @description Minecraftワールドの包括的な管理機能を提供
+ * @performance_critical チャンク読み込み・レンダリング処理で高頻度使用
+ * @since 1.0.0
+ */
+export interface WorldService {
+  /**
+   * チャンクの読み込み
+   * @param coord チャンク座標
+   * @returns 読み込まれたチャンク、またはエラー
+   * @throws ChunkLoadError チャンク読み込み失敗
+   * @performance O(1) - キャッシュヒット時、O(log n) - ディスク読み込み時
+   */
+  readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkLoadError>
+
+  /**
+   * チャンクの非同期保存
+   * @param chunk 保存するチャンク
+   * @returns 保存完了
+   * @throws ChunkSaveError 保存失敗
+   */
+  readonly saveChunk: (chunk: Chunk) => Effect.Effect<void, ChunkSaveError>
+
+  /**
+   * チャンクのメモリ解放
+   * @param coord チャンク座標
+   * @returns 解放完了
+   */
+  readonly unloadChunk: (coord: ChunkCoordinate) => Effect.Effect<void, never>
+
+  /**
+   * 新規チャンク生成
+   * @param coord 生成位置
+   * @param generationOptions 生成オプション
+   * @returns 生成されたチャンク
+   * @throws ChunkGenerationError 生成失敗
+   */
+  readonly generateChunk: (
+    coord: ChunkCoordinate,
+    options?: ChunkGenerationOptions
+  ) => Effect.Effect<Chunk, ChunkGenerationError>
+
+  /**
+   * ブロック取得（高頻度）
+   * @param position 3D座標
+   * @returns ブロック情報、または空気ブロック
+   */
+  readonly getBlock: (position: Position) => Effect.Effect<Block, BlockError>
+
+  /**
+   * ブロック設置（高頻度）
+   * @param position 設置位置
+   * @param block 設置するブロック
+   * @returns 設置完了
+   * @throws BlockPlacementError 設置失敗
+   */
+  readonly setBlock: (position: Position, block: Block) => Effect.Effect<void, BlockPlacementError>
+
+  /**
+   * 読み込み済みチャンク一覧取得
+   * @returns チャンク座標配列
+   */
+  readonly getLoadedChunks: () => Effect.Effect<readonly ChunkCoordinate[], never>
+
+  /**
+   * チャンク読み込み状態確認
+   * @param coord チャンク座標
+   * @returns 読み込み済みフラグ
+   */
+  readonly isChunkLoaded: (coord: ChunkCoordinate) => Effect.Effect<boolean, never>
+}
+
+/**
+ * WorldService Context Tag
+ * @usage const worldService = yield* WorldService
+ */
+export const WorldService = Context.GenericTag<WorldService>("@minecraft/WorldService")
+
 ### 📋 World基本データ構造
 
 #### ✅ **コアデータ定義**
@@ -699,8 +790,10 @@ export const ItemStackSchema = Schema.Struct({
 #### ⭐ **PlayerService実装**
 ```typescript
 /**
- * プレイヤー管理サービス
+ * プレイヤー管理サービス（統合版）
  * @description プレイヤーの状態管理、移動、インベントリ、ステータス制御を行うサービス
+ * @performance_critical 移動・インベントリ操作で高頻度使用
+ * @consolidated_from ["tutorials/application-services.md", "explanations/domain-application-apis.md", "game-systems/game-player-api.md"]
  * @since 1.0.0
  */
 export interface PlayerService {

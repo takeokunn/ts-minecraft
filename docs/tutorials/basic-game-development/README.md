@@ -22,6 +22,12 @@ related_docs: ["../effect-ts-fundamentals/", "../getting-started/", "../../how-t
 
 Effect-TS 3.17+の最新パターンを活用し、DDD + ECS アーキテクチャによる堅牢で拡張性の高いMinecraft Cloneを段階的に構築します。
 
+> **📚 API学習アプローチ**: このチュートリアルでは学習に必要な**基本APIのみ**を紹介します
+>
+> - **簡略化**: 理解しやすさを優先した最小限のAPI仕様
+> - **完全版**: 全API仕様は [API Reference](../../reference/api/) で確認
+> - **設計理由**: アーキテクチャの判断基準は [Explanations](../../explanations/) で解説
+
 ## 🎯 チュートリアル概要
 
 ### 📊 学習成果マップ
@@ -1257,88 +1263,96 @@ import { GameApplication, AppLayer, GameError } from "./application/GameApplicat
 import { InputState } from "./application/services/PlayerService.js"
 
 // 入力状態管理
-class InputManager {
-  private keys = new Set<string>()
-  private mouseMovement = { x: 0, y: 0 }
-  private isPointerLocked = false
+interface InputManagerInterface {
+  readonly getInputState: () => InputState
+}
 
-  constructor(private canvas: HTMLCanvasElement) {
-    this.setupEventListeners()
-  }
+const makeInputManager = (canvas: HTMLCanvasElement): InputManagerInterface => {
+  const keys = new Set<string>()
+  const mouseMovement = { x: 0, y: 0 }
+  let isPointerLocked = false
 
-  private setupEventListeners() {
+  const setupEventListeners = () => {
     // キーボードイベント
     document.addEventListener('keydown', (e) => {
-      this.keys.add(e.code)
+      keys.add(e.code)
       if (e.code === 'Escape') {
         document.exitPointerLock()
       }
     })
 
     document.addEventListener('keyup', (e) => {
-      this.keys.delete(e.code)
+      keys.delete(e.code)
     })
 
     // マウスイベント
-    this.canvas.addEventListener('click', () => {
-      this.canvas.requestPointerLock()
+    canvas.addEventListener('click', () => {
+      canvas.requestPointerLock()
     })
 
     document.addEventListener('pointerlockchange', () => {
-      this.isPointerLocked = document.pointerLockElement === this.canvas
+      isPointerLocked = document.pointerLockElement === canvas
     })
 
     document.addEventListener('mousemove', (e) => {
-      if (this.isPointerLocked) {
-        this.mouseMovement.x = e.movementX
-        this.mouseMovement.y = e.movementY
+      if (isPointerLocked) {
+        mouseMovement.x = e.movementX
+        mouseMovement.y = e.movementY
       }
     })
   }
 
-  getInputState(): InputState {
-    const input: InputState = {
-      movement: {
-        forward: this.keys.has('KeyW'),
-        backward: this.keys.has('KeyS'),
-        left: this.keys.has('KeyA'),
-        right: this.keys.has('KeyD'),
-        jump: this.keys.has('Space')
-      },
-      mouse: {
-        deltaX: this.mouseMovement.x,
-        deltaY: this.mouseMovement.y
+  setupEventListeners()
+
+  return {
+    getInputState: (): InputState => {
+      const input: InputState = {
+        movement: {
+          forward: keys.has('KeyW'),
+          backward: keys.has('KeyS'),
+          left: keys.has('KeyA'),
+          right: keys.has('KeyD'),
+          jump: keys.has('Space')
+        },
+        mouse: {
+          deltaX: mouseMovement.x,
+          deltaY: mouseMovement.y
+        }
       }
+
+      // マウス移動量をリセット
+      mouseMovement.x = 0
+      mouseMovement.y = 0
+
+      return input
     }
-
-    // マウス移動量をリセット
-    this.mouseMovement.x = 0
-    this.mouseMovement.y = 0
-
-    return input
   }
 }
 
 // パフォーマンス監視
-class PerformanceMonitor {
-  private frameCount = 0
-  private lastTime = 0
-  private fps = 0
+interface PerformanceMonitorInterface {
+  readonly recordFrame: () => void
+}
 
-  constructor() {
-    setInterval(() => this.updateFPS(), 1000)
-  }
+const makePerformanceMonitor = (): PerformanceMonitorInterface => {
+  let frameCount = 0
+  let lastTime = 0
+  let fps = 0
 
-  private updateFPS() {
-    this.fps = this.frameCount
-    this.frameCount = 0
+  const updateFPS = () => {
+    fps = frameCount
+    frameCount = 0
 
     const fpsElement = document.getElementById('fps')
-    if (fpsElement) fpsElement.textContent = this.fps.toString()
+    if (fpsElement) fpsElement.textContent = fps.toString()
   }
 
-  recordFrame() {
-    this.frameCount++
+  setInterval(() => updateFPS(), 1000)
+
+  return {
+    recordFrame: () => {
+      frameCount++
+    }
   }
 }
 

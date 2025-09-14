@@ -27,120 +27,50 @@ React/Node.js/Express.jsなど従来のJavaScript/TypeScriptエコシステム�
 
 > 📍 **移行フロー**: **[25分 移行基礎]** → [30分 実践パターン] → [25分 高度技法] → [20分 テスト戦略]
 
-## 1. なぜEffect-TSに移行するのか？
+## 1. 移行判断とプロジェクト評価
 
-### 1.1 従来コードの問題点
+> 📖 **理論的背景**: Effect-TSの設計哲学と従来手法の比較は [関数型プログラミング哲学](../../explanations/design-patterns/functional-programming-philosophy.md) を参照してください。
 
-```typescript
-// ❌ 従来のTypeScript コード
-class PlayerService {
-  async createPlayer(name: string): Promise<Player> {
-    try {
-      // バリデーションエラーをキャッチできない
-      if (!name.trim()) {
-        throw new Error("Invalid name");
-      }
+### 1.1 移行対象の評価
 
-      // データベース接続エラー、ネットワークエラーなど
-      // 多様なエラーが同じPromise<T>型に潜む
-      const player = await this.database.insert({
-        id: Math.random().toString(), // 型安全でない
-        name,
-        position: { x: 0, y: 64, z: 0 },
-        health: 20
-      });
-
-      return player; // 実際の型は不明確
-    } catch (error) {
-      // どんなエラーかわからない
-      console.error("Failed to create player:", error);
-      throw error; // エラー型も不明
-    }
-  }
-}
+**移行に適したプロジェクト:**
+```bash
+# プロジェクト評価チェックリスト
+□ TypeScript使用（TypeScript 4.9+）
+□ 複雑なエラーハンドリングが必要
+□ 非同期処理が多用されている
+□ テスト環境と本番環境の分離が必要
+□ チーム内でFunction Programming経験がある（推奨）
 ```
 
-**問題点:**
-- エラー型が不明確（any、unknown、Error のいずれか）
-- 副作用（データベースアクセス）がテストしにくい
-- 型安全性の欠如（Math.random()のID生成など）
-- エラーハンドリングが場当たり的
+**移行前の準備:**
+```bash
+# 依存関係の確認
+npm audit
+npm outdated
 
-### 1.2 Effect-TSでの解決
+# TypeScript設定確認
+cat tsconfig.json | grep -E "(strict|noImplicitAny|strictNullChecks)"
 
-```typescript
-// ✅ Effect-TS での実装
-import { Effect, Schema, Context, Data } from "effect";
-
-// 明確なエラー型定義
-const InvalidPlayerNameError = Data.TaggedError("InvalidPlayerNameError")<{
-  readonly name: string;
-}>
-
-const DatabaseError = Data.TaggedError("DatabaseError")<{
-  readonly cause: unknown;
-}>
-
-// Schema による型安全なバリデーション
-const CreatePlayerRequest = Schema.Struct({
-  name: Schema.String.pipe(Schema.nonEmpty(), Schema.maxLength(50))
-});
-
-// Service による依存性注入
-interface DatabaseService {
-  readonly insert: (data: PlayerData) => Effect.Effect<Player, DatabaseError>;
-}
-const DatabaseService = Context.GenericTag<DatabaseService>("DatabaseService");
-
-const createPlayer = (name: string) =>
-  Effect.gen(function* (_) {
-    // バリデーション（型安全）
-    const request = yield* _(Schema.decodeUnknown(CreatePlayerRequest)({ name }));
-
-    // UUID生成（副作用を明示的に管理）
-    const id = yield* _(Effect.sync(() => crypto.randomUUID()));
-
-    // データベース操作（依存性注入）
-    const database = yield* _(DatabaseService);
-
-    const playerData: PlayerData = {
-      id,
-      name: request.name,
-      position: { x: 0, y: 64, z: 0 },
-      health: 20
-    };
-
-    const player = yield* _(database.insert(playerData));
-
-    return player;
-  });
-
-// 型シグネチャが明確
-// Effect<Player, InvalidPlayerNameError | DatabaseError, DatabaseService>
+# 現在のテストカバレッジ確認
+npm run test:coverage
 ```
-
-**効果:**
-- ✅ **型安全なエラー処理**: すべてのエラーが型レベルで明確
-- ✅ **テスタビリティ**: 依存性注入により単体テスト容易
-- ✅ **コンポーザビリティ**: Effectの合成による再利用性
-- ✅ **副作用管理**: 純粋関数として扱える
 
 ## 2. 段階的移行戦略
 
 ### 2.1 Phase 1: スキーマとエラーハンドリング導入
 
-```typescript
-// Step 1: 既存のインターフェース → Schema変換
-// Before
-interface Player {
-  id: string;
-  name: string;
-  position: { x: number; y: number; z: number };
-  health: number;
-}
+> 📚 **学習リソース**: Schema.Structの詳細な使い方は [Effect-TS 基礎](../../tutorials/effect-ts-fundamentals/effect-ts-basics.md) を参照してください。
 
-// After
-const PlayerSchema = Schema.Struct({
+```bash
+# Step 1: 重要な型から順次Schema変換
+mkdir src/schemas src/errors
+
+# 最も使用頻度の高いエンティティから開始
+cat > src/schemas/player.ts << 'EOF'
+import { Schema } from "effect";
+
+export const PlayerSchema = Schema.Struct({
   id: Schema.String.pipe(Schema.uuid()),
   name: Schema.String.pipe(Schema.nonEmpty(), Schema.maxLength(50)),
   position: Schema.Struct({
@@ -151,30 +81,23 @@ const PlayerSchema = Schema.Struct({
   health: Schema.Number.pipe(Schema.between(0, 20))
 });
 
-type Player = Schema.Schema.Type<typeof PlayerSchema>;
-```
+export type Player = Schema.Schema.Type<typeof PlayerSchema>;
+EOF
 
-```typescript
-// Step 2: エラーハンドリング統一
-// Before: バラバラなエラー処理
-try {
-  const result = await someOperation();
-} catch (error) {
-  console.error(error); // errorの型が不明
-}
+# エラークラス統一
+cat > src/errors/player-errors.ts << 'EOF'
+import { Data } from "effect";
 
-// After: タグ付きエラー
-const ValidationError = Data.TaggedError("ValidationError")<{
-  readonly field: string;
+export const PlayerNotFoundError = Data.TaggedError("PlayerNotFoundError")<{
+  readonly id: string;
   readonly message: string;
 }>
 
-const validateInput = (data: unknown) =>
-  Schema.decodeUnknown(PlayerSchema)(data)
-    .pipe(Effect.mapError(() => new ValidationError({
-      field: "player",
-      message: "Invalid player data"
-    })));
+export const PlayerValidationError = Data.TaggedError("PlayerValidationError")<{
+  readonly field: string;
+  readonly value: unknown;
+}>
+EOF
 ```
 
 ### 2.2 Phase 2: 非同期処理の移行
@@ -432,7 +355,10 @@ mkdir src/shared/errors src/shared/schemas
 export const PlayerSchema = Schema.Struct({ /* ... */ });
 
 // src/shared/errors/player-errors.ts
-export class PlayerNotFoundError extends Data.TaggedError(/* ... */) {}
+export const PlayerNotFoundError = Schema.TaggedError("PlayerNotFoundError")({
+  playerId: Schema.String,
+  message: Schema.String
+})
 ```
 
 **Week 3: サービス層の段階的移行**

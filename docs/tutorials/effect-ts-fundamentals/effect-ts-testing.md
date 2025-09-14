@@ -506,17 +506,20 @@ describe("Composite Function Property-Based Tests", () => {
       const test = Effect.gen(function* () {
         const worldService = yield* WorldService;
 
-        for (const position of positions) {
-          const isValid = yield* worldService.isValidPosition(position);
+        // Effect-TSのEffect.forEachパターンを使用
+        yield* Effect.forEach(positions, (position) =>
+          Effect.gen(function* () {
+            const isValid = yield* worldService.isValidPosition(position);
 
-          // プロパティ検証: 有効な座標は常に一貫している
-          const expectedValid =
-            position.x >= -30000000 && position.x <= 30000000 &&
-            position.y >= -64 && position.y <= 320 &&
-            position.z >= -30000000 && position.z <= 30000000;
+            // プロパティ検証: 有効な座標は常に一貫している
+            const expectedValid =
+              position.x >= -30000000 && position.x <= 30000000 &&
+              position.y >= -64 && position.y <= 320 &&
+              position.z >= -30000000 && position.z <= 30000000;
 
-          expect(isValid).toBe(expectedValid);
-        }
+            expect(isValid).toBe(expectedValid);
+          })
+        )
       });
 
       await Effect.runPromise(test.pipe(Effect.provide(TestAppLayer)));
@@ -542,36 +545,39 @@ const canStackItems = (item1: ItemStack, item2: ItemStack): boolean =>
   item1.itemId === item2.itemId &&
   item1.metadata === item2.metadata;
 
-const mergeStacks = (stack1: ItemStack, stack2: ItemStack): [ItemStack, ItemStack | null] => {
-  if (!canStackItems(stack1, stack2)) {
-    return [stack1, stack2];
-  }
-
-  const totalQuantity = stack1.quantity + stack2.quantity;
-  if (totalQuantity <= 64) {
-    return [
-      { ...stack1, quantity: totalQuantity },
-      null
-    ];
-  }
-
-  return [
-    { ...stack1, quantity: 64 },
-    { ...stack2, quantity: totalQuantity - 64 }
-  ];
-};
+const mergeStacks = (stack1: ItemStack, stack2: ItemStack): [ItemStack, ItemStack | null] =>
+  pipe(
+    Match.value({ canStack: canStackItems(stack1, stack2), totalQuantity: stack1.quantity + stack2.quantity }),
+    Match.when(
+      { canStack: false },
+      () => [stack1, stack2] as [ItemStack, ItemStack | null]
+    ),
+    Match.when(
+      ({ totalQuantity }) => totalQuantity <= 64,
+      ({ totalQuantity }) => [
+        { ...stack1, quantity: totalQuantity },
+        null
+      ] as [ItemStack, ItemStack | null]
+    ),
+    Match.orElse(
+      ({ totalQuantity }) => [
+        { ...stack1, quantity: 64 },
+        { ...stack2, quantity: totalQuantity - 64 }
+      ] as [ItemStack, ItemStack | null]
+    )
+  );
 
 const splitStack = (stack: ItemStack, amount: number): [ItemStack | null, ItemStack] => {
   const splitAmount = normalizeQuantity(amount);
 
-  if (splitAmount >= stack.quantity) {
-    return [null, stack];
-  }
-
-  return [
-    { ...stack, quantity: stack.quantity - splitAmount },
-    { ...stack, quantity: splitAmount }
-  ];
+  return pipe(
+    Match.value(splitAmount >= stack.quantity),
+    Match.when(true, () => [null, stack] as [ItemStack | null, ItemStack]),
+    Match.orElse(() => [
+      { ...stack, quantity: stack.quantity - splitAmount },
+      { ...stack, quantity: splitAmount }
+    ] as [ItemStack | null, ItemStack])
+  );
 };
 
 // ✅ Arbitraries for inventory testing
@@ -617,9 +623,11 @@ describe("Inventory Pure Function Property Tests", () => {
       const totalBefore = stack1.quantity + stack2.quantity;
       const totalAfter = merged.quantity + (remainder?.quantity ?? 0);
 
-      if (canStackItems(stack1, stack2)) {
-        expect(totalAfter).toBe(totalBefore);
-      }
+      pipe(
+        Match.value(canStackItems(stack1, stack2)),
+        Match.when(true, () => expect(totalAfter).toBe(totalBefore)),
+        Match.orElse(() => void 0)
+      )
     }
   );
 
@@ -638,11 +646,17 @@ describe("Inventory Pure Function Property Tests", () => {
     "split then merge should return to original",
     (stack, amount) => {
       const [remaining, split] = splitStack(stack, amount);
-      if (remaining !== null) {
-        const [merged, _] = mergeStacks(remaining, split);
-        expect(merged.quantity).toBe(stack.quantity);
-        expect(merged.itemId).toBe(stack.itemId);
-      }
+      pipe(
+        Option.fromNullable(remaining),
+        Option.match({
+          onNone: () => void 0,
+          onSome: (rem) => {
+            const [merged, _] = mergeStacks(rem, split);
+            expect(merged.quantity).toBe(stack.quantity);
+            expect(merged.itemId).toBe(stack.itemId);
+          }
+        })
+      )
     }
   );
 });
@@ -761,10 +775,10 @@ describe("STM Concurrent Testing", () => {
       const finalPlayers = yield* STM.get(playersRef).pipe(STM.commit);
       expect(finalPlayers.size).toBe(10);
 
-      // 検証: 全プレイヤーが存在する
-      for (const player of players) {
+      // 検証: 全プレイヤーが存在する（Array.forEachパターン）
+      Array.forEach(players, (player) => {
         expect(finalPlayers.has(player.id)).toBe(true);
-      }
+      })
     });
 
     await Effect.runPromise(test.pipe(Effect.provide(TestContext.TestContext)));
@@ -872,10 +886,16 @@ describe("Deterministic Testing with TestClock and TestRandom", () => {
         )
       );
 
-      // 時間を段階的に進める
-      for (let i = 0; i < 5; i++) {
-        yield* TestClock.adjust(clock, "1 second");
-      }
+      // 時間を段階的に進める（Effect.loopパターン）
+      yield* Effect.loop(
+        0,
+        {
+          while: (i) => i < 5,
+          step: (i) => i + 1,
+          body: () => TestClock.adjust(clock, "1 second"),
+          discard: true
+        }
+      )
 
       yield* Fiber.join(scheduledFiber);
 
@@ -1219,14 +1239,20 @@ export const TestAssertions = {
   expectInventoryInvariant: (inventory: Inventory) => {
     expect(inventory.slots.length).toBeLessThanOrEqual(inventory.maxSize);
 
-    // スロット内のアイテムスタックが有効であることを確認
-    for (const slot of inventory.slots) {
-      if (slot !== undefined) {
-        expect(slot.quantity).toBeGreaterThan(0);
-        expect(slot.quantity).toBeLessThanOrEqual(64);
-        expect(typeof slot.itemId).toBe("string");
-      }
-    }
+    // スロット内のアイテムスタックが有効であることを確認（Array.forEachパターン）
+    Array.forEach(inventory.slots, (slot) => {
+      pipe(
+        Option.fromNullable(slot),
+        Option.match({
+          onNone: () => void 0,
+          onSome: (item) => {
+            expect(item.quantity).toBeGreaterThan(0);
+            expect(item.quantity).toBeLessThanOrEqual(64);
+            expect(typeof item.itemId).toBe("string");
+          }
+        })
+      )
+    })
   }
 };
 

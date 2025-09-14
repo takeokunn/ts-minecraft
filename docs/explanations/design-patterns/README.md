@@ -6,6 +6,23 @@ difficulty: "advanced"
 tags: ["pattern-catalog", "effect-ts", "functional-programming", "best-practices", "implementation-patterns", "design-patterns", "typescript"]
 prerequisites: ["effect-ts-fundamentals", "schema-validation", "context-patterns", "error-handling"]
 estimated_reading_time: "パターン毎に5-20分"
+learning_objectives:
+  - "プロジェクト全体で使用される実装パターンを理解する"
+  - "適切なパターンの選択基準を習得する"
+  - "Effect-TSベストプラクティスの実装方法をマスターする"
+  - "アンチパターンを回避する方法を学ぶ"
+related_docs:
+  - "./error-handling-patterns.md"
+  - "./service-patterns.md"
+  - "./data-modeling-patterns.md"
+internal_links:
+  - "../../game-mechanics/core-features/README.md"
+  - "../../../how-to/development/development-conventions.md"
+ai_context:
+  purpose: "reference"
+  audience: "advanced developers seeking comprehensive understanding of project implementation patterns"
+  key_concepts: ["design patterns", "Effect-TS best practices", "architectural patterns", "implementation guidelines"]
+machine_readable: true
 ---
 
 

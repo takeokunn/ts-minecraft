@@ -11,6 +11,13 @@ estimated_reading_time: "20分"
 
 # Effect-TS Schema API リファレンス
 
+> 📚 **最新Schema APIドキュメント**: Schemaの最新APIドキュメントとバリデーションパターンはContext7で確認できます。
+> ```bash
+> # Context7で最新のSchema APIドキュメントを参照
+> # Library ID: /effect/schema
+> # Topic: "Schema.Struct", "Brand types", "Validation patterns"
+> ```
+
 ## 🧭 ナビゲーション
 
 > **📍 現在位置**: [ホーム](../README.md) → [リファレンス](./README.md) → **Schema API**

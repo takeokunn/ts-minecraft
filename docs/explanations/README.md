@@ -1,3 +1,31 @@
+---
+title: "Explanations 概要 - 理解指向ドキュメント"
+description: "設計判断の背景、アーキテクチャの思想、技術選択の根拠を深く説明する理解指向ドキュメント集。プロジェクトの背景知識を提供。"
+difficulty: "intermediate"
+estimated_reading_time: "8分"
+prerequisites:
+  - "project-overview"
+  - "basic-typescript"
+learning_objectives:
+  - "Explanationsドキュメントの目的と活用方法を理解する"
+  - "設計判断とアーキテクチャの背景を把握する"
+  - "技術選択の根拠と思想を習得する"
+  - "効果的な学習パスを見つける"
+related_docs:
+  - "./design-patterns/README.md"
+  - "./architecture/README.md"
+  - "./game-mechanics/README.md"
+internal_links:
+  - "../tutorials/README.md"
+  - "../how-to/README.md"
+tags: ["explanations", "architecture", "design-decisions", "background-knowledge"]
+ai_context:
+  purpose: "explanation"
+  audience: "developers and architects seeking deep understanding of project design decisions"
+  key_concepts: ["design philosophy", "architectural thinking", "technical decision rationale"]
+machine_readable: true
+---
+
 # 🧠 Explanations - 理解指向ドキュメント
 
 このセクションは**理解指向**のドキュメントです。なぜその設計にしたのか、どのような思想に基づいているかを深く説明し、プロジェクトの背景知識を提供します。
@@ -14,9 +42,9 @@
 ### 🏗 [Architecture](./architecture/)
 **システムアーキテクチャの設計思想**
 
-- [API設計概要](./architecture/overview.md)
+- [API設計概要](./architecture/architecture-overview.md)
 - [ドメイン・アプリケーションAPI](./architecture/domain-application-apis.md)
-- [インフラストラクチャAPI](./architecture/infrastructure-apis.md)
+- [インフラストラクチャAPI](./architecture/infrastructure-architecture.md)
 - [イベントバス仕様](./architecture/event-bus-specification.md)
 - [HTTP API仕様](./architecture/http-api-specification.md)
 - [セキュリティ仕様](./architecture/security-specification.md)

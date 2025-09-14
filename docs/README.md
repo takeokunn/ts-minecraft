@@ -2,6 +2,11 @@
 
 Effect-TS 3.17+を活用したTypeScript Minecraft Cloneプロジェクトの技術ドキュメント。DDD×ECS×関数型プログラミングによる高品質ゲーム開発を実現します。
 
+> 📚 **最新ライブラリドキュメント**: 本プロジェクトで使用しているライブラリの最新ドキュメントはContext7を通じて参照可能です。
+> - Effect-TS: `/effect/effect`
+> - Schema: `/effect/schema`
+> - Three.js: `/mrdoob/three.js`
+
 ## 📖 Diátaxisフレームワーク構成
 
 ドキュメントは目的別に4つのセクションに整理されています。
@@ -16,6 +21,7 @@ Effect-TS 3.17+を活用したTypeScript Minecraft Cloneプロジェクトの技
 - **🚀 [Getting Started](./tutorials/getting-started/)** - 基本理解と環境セットアップ
 - **🎮 [Basic Game Development](./tutorials/basic-game-development/)** - 実践的ゲーム機能実装
 - **⚡ [Effect-TS Fundamentals](./tutorials/effect-ts-fundamentals/)** - 関数型プログラミング習得
+  - 📖 最新Effect-TS APIドキュメントはContext7で参照可能
 
 **使用場面**: 初回学習、オンボーディング、基礎習得
 
@@ -84,6 +90,7 @@ API、設定、仕様の包括的情報を提供
 
 - **完全関数型設計**: クラス禁止、Effect-TSによる純粋関数アーキテクチャ
 - **最新Effect-TSパターン**: Schema.Struct、Context.GenericTag採用
+  - 🌐 Context7で最新のEffect-TSパターンとAPIドキュメントを確認
 - **DDD + ECS統合**: 境界づけられたコンテキスト × 高性能データ構造
 - **完全型安全**: Schema駆動開発とコンパイル時エラー検出
 
