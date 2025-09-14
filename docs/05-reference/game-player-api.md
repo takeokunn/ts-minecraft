@@ -43,8 +43,47 @@ export interface IPlayerService {
   readonly delete: (playerId: PlayerId) => Effect.Effect<void, PlayerNotFoundError>
 }
 
-// Context Tag定義（最新パターン）
+// Context Tag定義（Effect-TS 3.17+最新パターン）
 export const PlayerService = Context.GenericTag<IPlayerService>("@app/PlayerService")
+
+// Layerベース実装パターン
+export const PlayerServiceLive = Layer.effect(
+  PlayerService,
+  Effect.gen(function* () {
+    const repository = yield* PlayerRepository
+    const eventBus = yield* EventBus
+    const validator = yield* SchemaValidator
+
+    return PlayerService.of({
+      create: (params) => Effect.gen(function* () {
+        const validated = yield* Schema.decodeUnknown(CreatePlayerParams)(params)
+        const player = createPlayerEntity(validated)
+        yield* repository.save(player)
+        yield* eventBus.publish(PlayerEvent.Created(player))
+        return player
+      }),
+      findById: (playerId) => repository.findById(playerId),
+      updatePosition: (params) => Effect.gen(function* () {
+        const validated = yield* Schema.decodeUnknown(UpdatePositionParams)(params)
+        const player = yield* repository.findById(validated.playerId)
+        const updated = yield* updatePlayerPositionLogic(player, validated)
+        yield* repository.update(updated)
+        return updated
+      }),
+      updateStats: (params) => Effect.gen(function* () {
+        const validated = yield* Schema.decodeUnknown(UpdateStatsParams)(params)
+        const player = yield* repository.findById(validated.playerId)
+        const updated = PlayerStateUpdates.updateStats(player, validated)
+        yield* repository.update(updated)
+        return updated
+      }),
+      delete: (playerId) => Effect.gen(function* () {
+        yield* repository.delete(playerId)
+        yield* eventBus.publish(PlayerEvent.Deleted({ playerId, timestamp: Date.now() }))
+      })
+    })
+  })
+)
 
 // Schema定義
 export const CreatePlayerParams = Schema.Struct({
@@ -68,8 +107,60 @@ export const CreatePlayerParams = Schema.Struct({
 }).pipe(
   Schema.annotations({
     identifier: "CreatePlayerParams",
-    description: "プレイヤー作成パラメータ"
+    description: "プレイヤー作成パラメータ",
+    examples: [
+      {
+        id: "player-123",
+        name: "Steve",
+        position: { x: 0, y: 64, z: 0 },
+        gameMode: "survival"
+      }
+    ],
+    jsonSchema: {
+      title: "Create Player Parameters",
+      description: "TypeScriptミネクラフトプレイヤー作成用完全パラメータセット"
+    }
   })
+)
+
+// 高度なバリデーション拡張
+export const CreatePlayerParamsWithAdvancedValidation = CreatePlayerParams.pipe(
+  Schema.transform(
+    Schema.Struct({
+      id: Schema.String.pipe(Schema.brand("PlayerId")),
+      name: Schema.String.pipe(Schema.brand("PlayerName")),
+      position: Schema.Struct({
+        x: Schema.Number,
+        y: Schema.Number,
+        z: Schema.Number
+      }),
+      gameMode: Schema.Union(
+        Schema.Literal("survival"),
+        Schema.Literal("creative"),
+        Schema.Literal("adventure"),
+        Schema.Literal("spectator")
+      ),
+      // 拡張フィールド
+      initialStats: Schema.optional(Schema.Struct({
+        health: Schema.Number.pipe(Schema.between(1, 20), Schema.withDefault(20)),
+        hunger: Schema.Number.pipe(Schema.between(0, 20), Schema.withDefault(20)),
+        experience: Schema.Number.pipe(Schema.nonNegative(), Schema.withDefault(0))
+      })),
+      spawnProtection: Schema.optional(Schema.Boolean.pipe(Schema.withDefault(true)))
+    }),
+    {
+      strict: false,
+      decode: (input) => ({
+        ...input,
+        metadata: {
+          createdAt: Date.now(),
+          version: "1.0.0",
+          clientInfo: process.env.CLIENT_VERSION || "unknown"
+        }
+      }),
+      encode: (output) => output
+    }
+  )
 )
 
 export const UpdatePositionParams = Schema.Struct({
@@ -1121,6 +1212,176 @@ const reconcileServerUpdate = (playerId: PlayerId, serverData: PlayerSyncData) =
 ```
 
 ## 使用例とベストプラクティス
+
+### プレイヤーAPIテストパターン
+
+#### 単体テスト例（@effect/vitest統合）
+
+```typescript
+import { Effect, TestContext, Layer } from "effect"
+import { describe, it, expect } from "@effect/vitest"
+
+// テスト専用Layerの作成
+const TestPlayerServiceLayer = Layer.succeed(
+  PlayerService,
+  PlayerService.of({
+    create: (params) => Effect.succeed(mockPlayer(params)),
+    findById: (id) => Effect.succeed(mockPlayer({ id })),
+    updatePosition: () => Effect.succeed(mockPlayer()),
+    updateStats: () => Effect.succeed(mockPlayer()),
+    delete: () => Effect.unit
+  })
+)
+
+describe("Player API", () => {
+  it("should create player successfully", () =>
+    Effect.gen(function* () {
+      const service = yield* PlayerService
+      const result = yield* service.create({
+        id: "test-player",
+        name: "TestSteve",
+        position: { x: 0, y: 64, z: 0 },
+        gameMode: "creative"
+      })
+
+      expect(result.id).toBe("test-player")
+      expect(result.name).toBe("TestSteve")
+      expect(result.gameMode).toBe("creative")
+    }).pipe(Effect.provide(TestPlayerServiceLayer))
+  )
+
+  it("should handle player not found error", () =>
+    Effect.gen(function* () {
+      const service = yield* PlayerService
+      const result = yield* service.findById("nonexistent").pipe(
+        Effect.exit
+      )
+
+      expect(Exit.isFailure(result)).toBe(true)
+      if (Exit.isFailure(result)) {
+        expect(result.cause._tag).toBe("PlayerNotFoundError")
+      }
+    }).pipe(Effect.provide(TestPlayerServiceLayer))
+  )
+})
+
+// Property-based testing with fast-check
+import * as fc from "fast-check"
+
+const PlayerIdArb = fc.string({ minLength: 5, maxLength: 20 })
+const PositionArb = fc.record({
+  x: fc.double({ min: -1000, max: 1000 }),
+  y: fc.double({ min: -256, max: 320 }),
+  z: fc.double({ min: -1000, max: 1000 })
+})
+
+const CreatePlayerParamsArb = fc.record({
+  id: PlayerIdArb,
+  name: fc.string({ minLength: 3, maxLength: 16 }).filter(s => /^[a-zA-Z0-9_]+$/.test(s)),
+  position: PositionArb,
+  gameMode: fc.constantFrom("survival", "creative", "adventure", "spectator")
+})
+
+describe("Player Creation Property Tests", () => {
+  it("should always create valid players from valid params", () =>
+    fc.assert(fc.asyncProperty(
+      CreatePlayerParamsArb,
+      async (params) => {
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* PlayerService
+            const player = yield* service.create(params)
+
+            return {
+              hasValidId: typeof player.id === 'string' && player.id.length > 0,
+              hasValidName: typeof player.name === 'string' && player.name === params.name,
+              hasValidPosition: player.position.x === params.position.x,
+              hasValidGameMode: player.gameMode === params.gameMode
+            }
+          }).pipe(Effect.provide(TestPlayerServiceLayer))
+        )
+
+        expect(result.hasValidId).toBe(true)
+        expect(result.hasValidName).toBe(true)
+        expect(result.hasValidPosition).toBe(true)
+        expect(result.hasValidGameMode).toBe(true)
+      }
+    ))
+  )
+})
+```
+
+#### 統合テスト例（リアルデータベース使用）
+
+```typescript
+import { PgClient, SqlSchema } from "@effect/sql"
+import { TestContainer } from "testcontainers"
+
+const TestDatabaseLayer = Layer.scoped(
+  PgClient.PgClient,
+  Effect.gen(function* () {
+    // テスト用PostgreSQLコンテナ起動
+    const container = yield* Effect.promise(() =>
+      new TestContainer("postgres:15")
+        .withEnvironment({
+          POSTGRES_DB: "minecraft_test",
+          POSTGRES_USER: "test",
+          POSTGRES_PASSWORD: "test"
+        })
+        .start()
+    )
+
+    const client = yield* PgClient.make({
+      host: container.getHost(),
+      port: container.getMappedPort(5432),
+      username: "test",
+      password: "test",
+      database: "minecraft_test"
+    })
+
+    // テーブル作成
+    yield* SqlSchema.make({
+      client,
+      migrations: [
+        `CREATE TABLE players (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          position_x REAL NOT NULL,
+          position_y REAL NOT NULL,
+          position_z REAL NOT NULL,
+          game_mode TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW()
+        )`
+      ]
+    })
+
+    return client
+  })
+)
+
+describe("Player Integration Tests", () => {
+  it("should persist player to database", () =>
+    Effect.gen(function* () {
+      const service = yield* PlayerService
+
+      const created = yield* service.create({
+        id: "integration-test-player",
+        name: "IntegrationSteve",
+        position: { x: 100, y: 64, z: 200 },
+        gameMode: "survival"
+      })
+
+      const retrieved = yield* service.findById(created.id)
+
+      expect(retrieved.id).toBe(created.id)
+      expect(retrieved.name).toBe(created.name)
+      expect(retrieved.position).toEqual(created.position)
+    }).pipe(
+      Effect.provide(Layer.merge(PlayerSystemLayer, TestDatabaseLayer))
+    )
+  )
+})
+```
 
 ### 基本的なプレイヤー操作
 

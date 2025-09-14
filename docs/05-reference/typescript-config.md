@@ -1,8 +1,20 @@
+---
+title: "TypeScript設定リファレンス - tsconfig.json完全ガイド"
+description: "ts-minecraftプロジェクトのTypeScript 5.7+設定完全リファレンス。最新機能、厳格な型チェック、Vite最適化、Effect-TS統合。"
+category: "reference"
+difficulty: "intermediate"
+tags: ["typescript", "tsconfig", "configuration", "type-checking", "vite"]
+prerequisites: ["typescript-basics"]
+estimated_reading_time: "20分"
+dependencies: []
+status: "complete"
+---
+
 # TypeScript設定リファレンス
 
 ## 概要
 
-ts-minecraftプロジェクトは最新のTypeScript 5.9+機能を活用し、厳格な型チェックとモダンなJavaScript機能を組み合わせた設定を採用しています。この設定は、Viteビルドツール、Effect-TS関数型プログラミング、Three.jsによる3Dレンダリングに最適化されています。
+ts-minecraftプロジェクトは最新のTypeScript 5.7+機能を活用し、厳格な型チェックと最新JavaScript機能を組み合わせた先進設定を採用しています。この設定は、Viteビルドツール、Effect-TS関数型プログラミング、Three.jsによる3Dレンダリングに最適化されています。
 
 ## コンパイラオプション詳細
 
@@ -10,18 +22,19 @@ ts-minecraftプロジェクトは最新のTypeScript 5.9+機能を活用し、�
 
 ```json
 {
-  "target": "ES2022",
+  "target": "ES2023",
   "module": "ESNext",
-  "lib": ["DOM", "DOM.Iterable", "WebWorker", "ES2015", "ES2017", "ES2018", "ES2019", "ES2020", "ES2021", "ES2022", "ESNext", "ESNext.SharedMemory"]
+  "lib": ["DOM", "DOM.Iterable", "WebWorker", "ES2015", "ES2017", "ES2018", "ES2019", "ES2020", "ES2021", "ES2022", "ES2023", "ESNext", "ESNext.SharedMemory", "ESNext.Decorators"]
 }
 ```
 
-- **target: "ES2022"**: 出力するJavaScriptの仕様。ES2022の新機能（Top-level await、Private fields等）を活用
+- **target: "ES2023"**: 出力するJavaScriptの仕様。ES2023の最新機能（Array findLast/findLastIndex、Hashbang Grammar、WeakMap Symbols等）を活用
 - **module: "ESNext"**: ESモジュールの最新仕様を使用。Viteとの親和性が高い
 - **lib配列**: 使用可能なAPI群を明示的に指定
   - `DOM`, `DOM.Iterable`: ブラウザDOM API
   - `WebWorker`: Web Worker APIサポート
   - `ESNext.SharedMemory`: SharedArrayBufferサポート（高性能計算用）
+  - `ESNext.Decorators`: 最新Decorators仕様サポート
 
 ### モジュール解決設定
 

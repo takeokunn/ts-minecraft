@@ -1370,6 +1370,902 @@ describe('Game Data Validation Integration', () => {
 })
 ```
 
+### 3️⃣ Property-based Testing
+
+```typescript
+// src/tests/schema-validation-property.test.ts
+import { describe, it, expect } from 'vitest'
+import { Effect } from 'effect'
+import * as fc from 'fast-check'
+import { AdvancedValidationServiceLive } from '../domain/services/validation-service.js'
+import { AdvancedPlayerSchema, createPositionSchema } from '../domain/schemas/advanced-game-schemas.js'
+
+describe('Schema Validation Property-based Testing', () => {
+  const testProgram = <A, E>(effect: Effect.Effect<A, E>) =>
+    effect.pipe(Effect.provide(AdvancedValidationServiceLive))
+
+  it('プレイヤーIDフォーマット検証のProperty-based Testing', () => {
+    fc.assert(fc.property(
+      // 有効なプレイヤーIDフォーマットを生成
+      fc.record({
+        prefix: fc.constant("player_"),
+        uuid: fc.uuid()
+      }).map(({ prefix, uuid }) => prefix + uuid),
+
+      async (validPlayerId) => {
+        const playerData = {
+          id: validPlayerId,
+          name: "TestPlayer",
+          level: 10,
+          experience: 500,
+          health: 100,
+          position: { x: 0, y: 70, z: 0 },
+          inventory: [],
+          gameMode: "survival" as const,
+          permissions: []
+        }
+
+        const result = await Effect.runPromise(
+          testProgram(
+            Effect.gen(function* () {
+              const service = yield* AdvancedValidationService
+              return yield* service.validateWithDetails(
+                AdvancedPlayerSchema,
+                playerData
+              )
+            })
+          )
+        )
+
+        expect(result.isValid).toBe(true)
+      }
+    ))
+  })
+
+  it('座標範囲検証のProperty-based Testing', () => {
+    const worldBounds = {
+      minX: -30000000, maxX: 30000000,
+      minY: -64, maxY: 320,
+      minZ: -30000000, maxZ: 30000000
+    }
+
+    fc.assert(fc.property(
+      fc.record({
+        x: fc.integer({ min: worldBounds.minX, max: worldBounds.maxX }),
+        y: fc.integer({ min: worldBounds.minY, max: worldBounds.maxY }),
+        z: fc.integer({ min: worldBounds.minZ, max: worldBounds.maxZ })
+      }),
+
+      async (validPosition) => {
+        const PositionSchema = createPositionSchema(worldBounds)
+
+        const result = await Effect.runPromise(
+          testProgram(
+            Effect.gen(function* () {
+              const service = yield* AdvancedValidationService
+              return yield* service.validateWithDetails(
+                PositionSchema,
+                validPosition
+              )
+            })
+          )
+        )
+
+        expect(result.isValid).toBe(true)
+      }
+    ))
+  })
+
+  it('無効なデータの確実な検出', () => {
+    fc.assert(fc.property(
+      fc.record({
+        x: fc.oneof(
+          fc.integer({ min: -50000000, max: -30000001 }), // 範囲外（小）
+          fc.integer({ min: 30000001, max: 50000000 })    // 範囲外（大）
+        ),
+        y: fc.integer({ min: -64, max: 320 }),
+        z: fc.integer({ min: -30000000, max: 30000000 })
+      }),
+
+      async (invalidPosition) => {
+        const worldBounds = {
+          minX: -30000000, maxX: 30000000,
+          minY: -64, maxY: 320,
+          minZ: -30000000, maxZ: 30000000
+        }
+        const PositionSchema = createPositionSchema(worldBounds)
+
+        const result = await Effect.runPromise(
+          testProgram(
+            Effect.gen(function* () {
+              const service = yield* AdvancedValidationService
+              return yield* service.validateWithDetails(
+                PositionSchema,
+                invalidPosition,
+                { collectAllErrors: true }
+              )
+            })
+          )
+        )
+
+        expect(result.isValid).toBe(false)
+        expect(result.errors.length).toBeGreaterThan(0)
+      }
+    ))
+  })
+
+  it('バッチ処理でのプロパティ検証', () => {
+    fc.assert(fc.property(
+      fc.array(
+        fc.record({
+          id: fc.uuid().map(uuid => `player_${uuid}`),
+          name: fc.string({ minLength: 3, maxLength: 20 }).filter(str => /^[a-zA-Z0-9_-]+$/.test(str)),
+          level: fc.integer({ min: 1, max: 100 }),
+          experience: fc.integer({ min: 0, max: 100000 }),
+          health: fc.integer({ min: 0, max: 100 }),
+          position: fc.record({
+            x: fc.integer({ min: -1000, max: 1000 }),
+            y: fc.integer({ min: -64, max: 320 }),
+            z: fc.integer({ min: -1000, max: 1000 })
+          }),
+          inventory: fc.constantValue([]),
+          gameMode: fc.constantValue("survival" as const),
+          permissions: fc.constantValue([])
+        }),
+        { minLength: 1, maxLength: 50 }
+      ),
+
+      async (playerBatch) => {
+        const result = await Effect.runPromise(
+          testProgram(
+            Effect.gen(function* () {
+              const service = yield* AdvancedValidationService
+              return yield* service.validateBatch(
+                AdvancedPlayerSchema,
+                playerBatch,
+                { concurrency: 5, continueOnError: true }
+              )
+            })
+          )
+        )
+
+        expect(result.totalItems).toBe(playerBatch.length)
+        expect(result.summary.successCount).toBe(playerBatch.length)
+        expect(result.summary.errorCount).toBe(0)
+      }
+    ), { numRuns: 20 }) // 20回のテスト実行
+  })
+})
+```
+
+### 4️⃣ ストリーミング・大規模データ処理
+
+```typescript
+// src/domain/services/streaming-validation-service.ts
+import { Context, Effect, Stream, Sink, Schedule, Layer, pipe } from "effect"
+import { Schema } from "@effect/schema"
+
+/**
+ * 大規模データセット向けストリーミング検証サービス
+ *
+ * 🎯 学習ポイント：
+ * - メモリ効率的なストリーミング処理
+ * - 部分的失敗への対応
+ * - プログレス報告とキャンセル処理
+ */
+export interface StreamingValidationService {
+  readonly validateStream: <T>(
+    schema: Schema.Schema<T>,
+    dataStream: Stream.Stream<unknown>,
+    options?: StreamValidationOptions
+  ) => Effect.Effect<StreamValidationResult<T>, ValidationError>
+
+  readonly validateLargeFile: <T>(
+    schema: Schema.Schema<T>,
+    filePath: string,
+    options?: FileValidationOptions
+  ) => Effect.Effect<Stream.Stream<ValidationBatch<T>>, ValidationError>
+
+  readonly processWithBackpressure: <T, R>(
+    schema: Schema.Schema<T>,
+    dataStream: Stream.Stream<unknown>,
+    processor: (validData: T) => Effect.Effect<R, never>,
+    options?: BackpressureOptions
+  ) => Effect.Effect<Stream.Stream<R>, ValidationError>
+}
+
+export const StreamingValidationService = Context.GenericTag<StreamingValidationService>(
+  "StreamingValidationService"
+)
+
+export interface StreamValidationOptions {
+  readonly batchSize?: number
+  readonly maxConcurrency?: number
+  readonly stopOnFirstError?: boolean
+  readonly reportProgress?: boolean
+}
+
+export interface FileValidationOptions extends StreamValidationOptions {
+  readonly encoding?: BufferEncoding
+  readonly lineDelimiter?: string
+}
+
+export interface BackpressureOptions extends StreamValidationOptions {
+  readonly bufferSize?: number
+  readonly maxMemoryUsage?: number // MB
+}
+
+export interface StreamValidationResult<T> {
+  readonly processedCount: number
+  readonly validCount: number
+  readonly errorCount: number
+  readonly validItems: T[]
+  readonly errors: ValidationError[]
+  readonly memoryUsage: MemoryUsageStats
+}
+
+export interface ValidationBatch<T> {
+  readonly batchIndex: number
+  readonly items: T[]
+  readonly errors: ValidationError[]
+  readonly metadata: BatchMetadata
+}
+
+export interface MemoryUsageStats {
+  readonly heapUsed: number
+  readonly heapTotal: number
+  readonly external: number
+}
+
+export interface BatchMetadata {
+  readonly timestamp: string
+  readonly processingDuration: number
+  readonly memorySnapshot: MemoryUsageStats
+}
+
+/**
+ * ストリーミング検証サービス実装
+ */
+class StreamingValidationServiceImpl implements StreamingValidationService {
+  validateStream<T>(
+    schema: Schema.Schema<T>,
+    dataStream: Stream.Stream<unknown>,
+    options: StreamValidationOptions = {}
+  ): Effect.Effect<StreamValidationResult<T>, ValidationError> {
+    return Effect.gen(() => {
+      const self = this
+      return Effect.gen(function* () {
+        const batchSize = options.batchSize || 1000
+        const maxConcurrency = options.maxConcurrency || 10
+        const stopOnFirstError = options.stopOnFirstError ?? false
+
+        let processedCount = 0
+        let validCount = 0
+        let errorCount = 0
+        const validItems: T[] = []
+        const errors: ValidationError[] = []
+
+        // ストリームをバッチに分割して並列処理
+        const batchedStream = dataStream.pipe(
+          Stream.chunks,
+          Stream.map(chunk => Array.from(chunk)),
+          Stream.rechunk(batchSize)
+        )
+
+        yield* batchedStream.pipe(
+          Stream.mapEffect((batch) =>
+            self.processBatch(schema, batch, options).pipe(
+              Effect.tap((result) => Effect.sync(() => {
+                processedCount += batch.length
+                validCount += result.validItems.length
+                errorCount += result.errors.length
+                validItems.push(...result.validItems)
+                errors.push(...result.errors)
+
+                // プログレス報告
+                if (options.reportProgress && processedCount % (batchSize * 5) === 0) {
+                  console.log(`Processed ${processedCount} items, ${validCount} valid, ${errorCount} errors`)
+                }
+              })),
+              Effect.flatMap(() => {
+                if (stopOnFirstError && errorCount > 0) {
+                  return Effect.fail(errors[0])
+                }
+                return Effect.succeed(result)
+              })
+            ),
+            { concurrency: maxConcurrency }
+          ),
+          Stream.runDrain
+        )
+
+        const memoryUsage = yield* getMemoryUsage()
+
+        return {
+          processedCount,
+          validCount,
+          errorCount,
+          validItems,
+          errors,
+          memoryUsage
+        }
+      })
+    })()
+  }
+
+  validateLargeFile<T>(
+    schema: Schema.Schema<T>,
+    filePath: string,
+    options: FileValidationOptions = {}
+  ): Effect.Effect<Stream.Stream<ValidationBatch<T>>, ValidationError> {
+    return Effect.gen(() => {
+      const self = this
+      return Effect.gen(function* () {
+        const encoding = options.encoding || 'utf8'
+        const batchSize = options.batchSize || 1000
+        const lineDelimiter = options.lineDelimiter || '\n'
+
+        // ファイルを行単位でストリーミング読み込み
+        const fileStream = Stream.fromAsyncIterable(
+          self.readFileAsLines(filePath, encoding, lineDelimiter),
+          (error) => new ValidationError({
+            validationResult: {
+              isValid: false,
+              errors: [{
+                path: [],
+                message: `File reading error: ${error}`,
+                code: "FILE_READ_ERROR",
+                severity: "error"
+              }],
+              warnings: [],
+              metadata: { filePath }
+            },
+            originalInput: filePath,
+            schemaName: "FileStream"
+          })
+        )
+
+        let batchIndex = 0
+
+        // ストリームをバッチに分割して検証
+        const validationStream = fileStream.pipe(
+          Stream.chunks,
+          Stream.map(chunk => Array.from(chunk)),
+          Stream.rechunk(batchSize),
+          Stream.mapEffect((batchData) =>
+            Effect.gen(function* () {
+              const startTime = Date.now()
+              const startMemory = yield* getMemoryUsage()
+
+              const result = yield* self.processBatch(schema, batchData, options)
+
+              const endTime = Date.now()
+              const endMemory = yield* getMemoryUsage()
+
+              const batch: ValidationBatch<T> = {
+                batchIndex: batchIndex++,
+                items: result.validItems,
+                errors: result.errors,
+                metadata: {
+                  timestamp: new Date().toISOString(),
+                  processingDuration: endTime - startTime,
+                  memorySnapshot: endMemory
+                }
+              }
+
+              return batch
+            })
+          )
+        )
+
+        return validationStream
+      })
+    })()
+  }
+
+  processWithBackpressure<T, R>(
+    schema: Schema.Schema<T>,
+    dataStream: Stream.Stream<unknown>,
+    processor: (validData: T) => Effect.Effect<R, never>,
+    options: BackpressureOptions = {}
+  ): Effect.Effect<Stream.Stream<R>, ValidationError> {
+    return Effect.gen(() => {
+      const self = this
+      return Effect.gen(function* () {
+        const bufferSize = options.bufferSize || 100
+        const maxMemoryUsage = (options.maxMemoryUsage || 512) * 1024 * 1024 // MB to bytes
+
+        const processedStream = dataStream.pipe(
+          // バックプレッシャー制御
+          Stream.buffer(bufferSize),
+
+          // バリデーション実行
+          Stream.mapEffect((item) =>
+            Effect.gen(function* () {
+              const currentMemory = yield* getMemoryUsage()
+
+              // メモリ使用量チェック
+              if (currentMemory.heapUsed > maxMemoryUsage) {
+                // ガベージコレクション実行
+                yield* Effect.sync(() => {
+                  if (global.gc) {
+                    global.gc()
+                  }
+                })
+
+                // 一時停止してメモリ圧迫を軽減
+                yield* Effect.sleep("100ms")
+              }
+
+              // バリデーション実行
+              const validationResult = yield* self.validateSingle(schema, item)
+
+              if (validationResult.isValid && validationResult.data) {
+                return yield* processor(validationResult.data as T)
+              } else {
+                return yield* Effect.fail(new ValidationError({
+                  validationResult,
+                  originalInput: item,
+                  schemaName: schema.constructor.name
+                }))
+              }
+            })
+          ),
+
+          // エラー処理とリトライ
+          Stream.retry(Schedule.exponential("100ms").pipe(Schedule.recurs(3)))
+        )
+
+        return processedStream
+      })
+    })()
+  }
+
+  private processBatch<T>(
+    schema: Schema.Schema<T>,
+    batch: unknown[],
+    options: StreamValidationOptions
+  ): Effect.Effect<{ validItems: T[], errors: ValidationError[] }, never> {
+    return Effect.gen(function* () {
+      const validItems: T[] = []
+      const errors: ValidationError[] = []
+
+      // バッチ内の各項目を並列検証
+      const results = yield* Effect.all(
+        batch.map(item =>
+          this.validateSingle(schema, item).pipe(Effect.either)
+        ),
+        { concurrency: options.maxConcurrency || 10 }
+      )
+
+      for (const result of results) {
+        if (result._tag === "Right") {
+          const validationResult = result.right
+          if (validationResult.isValid && validationResult.data) {
+            validItems.push(validationResult.data as T)
+          }
+        } else {
+          errors.push(result.left)
+        }
+      }
+
+      return { validItems, errors }
+    })
+  }
+
+  private validateSingle<T>(
+    schema: Schema.Schema<T>,
+    item: unknown
+  ): Effect.Effect<ValidationResult, ValidationError> {
+    return Effect.gen(function* () {
+      try {
+        const result = Schema.decodeUnknownSync(schema)(item)
+        return {
+          isValid: true,
+          data: result,
+          errors: [],
+          warnings: [],
+          metadata: {}
+        }
+      } catch (error) {
+        const result: ValidationResult = {
+          isValid: false,
+          errors: [{
+            path: [],
+            message: error instanceof Error ? error.message : "Unknown error",
+            code: "VALIDATION_ERROR",
+            severity: "error"
+          }],
+          warnings: [],
+          metadata: {}
+        }
+        return result
+      }
+    })
+  }
+
+  private async* readFileAsLines(
+    filePath: string,
+    encoding: BufferEncoding,
+    delimiter: string
+  ): AsyncIterable<string> {
+    // ファイル読み込み実装（実際の環境ではfs.createReadStream等を使用）
+    const fs = await import('fs')
+    const readline = await import('readline')
+
+    const fileStream = fs.createReadStream(filePath, { encoding })
+    const rl = readline.createInterface({
+      input: fileStream,
+      crlfDelay: Infinity
+    })
+
+    for await (const line of rl) {
+      yield line
+    }
+  }
+}
+
+/**
+ * メモリ使用量取得
+ */
+const getMemoryUsage = (): Effect.Effect<MemoryUsageStats, never> =>
+  Effect.sync(() => {
+    const usage = process.memoryUsage()
+    return {
+      heapUsed: usage.heapUsed,
+      heapTotal: usage.heapTotal,
+      external: usage.external
+    }
+  })
+
+/**
+ * ストリーミング検証サービスの実装を提供するLayer
+ */
+export const StreamingValidationServiceLive = Layer.succeed(
+  StreamingValidationService,
+  new StreamingValidationServiceImpl()
+)
+```
+
+### 5️⃣ エラー回復戦略
+
+```typescript
+// src/domain/services/validation-recovery-service.ts
+import { Context, Effect, Layer, pipe, Match, Duration } from "effect"
+import { Schema } from "@effect/schema"
+
+/**
+ * 検証エラー回復サービス
+ *
+ * 🎯 学習ポイント：
+ * - 自動データ修復
+ * - 部分的成功の処理
+ * - フォールバック戦略
+ */
+export interface ValidationRecoveryService {
+  readonly attemptRecovery: <T>(
+    schema: Schema.Schema<T>,
+    failedData: unknown,
+    originalError: ValidationError,
+    strategies?: RecoveryStrategy[]
+  ) => Effect.Effect<RecoveryResult<T>, never>
+
+  readonly createFallbackData: <T>(
+    schema: Schema.Schema<T>,
+    partialData: unknown,
+    defaultValues: Partial<T>
+  ) => Effect.Effect<T, ValidationError>
+
+  readonly sanitizeData: (
+    input: unknown,
+    sanitizationRules: SanitizationRule[]
+  ) => Effect.Effect<unknown, never>
+}
+
+export const ValidationRecoveryService = Context.GenericTag<ValidationRecoveryService>(
+  "ValidationRecoveryService"
+)
+
+export interface RecoveryStrategy {
+  readonly name: string
+  readonly priority: number
+  readonly canRecover: (error: ValidationError) => boolean
+  readonly recover: (data: unknown, error: ValidationError) => Effect.Effect<unknown, never>
+}
+
+export interface RecoveryResult<T> {
+  readonly success: boolean
+  readonly recoveredData?: T
+  readonly appliedStrategies: string[]
+  readonly remainingErrors: ValidationError[]
+  readonly warnings: string[]
+}
+
+export interface SanitizationRule {
+  readonly name: string
+  readonly path: string[]
+  readonly transform: (value: unknown) => unknown
+}
+
+/**
+ * 一般的な回復戦略
+ */
+export const CommonRecoveryStrategies: RecoveryStrategy[] = [
+  {
+    name: "trim-strings",
+    priority: 1,
+    canRecover: (error) => error.validationResult.errors.some(e =>
+      e.message.includes("string") && e.message.includes("length")
+    ),
+    recover: (data) => Effect.sync(() => {
+      if (typeof data === "object" && data !== null) {
+        return Object.fromEntries(
+          Object.entries(data).map(([key, value]) => [
+            key,
+            typeof value === "string" ? value.trim() : value
+          ])
+        )
+      }
+      return data
+    })
+  },
+
+  {
+    name: "coerce-numbers",
+    priority: 2,
+    canRecover: (error) => error.validationResult.errors.some(e =>
+      e.message.includes("Expected number")
+    ),
+    recover: (data) => Effect.sync(() => {
+      if (typeof data === "object" && data !== null) {
+        return Object.fromEntries(
+          Object.entries(data).map(([key, value]) => [
+            key,
+            typeof value === "string" && !isNaN(Number(value)) ? Number(value) : value
+          ])
+        )
+      }
+      return data
+    })
+  },
+
+  {
+    name: "remove-invalid-properties",
+    priority: 3,
+    canRecover: (error) => error.validationResult.errors.some(e =>
+      e.message.includes("is not expected")
+    ),
+    recover: (data) => Effect.sync(() => {
+      if (typeof data === "object" && data !== null) {
+        const cleaned = { ...data }
+        // エラーパスに基づいて無効なプロパティを削除
+        return cleaned
+      }
+      return data
+    })
+  },
+
+  {
+    name: "apply-default-values",
+    priority: 10,
+    canRecover: (error) => error.validationResult.errors.some(e =>
+      e.message.includes("is missing") || e.message.includes("undefined")
+    ),
+    recover: (data) => Effect.sync(() => {
+      if (typeof data === "object" && data !== null) {
+        const withDefaults = { ...data }
+        // 不足している必須フィールドにデフォルト値を設定
+        // この例では簡易実装
+        return withDefaults
+      }
+      return data
+    })
+  }
+]
+
+/**
+ * 回復サービス実装
+ */
+class ValidationRecoveryServiceImpl implements ValidationRecoveryService {
+  attemptRecovery<T>(
+    schema: Schema.Schema<T>,
+    failedData: unknown,
+    originalError: ValidationError,
+    strategies: RecoveryStrategy[] = CommonRecoveryStrategies
+  ): Effect.Effect<RecoveryResult<T>, never> {
+    return Effect.gen(function* () {
+      let currentData = failedData
+      const appliedStrategies: string[] = []
+      const warnings: string[] = []
+
+      // 優先度順に戦略をソート
+      const sortedStrategies = [...strategies].sort((a, b) => a.priority - b.priority)
+
+      // 各戦略を順次適用
+      for (const strategy of sortedStrategies) {
+        if (strategy.canRecover(originalError)) {
+          try {
+            currentData = yield* strategy.recover(currentData, originalError)
+            appliedStrategies.push(strategy.name)
+            warnings.push(`Applied recovery strategy: ${strategy.name}`)
+          } catch (error) {
+            warnings.push(`Recovery strategy '${strategy.name}' failed: ${error}`)
+          }
+        }
+      }
+
+      // 修復されたデータで再検証
+      try {
+        const recoveredResult = Schema.decodeUnknownSync(schema)(currentData)
+
+        return {
+          success: true,
+          recoveredData: recoveredResult,
+          appliedStrategies,
+          remainingErrors: [],
+          warnings
+        }
+      } catch (error) {
+        return {
+          success: false,
+          appliedStrategies,
+          remainingErrors: [originalError],
+          warnings: [...warnings, "Recovery attempts failed, validation still fails"]
+        }
+      }
+    })
+  }
+
+  createFallbackData<T>(
+    schema: Schema.Schema<T>,
+    partialData: unknown,
+    defaultValues: Partial<T>
+  ): Effect.Effect<T, ValidationError> {
+    return Effect.gen(function* () {
+      const mergedData = {
+        ...defaultValues,
+        ...(typeof partialData === "object" && partialData !== null ? partialData : {})
+      }
+
+      try {
+        const result = Schema.decodeUnknownSync(schema)(mergedData)
+        return result
+      } catch (error) {
+        return yield* Effect.fail(new ValidationError({
+          validationResult: {
+            isValid: false,
+            errors: [{
+              path: [],
+              message: `Fallback data creation failed: ${error}`,
+              code: "FALLBACK_CREATION_ERROR",
+              severity: "error"
+            }],
+            warnings: [],
+            metadata: { defaultValues, partialData }
+          },
+          originalInput: partialData,
+          schemaName: "FallbackData"
+        }))
+      }
+    })
+  }
+
+  sanitizeData(
+    input: unknown,
+    sanitizationRules: SanitizationRule[]
+  ): Effect.Effect<unknown, never> {
+    return Effect.sync(() => {
+      let sanitizedData = input
+
+      for (const rule of sanitizationRules) {
+        try {
+          sanitizedData = this.applySanitizationRule(sanitizedData, rule)
+        } catch (error) {
+          // サニタイゼーション失敗は警告のみ（データを破損させない）
+          console.warn(`Sanitization rule '${rule.name}' failed:`, error)
+        }
+      }
+
+      return sanitizedData
+    })
+  }
+
+  private applySanitizationRule(data: unknown, rule: SanitizationRule): unknown {
+    if (rule.path.length === 0) {
+      return rule.transform(data)
+    }
+
+    if (typeof data !== "object" || data === null) {
+      return data
+    }
+
+    const result = { ...data as any }
+    let current = result
+
+    // パスを辿ってターゲット値を特定
+    for (let i = 0; i < rule.path.length - 1; i++) {
+      const key = rule.path[i]
+      if (current[key] && typeof current[key] === "object") {
+        current[key] = { ...current[key] }
+        current = current[key]
+      } else {
+        return data // パスが存在しない場合は元データを返す
+      }
+    }
+
+    const finalKey = rule.path[rule.path.length - 1]
+    if (finalKey in current) {
+      current[finalKey] = rule.transform(current[finalKey])
+    }
+
+    return result
+  }
+}
+
+/**
+ * 回復サービスの実装を提供するLayer
+ */
+export const ValidationRecoveryServiceLive = Layer.succeed(
+  ValidationRecoveryService,
+  new ValidationRecoveryServiceImpl()
+)
+
+/**
+ * 使用例：自動回復付き検証
+ */
+export const validateWithRecovery = <T>(
+  schema: Schema.Schema<T>,
+  data: unknown,
+  recoveryStrategies?: RecoveryStrategy[]
+) =>
+  Effect.gen(function* () {
+    const validationService = yield* AdvancedValidationService
+    const recoveryService = yield* ValidationRecoveryService
+
+    // 最初の検証試行
+    const initialResult = yield* validationService.validateWithDetails(
+      schema,
+      data,
+      { collectAllErrors: true }
+    )
+
+    if (initialResult.isValid) {
+      return {
+        success: true,
+        data: initialResult.data as T,
+        recoveryApplied: false,
+        warnings: initialResult.warnings
+      }
+    }
+
+    // 検証失敗時は回復を試行
+    const validationError = new ValidationError({
+      validationResult: initialResult,
+      originalInput: data,
+      schemaName: schema.constructor.name
+    })
+
+    const recoveryResult = yield* recoveryService.attemptRecovery(
+      schema,
+      data,
+      validationError,
+      recoveryStrategies
+    )
+
+    if (recoveryResult.success) {
+      return {
+        success: true,
+        data: recoveryResult.recoveredData!,
+        recoveryApplied: true,
+        appliedStrategies: recoveryResult.appliedStrategies,
+        warnings: [...initialResult.warnings, ...recoveryResult.warnings]
+      }
+    } else {
+      return yield* Effect.fail(validationError)
+    }
+  })
+```
+
 ## 🎯 重要な学習ポイント
 
 ### 1️⃣ **カスタムバリデーションの実装**

@@ -167,12 +167,21 @@ const operation = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Effect.log(`ネットワークエラー (${error.code}): ${error.message}`);
 
-      // ✅ リトライカウントに基づく処理
-      if ((error.retryCount ?? 0) < 3) {
-        return yield* retryOperation(error);
-      }
-
-      return yield* useCachedData();
+      // ✅ Match.valueによるリトライ戦略 - 型安全で拡張性の高い判定
+      return yield* Match.value(error.retryCount ?? 0).pipe(
+        Match.when(Match.number.lessThan(3), (retryCount) =>
+          Effect.gen(function* () {
+            yield* Effect.log(`リトライ実行 (${retryCount + 1}/3)`);
+            return yield* retryOperation(error);
+          })
+        ),
+        Match.orElse((retryCount) =>
+          Effect.gen(function* () {
+            yield* Effect.log(`最大リトライ回数到達 (${retryCount}), キャッシュデータを使用`);
+            return yield* useCachedData();
+          })
+        )
+      );
     })
   ),
   Effect.catchTag("ValidationError", (error) =>
@@ -375,29 +384,28 @@ const createCircuitBreaker = <A, E>(
       const currentState = yield* Ref.get(state);
       const now = Date.now();
 
-      // ✅ 回路ブレーカー状態に基づく処理
-      const shouldExecute = Match.value(currentState.status).pipe(
-        Match.when("closed", () => true),
-        Match.when("open", () => {
+      // ✅ 回路ブレーカー状態に基づく完全なMatch.value処理
+      return yield* Match.value(currentState.status).pipe(
+        Match.when("closed", () => Effect.gen(function* () {
+          // closed状態では常に実行
+          return yield* executeOperation();
+        })),
+        Match.when("open", () => Effect.gen(function* () {
           const timeSinceFailure = currentState.lastFailureTime
             ? now - currentState.lastFailureTime
             : 0;
           const timeoutMs = Duration.toMillis(options.timeout);
 
-          if (timeSinceFailure >= timeoutMs) {
-            // half-openに移行
-            Ref.update(state, s => ({ ...s, status: "half-open", successCount: 0 }));
-            return true;
-          }
-          return false;
-        }),
-        Match.when("half-open", () => true),
-        Match.exhaustive
-      );
-
-      if (!shouldExecute) {
-        return yield* Effect.fail({
-          _tag: "CircuitBreakerOpenError" as const,
+          // ✅ タイムアウト判定もMatch.valueで型安全に
+          return yield* Match.value(timeSinceFailure >= timeoutMs).pipe(
+            Match.when(true, () => Effect.gen(function* () {
+              // half-openに移行して実行
+              yield* Ref.update(state, s => ({ ...s, status: "half-open", successCount: 0 }));
+              yield* Effect.log("サーキットブレーカー: open → half-open");
+              return yield* executeOperation();
+            })),
+            Match.when(false, () => Effect.fail({
+              _tag: "CircuitBreakerOpenError" as const,
           message: "回路ブレーカーが開いています",
           nextRetryTime: (currentState.lastFailureTime ?? 0) + Duration.toMillis(options.timeout)
         });

@@ -256,24 +256,24 @@ export type BlockDefinition = Schema.Schema.Type<typeof BlockDefinition>
 
 ```typescript
 // ブロックレジストリエラー（Effect-TS最新パターン）
-export class BlockRegistrationError extends Data.TaggedError("BlockRegistrationError")<{
+export class BlockRegistrationError extends Schema.TaggedError("BlockRegistrationError")<{
   readonly blockId: BlockId
   readonly reason: string
   readonly timestamp: number
 }> {}
 
-export class BlockNotFoundError extends Data.TaggedError("BlockNotFoundError")<{
+export class BlockNotFoundError extends Schema.TaggedError("BlockNotFoundError")<{
   readonly blockId: BlockId
   readonly searchContext: string
 }> {}
 
-export class BlockValidationError extends Data.TaggedError("BlockValidationError")<{
+export class BlockValidationError extends Schema.TaggedError("BlockValidationError")<{
   readonly blockId: BlockId
   readonly validationErrors: ReadonlyArray<string>
   readonly schema: string
 }> {}
 
-export class BlockConcurrencyError extends Data.TaggedError("BlockConcurrencyError")<{
+export class BlockConcurrencyError extends Schema.TaggedError("BlockConcurrencyError")<{
   readonly blockId: BlockId
   readonly operation: string
   readonly conflictingOperation: string
@@ -667,7 +667,7 @@ export const BlockRegistryLive = Layer.effect(
 
 ```typescript
 // ブロック更新エラー
-export class BlockUpdateError extends Data.TaggedError("BlockUpdateError")<{
+export class BlockUpdateError extends Schema.TaggedError("BlockUpdateError")<{
   readonly position: Position3D
   readonly updateType: string
   readonly reason: string

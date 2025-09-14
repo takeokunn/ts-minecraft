@@ -256,27 +256,33 @@ const createReactiveGameSystem = Effect.gen(function* () {
     Stream.groupedWithin(50, Duration.millis(16)), // 60 FPS同期
     Stream.mapEffect(events =>
       Effect.gen(function* () {
-        if (events.length === 0) return;
+        // ✅ Match.valueによる早期リターン - 型安全で拡張可能
+        yield* Match.value(events.length).pipe(
+          Match.when(0, () => Effect.void), // 空配列の場合は何もしない
+          Match.orElse(() => Effect.gen(function* () {
+            // ✅ イベントタイプ別並列処理
+            const grouped = groupEventsByType(events);
 
-        // ✅ イベントタイプ別並列処理
-        const grouped = groupEventsByType(events);
+            yield* Effect.all([
+              processPlayerEvents(grouped.playerEvents),
+              processBlockEvents(grouped.blockEvents),
+              processChunkEvents(grouped.chunkEvents)
+            ], { concurrency: 3 });
 
-        yield* Effect.all([
-          processPlayerEvents(grouped.playerEvents),
-          processBlockEvents(grouped.blockEvents),
-          processChunkEvents(grouped.chunkEvents)
-        ], { concurrency: 3 });
+            // ✅ STMによるメトリクス更新
+            yield* STM.gen(function* () {
+              const currentMetrics = yield* STM.get(metricsRef);
+              yield* STM.set(metricsRef, {
+                ...currentMetrics,
+                blocksPerSecond: grouped.blockEvents.length / 0.016,
+                lastProcessedEvents: events.length,
+                timestamp: Date.now()
+              } as SystemMetrics);
+            }).pipe(STM.commit);
+          }))
+        );
 
-        // ✅ STMによるメトリクス更新
-        yield* STM.gen(function* () {
-          const currentMetrics = yield* STM.get(metricsRef);
-          yield* STM.set(metricsRef, {
-            ...currentMetrics,
-            blocksPerSecond: grouped.blockEvents.length / 0.016,
-            lastProcessedEvents: events.length,
-            timestamp: Date.now()
-          } as SystemMetrics);
-        }).pipe(STM.commit);
+        // この部分は既に上の変換に含まれているため削除
       })
     )
   );
@@ -284,15 +290,16 @@ const createReactiveGameSystem = Effect.gen(function* () {
   return { eventHub, commandQueue, metricsRef, eventProcessingStream };
 });
 
-// ✅ 早期リターンパターンとStream統合
+// ✅ 早期リターンパターンとStream統合 - Match.valueによる型安全な条件分岐
 const processWorldUpdate = (worldState: WorldState): Effect.Effect<WorldState, WorldError> =>
   Effect.gen(function* () {
-    // ✅ 早期リターン: 空の更新
-    if (worldState.pendingUpdates.length === 0) {
-      return worldState;
-    }
+    // ✅ Match.valueによる早期リターン - 従来のif文より型安全で拡張可能
+    return yield* Match.value(worldState.pendingUpdates.length).pipe(
+      Match.when(0, () => Effect.succeed(worldState)), // 空の更新の場合はそのまま返す
+      Match.orElse((updateCount) => Effect.gen(function* () {
+        yield* Effect.log(`${updateCount}個のワールド更新を処理中`)
 
-    const coreServices = yield* CoreServices;
+        const coreServices = yield* CoreServices;
 
     // ✅ ストリーミング処理でメモリ効率最適化
     const processedUpdates = yield* Stream.fromIterable(worldState.pendingUpdates).pipe(
@@ -1334,6 +1341,54 @@ const processCommand = (command: Command): Effect.Effect<void, CommandError> =>
       })
     )
   )
+```
+
+### 3.4. Match.valueパターンの教育的価値と型安全性の向上
+
+上記のMatch.value変換により実現される重要な改善点：
+
+#### 🎯 **型安全性の向上**
+```typescript
+// ❌ 従来のif文 - TypeScriptでもランタイムエラーのリスク
+if (events.length === 0) return; // 値の比較のみ、型チェック不十分
+
+// ✅ Match.value - 型レベルでの保証
+Match.value(events.length).pipe(
+  Match.when(0, () => Effect.void), // 型システムが値を保証
+  Match.orElse(() => /* 処理 */)    // exhaustiveで網羅性チェック
+);
+```
+
+#### 🔍 **網羅性チェック (Exhaustiveness)**
+```typescript
+// ✅ Match.exhaustiveによる型レベルでの網羅性保証
+Match.value(command).pipe(
+  Match.tag("Move", handleMoveCommand),
+  Match.tag("Attack", handleAttackCommand),
+  Match.tag("UseItem", handleUseItemCommand),
+  Match.tag("Chat", handleChatCommand),
+  Match.exhaustive // ← 新しいコマンド追加時にコンパイルエラーで気づける
+);
+```
+
+#### 📈 **拡張性とメンテナンス性**
+- **条件追加**: 新しい分岐をMatch.whenで簡単に追加
+- **型安全**: Tagged Unionで新しいケースを追加した際の変更漏れ防止
+- **可読性**: 条件とアクションが明確に分離されたパターン
+- **合成可能**: 複数のMatch.valueをpipeで組み合わせ可能
+
+#### 🧪 **テスタビリティの向上**
+```typescript
+// ✅ 各分岐を独立してテスト可能
+describe("Match.valueパターン", () => {
+  it("空イベント配列の場合、何も処理しない", async () => {
+    const result = await Match.value([].length).pipe(
+      Match.when(0, () => Effect.succeed("empty")),
+      Match.orElse(() => Effect.succeed("non-empty"))
+    );
+    expect(result).toBe("empty");
+  });
+});
 ```
 
 ## 4. プロジェクト固有の実装パターン

@@ -1,13 +1,13 @@
 ---
-title: "Player Controls"
-description: "Player Controlsに関する詳細な説明とガイド。"
+title: "プレイヤー制御システム仕様 - 入力処理・操作レスポンス"
+description: "キーボード・マウス入力、プレイヤー移動、ブロック操作、インベントリ管理の完全仕様。レスポンシブなゲームプレイ体験。"
 category: "specification"
 difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
+tags: ["player-controls", "input-system", "mouse-keyboard", "movement-system", "block-interaction", "inventory-controls"]
+prerequisites: ["effect-ts-fundamentals", "event-handling", "player-system-basics"]
 estimated_reading_time: "25分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+related_patterns: ["event-driven-patterns", "state-machine-patterns", "input-handling-patterns"]
+related_docs: ["./02-player-system.md", "./18-input-controls.md", "./01-inventory-system.md"]
 ---
 
 # プレイヤー制御

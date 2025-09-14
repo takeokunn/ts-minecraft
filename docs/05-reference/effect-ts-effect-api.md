@@ -1,3 +1,15 @@
+---
+title: "Effect-TS Effect APIリファレンス - Effect型完全ガイド"
+description: "Effect-TS Effect APIの完全リファレンス。Effect型の作成、合成、実行、エラーハンドリング、並行処理パターン。"
+category: "reference"
+difficulty: "intermediate"
+tags: ["effect-ts", "effect-api", "functional-programming", "async", "error-handling"]
+prerequisites: ["effect-ts-basics"]
+estimated_reading_time: "35分"
+dependencies: []
+status: "complete"
+---
+
 # Effect-TS Effect API リファレンス
 
 ## 概要
@@ -37,6 +49,22 @@ const program = Effect.gen(function* () {
     email: profile.email
   }
 })
+```
+
+### Effect.succeed / Effect.fail - 基本的なEffect作成
+
+```typescript
+// 成功値を持つEffectを作成
+const successEffect = Effect.succeed(42)
+// Type: Effect<number, never, never>
+
+// 失敗値を持つEffectを作成
+const failureEffect = Effect.fail("Something went wrong")
+// Type: Effect<never, string, never>
+
+// 同期的な計算をEffectに変換
+const syncEffect = Effect.sync(() => Math.random())
+// Type: Effect<number, never, never>
 ```
 
 ### pipe - 関数合成
@@ -96,6 +124,12 @@ const data = Effect.all({
   posts: fetchPosts("123"),
   comments: fetchComments("123")
 }) // Effect<{user: User, posts: Post[], comments: Comment[]}, ...>
+
+// 並列度を制御
+const controlledResults = Effect.all(
+  [fetchUser("1"), fetchUser("2"), fetchUser("3")],
+  { concurrency: 2 } // 最大2つまで並列実行
+)
 ```
 
 ### Effect.forEach - 配列の並列処理
@@ -135,6 +169,17 @@ const safeOperation = pipe(
     return Effect.succeed("デフォルト値")
   })
 )
+
+// またはEffect.genを使用
+const safeOperationGen = Effect.gen(function* () {
+  const result = yield* riskyOperation().pipe(
+    Effect.catchAll(error => {
+      console.error("エラーが発生:", error)
+      return Effect.succeed("デフォルト値")
+    })
+  )
+  return result
+})
 ```
 
 ### catchTag - 特定エラーのハンドリング
@@ -148,6 +193,7 @@ class ValidationError extends Schema.TaggedError<ValidationError>()("ValidationE
   field: Schema.String
 }) {}
 
+// 個別のcatchTagを使用
 const handleSpecificErrors = pipe(
   operation(),
   Effect.catchTag("NetworkError", error =>
@@ -157,6 +203,15 @@ const handleSpecificErrors = pipe(
     Effect.fail(new Error(`バリデーションエラー: ${error.field}`))
   )
 )
+
+// catchTagsでまとめて処理
+const handleMultipleErrors = pipe(
+  operation(),
+  Effect.catchTags({
+    NetworkError: error => Effect.succeed("ネットワークエラーを回復"),
+    ValidationError: error => Effect.fail(new Error(`バリデーションエラー: ${error.field}`))
+  })
+)
 ```
 
 ### retry - リトライ戦略
@@ -164,11 +219,28 @@ const handleSpecificErrors = pipe(
 ```typescript
 import { Schedule } from "effect"
 
-const resilientOperation = pipe(
+// 基本的なリトライ
+const simpleRetry = pipe(
+  unstableOperation(),
+  Effect.retry(Schedule.recurs(3)) // 3回まで再試行
+)
+
+// 指数バックオフでリトライ
+const exponentialRetry = pipe(
   unstableOperation(),
   Effect.retry(
     Schedule.exponential("100 millis").pipe(
       Schedule.intersect(Schedule.recurs(3))
+    )
+  )
+)
+
+// 条件付きリトライ
+const conditionalRetry = pipe(
+  unstableOperation(),
+  Effect.retry(
+    Schedule.recurWhile((error: unknown) =>
+      error instanceof NetworkError
     )
   )
 )
@@ -179,6 +251,7 @@ const resilientOperation = pipe(
 ### acquireRelease - リソースの安全な取得と解放
 
 ```typescript
+// 基本的なリソース管理
 const safeFileOperation = Effect.acquireRelease(
   // リソース取得
   Effect.sync(() => fs.openSync("file.txt", "r")),
@@ -189,6 +262,16 @@ const safeFileOperation = Effect.acquireRelease(
     // リソース使用
     Effect.sync(() => fs.readFileSync(fd, "utf8"))
   )
+)
+
+// acquireUseReleaseパターン
+const acquireUseReleaseExample = Effect.acquireUseRelease(
+  // acquire
+  Effect.sync(() => fs.openSync("file.txt", "r")),
+  // use
+  (fd) => Effect.sync(() => fs.readFileSync(fd, "utf8")),
+  // release
+  (fd, exit) => Effect.sync(() => fs.closeSync(fd))
 )
 ```
 
@@ -220,6 +303,43 @@ const DatabaseLive = Layer.scoped(
         })
     }
   })
+)
+```
+
+### tap - 副作用の実行
+
+値を変更せずに副作用を実行：
+
+```typescript
+const loggedOperation = pipe(
+  fetchUser("123"),
+  Effect.tap(user => Effect.log(`取得したユーザー: ${user.name}`)),
+  Effect.map(user => user.email)
+)
+
+// 複数のtapをチェーン
+const multipleActions = pipe(
+  computation(),
+  Effect.tap(result => Effect.log(`計算結果: ${result}`)),
+  Effect.tap(result => validateResult(result)),
+  Effect.tap(result => cacheResult(result))
+)
+```
+
+### andThen - 操作の連鎖
+
+```typescript
+// 結果を無視して次の操作を実行
+const sequence = pipe(
+  initializeSystem(),
+  Effect.andThen(loadConfiguration()),
+  Effect.andThen(startServices())
+)
+
+// 結果を使用して次の操作を実行（flatMapと同じ）
+const transform = pipe(
+  fetchUser("123"),
+  Effect.andThen(user => fetchProfile(user.id))
 )
 ```
 
@@ -493,6 +613,29 @@ const optimizedProcess = Effect.gen(function* () {
   const result2 = yield* compute(input) // キャッシュから取得
 
   return [result1, result2]
+})
+```
+
+### 5. Effect.exit - 結果の詳細な制御
+
+```typescript
+// 成功・失敗に関係なく結果をExitとして取得
+const safeExecution = Effect.gen(function* () {
+  const exit = yield* Effect.exit(riskyOperation())
+
+  if (Exit.isSuccess(exit)) {
+    console.log("成功:", exit.value)
+    return exit.value
+  } else {
+    console.error("失敗:", exit.cause)
+    return null
+  }
+})
+
+// テストでの使用例
+const testResult = Effect.gen(function* () {
+  const exit = yield* Effect.exit(divide(4, 2))
+  expect(exit).toStrictEqual(Exit.succeed(2))
 })
 ```
 

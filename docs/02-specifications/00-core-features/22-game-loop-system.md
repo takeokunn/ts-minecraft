@@ -1,13 +1,13 @@
 ---
-title: "22 Game Loop System"
-description: "22 Game Loop Systemに関する詳細な説明とガイド。"
+title: "ゲームループシステム仕様 - 固定タイムステップ・レンダリング制御"
+description: "ゲーム更新サイクル、フレーム管理、パフォーマンス最適化の完全仕様。Effect-TSによる並行処理と固定タイムステップ。"
 category: "specification"
-difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
+difficulty: "advanced"
+tags: ["game-loop", "performance", "frame-management", "fixed-timestep", "concurrent-processing", "system-coordination"]
+prerequisites: ["effect-ts-fundamentals", "concurrent-patterns", "performance-optimization"]
 estimated_reading_time: "15分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+related_patterns: ["concurrent-patterns", "optimization-patterns", "system-integration-patterns"]
+related_docs: ["./05-rendering-system.md", "./06-physics-system.md", "../../01-architecture/06-effect-ts-patterns.md"]
 ---
 
 # ゲームループシステム

@@ -139,7 +139,7 @@ const ControlSchemeSchema = Schema.Struct({
 type ControlScheme = Schema.Schema.Type<typeof ControlSchemeSchema>
 
 // 入力マッピングサービス
-class InputMappingService extends Context.Tag("@input/InputMappingService")<
+class InputMappingService extends Context.GenericTag("@input/InputMappingService")<
   InputMappingService,
   {
     readonly loadControlScheme: (name: string) => Effect.Effect<ControlScheme, Config.Error, never>
@@ -370,7 +370,7 @@ const MouseSettingsSchema = Schema.Struct({
 type MouseSettings = Schema.Schema.Type<typeof MouseSettingsSchema>
 
 // マウス設定サービス
-class MouseSettingsService extends Context.Tag("@input/MouseSettingsService")<
+class MouseSettingsService extends Context.GenericTag("@input/MouseSettingsService")<
   MouseSettingsService,
   {
     readonly getSettings: Effect.Effect<MouseSettings, never, never>
@@ -428,7 +428,7 @@ const GamepadSettingsSchema = Schema.Struct({
 type GamepadSettings = Schema.Schema.Type<typeof GamepadSettingsSchema>
 
 // ゲームパッド設定サービス
-class GamepadSettingsService extends Context.Tag("@input/GamepadSettingsService")<
+class GamepadSettingsService extends Context.GenericTag("@input/GamepadSettingsService")<
   GamepadSettingsService,
   {
     readonly getSettings: Effect.Effect<GamepadSettings, never, never>
@@ -471,7 +471,7 @@ const AccessibilitySettingsSchema = Schema.Struct({
 type AccessibilitySettings = Schema.Schema.Type<typeof AccessibilitySettingsSchema>
 
 // アクセシビリティサービス
-class AccessibilityService extends Context.Tag("@input/AccessibilityService")<
+class AccessibilityService extends Context.GenericTag("@input/AccessibilityService")<
   AccessibilityService,
   {
     readonly getSettings: Effect.Effect<AccessibilitySettings, never, never>
@@ -546,7 +546,7 @@ const InputEventSchema = Schema.TaggedUnion("_tag", [
 type InputEvent = Schema.Schema.Type<typeof InputEventSchema>
 
 // 入力状態サービス
-class InputStateService extends Context.Tag("@input/InputStateService")<
+class InputStateService extends Context.GenericTag("@input/InputStateService")<
   InputStateService,
   {
     readonly checkForwardPressed: Effect.Effect<boolean, never, never>
@@ -619,7 +619,7 @@ const InputTrackerSchema = Schema.Struct({
 type InputTracker = Schema.Schema.Type<typeof InputTrackerSchema>
 
 // 入力トラッキングサービス
-class InputTrackerService extends Context.Tag("@input/InputTrackerService")<
+class InputTrackerService extends Context.GenericTag("@input/InputTrackerService")<
   InputTrackerService,
   {
     readonly updateTracker: (currentState: boolean) => Effect.Effect<InputTracker, never, never>
@@ -716,7 +716,7 @@ const GameActionSchema = Schema.TaggedUnion("_tag", [
 type GameAction = Schema.Schema.Type<typeof GameActionSchema>
 
 // コンボアクション検出サービス
-class ComboDetectionService extends Context.Tag("@input/ComboDetectionService")<
+class ComboDetectionService extends Context.GenericTag("@input/ComboDetectionService")<
   ComboDetectionService,
   {
     readonly detectHighJump: (
@@ -841,7 +841,7 @@ const InputDebugInfoSchema = Schema.Struct({
 type InputDebugInfo = Schema.Schema.Type<typeof InputDebugInfoSchema>
 
 // 入力バッファリングサービス
-class InputBufferService extends Context.Tag("@input/InputBufferService")<
+class InputBufferService extends Context.GenericTag("@input/InputBufferService")<
   InputBufferService,
   {
     readonly createInputQueue: (
@@ -869,7 +869,7 @@ const InputValidationErrorSchema = Schema.TaggedError("InputValidationError", {
 class InputValidationError extends Schema.TaggedError(InputValidationErrorSchema) {}
 
 // デバッグサービス
-class InputDebugService extends Context.Tag("@input/InputDebugService")<
+class InputDebugService extends Context.GenericTag("@input/InputDebugService")<
   InputDebugService,
   {
     readonly logInputState: (debugInfo: InputDebugInfo) => Effect.Effect<void, never, never>
@@ -937,7 +937,7 @@ const GestureSchema = Schema.TaggedUnion("_tag", [
 type Gesture = Schema.Schema.Type<typeof GestureSchema>
 
 // ジェスチャー認識サービス
-class GestureRecognitionService extends Context.Tag("@input/GestureRecognitionService")<
+class GestureRecognitionService extends Context.GenericTag("@input/GestureRecognitionService")<
   GestureRecognitionService,
   {
     readonly recognizeGesture: (
@@ -956,7 +956,7 @@ class GestureRecognitionService extends Context.Tag("@input/GestureRecognitionSe
 
 ```typescript
 // ゲームパッド検出サービス
-class GamepadDetectionService extends Context.Tag("@input/GamepadDetectionService")<
+class GamepadDetectionService extends Context.GenericTag("@input/GamepadDetectionService")<
   GamepadDetectionService,
   {
     readonly detectGamepads: Effect.Effect<Array<DeviceType>, never, never>
@@ -1013,7 +1013,7 @@ const identifyGamepadType = (
 
 ```typescript
 // マウス感度校正サービス
-class MouseCalibrationService extends Context.Tag("@input/MouseCalibrationService")<
+class MouseCalibrationService extends Context.GenericTag("@input/MouseCalibrationService")<
   MouseCalibrationService,
   {
     readonly autoCalibrateSensitivity: Effect.Effect<MouseSensitivity, never, never>
@@ -1053,7 +1053,7 @@ const calculateOptimalSensitivity = (
 
 ```typescript
 // キーボードデバッグサービス
-class KeyboardDebugService extends Context.Tag("@input/KeyboardDebugService")<
+class KeyboardDebugService extends Context.GenericTag("@input/KeyboardDebugService")<
   KeyboardDebugService,
   {
     readonly validateKeyCode: (keyCode: string) => Effect.Effect<boolean, never, never>

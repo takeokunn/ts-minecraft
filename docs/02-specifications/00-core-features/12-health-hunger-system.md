@@ -1,13 +1,13 @@
 ---
-title: "12 Health Hunger System"
-description: "12 Health Hunger Systemに関する詳細な説明とガイド。"
+title: "体力・空腹システム仕様 - プレイヤーサバイバル管理"
+description: "プレイヤーの体力、空腹度、食事システムの完全仕様。サバイバルモードでのリソース管理とゲームバランス調整。"
 category: "specification"
 difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
+tags: ["health-system", "hunger-system", "food-mechanics", "player-stats", "survival-mode", "resource-management"]
+prerequisites: ["effect-ts-fundamentals", "player-system-basics", "game-balance"]
 estimated_reading_time: "5分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+related_patterns: ["service-patterns", "state-machine-patterns", "event-driven-patterns"]
+related_docs: ["./02-player-system.md", "./19-food-agriculture-system.md", "./13-combat-system.md"]
 ---
 
 # Health & Hunger System (体力・飢餓システム)

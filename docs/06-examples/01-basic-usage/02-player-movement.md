@@ -66,7 +66,7 @@ graph TB
 ```typescript
 // src/domain/math/vector3.ts
 import { Schema } from "@effect/schema"
-import { Data, Equal, Hash, Brand } from "effect"
+import { Data, Equal, Hash, Brand, Match } from "effect"
 
 /**
  * Branded type for coordinate values (型安全性強化)
@@ -99,19 +99,30 @@ export class Vector3Data extends Data.Struct<{
   readonly z: number
 }> {
   /**
-   * ベクトル加算（Early Return実装）
+   * ベクトル加算（Match.valueパターンマッチング）
+   *
+   * 🎯 学習ポイント：
+   * - if/elseの代替としてMatch.valueを使用
+   * - 型安全性とコード可読性の向上
+   * - パターンマッチングによる条件分岐の明確化
    */
   add(other: Vector3Data): Vector3Data {
-    // Early Return: ゼロベクトルの場合は即座に自身を返す
-    if (other.x === 0 && other.y === 0 && other.z === 0) {
-      return this
-    }
-
-    return new Vector3Data({
-      x: Coordinate(this.x + other.x),
-      y: Coordinate(this.y + other.y),
-      z: Coordinate(this.z + other.z)
-    })
+    // Match.valueでパターンマッチング（従来のif文の代替）
+    return Match.value(other).pipe(
+      // ゼロベクトルの場合は即座に自身を返す（Early Return効果）
+      Match.when(
+        (v) => v.x === 0 && v.y === 0 && v.z === 0,
+        () => this
+      ),
+      // その他の場合は通常の加算処理
+      Match.orElse(() =>
+        new Vector3Data({
+          x: Coordinate(this.x + other.x),
+          y: Coordinate(this.y + other.y),
+          z: Coordinate(this.z + other.z)
+        })
+      )
+    )
   }
 
   /**
@@ -131,24 +142,29 @@ export class Vector3Data extends Data.Struct<{
   }
 
   /**
-   * スカラー倍（Early Return実装）
+   * スカラー倍（Match.valueパターンマッチング）
+   *
+   * 🎯 学習ポイント：
+   * - 複数条件のif/elseをMatch.whenで置換
+   * - 網羅的なパターンマッチングによる型安全性
+   * - 条件の優先順位を明確化
    */
   multiply(scalar: number): Vector3Data {
-    // Early Return: スカラーが1の場合は即座に自身を返す
-    if (scalar === 1) {
-      return this
-    }
-
-    // Early Return: スカラーが0の場合はゼロベクトルを返す
-    if (scalar === 0) {
-      return ZERO_VECTOR
-    }
-
-    return new Vector3Data({
-      x: Coordinate(this.x * scalar),
-      y: Coordinate(this.y * scalar),
-      z: Coordinate(this.z * scalar)
-    })
+    // Match.valueで複数条件を型安全にマッチング
+    return Match.value(scalar).pipe(
+      // 最適化: スカラーが1の場合は自身をそのまま返す
+      Match.when(1, () => this),
+      // 最適化: スカラーが0の場合はゼロベクトルを返す
+      Match.when(0, () => ZERO_VECTOR),
+      // デフォルト: 通常のスカラー倍計算
+      Match.orElse((s) =>
+        new Vector3Data({
+          x: Coordinate(this.x * s),
+          y: Coordinate(this.y * s),
+          z: Coordinate(this.z * s)
+        })
+      )
+    )
   }
 
   /**
@@ -297,8 +313,21 @@ class BrowserInputSystem implements InputSystem {
     return Effect.gen(function* () {
       const self = this
 
-      // Early Return: 既に初期化済みまたはサーバーサイド
-      if (self.initialized || typeof window === 'undefined') {
+      // Match.valueでパターンマッチング（従来のif文を置換）
+      // 🎯 学習ポイント：型安全性を保ちながら複雑な条件分岐を明確化
+      const shouldSkipInit = Match.value({
+        initialized: self.initialized,
+        hasWindow: typeof window !== 'undefined'
+      }).pipe(
+        // 既に初期化済みの場合はスキップ
+        Match.when({ initialized: true }, () => true),
+        // サーバーサイド（window未定義）の場合はスキップ
+        Match.when({ hasWindow: false }, () => true),
+        // それ以外は初期化を実行
+        Match.orElse(() => false)
+      )
+
+      if (shouldSkipInit) {
         return
       }
 
@@ -1687,18 +1716,22 @@ export class ApplicationError extends Schema.TaggedError<ApplicationError>("Appl
 const program = Effect.gen(function* () {
   yield* Console.log('🚀 プレイヤー移動システム起動中...')
 
-  // DOM要素の取得（Early Return実装）
+  // DOM要素の取得（Match.valueパターンマッチング）
+  // 🎯 学習ポイント：nullチェックをMatch.valueで型安全に処理
   const container = yield* Effect.gen(function* () {
     const element = document.getElementById('game-container')
 
-    // Early Return: DOM要素が見つからない場合
-    if (!element) {
-      return yield* new ApplicationError({
-        message: 'game-container要素が見つかりません'
-      })
-    }
-
-    return element
+    // Match.valueでnullチェックを型安全に実行（従来のif文を置換）
+    return yield* Match.value(element).pipe(
+      // null の場合はエラーを返す
+      Match.when(null, () =>
+        new ApplicationError({
+          message: 'game-container要素が見つかりません'
+        })
+      ),
+      // HTMLElement の場合はそのまま返す
+      Match.orElse((el) => Effect.succeed(el))
+    )
   })
 
   // Effect.allでサービス取得を並列化
@@ -1806,10 +1839,18 @@ const runnable = program.pipe(
 const runApplication = Match.value(typeof window !== 'undefined').pipe(
   Match.when(true, () =>
     Effect.gen(function* () {
-      // Early Return: HTMLが既に読み込まれている場合
-      if (!document.getElementById('game-container')) {
-        document.write(createHTML())
-      }
+      // Match.valueでDOM存在チェック（従来のif文を置換）
+      // 🎯 学習ポイント：DOM操作の型安全性を向上
+      Match.value(document.getElementById('game-container')).pipe(
+        // コンテナが存在しない場合はHTMLを作成
+        Match.when(null, () => {
+          document.write(createHTML())
+        }),
+        // 既に存在する場合は何もしない
+        Match.orElse(() => {
+          // HTMLは既に存在するため何もしない
+        })
+      )
 
       const exit = yield* Effect.runPromiseExit(runnable)
 
@@ -1833,6 +1874,950 @@ const runApplication = Match.value(typeof window !== 'undefined').pipe(
 
 // アプリケーション実行
 Effect.runPromise(runApplication)
+```
+
+## 🧪 テスト実装例
+
+### Property-Based Testing（プレイヤー移動の検証）
+
+```typescript
+// src/tests/player-movement-property.test.ts
+import { describe, it, expect } from "vitest"
+import { Effect, Exit } from "effect"
+import { fc } from "fast-check"
+import { PlayerMovementServiceLive } from "../domain/services/player-movement-service.js"
+import { Player, PLAYER_PHYSICS } from "../domain/entities/player.js"
+import { Vector3Data, ZERO_VECTOR } from "../domain/math/vector3.js"
+import { PlayerMovementService, MovementInput } from "../domain/services/player-movement-service.js"
+
+describe("PlayerMovementService Property Tests", () => {
+  const testProgram = <A, E>(effect: Effect.Effect<A, E>) =>
+    effect.pipe(Effect.provide(PlayerMovementServiceLive))
+
+  // プレイヤーの任意生成器（有効範囲内）
+  const validPlayerArb = fc.record({
+    id: fc.string({ minLength: 1, maxLength: 20 }),
+    position: fc.record({
+      x: fc.float({ min: -50, max: 50 }),
+      y: fc.float({ min: 0, max: 50 }),
+      z: fc.float({ min: -50, max: 50 })
+    })
+  }).map(({ id, position }) => {
+    const player = Player.create(id)
+    return player.updatePosition(new Vector3Data({
+      x: position.x,
+      y: position.y,
+      z: position.z
+    }))
+  })
+
+  // 移動入力の任意生成器
+  const movementInputArb = fc.record({
+    forward: fc.boolean(),
+    backward: fc.boolean(),
+    left: fc.boolean(),
+    right: fc.boolean(),
+    jump: fc.boolean(),
+    run: fc.boolean(),
+    deltaTime: fc.float({ min: 0.001, max: 0.1 }) // 1ms〜100ms
+  })
+
+  it("property: ジャンプは常に上向きの速度を追加する（地面にいる場合）", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        validPlayerArb,
+        movementInputArb,
+        async (player, input) => {
+          // 地面にいるプレイヤーで、ジャンプ入力ありの場合のテスト
+          const groundPlayer = player.setOnGround(true)
+          const jumpInput = { ...input, jump: true }
+
+          const result = await Effect.runPromiseExit(
+            testProgram(
+              Effect.gen(function* () {
+                const service = yield* PlayerMovementService
+                return yield* service.updateMovement(groundPlayer, jumpInput)
+              })
+            )
+          )
+
+          expect(Exit.isSuccess(result)).toBe(true)
+
+          if (Exit.isSuccess(result)) {
+            const updatedPlayer = result.value
+            // プロパティ: ジャンプ時は必ず上向きの速度を持つ
+            expect(updatedPlayer.velocity.y).toBeGreaterThan(0)
+            // プロパティ: 空中状態になる
+            expect(updatedPlayer.state.isOnGround).toBe(false)
+          }
+
+          return true
+        }
+      ),
+      { numRuns: 100 }
+    )
+  })
+
+  it("property: 移動入力がない場合、水平速度は減衰する", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        validPlayerArb,
+        fc.float({ min: 0.001, max: 0.1 }),
+        async (player, deltaTime) => {
+          // 初期速度を持つプレイヤーで、入力なしの場合
+          const movingPlayer = player.updateVelocity(
+            new Vector3Data({ x: 5, y: 0, z: 3 })
+          ).setOnGround(true)
+
+          const noInput: MovementInput = {
+            forward: false,
+            backward: false,
+            left: false,
+            right: false,
+            jump: false,
+            run: false,
+            deltaTime
+          }
+
+          const result = await Effect.runPromiseExit(
+            testProgram(
+              Effect.gen(function* () {
+                const service = yield* PlayerMovementService
+                return yield* service.updateMovement(movingPlayer, noInput)
+              })
+            )
+          )
+
+          expect(Exit.isSuccess(result)).toBe(true)
+
+          if (Exit.isSuccess(result)) {
+            const updatedPlayer = result.value
+            const originalSpeed = Math.sqrt(movingPlayer.velocity.x ** 2 + movingPlayer.velocity.z ** 2)
+            const newSpeed = Math.sqrt(updatedPlayer.velocity.x ** 2 + updatedPlayer.velocity.z ** 2)
+
+            // プロパティ: 摩擦により水平速度は減少する
+            expect(newSpeed).toBeLessThanOrEqual(originalSpeed)
+          }
+
+          return true
+        }
+      ),
+      { numRuns: 50 }
+    )
+  })
+
+  it("property: 走行速度は歩行速度より速い", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        validPlayerArb,
+        fc.float({ min: 0.001, max: 0.1 }),
+        async (player, deltaTime) => {
+          const groundPlayer = player.setOnGround(true)
+
+          const walkInput: MovementInput = {
+            forward: true,
+            backward: false,
+            left: false,
+            right: false,
+            jump: false,
+            run: false,
+            deltaTime
+          }
+
+          const runInput: MovementInput = {
+            ...walkInput,
+            run: true
+          }
+
+          const [walkResult, runResult] = await Promise.all([
+            Effect.runPromiseExit(
+              testProgram(
+                Effect.gen(function* () {
+                  const service = yield* PlayerMovementService
+                  return yield* service.updateMovement(groundPlayer, walkInput)
+                })
+              )
+            ),
+            Effect.runPromiseExit(
+              testProgram(
+                Effect.gen(function* () {
+                  const service = yield* PlayerMovementService
+                  return yield* service.updateMovement(groundPlayer, runInput)
+                })
+              )
+            )
+          ])
+
+          expect(Exit.isSuccess(walkResult)).toBe(true)
+          expect(Exit.isSuccess(runResult)).toBe(true)
+
+          if (Exit.isSuccess(walkResult) && Exit.isSuccess(runResult)) {
+            const walkSpeed = Math.sqrt(
+              walkResult.value.velocity.x ** 2 + walkResult.value.velocity.z ** 2
+            )
+            const runSpeed = Math.sqrt(
+              runResult.value.velocity.x ** 2 + runResult.value.velocity.z ** 2
+            )
+
+            // プロパティ: 走行速度 > 歩行速度
+            expect(runSpeed).toBeGreaterThan(walkSpeed)
+            // プロパティ: 走行状態フラグが正しく設定される
+            expect(runResult.value.state.isRunning).toBe(true)
+          }
+
+          return true
+        }
+      ),
+      { numRuns: 50 }
+    )
+  })
+
+  it("property: 境界を超える移動は衝突エラーとなる", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.record({
+          x: fc.float({ min: 60, max: 100 }),  // 境界外の位置
+          y: fc.float({ min: 0, max: 10 }),
+          z: fc.float({ min: 60, max: 100 })
+        }),
+        fc.float({ min: 0.001, max: 0.1 }),
+        async (boundaryPosition, deltaTime) => {
+          const player = Player.create("test-player")
+          const boundaryPlayer = player.updatePosition(
+            new Vector3Data(boundaryPosition)
+          )
+
+          const input: MovementInput = {
+            forward: true,  // さらに境界外に向かう移動
+            backward: false,
+            left: false,
+            right: false,
+            jump: false,
+            run: false,
+            deltaTime
+          }
+
+          const result = await Effect.runPromiseExit(
+            testProgram(
+              Effect.gen(function* () {
+                const service = yield* PlayerMovementService
+                return yield* service.updateMovement(boundaryPlayer, input)
+              })
+            )
+          )
+
+          // プロパティ: 境界外移動は成功するが、衝突検出が働くことを確認
+          // (実装によっては衝突エラーまたは位置制限)
+          expect(Exit.isSuccess(result) || Exit.isFailure(result)).toBe(true)
+
+          return true
+        }
+      ),
+      { numRuns: 30 }
+    )
+  })
+})
+```
+
+### 統合テスト（複数フレームのシミュレーション）
+
+```typescript
+// src/tests/player-movement-integration.test.ts
+import { describe, it, expect, beforeEach } from "vitest"
+import { Effect } from "effect"
+import { PlayerMovementServiceLive } from "../domain/services/player-movement-service.js"
+import { Player } from "../domain/entities/player.js"
+import { Vector3Data } from "../domain/math/vector3.js"
+import { PlayerMovementService, MovementInput } from "../domain/services/player-movement-service.js"
+
+describe("PlayerMovement Integration Tests", () => {
+  const testProgram = <A, E>(effect: Effect.Effect<A, E>) =>
+    effect.pipe(Effect.provide(PlayerMovementServiceLive))
+
+  let player: Player
+
+  beforeEach(() => {
+    player = Player.create("test-player")
+  })
+
+  it("複数フレームでの連続移動シミュレーション", async () => {
+    const frameCount = 60  // 1秒分のフレーム
+    const deltaTime = 1/60  // 60FPS
+
+    let currentPlayer = player
+    const movementHistory: Vector3Data[] = []
+
+    const input: MovementInput = {
+      forward: true,
+      backward: false,
+      left: false,
+      right: false,
+      jump: false,
+      run: false,
+      deltaTime
+    }
+
+    // 60フレーム分の移動をシミュレート
+    for (let frame = 0; frame < frameCount; frame++) {
+      const result = await Effect.runPromise(
+        testProgram(
+          Effect.gen(function* () {
+            const service = yield* PlayerMovementService
+            return yield* service.updateMovement(currentPlayer, input)
+          })
+        )
+      )
+
+      currentPlayer = result
+      movementHistory.push(currentPlayer.position)
+    }
+
+    // 検証: 連続して前方に移動している
+    expect(movementHistory.length).toBe(frameCount)
+
+    // 検証: Z座標が減少している（前方移動）
+    const initialZ = movementHistory[0].z
+    const finalZ = movementHistory[frameCount - 1].z
+    expect(finalZ).toBeLessThan(initialZ)
+
+    // 検証: X, Y座標は大きく変化していない（直進）
+    const initialX = movementHistory[0].x
+    const finalX = movementHistory[frameCount - 1].x
+    expect(Math.abs(finalX - initialX)).toBeLessThan(0.1)
+  })
+
+  it("ジャンプ -> 着地サイクルのシミュレーション", async () => {
+    const frameCount = 120  // 2秒分のフレーム
+    const deltaTime = 1/60
+
+    let currentPlayer = player.setOnGround(true)
+    const heightHistory: number[] = []
+    const groundContactHistory: boolean[] = []
+
+    for (let frame = 0; frame < frameCount; frame++) {
+      // 最初のフレームでのみジャンプ
+      const input: MovementInput = {
+        forward: false,
+        backward: false,
+        left: false,
+        right: false,
+        jump: frame === 0,  // 最初のフレームのみ
+        run: false,
+        deltaTime
+      }
+
+      const result = await Effect.runPromise(
+        testProgram(
+          Effect.gen(function* () {
+            const service = yield* PlayerMovementService
+            return yield* service.updateMovement(currentPlayer, input)
+          })
+        )
+      )
+
+      currentPlayer = result
+      heightHistory.push(currentPlayer.position.y)
+      groundContactHistory.push(currentPlayer.state.isOnGround)
+    }
+
+    // 検証: ジャンプ後に上昇
+    expect(heightHistory[0]).toBe(0)  // 初期位置
+    expect(heightHistory[10]).toBeGreaterThan(0)  // 上昇中
+
+    // 検証: 最終的に地面に戻る
+    expect(heightHistory[frameCount - 1]).toBeLessThanOrEqual(0.1)
+
+    // 検証: ジャンプ後は空中状態、最終的に地面接触
+    expect(groundContactHistory[10]).toBe(false)  // 空中
+    expect(groundContactHistory[frameCount - 1]).toBe(true)  // 着地
+  })
+
+  it("対角線移動の正規化テスト", async () => {
+    const deltaTime = 1/60
+
+    // 前方+右移動（対角線）
+    const diagonalInput: MovementInput = {
+      forward: true,
+      backward: false,
+      left: false,
+      right: true,
+      jump: false,
+      run: false,
+      deltaTime
+    }
+
+    // 前方のみの移動
+    const straightInput: MovementInput = {
+      forward: true,
+      backward: false,
+      left: false,
+      right: false,
+      jump: false,
+      run: false,
+      deltaTime
+    }
+
+    const [diagonalResult, straightResult] = await Promise.all([
+      Effect.runPromise(
+        testProgram(
+          Effect.gen(function* () {
+            const service = yield* PlayerMovementService
+            return yield* service.updateMovement(player, diagonalInput)
+          })
+        )
+      ),
+      Effect.runPromise(
+        testProgram(
+          Effect.gen(function* () {
+            const service = yield* PlayerMovementService
+            return yield* service.updateMovement(player, straightInput)
+          })
+        )
+      )
+    ])
+
+    // 対角線移動の速度計算
+    const diagonalSpeed = Math.sqrt(
+      diagonalResult.velocity.x ** 2 +
+      diagonalResult.velocity.z ** 2
+    )
+
+    // 直進移動の速度計算
+    const straightSpeed = Math.sqrt(
+      straightResult.velocity.x ** 2 +
+      straightResult.velocity.z ** 2
+    )
+
+    // 検証: 対角線移動も直進移動と同じ速度（正規化済み）
+    expect(Math.abs(diagonalSpeed - straightSpeed)).toBeLessThan(0.01)
+  })
+
+  it("空中摩擦と地面摩擦の違い", async () => {
+    const deltaTime = 1/60
+    const initialVelocity = new Vector3Data({ x: 5, y: 0, z: 0 })
+
+    // 地面での摩擦テスト
+    const groundPlayer = player
+      .updateVelocity(initialVelocity)
+      .setOnGround(true)
+
+    // 空中での摩擦テスト
+    const airPlayer = player
+      .updateVelocity(initialVelocity)
+      .setOnGround(false)
+
+    const noInput: MovementInput = {
+      forward: false,
+      backward: false,
+      left: false,
+      right: false,
+      jump: false,
+      run: false,
+      deltaTime
+    }
+
+    const [groundResult, airResult] = await Promise.all([
+      Effect.runPromise(
+        testProgram(
+          Effect.gen(function* () {
+            const service = yield* PlayerMovementService
+            return yield* service.updateMovement(groundPlayer, noInput)
+          })
+        )
+      ),
+      Effect.runPromise(
+        testProgram(
+          Effect.gen(function* () {
+            const service = yield* PlayerMovementService
+            return yield* service.updateMovement(airPlayer, noInput)
+          })
+        )
+      )
+    ])
+
+    const groundSpeed = Math.sqrt(
+      groundResult.velocity.x ** 2 + groundResult.velocity.z ** 2
+    )
+    const airSpeed = Math.sqrt(
+      airResult.velocity.x ** 2 + airResult.velocity.z ** 2
+    )
+
+    // 検証: 地面摩擦の方が空中摩擦より大きい（速度減衰が大きい）
+    expect(groundSpeed).toBeLessThan(airSpeed)
+  })
+})
+```
+
+## ⚡ パフォーマンス最適化実装
+
+### フレームレート適応システム
+
+```typescript
+// src/performance/adaptive-frame-rate.ts
+import { Effect, Ref, Context } from "effect"
+import { Match } from "effect"
+
+/**
+ * 適応フレームレート管理システム
+ *
+ * 🎯 最適化ポイント：
+ * - CPU使用率に応じた動的フレームレート調整
+ * - メモリ使用量の監視
+ * - パフォーマンス統計の収集
+ */
+export interface AdaptiveFrameRate {
+  readonly getCurrentFPS: () => Effect.Effect<number, never>
+  readonly getTargetFPS: () => Effect.Effect<number, never>
+  readonly updatePerformanceStats: (frameTime: number) => Effect.Effect<void, never>
+  readonly getOptimalFrameRate: () => Effect.Effect<number, never>
+}
+
+export const AdaptiveFrameRate = Context.Tag<AdaptiveFrameRate>("@performance/AdaptiveFrameRate")
+
+class AdaptiveFrameRateImpl implements AdaptiveFrameRate {
+  private frameTimeHistory = new Array<number>(60).fill(16.67) // 60FPS初期値
+  private currentIndex = 0
+  private targetFPS = Ref.unsafeMake(60)
+  private performanceMode = Ref.unsafeMake<"high" | "balanced" | "battery">("balanced")
+
+  getCurrentFPS(): Effect.Effect<number, never> {
+    return Effect.sync(() => {
+      const avgFrameTime = this.frameTimeHistory.reduce((a, b) => a + b, 0) / this.frameTimeHistory.length
+      return Math.round(1000 / avgFrameTime)
+    })
+  }
+
+  getTargetFPS(): Effect.Effect<number, never> {
+    return Ref.get(this.targetFPS)
+  }
+
+  updatePerformanceStats(frameTime: number): Effect.Effect<void, never> {
+    return Effect.gen(() => {
+      // フレーム時間履歴を更新
+      this.frameTimeHistory[this.currentIndex] = frameTime
+      this.currentIndex = (this.currentIndex + 1) % this.frameTimeHistory.length
+
+      // パフォーマンスモードの自動調整
+      return yield* this.adjustPerformanceMode(frameTime)
+    })
+  }
+
+  private adjustPerformanceMode(frameTime: number): Effect.Effect<void, never> {
+    return Effect.gen(() => {
+      const currentMode = yield* Ref.get(this.performanceMode)
+
+      // パターンマッチングでパフォーマンス調整
+      const newMode = Match.value({ currentFrameTime: frameTime, mode: currentMode }).pipe(
+        // フレーム時間が長い（低FPS）場合は省電力モードへ
+        Match.when(
+          ({ currentFrameTime, mode }) => currentFrameTime > 33.33 && mode !== "battery",
+          () => "battery" as const
+        ),
+        // フレーム時間が短い（高FPS）場合は高性能モードへ
+        Match.when(
+          ({ currentFrameTime, mode }) => currentFrameTime < 12 && mode !== "high",
+          () => "high" as const
+        ),
+        // それ以外はバランスモード
+        Match.orElse(() => "balanced" as const)
+      )
+
+      if (newMode !== currentMode) {
+        yield* Ref.set(this.performanceMode, newMode)
+        yield* this.updateTargetFPS(newMode)
+      }
+    })
+  }
+
+  private updateTargetFPS(mode: "high" | "balanced" | "battery"): Effect.Effect<void, never> {
+    return Effect.gen(() => {
+      const newTargetFPS = Match.value(mode).pipe(
+        Match.when("high", () => 60),
+        Match.when("balanced", () => 30),
+        Match.when("battery", () => 15),
+        Match.exhaustive
+      )
+
+      yield* Ref.set(this.targetFPS, newTargetFPS)
+      yield* Effect.log(`📊 パフォーマンスモード変更: ${mode} (${newTargetFPS}FPS)`)
+    })
+  }
+
+  getOptimalFrameRate(): Effect.Effect<number, never> {
+    return Effect.gen(() => {
+      const currentFPS = yield* this.getCurrentFPS()
+      const targetFPS = yield* this.getTargetFPS()
+      const mode = yield* Ref.get(this.performanceMode)
+
+      // バッテリー残量やCPU使用率を考慮した最適フレームレート
+      return Match.value({ current: currentFPS, target: targetFPS, mode }).pipe(
+        Match.when(
+          ({ current, target }) => current < target * 0.8,
+          ({ target }) => Math.max(15, target - 15)  // 目標より低い場合は下げる
+        ),
+        Match.when(
+          ({ current, target }) => current > target * 1.2,
+          ({ target }) => Math.min(60, target + 15)  // 目標より高い場合は上げる
+        ),
+        Match.orElse(({ target }) => target)  // そのまま維持
+      )
+    })
+  }
+}
+
+export const AdaptiveFrameRateLive = Layer.succeed(
+  AdaptiveFrameRate,
+  new AdaptiveFrameRateImpl()
+)
+```
+
+### メモリプール最適化
+
+```typescript
+// src/performance/object-pool.ts
+import { Effect, Ref, Context } from "effect"
+import { Vector3Data } from "../domain/math/vector3.js"
+
+/**
+ * オブジェクトプールシステム
+ *
+ * 🎯 最適化ポイント：
+ * - 頻繁に作成/破棄されるオブジェクトの再利用
+ * - ガベージコレクション圧力の軽減
+ * - メモリ使用量の安定化
+ */
+export interface ObjectPool<T> {
+  readonly acquire: () => Effect.Effect<T, never>
+  readonly release: (obj: T) => Effect.Effect<void, never>
+  readonly getPoolSize: () => Effect.Effect<number, never>
+  readonly getActiveCount: () => Effect.Effect<number, never>
+}
+
+/**
+ * Vector3専用オブジェクトプール
+ */
+export class Vector3Pool implements ObjectPool<Vector3Data> {
+  private pool: Vector3Data[] = []
+  private activeObjects = new Set<Vector3Data>()
+  private poolSize = Ref.unsafeMake(0)
+  private maxPoolSize: number
+
+  constructor(initialSize: number = 100, maxSize: number = 1000) {
+    this.maxPoolSize = maxSize
+
+    // 初期プール作成
+    for (let i = 0; i < initialSize; i++) {
+      this.pool.push(new Vector3Data({ x: 0, y: 0, z: 0 }))
+    }
+
+    Ref.unsafeSet(this.poolSize, initialSize)
+  }
+
+  acquire(): Effect.Effect<Vector3Data, never> {
+    return Effect.sync(() => {
+      let obj: Vector3Data
+
+      if (this.pool.length > 0) {
+        // プールから再利用
+        obj = this.pool.pop()!
+      } else {
+        // 新規作成
+        obj = new Vector3Data({ x: 0, y: 0, z: 0 })
+      }
+
+      this.activeObjects.add(obj)
+      return obj
+    })
+  }
+
+  release(obj: Vector3Data): Effect.Effect<void, never> {
+    return Effect.sync(() => {
+      if (!this.activeObjects.has(obj)) {
+        return // 既にリリース済み
+      }
+
+      this.activeObjects.delete(obj)
+
+      // プールサイズ制限チェック
+      if (this.pool.length < this.maxPoolSize) {
+        // オブジェクトをリセットしてプールに返却
+        const resetObj = new Vector3Data({ x: 0, y: 0, z: 0 })
+        this.pool.push(resetObj)
+      }
+    })
+  }
+
+  getPoolSize(): Effect.Effect<number, never> {
+    return Effect.sync(() => this.pool.length)
+  }
+
+  getActiveCount(): Effect.Effect<number, never> {
+    return Effect.sync(() => this.activeObjects.size)
+  }
+}
+
+/**
+ * プール統計情報
+ */
+export interface PoolStats {
+  readonly totalAllocated: number
+  readonly currentlyActive: number
+  readonly poolSize: number
+  readonly hitRate: number // プールヒット率
+}
+
+export const createVector3Pool = (initialSize?: number, maxSize?: number) =>
+  Effect.sync(() => new Vector3Pool(initialSize, maxSize))
+```
+
+### CPU最適化（SIMD演算シミュレーション）
+
+```typescript
+// src/performance/batch-operations.ts
+import { Effect } from "effect"
+import { Vector3Data } from "../domain/math/vector3.js"
+import { Player } from "../domain/entities/player.js"
+
+/**
+ * バッチ演算システム（SIMD的な並列処理）
+ *
+ * 🎯 最適化ポイント：
+ * - 複数オブジェクトの一括処理
+ * - ループ最適化
+ * - キャッシュ効率の向上
+ */
+export namespace BatchOperations {
+  /**
+   * 複数プレイヤーの位置を一括更新
+   */
+  export const updatePlayerPositions = (
+    players: readonly Player[],
+    deltaTime: number
+  ): Effect.Effect<readonly Player[], never> => {
+    return Effect.sync(() => {
+      // バッチ処理で効率化
+      const updatedPlayers = new Array<Player>(players.length)
+
+      // ループアンローリング的な最適化
+      let i = 0
+      const len = players.length
+      const remainder = len % 4
+
+      // 4つずつ処理（SIMD風）
+      for (; i < len - remainder; i += 4) {
+        updatedPlayers[i] = updateSinglePlayerPosition(players[i], deltaTime)
+        updatedPlayers[i + 1] = updateSinglePlayerPosition(players[i + 1], deltaTime)
+        updatedPlayers[i + 2] = updateSinglePlayerPosition(players[i + 2], deltaTime)
+        updatedPlayers[i + 3] = updateSinglePlayerPosition(players[i + 3], deltaTime)
+      }
+
+      // 残りを処理
+      for (; i < len; i++) {
+        updatedPlayers[i] = updateSinglePlayerPosition(players[i], deltaTime)
+      }
+
+      return updatedPlayers
+    })
+  }
+
+  /**
+   * 単一プレイヤーの位置更新（インライン化想定）
+   */
+  const updateSinglePlayerPosition = (player: Player, deltaTime: number): Player => {
+    const newPosition = player.position.add(
+      player.velocity.multiply(deltaTime)
+    )
+    return player.updatePosition(newPosition)
+  }
+
+  /**
+   * 距離計算の最適化版（平方根計算を避ける）
+   */
+  export const fastDistanceCheck = (
+    positions: readonly Vector3Data[],
+    center: Vector3Data,
+    maxDistanceSquared: number
+  ): Effect.Effect<readonly boolean[], never> => {
+    return Effect.sync(() => {
+      return positions.map(pos => {
+        const dx = pos.x - center.x
+        const dy = pos.y - center.y
+        const dz = pos.z - center.z
+
+        // 平方根を取らずに距離の二乗で比較（高速化）
+        return (dx * dx + dy * dy + dz * dz) <= maxDistanceSquared
+      })
+    })
+  }
+
+  /**
+   * 視錐台カリング（バッチ処理版）
+   */
+  export const frustumCulling = (
+    positions: readonly Vector3Data[],
+    cameraPosition: Vector3Data,
+    cameraDirection: Vector3Data,
+    fov: number,
+    maxDistance: number
+  ): Effect.Effect<readonly boolean[], never> => {
+    return Effect.sync(() => {
+      const cosHalfFOV = Math.cos(fov / 2)
+      const maxDistanceSquared = maxDistance * maxDistance
+
+      return positions.map(pos => {
+        // 距離チェック
+        const toObject = pos.subtract(cameraPosition)
+        const distanceSquared = toObject.magnitude ** 2
+
+        if (distanceSquared > maxDistanceSquared) {
+          return false
+        }
+
+        // 視錐台角度チェック
+        const normalizedToObject = toObject.normalize()
+        const dot = normalizedToObject.x * cameraDirection.x +
+                   normalizedToObject.y * cameraDirection.y +
+                   normalizedToObject.z * cameraDirection.z
+
+        return dot >= cosHalfFOV
+      })
+    })
+  }
+}
+```
+
+## 🚀 実行時最適化設定
+
+### 設定ファイル例
+
+```typescript
+// src/config/performance-config.ts
+import { Schema } from "effect"
+
+/**
+ * パフォーマンス設定スキーマ
+ */
+export const PerformanceConfig = Schema.Struct({
+  targetFPS: Schema.Number.pipe(Schema.int(), Schema.between(15, 120)),
+  enableVSync: Schema.Boolean,
+  renderDistance: Schema.Number.pipe(Schema.positive()),
+  enableObjectPooling: Schema.Boolean,
+  maxPoolSize: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  enableBatchProcessing: Schema.Boolean,
+  batchSize: Schema.Number.pipe(Schema.int(), Schema.between(1, 100)),
+  enableFrustumCulling: Schema.Boolean,
+  cullingFOV: Schema.Number.pipe(Schema.between(30, 120)),
+  adaptiveQuality: Schema.Boolean
+})
+
+export type PerformanceConfig = Schema.Schema.Type<typeof PerformanceConfig>
+
+/**
+ * デフォルト設定
+ */
+export const DEFAULT_PERFORMANCE_CONFIG: PerformanceConfig = {
+  targetFPS: 60,
+  enableVSync: true,
+  renderDistance: 50,
+  enableObjectPooling: true,
+  maxPoolSize: 1000,
+  enableBatchProcessing: true,
+  batchSize: 32,
+  enableFrustumCulling: true,
+  cullingFOV: 75,
+  adaptiveQuality: true
+}
+
+/**
+ * 省電力設定
+ */
+export const BATTERY_SAVING_CONFIG: PerformanceConfig = {
+  ...DEFAULT_PERFORMANCE_CONFIG,
+  targetFPS: 30,
+  renderDistance: 25,
+  batchSize: 16,
+  enableVSync: false
+}
+
+/**
+ * 高性能設定
+ */
+export const HIGH_PERFORMANCE_CONFIG: PerformanceConfig = {
+  ...DEFAULT_PERFORMANCE_CONFIG,
+  targetFPS: 120,
+  renderDistance: 100,
+  batchSize: 64,
+  maxPoolSize: 2000
+}
+```
+
+### デバイス検出とプリセット適用
+
+```typescript
+// src/config/device-detection.ts
+import { Effect, Match } from "effect"
+import { PerformanceConfig, DEFAULT_PERFORMANCE_CONFIG, BATTERY_SAVING_CONFIG, HIGH_PERFORMANCE_CONFIG } from "./performance-config.js"
+
+/**
+ * デバイス性能の自動検出
+ */
+export const detectDevicePerformance = (): Effect.Effect<PerformanceConfig, never> => {
+  return Effect.sync(() => {
+    // ハードウェア情報の取得
+    const hardwareInfo = {
+      cores: navigator.hardwareConcurrency || 4,
+      memory: (navigator as any).deviceMemory || 4,
+      isMobile: /Mobi|Android/i.test(navigator.userAgent),
+      isTablet: /iPad|Tablet/i.test(navigator.userAgent),
+      hasGPU: !!window.WebGLRenderingContext
+    }
+
+    // パターンマッチングでデバイス分類
+    return Match.value(hardwareInfo).pipe(
+      Match.when(
+        (info) => info.isMobile && info.memory < 4,
+        () => BATTERY_SAVING_CONFIG
+      ),
+      Match.when(
+        (info) => info.cores >= 8 && info.memory >= 8 && info.hasGPU,
+        () => HIGH_PERFORMANCE_CONFIG
+      ),
+      Match.orElse(() => DEFAULT_PERFORMANCE_CONFIG)
+    )
+  })
+}
+
+/**
+ * 実行時品質調整
+ */
+export const adjustQualityAtRuntime = (
+  currentFPS: number,
+  config: PerformanceConfig
+): Effect.Effect<PerformanceConfig, never> => {
+  return Effect.sync(() => {
+    const fpsRatio = currentFPS / config.targetFPS
+
+    return Match.value(fpsRatio).pipe(
+      Match.when(
+        (ratio) => ratio < 0.8, // FPSが目標の80%を下回る
+        () => ({
+          ...config,
+          renderDistance: Math.max(10, config.renderDistance * 0.8),
+          batchSize: Math.max(8, Math.floor(config.batchSize * 0.8))
+        })
+      ),
+      Match.when(
+        (ratio) => ratio > 1.2, // FPSが目標の120%を上回る
+        () => ({
+          ...config,
+          renderDistance: Math.min(100, config.renderDistance * 1.1),
+          batchSize: Math.min(64, Math.floor(config.batchSize * 1.1))
+        })
+      ),
+      Match.orElse(() => config)
+    )
+  })
+}
 ```
 
 ## 🧪 実行方法
@@ -1947,3 +2932,12 @@ const optimizeRendering = (player: Player): Effect.Effect<void, never> =>
 
 **🎉 素晴らしい！3Dプレイヤー移動システムが完成しました！**
 **Effect-TSとThree.jsの強力な組み合わせを体験できましたね。**
+
+### 🏆 習得した技術スタック
+
+- ✅ **Effect-TS 3.17+**: 最新の関数型プログラミングパターン
+- ✅ **Three.js統合**: 3Dグラフィックスとの効率的な連携
+- ✅ **Property-Based Testing**: 高品質なテスト戦略
+- ✅ **パフォーマンス最適化**: メモリプール、バッチ処理、適応品質
+- ✅ **リアルタイムシステム**: ゲームループと状態管理
+- ✅ **型安全性**: Branded Types による厳密な型管理

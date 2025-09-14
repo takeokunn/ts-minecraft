@@ -20,14 +20,18 @@ TypeScript Minecraftプロジェクトのビルド設定について詳しく解
 
 ## 基本ビルド設定
 
-### 完全なViteビルド設定
+### Nix環境用Viteビルド設定
 
 ```typescript
 // vite.config.build.ts
 import { defineConfig, type UserConfig } from 'vite'
 import { resolve } from 'path'
+import { config } from 'dotenv'
 import { visualizer } from 'rollup-plugin-visualizer'
 import { compression } from 'vite-plugin-compression'
+
+// Nix devenv環境設定読み込み
+config({ path: './.devenv.env' })
 
 export default defineConfig(({ mode }): UserConfig => {
   const isProd = mode === 'production'
@@ -1071,6 +1075,280 @@ async function validateMetrics(metrics: BuildMetrics): Promise<void> {
 }
 ```
 
+## 🛠️ Nix環境固有ビルド設定
+
+### devenv.nix連携ビルド
+
+```typescript
+// vite.config.nix-build.ts
+import { defineConfig } from 'vite'
+import { resolve } from 'path'
+
+export default defineConfig(({ mode }) => {
+  const isProd = mode === 'production'
+  const nixProfile = process.env.NIX_PROFILE
+  const devenvRoot = process.env.DEVENV_ROOT
+
+  return {
+    build: {
+      // Nix環境でのビルドターゲット
+      target: 'node22', // devenv.nixのNode.js 22に合わせる
+
+      // Nix store対応のソースマップ
+      sourcemap: isProd ? false : 'inline',
+
+      rollupOptions: {
+        // Nix環境での外部化設定
+        external: (id) => {
+          // Nix store内のパッケージは外部化しない
+          if (id.startsWith('/nix/store')) return false
+          return id.startsWith('node:') || id.startsWith('@types/')
+        },
+
+        // Nixビルド成果物の除外
+        input: {
+          main: resolve(process.cwd(), 'index.html')
+        },
+
+        output: {
+          // Nix環境でのアセット配置
+          dir: 'dist',
+          format: 'es',
+
+          // pnpmシンボリックリンクに対応したパス解決
+          paths: (id) => {
+            if (id.startsWith('@/')) {
+              return id.replace('@/', './src/')
+            }
+            return id
+          },
+
+          // Nix環境変数を活用したチャンク命名
+          entryFileNames: `assets/js/[name]-${process.env.DEVENV_STATE?.split('/').pop() || 'dev'}-[hash].js`,
+          chunkFileNames: `assets/js/[name]-${process.env.DEVENV_STATE?.split('/').pop() || 'dev'}-[hash].js`
+        }
+      },
+
+      // Nix環境での最適化設定
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          // Node.js 22の最新機能を活用
+          ecma: 2022,
+
+          // Nix環境固有の最適化
+          drop_console: isProd,
+          keep_fargs: false,
+
+          // pnpmによる重複排除を考慮
+          pure_funcs: [
+            'console.log',
+            'console.info',
+            'console.warn',
+            'Effect.logInfo',
+            'Effect.logDebug'
+          ]
+        }
+      }
+    },
+
+    // Nix環境でのesbuild設定
+    esbuild: {
+      target: 'node22',
+      platform: 'browser',
+      format: 'esm',
+
+      // Nixパッケージ解決用設定
+      resolveExtensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs'],
+
+      // devenv環境変数の注入
+      define: {
+        __NIX_PROFILE__: JSON.stringify(nixProfile),
+        __DEVENV_ROOT__: JSON.stringify(devenvRoot),
+        __NODE_VERSION__: JSON.stringify(process.version)
+      }
+    },
+
+    // Nix環境でのパッケージ解決
+    resolve: {
+      alias: {
+        '@': resolve(process.cwd(), 'src'),
+
+        // pnpm store内のパッケージ解決
+        'effect': nixProfile ? `${nixProfile}/lib/node_modules/effect` : 'effect',
+        'three': nixProfile ? `${nixProfile}/lib/node_modules/three` : 'three'
+      },
+
+      // pnpmシンボリックリンクの正しい解決
+      preserveSymlinks: false,
+
+      // Nix store内のモジュール探索
+      conditions: ['browser', 'module', 'import']
+    }
+  }
+})
+```
+
+### Nix専用ビルドスクリプト
+
+```bash
+#!/usr/bin/env bash
+# scripts/nix-build.sh
+
+set -euo pipefail
+
+# Nix環境での最適化ビルドスクリプト
+echo "🏗️  Starting Nix-optimized build..."
+
+# devenv環境確認
+if [ -z "${DEVENV_ROOT:-}" ]; then
+    echo "❌ DEVENV_ROOT not set. Please run 'devenv shell' first."
+    exit 1
+fi
+
+# Node.js 22の確認
+node_version=$(node --version)
+if [[ ! $node_version =~ ^v22\. ]]; then
+    echo "❌ Expected Node.js v22.x, got $node_version"
+    exit 1
+fi
+
+# pnpmキャッシュ最適化
+export PNPM_CACHE_DIR="${DEVENV_STATE}/pnpm-cache"
+
+# TypeScriptビルドキャッシュ
+export TS_NODE_COMPILER_OPTIONS='{"module":"NodeNext","target":"ES2022"}'
+
+# メモリ最適化（Nix環境用）
+export NODE_OPTIONS="--max-old-space-size=6144 --experimental-vm-modules"
+
+# Vite専用環境変数
+export VITE_NIX_BUILD=true
+export VITE_BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# ビルドモード選択
+case "${1:-production}" in
+    "dev"|"development")
+        echo "🔨 Building for development..."
+        pnpm exec vite build --mode development --config vite.config.nix-build.ts
+        ;;
+    "prod"|"production")
+        echo "🚀 Building for production..."
+        pnpm exec vite build --mode production --config vite.config.nix-build.ts
+
+        # 本番ビルド後の最適化
+        echo "📊 Analyzing bundle..."
+        ANALYZE=true pnpm exec vite build --mode production --config vite.config.nix-build.ts
+        ;;
+    "analyze")
+        echo "📈 Building with bundle analysis..."
+        ANALYZE=true pnpm exec vite build --mode production --config vite.config.nix-build.ts
+        ;;
+    *)
+        echo "❌ Unknown build mode: $1"
+        echo "Usage: $0 [dev|prod|analyze]"
+        exit 1
+        ;;
+esac
+
+echo "✅ Build completed successfully!"
+
+# ビルド後検証
+if [ -d "dist" ]; then
+    echo "📦 Build artifacts:"
+    du -sh dist/*
+
+    # Gzipサイズ確認
+    echo ""
+    echo "📏 Gzipped sizes:"
+    find dist -name "*.js" -exec sh -c 'echo "$(gzip -c "{}" | wc -c) bytes: {}"' \; | sort -n
+fi
+```
+
+### Docker + Nix ビルド設定
+
+```dockerfile
+# Dockerfile.nix-build
+FROM nixos/nix:latest as nix-builder
+
+# devenvのインストール
+RUN nix-env -iA nixpkgs.cachix
+RUN cachix use devenv
+
+# プロジェクトファイルをコピー
+WORKDIR /app
+COPY devenv.nix devenv.lock ./
+COPY src ./src
+COPY package.json pnpm-lock.yaml ./
+
+# devenv環境でのビルド
+RUN nix develop --command pnpm install --frozen-lockfile
+RUN nix develop --command pnpm build:prod
+
+# 最終イメージ（軽量）
+FROM nginx:alpine
+
+# ビルド成果物をコピー
+COPY --from=nix-builder /app/dist /usr/share/nginx/html
+
+# Nginx設定
+COPY nginx.conf /etc/nginx/nginx.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+### Nixパッケージ依存関係最適化
+
+```typescript
+// config/nix-dependencies.ts
+export const nixOptimizedDependencies = {
+  // Node.js 22 + pnpm最適化された依存関係
+  core: [
+    'effect@3.17.0',        // Nixでビルドされたeffect
+    'three@0.170.0',        // WebGL最適化版
+    '@types/three@0.170.0'
+  ],
+
+  // Nix store内で事前コンパイルされたパッケージ
+  precompiled: [
+    'typescript',           // devenv.nixで提供
+    'typescript-language-server'
+  ],
+
+  // pnpmでの重複排除対象
+  dedupe: [
+    'effect',
+    'three',
+    '@types/node',
+    'tslib'
+  ],
+
+  // Nix環境でのビルド時間最適化
+  buildOptimization: {
+    // キャッシュ可能な依存関係
+    cacheable: [
+      'effect/*',
+      'three/*',
+      '@types/*'
+    ],
+
+    // 事前コンパイル対象
+    precompile: [
+      '@/domain/**/*',
+      '@/utils/**/*'
+    ],
+
+    // 動的読み込み対象
+    dynamic: [
+      '@/features/**/*',
+      '@/presentation/pages/**/*'
+    ]
+  }
+}
+```
+
 ## 📚 関連ドキュメント
 
 ### 設定ファイル関連
@@ -1078,6 +1356,7 @@ async function validateMetrics(metrics: BuildMetrics): Promise<void> {
 - [TypeScript設定](./typescript-config.md) - TypeScript compilerOptions
 - [Project設定](./project-config.md) - プロジェクト全体設定
 - [Development設定](./development-config.md) - 開発環境最適化
+- [devenv.nix](../../../devenv.nix) - Nix開発環境設定
 
 ### 外部リファレンス
 - [Vite Build Options](https://vitejs.dev/config/build-options.html)

@@ -1,12 +1,13 @@
 ---
 title: "よくあるエラーと解決方法 - 包括的エラー対処ガイド"
 description: "TypeScript Minecraftプロジェクトの25のよくあるエラーパターンと実践的解決策。実際のエラーメッセージ、原因分析、解決手順。"
-category: "reference"
+category: "troubleshooting"
 difficulty: "beginner"
 tags: ["troubleshooting", "common-errors", "error-resolution", "typescript", "effect-ts"]
-prerequisites: ["basic-typescript"]
+prerequisites: ["basic-typescript", "effect-ts-fundamentals"]
 estimated_reading_time: "25分"
-dependencies: ["./debugging-guide.md"]
+related_patterns: ["error-handling-patterns", "service-patterns"]
+related_docs: ["./debugging-guide.md", "./effect-ts-troubleshooting.md", "../../03-guides/04-error-resolution.md"]
 status: "complete"
 ---
 

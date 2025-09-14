@@ -59,7 +59,162 @@ mindmap
 
 #### ✅ **コアデータ定義**
 ```typescript
-import { Schema, Effect, Context } from "effect"
+import { Schema, Effect, Context, Brand } from "effect"
+
+// ゲームドメイン特化Brand型定義
+export type SlotIndex = Brand.Brand<number, "SlotIndex">
+export type HealthPoints = Brand.Brand<number, "HealthPoints">
+export type ExperiencePoints = Brand.Brand<number, "ExperiencePoints">
+export type ItemQuantity = Brand.Brand<number, "ItemQuantity">
+export type DurabilityValue = Brand.Brand<number, "DurabilityValue">
+
+// Brand型コンストラクタ
+export const SlotIndex = Brand.nominal<SlotIndex>()
+export const HealthPoints = Brand.nominal<HealthPoints>()
+export const ExperiencePoints = Brand.nominal<ExperiencePoints>()
+export const ItemQuantity = Brand.nominal<ItemQuantity>()
+export const DurabilityValue = Brand.nominal<DurabilityValue>()
+
+// ドメイン特化ヘルパー関数群
+export const DomainUtils = {
+  /**
+   * スロットインデックスの作成（範囲検証付き）
+   * @param index - スロット番号
+   * @param maxSlots - 最大スロット数（デフォルト36）
+   * @returns 検証済みスロットインデックス、またはエラー
+   * @example
+   * ```typescript
+   * const hotbarSlot = yield* DomainUtils.createSlotIndex(3, 9);
+   * const inventorySlot = yield* DomainUtils.createSlotIndex(15, 36);
+   * // 型安全: SlotIndex型として扱われ、通常の数値と区別される
+   * ```
+   */
+  createSlotIndex: (index: number, maxSlots = 36): Effect.Effect<SlotIndex, DomainError> =>
+    Effect.gen(function* () {
+      if (!Number.isInteger(index)) {
+        return yield* Effect.fail(new DomainError("Slot index must be an integer"))
+      }
+
+      if (index < 0 || index >= maxSlots) {
+        return yield* Effect.fail(new DomainError(`Slot index must be between 0-${maxSlots - 1}`))
+      }
+
+      return SlotIndex(index)
+    }),
+
+  /**
+   * 体力値の作成（範囲・刻み検証付き）
+   * @param health - 体力値
+   * @returns 検証済み体力値、またはエラー
+   * @example
+   * ```typescript
+   * const playerHealth = yield* DomainUtils.createHealthPoints(18.5);
+   * // 型安全: HealthPoints型として扱われ、誤った値の設定を防ぐ
+   * ```
+   */
+  createHealthPoints: (health: number): Effect.Effect<HealthPoints, DomainError> =>
+    Effect.gen(function* () {
+      if (!Number.isFinite(health)) {
+        return yield* Effect.fail(new DomainError("Health must be a finite number"))
+      }
+
+      if (health < 0 || health > 20) {
+        return yield* Effect.fail(new DomainError("Health must be between 0-20"))
+      }
+
+      // 0.5刻みの検証
+      if ((health * 2) % 1 !== 0) {
+        return yield* Effect.fail(new DomainError("Health must be in 0.5 increments"))
+      }
+
+      return HealthPoints(health)
+    }),
+
+  /**
+   * アイテム数量の作成（スタック制限検証付き）
+   * @param quantity - アイテム数量
+   * @param maxStack - 最大スタック数（デフォルト64）
+   * @returns 検証済みアイテム数量、またはエラー
+   * @example
+   * ```typescript
+   * const itemCount = yield* DomainUtils.createItemQuantity(32, 64);
+   * const unstackableCount = yield* DomainUtils.createItemQuantity(1, 1); // 剣等
+   * // 型安全: ItemQuantity型として扱われ、無効な数量設定を防ぐ
+   * ```
+   */
+  createItemQuantity: (quantity: number, maxStack = 64): Effect.Effect<ItemQuantity, DomainError> =>
+    Effect.gen(function* () {
+      if (!Number.isInteger(quantity)) {
+        return yield* Effect.fail(new DomainError("Item quantity must be an integer"))
+      }
+
+      if (quantity < 1 || quantity > maxStack) {
+        return yield* Effect.fail(new DomainError(`Item quantity must be between 1-${maxStack}`))
+      }
+
+      return ItemQuantity(quantity)
+    }),
+
+  /**
+   * 耐久度値の作成（非負整数検証付き）
+   * @param durability - 耐久度
+   * @param maxDurability - 最大耐久度（オプション）
+   * @returns 検証済み耐久度値、またはエラー
+   * @example
+   * ```typescript
+   * const swordDurability = yield* DomainUtils.createDurabilityValue(250, 1561);
+   * // 型安全: DurabilityValue型として扱われ、耐久度の誤設定を防ぐ
+   * ```
+   */
+  createDurabilityValue: (durability: number, maxDurability?: number): Effect.Effect<DurabilityValue, DomainError> =>
+    Effect.gen(function* () {
+      if (!Number.isInteger(durability)) {
+        return yield* Effect.fail(new DomainError("Durability must be an integer"))
+      }
+
+      if (durability < 0) {
+        return yield* Effect.fail(new DomainError("Durability must be non-negative"))
+      }
+
+      if (maxDurability !== undefined && durability > maxDurability) {
+        return yield* Effect.fail(new DomainError(`Durability must not exceed ${maxDurability}`))
+      }
+
+      return DurabilityValue(durability)
+    }),
+
+  /**
+   * 経験値の作成（非負整数検証付き）
+   * @param experience - 経験値
+   * @returns 検証済み経験値、またはエラー
+   * @example
+   * ```typescript
+   * const playerXP = yield* DomainUtils.createExperiencePoints(1500);
+   * // 型安全: ExperiencePoints型として扱われ、負の経験値を防ぐ
+   * ```
+   */
+  createExperiencePoints: (experience: number): Effect.Effect<ExperiencePoints, DomainError> =>
+    Effect.gen(function* () {
+      if (!Number.isInteger(experience)) {
+        return yield* Effect.fail(new DomainError("Experience must be an integer"))
+      }
+
+      if (experience < 0) {
+        return yield* Effect.fail(new DomainError("Experience must be non-negative"))
+      }
+
+      return ExperiencePoints(experience)
+    })
+} as const
+
+// カスタムエラー型
+export class DomainError extends Error {
+  readonly _tag = "DomainError"
+  constructor(message: string) {
+    super(message)
+    this.name = "DomainError"
+  }
+}
 
 // ワールド基本情報
 export const WorldMetadataSchema = Schema.Struct({
@@ -467,28 +622,35 @@ export const PlayerStateSchema = Schema.Struct({
   rotation: RotationSchema,
   onGround: Schema.Boolean,
 
-  // ステータス
+  // ステータス（Brand型統合・型安全性強化）
   health: Schema.Number.pipe(
+    Schema.brand("HealthPoints"),
     Schema.between(0, 20),
     Schema.multipleOf(0.5)
-  ),
+  ), // 体力値（Brand型化・0.5刻み）
   hunger: Schema.Number.pipe(
+    Schema.brand("HealthPoints"), // 空腹度も同じ範囲なので再利用
     Schema.between(0, 20),
     Schema.int()
-  ),
-  experience: Schema.Number.pipe(Schema.nonNegative()),
+  ), // 空腹度（Brand型化・整数制限）
+  experience: Schema.Number.pipe(
+    Schema.brand("ExperiencePoints"),
+    Schema.nonNegative(),
+    Schema.int()
+  ), // 経験値（Brand型化・整数制限）
   level: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
 
   // ゲーム設定
   gamemode: Schema.Literal("survival", "creative", "spectator"),
   flying: Schema.Boolean,
 
-  // インベントリ
+  // インベントリ（Brand型統合・型安全性強化）
   inventory: InventorySchema,
   selectedSlot: Schema.Number.pipe(
+    Schema.brand("SlotIndex"),
     Schema.int(),
     Schema.between(0, 8)
-  ),
+  ) // 選択スロット（Brand型化・整数制限）,
 
   // その他
   lastActive: Schema.DateTimeUtc,
@@ -516,24 +678,30 @@ export const InventorySchema = Schema.Struct({
   identifier: "Inventory"
 })
 
-// アイテムスタック
+// アイテムスタック（Brand型統合・型安全性強化）
 export const ItemStackSchema = Schema.Struct({
-  itemType: Schema.String,
+  itemType: Schema.String.pipe(
+    Schema.minLength(1),
+    Schema.maxLength(64)
+  ), // アイテム種別（長さ制限追加）
   quantity: Schema.Number.pipe(
+    Schema.brand("ItemQuantity"),
     Schema.int(),
     Schema.between(1, 64)
-  ),
+  ), // アイテム数量（Brand型化・スタック制限）
   durability: Schema.optional(Schema.Number.pipe(
+    Schema.brand("DurabilityValue"),
     Schema.int(),
     Schema.nonNegative()
-  )),
+  )), // 耐久度（Brand型化・非負整数）
   enchantments: Schema.optional(Schema.Array(EnchantmentSchema)),
   metadata: Schema.optional(Schema.Record({
     key: Schema.String,
     value: Schema.Unknown
   }))
 }).annotations({
-  identifier: "ItemStack"
+  identifier: "ItemStack",
+  description: "型安全なアイテムスタック（数量・耐久度Brand型化）"
 })
 ```
 

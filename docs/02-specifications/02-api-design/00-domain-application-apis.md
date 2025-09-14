@@ -1,13 +1,13 @@
 ---
-title: "00 Domain Application Apis"
-description: "00 Domain Application Apisに関する詳細な説明とガイド。"
+title: "ドメイン・アプリケーションAPI仕様 - DDDビジネスロジック層"
+description: "DDDパターン、集約ルート、ドメインサービスの完全仕様。Effect-TS 3.17+での関数型ビジネスロジック実装。"
 category: "specification"
-difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
+difficulty: "advanced"
+tags: ["domain-api", "application-api", "ddd-patterns", "aggregate-root", "domain-services", "functional-programming"]
+prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "aggregate-patterns", "functional-composition"]
 estimated_reading_time: "30分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+related_patterns: ["service-patterns", "domain-modeling-patterns", "aggregate-patterns"]
+related_docs: ["./01-infrastructure-apis.md", "../../01-architecture/02-ddd-strategic-design.md"]
 ---
 
 # Domain & Application Layer API仕様
@@ -63,7 +63,7 @@ export const Position = (coords: { x: number; y: number; z: number }): Position 
 
 ```typescript
 // Player Service - 関数型アプローチ
-export const PlayerService = Context.Tag<{
+export const PlayerService = Context.GenericTag<{
   readonly create: (params: Schema.Schema.Type<typeof CreatePlayerParams>) => Effect.Effect<Player, PlayerError>
   readonly move: (params: Schema.Schema.Type<typeof MovePlayerParams>) => Effect.Effect<Position, InvalidMovementError | BlockPlacementError>
   readonly damage: (params: Schema.Schema.Type<typeof DamagePlayerParams>) => Effect.Effect<Health, InvalidDamageError>
@@ -335,7 +335,7 @@ export const PlayerServiceLive = Layer.succeed(PlayerService, {
 
 ```typescript
 // Block Service - 関数型アプローチ
-export const BlockService = Context.Tag<{
+export const BlockService = Context.GenericTag<{
   readonly place: (params: Schema.Schema.Type<typeof PlaceBlockParams>) => Effect.Effect<Block, BlockPlacementError>
   readonly break: (params: Schema.Schema.Type<typeof BreakBlockParams>) => Effect.Effect<ReadonlyArray<ItemDrop>, BlockBreakError>
   readonly getMetadata: (position: Position) => Effect.Effect<BlockMetadata, BlockNotFoundError>
@@ -595,7 +595,7 @@ export interface ChunkService {
   readonly _: unique symbol
 }
 
-export const ChunkService = Context.Tag<ChunkService>()("@app/ChunkService")
+export const ChunkService = Context.GenericTag<ChunkService>()("@app/ChunkService")
 
 // Schema定義
 export const GenerateChunkParams = Schema.Struct({
@@ -814,7 +814,7 @@ export interface WorldManagementService {
   readonly _: unique symbol
 }
 
-export const WorldManagementService = Context.Tag<WorldManagementService>()("@app/WorldManagementService")
+export const WorldManagementService = Context.GenericTag<WorldManagementService>()("@app/WorldManagementService")
 
 // Schema定義
 export const CreateWorldParams = Schema.Struct({
@@ -973,7 +973,7 @@ export interface InventoryService {
   readonly _: unique symbol
 }
 
-export const InventoryService = Context.Tag<InventoryService>()("@app/InventoryService")
+export const InventoryService = Context.GenericTag<InventoryService>()("@app/InventoryService")
 
 // Schema定義
 export const AddItemParams = Schema.Struct({
@@ -1226,7 +1226,7 @@ export interface EntityQueryService {
   readonly _: unique symbol
 }
 
-export const EntityQueryService = Context.Tag<{
+export const EntityQueryService = Context.GenericTag<{
   findEntitiesInRadius: (params: {
     center: Position
     radius: number
@@ -1252,7 +1252,7 @@ export interface BlockQueryService {
   readonly _: unique symbol
 }
 
-export const BlockQueryService = Context.Tag<{
+export const BlockQueryService = Context.GenericTag<{
   findBlocksInArea: (params: {
     min: Position
     max: Position
@@ -1283,7 +1283,7 @@ export interface PlayerCommandService {
   readonly _: unique symbol
 }
 
-export const PlayerCommandService = Context.Tag<{
+export const PlayerCommandService = Context.GenericTag<{
   execute: (
     command: PlayerCommand
   ) => Effect.Effect<CommandResult, CommandError>

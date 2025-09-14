@@ -1,13 +1,13 @@
 ---
-title: "00 Overview"
-description: "00 Overviewに関する詳細な説明とガイド。"
+title: "コア機能概要 - Minecraftの基本機能システム"
+description: "TypeScript Minecraftクローンのコア機能群の完全概要。ECS×DDD×Effect-TS 3.17+による実装アーキテクチャ。"
 category: "specification"
 difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
+tags: ["core-features", "ecs-architecture", "ddd", "effect-ts", "system-overview"]
+prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "ecs-basics"]
 estimated_reading_time: "15分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+related_patterns: ["service-patterns", "data-modeling-patterns", "error-handling-patterns"]
+related_docs: ["../README.md", "../../01-architecture/05-ecs-integration.md"]
 ---
 
 # コア機能 - Minecraftの基本機能
@@ -178,7 +178,7 @@ export const CoreFeaturesTestLayer = Layer.mergeAll(
 
 ```typescript
 // ❌ 古いパターン - classベース (廃止)
-// export class WorldService extends Context.Tag("WorldService")<...>() {}
+// export class WorldService extends Context.GenericTag("WorldService")<...>() {}
 
 // ❌ 古い統一されていないエラー定義 (廃止)
 // export class ServiceError extends Schema.TaggedError("ServiceError")<{

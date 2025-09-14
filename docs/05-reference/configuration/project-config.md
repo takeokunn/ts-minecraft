@@ -41,12 +41,18 @@ TypeScript Minecraftプロジェクトのプロジェクトレベル設定につ
   "author": "Your Name <your.email@example.com>",
   "license": "MIT",
 
-  // Node.js/npm設定
+  // Node.js/npm設定（Nix環境対応）
   "engines": {
-    "node": ">=20.0.0",
-    "pnpm": ">=8.0.0"
+    "node": ">=22.0.0",
+    "pnpm": ">=8.15.0"
   },
   "packageManager": "pnpm@8.15.0",
+
+  // Nix環境サポート
+  "volta": {
+    "node": "22.0.0",
+    "pnpm": "8.15.0"
+  },
 
   // モジュール設定
   "main": "./dist/index.js",
@@ -910,6 +916,470 @@ graph TD
    - [ ] 本番ビルドテスト
    - [ ] パフォーマンス影響測定
 
+## 🛠️ Nix環境統合設定
+
+### devenv.nix プロジェクト設定
+
+```nix
+# devenv.nix - プロジェクト全体のNix設定
+{ pkgs, config, inputs, ... }: {
+  cachix.enable = false;
+  dotenv.disableHint = true;
+
+  # プロジェクト依存パッケージ
+  packages = with pkgs; [
+    # 開発必須ツール
+    typescript
+    typescript-language-server
+    nodejs_22
+    nodePackages.pnpm
+
+    # 開発効率化ツール
+    git
+    curl
+    jq
+    tree
+    ripgrep
+    fd
+
+    # ブラウザー（開発・テスト用）
+    chromium
+    firefox
+
+    # システム統合ツール
+    direnv
+    nix-direnv
+  ];
+
+  # Node.js環境設定
+  languages.javascript = {
+    enable = true;
+    pnpm.enable = true;
+    package = pkgs.nodejs_22;
+    corepack.enable = true;
+  };
+
+  # TypeScript統合
+  languages.typescript.enable = true;
+
+  # 開発用環境変数
+  env = {
+    # プロジェクト情報
+    PROJECT_NAME = "ts-minecraft";
+    PROJECT_VERSION = "1.0.0";
+    NODE_ENV = "development";
+
+    # Nix固有設定
+    NIX_PROJECT = "true";
+    DEVENV_PROJECT_ROOT = "${toString ./.}";
+
+    # パフォーマンス最適化
+    NODE_OPTIONS = "--max-old-space-size=4096 --experimental-vm-modules";
+
+    # TypeScript設定
+    TS_NODE_COMPILER_OPTIONS = builtins.toJSON {
+      module = "NodeNext";
+      target = "ES2022";
+      moduleResolution = "NodeNext";
+    };
+
+    # 開発ツール設定
+    BROWSER = "chromium";
+    EDITOR = "\${EDITOR:-code}";
+    PAGER = "less -R";
+
+    # Vite設定
+    VITE_DEV_MODE = "true";
+    VITE_NIX_ENV = "true";
+  };
+
+  # 開発用スクリプト
+  scripts = {
+    setup.exec = ''
+      echo "🏗️  Setting up TypeScript Minecraft project..."
+      echo "Node.js: $(node --version)"
+      echo "pnpm: $(pnpm --version)"
+      echo "TypeScript: $(tsc --version)"
+
+      if [ ! -f "pnpm-lock.yaml" ]; then
+        echo "📦 Installing dependencies..."
+        pnpm install
+      else
+        echo "✅ Dependencies already installed"
+      fi
+
+      echo "🚀 Project setup complete!"
+    '';
+
+    dev.exec = ''
+      echo "🚀 Starting development server..."
+      pnpm dev
+    '';
+
+    build.exec = ''
+      echo "🏗️  Building project..."
+      pnpm build
+    '';
+
+    test.exec = ''
+      echo "🧪 Running tests..."
+      pnpm test
+    '';
+
+    check.exec = ''
+      echo "🔍 Running all checks..."
+      pnpm type-check
+      pnpm lint
+      pnpm test
+    '';
+
+    clean.exec = ''
+      echo "🧹 Cleaning build artifacts..."
+      rm -rf dist node_modules/.vite node_modules/.cache .tsbuildinfo
+      echo "✅ Clean complete"
+    '';
+  };
+
+  # プロセス管理（開発サーバー）
+  processes = {
+    vite-dev = {
+      exec = "pnpm dev";
+      process-compose = {
+        availability = {
+          restart = "on_failure";
+          max_restarts = 3;
+        };
+      };
+    };
+  };
+
+  # Git設定
+  git = {
+    hooks = {
+      pre-commit = ''
+        echo "🔍 Running pre-commit checks..."
+        pnpm lint-staged
+      '';
+      commit-msg = ''
+        echo "📝 Validating commit message..."
+        pnpm commitlint --edit "$1"
+      '';
+    };
+  };
+
+  # 開発サービス（必要に応じて有効化）
+  services = {
+    postgres = {
+      enable = false;
+      listen_addresses = "127.0.0.1";
+      port = 5432;
+      initialDatabases = [
+        { name = "ts_minecraft_dev"; }
+      ];
+    };
+
+    redis = {
+      enable = false;
+      port = 6379;
+    };
+  };
+
+  # プロジェクトメタデータ
+  devcontainer = {
+    enable = false; # devenv使用時は通常不要
+    settings = {
+      name = "TypeScript Minecraft";
+      customizations = {
+        vscode = {
+          extensions = [
+            "ms-vscode.vscode-typescript-next"
+            "oxc-project.oxc-vscode"
+          ];
+        };
+      };
+    };
+  };
+}
+```
+
+### Nix Flake統合
+
+```nix
+# flake.nix - Nixプロジェクト定義
+{
+  description = "TypeScript Minecraft - Nix development environment";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    devenv.url = "github:cachix/devenv";
+    nix2container.url = "github:nlewo/nix2container";
+    nix2container.inputs.nixpkgs.follows = "nixpkgs";
+    mk-shell-bin.url = "github:rrbutani/nix-mk-shell-bin";
+  };
+
+  outputs = inputs@{ flake-parts, nixpkgs, devenv, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      imports = [
+        inputs.devenv.flakeModule
+      ];
+      systems = [ "x86_64-linux" "i686-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
+
+      perSystem = { config, self', inputs', pkgs, system, ... }: {
+        # devenv環境定義
+        devenv.shells.default = {
+          name = "ts-minecraft-dev";
+
+          imports = [
+            ./devenv.nix
+          ];
+
+          # 追加のNix設定
+          packages = with pkgs; [
+            # CI/CD ツール
+            act # GitHub Actions local runner
+
+            # パフォーマンス分析
+            hyperfine
+
+            # デバッグツール
+            lldb
+            gdb
+          ];
+
+          # 開発用証明書生成
+          scripts.generate-certs.exec = ''
+            mkdir -p certs
+            if [ ! -f "certs/key.pem" ]; then
+              echo "🔐 Generating development certificates..."
+              ${pkgs.openssl}/bin/openssl req -x509 -newkey rsa:4096 -keyout certs/key.pem -out certs/cert.pem -days 365 -nodes -subj '/CN=localhost'
+              echo "✅ Development certificates generated"
+            fi
+          '';
+
+          enterShell = ''
+            echo "🏗️  TypeScript Minecraft Development Environment"
+            echo "================================================"
+            echo ""
+            echo "🔧 Available commands:"
+            echo "  setup  - Initial project setup"
+            echo "  dev    - Start development server"
+            echo "  build  - Build project"
+            echo "  test   - Run tests"
+            echo "  check  - Run all quality checks"
+            echo "  clean  - Clean build artifacts"
+            echo ""
+            echo "📝 Quick start:"
+            echo "  1. Run 'setup' to initialize the project"
+            echo "  2. Run 'dev' to start development server"
+            echo ""
+          '';
+        };
+
+        # Dockerイメージビルド（本番用）
+        packages = {
+          dockerImage = pkgs.dockerTools.buildImage {
+            name = "ts-minecraft";
+            tag = "latest";
+
+            contents = with pkgs; [
+              nodejs_22
+              coreutils
+              bash
+            ];
+
+            config = {
+              Cmd = [ "node" "dist/index.js" ];
+              WorkingDir = "/app";
+              ExposedPorts = {
+                "3000/tcp" = {};
+              };
+            };
+          };
+
+          # 本番用最適化ビルド
+          production-build = pkgs.stdenv.mkDerivation {
+            name = "ts-minecraft-prod";
+            src = ./.;
+
+            buildInputs = with pkgs; [
+              nodejs_22
+              nodePackages.pnpm
+              typescript
+            ];
+
+            buildPhase = ''
+              export HOME=$(mktemp -d)
+              pnpm config set store-dir $HOME/.pnpm-store
+              pnpm install --frozen-lockfile --production=false
+              pnpm build
+            '';
+
+            installPhase = ''
+              mkdir -p $out
+              cp -r dist $out/
+              cp package.json $out/
+            '';
+          };
+        };
+      };
+
+      # CI/CDフック
+      flake = {
+        # GitHub Actions統合
+        nixConfig = {
+          extra-trusted-public-keys = "devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=";
+          extra-substituters = "https://devenv.cachix.org";
+        };
+      };
+    };
+}
+```
+
+### package.json Nix統合拡張
+
+```json
+{
+  "scripts": {
+    // Nix開発環境用スクリプト
+    "nix:setup": "nix develop --command setup",
+    "nix:dev": "nix develop --command dev",
+    "nix:build": "nix develop --command build",
+    "nix:test": "nix develop --command test",
+    "nix:check": "nix develop --command check",
+    "nix:clean": "nix develop --command clean",
+
+    // Docker統合
+    "docker:build": "nix build .#dockerImage",
+    "docker:load": "docker load < result",
+    "docker:run": "docker run -p 3000:3000 ts-minecraft:latest",
+
+    // Nix環境確認
+    "env:check": "echo 'Node.js:' $(node --version) && echo 'pnpm:' $(pnpm --version) && echo 'TypeScript:' $(tsc --version)",
+    "env:nix-info": "nix --version && echo 'devenv active:' ${DEVENV_ROOT:-'false'}"
+  },
+
+  // Nix環境での依存関係最適化
+  "pnpm": {
+    "overrides": {
+      // Nix store由来のパッケージを優先
+      "typescript": "^5.6.0",
+      "@types/node": "^22.0.0"
+    },
+    "packageExtensions": {
+      "effect": {
+        "peerDependencies": {
+          "typescript": "^5.6.0"
+        }
+      }
+    }
+  },
+
+  // Nix環境メタデータ
+  "nix": {
+    "devenv": {
+      "enable": true,
+      "configFile": "./devenv.nix"
+    },
+    "flake": {
+      "enable": true,
+      "configFile": "./flake.nix"
+    },
+    "requirements": {
+      "node": "22.x",
+      "pnpm": "8.x",
+      "typescript": "5.x"
+    }
+  }
+}
+```
+
+### .envrc（direnv統合）
+
+```bash
+# .envrc - 自動環境切り替え
+if ! has nix_direnv_version || ! nix_direnv_version 3.0.4; then
+  source_url "https://raw.githubusercontent.com/nix-community/nix-direnv/3.0.4/direnvrc" "sha256-DzlYZ33mWF/Gs8DDeyjr8mnVmQGx7ASYqA5WlxwvBG4="
+fi
+
+# devenv環境の読み込み
+use devenv
+
+# プロジェクト固有の環境変数
+export PROJECT_ROOT="$(pwd)"
+export PATH_add="$PROJECT_ROOT/node_modules/.bin"
+
+# 開発用設定
+export NODE_ENV=development
+export DEBUG="ts-minecraft:*"
+
+# Nix環境確認
+if [ -n "${DEVENV_ROOT:-}" ]; then
+  echo "✅ devenv environment loaded"
+  echo "   Project: ts-minecraft"
+  echo "   Node.js: $(node --version 2>/dev/null || echo 'not available')"
+  echo "   devenv root: $DEVENV_ROOT"
+else
+  echo "⚠️  devenv environment not active"
+  echo "   Run 'direnv allow' to enable automatic environment loading"
+fi
+```
+
+### Nix CI/CD統合
+
+```yaml
+# .github/workflows/nix.yml
+name: Nix CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  nix-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Nix
+      uses: cachix/install-nix-action@v25
+      with:
+        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Cachix
+      uses: cachix/cachix-action@v14
+      with:
+        name: devenv
+
+    - name: Build with Nix
+      run: |
+        nix develop --command setup
+        nix develop --command build
+
+    - name: Run tests with Nix
+      run: nix develop --command test
+
+    - name: Quality checks
+      run: nix develop --command check
+
+    - name: Build Docker image
+      if: github.ref == 'refs/heads/main'
+      run: |
+        nix build .#dockerImage
+        docker load < result
+        echo "ts-minecraft:latest" > image-name.txt
+
+    - name: Upload Docker image
+      if: github.ref == 'refs/heads/main'
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker-image
+        path: |
+          result
+          image-name.txt
+```
+
 ## 📚 関連ドキュメント
 
 ### 設定ファイル関連
@@ -919,6 +1389,8 @@ graph TD
 - [Vitest設定](./vitest-config.md) - テスト実行環境
 - [Build設定](./build-config.md) - ビルドパイプライン
 - [Development設定](./development-config.md) - 開発環境最適化
+- [devenv.nix](../../../devenv.nix) - Nix開発環境設定
+- [flake.nix](../../../flake.nix) - Nixプロジェクト定義
 
 ### 外部リファレンス
 - [Node.js環境変数](https://nodejs.org/api/process.html#process_process_env)

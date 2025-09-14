@@ -530,23 +530,30 @@ class Chunk extends Data.Class<{
     })
   )
 
-  // ドメインルール: ブロック取得
+  // ✅ Match.valueによるドメインルール: ブロック取得 - 型安全な境界チェック
   getBlockAt(x: number, y: number, z: number): Option.Option<number> {
-    if (x < 0 || x >= 16 || y < 0 || y >= 256 || z < 0 || z >= 16) {
-      return Option.none()
-    }
-    const index = y * 256 + z * 16 + x
-    return Option.some(this.blocks[index] ?? 0)
+    // ✅ 座標検証をMatch.valueで型安全かつ表現力豊かに
+    return Match.value({ x, y, z }).pipe(
+      Match.when(
+        ({ x, y, z }) => x >= 0 && x < 16 && y >= 0 && y < 256 && z >= 0 && z < 16,
+        ({ x, y, z }) => {
+          const index = y * 256 + z * 16 + x;
+          return Option.some(this.blocks[index] ?? 0);
+        }
+      ),
+      Match.orElse(() => Option.none()) // 無効な座標の場合
+    );
   }
 
-  // ドメインルール: ブロック設置
+  // ✅ Match.valueによるドメインルール: ブロック設置 - エラーハンドリング統合
   setBlockAt(x: number, y: number, z: number, blockType: number): Effect.Effect<Chunk, { readonly _tag: "InvalidCoordinate" }> {
-    if (x < 0 || x >= 16 || y < 0 || y >= 256 || z < 0 || z >= 16) {
-      return Effect.fail({ _tag: "InvalidCoordinate" })
-    }
-
-    const index = y * 256 + z * 16 + x
-    const newBlocks = [...this.blocks]
+    // ✅ 座標バリデーションとブロック設置を統合したパターンマッチング
+    return Match.value({ x, y, z, blockType }).pipe(
+      Match.when(
+        ({ x, y, z }) => x >= 0 && x < 16 && y >= 0 && y < 256 && z >= 0 && z < 16,
+        ({ x, y, z, blockType }) => {
+          const index = y * 256 + z * 16 + x;
+          const newBlocks = [...this.blocks];
     newBlocks[index] = blockType
 
     return Effect.succeed(new Chunk({
@@ -1218,18 +1225,22 @@ class GameSession extends Data.Class<{
     return this.activePlayers.length <= 100
   }
 
-  // ドメインルール: プレイヤー参加
+  // ✅ Match.valueによるドメインルール: プレイヤー参加 - 複数条件の統合的判定
   addPlayer(playerId: Schema.Schema.Type<typeof PlayerId>): Effect.Effect<GameSession, { readonly _tag: "PlayerLimitExceeded" }> {
-    if (this.activePlayers.includes(playerId)) {
-      return Effect.succeed(this)
-    }
-
-    const newPlayers = [...this.activePlayers, playerId]
-    if (newPlayers.length > 100) {
-      return Effect.fail({ _tag: "PlayerLimitExceeded" })
-    }
-
-    return Effect.succeed(new GameSession({
+    // ✅ プレイヤー存在チェックと制限チェックを統合したパターンマッチング
+    return Match.value(this.activePlayers.includes(playerId)).pipe(
+      Match.when(true, () =>
+        Effect.succeed(this) // 既存プレイヤーはそのまま返す
+      ),
+      Match.when(false, () => {
+        const newPlayers = [...this.activePlayers, playerId];
+        // ✅ ネストしたMatch.valueでプレイヤー数制限チェック
+        return Match.value(newPlayers.length).pipe(
+          Match.when(Match.number.greaterThan(100), () =>
+            Effect.fail({ _tag: "PlayerLimitExceeded" })
+          ),
+          Match.orElse(() =>
+            Effect.succeed(new GameSession({
       ...this,
       activePlayers: newPlayers,
       version: this.version + 1

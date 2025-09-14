@@ -1,13 +1,13 @@
 ---
-title: "02 Specifications - セクション概要"
-description: "02 Specifications - セクション概要に関する詳細な説明とガイド。"
+title: "コア機能仕様書 - 基本システムの完全リファレンス"
+description: "Minecraftクローンの基本機能群の完全仕様書。ワールド管理からレンダリングまでのシステム設計。"
 category: "specification"
 difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
+tags: ["core-features", "system-overview", "ecs-architecture", "world-management", "player-system"]
+prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "ecs-basics"]
 estimated_reading_time: "10分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+related_patterns: ["service-patterns", "data-modeling-patterns", "system-integration-patterns"]
+related_docs: ["./00-overview.md", "../README.md", "../../01-architecture/05-ecs-integration.md"]
 ---
 
 # コア機能仕様書

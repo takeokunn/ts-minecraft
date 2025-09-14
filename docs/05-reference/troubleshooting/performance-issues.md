@@ -1,12 +1,13 @@
 ---
 title: "パフォーマンス問題トラブルシューティング - 包括的パフォーマンス最適化"
 description: "TypeScript Minecraftプロジェクトのパフォーマンス問題35技術。Effect-TS Fiber、Three.jsレンダリング、WebGL GPUメモリ管理。"
-category: "reference"
+category: "troubleshooting"
 difficulty: "advanced"
-tags: ["performance", "troubleshooting", "optimization", "memory-management", "webgl", "three.js"]
-prerequisites: ["performance-fundamentals", "webgl-basics"]
+tags: ["performance", "troubleshooting", "optimization", "memory-management", "webgl", "three.js", "effect-ts"]
+prerequisites: ["performance-fundamentals", "webgl-basics", "effect-ts-intermediate"]
 estimated_reading_time: "40分"
-dependencies: ["./debugging-guide.md"]
+related_patterns: ["optimization-patterns-latest", "service-patterns"]
+related_docs: ["./debugging-guide.md", "./runtime-errors.md", "../../03-guides/05-comprehensive-testing-strategy.md"]
 status: "complete"
 ---
 

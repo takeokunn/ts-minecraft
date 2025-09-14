@@ -1,12 +1,13 @@
 ---
 title: "デバッグガイド - 包括的デバッグ戦略"
 description: "TypeScript Minecraftプロジェクトの20の高度なデバッグ技術と実践的トラブルシューティング手法。Effect-TS、Three.js、WebGL デバッグ。"
-category: "reference"
+category: "troubleshooting"
 difficulty: "advanced"
-tags: ["debugging", "troubleshooting", "effect-ts", "three.js", "webgl", "performance-analysis"]
-prerequisites: ["typescript-intermediate", "debugging-fundamentals"]
+tags: ["debugging", "troubleshooting", "effect-ts", "three.js", "webgl", "performance-analysis", "tracing"]
+prerequisites: ["typescript-intermediate", "debugging-fundamentals", "effect-ts-fundamentals"]
 estimated_reading_time: "30分"
-dependencies: []
+related_patterns: ["error-handling-patterns", "service-patterns"]
+related_docs: ["./effect-ts-troubleshooting.md", "./performance-issues.md", "./runtime-errors.md"]
 status: "complete"
 ---
 

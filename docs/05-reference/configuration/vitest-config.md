@@ -20,11 +20,15 @@ TypeScript MinecraftプロジェクトのVitest 2.x設定について詳しく�
 
 ## 基本設定
 
-### 完全なvitest.config.ts設定例
+### Nix環境用vitest.config.ts設定例
 
 ```typescript
 import { defineConfig } from 'vitest/config'
 import { resolve } from 'path'
+import { config } from 'dotenv'
+
+// Nix devenv環境の環境変数読み込み
+config({ path: './.devenv.env' })
 
 export default defineConfig({
   test: {
@@ -197,12 +201,20 @@ export default defineConfig({
       ]
     },
 
-    // サーバー設定
+    // サーバー設定（Nix環境最適化）
     server: {
       sourcemap: 'inline', // ソースマップ
       debug: {
         dumpModules: false,
         loadDumppedModules: false
+      },
+      // Nix環境での最適化
+      hmr: {
+        port: 24678 // devenv固有ポート
+      },
+      fs: {
+        // Nix storeへのアクセス許可
+        allow: ['..', process.env.HOME + '/.nix-profile']
       }
     },
 
@@ -232,21 +244,34 @@ export default defineConfig({
     // テスト用プラグインがここに追加される
   ],
 
-  // 定義済み変数（テスト環境用）
+  // 定義済み変数（Nix + テスト環境用）
   define: {
     __TEST__: true,
-    __DEV__: true
+    __DEV__: true,
+    __NIX_ENV__: true,
+    __NODE_VERSION__: JSON.stringify(process.version)
+  },
+
+  // Nix環境用esbuild設定
+  esbuild: {
+    target: 'node22', // devenv.nixのNode.js 22に対応
+    format: 'esm',
+    platform: 'node'
   }
 })
 ```
 
 ## 🚀 環境別設定
 
-### 開発環境用設定（高速実行重視）
+### Nix開発環境用設定（高速実行重視）
 
 ```typescript
 // vitest.config.dev.ts
 import { defineConfig } from 'vitest/config'
+import { config } from 'dotenv'
+
+// Nix devenv環境変数
+config({ path: './.devenv.env' })
 
 export default defineConfig({
   test: {
@@ -774,6 +799,132 @@ export default defineConfig({
 })
 ```
 
+## 🛠️ Nix環境固有設定
+
+### devenv.nixとの連携
+
+```typescript
+// vitest.config.nix.ts
+import { defineConfig } from 'vitest/config'
+import { resolve } from 'path'
+
+export default defineConfig({
+  test: {
+    // Nix環境変数の活用
+    env: {
+      // devenvで提供される環境変数を使用
+      NIX_PROFILE: process.env.NIX_PROFILE,
+      DEVENV_ROOT: process.env.DEVENV_ROOT,
+      NODE_PATH: process.env.NODE_PATH,
+
+      // pnpmキャッシュディレクトリ
+      PNPM_HOME: process.env.PNPM_HOME,
+
+      // TypeScriptパス
+      TS_NODE_PROJECT: './tsconfig.test.json'
+    },
+
+    // Nix store内のモジュール解決
+    resolveSnapshotPath: (testPath, snapExtension) => {
+      // Nixストア内のパスを正しく解決
+      const relativePath = testPath.replace(process.cwd(), '.')
+      return resolve(process.cwd(), '__snapshots__', relativePath + snapExtension)
+    },
+
+    // Nixビルド成果物の除外
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/result/**', // Nix build result
+      '**/.devenv/**', // devenv cache
+      '**/nix/store/**' // Nix store
+    ]
+  },
+
+  // Nix環境でのパッケージ解決
+  resolve: {
+    alias: {
+      '@': resolve(process.cwd(), 'src'),
+      '@test': resolve(process.cwd(), 'test')
+    },
+
+    // Nixパッケージディレクトリの追加
+    dedupe: ['effect', 'three'], // 重複回避
+
+    // pnpm特有の設定
+    preserveSymlinks: false // pnpmのシンボリックリンクを正しく解決
+  }
+})
+```
+
+### pnpm + Nix最適化
+
+```bash
+# .devenv/test-scripts/setup-vitest.sh
+#!/usr/bin/env bash
+
+# Nix環境でのVitest最適化スクリプト
+export NODE_OPTIONS="--max-old-space-size=4096 --experimental-vm-modules"
+
+# pnpmキャッシュの最適化
+export PNPM_CACHE_DIR="${DEVENV_STATE}/pnpm-cache"
+
+# TypeScriptコンパイルキャッシュ
+export TS_NODE_COMPILER_OPTIONS='{"module":"ESNext","target":"ES2022"}'
+
+# Vitestキャッシュディレクトリ
+export VITEST_CACHE_DIR="${DEVENV_STATE}/vitest-cache"
+
+# テスト実行
+pnpm exec vitest "$@"
+```
+
+### パフォーマンス監視設定
+
+```typescript
+// vitest.config.perf.ts - Nix環境でのパフォーマンス計測
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    // パフォーマンス計測有効化
+    benchmark: {
+      reporters: ['verbose', 'json'],
+      outputFile: './perf-results/benchmark.json'
+    },
+
+    // CPU使用率監視
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        // Nix環境での最適なワーカー数
+        maxForks: Math.min(4, Math.floor(require('os').cpus().length * 0.75)),
+        isolate: true
+      }
+    },
+
+    // メモリ使用量監視
+    logHeapUsage: true,
+
+    // レポート詳細化
+    reporters: ['verbose', 'json'],
+    outputFile: {
+      json: './test-results/results.json'
+    },
+
+    // Nix環境での実行時間最適化
+    testTimeout: process.env.CI ? 30000 : 10000,
+    hookTimeout: process.env.CI ? 20000 : 8000,
+
+    // 環境別設定
+    env: {
+      FORCE_COLOR: '1', // Nix環境でのカラー出力
+      NODE_ENV: 'test'
+    }
+  }
+})
+```
+
 ## 📚 関連ドキュメント
 
 ### 設定ファイル関連
@@ -781,6 +932,7 @@ export default defineConfig({
 - [TypeScript設定](./typescript-config.md) - 型定義とコンパイル設定
 - [開発設定](./development-config.md) - 開発効率化ツール
 - [Project設定](./project-config.md) - プロジェクト全体設定
+- [devenv.nix](../../../devenv.nix) - Nix開発環境設定
 
 ### 外部リファレンス
 - [Vitest公式ドキュメント](https://vitest.dev/)

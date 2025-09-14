@@ -39,10 +39,12 @@ pnpm test
 ```
 
 **詳細仕様**:
-- **テストランナー**: Vitest 3.2+
-- **並列実行**: CPU コア数に基づく自動調整
-- **ファイルパターン**: `**/*.{test,spec}.{ts,tsx}`
-- **Environment**: jsdom（ブラウザ環境シミュレーション）
+- **テストランナー**: Vitest 3.2+ with @effect/vitest integration
+- **並列実行**: CPU コア数に基づく自動調整 + Effect-TS並列実行サポート
+- **ファイルパターン**: `**/*.{test,spec}.{ts,tsx}`, `**/*.{unit,integration}.test.ts`
+- **Environment**: jsdom（ブラウザ環境シミュレーション） + Effect-TS TestContext
+- **Schema Validation**: Effect-TS Schema による実行時テストデータ検証
+- **Property Testing**: fast-check統合によるProperty-based Testing
 
 **実行結果例**:
 ```
@@ -224,55 +226,296 @@ export default defineConfig({
 
 ### テストセットアップ
 
-`src/test/setup.ts`でのEffect-TS設定:
+`src/test/setup.ts`でのEffect-TS 3.17+設定:
 ```typescript
-import { Effect, Layer, TestContext } from 'effect'
-import { beforeEach } from 'vitest'
+import { Effect, Layer, TestContext, Schedule, Duration } from 'effect'
+import { beforeEach, afterEach } from 'vitest'
+import { TestServices } from '@effect/vitest'
 
 // Effect-TSテスト用のコンテキスト設定
-beforeEach(() => {
-  return Effect.runSync(
-    Effect.provide(
-      Effect.unit,
-      TestContext.TestContext
-    )
+beforeEach(async () => {
+  return Effect.runPromise(
+    Effect.gen(function* () {
+      // TestServicesによる充実したテスト環境の構築
+      const testContext = yield* TestServices.TestServices
+
+      // カスタムテストレイヤーの設定
+      const testLayer = Layer.mergeAll(
+        TestContext.TestContext,
+        testContext.configProvider,
+        testContext.live
+      )
+
+      // テスト用のリソース初期化
+      yield* Effect.provide(Effect.unit, testLayer)
+    })
   )
 })
+
+// テスト後のクリーンアップ
+afterEach(() => {
+  return Effect.runPromise(
+    Effect.gen(function* () {
+      // 非同期リソースのクリーンアップ
+      yield* TestServices.TestServices.pipe(
+        Effect.flatMap(services => services.cleanup()),
+        Effect.timeout(Duration.seconds(5)),
+        Effect.catchAll(error => Effect.logWarning(`Cleanup failed: ${error}`))
+      )
+    })
+  )
+})
+
+// Schema-based テストヘルパー
+export const testWithSchema = <A, I, R>(
+  schema: Schema.Schema<A, I, R>,
+  testData: I
+) =>
+  Effect.gen(function* () {
+    const validated = yield* Schema.decodeUnknown(schema)(testData)
+    return validated
+  })
+
+// Property-based testing integration
+export const propertyTest = <A>(
+  name: string,
+  arbitrary: fc.Arbitrary<A>,
+  property: (value: A) => Effect.Effect<boolean, Error, TestContext.TestContext>
+) =>
+  it(name, () =>
+    fc.assert(
+      fc.asyncProperty(arbitrary, async (value) => {
+        const result = await Effect.runPromise(
+          property(value).pipe(
+            Effect.provide(TestContext.TestContext),
+            Effect.timeout(Duration.seconds(10))
+          )
+        )
+        return result
+      }),
+      { numRuns: 100, timeout: 2000 }
+    )
+  )
 ```
 
 ## 📊 テストデータとモック
 
-### Schema-based テストデータ生成
+### Schema-based テストデータ生成（Effect-TS 3.17+）
 
 ```typescript
 import { Schema } from '@effect/schema'
 import { Arbitrary } from '@effect/schema/Arbitrary'
+import { Gen } from 'effect'
+import * as fc from 'fast-check'
 
+// 高度なスキーマベースのテストデータ生成
 const PlayerSchema = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  position: PositionSchema
+  id: Schema.String.pipe(Schema.brand("PlayerId")),
+  name: Schema.String.pipe(
+    Schema.minLength(3),
+    Schema.maxLength(16),
+    Schema.pattern(/^[a-zA-Z0-9_]+$/)
+  ),
+  position: Schema.Struct({
+    x: Schema.Number.pipe(Schema.finite()),
+    y: Schema.Number.pipe(Schema.between(-256, 320)),
+    z: Schema.Number.pipe(Schema.finite())
+  }),
+  stats: Schema.Struct({
+    health: Schema.Number.pipe(Schema.between(0, 20)),
+    hunger: Schema.Number.pipe(Schema.between(0, 20)),
+    experience: Schema.Number.pipe(Schema.nonNegative())
+  }),
+  gameMode: Schema.Union(
+    Schema.Literal("survival"),
+    Schema.Literal("creative"),
+    Schema.Literal("adventure"),
+    Schema.Literal("spectator")
+  )
 })
 
-// テストデータ生成
-const generatePlayer = Arbitrary.make(PlayerSchema)
+// ジェネレーターベースのテストデータ生成
+export const generatePlayer = Effect.gen(function* () {
+  const playerArb = Arbitrary.make(PlayerSchema)
+  const sample = yield* Effect.sync(() => fc.sample(playerArb, 1)[0])
+
+  // Schema検証を通過することを保証
+  const validated = yield* Schema.decodeUnknown(PlayerSchema)(sample)
+  return validated
+})
+
+// カスタムバリデーションルールを含むテストデータ
+export const generateValidPlayer = Effect.gen(function* () {
+  const basePlayer = yield* generatePlayer
+
+  // 追加のビジネスルール検証
+  const validPlayer = {
+    ...basePlayer,
+    // サーバル世界では体力は満タンで開始
+    stats: basePlayer.gameMode === "survival"
+      ? { ...basePlayer.stats, health: 20, hunger: 20 }
+      : basePlayer.stats,
+    // スポーン地点は安全な高度に調整
+    position: {
+      ...basePlayer.position,
+      y: Math.max(basePlayer.position.y, 64)
+    }
+  }
+
+  return validPlayer
+})
+
+// Property-based testing用アービトラリ
+export const PlayerArbitraries = {
+  playerId: fc.string({ minLength: 5, maxLength: 20 }),
+  playerName: fc.string({ minLength: 3, maxLength: 16 })
+    .filter(s => /^[a-zA-Z0-9_]+$/.test(s)),
+  position: fc.record({
+    x: fc.double({ min: -1000000, max: 1000000, noNaN: true }),
+    y: fc.double({ min: -256, max: 320, noNaN: true }),
+    z: fc.double({ min: -1000000, max: 1000000, noNaN: true })
+  }),
+  gameMode: fc.constantFrom("survival", "creative", "adventure", "spectator"),
+  validPlayer: fc.record({
+    id: fc.string({ minLength: 5, maxLength: 20 }),
+    name: fc.string({ minLength: 3, maxLength: 16 })
+      .filter(s => /^[a-zA-Z0-9_]+$/.test(s)),
+    position: fc.record({
+      x: fc.double({ min: -1000, max: 1000, noNaN: true }),
+      y: fc.double({ min: -256, max: 320, noNaN: true }),
+      z: fc.double({ min: -1000, max: 1000, noNaN: true })
+    }),
+    gameMode: fc.constantFrom("survival", "creative", "adventure", "spectator")
+  })
+}
 ```
 
-### Effect-TS モック
+### 高度なEffect-TSモック（3.17+パターン）
 
 ```typescript
-import { Effect, Context, Layer } from 'effect'
-import { vi } from 'vitest'
+import { Effect, Context, Layer, Ref, Duration, Schedule } from 'effect'
+import { vi, MockInstance } from 'vitest'
 
-// サービスのモック実装
-const MockWorldService = Layer.succeed(
-  WorldService,
-  WorldService.of({
-    loadChunk: vi.fn().mockImplementation((coord) =>
-      Effect.succeed(mockChunk)
-    )
+// 状態を持つモックサービス
+export const createMockWorldService = Effect.gen(function* () {
+  const loadedChunks = yield* Ref.make<Map<string, Chunk>>(new Map())
+  const callCount = yield* Ref.make(0)
+
+  return WorldService.of({
+    loadChunk: (coord: ChunkCoord) => Effect.gen(function* () {
+      yield* Ref.update(callCount, n => n + 1)
+
+      const chunkKey = `${coord.x},${coord.z}`
+      const chunks = yield* Ref.get(loadedChunks)
+
+      const existing = chunks.get(chunkKey)
+      if (existing) {
+        return existing
+      }
+
+      // 新しいチャンクを生成（遅延シミュレーション）
+      yield* Effect.sleep(Duration.millis(10))
+      const newChunk = createMockChunk(coord)
+
+      yield* Ref.update(loadedChunks, chunks =>
+        new Map(chunks).set(chunkKey, newChunk)
+      )
+
+      return newChunk
+    }),
+
+    unloadChunk: (coord: ChunkCoord) => Effect.gen(function* () {
+      const chunkKey = `${coord.x},${coord.z}`
+      yield* Ref.update(loadedChunks, chunks => {
+        const newChunks = new Map(chunks)
+        newChunks.delete(chunkKey)
+        return newChunks
+      })
+    }),
+
+    getLoadedChunks: () => Effect.gen(function* () {
+      const chunks = yield* Ref.get(loadedChunks)
+      return Array.from(chunks.values())
+    }),
+
+    // テスト用ヘルパーメソッド
+    _getCallCount: () => Ref.get(callCount),
+    _reset: () => Effect.gen(function* () {
+      yield* Ref.set(loadedChunks, new Map())
+      yield* Ref.set(callCount, 0)
+    })
   })
+})
+
+// モックサービスをLayerとして提供
+export const MockWorldServiceLayer = Layer.effect(
+  WorldService,
+  createMockWorldService
 )
+
+// エラーケーステスト用のモック
+export const createFailingMockService = <T>(
+  service: Context.Tag<T>,
+  errorRate: number = 0.3
+) =>
+  Layer.effect(
+    service,
+    Effect.gen(function* () {
+      const shouldFail = () => Math.random() < errorRate
+
+      // サービスの全メソッドを動的にモック
+      const mockImplementation = new Proxy({} as T, {
+        get(target, prop) {
+          return (...args: any[]) =>
+            shouldFail()
+              ? Effect.fail(new Error(`Mock failure for ${String(prop)}`))
+              : Effect.succeed(createMockResult(prop, args))
+        }
+      })
+
+      return mockImplementation
+    })
+  )
+
+// テスト実行時間測定付きモック
+export const createTimedMockService = <T>(
+  service: Context.Tag<T>,
+  baseImplementation: T
+) =>
+  Layer.effect(
+    service,
+    Effect.gen(function* () {
+      const timings = yield* Ref.make<Map<string, Duration.Duration>>(new Map())
+
+      const timedImplementation = new Proxy(baseImplementation as any, {
+        get(target, prop) {
+          const originalMethod = target[prop]
+          if (typeof originalMethod === 'function') {
+            return (...args: any[]) =>
+              Effect.gen(function* () {
+                const startTime = yield* Effect.sync(() => Date.now())
+                const result = yield* originalMethod.apply(target, args)
+                const endTime = yield* Effect.sync(() => Date.now())
+
+                const duration = Duration.millis(endTime - startTime)
+                yield* Ref.update(timings, map =>
+                  new Map(map).set(String(prop), duration)
+                )
+
+                return result
+              })
+          }
+          return originalMethod
+        }
+      })
+
+      return {
+        ...timedImplementation,
+        _getTimings: () => Ref.get(timings),
+        _resetTimings: () => Ref.set(timings, new Map())
+      }
+    })
+  )
 ```
 
 ## 🔍 テストデバッグ

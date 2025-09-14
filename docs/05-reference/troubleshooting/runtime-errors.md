@@ -1,12 +1,13 @@
 ---
 title: "ランタイムエラートラブルシューティング - 実行時エラー完全ガイド"
 description: "TypeScript Minecraftプロジェクトのランタイムエラー40パターン。Effect-TS Fiber、WebGL/Three.js、Promise拒否、ネットワークエラー対処法。"
-category: "reference"
+category: "troubleshooting"
 difficulty: "advanced"
-tags: ["runtime-errors", "troubleshooting", "effect-ts", "webgl", "three.js", "debugging"]
-prerequisites: ["typescript-advanced", "effect-ts-intermediate"]
+tags: ["runtime-errors", "troubleshooting", "effect-ts", "webgl", "three.js", "debugging", "fiber-management"]
+prerequisites: ["typescript-advanced", "effect-ts-intermediate", "webgl-basics"]
 estimated_reading_time: "35分"
-dependencies: ["./debugging-guide.md", "./effect-ts-troubleshooting.md"]
+related_patterns: ["error-handling-patterns", "service-patterns"]
+related_docs: ["./debugging-guide.md", "./effect-ts-troubleshooting.md", "./performance-issues.md"]
 status: "complete"
 ---
 

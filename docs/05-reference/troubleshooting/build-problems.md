@@ -1,12 +1,13 @@
 ---
 title: "ビルド問題トラブルシューティング - ビルドシステム完全マスター"
 description: "TypeScript Minecraftプロジェクトの45のビルド問題パターンと最適化戦略。Vite設定デバッグ、TypeScript最適化、依存関係管理。"
-category: "reference"
+category: "troubleshooting"
 difficulty: "advanced"
-tags: ["build-problems", "troubleshooting", "vite", "typescript", "optimization", "ci-cd"]
-prerequisites: ["build-systems", "typescript-advanced"]
+tags: ["build-problems", "troubleshooting", "vite", "typescript", "optimization", "ci-cd", "bundling"]
+prerequisites: ["build-systems", "typescript-advanced", "vite-configuration"]
 estimated_reading_time: "35分"
-dependencies: ["../configuration/build-config.md"]
+related_patterns: ["optimization-patterns-latest", "development-conventions"]
+related_docs: ["../configuration/build-config.md", "./common-errors.md", "../configuration/vite-config.md"]
 status: "complete"
 ---
 

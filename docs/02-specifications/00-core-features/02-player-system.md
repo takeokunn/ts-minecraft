@@ -222,7 +222,7 @@ interface PlayerMovementServiceInterface {
 }
 
 // Context Tag（最新パターン）
-class PlayerMovementServiceTag extends Context.Tag("@app/PlayerMovementService")<
+class PlayerMovementServiceTag extends Context.GenericTag("@app/PlayerMovementService")<
   PlayerMovementServiceTag,
   PlayerMovementServiceInterface
 >() {}
@@ -433,7 +433,7 @@ interface InventoryServiceInterface {
 }
 
 // Context Tag（最新パターン）
-class InventoryServiceTag extends Context.Tag("@app/InventoryService")<
+class InventoryServiceTag extends Context.GenericTag("@app/InventoryService")<
   InventoryServiceTag,
   InventoryServiceInterface
 >() {}
@@ -613,7 +613,7 @@ interface PlayerActionProcessorInterface {
 }
 
 // Context Tag（最新パターン）
-class PlayerActionProcessorTag extends Context.Tag("@app/PlayerActionProcessor")<
+class PlayerActionProcessorTag extends Context.GenericTag("@app/PlayerActionProcessor")<
   PlayerActionProcessorTag,
   PlayerActionProcessorInterface
 >() {}
@@ -829,7 +829,7 @@ interface HealthSystemInterface {
 }
 
 // Context Tag（最新パターン）
-class HealthSystemTag extends Context.Tag("@app/HealthSystem")<
+class HealthSystemTag extends Context.GenericTag("@app/HealthSystem")<
   HealthSystemTag,
   HealthSystemInterface
 >() {}
@@ -1030,7 +1030,7 @@ interface PlayerECSSystemInterface {
 }
 
 // Context Tag（最新パターン）
-class PlayerECSSystemTag extends Context.Tag("@app/PlayerECSSystem")<
+class PlayerECSSystemTag extends Context.GenericTag("@app/PlayerECSSystem")<
   PlayerECSSystemTag,
   PlayerECSSystemInterface
 >() {}
@@ -1211,7 +1211,7 @@ interface InputServiceInterface {
 }
 
 // Context Tag（最新パターン）
-class InputServiceTag extends Context.Tag("@app/InputService")<
+class InputServiceTag extends Context.GenericTag("@app/InputService")<
   InputServiceTag,
   InputServiceInterface
 >() {}
@@ -1353,7 +1353,7 @@ interface PlayerSyncServiceInterface {
 }
 
 // Context Tag（最新パターン）
-class PlayerSyncServiceTag extends Context.Tag("@app/PlayerSyncService")<
+class PlayerSyncServiceTag extends Context.GenericTag("@app/PlayerSyncService")<
   PlayerSyncServiceTag,
   PlayerSyncServiceInterface
 >() {}
@@ -1606,7 +1606,7 @@ interface WorkerTask {
 }
 
 // Context Tag（最新パターン）
-class PlayerWorkerPoolTag extends Context.Tag("@app/PlayerWorkerPool")<
+class PlayerWorkerPoolTag extends Context.GenericTag("@app/PlayerWorkerPool")<
   PlayerWorkerPoolTag,
   PlayerWorkerPoolInterface
 >() {}
@@ -1688,7 +1688,7 @@ interface PlayerObjectPoolInterface {
 }
 
 // Context Tag（最新パターン）
-class PlayerObjectPoolTag extends Context.Tag("@app/PlayerObjectPool")<
+class PlayerObjectPoolTag extends Context.GenericTag("@app/PlayerObjectPool")<
   PlayerObjectPoolTag,
   PlayerObjectPoolInterface
 >() {}
@@ -1778,7 +1778,7 @@ export const PlayerCache = Effect.gen(function* () {
 
 - **Effect-TS 3.17+**: 関数型プログラミング基盤
 - **Schema.Struct**: データ構造定義と検証
-- **Context.Tag クラス**: 型安全な依存性注入
+- **Context.GenericTag クラス**: 型安全な依存性注入
 - **Match.value**: パターンマッチング
 - **Layer.effect**: サービス組み立て
 - **STM**: 並行状態管理
@@ -1813,7 +1813,7 @@ export const PlayerCache = Effect.gen(function* () {
 
 ### 最新Effect-TSパターンの特徴
 
-1. **Context.Tag クラス**: より型安全な依存性注入
+1. **Context.GenericTag クラス**: より型安全な依存性注入
 2. **STM活用**: 並行状態更新の安全性確保
 3. **Stream統合**: 効率的なイベント処理
 4. **Ref状態管理**: 可変状態の安全な管理

@@ -1,13 +1,13 @@
 ---
-title: "02 Specifications - セクション概要"
-description: "02 Specifications - セクション概要に関する詳細な説明とガイド。"
+title: "拡張機能仕様書 - 高度システムの完全リファレンス"
+description: "Minecraftの高度機能と体験向上のための完全仕様書。レッドストーンからマルチプレイヤーまでの高度なシステム設計。"
 category: "specification"
-difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
+difficulty: "advanced"
+tags: ["enhanced-features", "redstone-system", "weather-simulation", "multiplayer", "advanced-mechanics", "ai-systems"]
+prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "concurrent-programming", "ai-basics"]
 estimated_reading_time: "10分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+related_patterns: ["concurrent-patterns", "state-machine-patterns", "ai-behavior-patterns"]
+related_docs: ["../00-core-features/README.md", "../README.md", "../../01-architecture/README.md"]
 ---
 
 # 拡張機能仕様書

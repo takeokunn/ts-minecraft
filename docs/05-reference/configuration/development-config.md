@@ -20,13 +20,17 @@ TypeScript Minecraftプロジェクトの開発環境設定について詳しく
 
 ## 開発サーバー設定
 
-### 完全なVite開発サーバー設定
+### Nix環境用Vite開発サーバー設定
 
 ```typescript
 // vite.config.dev.ts
 import { defineConfig, loadEnv } from 'vite'
 import { resolve } from 'path'
+import { config } from 'dotenv'
 import type { UserConfig } from 'vite'
+
+// Nix devenv環境設定読み込み
+config({ path: './.devenv.env' })
 
 export default defineConfig(({ mode }): UserConfig => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -985,6 +989,414 @@ services:
       - WATCHPACK_POLLING=true
 ```
 
+## 🛠️ Nix環境特化開発設定
+
+### devenv.nix統合開発環境
+
+```typescript
+// vite.config.nix-dev.ts
+import { defineConfig } from 'vite'
+import { resolve } from 'path'
+
+export default defineConfig(({ mode }) => {
+  const nixProfile = process.env.NIX_PROFILE
+  const devenvRoot = process.env.DEVENV_ROOT
+  const devenvState = process.env.DEVENV_STATE
+
+  return {
+    // Nix環境専用開発サーバー設定
+    server: {
+      port: 3000,
+      host: '0.0.0.0',
+
+      // devenv固有のHMR最適化
+      hmr: {
+        port: 24678, // devenv.nixで予約されたポート
+        host: 'localhost',
+        overlay: true
+      },
+
+      // Nix store内ファイルアクセス許可
+      fs: {
+        allow: [
+          '..', // プロジェクトルート
+          nixProfile || '~/.nix-profile', // Nix profile
+          '/nix/store', // Nix store（読み取り専用）
+          devenvRoot || process.cwd() // devenv root
+        ],
+        strict: false // Nix環境では柔軟に
+      },
+
+      // Nix環境でのファイル監視最適化
+      watch: {
+        usePolling: false, // Nix環境では通常は不要
+        interval: 100, // 高速化
+        binaryInterval: 300,
+        ignored: [
+          '**/node_modules/**',
+          '**/result', // Nix buildの結果
+          '**/.devenv/**', // devenvキャッシュ
+          '/nix/store/**' // Nix store
+        ]
+      }
+    },
+
+    // Nix環境での依存関係最適化
+    optimizeDeps: {
+      // Nix storeのパッケージを強制インクルード
+      include: [
+        'effect',
+        'effect/Schema',
+        'effect/Context',
+        'three',
+        'three/examples/jsm/controls/OrbitControls'
+      ],
+
+      // esbuild設定（Node.js 22対応）
+      esbuildOptions: {
+        target: 'node22',
+
+        // Nix環境変数の注入
+        define: {
+          __NIX_PROFILE__: JSON.stringify(nixProfile),
+          __DEVENV_ROOT__: JSON.stringify(devenvRoot),
+          __DEVENV_STATE__: JSON.stringify(devenvState)
+        }
+      }
+    },
+
+    // Nixパッケージ解決
+    resolve: {
+      alias: {
+        '@': resolve(process.cwd(), 'src'),
+
+        // Nix storeからの直接解決
+        'effect': nixProfile ?
+          `${nixProfile}/lib/node_modules/effect` :
+          'effect',
+        'three': nixProfile ?
+          `${nixProfile}/lib/node_modules/three` :
+          'three'
+      },
+
+      // pnpmシンボリックリンクの正しい解決
+      preserveSymlinks: false,
+
+      // Nix環境でのモジュール条件
+      conditions: ['development', 'browser', 'module', 'import']
+    },
+
+    // Nix専用環境変数定義
+    define: {
+      __DEV__: JSON.stringify(true),
+      __NIX_BUILD__: JSON.stringify(true),
+      __NODE_VERSION__: JSON.stringify(process.version),
+
+      // devenv環境情報
+      'import.meta.env.DEVENV_ROOT': JSON.stringify(devenvRoot),
+      'import.meta.env.NIX_PROFILE': JSON.stringify(nixProfile)
+    }
+  }
+})
+```
+
+### Nix開発用スクリプト統合
+
+```bash
+#!/usr/bin/env bash
+# scripts/nix-dev.sh
+
+set -euo pipefail
+
+# Nix devenv開発環境セットアップスクリプト
+echo "🏗️ Setting up Nix development environment..."
+
+# devenv環境確認
+if [ -z "${DEVENV_ROOT:-}" ]; then
+    echo "Starting devenv shell..."
+    exec devenv shell
+fi
+
+echo "✅ devenv environment active"
+echo "  DEVENV_ROOT: $DEVENV_ROOT"
+echo "  NIX_PROFILE: ${NIX_PROFILE:-not set}"
+echo "  Node.js: $(node --version)"
+echo "  pnpm: $(pnpm --version)"
+
+# pnpmキャッシュの最適化
+export PNPM_CACHE_DIR="${DEVENV_STATE}/pnpm-cache"
+echo "📦 pnpm cache: $PNPM_CACHE_DIR"
+
+# TypeScript設定最適化
+export TS_NODE_PROJECT="./tsconfig.json"
+export TS_NODE_COMPILER_OPTIONS='{"module":"NodeNext","target":"ES2022"}'
+
+# 開発用環境変数設定
+export NODE_OPTIONS="--max-old-space-size=4096 --experimental-vm-modules"
+export DEBUG="${DEBUG:-vite:*}"
+
+# Vite開発サーバー起動
+echo "🚀 Starting Vite dev server with Nix optimizations..."
+exec pnpm exec vite dev --config vite.config.nix-dev.ts
+```
+
+### NixOS用システム統合
+
+```nix
+# devenv.nix（開発環境拡張版）
+{ pkgs, config, inputs, ... }: {
+  cachix.enable = false;
+  dotenv.disableHint = true;
+
+  packages = with pkgs; [
+    # 基本開発ツール
+    typescript
+    typescript-language-server
+
+    # 追加開発ツール
+    nodePackages.pnpm
+    nodePackages.npm-check-updates
+    git
+    curl
+
+    # ブラウザ統合（開発用）
+    chromium
+    firefox
+  ];
+
+  languages.javascript = {
+    enable = true;
+    pnpm.enable = true;
+    package = pkgs.nodejs_22;
+  };
+
+  # 開発用サービス
+  services.postgres = {
+    enable = false; # 必要に応じて
+    listen_addresses = "127.0.0.1";
+    port = 5432;
+  };
+
+  services.redis = {
+    enable = false; # 必要に応じて
+    port = 6379;
+  };
+
+  # 開発用環境変数
+  env = {
+    VITE_DEV_MODE = "true";
+    BROWSER = "chromium";
+    EDITOR = "code";
+
+    # TypeScript最適化
+    TS_NODE_COMPILER_OPTIONS = builtins.toJSON {
+      module = "NodeNext";
+      target = "ES2022";
+      moduleResolution = "NodeNext";
+    };
+  };
+
+  # 開発用スクリプト
+  scripts.dev.exec = ''
+    echo "🏗️ Starting TypeScript Minecraft development..."
+    ${pkgs.nodejs_22}/bin/node --version
+    ${pkgs.nodePackages.pnpm}/bin/pnpm --version
+    exec ${pkgs.nodePackages.pnpm}/bin/pnpm dev
+  '';
+
+  scripts.dev-debug.exec = ''
+    echo "🐛 Starting with debugging enabled..."
+    export DEBUG="vite:*"
+    export NODE_OPTIONS="--inspect=0.0.0.0:9229 --max-old-space-size=4096"
+    exec ${pkgs.nodePackages.pnpm}/bin/pnpm dev
+  '';
+
+  scripts.type-check.exec = ''
+    echo "🔍 Running TypeScript type check..."
+    exec ${pkgs.typescript}/bin/tsc --noEmit
+  '';
+
+  # プロセス管理
+  processes.vite-dev.exec = "${pkgs.nodePackages.pnpm}/bin/pnpm dev";
+
+  # 開発ツール統合
+  difftastic.enable = true;
+
+  # Git設定最適化
+  git = {
+    hooks = {
+      pre-commit = ''
+        echo "🔍 Running pre-commit checks..."
+        ${pkgs.nodePackages.pnpm}/bin/pnpm lint-staged
+      '';
+    };
+  };
+}
+```
+
+### VSCode + Nix統合設定
+
+```json
+// .vscode/settings.json（Nix拡張）
+{
+  // Nix環境統合
+  "nix.enableLanguageServer": true,
+  "nix.serverPath": "nixd",
+
+  // devenvシェル統合
+  "terminal.integrated.profiles.linux": {
+    "devenv": {
+      "path": "devenv",
+      "args": ["shell"]
+    }
+  },
+  "terminal.integrated.defaultProfile.linux": "devenv",
+
+  // TypeScript（Nix環境）
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.preferences.includePackageJsonAutoImports": "auto",
+  "typescript.tsc.autoDetect": "on",
+
+  // pnpm統合
+  "npm.packageManager": "pnpm",
+  "typescript.preferences.includePackageJsonAutoImports": "on",
+
+  // Nix Store除外設定
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/.git/**": true,
+    "**/nix/store/**": true,
+    "**/.devenv/**": true,
+    "**/result": true
+  },
+
+  "search.exclude": {
+    "**/nix/store/**": true,
+    "**/.devenv/**": true,
+    "**/result": true
+  },
+
+  // 開発効率化
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.oxlint": true,
+    "source.organizeImports": true
+  }
+}
+```
+
+### Nix開発環境監視ツール
+
+```typescript
+// src/dev/nix-monitor.ts
+interface NixDevMetrics {
+  nixProfilePath: string | null
+  devenvRoot: string | null
+  nodeVersion: string
+  pnpmVersion: string
+  diskUsage: {
+    nixStore: number
+    devenvState: number
+    nodeModules: number
+  }
+}
+
+export class NixDevelopmentMonitor {
+  private metrics: NixDevMetrics
+
+  constructor() {
+    this.metrics = {
+      nixProfilePath: process.env.NIX_PROFILE || null,
+      devenvRoot: process.env.DEVENV_ROOT || null,
+      nodeVersion: process.version,
+      pnpmVersion: '',
+      diskUsage: {
+        nixStore: 0,
+        devenvState: 0,
+        nodeModules: 0
+      }
+    }
+
+    this.initializeMetrics()
+  }
+
+  private async initializeMetrics(): Promise<void> {
+    // pnpmバージョン取得
+    try {
+      const { execSync } = await import('child_process')
+      this.metrics.pnpmVersion = execSync('pnpm --version', { encoding: 'utf-8' }).trim()
+    } catch (error) {
+      console.warn('Failed to get pnpm version:', error)
+    }
+
+    // ディスク使用量計算
+    await this.calculateDiskUsage()
+  }
+
+  private async calculateDiskUsage(): Promise<void> {
+    const { statSync } = await import('fs')
+    const { resolve } = await import('path')
+
+    try {
+      // node_modules サイズ
+      const nodeModulesPath = resolve(process.cwd(), 'node_modules')
+      this.metrics.diskUsage.nodeModules = this.getFolderSize(nodeModulesPath)
+
+      // devenv state サイズ
+      if (process.env.DEVENV_STATE) {
+        this.metrics.diskUsage.devenvState = this.getFolderSize(process.env.DEVENV_STATE)
+      }
+
+      // Nix store サイズ（概算）
+      if (process.env.NIX_PROFILE) {
+        this.metrics.diskUsage.nixStore = this.getFolderSize('/nix/store') / 1024 // KB単位で概算
+      }
+    } catch (error) {
+      console.warn('Failed to calculate disk usage:', error)
+    }
+  }
+
+  private getFolderSize(folderPath: string): number {
+    try {
+      const { execSync } = require('child_process')
+      const output = execSync(`du -s "${folderPath}" 2>/dev/null || echo "0"`, { encoding: 'utf-8' })
+      return parseInt(output.split('\t')[0]) || 0
+    } catch {
+      return 0
+    }
+  }
+
+  logEnvironmentInfo(): void {
+    console.group('🏗️  Nix Development Environment')
+    console.log(`devenv Root: ${this.metrics.devenvRoot || 'Not in devenv'}`)
+    console.log(`Nix Profile: ${this.metrics.nixProfilePath || 'Not available'}`)
+    console.log(`Node.js: ${this.metrics.nodeVersion}`)
+    console.log(`pnpm: ${this.metrics.pnpmVersion}`)
+    console.group('💾 Disk Usage')
+    console.log(`node_modules: ${(this.metrics.diskUsage.nodeModules / 1024).toFixed(2)} MB`)
+    console.log(`devenv state: ${(this.metrics.diskUsage.devenvState / 1024).toFixed(2)} MB`)
+    console.log(`nix store (est.): ${(this.metrics.diskUsage.nixStore / 1024).toFixed(2)} MB`)
+    console.groupEnd()
+    console.groupEnd()
+  }
+
+  getMetrics(): NixDevMetrics {
+    return { ...this.metrics }
+  }
+}
+
+// 開発環境でのみ初期化
+if (import.meta.env.DEV && process.env.DEVENV_ROOT) {
+  const nixMonitor = new NixDevelopmentMonitor()
+  nixMonitor.logEnvironmentInfo()
+
+  // グローバルアクセス
+  ;(globalThis as any).__NIX_MONITOR__ = nixMonitor
+}
+```
+
 ## 📚 関連ドキュメント
 
 ### 設定ファイル関連
@@ -992,6 +1404,7 @@ services:
 - [TypeScript設定](./typescript-config.md) - TypeScript compilerOptions
 - [Project設定](./project-config.md) - プロジェクト全体設定
 - [Build設定](./build-config.md) - ビルドパイプライン
+- [devenv.nix](../../../devenv.nix) - Nix開発環境設定
 
 ### 外部リファレンス
 - [Vite Dev Server](https://vitejs.dev/config/server-options.html)

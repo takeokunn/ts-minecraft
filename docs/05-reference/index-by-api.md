@@ -1,3 +1,15 @@
+---
+title: "API別インデックス - API・モジュール別リファレンス索引"
+description: "TypeScript MinecraftプロジェクトのAPI・モジュール別ドキュメント索引。Effect-TS、Three.js、独自API別整理。"
+category: "reference"
+difficulty: "beginner"
+tags: ["api", "index", "modules", "reference", "effect-ts", "three.js"]
+prerequisites: []
+estimated_reading_time: "5分"
+dependencies: []
+status: "complete"
+---
+
 # API別インデックス
 
 TypeScript MinecraftプロジェクトのAPI・モジュール別にドキュメントを整理したリファレンスガイドです。

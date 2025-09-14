@@ -73,6 +73,7 @@ version: "1.0.0"
 - **[包括的テスト戦略](./03-guides/05-comprehensive-testing-strategy.md)**: Flaky Test完全排除を含む網羅的なテスト設計戦略です。
 - **[高度なテスト技法](./03-guides/06-advanced-testing-techniques.md)**: 契約テスト、ビジュアルリグレッションテスト等の高度な技法を解説します。
 - **[Effect-TSテストパターン](./03-guides/07-effect-ts-testing-patterns.md)**: Effect-TS 3.17+完全準拠のテスト実装パターン専用ガイドです。
+- **[CI/CD & デプロイメント](./03-guides/08-ci-cd-deployment.md)**: GitHub Actions による自動テスト・ビルド・GitHub Pages デプロイの完全ガイドです。
 - **[デバッグガイド](./03-guides/09-debugging-guide.md)**: Effect-TS特有のデバッグ手法とパフォーマンス分析について解説します。
 
 ---

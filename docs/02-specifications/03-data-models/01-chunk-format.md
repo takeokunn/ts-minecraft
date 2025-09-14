@@ -1,13 +1,13 @@
 ---
-title: "01 Chunk Format"
-description: "01 Chunk Formatに関する詳細な説明とガイド。"
+title: "チャンクフォーマット仕様 - バイナリデータ構造・圧縮"
+description: "16x16x384ブロックチャンクのバイナリフォーマット、圧縮アルゴリズム、パフォーマンス最適化の完全仕様。"
 category: "specification"
-difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
+difficulty: "advanced"
+tags: ["chunk-format", "binary-data", "compression", "data-serialization", "world-data", "performance-optimization"]
+prerequisites: ["effect-ts-fundamentals", "binary-data-handling", "compression-algorithms", "chunk-system"]
 estimated_reading_time: "15分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+related_patterns: ["data-serialization-patterns", "compression-patterns", "optimization-patterns"]
+related_docs: ["../00-core-features/07-chunk-system.md", "./00-world-data-structure.md", "./02-save-file-format.md"]
 ---
 
 # チャンクフォーマット仕様

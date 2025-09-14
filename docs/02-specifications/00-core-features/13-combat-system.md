@@ -1,13 +1,13 @@
 ---
-title: "13 Combat System"
-description: "13 Combat Systemに関する詳細な説明とガイド。"
+title: "戦闘システム仕様 - ダメージ計算・武器システム"
+description: "プレイヤー、モブ、ボスの戦闘システムの完全仕様。ダメージ計算、武器システム、ステータス効果の統合実装。"
 category: "specification"
 difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
+tags: ["combat-system", "damage-calculation", "weapon-mechanics", "mob-combat", "pvp", "status-effects"]
+prerequisites: ["effect-ts-fundamentals", "entity-system-basics", "physics-basics"]
 estimated_reading_time: "5分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+related_patterns: ["service-patterns", "state-machine-patterns", "damage-calculation-patterns"]
+related_docs: ["./04-entity-system.md", "./12-health-hunger-system.md", "./06-physics-system.md"]
 ---
 
 # Combat System (戦闘システム)

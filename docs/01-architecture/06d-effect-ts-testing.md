@@ -409,26 +409,38 @@ describe("Inventory System Property Tests", () => {
       // インバリアント2: 元のインベントリは変更されない
       expect(inventory.slots).toEqual(inventory.slots); // 参照同一性確認
 
-      // インバリアント3: 成功時は必ずアイテムが追加される
-      if (result.success) {
-        const totalQuantity = result.updatedInventory.slots
-          .filter(slot => slot !== undefined && slot.itemId === itemStack.itemId)
-          .reduce((sum, slot) => sum + slot!.quantity, 0);
+      // ✅ Match.valueによる型安全なテスト分岐 - 条件に応じたバリデーション
+      Match.value(result.success).pipe(
+        Match.when(true, () => {
+          // インバリアント3: 成功時は必ずアイテムが追加される
+          const totalQuantity = result.updatedInventory.slots
+            .filter(slot => slot !== undefined && slot.itemId === itemStack.itemId)
+            .reduce((sum, slot) => sum + slot!.quantity, 0);
 
-        const originalQuantity = inventory.slots
-          .filter(slot => slot !== undefined && slot.itemId === itemStack.itemId)
-          .reduce((sum, slot) => sum + slot!.quantity, 0);
+          const originalQuantity = inventory.slots
+            .filter(slot => slot !== undefined && slot.itemId === itemStack.itemId)
+            .reduce((sum, slot) => sum + slot!.quantity, 0);
 
-        const expectedQuantity = originalQuantity + itemStack.quantity - (result.remainingStack?.quantity ?? 0);
-        expect(totalQuantity).toBe(expectedQuantity);
-      }
+          const expectedQuantity = originalQuantity + itemStack.quantity - (result.remainingStack?.quantity ?? 0);
+          expect(totalQuantity).toBe(expectedQuantity);
+        }),
+        Match.orElse(() => {
+          // 失敗時のバリデーション（必要に応じて追加）
+        })
+      );
 
-      // インバリアント4: 残りアイテムは元のアイテムと同一性を持つ
-      if (result.remainingStack) {
-        expect(result.remainingStack.itemId).toBe(itemStack.itemId);
-        expect(result.remainingStack.quantity).toBeGreaterThan(0);
-        expect(result.remainingStack.quantity).toBeLessThanOrEqual(itemStack.quantity);
-      }
+      // ✅ 残りアイテムの検証もMatch.valueで型安全に
+      Match.value(result.remainingStack).pipe(
+        Match.when(Match.defined, (remainingStack) => {
+          // インバリアント4: 残りアイテムは元のアイテムと同一性を持つ
+          expect(remainingStack.itemId).toBe(itemStack.itemId);
+          expect(remainingStack.quantity).toBeGreaterThan(0);
+          expect(remainingStack.quantity).toBeLessThanOrEqual(itemStack.quantity);
+        }),
+        Match.orElse(() => {
+          // 残りアイテムが無い場合の処理（必要に応じて）
+        })
+      );
     }
   );
 
@@ -662,19 +674,18 @@ const makeTestPlayerServiceWithErrors = Effect.gen(function* () => {
         const players = yield* Ref.get(playersRef);
         const player = players.get(playerId);
 
-        // エラーケース1: プレイヤーが見つからない
-        if (!player) {
-          return yield* Effect.fail({
+        // ✅ Match.valueによる包括的エラーハンドリング - 段階的な検証
+        return yield* Match.value(player).pipe(
+          Match.when(Match.undefined, () => Effect.fail({
             _tag: "PlayerNotFoundError" as const,
             playerId: playerId as any,
             message: `プレイヤー ${playerId} が見つかりません`
-          });
-        }
-
-        // エラーケース2: 無効な座標
-        if (position.y < -64 || position.y > 320) {
-          return yield* Effect.fail({
-            _tag: "InvalidPositionError" as const,
+          })),
+          Match.when(Match.defined, (validPlayer) =>
+            // ネストした位置検証
+            Match.value(position.y).pipe(
+              Match.when(Match.number.lessThan(-64), () => Effect.fail({
+                _tag: "InvalidPositionError" as const,
             position,
             bounds: { minY: -64, maxY: 320 }
           });

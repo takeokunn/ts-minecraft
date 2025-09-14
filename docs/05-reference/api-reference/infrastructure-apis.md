@@ -60,46 +60,208 @@ mindmap
 #### ✅ **Three.js基盤セットアップ**
 ```typescript
 import * as THREE from "three"
-import { Effect, Context, Layer } from "effect"
+import { Effect, Context, Layer, Schema, Brand } from "effect"
 
-// レンダリング設定
+// Brand型を使ったID型安全性強化
+export type CanvasId = Brand.Brand<string, "CanvasId">
+export type ShaderId = Brand.Brand<string, "ShaderId">
+export type TextureId = Brand.Brand<string, "TextureId">
+export type MaterialId = Brand.Brand<string, "MaterialId">
+
+// Brand型コンストラクタ
+export const CanvasId = Brand.nominal<CanvasId>()
+export const ShaderId = Brand.nominal<ShaderId>()
+export const TextureId = Brand.nominal<TextureId>()
+export const MaterialId = Brand.nominal<MaterialId>()
+
+// レンダリング設定（Brand型統合）
 export const RenderConfigSchema = Schema.Struct({
-  canvas: Schema.String, // Canvas要素ID
-  width: Schema.Number.pipe(Schema.positive()),
-  height: Schema.Number.pipe(Schema.positive()),
+  canvas: Schema.String.pipe(
+    Schema.brand("CanvasId"),
+    Schema.minLength(1),
+    Schema.maxLength(64)
+  ), // Canvas要素ID（Brand型化で型安全性強化）
+  width: Schema.Number.pipe(Schema.positive(), Schema.int()),
+  height: Schema.Number.pipe(Schema.positive(), Schema.int()),
   antialias: Schema.Boolean,
   shadows: Schema.Boolean,
   fog: Schema.Boolean,
-  renderDistance: Schema.Number.pipe(Schema.between(2, 32)),
+  renderDistance: Schema.Number.pipe(Schema.between(2, 32), Schema.int()),
   fov: Schema.Number.pipe(Schema.between(30, 110)),
-  maxFPS: Schema.Number.pipe(Schema.between(30, 144))
+  maxFPS: Schema.Number.pipe(Schema.between(30, 144), Schema.int())
 }).annotations({
-  identifier: "RenderConfig"
+  identifier: "RenderConfig",
+  description: "型安全なレンダリング設定（Canvas ID Brand型化）"
 })
 
-// マテリアル定義
+// マテリアル定義（Brand型統合）
 export const MaterialConfigSchema = Schema.Struct({
-  diffuse: Schema.String, // テクスチャパス
-  normal: Schema.optional(Schema.String),
-  specular: Schema.optional(Schema.String),
+  id: Schema.String.pipe(
+    Schema.brand("MaterialId"),
+    Schema.minLength(1),
+    Schema.maxLength(32)
+  ), // マテリアル識別子（Brand型化）
+  diffuse: Schema.String.pipe(
+    Schema.brand("TextureId")
+  ), // テクスチャパス（Brand型化）
+  normal: Schema.optional(Schema.String.pipe(Schema.brand("TextureId"))),
+  specular: Schema.optional(Schema.String.pipe(Schema.brand("TextureId"))),
   roughness: Schema.Number.pipe(Schema.between(0, 1)),
   metalness: Schema.Number.pipe(Schema.between(0, 1)),
   transparent: Schema.Boolean
 }).annotations({
-  identifier: "MaterialConfig"
+  identifier: "MaterialConfig",
+  description: "型安全なマテリアル設定（ID・テクスチャBrand型化）"
 })
 
-// シェーダー統一インターフェース
+// シェーダー統一インターフェース（Brand型統合）
 export const ShaderConfigSchema = Schema.Struct({
-  vertex: Schema.String,
-  fragment: Schema.String,
+  id: Schema.String.pipe(
+    Schema.brand("ShaderId"),
+    Schema.minLength(1),
+    Schema.maxLength(32)
+  ), // シェーダー識別子（Brand型化）
+  vertex: Schema.String.pipe(Schema.minLength(1)),
+  fragment: Schema.String.pipe(Schema.minLength(1)),
   uniforms: Schema.Record({
     key: Schema.String,
     value: Schema.Unknown
   })
 }).annotations({
-  identifier: "ShaderConfig"
+  identifier: "ShaderConfig",
+  description: "型安全なシェーダー設定（ID Brand型化）"
 })
+
+// リソース管理のヘルパー関数
+export const ResourceUtils = {
+  /**
+   * Canvas ID の作成（実行時検証付き）
+   * @param canvasId - Canvas要素のID文字列
+   * @returns 検証済みCanvas ID、またはエラー
+   * @example
+   * ```typescript
+   * const canvasId = yield* ResourceUtils.createCanvasId("gameCanvas");
+   * // 型安全: CanvasId型として扱われ、他のID型との混同を防ぐ
+   * ```
+   */
+  createCanvasId: (canvasId: string): Effect.Effect<CanvasId, ResourceError> =>
+    Effect.gen(function* () {
+      if (!canvasId || canvasId.trim().length === 0) {
+        return yield* Effect.fail(new ResourceError("Canvas ID cannot be empty"))
+      }
+
+      if (canvasId.length > 64) {
+        return yield* Effect.fail(new ResourceError("Canvas ID too long (max 64 characters)"))
+      }
+
+      // HTML要素IDとして有効かチェック
+      if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(canvasId)) {
+        return yield* Effect.fail(new ResourceError("Invalid Canvas ID format"))
+      }
+
+      return CanvasId(canvasId)
+    }),
+
+  /**
+   * Texture ID の作成（パス検証付き）
+   * @param texturePath - テクスチャファイルのパス
+   * @returns 検証済みTexture ID、またはエラー
+   * @example
+   * ```typescript
+   * const textureId = yield* ResourceUtils.createTextureId("assets/textures/stone.png");
+   * // 型安全: TextureId型として扱われ、他のID型と区別される
+   * ```
+   */
+  createTextureId: (texturePath: string): Effect.Effect<TextureId, ResourceError> =>
+    Effect.gen(function* () {
+      if (!texturePath || texturePath.trim().length === 0) {
+        return yield* Effect.fail(new ResourceError("Texture path cannot be empty"))
+      }
+
+      // 画像ファイル拡張子のチェック
+      const supportedExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.avif']
+      const hasValidExtension = supportedExtensions.some(ext =>
+        texturePath.toLowerCase().endsWith(ext)
+      )
+
+      if (!hasValidExtension) {
+        return yield* Effect.fail(new ResourceError(
+          `Invalid texture file extension. Supported: ${supportedExtensions.join(', ')}`
+        ))
+      }
+
+      return TextureId(texturePath)
+    }),
+
+  /**
+   * Material ID の作成（名前規約検証付き）
+   * @param materialName - マテリアル名
+   * @returns 検証済みMaterial ID、またはエラー
+   * @example
+   * ```typescript
+   * const materialId = yield* ResourceUtils.createMaterialId("stone_material");
+   * // 型安全: MaterialId型として扱われ、意図しない文字列との混同を防ぐ
+   * ```
+   */
+  createMaterialId: (materialName: string): Effect.Effect<MaterialId, ResourceError> =>
+    Effect.gen(function* () {
+      if (!materialName || materialName.trim().length === 0) {
+        return yield* Effect.fail(new ResourceError("Material name cannot be empty"))
+      }
+
+      if (materialName.length > 32) {
+        return yield* Effect.fail(new ResourceError("Material name too long (max 32 characters)"))
+      }
+
+      // マテリアル名規約のチェック（小文字・アンダースコアのみ）
+      if (!/^[a-z][a-z0-9_]*$/.test(materialName)) {
+        return yield* Effect.fail(new ResourceError(
+          "Invalid material name format (use lowercase letters, numbers, underscores)"
+        ))
+      }
+
+      return MaterialId(materialName)
+    }),
+
+  /**
+   * Shader ID の作成（シェーダー名検証付き）
+   * @param shaderName - シェーダー名
+   * @returns 検証済みShader ID、またはエラー
+   * @example
+   * ```typescript
+   * const shaderId = yield* ResourceUtils.createShaderId("basic_vertex_shader");
+   * // 型安全: ShaderId型として扱われ、他のリソースIDとの混同を防ぐ
+   * ```
+   */
+  createShaderId: (shaderName: string): Effect.Effect<ShaderId, ResourceError> =>
+    Effect.gen(function* () {
+      if (!shaderName || shaderName.trim().length === 0) {
+        return yield* Effect.fail(new ResourceError("Shader name cannot be empty"))
+      }
+
+      if (shaderName.length > 32) {
+        return yield* Effect.fail(new ResourceError("Shader name too long (max 32 characters)"))
+      }
+
+      // シェーダー名規約のチェック
+      if (!/^[a-z][a-z0-9_]*$/.test(shaderName)) {
+        return yield* Effect.fail(new ResourceError(
+          "Invalid shader name format (use lowercase letters, numbers, underscores)"
+        ))
+      }
+
+      return ShaderId(shaderName)
+    })
+} as const
+
+// カスタムエラー型
+export class ResourceError extends Error {
+  readonly _tag = "ResourceError"
+  constructor(message: string) {
+    super(message)
+    this.name = "ResourceError"
+  }
+}
 ```
 
 #### ⭐ **RenderService実装**
@@ -827,33 +989,70 @@ export interface InputService {
 
 export const InputService = Context.GenericTag<InputService>("InputService")
 
-// プレイヤー入力状態
+// 入力関連のBrand型定義
+export type HotbarSlot = Brand.Brand<number, "HotbarSlot">
+export type MouseDelta = Brand.Brand<number, "MouseDelta">
+export type KeyState = Brand.Brand<boolean, "KeyState">
+
+// Brand型コンストラクタ
+export const HotbarSlot = Brand.nominal<HotbarSlot>()
+export const MouseDelta = Brand.nominal<MouseDelta>()
+export const KeyState = Brand.nominal<KeyState>()
+
+// プレイヤー入力状態（Brand型統合・型安全性強化）
 export const PlayerInputSchema = Schema.Struct({
   movement: Schema.Struct({
-    forward: Schema.Boolean,
-    backward: Schema.Boolean,
-    left: Schema.Boolean,
-    right: Schema.Boolean,
-    jump: Schema.Boolean,
-    sneak: Schema.Boolean
+    forward: Schema.Boolean.pipe(Schema.brand("KeyState")),
+    backward: Schema.Boolean.pipe(Schema.brand("KeyState")),
+    left: Schema.Boolean.pipe(Schema.brand("KeyState")),
+    right: Schema.Boolean.pipe(Schema.brand("KeyState")),
+    jump: Schema.Boolean.pipe(Schema.brand("KeyState")),
+    sneak: Schema.Boolean.pipe(Schema.brand("KeyState"))
+  }).annotations({
+    identifier: "MovementInput",
+    description: "移動入力（Brand型化で型安全性強化）"
   }),
   mouse: Schema.Struct({
-    deltaX: Schema.Number,
-    deltaY: Schema.Number,
-    leftClick: Schema.Boolean,
-    rightClick: Schema.Boolean,
-    middleClick: Schema.Boolean
+    deltaX: Schema.Number.pipe(
+      Schema.brand("MouseDelta"),
+      Schema.between(-1000, 1000)
+    ), // マウス感度制限
+    deltaY: Schema.Number.pipe(
+      Schema.brand("MouseDelta"),
+      Schema.between(-1000, 1000)
+    ), // マウス感度制限
+    leftClick: Schema.Boolean.pipe(Schema.brand("KeyState")),
+    rightClick: Schema.Boolean.pipe(Schema.brand("KeyState")),
+    middleClick: Schema.Boolean.pipe(Schema.brand("KeyState"))
+  }).annotations({
+    identifier: "MouseInput",
+    description: "マウス入力（Delta値Brand型化・感度制限）"
   }),
   inventory: Schema.Struct({
-    selectedSlot: Schema.Number.pipe(Schema.between(0, 8)),
-    openInventory: Schema.Boolean
+    selectedSlot: Schema.Number.pipe(
+      Schema.brand("HotbarSlot"),
+      Schema.between(0, 8),
+      Schema.int()
+    ), // ホットバースロット（Brand型化・整数制限）
+    openInventory: Schema.Boolean.pipe(Schema.brand("KeyState"))
+  }).annotations({
+    identifier: "InventoryInput",
+    description: "インベントリ入力（スロット番号Brand型化）"
   }),
   actions: Schema.Struct({
-    placeBlock: Schema.Boolean,
-    breakBlock: Schema.Boolean,
-    interact: Schema.Boolean,
-    sprint: Schema.Boolean
-  })
+    placeBlock: Schema.Boolean.pipe(Schema.brand("KeyState")),
+    breakBlock: Schema.Boolean.pipe(Schema.brand("KeyState")),
+    interact: Schema.Boolean.pipe(Schema.brand("KeyState")),
+    sprint: Schema.Boolean.pipe(Schema.brand("KeyState"))
+  }).annotations({
+    identifier: "ActionInput",
+    description: "アクション入力（Brand型化で型安全性強化）"
+  }),
+  // フレームタイムスタンプ追加（デバッグ・リプレイ用）
+  timestamp: Schema.Number.pipe(
+    Schema.positive(),
+    Schema.int()
+  )
 }).annotations({
   identifier: "PlayerInput"
 })
