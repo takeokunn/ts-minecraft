@@ -68,7 +68,7 @@ describe("Effect-TS Configuration", () => {
       const result = await Effect.runPromise(validEffect);
       expect(result).toBe("valid string");
 
-      const invalidEffect = validator(123);
+      const invalidEffect = validator("123");
       try {
         await Effect.runPromise(invalidEffect);
         expect.fail("Should have thrown validation error");
