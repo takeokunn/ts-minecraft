@@ -66,20 +66,26 @@ graph TB
 ```typescript
 // src/domain/math/vector3.ts
 import { Schema } from "@effect/schema"
-import { Data, Equal, Hash } from "effect"
+import { Data, Equal, Hash, Brand } from "effect"
 
 /**
- * 3Dベクトルスキーマ
+ * Branded type for coordinate values (型安全性強化)
+ */
+export type Coordinate = number & Brand.Brand<"Coordinate">
+export const Coordinate = Brand.nominal<Coordinate>()
+
+/**
+ * 3Dベクトルスキーマ（Branded Types使用）
  *
  * 🎯 学習ポイント：
- * - 3D座標系での数学的操作
- * - Data.Structによる不変データ構造
- * - 数学関数の関数型実装
+ * - Branded Typesによる型安全性
+ * - Schema定義による厳密な型チェック
+ * - 座標値の意味的な区別
  */
 export const Vector3 = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number
+  x: Schema.Number.pipe(Schema.brand(Coordinate)),
+  y: Schema.Number.pipe(Schema.brand(Coordinate)),
+  z: Schema.Number.pipe(Schema.brand(Coordinate))
 })
 
 export type Vector3 = Schema.Schema.Type<typeof Vector3>
@@ -93,35 +99,55 @@ export class Vector3Data extends Data.Struct<{
   readonly z: number
 }> {
   /**
-   * ベクトル加算
+   * ベクトル加算（Early Return実装）
    */
   add(other: Vector3Data): Vector3Data {
+    // Early Return: ゼロベクトルの場合は即座に自身を返す
+    if (other.x === 0 && other.y === 0 && other.z === 0) {
+      return this
+    }
+
     return new Vector3Data({
-      x: this.x + other.x,
-      y: this.y + other.y,
-      z: this.z + other.z
+      x: Coordinate(this.x + other.x),
+      y: Coordinate(this.y + other.y),
+      z: Coordinate(this.z + other.z)
     })
   }
 
   /**
-   * ベクトル減算
+   * ベクトル減算（Early Return実装）
    */
   subtract(other: Vector3Data): Vector3Data {
+    // Early Return: ゼロベクトルの場合は即座に自身を返す
+    if (other.x === 0 && other.y === 0 && other.z === 0) {
+      return this
+    }
+
     return new Vector3Data({
-      x: this.x - other.x,
-      y: this.y - other.y,
-      z: this.z - other.z
+      x: Coordinate(this.x - other.x),
+      y: Coordinate(this.y - other.y),
+      z: Coordinate(this.z - other.z)
     })
   }
 
   /**
-   * スカラー倍
+   * スカラー倍（Early Return実装）
    */
   multiply(scalar: number): Vector3Data {
+    // Early Return: スカラーが1の場合は即座に自身を返す
+    if (scalar === 1) {
+      return this
+    }
+
+    // Early Return: スカラーが0の場合はゼロベクトルを返す
+    if (scalar === 0) {
+      return ZERO_VECTOR
+    }
+
     return new Vector3Data({
-      x: this.x * scalar,
-      y: this.y * scalar,
-      z: this.z * scalar
+      x: Coordinate(this.x * scalar),
+      y: Coordinate(this.y * scalar),
+      z: Coordinate(this.z * scalar)
     })
   }
 
@@ -133,11 +159,20 @@ export class Vector3Data extends Data.Struct<{
   }
 
   /**
-   * ベクトルの正規化
+   * ベクトルの正規化（Early Return実装）
    */
   normalize(): Vector3Data {
     const mag = this.magnitude
-    if (mag === 0) return new Vector3Data({ x: 0, y: 0, z: 0 })
+
+    // Early Return: ゼロベクトルの場合
+    if (mag === 0) {
+      return ZERO_VECTOR
+    }
+
+    // Early Return: 既に正規化済みの場合
+    if (Math.abs(mag - 1) < Number.EPSILON) {
+      return this
+    }
 
     return this.multiply(1 / mag)
   }
@@ -150,39 +185,43 @@ export class Vector3Data extends Data.Struct<{
   }
 
   /**
-   * Three.js Vector3への変換
+   * Three.js Vector3への変換（Branded Types対応）
    */
   toThreeVector3(): THREE.Vector3 {
     return new THREE.Vector3(this.x, this.y, this.z)
   }
 
   /**
-   * Three.js Vector3からの作成
+   * Three.js Vector3からの作成（Branded Types対応）
    */
   static fromThreeVector3(vec: THREE.Vector3): Vector3Data {
     return new Vector3Data({
-      x: vec.x,
-      y: vec.y,
-      z: vec.z
+      x: Coordinate(vec.x),
+      y: Coordinate(vec.y),
+      z: Coordinate(vec.z)
     })
   }
 }
 
 /**
- * ゼロベクトル定数
+ * ゼロベクトル定数（Branded Types対応）
  */
-export const ZERO_VECTOR = new Vector3Data({ x: 0, y: 0, z: 0 })
+export const ZERO_VECTOR = new Vector3Data({
+  x: Coordinate(0),
+  y: Coordinate(0),
+  z: Coordinate(0)
+})
 
 /**
- * 方向ベクトル定数
+ * 方向ベクトル定数（Branded Types対応）
  */
 export const DIRECTION_VECTORS = {
-  FORWARD: new Vector3Data({ x: 0, y: 0, z: -1 }),
-  BACKWARD: new Vector3Data({ x: 0, y: 0, z: 1 }),
-  LEFT: new Vector3Data({ x: -1, y: 0, z: 0 }),
-  RIGHT: new Vector3Data({ x: 1, y: 0, z: 0 }),
-  UP: new Vector3Data({ x: 0, y: 1, z: 0 }),
-  DOWN: new Vector3Data({ x: 0, y: -1, z: 0 })
+  FORWARD: new Vector3Data({ x: Coordinate(0), y: Coordinate(0), z: Coordinate(-1) }),
+  BACKWARD: new Vector3Data({ x: Coordinate(0), y: Coordinate(0), z: Coordinate(1) }),
+  LEFT: new Vector3Data({ x: Coordinate(-1), y: Coordinate(0), z: Coordinate(0) }),
+  RIGHT: new Vector3Data({ x: Coordinate(1), y: Coordinate(0), z: Coordinate(0) }),
+  UP: new Vector3Data({ x: Coordinate(0), y: Coordinate(1), z: Coordinate(0) }),
+  DOWN: new Vector3Data({ x: Coordinate(0), y: Coordinate(-1), z: Coordinate(0) })
 } as const
 ```
 
@@ -190,16 +229,29 @@ export const DIRECTION_VECTORS = {
 
 ```typescript
 // src/infrastructure/input-system.ts
-import { Context, Effect, Ref, Layer } from "effect"
+import { Context, Effect, Ref, Layer, Schema } from "effect"
+import { Match } from "effect"
 
 /**
- * キー状態の管理
+ * キー状態の管理（Schema定義）
  */
-export interface KeyState {
-  readonly isPressed: boolean
-  readonly justPressed: boolean
-  readonly justReleased: boolean
-}
+export const KeyState = Schema.Struct({
+  isPressed: Schema.Boolean,
+  justPressed: Schema.Boolean,
+  justReleased: Schema.Boolean
+})
+
+export type KeyState = Schema.Schema.Type<typeof KeyState>
+
+/**
+ * 移動入力エラー（TaggedError定義）
+ */
+export class InputSystemError extends Schema.TaggedError<InputSystemError>("InputSystemError")(
+  "InputSystemError",
+  {
+    message: Schema.String
+  }
+) {}
 
 /**
  * 入力システムサービス
@@ -209,17 +261,27 @@ export interface KeyState {
  * - Refによるリアルタイム状態管理
  * - 関数型でのイベント処理
  */
+/**
+ * 移動入力スキーマ（型安全性強化）
+ */
+export const MovementInputState = Schema.Struct({
+  forward: Schema.Boolean,
+  backward: Schema.Boolean,
+  left: Schema.Boolean,
+  right: Schema.Boolean,
+  jump: Schema.Boolean,
+  run: Schema.Boolean
+})
+
+export type MovementInputState = Schema.Schema.Type<typeof MovementInputState>
+
+/**
+ * 入力システムサービス（Effect-TSパターン適用）
+ */
 export interface InputSystem {
-  readonly getKeyState: (key: string) => Effect.Effect<KeyState, never>
-  readonly isKeyPressed: (key: string) => Effect.Effect<boolean, never>
-  readonly getMovementInput: () => Effect.Effect<{
-    forward: boolean
-    backward: boolean
-    left: boolean
-    right: boolean
-    jump: boolean
-    run: boolean
-  }, never>
+  readonly getKeyState: (key: string) => Effect.Effect<KeyState, InputSystemError>
+  readonly isKeyPressed: (key: string) => Effect.Effect<boolean, InputSystemError>
+  readonly getMovementInput: () => Effect.Effect<MovementInputState, InputSystemError>
 }
 
 export const InputSystem = Context.GenericTag<InputSystem>("InputSystem")
@@ -231,32 +293,55 @@ class BrowserInputSystem implements InputSystem {
   private keyStates = new Map<string, Ref.Ref<KeyState>>()
   private initialized = false
 
-  private initializeIfNeeded(): Effect.Effect<void, never> {
-    return Effect.sync(() => {
-      if (this.initialized || typeof window === 'undefined') return
+  private initializeIfNeeded(): Effect.Effect<void, InputSystemError> {
+    return Effect.gen(function* () {
+      const self = this
 
-      // キーダウンイベント
-      window.addEventListener('keydown', (event) => {
-        const keyRef = this.getOrCreateKeyRef(event.code)
-        Ref.update(keyRef, (current) => ({
-          isPressed: true,
-          justPressed: !current.isPressed,
-          justReleased: false
-        })).pipe(Effect.runSync)
+      // Early Return: 既に初期化済みまたはサーバーサイド
+      if (self.initialized || typeof window === 'undefined') {
+        return
+      }
+
+      yield* Effect.sync(() => {
+        // キーダウンイベント（Effect.catchTags使用）
+        window.addEventListener('keydown', (event) => {
+          const keyRef = self.getOrCreateKeyRef(event.code)
+
+          Ref.update(keyRef, (current) => ({
+            isPressed: true,
+            justPressed: !current.isPressed,
+            justReleased: false
+          })).pipe(
+            Effect.catchTags({
+              // エラーハンドリング（従来のtry/catchをEffect.catchTagsに置換）
+              UnknownException: (error) =>
+                Effect.logError(`キーダウンイベント処理エラー: ${error.message}`)
+            }),
+            Effect.runSync
+          )
+        })
+
+        // キーアップイベント（Effect.catchTags使用）
+        window.addEventListener('keyup', (event) => {
+          const keyRef = self.getOrCreateKeyRef(event.code)
+
+          Ref.update(keyRef, (current) => ({
+            isPressed: false,
+            justPressed: false,
+            justReleased: current.isPressed
+          })).pipe(
+            Effect.catchTags({
+              // エラーハンドリング（従来のtry/catchをEffect.catchTagsに置換）
+              UnknownException: (error) =>
+                Effect.logError(`キーアップイベント処理エラー: ${error.message}`)
+            }),
+            Effect.runSync
+          )
+        })
+
+        self.initialized = true
       })
-
-      // キーアップイベント
-      window.addEventListener('keyup', (event) => {
-        const keyRef = this.getOrCreateKeyRef(event.code)
-        Ref.update(keyRef, (current) => ({
-          isPressed: false,
-          justPressed: false,
-          justReleased: current.isPressed
-        })).pipe(Effect.runSync)
-      })
-
-      this.initialized = true
-    })
+    }).bind(this)
   }
 
   private getOrCreateKeyRef(key: string): Ref.Ref<KeyState> {
@@ -272,77 +357,77 @@ class BrowserInputSystem implements InputSystem {
     return keyRef
   }
 
-  getKeyState(key: string): Effect.Effect<KeyState, never> {
-    return Effect.gen(() => {
+  getKeyState(key: string): Effect.Effect<KeyState, InputSystemError> {
+    return Effect.gen(function* () {
       const self = this
-      return Effect.gen(function* () {
-        yield* self.initializeIfNeeded()
-        const keyRef = self.getOrCreateKeyRef(key)
-        return yield* Ref.get(keyRef)
-      })
-    })()
+
+      yield* self.initializeIfNeeded()
+      const keyRef = self.getOrCreateKeyRef(key)
+      return yield* Ref.get(keyRef)
+    }).bind(this)
   }
 
-  isKeyPressed(key: string): Effect.Effect<boolean, never> {
-    return Effect.gen(() => {
+  isKeyPressed(key: string): Effect.Effect<boolean, InputSystemError> {
+    return Effect.gen(function* () {
       const self = this
-      return Effect.gen(function* () {
-        const state = yield* self.getKeyState(key)
-        return state.isPressed
-      })
-    })()
+
+      const state = yield* self.getKeyState(key)
+      return state.isPressed
+    }).bind(this)
   }
 
-  getMovementInput(): Effect.Effect<{
-    forward: boolean
-    backward: boolean
-    left: boolean
-    right: boolean
-    jump: boolean
-    run: boolean
-  }, never> {
-    return Effect.gen(() => {
+  getMovementInput(): Effect.Effect<MovementInputState, InputSystemError> {
+    return Effect.gen(function* () {
       const self = this
-      return Effect.gen(function* () {
-        const [forward, backward, left, right, jump, run] = yield* Effect.all([
-          self.isKeyPressed('KeyW'),
-          self.isKeyPressed('KeyS'),
-          self.isKeyPressed('KeyA'),
-          self.isKeyPressed('KeyD'),
-          self.isKeyPressed('Space'),
-          self.isKeyPressed('ShiftLeft')
-        ])
 
-        return { forward, backward, left, right, jump, run }
+      // Effect.allで移動処理を並列化
+      const [forward, backward, left, right, jump, run] = yield* Effect.all([
+        self.isKeyPressed('KeyW'),
+        self.isKeyPressed('KeyS'),
+        self.isKeyPressed('KeyA'),
+        self.isKeyPressed('KeyD'),
+        self.isKeyPressed('Space'),
+        self.isKeyPressed('ShiftLeft')
+      ])
+
+      // Schema定義を使った型安全な返却値
+      return Schema.decodeUnknownSync(MovementInputState)({
+        forward, backward, left, right, jump, run
       })
-    })()
+    }).bind(this)
   }
 
   /**
    * フレーム終了時の状態リセット（justPressed/justReleasedフラグクリア）
    */
-  resetFrameState(): Effect.Effect<void, never> {
-    return Effect.gen(() => {
+  resetFrameState(): Effect.Effect<void, InputSystemError> {
+    return Effect.gen(function* () {
       const self = this
-      return Effect.gen(function* () {
-        for (const keyRef of self.keyStates.values()) {
-          yield* Ref.update(keyRef, (current) => ({
-            ...current,
-            justPressed: false,
-            justReleased: false
-          }))
-        }
-      })
-    })()
+
+      // Effect.allでフレーム状態リセットを並列化
+      const updates = Array.from(self.keyStates.values()).map(keyRef =>
+        Ref.update(keyRef, (current) => ({
+          ...current,
+          justPressed: false,
+          justReleased: false
+        }))
+      )
+
+      yield* Effect.all(updates)
+    }).bind(this)
   }
 }
 
 /**
- * InputSystemの実装を提供するLayer
+ * InputSystemの実装を提供するLayer（サービス定義）
  */
-export const BrowserInputSystemLive = Layer.succeed(
+export const BrowserInputSystemLive = Layer.effect(
   InputSystem,
-  new BrowserInputSystem()
+  Effect.gen(function* () {
+    const service = new BrowserInputSystem()
+    yield* Effect.log('🎮 BrowserInputSystem初期化完了')
+    return service
+  })
 )
 ```
 
@@ -351,8 +436,20 @@ export const BrowserInputSystemLive = Layer.succeed(
 ```typescript
 // src/domain/entities/player.ts
 import { Schema } from "@effect/schema"
-import { Data } from "effect"
-import { Vector3Data } from "../math/vector3.js"
+import { Data, Brand } from "effect"
+import { Vector3Data, Coordinate } from "../math/vector3.js"
+
+/**
+ * プレイヤーID（Branded Types使用）
+ */
+export type PlayerId = string & Brand.Brand<"PlayerId">
+export const PlayerId = Brand.nominal<PlayerId>()
+
+/**
+ * 体力値（Branded Types使用）
+ */
+export type Health = number & Brand.Brand<"Health">
+export const Health = Brand.nominal<Health>()
 
 /**
  * プレイヤー状態スキーマ
@@ -363,23 +460,23 @@ import { Vector3Data } from "../math/vector3.js"
  * - ゲーム固有の制約の実装
  */
 export const PlayerState = Schema.Struct({
-  id: Schema.String,
+  id: Schema.String.pipe(Schema.brand(PlayerId)),
   position: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number
+    x: Schema.Number.pipe(Schema.brand(Coordinate)),
+    y: Schema.Number.pipe(Schema.brand(Coordinate)),
+    z: Schema.Number.pipe(Schema.brand(Coordinate))
   }),
   velocity: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number
+    x: Schema.Number.pipe(Schema.brand(Coordinate)),
+    y: Schema.Number.pipe(Schema.brand(Coordinate)),
+    z: Schema.Number.pipe(Schema.brand(Coordinate))
   }),
   rotation: Schema.Struct({
     yaw: Schema.Number,   // 水平回転 (Y軸)
     pitch: Schema.Number  // 垂直回転 (X軸)
   }),
   isOnGround: Schema.Boolean,
-  health: Schema.Number,
+  health: Schema.Number.pipe(Schema.brand(Health), Schema.positive()),
   isRunning: Schema.Boolean
 })
 
@@ -392,42 +489,58 @@ export class Player extends Data.Struct<{
   readonly state: PlayerState
 }> {
   /**
-   * プレイヤー作成
+   * プレイヤー作成（Branded Types対応）
    */
-  static create(id: string, position: Vector3Data = new Vector3Data({ x: 0, y: 0, z: 0 })): Player {
+  static create(id: string, position: Vector3Data = ZERO_VECTOR): Player {
     return new Player({
       state: {
-        id,
-        position: { x: position.x, y: position.y, z: position.z },
-        velocity: { x: 0, y: 0, z: 0 },
+        id: PlayerId(id),
+        position: {
+          x: Coordinate(position.x),
+          y: Coordinate(position.y),
+          z: Coordinate(position.z)
+        },
+        velocity: {
+          x: Coordinate(0),
+          y: Coordinate(0),
+          z: Coordinate(0)
+        },
         rotation: { yaw: 0, pitch: 0 },
         isOnGround: true,
-        health: 100,
+        health: Health(100),
         isRunning: false
       }
     })
   }
 
   /**
-   * 位置の更新
+   * 位置の更新（Branded Types対応）
    */
   updatePosition(newPosition: Vector3Data): Player {
     return new Player({
       state: {
         ...this.state,
-        position: { x: newPosition.x, y: newPosition.y, z: newPosition.z }
+        position: {
+          x: Coordinate(newPosition.x),
+          y: Coordinate(newPosition.y),
+          z: Coordinate(newPosition.z)
+        }
       }
     })
   }
 
   /**
-   * 速度の更新
+   * 速度の更新（Branded Types対応）
    */
   updateVelocity(newVelocity: Vector3Data): Player {
     return new Player({
       state: {
         ...this.state,
-        velocity: { x: newVelocity.x, y: newVelocity.y, z: newVelocity.z }
+        velocity: {
+          x: Coordinate(newVelocity.x),
+          y: Coordinate(newVelocity.y),
+          z: Coordinate(newVelocity.z)
+        }
       }
     })
   }
@@ -469,40 +582,48 @@ export class Player extends Data.Struct<{
   }
 
   /**
-   * Vector3Dataとしての位置取得
+   * Vector3Dataとしての位置取得（Branded Types対応）
    */
   get position(): Vector3Data {
-    return new Vector3Data(this.state.position)
+    return new Vector3Data({
+      x: Coordinate(this.state.position.x),
+      y: Coordinate(this.state.position.y),
+      z: Coordinate(this.state.position.z)
+    })
   }
 
   /**
-   * Vector3Dataとしての速度取得
+   * Vector3Dataとしての速度取得（Branded Types対応）
    */
   get velocity(): Vector3Data {
-    return new Vector3Data(this.state.velocity)
+    return new Vector3Data({
+      x: Coordinate(this.state.velocity.x),
+      y: Coordinate(this.state.velocity.y),
+      z: Coordinate(this.state.velocity.z)
+    })
   }
 
   /**
-   * 前方向ベクトル計算
+   * 前方向ベクトル計算（Branded Types対応）
    */
   get forwardVector(): Vector3Data {
     const yaw = this.state.rotation.yaw
     return new Vector3Data({
-      x: Math.sin(yaw),
-      y: 0,
-      z: -Math.cos(yaw)
+      x: Coordinate(Math.sin(yaw)),
+      y: Coordinate(0),
+      z: Coordinate(-Math.cos(yaw))
     }).normalize()
   }
 
   /**
-   * 右方向ベクトル計算
+   * 右方向ベクトル計算（Branded Types対応）
    */
   get rightVector(): Vector3Data {
     const yaw = this.state.rotation.yaw
     return new Vector3Data({
-      x: Math.cos(yaw),
-      y: 0,
-      z: Math.sin(yaw)
+      x: Coordinate(Math.cos(yaw)),
+      y: Coordinate(0),
+      z: Coordinate(Math.sin(yaw))
     }).normalize()
   }
 }
@@ -525,22 +646,50 @@ export const PLAYER_PHYSICS = {
 
 ```typescript
 // src/domain/services/player-movement-service.ts
-import { Context, Effect, Ref } from "effect"
+import { Context, Effect, Ref, Layer, Schema, STM } from "effect"
+import { Match } from "effect"
 import { Player, PLAYER_PHYSICS } from "../entities/player.js"
-import { Vector3Data, DIRECTION_VECTORS } from "../math/vector3.js"
+import { Vector3Data, DIRECTION_VECTORS, Coordinate } from "../math/vector3.js"
 
 /**
- * 移動入力データ
+ * 移動エラー（TaggedError定義）
  */
-export interface MovementInput {
-  readonly forward: boolean
-  readonly backward: boolean
-  readonly left: boolean
-  readonly right: boolean
-  readonly jump: boolean
-  readonly run: boolean
-  readonly deltaTime: number  // 前フレームからの経過時間（秒）
-}
+export class MovementError extends Schema.TaggedError<MovementError>("MovementError")(
+  "MovementError",
+  {
+    message: Schema.String
+  }
+) {}
+
+/**
+ * 衝突エラー（TaggedError定義）
+ */
+export class CollisionError extends Schema.TaggedError<CollisionError>("CollisionError")(
+  "CollisionError",
+  {
+    message: Schema.String,
+    position: Schema.Struct({
+      x: Schema.Number,
+      y: Schema.Number,
+      z: Schema.Number
+    })
+  }
+) {}
+
+/**
+ * 移動入力データ（Schema定義で型安全性強化）
+ */
+export const MovementInput = Schema.Struct({
+  forward: Schema.Boolean,
+  backward: Schema.Boolean,
+  left: Schema.Boolean,
+  right: Schema.Boolean,
+  jump: Schema.Boolean,
+  run: Schema.Boolean,
+  deltaTime: Schema.Number.pipe(Schema.positive())
+})
+
+export type MovementInput = Schema.Schema.Type<typeof MovementInput>
 
 /**
  * プレイヤー移動サービス
@@ -550,16 +699,23 @@ export interface MovementInput {
  * - フレームレート独立の移動計算
  * - 複雑な状態遷移の管理
  */
+/**
+ * プレイヤー移動サービス（Layer構造で定義）
+ */
 export interface PlayerMovementService {
   readonly updateMovement: (
     player: Player,
     input: MovementInput
-  ) => Effect.Effect<Player, never>
+  ) => Effect.Effect<Player, MovementError | CollisionError>
 
   readonly checkCollision: (
     currentPosition: Vector3Data,
     newPosition: Vector3Data
-  ) => Effect.Effect<boolean, never>
+  ) => Effect.Effect<boolean, CollisionError>
+
+  readonly validateMovementInput: (
+    input: unknown
+  ) => Effect.Effect<MovementInput, MovementError>
 }
 
 export const PlayerMovementService = Context.GenericTag<PlayerMovementService>(
@@ -570,98 +726,314 @@ export const PlayerMovementService = Context.GenericTag<PlayerMovementService>(
  * プレイヤー移動サービスの実装
  */
 class PlayerMovementServiceImpl implements PlayerMovementService {
-  updateMovement(player: Player, input: MovementInput): Effect.Effect<Player, never> {
+  validateMovementInput(input: unknown): Effect.Effect<MovementInput, MovementError> {
     return Effect.gen(function* () {
-      // 1. 入力方向の計算
-      const inputDirection = calculateInputDirection(player, input)
-
-      // 2. 水平移動の処理
-      let newPlayer = yield* applyHorizontalMovement(player, inputDirection, input)
-
-      // 3. ジャンプ処理
-      if (input.jump && newPlayer.state.isOnGround) {
-        newPlayer = newPlayer.updateVelocity(
-          newPlayer.velocity.add(new Vector3Data({ x: 0, y: PLAYER_PHYSICS.JUMP_VELOCITY, z: 0 }))
-        )
-        newPlayer = newPlayer.setOnGround(false)
+      try {
+        return Schema.decodeUnknownSync(MovementInput)(input)
+      } catch (error) {
+        return yield* new MovementError({
+          message: `無効な移動入力: ${error}`
+        })
       }
+    })
+  }
 
-      // 4. 重力適用
-      newPlayer = yield* applyGravity(newPlayer, input.deltaTime)
+  updateMovement(player: Player, input: MovementInput): Effect.Effect<Player, MovementError | CollisionError> {
+    return Effect.gen(function* () {
+      // Early Return: 入力検証
+      const validInput = yield* this.validateMovementInput(input)
 
-      // 5. 位置更新
+      // Match.valueでパターンマッチング（if/elseの置換）
+      const movementType = Match.value({
+        hasInput: validInput.forward || validInput.backward || validInput.left || validInput.right,
+        isJumping: validInput.jump && player.state.isOnGround,
+        isRunning: validInput.run
+      }).pipe(
+        Match.when({ hasInput: true, isJumping: true, isRunning: true }, () => "SPRINT_JUMP" as const),
+        Match.when({ hasInput: true, isJumping: true }, () => "JUMP" as const),
+        Match.when({ hasInput: true, isRunning: true }, () => "SPRINT" as const),
+        Match.when({ hasInput: true }, () => "WALK" as const),
+        Match.when({ isJumping: true }, () => "JUMP_ONLY" as const),
+        Match.orElse(() => "IDLE" as const)
+      )
+
+      // ネスト最大3レベルに制限した処理
+      return yield* this.processMovement(player, validInput, movementType)
+    }).bind(this)
+  }
+
+  checkCollision(currentPosition: Vector3Data, newPosition: Vector3Data): Effect.Effect<boolean, CollisionError> {
+    return Effect.gen(function* () {
+      // STM.atomicallyで衝突判定をアトミックに実行
+      return yield* STM.atomically(
+        STM.sync(() => {
+          const WORLD_BOUNDARY = 50
+
+          // パターンマッチングで衝突タイプを判定
+          const collisionType = Match.value(newPosition).pipe(
+            Match.when(
+              (pos) => Math.abs(pos.x) > WORLD_BOUNDARY,
+              () => "X_BOUNDARY" as const
+            ),
+            Match.when(
+              (pos) => Math.abs(pos.z) > WORLD_BOUNDARY,
+              () => "Z_BOUNDARY" as const
+            ),
+            Match.when(
+              (pos) => pos.y < -10,
+              () => "FALL_LIMIT" as const
+            ),
+            Match.when(
+              (pos) => pos.y > 100,
+              () => "HEIGHT_LIMIT" as const
+            ),
+            Match.orElse(() => "NONE" as const)
+          )
+
+          return collisionType !== "NONE"
+        })
+      )
+    })
+  }
+
+  /**
+   * 移動処理の実行（単一責務の原則に従い分離）
+   */
+  private processMovement(
+    player: Player,
+    input: MovementInput,
+    movementType: "IDLE" | "WALK" | "SPRINT" | "JUMP_ONLY" | "JUMP" | "SPRINT_JUMP"
+  ): Effect.Effect<Player, MovementError | CollisionError> {
+    return Effect.gen(function* () {
+      // Match.typeでswitch文を置換
+      return yield* Match.type<typeof movementType>().pipe(
+        Match.tag("IDLE", () => this.processIdleMovement(player, input)),
+        Match.tag("WALK", () => this.processWalkMovement(player, input)),
+        Match.tag("SPRINT", () => this.processSprintMovement(player, input)),
+        Match.tag("JUMP_ONLY", () => this.processJumpOnlyMovement(player, input)),
+        Match.tag("JUMP", () => this.processJumpMovement(player, input)),
+        Match.tag("SPRINT_JUMP", () => this.processSprintJumpMovement(player, input)),
+        Match.exhaustive
+      )(movementType)
+    }).bind(this)
+  }
+
+  /**
+   * 待機状態の処理（PBT対応の関数粒度）
+   */
+  private processIdleMovement(player: Player, input: MovementInput): Effect.Effect<Player, MovementError | CollisionError> {
+    return Effect.gen(function* () {
+      let newPlayer = yield* applyGravity(player, input.deltaTime)
       const newPosition = newPlayer.position.add(
         newPlayer.velocity.multiply(input.deltaTime)
       )
 
-      // 6. 衝突検出（簡易版）
-      const hasCollision = yield* checkSimpleCollision(newPosition)
-
+      const hasCollision = yield* this.checkCollision(player.position, newPosition)
       if (!hasCollision) {
         newPlayer = newPlayer.updatePosition(newPosition)
-      } else {
-        // 衝突時は速度をリセット
-        newPlayer = newPlayer.updateVelocity(new Vector3Data({ x: 0, y: 0, z: 0 }))
       }
 
-      // 7. 地面接触判定（簡易版：Y=0を地面とする）
-      if (newPlayer.position.y <= 0) {
-        newPlayer = newPlayer.updatePosition(
-          new Vector3Data({ x: newPlayer.position.x, y: 0, z: newPlayer.position.z })
-        )
-        newPlayer = newPlayer.updateVelocity(
-          new Vector3Data({ x: newPlayer.velocity.x, y: 0, z: newPlayer.velocity.z })
-        )
-        newPlayer = newPlayer.setOnGround(true)
-      }
-
-      // 8. 走行状態更新
-      newPlayer = newPlayer.setRunning(input.run && inputDirection.magnitude > 0)
-
-      return newPlayer
-    })
+      return yield* this.applyGroundCheck(newPlayer)
+    }).bind(this)
   }
 
-  checkCollision(currentPosition: Vector3Data, newPosition: Vector3Data): Effect.Effect<boolean, never> {
-    return Effect.sync(() => {
-      // 簡易衝突検出: 特定の境界を超えないようにする
-      const WORLD_BOUNDARY = 50
+  /**
+   * 歩行状態の処理（PBT対応の関数粒度）
+   */
+  private processWalkMovement(player: Player, input: MovementInput): Effect.Effect<Player, MovementError | CollisionError> {
+    return Effect.gen(function* () {
+      const inputDirection = calculateInputDirection(player, input)
+      let newPlayer = yield* applyHorizontalMovement(player, inputDirection, input)
+      newPlayer = yield* applyGravity(newPlayer, input.deltaTime)
 
-      return (
-        Math.abs(newPosition.x) > WORLD_BOUNDARY ||
-        Math.abs(newPosition.z) > WORLD_BOUNDARY ||
-        newPosition.y < -10 || // 落下限界
-        newPosition.y > 100    // 高度限界
+      const newPosition = newPlayer.position.add(
+        newPlayer.velocity.multiply(input.deltaTime)
       )
+
+      const hasCollision = yield* this.checkCollision(player.position, newPosition)
+      if (!hasCollision) {
+        newPlayer = newPlayer.updatePosition(newPosition)
+      }
+
+      return yield* this.applyGroundCheck(newPlayer.setRunning(false))
+    }).bind(this)
+  }
+
+  /**
+   * 走行状態の処理（PBT対応の関数粒度）
+   */
+  private processSprintMovement(player: Player, input: MovementInput): Effect.Effect<Player, MovementError | CollisionError> {
+    return Effect.gen(function* () {
+      const inputDirection = calculateInputDirection(player, input)
+      let newPlayer = yield* applyHorizontalMovement(player, inputDirection, input)
+      newPlayer = yield* applyGravity(newPlayer, input.deltaTime)
+
+      const newPosition = newPlayer.position.add(
+        newPlayer.velocity.multiply(input.deltaTime)
+      )
+
+      const hasCollision = yield* this.checkCollision(player.position, newPosition)
+      if (!hasCollision) {
+        newPlayer = newPlayer.updatePosition(newPosition)
+      }
+
+      return yield* this.applyGroundCheck(newPlayer.setRunning(true))
+    }).bind(this)
+  }
+
+  /**
+   * ジャンプのみの処理（PBT対応の関数粒度）
+   */
+  private processJumpOnlyMovement(player: Player, input: MovementInput): Effect.Effect<Player, MovementError | CollisionError> {
+    return Effect.gen(function* () {
+      let newPlayer = player.updateVelocity(
+        player.velocity.add(new Vector3Data({
+          x: Coordinate(0),
+          y: Coordinate(PLAYER_PHYSICS.JUMP_VELOCITY),
+          z: Coordinate(0)
+        }))
+      ).setOnGround(false)
+
+      newPlayer = yield* applyGravity(newPlayer, input.deltaTime)
+
+      const newPosition = newPlayer.position.add(
+        newPlayer.velocity.multiply(input.deltaTime)
+      )
+
+      const hasCollision = yield* this.checkCollision(player.position, newPosition)
+      if (!hasCollision) {
+        newPlayer = newPlayer.updatePosition(newPosition)
+      }
+
+      return yield* this.applyGroundCheck(newPlayer.setRunning(false))
+    }).bind(this)
+  }
+
+  /**
+   * 歩行ジャンプの処理（PBT対応の関数粒度）
+   */
+  private processJumpMovement(player: Player, input: MovementInput): Effect.Effect<Player, MovementError | CollisionError> {
+    return Effect.gen(function* () {
+      const inputDirection = calculateInputDirection(player, input)
+      let newPlayer = yield* applyHorizontalMovement(player, inputDirection, input)
+
+      newPlayer = newPlayer.updateVelocity(
+        newPlayer.velocity.add(new Vector3Data({
+          x: Coordinate(0),
+          y: Coordinate(PLAYER_PHYSICS.JUMP_VELOCITY),
+          z: Coordinate(0)
+        }))
+      ).setOnGround(false)
+
+      newPlayer = yield* applyGravity(newPlayer, input.deltaTime)
+
+      const newPosition = newPlayer.position.add(
+        newPlayer.velocity.multiply(input.deltaTime)
+      )
+
+      const hasCollision = yield* this.checkCollision(player.position, newPosition)
+      if (!hasCollision) {
+        newPlayer = newPlayer.updatePosition(newPosition)
+      }
+
+      return yield* this.applyGroundCheck(newPlayer.setRunning(false))
+    }).bind(this)
+  }
+
+  /**
+   * 走行ジャンプの処理（PBT対応の関数粒度）
+   */
+  private processSprintJumpMovement(player: Player, input: MovementInput): Effect.Effect<Player, MovementError | CollisionError> {
+    return Effect.gen(function* () {
+      const inputDirection = calculateInputDirection(player, input)
+      let newPlayer = yield* applyHorizontalMovement(player, inputDirection, input)
+
+      newPlayer = newPlayer.updateVelocity(
+        newPlayer.velocity.add(new Vector3Data({
+          x: Coordinate(0),
+          y: Coordinate(PLAYER_PHYSICS.JUMP_VELOCITY),
+          z: Coordinate(0)
+        }))
+      ).setOnGround(false)
+
+      newPlayer = yield* applyGravity(newPlayer, input.deltaTime)
+
+      const newPosition = newPlayer.position.add(
+        newPlayer.velocity.multiply(input.deltaTime)
+      )
+
+      const hasCollision = yield* this.checkCollision(player.position, newPosition)
+      if (!hasCollision) {
+        newPlayer = newPlayer.updatePosition(newPosition)
+      }
+
+      return yield* this.applyGroundCheck(newPlayer.setRunning(true))
+    }).bind(this)
+  }
+
+  /**
+   * 地面接触判定の適用（PBT対応の関数粒度）
+   */
+  private applyGroundCheck(player: Player): Effect.Effect<Player, never> {
+    return Effect.sync(() => {
+      // Early Return: 既に地面より上にいる場合
+      if (player.position.y > 0) {
+        return player
+      }
+
+      // 地面に接触
+      const groundPosition = new Vector3Data({
+        x: player.position.x,
+        y: Coordinate(0),
+        z: player.position.z
+      })
+
+      const groundVelocity = new Vector3Data({
+        x: player.velocity.x,
+        y: Coordinate(0),
+        z: player.velocity.z
+      })
+
+      return player
+        .updatePosition(groundPosition)
+        .updateVelocity(groundVelocity)
+        .setOnGround(true)
     })
   }
 }
 
 /**
- * 入力方向の計算
+ * 入力方向の計算（Early Return実装とパターンマッチング）
  */
 function calculateInputDirection(player: Player, input: MovementInput): Vector3Data {
-  let direction = new Vector3Data({ x: 0, y: 0, z: 0 })
+  let direction = ZERO_VECTOR
 
-  if (input.forward) {
-    direction = direction.add(player.forwardVector)
-  }
-  if (input.backward) {
-    direction = direction.subtract(player.forwardVector)
-  }
-  if (input.left) {
-    direction = direction.subtract(player.rightVector)
-  }
-  if (input.right) {
-    direction = direction.add(player.rightVector)
+  // Early Return: 入力がない場合
+  if (!input.forward && !input.backward && !input.left && !input.right) {
+    return direction
   }
 
-  // 斜め移動時の速度補正
+  // パターンマッチングでの方向計算
+  const horizontalInput = Match.value({ forward: input.forward, backward: input.backward }).pipe(
+    Match.when({ forward: true, backward: false }, () => player.forwardVector),
+    Match.when({ forward: false, backward: true }, () => player.forwardVector.multiply(-1)),
+    Match.orElse(() => ZERO_VECTOR)
+  )
+
+  const verticalInput = Match.value({ left: input.left, right: input.right }).pipe(
+    Match.when({ left: true, right: false }, () => player.rightVector.multiply(-1)),
+    Match.when({ left: false, right: true }, () => player.rightVector),
+    Match.orElse(() => ZERO_VECTOR)
+  )
+
+  direction = horizontalInput.add(verticalInput)
+
+  // Early Return: 正規化が不要な場合
   return direction.magnitude > 0 ? direction.normalize() : direction
 }
 
 /**
- * 水平移動の適用
+ * 水平移動の適用（Early Return実装とパターンマッチング）
  */
 function applyHorizontalMovement(
   player: Player,
@@ -669,32 +1041,57 @@ function applyHorizontalMovement(
   input: MovementInput
 ): Effect.Effect<Player, never> {
   return Effect.sync(() => {
-    const speed = input.run ? PLAYER_PHYSICS.RUN_SPEED : PLAYER_PHYSICS.WALK_SPEED
-    const targetVelocity = inputDirection.multiply(speed)
+    // Early Return: 入力がない場合は摩擦のみ適用
+    if (inputDirection.magnitude === 0) {
+      const friction = player.state.isOnGround ? PLAYER_PHYSICS.GROUND_FRICTION : PLAYER_PHYSICS.AIR_FRICTION
+      const currentHorizontalVelocity = new Vector3Data({
+        x: player.velocity.x,
+        y: Coordinate(0),
+        z: player.velocity.z
+      })
 
-    // 現在の水平速度
+      const newHorizontalVelocity = currentHorizontalVelocity.multiply(friction)
+      const newVelocity = new Vector3Data({
+        x: newHorizontalVelocity.x,
+        y: player.velocity.y,
+        z: newHorizontalVelocity.z
+      })
+
+      return player.updateVelocity(newVelocity)
+    }
+
+    // パターンマッチングで速度とタイプを決定
+    const movementParams = Match.value({ run: input.run, onGround: player.state.isOnGround }).pipe(
+      Match.when(
+        { run: true, onGround: true },
+        () => ({ speed: PLAYER_PHYSICS.RUN_SPEED, friction: PLAYER_PHYSICS.GROUND_FRICTION })
+      ),
+      Match.when(
+        { run: false, onGround: true },
+        () => ({ speed: PLAYER_PHYSICS.WALK_SPEED, friction: PLAYER_PHYSICS.GROUND_FRICTION })
+      ),
+      Match.when(
+        { run: true, onGround: false },
+        () => ({ speed: PLAYER_PHYSICS.RUN_SPEED, friction: PLAYER_PHYSICS.AIR_FRICTION })
+      ),
+      Match.orElse(
+        () => ({ speed: PLAYER_PHYSICS.WALK_SPEED, friction: PLAYER_PHYSICS.AIR_FRICTION })
+      )
+    )
+
+    const targetVelocity = inputDirection.multiply(movementParams.speed)
     const currentHorizontalVelocity = new Vector3Data({
       x: player.velocity.x,
-      y: 0,
+      y: Coordinate(0),
       z: player.velocity.z
     })
 
-    // 摩擦適用
-    const friction = player.state.isOnGround ? PLAYER_PHYSICS.GROUND_FRICTION : PLAYER_PHYSICS.AIR_FRICTION
-    let newHorizontalVelocity: Vector3Data
-
-    if (inputDirection.magnitude > 0) {
-      // 入力がある場合は目標速度に向かって加速
-      newHorizontalVelocity = currentHorizontalVelocity
-        .add(targetVelocity.subtract(currentHorizontalVelocity).multiply(friction))
-    } else {
-      // 入力がない場合は摩擦で減速
-      newHorizontalVelocity = currentHorizontalVelocity.multiply(friction)
-    }
+    const newHorizontalVelocity = currentHorizontalVelocity
+      .add(targetVelocity.subtract(currentHorizontalVelocity).multiply(movementParams.friction))
 
     const newVelocity = new Vector3Data({
       x: newHorizontalVelocity.x,
-      y: player.velocity.y, // Y速度は維持
+      y: player.velocity.y,
       z: newHorizontalVelocity.z
     })
 
@@ -703,51 +1100,53 @@ function applyHorizontalMovement(
 }
 
 /**
- * 重力の適用
+ * 重力の適用（Early Return実装）
  */
 function applyGravity(player: Player, deltaTime: number): Effect.Effect<Player, never> {
   return Effect.sync(() => {
+    // Early Return: 地面にいる場合は重力を適用しない
     if (player.state.isOnGround) {
       return player
     }
 
-    const gravityVelocity = new Vector3Data({ x: 0, y: PLAYER_PHYSICS.GRAVITY * deltaTime, z: 0 })
+    const gravityVelocity = new Vector3Data({
+      x: Coordinate(0),
+      y: Coordinate(PLAYER_PHYSICS.GRAVITY * deltaTime),
+      z: Coordinate(0)
+    })
+
     let newVelocity = player.velocity.add(gravityVelocity)
 
-    // 最大落下速度の制限
-    if (newVelocity.y < PLAYER_PHYSICS.MAX_FALL_SPEED) {
-      newVelocity = new Vector3Data({
-        x: newVelocity.x,
-        y: PLAYER_PHYSICS.MAX_FALL_SPEED,
-        z: newVelocity.z
-      })
+    // Early Return: 最大落下速度制限チェック
+    if (newVelocity.y >= PLAYER_PHYSICS.MAX_FALL_SPEED) {
+      return player.updateVelocity(newVelocity)
     }
+
+    // 最大落下速度で制限
+    newVelocity = new Vector3Data({
+      x: newVelocity.x,
+      y: Coordinate(PLAYER_PHYSICS.MAX_FALL_SPEED),
+      z: newVelocity.z
+    })
 
     return player.updateVelocity(newVelocity)
   })
 }
 
 /**
- * 簡易衝突検出
+ * 簡易衝突検出（削除 - ServiceのcheckCollisionメソッドに統合済み）
  */
-function checkSimpleCollision(position: Vector3Data): Effect.Effect<boolean, never> {
-  return Effect.sync(() => {
-    // 簡易的な境界判定
-    const BOUNDARY = 50
-    return (
-      Math.abs(position.x) > BOUNDARY ||
-      Math.abs(position.z) > BOUNDARY ||
-      position.y < -5
-    )
-  })
-}
 
 /**
- * PlayerMovementServiceの実装を提供するLayer
+ * PlayerMovementServiceの実装を提供するLayer（サービス定義）
  */
-export const PlayerMovementServiceLive = Layer.succeed(
+export const PlayerMovementServiceLive = Layer.effect(
   PlayerMovementService,
-  new PlayerMovementServiceImpl()
+  Effect.gen(function* () {
+    const service = new PlayerMovementServiceImpl()
+    yield* Effect.log('🏃 PlayerMovementService初期化完了')
+    return service
+  })
 )
 ```
 
@@ -755,9 +1154,21 @@ export const PlayerMovementServiceLive = Layer.succeed(
 
 ```typescript
 // src/infrastructure/three-renderer.ts
-import { Context, Effect, Ref, Layer } from "effect"
+import { Context, Effect, Ref, Layer, Schema } from "effect"
+import { Match } from "effect"
 import * as THREE from "three"
 import { Player } from "../domain/entities/player.js"
+import { Vector3Data, Coordinate } from "../domain/math/vector3.js"
+
+/**
+ * レンダラーエラー（TaggedError定義）
+ */
+export class RendererError extends Schema.TaggedError<RendererError>("RendererError")(
+  "RendererError",
+  {
+    message: Schema.String
+  }
+) {}
 
 /**
  * Three.jsレンダラーサービス
@@ -767,13 +1178,16 @@ import { Player } from "../domain/entities/player.js"
  * - 3Dシーンの管理
  * - レンダリングループの実装
  */
+/**
+ * Three.jsレンダラーサービス（Layer構造で定義）
+ */
 export interface ThreeRenderer {
-  readonly initialize: (container: HTMLElement) => Effect.Effect<void, string>
-  readonly updatePlayer: (player: Player) => Effect.Effect<void, never>
-  readonly render: () => Effect.Effect<void, never>
-  readonly dispose: () => Effect.Effect<void, never>
-  readonly getCamera: () => Effect.Effect<THREE.Camera, never>
-  readonly getRenderer: () => Effect.Effect<THREE.WebGLRenderer | null, never>
+  readonly initialize: (container: HTMLElement) => Effect.Effect<void, RendererError>
+  readonly updatePlayer: (player: Player) => Effect.Effect<void, RendererError>
+  readonly render: () => Effect.Effect<void, RendererError>
+  readonly dispose: () => Effect.Effect<void, RendererError>
+  readonly getCamera: () => Effect.Effect<THREE.Camera, RendererError>
+  readonly getRenderer: () => Effect.Effect<THREE.WebGLRenderer | null, RendererError>
 }
 
 export const ThreeRenderer = Context.GenericTag<ThreeRenderer>("ThreeRenderer")
@@ -788,52 +1202,77 @@ class ThreeRendererImpl implements ThreeRenderer {
   private playerMesh: THREE.Mesh | null = null
   private groundMesh: THREE.Mesh | null = null
 
-  initialize(container: HTMLElement): Effect.Effect<void, string> {
-    return Effect.gen(() => {
+  initialize(container: HTMLElement): Effect.Effect<void, RendererError> {
+    return Effect.gen(function* () {
       const self = this
-      return Effect.gen(function* () {
-        try {
-          // レンダラー作成
-          self.renderer = new THREE.WebGLRenderer({ antialias: true })
-          self.renderer.setSize(container.clientWidth, container.clientHeight)
-          self.renderer.setClearColor(0x87CEEB) // 空色
-          container.appendChild(self.renderer.domElement)
 
-          // カメラ設定
-          self.camera.aspect = container.clientWidth / container.clientHeight
-          self.camera.position.set(0, 5, 10)
-          self.camera.lookAt(0, 0, 0)
+      // Early Return: 既に初期化済みの場合
+      if (self.renderer !== null) {
+        yield* Effect.log('⚠️ Three.jsレンダラーは既に初期化済みです')
+        return
+      }
 
-          // シーンの基本設定
-          yield* self.setupScene()
+      // Effect.catchTagsでエラーハンドリング（従来のtry/catchを置換）
+      yield* Effect.gen(function* () {
+        // レンダラー作成
+        self.renderer = new THREE.WebGLRenderer({ antialias: true })
+        self.renderer.setSize(container.clientWidth, container.clientHeight)
+        self.renderer.setClearColor(0x87CEEB) // 空色
+        container.appendChild(self.renderer.domElement)
 
-          // リサイズイベント処理
-          const handleResize = () => {
-            if (self.renderer) {
-              self.camera.aspect = container.clientWidth / container.clientHeight
-              self.camera.updateProjectionMatrix()
-              self.renderer.setSize(container.clientWidth, container.clientHeight)
-            }
+        // カメラ設定
+        self.camera.aspect = container.clientWidth / container.clientHeight
+        self.camera.position.set(0, 5, 10)
+        self.camera.lookAt(0, 0, 0)
+
+        // シーンの基本設定
+        yield* self.setupScene()
+
+        // リサイズイベント処理
+        const handleResize = () => {
+          if (self.renderer) {
+            self.camera.aspect = container.clientWidth / container.clientHeight
+            self.camera.updateProjectionMatrix()
+            self.renderer.setSize(container.clientWidth, container.clientHeight)
           }
-
-          window.addEventListener('resize', handleResize)
-
-          yield* Effect.sync(() => {
-            console.log('✅ Three.jsレンダラー初期化完了')
-          })
-        } catch (error) {
-          yield* Effect.fail(`Three.jsレンダラー初期化エラー: ${error}`)
         }
-      })
-    })()
+
+        window.addEventListener('resize', handleResize)
+
+        yield* Effect.log('✅ Three.jsレンダラー初期化完了')
+      }).pipe(
+        Effect.catchTags({
+          UnknownException: (error) =>
+            new RendererError({ message: `Three.jsレンダラー初期化エラー: ${error.message}` })
+        })
+      )
+    }).bind(this)
   }
 
   /**
    * シーンの基本設定
    */
-  private setupScene(): Effect.Effect<void, never> {
+  private setupScene(): Effect.Effect<void, RendererError> {
+    return Effect.gen(function* () {
+      const self = this
+
+      // Effect.allでシーンセットアップを並列実行
+      yield* Effect.all([
+        self.setupLights(),
+        self.setupGround(),
+        self.setupPlayer(),
+        self.setupDebugHelpers()
+      ])
+
+      yield* Effect.log('🎨 Three.jsシーン作成完了')
+    }).bind(this)
+  }
+
+  /**
+   * ライト設定（単一責務の原則に従い分離）
+   */
+  private setupLights(): Effect.Effect<void, RendererError> {
     return Effect.sync(() => {
-      // ライト設定
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
       this.scene.add(ambientLight)
 
@@ -841,98 +1280,196 @@ class ThreeRendererImpl implements ThreeRenderer {
       directionalLight.position.set(10, 10, 5)
       directionalLight.castShadow = true
       this.scene.add(directionalLight)
-
-      // 地面作成
-      const groundGeometry = new THREE.PlaneGeometry(100, 100)
-      const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x90EE90 }) // 薄緑
-      this.groundMesh = new THREE.Mesh(groundGeometry, groundMaterial)
-      this.groundMesh.rotation.x = -Math.PI / 2 // 水平に配置
-      this.groundMesh.receiveShadow = true
-      this.scene.add(this.groundMesh)
-
-      // プレイヤーメッシュ作成
-      const playerGeometry = new THREE.BoxGeometry(0.6, 1.8, 0.3)
-      const playerMaterial = new THREE.MeshLambertMaterial({ color: 0x4169E1 }) // ロイヤルブルー
-      this.playerMesh = new THREE.Mesh(playerGeometry, playerMaterial)
-      this.playerMesh.castShadow = true
-      this.scene.add(this.playerMesh)
-
-      // グリッド表示（デバッグ用）
-      const gridHelper = new THREE.GridHelper(100, 50, 0x000000, 0x404040)
-      this.scene.add(gridHelper)
-
-      console.log('🎨 Three.jsシーン作成完了')
     })
   }
 
-  updatePlayer(player: Player): Effect.Effect<void, never> {
+  /**
+   * 地面設定（単一責務の原則に従い分離）
+   */
+  private setupGround(): Effect.Effect<void, RendererError> {
+    return Effect.sync(() => {
+      const groundGeometry = new THREE.PlaneGeometry(100, 100)
+      const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x90EE90 })
+      this.groundMesh = new THREE.Mesh(groundGeometry, groundMaterial)
+      this.groundMesh.rotation.x = -Math.PI / 2
+      this.groundMesh.receiveShadow = true
+      this.scene.add(this.groundMesh)
+    })
+  }
+
+  /**
+   * プレイヤーメッシュ設定（単一責務の原則に従い分離）
+   */
+  private setupPlayer(): Effect.Effect<void, RendererError> {
+    return Effect.sync(() => {
+      const playerGeometry = new THREE.BoxGeometry(0.6, 1.8, 0.3)
+      const playerMaterial = new THREE.MeshLambertMaterial({ color: 0x4169E1 })
+      this.playerMesh = new THREE.Mesh(playerGeometry, playerMaterial)
+      this.playerMesh.castShadow = true
+      this.scene.add(this.playerMesh)
+    })
+  }
+
+  /**
+   * デバッグヘルパー設定（単一責務の原則に従い分離）
+   */
+  private setupDebugHelpers(): Effect.Effect<void, RendererError> {
+    return Effect.sync(() => {
+      const gridHelper = new THREE.GridHelper(100, 50, 0x000000, 0x404040)
+      this.scene.add(gridHelper)
+    })
+  }
+
+  updatePlayer(player: Player): Effect.Effect<void, RendererError> {
+    return Effect.gen(function* () {
+      const self = this
+
+      // Early Return: プレイヤーメッシュが存在しない場合
+      if (!self.playerMesh) {
+        return yield* new RendererError({ message: 'プレイヤーメッシュが初期化されていません' })
+      }
+
+      // Effect.allでプレイヤー更新処理を並列実行
+      yield* Effect.all([
+        self.updatePlayerPosition(player),
+        self.updatePlayerRotation(player),
+        self.updateCamera(player)
+      ])
+    }).bind(this)
+  }
+
+  /**
+   * プレイヤー位置更新（単一責務の原則に従い分離）
+   */
+  private updatePlayerPosition(player: Player): Effect.Effect<void, RendererError> {
     return Effect.sync(() => {
       if (!this.playerMesh) return
 
-      // プレイヤー位置更新
       this.playerMesh.position.set(
         player.position.x,
-        player.position.y + 0.9, // プレイヤーの高さの半分を調整
+        player.position.y + 0.9,
         player.position.z
       )
+    })
+  }
 
-      // プレイヤー回転更新
+  /**
+   * プレイヤー回転更新（単一責務の原則に従い分離）
+   */
+  private updatePlayerRotation(player: Player): Effect.Effect<void, RendererError> {
+    return Effect.sync(() => {
+      if (!this.playerMesh) return
+
       this.playerMesh.rotation.y = player.state.rotation.yaw
+    })
+  }
 
-      // カメラをプレイヤーに追従（三人称視点）
+  /**
+   * カメラ更新（単一責務の原則に従い分離）
+   */
+  private updateCamera(player: Player): Effect.Effect<void, RendererError> {
+    return Effect.sync(() => {
       const cameraDistance = 8
       const cameraHeight = 5
+
       const cameraPosition = player.position
         .subtract(player.forwardVector.multiply(cameraDistance))
-        .add(new Vector3Data({ x: 0, y: cameraHeight, z: 0 }))
+        .add(new Vector3Data({
+          x: Coordinate(0),
+          y: Coordinate(cameraHeight),
+          z: Coordinate(0)
+        }))
 
       this.camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z)
       this.camera.lookAt(player.position.x, player.position.y + 1, player.position.z)
     })
   }
 
-  render(): Effect.Effect<void, never> {
-    return Effect.sync(() => {
-      if (this.renderer) {
-        this.renderer.render(this.scene, this.camera)
+  render(): Effect.Effect<void, RendererError> {
+    return Effect.gen(function* () {
+      const self = this
+
+      // Early Return: レンダラーが存在しない場合
+      if (!self.renderer) {
+        return yield* new RendererError({ message: 'レンダラーが初期化されていません' })
       }
-    })
+
+      yield* Effect.sync(() => {
+        self.renderer!.render(self.scene, self.camera)
+      })
+    }).bind(this)
   }
 
-  getCamera(): Effect.Effect<THREE.Camera, never> {
-    return Effect.succeed(this.camera)
+  getCamera(): Effect.Effect<THREE.Camera, RendererError> {
+    return Effect.gen(function* () {
+      const self = this
+
+      // Early Return: カメラが存在しない場合
+      if (!self.camera) {
+        return yield* new RendererError({ message: 'カメラが初期化されていません' })
+      }
+
+      return self.camera
+    }).bind(this)
   }
 
-  getRenderer(): Effect.Effect<THREE.WebGLRenderer | null, never> {
+  getRenderer(): Effect.Effect<THREE.WebGLRenderer | null, RendererError> {
     return Effect.succeed(this.renderer)
   }
 
-  dispose(): Effect.Effect<void, never> {
-    return Effect.sync(() => {
-      if (this.renderer) {
-        this.renderer.dispose()
-        this.renderer = null
+  dispose(): Effect.Effect<void, RendererError> {
+    return Effect.gen(function* () {
+      const self = this
+
+      // Early Return: 既に破棄済みの場合
+      if (!self.renderer) {
+        yield* Effect.log('⚠️ レンダラーは既に破棄されています')
+        return
       }
-      console.log('🗑️ Three.jsレンダラー破棄完了')
-    })
+
+      yield* Effect.sync(() => {
+        self.renderer!.dispose()
+        self.renderer = null
+      })
+
+      yield* Effect.log('🗑️ Three.jsレンダラー破棄完了')
+    }).bind(this)
   }
 }
 
 /**
- * ThreeRendererの実装を提供するLayer
+ * ThreeRendererの実装を提供するLayer（サービス定義）
  */
-export const ThreeRendererLive = Layer.succeed(ThreeRenderer, new ThreeRendererImpl())
+export const ThreeRendererLive = Layer.effect(
+  ThreeRenderer,
+  Effect.gen(function* () {
+    const service = new ThreeRendererImpl()
+    yield* Effect.log('🎨 ThreeRenderer初期化完了')
+    return service
+  })
+)
 ```
 
 ### 🎮 6. ゲームループシステム
 
 ```typescript
 // src/application/game-loop.ts
-import { Context, Effect, Ref, Schedule, Layer } from "effect"
-import { Player } from "../domain/entities/player.js"
+import { Context, Effect, Ref, Schedule, Layer, Schema } from "effect"
+import { Match } from "effect"
+import { Player, PlayerId } from "../domain/entities/player.js"
 import { PlayerMovementService, MovementInput } from "../domain/services/player-movement-service.js"
-import { InputSystem } from "../infrastructure/input-system.js"
+import { InputSystem, MovementInputState } from "../infrastructure/input-system.js"
 import { ThreeRenderer } from "../infrastructure/three-renderer.js"
+
+/**
+ * ゲームループエラー（TaggedError定義）
+ */
+export class GameLoopError extends Schema.TaggedError<GameLoopError>("GameLoopError")(
+  "GameLoopError",
+  {
+    message: Schema.String
+  }
+) {}
 
 /**
  * ゲームループサービス
@@ -943,10 +1480,14 @@ import { ThreeRenderer } from "../infrastructure/three-renderer.js"
  * - 複数サービスの協調動作
  * - フレームレート管理
  */
+/**
+ * ゲームループサービス（Layer構造で定義）
+ */
 export interface GameLoop {
-  readonly start: () => Effect.Effect<void, never>
-  readonly stop: () => Effect.Effect<void, never>
-  readonly getPlayer: () => Effect.Effect<Player, never>
+  readonly start: () => Effect.Effect<void, GameLoopError>
+  readonly stop: () => Effect.Effect<void, GameLoopError>
+  readonly getPlayer: () => Effect.Effect<Player, GameLoopError>
+  readonly isRunning: () => Effect.Effect<boolean, GameLoopError>
 }
 
 export const GameLoop = Context.GenericTag<GameLoop>("GameLoop")
@@ -961,108 +1502,160 @@ class GameLoopImpl implements GameLoop {
   private frameCount: Ref.Ref<number>
 
   constructor() {
-    this.player = Ref.unsafeMake(Player.create("player-1"))
+    this.player = Ref.unsafeMake(Player.create(PlayerId("player-1")))
     this.isRunning = Ref.unsafeMake(false)
     this.lastTime = Ref.unsafeMake(performance.now())
     this.frameCount = Ref.unsafeMake(0)
   }
 
-  start(): Effect.Effect<void, never> {
-    return Effect.gen(() => {
+  isRunning(): Effect.Effect<boolean, GameLoopError> {
+    return Ref.get(this.isRunning)
+  }
+
+  start(): Effect.Effect<void, GameLoopError> {
+    return Effect.gen(function* () {
       const self = this
-      return Effect.gen(function* () {
-        yield* Ref.set(self.isRunning, true)
-        yield* Effect.sync(() => console.log('🎮 ゲームループ開始'))
 
-        // メインゲームループ
-        const gameLoop = Effect.gen(function* () {
-          const running = yield* Ref.get(self.isRunning)
-          if (!running) return
+      // Early Return: 既に実行中の場合
+      const running = yield* Ref.get(self.isRunning)
+      if (running) {
+        yield* Effect.log('⚠️ ゲームループは既に実行中です')
+        return
+      }
 
-          // デルタタイム計算
-          const currentTime = performance.now()
-          const lastTime = yield* Ref.get(self.lastTime)
-          const deltaTime = (currentTime - lastTime) / 1000 // 秒に変換
-          yield* Ref.set(self.lastTime, currentTime)
+      yield* Ref.set(self.isRunning, true)
+      yield* Effect.log('🎮 ゲームループ開始')
 
-          // フレームカウント更新
-          yield* Ref.update(self.frameCount, (count) => count + 1)
+      // メインゲームループ
+      const gameLoop = Effect.gen(function* () {
+        const running = yield* Ref.get(self.isRunning)
 
-          // 1秒毎にFPS表示
-          const frameCount = yield* Ref.get(self.frameCount)
-          if (frameCount % 60 === 0) { // 60FPSの場合
-            yield* Effect.sync(() => console.log(`📊 FPS: ${Math.round(1 / deltaTime)}`))
-          }
+        // Early Return: 実行停止の場合
+        if (!running) {
+          return
+        }
 
-          // ゲーム更新処理
-          yield* self.updateGame(deltaTime)
-        })
+        // デルタタイム計算
+        const currentTime = performance.now()
+        const lastTime = yield* Ref.get(self.lastTime)
+        const deltaTime = (currentTime - lastTime) / 1000
+        yield* Ref.set(self.lastTime, currentTime)
 
-        // 60FPSでループ実行
-        yield* gameLoop.pipe(
-          Effect.repeat(Schedule.fixed("16ms")), // 約60FPS
-          Effect.fork
+        // フレームカウント更新
+        yield* Ref.update(self.frameCount, (count) => count + 1)
+
+        // パターンマッチングでFPS表示判定
+        const frameCount = yield* Ref.get(self.frameCount)
+        const shouldShowFPS = Match.value(frameCount % 60).pipe(
+          Match.when(0, () => true),
+          Match.orElse(() => false)
         )
+
+        if (shouldShowFPS) {
+          yield* Effect.log(`📊 FPS: ${Math.round(1 / deltaTime)}`)
+        }
+
+        // ゲーム更新処理
+        yield* self.updateGame(deltaTime)
       })
-    })()
+
+      // 60FPSでループ実行
+      yield* gameLoop.pipe(
+        Effect.repeat(Schedule.fixed("16ms")),
+        Effect.fork
+      )
+    }).bind(this)
   }
 
   /**
-   * ゲーム更新処理
+   * ゲーム更新処理（Effect.catchTagsでエラーハンドリング）
    */
-  private updateGame(deltaTime: number): Effect.Effect<void, never> {
-    return Effect.gen(() => {
+  private updateGame(deltaTime: number): Effect.Effect<void, GameLoopError> {
+    return Effect.gen(function* () {
       const self = this
-      return Effect.gen(function* () {
-        const inputSystem = yield* InputSystem
-        const movementService = yield* PlayerMovementService
-        const renderer = yield* ThreeRenderer
 
-        // 入力取得
-        const movementInput = yield* inputSystem.getMovementInput()
-        const input: MovementInput = {
-          ...movementInput,
-          deltaTime
-        }
+      const inputSystem = yield* InputSystem
+      const movementService = yield* PlayerMovementService
+      const renderer = yield* ThreeRenderer
 
-        // プレイヤー更新
-        const currentPlayer = yield* Ref.get(self.player)
-        const updatedPlayer = yield* movementService.updateMovement(currentPlayer, input)
-        yield* Ref.set(self.player, updatedPlayer)
+      // Early Return: デルタタイムが異常値の場合
+      if (deltaTime <= 0 || deltaTime > 1) {
+        yield* Effect.log(`⚠️ 異常なデルタタイム: ${deltaTime}秒`)
+        return
+      }
 
-        // レンダリング更新
-        yield* renderer.updatePlayer(updatedPlayer)
-        yield* renderer.render()
+      // Effect.allで並列処理可能な部分を最適化
+      const [movementInput, currentPlayer] = yield* Effect.all([
+        inputSystem.getMovementInput(),
+        Ref.get(self.player)
+      ])
 
-        // フレーム状態リセット
-        if ('resetFrameState' in inputSystem) {
-          yield* (inputSystem as any).resetFrameState()
-        }
+      // 移動入力の型安全な構築
+      const input = Schema.decodeUnknownSync(MovementInput)({
+        ...movementInput,
+        deltaTime
       })
-    })()
+
+      // プレイヤー更新
+      const updatedPlayer = yield* movementService.updateMovement(currentPlayer, input)
+      yield* Ref.set(self.player, updatedPlayer)
+
+      // Effect.allでレンダリング処理を並列化
+      yield* Effect.all([
+        renderer.updatePlayer(updatedPlayer),
+        renderer.render(),
+        inputSystem.resetFrameState()
+      ])
+    }).pipe(
+      // Effect.catchTagsで各種エラーを処理（従来のtry/catchを置換）
+      Effect.catchTags({
+        InputSystemError: (error) =>
+          new GameLoopError({ message: `入力システムエラー: ${error.message}` }),
+        MovementError: (error) =>
+          new GameLoopError({ message: `移動システムエラー: ${error.message}` }),
+        CollisionError: (error) =>
+          new GameLoopError({ message: `衝突検出エラー: ${error.message}` }),
+        RendererError: (error) =>
+          new GameLoopError({ message: `レンダラーエラー: ${error.message}` })
+      })
+    ).bind(this)
   }
 
-  stop(): Effect.Effect<void, never> {
-    return Effect.gen(() => {
+  stop(): Effect.Effect<void, GameLoopError> {
+    return Effect.gen(function* () {
       const self = this
-      return Effect.gen(function* () {
-        yield* Ref.set(self.isRunning, false)
-        yield* Effect.sync(() => console.log('⏹️ ゲームループ停止'))
-      })
-    })()
+
+      // Early Return: 既に停止済みの場合
+      const running = yield* Ref.get(self.isRunning)
+      if (!running) {
+        yield* Effect.log('⚠️ ゲームループは既に停止しています')
+        return
+      }
+
+      yield* Ref.set(self.isRunning, false)
+      yield* Effect.log('⏹️ ゲームループ停止')
+    }).bind(this)
   }
 
-  getPlayer(): Effect.Effect<Player, never> {
-    return Ref.get(this.player)
+  getPlayer(): Effect.Effect<Player, GameLoopError> {
+    return Effect.gen(function* () {
+      const self = this
+
+      return yield* Ref.get(self.player)
+    }).bind(this)
   }
 }
 
 /**
- * GameLoopの実装を提供するLayer
+ * GameLoopの実装を提供するLayer（サービス定義）
  */
 export const GameLoopLive = Layer.effect(
   GameLoop,
-  Effect.sync(() => new GameLoopImpl())
+  Effect.gen(function* () {
+    const service = new GameLoopImpl()
+    yield* Effect.log('🎮 GameLoop初期化完了')
+    return service
+  })
 )
 ```
 
@@ -1070,49 +1663,85 @@ export const GameLoopLive = Layer.effect(
 
 ```typescript
 // src/main.ts
-import { Effect, Layer, Console, Exit } from "effect"
+import { Effect, Layer, Console, Exit, Schema } from "effect"
+import { Match } from "effect"
 import { BrowserInputSystemLive } from "./infrastructure/input-system.js"
 import { PlayerMovementServiceLive } from "./domain/services/player-movement-service.js"
 import { ThreeRendererLive } from "./infrastructure/three-renderer.js"
-import { GameLoopLive, GameLoop } from "./application/game-loop.js"
-import { ThreeRenderer } from "./infrastructure/three-renderer.js"
+import { GameLoopLive, GameLoop, GameLoopError } from "./application/game-loop.js"
+import { ThreeRenderer, RendererError } from "./infrastructure/three-renderer.js"
 
 /**
- * メインアプリケーション
+ * アプリケーションエラー（TaggedError定義）
+ */
+export class ApplicationError extends Schema.TaggedError<ApplicationError>("ApplicationError")(
+  "ApplicationError",
+  {
+    message: Schema.String
+  }
+) {}
+
+/**
+ * メインアプリケーション（Effect-TSパターン適用）
  */
 const program = Effect.gen(function* () {
   yield* Console.log('🚀 プレイヤー移動システム起動中...')
 
-  // DOM要素の取得
-  const container = yield* Effect.sync(() => {
+  // DOM要素の取得（Early Return実装）
+  const container = yield* Effect.gen(function* () {
     const element = document.getElementById('game-container')
+
+    // Early Return: DOM要素が見つからない場合
     if (!element) {
-      throw new Error('game-container要素が見つかりません')
+      return yield* new ApplicationError({
+        message: 'game-container要素が見つかりません'
+      })
     }
+
     return element
   })
 
-  // レンダラー初期化
-  const renderer = yield* ThreeRenderer
-  yield* renderer.initialize(container)
+  // Effect.allでサービス取得を並列化
+  const [renderer, gameLoop] = yield* Effect.all([
+    ThreeRenderer,
+    GameLoop
+  ])
+
+  // Effect.allで初期化処理を並列実行
+  yield* Effect.all([
+    renderer.initialize(container),
+    Effect.log('🎨 レンダラー初期化中...')
+  ])
 
   // ゲームループ開始
-  const gameLoop = yield* GameLoop
   yield* gameLoop.start()
 
-  yield* Console.log('✅ アプリケーション起動完了')
-  yield* Console.log('🎮 操作方法:')
-  yield* Console.log('  - WASD: 移動')
-  yield* Console.log('  - Shift: 走行')
-  yield* Console.log('  - Space: ジャンプ')
+  yield* Effect.all([
+    Console.log('✅ アプリケーション起動完了'),
+    Console.log('🎮 操作方法:'),
+    Console.log('  - WASD: 移動'),
+    Console.log('  - Shift: 走行'),
+    Console.log('  - Space: ジャンプ')
+  ])
 
   // 10秒後に停止（デモ用）
   yield* Effect.sleep("10s")
-  yield* gameLoop.stop()
-  yield* renderer.dispose()
+
+  // Effect.allで終了処理を並列実行
+  yield* Effect.all([
+    gameLoop.stop(),
+    renderer.dispose()
+  ])
 
   yield* Console.log('🎯 デモ完了！')
-})
+}).pipe(
+  // Effect.catchTagsで各種エラーを処理（従来のtry/catchを置換）
+  Effect.catchTags({
+    ApplicationError: (error) => Console.error(`❌ アプリケーションエラー: ${error.message}`),
+    GameLoopError: (error) => Console.error(`❌ ゲームループエラー: ${error.message}`),
+    RendererError: (error) => Console.error(`❌ レンダラーエラー: ${error.message}`)
+  })
+)
 
 /**
  * HTMLページの作成
@@ -1173,23 +1802,37 @@ const runnable = program.pipe(
   Effect.provide(BrowserInputSystemLive)
 )
 
-// ブラウザ環境でのみ実行
-if (typeof window !== 'undefined') {
-  // HTMLが読み込まれていない場合は作成
-  if (!document.getElementById('game-container')) {
-    document.write(createHTML())
-  }
+// ブラウザ環境でのみ実行（パターンマッチング適用）
+const runApplication = Match.value(typeof window !== 'undefined').pipe(
+  Match.when(true, () =>
+    Effect.gen(function* () {
+      // Early Return: HTMLが既に読み込まれている場合
+      if (!document.getElementById('game-container')) {
+        document.write(createHTML())
+      }
 
-  Effect.runPromiseExit(runnable).then((exit) => {
-    if (Exit.isFailure(exit)) {
-      console.error('アプリケーション実行エラー:', exit.cause)
-    } else {
-      console.log('アプリケーション正常終了')
-    }
-  })
-} else {
-  console.log('このデモはブラウザ環境で実行してください')
-}
+      const exit = yield* Effect.runPromiseExit(runnable)
+
+      // パターンマッチングで実行結果を処理
+      const result = Match.value(Exit.isFailure(exit)).pipe(
+        Match.when(true, () =>
+          console.error('❌ アプリケーション実行エラー:', exit.cause)
+        ),
+        Match.when(false, () =>
+          console.log('✅ アプリケーション正常終了')
+        )
+      )
+
+      return result
+    })
+  ),
+  Match.when(false, () =>
+    Effect.sync(() => console.log('⚠️ このデモはブラウザ環境で実行してください'))
+  )
+)
+
+// アプリケーション実行
+Effect.runPromise(runApplication)
 ```
 
 ## 🧪 実行方法
@@ -1198,7 +1841,7 @@ if (typeof window !== 'undefined') {
 
 ```bash
 # Vite開発サーバーで実行
-npm run dev
+pnpm dev
 
 # または、簡単なHTTPサーバーで実行
 npx serve . -p 3000

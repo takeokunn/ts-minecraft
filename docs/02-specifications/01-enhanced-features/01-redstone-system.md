@@ -1,13 +1,13 @@
 ---
-title: "01 Redstone System"
-description: "01 Redstone Systemに関する詳細な説明とガイド。"
+title: "レッドストーンシステム仕様 - 論理回路・信号伝播・機械装置"
+description: "レッドストーン回路の完全シミュレーション、信号強度伝播、論理ゲート、ピストン機構の完全仕様。STMによる並行回路更新。"
 category: "specification"
-difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
-estimated_reading_time: "30分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+difficulty: "advanced"
+tags: ["redstone-system", "circuit-simulation", "logic-gates", "signal-propagation", "stm", "concurrent-processing"]
+prerequisites: ["effect-ts-fundamentals", "stm-concepts", "digital-logic"]
+estimated_reading_time: "20分"
+related_patterns: ["event-driven-patterns", "state-machine-patterns", "concurrent-patterns"]
+related_docs: ["../00-core-features/03-block-system.md", "../00-core-features/06-physics-system.md"]
 ---
 
 # Redstone System - レッドストーン回路システム

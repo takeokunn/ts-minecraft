@@ -1,3 +1,15 @@
+---
+title: "package.jsonリファレンス - パッケージ設定完全ガイド"
+description: "TypeScript Minecraftプロジェクトのpackage.json設定完全リファレンス。依存関係、スクリプト、メタデータ。"
+category: "reference"
+difficulty: "beginner"
+tags: ["package.json", "npm", "pnpm", "dependencies", "scripts"]
+prerequisites: ["basic-npm"]
+estimated_reading_time: "15分"
+dependencies: []
+status: "complete"
+---
+
 # package.json リファレンス
 
 TypeScript Minecraftプロジェクトの`package.json`設定完全リファレンスです。
@@ -236,16 +248,16 @@ npm audit fix
 
 ```bash
 # 本番依存関係の追加
-npm install <package-name>
+pnpm add <package-name>
 
 # 開発依存関係の追加
-npm install -D <package-name>
+pnpm add -D <package-name>
 
 # 依存関係の削除
-npm uninstall <package-name>
+pnpm remove <package-name>
 
 # 特定バージョンの指定
-npm install effect@^3.17.13
+pnpm add effect@^3.17.13
 ```
 
 ## 🎯 カスタマイゼーション
@@ -327,7 +339,7 @@ npm run build && npx vite-bundle-analyzer
 ```bash
 # package-lock.jsonを削除して再インストール
 rm package-lock.json
-npm install
+pnpm install
 ```
 
 #### TypeScriptバージョン競合

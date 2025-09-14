@@ -27,38 +27,129 @@ search_keywords:
 
 ## 🌟 革新的アーキテクチャの全体像
 
-### 🎯 なぜこの設計を選んだか？
+### 🎯 Quick Reference - 設計選択の理由
+
+```bash
+# 従来の問題 → 私たちの解決法
+複雑な状態管理 → DDD (ドメイン駆動設計)
+副作用の混在 → Effect-TS (関数型プログラミング)
+テストの困難 → Pure Functions (副作用分離)
+保守性の低下 → ECS (エンティティコンポーネントシステム)
+```
+
+<details>
+<summary><strong>🏗️ 詳細アーキテクチャ分析図</strong></summary>
+
+### 🔄 問題解決の全体フロー
 
 ```mermaid
+%%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
 graph TD
-    A[従来のゲーム開発<br/>の課題] --> B[複雑な状態管理]
-    A --> C[副作用の混在]
-    A --> D[テストの困難]
-    A --> E[保守性の低下]
+    subgraph "❌ 従来のゲーム開発の課題"
+        A1[🎮 Unity/Unreal方式<br/>モノリシック構造]
+        A2[🐛 複雑な状態管理<br/>GameObjectの依存関係]
+        A3[⚡ 副作用の混在<br/>レンダリングとロジック]
+        A4[🧪 テストの困難<br/>外部依存が多い]
+        A5[🔧 保守性の低下<br/>変更影響範囲が不明]
+    end
 
-    B --> F[DDD<br/>Domain-Driven Design]
-    C --> G[Effect-TS<br/>関数型プログラミング]
-    D --> H[Pure Functions<br/>副作用分離]
-    E --> I[ECS<br/>Entity Component System]
+    subgraph "✅ TypeScript Minecraft の解決策"
+        B1[🎯 DDD<br/>Domain-Driven Design]
+        B2[⚡ Effect-TS 3.17+<br/>関数型プログラミング]
+        B3[🎲 ECS<br/>Entity Component System]
+        B4[🏗️ Layer Architecture<br/>明確な責務分離]
+    end
 
-    F --> J[TypeScript Minecraft<br/>統合アーキテクチャ]
-    G --> J
-    H --> J
-    I --> J
+    subgraph "🎊 得られる利益"
+        C1[🔍 高保守性<br/>変更箇所の明確化]
+        C2[🛡️ 完全な型安全性<br/>コンパイル時エラー検出]
+        C3[🧪 優秀なテスタビリティ<br/>Pure Function中心設計]
+        C4[⚡ 高パフォーマンス<br/>データ指向・最適化]
+        C5[📚 学習容易性<br/>パターンの一貫性]
+    end
 
-    J --> K[高保守性]
-    J --> L[完全な型安全性]
-    J --> M[優秀なテスタビリティ]
-    J --> N[高パフォーマンス]
+    A1 --> B1
+    A2 --> B1
+    A3 --> B2
+    A4 --> B3
+    A5 --> B4
 
-    classDef problem fill:#ffebee,stroke:#c62828,stroke-width:2px
-    classDef solution fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef result fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    B1 --> C1
+    B2 --> C2
+    B3 --> C3
+    B4 --> C4
+    B1 --> C5
 
-    class A,B,C,D,E problem
-    class F,G,H,I solution
-    class J,K,L,M,N result
+    classDef problem fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#000
+    classDef solution fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000
+    classDef benefit fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#000
+
+    class A1,A2,A3,A4,A5 problem
+    class B1,B2,B3,B4 solution
+    class C1,C2,C3,C4,C5 benefit
 ```
+
+### 📊 競合技術との比較分析
+
+| 観点 | Unity + C# | Unreal + C++ | **TypeScript Minecraft** |
+|------|------------|--------------|-------------------------|
+| **学習コスト** | 高（エディタ習得必要） | 非常に高（C++複雑性） | **中（Web技術ベース）** |
+| **型安全性** | 中（実行時エラー可能） | 高（コンパイル時チェック） | **非常に高（Effect-TS）** |
+| **テスタビリティ** | 低（モノリシック） | 低（依存関係複雑） | **高（Pure Functions）** |
+| **パフォーマンス** | 高（ネイティブ） | 非常に高（最適化） | **中〜高（Web最適化）** |
+| **開発速度** | 中（エディタ依存） | 低（コンパイル時間） | **高（ホットリロード）** |
+| **保守性** | 低（GUI依存状態） | 低（C++複雑性） | **非常に高（関数型）** |
+| **クロスプラットフォーム** | 中（ビルド設定） | 中（プラットフォーム別） | **高（ブラウザ標準）** |
+
+</details>
+
+<details>
+<summary><strong>🎓 Expert Notes: アーキテクチャ深化ポイント</strong></summary>
+
+### 🔬 技術選択の詳細根拠
+
+#### 🎯 **DDD選択理由**
+- **境界づけられたコンテキスト**: プレイヤー管理・ワールド生成・物理演算などの独立性確保
+- **ユビキタス言語**: ゲーム開発者とドメインエキスパート（Minecraft知識者）の共通言語
+- **戦略的設計**: コア・サポート・汎用ドメインの明確な分離による開発効率化
+
+#### ⚡ **Effect-TS 3.17+ 選択理由**
+- **Schema.Struct**: ゲームデータの実行時検証・型推論・シリアライゼーション自動化
+- **Context.GenericTag**: 依存性注入による高テスタビリティとモック容易性
+- **Effect.gen**: 非同期ゲームループの可読性向上と例外安全性
+
+#### 🎲 **ECS選択理由**
+- **データ指向設計**: キャッシュ効率の最大化による60FPSゲームループ維持
+- **コンポーネント組み合わせ**: 新エンティティ作成の柔軟性（例：FlyingPlayer = Player + Flying）
+- **システム独立性**: レンダリング・物理・AI等の機能追加・削除の容易性
+
+### 🧪 実装パターンの科学的根拠
+
+#### 📊 **メモリ効率化**
+```typescript
+// ECS による Cache-Friendly なメモリレイアウト
+interface ComponentArrays {
+  positions: Float32Array    // 連続メモリ配置
+  velocities: Float32Array   // SIMD最適化対応
+  renderables: Uint32Array   // GPUバッファ直結
+}
+```
+
+#### 🔄 **並行処理最適化**
+```typescript
+// Effect-TS による安全な並行実行
+const gameLoop = Effect.gen(function* (_) {
+  const [physics, rendering, ai] = yield* _(
+    Effect.all([
+      physicsSystem,
+      renderingSystem,
+      aiSystem
+    ], { concurrency: "unbounded" })
+  )
+})
+```
+
+</details>
 
 ## 🔮 三大設計原則の融合
 
@@ -156,55 +247,225 @@ export const generateWorld = (
 
 ## 🏛️ レイヤーアーキテクチャ詳細
 
+### 🎯 Quick Reference - レイヤー責務
+
+```bash
+🎮 Presentation: UI・入力・表示
+🚀 Application: ビジネスプロセス・ワークフロー
+💎 Domain: ビジネスルール・エンティティ（Pure）
+🔧 Infrastructure: 外部サービス・技術詳細
+```
+
+<details>
+<summary><strong>🏗️ 詳細レイヤー構造と実装例</strong></summary>
+
+### 🎯 4層アーキテクチャの全体図
+
 ```mermaid
+%%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
 graph TB
-    subgraph "🎮 Presentation Layer"
-        A1[UI Components<br/>Canvas Renderer<br/>Input Handler]
+    subgraph "🎮 Presentation Layer - ユーザーインターフェース"
+        A1["🖼️ Canvas Renderer<br/>Three.js WebGL描画"]
+        A2["🎮 Input Controller<br/>キーボード・マウス処理"]
+        A3["🎨 UI Components<br/>HUD・メニュー・インベントリ"]
+        A4["📱 Event Dispatcher<br/>ユーザーアクション配信"]
     end
 
-    subgraph "🚀 Application Layer"
-        B1[Game Loop Service]
-        B2[Command Handlers]
-        B3[Query Handlers]
+    subgraph "🚀 Application Layer - ビジネスプロセス"
+        B1["🔄 Game Loop Service<br/>60FPS メインループ"]
+        B2["📨 Command Bus<br/>ユーザーアクション処理"]
+        B3["📋 Query Bus<br/>データ取得・表示用"]
+        B4["🎯 Use Cases<br/>ゲーム機能シナリオ"]
+        B5["🔄 State Manager<br/>アプリケーション状態"]
     end
 
-    subgraph "💎 Domain Layer"
-        C1[Entities<br/>Player, Block, World]
-        C2[Value Objects<br/>Position, Material]
-        C3[Domain Services<br/>Physics, AI, Generation]
-        C4[Repositories<br/>Interfaces]
+    subgraph "💎 Domain Layer - ビジネスルール（Pure Functions）"
+        C1["🏛️ Entities<br/>Player・Block・World・Chunk"]
+        C2["💎 Value Objects<br/>Position3D・Material・ItemStack"]
+        C3["⚙️ Domain Services<br/>Physics・WorldGen・Combat"]
+        C4["📊 Repositories<br/>データ永続化インターフェース"]
+        C5["🔄 Domain Events<br/>ゲーム内イベント"]
+        C6["🎯 Aggregates<br/>データ整合性境界"]
     end
 
-    subgraph "🔧 Infrastructure Layer"
-        D1[WebGL Renderer]
-        D2[LocalStorage Repository]
-        D3[Web Audio API]
-        D4[Input System]
+    subgraph "🔧 Infrastructure Layer - 技術実装"
+        D1["🎥 WebGL Renderer<br/>Three.js・シェーダー"]
+        D2["💾 LocalStorage<br/>セーブデータ永続化"]
+        D3["🔊 Web Audio API<br/>サウンド・効果音"]
+        D4["⌨️ Input System<br/>ハードウェア入力"]
+        D5["🌐 Network Client<br/>マルチプレイヤー"]
+        D6["⏰ Scheduler<br/>タイマー・アニメーション"]
     end
 
+    %% データフロー（上から下）
     A1 --> B1
-    A1 --> B2
-    A1 --> B3
+    A2 --> B2
+    A3 --> B3
+    A4 --> B4
 
     B1 --> C1
     B2 --> C2
     B3 --> C3
+    B4 --> C4
+    B5 --> C5
 
+    %% 依存性注入（下から上）
     C4 --> D1
     C4 --> D2
     C4 --> D3
     C4 --> D4
+    C4 --> D5
+    C4 --> D6
 
-    classDef presentation fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef application fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef domain fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef infrastructure fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef presentation fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000
+    classDef application fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+    classDef domain fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000
+    classDef infrastructure fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px,color:#000
 
-    class A1 presentation
-    class B1,B2,B3 application
-    class C1,C2,C3,C4 domain
-    class D1,D2,D3,D4 infrastructure
+    class A1,A2,A3,A4 presentation
+    class B1,B2,B3,B4,B5 application
+    class C1,C2,C3,C4,C5,C6 domain
+    class D1,D2,D3,D4,D5,D6 infrastructure
 ```
+
+### 📋 各レイヤーの詳細実装例
+
+#### 🎮 **Presentation Layer** - 表示・入力担当
+
+```typescript
+// Canvas Renderer の実装例
+export const CanvasRenderer = Context.GenericTag<{
+  readonly render: (scene: GameScene) => Effect.Effect<void, RenderError>
+  readonly resize: (width: number, height: number) => Effect.Effect<void, never>
+  readonly dispose: () => Effect.Effect<void, never>
+}>("@app/CanvasRenderer")
+
+// Input Controller の実装例
+export const InputController = Context.GenericTag<{
+  readonly getCurrentInput: () => Effect.Effect<PlayerInput, never>
+  readonly subscribe: (handler: (input: PlayerInput) => void) => Effect.Effect<void, never>
+}>("@app/InputController")
+```
+
+#### 🚀 **Application Layer** - ワークフロー・調整担当
+
+```typescript
+// Game Loop Service の実装例
+export const GameLoopService = Context.GenericTag<{
+  readonly start: () => Effect.Effect<void, GameLoopError>
+  readonly stop: () => Effect.Effect<void, never>
+  readonly tick: (deltaTime: number) => Effect.Effect<void, GameLoopError>
+}>("@app/GameLoopService")
+
+// Use Case の実装例（ブロック設置）
+export const placeBlockUseCase = (
+  position: Position3D,
+  blockType: BlockType,
+  playerId: PlayerId
+): Effect.Effect<PlaceBlockResult, PlaceBlockError, WorldService | PlayerService> =>
+  Effect.gen(function* (_) {
+    const worldService = yield* _(WorldService)
+    const playerService = yield* _(PlayerService)
+
+    // 1. プレイヤー権限確認
+    const player = yield* _(playerService.getById(playerId))
+    yield* _(validatePlacePermission(position, player))
+
+    // 2. ワールド状態確認
+    const currentBlock = yield* _(worldService.getBlockAt(position))
+    yield* _(validatePlacementSpace(currentBlock))
+
+    // 3. ブロック設置実行
+    const newBlock = yield* _(createBlock(blockType, position))
+    yield* _(worldService.setBlockAt(position, newBlock))
+
+    return { success: true, block: newBlock }
+  })
+```
+
+#### 💎 **Domain Layer** - ビジネスルール（Pure Functions）
+
+```typescript
+// Entity の実装例
+export const PlayerSchema = Schema.Struct({
+  id: Schema.String,
+  position: Position3DSchema,
+  health: Schema.Number.pipe(Schema.between(0, 100)),
+  inventory: Schema.Array(ItemStackSchema),
+  gameMode: Schema.Union(
+    Schema.Literal("creative"),
+    Schema.Literal("survival"),
+    Schema.Literal("adventure")
+  )
+})
+
+// Domain Service の実装例
+export const PhysicsService = Context.GenericTag<{
+  readonly applyGravity: (entity: Entity) => Effect.Effect<Entity, never>
+  readonly checkCollision: (entity: Entity, world: World) => Effect.Effect<boolean, never>
+  readonly calculateMovement: (input: MovementInput) => Effect.Effect<Position3D, MovementError>
+}>("@domain/PhysicsService")
+```
+
+#### 🔧 **Infrastructure Layer** - 技術実装担当
+
+```typescript
+// WebGL Renderer の実装例
+export const LiveWebGLRenderer: Layer.Layer<CanvasRenderer> = Layer.succeed(
+  CanvasRenderer,
+  {
+    render: (scene) =>
+      Effect.gen(function* (_) {
+        // Three.js による実際の描画処理
+        const renderer = yield* _(getThreeRenderer)
+        const camera = yield* _(getCurrentCamera)
+
+        renderer.render(scene.threeScene, camera)
+
+        yield* _(Effect.sync(() => {
+          // WebGL の状態管理
+          renderer.setSize(window.innerWidth, window.innerHeight)
+          renderer.setClearColor(0x87CEEB, 1.0) // スカイブルー
+        }))
+      }),
+
+    resize: (width, height) =>
+      Effect.sync(() => {
+        renderer.setSize(width, height)
+        camera.aspect = width / height
+        camera.updateProjectionMatrix()
+      }),
+
+    dispose: () =>
+      Effect.sync(() => {
+        renderer.dispose()
+        // WebGL リソース解放
+      })
+  }
+)
+```
+
+### 🔄 レイヤー間通信パターン
+
+```typescript
+// 典型的なレイヤー間データフロー例
+export const handlePlayerAction = (action: PlayerAction): Effect.Effect<void, GameError, AllServices> =>
+  Effect.gen(function* (_) {
+    // 1. Presentation -> Application
+    const input = yield* _(InputController.getCurrentInput())
+
+    // 2. Application -> Domain (Use Case実行)
+    const result = yield* _(executePlayerAction(input, action))
+
+    // 3. Domain -> Infrastructure (永続化)
+    yield* _(WorldRepository.save(result.updatedWorld))
+
+    // 4. Infrastructure -> Presentation (表示更新)
+    yield* _(CanvasRenderer.render(result.gameScene))
+  })
+```
+
+</details>
 
 ### 📋 各レイヤーの責務
 

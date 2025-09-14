@@ -1,26 +1,100 @@
 ---
-title: "DDD戦略的設計"
-description: "DDD戦略的設計に関する詳細な説明とガイド。"
+title: "DDD戦略的設計 - 境界づけられたコンテキスト"
+description: "ゲームドメインにおける境界づけられたコンテキストの設計方針と実装パターン。Effect-TSによるドメインモデルの実装とコンテキスト間統合。"
 category: "architecture"
 difficulty: "advanced"
-tags: ['typescript', 'minecraft', 'ddd', 'architecture']
-prerequisites: ['basic-typescript', 'effect-ts-fundamentals']
-estimated_reading_time: "15分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+tags: ["ddd", "bounded-context", "strategic-design", "domain-modeling", "effect-ts", "aggregates"]
+prerequisites: ["ddd-concepts", "effect-ts-fundamentals", "basic-functional-programming"]
+estimated_reading_time: "20分"
+related_patterns: ["domain-modeling-patterns", "service-patterns-catalog", "data-modeling-patterns"]
+related_docs: ["./01-design-principles.md", "./04-layered-architecture.md", "./05-ecs-integration.md"]
 ---
 
-# DDD戦略的設計
+# DDD戦略的設計 - 境界づけられたコンテキスト
 
-```typescript
-import { Effect, Match, Option } from "effect"
+> **⚡ Quick Reference**: ゲームドメインを6つの境界づけられたコンテキストに分割。コアドメイン（World・GameMechanics・Entity）、支援ドメイン（Crafting・Combat・Trading）、汎用ドメイン（Physics・Rendering・Network）に分類し、明確な統合パターンで結合。
+>
+> **🎯 この文書で学べること**: 戦略的設計概念、ドメインコンテキストマップ、アグリゲート設計、実装パターン
+
+---
+
+## 🚀 Quick Reference (5分で理解)
+
+### 📋 コンテキスト分類と優先順位
+
+| 分類 | コンテキスト | 責務 | 投資レベル | Effect-TS重点 |
+|------|------------|------|------------|---------------|
+| **🔥 コア** | World Management | チャンク・ブロック・地形 | 最大 | Schema + Aggregate |
+| **🔥 コア** | Game Mechanics | ルール・進行・バランス | 最大 | Match.value + Effect.gen |
+| **🔥 コア** | Entity System | ECS・プレイヤー・AI | 最大 | Context.GenericTag |
+| **⚙️ 支援** | Crafting System | レシピ・材料・生産 | 中程度 | Brand型 + Validation |
+| **⚙️ 支援** | Combat System | ダメージ・防御・戦略 | 中程度 | Early Return + Error |
+| **🔧 汎用** | Physics/Rendering | 物理・描画・ネットワーク | 最小 | Layer + Adapter |
+
+### 🔗 統合パターンマップ
+
+```mermaid
+%%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
+graph LR
+    subgraph Core ["🔥 コアドメイン"]
+        World["🌍 World<br/>Management"]
+        Game["🎮 Game<br/>Mechanics"]
+        Entity["🤖 Entity<br/>System"]
+    end
+
+    subgraph Support ["⚙️ 支援ドメイン"]
+        Craft["🔨 Crafting"]
+        Combat["⚔️ Combat"]
+        Trade["💰 Trading"]
+    end
+
+    subgraph Generic ["🔧 汎用ドメイン"]
+        Physics["📐 Physics"]
+        Render["🎨 Render"]
+        Network["🌐 Network"]
+    end
+
+    %% 統合パターン
+    World <-->|Shared Kernel| Entity
+    Game <-->|Partnership| World
+    Game -->|Customer-Supplier| Entity
+
+    Craft -->|Published Language| Game
+    Combat -->|Event-Driven| Entity
+    Trade -->|ACL| Game
+
+    Physics -.->|Adapter| Entity
+    Render -.->|Facade| World
+    Network -.->|Gateway| Game
+
+    classDef coreStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:3px
+    classDef supportStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef genericStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+
+    class World,Game,Entity coreStyle
+    class Craft,Combat,Trade supportStyle
+    class Physics,Render,Network genericStyle
 ```
 
-## 1. ドメインコンテキストマップ
+---
 
-TypeScript Minecraft Cloneのドメインは、複数の境界づけられたコンテキスト（Bounded Context）に分割されます。各コンテキストは独立した言語とモデルを持ち、明確に定義された関係性で統合されます。
+## 📖 Deep Dive (詳細理解)
 
-### 1.1 戦略的設計概観
+### 1. 戦略的設計概観：ドメインの複雑性管理
+
+#### 1.1 なぜ境界づけられたコンテキストが必要なのか
+
+**問題**: Minecraft規模のゲームでは、単一のモデルでは複雑性が爆発的に増大
+- 🔥 **Player**エンティティが持つ責務: 位置・体力・インベントリ・権限・統計・UI状態...
+- 📈 **相互依存の増大**: 一つの変更が予想外の箇所に影響
+- 🧠 **認知負荷の増大**: 開発者が理解すべき概念が多すぎる
+
+**解決**: 境界づけられたコンテキストによる**概念的分割**
+- 🎯 **明確な責務分割**: 各コンテキストは単一の責務に集中
+- 🛡️ **変更の局所化**: 影響範囲を予測可能にする
+- 💬 **ユビキタス言語**: チーム内で統一された専門用語
+
+#### 1.2 ドメインコンテキストマップ
 
 ```mermaid
 %%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
@@ -67,9 +141,9 @@ graph TB
     class Physics,Rendering,Networking genericStyle
 ```
 
-### 1.2 コンテキスト間の統合パターン
+#### 1.3 コンテキスト間統合パターンの実装詳細
 
-以下の図は、境界づけられたコンテキスト間の統合パターンと情報の流れを詳細に示しています。
+**統合パターンの選択理由**と**Effect-TSでの具体的実装方法**:
 
 ```mermaid
 %%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
@@ -125,32 +199,45 @@ graph LR
     class CS_Crafting antiCorruption
 ```
 
-## 2. 境界づけられたコンテキスト
-### 2.1 世界管理コンテキスト (World Management Context)
+### 2. 境界づけられたコンテキストの実装詳細
+#### 2.1 🌍 World Management Context（コアドメイン）
 
-**責務**: ゲーム世界の生成、永続化、チャンク管理
+**戦略的重要性**: ゲーム体験の根幹を支える差別化要素
+**投資レベル**: 最大（自社開発・継続改善）
+**主要責務**:
+- 🗺️ ワールド生成とチャンク管理
+- 🧱 ブロック操作とバリデーション
+- 🌲 地形・バイオーム・構造物生成
+- 💾 ワールドデータの永続化
+
+**完全なEffect-TS 3.17+パターンによる実装**:
 
 ```typescript
-import { Effect, Context, Schema, Match, Either, Option } from "effect"
+import { Effect, Context, Schema, Match, Brand } from "effect"
 
 // ✅ Brand型で型安全性とドメイン境界を明確化
 const WorldId = Schema.String.pipe(Schema.brand("WorldId"))
-const WorldSeed = Schema.Number.pipe(Schema.brand("WorldSeed"))
-const ChunkId = Schema.String.pipe(Schema.brand("ChunkId"))
-const BlockType = Schema.String.pipe(Schema.brand("BlockType"))
-const Biome = Schema.String.pipe(Schema.brand("Biome"))
+type WorldId = Brand.Branded<string, "WorldId">
 
-// ✅ 値オブジェクトをSchemaで定義（不変性を保証）
+const ChunkId = Schema.String.pipe(Schema.brand("ChunkId"))
+type ChunkId = Brand.Branded<string, "ChunkId">
+
+const BlockType = Schema.String.pipe(Schema.brand("BlockType"))
+type BlockType = Brand.Branded<string, "BlockType">
+
+// ✅ Schema.Structで値オブジェクト定義（設計原則準拠）
 const ChunkCoordinate = Schema.Struct({
   x: Schema.Number,
   z: Schema.Number
 }).pipe(
   Schema.brand("ChunkCoordinate"),
   Schema.annotations({
+    identifier: "ChunkCoordinate",
     title: "チャンク座標",
     description: "ワールド内のチャンクの位置を表す値オブジェクト"
   })
 )
+type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinate>
 
 const Position3D = Schema.Struct({
   x: Schema.Number,
@@ -159,32 +246,108 @@ const Position3D = Schema.Struct({
 }).pipe(
   Schema.brand("Position3D"),
   Schema.annotations({
+    identifier: "Position3D",
     title: "3D座標",
     description: "ワールド内の3次元座標を表す値オブジェクト"
   })
 )
+type Position3D = Schema.Schema.Type<typeof Position3D>
 
-// ✅ ドメインイベントをSchemaで定義
+// ✅ 純粋関数によるドメインルール実装
+const ChunkCoordinateRules = {
+  // ドメインルール: 座標の有効性検証
+  isValid: (coord: ChunkCoordinate): boolean => {
+    return (
+      Number.isInteger(coord.x) &&
+      Number.isInteger(coord.z) &&
+      Math.abs(coord.x) <= 30000000 &&
+      Math.abs(coord.z) <= 30000000
+    )
+  },
+
+  // ドメインルール: 距離計算
+  distanceTo: (from: ChunkCoordinate, to: ChunkCoordinate): number => {
+    const dx = from.x - to.x
+    const dz = from.z - to.z
+    return Math.sqrt(dx * dx + dz * dz)
+  },
+
+  // ドメインルール: 隣接チェック
+  isAdjacentTo: (coord1: ChunkCoordinate, coord2: ChunkCoordinate): boolean => {
+    return ChunkCoordinateRules.distanceTo(coord1, coord2) <= Math.sqrt(2)
+  },
+
+  // ドメインルール: チャンクID生成
+  toChunkId: (coord: ChunkCoordinate): ChunkId => {
+    return `chunk_${coord.x}_${coord.z}` as ChunkId
+  }
+}
+
+const Position3DRules = {
+  // ドメインルール: ワールド境界内チェック
+  isWithinBounds: (pos: Position3D, worldBorderSize: number): boolean => {
+    const halfSize = worldBorderSize / 2
+    return (
+      Math.abs(pos.x) <= halfSize &&
+      Math.abs(pos.z) <= halfSize &&
+      pos.y >= -64 &&
+      pos.y <= 320
+    )
+  },
+
+  // ドメインルール: チャンク座標への変換
+  toChunkCoordinate: (pos: Position3D): ChunkCoordinate => {
+    return {
+      x: Math.floor(pos.x / 16),
+      z: Math.floor(pos.z / 16)
+    } as ChunkCoordinate
+  },
+
+  // ドメインルール: 距離計算
+  distanceTo: (from: Position3D, to: Position3D): number => {
+    const dx = from.x - to.x
+    const dy = from.y - to.y
+    const dz = from.z - to.z
+    return Math.sqrt(dx * dx + dy * dy + dz * dz)
+  }
+}
+
+// ✅ ドメインイベントをSchema.Structで定義（設計原則準拠）
 const ChunkLoadedEvent = Schema.Struct({
   _tag: Schema.Literal("ChunkLoaded"),
   aggregateId: WorldId,
   chunkId: ChunkId,
   coordinate: ChunkCoordinate,
-  timestamp: Schema.Number.pipe(Schema.brand("Timestamp"))
-})
+  timestamp: Schema.DateTimeUtc
+}).pipe(
+  Schema.annotations({
+    identifier: "ChunkLoadedEvent",
+    title: "チャンク読み込みイベント",
+    description: "チャンクが読み込まれた際に発行されるドメインイベント"
+  })
+)
+type ChunkLoadedEvent = Schema.Schema.Type<typeof ChunkLoadedEvent>
 
 const ChunkUnloadedEvent = Schema.Struct({
   _tag: Schema.Literal("ChunkUnloaded"),
   aggregateId: WorldId,
   chunkId: ChunkId,
   coordinate: ChunkCoordinate,
-  timestamp: Schema.Number.pipe(Schema.brand("Timestamp"))
-})
+  timestamp: Schema.DateTimeUtc
+}).pipe(
+  Schema.annotations({
+    identifier: "ChunkUnloadedEvent",
+    title: "チャンク解放イベント",
+    description: "チャンクが解放された際に発行されるドメインイベント"
+  })
+)
+type ChunkUnloadedEvent = Schema.Schema.Type<typeof ChunkUnloadedEvent>
 
+// ✅ Union型でドメインイベントを統合
 const WorldDomainEvent = Schema.Union(ChunkLoadedEvent, ChunkUnloadedEvent)
 type WorldDomainEvent = Schema.Schema.Type<typeof WorldDomainEvent>
 
-// ✅ アグリゲート境界での検証ルール
+// ✅ WorldBorderを値オブジェクトとして定義
 const WorldBorder = Schema.Struct({
   size: Schema.Number.pipe(
     Schema.positive(),
@@ -193,109 +356,398 @@ const WorldBorder = Schema.Struct({
 }).pipe(
   Schema.brand("WorldBorder"),
   Schema.annotations({
+    identifier: "WorldBorder",
     title: "ワールド境界",
     description: "ワールドの境界設定を表す値オブジェクト"
   })
 )
+type WorldBorder = Schema.Schema.Type<typeof WorldBorder>
 
-// ✅ アグリゲートルートをSchemaで定義（不変条件を含む）
-const WorldAggregate = Schema.Struct({
-  id: WorldId,
-  seed: WorldSeed,
-  chunks: Schema.Record(ChunkId, Schema.Unknown), // 後でChunk型に差し替え
-  worldBorder: WorldBorder,
-  spawnPoint: Position3D,
-  loadedChunkCount: Schema.Number.pipe(Schema.nonNegative()),
-  version: Schema.Number.pipe(Schema.brand("Version"))
+// ✅ Context.GenericTagでサービス定義
+interface WorldServiceInterface {
+  readonly generateChunk: (coord: ChunkCoordinate) => Effect.Effect<ChunkId, WorldError>
+  readonly loadChunk: (id: ChunkId) => Effect.Effect<void, WorldError>
+  readonly unloadChunk: (id: ChunkId) => Effect.Effect<void, WorldError>
+  readonly placeBlock: (pos: Position3D, blockType: BlockType) => Effect.Effect<void, WorldError>
+}
+
+const WorldService = Context.GenericTag<WorldServiceInterface>("@app/WorldService")
+
+// ✅ エラー定義
+const WorldError = Schema.Struct({
+  _tag: Schema.Literal("WorldError"),
+  reason: Schema.String,
+  code: Schema.String,
+  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
 }).pipe(
-  Schema.brand("WorldAggregate"),
   Schema.annotations({
-    title: "ワールドアグリゲート",
-    description: "ワールドドメインのアグリゲートルート"
+    identifier: "WorldError",
+    title: "ワールド管理エラー",
+    description: "World Managementコンテキストで発生するエラー"
   })
 )
-type WorldAggregate = Schema.Schema.Type<typeof WorldAggregate>
+type WorldError = Schema.Schema.Type<typeof WorldError>
+```
 
-const Chunk = Schema.Struct({
-  id: ChunkId,
-  coordinate: ChunkCoordinate,
-  blocks: Schema.Array(Schema.Number),
-  biome: Biome,
-  heightMap: Schema.Array(Schema.Number),
-  lightMap: Schema.Array(Schema.Number),
-  version: Schema.Number.pipe(Schema.brand("Version"))
-}).pipe(
-  Schema.brand("Chunk"),
-  Schema.annotations({
-    title: "チャンクエンティティ",
-    description: "ワールドの一部を構成するチャンクエンティティ"
-  })
-)
-type Chunk = Schema.Schema.Type<typeof Chunk>
+---
 
-const Block = Schema.Struct({
-  type: BlockType,
-  state: Schema.Record(Schema.String, Schema.Unknown),
-  metadata: Schema.Record(Schema.String, Schema.Unknown)
-}).pipe(
-  Schema.brand("Block"),
-  Schema.annotations({
-    title: "ブロック値オブジェクト",
-    description: "ブロックの状態とメタデータを含む値オブジェクト"
-  })
-)
-type Block = Schema.Schema.Type<typeof Block>
+## 📚 学習パスと次のステップ
 
-// ✅ パターンマッチング対応のエラー型
-const WorldManagementError = Schema.Union(
-  Schema.Struct({
-    _tag: Schema.Literal("ChunkGenerationError"),
-    coordinate: ChunkCoordinate,
-    reason: Schema.String
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("WorldPersistenceError"),
-    operation: Schema.String,
-    reason: Schema.String
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("WorldLoadError"),
-    worldId: WorldId,
-    reason: Schema.String
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("InvariantViolationError"),
-    invariant: Schema.String,
-    details: Schema.String
-  })
-)
-type WorldManagementError = Schema.Schema.Type<typeof WorldManagementError>
+### 🎯 以下のドキュメントで実装詳細を確認
+
+1. **[設計原則](./01-design-principles.md)**
+   - Schema.Structによるドメインモデリング原則
+   - 純粋関数による業務ルール実装
+
+2. **[4層アーキテクチャ](./04-layered-architecture.md)**
+   - ドメイン層の具体的な実装パターン
+   - コンテキスト間統合の技術詳細
+
+3. **[ECS統合](./05-ecs-integration.md)**
+   - Entity Systemコンテキストとの統合方法
+   - パフォーマンス最適化のテクニック
+
+### 📝 理解度チェック
+
+このドキュメントを理解した後、以下ができるようになるはずです：
+
+- [ ] 6つの境界づけられたコンテキストの責務を説明できる
+- [ ] コア・支援・汎用ドメインの違いを理解している
+- [ ] Schema.Structで値オブジェクトを定義できる
+- [ ] 純粋関数でドメインルールを実装できる
+- [ ] Context.GenericTagでドメインサービスを定義できる
+- [ ] 統合パターン（Shared Kernel、Customer-Supplier等）を適用できる
+
+### 🔗 関連リソース
+
+- **実装例**: [ドメインモデリングパターン](../07-pattern-catalog/01-domain-patterns.md)
+- **テスト戦略**: [DDDテストパターン](../07-pattern-catalog/05-test-patterns.md)
+- **パフォーマンス**: [ドメイン最適化パターン](../07-pattern-catalog/06-optimization-patterns.md)
+class WorldAggregate extends Data.Class<{
+  readonly id: Schema.Schema.Type<typeof WorldId>
+  readonly seed: Schema.Schema.Type<typeof WorldSeed>
+  readonly chunks: Record<string, Chunk>
+  readonly worldBorder: WorldBorder
+  readonly spawnPoint: Position3D
+  readonly loadedChunkCount: number
+  readonly version: number
+}>() {
+  static schema = Schema.Struct({
+    id: WorldId,
+    seed: WorldSeed,
+    chunks: Schema.Record(Schema.String, Schema.Unknown),
+    worldBorder: WorldBorder.schema,
+    spawnPoint: Position3D.schema,
+    loadedChunkCount: Schema.Number.pipe(Schema.nonNegative()),
+    version: Schema.Number.pipe(Schema.brand("Version"))
+  }).pipe(
+    Schema.brand("WorldAggregate"),
+    Schema.annotations({
+      title: "ワールドアグリゲート",
+      description: "ワールドドメインのアグリゲートルート"
+    })
+  )
+
+  // ドメイン不変条件
+  private invariants(): ReadonlyArray<Effect.Effect<void, { readonly _tag: string; readonly message: string }>> {
+    return [
+      // チャンク数制限の検証
+      this.loadedChunkCount <= 1000
+        ? Effect.void
+        : Effect.fail({ _tag: "ChunkLimitExceeded", message: `チャンク数が制限を超過: ${this.loadedChunkCount}/1000` }),
+
+      // スポーン地点が境界内にある
+      this.worldBorder.containsPosition(this.spawnPoint)
+        ? Effect.void
+        : Effect.fail({ _tag: "SpawnPointOutOfBounds", message: "スポーン地点が境界外です" }),
+    ]
+  }
+
+  // 不変条件を検証
+  validateInvariants(): Effect.Effect<void, { readonly _tag: string; readonly message: string }> {
+    return Effect.allSuccesses(this.invariants()).pipe(
+      Effect.asVoid
+    )
+  }
+
+  // ドメインルール: チャンク読み込み
+  loadChunk(chunkId: string, chunk: Chunk): Effect.Effect<WorldAggregate, { readonly _tag: string; readonly message: string }> {
+    if (this.chunks[chunkId]) {
+      return Effect.fail({ _tag: "ChunkAlreadyLoaded", message: `チャンクは既に読み込み済み: ${chunkId}` })
+    }
+
+    const newWorld = new WorldAggregate({
+      ...this,
+      chunks: { ...this.chunks, [chunkId]: chunk },
+      loadedChunkCount: this.loadedChunkCount + 1,
+      version: this.version + 1
+    })
+
+    return newWorld.validateInvariants().pipe(
+      Effect.map(() => newWorld)
+    )
+  }
+
+  // ドメインルール: チャンク解放
+  unloadChunk(chunkId: string): Effect.Effect<WorldAggregate, { readonly _tag: string; readonly message: string }> {
+    if (!this.chunks[chunkId]) {
+      return Effect.fail({ _tag: "ChunkNotFound", message: `チャンクが見つかりません: ${chunkId}` })
+    }
+
+    const { [chunkId]: removed, ...remainingChunks } = this.chunks
+
+    return Effect.succeed(new WorldAggregate({
+      ...this,
+      chunks: remainingChunks,
+      loadedChunkCount: this.loadedChunkCount - 1,
+      version: this.version + 1
+    }))
+  }
+}
+
+class Chunk extends Data.Class<{
+  readonly id: Schema.Schema.Type<typeof ChunkId>
+  readonly coordinate: ChunkCoordinate
+  readonly blocks: ReadonlyArray<number>
+  readonly biome: Schema.Schema.Type<typeof Biome>
+  readonly heightMap: ReadonlyArray<number>
+  readonly lightMap: ReadonlyArray<number>
+  readonly version: number
+}>() {
+  static schema = Schema.Struct({
+    id: ChunkId,
+    coordinate: ChunkCoordinate.schema,
+    blocks: Schema.Array(Schema.Number),
+    biome: Biome,
+    heightMap: Schema.Array(Schema.Number),
+    lightMap: Schema.Array(Schema.Number),
+    version: Schema.Number.pipe(Schema.brand("Version"))
+  }).pipe(
+    Schema.brand("Chunk"),
+    Schema.annotations({
+      title: "チャンクエンティティ",
+      description: "ワールドの一部を構成するチャンクエンティティ"
+    })
+  )
+
+  // ドメインルール: ブロック取得
+  getBlockAt(x: number, y: number, z: number): Option.Option<number> {
+    if (x < 0 || x >= 16 || y < 0 || y >= 256 || z < 0 || z >= 16) {
+      return Option.none()
+    }
+    const index = y * 256 + z * 16 + x
+    return Option.some(this.blocks[index] ?? 0)
+  }
+
+  // ドメインルール: ブロック設置
+  setBlockAt(x: number, y: number, z: number, blockType: number): Effect.Effect<Chunk, { readonly _tag: "InvalidCoordinate" }> {
+    if (x < 0 || x >= 16 || y < 0 || y >= 256 || z < 0 || z >= 16) {
+      return Effect.fail({ _tag: "InvalidCoordinate" })
+    }
+
+    const index = y * 256 + z * 16 + x
+    const newBlocks = [...this.blocks]
+    newBlocks[index] = blockType
+
+    return Effect.succeed(new Chunk({
+      ...this,
+      blocks: newBlocks,
+      version: this.version + 1
+    }))
+  }
+
+  // ドメインルール: 高さ取得
+  getHeightAt(x: number, z: number): Option.Option<number> {
+    if (x < 0 || x >= 16 || z < 0 || z >= 16) {
+      return Option.none()
+    }
+    return Option.some(this.heightMap[z * 16 + x] ?? 0)
+  }
+}
+
+class Block extends Data.Class<{
+  readonly type: Schema.Schema.Type<typeof BlockType>
+  readonly state: Record<string, unknown>
+  readonly metadata: Record<string, unknown>
+}>() {
+  static schema = Schema.Struct({
+    type: BlockType,
+    state: Schema.Record(Schema.String, Schema.Unknown),
+    metadata: Schema.Record(Schema.String, Schema.Unknown)
+  }).pipe(
+    Schema.brand("Block"),
+    Schema.annotations({
+      title: "ブロック値オブジェクト",
+      description: "ブロックの状態とメタデータを含む値オブジェクト"
+    })
+  )
+
+  // ドメインルール: ブロックの硬度取得
+  getHardness(): number {
+    const hardnessMap: Record<string, number> = {
+      "stone": 1.5,
+      "dirt": 0.5,
+      "grass": 0.6,
+      "sand": 0.5,
+      "wood": 2.0,
+      "water": -1, // 破壊不可
+      "air": 0
+    }
+    return hardnessMap[this.type] ?? 1.0
+  }
+
+  // ドメインルール: 破壊可能性チェック
+  canBreak(): boolean {
+    return this.getHardness() >= 0
+  }
+
+  // ドメインルール: 状態更新
+  updateState(key: string, value: unknown): Block {
+    return new Block({
+      ...this,
+      state: { ...this.state, [key]: value }
+    })
+  }
+}
+
+// ✅ Data.TaggedErrorでエラー型を定義
+class ChunkGenerationError extends Data.TaggedError("ChunkGenerationError")<{
+  readonly coordinate: ChunkCoordinate
+  readonly reason: string
+}>() {}
+
+class WorldPersistenceError extends Data.TaggedError("WorldPersistenceError")<{
+  readonly operation: string
+  readonly reason: string
+}>() {}
+
+class WorldLoadError extends Data.TaggedError("WorldLoadError")<{
+  readonly worldId: Schema.Schema.Type<typeof WorldId>
+  readonly reason: string
+}>() {}
+
+class InvariantViolationError extends Data.TaggedError("InvariantViolationError")<{
+  readonly invariant: string
+  readonly details: string
+}>() {}
+
+type WorldManagementError =
+  | ChunkGenerationError
+  | WorldPersistenceError
+  | WorldLoadError
+  | InvariantViolationError
 
 // ✅ リポジトリパターンをEffectサービスで実装
-interface WorldRepositoryInterface {
-  readonly save: (world: WorldAggregate) => Effect.Effect<void, WorldManagementError>
-  readonly findById: (id: WorldId) => Effect.Effect<Option.Option<WorldAggregate>, WorldManagementError>
-  readonly exists: (id: WorldId) => Effect.Effect<boolean, WorldManagementError>
+class WorldRepository extends Context.Tag("@world/WorldRepository")<
+  WorldRepository,
+  {
+    readonly save: (world: WorldAggregate) => Effect.Effect<void, WorldManagementError>
+    readonly findById: (id: Schema.Schema.Type<typeof WorldId>) => Effect.Effect<Option.Option<WorldAggregate>, WorldManagementError>
+    readonly exists: (id: Schema.Schema.Type<typeof WorldId>) => Effect.Effect<boolean, WorldManagementError>
+    readonly findByIds: (ids: ReadonlyArray<Schema.Schema.Type<typeof WorldId>>) => Effect.Effect<ReadonlyArray<WorldAggregate>, WorldManagementError>
+    readonly delete: (id: Schema.Schema.Type<typeof WorldId>) => Effect.Effect<void, WorldManagementError>
+  }
+>() {}
+
+// ✅ ドメインサービスをEffect.Tagで定義
+class ChunkGenerationService extends Context.Tag("@world/ChunkGenerationService")<
+  ChunkGenerationService,
+  {
+    readonly generate: (coordinate: ChunkCoordinate, seed: Schema.Schema.Type<typeof WorldSeed>) => Effect.Effect<Chunk, WorldManagementError>
+    readonly validateGeneration: (coordinate: ChunkCoordinate, world: WorldAggregate) => Effect.Effect<boolean, WorldManagementError>
+    readonly generateTerrain: (coordinate: ChunkCoordinate, seed: Schema.Schema.Type<typeof WorldSeed>) => Effect.Effect<ReadonlyArray<number>, WorldManagementError>
+    readonly generateBiome: (coordinate: ChunkCoordinate, seed: Schema.Schema.Type<typeof WorldSeed>) => Effect.Effect<Schema.Schema.Type<typeof Biome>, WorldManagementError>
+  }
+>() {
+  // ファクトリーメソッドでサービス実装を提供
+  static live = Context.gen(function* () {
+    return ChunkGenerationService.of({
+      generate: (coordinate, seed) =>
+        Effect.gen(function* () {
+          // 早期リターン: 座標検証
+          if (!coordinate.isValid()) {
+            return yield* Effect.fail(new ChunkGenerationError({
+              coordinate,
+              reason: "無効なチャンク座標"
+            }))
+          }
+
+          const terrain = yield* ChunkGenerationService.generateTerrain(coordinate, seed)
+          const biome = yield* ChunkGenerationService.generateBiome(coordinate, seed)
+
+          return new Chunk({
+            id: `${coordinate.x},${coordinate.z}` as Schema.Schema.Type<typeof ChunkId>,
+            coordinate,
+            blocks: terrain,
+            biome,
+            heightMap: Array.from({ length: 256 }, () => 64),
+            lightMap: Array.from({ length: 256 * 16 }, () => 15),
+            version: 1
+          })
+        }),
+
+      validateGeneration: (coordinate, world) =>
+        Effect.succeed(
+          coordinate.isValid() &&
+          world.worldBorder.containsPosition(new Position3D({
+            x: coordinate.x * 16,
+            y: 64,
+            z: coordinate.z * 16
+          }))
+        ),
+
+      generateTerrain: (coordinate, seed) =>
+        Effect.succeed(Array.from({ length: 256 * 16 * 16 }, (_, i) => {
+          // 簡単な地形生成ロジック
+          const y = Math.floor(i / (16 * 16))
+          const noise = Math.sin(coordinate.x * 0.1 + coordinate.z * 0.1 + seed * 0.001)
+          const height = 64 + Math.floor(noise * 10)
+          return y <= height ? (y <= 60 ? 1 : 2) : 0 // 1=stone, 2=dirt, 0=air
+        })),
+
+      generateBiome: (coordinate, seed) =>
+        Effect.succeed(
+          (() => {
+            const temp = Math.sin(coordinate.x * 0.01 + seed * 0.001)
+            return temp > 0.5 ? "desert" as Schema.Schema.Type<typeof Biome> : "plains" as Schema.Schema.Type<typeof Biome>
+          })()
+        )
+    })
+  })
 }
 
-const WorldRepository = Context.GenericTag<WorldRepositoryInterface>("@world/WorldRepository")
+class WorldInvariantService extends Context.Tag("@world/WorldInvariantService")<
+  WorldInvariantService,
+  {
+    readonly validateLoadedChunkLimit: (world: WorldAggregate) => Effect.Effect<boolean, never>
+    readonly validateChunkConsistency: (world: WorldAggregate, chunk: Chunk) => Effect.Effect<boolean, never>
+    readonly validateWorldBounds: (world: WorldAggregate) => Effect.Effect<boolean, never>
+  }
+>() {
+  static live = Context.gen(function* () {
+    return WorldInvariantService.of({
+      validateLoadedChunkLimit: (world) =>
+        Effect.succeed(world.loadedChunkCount <= 1000),
 
-// ✅ ドメインサービスをEffectサービスで定義（集約境界での複雑なビジネスロジック）
-interface ChunkGenerationServiceInterface {
-  readonly generate: (coordinate: ChunkCoordinate, seed: WorldSeed) =>
-    Effect.Effect<Chunk, WorldManagementError>
-  readonly validateGeneration: (coordinate: ChunkCoordinate, world: WorldAggregate) =>
-    Effect.Effect<boolean, WorldManagementError>
+      validateChunkConsistency: (world, chunk) =>
+        Effect.succeed(
+          chunk.coordinate.isValid() &&
+          world.worldBorder.containsPosition(
+            new Position3D({
+              x: chunk.coordinate.x * 16,
+              y: 64,
+              z: chunk.coordinate.z * 16
+            })
+          )
+        ),
+
+      validateWorldBounds: (world) =>
+        Effect.succeed(
+          world.spawnPoint.isWithinBounds(world.worldBorder.size)
+        )
+    })
+  })
 }
-
-const ChunkGenerationService = Context.GenericTag<ChunkGenerationServiceInterface>("@world/ChunkGenerationService")
-
-interface WorldInvariantServiceInterface {
-  readonly validateLoadedChunkLimit: (world: WorldAggregate) => Effect.Effect<boolean, never>
-  readonly validateChunkConsistency: (world: WorldAggregate, chunk: Chunk) => Effect.Effect<boolean, never>
-}
-
-const WorldInvariantService = Context.GenericTag<WorldInvariantServiceInterface>("@world/WorldInvariantService")
 ```
 
 ### 2.2 ゲームメカニクスコンテキスト (Game Mechanics Context)
@@ -305,13 +757,8 @@ const WorldInvariantService = Context.GenericTag<WorldInvariantServiceInterface>
 ```typescript
 // ゲームメカニクスコンテキスト
 
-// ✅ ユビキタス言語に基づく値オブジェクト定義
-const Difficulty = Schema.Union(
-  Schema.Literal("Peaceful"),
-  Schema.Literal("Easy"),
-  Schema.Literal("Normal"),
-  Schema.Literal("Hard")
-).pipe(
+// ✅ Brand型で難易度を定義
+const Difficulty = Schema.Literal("Peaceful", "Easy", "Normal", "Hard").pipe(
   Schema.brand("Difficulty"),
   Schema.annotations({
     title: "難易度",
@@ -320,22 +767,79 @@ const Difficulty = Schema.Union(
 )
 type Difficulty = Schema.Schema.Type<typeof Difficulty>
 
-// ✅ アグリゲート内でのゲームルール
-const GameRules = Schema.Struct({
-  difficulty: Difficulty,
-  pvpEnabled: Schema.Boolean,
-  keepInventory: Schema.Boolean,
-  mobGriefing: Schema.Boolean,
-  daylightCycle: Schema.Boolean,
-  weatherCycle: Schema.Boolean
-}).pipe(
-  Schema.brand("GameRules"),
-  Schema.annotations({
-    title: "ゲームルール",
-    description: "ゲームの基本ルール設定を管理する値オブジェクト"
-  })
-)
-type GameRules = Schema.Schema.Type<typeof GameRules>
+// ✅ Data.Classでゲームルール値オブジェクトを定義
+class GameRules extends Data.Class<{
+  readonly difficulty: Schema.Schema.Type<typeof Difficulty>
+  readonly pvpEnabled: boolean
+  readonly keepInventory: boolean
+  readonly mobGriefing: boolean
+  readonly daylightCycle: boolean
+  readonly weatherCycle: boolean
+}>() {
+  static schema = Schema.Struct({
+    difficulty: Difficulty,
+    pvpEnabled: Schema.Boolean,
+    keepInventory: Schema.Boolean,
+    mobGriefing: Schema.Boolean,
+    daylightCycle: Schema.Boolean,
+    weatherCycle: Schema.Boolean
+  }).pipe(
+    Schema.brand("GameRules"),
+    Schema.annotations({
+      title: "ゲームルール",
+      description: "ゲームの基本ルール設定を管理する値オブジェクト"
+    })
+  )
+
+  // ドメインルール: 難易度に基づく設定適用
+  static createForDifficulty(difficulty: Schema.Schema.Type<typeof Difficulty>): GameRules {
+    return Match.value(difficulty).pipe(
+      Match.when("Peaceful", () => new GameRules({
+        difficulty,
+        pvpEnabled: false,
+        keepInventory: true,
+        mobGriefing: false,
+        daylightCycle: true,
+        weatherCycle: true
+      })),
+      Match.when("Easy", () => new GameRules({
+        difficulty,
+        pvpEnabled: true,
+        keepInventory: false,
+        mobGriefing: true,
+        daylightCycle: true,
+        weatherCycle: true
+      })),
+      Match.when("Normal", () => new GameRules({
+        difficulty,
+        pvpEnabled: true,
+        keepInventory: false,
+        mobGriefing: true,
+        daylightCycle: true,
+        weatherCycle: true
+      })),
+      Match.when("Hard", () => new GameRules({
+        difficulty,
+        pvpEnabled: true,
+        keepInventory: false,
+        mobGriefing: true,
+        daylightCycle: true,
+        weatherCycle: true
+      })),
+      Match.exhaustive
+    )
+  }
+
+  // ドメインルール: 難易度変更
+  withDifficulty(newDifficulty: Schema.Schema.Type<typeof Difficulty>): GameRules {
+    return GameRules.createForDifficulty(newDifficulty)
+  }
+
+  // ドメインルール: PvP設定変更
+  withPvpEnabled(enabled: boolean): GameRules {
+    return new GameRules({ ...this, pvpEnabled: enabled })
+  }
+}
 
 // ✅ Brand型でドメイン概念を明確化
 const PlayerId = Schema.String.pipe(Schema.brand("PlayerId"))
@@ -343,180 +847,642 @@ const ItemId = Schema.String.pipe(Schema.brand("ItemId"))
 const EntityId = Schema.String.pipe(Schema.brand("EntityId"))
 const RecipeId = Schema.String.pipe(Schema.brand("RecipeId"))
 
-// ✅ 値オブジェクトとして方向性を定義
-const Direction3D = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number
-}).pipe(
-  Schema.brand("Direction3D"),
-  Schema.annotations({
-    title: "3D方向ベクトル",
-    description: "3次元空間での移動方向を表す値オブジェクト"
-  })
-)
+// ✅ Data.Classで方向ベクトルを定義
+class Direction3D extends Data.Class<{
+  readonly x: number
+  readonly y: number
+  readonly z: number
+}>() {
+  static schema = Schema.Struct({
+    x: Schema.Number,
+    y: Schema.Number,
+    z: Schema.Number
+  }).pipe(
+    Schema.brand("Direction3D"),
+    Schema.annotations({
+      title: "3D方向ベクトル",
+      description: "3次元空間での移動方向を表す値オブジェクト"
+    })
+  )
+
+  // ドメインルール: ベクトルの長さ
+  magnitude(): number {
+    return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z)
+  }
+
+  // ドメインルール: 正規化
+  normalize(): Direction3D {
+    const mag = this.magnitude()
+    if (mag === 0) return this
+
+    return new Direction3D({
+      x: this.x / mag,
+      y: this.y / mag,
+      z: this.z / mag
+    })
+  }
+
+  // ドメインルール: ゼロベクトルチェック
+  isZero(): boolean {
+    return this.x === 0 && this.y === 0 && this.z === 0
+  }
+
+  // ドメインルール: スカラー乗算
+  scale(factor: number): Direction3D {
+    return new Direction3D({
+      x: this.x * factor,
+      y: this.y * factor,
+      z: this.z * factor
+    })
+  }
+
+  // ドメインルール: 静的ファクトリーメソッド
+  static readonly ZERO = new Direction3D({ x: 0, y: 0, z: 0 })
+  static readonly FORWARD = new Direction3D({ x: 0, y: 0, z: 1 })
+  static readonly BACKWARD = new Direction3D({ x: 0, y: 0, z: -1 })
+  static readonly LEFT = new Direction3D({ x: -1, y: 0, z: 0 })
+  static readonly RIGHT = new Direction3D({ x: 1, y: 0, z: 0 })
+  static readonly UP = new Direction3D({ x: 0, y: 1, z: 0 })
+  static readonly DOWN = new Direction3D({ x: 0, y: -1, z: 0 })
+}
 
 // ✅ Position3Dは既に定義済みなので参照
 
-// ✅ ドメインイベント用の基底型
-const DomainEventBase = Schema.Struct({
-  eventId: Schema.String.pipe(Schema.brand("EventId")),
-  aggregateId: Schema.String.pipe(Schema.brand("AggregateId")),
-  version: Schema.Number.pipe(Schema.brand("Version")),
-  timestamp: Schema.Number.pipe(Schema.brand("Timestamp"))
-})
+// ✅ Data.Classでドメインイベント基底クラスを定義
+abstract class DomainEventBase extends Data.Class<{
+  readonly eventId: Schema.Schema.Type<typeof Schema.UUID>
+  readonly aggregateId: string
+  readonly version: number
+  readonly timestamp: Date
+}>() {
+  static schema = Schema.Struct({
+    eventId: Schema.UUID,
+    aggregateId: Schema.String.pipe(Schema.brand("AggregateId")),
+    version: Schema.Number.pipe(Schema.brand("Version")),
+    timestamp: Schema.DateFromSelf
+  })
 
-// ✅ プレイヤーアクションをコマンドとして設計
-const PlayerCommand = Schema.Union(
-  Schema.Struct({
+  // ドメインルール: イベントの順序性チェック
+  isAfter(other: DomainEventBase): boolean {
+    if (this.aggregateId !== other.aggregateId) {
+      throw new Error("異なるアグリゲートのイベントを比較できません")
+    }
+    return this.version > other.version
+  }
+
+  // ドメインルール: イベントの有効性チェック
+  isValid(): boolean {
+    return (
+      this.version >= 0 &&
+      this.aggregateId.length > 0 &&
+      this.timestamp.getTime() <= Date.now()
+    )
+  }
+}
+
+// ✅ Data.TaggedClassでプレイヤーコマンドを定義
+class MoveCommand extends Data.TaggedClass("MoveCommand")<{
+  readonly playerId: Schema.Schema.Type<typeof PlayerId>
+  readonly direction: Direction3D
+  readonly sprint: boolean
+}>() {
+  static schema = Schema.Struct({
     _tag: Schema.Literal("MoveCommand"),
     playerId: PlayerId,
-    direction: Direction3D,
+    direction: Direction3D.schema,
     sprint: Schema.Boolean
-  }),
-  Schema.Struct({
+  })
+
+  // ドメインルール: 移動コマンドの有効性
+  isValid(): boolean {
+    return !this.direction.isZero()
+  }
+
+  // ドメインルール: 移動速度計算
+  getMovementSpeed(): number {
+    return this.sprint ? 1.3 : 1.0
+  }
+}
+
+class JumpCommand extends Data.TaggedClass("JumpCommand")<{
+  readonly playerId: Schema.Schema.Type<typeof PlayerId>
+}>() {
+  static schema = Schema.Struct({
     _tag: Schema.Literal("JumpCommand"),
     playerId: PlayerId
-  }),
-  Schema.Struct({
+  })
+}
+
+class PlaceBlockCommand extends Data.TaggedClass("PlaceBlockCommand")<{
+  readonly playerId: Schema.Schema.Type<typeof PlayerId>
+  readonly position: Position3D
+  readonly blockType: Schema.Schema.Type<typeof BlockType>
+}>() {
+  static schema = Schema.Struct({
     _tag: Schema.Literal("PlaceBlockCommand"),
     playerId: PlayerId,
-    position: Position3D,
+    position: Position3D.schema,
     blockType: BlockType
-  }),
-  Schema.Struct({
+  })
+
+  // ドメインルール: ブロック配置の有効性
+  isValidPlacement(worldBorderSize: number): boolean {
+    return this.position.isWithinBounds(worldBorderSize)
+  }
+}
+
+class BreakBlockCommand extends Data.TaggedClass("BreakBlockCommand")<{
+  readonly playerId: Schema.Schema.Type<typeof PlayerId>
+  readonly position: Position3D
+}>() {
+  static schema = Schema.Struct({
     _tag: Schema.Literal("BreakBlockCommand"),
     playerId: PlayerId,
-    position: Position3D
-  }),
-  Schema.Struct({
+    position: Position3D.schema
+  })
+}
+
+class UseItemCommand extends Data.TaggedClass("UseItemCommand")<{
+  readonly playerId: Schema.Schema.Type<typeof PlayerId>
+  readonly itemId: Schema.Schema.Type<typeof ItemId>
+  readonly targetEntityId: Option.Option<Schema.Schema.Type<typeof EntityId>>
+}>() {
+  static schema = Schema.Struct({
     _tag: Schema.Literal("UseItemCommand"),
     playerId: PlayerId,
     itemId: ItemId,
-    targetEntityId: Schema.optional(EntityId)
-  }),
-  Schema.Struct({
+    targetEntityId: Schema.optionalWith(EntityId, { as: "Option" })
+  })
+}
+
+class OpenInventoryCommand extends Data.TaggedClass("OpenInventoryCommand")<{
+  readonly playerId: Schema.Schema.Type<typeof PlayerId>
+}>() {
+  static schema = Schema.Struct({
     _tag: Schema.Literal("OpenInventoryCommand"),
     playerId: PlayerId
-  }),
-  Schema.Struct({
+  })
+}
+
+class CraftCommand extends Data.TaggedClass("CraftCommand")<{
+  readonly playerId: Schema.Schema.Type<typeof PlayerId>
+  readonly recipeId: Schema.Schema.Type<typeof RecipeId>
+  readonly quantity: number
+}>() {
+  static schema = Schema.Struct({
     _tag: Schema.Literal("CraftCommand"),
     playerId: PlayerId,
     recipeId: RecipeId,
     quantity: Schema.Number.pipe(Schema.positive())
   })
+
+  // ドメインルール: クラフト数量の有効性
+  isValidQuantity(): boolean {
+    return this.quantity > 0 && this.quantity <= 64
+  }
+}
+
+// コマンドの統合型
+type PlayerCommand =
+  | MoveCommand
+  | JumpCommand
+  | PlaceBlockCommand
+  | BreakBlockCommand
+  | UseItemCommand
+  | OpenInventoryCommand
+  | CraftCommand
+
+const PlayerCommandSchema = Schema.Union(
+  MoveCommand.schema,
+  JumpCommand.schema,
+  PlaceBlockCommand.schema,
+  BreakBlockCommand.schema,
+  UseItemCommand.schema,
+  OpenInventoryCommand.schema,
+  CraftCommand.schema
 ).pipe(
-  Schema.brand("PlayerCommand"),
   Schema.annotations({
     title: "プレイヤーコマンド",
     description: "プレイヤーの意図を表現するコマンドオブジェクト"
   })
 )
-type PlayerCommand = Schema.Schema.Type<typeof PlayerCommand>
 
-// ✅ ゲーム状態のドメインイベント
-const GameMechanicsDomainEvent = Schema.Union(
-  Schema.Struct({
+// ✅ Data.TaggedClassでゲームメカニクスイベントを定義
+class PlayerActionExecuted extends DomainEventBase {
+  readonly _tag = "PlayerActionExecuted" as const
+  readonly command: PlayerCommand
+  readonly result: ActionResult
+
+  constructor(data: {
+    eventId: Schema.Schema.Type<typeof Schema.UUID>
+    aggregateId: string
+    version: number
+    timestamp: Date
+    command: PlayerCommand
+    result: ActionResult
+  }) {
+    super(data)
+    this.command = data.command
+    this.result = data.result
+  }
+
+  static schema = Schema.Struct({
     _tag: Schema.Literal("PlayerActionExecuted"),
-    ...DomainEventBase,
-    command: PlayerCommand,
-    result: Schema.Union(
-      Schema.Struct({ _tag: Schema.Literal("Success"), data: Schema.Unknown }),
-      Schema.Struct({ _tag: Schema.Literal("Failure"), error: Schema.String })
-    )
-  }),
-  Schema.Struct({
+    eventId: Schema.UUID,
+    aggregateId: Schema.String,
+    version: Schema.Number,
+    timestamp: Schema.DateFromSelf,
+    command: PlayerCommandSchema,
+    result: ActionResultSchema
+  })
+}
+
+class GameTimeProgressed extends DomainEventBase {
+  readonly _tag = "GameTimeProgressed" as const
+  readonly previousTime: number
+  readonly currentTime: number
+  readonly deltaTime: number
+
+  constructor(data: {
+    eventId: Schema.Schema.Type<typeof Schema.UUID>
+    aggregateId: string
+    version: number
+    timestamp: Date
+    previousTime: number
+    currentTime: number
+    deltaTime: number
+  }) {
+    super(data)
+    this.previousTime = data.previousTime
+    this.currentTime = data.currentTime
+    this.deltaTime = data.deltaTime
+  }
+
+  static schema = Schema.Struct({
     _tag: Schema.Literal("GameTimeProgressed"),
-    ...DomainEventBase,
+    eventId: Schema.UUID,
+    aggregateId: Schema.String,
+    version: Schema.Number,
+    timestamp: Schema.DateFromSelf,
     previousTime: Schema.Number.pipe(Schema.brand("GameTime")),
     currentTime: Schema.Number.pipe(Schema.brand("GameTime")),
     deltaTime: Schema.Number
-  }),
-  Schema.Struct({
+  })
+}
+
+class WeatherChanged extends DomainEventBase {
+  readonly _tag = "WeatherChanged" as const
+  readonly previousWeather: string
+  readonly currentWeather: string
+
+  constructor(data: {
+    eventId: Schema.Schema.Type<typeof Schema.UUID>
+    aggregateId: string
+    version: number
+    timestamp: Date
+    previousWeather: string
+    currentWeather: string
+  }) {
+    super(data)
+    this.previousWeather = data.previousWeather
+    this.currentWeather = data.currentWeather
+  }
+
+  static schema = Schema.Struct({
     _tag: Schema.Literal("WeatherChanged"),
-    ...DomainEventBase,
+    eventId: Schema.UUID,
+    aggregateId: Schema.String,
+    version: Schema.Number,
+    timestamp: Schema.DateFromSelf,
     previousWeather: Schema.String,
     currentWeather: Schema.String
   })
-)
-type GameMechanicsDomainEvent = Schema.Schema.Type<typeof GameMechanicsDomainEvent>
+}
 
-// ✅ ゲーム進行アグリゲート
-const GameSession = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("GameSessionId")),
-  gameRules: GameRules,
-  currentTime: Schema.Number.pipe(Schema.brand("GameTime")),
-  weather: Schema.Union(
-    Schema.Literal("Clear"),
-    Schema.Literal("Rain"),
-    Schema.Literal("Storm")
-  ).pipe(Schema.brand("Weather")),
-  activePlayers: Schema.Array(PlayerId),
-  version: Schema.Number.pipe(Schema.brand("Version"))
-}).pipe(
-  Schema.brand("GameSession"),
-  Schema.annotations({
-    title: "ゲームセッション",
-    description: "ゲーム進行状態を管理するアグリゲート"
+// アクション結果の型定義
+class ActionSuccess extends Data.TaggedClass("Success")<{
+  readonly data: unknown
+}>() {
+  static schema = Schema.Struct({
+    _tag: Schema.Literal("Success"),
+    data: Schema.Unknown
   })
-)
-type GameSession = Schema.Schema.Type<typeof GameSession>
+}
 
-// ✅ パターンマッチング対応のエラー型定義
-const GameMechanicsError = Schema.Union(
-  Schema.Struct({
-    _tag: Schema.Literal("CommandValidationError"),
-    command: PlayerCommand,
-    reason: Schema.String
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("ActionExecutionError"),
-    action: Schema.String,
-    playerId: PlayerId,
-    reason: Schema.String
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("ProgressionError"),
-    operation: Schema.String,
-    reason: Schema.String
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("RuleViolationError"),
-    rule: Schema.String,
-    violation: Schema.String
+class ActionFailure extends Data.TaggedClass("Failure")<{
+  readonly error: string
+}>() {
+  static schema = Schema.Struct({
+    _tag: Schema.Literal("Failure"),
+    error: Schema.String
   })
+}
+
+type ActionResult = ActionSuccess | ActionFailure
+const ActionResultSchema = Schema.Union(ActionSuccess.schema, ActionFailure.schema)
+
+// イベントの統合型
+type GameMechanicsDomainEvent = PlayerActionExecuted | GameTimeProgressed | WeatherChanged
+
+// ✅ Data.Classでゲームセッションアグリゲートを定義
+const Weather = Schema.Literal("Clear", "Rain", "Storm").pipe(
+  Schema.brand("Weather")
 )
-type GameMechanicsError = Schema.Schema.Type<typeof GameMechanicsError>
+type Weather = Schema.Schema.Type<typeof Weather>
 
-// ✅ コマンドハンドリングのサービス
-interface PlayerCommandHandlerInterface {
-  readonly handle: (command: PlayerCommand, session: GameSession) =>
-    Effect.Effect<GameSession, GameMechanicsError>
-  readonly validate: (command: PlayerCommand, session: GameSession) =>
-    Effect.Effect<boolean, GameMechanicsError>
+class GameSession extends Data.Class<{
+  readonly id: string
+  readonly gameRules: GameRules
+  readonly currentTime: number
+  readonly weather: Weather
+  readonly activePlayers: ReadonlyArray<Schema.Schema.Type<typeof PlayerId>>
+  readonly version: number
+}>() {
+  static schema = Schema.Struct({
+    id: Schema.String.pipe(Schema.brand("GameSessionId")),
+    gameRules: GameRules.schema,
+    currentTime: Schema.Number.pipe(Schema.brand("GameTime")),
+    weather: Weather,
+    activePlayers: Schema.Array(PlayerId),
+    version: Schema.Number.pipe(Schema.brand("Version"))
+  }).pipe(
+    Schema.brand("GameSession"),
+    Schema.annotations({
+      title: "ゲームセッション",
+      description: "ゲーム進行状態を管理するアグリゲート"
+    })
+  )
+
+  // ドメイン不変条件: アクティブプレイヤー数制限
+  private validatePlayerLimit(): boolean {
+    return this.activePlayers.length <= 100
+  }
+
+  // ドメインルール: プレイヤー参加
+  addPlayer(playerId: Schema.Schema.Type<typeof PlayerId>): Effect.Effect<GameSession, { readonly _tag: "PlayerLimitExceeded" }> {
+    if (this.activePlayers.includes(playerId)) {
+      return Effect.succeed(this)
+    }
+
+    const newPlayers = [...this.activePlayers, playerId]
+    if (newPlayers.length > 100) {
+      return Effect.fail({ _tag: "PlayerLimitExceeded" })
+    }
+
+    return Effect.succeed(new GameSession({
+      ...this,
+      activePlayers: newPlayers,
+      version: this.version + 1
+    }))
+  }
+
+  // ドメインルール: プレイヤー退場
+  removePlayer(playerId: Schema.Schema.Type<typeof PlayerId>): GameSession {
+    return new GameSession({
+      ...this,
+      activePlayers: this.activePlayers.filter(id => id !== playerId),
+      version: this.version + 1
+    })
+  }
+
+  // ドメインルール: 時間進行
+  progressTime(deltaTime: number): GameSession {
+    return new GameSession({
+      ...this,
+      currentTime: this.currentTime + deltaTime,
+      version: this.version + 1
+    })
+  }
+
+  // ドメインルール: 天気変更
+  changeWeather(newWeather: Weather): GameSession {
+    return new GameSession({
+      ...this,
+      weather: newWeather,
+      version: this.version + 1
+    })
+  }
+
+  // ドメインルール: ゲームルール更新
+  updateGameRules(newRules: GameRules): GameSession {
+    return new GameSession({
+      ...this,
+      gameRules: newRules,
+      version: this.version + 1
+    })
+  }
+
+  // ドメインクエリ: プレイヤーがアクティブか
+  isPlayerActive(playerId: Schema.Schema.Type<typeof PlayerId>): boolean {
+    return this.activePlayers.includes(playerId)
+  }
+
+  // ドメインクエリ: セッションがアクティブか
+  isActive(): boolean {
+    return this.activePlayers.length > 0
+  }
 }
 
-const PlayerCommandHandler = Context.GenericTag<PlayerCommandHandlerInterface>("@game/PlayerCommandHandler")
+// ✅ Data.TaggedErrorでゲームメカニクスエラーを定義
+class CommandValidationError extends Data.TaggedError("CommandValidationError")<{
+  readonly command: PlayerCommand
+  readonly reason: string
+}>() {}
 
-// ✅ ゲーム進行サービス
-interface GameProgressionServiceInterface {
-  readonly tick: (session: GameSession, deltaTime: number) =>
-    Effect.Effect<GameSession, GameMechanicsError>
-  readonly processTimeProgression: (session: GameSession, deltaTime: number) =>
-    Effect.Effect<GameSession, GameMechanicsError>
+class ActionExecutionError extends Data.TaggedError("ActionExecutionError")<{
+  readonly action: string
+  readonly playerId: Schema.Schema.Type<typeof PlayerId>
+  readonly reason: string
+}>() {}
+
+class ProgressionError extends Data.TaggedError("ProgressionError")<{
+  readonly operation: string
+  readonly reason: string
+}>() {}
+
+class RuleViolationError extends Data.TaggedError("RuleViolationError")<{
+  readonly rule: string
+  readonly violation: string
+}>() {}
+
+type GameMechanicsError =
+  | CommandValidationError
+  | ActionExecutionError
+  | ProgressionError
+  | RuleViolationError
+
+// ✅ Effect.Tagでゲームメカニクスサービスを定義
+class PlayerCommandHandler extends Context.Tag("@game/PlayerCommandHandler")<
+  PlayerCommandHandler,
+  {
+    readonly handle: (command: PlayerCommand, session: GameSession) => Effect.Effect<GameSession, GameMechanicsError>
+    readonly validate: (command: PlayerCommand, session: GameSession) => Effect.Effect<boolean, GameMechanicsError>
+    readonly executeCommand: (command: PlayerCommand, session: GameSession) => Effect.Effect<ActionResult, GameMechanicsError>
+  }
+>() {
+  static live = Context.gen(function* () {
+    const ruleValidator = yield* GameRuleValidator
+
+    return PlayerCommandHandler.of({
+      handle: (command, session) =>
+        Effect.gen(function* () {
+          // 早期リターン: コマンド検証
+          const isValid = yield* PlayerCommandHandler.validate(command, session)
+          if (!isValid) {
+            return yield* Effect.fail(new CommandValidationError({
+              command,
+              reason: "コマンド検証に失敗しました"
+            }))
+          }
+
+          // パターンマッチングでコマンド処理
+          return yield* Match.value(command).pipe(
+            Match.when({ _tag: "MoveCommand" }, (moveCmd) =>
+              Effect.succeed(session.progressTime(0.1))
+            ),
+            Match.when({ _tag: "JumpCommand" }, () =>
+              Effect.succeed(session)
+            ),
+            Match.when({ _tag: "PlaceBlockCommand" }, (placeCmd) =>
+              Effect.gen(function* () {
+                // ブロック配置ロジック
+                if (!placeCmd.isValidPlacement(60000000)) {
+                  return yield* Effect.fail(new ActionExecutionError({
+                    action: "PlaceBlock",
+                    playerId: placeCmd.playerId,
+                    reason: "無効な位置です"
+                  }))
+                }
+                return session
+              })
+            ),
+            Match.orElse(() => Effect.succeed(session))
+          )
+        }),
+
+      validate: (command, session) =>
+        Effect.gen(function* () {
+          // 基本検証
+          if (!session.isPlayerActive(command.playerId)) {
+            return false
+          }
+
+          // コマンド固有の検証
+          return yield* Match.value(command).pipe(
+            Match.when({ _tag: "MoveCommand" }, (moveCmd) =>
+              Effect.succeed(moveCmd.isValid())
+            ),
+            Match.when({ _tag: "CraftCommand" }, (craftCmd) =>
+              Effect.succeed(craftCmd.isValidQuantity())
+            ),
+            Match.orElse(() => Effect.succeed(true))
+          )
+        }),
+
+      executeCommand: (command, session) =>
+        Effect.gen(function* () {
+          try {
+            const newSession = yield* PlayerCommandHandler.handle(command, session)
+            return new ActionSuccess({ data: newSession })
+          } catch (error) {
+            return new ActionFailure({ error: String(error) })
+          }
+        })
+    })
+  })
 }
 
-const GameProgressionService = Context.GenericTag<GameProgressionServiceInterface>("@game/GameProgressionService")
+class GameProgressionService extends Context.Tag("@game/GameProgressionService")<
+  GameProgressionService,
+  {
+    readonly tick: (session: GameSession, deltaTime: number) => Effect.Effect<GameSession, GameMechanicsError>
+    readonly processTimeProgression: (session: GameSession, deltaTime: number) => Effect.Effect<GameSession, GameMechanicsError>
+    readonly processWeatherCycle: (session: GameSession) => Effect.Effect<GameSession, GameMechanicsError>
+  }
+>() {
+  static live = Context.gen(function* () {
+    return GameProgressionService.of({
+      tick: (session, deltaTime) =>
+        Effect.gen(function* () {
+          let updatedSession = session
 
-// ✅ ルール検証サービス
-interface GameRuleValidatorInterface {
-  readonly validateAction: (command: PlayerCommand, rules: GameRules) =>
-    Effect.Effect<boolean, GameMechanicsError>
-  readonly checkRuleViolation: (command: PlayerCommand, session: GameSession) =>
-    Effect.Effect<Option.Option<string>, never>
+          // 時間進行
+          if (updatedSession.gameRules.daylightCycle) {
+            updatedSession = yield* GameProgressionService.processTimeProgression(updatedSession, deltaTime)
+          }
+
+          // 天気サイクル
+          if (updatedSession.gameRules.weatherCycle) {
+            updatedSession = yield* GameProgressionService.processWeatherCycle(updatedSession)
+          }
+
+          return updatedSession
+        }),
+
+      processTimeProgression: (session, deltaTime) =>
+        Effect.succeed(session.progressTime(deltaTime)),
+
+      processWeatherCycle: (session) =>
+        Effect.gen(function* () {
+          // 簡単な天気変更ロジック
+          const random = Math.random()
+          if (random < 0.001) {
+            const newWeather: Weather = session.weather === "Clear" ? "Rain" : "Clear"
+            return session.changeWeather(newWeather)
+          }
+          return session
+        })
+    })
+  })
 }
 
-const GameRuleValidator = Context.GenericTag<GameRuleValidatorInterface>("@game/GameRuleValidator")
+class GameRuleValidator extends Context.Tag("@game/GameRuleValidator")<
+  GameRuleValidator,
+  {
+    readonly validateAction: (command: PlayerCommand, rules: GameRules) => Effect.Effect<boolean, GameMechanicsError>
+    readonly checkRuleViolation: (command: PlayerCommand, session: GameSession) => Effect.Effect<Option.Option<string>, never>
+    readonly canExecuteInDifficulty: (command: PlayerCommand, difficulty: Schema.Schema.Type<typeof Difficulty>) => Effect.Effect<boolean, never>
+  }
+>() {
+  static live = Context.gen(function* () {
+    return GameRuleValidator.of({
+      validateAction: (command, rules) =>
+        Effect.gen(function* () {
+          return yield* Match.value(command).pipe(
+            Match.when({ _tag: "PlaceBlockCommand" }, () =>
+              Effect.succeed(true) // 基本的にブロック配置は許可
+            ),
+            Match.when({ _tag: "BreakBlockCommand" }, () =>
+              Effect.succeed(rules.difficulty !== "Peaceful")
+            ),
+            Match.orElse(() => Effect.succeed(true))
+          )
+        }),
+
+      checkRuleViolation: (command, session) =>
+        Effect.gen(function* () {
+          const rules = session.gameRules
+
+          return yield* Match.value(command).pipe(
+            Match.when({ _tag: "UseItemCommand" }, () =>
+              rules.difficulty === "Peaceful" && command.targetEntityId
+                ? Effect.succeed(Option.some("ピースフルモードでは攻撃できません"))
+                : Effect.succeed(Option.none())
+            ),
+            Match.orElse(() => Effect.succeed(Option.none()))
+          )
+        }),
+
+      canExecuteInDifficulty: (command, difficulty) =>
+        Effect.succeed(
+          Match.value(difficulty).pipe(
+            Match.when("Peaceful", () => command._tag !== "UseItemCommand"),
+            Match.orElse(() => true)
+          )
+        )
+    })
+  })
+}
 ```
 
 ### 2.3 エンティティシステムコンテキスト (Entity System Context)
@@ -526,14 +1492,14 @@ const GameRuleValidator = Context.GenericTag<GameRuleValidatorInterface>("@game/
 ```typescript
 // エンティティシステムコンテキスト
 
-// ✅ ECSアーキテクチャに基づくエンティティタイプ
-const EntityType = Schema.Union(
-  Schema.Literal("Player"),
-  Schema.Literal("Mob"),
-  Schema.Literal("Item"),
-  Schema.Literal("Projectile"),
-  Schema.Literal("Vehicle"),
-  Schema.Literal("Block")
+// ✅ Brand型でECSエンティティタイプを定義
+const EntityType = Schema.Literal(
+  "Player",
+  "Mob",
+  "Item",
+  "Projectile",
+  "Vehicle",
+  "Block"
 ).pipe(
   Schema.brand("EntityType"),
   Schema.annotations({
@@ -545,38 +1511,179 @@ type EntityType = Schema.Schema.Type<typeof EntityType>
 
 const ComponentType = Schema.String.pipe(Schema.brand("ComponentType"))
 
-// ✅ ECSコンポーネントを値オブジェクトとして定義
-const PositionComponent = Schema.Struct({
-  _tag: Schema.Literal("PositionComponent"),
-  position: Position3D,
-  rotation: Schema.Struct({
+// ✅ Data.ClassでECSコンポーネントを定義
+class Rotation extends Data.Class<{
+  readonly yaw: number
+  readonly pitch: number
+}>() {
+  static schema = Schema.Struct({
     yaw: Schema.Number,
     pitch: Schema.Number
-  }).pipe(Schema.brand("Rotation")),
-  velocity: Schema.optional(Direction3D)
-}).pipe(
-  Schema.brand("PositionComponent"),
-  Schema.annotations({
-    title: "位置コンポーネント",
-    description: "エンティティの位置・回転・速度情報"
-  })
-)
-type PositionComponent = Schema.Schema.Type<typeof PositionComponent>
+  }).pipe(Schema.brand("Rotation"))
 
-const HealthComponent = Schema.Struct({
-  _tag: Schema.Literal("HealthComponent"),
-  current: Schema.Number.pipe(Schema.nonNegative()),
-  maximum: Schema.Number.pipe(Schema.positive()),
-  regenerationRate: Schema.Number.pipe(Schema.nonNegative()),
-  lastDamageTime: Schema.optional(Schema.Number.pipe(Schema.brand("Timestamp")))
-}).pipe(
-  Schema.brand("HealthComponent"),
-  Schema.annotations({
-    title: "体力コンポーネント",
-    description: "エンティティの体力管理"
-  })
-)
-type HealthComponent = Schema.Schema.Type<typeof HealthComponent>
+  // ドメインルール: 回転の正規化
+  normalize(): Rotation {
+    return new Rotation({
+      yaw: ((this.yaw % 360) + 360) % 360, // 0-360度に正規化
+      pitch: Math.max(-90, Math.min(90, this.pitch)) // -90から90度に制限
+    })
+  }
+
+  // ドメインルール: 方向ベクトルへ変換
+  toDirection(): Direction3D {
+    const yawRad = (this.yaw * Math.PI) / 180
+    const pitchRad = (this.pitch * Math.PI) / 180
+
+    return new Direction3D({
+      x: -Math.sin(yawRad) * Math.cos(pitchRad),
+      y: -Math.sin(pitchRad),
+      z: Math.cos(yawRad) * Math.cos(pitchRad)
+    })
+  }
+}
+
+class PositionComponent extends Data.TaggedClass("PositionComponent")<{
+  readonly position: Position3D
+  readonly rotation: Rotation
+  readonly velocity: Option.Option<Direction3D>
+}>() {
+  static schema = Schema.Struct({
+    _tag: Schema.Literal("PositionComponent"),
+    position: Position3D.schema,
+    rotation: Rotation.schema,
+    velocity: Schema.optionalWith(Direction3D.schema, { as: "Option" })
+  }).pipe(
+    Schema.brand("PositionComponent"),
+    Schema.annotations({
+      title: "位置コンポーネント",
+      description: "エンティティの位置・回転・速度情報"
+    })
+  )
+
+  // ドメインルール: 位置更新
+  move(direction: Direction3D, distance: number): PositionComponent {
+    const newPosition = new Position3D({
+      x: this.position.x + direction.x * distance,
+      y: this.position.y + direction.y * distance,
+      z: this.position.z + direction.z * distance
+    })
+
+    return new PositionComponent({
+      ...this,
+      position: newPosition
+    })
+  }
+
+  // ドメインルール: 回転更新
+  rotate(yawDelta: number, pitchDelta: number): PositionComponent {
+    const newRotation = new Rotation({
+      yaw: this.rotation.yaw + yawDelta,
+      pitch: this.rotation.pitch + pitchDelta
+    }).normalize()
+
+    return new PositionComponent({
+      ...this,
+      rotation: newRotation
+    })
+  }
+
+  // ドメインルール: 速度適用
+  applyVelocity(deltaTime: number): PositionComponent {
+    return Option.match(this.velocity, {
+      onNone: () => this,
+      onSome: (vel) => this.move(vel, deltaTime)
+    })
+  }
+}
+
+class HealthComponent extends Data.TaggedClass("HealthComponent")<{
+  readonly current: number
+  readonly maximum: number
+  readonly regenerationRate: number
+  readonly lastDamageTime: Option.Option<Date>
+}>() {
+  static schema = Schema.Struct({
+    _tag: Schema.Literal("HealthComponent"),
+    current: Schema.Number.pipe(Schema.nonNegative()),
+    maximum: Schema.Number.pipe(Schema.positive()),
+    regenerationRate: Schema.Number.pipe(Schema.nonNegative()),
+    lastDamageTime: Schema.optionalWith(Schema.DateFromSelf, { as: "Option" })
+  }).pipe(
+    Schema.brand("HealthComponent"),
+    Schema.annotations({
+      title: "体力コンポーネント",
+      description: "エンティティの体力管理"
+    })
+  )
+
+  // ドメイン不変条件: 現在HPは最大HPを超えない
+  private validateHealth(): boolean {
+    return this.current <= this.maximum && this.current >= 0
+  }
+
+  // ドメインルール: ダメージ適用
+  takeDamage(damage: number): Effect.Effect<HealthComponent, { readonly _tag: "InvalidDamage" }> {
+    if (damage < 0) {
+      return Effect.fail({ _tag: "InvalidDamage" })
+    }
+
+    const newCurrent = Math.max(0, this.current - damage)
+    const component = new HealthComponent({
+      ...this,
+      current: newCurrent,
+      lastDamageTime: Option.some(new Date())
+    })
+
+    return component.validateHealth()
+      ? Effect.succeed(component)
+      : Effect.fail({ _tag: "InvalidDamage" })
+  }
+
+  // ドメインルール: 回復適用
+  heal(amount: number): Effect.Effect<HealthComponent, { readonly _tag: "InvalidHeal" }> {
+    if (amount < 0) {
+      return Effect.fail({ _tag: "InvalidHeal" })
+    }
+
+    const newCurrent = Math.min(this.maximum, this.current + amount)
+    const component = new HealthComponent({
+      ...this,
+      current: newCurrent
+    })
+
+    return Effect.succeed(component)
+  }
+
+  // ドメインルール: 自然回復
+  regenerate(deltaTime: number): HealthComponent {
+    if (this.current >= this.maximum || this.regenerationRate === 0) {
+      return this
+    }
+
+    const regenAmount = this.regenerationRate * deltaTime
+    const newCurrent = Math.min(this.maximum, this.current + regenAmount)
+
+    return new HealthComponent({
+      ...this,
+      current: newCurrent
+    })
+  }
+
+  // ドメインクエリ: 生存状態
+  isAlive(): boolean {
+    return this.current > 0
+  }
+
+  // ドメインクエリ: 最大HPか
+  isAtMaxHealth(): boolean {
+    return this.current >= this.maximum
+  }
+
+  // ドメインクエリ: HP率
+  getHealthPercentage(): number {
+    return this.maximum > 0 ? this.current / this.maximum : 0
+  }
+}
 
 const AIBehaviorType = Schema.Union(
   Schema.Literal("Passive"),

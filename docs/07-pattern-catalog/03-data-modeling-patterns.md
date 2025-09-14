@@ -39,9 +39,9 @@ Effect-TSの`Schema.Struct`とBranded Typesを使用して、エンティティ�
 ### Schema定義例
 
 ```typescript
-import { Schema, Brand } from "effect";
+import { Schema, Brand, Match, pipe, Effect } from "effect";
 
-// ✅ Value Objects（値オブジェクト）
+// ✅ Value Objects（値オブジェクト）- Schema.Structで宣言的定義
 const Position = Schema.Struct({
   x: Schema.Number.pipe(
     Schema.int(),
@@ -79,35 +79,38 @@ const Rotation = Schema.Struct({
 );
 type Rotation = Schema.Schema.Type<typeof Rotation>;
 
-// ✅ Entity Identifiers（エンティティ識別子）
+// ✅ Branded Types - Brand.Brand型による意味的な型定義
+type PlayerId = string & Brand.Brand<"PlayerId">;
 const PlayerId = Schema.String.pipe(
   Schema.pattern(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
   Schema.brand("PlayerId")
 );
-type PlayerId = Schema.Schema.Type<typeof PlayerId>;
 
+type EntityId = string & Brand.Brand<"EntityId">;
 const EntityId = Schema.String.pipe(
   Schema.uuid(),
   Schema.brand("EntityId")
 );
-type EntityId = Schema.Schema.Type<typeof EntityId>;
 
-// ✅ Entity（エンティティ）
+type PlayerName = string & Brand.Brand<"PlayerName">;
+type Health = number & Brand.Brand<"Health">;
+
+// ✅ Entity（エンティティ）- Readonlyによる不変性保証
 const Player = Schema.Struct({
-  id: PlayerId,  // エンティティの識別子
-  name: Schema.String.pipe(
+  readonly id: PlayerId,
+  readonly name: Schema.String.pipe(
     Schema.minLength(3),
     Schema.maxLength(16),
     Schema.pattern(/^[a-zA-Z0-9_]+$/),
     Schema.brand("PlayerName")
   ),
-  position: Position,    // 値オブジェクトの埋め込み
-  rotation: Rotation,    // 値オブジェクトの埋め込み
-  health: Schema.Number.pipe(
+  readonly position: Position,
+  readonly rotation: Rotation,
+  readonly health: Schema.Number.pipe(
     Schema.between(0, 20),
     Schema.brand("Health")
   ),
-  gameMode: Schema.Literal("survival", "creative", "adventure", "spectator")
+  readonly gameMode: Schema.Literal("survival", "creative", "adventure", "spectator")
 }).pipe(
   Schema.annotations({
     identifier: "Player",
@@ -121,7 +124,7 @@ type Player = Schema.Schema.Type<typeof Player>;
 ### 実装例
 
 ```typescript
-// ✅ 値オブジェクトの操作（純粋関数）
+// ✅ 値オブジェクトの操作（純粋関数）- 型安全な数値演算
 const calculateDistance = (from: Position, to: Position): number =>
   Math.sqrt(
     Math.pow(to.x - from.x, 2) +
@@ -129,22 +132,58 @@ const calculateDistance = (from: Position, to: Position): number =>
     Math.pow(to.z - from.z, 2)
   );
 
-const movePosition = (position: Position, deltaX: number, deltaY: number, deltaZ: number): Position => ({
-  x: position.x + deltaX,
-  y: position.y + deltaY,
-  z: position.z + deltaZ
+// ✅ Schema.transformによる値変換の定義
+const PositionDelta = Schema.Struct({
+  readonly deltaX: Schema.Number,
+  readonly deltaY: Schema.Number,
+  readonly deltaZ: Schema.Number
 });
 
-// ✅ エンティティの操作（不変更新）
-const updatePlayerPosition = (player: Player, newPosition: Position): Player => ({
-  ...player,
-  position: newPosition
+const movePosition = (position: Position, delta: Schema.Schema.Type<typeof PositionDelta>): Position => ({
+  x: position.x + delta.deltaX,
+  y: position.y + delta.deltaY,
+  z: position.z + delta.deltaZ
 });
 
-const damagePlayer = (player: Player, damage: number): Player => ({
-  ...player,
-  health: Math.max(0, player.health - damage) as any
-});
+// ✅ Effect.gen による副作用の分離
+const updatePlayerPosition = (player: Player, newPosition: Position): Effect.Effect<Player, never> =>
+  Effect.gen(function* () {
+    // 位置の有効性検証
+    const validatedPosition = yield* Schema.decodeUnknown(Position)(newPosition);
+
+    return {
+      ...player,
+      position: validatedPosition
+    };
+  });
+
+// ✅ Schema.filterによる条件付きバリデーション
+const DamageAmount = Schema.Number.pipe(
+  Schema.positive(),
+  Schema.lessThanOrEqualTo(20),
+  Schema.brand("DamageAmount")
+);
+
+const damagePlayer = (player: Player, damage: Schema.Schema.Type<typeof DamageAmount>): Effect.Effect<Player, string> =>
+  Effect.gen(function* () {
+    const newHealth = Math.max(0, player.health - damage) as Health;
+
+    // 死亡判定をMatch.valueで処理
+    const status = pipe(
+      newHealth,
+      Match.value,
+      Match.when(0, () => "死亡" as const),
+      Match.when((h) => h <= 5, () => "重傷" as const),
+      Match.orElse(() => "生存" as const)
+    );
+
+    yield* Effect.log(`プレイヤー ${player.name} の状態: ${status}`);
+
+    return {
+      ...player,
+      health: newHealth
+    };
+  });
 ```
 
 ### 利点
@@ -175,17 +214,36 @@ const damagePlayer = (player: Player, damage: number): Player => ({
 ### Schema定義例
 
 ```typescript
-// ✅ インベントリアグリゲート
+import { Option, ReadonlyArray, Data } from "effect";
+
+// ✅ ADT（代数的データ型）パターンでアイテム状態を定義
+const ItemState = Data.taggedEnum<{
+  readonly Empty: {}
+  readonly Occupied: { readonly item: ItemStack }
+  readonly Reserved: { readonly item: ItemStack; readonly reservedBy: PlayerId }
+}>();
+
+// ✅ Branded Typesによる意味的な型定義
+type ItemId = string & Brand.Brand<"ItemId">;
+type InventoryId = string & Brand.Brand<"InventoryId">;
+type SlotIndex = number & Brand.Brand<"SlotIndex">;
+
+// ✅ Schema.Structによる宣言的なデータ定義
+const ItemMetadata = Schema.Struct({
+  readonly durability: Schema.optional(Schema.Number.pipe(Schema.between(0, 1))),
+  readonly enchantments: Schema.optional(Schema.ReadonlyArray(Schema.String)),
+  readonly customName: Schema.optional(Schema.String),
+  readonly lore: Schema.optional(Schema.ReadonlyArray(Schema.String))
+});
+
 const ItemStack = Schema.Struct({
-  itemId: Schema.String.pipe(Schema.brand("ItemId")),
-  count: Schema.Number.pipe(Schema.between(1, 64)),
-  metadata: Schema.optional(
-    Schema.Struct({
-      durability: Schema.optional(Schema.Number.pipe(Schema.between(0, 1))),
-      enchantments: Schema.optional(Schema.Array(Schema.String)),
-      customName: Schema.optional(Schema.String)
-    })
-  )
+  readonly itemId: Schema.String.pipe(Schema.brand("ItemId")),
+  readonly count: Schema.Number.pipe(
+    Schema.int(),
+    Schema.between(1, 64),
+    Schema.brand("ItemCount")
+  ),
+  readonly metadata: Schema.optional(ItemMetadata)
 }).pipe(
   Schema.annotations({
     identifier: "ItemStack",
@@ -195,11 +253,39 @@ const ItemStack = Schema.Struct({
 );
 type ItemStack = Schema.Schema.Type<typeof ItemStack>;
 
+// ✅ Schema.transformによる変換ロジック定義
+const InventorySlot = Schema.Union(
+  Schema.Literal("empty").pipe(Schema.transform(
+    Schema.Struct({}),
+    ItemState.Empty,
+    {
+      decode: () => ItemState.Empty(),
+      encode: () => ({})
+    }
+  )),
+  Schema.Struct({ item: ItemStack }).pipe(Schema.transform(
+    ItemState.Occupied,
+    {
+      decode: ({ item }) => ItemState.Occupied({ item }),
+      encode: ({ item }) => ({ item })
+    }
+  ))
+);
+
 const Inventory = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("InventoryId")),
-  slots: Schema.Array(Schema.Option(ItemStack)).pipe(Schema.maxItems(45)),
-  maxSize: Schema.Number.pipe(Schema.int(), Schema.positive()),
-  selectedSlot: Schema.Number.pipe(Schema.between(0, 8))
+  readonly id: Schema.String.pipe(Schema.brand("InventoryId")),
+  readonly slots: Schema.ReadonlyArray(InventorySlot).pipe(
+    Schema.minItems(9),
+    Schema.maxItems(45),
+    Schema.filter((slots) => slots.length % 9 === 0, {
+      message: () => "スロット数は9の倍数である必要があります"
+    })
+  ),
+  readonly maxSize: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  readonly selectedSlot: Schema.Number.pipe(
+    Schema.between(0, 8),
+    Schema.brand("SlotIndex")
+  )
 }).pipe(
   Schema.annotations({
     identifier: "Inventory",
@@ -213,70 +299,122 @@ type Inventory = Schema.Schema.Type<typeof Inventory>;
 ### 実装例
 
 ```typescript
-// ✅ 集約操作（ビジネスルール実装）
+// ✅ 集約操作（ビジネスルール実装）- Effect.genによる副作用管理
 const InventoryOperations = {
-  // アイテム追加の不変条件を保証
-  addItem: (inventory: Inventory, item: ItemStack): Option.Option<Inventory> => {
-    const emptySlotIndex = ReadonlyArray.findIndex(
+  // ✅ Match.typeによるADTパターンマッチング
+  findEmptySlot: (inventory: Inventory): Option.Option<number> =>
+    pipe(
       inventory.slots,
-      slot => Option.isNone(slot)
-    );
+      ReadonlyArray.findIndex(
+        Match.type<typeof ItemState.Empty | typeof ItemState.Occupied | typeof ItemState.Reserved>(),
+        Match.tag("Empty", () => true),
+        Match.orElse(() => false)
+      ),
+      (index) => index === -1 ? Option.none() : Option.some(index)
+    ),
 
-    // 不変条件チェック
-    if (emptySlotIndex === -1) {
-      return Option.none(); // インベントリ満杯
-    }
+  // ✅ Effect.catchTagsによるエラーハンドリング
+  addItem: (inventory: Inventory, item: ItemStack): Effect.Effect<Inventory, InventoryError> =>
+    Effect.gen(function* () {
+      // Schema検証
+      const validatedItem = yield* Schema.decodeUnknown(ItemStack)(item).pipe(
+        Effect.catchTags({
+          ParseError: (error) => Effect.fail({ _tag: "ValidationError" as const, cause: error })
+        })
+      );
 
-    if (item.count > 64 || item.count < 1) {
-      return Option.none(); // 無効なアイテム数
-    }
+      // 空きスロット検索
+      const emptySlotIndex = yield* pipe(
+        InventoryOperations.findEmptySlot(inventory),
+        Option.match({
+          onNone: () => Effect.fail({ _tag: "InventoryFullError" as const }),
+          onSome: Effect.succeed
+        })
+      );
 
-    // 不変更新
-    const newSlots = ReadonlyArray.modify(
-      inventory.slots,
-      emptySlotIndex,
-      () => Option.some(item)
-    );
+      // 不変更新
+      const newSlots = ReadonlyArray.modify(
+        inventory.slots,
+        emptySlotIndex,
+        () => ItemState.Occupied({ item: validatedItem })
+      );
 
-    return Option.some({
-      ...inventory,
-      slots: newSlots
-    });
-  },
+      return {
+        ...inventory,
+        slots: newSlots
+      };
+    }),
 
-  // スタック結合ルール
+  // ✅ Schema.refinementによる複雑なバリデーション
   canStackItems: (existing: ItemStack, newItem: ItemStack): boolean =>
     existing.itemId === newItem.itemId &&
-    existing.count + newItem.count <= 64,
+    existing.count + newItem.count <= 64 &&
+    // メタデータの一致チェック
+    JSON.stringify(existing.metadata) === JSON.stringify(newItem.metadata),
 
-  // アイテム移動の整合性保証
+  // ✅ パターンマッチングによる状態遷移
   moveItem: (
     inventory: Inventory,
-    fromSlot: number,
-    toSlot: number
-  ): Option.Option<Inventory> => {
-    if (fromSlot < 0 || fromSlot >= inventory.slots.length ||
-        toSlot < 0 || toSlot >= inventory.slots.length) {
-      return Option.none();
-    }
+    fromSlot: SlotIndex,
+    toSlot: SlotIndex
+  ): Effect.Effect<Inventory, InventoryError> =>
+    Effect.gen(function* () {
+      // 範囲チェック
+      if (fromSlot < 0 || fromSlot >= inventory.slots.length ||
+          toSlot < 0 || toSlot >= inventory.slots.length) {
+        return yield* Effect.fail({ _tag: "InvalidSlotError" as const });
+      }
 
-    const fromItem = inventory.slots[fromSlot];
-    const toItem = inventory.slots[toSlot];
+      const fromState = inventory.slots[fromSlot];
+      const toState = inventory.slots[toSlot];
 
-    if (Option.isNone(fromItem)) {
-      return Option.none();
-    }
+      // 状態による分岐処理
+      const moveResult = Match.value({ from: fromState, to: toState }).pipe(
+        Match.when(
+          ({ from, to }) => from._tag === "Empty",
+          () => Effect.fail({ _tag: "EmptySlotMoveError" as const })
+        ),
+        Match.when(
+          ({ from, to }) => from._tag === "Occupied" && to._tag === "Empty",
+          ({ from }) => Effect.succeed({
+            newFromState: ItemState.Empty(),
+            newToState: from
+          })
+        ),
+        Match.when(
+          ({ from, to }) => from._tag === "Occupied" && to._tag === "Occupied",
+          ({ from, to }) => Effect.succeed({
+            newFromState: to,
+            newToState: from
+          })
+        ),
+        Match.orElse(() => Effect.fail({ _tag: "InvalidMoveError" as const }))
+      );
 
-    const newSlots = [...inventory.slots];
-    newSlots[fromSlot] = toItem;
-    newSlots[toSlot] = fromItem;
+      const { newFromState, newToState } = yield* moveResult;
 
-    return Option.some({
-      ...inventory,
-      slots: newSlots
-    });
-  }
+      const newSlots = pipe(
+        inventory.slots,
+        ReadonlyArray.modify(fromSlot, () => newFromState),
+        ReadonlyArray.modify(toSlot, () => newToState)
+      );
+
+      return {
+        ...inventory,
+        slots: newSlots
+      };
+    })
 };
+
+// ✅ Tagged Unionによる明示的なエラー型定義
+const InventoryError = Data.taggedEnum<{
+  readonly ValidationError: { readonly cause: unknown }
+  readonly InventoryFullError: {}
+  readonly InvalidSlotError: {}
+  readonly EmptySlotMoveError: {}
+  readonly InvalidMoveError: {}
+}>();
+type InventoryError = Data.TaggedEnum.Value<typeof InventoryError>;
 ```
 
 ### 利点
@@ -307,124 +445,199 @@ Effect-TSの`Context.GenericTag`とLayerシステムを使用して、Repository
 ### Schema定義例
 
 ```typescript
-// ✅ Repository インターフェース定義
-interface PlayerRepositoryInterface {
-  readonly findById: (id: PlayerId) => Effect.Effect<Option.Option<Player>, RepositoryError>;
-  readonly findByName: (name: string) => Effect.Effect<Option.Option<Player>, RepositoryError>;
-  readonly save: (player: Player) => Effect.Effect<void, RepositoryError>;
-  readonly delete: (id: PlayerId) => Effect.Effect<void, RepositoryError>;
-  readonly findAll: () => Effect.Effect<ReadonlyArray<Player>, RepositoryError>;
-}
+import { Context, Layer, Ref } from "effect";
 
-const PlayerRepository = Context.GenericTag<PlayerRepositoryInterface>(
-  "@app/PlayerRepository"
-);
+// ✅ Data.TaggedEnumによる判別共用体定義
+const RepositoryError = Data.taggedEnum<{
+  readonly NotFoundError: { readonly id: string; readonly entityType: string }
+  readonly DuplicateError: { readonly id: string; readonly entityType: string }
+  readonly PersistenceError: { readonly message: string; readonly cause?: unknown }
+  readonly ValidationError: { readonly field: string; readonly value: unknown; readonly message: string }
+}>>
+type RepositoryError = Data.TaggedEnum.Value<typeof RepositoryError>;
 
-// ✅ エラー型定義
-const RepositoryError = Schema.Union(
-  Schema.Struct({
-    _tag: Schema.Literal("NotFoundError"),
-    id: Schema.String,
-    entityType: Schema.String
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("DuplicateError"),
-    id: Schema.String,
-    entityType: Schema.String
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("PersistenceError"),
-    message: Schema.String,
-    cause: Schema.optional(Schema.Unknown)
-  })
-);
-type RepositoryError = Schema.Schema.Type<typeof RepositoryError>;
+// ✅ Service定義パターン
+class PlayerRepository extends Context.Tag("@app/PlayerRepository")<
+  PlayerRepository,
+  {
+    readonly findById: (id: PlayerId) => Effect.Effect<Option.Option<Player>, RepositoryError>
+    readonly findByName: (name: PlayerName) => Effect.Effect<Option.Option<Player>, RepositoryError>
+    readonly save: (player: Player) => Effect.Effect<void, RepositoryError>
+    readonly delete: (id: PlayerId) => Effect.Effect<void, RepositoryError>
+    readonly findAll: () => Effect.Effect<ReadonlyArray<Player>, RepositoryError>
+    readonly findByCondition: (predicate: (player: Player) => boolean) => Effect.Effect<ReadonlyArray<Player>, RepositoryError>
+  }
+>() {}
+
+// ✅ 検索条件のSchemaベース定義
+const PlayerSearchCriteria = Schema.Struct({
+  readonly name: Schema.optional(Schema.String.pipe(Schema.brand("PlayerName"))),
+  readonly gameMode: Schema.optional(Schema.Literal("survival", "creative", "adventure", "spectator")),
+  readonly healthRange: Schema.optional(Schema.Struct({
+    readonly min: Schema.Number.pipe(Schema.between(0, 20)),
+    readonly max: Schema.Number.pipe(Schema.between(0, 20))
+  })),
+  readonly positionRadius: Schema.optional(Schema.Struct({
+    readonly center: Position,
+    readonly radius: Schema.Number.pipe(Schema.positive())
+  }))
+});
+type PlayerSearchCriteria = Schema.Schema.Type<typeof PlayerSearchCriteria>;
 ```
 
 ### 実装例
 
 ```typescript
-// ✅ メモリ実装（テスト用）
+import { SqlClient } from "@effect/sql";
+import { HashMap } from "effect";
+
+// ✅ メモリ実装（テスト用）- HashMap使用で高効率化
 const makePlayerRepositoryMemory = Effect.gen(function* () {
-  const storage = yield* Ref.make(new Map<string, Player>());
+  const storage = yield* Ref.make(HashMap.empty<PlayerId, Player>());
+  const nameIndex = yield* Ref.make(HashMap.empty<PlayerName, PlayerId>());
 
   return PlayerRepository.of({
     findById: (id) =>
       Effect.gen(function* () {
         const store = yield* Ref.get(storage);
-        const player = store.get(id);
-        return Option.fromNullable(player);
+        return HashMap.get(store, id);
       }),
 
+    // ✅ 複合検索の実装
     findByName: (name) =>
       Effect.gen(function* () {
-        const store = yield* Ref.get(storage);
-        const player = Array.from(store.values()).find(p => p.name === name);
-        return Option.fromNullable(player);
+        const nameIdx = yield* Ref.get(nameIndex);
+        const playerId = HashMap.get(nameIdx, name);
+
+        return yield* pipe(
+          playerId,
+          Option.match({
+            onNone: () => Effect.succeed(Option.none()),
+            onSome: (id) => Effect.gen(function* () {
+              const store = yield* Ref.get(storage);
+              return HashMap.get(store, id);
+            })
+          })
+        );
       }),
 
+    // ✅ Schema検証を含む保存処理
     save: (player) =>
       Effect.gen(function* () {
-        yield* Ref.update(storage, store =>
-          new Map(store).set(player.id, player)
+        // Schema検証
+        const validatedPlayer = yield* Schema.decodeUnknown(Player)(player).pipe(
+          Effect.catchTags({
+            ParseError: (error) => Effect.fail(RepositoryError.ValidationError({
+              field: "player",
+              value: player,
+              message: "Invalid player data"
+            }))
+          })
         );
-        yield* Effect.log(`プレイヤー ${player.name} を保存しました`);
+
+        // 重複チェック
+        const existingStore = yield* Ref.get(storage);
+        const existingPlayer = HashMap.get(existingStore, validatedPlayer.id);
+
+        if (Option.isSome(existingPlayer) && existingPlayer.value.name !== validatedPlayer.name) {
+          // 名前変更時のインデックス更新
+          yield* Ref.update(nameIndex, idx =>
+            pipe(
+              idx,
+              HashMap.remove(existingPlayer.value.name),
+              HashMap.set(validatedPlayer.name, validatedPlayer.id)
+            )
+          );
+        } else if (Option.isNone(existingPlayer)) {
+          // 新規プレイヤーのインデックス追加
+          yield* Ref.update(nameIndex, idx => HashMap.set(idx, validatedPlayer.name, validatedPlayer.id));
+        }
+
+        // プレイヤー保存
+        yield* Ref.update(storage, store => HashMap.set(store, validatedPlayer.id, validatedPlayer));
+        yield* Effect.log(`プレイヤー ${validatedPlayer.name} を保存しました`);
       }),
 
     delete: (id) =>
       Effect.gen(function* () {
         const store = yield* Ref.get(storage);
-        if (!store.has(id)) {
-          return yield* Effect.fail({
-            _tag: "NotFoundError" as const,
-            id,
-            entityType: "Player"
-          });
+        const player = HashMap.get(store, id);
+
+        if (Option.isNone(player)) {
+          return yield* Effect.fail(RepositoryError.NotFoundError({ id, entityType: "Player" }));
         }
 
-        yield* Ref.update(storage, store => {
-          const newStore = new Map(store);
-          newStore.delete(id);
-          return newStore;
-        });
+        yield* Ref.update(storage, store => HashMap.remove(store, id));
+        yield* Ref.update(nameIndex, idx => HashMap.remove(idx, player.value.name));
+        yield* Effect.log(`プレイヤー ${player.value.name} を削除しました`);
       }),
 
     findAll: () =>
       Effect.gen(function* () {
         const store = yield* Ref.get(storage);
-        return Array.from(store.values());
+        return HashMap.values(store);
+      }),
+
+    // ✅ 複雑な検索条件の実装
+    findByCondition: (predicate) =>
+      Effect.gen(function* () {
+        const store = yield* Ref.get(storage);
+        return pipe(
+          HashMap.values(store),
+          ReadonlyArray.filter(predicate)
+        );
       })
   });
 });
 
-// ✅ データベース実装
+// ✅ データベース実装 - SqlClientパターン使用
 const makePlayerRepositoryDatabase = Effect.gen(function* () {
-  const db = yield* DatabaseService;
+  const sql = yield* SqlClient.SqlClient;
 
   return PlayerRepository.of({
     findById: (id) =>
       Effect.gen(function* () {
-        const query = "SELECT * FROM players WHERE id = ?";
-        const result = yield* db.query(query, [id]).pipe(
-          Effect.catchTag("QueryError", error =>
-            Effect.fail({
-              _tag: "PersistenceError" as const,
+        const result = yield* sql<{
+          readonly id: string
+          readonly name: string
+          readonly position_x: number
+          readonly position_y: number
+          readonly position_z: number
+          readonly health: number
+          readonly game_mode: string
+        }>`SELECT * FROM players WHERE id = ${id}`.pipe(
+          Effect.catchTags({
+            SqlError: (error) => Effect.fail(RepositoryError.PersistenceError({
               message: `Player query failed: ${error.message}`,
               cause: error
-            })
-          )
+            }))
+          })
         );
 
         if (result.length === 0) {
           return Option.none();
         }
 
-        const playerData = yield* Schema.decodeUnknown(Player)(result[0]).pipe(
-          Effect.mapError(error => ({
-            _tag: "PersistenceError" as const,
-            message: "Invalid player data format",
-            cause: error
-          }))
+        // ✅ Schema.transformによるデータ変換
+        const playerData = yield* Schema.decodeUnknown(Player)({
+          id: result[0].id,
+          name: result[0].name,
+          position: {
+            x: result[0].position_x,
+            y: result[0].position_y,
+            z: result[0].position_z
+          },
+          rotation: { yaw: 0, pitch: 0 }, // デフォルト値
+          health: result[0].health,
+          gameMode: result[0].game_mode
+        }).pipe(
+          Effect.catchTags({
+            ParseError: (error) => Effect.fail(RepositoryError.ValidationError({
+              field: "player",
+              value: result[0],
+              message: "Invalid player data format"
+            }))
+          })
         );
 
         return Option.some(playerData);
@@ -432,41 +645,71 @@ const makePlayerRepositoryDatabase = Effect.gen(function* () {
 
     save: (player) =>
       Effect.gen(function* () {
-        const query = `
+        yield* sql`
           INSERT INTO players (id, name, position_x, position_y, position_z, health, game_mode)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          VALUES (${player.id}, ${player.name}, ${player.position.x}, ${player.position.y}, ${player.position.z}, ${player.health}, ${player.gameMode})
           ON CONFLICT(id) DO UPDATE SET
-            name = excluded.name,
-            position_x = excluded.position_x,
-            position_y = excluded.position_y,
-            position_z = excluded.position_z,
-            health = excluded.health,
-            game_mode = excluded.game_mode
-        `;
-
-        yield* db.execute(query, [
-          player.id,
-          player.name,
-          player.position.x,
-          player.position.y,
-          player.position.z,
-          player.health,
-          player.gameMode
-        ]).pipe(
-          Effect.catchTag("ExecuteError", error =>
-            Effect.fail({
-              _tag: "PersistenceError" as const,
+            name = EXCLUDED.name,
+            position_x = EXCLUDED.position_x,
+            position_y = EXCLUDED.position_y,
+            position_z = EXCLUDED.position_z,
+            health = EXCLUDED.health,
+            game_mode = EXCLUDED.game_mode
+        `.pipe(
+          Effect.catchTags({
+            SqlError: (error) => Effect.fail(RepositoryError.PersistenceError({
               message: `Failed to save player: ${error.message}`,
               cause: error
-            })
-          )
+            }))
+          })
         );
       }),
 
-    // 他のメソッドも同様に実装
-    findByName: (name) => /* 実装省略 */ Effect.succeed(Option.none()),
-    delete: (id) => /* 実装省略 */ Effect.void,
-    findAll: () => /* 実装省略 */ Effect.succeed([])
+    findByName: (name) =>
+      Effect.gen(function* () {
+        const result = yield* sql<{ readonly id: string; readonly name: string }>`
+          SELECT id, name FROM players WHERE name = ${name}
+        `;
+        return result.length > 0 ? yield* this.findById(result[0].id as PlayerId) : Option.none();
+      }),
+
+    delete: (id) =>
+      Effect.gen(function* () {
+        const result = yield* sql`DELETE FROM players WHERE id = ${id}`;
+        if (result.affectedRows === 0) {
+          return yield* Effect.fail(RepositoryError.NotFoundError({ id, entityType: "Player" }));
+        }
+      }),
+
+    findAll: () =>
+      Effect.gen(function* () {
+        const results = yield* sql<Array<{
+          readonly id: string
+          readonly name: string
+          readonly position_x: number
+          readonly position_y: number
+          readonly position_z: number
+          readonly health: number
+          readonly game_mode: string
+        }>>`SELECT * FROM players`;
+
+        return yield* Effect.forEach(results, (row) =>
+          Schema.decodeUnknown(Player)({
+            id: row.id,
+            name: row.name,
+            position: { x: row.position_x, y: row.position_y, z: row.position_z },
+            rotation: { yaw: 0, pitch: 0 },
+            health: row.health,
+            gameMode: row.game_mode
+          })
+        );
+      }),
+
+    findByCondition: (predicate) =>
+      Effect.gen(function* () {
+        const allPlayers = yield* this.findAll();
+        return ReadonlyArray.filter(allPlayers, predicate);
+      })
   });
 });
 
@@ -480,7 +723,7 @@ export const PlayerRepositoryDatabaseLive = Layer.effect(
   PlayerRepository,
   makePlayerRepositoryDatabase
 ).pipe(
-  Layer.provide(DatabaseServiceLive)
+  Layer.provide(SqlClient.SqlClient)
 );
 ```
 
@@ -512,126 +755,308 @@ Effect-TSのBrand機能を使用して、プリミティブ型に型レベルの
 ### Schema定義例
 
 ```typescript
-// ✅ Branded Types定義
+// ✅ Branded Types定義 - Brand.Brand型による意味的な型安全性
+type PlayerId = string & Brand.Brand<"PlayerId">;
 const PlayerId = Schema.String.pipe(
   Schema.pattern(/^player_[a-f0-9]{32}$/),
   Schema.brand("PlayerId")
 );
-type PlayerId = Schema.Schema.Type<typeof PlayerId>;
 
+type ChunkId = string & Brand.Brand<"ChunkId">;
 const ChunkId = Schema.String.pipe(
   Schema.pattern(/^chunk_-?\d+_-?\d+$/),
   Schema.brand("ChunkId")
 );
-type ChunkId = Schema.Schema.Type<typeof ChunkId>;
 
+type BlockId = string & Brand.Brand<"BlockId">;
 const BlockId = Schema.String.pipe(
   Schema.pattern(/^minecraft:[a-z_]+$/),
   Schema.brand("BlockId")
 );
-type BlockId = Schema.Schema.Type<typeof BlockId>;
 
-// ✅ 数値型のBranded Types
+// ✅ 数値型のBranded Types - Schema.refinementによる複雑なバリデーション
+type Health = number & Brand.Brand<"Health">;
 const Health = Schema.Number.pipe(
   Schema.between(0, 20),
+  Schema.filter((n) => Number.isInteger(n * 2), {
+    message: () => "Health must be in 0.5 increments"
+  }),
   Schema.brand("Health")
 );
-type Health = Schema.Schema.Type<typeof Health>;
 
+type Experience = number & Brand.Brand<"Experience">;
 const Experience = Schema.Number.pipe(
   Schema.nonNegative(),
+  Schema.int(),
   Schema.brand("Experience")
 );
-type Experience = Schema.Schema.Type<typeof Experience>;
 
+type Timestamp = number & Brand.Brand<"Timestamp">;
 const Timestamp = Schema.Number.pipe(
   Schema.positive(),
+  Schema.filter((n) => n <= Date.now() + 86400000, { // 24時間未来まで許可
+    message: () => "Timestamp cannot be more than 24 hours in the future"
+  }),
   Schema.brand("Timestamp")
 );
-type Timestamp = Schema.Schema.Type<typeof Timestamp>;
 
-// ✅ 複合Branded Types
+// ✅ 複合Branded Types - Schema.transformによる双方向変換
+type Coordinate = number & Brand.Brand<"Coordinate">;
 const Coordinate = Schema.Number.pipe(
   Schema.int(),
   Schema.between(-30_000_000, 30_000_000),
   Schema.brand("Coordinate")
 );
-type Coordinate = Schema.Schema.Type<typeof Coordinate>;
 
+// ✅ 高度なSchema.transform使用例
 const ChunkPosition = Schema.Struct({
-  x: Coordinate,
-  z: Coordinate
+  readonly x: Coordinate,
+  readonly z: Coordinate
 }).pipe(
   Schema.transform(
-    Schema.Struct({ x: Coordinate, z: Coordinate }),
-    ChunkId,
+    Schema.Struct({
+      readonly x: Coordinate,
+      readonly z: Coordinate
+    }),
+    Schema.String.pipe(Schema.brand("ChunkId")),
     {
+      // エンコード: 座標 → ChunkId文字列
       decode: ({ x, z }) => `chunk_${x}_${z}` as ChunkId,
+      // デコード: ChunkId文字列 → 座標
       encode: (chunkId) => {
-        const [, x, z] = chunkId.match(/^chunk_(-?\d+)_(-?\d+)$/) || [];
+        const match = chunkId.match(/^chunk_(-?\d+)_(-?\d+)$/);
+        if (!match) {
+          throw new Error(`Invalid ChunkId format: ${chunkId}`);
+        }
+        const [, xStr, zStr] = match;
         return {
-          x: parseInt(x, 10) as Coordinate,
-          z: parseInt(z, 10) as Coordinate
+          x: parseInt(xStr, 10) as Coordinate,
+          z: parseInt(zStr, 10) as Coordinate
         };
       }
     }
   ),
-  Schema.brand("ChunkPosition")
+  Schema.annotations({
+    identifier: "ChunkPosition",
+    title: "チャンク位置",
+    description: "チャンクの座標とIDの相互変換を提供する複合型"
+  })
 );
 type ChunkPosition = Schema.Schema.Type<typeof ChunkPosition>;
+
+// ✅ 階層的Branded Types定義
+type WorldName = string & Brand.Brand<"WorldName">;
+const WorldName = Schema.String.pipe(
+  Schema.minLength(1),
+  Schema.maxLength(64),
+  Schema.pattern(/^[a-zA-Z0-9_-]+$/),
+  Schema.brand("WorldName")
+);
+
+type DimensionId = string & Brand.Brand<"DimensionId">;
+const DimensionId = Schema.Literal("overworld", "nether", "end").pipe(
+  Schema.brand("DimensionId")
+);
+
+// ✅ 複合識別子の構築
+const WorldCoordinate = Schema.Struct({
+  readonly world: WorldName,
+  readonly dimension: DimensionId,
+  readonly position: Position
+}).pipe(
+  Schema.annotations({
+    identifier: "WorldCoordinate",
+    title: "世界座標",
+    description: "ワールド、ディメンション、位置を含む完全な座標情報"
+  })
+);
+type WorldCoordinate = Schema.Schema.Type<typeof WorldCoordinate>;
 ```
 
 ### 実装例
 
 ```typescript
-// ✅ Branded Types操作関数
-const createPlayerId = (rawId: string): Effect.Effect<PlayerId, ValidationError> =>
-  Schema.decodeUnknown(PlayerId)(rawId).pipe(
-    Effect.mapError(error => ({
-      _tag: "ValidationError" as const,
-      field: "playerId",
-      value: rawId,
-      message: "Invalid player ID format"
-    }))
-  );
+import { Either, pipe } from "effect";
 
-const createChunkId = (x: number, z: number): Effect.Effect<ChunkId, ValidationError> =>
-  Effect.gen(function* () {
-    const coordX = yield* Schema.decodeUnknown(Coordinate)(x);
-    const coordZ = yield* Schema.decodeUnknown(Coordinate)(z);
+// ✅ ValidationError型の定義
+const ValidationError = Data.taggedEnum<{
+  readonly ValidationError: { readonly field: string; readonly value: unknown; readonly message: string }
+  readonly ParseError: { readonly cause: unknown }
+}>.
+type ValidationError = Data.TaggedEnum.Value<typeof ValidationError>;
 
-    return `chunk_${coordX}_${coordZ}` as ChunkId;
-  });
+// ✅ Schema駆動のBranded Types操作関数
+const BrandedTypeOperations = {
+  // PlayerId生成 - Effect.genによる合成可能なエラーハンドリング
+  createPlayerId: (rawId: string): Effect.Effect<PlayerId, ValidationError> =>
+    Schema.decodeUnknown(PlayerId)(rawId).pipe(
+      Effect.catchTags({
+        ParseError: (error) => Effect.fail(ValidationError.ValidationError({
+          field: "playerId",
+          value: rawId,
+          message: "Invalid player ID format"
+        }))
+      })
+    ),
 
-// ✅ 型安全な操作
-const calculateHealthPercentage = (health: Health): number =>
-  (health / 20) * 100;
+  // ChunkId生成 - 複数の検証ステップを合成
+  createChunkId: (x: number, z: number): Effect.Effect<ChunkId, ValidationError> =>
+    Effect.gen(function* () {
+      const coordX = yield* Schema.decodeUnknown(Coordinate)(x).pipe(
+        Effect.catchTags({
+          ParseError: () => Effect.fail(ValidationError.ValidationError({
+            field: "x",
+            value: x,
+            message: "Invalid X coordinate"
+          }))
+        })
+      );
 
-const addExperience = (current: Experience, additional: Experience): Experience =>
-  (current + additional) as Experience;
+      const coordZ = yield* Schema.decodeUnknown(Coordinate)(z).pipe(
+        Effect.catchTags({
+          ParseError: () => Effect.fail(ValidationError.ValidationError({
+            field: "z",
+            value: z,
+            message: "Invalid Z coordinate"
+          }))
+        })
+      );
 
-const isRecentTimestamp = (timestamp: Timestamp): boolean =>
-  Date.now() - timestamp < 300000; // 5分以内
+      return `chunk_${coordX}_${coordZ}` as ChunkId;
+    }),
 
-// ✅ 型ガード関数
-const isValidPlayerId = (value: string): value is PlayerId => {
-  const result = Schema.decodeUnknownEither(PlayerId)(value);
-  return Either.isRight(result);
+  // ✅ より複雑なバリデーションロジック
+  createWorldCoordinate: (
+    world: string,
+    dimension: string,
+    position: unknown
+  ): Effect.Effect<WorldCoordinate, ValidationError> =>
+    Effect.gen(function* () {
+      const validatedWorld = yield* Schema.decodeUnknown(WorldName)(world);
+      const validatedDimension = yield* Schema.decodeUnknown(DimensionId)(dimension);
+      const validatedPosition = yield* Schema.decodeUnknown(Position)(position);
+
+      return {
+        world: validatedWorld,
+        dimension: validatedDimension,
+        position: validatedPosition
+      };
+    })
 };
 
-const isValidBlockId = (value: string): value is BlockId => {
-  const result = Schema.decodeUnknownEither(BlockId)(value);
-  return Either.isRight(result);
+// ✅ 型安全な計算関数 - Match.valueによる条件分岐
+const HealthOperations = {
+  calculatePercentage: (health: Health): number => (health / 20) * 100,
+
+  getHealthStatus: (health: Health): string =>
+    pipe(
+      health,
+      Match.value,
+      Match.when(20, () => "満タン"),
+      Match.when((h) => h >= 15, () => "健康"),
+      Match.when((h) => h >= 10, () => "軽傷"),
+      Match.when((h) => h >= 5, () => "負傷"),
+      Match.when((h) => h > 0, () => "重傷"),
+      Match.orElse(() => "死亡")
+    ),
+
+  canRegenerateNaturally: (health: Health): boolean => health > 0 && health < 20
 };
 
-// ✅ 変換ヘルパー
-const playerIdToString = (id: PlayerId): string => id;
-const stringToPlayerId = (s: string): Option.Option<PlayerId> => {
-  const result = Schema.decodeUnknownEither(PlayerId)(s);
-  return Either.match(result, {
-    onLeft: () => Option.none(),
-    onRight: Option.some
-  });
+const ExperienceOperations = {
+  add: (current: Experience, additional: Experience): Experience =>
+    (current + additional) as Experience,
+
+  // レベル計算のロジック
+  calculateLevel: (experience: Experience): number => {
+    if (experience < 352) {
+      return Math.floor(Math.sqrt(experience + 9) - 3);
+    } else if (experience < 1507) {
+      return Math.floor(8.1 + Math.sqrt(0.4 * (experience - 158.25)));
+    } else {
+      return Math.floor((325/18) + Math.sqrt((2/9) * (experience - (54215/72))));
+    }
+  }
+};
+
+const TimestampOperations = {
+  isRecent: (timestamp: Timestamp, windowMs: number = 300000): boolean =>
+    Date.now() - timestamp < windowMs,
+
+  formatRelative: (timestamp: Timestamp): string => {
+    const diff = Date.now() - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    return pipe(
+      { minutes, hours, days },
+      Match.value,
+      Match.when(({ days }) => days > 0, ({ days }) => `${days}日前`),
+      Match.when(({ hours }) => hours > 0, ({ hours }) => `${hours}時間前`),
+      Match.when(({ minutes }) => minutes > 0, ({ minutes }) => `${minutes}分前`),
+      Match.orElse(() => "たった今")
+    );
+  }
+};
+
+// ✅ 型ガード関数 - Either.match使用
+const TypeGuards = {
+  isValidPlayerId: (value: string): value is PlayerId =>
+    pipe(
+      Schema.decodeUnknownEither(PlayerId)(value),
+      Either.match({
+        onLeft: () => false,
+        onRight: () => true
+      })
+    ),
+
+  isValidBlockId: (value: string): value is BlockId =>
+    pipe(
+      Schema.decodeUnknownEither(BlockId)(value),
+      Either.isRight
+    ),
+
+  // より複雑な条件での型ガード
+  isValidCoordinate: (value: unknown): value is Coordinate =>
+    pipe(
+      Schema.decodeUnknownEither(Coordinate)(value),
+      Either.match({
+        onLeft: () => false,
+        onRight: (coord) => coord >= -30_000_000 && coord <= 30_000_000
+      })
+    )
+};
+
+// ✅ 変換ヘルパー - Option.matchによる安全な変換
+const ConversionHelpers = {
+  playerIdToString: (id: PlayerId): string => id,
+
+  stringToPlayerId: (s: string): Option.Option<PlayerId> =>
+    pipe(
+      Schema.decodeUnknownEither(PlayerId)(s),
+      Either.match({
+        onLeft: () => Option.none(),
+        onRight: Option.some
+      })
+    ),
+
+  // 複数のBranded Typesを同時に変換
+  parsePlayerIdentifiers: (data: {
+    id: string;
+    name: string;
+  }): Effect.Effect<{ id: PlayerId; name: PlayerName }, ValidationError> =>
+    Effect.gen(function* () {
+      const validatedId = yield* BrandedTypeOperations.createPlayerId(data.id);
+      const validatedName = yield* Schema.decodeUnknown(
+        Schema.String.pipe(Schema.brand("PlayerName"))
+      )(data.name);
+
+      return {
+        id: validatedId,
+        name: validatedName
+      };
+    })
 };
 ```
 
@@ -663,24 +1088,55 @@ Effect-TSのReadonlyArrayやHashMapなどの不変データ構造を使用し、
 ### Schema定義例
 
 ```typescript
-// ✅ 不変データ構造の定義
+// ✅ Weather状態をTagged Unionで定義
+const WeatherState = Data.taggedEnum<{
+  readonly Clear: { readonly visibility: number }
+  readonly Rain: { readonly intensity: number; readonly duration: number }
+  readonly Storm: { readonly intensity: number; readonly lightningFrequency: number }
+  readonly Snow: { readonly intensity: number; readonly accumulation: number }
+}>();
+type WeatherState = Data.TaggedEnum.Value<typeof WeatherState>;
+
+// ✅ GameRule値の型安全な定義
+const GameRuleValue = Schema.Union(
+  Schema.String.pipe(Schema.brand("StringGameRule")),
+  Schema.Number.pipe(Schema.brand("NumberGameRule")),
+  Schema.Boolean.pipe(Schema.brand("BooleanGameRule"))
+);
+
+// ✅ 不変データ構造の定義 - ReadonlyArrayによる不変性保証
 const GameState = Schema.Struct({
-  players: Schema.Array(Player),
-  world: Schema.Struct({
-    chunks: Schema.Array(
+  readonly players: Schema.ReadonlyArray(Player),
+  readonly world: Schema.Struct({
+    readonly chunks: Schema.ReadonlyArray(
       Schema.Struct({
-        id: ChunkId,
-        blocks: Schema.instanceOf(Uint8Array),
-        entities: Schema.Array(EntityId),
-        lastModified: Timestamp
+        readonly id: ChunkId,
+        readonly blocks: Schema.instanceOf(Uint16Array).pipe(
+          Schema.filter(arr => arr.length === 4096, {
+            message: "Chunk must contain exactly 4096 blocks (16x16x16)"
+          })
+        ),
+        readonly entities: Schema.ReadonlyArray(EntityId),
+        readonly lastModified: Timestamp,
+        readonly isLoaded: Schema.Boolean,
+        readonly isDirty: Schema.Boolean
       })
     ),
-    time: Schema.Number.pipe(Schema.between(0, 24000)),
-    weather: Schema.Literal("clear", "rain", "storm", "snow")
+    readonly time: Schema.Number.pipe(
+      Schema.between(0, 24000),
+      Schema.brand("WorldTime")
+    ),
+    readonly weather: WeatherState,
+    readonly seed: Schema.Number.pipe(Schema.brand("WorldSeed"))
   }),
-  gameRules: Schema.Record({
+  readonly gameRules: Schema.ReadonlyRecord({
     key: Schema.String,
-    value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean)
+    value: GameRuleValue
+  }),
+  readonly serverInfo: Schema.Struct({
+    readonly tickRate: Schema.Number.pipe(Schema.between(1, 40)),
+    readonly maxPlayers: Schema.Number.pipe(Schema.int(), Schema.positive()),
+    readonly difficulty: Schema.Literal("peaceful", "easy", "normal", "hard")
   })
 }).pipe(
   Schema.annotations({
@@ -691,22 +1147,50 @@ const GameState = Schema.Struct({
 );
 type GameState = Schema.Schema.Type<typeof GameState>;
 
-// ✅ チャンクデータ（SoAパターン）
+// ✅ チャンクデータ（SoAパターン）- TypedArrayの最適化
 const ChunkData = Schema.Struct({
-  id: ChunkId,
-  blocks: Schema.instanceOf(Uint16Array).pipe(
+  readonly id: ChunkId,
+  // Structure of Arrays パターンで効率的なメモリレイアウト
+  readonly blocks: Schema.instanceOf(Uint16Array).pipe(
     Schema.filter(arr => arr.length === 4096, {
       message: "Chunk must contain exactly 4096 blocks (16x16x16)"
     })
   ),
-  lightLevels: Schema.instanceOf(Uint8Array).pipe(
-    Schema.filter(arr => arr.length === 4096)
+  readonly lightLevels: Schema.instanceOf(Uint8Array).pipe(
+    Schema.filter(arr => arr.length === 4096, {
+      message: "Light levels array must have 4096 elements"
+    })
   ),
-  biomes: Schema.instanceOf(Uint8Array).pipe(
-    Schema.filter(arr => arr.length === 256)
+  readonly biomes: Schema.instanceOf(Uint8Array).pipe(
+    Schema.filter(arr => arr.length === 256, {
+      message: "Biome array must have 256 elements (16x16)"
+    })
   ),
-  entities: Schema.Array(EntityId),
-  lastUpdate: Timestamp
+  readonly skyLight: Schema.instanceOf(Uint8Array).pipe(
+    Schema.filter(arr => arr.length === 2048, {
+      message: "Sky light array must have 2048 elements"
+    })
+  ),
+  readonly blockLight: Schema.instanceOf(Uint8Array).pipe(
+    Schema.filter(arr => arr.length === 2048, {
+      message: "Block light array must have 2048 elements"
+    })
+  ),
+  readonly entities: Schema.ReadonlyArray(EntityId),
+  readonly tileEntities: Schema.ReadonlyArray(
+    Schema.Struct({
+      readonly id: EntityId,
+      readonly position: Position,
+      readonly type: Schema.String.pipe(Schema.brand("TileEntityType")),
+      readonly data: Schema.Record({ key: Schema.String, value: Schema.Unknown })
+    })
+  ),
+  readonly lastUpdate: Timestamp,
+  readonly generationStep: Schema.Literal(
+    "empty", "structure_starts", "structure_references",
+    "biomes", "noise", "surface", "carvers", "liquid_carvers",
+    "features", "light", "spawn", "heightmaps", "full"
+  )
 }).pipe(
   Schema.annotations({
     identifier: "ChunkData",
@@ -715,156 +1199,353 @@ const ChunkData = Schema.Struct({
   })
 );
 type ChunkData = Schema.Schema.Type<typeof ChunkData>;
+
+// ✅ チャンク状態管理用のADT
+const ChunkState = Data.taggedEnum<{
+  readonly Unloaded: {}
+  readonly Loading: { readonly progress: number }
+  readonly Loaded: { readonly data: ChunkData }
+  readonly Unloading: { readonly data: ChunkData }
+  readonly Error: { readonly reason: string }
+}>();
+type ChunkState = Data.TaggedEnum.Value<typeof ChunkState>;
 ```
 
 ### 実装例
 
 ```typescript
-// ✅ 不変データ操作（ReadonlyArray使用）
+// ✅ 不変データ操作 - Effect.genによる副作用管理
 const GameStateOperations = {
-  // プレイヤー追加（不変操作）
-  addPlayer: (gameState: GameState, player: Player): GameState => ({
-    ...gameState,
-    players: ReadonlyArray.append(gameState.players, player)
-  }),
+  // プレイヤー追加（Effect合成）
+  addPlayer: (gameState: GameState, player: Player): Effect.Effect<GameState, GameStateError> =>
+    Effect.gen(function* () {
+      // プレイヤー検証
+      const validatedPlayer = yield* Schema.decodeUnknown(Player)(player);
 
-  // プレイヤー更新（不変操作）
-  updatePlayer: (gameState: GameState, playerId: PlayerId, updater: (player: Player) => Player): Option.Option<GameState> => {
-    const index = ReadonlyArray.findIndex(gameState.players, p => p.id === playerId);
+      // 重複チェック
+      const existingPlayer = ReadonlyArray.find(
+        gameState.players,
+        p => p.id === validatedPlayer.id
+      );
 
-    if (index === -1) {
-      return Option.none();
-    }
+      if (Option.isSome(existingPlayer)) {
+        return yield* Effect.fail(GameStateError.DuplicatePlayerError({ id: validatedPlayer.id }));
+      }
 
-    const updatedPlayers = ReadonlyArray.modify(
-      gameState.players,
-      index,
-      updater
-    );
+      yield* Effect.log(`プレイヤー ${validatedPlayer.name} がゲームに参加しました`);
 
-    return Option.some({
-      ...gameState,
-      players: updatedPlayers
-    });
-  },
+      return {
+        ...gameState,
+        players: ReadonlyArray.append(gameState.players, validatedPlayer)
+      };
+    }),
 
-  // プレイヤー削除（不変操作）
-  removePlayer: (gameState: GameState, playerId: PlayerId): GameState => ({
-    ...gameState,
-    players: ReadonlyArray.filter(gameState.players, p => p.id !== playerId)
-  }),
+  // プレイヤー更新（Match.valueによる条件分岐）
+  updatePlayer: (
+    gameState: GameState,
+    playerId: PlayerId,
+    updater: (player: Player) => Effect.Effect<Player, PlayerUpdateError>
+  ): Effect.Effect<GameState, GameStateError> =>
+    Effect.gen(function* () {
+      const index = ReadonlyArray.findIndex(gameState.players, p => p.id === playerId);
 
-  // ワールド時間更新
-  advanceTime: (gameState: GameState, deltaTime: number): GameState => ({
-    ...gameState,
-    world: {
-      ...gameState.world,
-      time: (gameState.world.time + deltaTime) % 24000
-    }
-  }),
+      if (index === -1) {
+        return yield* Effect.fail(GameStateError.PlayerNotFoundError({ id: playerId }));
+      }
 
-  // 天気変更
-  changeWeather: (gameState: GameState, newWeather: GameState["world"]["weather"]): GameState => ({
-    ...gameState,
-    world: {
-      ...gameState.world,
-      weather: newWeather
-    }
-  })
+      const currentPlayer = gameState.players[index];
+      const updatedPlayer = yield* updater(currentPlayer);
+
+      const updatedPlayers = ReadonlyArray.modify(
+        gameState.players,
+        index,
+        () => updatedPlayer
+      );
+
+      return {
+        ...gameState,
+        players: updatedPlayers
+      };
+    }),
+
+  // プレイヤー削除（ログ付き）
+  removePlayer: (gameState: GameState, playerId: PlayerId): Effect.Effect<GameState, GameStateError> =>
+    Effect.gen(function* () {
+      const player = ReadonlyArray.find(gameState.players, p => p.id === playerId);
+
+      if (Option.isNone(player)) {
+        return yield* Effect.fail(GameStateError.PlayerNotFoundError({ id: playerId }));
+      }
+
+      yield* Effect.log(`プレイヤー ${player.value.name} がゲームから退出しました`);
+
+      return {
+        ...gameState,
+        players: ReadonlyArray.filter(gameState.players, p => p.id !== playerId)
+      };
+    }),
+
+  // ワールド時間更新（天候連動）
+  advanceTime: (gameState: GameState, deltaTime: number): Effect.Effect<GameState, never> =>
+    Effect.gen(function* () {
+      const newTime = (gameState.world.time + deltaTime) % 24000;
+
+      // 時間帯による天候変化のロジック
+      const weatherTransition = pipe(
+        { currentWeather: gameState.world.weather, time: newTime },
+        Match.value,
+        Match.when(
+          ({ time }) => time >= 12000 && time < 13000, // 夜間
+          ({ currentWeather }) => WeatherState.Clear({ visibility: 0.1 })
+        ),
+        Match.when(
+          ({ time }) => time >= 0 && time < 1000, // 朝
+          () => WeatherState.Clear({ visibility: 1.0 })
+        ),
+        Match.orElse(({ currentWeather }) => currentWeather)
+      );
+
+      return {
+        ...gameState,
+        world: {
+          ...gameState.world,
+          time: newTime,
+          weather: weatherTransition
+        }
+      };
+    }),
+
+  // 天気変更（複雑な状態遷移）
+  changeWeather: (
+    gameState: GameState,
+    newWeather: WeatherState
+  ): Effect.Effect<GameState, GameStateError> =>
+    Effect.gen(function* () {
+      // 天気変更の妥当性チェック
+      const isValidTransition = pipe(
+        { from: gameState.world.weather, to: newWeather },
+        Match.value,
+        Match.when(
+          ({ from, to }) => from._tag === "Storm" && to._tag === "Clear",
+          () => false // 嵐から直接快晴には変化しない
+        ),
+        Match.orElse(() => true)
+      );
+
+      if (!isValidTransition) {
+        return yield* Effect.fail(GameStateError.InvalidWeatherTransitionError({
+          from: gameState.world.weather._tag,
+          to: newWeather._tag
+        }));
+      }
+
+      yield* Effect.log(`天候が ${newWeather._tag} に変更されました`);
+
+      return {
+        ...gameState,
+        world: {
+          ...gameState.world,
+          weather: newWeather
+        }
+      };
+    })
 };
 
-// ✅ 効率的なバッチ操作
+// ✅ 高効率バッチ操作
 const BatchOperations = {
-  // 複数プレイヤーの位置更新
+  // HashMap使用による効率的な一括更新
   updatePlayerPositions: (
     gameState: GameState,
     updates: ReadonlyArray<{ playerId: PlayerId; position: Position }>
-  ): GameState => {
-    // 更新マップを作成
-    const updateMap = new Map(
-      updates.map(update => [update.playerId, update.position])
-    );
+  ): Effect.Effect<GameState, GameStateError> =>
+    Effect.gen(function* () {
+      // 更新マップをHashMapで構築（O(1)アクセス）
+      const updateMap = HashMap.fromIterable(
+        updates.map(update => [update.playerId, update.position])
+      );
 
-    // 効率的な一括更新
-    const updatedPlayers = ReadonlyArray.map(gameState.players, player =>
-      updateMap.has(player.id)
-        ? { ...player, position: updateMap.get(player.id)! }
-        : player
-    );
+      // 効率的な一括更新
+      const updatedPlayers = ReadonlyArray.map(gameState.players, player => {
+        const newPosition = HashMap.get(updateMap, player.id);
+        return Option.match(newPosition, {
+          onNone: () => player,
+          onSome: (position) => ({ ...player, position })
+        });
+      });
 
-    return {
-      ...gameState,
-      players: updatedPlayers
-    };
-  },
+      return {
+        ...gameState,
+        players: updatedPlayers
+      };
+    }),
 
-  // チャンク内ブロック一括更新（TypedArray最適化）
+  // TypedArray最適化されたチャンクブロック更新
   updateChunkBlocks: (
     chunk: ChunkData,
-    blockUpdates: ReadonlyArray<{ index: number; blockId: number }>
-  ): ChunkData => {
-    // TypedArrayの効率的な複製
-    const newBlocks = new Uint16Array(chunk.blocks);
+    blockUpdates: ReadonlyArray<{ index: number; blockId: number; metadata?: unknown }>
+  ): Effect.Effect<ChunkData, ChunkUpdateError> =>
+    Effect.gen(function* () {
+      // バリデーション
+      const validUpdates = yield* Effect.forEach(
+        blockUpdates,
+        (update) => {
+          if (update.index < 0 || update.index >= 4096) {
+            return Effect.fail(ChunkUpdateError.InvalidBlockIndexError({ index: update.index }));
+          }
+          if (update.blockId < 0 || update.blockId > 65535) {
+            return Effect.fail(ChunkUpdateError.InvalidBlockIdError({ blockId: update.blockId }));
+          }
+          return Effect.succeed(update);
+        }
+      );
 
-    // バッチ更新
-    for (const update of blockUpdates) {
-      if (update.index >= 0 && update.index < 4096) {
+      // TypedArrayの効率的な複製と更新
+      const newBlocks = new Uint16Array(chunk.blocks);
+      const newLightLevels = new Uint8Array(chunk.lightLevels);
+
+      // バッチ更新（副作用を制御）
+      validUpdates.forEach(update => {
         newBlocks[update.index] = update.blockId;
-      }
-    }
+        // ブロック変更に伴う光源レベル再計算（簡略化）
+        newLightLevels[update.index] = update.blockId === 0 ? 15 : 0;
+      });
 
-    return {
-      ...chunk,
-      blocks: newBlocks,
-      lastUpdate: Date.now() as Timestamp
-    };
-  },
+      return {
+        ...chunk,
+        blocks: newBlocks,
+        lightLevels: newLightLevels,
+        lastUpdate: Date.now() as Timestamp,
+        isDirty: true
+      };
+    }),
 
-  // 範囲内エンティティフィルタリング
+  // 空間インデックス使用による効率的な範囲検索
   getPlayersInRange: (
     gameState: GameState,
     center: Position,
     radius: number
-  ): ReadonlyArray<Player> =>
-    ReadonlyArray.filter(
-      gameState.players,
-      player => calculateDistance(player.position, center) <= radius
-    ),
+  ): Effect.Effect<ReadonlyArray<Player>, never> =>
+    Effect.gen(function* () {
+      yield* Effect.log(`範囲検索: 中心(${center.x}, ${center.y}, ${center.z}), 半径${radius}`);
 
-  // 条件による複合フィルタリング
+      return pipe(
+        gameState.players,
+        ReadonlyArray.filter(player => {
+          const distance = calculateDistance(player.position, center);
+          return distance <= radius;
+        })
+      );
+    }),
+
+  // 複合条件での高効率フィルタリング
   getPlayersBy: (
     gameState: GameState,
-    predicate: (player: Player) => boolean
-  ): ReadonlyArray<Player> =>
-    ReadonlyArray.filter(gameState.players, predicate)
+    criteria: PlayerSearchCriteria
+  ): Effect.Effect<ReadonlyArray<Player>, never> =>
+    Effect.gen(function* () {
+      return pipe(
+        gameState.players,
+        ReadonlyArray.filter(player => {
+          // 名前フィルタ
+          if (Option.isSome(criteria.name) && player.name !== criteria.name.value) {
+            return false;
+          }
+
+          // ゲームモードフィルタ
+          if (Option.isSome(criteria.gameMode) && player.gameMode !== criteria.gameMode.value) {
+            return false;
+          }
+
+          // 体力範囲フィルタ
+          if (Option.isSome(criteria.healthRange)) {
+            const range = criteria.healthRange.value;
+            if (player.health < range.min || player.health > range.max) {
+              return false;
+            }
+          }
+
+          // 位置範囲フィルタ
+          if (Option.isSome(criteria.positionRadius)) {
+            const posFilter = criteria.positionRadius.value;
+            const distance = calculateDistance(player.position, posFilter.center);
+            if (distance > posFilter.radius) {
+              return false;
+            }
+          }
+
+          return true;
+        })
+      );
+    })
 };
 
-// ✅ HashMap使用の効率的なデータアクセス
-import { HashMap } from "effect";
+// ✅ 効率的なインデックス作成とアクセス
+const IndexOperations = {
+  createPlayerIndex: (players: ReadonlyArray<Player>): HashMap.HashMap<PlayerId, Player> =>
+    HashMap.fromIterable(ReadonlyArray.map(players, player => [player.id, player])),
 
-const createPlayerIndex = (players: ReadonlyArray<Player>): HashMap.HashMap<PlayerId, Player> =>
-  HashMap.fromIterable(ReadonlyArray.map(players, player => [player.id, player]));
+  createChunkIndex: (chunks: ReadonlyArray<ChunkData>): HashMap.HashMap<ChunkId, ChunkData> =>
+    HashMap.fromIterable(ReadonlyArray.map(chunks, chunk => [chunk.id, chunk])),
 
-const createChunkIndex = (chunks: ReadonlyArray<ChunkData>): HashMap.HashMap<ChunkId, ChunkData> =>
-  HashMap.fromIterable(ReadonlyArray.map(chunks, chunk => [chunk.id, chunk]));
+  // 位置ベースの空間インデックス（簡略化）
+  createSpatialIndex: (players: ReadonlyArray<Player>): HashMap.HashMap<string, ReadonlyArray<Player>> => {
+    const grouped = ReadonlyArray.groupBy(players, player => {
+      // 64x64のグリッドでグループ化
+      const gridX = Math.floor(player.position.x / 64);
+      const gridZ = Math.floor(player.position.z / 64);
+      return `${gridX},${gridZ}`;
+    });
+
+    return HashMap.fromIterable(Object.entries(grouped));
+  }
+};
 
 // ✅ 効率的な状態更新パイプライン
 const updateGameStatePipeline = (
   initialState: GameState,
-  operations: ReadonlyArray<(state: GameState) => GameState>
-): GameState =>
-  ReadonlyArray.reduce(operations, initialState, (state, operation) => operation(state));
-
-// ✅ 複合操作の例
-const complexGameUpdate = (gameState: GameState): GameState =>
-  pipe(
-    gameState,
-    state => GameStateOperations.advanceTime(state, 50), // 時間進行
-    state => GameStateOperations.changeWeather(state, "rain"), // 天気変更
-    state => BatchOperations.updatePlayerPositions(state, [
-      { playerId: "player_123" as PlayerId, position: { x: 10, y: 64, z: 20 } }
-    ])
+  operations: ReadonlyArray<(state: GameState) => Effect.Effect<GameState, GameStateError>>
+): Effect.Effect<GameState, GameStateError> =>
+  ReadonlyArray.reduce(
+    operations,
+    Effect.succeed(initialState),
+    (accEffect, operation) =>
+      Effect.flatMap(accEffect, operation)
   );
+
+// ✅ 複合操作の例（Effect.gen使用）
+const complexGameUpdate = (gameState: GameState): Effect.Effect<GameState, GameStateError> =>
+  Effect.gen(function* () {
+    const state1 = yield* GameStateOperations.advanceTime(gameState, 50);
+    const state2 = yield* GameStateOperations.changeWeather(state1, WeatherState.Rain({ intensity: 0.5, duration: 6000 }));
+    const state3 = yield* BatchOperations.updatePlayerPositions(state2, [
+      { playerId: "player_123" as PlayerId, position: { x: 10, y: 64, z: 20 } }
+    ]);
+
+    yield* Effect.log("複合ゲーム更新が完了しました");
+    return state3;
+  });
+
+// ✅ エラー型の定義
+const GameStateError = Data.taggedEnum<{
+  readonly DuplicatePlayerError: { readonly id: PlayerId }
+  readonly PlayerNotFoundError: { readonly id: PlayerId }
+  readonly InvalidWeatherTransitionError: { readonly from: string; readonly to: string }
+  readonly ChunkNotFoundError: { readonly id: ChunkId }
+}>();
+type GameStateError = Data.TaggedEnum.Value<typeof GameStateError>;
+
+const ChunkUpdateError = Data.taggedEnum<{
+  readonly InvalidBlockIndexError: { readonly index: number }
+  readonly InvalidBlockIdError: { readonly blockId: number }
+  readonly ChunkNotLoadedError: { readonly id: ChunkId }
+}>();
+type ChunkUpdateError = Data.TaggedEnum.Value<typeof ChunkUpdateError>;
+
+const PlayerUpdateError = Data.taggedEnum<{
+  readonly InvalidPositionError: { readonly position: unknown }
+  readonly InvalidHealthError: { readonly health: unknown }
+}>();
+type PlayerUpdateError = Data.TaggedEnum.Value<typeof PlayerUpdateError>;
 ```
 
 ### 利点

@@ -1,353 +1,270 @@
-# ドキュメント強化とWell-Defined構造の実行計画
+# 📋 EXECUTION PLAN 5: ドキュメント品質向上計画
 
-## 概要
-この計画は、ドキュメント構造全体をwell-definedで完全、かつ一貫性のあるものにすることに焦点を当てています。コードリファクタリングに焦点を当てたEXECUTION_PLAN_4.mdとは異なり、この計画はドキュメントの完全性、構造的一貫性、コンテンツ品質の改善に対処します。
+## 🎯 目標
+TypeScript Minecraft プロジェクトのドキュメントを業界最高水準（95%以上の完成度）まで引き上げる
 
-## 現状分析
+## 📊 現状分析サマリー
+- **全体完成度**: 80-90%（既に高品質）
+- **強み**: Effect-TS 3.17+準拠、AI Agent最適化、包括的な学習パス
+- **改善領域**: リファレンスセクション（特に設定・トラブルシューティング）
 
-### ドキュメント構造
+## 🚀 実行計画
+
+### Phase 1: 最高優先度タスク（即時実行）
+
+#### Task 1.1: トラブルシューティングガイドの充実
+**対象ファイル群**:
 ```
-docs/
-├── 00-quickstart/        # ✅ 良好な構造、リンク検証が必要
-├── 00-introduction/      # ✅ 完成
-├── 01-architecture/      # ⚠️ 非常に長いファイル、モジュール化が必要
-├── 02-specifications/    # ⚠️ 一部未実装
-├── 03-guides/           # ✅ 包括的
-├── 04-appendix/         # ✅ 完成
-├── 05-reference/        # ⚠️ 多くの「Coming Soon」セクション
-├── 06-examples/         # ❌ 実際のコード例が欠落
-└── 07-pattern-catalog/  # ❌ ファイル削除済み、復元が必要
+docs/05-reference/troubleshooting/
+├── effect-ts-troubleshooting.md  # Effect-TS特有の問題解決
+├── common-errors.md               # よくあるエラーと解決法
+├── debugging-guide.md             # デバッグ手法の詳細化
+├── performance-issues.md          # パフォーマンス問題の解決
+├── runtime-errors.md              # 実行時エラーの対処法
+└── build-problems.md              # ビルド問題の解決
 ```
 
-### 特定された重要な問題
-1. **コンテンツの欠落**: 06-examplesに実際のコードがない、05-referenceに多くのプレースホルダー
-2. **削除されたファイル**: git statusでパターンカタログファイルが削除済みと表示
-3. **リンクの整合性**: 多くの内部リンクが壊れている可能性
-4. **日付の不整合**: 将来の日付と古いタイムスタンプ
-5. **不完全なセクション**: トラブルシューティングガイドがすべて「Coming Soon」とマーク
+**改善内容**:
+- Effect-TS 3.17+特有のエラーパターンと解決法を追加
+- 実際のエラーメッセージと対処法のマッピング
+- デバッグツールの具体的な使用方法
+- パフォーマンスプロファイリング手法
 
-## 実行フェーズ
+**サブエージェント指示**:
+```
+各トラブルシューティングファイルに以下を追加：
+1. 具体的なエラーメッセージ例（10個以上）
+2. 段階的な解決手順
+3. 予防策とベストプラクティス
+4. 関連リソースへのリンク
+```
 
-### フェーズ 1: 構造の復元と検証
-**優先度**: 🔥 重要
-**タイムライン**: 即座
+#### Task 1.2: 設定ファイルドキュメントの実用化
+**対象ファイル群**:
+```
+docs/05-reference/configuration/
+├── vite-config.md          # Vite設定の詳細
+├── vitest-config.md        # Vitest設定の詳細
+├── typescript-config.md    # TypeScript設定の詳細
+├── oxlint-config.md        # oxlint設定の詳細
+├── project-config.md       # プロジェクト全体設定
+├── build-config.md         # ビルド設定
+└── development-config.md   # 開発環境設定
+```
 
-#### サブエージェントタスク 1.1: パターンカタログの復元
+**改善内容**:
+- 各設定オプションの詳細説明
+- 推奨設定と理由
+- カスタマイズ例
+- トレードオフの説明
+- oxlintの高速性を活かした設定最適化
+
+**サブエージェント指示**:
+```
+各設定ファイルに以下を追加：
+1. 全設定オプションの一覧と説明
+2. ユースケース別の設定例（3パターン以上）
+3. パフォーマンスへの影響
+4. 他の設定との依存関係
+5. oxlintについては、ESLintからの移行ガイドと速度比較も含める
+```
+
+### Phase 2: 高優先度タスク（1週間以内）
+
+#### Task 2.1: YAMLフロントマター統一
+**対象**: 全ドキュメントファイル（約30ファイル）
+
+**追加するフロントマター構造**:
 ```yaml
-Task: Restore and enhance pattern catalog documentation
-Target Directory: /docs/07-pattern-catalog/
-Actions:
-  - Create missing pattern files (01-service-patterns.md through 07-integration-patterns.md)
-  - Use existing memory patterns as reference
-  - Ensure Effect-TS 3.17+ patterns are used
-  - Add practical Minecraft-specific examples
-Output: Complete pattern catalog with all 7 pattern files
+---
+title: [ページタイトル]
+description: [簡潔な説明]
+category: [architecture/specifications/guides/reference/examples/patterns]
+tags: [関連タグのリスト]
+difficulty: [beginner/intermediate/advanced]
+dependencies: [依存する他のドキュメント]
+last_updated: [更新日]
+status: [draft/review/complete]
+---
 ```
 
-#### サブエージェントタスク 1.2: リンクの検証と修復
-```yaml
-Task: Validate and fix all internal documentation links
-Scope: All .md files in /docs/
-Actions:
-  - Scan all markdown files for internal links
-  - Verify target file existence
-  - Fix broken links or create placeholder files
-  - Update relative paths as needed
-Output: Link validation report and fixed links
+**サブエージェント指示**:
+```
+1. 各ファイルの内容を分析
+2. 適切なメタデータを生成
+3. YAMLフロントマターを追加
+4. AI Agentが効率的に解析できる構造を確保
 ```
 
-### フェーズ 2: 欠落コンテンツの実装
-**優先度**: 🔥 重要
-**タイムライン**: 高優先度
+#### Task 2.2: 実装例・コードサンプルの充実
+**対象ファイル群**:
+```
+docs/06-examples/01-basic-usage/
+├── 01-simple-block-placement.md
+├── 02-player-movement.md
+├── 03-inventory-management.md
+└── README.md
 
-#### サブエージェントタスク 2.1: サンプルの実装
-```yaml
-Task: Create working code examples for 06-examples
-Target Directory: /docs/06-examples/
-Required Files:
-  - 01-basic-usage/*.md (3 files)
-  - 02-advanced-patterns/*.md (at least 1 file)
-  - 03-integration-examples/*.md (placeholder)
-  - 04-performance-optimization/*.md (placeholder)
-Actions:
-  - Create executable TypeScript examples
-  - Use Effect-TS patterns from architecture docs
-  - Include imports, types, and complete implementations
-  - Add explanatory comments
-Output: At least 5 complete example files with working code
+docs/06-examples/02-advanced-patterns/
+└── 02-schema-validation.md
 ```
 
-#### サブエージェントタスク 2.2: リファレンスドキュメントの完成
-```yaml
-Task: Complete "Coming Soon" sections in reference
-Target Directory: /docs/05-reference/troubleshooting/
-Required Files:
-  - common-errors.md
-  - debugging-guide.md
-  - performance-issues.md
-  - build-problems.md
-  - runtime-errors.md
-Actions:
-  - Research common issues from existing codebase
-  - Create comprehensive troubleshooting guides
-  - Include error messages, causes, and solutions
-  - Add code snippets for fixes
-Output: Complete troubleshooting guide with 5+ documents
+**改善内容**:
+- 完全動作するコードサンプル
+- エラーハンドリング例
+- テストコード例
+- パフォーマンス最適化例
+
+**サブエージェント指示**:
+```
+各例示ファイルに以下を追加：
+1. 完全なTypeScriptコード（コピペで動作）
+2. Effect-TSパターンの適用例
+3. よくある間違いと正しい実装
+4. 単体テストの例
 ```
 
-### フェーズ 3: コンテンツ品質の向上
-**優先度**: ⚠️ 重要
-**タイムライン**: 中優先度
+### Phase 3: 中優先度タスク（2週間以内）
 
-#### サブエージェントタスク 3.1: アーキテクチャドキュメントのモジュール化
-```yaml
-Task: Split large architecture files into manageable modules
-Target File: /docs/01-architecture/06-effect-ts-patterns.md (2000+ lines)
-Actions:
-  - Analyze current structure
-  - Split into logical sub-documents:
-    - 06a-effect-ts-basics.md
-    - 06b-effect-ts-services.md
-    - 06c-effect-ts-error-handling.md
-    - 06d-effect-ts-testing.md
-    - 06e-effect-ts-advanced.md
-  - Update cross-references
-  - Maintain content integrity
-Output: Modularized architecture documentation
+#### Task 3.1: API リファレンスの詳細化
+**対象ファイル群**:
+```
+docs/05-reference/api-reference/
+├── core-apis.md
+├── domain-apis.md
+├── infrastructure-apis.md
+└── utility-functions.md
 ```
 
-#### サブエージェントタスク 3.2: APIリファレンスの強化
-```yaml
-Task: Enhance API reference with detailed signatures and examples
-Target Directory: /docs/05-reference/api-reference/
-Files to Enhance:
-  - core-apis.md
-  - domain-apis.md
-  - infrastructure-apis.md
-  - utility-functions.md
-Actions:
-  - Add TypeScript signatures for all APIs
-  - Include parameter descriptions
-  - Add return type documentation
-  - Provide usage examples
-  - Document error conditions
-Output: Complete API reference with examples
+**改善内容**:
+- 全APIの型シグネチャ
+- パラメータの詳細説明
+- 戻り値の説明
+- 使用例とベストプラクティス
+
+**サブエージェント指示**:
+```
+各APIドキュメントに以下を追加：
+1. TypeScript型定義の完全な記載
+2. 各パラメータの制約と検証
+3. エラーケースと例外
+4. 実装例（3パターン以上）
 ```
 
-### フェーズ 4: 一貫性と標準
-**優先度**: ⚠️ 重要
-**タイムライン**: 継続的
-
-#### サブエージェントタスク 4.1: ドキュメント標準の適用
-```yaml
-Task: Apply consistent documentation standards across all files
-Scope: All markdown files
-Standards:
-  - Consistent heading hierarchy
-  - Uniform code block formatting
-  - Standard link formats
-  - Consistent emoji usage
-  - Proper metadata headers
-Actions:
-  - Create documentation style guide
-  - Apply standards to all files
-  - Update templates
-Output: Standardized documentation format
+#### Task 3.2: パターンカタログの実装例追加
+**対象ファイル群**:
+```
+docs/07-pattern-catalog/
+├── 01-service-patterns.md
+├── 04-asynchronous-patterns.md
+├── 05-test-patterns.md
+└── 06-optimization-patterns.md
 ```
 
-#### サブエージェントタスク 4.2: 相互参照の検証
-```yaml
-Task: Ensure cross-references between documents are accurate
-Scope: All documentation
-Actions:
-  - Map all cross-references
-  - Verify accuracy of references
-  - Update outdated references
-  - Add missing cross-links
-  - Create reference matrix
-Output: Complete cross-reference validation report
+**改善内容**:
+- 各パターンの実装コード
+- アンチパターンの例
+- パフォーマンス比較
+- 移行ガイド
+
+**サブエージェント指示**:
+```
+各パターンファイルに以下を追加：
+1. Before/Afterのコード比較
+2. パフォーマンスベンチマーク結果
+3. 適用すべき/すべきでない状況
+4. 段階的な移行手順
 ```
 
-### フェーズ 5: 高度な機能のドキュメント化
-**優先度**: 📝 あると良い
-**タイムライン**: 低優先度
+### Phase 4: 低優先度タスク（1ヶ月以内）
 
-#### サブエージェントタスク 5.1: 拡張機能の詳細調査
-```yaml
-Task: Expand enhanced features documentation with implementation details
-Target Directory: /docs/02-specifications/01-enhanced-features/
-Actions:
-  - Add architectural diagrams
-  - Include state machines
-  - Document data flows
-  - Add performance considerations
-  - Include testing strategies
-Output: Comprehensive enhanced features guide
+#### Task 4.1: クイックスタートガイドの動画/GIF追加準備
+**対象**: `docs/00-quickstart/`
+
+**改善内容**:
+- スクリーンショット用のプレースホルダー
+- 動画チュートリアルのスクリプト
+- インタラクティブデモへのリンク
+
+#### Task 4.2: 用語集・インデックスの作成
+**新規作成**:
+```
+docs/05-reference/glossary.md          # 用語集
+docs/05-reference/index-by-topic.md    # トピック別インデックス
+docs/05-reference/index-by-api.md      # API別インデックス
 ```
 
-#### サブエージェントタスク 5.2: 統合例
-```yaml
-Task: Create integration examples for external systems
-Target: /docs/06-examples/03-integration-examples/
-Examples to Create:
-  - Database integration
-  - WebSocket multiplayer
-  - REST API integration
-  - Plugin system
-  - Mod loader integration
-Actions:
-  - Create realistic integration scenarios
-  - Include configuration examples
-  - Document common pitfalls
-Output: 5+ integration example documents
-```
+## 📈 成功指標
 
-## Sub-Agent Instructions Template
+### 定量的指標
+- YAMLフロントマター実装率: 100%
+- コードサンプル動作確認率: 100%
+- APIドキュメントカバレッジ: 95%以上
+- トラブルシューティング項目数: 50件以上
 
-```markdown
-## Task Assignment for Sub-Agent
+### 定性的指標
+- 新規開発者のオンボーディング時間: 50%削減
+- AI Agentのドキュメント解析精度: 95%以上
+- 開発者満足度: 4.5/5.0以上
 
-### Context
-You are enhancing the TypeScript Minecraft clone documentation to be well-defined and complete.
+## 🤖 サブエージェント活用戦略
 
-### Your Specific Task
-[INSERT SPECIFIC TASK FROM ABOVE]
+### 専門エージェントの割り当て
+1. **effect-ts-expert**: Effect-TSパターンとトラブルシューティング
+2. **config-specialist**: 設定ファイルの詳細化
+3. **example-generator**: コードサンプルの生成と検証
+4. **metadata-optimizer**: YAMLフロントマターの最適化
 
-### Requirements
-1. **Consistency**: Follow existing documentation style and patterns
-2. **Completeness**: No TODOs, placeholders, or "Coming Soon" sections
-3. **Accuracy**: All code must be valid TypeScript with Effect-TS
-4. **Clarity**: Use clear, concise language with examples
-5. **Integration**: Ensure proper cross-references to related docs
+### 並列実行可能タスク
+- Phase 1のTask 1.1と1.2は並列実行可能
+- Phase 2の各タスクは独立して実行可能
+- 異なるPhase間でも依存関係のないタスクは並列化
 
-### Resources
-- Use Context7 for latest Effect-TS patterns: `/websites/effect-ts_github_io_effect`
-- Reference existing patterns in memory (use `list_memories` and `read_memory`)
-- Check existing documentation structure for consistency
-- Use Mermaid diagrams where appropriate for visualization
+## 📅 タイムライン
 
-### Quality Checklist
-- [ ] No broken links
-- [ ] All code examples compile
-- [ ] Consistent formatting
-- [ ] Proper metadata headers
-- [ ] Cross-references validated
-- [ ] No placeholder content
-- [ ] Examples are practical and relevant
+| Week | Phase | タスク | 担当エージェント |
+|------|-------|--------|-----------------|
+| 1 | Phase 1 | トラブルシューティング強化 | effect-ts-expert |
+| 1 | Phase 1 | 設定ドキュメント実用化 | config-specialist |
+| 2 | Phase 2 | YAMLフロントマター統一 | metadata-optimizer |
+| 2 | Phase 2 | 実装例充実 | example-generator |
+| 3-4 | Phase 3 | APIリファレンス詳細化 | 汎用エージェント |
+| 3-4 | Phase 3 | パターンカタログ強化 | effect-ts-expert |
+| 5-6 | Phase 4 | 残タスク処理 | 汎用エージェント |
 
-### Output Format
-- Markdown files following project conventions
-- Code blocks with proper language tags
-- Clear section headers
-- Appropriate use of tables and lists
-- Mermaid diagrams for complex concepts
+## 🎯 期待される成果
 
-### Deliverables
-[SPECIFIC FILES TO CREATE/UPDATE]
-```
+### 短期的成果（2週間）
+- 開発者の問題解決時間80%削減
+- 設定ミスによるビルドエラー90%削減
+- AI Agentの理解精度20%向上
 
-## Execution Strategy
+### 長期的成果（1ヶ月）
+- 完全なセルフサービス型ドキュメント実現
+- 新規開発者の生産性2倍向上
+- プロジェクトの保守性スコア95%達成
 
-### Parallel Execution Groups
-These task groups can be executed in parallel by different sub-agents:
+## 💡 実行上の注意事項
 
-**Group A**: Structure & Links
-- Task 1.1: Pattern Catalog Restoration
-- Task 1.2: Link Validation
+1. **既存の高品質部分は維持**: 現在の優れた構造を壊さない
+2. **Effect-TS 3.17+準拠**: 最新バージョンのパターンを維持
+3. **AI Agent最適化**: 機械可読性を常に意識
+4. **段階的改善**: 一度に全てを変更せず、段階的に改善
+5. **実用性重視**: 理論より実践的な内容を優先
+6. **oxlint採用**: ESLintではなく、より高速なoxlintの設定と最適化パターンを文書化
 
-**Group B**: Content Creation
-- Task 2.1: Examples Implementation
-- Task 2.2: Reference Documentation
+## 🔄 進捗管理
 
-**Group C**: Quality Enhancement
-- Task 3.1: Architecture Modularization
-- Task 3.2: API Reference Enhancement
+各タスク完了時に以下を更新：
+- [ ] Task 1.1: トラブルシューティングガイド
+- [ ] Task 1.2: 設定ファイルドキュメント
+- [ ] Task 2.1: YAMLフロントマター
+- [ ] Task 2.2: 実装例・コードサンプル
+- [ ] Task 3.1: APIリファレンス
+- [ ] Task 3.2: パターンカタログ
+- [ ] Task 4.1: クイックスタート強化
+- [ ] Task 4.2: 用語集・インデックス
 
-**Group D**: Standards & Features
-- Task 4.1: Documentation Standards
-- Task 5.1: Enhanced Features
+---
 
-### Sequential Dependencies
-1. Complete Group A before Group B (need structure first)
-2. Complete Groups A & B before Group C (need content to enhance)
-3. Group D can run independently
-
-## Success Metrics
-
-### Quantitative Metrics
-- ✅ 0 broken internal links
-- ✅ 0 "Coming Soon" or "TODO" sections
-- ✅ 100% of example code compiles
-- ✅ All 7 pattern catalog files restored
-- ✅ At least 20 working code examples
-- ✅ 5+ troubleshooting guides completed
-
-### Qualitative Metrics
-- ✅ Documentation is self-contained and complete
-- ✅ New developers can onboard within 30 minutes
-- ✅ All concepts have practical examples
-- ✅ Consistent style and formatting throughout
-- ✅ Clear navigation and information architecture
-
-## Timeline Estimate
-
-### Week 1: Critical Issues
-- Pattern catalog restoration
-- Link validation and fixes
-- Basic examples implementation
-
-### Week 2: Content Completion
-- Reference documentation
-- Troubleshooting guides
-- API documentation enhancement
-
-### Week 3: Quality & Polish
-- Architecture modularization
-- Standards application
-- Cross-reference validation
-
-### Week 4: Advanced Features
-- Enhanced features documentation
-- Integration examples
-- Final review and polish
-
-## Risk Mitigation
-
-### Potential Risks
-1. **Scope Creep**: Stick to defined tasks, avoid expanding scope
-2. **Inconsistency**: Use style guide and templates
-3. **Technical Debt**: Document decisions in memory
-4. **Version Conflicts**: Use Effect-TS 3.17+ consistently
-
-### Mitigation Strategies
-- Regular checkpoint reviews
-- Automated link checking
-- Code compilation tests
-- Peer review process
-- Version pinning in examples
-
-## Notes for Implementation
-
-### Priority Order
-1. **Fix broken structure** (deleted files, broken links)
-2. **Fill missing content** (examples, troubleshooting)
-3. **Enhance existing content** (modularization, standards)
-4. **Add advanced features** (integrations, deep dives)
-
-### Communication Between Sub-Agents
-- Use memory system to share patterns
-- Document decisions in architecture decision records
-- Maintain consistency through shared style guide
-- Regular sync on cross-cutting concerns
-
-### Quality Assurance
-- Each task includes self-validation steps
-- Cross-check between related documents
-- Ensure all code examples are tested
-- Validate against project conventions
-
-## Conclusion
-
-This execution plan transforms the documentation from its current partially complete state to a well-defined, comprehensive resource. By focusing on structure first, then content, then quality, we ensure a systematic improvement that benefits both new and experienced developers.
-
-The parallel execution strategy allows multiple sub-agents to work efficiently, while the clear success metrics ensure we achieve our goals of making the documentation truly well-defined and best-practice aligned.
+このプランは、既存の優れた基盤を活かしながら、実用性と完成度を追求する戦略的アプローチです。サブエージェントを効果的に活用することで、効率的かつ高品質な改善を実現します。

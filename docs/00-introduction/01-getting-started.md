@@ -19,8 +19,8 @@ version: "1.0.0"
 開発を始める前に、以下のツールがシステムにインストールされていることを確認してください。
 
 ### 必須環境
-- **Node.js**: `v18.0.0` 以上 (LTS版を推奨)
-- **pnpm**: `v8.0.0` 以上
+- **Node.js**: `v20.0.0` 以上 (LTS版を推奨)
+- **pnpm**: `v9.0.0` 以上 (最新版を推奨)
 - **Git**: `v2.30.0` 以上
 
 ## 2. セットアップ手順
@@ -108,13 +108,18 @@ pnpm dev
 キャッシュをクリアし、`node_modules` を削除してから再インストールを試してください。
 
 ```bash
+# node_modulesを削除してクリーンインストール
+rm -rf node_modules
+pnpm install --force
+
+# または、pnpmストアのキャッシュもクリアする場合
 pnpm store prune
 rm -rf node_modules
 pnpm install
 ```
 
 ### TypeScriptの型エラーが発生した場合
-VS Codeで `Cmd/Ctrl + Shift + P` を押し、`TypeScript: Restart TS Server` を実行してTypeScriptサーバーを再起動してみてください。
+お使いのエディタでTypeScriptサーバーを再起動してみてください。多くのエディタでは、コマンドパレットから「TypeScript: Restart TS Server」や類似のコマンドを実行できます。
 
 ## 7. 次のステップ
 

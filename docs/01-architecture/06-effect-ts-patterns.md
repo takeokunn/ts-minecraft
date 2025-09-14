@@ -1,6 +1,6 @@
 ---
 title: "Effect-TS 利用パターン - 関数型プログラミング実践"
-description: "Effect-TS 3.17+の最新パターンによる純粋関数型プログラミング実践ガイド。Schema.Struct、Context.GenericTag、Match.valueを活用した高品質コード作成。"
+description: "Effect-TS 3.17+の最新パターンによる純粋関数型プログラミング実践ガイド。Schema.Struct、Context.Tag、Match.valueを活用した高品質コード作成。"
 category: "architecture"
 difficulty: "advanced"
 tags: ["effect-ts", "functional-programming", "schema", "context", "patterns", "best-practices"]
@@ -11,6 +11,23 @@ version: "1.0.0"
 ---
 
 # Effect-TS 利用パターン
+
+## 🧭 ナビゲーション
+
+> **📍 現在位置**: [ホーム](../README.md) → [アーキテクチャ](./README.md) → **Effect-TSパターン**
+>
+> **🎯 学習目標**: Effect-TS 3.17+の最新パターン完全理解
+>
+> **⏱️ 所要時間**: 45分（実践的理解）
+>
+> **📚 前提知識**: [基本アーキテクチャ](./00-overall-design.md) → [設計原則](./01-design-principles.md)
+
+### 📋 関連ドキュメント
+- **前のステップ**: [ECS統合](./05-ecs-integration.md) - アーキテクチャ基盤理解
+- **次のステップ**: [開発規約](../03-guides/00-development-conventions.md) - 実装ガイドライン
+- **実践的応用**: [実装例](../06-examples/README.md) - 具体的コード例
+
+---
 
 TypeScript Minecraftプロジェクトでは、**Effect-TS 3.17+** を全面的に採用し、型安全で合成可能な純粋関数型プログラミングを実践しています。この文書では、プロジェクト全体で遵守すべきEffect-TSの最新パターンを解説します。
 
@@ -39,7 +56,7 @@ graph TB
         end
 
         subgraph ServiceLayer ["サービス層"]
-            ContextTag["Context.GenericTag<br/>🏢 サービス定義<br/>@app/ServiceName"]
+            ContextTag["Context.Tag<br/>🏢 サービス定義<br/>class extends Context.Tag"]
             LayerSystem["Layer System<br/>🧱 依存性注入<br/>Layer.effect・provide"]
             ServiceComposition["Service Composition<br/>🔗 合成・組み立て<br/>pipe・compose"]
         end
@@ -131,25 +148,83 @@ sequenceDiagram
 ```
 
 ```typescript
+import { Effect, Schema, Context, Layer, Stream, Hub, Queue, STM, TRef, Scope } from "effect";
+
 // Effect<SuccessType, ErrorType, RequirementType>
 type AppEffect<A, E = never> = Effect.Effect<A, E, AppServices>;
 
-// Schema.Structによるデータ定義（classは使用禁止）
+// ✅ Schema.Structによる高度なデータ定義（classは使用禁止）
 const Position = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number,
+  x: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(-30_000_000),
+    Schema.lessThanOrEqualTo(30_000_000),
+    Schema.brand("WorldX")
+  ),
+  y: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(-64),
+    Schema.lessThanOrEqualTo(320),
+    Schema.brand("WorldY")
+  ),
+  z: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(-30_000_000),
+    Schema.lessThanOrEqualTo(30_000_000),
+    Schema.brand("WorldZ")
+  )
 }).pipe(
   Schema.annotations({
     identifier: "Position",
     title: "3D座標",
-    description: "ワールド内の3次元座標を表す"
+    description: "ワールド内の3次元座標を表す（Minecraft座標系準拠）"
   })
 );
 type Position = Schema.Schema.Type<typeof Position>;
 
-// ✅ 最新パターン: Context要件の明示的管理
-interface AppServices extends WorldService, PlayerService, ChunkService {}
+// ✅ 最新パターン: Context.Tag による型安全なサービス定義
+class CoreServices extends Context.Tag("CoreServices")<CoreServices, {
+  readonly worldService: WorldService,
+  readonly playerService: PlayerService,
+  readonly chunkService: ChunkService,
+  readonly eventHub: Hub.Hub<GameEvent>,
+  readonly commandQueue: Queue.Queue<GameCommand>,
+  readonly metricsRef: TRef.TRef<SystemMetrics>
+}> {}
+
+// ✅ リアクティブイベントシステム
+const GameEvent = Schema.Union(
+  Schema.Struct({
+    _tag: Schema.Literal("PlayerJoined"),
+    playerId: Schema.String.pipe(Schema.brand("PlayerId")),
+    position: Position,
+    timestamp: Schema.Number.pipe(Schema.brand("Timestamp"))
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("BlockChanged"),
+    position: Position,
+    oldBlock: Schema.String.pipe(Schema.brand("BlockId")),
+    newBlock: Schema.String.pipe(Schema.brand("BlockId")),
+    playerId: Schema.optional(Schema.String.pipe(Schema.brand("PlayerId")))
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("ChunkLoaded"),
+    chunkId: Schema.String.pipe(Schema.brand("ChunkId")),
+    loadTime: Schema.Number.pipe(Schema.brand("Duration"))
+  })
+);
+type GameEvent = Schema.Schema.Type<typeof GameEvent>;
+
+// ✅ システムメトリクス定義
+const SystemMetrics = Schema.Struct({
+  playersOnline: Schema.Number.pipe(Schema.nonNegative()),
+  chunksLoaded: Schema.Number.pipe(Schema.nonNegative()),
+  blocksPerSecond: Schema.Number.pipe(Schema.nonNegative()),
+  averageTickTime: Schema.Number.pipe(Schema.nonNegative()),
+  memoryUsage: Schema.Number.pipe(Schema.nonNegative()),
+  networkBytesPerSecond: Schema.Number.pipe(Schema.nonNegative())
+});
+type SystemMetrics = Schema.Schema.Type<typeof SystemMetrics>;
 ```
 
 ## 2. 主要な利用パターン
@@ -159,99 +234,217 @@ interface AppServices extends WorldService, PlayerService, ChunkService {}
 **Effect-TS 3.17+ 最新パターン**: `Effect.gen` と `yield*` を使用した線形な処理フローが推奨されます。これにより、非同期処理を同期的に記述でき、可読性が向上します。
 
 ```typescript
-import { Effect, Schema, Context, Stream, Match } from "effect";
+import { Effect, Schema, Context, Stream, Hub, Queue, Match, Schedule, Duration, STM } from "effect";
 
-// ✅ 最新パターン（Effect.gen + yield* + Schema統合）
-const complexOperation = Effect.gen(function* () {
-  const config = yield* getConfig();
+// ✅ 最新パターン（Stream + Hub + Queue統合による高度なリアクティブ処理）
+const createReactiveGameSystem = Effect.gen(function* () {
+  // ✅ 高性能イベントハブとコマンドキューの構築
+  const eventHub = yield* Hub.bounded<GameEvent>(1000);
+  const commandQueue = yield* Queue.bounded<GameCommand>(500);
+  const metricsRef = yield* TRef.make<SystemMetrics>({
+    playersOnline: 0,
+    chunksLoaded: 0,
+    blocksPerSecond: 0,
+    averageTickTime: 16.67,
+    memoryUsage: 0,
+    networkBytesPerSecond: 0
+  });
 
-  // ✅ Schema検証付きデータ取得
-  const data = yield* fetchData(config.apiUrl).pipe(
-    Effect.flatMap(raw => Schema.decodeUnknown(DataSchema)(raw))
-  );
+  // ✅ イベント処理ストリーム（バックプレッシャー対応）
+  const eventProcessingStream = Stream.fromHub(eventHub).pipe(
+    Stream.buffer({ capacity: 100, strategy: "dropping" }),
+    Stream.groupedWithin(50, Duration.millis(16)), // 60 FPS同期
+    Stream.mapEffect(events =>
+      Effect.gen(function* () {
+        if (events.length === 0) return;
 
-  const processed = yield* processData(data);
-  yield* saveResult(processed);
-  return processed;
-});
+        // ✅ イベントタイプ別並列処理
+        const grouped = groupEventsByType(events);
 
-// ✅ 早期リターンパターンと包括的エラーハンドリング
-const operationWithErrorHandling = Effect.gen(function* () {
-  const config = yield* getConfig();
+        yield* Effect.all([
+          processPlayerEvents(grouped.playerEvents),
+          processBlockEvents(grouped.blockEvents),
+          processChunkEvents(grouped.chunkEvents)
+        ], { concurrency: 3 });
 
-  // ✅ 早期リターン: 設定検証
-  if (!config.enabled) {
-    return yield* Effect.fail(
-      Schema.encodeSync(ConfigError)({
-        _tag: "ConfigDisabledError",
-        message: "設定が無効です"
+        // ✅ STMによるメトリクス更新
+        yield* STM.gen(function* () {
+          const currentMetrics = yield* STM.get(metricsRef);
+          yield* STM.set(metricsRef, {
+            ...currentMetrics,
+            blocksPerSecond: grouped.blockEvents.length / 0.016,
+            lastProcessedEvents: events.length,
+            timestamp: Date.now()
+          } as SystemMetrics);
+        }).pipe(STM.commit);
       })
-    );
-  }
-
-  // ✅ 包括的エラー処理とフォールバック
-  const data = yield* fetchData(config.apiUrl).pipe(
-    Effect.catchTags({
-      NetworkError: (error) =>
-        Effect.gen(function* () {
-          yield* Effect.log(`ネットワークエラー: ${error.message}, デフォルトデータを使用`);
-          return defaultData;
-        }),
-      TimeoutError: () =>
-        Effect.gen(function* () {
-          yield* Effect.log("タイムアウト: キャッシュデータを試行");
-          return yield* getCachedData().pipe(
-            Effect.orElse(() => Effect.succeed(defaultData))
-          );
-        })
-    })
-  );
-
-  return yield* processData(data);
-});
-
-// ✅ 高度な並列処理とバッチング
-const parallelOperation = Effect.gen(function* () {
-  // ✅ bindAllで並列実行とエラー処理
-  const result = yield* Effect.Do.pipe(
-    Effect.bind("timestamp", () => Effect.sync(() => Date.now())),
-    Effect.bindAll(
-      ({ timestamp }) => ({
-        userData: fetchUserData().pipe(
-          Effect.timeout("5 seconds"),
-          Effect.retry(Schedule.exponential("100 millis", 2).pipe(
-            Schedule.compose(Schedule.recurs(3))
-          ))
-        ),
-        configData: fetchConfigData(),
-        settingsData: fetchSettingsData()
-      }),
-      { concurrency: "unbounded", mode: "either" }
-    ),
-    Effect.tap(({ timestamp }) =>
-      Effect.log(`並列操作完了: ${Date.now() - timestamp}ms`)
     )
   );
 
-  // ✅ エラー結果の処理
-  const userData = yield* Match.value(result.userData).pipe(
-    Match.tag("Right", ({ right }) => Effect.succeed(right)),
-    Match.tag("Left", ({ left }) =>
-      Effect.gen(function* () {
-        yield* Effect.log(`ユーザーデータ取得失敗: ${left}`);
-        return yield* getDefaultUserData();
-      })
-    ),
-    Match.exhaustive
-  );
-
-  return {
-    userData,
-    configData: result.configData,
-    settingsData: result.settingsData,
-    timestamp: result.timestamp
-  };
+  return { eventHub, commandQueue, metricsRef, eventProcessingStream };
 });
+
+// ✅ 早期リターンパターンとStream統合
+const processWorldUpdate = (worldState: WorldState): Effect.Effect<WorldState, WorldError> =>
+  Effect.gen(function* () {
+    // ✅ 早期リターン: 空の更新
+    if (worldState.pendingUpdates.length === 0) {
+      return worldState;
+    }
+
+    const coreServices = yield* CoreServices;
+
+    // ✅ ストリーミング処理でメモリ効率最適化
+    const processedUpdates = yield* Stream.fromIterable(worldState.pendingUpdates).pipe(
+      Stream.filter(update => isValidUpdate(update)),
+      Stream.mapEffect(update =>
+        Match.value(update).pipe(
+          Match.tag("BlockUpdate", ({ position, blockId }) =>
+            Effect.gen(function* () {
+              yield* coreServices.worldService.setBlock(position, blockId);
+              yield* Hub.publish(coreServices.eventHub, {
+                _tag: "BlockChanged" as const,
+                position,
+                oldBlock: worldState.getBlock(position),
+                newBlock: blockId
+              });
+              return update;
+            })
+          ),
+          Match.tag("PlayerUpdate", ({ playerId, position }) =>
+            Effect.gen(function* () {
+              yield* coreServices.playerService.updatePosition(playerId, position);
+              return update;
+            })
+          ),
+          Match.exhaustive
+        ).pipe(
+          Effect.catchAll(error =>
+            Effect.gen(function* () {
+              yield* Effect.logError(`更新処理失敗: ${error}`);
+              return update; // 失敗したアップデートも返す（ログ出力済み）
+            })
+          )
+        )
+      ),
+      Stream.buffer({ capacity: 200 }),
+      Stream.runCollect
+    );
+
+    return {
+      ...worldState,
+      pendingUpdates: [],
+      lastUpdate: Date.now(),
+      processedUpdates: processedUpdates.length
+    };
+  });
+
+// ✅ 高度な並列処理とResource管理
+const createManagedWorldSession = Effect.scoped(
+  Effect.gen(function* () {
+    // ✅ Scopedリソース管理
+    const worldResource = yield* Effect.acquireRelease(
+      Effect.gen(function* () {
+        yield* Effect.log("ワールドリソースを初期化中");
+        const world = yield* createWorld();
+        const systems = yield* initializeGameSystems();
+        return { world, systems };
+      }),
+      ({ world, systems }) =>
+        Effect.gen(function* () {
+          yield* Effect.log("ワールドセッションを終了中");
+          yield* saveWorldState(world);
+          yield* shutdownGameSystems(systems);
+        })
+    );
+
+    // ✅ 並列システム起動
+    const { eventHub, commandQueue, metricsRef } = yield* createReactiveGameSystem();
+
+    // ✅ 複数ストリームの並列処理
+    const gameLoopFiber = yield* Effect.fork(
+      Stream.fromSchedule(Schedule.fixed(Duration.millis(50))).pipe( // 20 TPS
+        Stream.zipWithIndex,
+        Stream.mapEffect(([_, tick]) =>
+          Effect.gen(function* () {
+            const startTime = yield* Effect.sync(() => performance.now());
+
+            // ✅ コマンド処理
+            const commands = yield* Queue.takeAll(commandQueue);
+            yield* processGameCommands(commands);
+
+            // ✅ ワールド更新
+            const worldState = yield* getWorldState();
+            yield* processWorldUpdate(worldState);
+
+            const deltaTime = yield* Effect.sync(() => performance.now() - startTime);
+
+            // ✅ パフォーマンスメトリクス
+            yield* STM.update(metricsRef, metrics => ({
+              ...metrics,
+              averageTickTime: (metrics.averageTickTime * 0.9) + (deltaTime * 0.1),
+              totalTicks: tick
+            })).pipe(STM.commit);
+
+            if (deltaTime > 25) { // 25ms以上は警告
+              yield* Effect.logWarning(`長時間tick: ${deltaTime.toFixed(2)}ms`);
+            }
+          })
+        ),
+        Stream.runDrain
+      )
+    );
+
+    return {
+      worldResource,
+      eventHub,
+      commandQueue,
+      metricsRef,
+      gameLoopFiber
+    };
+  })
+);
+
+// ✅ 高性能バッチ処理パターン
+const processBatchedChunkLoading = (chunkIds: ReadonlyArray<string>): Effect.Effect<ReadonlyArray<Chunk>, ChunkError> =>
+  Effect.gen(function* () {
+    // ✅ 早期リターン: 空の要求
+    if (chunkIds.length === 0) {
+      return [];
+    }
+
+    const coreServices = yield* CoreServices;
+
+    // ✅ ストリームによる最適化されたバッチ処理
+    const chunks = yield* Stream.fromIterable(chunkIds).pipe(
+      Stream.buffer({ capacity: 32 }),
+      Stream.mapEffect(chunkId =>
+        coreServices.chunkService.loadChunk(chunkId).pipe(
+          Effect.timeout(Duration.seconds(5)),
+          Effect.retry(Schedule.exponential(Duration.millis(100)).pipe(
+            Schedule.compose(Schedule.recurs(3))
+          )),
+          Effect.tap(chunk =>
+            Hub.publish(coreServices.eventHub, {
+              _tag: "ChunkLoaded" as const,
+              chunkId,
+              loadTime: chunk.loadTime
+            })
+          ),
+          Effect.catchAll(error =>
+            Effect.gen(function* () {
+              yield* Effect.logError(`チャンクロード失敗: ${chunkId} - ${error}`);
+              return createEmptyChunk(chunkId);
+            })
+          )
+        )
+      ),
+      Stream.runCollect
+    );
+
+    yield* Effect.log(`${chunks.length}個のチャンクを正常にロードしました`);
+    return chunks;
+  });
 ```
 
 ### 2.2. `Schema` によるデータ定義とバリデーション
@@ -359,37 +552,37 @@ const Vector3 = Schema.transform(
 );
 ```
 
-### 2.3. `Context.GenericTag` によるサービス定義（最新パターン）
+### 2.3. `Context.Tag` によるサービス定義（最新パターン）
 
-**Effect-TS 3.17+ 最新パターン**: サービス（依存関係）は `Context.GenericTag` を用いて定義します。`@app/ServiceName` という命名規則を遵守し、プロジェクト内での一貫性を保ちます。
+**Effect-TS 3.17+ 最新パターン**: サービス（依存関係）は `Context.Tag` を用いて定義します。`ServiceName` という命名規則を遵守し、プロジェクト内での一貫性を保ちます。
 
 ```typescript
 import { Context, Effect, Schema } from "effect";
 
-// ✅ 最新パターン（Context.GenericTag）
-interface WorldServiceInterface {
+// ✅ 最新パターン（Context.Tag）
+class WorldService extends Context.Tag("WorldService")<WorldService, {
   readonly getBlock: (pos: Position) => Effect.Effect<Block, BlockNotFoundError>;
   readonly setBlock: (pos: Position, block: Block) => Effect.Effect<void, BlockSetError>;
   readonly getChunk: (chunkId: ChunkId) => Effect.Effect<Chunk, ChunkNotFoundError>;
   readonly isValidPosition: (pos: Position) => Effect.Effect<boolean, never>;
-}
+}> {}
 
-const WorldService = Context.GenericTag<WorldServiceInterface>("@app/WorldService");
+// ✅ エラー型の定義（Schema.TaggedError使用）
+class BlockNotFoundError extends Schema.TaggedError<BlockNotFoundError>()(
+  "BlockNotFoundError",
+  {
+    position: Position,
+    message: Schema.String
+  }
+) {}
 
-// ✅ エラー型の定義
-const BlockNotFoundError = Schema.Struct({
-  _tag: Schema.Literal("BlockNotFoundError"),
-  position: Position,
-  message: Schema.String
-});
-type BlockNotFoundError = Schema.Schema.Type<typeof BlockNotFoundError>;
-
-const BlockSetError = Schema.Struct({
-  _tag: Schema.Literal("BlockSetError"),
-  position: Position,
-  reason: Schema.String
-});
-type BlockSetError = Schema.Schema.Type<typeof BlockSetError>;
+class BlockSetError extends Schema.TaggedError<BlockSetError>()(
+  "BlockSetError",
+  {
+    position: Position,
+    reason: Schema.String
+  }
+) {}
 ```
 
 ### 2.4. `Layer` による依存性注入
@@ -397,107 +590,184 @@ type BlockSetError = Schema.Schema.Type<typeof BlockSetError>;
 サービスの具体的な実装は `Layer` を用いて提供します。これにより、実装とインターフェースが分離され、テスト時にはモック実装に容易に差し替えられます。
 
 ```typescript
-import { Layer, Effect, Context, Resource, ManagedRuntime } from "effect";
+import { Layer, Effect, Context, Resource, ManagedRuntime, Stream, Hub, Queue, STM, TRef, Scope } from "effect";
 
-// ✅ 最新パターン: リソース管理とスケーラブルな初期化
+// ✅ 最新パターン: 高度なレイヤードアーキテクチャとリアクティブシステム
 const makeWorldServiceLive = Effect.gen(function* () {
   // ✅ 依存サービスの取得と型安全性
   const chunkService = yield* ChunkService;
   const blockService = yield* BlockService;
   const logger = yield* Logger;
   const metrics = yield* Metrics;
+  const eventHub = yield* EventHub; // ✅ イベントハブの統合
 
-  // ✅ リソース取得と初期化
+  // ✅ リソース取得と初期化（Scopedリソース管理）
   const worldConfig = yield* loadWorldConfig();
   const worldBounds = yield* loadWorldBounds();
 
-  // ✅ ヘルスチェック
+  // ✅ STMによるWorldState管理
+  const worldStateRef = yield* TRef.make<WorldState>({
+    loadedChunks: new Map(),
+    activeUpdates: [],
+    blockCache: new Map(),
+    lastUpdate: Date.now()
+  });
+
+  // ✅ ヘルスチェック（改良版）
   yield* logger.info("WorldServiceを初期化中");
   yield* metrics.incrementCounter("world_service_initializations");
 
-  // ✅ より堅牢なバリデーション関数
+  // ✅ リアクティブなブロック変更通知システム
+  const blockChangeStream = Stream.fromHub(eventHub).pipe(
+    Stream.filter(event => event._tag === "BlockChanged"),
+    Stream.buffer({ capacity: 500, strategy: "dropping" }),
+    Stream.mapEffect(event =>
+      Effect.gen(function* () {
+        // ✅ 隣接チャンクのライト更新
+        yield* updateLightingInAdjacentChunks(event.position);
+        // ✅ クライアントへの変更通知
+        yield* notifyClientsOfBlockChange(event);
+      })
+    )
+  );
+
+  // ✅ バックグラウンドでブロック変更処理
+  yield* Effect.fork(blockChangeStream.pipe(Stream.runDrain));
+
+  // ✅ より堅牢なバリデーション関数（STM統合）
   const validatePosition = (pos: Position): Effect.Effect<boolean, never> =>
-    Effect.sync(() =>
-      pos.x >= worldBounds.min.x && pos.x <= worldBounds.max.x &&
-      pos.y >= worldBounds.min.y && pos.y <= worldBounds.max.y &&
-      pos.z >= worldBounds.min.z && pos.z <= worldBounds.max.z
-    );
+    STM.gen(function* () {
+      const state = yield* STM.get(worldStateRef);
+      return isPositionInBounds(pos, worldBounds) &&
+             !state.activeUpdates.some(update => positionsEqual(update.position, pos));
+    }).pipe(STM.commit);
 
   return WorldService.of({
+    // ✅ 高性能ブロック取得（キャッシュ統合）
     getBlock: (pos) =>
       Effect.gen(function* () {
-        // ✅ 早期リターン: Schema検証
-        yield* validatePosition(pos).pipe(
-          Effect.filterOrFail(
-            (isValid) => isValid,
-            () => ({
-              _tag: "BlockNotFoundError" as const,
-              position: pos,
-              message: `座標 ${pos.x},${pos.y},${pos.z} は範囲外です`,
-              bounds: worldBounds
-            })
-          )
-        );
+        // ✅ 早期リターン: バリデーション
+        const isValid = yield* validatePosition(pos);
+        if (!isValid) {
+          return yield* Effect.fail({
+            _tag: "BlockNotFoundError" as const,
+            position: pos,
+            message: `座標 ${pos.x},${pos.y},${pos.z} は無効です`,
+            bounds: worldBounds
+          });
+        }
+
+        // ✅ STMキャッシュ確認
+        const cachedBlock = yield* STM.gen(function* () {
+          const state = yield* STM.get(worldStateRef);
+          return state.blockCache.get(positionToKey(pos));
+        }).pipe(STM.commit);
+
+        if (cachedBlock) {
+          yield* metrics.incrementCounter("block_cache_hits");
+          return cachedBlock;
+        }
 
         // ✅ メトリクス収集
         yield* metrics.incrementCounter("block_get_requests");
 
-        // ✅ 並列データ取得
+        // ✅ 並列データ取得（改良版）
         const chunk = yield* chunkService.getChunkForPosition(pos).pipe(
-          Effect.timeout("2 seconds"),
-          Effect.retry(Schedule.exponential("100 millis").pipe(
+          Effect.timeout(Duration.seconds(2)),
+          Effect.retry(Schedule.exponential(Duration.millis(100)).pipe(
             Schedule.compose(Schedule.recurs(3))
           ))
         );
 
         const block = yield* blockService.getBlockFromChunk(chunk, pos);
 
+        // ✅ STMキャッシュ更新
+        yield* STM.update(worldStateRef, state => ({
+          ...state,
+          blockCache: new Map(state.blockCache).set(positionToKey(pos), block)
+        })).pipe(STM.commit);
+
         yield* logger.debug(`ブロック取得: ${pos.x},${pos.y},${pos.z} = ${block.id}`);
         return block;
       }),
 
+    // ✅ アトミックブロック設置（STM統合）
     setBlock: (pos, block) =>
       Effect.gen(function* () {
-        // ✅ 包括的バリデーション
-        yield* validatePosition(pos).pipe(
-          Effect.filterOrFail(
-            (isValid) => isValid,
-            () => ({
-              _tag: "BlockSetError" as const,
-              position: pos,
-              reason: "位置が範囲外です",
-              bounds: worldBounds
-            })
-          )
-        );
+        // ✅ STMアトミック更新
+        yield* STM.gen(function* () {
+          const state = yield* STM.get(worldStateRef);
 
-        // ✅ ブロック設置前の状態確認
-        const existingBlock = yield* blockService.getBlockFromPosition(pos).pipe(
-          Effect.option
-        );
+          // 同時更新チェック
+          if (state.activeUpdates.some(update => positionsEqual(update.position, pos))) {
+            yield* STM.retry; // 他の更新が完了するまで待機
+          }
 
-        // ✅ アトミックな更新操作
-        yield* blockService.setBlock(pos, block).pipe(
-          Effect.zipLeft(metrics.incrementCounter("block_set_operations"))
-        );
+          // 更新開始をマーク
+          yield* STM.set(worldStateRef, {
+            ...state,
+            activeUpdates: [...state.activeUpdates, { position: pos, startTime: Date.now() }]
+          });
+        }).pipe(STM.commit);
 
-        yield* logger.info(
-          `ブロック設置: ${pos.x},${pos.y},${pos.z} ${existingBlock._tag === "Some" ? `(${existingBlock.value.id} → ${block.id})` : `(空 → ${block.id})`}`
-        );
+        try {
+          // ✅ 実際のブロック設置
+          yield* blockService.setBlock(pos, block);
 
-        // ✅ 隣接ブロック更新通知
-        yield* notifyAdjacentBlocks(pos, block);
+          // ✅ イベント発行
+          yield* Hub.publish(eventHub, {
+            _tag: "BlockChanged" as const,
+            position: pos,
+            oldBlock: yield* getBlock(pos).pipe(Effect.orElse(() => Effect.succeed(null))),
+            newBlock: block.id
+          });
+
+          yield* metrics.incrementCounter("block_set_operations");
+          yield* logger.info(`ブロック設置成功: ${pos.x},${pos.y},${pos.z} = ${block.id}`);
+
+        } finally {
+          // ✅ 更新完了のマーク（必ず実行）
+          yield* STM.update(worldStateRef, state => ({
+            ...state,
+            activeUpdates: state.activeUpdates.filter(update =>
+              !positionsEqual(update.position, pos)
+            ),
+            blockCache: new Map(state.blockCache).set(positionToKey(pos), block)
+          })).pipe(STM.commit);
+        }
       }),
 
+    // ✅ 高性能チャンク取得
     getChunk: (chunkId) =>
-      chunkService.getChunk(chunkId).pipe(
-        Effect.tap(() => metrics.incrementCounter("chunk_requests")),
-        Effect.timeout("5 seconds")
-      ),
+      Effect.gen(function* () {
+        // ✅ STMチャンクキャッシュ確認
+        const cachedChunk = yield* STM.gen(function* () {
+          const state = yield* STM.get(worldStateRef);
+          return state.loadedChunks.get(chunkId);
+        }).pipe(STM.commit);
+
+        if (cachedChunk) {
+          yield* metrics.incrementCounter("chunk_cache_hits");
+          return cachedChunk;
+        }
+
+        const chunk = yield* chunkService.getChunk(chunkId).pipe(
+          Effect.tap(() => metrics.incrementCounter("chunk_requests")),
+          Effect.timeout(Duration.seconds(5))
+        );
+
+        // ✅ チャンクキャッシュ更新
+        yield* STM.update(worldStateRef, state => ({
+          ...state,
+          loadedChunks: new Map(state.loadedChunks).set(chunkId, chunk)
+        })).pipe(STM.commit);
+
+        return chunk;
+      }),
 
     isValidPosition: validatePosition,
 
-    // ✅ 新しいメソッド: バッチ処理
+    // ✅ ストリームベースバッチ処理
     getBlocks: (positions) =>
       Effect.gen(function* () {
         // ✅ 早期リターン: 空の配列
@@ -507,77 +777,139 @@ const makeWorldServiceLive = Effect.gen(function* () {
 
         yield* metrics.incrementCounter("batch_block_requests");
 
-        // ✅ バッチサイズでの処理
-        const batchSize = 50;
-        const batches = ReadonlyArray.chunksOf(positions, batchSize);
-        const results: Block[] = [];
+        // ✅ ストリーミングバッチ処理
+        const blocks = yield* Stream.fromIterable(positions).pipe(
+          Stream.buffer({ capacity: 64 }),
+          Stream.mapEffect(pos => getBlock(pos).pipe(
+            Effect.catchAll(error =>
+              Effect.gen(function* () {
+                yield* logger.warn(`ブロック取得失敗: ${pos.x},${pos.y},${pos.z} - ${error}`);
+                return createAirBlock(pos); // デフォルトで空気ブロック
+              })
+            )
+          )),
+          Stream.runCollect
+        );
 
-        for (const batch of batches) {
-          const batchResults = yield* Effect.all(
-            ReadonlyArray.map(batch, pos => getBlock(pos)),
-            { concurrency: "unbounded" }
-          );
-          results.push(...batchResults);
-        }
+        return blocks;
+      }),
 
-        return results;
+    // ✅ 新機能: ワールド統計取得
+    getWorldStats: () =>
+      STM.gen(function* () {
+        const state = yield* STM.get(worldStateRef);
+        const currentMetrics = yield* STM.get(metricsRef);
+
+        return {
+          loadedChunks: state.loadedChunks.size,
+          cachedBlocks: state.blockCache.size,
+          activeUpdates: state.activeUpdates.length,
+          totalBlocks: currentMetrics.blocksPerSecond * 60, // 1分あたり
+          memoryUsage: currentMetrics.memoryUsage,
+          uptime: Date.now() - state.lastUpdate
+        };
+      }).pipe(STM.commit),
+
+    // ✅ 新機能: リアクティブヘルスチェック
+    healthCheck: () =>
+      Effect.gen(function* () {
+        const stats = yield* getWorldStats();
+        const isHealthy = stats.activeUpdates < 100 &&
+                         stats.memoryUsage < 1000000000; // 1GB未満
+
+        return {
+          status: isHealthy ? "healthy" : "degraded",
+          stats,
+          timestamp: Date.now()
+        };
       })
   });
 });
 
-// ✅ Layerチェーンによる依存関係管理
-const WorldServiceLive = Layer.effect(WorldService, makeWorldServiceLive).pipe(
-  Layer.provideMerge(
-    Layer.mergeAll(
-      ChunkServiceLive,
-      BlockServiceLive,
-      LoggerLive,
-      MetricsLive
-    )
-  )
-);
+// ✅ 高度なLayer構成（環境別設定と依存関係管理）
+const createWorldServiceLayer = (environment: "dev" | "prod" | "test") => {
+  const baseLayer = Layer.effect(WorldService, makeWorldServiceLive);
 
-// ✅ 環境別Layer設定
-const WorldServiceDev = WorldServiceLive.pipe(
-  Layer.provide(Layer.succeed(WorldConfig, developmentConfig))
-);
+  const dependencyLayer = Layer.mergeAll(
+    ChunkServiceLive,
+    BlockServiceLive,
+    LoggerLive,
+    MetricsLive,
+    EventHubLive,
+    STMRuntimeLive
+  );
 
-const WorldServiceProd = WorldServiceLive.pipe(
-  Layer.provide(Layer.succeed(WorldConfig, productionConfig))
-);
+  const configLayer = Match.value(environment).pipe(
+    Match.tag("dev", () => Layer.succeed(WorldConfig, {
+      maxLoadedChunks: 1000,
+      blockCacheSize: 10000,
+      enableDebugLogging: true,
+      lightingUpdateInterval: Duration.millis(50)
+    })),
+    Match.tag("prod", () => Layer.succeed(WorldConfig, {
+      maxLoadedChunks: 5000,
+      blockCacheSize: 100000,
+      enableDebugLogging: false,
+      lightingUpdateInterval: Duration.millis(100)
+    })),
+    Match.tag("test", () => Layer.succeed(WorldConfig, {
+      maxLoadedChunks: 10,
+      blockCacheSize: 100,
+      enableDebugLogging: true,
+      lightingUpdateInterval: Duration.millis(10)
+    })),
+    Match.exhaustive
+  );
 
-// ✅ テスト用Layer（改善版）
-const WorldServiceTest = Layer.succeed(
-  WorldService,
-  WorldService.of({
-    getBlock: (pos) => Effect.succeed({
-      id: "minecraft:stone" as any,
-      metadata: undefined,
-      lightLevel: 0,
-      hardness: 1.5
-    }),
-    setBlock: () => Effect.void,
-    getChunk: () => Effect.succeed({
-      id: "test_chunk" as any,
-      position: { x: 0, z: 0 },
-      blocks: new Uint8Array(4096),
-      entities: []
-    }),
-    isValidPosition: () => Effect.succeed(true),
-    getBlocks: () => Effect.succeed([])
-  })
-);
+  return baseLayer.pipe(
+    Layer.provide(dependencyLayer),
+    Layer.provide(configLayer)
+  );
+};
 
-// ✅ ManagedRuntimeによる高レベルAPI
+// ✅ 環境別Layer設定（改良版）
+export const WorldServiceDev = createWorldServiceLayer("dev");
+export const WorldServiceProd = createWorldServiceLayer("prod");
+export const WorldServiceTest = createWorldServiceLayer("test");
+
+// ✅ ManagedRuntimeによる統合アプリケーション管理
 export const createWorldRuntime = (environment: "dev" | "prod" | "test" = "dev") => {
-  const layer = Match.value(environment).pipe(
+  const worldLayer = Match.value(environment).pipe(
     Match.tag("dev", () => WorldServiceDev),
     Match.tag("prod", () => WorldServiceProd),
     Match.tag("test", () => WorldServiceTest),
     Match.exhaustive
   );
 
-  return ManagedRuntime.make(layer);
+  // ✅ 統合アプリケーションLayer
+  const appLayer = Layer.mergeAll(
+    worldLayer,
+    NetworkServiceLive,
+    DatabaseLive,
+    FileSystemLive
+  ).pipe(
+    Layer.catchAll(error =>
+      Layer.fail(new ApplicationError({
+        message: `アプリケーション初期化失敗: ${error}`,
+        environment,
+        timestamp: Date.now()
+      }))
+    )
+  );
+
+  return ManagedRuntime.make(appLayer);
+};
+
+// ✅ 高度なテスト統合Layer
+export const createTestEnvironment = () => {
+  const mockServices = Layer.mergeAll(
+    Layer.succeed(WorldService, createMockWorldService()),
+    Layer.succeed(EventHub, Hub.unbounded<GameEvent>()),
+    Layer.succeed(Logger, createTestLogger()),
+    Layer.succeed(Metrics, createTestMetrics())
+  );
+
+  return ManagedRuntime.make(mockServices);
 };
 ```
 
@@ -881,13 +1213,13 @@ interface PlayerServiceInterface {
   readonly updatePlayerPosition: (id: PlayerId, position: Position) => Effect.Effect<void, MoveError>
 }
 
-export const PlayerService = Context.GenericTag<PlayerServiceInterface>("@app/PlayerService");
+class PlayerService extends Context.Tag("PlayerService")<PlayerService, PlayerServiceInterface> {}
 ```
 
 ### 3.2. 古いAPIパターンの使用（避けるべき）
 ```typescript
-// ❌ 避けるべきパターン - Context.Tag（古いAPI）
-// const OldService = Context.Tag<OldServiceInterface>("@app/OldService");
+// ❌ 避けるべきパターン - Context.GenericTag（古いAPI）
+// const OldService = Context.GenericTag<OldServiceInterface>("@app/OldService");
 
 // ❌ Data.TaggedErrorの使用（古いAPI）
 // class NetworkError extends Data.TaggedError("NetworkError")<{
@@ -903,7 +1235,7 @@ interface NewServiceInterface {
   readonly validateInput: (input: unknown) => Effect.Effect<boolean, never>
 }
 
-export const NewService = Context.GenericTag<NewServiceInterface>("@app/NewService");
+class NewService extends Context.Tag("NewService")<NewService, NewServiceInterface> {}
 
 // ✅ Schema.TaggedErrorによる最新のエラー定義
 export class NetworkError extends Schema.TaggedError("NetworkError")<{
@@ -1029,7 +1361,7 @@ interface MovementSystemInterface {
   readonly update: (deltaTime: number) => Effect.Effect<void, SystemError>
 }
 
-const MovementSystem = Context.GenericTag<MovementSystemInterface>("@app/MovementSystem");
+class MovementSystem extends Context.Tag("MovementSystem")<MovementSystem, MovementSystemInterface> {}
 
 // ✅ ECSとの統合（改善版）
 interface MovementSystemInterface {
@@ -1040,7 +1372,7 @@ interface MovementSystemInterface {
   readonly cleanup: () => Effect.Effect<void, SystemError>
 }
 
-const MovementSystem = Context.GenericTag<MovementSystemInterface>("@app/MovementSystem")
+class MovementSystem extends Context.Tag("MovementSystem")<MovementSystem, MovementSystemInterface> {}
 
 // ✅ World Service定義
 interface WorldServiceInterface {
@@ -1048,7 +1380,7 @@ interface WorldServiceInterface {
   readonly updateEntity: (entityId: EntityId, updates: Record<string, unknown>) => Effect.Effect<void, SystemError>
 }
 
-const WorldService = Context.GenericTag<WorldServiceInterface>("@app/WorldService")
+class WorldService extends Context.Tag("WorldService")<WorldService, WorldServiceInterface> {}
 
 // ✅ 単一責務のエンティティ更新関数
 const updateEntityPosition = (
@@ -1264,95 +1596,109 @@ const updateLightLevelsAsync = (
 **最新Effect-TSパターン**: Fiber管理とStream処理を活用した高度な非同期パターンです。
 
 ```typescript
-import { Effect, Fiber, Stream, Schedule, Duration, STM, TRef, Queue, Scope } from "effect";
+import { Effect, Fiber, Stream, Schedule, Duration, STM, TRef, Queue, Scope, Hub, ManagedRuntime } from "effect";
 
-// ✅ 最新パターン: 高度なFiber管理とSTMによる状態管理
+// ✅ 最新パターン: 高度なFiber管理とStream/Hub/Queueによるリアクティブアーキテクチャ
 const GameLoop = Schema.Struct({
   tickRate: Schema.Number.pipe(Schema.positive(), Schema.lessThanOrEqualTo(100)),
   isRunning: Schema.Boolean,
   lastTick: Schema.Number.pipe(Schema.brand("Timestamp")),
   totalTicks: Schema.Number.pipe(Schema.nonNegative()),
-  averageDeltaTime: Schema.Number.pipe(Schema.nonNegative())
+  averageDeltaTime: Schema.Number.pipe(Schema.nonNegative()),
+  systemLoad: Schema.Number.pipe(Schema.nonNegative(), Schema.lessThanOrEqualTo(1))
 }).pipe(
   Schema.annotations({
     identifier: "GameLoop",
     title: "ゲームループ状態",
-    description: "ゲームループの実行状態とパフォーマンス統計"
+    description: "ゲームループの実行状態とパフォーマンス統計（最新リアクティブ対応）"
   })
 );
 type GameLoop = Schema.Schema.Type<typeof GameLoop>;
 
-// ✅ STMによる状態管理とアトミックな更新
-const createGameLoopState = (): Effect.Effect<{
+// ✅ 高度なゲーム状態管理（Hub統合）
+const createAdvancedGameLoopState = (): Effect.Effect<{
   gameLoopRef: TRef.TRef<GameLoop>,
   commandQueue: Queue.Queue<GameCommand>,
-  supervisorRef: TRef.TRef<Option.Option<Fiber.RuntimeFiber<void, never>>>
+  eventHub: Hub.Hub<GameEvent>,
+  systemMetricsRef: TRef.TRef<SystemMetrics>,
+  supervisorRef: TRef.TRef<Option.Option<Fiber.RuntimeFiber<void, never>>>,
+  performanceStream: Stream.Stream<PerformanceMetrics, never, never>
 }, never> =>
   Effect.gen(function* () {
-    const gameLoopRef = yield* TRef.make({
+    // ✅ 基本状態参照
+    const gameLoopRef = yield* TRef.make<GameLoop>({
       tickRate: 20,
       isRunning: false,
       lastTick: Date.now() as any,
       totalTicks: 0,
-      averageDeltaTime: 16.67
+      averageDeltaTime: 16.67,
+      systemLoad: 0
     });
 
+    // ✅ コマンドキューとイベントハブ（バックプレッシャー対応）
     const commandQueue = yield* Queue.bounded<GameCommand>(1000);
+    const eventHub = yield* Hub.bounded<GameEvent>(2000);
+    const systemMetricsRef = yield* TRef.make<SystemMetrics>({
+      playersOnline: 0,
+      chunksLoaded: 0,
+      blocksPerSecond: 0,
+      averageTickTime: 16.67,
+      memoryUsage: 0,
+      networkBytesPerSecond: 0
+    });
+
     const supervisorRef = yield* TRef.make(Option.none<Fiber.RuntimeFiber<void, never>>());
 
-    return { gameLoopRef, commandQueue, supervisorRef };
+    // ✅ パフォーマンス監視ストリーム
+    const performanceStream = Stream.fromHub(eventHub).pipe(
+      Stream.filter(event => event._tag === "PerformanceUpdate"),
+      Stream.buffer({ capacity: 100, strategy: "dropping" }),
+      Stream.map(event => event as PerformanceMetrics)
+    );
+
+    return {
+      gameLoopRef,
+      commandQueue,
+      eventHub,
+      systemMetricsRef,
+      supervisorRef,
+      performanceStream
+    };
   });
 
-// ✅ 改良されたゲームループ（STM + Stream）
-const runGameLoop = (
+// ✅ 最新パターン: リアクティブゲームループ（Stream + Hub + STM統合）
+const runAdvancedGameLoop = (
   tickRate: number,
   gameState: {
     gameLoopRef: TRef.TRef<GameLoop>,
     commandQueue: Queue.Queue<GameCommand>,
-    supervisorRef: TRef.TRef<Option.Option<Fiber.RuntimeFiber<void, never>>>
+    eventHub: Hub.Hub<GameEvent>,
+    systemMetricsRef: TRef.TRef<SystemMetrics>,
+    supervisorRef: TRef.TRef<Option.Option<Fiber.RuntimeFiber<void, never>>>,
+    performanceStream: Stream.Stream<PerformanceMetrics, never, never>
   }
 ): Effect.Effect<Fiber.RuntimeFiber<void, never>, never> =>
   Effect.gen(function* () {
-    // ✅ ゲームループのメインファイバー
-    const gameLoopFiber = yield* Effect.fork(
-      Stream.fromSchedule(Schedule.fixed(Duration.millis(1000 / tickRate))).pipe(
-        Stream.zipWithIndex,
-        Stream.mapEffect(([_, tickIndex]) =>
+    // ✅ パフォーマンス監視ファイバー（バックグラウンド処理）
+    const performanceMonitorFiber = yield* Effect.fork(
+      gameState.performanceStream.pipe(
+        Stream.groupedWithin(10, Duration.millis(1000)), // 1秒ごとに10個ずつまとめて処理
+        Stream.mapEffect(metrics =>
           Effect.gen(function* () {
-            const startTime = yield* Effect.sync(() => performance.now());
+            if (metrics.length === 0) return;
 
-            // ✅ STMでアトミックな状態更新
-            yield* STM.gen(function* () {
-              const current = yield* STM.get(gameState.gameLoopRef);
-              const newState: GameLoop = {
-                ...current,
-                lastTick: Date.now() as any,
-                totalTicks: current.totalTicks + 1,
-                isRunning: true
-              };
-              yield* STM.set(gameState.gameLoopRef, newState);
-            }).pipe(STM.commit);
+            const avgMetrics = calculateAverageMetrics(metrics);
 
-            // ✅ コマンド処理
-            const commands = yield* Queue.takeAll(gameState.commandQueue);
-            yield* processCommands(commands);
+            yield* STM.update(gameState.systemMetricsRef, current => ({
+              ...current,
+              averageTickTime: avgMetrics.tickTime,
+              memoryUsage: avgMetrics.memoryUsage,
+              systemLoad: avgMetrics.systemLoad
+            })).pipe(STM.commit);
 
-            // ✅ システム更新
-            const deltaTime = yield* Effect.sync(() => performance.now() - startTime);
-            yield* processSystemsParallel(deltaTime);
-
-            // ✅ パフォーマンス統計更新
-            yield* STM.gen(function* () {
-              const current = yield* STM.get(gameState.gameLoopRef);
-              const newAverage = (current.averageDeltaTime * 0.9) + (deltaTime * 0.1);
-              yield* STM.modify(gameState.gameLoopRef, state => ({
-                ...state,
-                averageDeltaTime: newAverage
-              }));
-            }).pipe(STM.commit);
-
-            if (deltaTime > 50) { // 50ms以上の場合は警告
-              yield* Effect.log(`長時間の tick 処理: ${deltaTime.toFixed(2)}ms (Tick: ${tickIndex})`);
+            // ✅ パフォーマンス警告
+            if (avgMetrics.tickTime > 25) {
+              yield* Effect.logWarning(`パフォーマンス警告: 平均 tick 時間 ${avgMetrics.tickTime.toFixed(2)}ms`);
             }
           })
         ),
@@ -1360,9 +1706,118 @@ const runGameLoop = (
       )
     );
 
-    // ✅ スーパーバイザーに登録
+    // ✅ コマンド処理ストリーム（並列処理対応）
+    const commandProcessingFiber = yield* Effect.fork(
+      Stream.fromQueue(gameState.commandQueue).pipe(
+        Stream.buffer({ capacity: 50, strategy: "dropping" }),
+        Stream.groupedWithin(25, Duration.millis(8)), // 125 FPS相当でバッチ処理
+        Stream.mapEffect(commands =>
+          Effect.gen(function* () {
+            if (commands.length === 0) return;
+
+            // ✅ コマンドタイプ別分類と並列処理
+            const grouped = groupCommandsByType(commands);
+
+            yield* Effect.all([
+              processMovementCommands(grouped.movement),
+              processBlockCommands(grouped.block),
+              processChatCommands(grouped.chat),
+              processInventoryCommands(grouped.inventory)
+            ], { concurrency: 4 });
+
+            // ✅ 処理結果をイベントとして発行
+            for (const result of grouped.results) {
+              yield* Hub.publish(gameState.eventHub, {
+                _tag: "CommandProcessed" as const,
+                commandId: result.id,
+                success: result.success,
+                timestamp: Date.now()
+              });
+            }
+          })
+        ),
+        Stream.runDrain
+      )
+    );
+
+    // ✅ メインゲームループファイバー（最適化された並列システム処理）
+    const gameLoopFiber = yield* Effect.fork(
+      Stream.fromSchedule(Schedule.fixed(Duration.millis(1000 / tickRate))).pipe(
+        Stream.zipWithIndex,
+        Stream.mapEffect(([_, tickIndex]) =>
+          Effect.gen(function* () {
+            const startTime = yield* Effect.sync(() => performance.now());
+
+            // ✅ STMでアトミックな状態更新（改良版）
+            yield* STM.gen(function* () {
+              const current = yield* STM.get(gameState.gameLoopRef);
+              const deltaTime = startTime - current.lastTick;
+
+              yield* STM.set(gameState.gameLoopRef, {
+                ...current,
+                lastTick: Date.now() as any,
+                totalTicks: current.totalTicks + 1,
+                isRunning: true,
+                systemLoad: calculateSystemLoad(deltaTime, current.averageDeltaTime)
+              });
+            }).pipe(STM.commit);
+
+            // ✅ システム更新（3段階パイプライン処理）
+            yield* processSystemsPipeline(startTime);
+
+            const deltaTime = yield* Effect.sync(() => performance.now() - startTime);
+
+            // ✅ パフォーマンスメトリクス発行
+            yield* Hub.publish(gameState.eventHub, {
+              _tag: "PerformanceUpdate" as const,
+              tickTime: deltaTime,
+              tickIndex,
+              memoryUsage: yield* getMemoryUsage(),
+              systemLoad: deltaTime / (1000 / tickRate),
+              timestamp: Date.now()
+            });
+
+            // ✅ 適応的フレームレート調整
+            if (deltaTime > 30) { // 30ms以上は動的調整
+              yield* STM.update(gameState.gameLoopRef, state => ({
+                ...state,
+                systemLoad: Math.min(1, state.systemLoad * 1.1)
+              })).pipe(STM.commit);
+
+              yield* Effect.logWarning(
+                `高負荷tick検出: ${deltaTime.toFixed(2)}ms (Tick: ${tickIndex}), ` +
+                `システム負荷を調整中`
+              );
+            }
+
+            // ✅ 動的パフォーマンス統計更新
+            yield* STM.gen(function* () {
+              const current = yield* STM.get(gameState.gameLoopRef);
+              const newAverage = (current.averageDeltaTime * 0.95) + (deltaTime * 0.05);
+              yield* STM.set(gameState.gameLoopRef, {
+                ...current,
+                averageDeltaTime: newAverage
+              });
+            }).pipe(STM.commit);
+          })
+        ),
+        Stream.runDrain
+      )
+    );
+
+    // ✅ 全ファイバーをスーパーバイザーに登録
     yield* STM.set(gameState.supervisorRef, Option.some(gameLoopFiber)).pipe(STM.commit);
-    yield* Effect.log(`ゲームループ開始 @ ${tickRate} TPS`);
+    yield* Effect.log(`リアクティブゲームループ開始 @ ${tickRate} TPS`);
+
+    // ✅ ファイバーグループの監視とクリーンアップ
+    yield* Effect.addFinalizer(() =>
+      Effect.gen(function* () {
+        yield* Effect.log("ゲームループ終了処理開始");
+        yield* Fiber.interrupt(performanceMonitorFiber);
+        yield* Fiber.interrupt(commandProcessingFiber);
+        yield* Effect.log("ゲームループクリーンアップ完了");
+      })
+    );
 
     return gameLoopFiber;
   });
@@ -1935,7 +2390,7 @@ const handlePlayerAction = (
 
 ### 必須パターン（Effect-TS 3.17+）
 - **✅ Schema.Struct + annotations**: すべてのデータ定義とBrand型による型安全性
-- **✅ Context.GenericTag**: サービス定義の統一 (`@app/ServiceName`)
+- **✅ Context.Tag**: サービス定義の統一 (`class extends Context.Tag`)
 - **✅ Effect.gen + yield***: 非同期処理の線形化と早期リターン
 - **✅ Match.value + Match.exhaustive**: 網羅的パターンマッチング
 - **✅ Layer.effect + Layer.mergeAll**: 依存性注入の標準化と初期化/クリーンアップ
@@ -1949,7 +2404,7 @@ const handlePlayerAction = (
 ### 禁止事項（古いAPIと非推奨パターン）
 - ❌ **通常のclassキーワードの使用**（Schema.Structと純粋関数で代替）
 - ❌ Data.Class, Data.TaggedError（古いAPI - Schema.Struct/Schema.TaggedErrorを使用）
-- ❌ Context.Tag（古いAPI - Context.GenericTagを使用）
+- ❌ Context.GenericTag（古いAPI - Context.Tagを使用）
 - ❌ if/else/switchの多用（Match.valueを使用）
 - ❌ async/await, Promise（Effect.genを使用）
 - ❌ mutableな操作（不変データ構造を使用）
@@ -1999,26 +2454,248 @@ const handlePlayerAction = (
 - **✅ 統合テスト**: ManagedRuntimeによるエンドツーエンドテスト
 
 ```typescript
-// ✅ 最新テストパターン例
-import { Effect, Layer, TestClock, TestContext } from "effect";
+// ✅ 最新Effect-TS 3.17+ テストパターン（Stream + Hub + STM統合）
+import { Effect, Layer, TestClock, TestContext, Stream, Hub, Queue, STM, TRef, ManagedRuntime } from "effect";
 
-const testWorldService = Layer.succeed(
-  WorldService,
-  WorldService.of({
-    getBlock: () => Effect.succeed(mockBlock),
-    setBlock: () => Effect.succeed(void 0)
-  })
-);
+// ✅ 高度なテスト環境Layer構築
+const createAdvancedTestEnvironment = () => {
+  const testWorldService = Layer.effect(
+    WorldService,
+    Effect.gen(function* () {
+      // ✅ テスト用STM状態管理
+      const worldStateRef = yield* TRef.make<Map<string, Block>>(new Map());
+      const metricsRef = yield* TRef.make<SystemMetrics>({
+        playersOnline: 1,
+        chunksLoaded: 5,
+        blocksPerSecond: 0,
+        averageTickTime: 16.67,
+        memoryUsage: 1000000,
+        networkBytesPerSecond: 0
+      });
 
-const testLayer = Layer.mergeAll(testWorldService, TestContext.TestContext);
+      return WorldService.of({
+        getBlock: (pos) =>
+          STM.gen(function* () {
+            const worldState = yield* STM.get(worldStateRef);
+            const block = worldState.get(positionToKey(pos));
+            return block ?? createDefaultTestBlock(pos);
+          }).pipe(STM.commit),
 
-const testEffect = movePlayer("test-player", Position.of(0, 0, 0)).pipe(
-  Effect.provide(testLayer)
-);
+        setBlock: (pos, block) =>
+          STM.gen(function* () {
+            yield* STM.update(worldStateRef, state =>
+              new Map(state).set(positionToKey(pos), block)
+            );
+            yield* STM.update(metricsRef, metrics => ({
+              ...metrics,
+              blocksPerSecond: metrics.blocksPerSecond + 1
+            }));
+          }).pipe(STM.commit),
 
-// アサーション
-const result = await Effect.runPromise(testEffect);
-expect(result.success).toBe(true);
+        getChunk: () => Effect.succeed(createTestChunk()),
+        isValidPosition: () => Effect.succeed(true),
+        getBlocks: (positions) => Effect.succeed(positions.map(createDefaultTestBlock)),
+
+        // ✅ テスト用追加メソッド
+        getWorldStats: () =>
+          STM.gen(function* () {
+            const worldState = yield* STM.get(worldStateRef);
+            const metrics = yield* STM.get(metricsRef);
+            return {
+              loadedChunks: 5,
+              cachedBlocks: worldState.size,
+              activeUpdates: 0,
+              totalBlocks: metrics.blocksPerSecond * 60,
+              memoryUsage: metrics.memoryUsage,
+              uptime: 1000
+            };
+          }).pipe(STM.commit),
+
+        healthCheck: () =>
+          Effect.succeed({
+            status: "healthy" as const,
+            stats: { uptime: 1000, memoryUsage: 1000000 },
+            timestamp: Date.now()
+          })
+      });
+    })
+  );
+
+  // ✅ リアクティブテスト環境（Hub/Queue統合）
+  const testEventHub = Layer.effect(
+    EventHub,
+    Effect.gen(function* () {
+      const hub = yield* Hub.bounded<GameEvent>(100);
+
+      // ✅ テスト用イベント自動生成
+      yield* Effect.fork(
+        Stream.fromSchedule(Schedule.fixed(Duration.millis(100))).pipe(
+          Stream.take(5), // テスト用に5個のイベント生成
+          Stream.mapEffect(() =>
+            Hub.publish(hub, {
+              _tag: "BlockChanged" as const,
+              position: createTestPosition(),
+              oldBlock: "minecraft:air" as any,
+              newBlock: "minecraft:stone" as any
+            })
+          ),
+          Stream.runDrain
+        )
+      );
+
+      return hub;
+    })
+  );
+
+  // ✅ 統合テストLayer
+  const testLayer = Layer.mergeAll(
+    testWorldService,
+    testEventHub,
+    Layer.succeed(CommandQueue, Queue.bounded<GameCommand>(50)),
+    Layer.succeed(Logger, createTestLogger()),
+    Layer.succeed(Metrics, createTestMetrics()),
+    TestContext.TestContext,
+    TestClock.TestClock
+  );
+
+  return ManagedRuntime.make(testLayer);
+};
+
+// ✅ Stream/Hub統合テスト例
+const testReactiveGameSystem = Effect.gen(function* () {
+  const runtime = yield* createAdvancedTestEnvironment();
+
+  // ✅ イベント処理テスト
+  const eventTest = yield* runtime.runPromise(
+    Effect.gen(function* () {
+      const eventHub = yield* EventHub;
+      const events: GameEvent[] = [];
+
+      // イベント収集ストリーム
+      const eventCollectionFiber = yield* Effect.fork(
+        Stream.fromHub(eventHub).pipe(
+          Stream.take(3),
+          Stream.tap(event => Effect.sync(() => events.push(event))),
+          Stream.runDrain
+        )
+      );
+
+      // テストイベント発行
+      yield* Hub.publish(eventHub, {
+        _tag: "PlayerJoined" as const,
+        playerId: "test-player" as any,
+        position: createTestPosition(),
+        timestamp: Date.now() as any
+      });
+
+      yield* Fiber.join(eventCollectionFiber);
+      return events;
+    })
+  );
+
+  return eventTest;
+});
+
+// ✅ STM統合テスト例
+const testSTMWorldState = Effect.gen(function* () {
+  const runtime = yield* createAdvancedTestEnvironment();
+
+  const stmTest = yield* runtime.runPromise(
+    Effect.gen(function* () {
+      const worldService = yield* WorldService;
+
+      // ✅ 並行ブロック設置テスト
+      const testPositions = [
+        createTestPosition(0, 0, 0),
+        createTestPosition(1, 0, 0),
+        createTestPosition(2, 0, 0)
+      ];
+
+      const testBlock = createTestBlock("minecraft:stone");
+
+      // 並行設置実行
+      yield* Effect.all(
+        testPositions.map(pos => worldService.setBlock(pos, testBlock)),
+        { concurrency: "unbounded" }
+      );
+
+      // 結果確認
+      const results = yield* Effect.all(
+        testPositions.map(pos => worldService.getBlock(pos)),
+        { concurrency: "unbounded" }
+      );
+
+      return results.every(block => block.id === "minecraft:stone");
+    })
+  );
+
+  return stmTest;
+});
+
+// ✅ Property-Based Testing統合テスト
+const testPropertyBasedGameLogic = Effect.gen(function* () {
+  // ✅ Pure function property test
+  const inventoryPropertyTest = fc.property(
+    InventoryArbitrary,
+    ItemStackArbitrary,
+    (inventory, itemStack) => {
+      const result = addItemToInventory(inventory, itemStack);
+
+      // プロパティ: 元のインベントリは不変
+      return inventory === inventory && // 参照同一性確認
+             result.updatedInventory.slots.length <= result.updatedInventory.maxSize;
+    }
+  );
+
+  // ✅ Effect-based property test
+  const effectPropertyTest = yield* Effect.gen(function* () {
+    const runtime = yield* createAdvancedTestEnvironment();
+
+    return yield* runtime.runPromise(
+      fc.asyncProperty(
+        PlayerIdArbitrary,
+        PositionArbitrary,
+        async (playerId, position) => {
+          return await Effect.runPromise(
+            Effect.gen(function* () {
+              const worldService = yield* WorldService;
+
+              // テスト: 有効な位置は常に検証に成功する
+              const isValid = yield* worldService.isValidPosition(position);
+              return typeof isValid === "boolean";
+            })
+          );
+        }
+      )
+    );
+  });
+
+  return { inventoryPropertyTest, effectPropertyTest };
+});
+
+// ✅ アサーション例
+const runAllTests = Effect.gen(function* () {
+  // リアクティブシステムテスト
+  const reactiveTest = yield* testReactiveGameSystem;
+  console.assert(reactiveTest.length >= 3, "イベント処理テスト失敗");
+
+  // STM並行性テスト
+  const stmTest = yield* testSTMWorldState;
+  console.assert(stmTest === true, "STM並行性テスト失敗");
+
+  // Property-basedテスト
+  const propertyTests = yield* testPropertyBasedGameLogic;
+  console.assert(fc.check(propertyTests.inventoryPropertyTest), "Property-basedテスト失敗");
+
+  yield* Effect.log("全テスト完了: リアクティブシステム、STM並行性、Property-basedテスト");
+});
+
+// ✅ テスト実行
+Effect.runPromise(runAllTests).then(() => {
+  console.log("Effect-TS 3.17+ 統合テスト完了");
+}).catch(error => {
+  console.error("テスト失敗:", error);
+});
 ```
 
 ## 7. 実践的ガイドライン
@@ -2050,7 +2727,7 @@ expect(result.success).toBe(true);
 
 ### ✅ 採用必須パターン
 - **Schema.Struct + Brand型**: すべてのデータ定義
-- **Context.GenericTag**: サービス定義統一 (`@app/ServiceName`)
+- **Context.Tag**: サービス定義統一 (`class extends Context.Tag`)
 - **Effect.gen + yield***: 非同期処理の標準化
 - **Match.value + exhaustive**: パターンマッチング
 - **STM + TRef**: 並行状態管理

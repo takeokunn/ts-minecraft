@@ -120,12 +120,42 @@ export const ItemInfo = Schema.Struct({
 export type ItemInfo = Schema.Schema.Type<typeof ItemInfo>
 
 /**
+ * アイテム数量のBranded Type（型安全性強化）
+ */
+export const Quantity = Schema.Number.pipe(
+  Schema.int(), // 整数制約
+  Schema.greaterThanOrEqualTo(0), // 非負数制約
+  Schema.brand("Quantity")
+)
+export type Quantity = Schema.Schema.Type<typeof Quantity>
+
+/**
+ * アイテムスロットインデックスのBranded Type
+ */
+export const SlotIndex = Schema.Number.pipe(
+  Schema.int(),
+  Schema.greaterThanOrEqualTo(0),
+  Schema.brand("SlotIndex")
+)
+export type SlotIndex = Schema.Schema.Type<typeof SlotIndex>
+
+/**
+ * 耐久度のBranded Type
+ */
+export const Durability = Schema.Number.pipe(
+  Schema.int(),
+  Schema.greaterThanOrEqualTo(0),
+  Schema.brand("Durability")
+)
+export type Durability = Schema.Schema.Type<typeof Durability>
+
+/**
  * インベントリ内のアイテムスタック
  */
 export const ItemStack = Schema.Struct({
   itemType: ItemType,
-  quantity: Schema.Number,
-  durability: Schema.optional(Schema.Number),
+  quantity: Quantity,
+  durability: Schema.optional(Durability),
   metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 
@@ -134,60 +164,57 @@ export type ItemStack = Schema.Schema.Type<typeof ItemStack>
 /**
  * ItemStackのData構造（不変・比較可能）
  */
-export class ItemStackData extends Data.Struct<{
+export class ItemStackData extends Data.TaggedClass("ItemStackData")<{
   readonly itemType: ItemType
-  readonly quantity: number
-  readonly durability?: number
+  readonly quantity: Quantity
+  readonly durability?: Durability
   readonly metadata?: Record<string, unknown>
 }> {
   /**
    * アイテムを追加（スタック可能な場合）
    */
-  addQuantity(amount: number, maxStackSize: number): ItemStackData | null {
-    const newQuantity = this.quantity + amount
-    if (newQuantity > maxStackSize) {
-      return null // スタック上限超過
-    }
-
-    return new ItemStackData({
-      ...this,
-      quantity: newQuantity
-    })
-  }
+  static addQuantity = (self: ItemStackData, amount: Quantity, maxStackSize: Quantity) =>
+    Match.value(self.quantity + amount).pipe(
+      Match.when(newQuantity => newQuantity > maxStackSize, () => Option.none()),
+      Match.orElse(newQuantity => Option.some(
+        new ItemStackData({
+          ...self,
+          quantity: newQuantity as Quantity
+        })
+      ))
+    )
 
   /**
    * アイテムを削除
    */
-  removeQuantity(amount: number): ItemStackData | null {
-    const newQuantity = this.quantity - amount
-    if (newQuantity <= 0) {
-      return null // アイテムなくなった
-    }
-
-    return new ItemStackData({
-      ...this,
-      quantity: newQuantity
-    })
-  }
+  static removeQuantity = (self: ItemStackData, amount: Quantity) =>
+    Match.value(self.quantity - amount).pipe(
+      Match.when(newQuantity => newQuantity <= 0, () => Option.none()),
+      Match.orElse(newQuantity => Option.some(
+        new ItemStackData({
+          ...self,
+          quantity: newQuantity as Quantity
+        })
+      ))
+    )
 
   /**
    * 耐久度を減らす
    */
-  decreaseDurability(amount: number): ItemStackData | null {
-    if (this.durability === undefined) {
-      return this // 耐久度なしアイテム
-    }
-
-    const newDurability = this.durability - amount
-    if (newDurability <= 0) {
-      return null // 道具が壊れた
-    }
-
-    return new ItemStackData({
-      ...this,
-      durability: newDurability
-    })
-  }
+  static decreaseDurability = (self: ItemStackData, amount: Durability) =>
+    Match.value(self.durability).pipe(
+      Match.when(Option.isNone, () => Option.some(self)), // 耐久度なしアイテム
+      Match.when(
+        durability => durability && (durability - amount) <= 0,
+        () => Option.none() // 道具が壊れた
+      ),
+      Match.orElse(durability => Option.some(
+        new ItemStackData({
+          ...self,
+          durability: (durability! - amount) as Durability
+        })
+      ))
+    )
 
   /**
    * スタック可能かチェック
@@ -318,14 +345,14 @@ export const getItemInfo = (itemType: ItemType): ItemInfo => {
 ```typescript
 // src/domain/models/inventory.ts
 import { Schema } from "@effect/schema"
-import { Data, Option, Array as EffectArray } from "effect"
-import { ItemStackData, ItemType, getItemInfo } from "./item.js"
+import { Data, Option, Array as EffectArray, Match, Effect } from "effect"
+import { ItemStackData, ItemType, getItemInfo, Quantity, SlotIndex } from "./item.js"
 
 /**
  * インベントリスロット
  */
 export const InventorySlot = Schema.Struct({
-  index: Schema.Number,
+  index: SlotIndex,
   itemStack: Schema.optional(ItemStack),
   locked: Schema.Boolean  // スロットロック状態
 })
@@ -333,13 +360,36 @@ export const InventorySlot = Schema.Struct({
 export type InventorySlot = Schema.Schema.Type<typeof InventorySlot>
 
 /**
+ * インベントリエラーのタグ付きエラー定義
+ */
+export class InventoryFullError extends Schema.TaggedError<InventoryFullError>()("InventoryFullError", {
+  attemptedItem: ItemType,
+  attemptedQuantity: Quantity
+}) {}
+
+export class InsufficientItemError extends Schema.TaggedError<InsufficientItemError>()("InsufficientItemError", {
+  itemType: ItemType,
+  requested: Quantity,
+  available: Quantity
+}) {}
+
+export class InvalidSlotError extends Schema.TaggedError<InvalidSlotError>()("InvalidSlotError", {
+  slotIndex: SlotIndex,
+  maxCapacity: SlotIndex
+}) {}
+
+export class SlotLockedError extends Schema.TaggedError<SlotLockedError>()("SlotLockedError", {
+  slotIndex: SlotIndex
+}) {}
+
+/**
  * インベントリ全体の状態
  */
 export const InventoryState = Schema.Struct({
   playerId: Schema.String,
   slots: Schema.Array(InventorySlot),
-  selectedSlotIndex: Schema.Number,
-  capacity: Schema.Number
+  selectedSlotIndex: SlotIndex,
+  capacity: SlotIndex
 })
 
 export type InventoryState = Schema.Schema.Type<typeof InventoryState>
@@ -358,142 +408,178 @@ export class Inventory extends Data.Struct<{
   /**
    * 新しいインベントリの作成
    */
-  static create(playerId: string, capacity: number = 36): Inventory {
-    const slots = Array.from({ length: capacity }, (_, index) => ({
-      index,
-      itemStack: undefined,
-      locked: false
-    }))
+  static create = (playerId: string, capacity: SlotIndex = 36 as SlotIndex): Effect.Effect<Inventory, never> =>
+    Effect.succeed(
+      new Inventory({
+        state: {
+          playerId,
+          slots: Array.from({ length: capacity }, (_, index) => ({
+            index: index as SlotIndex,
+            itemStack: undefined,
+            locked: false
+          })),
+          selectedSlotIndex: 0 as SlotIndex,
+          capacity
+        }
+      })
+    )
 
-    return new Inventory({
-      state: {
-        playerId,
-        slots,
-        selectedSlotIndex: 0,
-        capacity
-      }
+  /**
+   * アイテムの追加（Effectでラップ）
+   */
+  static addItem = (
+    self: Inventory,
+    itemType: ItemType,
+    quantity: Quantity
+  ): Effect.Effect<{ inventory: Inventory; remainingQuantity: Quantity }, InventoryFullError> =>
+    Effect.gen(function* () {
+      const itemInfo = getItemInfo(itemType)
+      let remainingQty = quantity
+      const newSlots = [...self.state.slots]
+
+      // 既存スタックに追加を試行
+      const updatedSlots = yield* Effect.forEach(newSlots, (slot, index) =>
+        Match.value({ slot, remainingQty }).pipe(
+          Match.when(
+            ({ slot, remainingQty }) => slot.locked || !slot.itemStack || remainingQty <= 0,
+            ({ slot }) => Effect.succeed(slot)
+          ),
+          Match.when(
+            ({ slot }) => {
+              const currentStack = new ItemStackData(slot.itemStack!)
+              return currentStack.itemType === itemType && currentStack.canStackWith(currentStack)
+            },
+            ({ slot }) => Effect.gen(function* () {
+              const currentStack = new ItemStackData(slot.itemStack!)
+              const addableAmount = Math.min(remainingQty, itemInfo.maxStackSize - currentStack.quantity) as Quantity
+              const newStackOpt = ItemStackData.addQuantity(currentStack, addableAmount, itemInfo.maxStackSize as Quantity)
+
+              return Option.match(newStackOpt, {
+                onNone: () => slot,
+                onSome: (newStack) => {
+                  remainingQty = (remainingQty - addableAmount) as Quantity
+                  return {
+                    ...slot,
+                    itemStack: {
+                      itemType: newStack.itemType,
+                      quantity: newStack.quantity,
+                      durability: newStack.durability,
+                      metadata: newStack.metadata
+                    }
+                  }
+                }
+              })
+            })
+          ),
+          Match.orElse(({ slot }) => Effect.succeed(slot))
+        )
+      )
+
+      // 新しいスロットに追加
+      const finalSlots = yield* Effect.forEach(updatedSlots, (slot) =>
+        Match.value({ slot, remainingQty }).pipe(
+          Match.when(
+            ({ slot, remainingQty }) => slot.locked || slot.itemStack || remainingQty <= 0,
+            ({ slot }) => Effect.succeed(slot)
+          ),
+          Match.orElse(({ slot }) => {
+            const stackSize = Math.min(remainingQty, itemInfo.maxStackSize) as Quantity
+            remainingQty = (remainingQty - stackSize) as Quantity
+            return Effect.succeed({
+              ...slot,
+              itemStack: {
+                itemType,
+                quantity: stackSize,
+                durability: itemInfo.durability,
+                metadata: undefined
+              }
+            })
+          })
+        )
+      )
+
+      const newInventory = new Inventory({
+        state: {
+          ...self.state,
+          slots: finalSlots
+        }
+      })
+
+      return { inventory: newInventory, remainingQuantity: remainingQty }
     })
-  }
 
   /**
-   * アイテムの追加
+   * アイテムの削除（Effectでラップ）
    */
-  addItem(itemType: ItemType, quantity: number): {
-    inventory: Inventory
-    remainingQuantity: number
-  } {
-    const itemInfo = getItemInfo(itemType)
-    let remainingQty = quantity
-    let newSlots = [...this.state.slots]
+  static removeItem = (
+    self: Inventory,
+    itemType: ItemType,
+    quantity: Quantity
+  ): Effect.Effect<{ inventory: Inventory; removedQuantity: Quantity }, InsufficientItemError> =>
+    Effect.gen(function* () {
+      const availableQuantity = Inventory.getItemCount(self, itemType)
 
-    // 既存のスタックにまず追加を試行
-    for (let i = 0; i < newSlots.length && remainingQty > 0; i++) {
-      const slot = newSlots[i]
-      if (slot.locked || !slot.itemStack) continue
-
-      const currentStack = new ItemStackData(slot.itemStack)
-      if (currentStack.itemType !== itemType || !currentStack.canStackWith(currentStack)) {
-        continue
+      if (availableQuantity < quantity) {
+        return yield* Effect.fail(
+          new InsufficientItemError({
+            itemType,
+            requested: quantity,
+            available: availableQuantity
+          })
+        )
       }
 
-      const addableAmount = Math.min(remainingQty, itemInfo.maxStackSize - currentStack.quantity)
-      const newStack = currentStack.addQuantity(addableAmount, itemInfo.maxStackSize)
+      let removedQty: Quantity = 0 as Quantity
+      const newSlots = [...self.state.slots]
 
-      if (newStack) {
-        newSlots[i] = {
-          ...slot,
-          itemStack: {
-            itemType: newStack.itemType,
-            quantity: newStack.quantity,
-            durability: newStack.durability,
-            metadata: newStack.metadata
-          }
-        }
-        remainingQty -= addableAmount
-      }
-    }
+      // 後方から削除処理
+      const processedSlots = yield* Effect.reduceRight(
+        newSlots,
+        { slots: newSlots, removedQty },
+        (acc, slot, index) =>
+          Match.value({ slot, acc }).pipe(
+            Match.when(
+              ({ slot, acc }) =>
+                slot.locked || !slot.itemStack ||
+                slot.itemStack.itemType !== itemType ||
+                acc.removedQty >= quantity,
+              ({ acc }) => Effect.succeed(acc)
+            ),
+            Match.orElse(({ slot, acc }) => {
+              const currentStack = new ItemStackData(slot.itemStack!)
+              const removeAmount = Math.min(quantity - acc.removedQty, currentStack.quantity) as Quantity
+              const newStackOpt = ItemStackData.removeQuantity(currentStack, removeAmount)
 
-    // 新しいスロットに追加
-    for (let i = 0; i < newSlots.length && remainingQty > 0; i++) {
-      const slot = newSlots[i]
-      if (slot.locked || slot.itemStack) continue
+              const updatedSlot = Option.match(newStackOpt, {
+                onNone: () => ({ ...slot, itemStack: undefined }),
+                onSome: (newStack) => ({
+                  ...slot,
+                  itemStack: {
+                    itemType: newStack.itemType,
+                    quantity: newStack.quantity,
+                    durability: newStack.durability,
+                    metadata: newStack.metadata
+                  }
+                })
+              })
 
-      const stackSize = Math.min(remainingQty, itemInfo.maxStackSize)
-      newSlots[i] = {
-        ...slot,
-        itemStack: {
-          itemType,
-          quantity: stackSize,
-          durability: itemInfo.durability,
-          metadata: undefined
-        }
-      }
-      remainingQty -= stackSize
-    }
+              acc.slots[index] = updatedSlot
+              acc.removedQty = (acc.removedQty + removeAmount) as Quantity
 
-    return {
-      inventory: new Inventory({
+              return Effect.succeed(acc)
+            })
+          )
+      )
+
+      const newInventory = new Inventory({
         state: {
-          ...this.state,
-          slots: newSlots
+          ...self.state,
+          slots: processedSlots.slots
         }
-      }),
-      remainingQuantity: remainingQty
-    }
-  }
+      })
 
-  /**
-   * アイテムの削除
-   */
-  removeItem(itemType: ItemType, quantity: number): {
-    inventory: Inventory
-    removedQuantity: number
-  } {
-    let removedQty = 0
-    let newSlots = [...this.state.slots]
-
-    // 後方から削除（通常、新しいアイテムから使用）
-    for (let i = newSlots.length - 1; i >= 0 && removedQty < quantity; i--) {
-      const slot = newSlots[i]
-      if (slot.locked || !slot.itemStack || slot.itemStack.itemType !== itemType) {
-        continue
-      }
-
-      const currentStack = new ItemStackData(slot.itemStack)
-      const removeAmount = Math.min(quantity - removedQty, currentStack.quantity)
-
-      const newStack = currentStack.removeQuantity(removeAmount)
-      if (newStack) {
-        newSlots[i] = {
-          ...slot,
-          itemStack: {
-            itemType: newStack.itemType,
-            quantity: newStack.quantity,
-            durability: newStack.durability,
-            metadata: newStack.metadata
-          }
-        }
-      } else {
-        // スタックが空になった場合
-        newSlots[i] = {
-          ...slot,
-          itemStack: undefined
-        }
-      }
-
-      removedQty += removeAmount
-    }
-
-    return {
-      inventory: new Inventory({
-        state: {
-          ...this.state,
-          slots: newSlots
-        }
-      }),
-      removedQuantity: removedQty
-    }
-  }
+      return { inventory: newInventory, removedQuantity: processedSlots.removedQty }
+    })
 
   /**
    * スロット間のアイテム移動
@@ -578,13 +664,12 @@ export class Inventory extends Data.Struct<{
   }
 
   /**
-   * アイテム数の取得
+   * アイテム数の取得（純粋関数）
    */
-  getItemCount(itemType: ItemType): number {
-    return this.state.slots
+  static getItemCount = (self: Inventory, itemType: ItemType): Quantity =>
+    self.state.slots
       .filter(slot => slot.itemStack?.itemType === itemType)
-      .reduce((total, slot) => total + (slot.itemStack?.quantity || 0), 0)
-  }
+      .reduce((total, slot) => total + (slot.itemStack?.quantity || 0), 0) as Quantity
 
   /**
    * 空きスロット数の取得
@@ -1054,9 +1139,9 @@ class InventoryServiceImpl implements InventoryService {
 /**
  * InventoryServiceの実装を提供するLayer
  */
-export const InventoryServiceLive = Layer.succeed(
+export const InventoryServiceLive = Layer.effect(
   InventoryService,
-  new InventoryServiceImpl()
+  Effect.succeed(new InventoryServiceImpl())
 )
 ```
 
@@ -1065,19 +1150,20 @@ export const InventoryServiceLive = Layer.succeed(
 ```typescript
 // src/ui/components/inventory-component.tsx
 import React, { useEffect, useState, useCallback } from 'react'
-import { Effect, Option, Queue } from 'effect'
-import { InventoryService } from '../../domain/services/inventory-service.js'
-import { Inventory } from '../../domain/models/inventory.js'
-import { ItemType, getItemInfo } from '../../domain/models/item.js'
+import { Effect, Option, Queue, Match, Schema } from 'effect'
+import { InventoryService, InventoryOperationResult } from '../../domain/services/inventory-service.js'
+import { Inventory, InventoryFullError, InsufficientItemError } from '../../domain/models/inventory.js'
+import { ItemType, getItemInfo, Quantity, SlotIndex } from '../../domain/models/item.js'
 import { InventoryEvent, ItemAddedEvent, ItemRemovedEvent } from '../../domain/events/inventory-events.js'
 
 /**
- * Effect-TS用カスタムフック
+ * Effect-TS用カスタムフック（型安全性強化）
  *
  * 🎯 学習ポイント：
  * - Effect-TSとReactの統合パターン
- * - リアルタイム状態管理
- * - 型安全なUI実装
+ * - Tagged Errorで精密なエラーハンドリング
+ * - Schemaでバリデーション
+ * - Matchでパターンマッチング
  */
 const useInventory = (playerId: string) => {
   const [inventory, setInventory] = useState<Inventory | null>(null)
@@ -1087,24 +1173,32 @@ const useInventory = (playerId: string) => {
   // インベントリサービスの取得（実際の実装では依存注入を使用）
   const inventoryService = /* InventoryServiceの実装を取得 */ null as any
 
-  // インベントリの初期読み込み
+  // インベントリの初期読み込み（Effect.gen使用）
   useEffect(() => {
     if (!inventoryService) return
 
-    const loadInventory = async () => {
-      try {
-        const result = await Effect.runPromise(
-          inventoryService.getInventory(playerId)
-        )
+    const loadInventory = () =>
+      Effect.gen(function* () {
+        const result = yield* inventoryService.getInventory(playerId)
         setInventory(result)
         setIsLoading(false)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '不明なエラー')
-        setIsLoading(false)
-      }
-    }
+      }).pipe(
+        Effect.catchTags({
+          ServiceInitializationError: (error) =>
+            Effect.sync(() => {
+              setError(`サービス初期化エラー: ${error.reason}`)
+              setIsLoading(false)
+            })
+        }),
+        Effect.catchAllDefect((defect) =>
+          Effect.sync(() => {
+            setError(`不明なエラー: ${String(defect)}`)
+            setIsLoading(false)
+          })
+        )
+      )
 
-    loadInventory()
+    Effect.runPromise(loadInventory())
   }, [playerId, inventoryService])
 
   // リアルタイムイベント購読
@@ -1155,65 +1249,163 @@ const useInventory = (playerId: string) => {
     }
   }, [playerId, inventoryService, inventory])
 
-  // UI操作関数
-  const addItem = useCallback(async (itemType: ItemType, quantity: number) => {
+  // UI操作関数（型安全性強化）
+  const addItem = useCallback((itemType: ItemType, rawQuantity: number) => {
     if (!inventoryService) return
 
-    try {
-      const result = await Effect.runPromise(
-        inventoryService.addItem(playerId, itemType, quantity)
-      )
+    const addItemEffect = Effect.gen(function* () {
+      // 数量のバリデーション
+      const quantity = yield* Schema.decodeUnknown(Quantity)(rawQuantity)
 
-      if (!result.success) {
-        setError(result.error || 'アイテム追加に失敗しました')
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '不明なエラー')
-    }
+      const result = yield* inventoryService.addItem(playerId, itemType, quantity)
+
+      return Match.value(result).pipe(
+        Match.when(
+          (res) => res.success,
+          (res) => Effect.sync(() => {
+            console.log(`✅ ${quantity}個の${itemType}を追加しました`)
+            // インベントリ状態の更新はイベントで処理
+          })
+        ),
+        Match.orElse(() => Effect.sync(() => {
+          setError('アイテム追加に失敗しました')
+        }))
+      )
+    }).pipe(
+      Effect.catchTags({
+        InventoryFullError: (error) =>
+          Effect.sync(() => {
+            setError(`インベントリが満杯です: ${error.attemptedQuantity}個の${error.attemptedItem}を追加できません`)
+          }),
+        ServiceInitializationError: (error) =>
+          Effect.sync(() => setError(`サービスエラー: ${error.reason}`)),
+        ConcurrentModificationError: (error) =>
+          Effect.sync(() => setError(`同時更新エラー: ${error.operation}`))
+      }),
+      Effect.catchTag("ParseError", (error) =>
+        Effect.sync(() => setError(`入力値が不正です: ${error.message}`))
+      )
+    )
+
+    Effect.runPromise(addItemEffect)
   }, [playerId, inventoryService])
 
-  const removeItem = useCallback(async (itemType: ItemType, quantity: number) => {
+  const removeItem = useCallback((itemType: ItemType, rawQuantity: number) => {
     if (!inventoryService) return
 
-    try {
-      const result = await Effect.runPromise(
-        inventoryService.removeItem(playerId, itemType, quantity)
-      )
+    const removeItemEffect = Effect.gen(function* () {
+      // 数量のバリデーション
+      const quantity = yield* Schema.decodeUnknown(Quantity)(rawQuantity)
 
-      if (!result.success) {
-        setError(result.error || 'アイテム削除に失敗しました')
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '不明なエラー')
-    }
+      const result = yield* inventoryService.removeItem(playerId, itemType, quantity)
+
+      return Match.value(result).pipe(
+        Match.when(
+          (res) => res.success,
+          (res) => Effect.sync(() => {
+            console.log(`➖ ${quantity}個の${itemType}を削除しました`)
+          })
+        ),
+        Match.orElse(() => Effect.sync(() => {
+          setError('アイテム削除に失敗しました')
+        }))
+      )
+    }).pipe(
+      Effect.catchTags({
+        InsufficientItemError: (error) =>
+          Effect.sync(() => {
+            setError(`アイテム不足: ${error.itemType}が${error.requested}個必要ですが、${error.available}個しかありません`)
+          }),
+        ServiceInitializationError: (error) =>
+          Effect.sync(() => setError(`サービスエラー: ${error.reason}`)),
+        ConcurrentModificationError: (error) =>
+          Effect.sync(() => setError(`同時更新エラー: ${error.operation}`))
+      }),
+      Effect.catchTag("ParseError", (error) =>
+        Effect.sync(() => setError(`入力値が不正です: ${error.message}`))
+      )
+    )
+
+    Effect.runPromise(removeItemEffect)
   }, [playerId, inventoryService])
 
-  const moveItem = useCallback(async (fromIndex: number, toIndex: number) => {
+  const moveItem = useCallback((fromIndex: number, toIndex: number) => {
     if (!inventoryService) return
 
-    try {
-      const result = await Effect.runPromise(
-        inventoryService.moveItem(playerId, fromIndex, toIndex)
-      )
+    const moveItemEffect = Effect.gen(function* () {
+      // スロットインデックスのバリデーション
+      const fromSlot = yield* Schema.decodeUnknown(SlotIndex)(fromIndex)
+      const toSlot = yield* Schema.decodeUnknown(SlotIndex)(toIndex)
 
-      if (!result.success) {
-        setError(result.error || 'アイテム移動に失敗しました')
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '不明なエラー')
-    }
+      const result = yield* inventoryService.moveItem(playerId, fromSlot, toSlot)
+
+      return Match.value(result).pipe(
+        Match.when(
+          (res) => res.success,
+          () => Effect.sync(() => {
+            console.log(`🔀 アイテムをスロット${fromIndex}から${toIndex}に移動しました`)
+          })
+        ),
+        Match.orElse(() => Effect.sync(() => {
+          setError('アイテム移動に失敗しました')
+        }))
+      )
+    }).pipe(
+      Effect.catchTags({
+        InvalidSlotError: (error) =>
+          Effect.sync(() => {
+            setError(`無効なスロット: ${error.slotIndex} (最大: ${error.maxCapacity})`)
+          }),
+        SlotLockedError: (error) =>
+          Effect.sync(() => setError(`スロット${error.slotIndex}はロックされています`)),
+        ServiceInitializationError: (error) =>
+          Effect.sync(() => setError(`サービスエラー: ${error.reason}`)),
+        ConcurrentModificationError: (error) =>
+          Effect.sync(() => setError(`同時更新エラー: ${error.operation}`))
+      }),
+      Effect.catchTag("ParseError", (error) =>
+        Effect.sync(() => setError(`入力値が不正です: ${error.message}`))
+      )
+    )
+
+    Effect.runPromise(moveItemEffect)
   }, [playerId, inventoryService])
 
-  const selectSlot = useCallback(async (slotIndex: number) => {
+  const selectSlot = useCallback((rawSlotIndex: number) => {
     if (!inventoryService) return
 
-    try {
-      await Effect.runPromise(
-        inventoryService.selectSlot(playerId, slotIndex)
+    const selectSlotEffect = Effect.gen(function* () {
+      // スロットインデックスのバリデーション
+      const slotIndex = yield* Schema.decodeUnknown(SlotIndex)(rawSlotIndex)
+
+      const result = yield* inventoryService.selectSlot(playerId, slotIndex)
+
+      return Match.value(result).pipe(
+        Match.when(
+          (res) => res.success,
+          () => Effect.sync(() => {
+            console.log(`👆 スロット${rawSlotIndex}を選択しました`)
+          })
+        ),
+        Match.orElse(() => Effect.sync(() => {
+          setError('スロット選択に失敗しました')
+        }))
       )
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '不明なエラー')
-    }
+    }).pipe(
+      Effect.catchTags({
+        InvalidSlotError: (error) =>
+          Effect.sync(() => {
+            setError(`無効なスロット: ${error.slotIndex} (最大: ${error.maxCapacity})`)
+          }),
+        ServiceInitializationError: (error) =>
+          Effect.sync(() => setError(`サービスエラー: ${error.reason}`))
+      }),
+      Effect.catchTag("ParseError", (error) =>
+        Effect.sync(() => setError(`入力値が不正です: ${error.message}`))
+      )
+    )
+
+    Effect.runPromise(selectSlotEffect)
   }, [playerId, inventoryService])
 
   return {
@@ -1535,10 +1727,10 @@ export default InventoryComponent
 
 ```bash
 # 依存関係インストール
-npm install react react-dom @types/react @types/react-dom
+pnpm add react react-dom @types/react @types/react-dom
 
 # 開発サーバー起動
-npm run dev
+pnpm dev
 ```
 
 ### 2️⃣ 単体テスト

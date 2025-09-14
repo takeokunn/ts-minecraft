@@ -1,3 +1,15 @@
+---
+title: "テストコマンドリファレンス - Vitest CLI完全ガイド"
+description: "Vitestベースのテスト実行、カバレッジ測定、ウォッチモードのCLIコマンド完全リファレンス。"
+category: "reference"
+difficulty: "beginner"
+tags: ["testing", "vitest", "cli-commands", "coverage", "watch-mode"]
+prerequisites: ["basic-typescript"]
+estimated_reading_time: "8分"
+dependencies: []
+status: "complete"
+---
+
 # テストコマンド
 
 テスト実行・カバレッジ測定・品質保証に関するCLIコマンドの完全リファレンスです。
@@ -271,7 +283,7 @@ const MockWorldService = Layer.succeed(
 # Node.js デバッガー有効化
 pnpm test -- --inspect-brk
 
-# VS Codeデバッガー統合
+# エディタのデバッガー統合
 pnpm test:debug
 ```
 

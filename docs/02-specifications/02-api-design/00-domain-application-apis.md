@@ -14,7 +14,16 @@ version: "1.0.0"
 
 ## 概要
 
-Domain層とApplication層のAPI設計仕様です。Effect-TSのContext/Layerパターンを使用した、型安全で関数型プログラミングに適したAPI設計を定義します。
+Domain層とApplication層のAPI設計仕様です。Effect-TS 3.17+の最新パターンを使用した、型安全で関数型プログラミングに適したAPI設計を定義します。
+
+本仕様では以下の最新技術とパターンを採用しています：
+
+- **Effect-TS 3.17+**: 最新の副作用管理と型安全性
+- **Schema 0.73+**: 強化されたスキーマバリデーション
+- **Match API**: 型安全なパターンマッチング
+- **Resource管理**: 自動リソース管理とクリーンアップ
+- **Fiber並行制御**: 軽量スレッドによる効率的な並行処理
+- **Metrics & Telemetry**: 組み込み監視機能
 
 ## Domain Layer APIs
 
@@ -2324,6 +2333,1127 @@ export const ApplicationLayer = Layer.mergeAll(
 **Architecture**:
 - [Layered Architecture](../../01-architecture/04-layered-architecture.md) - レイヤー構成
 - [Effect-TS Patterns](../../01-architecture/06-effect-ts-patterns.md) - APIパターン実装
+
+## Advanced Testing Patterns
+
+### Unit Testing with Effect-TS
+
+#### Service Mock実装
+
+```typescript
+// =============================================================================
+// テスト用Mock Service実装
+// =============================================================================
+
+// PlayerService用のTestLayer
+export const PlayerServiceTest = Layer.succeed(PlayerService, {
+  create: (params) => Effect.gen(function* () {
+    const validatedParams = yield* Schema.decodeUnknownSync(CreatePlayerParams)(params)
+
+    // テスト用のモックプレイヤー作成
+    const mockPlayer = {
+      id: validatedParams.id,
+      name: validatedParams.name,
+      position: validatedParams.position,
+      health: { value: 100, max: 100 },
+      status: "active" as const,
+      // テスト用の追加プロパティ
+      _isTestEntity: true,
+      _createdAt: Date.now()
+    }
+
+    return mockPlayer
+  }),
+
+  move: (params) => Effect.gen(function* () {
+    const validatedParams = yield* Schema.decodeUnknownSync(MovePlayerParams)(params)
+
+    // テスト用の簡略化された移動処理
+    const newPosition = Position({
+      x: validatedParams.direction === "east" ? 10 : validatedParams.direction === "west" ? -10 : 0,
+      y: validatedParams.direction === "up" ? 10 : validatedParams.direction === "down" ? -10 : 0,
+      z: validatedParams.direction === "north" ? 10 : validatedParams.direction === "south" ? -10 : 0
+    })
+
+    return newPosition
+  }),
+
+  damage: (params) => Effect.succeed({ value: 80, max: 100 }),
+  heal: (params) => Effect.succeed({ value: 100, max: 100 })
+})
+
+// Repository用のInMemoryテスト実装
+export const PlayerRepositoryTest = Layer.succeed(PlayerRepository, {
+  findById: (id) => Effect.gen(function* () {
+    const testPlayers = yield* TestData.getPlayers()
+    const player = testPlayers.get(id)
+
+    if (!player) {
+      yield* Effect.fail(new PlayerSystem.PlayerNotFoundError({
+        playerId: id,
+        searchContext: "test-repository",
+        timestamp: Date.now()
+      }))
+    }
+
+    return player
+  }),
+
+  save: (player) => Effect.gen(function* () {
+    const testPlayers = yield* TestData.getPlayers()
+    yield* TestData.setPlayers(testPlayers.set(player.id, player))
+  }),
+
+  update: (player) => Effect.gen(function* () {
+    const testPlayers = yield* TestData.getPlayers()
+    yield* TestData.setPlayers(testPlayers.set(player.id, player))
+  })
+})
+
+// TestData管理用のContext
+export const TestData = Context.GenericTag<{
+  readonly getPlayers: () => Effect.Effect<Map<string, Player>>
+  readonly setPlayers: (players: Map<string, Player>) => Effect.Effect<void>
+  readonly getBlocks: () => Effect.Effect<Map<string, Block>>
+  readonly setBlocks: (blocks: Map<string, Block>) => Effect.Effect<void>
+  readonly reset: () => Effect.Effect<void>
+}>()("TestData")
+
+export const TestDataLive = Layer.effect(
+  TestData,
+  Effect.gen(function* () {
+    const playersRef = yield* Ref.make(new Map<string, Player>())
+    const blocksRef = yield* Ref.make(new Map<string, Block>())
+
+    return {
+      getPlayers: () => Ref.get(playersRef),
+      setPlayers: (players) => Ref.set(playersRef, players),
+      getBlocks: () => Ref.get(blocksRef),
+      setBlocks: (blocks) => Ref.set(blocksRef, blocks),
+      reset: () => Effect.all([
+        Ref.set(playersRef, new Map()),
+        Ref.set(blocksRef, new Map())
+      ])
+    }
+  })
+)
+```
+
+#### テスト実装例
+
+```typescript
+// =============================================================================
+// 統合テストの例
+// =============================================================================
+
+describe("PlayerService Integration Tests", () => {
+  const TestLayer = Layer.mergeAll(
+    PlayerServiceTest,
+    PlayerRepositoryTest,
+    TestDataLive,
+    EventBusServiceTest,
+    WorldServiceTest
+  )
+
+  test("プレイヤー作成と移動のフロー", async () => {
+    const program = Effect.gen(function* () {
+      const playerService = yield* PlayerService
+      const testData = yield* TestData
+
+      // テストデータリセット
+      yield* testData.reset()
+
+      // プレイヤー作成
+      const player = yield* playerService.create({
+        id: "test-player-1",
+        name: "TestPlayer",
+        position: { x: 0, y: 64, z: 0 }
+      })
+
+      expect(player.id).toBe("test-player-1")
+      expect(player.name).toBe("TestPlayer")
+      expect(player.position).toEqual({ x: 0, y: 64, z: 0 })
+
+      // プレイヤー移動
+      const newPosition = yield* playerService.move({
+        playerId: "test-player-1",
+        direction: "east",
+        distance: 5
+      })
+
+      expect(newPosition.x).toBe(10) // テストモックの簡略化された移動
+
+      // ダメージ処理
+      const healthAfterDamage = yield* playerService.damage({
+        playerId: "test-player-1",
+        amount: 20,
+        source: "fall"
+      })
+
+      expect(healthAfterDamage.value).toBe(80)
+
+      return { player, newPosition, healthAfterDamage }
+    })
+
+    const result = await Effect.runPromise(program.pipe(
+      Effect.provide(TestLayer)
+    ))
+
+    expect(result.player.name).toBe("TestPlayer")
+  })
+
+  test("エラーハンドリングのテスト", async () => {
+    const program = Effect.gen(function* () {
+      const playerService = yield* PlayerService
+      const testData = yield* TestData
+
+      yield* testData.reset()
+
+      // 存在しないプレイヤーの移動を試行
+      return yield* playerService.move({
+        playerId: "non-existent-player",
+        direction: "north",
+        distance: 1
+      })
+    })
+
+    const result = await Effect.runPromise(
+      program.pipe(
+        Effect.provide(TestLayer),
+        Effect.either
+      )
+    )
+
+    expect(Either.isLeft(result)).toBe(true)
+    if (Either.isLeft(result)) {
+      expect(result.left._tag).toBe("PlayerSystem.PlayerNotFoundError")
+    }
+  })
+
+  test("並行処理のテスト", async () => {
+    const program = Effect.gen(function* () {
+      const playerService = yield* PlayerService
+      const testData = yield* TestData
+
+      yield* testData.reset()
+
+      // 複数プレイヤーの並行作成
+      const players = yield* Effect.all([
+        playerService.create({
+          id: "player-1",
+          name: "Player1",
+          position: { x: 0, y: 64, z: 0 }
+        }),
+        playerService.create({
+          id: "player-2",
+          name: "Player2",
+          position: { x: 10, y: 64, z: 10 }
+        }),
+        playerService.create({
+          id: "player-3",
+          name: "Player3",
+          position: { x: -10, y: 64, z: -10 }
+        })
+      ], { concurrency: 3 })
+
+      expect(players).toHaveLength(3)
+      expect(players.map(p => p.name)).toEqual(["Player1", "Player2", "Player3"])
+
+      return players
+    })
+
+    const result = await Effect.runPromise(program.pipe(
+      Effect.provide(TestLayer)
+    ))
+
+    expect(result).toHaveLength(3)
+  })
+})
+```
+
+#### Property-Based Testing
+
+```typescript
+// =============================================================================
+// Property-Based Testing (fast-check使用)
+// =============================================================================
+
+import * as fc from "fast-check"
+
+describe("PlayerService Property Tests", () => {
+  const TestLayer = Layer.mergeAll(
+    PlayerServiceTest,
+    PlayerRepositoryTest,
+    TestDataLive
+  )
+
+  test("プレイヤー作成の不変条件", async () => {
+    await fc.assert(fc.asyncProperty(
+      fc.record({
+        id: fc.string({ minLength: 1, maxLength: 36 }),
+        name: fc.string({ minLength: 1, maxLength: 16 }),
+        position: fc.record({
+          x: fc.integer({ min: -30000000, max: 30000000 }),
+          y: fc.integer({ min: -256, max: 320 }),
+          z: fc.integer({ min: -30000000, max: 30000000 })
+        })
+      }),
+      async (params) => {
+        const program = Effect.gen(function* () {
+          const playerService = yield* PlayerService
+          const testData = yield* TestData
+
+          yield* testData.reset()
+
+          const player = yield* playerService.create(params)
+
+          // 不変条件の検証
+          expect(player.id).toBe(params.id)
+          expect(player.name).toBe(params.name)
+          expect(player.position).toEqual(params.position)
+          expect(player.health.value).toBe(100)
+          expect(player.health.max).toBe(100)
+          expect(player.status).toBe("active")
+        })
+
+        await Effect.runPromise(program.pipe(
+          Effect.provide(TestLayer)
+        ))
+      }
+    ))
+  })
+
+  test("移動処理の正当性", async () => {
+    await fc.assert(fc.asyncProperty(
+      fc.tuple(
+        fc.constantFrom("north", "south", "east", "west", "up", "down"),
+        fc.integer({ min: 1, max: 10 })
+      ),
+      async ([direction, distance]) => {
+        const program = Effect.gen(function* () {
+          const playerService = yield* PlayerService
+          const testData = yield* TestData
+
+          yield* testData.reset()
+
+          // プレイヤー作成
+          yield* playerService.create({
+            id: "test-player",
+            name: "TestPlayer",
+            position: { x: 0, y: 64, z: 0 }
+          })
+
+          const newPosition = yield* playerService.move({
+            playerId: "test-player",
+            direction,
+            distance
+          })
+
+          // 移動の妥当性検証
+          expect(typeof newPosition.x).toBe("number")
+          expect(typeof newPosition.y).toBe("number")
+          expect(typeof newPosition.z).toBe("number")
+          expect(Number.isFinite(newPosition.x)).toBe(true)
+          expect(Number.isFinite(newPosition.y)).toBe(true)
+          expect(Number.isFinite(newPosition.z)).toBe(true)
+        })
+
+        await Effect.runPromise(program.pipe(
+          Effect.provide(TestLayer)
+        ))
+      }
+    ))
+  })
+})
+```
+
+## Performance Optimization Patterns
+
+### Resource Pool Management
+
+```typescript
+// =============================================================================
+// リソースプール管理による性能最適化
+// =============================================================================
+
+// チャンク生成用のWorkerプール
+export const ChunkGenerationPool = Context.GenericTag<{
+  readonly generateChunk: (params: {
+    position: ChunkPosition
+    seed: number
+    biome: string
+  }) => Effect.Effect<Chunk, ChunkGenerationError>
+
+  readonly generateBatch: (params: {
+    positions: ReadonlyArray<ChunkPosition>
+    seed: number
+  }) => Effect.Effect<ReadonlyArray<Chunk>, ChunkGenerationError>
+}>()("ChunkGenerationPool")
+
+export const ChunkGenerationPoolLive = Layer.scoped(
+  ChunkGenerationPool,
+  Effect.gen(function* () {
+    // WebWorkerプールの作成（Resource管理）
+    const workerPool = yield* Effect.acquireRelease(
+      Effect.gen(function* () {
+        const workers = yield* Effect.all(
+          Array.from({ length: navigator.hardwareConcurrency || 4 }, () =>
+            Effect.promise(() => new Promise<Worker>((resolve) => {
+              const worker = new Worker('/chunk-generator-worker.js')
+              worker.onmessage = () => resolve(worker)
+            }))
+          )
+        )
+
+        return {
+          workers,
+          currentIndex: 0,
+          getWorker: () => {
+            const worker = workers[this.currentIndex]
+            this.currentIndex = (this.currentIndex + 1) % workers.length
+            return worker
+          }
+        }
+      }),
+      (pool) => Effect.promise(() => Promise.all(
+        pool.workers.map(worker => {
+          worker.terminate()
+          return Promise.resolve()
+        })
+      ))
+    )
+
+    return {
+      generateChunk: (params) => Effect.gen(function* () {
+        const worker = workerPool.getWorker()
+
+        const result = yield* Effect.promise(() =>
+          new Promise<Chunk>((resolve, reject) => {
+            const messageId = Math.random().toString(36)
+
+            const handler = (event: MessageEvent) => {
+              if (event.data.id === messageId) {
+                worker.removeEventListener('message', handler)
+                worker.removeEventListener('error', errorHandler)
+
+                if (event.data.error) {
+                  reject(new ChunkSystem.ChunkGenerationError({
+                    chunkX: params.position.x,
+                    chunkZ: params.position.z,
+                    biome: params.biome,
+                    generationStep: "worker-generation",
+                    seed: params.seed,
+                    performance: {
+                      startTime: Date.now(),
+                      duration: 0,
+                      memoryUsed: 0
+                    },
+                    timestamp: Date.now()
+                  }))
+                } else {
+                  resolve(event.data.chunk)
+                }
+              }
+            }
+
+            const errorHandler = (error: ErrorEvent) => {
+              worker.removeEventListener('message', handler)
+              worker.removeEventListener('error', errorHandler)
+              reject(error)
+            }
+
+            worker.addEventListener('message', handler)
+            worker.addEventListener('error', errorHandler)
+
+            worker.postMessage({
+              id: messageId,
+              type: 'generateChunk',
+              params
+            })
+          })
+        )
+
+        return result
+      }),
+
+      generateBatch: (params) => Effect.gen(function* () {
+        // バッチ処理用の最適化された並列生成
+        const chunks = yield* Effect.all(
+          params.positions.map(position =>
+            ChunkGenerationPool.pipe(
+              Effect.flatMap(pool => pool.generateChunk({
+                position,
+                seed: params.seed,
+                biome: "plains" // 簡略化
+              }))
+            )
+          ),
+          {
+            concurrency: workerPool.workers.length,
+            batching: true
+          }
+        )
+
+        return chunks
+      })
+    }
+  })
+)
+```
+
+### Caching Strategy
+
+```typescript
+// =============================================================================
+// 高度なキャッシュ戦略
+// =============================================================================
+
+// LRU Cache with TTL
+export const LRUCache = <K, V>(params: {
+  maxSize: number
+  ttl: Duration.Duration
+}) => {
+  return Effect.gen(function* () {
+    const cache = yield* Ref.make(new Map<K, { value: V; timestamp: number }>())
+    const accessOrder = yield* Ref.make<K[]>([])
+
+    return {
+      get: (key: K) => Effect.gen(function* () {
+        const cacheData = yield* Ref.get(cache)
+        const entry = cacheData.get(key)
+
+        if (!entry) {
+          return Option.none<V>()
+        }
+
+        // TTL チェック
+        const now = Date.now()
+        const ttlMs = Duration.toMillis(params.ttl)
+
+        if (now - entry.timestamp > ttlMs) {
+          // 期限切れエントリを削除
+          yield* Ref.update(cache, c => {
+            const newCache = new Map(c)
+            newCache.delete(key)
+            return newCache
+          })
+
+          yield* Ref.update(accessOrder, order =>
+            order.filter(k => k !== key)
+          )
+
+          return Option.none<V>()
+        }
+
+        // アクセス順序を更新
+        yield* Ref.update(accessOrder, order => {
+          const newOrder = order.filter(k => k !== key)
+          newOrder.push(key)
+          return newOrder
+        })
+
+        return Option.some(entry.value)
+      }),
+
+      set: (key: K, value: V) => Effect.gen(function* () {
+        const now = Date.now()
+
+        yield* Ref.update(cache, c => {
+          const newCache = new Map(c)
+          newCache.set(key, { value, timestamp: now })
+          return newCache
+        })
+
+        yield* Ref.update(accessOrder, order => {
+          let newOrder = order.filter(k => k !== key)
+          newOrder.push(key)
+
+          // サイズ制限チェック
+          if (newOrder.length > params.maxSize) {
+            const toRemove = newOrder.shift()
+            if (toRemove) {
+              yield* Ref.update(cache, c => {
+                const newCache = new Map(c)
+                newCache.delete(toRemove)
+                return newCache
+              })
+            }
+          }
+
+          return newOrder
+        })
+      }),
+
+      clear: () => Effect.all([
+        Ref.set(cache, new Map()),
+        Ref.set(accessOrder, [])
+      ])
+    }
+  })
+}
+
+// チャンク用キャッシュサービス
+export const ChunkCacheService = Context.GenericTag<{
+  readonly get: (position: ChunkPosition) => Effect.Effect<Option.Option<Chunk>>
+  readonly set: (position: ChunkPosition, chunk: Chunk) => Effect.Effect<void>
+  readonly invalidate: (position: ChunkPosition) => Effect.Effect<void>
+  readonly getStats: () => Effect.Effect<CacheStats>
+}>()("ChunkCacheService")
+
+export const ChunkCacheServiceLive = Layer.scoped(
+  ChunkCacheService,
+  Effect.gen(function* () {
+    const cache = yield* LRUCache<string, Chunk>({
+      maxSize: 1000,
+      ttl: Duration.minutes(10)
+    })
+
+    const stats = yield* Ref.make({
+      hits: 0,
+      misses: 0,
+      sets: 0,
+      evictions: 0
+    })
+
+    const positionToKey = (pos: ChunkPosition) => `${pos.x},${pos.z}`
+
+    return {
+      get: (position) => Effect.gen(function* () {
+        const key = positionToKey(position)
+        const cached = yield* cache.get(key)
+
+        if (Option.isSome(cached)) {
+          yield* Ref.update(stats, s => ({ ...s, hits: s.hits + 1 }))
+          return cached
+        } else {
+          yield* Ref.update(stats, s => ({ ...s, misses: s.misses + 1 }))
+          return Option.none()
+        }
+      }),
+
+      set: (position, chunk) => Effect.gen(function* () {
+        const key = positionToKey(position)
+        yield* cache.set(key, chunk)
+        yield* Ref.update(stats, s => ({ ...s, sets: s.sets + 1 }))
+      }),
+
+      invalidate: (position) => Effect.gen(function* () {
+        const key = positionToKey(position)
+        // LRU Cacheから削除（実装は簡略化）
+        yield* cache.clear() // 実際はinvalidateメソッドを実装する
+      }),
+
+      getStats: () => Ref.get(stats)
+    }
+  })
+)
+```
+
+### Streaming & Batch Processing
+
+```typescript
+// =============================================================================
+// ストリーミング処理による性能最適化
+// =============================================================================
+
+// チャンクのバッチロード
+export const ChunkBatchLoader = Context.GenericTag<{
+  readonly loadChunksBatch: (
+    positions: ReadonlyArray<ChunkPosition>
+  ) => Stream.Stream<Chunk, ChunkLoadError>
+
+  readonly preloadArea: (params: {
+    center: ChunkPosition
+    radius: number
+  }) => Effect.Effect<void, ChunkLoadError>
+}>()("ChunkBatchLoader")
+
+export const ChunkBatchLoaderLive = Layer.succeed(
+  ChunkBatchLoader,
+  {
+    loadChunksBatch: (positions) =>
+      Stream.gen(function* () {
+        const chunkService = yield* ChunkService
+        const cache = yield* ChunkCacheService
+
+        // キャッシュから利用可能なチャンクをチェック
+        const cachedChunks = yield* Effect.all(
+          positions.map(pos =>
+            cache.get(pos).pipe(
+              Effect.map(cached => ({ position: pos, chunk: cached }))
+            )
+          )
+        )
+
+        const uncachedPositions = cachedChunks
+          .filter(({ chunk }) => Option.isNone(chunk))
+          .map(({ position }) => position)
+
+        // キャッシュされたチャンクを先に返す
+        for (const { chunk } of cachedChunks) {
+          if (Option.isSome(chunk)) {
+            yield* Stream.succeed(chunk.value)
+          }
+        }
+
+        // 未キャッシュのチャンクをバッチロード
+        if (uncachedPositions.length > 0) {
+          const loadedChunks = yield* Effect.all(
+            uncachedPositions.map(pos =>
+              chunkService.load(pos).pipe(
+                Effect.tap(chunk => cache.set(pos, chunk))
+              )
+            ),
+            { concurrency: 8, batching: true }
+          )
+
+          for (const chunk of loadedChunks) {
+            yield* Stream.succeed(chunk)
+          }
+        }
+      }),
+
+    preloadArea: (params) => Effect.gen(function* () {
+      const positions: ChunkPosition[] = []
+
+      // 範囲内のチャンク座標を生成
+      for (let x = -params.radius; x <= params.radius; x++) {
+        for (let z = -params.radius; z <= params.radius; z++) {
+          positions.push({
+            x: params.center.x + x,
+            z: params.center.z + z
+          })
+        }
+      }
+
+      // バッチロードをストリームで実行
+      yield* ChunkBatchLoader.pipe(
+        Effect.flatMap(loader =>
+          loader.loadChunksBatch(positions).pipe(
+            Stream.runCollect,
+            Effect.asVoid
+          )
+        )
+      )
+    })
+  }
+)
+
+// イベント処理のバッファリング
+export const BufferedEventProcessor = <E extends GameEvent>(params: {
+  bufferSize: number
+  flushInterval: Duration.Duration
+  processor: (events: ReadonlyArray<E>) => Effect.Effect<void, ProcessorError>
+}) => {
+  return Effect.gen(function* () {
+    const buffer = yield* Queue.bounded<E>(params.bufferSize)
+    const isRunning = yield* Ref.make(true)
+
+    // フラッシュ処理をバックグラウンドで実行
+    yield* Effect.forkDaemon(
+      Stream.fromQueue(buffer).pipe(
+        Stream.groupedWithin(params.bufferSize, params.flushInterval),
+        Stream.mapEffect(events =>
+          params.processor(Array.fromIterable(events))
+        ),
+        Stream.takeWhile(() => Effect.flatMap(Ref.get(isRunning), running =>
+          Effect.succeed(running)
+        )),
+        Stream.runDrain
+      )
+    )
+
+    return {
+      add: (event: E) => Queue.offer(buffer, event),
+      flush: () => Queue.takeAll(buffer).pipe(
+        Effect.flatMap(events =>
+          Array.fromIterable(events).length > 0
+            ? params.processor(Array.fromIterable(events))
+            : Effect.void
+        )
+      ),
+      stop: () => Ref.set(isRunning, false)
+    }
+  })
+}
+```
+
+## Advanced Implementation Examples
+
+### Aggregate Root Pattern
+
+```typescript
+// =============================================================================
+// DDD Aggregate Root パターンの高度な実装
+// =============================================================================
+
+// プレイヤーAggregate Root
+export class PlayerAggregate {
+  private constructor(
+    private readonly id: PlayerId,
+    private state: PlayerState,
+    private readonly events: GameEvent[] = []
+  ) {}
+
+  static create(params: {
+    id: PlayerId
+    name: string
+    position: Position
+  }): Effect.Effect<PlayerAggregate, PlayerCreationError> {
+    return Effect.gen(function* () {
+      // ビジネスルールの検証
+      yield* Effect.when(params.name.length < 1, () =>
+        Effect.fail(new PlayerCreationError({
+          reason: "Player name cannot be empty",
+          playerId: params.id
+        }))
+      )
+
+      const initialState: PlayerState = {
+        id: params.id,
+        name: params.name,
+        position: params.position,
+        health: { value: 100, max: 100 },
+        status: "active",
+        inventory: new Map(),
+        lastActivity: Date.now()
+      }
+
+      const aggregate = new PlayerAggregate(params.id, initialState)
+
+      // ドメインイベント記録
+      aggregate.recordEvent({
+        _tag: "PlayerCreated",
+        playerId: params.id,
+        playerName: params.name,
+        position: params.position,
+        timestamp: Date.now()
+      })
+
+      return aggregate
+    })
+  }
+
+  static fromSnapshot(snapshot: PlayerSnapshot): PlayerAggregate {
+    return new PlayerAggregate(
+      snapshot.id,
+      snapshot.state,
+      []
+    )
+  }
+
+  // ビジネスロジック: プレイヤー移動
+  move(params: {
+    direction: Direction
+    distance: number
+  }): Effect.Effect<void, InvalidMovementError> {
+    return Effect.gen(function* () {
+      // ビジネスルール: 移動距離制限
+      yield* Effect.when(params.distance > 10, () =>
+        Effect.fail(new InvalidMovementError({
+          playerId: this.id,
+          reason: "Movement distance too large",
+          maxAllowed: 10,
+          attempted: params.distance
+        }))
+      )
+
+      // ビジネスルール: プレイヤーが生きている必要がある
+      yield* Effect.when(this.state.health.value <= 0, () =>
+        Effect.fail(new InvalidMovementError({
+          playerId: this.id,
+          reason: "Dead players cannot move",
+          currentHealth: this.state.health.value
+        }))
+      )
+
+      const oldPosition = this.state.position
+      const newPosition = this.calculateNewPosition(oldPosition, params.direction, params.distance)
+
+      // 状態更新
+      this.state = {
+        ...this.state,
+        position: newPosition,
+        lastActivity: Date.now()
+      }
+
+      // ドメインイベント記録
+      this.recordEvent({
+        _tag: "PlayerMoved",
+        playerId: this.id,
+        from: oldPosition,
+        to: newPosition,
+        timestamp: Date.now()
+      })
+    })
+  }
+
+  // ビジネスロジック: ダメージ処理
+  takeDamage(params: {
+    amount: number
+    source: DamageSource
+  }): Effect.Effect<void, InvalidDamageError> {
+    return Effect.gen(function* () {
+      // ビジネスルール: 負のダメージは不可
+      yield* Effect.when(params.amount < 0, () =>
+        Effect.fail(new InvalidDamageError({
+          playerId: this.id,
+          reason: "Damage amount cannot be negative",
+          attemptedDamage: params.amount
+        }))
+      )
+
+      // ビジネスルール: 既に死んでいる場合は追加ダメージ不可
+      yield* Effect.when(this.state.health.value <= 0, () =>
+        Effect.fail(new InvalidDamageError({
+          playerId: this.id,
+          reason: "Cannot damage dead player",
+          currentHealth: this.state.health.value
+        }))
+      )
+
+      const oldHealth = this.state.health.value
+      const newHealth = Math.max(0, oldHealth - params.amount)
+
+      // 状態更新
+      this.state = {
+        ...this.state,
+        health: { ...this.state.health, value: newHealth },
+        lastActivity: Date.now()
+      }
+
+      // ドメインイベント記録
+      this.recordEvent({
+        _tag: "PlayerDamaged",
+        playerId: this.id,
+        damage: params.amount,
+        source: params.source,
+        newHealth,
+        timestamp: Date.now()
+      })
+
+      // 死亡チェック
+      if (newHealth <= 0) {
+        this.recordEvent({
+          _tag: "PlayerDied",
+          playerId: this.id,
+          cause: params.source,
+          position: this.state.position,
+          timestamp: Date.now()
+        })
+
+        this.state = {
+          ...this.state,
+          status: "dead"
+        }
+      }
+    })
+  }
+
+  // アイテムインベントリ管理
+  addItem(item: ItemStack): Effect.Effect<void, InventoryFullError> {
+    return Effect.gen(function* () {
+      const currentItems = Array.from(this.state.inventory.values())
+        .reduce((sum, stack) => sum + stack.amount, 0)
+
+      yield* Effect.when(currentItems >= 36, () => // 標準インベントリサイズ
+        Effect.fail(new InventoryFullError({
+          playerId: this.id,
+          currentItems,
+          maxItems: 36,
+          attemptedItem: item
+        }))
+      )
+
+      // スタッキング可能かチェック
+      const existingSlot = Array.from(this.state.inventory.entries())
+        .find(([_, stack]) =>
+          stack.type === item.type &&
+          stack.amount + item.amount <= 64 // スタック上限
+        )
+
+      if (existingSlot) {
+        const [slotId, existingStack] = existingSlot
+        this.state.inventory.set(slotId, {
+          ...existingStack,
+          amount: existingStack.amount + item.amount
+        })
+      } else {
+        const newSlotId = this.findEmptySlot()
+        this.state.inventory.set(newSlotId, item)
+      }
+
+      // イベント記録
+      this.recordEvent({
+        _tag: "ItemPickedUp",
+        playerId: this.id,
+        item,
+        position: this.state.position,
+        timestamp: Date.now()
+      })
+    })
+  }
+
+  // 不変条件の検証
+  private validateInvariants(): Effect.Effect<void, InvariantViolationError> {
+    return Effect.gen(function* () {
+      // 健康値は0以上max以下
+      yield* Effect.when(
+        this.state.health.value < 0 || this.state.health.value > this.state.health.max,
+        () => Effect.fail(new InvariantViolationError({
+          aggregate: "Player",
+          aggregateId: this.id,
+          invariant: "Health must be between 0 and max",
+          currentValue: this.state.health.value,
+          validRange: `0-${this.state.health.max}`
+        }))
+      )
+
+      // プレイヤー名は空でない
+      yield* Effect.when(this.state.name.length === 0, () =>
+        Effect.fail(new InvariantViolationError({
+          aggregate: "Player",
+          aggregateId: this.id,
+          invariant: "Player name cannot be empty",
+          currentValue: this.state.name
+        }))
+      )
+
+      // 座標は有効な範囲内
+      yield* Effect.when(
+        !Number.isFinite(this.state.position.x) ||
+        !Number.isFinite(this.state.position.y) ||
+        !Number.isFinite(this.state.position.z),
+        () => Effect.fail(new InvariantViolationError({
+          aggregate: "Player",
+          aggregateId: this.id,
+          invariant: "Position coordinates must be finite numbers",
+          currentValue: this.state.position
+        }))
+      )
+    })
+  }
+
+  // イベント記録
+  private recordEvent(event: GameEvent): void {
+    this.events.push(event)
+  }
+
+  // 累積イベント取得
+  getUncommittedEvents(): ReadonlyArray<GameEvent> {
+    return [...this.events]
+  }
+
+  // イベント確定（永続化後）
+  markEventsAsCommitted(): void {
+    this.events.length = 0
+  }
+
+  // スナップショット取得
+  getSnapshot(): PlayerSnapshot {
+    return {
+      id: this.id,
+      state: { ...this.state },
+      version: this.events.length
+    }
+  }
+
+  // 現在の状態取得
+  getState(): PlayerState {
+    return { ...this.state }
+  }
+
+  // ヘルパーメソッド
+  private calculateNewPosition(
+    current: Position,
+    direction: Direction,
+    distance: number
+  ): Position {
+    const directionVectors = {
+      north: { x: 0, y: 0, z: -distance },
+      south: { x: 0, y: 0, z: distance },
+      east: { x: distance, y: 0, z: 0 },
+      west: { x: -distance, y: 0, z: 0 },
+      up: { x: 0, y: distance, z: 0 },
+      down: { x: 0, y: -distance, z: 0 }
+    }
+
+    const vector = directionVectors[direction]
+    return Position({
+      x: current.x + vector.x,
+      y: current.y + vector.y,
+      z: current.z + vector.z
+    })
+  }
+
+  private findEmptySlot(): number {
+    for (let i = 0; i < 36; i++) {
+      if (!this.state.inventory.has(i)) {
+        return i
+      }
+    }
+    throw new Error("No empty slots available")
+  }
+}
+
+// PlayerAggregate用のRepository実装
+export const PlayerAggregateRepository = Context.GenericTag<{
+  readonly save: (aggregate: PlayerAggregate) => Effect.Effect<void, RepositoryError>
+  readonly load: (id: PlayerId) => Effect.Effect<PlayerAggregate, PlayerNotFoundError | RepositoryError>
+  readonly delete: (id: PlayerId) => Effect.Effect<void, RepositoryError>
+}>()("PlayerAggregateRepository")
+
+export const PlayerAggregateRepositoryLive = Layer.succeed(
+  PlayerAggregateRepository,
+  {
+    save: (aggregate) => Effect.gen(function* () {
+      const storage = yield* PlayerStorageAdapter
+      const eventBus = yield* EventBusService
+
+      // スナップショット保存
+      const snapshot = aggregate.getSnapshot()
+      yield* storage.savePlayer({
+        id: snapshot.id,
+        data: snapshot.state,
+        version: snapshot.version
+      })
+
+      // 未確定イベントを発行
+      const events = aggregate.getUncommittedEvents()
+      yield* Effect.all(
+        events.map(event => eventBus.publish(event))
+      )
+
+      // イベント確定
+      aggregate.markEventsAsCommitted()
+    }),
+
+    load: (id) => Effect.gen(function* () {
+      const storage = yield* PlayerStorageAdapter
+
+      const data = yield* storage.loadPlayer(id).pipe(
+        Effect.catchTag("NotFoundError", () =>
+          Effect.fail(new PlayerSystem.PlayerNotFoundError({
+            playerId: id,
+            searchContext: "aggregate-repository"
+          }))
+        )
+      )
+
+      return PlayerAggregate.fromSnapshot({
+        id,
+        state: data.data,
+        version: data.version
+      })
+    }),
+
+    delete: (id) => Effect.gen(function* () {
+      const storage = yield* PlayerStorageAdapter
+      yield* storage.deletePlayer(id)
+    })
+  }
+)
+```
 
 ## Glossary Terms Used
 

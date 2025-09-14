@@ -206,9 +206,11 @@ src/
 │   └── game-engine.d.ts // ゲームエンジン固有型
 ```
 
-## 推奨VS Code設定
+## 推奨エディタ設定
 
-`.vscode/settings.json`（プロジェクトルート）:
+### TypeScript言語サーバー設定例
+
+多くのエディタで以下のようなTypeScript設定が可能です：
 
 ```json
 {
@@ -235,18 +237,15 @@ src/
 }
 ```
 
-### 推奨拡張機能
+### 推奨エディタ拡張機能
 
-```json
-{
-  "recommendations": [
-    "ms-vscode.vscode-typescript-next",
-    "bradlc.vscode-tailwindcss",
-    "esbenp.prettier-vscode",
-    "ms-vscode.vscode-json"
-  ]
-}
-```
+TypeScript開発に役立つ拡張機能やプラグイン：
+- TypeScript言語サーバー拡張
+- Tailwind CSS拡張
+- Prettierフォーマッター
+- JSON言語サポート
+
+お使いのエディタのマーケットプレイスやプラグインリポジトリから検索してください。
 
 ## トラブルシューティング
 

@@ -1,13 +1,13 @@
 ---
-title: "04 Entity System"
-description: "04 Entity Systemに関する詳細な説明とガイド。"
+title: "エンティティシステム仕様 - ECS・AI・スポーン管理"
+description: "Structure of Arrays ECSによる高性能エンティティ管理、AIステートマシン、動的スポーンシステムの完全仕様。"
 category: "specification"
-difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
-estimated_reading_time: "25分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+difficulty: "advanced"
+tags: ["entity-system", "ecs-architecture", "ai-behavior", "spawn-system", "structure-of-arrays", "performance"]
+prerequisites: ["effect-ts-fundamentals", "ecs-concepts", "performance-optimization"]
+estimated_reading_time: "20分"
+related_patterns: ["optimization-patterns", "state-machine-patterns", "ecs-patterns"]
+related_docs: ["./02-player-system.md", "./06-physics-system.md", "../../01-architecture/05-ecs-integration.md"]
 ---
 
 # エンティティシステム - エンティティ管理システム
@@ -1732,10 +1732,12 @@ const makeEntityFactory = Effect.gen(function* () {
     })
   })
 
-// Live Layer
+// Live Layer（依存関係あり）
 export const EntityFactoryLive = Layer.effect(
   EntityFactory,
   makeEntityFactory
+).pipe(
+  Layer.provide(EntityManagerLive)
 )
 ```
 
@@ -2515,18 +2517,361 @@ const processInteraction = (entityA: EntityId, entityB: EntityId) =>
 ## 完全なエンティティシステムレイヤー
 
 ```typescript
+// コンポーネントストアLive実装
+const makeComponentStore = Effect.gen(function* () {
+  const storage = yield* Ref.make(new Map<string, Map<EntityId, Component>>())
+  const eventQueue = yield* Queue.unbounded<{ entityId: EntityId; componentType: string; operation: "add" | "remove" }>()
+
+  const get = <T extends Component>(entityId: EntityId, componentType: string) =>
+    Effect.gen(function* () {
+      const store = yield* Ref.get(storage)
+      const componentMap = store.get(componentType)
+      const component = componentMap?.get(entityId)
+
+      return component
+        ? Effect.succeed(component as T)
+        : Effect.fail(new ComponentNotFoundError({ entityId, componentType }))
+    }).pipe(Effect.flatten)
+
+  const set = <T extends Component>(entityId: EntityId, component: T) =>
+    Effect.gen(function* () {
+      yield* STM.commit(
+        STM.update(storage, (store) => {
+          const newStore = new Map(store)
+          if (!newStore.has(component._tag)) {
+            newStore.set(component._tag, new Map())
+          }
+          newStore.get(component._tag)!.set(entityId, component)
+          return newStore
+        })
+      )
+
+      yield* Queue.offer(eventQueue, {
+        entityId,
+        componentType: component._tag,
+        operation: "add"
+      })
+    })
+
+  const remove = (entityId: EntityId, componentType: string) =>
+    Effect.gen(function* () {
+      const store = yield* Ref.get(storage)
+      const componentMap = store.get(componentType)
+
+      if (!componentMap?.has(entityId)) {
+        return yield* Effect.fail(new ComponentNotFoundError({ entityId, componentType }))
+      }
+
+      yield* STM.commit(
+        STM.update(storage, (store) => {
+          const newStore = new Map(store)
+          newStore.get(componentType)?.delete(entityId)
+          return newStore
+        })
+      )
+
+      yield* Queue.offer(eventQueue, {
+        entityId,
+        componentType,
+        operation: "remove"
+      })
+    })
+
+  const getAll = <T extends Component>(componentType: string) =>
+    Effect.gen(function* () {
+      const store = yield* Ref.get(storage)
+      const componentMap = store.get(componentType)
+      return componentMap
+        ? Array.from(componentMap.entries()) as ReadonlyArray<[EntityId, T]>
+        : []
+    })
+
+  const hasComponent = (entityId: EntityId, componentType: string) =>
+    Effect.gen(function* () {
+      const store = yield* Ref.get(storage)
+      return store.get(componentType)?.has(entityId) ?? false
+    })
+
+  const stream = <T extends Component>(componentType: string) =>
+    Stream.fromQueue(eventQueue).pipe(
+      Stream.filter(event => event.componentType === componentType),
+      Stream.mapEffect(event =>
+        get<T>(event.entityId, componentType).pipe(
+          Effect.map(component => [event.entityId, component] as [EntityId, T]),
+          Effect.orElse(() => Effect.succeed(null))
+        )
+      ),
+      Stream.filterMap(Option.fromNullable)
+    )
+
+  return ComponentStore.of({
+    get,
+    set,
+    remove,
+    getAll,
+    hasComponent,
+    stream
+  })
+})
+
+export const ComponentStoreLive = Layer.effect(
+  ComponentStore,
+  makeComponentStore
+)
+
+// 統合エンティティシステムレイヤー（最新パターン）
 export const EntitySystemLayer = Layer.mergeAll(
+  ComponentStoreLive,
+  SpatialIndexLive,
   EntityManagerLive,
   MovementSystemLive,
   AISystemLive,
-  EntityFactoryLive,
-  SpatialIndexLive,
-  BatchProcessorLive,
-  ParticleSystemLive,
-  InventorySystemLive
+  EntityFactoryLive
 ).pipe(
+  // 外部依存サービス
   Layer.provide(PhysicsServiceLive),
   Layer.provide(WorldServiceLive),
-  Layer.provide(PathfindingServiceLive),
-  Layer.provide(EntityMemoryPoolLive)
+  Layer.provide(PathfindingServiceLive)
 )
+
+// メインゲームループ統合
+const updateEntitySystems = (deltaTime: number) =>
+  Effect.gen(function* () {
+    // 並列システム更新
+    const movementSystem = yield* MovementSystem
+    const aiSystem = yield* AISystem
+
+    yield* Effect.all([
+      movementSystem.update(deltaTime),
+      aiSystem.update(deltaTime)
+    ], {
+      concurrency: 2,
+      batching: false
+    })
+  })
+
+// メトリクス収集
+const collectSystemMetrics = Effect.gen(function* () {
+  const aiSystem = yield* AISystem
+  const spatialIndex = yield* SpatialIndex
+
+  const aiMetrics = yield* aiSystem.getMetrics
+  const spatialMetrics = yield* spatialIndex.getMetrics
+
+  return {
+    ai: aiMetrics,
+    spatial: spatialMetrics,
+    timestamp: new Date()
+  }
+})
+
+// システムヘルスチェック
+const performSystemHealthCheck = Effect.gen(function* () {
+  const entityManager = yield* EntityManager
+
+  // 全エンティティ数取得
+  const allPositions = yield* entityManager.query("Position")
+  const allAI = yield* entityManager.query("AI")
+
+  return {
+    totalEntities: allPositions.length,
+    activeAI: allAI.length,
+    healthy: allPositions.length > 0,
+    lastCheck: new Date()
+  }
+})
+
+// システムユーティリティ
+export const EntitySystemUtils = {
+  updateEntitySystems,
+  collectSystemMetrics,
+  performSystemHealthCheck
+}
+```
+
+## 性能最適化パターン
+
+### Streamベースリアルタイム処理
+
+```typescript
+// エンティティイベントストリームパイプライン
+const createEntityEventPipeline = Effect.gen(function* () {
+  const entityManager = yield* EntityManager
+  const aiSystem = yield* AISystem
+  const movementSystem = yield* MovementSystem
+
+  // エンティティ作成イベントストリーム
+  const entityCreationStream = entityManager.entityEvents.pipe(
+    Stream.filter(event => event._tag === "EntityCreated"),
+    Stream.mapEffect((event) => Effect.gen(function* () {
+      console.log(`Entity created: ${event.entityId}`)
+      // 初期化処理
+      return event
+    }))
+  )
+
+  // AI状態変更ストリーム
+  const aiStateStream = aiSystem.aiEvents.pipe(
+    Stream.filter(event => event._tag === "AIStateChanged"),
+    Stream.mapEffect((event) => Effect.gen(function* () {
+      console.log(`AI state changed: ${event.entityId} ${event.fromState} -> ${event.toState}`)
+      return event
+    }))
+  )
+
+  // 移動イベントストリーム
+  const movementStream = movementSystem.movementEvents.pipe(
+    Stream.filter(event => event._tag === "EntityMoved"),
+    Stream.bufferChunks({ n: 100, duration: "10 millis" }), // バッファリング
+    Stream.mapEffect((events) => Effect.gen(function* () {
+      console.log(`Batch processed ${events.length} movement events`)
+      return events
+    }))
+  )
+
+  // ストリーム結合
+  const combinedEventStream = Stream.merge(
+    entityCreationStream,
+    aiStateStream,
+    movementStream
+  )
+
+  return combinedEventStream
+})
+
+// パフォーマンスモニタリング
+const createPerformanceMonitor = Effect.gen(function* () {
+  const metricsStream = Stream.repeatEffect(
+    collectSystemMetrics.pipe(
+      Effect.delay("1 seconds")
+    )
+  )
+
+  const alertStream = metricsStream.pipe(
+    Stream.filter(metrics =>
+      metrics.ai.averageUpdateTime > 16 || // 16ms以上の場合アラート
+      metrics.spatial.averageQueryTime > 5
+    ),
+    Stream.mapEffect(metrics => Effect.gen(function* () {
+      console.warn("パフォーマンスアラート:", metrics)
+      return metrics
+    }))
+  )
+
+  return {
+    metricsStream,
+    alertStream
+  }
+})
+```
+
+### メモリ効率最適化
+
+```typescript
+// オブジェクトプールパターン
+const createEntityObjectPool = <T>(factory: () => T, resetFn: (obj: T) => void) =>
+  Effect.gen(function* () {
+    const pool = yield* Queue.bounded<T>(1000)
+    const activeCount = yield* Ref.make(0)
+
+    const acquire = Effect.gen(function* () {
+      const fromPool = yield* Queue.poll(pool)
+
+      return Match.value(fromPool).pipe(
+        Match.when(Option.isSome, (obj) => Effect.succeed(obj.value)),
+        Match.orElse(() => Effect.sync(() => factory()))
+      )
+    })
+
+    const release = (obj: T) => Effect.gen(function* () {
+      resetFn(obj)
+      yield* Queue.offer(pool, obj)
+    })
+
+    return { acquire, release }
+  })
+
+// TypedArrayベースのComponentストレージ
+const createTypedArrayComponentStorage = (capacity: number) =>
+  Effect.gen(function* () {
+    // Positionコンポーネント用TypedArray
+    const positionArrays = {
+      x: new Float32Array(capacity),
+      y: new Float32Array(capacity),
+      z: new Float32Array(capacity),
+      chunkX: new Int32Array(capacity),
+      chunkZ: new Int32Array(capacity)
+    }
+
+    // Velocityコンポーネント用TypedArray
+    const velocityArrays = {
+      x: new Float32Array(capacity),
+      y: new Float32Array(capacity),
+      z: new Float32Array(capacity)
+    }
+
+    const entityIndexMap = yield* Ref.make(new Map<EntityId, number>())
+    const freeIndices = yield* Ref.make(new Set(Array.from({ length: capacity }, (_, i) => i)))
+
+    const allocateIndex = Effect.gen(function* () {
+      const free = yield* Ref.get(freeIndices)
+      if (free.size === 0) {
+        return yield* Effect.fail(new Error("インデックスプールが枯渇しました"))
+      }
+
+      const index = free.values().next().value
+      yield* Ref.update(freeIndices, (set) => {
+        const newSet = new Set(set)
+        newSet.delete(index)
+        return newSet
+      })
+
+      return index
+    })
+
+    const setPositionComponent = (index: number, component: PositionComponent) =>
+      Effect.sync(() => {
+        positionArrays.x[index] = component.position.x
+        positionArrays.y[index] = component.position.y
+        positionArrays.z[index] = component.position.z
+        positionArrays.chunkX[index] = component.chunk.x
+        positionArrays.chunkZ[index] = component.chunk.z
+      })
+
+    const getPositionComponent = (index: number): PositionComponent => ({
+      _tag: "Position",
+      position: {
+        x: positionArrays.x[index],
+        y: positionArrays.y[index],
+        z: positionArrays.z[index]
+      },
+      chunk: {
+        x: positionArrays.chunkX[index],
+        z: positionArrays.chunkZ[index]
+      }
+    })
+
+    // SIMD最適化対応のバッチ更新
+    const updatePositionsBatch = (
+      indices: ReadonlyArray<number>,
+      deltaPositions: { x: Float32Array; y: Float32Array; z: Float32Array }
+    ) => Effect.sync(() => {
+      for (let i = 0; i < indices.length; i++) {
+        const idx = indices[i]
+        positionArrays.x[idx] += deltaPositions.x[i]
+        positionArrays.y[idx] += deltaPositions.y[i]
+        positionArrays.z[idx] += deltaPositions.z[i]
+
+        // チャンク位置更新
+        positionArrays.chunkX[idx] = Math.floor(positionArrays.x[idx] / 16)
+        positionArrays.chunkZ[idx] = Math.floor(positionArrays.z[idx] / 16)
+      }
+    })
+
+    return {
+      allocateIndex,
+      setPositionComponent,
+      getPositionComponent,
+      updatePositionsBatch
+    }
+  })

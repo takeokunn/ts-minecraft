@@ -1,3 +1,15 @@
+---
+title: "Effect-TS Context APIリファレンス - 依存性注入完全ガイド"
+description: "Effect-TS Context APIの完全リファレンス。軽量で型安全な依存性注入、Layerシステム、モジュラー設計。"
+category: "reference"
+difficulty: "intermediate"
+tags: ["effect-ts", "context", "dependency-injection", "layer", "modular-design"]
+prerequisites: ["effect-ts-basics"]
+estimated_reading_time: "25分"
+dependencies: []
+status: "complete"
+---
+
 # Effect-TS Context API リファレンス
 
 ## 概要

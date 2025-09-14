@@ -1,3 +1,15 @@
+---
+title: "設定項目全集 - 設定ファイル総合リファレンス"
+description: "TypeScript Minecraftプロジェクトの全設定ファイルと設定項目の体系的総合リファレンス。"
+category: "reference"
+difficulty: "intermediate"
+tags: ["configuration", "reference", "vite", "typescript", "vitest"]
+prerequisites: ["basic-typescript"]
+estimated_reading_time: "10分"
+dependencies: []
+status: "complete"
+---
+
 # 設定項目全集
 
 TypeScript Minecraftプロジェクトの全設定ファイルと設定項目の完全リファレンスです。
@@ -19,7 +31,7 @@ mindmap
       [package.json]
       [npm]
     開発環境
-      [VS Code]
+      [エディタ設定]
       [EditorConfig]
 ```
 

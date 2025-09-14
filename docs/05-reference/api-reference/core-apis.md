@@ -58,82 +58,263 @@ mindmap
 ### 📋 基本Schema定義パターン
 
 #### ✅ **基本型Schema**
+
 ```typescript
-import { Schema } from "effect"
+import { Schema, ParseResult } from "effect";
 
-// 基本プリミティブ型
-const StringSchema = Schema.String       // string
-const NumberSchema = Schema.Number       // number
-const BooleanSchema = Schema.Boolean     // boolean
-const BigIntSchema = Schema.BigInt       // bigint
-const DateSchema = Schema.Date           // Date（文字列からの変換含む）
+/**
+ * 基本プリミティブ型Schema定義
+ * @description Effect-TS 3.17+で使用される基本的な型Schema
+ * @since 3.17.0
+ */
 
-// 型安全リテラル
-const BlockType = Schema.Literal("stone", "grass", "dirt", "wood")
-// type BlockType = "stone" | "grass" | "dirt" | "wood"
+// 文字列型Schema
+export const StringSchema: Schema.Schema<string, string, never> = Schema.String;
+
+/**
+ * 数値型Schema
+ * @description 任意の数値を検証・変換するSchema
+ * @example
+ * ```typescript
+ * const result = Schema.decodeSync(NumberSchema)(42); // 42
+ * const invalid = Schema.decodeSync(NumberSchema)("abc"); // throws ParseError
+ * ```
+ */
+export const NumberSchema: Schema.Schema<number, unknown, never> = Schema.Number;
+
+/**
+ * 真偽値型Schema
+ * @description boolean値の検証・変換Schema
+ * @example
+ * ```typescript
+ * const result = Schema.decodeSync(BooleanSchema)(true); // true
+ * const fromString = Schema.decodeSync(BooleanSchema)("true"); // throws ParseError (strict)
+ * ```
+ */
+export const BooleanSchema: Schema.Schema<boolean, unknown, never> = Schema.Boolean;
+
+/**
+ * BigInt型Schema
+ * @description 大整数値の検証・変換Schema
+ * @example
+ * ```typescript
+ * const result = Schema.decodeSync(BigIntSchema)(123n); // 123n
+ * const fromNumber = Schema.decodeSync(BigIntSchema)(123); // 123n (auto-converted)
+ * ```
+ */
+export const BigIntSchema: Schema.Schema<bigint, unknown, never> = Schema.BigInt;
+
+/**
+ * Date型Schema
+ * @description 日付の検証・変換Schema（文字列からの自動変換対応）
+ * @example
+ * ```typescript
+ * const date = Schema.decodeSync(DateSchema)(new Date()); // Date object
+ * const fromString = Schema.decodeSync(DateSchema)("2024-01-01"); // Date object
+ * const fromTimestamp = Schema.decodeSync(DateSchema)(1704067200000); // Date object
+ * ```
+ */
+export const DateSchema: Schema.Schema<Date, unknown, never> = Schema.Date;
+
+/**
+ * リテラル型Schema
+ * @description 特定の値のみを許可する制限されたUnion型
+ * @example
+ * ```typescript
+ * const stone = Schema.decodeSync(BlockType)("stone"); // "stone"
+ * const invalid = Schema.decodeSync(BlockType)("invalid"); // throws ParseError
+ * ```
+ */
+export const BlockType: Schema.Schema<"stone" | "grass" | "dirt" | "wood", unknown, never> =
+  Schema.Literal("stone", "grass", "dirt", "wood");
+
+type BlockType = Schema.Schema.Type<typeof BlockType>;
 ```
 
 #### ⭐ **Minecraft特化Schema実装例**
 
 ```typescript
-// 座標系Schema - 3D位置の型安全表現
-export const PositionSchema = Schema.Struct({
-  x: Schema.Number.pipe(Schema.int()),           // 整数制約
+import { Schema, Brand } from "effect";
+
+/**
+ * 3D座標位置Schema
+ * @description Minecraft仕様に準拠した3次元座標の型安全表現
+ * @param x - X座標（整数、範囲制限なし）
+ * @param y - Y座標（整数、0-255範囲、Minecraft世界の高さ制限）
+ * @param z - Z座標（整数、範囲制限なし）
+ * @returns Position型の検証済み座標オブジェクト
+ * @throws ParseError Y座標が範囲外、または非整数値の場合
+ * @since 1.0.0
+ * @example
+ * ```typescript
+ * const validPos = Schema.decodeSync(PositionSchema)({ x: 10, y: 64, z: -20 });
+ * const invalidY = Schema.decodeSync(PositionSchema)({ x: 0, y: 300, z: 0 }); // throws ParseError
+ * const floatCoord = Schema.decodeSync(PositionSchema)({ x: 1.5, y: 64, z: 0 }); // throws ParseError
+ * ```
+ */
+export const PositionSchema: Schema.Schema<Position, unknown, never> = Schema.Struct({
+  x: Schema.Number.pipe(
+    Schema.int(),
+    Schema.annotations({ description: "X coordinate in world space" })
+  ),
   y: Schema.Number.pipe(
     Schema.int(),
-    Schema.between(0, 255)                        // Y軸範囲制限（Minecraft仕様）
+    Schema.between(0, 255),
+    Schema.annotations({ description: "Y coordinate with Minecraft height limits" })
   ),
-  z: Schema.Number.pipe(Schema.int())
-}).annotations({
-  identifier: "Position",
-  description: "3D world position with Minecraft constraints"
-})
+  z: Schema.Number.pipe(
+    Schema.int(),
+    Schema.annotations({ description: "Z coordinate in world space" })
+  )
+}).pipe(
+  Schema.annotations({
+    identifier: "Position",
+    title: "3D World Position",
+    description: "3D world position with Minecraft constraints"
+  })
+);
 
-// type Position = { readonly x: number, readonly y: number, readonly z: number }
-export type Position = typeof PositionSchema.Type
+export type Position = Schema.Schema.Type<typeof PositionSchema>;
 
-// チャンク座標Schema - チャンク単位の管理
-export const ChunkCoordinateSchema = Schema.Struct({
-  chunkX: Schema.Number.pipe(Schema.int()),
-  chunkZ: Schema.Number.pipe(Schema.int())
-}).annotations({
-  identifier: "ChunkCoordinate"
-})
+/**
+ * チャンク座標Schema
+ * @description チャンク単位での管理に使用される座標
+ * @param chunkX - チャンクX座標（整数）
+ * @param chunkZ - チャンクZ座標（整数）
+ * @returns ChunkCoordinate型の検証済み座標
+ * @throws ParseError 非整数値の場合
+ * @since 1.0.0
+ * @example
+ * ```typescript
+ * const chunk = Schema.decodeSync(ChunkCoordinateSchema)({ chunkX: 2, chunkZ: -1 });
+ * const invalid = Schema.decodeSync(ChunkCoordinateSchema)({ chunkX: 1.5, chunkZ: 0 }); // throws ParseError
+ * ```
+ */
+export const ChunkCoordinateSchema: Schema.Schema<ChunkCoordinate, unknown, never> = Schema.Struct({
+  chunkX: Schema.Number.pipe(
+    Schema.int(),
+    Schema.annotations({ description: "Chunk X coordinate" })
+  ),
+  chunkZ: Schema.Number.pipe(
+    Schema.int(),
+    Schema.annotations({ description: "Chunk Z coordinate" })
+  )
+}).pipe(
+  Schema.annotations({
+    identifier: "ChunkCoordinate",
+    title: "Chunk Coordinate",
+    description: "Coordinate pair for chunk-based world management"
+  })
+);
 
-// プレイヤー状態Schema - 複合データ構造
-export const PlayerStateSchema = Schema.Struct({
-  id: Schema.String.pipe(Schema.uuid()),         // UUID制約
+export type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinateSchema>;
+
+/**
+ * プレイヤー状態Schema
+ * @description プレイヤーの完全な状態を表す複合データ構造
+ * @param id - プレイヤーのUUID
+ * @param username - ユーザー名（3-16文字、英数字と_のみ）
+ * @param position - 3D座標位置
+ * @param health - 体力（0-20、0.5刻み）
+ * @param inventory - インベントリアイテム配列
+ * @param gamemode - ゲームモード
+ * @returns PlayerState型の検証済みプレイヤーデータ
+ * @throws ParseError バリデーション失敗時（無効なUUID、ユーザー名規則違反など）
+ * @since 1.0.0
+ * @example
+ * ```typescript
+ * const player = Schema.decodeSync(PlayerStateSchema)({
+ *   id: "550e8400-e29b-41d4-a716-446655440000",
+ *   username: "Steve",
+ *   position: { x: 0, y: 64, z: 0 },
+ *   health: 20,
+ *   inventory: [],
+ *   gamemode: "survival"
+ * });
+ * ```
+ */
+export const PlayerStateSchema: Schema.Schema<PlayerState, unknown, never> = Schema.Struct({
+  id: Schema.String.pipe(
+    Schema.uuid(),
+    Schema.brand("PlayerId"),
+    Schema.annotations({ description: "Unique player identifier" })
+  ),
   username: Schema.String.pipe(
     Schema.minLength(3),
     Schema.maxLength(16),
-    Schema.pattern(/^[a-zA-Z0-9_]+$/)           // Minecraft username規則
+    Schema.pattern(/^[a-zA-Z0-9_]+$/),
+    Schema.annotations({ description: "Player username following Minecraft rules" })
   ),
   position: PositionSchema,
   health: Schema.Number.pipe(
-    Schema.between(0, 20),                       // Minecraft health system
-    Schema.multipleOf(0.5)                      // 0.5刻み（ハート単位）
+    Schema.between(0, 20),
+    Schema.multipleOf(0.5),
+    Schema.brand("Health"),
+    Schema.annotations({ description: "Player health in half-hearts (0-20)" })
   ),
-  inventory: Schema.Array(ItemStackSchema),
-  gamemode: Schema.Literal("survival", "creative", "spectator")
-}).annotations({
-  identifier: "PlayerState",
-  description: "Complete player state representation"
-})
+  inventory: Schema.Array(Schema.suspend(() => ItemStackSchema)),
+  gamemode: Schema.Literal("survival", "creative", "spectator").pipe(
+    Schema.annotations({ description: "Current game mode" })
+  )
+}).pipe(
+  Schema.annotations({
+    identifier: "PlayerState",
+    title: "Player State",
+    description: "Complete player state representation"
+  })
+);
 
-// アイテムスタックSchema - インベントリシステム
-export const ItemStackSchema = Schema.Struct({
-  itemType: Schema.String,
+export type PlayerState = Schema.Schema.Type<typeof PlayerStateSchema>;
+
+/**
+ * アイテムスタックSchema
+ * @description インベントリシステムで使用されるアイテムの束
+ * @param itemType - アイテムの種類（文字列ID）
+ * @param quantity - 数量（1-64、Minecraftスタック制限）
+ * @param metadata - オプションのメタデータ
+ * @returns ItemStack型の検証済みアイテムデータ
+ * @throws ParseError 数量が範囲外、または非整数の場合
+ * @since 1.0.0
+ * @example
+ * ```typescript
+ * const stack = Schema.decodeSync(ItemStackSchema)({
+ *   itemType: "minecraft:diamond",
+ *   quantity: 32,
+ *   metadata: { enchantments: ["sharpness"] }
+ * });
+ * const invalidStack = Schema.decodeSync(ItemStackSchema)({
+ *   itemType: "stone",
+ *   quantity: 65 // throws ParseError - exceeds stack limit
+ * });
+ * ```
+ */
+export const ItemStackSchema: Schema.Schema<ItemStack, unknown, never> = Schema.Struct({
+  itemType: Schema.String.pipe(
+    Schema.brand("ItemType"),
+    Schema.annotations({ description: "Item type identifier" })
+  ),
   quantity: Schema.Number.pipe(
     Schema.int(),
-    Schema.between(1, 64)                        // Minecraft stack limit
+    Schema.between(1, 64),
+    Schema.annotations({ description: "Item quantity with Minecraft stack limits" })
   ),
-  metadata: Schema.optional(Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown
-  }))
-}).annotations({
-  identifier: "ItemStack"
-})
+  metadata: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown
+    }).pipe(
+      Schema.annotations({ description: "Optional item metadata" })
+    )
+  )
+}).pipe(
+  Schema.annotations({
+    identifier: "ItemStack",
+    title: "Item Stack",
+    description: "Item stack for inventory system"
+  })
+);
+
+export type ItemStack = Schema.Schema.Type<typeof ItemStackSchema>;
 ```
 
 ### 🔄 Schema変換・検証パターン

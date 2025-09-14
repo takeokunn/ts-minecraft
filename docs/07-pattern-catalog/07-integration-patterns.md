@@ -298,8 +298,9 @@ const enqueueChunkGeneration = (coordinates: ChunkCoordinate[]) => Effect.gen(fu
 **実装**:
 ```typescript
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "@effect/platform"
-import { Config, Brand, Chunk } from "effect"
-import { Schedule, Duration, Queue, Stream, Fiber } from "effect"
+import { NodeHttpClient } from "@effect/platform-node"
+import { Config, Brand, Chunk, Match } from "effect"
+import { Schedule, Duration, Queue, Stream, Fiber, ConfigProvider } from "effect"
 
 // HTTP クライアント設定のブランド型
 type ApiConfig = {
@@ -310,13 +311,23 @@ type ApiConfig = {
     readonly maxRetries: number
     readonly baseDelay: Duration.Duration
   }
-}
+  readonly circuitBreaker: {
+    readonly failureThreshold: number
+    readonly resetTimeout: Duration.Duration
+  }
+  readonly healthCheck: {
+    readonly interval: Duration.Duration
+    readonly timeout: Duration.Duration
+  }
+} & Brand.Brand<"ApiConfig">
 
 // API レスポンスのブランド型
 type PlayerDataResponse = {
   readonly playerId: string
   readonly position: { x: number, y: number, z: number }
   readonly inventory: ReadonlyArray<{ itemId: string, count: number }>
+  readonly lastSeen: Date
+  readonly serverStatus: "online" | "offline" | "maintenance"
 } & Brand.Brand<"PlayerDataResponse">
 
 export class HttpIntegrationError extends Schema.TaggedError("HttpIntegrationError")<{
@@ -327,7 +338,7 @@ export class HttpIntegrationError extends Schema.TaggedError("HttpIntegrationErr
   readonly timestamp: number
 }> {}
 
-// HTTP クライアント設定
+// HTTP クライアント設定スキーマ（拡張版）
 const ApiConfigSchema = Schema.Struct({
   baseUrl: Schema.String.pipe(
     Schema.startsWith("http"),
@@ -357,21 +368,67 @@ const ApiConfigSchema = Schema.Struct({
         encode: (duration) => Effect.succeed(Duration.toMillis(duration))
       }
     )
+  }),
+  circuitBreaker: Schema.Struct({
+    failureThreshold: Schema.Number.pipe(Schema.int(), Schema.between(1, 20)),
+    resetTimeout: Schema.transformOrFail(
+      Schema.Number,
+      Schema.instanceOf(Duration.Duration),
+      {
+        strict: true,
+        decode: (ms) => Effect.succeed(Duration.millis(ms)),
+        encode: (duration) => Effect.succeed(Duration.toMillis(duration))
+      }
+    )
+  }),
+  healthCheck: Schema.Struct({
+    interval: Schema.transformOrFail(
+      Schema.Number,
+      Schema.instanceOf(Duration.Duration),
+      {
+        strict: true,
+        decode: (ms) => Effect.succeed(Duration.millis(ms)),
+        encode: (duration) => Effect.succeed(Duration.toMillis(duration))
+      }
+    ),
+    timeout: Schema.transformOrFail(
+      Schema.Number,
+      Schema.instanceOf(Duration.Duration),
+      {
+        strict: true,
+        decode: (ms) => Effect.succeed(Duration.millis(ms)),
+        encode: (duration) => Effect.succeed(Duration.toMillis(duration))
+      }
+    )
   })
-})
+}).pipe(
+  Schema.brand("ApiConfig")
+)
 
-// プレイヤーデータレスポンスのスキーマ
+// プレイヤーデータレスポンスのスキーマ（拡張版）
 const PlayerDataResponseSchema = Schema.Struct({
-  playerId: Schema.String,
+  playerId: Schema.String.pipe(
+    Schema.pattern(/^[a-zA-Z0-9-]+$/),
+    Schema.message(() => "Player ID must contain only alphanumeric characters and hyphens")
+  ),
   position: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number
+    x: Schema.Number.pipe(Schema.finite()),
+    y: Schema.Number.pipe(Schema.finite(), Schema.between(0, 256)),
+    z: Schema.Number.pipe(Schema.finite())
   }),
   inventory: Schema.Array(Schema.Struct({
-    itemId: Schema.String,
-    count: Schema.Number.pipe(Schema.int(), Schema.positive())
-  }))
+    itemId: Schema.String.pipe(Schema.nonEmpty()),
+    count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64))
+  })).pipe(
+    Schema.maxItems(40),
+    Schema.message(() => "Inventory cannot exceed 40 items")
+  ),
+  lastSeen: Schema.DateTimeUtc,
+  serverStatus: Schema.Union(
+    Schema.Literal("online"),
+    Schema.Literal("offline"),
+    Schema.Literal("maintenance")
+  )
 }).pipe(
   Schema.brand("PlayerDataResponse")
 )
@@ -390,17 +447,51 @@ export interface HttpIntegrationService {
 
 export const HttpIntegrationService = Context.GenericTag<HttpIntegrationService>("@minecraft/HttpIntegrationService")
 
-// レート制限付きHTTP クライアント
+// 拡張レート制限付きHTTPクライアント（ヘルスチェック機能付き）
 const makeRateLimitedHttpClient = (config: ApiConfig) => Effect.gen(function* () {
   // レート制限キュー（1秒間に10リクエストまで）
   const rateLimitQueue = yield* Queue.bounded<void>(10)
+  const healthStatus = yield* Ref.make({ isHealthy: true, lastCheck: Date.now() })
+
+  // トークン補充ファイバー
   const tokenRefillFiber = yield* Effect.fork(
     Effect.forever(
       Effect.gen(function* () {
-        yield* Effect.sleep(Duration.millis(100)) // 100msごとにトークンを補充
+        yield* Effect.sleep(Duration.millis(100))
         yield* Queue.offer(rateLimitQueue, void 0).pipe(
-          Effect.ignore // キューが満杯の場合は無視
+          Effect.ignore
         )
+      })
+    )
+  )
+
+  // ヘルスチェックファイバー
+  const healthCheckFiber = yield* Effect.fork(
+    Effect.forever(
+      Effect.gen(function* () {
+        yield* Effect.sleep(config.healthCheck.interval)
+
+        const healthCheckResult = yield* Effect.timeout(
+          HttpClient.make().get(`${config.baseUrl}/health`),
+          config.healthCheck.timeout
+        ).pipe(
+          Effect.match({
+            onFailure: () => false,
+            onSuccess: (response) => response.status >= 200 && response.status < 300
+          })
+        )
+
+        yield* Ref.update(healthStatus, (status) => ({
+          isHealthy: healthCheckResult,
+          lastCheck: Date.now()
+        }))
+
+        if (!healthCheckResult) {
+          yield* Effect.logWarn("Health check failed for API endpoint", {
+            baseUrl: config.baseUrl,
+            timestamp: Date.now()
+          })
+        }
       })
     )
   )
@@ -413,168 +504,389 @@ const makeRateLimitedHttpClient = (config: ApiConfig) => Effect.gen(function* ()
       HttpClientRequest.setHeaders({
         "Authorization": `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
-        "User-Agent": "Minecraft-TS/1.0"
+        "User-Agent": "Minecraft-TS/1.0",
+        "X-Request-ID": `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       })
     ),
-    // リクエスト前にレート制限をチェック
-    HttpClient.tapRequest(() => Queue.take(rateLimitQueue)),
-    // リトライポリシーを適用
+    // ヘルスチェック確認
+    HttpClient.tapRequest(() => Effect.gen(function* () {
+      const status = yield* Ref.get(healthStatus)
+      if (!status.isHealthy && Date.now() - status.lastCheck < Duration.toMillis(config.healthCheck.interval)) {
+        return yield* Effect.fail(new HttpIntegrationError({
+          endpoint: "health-check",
+          method: "PRE_REQUEST",
+          message: "Service is unhealthy, aborting request",
+          timestamp: Date.now()
+        }))
+      }
+      yield* Queue.take(rateLimitQueue)
+    })),
+    // エクスポネンシャルバックオフ付きリトライ
     HttpClient.retry(
-      Schedule.exponential(config.retryPolicy.baseDelay).pipe(
+      Schedule.exponential(config.retryPolicy.baseDelay, 1.5).pipe(
         Schedule.compose(Schedule.recurs(config.retryPolicy.maxRetries)),
-        Schedule.intersect(Schedule.spaced(Duration.seconds(1))) // 最小1秒間隔
+        Schedule.intersect(Schedule.spaced(Duration.seconds(1)))
       )
-    ),
-    // 一時的なエラーのリトライ
-    HttpClient.retryTransient({
-      while: (error) => {
-        if (error._tag === "ResponseError") {
-          const status = error.response.status
-          return status >= 500 || status === 429 // サーバーエラーまたはレート制限
-        }
-        return error._tag === "RequestError" // ネットワークエラー
-      },
-      times: config.retryPolicy.maxRetries
-    })
+    )
   )
 
-  return { client: baseClient, cleanup: () => Fiber.interrupt(tokenRefillFiber) }
+  return {
+    client: baseClient,
+    cleanup: () => Effect.all([
+      Fiber.interrupt(tokenRefillFiber),
+      Fiber.interrupt(healthCheckFiber)
+    ], { concurrency: "unbounded" })
+  }
 })
 
-// サーキットブレーカー実装
-class CircuitBreaker {
-  constructor(
-    private readonly failureThreshold: number = 5,
-    private readonly resetTimeout: Duration.Duration = Duration.seconds(30)
-  ) {}
-
+// 高度なサーキットブレーカー実装（統計とメトリクス付き）
+class AdvancedCircuitBreaker {
   private state: "CLOSED" | "OPEN" | "HALF_OPEN" = "CLOSED"
   private failureCount = 0
+  private successCount = 0
   private lastFailureTime = 0
+  private lastStateChange = Date.now()
+
+  // 統計情報
+  private readonly statistics = {
+    totalRequests: 0,
+    totalFailures: 0,
+    totalSuccesses: 0,
+    stateTransitions: 0
+  }
+
+  constructor(
+    private readonly config: {
+      failureThreshold: number
+      resetTimeout: Duration.Duration
+      successThreshold: number // ハーフオープン時の成功閾値
+      timeoutThreshold: Duration.Duration // 統計リセット時間
+    }
+  ) {}
 
   execute<A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E | HttpIntegrationError> {
-    return Effect.gen(function* () {
-      // 回路が開いている場合
-      if (this.state === "OPEN") {
-        const now = Date.now()
-        if (now - this.lastFailureTime < Duration.toMillis(this.resetTimeout)) {
+    return Effect.gen(() => {
+      this.statistics.totalRequests++
+      const now = Date.now()
+
+      // 統計の定期リセット
+      if (now - this.lastStateChange > Duration.toMillis(this.config.timeoutThreshold)) {
+        this.resetStatistics()
+      }
+
+      return Match.value(this.state).pipe(
+        Match.when("OPEN", () => Effect.gen(() => {
+          if (now - this.lastFailureTime >= Duration.toMillis(this.config.resetTimeout)) {
+            this.setState("HALF_OPEN")
+            return yield* this.executeWithTracking(effect)
+          }
+
           return yield* Effect.fail(new HttpIntegrationError({
             endpoint: "circuit-breaker",
             method: "EXECUTE",
-            message: "Circuit breaker is OPEN",
+            message: `Circuit breaker is OPEN. Next retry in ${Duration.toMillis(this.config.resetTimeout) - (now - this.lastFailureTime)}ms`,
             timestamp: now
           }))
-        }
-        this.state = "HALF_OPEN"
-      }
-
-      return yield* effect.pipe(
-        Effect.tap(() => Effect.sync(() => {
-          // 成功時は失敗カウントをリセット
-          this.failureCount = 0
-          this.state = "CLOSED"
         })),
-        Effect.catchAll((error) => Effect.sync(() => {
-          this.failureCount++
-          this.lastFailureTime = Date.now()
-
-          if (this.failureCount >= this.failureThreshold) {
-            this.state = "OPEN"
-          }
-
-          return Effect.fail(error)
-        }).pipe(Effect.flatten))
+        Match.when("HALF_OPEN", () => Effect.gen(() => {
+          return yield* this.executeWithTracking(effect).pipe(
+            Effect.tap(() => Effect.sync(() => {
+              this.successCount++
+              if (this.successCount >= this.config.successThreshold) {
+                this.setState("CLOSED")
+                this.resetCounters()
+              }
+            })),
+            Effect.tapError(() => Effect.sync(() => {
+              this.setState("OPEN")
+              this.lastFailureTime = Date.now()
+            }))
+          )
+        })),
+        Match.when("CLOSED", () => this.executeWithTracking(effect)),
+        Match.exhaustive
       )
     }.bind(this))
   }
+
+  private executeWithTracking<A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> {
+    return effect.pipe(
+      Effect.tap(() => Effect.sync(() => {
+        this.statistics.totalSuccesses++
+        if (this.state === "CLOSED") {
+          this.failureCount = 0
+        }
+      })),
+      Effect.tapError(() => Effect.sync(() => {
+        this.statistics.totalFailures++
+        this.failureCount++
+
+        if (this.state === "CLOSED" && this.failureCount >= this.config.failureThreshold) {
+          this.setState("OPEN")
+          this.lastFailureTime = Date.now()
+        }
+      }))
+    )
+  }
+
+  private setState(newState: "CLOSED" | "OPEN" | "HALF_OPEN"): void {
+    if (newState !== this.state) {
+      this.state = newState
+      this.lastStateChange = Date.now()
+      this.statistics.stateTransitions++
+    }
+  }
+
+  private resetCounters(): void {
+    this.failureCount = 0
+    this.successCount = 0
+  }
+
+  private resetStatistics(): void {
+    Object.assign(this.statistics, {
+      totalRequests: 0,
+      totalFailures: 0,
+      totalSuccesses: 0,
+      stateTransitions: 0
+    })
+    this.lastStateChange = Date.now()
+  }
+
+  getStatistics() {
+    return {
+      ...this.statistics,
+      currentState: this.state,
+      failureRate: this.statistics.totalRequests > 0
+        ? this.statistics.totalFailures / this.statistics.totalRequests
+        : 0,
+      uptime: Date.now() - this.lastStateChange
+    }
+  }
 }
 
-// HTTP サービス実装
-const makeHttpIntegrationService = Effect.gen(function* () {
-  const config = yield* Config.nested("api", Schema.decodeUnknown(ApiConfigSchema))
-  const { client, cleanup } = yield* makeRateLimitedHttpClient(config)
-  const circuitBreaker = new CircuitBreaker()
 
-  // クリーンアップを登録
-  yield* Effect.addFinalizer(() => Effect.sync(cleanup))
+// HTTP サービス実装（ConfigProvider使用）
+const makeHttpIntegrationService = Effect.gen(function* () {
+  // ConfigProviderを使用した設定読み込み
+  const configProvider = yield* ConfigProvider.ConfigProvider
+  const config = yield* Config.nested("api", Schema.decodeUnknown(ApiConfigSchema)).pipe(
+    Effect.withConfigProvider(configProvider)
+  )
+
+  const { client, cleanup } = yield* makeRateLimitedHttpClient(config)
+  const circuitBreaker = new AdvancedCircuitBreaker({
+    failureThreshold: config.circuitBreaker.failureThreshold,
+    resetTimeout: config.circuitBreaker.resetTimeout,
+    successThreshold: 3, // ハーフオープン時に3回成功でクローズ
+    timeoutThreshold: Duration.minutes(5) // 5分で統計リセット
+  })
+
+  // Graceful shutdown対応
+  yield* Effect.addFinalizer(() => Effect.gen(function* () {
+    yield* Effect.logInfo("Shutting down HTTP client gracefully")
+    yield* cleanup
+    yield* Effect.logInfo("HTTP client shutdown complete")
+  }))
 
   const executeWithCircuitBreaker = <A, E>(
     effect: Effect.Effect<A, E>
   ): Effect.Effect<A, E | HttpIntegrationError> => {
-    return circuitBreaker.execute(effect)
+    return circuitBreaker.execute(effect).pipe(
+      Effect.tapError((error) => Effect.gen(function* () {
+        const stats = circuitBreaker.getStatistics()
+        yield* Effect.logWarn("Circuit breaker execution failed", {
+          error: error.message || "Unknown error",
+          circuitBreakerState: stats.currentState,
+          failureRate: stats.failureRate
+        })
+      }))
+    )
   }
 
   return HttpIntegrationService.of({
     getPlayerData: (playerId) => {
-      const request = HttpClientRequest.get(`${config.baseUrl}/players/${playerId}`)
+      const request = HttpClientRequest.get(`${config.baseUrl}/players/${playerId}`).pipe(
+        HttpClientRequest.setHeaders({
+          "X-Request-Context": "player-data-fetch",
+          "X-Player-ID": playerId
+        })
+      )
 
       return executeWithCircuitBreaker(
         client.execute(request).pipe(
-          Effect.flatMap(HttpClientResponse.schemaBodyJson(PlayerDataResponseSchema)),
-          Effect.mapError((error) => new HttpIntegrationError({
-            endpoint: `/players/${playerId}`,
-            method: "GET",
-            statusCode: "response" in error ? error.response.status : undefined,
-            message: error.message ?? "Unknown error",
-            timestamp: Date.now()
-          })),
-          // レスポンスの早期返却パターン
-          Effect.timeout(Duration.seconds(5))
+          Effect.flatMap((response) => Match.value(response.status).pipe(
+            Match.when((status) => status >= 200 && status < 300, () =>
+              HttpClientResponse.schemaBodyJson(PlayerDataResponseSchema)(response)
+            ),
+            Match.when(404, () =>
+              Effect.fail(new HttpIntegrationError({
+                endpoint: `/players/${playerId}`,
+                method: "GET",
+                statusCode: 404,
+                message: `Player ${playerId} not found`,
+                timestamp: Date.now()
+              }))
+            ),
+            Match.when((status) => status >= 500, () =>
+              Effect.fail(new HttpIntegrationError({
+                endpoint: `/players/${playerId}`,
+                method: "GET",
+                statusCode: response.status,
+                message: `Server error: ${response.status}`,
+                timestamp: Date.now()
+              }))
+            ),
+            Match.orElse((status) =>
+              Effect.fail(new HttpIntegrationError({
+                endpoint: `/players/${playerId}`,
+                method: "GET",
+                statusCode: status,
+                message: `HTTP ${status}`,
+                timestamp: Date.now()
+              }))
+            )
+          )),
+          Effect.timeout(Duration.seconds(5)),
+          Effect.retry({
+            times: 2,
+            while: (error) =>
+              error instanceof HttpIntegrationError &&
+              error.statusCode &&
+              error.statusCode >= 500
+          })
         )
       )
     },
 
     updatePlayerPosition: (playerId, position) => {
-      const request = HttpClientRequest.patch(`${config.baseUrl}/players/${playerId}/position`).pipe(
-        HttpClientRequest.schemaBodyJson(Schema.Struct({
-          x: Schema.Number,
-          y: Schema.Number,
-          z: Schema.Number
-        }))
-      )(position)
+      const PositionUpdateSchema = Schema.Struct({
+        x: Schema.Number.pipe(Schema.finite()),
+        y: Schema.Number.pipe(Schema.finite(), Schema.between(0, 256)),
+        z: Schema.Number.pipe(Schema.finite()),
+        timestamp: Schema.optional(Schema.DateTimeUtc)
+      })
 
-      return executeWithCircuitBreaker(
-        client.execute(request).pipe(
-          Effect.flatMap((response) => {
-            return response.status >= 200 && response.status < 300
-              ? Effect.succeed(void 0)
-              : Effect.fail(new HttpIntegrationError({
+      const validatedPosition = {
+        ...position,
+        timestamp: new Date()
+      }
+
+      return Effect.gen(function* () {
+        // リクエスト前のバリデーション
+        yield* Schema.decodeUnknown(PositionUpdateSchema)(validatedPosition)
+
+        const request = HttpClientRequest.patch(`${config.baseUrl}/players/${playerId}/position`).pipe(
+          HttpClientRequest.schemaBodyJson(PositionUpdateSchema)
+        )(validatedPosition)
+
+        return yield* executeWithCircuitBreaker(
+          client.execute(request).pipe(
+            Effect.flatMap((response) => Match.value(response.status).pipe(
+              Match.when((status) => status >= 200 && status < 300, () =>
+                Effect.succeed(void 0)
+              ),
+              Match.when(400, () =>
+                Effect.fail(new HttpIntegrationError({
                   endpoint: `/players/${playerId}/position`,
                   method: "PATCH",
-                  statusCode: response.status,
-                  message: `HTTP ${response.status}`,
+                  statusCode: 400,
+                  message: "Invalid position data",
                   timestamp: Date.now()
                 }))
-          }),
-          Effect.timeout(Duration.seconds(3))
-        )
-      )
-    },
-
-    batchGetPlayers: (playerIds) => {
-      // ストリームを使ったバッチ処理（並行度制限付き）
-      return Stream.fromIterable(playerIds).pipe(
-        Stream.mapEffect(
-          (playerId) => {
-            const request = HttpClientRequest.get(`${config.baseUrl}/players/${playerId}`)
-            return executeWithCircuitBreaker(
-              client.execute(request).pipe(
-                Effect.flatMap(HttpClientResponse.schemaBodyJson(PlayerDataResponseSchema)),
-                Effect.mapError((error) => new HttpIntegrationError({
-                  endpoint: `/players/${playerId}`,
-                  method: "GET",
-                  statusCode: "response" in error ? error.response.status : undefined,
-                  message: error.message ?? "Unknown error",
+              ),
+              Match.when(409, () =>
+                Effect.fail(new HttpIntegrationError({
+                  endpoint: `/players/${playerId}/position`,
+                  method: "PATCH",
+                  statusCode: 409,
+                  message: "Position update conflict",
+                  timestamp: Date.now()
+                }))
+              ),
+              Match.orElse((status) =>
+                Effect.fail(new HttpIntegrationError({
+                  endpoint: `/players/${playerId}/position`,
+                  method: "PATCH",
+                  statusCode: status,
+                  message: `HTTP ${status}`,
                   timestamp: Date.now()
                 }))
               )
-            )
-          },
-          { concurrency: 5 } // 並行度を5に制限
-        ),
-        Stream.runCollect,
-        Effect.map(Chunk.toReadonlyArray)
-      )
+            )),
+            Effect.timeout(Duration.seconds(3)),
+            Effect.retry({
+              times: 1, // 位置更新は冪等でないため少なめ
+              while: (error) =>
+                error instanceof HttpIntegrationError &&
+                error.statusCode === 409 // コンフリクトのみリトライ
+            })
+          )
+        )
+      })
+    },
+
+    batchGetPlayers: (playerIds) => {
+      // より効率的なバッチ処理（エラーハンドリング強化）
+      return Effect.gen(function* () {
+        if (playerIds.length === 0) {
+          return []
+        }
+
+        // 大きなバッチを分割（APIレート制限対応）
+        const batchSize = 10
+        const batches = []
+        for (let i = 0; i < playerIds.length; i += batchSize) {
+          batches.push(playerIds.slice(i, i + batchSize))
+        }
+
+        const results: PlayerDataResponse[] = []
+        const errors: Array<{ playerId: string, error: HttpIntegrationError }> = []
+
+        for (const batch of batches) {
+          const batchResults = yield* Stream.fromIterable(batch).pipe(
+            Stream.mapEffect(
+              (playerId) =>
+                executeWithCircuitBreaker(
+                  client.execute(HttpClientRequest.get(`${config.baseUrl}/players/${playerId}`)).pipe(
+                    Effect.flatMap(HttpClientResponse.schemaBodyJson(PlayerDataResponseSchema))
+                  )
+                ).pipe(
+                  Effect.map((data) => ({ success: true as const, playerId, data })),
+                  Effect.catchAll((error) =>
+                    Effect.succeed({ success: false as const, playerId, error })
+                  )
+                ),
+              { concurrency: 3 } // 控えめな並行度
+            ),
+            Stream.runCollect
+          )
+
+          for (const result of Chunk.toReadonlyArray(batchResults)) {
+            if (result.success) {
+              results.push(result.data)
+            } else {
+              errors.push({ playerId: result.playerId, error: result.error })
+            }
+          }
+
+          // バッチ間の遅延（レート制限対策）
+          if (batches.indexOf(batch) < batches.length - 1) {
+            yield* Effect.sleep(Duration.millis(200))
+          }
+        }
+
+        // エラーをログ出力（一部失敗は許容）
+        if (errors.length > 0) {
+          yield* Effect.logWarn(`Batch player fetch completed with ${errors.length} errors`, {
+            totalRequested: playerIds.length,
+            successful: results.length,
+            failed: errors.length,
+            errors: errors.map(e => ({ playerId: e.playerId, message: e.error.message }))
+          })
+        }
+
+        return results
+      })
     }
   })
 })
@@ -582,115 +894,358 @@ const makeHttpIntegrationService = Effect.gen(function* () {
 export const HttpIntegrationServiceLive = Layer.scoped(
   HttpIntegrationService,
   makeHttpIntegrationService
+).pipe(
+  Layer.provide(NodeHttpClient.layerUndici)
 )
 
-// WebSocket 統合（Effect Stream 使用）
+// WebSocket統合（高度なコネクション管理とハートビート付き）
+type WebSocketMessage = {
+  readonly type: string
+  readonly payload: unknown
+  readonly timestamp: Date
+  readonly messageId: string
+} & Brand.Brand<"WebSocketMessage">
+
+const WebSocketMessageSchema = Schema.Struct({
+  type: Schema.String.pipe(Schema.nonEmpty()),
+  payload: Schema.Unknown,
+  timestamp: Schema.DateTimeUtc,
+  messageId: Schema.String.pipe(
+    Schema.pattern(/^[a-zA-Z0-9-]+$/),
+    Schema.message(() => "Message ID must contain only alphanumeric characters and hyphens")
+  )
+}).pipe(
+  Schema.brand("WebSocketMessage")
+)
+
 export interface WebSocketService {
-  readonly connect: (url: string) => Stream.Stream<unknown, HttpIntegrationError>
-  readonly send: (message: unknown) => Effect.Effect<void, HttpIntegrationError>
+  readonly connect: (url: string) => Stream.Stream<WebSocketMessage, HttpIntegrationError>
+  readonly send: (message: Omit<WebSocketMessage, "timestamp" | "messageId">) => Effect.Effect<void, HttpIntegrationError>
+  readonly disconnect: () => Effect.Effect<void, never>
+  readonly getConnectionStatus: () => Effect.Effect<"CONNECTING" | "OPEN" | "CLOSING" | "CLOSED", never>
 }
 
 export const WebSocketService = Context.GenericTag<WebSocketService>("@minecraft/WebSocketService")
 
 const makeWebSocketService = Effect.gen(function* () {
-  let currentWebSocket: WebSocket | null = null
+  const connectionRef = yield* Ref.make<WebSocket | null>(null)
+  const heartbeatFiberRef = yield* Ref.make<Fiber.Fiber<void, never> | null>(null)
+  const reconnectAttempts = yield* Ref.make(0)
+  const maxReconnectAttempts = 5
+  const reconnectDelay = Duration.seconds(5)
+
+  const startHeartbeat = (ws: WebSocket) => Effect.gen(function* () {
+    const heartbeatFiber = yield* Effect.fork(
+      Effect.forever(
+        Effect.gen(function* () {
+          if (ws.readyState === WebSocket.OPEN) {
+            const heartbeatMessage = {
+              type: "heartbeat",
+              payload: { timestamp: Date.now() },
+              timestamp: new Date(),
+              messageId: `heartbeat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            }
+            yield* Effect.try({
+              try: () => ws.send(JSON.stringify(heartbeatMessage)),
+              catch: () => new Error("Heartbeat send failed")
+            })
+          }
+          yield* Effect.sleep(Duration.seconds(30))
+        })
+      )
+    )
+    yield* Ref.set(heartbeatFiberRef, heartbeatFiber)
+  })
+
+  const stopHeartbeat = () => Effect.gen(function* () {
+    const fiber = yield* Ref.get(heartbeatFiberRef)
+    if (fiber) {
+      yield* Fiber.interrupt(fiber)
+      yield* Ref.set(heartbeatFiberRef, null)
+    }
+  })
 
   return WebSocketService.of({
-    connect: (url) => Stream.async<unknown, HttpIntegrationError>((emit) => {
-      const ws = new WebSocket(url)
-      currentWebSocket = ws
+    connect: (url) => Stream.async<WebSocketMessage, HttpIntegrationError>((emit) => {
+      const connectWithRetry = () => {
+        const ws = new WebSocket(url)
 
-      ws.onopen = () => {
-        Effect.runFork(Effect.logInfo(`WebSocket connected to ${url}`))
-      }
+        ws.onopen = () => {
+          Effect.runFork(
+            Effect.gen(function* () {
+              yield* Ref.set(connectionRef, ws)
+              yield* Ref.set(reconnectAttempts, 0)
+              yield* startHeartbeat(ws)
+              yield* Effect.logInfo(`WebSocket connected to ${url}`, {
+                url,
+                readyState: ws.readyState,
+                timestamp: new Date()
+              })
+            })
+          )
+        }
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          emit.single(data)
-        } catch (error) {
-          emit.fail(new HttpIntegrationError({
-            endpoint: url,
-            method: "RECEIVE",
-            message: `Failed to parse message: ${error}`,
-            timestamp: Date.now()
-          }))
+        ws.onmessage = (event) => {
+          Effect.runFork(
+            Effect.gen(function* () {
+              try {
+                const rawData = JSON.parse(event.data)
+                const message = yield* Schema.decodeUnknown(WebSocketMessageSchema)(rawData)
+                emit.single(message)
+              } catch (error) {
+                emit.fail(new HttpIntegrationError({
+                  endpoint: url,
+                  method: "RECEIVE",
+                  message: `Failed to parse message: ${error}`,
+                  timestamp: Date.now()
+                }))
+              }
+            })
+          )
+        }
+
+        ws.onerror = (error) => {
+          Effect.runFork(
+            Effect.logError("WebSocket error occurred", {
+              url,
+              error: error.toString(),
+              timestamp: new Date()
+            })
+          )
+        }
+
+        ws.onclose = (closeEvent) => {
+          Effect.runFork(
+            Effect.gen(function* () {
+              yield* stopHeartbeat()
+              yield* Ref.set(connectionRef, null)
+
+              const attempts = yield* Ref.get(reconnectAttempts)
+              if (attempts < maxReconnectAttempts && closeEvent.code !== 1000) {
+                yield* Ref.update(reconnectAttempts, n => n + 1)
+                yield* Effect.logWarn(`WebSocket disconnected, retrying in ${Duration.toMillis(reconnectDelay)}ms`, {
+                  url,
+                  code: closeEvent.code,
+                  reason: closeEvent.reason,
+                  attempt: attempts + 1,
+                  maxAttempts: maxReconnectAttempts
+                })
+
+                setTimeout(() => connectWithRetry(), Duration.toMillis(reconnectDelay))
+              } else {
+                emit.end()
+              }
+            })
+          )
         }
       }
 
-      ws.onerror = (error) => {
-        emit.fail(new HttpIntegrationError({
-          endpoint: url,
-          method: "CONNECT",
-          message: `WebSocket error: ${error}`,
-          timestamp: Date.now()
-        }))
-      }
+      connectWithRetry()
 
-      ws.onclose = () => {
-        emit.end()
-      }
-
-      return Effect.sync(() => {
-        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-          ws.close()
+      return Effect.gen(function* () {
+        yield* stopHeartbeat()
+        const ws = yield* Ref.get(connectionRef)
+        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+          ws.close(1000, "Client disconnect")
         }
       })
     }),
 
     send: (message) => Effect.gen(function* () {
-      if (!currentWebSocket || currentWebSocket.readyState !== WebSocket.OPEN) {
+      const ws = yield* Ref.get(connectionRef)
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
         return yield* Effect.fail(new HttpIntegrationError({
-          endpoint: currentWebSocket?.url || "unknown",
+          endpoint: ws?.url || "unknown",
           method: "SEND",
           message: "WebSocket is not connected",
           timestamp: Date.now()
         }))
       }
 
+      const fullMessage: WebSocketMessage = {
+        ...message,
+        timestamp: new Date(),
+        messageId: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      } as WebSocketMessage
+
       return yield* Effect.try({
-        try: () => currentWebSocket.send(JSON.stringify(message)),
+        try: () => ws.send(JSON.stringify(fullMessage)),
         catch: (error) => new HttpIntegrationError({
-          endpoint: currentWebSocket.url,
+          endpoint: ws.url,
           method: "SEND",
           message: `Failed to send message: ${error}`,
           timestamp: Date.now()
         })
       })
+    }),
+
+    disconnect: () => Effect.gen(function* () {
+      yield* stopHeartbeat()
+      const ws = yield* Ref.get(connectionRef)
+      if (ws) {
+        ws.close(1000, "Manual disconnect")
+        yield* Ref.set(connectionRef, null)
+      }
+    }),
+
+    getConnectionStatus: () => Effect.gen(function* () {
+      const ws = yield* Ref.get(connectionRef)
+      if (!ws) return "CLOSED"
+
+      return Match.value(ws.readyState).pipe(
+        Match.when(WebSocket.CONNECTING, () => "CONNECTING" as const),
+        Match.when(WebSocket.OPEN, () => "OPEN" as const),
+        Match.when(WebSocket.CLOSING, () => "CLOSING" as const),
+        Match.when(WebSocket.CLOSED, () => "CLOSED" as const),
+        Match.exhaustive
+      )
     })
   })
 })
 
 export const WebSocketServiceLive = Layer.effect(WebSocketService, makeWebSocketService)
 
-// マルチプレイヤー同期の実装例（改良版）
+// 高度なマルチプレイヤー同期実装（エラーハンドリングと再接続機能付き）
 const multiplayerSync = Effect.gen(function* () {
   const wsService = yield* WebSocketService
   const eventBus = yield* EventBusService
+  const config = yield* Config.nested("multiplayer", Schema.Struct({
+    serverUrl: Schema.String.pipe(Schema.startsWith("ws")),
+    maxRetries: Schema.Number.pipe(Schema.int(), Schema.between(1, 10)),
+    heartbeatInterval: Schema.Number.pipe(Schema.int(), Schema.positive())
+  }))
 
-  // WebSocket ストリームから受信
-  const incomingStream = wsService.connect("ws://localhost:8080/multiplayer")
+  // コネクション状態の監視
+  const connectionMonitor = yield* Effect.fork(
+    Effect.forever(
+      Effect.gen(function* () {
+        const status = yield* wsService.getConnectionStatus()
+        yield* Effect.logDebug("WebSocket connection status", { status })
 
-  // 受信メッセージをイベントとして処理
-  yield* Effect.fork(
+        if (status === "CLOSED") {
+          yield* Effect.logWarn("WebSocket connection lost, will retry on next operation")
+        }
+
+        yield* Effect.sleep(Duration.seconds(config.heartbeatInterval))
+      })
+    )
+  )
+
+  // 受信ストリーム処理（エラーハンドリング強化）
+  const incomingStream = wsService.connect(config.serverUrl)
+
+  const incomingProcessor = yield* Effect.fork(
     incomingStream.pipe(
-      Stream.mapEffect((data) => Effect.gen(function* () {
-        const event = yield* Schema.decodeUnknown(GameEventSchema)(data)
-        yield* eventBus.publish(event)
-        yield* Effect.logInfo("Received multiplayer event", { eventType: event._tag })
-      })),
+      Stream.mapEffect((wsMessage) => Effect.gen(function* () {
+        // ハートビートメッセージは除外
+        if (wsMessage.type === "heartbeat") {
+          return
+        }
+
+        // ゲームイベントにデコード
+        const gameEvent = yield* Effect.try({
+          try: () => Schema.decodeSync(GameEventSchema)(wsMessage.payload),
+          catch: (error) => new Error(`Failed to decode game event: ${error}`)
+        })
+
+        yield* eventBus.publish(gameEvent)
+        yield* Effect.logDebug("Processed multiplayer event", {
+          eventType: gameEvent._tag,
+          messageId: wsMessage.messageId,
+          timestamp: wsMessage.timestamp
+        })
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.logError("Failed to process incoming message", {
+            error: error.message,
+            messageType: wsMessage.type,
+            messageId: wsMessage.messageId
+          })
+        )
+      )),
+      Stream.retry(
+        Schedule.exponential(Duration.seconds(1), 1.5).pipe(
+          Schedule.intersect(Schedule.recurs(config.maxRetries))
+        )
+      ),
       Stream.runDrain
     )
   )
 
-  // ローカルイベントをWebSocket に送信
+  // 送信イベントの処理（バッファリングと再試行機能付き）
+  const eventQueue = yield* Queue.bounded<GameEvent>(100)
+  const eventSender = yield* Effect.fork(
+    Effect.forever(
+      Effect.gen(function* () {
+        const events = yield* Queue.takeAll(eventQueue)
+
+        if (Chunk.isNonEmpty(events)) {
+          yield* Effect.forEach(events, (event) =>
+            wsService.send({
+              type: "game-event",
+              payload: event
+            }).pipe(
+              Effect.retry({
+                times: 3,
+                while: (error) =>
+                  error instanceof HttpIntegrationError &&
+                  error.method === "SEND"
+              }),
+              Effect.timeout(Duration.seconds(5)),
+              Effect.catchAll((error) =>
+                Effect.logError("Failed to send event after retries", {
+                  eventType: event._tag,
+                  error: error.message
+                })
+              )
+            ),
+            { concurrency: 1 } // 順序保証のため
+          )
+        }
+
+        yield* Effect.sleep(Duration.millis(100))
+      })
+    )
+  )
+
+  // イベント購読の設定
   yield* eventBus.subscribe("PlayerMoved", (event) =>
-    wsService.send(event).pipe(
+    Queue.offer(eventQueue, event).pipe(
       Effect.catchAll((error) =>
-        Effect.logError("Failed to send player move event", error)
+        Effect.logWarn("Failed to queue player move event", {
+          playerId: event.playerId,
+          error: error.message
+        })
       )
     )
   )
+
+  yield* eventBus.subscribe("BlockPlaced", (event) =>
+    Queue.offer(eventQueue, event).pipe(
+      Effect.catchAll((error) =>
+        Effect.logWarn("Failed to queue block place event", {
+          playerId: event.playerId,
+          blockType: event.blockType,
+          error: error.message
+        })
+      )
+    )
+  )
+
+  // グレースフルシャットダウン
+  yield* Effect.addFinalizer(() => Effect.gen(function* () {
+    yield* Effect.logInfo("Shutting down multiplayer sync")
+    yield* Fiber.interrupt(connectionMonitor)
+    yield* Fiber.interrupt(incomingProcessor)
+    yield* Fiber.interrupt(eventSender)
+    yield* wsService.disconnect()
+    yield* Effect.logInfo("Multiplayer sync shutdown complete")
+  }))
+
+  yield* Effect.logInfo("Multiplayer synchronization started", {
+    serverUrl: config.serverUrl,
+    maxRetries: config.maxRetries
+  })
 })
 ```
 
@@ -702,7 +1257,7 @@ const multiplayerSync = Effect.gen(function* () {
 ```typescript
 import { SqlClient, SqlError, Connection } from "@effect/sql"
 import { SqliteClient } from "@effect/sql-sqlite-node"
-import { Config } from "effect"
+import { Config, ConfigProvider } from "effect"
 
 // データベース設定のブランド型
 type DatabaseConfig = {
@@ -861,7 +1416,7 @@ const makeChunkRepository = Effect.gen(function* () {
 
     load: (coordinate) => Effect.gen(function* () {
       const results = yield* sql`
-        SELECT data FROM chunks
+        SELECT data, version FROM chunks
         WHERE x = ${coordinate.x} AND z = ${coordinate.z}
         LIMIT 1
       `.pipe(
@@ -869,7 +1424,7 @@ const makeChunkRepository = Effect.gen(function* () {
           operation: "load",
           coordinate,
           table: "chunks",
-          query: `SELECT data FROM chunks WHERE x = ${coordinate.x} AND z = ${coordinate.z}`,
+          query: `SELECT data, version FROM chunks WHERE x = ${coordinate.x} AND z = ${coordinate.z}`,
           message: `Failed to load chunk: ${error.message}`,
           timestamp: Date.now()
         }))
@@ -879,8 +1434,12 @@ const makeChunkRepository = Effect.gen(function* () {
         return Option.none()
       }
 
+      const row = results[0]
       const chunkData = yield* Effect.try({
-        try: () => JSON.parse(results[0].data) as ChunkData,
+        try: () => ({
+          ...JSON.parse(row.data) as ChunkData,
+          version: row.version // バージョン情報を追加
+        }),
         catch: (error) => new ChunkStorageError({
           operation: "load",
           coordinate,
@@ -897,33 +1456,46 @@ const makeChunkRepository = Effect.gen(function* () {
         return []
       }
 
-      // バッチクエリで効率的に複数チャンクを取得
-      const placeholders = coordinates.map(() => "(?, ?)").join(", ")
-      const params = coordinates.flatMap(coord => [coord.x, coord.z])
+      // バッチサイズで分割（大量のIN句のパフォーマンス問題を回避）
+      const batchSize = 100
+      const results: ChunkData[] = []
 
-      const results = yield* sql`
-        SELECT x, z, data FROM chunks
-        WHERE (x, z) IN (${sql.in(coordinates.map(c => [c.x, c.z]))})
-      `.pipe(
-        Effect.mapError((error: SqlError) => new ChunkStorageError({
-          operation: "loadBatch",
-          table: "chunks",
-          message: `Failed to load chunks batch: ${error.message}`,
-          timestamp: Date.now()
-        }))
-      )
+      for (let i = 0; i < coordinates.length; i += batchSize) {
+        const batch = coordinates.slice(i, i + batchSize)
 
-      return yield* Effect.forEach(results, (row) =>
-        Effect.try({
-          try: () => JSON.parse(row.data) as ChunkData,
-          catch: (error) => new ChunkStorageError({
+        const batchResults = yield* sql`
+          SELECT x, z, data, version, updated_at FROM chunks
+          WHERE (x, z) IN (${sql.in(batch.map(c => [c.x, c.z]))})
+          ORDER BY updated_at DESC
+        `.pipe(
+          Effect.mapError((error: SqlError) => new ChunkStorageError({
             operation: "loadBatch",
-            coordinate: { x: row.x, z: row.z },
-            message: `Failed to parse chunk data: ${error}`,
+            table: "chunks",
+            message: `Failed to load chunks batch: ${error.message}`,
             timestamp: Date.now()
+          }))
+        )
+
+        const batchChunks = yield* Effect.forEach(batchResults, (row) =>
+          Effect.try({
+            try: () => ({
+              ...JSON.parse(row.data) as ChunkData,
+              version: row.version,
+              lastUpdated: new Date(row.updated_at)
+            }),
+            catch: (error) => new ChunkStorageError({
+              operation: "loadBatch",
+              coordinate: { x: row.x, z: row.z },
+              message: `Failed to parse chunk data: ${error}`,
+              timestamp: Date.now()
+            })
           })
-        })
-      )
+        )
+
+        results.push(...batchChunks)
+      }
+
+      return results
     }),
 
     delete: (coordinate) => Effect.gen(function* () {
@@ -1068,79 +1640,184 @@ const makeChunkRepository = Effect.gen(function* () {
   })
 })
 
-// 設定からレイヤーを作成
+// 設定からレイヤーを作成（ConfigProvider使用）
 const makeDatabaseLayer = Effect.gen(function* () {
-  const config = yield* Config.nested("database", Schema.decodeUnknown(DatabaseConfigSchema))
+  const configProvider = yield* ConfigProvider.ConfigProvider
+  const config = yield* Config.nested("database", Schema.decodeUnknown(DatabaseConfigSchema)).pipe(
+    Effect.withConfigProvider(configProvider)
+  )
 
-  return SqliteClient.layer({
+  // ヘルスチェック機能付きデータベースレイヤー
+  const baseLayer = SqliteClient.layer({
     filename: config.connectionString,
     poolConfig: {
       max: config.maxConnections,
-      min: 1,
+      min: Math.max(1, Math.floor(config.maxConnections / 4)),
       acquireTimeout: Duration.millis(config.acquireTimeoutMillis),
-      idleTimeout: Duration.minutes(5)
+      idleTimeout: Duration.minutes(5),
+      // ヘルスチェック設定
+      testOnBorrow: true,
+      validationQuery: "SELECT 1"
     }
   })
+
+  return baseLayer
+})
+
+// データベース接続監視サービス
+const makeDatabaseMonitorService = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+
+  const healthCheck = () => Effect.gen(function* () {
+    const result = yield* sql`SELECT 1 as health_check`.pipe(
+      Effect.timeout(Duration.seconds(5)),
+      Effect.catchAll(() => Effect.succeed([]))
+    )
+    return result.length > 0
+  })
+
+  // 定期ヘルスチェック
+  yield* Effect.fork(
+    Effect.forever(
+      Effect.gen(function* () {
+        const isHealthy = yield* healthCheck()
+        if (!isHealthy) {
+          yield* Effect.logWarn("Database health check failed")
+        } else {
+          yield* Effect.logDebug("Database health check passed")
+        }
+        yield* Effect.sleep(Duration.seconds(30))
+      })
+    )
+  )
+
+  return { healthCheck }
 })
 
 export const DatabaseLive = Layer.unwrapEffect(makeDatabaseLayer)
+export const DatabaseMonitorLive = Layer.effect(
+  Context.GenericTag<{ healthCheck: () => Effect.Effect<boolean> }>("DatabaseMonitor"),
+  makeDatabaseMonitorService
+)
 export const ChunkRepositoryLive = Layer.effect(ChunkRepository, makeChunkRepository).pipe(
-  Layer.provide(DatabaseLive)
+  Layer.provide(Layer.mergeAll(DatabaseLive, DatabaseMonitorLive))
 )
 
-// 使用例: トランザクション付きバッチ処理
+// 使用例: トランザクション付きバッチ処理（パフォーマンス最適化）
 const saveChunksBatch = (chunks: ReadonlyArray<ChunkData>) => Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
   const repository = yield* ChunkRepository
 
-  return yield* sql.withTransaction(
-    Effect.forEach(chunks, (chunk) => repository.save(chunk), {
-      concurrency: 1 // トランザクション内では並行実行しない
-    })
-  )
+  // 大量データの場合はバッチで分割
+  const batchSize = 50
+  const results = []
+
+  for (let i = 0; i < chunks.length; i += batchSize) {
+    const batch = chunks.slice(i, i + batchSize)
+
+    const batchResult = yield* sql.withTransaction(
+      Effect.gen(function* () {
+        // 一括インサートでパフォーマンス最適化
+        const values = batch.map(chunk => `(
+          ${chunk.coordinate.x},
+          ${chunk.coordinate.z},
+          '${JSON.stringify(chunk).replace(/'/g, "''")}',
+          CURRENT_TIMESTAMP,
+          0
+        )`).join(', ')
+
+        yield* sql`
+          INSERT INTO chunks (x, z, data, updated_at, version)
+          VALUES ${sql.raw(values)}
+          ON CONFLICT(x, z) DO UPDATE SET
+            data = excluded.data,
+            updated_at = CURRENT_TIMESTAMP,
+            version = version + 1
+        `
+
+        return batch.length
+      }).pipe(
+        Effect.tapError((error) =>
+          Effect.logError(`Batch save failed for ${batch.length} chunks`, {
+            batchStartIndex: i,
+            error: error.message
+          })
+        )
+      )
+    )
+
+    results.push(batchResult)
+
+    // バッチ間の遅延（データベース負荷軽減）
+    if (i + batchSize < chunks.length) {
+      yield* Effect.sleep(Duration.millis(10))
+    }
+  }
+
+  const totalSaved = results.reduce((sum, count) => sum + count, 0)
+  yield* Effect.logInfo(`Batch save completed`, {
+    totalChunks: chunks.length,
+    saved: totalSaved,
+    batches: results.length
+  })
+
+  return totalSaved
 })
 
-// 使用例: 楽観的ロックを使った安全な更新
+// 使用例: 高度な楽観的ロックを使った安全な更新（パフォーマンス最適化）
 const updateChunkSafely = (
   coordinate: ChunkCoordinate,
   updateFn: (data: ChunkData) => ChunkData
 ) => Effect.gen(function* () {
   const repository = yield* ChunkRepository
+  const maxRetries = 5
+  let attempt = 0
 
   return yield* Effect.retry(
     Effect.gen(function* () {
-      const maybeChunk = yield* repository.load(coordinate)
+      attempt++
 
-      if (Option.isNone(maybeChunk)) {
-        return yield* Effect.fail(new ChunkStorageError({
-          operation: "updateChunkSafely",
-          coordinate,
-          message: "Chunk not found",
-          timestamp: Date.now()
-        }))
-      }
-
-      // バージョンを取得するため再度データベースから読み取り
-      const sql = yield* SqlClient.SqlClient
-      const versionResult = yield* sql`
-        SELECT version FROM chunks
-        WHERE x = ${coordinate.x} AND z = ${coordinate.z}
-      `
-
-      if (versionResult.length === 0) {
-        return yield* Effect.fail(new ChunkStorageError({
-          operation: "updateChunkSafely",
-          coordinate,
-          message: "Chunk disappeared during update",
-          timestamp: Date.now()
-        }))
-      }
-
-      const currentVersion = versionResult[0].version
-      return yield* repository.optimisticUpdate(coordinate, updateFn, currentVersion)
+      return yield* repository.optimisticUpdate(
+        coordinate,
+        (currentData) => {
+          const updated = updateFn(currentData)
+          // 更新時刻を記録
+          return {
+            ...updated,
+            metadata: {
+              ...updated.metadata,
+              lastUpdated: Date.now(),
+              updateAttempt: attempt
+            }
+          }
+        },
+        attempt === 1 ? 0 : -1 // 初回のみバージョンチェックを実行
+      ).pipe(
+        Effect.tapBoth({
+          onFailure: (error) => Effect.logDebug(`Optimistic update attempt ${attempt} failed`, {
+            coordinate,
+            error: error.message,
+            attempt
+          }),
+          onSuccess: (result) => Effect.logDebug(`Optimistic update succeeded on attempt ${attempt}`, {
+            coordinate,
+            version: result.version || "unknown",
+            attempt
+          })
+        })
+      )
     }),
-    Schedule.exponential(Duration.millis(100)).pipe(
-      Schedule.compose(Schedule.recurs(3))
+    // エクスポネンシャルバックオフとジッターを組み合わせ
+    Schedule.exponential(Duration.millis(50), 1.5).pipe(
+      Schedule.intersect(Schedule.recurs(maxRetries - 1)),
+      Schedule.jittered, // ランダムなジッターで競合状態を緩和
+      Schedule.tapInput((input, output) =>
+        Effect.logWarn(`Retrying chunk update due to version conflict`, {
+          coordinate,
+          attempt: input[1] + 1,
+          nextDelay: `${Duration.toMillis(output.delay)}ms`
+        })
+      )
     )
   )
 })
@@ -1731,7 +2408,246 @@ const StorageLayerLive = Config.string("STORAGE_TYPE").pipe(
 )
 ```
 
-## Pattern 9: Telemetry and Observability Integration
+## Pattern 9: ConfigProvider Integration
+
+**使用場面**: 環境変数、設定ファイル、動的設定の統合管理
+
+**実装**:
+```typescript
+import { Config, ConfigProvider, ConfigError } from "effect"
+import { NodeFileSystem } from "@effect/platform-node"
+import { FileSystem } from "@effect/platform"
+
+// 設定スキーマの定義
+const ServerConfigSchema = Schema.Struct({
+  host: Schema.String.pipe(
+    Schema.pattern(/^[a-zA-Z0-9.-]+$/),
+    Schema.message(() => "Host must contain only alphanumeric characters, dots, and hyphens")
+  ),
+  port: Schema.Number.pipe(
+    Schema.int(),
+    Schema.between(1000, 65535),
+    Schema.message(() => "Port must be between 1000 and 65535")
+  ),
+  database: Schema.Struct({
+    url: Schema.String.pipe(Schema.startsWith("sqlite://")),
+    maxConnections: Schema.Number.pipe(Schema.int(), Schema.positive()),
+    timeout: Schema.Number.pipe(Schema.int(), Schema.positive())
+  }),
+  redis: Schema.Struct({
+    host: Schema.String,
+    port: Schema.Number.pipe(Schema.int(), Schema.between(1, 65535)),
+    password: Schema.optional(Schema.String)
+  }),
+  features: Schema.Struct({
+    enableMetrics: Schema.Boolean,
+    enableTracing: Schema.Boolean,
+    enableRateLimiting: Schema.Boolean
+  })
+}).pipe(
+  Schema.brand("ServerConfig")
+)
+
+type ServerConfig = Schema.Schema.Type<typeof ServerConfigSchema>
+
+// 複数のConfigProviderを組み合わせる実装
+const createConfigProvider = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem
+
+  // 1. 環境変数プロバイダー
+  const envProvider = ConfigProvider.fromEnv()
+
+  // 2. JSONファイルプロバイダー
+  const jsonFileProvider = Effect.gen(function* () {
+    const configExists = yield* fs.exists("./config/app.json")
+    if (!configExists) {
+      return ConfigProvider.fromMap(new Map()) // 空のプロバイダー
+    }
+
+    const configContent = yield* fs.readFileString("./config/app.json")
+    const configData = yield* Effect.try({
+      try: () => JSON.parse(configContent),
+      catch: (error) => new ConfigError.InvalidData([], `Invalid JSON in config file: ${error}`)
+    })
+
+    const flattenConfig = (obj: any, prefix = ""): Map<string, string> => {
+      const result = new Map<string, string>()
+
+      for (const [key, value] of Object.entries(obj)) {
+        const fullKey = prefix ? `${prefix}.${key}` : key
+
+        if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+          const nested = flattenConfig(value, fullKey)
+          nested.forEach((v, k) => result.set(k, v))
+        } else {
+          result.set(fullKey, String(value))
+        }
+      }
+
+      return result
+    }
+
+    return ConfigProvider.fromMap(flattenConfig(configData))
+  })
+
+  // 3. デフォルト値プロバイダー
+  const defaultProvider = ConfigProvider.fromMap(new Map([
+    ["host", "localhost"],
+    ["port", "3000"],
+    ["database.maxConnections", "10"],
+    ["database.timeout", "5000"],
+    ["redis.host", "localhost"],
+    ["redis.port", "6379"],
+    ["features.enableMetrics", "true"],
+    ["features.enableTracing", "false"],
+    ["features.enableRateLimiting", "true"]
+  ]))
+
+  const fileProvider = yield* jsonFileProvider
+
+  // 優先順位: 環境変数 > JSONファイル > デフォルト値
+  return envProvider.pipe(
+    ConfigProvider.orElse(() => fileProvider),
+    ConfigProvider.orElse(() => defaultProvider)
+  )
+})
+
+// 設定サービスの実装
+export interface ConfigService {
+  readonly getServerConfig: () => Effect.Effect<ServerConfig, ConfigError.ConfigError>
+  readonly reloadConfig: () => Effect.Effect<ServerConfig, ConfigError.ConfigError>
+  readonly watchConfig: () => Stream.Stream<ServerConfig, ConfigError.ConfigError>
+}
+
+export const ConfigService = Context.GenericTag<ConfigService>("@minecraft/ConfigService")
+
+const makeConfigService = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem
+  const configProviderRef = yield* Ref.make(yield* createConfigProvider)
+  const configCache = yield* Ref.make<ServerConfig | null>(null)
+
+  const loadConfig = () => Effect.gen(function* () {
+    const provider = yield* Ref.get(configProviderRef)
+    const config = yield* Config.nested("minecraft", Schema.decodeUnknown(ServerConfigSchema)).pipe(
+      Effect.withConfigProvider(provider)
+    )
+    yield* Ref.set(configCache, config)
+    return config
+  })
+
+  // 設定ファイル監視（開発環境用）
+  const startConfigWatcher = () => Effect.gen(function* () {
+    const watchStream = Stream.async<ServerConfig, ConfigError.ConfigError>((emit) => {
+      // ファイル変更監視のモック実装（実際にはNode.jsのfs.watchを使用）
+      const interval = setInterval(async () => {
+        try {
+          const newProvider = await Effect.runPromise(createConfigProvider)
+          const newConfig = await Effect.runPromise(
+            Config.nested("minecraft", Schema.decodeUnknown(ServerConfigSchema)).pipe(
+              Effect.withConfigProvider(newProvider)
+            )
+          )
+          emit.single(newConfig)
+        } catch (error) {
+          emit.fail(error as ConfigError.ConfigError)
+        }
+      }, 5000) // 5秒ごとにチェック
+
+      return Effect.sync(() => {
+        clearInterval(interval)
+      })
+    })
+
+    return watchStream
+  })
+
+  return ConfigService.of({
+    getServerConfig: () => Effect.gen(function* () {
+      const cached = yield* Ref.get(configCache)
+      if (cached) {
+        return cached
+      }
+      return yield* loadConfig()
+    }),
+
+    reloadConfig: () => Effect.gen(function* () {
+      yield* Effect.logInfo("Reloading configuration...")
+      const newProvider = yield* createConfigProvider
+      yield* Ref.set(configProviderRef, newProvider)
+      const config = yield* loadConfig()
+      yield* Effect.logInfo("Configuration reloaded successfully", {
+        host: config.host,
+        port: config.port,
+        featuresEnabled: Object.entries(config.features)
+          .filter(([_, enabled]) => enabled)
+          .map(([feature, _]) => feature)
+      })
+      return config
+    }),
+
+    watchConfig: startConfigWatcher
+  })
+})
+
+export const ConfigServiceLive = Layer.effect(ConfigService, makeConfigService).pipe(
+  Layer.provide(NodeFileSystem.layer)
+)
+
+// 使用例: 設定に基づく条件付きサービス起動
+const startServices = Effect.gen(function* () {
+  const configService = yield* ConfigService
+  const config = yield* configService.getServerConfig()
+
+  const services = []
+
+  // 基本サーバー（必須）
+  services.push(
+    Effect.logInfo(`Starting server on ${config.host}:${config.port}`)
+  )
+
+  // 条件付きサービス起動
+  if (config.features.enableMetrics) {
+    services.push(
+      Effect.logInfo("Starting metrics collection service")
+      // メトリクスサービスの起動ロジック
+    )
+  }
+
+  if (config.features.enableTracing) {
+    services.push(
+      Effect.logInfo("Starting distributed tracing service")
+      // トレーシングサービスの起動ロジック
+    )
+  }
+
+  if (config.features.enableRateLimiting) {
+    services.push(
+      Effect.logInfo("Starting rate limiting service")
+      // レート制限サービスの起動ロジック
+    )
+  }
+
+  yield* Effect.all(services, { concurrency: "unbounded" })
+
+  // 設定変更の監視
+  yield* Effect.fork(
+    configService.watchConfig().pipe(
+      Stream.mapEffect((newConfig) =>
+        Effect.logInfo("Configuration updated", {
+          timestamp: new Date(),
+          changes: {
+            host: newConfig.host,
+            port: newConfig.port
+          }
+        })
+      ),
+      Stream.runDrain
+    )
+  )
+})
+```
+
+## Pattern 10: Telemetry and Observability Integration
 
 **使用場面**: ロギング、メトリクス、分散トレーシング
 
@@ -2092,7 +3008,328 @@ const makeObservableChunkRepository = Effect.gen(function* () {
 })
 ```
 
-## Pattern 10: Property-Based Testing for Integration
+## Pattern 11: Health Check and Circuit Breaker Integration
+
+**使用場面**: システムの可用性とレジリエンスの向上
+
+**実装**:
+```typescript
+// ヘルスチェック結果の型定義
+type HealthStatus = {
+  readonly service: string
+  readonly status: "healthy" | "unhealthy" | "degraded"
+  readonly lastCheck: Date
+  readonly responseTime: number
+  readonly metadata: Record<string, unknown>
+} & Brand.Brand<"HealthStatus">
+
+const HealthStatusSchema = Schema.Struct({
+  service: Schema.String.pipe(Schema.nonEmpty()),
+  status: Schema.Union(
+    Schema.Literal("healthy"),
+    Schema.Literal("unhealthy"),
+    Schema.Literal("degraded")
+  ),
+  lastCheck: Schema.DateTimeUtc,
+  responseTime: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
+  metadata: Schema.Record(Schema.String, Schema.Unknown)
+}).pipe(
+  Schema.brand("HealthStatus")
+)
+
+// ヘルスチェックサービス
+export interface HealthCheckService {
+  readonly checkHealth: (serviceName: string) => Effect.Effect<HealthStatus, never>
+  readonly getOverallHealth: () => Effect.Effect<{
+    readonly status: "healthy" | "unhealthy" | "degraded"
+    readonly services: ReadonlyArray<HealthStatus>
+    readonly timestamp: Date
+  }, never>
+  readonly registerHealthCheck: (
+    serviceName: string,
+    checkFn: () => Effect.Effect<boolean, unknown>
+  ) => Effect.Effect<void, never>
+}
+
+export const HealthCheckService = Context.GenericTag<HealthCheckService>("@minecraft/HealthCheckService")
+
+const makeHealthCheckService = Effect.gen(function* () {
+  const healthChecks = yield* Ref.make(
+    new Map<string, () => Effect.Effect<boolean, unknown>>()
+  )
+  const healthStatuses = yield* Ref.make(
+    new Map<string, HealthStatus>()
+  )
+
+  // 定期ヘルスチェック実行
+  const runPeriodicHealthChecks = () => Effect.gen(function* () {
+    const checks = yield* Ref.get(healthChecks)
+    const currentTime = new Date()
+
+    yield* Effect.forEach(
+      Array.from(checks.entries()),
+      ([serviceName, checkFn]) => Effect.gen(function* () {
+        const startTime = Date.now()
+
+        const result = yield* checkFn().pipe(
+          Effect.timeout(Duration.seconds(10)),
+          Effect.match({
+            onFailure: () => false,
+            onSuccess: (healthy) => healthy
+          })
+        )
+
+        const endTime = Date.now()
+        const responseTime = endTime - startTime
+
+        const status: HealthStatus = {
+          service: serviceName,
+          status: result ? "healthy" : "unhealthy",
+          lastCheck: currentTime,
+          responseTime,
+          metadata: {
+            checkDuration: responseTime,
+            timestamp: currentTime.toISOString()
+          }
+        } as HealthStatus
+
+        yield* Ref.update(healthStatuses, (statuses) =>
+          new Map(statuses).set(serviceName, status)
+        )
+      }),
+      { concurrency: "unbounded" }
+    )
+  })
+
+  // 定期実行のスケジュール
+  yield* Effect.fork(
+    Effect.forever(
+      Effect.gen(function* () {
+        yield* runPeriodicHealthChecks()
+        yield* Effect.sleep(Duration.seconds(30))
+      })
+    )
+  )
+
+  return HealthCheckService.of({
+    checkHealth: (serviceName) => Effect.gen(function* () {
+      const statuses = yield* Ref.get(healthStatuses)
+      const status = statuses.get(serviceName)
+
+      if (!status) {
+        return {
+          service: serviceName,
+          status: "unhealthy",
+          lastCheck: new Date(),
+          responseTime: 0,
+          metadata: { error: "Service not registered" }
+        } as HealthStatus
+      }
+
+      return status
+    }),
+
+    getOverallHealth: () => Effect.gen(function* () {
+      const statuses = yield* Ref.get(healthStatuses)
+      const serviceStatuses = Array.from(statuses.values())
+
+      const unhealthyCount = serviceStatuses.filter(s => s.status === "unhealthy").length
+      const degradedCount = serviceStatuses.filter(s => s.status === "degraded").length
+      const totalServices = serviceStatuses.length
+
+      let overallStatus: "healthy" | "unhealthy" | "degraded"
+      if (unhealthyCount === 0 && degradedCount === 0) {
+        overallStatus = "healthy"
+      } else if (unhealthyCount / totalServices > 0.5) {
+        overallStatus = "unhealthy"
+      } else {
+        overallStatus = "degraded"
+      }
+
+      return {
+        status: overallStatus,
+        services: serviceStatuses,
+        timestamp: new Date()
+      }
+    }),
+
+    registerHealthCheck: (serviceName, checkFn) => Effect.gen(function* () {
+      yield* Ref.update(healthChecks, (checks) =>
+        new Map(checks).set(serviceName, checkFn)
+      )
+      yield* Effect.logInfo(`Health check registered for service: ${serviceName}`)
+    })
+  })
+})
+
+export const HealthCheckServiceLive = Layer.effect(HealthCheckService, makeHealthCheckService)
+
+// 統合されたサーキットブレーカー＋ヘルスチェック
+class IntegratedCircuitBreaker {
+  private state: "CLOSED" | "OPEN" | "HALF_OPEN" = "CLOSED"
+  private failureCount = 0
+  private lastFailureTime = 0
+  private lastSuccessTime = Date.now()
+
+  constructor(
+    private readonly config: {
+      failureThreshold: number
+      resetTimeout: Duration.Duration
+      healthCheckService: HealthCheckService
+    }
+  ) {}
+
+  execute<A, E>(
+    serviceName: string,
+    effect: Effect.Effect<A, E>
+  ): Effect.Effect<A, E | HttpIntegrationError> {
+    return Effect.gen(() => {
+      // まずヘルスチェック状態を確認
+      const healthStatus = yield* this.config.healthCheckService.checkHealth(serviceName)
+
+      if (healthStatus.status === "unhealthy" && this.state === "CLOSED") {
+        this.state = "OPEN"
+        this.lastFailureTime = Date.now()
+      }
+
+      return Match.value(this.state).pipe(
+        Match.when("OPEN", () => Effect.gen(() => {
+          const now = Date.now()
+          if (now - this.lastFailureTime >= Duration.toMillis(this.config.resetTimeout)) {
+            this.state = "HALF_OPEN"
+            return yield* this.executeWithTracking(serviceName, effect)
+          }
+
+          return yield* Effect.fail(new HttpIntegrationError({
+            endpoint: serviceName,
+            method: "CIRCUIT_BREAKER",
+            message: `Circuit breaker is OPEN for ${serviceName}. Health status: ${healthStatus.status}`,
+            timestamp: now
+          }))
+        })),
+        Match.when("HALF_OPEN", () =>
+          this.executeWithTracking(serviceName, effect).pipe(
+            Effect.tap(() => Effect.sync(() => {
+              this.state = "CLOSED"
+              this.failureCount = 0
+              this.lastSuccessTime = Date.now()
+            })),
+            Effect.tapError(() => Effect.sync(() => {
+              this.state = "OPEN"
+              this.lastFailureTime = Date.now()
+            }))
+          )
+        ),
+        Match.when("CLOSED", () => this.executeWithTracking(serviceName, effect)),
+        Match.exhaustive
+      )
+    }.bind(this))
+  }
+
+  private executeWithTracking<A, E>(
+    serviceName: string,
+    effect: Effect.Effect<A, E>
+  ): Effect.Effect<A, E> {
+    return effect.pipe(
+      Effect.tap(() => Effect.sync(() => {
+        this.failureCount = 0
+        this.lastSuccessTime = Date.now()
+      })),
+      Effect.tapError(() => Effect.sync(() => {
+        this.failureCount++
+        if (this.failureCount >= this.config.failureThreshold) {
+          this.state = "OPEN"
+          this.lastFailureTime = Date.now()
+        }
+      }))
+    )
+  }
+
+  getStatus() {
+    return {
+      state: this.state,
+      failureCount: this.failureCount,
+      lastFailureTime: this.lastFailureTime,
+      lastSuccessTime: this.lastSuccessTime,
+      uptime: Date.now() - this.lastSuccessTime
+    }
+  }
+}
+
+// 使用例: 統合ヘルスチェック
+const setupIntegratedHealthSystem = Effect.gen(function* () {
+  const healthService = yield* HealthCheckService
+  const httpService = yield* HttpIntegrationService
+
+  // 各サービスのヘルスチェック登録
+  yield* healthService.registerHealthCheck("database", () => Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const result = yield* sql`SELECT 1`.pipe(
+      Effect.timeout(Duration.seconds(5)),
+      Effect.match({
+        onFailure: () => false,
+        onSuccess: (rows) => rows.length > 0
+      })
+    )
+    return result
+  }))
+
+  yield* healthService.registerHealthCheck("external-api", () => Effect.gen(function* () {
+    const testResult = yield* httpService.getPlayerData("health-check-test").pipe(
+      Effect.timeout(Duration.seconds(10)),
+      Effect.match({
+        onFailure: () => false,
+        onSuccess: () => true
+      })
+    )
+    return testResult
+  }))
+
+  yield* healthService.registerHealthCheck("redis", () => Effect.gen(function* () {
+    // Redis接続チェックのモック
+    return yield* Effect.succeed(true)
+  }))
+
+  // 統合サーキットブレーカー初期化
+  const circuitBreaker = new IntegratedCircuitBreaker({
+    failureThreshold: 5,
+    resetTimeout: Duration.seconds(30),
+    healthCheckService: healthService
+  })
+
+  // 全体ヘルスチェック監視
+  yield* Effect.fork(
+    Effect.forever(
+      Effect.gen(function* () {
+        const overall = yield* healthService.getOverallHealth()
+
+        yield* Effect.logInfo("System health check", {
+          overallStatus: overall.status,
+          totalServices: overall.services.length,
+          healthyServices: overall.services.filter(s => s.status === "healthy").length,
+          unhealthyServices: overall.services.filter(s => s.status === "unhealthy").length,
+          degradedServices: overall.services.filter(s => s.status === "degraded").length
+        })
+
+        if (overall.status !== "healthy") {
+          const unhealthyServices = overall.services
+            .filter(s => s.status !== "healthy")
+            .map(s => `${s.service}: ${s.status}`)
+            .join(", ")
+
+          yield* Effect.logWarn(`System health degraded: ${unhealthyServices}`)
+        }
+
+        yield* Effect.sleep(Duration.seconds(60))
+      })
+    )
+  )
+
+  return { healthService, circuitBreaker }
+})
+```
+
+## Pattern 12: Property-Based Testing for Integration
 
 **使用場面**: 統合ポイントの堅牢性テスト
 
@@ -2437,4 +3674,332 @@ const runPropertyTests = Effect.gen(function* () {
 Effect.runPromise(runPropertyTests)
 ```
 
-この統合パターンカタログを活用することで、TypeScript MinecraftプロジェクトでのEffect-TSを使った堅牢なシステム間統合を実現できます。各パターンは実際の使用場面に応じて適切に選択し、組み合わせて使用してください。
+## Pattern 13: Graceful Shutdown and Resource Management
+
+**使用場面**: アプリケーションの安全な終了とリソースクリーンアップ
+
+**実装**:
+```typescript
+// シャットダウンフックの管理
+export interface GracefulShutdownService {
+  readonly registerShutdownHook: (
+    name: string,
+    cleanup: () => Effect.Effect<void, never>
+  ) => Effect.Effect<void, never>
+  readonly shutdown: (signal?: string) => Effect.Effect<void, never>
+  readonly isShuttingDown: () => Effect.Effect<boolean, never>
+}
+
+export const GracefulShutdownService = Context.GenericTag<GracefulShutdownService>(
+  "@minecraft/GracefulShutdownService"
+)
+
+const makeGracefulShutdownService = Effect.gen(function* () {
+  const shutdownHooks = yield* Ref.make(
+    new Map<string, () => Effect.Effect<void, never>>()
+  )
+  const isShuttingDown = yield* Ref.make(false)
+  const shutdownTimeout = Duration.seconds(30)
+
+  // プロセスシグナルハンドラーの設定
+  const setupSignalHandlers = () => Effect.gen(function* () {
+    const handleSignal = (signal: string) => () => {
+      Effect.runFork(
+        Effect.gen(function* () {
+          yield* Effect.logInfo(`Received ${signal}, initiating graceful shutdown...`)
+          yield* shutdown(signal)
+        })
+      )
+    }
+
+    if (typeof process !== 'undefined') {
+      process.once('SIGTERM', handleSignal('SIGTERM'))
+      process.once('SIGINT', handleSignal('SIGINT'))
+      process.once('SIGUSR2', handleSignal('SIGUSR2')) // nodemonなど開発ツール用
+    }
+  })
+
+  const shutdown = (signal?: string) => Effect.gen(function* () {
+    const alreadyShuttingDown = yield* Ref.get(isShuttingDown)
+    if (alreadyShuttingDown) {
+      yield* Effect.logWarn("Shutdown already in progress")
+      return
+    }
+
+    yield* Ref.set(isShuttingDown, true)
+    const hooks = yield* Ref.get(shutdownHooks)
+    const hookEntries = Array.from(hooks.entries())
+
+    yield* Effect.logInfo(`Starting graceful shutdown`, {
+      signal: signal || "manual",
+      hooksToExecute: hookEntries.length,
+      timeout: Duration.toMillis(shutdownTimeout)
+    })
+
+    // 全てのシャットダウンフックを並列実行（タイムアウト付き）
+    const shutdownResults = yield* Effect.forEach(
+      hookEntries,
+      ([name, cleanup]) => Effect.gen(function* () {
+        const startTime = Date.now()
+        yield* Effect.logDebug(`Executing shutdown hook: ${name}`)
+
+        return yield* cleanup().pipe(
+          Effect.timeout(Duration.seconds(10)),
+          Effect.tap(() => Effect.logDebug(`Shutdown hook completed: ${name}`, {
+            duration: Date.now() - startTime
+          })),
+          Effect.catchAll((error) =>
+            Effect.logError(`Shutdown hook failed: ${name}`, { error })
+          ),
+          Effect.as({ name, success: true })
+        )
+      }),
+      { concurrency: "unbounded" }
+    ).pipe(
+      Effect.timeout(shutdownTimeout),
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          yield* Effect.logError("Shutdown hooks timed out", {
+            error,
+            timeoutMs: Duration.toMillis(shutdownTimeout)
+          })
+          return []
+        })
+      )
+    )
+
+    const successful = shutdownResults.filter(r => r.success).length
+    const total = hookEntries.length
+
+    yield* Effect.logInfo("Graceful shutdown completed", {
+      successful,
+      total,
+      signal: signal || "manual"
+    })
+
+    // Node.jsプロセスの終了
+    if (typeof process !== 'undefined') {
+      process.exit(0)
+    }
+  })
+
+  yield* setupSignalHandlers()
+
+  return GracefulShutdownService.of({
+    registerShutdownHook: (name, cleanup) => Effect.gen(function* () {
+      yield* Ref.update(shutdownHooks, (hooks) =>
+        new Map(hooks).set(name, cleanup)
+      )
+      yield* Effect.logDebug(`Registered shutdown hook: ${name}`)
+    }),
+
+    shutdown,
+
+    isShuttingDown: () => Ref.get(isShuttingDown)
+  })
+})
+
+export const GracefulShutdownServiceLive = Layer.effect(
+  GracefulShutdownService,
+  makeGracefulShutdownService
+)
+
+// リソース管理サービス
+export interface ResourceManagerService {
+  readonly acquireResource: <R>(
+    name: string,
+    acquire: () => Effect.Effect<R, never>,
+    release: (resource: R) => Effect.Effect<void, never>
+  ) => Effect.Effect<R, never>
+  readonly getResourceStatus: () => Effect.Effect<{
+    readonly totalResources: number
+    readonly resources: ReadonlyArray<{
+      readonly name: string
+      readonly acquired: Date
+      readonly status: "active" | "released"
+    }>
+  }, never>
+}
+
+export const ResourceManagerService = Context.GenericTag<ResourceManagerService>(
+  "@minecraft/ResourceManagerService"
+)
+
+const makeResourceManagerService = Effect.gen(function* () {
+  const resources = yield* Ref.make(
+    new Map<string, {
+      resource: unknown
+      release: (resource: unknown) => Effect.Effect<void, never>
+      acquired: Date
+      status: "active" | "released"
+    }>()
+  )
+
+  const shutdownService = yield* GracefulShutdownService
+
+  // リソース解放のシャットダウンフック登録
+  yield* shutdownService.registerShutdownHook("resource-manager", () =>
+    Effect.gen(function* () {
+      const currentResources = yield* Ref.get(resources)
+      const activeResources = Array.from(currentResources.entries())
+        .filter(([_, info]) => info.status === "active")
+
+      yield* Effect.logInfo(`Releasing ${activeResources.length} active resources`)
+
+      yield* Effect.forEach(
+        activeResources,
+        ([name, info]) => Effect.gen(function* () {
+          yield* Effect.logDebug(`Releasing resource: ${name}`)
+          yield* info.release(info.resource)
+          yield* Ref.update(resources, (res) => {
+            const updated = new Map(res)
+            const resourceInfo = updated.get(name)
+            if (resourceInfo) {
+              updated.set(name, { ...resourceInfo, status: "released" })
+            }
+            return updated
+          })
+        }),
+        { concurrency: 3 } // 同時に3つまでのリソースを解放
+      )
+    })
+  )
+
+  return ResourceManagerService.of({
+    acquireResource: (name, acquire, release) => Effect.gen(function* () {
+      yield* Effect.logDebug(`Acquiring resource: ${name}`)
+
+      const resource = yield* acquire()
+      const resourceInfo = {
+        resource,
+        release,
+        acquired: new Date(),
+        status: "active" as const
+      }
+
+      yield* Ref.update(resources, (res) =>
+        new Map(res).set(name, resourceInfo)
+      )
+
+      yield* Effect.logDebug(`Resource acquired: ${name}`, {
+        acquiredAt: resourceInfo.acquired
+      })
+
+      return resource
+    }),
+
+    getResourceStatus: () => Effect.gen(function* () {
+      const currentResources = yield* Ref.get(resources)
+      const resourceList = Array.from(currentResources.entries()).map(
+        ([name, info]) => ({
+          name,
+          acquired: info.acquired,
+          status: info.status
+        })
+      )
+
+      return {
+        totalResources: resourceList.length,
+        resources: resourceList
+      }
+    })
+  })
+})
+
+export const ResourceManagerServiceLive = Layer.effect(
+  ResourceManagerService,
+  makeResourceManagerService
+).pipe(
+  Layer.provide(GracefulShutdownServiceLive)
+)
+
+// アプリケーション統合の実装例
+const createMinecraftApplication = Effect.gen(function* () {
+  const gracefulShutdown = yield* GracefulShutdownService
+  const resourceManager = yield* ResourceManagerService
+  const configService = yield* ConfigService
+  const healthCheck = yield* HealthCheckService
+
+  // 各サービスのシャットダウンフック登録
+  yield* gracefulShutdown.registerShutdownHook("config-service", () =>
+    Effect.logInfo("Config service shutdown completed")
+  )
+
+  yield* gracefulShutdown.registerShutdownHook("health-check", () =>
+    Effect.logInfo("Health check service stopped")
+  )
+
+  // データベース接続リソースの管理
+  const dbConnection = yield* resourceManager.acquireResource(
+    "database-connection",
+    () => Effect.gen(function* () {
+      yield* Effect.logInfo("Establishing database connection")
+      // データベース接続の実装
+      return { connected: true, connectionId: "db-001" }
+    }),
+    (connection) => Effect.gen(function* () {
+      yield* Effect.logInfo("Closing database connection", { connectionId: connection.connectionId })
+      // 接続クローズの実装
+    })
+  )
+
+  // HTTP サーバーリソースの管理
+  const httpServer = yield* resourceManager.acquireResource(
+    "http-server",
+    () => Effect.gen(function* () {
+      const config = yield* configService.getServerConfig()
+      yield* Effect.logInfo(`Starting HTTP server on ${config.host}:${config.port}`)
+      // サーバー起動の実装
+      return { listening: true, port: config.port }
+    }),
+    (server) => Effect.gen(function* () {
+      yield* Effect.logInfo("Stopping HTTP server", { port: server.port })
+      // サーバー停止の実装
+    })
+  )
+
+  // アプリケーション起動完了ログ
+  yield* Effect.logInfo("Minecraft TypeScript server started successfully", {
+    dbConnectionId: dbConnection.connectionId,
+    httpServerPort: httpServer.port,
+    pid: typeof process !== 'undefined' ? process.pid : 'unknown'
+  })
+
+  // リソース状態の定期監視
+  yield* Effect.fork(
+    Effect.forever(
+      Effect.gen(function* () {
+        const resourceStatus = yield* resourceManager.getResourceStatus()
+        const healthStatus = yield* healthCheck.getOverallHealth()
+
+        yield* Effect.logDebug("System status check", {
+          totalResources: resourceStatus.totalResources,
+          activeResources: resourceStatus.resources.filter(r => r.status === "active").length,
+          systemHealth: healthStatus.status
+        })
+
+        yield* Effect.sleep(Duration.minutes(1))
+      })
+    )
+  )
+
+  return {
+    dbConnection,
+    httpServer,
+    shutdown: () => gracefulShutdown.shutdown("manual")
+  }
+})
+```
+
+この統合パターンカタログを活用することで、TypeScript MinecraftプロジェクトでのEffect-TSを使った堅牢で監視可能、かつ障害に強いシステム間統合を実現できます。各パターンは実際の使用場面に応じて適切に選択し、組み合わせて使用してください。
+
+特に重要なポイント:
+
+1. **ConfigProvider**による設定の一元管理と環境対応
+2. **Circuit Breaker**と**Health Check**の統合による障害対応
+3. **Graceful Shutdown**による安全なアプリケーション終了
+4. **Match.value**を使った型安全なパターンマッチング
+5. **Schema**による実行時型検証とブランド型の活用
+6. **Effect.retry**とスケジューリングによる堅牢なエラーハンドリング
+7. **Stream**を使った効率的な非同期処理
+8. **Resource Management**による適切なリソース管理

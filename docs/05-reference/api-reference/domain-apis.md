@@ -125,24 +125,126 @@ export const BiomeSchema = Schema.Struct({
 
 #### ⭐ **WorldService実装**
 ```typescript
-// ワールド管理サービス
+/**
+ * ワールド管理サービス
+ * @description Minecraftワールドの包括的な管理機能を提供するサービス
+ * @since 1.0.0
+ */
 export interface WorldService {
-  // チャンク操作
-  readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkLoadError>
-  readonly saveChunk: (chunk: Chunk) => Effect.Effect<void, ChunkSaveError>
-  readonly unloadChunk: (coord: ChunkCoordinate) => Effect.Effect<void, never>
+  /**
+   * チャンクの読み込み
+   * @param coord - 読み込み対象のチャンク座標
+   * @returns 読み込まれたチャンクデータ、またはエラー
+   * @throws ChunkLoadError チャンクの読み込みに失敗した場合
+   * @example
+   * ```typescript
+   * const chunk = yield* worldService.loadChunk({ chunkX: 0, chunkZ: 0 });
+   * console.log(`Loaded chunk with ${chunk.blocks.length} blocks`);
+   * ```
+   */
+  readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkLoadError>;
 
-  // ワールド生成
-  readonly generateChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, GenerationError>
-  readonly generateStructure: (type: StructureType, position: Position) => Effect.Effect<void, GenerationError>
+  /**
+   * チャンクの保存
+   * @param chunk - 保存するチャンクデータ
+   * @returns 保存完了、またはエラー
+   * @throws ChunkSaveError チャンクの保存に失敗した場合
+   * @example
+   * ```typescript
+   * const modifiedChunk = { ...chunk, modified: true };
+   * yield* worldService.saveChunk(modifiedChunk);
+   * ```
+   */
+  readonly saveChunk: (chunk: Chunk) => Effect.Effect<void, ChunkSaveError>;
 
-  // ブロック操作
-  readonly getBlock: (position: Position) => Effect.Effect<Block, BlockNotFoundError>
-  readonly setBlock: (position: Position, block: Block) => Effect.Effect<void, BlockUpdateError>
+  /**
+   * チャンクのアンロード
+   * @param coord - アンロードするチャンク座標
+   * @returns アンロード完了（エラーなし）
+   * @example
+   * ```typescript
+   * yield* worldService.unloadChunk({ chunkX: 5, chunkZ: 5 });
+   * ```
+   */
+  readonly unloadChunk: (coord: ChunkCoordinate) => Effect.Effect<void, never>;
 
-  // ワールド情報
-  readonly getWorldInfo: () => Effect.Effect<WorldMetadata, never>
-  readonly updateWorldInfo: (metadata: Partial<WorldMetadata>) => Effect.Effect<void, never>
+  /**
+   * チャンクの生成
+   * @param coord - 生成するチャンクの座標
+   * @returns 生成されたチャンクデータ、またはエラー
+   * @throws GenerationError 地形生成に失敗した場合
+   * @example
+   * ```typescript
+   * const newChunk = yield* worldService.generateChunk({ chunkX: 2, chunkZ: 3 });
+   * console.log(`Generated chunk with biome: ${newChunk.biome.type}`);
+   * ```
+   */
+  readonly generateChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, GenerationError>;
+
+  /**
+   * 構造物の生成
+   * @param type - 生成する構造物の種類（村、ダンジョンなど）
+   * @param position - 構造物を配置する座標
+   * @returns 生成完了、またはエラー
+   * @throws GenerationError 構造物生成に失敗した場合
+   * @example
+   * ```typescript
+   * yield* worldService.generateStructure("village", { x: 100, y: 64, z: 200 });
+   * ```
+   */
+  readonly generateStructure: (type: StructureType, position: Position) => Effect.Effect<void, GenerationError>;
+
+  /**
+   * 指定座標のブロック取得
+   * @param position - 取得するブロックの3D座標
+   * @returns 指定座標のブロックデータ、またはエラー
+   * @throws BlockNotFoundError ブロックが存在しない、またはチャンクが読み込まれていない場合
+   * @example
+   * ```typescript
+   * const block = yield* worldService.getBlock({ x: 10, y: 64, z: 20 });
+   * console.log(`Block type: ${block.type}, Light level: ${block.lightLevel}`);
+   * ```
+   */
+  readonly getBlock: (position: Position) => Effect.Effect<Block, BlockNotFoundError>;
+
+  /**
+   * 指定座標にブロック設置
+   * @param position - 設置先の3D座標
+   * @param block - 設置するブロックデータ（種類、メタデータ、光レベル含む）
+   * @returns 設置完了、またはエラー
+   * @throws BlockUpdateError ブロック設置に失敗した場合（座標無効、チャンク未読込など）
+   * @example
+   * ```typescript
+   * const stoneBlock = { type: "stone", lightLevel: 0, metadata: undefined };
+   * yield* worldService.setBlock({ x: 15, y: 65, z: 25 }, stoneBlock);
+   * ```
+   */
+  readonly setBlock: (position: Position, block: Block) => Effect.Effect<void, BlockUpdateError>;
+
+  /**
+   * ワールド情報の取得
+   * @returns ワールドのメタデータ（名前、シード値、難易度など）
+   * @example
+   * ```typescript
+   * const worldInfo = yield* worldService.getWorldInfo();
+   * console.log(`World: ${worldInfo.name}, Seed: ${worldInfo.seed}`);
+   * ```
+   */
+  readonly getWorldInfo: () => Effect.Effect<WorldMetadata, never>;
+
+  /**
+   * ワールド情報の更新
+   * @param metadata - 更新するワールド情報（部分更新可能）
+   * @returns 更新完了
+   * @example
+   * ```typescript
+   * yield* worldService.updateWorldInfo({
+   *   difficulty: "hard",
+   *   lastPlayed: new Date()
+   * });
+   * ```
+   */
+  readonly updateWorldInfo: (metadata: Partial<WorldMetadata>) => Effect.Effect<void, never>;
 }
 
 export const WorldService = Context.GenericTag<WorldService>("WorldService")
@@ -437,26 +539,174 @@ export const ItemStackSchema = Schema.Struct({
 
 #### ⭐ **PlayerService実装**
 ```typescript
+/**
+ * プレイヤー管理サービス
+ * @description プレイヤーの状態管理、移動、インベントリ、ステータス制御を行うサービス
+ * @since 1.0.0
+ */
 export interface PlayerService {
-  // プレイヤー管理
-  readonly getPlayer: (id: string) => Effect.Effect<PlayerState, PlayerNotFoundError>
-  readonly updatePlayer: (player: PlayerState) => Effect.Effect<void, PlayerUpdateError>
-  readonly removePlayer: (id: string) => Effect.Effect<void, never>
+  /**
+   * プレイヤー情報の取得
+   * @param id - プレイヤーのUUID
+   * @returns プレイヤーの現在状態、またはエラー
+   * @throws PlayerNotFoundError 指定されたIDのプレイヤーが存在しない場合
+   * @example
+   * ```typescript
+   * const player = yield* playerService.getPlayer("550e8400-e29b-41d4-a716-446655440000");
+   * console.log(`Player ${player.username} at ${player.position.x}, ${player.position.y}, ${player.position.z}`);
+   * ```
+   */
+  readonly getPlayer: (id: string) => Effect.Effect<PlayerState, PlayerNotFoundError>;
 
-  // 移動システム
-  readonly movePlayer: (id: string, position: Position) => Effect.Effect<void, MovementError>
-  readonly setVelocity: (id: string, velocity: Velocity) => Effect.Effect<void, never>
-  readonly teleportPlayer: (id: string, position: Position) => Effect.Effect<void, TeleportError>
+  /**
+   * プレイヤー状態の更新
+   * @param player - 更新するプレイヤー状態の完全なデータ
+   * @returns 更新完了、またはエラー
+   * @throws PlayerUpdateError プレイヤー状態の更新に失敗した場合
+   * @example
+   * ```typescript
+   * const updatedPlayer = { ...player, health: 18, position: newPosition };
+   * yield* playerService.updatePlayer(updatedPlayer);
+   * ```
+   */
+  readonly updatePlayer: (player: PlayerState) => Effect.Effect<void, PlayerUpdateError>;
 
-  // インベントリ管理
-  readonly addItem: (id: string, item: ItemStack) => Effect.Effect<boolean, InventoryError>
-  readonly removeItem: (id: string, slot: number, quantity?: number) => Effect.Effect<ItemStack | null, InventoryError>
-  readonly swapItems: (id: string, slot1: number, slot2: number) => Effect.Effect<void, InventoryError>
+  /**
+   * プレイヤーの削除
+   * @param id - 削除するプレイヤーのUUID
+   * @returns 削除完了（エラーなし、IDが存在しなくても成功）
+   * @example
+   * ```typescript
+   * yield* playerService.removePlayer("550e8400-e29b-41d4-a716-446655440000");
+   * ```
+   */
+  readonly removePlayer: (id: string) => Effect.Effect<void, never>;
 
-  // ステータス管理
-  readonly heal: (id: string, amount: number) => Effect.Effect<void, never>
-  readonly damage: (id: string, amount: number, source?: DamageSource) => Effect.Effect<void, never>
-  readonly setGamemode: (id: string, gamemode: GameMode) => Effect.Effect<void, never>
+  /**
+   * プレイヤーの移動
+   * @param id - 移動させるプレイヤーのUUID
+   * @param position - 移動先の3D座標
+   * @returns 移動完了、またはエラー
+   * @throws MovementError 移動に失敗した場合（障害物、範囲外など）
+   * @example
+   * ```typescript
+   * const newPos = { x: 100, y: 64, z: 200 };
+   * yield* playerService.movePlayer("player-uuid", newPos);
+   * ```
+   */
+  readonly movePlayer: (id: string, position: Position) => Effect.Effect<void, MovementError>;
+
+  /**
+   * プレイヤーの速度設定
+   * @param id - 対象プレイヤーのUUID
+   * @param velocity - 設定する3軸方向の速度ベクトル
+   * @returns 速度設定完了（エラーなし）
+   * @example
+   * ```typescript
+   * const jumpVelocity = { x: 0, y: 0.5, z: 0 };
+   * yield* playerService.setVelocity("player-uuid", jumpVelocity);
+   * ```
+   */
+  readonly setVelocity: (id: string, velocity: Velocity) => Effect.Effect<void, never>;
+
+  /**
+   * プレイヤーのテレポート
+   * @param id - テレポートさせるプレイヤーのUUID
+   * @param position - テレポート先の3D座標
+   * @returns テレポート完了、またはエラー
+   * @throws TeleportError テレポートに失敗した場合（無効な座標など）
+   * @example
+   * ```typescript
+   * const spawnPoint = { x: 0, y: 64, z: 0 };
+   * yield* playerService.teleportPlayer("player-uuid", spawnPoint);
+   * ```
+   */
+  readonly teleportPlayer: (id: string, position: Position) => Effect.Effect<void, TeleportError>;
+
+  /**
+   * インベントリへのアイテム追加
+   * @param id - 対象プレイヤーのUUID
+   * @param item - 追加するアイテムスタック（種類、数量、メタデータ含む）
+   * @returns 追加成功の真偽値、またはエラー（true: 完全追加, false: 部分追加または失敗）
+   * @throws InventoryError インベントリ操作に失敗した場合
+   * @example
+   * ```typescript
+   * const diamondStack = { itemType: "diamond", quantity: 5 };
+   * const success = yield* playerService.addItem("player-uuid", diamondStack);
+   * console.log(success ? "All items added" : "Inventory full or partial add");
+   * ```
+   */
+  readonly addItem: (id: string, item: ItemStack) => Effect.Effect<boolean, InventoryError>;
+
+  /**
+   * インベントリからのアイテム削除
+   * @param id - 対象プレイヤーのUUID
+   * @param slot - 削除するアイテムのスロット番号（0-35: 0-8はホットバー）
+   * @param quantity - 削除する数量（省略時は全て削除）
+   * @returns 削除されたアイテムスタック（null: スロットが空）、またはエラー
+   * @throws InventoryError インベントリ操作に失敗した場合
+   * @example
+   * ```typescript
+   * const removedItem = yield* playerService.removeItem("player-uuid", 0, 3);
+   * if (removedItem) {
+   *   console.log(`Removed ${removedItem.quantity} ${removedItem.itemType}`);
+   * }
+   * ```
+   */
+  readonly removeItem: (id: string, slot: number, quantity?: number) => Effect.Effect<ItemStack | null, InventoryError>;
+
+  /**
+   * インベントリアイテムの交換
+   * @param id - 対象プレイヤーのUUID
+   * @param slot1 - 交換元スロット番号
+   * @param slot2 - 交換先スロット番号
+   * @returns 交換完了、またはエラー
+   * @throws InventoryError インベントリ操作に失敗した場合
+   * @example
+   * ```typescript
+   * // ホットバーの1番目と2番目のアイテムを交換
+   * yield* playerService.swapItems("player-uuid", 0, 1);
+   * ```
+   */
+  readonly swapItems: (id: string, slot1: number, slot2: number) => Effect.Effect<void, InventoryError>;
+
+  /**
+   * プレイヤーの回復
+   * @param id - 対象プレイヤーのUUID
+   * @param amount - 回復量（0.5刻み、最大20まで）
+   * @returns 回復完了（エラーなし、最大値超過時は自動調整）
+   * @example
+   * ```typescript
+   * yield* playerService.heal("player-uuid", 2.5); // 2.5ハート回復
+   * ```
+   */
+  readonly heal: (id: string, amount: number) => Effect.Effect<void, never>;
+
+  /**
+   * プレイヤーへのダメージ適用
+   * @param id - 対象プレイヤーのUUID
+   * @param amount - ダメージ量（防具による軽減前の値）
+   * @param source - ダメージ源情報（省略可、防具軽減計算などに使用）
+   * @returns ダメージ適用完了（エラーなし、死亡処理も自動実行）
+   * @example
+   * ```typescript
+   * const fallDamage = { type: "fall", height: 10 };
+   * yield* playerService.damage("player-uuid", 5, fallDamage);
+   * ```
+   */
+  readonly damage: (id: string, amount: number, source?: DamageSource) => Effect.Effect<void, never>;
+
+  /**
+   * プレイヤーのゲームモード設定
+   * @param id - 対象プレイヤーのUUID
+   * @param gamemode - 設定するゲームモード（"survival", "creative", "spectator"）
+   * @returns ゲームモード変更完了（エラーなし）
+   * @example
+   * ```typescript
+   * yield* playerService.setGamemode("player-uuid", "creative");
+   * ```
+   */
+  readonly setGamemode: (id: string, gamemode: GameMode) => Effect.Effect<void, never>;
 }
 
 export const PlayerService = Context.GenericTag<PlayerService>("PlayerService")

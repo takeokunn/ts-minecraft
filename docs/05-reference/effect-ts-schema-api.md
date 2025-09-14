@@ -1,3 +1,15 @@
+---
+title: "Effect-TS Schema APIリファレンス - データバリデーション完全ガイド"
+description: "Effect-TS Schemaの完全APIリファレンス。データバリデーション、変換、型安全性、合成可能スキーマ。"
+category: "reference"
+difficulty: "intermediate"
+tags: ["effect-ts", "schema", "validation", "type-safety", "data-transformation"]
+prerequisites: ["effect-ts-basics"]
+estimated_reading_time: "30分"
+dependencies: []
+status: "complete"
+---
+
 # Effect-TS Schema API リファレンス
 
 ## 概要

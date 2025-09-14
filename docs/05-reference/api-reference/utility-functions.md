@@ -83,38 +83,130 @@ export const Vector2Schema = Schema.Struct({
 
 export type Vector2 = Schema.Schema.Type<typeof Vector2Schema>
 
-// ベクトル演算関数群
+/**
+ * ベクトル演算関数群
+ * @description 3D/2Dベクトルの基本演算を提供する数学ユーティリティ集
+ */
 export const MathUtils = {
-  // ベクトル加算
+  /**
+   * 3Dベクトルの加算
+   * @param a - 第1ベクトル
+   * @param b - 第2ベクトル
+   * @returns Vector3 - 加算結果のベクトル
+   * @example
+   * ```typescript
+   * const playerPos = { x: 10, y: 64, z: 20 };
+   * const movement = { x: 1, y: 0, z: -1 };
+   * const newPos = MathUtils.add3D(playerPos, movement);
+   * console.log(newPos); // { x: 11, y: 64, z: 19 }
+   * ```
+   */
   add3D: (a: Vector3, b: Vector3): Vector3 => ({
     x: a.x + b.x,
     y: a.y + b.y,
     z: a.z + b.z
   }),
 
-  // ベクトル減算
+  /**
+   * 3Dベクトルの減算
+   * @param a - 被減算ベクトル
+   * @param b - 減算ベクトル
+   * @returns Vector3 - 減算結果のベクトル
+   * @example
+   * ```typescript
+   * const currentPos = { x: 15, y: 70, z: 25 };
+   * const previousPos = { x: 10, y: 64, z: 20 };
+   * const movement = MathUtils.subtract3D(currentPos, previousPos);
+   * console.log(movement); // { x: 5, y: 6, z: 5 }
+   * ```
+   */
   subtract3D: (a: Vector3, b: Vector3): Vector3 => ({
     x: a.x - b.x,
     y: a.y - b.y,
     z: a.z - b.z
   }),
 
-  // ベクトル内積
+  /**
+   * 3Dベクトルの内積（ドット積）
+   * @param a - 第1ベクトル
+   * @param b - 第2ベクトル
+   * @returns number - 内積の値（負の場合は鈍角、正の場合は鋭角）
+   * @example
+   * ```typescript
+   * const forward = { x: 0, y: 0, z: 1 };
+   * const playerDirection = { x: 0.5, y: 0, z: 0.866 }; // 30度回転
+   * const dot = MathUtils.dot3D(forward, playerDirection);
+   * const angle = Math.acos(dot); // ラジアン角度を取得
+   * console.log(angle * 180 / Math.PI); // 30度
+   * ```
+   */
   dot3D: (a: Vector3, b: Vector3): number =>
     a.x * b.x + a.y * b.y + a.z * b.z,
 
-  // ベクトル外積
+  /**
+   * 3Dベクトルの外積（クロス積）
+   * @param a - 第1ベクトル
+   * @param b - 第2ベクトル
+   * @returns Vector3 - 垂直なベクトル（右手系）
+   * @example
+   * ```typescript
+   * const right = { x: 1, y: 0, z: 0 };
+   * const forward = { x: 0, y: 0, z: 1 };
+   * const up = MathUtils.cross3D(right, forward);
+   * console.log(up); // { x: 0, y: 1, z: 0 } - Y軸上向き
+   *
+   * // 面の法線ベクトル計算
+   * const v1 = { x: 1, y: 0, z: 0 };
+   * const v2 = { x: 0, y: 1, z: 0 };
+   * const normal = MathUtils.cross3D(v1, v2);
+   * console.log(normal); // 面に垂直なベクトル
+   * ```
+   */
   cross3D: (a: Vector3, b: Vector3): Vector3 => ({
     x: a.y * b.z - a.z * b.y,
     y: a.z * b.x - a.x * b.z,
     z: a.x * b.y - a.y * b.x
   }),
 
-  // ベクトル長さ
+  /**
+   * 3Dベクトルの長さ（大きさ）
+   * @param v - 対象ベクトル
+   * @returns number - ベクトルの長さ
+   * @example
+   * ```typescript
+   * const velocity = { x: 3, y: 4, z: 0 };
+   * const speed = MathUtils.length3D(velocity);
+   * console.log(speed); // 5.0 (3-4-5の直角三角形)
+   *
+   * // プレイヤーの移動速度チェック
+   * const playerVelocity = { x: 2, y: 1, z: 2 };
+   * const currentSpeed = MathUtils.length3D(playerVelocity);
+   * if (currentSpeed > MAX_PLAYER_SPEED) {
+   *   console.log("プレイヤーが最大速度を超えています");
+   * }
+   * ```
+   */
   length3D: (v: Vector3): number =>
     Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z),
 
-  // ベクトル正規化
+  /**
+   * 3Dベクトルの正規化（単位ベクトル化）
+   * @param v - 対象ベクトル
+   * @returns Vector3 - 長さ1の正規化されたベクトル、ゼロベクトルの場合はゼロベクトル
+   * @example
+   * ```typescript
+   * const direction = { x: 10, y: 0, z: 10 };
+   * const normalized = MathUtils.normalize3D(direction);
+   * console.log(normalized); // { x: 0.707, y: 0, z: 0.707 }
+   * console.log(MathUtils.length3D(normalized)); // 1.0
+   *
+   * // カメラの向きを単位ベクトルとして取得
+   * const cameraTarget = { x: 100, y: 64, z: -50 };
+   * const cameraPos = { x: 0, y: 64, z: 0 };
+   * const lookDirection = MathUtils.subtract3D(cameraTarget, cameraPos);
+   * const normalizedLook = MathUtils.normalize3D(lookDirection);
+   * ```
+   */
   normalize3D: (v: Vector3): Vector3 => {
     const length = MathUtils.length3D(v)
     if (length === 0) return { x: 0, y: 0, z: 0 }
@@ -307,17 +399,93 @@ export const MinecraftMathUtils = {
 import { Array as EffectArray, Option, Either, pipe } from "effect"
 
 export const ArrayUtils = {
-  // 安全な要素アクセス
+  /**
+   * 安全な要素アクセス - 境界チェック付きの配列要素取得
+   * @param array - 対象配列
+   * @param index - 取得したいインデックス
+   * @returns Option<T> - 要素が存在する場合はSome、範囲外の場合はNone
+   * @example
+   * ```typescript
+   * const inventory = [
+   *   { id: "diamond_sword", count: 1 },
+   *   { id: "wooden_planks", count: 64 },
+   *   { id: "stone", count: 32 }
+   * ];
+   *
+   * const firstItem = ArrayUtils.get(inventory, 0);
+   * // Option.some({ id: "diamond_sword", count: 1 })
+   *
+   * const invalidItem = ArrayUtils.get(inventory, 10);
+   * // Option.none()
+   *
+   * // 安全な使用パターン
+   * pipe(
+   *   ArrayUtils.get(inventory, 0),
+   *   Option.map(item => `持っているアイテム: ${item.id} x${item.count}`),
+   *   Option.getOrElse(() => "アイテムが見つかりません")
+   * );
+   * ```
+   */
   get: <T>(array: readonly T[], index: number): Option.Option<T> =>
     index >= 0 && index < array.length
       ? Option.some(array[index])
       : Option.none(),
 
-  // 最初の要素取得
+  /**
+   * 最初の要素取得 - 配列の先頭要素を安全に取得
+   * @param array - 対象配列
+   * @returns Option<T> - 最初の要素、空配列の場合はNone
+   * @example
+   * ```typescript
+   * const spawnedMobs = [
+   *   { type: "zombie", x: 10, z: 20 },
+   *   { type: "skeleton", x: 15, z: 25 }
+   * ];
+   *
+   * const firstMob = ArrayUtils.head(spawnedMobs);
+   * // Option.some({ type: "zombie", x: 10, z: 20 })
+   *
+   * const emptyArray: string[] = [];
+   * const noMob = ArrayUtils.head(emptyArray);
+   * // Option.none()
+   *
+   * // 実用的な使用例
+   * pipe(
+   *   ArrayUtils.head(playerQueue),
+   *   Option.map(player => startGameForPlayer(player)),
+   *   Option.getOrElse(() => Effect.succeed("待機中のプレイヤーなし"))
+   * );
+   * ```
+   */
   head: <T>(array: readonly T[]): Option.Option<T> =>
     ArrayUtils.get(array, 0),
 
-  // 最後の要素取得
+  /**
+   * 最後の要素取得 - 配列の末尾要素を安全に取得
+   * @param array - 対象配列
+   * @returns Option<T> - 最後の要素、空配列の場合はNone
+   * @example
+   * ```typescript
+   * const chatHistory = [
+   *   { player: "Steve", message: "Hello!" },
+   *   { player: "Alex", message: "Hi there!" },
+   *   { player: "Steve", message: "How are you?" }
+   * ];
+   *
+   * const latestMessage = ArrayUtils.last(chatHistory);
+   * // Option.some({ player: "Steve", message: "How are you?" })
+   *
+   * // 最新のアクションログを取得
+   * pipe(
+   *   ArrayUtils.last(playerActions),
+   *   Option.map(action => `最後のアクション: ${action.type} at ${action.timestamp}`),
+   *   Option.match({
+   *     onNone: () => "アクション履歴がありません",
+   *     onSome: (message) => message
+   *   })
+   * );
+   * ```
+   */
   last: <T>(array: readonly T[]): Option.Option<T> =>
     ArrayUtils.get(array, array.length - 1),
 
@@ -335,7 +503,35 @@ export const ArrayUtils = {
     return array.slice(safeStart, safeEnd)
   },
 
-  // チャンク分割
+  /**
+   * チャンク分割 - 配列を指定サイズのチャンクに分割
+   * @param array - 分割対象の配列
+   * @param size - チャンクサイズ
+   * @returns readonly (readonly T[])[] - 分割された配列の配列
+   * @example
+   * ```typescript
+   * const allBlocks = [
+   *   "stone", "dirt", "grass", "wood", "iron", "diamond",
+   *   "coal", "redstone", "gold", "water", "lava", "sand"
+   * ];
+   *
+   * const inventorySlots = ArrayUtils.chunk(allBlocks, 4);
+   * // [
+   * //   ["stone", "dirt", "grass", "wood"],
+   * //   ["iron", "diamond", "coal", "redstone"],
+   * //   ["gold", "water", "lava", "sand"]
+   * // ]
+   *
+   * // チャンクローディング用のバッチ処理
+   * const chunkCoords = generateChunkCoordinates(100);
+   * const batches = ArrayUtils.chunk(chunkCoords, 10);
+   *
+   * for (const batch of batches) {
+   *   await loadChunksBatch(batch);
+   *   // 10個ずつバッチで処理
+   * }
+   * ```
+   */
   chunk: <T>(array: readonly T[], size: number): readonly (readonly T[])[] => {
     if (size <= 0) return []
 
@@ -346,7 +542,28 @@ export const ArrayUtils = {
     return chunks
   },
 
-  // ユニーク化（プリミティブ）
+  /**
+   * ユニーク化（プリミティブ） - 重複要素を除去
+   * @param array - 対象配列
+   * @returns readonly T[] - 重複のない配列
+   * @example
+   * ```typescript
+   * const collectedItems = [
+   *   "stone", "dirt", "stone", "wood", "dirt", "iron", "stone"
+   * ];
+   *
+   * const uniqueItems = ArrayUtils.unique(collectedItems);
+   * // ["stone", "dirt", "wood", "iron"]
+   *
+   * // プレイヤーの訪問済みバイオーム
+   * const visitedBiomes = [
+   *   "forest", "plains", "desert", "forest", "mountains", "plains"
+   * ];
+   *
+   * const uniqueBiomes = ArrayUtils.unique(visitedBiomes);
+   * console.log(`${uniqueBiomes.length}種類のバイオームを探索済み`);
+   * ```
+   */
   unique: <T extends string | number | boolean>(
     array: readonly T[]
   ): readonly T[] => [...new Set(array)],
@@ -554,7 +771,36 @@ export const MinecraftArrayUtils = {
 import { Option, Either, pipe, Match } from "effect"
 
 export const ObjectUtils = {
-  // 深いクローン
+  /**
+   * 深いクローン - オブジェクトの完全な複製を作成
+   * @param obj - クローン対象のオブジェクト
+   * @returns T - クローンされたオブジェクト
+   * @example
+   * ```typescript
+   * const playerState = {
+   *   id: "player-123",
+   *   position: { x: 10, y: 64, z: 20 },
+   *   inventory: {
+   *     items: [
+   *       { id: "diamond_sword", count: 1, metadata: { enchantments: ["sharpness"] } },
+   *       { id: "stone", count: 64, metadata: {} }
+   *     ],
+   *     selectedSlot: 0
+   *   },
+   *   stats: { health: 20, hunger: 20 }
+   * };
+   *
+   * const backupState = ObjectUtils.deepClone(playerState);
+   * backupState.position.x = 15; // 元のオブジェクトに影響しない
+   *
+   * console.log(playerState.position.x); // 10 (変更されていない)
+   * console.log(backupState.position.x); // 15
+   *
+   * // セーブデータのバックアップ
+   * const worldSaveData = { ... };
+   * const backup = ObjectUtils.deepClone(worldSaveData);
+   * ```
+   */
   deepClone: <T>(obj: T): T => {
     if (obj === null || typeof obj !== "object") return obj
     if (obj instanceof Date) return new Date(obj.getTime()) as unknown as T
@@ -569,14 +815,79 @@ export const ObjectUtils = {
     return cloned
   },
 
-  // 安全なプロパティアクセス
+  /**
+   * 安全なプロパティアクセス - プロパティの存在チェック付きアクセス
+   * @param obj - 対象オブジェクト
+   * @param key - アクセスしたいキー
+   * @returns Option<T[K]> - プロパティ値またはNone
+   * @example
+   * ```typescript
+   * const blockData = {
+   *   type: "stone",
+   *   hardness: 1.5,
+   *   drops: ["stone"]
+   * };
+   *
+   * const hardness = ObjectUtils.get(blockData, "hardness");
+   * // Option.some(1.5)
+   *
+   * const invalidProp = ObjectUtils.get(blockData, "unknown" as any);
+   * // Option.none()
+   *
+   * // 実用的な使用例
+   * pipe(
+   *   ObjectUtils.get(entityData, "health"),
+   *   Option.filter(health => health > 0),
+   *   Option.map(health => `体力: ${health}`),
+   *   Option.getOrElse(() => "体力不明またはゼロ")
+   * );
+   * ```
+   */
   get: <T, K extends keyof T>(
     obj: T,
     key: K
   ): Option.Option<T[K]> =>
     key in obj ? Option.some(obj[key]) : Option.none(),
 
-  // 深いプロパティアクセス
+  /**
+   * 深いプロパティアクセス - ネストしたプロパティへの安全なアクセス
+   * @param obj - 対象オブジェクト
+   * @param path - プロパティパス（文字列配列）
+   * @returns Option<unknown> - 最終プロパティ値またはNone
+   * @example
+   * ```typescript
+   * const gameWorld = {
+   *   settings: {
+   *     difficulty: "normal",
+   *     weather: {
+   *       type: "sunny",
+   *       temperature: 25
+   *     }
+   *   },
+   *   players: {
+   *     "player-123": {
+   *       stats: { health: 18, hunger: 15 }
+   *     }
+   *   }
+   * };
+   *
+   * const temperature = ObjectUtils.getDeep(gameWorld, ["settings", "weather", "temperature"]);
+   * // Option.some(25)
+   *
+   * const playerHealth = ObjectUtils.getDeep(gameWorld, ["players", "player-123", "stats", "health"]);
+   * // Option.some(18)
+   *
+   * const invalidPath = ObjectUtils.getDeep(gameWorld, ["settings", "nonexistent", "value"]);
+   * // Option.none()
+   *
+   * // 設定値の安全な取得
+   * const weatherType = pipe(
+   *   ObjectUtils.getDeep(config, ["graphics", "weather", "enabled"]),
+   *   Option.map(enabled => enabled ? "有効" : "無効"),
+   *   Option.getOrElse(() => "デフォルト")
+   * );
+   * ```
+   */
   getDeep: (
     obj: unknown,
     path: readonly string[]
@@ -819,26 +1130,170 @@ export const MinecraftObjectUtils = {
 #### ✅ **基本型ガード**
 ```typescript
 export const TypeGuards = {
-  // プリミティブ型ガード
+  /**
+   * 文字列型ガード - 値が文字列かどうかをチェック
+   * @param value - チェック対象の値
+   * @returns boolean - 文字列の場合true
+   * @example
+   * ```typescript
+   * const userInput: unknown = "minecraft:stone";
+   *
+   * if (TypeGuards.isString(userInput)) {
+   *   // TypeScriptはここでuserInputがstring型であることを認識
+   *   const blockType = userInput.split(":")[1]; // "stone"
+   * }
+   *
+   * // プレイヤー名のバリデーション
+   * const validatePlayerName = (input: unknown): Either<string, string> => {
+   *   if (!TypeGuards.isString(input)) {
+   *     return Either.left("プレイヤー名は文字列である必要があります");
+   *   }
+   *   if (input.length < 3) {
+   *     return Either.left("プレイヤー名は3文字以上である必要があります");
+   *   }
+   *   return Either.right(input);
+   * };
+   * ```
+   */
   isString: (value: unknown): value is string =>
     typeof value === "string",
 
+  /**
+   * 数値型ガード - 値が有効な数値かどうかをチェック
+   * @param value - チェック対象の値
+   * @returns boolean - 有効な数値の場合true（NaNは除外）
+   * @example
+   * ```typescript
+   * const coordinates: unknown = { x: 10, y: "64", z: 20 };
+   *
+   * if (TypeGuards.isObject(coordinates)) {
+   *   const safeCoords = {
+   *     x: TypeGuards.isNumber(coordinates.x) ? coordinates.x : 0,
+   *     y: TypeGuards.isNumber(coordinates.y) ? coordinates.y : 0,
+   *     z: TypeGuards.isNumber(coordinates.z) ? coordinates.z : 0
+   *   };
+   * }
+   *
+   * // アイテム数量の検証
+   * const validateItemCount = (count: unknown): count is number => {
+   *   return TypeGuards.isNumber(count) && count >= 0 && count <= 64;
+   * };
+   * ```
+   */
   isNumber: (value: unknown): value is number =>
     typeof value === "number" && !isNaN(value),
 
+  /**
+   * 真偽値型ガード - 値がbooleanかどうかをチェック
+   * @param value - チェック対象の値
+   * @returns boolean - boolean型の場合true
+   * @example
+   * ```typescript
+   * const gameSettings: Record<string, unknown> = {
+   *   pvpEnabled: true,
+   *   mobSpawning: "true", // 文字列
+   *   keepInventory: false
+   * };
+   *
+   * const pvpEnabled = TypeGuards.isBoolean(gameSettings.pvpEnabled)
+   *   ? gameSettings.pvpEnabled
+   *   : false;
+   *
+   * const mobSpawning = TypeGuards.isBoolean(gameSettings.mobSpawning)
+   *   ? gameSettings.mobSpawning
+   *   : gameSettings.mobSpawning === "true"; // 文字列からの変換
+   * ```
+   */
   isBoolean: (value: unknown): value is boolean =>
     typeof value === "boolean",
 
+  /**
+   * null型ガード - 値がnullかどうかをチェック
+   * @param value - チェック対象の値
+   * @returns boolean - nullの場合true
+   * @example
+   * ```typescript
+   * const player: { weapon?: Item | null } = getPlayerData();
+   *
+   * if (TypeGuards.isNull(player.weapon)) {
+   *   console.log("プレイヤーは武器を持っていません");
+   * } else if (player.weapon) {
+   *   console.log(`武器: ${player.weapon.name}`);
+   * }
+   * ```
+   */
   isNull: (value: unknown): value is null =>
     value === null,
 
+  /**
+   * undefined型ガード - 値がundefinedかどうかをチェック
+   * @param value - チェック対象の値
+   * @returns boolean - undefinedの場合true
+   * @example
+   * ```typescript
+   * const optionalConfig: { renderDistance?: number } = {};
+   *
+   * const renderDistance = TypeGuards.isUndefined(optionalConfig.renderDistance)
+   *   ? 16 // デフォルト値
+   *   : optionalConfig.renderDistance;
+   * ```
+   */
   isUndefined: (value: unknown): value is undefined =>
     value === undefined,
 
+  /**
+   * null/undefined型ガード - 値がnullまたはundefinedかどうかをチェック
+   * @param value - チェック対象の値
+   * @returns boolean - nullまたはundefinedの場合true
+   * @example
+   * ```typescript
+   * const processPlayerData = (data: unknown) => {
+   *   if (TypeGuards.isNullish(data)) {
+   *     return Either.left("プレイヤーデータが存在しません");
+   *   }
+   *
+   *   // dataはnull/undefined以外であることが保証される
+   *   return Either.right(data);
+   * };
+   * ```
+   */
   isNullish: (value: unknown): value is null | undefined =>
     value === null || value === undefined,
 
-  // 配列型ガード
+  /**
+   * 配列型ガード - 値が配列かどうかをチェック（要素の型チェックも可能）
+   * @param value - チェック対象の値
+   * @param itemGuard - 要素のチェック関数（オプション）
+   * @returns boolean - 配列（かつ要素が条件を満たす）場合true
+   * @example
+   * ```typescript
+   * const inventoryData: unknown = [
+   *   { id: "stone", count: 64 },
+   *   { id: "wood", count: 32 }
+   * ];
+   *
+   * // 単純な配列チェック
+   * if (TypeGuards.isArray(inventoryData)) {
+   *   console.log(`${inventoryData.length}個のアイテム`);
+   * }
+   *
+   * // 要素の型チェックも含む
+   * const isItemArray = TypeGuards.isArray(inventoryData, (item): item is Item =>
+   *   TypeGuards.isObject(item) &&
+   *   TypeGuards.isString(item.id) &&
+   *   TypeGuards.isNumber(item.count)
+   * );
+   *
+   * if (isItemArray) {
+   *   // inventoryDataはItem[]型として扱える
+   *   const totalCount = inventoryData.reduce((sum, item) => sum + item.count, 0);
+   * }
+   *
+   * // 座標配列の検証
+   * const validateCoordinates = (coords: unknown): coords is Vector3[] =>
+   *   TypeGuards.isArray(coords, MinecraftTypeGuards.isVector3);
+   * ```
+   */
   isArray: <T>(
     value: unknown,
     itemGuard?: (item: unknown) => item is T
@@ -1015,6 +1470,195 @@ export const processChunkData = (
       processed: true
     }
   })
+
+// 実用的な統合例: プレイヤーインベントリ管理システム
+export const InventoryManager = {
+  /**
+   * インベントリデータの検証と正規化
+   * @example
+   * ```typescript
+   * const rawInventoryData: unknown = {
+   *   items: [
+   *     { id: "minecraft:diamond_sword", count: 1, slot: 0 },
+   *     { id: "minecraft:stone", count: "64", slot: 1 }, // 文字列の数量
+   *     { id: "invalid", count: 32, slot: 2 } // 無効なアイテムID
+   *   ],
+   *   selectedSlot: "0" // 文字列
+   * };
+   *
+   * const result = InventoryManager.validateAndNormalize(rawInventoryData);
+   * // 型安全な処理と自動的な修正が適用される
+   * ```
+   */
+  validateAndNormalize: (data: unknown): Effect.Effect<NormalizedInventory, ValidationError> =>
+    Effect.gen(function* () {
+      const utils = createUtilities()
+
+      // 基本構造の検証
+      if (!utils.typeGuards.isObject(data)) {
+        return yield* Effect.fail(new ValidationError("Inventory data must be an object"))
+      }
+
+      // アイテム配列の検証と正規化
+      const items = pipe(
+        utils.object.get(data, "items"),
+        Option.filter(utils.typeGuards.isArray),
+        Option.map(items =>
+          items
+            .map(item => {
+              if (!utils.typeGuards.isObject(item)) return null
+
+              return {
+                id: utils.typeGuards.isString(item.id) && utils.typeGuards.isBlockId(item.id)
+                  ? item.id
+                  : "minecraft:air",
+                count: utils.typeGuards.isNumber(item.count)
+                  ? Math.max(0, Math.min(64, item.count))
+                  : utils.typeGuards.isString(item.count) && !isNaN(Number(item.count))
+                  ? Math.max(0, Math.min(64, Number(item.count)))
+                  : 0,
+                slot: utils.typeGuards.isNumber(item.slot)
+                  ? Math.max(0, Math.min(35, item.slot))
+                  : 0
+              }
+            })
+            .filter((item): item is NonNullable<typeof item> => item !== null)
+        ),
+        Option.getOrElse(() => [])
+      )
+
+      // 選択スロットの正規化
+      const selectedSlot = pipe(
+        utils.object.get(data, "selectedSlot"),
+        Option.map(slot =>
+          utils.typeGuards.isNumber(slot)
+            ? slot
+            : utils.typeGuards.isString(slot) && !isNaN(Number(slot))
+            ? Number(slot)
+            : 0
+        ),
+        Option.map(slot => Math.max(0, Math.min(8, slot))),
+        Option.getOrElse(() => 0)
+      )
+
+      return {
+        items: utils.array.sortBy(items, item => item.slot),
+        selectedSlot,
+        totalItems: items.length,
+        totalCount: items.reduce((sum, item) => sum + item.count, 0)
+      }
+    }),
+
+  /**
+   * インベントリ操作のユーティリティ
+   * @example
+   * ```typescript
+   * const inventory = await InventoryManager.validateAndNormalize(rawData);
+   *
+   * // アイテムの検索
+   * const diamondSwords = InventoryManager.findItemsByType(inventory, "minecraft:diamond_sword");
+   *
+   * // スロット最適化
+   * const optimized = InventoryManager.optimizeSlots(inventory);
+   *
+   * // アイテム統計
+   * const stats = InventoryManager.getStatistics(inventory);
+   * ```
+   */
+  findItemsByType: (inventory: NormalizedInventory, itemId: string): readonly Item[] =>
+    inventory.items.filter(item => item.id === itemId),
+
+  optimizeSlots: (inventory: NormalizedInventory): NormalizedInventory => {
+    const utils = createUtilities()
+
+    // 同じアイテムをグループ化
+    const groupedItems = utils.array.groupBy(
+      inventory.items.filter(item => item.id !== "minecraft:air"),
+      item => item.id
+    )
+
+    // スタック可能アイテムを統合
+    const optimizedItems: Item[] = []
+    let currentSlot = 0
+
+    Object.entries(groupedItems).forEach(([itemId, items]) => {
+      const totalCount = items.reduce((sum, item) => sum + item.count, 0)
+      const maxStackSize = getMaxStackSize(itemId) || 64
+
+      let remainingCount = totalCount
+      while (remainingCount > 0 && currentSlot < 36) {
+        const countForThisSlot = Math.min(remainingCount, maxStackSize)
+        optimizedItems.push({
+          id: itemId,
+          count: countForThisSlot,
+          slot: currentSlot
+        })
+        remainingCount -= countForThisSlot
+        currentSlot++
+      }
+    })
+
+    return {
+      ...inventory,
+      items: optimizedItems,
+      totalItems: optimizedItems.length
+    }
+  },
+
+  getStatistics: (inventory: NormalizedInventory) => {
+    const utils = createUtilities()
+
+    const itemsByType = utils.array.groupBy(inventory.items, item => item.id)
+    const uniqueItemTypes = utils.array.unique(inventory.items.map(item => item.id))
+
+    return {
+      uniqueTypes: uniqueItemTypes.length,
+      mostCommonItem: pipe(
+        Object.entries(itemsByType),
+        utils.array.sortBy(([, items]) => -items.reduce((sum, item) => sum + item.count, 0)),
+        utils.array.head,
+        Option.map(([itemId]) => itemId),
+        Option.getOrElse(() => "なし")
+      ),
+      emptySlots: 36 - inventory.items.filter(item => item.id !== "minecraft:air").length,
+      totalValue: calculateInventoryValue(inventory.items)
+    }
+  }
+} as const
+
+// 型定義
+interface Item {
+  readonly id: string
+  readonly count: number
+  readonly slot: number
+}
+
+interface NormalizedInventory {
+  readonly items: readonly Item[]
+  readonly selectedSlot: number
+  readonly totalItems: number
+  readonly totalCount: number
+}
+
+// ヘルパー関数
+const getMaxStackSize = (itemId: string): number => {
+  const unstackableItems = ["minecraft:diamond_sword", "minecraft:bow", "minecraft:shield"]
+  return unstackableItems.includes(itemId) ? 1 : 64
+}
+
+const calculateInventoryValue = (items: readonly Item[]): number => {
+  const itemValues: Record<string, number> = {
+    "minecraft:diamond": 100,
+    "minecraft:iron_ingot": 10,
+    "minecraft:gold_ingot": 50,
+    "minecraft:stone": 1
+  }
+
+  return items.reduce((total, item) => {
+    const unitValue = itemValues[item.id] || 0
+    return total + (unitValue * item.count)
+  }, 0)
+}
 ```
 
 ---

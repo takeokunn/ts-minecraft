@@ -1,3 +1,15 @@
+---
+title: "エラーハンドリングパターンカタログ - Effect-TS完全ガイド"
+description: "Effect-TS 3.17+による型安全なエラーハンドリングパターン集。TaggedError、リトライ戦略、回復処理の実装ガイド。"
+category: "patterns"
+difficulty: "intermediate"
+tags: ["error-handling", "effect-ts", "patterns", "tagged-error", "retry", "recovery"]
+prerequisites: ["effect-ts-fundamentals", "schema-basics"]
+estimated_reading_time: "20分"
+dependencies: ["../01-architecture/06-effect-ts-patterns.md", "../03-guides/00-development-conventions.md"]
+status: "complete"
+---
+
 # エラーハンドリングパターンカタログ
 
 ## 概要
@@ -15,24 +27,23 @@
 **実装例**:
 ```typescript
 // プロジェクト内の実装例
-export class ChunkGenerationError extends Schema.TaggedError("ChunkGenerationError")<{
-  readonly coordinate: ChunkCoordinate
-  readonly reason: string
-}> {}
+export class ChunkGenerationError extends Schema.TaggedError<ChunkGenerationError>()("ChunkGenerationError", {
+  coordinate: Schema.String,
+  reason: Schema.String
+}) {}
 
-const loadChunk = (coordinate: ChunkCoordinate) =>
+const loadChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkData, never, ChunkService> =>
   Effect.gen(function* () {
     // チャンク生成処理
-    yield* generateChunkData(coordinate)
-    yield* saveChunkToCache(coordinate)
-
-    return yield* Effect.succeed(/* chunk data */)
+    const data = yield* generateChunkData(coordinate)
+    yield* saveChunkToCache(coordinate, data)
+    return data
   }).pipe(
     // 全てのエラーを包括的に処理
     Effect.catchAll((error) =>
       Effect.gen(function* () {
-        // エラーログを記録
-        yield* Effect.log(`Chunk loading failed: ${String(error)}`)
+        // エラーログを記録 - Cause情報も含めて詳細記録
+        yield* Effect.logError("Chunk loading failed", { coordinate, error: String(error) })
 
         // フォールバック処理
         return yield* generateEmptyChunk(coordinate)
@@ -55,34 +66,37 @@ const loadChunk = (coordinate: ChunkCoordinate) =>
 **実装例**:
 ```typescript
 // プロジェクト内の複数エラー型定義
-export class ChunkNotFoundError extends Schema.TaggedError("ChunkNotFoundError")<{
-  readonly coordinate: ChunkCoordinate
-}> {}
+export class ChunkNotFoundError extends Schema.TaggedError<ChunkNotFoundError>()("ChunkNotFoundError", {
+  coordinate: Schema.String
+}) {}
 
-export class ChunkGenerationError extends Schema.TaggedError("ChunkGenerationError")<{
-  readonly coordinate: ChunkCoordinate
-  readonly reason: string
-}> {}
+export class ChunkGenerationError extends Schema.TaggedError<ChunkGenerationError>()("ChunkGenerationError", {
+  coordinate: Schema.String,
+  reason: Schema.String
+}) {}
 
-export class ChunkCorruptedError extends Schema.TaggedError("ChunkCorruptedError")<{
-  readonly coordinate: ChunkCoordinate
-  readonly corruptionType: string
-}> {}
+export class ChunkCorruptedError extends Schema.TaggedError<ChunkCorruptedError>()("ChunkCorruptedError", {
+  coordinate: Schema.String,
+  corruptionType: Schema.String
+}) {}
 
-const processChunk = (coordinate: ChunkCoordinate) =>
+const processChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkData, ChunkGenerationError, ChunkService> =>
   Effect.gen(function* () {
     return yield* loadChunkFromStorage(coordinate)
   }).pipe(
     // 特定エラーへの型安全な対応
     Effect.catchTag("ChunkNotFoundError", () =>
       Effect.gen(function* () {
-        yield* Effect.log("Chunk not found, generating new one")
+        yield* Effect.logInfo("Chunk not found, generating new one", { coordinate })
         return yield* generateNewChunk(coordinate)
       })
     ),
     Effect.catchTag("ChunkCorruptedError", (error) =>
       Effect.gen(function* () {
-        yield* Effect.log(`Corrupted chunk detected: ${error.corruptionType}`)
+        yield* Effect.logWarning("Corrupted chunk detected, attempting repair", {
+          coordinate,
+          corruptionType: error.corruptionType
+        })
         yield* repairChunk(coordinate)
         return yield* loadChunkFromStorage(coordinate)
       })
@@ -104,40 +118,52 @@ const processChunk = (coordinate: ChunkCoordinate) =>
 **実装例**:
 ```typescript
 // インベントリシステムのエラー処理
-export class InventoryNotFoundError extends Schema.TaggedError("InventorySystem.InventoryNotFoundError")<{
-  readonly playerId: string
-}> {}
+type PlayerId = string & Brand.Brand<"PlayerId">
+type ItemId = string & Brand.Brand<"ItemId">
 
-export class InventoryFullError extends Schema.TaggedError("InventorySystem.InventoryFullError")<{
-  readonly playerId: string
-  readonly currentSize: number
-  readonly maxSize: number
-}> {}
+export class InventoryNotFoundError extends Schema.TaggedError<InventoryNotFoundError>()("InventoryNotFoundError", {
+  playerId: Schema.String.pipe(Schema.brand("PlayerId"))
+}) {}
 
-export class InvalidItemError extends Schema.TaggedError("InventorySystem.InvalidItemError")<{
-  readonly itemId: string
-  readonly reason: string
-}> {}
+export class InventoryFullError extends Schema.TaggedError<InventoryFullError>()("InventoryFullError", {
+  playerId: Schema.String.pipe(Schema.brand("PlayerId")),
+  currentSize: Schema.Number.pipe(Schema.nonNegative()),
+  maxSize: Schema.Number.pipe(Schema.positive())
+}) {}
 
-const addItemToInventory = (playerId: string, item: Item) =>
+export class InvalidItemError extends Schema.TaggedError<InvalidItemError>()("InvalidItemError", {
+  itemId: Schema.String.pipe(Schema.brand("ItemId")),
+  reason: Schema.String
+}) {}
+
+const addItemToInventory = (playerId: PlayerId, item: Item): Effect.Effect<boolean, InventoryNotFoundError, InventoryService> =>
   Effect.gen(function* () {
     const inventory = yield* getInventory(playerId)
     yield* validateItem(item)
-    return yield* inventory.addItem(item)
+    const result = yield* inventory.addItem(item)
+    return result
   }).pipe(
     // 複数エラー型の同時処理
     Effect.catchTags({
-      "InventorySystem.InventoryFullError": (error) =>
+      "InventoryFullError": (error) =>
         Effect.gen(function* () {
-          yield* Effect.log(`Inventory full for player ${error.playerId}`)
+          yield* Effect.logInfo("Inventory full, notifying player", {
+            playerId: error.playerId,
+            currentSize: error.currentSize,
+            maxSize: error.maxSize
+          })
           yield* notifyPlayer(error.playerId, "Inventory is full!")
-          return yield* Effect.fail(error)
+          // エラーを再スローせず、失敗として正常終了
+          return false
         }),
 
-      "InventorySystem.InvalidItemError": (error) =>
+      "InvalidItemError": (error) =>
         Effect.gen(function* () {
-          yield* Effect.log(`Invalid item: ${error.itemId} - ${error.reason}`)
-          return yield* Effect.succeed(false) // アイテム追加失敗として正常終了
+          yield* Effect.logWarning("Invalid item rejected", {
+            itemId: error.itemId,
+            reason: error.reason
+          })
+          return false // アイテム追加失敗として正常終了
         })
     })
   )
@@ -156,47 +182,104 @@ const addItemToInventory = (playerId: string, item: Item) =>
 
 **実装例**:
 ```typescript
-export class EnrichedError extends Schema.TaggedError("EnrichedError")<{
-  readonly originalError: string
-  readonly context: Record<string, unknown>
-  readonly timestamp: string
-}> {}
+export class EnrichedError extends Schema.TaggedError<EnrichedError>()("EnrichedError", {
+  originalError: Schema.String,
+  context: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  timestamp: Schema.String.pipe(Schema.brand("Timestamp")),
+  stackTrace: Schema.optional(Schema.String),
+  defects: Schema.Array(Schema.Unknown),
+  interruptions: Schema.Array(Schema.Unknown)
+}) {}
 
-const processWithCauseAnalysis = (data: unknown) =>
+const processWithCauseAnalysis = <A, E>(data: A): Effect.Effect<ProcessingResult, EnrichedError, ProcessingService> =>
   Effect.gen(function* () {
     return yield* complexProcessing(data)
   }).pipe(
     Effect.catchAllCause((cause) =>
       Effect.gen(function* () {
         // Cause情報の詳細分析
-        const analysis = analyzeCause(cause)
+        const analysis = yield* Effect.sync(() => analyzeCause(cause))
+        const timestamp = new Date().toISOString()
 
-        return yield* Effect.fail(new EnrichedError({
-          originalError: cause.toString(),
+        // 構造化されたエラー情報を作成
+        const enrichedError = new EnrichedError({
+          originalError: Cause.pretty(cause),
           context: {
-            timestamp: new Date().toISOString(),
-            stackTrace: analysis.stackTrace,
-            defects: analysis.defects,
-            interruptions: analysis.interruptions
+            inputData: data,
+            processingStage: "complex_processing"
           },
-          timestamp: new Date().toISOString()
-        }))
+          timestamp,
+          stackTrace: analysis.stackTrace,
+          defects: analysis.defects,
+          interruptions: analysis.interruptions
+        })
+
+        // エラー分析結果をログに記録
+        yield* Effect.logError("Processing failed with enriched error context", {
+          cause: Cause.pretty(cause),
+          defectCount: analysis.defects.length,
+          interruptionCount: analysis.interruptions.length
+        })
+
+        return yield* Effect.fail(enrichedError)
       })
     )
   )
 
-// Cause分析ヘルパー
+// Cause分析ヘルパー - より詳細な分析を提供
 const analyzeCause = (cause: Cause.Cause<unknown>) => {
-  const defects = Cause.defects(cause)
-  const failures = Cause.failures(cause)
-  const interruptions = Cause.interruptions(cause)
-
-  return {
-    defects: Array.from(defects),
-    failures: Array.from(failures),
-    interruptions: Array.from(interruptions),
-    stackTrace: Cause.pretty(cause)
-  }
+  return Cause.match(cause, {
+    onEmpty: () => ({
+      defects: [],
+      failures: [],
+      interruptions: [],
+      stackTrace: "Empty cause",
+      isRecoverable: true
+    }),
+    onFail: (error) => ({
+      defects: [],
+      failures: [error],
+      interruptions: [],
+      stackTrace: Cause.pretty(cause),
+      isRecoverable: true
+    }),
+    onDie: (defect) => ({
+      defects: [defect],
+      failures: [],
+      interruptions: [],
+      stackTrace: Cause.pretty(cause),
+      isRecoverable: false
+    }),
+    onInterrupt: (fiberId) => ({
+      defects: [],
+      failures: [],
+      interruptions: [fiberId],
+      stackTrace: Cause.pretty(cause),
+      isRecoverable: false
+    }),
+    onSequential: (left, right) => {
+      const leftAnalysis = analyzeCause(left)
+      const rightAnalysis = analyzeCause(right)
+      return {
+        defects: [...leftAnalysis.defects, ...rightAnalysis.defects],
+        failures: [...leftAnalysis.failures, ...rightAnalysis.failures],
+        interruptions: [...leftAnalysis.interruptions, ...rightAnalysis.interruptions],
+        stackTrace: Cause.pretty(cause),
+        isRecoverable: leftAnalysis.isRecoverable && rightAnalysis.isRecoverable
+      }
+    },
+    onParallel: (left, right) => {
+      const leftAnalysis = analyzeCause(left)
+      const rightAnalysis = analyzeCause(right)
+      return {
+        defects: [...leftAnalysis.defects, ...rightAnalysis.defects],
+        failures: [...leftAnalysis.failures, ...rightAnalysis.failures],
+        interruptions: [...leftAnalysis.interruptions, ...rightAnalysis.interruptions],
+        stackTrace: Cause.pretty(cause),
+        isRecoverable: leftAnalysis.isRecoverable || rightAnalysis.isRecoverable
+      }
+    }
+  })
 }
 ```
 
@@ -213,52 +296,94 @@ const analyzeCause = (cause: Cause.Cause<unknown>) => {
 
 **実装例**:
 ```typescript
-export class TemporaryError extends Schema.TaggedError("TemporaryError")<{
-  readonly operation: string
-  readonly retryCount: number
-}> {}
+export class TemporaryError extends Schema.TaggedError<TemporaryError>()("TemporaryError", {
+  operation: Schema.String,
+  retryCount: Schema.Number.pipe(Schema.nonNegative()),
+  lastAttemptTime: Schema.optional(Schema.String.pipe(Schema.brand("Timestamp"))),
+  category: Schema.Literal("Network", "Database", "External")
+}) {}
 
-export class PermanentError extends Schema.TaggedError("PermanentError")<{
-  readonly operation: string
-  readonly reason: string
-}> {}
+export class PermanentError extends Schema.TaggedError<PermanentError>()("PermanentError", {
+  operation: Schema.String,
+  reason: Schema.String,
+  category: Schema.Literal("Validation", "Authorization", "NotFound", "Critical")
+}) {}
 
-// リトライ戦略の定義
+// リトライ戦略の定義 - より柔軟で堅牢な戦略
 const retryStrategy = pipe(
   Schedule.exponential("100 millis"), // 指数バックオフ
-  Schedule.compose(Schedule.recurs(3)), // 最大3回リトライ
-  Schedule.whileInput((error: unknown) =>
-    // 一時的エラーのみリトライ
-    error instanceof TemporaryError
-  )
+  Schedule.intersect(Schedule.recurs(5)), // 最大5回リトライ
+  Schedule.intersect(Schedule.spaced("30 seconds")), // 最大30秒間隔
+  Schedule.whileInput((error: unknown) => {
+    // Match.instanceOfを使用した型安全なエラー判定
+    return pipe(
+      error,
+      Match.value,
+      Match.when(Match.instanceOf(TemporaryError), (tempError) => {
+        // ネットワークエラーとデータベースエラーのみリトライ
+        return tempError.category === "Network" || tempError.category === "Database"
+      }),
+      Match.orElse(() => false)
+    )
+  })
 )
 
-const reliableNetworkOperation = (url: string) =>
+// カテゴリ別の専用リトライ戦略
+const networkRetryStrategy = pipe(
+  Schedule.exponential("200 millis"),
+  Schedule.intersect(Schedule.recurs(3)),
+  Schedule.intersect(Schedule.upTo("10 seconds"))
+)
+
+const databaseRetryStrategy = pipe(
+  Schedule.exponential("500 millis"),
+  Schedule.intersect(Schedule.recurs(2)),
+  Schedule.intersect(Schedule.upTo("5 seconds"))
+)
+
+const reliableNetworkOperation = (url: string): Effect.Effect<NetworkResponse, PermanentError, NetworkService> =>
   Effect.gen(function* () {
+    const startTime = yield* Effect.sync(() => Date.now())
     return yield* performNetworkRequest(url)
   }).pipe(
     // 特定エラーのみリトライ対象
     Effect.catchTag("TemporaryError", (error) =>
       Effect.gen(function* () {
-        yield* Effect.log(`Retrying operation: ${error.operation} (attempt ${error.retryCount})`)
+        yield* Effect.logInfo("Preparing retry for temporary error", {
+          operation: error.operation,
+          retryCount: error.retryCount,
+          category: error.category,
+          url
+        })
+        // エラーを再スローしてリトライを続行
         return yield* Effect.fail(error)
       })
     ),
-    // リトライスケジュールの適用
+    // カテゴリ別リトライ戦略の適用
     Effect.retry(retryStrategy),
 
-    // 最終的なエラーハンドリング
+    // 最終的なエラーハンドリング - Match.instanceOfを使用
     Effect.catchAll((error) =>
-      Effect.gen(function* () {
-        if (error instanceof TemporaryError) {
-          yield* Effect.log(`All retries failed for: ${error.operation}`)
-          return yield* Effect.fail(new PermanentError({
-            operation: error.operation,
-            reason: "Retry limit exceeded"
-          }))
-        }
-        return yield* Effect.fail(error)
-      })
+      pipe(
+        error,
+        Match.value,
+        Match.when(Match.instanceOf(TemporaryError), (tempError) =>
+          Effect.gen(function* () {
+            yield* Effect.logError("All retries exhausted for temporary error", {
+              operation: tempError.operation,
+              category: tempError.category,
+              finalRetryCount: tempError.retryCount,
+              url
+            })
+            return yield* Effect.fail(new PermanentError({
+              operation: tempError.operation,
+              reason: `Retry limit exceeded after ${tempError.retryCount} attempts`,
+              category: "Network"
+            }))
+          })
+        ),
+        Match.orElse((otherError) => Effect.fail(otherError))
+      )
     )
   )
 ```
@@ -277,72 +402,147 @@ const reliableNetworkOperation = (url: string) =>
 
 **実装例**:
 ```typescript
-export class CircuitBreakerError extends Schema.TaggedError("CircuitBreakerError")<{
-  readonly service: string
-  readonly state: "Open" | "HalfOpen" | "Closed"
-  readonly failureCount: number
-}> {}
+export class CircuitBreakerError extends Schema.TaggedError<CircuitBreakerError>()("CircuitBreakerError", {
+  service: Schema.String,
+  state: Schema.Literal("Open", "HalfOpen", "Closed"),
+  failureCount: Schema.Number.pipe(Schema.nonNegative()),
+  lastFailureTime: Schema.optional(Schema.Number.pipe(Schema.brand("Timestamp"))),
+  thresholdReached: Schema.Boolean
+}) {}
 
-// サーキットブレーカー状態管理
+// サーキットブレーカー状態管理 - より詳細な状態追跡
 interface CircuitBreakerState {
   readonly failureCount: number
   readonly lastFailureTime: number
   readonly state: "Open" | "HalfOpen" | "Closed"
+  readonly successCount: number
+  readonly totalAttempts: number
 }
 
-const createCircuitBreakerService = (serviceName: string, threshold: number = 5) => {
-  const stateRef = Ref.make<CircuitBreakerState>({
-    failureCount: 0,
-    lastFailureTime: 0,
-    state: "Closed"
-  })
+interface CircuitBreakerConfig {
+  readonly threshold: number
+  readonly cooldownMs: number
+  readonly halfOpenMaxAttempts: number
+}
 
-  const callWithCircuitBreaker = <A, E, R>(
-    operation: Effect.Effect<A, E, R>
-  ): Effect.Effect<A, E | CircuitBreakerError, R> =>
-    Effect.gen(function* () {
-      const state = yield* stateRef
+const createCircuitBreakerService = (
+  serviceName: string,
+  config: CircuitBreakerConfig = {
+    threshold: 5,
+    cooldownMs: 60000,
+    halfOpenMaxAttempts: 3
+  }
+) => {
+  return Effect.gen(function* () {
+    const stateRef = yield* Ref.make<CircuitBreakerState>({
+      failureCount: 0,
+      lastFailureTime: 0,
+      state: "Closed",
+      successCount: 0,
+      totalAttempts: 0
+    })
 
-      // Open状態では即座に失敗
-      if (state.current.state === "Open") {
-        const timeSinceFailure = Date.now() - state.current.lastFailureTime
-        if (timeSinceFailure < 60000) { // 1分間のクールダウン
-          return yield* Effect.fail(new CircuitBreakerError({
-            service: serviceName,
-            state: "Open",
-            failureCount: state.current.failureCount
-          }))
-        } else {
-          // HalfOpen状態に移行
-          yield* state.update(s => ({ ...s, state: "HalfOpen" }))
-        }
-      }
+    const callWithCircuitBreaker = <A, E, R>(
+      operation: Effect.Effect<A, E, R>
+    ): Effect.Effect<A, E | CircuitBreakerError, R> =>
+      Effect.gen(function* () {
+        const currentState = yield* Ref.get(stateRef)
+        const now = Date.now()
 
-      // 操作の実行
-      return yield* operation.pipe(
-        Effect.tap(() =>
-          // 成功時：状態をリセット
-          state.update(_ => ({
-            failureCount: 0,
-            lastFailureTime: 0,
-            state: "Closed"
-          }))
-        ),
-        Effect.tapError(() =>
-          // 失敗時：カウンターを増加
-          state.update(s => {
-            const newFailureCount = s.failureCount + 1
-            return {
-              failureCount: newFailureCount,
-              lastFailureTime: Date.now(),
-              state: newFailureCount >= threshold ? "Open" : s.state
+        // 状態に基づく処理判定
+        const stateDecision = pipe(
+          currentState.state,
+          Match.value,
+          Match.when("Open", () => {
+            const timeSinceFailure = now - currentState.lastFailureTime
+            if (timeSinceFailure >= config.cooldownMs) {
+              return Effect.gen(function* () {
+                yield* Ref.update(stateRef, s => ({ ...s, state: "HalfOpen" }))
+                yield* Effect.logInfo("Circuit breaker transitioning to HalfOpen", {
+                  service: serviceName,
+                  timeSinceFailure
+                })
+                return "proceed" as const
+              })
+            } else {
+              return Effect.fail(new CircuitBreakerError({
+                service: serviceName,
+                state: "Open",
+                failureCount: currentState.failureCount,
+                lastFailureTime: currentState.lastFailureTime,
+                thresholdReached: true
+              }))
             }
-          })
-        )
-      )
-    }).pipe(Effect.provide(stateRef))
+          }),
 
-  return { callWithCircuitBreaker }
+          Match.when("HalfOpen", () => {
+            if (currentState.totalAttempts >= config.halfOpenMaxAttempts) {
+              return Effect.gen(function* () {
+                yield* Ref.update(stateRef, s => ({ ...s, state: "Open", lastFailureTime: now }))
+                return yield* Effect.fail(new CircuitBreakerError({
+                  service: serviceName,
+                  state: "Open",
+                  failureCount: currentState.failureCount,
+                  lastFailureTime: now,
+                  thresholdReached: true
+                }))
+              })
+            }
+            return Effect.succeed("proceed" as const)
+          }),
+          Match.when("Closed", () => Effect.succeed("proceed" as const)),
+          Match.exhaustive
+        )
+
+        yield* stateDecision
+
+        // 操作の実行
+        return yield* operation.pipe(
+          Effect.tap(() =>
+            // 成功時の状態更新
+            Ref.update(stateRef, s => ({
+              ...s,
+              successCount: s.successCount + 1,
+              totalAttempts: s.state === "HalfOpen" ? s.totalAttempts + 1 : s.totalAttempts,
+              failureCount: 0,
+              state: s.state === "HalfOpen" && s.successCount >= 2 ? "Closed" : s.state
+            })).pipe(
+              Effect.tap(() =>
+                Effect.logInfo("Circuit breaker operation succeeded", {
+                  service: serviceName,
+                  state: currentState.state,
+                  successCount: currentState.successCount + 1
+                })
+              )
+            )
+          ),
+          Effect.tapError((error) =>
+            Ref.update(stateRef, s => {
+              const newFailureCount = s.failureCount + 1
+              const newState = newFailureCount >= config.threshold ? "Open" : s.state
+              return {
+                ...s,
+                failureCount: newFailureCount,
+                lastFailureTime: now,
+                totalAttempts: s.state === "HalfOpen" ? s.totalAttempts + 1 : s.totalAttempts,
+                state: newState
+              }
+            }).pipe(
+              Effect.tap(() =>
+                Effect.logWarning("Circuit breaker operation failed", {
+                  service: serviceName,
+                  error: String(error),
+                  failureCount: currentState.failureCount + 1,
+                  state: currentState.state
+                })
+              )
+            )
+          )
+        )
+      })
+
+    return { callWithCircuitBreaker }
+  })
 }
 ```
 
@@ -378,7 +578,7 @@ Effect.catchAll(() => Effect.succeed("ignored"))
 ### ✅ 推奨パターン
 
 ```typescript
-// 1. Effect.catchAllによる型安全なエラーハンドリング
+// 1. Effect.catchAllとMatch.instanceOfによる型安全なエラーハンドリング
 const safeOperation = Effect.gen(function* () {
   return yield* dangerousOperation()
 }).pipe(
@@ -386,34 +586,80 @@ const safeOperation = Effect.gen(function* () {
     pipe(
       error,
       Match.value,
-      Match.when(
-        Schema.is(NetworkError),
-        (networkError) => handleNetworkError(networkError)
+      Match.when(Match.instanceOf(NetworkError), (networkError) =>
+        Effect.gen(function* () {
+          yield* Effect.logWarning("Network error handled", { error: networkError })
+          return yield* handleNetworkError(networkError)
+        })
       ),
-      Match.when(
-        Schema.is(ValidationError),
-        (validationError) => handleValidationError(validationError)
+      Match.when(Match.instanceOf(ValidationError), (validationError) =>
+        Effect.gen(function* () {
+          yield* Effect.logInfo("Validation error handled", { error: validationError })
+          return yield* handleValidationError(validationError)
+        })
       ),
-      Match.orElse(() => handleUnknownError(error))
+      Match.orElse((unknownError) =>
+        Effect.gen(function* () {
+          yield* Effect.logError("Unknown error encountered", { error: unknownError })
+          return yield* handleUnknownError(unknownError)
+        })
+      )
     )
   )
 )
 
-// 2. Schema.TaggedError + Branded types
-class ValidationError extends Schema.TaggedError("ValidationError")<{
-  readonly field: string & Brand.Brand<"FieldName">
-  readonly message: string
-  readonly code: number & Brand.Brand<"ErrorCode">
-}> {}
+// 2. Schema.TaggedError + Branded types（最新構文）
+type FieldName = string & Brand.Brand<"FieldName">
+type ErrorCode = number & Brand.Brand<"ErrorCode">
 
-// 3. 構造化されたエラー情報
-class EnhancedError extends Schema.TaggedError("EnhancedError")<{
-  readonly category: "Network" | "Validation" | "Business"
-  readonly severity: "Low" | "Medium" | "High" | "Critical"
-  readonly context: Record<string, unknown>
-  readonly timestamp: string
-  readonly correlationId: string
-}> {}
+class ValidationError extends Schema.TaggedError<ValidationError>()(
+  "ValidationError",
+  {
+    field: Schema.String.pipe(Schema.brand("FieldName")),
+    message: Schema.String,
+    code: Schema.Number.pipe(Schema.brand("ErrorCode"))
+  }
+) {}
+
+// 3. 構造化されたエラー情報（最新構文）
+type CorrelationId = string & Brand.Brand<"CorrelationId">
+type Timestamp = string & Brand.Brand<"Timestamp">
+
+class EnhancedError extends Schema.TaggedError<EnhancedError>()(
+  "EnhancedError",
+  {
+    category: Schema.Literal("Network", "Validation", "Business", "System"),
+    severity: Schema.Literal("Low", "Medium", "High", "Critical"),
+    context: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    timestamp: Schema.String.pipe(Schema.brand("Timestamp")),
+    correlationId: Schema.String.pipe(Schema.brand("CorrelationId")),
+    recoverable: Schema.Boolean,
+    retryable: Schema.Boolean
+  }
+) {}
+
+// 4. Effect.validateAllによる複数エラーの集約
+const validateAllInputs = (inputs: ReadonlyArray<Input>): Effect.Effect<ReadonlyArray<ValidatedInput>, ValidationError, never> =>
+  pipe(
+    inputs,
+    Effect.validateAll((input) => validateSingleInput(input)),
+    Effect.mapError((errors) =>
+      new ValidationError({
+        field: "batch_validation",
+        message: `Multiple validation errors: ${errors.length}`,
+        code: 4000 as ErrorCode
+      })
+    )
+  )
+
+// 5. Schedule.recurseによる高度なリトライパターン
+const smartRetryStrategy = <E>(isRetryable: (error: E) => boolean) =>
+  pipe(
+    Schedule.exponential("100 millis"),
+    Schedule.intersect(Schedule.recurs(3)),
+    Schedule.whileInput(isRetryable),
+    Schedule.jittered // ジッターを追加してサンダリングハード効果を防ぐ
+  )
 ```
 
 ## エラーハンドリングテスト戦略
@@ -421,25 +667,29 @@ class EnhancedError extends Schema.TaggedError("EnhancedError")<{
 ### テスト可能なエラーハンドリング実装
 
 ```typescript
-// テスト用エラー生成
-class TestValidationError extends Schema.TaggedError("TestValidationError")<{
-  readonly field: string
-  readonly expectedType: string
-  readonly actualValue: unknown
-}> {}
+// テスト用エラー生成（最新構文）
+class TestValidationError extends Schema.TaggedError<TestValidationError>()("TestValidationError", {
+  field: Schema.String,
+  expectedType: Schema.String,
+  actualValue: Schema.Unknown
+}) {}
 
-const testableValidation = (data: unknown) =>
+const testableValidation = <T>(data: unknown): Effect.Effect<T, TestValidationError, ValidationService> =>
   Effect.gen(function* () {
     // バリデーション処理
-    yield* validateUserInput(data)
-    return yield* processValidData(data)
+    const validatedData = yield* validateUserInput(data)
+    return yield* processValidData(validatedData)
   }).pipe(
     Effect.catchTag("ValidationError", (error) =>
-      Effect.fail(new TestValidationError({
-        field: error.field,
-        expectedType: "string",
-        actualValue: data
-      }))
+      Effect.gen(function* () {
+        // テスト専用のエラー変換
+        yield* Effect.logInfo("Converting validation error for testing", { originalError: error })
+        return yield* Effect.fail(new TestValidationError({
+          field: error.field,
+          expectedType: "string",
+          actualValue: data
+        }))
+      })
     )
   )
 
@@ -449,7 +699,7 @@ describe("Error Handling Patterns", () => {
     Effect.gen(function* () {
       const result = yield* Effect.either(testableValidation(123))
 
-      expect(result).toStrictEqual(
+      expect(result).toEqual(
         Either.left(new TestValidationError({
           field: "input",
           expectedType: "string",
@@ -459,36 +709,150 @@ describe("Error Handling Patterns", () => {
     })
   )
 
-  it.effect("should retry temporary errors", () =>
+  it.effect("should retry temporary errors with exponential backoff", () =>
     Effect.gen(function* () {
       let attempt = 0
+      const timestamps: number[] = []
+
       const flakyOperation = Effect.gen(function* () {
         attempt++
+        timestamps.push(Date.now())
+
         if (attempt < 3) {
           return yield* Effect.fail(new TemporaryError({
             operation: "test",
-            retryCount: attempt
+            retryCount: attempt,
+            category: "Network"
           }))
         }
         return yield* Effect.succeed("success")
       })
 
       const result = yield* flakyOperation.pipe(
-        Effect.retry(Schedule.recurs(3))
+        Effect.retry(Schedule.exponential("10 millis").pipe(
+          Schedule.intersect(Schedule.recurs(3))
+        ))
       )
 
       expect(result).toBe("success")
       expect(attempt).toBe(3)
+
+      // リトライ間隔が指数的に増加していることを確認
+      if (timestamps.length >= 2) {
+        const interval1 = timestamps[1] - timestamps[0]
+        const interval2 = timestamps[2] - timestamps[1]
+        expect(interval2).toBeGreaterThan(interval1)
+      }
+    })
+  )
+
+  it.effect("should validate all inputs and aggregate errors", () =>
+    Effect.gen(function* () {
+      const invalidInputs = ["invalid1", "invalid2", "invalid3"]
+
+      const result = yield* Effect.either(
+        pipe(
+          invalidInputs,
+          Effect.validateAll((input) =>
+            input === "valid"
+              ? Effect.succeed(input)
+              : Effect.fail(new ValidationError({ field: input, message: "Invalid", code: 400 }))
+          )
+        )
+      )
+
+      expect(Either.isLeft(result)).toBe(true)
+      if (Either.isLeft(result)) {
+        expect(Array.isArray(result.left)).toBe(true)
+        expect(result.left).toHaveLength(3)
+      }
+    })
+  )
+
+  it.effect("should handle cause analysis correctly", () =>
+    Effect.gen(function* () {
+      const operation = Effect.gen(function* () {
+        return yield* Effect.die(new Error("Critical system failure"))
+      })
+
+      const result = yield* Effect.either(
+        operation.pipe(
+          Effect.catchAllCause((cause) => {
+            const analysis = analyzeCause(cause)
+            return Effect.fail(new EnrichedError({
+              originalError: Cause.pretty(cause),
+              context: { analysis },
+              timestamp: new Date().toISOString(),
+              stackTrace: analysis.stackTrace,
+              defects: analysis.defects,
+              interruptions: analysis.interruptions
+            }))
+          })
+        )
+      )
+
+      expect(Either.isLeft(result)).toBe(true)
+      if (Either.isLeft(result)) {
+        expect(result.left).toBeInstanceOf(EnrichedError)
+        expect(result.left.defects.length).toBeGreaterThan(0)
+      }
+    })
+  )
+
+  // Match.instanceOfを使ったエラー型判定のテスト
+  it.effect("should discriminate error types with Match.instanceOf", () =>
+    Effect.gen(function* () {
+      const networkError = new NetworkError({ message: "Connection failed" })
+      const validationError = new ValidationError({ field: "name", message: "Required", code: 400 })
+
+      const handleError = (error: unknown) =>
+        pipe(
+          error,
+          Match.value,
+          Match.when(Match.instanceOf(NetworkError), () => "network_handled"),
+          Match.when(Match.instanceOf(ValidationError), () => "validation_handled"),
+          Match.orElse(() => "unknown_handled")
+        )
+
+      expect(handleError(networkError)).toBe("network_handled")
+      expect(handleError(validationError)).toBe("validation_handled")
+      expect(handleError(new Error("unknown"))).toBe("unknown_handled")
     })
   )
 
   // フレーキーテストの処理
-  it.effect("should handle circuit breaker", () =>
+  it.effect("should handle circuit breaker state transitions", () =>
     it.flakyTest(
       Effect.gen(function* () {
-        // サーキットブレーカーのテスト
+        const { callWithCircuitBreaker } = yield* createCircuitBreakerService("test-service", {
+          threshold: 2,
+          cooldownMs: 100,
+          halfOpenMaxAttempts: 1
+        })
+
+        let callCount = 0
+        const flakyService = Effect.gen(function* () {
+          callCount++
+          if (callCount <= 2) {
+            return yield* Effect.fail(new Error("Service unavailable"))
+          }
+          return yield* Effect.succeed("Service OK")
+        })
+
+        // 最初の2回の呼び出しは失敗してサーキットがオープンになる
+        yield* Effect.either(callWithCircuitBreaker(flakyService))
+        yield* Effect.either(callWithCircuitBreaker(flakyService))
+
+        // 3回目は即座に失敗（サーキットオープン）
+        const circuitOpenResult = yield* Effect.either(callWithCircuitBreaker(flakyService))
+        expect(Either.isLeft(circuitOpenResult)).toBe(true)
+
+        // クールダウン後、サーキットがハーフオープンになって成功
+        yield* Effect.sleep("150 millis")
+        const recoveryResult = yield* Effect.either(callWithCircuitBreaker(flakyService))
+        expect(Either.isRight(recoveryResult)).toBe(true)
       }),
-      "5 seconds"
+      "10 seconds"
     )
   )
 })

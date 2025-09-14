@@ -1,13 +1,13 @@
 ---
-title: "02 Player System"
-description: "02 Player Systemに関する詳細な説明とガイド。"
+title: "プレイヤーシステム仕様 - エンティティ管理・状態制御・物理演算"
+description: "プレイヤーエンティティの移動、状態管理、インベントリ統合の完全仕様。Effect-TSによるアグリゲートパターンと純粋関数型実装。"
 category: "specification"
 difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
-estimated_reading_time: "30分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+tags: ["player-system", "entity-management", "state-management", "physics", "inventory-integration", "ddd-aggregate"]
+prerequisites: ["effect-ts-fundamentals", "schema-basics", "ddd-concepts"]
+estimated_reading_time: "15分"
+related_patterns: ["data-modeling-patterns", "service-patterns", "error-handling-patterns"]
+related_docs: ["./01-inventory-system.md", "./04-entity-system.md", "../../01-architecture/05-ecs-integration.md"]
 ---
 
 # プレイヤーシステム - プレイヤー管理システム
@@ -46,10 +46,10 @@ version: "1.0.0"
 ### プレイヤーアグリゲート
 
 ```typescript
-import { Effect, Layer, Context, Schema, pipe, Match } from "effect"
+import { Effect, Layer, Context, Schema, pipe, Match, STM, Ref, Stream } from "effect"
 import { Brand, Option } from "effect"
 
-// 値オブジェクト - 最新のEffect-TSパターン
+// 値オブジェクト - 最新のEffect-TSパターン (Schema.Struct使用)
 export const PlayerId = Schema.String.pipe(
   Schema.pattern(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
   Schema.brand("PlayerId")
@@ -63,6 +63,12 @@ export const PlayerName = Schema.String.pipe(
   Schema.brand("PlayerName")
 )
 export type PlayerName = Schema.Schema.Type<typeof PlayerName>
+
+export const Experience = Schema.Number.pipe(
+  Schema.nonNegative(),
+  Schema.brand("Experience")
+)
+export type Experience = Schema.Schema.Type<typeof Experience>
 
 // 座標系の値オブジェクト
 export const Position3D = Schema.Struct({
@@ -85,7 +91,7 @@ export const Velocity3D = Schema.Struct({
 })
 export type Velocity3D = Schema.Schema.Type<typeof Velocity3D>
 
-// プレイヤーステータス
+// プレイヤーステータス - Schema.Structによる型安全な定義
 export const PlayerStats = Schema.Struct({
   health: pipe(
     Schema.Number,
@@ -102,11 +108,7 @@ export const PlayerStats = Schema.Struct({
     Schema.between(0, 20),
     Schema.brand("Saturation")
   ),
-  experience: pipe(
-    Schema.Number,
-    Schema.nonNegative(),
-    Schema.brand("Experience")
-  ),
+  experience: Experience,
   level: pipe(
     Schema.Number,
     Schema.int(),
@@ -119,6 +121,7 @@ export const PlayerStats = Schema.Struct({
     Schema.brand("Armor")
   )
 })
+export type PlayerStats = Schema.Schema.Type<typeof PlayerStats>
 
 // インベントリ
 export const ItemStack = Schema.Struct({
@@ -219,71 +222,68 @@ interface PlayerMovementServiceInterface {
 }
 
 // Context Tag（最新パターン）
-export const PlayerMovementService = Context.GenericTag<PlayerMovementServiceInterface>("@app/PlayerMovementService")
+class PlayerMovementServiceTag extends Context.Tag("@app/PlayerMovementService")<
+  PlayerMovementServiceTag,
+  PlayerMovementServiceInterface
+>() {}
+export { PlayerMovementServiceTag as PlayerMovementService }
 
-// Live実装作成関数
+// Live実装作成関数 - STMとRefを使った並行状態管理
 const makePlayerMovementService = Effect.gen(function* () {
   const physics = yield* PhysicsService
   const collision = yield* CollisionService
+  const playerStateRef = yield* Ref.make(new Map<PlayerId, Player>())
 
     const move = (player: Player, direction: Direction, deltaTime: number) =>
       Effect.gen(function* () {
-        // ゲームモードによる移動速度調整
-        const speed = player.gameMode === "creative" && player.abilities.isFlying
-          ? player.abilities.flySpeed
-          : player.abilities.walkSpeed
-
-        // 移動ベクトル計算
-        const moveVector = calculateMoveVector(
-          direction,
-          player.rotation,
-          speed,
-          deltaTime
-        )
-
-        // スプリント判定
-        const isSprinting = direction.sprint && player.stats.hunger > 6
-        const finalSpeed = isSprinting ? speed * 1.3 : speed
-
-        // 新しい位置計算
-        const newPosition = {
-          x: player.position.x + moveVector.x * finalSpeed,
-          y: player.position.y + moveVector.y,
-          z: player.position.z + moveVector.z * finalSpeed
-        }
-
-        // 衝突検出
-        const collisionResult = yield* collision.checkPlayerCollision(
-          player,
-          newPosition
-        )
-
-        // 早期リターン: 衝突時のスライド移動処理
-        if (collisionResult.hasCollision) {
-          const slidPosition = yield* collision.calculateSlidePosition(
-            player.position,
-            newPosition,
-            collisionResult
-          )
-          return { ...player, position: slidPosition }
-        }
-
-        // Match パターンで移動結果を決定
-        return pipe(
-          { isSprinting, player, newPosition, deltaTime },
-          Match.value,
-          Match.when(
-            ({ isSprinting }) => isSprinting,
-            ({ player, newPosition, deltaTime }) => {
-              const newHunger = Math.max(0, player.stats.hunger - 0.1 * deltaTime)
-              return {
-                ...player,
-                position: newPosition,
-                stats: { ...player.stats, hunger: newHunger }
-              }
+        // STMによる安全な状態更新
+        return yield* STM.atomically(
+          STM.gen(function* () {
+            // 早期リターン: 移動不可条件をチェック
+            if (player.gameMode === "spectator") {
+              return player
             }
-          ),
-          Match.orElse(({ player, newPosition }) => ({ ...player, position: newPosition }))
+
+            // ゲームモードによる移動速度調整
+            const speed = player.gameMode === "creative" && player.abilities.isFlying
+              ? player.abilities.flySpeed
+              : player.abilities.walkSpeed
+
+            // 移動ベクトル計算
+            const moveVector = calculateMoveVector(
+              direction,
+              player.rotation,
+              speed,
+              deltaTime
+            )
+
+            // スプリント判定
+            const isSprinting = direction.sprint && player.stats.hunger > 6
+            const finalSpeed = isSprinting ? speed * 1.3 : speed
+
+            // 新しい位置計算
+            const newPosition = {
+              x: player.position.x + moveVector.x * finalSpeed,
+              y: player.position.y + moveVector.y,
+              z: player.position.z + moveVector.z * finalSpeed
+            }
+
+            // Match パターンで移動結果を決定
+            return Match.value({ isSprinting, player, newPosition, deltaTime }).pipe(
+              Match.when(
+                ({ isSprinting }) => isSprinting,
+                ({ player, newPosition, deltaTime }) => {
+                  const newHunger = Math.max(0, player.stats.hunger - 0.1 * deltaTime)
+                  return {
+                    ...player,
+                    position: newPosition,
+                    stats: { ...player.stats, hunger: newHunger }
+                  }
+                }
+              ),
+              Match.orElse(({ player, newPosition }) => ({ ...player, position: newPosition }))
+            )
+          })
         )
       })
 
@@ -369,7 +369,25 @@ const makePlayerMovementService = Effect.gen(function* () {
         }
       })
 
-    return PlayerMovementService.of({ move, jump, applyPhysics, checkCollisions: collision.checkPlayerCollision })
+    // 権限チェック関数群
+    const checkMovePermission = (player: Player, direction: Direction) =>
+      Effect.succeed(
+        player.gameMode !== "spectator" || player.abilities.canFly
+      )
+
+    const checkJumpPermission = (player: Player) =>
+      Effect.succeed(
+        player.gameMode !== "spectator"
+      )
+
+    return PlayerMovementService.of({
+      move,
+      jump,
+      applyPhysics,
+      checkCollisions: collision.checkPlayerCollision,
+      checkMovePermission,
+      checkJumpPermission
+    })
   })
 
 // Live Layer
@@ -415,7 +433,11 @@ interface InventoryServiceInterface {
 }
 
 // Context Tag（最新パターン）
-export const InventoryService = Context.GenericTag<InventoryServiceInterface>("@app/InventoryService")
+class InventoryServiceTag extends Context.Tag("@app/InventoryService")<
+  InventoryServiceTag,
+  InventoryServiceInterface
+>() {}
+export { InventoryServiceTag as InventoryService }
 
 // Live実装
 export const InventoryServiceLive = Layer.succeed(
@@ -591,7 +613,11 @@ interface PlayerActionProcessorInterface {
 }
 
 // Context Tag（最新パターン）
-export const PlayerActionProcessor = Context.GenericTag<PlayerActionProcessorInterface>("@app/PlayerActionProcessor")
+class PlayerActionProcessorTag extends Context.Tag("@app/PlayerActionProcessor")<
+  PlayerActionProcessorTag,
+  PlayerActionProcessorInterface
+>() {}
+export { PlayerActionProcessorTag as PlayerActionProcessor }
 
 // Live実装作成関数
 const makePlayerActionProcessor = Effect.gen(function* () {
@@ -603,13 +629,33 @@ const makePlayerActionProcessor = Effect.gen(function* () {
     const process = (player: Player, action: PlayerAction) =>
       Match.value(action).pipe(
         Match.tag("Move", ({ direction }) =>
-          movement.move(player, direction, 0.05)
+          Effect.gen(function* () {
+            // 権限チェック
+            const canMove = yield* checkMovePermission(player, direction)
+            if (!canMove) {
+              return yield* Effect.fail(new PermissionDeniedError("Movement not allowed"))
+            }
+            return yield* movement.move(player, direction, 0.05)
+          })
         ),
         Match.tag("Jump", () =>
-          movement.jump(player)
+          Effect.gen(function* () {
+            // 権限チェック
+            const canJump = yield* checkJumpPermission(player)
+            if (!canJump) {
+              return yield* Effect.fail(new PermissionDeniedError("Jump not allowed"))
+            }
+            return yield* movement.jump(player)
+          })
         ),
         Match.tag("Attack", ({ target }) =>
           Effect.gen(function* () {
+            // 権限チェック
+            const canAttack = yield* checkAttackPermission(player, target)
+            if (!canAttack) {
+              return yield* Effect.fail(new PermissionDeniedError("Attack not allowed"))
+            }
+
             const damage = yield* calculateAttackDamage(player)
             yield* combat.dealDamage(target, damage, player.id)
             return player
@@ -617,6 +663,12 @@ const makePlayerActionProcessor = Effect.gen(function* () {
         ),
         Match.tag("PlaceBlock", ({ position, face }) =>
           Effect.gen(function* () {
+            // 早期リターン: 権限チェック
+            const canPlace = yield* checkPlaceBlockPermission(player, position)
+            if (!canPlace) {
+              return yield* Effect.fail(new PermissionDeniedError("Block placement not allowed"))
+            }
+
             // レイキャスト判定
             const canReach = yield* checkReach(
               player.position,
@@ -650,6 +702,12 @@ const makePlayerActionProcessor = Effect.gen(function* () {
         ),
         Match.tag("BreakBlock", ({ position }) =>
           Effect.gen(function* () {
+            // 早期リターン: 権限チェック
+            const canBreak = yield* checkBreakBlockPermission(player, position)
+            if (!canBreak) {
+              return yield* Effect.fail(new PermissionDeniedError("Block breaking not allowed"))
+            }
+
             const canReach = yield* checkReach(
               player.position,
               position,
@@ -677,6 +735,12 @@ const makePlayerActionProcessor = Effect.gen(function* () {
         ),
         Match.tag("UseItem", ({ item, target }) =>
           Effect.gen(function* () {
+            // 早期リターン: 権限チェック
+            const canUseItem = yield* checkUseItemPermission(player, item)
+            if (!canUseItem) {
+              return yield* Effect.fail(new PermissionDeniedError("Item use not allowed"))
+            }
+
             const currentItem = player.inventory.hotbar[player.inventory.selectedSlot]
             if (!currentItem) {
               return yield* Effect.fail(new NoItemError())
@@ -695,11 +759,37 @@ const makePlayerActionProcessor = Effect.gen(function* () {
             return useResult.player
           })
         ),
-        Match.orElse(() => Effect.succeed(player)),
-        Match.exhaustive
+        Match.orElse(() => Effect.succeed(player))
       )
 
-    return PlayerActionProcessor.of({ process })
+    // 権限チェック関数群の実装
+    const checkAttackPermission = (player: Player, target: EntityId) =>
+      Effect.succeed(
+        player.gameMode !== "spectator" && player.abilities.canBreakBlocks
+      )
+
+    const checkPlaceBlockPermission = (player: Player, position: Position3D) =>
+      Effect.succeed(
+        player.gameMode !== "spectator" && player.abilities.canPlaceBlocks
+      )
+
+    const checkBreakBlockPermission = (player: Player, position: Position3D) =>
+      Effect.succeed(
+        player.gameMode !== "spectator" && player.abilities.canBreakBlocks
+      )
+
+    const checkUseItemPermission = (player: Player, item: ItemStack) =>
+      Effect.succeed(
+        player.gameMode !== "spectator"
+      )
+
+    return PlayerActionProcessor.of({
+      process,
+      checkAttackPermission,
+      checkPlaceBlockPermission,
+      checkBreakBlockPermission,
+      checkUseItemPermission
+    })
   })
 
 // Live Layer
@@ -739,7 +829,11 @@ interface HealthSystemInterface {
 }
 
 // Context Tag（最新パターン）
-export const HealthSystem = Context.GenericTag<HealthSystemInterface>("@app/HealthSystem")
+class HealthSystemTag extends Context.Tag("@app/HealthSystem")<
+  HealthSystemTag,
+  HealthSystemInterface
+>() {}
+export { HealthSystemTag as HealthSystem }
 
 export const HealthSystemLive = Layer.succeed(
   HealthSystem,
@@ -839,16 +933,21 @@ export const HealthSystemLive = Layer.succeed(
 ## 完全なプレイヤーレイヤー
 
 ```typescript
+// 完全なプレイヤーシステムレイヤー - 最新のLayer.merge パターン
 export const PlayerSystemLayer = Layer.mergeAll(
   PlayerMovementServiceLive,
   InventoryServiceLive,
   PlayerActionProcessorLive,
-  HealthSystemLive
+  HealthSystemLive,
+  PlayerECSSystemLive,
+  InputServiceLive,
+  PlayerSyncServiceLive
 ).pipe(
   Layer.provide(PhysicsServiceLive),
   Layer.provide(CollisionServiceLive),
   Layer.provide(WorldServiceLive),
-  Layer.provide(CombatServiceLive)
+  Layer.provide(CombatServiceLive),
+  Layer.provide(NetworkServiceLive)
 )
 ```
 
@@ -930,8 +1029,12 @@ interface PlayerECSSystemInterface {
   ) => Effect.Effect<ReadonlyArray<EntityId>, never>
 }
 
-// Context Tag
-export const PlayerECSSystem = Context.GenericTag<PlayerECSSystemInterface>("@app/PlayerECSSystem")
+// Context Tag（最新パターン）
+class PlayerECSSystemTag extends Context.Tag("@app/PlayerECSSystem")<
+  PlayerECSSystemTag,
+  PlayerECSSystemInterface
+>() {}
+export { PlayerECSSystemTag as PlayerECSSystem }
 
 // アーキタイプベースクエリ
 const makePlayerECSSystem = Effect.gen(function* () {
@@ -1076,7 +1179,7 @@ export const InputEvent = Schema.Union(
 )
 export type InputEvent = Schema.Schema.Type<typeof InputEvent>
 
-// 入力状態管理
+// 入力状態管理 - Schema.Structによる型安全な定義
 export const InputState = Schema.Struct({
   keys: Schema.Record(Schema.String, Schema.Boolean),
   mouseButtons: Schema.Struct({
@@ -1107,7 +1210,12 @@ interface InputServiceInterface {
   ) => Effect.Effect<{ deltaYaw: number; deltaPitch: number }, never>
 }
 
-export const InputService = Context.GenericTag<InputServiceInterface>("@app/InputService")
+// Context Tag（最新パターン）
+class InputServiceTag extends Context.Tag("@app/InputService")<
+  InputServiceTag,
+  InputServiceInterface
+>() {}
+export { InputServiceTag as InputService }
 
 const makeInputService = Effect.gen(function* () {
   const inputState = yield* Ref.make<InputState>({
@@ -1117,41 +1225,58 @@ const makeInputService = Effect.gen(function* () {
     lastUpdateTime: Date.now()
   })
 
+  // Streamによる入力イベントハンドリング
+  const inputEventStream = yield* Stream.fromEventEmitter(
+    () => globalInputEventEmitter,
+    (error) => new InputProcessingError(error)
+  )
+
   const processInput = (events: ReadonlyArray<InputEvent>) =>
     Effect.gen(function* () {
-      yield* Ref.update(inputState, state => {
-        let newState = state
+      // STMによる安全な状態更新
+      return yield* STM.atomically(
+        STM.gen(function* () {
+          const currentState = yield* STM.fromRef(inputState)
+          let newState = currentState
 
-        events.forEach(event => {
-          newState = Match.value(event).pipe(
-            Match.tag("KeyDown", ({ key }) => ({
-              ...newState,
-              keys: { ...newState.keys, [key]: true }
-            })),
-            Match.tag("KeyUp", ({ key }) => ({
-              ...newState,
-              keys: { ...newState.keys, [key]: false }
-            })),
-            Match.tag("MouseMove", ({ deltaX, deltaY }) => ({
-              ...newState,
-              mouseDelta: { x: deltaX, y: deltaY }
-            })),
-            Match.tag("MouseDown", ({ button }) => ({
-              ...newState,
-              mouseButtons: { ...newState.mouseButtons, [button]: true }
-            })),
-            Match.tag("MouseUp", ({ button }) => ({
-              ...newState,
-              mouseButtons: { ...newState.mouseButtons, [button]: false }
-            })),
-            Match.exhaustive
+          // Streamを使った効率的なイベント処理
+          const processedEvents = yield* Stream.fromIterable(events).pipe(
+            Stream.map(event =>
+              Match.value(event).pipe(
+                Match.tag("KeyDown", ({ key }) => ({
+                  ...newState,
+                  keys: { ...newState.keys, [key]: true }
+                })),
+                Match.tag("KeyUp", ({ key }) => ({
+                  ...newState,
+                  keys: { ...newState.keys, [key]: false }
+                })),
+                Match.tag("MouseMove", ({ deltaX, deltaY }) => ({
+                  ...newState,
+                  mouseDelta: { x: deltaX, y: deltaY }
+                })),
+                Match.tag("MouseDown", ({ button }) => ({
+                  ...newState,
+                  mouseButtons: { ...newState.mouseButtons, [button]: true }
+                })),
+                Match.tag("MouseUp", ({ button }) => ({
+                  ...newState,
+                  mouseButtons: { ...newState.mouseButtons, [button]: false }
+                }))
+              )
+            ),
+            Stream.runLast
           )
+
+          const finalState = {
+            ...processedEvents.pipe(Option.getOrElse(() => newState)),
+            lastUpdateTime: Date.now()
+          }
+
+          yield* STM.updateRef(inputState, () => finalState)
+          return finalState
         })
-
-        return { ...newState, lastUpdateTime: Date.now() }
-      })
-
-      return yield* Ref.get(inputState)
+      )
     })
 
   const getMovementDirection = (state: InputState) =>
@@ -1227,7 +1352,12 @@ interface PlayerSyncServiceInterface {
   ) => Effect.Effect<Player, never>
 }
 
-export const PlayerSyncService = Context.GenericTag<PlayerSyncServiceInterface>("@app/PlayerSyncService")
+// Context Tag（最新パターン）
+class PlayerSyncServiceTag extends Context.Tag("@app/PlayerSyncService")<
+  PlayerSyncServiceTag,
+  PlayerSyncServiceInterface
+>() {}
+export { PlayerSyncServiceTag as PlayerSyncService }
 
 const makePlayerSyncService = Effect.gen(function* () {
   const networkService = yield* NetworkService
@@ -1443,13 +1573,22 @@ describe("メモリ使用量テスト", () => {
   })
 })
 
-// 統合テスト
+// 統合テスト - 最新のLayer.merge パターン
 export const PlayerSystemTestLayer = Layer.mergeAll(
   PlayerSystemLayer,
   TestInputServiceLive,
   TestNetworkServiceLive,
-  TestWorldServiceLive
+  TestWorldServiceLive,
+  TestPhysicsServiceLive,
+  TestCollisionServiceLive
 )
+
+// テスト用ヘルパー関数
+export const runPlayerSystemTest = <A, E>(effect: Effect.Effect<A, E, PlayerSystemTestLayer>) =>
+  effect.pipe(
+    Effect.provide(PlayerSystemTestLayer),
+    Effect.runPromise
+  )
 ```
 
 ### パフォーマンス最適化戦略
@@ -1466,7 +1605,12 @@ interface WorkerTask {
   readonly deferred: DeferredInterface<ReadonlyArray<PlayerPhysicsData>>
 }
 
-const PlayerWorkerPool = Context.GenericTag<PlayerWorkerPoolInterface>("@app/PlayerWorkerPool")
+// Context Tag（最新パターン）
+class PlayerWorkerPoolTag extends Context.Tag("@app/PlayerWorkerPool")<
+  PlayerWorkerPoolTag,
+  PlayerWorkerPoolInterface
+>() {}
+export { PlayerWorkerPoolTag as PlayerWorkerPool }
 
 // PlayerWorkerPool実装の作成関数
 const makePlayerWorkerPool = (poolSize?: number): Effect.Effect<PlayerWorkerPoolInterface, never, never> =>
@@ -1543,7 +1687,12 @@ interface PlayerObjectPoolInterface {
   readonly returnVelocity: (velocity: Velocity3D) => Effect.Effect<void, never>
 }
 
-const PlayerObjectPool = Context.GenericTag<PlayerObjectPoolInterface>("@app/PlayerObjectPool")
+// Context Tag（最新パターン）
+class PlayerObjectPoolTag extends Context.Tag("@app/PlayerObjectPool")<
+  PlayerObjectPoolTag,
+  PlayerObjectPoolInterface
+>() {}
+export { PlayerObjectPoolTag as PlayerObjectPool }
 
 // PlayerObjectPool実装の作成関数
 const makePlayerObjectPool = Effect.gen(function* () {
@@ -1629,6 +1778,14 @@ export const PlayerCache = Effect.gen(function* () {
 
 - **Effect-TS 3.17+**: 関数型プログラミング基盤
 - **Schema.Struct**: データ構造定義と検証
+- **Context.Tag クラス**: 型安全な依存性注入
+- **Match.value**: パターンマッチング
+- **Layer.effect**: サービス組み立て
+- **STM**: 並行状態管理
+- **Ref**: 可変状態の安全な管理
+- **Stream**: 効率的なデータストリーム処理
+- **Fiber**: 軽量並列処理
+- **Schema.Struct**: データ構造定義と検証
 - **Context.GenericTag**: 依存性注入
 - **Match.value**: パターンマッチング
 - **Layer.effect**: サービス組み立て
@@ -1653,3 +1810,16 @@ export const PlayerCache = Effect.gen(function* () {
 - **システム (System)**: ECSの処理ロジック ([詳細](../../04-appendix/00-glossary.md#system))
 
 この実装により、TypeScript Minecraftクローンは高品質で保守可能なプレイヤーシステムを実現できます。
+
+### 最新Effect-TSパターンの特徴
+
+1. **Context.Tag クラス**: より型安全な依存性注入
+2. **STM活用**: 並行状態更新の安全性確保
+3. **Stream統合**: 効率的なイベント処理
+4. **Ref状態管理**: 可変状態の安全な管理
+5. **早期リターンパターン**: 効率的な条件分岐
+6. **Match.value**: 型安全なパターンマッチング
+7. **権限チェック統合**: セキュリティの組み込み
+8. **Fiber並列処理**: 高パフォーマンスな非同期処理
+
+これらのパターンにより、スケーラブルで型安全、かつ高パフォーマンスなプレイヤーシステムが実現されています。

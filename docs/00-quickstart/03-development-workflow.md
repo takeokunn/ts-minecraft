@@ -25,35 +25,192 @@ search_keywords:
 > **📝 前提**: [アーキテクチャ理解](./02-architecture-overview.md)完了
 > **📚 継続**: [重要概念整理](./04-key-concepts.md)
 
-## 🔄 開発サイクル概観
+## 🔄 Progressive Development Cycle
+
+### 🎯 Quick Reference - 開発フロー
+
+```bash
+# 基本サイクル（30秒で1周）
+pnpm dev → コード編集 → 自動リロード → 動作確認 → 繰り返し
+
+# 品質保証サイクル（5分で1周）
+pnpm test → pnpm type-check → pnpm lint → pnpm build → 確認
+```
+
+<details>
+<summary><strong>🔄 詳細開発サイクルと実行可能コマンド</strong></summary>
 
 ### 🎯 TypeScript Minecraft 開発の標準フロー
 
 ```mermaid
-graph LR
-    A[💻 コーディング] --> B[🧪 テスト実行]
-    B --> C[🔧 型チェック]
-    C --> D[🚀 ローカル確認]
-    D --> E[🏗️ ビルド検証]
-    E --> F[📦 デプロイ準備]
+%%{init: {"theme": "neutral", "themeVariables": {"primaryColor": "#4285f4", "primaryTextColor": "#ffffff", "primaryBorderColor": "#ffffff", "lineColor": "#4285f4", "sectionBkgColor": "#f5f7fa", "tertiaryColor": "#f5f7fa"}}}%%
+graph TD
+    A[💻 コーディング<br/>エディタ + TypeScript] --> B[🔄 自動リロード<br/>Vite HMR]
+    B --> C[🧪 テスト実行<br/>vitest --watch]
+    C --> D[🔧 型チェック<br/>tsc --noEmit]
+    D --> E[🚀 ローカル確認<br/>http://localhost:5173]
+    E --> F[🏗️ ビルド検証<br/>pnpm build]
+    F --> G[📦 プロダクション確認<br/>pnpm preview]
 
-    F --> A
+    G --> A
 
-    G[🐛 バグ発見] --> H[🔍 デバッグ]
-    H --> I[🔧 修正]
-    I --> B
+    H[🐛 バグ発見] --> I[🔍 デバッグ<br/>Chrome DevTools]
+    I --> J[🔧 修正<br/>Effect.log + コード修正]
+    J --> B
 
-    B -.-> G
-    D -.-> G
+    C -.->|テスト失敗| H
+    E -.->|動作問題| H
 
     classDef develop fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     classDef test fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
     classDef debug fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef build fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
 
-    class A,C,D,E,F develop
-    class B test
-    class G,H,I debug
+    class A,B,E develop
+    class C,D test
+    class H,I,J debug
+    class F,G build
 ```
+
+### ⚡ 実行可能コマンド一覧
+
+#### 🏃‍♂️ **開発用コマンド**（日常業務）
+
+```bash
+# 開発サーバー起動（最も頻繁に使用）
+pnpm dev
+# ポート指定版
+pnpm dev --port 3000
+# ネットワーク公開版
+pnpm dev --host
+
+# 監視モード付きテスト（バックグラウンド実行推奨）
+pnpm test --watch
+# UI付きテスト（ブラウザで結果確認）
+pnpm test --ui
+
+# リアルタイム型チェック（エディタの拡張機能と併用）
+pnpm type-check --watch
+
+# 自動修正付きLinting
+pnpm lint --fix
+```
+
+#### 🔍 **品質保証コマンド**（コミット前必須）
+
+```bash
+# 完全品質チェックシーケンス（5分）
+pnpm type-check && pnpm lint && pnpm test && pnpm build
+# 1行版
+pnpm run quality-check
+
+# カバレッジ付きテスト
+pnpm test --coverage --reporter=verbose
+# 期待出力例:
+# Test Files  42 passed (42)
+# Tests       156 passed (156)
+# Coverage    85.4% Statements
+```
+
+#### 🚀 **デプロイ用コマンド**（本番環境）
+
+```bash
+# 本番ビルド
+pnpm build
+# 期待出力例:
+# vite v5.4.8 building for production...
+# ✓ 247 modules transformed.
+# dist/index.html                   0.46 kB │ gzip:  0.30 kB
+# dist/assets/index-Cqk_tL8N.css   45.2 kB │ gzip:  8.1 kB
+# dist/assets/index-DRjX8VHj.js   890.5 kB │ gzip: 284.2 kB
+
+# ビルド結果の確認
+pnpm preview
+# プレビューサーバー起動: http://localhost:4173
+
+# ビルドサイズ分析
+pnpm build --report
+# Bundle analyzer で依存関係可視化
+```
+
+### 🎯 実際の開発セッション例
+
+#### 📝 **Feature開発の典型的な流れ**
+
+```bash
+# 1. 機能ブランチ作成・移動
+git checkout -b feature/inventory-system
+git status
+
+# 2. 開発環境起動（バックグラウンド）
+pnpm dev &
+# または別ターミナルで: pnpm dev
+
+# 3. テスト監視開始（バックグラウンド）
+pnpm test --watch &
+
+# 4. ファイル編集（お好みのエディタで）
+# 例: src/domain/inventory/
+
+# 5. リアルタイム確認
+# - ブラウザ: http://localhost:5173
+# - テスト結果: ターミナル監視
+# - 型エラー: エディタのインライン表示
+
+# 6. コミット前品質チェック
+pnpm type-check && pnpm lint && pnpm build
+# 成功時のみコミット
+git add -A && git commit -m "feat(inventory): add item stack management"
+```
+
+### 🚨 **エラーハンドリング実践例**
+
+#### ⚠️ TypeScript型エラー対処
+
+```bash
+# 型エラー詳細確認
+pnpm type-check
+# 出力例:
+# src/domain/player/Player.ts:23:5 - error TS2322: Type 'string' is not assignable to type 'PlayerId'.
+# 23     id: "player-1",
+#        ~~~
+
+# 修正後確認
+pnpm type-check --watch
+# ファイル保存時に自動チェック
+```
+
+#### 🧪 テストエラー対処
+
+```bash
+# 失敗テスト詳細確認
+pnpm test --run --reporter=verbose
+# 出力例:
+# FAIL src/domain/block/Block.test.ts > Block creation > should create stone block
+#   Expected: "stone"
+#   Received: "dirt"
+
+# デバッグモードでテスト
+pnpm test --run --debug src/domain/block/Block.test.ts
+```
+
+#### 🏗️ ビルドエラー対処
+
+```bash
+# ビルドエラー詳細確認
+pnpm build --verbose
+# 出力例:
+# [ERROR] Could not resolve "src/utils/missing-file.ts"
+
+# 依存関係確認
+pnpm list --depth=0
+pnpm why some-package-name
+
+# キャッシュクリア後再試行
+rm -rf dist node_modules && pnpm install && pnpm build
+```
+
+</details>
 
 ## 💻 開発環境の完全セットアップ
 

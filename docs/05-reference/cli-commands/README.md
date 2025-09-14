@@ -1,3 +1,15 @@
+---
+title: "CLIコマンド一覧 - コマンドライン完全リファレンス"
+description: "TypeScript Minecraftプロジェクトで利用可能なCLIコマンドの完全リファレンス。開発、テスト、ビルド、デプロイ関連コマンド。"
+category: "reference"
+difficulty: "beginner"
+tags: ["cli", "commands", "development", "testing", "build"]
+prerequisites: ["basic-cli"]
+estimated_reading_time: "10分"
+dependencies: []
+status: "complete"
+---
+
 # CLIコマンド一覧
 
 TypeScript Minecraftプロジェクトで利用可能なCLIコマンドの完全リファレンスです。

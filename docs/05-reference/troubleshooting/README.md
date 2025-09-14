@@ -1,4 +1,33 @@
+---
+title: "トラブルシューティングガイド - 問題解決の完全マニュアル"
+description: "TypeScript Minecraft開発で発生する全問題パターンと解決策。ビルドエラー、型エラー、依存関係問題、パフォーマンス問題の即座解決ガイド。"
+category: "troubleshooting"
+difficulty: "intermediate"
+tags: ["troubleshooting", "debugging", "errors", "build-issues", "typescript", "effect-ts", "vite"]
+prerequisites: ["basic-typescript", "development-environment"]
+estimated_reading_time: "30分"
+related_patterns: ["error-handling-patterns"]
+related_docs: ["../cli-commands/README.md", "../configuration/README.md", "../../03-guides/04-error-resolution.md"]
+---
+
 # トラブルシューティング
+
+## 🧭 ナビゲーション
+
+> **📍 現在位置**: [ホーム](../../README.md) → [リファレンス](../README.md) → **トラブルシューティング**
+>
+> **🎯 目標**: 開発中の全問題を即座解決
+>
+> **⏱️ 所要時間**: 30分（問題解決マスター）
+>
+> **📚 使用法**: 問題発生時の緊急参照・予防策確認
+
+### 📋 緊急時クイックアクセス
+- **🔥 高緊急度**: [プロジェクト停止レベル](#high-priority-issues)
+- **⚡ 中緊急度**: [開発効率に影響](#medium-priority-issues)
+- **🔧 低緊急度**: [最適化・改善](#low-priority-issues)
+
+---
 
 TypeScript Minecraftプロジェクトで発生する可能性のある問題と解決方法の完全ガイドです。
 
@@ -31,16 +60,16 @@ mindmap
 
 | 問題 | 症状 | 解決方法 |
 |-----|------|---------|
-| [TypeScript型エラー](#typescript-type-errors) | `npm run build` 失敗 | 型定義確認・tsconfig調整 |
-| [依存関係エラー](#dependency-errors) | `npm install` 失敗 | キャッシュクリア・バージョン確認 |
-| [開発サーバー起動失敗](#dev-server-errors) | `npm run dev` 失敗 | ポート・権限・設定確認 |
+| [TypeScript型エラー](#typescript-type-errors) | `pnpm build` 失敗 | 型定義確認・tsconfig調整 |
+| [依存関係エラー](#dependency-errors) | `pnpm install` 失敗 | キャッシュクリア・バージョン確認 |
+| [開発サーバー起動失敗](#dev-server-errors) | `pnpm dev` 失敗 | ポート・権限・設定確認 |
 
 ### ⚡ 中緊急度（開発効率に影響）
 
 | 問題 | 症状 | 解決方法 |
 |-----|------|---------|
 | [HMRが動かない](#hmr-issues) | ファイル変更が反映されない | Vite設定・ブラウザキャッシュ確認 |
-| [テスト失敗](#test-failures) | `npm test` でエラー | テスト環境・モック確認 |
+| [テスト失敗](#test-failures) | `pnpm test` でエラー | テスト環境・モック確認 |
 | [リントエラー](#lint-errors) | コード品質チェック失敗 | ESLint設定・ルール調整 |
 
 ### 🔧 低緊急度（最適化・改善）
@@ -56,7 +85,7 @@ mindmap
 ### 1. 基本診断コマンド
 ```bash
 # 全体的な健康状態チェック
-npm run check
+pnpm check
 
 # 依存関係の問題確認
 npm ls --depth=0
@@ -71,13 +100,13 @@ npx vite --debug
 ### 2. ログレベル設定
 ```bash
 # デバッグ情報を詳細表示
-DEBUG=* npm run dev
+DEBUG=* pnpm dev
 
 # 特定モジュールのデバッグ
-DEBUG=vite:* npm run dev
+DEBUG=vite:* pnpm dev
 
 # エラーのみ表示
-LOG_LEVEL=error npm run dev
+LOG_LEVEL=error pnpm dev
 ```
 
 ## 🛠️ 具体的問題解決
@@ -136,7 +165,7 @@ npm ERR! Could not resolve dependency
 
    # node_modules削除・再インストール
    rm -rf node_modules package-lock.json
-   npm install
+   pnpm install
    ```
 
 2. **バージョン競合解決**
@@ -145,13 +174,15 @@ npm ERR! Could not resolve dependency
    npm ls effect
 
    # 特定バージョンで固定
-   npm install effect@3.17.13 --save-exact
+   pnpm add effect@3.17.13 --save-exact
    ```
 
 3. **peer dependency解決**
    ```bash
    # peer dependency自動インストール
-   npm install --legacy-peer-deps
+   # .npmrcに以下を追加してからインストール
+   # public-hoist-pattern[]=*
+   pnpm install
    ```
 
 ### 開発サーバーエラー {#dev-server-errors}
@@ -173,7 +204,7 @@ Error: Permission denied
    kill -9 $(lsof -ti:5173)
 
    # 別ポートで起動
-   PORT=3000 npm run dev
+   PORT=3000 pnpm dev
    ```
 
 2. **権限問題**
@@ -302,10 +333,10 @@ warning: 'console.log' is not allowed in production
 3. **自動修正可能なエラー**
    ```bash
    # 自動修正実行
-   npm run lint:fix
+   pnpm lint:fix
 
    # Prettierとの統合修正
-   npm run format
+   pnpm format
    ```
 
 ## 🔧 高度なトラブルシューティング
@@ -324,19 +355,19 @@ npx tsc --noEmit --traceResolution
 #### 2. Viteデバッグ
 ```bash
 # Vite内部ログ表示
-DEBUG=vite:* npm run dev
+DEBUG=vite:* pnpm dev
 
 # 依存関係プリバンドルの確認
-rm -rf node_modules/.vite && DEBUG=vite:deps npm run dev
+rm -rf node_modules/.vite && DEBUG=vite:deps pnpm dev
 ```
 
 #### 3. テストデバッグ
 ```bash
 # テストデバッグモード
-npm test -- --inspect-brk
+pnpm test -- --inspect-brk
 
 # 特定テストのみ実行
-npm test -- --grep "PlayerService"
+pnpm test -- --grep "PlayerService"
 ```
 
 ### パフォーマンス分析
@@ -344,10 +375,10 @@ npm test -- --grep "PlayerService"
 #### 1. ビルドパフォーマンス {#build-performance}
 ```bash
 # ビルド時間測定
-time npm run build
+time pnpm build
 
 # バンドル分析
-npm run build && npx vite-bundle-analyzer
+pnpm build && npx vite-bundle-analyzer
 
 # 依存関係分析
 npx madge --circular src/
@@ -356,7 +387,7 @@ npx madge --circular src/
 #### 2. メモリ使用量 {#memory-usage}
 ```bash
 # Node.jsメモリ制限増加
-NODE_OPTIONS="--max-old-space-size=4096" npm run build
+NODE_OPTIONS="--max-old-space-size=4096" pnpm build
 
 # メモリ使用量監視
 node --trace-gc script.js
@@ -416,7 +447,7 @@ export default defineConfig({
 
 2. **エディター設定**
    ```json
-   // .vscode/settings.json
+   // エディタ設定ファイルの例
    {
      "typescript.preferences.importModuleSpecifier": "relative",
      "editor.codeActionsOnSave": {
@@ -428,7 +459,7 @@ export default defineConfig({
 3. **Git hooks設定**
    ```bash
    # pre-commitフックで品質チェック
-   npx husky add .husky/pre-commit "npm run check"
+   npx husky add .husky/pre-commit "pnpm check"
    ```
 
 ### 監視・アラート

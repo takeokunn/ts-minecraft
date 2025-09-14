@@ -1,654 +1,487 @@
 ---
-title: "02 Testing Guide"
-description: "02 Testing Guideに関する詳細な説明とガイド。"
+title: "Effect-TS テスティング実践ガイド"
+description: "Effect-TS 3.17+とVitestを使用したTypeScript Minecraftプロジェクトの包括的テスト戦略。Schema-basedバリデーション、Property-Based Testing、高度なテストパターンを実装"
 category: "guide"
 difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'testing']
-prerequisites: ['basic-typescript']
-estimated_reading_time: "15分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+tags: ["testing", "effect-ts", "vitest", "property-based-testing", "schema-validation", "test-automation"]
+prerequisites: ["basic-typescript", "effect-ts-fundamentals", "development-conventions"]
+estimated_reading_time: "20分"
+related_patterns: ["effect-ts-test-patterns", "service-patterns-catalog", "error-handling-patterns"]
+related_docs: ["./00-development-conventions.md", "./05-comprehensive-testing-strategy.md"]
 ---
 
-# テスティングガイド
+# Effect-TS テスティング実践ガイド
 
-このドキュメントでは、最新のEffect-TSパターン（2024年版）を活用したts-minecraftプロジェクトでのテスト作成方法について説明します。Schema-basedバリデーション、Property-Based Testing、関数型テストパターンを中心に扱います。
+## 🎯 Problem Statement
 
-## テスト環境
+大規模なTypeScriptゲームプロジェクトにおけるテストでは以下の課題が発生します：
 
-### 使用ツール
+- **非同期処理の複雑さ**: Effect-TSの非同期パターンのテストが困難
+- **型安全性の検証**: 実行時のスキーマバリデーションのテスト不足
+- **依存関係の管理**: モックとテスト用サービスの適切な構築が困難
+- **統合テストの複雑さ**: 複数レイヤーにまたがるテストの実装が煩雑
+- **パフォーマンステスト**: リアルタイムゲームに必要な性能要件の検証
 
-- **Vitest**: メインテストランナー
-- **@effect/vitest**: Effect-TSとVitestの統合ライブラリ
-- **@effect/test**: Effect-TSのテストユーティリティ
-- **happy-dom**: DOMシミュレーション（ブラウザ環境でのテスト用）
+## 🚀 Solution Approach
 
-### テスト設定
+Effect-TS 3.17+とVitestの統合により、以下を実現：
+
+1. **Schema-first Testing** - 実行時バリデーションの確実なテスト
+2. **Layer-based Mocking** - 依存関係の完全な制御
+3. **Property-based Testing** - Fast-Checkによる網羅的テスト
+4. **Effect-aware Assertions** - 非同期処理の適切な検証
+5. **Performance Integration** - パフォーマンス要件の自動テスト
+
+## ⚡ Quick Guide (5分)
+
+### テスト環境セットアップチェックリスト
+
+- [ ] **Vitest + @effect/vitest** - Effect-TS統合テストランナー
+- [ ] **Fast-Check** - Property-based testing
+- [ ] **Happy-DOM/JSDOM** - DOM環境シミュレーション
+- [ ] **テストLayer** - モックサービスの実装
+- [ ] **Schema検証** - 実行時バリデーションテスト
+
+### 基本テストパターン
 
 ```typescript
-// vitest.config.ts
-export default defineConfig({
-  test: {
-    environment: 'jsdom',  // DOM APIが必要なテスト用
-    globals: true,         // describe, it, expect をグローバルで使用
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-    },
-  },
-})
-```
-
-## 基本的なテスト構造
-
-### Schema-basedテストパターン
-
-```typescript
-import { describe, it, expect } from 'vitest'
-import { Effect, Exit, Schema } from 'effect'
-import { Match } from "effect"
-
-// テスト用のSchema定義（最新Effect-TS 2024パターン）
-const Position = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number.pipe(Schema.between(0, 320)),
-  z: Schema.Number
+// 1. Schema-based バリデーションテスト
+const PlayerSchema = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("PlayerId")),
+  position: Schema.Struct({
+    x: Schema.Number,
+    y: Schema.Number.pipe(Schema.between(0, 320)),
+    z: Schema.Number
+  }),
+  health: Schema.Number.pipe(Schema.clamp(0, 100))
 })
 
-const TestPlayerSchema = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("TestPlayerId"), Schema.nonEmpty()),
-  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(16)),
-  position: Position,
-  health: Schema.Number.pipe(Schema.clamp(0, 100)),
-  gameMode: Schema.Union(Schema.Literal("CREATIVE"), Schema.Literal("SURVIVAL"))
-})
-
-type TestPlayer = Schema.Schema.Type<typeof TestPlayerSchema>
-
-// テストエラー定義（Schema-based）
-const TestError = Schema.Struct({
-  _tag: Schema.Literal("TestError"),
-  message: Schema.String,
-  context: Schema.optional(Schema.String),
-  timestamp: Schema.DateTimeUtc
-})
-
-type TestError = Schema.Schema.Type<typeof TestError>
-
-// 純粋関数でテストデータ生成
-const createValidTestPlayer = (overrides: Partial<TestPlayer> = {}): TestPlayer => {
-  const basePlayer: TestPlayer = {
-    id: `player-${Date.now()}` as TestPlayer["id"],
-    name: "TestPlayer",
-    position: { x: 0, y: 64, z: 0 },
-    health: 100,
-    gameMode: "CREATIVE"
-  }
-  return { ...basePlayer, ...overrides }
-}
-
-// バリデーション用純粋関数（最新Effect-TS 2024パターン）
-const validatePlayerData = (data: unknown): Effect.Effect<TestPlayer, TestError, never> =>
-  Schema.decodeUnknownEither(TestPlayerSchema)(data).pipe(
-    Effect.mapError(parseError => ({
-      _tag: "TestError" as const,
-      message: `Player validation failed: ${parseError.message}`,
-      context: "validatePlayerData",
-      timestamp: new Date().toISOString()
-    }))
-  )
-
-// 早期リターンパターンでの検証
-const isValidPlayerForTest = (player: TestPlayer): boolean => {
-  if (!player.name || player.name.length === 0) return false
-  if (player.health < 0 || player.health > 100) return false
-  if (player.position.y < 0 || player.position.y > 320) return false
-  return true
-}
-
-// サービス定義（Context.GenericTag最新パターン）
-interface EntityServiceInterface {
-  readonly create: (data: { name: string }) => Effect.Effect<{ id: string; name: string }, TestError>
-  readonly update: (id: string, data: Partial<{ name: string }>) => Effect.Effect<void, TestError>
-  readonly delete: (id: string) => Effect.Effect<void, TestError>
-}
-
-const EntityService = Context.GenericTag<EntityServiceInterface>("@app/EntityService")
-
-// テスト用Layer（make関数パターン）
-const makeEntityServiceTest = Effect.gen(function* () {
-  return EntityService.of({
-    create: (data) => Effect.gen(function* () {
-      // 早期リターン: バリデーション
-      if (!data.name || data.name.trim().length === 0) {
-        return yield* Effect.fail({
-          _tag: "TestError" as const,
-          message: "Name is required",
-          context: "EntityService.create",
-          timestamp: new Date().toISOString()
-        })
-      }
-
-      return {
-        id: `entity-${Date.now()}`,
-        name: data.name
-      }
-    }),
-
-    update: (id, data) => Effect.gen(function* () {
-      if (data.name && data.name.trim().length === 0) {
-        return yield* Effect.fail({
-          _tag: "TestError" as const,
-          message: "Invalid name for update",
-          context: "EntityService.update",
-          timestamp: new Date().toISOString()
-        })
-      }
-    }),
-
-    delete: () => Effect.succeed(void 0)
-  })
-})
-
-const EntityServiceTest = Layer.effect(EntityService, makeEntityServiceTest)
-
-describe('EntityService with latest Effect-TS patterns', () => {
-  it('should validate player data with early return pattern', async () => {
-    const validPlayer = createValidTestPlayer()
-
-    // 早期リターン: データ検証
-    if (!isValidPlayerForTest(validPlayer)) {
-      throw new Error("Test setup failed: invalid player data")
-    }
-
-    const program = Effect.gen(function* () => {
-      const service = yield* EntityService
-      const entity = yield* service.create({ name: validPlayer.name })
-      return entity
+// 2. Effect-aware テストの実行
+describe("PlayerService", () => {
+  it("should create player with valid data", async () => {
+    const program = Effect.gen(function* () {
+      const service = yield* PlayerService
+      const player = yield* service.create({
+        name: "TestPlayer",
+        position: { x: 0, y: 64, z: 0 }
+      })
+      return player
     })
 
     const result = await Effect.runPromise(
-      program.pipe(Effect.provide(EntityServiceTest))
+      program.pipe(Effect.provide(TestPlayerServiceLive))
     )
 
-    expect(result.name).toBe(validPlayer.name)
-    expect(result.id).toBeDefined()
-    expect(result.id).toMatch(/^entity-\d+$/)
-  })
-
-  it('should handle validation errors with Schema-based error handling', async () => {
-    const program = Effect.gen(function* () => {
-      const service = yield* EntityService
-      return yield* service.create({ name: "" }) // 無効な名前
+    expect(result).toMatchObject({
+      name: "TestPlayer",
+      position: { x: 0, y: 64, z: 0 },
+      health: 100
     })
-
-    const exit = await Effect.runPromiseExit(
-      program.pipe(Effect.provide(EntityServiceTest))
-    )
-
-    expect(Exit.isFailure(exit)).toBe(true)
-    if (Exit.isFailure(exit) && exit.cause._tag === 'Fail') {
-      const error = exit.cause.error as TestError
-      expect(error._tag).toBe('TestError')
-      expect(error.message).toBe('Name is required')
-      expect(error.context).toBe('EntityService.create')
-      expect(error.timestamp).toBeDefined()
-    }
-  })
-
-  it('should validate player schema with proper error details', async () => {
-    const invalidPlayerData = {
-      id: "", // 無効なID
-      name: "ValidName",
-      position: { x: 0, y: -10, z: 0 }, // 無効なY座標
-      health: 150, // 無効なヘルス
-      gameMode: "INVALID_MODE" // 無効なゲームモード
-    }
-
-    const exit = await Effect.runPromiseExit(
-      validatePlayerData(invalidPlayerData)
-    )
-
-    expect(Exit.isFailure(exit)).toBe(true)
   })
 })
 ```
-
-### テストユーティリティ関数
-
-```typescript
-// テスト実行のヘルパー関数
-const runServiceTest = <A, E>(effect: Effect.Effect<A, E, ServiceType>) =>
-  Effect.runPromise(effect.pipe(Effect.provide(ServiceTestLayer)))
-
-const runServiceTestExit = <A, E>(effect: Effect.Effect<A, E, ServiceType>) =>
-  Effect.runPromiseExit(effect.pipe(Effect.provide(ServiceTestLayer)))
-
-// 使用例
-describe('ServiceTests', () => {
-  it('should process data correctly', async () => {
-    const result = await runServiceTest(
-      Effect.gen(function* () {
-        const service = yield* ServiceType
-        return yield* service.processData(testData)
-      })
-    )
-    
-    expect(result).toEqual(expectedResult)
-  })
-})
-```
-
-## Layerとモックの作成
-
-### テスト用Layer（最新Effect-TS 2024パターン）
-
-```typescript
-import { Layer, Effect, Context, Schema } from 'effect'
-
-// データベースエンティティSchema
-const DatabaseEntity = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("EntityId")),
-  name: Schema.String.pipe(Schema.nonEmpty()),
-  createdAt: Schema.DateTimeUtc,
-  updatedAt: Schema.DateTimeUtc
-})
-
-type DatabaseEntity = Schema.Schema.Type<typeof DatabaseEntity>
-
-// データベースエラーSchema
-const DatabaseError = Schema.Struct({
-  _tag: Schema.Literal("DatabaseError"),
-  message: Schema.String,
-  operation: Schema.String,
-  entityId: Schema.optional(Schema.String),
-  timestamp: Schema.DateTimeUtc
-})
-
-type DatabaseError = Schema.Schema.Type<typeof DatabaseError>
-
-// データベースサービスインターフェース
-interface DatabaseService {
-  readonly find: (id: string) => Effect.Effect<DatabaseEntity, DatabaseError, never>
-  readonly save: (entity: Omit<DatabaseEntity, 'id' | 'createdAt' | 'updatedAt'>) => Effect.Effect<DatabaseEntity, DatabaseError, never>
-  readonly delete: (id: string) => Effect.Effect<void, DatabaseError, never>
-}
-
-const DatabaseService = Context.GenericTag<DatabaseService>("@app/DatabaseService")
-
-// 純粋関数でモックエンティティ作成
-const createMockEntity = (id: string, overrides: Partial<DatabaseEntity> = {}): DatabaseEntity => {
-  const now = new Date().toISOString()
-  return {
-    id: id as DatabaseEntity["id"],
-    name: `Mock Entity ${id}`,
-    createdAt: now,
-    updatedAt: now,
-    ...overrides
-  }
-}
-
-// プロダクション用Layer（make関数パターン）
-const makeDatabaseServiceLive = Effect.gen(function* () {
-  return DatabaseService.of({
-    find: (id) => Effect.gen(function* () {
-      // 実際のDB処理のシミュレーション
-      yield* Effect.log(`Finding entity with id: ${id}`)
-      return createMockEntity(id)
-    }),
-
-    save: (entity) => Effect.gen(function* () {
-      yield* Effect.log(`Saving entity: ${entity.name}`)
-      const saved = createMockEntity(
-        `saved-${Date.now()}`,
-        entity
-      )
-      return saved
-    }),
-
-    delete: () => Effect.gen(function* () {
-      yield* Effect.log("Entity deleted successfully")
-    })
-  })
-})
-
-const DatabaseServiceLive = Layer.effect(DatabaseService, makeDatabaseServiceLive)
-
-// テスト用Layer（エラーケースも含む）
-const makeDatabaseServiceTest = Effect.gen(function* () {
-  return DatabaseService.of({
-    find: (id) => Effect.gen(function* () {
-      // 早期リターン: 無効なIDチェック
-      if (!id || id.trim().length === 0) {
-        return yield* Effect.fail({
-          _tag: "DatabaseError" as const,
-          message: "Invalid entity ID",
-          operation: "find",
-          entityId: id,
-          timestamp: new Date().toISOString()
-        })
-      }
-
-      return createMockEntity(id)
-    }),
-
-    save: (entity) => Effect.gen(function* () {
-      // 早期リターン: 必須フィールドチェック
-      if (!entity.name || entity.name.trim().length === 0) {
-        return yield* Effect.fail({
-          _tag: "DatabaseError" as const,
-          message: "Entity name is required",
-          operation: "save",
-          timestamp: new Date().toISOString()
-        })
-      }
-
-      const saved = createMockEntity(`test-${Date.now()}`, entity)
-      return saved
-    }),
-
-    delete: (id) => Effect.gen(function* () {
-      if (id === 'protected-entity') {
-        return yield* Effect.fail({
-          _tag: "DatabaseError" as const,
-          message: "Cannot delete protected entity",
-          operation: "delete",
-          entityId: id,
-          timestamp: new Date().toISOString()
-        })
-      }
-    })
-  })
-})
-
-const DatabaseServiceTest = Layer.effect(DatabaseService, makeDatabaseServiceTest)
-
-// 環境サービスSchema
-const EnvironmentMode = Schema.Union(
-  Schema.Literal("development"),
-  Schema.Literal("production"),
-  Schema.Literal("test")
-)
-
-type EnvironmentMode = Schema.Schema.Type<typeof EnvironmentMode>
-
-interface EnvironmentService {
-  readonly getMode: Effect.Effect<EnvironmentMode, never, never>
-  readonly isDevelopment: Effect.Effect<boolean, never, never>
-  readonly isProduction: Effect.Effect<boolean, never, never>
-  readonly isTest: Effect.Effect<boolean, never, never>
-}
-
-const EnvironmentService = Context.GenericTag<EnvironmentService>("@app/EnvironmentService")
-
-// 純粋関数でモック環境サービス作成
-const createMockEnvironmentService = (mode: EnvironmentMode = 'test') => {
-  const makeEnvironmentService = Effect.gen(function* () {
-    return EnvironmentService.of({
-      getMode: Effect.succeed(mode),
-      isDevelopment: Effect.succeed(mode === 'development'),
-      isProduction: Effect.succeed(mode === 'production'),
-      isTest: Effect.succeed(mode === 'test')
-    })
-  })
-
-  return Layer.effect(EnvironmentService, makeEnvironmentService)
-}
-```
-
-### 動的モック作成
-
-```typescript
-import { vi } from 'vitest'
-
-const createMockRenderService = (customBehavior: Partial<RenderServiceInterface> = {}) => {
-  const makeMockRenderService = Effect.gen(function* () {
-    const defaultService: RenderServiceInterface = {
-      render: vi.fn().mockResolvedValue(undefined),
-      clear: vi.fn().mockResolvedValue(undefined),
-      resize: vi.fn().mockResolvedValue(undefined)
-    }
-
-    return RenderService.of({
-      ...defaultService,
-      ...customBehavior // カスタムな振る舞いを上書き
-    })
-  })
-
-  return Layer.effect(RenderService, makeMockRenderService)
-}
-
-// 使用例
-it('should call render method', async () => {
-  const mockRender = vi.fn().mockResolvedValue(undefined)
-  const mockLayer = createMockRenderService({ render: mockRender })
-  
-  await runTest(
-    Effect.gen(function* () {
-      const render = yield* RenderService
-      yield* render.render(sceneData)
-    }).pipe(Effect.provide(mockLayer))
-  )
-  
-  expect(mockRender).toHaveBeenCalledWith(sceneData)
-})
-```
-
-## Effect-TSテストパターン
 
 ### エラーハンドリングのテスト
 
 ```typescript
-describe('Error Handling', () => {
-  it('should catch and transform errors', async () => {
-    const program = Effect.gen(function* () {
-      const service = yield* RiskyService
-      return yield* service.riskyOperation().pipe(
-        Effect.catchTag("NetworkError", (error) =>
-          Effect.succeed("fallback-result")
-        )
-      )
-    })
-    
-    // ネットワークエラーを発生させるモック
-    const mockRiskyService = Effect.gen(function* () {
-      return RiskyService.of({
-        riskyOperation: () => Effect.fail(new NetworkError("Connection failed"))
-      })
-    })
-
-    const mockService = Layer.effect(RiskyService, mockRiskyService)
-    
-    const result = await Effect.runPromise(
-      program.pipe(Effect.provide(mockService))
-    )
-    
-    expect(result).toBe("fallback-result")
+// 3. TaggedError のテスト
+it("should handle validation errors properly", async () => {
+  const program = Effect.gen(function* () {
+    const service = yield* PlayerService
+    return yield* service.create({ name: "" }) // 無効なデータ
   })
 
-  it('should propagate unhandled errors', async () => {
-    const program = Effect.gen(function* () {
-      const service = yield* RiskyService
-      return yield* service.riskyOperation()
-    })
-    
-    const mockRiskyService = Effect.gen(function* () {
-      return RiskyService.of({
-        riskyOperation: () => Effect.fail(new UnexpectedError("Critical failure"))
-      })
-    })
+  const exit = await Effect.runPromiseExit(
+    program.pipe(Effect.provide(TestPlayerServiceLive))
+  )
 
-    const mockService = Layer.effect(RiskyService, mockRiskyService)
-    
-    const exit = await Effect.runPromiseExit(
-      program.pipe(Effect.provide(mockService))
-    )
-    
-    expect(Exit.isFailure(exit)).toBe(true)
-    if (Exit.isFailure(exit) && exit.cause._tag === 'Fail') {
-      expect(exit.cause.error).toBeInstanceOf(UnexpectedError)
+  expect(Exit.isFailure(exit)).toBe(true)
+  if (Exit.isFailure(exit)) {
+    const error = Exit.unannotate(exit.cause)
+    expect(error._tag).toBe("ValidationError")
+  }
+})
+```
+
+## 📋 Detailed Instructions
+
+### Step 1: テスト環境の構築
+
+プロジェクトのテスト環境をセットアップします：
+
+```bash
+# 必要なパッケージのインストール
+npm install -D vitest @vitest/ui happy-dom
+npm install -D @effect/vitest fast-check
+npm install -D @types/node
+```
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    environment: 'happy-dom', // DOM APIのシミュレーション
+    globals: true,           // describe, it, expect をグローバルで使用
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html', 'lcov'],
+      exclude: [
+        'node_modules/',
+        'src/test/',
+        '**/*.d.ts',
+        '**/*.config.*',
+        '**/coverage/',
+      ]
+    },
+    // Effect-TSに最適化された設定
+    testTimeout: 10000,      // 非同期処理を考慮
+    hookTimeout: 10000,
+    teardownTimeout: 10000,
+  },
+  // Import aliasの設定
+  resolve: {
+    alias: {
+      '@': new URL('./src', import.meta.url).pathname,
+      '@test': new URL('./src/test', import.meta.url).pathname,
     }
-  })
+  }
 })
 ```
 
-### 並行処理のテスト
+### Step 2: Schema-based テストデータの作成
+
+型安全なテストデータ生成システムを構築：
 
 ```typescript
-describe('Concurrent Operations', () => {
-  it('should handle parallel processing correctly', async () => {
-    const program = Effect.gen(function* () {
-      const service = yield* ProcessingService
-      
-      // 並列処理の実行
-      const results = yield* Effect.allPar([
-        service.processItem("item1"),
-        service.processItem("item2"),
-        service.processItem("item3"),
-      ])
-      
-      return results
-    })
-    
-    const mockProcessingService = Effect.gen(function* () {
-      return ProcessingService.of({
-        processItem: (item) => Effect.succeed(`processed-${item}`)
-      })
-    })
+// src/test/fixtures/player-fixtures.ts
+import { Schema, Effect } from "effect"
 
-    const mockService = Layer.effect(ProcessingService, mockProcessingService)
-    
-    const results = await Effect.runPromise(
-      program.pipe(Effect.provide(mockService))
-    )
-    
-    expect(results).toEqual([
-      "processed-item1",
-      "processed-item2", 
-      "processed-item3"
-    ])
-  })
+// プレイヤースキーマの定義
+const PlayerId = Schema.String.pipe(Schema.brand("PlayerId"))
+const Health = Schema.Number.pipe(Schema.clamp(0, 100), Schema.brand("Health"))
 
-  it('should handle racing operations', async () => {
-    const program = Effect.gen(function* () {
-      const service = yield* AsyncService
-      
-      return yield* Effect.race(
-        service.slowOperation(),
-        service.fastOperation()
-      )
-    })
-    
-    const mockAsyncService = Effect.gen(function* () {
-      return AsyncService.of({
-        slowOperation: () => Effect.delay(Effect.succeed("slow"), "100 millis"),
-        fastOperation: () => Effect.succeed("fast")
-      })
-    })
-
-    const mockService = Layer.effect(AsyncService, mockAsyncService)
-    
-    const result = await Effect.runPromise(
-      program.pipe(Effect.provide(mockService))
-    )
-    
-    expect(result).toBe("fast") // 早い方が返される
-  })
+const Position = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number.pipe(Schema.between(-64, 320)),
+  z: Schema.Number
 })
+
+const Player = Schema.Struct({
+  id: PlayerId,
+  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(16)),
+  position: Position,
+  health: Health,
+  gameMode: Schema.Literal("CREATIVE", "SURVIVAL", "ADVENTURE"),
+  inventory: Schema.Array(ItemSchema),
+  level: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  experience: Schema.Number.pipe(Schema.int(), Schema.nonNegative())
+})
+
+export type Player = Schema.Schema.Type<typeof Player>
+export type PlayerId = Schema.Schema.Type<typeof PlayerId>
+export type Position = Schema.Schema.Type<typeof Position>
+
+// テストデータファクトリー
+export const createTestPlayer = (overrides: Partial<Player> = {}): Player => {
+  const timestamp = Date.now()
+  const basePlayer: Player = {
+    id: `test-player-${timestamp}` as PlayerId,
+    name: "TestPlayer",
+    position: { x: 0, y: 64, z: 0 },
+    health: 100 as Health,
+    gameMode: "CREATIVE",
+    inventory: [],
+    level: 1,
+    experience: 0,
+    ...overrides
+  }
+
+  // Schemaバリデーションを実行
+  const result = Schema.decodeUnknownSync(Player)(basePlayer)
+  return result
+}
+
+// バリアント生成関数
+export const createPlayerVariants = {
+  // 新規プレイヤー
+  newPlayer: () => createTestPlayer({
+    level: 1,
+    experience: 0,
+    health: 100 as Health
+  }),
+
+  // 経験豊富なプレイヤー
+  veteranPlayer: () => createTestPlayer({
+    level: 50,
+    experience: 12500,
+    inventory: [/* アイテムのテストデータ */]
+  }),
+
+  // ダメージを受けたプレイヤー
+  damagedPlayer: () => createTestPlayer({
+    health: 20 as Health
+  }),
+
+  // 高い場所にいるプレイヤー
+  skyPlayer: () => createTestPlayer({
+    position: { x: 0, y: 300, z: 0 }
+  })
+}
+
+// エラーケース用のデータ
+export const createInvalidPlayerData = {
+  emptyName: () => ({ ...createTestPlayer(), name: "" }),
+  invalidHealth: () => ({ ...createTestPlayer(), health: 150 }),
+  outOfBoundsY: () => ({
+    ...createTestPlayer(),
+    position: { x: 0, y: -100, z: 0 }
+  }),
+  negativeLevel: () => ({ ...createTestPlayer(), level: -1 })
+}
 ```
 
-### タイムアウトとリトライのテスト
+### Step 3: テスト用Layerシステムの構築
+
+効率的なモックとテスト用サービスの実装：
 
 ```typescript
-describe('Timeout and Retry', () => {
-  it('should timeout after specified duration', async () => {
-    const program = Effect.gen(function* () {
-      const service = yield* SlowService
-      return yield* service.slowOperation().pipe(
-        Effect.timeout("50 millis")
+// src/test/layers/test-player-service.ts
+import { Effect, Context, Layer } from "effect"
+
+// テスト用エラー定義
+export class TestPlayerError extends Schema.TaggedError("TestPlayerError")<{
+  readonly operation: string
+  readonly playerId?: PlayerId
+  readonly reason: string
+  readonly timestamp: number
+}> {}
+
+// プレイヤーサービスのインターフェース
+export interface PlayerService {
+  readonly create: (data: CreatePlayerData) => Effect.Effect<Player, TestPlayerError>
+  readonly findById: (id: PlayerId) => Effect.Effect<Player | null, TestPlayerError>
+  readonly update: (id: PlayerId, data: UpdatePlayerData) => Effect.Effect<Player, TestPlayerError>
+  readonly delete: (id: PlayerId) => Effect.Effect<void, TestPlayerError>
+  readonly move: (id: PlayerId, position: Position) => Effect.Effect<void, TestPlayerError>
+  readonly takeDamage: (id: PlayerId, damage: number) => Effect.Effect<Player, TestPlayerError>
+}
+
+export const PlayerService = Context.GenericTag<PlayerService>("@minecraft/PlayerService")
+
+// テスト用PlayerService実装
+const makeTestPlayerService = Effect.gen(function* () {
+  // インメモリストレージ
+  const players = new Map<PlayerId, Player>()
+
+  return PlayerService.of({
+    create: (data) => Effect.gen(function* () {
+      // バリデーション
+      const validatedData = yield* Schema.decodeUnknown(CreatePlayerDataSchema)(data).pipe(
+        Effect.mapError(error => new TestPlayerError({
+          operation: "create",
+          reason: `Validation failed: ${error.message}`,
+          timestamp: Date.now()
+        }))
       )
-    })
-    
-    const mockSlowService = Effect.gen(function* () {
-      return SlowService.of({
-        slowOperation: () => Effect.delay(Effect.succeed("result"), "100 millis")
+
+      // プレイヤー作成
+      const player = createTestPlayer({
+        name: validatedData.name,
+        position: validatedData.position || { x: 0, y: 64, z: 0 },
+        gameMode: validatedData.gameMode || "SURVIVAL"
       })
-    })
 
-    const mockService = Layer.effect(SlowService, mockSlowService)
-    
-    const exit = await Effect.runPromiseExit(
-      program.pipe(Effect.provide(mockService))
-    )
-    
-    expect(Exit.isFailure(exit)).toBe(true)
-  })
+      players.set(player.id, player)
 
-  it('should retry on failure', async () => {
-    let attempts = 0
-    const program = Effect.gen(function* () {
-      const service = yield* UnreliableService
-      return yield* service.unreliableOperation().pipe(
-        Effect.retry(Schedule.recurs(2)) // 最大3回試行
+      yield* Effect.logDebug(`Test player created: ${player.id}`)
+      return player
+    }),
+
+    findById: (id) => Effect.gen(function* () {
+      const player = players.get(id)
+
+      if (!player) {
+        yield* Effect.logDebug(`Player not found: ${id}`)
+        return null
+      }
+
+      return player
+    }),
+
+    update: (id, data) => Effect.gen(function* () {
+      const existingPlayer = players.get(id)
+
+      if (!existingPlayer) {
+        return yield* Effect.fail(new TestPlayerError({
+          operation: "update",
+          playerId: id,
+          reason: "Player not found",
+          timestamp: Date.now()
+        }))
+      }
+
+      // 更新データのバリデーション
+      const validatedData = yield* Schema.decodeUnknown(UpdatePlayerDataSchema)(data).pipe(
+        Effect.mapError(error => new TestPlayerError({
+          operation: "update",
+          playerId: id,
+          reason: `Update validation failed: ${error.message}`,
+          timestamp: Date.now()
+        }))
       )
-    })
-    
-    const mockUnreliableService = Effect.gen(function* () {
-      return UnreliableService.of({
-        unreliableOperation: () => {
-          attempts++
-          if (attempts < 3) {
-            return Effect.fail(new TransientError("Temporary failure"))
-          }
-          return Effect.succeed("success")
-        }
-      })
-    })
 
-    const mockService = Layer.effect(UnreliableService, mockUnreliableService)
-    
-    const result = await Effect.runPromise(
-      program.pipe(Effect.provide(mockService))
-    )
-    
-    expect(result).toBe("success")
-    expect(attempts).toBe(3)
+      const updatedPlayer = { ...existingPlayer, ...validatedData }
+      players.set(id, updatedPlayer)
+
+      yield* Effect.logDebug(`Player updated: ${id}`)
+      return updatedPlayer
+    }),
+
+    delete: (id) => Effect.gen(function* () {
+      const existed = players.delete(id)
+
+      if (!existed) {
+        return yield* Effect.fail(new TestPlayerError({
+          operation: "delete",
+          playerId: id,
+          reason: "Player not found",
+          timestamp: Date.now()
+        }))
+      }
+
+      yield* Effect.logDebug(`Player deleted: ${id}`)
+    }),
+
+    move: (id, newPosition) => Effect.gen(function* () {
+      const player = players.get(id)
+
+      if (!player) {
+        return yield* Effect.fail(new TestPlayerError({
+          operation: "move",
+          playerId: id,
+          reason: "Player not found",
+          timestamp: Date.now()
+        }))
+      }
+
+      // 位置バリデーション
+      const validatedPosition = yield* Schema.decodeUnknown(Position)(newPosition).pipe(
+        Effect.mapError(error => new TestPlayerError({
+          operation: "move",
+          playerId: id,
+          reason: `Invalid position: ${error.message}`,
+          timestamp: Date.now()
+        }))
+      )
+
+      const updatedPlayer = { ...player, position: validatedPosition }
+      players.set(id, updatedPlayer)
+
+      yield* Effect.logDebug(`Player moved: ${id} to (${newPosition.x}, ${newPosition.y}, ${newPosition.z})`)
+    }),
+
+    takeDamage: (id, damage) => Effect.gen(function* () {
+      const player = players.get(id)
+
+      if (!player) {
+        return yield* Effect.fail(new TestPlayerError({
+          operation: "takeDamage",
+          playerId: id,
+          reason: "Player not found",
+          timestamp: Date.now()
+        }))
+      }
+
+      if (damage < 0) {
+        return yield* Effect.fail(new TestPlayerError({
+          operation: "takeDamage",
+          playerId: id,
+          reason: "Damage cannot be negative",
+          timestamp: Date.now()
+        }))
+      }
+
+      const newHealth = Math.max(0, player.health - damage) as Health
+      const updatedPlayer = { ...player, health: newHealth }
+      players.set(id, updatedPlayer)
+
+      yield* Effect.logDebug(`Player ${id} took ${damage} damage, health: ${newHealth}`)
+      return updatedPlayer
+    })
   })
 })
+
+export const TestPlayerServiceLive = Layer.effect(PlayerService, makeTestPlayerService)
+
+// 特定の動作をするテスト用サービス
+export const createMockPlayerService = (customBehavior: Partial<PlayerService> = {}) => {
+  const makeCustomService = Effect.gen(function* () {
+    const defaultService = yield* makeTestPlayerService
+
+    return PlayerService.of({
+      ...defaultService,
+      ...customBehavior
+    })
+  })
+
+  return Layer.effect(PlayerService, makeCustomService)
+}
 ```
 
-## Property-Based Testing
+### Step 4: Property-based テスティングの実装
 
-### fast-checkを使ったPBT（最新Effect-TS 2024対応）
+Fast-Checkを使用した包括的なテスト：
 
 ```typescript
+// src/test/properties/player-properties.test.ts
 import * as fc from 'fast-check'
-import { Effect, pipe } from 'effect'
+import { describe, it, expect } from 'vitest'
 
-describe('Position Value Object Properties', () => {
-  // Arbitraryジェネレータの定義
-  const positionArbitrary = fc.record({
-    x: fc.float({ min: -1000, max: 1000, noNaN: true }),
-    y: fc.float({ min: 0, max: 256, noNaN: true }),
-    z: fc.float({ min: -1000, max: 1000, noNaN: true })
-  })
+// Arbitraryジェネレータ
+const positionArbitrary = fc.record({
+  x: fc.float({ min: -30000000, max: 30000000, noNaN: true }),
+  y: fc.float({ min: -64, max: 320, noNaN: true }),
+  z: fc.float({ min: -30000000, max: 30000000, noNaN: true })
+})
 
-  it('distance calculation should be commutative', () => {
+const healthArbitrary = fc.integer({ min: 0, max: 100 })
+
+const playerNameArbitrary = fc.string({ minLength: 1, maxLength: 16 })
+  .filter(name => name.trim().length > 0)
+
+const gameModeArbitrary = fc.oneof(
+  fc.constant("CREATIVE" as const),
+  fc.constant("SURVIVAL" as const),
+  fc.constant("ADVENTURE" as const)
+)
+
+const playerArbitrary = fc.record({
+  name: playerNameArbitrary,
+  position: positionArbitrary,
+  health: healthArbitrary,
+  gameMode: gameModeArbitrary
+})
+
+describe("Player Properties", () => {
+  it("distance calculation should be commutative", () => {
     fc.assert(
       fc.property(
         positionArbitrary,
         positionArbitrary,
         (pos1, pos2) => {
-          const dist1 = calculateDistance(pos1, pos2)
-          const dist2 = calculateDistance(pos2, pos1)
-          expect(dist1).toBeCloseTo(dist2, 5) // 浮動小数点誤差を考慮
+          const distance1 = calculateDistance(pos1, pos2)
+          const distance2 = calculateDistance(pos2, pos1)
+
+          expect(distance1).toBeCloseTo(distance2, 5)
         }
       ),
-      { seed: 42, numRuns: 1000 } // 固定シードで決定的なテスト
+      { seed: 12345, numRuns: 1000 }
     )
   })
 
-  it('moving and moving back should return to original position', () => {
+  it("moving and returning should preserve original position", () => {
     fc.assert(
       fc.property(
         positionArbitrary,
@@ -659,322 +492,525 @@ describe('Position Value Object Properties', () => {
         }),
         (originalPos, offset) => {
           const moved = movePosition(originalPos, offset)
-          const movedBack = movePosition(moved, negatePosition(offset))
+          const returned = movePosition(moved, negateOffset(offset))
 
-          expect(movedBack.x).toBeCloseTo(originalPos.x, 5)
-          expect(movedBack.y).toBeCloseTo(originalPos.y, 5)
-          expect(movedBack.z).toBeCloseTo(originalPos.z, 5)
+          expect(returned.x).toBeCloseTo(originalPos.x, 5)
+          expect(returned.y).toBeCloseTo(originalPos.y, 5)
+          expect(returned.z).toBeCloseTo(originalPos.z, 5)
         }
       ),
-      { seed: 123, numRuns: 500 }
+      { seed: 67890, numRuns: 500 }
     )
   })
 
-  it('distance is always non-negative and satisfies triangle inequality', () => {
-    fc.assert(
-      fc.property(
-        positionArbitrary,
-        positionArbitrary,
-        positionArbitrary,
-        (pos1, pos2, pos3) => {
-          const dist12 = calculateDistance(pos1, pos2)
-          const dist23 = calculateDistance(pos2, pos3)
-          const dist13 = calculateDistance(pos1, pos3)
+  it("health changes should maintain bounds", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        playerArbitrary,
+        fc.array(fc.integer({ min: -50, max: 50 }), { maxLength: 10 }),
+        async (initialPlayer, healthChanges) => {
+          const program = Effect.gen(function* () {
+            const service = yield* PlayerService
 
-          // 距離は常に非負
-          expect(dist12).toBeGreaterThanOrEqual(0)
-          expect(dist23).toBeGreaterThanOrEqual(0)
-          expect(dist13).toBeGreaterThanOrEqual(0)
+            // プレイヤー作成
+            const player = yield* service.create({
+              name: initialPlayer.name,
+              position: initialPlayer.position,
+              gameMode: initialPlayer.gameMode
+            })
 
-          // 三角不等式
-          expect(dist13).toBeLessThanOrEqual(dist12 + dist23 + 0.001) // 浮動小数点誤差許容
-        }
-      ),
-      { seed: 456, numRuns: 200 }
-    )
-  })
-})
-```
+            // 複数のヘルス変更を適用
+            let currentPlayer = player
+            for (const change of healthChanges) {
+              if (change > 0) {
+                // 回復処理（実装が必要）
+                currentPlayer = yield* service.heal(currentPlayer.id, change)
+              } else {
+                // ダメージ処理
+                currentPlayer = yield* service.takeDamage(currentPlayer.id, -change)
+              }
+            }
 
-### カスタムArbitraryジェネレータ（fast-check）
-
-```typescript
-// エンティティのArbitrary
-const entityArbitrary = fc.record({
-  id: fc.string({ minLength: 1, maxLength: 36 }).map(s => `entity-${s}`),
-  position: fc.record({
-    x: fc.float({ min: -30000000, max: 30000000 }),
-    y: fc.float({ min: 0, max: 256 }),
-    z: fc.float({ min: -30000000, max: 30000000 })
-  }),
-  velocity: fc.record({
-    x: fc.float({ min: -10, max: 10 }),
-    y: fc.float({ min: -10, max: 10 }),
-    z: fc.float({ min: -10, max: 10 })
-  }),
-  health: fc.integer({ min: 0, max: 100 }),
-  entityType: fc.oneof(
-    fc.constant('player'),
-    fc.constant('zombie'),
-    fc.constant('skeleton'),
-    fc.constant('creeper')
-  )
-})
-
-// チャンクのArbitrary（Minecraft仕様準拠）
-const chunkArbitrary = fc.record({
-  coordinate: fc.record({
-    x: fc.integer({ min: -100, max: 100 }),
-    z: fc.integer({ min: -100, max: 100 })
-  }),
-  blocks: fc.array(
-    fc.integer({ min: 0, max: 255 }),
-    { minLength: 16 * 16 * 256, maxLength: 16 * 16 * 256 } // 16x16x256ブロック
-  ),
-  biome: fc.oneof(
-    fc.constant('plains'),
-    fc.constant('forest'),
-    fc.constant('desert'),
-    fc.constant('mountains')
-  ),
-  lastModified: fc.integer({ min: 0, max: Date.now() })
-})
-
-// ブロックタイプのArbitrary
-const blockTypeArbitrary = fc.oneof(
-  fc.constant('air'),
-  fc.constant('stone'),
-  fc.constant('dirt'),
-  fc.constant('grass'),
-  fc.constant('wood'),
-  fc.constant('water'),
-  fc.constant('lava')
-)
-
-// 複雑なゲーム状態のArbitrary
-const gameStateArbitrary = fc.record({
-  players: fc.array(entityArbitrary, { maxLength: 4 }),
-  chunks: fc.array(chunkArbitrary, { maxLength: 9 }), // 3x3チャンク
-  timeOfDay: fc.integer({ min: 0, max: 24000 }), // Minecraftの時間サイクル
-  weather: fc.oneof(
-    fc.constant('clear'),
-    fc.constant('rain'),
-    fc.constant('storm')
-  ),
-  difficulty: fc.oneof(
-    fc.constant('peaceful'),
-    fc.constant('easy'),
-    fc.constant('normal'),
-    fc.constant('hard')
-  )
-})
-```
-
-## 統合テスト
-
-### レイヤー全体の統合テスト
-
-```typescript
-describe('Full Application Integration', () => {
-  // テスト用の完全なLayer
-  const TestApplicationLayer = Layer.mergeAll(
-    ConfigServiceTest,
-    DatabaseServiceTest,
-    RenderServiceTest,
-    PhysicsEngineTest,
-    InputServiceTest,
-  )
-
-  it('should handle complete game tick cycle', async () => {
-    const program = Effect.gen(function* () {
-      const game = yield* GameService
-      const world = yield* WorldService
-      
-      // ゲームティックの実行
-      yield* game.tick(16) // 16ms = ~60fps
-      
-      // 状態の確認
-      const playerState = yield* world.getPlayerState()
-      const worldState = yield* world.getWorldState()
-      
-      return { playerState, worldState }
-    })
-    
-    const result = await Effect.runPromise(
-      program.pipe(Effect.provide(TestApplicationLayer))
-    )
-    
-    expect(result.playerState).toBeDefined()
-    expect(result.worldState).toBeDefined()
-  })
-})
-```
-
-### Worker統合テスト
-
-```typescript
-describe('Worker Integration', () => {
-  it('should process mesh generation through worker', async () => {
-    const program = Effect.gen(function* () {
-      const workerManager = yield* WorkerManager
-      const chunkData = createTestChunkData()
-      
-      // Worker経由でメッシュ生成
-      const meshData = yield* workerManager.generateMesh(chunkData)
-      
-      return meshData
-    })
-    
-    const result = await Effect.runPromise(
-      program.pipe(Effect.provide(WorkerManagerTest))
-    )
-    
-    expect(result.vertices).toBeDefined()
-    expect(result.indices).toBeDefined()
-    expect(result.vertices.length).toBeGreaterThan(0)
-  })
-})
-```
-
-## スナップショットテスト
-
-### 設定オブジェクトのスナップショット
-
-```typescript
-describe('Configuration Snapshots', () => {
-  it('should match development config snapshot', async () => {
-    const config = await Effect.runPromise(
-      Effect.gen(function* () {
-        const service = yield* ConfigService
-        return yield* service.getDevelopmentConfig()
-      }).pipe(Effect.provide(ConfigServiceTest))
-    )
-    
-    expect(config).toMatchSnapshot()
-  })
-
-  it('should match production config snapshot', async () => {
-    const config = await Effect.runPromise(
-      Effect.gen(function* () {
-        const service = yield* ConfigService
-        return yield* service.getProductionConfig()
-      }).pipe(Effect.provide(ConfigServiceTest))
-    )
-    
-    expect(config).toMatchSnapshot()
-  })
-})
-```
-
-## パフォーマンステスト
-
-### 実行時間の測定
-
-```typescript
-describe('Performance Tests', () => {
-  it('should generate mesh within acceptable time', async () => {
-    const start = performance.now()
-    
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const generator = yield* MeshGenerator
-        const largeChunk = createLargeTestChunk(64, 64, 64)
-        return yield* generator.generateMesh(largeChunk)
-      }).pipe(Effect.provide(MeshGeneratorTest))
-    )
-    
-    const duration = performance.now() - start
-    expect(duration).toBeLessThan(100) // 100ms以内
-  })
-
-  it('should handle concurrent chunk loading efficiently', async () => {
-    const chunkCount = 25 // 5x5 のチャンク
-    const chunks = Array.from({ length: chunkCount }, (_, i) => 
-      createTestChunk(i % 5, Math.floor(i / 5))
-    )
-    
-    const start = performance.now()
-    
-    await Effect.runPromise(
-      Effect.allPar(
-        chunks.map(chunk => 
-          Effect.gen(function* () {
-            const loader = yield* ChunkLoader
-            return yield* loader.loadChunk(chunk.coordinate)
+            return currentPlayer
           })
-        )
-      ).pipe(Effect.provide(ChunkLoaderTest))
+
+          const result = await Effect.runPromise(
+            program.pipe(Effect.provide(TestPlayerServiceLive))
+          )
+
+          // ヘルスは常に0-100の範囲内
+          expect(result.health).toBeGreaterThanOrEqual(0)
+          expect(result.health).toBeLessThanOrEqual(100)
+        }
+      ),
+      { seed: 13579, numRuns: 200 }
     )
-    
-    const duration = performance.now() - start
-    expect(duration).toBeLessThan(500) // 500ms以内で25チャンク
+  })
+
+  it("player creation should always produce valid players", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        playerArbitrary,
+        async (playerData) => {
+          const program = Effect.gen(function* () {
+            const service = yield* PlayerService
+            return yield* service.create(playerData)
+          })
+
+          const result = await Effect.runPromise(
+            program.pipe(Effect.provide(TestPlayerServiceLive))
+          )
+
+          // 作成されたプレイヤーは常に有効
+          expect(result.name).toBe(playerData.name)
+          expect(result.health).toBeGreaterThanOrEqual(0)
+          expect(result.health).toBeLessThanOrEqual(100)
+          expect(result.position.y).toBeGreaterThanOrEqual(-64)
+          expect(result.position.y).toBeLessThanOrEqual(320)
+          expect(result.id).toBeDefined()
+          expect(typeof result.id).toBe("string")
+        }
+      ),
+      { seed: 24680, numRuns: 300 }
+    )
   })
 })
 ```
 
-## テスト実行
+### Step 5: 統合テストとパフォーマンステスト
 
-### npm scriptでのテスト実行
+```typescript
+// src/test/integration/game-integration.test.ts
+describe("Game Integration Tests", () => {
+  const IntegrationLayers = Layer.mergeAll(
+    TestPlayerServiceLive,
+    TestWorldServiceLive,
+    TestPhysicsServiceLive,
+    TestRenderServiceLive
+  )
 
-```bash
-# 全テスト実行
-pnpm test
+  it("should handle complete game tick cycle", async () => {
+    const program = Effect.gen(function* () {
+      // サービスの取得
+      const playerService = yield* PlayerService
+      const worldService = yield* WorldService
+      const physicsService = yield* PhysicsService
 
-# レイヤー別テスト
-pnpm test:shared           # 共通機能
-pnpm test:infrastructure   # インフラレイヤー
-pnpm test:presentation     # プレゼンテーションレイヤー
+      // プレイヤー作成
+      const player = yield* playerService.create({
+        name: "IntegrationTest",
+        position: { x: 0, y: 64, z: 0 },
+        gameMode: "SURVIVAL"
+      })
 
-# カバレッジ付きテスト
-pnpm test:coverage
+      // 初期状態の記録
+      const initialState = yield* worldService.getGameState()
 
-# 特定のファイルのテスト
-pnpm test src/domain/entities/entity.test.ts
+      // ゲームティック実行（16ms ≈ 60fps）
+      yield* physicsService.update(0.016)
+      yield* worldService.tick(0.016)
 
-# ウォッチモード
-pnpm test --watch
+      // 状態変化の確認
+      const finalState = yield* worldService.getGameState()
 
-# UIモード
-pnpm test --ui
+      return { player, initialState, finalState }
+    })
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(IntegrationLayers))
+    )
+
+    expect(result.player).toBeDefined()
+    expect(result.finalState.timestamp).toBeGreaterThan(result.initialState.timestamp)
+  })
+
+  it("should handle concurrent player actions", async () => {
+    const program = Effect.gen(function* () {
+      const playerService = yield* PlayerService
+
+      // 複数プレイヤーの同時作成
+      const playerActions = Array.from({ length: 10 }, (_, i) =>
+        playerService.create({
+          name: `Player${i}`,
+          position: { x: i * 10, y: 64, z: 0 },
+          gameMode: "SURVIVAL"
+        })
+      )
+
+      // 並列実行
+      const players = yield* Effect.all(playerActions, { concurrency: "unbounded" })
+
+      // 同時移動
+      const moveActions = players.map(player =>
+        playerService.move(player.id, {
+          x: player.position.x + 10,
+          y: player.position.y,
+          z: player.position.z + 10
+        })
+      )
+
+      yield* Effect.all(moveActions, { concurrency: "unbounded" })
+
+      // 状態確認
+      const updatedPlayers = yield* Effect.all(
+        players.map(player => playerService.findById(player.id)),
+        { concurrency: "unbounded" }
+      )
+
+      return updatedPlayers.filter((p): p is Player => p !== null)
+    })
+
+    const startTime = performance.now()
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(IntegrationLayers))
+    )
+
+    const duration = performance.now() - startTime
+
+    // 結果検証
+    expect(result).toHaveLength(10)
+    expect(duration).toBeLessThan(100) // 100ms以内で完了
+
+    // すべてのプレイヤーが正しく移動されている
+    result.forEach((player, index) => {
+      expect(player.position.x).toBe(index * 10 + 10)
+      expect(player.position.z).toBe(10)
+    })
+  })
+})
+
+// パフォーマンステスト
+describe("Performance Tests", () => {
+  it("should process large number of entities efficiently", async () => {
+    const ENTITY_COUNT = 1000
+    const MAX_PROCESSING_TIME = 200 // ms
+
+    const program = Effect.gen(function* () {
+      const entityService = yield* EntityService
+
+      // 大量のエンティティ作成
+      const createTasks = Array.from({ length: ENTITY_COUNT }, (_, i) =>
+        entityService.create({
+          type: "test-entity",
+          position: {
+            x: Math.random() * 1000,
+            y: 64,
+            z: Math.random() * 1000
+          }
+        })
+      )
+
+      const entities = yield* Effect.all(createTasks, { concurrency: 10 })
+
+      // 一括処理
+      const processAllEntities = yield* entityService.processBatch(entities)
+
+      return processAllEntities
+    })
+
+    const startTime = performance.now()
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(TestEntityServiceLive))
+    )
+
+    const duration = performance.now() - startTime
+
+    expect(result).toHaveLength(ENTITY_COUNT)
+    expect(duration).toBeLessThan(MAX_PROCESSING_TIME)
+  })
+
+  it("should maintain consistent frame times under load", async () => {
+    const FRAME_COUNT = 100
+    const TARGET_FRAME_TIME = 16 // ms (60fps)
+    const TOLERANCE = 5 // ms
+
+    const frameTimes: number[] = []
+
+    const program = Effect.gen(function* () {
+      const gameLoop = yield* GameLoopService
+
+      for (let i = 0; i < FRAME_COUNT; i++) {
+        const frameStart = performance.now()
+
+        yield* gameLoop.tick(TARGET_FRAME_TIME / 1000)
+
+        const frameTime = performance.now() - frameStart
+        frameTimes.push(frameTime)
+      }
+
+      return frameTimes
+    })
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(TestGameLoopServiceLive))
+    )
+
+    // フレーム時間の統計
+    const avgFrameTime = result.reduce((a, b) => a + b, 0) / result.length
+    const maxFrameTime = Math.max(...result)
+    const minFrameTime = Math.min(...result)
+
+    expect(avgFrameTime).toBeLessThan(TARGET_FRAME_TIME + TOLERANCE)
+    expect(maxFrameTime).toBeLessThan(TARGET_FRAME_TIME * 2) // 最大でも2倍まで
+    expect(minFrameTime).toBeGreaterThan(1) // 最低限の処理時間
+
+    // フレーム時間の分散確認（一貫性）
+    const variance = result.reduce((acc, time) => {
+      return acc + Math.pow(time - avgFrameTime, 2)
+    }, 0) / result.length
+
+    expect(Math.sqrt(variance)).toBeLessThan(TOLERANCE) // 標準偏差が許容範囲内
+  })
+})
 ```
 
-### CI/CDでのテスト
+## 💡 Best Practices
 
-```yaml
-# GitHub Actions設定例
-- name: Run Tests
-  run: |
-    pnpm test:all
-    pnpm test:coverage
-    
-- name: Upload Coverage
-  uses: codecov/codecov-action@v3
-  with:
-    file: ./coverage/lcov.info
+### 1. テストデータ管理
+
+```typescript
+// ✅ テストデータのバージョン管理
+const TEST_DATA_VERSION = "1.2.0"
+
+const createVersionedTestData = (version: string = TEST_DATA_VERSION) => {
+  switch (version) {
+    case "1.0.0":
+      return createLegacyTestPlayer()
+    case "1.2.0":
+      return createCurrentTestPlayer()
+    default:
+      throw new Error(`Unsupported test data version: ${version}`)
+  }
+}
+
+// ✅ テスト間の独立性確保
+beforeEach(async () => {
+  await cleanupTestEnvironment()
+  await setupFreshTestData()
+})
 ```
 
-## ベストプラクティス
+### 2. 効率的なアサーション
 
-### テスト作成時の注意点
+```typescript
+// ✅ Schema-aware アサーション
+const assertValidPlayer = (player: unknown): asserts player is Player => {
+  const result = Schema.decodeUnknownSync(Player)(player)
+  expect(result).toBeDefined()
+}
 
-1. **Effect-TSパターンの一貫使用**
-   - `Effect.gen` を使った関数型スタイル
-   - 適切なエラーハンドリング
-   - Layerを使った依存性注入
+// ✅ カスタムマッチャー
+expect.extend({
+  toBeValidPosition(received: unknown) {
+    const isValid = Schema.is(Position)(received)
 
-2. **テストの独立性**
-   - 各テストは他のテストに依存しない
-   - モックデータの適切な初期化
-   - 状態の完全なリセット
+    return {
+      pass: isValid,
+      message: () => `Expected ${received} to be a valid Position`
+    }
+  }
+})
+```
 
-3. **命名規則**
-   - `should + 期待される動作` 形式
-   - 日本語コメントでのテスト意図明記
-   - グループ化による構造化
+### 3. テストの並列化最適化
 
-4. **パフォーマンス考慮**
-   - 重いテストは専用のスイートに分離
-   - 並列実行の活用
-   - 適切なタイムアウト設定
+```typescript
+// ✅ CPUバウンドなテストの分離
+describe("CPU Intensive Tests", () => {
+  // これらのテストは並列実行から除外
+  it.concurrent.skip("heavy computation test", async () => {
+    // 重い処理のテスト
+  })
+})
 
-このガイドに従うことで、堅牢で保守しやすいテストスイートを構築できます。
+// ✅ リソースプールの適切な管理
+const testResourcePool = new Semaphore(4) // 最大4つの同時テスト
+
+const runWithResourceLimit = <T>(test: () => Promise<T>) =>
+  testResourcePool.withPermit(test)
+```
+
+## ⚠️ Common Pitfalls
+
+### 1. 非同期処理の適切な待機
+
+```typescript
+// ❌ 不完全な非同期処理のテスト
+const badTest = async () => {
+  const service = getService()
+  service.asyncOperation() // awaitしていない
+  expect(service.getState()).toBe("completed") // 失敗する可能性
+}
+
+// ✅ 適切な非同期処理のテスト
+const goodTest = async () => {
+  const program = Effect.gen(function* () {
+    const service = yield* Service
+    yield* service.asyncOperation()
+    const state = yield* service.getState()
+    return state
+  })
+
+  const result = await Effect.runPromise(
+    program.pipe(Effect.provide(TestServiceLive))
+  )
+
+  expect(result).toBe("completed")
+}
+```
+
+### 2. テスト状態の汚染
+
+```typescript
+// ❌ グローバル状態に依存するテスト
+let globalCounter = 0
+
+const unreliableTest = () => {
+  globalCounter++
+  expect(globalCounter).toBe(1) // 他のテストの影響を受ける
+}
+
+// ✅ 状態が独立したテスト
+const reliableTest = async () => {
+  const program = Effect.gen(function* () {
+    const counter = yield* CounterService
+    yield* counter.increment()
+    const value = yield* counter.getValue()
+    return value
+  })
+
+  const result = await Effect.runPromise(
+    program.pipe(Effect.provide(createFreshCounterService()))
+  )
+
+  expect(result).toBe(1)
+}
+```
+
+## 🔧 Advanced Techniques
+
+### 1. 時間制御テスト
+
+```typescript
+// TestClockを使用した決定論的時間制御
+describe("Time-dependent Operations", () => {
+  it("should handle scheduled tasks correctly", async () => {
+    const program = Effect.gen(function* () {
+      const scheduler = yield* TaskScheduler
+      const clock = yield* Clock
+
+      // 10秒後にタスクをスケジュール
+      const task = scheduler.scheduleIn("10 seconds", performTask)
+
+      // 時間を9秒進める
+      yield* TestClock.adjust("9 seconds")
+      let isCompleted = yield* task.isCompleted()
+      expect(isCompleted).toBe(false)
+
+      // さらに2秒進める（合計11秒）
+      yield* TestClock.adjust("2 seconds")
+      isCompleted = yield* task.isCompleted()
+      expect(isCompleted).toBe(true)
+    })
+
+    await Effect.runPromise(
+      program.pipe(
+        Effect.provide(TestTaskSchedulerLive),
+        Effect.provide(TestClock.layer)
+      )
+    )
+  })
+})
+```
+
+### 2. エラー注入テスト
+
+```typescript
+// 意図的なエラー発生によるロバストネステスト
+const createFaultInjectionService = (failureRate: number = 0.1) => {
+  const makeService = Effect.gen(function* () {
+    return Service.of({
+      operation: (data) => Effect.gen(function* () {
+        // 指定された確率でエラーを発生
+        const shouldFail = Math.random() < failureRate
+
+        if (shouldFail) {
+          return yield* Effect.fail(new TransientError("Injected failure"))
+        }
+
+        return yield* normalOperation(data)
+      })
+    })
+  })
+
+  return Layer.effect(Service, makeService)
+}
+
+describe("Fault Tolerance", () => {
+  it("should handle transient failures gracefully", async () => {
+    const program = Effect.gen(function* () {
+      const service = yield* Service
+
+      // 失敗を考慮したリトライ戦略
+      const result = yield* service.operation(testData).pipe(
+        Effect.retry(
+          Schedule.exponential("100 millis").pipe(
+            Schedule.intersect(Schedule.recurs(5))
+          )
+        )
+      )
+
+      return result
+    })
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(createFaultInjectionService(0.7))) // 70%失敗率
+    )
+
+    expect(result).toBeDefined()
+  })
+})
+```
+
+### 3. カオスエンジニアリングテスト
+
+```typescript
+// システムの予期しない状況での動作テスト
+describe("Chaos Engineering", () => {
+  it("should survive random service failures", async () => {
+    const chaosConfig = {
+      networkFailureRate: 0.1,
+      serviceLatency: { min: 10, max: 1000 },
+      memoryPressure: 0.8
+    }
+
+    const program = Effect.gen(function* () {
+      const system = yield* GameSystem
+
+      // カオスを注入しながらシステムを実行
+      const results = []
+      for (let i = 0; i < 100; i++) {
+        const result = yield* system.processGameTick().pipe(
+          Effect.timeout("5 seconds"),
+          Effect.catchAll(() => Effect.succeed("timeout"))
+        )
+        results.push(result)
+      }
+
+      return results
+    })
+
+    const results = await Effect.runPromise(
+      program.pipe(Effect.provide(createChaosGameSystem(chaosConfig)))
+    )
+
+    // システムが完全に停止していないことを確認
+    const successCount = results.filter(r => r !== "timeout").length
+    expect(successCount).toBeGreaterThan(50) // 最低50%は成功する
+  })
+})
+```
+
+このガイドに従うことで、堅牢で保守性の高いテストスイートを構築し、高品質なゲームエンジンを開発できます。

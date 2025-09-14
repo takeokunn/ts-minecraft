@@ -108,8 +108,8 @@ cd ts-minecraft-examples
 npm init -y
 
 # 依存関係インストール
-npm install effect @effect/schema @effect/platform three
-npm install -D typescript @types/three @types/node vitest tsx
+pnpm add effect @effect/schema @effect/platform three
+pnpm add -D typescript @types/three @types/node vitest tsx
 ```
 
 ### 2️⃣ TypeScript設定

@@ -104,30 +104,190 @@ export const ShaderConfigSchema = Schema.Struct({
 
 #### ⭐ **RenderService実装**
 ```typescript
+/**
+ * レンダリングサービス
+ * @description Three.js統合によるWebGL高性能レンダリングシステム
+ * @since 1.0.0
+ */
 export interface RenderService {
-  // 基本レンダリング
-  readonly initializeRenderer: (config: RenderConfig) => Effect.Effect<void, RenderInitError>
-  readonly renderFrame: () => Effect.Effect<void, RenderError>
-  readonly resize: (width: number, height: number) => Effect.Effect<void, never>
+  /**
+   * レンダラーの初期化
+   * @param config - レンダリング設定（解像度、アンチエイリアス、影等）
+   * @returns void - 初期化完了
+   * @throws RenderInitError キャンバス未発見、WebGL未対応、GPU不足などの初期化失敗
+   * @example
+   * ```typescript
+   * const config = {
+   *   canvas: "gameCanvas",
+   *   width: 1920, height: 1080,
+   *   antialias: true, shadows: true,
+   *   fog: true, renderDistance: 16,
+   *   fov: 75, maxFPS: 60
+   * };
+   * yield* renderService.initializeRenderer(config);
+   * ```
+   */
+  readonly initializeRenderer: (config: RenderConfig) => Effect.Effect<void, RenderInitError>;
 
-  // シーン管理
-  readonly addToScene: (object: THREE.Object3D) => Effect.Effect<void, never>
-  readonly removeFromScene: (object: THREE.Object3D) => Effect.Effect<void, never>
-  readonly clearScene: () => Effect.Effect<void, never>
+  /**
+   * フレームのレンダリング実行
+   * @returns void - レンダリング完了
+   * @throws RenderError WebGLコンテキスト喪失、メモリ不足、シェーダーエラーなど
+   * @example
+   * ```typescript
+   * // ゲームループ内で毎フレーム実行
+   * yield* renderService.renderFrame();
+   * ```
+   */
+  readonly renderFrame: () => Effect.Effect<void, RenderError>;
 
-  // カメラ制御
-  readonly updateCamera: (position: Position, rotation: Rotation) => Effect.Effect<void, never>
-  readonly setCameraMode: (mode: CameraMode) => Effect.Effect<void, never>
+  /**
+   * レンダラーのリサイズ
+   * @param width - 新しい幅（ピクセル単位）
+   * @param height - 新しい高さ（ピクセル単位）
+   * @returns void - リサイズ完了（エラーなし）
+   * @example
+   * ```typescript
+   * // ウィンドウリサイズ時
+   * yield* renderService.resize(window.innerWidth, window.innerHeight);
+   * ```
+   */
+  readonly resize: (width: number, height: number) => Effect.Effect<void, never>;
 
-  // チャンクレンダリング
-  readonly renderChunk: (chunk: Chunk) => Effect.Effect<THREE.Mesh, ChunkRenderError>
-  readonly updateChunkMesh: (chunkMesh: THREE.Mesh, chunk: Chunk) => Effect.Effect<void, never>
-  readonly disposeChunk: (chunkMesh: THREE.Mesh) => Effect.Effect<void, never>
+  /**
+   * オブジェクトをシーンに追加
+   * @param object - 追加するThree.jsオブジェクト（メッシュ、ライト、カメラなど）
+   * @returns void - 追加完了（エラーなし）
+   * @example
+   * ```typescript
+   * const mesh = new THREE.Mesh(geometry, material);
+   * yield* renderService.addToScene(mesh);
+   * ```
+   */
+  readonly addToScene: (object: THREE.Object3D) => Effect.Effect<void, never>;
 
-  // 最適化機能
-  readonly enableOcclusion: (enabled: boolean) => Effect.Effect<void, never>
-  readonly setLODDistance: (distances: number[]) => Effect.Effect<void, never>
-  readonly enableInstancing: (enabled: boolean) => Effect.Effect<void, never>
+  /**
+   * オブジェクトをシーンから削除
+   * @param object - 削除するThree.jsオブジェクト
+   * @returns void - 削除完了（エラーなし、存在しないオブジェクトでも成功）
+   * @example
+   * ```typescript
+   * yield* renderService.removeFromScene(oldChunkMesh);
+   * ```
+   */
+  readonly removeFromScene: (object: THREE.Object3D) => Effect.Effect<void, never>;
+
+  /**
+   * シーンの全オブジェクトを削除
+   * @returns void - 全削除完了（エラーなし）
+   * @example
+   * ```typescript
+   * // ワールド切り替え時にシーンをリセット
+   * yield* renderService.clearScene();
+   * ```
+   */
+  readonly clearScene: () => Effect.Effect<void, never>;
+
+  /**
+   * カメラの位置・回転を更新
+   * @param position - 新しいカメラ位置（ワールド座標）
+   * @param rotation - 新しいカメラ回転（ラジアン角度）
+   * @returns void - カメラ更新完了（エラーなし）
+   * @example
+   * ```typescript
+   * const playerPos = { x: 10, y: 64, z: 20 };
+   * const rotation = { x: 0, y: Math.PI / 4, z: 0 };
+   * yield* renderService.updateCamera(playerPos, rotation);
+   * ```
+   */
+  readonly updateCamera: (position: Position, rotation: Rotation) => Effect.Effect<void, never>;
+
+  /**
+   * カメラモードの設定
+   * @param mode - カメラモード（"first-person", "third-person", "free"など）
+   * @returns void - モード変更完了（エラーなし）
+   * @example
+   * ```typescript
+   * yield* renderService.setCameraMode("first-person");
+   * ```
+   */
+  readonly setCameraMode: (mode: CameraMode) => Effect.Effect<void, never>;
+
+  /**
+   * チャンクのレンダリングメッシュ生成
+   * @param chunk - レンダリングするチャンクデータ（ブロック配列、バイオーム情報含む）
+   * @returns THREE.Mesh - 生成されたチャンクメッシュ（Three.jsオブジェクト）
+   * @throws ChunkRenderError ジオメトリ生成失敗、マテリアル不足、メモリ不足など
+   * @example
+   * ```typescript
+   * const chunk = yield* worldService.loadChunk({ chunkX: 0, chunkZ: 0 });
+   * const chunkMesh = yield* renderService.renderChunk(chunk);
+   * // chunkMeshは自動的にシーンに追加される
+   * ```
+   */
+  readonly renderChunk: (chunk: Chunk) => Effect.Effect<THREE.Mesh, ChunkRenderError>;
+
+  /**
+   * 既存チャンクメッシュの更新
+   * @param chunkMesh - 更新対象の既存メッシュオブジェクト
+   * @param chunk - 新しいチャンクデータ
+   * @returns void - メッシュ更新完了（エラーなし）
+   * @example
+   * ```typescript
+   * // ブロック変更時にメッシュを更新
+   * const modifiedChunk = yield* worldService.getChunk(coord);
+   * yield* renderService.updateChunkMesh(existingMesh, modifiedChunk);
+   * ```
+   */
+  readonly updateChunkMesh: (chunkMesh: THREE.Mesh, chunk: Chunk) => Effect.Effect<void, never>;
+
+  /**
+   * チャンクメッシュの削除とリソース解放
+   * @param chunkMesh - 削除するチャンクメッシュ
+   * @returns void - 削除・解放完了（エラーなし）
+   * @example
+   * ```typescript
+   * // チャンクアンロード時にメッシュを削除
+   * yield* renderService.disposeChunk(chunkMesh);
+   * ```
+   */
+  readonly disposeChunk: (chunkMesh: THREE.Mesh) => Effect.Effect<void, never>;
+
+  /**
+   * オクルージョンカリングの有効/無効切り替え
+   * @param enabled - true: 有効, false: 無効
+   * @returns void - 設定変更完了（エラーなし）
+   * @example
+   * ```typescript
+   * // パフォーマンス向上のためオクルージョンカリングを有効化
+   * yield* renderService.enableOcclusion(true);
+   * ```
+   */
+  readonly enableOcclusion: (enabled: boolean) => Effect.Effect<void, never>;
+
+  /**
+   * LOD（Level of Detail）システムの距離設定
+   * @param distances - LOD切り替え距離の配列（近い順）例: [50, 100, 200]
+   * @returns void - LOD設定変更完了（エラーなし）
+   * @example
+   * ```typescript
+   * // 近距離: 高詳細, 中距離: 中詳細, 遠距離: 低詳細
+   * yield* renderService.setLODDistance([32, 64, 128]);
+   * ```
+   */
+  readonly setLODDistance: (distances: number[]) => Effect.Effect<void, never>;
+
+  /**
+   * インスタンシングの有効/無効切り替え
+   * @param enabled - true: 有効（同一ブロックをインスタンス描画）, false: 無効
+   * @returns void - インスタンシング設定変更完了（エラーなし）
+   * @example
+   * ```typescript
+   * // 同一ブロックの大量描画を最適化
+   * yield* renderService.enableInstancing(true);
+   * ```
+   */
+  readonly enableInstancing: (enabled: boolean) => Effect.Effect<void, never>;
 }
 
 export const RenderService = Context.GenericTag<RenderService>("RenderService")
@@ -349,24 +509,159 @@ export const frustumCullingOptimized = (
 
 #### ✅ **アセットローダー実装**
 ```typescript
+/**
+ * アセット管理サービス
+ * @description テクスチャ、モデル、オーディオのローディングとキャッシュ管理システム
+ * @since 1.0.0
+ */
 export interface AssetService {
-  // テクスチャ管理
-  readonly loadTexture: (path: string) => Effect.Effect<THREE.Texture, AssetLoadError>
-  readonly loadTextureAtlas: (config: TextureAtlasConfig) => Effect.Effect<THREE.Texture, AssetLoadError>
-  readonly preloadTextures: (paths: string[]) => Effect.Effect<void, AssetLoadError>
+  /**
+   * テクスチャの読み込み
+   * @param path - テクスチャファイルのパス（PNG, JPG, WebP対応）
+   * @returns THREE.Texture - 読み込まれたテクスチャオブジェクト（WebGLで使用可能）
+   * @throws AssetLoadError ファイル未発見、フォーマット未対応、ネットワークエラー、CORS制限など
+   * @example
+   * ```typescript
+   * const grassTexture = yield* assetService.loadTexture("/textures/grass.png");
+   * const material = new THREE.MeshBasicMaterial({ map: grassTexture });
+   * ```
+   */
+  readonly loadTexture: (path: string) => Effect.Effect<THREE.Texture, AssetLoadError>;
 
-  // モデル管理
-  readonly loadModel: (path: string) => Effect.Effect<THREE.Group, AssetLoadError>
-  readonly loadGLTF: (path: string) => Effect.Effect<THREE.Group, AssetLoadError>
+  /**
+   * テクスチャアトラス（テクスチャ統合画像）の生成
+   * @param config - アトラス設定（統合する個別テクスチャの配置情報）
+   * @returns THREE.Texture - 統合されたアトラステクスチャ
+   * @throws AssetLoadError 個別テクスチャの読み込み失敗、メモリ不足、Canvas操作エラーなど
+   * @example
+   * ```typescript
+   * const atlasConfig = {
+   *   width: 1024, height: 1024,
+   *   textures: [
+   *     { path: "/textures/stone.png", x: 0, y: 0, width: 16, height: 16 },
+   *     { path: "/textures/dirt.png", x: 16, y: 0, width: 16, height: 16 }
+   *   ]
+   * };
+   * const atlas = yield* assetService.loadTextureAtlas(atlasConfig);
+   * ```
+   */
+  readonly loadTextureAtlas: (config: TextureAtlasConfig) => Effect.Effect<THREE.Texture, AssetLoadError>;
 
-  // オーディオ管理
-  readonly loadAudio: (path: string) => Effect.Effect<AudioBuffer, AssetLoadError>
-  readonly playSound: (soundId: string, options?: AudioOptions) => Effect.Effect<void, AudioError>
+  /**
+   * 複数テクスチャの一括事前読み込み
+   * @param paths - 事前読み込みするテクスチャパスの配列
+   * @returns void - 全テクスチャの読み込み完了
+   * @throws AssetLoadError いずれかのテクスチャ読み込み失敗時（部分成功の場合も失敗）
+   * @example
+   * ```typescript
+   * const blockTextures = [
+   *   "/textures/stone.png",
+   *   "/textures/grass.png",
+   *   "/textures/dirt.png"
+   * ];
+   * yield* assetService.preloadTextures(blockTextures);
+   * ```
+   */
+  readonly preloadTextures: (paths: string[]) => Effect.Effect<void, AssetLoadError>;
 
-  // キャッシュ管理
-  readonly clearCache: () => Effect.Effect<void, never>
-  readonly getCacheSize: () => Effect.Effect<number, never>
-  readonly preloadAssets: (manifest: AssetManifest) => Effect.Effect<void, AssetLoadError>
+  /**
+   * 3Dモデルの読み込み（汎用フォーマット）
+   * @param path - モデルファイルのパス（OBJ, FBX対応）
+   * @returns THREE.Group - 読み込まれたモデルオブジェクト群
+   * @throws AssetLoadError ファイル未発見、フォーマットエラー、パース失敗、メモリ不足など
+   * @example
+   * ```typescript
+   * const treeModel = yield* assetService.loadModel("/models/tree.obj");
+   * scene.add(treeModel);
+   * ```
+   */
+  readonly loadModel: (path: string) => Effect.Effect<THREE.Group, AssetLoadError>;
+
+  /**
+   * GLTFモデルの読み込み（推奨フォーマット）
+   * @param path - GLTFファイルのパス（.gltf, .glb対応）
+   * @returns THREE.Group - GLTFシーン全体を含むグループオブジェクト
+   * @throws AssetLoadError ファイル未発見、GLTF仕様エラー、依存アセット不足など
+   * @example
+   * ```typescript
+   * const playerModel = yield* assetService.loadGLTF("/models/steve.glb");
+   * playerModel.animations.forEach(clip => mixer.clipAction(clip));
+   * ```
+   */
+  readonly loadGLTF: (path: string) => Effect.Effect<THREE.Group, AssetLoadError>;
+
+  /**
+   * オーディオファイルの読み込み
+   * @param path - オーディオファイルのパス（MP3, OGG, WAV対応）
+   * @returns AudioBuffer - Web Audio APIで使用可能なオーディオバッファ
+   * @throws AssetLoadError ファイル未発見、フォーマット未対応、デコード失敗など
+   * @example
+   * ```typescript
+   * const footstepSound = yield* assetService.loadAudio("/sounds/footstep.ogg");
+   * // footstepSoundはplaySound()で再生可能になる
+   * ```
+   */
+  readonly loadAudio: (path: string) => Effect.Effect<AudioBuffer, AssetLoadError>;
+
+  /**
+   * サウンドの再生
+   * @param soundId - 再生するサウンドのID（loadAudio で読み込んだパスまたは登録ID）
+   * @param options - 再生オプション（音量、ピッチ、3D位置など）省略可能
+   * @returns void - 再生開始完了
+   * @throws AudioError サウンド未登録、AudioContext エラー、再生失敗など
+   * @example
+   * ```typescript
+   * // 基本再生
+   * yield* assetService.playSound("footstep");
+   *
+   * // オプション付き再生
+   * yield* assetService.playSound("explosion", {
+   *   volume: 0.8,
+   *   pitch: 1.2,
+   *   position: { x: 10, y: 5, z: -3 }
+   * });
+   * ```
+   */
+  readonly playSound: (soundId: string, options?: AudioOptions) => Effect.Effect<void, AudioError>;
+
+  /**
+   * アセットキャッシュの全削除
+   * @returns void - キャッシュクリア完了（エラーなし）
+   * @example
+   * ```typescript
+   * // メモリ不足時やワールド切り替え時にキャッシュをクリア
+   * yield* assetService.clearCache();
+   * ```
+   */
+  readonly clearCache: () => Effect.Effect<void, never>;
+
+  /**
+   * 現在のキャッシュサイズ取得
+   * @returns number - キャッシュサイズ（バイト単位の概算値）
+   * @example
+   * ```typescript
+   * const cacheSize = yield* assetService.getCacheSize();
+   * console.log(`Cache size: ${(cacheSize / 1024 / 1024).toFixed(2)} MB`);
+   * ```
+   */
+  readonly getCacheSize: () => Effect.Effect<number, never>;
+
+  /**
+   * アセットマニフェストに基づく一括事前読み込み
+   * @param manifest - 読み込むアセットの一覧とメタデータ
+   * @returns void - 全アセットの事前読み込み完了
+   * @throws AssetLoadError いずれかのアセット読み込み失敗時
+   * @example
+   * ```typescript
+   * const gameAssets = {
+   *   textures: ["/textures/blocks.png", "/textures/ui.png"],
+   *   models: ["/models/player.glb"],
+   *   sounds: ["/sounds/ambient.ogg", "/sounds/ui_click.wav"]
+   * };
+   * yield* assetService.preloadAssets(gameAssets);
+   * ```
+   */
+  readonly preloadAssets: (manifest: AssetManifest) => Effect.Effect<void, AssetLoadError>;
 }
 
 export const AssetService = Context.GenericTag<AssetService>("AssetService")

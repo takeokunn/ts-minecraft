@@ -1,259 +1,383 @@
-# Sample Code Refactoring Execution Plan
+# EXECUTION PLAN 4: docsディレクトリサンプルコード洗練計画
 
-## Overview
-This plan outlines the systematic refactoring of all TypeScript sample code in the documentation to follow modern Effect-TS patterns and best practices.
+## 🎯 目的・概要
 
-## Statistics
-- **Total TypeScript Code Blocks**: ~800+ across all documentation
-- **Primary Locations**:
-  - `/docs/pattern-catalog/`: ~100+ code blocks
-  - `/docs/01-architecture/`: ~40+ code blocks
-  - `/docs/02-specifications/`: ~400+ code blocks
-  - `/docs/03-guides/`: ~200+ code blocks
-  - `/docs/06-examples/`: ~50+ code blocks
+docsディレクトリ内の全TypeScriptサンプルコードを最新のEffect-TSパターンに準拠させ、以下の要件を満たす高品質なコードに洗練する：
 
-## Refactoring Principles
+- **Effect-TSの最新書き方**: 3.17+の最新パターンを活用
+- **PBT対応**: Property-Based Testingしやすい粒度の純粋関数
+- **Early Return**: ガード節と早期リターンによる可読性向上
+- **単一責務**: 各関数が一つの責務を持つ設計
+- **厳密な型**: Effect-TSの型システムを最大限活用
+- **高度なマッチング**: if/else/switchの代わりにMatch.value活用
+- **浅いネスト**: ネスト深度を最小化
 
-### 1. Effect-TS Modern Patterns
-- Use latest Effect-TS library patterns (Context7 ID: `/websites/effect-ts_github_io_effect`)
-- Replace Promise-based code with Effect
-- Use proper Effect services and layers
-- Implement proper dependency injection
+## 📊 現状分析結果
 
-### 2. Property-Based Testing (PBT) Ready
-- Design pure functions with clear inputs/outputs
-- Avoid side effects in business logic
-- Make functions composable and testable
-- Add proper type constraints for generators
+### 対象ファイル統計
+- **総対象ファイル**: 100+個のmarkdownファイル
+- **TypeScriptコードブロック**: 1,000+箇所
+- **主要カテゴリ**:
+  - 基本使用例: `docs/06-examples/01-basic-usage/` (3ファイル)
+  - アーキテクチャ解説: `docs/01-architecture/` (10ファイル)
+  - API仕様: `docs/05-reference/` (20+ファイル)
+  - 仕様書: `docs/02-specifications/` (50+ファイル)
+  - ガイド: `docs/03-guides/` (10ファイル)
 
-### 3. Early Return & Single Responsibility
-- Implement guard clauses at function start
-- Each function handles one concern
-- Extract complex logic into separate functions
-- Avoid deeply nested code structures
+### 特定された問題点分類
 
-### 4. Type Safety with Effect-TS
-- Use branded types for domain modeling
-- Leverage Effect's built-in type utilities
-- Replace `any` and `unknown` with proper types
-- Use Schema for runtime validation
+#### 🔴 Critical Issues (緊急度: 高)
+1. **古いEffect-TS構文**:
+   - `Effect.succeed/fail` → `Effect.gen` + `yield*`
+   - Context.Tag古い定義方式
+   - Schema.Struct以前の型定義
 
-### 5. Advanced Pattern Matching
-- Replace if/else/switch with Match.type/Match.value
-- Use exhaustive pattern matching
-- Leverage discriminated unions
-- Implement tag-based matching for ADTs
+2. **分岐構造**:
+   - if/else文の多用
+   - switch文の使用
+   - Match.value不使用
 
-### 6. Shallow Nesting
-- Maximum 2-3 levels of nesting
-- Use pipe/flow for chaining operations
-- Extract nested logic to separate functions
-- Leverage Effect's compositional operators
+3. **ネスト深度**:
+   - 3段階以上のネスト
+   - コールバック地獄
+   - 複雑な条件分岐
 
-## Sub-Agent Task Breakdown
+#### 🟡 Medium Issues (緊急度: 中)
+4. **関数責務**:
+   - 複数の責務を持つ大きな関数
+   - PBTに適さない関数設計
+   - 副作用の分離不足
 
-### Phase 1: Pattern Catalog Refactoring
-**Agent Task 1.1: Service Patterns**
-- File: `/docs/pattern-catalog/01-service-patterns.md`
-- Refactor all service pattern examples
-- Apply Effect layers and dependency injection
-- Use Context7 to get latest Effect service patterns
+5. **型安全性**:
+   - any型の使用
+   - 型アサーション多用
+   - Brand型の未活用
 
-**Agent Task 1.2: Error Handling Patterns**
-- File: `/docs/pattern-catalog/02-error-handling-patterns.md`
-- Replace try/catch with Effect error handling
-- Implement proper error types with Schema
-- Use Effect's error combinators
+#### 🟢 Low Issues (緊急度: 低)
+6. **コード品質**:
+   - 冗長な記述
+   - 命名規則の不統一
+   - コメント不足
 
-**Agent Task 1.3: Data Modeling Patterns**
-- File: `/docs/pattern-catalog/03-data-modeling-patterns.md`
-- Implement branded types and newtype patterns
-- Add Schema validation for all models
-- Use Effect's Data module for immutable structures
+## 🛠️ サブエージェント戦略
 
-**Agent Task 1.4: Async Patterns**
-- File: `/docs/pattern-catalog/04-async-patterns.md`
-- Replace Promise with Effect
-- Implement proper concurrency patterns
-- Use Effect's Fiber and Queue modules
-
-**Agent Task 1.5: Testing Patterns**
-- File: `/docs/pattern-catalog/05-testing-patterns.md`
-- Add property-based testing examples
-- Use Effect's TestClock and TestRandom
-- Implement proper test layers
-
-**Agent Task 1.6: Performance Patterns**
-- File: `/docs/pattern-catalog/06-performance-patterns.md`
-- Add memoization with Effect's Cache
-- Implement streaming with Stream module
-- Use proper resource management
-
-**Agent Task 1.7: Integration Patterns**
-- File: `/docs/pattern-catalog/07-integration-patterns.md`
-- Implement proper HTTP clients with Effect
-- Add retry and circuit breaker patterns
-- Use proper configuration management
-
-### Phase 2: Architecture Documentation
-**Agent Task 2.1: DDD Strategic Design**
-- File: `/docs/01-architecture/02-ddd-strategic-design.md`
-- Refactor domain models with branded types
-- Implement aggregates with Effect services
-- Use proper repository patterns
-
-**Agent Task 2.2: Effect-TS Patterns**
-- File: `/docs/01-architecture/06-effect-ts-patterns.md`
-- Update to latest Effect-TS patterns
-- Add more advanced usage examples
-- Include proper layer composition
-
-**Agent Task 2.3: ECS Integration**
-- File: `/docs/01-architecture/05-ecs-integration.md`
-- Refactor ECS components with Effect
-- Implement proper system composition
-- Add reactive patterns with Stream
-
-### Phase 3: Core Features Specifications
-**Agent Task 3.1: Inventory System**
-- File: `/docs/02-specifications/00-core-features/01-inventory-system.md`
-- Refactor inventory operations with Effect
-- Implement proper state management
-- Add validation with Schema
-
-**Agent Task 3.2: Block System**
-- File: `/docs/02-specifications/00-core-features/03-block-system.md`
-- Use discriminated unions for block types
-- Implement pattern matching for block behavior
-- Add proper type constraints
-
-**Agent Task 3.3: Entity System**
-- File: `/docs/02-specifications/00-core-features/04-entity-system.md`
-- Refactor entity components with Effect
-- Implement proper entity lifecycle
-- Use Ref for mutable state
-
-**Agent Task 3.4: Physics System**
-- File: `/docs/02-specifications/00-core-features/06-physics-system.md`
-- Implement collision detection with Effect
-- Add proper vector math with branded types
-- Use Stream for continuous updates
-
-**Agent Task 3.5: Chunk System**
-- File: `/docs/02-specifications/00-core-features/07-chunk-system.md`
-- Refactor chunk loading with Effect
-- Implement proper caching strategies
-- Add concurrent chunk processing
-
-### Phase 4: API Design Documentation
-**Agent Task 4.1: Domain & Application APIs**
-- File: `/docs/02-specifications/02-api-design/00-domain-application-apis.md`
-- Refactor API definitions with Effect Schema
-- Implement proper request/response types
-- Add validation and error handling
-
-**Agent Task 4.2: Event Bus Specification**
-- File: `/docs/02-specifications/02-api-design/02-event-bus-specification.md`
-- Implement event bus with Effect Hub
-- Add proper event typing with Schema
-- Use Stream for event processing
-
-### Phase 5: Testing & Development Guides
-**Agent Task 5.1: Effect-TS Testing Patterns**
-- File: `/docs/03-guides/07-effect-ts-testing-patterns.md`
-- Add comprehensive PBT examples
-- Implement test fixtures with layers
-- Use proper test utilities
-
-**Agent Task 5.2: Development Conventions**
-- File: `/docs/03-guides/00-development-conventions.md`
-- Update conventions for Effect-TS
-- Add pattern matching guidelines
-- Include type safety best practices
-
-### Phase 6: Examples
-**Agent Task 6.1: Basic Usage Examples**
-- Directory: `/docs/06-examples/01-basic-usage/`
-- Refactor all basic examples with Effect
-- Add proper error handling
-- Implement clean architecture
-
-## Execution Strategy
-
-### For Each Sub-Agent Task:
-1. **Context Gathering**
-   - Use Context7 to get latest Effect-TS patterns
-   - Reference `/websites/effect-ts_github_io_effect` for official patterns
-   - Check current code structure
-
-2. **Code Analysis**
-   - Identify all TypeScript code blocks in target file
-   - Analyze current patterns and anti-patterns
-   - List required transformations
-
-3. **Refactoring Process**
-   - Apply Effect-TS modern patterns
-   - Ensure PBT compatibility
-   - Implement early returns
-   - Use pattern matching instead of conditionals
-   - Reduce nesting levels
-   - Add proper types and branded types
-
-4. **Validation**
-   - Ensure code compiles with Effect-TS
-   - Verify proper error handling
-   - Check type safety
-   - Validate pattern matching exhaustiveness
-
-## Priority Order
-1. **High Priority**: Pattern Catalog (most referenced)
-2. **Medium Priority**: Architecture & Core Features
-3. **Low Priority**: Guides & Examples
-
-## Success Criteria
-- ✅ All TypeScript code uses Effect-TS patterns
-- ✅ No raw Promises, all async with Effect
-- ✅ Pattern matching replaces if/else/switch
-- ✅ All functions are PBT-ready
-- ✅ Maximum 3 levels of nesting
-- ✅ Proper type safety with branded types
-- ✅ Early returns implemented
-- ✅ Single responsibility maintained
-
-## Sub-Agent Instructions Template
-```
-Task: Refactor TypeScript code in [FILE_PATH]
-
-Requirements:
-1. Use Context7 (/websites/effect-ts_github_io_effect) for latest Effect-TS patterns
-2. Transform all code blocks to follow:
-   - Effect-TS patterns (no Promises, use Effect)
-   - Property-based testing compatibility
-   - Early return pattern
-   - Single responsibility principle
-   - Pattern matching (no if/else/switch)
-   - Shallow nesting (max 3 levels)
-   - Branded types and proper typing
-
-3. For each code block:
-   - Analyze current implementation
-   - Apply transformations
-   - Ensure type safety
-   - Add proper error handling
-
-4. Maintain documentation context while updating code
-
-Output: Updated file with all TypeScript code blocks refactored
+### エージェントA: パターン分析エージェント
+**責務**: 各ファイルの問題パターン特定と分類
+```typescript
+interface AnalysisResult {
+  file: string
+  issues: {
+    critical: CriticalIssue[]
+    medium: MediumIssue[]
+    low: LowIssue[]
+  }
+  complexity: 'low' | 'medium' | 'high'
+  priority: number
+}
 ```
 
-## Monitoring & Progress Tracking
-- Track completion percentage per phase
-- Log transformation patterns discovered
-- Document any blockers or special cases
-- Maintain consistency across all refactored code
+### エージェントB: Effect-TS最新化エージェント
+**責務**: Context7参照によるEffect-TS最新パターン適用
+```typescript
+interface ModernizationTask {
+  targetFile: string
+  patterns: {
+    oldPattern: string
+    newPattern: string
+    reason: string
+  }[]
+}
+```
 
-## Notes
-- Some specifications may have pseudo-code that should be converted to proper TypeScript
-- Ensure all examples are runnable and testable
-- Consider adding inline comments for complex Effect patterns
-- Maintain backward compatibility references where needed
+### エージェントC: リファクタリングエージェント
+**責務**: 構造的改善（関数分割、ネスト解消、Early Return適用）
+```typescript
+interface RefactoringTask {
+  function: string
+  improvements: {
+    type: 'extract_function' | 'early_return' | 'flatten_nest' | 'single_responsibility'
+    description: string
+  }[]
+}
+```
+
+### エージェントD: 型安全性強化エージェント
+**責務**: Brand型、Schema検証、型制約の強化
+```typescript
+interface TypeSafetyTask {
+  target: string
+  enhancements: {
+    brandTypes: string[]
+    schemaValidations: string[]
+    typeConstraints: string[]
+  }
+}
+```
+
+### エージェントE: Match.valueマッチング変換エージェント
+**責務**: if/else/switch → Match.valueパターンマッチング変換
+```typescript
+interface MatchingConversion {
+  location: string
+  oldBranching: string
+  newMatching: string
+  exhaustivenessCheck: boolean
+}
+```
+
+### エージェントF: PBTテストサポートエージェント
+**責務**: 関数をPBT可能な形に分割・改善
+```typescript
+interface PBTOptimization {
+  function: string
+  testableUnits: {
+    name: string
+    signature: string
+    properties: string[]
+  }[]
+}
+```
+
+## 📋 詳細実行計画
+
+### Phase 1: 調査・分析フェーズ (1-2日)
+
+#### Step 1.1: ファイル優先度付け
+- **エージェントA**: 全markdownファイルをスキャン
+- **出力**: 優先度付きファイルリスト
+- **基準**:
+  - 使用頻度 (参照数)
+  - 複雑度 (コード量、ネスト深度)
+  - 教育的価値 (examples/, guides/)
+
+#### Step 1.2: 問題パターン特定
+- **エージェントA**: 各ファイルの問題を分類
+- **出力**: 問題パターンカタログ
+- **分析対象**:
+  - 古いEffect-TS構文
+  - 分岐構造の複雑さ
+  - 関数の単一責務違反
+  - 型安全性の問題
+
+### Phase 2: 最新化フェーズ (3-4日)
+
+#### Step 2.1: Effect-TS最新パターン適用
+- **エージェントB**: Context7でEffect-TS最新仕様確認
+- **適用対象**:
+  ```typescript
+  // Before: 古い書き方
+  Effect.succeed(value).pipe(
+    Effect.flatMap(processValue),
+    Effect.mapError(handleError)
+  )
+
+  // After: 最新書き方
+  Effect.gen(function* () {
+    const result = yield* Effect.succeed(value)
+    return yield* processValue(result)
+  }).pipe(Effect.catchTag("ErrorType", handleError))
+  ```
+
+#### Step 2.2: Schema.Struct最新化
+- **エージェントB**: データ型定義の最新化
+- **適用対象**:
+  ```typescript
+  // Before: 古い定義
+  interface User {
+    id: string
+    name: string
+  }
+
+  // After: Schema.Struct
+  export const User = Schema.Struct({
+    id: Schema.String.pipe(Schema.brand<UserId>("UserId")),
+    name: Schema.String.pipe(Schema.minLength(1))
+  })
+  export type User = typeof User.Type
+  ```
+
+### Phase 3: 構造改善フェーズ (3-4日)
+
+#### Step 3.1: 関数責務の分離
+- **エージェントC**: 大きな関数を単一責務に分割
+- **原則**:
+  - 1関数1責務
+  - 10行以下目安
+  - PBTしやすい純粋関数化
+
+#### Step 3.2: Early Return適用
+- **エージェントC**: ガード節によるネスト解消
+- **パターン**:
+  ```typescript
+  // Before: ネストした分岐
+  function process(data: Data) {
+    if (data.isValid) {
+      if (data.hasPermission) {
+        if (data.isActive) {
+          return processActive(data)
+        } else {
+          return processInactive(data)
+        }
+      } else {
+        throw new PermissionError()
+      }
+    } else {
+      throw new ValidationError()
+    }
+  }
+
+  // After: Early Return + Effect
+  const process = (data: Data) =>
+    Effect.gen(function* () {
+      if (!data.isValid) return yield* Effect.fail(new ValidationError())
+      if (!data.hasPermission) return yield* Effect.fail(new PermissionError())
+
+      return data.isActive
+        ? yield* processActive(data)
+        : yield* processInactive(data)
+    })
+  ```
+
+### Phase 4: Match.value変換フェーズ (2-3日)
+
+#### Step 4.1: if/else → Match.value変換
+- **エージェントE**: 分岐をパターンマッチングに変換
+- **変換例**:
+  ```typescript
+  // Before: if/else
+  if (status === 'loading') {
+    return showSpinner()
+  } else if (status === 'error') {
+    return showError(error)
+  } else if (status === 'success') {
+    return showData(data)
+  }
+
+  // After: Match.value
+  return pipe(
+    status,
+    Match.value,
+    Match.when('loading', () => showSpinner()),
+    Match.when('error', () => showError(error)),
+    Match.when('success', () => showData(data)),
+    Match.exhaustive
+  )
+  ```
+
+#### Step 4.2: switch → Match.value変換
+- **エージェントE**: switch文の完全置き換え
+- **網羅性チェック**: Match.exhaustiveによる型レベル保証
+
+### Phase 5: 型安全性強化フェーズ (2-3日)
+
+#### Step 5.1: Brand型導入
+- **エージェントD**: ID型などをBrand型に変換
+- **対象**:
+  ```typescript
+  // Before: 単純な文字列
+  type UserId = string
+  type PlayerId = string
+
+  // After: Brand型
+  type UserId = string & { readonly _tag: "UserId" }
+  type PlayerId = string & { readonly _tag: "PlayerId" }
+
+  export const UserId = Schema.String.pipe(Schema.brand<UserId>("UserId"))
+  export const PlayerId = Schema.String.pipe(Schema.brand<PlayerId>("PlayerId"))
+  ```
+
+#### Step 5.2: Schema検証強化
+- **エージェントD**: 実行時検証の追加
+- **パターン**: decode/encodeによる境界での検証
+
+### Phase 6: PBTサポート最適化フェーズ (2日)
+
+#### Step 6.1: テスタブル関数設計
+- **エージェントF**: PBT可能な純粋関数への分割
+- **原則**:
+  - 副作用の完全分離
+  - 参照透明性の保証
+  - プロパティ記述可能な関数シグネチャ
+
+#### Step 6.2: テスト例の追加
+- **エージェントF**: 主要関数のPBTテスト例を併記
+
+## 🔄 並列実行戦略
+
+### バッチ1: 基礎例とガイド (高優先度)
+- `docs/06-examples/01-basic-usage/`
+- `docs/03-guides/`
+- **担当**: エージェントA, B, C
+
+### バッチ2: アーキテクチャドキュメント (高優先度)
+- `docs/01-architecture/`
+- **担当**: エージェントB, D, E
+
+### バッチ3: API仕様 (中優先度)
+- `docs/05-reference/api-reference/`
+- **担当**: エージェントD, E, F
+
+### バッチ4: システム仕様 (中優先度)
+- `docs/02-specifications/00-core-features/`
+- **担当**: エージェントC, E, F
+
+### バッチ5: 拡張機能仕様 (低優先度)
+- `docs/02-specifications/01-enhanced-features/`
+- **担当**: エージェントF
+
+## 📈 成功指標・品質基準
+
+### コード品質指標
+- **Cyclomatic Complexity**: ≤ 5
+- **関数行数**: ≤ 10行
+- **ネスト深度**: ≤ 2段階
+- **型カバレッジ**: 100% (any型排除)
+
+### Effect-TSパターン適合度
+- **Effect.gen使用率**: 90%+
+- **Match.value使用率**: 80%+ (分岐箇所)
+- **Schema.Struct使用率**: 100% (データ定義)
+- **Brand型使用率**: 100% (ID型)
+
+### テスタビリティ指標
+- **純粋関数率**: 80%+
+- **PBT対応率**: 主要ビジネスロジック100%
+- **副作用分離率**: 100%
+
+## 🚀 実行開始コマンド
+
+### エージェント起動テンプレート
+
+```bash
+# Phase 1: 分析開始
+Task.launch(agent: "general-purpose", task: "docsディレクトリ分析", parallel: false)
+
+# Phase 2-6: 並列実行
+Task.launch([
+  {agent: "general-purpose", task: "Effect-TS最新化", target: "batch1"},
+  {agent: "general-purpose", task: "構造改善", target: "batch2"},
+  {agent: "general-purpose", task: "Match.value変換", target: "batch3"},
+  {agent: "general-purpose", task: "型安全性強化", target: "batch4"},
+  {agent: "general-purpose", task: "PBTサポート", target: "batch5"}
+], parallel: true)
+```
+
+## 📝 完了確認チェックリスト
+
+### Phase完了チェック
+- [ ] Phase 1: 全ファイル分析完了、優先度付けリスト作成
+- [ ] Phase 2: Effect-TS 3.17+パターン適用完了
+- [ ] Phase 3: 関数分割・Early Return適用完了
+- [ ] Phase 4: Match.valueパターン変換完了
+- [ ] Phase 5: Brand型・Schema検証強化完了
+- [ ] Phase 6: PBTサポート最適化完了
+
+### 品質確認チェック
+- [ ] 全コードがlintエラーなし
+- [ ] 全コードがtype checkパス
+- [ ] サンプルコードの実行可能性確認
+- [ ] ドキュメントの一貫性確認
+
+---
+
+**このプランにより、docsディレクトリ内の全TypeScriptサンプルコードが最新のEffect-TSパターンに準拠した高品質なコードに生まれ変わります。各エージェントが専門領域で並列作業を行うことで、効率的な洗練を実現します。**

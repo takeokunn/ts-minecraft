@@ -29,42 +29,459 @@ search_keywords:
 
 このドキュメントは、前の3つのステップで学んだ内容を整理し、実際の開発で頻繁に使用する **Effect-TS 3.17+の重要概念** をリファレンスとしてまとめたものです。
 
-## 🔑 核心パターン一覧
+## 🔑 Progressive Effect-TS 3.17+ パターン
 
-### 1️⃣ **Schema.Struct** - 型安全なデータ定義
+### 🎯 Quick Reference - 必須パターン
+
+```bash
+# 最重要パターン（これだけは必須）
+Schema.Struct  # データ定義・検証
+Context.GenericTag  # サービス定義・依存注入
+Effect.gen  # 非同期処理合成
+pipe  # 関数合成・データ変換
+```
+
+<details>
+<summary><strong>🔍 詳細パターン解説と実行可能例</strong></summary>
+
+### 1️⃣ **Schema.Struct** - 型安全なデータ定義の完全ガイド
+
+#### 🎯 基本パターン
 
 ```typescript
 import { Schema } from "@effect/schema"
+import { Effect } from "effect"
 
 // ゲーム内エンティティの定義例
 export const PlayerSchema = Schema.Struct({
-  id: Schema.String,
+  id: Schema.String.pipe(
+    Schema.brand("PlayerId"),  // Brand型でID混同防止
+    Schema.description("プレイヤーの一意識別子")
+  ),
   position: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number,
+    x: Schema.Number.pipe(Schema.description("X座標")),
+    y: Schema.Number.pipe(Schema.between(-256, 256), Schema.description("Y座標（高度制限）")),
+    z: Schema.Number.pipe(Schema.description("Z座標"))
   }),
   health: Schema.Number.pipe(
-    Schema.between(0, 100)
+    Schema.between(0, 100),
+    Schema.description("プレイヤーの体力（0-100）")
   ),
+  gameMode: Schema.Union(
+    Schema.Literal("survival"),
+    Schema.Literal("creative"),
+    Schema.Literal("adventure")
+  ).pipe(Schema.description("ゲームモード")),
   inventory: Schema.Array(Schema.Struct({
-    itemId: Schema.String,
-    quantity: Schema.Number.pipe(Schema.positive())
-  }))
+    itemId: Schema.String.pipe(
+      Schema.brand("ItemId"),
+      Schema.description("アイテム識別子")
+    ),
+    quantity: Schema.Number.pipe(
+      Schema.positive(),
+      Schema.int(),
+      Schema.description("アイテム数量")
+    ),
+    metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  })).pipe(
+    Schema.maxLength(36), // Minecraftインベントリサイズ
+    Schema.description("プレイヤーインベントリ")
+  )
 })
 
 // 型推論（自動生成される）
 export type Player = Schema.Schema.Type<typeof PlayerSchema>
-
-// 実際の使用例
-export const createPlayer = (data: unknown): Effect.Effect<Player, ParseError> =>
-  Schema.decodeUnknown(PlayerSchema)(data)
+export type PlayerId = Player["id"]
+export type ItemId = Player["inventory"][number]["itemId"]
 ```
 
-**🎯 なぜ Schema.Struct が重要か**:
-- **ランタイム検証**: 実行時にデータの整合性を保証
-- **自動型推論**: TypeScriptの型を自動生成
-- **シリアライゼーション**: JSON ↔ TypeScript の双方向変換
+#### ⚡ 実際のゲームでの使用例
+
+```typescript
+// プレイヤー作成（安全なデータ変換）
+export const createPlayerFromJSON = (jsonData: unknown): Effect.Effect<Player, ParseError> =>
+  Schema.decodeUnknown(PlayerSchema)(jsonData)
+
+// プレイヤーデータの更新
+export const updatePlayerHealth = (
+  player: Player,
+  newHealth: number
+): Effect.Effect<Player, ValidationError> =>
+  Effect.gen(function* (_) {
+    // Schema.Structを使用した安全な更新
+    return yield* _(
+      Schema.decodeUnknown(PlayerSchema)({
+        ...player,
+        health: newHealth
+      })
+    )
+  })
+
+// 実用例：セーブファイル読み込み
+export const loadPlayerFromSave = (saveData: string): Effect.Effect<Player, LoadError> =>
+  Effect.gen(function* (_) {
+    const parsed = yield* _(
+      Effect.try({
+        try: () => JSON.parse(saveData),
+        catch: (error) => new InvalidJSONError({ cause: error })
+      })
+    )
+
+    const player = yield* _(
+      Schema.decodeUnknown(PlayerSchema)(parsed),
+      Effect.mapError(error => new InvalidPlayerDataError({ schemaError: error }))
+    )
+
+    // 追加のビジネスルール検証
+    if (player.health < 0) {
+      return yield* _(Effect.fail(new InvalidHealthError({ health: player.health })))
+    }
+
+    return player
+  })
+```
+
+#### 🔬 高度なSchema活用パターン
+
+```typescript
+// カスタムスキーマトランスフォーム
+export const WorldPositionSchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number
+}).pipe(
+  // カスタム変換：座標を整数に丸める
+  Schema.transform(
+    Schema.Struct({
+      x: Schema.Number,
+      y: Schema.Number,
+      z: Schema.Number
+    }),
+    {
+      decode: ({ x, y, z }) => ({
+        x: Math.floor(x),
+        y: Math.floor(y),
+        z: Math.floor(z)
+      }),
+      encode: (pos) => pos
+    }
+  ),
+  Schema.description("ワールド座標（整数座標系）")
+)
+
+// 条件付きスキーマ
+export const ItemStackSchema = Schema.Struct({
+  itemId: Schema.String.pipe(Schema.brand("ItemId")),
+  quantity: Schema.Number.pipe(Schema.positive()),
+  enchantments: Schema.optional(Schema.Array(Schema.Struct({
+    type: Schema.String,
+    level: Schema.Number.pipe(Schema.between(1, 255))
+  }))),
+  durability: Schema.optional(Schema.Number.pipe(Schema.between(0, 100)))
+}).pipe(
+  // カスタムバリデーション：ツールアイテムには耐久性が必要
+  Schema.filter((item) => {
+    const toolItems = ["pickaxe", "axe", "shovel", "sword"]
+    const isToolItem = toolItems.some(tool => item.itemId.includes(tool))
+    return !isToolItem || item.durability !== undefined
+  }, {
+    message: () => "ツールアイテムには耐久性の指定が必要です"
+  })
+)
+```
+
+**🎯 なぜ Schema.Struct が最重要か**:
+- **ランタイム検証**: セーブデータ・ネットワーク通信の安全性確保
+- **自動型推論**: TypeScriptコンパイラと完全連携
+- **シリアライゼーション**: ゲームデータの永続化・復元
+- **開発効率**: データ構造変更時の自動エラー検出
+- **デバッグ支援**: 実行時エラーメッセージの詳細化
+
+</details>
+
+<details>
+<summary><strong>🔧 実践的なEffect-TSゲーム開発パターン</strong></summary>
+
+### 2️⃣ **Context.GenericTag** - 依存性注入の現代的アプローチ
+
+```typescript
+import { Context, Effect, Layer } from "effect"
+
+// サービス定義（新しいContext.GenericTag）
+export class WorldGenerationService extends Context.Tag("@services/WorldGeneration")<
+  WorldGenerationService,
+  {
+    readonly generateChunk: (coordinates: ChunkCoordinates) => Effect.Effect<Chunk, GenerationError>
+    readonly generateBiome: (seed: WorldSeed, coordinates: ChunkCoordinates) => Effect.Effect<BiomeType, never>
+    readonly placeTrees: (chunk: Chunk, biome: BiomeType) => Effect.Effect<Chunk, PlacementError>
+    readonly generateOre: (chunk: Chunk, oreType: OreType) => Effect.Effect<Chunk, never>
+  }
+>() {}
+
+// 実装レイヤー
+export const LiveWorldGenerationService = Layer.succeed(
+  WorldGenerationService,
+  WorldGenerationService.of({
+    generateChunk: (coordinates) =>
+      Effect.gen(function* (_) {
+        // Perlin noise による地形生成
+        const heightMap = yield* _(generatePerlinNoise(coordinates))
+        const baseChunk = yield* _(createEmptyChunk(coordinates))
+
+        // レイヤーごとの生成
+        const terrainChunk = yield* _(applyTerrain(baseChunk, heightMap))
+        const caveChunk = yield* _(generateCaves(terrainChunk))
+        const oreChunk = yield* _(generateOres(caveChunk))
+
+        return oreChunk
+      }),
+
+    generateBiome: (seed, coordinates) =>
+      Effect.succeed(
+        calculateBiomeType(seed.value, coordinates.x, coordinates.z)
+      ),
+
+    placeTrees: (chunk, biome) =>
+      Effect.gen(function* (_) {
+        if (biome === "forest" || biome === "plains") {
+          const treePositions = yield* _(calculateTreePositions(chunk, biome))
+          return yield* _(
+            Effect.forEach(treePositions, pos => placeTree(chunk, pos), {
+              concurrency: "unbounded"
+            })
+          ).pipe(
+            Effect.map(() => chunk)
+          )
+        }
+        return chunk
+      }),
+
+    generateOre: (chunk, oreType) =>
+      Effect.gen(function* (_) {
+        const distribution = getOreDistribution(oreType)
+        const positions = yield* _(calculateOrePositions(chunk, distribution))
+
+        return yield* _(
+          Effect.forEach(positions, pos =>
+            Effect.sync(() => setBlockAt(chunk, pos, createOreBlock(oreType)))
+          ),
+          Effect.map(() => chunk)
+        )
+      })
+  })
+)
+
+// テスト用モック実装
+export const TestWorldGenerationService = Layer.succeed(
+  WorldGenerationService,
+  WorldGenerationService.of({
+    generateChunk: (coordinates) =>
+      Effect.succeed(createFlatTestChunk(coordinates)),
+
+    generateBiome: () => Effect.succeed("plains"),
+
+    placeTrees: (chunk) => Effect.succeed(chunk),
+
+    generateOre: (chunk) => Effect.succeed(chunk)
+  })
+)
+
+// 実際の使用例
+export const initializeWorld = (worldSize: WorldSize): Effect.Effect<World, WorldError, WorldGenerationService> =>
+  Effect.gen(function* (_) {
+    const worldGen = yield* _(WorldGenerationService)
+
+    // 並行チャンク生成
+    const chunks = yield* _(
+      Effect.forEach(
+        generateChunkCoordinates(worldSize),
+        coordinates => worldGen.generateChunk(coordinates),
+        { concurrency: 4 } // CPU使用量制御
+      )
+    )
+
+    return createWorld(chunks)
+  })
+```
+
+### 3️⃣ **Effect.gen + yield*** - 非同期処理の革新的合成
+
+```typescript
+// 複雑なゲームロジックの合成例：プレイヤーアクション処理
+export const processComplexPlayerAction = (
+  playerId: PlayerId,
+  action: ComplexPlayerAction
+): Effect.Effect<ActionResult, ActionError, AllGameServices> =>
+  Effect.gen(function* (_) {
+    // 1. プレイヤー状態取得
+    const playerService = yield* _(PlayerService)
+    const player = yield* _(playerService.getById(playerId))
+
+    // 2. 権限チェック（並行実行）
+    const [hasPermission, hasResources, isInRange] = yield* _(
+      Effect.all([
+        checkActionPermission(player, action),
+        checkRequiredResources(player, action),
+        checkActionRange(player, action)
+      ])
+    )
+
+    // 3. 早期リターンパターン
+    if (!hasPermission) {
+      return yield* _(Effect.fail(new InsufficientPermissionError({ action })))
+    }
+
+    if (!hasResources) {
+      return yield* _(Effect.fail(new InsufficientResourcesError({
+        required: action.requiredResources
+      })))
+    }
+
+    // 4. ワールド状態への影響計算
+    const worldService = yield* _(WorldService)
+    const affectedChunks = yield* _(worldService.getChunksInRange(action.area))
+
+    // 5. アトミックな更新操作
+    const result = yield* _(
+      Effect.gen(function* (_) {
+        // プレイヤー状態更新
+        const updatedPlayer = yield* _(
+          playerService.consumeResources(player, action.requiredResources)
+        )
+
+        // ワールド更新
+        const updatedChunks = yield* _(
+          Effect.forEach(
+            affectedChunks,
+            chunk => applyActionToChunk(chunk, action),
+            { concurrency: "unbounded" }
+          )
+        )
+
+        // イベント発行
+        const eventBus = yield* _(EventBus)
+        yield* _(
+          eventBus.publish(PlayerActionEvent.create({
+            playerId,
+            action,
+            timestamp: new Date(),
+            affectedArea: action.area
+          }))
+        )
+
+        return {
+          player: updatedPlayer,
+          updatedChunks,
+          actionId: generateActionId()
+        }
+      }),
+      // エラー時のロールバック
+      Effect.catchAll((error) =>
+        Effect.gen(function* (_) {
+          yield* _(Effect.log(`Action failed, rolling back: ${error}`))
+          // ロールバック処理
+          yield* _(playerService.rollbackPlayerState(playerId))
+          yield* _(worldService.rollbackChunkStates(affectedChunks.map(c => c.id)))
+          return yield* _(Effect.fail(error))
+        })
+      )
+    )
+
+    return result
+  })
+
+// より高度な合成：リアクティブゲームループ
+export const createReactiveGameLoop = (): Effect.Effect<void, never, AllGameServices> =>
+  Effect.gen(function* (_) {
+    const gameState = yield* _(GameState)
+    const inputService = yield* _(InputService)
+    const renderService = yield* _(RenderService)
+
+    // ゲームループストリーム
+    yield* _(
+      Effect.forever(
+        Effect.gen(function* (_) {
+          const frameStart = yield* _(Effect.sync(() => performance.now()))
+
+          // 入力処理
+          const currentInput = yield* _(inputService.getCurrentInput())
+
+          // ゲーム状態更新
+          yield* _(gameState.update(currentInput))
+
+          // 物理シミュレーション
+          const physicsService = yield* _(PhysicsService)
+          yield* _(physicsService.step(16.67)) // 60FPS
+
+          // レンダリング
+          const currentScene = yield* _(gameState.getCurrentScene())
+          yield* _(renderService.render(currentScene))
+
+          // フレームレート制御
+          const frameEnd = yield* _(Effect.sync(() => performance.now()))
+          const frameDuration = frameEnd - frameStart
+
+          if (frameDuration < 16.67) { // 60FPS維持
+            yield* _(Effect.sleep(`${16.67 - frameDuration} millis`))
+          }
+        })
+      )
+    )
+  })
+```
+
+### 4️⃣ **高度なエラーハンドリングパターン**
+
+```typescript
+// 階層化されたエラー管理
+export class GameError extends Schema.Class<GameError>("GameError")({
+  cause: Schema.String,
+  timestamp: Schema.Date,
+  context: Schema.Record(Schema.String, Schema.Unknown)
+}) {}
+
+export class WorldError extends GameError.extend<WorldError>("WorldError")({
+  worldId: Schema.String.pipe(Schema.brand("WorldId")),
+  chunkCoordinates: Schema.optional(Schema.Array(Schema.Number))
+}) {}
+
+export class PlayerError extends GameError.extend<PlayerError>("PlayerError")({
+  playerId: Schema.String.pipe(Schema.brand("PlayerId")),
+  playerState: Schema.String
+}) {}
+
+// エラーハンドリング戦略
+export const safeGameOperation = <A, E extends GameError>(
+  operation: Effect.Effect<A, E, AllGameServices>
+): Effect.Effect<A, never, AllGameServices> =>
+  operation.pipe(
+    // 特定エラーの個別処理
+    Effect.catchTag("WorldError", (error) =>
+      Effect.gen(function* (_) {
+        yield* _(Effect.log(`World error occurred: ${error.cause}`))
+        yield* _(notifyPlayer(error.playerId, "ワールドエラーが発生しました"))
+        return yield* _(getDefaultWorldState())
+      })
+    ),
+    Effect.catchTag("PlayerError", (error) =>
+      Effect.gen(function* (_) {
+        yield* _(Effect.log(`Player error: ${error.playerId} - ${error.cause}`))
+        yield* _(resetPlayerToSafeState(error.playerId))
+        return yield* _(getDefaultPlayerState(error.playerId))
+      })
+    ),
+    // 予期しないエラーの汎用処理
+    Effect.catchAll((error) =>
+      Effect.gen(function* (_) {
+        yield* _(Effect.log(`Unexpected error: ${JSON.stringify(error)}`))
+        yield* _(saveErrorReport(error))
+        return yield* _(getEmergencyFallbackState())
+      })
+    )
+  )
+```
+
+</details>
 
 ### 2️⃣ **Context.GenericTag** - 依存性注入
 

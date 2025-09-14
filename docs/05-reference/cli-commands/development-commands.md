@@ -1,3 +1,15 @@
+---
+title: "開発コマンド - 開発フロー完全リファレンス"
+description: "開発・ビルド・品質管理に関するCLIコマンドの完全リファレンス。pnpm、Vite、TypeScript、リント関連コマンド。"
+category: "reference"
+difficulty: "beginner"
+tags: ["development", "cli", "pnpm", "vite", "typescript", "linting"]
+prerequisites: ["basic-cli"]
+estimated_reading_time: "12分"
+dependencies: []
+status: "complete"
+---
+
 # 開発コマンド
 
 開発・ビルド・品質管理に関するCLIコマンドの完全リファレンスです。

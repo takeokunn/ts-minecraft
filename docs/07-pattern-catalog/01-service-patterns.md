@@ -1,13 +1,13 @@
 ---
-title: "01 Service Patterns"
-description: "01 Service Patternsに関する詳細な説明とガイド。"
+title: "サービスパターン - Effect-TS 最新実装パターン (Context.Tag + Layer.effect)"
+description: "Context.Tag、Layer.effect、Schedule-based retries、Effect.Serviceを活用したモダンなサービス層実装の完全ガイド。DI、エラーハンドリング、テスト戦略を含む。"
 category: "reference"
 difficulty: "advanced"
-tags: ['typescript', 'minecraft']
-prerequisites: ['basic-typescript', 'effect-ts-fundamentals']
-estimated_reading_time: "10分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+tags: ["service-patterns", "context-tag", "layer-effect", "effect-service", "schedule-retry", "dependency-injection", "error-handling", "testing"]
+prerequisites: ["effect-ts-fundamentals", "context-usage", "schema-basics"]
+estimated_reading_time: "20分"
+related_patterns: ["error-handling-patterns", "data-modeling-patterns", "test-patterns"]
+related_docs: ["../../01-architecture/06-effect-ts-patterns.md", "../examples/01-basic-usage/01-simple-block-placement.md"]
 ---
 
 # Service Implementation Patterns
@@ -17,7 +17,7 @@ version: "1.0.0"
 
 **実装**:
 ```typescript
-import { Context, Effect, Layer, Schema, pipe } from "effect"
+import { Context, Effect, Layer, Schema, Schedule, pipe } from "effect"
 
 // Branded types for type safety
 const ProcessInput = Schema.String.pipe(Schema.brand("ProcessInput"))
@@ -38,9 +38,9 @@ export interface BasicService {
 }
 
 // Context tag
-export const BasicService = Context.GenericTag<BasicService>("@minecraft/BasicService")
+export const BasicService = Context.Tag<BasicService>("@minecraft/BasicService")
 
-// Implementation using early return pattern
+// Implementation using early return pattern with retry strategy
 const makeBasicService: Effect.Effect<BasicService, never, never> =
   Effect.succeed({
     process: (input) => pipe(
@@ -50,12 +50,26 @@ const makeBasicService: Effect.Effect<BasicService, never, never> =
         reason: "Invalid input format",
         timestamp: Date.now()
       })),
-      Effect.map(validInput => validInput.toUpperCase() as ProcessOutput)
+      Effect.map(validInput => validInput.toUpperCase() as ProcessOutput),
+      // 外部API呼び出しがある場合のリトライ戦略
+      Effect.retry(
+        Schedule.exponential("100 millis").pipe(
+          Schedule.compose(Schedule.recurs(3)),
+          Schedule.intersect(Schedule.spaced("5 seconds"))
+        )
+      )
     )
   })
 
+// Alternative: Effect.Service pattern (recommended for modern Effect-TS)
+export class BasicServiceImpl extends Effect.Service<BasicServiceImpl>()(
+  "@minecraft/BasicService", {
+    effect: makeBasicService
+  }
+) {}
+
 // Layer for dependency injection
-export const BasicServiceLive = Layer.succeed(BasicService, makeBasicService)
+export const BasicServiceLive = Layer.effect(BasicService, makeBasicService)
 ```
 
 ## Pattern 2: Stateful Service with Resource Management
@@ -86,7 +100,7 @@ export interface StatefulService {
   readonly get: () => Effect.Effect<Counter, never>
 }
 
-export const StatefulService = Context.GenericTag<StatefulService>("@minecraft/StatefulService")
+export const StatefulService = Context.Tag<StatefulService>("@minecraft/StatefulService")
 
 // Implementation with resource management and pattern matching
 const makeStatefulService: Effect.Effect<StatefulService, never, never> =
@@ -156,7 +170,7 @@ export interface ComplexService {
   readonly complexProcess: (input: ComplexProcessInput) => Effect.Effect<ComplexProcessOutput, ComplexProcessingError>
 }
 
-export const ComplexService = Context.GenericTag<ComplexService>("@minecraft/ComplexService")
+export const ComplexService = Context.Tag<ComplexService>("@minecraft/ComplexService")
 
 // Implementation with dependency injection and pattern matching
 const makeComplexService = Effect.gen(function* () {
@@ -274,10 +288,10 @@ export interface CachingService {
   readonly getCacheStats: () => Effect.Effect<{ size: number; hitRate: number }, never>
 }
 
-export const CachingService = Context.GenericTag<CachingService>("@minecraft/CachingService")
+export const CachingService = Context.Tag<CachingService>("@minecraft/CachingService")
 
 // Configuration tag
-export const CachingConfig = Context.GenericTag<CacheConfig>("@minecraft/CachingConfig")
+export const CachingConfig = Context.Tag<CacheConfig>("@minecraft/CachingConfig")
 
 // Implementation with resource management and guard clauses
 const makeCachingService = Effect.gen(function* () {
@@ -472,8 +486,8 @@ export interface ResourceService {
   readonly cleanupIdleResources: () => Effect.Effect<number, never> // Returns count of cleaned up resources
 }
 
-export const ResourceService = Context.GenericTag<ResourceService>("@minecraft/ResourceService")
-export const ResourcePoolConfigTag = Context.GenericTag<ResourcePoolConfig>("@minecraft/ResourcePoolConfig")
+export const ResourceService = Context.Tag<ResourceService>("@minecraft/ResourceService")
+export const ResourcePoolConfigTag = Context.Tag<ResourcePoolConfig>("@minecraft/ResourcePoolConfig")
 
 // Implementation with proper resource lifecycle management
 const makeResourceService = Effect.gen(function* () {
@@ -756,9 +770,9 @@ const validateAndProcess = (input: unknown) =>
     Effect.flatMap(processWithPattern)
   )
 
-// 5. Context.GenericTag + Layer for dependency injection
-const Service = Context.GenericTag<ServiceInterface>("@namespace/Service")
-const ServiceLive = Layer.succeed(Service, makeService)
+// 5. Context.Tag + Layer for dependency injection
+const Service = Context.Tag<ServiceInterface>("@namespace/Service")
+const ServiceLive = Layer.effect(Service, makeService)
 ```
 
 ## Modern Effect-TS Best Practices
@@ -771,7 +785,7 @@ export interface ServiceNameService {
 }
 
 // Context tag
-export const ServiceNameService = Context.GenericTag<ServiceNameService>("@namespace/ServiceNameService")
+export const ServiceNameService = Context.Tag<ServiceNameService>("@namespace/ServiceNameService")
 
 // Implementation with dependencies
 const makeServiceNameService = Effect.gen(function* () {
@@ -897,11 +911,18 @@ export const MockServiceLive = Layer.succeed(
   }
 )
 
-// Test helper for service behavior
+// Test helper for service behavior with Effect.provideService
 const testServiceOperation = (input: ServiceInput, expectedOutput: ServiceOutput) =>
   pipe(
     ServiceNameService.operation(input),
-    Effect.provide(MockServiceLive),
+    Effect.provideService(ServiceNameService, {
+      operation: (input) =>
+        Effect.succeed({
+          result: `test-result-${input.data}`,
+          processedAt: Date.now(),
+          metadata: { test: true }
+        } as ServiceOutput)
+    }),
     Effect.runSync
   )
 
@@ -928,12 +949,10 @@ const withManagedResource = <A, E>(use: (resource: Resource) => Effect.Effect<A,
   )
 
 // Layer composition with proper resource lifecycle
-export const CompleteServiceLive = Layer.provideMerge(
+export const CompleteServiceLive = Layer.mergeAll(
   ServiceNameServiceLive,
-  Layer.merge(
-    DatabaseServiceLive,
-    CacheServiceLive
-  )
+  DatabaseServiceLive,
+  CacheServiceLive
 ).pipe(
   Layer.provide(ConfigLive)
 )
@@ -941,7 +960,12 @@ export const CompleteServiceLive = Layer.provideMerge(
 
 ### 7. Configuration Management
 ```typescript
-// Configuration with environment variable loading
+import { Context, Effect, Layer, Schema, Config, Schedule, pipe } from "effect"
+
+// Service configuration tag
+const ServiceConfigTag = Context.Tag<ServiceConfig>("@namespace/ServiceConfig")
+
+// Configuration with environment variable loading and Schedule-based retries
 const loadConfig = (): Effect.Effect<ServiceConfig, ConfigError> =>
   pipe(
     Effect.all({
@@ -949,11 +973,18 @@ const loadConfig = (): Effect.Effect<ServiceConfig, ConfigError> =>
       timeoutMs: Config.number("TIMEOUT_MS").pipe(Config.withDefault(5000)),
       batchSize: Config.number("BATCH_SIZE").pipe(Config.withDefault(10))
     }),
-    Effect.flatMap(config => Schema.decodeUnknown(ServiceConfig)(config))
+    Effect.flatMap(config => Schema.decodeUnknown(ServiceConfig)(config)),
+    // 指数バックオフでリトライ - より実践的な設定
+    Effect.retry(
+      Schedule.exponential("1 second").pipe(
+        Schedule.compose(Schedule.recurs(3)),
+        Schedule.intersect(Schedule.spaced("10 seconds"))
+      )
+    )
   )
 
 export const ServiceConfigLive = Layer.effect(
-  ServiceConfig,
+  ServiceConfigTag,
   loadConfig()
 )
 ```

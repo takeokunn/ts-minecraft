@@ -1,13 +1,13 @@
 ---
-title: "01 Inventory System"
-description: "01 Inventory Systemに関する詳細な説明とガイド。"
+title: "インベントリシステム仕様 - アイテム管理・UI・持続化"
+description: "プレイヤーインベントリ、チェスト、アイテム転送システムの完全仕様。Effect-TSによる型安全な実装パターンとDDD境界づけられたコンテキスト設計。"
 category: "specification"
 difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'specification']
-prerequisites: ['basic-typescript']
-estimated_reading_time: "10分"
-last_updated: "2025-09-14"
-version: "1.0.0"
+tags: ["inventory-system", "item-management", "player-system", "ui-system", "persistence", "ddd-context"]
+prerequisites: ["effect-ts-fundamentals", "schema-basics", "ddd-concepts"]
+estimated_reading_time: "12分"
+related_patterns: ["data-modeling-patterns", "service-patterns", "validation-patterns"]
+related_docs: ["./02-player-system.md", "../01-enhanced-features/05-villager-trading.md", "../../01-architecture/05-ecs-integration.md"]
 ---
 
 # インベントリシステム
@@ -21,57 +21,89 @@ Minecraftクローンのインベントリシステムは、アイテムの保�
 ### 2.1 アイテム定義
 
 ```typescript
-import { Schema, Brand, Effect, Option } from "effect"
+import { Schema, Brand, Effect, Option, Match, Data } from "effect"
 
-// ブランド型定義
+// ブランド型定義（Schema.brand使用）
 type ItemId = string & Brand.Brand<"ItemId">
 type SlotIndex = number & Brand.Brand<"SlotIndex">
 
-export const ItemId = Schema.String.pipe(Schema.brand("ItemId"))
+export const ItemIdBrand = Brand.nominal<ItemId>()
+export const SlotIndexBrand = Brand.refined<SlotIndex>(
+  (n): n is SlotIndex => Number.isInteger(n) && n >= 0,
+  (n) => Brand.error(`SlotIndex must be non-negative integer, got ${n}`)
+)
+
+export const ItemId = Schema.String.pipe(
+  Schema.brand("ItemId"),
+  Schema.annotations({ description: "アイテム識別子" })
+)
 export const SlotIndex = Schema.Number.pipe(
   Schema.int(),
   Schema.greaterThanOrEqualTo(0),
-  Schema.brand("SlotIndex")
+  Schema.brand("SlotIndex"),
+  Schema.annotations({ description: "スロットインデックス" })
 )
 
-// アイテムメタデータスキーマ
+// アイテムカテゴリ用Schema
+export const ItemCategory = Schema.Literal(
+  "block", "tool", "weapon", "armor", "food", "material"
+).pipe(Schema.annotations({ description: "アイテムカテゴリ" }))
+
+// アイテムメタデータスキーマ（バリデーション強化）
 export const ItemMetadata = Schema.Struct({
-  durability: Schema.optional(
+  durability: Schema.optionalWith(
     Schema.Number.pipe(
       Schema.between(0, 1),
       Schema.annotations({ description: "アイテムの耐久度(0-1)" })
-    )
+    ),
+    { default: () => 1.0 }
   ),
-  enchantments: Schema.optional(
+  enchantments: Schema.optionalWith(
     Schema.Array(Schema.String).pipe(
       Schema.maxItems(10),
+      Schema.filter(enchants => enchants.every(e => e.length > 0), {
+        message: () => "エンチャント名は空文字列にできません"
+      }),
       Schema.annotations({ description: "エンチャント一覧" })
-    )
+    ),
+    { default: () => [] }
   ),
-  customName: Schema.optional(
+  customName: Schema.optionalWith(
     Schema.String.pipe(
       Schema.maxLength(64),
+      Schema.minLength(1),
       Schema.annotations({ description: "カスタム名" })
-    )
+    ),
+    { default: () => undefined }
   ),
-  lore: Schema.optional(
+  lore: Schema.optionalWith(
     Schema.Array(Schema.String).pipe(
       Schema.maxItems(20),
       Schema.annotations({ description: "説明文" })
-    )
+    ),
+    { default: () => [] }
   )
-})
+}).pipe(
+  Schema.annotations({
+    identifier: "ItemMetadata",
+    description: "アイテムのメタデータ情報"
+  })
+)
 
-// アイテムスタックスキーマ
+// アイテムスタックスキーマ（厳密なバリデーション）
 export const ItemStack = Schema.Struct({
   itemId: ItemId,
   count: Schema.Number.pipe(
     Schema.int(),
     Schema.between(1, 64),
-    Schema.annotations({ description: "アイテム数量" })
+    Schema.annotations({ description: "アイテム数量(1-64)" })
   ),
-  metadata: Schema.optional(ItemMetadata)
+  metadata: Schema.optionalWith(ItemMetadata, { default: () => ({}) })
 }).pipe(
+  Schema.filter(
+    (stack) => stack.count > 0,
+    { message: () => "アイテム数量は1以上である必要があります" }
+  ),
   Schema.annotations({
     identifier: "ItemStack",
     description: "インベントリ内のアイテムスタック"
@@ -80,11 +112,12 @@ export const ItemStack = Schema.Struct({
 
 export type ItemStack = Schema.Schema.Type<typeof ItemStack>
 
-// アイテム定義スキーマ
+// アイテム定義スキーマ（検証ルール追加）
 export const ItemDefinition = Schema.Struct({
   id: ItemId,
   name: Schema.String.pipe(
     Schema.maxLength(64),
+    Schema.minLength(1),
     Schema.annotations({ description: "アイテム表示名" })
   ),
   maxStackSize: Schema.Number.pipe(
@@ -92,9 +125,7 @@ export const ItemDefinition = Schema.Struct({
     Schema.between(1, 64),
     Schema.annotations({ description: "最大スタック数" })
   ),
-  category: Schema.Literal(
-    "block", "tool", "weapon", "armor", "food", "material"
-  ).pipe(Schema.annotations({ description: "アイテムカテゴリ" })),
+  category: ItemCategory,
   properties: Schema.Record({
     key: Schema.String,
     value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean)
@@ -108,77 +139,179 @@ export const ItemDefinition = Schema.Struct({
 
 export type ItemDefinition = Schema.Schema.Type<typeof ItemDefinition>
 
-// アイテムスタック操作用の関数
+// エラー型定義（タグ付きエラー）
+export class CannotMergeStacksError extends Data.TaggedError("CannotMergeStacks")<{
+  readonly reason: string
+  readonly stack1: ItemStack
+  readonly stack2: ItemStack
+}> {}
+
+export class StackOverflowError extends Data.TaggedError("StackOverflow")<{
+  readonly attempted: number
+  readonly maxAllowed: number
+}> {}
+
+export class InvalidSplitAmountError extends Data.TaggedError("InvalidSplitAmount")<{
+  readonly amount: number
+  readonly available: number
+}> {}
+
+// アイテムスタック操作（Effect-based）
 export const ItemStackOperations = {
-  // スタック結合可能性チェック
+  // スタック結合可能性チェック（純粋関数）
   canMerge: (stack1: ItemStack, stack2: ItemStack): boolean =>
     stack1.itemId === stack2.itemId &&
     JSON.stringify(stack1.metadata) === JSON.stringify(stack2.metadata),
 
-  // スタック結合
-  merge: (stack1: ItemStack, stack2: ItemStack, maxStack: number): Effect.Effect<
+  // スタック結合検証
+  validateMerge: (stack1: ItemStack, stack2: ItemStack): Effect.Effect<
+    void,
+    CannotMergeStacksError
+  > =>
+    ItemStackOperations.canMerge(stack1, stack2)
+      ? Effect.void
+      : Effect.fail(new CannotMergeStacksError({
+          reason: "アイテムIDまたはメタデータが異なります",
+          stack1,
+          stack2
+        })),
+
+  // スタック結合（Early Return + Match使用）
+  merge: (
+    stack1: ItemStack,
+    stack2: ItemStack,
+    maxStack: number
+  ): Effect.Effect<
     [ItemStack, Option.Option<ItemStack>],
-    "CannotMergeStacks" | "StackOverflow"
+    CannotMergeStacksError | StackOverflowError
   > =>
     Effect.gen(function* () {
-      if (!ItemStackOperations.canMerge(stack1, stack2)) {
-        return yield* Effect.fail("CannotMergeStacks" as const)
-      }
+      // 早期バリデーション
+      yield* ItemStackOperations.validateMerge(stack1, stack2)
 
       const totalCount = stack1.count + stack2.count
-      if (totalCount <= maxStack) {
-        return [
-          { ...stack1, count: totalCount },
-          Option.none<ItemStack>()
-        ]
-      }
 
-      return [
-        { ...stack1, count: maxStack },
-        Option.some({ ...stack2, count: totalCount - maxStack })
-      ]
+      // Match.value を使用してパターンマッチング
+      return yield* Match.value(totalCount).pipe(
+        Match.when(
+          (count) => count <= maxStack,
+          (count) => Effect.succeed([
+            { ...stack1, count },
+            Option.none<ItemStack>()
+          ] as const)
+        ),
+        Match.when(
+          (count) => count > maxStack,
+          (count) => Effect.succeed([
+            { ...stack1, count: maxStack },
+            Option.some({ ...stack2, count: count - maxStack })
+          ] as const)
+        ),
+        Match.exhaustive
+      )
     }),
 
-  // スタック分割
-  split: (stack: ItemStack, amount: number): Effect.Effect<
+  // スタック分割（バリデーション強化）
+  split: (
+    stack: ItemStack,
+    amount: number
+  ): Effect.Effect<
     [ItemStack, ItemStack],
-    "InvalidSplitAmount"
+    InvalidSplitAmountError
   > =>
     Effect.gen(function* () {
-      if (amount <= 0 || amount >= stack.count) {
-        return yield* Effect.fail("InvalidSplitAmount" as const)
+      // 入力値検証（早期リターン）
+      if (amount <= 0) {
+        return yield* Effect.fail(new InvalidSplitAmountError({
+          amount,
+          available: stack.count
+        }))
       }
 
-      return [
-        { ...stack, count: amount },
-        { ...stack, count: stack.count - amount }
-      ]
-    })
+      if (amount >= stack.count) {
+        return yield* Effect.fail(new InvalidSplitAmountError({
+          amount,
+          available: stack.count
+        }))
+      }
+
+      const splitStack = { ...stack, count: amount }
+      const remainingStack = { ...stack, count: stack.count - amount }
+
+      // Schema検証
+      const validatedSplit = yield* Schema.decode(ItemStack)(splitStack)
+      const validatedRemaining = yield* Schema.decode(ItemStack)(remainingStack)
+
+      return [validatedSplit, validatedRemaining]
+    }),
+
+  // アイテムスタック作成（ファクトリー関数）
+  create: (
+    itemId: ItemId,
+    count: number,
+    metadata?: Partial<Schema.Schema.Type<typeof ItemMetadata>>
+  ): Effect.Effect<ItemStack, Schema.ParseResult.ParseError> =>
+    Schema.decode(ItemStack)({
+      itemId,
+      count,
+      metadata: metadata ?? {}
+    }),
+
+  // スタック統計情報
+  getStackInfo: (stack: ItemStack) => ({
+    isEmpty: stack.count === 0,
+    isFull: (maxSize: number) => stack.count >= maxSize,
+    remainingCapacity: (maxSize: number) => Math.max(0, maxSize - stack.count),
+    canAccept: (amount: number, maxSize: number) => stack.count + amount <= maxSize
+  })
 }
 ```
 
 ### 2.2 インベントリ構造
 
 ```typescript
-import { Effect, Option, ReadonlyArray, Ref, STM, TRef, Match, HashMap, Chunk, Stream } from "effect"
+import { Effect, Option, ReadonlyArray, Ref, STM, TRef, Match, HashMap, Chunk, Stream, Context, Data } from "effect"
 
-// ブランド型定義
+// ブランド型定義（インベントリID）
 type InventoryId = string & Brand.Brand<"InventoryId">
-export const InventoryId = Schema.String.pipe(Schema.brand("InventoryId"))
+export const InventoryIdBrand = Brand.refined<InventoryId>(
+  (id): id is InventoryId => typeof id === "string" && id.length > 0,
+  (id) => Brand.error(`InventoryId must be non-empty string, got "${id}"`)
+)
 
-// インベントリスロット（Schema定義）
+export const InventoryId = Schema.String.pipe(
+  Schema.minLength(1),
+  Schema.brand("InventoryId"),
+  Schema.annotations({ description: "インベントリ識別子" })
+)
+
+// アイテムフィルター関数型
+export const ItemFilter = Schema.Function.pipe(
+  Schema.annotations({
+    description: "アイテム受け入れフィルタ関数"
+  })
+)
+
+// インベントリスロット（Schema定義・検証強化）
 export const InventorySlot = Schema.Struct({
   index: SlotIndex,
-  item: Schema.Option(ItemStack),
+  item: Schema.optionalWith(ItemStack, { default: () => Option.none() }),
   locked: Schema.Boolean.pipe(
     Schema.annotations({ description: "スロットのロック状態" })
   ),
-  acceptFilter: Schema.optional(
-    Schema.Function.pipe(
-      Schema.annotations({ description: "アイテム受け入れフィルタ" })
-    )
+  acceptFilter: Schema.optionalWith(
+    ItemFilter,
+    { default: () => undefined }
+  ),
+  lastUpdated: Schema.optionalWith(
+    Schema.Number.pipe(Schema.int(), Schema.positive()),
+    { default: () => Date.now() }
   )
 }).pipe(
+  Schema.filter(
+    (slot) => slot.index >= 0,
+    { message: () => "スロットインデックスは0以上である必要があります" }
+  ),
   Schema.annotations({
     identifier: "InventorySlot",
     description: "インベントリの単一スロット"
@@ -187,7 +320,7 @@ export const InventorySlot = Schema.Struct({
 
 export type InventorySlot = Schema.Schema.Type<typeof InventorySlot>
 
-// インベントリタイプ
+// インベントリタイプ（拡張）
 export const InventoryType = Schema.Literal(
   "player",
   "chest",
@@ -195,33 +328,92 @@ export const InventoryType = Schema.Literal(
   "crafting",
   "enchanting",
   "hopper",
-  "dispenser"
+  "dispenser",
+  "ender_chest",
+  "shulker_box"
 ).pipe(Schema.annotations({ description: "インベントリの種類" }))
 
 export type InventoryType = Schema.Schema.Type<typeof InventoryType>
 
-// インベントリ制約
+// インベントリ制約（詳細化）
 export const InventoryConstraints = Schema.Struct({
-  maxSlots: Schema.Number.pipe(Schema.int(), Schema.between(1, 256)),
-  allowedItems: Schema.optional(Schema.Array(ItemId)),
-  forbiddenItems: Schema.optional(Schema.Array(ItemId)),
-  maxStackSize: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.between(1, 64)))
+  maxSlots: Schema.Number.pipe(
+    Schema.int(),
+    Schema.between(1, 256),
+    Schema.annotations({ description: "最大スロット数" })
+  ),
+  allowedItems: Schema.optionalWith(
+    Schema.Array(ItemId).pipe(
+      Schema.maxItems(1000),
+      Schema.annotations({ description: "許可されたアイテムID一覧" })
+    ),
+    { default: () => Option.none() }
+  ),
+  forbiddenItems: Schema.optionalWith(
+    Schema.Array(ItemId).pipe(
+      Schema.maxItems(1000),
+      Schema.annotations({ description: "禁止されたアイテムID一覧" })
+    ),
+    { default: () => Option.none() }
+  ),
+  maxStackSize: Schema.optionalWith(
+    Schema.Number.pipe(
+      Schema.int(),
+      Schema.between(1, 64),
+      Schema.annotations({ description: "最大スタック数の上書き" })
+    ),
+    { default: () => Option.none() }
+  ),
+  slotRestrictions: Schema.optionalWith(
+    Schema.Record({
+      key: SlotIndex,
+      value: Schema.Array(ItemCategory)
+    }).pipe(
+      Schema.annotations({ description: "スロット別アイテム制限" })
+    ),
+    { default: () => {} }
+  )
 }).pipe(
   Schema.annotations({
+    identifier: "InventoryConstraints",
     description: "インベントリの制約定義"
   })
 )
 
 export type InventoryConstraints = Schema.Schema.Type<typeof InventoryConstraints>
 
-// インベントリ状態（STMで管理）
+// インベントリ状態（STM用・バージョン管理）
 export const InventoryState = Schema.Struct({
   id: InventoryId,
   type: InventoryType,
-  slots: Schema.Array(InventorySlot),
+  slots: Schema.Array(InventorySlot).pipe(
+    Schema.maxItems(256),
+    Schema.filter(
+      (slots) => slots.every((slot, index) => slot.index === index),
+      { message: () => "スロットのインデックスが順序通りでありません" }
+    )
+  ),
   constraints: InventoryConstraints,
-  version: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
+  version: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(0),
+    Schema.annotations({ description: "バージョン番号（楽観的ロック用）" })
+  ),
+  createdAt: Schema.Number.pipe(
+    Schema.int(),
+    Schema.positive(),
+    Schema.annotations({ description: "作成時刻" })
+  ),
+  lastModified: Schema.Number.pipe(
+    Schema.int(),
+    Schema.positive(),
+    Schema.annotations({ description: "最終更新時刻" })
+  )
 }).pipe(
+  Schema.filter(
+    (state) => state.slots.length <= state.constraints.maxSlots,
+    { message: () => "スロット数が制約を超過しています" }
+  ),
   Schema.annotations({
     identifier: "InventoryState",
     description: "インベントリの状態情報"
@@ -230,21 +422,29 @@ export const InventoryState = Schema.Struct({
 
 export type InventoryState = Schema.Schema.Type<typeof InventoryState>
 
-// インベントリイベント定義
+// インベントリイベント定義（詳細化）
 export const InventoryEvent = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal("ItemAdded"),
     inventoryId: InventoryId,
     slotIndex: SlotIndex,
     item: ItemStack,
-    timestamp: Schema.Number
+    timestamp: Schema.Number.pipe(Schema.int(), Schema.positive()),
+    source: Schema.optionalWith(
+      Schema.Literal("pickup", "craft", "trade", "admin"),
+      { default: () => "pickup" }
+    )
   }),
   Schema.Struct({
     _tag: Schema.Literal("ItemRemoved"),
     inventoryId: InventoryId,
     slotIndex: SlotIndex,
     item: ItemStack,
-    timestamp: Schema.Number
+    timestamp: Schema.Number.pipe(Schema.int(), Schema.positive()),
+    reason: Schema.optionalWith(
+      Schema.Literal("consume", "drop", "craft", "transfer"),
+      { default: () => "consume" }
+    )
   }),
   Schema.Struct({
     _tag: Schema.Literal("ItemMoved"),
@@ -253,12 +453,26 @@ export const InventoryEvent = Schema.Union(
     fromSlot: SlotIndex,
     toSlot: SlotIndex,
     item: ItemStack,
-    timestamp: Schema.Number
+    timestamp: Schema.Number.pipe(Schema.int(), Schema.positive()),
+    isSwap: Schema.Boolean.pipe(
+      Schema.annotations({ description: "アイテム交換かどうか" })
+    )
   }),
   Schema.Struct({
     _tag: Schema.Literal("InventoryCleared"),
     inventoryId: InventoryId,
-    timestamp: Schema.Number
+    timestamp: Schema.Number.pipe(Schema.int(), Schema.positive()),
+    reason: Schema.optionalWith(
+      Schema.Literal("death", "admin", "reset"),
+      { default: () => "admin" }
+    )
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("SlotLocked"),
+    inventoryId: InventoryId,
+    slotIndex: SlotIndex,
+    timestamp: Schema.Number.pipe(Schema.int(), Schema.positive()),
+    reason: Schema.String
   })
 ).pipe(
   Schema.annotations({
@@ -269,174 +483,481 @@ export const InventoryEvent = Schema.Union(
 
 export type InventoryEvent = Schema.Schema.Type<typeof InventoryEvent>
 
-// インベントリサービス定義
+// インベントリエラー定義
+export class InventoryNotFoundError extends Data.TaggedError("InventoryNotFound")<{
+  readonly inventoryId: InventoryId
+  readonly context?: string
+}> {}
+
+export class InventoryFullError extends Data.TaggedError("InventoryFull")<{
+  readonly inventoryId: InventoryId
+  readonly attemptedItem: ItemStack
+  readonly availableSlots: number
+}> {}
+
+export class SlotEmptyError extends Data.TaggedError("SlotEmpty")<{
+  readonly inventoryId: InventoryId
+  readonly slotIndex: SlotIndex
+}> {}
+
+export class ItemTransferFailedError extends Data.TaggedError("ItemTransferFailed")<{
+  readonly reason: string
+  readonly fromInventoryId: InventoryId
+  readonly toInventoryId: InventoryId
+  readonly item: ItemStack
+}> {}
+
+// インベントリサービス定義（Effect-based）
 export interface InventoryService {
-  readonly create: (type: InventoryType, constraints: InventoryConstraints) => Effect.Effect<InventoryId>
-  readonly get: (id: InventoryId) => Effect.Effect<Option.Option<InventoryState>, "InventoryNotFound">
-  readonly addItem: (id: InventoryId, item: ItemStack) => Effect.Effect<SlotIndex, "InventoryFull" | "InventoryNotFound">
-  readonly removeItem: (id: InventoryId, slotIndex: SlotIndex) => Effect.Effect<Option.Option<ItemStack>, "InventoryNotFound" | "SlotEmpty">
-  readonly moveItem: (fromId: InventoryId, toId: InventoryId, fromSlot: SlotIndex, toSlot: SlotIndex, amount?: number) => Effect.Effect<void, "ItemTransferFailed">
-  readonly subscribe: (id: InventoryId) => Stream.Stream<InventoryEvent>
+  readonly create: (
+    type: InventoryType,
+    constraints: InventoryConstraints
+  ) => Effect.Effect<InventoryId, never, never>
+
+  readonly get: (
+    id: InventoryId
+  ) => Effect.Effect<InventoryState, InventoryNotFoundError, never>
+
+  readonly addItem: (
+    id: InventoryId,
+    item: ItemStack
+  ) => Effect.Effect<SlotIndex, InventoryFullError | InventoryNotFoundError, never>
+
+  readonly removeItem: (
+    id: InventoryId,
+    slotIndex: SlotIndex
+  ) => Effect.Effect<ItemStack, InventoryNotFoundError | SlotEmptyError, never>
+
+  readonly moveItem: (
+    fromId: InventoryId,
+    toId: InventoryId,
+    fromSlot: SlotIndex,
+    toSlot: SlotIndex,
+    amount?: number
+  ) => Effect.Effect<void, ItemTransferFailedError, never>
+
+  readonly subscribe: (
+    id: InventoryId
+  ) => Stream.Stream<InventoryEvent, InventoryNotFoundError, never>
+
+  readonly validateConstraints: (
+    inventoryId: InventoryId,
+    item: ItemStack,
+    targetSlot?: SlotIndex
+  ) => Effect.Effect<void, string, never>
 }
 
-// STMベースのインベントリ操作
+export const InventoryService = Context.GenericTag<InventoryService>("@minecraft/InventoryService")
+
+// STMベースのインベントリ操作（Effect-TS最適化）
 export const InventoryOperations = {
-  // アイテム追加（STMによる原子的操作）
+  // アイテム追加（STMによる原子的操作・早期リターン）
   addItemSTM: (
     inventoryRef: TRef.TRef<InventoryState>,
     item: ItemStack,
     itemDefinitions: ReadonlyArray<ItemDefinition>
-  ): STM.STM<SlotIndex, "InventoryFull" | "InvalidItem"> =>
+  ): STM.STM<SlotIndex, InventoryFullError | Data.TaggedError<"InvalidItem">> =>
     STM.gen(function* () {
+      // 入力バリデーション（早期リターン）
+      const itemDef = yield* STM.fromEffect(
+        Effect.gen(function* () {
+          const found = ReadonlyArray.findFirst(
+            itemDefinitions,
+            def => def.id === item.itemId
+          )
+          return Option.isSome(found)
+            ? Effect.succeed(found.value)
+            : Effect.fail(new Data.TaggedError("InvalidItem")({
+                itemId: item.itemId
+              }))
+        })
+      )
+
       const inventory = yield* TRef.get(inventoryRef)
-      const itemDef = ReadonlyArray.findFirst(
-        itemDefinitions,
-        def => def.id === item.itemId
+
+      // 制約チェック
+      yield* STM.fromEffect(
+        InventoryOperations.validateItemPlacement(inventory, item, itemDef)
       )
 
-      if (Option.isNone(itemDef)) {
-        return yield* STM.fail("InvalidItem" as const)
-      }
-
-      // 同じアイテムの既存スタックを検索
-      const existingSlotIndex = ReadonlyArray.findFirstIndex(
-        inventory.slots,
-        slot => Option.isSome(slot.item) &&
-                 ItemStackOperations.canMerge(slot.item.value, item) &&
-                 slot.item.value.count < itemDef.value.maxStackSize
+      // 既存スタック検索とマージ（Match使用）
+      const existingSlotResult = yield* InventoryOperations.findMergableSlotSTM(
+        inventory,
+        item,
+        itemDef.maxStackSize
       )
 
-      return yield* Match.value(existingSlotIndex).pipe(
+      return yield* Match.value(existingSlotResult).pipe(
         Match.when(Option.isSome, ({ value: slotIndex }) =>
-          // 既存スタックにマージ
-          STM.gen(function* () {
-            const slot = inventory.slots[slotIndex]
-            const existingItem = slot.item.value! // Option.isSomeでチェック済み
-            const maxStack = itemDef.value.maxStackSize
-            const [mergedStack, remaining] = yield* ItemStackOperations.merge(existingItem, item, maxStack)
-
-            const updatedSlots = ReadonlyArray.modify(
-              inventory.slots,
-              slotIndex,
-              s => ({ ...s, item: Option.some(mergedStack) })
-            )
-
-            yield* TRef.set(inventoryRef, {
-              ...inventory,
-              slots: updatedSlots,
-              version: inventory.version + 1
-            })
-
-            // 残りがある場合は再帰的に追加
-            if (Option.isSome(remaining)) {
-              return yield* InventoryOperations.addItemSTM(inventoryRef, remaining.value, itemDefinitions)
-            }
-
-            return slotIndex as SlotIndex
-          })
+          InventoryOperations.mergeToExistingSlotSTM(
+            inventoryRef,
+            slotIndex,
+            item,
+            itemDef.maxStackSize,
+            itemDefinitions
+          )
         ),
         Match.when(Option.isNone, () =>
-          // 空きスロットを検索
-          STM.gen(function* () {
-            const emptySlotIndex = ReadonlyArray.findFirstIndex(
-              inventory.slots,
-              slot => Option.isNone(slot.item) && !slot.locked
-            )
-
-            if (Option.isNone(emptySlotIndex)) {
-              return yield* STM.fail("InventoryFull" as const)
-            }
-
-            const slotIndex = emptySlotIndex.value
-            const updatedSlots = ReadonlyArray.modify(
-              inventory.slots,
-              slotIndex,
-              s => ({ ...s, item: Option.some(item) })
-            )
-
-            yield* TRef.set(inventoryRef, {
-              ...inventory,
-              slots: updatedSlots,
-              version: inventory.version + 1
-            })
-
-            return slotIndex as SlotIndex
-          })
+          InventoryOperations.addToEmptySlotSTM(inventoryRef, item)
         ),
         Match.exhaustive
-      ).pipe(STM.flatten)
+      )
     }),
 
-  // アイテム移動（STMによる原子的操作）
+  // マージ可能スロット検索（STM内関数）
+  findMergableSlotSTM: (
+    inventory: InventoryState,
+    item: ItemStack,
+    maxStackSize: number
+  ): STM.STM<Option.Option<number>, never> =>
+    STM.succeed(
+      ReadonlyArray.findFirstIndex(
+        inventory.slots,
+        (slot, index) =>
+          Option.isSome(slot.item) &&
+          !slot.locked &&
+          ItemStackOperations.canMerge(slot.item.value, item) &&
+          slot.item.value.count < maxStackSize
+      )
+    ),
+
+  // 既存スロットへのマージ（再帰処理）
+  mergeToExistingSlotSTM: (
+    inventoryRef: TRef.TRef<InventoryState>,
+    slotIndex: number,
+    item: ItemStack,
+    maxStackSize: number,
+    itemDefinitions: ReadonlyArray<ItemDefinition>
+  ): STM.STM<SlotIndex, InventoryFullError> =>
+    STM.gen(function* () {
+      const inventory = yield* TRef.get(inventoryRef)
+      const slot = inventory.slots[slotIndex]
+      const existingItem = slot.item.value! // 既に検証済み
+
+      // スタックマージ
+      const mergeResult = yield* STM.fromEffect(
+        ItemStackOperations.merge(existingItem, item, maxStackSize)
+      )
+
+      const [mergedStack, remaining] = mergeResult
+      const now = Date.now()
+
+      // スロット更新
+      const updatedSlots = ReadonlyArray.modify(
+        inventory.slots,
+        slotIndex,
+        s => ({
+          ...s,
+          item: Option.some(mergedStack),
+          lastUpdated: now
+        })
+      )
+
+      yield* TRef.set(inventoryRef, {
+        ...inventory,
+        slots: updatedSlots,
+        version: inventory.version + 1,
+        lastModified: now
+      })
+
+      // 残りアイテムがある場合は再帰的に処理
+      if (Option.isSome(remaining)) {
+        return yield* InventoryOperations.addItemSTM(
+          inventoryRef,
+          remaining.value,
+          itemDefinitions
+        )
+      }
+
+      return SlotIndexBrand(slotIndex)
+    }),
+
+  // 空きスロットへの追加
+  addToEmptySlotSTM: (
+    inventoryRef: TRef.TRef<InventoryState>,
+    item: ItemStack
+  ): STM.STM<SlotIndex, InventoryFullError> =>
+    STM.gen(function* () {
+      const inventory = yield* TRef.get(inventoryRef)
+
+      const emptySlotIndex = ReadonlyArray.findFirstIndex(
+        inventory.slots,
+        slot => Option.isNone(slot.item) && !slot.locked
+      )
+
+      if (Option.isNone(emptySlotIndex)) {
+        return yield* STM.fail(new InventoryFullError({
+          inventoryId: inventory.id,
+          attemptedItem: item,
+          availableSlots: 0
+        }))
+      }
+
+      const slotIndex = emptySlotIndex.value
+      const now = Date.now()
+
+      const updatedSlots = ReadonlyArray.modify(
+        inventory.slots,
+        slotIndex,
+        s => ({
+          ...s,
+          item: Option.some(item),
+          lastUpdated: now
+        })
+      )
+
+      yield* TRef.set(inventoryRef, {
+        ...inventory,
+        slots: updatedSlots,
+        version: inventory.version + 1,
+        lastModified: now
+      })
+
+      return SlotIndexBrand(slotIndex)
+    }),
+
+  // アイテム移動（STMによる原子的操作・検証強化）
   moveItemSTM: (
     fromRef: TRef.TRef<InventoryState>,
     toRef: TRef.TRef<InventoryState>,
     fromSlot: SlotIndex,
     toSlot: SlotIndex,
     amount?: number
-  ): STM.STM<void, "SlotEmpty" | "InvalidTransfer"> =>
+  ): STM.STM<void, SlotEmptyError | ItemTransferFailedError> =>
     STM.gen(function* () {
       const fromInventory = yield* TRef.get(fromRef)
       const toInventory = yield* TRef.get(toRef)
 
+      // 入力検証（早期リターン）
       const sourceSlot = fromInventory.slots[fromSlot]
 
       if (Option.isNone(sourceSlot.item)) {
-        return yield* STM.fail("SlotEmpty" as const)
+        return yield* STM.fail(new SlotEmptyError({
+          inventoryId: fromInventory.id,
+          slotIndex: fromSlot
+        }))
+      }
+
+      if (sourceSlot.locked) {
+        return yield* STM.fail(new ItemTransferFailedError({
+          reason: "送信元スロットがロックされています",
+          fromInventoryId: fromInventory.id,
+          toInventoryId: toInventory.id,
+          item: sourceSlot.item.value
+        }))
       }
 
       const sourceItem = sourceSlot.item.value
       const transferAmount = amount ?? sourceItem.count
 
+      // 転送量検証
       if (transferAmount <= 0 || transferAmount > sourceItem.count) {
-        return yield* STM.fail("InvalidTransfer" as const)
+        return yield* STM.fail(new ItemTransferFailedError({
+          reason: `無効な転送量: ${transferAmount}`,
+          fromInventoryId: fromInventory.id,
+          toInventoryId: toInventory.id,
+          item: sourceItem
+        }))
       }
 
       const targetSlot = toInventory.slots[toSlot]
 
-      // 転送後のアイテム計算
-      const remainingSource = sourceItem.count - transferAmount
-      const transferredItem = { ...sourceItem, count: transferAmount }
+      // ターゲットスロット検証
+      if (targetSlot.locked) {
+        return yield* STM.fail(new ItemTransferFailedError({
+          reason: "送信先スロットがロックされています",
+          fromInventoryId: fromInventory.id,
+          toInventoryId: toInventory.id,
+          item: sourceItem
+        }))
+      }
 
-      // ソースの更新
+      // 転送処理（Match使用）
+      return yield* Match.value(targetSlot.item).pipe(
+        Match.when(Option.isSome, (existingItem) =>
+          InventoryOperations.handleItemMergeSTM(
+            fromRef,
+            toRef,
+            fromSlot,
+            toSlot,
+            sourceItem,
+            existingItem.value,
+            transferAmount
+          )
+        ),
+        Match.when(Option.isNone, () =>
+          InventoryOperations.handleSimpleTransferSTM(
+            fromRef,
+            toRef,
+            fromSlot,
+            toSlot,
+            sourceItem,
+            transferAmount
+          )
+        ),
+        Match.exhaustive
+      )
+    }),
+
+  // アイテムマージ処理
+  handleItemMergeSTM: (
+    fromRef: TRef.TRef<InventoryState>,
+    toRef: TRef.TRef<InventoryState>,
+    fromSlot: SlotIndex,
+    toSlot: SlotIndex,
+    sourceItem: ItemStack,
+    targetItem: ItemStack,
+    transferAmount: number
+  ): STM.STM<void, ItemTransferFailedError> =>
+    STM.gen(function* () {
+      if (!ItemStackOperations.canMerge(sourceItem, targetItem)) {
+        return yield* STM.fail(new ItemTransferFailedError({
+          reason: "アイテムをマージできません",
+          fromInventoryId: (yield* TRef.get(fromRef)).id,
+          toInventoryId: (yield* TRef.get(toRef)).id,
+          item: sourceItem
+        }))
+      }
+
+      const transferredItem = { ...sourceItem, count: transferAmount }
+      const mergeResult = yield* STM.fromEffect(
+        ItemStackOperations.merge(targetItem, transferredItem, 64) // TODO: 実際のmaxStackSize
+      )
+
+      const [mergedStack, overflow] = mergeResult
+
+      if (Option.isSome(overflow)) {
+        return yield* STM.fail(new ItemTransferFailedError({
+          reason: "ターゲットスロットの容量が不足しています",
+          fromInventoryId: (yield* TRef.get(fromRef)).id,
+          toInventoryId: (yield* TRef.get(toRef)).id,
+          item: sourceItem
+        }))
+      }
+
+      yield* InventoryOperations.updateBothInventoriesSTM(
+        fromRef,
+        toRef,
+        fromSlot,
+        toSlot,
+        sourceItem.count - transferAmount,
+        mergedStack
+      )
+    }),
+
+  // シンプル転送処理
+  handleSimpleTransferSTM: (
+    fromRef: TRef.TRef<InventoryState>,
+    toRef: TRef.TRef<InventoryState>,
+    fromSlot: SlotIndex,
+    toSlot: SlotIndex,
+    sourceItem: ItemStack,
+    transferAmount: number
+  ): STM.STM<void, never> =>
+    STM.gen(function* () {
+      const transferredItem = { ...sourceItem, count: transferAmount }
+      const remainingCount = sourceItem.count - transferAmount
+
+      yield* InventoryOperations.updateBothInventoriesSTM(
+        fromRef,
+        toRef,
+        fromSlot,
+        toSlot,
+        remainingCount,
+        transferredItem
+      )
+    }),
+
+  // 両インベントリの原子的更新
+  updateBothInventoriesSTM: (
+    fromRef: TRef.TRef<InventoryState>,
+    toRef: TRef.TRef<InventoryState>,
+    fromSlot: SlotIndex,
+    toSlot: SlotIndex,
+    remainingSourceCount: number,
+    targetItem: ItemStack
+  ): STM.STM<void, never> =>
+    STM.gen(function* () {
+      const fromInventory = yield* TRef.get(fromRef)
+      const toInventory = yield* TRef.get(toRef)
+      const now = Date.now()
+
+      // ソース更新
       const updatedFromSlots = ReadonlyArray.modify(
         fromInventory.slots,
         fromSlot,
         s => ({
           ...s,
-          item: remainingSource > 0
-            ? Option.some({ ...sourceItem, count: remainingSource })
-            : Option.none()
+          item: remainingSourceCount > 0
+            ? Option.some({ ...fromInventory.slots[fromSlot].item.value!, count: remainingSourceCount })
+            : Option.none(),
+          lastUpdated: now
         })
       )
 
-      // ターゲットの更新
+      // ターゲット更新
       const updatedToSlots = ReadonlyArray.modify(
         toInventory.slots,
         toSlot,
         s => ({
           ...s,
-          item: Option.isSome(targetSlot.item) && ItemStackOperations.canMerge(targetSlot.item.value, transferredItem)
-            ? Option.some({ ...targetSlot.item.value, count: targetSlot.item.value.count + transferAmount })
-            : Option.some(transferredItem)
+          item: Option.some(targetItem),
+          lastUpdated: now
         })
       )
 
-      // 両方のインベントリを原子的に更新
-      yield* TRef.set(fromRef, {
-        ...fromInventory,
-        slots: updatedFromSlots,
-        version: fromInventory.version + 1
-      })
-
-      yield* TRef.set(toRef, {
-        ...toInventory,
-        slots: updatedToSlots,
-        version: toInventory.version + 1
-      })
+      // 両方を原子的に更新
+      yield* STM.all([
+        TRef.set(fromRef, {
+          ...fromInventory,
+          slots: updatedFromSlots,
+          version: fromInventory.version + 1,
+          lastModified: now
+        }),
+        TRef.set(toRef, {
+          ...toInventory,
+          slots: updatedToSlots,
+          version: toInventory.version + 1,
+          lastModified: now
+        })
+      ])
     }),
 
-  // インベントリ圧縮（同種アイテムの統合）
+  // アイテム配置検証
+  validateItemPlacement: (
+    inventory: InventoryState,
+    item: ItemStack,
+    itemDefinition: ItemDefinition
+  ): Effect.Effect<void, ItemTransferFailedError> =>
+    Effect.gen(function* () {
+      // 許可アイテムチェック
+      if (Option.isSome(inventory.constraints.allowedItems)) {
+        const allowed = inventory.constraints.allowedItems.value
+        if (!ReadonlyArray.contains(allowed, item.itemId)) {
+          return yield* Effect.fail(new ItemTransferFailedError({
+            reason: "このアイテムは許可されていません",
+            fromInventoryId: inventory.id,
+            toInventoryId: inventory.id,
+            item
+          }))
+        }
+      }
+
+      // 禁止アイテムチェック
+      if (Option.isSome(inventory.constraints.forbiddenItems)) {
+        const forbidden = inventory.constraints.forbiddenItems.value
+        if (ReadonlyArray.contains(forbidden, item.itemId)) {
+          return yield* Effect.fail(new ItemTransferFailedError({
+            reason: "このアイテムは禁止されています",
+            fromInventoryId: inventory.id,
+            toInventoryId: inventory.id,
+            item
+          }))
+        }
+      }
+    }),
+
+  // インベントリ圧縮（同種アイテムの統合・最適化版）
   compactInventorySTM: (
     inventoryRef: TRef.TRef<InventoryState>,
     itemDefinitions: ReadonlyArray<ItemDefinition>
@@ -444,28 +965,31 @@ export const InventoryOperations = {
     STM.gen(function* () {
       const inventory = yield* TRef.get(inventoryRef)
 
-      // アイテムIDごとにグループ化
-      const itemGroups = HashMap.empty<string, Array<{ slot: number; item: ItemStack }>>()
+      // アイテムをグループ化（HashMap使用）
+      const itemGroups = yield* STM.succeed(
+        ReadonlyArray.reduce(
+          inventory.slots,
+          HashMap.empty<string, Array<{ slot: number; item: ItemStack }>>(),
+          (acc, slot, index) => {
+            if (Option.isSome(slot.item) && !slot.locked) {
+              const itemId = slot.item.value.itemId
+              const entry = { slot: index, item: slot.item.value }
 
-      for (let i = 0; i < inventory.slots.length; i++) {
-        const slot = inventory.slots[i]
-        if (Option.isSome(slot.item) && !slot.locked) {
-          const itemId = slot.item.value.itemId
-          const existing = HashMap.get(itemGroups, itemId)
-          const entry = { slot: i, item: slot.item.value }
-
-          if (Option.isSome(existing)) {
-            existing.value.push(entry)
-          } else {
-            HashMap.set(itemGroups, itemId, [entry])
+              return HashMap.modify(acc, itemId, (existing) =>
+                Option.isSome(existing)
+                  ? Option.some([...existing.value, entry])
+                  : Option.some([entry])
+              )
+            }
+            return acc
           }
-        }
-      }
+        )
+      )
 
       let compactedCount = 0
       let newSlots = [...inventory.slots]
 
-      // 各アイテムグループを圧縮
+      // 各グループを圧縮
       for (const [itemId, entries] of itemGroups) {
         if (entries.length <= 1) continue
 
@@ -476,41 +1000,58 @@ export const InventoryOperations = {
 
         if (Option.isNone(itemDef)) continue
 
-        const maxStack = itemDef.value.maxStackSize
-        let totalCount = entries.reduce((sum, entry) => sum + entry.item.count, 0)
+        const compactResult = yield* InventoryOperations.compactItemGroupSTM(
+          entries,
+          itemDef.value.maxStackSize
+        )
 
-        // 全スロットをクリア
-        for (const entry of entries) {
-          newSlots[entry.slot] = { ...newSlots[entry.slot], item: Option.none() }
-        }
-
-        // 圧縮後のスタックを配置
-        let entryIndex = 0
-        while (totalCount > 0 && entryIndex < entries.length) {
-          const stackSize = Math.min(totalCount, maxStack)
-          const baseItem = entries[0].item
-
-          newSlots[entries[entryIndex].slot] = {
-            ...newSlots[entries[entryIndex].slot],
-            item: Option.some({
-              ...baseItem,
-              count: stackSize
-            })
+        // スロット更新
+        for (let i = 0; i < entries.length; i++) {
+          const entry = entries[i]
+          newSlots[entry.slot] = {
+            ...newSlots[entry.slot],
+            item: i < compactResult.length
+              ? Option.some(compactResult[i])
+              : Option.none(),
+            lastUpdated: Date.now()
           }
-
-          totalCount -= stackSize
-          entryIndex++
-          compactedCount++
         }
+
+        compactedCount += Math.max(0, entries.length - compactResult.length)
       }
 
-      yield* TRef.set(inventoryRef, {
-        ...inventory,
-        slots: newSlots,
-        version: inventory.version + 1
-      })
+      if (compactedCount > 0) {
+        yield* TRef.set(inventoryRef, {
+          ...inventory,
+          slots: newSlots,
+          version: inventory.version + 1,
+          lastModified: Date.now()
+        })
+      }
 
       return compactedCount
+    }),
+
+  // アイテムグループ圧縮処理
+  compactItemGroupSTM: (
+    entries: Array<{ slot: number; item: ItemStack }>,
+    maxStackSize: number
+  ): STM.STM<Array<ItemStack>, never> =>
+    STM.gen(function* () {
+      let totalCount = entries.reduce((sum, entry) => sum + entry.item.count, 0)
+      const baseItem = entries[0].item
+      const result: Array<ItemStack> = []
+
+      while (totalCount > 0) {
+        const stackSize = Math.min(totalCount, maxStackSize)
+        result.push({
+          ...baseItem,
+          count: stackSize
+        })
+        totalCount -= stackSize
+      }
+
+      return result
     })
 }
 ```
@@ -520,16 +1061,42 @@ export const InventoryOperations = {
 ### 3.1 インベントリコンポーネント
 
 ```typescript
-import { Context, Layer, Service, Ref } from "effect"
+import { Context, Layer, Service, Ref, Queue, Schedule, Duration } from "effect"
 
-// ECSコンポーネント定義（Effect統合）
+// エンティティID定義
+type EntityId = string & Brand.Brand<"EntityId">
+export const EntityId = Schema.String.pipe(
+  Schema.minLength(1),
+  Schema.brand("EntityId"),
+  Schema.annotations({ description: "エンティティ識別子" })
+)
+
+// ECSコンポーネント定義（Effect統合・型安全性強化）
 export const InventoryComponent = Schema.Struct({
   inventoryId: InventoryId,
   inventoryRef: Schema.Unknown.pipe(
-    Schema.annotations({ description: "TRef<InventoryState>への参照" })
+    Schema.annotations({
+      description: "TRef<InventoryState>への参照（型安全のため抽象化）"
+    })
   ),
   eventStream: Schema.Unknown.pipe(
-    Schema.annotations({ description: "Stream<InventoryEvent>への参照" })
+    Schema.annotations({
+      description: "Stream<InventoryEvent>への参照（型安全のため抽象化）"
+    })
+  ),
+  lastSync: Schema.Number.pipe(
+    Schema.int(),
+    Schema.positive(),
+    Schema.annotations({ description: "最終同期時刻" })
+  ),
+  isDirty: Schema.Boolean.pipe(
+    Schema.annotations({ description: "変更フラグ" })
+  ),
+  metadata: Schema.Record({
+    key: Schema.String,
+    value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean)
+  }).pipe(
+    Schema.annotations({ description: "コンポーネント固有メタデータ" })
   )
 }).pipe(
   Schema.annotations({
@@ -540,36 +1107,223 @@ export const InventoryComponent = Schema.Struct({
 
 export type InventoryComponent = Schema.Schema.Type<typeof InventoryComponent>
 
-// コンポーネント登録（Effect統合）
+// コンポーネントファクトリー（Effect-based）
 export const makeInventoryComponent = (
   inventoryId: InventoryId,
   inventoryRef: TRef.TRef<InventoryState>,
-  eventStream: Stream.Stream<InventoryEvent>
-): InventoryComponent => ({
-  inventoryId,
-  inventoryRef: inventoryRef as unknown,
-  eventStream: eventStream as unknown
-})
+  eventStream: Stream.Stream<InventoryEvent, never, never>
+): Effect.Effect<InventoryComponent, never, never> =>
+  Effect.gen(function* () {
+    const now = Date.now()
 
-// ECSインベントリサービス
+    // Schema検証を経由してコンポーネント作成
+    return yield* Schema.decode(InventoryComponent)({
+      inventoryId,
+      inventoryRef: inventoryRef as unknown,
+      eventStream: eventStream as unknown,
+      lastSync: now,
+      isDirty: false,
+      metadata: {}
+    })
+  })
+
+// ECSインベントリサービスエラー
+export class ComponentCreationFailedError extends Data.TaggedError("ComponentCreationFailed")<{
+  readonly entityId: EntityId
+  readonly reason: string
+}> {}
+
+export class ComponentNotFoundError extends Data.TaggedError("ComponentNotFound")<{
+  readonly entityId: EntityId
+}> {}
+
+export class ComponentUpdateFailedError extends Data.TaggedError("ComponentUpdateFailed")<{
+  readonly entityId: EntityId
+  readonly reason: string
+}> {}
+
+// ECSインベントリサービス定義（Effect-based）
 export interface ECSInventoryService {
   readonly createComponent: (
     entityId: EntityId,
     type: InventoryType,
     constraints: InventoryConstraints
-  ) => Effect.Effect<InventoryComponent, "ComponentCreationFailed">
+  ) => Effect.Effect<InventoryComponent, ComponentCreationFailedError, never>
 
   readonly getComponent: (
     entityId: EntityId
-  ) => Effect.Effect<Option.Option<InventoryComponent>, "ComponentNotFound">
+  ) => Effect.Effect<InventoryComponent, ComponentNotFoundError, never>
 
   readonly updateComponent: (
     entityId: EntityId,
     update: (component: InventoryComponent) => InventoryComponent
-  ) => Effect.Effect<void, "ComponentUpdateFailed">
+  ) => Effect.Effect<void, ComponentUpdateFailedError, never>
+
+  readonly removeComponent: (
+    entityId: EntityId
+  ) => Effect.Effect<void, ComponentNotFoundError, never>
+
+  readonly getAllComponents: () => Effect.Effect<
+    ReadonlyArray<{ entityId: EntityId; component: InventoryComponent }>,
+    never,
+    never
+  >
+
+  readonly subscribeToChanges: (
+    entityId: EntityId
+  ) => Stream.Stream<InventoryComponent, ComponentNotFoundError, never>
 }
 
 export const ECSInventoryService = Context.GenericTag<ECSInventoryService>("@minecraft/ECSInventoryService")
+
+// ECSインベントリサービス実装
+export const makeECSInventoryService = (): Effect.Effect<
+  ECSInventoryService,
+  never,
+  InventoryService
+> =>
+  Effect.gen(function* () {
+    const inventoryService = yield* InventoryService
+
+    // コンポーネントストレージ（Ref + Map）
+    const components = yield* Ref.make(
+      new Map<EntityId, InventoryComponent>()
+    )
+
+    // 変更通知キュー
+    const changeQueue = yield* Queue.unbounded<{
+      entityId: EntityId
+      component: InventoryComponent
+    }>()
+
+    return {
+      createComponent: (entityId, type, constraints) =>
+        Effect.gen(function* () {
+          // インベントリ作成
+          const inventoryId = yield* inventoryService.create(type, constraints)
+
+          // インベントリ状態の取得とSTM準備
+          const inventoryState = yield* inventoryService.get(inventoryId)
+          const inventoryRef = yield* STM.commit(TRef.make(inventoryState))
+
+          // イベントストリーム作成
+          const eventStream = yield* inventoryService.subscribe(inventoryId)
+
+          // コンポーネント作成
+          const component = yield* makeInventoryComponent(
+            inventoryId,
+            inventoryRef,
+            eventStream
+          )
+
+          // コンポーネント登録
+          yield* Ref.update(components, map => {
+            map.set(entityId, component)
+            return map
+          })
+
+          // 変更通知
+          yield* Queue.offer(changeQueue, { entityId, component })
+
+          return component
+        }).pipe(
+          Effect.catchAll(error =>
+            Effect.fail(new ComponentCreationFailedError({
+              entityId,
+              reason: String(error)
+            }))
+          )
+        ),
+
+      getComponent: (entityId) =>
+        Effect.gen(function* () {
+          const componentMap = yield* Ref.get(components)
+          const component = componentMap.get(entityId)
+
+          if (!component) {
+            return yield* Effect.fail(new ComponentNotFoundError({ entityId }))
+          }
+
+          return component
+        }),
+
+      updateComponent: (entityId, update) =>
+        Effect.gen(function* () {
+          const componentMap = yield* Ref.get(components)
+          const existingComponent = componentMap.get(entityId)
+
+          if (!existingComponent) {
+            return yield* Effect.fail(new ComponentUpdateFailedError({
+              entityId,
+              reason: "Component not found"
+            }))
+          }
+
+          // 更新実行（Schema検証）
+          const updatedComponent = update(existingComponent)
+          const validatedComponent = yield* Schema.decode(InventoryComponent)(updatedComponent)
+
+          // コンポーネント更新
+          yield* Ref.update(components, map => {
+            map.set(entityId, validatedComponent)
+            return map
+          })
+
+          // 変更通知
+          yield* Queue.offer(changeQueue, {
+            entityId,
+            component: validatedComponent
+          })
+        }).pipe(
+          Effect.catchAll(error =>
+            Effect.fail(new ComponentUpdateFailedError({
+              entityId,
+              reason: String(error)
+            }))
+          )
+        ),
+
+      removeComponent: (entityId) =>
+        Effect.gen(function* () {
+          const componentMap = yield* Ref.get(components)
+
+          if (!componentMap.has(entityId)) {
+            return yield* Effect.fail(new ComponentNotFoundError({ entityId }))
+          }
+
+          yield* Ref.update(components, map => {
+            map.delete(entityId)
+            return map
+          })
+        }),
+
+      getAllComponents: () =>
+        Effect.gen(function* () {
+          const componentMap = yield* Ref.get(components)
+          return ReadonlyArray.fromIterable(
+            Array.from(componentMap.entries()).map(([entityId, component]) => ({
+              entityId,
+              component
+            }))
+          )
+        }),
+
+      subscribeToChanges: (entityId) =>
+        Stream.fromQueue(changeQueue).pipe(
+          Stream.filter(({ entityId: id }) => id === entityId),
+          Stream.map(({ component }) => component),
+          Stream.catchAll(error =>
+            Stream.fail(new ComponentNotFoundError({ entityId }))
+          )
+        )
+    }
+  })
+
+// ECSインベントリサービスレイヤー
+export const ECSInventoryServiceLayer = Layer.effect(
+  ECSInventoryService,
+  makeECSInventoryService()
+)
 ```
 
 ### 3.2 インベントリシステム

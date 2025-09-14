@@ -1,6 +1,6 @@
 ---
-title: "シンプルなブロック配置 - Effect-TS実装例"
-description: "Effect-TS 3.17+を使ったブロック配置システムの最小実装。Schema.Struct、Context.GenericTag、Effect.genの基本パターンを学習。"
+title: "シンプルなブロック配置 - Effect-TS最新実装例"
+description: "Effect-TS最新パターンを使ったブロック配置システムの実装。Schema.Struct、Context.Tag、Match.value、pipe構文の実践。"
 category: "examples"
 difficulty: "beginner"
 tags: ["block", "effect-ts", "schema", "context", "basic"]
@@ -20,17 +20,358 @@ learning_path: "基本実装パターン"
 > **⏱️ 所要時間**: 20分
 > **👤 対象**: Effect-TS初心者
 
-**Effect-TSの基本パターンを使って、型安全なブロック配置システムを実装しましょう！**
+**Effect-TSの最新パターンを使って、型安全なブロック配置システムを実装しましょう！**
 
 ## 🎯 学習目標
 
-この実装例では以下を学習します：
+この実装例では以下の最新パターンを学習します：
 
 - **Schema.Struct**: 型安全なデータモデリング
-- **Context.GenericTag**: 依存注入パターン
-- **Effect.gen**: 非同期処理の合成
-- **Schema.TaggedError**: 型安全なエラーハンドリング
-- **Layer**: サービス実装の提供
+- **Context.Tag**: 最新の依存注入パターン
+- **pipe構文**: Effect合成の関数型パターン
+- **Match.value**: 安全なパターンマッチング
+- **Either.isLeft/isRight**: Either型の安全なハンドリング
+- **Brand型**: 型レベルでの安全性強化
+
+## 💡 完全実装例
+
+### 1. データモデルの定義（Schema.Struct使用）
+
+```typescript
+import { Schema } from "effect"
+
+// 🏷️ Brand型による型安全性の強化
+export type BlockId = string & { readonly _tag: "BlockId" }
+export const BlockId = Schema.String.pipe(Schema.brand<BlockId>("BlockId"))
+
+export type PlayerId = string & { readonly _tag: "PlayerId" }
+export const PlayerId = Schema.String.pipe(Schema.brand<PlayerId>("PlayerId"))
+
+// 📍 座標システム（Schema.Struct使用）
+export const Position = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number
+})
+
+// 🧱 ブロック定義（不変データ構造）
+export const Block = Schema.Struct({
+  id: BlockId,
+  type: Schema.Literal("stone", "grass", "dirt", "wood"),
+  position: Position,
+  placedBy: Schema.optional(PlayerId),
+  placedAt: Schema.DateFromSelf
+})
+
+// 🎮 プレイヤー定義
+export const Player = Schema.Struct({
+  id: PlayerId,
+  name: Schema.String,
+  position: Position,
+  inventory: Schema.Array(Block)
+})
+
+// 🌍 ワールド状態（ECS的アプローチ）
+export const WorldState = Schema.Struct({
+  blocks: Schema.Record({ key: Schema.String, value: Block }),
+  players: Schema.Record({ key: Schema.String, value: Player })
+})
+
+export type Position = typeof Position.Type
+export type Block = typeof Block.Type
+export type Player = typeof Player.Type
+export type WorldState = typeof WorldState.Type
+```
+
+### 2. エラー定義（Schema.TaggedError使用）
+
+```typescript
+import { Schema } from "effect"
+
+// ❌ カスタムエラー型（Effect-TS最新パターン）
+export class BlockPlacementError extends Schema.TaggedError<BlockPlacementError>()("BlockPlacementError", {
+  message: Schema.String,
+  position: Position,
+  reason: Schema.Literal("position_occupied", "invalid_position", "insufficient_permissions")
+}) {}
+
+export class PlayerNotFoundError extends Schema.TaggedError<PlayerNotFoundError>()("PlayerNotFoundError", {
+  playerId: PlayerId,
+  message: Schema.String
+}) {}
+
+export class InventoryError extends Schema.TaggedError<InventoryError>()("InventoryError", {
+  playerId: PlayerId,
+  message: Schema.String,
+  reason: Schema.Literal("empty_inventory", "block_not_found")
+}) {}
+```
+
+### 3. サービス層（Context.GenericTag使用）
+
+```typescript
+import { Context, Effect } from "effect"
+import type { Block, Player, Position, WorldState } from "./models.js"
+
+// 🏢 ワールドサービス定義（Context.GenericTag使用）
+export interface WorldService {
+  readonly getBlock: (position: Position) => Effect.Effect<Block | null, never>
+  readonly placeBlock: (block: Block) => Effect.Effect<void, BlockPlacementError>
+  readonly removeBlock: (position: Position) => Effect.Effect<Block | null, never>
+  readonly getWorldState: () => Effect.Effect<WorldState, never>
+}
+
+export const WorldService = Context.Tag<WorldService>("@services/WorldService")
+
+// 👤 プレイヤーサービス定義
+export interface PlayerService {
+  readonly getPlayer: (playerId: PlayerId) => Effect.Effect<Player, PlayerNotFoundError>
+  readonly updatePlayer: (player: Player) => Effect.Effect<void, never>
+  readonly removeBlockFromInventory: (playerId: PlayerId, blockType: Block["type"]) => Effect.Effect<Block, InventoryError>
+}
+
+export const PlayerService = Context.Tag<PlayerService>("@services/PlayerService")
+```
+
+### 4. メインロジック（Effect.gen使用）
+
+```typescript
+import { Effect, Either, Match, pipe } from "effect"
+import type { Block, Player, Position, BlockId, PlayerId } from "./models.js"
+
+/**
+ * 🎯 ブロック配置のメインロジック
+ *
+ * 学習ポイント:
+ * - Effect.genによる線形な非同期処理合成
+ * - yield*による副作用の安全な実行
+ * - 型安全なエラーハンドリング
+ */
+export const placeBlock = (
+  playerId: PlayerId,
+  position: Position,
+  blockType: Block["type"]
+) =>
+  Effect.gen(function* () {
+    // 📋 1. プレイヤー情報取得
+    const player = yield* PlayerService
+    const playerData = yield* player.getPlayer(playerId)
+
+    // 🔍 2. 配置位置の確認（占有チェック）
+    const worldService = yield* WorldService
+    const existingBlock = yield* worldService.getBlock(position)
+
+    // Match.valueによるパターンマッチング
+    yield* pipe(
+      existingBlock,
+      Match.value,
+      Match.when(Match.not(Match.null), (block) =>
+        Effect.fail(new BlockPlacementError({
+          message: `Position ${position.x},${position.y},${position.z} is already occupied`,
+          position,
+          reason: "position_occupied"
+        }))
+      ),
+      Match.when(Match.null, () => Effect.void),
+      Match.exhaustive
+    )
+
+    // 🎒 3. インベントリからブロック取得
+    const blockToPlace = yield* player.removeBlockFromInventory(playerId, blockType)
+
+    // 🧱 4. 新しいブロックを生成（不変データ）
+    const newBlock: Block = {
+      ...blockToPlace,
+      position,
+      placedBy: playerId,
+      placedAt: new Date()
+    }
+
+    // 🌍 5. ワールドに配置
+    yield* worldService.placeBlock(newBlock)
+
+    // ✅ 成功
+    return newBlock
+  })
+```
+
+### 5. Match.valueによる安全なパターンマッチング
+
+```typescript
+import { Match } from "effect"
+
+/**
+ * 🎯 ブロック配置結果の処理
+ *
+ * 学習ポイント:
+ * - Match.valueによる網羅的なパターンマッチング
+ * - 型安全な分岐処理
+ */
+export const handleBlockPlacementResult = (
+  result: Effect.Effect<Block, BlockPlacementError | PlayerNotFoundError | InventoryError>
+) =>
+  pipe(
+    result,
+    Effect.either,
+    Effect.flatMap((outcome) =>
+      pipe(
+        outcome,
+        Match.value,
+        Match.when(Either.isRight, ({ right: block }) =>
+          Effect.succeed({
+            success: true as const,
+            message: `Block placed successfully at ${block.position.x},${block.position.y},${block.position.z}`,
+            block
+          })
+        ),
+        Match.when(
+          Either.isLeft,
+          ({ left: error }) =>
+            pipe(
+              error,
+              Match.value,
+              Match.when(Match.instanceOf(BlockPlacementError), (err) =>
+                Effect.succeed({
+                  success: false as const,
+                  message: `Placement failed: ${err.message}`,
+                  reason: err.reason
+                })
+              ),
+              Match.when(Match.instanceOf(PlayerNotFoundError), (err) =>
+                Effect.succeed({
+                  success: false as const,
+                  message: `Player not found: ${err.message}`,
+                  playerId: err.playerId
+                })
+              ),
+              Match.when(Match.instanceOf(InventoryError), (err) =>
+                Effect.succeed({
+                  success: false as const,
+                  message: `Inventory issue: ${err.message}`,
+                  reason: err.reason
+                })
+              ),
+              Match.exhaustive
+            )
+        ),
+        Match.exhaustive
+      )
+    )
+  )
+```
+
+### 6. Layer実装（依存注入）
+
+```typescript
+import { Effect, Layer, Ref } from "effect"
+
+// 🏢 インメモリワールドサービス実装
+const makeWorldService = Effect.gen(function* () {
+  const worldState = yield* Ref.make<WorldState>({
+    blocks: {},
+    players: {}
+  })
+
+  const getBlock = (position: Position): Effect.Effect<Block | null, never> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(worldState)
+      const positionKey = `${position.x},${position.y},${position.z}`
+      return state.blocks[positionKey] ?? null
+    })
+
+  const placeBlock = (block: Block): Effect.Effect<void, BlockPlacementError> =>
+    Effect.gen(function* () {
+      const positionKey = `${block.position.x},${block.position.y},${block.position.z}`
+      yield* Ref.update(worldState, (state) => ({
+        ...state,
+        blocks: {
+          ...state.blocks,
+          [positionKey]: block
+        }
+      }))
+    })
+
+  const removeBlock = (position: Position): Effect.Effect<Block | null, never> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(worldState)
+      const positionKey = `${position.x},${position.y},${position.z}`
+      const existingBlock = state.blocks[positionKey] ?? null
+
+      if (existingBlock) {
+        yield* Ref.update(worldState, (currentState) => {
+          const newBlocks = { ...currentState.blocks }
+          delete newBlocks[positionKey]
+          return {
+            ...currentState,
+            blocks: newBlocks
+          }
+        })
+      }
+
+      return existingBlock
+    })
+
+  const getWorldState = (): Effect.Effect<WorldState, never> =>
+    Ref.get(worldState)
+
+  return WorldService.of({
+    getBlock,
+    placeBlock,
+    removeBlock,
+    getWorldState
+  })
+})
+
+export const WorldServiceLive = Layer.effect(WorldService, makeWorldService)
+```
+
+## 🚀 使用例
+
+```typescript
+import { Effect } from "effect"
+
+// 🎮 実際の使用例
+const example = Effect.gen(function* () {
+  const playerId = yield* Effect.succeed("player-1" as PlayerId)
+  const position = { x: 10, y: 5, z: -3 }
+
+  // ブロック配置を実行
+  const result = yield* placeBlock(playerId, position, "stone")
+
+  // 結果を処理
+  const outcome = yield* handleBlockPlacementResult(
+    Effect.succeed(result)
+  )
+
+  console.log("Placement result:", outcome)
+  return outcome
+}).pipe(
+  Effect.provide(WorldServiceLive),
+  Effect.provide(PlayerServiceLive)
+)
+
+// 実行
+Effect.runPromise(example)
+  .then(console.log)
+  .catch(console.error)
+```
+
+## 📚 学習のポイント
+
+### ✅ 習得できる最新パターン
+1. **Schema.Struct**: 型安全なデータモデリング
+2. **Brand型**: 追加の型安全性
+3. **Context.Tag**: 最新の依存注入パターン
+4. **pipe構文**: 関数型プログラミングの実践
+5. **Match.value**: 安全なパターンマッチング
+6. **Either.isLeft/isRight**: Either型の安全な処理
+7. **Effect合成**: 非同期処理の高度な組み合わせ
+8. **Layer**: サービス実装の提供と管理
+
+### 🔗 関連ドキュメント
+- **アーキテクチャ詳細**: [Effect-TSパターン](../../01-architecture/06-effect-ts-patterns.md)
+- **実装ガイド**: [開発規約](../../03-guides/00-development-conventions.md)
+- **次のステップ**: [プレイヤー移動](./02-player-movement.md)
 
 ## 💡 実装の特徴
 
@@ -60,7 +401,7 @@ graph TB
 
 ```typescript
 // src/domain/models/position.ts
-import { Schema } from "@effect/schema"
+import { Schema } from "effect"
 
 /**
  * 3D座標を表現するスキーマ
@@ -116,7 +457,7 @@ export type BlockPlacementRequest = Schema.Schema.Type<typeof BlockPlacementRequ
 
 ```typescript
 // src/domain/errors/block-errors.ts
-import { Schema } from "@effect/schema"
+import { Schema } from "effect"
 
 /**
  * ブロック配置エラーの基底クラス
@@ -203,14 +544,14 @@ export interface BlockService {
  * - サービスの識別子定義
  * - 依存注入における型安全性の確保
  */
-export const BlockService = Context.GenericTag<BlockService>("BlockService")
+export const BlockService = Context.Tag<BlockService>("@services/BlockService")
 ```
 
 ### 💾 4. インメモリ実装
 
 ```typescript
 // src/infrastructure/block-service-impl.ts
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Match, pipe } from "effect"
 import { BlockService } from "../domain/services/block-service.js"
 import { Position, BlockType, BlockPlacementRequest } from "../domain/models/position.js"
 import { BlockPlacementError, InvalidPositionError, BlockAlreadyExistsError } from "../domain/errors/block-errors.js"
@@ -234,65 +575,88 @@ class InMemoryBlockService implements BlockService {
   }
 
   /**
-   * 位置の有効性検証
+   * 位置の有効性検証（Match.valueパターンマッチング使用）
    */
   private validatePosition(position: Position): Effect.Effect<void, InvalidPositionError> {
-    return Effect.gen(function* () {
-      // Y座標の範囲チェック（地下-64〜空中320）
-      if (position.y < -64 || position.y > 320) {
-        yield* Effect.fail(
-          new InvalidPositionError({
-            position,
-            reason: `Y座標が範囲外です: ${position.y} (有効範囲: -64 〜 320)`
-          })
+    return pipe(
+      position,
+      Effect.succeed,
+      Effect.flatMap((pos) =>
+        pipe(
+          pos.y,
+          Match.value,
+          Match.when(
+            (y) => y < -64 || y > 320,
+            (y) => Effect.fail(new InvalidPositionError({
+              position: pos,
+              reason: `Y座標が範囲外です: ${y} (有効範囲: -64 〜 320)`
+            }))
+          ),
+          Match.orElse(() => Effect.void)
         )
-      }
-
-      // 座標が整数値かチェック
-      if (!Number.isInteger(position.x) || !Number.isInteger(position.y) || !Number.isInteger(position.z)) {
-        yield* Effect.fail(
-          new InvalidPositionError({
-            position,
-            reason: "座標は整数である必要があります"
-          })
+      ),
+      Effect.flatMap(() =>
+        pipe(
+          [position.x, position.y, position.z],
+          Match.value,
+          Match.when(
+            (coords) => coords.some(coord => !Number.isInteger(coord)),
+            () => Effect.fail(new InvalidPositionError({
+              position,
+              reason: "座標は整数である必要があります"
+            }))
+          ),
+          Match.orElse(() => Effect.void)
         )
-      }
-    })
+      )
+    )
   }
 
   placeBlock(request: BlockPlacementRequest): Effect.Effect<void, BlockPlacementError | InvalidPositionError | BlockAlreadyExistsError> {
-    return Effect.gen(() => {
-      const self = this
-      return Effect.gen(function* () {
-        // 1. 位置の有効性検証
-        yield* self.validatePosition(request.position)
+    return pipe(
+      this.validatePosition(request.position),
+      Effect.flatMap(() => {
+        const key = this.positionToKey(request.position)
+        const existingBlock = this.blocks.get(key)
 
-        const key = self.positionToKey(request.position)
-
-        // 2. 既存ブロックのチェック
-        const existingBlock = self.blocks.get(key)
-        if (existingBlock) {
-          yield* Effect.fail(
-            new BlockAlreadyExistsError({
+        return pipe(
+          existingBlock,
+          Match.value,
+          Match.when(
+            Match.not(Match.undefined),
+            (block) => Effect.fail(new BlockAlreadyExistsError({
               position: request.position,
-              existingBlockType: existingBlock
-            })
-          )
-        }
-
-        // 3. ブロック配置実行
-        self.blocks.set(key, request.blockType)
-
-        // 4. 成功をログ出力（デモ用）
-        yield* Effect.sync(() => {
-          console.log(`✅ ブロック配置成功: ${request.blockType} at (${request.position.x}, ${request.position.y}, ${request.position.z})`)
-        })
-      })
-    })().pipe(
+              existingBlockType: block
+            }))
+          ),
+          Match.when(
+            Match.undefined,
+            () => pipe(
+              Effect.sync(() => {
+                this.blocks.set(key, request.blockType)
+                console.log(`✅ ブロック配置成功: ${request.blockType} at (${request.position.x}, ${request.position.y}, ${request.position.z})`)
+              }),
+              Effect.asVoid
+            )
+          ),
+          Match.exhaustive
+        )
+      }),
       Effect.catchAll((error) =>
-        Effect.fail(error instanceof InvalidPositionError || error instanceof BlockAlreadyExistsError
-          ? error
-          : new BlockPlacementError({ reason: `配置処理中にエラーが発生しました: ${error}` })
+        pipe(
+          error,
+          Match.value,
+          Match.when(
+            Match.instanceOf(InvalidPositionError),
+            (err) => Effect.fail(err)
+          ),
+          Match.when(
+            Match.instanceOf(BlockAlreadyExistsError),
+            (err) => Effect.fail(err)
+          ),
+          Match.orElse((err) => Effect.fail(new BlockPlacementError({
+            reason: `配置処理中にエラーが発生しました: ${err}`
+          })))
         )
       )
     )
@@ -306,22 +670,26 @@ class InMemoryBlockService implements BlockService {
   }
 
   removeBlock(position: Position): Effect.Effect<boolean, BlockPlacementError> {
-    return Effect.gen(() => {
-      const self = this
-      return Effect.gen(function* () {
-        const key = self.positionToKey(position)
-        const existed = self.blocks.has(key)
+    return pipe(
+      Effect.sync(() => {
+        const key = this.positionToKey(position)
+        const existed = this.blocks.has(key)
 
-        if (existed) {
-          self.blocks.delete(key)
-          yield* Effect.sync(() => {
-            console.log(`🗑️ ブロック削除: (${position.x}, ${position.y}, ${position.z})`)
-          })
-        }
-
-        return existed
-      })
-    })().pipe(
+        return pipe(
+          existed,
+          Match.value,
+          Match.when(
+            true,
+            () => {
+              this.blocks.delete(key)
+              console.log(`🗑️ ブロック削除: (${position.x}, ${position.y}, ${position.z})`)
+              return true
+            }
+          ),
+          Match.when(false, () => false),
+          Match.exhaustive
+        )
+      }),
       Effect.catchAll((error) =>
         Effect.fail(new BlockPlacementError({
           reason: `削除処理中にエラーが発生しました: ${error}`,
@@ -349,8 +717,8 @@ export const InMemoryBlockServiceLive = Layer.succeed(
 
 ```typescript
 // src/application/block-placement-use-case.ts
-import { Context, Effect, Match, pipe } from "effect"
-import { Schema } from "@effect/schema"
+import { Context, Effect, Layer, Match, pipe } from "effect"
+import { Schema } from "effect"
 import { BlockService } from "../domain/services/block-service.js"
 import { BlockPlacementRequest } from "../domain/models/position.js"
 import { BlockPlacementError, InvalidPositionError, BlockAlreadyExistsError } from "../domain/errors/block-errors.js"
@@ -374,25 +742,24 @@ export class BlockPlacementUseCase extends Context.Tag("BlockPlacementUseCase")<
     Effect.gen(function* () {
       const blockService = yield* BlockService
 
-      return {
-        execute: (input: unknown) =>
-          Effect.gen(function* () {
-            // 1. 入力データの検証とパース
-            const request = yield* Schema.decodeUnknown(BlockPlacementRequest)(input).pipe(
-              Effect.mapError((parseError) =>
-                new BlockPlacementError({
-                  reason: `入力データが無効です: ${parseError.message}`
-                })
-              )
+      const execute = (input: unknown) =>
+        pipe(
+          input,
+          Schema.decodeUnknown(BlockPlacementRequest),
+          Effect.mapError((parseError) =>
+            new BlockPlacementError({
+              reason: `入力データが無効です: ${parseError.message}`
+            })
+          ),
+          Effect.flatMap((request) =>
+            pipe(
+              blockService.placeBlock(request),
+              Effect.as(`ブロック「${request.blockType}」を座標(${request.position.x}, ${request.position.y}, ${request.position.z})に配置しました`)
             )
+          )
+        )
 
-            // 2. ブロック配置実行
-            yield* blockService.placeBlock(request)
-
-            // 3. 成功メッセージの生成
-            return `ブロック「${request.blockType}」を座標(${request.position.x}, ${request.position.y}, ${request.position.z})に配置しました`
-          })
-      }
+      return { execute }
     })
   )
 }
@@ -495,7 +862,7 @@ Effect.runPromiseExit(runnable).then((exit) => {
 npx tsx src/main.ts
 
 # または、tsconfig.jsonでモジュール設定してから
-npm run build
+pnpm build
 node dist/main.js
 ```
 
@@ -669,15 +1036,15 @@ describe("BlockService", () => {
 - JSONパース時の自動バリデーション
 - 型安全性とランタイム安全性の確保
 
-### 2️⃣ **Context.GenericTag**による依存注入
+### 2️⃣ **Context.Tag**による最新依存注入
 - インターフェースと実装の分離
-- テスタビリティの向上
+- 改善されたタイプセーフティ
 - モジュラーなアーキテクチャ
 
-### 3️⃣ **Effect.gen**の合成能力
-- 非同期処理の線形記述
-- エラーハンドリングの自動伝播
-- 関数型プログラミングの実践
+### 3️⃣ **pipe構文**と**Effect合成**の実践
+- 関数型パイプラインの構築
+- 可読性の高い非同期処理
+- Effectの高度な組み合わせパターン
 
 ### 4️⃣ **Layer**によるサービス管理
 - 依存関係の整理
@@ -694,5 +1061,5 @@ describe("BlockService", () => {
 
 ---
 
-**🎉 おめでとうございます！Effect-TSの基本パターンを実装できました！**
-**次は実際の物理演算やUI統合に挑戦してみましょう。**
+**🎉 おめでとうございます！Effect-TSの最新パターンをマスターできました！**
+**Context.Tag、pipe構文、Match.valueを使った高品質なコードが書けるようになりました。**
