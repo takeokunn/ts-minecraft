@@ -6,9 +6,8 @@ difficulty: "intermediate"
 tags: ["api-reference", "world-management", "effect-ts", "domain-api", "game-world"]
 prerequisites: ["effect-ts-basics", "domain-driven-design", "typescript-advanced"]
 estimated_reading_time: "15分"
-last_updated: "2025-09-14"
-version: "1.0.0"
 ---
+
 
 # Game World API Reference
 
@@ -612,7 +611,9 @@ const handlePlayerSpawnError = (params: SpawnPlayerParams) =>
 ### パフォーマンス最適化
 
 ```typescript
-// 大量チャンク操作の最適化
+import { Match, pipe } from "effect"
+
+// 大量チャンク操作の最適化（Effect-TS Match パターン使用）
 const optimizedMassChunkOperation = (
   coordinates: ReadonlyArray<ChunkCoordinate>,
   operation: "load" | "save" | "generate"
@@ -625,21 +626,20 @@ const optimizedMassChunkOperation = (
 
   for (const batch of batches) {
     yield* Effect.all(
-      batch.map(coord => {
-        switch (operation) {
-          case "load":
-            return chunkService.loadChunk(coord)
-          case "save":
-            return chunkService.saveChunk(/* chunk */)
-          case "generate":
-            return chunkService.generateChunk({
-              x: coord.x,
-              z: coord.z,
-              seed: getCurrentWorldSeed(),
-              generateStructures: true
-            })
-        }
-      }),
+      batch.map(coord =>
+        pipe(
+          Match.value(operation),
+          Match.when("load", () => chunkService.loadChunk(coord)),
+          Match.when("save", () => chunkService.saveChunk(/* chunk */)),
+          Match.when("generate", () => chunkService.generateChunk({
+            x: coord.x,
+            z: coord.z,
+            seed: getCurrentWorldSeed(),
+            generateStructures: true
+          })),
+          Match.exhaustive
+        )
+      ),
       { concurrency: 4 }
     )
 
@@ -679,11 +679,11 @@ const memoryAwareChunkManagement = Effect.gen(function* () {
 
 ## 🔗 関連ドキュメント
 
-- **[World Data Structure](../02-specifications/03-data-models/00-world-data-structure.md)** - ワールドデータ構造の詳細
-- **[Chunk System](../02-specifications/00-core-features/07-chunk-system.md)** - チャンクシステムの実装
-- **[Domain APIs](../02-specifications/02-api-design/00-domain-application-apis.md)** - ドメインAPI設計
-- **[Effect-TS Patterns](../01-architecture/06-effect-ts-patterns.md)** - Effect-TS使用パターン
-- **[Error Handling Guide](../03-guides/04-error-resolution.md)** - エラーハンドリング戦略
+- **[World Data Structure](./world-data-structure.md)** - ワールドデータ構造の詳細
+- **[Chunk System](../../explanations/game-mechanics/00-core-features/chunk-system.md)** - チャンクシステムの実装
+- **[Domain APIs](../../explanations/architecture/domain-application-apis.md)** - ドメインAPI設計
+- **[Design Patterns](../../explanations/design-patterns/README.md)** - Effect-TS使用パターン
+- **[Error Handling Guide](../../how-to/troubleshooting/error-resolution.md)** - エラーハンドリング戦略
 
 ## 📖 用語集
 

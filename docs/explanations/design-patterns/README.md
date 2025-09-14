@@ -2,17 +2,12 @@
 title: "Pattern Catalog Hub - Effect-TS実装パターン完全ガイド"
 description: "TypeScript Minecraft Clone実装パターン完全カタログ。Effect-TS 3.17+を使った実戦的実装パターン、ベストプラクティス、アンチパターン回避。世界最高レベルの関数型プログラミング実装技法。"
 category: "pattern-catalog"
-difficulty: "intermediate-advanced"
+difficulty: "advanced"
 tags: ["pattern-catalog", "effect-ts", "functional-programming", "best-practices", "implementation-patterns", "design-patterns", "typescript"]
 prerequisites: ["effect-ts-fundamentals", "schema-validation", "context-patterns", "error-handling"]
 estimated_reading_time: "パターン毎に5-20分"
-version: "2.0.0"
-learning_path: "Level 3-5 - 実装技法マスタリー"
-search_keywords:
-  primary: ["pattern-catalog", "effect-ts-patterns", "implementation-patterns", "best-practices"]
-  secondary: ["service-patterns", "error-patterns", "data-modeling", "async-patterns", "test-patterns"]
-  context: ["functional-programming", "type-safety", "composition", "performance"]
 ---
+
 
 # 🎨 Pattern Catalog Hub - 実装技法完全マスタリー
 
@@ -80,7 +75,7 @@ mindmap
 
 ### 🔥 **Core Patterns** - 基盤実装パターン（必修）
 
-#### **[🔧 01. Service Patterns](./01-service-patterns.md)** - サービス実装の基礎
+#### **[🔧 Service Patterns](./service-patterns.md)** - サービス実装の基礎
 ```
 Context.GenericTag + Layer + Effect.gen による型安全サービス実装
 🎯 目的: DDD・Clean Architectureにおけるサービス層実装
@@ -96,7 +91,7 @@ Context.GenericTag + Layer + Effect.gen による型安全サービス実装
 | **Caching Service** | 計算結果キャッシング | ✅ 完全実装 | ⭐⭐⭐ |
 | **Resource Management** | Effect.acquireReleaseパターン | ✅ 完全実装 | ⭐⭐⭐⭐ |
 
-#### **[⚠️ 02. Error Handling Patterns](./02-error-handling-patterns.md)** - 堅牢エラー処理
+#### **[⚠️ Error Handling Patterns](./error-handling-patterns.md)** - 堅牢エラー処理
 ```
 Schema.TaggedError + 型レベルエラー管理による包括的エラー戦略
 🎯 目的: プロダクションレベルのエラーハンドリング・信頼性確保
@@ -116,7 +111,7 @@ Schema.TaggedError + 型レベルエラー管理による包括的エラー戦�
 
 ### 🏗️ **Advanced Patterns** - 高度実装パターン（重要）
 
-#### **[📦 03. Data Modeling Patterns](./03-data-modeling-patterns.md)** - 型安全データ設計
+#### **[📦 Data Modeling Patterns](./data-modeling-patterns.md)** - 型安全データ設計
 ```
 Schema.Struct + Brand型によるドメインモデリング
 🎯 目的: 型レベルでの不正状態排除・ドメイン知識表現
@@ -131,7 +126,7 @@ Schema.Struct + Brand型によるドメインモデリング
 | **Brand Types** | 型レベル制約・安全性向上 | ✅ 完全実装 | ⭐⭐⭐⭐ |
 | **Schema Composition** | スキーマ合成・再利用性 | ✅ 完全実装 | ⭐⭐⭐ |
 
-#### **[⚡ 04. Asynchronous Patterns](./04-asynchronous-patterns.md)** - 非同期処理制御
+#### **[⚡ Asynchronous Patterns](./asynchronous-patterns.md)** - 非同期処理制御
 ```
 Effect-TSによる合成可能な非同期処理・並行制御
 🎯 目的: 高性能・安全な非同期プログラミング
@@ -148,7 +143,7 @@ Effect-TSによる合成可能な非同期処理・並行制御
 
 ### 🧪 **Quality Patterns** - 品質保証パターン（推奨）
 
-#### **[🧪 05. Test Patterns](./05-test-patterns.md)** - 包括的テスト戦略
+#### **[🧪 Test Patterns](./test-patterns.md)** - 包括的テスト戦略
 ```
 Effect-TS向けテスト実装・品質保証技法
 🎯 目的: 高品質・保守性の高いテストスイート構築
@@ -163,7 +158,7 @@ Effect-TS向けテスト実装・品質保証技法
 | **Property-Based Testing** | プロパティベース・網羅的検証 | ✅ 完全実装 | ⭐⭐⭐⭐ |
 | **Mock Services** | モック・テスト環境構築 | ✅ 完全実装 | ⭐⭐⭐ |
 
-#### **[⚡ 06. Optimization Patterns](./06-optimization-patterns.md)** - パフォーマンス最適化
+#### **[⚡ Optimization Patterns](./optimization-patterns.md)** - パフォーマンス最適化
 ```
 高性能システム実装・最適化技法
 🎯 目的: プロダクションレベルのパフォーマンス実現
@@ -180,7 +175,7 @@ Effect-TS向けテスト実装・品質保証技法
 
 ### 🔗 **Integration Patterns** - システム統合パターン（応用）
 
-#### **[🌐 07. Integration Patterns](./07-integration-patterns.md)** - システム間連携
+#### **[🌐 Integration Patterns](./integration-patterns.md)** - システム間連携
 ```
 マイクロサービス・外部システム統合パターン
 🎯 目的: スケーラブルシステム統合・外部連携
@@ -276,13 +271,13 @@ async function badGenerateTerrain(x: number, z: number) {
 #### ✅ **3. Explicit Error Handling** - 型レベルエラー管理
 ```typescript
 // 🔥 BEST: Schema.TaggedError + 型レベル表現
-export class ChunkLoadError extends Schema.TaggedError<ChunkLoadError>()("ChunkLoadError", {
+export const ChunkLoadError = Schema.TaggedError("ChunkLoadError")({
   coordinate: ChunkCoordinate,
   cause: Schema.optional(Schema.Unknown),
   timestamp: Schema.DateFromSelf
 }) {}
 
-export class ChunkSaveError extends Schema.TaggedError<ChunkSaveError>()("ChunkSaveError", {
+export const ChunkSaveError = Schema.TaggedError("ChunkSaveError")({
   chunk: ChunkSchema,
   reason: Schema.Literal("disk_full", "permission_denied", "corruption"),
   retryable: Schema.Boolean
@@ -361,24 +356,24 @@ async function badProcessChunk() {
 
 | 開発シナリオ | 最適Pattern | 参照ドキュメント | 習得優先度 |
 |------------|------------|----------------|----------|
-| **基本サービス開発** | Basic Service | [01-service-patterns.md](./01-service-patterns.md) | 🔥 必修 |
-| **状態管理が必要** | Stateful Service | [01-service-patterns.md](./01-service-patterns.md) | 🔥 必修 |
-| **サービス間連携** | Service with Dependencies | [01-service-patterns.md](./01-service-patterns.md) | ⚡ 重要 |
-| **パフォーマンス向上** | Caching Service | [01-service-patterns.md](./01-service-patterns.md) | ⚡ 重要 |
-| **リソース安全管理** | Resource Management | [01-service-patterns.md](./01-service-patterns.md) | ⚡ 重要 |
-| **エラー型安全定義** | Basic Tagged Error | [02-error-handling-patterns.md](./02-error-handling-patterns.md) | 🔥 必修 |
-| **エラー分類・階層** | Hierarchical Errors | [02-error-handling-patterns.md](./02-error-handling-patterns.md) | ⚡ 重要 |
-| **フォールバック戦略** | Error with Recovery | [02-error-handling-patterns.md](./02-error-handling-patterns.md) | ⚡ 重要 |
-| **バリデーション統合** | Error Accumulation | [02-error-handling-patterns.md](./02-error-handling-patterns.md) | 🎯 推奨 |
-| **堅牢性・自動復旧** | Retry + Circuit Breaker | [02-error-handling-patterns.md](./02-error-handling-patterns.md) | 🎯 推奨 |
-| **ドメインモデル設計** | Domain Modeling + Value Objects | [03-data-modeling-patterns.md](./03-data-modeling-patterns.md) | ⚡ 重要 |
-| **型レベル制約強化** | Brand Types | [03-data-modeling-patterns.md](./03-data-modeling-patterns.md) | 🎯 推奨 |
-| **並行処理・高性能** | Concurrent Operations | [04-asynchronous-patterns.md](./04-asynchronous-patterns.md) | ⚡ 重要 |
-| **順序保証・依存管理** | Sequential Processing | [04-asynchronous-patterns.md](./04-asynchronous-patterns.md) | ⚡ 重要 |
-| **テスト品質向上** | Unit + Integration Testing | [05-test-patterns.md](./05-test-patterns.md) | 🎯 推奨 |
-| **キャッシュ最適化** | Caching Strategies | [06-optimization-patterns.md](./06-optimization-patterns.md) | 🎯 推奨 |
-| **外部API連携** | External API Integration | [07-integration-patterns.md](./07-integration-patterns.md) | 🎯 推奨 |
-| **イベント駆動設計** | Event-Driven Architecture | [07-integration-patterns.md](./07-integration-patterns.md) | 💡 応用 |
+| **基本サービス開発** | Basic Service | [service-patterns.md](./service-patterns.md) | 🔥 必修 |
+| **状態管理が必要** | Stateful Service | [service-patterns.md](./service-patterns.md) | 🔥 必修 |
+| **サービス間連携** | Service with Dependencies | [service-patterns.md](./service-patterns.md) | ⚡ 重要 |
+| **パフォーマンス向上** | Caching Service | [service-patterns.md](./service-patterns.md) | ⚡ 重要 |
+| **リソース安全管理** | Resource Management | [service-patterns.md](./service-patterns.md) | ⚡ 重要 |
+| **エラー型安全定義** | Basic Tagged Error | [error-handling-patterns.md](./error-handling-patterns.md) | 🔥 必修 |
+| **エラー分類・階層** | Hierarchical Errors | [error-handling-patterns.md](./error-handling-patterns.md) | ⚡ 重要 |
+| **フォールバック戦略** | Error with Recovery | [error-handling-patterns.md](./error-handling-patterns.md) | ⚡ 重要 |
+| **バリデーション統合** | Error Accumulation | [error-handling-patterns.md](./error-handling-patterns.md) | 🎯 推奨 |
+| **堅牢性・自動復旧** | Retry + Circuit Breaker | [error-handling-patterns.md](./error-handling-patterns.md) | 🎯 推奨 |
+| **ドメインモデル設計** | Domain Modeling + Value Objects | [data-modeling-patterns.md](./data-modeling-patterns.md) | ⚡ 重要 |
+| **型レベル制約強化** | Brand Types | [data-modeling-patterns.md](./data-modeling-patterns.md) | 🎯 推奨 |
+| **並行処理・高性能** | Concurrent Operations | [asynchronous-patterns.md](./asynchronous-patterns.md) | ⚡ 重要 |
+| **順序保証・依存管理** | Sequential Processing | [asynchronous-patterns.md](./asynchronous-patterns.md) | ⚡ 重要 |
+| **テスト品質向上** | Unit + Integration Testing | [test-patterns.md](./test-patterns.md) | 🎯 推奨 |
+| **キャッシュ最適化** | Caching Strategies | [optimization-patterns.md](./optimization-patterns.md) | 🎯 推奨 |
+| **外部API連携** | External API Integration | [integration-patterns.md](./integration-patterns.md) | 🎯 推奨 |
+| **イベント駆動設計** | Event-Driven Architecture | [integration-patterns.md](./integration-patterns.md) | 💡 応用 |
 
 ### 🚀 学習レベル別推奨Pattern順序
 
@@ -558,10 +553,10 @@ graph TD
 
 #### 📖 **公式・コミュニティリソース**
 - **[Effect-TS公式ドキュメント](https://effect.website/)** - 最新機能・API詳細
-- **[TypeScript Minecraft Architecture](../01-architecture/README.md)** - 設計思想・アーキテクチャ詳細
-- **[Implementation Guides](../03-guides/README.md)** - 実装手順・開発ワークフロー
-- **[Examples Collection](../06-examples/README.md)** - 実際の動作コード・チュートリアル
-- **[API Reference](../05-reference/README.md)** - 完全API仕様・設定詳細
+- **[TypeScript Minecraft Architecture](../architecture/README.md)** - 設計思想・アーキテクチャ詳細
+- **[How-to Guides](../../how-to/README.md)** - 実装手順・開発ワークフロー
+- **[Tutorials](../../tutorials/README.md)** - 実際の動作コード・チュートリアル
+- **[API Reference](../../reference/README.md)** - 完全API仕様・設定詳細
 
 #### 🛠️ **実装支援ツール**
 - **TypeScript Compiler**: 型レベル検証・コンパイル時エラー検出

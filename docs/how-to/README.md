@@ -2,36 +2,55 @@
 
 このセクションは**問題解決指向**のドキュメントです。開発中の具体的な問題に対する実践的な解決方法を提供します。
 
+## 🤔 いつこのセクションを使うか
+
+**✅ 以下の場面で活用してください：**
+- 開発中に具体的な問題に直面した時
+- ベストプラクティスを実践で適用したい時
+- エラーやバグの解決方法を探している時
+- CI/CDやデプロイメントの設定方法を知りたい時
+
+**❌ 以下の場面には適していません：**
+- 基礎的な概念から学習したい → [Tutorials](../tutorials/)
+- API仕様や設定値を確認したい → [Reference](../reference/)
+- 設計判断の背景を理解したい → [Explanations](../explanations/)
+
 ## 🎯 このセクションの目的
 
 - 開発・テスト・デプロイ時の具体的な問題解決
 - ベストプラクティスの実践的な適用方法
 - トラブルシューティングの手順説明
 
+## 🛠 解決アプローチ
+
+**問題特化**: 各ガイドは特定の問題解決に焦点を絞る
+**手順重視**: 明確なステップバイステップの解決手順
+**即効性**: 迅速に実行可能な具体的ソリューション
+
 ## 🔍 カテゴリ別ガイド
 
 ### 💻 [Development](./development/)
 **開発プロセスに関する実践的ガイド**
 
-- [開発規約](./development/00-development-conventions.md)
-- [エントリポイント](./development/01-entry-points.md)
-- [パフォーマンス最適化](./development/03-performance-optimization.md)
-- [並行開発ワークフロー](./development/10-parallel-development-workflow.md)
-- [GitHub Issue管理](./development/11-github-issue-management.md)
+- [開発規約](./development/development-conventions.md)
+- [エントリポイント](./development/entry-points.md)
+- [パフォーマンス最適化](./development/performance-optimization.md)
+- [並行開発ワークフロー](./development/parallel-development-workflow.md)
+- [GitHub Issue管理](./development/github-issue-management.md)
 
 ### 🧪 [Testing](./testing/)
 **テスト実行と品質保証の具体的手順**
 
-- [テストガイド](./testing/02-testing-guide.md)
-- [包括的テスト戦略](./testing/05-comprehensive-testing-strategy.md)
-- [高度なテスト技法](./testing/06-advanced-testing-techniques.md)
-- [Effect-TSテストパターン](./testing/07-effect-ts-testing-patterns.md)
+- [テストガイド](./testing/testing-guide.md)
+- [包括的テスト戦略](./testing/comprehensive-testing-strategy.md)
+- [高度なテスト技法](./testing/advanced-testing-techniques.md)
+- [Effect-TSテストパターン](./testing/effect-ts-testing-patterns.md)
 
 ### 🛠 [Troubleshooting](./troubleshooting/)
 **エラー解決と問題診断の実践的手法**
 
-- [エラー解決](./troubleshooting/04-error-resolution.md)
-- [デバッグガイド](./troubleshooting/09-debugging-guide.md)
+- [エラー解決](./troubleshooting/error-resolution.md)
+- [デバッグガイド](./troubleshooting/debugging-guide.md)
 - [ビルド問題](./troubleshooting/build-problems.md)
 - [実行時エラー](./troubleshooting/runtime-errors.md)
 - [パフォーマンス問題](./troubleshooting/performance-issues.md)
@@ -40,7 +59,7 @@
 ### 🚀 [Deployment](./deployment/)
 **デプロイメントとCI/CDの実践的設定**
 
-- [CI/CDデプロイメント](./deployment/08-ci-cd-deployment.md)
+- [CI/CDデプロイメント](./deployment/ci-cd-deployment.md)
 
 ## 🎯 使用方法
 

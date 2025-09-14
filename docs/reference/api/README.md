@@ -1,19 +1,13 @@
 ---
 title: "API Reference Hub - 完全API仕様・リファレンス集"
 description: "TypeScript Minecraft Clone API完全リファレンス。Effect-TS 3.17+コアAPI、ゲームドメインAPI、インフラストラクチャAPI、ユーティリティ関数の詳細仕様と実装例。開発効率を最大化する実用的APIガイド。"
-category: "api-reference"
-difficulty: "intermediate-advanced"
+category: "reference"
+difficulty: "advanced"
 tags: ["api-reference", "effect-ts", "schema", "context", "domain-api", "infrastructure-api", "typescript"]
 prerequisites: ["basic-typescript", "effect-ts-basics", "functional-programming-concepts"]
 estimated_reading_time: "参照時に応じて"
-last_updated: "2025-09-14"
-version: "2.0.0"
-learning_path: "Level 3-5 - API実装・最適化"
-search_keywords:
-  primary: ["api-documentation", "effect-schema", "context-api", "domain-apis"]
-  secondary: ["type-safety", "error-handling", "dependency-injection", "infrastructure"]
-  context: ["minecraft-apis", "game-development", "functional-architecture"]
 ---
+
 
 # 📚 API Reference Hub - 完全API仕様集
 

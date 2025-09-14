@@ -6,9 +6,8 @@ difficulty: "intermediate"
 tags: ["effect-ts", "schema", "validation", "api-reference", "brand-types"]
 prerequisites: ["effect-ts-basics", "typescript-types"]
 estimated_reading_time: "20分"
-last_updated: "2025-09-14"
-version: "1.0.0"
 ---
+
 
 # Effect-TS Schema API リファレンス
 

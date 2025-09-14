@@ -91,25 +91,19 @@ TS2345: Argument of type '{ _tag: string; message: string; }' is not assignable 
 
 1. **TaggedErrorクラスの定義**
    ```typescript
-   // ✅ 正しいTaggedError実装
-   export class PlayerNotFoundError extends Schema.TaggedError<PlayerNotFoundError>()(
-     "PlayerNotFoundError",
-     {
-       playerId: Schema.String,
-       timestamp: Schema.optional(Schema.Number)
-     }
-   ) {}
+   // ✅ 正しいTaggedError実装 - 関数型パターン
+   export const PlayerNotFoundError = Schema.TaggedError("PlayerNotFoundError")({
+     playerId: Schema.String,
+     timestamp: Schema.optional(Schema.Number)
+   })
 
-   export class ChunkLoadError extends Schema.TaggedError<ChunkLoadError>()(
-     "ChunkLoadError",
-     {
-       coordinate: Schema.Struct({
-         x: Schema.Number,
-         z: Schema.Number
-       }),
-       reason: Schema.String
-     }
-   ) {}
+   export const ChunkLoadError = Schema.TaggedError("ChunkLoadError")({
+     coordinate: Schema.Struct({
+       x: Schema.Number,
+       z: Schema.Number
+     }),
+     reason: Schema.String
+   })
    ```
 
 2. **Error使用パターン**
@@ -426,15 +420,13 @@ TS2322: Type 'LoadPlayerRequest' is not assignable to type 'never'.
 
 ##### 解決方法
 ```typescript
-// リクエスト/レスポンスパターンの実装
-export class LoadPlayerRequest extends Schema.TaggedRequest<LoadPlayerRequest>()(
-  "LoadPlayerRequest",
-  {
-    playerId: Schema.String
-  },
+// リクエスト/レスポンスパターンの実装 - 関数型パターン
+export const LoadPlayerRequest = Schema.TaggedRequest("LoadPlayerRequest")({
+  playerId: Schema.String
+})(
   PlayerSchema, // Success型
   PlayerNotFoundError // Failure型
-) {}
+)
 
 // RequestResolverの実装
 export const PlayerRequestResolverLive = Layer.effect(

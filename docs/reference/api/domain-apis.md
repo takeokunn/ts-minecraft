@@ -1,19 +1,13 @@
 ---
 title: "Domain APIs - ゲームドメイン特化API完全集"
 description: "TypeScript Minecraft Cloneドメイン特化API完全リファレンス。World、Player、Block、EntityシステムのDDD実装とEffect-TS統合パターン。ゲームロジックの型安全実装ガイド。"
-category: "api-reference"
+category: "reference"
 difficulty: "advanced"
 tags: ["domain-apis", "minecraft-apis", "world-management", "player-system", "block-system", "entity-system", "ddd-implementation", "game-logic"]
 prerequisites: ["core-apis", "ddd-basics", "ecs-fundamentals", "effect-ts-intermediate"]
 estimated_reading_time: "45-60分"
-last_updated: "2025-09-14"
-version: "2.0.0"
-learning_path: "Level 4-5 - ゲームドメイン専門実装"
-search_keywords:
-  primary: ["world-api", "player-api", "block-api", "entity-api"]
-  secondary: ["chunk-management", "inventory-system", "block-physics", "ecs-components"]
-  context: ["minecraft-gameplay", "domain-logic", "business-rules"]
 ---
+
 
 # 🎮 Domain APIs - ゲームドメイン完全マスタリー
 
@@ -207,14 +201,11 @@ export const DomainUtils = {
     })
 } as const
 
-// カスタムエラー型
-export class DomainError extends Error {
-  readonly _tag = "DomainError"
-  constructor(message: string) {
-    super(message)
-    this.name = "DomainError"
-  }
-}
+// カスタムエラー型 - Effect-TS関数型パターン
+export const DomainError = Schema.TaggedError("DomainError")({
+  message: Schema.String,
+  timestamp: Schema.optional(Schema.DateTimeUtc)
+})
 
 // ワールド基本情報
 export const WorldMetadataSchema = Schema.Struct({

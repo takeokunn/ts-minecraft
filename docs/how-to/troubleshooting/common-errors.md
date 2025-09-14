@@ -498,7 +498,7 @@ const safeOperation = (player: Player): Effect.Effect<Player, PlayerError> =>
 ### 2. 適切なエラーハンドリング
 ```typescript
 // Schema.TaggedErrorの使用
-class PlayerNotFoundError extends Schema.TaggedError<PlayerNotFoundError>()("PlayerNotFoundError", {
+const PlayerNotFoundError = Schema.TaggedError("PlayerNotFoundError")({
   playerId: Schema.String
 }) {}
 

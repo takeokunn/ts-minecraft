@@ -6,9 +6,8 @@ difficulty: "advanced"
 tags: ["effect-ts", "context", "dependency-injection", "api-reference", "layer"]
 prerequisites: ["effect-ts-patterns", "typescript-advanced"]
 estimated_reading_time: "15分"
-last_updated: "2025-09-14"
-version: "1.0.0"
 ---
+
 
 # Effect-TS Context API リファレンス
 

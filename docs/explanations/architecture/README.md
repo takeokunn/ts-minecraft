@@ -3,11 +3,11 @@ title: "API設計仕様書 - 統合ガイド"
 description: "TypeScript Minecraft Clone プロジェクトの包括的なAPI設計仕様とEffect-TS 3.17+実装パターン"
 category: "specification"
 difficulty: "advanced"
-tags: ['typescript', 'minecraft', 'effect-ts', 'api-design', 'ddd', 'cqrs', 'event-sourcing']
-prerequisites: ['effect-ts-advanced', 'domain-driven-design', 'functional-programming']
+tags: ["typescript", "minecraft", "effect-ts", "api-design", "ddd", "cqrs", "event-sourcing"]
+prerequisites: ["effect-ts-advanced", "domain-driven-design", "functional-programming"]
 estimated_reading_time: "45分"
-version: "2.0.0"
 ---
+
 
 # API設計仕様書 - 統合ガイド
 
@@ -16,28 +16,28 @@ TypeScript Minecraft Cloneプロジェクトの包括的なAPI設計仕様書で
 ## 🏗️ API仕様書の全体構成
 
 ### 📋 **コア仕様書**
-- **[ドメイン・アプリケーションAPI](00-domain-application-apis.md)** (3,465行) - Effect-TS 3.17+パターンによるビジネスロジック層の完全実装
+- **[ドメイン・アプリケーションAPI](domain-application-apis.md)** (3,465行) - Effect-TS 3.17+パターンによるビジネスロジック層の完全実装
   - DDD Aggregate Root with Event Sourcing
   - CQRS Command/Query分離
   - Property-Based Testing patterns
   - Resource Pool Management
   - Advanced Error Handling with Match API
 
-- **[インフラストラクチャAPI](01-infrastructure-apis.md)** (1,686行) - 分散システム対応技術基盤層の実装
+- **[インフラストラクチャAPI](infrastructure-apis.md)** (1,686行) - 分散システム対応技術基盤層の実装
   - Distributed Storage with Consistent Hashing
   - Database Connection Pooling
   - Message Queue Systems (Redis Streams, WebSocket)
   - Advanced WebGL Rendering Management
   - Monitoring and Observability
 
-- **[イベントバス仕様](02-event-bus-specification.md)** (1,441行) - Event Sourcing対応非同期メッセージング
+- **[イベントバス仕様](event-bus-specification.md)** (1,441行) - Event Sourcing対応非同期メッセージング
   - Event Store Implementation
   - CQRS Read Model Projections
   - Event Replay and Time-Travel Debugging
   - Distributed Event Processing
   - Real-time Event Streaming
 
-- **[HTTP API仕様](03-http-api-specification.md)** (1,600行) - RESTful API + WebSocket統合仕様
+- **[HTTP API仕様](http-api-specification.md)** (1,600行) - RESTful API + WebSocket統合仕様
   - RESTful CRUD Operations
   - OAuth 2.0/JWT Authentication
   - WebSocket Real-time APIs
@@ -57,10 +57,10 @@ TypeScript Minecraft Cloneプロジェクトの包括的なAPI設計仕様書で
 ## 🚀 クイックスタートガイド
 
 ### 📖 **読む順序の推奨**
-1. **初回理解**: `00-domain-application-apis.md` - 基本的なEffect-TSパターンの理解
-2. **技術基盤**: `01-infrastructure-apis.md` - 分散システムアーキテクチャの把握
-3. **非同期通信**: `02-event-bus-specification.md` - Event Sourcingパターンの理解
-4. **HTTP通信**: `03-http-api-specification.md` - RESTful API設計の詳細
+1. **初回理解**: `domain-application-apis.md` - 基本的なEffect-TSパターンの理解
+2. **技術基盤**: `infrastructure-apis.md` - 分散システムアーキテクチャの把握
+3. **非同期通信**: `event-bus-specification.md` - Event Sourcingパターンの理解
+4. **HTTP通信**: `http-api-specification.md` - RESTful API設計の詳細
 
 ### 🛠️ **実装の開始点**
 ```typescript
@@ -362,16 +362,18 @@ export const WorldServiceLive: Layer.Layer<WorldService, never, ChunkRepository 
 ### ⚠️ **Schema-based エラーハンドリング**
 ```typescript
 // Effect-TS 3.17+ Schema.TaggedError
-export class ChunkServiceError extends Schema.TaggedError("ChunkServiceError")<{
-  readonly cause: "NotFound" | "Corrupted" | "NetworkError" | "AccessDenied"
-  readonly coordinate: ChunkCoordinate
-  readonly timestamp: Date
-  readonly retryable: boolean
-  readonly context: Record<string, unknown>
-}> {
-  static notFound = (coord: ChunkCoordinate) =>
-    new ChunkServiceError({
-      cause: "NotFound",
+export const ChunkServiceError = Schema.TaggedError("ChunkServiceError")({
+  cause: Schema.Literal("NotFound", "Corrupted", "NetworkError", "AccessDenied"),
+  coordinate: ChunkCoordinateSchema,
+  timestamp: Schema.Date,
+  retryable: Schema.Boolean,
+  context: Schema.Record(Schema.String, Schema.Unknown)
+})
+
+export const ChunkServiceErrorHelpers = {
+  notFound: (coord: ChunkCoordinate) =>
+    ChunkServiceError({
+      cause: "NotFound" as const,
       coordinate: coord,
       timestamp: new Date(),
       retryable: false,
@@ -960,24 +962,21 @@ export const migrateChunkV1toV2 = (v1Chunk: APIVersions.V1.Chunk): APIVersions.V
 ## 🔗 **関連ドキュメント & リソース**
 
 ### 📚 **API仕様書詳細**
-- **[ドメイン・アプリケーションAPI](00-domain-application-apis.md)** - DDD + Effect-TS実装詳細
-- **[インフラストラクチャAPI](01-infrastructure-apis.md)** - 分散システム技術基盤
-- **[イベントバス仕様](02-event-bus-specification.md)** - Event Sourcing実装
-- **[HTTP API仕様](03-http-api-specification.md)** - RESTful + WebSocket APIs
+- **[ドメイン・アプリケーションAPI](domain-application-apis.md)** - DDD + Effect-TS実装詳細
+- **[インフラストラクチャAPI](infrastructure-apis.md)** - 分散システム技術基盤
+- **[イベントバス仕様](event-bus-specification.md)** - Event Sourcing実装
+- **[HTTP API仕様](http-api-specification.md)** - RESTful + WebSocket APIs
 
 ### 🏗️ **アーキテクチャ関連**
-- **[アーキテクチャ概要](../../01-architecture/)** - システム全体設計思想
-- **[DDD戦略設計](../../01-architecture/02-ddd-strategic-design.md)** - ドメイン分析とモデリング
-- **[Effect-TS パターン](../../01-architecture/06-effect-ts-patterns.md)** - 関数型プログラミング実装
+- **[アーキテクチャ概要](./overview.md)** - システム全体設計思想
 
 ### ⚙️ **システム仕様**
-- **[コア機能](../00-core-features/)** - ゲーム機能の詳細仕様
-- **[データモデル](../03-data-models/)** - エンティティとスキーマ設計
-- **[セキュリティ仕様](../04-security-specification.md)** - 認証・認可・暗号化
+- **[コア機能](../game-mechanics/00-core-features/)** - ゲーム機能の詳細仕様
+- **[セキュリティ仕様](./security-specification.md)** - 認証・認可・暗号化
 
 ### 🧪 **開発・テスト**
-- **[テストパターン](../../07-pattern-catalog/05-test-patterns.md)** - テスト戦略とパターン集
-- **[パフォーマンス最適化](../../07-pattern-catalog/06-optimization-patterns.md)** - 最適化手法
+- **[テストパターン](../design-patterns/test-patterns.md)** - テスト戦略とパターン集
+- **[パフォーマンス最適化](../design-patterns/optimization-patterns.md)** - 最適化手法
 
 ---
 

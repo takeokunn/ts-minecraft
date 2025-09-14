@@ -1,652 +1,1053 @@
 ---
-title: "デバッグガイド - 包括的デバッグ戦略"
-description: "TypeScript Minecraftプロジェクトの20の高度なデバッグ技術と実践的トラブルシューティング手法。Effect-TS、Three.js、WebGL デバッグ。"
-category: "troubleshooting"
-difficulty: "advanced"
-tags: ["debugging", "troubleshooting", "effect-ts", "three.js", "webgl", "performance-analysis", "tracing"]
-prerequisites: ["typescript-intermediate", "debugging-fundamentals", "effect-ts-fundamentals"]
+title: "デバッグ実践ガイド - Effect-TS・ゲームループ・パフォーマンス診断"
+description: "TypeScript Minecraft Cloneの包括的デバッグガイド。Effect-TSエラー追跡、ゲームループデバッグ、メモリリーク検出、パフォーマンス分析の実践的テクニック。"
+category: "guide"
+difficulty: "intermediate"
+tags: ["debugging", "troubleshooting", "performance", "effect-ts-debugging", "game-debugging", "profiling"]
+prerequisites: ["effect-ts-fundamentals", "browser-devtools", "performance-analysis", "debugging-techniques"]
 estimated_reading_time: "30分"
-related_patterns: ["error-handling-patterns", "service-patterns"]
-related_docs: ["./effect-ts-troubleshooting.md", "./performance-issues.md", "./runtime-errors.md"]
-status: "complete"
+related_patterns: ["error-handling-patterns", "debugging-patterns", "monitoring-patterns"]
+related_docs: ["./04-error-resolution.md", "./03-performance-optimization.md", "../05-reference/troubleshooting/README.md"]
+search_keywords:
+  primary: ["debugging", "troubleshooting", "error-tracking", "performance-debugging"]
+  secondary: ["game-debugging", "effect-ts-debugging", "memory-profiling"]
+  context: ["development-workflow", "problem-solving", "performance-optimization"]
 ---
 
 # デバッグガイド
 
-> **包括的デバッグ戦略**: TypeScript Minecraft プロジェクトのための20の高度なデバッグ技術と実践的トラブルシューティング手法
+## 概要
 
-TypeScript Minecraft プロジェクトにおけるEffect-TSベースの高度なデバッグ技術、実用的なトラブルシューティング手法、そしてパフォーマンス分析ツールを詳細に解説します。特にEffect-TS 3.17+、Three.js、WebGLの組み合わせにおけるデバッグのベストプラクティスを重点的に紹介します。
+TypeScript Minecraftプロジェクトのデバッグとトラブルシューティングのためのガイドです。Effect-TS特有のデバッグパターンとパフォーマンス分析手法を解説します。
 
-## Effect-TSデバッグ技術
+## Effect-TSデバッグパターン
 
-### Effect.withSpan による分散トレーシング
+### Effect実行のトレース
 
-#### 基本的な使用方法
 ```typescript
-import * as Effect from "effect/Effect"
-import * as Tracer from "effect/Tracer"
+// Effect実行のトレース有効化（最新API）
+import { Effect, Runtime, Cause, Logger } from 'effect'
 
-// スパンの作成と実行
-const loadChunkWithTracing = (coordinate: ChunkCoordinate) =>
-  pipe(
-    loadChunk(coordinate),
-    Effect.withSpan("load-chunk", {
+// デバッグ用ランタイム
+export const DebugRuntime = Runtime.defaultRuntime.pipe(
+  Runtime.updateLogger(Logger.stringLogger.pipe(
+    Logger.map(message =>
+      console.log(`[${new Date().toISOString()}] ${message}`)
+    )
+  )),
+  Runtime.enableTracing
+)
+
+// Effect実行のデバッグ（最新パターン）
+export const debugEffect = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+  label: string
+) =>
+  effect.pipe(
+    Effect.tap((value) =>
+      Effect.logInfo(`${label}: Success`, { value })
+    ),
+    Effect.tapError((error) =>
+      Effect.logError(`${label}: Error`, { error })
+    ),
+    Effect.withSpan(label, {
       attributes: {
-        "chunk.x": coordinate.x,
-        "chunk.z": coordinate.z,
-        "chunk.dimension": coordinate.dimension
+        component: 'minecraft',
+        layer: 'debug'
       }
     })
   )
-
-// ネストしたスパンによる詳細トレーシング
-const generateWorld = (seed: number) =>
-  pipe(
-    Effect.gen(function* () {
-      yield* Effect.log("Starting world generation")
-
-      const terrain = yield* pipe(
-        generateTerrain(seed),
-        Effect.withSpan("generate-terrain", { attributes: { seed } })
-      )
-
-      const structures = yield* pipe(
-        generateStructures(terrain),
-        Effect.withSpan("generate-structures")
-      )
-
-      const entities = yield* pipe(
-        spawnEntities(terrain),
-        Effect.withSpan("spawn-entities")
-      )
-
-      return new World(terrain, structures, entities)
-    }),
-    Effect.withSpan("generate-world", {
-      attributes: { seed }
-    })
-  )
 ```
 
-#### トレースの可視化
-```typescript
-// カスタムトレーサーの設定
-const consoleTracer = Tracer.make({
-  span: (name, options) => {
-    const startTime = Date.now()
-    console.group(`🔍 ${name}`)
+### エラートレースの詳細化
 
-    if (options.attributes) {
-      console.table(options.attributes)
+```typescript
+// エラーの詳細トレース
+export const traceError = <E>(error: E): string => {
+  if (Cause.isCause(error)) {
+    return Cause.pretty(error)
+  }
+
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}\n${error.stack}`
+  }
+
+  return JSON.stringify(error, null, 2)
+}
+
+// Effect実行結果の詳細ログ（最新パターン）
+export const runWithDetailedLog = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+  name: string
+) =>
+  Effect.gen(function* () {
+    const startTime = Date.now()
+
+    const result = yield* Effect.either(effect).pipe(
+      Effect.tap((either) => Effect.sync(() => {
+        const duration = Date.now() - startTime
+
+        if (Either.isRight(either)) {
+          console.log(`✅ ${name} succeeded in ${duration}ms`)
+        } else {
+          console.error(`❌ ${name} failed in ${duration}ms:`)
+          console.error(traceError(either.left))
+        }
+      }))
+    )
+
+    return yield* Effect.fromEither(result)
+  })
+```
+
+### レイヤー構成のデバッグ
+
+```typescript
+// レイヤー依存関係の可視化（最新API）
+export const debugLayer = <A, E, R>(
+  layer: Layer.Layer<A, E, R>
+) => {
+  console.log('Layer Dependencies:')
+  // Layer.graphは実装状況を要確認
+
+  return layer.pipe(
+    Layer.tapContext((context) => Effect.sync(() => {
+      console.log('Layer Context:', context)
+    })),
+    Layer.orDie // 開発時はエラーで停止
+  )
+}
+
+// サービス呼び出しのインターセプト（最新パターン）
+export const interceptService = <S>(
+  tag: Context.Tag<S, S>,
+  methods: (keyof S)[]
+) =>
+  Layer.succeed(tag, new Proxy({} as S, {
+    get(target, prop) {
+      if (methods.includes(prop as keyof S)) {
+        return (...args: any[]) => {
+          console.log(`📞 ${tag.key}.${String(prop)}`, args)
+          const result = target[prop as keyof S](...args)
+          console.log(`📞 ${tag.key}.${String(prop)} →`, result)
+          return result
+        }
+      }
+      return target[prop as keyof S]
+    }
+  }))
+```
+
+## パフォーマンスプロファイリング
+
+### 実行時間計測
+
+```typescript
+import { Effect, Context, Layer, Ref, Schema, Option, Fiber } from "effect"
+
+// パフォーマンス統計型定義
+export interface PerformanceStats {
+  readonly count: number
+  readonly total: number
+  readonly average: number
+  readonly min: number
+  readonly max: number
+  readonly p50: number
+  readonly p95: number
+  readonly p99: number
+}
+
+// マーク未発見エラー
+export const MarkNotFoundError = Schema.TaggedError("MarkNotFoundError")({
+  markName: Schema.String
+  timestamp: Schema.Number
+})
+
+// PerformanceTimerサービス定義
+export const PerformanceTimer = Context.GenericTag<{
+  readonly mark: (name: string) => Effect.Effect<void, never>
+  readonly measure: (name: string, startMark: string, endMark?: string) => Effect.Effect<number, MarkNotFoundError>
+  readonly getStats: (name: string) => Effect.Effect<PerformanceStats, never>
+  readonly report: () => Effect.Effect<void, never>
+  readonly reset: () => Effect.Effect<void, never>
+}>("@minecraft/PerformanceTimer")
+
+// 実装
+const makePerformanceTimer = Effect.gen(function* () {
+  const marksRef = yield* Ref.make(new Map<string, number>())
+  const measuresRef = yield* Ref.make(new Map<string, number[]>())
+
+  const calculateStats = (measures: number[]): PerformanceStats => {
+    if (measures.length === 0) {
+      return {
+        count: 0,
+        total: 0,
+        average: 0,
+        min: 0,
+        max: 0,
+        p50: 0,
+        p95: 0,
+        p99: 0
+      }
     }
 
-    return Effect.acquireRelease(
-      Effect.sync(() => ({
-        name,
-        startTime,
-        attributes: options.attributes
-      })),
-      (span) => Effect.sync(() => {
-        const duration = Date.now() - span.startTime
-        console.log(`⏱️  ${span.name}: ${duration}ms`)
-        console.groupEnd()
-      })
-    )
+    const sorted = [...measures].sort((a, b) => a - b)
+    const sum = sorted.reduce((a, b) => a + b, 0)
+
+    return {
+      count: sorted.length,
+      total: sum,
+      average: sum / sorted.length,
+      min: sorted[0],
+      max: sorted[sorted.length - 1],
+      p50: sorted[Math.floor(sorted.length * 0.5)],
+      p95: sorted[Math.floor(sorted.length * 0.95)],
+      p99: sorted[Math.floor(sorted.length * 0.99)]
+    }
   }
+
+  return PerformanceTimer.of({
+    mark: (name) => Effect.gen(function* () {
+      const marks = yield* Ref.get(marksRef)
+      yield* Ref.set(marksRef, new Map(marks).set(name, performance.now()))
+    }),
+
+    measure: (name, startMark, endMark) => Effect.gen(function* () {
+      const marks = yield* Ref.get(marksRef)
+      const measures = yield* Ref.get(measuresRef)
+
+      const start = marks.get(startMark)
+      if (!start) {
+        return yield* Effect.fail(new MarkNotFoundError({
+          markName: startMark,
+          timestamp: Date.now()
+        }))
+      }
+
+      const end = endMark ? marks.get(endMark) : performance.now()
+      const duration = (end || performance.now()) - start
+
+      const existingMeasures = measures.get(name) || []
+      const updatedMeasures = new Map(measures).set(name, [...existingMeasures, duration])
+      yield* Ref.set(measuresRef, updatedMeasures)
+
+      return duration
+    }),
+
+    getStats: (name) => Effect.gen(function* () {
+      const measures = yield* Ref.get(measuresRef)
+      const measuresList = measures.get(name) || []
+      return calculateStats(measuresList)
+    }),
+
+    report: () => Effect.gen(function* () {
+      const measures = yield* Ref.get(measuresRef)
+      const stats = Array.from(measures.keys()).map(name => ({
+        name,
+        ...calculateStats(measures.get(name) || [])
+      }))
+
+      yield* Effect.sync(() => console.table(stats))
+    }),
+
+    reset: () => Effect.gen(function* () {
+      yield* Ref.set(marksRef, new Map())
+      yield* Ref.set(measuresRef, new Map())
+    })
+  })
 })
 
-// プログラムでのトレーサー使用
-const tracedProgram = pipe(
-  generateWorld(12345),
-  Effect.provide(Layer.succeed(Tracer.Tracer, consoleTracer))
-)
+// Layer提供
+export const PerformanceTimerLive = Layer.effect(PerformanceTimer, makePerformanceTimer)
+
+// Effect統合
+export const timed = <R, E, A>(
+  effect: Effect.Effect<A, E, R>,
+  name: string
+) =>
+  Effect.gen(function* () {
+    const timer = new PerformanceTimer()
+    timer.mark('start')
+
+    const result = yield* effect
+
+    const duration = timer.measure(name, 'start')
+    console.log(`⏱️ ${name}: ${duration.toFixed(2)}ms`)
+
+    return result
+  })
 ```
 
-### Effect.log による構造化ログ
+### メモリプロファイリング
 
-#### ログレベルとコンテキスト
 ```typescript
-// 構造化ログの実装
-const logPlayerAction = (playerId: PlayerId, action: PlayerAction) =>
-  Effect.logInfo("Player action executed", {
-    playerId: playerId.value,
-    action: action.type,
-    timestamp: new Date().toISOString(),
-    metadata: action.metadata
+// メモリスナップショット型定義
+export interface MemorySnapshot {
+  readonly timestamp: number
+  readonly usedJSHeapSize: number
+  readonly totalJSHeapSize: number
+  readonly jsHeapSizeLimit: number
+  readonly delta: number
+}
+
+// メモリプロファイリング不可エラー
+export const MemoryProfilingUnavailableError = Schema.TaggedError("MemoryProfilingUnavailableError")({
+  reason: Schema.String
+  timestamp: Schema.Number
+})
+
+// スナップショット未発見エラー
+export const SnapshotNotFoundError = Schema.TaggedError("SnapshotNotFoundError")({
+  snapshotLabel: Schema.String
+  availableLabels: Schema.Array(Schema.String)
+  timestamp: Schema.Number
+})
+
+// メモリ比較結果
+export interface MemoryComparison {
+  readonly label1: string
+  readonly label2: string
+  readonly absoluteDelta: number
+  readonly relativeDelta: number
+  readonly currentUsage: number
+  readonly formattedDelta: string
+  readonly formattedCurrent: string
+  readonly percentage: string
+}
+
+// MemoryProfilerサービス定義
+export const MemoryProfiler = Context.GenericTag<{
+  readonly snapshot: (label: string) => Effect.Effect<void, MemoryProfilingUnavailableError>
+  readonly compare: (label1: string, label2: string) => Effect.Effect<MemoryComparison, SnapshotNotFoundError>
+  readonly report: () => Effect.Effect<void, never>
+  readonly getSnapshot: (label: string) => Effect.Effect<Option.Option<MemorySnapshot>, never>
+  readonly reset: () => Effect.Effect<void, never>
+  readonly getBaseline: () => Effect.Effect<number, never>
+}>("@minecraft/MemoryProfiler")
+
+// ユーティリティ関数
+const formatBytes = (bytes: number): string => {
+  const units = ['B', 'KB', 'MB', 'GB'] as const
+  let size = Math.abs(bytes)
+  let unitIndex = 0
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024
+    unitIndex++
+  }
+
+  const sign = bytes < 0 ? '-' : ''
+  return `${sign}${size.toFixed(2)} ${units[unitIndex]}`
+}
+
+// 実装
+const makeMemoryProfiler = Effect.gen(function* () {
+  const baselineRef = yield* Ref.make(0)
+  const snapshotsRef = yield* Ref.make(new Map<string, MemorySnapshot>())
+
+  // 初期化時にベースライン設定
+  yield* Effect.sync(() => {
+    if ('memory' in performance) {
+      return (performance as any).memory.usedJSHeapSize
+    }
+    return 0
+  }).pipe(
+    Effect.flatMap(baseline => Ref.set(baselineRef, baseline))
+  )
+
+  return MemoryProfiler.of({
+    snapshot: (label) => Effect.gen(function* () {
+      if (!('memory' in performance)) {
+        return yield* Effect.fail(new MemoryProfilingUnavailableError({
+          reason: "Browser memory API not available",
+          timestamp: Date.now()
+        }))
+      }
+
+      const baseline = yield* Ref.get(baselineRef)
+      const memory = (performance as any).memory
+      const snapshot: MemorySnapshot = {
+        timestamp: Date.now(),
+        usedJSHeapSize: memory.usedJSHeapSize,
+        totalJSHeapSize: memory.totalJSHeapSize,
+        jsHeapSizeLimit: memory.jsHeapSizeLimit,
+        delta: memory.usedJSHeapSize - baseline
+      }
+
+      const snapshots = yield* Ref.get(snapshotsRef)
+      yield* Ref.set(snapshotsRef, new Map(snapshots).set(label, snapshot))
+    }),
+
+    compare: (label1, label2) => Effect.gen(function* () {
+      const snapshots = yield* Ref.get(snapshotsRef)
+      const snap1 = snapshots.get(label1)
+      const snap2 = snapshots.get(label2)
+
+      if (!snap1 || !snap2) {
+        const availableLabels = Array.from(snapshots.keys())
+        return yield* Effect.fail(new SnapshotNotFoundError({
+          snapshotLabel: !snap1 ? label1 : label2,
+          availableLabels,
+          timestamp: Date.now()
+        }))
+      }
+
+      const absoluteDelta = snap2.usedJSHeapSize - snap1.usedJSHeapSize
+      const relativeDelta = (absoluteDelta / snap1.usedJSHeapSize) * 100
+
+      const comparison: MemoryComparison = {
+        label1,
+        label2,
+        absoluteDelta,
+        relativeDelta,
+        currentUsage: snap2.usedJSHeapSize,
+        formattedDelta: formatBytes(absoluteDelta),
+        formattedCurrent: formatBytes(snap2.usedJSHeapSize),
+        percentage: `${relativeDelta.toFixed(2)}%`
+      }
+
+      // ログ出力
+      yield* Effect.sync(() => {
+        console.log(`Memory Delta (${label1} → ${label2}):`)
+        console.log(`  Absolute: ${comparison.formattedDelta}`)
+        console.log(`  Relative: ${comparison.percentage}`)
+        console.log(`  Current: ${comparison.formattedCurrent}`)
+      })
+
+      return comparison
+    }),
+
+    report: () => Effect.gen(function* () {
+      const snapshots = yield* Ref.get(snapshotsRef)
+      const reportData = Array.from(snapshots.entries()).map(([label, snap]) => ({
+        label,
+        used: formatBytes(snap.usedJSHeapSize),
+        total: formatBytes(snap.totalJSHeapSize),
+        limit: formatBytes(snap.jsHeapSizeLimit),
+        delta: formatBytes(snap.delta),
+        timestamp: new Date(snap.timestamp).toISOString()
+      }))
+
+      yield* Effect.sync(() => console.table(reportData))
+    }),
+
+    getSnapshot: (label) => Effect.gen(function* () {
+      const snapshots = yield* Ref.get(snapshotsRef)
+      return Option.fromNullable(snapshots.get(label))
+    }),
+
+    reset: () => Effect.gen(function* () {
+      yield* Ref.set(snapshotsRef, new Map())
+
+      // ベースラインを現在の値にリセット
+      const newBaseline = yield* Effect.sync(() => {
+        if ('memory' in performance) {
+          return (performance as any).memory.usedJSHeapSize
+        }
+        return 0
+      })
+      yield* Ref.set(baselineRef, newBaseline)
+    }),
+
+    getBaseline: () => Ref.get(baselineRef)
+  })
+})
+
+// Layer提供
+export const MemoryProfilerLive = Layer.effect(MemoryProfiler, makeMemoryProfiler)
+```
+
+## メモリリーク検出
+
+### WeakMap/WeakSetの活用
+
+```typescript
+// 追跡対象オブジェクト情報
+export interface TrackedObject {
+  readonly label: string
+  readonly timestamp: number
+  readonly stackTrace: string
+}
+
+// リーク検出結果
+export interface LeakDetectionResult {
+  readonly totalTracked: number
+  readonly potentialLeaks: ReadonlyArray<TrackedObject>
+  readonly checkTimestamp: number
+}
+
+// LeakDetectorサービス定義
+export const LeakDetector = Context.GenericTag<{
+  readonly track: (obj: object, label: string) => Effect.Effect<void, never>
+  readonly startMonitoring: (intervalMs?: number) => Effect.Effect<void, never>
+  readonly stopMonitoring: () => Effect.Effect<void, never>
+  readonly forceCheck: () => Effect.Effect<LeakDetectionResult, never>
+  readonly getTrackedCount: () => Effect.Effect<number, never>
+  readonly setThreshold: (threshold: number) => Effect.Effect<void, never>
+}>("@minecraft/LeakDetector")
+
+// 実装
+const makeLeakDetector = Effect.gen(function* () {
+  const trackedMapRef = yield* Ref.make(new WeakMap<object, TrackedObject>())
+  const counterRef = yield* Ref.make(0)
+  const thresholdRef = yield* Ref.make(100)
+  const monitoringRef = yield* Ref.make<boolean>(false)
+  const fiberRef = yield* Ref.make<Option.Option<Fiber.Fiber<void, never>>>(Option.none())
+
+  const forceGC = Effect.sync(() => {
+    // ガベージコレクション強制（開発環境のみ）
+    if (typeof global !== 'undefined' && (global as any).gc) {
+      (global as any).gc()
+    }
   })
 
-// 条件付きログ
-const debugChunkLoad = (coordinate: ChunkCoordinate) =>
-  pipe(
-    Effect.logDebug("Loading chunk", { coordinate }),
-    Effect.when(DEBUG_CHUNKS)
-  )
+  const performLeakCheck = Effect.gen(function* () {
+    yield* forceGC
+    const count = yield* Ref.get(counterRef)
+    const threshold = yield* Ref.get(thresholdRef)
 
-// エラー情報付きログ
-const logPlayerError = (error: PlayerError) =>
-  pipe(
-    Effect.logError("Player operation failed", {
-      errorType: error._tag,
-      playerId: error.playerId,
-      stackTrace: error.stack
-    }),
-    Effect.zipLeft(Effect.fail(error))
-  )
-```
+    // 実際の実装では、より詳細なリーク検出ロジックが必要
+    yield* Effect.log(`Leak detection check: ${count} objects tracked (threshold: ${threshold})`)
 
-#### カスタムロガーの作成
-```typescript
-import * as Logger from "effect/Logger"
+    const result: LeakDetectionResult = {
+      totalTracked: count,
+      potentialLeaks: [], // WeakMapから取得できないため空配列
+      checkTimestamp: Date.now()
+    }
 
-// ファイル出力ロガー
-const fileLogger = Logger.make(({ logLevel, message, cause }) => {
-  const timestamp = new Date().toISOString()
-  const logEntry = {
-    timestamp,
-    level: logLevel._tag,
-    message,
-    cause: cause ? String(cause) : undefined
-  }
-
-  // ファイルへの書き込み (非同期)
-  appendFile('debug.log', JSON.stringify(logEntry) + '\n')
-})
-
-// ログレベル別の色分け
-const coloredLogger = Logger.make(({ logLevel, message }) => {
-  const colors = {
-    Info: '\x1b[36m',    // シアン
-    Warn: '\x1b[33m',    // イエロー
-    Error: '\x1b[31m',   // レッド
-    Debug: '\x1b[90m',   // グレー
-    Fatal: '\x1b[35m'    // マゼンタ
-  }
-
-  const color = colors[logLevel._tag] || '\x1b[0m'
-  console.log(`${color}[${logLevel._tag}] ${message}\x1b[0m`)
-})
-```
-
-### Chrome DevTools を使用したEffect デバッグ
-
-#### Performance API との統合
-```typescript
-// パフォーマンス測定
-const measureOperation = <A, E>(
-  name: string,
-  operation: Effect.Effect<A, E>
-): Effect.Effect<A, E> =>
-  Effect.gen(function* () {
-    performance.mark(`${name}-start`)
-
-    const result = yield* operation
-
-    performance.mark(`${name}-end`)
-    performance.measure(name, `${name}-start`, `${name}-end`)
+    if (count > threshold) {
+      yield* Effect.logWarning(`Potential memory leak detected: ${count} objects exceed threshold ${threshold}`)
+    }
 
     return result
   })
 
-// メモリ使用量の監視
-const memorySnapshot = (label: string) =>
-  Effect.sync(() => {
-    if (performance.memory) {
-      console.log(`📊 ${label}:`, {
-        used: `${Math.round(performance.memory.usedJSHeapSize / 1024 / 1024)}MB`,
-        total: `${Math.round(performance.memory.totalJSHeapSize / 1024 / 1024)}MB`,
-        limit: `${Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024)}MB`
-      })
+  const monitoringLoop = Effect.gen(function* () {
+    while (yield* Ref.get(monitoringRef)) {
+      yield* performLeakCheck
+      yield* Effect.sleep(5000) // デフォルト5秒間隔
     }
   })
 
-// 使用例
-const optimizedChunkGeneration = pipe(
-  generateChunk(coordinate),
-  Effect.tap(() => memorySnapshot("Before chunk generation")),
-  (effect) => measureOperation("chunk-generation", effect),
-  Effect.tap(() => memorySnapshot("After chunk generation"))
-)
-```
+  return LeakDetector.of({
+    track: (obj, label) => Effect.gen(function* () {
+      const tracked = yield* Ref.get(trackedMapRef)
+      const trackedObject: TrackedObject = {
+        label,
+        timestamp: Date.now(),
+        stackTrace: new Error().stack || ''
+      }
 
-#### DevTools Console Integration
-```typescript
-// カスタム console グループ化
-const debugGroup = <A, E>(
-  groupName: string,
-  operation: Effect.Effect<A, E>
-): Effect.Effect<A, E> =>
-  Effect.gen(function* () {
-    yield* Effect.sync(() => console.group(`🔧 ${groupName}`))
+      tracked.set(obj, trackedObject)
+      yield* Ref.update(counterRef, n => n + 1)
 
-    try {
-      const result = yield* operation
-      yield* Effect.sync(() => console.log("✅ Success:", result))
-      return result
-    } catch (error) {
-      yield* Effect.sync(() => console.error("❌ Error:", error))
-      throw error
-    } finally {
-      yield* Effect.sync(() => console.groupEnd())
-    }
-  })
-
-// ブレークポイント挿入
-const debugBreakpoint = (condition: boolean, message?: string) =>
-  Effect.when(
-    Effect.sync(() => {
-      if (message) console.log(`🔍 Debug: ${message}`)
-      debugger
+      yield* Effect.log(`Object tracked: ${label} (total: ${yield* Ref.get(counterRef)})`)
     }),
-    condition
-  )
-```
 
-### エディタでの Effect デバッグ
+    startMonitoring: (intervalMs = 5000) => Effect.gen(function* () {
+      const isMonitoring = yield* Ref.get(monitoringRef)
 
-#### デバッガー設定例
-```json
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "type": "node",
-      "request": "launch",
-      "name": "Debug Effect Program",
-      "program": "${workspaceFolder}/src/debug/run.ts",
-      "runtimeArgs": ["--loader", "tsx/esm"],
-      "env": {
-        "NODE_OPTIONS": "--enable-source-maps",
-        "DEBUG": "*",
-        "LOG_LEVEL": "debug"
-      },
-      "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**"],
-      "sourceMaps": true
-    },
-    {
-      "type": "node",
-      "request": "launch",
-      "name": "Debug Tests",
-      "program": "${workspaceFolder}/node_modules/vitest/dist/cli-wrapper.js",
-      "args": ["--run", "--reporter=verbose"],
-      "env": {
-        "NODE_OPTIONS": "--enable-source-maps"
-      },
-      "console": "integratedTerminal"
-    }
-  ]
-}
-```
-
-#### デバッグ用タスク設定例
-```json
-// デバッグタスク設定ファイルの例
-{
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Debug Build",
-      "type": "shell",
-      "command": "pnpm",
-      "args": ["build", "--mode", "development"],
-      "group": "build",
-      "presentation": {
-        "panel": "dedicated"
+      if (isMonitoring) {
+        yield* Effect.logWarning("Monitoring already started")
+        return
       }
-    },
-    {
-      "label": "Type Check with Debug",
-      "type": "shell",
-      "command": "npx",
-      "args": ["tsc", "--noEmit", "--incremental", "--listFiles"],
-      "group": "build",
-      "presentation": {
-        "panel": "shared"
-      }
-    }
-  ]
-}
-```
 
-## 高度なデバッグパターン
+      yield* Ref.set(monitoringRef, true)
 
-### Effect Fiber のデバッグ
-
-#### Fiber の監視と制御
-```typescript
-import * as Fiber from "effect/Fiber"
-import * as FiberRefs from "effect/FiberRefs"
-
-// Fiber の状態監視
-const monitorFiber = <A, E>(fiber: Fiber.Fiber<A, E>) =>
-  Effect.gen(function* () {
-    const status = yield* Fiber.status(fiber)
-
-    console.log("Fiber Status:", status._tag)
-
-    if (status._tag === "Running") {
-      console.log("Fiber is currently executing")
-    } else if (status._tag === "Suspended") {
-      console.log("Fiber is suspended, waiting for:", status.blockingOn)
-    }
-  })
-
-// 並行処理のデバッグ
-const debugConcurrentOperations = Effect.gen(function* () {
-  const operations = [
-    loadChunk({ x: 0, z: 0 }),
-    loadChunk({ x: 0, z: 1 }),
-    loadChunk({ x: 1, z: 0 }),
-    loadChunk({ x: 1, z: 1 })
-  ]
-
-  const fibers = yield* Effect.forEach(operations, (op) =>
-    pipe(
-      op,
-      Effect.withSpan("chunk-load"),
-      Effect.fork
-    )
-  )
-
-  // 各Fiberの状態を監視
-  yield* Effect.forEach(fibers, monitorFiber)
-
-  // すべての処理が完了するまで待機
-  const results = yield* Effect.forEach(fibers, Fiber.await)
-
-  return results
-})
-```
-
-#### Fiber間の通信デバッグ
-```typescript
-import * as Queue from "effect/Queue"
-import * as Ref from "effect/Ref"
-
-// キューの監視機能付きプロデューサー・コンシューマー
-const debugQueue = <A>(name: string, queue: Queue.Queue<A>) =>
-  Effect.gen(function* () {
-    const size = yield* Queue.size(queue)
-    const capacity = Queue.capacity(queue)
-
-    yield* Effect.logDebug(`Queue ${name}`, {
-      size,
-      capacity,
-      isFull: size === capacity,
-      isEmpty: size === 0
-    })
-  })
-
-// 状態変更の追跡
-const debugRef = <A>(name: string, ref: Ref.Ref<A>) =>
-  pipe(
-    Ref.get(ref),
-    Effect.tap((value) => Effect.logDebug(`Ref ${name}`, { value }))
-  )
-```
-
-### Schema バリデーションデバッグ
-
-#### 詳細なバリデーションエラー
-```typescript
-import * as ParseResult from "@effect/schema/ParseResult"
-import * as TreeFormatter from "@effect/schema/TreeFormatter"
-
-// カスタムエラーフォーマッター
-const debugSchemaValidation = <A, I>(
-  schema: Schema.Schema<A, I>,
-  input: unknown
-): Effect.Effect<A, ParseResult.ParseError> =>
-  pipe(
-    Schema.decodeUnknown(schema)(input),
-    Effect.mapError((error) => {
-      // 詳細なエラー情報をログ出力
-      const formatted = TreeFormatter.formatError(error)
-      console.group("🚫 Schema Validation Failed")
-      console.log("Input:", JSON.stringify(input, null, 2))
-      console.log("Error:", formatted)
-      console.groupEnd()
-
-      return error
-    })
-  )
-
-// バリデーション過程の可視化
-const traceSchemaValidation = <A, I>(schema: Schema.Schema<A, I>) => {
-  const tracedSchema = Schema.transformOrFail(
-    schema,
-    schema,
-    {
-      decode: (input) => {
-        console.log("🔍 Validating:", input)
-        return ParseResult.succeed(input)
-      },
-      encode: (output) => {
-        console.log("✅ Validated:", output)
-        return ParseResult.succeed(output)
-      }
-    }
-  )
-
-  return tracedSchema
-}
-```
-
-### パフォーマンス分析とプロファイリング
-
-#### Effect の実行時間測定
-```typescript
-import * as Duration from "effect/Duration"
-import * as Metric from "effect/Metric"
-
-// メトリクスの定義
-const chunkLoadDuration = Metric.histogram(
-  "chunk_load_duration_ms",
-  {
-    description: "Time taken to load a chunk",
-    boundaries: [1, 10, 100, 1000, 10000]
-  }
-)
-
-const chunkLoadCounter = Metric.counter(
-  "chunk_loads_total",
-  { description: "Total number of chunk loads" }
-)
-
-// 測定付きの処理
-const measuredChunkLoad = (coordinate: ChunkCoordinate) =>
-  pipe(
-    Effect.timed(loadChunk(coordinate)),
-    Effect.tap(([duration, _]) =>
-      Metric.increment(chunkLoadCounter)
-    ),
-    Effect.tap(([duration, _]) =>
-      Metric.update(chunkLoadDuration, Duration.toMillis(duration))
-    ),
-    Effect.map(([_, chunk]) => chunk)
-  )
-
-// メトリクスの可視化
-const logMetrics = Effect.gen(function* () {
-  const loadCount = yield* Metric.value(chunkLoadCounter)
-  const loadDurations = yield* Metric.value(chunkLoadDuration)
-
-  console.log("📊 Performance Metrics:", {
-    totalLoads: loadCount.count,
-    averageDuration: loadDurations.sum / loadDurations.count,
-    maxDuration: Math.max(...loadDurations.buckets.map(b => b.boundary))
-  })
-})
-```
-
-#### メモリリーク検出
-```typescript
-// 弱参照による循環参照検出
-const trackReferences = <T extends object>(name: string, obj: T): T => {
-  const weakRef = new WeakRef(obj)
-
-  // ガベージコレクション後のチェック
-  setTimeout(() => {
-    if (weakRef.deref() === undefined) {
-      console.log(`✅ ${name} was garbage collected`)
-    } else {
-      console.warn(`⚠️  ${name} may have a memory leak`)
-    }
-  }, 5000)
-
-  return obj
-}
-
-// Effect リソースの適切な管理
-const managedChunkLoader = Effect.gen(function* () {
-  const loader = yield* Effect.acquireRelease(
-    Effect.sync(() => {
-      const loader = new ChunkLoader()
-      return trackReferences("ChunkLoader", loader)
-    }),
-    (loader) => Effect.sync(() => {
-      loader.cleanup()
-      console.log("🧹 ChunkLoader cleaned up")
-    })
-  )
-
-  return loader
-})
-```
-
-## デバッグ用ユーティリティ
-
-### 開発用Effect拡張
-```typescript
-// デバッグ情報付きのEffect実行
-export const runWithDebug = <A, E>(
-  effect: Effect.Effect<A, E>,
-  options: {
-    enableTracing?: boolean
-    enableMetrics?: boolean
-    enableMemoryTracking?: boolean
-  } = {}
-): void => {
-  const { enableTracing = true, enableMetrics = true, enableMemoryTracking = true } = options
-
-  let program = effect
-
-  if (enableTracing) {
-    program = pipe(
-      program,
-      Effect.provide(Layer.succeed(Tracer.Tracer, consoleTracer))
-    )
-  }
-
-  if (enableMetrics) {
-    program = pipe(
-      program,
-      Effect.tap(() => logMetrics)
-    )
-  }
-
-  if (enableMemoryTracking) {
-    program = pipe(
-      program,
-      Effect.tap(() => memorySnapshot("Before execution")),
-      Effect.tap((result) => memorySnapshot("After execution"))
-    )
-  }
-
-  Effect.runPromise(program).catch(console.error)
-}
-
-// 条件付きデバッグ
-export const debugWhen = <A, E>(
-  condition: boolean,
-  debugEffect: Effect.Effect<void, never>
-) =>
-  (effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
-    condition
-      ? pipe(effect, Effect.tap(() => debugEffect))
-      : effect
-```
-
-### テスト環境での高度なデバッグ
-
-#### テスト専用デバッグレイヤー
-```typescript
-import { TestContext } from "@effect/test"
-
-// テスト用の詳細ログ
-const TestDebugLayer = Layer.succeed(
-  Logger.Logger,
-  Logger.make(({ message, logLevel, span }) => {
-    if (logLevel._tag === "Debug") {
-      console.log(`🧪 TEST DEBUG: ${message}`)
-      if (span) {
-        console.log(`   Span: ${span.name}`)
-      }
-    }
-  })
-)
-
-// テスト実行時間の監視
-const timeoutWarning = (timeoutMs: number) =>
-  pipe(
-    Effect.sleep(Duration.millis(timeoutMs)),
-    Effect.tap(() => Effect.logWarn(`Test running longer than ${timeoutMs}ms`)),
-    Effect.fork
-  )
-
-// デバッグ付きテスト実行
-export const runTestWithDebug = <A, E>(
-  name: string,
-  effect: Effect.Effect<A, E>
-) =>
-  pipe(
-    Effect.gen(function* () {
-      const warningFiber = yield* timeoutWarning(5000)
-      const result = yield* pipe(
-        effect,
-        Effect.withSpan(`test-${name}`)
+      const monitoringFiber = yield* Effect.fork(
+        Effect.gen(function* () {
+          while (yield* Ref.get(monitoringRef)) {
+            yield* performLeakCheck
+            yield* Effect.sleep(intervalMs)
+          }
+        })
       )
-      yield* Fiber.interrupt(warningFiber)
-      return result
+
+      yield* Ref.set(fiberRef, Option.some(monitoringFiber))
+      yield* Effect.log(`Leak monitoring started with ${intervalMs}ms interval`)
     }),
-    Effect.provide(TestDebugLayer),
-    Effect.provide(TestContext.TestContext)
+
+    stopMonitoring: () => Effect.gen(function* () {
+      yield* Ref.set(monitoringRef, false)
+
+      const maybeFiber = yield* Ref.get(fiberRef)
+      yield* Option.match(maybeFiber, {
+        onNone: () => Effect.unit,
+        onSome: fiber => Fiber.interrupt(fiber)
+      })
+
+      yield* Ref.set(fiberRef, Option.none())
+      yield* Effect.log("Leak monitoring stopped")
+    }),
+
+    forceCheck: () => performLeakCheck,
+
+    getTrackedCount: () => Ref.get(counterRef),
+
+    setThreshold: (threshold) => Effect.gen(function* () {
+      yield* Ref.set(thresholdRef, threshold)
+      yield* Effect.log(`Leak detection threshold set to ${threshold}`)
+    })
+  })
+})
+
+// Layer提供
+export const LeakDetectorLive = Layer.effect(LeakDetector, makeLeakDetector)
+
+// Effectリソース管理
+export const trackResource = <R, E, A>(
+  effect: Effect.Effect<A, E, R>,
+  label: string
+) =>
+  Effect.acquireUseRelease(
+    Effect.sync(() => {
+      const resource = { label, created: Date.now() }
+      console.log(`🔵 Resource acquired: ${label}`)
+      return resource
+    }),
+    (resource) => effect,
+    (resource) =>
+      Effect.sync(() => {
+        console.log(`🔴 Resource released: ${label}`)
+      })
   )
 ```
 
-## 本番環境でのデバッグ
+### チャンクメモリ管理
 
-### プロダクション対応ログ
 ```typescript
-// 本番用構造化ログ
-const ProductionLogger = Logger.make(({ message, logLevel, cause, spans }) => {
-  const logEntry = {
-    timestamp: new Date().toISOString(),
-    level: logLevel._tag.toLowerCase(),
-    message,
-    cause: cause ? String(cause) : undefined,
-    traceId: spans.length > 0 ? spans[0].traceId : undefined,
-    spanId: spans.length > 0 ? spans[0].spanId : undefined,
-    service: "ts-minecraft"
-  }
+// チャンク座標型
+export interface ChunkCoordinate {
+  readonly x: number
+  readonly z: number
+}
 
-  // 構造化ログの出力 (JSON Lines形式)
-  console.log(JSON.stringify(logEntry))
+// チャンクメモリ情報
+export interface ChunkMemoryInfo {
+  readonly x: number
+  readonly z: number
+  readonly size: number
+  readonly lastAccess: number
+  readonly accessCount: number
+}
+
+// チャンクメモリ統計
+export interface ChunkMemoryStats {
+  readonly loadedCount: number
+  readonly totalMemory: number
+  readonly maxMemory: number
+  readonly utilizationPercent: number
+  readonly averageChunkSize: number
+  readonly evictionThreshold: number
+}
+
+// LRU退避結果
+export interface EvictionResult {
+  readonly evictedCount: number
+  readonly freedMemory: number
+  readonly evictedChunks: ReadonlyArray<ChunkCoordinate>
+  readonly remainingMemory: number
+}
+
+// メモリ制限超過エラー
+export const MemoryLimitExceededError = Schema.TaggedError("MemoryLimitExceededError")({
+  currentMemory: Schema.Number
+  maxMemory: Schema.Number
+  readonly chunkCoordinate: ChunkCoordinate
+  timestamp: Schema.Number
 })
 
-// エラー監視システムとの統合
-const errorReporting = (error: unknown) =>
-  Effect.sync(() => {
-    // Sentry, LogRocket等の外部サービスへの送信
-    if (typeof window !== 'undefined' && window.Sentry) {
-      window.Sentry.captureException(error)
+// ChunkMemoryMonitorサービス定義
+export const ChunkMemoryMonitor = Context.GenericTag<{
+  readonly registerChunk: (coord: ChunkCoordinate, sizeBytes: number) => Effect.Effect<EvictionResult | null, MemoryLimitExceededError>
+  readonly unregisterChunk: (coord: ChunkCoordinate) => Effect.Effect<boolean, never>
+  readonly accessChunk: (coord: ChunkCoordinate) => Effect.Effect<boolean, never>
+  readonly getStats: () => Effect.Effect<ChunkMemoryStats, never>
+  readonly forceEviction: (targetUtilization?: number) => Effect.Effect<EvictionResult, never>
+  readonly setMaxMemory: (maxMemoryMB: number) => Effect.Effect<void, never>
+  readonly clear: () => Effect.Effect<void, never>
+}>("@minecraft/ChunkMemoryMonitor")
+
+// 実装
+const makeChunkMemoryMonitor = (maxMemoryMB: number = 500) => Effect.gen(function* () {
+  const loadedChunksRef = yield* Ref.make(new Map<string, ChunkMemoryInfo>())
+  const maxMemoryRef = yield* Ref.make(maxMemoryMB * 1024 * 1024)
+  const currentMemoryRef = yield* Ref.make(0)
+
+  const createChunkKey = (coord: ChunkCoordinate): string => `${coord.x},${coord.z}`
+
+  const parseChunkKey = (key: string): ChunkCoordinate => {
+    const [x, z] = key.split(',').map(Number)
+    return { x, z }
+  }
+
+  const performEviction = (targetUtilization: number = 0.8) => Effect.gen(function* () {
+    const loadedChunks = yield* Ref.get(loadedChunksRef)
+    const currentMemory = yield* Ref.get(currentMemoryRef)
+    const maxMemory = yield* Ref.get(maxMemoryRef)
+    const targetMemory = maxMemory * targetUtilization
+
+    if (currentMemory <= targetMemory) {
+      return {
+        evictedCount: 0,
+        freedMemory: 0,
+        evictedChunks: [],
+        remainingMemory: currentMemory
+      }
+    }
+
+    // LRU順にソート
+    const sorted = Array.from(loadedChunks.entries())
+      .sort(([, a], [, b]) => a.lastAccess - b.lastAccess)
+
+    let evictedCount = 0
+    let freedMemory = 0
+    const evictedChunks: ChunkCoordinate[] = []
+    let remainingMemory = currentMemory
+
+    const updatedChunks = new Map(loadedChunks)
+
+    for (const [key, info] of sorted) {
+      if (remainingMemory <= targetMemory) {
+        break
+      }
+
+      updatedChunks.delete(key)
+      remainingMemory -= info.size
+      freedMemory += info.size
+      evictedCount++
+      evictedChunks.push(parseChunkKey(key))
+
+      yield* Effect.log(`♻️ Evicted chunk ${key} (${formatBytes(info.size)})`)
+    }
+
+    yield* Ref.set(loadedChunksRef, updatedChunks)
+    yield* Ref.set(currentMemoryRef, remainingMemory)
+
+    yield* Effect.log(`♻️ Total evicted: ${evictedCount} chunks, freed: ${formatBytes(freedMemory)}`)
+
+    return {
+      evictedCount,
+      freedMemory,
+      evictedChunks,
+      remainingMemory
     }
   })
+
+  return ChunkMemoryMonitor.of({
+    registerChunk: (coord, sizeBytes) => Effect.gen(function* () {
+      const key = createChunkKey(coord)
+      const loadedChunks = yield* Ref.get(loadedChunksRef)
+      const currentMemory = yield* Ref.get(currentMemoryRef)
+      const maxMemory = yield* Ref.get(maxMemoryRef)
+
+      let newCurrentMemory = currentMemory
+
+      // 既存チャンクがある場合は置換
+      if (loadedChunks.has(key)) {
+        const existing = loadedChunks.get(key)!
+        newCurrentMemory -= existing.size
+      }
+
+      const newChunkInfo: ChunkMemoryInfo = {
+        x: coord.x,
+        z: coord.z,
+        size: sizeBytes,
+        lastAccess: Date.now(),
+        accessCount: 1
+      }
+
+      newCurrentMemory += sizeBytes
+
+      const updatedChunks = new Map(loadedChunks).set(key, newChunkInfo)
+      yield* Ref.set(loadedChunksRef, updatedChunks)
+      yield* Ref.set(currentMemoryRef, newCurrentMemory)
+
+      // メモリ制限チェック
+      if (newCurrentMemory > maxMemory) {
+        yield* Effect.log(`⚠️ Memory limit exceeded: ${formatBytes(newCurrentMemory)} > ${formatBytes(maxMemory)}`)
+        const evictionResult = yield* performEviction(0.8)
+        return evictionResult
+      }
+
+      return null
+    }),
+
+    unregisterChunk: (coord) => Effect.gen(function* () {
+      const key = createChunkKey(coord)
+      const loadedChunks = yield* Ref.get(loadedChunksRef)
+
+      if (!loadedChunks.has(key)) {
+        return false
+      }
+
+      const chunkInfo = loadedChunks.get(key)!
+      const updatedChunks = new Map(loadedChunks)
+      updatedChunks.delete(key)
+
+      yield* Ref.set(loadedChunksRef, updatedChunks)
+      yield* Ref.update(currentMemoryRef, current => current - chunkInfo.size)
+
+      yield* Effect.log(`🗑️ Unregistered chunk ${key} (${formatBytes(chunkInfo.size)})`)
+      return true
+    }),
+
+    accessChunk: (coord) => Effect.gen(function* () {
+      const key = createChunkKey(coord)
+      const loadedChunks = yield* Ref.get(loadedChunksRef)
+
+      if (!loadedChunks.has(key)) {
+        return false
+      }
+
+      const chunkInfo = loadedChunks.get(key)!
+      const updatedInfo: ChunkMemoryInfo = {
+        ...chunkInfo,
+        lastAccess: Date.now(),
+        accessCount: chunkInfo.accessCount + 1
+      }
+
+      const updatedChunks = new Map(loadedChunks).set(key, updatedInfo)
+      yield* Ref.set(loadedChunksRef, updatedChunks)
+
+      return true
+    }),
+
+    getStats: () => Effect.gen(function* () {
+      const loadedChunks = yield* Ref.get(loadedChunksRef)
+      const currentMemory = yield* Ref.get(currentMemoryRef)
+      const maxMemory = yield* Ref.get(maxMemoryRef)
+
+      const stats: ChunkMemoryStats = {
+        loadedCount: loadedChunks.size,
+        totalMemory: currentMemory,
+        maxMemory,
+        utilizationPercent: (currentMemory / maxMemory) * 100,
+        averageChunkSize: loadedChunks.size > 0 ? currentMemory / loadedChunks.size : 0,
+        evictionThreshold: maxMemory * 0.8
+      }
+
+      return stats
+    }),
+
+    forceEviction: (targetUtilization = 0.8) => performEviction(targetUtilization),
+
+    setMaxMemory: (maxMemoryMB) => Effect.gen(function* () {
+      const newMaxMemory = maxMemoryMB * 1024 * 1024
+      yield* Ref.set(maxMemoryRef, newMaxMemory)
+      yield* Effect.log(`📏 Max memory limit set to ${formatBytes(newMaxMemory)}`)
+
+      // 新しい制限を超えている場合は退避実行
+      const currentMemory = yield* Ref.get(currentMemoryRef)
+      if (currentMemory > newMaxMemory) {
+        yield* performEviction(0.8)
+      }
+    }),
+
+    clear: () => Effect.gen(function* () {
+      yield* Ref.set(loadedChunksRef, new Map())
+      yield* Ref.set(currentMemoryRef, 0)
+      yield* Effect.log("🧹 All chunks cleared from memory")
+    })
+  })
+})
+
+// Layer提供
+export const ChunkMemoryMonitorLive = (maxMemoryMB: number = 500) =>
+  Layer.effect(ChunkMemoryMonitor, makeChunkMemoryMonitor(maxMemoryMB))
 ```
 
-## 関連リソース
+## Chrome DevTools統合
 
-- [よくあるエラー](./common-errors.md) - エラー対処法
-- [パフォーマンス問題](./performance-issues.md) - パフォーマンス最適化
-- [ビルド問題](./build-problems.md) - ビルド設定のデバッグ
-- [Effect-TS Observability](https://effect.website/docs/guides/observability) - 公式観測可能性ガイド
+### Performance API活用
+
+```typescript
+// User Timing API統合
+export const measureUserTiming = <R, E, A>(
+  effect: Effect.Effect<A, E, R>,
+  name: string
+) =>
+  Effect.gen(function* () {
+    performance.mark(`${name}-start`)
+
+    const result = yield* effect.pipe(
+      Effect.tapBoth({
+        onFailure: () =>
+          Effect.sync(() => {
+            performance.mark(`${name}-error`)
+            performance.measure(
+              `${name} (failed)`,
+              `${name}-start`,
+              `${name}-error`
+            )
+          }),
+        onSuccess: () =>
+          Effect.sync(() => {
+            performance.mark(`${name}-end`)
+            performance.measure(
+              name,
+              `${name}-start`,
+              `${name}-end`
+            )
+          })
+      })
+    )
+
+    return result
+  })
+
+// カスタムDevToolsパネル
+export const initializeDevTools = () => {
+  if (typeof window !== 'undefined' && (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+    const devtools = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__
+
+    devtools.onCommitFiberRoot = (id: any, root: any) => {
+      console.log('Render committed:', root)
+    }
+  }
+
+  // パフォーマンス観測
+  const observer = new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      if (entry.entryType === 'measure') {
+        console.log(`📊 ${entry.name}: ${entry.duration.toFixed(2)}ms`)
+      }
+    }
+  })
+
+  observer.observe({ entryTypes: ['measure'] })
+}
+```
+
+## 開発ツール設定
+
+### Chrome DevTools設定
+
+```typescript
+// DevTools拡張
+export const setupDevToolsExtension = () => {
+  // Redux DevTools統合（状態管理用）
+  const devTools = (window as any).__REDUX_DEVTOOLS_EXTENSION__
+
+  if (devTools) {
+    const store = devTools.connect({
+      name: 'Minecraft State',
+      features: {
+        pause: true,
+        lock: true,
+        persist: true,
+        export: true,
+        import: 'custom',
+        jump: true,
+        skip: false,
+        reorder: false,
+        dispatch: true,
+        test: false
+      }
+    })
+
+    // 状態変更を送信
+    store.send('INIT', getInitialState())
+  }
+}
+```
+
+## トラブルシューティング
+
+### よくある問題と解決策
+
+```typescript
+// Effect実行エラーの診断
+export const diagnoseEffectError = <E>(error: E): DiagnosisResult => {
+  const diagnosis: DiagnosisResult = {
+    type: 'unknown',
+    message: '',
+    suggestions: []
+  }
+
+  if (Cause.isFailure(error)) {
+    const defect = Cause.failureOption(error)
+    if (Option.isSome(defect)) {
+      diagnosis.type = 'failure'
+      diagnosis.message = String(defect.value)
+      diagnosis.suggestions.push(
+        'Check error handling in Effect chain',
+        'Ensure all errors are properly typed'
+      )
+    }
+  }
+
+  if (Cause.isDie(error)) {
+    diagnosis.type = 'defect'
+    diagnosis.message = 'Unexpected error (Die)'
+    diagnosis.suggestions.push(
+      'Check for unhandled exceptions',
+      'Review Effect.die usage'
+    )
+  }
+
+  if (Cause.isInterrupted(error)) {
+    diagnosis.type = 'interrupted'
+    diagnosis.message = 'Effect was interrupted'
+    diagnosis.suggestions.push(
+      'Check fiber cancellation logic',
+      'Review timeout configurations'
+    )
+  }
+
+  return diagnosis
+}
+
+// パフォーマンス問題の診断
+export const diagnosePerformance = async (): Promise<PerformanceDiagnosis> => {
+  const diagnosis: PerformanceDiagnosis = {
+    fps: 0,
+    memory: {},
+    suggestions: []
+  }
+
+  // FPS計測
+  let lastTime = performance.now()
+  let frames = 0
+
+  const measureFPS = () => {
+    frames++
+    const currentTime = performance.now()
+
+    if (currentTime >= lastTime + 1000) {
+      diagnosis.fps = Math.round((frames * 1000) / (currentTime - lastTime))
+      frames = 0
+      lastTime = currentTime
+    }
+
+    if (diagnosis.fps < 30) {
+      diagnosis.suggestions.push(
+        'Reduce render distance',
+        'Optimize chunk meshing',
+        'Enable frustum culling'
+      )
+    }
+  }
+
+  // メモリ診断
+  if ('memory' in performance) {
+    const memory = (performance as any).memory
+    diagnosis.memory = {
+      used: memory.usedJSHeapSize,
+      total: memory.totalJSHeapSize,
+      limit: memory.jsHeapSizeLimit
+    }
+
+    const usage = memory.usedJSHeapSize / memory.jsHeapSizeLimit
+    if (usage > 0.8) {
+      diagnosis.suggestions.push(
+        'Unload distant chunks',
+        'Reduce texture resolution',
+        'Clear unused caches'
+      )
+    }
+  }
+
+  return diagnosis
+}
+```

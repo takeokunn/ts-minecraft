@@ -1,19 +1,13 @@
 ---
 title: "Utility Functions - 汎用ユーティリティ関数完全集"
 description: "TypeScript Minecraft Clone汎用ユーティリティ関数完全リファレンス。数学演算、配列操作、オブジェクト変換、型ガード関数の実装パターン。関数型プログラミングによる高品質ユーティリティライブラリ。"
-category: "api-reference"
-difficulty: "intermediate-advanced"
+category: "reference"
+difficulty: "advanced"
 tags: ["utility-functions", "math-utils", "array-utils", "object-utils", "type-guards", "functional-programming", "reusable-code"]
 prerequisites: ["core-apis", "typescript-advanced", "functional-programming-intermediate"]
 estimated_reading_time: "30-40分"
-last_updated: "2025-09-14"
-version: "2.0.0"
-learning_path: "Level 3-4 - 実用的ユーティリティマスタリー"
-search_keywords:
-  primary: ["math-utils", "array-utils", "object-utils", "type-guards"]
-  secondary: ["vector-operations", "array-processing", "object-transformation", "type-validation"]
-  context: ["minecraft-utilities", "functional-utilities", "reusable-functions"]
 ---
+
 
 # 🛠️ Utility Functions - 汎用ユーティリティ完全マスタリー
 
@@ -306,14 +300,12 @@ export const CoordinateUtils = {
   }
 } as const
 
-// カスタムエラー型
-export class CoordinateError extends Error {
-  readonly _tag = "CoordinateError"
-  constructor(message: string) {
-    super(message)
-    this.name = "CoordinateError"
-  }
-}
+// カスタムエラー型 - Effect-TS関数型パターン
+export const CoordinateError = Schema.TaggedError("CoordinateError")({
+  message: Schema.String,
+  coordinate: Schema.optional(Schema.Unknown),
+  timestamp: Schema.optional(Schema.DateTimeUtc)
+})
 
 // Brand型実行時検証・テスト統合パターン
 export const CoordinateTestUtils = {
@@ -615,22 +607,18 @@ export const CoordinateTestUtils = {
     })
 } as const
 
-// テスト用エラー型
-export class ValidationError extends Error {
-  readonly _tag = "ValidationError"
-  constructor(message: string) {
-    super(message)
-    this.name = "ValidationError"
-  }
-}
+// テスト用エラー型 - Effect-TS関数型パターン
+export const ValidationError = Schema.TaggedError("ValidationError")({
+  message: Schema.String,
+  field: Schema.optional(Schema.String),
+  value: Schema.optional(Schema.Unknown)
+})
 
-export class ParseError extends Error {
-  readonly _tag = "ParseError"
-  constructor(message: string) {
-    super(message)
-    this.name = "ParseError"
-  }
-}
+export const ParseError = Schema.TaggedError("ParseError")({
+  message: Schema.String,
+  input: Schema.optional(Schema.String),
+  position: Schema.optional(Schema.Number)
+})
 
 /**
  * ベクトル演算関数群

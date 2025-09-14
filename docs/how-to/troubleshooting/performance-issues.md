@@ -66,7 +66,7 @@ const createHeapSnapshot = (label: string) =>
 #### 1. DOM要素の参照保持
 ```typescript
 // ❌ 問題のあるコード - DOM要素への直接参照
-class RenderManager {
+interface RenderManager {
   private canvasElement: HTMLCanvasElement
 
   constructor(canvasId: string) {
@@ -515,7 +515,7 @@ const preloadChunks = (
 #### LRU キャッシュによるチャンク管理
 ```typescript
 // LRU キャッシュの実装
-class LRUChunkCache {
+interface LRUChunkCache {
   private maxSize: number
   private cache = new Map<string, { chunk: Chunk; timestamp: number }>()
 

@@ -825,7 +825,7 @@ interface DevPerformanceMetrics {
   renderFps: number
 }
 
-export class DevelopmentPerformanceMonitor {
+export interface DevelopmentPerformanceMonitor {
   private metrics: DevPerformanceMetrics = {
     bundleSize: 0,
     buildTime: 0,
@@ -1303,7 +1303,7 @@ interface NixDevMetrics {
   }
 }
 
-export class NixDevelopmentMonitor {
+export interface NixDevelopmentMonitor {
   private metrics: NixDevMetrics
 
   constructor() {

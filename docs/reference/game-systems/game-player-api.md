@@ -3,12 +3,11 @@ title: "Game Player API Reference"
 description: "TypeScript Minecraftクローンのプレイヤー管理APIリファレンス。実装者向けの完全なAPI仕様書。"
 category: "reference"
 difficulty: "intermediate"
-tags: ['typescript', 'minecraft', 'api', 'player', 'reference']
-prerequisites: ['effect-ts-basics', 'domain-driven-design']
+tags: ["typescript", "minecraft", "api", "player", "reference"]
+prerequisites: ["effect-ts-basics", "domain-driven-design"]
 estimated_reading_time: "25分"
-last_updated: "2025-09-14"
-version: "1.0.0"
 ---
+
 
 # Player Management API Reference
 
@@ -1616,17 +1615,17 @@ export const MinecraftApp = Effect.gen(function* () {
 ## 関連ドキュメント
 
 **Core Systems**:
-- [Player System Specification](../02-specifications/00-core-features/02-player-system.md) - プレイヤーシステム詳細仕様
-- [Inventory System](../02-specifications/00-core-features/01-inventory-system.md) - インベントリシステム仕様
-- [Health & Hunger System](../02-specifications/00-core-features/12-health-hunger-system.md) - 体力・空腹度システム
+- [Player System Specification](../../explanations/game-mechanics/00-core-features/player-system.md) - プレイヤーシステム詳細仕様
+- [Inventory System](../../explanations/game-mechanics/00-core-features/inventory-system.md) - インベントリシステム仕様
+- [Health & Hunger System](../../explanations/game-mechanics/00-core-features/health-hunger-system.md) - 体力・空腹度システム
 
 **API Design**:
-- [Domain & Application APIs](../02-specifications/02-api-design/00-domain-application-apis.md) - ドメイン・アプリケーション層API
-- [Event Bus Specification](../02-specifications/02-api-design/02-event-bus-specification.md) - イベントバス仕様
+- [Domain & Application APIs](../../explanations/architecture/domain-application-apis.md) - ドメイン・アプリケーション層API
+- [Event Bus Specification](../../explanations/architecture/event-bus-specification.md) - イベントバス仕様
 
 **Architecture**:
-- [Effect-TS Patterns](../01-architecture/06-effect-ts-patterns.md) - Effect-TSパターン詳細
-- [ECS Integration](../01-architecture/05-ecs-integration.md) - ECS統合アーキテクチャ
+- [Effect-TS Patterns](../../explanations/design-patterns/README.md) - Effect-TSパターン詳細
+- [Architecture Overview](../../explanations/architecture/README.md) - アーキテクチャ概要
 
 **Reference**:
 - [Effect-TS Schema API](./effect-ts-schema-api.md) - Schema API詳細

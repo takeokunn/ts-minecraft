@@ -44,7 +44,7 @@ API、設定、仕様の包括的情報を提供
 - **⚙️ [Configuration](./reference/configuration/)** - プロジェクト設定詳細
 - **🎮 [Game Systems](./reference/game-systems/)** - ゲームシステム技術仕様
 - **💻 [CLI](./reference/cli/)** - コマンドライン詳細
-- **📝 [Glossary](./reference/00-glossary.md)** - 専門用語集
+- **📝 [Glossary](./reference/glossary.md)** - 専門用語集
 
 **使用場面**: API詳細確認、設定値調査、技術仕様参照
 

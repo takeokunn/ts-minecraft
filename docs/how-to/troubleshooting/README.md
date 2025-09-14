@@ -323,7 +323,7 @@ warning: 'console.log' is not allowed in production
 2. **Effect-TS規約違反**
    ```typescript
    // ❌ クラスの使用
-   class PlayerService {}
+   interface PlayerService {}
 
    // ✅ Schema.Struct + Context使用
    const PlayerService = Context.GenericTag<PlayerService>()

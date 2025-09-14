@@ -39,9 +39,9 @@
 - [ワールドAPI](./game-systems/game-world-api.md)
 - [ブロックAPI](./game-systems/game-block-api.md)
 - [プレイヤーAPI](./game-systems/game-player-api.md)
-- [ワールドデータ構造](./game-systems/00-world-data-structure.md)
-- [チャンク形式](./game-systems/01-chunk-format.md)
-- [セーブファイル形式](./game-systems/02-save-file-format.md)
+- [ワールドデータ構造](./game-systems/world-data-structure.md)
+- [チャンク形式](./game-systems/chunk-format.md)
+- [セーブファイル形式](./game-systems/save-file-format.md)
 
 ### 💻 [CLI](./cli/)
 **コマンドラインインターフェース詳細**
@@ -49,7 +49,7 @@
 - [開発コマンド](./cli/development-commands.md)
 - [テストコマンド](./cli/testing-commands.md)
 
-### 📝 [Glossary](./00-glossary.md)
+### 📝 [Glossary](./glossary.md)
 **用語集とプロジェクト固有の専門用語解説**
 
 ## 🔍 使用方法
