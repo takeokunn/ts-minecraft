@@ -1,7 +1,7 @@
-name: Bug Report
+name: バグ報告
 description: バグ報告用 Issue
 title: "[Bug] 簡潔なバグ説明"
-labels: ["bug"]
+labels: ["bug", "japanese"]
 body:
   - type: dropdown
     id: severity

@@ -1,13 +1,13 @@
-name: Task Implementation
+name: タスク実装
 description: ROADMAP タスク実装用 Issue
 title: "[Task ID] タスク名"
-labels: ["task"]
+labels: ["task", "japanese"]
 body:
   - type: input
     id: task-id
     attributes:
-      label: Task ID
-      description: ROADMAP のタスク ID
+      label: タスクID
+      description: ROADMAPのタスクID
       placeholder: P0-001
     validations:
       required: true
@@ -15,7 +15,7 @@ body:
   - type: dropdown
     id: size
     attributes:
-      label: Size
+      label: サイズ
       description: 推定作業時間
       options:
         - XS (1h)
@@ -29,29 +29,29 @@ body:
   - type: dropdown
     id: type
     attributes:
-      label: Type
+      label: タイプ
       description: タスクの種類
       options:
-        - setup
-        - config
-        - interface
-        - service
-        - feature
-        - test
-        - docs
-        - infrastructure
+        - setup (環境設定)
+        - config (設定変更)
+        - interface (インターフェース)
+        - service (サービス実装)
+        - feature (機能実装)
+        - test (テスト)
+        - docs (ドキュメント)
+        - infrastructure (インフラ)
     validations:
       required: true
 
   - type: dropdown
     id: priority
     attributes:
-      label: Priority
+      label: 優先度
       options:
-        - Critical
-        - High
-        - Medium
-        - Low
+        - Critical (緊急)
+        - High (高)
+        - Medium (中)
+        - Low (低)
     validations:
       required: true
 
