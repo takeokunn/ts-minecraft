@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import { resolve } from 'path'
 
 export default defineConfig({
+  root: '.',
+  publicDir: 'public',
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
@@ -9,13 +11,15 @@ export default defineConfig({
       '@docs': resolve(__dirname, './docs')
     }
   },
-  build: {
-    target: 'esnext',
-    minify: 'esbuild',
-    sourcemap: true
-  },
   server: {
     port: 3000,
+    host: true,
     open: true
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+    target: 'es2022',
+    minify: 'esbuild'
   }
 })

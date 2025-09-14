@@ -77,9 +77,8 @@ pnpm add -D \
   vite@latest \
   vitest@latest \
   @types/node@latest \
-  @typescript-eslint/eslint-plugin@latest \
-  @typescript-eslint/parser@latest \
-  eslint@latest
+  oxlint@latest \
+  prettier@latest
 ```
 
 ### ステップ3: 設定ファイル作成（2分）
@@ -135,18 +134,27 @@ export default defineConfig({
 })
 EOF
 
-# ESLint設定
-cat > .eslintrc.json << 'EOF'
+# Oxlint設定（高速リンター）
+cat > oxlintrc.json << 'EOF'
 {
-  "extends": [
-    "@typescript-eslint/recommended"
-  ],
-  "parser": "@typescript-eslint/parser",
-  "plugins": ["@typescript-eslint"],
   "rules": {
-    "@typescript-eslint/no-unused-vars": "error",
-    "@typescript-eslint/explicit-function-return-type": "warn"
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-unused-vars": "error",
+    "no-console": "off"
   }
+}
+EOF
+
+# Prettier設定（コードフォーマッター）
+cat > .prettierrc << 'EOF'
+{
+  "semi": false,
+  "singleQuote": true,
+  "tabWidth": 2,
+  "trailingComma": "es5",
+  "printWidth": 80,
+  "arrowParens": "always"
 }
 EOF
 ```
@@ -265,8 +273,10 @@ cat > package.json << 'EOF'
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "lint": "eslint src --ext .ts,.tsx",
-    "type-check": "tsc --noEmit"
+    "lint": "oxlint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "effect": "latest",
@@ -280,9 +290,8 @@ cat > package.json << 'EOF'
     "vite": "latest",
     "vitest": "latest",
     "@types/node": "latest",
-    "@typescript-eslint/eslint-plugin": "latest",
-    "@typescript-eslint/parser": "latest",
-    "eslint": "latest"
+    "oxlint": "latest",
+    "prettier": "latest"
   }
 }
 EOF
@@ -322,7 +331,8 @@ npm run dev
 - [x] ブラウザ互換性確認
 
 ### 開発環境（推奨）
-- [x] ESLint 設定適用済み
+- [x] Oxlint 高速リンター設定済み
+- [x] Prettier コードフォーマッター設定済み
 - [x] TypeScript 型チェック動作
 - [x] Vitest テスト実行可能
 - [x] ホットリロード機能動作

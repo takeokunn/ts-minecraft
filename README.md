@@ -7,7 +7,7 @@ tags: ["typescript", "minecraft", "ddd", "effect-ts", "ecs", "functional-program
 prerequisites: ["basic-typescript", "nodejs-18+", "pnpm"]
 estimated_reading_time: "10分"
 related_patterns: ["service-patterns", "ddd-patterns", "ecs-patterns"]
-related_docs: ["./docs/00-quickstart/01-5min-demo.md", "./docs/01-architecture/00-overall-design.md", "./docs/00-introduction/README.md"]
+related_docs: ["./docs/INDEX.md", "./docs/tutorials/README.md", "./docs/reference/README.md"]
 search_keywords:
   primary: ["typescript-minecraft", "ddd-game", "effect-ts-showcase", "functional-game-dev"]
   secondary: ["enterprise-game-architecture", "type-safe-gaming", "minecraft-clone"]
@@ -20,7 +20,7 @@ search_keywords:
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9+-blue.svg)](https://www.typescriptlang.org/)
 [![Effect-TS](https://img.shields.io/badge/Effect--TS-3.17+-purple.svg)](https://effect.website/)
-[![DDD](https://img.shields.io/badge/Architecture-DDD-green.svg)](./docs/01-architecture/)
+[![DDD](https://img.shields.io/badge/Architecture-DDD-green.svg)](./docs/explanations/architecture/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 ## 🎮 ゲーム機能
@@ -110,19 +110,17 @@ pnpm test:coverage   # カバレッジレポート付きテストの実行
 - **イベント駆動アーキテクチャ**: メッセージパッシングによる疎結合システム
 - **ポート&アダプターパターン**: クリーンなインフラストラクチャ境界
 
-詳細なアーキテクチャドキュメントは [📚 /docs/01-architecture/](./docs/01-architecture/) を参照してください。
+詳細なアーキテクチャドキュメントは [📚 docs/INDEX.md](./docs/INDEX.md) を参照してください。
 
 ## 📖 ドキュメント
 
 包括的なドキュメントは `/docs/` ディレクトリにあります：
 
-- **[🚀 クイックスタートガイド](./docs/00-quickstart/)** - 5分で始める
-- **[🏗️ アーキテクチャドキュメント](./docs/01-architecture/)** - DDD、ECS、Effect-TSパターン
-- **[📋 機能仕様](./docs/02-specifications/)** - 詳細なシステム仕様
-- **[🛠️ 開発ガイド](./docs/03-guides/)** - ベストプラクティスとワークフロー
-- **[📚 APIリファレンス](./docs/05-reference/)** - 完全なAPIドキュメント
-- **[🔧 コード例](./docs/06-examples/)** - 実践的な実装例
-- **[🎨 パターンカタログ](./docs/07-pattern-catalog/)** - 再利用可能なコードパターン
+- **[📚 ドキュメントインデックス](./docs/INDEX.md)** - Single Source of Truth
+- **[🚀 チュートリアル](./docs/tutorials/README.md)** - ステップバイステップガイド
+- **[🛠️ How-Toガイド](./docs/how-to/README.md)** - 実践的なタスクガイド
+- **[💡 設計説明](./docs/explanations/README.md)** - アーキテクチャとパターン
+- **[📖 リファレンス](./docs/reference/README.md)** - API仕様と設定
 
 ## 🎯 プロジェクトの目標
 
