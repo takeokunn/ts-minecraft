@@ -1,12 +1,12 @@
 ---
-title: "Effect-TS Context APIリファレンス - 依存性注入完全ガイド"
-description: "Effect-TS Context APIの完全リファレンス。軽量で型安全な依存性注入、Layerシステム、モジュラー設計。"
+title: "Effect-TS 3.17+ Context API完全リファレンス - Context.GenericTag + Layer統合"
+description: "Effect-TS 3.17+ Context APIの完全リファレンス。Context.GenericTag、Schema.Struct統合、Match.value活用、モダン依存性注入パターン。"
 category: "reference"
-difficulty: "intermediate"
-tags: ["effect-ts", "context", "dependency-injection", "layer", "modular-design"]
-prerequisites: ["effect-ts-basics"]
-estimated_reading_time: "25分"
-dependencies: []
+difficulty: "advanced"
+tags: ["effect-ts", "context", "dependency-injection", "layer", "modular-design", "context-generic-tag", "schema-struct", "match-patterns"]
+prerequisites: ["effect-ts-basics", "schema-patterns", "context-patterns"]
+estimated_reading_time: "35分"
+dependencies: ["@effect/schema", "@effect/match"]
 status: "complete"
 ---
 
@@ -25,81 +25,352 @@ Effect-TS Context APIは、軽量で型安全な依存性注入メカニズム�
 
 ## 基本API
 
-### Context.GenericTag
+### Context.GenericTag - 現代的なサービス定義
 
-Effect-TS 3.17+では、`Context.GenericTag`を使用してサービスタグを定義します。
+Effect-TS 3.17+では、`Context.GenericTag`を使用してより型安全で表現力豊かなサービスタグを定義します。
 
 ```typescript
-import { Context } from "effect"
+import { Context, Schema, Effect, Match } from "effect"
 
-// 基本的なサービスタグの定義
-class UserService extends Context.Tag("UserService")<
-  UserService,
-  {
-    readonly findById: (id: string) => Effect.Effect<User>
-    readonly create: (user: CreateUser) => Effect.Effect<User>
-  }
->() {}
+// Schema.Structを使用した型安全なエンティティ定義
+const User = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("UserId")),
+  name: Schema.String.pipe(Schema.minLength(1)),
+  email: Schema.String.pipe(Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)),
+  status: Schema.Literal("active", "inactive", "pending"),
+  createdAt: Schema.Date,
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-// より複雑なサービスの例
-class DatabaseService extends Context.Tag("DatabaseService")<
-  DatabaseService,
-  {
-    readonly query: <T>(sql: string, params?: unknown[]) => Effect.Effect<T[]>
-    readonly transaction: <T>(fn: () => Effect.Effect<T>) => Effect.Effect<T>
-  }
->() {}
+const CreateUser = Schema.Struct({
+  name: Schema.String.pipe(Schema.minLength(1)),
+  email: Schema.String.pipe(Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
+
+class UserServiceError extends Schema.TaggedError<UserServiceError>()("UserServiceError", {
+  reason: Schema.Literal("not-found", "duplicate-email", "invalid-status"),
+  userId: Schema.String.pipe(Schema.optional()),
+  details: Schema.String
+}) {}
+
+// Context.GenericTagによる基本サービス定義
+class UserService extends Context.GenericTag("UserService")<{
+  findById: (id: string) => Effect.Effect<typeof User.Type, UserServiceError>
+  create: (user: typeof CreateUser.Type) => Effect.Effect<typeof User.Type, UserServiceError>
+  updateStatus: (id: string, status: "active" | "inactive" | "pending") => Effect.Effect<typeof User.Type, UserServiceError>
+  findByEmail: (email: string) => Effect.Effect<typeof User.Type, UserServiceError>
+  list: (filters?: { status?: "active" | "inactive" | "pending" }) => Effect.Effect<typeof User.Type[], never>
+}>() {}
+
+// より複雑なデータベースサービス
+class DatabaseService extends Context.GenericTag("DatabaseService")<{
+  query: <T>(sql: string, params?: unknown[]) => Effect.Effect<T[], DatabaseError>
+  transaction: <A, E>(operation: Effect.Effect<A, E, DatabaseService>) => Effect.Effect<A, E | DatabaseError>
+  healthCheck: () => Effect.Effect<boolean, DatabaseError>
+  migrate: (version: string) => Effect.Effect<void, DatabaseError>
+}>() {}
+
+// キャッシュサービス（ジェネリック対応）
+class CacheService extends Context.GenericTag("CacheService")<{
+  get: <T>(key: string, schema: Schema.Schema<T>) => Effect.Effect<T | null, CacheError>
+  set: <T>(key: string, value: T, ttl?: number) => Effect.Effect<void, CacheError>
+  delete: (key: string) => Effect.Effect<boolean, CacheError>
+  invalidatePattern: (pattern: string) => Effect.Effect<number, CacheError>
+}>() {}
 ```
 
-### Layer.effect
+### Layer.effect - Context.GenericTag実装パターン
 
-サービスの実装をLayerとして定義します。
+Context.GenericTagサービスの実装をLayerとして定義します。
 
 ```typescript
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Schedule, Match } from "effect"
 
-// UserServiceの実装
+class DatabaseError extends Schema.TaggedError<DatabaseError>()("DatabaseError", {
+  operation: Schema.String,
+  message: Schema.String,
+  cause: Schema.Unknown.pipe(Schema.optional())
+}) {}
+
+class CacheError extends Schema.TaggedError<CacheError>()("CacheError", {
+  operation: Schema.String,
+  key: Schema.String,
+  message: Schema.String
+}) {}
+
+// UserServiceの実装（Context.GenericTag.of使用）
 const UserServiceLive = Layer.effect(
   UserService,
   Effect.gen(function* () {
     const db = yield* DatabaseService
+    const cache = yield* CacheService
 
-    return {
+    return UserService.of({
       findById: (id: string) =>
-        db.query("SELECT * FROM users WHERE id = ?", [id]).pipe(
-          Effect.map(rows => rows[0] as User)
+        Effect.gen(function* () {
+          // キャッシュから取得を試行
+          const cached = yield* cache.get(`user:${id}`, User).pipe(
+            Effect.catchAll(() => Effect.succeed(null))
+          )
+
+          if (cached) {
+            return cached
+          }
+
+          // データベースから取得
+          const rows = yield* db.query("SELECT * FROM users WHERE id = ?", [id])
+
+          return yield* Match.value(rows).pipe(
+            Match.when(rows => rows.length === 0, () =>
+              Effect.fail(new UserServiceError({
+                reason: "not-found",
+                userId: id,
+                details: `User with id ${id} not found`
+              }))
+            ),
+            Match.orElse(rows =>
+              Effect.gen(function* () {
+                const user = yield* Schema.decodeUnknown(User)(rows[0])
+
+                // キャッシュに保存
+                yield* cache.set(`user:${id}`, user, 300).pipe(
+                  Effect.catchAll(() => Effect.void)
+                )
+
+                return user
+              })
+            )
+          )
+        }),
+
+      create: (userData: typeof CreateUser.Type) =>
+        Effect.gen(function* () {
+          // 重複メールチェック
+          const existingUser = yield* Effect.exit(
+            db.query("SELECT id FROM users WHERE email = ?", [userData.email])
+          )
+
+          if (Exit.isSuccess(existingUser) && existingUser.value.length > 0) {
+            return yield* Effect.fail(new UserServiceError({
+              reason: "duplicate-email",
+              details: `Email ${userData.email} already exists`
+            }))
+          }
+
+          // 新規ユーザー作成
+          const newUser = {
+            ...userData,
+            id: generateId() as typeof User.Type.id,
+            status: "active" as const,
+            createdAt: new Date()
+          }
+
+          yield* db.transaction(
+            db.query(
+              "INSERT INTO users (id, name, email, status, created_at, metadata) VALUES (?, ?, ?, ?, ?, ?)",
+              [newUser.id, newUser.name, newUser.email, newUser.status, newUser.createdAt, JSON.stringify(newUser.metadata)]
+            )
+          )
+
+          // キャッシュを更新
+          yield* cache.set(`user:${newUser.id}`, newUser, 300).pipe(
+            Effect.catchAll(() => Effect.void)
+          )
+
+          return newUser
+        }).pipe(
+          Effect.retry(Schedule.recurs(3))
         ),
-      create: (user: CreateUser) =>
-        db.query("INSERT INTO users ...", [user]).pipe(
-          Effect.map(() => ({ ...user, id: generateId() }))
-        )
-    }
+
+      updateStatus: (id: string, status: "active" | "inactive" | "pending") =>
+        Effect.gen(function* () {
+          const user = yield* UserService.findById(id)
+
+          const updatedUser = { ...user, status }
+
+          yield* db.query(
+            "UPDATE users SET status = ? WHERE id = ?",
+            [status, id]
+          )
+
+          // キャッシュを無効化
+          yield* cache.delete(`user:${id}`)
+
+          return updatedUser
+        }),
+
+      findByEmail: (email: string) =>
+        Effect.gen(function* () {
+          const rows = yield* db.query("SELECT * FROM users WHERE email = ?", [email])
+
+          return yield* Match.value(rows).pipe(
+            Match.when(rows => rows.length === 0, () =>
+              Effect.fail(new UserServiceError({
+                reason: "not-found",
+                details: `User with email ${email} not found`
+              }))
+            ),
+            Match.orElse(rows => Schema.decodeUnknown(User)(rows[0]))
+          )
+        }),
+
+      list: (filters) =>
+        Effect.gen(function* () {
+          const whereClause = filters?.status ? "WHERE status = ?" : ""
+          const params = filters?.status ? [filters.status] : []
+
+          const rows = yield* db.query(`SELECT * FROM users ${whereClause}`, params)
+
+          return yield* Effect.forEach(
+            rows,
+            row => Schema.decodeUnknown(User)(row),
+            { concurrency: 10 }
+          )
+        })
+    })
   })
 )
 ```
 
 ## サービス定義パターン
 
-### 1. インターフェース型サービス
+### 1. Context.GenericTag型サービス - Schema統合パターン
 
 ```typescript
-interface LoggerService {
-  readonly log: (message: string) => Effect.Effect<void>
-  readonly error: (error: Error) => Effect.Effect<void>
-  readonly debug: (message: string) => Effect.Effect<void>
-}
+import { Context, Effect, Layer, Schema, Match } from "effect"
 
-class Logger extends Context.Tag("Logger")<Logger, LoggerService>() {}
+// ログレベルとメタデータの型定義
+const LogLevel = Schema.Literal("debug", "info", "warn", "error", "fatal")
+const LogEntry = Schema.Struct({
+  level: LogLevel,
+  message: Schema.String,
+  timestamp: Schema.Date,
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
-// 実装
+class LoggerError extends Schema.TaggedError<LoggerError>()("LoggerError", {
+  operation: Schema.String,
+  reason: Schema.String,
+  cause: Schema.Unknown.pipe(Schema.optional())
+}) {}
+
+// Context.GenericTagによるロガーサービス定義
+class Logger extends Context.GenericTag("Logger")<{
+  log: (level: typeof LogLevel.Type, message: string, metadata?: Record<string, unknown>) => Effect.Effect<void, LoggerError>
+  info: (message: string, metadata?: Record<string, unknown>) => Effect.Effect<void, LoggerError>
+  error: (message: string, error?: Error, metadata?: Record<string, unknown>) => Effect.Effect<void, LoggerError>
+  debug: (message: string, metadata?: Record<string, unknown>) => Effect.Effect<void, LoggerError>
+  warn: (message: string, metadata?: Record<string, unknown>) => Effect.Effect<void, LoggerError>
+  fatal: (message: string, error?: Error, metadata?: Record<string, unknown>) => Effect.Effect<void, LoggerError>
+  flush: () => Effect.Effect<void, LoggerError>
+}>() {}
+
+// 実装（Match.valueと早期リターン使用）
 const LoggerLive = Layer.effect(
   Logger,
-  Effect.succeed({
-    log: (message: string) => Effect.logInfo(message),
-    error: (error: Error) => Effect.logError(error.message),
-    debug: (message: string) => Effect.logDebug(message)
+  Effect.gen(function* () {
+    return Logger.of({
+      log: (level, message, metadata) =>
+        Effect.gen(function* () {
+          const entry = {
+            level,
+            message,
+            timestamp: new Date(),
+            metadata
+          }
+
+          const validatedEntry = yield* Schema.encode(LogEntry)(entry).pipe(
+            Effect.mapError(cause => new LoggerError({
+              operation: "log",
+              reason: "Invalid log entry",
+              cause
+            }))
+          )
+
+          // ログレベルに応じた処理
+          yield* Match.value(level).pipe(
+            Match.when("debug", () => Effect.logDebug(message)),
+            Match.when("info", () => Effect.logInfo(message)),
+            Match.when("warn", () => Effect.logWarning(message)),
+            Match.when("error", () => Effect.logError(message)),
+            Match.when("fatal", () => Effect.logFatal(message)),
+            Match.exhaustive
+          )
+        }),
+
+      info: (message, metadata) =>
+        Logger.log("info", message, metadata),
+
+      error: (message, error, metadata) =>
+        Effect.gen(function* () {
+          const enrichedMetadata = {
+            ...metadata,
+            ...(error && {
+              errorName: error.name,
+              errorMessage: error.message,
+              errorStack: error.stack
+            })
+          }
+          yield* Logger.log("error", message, enrichedMetadata)
+        }),
+
+      debug: (message, metadata) =>
+        Logger.log("debug", message, metadata),
+
+      warn: (message, metadata) =>
+        Logger.log("warn", message, metadata),
+
+      fatal: (message, error, metadata) =>
+        Effect.gen(function* () {
+          const enrichedMetadata = {
+            ...metadata,
+            ...(error && {
+              errorName: error.name,
+              errorMessage: error.message,
+              errorStack: error.stack
+            })
+          }
+          yield* Logger.log("fatal", message, enrichedMetadata)
+        }),
+
+      flush: () =>
+        Effect.void // バッファリングされたログを強制出力（実装に応じて）
+    })
   })
 )
+
+// 構造化ログ用のヘルパー
+const createStructuredLogger = (serviceName: string) =>
+  Effect.gen(function* () {
+    const logger = yield* Logger
+
+    return {
+      logOperation: <A, E>(
+        operationName: string,
+        operation: Effect.Effect<A, E>
+      ) =>
+        Effect.gen(function* () {
+          yield* logger.info(`Starting ${operationName}`, { service: serviceName, operation: operationName })
+
+          const result = yield* operation.pipe(
+            Effect.catchAll(error => {
+              return logger.error(`Failed ${operationName}`, error instanceof Error ? error : undefined, {
+                service: serviceName,
+                operation: operationName
+              }).pipe(
+                Effect.andThen(Effect.fail(error))
+              )
+            }),
+            Effect.tap(() =>
+              logger.info(`Completed ${operationName}`, { service: serviceName, operation: operationName })
+            )
+          )
+
+          return result
+        })
+    }
+  })
 ```
 
 ### 2. クラス型サービス

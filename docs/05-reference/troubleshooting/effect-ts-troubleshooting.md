@@ -1,13 +1,13 @@
 ---
-title: "Effect-TSトラブルシューティング - Effect-TS 3.17+完全対応ガイド"
-description: "Effect-TS 3.17+特有の25のエラーパターンと実践的解決策。Schema.Struct、Context.GenericTag、Match.value、エラーハンドリング戦略。"
+title: "Effect-TS 3.17+ トラブルシューティング完全ガイド - 最新パターン対応"
+description: "Effect-TS 3.17+ 最新版における30のエラーパターンと実践的解決策。Schema.Struct、Context.GenericTag、Match.value、早期リターン、Property-Based Testing統合エラー対応。"
 category: "troubleshooting"
-difficulty: "intermediate"
-tags: ["troubleshooting", "effect-ts", "debugging", "error-handling", "performance", "schema", "context"]
-prerequisites: ["effect-ts-fundamentals", "schema-basics"]
-estimated_reading_time: "45分"
-related_patterns: ["error-handling-patterns", "service-patterns"]
-related_docs: ["./debugging-guide.md", "./common-errors.md", "../../03-guides/04-error-resolution.md"]
+difficulty: "advanced"
+tags: ["troubleshooting", "effect-ts", "debugging", "error-handling", "performance", "schema", "context", "schema-struct", "context-generic-tag", "match-patterns", "early-return", "property-based-testing"]
+prerequisites: ["effect-ts-fundamentals", "schema-patterns", "context-patterns", "testing-patterns"]
+estimated_reading_time: "50分"
+related_patterns: ["error-handling-patterns", "service-patterns", "testing-patterns", "optimization-patterns"]
+related_docs: ["./debugging-guide.md", "./common-errors.md", "../../03-guides/04-error-resolution.md", "../../03-guides/07-effect-ts-testing-patterns.md"]
 status: "complete"
 ---
 
@@ -585,9 +585,106 @@ const debuggablePlayerLoad = (playerId: string) =>
   })
 ```
 
+### Property-Based Testing 統合エラー（5パターン）
+
+#### 17. Fast-Check Schema.arbitrary 統合エラー
+
+##### 症状
+```bash
+TS2345: Argument of type 'Arbitrary<unknown>' is not assignable to parameter of type 'Arbitrary<Player>'.
+```
+
+##### 解決方法
+```typescript
+// ✅ 正しいSchema.arbitrary統合
+import * as fc from "fast-check"
+import { Schema, Arbitrary } from "effect"
+
+const Player = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("PlayerId")),
+  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(50)),
+  level: Schema.Number.pipe(Schema.int(), Schema.between(1, 100)),
+  position: Schema.Struct({
+    x: Schema.Number,
+    y: Schema.Number,
+    z: Schema.Number
+  })
+})
+
+// Schema.arbitraryによる型安全なArbitrary生成
+const playerArbitrary = Arbitrary.make(Player)
+
+// Property-based test
+const testPlayerProperty = fc.property(
+  fc.array(playerArbitrary(fc), { minLength: 1, maxLength: 100 }),
+  (players) => {
+    return Effect.gen(function* () {
+      // 全プレイヤーがSchema通りであることをテスト
+      const validatedPlayers = yield* Effect.forEach(
+        players,
+        player => Schema.decodeUnknown(Player)(player),
+        { concurrency: 10 }
+      )
+
+      expect(validatedPlayers.length).toBe(players.length)
+      expect(validatedPlayers.every(p => p.level >= 1 && p.level <= 100)).toBe(true)
+    })
+  }
+)
+```
+
+#### 18. @effect/vitest Test.scoped エラー
+
+##### 症状
+```bash
+Error: Test.scoped is not available in current Effect version
+```
+
+##### 解決方法
+```typescript
+// 現代的なEffect-TS テスト実装
+import { Effect, Layer, TestContext, TestClock, TestRandom } from "effect"
+import { it, expect, beforeEach } from "vitest"
+
+// テスト用Layer構成
+const TestLayer = Layer.mergeAll(
+  TestContext.TestContext,
+  TestClock.TestClock,
+  TestRandom.TestRandom,
+  MockPlayerServiceLive,
+  MockWorldServiceLive
+)
+
+// Effect.genを使用したテスト
+it("should handle player operations correctly", async () => {
+  const result = await Effect.runPromise(
+    Effect.gen(function* () {
+      // テスト用のクロックを進める
+      const testClock = yield* TestClock.TestClock
+
+      const playerService = yield* PlayerService
+      const player = yield* playerService.create({
+        name: "TestPlayer",
+        email: "test@example.com"
+      })
+
+      // 時間を進めてタイムアウト処理をテスト
+      yield* testClock.adjust(Duration.minutes(5))
+
+      const retrievedPlayer = yield* playerService.findById(player.id)
+      expect(retrievedPlayer.name).toBe("TestPlayer")
+
+      return player
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  expect(result).toBeDefined()
+})
+```
+
 ### テスト環境でのトラブルシューティング
 
-#### 17. Vitest との統合エラー
+#### 19. Vitest との統合エラー
 
 ##### 症状
 ```bash

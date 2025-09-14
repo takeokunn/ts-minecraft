@@ -1,12 +1,12 @@
 ---
-title: "Effect-TS Schema APIリファレンス - データバリデーション完全ガイド"
-description: "Effect-TS Schemaの完全APIリファレンス。データバリデーション、変換、型安全性、合成可能スキーマ。"
+title: "Effect-TS 3.17+ Schema API完全リファレンス - Schema.Struct + タイプセーフティ"
+description: "Effect-TS 3.17+ Schemaの完全APIリファレンス。Schema.Struct、Context.GenericTag統合、Match.value活用、早期リターンパターン対応データバリデーション。"
 category: "reference"
-difficulty: "intermediate"
-tags: ["effect-ts", "schema", "validation", "type-safety", "data-transformation"]
-prerequisites: ["effect-ts-basics"]
-estimated_reading_time: "30分"
-dependencies: []
+difficulty: "advanced"
+tags: ["effect-ts", "schema", "validation", "type-safety", "data-transformation", "schema-struct", "context-generic-tag", "match-patterns", "branded-types"]
+prerequisites: ["effect-ts-basics", "schema-patterns", "context-patterns"]
+estimated_reading_time: "45分"
+dependencies: ["@effect/schema", "@effect/match"]
 status: "complete"
 ---
 
@@ -27,20 +27,53 @@ Effect-TS Schemaは、TypeScriptアプリケーションにおけるデータバ
 
 ## 基本API
 
-### 基本的なスキーマ定義
+### 基本的なSchema.Struct定義パターン
 
 ```typescript
 import { Schema } from "effect"
 
-// プリミティブ型
+// プリミティブ型（Effect-TS 3.17+推奨）
 const StringSchema = Schema.String
 const NumberSchema = Schema.Number
 const BooleanSchema = Schema.Boolean
 
-// 構造化されたデータ
-const PersonSchema = Schema.Struct({
-  name: Schema.String,
-  age: Schema.Number
+// Schema.Structによる構造化データ定義
+const Person = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("PersonId")),
+  name: Schema.String.pipe(Schema.minLength(1)),
+  age: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  email: Schema.String.pipe(Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)),
+  isActive: Schema.Boolean,
+  createdAt: Schema.Date,
+  profile: Schema.optional(Schema.Struct({
+    bio: Schema.String,
+    avatar: Schema.String.pipe(Schema.startsWith("https://"))
+  }))
+})
+
+// 型の抽出
+type PersonType = typeof Person.Type
+
+// ブランド化されたIDの活用
+const UserId = Schema.String.pipe(Schema.brand("UserId"))
+const PostId = Schema.String.pipe(Schema.brand("PostId"))
+
+// 階層化された構造
+const Address = Schema.Struct({
+  street: Schema.String,
+  city: Schema.String,
+  country: Schema.String,
+  zipCode: Schema.String.pipe(Schema.pattern(/^\d{5}(-\d{4})?$/))
+})
+
+const UserProfile = Schema.Struct({
+  user: Person,
+  address: Address,
+  preferences: Schema.Struct({
+    theme: Schema.Literal("light", "dark"),
+    language: Schema.Literal("en", "ja", "es", "fr"),
+    notifications: Schema.Boolean
+  })
 })
 ```
 
@@ -151,23 +184,44 @@ const program = Effect.gen(function* () {
 Effect.runPromise(program.pipe(Effect.provide(layerMemory)))
 ```
 
-### 3. 非同期バリデーションの実装
+### 3. 非同期バリデーション - Context.GenericTag + Match.value
 
 ```typescript
-import { Context, Effect, Schema, ParseResult, Layer } from "effect"
+import { Context, Effect, Schema, ParseResult, Layer, Match } from "effect"
 
-// 外部バリデーションサービス
-class ValidationService extends Context.Tag("ValidationService")<
-  ValidationService,
-  {
-    readonly validateBlockId: (id: string) => Effect.Effect<void, Error>
-  }
->() {}
+// Schema.Structを使用したエラー定義
+class ValidationError extends Schema.TaggedError<ValidationError>()("ValidationError", {
+  field: Schema.String,
+  reason: Schema.Literal("invalid-format", "not-found", "access-denied"),
+  value: Schema.String
+}) {}
+
+// Context.GenericTagによる外部バリデーションサービス
+class ValidationService extends Context.GenericTag("ValidationService")<{
+  validateBlockId: (id: string) => Effect.Effect<void, ValidationError>
+  validateUserId: (id: string) => Effect.Effect<void, ValidationError>
+  validateBatchIds: (ids: string[]) => Effect.Effect<void, ValidationError>
+}>() {}
 
 // ブランド化されたスキーマ
 const BlockId = Schema.String.pipe(Schema.brand("BlockId"))
+const UserId = Schema.String.pipe(Schema.brand("UserId"))
 
-// 非同期変換スキーマ
+// Match.valueによる型別バリデーション
+const validateIdByType = (id: string, type: "block" | "user") =>
+  Effect.gen(function* () {
+    const validator = yield* ValidationService
+
+    yield* Match.value(type).pipe(
+      Match.when("block", () => validator.validateBlockId(id)),
+      Match.when("user", () => validator.validateUserId(id)),
+      Match.exhaustive
+    )
+
+    return id
+  })
+
+// 非同期変換スキーマ（早期リターンパターン）
 const BlockIdFromString = Schema.transformOrFail(
   Schema.String,
   BlockId,
@@ -175,9 +229,20 @@ const BlockIdFromString = Schema.transformOrFail(
     strict: true,
     decode: (s, _, ast) =>
       Effect.gen(function* () {
+        // 早期リターン：基本フォーマットチェック
+        if (!s.startsWith("block_") || s.length < 7) {
+          return yield* Effect.fail(new ValidationError({
+            field: "blockId",
+            reason: "invalid-format",
+            value: s
+          }))
+        }
+
+        // 詳細バリデーション
         const validator = yield* ValidationService
         yield* validator.validateBlockId(s)
-        return s
+
+        return s as typeof BlockId.Type
       }).pipe(
         Effect.mapError((e) => new ParseResult.Type(ast, s, e.message))
       ),
@@ -185,21 +250,76 @@ const BlockIdFromString = Schema.transformOrFail(
   }
 )
 
-// サービス実装
-const ValidationServiceLive = Layer.succeed(ValidationService, {
-  validateBlockId: (id) =>
-    id.startsWith("block_")
-      ? Effect.void
-      : Effect.fail(new Error("Invalid block ID format"))
+// バッチバリデーション用スキーマ
+const BatchValidationRequest = Schema.Struct({
+  ids: Schema.Array(Schema.String).pipe(Schema.minItems(1), Schema.maxItems(100)),
+  type: Schema.Literal("block", "user"),
+  skipInvalid: Schema.Boolean.pipe(Schema.optional())
 })
 
-// 使用例
-const validateBlockId = Effect.gen(function* () {
-  const result = yield* Schema.decodeUnknown(BlockIdFromString)("block_001")
-  return result
-}).pipe(Effect.provide(ValidationServiceLive))
+// Context.GenericTagサービス実装
+const ValidationServiceLive = Layer.succeed(
+  ValidationService,
+  ValidationService.of({
+    validateBlockId: (id) =>
+      Match.value({ id, valid: id.startsWith("block_") && id.length >= 7 }).pipe(
+        Match.when({ valid: true }, () => Effect.void),
+        Match.orElse(() =>
+          Effect.fail(new ValidationError({
+            field: "blockId",
+            reason: "invalid-format",
+            value: id
+          }))
+        )
+      ),
 
-Effect.runPromise(validateBlockId).then(console.log)
+    validateUserId: (id) =>
+      Match.value({ id, valid: /^user_[a-zA-Z0-9]{8,}$/.test(id) }).pipe(
+        Match.when({ valid: true }, () => Effect.void),
+        Match.orElse(() =>
+          Effect.fail(new ValidationError({
+            field: "userId",
+            reason: "invalid-format",
+            value: id
+          }))
+        )
+      ),
+
+    validateBatchIds: (ids) =>
+      Effect.forEach(
+        ids,
+        id => validateIdByType(id, id.startsWith("block_") ? "block" : "user"),
+        { concurrency: 5 }
+      ).pipe(Effect.void)
+  })
+)
+
+// 使用例
+const validateBlockIdExample = Effect.gen(function* () {
+  const result = yield* Schema.decodeUnknown(BlockIdFromString)("block_001")
+  console.log("Valid block ID:", result)
+  return result
+}).pipe(
+  Effect.provide(ValidationServiceLive),
+  Effect.catchAll(error =>
+    Effect.sync(() => console.error("Validation failed:", error))
+  )
+)
+
+// バッチ処理の使用例
+const batchValidationExample = Effect.gen(function* () {
+  const request = {
+    ids: ["block_001", "block_002", "user_12345678"],
+    type: "block" as const,
+    skipInvalid: false
+  }
+
+  const validatedRequest = yield* Schema.decodeUnknown(BatchValidationRequest)(request)
+  const validator = yield* ValidationService
+
+  yield* validator.validateBatchIds(validatedRequest.ids)
+  console.log("All IDs validated successfully")
+}).pipe(Effect.provide(ValidationServiceLive))
 ```
 
 ### 4. スキーマクラスによる型安全なエンティティ
@@ -270,36 +390,139 @@ const validateWorldData = Schema.decodeUnknownSync(WorldData)
 
 ## バリデーション
 
-### エラーハンドリングパターン
+### エラーハンドリングパターン - Match.value + 早期リターン
 
 ```typescript
-import { Schema, ParseResult } from "effect"
+import { Schema, ParseResult, Match, Exit, Effect } from "effect"
 
-const PlayerSchema = Schema.Struct({
-  name: Schema.NonEmptyString,
-  level: Schema.Number.pipe(Schema.positive())
+// Schema.Structを使用した型安全なプレイヤー定義
+const Player = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("PlayerId")),
+  name: Schema.String.pipe(Schema.minLength(1)),
+  level: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  status: Schema.Literal("online", "offline", "away"),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 
-// Either を使用した安全なデコード
-const decodePlayer = (input: unknown) => {
-  const result = Schema.decodeUnknownEither(PlayerSchema)(input)
+class PlayerValidationError extends Schema.TaggedError<PlayerValidationError>()("PlayerValidationError", {
+  field: Schema.String,
+  received: Schema.Unknown,
+  expected: Schema.String
+}) {}
 
-  if (result._tag === "Left") {
-    console.error("バリデーションエラー:", result.left.message)
-    return null
-  }
+// Match.valueを使用した型安全なデコード
+const decodePlayer = (input: unknown) =>
+  Effect.gen(function* () {
+    const result = yield* Effect.exit(Schema.decodeUnknown(Player)(input))
 
-  return result.right
+    return yield* Match.value(result).pipe(
+      Match.when(Exit.isSuccess, exit => Effect.succeed(exit.value)),
+      Match.when(Exit.isFailure, exit =>
+        Effect.gen(function* () {
+          console.error("Validation failed:", exit.cause)
+          return yield* Effect.fail(new PlayerValidationError({
+            field: "root",
+            received: input,
+            expected: "Valid Player object"
+          }))
+        })
+      ),
+      Match.exhaustive
+    )
+  })
+
+// Either を使用した同期的バリデーション（早期リターンパターン）
+const decodePlayerSync = (input: unknown): Player.Type | null => {
+  const result = Schema.decodeUnknownEither(Player)(input)
+
+  return Match.value(result).pipe(
+    Match.when({ _tag: "Right" }, result => result.right),
+    Match.when({ _tag: "Left" }, result => {
+      console.error("Synchronous validation error:", result.left.message)
+      return null
+    }),
+    Match.exhaustive
+  )
 }
 
-// Effect を使用した非同期エラーハンドリング
-const decodePlayerAsync = (input: unknown) =>
-  Schema.decodeUnknown(PlayerSchema)(input).pipe(
-    Effect.catchAll((error) => {
-      console.error("デコードエラー:", error.message)
-      return Effect.succeed(null)
-    })
-  )
+// 段階的バリデーション（複数レベルのエラーハンドリング）
+const validatePlayerWithDetails = (input: unknown) =>
+  Effect.gen(function* () {
+    // 基本構造のチェック
+    const basicStructure = yield* Effect.exit(
+      Schema.decodeUnknown(Schema.Struct({
+        id: Schema.String,
+        name: Schema.String,
+        level: Schema.Number
+      }))(input)
+    )
+
+    if (Exit.isFailure(basicStructure)) {
+      return yield* Effect.fail(new PlayerValidationError({
+        field: "structure",
+        received: input,
+        expected: "Object with id, name, level fields"
+      }))
+    }
+
+    // 詳細バリデーション
+    const fullValidation = yield* Effect.exit(Schema.decodeUnknown(Player)(input))
+
+    return yield* Match.value(fullValidation).pipe(
+      Match.when(Exit.isSuccess, exit => Effect.succeed(exit.value)),
+      Match.when(Exit.isFailure, exit => {
+        // 特定フィールドのエラー詳細を抽出
+        const cause = exit.cause
+        const fieldErrors = extractFieldErrors(cause)
+
+        return Effect.fail(new PlayerValidationError({
+          field: fieldErrors.field || "unknown",
+          received: fieldErrors.received,
+          expected: fieldErrors.expected
+        }))
+      }),
+      Match.exhaustive
+    )
+  })
+
+// エラー詳細抽出ヘルパー
+const extractFieldErrors = (cause: any) => ({
+  field: cause.errors?.[0]?.path?.join('.') || "unknown",
+  received: cause.errors?.[0]?.actual,
+  expected: cause.errors?.[0]?.message || "Valid value"
+})
+
+// バッチバリデーション（部分的成功対応）
+const validatePlayerBatch = (inputs: unknown[]) =>
+  Effect.gen(function* () {
+    const results = yield* Effect.forEach(
+      inputs,
+      (input, index) =>
+        Effect.exit(Schema.decodeUnknown(Player)(input)).pipe(
+          Effect.map(exit => ({ index, exit, input }))
+        ),
+      { concurrency: 5 }
+    )
+
+    const { successes, failures } = results.reduce(
+      (acc, { index, exit, input }) => {
+        if (Exit.isSuccess(exit)) {
+          acc.successes.push({ index, data: exit.value })
+        } else {
+          acc.failures.push({ index, input, error: exit.cause })
+        }
+        return acc
+      },
+      { successes: [] as any[], failures: [] as any[] }
+    )
+
+    return {
+      successes,
+      failures,
+      totalProcessed: results.length,
+      successRate: successes.length / results.length
+    }
+  })
 ```
 
 ### カスタムエラーメッセージ

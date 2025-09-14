@@ -1,0 +1,334 @@
+#!/usr/bin/env node
+
+/**
+ * 汎用プロジェクト分析コマンド
+ * 使用法: /project-analyze
+ * 機能: プロジェクトの技術スタック、構造、設定を包括的に分析
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+
+class ProjectAnalyzer {
+  constructor() {
+    this.analysis = {
+      language: null,
+      framework: null,
+      packageManager: null,
+      buildTool: null,
+      testFramework: null,
+      linter: null,
+      formatter: null,
+      typeSystem: null,
+      structure: {},
+      dependencies: {},
+      scripts: {},
+      git: {},
+      recommendations: []
+    };
+  }
+
+  async analyze() {
+    console.log('🔍 プロジェクト分析開始...\n');
+
+    this.detectLanguageAndFramework();
+    this.detectPackageManager();
+    this.detectBuildTools();
+    this.detectQualityTools();
+    this.analyzeProjectStructure();
+    this.analyzeGitStatus();
+    this.generateRecommendations();
+
+    this.displayResults();
+    return this.analysis;
+  }
+
+  detectLanguageAndFramework() {
+    // package.json 分析
+    if (fs.existsSync('package.json')) {
+      const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+      this.analysis.dependencies = pkg.dependencies || {};
+      this.analysis.scripts = pkg.scripts || {};
+
+      // フレームワーク検出
+      if (pkg.dependencies?.react || pkg.devDependencies?.react) {
+        this.analysis.framework = 'React';
+      } else if (pkg.dependencies?.vue || pkg.devDependencies?.vue) {
+        this.analysis.framework = 'Vue.js';
+      } else if (pkg.dependencies?.angular || pkg.devDependencies?.angular) {
+        this.analysis.framework = 'Angular';
+      } else if (pkg.dependencies?.next || pkg.devDependencies?.next) {
+        this.analysis.framework = 'Next.js';
+      } else if (pkg.dependencies?.nuxt || pkg.devDependencies?.nuxt) {
+        this.analysis.framework = 'Nuxt.js';
+      } else if (pkg.dependencies?.svelte || pkg.devDependencies?.svelte) {
+        this.analysis.framework = 'Svelte';
+      } else if (pkg.dependencies?.three || pkg.devDependencies?.three) {
+        this.analysis.framework = 'Three.js';
+      } else if (pkg.dependencies?.effect || pkg.devDependencies?.effect) {
+        this.analysis.framework = 'Effect-TS';
+      }
+
+      // 言語検出
+      if (pkg.devDependencies?.typescript || fs.existsSync('tsconfig.json')) {
+        this.analysis.language = 'TypeScript';
+        this.analysis.typeSystem = 'TypeScript';
+      } else {
+        this.analysis.language = 'JavaScript';
+      }
+    }
+
+    // Python プロジェクト検出
+    if (fs.existsSync('requirements.txt') || fs.existsSync('pyproject.toml') || fs.existsSync('setup.py')) {
+      this.analysis.language = 'Python';
+      if (fs.existsSync('pyproject.toml')) {
+        this.analysis.packageManager = 'pip/poetry';
+      }
+    }
+
+    // Rust プロジェクト検出
+    if (fs.existsSync('Cargo.toml')) {
+      this.analysis.language = 'Rust';
+      this.analysis.packageManager = 'cargo';
+    }
+
+    // Go プロジェクト検出
+    if (fs.existsSync('go.mod')) {
+      this.analysis.language = 'Go';
+      this.analysis.packageManager = 'go mod';
+    }
+  }
+
+  detectPackageManager() {
+    if (fs.existsSync('package-lock.json')) {
+      this.analysis.packageManager = 'npm';
+    } else if (fs.existsSync('yarn.lock')) {
+      this.analysis.packageManager = 'yarn';
+    } else if (fs.existsSync('pnpm-lock.yaml')) {
+      this.analysis.packageManager = 'pnpm';
+    } else if (fs.existsSync('bun.lockb')) {
+      this.analysis.packageManager = 'bun';
+    }
+  }
+
+  detectBuildTools() {
+    const buildTools = {
+      'vite.config.js': 'Vite',
+      'vite.config.ts': 'Vite',
+      'webpack.config.js': 'Webpack',
+      'rollup.config.js': 'Rollup',
+      'esbuild.config.js': 'esbuild',
+      'next.config.js': 'Next.js',
+      'nuxt.config.js': 'Nuxt.js'
+    };
+
+    for (const [file, tool] of Object.entries(buildTools)) {
+      if (fs.existsSync(file)) {
+        this.analysis.buildTool = tool;
+        break;
+      }
+    }
+  }
+
+  detectQualityTools() {
+    // Linter 検出
+    const linters = {
+      '.eslintrc.js': 'ESLint',
+      '.eslintrc.json': 'ESLint',
+      'eslint.config.js': 'ESLint',
+      'oxlint.json': 'oxlint',
+      'pyproject.toml': 'flake8/black (Python)',
+      'tox.ini': 'flake8 (Python)'
+    };
+
+    for (const [file, tool] of Object.entries(linters)) {
+      if (fs.existsSync(file)) {
+        this.analysis.linter = tool;
+        break;
+      }
+    }
+
+    // Formatter 検出
+    const formatters = {
+      '.prettierrc': 'Prettier',
+      '.prettierrc.json': 'Prettier',
+      'prettier.config.js': 'Prettier'
+    };
+
+    for (const [file, tool] of Object.entries(formatters)) {
+      if (fs.existsSync(file)) {
+        this.analysis.formatter = tool;
+        break;
+      }
+    }
+
+    // テストフレームワーク検出
+    if (this.analysis.dependencies.jest || this.analysis.scripts.test?.includes('jest')) {
+      this.analysis.testFramework = 'Jest';
+    } else if (this.analysis.dependencies.vitest || this.analysis.scripts.test?.includes('vitest')) {
+      this.analysis.testFramework = 'Vitest';
+    } else if (this.analysis.dependencies.mocha || this.analysis.scripts.test?.includes('mocha')) {
+      this.analysis.testFramework = 'Mocha';
+    }
+  }
+
+  analyzeProjectStructure() {
+    const structure = {};
+    const importantDirs = ['src', 'lib', 'components', 'pages', 'utils', 'test', '__tests__', 'spec', 'docs'];
+
+    importantDirs.forEach(dir => {
+      if (fs.existsSync(dir)) {
+        structure[dir] = this.getDirectoryStructure(dir, 2);
+      }
+    });
+
+    this.analysis.structure = structure;
+  }
+
+  getDirectoryStructure(dirPath, depth = 1) {
+    if (depth <= 0) return null;
+
+    try {
+      const items = fs.readdirSync(dirPath);
+      const structure = {};
+
+      items.slice(0, 10).forEach(item => {
+        const fullPath = path.join(dirPath, item);
+        const stat = fs.statSync(fullPath);
+
+        if (stat.isDirectory() && !item.startsWith('.')) {
+          structure[item] = this.getDirectoryStructure(fullPath, depth - 1);
+        } else if (stat.isFile() && this.isImportantFile(item)) {
+          structure[item] = 'file';
+        }
+      });
+
+      return structure;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  isImportantFile(filename) {
+    const important = ['.ts', '.tsx', '.js', '.jsx', '.vue', '.py', '.rs', '.go', '.md'];
+    return important.some(ext => filename.endsWith(ext));
+  }
+
+  analyzeGitStatus() {
+    try {
+      this.analysis.git.hasRepo = fs.existsSync('.git');
+
+      if (this.analysis.git.hasRepo) {
+        const branch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
+        const status = execSync('git status --porcelain', { encoding: 'utf8' });
+        const remote = execSync('git remote get-url origin 2>/dev/null || echo "no-remote"', { encoding: 'utf8' }).trim();
+
+        this.analysis.git.currentBranch = branch;
+        this.analysis.git.hasChanges = status.length > 0;
+        this.analysis.git.remote = remote !== 'no-remote' ? remote : null;
+      }
+    } catch (error) {
+      this.analysis.git.error = error.message;
+    }
+  }
+
+  generateRecommendations() {
+    const recs = this.analysis.recommendations;
+
+    // TypeScript推奨
+    if (this.analysis.language === 'JavaScript' && this.analysis.framework) {
+      recs.push('🔧 TypeScriptへの移行を推奨（型安全性向上）');
+    }
+
+    // Linter設定推奨
+    if (!this.analysis.linter && this.analysis.language !== 'Python') {
+      recs.push('🔧 ESLintまたはoxlintの設定を推奨（コード品質向上）');
+    }
+
+    // Formatter設定推奨
+    if (!this.analysis.formatter) {
+      recs.push('🔧 Prettierの設定を推奨（コードフォーマット統一）');
+    }
+
+    // テスト推奨
+    if (!this.analysis.testFramework) {
+      recs.push('🧪 テストフレームワークの導入を推奨（Vitest推奨）');
+    }
+
+    // CI/CD推奨
+    if (!fs.existsSync('.github/workflows') && this.analysis.git.hasRepo) {
+      recs.push('🚀 GitHub Actionsの設定を推奨（CI/CD自動化）');
+    }
+
+    // Effect-TS プロジェクト特有の推奨事項
+    if (this.analysis.framework === 'Effect-TS') {
+      if (!this.analysis.dependencies['@effect/platform']) {
+        recs.push('📦 @effect/platform の追加を推奨（Effect-TS エコシステム）');
+      }
+      if (!this.analysis.dependencies['@effect/schema']) {
+        recs.push('📦 @effect/schema の追加を推奨（型安全なバリデーション）');
+      }
+    }
+
+    // Three.js プロジェクト特有の推奨事項
+    if (this.analysis.framework === 'Three.js') {
+      if (!this.analysis.dependencies['@types/three']) {
+        recs.push('📦 @types/three の追加を推奨（TypeScript型定義）');
+      }
+    }
+  }
+
+  displayResults() {
+    console.log('📊 プロジェクト分析結果\n');
+    console.log('='.repeat(50));
+
+    console.log('\n🔧 技術スタック:');
+    console.log(`  言語: ${this.analysis.language || '不明'}`);
+    console.log(`  フレームワーク: ${this.analysis.framework || 'なし'}`);
+    console.log(`  パッケージマネージャー: ${this.analysis.packageManager || '不明'}`);
+    console.log(`  ビルドツール: ${this.analysis.buildTool || 'なし'}`);
+    console.log(`  テストフレームワーク: ${this.analysis.testFramework || 'なし'}`);
+    console.log(`  Linter: ${this.analysis.linter || 'なし'}`);
+    console.log(`  Formatter: ${this.analysis.formatter || 'なし'}`);
+
+    if (this.analysis.git.hasRepo) {
+      console.log('\n📍 Git情報:');
+      console.log(`  ブランチ: ${this.analysis.git.currentBranch}`);
+      console.log(`  変更: ${this.analysis.git.hasChanges ? 'あり' : 'なし'}`);
+      console.log(`  リモート: ${this.analysis.git.remote || 'なし'}`);
+    }
+
+    if (Object.keys(this.analysis.structure).length > 0) {
+      console.log('\n📁 プロジェクト構造:');
+      Object.entries(this.analysis.structure).forEach(([dir, contents]) => {
+        console.log(`  ${dir}/`);
+        if (contents && typeof contents === 'object') {
+          Object.keys(contents).slice(0, 5).forEach(item => {
+            console.log(`    ├── ${item}`);
+          });
+        }
+      });
+    }
+
+    if (this.analysis.recommendations.length > 0) {
+      console.log('\n💡 推奨改善点:');
+      this.analysis.recommendations.forEach(rec => {
+        console.log(`  ${rec}`);
+      });
+    }
+
+    console.log('\n🎯 利用可能なコマンド:');
+    console.log('  /quality-setup - 品質ツール一括設定');
+    console.log('  /deps-update - 依存関係一括更新');
+    console.log('  /github-setup - GitHub Actions設定');
+    console.log('  /project-clean - プロジェクトクリーンアップ');
+    console.log('  /test-setup - テスト環境セットアップ');
+  }
+}
+
+if (require.main === module) {
+  new ProjectAnalyzer().analyze();
+}
+
+module.exports = { ProjectAnalyzer };

@@ -1,12 +1,12 @@
 ---
-title: "Effect-TS Effect APIリファレンス - Effect型完全ガイド"
-description: "Effect-TS Effect APIの完全リファレンス。Effect型の作成、合成、実行、エラーハンドリング、並行処理パターン。"
+title: "Effect-TS 3.17+ Effect API完全リファレンス - モダンパターン対応"
+description: "Effect-TS 3.17+ Effect APIの完全リファレンス。Schema.Struct、Context.GenericTag、Match.value、早期リターンパターンを活用した最新実装ガイド。"
 category: "reference"
-difficulty: "intermediate"
-tags: ["effect-ts", "effect-api", "functional-programming", "async", "error-handling"]
-prerequisites: ["effect-ts-basics"]
-estimated_reading_time: "35分"
-dependencies: []
+difficulty: "advanced"
+tags: ["effect-ts", "effect-api", "functional-programming", "async", "error-handling", "schema-struct", "context-generic-tag", "match-patterns", "early-return"]
+prerequisites: ["effect-ts-basics", "schema-patterns", "context-patterns"]
+estimated_reading_time: "40分"
+dependencies: ["@effect/schema", "@effect/match"]
 status: "complete"
 ---
 
@@ -278,14 +278,27 @@ const acquireUseReleaseExample = Effect.acquireUseRelease(
 ### scoped - スコープベースリソース管理
 
 ```typescript
-import { Context, Layer } from "effect"
+import { Context, Layer, Schema } from "effect"
 
-class DatabaseConnection extends Context.Tag("DatabaseConnection")<
-  DatabaseConnection,
-  {
-    query: (sql: string) => Effect.Effect<Row[], DatabaseError>
-  }
->() {}
+// Schema.Structを使用した型安全なクエリ結果定義
+const Row = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  createdAt: Schema.Date
+})
+
+class DatabaseError extends Schema.TaggedError<DatabaseError>()("DatabaseError", {
+  message: Schema.String,
+  cause: Schema.Unknown
+}) {}
+
+// Context.GenericTagを使用したモダンなサービス定義
+class DatabaseConnection extends Context.GenericTag("DatabaseConnection")<{
+  query: (sql: string) => Effect.Effect<typeof Row.Type[], DatabaseError>
+  transaction: <A, E>(
+    operation: Effect.Effect<A, E, DatabaseConnection>
+  ) => Effect.Effect<A, E | DatabaseError, DatabaseConnection>
+}>() {}
 
 const DatabaseLive = Layer.scoped(
   DatabaseConnection,
@@ -295,13 +308,34 @@ const DatabaseLive = Layer.scoped(
       (db) => Effect.sync(() => db.close())
     )
 
-    return {
+    return DatabaseConnection.of({
       query: (sql: string) =>
         Effect.tryPromise({
           try: () => connection.query(sql),
-          catch: error => new DatabaseError({ cause: error })
+          catch: error => new DatabaseError({
+            message: "Query execution failed",
+            cause: error
+          })
+        }).pipe(
+          Effect.flatMap(rows => Schema.decodeUnknown(Schema.Array(Row))(rows))
+        ),
+
+      transaction: <A, E>(operation: Effect.Effect<A, E, DatabaseConnection>) =>
+        Effect.gen(function* () {
+          yield* Effect.sync(() => connection.beginTransaction())
+
+          const result = yield* operation.pipe(
+            Effect.catchAll(error => {
+              return Effect.sync(() => connection.rollback()).pipe(
+                Effect.andThen(Effect.fail(error))
+              )
+            })
+          )
+
+          yield* Effect.sync(() => connection.commit())
+          return result
         })
-    }
+    })
   })
 )
 ```
@@ -345,75 +379,167 @@ const transform = pipe(
 
 ## 実装例
 
-### 1. ユーザー認証システム
+### 1. ユーザー認証システム - Schema.Struct + Context.GenericTag
 
 ```typescript
-import { Effect, Schema, Context } from "effect"
+import { Effect, Schema, Context, Match } from "effect"
+
+// Schema.Structによる型安全なUser定義
+const User = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("UserId")),
+  name: Schema.String,
+  email: Schema.String.pipe(Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)),
+  isActive: Schema.Boolean,
+  roles: Schema.Array(Schema.Literal("admin", "user", "moderator")),
+  createdAt: Schema.Date
+})
 
 class AuthError extends Schema.TaggedError<AuthError>()("AuthError", {
-  reason: Schema.Literal("invalid-credentials", "user-not-found", "token-expired")
+  reason: Schema.Literal("invalid-credentials", "user-not-found", "token-expired", "user-inactive")
 }) {}
 
-class UserService extends Context.Tag("UserService")<
-  UserService,
-  {
-    authenticate: (token: string) => Effect.Effect<User, AuthError>
-    findById: (id: string) => Effect.Effect<User, AuthError>
-  }
->() {}
+// Context.GenericTagによるモダンなサービス定義
+class UserService extends Context.GenericTag("UserService")<{
+  authenticate: (token: string) => Effect.Effect<typeof User.Type, AuthError>
+  findById: (id: string) => Effect.Effect<typeof User.Type, AuthError>
+  validatePermission: (user: typeof User.Type, action: string) => Effect.Effect<void, AuthError>
+}>() {}
 
+// Match.valueによる条件分岐と早期リターンパターン
 const authenticateUser = (token: string) =>
   Effect.gen(function* () {
     const userService = yield* UserService
     const user = yield* userService.authenticate(token)
 
-    // 追加のバリデーション
-    if (!user.isActive) {
-      yield* Effect.fail(new AuthError({ reason: "user-not-found" }))
-    }
+    // Match.valueによる型安全な状態チェック
+    yield* Match.value(user).pipe(
+      Match.when({ isActive: false }, () =>
+        Effect.fail(new AuthError({ reason: "user-inactive" }))
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
     return user
   })
+
+// 権限チェック付き認証
+const authenticateWithPermission = (token: string, requiredAction: string) =>
+  Effect.gen(function* () {
+    const user = yield* authenticateUser(token)
+    const userService = yield* UserService
+
+    // 権限チェック（早期リターンパターン）
+    yield* userService.validatePermission(user, requiredAction)
+
+    return user
+  })
+
+// ロールベース認証
+const requireRole = (user: typeof User.Type, requiredRole: "admin" | "user" | "moderator") =>
+  Match.value(user.roles).pipe(
+    Match.when(roles => roles.includes(requiredRole), () => Effect.void),
+    Match.orElse(() =>
+      Effect.fail(new AuthError({ reason: "invalid-credentials" }))
+    )
+  )
 ```
 
-### 2. 並列データ取得とキャッシュ
+### 2. 並列データ取得とキャッシュ - Schema.Struct + Context.GenericTag
 
 ```typescript
-import { Effect, Cache, Duration } from "effect"
+import { Effect, Cache, Duration, Schema, Context, Match } from "effect"
 
-class ApiService extends Context.Tag("ApiService")<
-  ApiService,
-  {
-    fetchUser: (id: string) => Effect.Effect<User, ApiError>
-    fetchPosts: (userId: string) => Effect.Effect<Post[], ApiError>
-  }
->() {}
+// Schema.Structによる型安全なAPI型定義
+const Post = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand("PostId")),
+  userId: Schema.String.pipe(Schema.brand("UserId")),
+  title: Schema.String,
+  content: Schema.String,
+  createdAt: Schema.Date,
+  tags: Schema.Array(Schema.String)
+})
+
+const UserProfile = Schema.Struct({
+  user: User,
+  posts: Schema.Array(Post),
+  postCount: Schema.Number,
+  lastActivityAt: Schema.Date
+})
+
+class ApiError extends Schema.TaggedError<ApiError>()("ApiError", {
+  statusCode: Schema.Number,
+  message: Schema.String,
+  endpoint: Schema.String
+}) {}
+
+// Context.GenericTagによるAPIサービス定義
+class ApiService extends Context.GenericTag("ApiService")<{
+  fetchUser: (id: string) => Effect.Effect<typeof User.Type, ApiError>
+  fetchPosts: (userId: string) => Effect.Effect<typeof Post.Type[], ApiError>
+  fetchUserStats: (userId: string) => Effect.Effect<{ postCount: number; lastActivity: Date }, ApiError>
+}>() {}
 
 const makeUserProfileService = Effect.gen(function* () {
   const api = yield* ApiService
 
-  // キャッシュを作成（5分間有効）
+  // 階層化されたキャッシュ戦略
   const userCache = yield* Cache.make({
     capacity: 100,
     timeToLive: Duration.minutes(5),
     lookup: (id: string) => api.fetchUser(id)
   })
 
+  const postsCache = yield* Cache.make({
+    capacity: 500,
+    timeToLive: Duration.minutes(2),
+    lookup: (userId: string) => api.fetchPosts(userId)
+  })
+
   return {
     getUserProfile: (id: string) =>
       Effect.gen(function* () {
-        // 並列でユーザーとポストを取得
-        const [user, posts] = yield* Effect.all([
+        // 並列実行による効率的なデータ取得
+        const [user, posts, stats] = yield* Effect.all([
           Cache.get(userCache, id),
-          api.fetchPosts(id)
-        ])
+          Cache.get(postsCache, id),
+          api.fetchUserStats(id)
+        ], { concurrency: 3 })
 
-        return {
+        // Match.valueによる条件分岐処理
+        const lastActivityAt = Match.value(posts).pipe(
+          Match.when(posts => posts.length > 0, posts =>
+            posts.reduce((latest, post) =>
+              post.createdAt > latest ? post.createdAt : latest,
+              posts[0].createdAt
+            )
+          ),
+          Match.orElse(() => user.createdAt)
+        )
+
+        return Schema.encode(UserProfile)({
           user,
           posts,
-          postCount: posts.length
-        }
-      })
+          postCount: posts.length,
+          lastActivityAt
+        })
+      }),
+
+    // バッチ処理によるプリロード
+    preloadUserProfiles: (ids: string[]) =>
+      Effect.forEach(
+        ids,
+        id => Cache.get(userCache, id).pipe(
+          Effect.catchAll(() => Effect.void) // エラーを無視してプリロードを続行
+        ),
+        { concurrency: 5 }
+      ),
+
+    // キャッシュの手動無効化
+    invalidateUser: (id: string) =>
+      Effect.all([
+        Cache.invalidate(userCache, id),
+        Cache.invalidate(postsCache, id)
+      ]).pipe(Effect.void)
   }
 })
 ```
@@ -466,45 +592,163 @@ const batchProcessor = <A, E, R>(
   })
 ```
 
-### 4. 設定ベースのサービス初期化
+### 4. 設定ベースのサービス初期化 - Schema.Struct + Context.GenericTag
 
 ```typescript
-import { Config, Layer } from "effect"
+import { Config, Layer, Schema, Context, Match } from "effect"
 
-class DatabaseConfig extends Schema.Struct({
+// Schema.Structによる型安全な設定定義
+const DatabaseConfig = Schema.Struct({
   host: Schema.String,
-  port: Schema.Number,
-  database: Schema.String,
-  maxConnections: Schema.Number.pipe(Schema.optional)
-}) {}
-
-const DatabaseConfigLive = Config.all({
-  host: Config.string("DB_HOST"),
-  port: Config.number("DB_PORT"),
-  database: Config.string("DB_NAME"),
-  maxConnections: Config.number("DB_MAX_CONNECTIONS").pipe(
-    Config.withDefault(10)
-  )
+  port: Schema.Number.pipe(Schema.int(), Schema.between(1, 65535)),
+  database: Schema.String.pipe(Schema.minLength(1)),
+  maxConnections: Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.optional()),
+  ssl: Schema.Boolean.pipe(Schema.optional()),
+  timeout: Schema.Number.pipe(Schema.positive(), Schema.optional()),
+  retryAttempts: Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.optional())
 })
 
+const RedisConfig = Schema.Struct({
+  host: Schema.String,
+  port: Schema.Number.pipe(Schema.int(), Schema.between(1, 65535)),
+  password: Schema.String.pipe(Schema.optional()),
+  database: Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.optional())
+})
+
+// 統合設定スキーマ
+const AppConfig = Schema.Struct({
+  database: DatabaseConfig,
+  redis: RedisConfig,
+  apiPort: Schema.Number.pipe(Schema.int(), Schema.between(3000, 9999)),
+  logLevel: Schema.Literal("debug", "info", "warn", "error")
+})
+
+// Context.GenericTagによるサービス定義
+class ConfigService extends Context.GenericTag("ConfigService")<{
+  getConfig: () => Effect.Effect<typeof AppConfig.Type, ConfigError>
+  getDatabaseConfig: () => Effect.Effect<typeof DatabaseConfig.Type, ConfigError>
+  validateConfig: () => Effect.Effect<void, ConfigError>
+}>() {}
+
+class DatabaseService extends Context.GenericTag("DatabaseService")<{
+  query: <T>(sql: string) => Effect.Effect<T[], DatabaseError>
+  transaction: <A, E>(operation: Effect.Effect<A, E>) => Effect.Effect<A, E | DatabaseError>
+  healthCheck: () => Effect.Effect<boolean, DatabaseError>
+}>() {}
+
+class ConfigError extends Schema.TaggedError<ConfigError>()("ConfigError", {
+  field: Schema.String,
+  message: Schema.String,
+  cause: Schema.Unknown.pipe(Schema.optional())
+}) {}
+
+// 設定読み込みレイヤー
+const AppConfigLive = Layer.effect(
+  ConfigService,
+  Effect.gen(function* () {
+    const config = yield* Config.all({
+      database: Config.all({
+        host: Config.string("DB_HOST"),
+        port: Config.number("DB_PORT"),
+        database: Config.string("DB_NAME"),
+        maxConnections: Config.number("DB_MAX_CONNECTIONS").pipe(
+          Config.withDefault(10)
+        ),
+        ssl: Config.boolean("DB_SSL").pipe(Config.withDefault(false)),
+        timeout: Config.number("DB_TIMEOUT").pipe(Config.withDefault(30000)),
+        retryAttempts: Config.number("DB_RETRY_ATTEMPTS").pipe(Config.withDefault(3))
+      }),
+      redis: Config.all({
+        host: Config.string("REDIS_HOST").pipe(Config.withDefault("localhost")),
+        port: Config.number("REDIS_PORT").pipe(Config.withDefault(6379)),
+        password: Config.string("REDIS_PASSWORD").pipe(Config.optional),
+        database: Config.number("REDIS_DB").pipe(Config.withDefault(0))
+      }),
+      apiPort: Config.number("API_PORT").pipe(Config.withDefault(3000)),
+      logLevel: Config.literal("debug", "info", "warn", "error")("LOG_LEVEL").pipe(
+        Config.withDefault("info" as const)
+      )
+    })
+
+    // 設定のバリデーション
+    const validatedConfig = yield* Schema.decodeUnknown(AppConfig)(config).pipe(
+      Effect.mapError(cause => new ConfigError({
+        field: "root",
+        message: "Configuration validation failed",
+        cause
+      }))
+    )
+
+    return ConfigService.of({
+      getConfig: () => Effect.succeed(validatedConfig),
+      getDatabaseConfig: () => Effect.succeed(validatedConfig.database),
+      validateConfig: () => Effect.void
+    })
+  })
+)
+
+// データベースサービス実装
 const DatabaseServiceLive = Layer.effect(
   DatabaseService,
   Effect.gen(function* () {
-    const config = yield* DatabaseConfigLive
-    const pool = yield* createConnectionPool(config)
+    const configService = yield* ConfigService
+    const dbConfig = yield* configService.getDatabaseConfig()
 
-    return {
-      query: (sql: string) =>
+    // Match.valueによる設定別初期化
+    const pool = yield* Match.value(dbConfig).pipe(
+      Match.when({ ssl: true }, config => createSSLConnectionPool(config)),
+      Match.orElse(config => createConnectionPool(config))
+    )
+
+    return DatabaseService.of({
+      query: <T>(sql: string) =>
+        Effect.gen(function* () {
+          const connection = yield* pool.acquire()
+
+          const result = yield* Effect.tryPromise({
+            try: () => connection.query<T>(sql),
+            catch: error => new DatabaseError({
+              message: "Query execution failed",
+              cause: error
+            })
+          }).pipe(
+            Effect.retry(Schedule.recurs(dbConfig.retryAttempts ?? 3)),
+            Effect.timeout(Duration.millis(dbConfig.timeout ?? 30000))
+          )
+
+          yield* pool.release(connection)
+          return result
+        }),
+
+      transaction: <A, E>(operation: Effect.Effect<A, E>) =>
+        Effect.gen(function* () {
+          const connection = yield* pool.acquire()
+          yield* Effect.sync(() => connection.beginTransaction())
+
+          const result = yield* operation.pipe(
+            Effect.catchAll(error =>
+              Effect.sync(() => connection.rollback()).pipe(
+                Effect.andThen(Effect.fail(error))
+              )
+            )
+          )
+
+          yield* Effect.sync(() => connection.commit())
+          yield* pool.release(connection)
+          return result
+        }),
+
+      healthCheck: () =>
         Effect.gen(function* () {
           const connection = yield* pool.acquire()
           const result = yield* Effect.tryPromise({
-            try: () => connection.query(sql),
-            catch: error => new DatabaseError({ cause: error })
+            try: () => connection.ping(),
+            catch: () => false
           })
           yield* pool.release(connection)
           return result
         })
-    }
+    })
   })
 )
 ```
