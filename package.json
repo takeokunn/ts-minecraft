@@ -7,16 +7,21 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@effect/platform": "^0.90.9",
+    "@effect/schema": "^0.75.5",
     "effect": "^3.17.0",
     "three": "^0.171.0"
   },
   "devDependencies": {
+    "@effect/vitest": "^0.25.1",
     "@types/node": "^22.0.0",
     "@types/three": "^0.171.0",
     "oxlint": "^1.15.0",
