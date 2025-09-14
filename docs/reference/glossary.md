@@ -3,8 +3,11 @@ title: "用語集 - 技術用語・ドメイン概念集"
 description: "TypeScript Minecraft Cloneプロジェクトで使用される専門用語とドメイン固有概念の包括的定義集。DDD、ECS、Effect-TS、ゲーム開発用語を網羅。"
 category: "reference"
 difficulty: "beginner"
-tags: ["glossary", "terminology", "ddd", "ecs", "effect-ts", "game-development", "reference"]
+tags: ["glossary", "terminology", "ddd", "ecs", "effect-ts", "game-development", "typescript", "functional-programming"]
+prerequisites: ["basic-typescript"]
 estimated_reading_time: "15分"
+related_patterns: ["service-patterns", "data-modeling-patterns", "error-handling-patterns"]
+related_docs: ["../tutorials/basic-game-development/environment-setup.md", "../explanations/architecture/architecture-overview.md"]
 ---
 
 
@@ -39,6 +42,8 @@ estimated_reading_time: "15分"
     -   ブロックの追加的な状態情報。方向、成長段階、開閉状態などのメタデータを保持します。
 -   **Bounded Context (境界づけられたコンテキスト)** {#bounded-context}
     -   DDDの戦略的パターン。特定のドメイン領域とその言葉の境界を定義します。本プロジェクトでは、World、Player、Inventory、Physics等のコンテキストに分割されています。
+-   **Brand Types (ブランド型)** {#brand-types}
+    -   TypeScriptにおいて型安全性を高めるタグ付き型の手法。本プロジェクトでは、異なる用途の文字列や数値を型レベルで区別するために使用されています。例：PlayerId、ChunkCoordinate等。
 -   **Broadphase (ブロードフェーズ)** {#broadphase}
     -   物理衝突検知の第一段階。空間分割や境界ボリューム階層を使用して、衝突可能性のあるオブジェクトペアを効率的に特定します。
 
@@ -57,7 +62,7 @@ estimated_reading_time: "15分"
 -   **Concurrent Processing (並行処理)** {#concurrent}
     -   複数のタスクを並行して実行する処理手法。Effect-TSのConcurrentを活用し、高性能な非同期処理を実現します。
 -   **Context (コンテキスト)** {#context}
-    -   Effect-TSの依存性注入システム。サービスやリソースへの型安全なアクセスを提供します。
+    -   Effect-TSの依存性注入システム。本プロジェクトでは Context.GenericTag を使用してサービス定義を行い、型安全な依存性注入を実現します。サービスやリソースへの型安全なアクセスを提供します。
 -   **Culling (カリング)** {#culling}
     -   描画対象から不要なオブジェクトを除外する最適化技術。フラスタムカリング、オクルージョンカリングなどがあります。
 
@@ -81,7 +86,7 @@ estimated_reading_time: "15分"
 -   **Effect (エフェクト)** {#effect}
     -   Effect-TSの核となる型。非同期処理、エラーハンドリング、依存性を統一的に表現します。Effect<Success, Error, Requirements>の形式で型安全性を保証します。
 -   **Effect-TS** {#effect-ts}
-    -   TypeScriptで純粋関数型プログラミングを行うためのエコシステム。副作用管理、依存性注入、並行処理、スキーマバリデーションなどを提供します。
+    -   TypeScriptで純粋関数型プログラミングを行うためのエコシステム。本プロジェクトでは Effect-TS 3.17+ を使用し、副作用管理、依存性注入、並行処理、スキーマバリデーションなどを提供します。Effect.gen + yield* パターンと Schema.Struct を活用した完全関数型アーキテクチャを実現します。
 -   **Entity (エンティティ)** {#entity}
     -   DDDの戦術パターン。一意のIDを持つドメインオブジェクト。ECSでは、コンポーネントを持つ識別子としても使用されます。
 -   **Entity Component System (ECS)** {#ecs}
@@ -154,6 +159,8 @@ estimated_reading_time: "15分"
     -   事前にメモリを確保し、オブジェクトの生成・削除を高速化する手法。
 -   **Memoization (メモ化)** {#memoization}
     -   関数の計算結果をキャッシュして、同じ引数での再計算を避ける最適化技術。
+-   **Match (マッチ)** {#match}
+    -   Effect-TSのパターンマッチングライブラリ。本プロジェクトでは Match.value を使用して、型安全なパターンマッチングと条件分岐を実装しています。
 -   **Model-View-Controller (MVC)** {#mvc}
     -   アプリケーションをモデル、ビュー、コントローラーに分離するアーキテクチャパターン。
 
@@ -164,10 +171,6 @@ estimated_reading_time: "15分"
 -   **Noise Function (ノイズ関数)** {#noise-function}
     -   プロシージャル生成に使用される数学関数。Perlin Noise、Simplex Noiseなどがあり、自然な地形生成に使用されます。
 
-## N
-
--   **Noise Function (ノイズ関数)** {#noise-function}
-    -   プロシージャル生成に使用される数学関数。Perlin Noise、Simplex Noiseなどがあり、自然な地形生成に使用されます。
 
 ## P
 
@@ -182,7 +185,7 @@ estimated_reading_time: "15分"
 ## S
 
 -   **Schema (スキーマ)** {#schema}
-    -   Effect-TSの一部。データ構造の定義、バリデーション、シリアライゼーションを型安全に行うためのライブラリ。
+    -   Effect-TSの一部。データ構造の定義、バリデーション、シリアライゼーションを型安全に行うためのライブラリ。本プロジェクトでは Schema.Struct でデータ構造を定義し、Schema.TaggedError でエラー型を定義する標準パターンを採用しています。
 -   **Service (サービス)** {#service}
     -   DDDおよびEffect-TSの概念。ドメインロジックやインフラストラクチャ機能を提供するオブジェクト。Effect-TSではContext経由で依存性注入されます。
 -   **Structure of Arrays (SoA)** {#soa}

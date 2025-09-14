@@ -1,6 +1,6 @@
 ---
-title: "07 Potion Effects"
-description: "07 Potion Effectsに関する詳細な説明とガイド。"
+title: "07 ポーション効果"
+description: "07 ポーション効果に関する詳細な説明とガイド。"
 category: "specification"
 difficulty: "intermediate"
 tags: ["typescript", "minecraft", "effect-ts", "specification"]
@@ -9,51 +9,51 @@ estimated_reading_time: "30分"
 ---
 
 
-# Potion Effects System
+# ポーション効果システム
 
-The Potion Effects System provides temporary and persistent status effects for entities in the TypeScript Minecraft clone. Built with Effect-TS 3.17+ functional architecture and DDD layer separation, this system manages complex effect interactions, brewing mechanics, and visual feedback while maintaining type safety and predictable behavior.
+ポーション効果システムは、TypeScript Minecraft cloneにおけるエンティティの一時的および永続的なステータス効果を提供します。Effect-TS 3.17+の関数型アーキテクチャとDDDレイヤー分離で構築され、型安全性と予測可能な動作を維持しながら、複雑な効果相互作用、醸造メカニクス、視覚的フィードバックを管理します。
 
-## System Overview and Responsibilities
+## システム概要と責任
 
-The Potion Effects System serves as an enhanced feature built on top of Player and Crafting Systems, providing:
+ポーション効果システムは、プレイヤーシステムとクラフトシステムの上に構築された拡張機能として、以下を提供します：
 
-- **Effect Definition & Management**: Comprehensive effect type definitions with amplification and duration control
-- **Brewing Mechanics**: Full brewing stand functionality with recipe validation and progression
-- **Effect Application Logic**: Type-safe effect stacking, overriding, and removal mechanisms
-- **Effect Interactions**: Complex interaction patterns including conflicts, enhancements, and neutralization
-- **Visual Integration**: Particle systems, UI overlays, and screen effects
-- **Status Calculations**: Real-time modification of entity attributes (speed, damage, health)
-- **Persistence**: Effect serialization and world save integration
-- **Performance Optimization**: ECS integration with Structure of Arrays patterns
+- **効果定義・管理**: 増幅と持続時間制御を含む包括的な効果タイプ定義
+- **醸造メカニクス**: レシピ検証と進行を含む完全な醸造台機能
+- **効果適用ロジック**: 型安全な効果重複、上書き、削除メカニズム
+- **効果相互作用**: 競合、強化、中和を含む複雑な相互作用パターン
+- **視覚統合**: パーティクルシステム、UIオーバーレイ、画面効果
+- **ステータス計算**: エンティティ属性（速度、ダメージ、体力）のリアルタイム変更
+- **永続化**: 効果のシリアライゼーションとワールドセーブ統合
+- **パフォーマンス最適化**: Structure of Arraysパターンを用いたECS統合
 
-### Architecture Overview
+### アーキテクチャ概要
 
 ```
 Domain/
-├── PotionEffect/         # Core effect definitions and calculations
-├── BrewingSystem/        # Brewing mechanics and recipes
-├── EffectInteraction/    # Complex interaction rules and resolution
-└── StatusCalculation/    # Pure functions for attribute modification
+├── PotionEffect/         # 効果の核となる定義と計算
+├── BrewingSystem/        # 醸造メカニクスとレシピ
+├── EffectInteraction/    # 複雑な相互作用ルールと解決
+└── StatusCalculation/    # 属性変更のための純粋関数
 
 Application/
-├── EffectManager/        # Effect lifecycle management
-├── BrewingProcess/       # Brewing workflow coordination
-├── EffectApplication/    # Application strategies and validation
-└── EffectPersistence/    # Save/load coordination
+├── EffectManager/        # 効果のライフサイクル管理
+├── BrewingProcess/       # 醸造ワークフローの調整
+├── EffectApplication/    # 適用戦略と検証
+└── EffectPersistence/    # 保存/読み込み調整
 
 Infrastructure/
-├── EffectStorage/        # Data persistence implementation
-├── ParticleRenderer/     # Visual effect rendering
-├── EffectTimer/          # Time-based effect management
-└── PerformanceCache/     # Optimization and caching
+├── EffectStorage/        # データ永続化実装
+├── ParticleRenderer/     # 視覚効果レンダリング
+├── EffectTimer/          # 時間ベース効果管理
+└── PerformanceCache/     # 最適化とキャッシュ
 ```
 
-## Effect Definition System
+## 効果定義システム
 
-### Core Effect Types
+### 核となる効果タイプ
 
 ```typescript
-// Domain Layer - Effect Type Definitions
+// ドメイン層 - 効果タイプ定義
 const PotionEffectType = Schema.Literal(
   "Speed", "Slowness", "Haste", "MiningFatigue",
   "Strength", "InstantHealth", "InstantDamage", "JumpBoost",
@@ -67,7 +67,7 @@ const PotionEffectType = Schema.Literal(
 
 type PotionEffectType = Schema.Schema.Type<typeof PotionEffectType>
 
-// Effect Instance Definition
+// 効果インスタンス定義
 const PotionEffect = Schema.Struct({
   id: Schema.String.pipe(Schema.brand("EffectId")),
   type: PotionEffectType,
@@ -77,24 +77,24 @@ const PotionEffect = Schema.Struct({
   ),
   duration: Schema.Number.pipe(
     Schema.positive(),
-    Schema.brand("EffectDuration") // in ticks (1 tick = 50ms)
+    Schema.brand("EffectDuration") // ティック単位 (1 tick = 50ms)
   ),
   remainingDuration: Schema.Number.pipe(Schema.brand("EffectDuration")),
   showParticles: Schema.Boolean.pipe(Schema.default(true)),
   showIcon: Schema.Boolean.pipe(Schema.default(true)),
-  ambient: Schema.Boolean.pipe(Schema.default(false)), // beacon effects
+  ambient: Schema.Boolean.pipe(Schema.default(false)), // ビーコン効果
   source: Schema.Struct({
     type: Schema.Literal("Potion", "Splash", "Lingering", "Arrow", "Beacon", "Food", "Command", "Natural"),
     sourceId: Schema.optional(Schema.String),
-    appliedBy: Schema.optional(Schema.String) // Entity ID that applied this effect
+    appliedBy: Schema.optional(Schema.String) // この効果を適用したエンティティID
   }),
-  hiddenEffect: Schema.optional(PotionEffectType), // For suspicious stew
+  hiddenEffect: Schema.optional(PotionEffectType), // 怪しげなシチュー用
   factorData: Schema.optional(Schema.Record(Schema.String, Schema.Number))
 })
 
 type PotionEffect = Schema.Schema.Type<typeof PotionEffect>
 
-// Effect Properties Template
+// 効果プロパティテンプレート
 const EffectProperties = Schema.Struct({
   type: PotionEffectType,
   category: Schema.Literal("Beneficial", "Harmful", "Neutral"),
@@ -107,7 +107,7 @@ const EffectProperties = Schema.Struct({
   baseValue: Schema.Number,
   scalingFactor: Schema.Number,
   maxAmplifier: Schema.Number.pipe(Schema.default(3)),
-  tickInterval: Schema.Number.pipe(Schema.default(20)), // ticks between applications
+  tickInterval: Schema.Number.pipe(Schema.default(20)), // 適用間隔（ティック）
   conflictsWith: Schema.Array(PotionEffectType),
   enhancesWith: Schema.Array(PotionEffectType),
   neutralizesWith: Schema.Array(PotionEffectType)
@@ -116,10 +116,10 @@ const EffectProperties = Schema.Struct({
 type EffectProperties = Schema.Schema.Type<typeof EffectProperties>
 ```
 
-### Pure Effect Calculations
+### 純粋効果計算
 
 ```typescript
-// Pure function for effect value calculation
+// 効果値計算のための純粋関数
 const calculateEffectValue = (
   effect: PotionEffect,
   properties: EffectProperties
@@ -128,14 +128,14 @@ const calculateEffectValue = (
   return properties.baseValue + (properties.scalingFactor * amplifierMultiplier)
 }
 
-// Duration calculations
+// 持続時間計算
 const calculateRemainingTicks = (
   effect: PotionEffect,
   currentTick: number,
   startTick: number
 ): number => Math.max(0, effect.duration - (currentTick - startTick))
 
-// Effect strength comparison
+// 効果強度比較
 const compareEffectStrength = (
   effect1: PotionEffect,
   effect2: PotionEffect
@@ -148,7 +148,7 @@ const compareEffectStrength = (
   return effect1.remainingDuration - effect2.remainingDuration
 }
 
-// Effect applicability check
+// 効果適用可能性チェック
 const canApplyEffect = (
   newEffect: PotionEffect,
   existingEffects: readonly PotionEffect[],
@@ -170,12 +170,12 @@ const canApplyEffect = (
 }
 ```
 
-## Potion Brewing System
+## ポーション醸造システム
 
-### Brewing Recipe Definitions
+### 醸造レシピ定義
 
 ```typescript
-// Brewing Ingredient Types
+// 醸造材料タイプ
 const BrewingIngredient = Schema.Struct({
   type: Schema.Literal(
     "NetherWart", "RedstoneDust", "GlowstoneDust", "Gunpowder", "DragonBreath",
@@ -189,7 +189,7 @@ const BrewingIngredient = Schema.Struct({
 
 type BrewingIngredient = Schema.Schema.Type<typeof BrewingIngredient>
 
-// Brewing Recipe Structure
+// 醸造レシピ構造
 const BrewingRecipe = Schema.Struct({
   id: Schema.String.pipe(Schema.brand("RecipeId")),
   name: Schema.String,
@@ -198,16 +198,16 @@ const BrewingRecipe = Schema.Struct({
   resultPotion: Schema.Struct({
     type: PotionEffectType,
     amplifier: Schema.Number.pipe(Schema.default(0)),
-    duration: Schema.Number.pipe(Schema.default(3600)) // 3 minutes in ticks
+    duration: Schema.Number.pipe(Schema.default(3600)) // 3分間（ティック単位）
   }),
-  brewingTime: Schema.Number.pipe(Schema.default(400)), // 20 seconds in ticks
+  brewingTime: Schema.Number.pipe(Schema.default(400)), // 20秒間（ティック単位）
   fuelCost: Schema.Number.pipe(Schema.default(1)),
   successRate: Schema.Number.pipe(Schema.clamp(0, 1), Schema.default(1))
 })
 
 type BrewingRecipe = Schema.Schema.Type<typeof BrewingRecipe>
 
-// Potion Modification Types
+// ポーション変更タイプ
 const PotionModification = Schema.Literal("Extended", "Enhanced", "Splash", "Lingering")
 type PotionModification = Schema.Schema.Type<typeof PotionModification>
 
@@ -225,10 +225,10 @@ const ModificationRecipe = Schema.Struct({
 type ModificationRecipe = Schema.Schema.Type<typeof ModificationRecipe>
 ```
 
-### Brewing Station Management
+### 醸造台管理
 
 ```typescript
-// Application Layer - Brewing Process
+// アプリケーション層 - 醸造プロセス
 interface BrewingSystemInterface {
   readonly startBrewing: (
     stationId: string,
@@ -257,7 +257,7 @@ interface BrewingSystemInterface {
 
 const BrewingSystem = Context.GenericTag<BrewingSystemInterface>("@app/BrewingSystem")
 
-// Brewing Station State
+// 醸造台状態
 const BrewingStation = Schema.Struct({
   id: Schema.String.pipe(Schema.brand("BrewingStationId")),
   position: Position,
@@ -277,7 +277,7 @@ const BrewingStation = Schema.Struct({
 
 type BrewingStation = Schema.Schema.Type<typeof BrewingStation>
 
-// Brewing Process State
+// 醸造プロセス状態
 const BrewingProcess = Schema.Struct({
   id: Schema.String.pipe(Schema.brand("ProcessId")),
   stationId: Schema.String.pipe(Schema.brand("BrewingStationId")),
@@ -293,12 +293,12 @@ const BrewingProcess = Schema.Struct({
 type BrewingProcess = Schema.Schema.Type<typeof BrewingProcess>
 ```
 
-## Effect Application and Removal Mechanisms
+## 効果適用・削除メカニズム
 
-### Effect Management Service
+### 効果管理サービス
 
 ```typescript
-// Application Layer - Effect Management
+// アプリケーション層 - 効果管理
 interface EffectManagerInterface {
   readonly applyEffect: (
     entityId: EntityId,
@@ -338,7 +338,7 @@ interface EffectManagerInterface {
 
 const EffectManager = Context.GenericTag<EffectManagerInterface>("@app/EffectManager")
 
-// Active Effect State
+// アクティブ効果状態
 const ActiveEffect = Schema.Struct({
   id: Schema.String.pipe(Schema.brand("ActiveEffectId")),
   entityId: EntityId,
@@ -353,10 +353,10 @@ const ActiveEffect = Schema.Struct({
 type ActiveEffect = Schema.Schema.Type<typeof ActiveEffect>
 ```
 
-### Effect Application Logic
+### 効果適用ロジック
 
 ```typescript
-// Effect application with interaction handling
+// 相互作用処理を含む効果適用
 const applyEffectToEntity = (
   entityId: EntityId,
   effect: PotionEffect,
@@ -364,22 +364,22 @@ const applyEffectToEntity = (
   force: boolean = false
 ): Effect.Effect<ActiveEffect, EffectError> =>
   Effect.gen(function* () {
-    // Early return: Entity validation
+    // 早期リターン: エンティティ検証
     const entity = yield* EntityManager.getEntity(entityId)
     if (!entity) {
-      return yield* Effect.fail(createEffectError("Entity not found", entityId))
+      return yield* Effect.fail(createEffectError("エンティティが見つかりません", entityId))
     }
 
-    // Early return: Effect properties validation
+    // 早期リターン: 効果プロパティ検証
     const properties = yield* getEffectProperties(effect.type)
     if (!properties) {
-      return yield* Effect.fail(createEffectError("Unknown effect type", effect.type))
+      return yield* Effect.fail(createEffectError("未知の効果タイプ", effect.type))
     }
 
-    // Get existing effects
+    // 既存効果を取得
     const existingEffects = yield* EffectStorage.getEntityEffects(entityId)
 
-    // Process interactions
+    // 相互作用を処理
     const interactionResult = yield* processEffectInteraction(effect, existingEffects, properties)
 
     return yield* Match.value(interactionResult).pipe(
@@ -397,7 +397,7 @@ const applyEffectToEntity = (
         stackEffectAmplifier(entityId, existingEffect, effect.amplifier)
       ),
       Match.tag("Block", () =>
-        Effect.fail(createEffectError("Effect application blocked by existing effect"))
+        Effect.fail(createEffectError("既存の効果により効果適用がブロックされました"))
       ),
       Match.tag("Neutralize", ({ neutralizedEffects }) =>
         Effect.gen(function* () {
@@ -411,7 +411,7 @@ const applyEffectToEntity = (
     )
   })
 
-// Effect removal with cleanup
+// クリーンアップを含む効果削除
 const removeEffectFromEntity = (
   entityId: EntityId,
   effectType: PotionEffectType
@@ -421,16 +421,16 @@ const removeEffectFromEntity = (
 
     if (!activeEffect) return
 
-    // Apply removal side effects
+    // 削除の副作用を適用
     yield* applyEffectRemovalSideEffects(entityId, activeEffect)
 
-    // Remove from storage
+    // ストレージから削除
     yield* EffectStorage.removeEntityEffect(entityId, effectType)
 
-    // Update entity attributes
+    // エンティティ属性を更新
     yield* recalculateEntityAttributes(entityId)
 
-    // Trigger removal events
+    // 削除イベントをトリガー
     yield* EventBus.publish({
       type: "EffectRemoved",
       entityId,
@@ -441,12 +441,12 @@ const removeEffectFromEntity = (
   })
 ```
 
-## Effect Interaction System
+## 効果相互作用システム
 
-### Interaction Patterns
+### 相互作用パターン
 
 ```typescript
-// Effect Interaction Result Types
+// 効果相互作用結果タイプ
 type EffectInteractionResult =
   | { readonly _tag: "Apply" }
   | { readonly _tag: "Replace"; readonly oldEffect: ActiveEffect }
@@ -455,30 +455,32 @@ type EffectInteractionResult =
   | { readonly _tag: "Block" }
   | { readonly _tag: "Neutralize"; readonly neutralizedEffects: readonly ActiveEffect[] }
 
-// Interaction processing
+// 相互作用処理
 const processEffectInteraction = (
   newEffect: PotionEffect,
   existingEffects: readonly ActiveEffect[],
   properties: EffectProperties
 ): Effect.Effect<EffectInteractionResult, never> =>
   Effect.gen(function* () {
-    // Check for same type effects
+    // 同じタイプの効果をチェック
     const sameTypeEffect = existingEffects.find(e => e.effect.type === newEffect.type)
 
     if (sameTypeEffect) {
       return yield* handleSameTypeInteraction(newEffect, sameTypeEffect, properties)
     }
 
-    // Check for conflicting effects
+    // 競合する効果をチェック
     const conflictingEffects = existingEffects.filter(e =>
       properties.conflictsWith.includes(e.effect.type)
     )
 
     if (conflictingEffects.length > 0) {
+      // 最も強い競合効果を見つける
       const strongestConflict = conflictingEffects.reduce((strongest, current) =>
         compareEffectStrength(current.effect, strongest.effect) > 0 ? current : strongest
       )
 
+      // 新しい効果がより強い場合は置き換え、そうでなければブロック
       if (compareEffectStrength(newEffect, strongestConflict.effect) > 0) {
         return { _tag: "Replace", oldEffect: strongestConflict } as const
       } else {
@@ -486,7 +488,7 @@ const processEffectInteraction = (
       }
     }
 
-    // Check for neutralizing effects
+    // 中和する効果をチェック
     const neutralizingEffects = existingEffects.filter(e =>
       properties.neutralizesWith.includes(e.effect.type) ||
       isOppositeEffect(newEffect.type, e.effect.type)
@@ -496,14 +498,16 @@ const processEffectInteraction = (
       return { _tag: "Neutralize", neutralizedEffects: neutralizingEffects } as const
     }
 
-    // Check for enhancing effects
+    // 強化する効果をチェック
     const enhancingEffects = existingEffects.filter(e =>
       properties.enhancesWith.includes(e.effect.type)
     )
 
     if (enhancingEffects.length > 0) {
       const enhancer = enhancingEffects[0]
+      // 増幅値を1上げる（上限255）
       const enhancedAmplifier = Math.min(255, newEffect.amplifier + 1)
+      // 継続時間を1.5倍にする
       const enhancedDuration = Math.floor(newEffect.duration * 1.5)
 
       return {
@@ -517,8 +521,9 @@ const processEffectInteraction = (
     return { _tag: "Apply" } as const
   })
 
-// Pure functions for effect relationships
+// 効果関係判定のための純粋関数
 const isOppositeEffect = (effect1: PotionEffectType, effect2: PotionEffectType): boolean => {
+  // 対立する効果のマップ定義
   const opposites: Record<PotionEffectType, PotionEffectType[]> = {
     "Speed": ["Slowness"],
     "Slowness": ["Speed"],
@@ -558,7 +563,9 @@ const isOppositeEffect = (effect1: PotionEffectType, effect2: PotionEffectType):
   return opposites[effect1]?.includes(effect2) ?? false
 }
 
+// 効果強化判定のための純粋関数
 const isEnhancingEffect = (effect1: PotionEffectType, effect2: PotionEffectType): boolean => {
+  // 相互強化する効果のマップ定義
   const enhancements: Record<PotionEffectType, PotionEffectType[]> = {
     "Speed": ["JumpBoost", "DolphinsGrace"],
     "JumpBoost": ["Speed"],
@@ -579,12 +586,12 @@ const isEnhancingEffect = (effect1: PotionEffectType, effect2: PotionEffectType)
 }
 ```
 
-## Visual Effects Integration
+## 視覚効果統合
 
-### Particle System Integration
+### パーティクルシステム統合
 
 ```typescript
-// Effect Particle Configuration
+// 効果パーティクル設定
 const EffectParticleConfig = Schema.Struct({
   type: Schema.Literal("Ambient", "Spell", "InstantSpell", "WitchSpell", "Note", "Portal", "Enchant", "Flame", "Lava", "Footstep", "Splash", "Wake", "Smoke", "Redstone", "Snowball", "Slime", "Heart", "Barrier", "ItemCrack", "BlockCrack", "BlockDust", "DropletRain", "DropletSplash", "Sweep", "Bubble", "Cloud", "Explosion"),
   color: Schema.Struct({
@@ -602,7 +609,7 @@ const EffectParticleConfig = Schema.Struct({
 
 type EffectParticleConfig = Schema.Schema.Type<typeof EffectParticleConfig>
 
-// Effect-specific particle mappings
+// 効果固有のパーティクルマッピング
 const getEffectParticleConfigs = (effectType: PotionEffectType): readonly EffectParticleConfig[] => {
   const particleMap: Record<PotionEffectType, readonly EffectParticleConfig[]> = {
     "Speed": [{
@@ -668,13 +675,13 @@ const getEffectParticleConfigs = (effectType: PotionEffectType): readonly Effect
       size: 0.3,
       gravity: -0.05
     }]
-    // Additional effects...
+    // 追加効果...
   }
 
   return particleMap[effectType] ?? []
 }
 
-// Particle Rendering Service
+// パーティクルレンダリングサービス
 interface EffectParticleRendererInterface {
   readonly spawnEffectParticles: (
     entityId: EntityId,
@@ -700,10 +707,10 @@ interface EffectParticleRendererInterface {
 const EffectParticleRenderer = Context.GenericTag<EffectParticleRendererInterface>("@app/EffectParticleRenderer")
 ```
 
-### UI Display System
+### UI表示システム
 
 ```typescript
-// Effect Status UI Components
+// 効果ステータスUIコンポーネント
 const EffectStatusIcon = Schema.Struct({
   effectType: PotionEffectType,
   amplifier: Schema.Number,
@@ -722,7 +729,7 @@ const EffectStatusIcon = Schema.Struct({
 
 type EffectStatusIcon = Schema.Schema.Type<typeof EffectStatusIcon>
 
-// Screen Overlay Effects
+// 画面オーバーレイ効果
 const ScreenOverlayEffect = Schema.Struct({
   effectType: PotionEffectType,
   overlayType: Schema.Literal("ColorTint", "Distortion", "Border", "Vignette", "Particles"),
@@ -739,7 +746,7 @@ const ScreenOverlayEffect = Schema.Struct({
 
 type ScreenOverlayEffect = Schema.Schema.Type<typeof ScreenOverlayEffect>
 
-// UI Management Service
+// UI管理サービス
 interface EffectUIInterface {
   readonly updateStatusDisplay: (
     playerId: PlayerId,
@@ -767,12 +774,12 @@ interface EffectUIInterface {
 const EffectUI = Context.GenericTag<EffectUIInterface>("@app/EffectUI")
 ```
 
-## Status Effect Calculations
+## ステータス効果計算
 
-### Attribute Modification System
+### 属性変更システム
 
 ```typescript
-// Attribute Modifier Types
+// 属性修飾子タイプ
 const AttributeModifier = Schema.Struct({
   attribute: Schema.Literal(
     "MaxHealth", "MovementSpeed", "AttackDamage", "AttackSpeed",
@@ -786,7 +793,7 @@ const AttributeModifier = Schema.Struct({
 
 type AttributeModifier = Schema.Schema.Type<typeof AttributeModifier>
 
-// Effect to modifier mapping
+// 効果から修飾子へのマッピング
 const getEffectModifiers = (
   effect: PotionEffect
 ): readonly AttributeModifier[] => {
@@ -796,73 +803,73 @@ const getEffectModifiers = (
     "Speed": (amp) => [{
       attribute: "MovementSpeed",
       operation: "MultiplyBase",
-      value: 0.2 * amp,
+      value: 0.2 * amp, // 増幅レベル毎に20%の移動速度向上
       uuid: `speed_${effect.id}` as AttributeModifier["uuid"]
     }],
     "Slowness": (amp) => [{
       attribute: "MovementSpeed",
       operation: "MultiplyBase",
-      value: -0.15 * amp,
+      value: -0.15 * amp, // 増幅レベル毎に15%の移動速度低下
       uuid: `slowness_${effect.id}` as AttributeModifier["uuid"]
     }],
     "Haste": (amp) => [{
       attribute: "AttackSpeed",
       operation: "MultiplyBase",
-      value: 0.1 * amp,
+      value: 0.1 * amp, // 増幅レベル毎に10%の攻撃速度向上
       uuid: `haste_${effect.id}` as AttributeModifier["uuid"]
     }],
     "MiningFatigue": (amp) => [{
       attribute: "AttackSpeed",
       operation: "MultiplyBase",
-      value: -0.1 * amp,
+      value: -0.1 * amp, // 増幅レベル毎に10%の採掘速度低下
       uuid: `mining_fatigue_${effect.id}` as AttributeModifier["uuid"]
     }],
     "Strength": (amp) => [{
       attribute: "AttackDamage",
       operation: "Add",
-      value: 3 * amp,
+      value: 3 * amp, // 増幅レベル毎に3ポイントの攻撃力向上
       uuid: `strength_${effect.id}` as AttributeModifier["uuid"]
     }],
     "Weakness": (amp) => [{
       attribute: "AttackDamage",
       operation: "Add",
-      value: -4 * amp,
+      value: -4 * amp, // 増幅レベル毎に4ポイントの攻撃力低下
       uuid: `weakness_${effect.id}` as AttributeModifier["uuid"]
     }],
     "JumpBoost": (amp) => [{
       attribute: "JumpHeight",
       operation: "Add",
-      value: 0.1 * amp,
+      value: 0.1 * amp, // 増幅レベル毎に0.1の跳躍力向上
       uuid: `jump_boost_${effect.id}` as AttributeModifier["uuid"]
     }],
     "Resistance": (amp) => [{
       attribute: "Armor",
       operation: "Add",
-      value: 2 * amp,
+      value: 2 * amp, // 増幅レベル毎に2ポイントの防御力向上
       uuid: `resistance_${effect.id}` as AttributeModifier["uuid"]
     }],
     "HealthBoost": (amp) => [{
       attribute: "MaxHealth",
       operation: "Add",
-      value: 4 * amp,
+      value: 4 * amp, // 増幅レベル毎に4ポイントの最大体力向上
       uuid: `health_boost_${effect.id}` as AttributeModifier["uuid"]
     }],
     "Absorption": (amp) => [{
       attribute: "MaxHealth",
       operation: "Add",
-      value: 4 * amp,
+      value: 4 * amp, // 増幅レベル毎に4ポイントの衝撃吸収
       uuid: `absorption_${effect.id}` as AttributeModifier["uuid"]
     }],
     "Luck": (amp) => [{
       attribute: "Luck",
       operation: "Add",
-      value: amp,
+      value: amp, // 増幅レベル毎に1ポイントの幸運向上
       uuid: `luck_${effect.id}` as AttributeModifier["uuid"]
     }],
     "Unluck": (amp) => [{
       attribute: "Luck",
       operation: "Add",
-      value: -amp,
+      value: -amp, // 増幅レベル毎に1ポイントの運低下
       uuid: `unluck_${effect.id}` as AttributeModifier["uuid"]
     }]
   }
@@ -871,7 +878,7 @@ const getEffectModifiers = (
   return generator ? generator(amplifier) : []
 }
 
-// Status Calculation Service
+// ステータス計算サービス
 interface StatusCalculatorInterface {
   readonly calculateEntityAttributes: (
     entityId: EntityId,
@@ -894,44 +901,44 @@ interface StatusCalculatorInterface {
 
 const StatusCalculator = Context.GenericTag<StatusCalculatorInterface>("@app/StatusCalculator")
 
-// Pure modifier application function
+// 純粋修飾子適用関数
 const applyAttributeModifiers = (
   baseValue: number,
   modifiers: readonly AttributeModifier[]
 ): number => {
-  // Group modifiers by operation type
+  // 操作タイプ別に修飾子をグループ化
   const addModifiers = modifiers.filter(m => m.operation === "Add")
   const multiplyBaseModifiers = modifiers.filter(m => m.operation === "MultiplyBase")
   const multiplyTotalModifiers = modifiers.filter(m => m.operation === "MultiplyTotal")
 
-  // Apply additive modifiers first
+  // 最初に加算修飾子を適用
   const afterAdd = addModifiers.reduce(
     (value, modifier) => value + modifier.value,
     baseValue
   )
 
-  // Apply base multiplication modifiers
+  // ベース乗算修飾子を適用
   const afterMultiplyBase = multiplyBaseModifiers.reduce(
     (value, modifier) => value * (1 + modifier.value),
     afterAdd
   )
 
-  // Apply total multiplication modifiers
+  // 総合乗算修飾子を適用
   const final = multiplyTotalModifiers.reduce(
     (value, modifier) => value * (1 + modifier.value),
     afterMultiplyBase
   )
 
-  return Math.max(0, final)
+  return Math.max(0, final) // 負の値を防ぐ
 }
 ```
 
-## Effect Persistence and Save System
+## 効果永続化・保存システム
 
-### Persistence Schema
+### 永続化スキーマ
 
 ```typescript
-// Serializable Effect Data
+// シリアライズ可能効果データ
 const SerializableEffect = Schema.Struct({
   type: PotionEffectType,
   amplifier: Schema.Number,
@@ -949,7 +956,7 @@ const SerializableEffect = Schema.Struct({
 
 type SerializableEffect = Schema.Schema.Type<typeof SerializableEffect>
 
-// Entity Effect Save Data
+// エンティティ効果保存データ
 const EntityEffectSaveData = Schema.Struct({
   entityId: EntityId,
   effects: Schema.Array(SerializableEffect),
@@ -959,7 +966,7 @@ const EntityEffectSaveData = Schema.Struct({
 
 type EntityEffectSaveData = Schema.Schema.Type<typeof EntityEffectSaveData>
 
-// World Effect Data
+// ワールド効果データ
 const WorldEffectData = Schema.Struct({
   entities: Schema.Array(EntityEffectSaveData),
   brewingStations: Schema.Array(BrewingStation),
@@ -974,10 +981,10 @@ const WorldEffectData = Schema.Struct({
 type WorldEffectData = Schema.Schema.Type<typeof WorldEffectData>
 ```
 
-### Persistence Service
+### 永続化サービス
 
 ```typescript
-// Persistence Management
+// 永続化管理
 interface EffectPersistenceInterface {
   readonly saveWorldEffects: (
     worldId: WorldId
@@ -999,7 +1006,7 @@ interface EffectPersistenceInterface {
   readonly createWorldBackup: (
     worldId: WorldId,
     includeEffects: boolean
-  ) => Effect.Effect<string, PersistenceError> // Returns backup path
+  ) => Effect.Effect<string, PersistenceError> // バックアップパスを返す
 
   readonly restoreFromBackup: (
     backupPath: string
@@ -1008,7 +1015,7 @@ interface EffectPersistenceInterface {
 
 const EffectPersistence = Context.GenericTag<EffectPersistenceInterface>("@app/EffectPersistence")
 
-// Serialization helpers
+// シリアライゼーションヘルパー
 const serializeActiveEffect = (activeEffect: ActiveEffect): SerializableEffect => ({
   type: activeEffect.effect.type,
   amplifier: activeEffect.effect.amplifier,
@@ -1041,7 +1048,7 @@ const deserializeEffect = (
 
     const activeEffect: ActiveEffect = {
       id: crypto.randomUUID() as ActiveEffect["id"],
-      entityId: "" as EntityId, // Will be set by caller
+      entityId: "" as EntityId, // 呼び出し元によって設定される
       effect,
       appliedTick: serialized.appliedTick,
       lastTickApplied: serialized.lastTickApplied,
@@ -1053,30 +1060,30 @@ const deserializeEffect = (
   })
 ```
 
-## Performance Optimization
+## パフォーマンス最適化
 
-### ECS Integration and Memory Management
+### ECS統合とメモリ管理
 
 ```typescript
-// Effect Component (ECS Integration)
+// 効果コンポーネント (ECS統合)
 interface EffectComponentArrays {
   readonly entityIds: Int32Array
   readonly effectTypeCounts: Int32Array
-  readonly effectTypes: Int32Array // Packed effect type enums
+  readonly effectTypes: Int32Array // パックされた効果タイプ列挙型
   readonly amplifiers: Int32Array
   readonly remainingDurations: Int32Array
   readonly lastTickApplied: Int32Array
-  readonly showParticles: Int8Array // Boolean flags
+  readonly showParticles: Int8Array // ブールフラグ
   readonly showIcons: Int8Array
   readonly ambient: Int8Array
   readonly particleTimers: Float32Array
 }
 
-// Structure of Arrays implementation
+// Structure of Arrays実装
 const createEffectComponentArrays = (capacity: number): EffectComponentArrays => ({
   entityIds: new Int32Array(capacity),
   effectTypeCounts: new Int32Array(capacity),
-  effectTypes: new Int32Array(capacity * 8), // Max 8 effects per entity
+  effectTypes: new Int32Array(capacity * 8), // エンティティ毎に最大8効果
   amplifiers: new Int32Array(capacity * 8),
   remainingDurations: new Int32Array(capacity * 8),
   lastTickApplied: new Int32Array(capacity * 8),
@@ -1086,7 +1093,7 @@ const createEffectComponentArrays = (capacity: number): EffectComponentArrays =>
   particleTimers: new Float32Array(capacity * 8)
 })
 
-// Batch effect updates
+// バッチ効果更新
 const updateEffectsBatch = (
   arrays: EffectComponentArrays,
   deltaTicks: number,
@@ -1097,7 +1104,7 @@ const updateEffectsBatch = (
   Effect.sync(() => {
     for (let entityIndex = startIndex; entityIndex < endIndex; entityIndex++) {
       const entityId = arrays.entityIds[entityIndex]
-      if (entityId === 0) continue // Empty slot
+      if (entityId === 0) continue // 空きスロット
 
       const effectCount = arrays.effectTypeCounts[entityIndex]
       const effectStartIndex = entityIndex * 8
@@ -1107,32 +1114,32 @@ const updateEffectsBatch = (
         const remainingDuration = arrays.remainingDurations[arrayIndex]
 
         if (remainingDuration <= 0) {
-          // Effect expired - remove it
+          // 効果が期限切れ - 削除する
           removeEffectFromArrays(arrays, entityIndex, effectIndex)
           continue
         }
 
-        // Update remaining duration
+        // 残り時間を更新
         arrays.remainingDurations[arrayIndex] = Math.max(0, remainingDuration - deltaTicks)
 
-        // Update particle timers
+        // パーティクルタイマーを更新
         arrays.particleTimers[arrayIndex] -= deltaTicks
         if (arrays.particleTimers[arrayIndex] <= 0 && arrays.showParticles[arrayIndex]) {
-          arrays.particleTimers[arrayIndex] = 20 // Reset to 1 second
-          // Trigger particle spawn
+          arrays.particleTimers[arrayIndex] = 20 // 1秒にリセット
+          // パーティクル生成をトリガー
         }
 
-        // Apply tick effects
+        // ティック効果を適用
         const tickInterval = getEffectTickInterval(arrays.effectTypes[arrayIndex])
         if (currentTick - arrays.lastTickApplied[arrayIndex] >= tickInterval) {
           arrays.lastTickApplied[arrayIndex] = currentTick
-          // Apply tick-based effect logic
+          // ティックベースの効果ロジックを適用
         }
       }
     }
   })
 
-// Memory pool for effect instances
+// 効果インスタンスのためのメモリプール
 interface EffectMemoryPool {
   readonly activeEffects: ActiveEffect[]
   readonly freeIndices: Set<number>
@@ -1149,10 +1156,10 @@ const createEffectMemoryPool = (initialCapacity: number = 10000): Effect.Effect<
   }))
 ```
 
-### Performance Monitoring and Optimization
+### パフォーマンス監視と最適化
 
 ```typescript
-// Performance metrics
+// パフォーマンスメトリクス
 const EffectPerformanceMetrics = Schema.Struct({
   totalActiveEffects: Schema.Number,
   effectUpdatesPerSecond: Schema.Number,
@@ -1165,7 +1172,7 @@ const EffectPerformanceMetrics = Schema.Struct({
 
 type EffectPerformanceMetrics = Schema.Schema.Type<typeof EffectPerformanceMetrics>
 
-// Adaptive quality system
+// 適応品質システム
 const adaptiveEffectQuality = (
   performanceMetrics: EffectPerformanceMetrics,
   targetFPS: number,
@@ -1179,9 +1186,9 @@ const adaptiveEffectQuality = (
     let maxEffectsPerEntity = 8
     let enableScreenEffects = true
 
-    if (performanceRatio < 0.8) { // Running slow
+    if (performanceRatio < 0.8) { // 処理が遅い場合
       particleQuality = 0.6
-      updateFrequency = 2 // Update every 2 frames
+      updateFrequency = 2 // 2フレーム毎に更新
       maxEffectsPerEntity = 6
       enableScreenEffects = false
     } else if (performanceRatio < 0.9) {
@@ -1203,24 +1210,24 @@ const adaptiveEffectQuality = (
   })
 ```
 
-## Implementation Examples and Code Samples
+## 実装例とコードサンプル
 
-### Complete Usage Example
+### 完全な使用例
 
 ```typescript
-// Main implementation example - Potion consumption
+// メイン実装例 - ポーション消費
 const drinkPotion = (
   playerId: PlayerId,
   potionItem: PotionItem
 ): Effect.Effect<void, GameError> =>
   Effect.gen(function* () {
-    // Early return: Player validation
+    // 早期リターン: プレイヤー検証
     const player = yield* PlayerManager.getPlayer(playerId)
     if (!player) {
       return yield* Effect.fail(createGameError("Player not found"))
     }
 
-    // Early return: Item validation
+    // 早期リターン: アイテム検証
     const potionEffects = yield* validateAndExtractEffects(potionItem)
     if (potionEffects.length === 0) {
       return yield* Effect.fail(createGameError("Invalid potion - no effects"))
@@ -1228,28 +1235,28 @@ const drinkPotion = (
 
     const currentTick = yield* WorldSystem.getCurrentTick()
 
-    // Apply all effects from the potion
+    // ポーションのすべての効果を適用
     yield* Effect.forEach(potionEffects, effect =>
       EffectManager.applyEffect(player.entityId, effect)
     )
 
-    // Consume the item
+    // アイテムを消費
     yield* PlayerInventory.removeItem(playerId, potionItem.id, 1)
 
-    // Add empty bottle
+    // 空の瓶を追加
     const emptyBottle = createGlassBottle()
     yield* PlayerInventory.addItem(playerId, emptyBottle)
 
-    // Play consumption effects
+    // 消費エフェクトを再生
     yield* SoundManager.playSound(player.position, "potion.drink")
     yield* EffectParticleRenderer.spawnEffectParticles(
       player.entityId,
-      potionEffects[0], // Use first effect for particle color
+      potionEffects[0], // パーティクルの色に最初の効果を使用
       player.position,
       1.0
     )
 
-    // Log action
+    // アクションをログに記録
     yield* GameLogger.logAction({
       type: "PotionConsumed",
       playerId,
@@ -1259,7 +1266,7 @@ const drinkPotion = (
     })
   })
 
-// Splash potion explosion
+// スプラッシュポーション爆発
 const explodeSplashPotion = (
   position: Position,
   splashPotion: SplashPotionItem,
@@ -1270,13 +1277,13 @@ const explodeSplashPotion = (
     const potionEffects = yield* extractPotionEffects(splashPotion)
     const nearbyEntities = yield* EntityManager.getEntitiesInRadius(position, splashRadius)
 
-    // Apply effects to all entities in range
+    // 範囲内のすべてのエンティティに効果を適用
     yield* Effect.forEach(nearbyEntities, entity =>
       Effect.gen(function* () {
         const distance = calculateDistance(position, entity.position)
         const intensity = Math.max(0.25, 1 - (distance / splashRadius))
 
-        // Apply each effect with distance-based intensity
+        // 距離に基づく強度でそれぞれの効果を適用
         yield* Effect.forEach(potionEffects, baseEffect => {
           const adjustedEffect: PotionEffect = {
             ...baseEffect,
@@ -1295,7 +1302,7 @@ const explodeSplashPotion = (
       })
     )
 
-    // Create splash visual effects
+    // スプラッシュの視覚効果を生成
     yield* ParticleManager.spawnExplosion(position, {
       type: "PotionSplash",
       color: getPotionColor(splashPotion),
@@ -1306,11 +1313,11 @@ const explodeSplashPotion = (
     yield* SoundManager.playSound(position, "potion.splash")
   })
 
-// Lingering potion area effect
+// 滞留ポーション領域効果
 const createLingeringPotionCloud = (
   position: Position,
   lingeringPotion: LingeringPotionItem,
-  duration: number = 600 // 30 seconds
+  duration: number = 600 // 30秒
 ): Effect.Effect<LingeringEffectCloud, GameError> =>
   Effect.gen(function* () {
     const cloudId = crypto.randomUUID()
@@ -1323,15 +1330,15 @@ const createLingeringPotionCloud = (
       effects: potionEffects,
       remainingTicks: duration,
       particleIntensity: 1.0,
-      reapplicationInterval: 20, // Every second
+      reapplicationInterval: 20, // 毎秒
       lastApplicationTick: 0,
       affectedEntities: new Set()
     }
 
-    // Register the cloud for updates
+    // 雲を更新対象に登録
     yield* LingeringEffectManager.registerCloud(cloud)
 
-    // Initial particle spawn
+    // 初期パーティクルを生成
     yield* ParticleManager.spawnLingeringCloud(position, {
       color: getPotionColor(lingeringPotion),
       radius: cloud.radius,
@@ -1342,17 +1349,17 @@ const createLingeringPotionCloud = (
   })
 ```
 
-### Brewing System Implementation
+### 醸造システム実装
 
 ```typescript
-// Complete brewing process
+// 完全な醸造プロセス
 const startBrewingProcess = (
   brewingStandId: string,
   recipe: BrewingRecipe,
   basePotions: readonly PotionItem[]
 ): Effect.Effect<BrewingProcess, BrewingError> =>
   Effect.gen(function* () {
-    // Early return: Station validation
+    // 早期リターン: ステーション検証
     const station = yield* BrewingStationManager.getStation(brewingStandId)
     if (!station) {
       return yield* Effect.fail(createBrewingError("Brewing stand not found"))
@@ -1362,7 +1369,7 @@ const startBrewingProcess = (
       return yield* Effect.fail(createBrewingError("No fuel in brewing stand"))
     }
 
-    // Early return: Recipe validation
+    // 早期リターン: レシピ検証
     const isValidCombination = yield* validateBrewingCombination(recipe, basePotions)
     if (!isValidCombination) {
       return yield* Effect.fail(createBrewingError("Invalid brewing combination"))
@@ -1383,20 +1390,20 @@ const startBrewingProcess = (
       fuelConsumed: 0
     }
 
-    // Update station state
+    // ステーションの状態を更新
     yield* BrewingStationManager.updateStation(brewingStandId, {
       ...station,
       isActive: true,
       brewingProgress: 0
     })
 
-    // Start visual effects
+    // 視覚効果を開始
     yield* startBrewingEffects(station.position, brewingTime)
 
     return process
   })
 
-// Brewing update loop
+// 醸造更新ループ
 const updateBrewingProcess = (
   processId: string,
   deltaTicks: number
@@ -1410,11 +1417,11 @@ const updateBrewingProcess = (
     const newRemainingTicks = Math.max(0, process.remainingTicks - deltaTicks)
     const progress = 1 - (newRemainingTicks / process.totalTicks)
 
-    // Calculate bubble intensity with sine wave animation
+    // サイン波アニメーションで泡の強度を計算
     const bubbleIntensity = Math.sin(progress * Math.PI * 6) * 0.3 + 0.7
 
-    // Calculate fuel consumption
-    const fuelRate = 1 / 400 // 1 fuel per 400 ticks (20 seconds)
+    // 燃料消費量を計算
+    const fuelRate = 1 / 400 // 400ティック（20秒）で燃料1
     const fuelConsumed = process.fuelConsumed + (deltaTicks * fuelRate)
 
     const updatedProcess: BrewingProcess = {
@@ -1425,13 +1432,13 @@ const updateBrewingProcess = (
       fuelConsumed
     }
 
-    // Update visual effects
+    // 視覚効果を更新
     const station = yield* BrewingStationManager.getStation(process.stationId)
     if (station) {
       yield* updateBrewingEffects(station.position, bubbleIntensity, progress)
     }
 
-    // Check for completion
+    // 完了を確認
     if (updatedProcess.stage === "Complete") {
       yield* completeBrewingProcess(processId)
     }
@@ -1440,10 +1447,10 @@ const updateBrewingProcess = (
   })
 ```
 
-### Testing Implementation
+### テスト実装
 
 ```typescript
-// Comprehensive test suite
+// 包括的テストスイート
 describe("Potion Effects System", () => {
   const TestLayer = Layer.mergeAll(
     PotionEffectsSystemLayer,
@@ -1457,7 +1464,7 @@ describe("Potion Effects System", () => {
         const effectManager = yield* EffectManager
 
         const testEntity = createTestEntity("player")
-        const speedEffect = createSpeedEffect(1, 1200) // Speed II for 60 seconds
+        const speedEffect = createSpeedEffect(1, 1200) // 60秒間のSpeed II
 
         const activeEffect = yield* effectManager.applyEffect(
           testEntity.id,
@@ -1485,9 +1492,9 @@ describe("Potion Effects System", () => {
         yield* effectManager.applyEffect(testEntity.id, speedEffect)
         yield* effectManager.applyEffect(testEntity.id, slowEffect)
 
-        // Speed and Slowness should neutralize each other
+        // SpeedとSlownessは互いに相殺される
         const effects = yield* effectManager.getActiveEffects(testEntity.id)
-        expect(effects.length).toBe(0) // Both should be neutralized
+        expect(effects.length).toBe(0) // 両方とも相殺される
       }).pipe(Effect.provide(TestLayer), Effect.runPromise))
 
     it("should calculate modifiers correctly", () =>
@@ -1501,7 +1508,7 @@ describe("Potion Effects System", () => {
 
         const attackDamage = yield* statusCalculator.getEffectiveAttackDamage(testEntity.id)
         expect(attackDamage).toBeGreaterThan(testEntity.baseAttackDamage)
-        expect(attackDamage).toBe(testEntity.baseAttackDamage + 6) // +3 per amplifier level
+        expect(attackDamage).toBe(testEntity.baseAttackDamage + 6) // 増幅レベルごとに+3
       }).pipe(Effect.provide(TestLayer), Effect.runPromise))
   })
 
@@ -1519,7 +1526,7 @@ describe("Potion Effects System", () => {
         expect(Option.isSome(recipe)).toBe(true)
 
         const invalidIngredients = {
-          primaryIngredient: "Diamond" as const, // Invalid brewing ingredient
+          primaryIngredient: "Diamond" as const, // 無効な醸造材料
           basePotions: ["Water" as const]
         }
 
@@ -1545,12 +1552,12 @@ describe("Potion Effects System", () => {
 
         expect(process.stage).toBe("Brewing")
 
-        // Fast-forward through brewing
+        // 醸造を早送り
         let currentProcess = process
         while (currentProcess.stage === "Brewing") {
           currentProcess = yield* brewingSystem.updateBrewing(
             process.id,
-            100 // 100 ticks at a time
+            100 // 一度に100ティック
           )
         }
 
@@ -1569,7 +1576,7 @@ describe("Potion Effects System", () => {
         const entityCount = 1000
         const effectsPerEntity = 3
 
-        // Create many entities with multiple effects
+        // 複数の効果を持つ多数のエンティティを作成
         const entities = Array.from({ length: entityCount }, (_, i) =>
           createTestEntity(`entity_${i}`)
         )
@@ -1585,17 +1592,17 @@ describe("Potion Effects System", () => {
           })
         )
 
-        // Update all effects
+        // すべての効果を更新
         yield* Effect.forEach(entities, entity =>
-          effectManager.updateEffects(entity.id, 20) // 1 tick
+          effectManager.updateEffects(entity.id, 20) // 1ティック
         )
 
         const endTime = performance.now()
         const duration = endTime - startTime
 
-        expect(duration).toBeLessThan(1000) // Should complete within 1 second
+        expect(duration).toBeLessThan(1000) // 1秒以内に完了する
 
-        // Verify all effects are applied
+        // すべての効果が適用されていることを確認
         const totalEffects = yield* Effect.reduce(
           entities,
           0,
@@ -1615,12 +1622,12 @@ describe("Potion Effects System", () => {
 })
 ```
 
-## Performance Optimization Strategies
+## パフォーマンス最適化戦略
 
-### Batch Processing and Memory Optimization
+### バッチ処理とメモリ最適化
 
 ```typescript
-// Batch effect updates for improved performance
+// パフォーマンス向上のためのバッチ効果更新
 const batchUpdateAllEffects = (
   entityIds: readonly EntityId[],
   deltaTicks: number,
@@ -1634,23 +1641,23 @@ const batchUpdateAllEffects = (
         yield* Effect.forEach(
           batch,
           entityId => EffectManager.updateEffects(entityId, deltaTicks),
-          { concurrency: 8 } // Process 8 entities concurrently
+          { concurrency: 8 } // 8つのエンティティを同時に処理
         )
 
-        // Brief yield to prevent blocking
+        // ブロッキングを防ぐための短い譲歩
         yield* Effect.yieldNow()
       })
     )
   })
 
-// Spatial optimization for particle rendering
+// パーティクルレンダリングのための空間最適化
 const spatiallyOptimizedParticleRender = (
   entities: readonly Entity[],
   camera: CameraState,
   maxRenderDistance: number = 64
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    // Sort entities by distance from camera
+    // カメラからの距離でエンティティをソート
     const entitiesByDistance = entities
       .map(entity => ({
         entity,
@@ -1659,20 +1666,20 @@ const spatiallyOptimizedParticleRender = (
       .filter(({ distance }) => distance <= maxRenderDistance)
       .sort((a, b) => a.distance - b.distance)
 
-    // Render particles with LOD
+    // LODを使用してパーティクルをレンダリング
     yield* Effect.forEach(entitiesByDistance, ({ entity, distance }) =>
       Effect.gen(function* () {
         const effects = yield* EffectManager.getActiveEffects(entity.id)
         if (effects.length === 0) return
 
-        // Calculate quality based on distance
+        // 距離に基づいて品質を計算
         let quality = 1.0
         if (distance > 16) quality = 0.5
         if (distance > 32) quality = 0.25
 
         yield* EffectParticleRenderer.spawnEffectParticles(
           entity.id,
-          effects[0], // Use primary effect for particles
+          effects[0], // パーティクルに主要効果を使用
           entity.position,
           quality
         )
@@ -1681,4 +1688,4 @@ const spatiallyOptimizedParticleRender = (
   })
 ```
 
-The Potion Effects System represents a sophisticated enhancement to the TypeScript Minecraft clone, providing rich gameplay mechanics through complex status effects, brewing systems, and visual feedback. By leveraging Effect-TS's functional architecture and maintaining strict type safety, the system delivers predictable behavior while supporting extensive customization and interaction patterns that enhance the overall gameplay experience.
+ポーション効果システムは、TypeScript Minecraft cloneに対する洗練された拡張機能であり、複雑なステータス効果、醸造システム、視覚的フィードバックを通じて豊かなゲームプレイメカニクスを提供します。Effect-TSの関数型アーキテクチャを活用し、厳格な型安全性を維持することで、予測可能な動作を実現しながら、ゲームプレイ体験全体を向上させる広範囲なカスタマイゼーションと相互作用パターンをサポートします。

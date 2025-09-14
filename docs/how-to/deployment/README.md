@@ -17,10 +17,6 @@ TypeScript Minecraft Clone のプロダクション環境へのデプロイメ�
 
 ### 🏗 CI/CD基盤
 - **[CI/CDデプロイメント](./ci-cd-deployment.md)** - GitHub Actions基盤CI/CDパイプライン構築
-- **[高度デプロイメント戦略](./advanced-deployment-strategies.md)** - Blue-Green、Rolling、Canaryデプロイメント
-
-### 🐳 コンテナ化・オーケストレーション
-- **[Dockerデプロイメント](./docker-deployment.md)** - コンテナ化とDocker基盤デプロイメント
 
 ### ⚡ パフォーマンス・最適化
 - **[パフォーマンス最適化](./performance-optimization.md)** - 本番環境パフォーマンス最適化
@@ -80,9 +76,8 @@ graph TB
 ## 🔧 効果的な活用方法
 
 1. **初回セットアップ**: CI/CDデプロイメントから開始
-2. **本番環境準備**: Dockerデプロイメントでコンテナ化
-3. **高可用性実現**: 高度デプロイメント戦略を適用
-4. **運用安定化**: 監視・トラブルシューティング設定
+2. **パフォーマンス最適化**: 本番環境のパフォーマンスチューニング
+3. **運用安定化**: 監視・トラブルシューティング設定
 
 ## 🔗 関連セクション
 

@@ -163,12 +163,12 @@ const PlayerNotFoundError = Schema.TaggedError("PlayerNotFoundError")({
 
 ```bash
 # Effect-TS 3.17+ と関連ライブラリのインストール
-npm install effect @effect/schema @effect/platform
-npm install -D @effect/vitest fast-check
+pnpm add effect @effect/schema @effect/platform
+pnpm add -D @effect/vitest fast-check
 
 # プロジェクト確認コマンド
 # バージョン確認
-npm list effect @effect/schema
+pnpm list effect @effect/schema
 
 # TypeScript設定検証
 pnpx tsc --noEmit
@@ -183,7 +183,7 @@ tree -I 'node_modules|dist'
 node -e "console.log(require('effect').Effect)"
 
 # パッケージ整合性チェック
-npm outdated
+pnpm outdated
 ```
 
 ### Step 2: Schema-first データモデリング

@@ -127,8 +127,8 @@ Effect-TSの基礎から応用までの関数型プログラミングパター�
 ### 🌐 [Advanced Topics](./advanced-topics/README.md)
 **対象**: 上級 | **所要時間**: 4-8時間
 
-- [マルチプレイヤー実装ガイド](./advanced-topics/multiplayer-implementation-guide.md) - リアルタイム同期とネットワーキング
-- 高度なパフォーマンス最適化とスケーリング
+- Effect-TS × DDD × ECS 統合アーキテクチャ設計
+- 高度なパフォーマンス最適化と品質保証
 
 ## 💡 学習のコツ
 

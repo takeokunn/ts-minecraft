@@ -36,7 +36,7 @@ TypeScript + Effect-TS 3.17+ + Three.jsによるMinecraft Clone開発。
 | Phase | Sprint | 期間 | 機能 | 状態 | 成果物 |
 |-------|--------|------|------|------|---------|
 | 7 | S29-32 | 4週間 | Enhanced Phase 1-3 | ⏳ | エンチャント・ポーション・モブAI・構造物 |
-| 8 | S33-36 | 4週間 | Enhanced Phase 4-5 | ⏳ | レッドストーン・次元・マルチプレイヤー |
+| 8 | S33-36 | 4週間 | Enhanced Phase 4-5 | ⏳ | レッドストーン・次元・統合テスト |
 
 ### Sprint計画原則
 
@@ -1964,27 +1964,27 @@ export const CraftingRecipe = Schema.Struct({
 - [ ] 基本ネザー環境
 ```
 
-### Sprint 32 (Week 32): マルチプレイヤー・最終統合
+### Sprint 32 (Week 32): 統合テスト・品質保証
 
-#### P7-007: Multiplayer Architecture ⭐️
-**サイズ**: M (3h) | **タイプ**: network | **優先度**: Low
+#### P7-007: Comprehensive Integration Testing ⭐️
+**サイズ**: M (3h) | **タイプ**: testing | **優先度**: Critical
 **依存**: P6-008
 ```typescript
 # 実装ファイル
-- src/infrastructure/network/MultiplayerServer.ts
-- src/infrastructure/network/ClientSync.ts
+- src/tests/integration/SystemIntegration.test.ts
+- src/tests/e2e/GameplayFlow.test.ts
 
-# マルチプレイヤー（docs/enhanced-features/multiplayer-architecture.md準拠）
-- WebSocket基本サーバー
-- プレイヤー状態同期
-- チャット機能
-- 基本的なコンフリクト解決
+# 統合テスト実装
+- 全システム統合テスト
+- エンドツーエンドゲームプレイテスト
+- パフォーマンス回帰テスト
+- メモリリーク検証
 
 # 成功基準
-- [ ] 2-4人同時プレイ
-- [ ] 基本状態同期
-- [ ] チャット機能
-※ 注意：基本実装のみ、フル機能は次期開発
+- [ ] カバレッジ80%以上達成
+- [ ] E2Eテスト100%パス
+- [ ] パフォーマンス基準クリア
+- [ ] メモリリークゼロ確認
 ```
 
 #### P7-008: Final Integration & Performance

@@ -50,14 +50,14 @@ Effect-TS 3.17+環境での@effect/vitestを使用したテスト実装パター
 ### 実測データ（100回実行平均）
 ```bash
 # 従来手法
-$ npm test
+$ pnpm test
 ✓ Player tests (2,341ms)
 ✓ World tests (3,127ms)
 ✓ Inventory tests (1,892ms)
 Total: 7.36s
 
 # Effect-TS 手法
-$ npm run test:effect
+$ pnpm test:effect
 ✓ Player tests (1,423ms)
 ✓ World tests (1,876ms)
 ✓ Inventory tests (1,134ms)
@@ -974,7 +974,7 @@ it.effect.fails("失敗が期待されるテスト", ({ expect }) =>
 
 ```typescript
 // Step 1: @effect/vitestセットアップ
-npm install --save-dev @effect/vitest effect
+pnpm add -D @effect/vitest effect
 
 // vite.config.ts
 import { defineConfig } from 'vitest/config'

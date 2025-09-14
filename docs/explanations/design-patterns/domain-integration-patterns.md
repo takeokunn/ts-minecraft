@@ -125,17 +125,34 @@ const makePositionSystem = (maxEntities: number): Effect.Effect<PositionSystem, 
 
 ### レイヤー構造による責務分離
 
-```
-┌─────────────────────────────────────┐
-│         Domain Layer                │  ← DDD: ビジネスルール
-│  (Aggregates, Entities, Services)   │
-├─────────────────────────────────────┤
-│       Application Layer             │  ← オーケストレーション
-│     (Use Cases, Commands)           │
-├─────────────────────────────────────┤
-│      Infrastructure Layer           │  ← ECS: パフォーマンス最適化
-│  (ECS Systems, Rendering, I/O)      │
-└─────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph domain[Domain Layer]
+        direction TB
+        Aggregates[Aggregates]
+        Entities[Entities]
+        DomainServices[Domain Services]
+        note1["DDD: ビジネスルール"]
+    end
+
+    subgraph app[Application Layer]
+        direction TB
+        UseCases[Use Cases]
+        Commands[Commands]
+        note2["オーケストレーション"]
+    end
+
+    subgraph infra[Infrastructure Layer]
+        direction TB
+        ECS[ECS Systems]
+        Rendering[Rendering]
+        IO[I/O]
+        note3["ECS: パフォーマンス最適化"]
+    end
+
+    domain --> app
+    app --> infra
+
 ```
 
 ### 境界づけられたコンテキストとECSの対応

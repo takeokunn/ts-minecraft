@@ -1919,7 +1919,7 @@ export interface FileSystemService {
 **Step 1.1: 依存関係の導入**
 ```bash
 # Effect-TS 3.17+の導入
-npm install effect@latest
+pnpm add effect@latest
 
 # TypeScript設定の更新
 # tsconfig.json

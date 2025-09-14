@@ -4,10 +4,10 @@ description: "TypeScript Minecraft本番環境でのトラブルシューティ�
 category: "how-to"
 difficulty: "intermediate"
 tags: ["troubleshooting", "monitoring", "production", "logging", "performance"]
-prerequisites: ["docker-deployment", "performance-optimization"]
+prerequisites: ["performance-optimization"]
 estimated_reading_time: "25分"
 related_patterns: ["ci-cd-deployment"]
-related_docs: ["./docker-deployment.md", "./performance-optimization.md", "./ci-cd-deployment.md"]
+related_docs: ["./performance-optimization.md", "./ci-cd-deployment.md"]
 ---
 
 # トラブルシューティング・モニタリング
@@ -909,6 +909,5 @@ const performanceAnalysisQuery = {
 
 ## 関連ドキュメント
 
-- [Docker デプロイメント](./docker-deployment.md) - コンテナ化と本番デプロイ
 - [パフォーマンス最適化](./performance-optimization.md) - 性能改善手法
 - [CI/CD デプロイメント](./ci-cd-deployment.md) - 自動デプロイメントパイプライン

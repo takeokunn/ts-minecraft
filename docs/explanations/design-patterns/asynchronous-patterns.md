@@ -1346,7 +1346,7 @@ const createPlayerActionSystem = Effect.gen(function* () {
 **Step 1.1: Effect-TS導入**
 ```bash
 # プロジェクトにEffect-TSを追加
-npm install effect@latest
+pnpm add effect@latest
 
 # TypeScript設定更新
 # tsconfig.json

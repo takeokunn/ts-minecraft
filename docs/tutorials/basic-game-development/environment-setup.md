@@ -27,7 +27,7 @@ related_docs: ["../getting-started/README.md", "../../how-to/development/develop
 ```bash
 # 必須環境確認
 node --version  # v18.0.0+ 必須
-npm --version   # v9.0.0+ 推奨
+pnpm --version  # v8.0.0+ 推奨
 git --version   # 任意バージョン
 
 # ✅ すべて表示されればOK
@@ -43,14 +43,14 @@ mkdir minecraft-clone-tutorial
 cd minecraft-clone-tutorial
 
 # package.json 初期化
-npm init -y
+pnpm init
 ```
 
 ### ステップ2: 依存関係インストール（2分）
 
 ```bash
 # コア依存関係
-npm install \
+pnpm add \
   effect@latest \
   @effect/schema@latest \
   @effect/platform@latest \
@@ -58,7 +58,7 @@ npm install \
   @types/three@latest
 
 # 開発依存関係
-npm install -D \
+pnpm add -D \
   typescript@latest \
   vite@latest \
   vitest@latest \

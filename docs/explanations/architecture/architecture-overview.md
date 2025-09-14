@@ -175,17 +175,17 @@ const MovementECSLive = Layer.effect(MovementECS, makeMovementECS())
 
 ```mermaid
 graph TB
-    subgraph "知識レイヤー"
+    subgraph knowledge[知識レイヤー]
         DOMAIN[Domain Layer<br/>ビジネスルール・制約]
         APP[Application Layer<br/>ユースケース・オーケストレーション]
     end
 
-    subgraph "実行レイヤー"
+    subgraph execution[実行レイヤー]
         ECS[ECS Infrastructure<br/>高速データ処理]
         IO[I/O Infrastructure<br/>外部システム統合]
     end
 
-    subgraph "Effect-TS"
+    subgraph effect[Effect-TS]
         EFFECT[Effect System<br/>副作用・エラー・依存関係]
     end
 
@@ -198,6 +198,7 @@ graph TB
     EFFECT -.->|横断的関心事| APP
     EFFECT -.->|横断的関心事| ECS
     EFFECT -.->|横断的関心事| IO
+
 ```
 
 ### 2. イベント駆動による疎結合

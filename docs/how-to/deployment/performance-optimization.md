@@ -4,9 +4,9 @@ description: "TypeScript Minecraft Clone の本番環境パフォーマンス最
 category: "deployment"
 difficulty: "advanced"
 tags: ["performance", "optimization", "scaling", "cdn", "caching", "monitoring", "production"]
-prerequisites: ["deployment-basics", "docker-deployment", "performance-debugging"]
+prerequisites: ["deployment-basics", "performance-debugging"]
 estimated_reading_time: "35分"
-related_docs: ["./docker-deployment.md", "./ci-cd-deployment.md", "../troubleshooting/performance-issues.md"]
+related_docs: ["./ci-cd-deployment.md", "../troubleshooting/performance-issues.md"]
 ---
 
 # デプロイメント パフォーマンス最適化完全ガイド

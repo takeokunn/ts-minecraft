@@ -79,25 +79,25 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-        cache: 'npm'
+        cache: 'pnpm'
 
     - name: Install dependencies
-      run: npm ci
+      run: pnpm install --frozen-lockfile
 
     - name: TypeScript type check
-      run: npm run type-check
+      run: pnpm type-check
 
     - name: Lint check
-      run: npm run lint
+      run: pnpm lint
 
     - name: Format check
-      run: npm run format:check
+      run: pnpm format:check
 
     - name: Run tests
-      run: npm run test:coverage
+      run: pnpm test:coverage
 
     - name: Build application
-      run: npm run build
+      run: pnpm build
 
     - name: Upload build artifacts (debugging)
       uses: actions/upload-artifact@v4
@@ -139,10 +139,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20.x'
-        cache: 'npm'
+        cache: 'pnpm'
 
     - name: Install dependencies
-      run: npm ci
+      run: pnpm install --frozen-lockfile
 
     - name: Run CI checks
       run: |
@@ -151,7 +151,7 @@ jobs:
         npm run test
 
     - name: Build Minecraft Clone
-      run: npm run build
+      run: pnpm build
       env:
         NODE_ENV: production
 

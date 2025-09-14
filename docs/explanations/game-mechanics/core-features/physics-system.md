@@ -36,30 +36,41 @@ related_docs: ["./02-player-system.md", "./04-entity-system.md", "./03-block-sys
 
 ## アーキテクチャ概要
 
-```
-物理エンジン統合構成:
-┌─────────────────────────────────────────┐
-│ アプリケーション層                        │
-│ - PlayerMoveUseCase                     │
-│ - CollisionDetectionWorkflow            │
-│ - PhysicsUpdateOrchestrator             │
-└─────────────────────────────────────────┘
-           │
-┌─────────────────────────────────────────┐
-│ ドメイン層                               │
-│ - PhysicsDomainService                  │
-│ - CollisionSystemService                │
-│ - SpatialGridSystemService              │
-│ - GravitySystemService                  │
-│ - RaycastSystemService                  │
-└─────────────────────────────────────────┘
-           │
-┌─────────────────────────────────────────┐
-│ インフラストラクチャ層                      │
-│ - SpatialGridAdapter                    │
-│ - PhysicsRepository                     │
-│ - SIMDCollisionAdapter                  │
-└─────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph app[アプリケーション層]
+        PlayerMove[PlayerMoveUseCase]
+        CollisionWorkflow[CollisionDetectionWorkflow]
+        PhysicsOrch[PhysicsUpdateOrchestrator]
+    end
+
+    subgraph domain[ドメイン層]
+        PhysicsDomain[PhysicsDomainService]
+        CollisionSys[CollisionSystemService]
+        SpatialGrid[SpatialGridSystemService]
+        GravitySys[GravitySystemService]
+        RaycastSys[RaycastSystemService]
+    end
+
+    subgraph infra[インフラストラクチャ層]
+        SpatialAdapter[SpatialGridAdapter]
+        PhysicsRepo[PhysicsRepository]
+        SIMDAdapter[SIMDCollisionAdapter]
+    end
+
+    app --> domain
+    domain --> infra
+
+    PlayerMove --> PhysicsDomain
+    CollisionWorkflow --> CollisionSys
+    PhysicsOrch --> SpatialGrid
+    PhysicsOrch --> GravitySys
+    PhysicsOrch --> RaycastSys
+
+    PhysicsDomain --> SpatialAdapter
+    CollisionSys --> SIMDAdapter
+    SpatialGrid --> PhysicsRepo
+
 ```
 
 ## ドメインモデル（最新Effect-TS + DDD）

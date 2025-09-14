@@ -49,14 +49,14 @@ React/Node.js/Express.jsなど従来のJavaScript/TypeScriptエコシステム�
 **移行前の準備:**
 ```bash
 # 依存関係の確認
-npm audit
-npm outdated
+pnpm audit
+pnpm outdated
 
 # TypeScript設定確認
 cat tsconfig.json | grep -E "(strict|noImplicitAny|strictNullChecks)"
 
 # 現在のテストカバレッジ確認
-npm run test:coverage
+pnpm test:coverage
 ```
 
 ## 2. 段階的移行戦略
@@ -331,7 +331,7 @@ const handleRequest = (requestData: unknown) =>
 **Week 1: 基盤導入**
 ```bash
 # Effect-TS 依存関係追加
-npm install effect @effect/schema @effect/platform
+pnpm add effect @effect/schema @effect/platform
 
 # 基本的なエラークラスとスキーマを定義
 mkdir src/shared/errors src/shared/schemas

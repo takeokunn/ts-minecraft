@@ -45,44 +45,43 @@ TypeScript Minecraft Cloneで実践されているEffect-TS 3.17+の実装パタ
 mindmap
   root((Pattern Catalog Hub))
     Core Patterns
-      [Service Patterns]
+      Service Patterns
         Basic Service
         Stateful Service
         Service Dependencies
         Caching Service
         Resource Management
-      [Error Handling]
+      Error Handling
         Tagged Errors
         Error Hierarchy
         Recovery Strategies
         Circuit Breakers
         Retry Patterns
     Advanced Patterns
-      [Data Modeling]
+      Data Modeling
         Domain Objects
         Value Objects
         Brand Types
         Schema Composition
-      [Async Patterns]
+      Async Patterns
         Concurrent Operations
         Sequential Processing
-        Resource Management
         Timeout Handling
     Quality Patterns
-      [Testing Patterns]
+      Testing Patterns
         Unit Testing
         Integration Testing
-        Property-Based
+        Property-Based Testing
         Mock Services
-      [Performance]
+      Performance Patterns
         Lazy Evaluation
         Caching Strategies
         Resource Pooling
         Batch Processing
     Integration Patterns
-      [System Integration]
+      System Integration
         Service Communication
-        Event-Driven
+        Event-Driven Architecture
         Message Queues
         External APIs
         Cross-Layer Communication
