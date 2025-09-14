@@ -1,42 +1,62 @@
-# .claude/ - Issue実装中心設定
+# .claude/ - Claude Code Configuration
 
-## 構成
+## 📍 Single Source of Truth
+
+**情報の一元管理により保守性と一貫性を確保**
+
+- **プロジェクト仕様**: [`docs/`](../docs/INDEX.md)
+- **自動化コマンド**: [`commands/`](commands/index.md)
+- **実行スクリプト**: [`scripts/`](../scripts/README.md)
+- **PRテンプレート**: `.github/pull_request_template.md`
+- **Issueテンプレート**: `.github/ISSUE_TEMPLATE/ai-task.yml`
+
+## 📁 構成
+
 ```
 .claude/
-├── CLAUDE.md         # プロジェクト情報・Effect-TSパターン
-├── automation.md     # Issue実装自動化・品質ゲート
-└── README.md         # このファイル
+├── CLAUDE.md      # Claude Agent用エントリーポイント
+├── commands/      # カスタムコマンド定義
+│   ├── index.md  # コマンドインデックス
+│   ├── issue/    # Issue管理コマンド
+│   ├── pr/       # PR管理コマンド
+│   ├── test/     # テストコマンド
+│   └── build/    # ビルドコマンド
+└── README.md     # このファイル
 ```
 
-## 使用方法
+## 🚀 使用方法
 
-### Issue実装（基本）
-
+### よく使うワンライナー
 ```bash
-claude "Issue #123 を実装して"
+# 自然言語からIssue作成→実装→PR作成まで一気に
+claude "editorconfig lintを導入したい Issue を作って実装してPRまで作成して"
 ```
 
-**自動実行:**
-1. GitHub Issue実行計画解析（Step 1, 2, 3...）
-2. 各ステップを順次実行（指定参照ドキュメント使用）
-3. Acceptance Criteria全項目検証
-4. 実行計画完了報告（GitHub Actions連携）
+### 個別実行
+```bash
+# Issue作成
+claude "/issue/create editorconfig lintを導入したい"
 
-## ファイル役割
+# Issue実装
+claude "/issue/implement 123"
 
-### CLAUDE.md
-- プロジェクト基本情報（Effect-TS, DDD, ECS）
-- 実装パターン・制約
-- ディレクトリ構造・参照優先順位
+# PR作成
+claude "/pr/create 123"
+```
 
-### automation.md
-- Issue実装自動化フロー
-- GitHub Actions品質ゲート連携
-- 実行計画ベースワークフロー
+## ⚡ Claude Code Best Practices
 
-## 設計原則
+1. **TodoWrite必須**: 3ステップ以上のタスクで使用
+2. **並列実行**: 独立タスクは必ず並列で実行
+3. **品質ゲート**: PR前に typecheck/lint/build を実行
+4. **自動クローズ**: PR内に `Closes #xxx` を含める
 
-- **実行計画ベース**: GitHub Issue内のStep-by-Step実行計画に従った実装
-- **完全自動**: 実行計画解析から品質確保まで自動化
-- **最小設定**: 3ファイルのみの簡潔構成
-- **品質確保**: Acceptance Criteria + GitHub Actions品質ゲートによる確実な完了
+## 🔄 ワークフロー
+
+1. GitHub Issue取得
+2. TodoWriteでタスク管理
+3. 並列実装
+4. 品質チェック（並列）
+5. Git操作（ブランチ/コミット/プッシュ）
+6. PR作成（テンプレート使用、`Closes #xxx` 付き）
+7. Issue更新
