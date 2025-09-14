@@ -4,9 +4,11 @@
 ```mermaid
 flowchart LR
     A[GitHub Issue作成] --> B[claude "Issue #123 を実装して"]
-    B --> C[自動実装・テスト]
-    C --> D[実装完了通知]
-    D --> E[PR作成・GitHub Actions]
+    B --> C[Pre-Step: 事前確認]
+    C --> D[Step 1-8: 段階的実装]
+    D --> E[Post-Step: 文書化・PR作成]
+    E --> F[GitHub Actions: 品質確認]
+    F --> G[レビュー・マージ]
 ```
 
 ## Issue作成
@@ -68,7 +70,8 @@ claude "Issue #123 を実装して"
 3. **各ステップ順次実行**: 指定された参照ドキュメント使用
 4. **Post-Step実装後処理**: `@docs/`更新・`write_memory`保存・品質確認
 5. **Acceptance Criteria全項目検証**
-6. **実行計画完了報告**（GitHub Actions連携）
+6. **PR自動作成**: Issue完了後、Pull Request自動生成
+7. **実行計画完了報告**（GitHub Actions連携）
 
 ### 品質チェック（GitHub Actions自動実行）
 
@@ -84,15 +87,17 @@ claude "Issue #123 を実装して"
 📋 実行済み: Step 1✅ Step 2✅ Step 3✅ Step 4✅
 📊 品質: TypeScript✅ Lint✅ Coverage:87% Performance✅
 🎯 Acceptance Criteria: 全項目達成
-💡 次: PR作成準備完了
+📄 @docs/ 更新完了、Memory保存済み
+🔄 PR作成: 自動生成完了 (#PR番号)
 ```
 
-### PR作成（別環境）
+### PR作成（自動化）
 
-- 実装完了コードをPR環境に移行
-- PR作成・レビュー申請
-- 人間レビュー・承認
-- マージ・デプロイ
+- **自動PR生成**: Issue完了と同時にPull Request作成
+- **テンプレート適用**: 統一されたPR説明・チェックリスト
+- **品質確認済み**: 全検証コマンド実行済み
+- **レビュー準備完了**: 人間レビュー・承認待ち
+- **マージ・デプロイ**: 承認後の自動化
 
 ## 参照優先順位
 

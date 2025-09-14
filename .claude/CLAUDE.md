@@ -17,8 +17,10 @@ claude "Issue #123 を実装して"  → GitHub Issue実行計画に従って自
 **AI Task Issueテンプレート**（`.github/ISSUE_TEMPLATE/ai-task.yml`）使用
 
 Claude AgentはGitHub Issueから以下を自動実行：
+- **Pre-Step実装前確認**: `list_memories`・`@docs/`設計方針確認・Context7ライブラリ仕様確認
 - **8段階実行ステップ**: 段階的な完全実装（Step 1-8）
 - **詳細な実装コード**: Effect-TS Service/Layer/Schemaパターン
+- **Post-Step実装後処理**: `@docs/`更新・`write_memory`保存・PR自動作成
 - **自動検証**: pnpm typecheck/lint/test/build
 - **トラブルシューティング**: エラー時の自動修正手順
 

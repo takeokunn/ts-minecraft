@@ -134,6 +134,7 @@ body:
         1. `@docs/` へ新パターン記録
         2. `write_memory` で重要パターン保存
         3. 検証コマンド実行
+        4. **PR作成**: Issueの実装完了後、自動でPull Request作成
     validations:
       required: true
 
@@ -156,5 +157,61 @@ body:
         参照: docs/how-to/development/quality-checks.md
     validations:
       required: true
+
+  - type: dropdown
+    id: pr-auto-create
+    attributes:
+      label: PR自動作成設定
+      description: Issue実装完了後のPull Request自動作成設定
+      options:
+        - "自動作成する - Issue完了後すぐにPR作成"
+        - "手動作成 - 実装完了通知のみ"
+      default: 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: pr-template
+    attributes:
+      label: PR作成テンプレート
+      description: 自動作成されるPull Requestの内容テンプレート
+      placeholder: |
+        ## Summary
+        - Closes #[Issue番号]
+        - [実装内容の概要]
+
+        ## Implementation Details
+        - [主要な実装変更点]
+        - [新しく追加されたパターン/API]
+
+        ## Testing
+        - [x] pnpm typecheck
+        - [x] pnpm lint
+        - [x] pnpm test
+        - [x] pnpm build
+
+        ## Documentation Updates
+        - [x] @docs/ updated with new patterns
+        - [x] Memory saved for future reference
+      value: |
+        ## Summary
+        - Closes #[Issue番号]
+        - [実装内容の概要]
+
+        ## Implementation Details
+        - [主要な実装変更点]
+        - [新しく追加されたパターン/API]
+
+        ## Testing
+        - [x] pnpm typecheck
+        - [x] pnpm lint
+        - [x] pnpm test
+        - [x] pnpm build
+
+        ## Documentation Updates
+        - [x] @docs/ updated with new patterns
+        - [x] Memory saved for future reference
+    validations:
+      required: false
 
 
