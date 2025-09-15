@@ -40,14 +40,14 @@ describe("Effect-TS Configuration", () => {
     it("should create failed Effect", async () => {
       const effect = EffectConfig.fail("Test error", "TEST_CODE");
 
-      try {
-        await Effect.runPromise(effect);
-        expect.fail("Should have thrown an error");
-      } catch (error: unknown) {
-        expect(EffectConfig.isGameError(error)).toBe(true);
-        if (EffectConfig.isGameError(error)) {
-          expect(error.message).toBe("Test error");
-          expect(error.code).toBe("TEST_CODE");
+      const result = await Effect.runPromise(Effect.either(effect));
+
+      expect(result._tag).toBe("Left");
+      if (result._tag === "Left") {
+        expect(EffectConfig.isGameError(result.left)).toBe(true);
+        if (EffectConfig.isGameError(result.left)) {
+          expect(result.left.message).toBe("Test error");
+          expect(result.left.code).toBe("TEST_CODE");
         }
       }
     });
@@ -68,14 +68,14 @@ describe("Effect-TS Configuration", () => {
       const result = await Effect.runPromise(validEffect);
       expect(result).toBe("valid string");
 
-      const invalidEffect = validator("123");
-      try {
-        await Effect.runPromise(invalidEffect);
-        expect.fail("Should have thrown validation error");
-      } catch (error: unknown) {
-        expect(EffectConfig.isGameError(error)).toBe(true);
-        if (EffectConfig.isGameError(error)) {
-          expect(error.code).toBe("VALIDATION_ERROR");
+      const invalidEffect = validator(123); // 数値を渡して型エラーを発生させる
+      const invalidResult = await Effect.runPromise(Effect.either(invalidEffect));
+
+      expect(invalidResult._tag).toBe("Left");
+      if (invalidResult._tag === "Left") {
+        expect(EffectConfig.isGameError(invalidResult.left)).toBe(true);
+        if (EffectConfig.isGameError(invalidResult.left)) {
+          expect(invalidResult.left.code).toBe("VALIDATION_ERROR");
         }
       }
     });

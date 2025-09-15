@@ -30,11 +30,11 @@ export default defineConfig({
     ],
 
     // 並行実行制御（安定性重視）
-    pool: 'forks',
+    pool: 'threads',
     poolOptions: {
-      forks: {
-        maxForks: '50%',
-        minForks: 1,
+      threads: {
+        maxThreads: 1,
+        minThreads: 1,
         isolate: true
       }
     },
