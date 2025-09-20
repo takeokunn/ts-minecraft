@@ -4,7 +4,7 @@ import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '.
 // MainMenuScene実装
 export const MainMenuScene = Layer.effect(
   Scene,
-  Effect.gen(function* () {
+  Effect.sync(() => {
     // シーンデータ
     const sceneData: SceneData = {
       id: 'main-menu-001',
@@ -19,7 +19,6 @@ export const MainMenuScene = Layer.effect(
 
     // 内部状態管理
     let isInitialized = false
-    let selectedMenuItem = 0
 
     return Scene.of({
       data: sceneData,
@@ -38,7 +37,6 @@ export const MainMenuScene = Layer.effect(
           yield* Effect.logInfo('MainMenuSceneを初期化中...')
 
           // メニューUIの初期化
-          selectedMenuItem = 0
           isInitialized = true
 
           yield* Effect.logInfo('MainMenuScene初期化完了')
@@ -91,7 +89,6 @@ export const MainMenuScene = Layer.effect(
           // - イベントリスナーの削除
 
           isInitialized = false
-          selectedMenuItem = 0
 
           yield* Effect.logInfo('MainMenuSceneクリーンアップ完了')
         }),

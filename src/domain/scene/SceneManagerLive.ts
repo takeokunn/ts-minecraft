@@ -1,13 +1,5 @@
 import { Effect, Layer, Ref } from 'effect'
-import {
-  Scene,
-  SceneCleanupError,
-  SceneData,
-  SceneInitializationError,
-  SceneTransition,
-  SceneTransitionError,
-  SceneType,
-} from './Scene'
+import { Scene, SceneTransition, SceneTransitionError, SceneType } from './Scene'
 import { SceneManager, SceneManagerState, processSceneType } from './SceneManager'
 
 // SceneManagerLive実装
@@ -109,7 +101,7 @@ export const SceneManagerLive = Layer.effect(
 
           return yield* Effect.fail(
             SceneTransitionError({
-              message: `Failed to transition to ${transition.to}: ${initializeResult.left}`,
+              message: `Failed to transition to ${transition.to}: ${initializeResult.left.message || JSON.stringify(initializeResult.left)}`,
               currentScene: state.currentScene?.type,
               targetScene: transition.to,
             })

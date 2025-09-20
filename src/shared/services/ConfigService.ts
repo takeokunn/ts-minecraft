@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Schema, Match } from 'effect'
+import { Context, Effect, Layer, Schema } from 'effect'
 
 // 設定スキーマ定義
 export const GameConfig = Schema.Struct({
@@ -116,29 +116,30 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
     renderConfig: currentRenderConfig,
     debugConfig: currentDebugConfig,
 
-    getConfig: (key) => {
-      return Match.value(key as ConfigKey).pipe(
-        Match.when('gameConfig' as const, () => Effect.succeed(currentGameConfig)),
-        Match.when('renderConfig' as const, () => Effect.succeed(currentRenderConfig)),
-        Match.when('debugConfig' as const, () => Effect.succeed(currentDebugConfig)),
-        Match.exhaustive
-      ) as any
+    getConfig: <K extends keyof Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>>(
+      key: K
+    ): Effect.Effect<Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>[K]> => {
+      const configs = {
+        gameConfig: currentGameConfig,
+        renderConfig: currentRenderConfig,
+        debugConfig: currentDebugConfig,
+      }
+      return Effect.succeed(configs[key]) as Effect.Effect<
+        Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>[K]
+      >
     },
 
     updateConfig: (key, value) =>
       Effect.sync(() => {
-        Match.value(key as ConfigKey).pipe(
-          Match.when('gameConfig' as const, () => {
-            currentGameConfig = value as GameConfig
-          }),
-          Match.when('renderConfig' as const, () => {
-            currentRenderConfig = value as RenderConfig
-          }),
-          Match.when('debugConfig' as const, () => {
-            currentDebugConfig = value as DebugConfig
-          }),
-          Match.exhaustive
-        )
+        if (key === 'gameConfig') {
+          currentGameConfig = value as GameConfig
+        } else if (key === 'renderConfig') {
+          currentRenderConfig = value as RenderConfig
+        } else if (key === 'debugConfig') {
+          currentDebugConfig = value as DebugConfig
+        } else {
+          throw new Error(`Unknown config key: ${key}`)
+        }
       }),
   })
 })

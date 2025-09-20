@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Exit, pipe } from 'effect'
+import { Effect, pipe } from 'effect'
 import * as EffectConfig from './effect'
 
 describe('Effect Configuration', () => {

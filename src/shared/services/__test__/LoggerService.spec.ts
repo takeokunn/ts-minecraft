@@ -3,8 +3,6 @@ import { Effect } from 'effect'
 import {
   LogLevel,
   LOG_LEVEL_PRIORITY,
-  LogEntry,
-  PerformanceMetrics,
   LoggerService,
   getCurrentLogLevel,
   shouldLog,

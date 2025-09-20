@@ -102,15 +102,16 @@ export const runPromise = <A, E>(effect: Effect.Effect<A, E>): Promise<A> => Eff
 export const taggedError =
   <Tag extends string>(tag: Tag) =>
   <Fields extends Record<string, any>>(fields: Fields) =>
-    Schema.TaggedError<Tag>()(tag, {
-      ...Object.entries(fields).reduce(
+    Schema.TaggedError<Tag>()(
+      tag,
+      Object.entries(fields).reduce(
         (acc, [key, value]) => ({
           ...acc,
           [key]: value,
         }),
         {} as Fields
-      ),
-    })
+      )
+    )
 
 // Utility for creating services
 export const makeService = <T>(name: string) => Context.GenericTag<T>(`@app/${name}`)
