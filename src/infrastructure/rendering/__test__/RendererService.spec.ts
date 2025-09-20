@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { Effect, Layer, TestContext } from 'effect'
+import { Effect, TestContext } from 'effect'
 import * as THREE from 'three'
 import { RendererService, RendererServiceLive } from '../index'
 import { RenderInitError, RenderExecutionError, ContextLostError } from '../types'
@@ -104,7 +104,9 @@ describe('RendererService', () => {
 
       const runnable = program.pipe(Effect.provide(RendererServiceLive))
 
-      await expect(Effect.runPromise(runnable)).rejects.toThrow(/RenderInitError.*WebGLコンテキストの取得に失敗しました/)
+      await expect(Effect.runPromise(runnable)).rejects.toThrow(
+        /RenderInitError.*WebGLコンテキストの取得に失敗しました/
+      )
     })
 
     it('レンダラー作成時の例外をキャッチしてRenderInitErrorを投げる', async () => {
@@ -152,7 +154,9 @@ describe('RendererService', () => {
 
       const runnable = program.pipe(Effect.provide(RendererServiceLive))
 
-      await expect(Effect.runPromise(runnable)).rejects.toThrow(/RenderExecutionError.*レンダラーが初期化されていません/)
+      await expect(Effect.runPromise(runnable)).rejects.toThrow(
+        /RenderExecutionError.*レンダラーが初期化されていません/
+      )
     })
 
     it('WebGLコンテキストが失われている場合はContextLostErrorを投げる', async () => {
@@ -186,7 +190,9 @@ describe('RendererService', () => {
 
       const runnable = program.pipe(Effect.provide(RendererServiceLive))
 
-      await expect(Effect.runPromise(runnable)).rejects.toThrow(/RenderExecutionError.*レンダリング実行中にエラーが発生しました/)
+      await expect(Effect.runPromise(runnable)).rejects.toThrow(
+        /RenderExecutionError.*レンダリング実行中にエラーが発生しました/
+      )
     })
   })
 
