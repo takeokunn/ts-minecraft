@@ -235,6 +235,88 @@ describe('FirstPersonCamera', () => {
   })
 
   describe('設定変更', () => {
+    it('一人称視点から一人称視点への切り替えは何もしない', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize(DEFAULT_CAMERA_CONFIG)
+        const beforeConfig = yield* service.getConfig()
+        yield* service.switchMode('first-person')
+        const afterConfig = yield* service.getConfig()
+        return { beforeConfig, afterConfig }
+      }).pipe(Effect.provide(FirstPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+      if (Exit.isSuccess(result)) {
+        expect(result.value.afterConfig.mode).toBe('first-person')
+        expect(result.value.beforeConfig.mode).toBe('first-person')
+      }
+    })
+
+    it('感度の最小値設定', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize(DEFAULT_CAMERA_CONFIG)
+        yield* service.setSensitivity(0)
+        const config = yield* service.getConfig()
+        return config.sensitivity
+      }).pipe(Effect.provide(FirstPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+      if (Exit.isSuccess(result)) {
+        expect(result.value).toBe(0.1)
+      }
+    })
+
+    it('感度の最大値設定', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize(DEFAULT_CAMERA_CONFIG)
+        yield* service.setSensitivity(100)
+        const config = yield* service.getConfig()
+        return config.sensitivity
+      }).pipe(Effect.provide(FirstPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+      if (Exit.isSuccess(result)) {
+        expect(result.value).toBe(10)
+      }
+    })
+
+    it('スムージングの最小値設定', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize(DEFAULT_CAMERA_CONFIG)
+        yield* service.setSmoothing(-1)
+        const config = yield* service.getConfig()
+        return config.smoothing
+      }).pipe(Effect.provide(FirstPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+      if (Exit.isSuccess(result)) {
+        expect(result.value).toBe(0)
+      }
+    })
+
+    it('スムージングの最大値設定', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize(DEFAULT_CAMERA_CONFIG)
+        yield* service.setSmoothing(2)
+        const config = yield* service.getConfig()
+        return config.smoothing
+      }).pipe(Effect.provide(FirstPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+      if (Exit.isSuccess(result)) {
+        expect(result.value).toBe(1)
+      }
+    })
+
     it('FOVを範囲内で変更できる', async () => {
       const program = Effect.gen(function* () {
         const service = yield* CameraService
@@ -364,6 +446,75 @@ describe('FirstPersonCamera', () => {
   })
 
   describe('エラーハンドリング', () => {
+    it('初期化前のFOV設定はエラーを返す', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.setFOV(90)
+      }).pipe(Effect.provide(FirstPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isFailure(result)).toBe(true)
+    })
+
+    it('初期化前の感度設定は成功する', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.setSensitivity(2.0)
+        const config = yield* service.getConfig()
+        return config.sensitivity
+      }).pipe(Effect.provide(FirstPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+      if (Exit.isSuccess(result)) {
+        expect(result.value).toBe(2.0)
+      }
+    })
+
+    it('初期化前のスムージング設定は成功する', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.setSmoothing(0.5)
+        const config = yield* service.getConfig()
+        return config.smoothing
+      }).pipe(Effect.provide(FirstPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+      if (Exit.isSuccess(result)) {
+        expect(result.value).toBe(0.5)
+      }
+    })
+
+    it('三人称視点への切り替えはモードを変更しない', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        const beforeConfig = yield* service.getConfig()
+        yield* service.switchMode('third-person')
+        const afterConfig = yield* service.getConfig()
+        return { beforeConfig, afterConfig }
+      }).pipe(Effect.provide(FirstPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+      if (Exit.isSuccess(result)) {
+        // FirstPersonCameraLive は三人称モードへの切り替えを行わない
+        expect(result.value.beforeConfig.mode).toBe('first-person')
+        expect(result.value.afterConfig.mode).toBe('first-person')
+      }
+    })
+
+    it('無効なモードの切り替えはエラーを返す', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize(DEFAULT_CAMERA_CONFIG)
+        yield* service.switchMode('invalid' as any)
+      }).pipe(Effect.provide(FirstPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isFailure(result)).toBe(true)
+    })
+
     it('初期化前の更新操作はエラーを返す', async () => {
       const program = Effect.gen(function* () {
         const service = yield* CameraService
