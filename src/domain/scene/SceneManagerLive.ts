@@ -101,7 +101,7 @@ export const SceneManagerLive = Layer.effect(
 
           return yield* Effect.fail(
             SceneTransitionError({
-              message: `Failed to transition to ${transition.to}: ${initializeResult.left}`,
+              message: `Failed to transition to ${transition.to}: ${initializeResult.left.message || JSON.stringify(initializeResult.left)}`,
               currentScene: state.currentScene?.type,
               targetScene: transition.to,
             })

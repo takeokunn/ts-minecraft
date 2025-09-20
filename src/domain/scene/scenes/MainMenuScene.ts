@@ -3,9 +3,9 @@ import { Effect } from 'effect'
 import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene.js'
 
 // MainMenuScene実装
-export const MainMenuScene = Layer.succeed(
+export const MainMenuScene = Layer.effect(
   Scene,
-  (() => {
+  Effect.gen(function* () {
     // シーンデータ
     const sceneData: SceneData = {
       id: 'main-menu-001',
@@ -120,5 +120,5 @@ export const MainMenuScene = Layer.succeed(
           // Note: SceneDataは不変なので、実際のゲームでは状態管理システムで管理される
         }),
     })
-  })()
+  })
 )
