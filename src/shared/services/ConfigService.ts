@@ -113,11 +113,17 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
     renderConfig: currentRenderConfig,
     debugConfig: currentDebugConfig,
 
-    getConfig: (key) => {
-      if (key === 'gameConfig') return Effect.succeed(currentGameConfig) as any
-      if (key === 'renderConfig') return Effect.succeed(currentRenderConfig) as any
-      if (key === 'debugConfig') return Effect.succeed(currentDebugConfig) as any
-      return Effect.die(new Error(`Unknown config key: ${key}`))
+    getConfig: <K extends keyof Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>>(
+      key: K
+    ): Effect.Effect<Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>[K]> => {
+      const configs = {
+        gameConfig: currentGameConfig,
+        renderConfig: currentRenderConfig,
+        debugConfig: currentDebugConfig,
+      }
+      return Effect.succeed(configs[key]) as Effect.Effect<
+        Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>[K]
+      >
     },
 
     updateConfig: (key, value) =>
