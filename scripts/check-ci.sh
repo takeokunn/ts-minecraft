@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # CI状態確認スクリプト
+# Issue実装後の必須確認フロー
 # Usage: ./scripts/check-ci.sh [PR番号] [--fix]
 
 # カラー出力用の設定
