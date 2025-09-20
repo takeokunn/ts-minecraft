@@ -201,7 +201,7 @@ pnpm test && pnpm test:coverage
 - [ ] 自動修正設定
 
 # 検証コマンド
-pnpm lint && pnpm format
+pnpm check && pnpm format
 ```
 
 #### P0-006: ディレクトリ構造
@@ -384,7 +384,7 @@ pnpm test && pnpm test:coverage
 - [ ] 自動修正設定
 
 # 検証コマンド
-pnpm lint && pnpm format
+pnpm check && pnpm format
 
 # AIエージェント指示
 "P0-013: Lint/Format設定。oxlint、Prettier、pre-commitフック設定"

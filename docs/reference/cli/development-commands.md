@@ -22,11 +22,9 @@ status: 'complete'
 | `pnpm build`     | プロダクションビルド | 30-60秒  | 最適化されたビルドの生成             |
 | `pnpm preview`   | ビルド結果プレビュー | 1-3秒    | ビルドしたアプリのプレビュー         |
 | `pnpm clean`     | キャッシュクリア     | 1-2秒    | ビルドキャッシュの削除               |
-| `pnpm lint`      | ESLintチェック       | 3-8秒    | コード品質のチェック                 |
-| `pnpm lint:fix`  | ESLint自動修正       | 5-12秒   | 修正可能なリントエラーの自動修正     |
 | `pnpm format`    | コード整形           | 2-5秒    | Prettierによるコード整形             |
 | `pnpm typecheck` | 型チェック           | 5-15秒   | TypeScriptの型チェック               |
-| `pnpm check`     | 全品質チェック       | 10-30秒  | lint + format + type-checkの一括実行 |
+| `pnpm check`     | 総合品質チェック       | 10-30秒  | typecheck + format:check + editorconfigの一括実行 |
 
 ## 🚀 開発コマンド
 
@@ -153,49 +151,39 @@ pnpm clean
 
 ## 🔍 品質管理コマンド
 
-### lint
+### check
 
-ESLintによるコード品質チェックを実行します。
+総合的なコード品質チェックを実行します。
 
 ```bash
-pnpm lint
+pnpm check
 ```
 
 **チェック項目**:
 
-- Effect-TSコーディング規約
-- 関数型プログラミングパターン
-- TypeScript型安全性
-- パフォーマンス最適化
+- TypeScript型チェック (`pnpm typecheck`)
+- Prettierフォーマット確認 (`pnpm format:check`)
+- EditorConfigルール確認 (`pnpm editorconfig`)
 
-**設定ファイル**: `.eslintrc.json`
-
-**オプション**:
+**修正コマンド**:
 
 ```bash
-# 特定ファイルのみチェック
-pnpm lint src/core/
-
-# 詳細モード
-pnpm lint -- --verbose
-
-# 警告も含めて表示
-pnpm lint -- --max-warnings 0
+# フォーマット修正
+pnpm check:fix
 ```
 
-### lint:fix
-
-修正可能なESLintエラーを自動修正します。
+**個別実行**:
 
 ```bash
-pnpm lint:fix
+# 型チェックのみ
+pnpm typecheck
+
+# フォーマット確認のみ
+pnpm format:check
+
+# EditorConfigチェックのみ
+pnpm editorconfig
 ```
-
-**自動修正対象**:
-
-- インデント、セミコロン等の形式的エラー
-- import文の順序
-- 未使用変数の削除（安全な場合のみ）
 
 ### format
 
@@ -259,9 +247,9 @@ pnpm check
 
 **実行順序**:
 
-1. `pnpm lint`
-2. `pnpm format --check`
-3. `pnpm typecheck`
+1. `pnpm typecheck`
+2. `pnpm format:check`
+3. `pnpm editorconfig`
 
 **CI/CD推奨**: 継続的インテグレーションで使用
 
@@ -336,11 +324,11 @@ NODE_OPTIONS="--max-old-space-size=4096" pnpm build
 pnpm typecheck -- --incremental
 ```
 
-#### ESLintキャッシュ問題
+#### TypeScriptキャッシュ問題
 
 ```bash
-# ESLintキャッシュをクリア
-pnpm lint -- --no-cache
+# TypeScriptキャッシュをクリア
+pnpm typecheck --clean
 ```
 
 ## 📊 パフォーマンス最適化

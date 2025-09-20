@@ -104,7 +104,7 @@ claude "Issue #123 を実装して"
 
 ```bash
 # コード品質
-pnpm lint            # oxlint静的解析の実行
+pnpm check           # 総合的なコード品質チェック（型チェック・フォーマット・EditorConfig）
 pnpm format          # Prettierでコードフォーマット
 pnpm typecheck       # TypeScript型チェックの実行
 
