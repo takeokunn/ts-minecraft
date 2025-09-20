@@ -92,10 +92,7 @@ export const withRetry = <A, E, R>(
   const { times = 3, delay = 100 } = options ?? {}
   return pipe(
     effect,
-    Effect.retry({
-      times,
-      schedule: Schedule.spaced(delay)
-    })
+    Effect.retry(Schedule.spaced(delay).pipe(Schedule.compose(Schedule.recurs(times))))
   )
 }
 
