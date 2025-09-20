@@ -1,4 +1,4 @@
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Match } from 'effect'
 import {
   LoggerService,
   LogLevel,
@@ -14,20 +14,13 @@ const outputToConsole = (entry: LogEntry): void => {
   const { timestamp, level, message, context, error } = entry
   const logMessage = `[${timestamp}] ${level}: ${message}`
 
-  switch (level) {
-    case 'DEBUG':
-      console.debug(logMessage, context || '')
-      break
-    case 'INFO':
-      console.info(logMessage, context || '')
-      break
-    case 'WARN':
-      console.warn(logMessage, context || '')
-      break
-    case 'ERROR':
-      console.error(logMessage, error || context || '')
-      break
-  }
+  Match.value(level).pipe(
+    Match.when('DEBUG', () => console.debug(logMessage, context || '')),
+    Match.when('INFO', () => console.info(logMessage, context || '')),
+    Match.when('WARN', () => console.warn(logMessage, context || '')),
+    Match.when('ERROR', () => console.error(logMessage, error || context || '')),
+    Match.exhaustive
+  )
 }
 
 // LoggerService の Live 実装

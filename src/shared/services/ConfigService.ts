@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Schema } from 'effect'
+import { Context, Effect, Layer, Schema, Match } from 'effect'
 
 // 設定スキーマ定義
 export const GameConfig = Schema.Struct({
@@ -50,6 +50,9 @@ export interface ConfigService {
     value: Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>[K]
   ) => Effect.Effect<void>
 }
+
+// Config Key タイプ定義
+export type ConfigKey = keyof Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>
 
 // Context定義
 export const ConfigService = Context.GenericTag<ConfigService>('@app/services/ConfigService')
@@ -114,35 +117,29 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
     debugConfig: currentDebugConfig,
 
     getConfig: (key) => {
-      switch (key) {
-        case 'gameConfig':
-          return Effect.succeed(currentGameConfig) as any
-        case 'renderConfig':
-          return Effect.succeed(currentRenderConfig) as any
-        case 'debugConfig':
-          return Effect.succeed(currentDebugConfig) as any
-        default:
-          return Effect.die(new Error(`Unknown config key: ${key}`))
-      }
+      return Match.value(key as ConfigKey).pipe(
+        Match.when('gameConfig' as const, () => Effect.succeed(currentGameConfig)),
+        Match.when('renderConfig' as const, () => Effect.succeed(currentRenderConfig)),
+        Match.when('debugConfig' as const, () => Effect.succeed(currentDebugConfig)),
+        Match.exhaustive
+      ) as any
     },
 
-    updateConfig: (key, value) => {
-      return Effect.sync(() => {
-        switch (key) {
-          case 'gameConfig':
+    updateConfig: (key, value) =>
+      Effect.sync(() => {
+        Match.value(key as ConfigKey).pipe(
+          Match.when('gameConfig' as const, () => {
             currentGameConfig = value as GameConfig
-            break
-          case 'renderConfig':
+          }),
+          Match.when('renderConfig' as const, () => {
             currentRenderConfig = value as RenderConfig
-            break
-          case 'debugConfig':
+          }),
+          Match.when('debugConfig' as const, () => {
             currentDebugConfig = value as DebugConfig
-            break
-          default:
-            throw new Error(`Unknown config key: ${key}`)
-        }
-      })
-    },
+          }),
+          Match.exhaustive
+        )
+      }),
   })
 })
 
