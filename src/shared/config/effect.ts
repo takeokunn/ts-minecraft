@@ -76,11 +76,13 @@ export const layerProvide = Layer.provide
 export const service = <T>(tag: Context.Tag<T, T>) => Effect.serviceConstants(tag)
 
 // Common error handling patterns
-export const mapError = <E, E2>(f: (e: E) => E2) =>
+export const mapError =
+  <E, E2>(f: (e: E) => E2) =>
   <A, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E2, R> =>
     Effect.mapError(effect, f)
 
-export const orElse = <A2, E2, R2>(that: Effect.Effect<A2, E2, R2>) =>
+export const orElse =
+  <A2, E2, R2>(that: Effect.Effect<A2, E2, R2>) =>
   <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A | A2, E2, R | R2> =>
     Effect.orElse(self, () => that)
 
@@ -94,22 +96,24 @@ export const runSync = <A, E>(effect: Effect.Effect<A, E>): A => {
 }
 
 // Utility to run an effect as a promise
-export const runPromise = <A, E>(effect: Effect.Effect<A, E>): Promise<A> =>
-  Effect.runPromise(effect)
+export const runPromise = <A, E>(effect: Effect.Effect<A, E>): Promise<A> => Effect.runPromise(effect)
 
 // Utility for creating tagged errors
-export const taggedError = <Tag extends string>(tag: Tag) =>
+export const taggedError =
+  <Tag extends string>(tag: Tag) =>
   <Fields extends Record<string, any>>(fields: Fields) =>
     Schema.TaggedError<Tag>()(tag, {
-      ...Object.entries(fields).reduce((acc, [key, value]) => ({
-        ...acc,
-        [key]: value
-      }), {} as Fields)
+      ...Object.entries(fields).reduce(
+        (acc, [key, value]) => ({
+          ...acc,
+          [key]: value,
+        }),
+        {} as Fields
+      ),
     })
 
 // Utility for creating services
-export const makeService = <T>(name: string) =>
-  Context.GenericTag<T>(`@app/${name}`)
+export const makeService = <T>(name: string) => Context.GenericTag<T>(`@app/${name}`)
 
 // Common effect patterns for the game
 export const withRetry = <A, E, R>(
@@ -117,10 +121,7 @@ export const withRetry = <A, E, R>(
   options?: { times?: number; delay?: number }
 ): Effect.Effect<A, E, R> => {
   const { times = 3, delay = 100 } = options ?? {}
-  return pipe(
-    effect,
-    Effect.retry(Schedule.spaced(delay).pipe(Schedule.compose(Schedule.recurs(times))))
-  )
+  return pipe(effect, Effect.retry(Schedule.spaced(delay).pipe(Schedule.compose(Schedule.recurs(times)))))
 }
 
 // Logging utilities
@@ -129,10 +130,7 @@ export const logError = (message: string) => Effect.logError(message)
 export const logDebug = (message: string) => Effect.logDebug(message)
 
 // Performance measurement utility
-export const timed = <A, E, R>(
-  label: string,
-  effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, R> =>
+export const timed = <A, E, R>(label: string, effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
   pipe(
     Effect.Do,
     Effect.bind('start', () => Effect.sync(() => Date.now())),
@@ -145,7 +143,8 @@ export const timed = <A, E, R>(
   )
 
 // Validation utility
-export const validate = <A, I>(schema: Schema.Schema<A, I>) =>
+export const validate =
+  <A, I>(schema: Schema.Schema<A, I>) =>
   (input: I): Effect.Effect<A, ParseResult.ParseError> =>
     Schema.decodeUnknown(schema)(input)
 

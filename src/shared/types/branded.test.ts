@@ -13,14 +13,9 @@ import {
   Timestamp,
   Version,
   UUID,
-  BrandedTypes
+  BrandedTypes,
 } from './branded'
-import type {
-  PlayerId,
-  WorldCoordinate,
-  ChunkId,
-  BlockTypeId
-} from './branded'
+import type { PlayerId, WorldCoordinate, ChunkId, BlockTypeId } from './branded'
 
 describe('Branded Types', () => {
   describe('PlayerId', () => {

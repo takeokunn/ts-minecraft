@@ -8,17 +8,8 @@ export default defineConfig({
     environment: 'node',
 
     // テストファイルパターン（__test__/*.spec.ts and *.test.ts）
-    include: [
-      'src/**/__test__/*.spec.?(c|m)[jt]s?(x)',
-      'src/**/*.test.?(c|m)[jt]s?(x)'
-    ],
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/.git/**',
-      '**/coverage/**',
-      '**/docs/**'
-    ],
+    include: ['src/**/__test__/*.spec.?(c|m)[jt]s?(x)', 'src/**/*.test.?(c|m)[jt]s?(x)'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/docs/**'],
 
     // タイムアウト設定（無限ループ防止）
     testTimeout: 15000,

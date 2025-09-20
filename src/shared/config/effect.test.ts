@@ -51,10 +51,7 @@ describe('Effect Configuration', () => {
     })
 
     it('should handle orElse', () => {
-      const effect = pipe(
-        EffectConfig.fail('first'),
-        EffectConfig.orElse(EffectConfig.succeed('fallback'))
-      )
+      const effect = pipe(EffectConfig.fail('first'), EffectConfig.orElse(EffectConfig.succeed('fallback')))
       const result = EffectConfig.runSync(effect)
       expect(result).toBe('fallback')
     })
@@ -76,7 +73,7 @@ describe('Effect Configuration', () => {
           await new Promise((resolve) => setTimeout(resolve, 10))
           return 'success'
         },
-        catch: (error) => new Error(String(error))
+        catch: (error) => new Error(String(error)),
       })
       const result = await EffectConfig.runPromise(effect)
       expect(result).toBe('success')
@@ -87,7 +84,7 @@ describe('Effect Configuration', () => {
     it('should validate data with schemas', () => {
       const schema = EffectConfig.Schema.Struct({
         name: EffectConfig.Schema.String,
-        age: EffectConfig.Schema.Number
+        age: EffectConfig.Schema.Number,
       })
 
       const valid = { name: 'John', age: 30 }
@@ -99,7 +96,7 @@ describe('Effect Configuration', () => {
     it('should fail validation for invalid data', () => {
       const schema = EffectConfig.Schema.Struct({
         name: EffectConfig.Schema.String,
-        age: EffectConfig.Schema.Number
+        age: EffectConfig.Schema.Number,
       })
 
       const invalid = { name: 'John', age: 'thirty' } as any
@@ -111,11 +108,7 @@ describe('Effect Configuration', () => {
   describe('Batch processing', () => {
     it('should process items in batch', async () => {
       const items = [1, 2, 3, 4, 5]
-      const effect = EffectConfig.batch(
-        items,
-        (n) => EffectConfig.succeed(n * 2),
-        { concurrency: 2 }
-      )
+      const effect = EffectConfig.batch(items, (n) => EffectConfig.succeed(n * 2), { concurrency: 2 })
       const result = await EffectConfig.runPromise(effect)
       expect(result).toEqual([2, 4, 6, 8, 10])
     })
@@ -169,7 +162,7 @@ describe('Effect Configuration', () => {
       const ConfigTag = EffectConfig.Context.GenericTag<Config>('Config')
 
       const configLayer = EffectConfig.layerFrom(ConfigTag, {
-        apiUrl: 'http://localhost:3000'
+        apiUrl: 'http://localhost:3000',
       })
 
       expect(configLayer).toBeDefined()
