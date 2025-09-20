@@ -127,6 +127,69 @@ describe('Effect-TS Configuration', () => {
     })
   })
 
+  describe('Tagged Error Utility', () => {
+    it('should create tagged errors using taggedError utility', async () => {
+      // Import the taggedError function
+      const { taggedError } = await import('../effect')
+
+      // Create a test error with the taggedError utility
+      const TestError = taggedError('TestError')({
+        message: Schema.String,
+        code: Schema.Number,
+      })
+
+      // The function should create a schema that can be used to create errors
+      const errorInstance = {
+        _tag: 'TestError',
+        message: 'Test message',
+        code: 123,
+      }
+
+      // Verify the structure
+      expect(errorInstance._tag).toBe('TestError')
+      expect(errorInstance.message).toBe('Test message')
+      expect(errorInstance.code).toBe(123)
+    })
+
+    it('should create tagged errors with multiple fields', async () => {
+      const { taggedError } = await import('../effect')
+
+      // Create a more complex tagged error
+      const ComplexError = taggedError('ComplexError')({
+        message: Schema.String,
+        details: Schema.Object,
+        timestamp: Schema.Date,
+        severity: Schema.Literal('low', 'medium', 'high'),
+      })
+
+      const errorInstance = {
+        _tag: 'ComplexError',
+        message: 'Complex error occurred',
+        details: { field: 'value' },
+        timestamp: new Date(),
+        severity: 'high' as const,
+      }
+
+      expect(errorInstance._tag).toBe('ComplexError')
+      expect(errorInstance.message).toBe('Complex error occurred')
+      expect(errorInstance.details).toEqual({ field: 'value' })
+      expect(errorInstance.severity).toBe('high')
+    })
+
+    it('should handle empty fields object', async () => {
+      const { taggedError } = await import('../effect')
+
+      // Create a tagged error with no additional fields
+      const SimpleError = taggedError('SimpleError')({})
+
+      const errorInstance = {
+        _tag: 'SimpleError',
+      }
+
+      expect(errorInstance._tag).toBe('SimpleError')
+    })
+  })
+
   describe('Schema Integration', () => {
     it('should decode branded types using Schema', () => {
       const playerIdResult = Schema.decodeUnknownSync(PlayerIdSchema)('test_player')

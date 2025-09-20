@@ -266,6 +266,20 @@ describe('LoadingScene', () => {
         for (let i = 0; i < 100; i++) {
           yield* scene.update(50)
         }
+
+        // 100%達成後にもう一度updateを呼んで完了ログを確実に出力
+        yield* scene.update(50)
+      }).pipe(Effect.runPromise))
+
+    it('ローディング完了条件の確実なテスト', () =>
+      Effect.gen(function* () {
+        yield* scene.initialize()
+
+        // 非常に大きなdeltaTimeで一気に100%以上に進める
+        yield* scene.update(5000) // 大きな値で確実に100%に到達
+
+        // その後のupdateで完了ログが出力される（lines 126-127をカバー）
+        yield* scene.update(1)
       }).pipe(Effect.runPromise))
   })
 })

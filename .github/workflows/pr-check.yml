@@ -34,7 +34,7 @@ jobs:
       - name: TypeScript type check
         run: pnpm typecheck
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: pnpm test:coverage
 
       - name: Format check
@@ -43,8 +43,24 @@ jobs:
       - name: EditorConfig check
         run: pnpm editorconfig
 
-      - name: Build check
+      - name: Build project
         run: pnpm build
+
+      - name: Check bundle size
+        run: |
+          echo "📦 Bundle Size Report"
+          echo "===================="
+          if [ -d "dist" ]; then
+            find dist -type f -name "*.js" -o -name "*.css" | while read -r file; do
+              size=$(du -h "$file" | cut -f1)
+              echo "$file: $size"
+            done
+            echo "===================="
+            total_size=$(du -sh dist | cut -f1)
+            echo "Total Size: $total_size"
+          else
+            echo "No dist directory found"
+          fi
 
       - name: Run actionlint
         uses: reviewdog/action-actionlint@v1
@@ -93,12 +109,12 @@ jobs:
 
             ### 🔍 Checks Performed:
             - ✅ TypeScript type checking
-            - ✅ Unit tests execution
-            - ✅ Linting validation
+            - ✅ Unit tests execution with coverage
             - ✅ Code formatting check
             - ✅ EditorConfig compliance check
-            - ✅ GitHub Actions lint check
             - ✅ Build verification
+            - ✅ Bundle size analysis
+            - ✅ GitHub Actions lint check
 
             ${coverageText}
 
@@ -135,43 +151,3 @@ jobs:
                 body: comment
               });
             }
-
-  size-check:
-    name: Bundle Size Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build project
-        run: pnpm build
-
-      - name: Check bundle size
-        run: |
-          echo "📦 Bundle Size Report"
-          echo "===================="
-          if [ -d "dist" ]; then
-            find dist -type f -name "*.js" -o -name "*.css" | while read -r file; do
-              size=$(du -h "$file" | cut -f1)
-              echo "$file: $size"
-            done
-            echo "===================="
-            total_size=$(du -sh dist | cut -f1)
-            echo "Total Size: $total_size"
-          else
-            echo "No dist directory found"
-          fi
