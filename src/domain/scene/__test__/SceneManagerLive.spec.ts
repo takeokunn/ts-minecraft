@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
-import { describe, it, expect } from 'vitest'
-import { SceneManagerLive } from '../SceneManagerLive'
+import { describe, expect, it } from 'vitest'
 import { SceneManager } from '../SceneManager'
+import { SceneManagerLive } from '../SceneManagerLive'
 
 describe('SceneManagerLive', () => {
   describe('初期化', () => {

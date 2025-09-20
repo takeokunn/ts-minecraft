@@ -1,16 +1,16 @@
-import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Schema } from 'effect'
+import { describe, expect } from 'vitest'
 import {
-  SceneType,
+  SceneCleanupError,
+  SceneCleanupErrorSchema,
   SceneData,
+  SceneInitializationError,
+  SceneInitializationErrorSchema,
   SceneTransition,
   SceneTransitionError,
   SceneTransitionErrorSchema,
-  SceneInitializationError,
-  SceneInitializationErrorSchema,
-  SceneCleanupError,
-  SceneCleanupErrorSchema,
+  SceneType,
 } from '../Scene'
 
 describe('Scene', () => {

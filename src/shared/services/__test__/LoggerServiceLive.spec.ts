@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { LoggerService } from '../LoggerService'
 import { LoggerServiceLive } from '../LoggerServiceLive'
 
@@ -13,7 +13,7 @@ describe('LoggerServiceLive', () => {
   })
 
   it('should log debug messages when LOG_LEVEL is DEBUG', async () => {
-    process.env['LOG_LEVEL'] = 'DEBUG'
+    process.env.LOG_LEVEL = 'DEBUG'
 
     const program = Effect.gen(function* () {
       const logger = yield* LoggerService
@@ -62,7 +62,7 @@ describe('LoggerServiceLive', () => {
   })
 
   it('should respect log level filtering', async () => {
-    process.env['LOG_LEVEL'] = 'ERROR'
+    process.env.LOG_LEVEL = 'ERROR'
 
     const program = Effect.gen(function* () {
       const logger = yield* LoggerService
@@ -82,7 +82,7 @@ describe('LoggerServiceLive', () => {
 
   it('should measure performance correctly', async () => {
     // Ensure DEBUG level is set for this test
-    process.env['LOG_LEVEL'] = 'DEBUG'
+    process.env.LOG_LEVEL = 'DEBUG'
 
     const slowOperation = Effect.sync(() => {
       // シミュレートされた遅い処理
@@ -116,11 +116,11 @@ describe('LoggerServiceLive', () => {
   })
 
   it('should use default log level when NODE_ENV is production', async () => {
-    const originalNodeEnv = process.env['NODE_ENV']
-    const originalLogLevel = process.env['LOG_LEVEL']
+    const originalNodeEnv = process.env.NODE_ENV
+    const originalLogLevel = process.env.LOG_LEVEL
 
-    process.env['NODE_ENV'] = 'production'
-    delete process.env['LOG_LEVEL']
+    process.env.NODE_ENV = 'production'
+    delete process.env.LOG_LEVEL
 
     const program = Effect.gen(function* () {
       const logger = yield* LoggerService
@@ -135,9 +135,9 @@ describe('LoggerServiceLive', () => {
     expect(console.info).toHaveBeenCalled()
 
     // 環境変数を復元
-    process.env['NODE_ENV'] = originalNodeEnv
+    process.env.NODE_ENV = originalNodeEnv
     if (originalLogLevel) {
-      process.env['LOG_LEVEL'] = originalLogLevel
+      process.env.LOG_LEVEL = originalLogLevel
     }
   })
 

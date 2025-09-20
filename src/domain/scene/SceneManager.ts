@@ -1,5 +1,5 @@
-import { Context, Effect, Schema } from 'effect'
-import { Scene, SceneData, SceneTransition, SceneTransitionError, SceneType } from './Scene'
+import { Context, type Effect, Schema } from 'effect'
+import { type Scene, SceneData, type SceneTransition, type SceneTransitionError, type SceneType } from './Scene'
 
 // シーンスタック管理用のスキーマ
 export const SceneStack = Schema.Array(SceneData)
@@ -45,11 +45,21 @@ export const processSceneType = <A>(
   }
 ): A => {
   // Match.valueの型推論の制限を回避するため、明示的に各ハンドラーを呼び出す
-  if (sceneType === 'MainMenu') return handlers.MainMenu()
-  if (sceneType === 'Game') return handlers.Game()
-  if (sceneType === 'Loading') return handlers.Loading()
-  if (sceneType === 'Pause') return handlers.Pause()
-  if (sceneType === 'Settings') return handlers.Settings()
+  if (sceneType === 'MainMenu') {
+    return handlers.MainMenu()
+  }
+  if (sceneType === 'Game') {
+    return handlers.Game()
+  }
+  if (sceneType === 'Loading') {
+    return handlers.Loading()
+  }
+  if (sceneType === 'Pause') {
+    return handlers.Pause()
+  }
+  if (sceneType === 'Settings') {
+    return handlers.Settings()
+  }
 
   // 型システムにより、ここには到達しない（exhaustive check）
   const _exhaustive: never = sceneType

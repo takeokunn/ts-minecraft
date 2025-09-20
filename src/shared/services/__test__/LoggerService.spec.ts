@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'vitest'
 import { Effect } from 'effect'
+import { describe, expect, it } from 'vitest'
 import {
-  LogLevel,
+  createLogEntry,
+  createTimestamp,
+  getCurrentLogLevel,
   LOG_LEVEL_PRIORITY,
   LoggerService,
-  getCurrentLogLevel,
+  type LogLevel,
   shouldLog,
-  createTimestamp,
-  createLogEntry,
 } from '../LoggerService'
 
 describe('LoggerService - Core Types and Utilities', () => {
@@ -29,51 +29,51 @@ describe('LoggerService - Core Types and Utilities', () => {
 
   describe('getCurrentLogLevel', () => {
     it('should return DEBUG for development environment by default', () => {
-      const originalNodeEnv = process.env['NODE_ENV']
-      const originalLogLevel = process.env['LOG_LEVEL']
+      const originalNodeEnv = process.env.NODE_ENV
+      const originalLogLevel = process.env.LOG_LEVEL
 
-      process.env['NODE_ENV'] = 'development'
-      delete process.env['LOG_LEVEL']
+      process.env.NODE_ENV = 'development'
+      delete process.env.LOG_LEVEL
 
       const level = getCurrentLogLevel()
       expect(level).toBe('DEBUG')
 
       // 環境変数を復元
-      process.env['NODE_ENV'] = originalNodeEnv
+      process.env.NODE_ENV = originalNodeEnv
       if (originalLogLevel) {
-        process.env['LOG_LEVEL'] = originalLogLevel
+        process.env.LOG_LEVEL = originalLogLevel
       }
     })
 
     it('should return INFO for production environment by default', () => {
-      const originalNodeEnv = process.env['NODE_ENV']
-      const originalLogLevel = process.env['LOG_LEVEL']
+      const originalNodeEnv = process.env.NODE_ENV
+      const originalLogLevel = process.env.LOG_LEVEL
 
-      process.env['NODE_ENV'] = 'production'
-      delete process.env['LOG_LEVEL']
+      process.env.NODE_ENV = 'production'
+      delete process.env.LOG_LEVEL
 
       const level = getCurrentLogLevel()
       expect(level).toBe('INFO')
 
       // 環境変数を復元
-      process.env['NODE_ENV'] = originalNodeEnv
+      process.env.NODE_ENV = originalNodeEnv
       if (originalLogLevel) {
-        process.env['LOG_LEVEL'] = originalLogLevel
+        process.env.LOG_LEVEL = originalLogLevel
       }
     })
 
     it('should respect LOG_LEVEL environment variable', () => {
-      const originalLogLevel = process.env['LOG_LEVEL']
+      const originalLogLevel = process.env.LOG_LEVEL
 
-      process.env['LOG_LEVEL'] = 'ERROR'
+      process.env.LOG_LEVEL = 'ERROR'
       const level = getCurrentLogLevel()
       expect(level).toBe('ERROR')
 
       // 環境変数を復元
       if (originalLogLevel) {
-        process.env['LOG_LEVEL'] = originalLogLevel
+        process.env.LOG_LEVEL = originalLogLevel
       } else {
-        delete process.env['LOG_LEVEL']
+        delete process.env.LOG_LEVEL
       }
     })
   })

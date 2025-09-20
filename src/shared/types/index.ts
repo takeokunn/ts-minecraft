@@ -3,7 +3,7 @@
  * 同一または下層ディレクトリからのみエクスポート
  */
 
-import { Effect } from 'effect'
+import type { Effect } from 'effect'
 
 // 同一ディレクトリからのエクスポート
 export * from './branded'

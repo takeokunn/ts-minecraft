@@ -1,5 +1,5 @@
 import { Effect, Layer, Ref } from 'effect'
-import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene'
+import { Scene, SceneCleanupError, type SceneData, SceneInitializationError } from '../Scene'
 
 // ゲーム状態の定義
 interface GameState {
@@ -74,12 +74,16 @@ export const GameScene = Layer.effect(
 
       update: (deltaTime) =>
         Effect.gen(function* () {
-          if (!isInitialized) return
+          if (!isInitialized) {
+            return
+          }
 
           const gameState = yield* Ref.get(gameStateRef)
 
           // ゲームが一時停止されている場合はスキップ
-          if (gameState.isPaused) return
+          if (gameState.isPaused) {
+            return
+          }
 
           // ゲーム状態の更新
           yield* Ref.update(gameStateRef, (state) => ({
@@ -101,7 +105,9 @@ export const GameScene = Layer.effect(
 
       render: () =>
         Effect.gen(function* () {
-          if (!isInitialized) return
+          if (!isInitialized) {
+            return
+          }
 
           const gameState = yield* Ref.get(gameStateRef)
 

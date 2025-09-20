@@ -1,5 +1,5 @@
 import { Effect, Layer, Ref } from 'effect'
-import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene'
+import { Scene, SceneCleanupError, type SceneData, SceneInitializationError } from '../Scene'
 
 // ローディング状態の定義
 interface LoadingState {
@@ -72,7 +72,9 @@ export const LoadingScene = Layer.effect(
 
       update: (deltaTime) =>
         Effect.gen(function* () {
-          if (!isInitialized) return
+          if (!isInitialized) {
+            return
+          }
 
           const loadingState = yield* Ref.get(loadingStateRef)
 
@@ -118,7 +120,9 @@ export const LoadingScene = Layer.effect(
 
       render: () =>
         Effect.gen(function* () {
-          if (!isInitialized) return
+          if (!isInitialized) {
+            return
+          }
 
           const loadingState = yield* Ref.get(loadingStateRef)
 

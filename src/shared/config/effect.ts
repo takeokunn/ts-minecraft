@@ -1,9 +1,8 @@
-import { Effect, Context, Layer, pipe, Runtime } from 'effect'
-import * as Schema from 'effect/Schema'
-import * as ParseResult from 'effect/ParseResult'
+import { Cause, Context, Effect, Exit, Layer, pipe, Runtime } from 'effect'
 import * as Config from 'effect/Config'
-import { Cause, Exit } from 'effect'
+import type * as ParseResult from 'effect/ParseResult'
 import * as Schedule from 'effect/Schedule'
+import * as Schema from 'effect/Schema'
 
 /**
  * Effect-TS基本設定とヘルパー関数
@@ -151,10 +150,10 @@ export const validate =
 
 // Batch processing utility
 export const batch = <A, B, E, R>(
-  items: ReadonlyArray<A>,
+  items: readonly A[],
   f: (item: A) => Effect.Effect<B, E, R>,
   options?: { concurrency?: number }
-): Effect.Effect<ReadonlyArray<B>, E, R> => {
+): Effect.Effect<readonly B[], E, R> => {
   const { concurrency = 5 } = options ?? {}
   return Effect.forEach(items, f, { concurrency })
 }

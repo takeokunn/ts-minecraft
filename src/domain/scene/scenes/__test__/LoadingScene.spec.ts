@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
-import { describe, it, expect, beforeEach } from 'vitest'
-import { LoadingScene } from '../LoadingScene'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { Scene } from '../../Scene'
+import { LoadingScene } from '../LoadingScene'
 
 describe('LoadingScene', () => {
   let scene: Scene
@@ -170,15 +170,15 @@ describe('LoadingScene', () => {
 
   describe('ローディング固有の機能', () => {
     it('ローディングタイプがWorldGenerationで初期化される', () => {
-      expect(scene.data.metadata?.['loadingType']).toBe('WorldGeneration')
+      expect(scene.data.metadata?.loadingType).toBe('WorldGeneration')
     })
 
     it('ヒント表示が有効で初期化される', () => {
-      expect(scene.data.metadata?.['showTips']).toBe(true)
+      expect(scene.data.metadata?.showTips).toBe(true)
     })
 
     it('アニメーションタイプがspinnerで初期化される', () => {
-      expect(scene.data.metadata?.['animationType']).toBe('spinner')
+      expect(scene.data.metadata?.animationType).toBe('spinner')
     })
 
     it('タスクの進捗を追跡する', () =>

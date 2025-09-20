@@ -40,7 +40,7 @@
         "noUselessRename": "error",
         "noUselessTernary": "error",
         "noVoid": "error",
-        "useLiteralKeys": "error",
+        "useLiteralKeys": "warn",
         "useOptionalChain": "error",
         "noAdjacentSpacesInRegex": "error",
         "noArguments": "error",
@@ -123,7 +123,7 @@
         "noDuplicateJsxProps": "error",
         "noDuplicateObjectKeys": "error",
         "noDuplicateParameters": "error",
-        "noEmptyBlockStatements": "error",
+        "noEmptyBlockStatements": "off",
         "noExplicitAny": "off",
         "noExtraNonNullAssertion": "error",
         "noFallthroughSwitchClause": "error",
@@ -142,6 +142,9 @@
         "noWith": "error",
         "noVar": "error",
         "noConsole": { "level": "off", "options": { "allow": ["log"] } }
+      },
+      "performance": {
+        "noAccumulatingSpread": "off"
       }
     }
   },

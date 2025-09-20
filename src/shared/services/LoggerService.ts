@@ -1,4 +1,4 @@
-import { Context, Effect, Schema } from 'effect'
+import { Context, type Effect, Schema } from 'effect'
 
 // ログレベル定義
 export const LogLevel = Schema.Literal('DEBUG', 'INFO', 'WARN', 'ERROR')
@@ -46,12 +46,12 @@ export const LoggerService = Context.GenericTag<LoggerService>('@app/services/Lo
 
 // ログレベル設定の取得
 export const getCurrentLogLevel = (): LogLevel => {
-  const envLevel = process.env['LOG_LEVEL']?.toUpperCase() as LogLevel | undefined
+  const envLevel = process.env.LOG_LEVEL?.toUpperCase() as LogLevel | undefined
   if (envLevel && Object.keys(LOG_LEVEL_PRIORITY).includes(envLevel)) {
     return envLevel
   }
   // 開発環境ではDEBUG、本番環境ではINFOをデフォルトに
-  return process.env['NODE_ENV'] === 'production' ? 'INFO' : 'DEBUG'
+  return process.env.NODE_ENV === 'production' ? 'INFO' : 'DEBUG'
 }
 
 // ログ出力の可否判定

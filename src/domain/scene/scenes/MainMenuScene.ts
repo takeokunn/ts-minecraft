@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect'
-import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene'
+import { Scene, SceneCleanupError, type SceneData, SceneInitializationError } from '../Scene'
 
 // MainMenuScene実装
 export const MainMenuScene = Layer.effect(
@@ -44,7 +44,9 @@ export const MainMenuScene = Layer.effect(
 
       update: (deltaTime) =>
         Effect.gen(function* () {
-          if (!isInitialized) return
+          if (!isInitialized) {
+            return
+          }
 
           // キーボード入力処理（実際のゲームではInputServiceから取得）
           // 現在はデモ用の更新処理
@@ -56,7 +58,9 @@ export const MainMenuScene = Layer.effect(
 
       render: () =>
         Effect.gen(function* () {
-          if (!isInitialized) return
+          if (!isInitialized) {
+            return
+          }
 
           // レンダリング処理（実際のゲームではRenderServiceを使用）
           yield* Effect.logDebug('MainMenuSceneレンダリング中...')

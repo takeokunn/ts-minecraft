@@ -1,12 +1,12 @@
 import { Effect, Layer, Match } from 'effect'
 import {
-  LoggerService,
-  LogLevel,
-  LogEntry,
-  PerformanceMetrics,
-  getCurrentLogLevel,
-  shouldLog,
   createLogEntry,
+  getCurrentLogLevel,
+  type LogEntry,
+  LoggerService,
+  type LogLevel,
+  type PerformanceMetrics,
+  shouldLog,
 } from './LoggerService'
 
 // コンソール出力の実装
