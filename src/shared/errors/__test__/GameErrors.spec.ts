@@ -1,22 +1,32 @@
 import { describe, it, expect } from "vitest"
-import { Effect, Exit } from "effect"
+import { Effect, Exit, Schema } from "effect"
 import {
   GameError,
+  GameErrorSchema,
   InvalidStateError,
+  InvalidStateErrorSchema,
   ResourceNotFoundError,
+  ResourceNotFoundErrorSchema,
   ValidationError,
+  ValidationErrorSchema,
   PerformanceError,
+  PerformanceErrorSchema,
   ConfigError,
+  ConfigErrorSchema,
   RenderError,
+  RenderErrorSchema,
   WorldGenerationError,
+  WorldGenerationErrorSchema,
   EntityError,
-  PhysicsError
+  EntityErrorSchema,
+  PhysicsError,
+  PhysicsErrorSchema
 } from "../GameErrors"
 
 describe("GameErrors", () => {
   describe("GameError", () => {
     it("should create a basic game error", () => {
-      const error = new GameError({
+      const error = GameError({
         message: "Game error occurred",
         code: "GAME_001",
         cause: new Error("Underlying cause")
@@ -30,7 +40,7 @@ describe("GameErrors", () => {
 
     it("should work with Effect", async () => {
       const program = Effect.fail(
-        new GameError({
+        GameError({
           message: "Test error"
         })
       )
@@ -39,14 +49,23 @@ describe("GameErrors", () => {
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
         const error = result.cause._tag === "Fail" ? result.cause.error : null
-        expect(error).toBeInstanceOf(GameError)
+        expect(error?._tag).toBe("GameError")
       }
+    })
+
+    it("should be validated by Schema", () => {
+      const error = GameError({
+        message: "Schema validation test"
+      })
+
+      const parsed = Schema.decodeUnknownSync(GameErrorSchema)(error)
+      expect(parsed).toEqual(error)
     })
   })
 
   describe("InvalidStateError", () => {
     it("should track state transitions", () => {
-      const error = new InvalidStateError({
+      const error = InvalidStateError({
         message: "Invalid state transition",
         currentState: "menu",
         expectedState: "game",
@@ -62,7 +81,7 @@ describe("GameErrors", () => {
 
   describe("ResourceNotFoundError", () => {
     it("should track missing resources", () => {
-      const error = new ResourceNotFoundError({
+      const error = ResourceNotFoundError({
         message: "Texture not found",
         resourceType: "texture",
         resourceId: "grass_block",
@@ -78,7 +97,7 @@ describe("GameErrors", () => {
 
   describe("ValidationError", () => {
     it("should track validation failures", () => {
-      const error = new ValidationError({
+      const error = ValidationError({
         message: "Invalid player position",
         field: "position.y",
         value: -1000,
@@ -94,7 +113,7 @@ describe("GameErrors", () => {
 
   describe("PerformanceError", () => {
     it("should track performance issues", () => {
-      const error = new PerformanceError({
+      const error = PerformanceError({
         message: "FPS below threshold",
         metric: "fps",
         currentValue: 15,
@@ -112,7 +131,7 @@ describe("GameErrors", () => {
 
   describe("ConfigError", () => {
     it("should track configuration errors", () => {
-      const error = new ConfigError({
+      const error = ConfigError({
         message: "Invalid config value",
         configKey: "renderDistance",
         configValue: "far",
@@ -128,7 +147,7 @@ describe("GameErrors", () => {
 
   describe("RenderError", () => {
     it("should track rendering errors", () => {
-      const error = new RenderError({
+      const error = RenderError({
         message: "WebGL context lost",
         component: "ChunkRenderer",
         phase: "render",
@@ -144,7 +163,7 @@ describe("GameErrors", () => {
 
   describe("WorldGenerationError", () => {
     it("should track world generation failures", () => {
-      const error = new WorldGenerationError({
+      const error = WorldGenerationError({
         message: "Failed to generate chunk",
         chunkX: 10,
         chunkZ: -5,
@@ -162,7 +181,7 @@ describe("GameErrors", () => {
 
   describe("EntityError", () => {
     it("should track entity errors", () => {
-      const error = new EntityError({
+      const error = EntityError({
         message: "Failed to spawn entity",
         entityId: "entity_001",
         entityType: "zombie",
@@ -180,7 +199,7 @@ describe("GameErrors", () => {
 
   describe("PhysicsError", () => {
     it("should track physics calculation errors", () => {
-      const error = new PhysicsError({
+      const error = PhysicsError({
         message: "Collision detection failed",
         calculationType: "collision",
         affectedEntities: ["player1", "entity_002"],

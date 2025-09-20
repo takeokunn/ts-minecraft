@@ -1,60 +1,17 @@
 import { Effect, Schedule, Duration, pipe } from "effect"
-import type { Schema } from "effect"
 
 // ゲームエラー
-export {
-  GameError,
-  InvalidStateError,
-  ResourceNotFoundError,
-  ValidationError,
-  PerformanceError,
-  ConfigError,
-  RenderError,
-  WorldGenerationError,
-  EntityError,
-  PhysicsError
-} from "./GameErrors"
+export * from "./GameErrors"
 
 // ネットワークエラー
-export {
-  NetworkError,
-  ConnectionError,
-  TimeoutError,
-  ProtocolError,
-  AuthenticationError,
-  SessionError,
-  SyncError,
-  RateLimitError,
-  WebSocketError,
-  PacketError,
-  ServerError,
-  P2PError
-} from "./NetworkErrors"
+export * from "./NetworkErrors"
 
-// 全エラータイプのユニオン型（必要に応じて使用）
-export type AllErrors =
-  | import("./GameErrors").GameError
-  | import("./GameErrors").InvalidStateError
-  | import("./GameErrors").ResourceNotFoundError
-  | import("./GameErrors").ValidationError
-  | import("./GameErrors").PerformanceError
-  | import("./GameErrors").ConfigError
-  | import("./GameErrors").RenderError
-  | import("./GameErrors").WorldGenerationError
-  | import("./GameErrors").EntityError
-  | import("./GameErrors").PhysicsError
-  | import("./NetworkErrors").NetworkError
-  | import("./NetworkErrors").ConnectionError
-  | import("./NetworkErrors").TimeoutError
-  | import("./NetworkErrors").ProtocolError
-  | import("./NetworkErrors").AuthenticationError
-  | import("./NetworkErrors").SessionError
-  | import("./NetworkErrors").SyncError
-  | import("./NetworkErrors").RateLimitError
-  | import("./NetworkErrors").WebSocketError
-  | import("./NetworkErrors").PacketError
-  | import("./NetworkErrors").ServerError
-  | import("./NetworkErrors").P2PError
+// 全エラータイプのインポート
+import type { AnyGameError } from "./GameErrors"
+import type { AnyNetworkError } from "./NetworkErrors"
+
+// 全エラータイプのユニオン型
+export type AllErrors = AnyGameError | AnyNetworkError
 
 /**
  * エラーリカバリー戦略
@@ -271,5 +228,61 @@ export const ErrorReporter = {
     }
 
     return chain
+  }
+}
+
+/**
+ * エラーの型ガード
+ */
+export const ErrorGuards = {
+  isGameError: (error: unknown): error is AnyGameError =>
+    error !== null &&
+    typeof error === "object" &&
+    "_tag" in error &&
+    [
+      "GameError",
+      "InvalidStateError",
+      "ResourceNotFoundError",
+      "ValidationError",
+      "PerformanceError",
+      "ConfigError",
+      "RenderError",
+      "WorldGenerationError",
+      "EntityError",
+      "PhysicsError"
+    ].includes((error as any)._tag),
+
+  isNetworkError: (error: unknown): error is AnyNetworkError =>
+    error !== null &&
+    typeof error === "object" &&
+    "_tag" in error &&
+    [
+      "NetworkError",
+      "ConnectionError",
+      "TimeoutError",
+      "ProtocolError",
+      "AuthenticationError",
+      "SessionError",
+      "SyncError",
+      "RateLimitError",
+      "WebSocketError",
+      "PacketError",
+      "ServerError",
+      "P2PError"
+    ].includes((error as any)._tag),
+
+  isRetryableError: (error: unknown): boolean => {
+    if (!error || typeof error !== "object" || !("_tag" in error)) {
+      return false
+    }
+
+    const retryableTags = [
+      "NetworkError",
+      "ConnectionError",
+      "TimeoutError",
+      "ServerError"
+    ]
+
+    return retryableTags.includes((error as any)._tag)
   }
 }

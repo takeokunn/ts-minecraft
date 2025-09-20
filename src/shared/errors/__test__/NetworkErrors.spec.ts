@@ -1,24 +1,36 @@
 import { describe, it, expect } from "vitest"
-import { Effect, Exit } from "effect"
+import { Effect, Exit, Schema } from "effect"
 import {
   NetworkError,
+  NetworkErrorSchema,
   ConnectionError,
+  ConnectionErrorSchema,
   TimeoutError,
+  TimeoutErrorSchema,
   ProtocolError,
+  ProtocolErrorSchema,
   AuthenticationError,
+  AuthenticationErrorSchema,
   SessionError,
+  SessionErrorSchema,
   SyncError,
+  SyncErrorSchema,
   RateLimitError,
+  RateLimitErrorSchema,
   WebSocketError,
+  WebSocketErrorSchema,
   PacketError,
+  PacketErrorSchema,
   ServerError,
-  P2PError
+  ServerErrorSchema,
+  P2PError,
+  P2PErrorSchema
 } from "../NetworkErrors"
 
 describe("NetworkErrors", () => {
   describe("NetworkError", () => {
     it("should create a basic network error", () => {
-      const error = new NetworkError({
+      const error = NetworkError({
         message: "Network request failed",
         code: "NET_001",
         statusCode: 500,
@@ -30,11 +42,26 @@ describe("NetworkErrors", () => {
       expect(error.code).toBe("NET_001")
       expect(error.statusCode).toBe(500)
     })
+
+    it("should work with Effect", async () => {
+      const program = Effect.fail(
+        NetworkError({
+          message: "Test error"
+        })
+      )
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isFailure(result)).toBe(true)
+      if (Exit.isFailure(result)) {
+        const error = result.cause._tag === "Fail" ? result.cause.error : null
+        expect(error?._tag).toBe("NetworkError")
+      }
+    })
   })
 
   describe("ConnectionError", () => {
     it("should track connection attempts", () => {
-      const error = new ConnectionError({
+      const error = ConnectionError({
         message: "Failed to connect to server",
         serverUrl: "ws://localhost:8080",
         attemptNumber: 3,
@@ -51,7 +78,7 @@ describe("NetworkErrors", () => {
 
   describe("TimeoutError", () => {
     it("should track timeout details", () => {
-      const error = new TimeoutError({
+      const error = TimeoutError({
         message: "Request timed out",
         operation: "fetchChunkData",
         timeoutMs: 5000,
@@ -67,7 +94,7 @@ describe("NetworkErrors", () => {
 
   describe("ProtocolError", () => {
     it("should track protocol mismatches", () => {
-      const error = new ProtocolError({
+      const error = ProtocolError({
         message: "Protocol version mismatch",
         expectedVersion: "1.20.4",
         actualVersion: "1.19.0",
@@ -83,7 +110,7 @@ describe("NetworkErrors", () => {
 
   describe("AuthenticationError", () => {
     it("should track authentication failures", () => {
-      const error = new AuthenticationError({
+      const error = AuthenticationError({
         message: "Authentication failed",
         username: "player123",
         reason: "invalid_credentials",
@@ -99,7 +126,7 @@ describe("NetworkErrors", () => {
 
   describe("SessionError", () => {
     it("should track session issues", () => {
-      const error = new SessionError({
+      const error = SessionError({
         message: "Session expired",
         sessionId: "sess_123456",
         reason: "expired",
@@ -115,7 +142,7 @@ describe("NetworkErrors", () => {
 
   describe("SyncError", () => {
     it("should track synchronization conflicts", () => {
-      const error = new SyncError({
+      const error = SyncError({
         message: "Data sync conflict",
         dataType: "playerInventory",
         localVersion: 5,
@@ -133,7 +160,7 @@ describe("NetworkErrors", () => {
 
   describe("RateLimitError", () => {
     it("should track rate limiting", () => {
-      const error = new RateLimitError({
+      const error = RateLimitError({
         message: "Rate limit exceeded",
         limit: 100,
         windowMs: 60000,
@@ -151,7 +178,7 @@ describe("NetworkErrors", () => {
 
   describe("WebSocketError", () => {
     it("should track WebSocket errors", () => {
-      const error = new WebSocketError({
+      const error = WebSocketError({
         message: "WebSocket connection closed",
         code: 1006,
         reason: "Abnormal closure",
@@ -169,7 +196,7 @@ describe("NetworkErrors", () => {
 
   describe("PacketError", () => {
     it("should track packet processing errors", () => {
-      const error = new PacketError({
+      const error = PacketError({
         message: "Invalid packet received",
         packetId: "pkt_001",
         packetType: "player_move",
@@ -188,7 +215,7 @@ describe("NetworkErrors", () => {
 
   describe("ServerError", () => {
     it("should track server-side errors", () => {
-      const error = new ServerError({
+      const error = ServerError({
         message: "Internal server error",
         statusCode: 500,
         errorCode: "INTERNAL_ERROR",
@@ -205,7 +232,7 @@ describe("NetworkErrors", () => {
 
   describe("P2PError", () => {
     it("should track P2P connection errors", () => {
-      const error = new P2PError({
+      const error = P2PError({
         message: "P2P connection failed",
         peerId: "peer_abc123",
         connectionState: "failed",

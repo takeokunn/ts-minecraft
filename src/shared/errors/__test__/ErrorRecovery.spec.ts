@@ -10,7 +10,7 @@ describe("ErrorRecovery", () => {
       const effect = Effect.sync(() => {
         attemptCount++
         if (attemptCount < 3) {
-          throw new NetworkError({ message: "Network error" })
+          throw NetworkError({ message: "Network error" })
         }
         return "success"
       })
@@ -31,7 +31,7 @@ describe("ErrorRecovery", () => {
       const effect = Effect.sync(() => {
         attemptCount++
         if (attemptCount < 2) {
-          throw new NetworkError({ message: "Network error" })
+          throw NetworkError({ message: "Network error" })
         }
         return "success"
       })
@@ -52,7 +52,7 @@ describe("ErrorRecovery", () => {
       const effect = Effect.sync(() => {
         attemptCount++
         if (attemptCount === 1) {
-          throw new NetworkError({ message: "Network error" })
+          throw NetworkError({ message: "Network error" })
         }
         return "success"
       })
@@ -73,7 +73,7 @@ describe("ErrorRecovery", () => {
       const effect = Effect.sync(() => {
         attemptCount++
         if (attemptCount === 1) {
-          throw new NetworkError({ message: "Network error" })
+          throw NetworkError({ message: "Network error" })
         }
         return "success"
       })
@@ -123,7 +123,7 @@ describe("ErrorHandlers", () => {
   describe("logAndFallback", () => {
     it("should log error and return fallback value", async () => {
       const logger = vi.fn()
-      const error = new NetworkError({ message: "Test error" })
+      const error = NetworkError({ message: "Test error" })
 
       const program = Effect.fail(error).pipe(
         Effect.catchAll(ErrorHandlers.logAndFallback("fallback", logger))
@@ -137,7 +137,7 @@ describe("ErrorHandlers", () => {
 
   describe("mapError", () => {
     it("should transform errors", async () => {
-      const error = new NetworkError({ message: "Original error" })
+      const error = NetworkError({ message: "Original error" })
 
       const program = Effect.fail(error).pipe(
         Effect.catchAll(ErrorHandlers.mapError((e: NetworkError) =>
