@@ -144,7 +144,7 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
         } else {
           return yield* Effect.fail(new Error(`Unknown config key: ${key}`))
         }
-      }),
+      }) as Effect.Effect<void, never, never>,
   })
 })
 

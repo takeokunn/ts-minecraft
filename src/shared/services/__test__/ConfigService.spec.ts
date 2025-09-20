@@ -23,7 +23,7 @@ describe('ConfigService', () => {
 
         expect(result._tag).toBe('Left')
         if (result._tag === 'Left') {
-          expect(result.left.message).toContain('Unknown config key: invalidKey')
+          expect((result.left as Error).message).toContain('Unknown config key: invalidKey')
         }
       }).pipe(Effect.provide(ConfigServiceLive))
     )
@@ -243,7 +243,7 @@ describe('ConfigService', () => {
     it.effect('should load valid config from environment variables', () =>
       Effect.gen(function* () {
         // 有効なJSON設定を環境変数に設定
-        process.env.GAME_CONFIG = JSON.stringify({
+        process.env['GAME_CONFIG'] =JSON.stringify({
           fps: 120,
           tickRate: 30,
           renderDistance: 16,
@@ -268,7 +268,7 @@ describe('ConfigService', () => {
     it.effect('should fall back to default when environment variable has invalid JSON', () =>
       Effect.gen(function* () {
         // 無効なJSONを環境変数に設定
-        process.env.GAME_CONFIG = 'invalid-json'
+        process.env['GAME_CONFIG'] ='invalid-json'
 
         const service = yield* ConfigService
         const gameConfig = service.gameConfig
@@ -282,7 +282,7 @@ describe('ConfigService', () => {
     it.effect('should fall back to default when environment variable has invalid schema', () =>
       Effect.gen(function* () {
         // スキーマに適合しないJSONを環境変数に設定
-        process.env.GAME_CONFIG = JSON.stringify({
+        process.env['GAME_CONFIG'] =JSON.stringify({
           fps: 'invalid-number',
           tickRate: 20,
         })
