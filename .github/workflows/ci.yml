@@ -90,6 +90,9 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
+      - name: Check EditorConfig compliance
+        run: pnpm editorconfig
+
   build:
     name: Build
     runs-on: ubuntu-latest
