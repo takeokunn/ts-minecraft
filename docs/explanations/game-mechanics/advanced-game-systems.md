@@ -1,14 +1,18 @@
 ---
-title: "高度なゲームシステム設計 - MMORPGレベルのMinecraft実装"
-description: "企業レベルのゲーム開発技術をTypeScript Minecraft Cloneに適用。マルチプレイヤー、経済システム、AI、プロシージャル生成など高度なゲームメカニクスの完全実装ガイド。"
-category: "explanation"
-difficulty: "expert"
-tags: ["advanced-game-systems", "multiplayer", "ai-systems", "procedural-generation", "game-economy", "mmorpg-patterns"]
-prerequisites: ["game-development-advanced", "system-architecture", "effect-ts-expert", "multiplayer-concepts"]
-estimated_reading_time: "45分"
-related_docs: ["../architecture/scalable-architecture-design.md", "./core-features/overview.md", "../../reference/api/game-engine-api.md"]
+title: '高度なゲームシステム設計 - MMORPGレベルのMinecraft実装'
+description: '企業レベルのゲーム開発技術をTypeScript Minecraft Cloneに適用。マルチプレイヤー、経済システム、AI、プロシージャル生成など高度なゲームメカニクスの完全実装ガイド。'
+category: 'explanation'
+difficulty: 'expert'
+tags: ['advanced-game-systems', 'multiplayer', 'ai-systems', 'procedural-generation', 'game-economy', 'mmorpg-patterns']
+prerequisites: ['game-development-advanced', 'system-architecture', 'effect-ts-expert', 'multiplayer-concepts']
+estimated_reading_time: '45分'
+related_docs:
+  [
+    '../architecture/scalable-architecture-design.md',
+    './core-features/overview.md',
+    '../../reference/api/game-engine-api.md',
+  ]
 ---
-
 
 # 🎮 高度なゲームシステム設計
 
@@ -117,16 +121,16 @@ graph TB
 export namespace Multiplayer {
   // Player Session Management
   export const PlayerSession = Schema.Struct({
-    sessionId: Schema.String.pipe(Schema.uuid(), Schema.brand("SessionId")),
-    playerId: Schema.String.pipe(Schema.uuid(), Schema.brand("PlayerId")),
-    serverRegion: Schema.Literal("us-east", "us-west", "eu-west", "eu-east", "asia-pacific"),
-    connectionType: Schema.Literal("websocket", "webrtc", "tcp"),
+    sessionId: Schema.String.pipe(Schema.uuid(), Schema.brand('SessionId')),
+    playerId: Schema.String.pipe(Schema.uuid(), Schema.brand('PlayerId')),
+    serverRegion: Schema.Literal('us-east', 'us-west', 'eu-west', 'eu-east', 'asia-pacific'),
+    connectionType: Schema.Literal('websocket', 'webrtc', 'tcp'),
     latency: Schema.Number.pipe(Schema.nonNegative()),
     bandwidth: Schema.Number.pipe(Schema.positive()),
     authenticated: Schema.Boolean,
     permissions: PlayerPermissionSet,
     lastHeartbeat: Schema.Date,
-    connectionQuality: Schema.Literal("excellent", "good", "fair", "poor")
+    connectionQuality: Schema.Literal('excellent', 'good', 'fair', 'poor'),
   })
 
   // Real-time Synchronization Protocol
@@ -150,9 +154,7 @@ export namespace Multiplayer {
     ) => Effect.Effect<ConflictResolution[], ConflictError, ConflictResolver>
 
     // Network Optimization
-    readonly compressStateUpdate: (
-      update: StateUpdate
-    ) => Effect.Effect<CompressedUpdate, CompressionError, never>
+    readonly compressStateUpdate: (update: StateUpdate) => Effect.Effect<CompressedUpdate, CompressionError, never>
 
     readonly deltaCompression: (
       previousState: GameState,
@@ -162,9 +164,7 @@ export namespace Multiplayer {
 
   // Distributed Game World Management
   export interface WorldShardingService {
-    readonly getShardForChunk: (
-      coord: ChunkCoordinate
-    ) => Effect.Effect<ShardId, ShardError, never>
+    readonly getShardForChunk: (coord: ChunkCoordinate) => Effect.Effect<ShardId, ShardError, never>
 
     readonly migrateChunk: (
       coord: ChunkCoordinate,
@@ -180,7 +180,7 @@ export namespace Multiplayer {
     ) => Effect.Effect<ReplicationResult, ReplicationError, ShardService>
   }
 
-  export const WorldShardingService = Context.GenericTag<WorldShardingService>("@minecraft/WorldShardingService")
+  export const WorldShardingService = Context.GenericTag<WorldShardingService>('@minecraft/WorldShardingService')
 }
 
 // Advanced Networking Implementation - Functional Approach
@@ -189,11 +189,14 @@ export namespace AdvancedNetworking {
   export interface AdvancedNetworkManager {
     readonly assessNetworkConditions: (session: PlayerSession) => Effect.Effect<NetworkConditions, NetworkError, never>
     readonly getHistoricalWorldState: (timestamp: number) => Effect.Effect<WorldState, HistoryError, never>
-    readonly validatePlayerInput: (input: PlayerInput, state: WorldState) => Effect.Effect<boolean, ValidationError, never>
+    readonly validatePlayerInput: (
+      input: PlayerInput,
+      state: WorldState
+    ) => Effect.Effect<boolean, ValidationError, never>
     readonly extrapolatePosition: (position: Position, velocity: Vector3, latency: number) => Position
   }
 
-  export const AdvancedNetworkManager = Context.GenericTag<AdvancedNetworkManager>("@minecraft/AdvancedNetworkManager")
+  export const AdvancedNetworkManager = Context.GenericTag<AdvancedNetworkManager>('@minecraft/AdvancedNetworkManager')
 
   // Adaptive Network Protocol Selection - Pure Function
   export const selectOptimalProtocol = (
@@ -206,17 +209,17 @@ export namespace AdvancedNetworking {
       return Match.value(networkConditions).pipe(
         Match.when(
           (conditions) => conditions.latency < 50 && conditions.bandwidth > 1000,
-          () => ({ type: "webrtc" as const, config: { lowLatency: true } })
+          () => ({ type: 'webrtc' as const, config: { lowLatency: true } })
         ),
         Match.when(
           (conditions) => conditions.latency < 100 && conditions.reliability > 0.95,
-          () => ({ type: "websocket" as const, config: { compression: true } })
+          () => ({ type: 'websocket' as const, config: { compression: true } })
         ),
         Match.when(
-          (conditions) => conditions.reliability > 0.90,
-          () => ({ type: "tcp" as const, config: { reliable: true } })
+          (conditions) => conditions.reliability > 0.9,
+          () => ({ type: 'tcp' as const, config: { reliable: true } })
         ),
-        Match.orElse(() => ({ type: "udp" as const, config: { unreliable: true } }))
+        Match.orElse(() => ({ type: 'udp' as const, config: { unreliable: true } }))
       )
     })
 
@@ -230,38 +233,35 @@ export namespace AdvancedNetworking {
       const networkManager = yield* AdvancedNetworkManager
 
       // サーバーサイド巻き戻し
-      const historicalState = yield* networkManager.getHistoricalWorldState(
-        serverTimestamp - playerLatency
-      )
+      const historicalState = yield* networkManager.getHistoricalWorldState(serverTimestamp - playerLatency)
 
       // 入力の妥当性検証（過去の状態で）
-      const isValidInput = yield* networkManager.validatePlayerInput(
-        playerInput,
-        historicalState
-      )
+      const isValidInput = yield* networkManager.validatePlayerInput(playerInput, historicalState)
 
-      return Match.value(isValidInput).pipe(
-        Match.when(false, () =>
-          Effect.fail({
-            _tag: "InvalidInputError" as const,
-            input: playerInput,
-            reason: "Input not valid for historical state"
-          } as CompensationError)
-        ),
-        Match.when(true, () =>
-          Effect.succeed({
-            ...playerInput,
-            timestamp: serverTimestamp,
-            compensatedPosition: networkManager.extrapolatePosition(
-              playerInput.position,
-              playerInput.velocity,
-              playerLatency
-            ),
-            validated: true
-          } as CompensatedInput)
-        ),
-        Match.exhaustive
-      ).pipe(Effect.flatten)
+      return Match.value(isValidInput)
+        .pipe(
+          Match.when(false, () =>
+            Effect.fail({
+              _tag: 'InvalidInputError' as const,
+              input: playerInput,
+              reason: 'Input not valid for historical state',
+            } as CompensationError)
+          ),
+          Match.when(true, () =>
+            Effect.succeed({
+              ...playerInput,
+              timestamp: serverTimestamp,
+              compensatedPosition: networkManager.extrapolatePosition(
+                playerInput.position,
+                playerInput.velocity,
+                playerLatency
+              ),
+              validated: true,
+            } as CompensatedInput)
+          ),
+          Match.exhaustive
+        )
+        .pipe(Effect.flatten)
     })
 }
 
@@ -286,15 +286,21 @@ export namespace ClientSidePrediction {
     readonly simulate: (state: GameState, input: PlayerInput) => Effect.Effect<PredictedState, SimulationError, never>
   }
 
-  export const LocalGameStateService = Context.GenericTag<LocalGameStateService>("@minecraft/LocalGameStateService")
-  export const ServerGameStateService = Context.GenericTag<ServerGameStateService>("@minecraft/ServerGameStateService")
-  export const InputBufferService = Context.GenericTag<InputBufferService>("@minecraft/InputBufferService")
-  export const MovementSimulationService = Context.GenericTag<MovementSimulationService>("@minecraft/MovementSimulationService")
+  export const LocalGameStateService = Context.GenericTag<LocalGameStateService>('@minecraft/LocalGameStateService')
+  export const ServerGameStateService = Context.GenericTag<ServerGameStateService>('@minecraft/ServerGameStateService')
+  export const InputBufferService = Context.GenericTag<InputBufferService>('@minecraft/InputBufferService')
+  export const MovementSimulationService = Context.GenericTag<MovementSimulationService>(
+    '@minecraft/MovementSimulationService'
+  )
 
   // クライアントサイド予測 - Functional approach
   export const predictMovement = (
     input: PlayerInput
-  ): Effect.Effect<PredictedState, PredictionError, LocalGameStateService | InputBufferService | MovementSimulationService> =>
+  ): Effect.Effect<
+    PredictedState,
+    PredictionError,
+    LocalGameStateService | InputBufferService | MovementSimulationService
+  > =>
     Effect.gen(function* () {
       const localStateService = yield* LocalGameStateService
       const inputBufferService = yield* InputBufferService
@@ -302,16 +308,13 @@ export namespace ClientSidePrediction {
 
       // ローカル状態で即座に予測実行
       const currentState = yield* localStateService.getCurrent()
-      const predictedState = yield* simulationService.simulate(
-        currentState,
-        input
-      )
+      const predictedState = yield* simulationService.simulate(currentState, input)
 
       // 予測をバッファに記録（後で検証用）
       yield* inputBufferService.store(input.sequenceId, {
         input,
         predictedState,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       })
 
       return predictedState
@@ -327,27 +330,23 @@ export namespace ClientSidePrediction {
       const unprocessedInputs = yield* this.inputBuffer.getInputsAfter(lastProcessedInput)
 
       // サーバー状態から再シミュレーション
-      const reconciledState = yield* Effect.reduce(
-        unprocessedInputs,
-        authorativeState,
-        (currentState, bufferedInput) =>
-          simulateMovement(currentState, bufferedInput.input)
+      const reconciledState = yield* Effect.reduce(unprocessedInputs, authorativeState, (currentState, bufferedInput) =>
+        simulateMovement(currentState, bufferedInput.input)
       )
 
       // 予測誤差の計算と補正
-      const predictionError = this.calculatePredictionError(
-        this.localState.current,
-        reconciledState
-      )
+      const predictionError = this.calculatePredictionError(this.localState.current, reconciledState)
 
-      yield* Match.value(predictionError.magnitude).pipe(
-        Match.when(
-          (magnitude) => magnitude > CORRECTION_THRESHOLD,
-          () => applySmoothCorrection(predictionError)
-        ),
-        Match.orElse(() => Effect.succeed(undefined)),
-        Match.exhaustive
-      ).pipe(Effect.flatten)
+      yield* Match.value(predictionError.magnitude)
+        .pipe(
+          Match.when(
+            (magnitude) => magnitude > CORRECTION_THRESHOLD,
+            () => applySmoothCorrection(predictionError)
+          ),
+          Match.orElse(() => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
+        .pipe(Effect.flatten)
 
       return reconciledState
     })
@@ -1450,13 +1449,22 @@ export namespace FutureGameFeatures {
   // Blockchain Integration
   export interface BlockchainGameAssets {
     readonly mintNFT: (asset: GameAsset) => Effect.Effect<NFTId, MintError, BlockchainService>
-    readonly transferAsset: (from: PlayerId, to: PlayerId, assetId: NFTId) => Effect.Effect<void, TransferError, BlockchainService>
-    readonly verifyOwnership: (playerId: PlayerId, assetId: NFTId) => Effect.Effect<boolean, VerificationError, BlockchainService>
+    readonly transferAsset: (
+      from: PlayerId,
+      to: PlayerId,
+      assetId: NFTId
+    ) => Effect.Effect<void, TransferError, BlockchainService>
+    readonly verifyOwnership: (
+      playerId: PlayerId,
+      assetId: NFTId
+    ) => Effect.Effect<boolean, VerificationError, BlockchainService>
   }
 
   // Machine Learning Gameplay
   export interface MLEnhancedGameplay {
-    readonly predictPlayerActions: (history: ActionHistory) => Effect.Effect<ActionPredictions, PredictionError, MLService>
+    readonly predictPlayerActions: (
+      history: ActionHistory
+    ) => Effect.Effect<ActionPredictions, PredictionError, MLService>
     readonly generateProceduralMusic: (mood: GameMood) => Effect.Effect<GeneratedMusic, AudioGenerationError, MLService>
     readonly createDynamicNarratives: (player: Player) => Effect.Effect<DynamicStory, NarrativeError, MLService>
   }
@@ -1479,27 +1487,27 @@ export namespace FutureGameFeatures {
 ```typescript
 interface NextGenerationGameQualities {
   readonly technicalExcellence: {
-    readonly scalability: "数百万プレイヤー同時対応"
-    readonly performance: "60FPS安定・低レイテンシ"
-    readonly reliability: "99.9%可用性・自動復旧"
+    readonly scalability: '数百万プレイヤー同時対応'
+    readonly performance: '60FPS安定・低レイテンシ'
+    readonly reliability: '99.9%可用性・自動復旧'
   }
 
   readonly gameplayInnovation: {
-    readonly aiIntelligence: "人間レベルのNPC知性"
-    readonly proceduralGeneration: "無限の多様なコンテンツ"
-    readonly economicComplexity: "現実的な市場経済シミュレーション"
+    readonly aiIntelligence: '人間レベルのNPC知性'
+    readonly proceduralGeneration: '無限の多様なコンテンツ'
+    readonly economicComplexity: '現実的な市場経済シミュレーション'
   }
 
   readonly playerExperience: {
-    readonly personalization: "個人最適化されたゲーム体験"
-    readonly socialIntegration: "深い社会的つながり"
-    readonly accessibilitySupport: "包括的なアクセシビリティ"
+    readonly personalization: '個人最適化されたゲーム体験'
+    readonly socialIntegration: '深い社会的つながり'
+    readonly accessibilitySupport: '包括的なアクセシビリティ'
   }
 
   readonly businessValue: {
-    readonly monetization: "持続可能な収益モデル"
-    readonly retention: "長期的なプレイヤー維持"
-    readonly scalingEfficiency: "効率的な事業拡大"
+    readonly monetization: '持続可能な収益モデル'
+    readonly retention: '長期的なプレイヤー維持'
+    readonly scalingEfficiency: '効率的な事業拡大'
   }
 }
 ```

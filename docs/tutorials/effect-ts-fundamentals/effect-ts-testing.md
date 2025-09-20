@@ -1,13 +1,12 @@
 ---
-title: "Effect-TS テスティング戦略 - 関数型テストパターン"
-description: "Effect-TS 3.17+ での包括的テスト戦略。Property-Based Testing、Layer統合、STMテスト、Vitest連携パターンを完全解説。"
-category: "architecture"
-difficulty: "advanced"
-tags: ["effect-ts", "testing", "property-based-testing", "vitest", "layer-testing", "stm-testing"]
-prerequisites: ["effect-ts-basics", "effect-ts-services", "effect-ts-error-handling", "vitest-fundamentals"]
-estimated_reading_time: "35分"
+title: 'Effect-TS テスティング戦略 - 関数型テストパターン'
+description: 'Effect-TS 3.17+ での包括的テスト戦略。Property-Based Testing、Layer統合、STMテスト、Vitest連携パターンを完全解説。'
+category: 'architecture'
+difficulty: 'advanced'
+tags: ['effect-ts', 'testing', 'property-based-testing', 'vitest', 'layer-testing', 'stm-testing']
+prerequisites: ['effect-ts-basics', 'effect-ts-services', 'effect-ts-error-handling', 'vitest-fundamentals']
+estimated_reading_time: '35分'
 ---
-
 
 # Effect-TS テスティング戦略 - PBT中心アプローチ
 
@@ -28,31 +27,30 @@ TypeScript Minecraftプロジェクトでは、**Effect-TS 3.17+** と **fast-ch
 // ❌ PBTに不適切: 大きすぎる関数
 const processPlayerAction = (player: Player, action: Action, world: World) => {
   // 複数の責任が混在
-  const validatedAction = validateAction(action);
-  const updatedPlayer = applyAction(player, validatedAction);
-  const worldEffects = calculateWorldEffects(updatedPlayer, world);
-  const newWorld = applyWorldEffects(world, worldEffects);
-  return { player: updatedPlayer, world: newWorld };
-};
+  const validatedAction = validateAction(action)
+  const updatedPlayer = applyAction(player, validatedAction)
+  const worldEffects = calculateWorldEffects(updatedPlayer, world)
+  const newWorld = applyWorldEffects(world, worldEffects)
+  return { player: updatedPlayer, world: newWorld }
+}
 
 // ✅ PBTに最適: 小さく分離された純粋関数
 const validateAction = (action: Action): Effect.Effect<ValidatedAction, ActionError> =>
-  Schema.decodeUnknown(ActionSchema)(action);
+  Schema.decodeUnknown(ActionSchema)(action)
 
 const applyActionToPlayer = (player: Player, action: ValidatedAction): Player => ({
   ...player,
   position: calculateNewPosition(player.position, action.movement),
-  stamina: calculateStamina(player.stamina, action.effort)
-});
+  stamina: calculateStamina(player.stamina, action.effort),
+})
 
 const calculateNewPosition = (current: Position, movement: Movement): Position => ({
   x: current.x + movement.dx,
   y: current.y + movement.dy,
-  z: current.z + movement.dz
-});
+  z: current.z + movement.dz,
+})
 
-const calculateStamina = (current: number, effort: number): number =>
-  Math.max(0, Math.min(100, current - effort));
+const calculateStamina = (current: number, effort: number): number => Math.max(0, Math.min(100, current - effort))
 ```
 
 この設計により、各関数を独立してProperty-Based Testingでテスト可能になり、高品質なコードベースを維持できます。
@@ -354,178 +352,167 @@ describe("Stateful WorldService Testing", () => {
 ### 3.1 Schema統合プロパティテスト - 小関数のテスト戦略
 
 ```typescript
-import * as fc from "fast-check";
-import { it } from "@effect/vitest";
+import * as fc from 'fast-check'
+import { it } from '@effect/vitest'
 
 // ✅ PBT最適化: 小さな純粋関数のプロパティテスト
 
 // 1. 位置計算の純粋関数
 const calculateDistance = (p1: Position, p2: Position): number =>
-  Math.sqrt(
-    Math.pow(p2.x - p1.x, 2) +
-    Math.pow(p2.y - p1.y, 2) +
-    Math.pow(p2.z - p1.z, 2)
-  );
+  Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2) + Math.pow(p2.z - p1.z, 2))
 
 // 2. 境界チェックの純粋関数
 const isWithinBounds = (pos: Position): boolean =>
-  pos.x >= -30000000 && pos.x <= 30000000 &&
-  pos.y >= -64 && pos.y <= 320 &&
-  pos.z >= -30000000 && pos.z <= 30000000;
+  pos.x >= -30000000 && pos.x <= 30000000 && pos.y >= -64 && pos.y <= 320 && pos.z >= -30000000 && pos.z <= 30000000
 
 // 3. ブロック衝突判定の純粋関数
 const willCollideWithBlock = (pos: Position, block: Block): boolean =>
   Math.floor(pos.x) === Math.floor(block.position.x) &&
   Math.floor(pos.y) === Math.floor(block.position.y) &&
-  Math.floor(pos.z) === Math.floor(block.position.z);
+  Math.floor(pos.z) === Math.floor(block.position.z)
 
 // ✅ Arbitrary生成器の定義（細かい粒度）
 const PositionArbitrary = fc.record({
   x: fc.integer({ min: -30000000, max: 30000000 }),
   y: fc.integer({ min: -64, max: 320 }),
-  z: fc.integer({ min: -30000000, max: 30000000 })
-});
+  z: fc.integer({ min: -30000000, max: 30000000 }),
+})
 
 const MovementArbitrary = fc.record({
   dx: fc.integer({ min: -10, max: 10 }),
   dy: fc.integer({ min: -5, max: 5 }),
-  dz: fc.integer({ min: -10, max: 10 })
-});
+  dz: fc.integer({ min: -10, max: 10 }),
+})
 
 const VelocityArbitrary = fc.record({
   vx: fc.float({ min: -20, max: 20, noNaN: true }),
   vy: fc.float({ min: -10, max: 10, noNaN: true }),
-  vz: fc.float({ min: -20, max: 20, noNaN: true })
-});
+  vz: fc.float({ min: -20, max: 20, noNaN: true }),
+})
 
 const BlockArbitrary = fc.record({
-  id: fc.oneof(
-    fc.constant("minecraft:stone"),
-    fc.constant("minecraft:dirt"),
-    fc.constant("minecraft:grass"),
-    fc.constant("minecraft:air")
-  ).map(id => id as any),
+  id: fc
+    .oneof(
+      fc.constant('minecraft:stone'),
+      fc.constant('minecraft:dirt'),
+      fc.constant('minecraft:grass'),
+      fc.constant('minecraft:air')
+    )
+    .map((id) => id as any),
   metadata: fc.option(fc.dictionary(fc.string(), fc.anything()), { nil: undefined }),
   lightLevel: fc.integer({ min: 0, max: 15 }),
-  hardness: fc.float({ min: 0, max: 100 })
-});
+  hardness: fc.float({ min: 0, max: 100 }),
+})
 
 // ✅ Property-based テストの実装（小関数に焦点）
-describe("Pure Function Property-Based Tests", () => {
+describe('Pure Function Property-Based Tests', () => {
   // 距離計算のプロパティ
-  it.prop([PositionArbitrary, PositionArbitrary])(
-    "distance calculation should be commutative",
-    (p1, p2) => {
-      const d1 = calculateDistance(p1, p2);
-      const d2 = calculateDistance(p2, p1);
-      expect(d1).toBe(d2);
-    }
-  );
+  it.prop([PositionArbitrary, PositionArbitrary])('distance calculation should be commutative', (p1, p2) => {
+    const d1 = calculateDistance(p1, p2)
+    const d2 = calculateDistance(p2, p1)
+    expect(d1).toBe(d2)
+  })
 
-  it.prop([PositionArbitrary])(
-    "distance to self should be zero",
-    (pos) => {
-      expect(calculateDistance(pos, pos)).toBe(0);
-    }
-  );
+  it.prop([PositionArbitrary])('distance to self should be zero', (pos) => {
+    expect(calculateDistance(pos, pos)).toBe(0)
+  })
 
   it.prop([PositionArbitrary, PositionArbitrary, PositionArbitrary])(
-    "triangle inequality should hold",
+    'triangle inequality should hold',
     (p1, p2, p3) => {
-      const d12 = calculateDistance(p1, p2);
-      const d23 = calculateDistance(p2, p3);
-      const d13 = calculateDistance(p1, p3);
-      expect(d13).toBeLessThanOrEqual(d12 + d23 + 0.0001); // 浮動小数点誤差を考慮
+      const d12 = calculateDistance(p1, p2)
+      const d23 = calculateDistance(p2, p3)
+      const d13 = calculateDistance(p1, p3)
+      expect(d13).toBeLessThanOrEqual(d12 + d23 + 0.0001) // 浮動小数点誤差を考慮
     }
-  );
+  )
 
   // 境界チェックのプロパティ
   it.prop([fc.integer(), fc.integer(), fc.integer()])(
-    "boundary check should correctly identify out-of-bounds positions",
+    'boundary check should correctly identify out-of-bounds positions',
     (x, y, z) => {
-      const pos = { x, y, z };
-      const result = isWithinBounds(pos);
-      const expected =
-        x >= -30000000 && x <= 30000000 &&
-        y >= -64 && y <= 320 &&
-        z >= -30000000 && z <= 30000000;
-      expect(result).toBe(expected);
+      const pos = { x, y, z }
+      const result = isWithinBounds(pos)
+      const expected = x >= -30000000 && x <= 30000000 && y >= -64 && y <= 320 && z >= -30000000 && z <= 30000000
+      expect(result).toBe(expected)
     }
-  );
+  )
 
   // 移動計算のプロパティ
-  it.prop([PositionArbitrary, MovementArbitrary])(
-    "applying zero movement should not change position",
-    (pos, _) => {
-      const zeroMovement = { dx: 0, dy: 0, dz: 0 };
-      const newPos = calculateNewPosition(pos, zeroMovement);
-      expect(newPos).toEqual(pos);
-    }
-  );
+  it.prop([PositionArbitrary, MovementArbitrary])('applying zero movement should not change position', (pos, _) => {
+    const zeroMovement = { dx: 0, dy: 0, dz: 0 }
+    const newPos = calculateNewPosition(pos, zeroMovement)
+    expect(newPos).toEqual(pos)
+  })
 
   it.prop([PositionArbitrary, MovementArbitrary, MovementArbitrary])(
-    "movement composition should be associative",
+    'movement composition should be associative',
     (pos, m1, m2) => {
-      const pos1 = calculateNewPosition(calculateNewPosition(pos, m1), m2);
+      const pos1 = calculateNewPosition(calculateNewPosition(pos, m1), m2)
       const combinedMovement = {
         dx: m1.dx + m2.dx,
         dy: m1.dy + m2.dy,
-        dz: m1.dz + m2.dz
-      };
-      const pos2 = calculateNewPosition(pos, combinedMovement);
-      expect(pos1).toEqual(pos2);
+        dz: m1.dz + m2.dz,
+      }
+      const pos2 = calculateNewPosition(pos, combinedMovement)
+      expect(pos1).toEqual(pos2)
     }
-  );
-});
+  )
+})
 
 // ✅ 複合関数のProperty-Based Tests
-describe("Composite Function Property-Based Tests", () => {
-  it.prop([PositionArbitrary, BlockArbitrary])("block placement and retrieval should be consistent",
+describe('Composite Function Property-Based Tests', () => {
+  it.prop([PositionArbitrary, BlockArbitrary])(
+    'block placement and retrieval should be consistent',
     async (position, block) => {
       const test = Effect.gen(function* () {
-        const worldService = yield* WorldService;
+        const worldService = yield* WorldService
 
         // ブロック設置
-        yield* worldService.setBlock(position, block);
+        yield* worldService.setBlock(position, block)
 
         // 即座に取得
-        const retrievedBlock = yield* worldService.getBlock(position);
+        const retrievedBlock = yield* worldService.getBlock(position)
 
         // プロパティ検証: 設置したブロックが正確に取得できる
-        expect(retrievedBlock.id).toBe(block.id);
-        expect(retrievedBlock.lightLevel).toBe(block.lightLevel);
-        expect(retrievedBlock.hardness).toBe(block.hardness);
-      });
+        expect(retrievedBlock.id).toBe(block.id)
+        expect(retrievedBlock.lightLevel).toBe(block.lightLevel)
+        expect(retrievedBlock.hardness).toBe(block.hardness)
+      })
 
-      await Effect.runPromise(test.pipe(Effect.provide(TestWorldServiceWithState)));
+      await Effect.runPromise(test.pipe(Effect.provide(TestWorldServiceWithState)))
     }
-  );
+  )
 
-  it.prop([fc.array(PositionArbitrary, { minLength: 1, maxLength: 10 })])("position validation should be transitive",
+  it.prop([fc.array(PositionArbitrary, { minLength: 1, maxLength: 10 })])(
+    'position validation should be transitive',
     async (positions) => {
       const test = Effect.gen(function* () {
-        const worldService = yield* WorldService;
+        const worldService = yield* WorldService
 
         // Effect-TSのEffect.forEachパターンを使用
         yield* Effect.forEach(positions, (position) =>
           Effect.gen(function* () {
-            const isValid = yield* worldService.isValidPosition(position);
+            const isValid = yield* worldService.isValidPosition(position)
 
             // プロパティ検証: 有効な座標は常に一貫している
             const expectedValid =
-              position.x >= -30000000 && position.x <= 30000000 &&
-              position.y >= -64 && position.y <= 320 &&
-              position.z >= -30000000 && position.z <= 30000000;
+              position.x >= -30000000 &&
+              position.x <= 30000000 &&
+              position.y >= -64 &&
+              position.y <= 320 &&
+              position.z >= -30000000 &&
+              position.z <= 30000000
 
-            expect(isValid).toBe(expectedValid);
+            expect(isValid).toBe(expectedValid)
           })
         )
-      });
+      })
 
-      await Effect.runPromise(test.pipe(Effect.provide(TestAppLayer)));
+      await Effect.runPromise(test.pipe(Effect.provide(TestAppLayer)))
     }
-  );
-});
+  )
+})
 ```
 
 ### 3.2 高度なプロパティテスト - 合成と不変条件
@@ -538,190 +525,174 @@ PBTでは、小さな関数を合成した際の振る舞いを検証するこ�
 // ✅ 関数合成のプロパティテスト
 
 // 小さな純粋関数群
-const normalizeQuantity = (quantity: number): number =>
-  Math.max(1, Math.min(64, Math.floor(quantity)));
+const normalizeQuantity = (quantity: number): number => Math.max(1, Math.min(64, Math.floor(quantity)))
 
 const canStackItems = (item1: ItemStack, item2: ItemStack): boolean =>
-  item1.itemId === item2.itemId &&
-  item1.metadata === item2.metadata;
+  item1.itemId === item2.itemId && item1.metadata === item2.metadata
 
 const mergeStacks = (stack1: ItemStack, stack2: ItemStack): [ItemStack, ItemStack | null] =>
   pipe(
     Match.value({ canStack: canStackItems(stack1, stack2), totalQuantity: stack1.quantity + stack2.quantity }),
-    Match.when(
-      { canStack: false },
-      () => [stack1, stack2] as [ItemStack, ItemStack | null]
-    ),
+    Match.when({ canStack: false }, () => [stack1, stack2] as [ItemStack, ItemStack | null]),
     Match.when(
       ({ totalQuantity }) => totalQuantity <= 64,
-      ({ totalQuantity }) => [
-        { ...stack1, quantity: totalQuantity },
-        null
-      ] as [ItemStack, ItemStack | null]
+      ({ totalQuantity }) => [{ ...stack1, quantity: totalQuantity }, null] as [ItemStack, ItemStack | null]
     ),
     Match.orElse(
-      ({ totalQuantity }) => [
-        { ...stack1, quantity: 64 },
-        { ...stack2, quantity: totalQuantity - 64 }
-      ] as [ItemStack, ItemStack | null]
+      ({ totalQuantity }) =>
+        [
+          { ...stack1, quantity: 64 },
+          { ...stack2, quantity: totalQuantity - 64 },
+        ] as [ItemStack, ItemStack | null]
     )
-  );
+  )
 
 const splitStack = (stack: ItemStack, amount: number): [ItemStack | null, ItemStack] => {
-  const splitAmount = normalizeQuantity(amount);
+  const splitAmount = normalizeQuantity(amount)
 
   return pipe(
     Match.value(splitAmount >= stack.quantity),
     Match.when(true, () => [null, stack] as [ItemStack | null, ItemStack]),
-    Match.orElse(() => [
-      { ...stack, quantity: stack.quantity - splitAmount },
-      { ...stack, quantity: splitAmount }
-    ] as [ItemStack | null, ItemStack])
-  );
-};
+    Match.orElse(
+      () =>
+        [
+          { ...stack, quantity: stack.quantity - splitAmount },
+          { ...stack, quantity: splitAmount },
+        ] as [ItemStack | null, ItemStack]
+    )
+  )
+}
 
 // ✅ Arbitraries for inventory testing
 const ItemStackArbitrary = fc.record({
-  itemId: fc.oneof(
-    fc.constant("minecraft:stone"),
-    fc.constant("minecraft:dirt"),
-    fc.constant("minecraft:wood")
-  ).map(id => id as any),
+  itemId: fc
+    .oneof(fc.constant('minecraft:stone'), fc.constant('minecraft:dirt'), fc.constant('minecraft:wood'))
+    .map((id) => id as any),
   quantity: fc.integer({ min: 1, max: 64 }),
-  metadata: fc.option(fc.dictionary(fc.string(), fc.anything()), { nil: undefined })
-});
+  metadata: fc.option(fc.dictionary(fc.string(), fc.anything()), { nil: undefined }),
+})
 
 const InventoryArbitrary = fc.record({
   slots: fc.array(fc.option(ItemStackArbitrary, { nil: undefined }), { maxLength: 36 }),
-  maxSize: fc.constant(36)
-});
+  maxSize: fc.constant(36),
+})
 
-describe("Inventory Pure Function Property Tests", () => {
+describe('Inventory Pure Function Property Tests', () => {
   // 正規化関数のプロパティ
-  it.prop([fc.integer()])(
-    "normalizeQuantity should always return valid stack size",
-    (quantity) => {
-      const normalized = normalizeQuantity(quantity);
-      expect(normalized).toBeGreaterThanOrEqual(1);
-      expect(normalized).toBeLessThanOrEqual(64);
-    }
-  );
+  it.prop([fc.integer()])('normalizeQuantity should always return valid stack size', (quantity) => {
+    const normalized = normalizeQuantity(quantity)
+    expect(normalized).toBeGreaterThanOrEqual(1)
+    expect(normalized).toBeLessThanOrEqual(64)
+  })
 
   // スタック可能判定のプロパティ
-  it.prop([ItemStackArbitrary])(
-    "item should always stack with itself",
-    (item) => {
-      expect(canStackItems(item, item)).toBe(true);
-    }
-  );
+  it.prop([ItemStackArbitrary])('item should always stack with itself', (item) => {
+    expect(canStackItems(item, item)).toBe(true)
+  })
 
   // マージ関数のプロパティ
-  it.prop([ItemStackArbitrary, ItemStackArbitrary])(
-    "mergeStacks should preserve total quantity",
-    (stack1, stack2) => {
-      const [merged, remainder] = mergeStacks(stack1, stack2);
-      const totalBefore = stack1.quantity + stack2.quantity;
-      const totalAfter = merged.quantity + (remainder?.quantity ?? 0);
+  it.prop([ItemStackArbitrary, ItemStackArbitrary])('mergeStacks should preserve total quantity', (stack1, stack2) => {
+    const [merged, remainder] = mergeStacks(stack1, stack2)
+    const totalBefore = stack1.quantity + stack2.quantity
+    const totalAfter = merged.quantity + (remainder?.quantity ?? 0)
 
-      pipe(
-        Match.value(canStackItems(stack1, stack2)),
-        Match.when(true, () => expect(totalAfter).toBe(totalBefore)),
-        Match.orElse(() => void 0)
-      )
-    }
-  );
+    pipe(
+      Match.value(canStackItems(stack1, stack2)),
+      Match.when(true, () => expect(totalAfter).toBe(totalBefore)),
+      Match.orElse(() => void 0)
+    )
+  })
 
   // 分割関数のプロパティ
   it.prop([ItemStackArbitrary, fc.integer({ min: 1, max: 64 })])(
-    "splitStack should preserve total quantity",
+    'splitStack should preserve total quantity',
     (stack, amount) => {
-      const [remaining, split] = splitStack(stack, amount);
-      const totalAfter = (remaining?.quantity ?? 0) + split.quantity;
-      expect(totalAfter).toBe(stack.quantity);
+      const [remaining, split] = splitStack(stack, amount)
+      const totalAfter = (remaining?.quantity ?? 0) + split.quantity
+      expect(totalAfter).toBe(stack.quantity)
     }
-  );
+  )
 
   // 合成プロパティ: split then merge
   it.prop([ItemStackArbitrary, fc.integer({ min: 1, max: 32 })])(
-    "split then merge should return to original",
+    'split then merge should return to original',
     (stack, amount) => {
-      const [remaining, split] = splitStack(stack, amount);
+      const [remaining, split] = splitStack(stack, amount)
       pipe(
         Option.fromNullable(remaining),
         Option.match({
           onNone: () => void 0,
           onSome: (rem) => {
-            const [merged, _] = mergeStacks(rem, split);
-            expect(merged.quantity).toBe(stack.quantity);
-            expect(merged.itemId).toBe(stack.itemId);
-          }
+            const [merged, _] = mergeStacks(rem, split)
+            expect(merged.quantity).toBe(stack.quantity)
+            expect(merged.itemId).toBe(stack.itemId)
+          },
         })
       )
     }
-  );
-});
+  )
+})
 
-describe("Inventory System Integration Tests", () => {
-  it.prop([InventoryArbitrary, ItemStackArbitrary])("adding items preserves inventory invariants",
+describe('Inventory System Integration Tests', () => {
+  it.prop([InventoryArbitrary, ItemStackArbitrary])(
+    'adding items preserves inventory invariants',
     async (inventory, itemStack) => {
-      const result = addItemToInventory(inventory, itemStack);
+      const result = addItemToInventory(inventory, itemStack)
 
       // インバリアント1: インベントリサイズは不変
-      expect(result.updatedInventory.slots.length).toBeLessThanOrEqual(result.updatedInventory.maxSize);
+      expect(result.updatedInventory.slots.length).toBeLessThanOrEqual(result.updatedInventory.maxSize)
 
       // インバリアント2: 元のインベントリは変更されない
-      expect(inventory.slots).toEqual(inventory.slots); // 参照同一性確認
+      expect(inventory.slots).toEqual(inventory.slots) // 参照同一性確認
 
       // ✅ Match.valueによる型安全なテスト分岐 - 条件に応じたバリデーション
       Match.value(result.success).pipe(
         Match.when(true, () => {
           // インバリアント3: 成功時は必ずアイテムが追加される
           const totalQuantity = result.updatedInventory.slots
-            .filter(slot => slot !== undefined && slot.itemId === itemStack.itemId)
-            .reduce((sum, slot) => sum + slot!.quantity, 0);
+            .filter((slot) => slot !== undefined && slot.itemId === itemStack.itemId)
+            .reduce((sum, slot) => sum + slot!.quantity, 0)
 
           const originalQuantity = inventory.slots
-            .filter(slot => slot !== undefined && slot.itemId === itemStack.itemId)
-            .reduce((sum, slot) => sum + slot!.quantity, 0);
+            .filter((slot) => slot !== undefined && slot.itemId === itemStack.itemId)
+            .reduce((sum, slot) => sum + slot!.quantity, 0)
 
-          const expectedQuantity = originalQuantity + itemStack.quantity - (result.remainingStack?.quantity ?? 0);
-          expect(totalQuantity).toBe(expectedQuantity);
+          const expectedQuantity = originalQuantity + itemStack.quantity - (result.remainingStack?.quantity ?? 0)
+          expect(totalQuantity).toBe(expectedQuantity)
         }),
         Match.orElse(() => {
           // 失敗時のバリデーション（必要に応じて追加）
         })
-      );
+      )
 
       // ✅ 残りアイテムの検証もMatch.valueで型安全に
       Match.value(result.remainingStack).pipe(
         Match.when(Match.defined, (remainingStack) => {
           // インバリアント4: 残りアイテムは元のアイテムと同一性を持つ
-          expect(remainingStack.itemId).toBe(itemStack.itemId);
-          expect(remainingStack.quantity).toBeGreaterThan(0);
-          expect(remainingStack.quantity).toBeLessThanOrEqual(itemStack.quantity);
+          expect(remainingStack.itemId).toBe(itemStack.itemId)
+          expect(remainingStack.quantity).toBeGreaterThan(0)
+          expect(remainingStack.quantity).toBeLessThanOrEqual(itemStack.quantity)
         }),
         Match.orElse(() => {
           // 残りアイテムが無い場合の処理（必要に応じて）
         })
-      );
+      )
     }
-  );
+  )
 
-  it.prop([InventoryArbitrary])("empty inventory operations are idempotent",
-    async (inventory) => {
-      const emptySlots = inventory.slots.filter(slot => slot === undefined).length;
-      const emptySlotIndex = findEmptySlot(inventory);
+  it.prop([InventoryArbitrary])('empty inventory operations are idempotent', async (inventory) => {
+    const emptySlots = inventory.slots.filter((slot) => slot === undefined).length
+    const emptySlotIndex = findEmptySlot(inventory)
 
-      if (emptySlots > 0) {
-        expect(emptySlotIndex).toBeGreaterThanOrEqual(0);
-        expect(emptySlotIndex).toBeLessThan(inventory.slots.length);
-        expect(inventory.slots[emptySlotIndex!]).toBeUndefined();
-      } else {
-        expect(emptySlotIndex).toBeUndefined();
-      }
+    if (emptySlots > 0) {
+      expect(emptySlotIndex).toBeGreaterThanOrEqual(0)
+      expect(emptySlotIndex).toBeLessThan(inventory.slots.length)
+      expect(inventory.slots[emptySlotIndex!]).toBeUndefined()
+    } else {
+      expect(emptySlotIndex).toBeUndefined()
     }
-  );
-});
+  })
+})
 ```
 
 ## 4. STM (Software Transactional Memory) テスト
@@ -729,183 +700,195 @@ describe("Inventory System Integration Tests", () => {
 ### 4.1 並行状態管理テスト
 
 ```typescript
-import { STM, TRef, Effect, Fiber, TestClock } from "effect";
+import { STM, TRef, Effect, Fiber, TestClock } from 'effect'
 
 // ✅ STMベースの並行テスト
-describe("STM Concurrent Testing", () => {
-  it("should handle concurrent player actions atomically", async () => {
+describe('STM Concurrent Testing', () => {
+  it('should handle concurrent player actions atomically', async () => {
     const test = Effect.gen(function* () {
       // 共有状態の初期化
-      const playersRef = yield* TRef.make(new Map<string, Player>());
+      const playersRef = yield* TRef.make(new Map<string, Player>())
       const worldStateRef = yield* TRef.make<WorldState>({
         time: 0,
-        weather: "clear" as const,
-        difficulty: "normal" as const
-      });
+        weather: 'clear' as const,
+        difficulty: 'normal' as const,
+      })
 
       // 並行プレイヤー追加操作
       const addPlayer = (player: Player): Effect.Effect<boolean, never> =>
         STM.gen(function* () {
-          const players = yield* STM.get(playersRef);
+          const players = yield* STM.get(playersRef)
           if (players.has(player.id)) {
-            return false;
+            return false
           }
 
-          const newPlayers = new Map(players).set(player.id, player);
-          yield* STM.set(playersRef, newPlayers);
-          return true;
-        }).pipe(STM.commit);
+          const newPlayers = new Map(players).set(player.id, player)
+          yield* STM.set(playersRef, newPlayers)
+          return true
+        }).pipe(STM.commit)
 
       // 10個のプレイヤーを並行追加
       const players: Player[] = Array.from({ length: 10 }, (_, i) => ({
         id: `player-${i}` as any,
         name: `Player${i}`,
         position: { x: i, y: 64, z: i },
-        health: 100 as any
-      }));
+        health: 100 as any,
+      }))
 
       const addResults = yield* Effect.all(
-        players.map(player => addPlayer(player)),
-        { concurrency: "unbounded" }
-      );
+        players.map((player) => addPlayer(player)),
+        { concurrency: 'unbounded' }
+      )
 
       // 検証: すべてのプレイヤーが正常に追加された
-      expect(addResults.every(result => result === true)).toBe(true);
+      expect(addResults.every((result) => result === true)).toBe(true)
 
-      const finalPlayers = yield* STM.get(playersRef).pipe(STM.commit);
-      expect(finalPlayers.size).toBe(10);
+      const finalPlayers = yield* STM.get(playersRef).pipe(STM.commit)
+      expect(finalPlayers.size).toBe(10)
 
       // 検証: 全プレイヤーが存在する（Array.forEachパターン）
       Array.forEach(players, (player) => {
-        expect(finalPlayers.has(player.id)).toBe(true);
+        expect(finalPlayers.has(player.id)).toBe(true)
       })
-    });
+    })
 
-    await Effect.runPromise(test.pipe(Effect.provide(TestContext.TestContext)));
-  });
+    await Effect.runPromise(test.pipe(Effect.provide(TestContext.TestContext)))
+  })
 
-  it("should handle concurrent world time updates", async () => {
+  it('should handle concurrent world time updates', async () => {
     const test = Effect.gen(function* () {
       const worldStateRef = yield* TRef.make<WorldState>({
         time: 0,
-        weather: "clear" as const,
-        difficulty: "normal" as const
-      });
+        weather: 'clear' as const,
+        difficulty: 'normal' as const,
+      })
 
       const advanceTime = (deltaTime: number): Effect.Effect<void, never> =>
         STM.gen(function* () {
-          const worldState = yield* STM.get(worldStateRef);
-          const newTime = worldState.time + deltaTime;
+          const worldState = yield* STM.get(worldStateRef)
+          const newTime = worldState.time + deltaTime
 
           yield* STM.set(worldStateRef, {
             ...worldState,
-            time: newTime % 24000 // 24時間サイクル
-          });
-        }).pipe(STM.commit);
+            time: newTime % 24000, // 24時間サイクル
+          })
+        }).pipe(STM.commit)
 
       // 複数のファイバーで時間を進める
       const timeFibers = yield* Effect.all([
-        Effect.fork(Effect.all(Array(100).fill(0).map(() => advanceTime(1)))),
-        Effect.fork(Effect.all(Array(100).fill(0).map(() => advanceTime(2)))),
-        Effect.fork(Effect.all(Array(100).fill(0).map(() => advanceTime(3))))
-      ]);
+        Effect.fork(
+          Effect.all(
+            Array(100)
+              .fill(0)
+              .map(() => advanceTime(1))
+          )
+        ),
+        Effect.fork(
+          Effect.all(
+            Array(100)
+              .fill(0)
+              .map(() => advanceTime(2))
+          )
+        ),
+        Effect.fork(
+          Effect.all(
+            Array(100)
+              .fill(0)
+              .map(() => advanceTime(3))
+          )
+        ),
+      ])
 
       // すべてのファイバー完了を待つ
-      yield* Effect.all(timeFibers.map(fiber => Fiber.join(fiber)));
+      yield* Effect.all(timeFibers.map((fiber) => Fiber.join(fiber)))
 
-      const finalState = yield* STM.get(worldStateRef).pipe(STM.commit);
+      const finalState = yield* STM.get(worldStateRef).pipe(STM.commit)
 
       // 検証: 時間が正確に進んでいる（600 = 100*1 + 100*2 + 100*3）
-      expect(finalState.time).toBe(600);
-    });
+      expect(finalState.time).toBe(600)
+    })
 
-    await Effect.runPromise(test.pipe(Effect.provide(TestContext.TestContext)));
-  });
-});
+    await Effect.runPromise(test.pipe(Effect.provide(TestContext.TestContext)))
+  })
+})
 ```
 
 ### 4.2 TestClock と TestRandom を使用した決定論的テスト
 
 ```typescript
-describe("Deterministic Testing with TestClock and TestRandom", () => {
-  it("should handle time-based operations predictably", async () => {
+describe('Deterministic Testing with TestClock and TestRandom', () => {
+  it('should handle time-based operations predictably', async () => {
     const test = Effect.gen(function* () {
-      const clock = yield* TestClock.TestClock;
-      const random = yield* TestRandom.TestRandom;
+      const clock = yield* TestClock.TestClock
+      const random = yield* TestRandom.TestRandom
 
       // 決定論的ランダム値設定
-      yield* TestRandom.setSeed(random, 12345);
+      yield* TestRandom.setSeed(random, 12345)
 
       // 時間ベースの操作をテスト
-      const startTime = yield* clock.currentTimeMillis;
+      const startTime = yield* clock.currentTimeMillis
 
-      const randomValue = yield* Random.next;
+      const randomValue = yield* Random.next
       const delayedOperation = Effect.gen(function* () {
-        yield* Effect.sleep("5 seconds");
-        const endTime = yield* clock.currentTimeMillis;
-        return endTime - startTime;
-      });
+        yield* Effect.sleep('5 seconds')
+        const endTime = yield* clock.currentTimeMillis
+        return endTime - startTime
+      })
 
-      const operationFiber = yield* Effect.fork(delayedOperation);
+      const operationFiber = yield* Effect.fork(delayedOperation)
 
       // 時間を手動で進める
-      yield* TestClock.adjust(clock, "2 seconds");
-      yield* TestClock.adjust(clock, "3 seconds");
+      yield* TestClock.adjust(clock, '2 seconds')
+      yield* TestClock.adjust(clock, '3 seconds')
 
-      const elapsedTime = yield* Fiber.join(operationFiber);
+      const elapsedTime = yield* Fiber.join(operationFiber)
 
       // 検証
-      expect(elapsedTime).toBe(5000); // 正確に5秒
-      expect(randomValue).toBe(0.5488135039273248); // seed=12345での最初の値
-    });
+      expect(elapsedTime).toBe(5000) // 正確に5秒
+      expect(randomValue).toBe(0.5488135039273248) // seed=12345での最初の値
+    })
 
-    const testLayer = Layer.mergeAll(
-      TestClock.default,
-      TestRandom.deterministic
-    );
+    const testLayer = Layer.mergeAll(TestClock.default, TestRandom.deterministic)
 
-    await Effect.runPromise(test.pipe(Effect.provide(testLayer)));
-  });
+    await Effect.runPromise(test.pipe(Effect.provide(testLayer)))
+  })
 
-  it("should handle scheduled operations with TestClock", async () => {
+  it('should handle scheduled operations with TestClock', async () => {
     const test = Effect.gen(function* () {
-      const clock = yield* TestClock.TestClock;
-      const counterRef = yield* Ref.make(0);
+      const clock = yield* TestClock.TestClock
+      const counterRef = yield* Ref.make(0)
 
       // スケジュール操作
       const scheduledTask = Effect.gen(function* () {
-        yield* Ref.update(counterRef, n => n + 1);
-        yield* Effect.log("Scheduled task executed");
-      });
+        yield* Ref.update(counterRef, (n) => n + 1)
+        yield* Effect.log('Scheduled task executed')
+      })
 
       // 1秒ごとに実行するスケジュール
       const scheduledFiber = yield* Effect.fork(
         scheduledTask.pipe(
-          Effect.repeat(Schedule.fixed("1 second")),
+          Effect.repeat(Schedule.fixed('1 second')),
           Effect.take(5) // 5回実行
         )
-      );
-
-      // 時間を段階的に進める（Effect.loopパターン）
-      yield* Effect.loop(
-        0,
-        {
-          while: (i) => i < 5,
-          step: (i) => i + 1,
-          body: () => TestClock.adjust(clock, "1 second"),
-          discard: true
-        }
       )
 
-      yield* Fiber.join(scheduledFiber);
+      // 時間を段階的に進める（Effect.loopパターン）
+      yield* Effect.loop(0, {
+        while: (i) => i < 5,
+        step: (i) => i + 1,
+        body: () => TestClock.adjust(clock, '1 second'),
+        discard: true,
+      })
 
-      const finalCount = yield* Ref.get(counterRef);
-      expect(finalCount).toBe(5);
-    });
+      yield* Fiber.join(scheduledFiber)
 
-    await Effect.runPromise(test.pipe(Effect.provide(TestClock.default)));
-  });
-});
+      const finalCount = yield* Ref.get(counterRef)
+      expect(finalCount).toBe(5)
+    })
+
+    await Effect.runPromise(test.pipe(Effect.provide(TestClock.default)))
+  })
+})
 ```
 
 ## 5. エラーハンドリングテスト
@@ -1079,110 +1062,116 @@ describe("Error Handling Tests", () => {
 ### 6.1 パフォーマンス測定統合
 
 ```typescript
-import { Metric, Effect } from "effect";
+import { Metric, Effect } from 'effect'
 
-describe("Performance Testing", () => {
-  it("should measure block placement performance", async () => {
+describe('Performance Testing', () => {
+  it('should measure block placement performance', async () => {
     const test = Effect.gen(function* () {
-      const blockPlacementCounter = Metric.counter("block_placements");
-      const blockPlacementTimer = Metric.timer("block_placement_duration");
+      const blockPlacementCounter = Metric.counter('block_placements')
+      const blockPlacementTimer = Metric.timer('block_placement_duration')
 
-      const worldService = yield* WorldService;
+      const worldService = yield* WorldService
 
       const performanceTest = Effect.gen(function* () {
         const block: Block = {
-          id: "minecraft:stone" as any,
+          id: 'minecraft:stone' as any,
           metadata: undefined,
           lightLevel: 0,
-          hardness: 1.5
-        };
+          hardness: 1.5,
+        }
 
-        yield* blockPlacementCounter.increment;
-        const startTime = yield* Effect.sync(() => performance.now());
+        yield* blockPlacementCounter.increment
+        const startTime = yield* Effect.sync(() => performance.now())
 
-        yield* worldService.setBlock({ x: 5, y: 64, z: 5 }, block);
+        yield* worldService.setBlock({ x: 5, y: 64, z: 5 }, block)
 
-        const endTime = yield* Effect.sync(() => performance.now());
-        yield* blockPlacementTimer.update(endTime - startTime);
-      });
+        const endTime = yield* Effect.sync(() => performance.now())
+        yield* blockPlacementTimer.update(endTime - startTime)
+      })
 
       // 100回のブロック設置を実行
       yield* Effect.all(
-        Array(100).fill(0).map(() => performanceTest),
+        Array(100)
+          .fill(0)
+          .map(() => performanceTest),
         { concurrency: 10 }
-      );
+      )
 
-      const counterValue = yield* blockPlacementCounter.value;
-      const timerValue = yield* blockPlacementTimer.value;
+      const counterValue = yield* blockPlacementCounter.value
+      const timerValue = yield* blockPlacementTimer.value
 
-      expect(counterValue.count).toBe(100);
-      expect(timerValue.count).toBe(100);
-      expect(timerValue.sum).toBeGreaterThan(0);
+      expect(counterValue.count).toBe(100)
+      expect(timerValue.count).toBe(100)
+      expect(timerValue.sum).toBeGreaterThan(0)
 
-      const averageTime = timerValue.sum / timerValue.count;
-      expect(averageTime).toBeLessThan(10); // 10ms以下であることを確認
+      const averageTime = timerValue.sum / timerValue.count
+      expect(averageTime).toBeLessThan(10) // 10ms以下であることを確認
 
-      yield* Effect.log(`平均ブロック設置時間: ${averageTime.toFixed(2)}ms`);
-    });
+      yield* Effect.log(`平均ブロック設置時間: ${averageTime.toFixed(2)}ms`)
+    })
 
-    await Effect.runPromise(test.pipe(Effect.provide(TestWorldServiceWithState)));
-  });
+    await Effect.runPromise(test.pipe(Effect.provide(TestWorldServiceWithState)))
+  })
 
-  it("should handle concurrent operations under load", async () => {
+  it('should handle concurrent operations under load', async () => {
     const test = Effect.gen(function* () {
-      const concurrentOperations = 50;
-      const operationsPerBatch = 10;
+      const concurrentOperations = 50
+      const operationsPerBatch = 10
 
-      const worldService = yield* WorldService;
+      const worldService = yield* WorldService
 
       const operationBatch = Effect.all(
-        Array(operationsPerBatch).fill(0).map((_, i) =>
-          Effect.gen(function* () {
-            const position: Position = {
-              x: Math.floor(i / 10),
-              y: 64,
-              z: i % 10
-            };
+        Array(operationsPerBatch)
+          .fill(0)
+          .map((_, i) =>
+            Effect.gen(function* () {
+              const position: Position = {
+                x: Math.floor(i / 10),
+                y: 64,
+                z: i % 10,
+              }
 
-            const block: Block = {
-              id: "minecraft:dirt" as any,
-              metadata: undefined,
-              lightLevel: 0,
-              hardness: 0.5
-            };
+              const block: Block = {
+                id: 'minecraft:dirt' as any,
+                metadata: undefined,
+                lightLevel: 0,
+                hardness: 0.5,
+              }
 
-            yield* worldService.setBlock(position, block);
-            const retrievedBlock = yield* worldService.getBlock(position);
+              yield* worldService.setBlock(position, block)
+              const retrievedBlock = yield* worldService.getBlock(position)
 
-            expect(retrievedBlock.id).toBe("minecraft:dirt");
-          })
-        ),
-        { concurrency: "unbounded" }
-      );
+              expect(retrievedBlock.id).toBe('minecraft:dirt')
+            })
+          ),
+        { concurrency: 'unbounded' }
+      )
 
-      const startTime = yield* Effect.sync(() => performance.now());
+      const startTime = yield* Effect.sync(() => performance.now())
 
       // 並行バッチ実行
       yield* Effect.all(
-        Array(concurrentOperations).fill(0).map(() => operationBatch),
+        Array(concurrentOperations)
+          .fill(0)
+          .map(() => operationBatch),
         { concurrency: 10 }
-      );
+      )
 
-      const endTime = yield* Effect.sync(() => performance.now());
-      const totalTime = endTime - startTime;
+      const endTime = yield* Effect.sync(() => performance.now())
+      const totalTime = endTime - startTime
 
-      const totalOperations = concurrentOperations * operationsPerBatch * 2; // set + get
-      const operationsPerSecond = (totalOperations / totalTime) * 1000;
+      const totalOperations = concurrentOperations * operationsPerBatch * 2 // set + get
+      const operationsPerSecond = (totalOperations / totalTime) * 1000
 
-      yield* Effect.log(`総処理時間: ${totalTime.toFixed(2)}ms`);
-      yield* Effect.log(`処理能力: ${operationsPerSecond.toFixed(0)} ops/sec`);
+      yield* Effect.log(`総処理時間: ${totalTime.toFixed(2)}ms`)
+      yield* Effect.log(`処理能力: ${operationsPerSecond.toFixed(0)} ops/sec`)
 
-      expect(operationsPerSecond).toBeGreaterThan(1000); // 1000 ops/sec以上
-    });
+      expect(operationsPerSecond).toBeGreaterThan(1000) // 1000 ops/sec以上
+    })
 
-    await Effect.runPromise(test.pipe(Effect.provide(TestWorldServiceWithState)));
-  });
-});
+    await Effect.runPromise(test.pipe(Effect.provide(TestWorldServiceWithState)))
+  })
+})
 ```
 
 ## 7. テストユーティリティとヘルパー関数
@@ -1197,47 +1186,47 @@ export const TestDataFactory = {
     name: `TestPlayer`,
     position: { x: 0, y: 64, z: 0 },
     health: 100 as any,
-    ...overrides
+    ...overrides,
   }),
 
   createBlock: (overrides: Partial<Block> = {}): Block => ({
-    id: "minecraft:stone" as any,
+    id: 'minecraft:stone' as any,
     metadata: undefined,
     lightLevel: 0,
     hardness: 1.5,
-    ...overrides
+    ...overrides,
   }),
 
   createPosition: (overrides: Partial<Position> = {}): Position => ({
     x: 0,
     y: 64,
     z: 0,
-    ...overrides
+    ...overrides,
   }),
 
   createInventory: (overrides: Partial<Inventory> = {}): Inventory => ({
     slots: new Array(36).fill(undefined),
     maxSize: 36,
-    ...overrides
-  })
-};
+    ...overrides,
+  }),
+}
 
 // ✅ アサーション ヘルパー
 export const TestAssertions = {
   expectPosition: (actual: Position, expected: Position) => {
-    expect(actual.x).toBe(expected.x);
-    expect(actual.y).toBe(expected.y);
-    expect(actual.z).toBe(expected.z);
+    expect(actual.x).toBe(expected.x)
+    expect(actual.y).toBe(expected.y)
+    expect(actual.z).toBe(expected.z)
   },
 
   expectBlock: (actual: Block, expected: Partial<Block>) => {
-    if (expected.id) expect(actual.id).toBe(expected.id);
-    if (expected.lightLevel !== undefined) expect(actual.lightLevel).toBe(expected.lightLevel);
-    if (expected.hardness !== undefined) expect(actual.hardness).toBe(expected.hardness);
+    if (expected.id) expect(actual.id).toBe(expected.id)
+    if (expected.lightLevel !== undefined) expect(actual.lightLevel).toBe(expected.lightLevel)
+    if (expected.hardness !== undefined) expect(actual.hardness).toBe(expected.hardness)
   },
 
   expectInventoryInvariant: (inventory: Inventory) => {
-    expect(inventory.slots.length).toBeLessThanOrEqual(inventory.maxSize);
+    expect(inventory.slots.length).toBeLessThanOrEqual(inventory.maxSize)
 
     // スロット内のアイテムスタックが有効であることを確認（Array.forEachパターン）
     Array.forEach(inventory.slots, (slot) => {
@@ -1246,100 +1235,88 @@ export const TestAssertions = {
         Option.match({
           onNone: () => void 0,
           onSome: (item) => {
-            expect(item.quantity).toBeGreaterThan(0);
-            expect(item.quantity).toBeLessThanOrEqual(64);
-            expect(typeof item.itemId).toBe("string");
-          }
+            expect(item.quantity).toBeGreaterThan(0)
+            expect(item.quantity).toBeLessThanOrEqual(64)
+            expect(typeof item.itemId).toBe('string')
+          },
         })
       )
     })
-  }
-};
+  },
+}
 
 // ✅ テストセットアップユーティリティ
 export const TestSetup = {
-  withWorldService: <A, E, R>(
-    operation: Effect.Effect<A, E, R | WorldService>
-  ): Effect.Effect<A, E, R> =>
+  withWorldService: <A, E, R>(operation: Effect.Effect<A, E, R | WorldService>): Effect.Effect<A, E, R> =>
     operation.pipe(Effect.provide(TestWorldServiceWithState)),
 
-  withPlayerService: <A, E, R>(
-    operation: Effect.Effect<A, E, R | PlayerService>
-  ): Effect.Effect<A, E, R> =>
+  withPlayerService: <A, E, R>(operation: Effect.Effect<A, E, R | PlayerService>): Effect.Effect<A, E, R> =>
     operation.pipe(Effect.provide(TestPlayerServiceWithErrors)),
 
   withTestEnvironment: <A, E, R>(
     operation: Effect.Effect<A, E, R | WorldService | PlayerService | TestContext.TestContext>
   ): Effect.Effect<A, E, R> => {
-    const testLayer = Layer.mergeAll(
-      TestWorldServiceWithState,
-      TestPlayerServiceWithErrors,
-      TestContext.TestContext
-    );
-    return operation.pipe(Effect.provide(testLayer));
+    const testLayer = Layer.mergeAll(TestWorldServiceWithState, TestPlayerServiceWithErrors, TestContext.TestContext)
+    return operation.pipe(Effect.provide(testLayer))
   },
 
-  expectSuccess: <A, E>(effect: Effect.Effect<A, E>): Promise<A> =>
-    Effect.runPromise(effect),
+  expectSuccess: <A, E>(effect: Effect.Effect<A, E>): Promise<A> => Effect.runPromise(effect),
 
-  expectFailure: <A, E>(effect: Effect.Effect<A, E>): Promise<E> =>
-    Effect.runPromise(effect.pipe(Effect.flip))
-};
+  expectFailure: <A, E>(effect: Effect.Effect<A, E>): Promise<E> => Effect.runPromise(effect.pipe(Effect.flip)),
+}
 ```
 
 ### 7.2 統合テスト例
 
 ```typescript
-describe("Integration Tests with Test Utilities", () => {
-  it("should handle complex player-world interactions", async () => {
+describe('Integration Tests with Test Utilities', () => {
+  it('should handle complex player-world interactions', async () => {
     const test = Effect.gen(function* () {
-      const worldService = yield* WorldService;
-      const playerService = yield* PlayerService;
+      const worldService = yield* WorldService
+      const playerService = yield* PlayerService
 
       // テストデータ作成
       const player = TestDataFactory.createPlayer({
-        name: "IntegrationTestPlayer",
-        position: { x: 10, y: 64, z: 10 }
-      });
+        name: 'IntegrationTestPlayer',
+        position: { x: 10, y: 64, z: 10 },
+      })
 
       const block = TestDataFactory.createBlock({
-        id: "minecraft:diamond_block" as any,
-        hardness: 5.0
-      });
+        id: 'minecraft:diamond_block' as any,
+        hardness: 5.0,
+      })
 
       // プレイヤー追加
-      yield* playerService.addPlayer(player);
+      yield* playerService.addPlayer(player)
 
       // プレイヤーが存在することを確認
-      const retrievedPlayer = yield* playerService.getPlayer(player.id);
-      expect(Option.isSome(retrievedPlayer)).toBe(true);
+      const retrievedPlayer = yield* playerService.getPlayer(player.id)
+      expect(Option.isSome(retrievedPlayer)).toBe(true)
 
       // プレイヤーの位置にブロック設置
-      yield* worldService.setBlock(player.position, block);
+      yield* worldService.setBlock(player.position, block)
 
       // ブロックが正しく設置されたことを確認
-      const placedBlock = yield* worldService.getBlock(player.position);
+      const placedBlock = yield* worldService.getBlock(player.position)
       TestAssertions.expectBlock(placedBlock, {
-        id: "minecraft:diamond_block" as any,
-        hardness: 5.0
-      });
+        id: 'minecraft:diamond_block' as any,
+        hardness: 5.0,
+      })
 
       // プレイヤーを新しい位置に移動
-      const newPosition = TestDataFactory.createPosition({ x: 15, y: 64, z: 15 });
-      yield* playerService.movePlayer(player.id, newPosition);
+      const newPosition = TestDataFactory.createPosition({ x: 15, y: 64, z: 15 })
+      yield* playerService.movePlayer(player.id, newPosition)
 
       // 移動後のプレイヤー確認
-      const movedPlayer = yield* playerService.getPlayer(player.id);
+      const movedPlayer = yield* playerService.getPlayer(player.id)
       if (Option.isSome(movedPlayer)) {
-        TestAssertions.expectPosition(movedPlayer.value.position, newPosition);
+        TestAssertions.expectPosition(movedPlayer.value.position, newPosition)
       }
-    });
+    })
 
-    await TestSetup.expectSuccess(
-      TestSetup.withTestEnvironment(test)
-    );
-  });
-});
+    await TestSetup.expectSuccess(TestSetup.withTestEnvironment(test))
+  })
+})
 ```
 
 ## 8. まとめ
@@ -1349,6 +1326,7 @@ describe("Integration Tests with Test Utilities", () => {
 **Effect-TS 3.17+** でのテスト戦略により、以下のメリットを実現：
 
 #### 必須テストパターン
+
 - **✅ Layer-based Testing**: 依存性注入とモック管理
 - **✅ Property-Based Testing**: Fast-Checkによる網羅的テスト
 - **✅ STM Testing**: 並行状態管理のアトミック性検証
@@ -1357,6 +1335,7 @@ describe("Integration Tests with Test Utilities", () => {
 - **✅ Performance Testing**: メトリクス統合パフォーマンス測定
 
 #### テスト品質保証
+
 - **✅ 型安全性**: Schemaベースのテストデータ生成
 - **✅ 決定論性**: TestClockとTestRandomによる再現可能テスト
 - **✅ 分離性**: Layer provideMerge による依存関係分離
@@ -1364,6 +1343,7 @@ describe("Integration Tests with Test Utilities", () => {
 - **✅ 観測可能性**: Metricによるテスト実行パフォーマンス計測
 
 #### 禁止事項
+
 - ❌ **async/await テスト**: Effect.runPromise を使用
 - ❌ **手動モック管理**: Layer.succeed でサービス提供
 - ❌ **グローバルテスト状態**: STM + TRef で管理

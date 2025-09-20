@@ -1,13 +1,12 @@
 ---
-title: "06 Enchantment System"
-description: "06 Enchantment Systemに関する詳細な説明とガイド。"
-category: "specification"
-difficulty: "intermediate"
-tags: ["typescript", "minecraft", "specification"]
-prerequisites: ["basic-typescript"]
-estimated_reading_time: "30分"
+title: '06 Enchantment System'
+description: '06 Enchantment Systemに関する詳細な説明とガイド。'
+category: 'specification'
+difficulty: 'intermediate'
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: '30分'
 ---
-
 
 # Enchantment System - エンチャントシステム
 
@@ -22,93 +21,93 @@ Enchantment Systemは、Minecraftの装備強化とアイテムカスタマイ�
 エンチャント効果の定義、確率計算、レベル管理を統括する高性能エンジンです。
 
 ```typescript
-import { Effect, Layer, Context, Schema, Match, pipe, Option, Either, Random } from "effect"
-import { Brand } from "effect"
+import { Effect, Layer, Context, Schema, Match, pipe, Option, Either, Random } from 'effect'
+import { Brand } from 'effect'
 
 // Domain Types
-export type EnchantmentId = Brand.Brand<string, "EnchantmentId">
-export const EnchantmentId = Schema.String.pipe(Schema.brand("EnchantmentId"))
+export type EnchantmentId = Brand.Brand<string, 'EnchantmentId'>
+export const EnchantmentId = Schema.String.pipe(Schema.brand('EnchantmentId'))
 
-export type EnchantmentLevel = Brand.Brand<number, "EnchantmentLevel">
+export type EnchantmentLevel = Brand.Brand<number, 'EnchantmentLevel'>
 export const EnchantmentLevel = pipe(
   Schema.Number,
   Schema.int(),
   Schema.between(1, 10),
-  Schema.brand("EnchantmentLevel")
+  Schema.brand('EnchantmentLevel')
 )
 
-export type ExperiencePoints = Brand.Brand<number, "ExperiencePoints">
+export type ExperiencePoints = Brand.Brand<number, 'ExperiencePoints'>
 export const ExperiencePoints = pipe(
   Schema.Number,
   Schema.int(),
   Schema.nonNegative(),
-  Schema.brand("ExperiencePoints")
+  Schema.brand('ExperiencePoints')
 )
 
-export type EnchantmentPower = Brand.Brand<number, "EnchantmentPower">
+export type EnchantmentPower = Brand.Brand<number, 'EnchantmentPower'>
 export const EnchantmentPower = pipe(
   Schema.Number,
   Schema.int(),
   Schema.between(1, 50),
-  Schema.brand("EnchantmentPower")
+  Schema.brand('EnchantmentPower')
 )
 
 // Enchantment Definition
 export const EnchantmentType = Schema.Union(
-  Schema.Literal("protection"),
-  Schema.Literal("fire_protection"),
-  Schema.Literal("blast_protection"),
-  Schema.Literal("projectile_protection"),
-  Schema.Literal("respiration"),
-  Schema.Literal("aqua_affinity"),
-  Schema.Literal("thorns"),
-  Schema.Literal("depth_strider"),
-  Schema.Literal("frost_walker"),
-  Schema.Literal("binding_curse"),
-  Schema.Literal("sharpness"),
-  Schema.Literal("smite"),
-  Schema.Literal("bane_of_arthropods"),
-  Schema.Literal("knockback"),
-  Schema.Literal("fire_aspect"),
-  Schema.Literal("looting"),
-  Schema.Literal("sweeping"),
-  Schema.Literal("efficiency"),
-  Schema.Literal("silk_touch"),
-  Schema.Literal("unbreaking"),
-  Schema.Literal("fortune"),
-  Schema.Literal("power"),
-  Schema.Literal("punch"),
-  Schema.Literal("flame"),
-  Schema.Literal("infinity"),
-  Schema.Literal("luck_of_the_sea"),
-  Schema.Literal("lure"),
-  Schema.Literal("loyalty"),
-  Schema.Literal("impaling"),
-  Schema.Literal("riptide"),
-  Schema.Literal("channeling"),
-  Schema.Literal("multishot"),
-  Schema.Literal("quick_charge"),
-  Schema.Literal("piercing"),
-  Schema.Literal("mending"),
-  Schema.Literal("vanishing_curse")
+  Schema.Literal('protection'),
+  Schema.Literal('fire_protection'),
+  Schema.Literal('blast_protection'),
+  Schema.Literal('projectile_protection'),
+  Schema.Literal('respiration'),
+  Schema.Literal('aqua_affinity'),
+  Schema.Literal('thorns'),
+  Schema.Literal('depth_strider'),
+  Schema.Literal('frost_walker'),
+  Schema.Literal('binding_curse'),
+  Schema.Literal('sharpness'),
+  Schema.Literal('smite'),
+  Schema.Literal('bane_of_arthropods'),
+  Schema.Literal('knockback'),
+  Schema.Literal('fire_aspect'),
+  Schema.Literal('looting'),
+  Schema.Literal('sweeping'),
+  Schema.Literal('efficiency'),
+  Schema.Literal('silk_touch'),
+  Schema.Literal('unbreaking'),
+  Schema.Literal('fortune'),
+  Schema.Literal('power'),
+  Schema.Literal('punch'),
+  Schema.Literal('flame'),
+  Schema.Literal('infinity'),
+  Schema.Literal('luck_of_the_sea'),
+  Schema.Literal('lure'),
+  Schema.Literal('loyalty'),
+  Schema.Literal('impaling'),
+  Schema.Literal('riptide'),
+  Schema.Literal('channeling'),
+  Schema.Literal('multishot'),
+  Schema.Literal('quick_charge'),
+  Schema.Literal('piercing'),
+  Schema.Literal('mending'),
+  Schema.Literal('vanishing_curse')
 )
 
 export type EnchantmentType = Schema.Schema.Type<typeof EnchantmentType>
 
 export const EnchantmentCategory = Schema.Union(
-  Schema.Literal("armor"),
-  Schema.Literal("armor_feet"),
-  Schema.Literal("armor_legs"),
-  Schema.Literal("armor_torso"),
-  Schema.Literal("armor_head"),
-  Schema.Literal("weapon"),
-  Schema.Literal("tool"),
-  Schema.Literal("bow"),
-  Schema.Literal("fishing_rod"),
-  Schema.Literal("trident"),
-  Schema.Literal("crossbow"),
-  Schema.Literal("wearable"),
-  Schema.Literal("vanishable")
+  Schema.Literal('armor'),
+  Schema.Literal('armor_feet'),
+  Schema.Literal('armor_legs'),
+  Schema.Literal('armor_torso'),
+  Schema.Literal('armor_head'),
+  Schema.Literal('weapon'),
+  Schema.Literal('tool'),
+  Schema.Literal('bow'),
+  Schema.Literal('fishing_rod'),
+  Schema.Literal('trident'),
+  Schema.Literal('crossbow'),
+  Schema.Literal('wearable'),
+  Schema.Literal('vanishable')
 )
 
 export type EnchantmentCategory = Schema.Schema.Type<typeof EnchantmentCategory>
@@ -136,7 +135,7 @@ export const EnchantmentDefinition = Schema.Struct({
   isCursed: Schema.Boolean,
   tradeable: Schema.Boolean,
   discoverable: Schema.Boolean,
-  bookEnchantable: Schema.Boolean
+  bookEnchantable: Schema.Boolean,
 })
 
 export type EnchantmentDefinition = Schema.Schema.Type<typeof EnchantmentDefinition>
@@ -147,13 +146,13 @@ export const AppliedEnchantment = Schema.Struct({
   level: EnchantmentLevel,
   appliedAt: Schema.DateTimeUtc,
   source: Schema.Union(
-    Schema.Literal("enchanting_table"),
-    Schema.Literal("anvil"),
-    Schema.Literal("book"),
-    Schema.Literal("villager_trade"),
-    Schema.Literal("loot"),
-    Schema.Literal("fishing")
-  )
+    Schema.Literal('enchanting_table'),
+    Schema.Literal('anvil'),
+    Schema.Literal('book'),
+    Schema.Literal('villager_trade'),
+    Schema.Literal('loot'),
+    Schema.Literal('fishing')
+  ),
 })
 
 export type AppliedEnchantment = Schema.Schema.Type<typeof AppliedEnchantment>
@@ -163,7 +162,7 @@ export const EnchantmentCompatibility = Schema.Struct({
   enchantmentId: EnchantmentId,
   compatibleWith: Schema.Array(EnchantmentId),
   incompatibleWith: Schema.Array(EnchantmentId),
-  mutuallyExclusive: Schema.Array(EnchantmentId) // 互いに排斥する
+  mutuallyExclusive: Schema.Array(EnchantmentId), // 互いに排斥する
 })
 
 export type EnchantmentCompatibility = Schema.Schema.Type<typeof EnchantmentCompatibility>
@@ -182,7 +181,7 @@ interface EnchantmentRegistryInterface {
   readonly getMaxCombinedLevel: (enchantmentId: EnchantmentId) => Effect.Effect<EnchantmentLevel, NotFoundError>
 }
 
-const EnchantmentRegistry = Context.GenericTag<EnchantmentRegistryInterface>("@minecraft/EnchantmentRegistry")
+const EnchantmentRegistry = Context.GenericTag<EnchantmentRegistryInterface>('@minecraft/EnchantmentRegistry')
 
 // Registry Implementation
 const makeEnchantmentRegistryLive = Effect.gen(function* () {
@@ -190,43 +189,47 @@ const makeEnchantmentRegistryLive = Effect.gen(function* () {
   const definitionsRef = yield* Ref.make(new Map<EnchantmentId, EnchantmentDefinition>())
 
   return EnchantmentRegistry.of({
-    registerEnchantment: (definition) => Effect.gen(function* () {
-      // バリデーション: レベル範囲、アイテム互換性
-      yield* validateEnchantmentDefinition(definition)
+    registerEnchantment: (definition) =>
+      Effect.gen(function* () {
+        // バリデーション: レベル範囲、アイテム互換性
+        yield* validateEnchantmentDefinition(definition)
 
-      yield* Ref.update(definitionsRef, map => map.set(definition.enchantmentId, definition))
-      yield* enchantmentStorage.store(`enchantment:${definition.enchantmentId}`, definition)
-    }),
+        yield* Ref.update(definitionsRef, (map) => map.set(definition.enchantmentId, definition))
+        yield* enchantmentStorage.store(`enchantment:${definition.enchantmentId}`, definition)
+      }),
 
-    getEnchantment: (id) => Effect.gen(function* () {
-      const definitions = yield* Ref.get(definitionsRef)
-      return yield* Match.value(definitions.get(id)).pipe(
-        Match.when(Option.some, identity),
-        Match.when(Option.none, () => Effect.fail(new NotFoundError({ enchantmentId: id }))),
-        Match.exhaustive
-      )
-    }),
+    getEnchantment: (id) =>
+      Effect.gen(function* () {
+        const definitions = yield* Ref.get(definitionsRef)
+        return yield* Match.value(definitions.get(id)).pipe(
+          Match.when(Option.some, identity),
+          Match.when(Option.none, () => Effect.fail(new NotFoundError({ enchantmentId: id }))),
+          Match.exhaustive
+        )
+      }),
 
-    getEnchantmentsByCategory: (category) => Effect.gen(function* () {
-      const definitions = yield* Ref.get(definitionsRef)
-      return Array.from(definitions.values()).filter(def => def.category === category)
-    }),
+    getEnchantmentsByCategory: (category) =>
+      Effect.gen(function* () {
+        const definitions = yield* Ref.get(definitionsRef)
+        return Array.from(definitions.values()).filter((def) => def.category === category)
+      }),
 
-    checkCompatibility: (enchantments) => Effect.gen(function* () {
-      for (const enchantment of enchantments) {
-        const definition = yield* EnchantmentRegistry.getEnchantment(enchantment.enchantmentId)
+    checkCompatibility: (enchantments) =>
+      Effect.gen(function* () {
+        for (const enchantment of enchantments) {
+          const definition = yield* EnchantmentRegistry.getEnchantment(enchantment.enchantmentId)
 
-        // 互換性チェック
-        for (const other of enchantments) {
-          if (enchantment.enchantmentId !== other.enchantmentId) {
-            if (definition.incompatibleEnchantments.includes(other.enchantmentId)) {
-              return false
+          // 互換性チェック
+          for (const other of enchantments) {
+            if (enchantment.enchantmentId !== other.enchantmentId) {
+              if (definition.incompatibleEnchantments.includes(other.enchantmentId)) {
+                return false
+              }
             }
           }
         }
-      }
-      return true
-    })
+        return true
+      }),
   })
 })
 
@@ -242,14 +245,16 @@ const EnchantmentRegistryLive = Layer.effect(EnchantmentRegistry, makeEnchantmen
 export const EnchantingTable = Schema.Struct({
   position: BlockPosition,
   bookshelfPower: EnchantmentPower, // 周囲の本棚から計算
-  availableEnchantments: Schema.Array(Schema.Struct({
-    enchantmentId: EnchantmentId,
-    level: EnchantmentLevel,
-    cost: ExperiencePoints,
-    probability: pipe(Schema.Number, Schema.between(0, 1))
-  })),
+  availableEnchantments: Schema.Array(
+    Schema.Struct({
+      enchantmentId: EnchantmentId,
+      level: EnchantmentLevel,
+      cost: ExperiencePoints,
+      probability: pipe(Schema.Number, Schema.between(0, 1)),
+    })
+  ),
   seed: pipe(Schema.Number, Schema.int(), Schema.positive()), // エンチャント確率用シード
-  lastUsed: Schema.DateTimeUtc
+  lastUsed: Schema.DateTimeUtc,
 })
 
 export type EnchantingTable = Schema.Schema.Type<typeof EnchantingTable>
@@ -273,7 +278,7 @@ interface EnchantingServiceInterface {
   ) => Effect.Effect<ExperiencePoints, never>
 }
 
-const EnchantingService = Context.GenericTag<EnchantingServiceInterface>("@minecraft/EnchantingService")
+const EnchantingService = Context.GenericTag<EnchantingServiceInterface>('@minecraft/EnchantingService')
 
 // Enchanting Implementation
 const makeEnchantingServiceLive = Effect.gen(function* () {
@@ -282,62 +287,65 @@ const makeEnchantingServiceLive = Effect.gen(function* () {
   const randomService = yield* RandomService
 
   return EnchantingService.of({
-    calculateBookshelfPower: (position) => Effect.gen(function* () {
-      const surroundingBlocks = yield* worldService.getBlocksInRadius(position, 2)
-      const bookshelfCount = surroundingBlocks.filter(block => block.blockType === "bookshelf").length
+    calculateBookshelfPower: (position) =>
+      Effect.gen(function* () {
+        const surroundingBlocks = yield* worldService.getBlocksInRadius(position, 2)
+        const bookshelfCount = surroundingBlocks.filter((block) => block.blockType === 'bookshelf').length
 
-      // 最大15の本棚パワー（本棚の配置によって決定）
-      return Math.min(bookshelfCount, 15) as EnchantmentPower
-    }),
+        // 最大15の本棚パワー（本棚の配置によって決定）
+        return Math.min(bookshelfCount, 15) as EnchantmentPower
+      }),
 
-    generateEnchantmentOptions: (item, bookshelfPower, playerLevel) => Effect.gen(function* () {
-      const compatibleEnchantments = yield* registry.getCompatibleEnchantments(item.itemId)
-      const seed = yield* randomService.generateSeed()
+    generateEnchantmentOptions: (item, bookshelfPower, playerLevel) =>
+      Effect.gen(function* () {
+        const compatibleEnchantments = yield* registry.getCompatibleEnchantments(item.itemId)
+        const seed = yield* randomService.generateSeed()
 
-      return pipe(
-        compatibleEnchantments,
-        Array.map(enchantment => ({
-          enchantmentId: enchantment.enchantmentId,
-          level: calculateEnchantmentLevel(enchantment, bookshelfPower, seed),
-          cost: calculateEnchantmentCost(enchantment, bookshelfPower),
-          probability: calculateEnchantmentProbability(enchantment, bookshelfPower, playerLevel)
-        })),
-        Array.filter(option => option.cost <= playerLevel),
-        Array.take(3) // 最大3つのオプション
-      )
-    }),
+        return pipe(
+          compatibleEnchantments,
+          Array.map((enchantment) => ({
+            enchantmentId: enchantment.enchantmentId,
+            level: calculateEnchantmentLevel(enchantment, bookshelfPower, seed),
+            cost: calculateEnchantmentCost(enchantment, bookshelfPower),
+            probability: calculateEnchantmentProbability(enchantment, bookshelfPower, playerLevel),
+          })),
+          Array.filter((option) => option.cost <= playerLevel),
+          Array.take(3) // 最大3つのオプション
+        )
+      }),
 
-    applyEnchantment: (item, option, playerLevel) => Effect.gen(function* () {
-      // 経験値コスト確認
-      if (playerLevel < option.cost) {
-        return yield* Effect.fail(new InsufficientExperienceError())
-      }
+    applyEnchantment: (item, option, playerLevel) =>
+      Effect.gen(function* () {
+        // 経験値コスト確認
+        if (playerLevel < option.cost) {
+          return yield* Effect.fail(new InsufficientExperienceError())
+        }
 
-      // エンチャント互換性確認
-      const currentEnchantments = item.enchantments ?? []
-      const newEnchantment: AppliedEnchantment = {
-        enchantmentId: option.enchantmentId,
-        level: option.level,
-        appliedAt: new Date().toISOString() as any,
-        source: "enchanting_table"
-      }
+        // エンチャント互換性確認
+        const currentEnchantments = item.enchantments ?? []
+        const newEnchantment: AppliedEnchantment = {
+          enchantmentId: option.enchantmentId,
+          level: option.level,
+          appliedAt: new Date().toISOString() as any,
+          source: 'enchanting_table',
+        }
 
-      const isCompatible = yield* registry.checkCompatibility([...currentEnchantments, newEnchantment])
-      if (!isCompatible) {
-        return yield* Effect.fail(new IncompatibleEnchantmentError())
-      }
+        const isCompatible = yield* registry.checkCompatibility([...currentEnchantments, newEnchantment])
+        if (!isCompatible) {
+          return yield* Effect.fail(new IncompatibleEnchantmentError())
+        }
 
-      // エンチャント適用
-      const enchantedItem: ItemStack = {
-        ...item,
-        enchantments: [...currentEnchantments, newEnchantment]
-      }
+        // エンチャント適用
+        const enchantedItem: ItemStack = {
+          ...item,
+          enchantments: [...currentEnchantments, newEnchantment],
+        }
 
-      return {
-        item: enchantedItem,
-        newLevel: (playerLevel - option.cost) as ExperiencePoints
-      }
-    })
+        return {
+          item: enchantedItem,
+          newLevel: (playerLevel - option.cost) as ExperiencePoints,
+        }
+      }),
   })
 })
 
@@ -350,26 +358,26 @@ const EnchantingServiceLive = Layer.effect(EnchantingService, makeEnchantingServ
 // Anvil Operations
 export const AnvilOperation = Schema.Union(
   Schema.Struct({
-    _tag: Schema.Literal("Repair"),
+    _tag: Schema.Literal('Repair'),
     targetItem: ItemStack,
     materialItem: ItemStack,
-    repairAmount: pipe(Schema.Number, Schema.int(), Schema.positive())
+    repairAmount: pipe(Schema.Number, Schema.int(), Schema.positive()),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Combine"),
+    _tag: Schema.Literal('Combine'),
     targetItem: ItemStack,
     sacrificeItem: ItemStack,
-    mergeEnchantments: Schema.Boolean
+    mergeEnchantments: Schema.Boolean,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Rename"),
+    _tag: Schema.Literal('Rename'),
     targetItem: ItemStack,
-    newName: Schema.String
+    newName: Schema.String,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("EnchantWithBook"),
+    _tag: Schema.Literal('EnchantWithBook'),
     targetItem: ItemStack,
-    enchantedBook: ItemStack
+    enchantedBook: ItemStack,
   })
 )
 
@@ -386,92 +394,79 @@ interface AnvilServiceInterface {
   readonly calculateRepairCost: (item: ItemStack, material: ItemStack) => Effect.Effect<ExperiencePoints, never>
 }
 
-const AnvilService = Context.GenericTag<AnvilServiceInterface>("@minecraft/AnvilService")
+const AnvilService = Context.GenericTag<AnvilServiceInterface>('@minecraft/AnvilService')
 
 const makeAnvilServiceLive = Effect.gen(function* () {
   const registry = yield* EnchantmentRegistry
 
   return AnvilService.of({
-    calculateAnvilCost: (operation) => Effect.gen(function* () {
-      return yield* Match.value(operation).pipe(
-        Match.tag("Repair", ({ targetItem, materialItem }) =>
-          calculateRepairCost(targetItem, materialItem)
-        ),
-        Match.tag("Combine", ({ targetItem, sacrificeItem }) =>
-          calculateCombineCost(targetItem, sacrificeItem)
-        ),
-        Match.tag("Rename", ({ targetItem }) =>
-          Effect.succeed(1 as ExperiencePoints)
-        ),
-        Match.tag("EnchantWithBook", ({ targetItem, enchantedBook }) =>
-          calculateBookEnchantCost(targetItem, enchantedBook)
-        ),
-        Match.exhaustive
-      )
-    }),
+    calculateAnvilCost: (operation) =>
+      Effect.gen(function* () {
+        return yield* Match.value(operation).pipe(
+          Match.tag('Repair', ({ targetItem, materialItem }) => calculateRepairCost(targetItem, materialItem)),
+          Match.tag('Combine', ({ targetItem, sacrificeItem }) => calculateCombineCost(targetItem, sacrificeItem)),
+          Match.tag('Rename', ({ targetItem }) => Effect.succeed(1 as ExperiencePoints)),
+          Match.tag('EnchantWithBook', ({ targetItem, enchantedBook }) =>
+            calculateBookEnchantCost(targetItem, enchantedBook)
+          ),
+          Match.exhaustive
+        )
+      }),
 
-    performAnvilOperation: (operation, playerLevel) => Effect.gen(function* () {
-      const cost = yield* AnvilService.calculateAnvilCost(operation)
+    performAnvilOperation: (operation, playerLevel) =>
+      Effect.gen(function* () {
+        const cost = yield* AnvilService.calculateAnvilCost(operation)
 
-      if (playerLevel < cost) {
-        return yield* Effect.fail(new InsufficientExperienceError())
-      }
+        if (playerLevel < cost) {
+          return yield* Effect.fail(new InsufficientExperienceError())
+        }
 
-      const result = yield* Match.value(operation).pipe(
-        Match.tag("Combine", ({ targetItem, sacrificeItem, mergeEnchantments }) =>
-          Effect.gen(function* () {
-            if (!mergeEnchantments) return targetItem
+        const result = yield* Match.value(operation).pipe(
+          Match.tag('Combine', ({ targetItem, sacrificeItem, mergeEnchantments }) =>
+            Effect.gen(function* () {
+              if (!mergeEnchantments) return targetItem
 
-            const targetEnchantments = targetItem.enchantments ?? []
-            const sacrificeEnchantments = sacrificeItem.enchantments ?? []
+              const targetEnchantments = targetItem.enchantments ?? []
+              const sacrificeEnchantments = sacrificeItem.enchantments ?? []
 
-            // エンチャント合成ロジック
-            const mergedEnchantments = yield* mergeEnchantmentLists(
-              targetEnchantments,
-              sacrificeEnchantments
-            )
+              // エンチャント合成ロジック
+              const mergedEnchantments = yield* mergeEnchantmentLists(targetEnchantments, sacrificeEnchantments)
 
-            return {
-              ...targetItem,
-              enchantments: mergedEnchantments,
-              durability: Math.min(
-                (targetItem.durability ?? 0) + (sacrificeItem.durability ?? 0),
-                1000
-              )
-            }
-          })
-        ),
-        Match.tag("EnchantWithBook", ({ targetItem, enchantedBook }) =>
-          Effect.gen(function* () {
-            const bookEnchantments = enchantedBook.enchantments ?? []
-            const targetEnchantments = targetItem.enchantments ?? []
-
-            // 本からのエンチャント移転
-            for (const enchantment of bookEnchantments) {
-              const isCompatible = yield* registry.checkCompatibility([
-                ...targetEnchantments,
-                enchantment
-              ])
-
-              if (!isCompatible) {
-                return yield* Effect.fail(new IncompatibleEnchantmentError())
+              return {
+                ...targetItem,
+                enchantments: mergedEnchantments,
+                durability: Math.min((targetItem.durability ?? 0) + (sacrificeItem.durability ?? 0), 1000),
               }
-            }
+            })
+          ),
+          Match.tag('EnchantWithBook', ({ targetItem, enchantedBook }) =>
+            Effect.gen(function* () {
+              const bookEnchantments = enchantedBook.enchantments ?? []
+              const targetEnchantments = targetItem.enchantments ?? []
 
-            return {
-              ...targetItem,
-              enchantments: [...targetEnchantments, ...bookEnchantments]
-            }
-          })
-        ),
-        Match.orElse(() => Effect.succeed(operation.targetItem))
-      )
+              // 本からのエンチャント移転
+              for (const enchantment of bookEnchantments) {
+                const isCompatible = yield* registry.checkCompatibility([...targetEnchantments, enchantment])
 
-      return {
-        result,
-        newLevel: (playerLevel - cost) as ExperiencePoints
-      }
-    })
+                if (!isCompatible) {
+                  return yield* Effect.fail(new IncompatibleEnchantmentError())
+                }
+              }
+
+              return {
+                ...targetItem,
+                enchantments: [...targetEnchantments, ...bookEnchantments],
+              }
+            })
+          ),
+          Match.orElse(() => Effect.succeed(operation.targetItem))
+        )
+
+        return {
+          result,
+          newLevel: (playerLevel - cost) as ExperiencePoints,
+        }
+      }),
   })
 })
 
@@ -488,7 +483,7 @@ export const ExperienceLevel = Schema.Struct({
   level: pipe(Schema.Number, Schema.int(), Schema.nonNegative()),
   experience: ExperiencePoints,
   experienceToNext: ExperiencePoints,
-  totalExperience: ExperiencePoints
+  totalExperience: ExperiencePoints,
 })
 
 export type ExperienceLevel = Schema.Schema.Type<typeof ExperienceLevel>
@@ -497,42 +492,48 @@ export type ExperienceLevel = Schema.Schema.Type<typeof ExperienceLevel>
 interface ExperienceServiceInterface {
   readonly getPlayerExperience: (playerId: PlayerId) => Effect.Effect<ExperienceLevel, PlayerError>
   readonly addExperience: (playerId: PlayerId, amount: ExperiencePoints) => Effect.Effect<ExperienceLevel, PlayerError>
-  readonly consumeExperience: (playerId: PlayerId, amount: ExperiencePoints) => Effect.Effect<ExperienceLevel, InsufficientExperienceError>
+  readonly consumeExperience: (
+    playerId: PlayerId,
+    amount: ExperiencePoints
+  ) => Effect.Effect<ExperienceLevel, InsufficientExperienceError>
   readonly calculateRequiredExperience: (level: number) => ExperiencePoints
   readonly calculateExperienceFromLevel: (level: ExperienceLevel) => ExperiencePoints
   readonly canAffordEnchantment: (playerId: PlayerId, cost: ExperiencePoints) => Effect.Effect<boolean, never>
 }
 
-const ExperienceService = Context.GenericTag<ExperienceServiceInterface>("@minecraft/ExperienceService")
+const ExperienceService = Context.GenericTag<ExperienceServiceInterface>('@minecraft/ExperienceService')
 
 const makeExperienceServiceLive = Effect.gen(function* () {
   const playerStorage = yield* PlayerStorageService
 
   return ExperienceService.of({
-    getPlayerExperience: (playerId) => Effect.gen(function* () {
-      const player = yield* playerStorage.getPlayer(playerId)
-      return calculateExperienceLevel(player.totalExperience)
-    }),
+    getPlayerExperience: (playerId) =>
+      Effect.gen(function* () {
+        const player = yield* playerStorage.getPlayer(playerId)
+        return calculateExperienceLevel(player.totalExperience)
+      }),
 
-    addExperience: (playerId, amount) => Effect.gen(function* () {
-      const currentLevel = yield* ExperienceService.getPlayerExperience(playerId)
-      const newTotalExperience = (currentLevel.totalExperience + amount) as ExperiencePoints
+    addExperience: (playerId, amount) =>
+      Effect.gen(function* () {
+        const currentLevel = yield* ExperienceService.getPlayerExperience(playerId)
+        const newTotalExperience = (currentLevel.totalExperience + amount) as ExperiencePoints
 
-      yield* playerStorage.updatePlayerExperience(playerId, newTotalExperience)
-      return calculateExperienceLevel(newTotalExperience)
-    }),
+        yield* playerStorage.updatePlayerExperience(playerId, newTotalExperience)
+        return calculateExperienceLevel(newTotalExperience)
+      }),
 
-    consumeExperience: (playerId, amount) => Effect.gen(function* () {
-      const currentLevel = yield* ExperienceService.getPlayerExperience(playerId)
+    consumeExperience: (playerId, amount) =>
+      Effect.gen(function* () {
+        const currentLevel = yield* ExperienceService.getPlayerExperience(playerId)
 
-      if (currentLevel.totalExperience < amount) {
-        return yield* Effect.fail(new InsufficientExperienceError())
-      }
+        if (currentLevel.totalExperience < amount) {
+          return yield* Effect.fail(new InsufficientExperienceError())
+        }
 
-      const newTotalExperience = (currentLevel.totalExperience - amount) as ExperiencePoints
-      yield* playerStorage.updatePlayerExperience(playerId, newTotalExperience)
-      return calculateExperienceLevel(newTotalExperience)
-    }),
+        const newTotalExperience = (currentLevel.totalExperience - amount) as ExperiencePoints
+        yield* playerStorage.updatePlayerExperience(playerId, newTotalExperience)
+        return calculateExperienceLevel(newTotalExperience)
+      }),
 
     calculateRequiredExperience: (level) => {
       // Minecraft経験値計算式
@@ -541,10 +542,11 @@ const makeExperienceServiceLive = Effect.gen(function* () {
       return (9 * level - 158) as ExperiencePoints
     },
 
-    canAffordEnchantment: (playerId, cost) => Effect.gen(function* () {
-      const level = yield* ExperienceService.getPlayerExperience(playerId)
-      return level.totalExperience >= cost
-    })
+    canAffordEnchantment: (playerId, cost) =>
+      Effect.gen(function* () {
+        const level = yield* ExperienceService.getPlayerExperience(playerId)
+        return level.totalExperience >= cost
+      }),
   })
 })
 
@@ -581,33 +583,32 @@ interface EnchantmentRandomServiceInterface {
 }
 
 const EnchantmentRandomService = Context.GenericTag<EnchantmentRandomServiceInterface>(
-  "@minecraft/EnchantmentRandomService"
+  '@minecraft/EnchantmentRandomService'
 )
 
 const makeEnchantmentRandomServiceLive = Effect.gen(function* () {
   const random = yield* Random.Random
 
   return EnchantmentRandomService.of({
-    generateEnchantmentSeed: (playerName, itemStack, timestamp) => Effect.gen(function* () {
-      // 決定的なシード生成（プレイヤー名、アイテム、タイムスタンプから）
-      const seedString = `${playerName}:${itemStack.itemId}:${timestamp}`
-      let hash = 0
-      for (let i = 0; i < seedString.length; i++) {
-        hash = ((hash << 5) - hash + seedString.charCodeAt(i)) & 0xffffffff
-      }
-      return Math.abs(hash)
-    }),
+    generateEnchantmentSeed: (playerName, itemStack, timestamp) =>
+      Effect.gen(function* () {
+        // 決定的なシード生成（プレイヤー名、アイテム、タイムスタンプから）
+        const seedString = `${playerName}:${itemStack.itemId}:${timestamp}`
+        let hash = 0
+        for (let i = 0; i < seedString.length; i++) {
+          hash = ((hash << 5) - hash + seedString.charCodeAt(i)) & 0xffffffff
+        }
+        return Math.abs(hash)
+      }),
 
     calculateEnchantmentProbability: (enchantment, bookshelfPower, itemEnchantability) =>
       Effect.gen(function* () {
         // Minecraftのエンチャント確率計算アルゴリズム
-        const modifiedEnchantability = itemEnchantability + 1 +
-          Math.floor(bookshelfPower / 4) +
-          Math.floor(bookshelfPower / 4)
+        const modifiedEnchantability =
+          itemEnchantability + 1 + Math.floor(bookshelfPower / 4) + Math.floor(bookshelfPower / 4)
 
         const k = Math.max(1, modifiedEnchantability / 4)
-        const probability = (enchantment.weight * k) /
-          (enchantment.minEnchantability + enchantment.maxEnchantability)
+        const probability = (enchantment.weight * k) / (enchantment.minEnchantability + enchantment.maxEnchantability)
 
         return Math.min(1, Math.max(0, probability))
       }),
@@ -619,51 +620,54 @@ const makeEnchantmentRandomServiceLive = Effect.gen(function* () {
         const selectedEnchantments: AppliedEnchantment[] = []
 
         // 第一エンチャント（必ず選択）
-        const weightedEnchantments = availableEnchantments.map(enchantment => ({
+        const weightedEnchantments = availableEnchantments.map((enchantment) => ({
           enchantment,
-          weight: enchantment.weight
+          weight: enchantment.weight,
         }))
 
         const firstEnchantment = weightedRandom(weightedEnchantments, rng)
         if (firstEnchantment) {
           const level = yield* EnchantmentRandomService.calculateEnchantmentLevel(
-            firstEnchantment, bookshelfPower, seed
+            firstEnchantment,
+            bookshelfPower,
+            seed
           )
 
           selectedEnchantments.push({
             enchantmentId: firstEnchantment.enchantmentId,
             level,
             appliedAt: new Date().toISOString() as any,
-            source: "enchanting_table"
+            source: 'enchanting_table',
           })
         }
 
         // 追加エンチャント（確率的）
         const bonusEnchantChance = (bookshelfPower + 1) / 50
         if (rng() < bonusEnchantChance) {
-          const remainingEnchantments = availableEnchantments.filter(e =>
-            !selectedEnchantments.some(s => s.enchantmentId === e.enchantmentId) &&
-            !e.incompatibleEnchantments.some(incomp =>
-              selectedEnchantments.some(s => s.enchantmentId === incomp)
-            )
+          const remainingEnchantments = availableEnchantments.filter(
+            (e) =>
+              !selectedEnchantments.some((s) => s.enchantmentId === e.enchantmentId) &&
+              !e.incompatibleEnchantments.some((incomp) => selectedEnchantments.some((s) => s.enchantmentId === incomp))
           )
 
           if (remainingEnchantments.length > 0) {
             const bonusEnchantment = weightedRandom(
-              remainingEnchantments.map(e => ({ enchantment: e, weight: e.weight })),
+              remainingEnchantments.map((e) => ({ enchantment: e, weight: e.weight })),
               rng
             )
 
             if (bonusEnchantment) {
               const level = yield* EnchantmentRandomService.calculateEnchantmentLevel(
-                bonusEnchantment, bookshelfPower, seed + 1
+                bonusEnchantment,
+                bookshelfPower,
+                seed + 1
               )
 
               selectedEnchantments.push({
                 enchantmentId: bonusEnchantment.enchantmentId,
                 level,
                 appliedAt: new Date().toISOString() as any,
-                source: "enchanting_table"
+                source: 'enchanting_table',
               })
             }
           }
@@ -672,12 +676,13 @@ const makeEnchantmentRandomServiceLive = Effect.gen(function* () {
         return selectedEnchantments
       }),
 
-    calculateEnchantmentLevel: (enchantment, bookshelfPower, seed) => Effect.gen(function* () {
-      const rng = seedRandom(seed)
-      const baseLevel = Math.floor(bookshelfPower / 3) + 1
-      const maxLevel = Math.min(enchantment.maxLevel, baseLevel + rng() * 3)
-      return Math.max(1, Math.floor(maxLevel)) as EnchantmentLevel
-    })
+    calculateEnchantmentLevel: (enchantment, bookshelfPower, seed) =>
+      Effect.gen(function* () {
+        const rng = seedRandom(seed)
+        const baseLevel = Math.floor(bookshelfPower / 3) + 1
+        const maxLevel = Math.min(enchantment.maxLevel, baseLevel + rng() * 3)
+        return Math.max(1, Math.floor(maxLevel)) as EnchantmentLevel
+      }),
   })
 })
 
@@ -691,10 +696,7 @@ const seedRandom = (seed: number) => {
 }
 
 // Weighted Random Selection
-const weightedRandom = <T>(
-  items: Array<{ enchantment: T; weight: number }>,
-  rng: () => number
-): T | null => {
+const weightedRandom = <T>(items: Array<{ enchantment: T; weight: number }>, rng: () => number): T | null => {
   const totalWeight = items.reduce((sum, item) => sum + item.weight, 0)
   if (totalWeight === 0) return null
 
@@ -706,10 +708,7 @@ const weightedRandom = <T>(
   return items[items.length - 1]?.enchantment ?? null
 }
 
-const EnchantmentRandomServiceLive = Layer.effect(
-  EnchantmentRandomService,
-  makeEnchantmentRandomServiceLive
-)
+const EnchantmentRandomServiceLive = Layer.effect(EnchantmentRandomService, makeEnchantmentRandomServiceLive)
 ```
 
 ## エンチャント効果適用システム
@@ -721,47 +720,45 @@ const EnchantmentRandomServiceLive = Layer.effect(
 export const EnchantmentEffect = Schema.Union(
   // Damage Modifiers
   Schema.Struct({
-    _tag: Schema.Literal("DamageMultiplier"),
+    _tag: Schema.Literal('DamageMultiplier'),
     multiplier: pipe(Schema.Number, Schema.positive()),
-    damageType: Schema.Optional(Schema.Union(
-      Schema.Literal("melee"),
-      Schema.Literal("ranged"),
-      Schema.Literal("magic")
-    ))
+    damageType: Schema.Optional(
+      Schema.Union(Schema.Literal('melee'), Schema.Literal('ranged'), Schema.Literal('magic'))
+    ),
   }),
 
   // Protection Effects
   Schema.Struct({
-    _tag: Schema.Literal("DamageReduction"),
+    _tag: Schema.Literal('DamageReduction'),
     reduction: pipe(Schema.Number, Schema.between(0, 1)),
     damageType: Schema.Union(
-      Schema.Literal("all"),
-      Schema.Literal("fire"),
-      Schema.Literal("explosion"),
-      Schema.Literal("projectile"),
-      Schema.Literal("fall")
-    )
+      Schema.Literal('all'),
+      Schema.Literal('fire'),
+      Schema.Literal('explosion'),
+      Schema.Literal('projectile'),
+      Schema.Literal('fall')
+    ),
   }),
 
   // Special Effects
   Schema.Struct({
-    _tag: Schema.Literal("SpecialEffect"),
+    _tag: Schema.Literal('SpecialEffect'),
     effectType: Schema.Union(
-      Schema.Literal("silk_touch"),
-      Schema.Literal("fortune"),
-      Schema.Literal("looting"),
-      Schema.Literal("fire_aspect"),
-      Schema.Literal("knockback"),
-      Schema.Literal("thorns")
+      Schema.Literal('silk_touch'),
+      Schema.Literal('fortune'),
+      Schema.Literal('looting'),
+      Schema.Literal('fire_aspect'),
+      Schema.Literal('knockback'),
+      Schema.Literal('thorns')
     ),
-    intensity: pipe(Schema.Number, Schema.positive())
+    intensity: pipe(Schema.Number, Schema.positive()),
   }),
 
   // Durability Effects
   Schema.Struct({
-    _tag: Schema.Literal("DurabilityModifier"),
+    _tag: Schema.Literal('DurabilityModifier'),
     modifier: pipe(Schema.Number, Schema.positive()), // 耐久度減少の倍率
-    repairChance: Schema.Optional(pipe(Schema.Number, Schema.between(0, 1))) // 修繕確率
+    repairChance: Schema.Optional(pipe(Schema.Number, Schema.between(0, 1))), // 修繕確率
   })
 )
 
@@ -779,16 +776,16 @@ interface EnchantmentEffectServiceInterface {
     block: Block,
     tool: ItemStack,
     player: Player
-  ) => Effect.Effect<{
-    drops: ItemStack[];
-    experience: ExperiencePoints;
-    durabilityDamage: number;
-  }, never>
+  ) => Effect.Effect<
+    {
+      drops: ItemStack[]
+      experience: ExperiencePoints
+      durabilityDamage: number
+    },
+    never
+  >
 
-  readonly applyEnchantmentEffects: (
-    item: ItemStack,
-    context: EffectContext
-  ) => Effect.Effect<EffectResult, never>
+  readonly applyEnchantmentEffects: (item: ItemStack, context: EffectContext) => Effect.Effect<EffectResult, never>
 
   readonly calculateEnchantmentPower: (
     enchantments: AppliedEnchantment[]
@@ -796,7 +793,7 @@ interface EnchantmentEffectServiceInterface {
 }
 
 const EnchantmentEffectService = Context.GenericTag<EnchantmentEffectServiceInterface>(
-  "@minecraft/EnchantmentEffectService"
+  '@minecraft/EnchantmentEffectService'
 )
 
 const makeEnchantmentEffectServiceLive = Effect.gen(function* () {
@@ -812,14 +809,14 @@ const makeEnchantmentEffectServiceLive = Effect.gen(function* () {
           const definition = yield* registry.getEnchantment(enchantment.enchantmentId)
 
           modifiedDamage = yield* Match.value(definition.type).pipe(
-            Match.when("sharpness", () =>
-              Effect.succeed(modifiedDamage + (enchantment.level * 1.25))
+            Match.when('sharpness', () => Effect.succeed(modifiedDamage + enchantment.level * 1.25)),
+            Match.when(
+              'smite',
+              () => Effect.succeed(modifiedDamage + enchantment.level * 2.5) // 対アンデッド
             ),
-            Match.when("smite", () =>
-              Effect.succeed(modifiedDamage + (enchantment.level * 2.5)) // 対アンデッド
-            ),
-            Match.when("bane_of_arthropods", () =>
-              Effect.succeed(modifiedDamage + (enchantment.level * 2.5)) // 対節足動物
+            Match.when(
+              'bane_of_arthropods',
+              () => Effect.succeed(modifiedDamage + enchantment.level * 2.5) // 対節足動物
             ),
             Match.orElse(() => Effect.succeed(modifiedDamage))
           )
@@ -830,17 +827,18 @@ const makeEnchantmentEffectServiceLive = Effect.gen(function* () {
           const definition = yield* registry.getEnchantment(enchantment.enchantmentId)
 
           modifiedDamage = yield* Match.value(definition.type).pipe(
-            Match.when("protection", () =>
-              Effect.succeed(modifiedDamage * (1 - (enchantment.level * 0.04)))
+            Match.when('protection', () => Effect.succeed(modifiedDamage * (1 - enchantment.level * 0.04))),
+            Match.when(
+              'fire_protection',
+              () => Effect.succeed(modifiedDamage * (1 - enchantment.level * 0.08)) // 火ダメージ専用
             ),
-            Match.when("fire_protection", () =>
-              Effect.succeed(modifiedDamage * (1 - (enchantment.level * 0.08))) // 火ダメージ専用
+            Match.when(
+              'blast_protection',
+              () => Effect.succeed(modifiedDamage * (1 - enchantment.level * 0.08)) // 爆発ダメージ専用
             ),
-            Match.when("blast_protection", () =>
-              Effect.succeed(modifiedDamage * (1 - (enchantment.level * 0.08))) // 爆発ダメージ専用
-            ),
-            Match.when("projectile_protection", () =>
-              Effect.succeed(modifiedDamage * (1 - (enchantment.level * 0.08))) // 飛び道具専用
+            Match.when(
+              'projectile_protection',
+              () => Effect.succeed(modifiedDamage * (1 - enchantment.level * 0.08)) // 飛び道具専用
             ),
             Match.orElse(() => Effect.succeed(modifiedDamage))
           )
@@ -849,66 +847,76 @@ const makeEnchantmentEffectServiceLive = Effect.gen(function* () {
         return Math.max(0, modifiedDamage)
       }),
 
-    applyMiningEffects: (block, tool, player) => Effect.gen(function* () {
-      const toolEnchantments = tool.enchantments ?? []
-      let drops: ItemStack[] = [{
-        itemId: block.blockType as ItemId,
-        count: 1 as ItemCount,
-        timestamp: new Date().toISOString() as any
-      }]
-      let experience = 0 as ExperiencePoints
-      let durabilityDamage = 1
+    applyMiningEffects: (block, tool, player) =>
+      Effect.gen(function* () {
+        const toolEnchantments = tool.enchantments ?? []
+        let drops: ItemStack[] = [
+          {
+            itemId: block.blockType as ItemId,
+            count: 1 as ItemCount,
+            timestamp: new Date().toISOString() as any,
+          },
+        ]
+        let experience = 0 as ExperiencePoints
+        let durabilityDamage = 1
 
-      for (const enchantment of toolEnchantments) {
-        const definition = yield* registry.getEnchantment(enchantment.enchantmentId)
+        for (const enchantment of toolEnchantments) {
+          const definition = yield* registry.getEnchantment(enchantment.enchantmentId)
 
-        yield* Match.value(definition.type).pipe(
-          Match.when("silk_touch", () => Effect.gen(function* () {
-            // シルクタッチ: ブロックそのものをドロップ
-            drops = [{
-              itemId: block.blockType as ItemId,
-              count: 1 as ItemCount,
-              timestamp: new Date().toISOString() as any
-            }]
-          })),
+          yield* Match.value(definition.type).pipe(
+            Match.when('silk_touch', () =>
+              Effect.gen(function* () {
+                // シルクタッチ: ブロックそのものをドロップ
+                drops = [
+                  {
+                    itemId: block.blockType as ItemId,
+                    count: 1 as ItemCount,
+                    timestamp: new Date().toISOString() as any,
+                  },
+                ]
+              })
+            ),
 
-          Match.when("fortune", () => Effect.gen(function* () {
-            // 幸運: ドロップ数増加
-            const fortuneMultiplier = 1 + (enchantment.level * 0.5)
-            if (drops[0]) {
-              drops[0] = {
-                ...drops[0],
-                count: Math.floor(drops[0].count * fortuneMultiplier) as ItemCount
-              }
-            }
-          })),
+            Match.when('fortune', () =>
+              Effect.gen(function* () {
+                // 幸運: ドロップ数増加
+                const fortuneMultiplier = 1 + enchantment.level * 0.5
+                if (drops[0]) {
+                  drops[0] = {
+                    ...drops[0],
+                    count: Math.floor(drops[0].count * fortuneMultiplier) as ItemCount,
+                  }
+                }
+              })
+            ),
 
-          Match.when("efficiency", () => Effect.gen(function* () {
-            // 効率強化: 採掘速度向上（ここでは経験値ボーナスとして表現）
-            experience = (experience + enchantment.level) as ExperiencePoints
-          })),
+            Match.when('efficiency', () =>
+              Effect.gen(function* () {
+                // 効率強化: 採掘速度向上（ここでは経験値ボーナスとして表現）
+                experience = (experience + enchantment.level) as ExperiencePoints
+              })
+            ),
 
-          Match.when("unbreaking", () => Effect.gen(function* () {
-            // 耐久力: 耐久度減少確率低下
-            const unbreakingChance = 1 / (enchantment.level + 1)
-            if (Math.random() > unbreakingChance) {
-              durabilityDamage = 0
-            }
-          })),
+            Match.when('unbreaking', () =>
+              Effect.gen(function* () {
+                // 耐久力: 耐久度減少確率低下
+                const unbreakingChance = 1 / (enchantment.level + 1)
+                if (Math.random() > unbreakingChance) {
+                  durabilityDamage = 0
+                }
+              })
+            ),
 
-          Match.orElse(() => Effect.succeed(undefined))
-        )
-      }
+            Match.orElse(() => Effect.succeed(undefined))
+          )
+        }
 
-      return { drops, experience, durabilityDamage }
-    })
+        return { drops, experience, durabilityDamage }
+      }),
   })
 })
 
-const EnchantmentEffectServiceLive = Layer.effect(
-  EnchantmentEffectService,
-  makeEnchantmentEffectServiceLive
-)
+const EnchantmentEffectServiceLive = Layer.effect(EnchantmentEffectService, makeEnchantmentEffectServiceLive)
 ```
 
 ## 本とクイルシステム
@@ -918,22 +926,22 @@ const EnchantmentEffectServiceLive = Layer.effect(
 ```typescript
 // Enchanted Book Definition
 export const EnchantedBook = Schema.Struct({
-  itemId: Schema.Literal("enchanted_book").pipe(Schema.brand("ItemId")),
+  itemId: Schema.Literal('enchanted_book').pipe(Schema.brand('ItemId')),
   enchantments: Schema.Array(AppliedEnchantment),
   storedExperience: Schema.Optional(ExperiencePoints),
   author: Schema.Optional(Schema.String),
   title: Schema.Optional(Schema.String),
   description: Schema.Optional(Schema.String),
   rarity: Schema.Union(
-    Schema.Literal("common"),
-    Schema.Literal("uncommon"),
-    Schema.Literal("rare"),
-    Schema.Literal("epic"),
-    Schema.Literal("legendary")
+    Schema.Literal('common'),
+    Schema.Literal('uncommon'),
+    Schema.Literal('rare'),
+    Schema.Literal('epic'),
+    Schema.Literal('legendary')
   ),
   tradeable: Schema.Boolean,
   cursed: Schema.Boolean,
-  createdAt: Schema.DateTimeUtc
+  createdAt: Schema.DateTimeUtc,
 })
 
 export type EnchantedBook = Schema.Schema.Type<typeof EnchantedBook>
@@ -960,90 +968,87 @@ interface EnchantedBookServiceInterface {
   readonly calculateBookValue: (book: EnchantedBook) => Effect.Effect<ExperiencePoints, never>
 }
 
-const EnchantedBookService = Context.GenericTag<EnchantedBookServiceInterface>(
-  "@minecraft/EnchantedBookService"
-)
+const EnchantedBookService = Context.GenericTag<EnchantedBookServiceInterface>('@minecraft/EnchantedBookService')
 
 const makeEnchantedBookServiceLive = Effect.gen(function* () {
   const registry = yield* EnchantmentRegistry
 
   return EnchantedBookService.of({
-    createEnchantedBook: (enchantments, options = {}) => Effect.gen(function* () {
-      // エンチャント互換性チェック
-      const isCompatible = yield* registry.checkCompatibility(enchantments)
-      if (!isCompatible) {
-        return yield* Effect.fail(new IncompatibleEnchantmentsError())
-      }
+    createEnchantedBook: (enchantments, options = {}) =>
+      Effect.gen(function* () {
+        // エンチャント互換性チェック
+        const isCompatible = yield* registry.checkCompatibility(enchantments)
+        if (!isCompatible) {
+          return yield* Effect.fail(new IncompatibleEnchantmentsError())
+        }
 
-      // 希少度計算
-      const rarity = calculateBookRarity(enchantments)
+        // 希少度計算
+        const rarity = calculateBookRarity(enchantments)
 
-      const book: EnchantedBook = {
-        itemId: "enchanted_book" as ItemId,
-        enchantments,
-        rarity,
-        tradeable: true,
-        cursed: enchantments.some(e => e.enchantmentId.includes("curse")),
-        createdAt: new Date().toISOString() as any,
-        ...options
-      }
+        const book: EnchantedBook = {
+          itemId: 'enchanted_book' as ItemId,
+          enchantments,
+          rarity,
+          tradeable: true,
+          cursed: enchantments.some((e) => e.enchantmentId.includes('curse')),
+          createdAt: new Date().toISOString() as any,
+          ...options,
+        }
 
-      return book
-    }),
+        return book
+      }),
 
-    combineBooks: (book1, book2) => Effect.gen(function* () {
-      const allEnchantments = [...book1.enchantments, ...book2.enchantments]
+    combineBooks: (book1, book2) =>
+      Effect.gen(function* () {
+        const allEnchantments = [...book1.enchantments, ...book2.enchantments]
 
-      // 重複エンチャントのマージ
-      const mergedEnchantments = mergeEnchantmentLists(
-        book1.enchantments,
-        book2.enchantments
-      )
+        // 重複エンチャントのマージ
+        const mergedEnchantments = mergeEnchantmentLists(book1.enchantments, book2.enchantments)
 
-      const isCompatible = yield* registry.checkCompatibility(mergedEnchantments)
-      if (!isCompatible) {
-        return yield* Effect.fail(new BookCombinationError())
-      }
+        const isCompatible = yield* registry.checkCompatibility(mergedEnchantments)
+        if (!isCompatible) {
+          return yield* Effect.fail(new BookCombinationError())
+        }
 
-      return yield* EnchantedBookService.createEnchantedBook(mergedEnchantments, {
-        author: book1.author || book2.author,
-        storedExperience: ((book1.storedExperience ?? 0) + (book2.storedExperience ?? 0)) as ExperiencePoints
-      })
-    }),
+        return yield* EnchantedBookService.createEnchantedBook(mergedEnchantments, {
+          author: book1.author || book2.author,
+          storedExperience: ((book1.storedExperience ?? 0) + (book2.storedExperience ?? 0)) as ExperiencePoints,
+        })
+      }),
 
-    calculateBookValue: (book) => Effect.gen(function* () {
-      let totalValue = 0
+    calculateBookValue: (book) =>
+      Effect.gen(function* () {
+        let totalValue = 0
 
-      for (const enchantment of book.enchantments) {
-        const definition = yield* registry.getEnchantment(enchantment.enchantmentId)
-        const baseValue = definition.weight * 10
-        const levelMultiplier = enchantment.level * 2
-        totalValue += baseValue * levelMultiplier
-      }
+        for (const enchantment of book.enchantments) {
+          const definition = yield* registry.getEnchantment(enchantment.enchantmentId)
+          const baseValue = definition.weight * 10
+          const levelMultiplier = enchantment.level * 2
+          totalValue += baseValue * levelMultiplier
+        }
 
-      return totalValue as ExperiencePoints
-    })
+        return totalValue as ExperiencePoints
+      }),
   })
 })
 
 const EnchantedBookServiceLive = Layer.effect(EnchantedBookService, makeEnchantedBookServiceLive)
 
 // Utility Functions
-const calculateBookRarity = (enchantments: AppliedEnchantment[]): "common" | "uncommon" | "rare" | "epic" | "legendary" => {
+const calculateBookRarity = (
+  enchantments: AppliedEnchantment[]
+): 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' => {
   const totalLevels = enchantments.reduce((sum, e) => sum + e.level, 0)
   const enchantmentCount = enchantments.length
 
-  if (totalLevels >= 20 || enchantmentCount >= 4) return "legendary"
-  if (totalLevels >= 15 || enchantmentCount >= 3) return "epic"
-  if (totalLevels >= 10 || enchantmentCount >= 2) return "rare"
-  if (totalLevels >= 5) return "uncommon"
-  return "common"
+  if (totalLevels >= 20 || enchantmentCount >= 4) return 'legendary'
+  if (totalLevels >= 15 || enchantmentCount >= 3) return 'epic'
+  if (totalLevels >= 10 || enchantmentCount >= 2) return 'rare'
+  if (totalLevels >= 5) return 'uncommon'
+  return 'common'
 }
 
-const mergeEnchantmentLists = (
-  list1: AppliedEnchantment[],
-  list2: AppliedEnchantment[]
-): AppliedEnchantment[] => {
+const mergeEnchantmentLists = (list1: AppliedEnchantment[], list2: AppliedEnchantment[]): AppliedEnchantment[] => {
   const merged = new Map<EnchantmentId, AppliedEnchantment>()
 
   // 最初のリストを追加
@@ -1057,7 +1062,7 @@ const mergeEnchantmentLists = (
     if (existing) {
       merged.set(enchantment.enchantmentId, {
         ...existing,
-        level: Math.min(10, existing.level + enchantment.level) as EnchantmentLevel
+        level: Math.min(10, existing.level + enchantment.level) as EnchantmentLevel,
       })
     } else {
       merged.set(enchantment.enchantmentId, enchantment)
@@ -1076,21 +1081,21 @@ const mergeEnchantmentLists = (
 // Enchantment Transfer Operations
 export const TransferOperation = Schema.Union(
   Schema.Struct({
-    _tag: Schema.Literal("Inherit"),
+    _tag: Schema.Literal('Inherit'),
     sourceItem: ItemStack,
     targetItem: ItemStack,
-    enchantmentsToTransfer: Schema.Array(EnchantmentId)
+    enchantmentsToTransfer: Schema.Array(EnchantmentId),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Separate"),
+    _tag: Schema.Literal('Separate'),
     sourceItem: ItemStack,
     enchantmentToExtract: EnchantmentId,
-    preserveSource: Schema.Boolean
+    preserveSource: Schema.Boolean,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Split"),
+    _tag: Schema.Literal('Split'),
     sourceItem: ItemStack,
-    splitRatio: pipe(Schema.Number, Schema.between(0, 1)) // どの割合で分割するか
+    splitRatio: pipe(Schema.Number, Schema.between(0, 1)), // どの割合で分割するか
   })
 )
 
@@ -1118,13 +1123,13 @@ export const TransferResult = Schema.Struct({
   extractedBooks: Schema.Array(EnchantedBook),
   experienceCost: ExperiencePoints,
   success: Schema.Boolean,
-  warnings: Schema.Array(Schema.String)
+  warnings: Schema.Array(Schema.String),
 })
 
 export type TransferResult = Schema.Schema.Type<typeof TransferResult>
 
 const EnchantmentTransferService = Context.GenericTag<EnchantmentTransferServiceInterface>(
-  "@minecraft/EnchantmentTransferService"
+  '@minecraft/EnchantmentTransferService'
 )
 
 const makeEnchantmentTransferServiceLive = Effect.gen(function* () {
@@ -1132,189 +1137,182 @@ const makeEnchantmentTransferServiceLive = Effect.gen(function* () {
   const bookService = yield* EnchantedBookService
 
   return EnchantmentTransferService.of({
-    transferEnchantments: (operation, playerLevel) => Effect.gen(function* () {
-      const cost = yield* EnchantmentTransferService.calculateTransferCost(operation)
+    transferEnchantments: (operation, playerLevel) =>
+      Effect.gen(function* () {
+        const cost = yield* EnchantmentTransferService.calculateTransferCost(operation)
 
-      if (playerLevel < cost) {
-        return {
-          resultItems: [],
-          extractedBooks: [],
-          experienceCost: cost,
-          success: false,
-          warnings: ["Insufficient experience"]
+        if (playerLevel < cost) {
+          return {
+            resultItems: [],
+            extractedBooks: [],
+            experienceCost: cost,
+            success: false,
+            warnings: ['Insufficient experience'],
+          }
         }
-      }
 
-      return yield* Match.value(operation).pipe(
-        Match.tag("Inherit", ({ sourceItem, targetItem, enchantmentsToTransfer }) =>
-          Effect.gen(function* () {
-            const sourceEnchantments = sourceItem.enchantments ?? []
-            const targetEnchantments = targetItem.enchantments ?? []
+        return yield* Match.value(operation).pipe(
+          Match.tag('Inherit', ({ sourceItem, targetItem, enchantmentsToTransfer }) =>
+            Effect.gen(function* () {
+              const sourceEnchantments = sourceItem.enchantments ?? []
+              const targetEnchantments = targetItem.enchantments ?? []
 
-            const enchantmentsToMove = sourceEnchantments.filter(e =>
-              enchantmentsToTransfer.includes(e.enchantmentId)
-            )
+              const enchantmentsToMove = sourceEnchantments.filter((e) =>
+                enchantmentsToTransfer.includes(e.enchantmentId)
+              )
 
-            // 互換性チェック
-            const isCompatible = yield* registry.checkCompatibility([
-              ...targetEnchantments,
-              ...enchantmentsToMove
-            ])
+              // 互換性チェック
+              const isCompatible = yield* registry.checkCompatibility([...targetEnchantments, ...enchantmentsToMove])
 
-            if (!isCompatible) {
+              if (!isCompatible) {
+                return {
+                  resultItems: [sourceItem, targetItem],
+                  extractedBooks: [],
+                  experienceCost: cost,
+                  success: false,
+                  warnings: ['Enchantments are incompatible with target item'],
+                }
+              }
+
+              // エンチャント移動
+              const newSourceEnchantments = sourceEnchantments.filter(
+                (e) => !enchantmentsToTransfer.includes(e.enchantmentId)
+              )
+
+              const newTargetEnchantments = [...targetEnchantments, ...enchantmentsToMove]
+
+              const updatedSourceItem = {
+                ...sourceItem,
+                enchantments: newSourceEnchantments.length > 0 ? newSourceEnchantments : undefined,
+              }
+
+              const updatedTargetItem = {
+                ...targetItem,
+                enchantments: newTargetEnchantments,
+              }
+
               return {
-                resultItems: [sourceItem, targetItem],
+                resultItems: [updatedSourceItem, updatedTargetItem],
                 extractedBooks: [],
                 experienceCost: cost,
-                success: false,
-                warnings: ["Enchantments are incompatible with target item"]
+                success: true,
+                warnings: [],
               }
-            }
+            })
+          ),
 
-            // エンチャント移動
-            const newSourceEnchantments = sourceEnchantments.filter(e =>
-              !enchantmentsToTransfer.includes(e.enchantmentId)
-            )
+          Match.tag('Separate', ({ sourceItem, enchantmentToExtract, preserveSource }) =>
+            Effect.gen(function* () {
+              const sourceEnchantments = sourceItem.enchantments ?? []
+              const enchantmentToSeparate = sourceEnchantments.find((e) => e.enchantmentId === enchantmentToExtract)
 
-            const newTargetEnchantments = [...targetEnchantments, ...enchantmentsToMove]
+              if (!enchantmentToSeparate) {
+                return {
+                  resultItems: [sourceItem],
+                  extractedBooks: [],
+                  experienceCost: 0 as ExperiencePoints,
+                  success: false,
+                  warnings: ['Enchantment not found on source item'],
+                }
+              }
 
-            const updatedSourceItem = {
-              ...sourceItem,
-              enchantments: newSourceEnchantments.length > 0 ? newSourceEnchantments : undefined
-            }
+              // エンチャントブック作成
+              const extractedBook = yield* bookService.createEnchantedBook([enchantmentToSeparate])
 
-            const updatedTargetItem = {
-              ...targetItem,
-              enchantments: newTargetEnchantments
-            }
+              const remainingEnchantments = sourceEnchantments.filter((e) => e.enchantmentId !== enchantmentToExtract)
 
-            return {
-              resultItems: [updatedSourceItem, updatedTargetItem],
-              extractedBooks: [],
-              experienceCost: cost,
-              success: true,
-              warnings: []
-            }
-          })
-        ),
+              const updatedSourceItem = preserveSource
+                ? {
+                    ...sourceItem,
+                    enchantments: remainingEnchantments.length > 0 ? remainingEnchantments : undefined,
+                  }
+                : null
 
-        Match.tag("Separate", ({ sourceItem, enchantmentToExtract, preserveSource }) =>
-          Effect.gen(function* () {
-            const sourceEnchantments = sourceItem.enchantments ?? []
-            const enchantmentToSeparate = sourceEnchantments.find(e =>
-              e.enchantmentId === enchantmentToExtract
-            )
-
-            if (!enchantmentToSeparate) {
               return {
-                resultItems: [sourceItem],
-                extractedBooks: [],
-                experienceCost: 0 as ExperiencePoints,
-                success: false,
-                warnings: ["Enchantment not found on source item"]
+                resultItems: updatedSourceItem ? [updatedSourceItem] : [],
+                extractedBooks: [extractedBook],
+                experienceCost: cost,
+                success: true,
+                warnings: [],
               }
-            }
+            })
+          ),
 
-            // エンチャントブック作成
-            const extractedBook = yield* bookService.createEnchantedBook([enchantmentToSeparate])
+          Match.tag('Split', ({ sourceItem, splitRatio }) =>
+            Effect.gen(function* () {
+              const sourceEnchantments = sourceItem.enchantments ?? []
+              if (sourceEnchantments.length < 2) {
+                return {
+                  resultItems: [sourceItem],
+                  extractedBooks: [],
+                  experienceCost: 0 as ExperiencePoints,
+                  success: false,
+                  warnings: ['Need at least 2 enchantments to split'],
+                }
+              }
 
-            const remainingEnchantments = sourceEnchantments.filter(e =>
-              e.enchantmentId !== enchantmentToExtract
-            )
+              const splitIndex = Math.floor(sourceEnchantments.length * splitRatio)
+              const firstHalf = sourceEnchantments.slice(0, splitIndex)
+              const secondHalf = sourceEnchantments.slice(splitIndex)
 
-            const updatedSourceItem = preserveSource ? {
-              ...sourceItem,
-              enchantments: remainingEnchantments.length > 0 ? remainingEnchantments : undefined
-            } : null
+              // 2つのエンチャントブック作成
+              const firstBook = firstHalf.length > 0 ? yield* bookService.createEnchantedBook(firstHalf) : null
+              const secondBook = secondHalf.length > 0 ? yield* bookService.createEnchantedBook(secondHalf) : null
 
-            return {
-              resultItems: updatedSourceItem ? [updatedSourceItem] : [],
-              extractedBooks: [extractedBook],
-              experienceCost: cost,
-              success: true,
-              warnings: []
-            }
-          })
-        ),
+              const extractedBooks = [firstBook, secondBook].filter(Boolean) as EnchantedBook[]
 
-        Match.tag("Split", ({ sourceItem, splitRatio }) =>
-          Effect.gen(function* () {
-            const sourceEnchantments = sourceItem.enchantments ?? []
-            if (sourceEnchantments.length < 2) {
               return {
-                resultItems: [sourceItem],
-                extractedBooks: [],
-                experienceCost: 0 as ExperiencePoints,
-                success: false,
-                warnings: ["Need at least 2 enchantments to split"]
+                resultItems: [],
+                extractedBooks,
+                experienceCost: cost,
+                success: true,
+                warnings: [],
               }
-            }
+            })
+          ),
 
-            const splitIndex = Math.floor(sourceEnchantments.length * splitRatio)
-            const firstHalf = sourceEnchantments.slice(0, splitIndex)
-            const secondHalf = sourceEnchantments.slice(splitIndex)
+          Match.exhaustive
+        )
+      }),
 
-            // 2つのエンチャントブック作成
-            const firstBook = firstHalf.length > 0 ?
-              yield* bookService.createEnchantedBook(firstHalf) : null
-            const secondBook = secondHalf.length > 0 ?
-              yield* bookService.createEnchantedBook(secondHalf) : null
+    calculateTransferCost: (operation) =>
+      Effect.gen(function* () {
+        return yield* Match.value(operation).pipe(
+          Match.tag('Inherit', ({ enchantmentsToTransfer }) =>
+            Effect.succeed((enchantmentsToTransfer.length * 10) as ExperiencePoints)
+          ),
+          Match.tag('Separate', ({ sourceItem }) => {
+            const enchantmentCount = sourceItem.enchantments?.length ?? 0
+            return Effect.succeed((enchantmentCount * 5) as ExperiencePoints)
+          }),
+          Match.tag('Split', ({ sourceItem }) => {
+            const enchantmentCount = sourceItem.enchantments?.length ?? 0
+            return Effect.succeed((enchantmentCount * 15) as ExperiencePoints)
+          }),
+          Match.exhaustive
+        )
+      }),
 
-            const extractedBooks = [firstBook, secondBook].filter(Boolean) as EnchantedBook[]
-
-            return {
-              resultItems: [],
-              extractedBooks,
-              experienceCost: cost,
-              success: true,
-              warnings: []
-            }
-          })
-        ),
-
-        Match.exhaustive
-      )
-    }),
-
-    calculateTransferCost: (operation) => Effect.gen(function* () {
-      return yield* Match.value(operation).pipe(
-        Match.tag("Inherit", ({ enchantmentsToTransfer }) =>
-          Effect.succeed((enchantmentsToTransfer.length * 10) as ExperiencePoints)
-        ),
-        Match.tag("Separate", ({ sourceItem }) => {
-          const enchantmentCount = sourceItem.enchantments?.length ?? 0
-          return Effect.succeed((enchantmentCount * 5) as ExperiencePoints)
-        }),
-        Match.tag("Split", ({ sourceItem }) => {
-          const enchantmentCount = sourceItem.enchantments?.length ?? 0
-          return Effect.succeed((enchantmentCount * 15) as ExperiencePoints)
-        }),
-        Match.exhaustive
-      )
-    }),
-
-    canPerformTransfer: (operation) => Effect.gen(function* () {
-      return yield* Match.value(operation).pipe(
-        Match.tag("Inherit", ({ sourceItem, targetItem }) => {
-          const hasEnchantments = (sourceItem.enchantments?.length ?? 0) > 0
-          return Effect.succeed(hasEnchantments)
-        }),
-        Match.tag("Separate", ({ sourceItem }) => {
-          return Effect.succeed((sourceItem.enchantments?.length ?? 0) > 0)
-        }),
-        Match.tag("Split", ({ sourceItem }) => {
-          return Effect.succeed((sourceItem.enchantments?.length ?? 0) >= 2)
-        }),
-        Match.exhaustive
-      )
-    })
+    canPerformTransfer: (operation) =>
+      Effect.gen(function* () {
+        return yield* Match.value(operation).pipe(
+          Match.tag('Inherit', ({ sourceItem, targetItem }) => {
+            const hasEnchantments = (sourceItem.enchantments?.length ?? 0) > 0
+            return Effect.succeed(hasEnchantments)
+          }),
+          Match.tag('Separate', ({ sourceItem }) => {
+            return Effect.succeed((sourceItem.enchantments?.length ?? 0) > 0)
+          }),
+          Match.tag('Split', ({ sourceItem }) => {
+            return Effect.succeed((sourceItem.enchantments?.length ?? 0) >= 2)
+          }),
+          Match.exhaustive
+        )
+      }),
   })
 })
 
-const EnchantmentTransferServiceLive = Layer.effect(
-  EnchantmentTransferService,
-  makeEnchantmentTransferServiceLive
-)
+const EnchantmentTransferServiceLive = Layer.effect(EnchantmentTransferService, makeEnchantmentTransferServiceLive)
 ```
 
 ## パフォーマンス最適化とキャッシュ
@@ -1334,13 +1332,11 @@ interface EnchantmentCacheServiceInterface {
 
   readonly preloadEnchantmentDefinitions: () => Effect.Effect<void, never>
 
-  readonly optimizeEnchantmentQueries: (
-    query: EnchantmentQuery
-  ) => Effect.Effect<EnchantmentDefinition[], never>
+  readonly optimizeEnchantmentQueries: (query: EnchantmentQuery) => Effect.Effect<EnchantmentDefinition[], never>
 }
 
 const EnchantmentCacheService = Context.GenericTag<EnchantmentCacheServiceInterface>(
-  "@minecraft/EnchantmentCacheService"
+  '@minecraft/EnchantmentCacheService'
 )
 
 const makeEnchantmentCacheServiceLive = Effect.gen(function* () {
@@ -1348,69 +1344,77 @@ const makeEnchantmentCacheServiceLive = Effect.gen(function* () {
   const registry = yield* EnchantmentRegistry
 
   return EnchantmentCacheService.of({
-    cacheEnchantmentCalculation: (key, calculation, ttl = 300000) => Effect.gen(function* () {
-      const cacheMap = yield* Ref.get(cache)
-      const cached = cacheMap.get(key)
+    cacheEnchantmentCalculation: (key, calculation, ttl = 300000) =>
+      Effect.gen(function* () {
+        const cacheMap = yield* Ref.get(cache)
+        const cached = cacheMap.get(key)
 
-      if (cached && cached.expiry > Date.now()) {
-        return cached.data
-      }
+        if (cached && cached.expiry > Date.now()) {
+          return cached.data
+        }
 
-      const result = yield* calculation
-      const expiry = Date.now() + ttl
+        const result = yield* calculation
+        const expiry = Date.now() + ttl
 
-      yield* Ref.update(cache, map => map.set(key, { data: result, expiry }))
-      return result
-    }),
+        yield* Ref.update(cache, (map) => map.set(key, { data: result, expiry }))
+        return result
+      }),
 
-    invalidateCache: (pattern) => Effect.gen(function* () {
-      const cacheMap = yield* Ref.get(cache)
-      const keysToDelete = Array.from(cacheMap.keys()).filter(key =>
-        key.includes(pattern)
-      )
+    invalidateCache: (pattern) =>
+      Effect.gen(function* () {
+        const cacheMap = yield* Ref.get(cache)
+        const keysToDelete = Array.from(cacheMap.keys()).filter((key) => key.includes(pattern))
 
-      yield* Ref.update(cache, map => {
-        keysToDelete.forEach(key => map.delete(key))
-        return map
-      })
-    }),
+        yield* Ref.update(cache, (map) => {
+          keysToDelete.forEach((key) => map.delete(key))
+          return map
+        })
+      }),
 
-    preloadEnchantmentDefinitions: () => Effect.gen(function* () {
-      // 全エンチャント定義を事前ロード
-      const commonEnchantments = [
-        "sharpness", "protection", "efficiency", "unbreaking",
-        "fortune", "silk_touch", "power", "flame"
-      ]
+    preloadEnchantmentDefinitions: () =>
+      Effect.gen(function* () {
+        // 全エンチャント定義を事前ロード
+        const commonEnchantments = [
+          'sharpness',
+          'protection',
+          'efficiency',
+          'unbreaking',
+          'fortune',
+          'silk_touch',
+          'power',
+          'flame',
+        ]
 
-      for (const enchantmentId of commonEnchantments) {
-        yield* EnchantmentCacheService.cacheEnchantmentCalculation(
-          `enchantment:${enchantmentId}`,
-          registry.getEnchantment(enchantmentId as EnchantmentId),
-          3600000 // 1時間
+        for (const enchantmentId of commonEnchantments) {
+          yield* EnchantmentCacheService.cacheEnchantmentCalculation(
+            `enchantment:${enchantmentId}`,
+            registry.getEnchantment(enchantmentId as EnchantmentId),
+            3600000 // 1時間
+          )
+        }
+      }),
+
+    optimizeEnchantmentQueries: (query) =>
+      Effect.gen(function* () {
+        const cacheKey = `query:${JSON.stringify(query)}`
+
+        return yield* EnchantmentCacheService.cacheEnchantmentCalculation(
+          cacheKey,
+          Effect.gen(function* () {
+            // 最適化されたクエリ実行
+            if (query.category) {
+              return yield* registry.getEnchantmentsByCategory(query.category)
+            }
+
+            if (query.itemId) {
+              return yield* registry.getCompatibleEnchantments(query.itemId)
+            }
+
+            return []
+          }),
+          600000 // 10分
         )
-      }
-    }),
-
-    optimizeEnchantmentQueries: (query) => Effect.gen(function* () {
-      const cacheKey = `query:${JSON.stringify(query)}`
-
-      return yield* EnchantmentCacheService.cacheEnchantmentCalculation(
-        cacheKey,
-        Effect.gen(function* () {
-          // 最適化されたクエリ実行
-          if (query.category) {
-            return yield* registry.getEnchantmentsByCategory(query.category)
-          }
-
-          if (query.itemId) {
-            return yield* registry.getCompatibleEnchantments(query.itemId)
-          }
-
-          return []
-        }),
-        600000 // 10分
-      )
-    })
+      }),
   })
 })
 
@@ -1430,42 +1434,44 @@ interface EnchantmentBatchServiceInterface {
 }
 
 const EnchantmentBatchService = Context.GenericTag<EnchantmentBatchServiceInterface>(
-  "@minecraft/EnchantmentBatchService"
+  '@minecraft/EnchantmentBatchService'
 )
 
 const makeEnchantmentBatchServiceLive = Effect.gen(function* () {
   const effectService = yield* EnchantmentEffectService
 
   return EnchantmentBatchService.of({
-    batchApplyEnchantments: (operations) => Effect.gen(function* () {
-      // 並列処理でエンチャント適用
-      const results = yield* Effect.all(
-        operations.map(({ item, enchantments }) =>
-          Effect.gen(function* () {
-            const updatedItem = { ...item, enchantments }
-            return updatedItem
-          })
-        ),
-        { concurrency: 10 } // 最大10並列
-      )
+    batchApplyEnchantments: (operations) =>
+      Effect.gen(function* () {
+        // 並列処理でエンチャント適用
+        const results = yield* Effect.all(
+          operations.map(({ item, enchantments }) =>
+            Effect.gen(function* () {
+              const updatedItem = { ...item, enchantments }
+              return updatedItem
+            })
+          ),
+          { concurrency: 10 } // 最大10並列
+        )
 
-      return results
-    }),
+        return results
+      }),
 
-    batchCalculateDamage: (combats) => Effect.gen(function* () {
-      const results = yield* Effect.all(
-        combats.map(({ attacker, defender, baseDamage }) =>
-          effectService.calculateDamageModification(
-            baseDamage,
-            attacker.flatMap(item => item.enchantments ?? []),
-            defender.flatMap(item => item.enchantments ?? [])
-          )
-        ),
-        { concurrency: 20 } // 高速化のため高並列度
-      )
+    batchCalculateDamage: (combats) =>
+      Effect.gen(function* () {
+        const results = yield* Effect.all(
+          combats.map(({ attacker, defender, baseDamage }) =>
+            effectService.calculateDamageModification(
+              baseDamage,
+              attacker.flatMap((item) => item.enchantments ?? []),
+              defender.flatMap((item) => item.enchantments ?? [])
+            )
+          ),
+          { concurrency: 20 } // 高速化のため高並列度
+        )
 
-      return results
-    })
+        return results
+      }),
   })
 })
 

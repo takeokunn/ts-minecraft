@@ -1,13 +1,12 @@
 ---
-title: "11 Scene Management System"
-description: "11 Scene Management Systemに関する詳細な説明とガイド。"
-category: "specification"
-difficulty: "intermediate"
-tags: ["typescript", "minecraft", "specification"]
-prerequisites: ["basic-typescript"]
-estimated_reading_time: "15分"
+title: '11 Scene Management System'
+description: '11 Scene Management Systemに関する詳細な説明とガイド。'
+category: 'specification'
+difficulty: 'intermediate'
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: '15分'
 ---
-
 
 # Scene Management System（シーン管理システム）
 
@@ -18,17 +17,20 @@ Scene Management Systemは、ゲームの異なる画面（スタート画面、
 ## アーキテクチャ原則
 
 ### 1. 純粋関数型設計
+
 - **状態機械パターン**: シーン遷移を関数型状態機械として実装
 - **イミュータブル状態**: シーン状態を不変データとして管理
 - **Effect包含**: 全てのシーン操作をEffect型で表現
 
 ### 2. 最新Effect-TSパターン
+
 - **Schema.Struct**: シーンデータ定義の統一
 - **@app/SceneService**: Context.GenericTag時の統一ネームスペース
 - **Match.value**: シーン種別による分岐処理
 - **早期リターン**: 無効なシーン遷移の即座な拒否
 
 ### 3. レイヤー統合設計
+
 - **Domain層**: シーン状態・遷移ルール管理
 - **Application層**: シーン制御ワークフロー
 - **Presentation層**: UI状態連携・画面表示制御
@@ -37,13 +39,14 @@ Scene Management Systemは、ゲームの異なる画面（スタート画面、
 ## 必須シーン定義
 
 ### ブランド型定義
+
 ```typescript
 // Scene Management用ブランド型
-type SceneId = string & { readonly _brand: "SceneId" }
-type LoadPriority = number & { readonly _brand: "LoadPriority" }
-type ViewDistance = number & { readonly _brand: "ViewDistance" }
-type CullingRadius = number & { readonly _brand: "CullingRadius" }
-type RenderDepth = number & { readonly _brand: "RenderDepth" }
+type SceneId = string & { readonly _brand: 'SceneId' }
+type LoadPriority = number & { readonly _brand: 'LoadPriority' }
+type ViewDistance = number & { readonly _brand: 'ViewDistance' }
+type CullingRadius = number & { readonly _brand: 'CullingRadius' }
+type RenderDepth = number & { readonly _brand: 'RenderDepth' }
 
 // ブランド型コンストラクタ
 const SceneId = (id: string): SceneId => id as SceneId
@@ -54,99 +57,101 @@ const RenderDepth = (depth: number): RenderDepth => depth as RenderDepth
 ```
 
 ### 基本シーン種別とスキーマ
+
 ```typescript
 // シーン種別の定義
 export const SceneType = Schema.Literal(
-  "StartScreen",      // スタート画面
-  "MainGame",         // メイン画面（ゲームプレイ）
-  "GameOver",         // ゲームオーバー画面
-  "Pause",           // ポーズ画面
-  "Settings",        // 設定画面
-  "Loading",         // ロード画面
-  "Credits"          // クレジット画面
+  'StartScreen', // スタート画面
+  'MainGame', // メイン画面（ゲームプレイ）
+  'GameOver', // ゲームオーバー画面
+  'Pause', // ポーズ画面
+  'Settings', // 設定画面
+  'Loading', // ロード画面
+  'Credits' // クレジット画面
 )
 export type SceneType = Schema.Schema.Type<typeof SceneType>
 
 // シーンノード（3Dシーングラフ用）
 export const SceneNode = Schema.Struct({
-  _tag: Schema.Literal("SceneNode"),
-  id: Schema.String.pipe(Schema.brand("SceneId")),
-  priority: Schema.Number.pipe(Schema.brand("LoadPriority")),
+  _tag: Schema.Literal('SceneNode'),
+  id: Schema.String.pipe(Schema.brand('SceneId')),
+  priority: Schema.Number.pipe(Schema.brand('LoadPriority')),
   visible: Schema.Boolean,
-  cullingRadius: Schema.Number.pipe(Schema.brand("CullingRadius")),
-  renderDepth: Schema.Number.pipe(Schema.brand("RenderDepth")),
+  cullingRadius: Schema.Number.pipe(Schema.brand('CullingRadius')),
+  renderDepth: Schema.Number.pipe(Schema.brand('RenderDepth')),
   bounds: Schema.Struct({
     min: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
-    max: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number })
+    max: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
   }),
   children: Schema.Array(Schema.suspend(() => SceneNode)),
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 }).annotations({
-  identifier: "SceneNode",
-  description: "3Dシーングラフのノード定義"
+  identifier: 'SceneNode',
+  description: '3Dシーングラフのノード定義',
 })
 export type SceneNode = Schema.Schema.Type<typeof SceneNode>
 
 // シーンデータスキーマ
 export const Scene = Schema.Struct({
-  _tag: Schema.Literal("Scene"),
+  _tag: Schema.Literal('Scene'),
   type: SceneType,
-  id: Schema.String.pipe(Schema.brand("SceneId")),
+  id: Schema.String.pipe(Schema.brand('SceneId')),
   isActive: Schema.Boolean,
   isLoading: Schema.Boolean,
   visible: Schema.Boolean,
   sceneGraph: Schema.optional(SceneNode),
   data: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-  timestamp: Schema.Number.pipe(Schema.default(() => Date.now()))
+  timestamp: Schema.Number.pipe(Schema.default(() => Date.now())),
 }).annotations({
-  identifier: "Scene",
-  description: "ゲームシーンの完全な定義"
+  identifier: 'Scene',
+  description: 'ゲームシーンの完全な定義',
 })
 export type Scene = Schema.Schema.Type<typeof Scene>
 
 // シーン遷移結果
 export const SceneTransition = Schema.Struct({
-  _tag: Schema.Literal("SceneTransition"),
+  _tag: Schema.Literal('SceneTransition'),
   from: Scene,
   to: Scene,
-  transitionType: Schema.Literal("push", "replace", "pop"),
+  transitionType: Schema.Literal('push', 'replace', 'pop'),
   duration: Schema.optional(Schema.Number),
-  priority: Schema.Number.pipe(Schema.brand("LoadPriority")),
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  priority: Schema.Number.pipe(Schema.brand('LoadPriority')),
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 }).annotations({
-  identifier: "SceneTransition",
-  description: "シーン遷移の完全な定義"
+  identifier: 'SceneTransition',
+  description: 'シーン遷移の完全な定義',
 })
 export type SceneTransition = Schema.Schema.Type<typeof SceneTransition>
 ```
 
 ### シーン状態管理
+
 ```typescript
 // シーンスタック（履歴管理）
 export const SceneStack = Schema.Struct({
-  _tag: Schema.Literal("SceneStack"),
+  _tag: Schema.Literal('SceneStack'),
   scenes: Schema.Array(Scene),
   currentIndex: Schema.Number.pipe(Schema.int(), Schema.min(0)),
-  maxStackSize: Schema.Number.pipe(Schema.default(() => 10))
+  maxStackSize: Schema.Number.pipe(Schema.default(() => 10)),
 }).annotations({
-  identifier: "SceneStack",
-  description: "シーン履歴スタック管理"
+  identifier: 'SceneStack',
+  description: 'シーン履歴スタック管理',
 })
 export type SceneStack = Schema.Schema.Type<typeof SceneStack>
 
 // シーン管理状態
 export const SceneManagerState = Schema.Struct({
-  _tag: Schema.Literal("SceneManagerState"),
+  _tag: Schema.Literal('SceneManagerState'),
   stack: SceneStack,
   isTransitioning: Schema.Boolean,
   currentTransition: Schema.NullOr(SceneTransition),
   transitionQueue: Schema.Array(SceneTransition),
   globalData: Schema.Record(Schema.String, Schema.Unknown),
   cullingEnabled: Schema.Boolean,
-  lodEnabled: Schema.Boolean
+  lodEnabled: Schema.Boolean,
 }).annotations({
-  identifier: "SceneManagerState",
-  description: "シーンマネージャーの完全な状態"
+  identifier: 'SceneManagerState',
+  description: 'シーンマネージャーの完全な状態',
 })
 export type SceneManagerState = Schema.Schema.Type<typeof SceneManagerState>
 ```
@@ -203,6 +208,7 @@ export const SceneResourceError = Schema.TaggedError("SceneResourceError")({
 ## サービス定義
 
 ### Scene Manager Service
+
 ```typescript
 interface SceneManagerService {
   // 基本シーン操作
@@ -234,10 +240,11 @@ interface SceneManagerService {
   readonly updateScene: (sceneId: SceneId, deltaTime: number) => Effect.Effect<Scene, SceneLifecycleError>
 }
 
-export const SceneManagerService = Context.GenericTag<SceneManagerService>("@minecraft/SceneManagerService")
+export const SceneManagerService = Context.GenericTag<SceneManagerService>('@minecraft/SceneManagerService')
 ```
 
 ### Scene Graph Service（3Dシーングラフ管理）
+
 ```typescript
 interface SceneGraphService {
   // シーングラフ構築
@@ -246,39 +253,56 @@ interface SceneGraphService {
   readonly removeChild: (parent: SceneId, childId: SceneId) => Effect.Effect<Option.Option<SceneNode>, never>
 
   // 階層管理
-  readonly traverseDepthFirst: <A>(node: SceneNode, f: (node: SceneNode) => Effect.Effect<A, never>) => Effect.Effect<ReadonlyArray<A>, never>
-  readonly findNode: (rootNode: SceneNode, predicate: (node: SceneNode) => boolean) => Effect.Effect<Option.Option<SceneNode>, never>
+  readonly traverseDepthFirst: <A>(
+    node: SceneNode,
+    f: (node: SceneNode) => Effect.Effect<A, never>
+  ) => Effect.Effect<ReadonlyArray<A>, never>
+  readonly findNode: (
+    rootNode: SceneNode,
+    predicate: (node: SceneNode) => boolean
+  ) => Effect.Effect<Option.Option<SceneNode>, never>
 
   // 可視性管理
   readonly updateVisibility: (nodeId: SceneId, visible: boolean) => Effect.Effect<void, never>
   readonly getVisibleNodes: (rootNode: SceneNode) => Effect.Effect<ReadonlyArray<SceneNode>, never>
 }
 
-export const SceneGraphService = Context.GenericTag<SceneGraphService>("@minecraft/SceneGraphService")
+export const SceneGraphService = Context.GenericTag<SceneGraphService>('@minecraft/SceneGraphService')
 ```
 
 ### Culling Service（カリングシステム）
+
 ```typescript
 interface CullingService {
   // フラスタムカリング
-  readonly performFrustumCulling: (nodes: ReadonlyArray<SceneNode>, camera: CameraState) => Effect.Effect<ReadonlyArray<SceneNode>, CullingError>
+  readonly performFrustumCulling: (
+    nodes: ReadonlyArray<SceneNode>,
+    camera: CameraState
+  ) => Effect.Effect<ReadonlyArray<SceneNode>, CullingError>
   readonly checkFrustumIntersection: (node: SceneNode, frustum: Frustum) => Effect.Effect<boolean, never>
 
   // オクルージョンカリング
-  readonly performOcclusionCulling: (nodes: ReadonlyArray<SceneNode>) => Effect.Effect<ReadonlyArray<SceneNode>, CullingError>
+  readonly performOcclusionCulling: (
+    nodes: ReadonlyArray<SceneNode>
+  ) => Effect.Effect<ReadonlyArray<SceneNode>, CullingError>
   readonly isOccluded: (node: SceneNode, occluders: ReadonlyArray<SceneNode>) => Effect.Effect<boolean, never>
 
   // 距離ベースカリング
-  readonly performDistanceCulling: (nodes: ReadonlyArray<SceneNode>, viewPosition: Vector3, maxDistance: ViewDistance) => Effect.Effect<ReadonlyArray<SceneNode>, CullingError>
+  readonly performDistanceCulling: (
+    nodes: ReadonlyArray<SceneNode>,
+    viewPosition: Vector3,
+    maxDistance: ViewDistance
+  ) => Effect.Effect<ReadonlyArray<SceneNode>, CullingError>
 
   // ストリーミング統合
   readonly cullingStream: () => Stream.Stream<ReadonlyArray<SceneNode>, CullingError>
 }
 
-export const CullingService = Context.GenericTag<CullingService>("@minecraft/CullingService")
+export const CullingService = Context.GenericTag<CullingService>('@minecraft/CullingService')
 ```
 
 ### LOD Service（レベルオブディテール）
+
 ```typescript
 interface LODService {
   // LOD計算
@@ -286,20 +310,24 @@ interface LODService {
   readonly updateNodeLOD: (node: SceneNode, lodLevel: LODLevel) => Effect.Effect<SceneNode, LODError>
 
   // 距離ベース管理
-  readonly updateLODByDistance: (nodes: ReadonlyArray<SceneNode>, viewPosition: Vector3) => Effect.Effect<ReadonlyArray<SceneNode>, LODError>
-  readonly getLODRanges: () => Effect.Effect<ReadonlyMap<LODLevel, { min: ViewDistance, max: ViewDistance }>, never>
+  readonly updateLODByDistance: (
+    nodes: ReadonlyArray<SceneNode>,
+    viewPosition: Vector3
+  ) => Effect.Effect<ReadonlyArray<SceneNode>, LODError>
+  readonly getLODRanges: () => Effect.Effect<ReadonlyMap<LODLevel, { min: ViewDistance; max: ViewDistance }>, never>
 
   // ストリーミング統合
   readonly lodUpdateStream: () => Stream.Stream<ReadonlyArray<SceneNode>, LODError>
 }
 
-const LODLevel = Schema.Literal("NONE", "LOW", "MEDIUM", "HIGH")
+const LODLevel = Schema.Literal('NONE', 'LOW', 'MEDIUM', 'HIGH')
 type LODLevel = Schema.Schema.Type<typeof LODLevel>
 
-export const LODService = Context.GenericTag<LODService>("@minecraft/LODService")
+export const LODService = Context.GenericTag<LODService>('@minecraft/LODService')
 ```
 
 ### Scene Service（個別シーン管理）
+
 ```typescript
 interface SceneService {
   // シーン固有操作
@@ -320,38 +348,38 @@ interface SceneService {
   readonly unloadSceneResources: (sceneId: SceneId) => Effect.Effect<void, never>
 }
 
-export const SceneService = Context.GenericTag<SceneService>("@minecraft/SceneService")
+export const SceneService = Context.GenericTag<SceneService>('@minecraft/SceneService')
 ```
 
 ## 実装パターン
 
 ### 1. Stream-based Scene Transitions（ストリームベース遷移制御）
+
 ```typescript
 // 遷移ルール定義（Schema.Structベース）
 const TransitionRules = Schema.Struct({
-  _tag: Schema.Literal("TransitionRules"),
-  rules: Schema.Record(SceneType, Schema.Array(SceneType))
+  _tag: Schema.Literal('TransitionRules'),
+  rules: Schema.Record(SceneType, Schema.Array(SceneType)),
 }).annotations({
-  identifier: "TransitionRules",
-  description: "シーン遷移ルールの定義"
+  identifier: 'TransitionRules',
+  description: 'シーン遷移ルールの定義',
 })
 
 const createTransitionRules = (): Effect.Effect<ReadonlyMap<SceneType, ReadonlyArray<SceneType>>, never> =>
-  Effect.succeed(new Map([
-    ["StartScreen", ["MainGame", "Settings", "Credits"] as const],
-    ["MainGame", ["Pause", "GameOver", "Settings"] as const],
-    ["Pause", ["MainGame", "Settings", "StartScreen"] as const],
-    ["GameOver", ["StartScreen", "MainGame"] as const],
-    ["Settings", ["StartScreen", "MainGame", "Pause"] as const],
-    ["Loading", ["StartScreen", "MainGame"] as const],
-    ["Credits", ["StartScreen"] as const]
-  ]))
+  Effect.succeed(
+    new Map([
+      ['StartScreen', ['MainGame', 'Settings', 'Credits'] as const],
+      ['MainGame', ['Pause', 'GameOver', 'Settings'] as const],
+      ['Pause', ['MainGame', 'Settings', 'StartScreen'] as const],
+      ['GameOver', ['StartScreen', 'MainGame'] as const],
+      ['Settings', ['StartScreen', 'MainGame', 'Pause'] as const],
+      ['Loading', ['StartScreen', 'MainGame'] as const],
+      ['Credits', ['StartScreen'] as const],
+    ])
+  )
 
 // Stream-based遷移バリデーション
-const validateTransitionStream = (
-  from: SceneType,
-  to: SceneType
-): Stream.Stream<void, SceneTransitionError> =>
+const validateTransitionStream = (from: SceneType, to: SceneType): Stream.Stream<void, SceneTransitionError> =>
   Stream.fromEffect(
     Effect.gen(function* () {
       const rules = yield* createTransitionRules()
@@ -359,38 +387,42 @@ const validateTransitionStream = (
 
       // 早期リターン: ルールが存在しない場合
       if (!allowedTransitions) {
-        return yield* Effect.fail(new SceneTransitionError({
-          fromScene: {
-            _tag: "Scene" as const,
-            type: from,
-            id: SceneId(""),
-            isActive: false,
-            isLoading: false,
-            visible: false,
-            timestamp: Date.now()
-          },
-          toSceneType: to,
-          reason: `No transition rules defined for scene: ${from}`,
-          timestamp: Date.now()
-        }))
+        return yield* Effect.fail(
+          new SceneTransitionError({
+            fromScene: {
+              _tag: 'Scene' as const,
+              type: from,
+              id: SceneId(''),
+              isActive: false,
+              isLoading: false,
+              visible: false,
+              timestamp: Date.now(),
+            },
+            toSceneType: to,
+            reason: `No transition rules defined for scene: ${from}`,
+            timestamp: Date.now(),
+          })
+        )
       }
 
       // 早期リターン: 無効な遷移の場合
       if (!allowedTransitions.includes(to)) {
-        return yield* Effect.fail(new SceneTransitionError({
-          fromScene: {
-            _tag: "Scene" as const,
-            type: from,
-            id: SceneId(""),
-            isActive: false,
-            isLoading: false,
-            visible: false,
-            timestamp: Date.now()
-          },
-          toSceneType: to,
-          reason: `Invalid transition from ${from} to ${to}. Allowed: ${allowedTransitions.join(", ")}`,
-          timestamp: Date.now()
-        }))
+        return yield* Effect.fail(
+          new SceneTransitionError({
+            fromScene: {
+              _tag: 'Scene' as const,
+              type: from,
+              id: SceneId(''),
+              isActive: false,
+              isLoading: false,
+              visible: false,
+              timestamp: Date.now(),
+            },
+            toSceneType: to,
+            reason: `Invalid transition from ${from} to ${to}. Allowed: ${allowedTransitions.join(', ')}`,
+            timestamp: Date.now(),
+          })
+        )
       }
     })
   )
@@ -399,7 +431,7 @@ const validateTransitionStream = (
 const executeTransitionStream = (
   currentState: SceneManagerState,
   toSceneType: SceneType,
-  transitionType: "push" | "replace" | "pop",
+  transitionType: 'push' | 'replace' | 'pop',
   priority: LoadPriority,
   data?: unknown
 ): Stream.Stream<SceneManagerState, SceneTransitionError> =>
@@ -417,9 +449,9 @@ const executeTransitionStream = (
 
       // 遷移タイプによる処理分岐（パターンマッチング）
       const newStack = yield* Match.value(transitionType).pipe(
-        Match.when("push", () => pushToStack(currentState.stack, newScene)),
-        Match.when("replace", () => replaceInStack(currentState.stack, newScene)),
-        Match.when("pop", () => popFromStack(currentState.stack)),
+        Match.when('push', () => pushToStack(currentState.stack, newScene)),
+        Match.when('replace', () => replaceInStack(currentState.stack, newScene)),
+        Match.when('pop', () => popFromStack(currentState.stack)),
         Match.exhaustive
       )
 
@@ -428,22 +460,23 @@ const executeTransitionStream = (
         stack: newStack,
         isTransitioning: true,
         currentTransition: {
-          _tag: "SceneTransition" as const,
+          _tag: 'SceneTransition' as const,
           from: Option.getOrElse(currentScene, () => newScene),
           to: newScene,
           transitionType,
           priority,
-          metadata: data ? { data } : undefined
+          metadata: data ? { data } : undefined,
         },
         cullingEnabled: true,
-        lodEnabled: true
+        lodEnabled: true,
       }
     })
   )
 ```
 
 ### 2. Scene Graph with Cache and Resource Management
-```typescript
+
+````typescript
 // Scene Resource Cache
 const createSceneResourceCache = (): Effect.Effect<Cache.Cache<SceneId, SceneResources, SceneResourceError>, never> =>
   Cache.make({
@@ -627,26 +660,33 @@ const checkFrustumIntersection = (node: SceneNode, frustum: Frustum): Effect.Eff
 
     return true
   })
-```
+````
 
 ### 4. Level of Detail (LOD) System
+
 ```typescript
 // LOD計算（距離ベース）
 const calculateLODLevel = (distance: ViewDistance): Effect.Effect<LODLevel, never> =>
   Effect.succeed(
     Match.value(distance).pipe(
-      Match.when((d) => d < ViewDistance(16), () => "HIGH" as const),
-      Match.when((d) => d < ViewDistance(64), () => "MEDIUM" as const),
-      Match.when((d) => d < ViewDistance(256), () => "LOW" as const),
-      Match.orElse(() => "NONE" as const)
+      Match.when(
+        (d) => d < ViewDistance(16),
+        () => 'HIGH' as const
+      ),
+      Match.when(
+        (d) => d < ViewDistance(64),
+        () => 'MEDIUM' as const
+      ),
+      Match.when(
+        (d) => d < ViewDistance(256),
+        () => 'LOW' as const
+      ),
+      Match.orElse(() => 'NONE' as const)
     )
   )
 
 // LODシステム統合（Stream処理）
-const updateSceneWithLOD = (
-  sceneNode: SceneNode,
-  viewPosition: Vector3
-): Stream.Stream<SceneNode, LODError> =>
+const updateSceneWithLOD = (sceneNode: SceneNode, viewPosition: Vector3): Stream.Stream<SceneNode, LODError> =>
   Stream.fromEffect(
     Effect.gen(function* () {
       const lodService = yield* LODService
@@ -681,7 +721,7 @@ const updateSceneWithLOD = (
 
       return {
         ...updatedNode,
-        children: updatedChildren
+        children: updatedChildren,
       }
     })
   )
@@ -713,19 +753,19 @@ const updateSceneLoop = (
             Stream.runCollect,
             Effect.map(Chunk.head),
             Effect.map(Option.some)
-          )
+          ),
       })
     )
 
     // シーンタイプ別更新処理（パターンマッチング）
     const updatedData = yield* Match.value(scene.type).pipe(
-      Match.when("StartScreen", () => updateStartScreen(scene.data, deltaTime)),
-      Match.when("MainGame", () => updateMainGame(scene.data, deltaTime, viewPosition)),
-      Match.when("GameOver", () => updateGameOverScreen(scene.data, deltaTime)),
-      Match.when("Pause", () => Effect.succeed(scene.data)), // ポーズ中は更新しない
-      Match.when("Settings", () => updateSettingsScreen(scene.data, deltaTime)),
-      Match.when("Loading", () => updateLoadingScreen(scene.data, deltaTime)),
-      Match.when("Credits", () => updateCreditsScreen(scene.data, deltaTime)),
+      Match.when('StartScreen', () => updateStartScreen(scene.data, deltaTime)),
+      Match.when('MainGame', () => updateMainGame(scene.data, deltaTime, viewPosition)),
+      Match.when('GameOver', () => updateGameOverScreen(scene.data, deltaTime)),
+      Match.when('Pause', () => Effect.succeed(scene.data)), // ポーズ中は更新しない
+      Match.when('Settings', () => updateSettingsScreen(scene.data, deltaTime)),
+      Match.when('Loading', () => updateLoadingScreen(scene.data, deltaTime)),
+      Match.when('Credits', () => updateCreditsScreen(scene.data, deltaTime)),
       Match.exhaustive
     )
 
@@ -733,18 +773,22 @@ const updateSceneLoop = (
       ...scene,
       sceneGraph: updatedSceneGraph,
       data: updatedData,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     }
   }).pipe(
-    Effect.mapError((error) => new SceneLifecycleError({
-      sceneId: scene.id,
-      lifecycle: "update",
-      error: `Update failed: ${error}`
-    }))
+    Effect.mapError(
+      (error) =>
+        new SceneLifecycleError({
+          sceneId: scene.id,
+          lifecycle: 'update',
+          error: `Update failed: ${error}`,
+        })
+    )
   )
 ```
 
 ### 5. Scene Streaming and Preloading
+
 ```typescript
 // チャンクストリーミング読み込み
 const chunkStreamingSystem = (
@@ -758,11 +802,7 @@ const chunkStreamingSystem = (
 
       // 未読み込みチャンクの検出
       const unloadedChunks = yield* Stream.fromIterable(nearbyChunks).pipe(
-        Stream.filterEffect((chunk) =>
-          chunkService.isChunkLoaded(chunk.id).pipe(
-            Effect.map((loaded) => !loaded)
-          )
-        ),
+        Stream.filterEffect((chunk) => chunkService.isChunkLoaded(chunk.id).pipe(Effect.map((loaded) => !loaded))),
         Stream.take(4), // 同時読み込み制限
         Stream.runCollect,
         Effect.map(Chunk.toReadonlyArray)
@@ -782,19 +822,16 @@ const chunkStreamingSystem = (
   )
 
 // プリロード戦略（優先度ベース）
-const preloadSceneResources = (
-  sceneType: SceneType,
-  priority: LoadPriority
-): Effect.Effect<void, SceneResourceError> =>
+const preloadSceneResources = (sceneType: SceneType, priority: LoadPriority): Effect.Effect<void, SceneResourceError> =>
   Effect.gen(function* () {
     const resourceCache = yield* createSceneResourceCache()
     const sceneService = yield* SceneService
 
     // プリロード対象のシーン決定
     const preloadTargets = yield* Match.value(sceneType).pipe(
-      Match.when("MainGame", () => Effect.succeed(["Pause", "GameOver"] as const)),
-      Match.when("StartScreen", () => Effect.succeed(["MainGame", "Settings"] as const)),
-      Match.when("GameOver", () => Effect.succeed(["StartScreen"] as const)),
+      Match.when('MainGame', () => Effect.succeed(['Pause', 'GameOver'] as const)),
+      Match.when('StartScreen', () => Effect.succeed(['MainGame', 'Settings'] as const)),
+      Match.when('GameOver', () => Effect.succeed(['StartScreen'] as const)),
       Match.orElse(() => Effect.succeed([] as ReadonlyArray<SceneType>))
     )
 
@@ -811,7 +848,8 @@ const preloadSceneResources = (
     yield* Effect.log(`Preloaded resources for ${sceneType} with priority ${priority}`)
   })
 ```
-```
+
+````
 
 ### 3. 特定シーン実装例
 
@@ -869,9 +907,10 @@ const handleStartScreenInput = (input: InputEvent): Effect.Effect<void, never> =
       Match.orElse(() => Effect.unit)
     )
   })
-```
+````
 
 #### Main Game（メインゲーム画面）
+
 ```typescript
 const MainGameData = Schema.Struct({
   worldLoaded: Schema.Boolean,
@@ -881,8 +920,8 @@ const MainGameData = Schema.Struct({
   performance: Schema.Struct({
     fps: Schema.Number,
     frameTime: Schema.Number,
-    memoryUsage: Schema.Number
-  })
+    memoryUsage: Schema.Number,
+  }),
 })
 type MainGameData = Schema.Schema.Type<typeof MainGameData>
 
@@ -903,13 +942,10 @@ const initializeMainGame = (data?: unknown): Effect.Effect<void, never> =>
     // HUD表示
     yield* showGameHUD()
 
-    yield* Effect.log("Main game initialized")
+    yield* Effect.log('Main game initialized')
   })
 
-const updateMainGame = (
-  currentData: unknown,
-  deltaTime: number
-): Effect.Effect<unknown, never> =>
+const updateMainGame = (currentData: unknown, deltaTime: number): Effect.Effect<unknown, never> =>
   Effect.gen(function* () {
     const data = currentData as MainGameData | undefined
 
@@ -924,7 +960,7 @@ const updateMainGame = (
       playerSpawned: true,
       gameTime,
       isPaused: data?.isPaused ?? false,
-      performance
+      performance,
     }
 
     return updatedData
@@ -932,16 +968,17 @@ const updateMainGame = (
 ```
 
 #### Game Over Screen（ゲームオーバー画面）
+
 ```typescript
 const GameOverData = Schema.Struct({
   playerStats: Schema.Struct({
     survivalTime: Schema.Number,
     blocksPlaced: Schema.Number,
-    distanceTraveled: Schema.Number
+    distanceTraveled: Schema.Number,
   }),
   highScore: Schema.Boolean,
   selectedOption: Schema.Number.pipe(Schema.int(), Schema.min(0)),
-  fadeInProgress: Schema.Number.pipe(Schema.clamp(0, 1))
+  fadeInProgress: Schema.Number.pipe(Schema.clamp(0, 1)),
 })
 type GameOverData = Schema.Schema.Type<typeof GameOverData>
 
@@ -959,13 +996,10 @@ const initializeGameOverScreen = (data?: unknown): Effect.Effect<void, never> =>
     // UI表示
     yield* showGameOverUI(playerStats, isHighScore)
 
-    yield* Effect.log("Game over screen initialized")
+    yield* Effect.log('Game over screen initialized')
   })
 
-const updateGameOverScreen = (
-  currentData: unknown,
-  deltaTime: number
-): Effect.Effect<unknown, never> =>
+const updateGameOverScreen = (currentData: unknown, deltaTime: number): Effect.Effect<unknown, never> =>
   Effect.gen(function* () {
     const data = currentData as GameOverData | undefined
 
@@ -976,7 +1010,7 @@ const updateGameOverScreen = (
       playerStats: data?.playerStats ?? { survivalTime: 0, blocksPlaced: 0, distanceTraveled: 0 },
       highScore: data?.highScore ?? false,
       selectedOption: data?.selectedOption ?? 0,
-      fadeInProgress
+      fadeInProgress,
     }
 
     return updatedData
@@ -993,21 +1027,14 @@ export const SceneSystemLayer = Layer.mergeAll(
   CullingServiceLive,
   LODServiceLive,
   SceneServiceLive
-).pipe(
-  Layer.provide(ConfigLayer),
-  Layer.provide(LoggingLayer),
-  Layer.provide(CacheLayer)
-)
+).pipe(Layer.provide(ConfigLayer), Layer.provide(LoggingLayer), Layer.provide(CacheLayer))
 
 // 開発・テスト用の軽量Layer
 export const SceneSystemTestLayer = Layer.mergeAll(
   TestSceneManagerServiceLive,
   TestSceneGraphServiceLive,
   TestSceneServiceLive
-).pipe(
-  Layer.provide(TestConfigLayer),
-  Layer.provide(TestCacheLayer)
-)
+).pipe(Layer.provide(TestConfigLayer), Layer.provide(TestCacheLayer))
 
 // Scene Manager Service実装（Stream統合）
 export const SceneManagerServiceLive = Layer.effect(
@@ -1018,34 +1045,30 @@ export const SceneManagerServiceLive = Layer.effect(
     const sceneChangeHub = yield* Hub.bounded<Scene>(50)
 
     const service: SceneManagerService = {
-      getCurrentScene: () =>
-        Ref.get(stateRef).pipe(
-          Effect.map((state) => getCurrentSceneFromStack(state.stack))
-        ),
+      getCurrentScene: () => Ref.get(stateRef).pipe(Effect.map((state) => getCurrentSceneFromStack(state.stack))),
 
       transitionTo: (sceneType: SceneType, data?: unknown) =>
         Effect.gen(function* () {
           const currentState = yield* Ref.get(stateRef)
           const priority = LoadPriority(1) // デフォルト優先度
 
-          const newState = yield* executeTransitionStream(
-            currentState,
-            sceneType,
-            "replace",
-            priority,
-            data
-          ).pipe(
+          const newState = yield* executeTransitionStream(currentState, sceneType, 'replace', priority, data).pipe(
             Stream.runCollect,
             Effect.map(Chunk.head),
-            Effect.flatMap(Option.match({
-              onNone: () => Effect.fail(new SceneTransitionError({
-                fromScene: currentState.stack.scenes[0],
-                toSceneType: sceneType,
-                reason: "Failed to execute transition",
-                timestamp: Date.now()
-              })),
-              onSome: Effect.succeed
-            }))
+            Effect.flatMap(
+              Option.match({
+                onNone: () =>
+                  Effect.fail(
+                    new SceneTransitionError({
+                      fromScene: currentState.stack.scenes[0],
+                      toSceneType: sceneType,
+                      reason: 'Failed to execute transition',
+                      timestamp: Date.now(),
+                    })
+                  ),
+                onSome: Effect.succeed,
+              })
+            )
           )
 
           yield* Ref.set(stateRef, newState)
@@ -1067,31 +1090,31 @@ export const SceneManagerServiceLive = Layer.effect(
       updateSceneGraph: (sceneId: SceneId, graph: SceneNode) =>
         Effect.gen(function* () {
           const currentState = yield* Ref.get(stateRef)
-          const scene = currentState.stack.scenes.find(s => s.id === sceneId)
+          const scene = currentState.stack.scenes.find((s) => s.id === sceneId)
 
           if (!scene) {
-            return yield* Effect.fail(new SceneLifecycleError({
-              sceneId,
-              lifecycle: "update",
-              error: "Scene not found"
-            }))
+            return yield* Effect.fail(
+              new SceneLifecycleError({
+                sceneId,
+                lifecycle: 'update',
+                error: 'Scene not found',
+              })
+            )
           }
 
           const updatedScene = { ...scene, sceneGraph: Option.some(graph) }
-          const updatedScenes = currentState.stack.scenes.map(s =>
-            s.id === sceneId ? updatedScene : s
-          )
+          const updatedScenes = currentState.stack.scenes.map((s) => (s.id === sceneId ? updatedScene : s))
 
           yield* Ref.set(stateRef, {
             ...currentState,
-            stack: { ...currentState.stack, scenes: updatedScenes }
+            stack: { ...currentState.stack, scenes: updatedScenes },
           })
         }),
 
       getSceneGraph: (sceneId: SceneId) =>
         Ref.get(stateRef).pipe(
           Effect.map((state) => {
-            const scene = state.stack.scenes.find(s => s.id === sceneId)
+            const scene = state.stack.scenes.find((s) => s.id === sceneId)
             return scene?.sceneGraph || Option.none()
           })
         ),
@@ -1110,15 +1133,14 @@ export const CullingServiceLive = Layer.effect(
     const cullingCache = yield* Cache.make({
       capacity: 500,
       timeToLive: Duration.millis(100), // 100ms cache for culling results
-      lookup: (key: string) => Effect.succeed(new Set<SceneId>())
+      lookup: (key: string) => Effect.succeed(new Set<SceneId>()),
     })
 
     return CullingService.of({
       performFrustumCulling: (nodes: ReadonlyArray<SceneNode>, camera: CameraState) =>
         performFrustumCulling(nodes, camera),
 
-      checkFrustumIntersection: (node: SceneNode, frustum: Frustum) =>
-        checkFrustumIntersection(node, frustum),
+      checkFrustumIntersection: (node: SceneNode, frustum: Frustum) => checkFrustumIntersection(node, frustum),
 
       performOcclusionCulling: (nodes: ReadonlyArray<SceneNode>) =>
         Effect.gen(function* () {
@@ -1127,10 +1149,8 @@ export const CullingServiceLive = Layer.effect(
             Stream.filterEffect((node) =>
               Effect.gen(function* () {
                 // 簡易オクルージョン判定
-                const occluders = nodes.filter(n => n.id !== node.id && n.visible)
-                return yield* isOccluded(node, occluders).pipe(
-                  Effect.map(occluded => !occluded)
-                )
+                const occluders = nodes.filter((n) => n.id !== node.id && n.visible)
+                return yield* isOccluded(node, occluders).pipe(Effect.map((occluded) => !occluded))
               })
             ),
             Stream.runCollect,
@@ -1171,15 +1191,15 @@ export const CullingServiceLive = Layer.effect(
                     scene.sceneGraph,
                     Option.match({
                       onNone: () => Effect.succeed([]),
-                      onSome: (graph) => performFrustumCulling([graph], camera)
+                      onSome: (graph) => performFrustumCulling([graph], camera),
                     })
-                  )
+                  ),
               })
             )
           })
         ).pipe(
           Stream.schedule(Schedule.spaced(Duration.millis(16))) // 60 FPS
-        )
+        ),
     })
   })
 )
@@ -1191,20 +1211,19 @@ export const LODServiceLive = Layer.effect(
     const lodCache = yield* Cache.make({
       capacity: 1000,
       timeToLive: Duration.seconds(1),
-      lookup: (distance: ViewDistance) => calculateLODLevel(distance)
+      lookup: (distance: ViewDistance) => calculateLODLevel(distance),
     })
 
     return LODService.of({
-      calculateLOD: (distance: ViewDistance) =>
-        lodCache.get(distance),
+      calculateLOD: (distance: ViewDistance) => lodCache.get(distance),
 
       updateNodeLOD: (node: SceneNode, lodLevel: LODLevel) =>
         Effect.succeed({
           ...node,
           metadata: {
             ...node.metadata,
-            currentLOD: lodLevel
-          }
+            currentLOD: lodLevel,
+          },
         }),
 
       updateLODByDistance: (nodes, viewPosition) =>
@@ -1226,12 +1245,14 @@ export const LODServiceLive = Layer.effect(
         }),
 
       getLODRanges: () =>
-        Effect.succeed(new Map([
-          ["HIGH", { min: ViewDistance(0), max: ViewDistance(16) }],
-          ["MEDIUM", { min: ViewDistance(16), max: ViewDistance(64) }],
-          ["LOW", { min: ViewDistance(64), max: ViewDistance(256) }],
-          ["NONE", { min: ViewDistance(256), max: ViewDistance(Infinity) }]
-        ])),
+        Effect.succeed(
+          new Map([
+            ['HIGH', { min: ViewDistance(0), max: ViewDistance(16) }],
+            ['MEDIUM', { min: ViewDistance(16), max: ViewDistance(64) }],
+            ['LOW', { min: ViewDistance(64), max: ViewDistance(256) }],
+            ['NONE', { min: ViewDistance(256), max: ViewDistance(Infinity) }],
+          ])
+        ),
 
       lodUpdateStream: () =>
         Stream.repeatEffect(
@@ -1250,15 +1271,15 @@ export const LODServiceLive = Layer.effect(
                     scene.sceneGraph,
                     Option.match({
                       onNone: () => Effect.succeed([]),
-                      onSome: (graph) => updateLODByDistance([graph], viewPosition)
+                      onSome: (graph) => updateLODByDistance([graph], viewPosition),
                     })
-                  )
+                  ),
               })
             )
           })
         ).pipe(
           Stream.schedule(Schedule.spaced(Duration.millis(100))) // 10 FPS for LOD updates
-        )
+        ),
     })
   })
 )
@@ -1267,21 +1288,22 @@ export const LODServiceLive = Layer.effect(
 ## 使用例
 
 ### 基本的なシーン遷移
+
 ```typescript
 // ゲーム開始フロー
 const startGameFlow = Effect.gen(function* () {
   const sceneManager = yield* SceneManagerService
 
   // スタート画面表示
-  yield* sceneManager.transitionTo("StartScreen")
+  yield* sceneManager.transitionTo('StartScreen')
 
   // メニュー選択待機
   // ... ユーザー操作待機
 
   // メインゲーム開始
-  yield* sceneManager.transitionTo("MainGame", {
+  yield* sceneManager.transitionTo('MainGame', {
     worldSeed: 12345,
-    difficulty: "Normal"
+    difficulty: 'Normal',
   })
 })
 
@@ -1293,7 +1315,7 @@ const gameOverFlow = Effect.gen(function* () {
   const gameStats = yield* getCurrentGameStats()
 
   // ゲームオーバー画面へ遷移
-  yield* sceneManager.transitionTo("GameOver", gameStats)
+  yield* sceneManager.transitionTo('GameOver', gameStats)
 })
 
 // ポーズ/再開処理
@@ -1303,11 +1325,13 @@ const pauseResumeFlow = Effect.gen(function* () {
 
   const action = yield* Match.value(currentScene).pipe(
     Match.some(
-      Match.when({ type: "MainGame" }, () =>
-        sceneManager.pushScene("Pause") // ポーズ画面をプッシュ
+      Match.when(
+        { type: 'MainGame' },
+        () => sceneManager.pushScene('Pause') // ポーズ画面をプッシュ
       ),
-      Match.when({ type: "Pause" }, () =>
-        sceneManager.popScene() // ポーズ画面をポップしてメインゲームに戻る
+      Match.when(
+        { type: 'Pause' },
+        () => sceneManager.popScene() // ポーズ画面をポップしてメインゲームに戻る
       ),
       Match.orElse(() => Effect.unit)
     ),
@@ -1322,6 +1346,7 @@ const pauseResumeFlow = Effect.gen(function* () {
 ## テスト戦略
 
 ### Property-Based Testing with Schema Integration
+
 ```typescript
 import * as fc from "fast-check"
 import { it } from "@effect/vitest"
@@ -1615,16 +1640,19 @@ export const TestSceneManagerServiceLive = Layer.effect(
 ## パフォーマンス考慮事項
 
 ### メモリ効率化
+
 - **シーンスタック制限**: 最大10シーンでメモリ使用量制御
 - **遅延初期化**: シーン遷移時の必要最小限初期化
 - **リソース解放**: 非表示シーンのリソース自動解放
 
 ### 遷移最適化
+
 - **プリロード**: 次に遷移する可能性が高いシーンの事前準備
 - **フェード効果**: GPU加速による滑らかな画面遷移
 - **バックグラウンド処理**: UIスレッドをブロックしない非同期処理
 
 ### 状態管理効率化
+
 - **不変データ**: コピーコスト最小化の構造共有
 - **差分更新**: 変更された部分のみの更新処理
 - **キャッシュ戦略**: よく使用される状態データのメモリキャッシュ

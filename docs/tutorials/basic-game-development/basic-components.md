@@ -1,24 +1,25 @@
 ---
-title: "基本コンポーネント作成 - Domain層の基礎実装"
-description: "Schema.Struct、Context.GenericTag、Effect.genを使用したMinecraft Clone Domain層の基礎コンポーネント実装。型安全なブロック、プレイヤー、ワールド管理システム構築。"
-category: "tutorial"
-difficulty: "intermediate"
-tags: ["domain-layer", "schema-struct", "context-generic-tag", "effect-ts", "basic-components"]
-prerequisites: ["environment-setup", "effect-ts-basics"]
-estimated_reading_time: "25分"
-related_docs: ["./03-effect-services.md", "./04-threejs-integration.md", "../../effect-ts-fundamentals/effect-ts-basics.md"]
+title: '基本コンポーネント作成 - Domain層の基礎実装'
+description: 'Schema.Struct、Context.GenericTag、Effect.genを使用したMinecraft Clone Domain層の基礎コンポーネント実装。型安全なブロック、プレイヤー、ワールド管理システム構築。'
+category: 'tutorial'
+difficulty: 'intermediate'
+tags: ['domain-layer', 'schema-struct', 'context-generic-tag', 'effect-ts', 'basic-components']
+prerequisites: ['environment-setup', 'effect-ts-basics']
+estimated_reading_time: '25分'
+related_docs:
+  ['./03-effect-services.md', './04-threejs-integration.md', '../../effect-ts-fundamentals/effect-ts-basics.md']
 ai_context:
-  primary_concepts: ["domain-modeling", "schema-validation", "type-safety", "effect-composition"]
+  primary_concepts: ['domain-modeling', 'schema-validation', 'type-safety', 'effect-composition']
   complexity_level: 5.5
-  learning_outcomes: ["Domain層コンポーネント設計", "Schema駆動開発", "型安全エラーハンドリング"]
+  learning_outcomes: ['Domain層コンポーネント設計', 'Schema駆動開発', '型安全エラーハンドリング']
 machine_readable:
   confidence_score: 0.95
-  api_maturity: "production-ready"
-  execution_time: "1200-1500ms"
+  api_maturity: 'production-ready'
+  execution_time: '1200-1500ms'
 performance_benchmarks:
-  component_creation: "50-100ms"
-  schema_validation: "1-5ms"
-  memory_usage: "low"
+  component_creation: '50-100ms'
+  schema_validation: '1-5ms'
+  memory_usage: 'low'
 ---
 
 # 基本コンポーネント作成 - Domain層の基礎実装
@@ -39,20 +40,20 @@ performance_benchmarks:
 // [LIVE_EXAMPLE: domain-architecture]
 // 🏗️ Domain層の責務と設計原則
 const DomainLayerPrinciples = {
-  responsibility: "ビジネスロジック・ゲームルールの定義",
+  responsibility: 'ビジネスロジック・ゲームルールの定義',
   principles: [
-    "外部依存なし（Pure Functions）",
-    "不変データ構造の使用",
-    "型安全なエラーハンドリング",
-    "Schema駆動開発による実行時安全性"
+    '外部依存なし（Pure Functions）',
+    '不変データ構造の使用',
+    '型安全なエラーハンドリング',
+    'Schema駆動開発による実行時安全性',
   ],
   components: {
-    entities: "ゲーム内オブジェクト（Player、Block、World等）",
-    valueObjects: "値オブジェクト（Position、Direction等）",
-    domainServices: "ドメインロジック（衝突判定、地形生成等）",
-    errors: "ドメイン固有エラー定義"
-  }
-} as const;
+    entities: 'ゲーム内オブジェクト（Player、Block、World等）',
+    valueObjects: '値オブジェクト（Position、Direction等）',
+    domainServices: 'ドメインロジック（衝突判定、地形生成等）',
+    errors: 'ドメイン固有エラー定義',
+  },
+} as const
 // [/LIVE_EXAMPLE]
 ```
 
@@ -115,7 +116,7 @@ classDiagram
 ```typescript
 // [LIVE_EXAMPLE: position-value-object]
 // 📍 Position - Minecraft座標系の型安全実装
-import { Schema, Brand } from "effect";
+import { Schema, Brand } from 'effect'
 
 // ✅ Schema.Struct による厳密な座標定義
 export const Position = Schema.Struct({
@@ -124,17 +125,17 @@ export const Position = Schema.Struct({
     Schema.greaterThanOrEqualTo(-30_000_000), // Minecraft世界境界
     Schema.lessThanOrEqualTo(30_000_000),
     Schema.annotations({
-      identifier: "X座標",
-      description: "東西方向の位置"
+      identifier: 'X座標',
+      description: '東西方向の位置',
     })
   ),
   y: Schema.Number.pipe(
     Schema.int(),
-    Schema.greaterThanOrEqualTo(-64),    // 世界底面
-    Schema.lessThanOrEqualTo(320),       // 世界上限
+    Schema.greaterThanOrEqualTo(-64), // 世界底面
+    Schema.lessThanOrEqualTo(320), // 世界上限
     Schema.annotations({
-      identifier: "Y座標",
-      description: "高度（上下方向）"
+      identifier: 'Y座標',
+      description: '高度（上下方向）',
     })
   ),
   z: Schema.Number.pipe(
@@ -142,29 +143,25 @@ export const Position = Schema.Struct({
     Schema.greaterThanOrEqualTo(-30_000_000), // 南北境界
     Schema.lessThanOrEqualTo(30_000_000),
     Schema.annotations({
-      identifier: "Z座標",
-      description: "南北方向の位置"
+      identifier: 'Z座標',
+      description: '南北方向の位置',
     })
-  )
+  ),
 }).pipe(
   Schema.annotations({
-    identifier: "Position",
-    title: "3D座標",
-    description: "Minecraft世界内の有効な3次元座標"
+    identifier: 'Position',
+    title: '3D座標',
+    description: 'Minecraft世界内の有効な3次元座標',
   })
-);
+)
 
-export type Position = Schema.Schema.Type<typeof Position>;
+export type Position = Schema.Schema.Type<typeof Position>
 
 // ✅ 座標計算の純粋関数群
 export const PositionOps = {
   // 距離計算
   distance: (pos1: Position, pos2: Position): number =>
-    Math.sqrt(
-      Math.pow(pos2.x - pos1.x, 2) +
-      Math.pow(pos2.y - pos1.y, 2) +
-      Math.pow(pos2.z - pos1.z, 2)
-    ),
+    Math.sqrt(Math.pow(pos2.x - pos1.x, 2) + Math.pow(pos2.y - pos1.y, 2) + Math.pow(pos2.z - pos1.z, 2)),
 
   // 隣接座標取得
   getAdjacent: (pos: Position, direction: Direction): Position => {
@@ -174,29 +171,32 @@ export const PositionOps = {
       east: { x: 1, y: 0, z: 0 },
       west: { x: -1, y: 0, z: 0 },
       up: { x: 0, y: 1, z: 0 },
-      down: { x: 0, y: -1, z: 0 }
-    } as const;
+      down: { x: 0, y: -1, z: 0 },
+    } as const
 
-    const offset = directions[direction];
+    const offset = directions[direction]
     return {
       x: pos.x + offset.x,
       y: pos.y + offset.y,
-      z: pos.z + offset.z
-    };
+      z: pos.z + offset.z,
+    }
   },
 
   // チャンク座標への変換
   toChunkCoordinate: (pos: Position): ChunkCoordinate => ({
     x: Math.floor(pos.x / 16),
-    z: Math.floor(pos.z / 16)
+    z: Math.floor(pos.z / 16),
   }),
 
   // ワールド座標内での有効性チェック
   isValid: (pos: Position): boolean =>
-    pos.x >= -30_000_000 && pos.x <= 30_000_000 &&
-    pos.y >= -64 && pos.y <= 320 &&
-    pos.z >= -30_000_000 && pos.z <= 30_000_000
-} as const;
+    pos.x >= -30_000_000 &&
+    pos.x <= 30_000_000 &&
+    pos.y >= -64 &&
+    pos.y <= 320 &&
+    pos.z >= -30_000_000 &&
+    pos.z <= 30_000_000,
+} as const
 // [/LIVE_EXAMPLE]
 ```
 
@@ -205,51 +205,50 @@ export const PositionOps = {
 ```typescript
 // [LIVE_EXAMPLE: direction-chunk-coordinate]
 // 🧭 Direction - 6方向の型安全定義
-export const Direction = Schema.Literal("north", "south", "east", "west", "up", "down");
-export type Direction = Schema.Schema.Type<typeof Direction>;
+export const Direction = Schema.Literal('north', 'south', 'east', 'west', 'up', 'down')
+export type Direction = Schema.Schema.Type<typeof Direction>
 
 // 🗺️ ChunkCoordinate - チャンクレベルでの位置管理
 export const ChunkCoordinate = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
-  z: Schema.Number.pipe(Schema.int())
+  z: Schema.Number.pipe(Schema.int()),
 }).pipe(
   Schema.annotations({
-    identifier: "ChunkCoordinate",
-    title: "チャンク座標",
-    description: "16x16ブロック単位での区画座標"
+    identifier: 'ChunkCoordinate',
+    title: 'チャンク座標',
+    description: '16x16ブロック単位での区画座標',
   })
-);
-export type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinate>;
+)
+export type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinate>
 
 // ✅ ChunkCoordinateの操作関数群
 export const ChunkOps = {
   // チャンクIDの生成
-  toId: (coord: ChunkCoordinate): ChunkId =>
-    `chunk_${coord.x}_${coord.z}` as ChunkId,
+  toId: (coord: ChunkCoordinate): ChunkId => `chunk_${coord.x}_${coord.z}` as ChunkId,
 
   // 隣接チャンク取得
-  getAdjacent: (coord: ChunkCoordinate, direction: "north" | "south" | "east" | "west"): ChunkCoordinate => {
+  getAdjacent: (coord: ChunkCoordinate, direction: 'north' | 'south' | 'east' | 'west'): ChunkCoordinate => {
     const offsets = {
       north: { x: 0, z: -1 },
       south: { x: 0, z: 1 },
       east: { x: 1, z: 0 },
-      west: { x: -1, z: 0 }
-    } as const;
+      west: { x: -1, z: 0 },
+    } as const
 
-    const offset = offsets[direction];
+    const offset = offsets[direction]
     return {
       x: coord.x + offset.x,
-      z: coord.z + offset.z
-    };
+      z: coord.z + offset.z,
+    }
   },
 
   // チャンク内座標への変換
   toLocalPosition: (worldPos: Position): LocalPosition => ({
     x: ((worldPos.x % 16) + 16) % 16,
     y: worldPos.y,
-    z: ((worldPos.z % 16) + 16) % 16
-  })
-} as const;
+    z: ((worldPos.z % 16) + 16) % 16,
+  }),
+} as const
 // [/LIVE_EXAMPLE]
 ```
 
@@ -260,71 +259,68 @@ export const ChunkOps = {
 ```typescript
 // [LIVE_EXAMPLE: brand-types-ids]
 // 🏷️ Brand Types - 型レベルでの識別子安全性
-import { Schema, Brand } from "effect";
+import { Schema, Brand } from 'effect'
 
 // ✅ 各種IDのBrand型定義
 export const PlayerId = Schema.String.pipe(
   Schema.uuid(),
-  Schema.brand("PlayerId"),
+  Schema.brand('PlayerId'),
   Schema.annotations({
-    identifier: "PlayerId",
-    title: "プレイヤー識別子",
-    description: "UUID v4形式のプレイヤー固有ID"
+    identifier: 'PlayerId',
+    title: 'プレイヤー識別子',
+    description: 'UUID v4形式のプレイヤー固有ID',
   })
-);
-export type PlayerId = Schema.Schema.Type<typeof PlayerId>;
+)
+export type PlayerId = Schema.Schema.Type<typeof PlayerId>
 
 export const BlockId = Schema.String.pipe(
   Schema.pattern(/^[a-z_]+$/),
-  Schema.brand("BlockId"),
+  Schema.brand('BlockId'),
   Schema.annotations({
-    identifier: "BlockId",
-    title: "ブロック識別子",
-    description: "小文字とアンダースコアのみのブロック種別ID"
+    identifier: 'BlockId',
+    title: 'ブロック識別子',
+    description: '小文字とアンダースコアのみのブロック種別ID',
   })
-);
-export type BlockId = Schema.Schema.Type<typeof BlockId>;
+)
+export type BlockId = Schema.Schema.Type<typeof BlockId>
 
 export const ChunkId = Schema.String.pipe(
   Schema.pattern(/^chunk_-?\d+_-?\d+$/),
-  Schema.brand("ChunkId"),
+  Schema.brand('ChunkId'),
   Schema.annotations({
-    identifier: "ChunkId",
-    title: "チャンク識別子",
-    description: "chunk_x_z形式のチャンク座標ID"
+    identifier: 'ChunkId',
+    title: 'チャンク識別子',
+    description: 'chunk_x_z形式のチャンク座標ID',
   })
-);
-export type ChunkId = Schema.Schema.Type<typeof ChunkId>;
+)
+export type ChunkId = Schema.Schema.Type<typeof ChunkId>
 
 export const ItemId = Schema.String.pipe(
   Schema.pattern(/^[a-z_]+$/),
-  Schema.brand("ItemId"),
+  Schema.brand('ItemId'),
   Schema.annotations({
-    identifier: "ItemId",
-    title: "アイテム識別子",
-    description: "小文字とアンダースコアのみのアイテム種別ID"
+    identifier: 'ItemId',
+    title: 'アイテム識別子',
+    description: '小文字とアンダースコアのみのアイテム種別ID',
   })
-);
-export type ItemId = Schema.Schema.Type<typeof ItemId>;
+)
+export type ItemId = Schema.Schema.Type<typeof ItemId>
 
 // ✅ ID生成・バリデーション関数
 export const IdOps = {
   // プレイヤーID生成
-  generatePlayerId: (): PlayerId =>
-    crypto.randomUUID() as PlayerId,
+  generatePlayerId: (): PlayerId => crypto.randomUUID() as PlayerId,
 
   // ブロックIDバリデーション
-  validateBlockId: (id: string): Effect.Effect<BlockId, Schema.ParseError> =>
-    Schema.decodeUnknown(BlockId)(id),
+  validateBlockId: (id: string): Effect.Effect<BlockId, Schema.ParseError> => Schema.decodeUnknown(BlockId)(id),
 
   // チャンクID生成
-  createChunkId: (x: number, z: number): ChunkId =>
-    `chunk_${x}_${z}` as ChunkId,
+  createChunkId: (x: number, z: number): ChunkId => `chunk_${x}_${z}` as ChunkId,
 
   // アイテムIDの正規化
   normalizeItemId: (rawId: string): Effect.Effect<ItemId, Schema.ParseError> =>
-    Schema.decodeUnknown(ItemId)(rawId.toLowerCase().replace(/[^a-z_]/g, "_"))
-} as const;
+    Schema.decodeUnknown(ItemId)(rawId.toLowerCase().replace(/[^a-z_]/g, '_')),
+} as const
 // [/LIVE_EXAMPLE]
 ```
 
@@ -337,50 +333,50 @@ export const Health = Schema.Number.pipe(
   Schema.int(),
   Schema.greaterThanOrEqualTo(0),
   Schema.lessThanOrEqualTo(20),
-  Schema.brand("Health"),
+  Schema.brand('Health'),
   Schema.annotations({
-    identifier: "Health",
-    title: "体力値",
-    description: "0-20の整数値での体力表現"
+    identifier: 'Health',
+    title: '体力値',
+    description: '0-20の整数値での体力表現',
   })
-);
-export type Health = Schema.Schema.Type<typeof Health>;
+)
+export type Health = Schema.Schema.Type<typeof Health>
 
 export const LightLevel = Schema.Number.pipe(
   Schema.int(),
   Schema.greaterThanOrEqualTo(0),
   Schema.lessThanOrEqualTo(15),
-  Schema.brand("LightLevel"),
+  Schema.brand('LightLevel'),
   Schema.annotations({
-    identifier: "LightLevel",
-    title: "光レベル",
-    description: "0-15での光源強度表現"
+    identifier: 'LightLevel',
+    title: '光レベル',
+    description: '0-15での光源強度表現',
   })
-);
-export type LightLevel = Schema.Schema.Type<typeof LightLevel>;
+)
+export type LightLevel = Schema.Schema.Type<typeof LightLevel>
 
 export const Hardness = Schema.Number.pipe(
   Schema.nonNegative(),
-  Schema.brand("Hardness"),
+  Schema.brand('Hardness'),
   Schema.annotations({
-    identifier: "Hardness",
-    title: "硬度値",
-    description: "ブロックの破壊しやすさ（数値が高いほど硬い）"
+    identifier: 'Hardness',
+    title: '硬度値',
+    description: 'ブロックの破壊しやすさ（数値が高いほど硬い）',
   })
-);
-export type Hardness = Schema.Schema.Type<typeof Hardness>;
+)
+export type Hardness = Schema.Schema.Type<typeof Hardness>
 
 export const GameTime = Schema.Number.pipe(
   Schema.int(),
   Schema.nonNegative(),
-  Schema.brand("GameTime"),
+  Schema.brand('GameTime'),
   Schema.annotations({
-    identifier: "GameTime",
-    title: "ゲーム内時間",
-    description: "ゲーム開始からのtick数（20tick=1秒）"
+    identifier: 'GameTime',
+    title: 'ゲーム内時間',
+    description: 'ゲーム開始からのtick数（20tick=1秒）',
   })
-);
-export type GameTime = Schema.Schema.Type<typeof GameTime>;
+)
+export type GameTime = Schema.Schema.Type<typeof GameTime>
 // [/LIVE_EXAMPLE]
 ```
 
@@ -392,23 +388,23 @@ export type GameTime = Schema.Schema.Type<typeof GameTime>;
 // [LIVE_EXAMPLE: block-entity]
 // 🧱 Block - ワールドの基本構成要素
 export const BlockType = Schema.Union(
-  Schema.Literal("air"),
-  Schema.Literal("stone"),
-  Schema.Literal("dirt"),
-  Schema.Literal("grass_block"),
-  Schema.Literal("wood"),
-  Schema.Literal("leaves"),
-  Schema.Literal("water"),
-  Schema.Literal("sand"),
-  Schema.Literal("bedrock")
-);
-export type BlockType = Schema.Schema.Type<typeof BlockType>;
+  Schema.Literal('air'),
+  Schema.Literal('stone'),
+  Schema.Literal('dirt'),
+  Schema.Literal('grass_block'),
+  Schema.Literal('wood'),
+  Schema.Literal('leaves'),
+  Schema.Literal('water'),
+  Schema.Literal('sand'),
+  Schema.Literal('bedrock')
+)
+export type BlockType = Schema.Schema.Type<typeof BlockType>
 
 export const BlockMetadata = Schema.Record({
   key: Schema.String,
-  value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean)
-});
-export type BlockMetadata = Schema.Schema.Type<typeof BlockMetadata>;
+  value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
+})
+export type BlockMetadata = Schema.Schema.Type<typeof BlockMetadata>
 
 export const Block = Schema.Struct({
   id: BlockId,
@@ -416,61 +412,59 @@ export const Block = Schema.Struct({
   hardness: Hardness,
   lightLevel: LightLevel,
   transparent: Schema.Boolean,
-  metadata: Schema.optional(BlockMetadata)
+  metadata: Schema.optional(BlockMetadata),
 }).pipe(
   Schema.annotations({
-    identifier: "Block",
-    title: "ブロック",
-    description: "ワールドを構成する基本的な立方体要素"
+    identifier: 'Block',
+    title: 'ブロック',
+    description: 'ワールドを構成する基本的な立方体要素',
   })
-);
-export type Block = Schema.Schema.Type<typeof Block>;
+)
+export type Block = Schema.Schema.Type<typeof Block>
 
 // ✅ ブロック関連の純粋関数群
 export const BlockOps = {
   // 空ブロックの作成
   createAir: (): Block => ({
-    id: "air" as BlockId,
-    type: "air",
+    id: 'air' as BlockId,
+    type: 'air',
     hardness: 0 as Hardness,
     lightLevel: 15 as LightLevel,
-    transparent: true
+    transparent: true,
   }),
 
   // 基本ブロックの作成
   createStone: (): Block => ({
-    id: "stone" as BlockId,
-    type: "stone",
+    id: 'stone' as BlockId,
+    type: 'stone',
     hardness: 1.5 as Hardness,
     lightLevel: 0 as LightLevel,
-    transparent: false
+    transparent: false,
   }),
 
   // ブロック破壊可否判定
-  canBreak: (block: Block): boolean =>
-    block.type !== "bedrock",
+  canBreak: (block: Block): boolean => block.type !== 'bedrock',
 
   // 光透過性判定
-  isTransparent: (block: Block): boolean =>
-    block.transparent,
+  isTransparent: (block: Block): boolean => block.transparent,
 
   // ドロップアイテム計算
   getDrops: (block: Block): ItemId[] => {
     const dropTable: Record<BlockType, ItemId[]> = {
       air: [],
-      stone: ["stone" as ItemId],
-      dirt: ["dirt" as ItemId],
-      grass_block: ["dirt" as ItemId],
-      wood: ["wood" as ItemId],
+      stone: ['stone' as ItemId],
+      dirt: ['dirt' as ItemId],
+      grass_block: ['dirt' as ItemId],
+      wood: ['wood' as ItemId],
       leaves: [], // 確率でサンプリングやアイテムドロップ
       water: [],
-      sand: ["sand" as ItemId],
-      bedrock: [] // 破壊不可
-    };
+      sand: ['sand' as ItemId],
+      bedrock: [], // 破壊不可
+    }
 
-    return dropTable[block.type] || [];
-  }
-} as const;
+    return dropTable[block.type] || []
+  },
+} as const
 // [/LIVE_EXAMPLE]
 ```
 
@@ -579,92 +573,92 @@ const createEmptyInventory = (): Inventory => ({
 ```typescript
 // [LIVE_EXAMPLE: domain-errors]
 // ❌ Domain層のエラー定義 - 型安全なエラーハンドリング
-import { Schema } from "effect";
+import { Schema } from 'effect'
 
-export const PositionError = Schema.TaggedError("PositionError")({
+export const PositionError = Schema.TaggedError('PositionError')({
   cause: Schema.Union(
-    Schema.Literal("OutOfBounds"),
-    Schema.Literal("InvalidCoordinate"),
-    Schema.Literal("ChunkNotLoaded")
+    Schema.Literal('OutOfBounds'),
+    Schema.Literal('InvalidCoordinate'),
+    Schema.Literal('ChunkNotLoaded')
   ),
   position: Schema.optional(Position),
   message: Schema.String,
-  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
-});
-export type PositionError = Schema.Schema.Type<typeof PositionError>;
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+})
+export type PositionError = Schema.Schema.Type<typeof PositionError>
 
-export const BlockError = Schema.TaggedError("BlockError")({
+export const BlockError = Schema.TaggedError('BlockError')({
   cause: Schema.Union(
-    Schema.Literal("NotFound"),
-    Schema.Literal("InvalidType"),
-    Schema.Literal("CannotBreak"),
-    Schema.Literal("AlreadyExists")
+    Schema.Literal('NotFound'),
+    Schema.Literal('InvalidType'),
+    Schema.Literal('CannotBreak'),
+    Schema.Literal('AlreadyExists')
   ),
   blockId: Schema.optional(BlockId),
   position: Schema.optional(Position),
-  message: Schema.String
-});
-export type BlockError = Schema.Schema.Type<typeof BlockError>;
+  message: Schema.String,
+})
+export type BlockError = Schema.Schema.Type<typeof BlockError>
 
-export const PlayerError = Schema.TaggedError("PlayerError")({
+export const PlayerError = Schema.TaggedError('PlayerError')({
   cause: Schema.Union(
-    Schema.Literal("NotFound"),
-    Schema.Literal("InvalidMove"),
-    Schema.Literal("InsufficientHealth"),
-    Schema.Literal("InventoryFull"),
-    Schema.Literal("InvalidGameMode")
+    Schema.Literal('NotFound'),
+    Schema.Literal('InvalidMove'),
+    Schema.Literal('InsufficientHealth'),
+    Schema.Literal('InventoryFull'),
+    Schema.Literal('InvalidGameMode')
   ),
   playerId: Schema.optional(PlayerId),
   message: Schema.String,
-  additionalInfo: Schema.optional(Schema.Unknown)
-});
-export type PlayerError = Schema.Schema.Type<typeof PlayerError>;
+  additionalInfo: Schema.optional(Schema.Unknown),
+})
+export type PlayerError = Schema.Schema.Type<typeof PlayerError>
 
-export const WorldError = Schema.TaggedError("WorldError")({
+export const WorldError = Schema.TaggedError('WorldError')({
   cause: Schema.Union(
-    Schema.Literal("ChunkNotFound"),
-    Schema.Literal("GenerationFailed"),
-    Schema.Literal("SaveFailed"),
-    Schema.Literal("LoadFailed"),
-    Schema.Literal("CorruptedData")
+    Schema.Literal('ChunkNotFound'),
+    Schema.Literal('GenerationFailed'),
+    Schema.Literal('SaveFailed'),
+    Schema.Literal('LoadFailed'),
+    Schema.Literal('CorruptedData')
   ),
   coordinate: Schema.optional(ChunkCoordinate),
   chunkId: Schema.optional(ChunkId),
-  message: Schema.String
-});
-export type WorldError = Schema.Schema.Type<typeof WorldError>;
+  message: Schema.String,
+})
+export type WorldError = Schema.Schema.Type<typeof WorldError>
 
 // ✅ エラー作成ヘルパー関数
 export const ErrorFactories = {
   positionOutOfBounds: (position: Position): PositionError => ({
-    _tag: "PositionError",
-    cause: "OutOfBounds",
+    _tag: 'PositionError',
+    cause: 'OutOfBounds',
     position,
-    message: `座標 (${position.x}, ${position.y}, ${position.z}) は有効範囲外です`
+    message: `座標 (${position.x}, ${position.y}, ${position.z}) は有効範囲外です`,
   }),
 
   blockNotFound: (position: Position): BlockError => ({
-    _tag: "BlockError",
-    cause: "NotFound",
+    _tag: 'BlockError',
+    cause: 'NotFound',
     position,
-    message: `位置 (${position.x}, ${position.y}, ${position.z}) にブロックが見つかりません`
+    message: `位置 (${position.x}, ${position.y}, ${position.z}) にブロックが見つかりません`,
   }),
 
   playerNotFound: (playerId: PlayerId): PlayerError => ({
-    _tag: "PlayerError",
-    cause: "NotFound",
+    _tag: 'PlayerError',
+    cause: 'NotFound',
     playerId,
-    message: `プレイヤー ${playerId} が見つかりません`
+    message: `プレイヤー ${playerId} が見つかりません`,
   }),
 
   chunkGenerationFailed: (coordinate: ChunkCoordinate): WorldError => ({
-    _tag: "WorldError",
-    cause: "GenerationFailed",
+    _tag: 'WorldError',
+    cause: 'GenerationFailed',
     coordinate,
     chunkId: ChunkOps.toId(coordinate),
-    message: `チャンク (${coordinate.x}, ${coordinate.z}) の生成に失敗しました`
-  })
-} as const;
+    message: `チャンク (${coordinate.x}, ${coordinate.z}) の生成に失敗しました`,
+  }),
+} as const
 // [/LIVE_EXAMPLE]
 ```
 
@@ -678,14 +672,17 @@ export const ErrorFactories = {
 export interface CollisionDetection {
   readonly checkBlockCollision: (position: Position, block: Block) => boolean
   readonly checkPlayerMovement: (player: Player, newPosition: Position, worldBlocks: Block[][][]) => boolean
-  readonly getCollidingBlocks: (position: Position, size: { width: number, height: number, depth: number }) => Position[]
+  readonly getCollidingBlocks: (
+    position: Position,
+    size: { width: number; height: number; depth: number }
+  ) => Position[]
 }
 
 // ✅ 衝突判定の純粋関数実装
 export const CollisionDetectionOps = {
   // ブロック境界との衝突判定
   checkBlockCollision: (position: Position, block: Block): boolean => {
-    if (block.type === "air") return false;
+    if (block.type === 'air') return false
 
     // プレイヤーのバウンディングボックス (0.8 x 1.8 x 0.8)
     const playerBounds = {
@@ -694,26 +691,29 @@ export const CollisionDetectionOps = {
       minY: position.y,
       maxY: position.y + 1.8,
       minZ: position.z - 0.4,
-      maxZ: position.z + 0.4
-    };
+      maxZ: position.z + 0.4,
+    }
 
     // ブロックのバウンディングボックス (1 x 1 x 1)
-    const blockPos = PositionOps.toChunkCoordinate(position);
+    const blockPos = PositionOps.toChunkCoordinate(position)
     const blockBounds = {
       minX: blockPos.x,
       maxX: blockPos.x + 1,
       minY: position.y,
       maxY: position.y + 1,
       minZ: blockPos.z,
-      maxZ: blockPos.z + 1
-    };
+      maxZ: blockPos.z + 1,
+    }
 
     // AABB (Axis-Aligned Bounding Box) 衝突判定
     return !(
-      playerBounds.maxX <= blockBounds.minX || playerBounds.minX >= blockBounds.maxX ||
-      playerBounds.maxY <= blockBounds.minY || playerBounds.minY >= blockBounds.maxY ||
-      playerBounds.maxZ <= blockBounds.minZ || playerBounds.minZ >= blockBounds.maxZ
-    );
+      playerBounds.maxX <= blockBounds.minX ||
+      playerBounds.minX >= blockBounds.maxX ||
+      playerBounds.maxY <= blockBounds.minY ||
+      playerBounds.minY >= blockBounds.maxY ||
+      playerBounds.maxZ <= blockBounds.minZ ||
+      playerBounds.minZ >= blockBounds.maxZ
+    )
   },
 
   // プレイヤー移動可能性判定
@@ -725,41 +725,42 @@ export const CollisionDetectionOps = {
       { ...newPosition, x: newPosition.x + 0.4, z: newPosition.z + 0.4 }, // 四隅
       { ...newPosition, x: newPosition.x - 0.4, z: newPosition.z + 0.4 },
       { ...newPosition, x: newPosition.x + 0.4, z: newPosition.z - 0.4 },
-      { ...newPosition, x: newPosition.x - 0.4, z: newPosition.z - 0.4 }
-    ];
+      { ...newPosition, x: newPosition.x - 0.4, z: newPosition.z - 0.4 },
+    ]
 
     // すべての位置で衝突チェック
-    return checkPositions.every(pos => {
-      const block = getBlock(pos);
-      return !block || block.type === "air" || block.transparent;
-    });
+    return checkPositions.every((pos) => {
+      const block = getBlock(pos)
+      return !block || block.type === 'air' || block.transparent
+    })
   },
 
   // 重力・落下判定
   calculateGravity: (player: Player, getBlock: (pos: Position) => Block | null): Player => {
-    const groundPosition = { ...player.position, y: player.position.y - 0.1 };
-    const groundBlock = getBlock(groundPosition);
+    const groundPosition = { ...player.position, y: player.position.y - 0.1 }
+    const groundBlock = getBlock(groundPosition)
 
-    const isOnGround = groundBlock && groundBlock.type !== "air" && !groundBlock.transparent;
+    const isOnGround = groundBlock && groundBlock.type !== 'air' && !groundBlock.transparent
 
-    if (!isOnGround && player.velocity.y >= -10) { // 最大落下速度制限
+    if (!isOnGround && player.velocity.y >= -10) {
+      // 最大落下速度制限
       return {
         ...player,
         velocity: {
           ...player.velocity,
-          y: player.velocity.y - 0.08 // 重力加速度
+          y: player.velocity.y - 0.08, // 重力加速度
         },
-        isOnGround: false
-      };
+        isOnGround: false,
+      }
     }
 
     return {
       ...player,
       velocity: { ...player.velocity, y: 0 },
-      isOnGround: true
-    };
-  }
-} as const;
+      isOnGround: true,
+    }
+  },
+} as const
 // [/LIVE_EXAMPLE]
 ```
 
@@ -770,40 +771,44 @@ export const CollisionDetectionOps = {
 ```typescript
 // [LIVE_EXAMPLE: integration-test]
 // 🧪 基本コンポーネントの統合動作確認
-import { Effect, Console } from "effect";
+import { Effect, Console } from 'effect'
 
 // ✅ 実践演習: Minecraft基本操作のシミュレーション
 const minecraftBasicSimulation = Effect.gen(function* () {
-  yield* Console.log("=== Minecraft Basic Components Demo ===");
+  yield* Console.log('=== Minecraft Basic Components Demo ===')
 
   // 1. プレイヤー作成
-  const player = PlayerOps.create("Steve", { x: 0, y: 64, z: 0 });
-  yield* Console.log(`✅ プレイヤー作成: ${player.name} at (${player.position.x}, ${player.position.y}, ${player.position.z})`);
+  const player = PlayerOps.create('Steve', { x: 0, y: 64, z: 0 })
+  yield* Console.log(
+    `✅ プレイヤー作成: ${player.name} at (${player.position.x}, ${player.position.y}, ${player.position.z})`
+  )
 
   // 2. ワールドブロック配置
-  const stoneBlock = BlockOps.createStone();
-  const airBlock = BlockOps.createAir();
-  yield* Console.log(`✅ ブロック作成: ${stoneBlock.type} (硬度: ${stoneBlock.hardness})`);
+  const stoneBlock = BlockOps.createStone()
+  const airBlock = BlockOps.createAir()
+  yield* Console.log(`✅ ブロック作成: ${stoneBlock.type} (硬度: ${stoneBlock.hardness})`)
 
   // 3. プレイヤー移動テスト
-  const newPosition = { x: 1, y: 64, z: 0 };
-  const movedPlayer = PlayerOps.move(player, newPosition);
-  yield* Console.log(`✅ プレイヤー移動: (${movedPlayer.position.x}, ${movedPlayer.position.y}, ${movedPlayer.position.z})`);
+  const newPosition = { x: 1, y: 64, z: 0 }
+  const movedPlayer = PlayerOps.move(player, newPosition)
+  yield* Console.log(
+    `✅ プレイヤー移動: (${movedPlayer.position.x}, ${movedPlayer.position.y}, ${movedPlayer.position.z})`
+  )
 
   // 4. 衝突判定テスト
-  const mockGetBlock = (pos: Position) => pos.y < 64 ? stoneBlock : airBlock;
-  const canMove = CollisionDetectionOps.checkPlayerMovement(player, { x: 0, y: 63, z: 0 }, mockGetBlock);
-  yield* Console.log(`✅ 衝突判定: ${canMove ? "移動可能" : "移動不可"}`);
+  const mockGetBlock = (pos: Position) => (pos.y < 64 ? stoneBlock : airBlock)
+  const canMove = CollisionDetectionOps.checkPlayerMovement(player, { x: 0, y: 63, z: 0 }, mockGetBlock)
+  yield* Console.log(`✅ 衝突判定: ${canMove ? '移動可能' : '移動不可'}`)
 
   // 5. エラーハンドリングテスト
-  const invalidPosition = { x: 40_000_000, y: 500, z: 0 };
+  const invalidPosition = { x: 40_000_000, y: 500, z: 0 }
   if (!PositionOps.isValid(invalidPosition)) {
-    const error = ErrorFactories.positionOutOfBounds(invalidPosition);
-    yield* Console.log(`✅ エラーハンドリング: ${error.message}`);
+    const error = ErrorFactories.positionOutOfBounds(invalidPosition)
+    yield* Console.log(`✅ エラーハンドリング: ${error.message}`)
   }
 
-  yield* Console.log("=== Demo Complete! ===");
-});
+  yield* Console.log('=== Demo Complete! ===')
+})
 
 // 🚀 実行例（実際のプロジェクトで試してください）
 // Effect.runSync(minecraftBasicSimulation);

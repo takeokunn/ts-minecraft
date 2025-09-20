@@ -1,4 +1,5 @@
 # TypeScript Minecraft Clone - 実装ロードマップ
+
 ## 🎯 プロジェクト概要
 
 TypeScript + Effect-TS 3.17+ + Three.jsによるMinecraft Clone開発。
@@ -7,24 +8,28 @@ TypeScript + Effect-TS 3.17+ + Three.jsによるMinecraft Clone開発。
 ### 開発フロー
 
 #### 1. Issue作成（自動）
+
 ```bash
 # ROADMAPからPhaseごとにIssue自動作成
 claude "ROADMAP Phase 0 のIssueを作成して"
 ```
 
 #### 2. Issue実装（自動）
+
 ```bash
 # IssueをClaude Agentが自動実装
 claude "Issue #123 を実装して"
 ```
 
 #### 3. 品質保証（GitHub Actions）
+
 - TypeScript型チェック
 - Lint・コード品質
 - テストカバレッジ 80%+
 - ビルド成功確認
 
 ### 開発原則
+
 - **Issue中心開発**: 全ての実装はIssue番号が必須
 - **AI Agent自動実装**: 段階的な完全実装（8段階ステップ）
 - **Effect-TS必須**: Context.GenericTag/Schema.Struct/Layer.effect
@@ -32,46 +37,54 @@ claude "Issue #123 を実装して"
 - **ドキュメント同期**: 実装と同時にdocs/更新
 
 ## 📊 実装フェーズ概要
+
 ### Core MVP (最小機能セット) - Phase 0-2
-| Phase | Sprint | 期間 | 機能 | 状態 | 成果物 |
-|-------|--------|------|------|------|---------|
-| 0 | S1-2 | 2週間 | 開発基盤 | 🔄 | TypeScript+Effect-TS+Three.js環境 |
-| 1 | S3-6 | 4週間 | エンジン基盤 | ⏳ | ゲームループ・レンダリング・ECS・入力 |
-| 2 | S7-12 | 6週間 | ワールド基盤 | ⏳ | ブロック・チャンク・ワールド生成 |
+
+| Phase | Sprint | 期間  | 機能         | 状態 | 成果物                                |
+| ----- | ------ | ----- | ------------ | ---- | ------------------------------------- |
+| 0     | S1-2   | 2週間 | 開発基盤     | 🔄   | TypeScript+Effect-TS+Three.js環境     |
+| 1     | S3-6   | 4週間 | エンジン基盤 | ⏳   | ゲームループ・レンダリング・ECS・入力 |
+| 2     | S7-12  | 6週間 | ワールド基盤 | ⏳   | ブロック・チャンク・ワールド生成      |
 
 ### Playable Game (遊べるゲーム) - Phase 3-4
-| Phase | Sprint | 期間 | 機能 | 状態 | 成果物 |
-|-------|--------|------|------|------|---------|
-| 3 | S13-16 | 4週間 | プレイヤー基本 | ⏳ | 移動・物理・基本インタラクション |
-| 4 | S17-20 | 4週間 | アイテム管理 | ⏳ | インベントリ・クラフティング |
+
+| Phase | Sprint | 期間  | 機能           | 状態 | 成果物                           |
+| ----- | ------ | ----- | -------------- | ---- | -------------------------------- |
+| 3     | S13-16 | 4週間 | プレイヤー基本 | ⏳   | 移動・物理・基本インタラクション |
+| 4     | S17-20 | 4週間 | アイテム管理   | ⏳   | インベントリ・クラフティング     |
 
 ### Rich Experience (豊かな体験) - Phase 5-6
-| Phase | Sprint | 期間 | 機能 | 状態 | 成果物 |
-|-------|--------|------|------|------|---------|
-| 5 | S21-24 | 4週間 | Core Tier 3完成 | ⏳ | 戦闘・体力空腹・サウンド・シーン管理 |
-| 6 | S25-28 | 4週間 | Enhanced基盤 | ⏳ | 昼夜サイクル・天候・パーティクル・生活要素 |
+
+| Phase | Sprint | 期間  | 機能            | 状態 | 成果物                                     |
+| ----- | ------ | ----- | --------------- | ---- | ------------------------------------------ |
+| 5     | S21-24 | 4週間 | Core Tier 3完成 | ⏳   | 戦闘・体力空腹・サウンド・シーン管理       |
+| 6     | S25-28 | 4週間 | Enhanced基盤    | ⏳   | 昼夜サイクル・天候・パーティクル・生活要素 |
 
 ### Enhanced Features (拡張機能) - Phase 7-8
-| Phase | Sprint | 期間 | 機能 | 状態 | 成果物 |
-|-------|--------|------|------|------|---------|
-| 7 | S29-32 | 4週間 | Enhanced Phase 1-3 | ⏳ | エンチャント・ポーション・モブAI・構造物 |
-| 8 | S33-36 | 4週間 | Enhanced Phase 4-5 | ⏳ | レッドストーン・次元・統合テスト |
+
+| Phase | Sprint | 期間  | 機能               | 状態 | 成果物                                   |
+| ----- | ------ | ----- | ------------------ | ---- | ---------------------------------------- |
+| 7     | S29-32 | 4週間 | Enhanced Phase 1-3 | ⏳   | エンチャント・ポーション・モブAI・構造物 |
+| 8     | S33-36 | 4週間 | Enhanced Phase 4-5 | ⏳   | レッドストーン・次元・統合テスト         |
 
 ### 実装アプローチ
 
 #### Phase別実装目標
+
 - **Phase 0-2**: Core MVP - 最小限の遊べるMinecraft体験
 - **Phase 3-4**: Playable Game - 完全なゲームプレイ体験
 - **Phase 5-6**: Rich Experience - 豊かなゲーム体験
 - **Phase 7-8**: Enhanced Features - 高度な機能追加
 
 #### タスク実装基準
+
 - **1タスク = 1 Issue**
 - **サイズ**: XS(30分) / S(2時間) / M(4時間) / L(6時間)
 - **優先度**: Critical / High / Medium / Low
 - **依存関係**: 明確な前提タスクを指定
 
 #### 実装優先順位
+
 1. **Tier 1**: ゲームループ・レンダリング・ワールド・プレイヤー
 2. **Tier 2**: インベントリ・クラフティング・戦闘・入力
 3. **Tier 3**: サウンド・農業・睡眠・看板
@@ -80,11 +93,14 @@ claude "Issue #123 を実装して"
 ---
 
 ## 🚀 Phase 0: 基盤構築
+
 ### Sprint 1 (Week 1): プロジェクト初期化
 
 #### P0-001: プロジェクト初期化 ⭐️
+
 **サイズ**: XS (1h) | **タイプ**: setup | **優先度**: Critical | **PR**: #1
-```bash
+
+````bash
 # 実装ファイル
 - package.json
 - tsconfig.json
@@ -144,11 +160,13 @@ pnpm test src/shared/config/effect.test.ts
 
 # 検証コマンド
 pnpm dev # 黒い画面表示確認
-```
+````
 
 #### P0-004: テスト環境構築
+
 **サイズ**: S (2h) | **タイプ**: config | **優先度**: High
 **依存**: P0-001, P0-002
+
 ```bash
 # 実装ファイル
 - vitest.config.ts
@@ -166,8 +184,10 @@ pnpm test && pnpm test:coverage
 ```
 
 #### P0-005: Lint/Format設定
+
 **サイズ**: XS (1h) | **タイプ**: config | **優先度**: Medium
 **依存**: P0-001
+
 ```bash
 # 実装ファイル
 - .eslintrc.json
@@ -185,8 +205,10 @@ pnpm lint && pnpm format
 ```
 
 #### P0-006: ディレクトリ構造
+
 **サイズ**: XS (30m) | **タイプ**: setup | **優先度**: Critical | **PR**: #6
 **依存**: P0-001
+
 ```bash
 # 作成ディレクトリ
 src/
@@ -206,8 +228,10 @@ src/
 ```
 
 #### P0-007: プロジェクトドキュメント
+
 **サイズ**: S (1h) | **タイプ**: docs | **優先度**: High | **PR**: #7
 **依存**: P0-001
+
 ```bash
 # 実装ファイル
 - README.md
@@ -228,8 +252,10 @@ src/
 ### Sprint 2 (Week 2): CI/CD・サービス基盤
 
 #### P0-008: CI/CD Pipeline ⭐️
+
 **サイズ**: XS (1h) | **タイプ**: setup | **優先度**: Critical
 **依存**: P0-001
+
 ```bash
 # 作成ディレクトリ
 src/
@@ -246,8 +272,10 @@ src/
 ```
 
 #### P0-009: Config Service
+
 **サイズ**: S (3h) | **タイプ**: service | **優先度**: High
 **依存**: P0-002
+
 ```typescript
 # 実装ファイル
 - src/shared/services/ConfigService.ts
@@ -268,8 +296,10 @@ export interface ConfigService {
 ```
 
 #### P0-010: Logger Service
+
 **サイズ**: S (2h) | **タイプ**: service | **優先度**: High
 **依存**: P0-002, P0-007
+
 ```typescript
 # 実装ファイル
 - src/shared/services/LoggerService.ts
@@ -291,8 +321,10 @@ export interface LoggerService {
 ```
 
 #### P0-011: Error定義
+
 **サイズ**: S (2h) | **タイプ**: types | **優先度**: High
 **依存**: P0-002
+
 ```typescript
 # 実装ファイル
 - src/shared/errors/index.ts
@@ -311,8 +343,10 @@ export const RenderError = Schema.TaggedError("RenderError")
 ```
 
 #### P0-012: テスト環境構築
+
 **サイズ**: S (2h) | **タイプ**: config | **優先度**: High | **PR**: #12
 **依存**: P0-001, P0-002
+
 ```typescript
 # 実装ファイル
 - vitest.config.ts
@@ -333,8 +367,10 @@ pnpm test && pnpm test:coverage
 ```
 
 #### P0-013: Lint/Format設定
+
 **サイズ**: XS (1h) | **タイプ**: config | **優先度**: Medium | **PR**: #13
 **依存**: P0-001
+
 ```bash
 # 実装ファイル
 - .eslintrc.json
@@ -355,8 +391,10 @@ pnpm lint && pnpm format
 ```
 
 #### P0-014: Three.js統合
+
 **サイズ**: S (2h) | **タイプ**: config | **優先度**: High | **PR**: #14
 **依存**: P0-001
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/three/ThreeLayer.ts
@@ -377,8 +415,10 @@ pnpm dev # 黒い画面表示確認
 ```
 
 #### P0-015: 自動化スクリプト
+
 **サイズ**: S (2h) | **タイプ**: config | **優先度**: Medium
 **依存**: P0-004, P0-005
+
 ```yaml
 # 実装ファイル
 - .github/workflows/ci.yml
@@ -394,11 +434,14 @@ pnpm dev # 黒い画面表示確認
 ---
 
 ## 🎮 Phase 1: コアエンジン
+
 ### Sprint 3 (Week 3): ゲームループ・シーン管理
+
 #### P1-001: GameLoop Interface
 
 **サイズ**: S (2h) | **タイプ**: interface | **優先度**: Critical
 **依存**: P0-007, P0-008
+
 ```typescript
 # 実装ファイル
 - src/domain/game-loop/types.ts
@@ -423,6 +466,7 @@ export interface GameLoopService {
 
 **サイズ**: M (4h) | **タイプ**: service | **優先度**: Critical
 **依存**: P1-001
+
 ```typescript
 # 実装ファイル
 - src/domain/game-loop/GameLoopServiceLive.ts
@@ -444,6 +488,7 @@ export interface GameLoopService {
 
 **サイズ**: S (2h) | **タイプ**: interface | **優先度**: High
 **依存**: P0-002
+
 ```typescript
 # 実装ファイル
 - src/domain/scene/types.ts
@@ -469,6 +514,7 @@ export interface SceneManager {
 
 **サイズ**: M (4h) | **タイプ**: service | **優先度**: High
 **依存**: P1-003
+
 ```typescript
 # 実装ファイル
 - src/domain/scene/SceneManagerLive.ts
@@ -488,10 +534,12 @@ export interface SceneManager {
 ```
 
 ### Sprint 4 (Week 4): ゲームループ実装完成
+
 #### P1-002: GameLoop実装 ⭐️
 
 **サイズ**: M (4h) | **タイプ**: service | **優先度**: Critical
 **依存**: P1-001
+
 ```typescript
 # 実装ファイル
 - src/domain/game-loop/GameLoopServiceLive.ts
@@ -515,13 +563,16 @@ export interface SceneManager {
 
 **サイズ**: XS (30m) | **タイプ**: docs | **優先度**: Medium
 **依存**: P1-002
+
 ```markdown
 # 更新ファイル
+
 - docs/explanations/game-mechanics/core-features/game-loop-system.md
 - docs/reference/api/core-apis.md
 - docs/how-to/development/performance-optimization.md
 
 # 成功基準
+
 - [ ] GameLoop仕様説明
 - [ ] API詳細リファレンス
 - [ ] パフォーマンス最適化手法
@@ -531,6 +582,7 @@ export interface SceneManager {
 
 **サイズ**: S (2h) | **タイプ**: interface | **優先度**: High
 **依存**: P0-002
+
 ```typescript
 # 実装ファイル
 - src/domain/scene/types.ts
@@ -556,6 +608,7 @@ export interface SceneManager {
 
 **サイズ**: M (4h) | **タイプ**: service | **優先度**: High
 **依存**: P1-003
+
 ```typescript
 # 実装ファイル
 - src/domain/scene/SceneManagerLive.ts
@@ -575,10 +628,12 @@ export interface SceneManager {
 ```
 
 ### Sprint 5 (Week 5): レンダリング基盤
+
 #### P1-005: Renderer Interface
 
 **サイズ**: S (2h) | **タイプ**: interface | **優先度**: Critical
 **依存**: P0-003
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/rendering/types.ts
@@ -597,6 +652,7 @@ export interface RendererService {
 
 **サイズ**: M (4h) | **タイプ**: infrastructure | **優先度**: Critical
 **依存**: P1-005
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/rendering/ThreeRendererLive.ts
@@ -618,6 +674,7 @@ export interface RendererService {
 
 **サイズ**: M (4h) | **タイプ**: service | **優先度**: High
 **依存**: P1-006
+
 ```typescript
 # 実装ファイル
 - src/domain/camera/CameraService.ts
@@ -635,6 +692,7 @@ export interface RendererService {
 
 **サイズ**: M (4h) | **タイプ**: infrastructure | **優先度**: Critical
 **依存**: P0-002
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/ecs/Component.ts
@@ -663,6 +721,7 @@ export const VelocityComponent = Schema.Struct({
 
 **サイズ**: M (5h) | **タイプ**: infrastructure | **優先度**: Critical
 **依存**: P1-008
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/ecs/System.ts
@@ -685,6 +744,7 @@ export interface System {
 
 **サイズ**: M (4h) | **タイプ**: infrastructure | **優先度**: Critical
 **依存**: P1-008, P1-009
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/ecs/Entity.ts
@@ -702,10 +762,12 @@ export interface System {
 ```
 
 ### Sprint 6 (Week 6): ECS基盤完成
+
 #### P1-008: ECS Component基盤 ⭐️
 
 **サイズ**: M (4h) | **タイプ**: infrastructure | **優先度**: Critical
 **依存**: P0-002
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/ecs/Component.ts
@@ -734,6 +796,7 @@ export const VelocityComponent = Schema.Struct({
 
 **サイズ**: M (5h) | **タイプ**: infrastructure | **優先度**: Critical
 **依存**: P1-008
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/ecs/System.ts
@@ -756,6 +819,7 @@ export interface System {
 
 **サイズ**: M (4h) | **タイプ**: infrastructure | **優先度**: Critical
 **依存**: P1-008, P1-009
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/ecs/Entity.ts
@@ -773,10 +837,12 @@ export interface System {
 ```
 
 ### Sprint 7 (Week 7): 入力システム
+
 #### P1-011: Input Interface
 
 **サイズ**: S (2h) | **タイプ**: interface | **優先度**: High
 **依存**: P0-002
+
 ```typescript
 # 実装ファイル
 - src/domain/input/types.ts
@@ -795,6 +861,7 @@ export interface InputService {
 
 **サイズ**: S (3h) | **タイプ**: service | **優先度**: High
 **依存**: P1-011
+
 ```typescript
 # 実装ファイル
 - src/domain/input/KeyboardInput.ts
@@ -821,6 +888,7 @@ export const DefaultKeyMap = {
 
 **サイズ**: S (3h) | **タイプ**: service | **優先度**: High
 **依存**: P1-011
+
 ```typescript
 # 実装ファイル
 - src/domain/input/MouseInput.ts
@@ -834,11 +902,14 @@ export const DefaultKeyMap = {
 ```
 
 ## 🌍 Phase 2: ワールド生成
+
 ### Sprint 8 (Week 8): 入力システム完成
+
 #### P1-012: Keyboard Input ⭐️
 
 **サイズ**: S (3h) | **タイプ**: service | **優先度**: High
 **依存**: P1-011
+
 ```typescript
 # 実装ファイル
 - src/domain/input/KeyboardInput.ts
@@ -865,6 +936,7 @@ export const DefaultKeyMap = {
 
 **サイズ**: S (3h) | **タイプ**: service | **優先度**: High
 **依存**: P1-011
+
 ```typescript
 # 実装ファイル
 - src/domain/input/MouseInput.ts
@@ -878,10 +950,12 @@ export const DefaultKeyMap = {
 ```
 
 ### Sprint 9 (Week 9): ブロック・チャンク構造
+
 #### P2-001: Block Types定義 ⭐️
 
 **サイズ**: M (4h) | **タイプ**: domain | **優先度**: Critical
 **依存**: P0-002
+
 ```typescript
 # 実装ファイル
 - src/domain/block/BlockType.ts
@@ -907,6 +981,7 @@ export const GrassBlock = Schema.Struct({
 
 **サイズ**: M (5h) | **タイプ**: domain | **優先度**: Critical
 **依存**: P2-001
+
 ```typescript
 # 実装ファイル
 - src/domain/chunk/Chunk.ts
@@ -933,6 +1008,7 @@ export interface Chunk {
 
 **サイズ**: S (2h) | **タイプ**: interface | **優先度**: High
 **依存**: P2-002
+
 ```typescript
 # 実装ファイル
 - src/domain/world/WorldGenerator.ts
@@ -949,6 +1025,7 @@ export interface WorldGenerator {
 
 **サイズ**: L (6h) | **タイプ**: service | **優先度**: Critical
 **依存**: P2-003
+
 ```typescript
 # 実装ファイル
 - src/domain/world/TerrainGenerator.ts
@@ -972,6 +1049,7 @@ export interface WorldGenerator {
 
 **サイズ**: L (6h) | **タイプ**: service | **優先度**: Critical
 **依存**: P2-002, P2-004
+
 ```typescript
 # 実装ファイル
 - src/domain/chunk/ChunkManager.ts
@@ -994,6 +1072,7 @@ export interface WorldGenerator {
 
 **サイズ**: L (6h) | **タイプ**: rendering | **優先度**: High
 **依存**: P2-005, P1-006
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/rendering/MeshGenerator.ts
@@ -1014,10 +1093,12 @@ export interface WorldGenerator {
 ---
 
 ### Sprint 10 (Week 10): ブロック・チャンク構造完成
+
 #### P2-002: Chunk Structure ⭐️
 
 **サイズ**: M (5h) | **タイプ**: domain | **優先度**: Critical
 **依存**: P2-001
+
 ```typescript
 # 実装ファイル
 - src/domain/chunk/Chunk.ts
@@ -1041,10 +1122,12 @@ export interface Chunk {
 ```
 
 ### Sprint 11 (Week 11): ワールド生成
+
 #### P2-003: World Generator Interface
 
 **サイズ**: S (2h) | **タイプ**: interface | **優先度**: High | **PR**: #58
 **依存**: P2-002
+
 ```typescript
 # 実装ファイル
 - src/domain/world/WorldGenerator.ts
@@ -1061,6 +1144,7 @@ export interface WorldGenerator {
 
 **サイズ**: L (6h) | **タイプ**: service | **優先度**: Critical | **PR**: #59
 **依官**: P2-003
+
 ```typescript
 # 実装ファイル
 - src/domain/world/TerrainGenerator.ts
@@ -1081,10 +1165,12 @@ export interface WorldGenerator {
 ```
 
 ### Sprint 12 (Week 12): ワールド生成完成
+
 #### P2-004: Terrain Generation ⭐️
 
 **サイズ**: L (6h) | **タイプ**: service | **優先度**: Critical
 **依存**: P2-003
+
 ```typescript
 # 実装ファイル
 - src/domain/world/TerrainGenerator.ts
@@ -1105,10 +1191,12 @@ export interface WorldGenerator {
 ```
 
 ### Sprint 13 (Week 13): チャンク管理
+
 #### P2-005: Chunk Manager
 
 **サイズ**: L (6h) | **タイプ**: service | **優先度**: Critical | **PR**: #66
 **依存**: P2-002, P2-004
+
 ```typescript
 # 実装ファイル
 - src/domain/chunk/ChunkManager.ts
@@ -1131,6 +1219,7 @@ export interface WorldGenerator {
 
 **サイズ**: L (6h) | **タイプ**: rendering | **優先度**: High | **PR**: #67
 **依存**: P2-005, P1-006
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/rendering/MeshGenerator.ts
@@ -1149,11 +1238,14 @@ export interface WorldGenerator {
 ```
 
 ## 👤 Phase 3: プレイヤー基本
+
 ### Sprint 14 (Week 14): プレイヤー実装・移動
+
 #### P3-001: Player Entity
 
 **サイズ**: M (4h) | **タイプ**: domain | **優先度**: Critical
 **依存**: P1-010
+
 ```typescript
 # 実装ファイル
 - src/domain/player/Player.ts
@@ -1180,6 +1272,7 @@ export const Player = Schema.Struct({
 
 **サイズ**: L (5h) | **タイプ**: system | **優先度**: Critical
 **依存**: P3-001, P1-012, P1-013
+
 ```typescript
 # 実装ファイル
 - src/domain/player/MovementSystem.ts
@@ -1202,6 +1295,7 @@ export const Player = Schema.Struct({
 
 **サイズ**: L (6h) | **タイプ**: system | **優先度**: Critical
 **依存**: P3-002
+
 ```typescript
 # 実装ファイル
 - src/domain/physics/PhysicsSystem.ts
@@ -1224,6 +1318,7 @@ export const Player = Schema.Struct({
 
 **サイズ**: M (4h) | **タイプ**: feature | **優先度**: High
 **依存**: P3-001, P2-001
+
 ```typescript
 # 実装ファイル
 - src/domain/player/BlockInteraction.ts
@@ -1245,6 +1340,7 @@ export const Player = Schema.Struct({
 
 **サイズ**: L (5h) | **タイプ**: system | **優先度**: High
 **依存**: P3-001
+
 ```typescript
 # 実装ファイル
 - src/domain/inventory/Inventory.ts
@@ -1266,10 +1362,12 @@ export const Inventory = Schema.Struct({
 ```
 
 ### Sprint 15 (Week 15): プレイヤー移動完成
+
 #### P3-003: Physics System ⭐️
 
 **サイズ**: L (6h) | **タイプ**: system | **優先度**: Critical
 **依存**: P3-002
+
 ```typescript
 # 実装ファイル
 - src/domain/physics/PhysicsSystem.ts
@@ -1289,10 +1387,12 @@ export const Inventory = Schema.Struct({
 ```
 
 ### Sprint 16 (Week 16): 物理演算・衝突判定
+
 #### P3-004: Block Interaction ⭐️
 
 **サイズ**: M (4h) | **タイプ**: feature | **優先度**: High
 **依存**: P3-001, P2-001
+
 ```typescript
 # 実装ファイル
 - src/domain/player/BlockInteraction.ts
@@ -1314,6 +1414,7 @@ export const Inventory = Schema.Struct({
 
 **サイズ**: L (5h) | **タイプ**: system | **優先度**: High
 **依存**: P3-001
+
 ```typescript
 # 実装ファイル
 - src/domain/inventory/Inventory.ts
@@ -1337,11 +1438,14 @@ export const Inventory = Schema.Struct({
 ---
 
 ## 🎮 Phase 4: インタラクション実装 (Week 17-20)
+
 ### Sprint 17 (Week 17): プレイヤーシステム基盤
+
 #### P4-001: Player Entity System ⭐️
 
 **サイズ**: M (4h) | **タイプ**: entity | **優先度**: Critical
 **依存**: P3-001, P2-002
+
 ```typescript
 # 実装ファイル
 - src/domain/entities/Player.ts
@@ -1369,6 +1473,7 @@ export const Player = Schema.Struct({
 
 **サイズ**: M (4h) | **タイプ**: physics | **優先度**: High
 **依存**: P4-001, P3-003
+
 ```typescript
 # 実装ファイル
 - src/domain/physics/PlayerPhysics.ts
@@ -1387,10 +1492,12 @@ export const Player = Schema.Struct({
 ```
 
 ### Sprint 18 (Week 18): インベントリシステム実装
+
 #### P4-003: Inventory Core System ⭐️
 
 **サイズ**: L (5h) | **タイプ**: system | **優先度**: Critical
 **依存**: P4-001
+
 ```typescript
 # 実装ファイル
 - src/domain/inventory/InventoryService.ts
@@ -1416,6 +1523,7 @@ export const InventoryState = Schema.Struct({
 
 **サイズ**: M (4h) | **タイプ**: ui | **優先度**: High
 **依存**: P4-003
+
 ```typescript
 # 実装ファイル
 - src/presentation/gui/InventoryGUI.ts
@@ -1434,10 +1542,12 @@ export const InventoryState = Schema.Struct({
 ```
 
 ### Sprint 19 (Week 19): クラフティングシステム基盤
+
 #### P4-005: Crafting Recipe System ⭐️
 
 **サイズ**: M (4h) | **タイプ**: system | **優先度**: Critical
 **依存**: P4-003
+
 ```typescript
 # 実装ファイル
 - src/domain/crafting/CraftingService.ts
@@ -1468,6 +1578,7 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: S (3h) | **タイプ**: ui | **優先度**: High
 **依存**: P4-005
+
 ```typescript
 # 実装ファイル
 - src/presentation/gui/CraftingGUI.ts
@@ -1486,10 +1597,12 @@ export const CraftingRecipe = Schema.Struct({
 ```
 
 ### Sprint 20 (Week 20): 入力制御システム改良
+
 #### P4-007: Advanced Input System ⭐️
 
 **サイズ**: M (4h) | **タイプ**: system | **優先度**: High
 **依存**: P4-001
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/input/InputManager.ts
@@ -1511,11 +1624,14 @@ export const CraftingRecipe = Schema.Struct({
 ---
 
 ## 🎮 Phase 5: Core Tier 3 完成 (Week 21-24)
+
 ### Sprint 21 (Week 21): 体力・空腹システム（Core Tier 2）
+
 #### P5-001: Health System ⭐️
 
 **サイズ**: M (3h) | **タイプ**: system | **優先度**: Critical
 **依存**: P4-001
+
 ```typescript
 # 実装ファイル
 - src/domain/player/HealthSystem.ts
@@ -1537,6 +1653,7 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: S (2h) | **タイプ**: system | **優先度**: High
 **依存**: P5-001
+
 ```typescript
 # 実装ファイル
 - src/domain/player/HungerSystem.ts
@@ -1555,10 +1672,12 @@ export const CraftingRecipe = Schema.Struct({
 ```
 
 ### Sprint 22 (Week 22): 戦闘システム（Core Tier 3）
+
 #### P5-003: Combat System ⭐️
 
 **サイズ**: M (3h) | **タイプ**: system | **優先度**: High
 **依存**: P5-001, P6-001
+
 ```typescript
 # 実装ファイル
 - src/domain/combat/CombatSystem.ts
@@ -1580,6 +1699,7 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: S (2h) | **タイプ**: system | **優先度**: Medium
 **依存**: P2-001
+
 ```typescript
 # 実装ファイル
 - src/domain/materials/MaterialSystem.ts
@@ -1597,10 +1717,12 @@ export const CraftingRecipe = Schema.Struct({
 ```
 
 ### Sprint 23 (Week 23): サウンド・音楽システム（Core Tier 3）
+
 #### P5-005: Audio System ⭐️
 
 **サイズ**: M (3h) | **タイプ**: system | **優先度**: Medium
 **依存**: P5-003, P3-004
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/audio/AudioManager.ts
@@ -1622,6 +1744,7 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: S (2h) | **タイプ**: system | **優先度**: Medium
 **依存**: P1-004
+
 ```typescript
 # 実装ファイル
 - src/domain/scene/SceneTransition.ts
@@ -1640,10 +1763,12 @@ export const CraftingRecipe = Schema.Struct({
 ```
 
 ### Sprint 24 (Week 24): 生活システム（Core Tier 3）
+
 #### P5-007: Food & Agriculture System ⭐️
 
 **サイズ**: M (3h) | **タイプ**: system | **優先度**: Medium
 **依存**: P5-002, P2-001
+
 ```typescript
 # 実装ファイル
 - src/domain/agriculture/FarmingSystem.ts
@@ -1665,6 +1790,7 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: S (2h) | **タイプ**: system | **優先度**: Low
 **依存**: P2-001
+
 ```typescript
 # 実装ファイル
 - src/domain/furniture/BedSystem.ts
@@ -1685,11 +1811,14 @@ export const CraftingRecipe = Schema.Struct({
 ---
 
 ## 🎮 Phase 6: Enhanced Features Phase 1 - 基盤システム (Week 25-28)
+
 ### Sprint 25 (Week 25): 昼夜サイクル（Enhanced Phase 1）
+
 #### P6-001: Day-Night Cycle System ⭐️
 
 **サイズ**: M (3h) | **タイプ**: system | **優先度**: High
 **依存**: P1-006, P5-005
+
 ```typescript
 # 実装ファイル
 - src/domain/time/TimeSystem.ts
@@ -1712,6 +1841,7 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: S (2h) | **タイプ**: system | **優先度**: Medium
 **依存**: P6-001
+
 ```typescript
 # 実装ファイル
 - src/domain/weather/WeatherSystem.ts
@@ -1730,10 +1860,12 @@ export const CraftingRecipe = Schema.Struct({
 ```
 
 ### Sprint 26 (Week 26): パーティクル・視覚効果（Enhanced Phase 1）
+
 #### P6-003: Particle System ⭐️
 
 **サイズ**: M (3h) | **タイプ**: effects | **優先度**: High
 **依存**: P6-002, P1-006
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/effects/ParticleSystem.ts
@@ -1756,6 +1888,7 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: S (2h) | **タイプ**: system | **優先度**: Medium
 **依存**: P1-010, P6-001
+
 ```typescript
 # 実装ファイル
 - src/domain/spawning/EnhancedMobSpawner.ts
@@ -1774,10 +1907,12 @@ export const CraftingRecipe = Schema.Struct({
 ```
 
 ### Sprint 27 (Week 27): Enhanced Phase 2 - インタラクティブ要素
+
 #### P6-005: Enchantment System ⭐️
 
 **サイズ**: M (3h) | **タイプ**: system | **優先度**: High
 **依存**: P5-004
+
 ```typescript
 # 実装ファイル
 - src/domain/enchantment/EnchantmentSystem.ts
@@ -1800,6 +1935,7 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: S (2h) | **タイプ**: system | **優先度**: Medium
 **依存**: P5-001
+
 ```typescript
 # 実装ファイル
 - src/domain/effects/PotionEffects.ts
@@ -1818,10 +1954,12 @@ export const CraftingRecipe = Schema.Struct({
 ```
 
 ### Sprint 28 (Week 28): 村人取引・世界保存統合
+
 #### P6-007: Villager Trading System ⭐️
 
 **サイズ**: M (3h) | **タイプ**: system | **優先度**: Medium
 **依存**: P6-004, P4-003
+
 ```typescript
 # 実装ファイル
 - src/domain/villagers/VillagerTrading.ts
@@ -1844,6 +1982,7 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: S (2h) | **タイプ**: system | **優先度**: Critical
 **依存**: P2-003, P4-001
+
 ```typescript
 # 実装ファイル
 - src/domain/world/WorldSaveService.ts
@@ -1864,11 +2003,14 @@ export const CraftingRecipe = Schema.Struct({
 ---
 
 ## 🎮 Phase 7: Enhanced Features Phase 3 - 高度システム (Week 29-32)
+
 ### Sprint 29 (Week 29): モブAI・行動システム
+
 #### P7-001: Mob AI System ⭐️
 
 **サイズ**: M (3h) | **タイプ**: ai | **優先度**: High
 **依存**: P6-004, P6-001
+
 ```typescript
 # 実装ファイル
 - src/domain/ai/MobAI.ts
@@ -1891,6 +2033,7 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: S (2h) | **タイプ**: worldgen | **優先度**: Medium
 **依存**: P2-004
+
 ```typescript
 # 実装ファイル
 - src/domain/worldgen/StructureGenerator.ts
@@ -1909,10 +2052,12 @@ export const CraftingRecipe = Schema.Struct({
 ```
 
 ### Sprint 30 (Week 30): 拡張バイオーム・レッドストーン基盤
+
 #### P7-003: Extended Biome System ⭐️
 
 **サイズ**: M (3h) | **タイプ**: worldgen | **優先度**: High
 **依存**: P2-004, P6-002
+
 ```typescript
 # 実装ファイル
 - src/domain/biomes/ExtendedBiomes.ts
@@ -1934,6 +2079,7 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: S (2h) | **タイプ**: system | **優先度**: Medium
 **依存**: P2-001
+
 ```typescript
 # 実装ファイル
 - src/domain/redstone/RedstoneSystem.ts
@@ -1952,10 +2098,12 @@ export const CraftingRecipe = Schema.Struct({
 ```
 
 ### Sprint 31 (Week 31): 特殊環境・次元システム
+
 #### P7-005: Ocean & Underwater System ⭐️
 
 **サイズ**: M (3h) | **タイプ**: environment | **優先度**: Medium
 **依存**: P2-004, P3-003
+
 ```typescript
 # 実装ファイル
 - src/domain/ocean/OceanSystem.ts
@@ -1977,6 +2125,7 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: S (2h) | **タイプ**: dimension | **優先度**: Low
 **依存**: P7-004
+
 ```typescript
 # 実装ファイル
 - src/domain/dimensions/NetherPortal.ts
@@ -1995,10 +2144,12 @@ export const CraftingRecipe = Schema.Struct({
 ```
 
 ### Sprint 32 (Week 32): 統合テスト・品質保証
+
 #### P7-007: Comprehensive Integration Testing ⭐️
 
 **サイズ**: M (3h) | **タイプ**: testing | **優先度**: Critical
 **依存**: P6-008
+
 ```typescript
 # 実装ファイル
 - src/tests/integration/SystemIntegration.test.ts
@@ -2021,6 +2172,7 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: S (2h) | **タイプ**: optimization | **優先度**: Critical
 **依存**: ALL P7
+
 ```typescript
 # 実装ファイル
 - src/infrastructure/performance/FinalOptimization.ts
@@ -2041,19 +2193,24 @@ export const CraftingRecipe = Schema.Struct({
 ---
 
 ## 📚 Phase 8: ドキュメント・品質保証完成 (Week 33-36)
+
 ### Sprint 33 (Week 33): ドキュメント統合・完成
+
 #### P8-001: DiáTaxis統合ドキュメント完成 ⭐️
 
 **サイズ**: L (6h) | **タイプ**: docs | **優先度**: Critical
 **依存**: ALL Phase 1-8
+
 ```markdown
 # 更新対象ファイル（優先順）
+
 - docs/README.md - DiáTaxis構造最終確認
 - docs/explanations/architecture/README.md - アーキテクチャ完全説明
 - docs/explanations/game-mechanics/README.md - 全機能統合説明
 - docs/reference/api/README.md - API完全リファレンス
 
 # 成功基準
+
 - [ ] DiáTaxis原則完全準拠
 - [ ] 全実装機能との整合性確認
 - [ ] Context7参照リンク完備
@@ -2064,13 +2221,16 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: M (4h) | **タイプ**: docs | **優先度**: High
 **依存**: P9-001
+
 ```markdown
 # 更新対象ファイル
+
 - docs/tutorials/getting-started/README.md
 - docs/tutorials/basic-game-development/README.md
 - docs/tutorials/effect-ts-fundamentals/README.md
 
 # 成功基準
+
 - [ ] Step-by-stepガイド完成
 - [ ] 実際の実装との同期
 - [ ] Effect-TS最新パターン反映
@@ -2081,14 +2241,17 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: M (4h) | **タイプ**: docs | **優先度**: High
 **依存**: P9-001
+
 ```markdown
 # 更新対象ファイル
+
 - docs/how-to/development/README.md
 - docs/how-to/testing/README.md
 - docs/how-to/troubleshooting/README.md
 - docs/how-to/deployment/README.md
 
 # 成功基準
+
 - [ ] 実践的問題解決手順
 - [ ] トラブルシューティング完備
 - [ ] デプロイメント自動化
@@ -2099,14 +2262,17 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: L (5h) | **タイプ**: docs | **優先度**: Critical
 **依存**: ALL API実装タスク
+
 ```markdown
 # 更新対象ファイル
+
 - docs/reference/api/core-apis.md
 - docs/reference/api/domain-apis.md
 - docs/reference/api/infrastructure-api-reference.md
 - docs/reference/api/game-engine-api.md
 
 # 成功基準
+
 - [ ] 全API型定義完備
 - [ ] 使用例コード追加
 - [ ] Effect-TSパターン準拠
@@ -2117,29 +2283,36 @@ export const CraftingRecipe = Schema.Struct({
 
 **サイズ**: S (2h) | **タイプ**: docs | **優先度**: Medium
 **依存**: P0-010〜P0-015
+
 ```markdown
 # 更新対象ファイル
+
 - docs/reference/configuration/README.md
 - docs/reference/cli/README.md
 - docs/reference/troubleshooting/README.md
 
 # 成功基準
+
 - [ ] 全設定項目説明
 - [ ] CLI使用例完備
 - [ ] トラブルシューティング体系化
 ```
 
 #### P9-006: ゲームシステムドキュメント完成
+
 **サイズ**: M (4h) | **タイプ**: docs | **優先度**: High
 **依存**: ALL Phase 2-4
+
 ```markdown
 # 更新対象ファイル
+
 - docs/reference/game-systems/README.md
 - docs/reference/game-systems/game-world-api.md
 - docs/reference/game-systems/game-block-api.md
 - docs/reference/game-systems/game-player-api.md
 
 # 成功基準
+
 - [ ] ゲームロジック完全仕様
 - [ ] データ構造説明完備
 - [ ] セーブファイル形式詳細
@@ -2147,31 +2320,39 @@ export const CraftingRecipe = Schema.Struct({
 ```
 
 #### P9-007: 品質保証ドキュメント完成
+
 **サイズ**: S (2h) | **タイプ**: docs | **優先度**: Medium
 **依存**: All Testing Tasks
+
 ```markdown
 # 更新対象ファイル
+
 - docs/how-to/testing/comprehensive-testing-strategy.md
 - docs/explanations/design-patterns/test-patterns.md
 - docs/reference/security-guidelines.md
 
 # 成功基準
+
 - [ ] テスト戦略体系化
 - [ ] PBTパターン完備
 - [ ] セキュリティガイドライン
 ```
 
 #### P9-008: 最終統合・リンク検証
+
 **サイズ**: S (3h) | **タイプ**: docs | **優先度**: Critical
 **依存**: P9-001〜P9-007
+
 ```markdown
 # 検証作業
+
 - 全内部リンク動作確認
 - Context7参照リンク確認
 - コードサンプル実行確認
 - DiáTaxis構造整合性検証
 
 # 成功基準
+
 - [ ] デッドリンク0件
 - [ ] 構造整合性100%
 - [ ] サンプルコード動作確認
@@ -2181,15 +2362,19 @@ export const CraftingRecipe = Schema.Struct({
 ### Sprint 34 (Week 34): チュートリアル・テスト完成
 
 #### P8-002: インタラクティブチュートリアル ⭐️
+
 **サイズ**: L (6h) | **タイプ**: feature | **優先度**: High
 **依存**: P9-002
+
 ```markdown
 # 実装ファイル
+
 - docs/tutorials/basic-game-development/interactive-learning-guide.md
 - src/examples/tutorial-examples/
 - scripts/tutorial-runner.sh
 
 # 成功基準
+
 - [ ] ステップバイステップ実行環境
 - [ ] エラー自動検出・修正提案
 - [ ] 進捗トラッキング
@@ -2197,16 +2382,20 @@ export const CraftingRecipe = Schema.Struct({
 ```
 
 #### P10-002: 包括的テストスイート完成 ⭐️
+
 **サイズ**: L (6h) | **タイプ**: test | **優先度**: Critical
 **依存**: ALL Feature Implementation
+
 ```markdown
 # テストファイル
+
 - src/test/integration/
 - src/test/e2e/
 - src/test/performance/
 - docs/how-to/testing/advanced-testing-techniques.md
 
 # 成功基準
+
 - [ ] 全機能カバレッジ90%+
 - [ ] E2Eテスト自動化
 - [ ] パフォーマンステスト
@@ -2214,15 +2403,19 @@ export const CraftingRecipe = Schema.Struct({
 ```
 
 #### P10-003: ドキュメント検索・ナビゲーション
+
 **サイズ**: M (4h) | **タイプ**: feature | **優先度**: Medium
 **依存**: P9-008
+
 ```markdown
 # 実装ファイル
-- docs/_templates/cross-reference-navigation.md実装
+
+- docs/\_templates/cross-reference-navigation.md実装
 - scripts/docs-indexer.sh
 - .github/workflows/docs-validation.yml
 
 # 成功基準
+
 - [ ] 全文検索機能
 - [ ] 関連記事推薦
 - [ ] 自動インデックス生成
@@ -2232,16 +2425,20 @@ export const CraftingRecipe = Schema.Struct({
 ### Sprint 35 (Week 35): 品質保証・パフォーマンステスト
 
 #### P8-003: 総合品質検証 ⭐️
+
 **サイズ**: M (5h) | **タイプ**: qa | **優先度**: Critical
 **依存**: ALL
+
 ```markdown
 # 検証項目
+
 - 全機能動作確認
 - ドキュメント完全性チェック
 - パフォーマンス基準達成確認
 - セキュリティ監査
 
 # 成功基準
+
 - [ ] 60FPS安定動作
 - [ ] メモリ使用量2GB以下
 - [ ] ドキュメント完全性100%
@@ -2251,8 +2448,10 @@ export const CraftingRecipe = Schema.Struct({
 ### Sprint 36 (Week 36): 最終リリース準備
 
 #### P8-004: Release Preparation ⭐️
+
 **サイズ**: M (3h) | **タイプ**: release | **優先度**: Critical
 **依存**: P8-003
+
 ```typescript
 # リリース準備作業
 - 最終バグ修正・エラー処理改善
@@ -2267,16 +2466,20 @@ export const CraftingRecipe = Schema.Struct({
 ```
 
 #### P8-005: Community & Documentation Portal
+
 **サイズ**: S (2h) | **タイプ**: community | **優先度**: Medium
 **依存**: P8-001
+
 ```markdown
 # コミュニティ基盤
+
 - GitHub Pages でのドキュメント公開
 - Issue テンプレート・PR テンプレート
 - コントリビューションガイドライン
 - Discord/フォーラム設置準備
 
 # 成功基準
+
 - [ ] ドキュメントサイト公開
 - [ ] コミュニティガイドライン完備
 - [ ] 問い合わせ・サポート体制整備
@@ -2285,19 +2488,23 @@ export const CraftingRecipe = Schema.Struct({
 ---
 
 ## 📋 タスク実行順序（最適化済み）
+
 ### 優先度ランク
 
 **🔴 Critical Path（ブロッカー）**
+
 1. P0-001 → P0-002 → P0-007 → P0-008
 2. P1-001 → P1-002 → ゲームループ確立
 3. P0-003 → P1-005 → P1-006 → レンダリング確立
 
 **🟡 High Priority（コア機能）**
+
 1. P1-008 → P1-009 → P1-010 → ECS基盤
 2. P2-001 → P2-002 → P2-004 → ワールド生成
 3. P3-001 → P3-002 → P3-003 → プレイヤー移動
 
 **🟢 Medium Priority（拡張）**
+
 1. P1-011 → P1-012 → P1-013 → 入力システム
 2. P2-005 → P2-006 → チャンク最適化
 3. P3-004 → P3-005 → インタラクション
@@ -2305,7 +2512,9 @@ export const CraftingRecipe = Schema.Struct({
 ---
 
 ## 🎯 成功指標
+
 ### Phase完了条件
+
 #### Phase 0 ✅
 
 - [ ] `pnpm dev`で起動
@@ -2358,6 +2567,7 @@ FPS:
 ---
 
 ## 🔧 開発フロー
+
 ### 1. Sprint開始
 
 ```bash
@@ -2413,6 +2623,7 @@ cursor "P1-001: GameLoop Interfaceを実装"
 ```
 
 ## 📚 参考資料
+
 ### プロジェクト構造
 
 ```
@@ -2444,30 +2655,37 @@ cursor "P1-001: GameLoop Interfaceを実装"
 - Test: Vitest + fast-check
 
 ## 🎯 36週間実装完了：全機能マップ
+
 ### 📊 機能実装スケジュール概要
 
 **Phase 0-2 (Week 1-12): Core MVP基盤**
+
 - 24個のcore-features中11機能（Tier 1）完成
 - TypeScript+Effect-TS+Three.js完全統合
 - ワールド生成・プレイヤー・レンダリング基盤確立
 
 **Phase 3-4 (Week 13-20): Playable Game完成**
+
 - core-features Tier 2の8機能完成
 - インベントリ・クラフティング・入力制御
 - 基本的なMinecraft体験提供可能
 
 **Phase 5 (Week 21-24): Core Tier 3完成**
+
 - 残り5機能（戦闘・サウンド・生活システム）
 - 体力空腹・戦闘・食料農業・睡眠システム実装
 
 **Phase 6 (Week 25-28): Enhanced Phase 1-2**
+
 - 15個のenhanced-features中7機能実装
 - 昼夜サイクル・天候・パーティクル・エンチャント・ポーション・村人取引
 
 **Phase 7 (Week 29-32): Enhanced Phase 3-5**
+
 - 残り8機能実装：モブAI・構造物・拡張バイオーム・レッドストーン・海洋・ネザー・マルチプレイ
 
 **Phase 8 (Week 33-36): 品質保証・リリース**
+
 - 全164ドキュメント更新・統合
 - 総合テスト・パフォーマンス検証
 - コミュニティ基盤・リリース準備
@@ -2475,10 +2693,10 @@ cursor "P1-001: GameLoop Interfaceを実装"
 ### ✅ 完全実装される機能（39機能）
 
 **Core Features (24/24 = 100%)**
-✅ すべてのdocs/explanations/game-mechanics/core-features/*.md
+✅ すべてのdocs/explanations/game-mechanics/core-features/\*.md
 
 **Enhanced Features (15/15 = 100%)**
-✅ すべてのdocs/explanations/game-mechanics/enhanced-features/*.md
+✅ すべてのdocs/explanations/game-mechanics/enhanced-features/\*.md
 
 ### 🎮 最終成果物
 
@@ -2494,6 +2712,7 @@ cursor "P1-001: GameLoop Interfaceを実装"
 ---
 
 ## 📈 検証済み品質指標
+
 ### ✅ 完全性検証
 
 - **Sprint数**: 36個（Week 1-36完全カバー）

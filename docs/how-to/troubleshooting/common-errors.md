@@ -1,14 +1,14 @@
 ---
-title: "よくあるエラーと解決方法 - 包括的エラー対処ガイド"
-description: "TypeScript Minecraftプロジェクトの25のよくあるエラーパターンと実践的解決策。実際のエラーメッセージ、原因分析、解決手順。"
-category: "troubleshooting"
-difficulty: "beginner"
-tags: ["troubleshooting", "common-errors", "error-resolution", "typescript", "effect-ts"]
-prerequisites: ["basic-typescript", "effect-ts-fundamentals"]
-estimated_reading_time: "25分"
-related_patterns: ["error-handling-patterns", "service-patterns"]
-related_docs: ["./debugging-guide.md", "./effect-ts-troubleshooting.md", "./error-resolution.md"]
-status: "complete"
+title: 'よくあるエラーと解決方法 - 包括的エラー対処ガイド'
+description: 'TypeScript Minecraftプロジェクトの25のよくあるエラーパターンと実践的解決策。実際のエラーメッセージ、原因分析、解決手順。'
+category: 'troubleshooting'
+difficulty: 'beginner'
+tags: ['troubleshooting', 'common-errors', 'error-resolution', 'typescript', 'effect-ts']
+prerequisites: ['basic-typescript', 'effect-ts-fundamentals']
+estimated_reading_time: '25分'
+related_patterns: ['error-handling-patterns', 'service-patterns']
+related_docs: ['./debugging-guide.md', './effect-ts-troubleshooting.md', './error-resolution.md']
+status: 'complete'
 ---
 
 # よくあるエラーと解決方法
@@ -22,15 +22,18 @@ TypeScript Minecraftプロジェクトで頻繁に発生するエラーとその
 ### Error: Cannot find module 'effect'
 
 #### 症状
+
 ```bash
 error TS2307: Cannot find module 'effect' or its corresponding type declarations.
 ```
 
 #### 原因
+
 - 依存関係がインストールされていない
 - Node.js/pnpmのバージョン不一致
 
 #### 解決方法
+
 ```bash
 # 依存関係の再インストール
 rm -rf node_modules pnpm-lock.yaml
@@ -41,6 +44,7 @@ pnpm add effect@3.17.13 @effect/schema@0.75.5 --save-exact
 ```
 
 #### 予防策
+
 ```json
 // package.json - 正確なバージョン指定
 {
@@ -54,15 +58,18 @@ pnpm add effect@3.17.13 @effect/schema@0.75.5 --save-exact
 ### Error: Type 'unknown' is not assignable to parameter
 
 #### 症状
+
 ```bash
 error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'Player'
 ```
 
 #### 原因
+
 - Schema デコードの型注釈不足
 - Effect.runSync での型推論失敗
 
 #### 解決方法
+
 ```typescript
 // ❌ 問題のあるコード
 const player = Schema.decodeUnknownSync(PlayerSchema)(unknownData)
@@ -71,26 +78,29 @@ const player = Schema.decodeUnknownSync(PlayerSchema)(unknownData)
 const player: Player = Schema.decodeUnknownSync(PlayerSchema)(unknownData)
 
 // ✅ またはEffect内で使用
-const getPlayer = (data: unknown): Effect.Effect<Player, ParseError> =>
-  Schema.decodeUnknown(PlayerSchema)(data)
+const getPlayer = (data: unknown): Effect.Effect<Player, ParseError> => Schema.decodeUnknown(PlayerSchema)(data)
 ```
 
 #### 予防策
+
 - 常に Schema.TaggedError を使用
 - Effect での型指定を明示的に行う
 
 ### Error: Context not found
 
 #### 症状
+
 ```bash
 error: Context not found: WorldService
 ```
 
 #### 原因
+
 - Layer が提供されていない
 - Context.Tag の不一致
 
 #### 解決方法
+
 ```typescript
 // ❌ 問題のあるコード
 const program = Effect.gen(function* () {
@@ -107,18 +117,19 @@ const program = Effect.gen(function* () {
 })
 
 const layer = Layer.succeed(WorldService, {
-  loadChunk: (coord) => Effect.succeed(new Chunk(coord))
+  loadChunk: (coord) => Effect.succeed(new Chunk(coord)),
 })
 
 Effect.runSync(Effect.provide(program, layer))
 ```
 
 #### 予防策
+
 ```typescript
 // テスト用のデフォルトレイヤー作成
 export const TestWorldServiceLive = Layer.succeed(WorldService, {
   loadChunk: () => Effect.succeed(mockChunk),
-  saveChunk: () => Effect.succeed(void 0)
+  saveChunk: () => Effect.succeed(void 0),
 })
 ```
 
@@ -127,21 +138,24 @@ export const TestWorldServiceLive = Layer.succeed(WorldService, {
 ### Error: Type 'string' is not assignable to type 'BlockType'
 
 #### 症状
+
 ```bash
 error TS2322: Type 'string' is not assignable to type 'BlockType'
 ```
 
 #### 原因
+
 - ブランド型の不適切な使用
 - 文字列リテラル型の問題
 
 #### 解決方法
+
 ```typescript
 // ❌ 問題のあるコード
-const blockType: BlockType = "stone" // エラー
+const blockType: BlockType = 'stone' // エラー
 
 // ✅ 修正後 - Schema使用
-const BlockTypeSchema = Schema.Literal("stone", "dirt", "grass")
+const BlockTypeSchema = Schema.Literal('stone', 'dirt', 'grass')
 type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>
 
 const createBlock = (type: string): Effect.Effect<Block, ValidationError> =>
@@ -151,28 +165,32 @@ const createBlock = (type: string): Effect.Effect<Block, ValidationError> =>
   )
 
 // ✅ またはブランド型使用
-type BlockType = string & { readonly _tag: "BlockType" }
+type BlockType = string & { readonly _tag: 'BlockType' }
 const BlockType = (value: string): BlockType => value as BlockType
 
-const blockType = BlockType("stone")
+const blockType = BlockType('stone')
 ```
 
 #### 予防策
+
 - すべての型定義をSchemaベースで行う
 - ブランド型は最小限に抑制
 
 ### Error: Property does not exist on type
 
 #### 症状
+
 ```bash
 error TS2339: Property 'position' does not exist on type 'unknown'
 ```
 
 #### 原因
+
 - 型ガードの不足
 - Schema バリデーションの省略
 
 #### 解決方法
+
 ```typescript
 // ❌ 問題のあるコード
 const updatePosition = (entity: unknown, pos: Position) => {
@@ -182,13 +200,10 @@ const updatePosition = (entity: unknown, pos: Position) => {
 // ✅ 修正後 - Schema使用
 const EntitySchema = Schema.Struct({
   id: Schema.String,
-  position: PositionSchema
+  position: PositionSchema,
 })
 
-const updatePosition = (
-  entity: unknown,
-  pos: Position
-): Effect.Effect<Entity, ValidationError> =>
+const updatePosition = (entity: unknown, pos: Position): Effect.Effect<Entity, ValidationError> =>
   pipe(
     Schema.decodeUnknown(EntitySchema)(entity),
     Effect.map((validEntity) => ({ ...validEntity, position: pos }))
@@ -196,6 +211,7 @@ const updatePosition = (
 ```
 
 #### 予防策
+
 ```typescript
 // 型ガード関数の作成
 const isEntity = Schema.is(EntitySchema)
@@ -211,15 +227,18 @@ if (isEntity(unknownValue)) {
 ### Error: Cannot resolve module '@domain/player'
 
 #### 症状
+
 ```bash
 error TS2307: Cannot resolve module '@domain/player'
 ```
 
 #### 原因
+
 - tsconfig.json の paths 設定不備
 - ファイルパスの不一致
 
 #### 解決方法
+
 ```typescript
 // tsconfig.json の確認
 {
@@ -241,21 +260,25 @@ export default defineConfig({
 ```
 
 #### 予防策
+
 - 相対パスではなくエイリアスを使用
 - IDE の import 補完を活用
 
 ### Error: Circular dependency detected
 
 #### 症状
+
 ```bash
 error: Circular dependency detected: src/domain/player.ts -> src/domain/world.ts -> src/domain/player.ts
 ```
 
 #### 原因
+
 - 相互参照の発生
 - アーキテクチャ設計の問題
 
 #### 解決方法
+
 ```typescript
 // ❌ 循環依存のあるコード
 // player.ts
@@ -266,8 +289,8 @@ import { Player } from './player.ts'
 
 // ✅ 修正後 - 共通型ファイル分離
 // types.ts
-export interface PlayerId extends Schema.Brand<string, "PlayerId"> {}
-export interface WorldId extends Schema.Brand<string, "WorldId"> {}
+export interface PlayerId extends Schema.Brand<string, 'PlayerId'> {}
+export interface WorldId extends Schema.Brand<string, 'WorldId'> {}
 
 // player.ts
 import { PlayerId, WorldId } from './types.ts'
@@ -277,6 +300,7 @@ import { PlayerId, WorldId } from './types.ts'
 ```
 
 #### 予防策
+
 ```bash
 # 循環依存の検出
 npx madge --circular src/
@@ -290,15 +314,18 @@ npx madge --image deps.svg src/
 ### Error: peer dep missing
 
 #### 症状
+
 ```bash
 npm ERR! peer dep missing: effect@^3.17.0, required by @effect/schema@^0.75.5
 ```
 
 #### 原因
+
 - peer dependency の不一致
 - バージョン競合
 
 #### 解決方法
+
 ```bash
 # peer dependency の確認
 npm ls effect
@@ -315,6 +342,7 @@ pnpm add effect@3.17.13 --save-exact
 ```
 
 #### 予防策
+
 ```bash
 # インストール前の互換性チェック
 pnpm outdated
@@ -324,15 +352,18 @@ pnpm audit
 ### Error: Module not found after update
 
 #### 症状
+
 ```bash
 error: Module not found: Can't resolve '@effect/platform'
 ```
 
 #### 原因
+
 - 大幅なアップデートでの API 変更
 - 新しい package 構造
 
 #### 解決方法
+
 ```typescript
 // ❌ 旧バージョンのインポート
 import { HttpClient } from '@effect/platform/Http'
@@ -345,6 +376,7 @@ import * as Http from '@effect/platform/HttpClient'
 ```
 
 #### 予防策
+
 - CHANGELOG の確認
 - マイナーバージョンごとの段階的アップデート
 
@@ -353,15 +385,18 @@ import * as Http from '@effect/platform/HttpClient'
 ### Error: Cannot read properties of undefined
 
 #### 症状
+
 ```javascript
 TypeError: Cannot read properties of undefined (reading 'position')
 ```
 
 #### 原因
+
 - 初期化前のオブジェクト使用
 - 非同期処理の競合状態
 
 #### 解決方法
+
 ```typescript
 // ❌ 問題のあるコード
 const movePlayer = (player: Player, direction: Vector3) => {
@@ -369,33 +404,32 @@ const movePlayer = (player: Player, direction: Vector3) => {
 }
 
 // ✅ 修正後 - Option使用
-const movePlayer = (
-  player: Option.Option<Player>,
-  direction: Vector3
-): Effect.Effect<Player, PlayerError> =>
+const movePlayer = (player: Option.Option<Player>, direction: Vector3): Effect.Effect<Player, PlayerError> =>
   pipe(
     player,
     Option.match({
       onNone: () => Effect.fail(new PlayerNotFoundError()),
-      onSome: (p) => Effect.succeed({
-        ...p,
-        position: {
-          x: p.position.x + direction.x,
-          y: p.position.y + direction.y,
-          z: p.position.z + direction.z
-        }
-      })
+      onSome: (p) =>
+        Effect.succeed({
+          ...p,
+          position: {
+            x: p.position.x + direction.x,
+            y: p.position.y + direction.y,
+            z: p.position.z + direction.z,
+          },
+        }),
     })
   )
 ```
 
 #### 予防策
+
 ```typescript
 // デフォルト値の提供
 const getPlayerPosition = (player: unknown): Position =>
   pipe(
     Schema.decodeUnknownOption(PlayerSchema)(player),
-    Option.map(p => p.position),
+    Option.map((p) => p.position),
     Option.getOrElse(() => ({ x: 0, y: 0, z: 0 }))
   )
 ```
@@ -405,15 +439,18 @@ const getPlayerPosition = (player: unknown): Position =>
 ### Error: WebGL context lost
 
 #### 症状
+
 ```javascript
 WebGLRenderingContext: GL_CONTEXT_LOST_WEBGL
 ```
 
 #### 原因
+
 - GPU メモリ不足
 - ブラウザタブの非アクティブ化
 
 #### 解決方法
+
 ```typescript
 // WebGLコンテキストの復旧処理
 const handleContextLost = (renderer: THREE.WebGLRenderer) => {
@@ -434,21 +471,25 @@ const handleContextLost = (renderer: THREE.WebGLRenderer) => {
 ```
 
 #### 予防策
+
 - メモリ使用量の監視
 - 不要なテクスチャの適切な破棄
 
 ### Error: Texture size exceeds maximum
 
 #### 症状
+
 ```javascript
 THREE.WebGLRenderer: Texture marked for update but image is incomplete
 ```
 
 #### 原因
+
 - テクスチャサイズの制限超過
 - 非同期画像読み込みの未完了
 
 #### 解決方法
+
 ```typescript
 // テクスチャサイズの確認と調整
 const createTexture = (image: HTMLImageElement): Effect.Effect<THREE.Texture, TextureError> =>
@@ -475,12 +516,14 @@ const createTexture = (image: HTMLImageElement): Effect.Effect<THREE.Texture, Te
 ```
 
 #### 予防策
+
 - 事前のテクスチャサイズ検証
 - Progressive JPEG の使用
 
 ## 予防のためのベストプラクティス
 
 ### 1. 型安全性の確保
+
 ```typescript
 // すべての外部データはSchemaでバリデーション
 const validatePlayerInput = (input: unknown): Effect.Effect<Player, ValidationError> =>
@@ -496,6 +539,7 @@ const safeOperation = (player: Player): Effect.Effect<Player, PlayerError> =>
 ```
 
 ### 2. 適切なエラーハンドリング
+
 ```typescript
 // Schema.TaggedErrorの使用
 const PlayerNotFoundError = Schema.TaggedError("PlayerNotFoundError")({
@@ -510,12 +554,13 @@ const retryableOperation = pipe(
 ```
 
 ### 3. テスト駆動開発
+
 ```typescript
 // プロパティベーステスト
 import * as fc from 'fast-check'
 import { it } from '@effect/vitest'
 
-it.prop([fc.integer(), fc.integer(), fc.integer()])("position should be valid", (x, y, z) => {
+it.prop([fc.integer(), fc.integer(), fc.integer()])('position should be valid', (x, y, z) => {
   const position = Position.create(x, y, z)
   expect(position.x).toBe(x)
   expect(position.y).toBe(y)
@@ -524,11 +569,12 @@ it.prop([fc.integer(), fc.integer(), fc.integer()])("position should be valid", 
 ```
 
 ### 4. パフォーマンス監視
+
 ```typescript
 // Effect.withSpan によるトレーシング
 const tracedOperation = pipe(
   expensiveOperation,
-  Effect.withSpan("expensive-operation", { attributes: { entityCount: 100 } })
+  Effect.withSpan('expensive-operation', { attributes: { entityCount: 100 } })
 )
 
 // メモリ使用量の監視
@@ -585,6 +631,7 @@ const createProactiveMonitoring = Effect.gen(function* () {
 ### Error: "THREE is not defined"
 
 #### 症状
+
 ```bash
 ReferenceError: THREE is not defined
     at Object.<anonymous> (src/presentation/rendering/chunk-renderer.ts:12:5)
@@ -592,6 +639,7 @@ ReferenceError: THREE is not defined
 ```
 
 #### 原因
+
 - Three.js の不適切なインポート
 - ES Module と CommonJS の混在
 - Vite 設定での依存関係解決の問題
@@ -599,6 +647,7 @@ ReferenceError: THREE is not defined
 #### 段階的解決手順
 
 1. **Three.js インポート方法の確認**
+
    ```typescript
    // ❌ 問題のあるインポート
    import THREE from 'three'
@@ -617,18 +666,19 @@ ReferenceError: THREE is not defined
    ```
 
 2. **Vite 設定の調整**
+
    ```typescript
    // vite.config.ts
    export default defineConfig({
      optimizeDeps: {
        include: ['three'],
-       exclude: []
+       exclude: [],
      },
      build: {
        commonjsOptions: {
-         include: [/three/, /node_modules/]
-       }
-     }
+         include: [/three/, /node_modules/],
+       },
+     },
    })
    ```
 
@@ -638,6 +688,7 @@ ReferenceError: THREE is not defined
    ```
 
 #### 予防策
+
 - Three.js は常に名前付きインポートを使用
 - TypeScript 設定で`"moduleResolution": "bundler"`を設定
 - Vite の依存関係最適化設定を適切に行う
@@ -645,6 +696,7 @@ ReferenceError: THREE is not defined
 ### Error: "WebGL context lost"
 
 #### 実際のエラーメッセージ
+
 ```bash
 WebGLContextLostEvent {
   isTrusted: true,
@@ -657,19 +709,16 @@ Error: WebGL context was lost. Cannot render scene.
 #### 段階的解決手順
 
 1. **WebGL コンテキスト復旧システムの実装**
+
    ```typescript
    // WebGL コンテキスト管理サービス
    export interface WebGLContextService {
-     readonly setupContextRecovery: (
-       renderer: THREE.WebGLRenderer
-     ) => Effect.Effect<void, WebGLError>
+     readonly setupContextRecovery: (renderer: THREE.WebGLRenderer) => Effect.Effect<void, WebGLError>
      readonly isContextLost: () => Effect.Effect<boolean, never>
      readonly restoreContext: () => Effect.Effect<THREE.WebGLRenderer, WebGLError>
    }
 
-   export const WebGLContextService = Context.GenericTag<WebGLContextService>(
-     "@minecraft/WebGLContextService"
-   )
+   export const WebGLContextService = Context.GenericTag<WebGLContextService>('@minecraft/WebGLContextService')
 
    const WebGLContextServiceLive = Layer.effect(
      WebGLContextService,
@@ -689,7 +738,7 @@ Error: WebGL context was lost. Cannot render scene.
                Effect.runPromise(
                  Effect.gen(function* () {
                    yield* Ref.set(contextLostRef, true)
-                   yield* Effect.logWarn("WebGL context lost - starting recovery")
+                   yield* Effect.logWarn('WebGL context lost - starting recovery')
                  })
                )
              }
@@ -699,7 +748,7 @@ Error: WebGL context was lost. Cannot render scene.
                Effect.runPromise(
                  Effect.gen(function* () {
                    yield* Ref.set(contextLostRef, false)
-                   yield* Effect.logInfo("WebGL context restored")
+                   yield* Effect.logInfo('WebGL context restored')
 
                    // リソース再初期化
                    yield* reinitializeRenderer(renderer)
@@ -729,42 +778,45 @@ Error: WebGL context was lost. Cannot render scene.
              return yield* pipe(
                maybeRenderer,
                Option.match({
-                 onNone: () => Effect.fail(new WebGLError({ reason: "No renderer available" })),
-                 onSome: (renderer) => Effect.gen(function* () {
-                   const gl = renderer.getContext()
+                 onNone: () => Effect.fail(new WebGLError({ reason: 'No renderer available' })),
+                 onSome: (renderer) =>
+                   Effect.gen(function* () {
+                     const gl = renderer.getContext()
 
-                   if (gl.isContextLost()) {
-                     yield* Effect.logInfo("Attempting to force context restore")
-                     // 新しいレンダラーを作成
-                     const newRenderer = new THREE.WebGLRenderer({
-                       antialias: true,
-                       alpha: false
-                     })
-                     yield* Ref.set(rendererRef, Option.some(newRenderer))
-                     return newRenderer
-                   }
+                     if (gl.isContextLost()) {
+                       yield* Effect.logInfo('Attempting to force context restore')
+                       // 新しいレンダラーを作成
+                       const newRenderer = new THREE.WebGLRenderer({
+                         antialias: true,
+                         alpha: false,
+                       })
+                       yield* Ref.set(rendererRef, Option.some(newRenderer))
+                       return newRenderer
+                     }
 
-                   return renderer
-                 })
+                     return renderer
+                   }),
                })
              )
-           })
+           }),
        })
      })
    )
    ```
 
 2. **リソース管理の改善**
+
    ```typescript
    // テクスチャとジオメトリの自動管理
    const createManagedRenderer = Effect.scoped(
      Effect.gen(function* () {
        const renderer = yield* Effect.acquireRelease(
          Effect.sync(() => new THREE.WebGLRenderer({ antialias: true })),
-         (renderer) => Effect.sync(() => {
-           renderer.dispose()
-           console.log("WebGL renderer disposed")
-         })
+         (renderer) =>
+           Effect.sync(() => {
+             renderer.dispose()
+             console.log('WebGL renderer disposed')
+           })
        )
 
        const webglService = yield* WebGLContextService
@@ -776,13 +828,13 @@ Error: WebGL context was lost. Cannot render scene.
            Effect.gen(function* () {
              const memInfo = renderer.info.memory
              if (memInfo.textures > 100) {
-               yield* Effect.logWarn("High texture count detected", {
+               yield* Effect.logWarn('High texture count detected', {
                  textures: memInfo.textures,
-                 geometries: memInfo.geometries
+                 geometries: memInfo.geometries,
                })
              }
            }),
-           Schedule.fixed("30 seconds")
+           Schedule.fixed('30 seconds')
          )
        )
 
@@ -796,6 +848,7 @@ Error: WebGL context was lost. Cannot render scene.
 ### Error: "[vite] Internal server error: Failed to resolve import"
 
 #### 実際のエラーメッセージ
+
 ```bash
 [vite] Internal server error: Failed to resolve import "@domain/player" from "src/application/services/player-service.ts". Does the file exist?
   Plugin: vite:import-analysis
@@ -805,6 +858,7 @@ Error: WebGL context was lost. Cannot render scene.
 #### 段階的解決手順
 
 1. **パス設定の確認と修正**
+
    ```json
    // tsconfig.json - 正確なパス設定
    {
@@ -822,6 +876,7 @@ Error: WebGL context was lost. Cannot render scene.
    ```
 
 2. **Vite 設定の同期**
+
    ```typescript
    // vite.config.ts
    import tsconfigPaths from 'vite-tsconfig-paths'
@@ -831,8 +886,8 @@ Error: WebGL context was lost. Cannot render scene.
      plugins: [
        tsconfigPaths({
          root: './',
-         projects: ['./tsconfig.json']
-       })
+         projects: ['./tsconfig.json'],
+       }),
      ],
      resolve: {
        alias: {
@@ -840,13 +895,14 @@ Error: WebGL context was lost. Cannot render scene.
          '@application': path.resolve(__dirname, 'src/application'),
          '@infrastructure': path.resolve(__dirname, 'src/infrastructure'),
          '@presentation': path.resolve(__dirname, 'src/presentation'),
-         '@shared': path.resolve(__dirname, 'src/shared')
-       }
-     }
+         '@shared': path.resolve(__dirname, 'src/shared'),
+       },
+     },
    })
    ```
 
 3. **ファイル構造の確認**
+
    ```bash
    # ファイル存在確認
    ls -la src/domain/player/
@@ -860,6 +916,7 @@ Error: WebGL context was lost. Cannot render scene.
    ```
 
 #### 予防策
+
 - IDEのインポート補完機能を活用
 - 相対パスではなくエイリアスを一貫して使用
 - CI/CDでのパス解決テストを追加
@@ -867,6 +924,7 @@ Error: WebGL context was lost. Cannot render scene.
 ### Error: "Cannot read properties of undefined (reading 'prototype')"
 
 #### 実際のエラーメッセージ
+
 ```bash
 TypeError: Cannot read properties of undefined (reading 'prototype')
     at /node_modules/effect/dist/cjs/internal/layer.js:89:23
@@ -877,6 +935,7 @@ TypeError: Cannot read properties of undefined (reading 'prototype')
 #### 段階的解決手順
 
 1. **Layer 構成の確認**
+
    ```typescript
    // ❌ 問題のある Layer 構成
    const MainLayer = Layer.mergeAll(
@@ -887,27 +946,20 @@ TypeError: Cannot read properties of undefined (reading 'prototype')
    )
 
    // ✅ 正しい Layer 構成
-   const MainLayer = Layer.mergeAll(
-     WorldServiceLive,
-     PlayerServiceLive,
-     ChunkServiceLive
-   ).pipe(
+   const MainLayer = Layer.mergeAll(WorldServiceLive, PlayerServiceLive, ChunkServiceLive).pipe(
      Layer.provide(ConfigServiceLive)
    )
 
    // ✅ より安全な Layer 構成
    const createMainLayer = Effect.gen(function* () {
-     const layers = [
-       WorldServiceLive,
-       PlayerServiceLive,
-       ChunkServiceLive
-     ].filter(Boolean) // undefined/null を除外
+     const layers = [WorldServiceLive, PlayerServiceLive, ChunkServiceLive].filter(Boolean) // undefined/null を除外
 
      return Layer.mergeAll(...layers)
    })
    ```
 
 2. **依存関係の循環確認**
+
    ```typescript
    // 循環依存の検出と回避
    export const WorldServiceLive = Layer.effect(
@@ -924,12 +976,10 @@ TypeError: Cannot read properties of undefined (reading 'prototype')
          loadChunk: (coord) =>
            pipe(
              chunkStorage.getChunk(coord),
-             Effect.catchTag("ChunkNotFoundError", () =>
-               chunkGenerator.generateChunk(coord)
-             )
+             Effect.catchTag('ChunkNotFoundError', () => chunkGenerator.generateChunk(coord))
            ),
 
-         saveChunk: (chunk) => chunkStorage.saveChunk(chunk)
+         saveChunk: (chunk) => chunkStorage.saveChunk(chunk),
        })
      })
    )
@@ -940,6 +990,7 @@ TypeError: Cannot read properties of undefined (reading 'prototype')
 ### Error: "Type 'Effect<never, never, unknown>' is not assignable"
 
 #### 実際のエラーメッセージ
+
 ```bash
 TS2322: Type 'Effect<never, never, unknown>' is not assignable to type 'Effect<Player, PlayerError, PlayerService>'.
   Type 'never' is not assignable to type 'Player'.
@@ -948,6 +999,7 @@ TS2322: Type 'Effect<never, never, unknown>' is not assignable to type 'Effect<P
 #### 段階的解決手順
 
 1. **Effect型の明示的な指定**
+
    ```typescript
    // ❌ 型推論に依存しすぎ
    const loadPlayer = (id: string) =>
@@ -957,9 +1009,7 @@ TS2322: Type 'Effect<never, never, unknown>' is not assignable to type 'Effect<P
      })
 
    // ✅ 明示的な型指定
-   const loadPlayer = (
-     id: string
-   ): Effect.Effect<Player, PlayerError, PlayerService> =>
+   const loadPlayer = (id: string): Effect.Effect<Player, PlayerError, PlayerService> =>
      Effect.gen(function* () {
        const playerService = yield* PlayerService
        const player = yield* playerService.getPlayer(id)
@@ -970,6 +1020,7 @@ TS2322: Type 'Effect<never, never, unknown>' is not assignable to type 'Effect<P
    ```
 
 2. **Schema による型安全性の強化**
+
    ```typescript
    // より堅牢な型安全な実装
    const loadPlayerWithValidation = (
@@ -1000,6 +1051,7 @@ TS2322: Type 'Effect<never, never, unknown>' is not assignable to type 'Effect<P
 ### Error: "Circular dependency detected"
 
 #### 実際のエラーメッセージ
+
 ```bash
 Error: Circular dependency detected:
   src/domain/world/world-service.ts ->
@@ -1010,6 +1062,7 @@ Error: Circular dependency detected:
 #### 段階的解決手順
 
 1. **依存関係の可視化**
+
    ```bash
    # 循環依存の検出
    npx madge --circular src/
@@ -1019,6 +1072,7 @@ Error: Circular dependency detected:
    ```
 
 2. **共有型の分離**
+
    ```typescript
    // ❌ 循環依存を引き起こす構造
    // world-service.ts
@@ -1029,8 +1083,8 @@ Error: Circular dependency detected:
 
    // ✅ 共有型ファイルによる解決
    // shared/types.ts
-   export interface PlayerId extends Schema.Brand<string, "PlayerId"> {}
-   export interface WorldId extends Schema.Brand<string, "WorldId"> {}
+   export interface PlayerId extends Schema.Brand<string, 'PlayerId'> {}
+   export interface WorldId extends Schema.Brand<string, 'WorldId'> {}
    export interface ChunkCoordinate {
      readonly x: number
      readonly z: number
@@ -1044,6 +1098,7 @@ Error: Circular dependency detected:
    ```
 
 3. **インターフェース分離原則の適用**
+
    ```typescript
    // 小さなインターフェースに分割
    export interface ChunkLoader {
@@ -1069,7 +1124,7 @@ Error: Circular dependency detected:
              const chunkCoords = getChunkCoordinatesInRadius(playerPosition, 5)
 
              return yield* Effect.forEach(chunkCoords, chunkLoader.loadChunk)
-           })
+           }),
        })
      })
    )
@@ -1080,6 +1135,7 @@ Error: Circular dependency detected:
 ### Error: "peer dep missing"
 
 #### 実際のエラーメッセージ
+
 ```bash
 npm ERR! peer dep missing: effect@^3.17.0, required by @effect/schema@^0.75.5
 npm ERR! peer dep missing: typescript@^5.0.0, required by effect@^3.17.13
@@ -1088,6 +1144,7 @@ npm ERR! peer dep missing: typescript@^5.0.0, required by effect@^3.17.13
 #### 段階的解決手順
 
 1. **依存関係の明示的管理**
+
    ```bash
    # 現在の依存関係確認
    pnpm ls --depth=1
@@ -1100,6 +1157,7 @@ npm ERR! peer dep missing: typescript@^5.0.0, required by effect@^3.17.13
    ```
 
 2. **package.json での依存関係固定**
+
    ```json
    {
      "dependencies": {
@@ -1121,20 +1179,21 @@ npm ERR! peer dep missing: typescript@^5.0.0, required by effect@^3.17.13
    ```
 
 3. **自動化された依存関係チェック**
+
    ```typescript
    // scripts/check-deps.ts
-   import { Effect, pipe } from "effect"
-   import { execSync } from "child_process"
-   import * as fs from "fs"
+   import { Effect, pipe } from 'effect'
+   import { execSync } from 'child_process'
+   import * as fs from 'fs'
 
    const checkDependencyVersions = Effect.gen(function* () {
      const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf-8'))
      const lockfileContent = fs.readFileSync('pnpm-lock.yaml', 'utf-8')
 
      const requiredVersions = {
-       'effect': '3.17.13',
+       effect: '3.17.13',
        '@effect/schema': '0.75.5',
-       'typescript': '5.3.3'
+       typescript: '5.3.3',
      }
 
      const issues: string[] = []
@@ -1153,7 +1212,7 @@ npm ERR! peer dep missing: typescript@^5.0.0, required by effect@^3.17.13
        yield* Effect.fail(new DependencyError({ issues }))
      }
 
-     yield* Effect.logInfo("All dependency versions are correct")
+     yield* Effect.logInfo('All dependency versions are correct')
    })
 
    Effect.runPromise(checkDependencyVersions).catch(console.error)
@@ -1164,72 +1223,69 @@ npm ERR! peer dep missing: typescript@^5.0.0, required by effect@^3.17.13
 ### Error: Player movement validation failed
 
 #### 症状
+
 ```bash
 error: PlayerMovementError: Invalid movement vector: {x: NaN, y: -Infinity, z: 0.5}
 ```
 
 #### 原因
+
 - 物理演算でのNaN/Infinity発生
 - 入力バリデーション不備
 
 #### 解決方法
+
 ```typescript
 // ✅ 修正後 - 移動ベクターバリデーション
 const MovementVectorSchema = Schema.Struct({
-  x: Schema.Number.pipe(
-    Schema.filter((n) => !isNaN(n) && isFinite(n), { message: "Invalid X coordinate" })
-  ),
-  y: Schema.Number.pipe(
-    Schema.filter((n) => !isNaN(n) && isFinite(n), { message: "Invalid Y coordinate" })
-  ),
-  z: Schema.Number.pipe(
-    Schema.filter((n) => !isNaN(n) && isFinite(n), { message: "Invalid Z coordinate" })
-  )
+  x: Schema.Number.pipe(Schema.filter((n) => !isNaN(n) && isFinite(n), { message: 'Invalid X coordinate' })),
+  y: Schema.Number.pipe(Schema.filter((n) => !isNaN(n) && isFinite(n), { message: 'Invalid Y coordinate' })),
+  z: Schema.Number.pipe(Schema.filter((n) => !isNaN(n) && isFinite(n), { message: 'Invalid Z coordinate' })),
 })
 
-const validateMovement = (vector: unknown) =>
-  Schema.decodeUnknown(MovementVectorSchema)(vector)
+const validateMovement = (vector: unknown) => Schema.decodeUnknown(MovementVectorSchema)(vector)
 ```
 
 ### Error: Chunk generation timeout
 
 #### 症状
+
 ```bash
 error: ChunkTimeoutError: Chunk generation exceeded 5000ms at (16, 0, -32)
 ```
 
 #### 原因
+
 - 複雑な地形生成アルゴリズム
 - Workerプールの枚渇
 
 #### 解決方法
+
 ```typescript
 // チャンク生成のタイムアウト制御
-const generateChunkWithTimeout = (
-  coord: ChunkCoordinate,
-  timeoutMs: number = 5000
-) =>
+const generateChunkWithTimeout = (coord: ChunkCoordinate, timeoutMs: number = 5000) =>
   pipe(
     generateChunk(coord),
     Effect.timeout(Duration.millis(timeoutMs)),
-    Effect.catchTag("TimeoutException", () =>
-      Effect.succeed(generateSimplifiedChunk(coord))
-    )
+    Effect.catchTag('TimeoutException', () => Effect.succeed(generateSimplifiedChunk(coord)))
   )
 ```
 
 ### Error: Inventory slot conflict
 
 #### 症状
+
 ```bash
 error: InventoryConflictError: Slot 5 already occupied by ItemType.DIAMOND_SWORD
 ```
 
 #### 原因
+
 - 同期処理の競合状態
 - アイテムスタックロジックの不備
 
 #### 解決方法
+
 ```typescript
 // STMを使用したアトミックなインベントリ操作
 const addToInventory = (playerId: PlayerId, item: Item) =>
@@ -1237,7 +1293,7 @@ const addToInventory = (playerId: PlayerId, item: Item) =>
     const inventory = yield* STM.get(playerInventories)
     const playerInv = inventory.get(playerId) || []
 
-    const emptySlot = playerInv.findIndex(slot => slot === null)
+    const emptySlot = playerInv.findIndex((slot) => slot === null)
     if (emptySlot === -1) {
       return yield* STM.fail(new InventoryFullError({ playerId }))
     }
@@ -1253,15 +1309,18 @@ const addToInventory = (playerId: PlayerId, item: Item) =>
 ### Error: Block placement validation failed
 
 #### 症状
+
 ```bash
 error: BlockPlacementError: Cannot place WATER at (10, 64, 5): conflicts with existing BEDROCK
 ```
 
 #### 原因
+
 - ブロックルールバリデーション不備
 - 物理法則の無視
 
 #### 解決方法
+
 ```typescript
 const BlockPlacementRule = {
   canPlace: (blockType: BlockType, position: Position, world: World) => {
@@ -1270,31 +1329,34 @@ const BlockPlacementRule = {
     return pipe(
       Match.value([blockType, existing?.type]),
       Match.when(
-        ([type, existing]) => existing === "BEDROCK",
-        () => Effect.fail(new BlockPlacementError({ reason: "Cannot replace bedrock" }))
+        ([type, existing]) => existing === 'BEDROCK',
+        () => Effect.fail(new BlockPlacementError({ reason: 'Cannot replace bedrock' }))
       ),
       Match.when(
-        ([type, existing]) => type === "WATER" && existing === "LAVA",
-        () => Effect.succeed("OBSIDIAN" as BlockType)
+        ([type, existing]) => type === 'WATER' && existing === 'LAVA',
+        () => Effect.succeed('OBSIDIAN' as BlockType)
       ),
       Match.orElse(() => Effect.succeed(blockType))
     )
-  }
+  },
 }
 ```
 
 ### Error: Entity component mismatch
 
 #### 症状
+
 ```bash
 error: ComponentMismatchError: Entity 12345 missing required component: PositionComponent
 ```
 
 #### 原因
+
 - ECSシステムのコンポーネント管理不備
 - システムの実行順序問題
 
 #### 解決方法
+
 ```typescript
 // コンポーネント依存関係の管理
 const SystemManager = {
@@ -1311,14 +1373,14 @@ const SystemManager = {
           return yield* Effect.fail(
             new ComponentMismatchError({
               entityId,
-              missingComponent: componentType
+              missingComponent: componentType,
             })
           )
         }
       }
 
       return true
-    })
+    }),
 }
 ```
 
@@ -1327,15 +1389,18 @@ const SystemManager = {
 ### Error: Memory leak in chunk cache
 
 #### 症状
+
 ```bash
 error: MemoryLeakError: Chunk cache exceeded 2GB, 1547 chunks not disposed
 ```
 
 #### 原因
+
 - 使用されないチャンクのガベージコレクション失敗
 - WeakMapの不適切な使用
 
 #### 解決方法
+
 ```typescript
 // LRUキャッシュでのメモリ管理
 class ChunkCache {
@@ -1353,7 +1418,7 @@ class ChunkCache {
 
     this.cache.set(key, {
       chunk,
-      lastAccess: Date.now()
+      lastAccess: Date.now(),
     })
   }
 
@@ -1373,15 +1438,18 @@ class ChunkCache {
 ### Error: WebGL context exceeded resource limits
 
 #### 症状
+
 ```bash
 error: WebGLError: CONTEXT_LOST_WEBGL: Too many vertex buffer objects
 ```
 
 #### 原因
+
 - GPUリソースの枚渇
 - BufferGeometryの未解放
 
 #### 解決方法
+
 ```typescript
 // WebGLリソースプール管理
 const WebGLResourceManager = {
@@ -1405,7 +1473,7 @@ const WebGLResourceManager = {
         this.geometryPool.delete(key)
       }
     })
-  }
+  },
 }
 
 // 定期クリーンアップ
@@ -1417,20 +1485,23 @@ setInterval(() => {
 ### Error: Frame rate drop below threshold
 
 #### 症状
+
 ```bash
 warn: PerformanceWarning: FPS dropped to 23, target is 60
 ```
 
 #### 原因
+
 - Draw callの過多
 - 非効率なレンダリング
 
 #### 解決方法
+
 ```typescript
 // レベルオブディテイル(LOD)システム
 const LODManager = {
   updateLOD: (camera: THREE.Camera, entities: Entity[]) => {
-    entities.forEach(entity => {
+    entities.forEach((entity) => {
       const distance = camera.position.distanceTo(entity.position)
 
       if (distance > 100) {
@@ -1448,31 +1519,29 @@ const LODManager = {
 
   frustumCulling: (camera: THREE.Camera, entities: Entity[]) => {
     const frustum = new THREE.Frustum()
-    const matrix = new THREE.Matrix4().multiplyMatrices(
-      camera.projectionMatrix,
-      camera.matrixWorldInverse
-    )
+    const matrix = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
     frustum.setFromProjectionMatrix(matrix)
 
-    return entities.filter(entity =>
-      frustum.intersectsObject(entity.mesh)
-    )
-  }
+    return entities.filter((entity) => frustum.intersectsObject(entity.mesh))
+  },
 }
 ```
 
 ### Error: Audio system initialization failed
 
 #### 症状
+
 ```bash
 error: AudioContextError: The AudioContext was not allowed to start
 ```
 
 #### 原因
+
 - ブラウザの自動再生ポリシー
 - ユーザーインタラクション前の初期化
 
 #### 解決方法
+
 ```typescript
 // 遅延オーディオ初期化
 const AudioManager = {
@@ -1495,7 +1564,7 @@ const AudioManager = {
   },
 
   waitForUserInteraction: (): Promise<void> => {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       const handler = () => {
         document.removeEventListener('click', handler)
         document.removeEventListener('keypress', handler)
@@ -1504,22 +1573,25 @@ const AudioManager = {
       document.addEventListener('click', handler, { once: true })
       document.addEventListener('keypress', handler, { once: true })
     })
-  }
+  },
 }
 ```
 
 ### Error: Save data corruption detected
 
 #### 症状
+
 ```bash
 error: SaveDataCorruptionError: Checksum mismatch in world save file
 ```
 
 #### 原因
+
 - セーブデータの不完全な書き込み
 - ファイルシステムの問題
 
 #### 解決方法
+
 ```typescript
 // チェックサム付きセーブシステム
 const SaveManager = {
@@ -1531,7 +1603,7 @@ const SaveManager = {
       version: '1.0.0',
       timestamp: Date.now(),
       checksum,
-      data
+      data,
     }
 
     // アトミックな書き込み
@@ -1563,9 +1635,9 @@ const SaveManager = {
     const dataArray = encoder.encode(data)
     const hashBuffer = await crypto.subtle.digest('SHA-256', dataArray)
     return Array.from(new Uint8Array(hashBuffer))
-      .map(b => b.toString(16).padStart(2, '0'))
+      .map((b) => b.toString(16).padStart(2, '0'))
       .join('')
-  }
+  },
 }
 ```
 
@@ -1574,15 +1646,18 @@ const SaveManager = {
 ### Error: WebSocket connection failed
 
 #### 症状
+
 ```bash
 error: WebSocketError: Connection failed to ws://localhost:3001/minecraft
 ```
 
 #### 原因
+
 - サーバーが起動していない
 - ファイアウォールのブロック
 
 #### 解決方法
+
 ```typescript
 // 再接続機能付きWebSocketラッパー
 const ReliableWebSocket = {
@@ -1603,10 +1678,13 @@ const ReliableWebSocket = {
 
       ws.onerror = (error) => {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
-          setTimeout(() => {
-            this.reconnectAttempts++
-            this.connect(url).then(resolve).catch(reject)
-          }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts))
+          setTimeout(
+            () => {
+              this.reconnectAttempts++
+              this.connect(url).then(resolve).catch(reject)
+            },
+            this.reconnectDelay * Math.pow(2, this.reconnectAttempts)
+          )
         } else {
           reject(new WebSocketError('Max reconnection attempts reached'))
         }
@@ -1618,22 +1696,25 @@ const ReliableWebSocket = {
         }
       }
     })
-  }
+  },
 }
 ```
 
 ### Error: Player synchronization conflict
 
 #### 症状
+
 ```bash
 error: SyncConflictError: Player position mismatch - Server: (10, 64, 5), Client: (12, 64, 7)
 ```
 
 #### 原因
+
 - ネットワーク遅延
 - クライアント予測の精度不足
 
 #### 解決方法
+
 ```typescript
 // クライアント予測とサーバー調整
 const PlayerSyncManager = {
@@ -1642,7 +1723,7 @@ const PlayerSyncManager = {
     const predictedPosition = {
       x: player.position.x + velocity.x * deltaTime,
       y: player.position.y + velocity.y * deltaTime,
-      z: player.position.z + velocity.z * deltaTime
+      z: player.position.z + velocity.z * deltaTime,
     }
 
     return { ...player, position: predictedPosition }
@@ -1663,24 +1744,27 @@ const PlayerSyncManager = {
         clientPlayer.position,
         serverPlayer.position,
         0.1 // 補間係数
-      )
+      ),
     }
-  }
+  },
 }
 ```
 
 ### Error: Message queue overflow
 
 #### 症状
+
 ```bash
 error: MessageQueueError: Network message queue exceeded 1000 messages
 ```
 
 #### 原因
+
 - メッセージ処理速度の低下
 - ネットワーク帯域の不足
 
 #### 解決方法
+
 ```typescript
 // メッセージ優先度付きキュー
 class PriorityMessageQueue {
@@ -1737,21 +1821,21 @@ const createUnifiedErrorHandler = Effect.gen(function* () {
         Match.value,
         Match.when(
           (e): e is TypeError => e instanceof TypeError,
-          () => "type-error" as const
+          () => 'type-error' as const
         ),
         Match.when(
           (e): e is ReferenceError => e instanceof ReferenceError,
-          () => "reference-error" as const
+          () => 'reference-error' as const
         ),
         Match.when(
           (e): e is ParseResult.ParseError => Schema.is(ParseResult.ParseErrorSchema)(e),
-          () => "validation-error" as const
+          () => 'validation-error' as const
         ),
         Match.when(
           (e): e is MinecraftError => e instanceof MinecraftError,
-          () => "domain-error" as const
+          () => 'domain-error' as const
         ),
-        Match.orElse(() => "unknown-error" as const)
+        Match.orElse(() => 'unknown-error' as const)
       )
 
       // メトリクス記録
@@ -1766,17 +1850,17 @@ const createUnifiedErrorHandler = Effect.gen(function* () {
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
         context,
-        service: 'ts-minecraft'
+        service: 'ts-minecraft',
       }
 
       yield* Queue.offer(errorQueue, logEntry)
 
       // 重要度に応じた処理
       if (errorType === 'domain-error') {
-        yield* Effect.logError("Critical domain error", logEntry)
+        yield* Effect.logError('Critical domain error', logEntry)
         yield* sendErrorToMonitoring(logEntry)
       } else {
-        yield* Effect.logWarn("Application error", logEntry)
+        yield* Effect.logWarn('Application error', logEntry)
       }
     })
 
@@ -1787,6 +1871,7 @@ const createUnifiedErrorHandler = Effect.gen(function* () {
 ## 関連リソース
 
 ### プロジェクト内関連ページ
+
 - [Effect-TSトラブルシューティング](./effect-ts-troubleshooting.md) - Effect-TS特有の問題解決
 - [デバッグガイド](./debugging-guide.md) - より詳細なデバッグ手法
 - [パフォーマンス問題](./performance-issues.md) - パフォーマンス最適化
@@ -1794,6 +1879,7 @@ const createUnifiedErrorHandler = Effect.gen(function* () {
 - [ランタイムエラー](./runtime-errors.md) - 実行時エラーの対処法
 
 ### 外部リソース
+
 - [Effect-TS 公式ドキュメント](https://effect.website/) - 最新のAPI仕様
 - [Three.js エラー解決](https://threejs.org/docs/#manual/introduction/FAQ) - Three.js特有の問題
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/) - TypeScript詳細ガイド
@@ -1802,6 +1888,7 @@ const createUnifiedErrorHandler = Effect.gen(function* () {
 ### 緊急時対応チェックリスト
 
 #### システム全体が起動しない場合
+
 - [ ] `pnpm install` で依存関係を再インストール
 - [ ] `rm -rf node_modules pnpm-lock.yaml && pnpm install` でクリーンインストール
 - [ ] TypeScript設定の確認（`npx tsc --showConfig`）
@@ -1809,6 +1896,7 @@ const createUnifiedErrorHandler = Effect.gen(function* () {
 - [ ] Effect-TS バージョンの確認（`pnpm list effect`）
 
 #### レンダリングが停止した場合
+
 - [ ] WebGLコンテキストの状態確認
 - [ ] ブラウザのメモリ使用量確認
 - [ ] コンソールエラーの確認

@@ -1,17 +1,17 @@
 ---
-title: "天候システム仕様 - 動的気象・環境エフェクト・バイオーム連携"
-description: "Minecraft Cloneの包括的天候システム。雨・雷・雪・霧の動的生成、バイオーム固有気象、音響エフェクト、照明システム連携の完全実装仕様。"
-category: "specification"
-difficulty: "advanced"
-tags: ["weather-system", "environmental-effects", "biome-system", "audio-system", "lighting", "particle-effects"]
-prerequisites: ["effect-ts-fundamentals", "biome-system-basics", "audio-programming", "particle-systems"]
-estimated_reading_time: "28分"
-related_patterns: ["environmental-patterns", "audio-patterns", "biome-patterns"]
-related_docs: ["./03-day-night-cycle.md", "./12-extended-biome-system.md", "./14-particle-system.md"]
+title: '天候システム仕様 - 動的気象・環境エフェクト・バイオーム連携'
+description: 'Minecraft Cloneの包括的天候システム。雨・雷・雪・霧の動的生成、バイオーム固有気象、音響エフェクト、照明システム連携の完全実装仕様。'
+category: 'specification'
+difficulty: 'advanced'
+tags: ['weather-system', 'environmental-effects', 'biome-system', 'audio-system', 'lighting', 'particle-effects']
+prerequisites: ['effect-ts-fundamentals', 'biome-system-basics', 'audio-programming', 'particle-systems']
+estimated_reading_time: '28分'
+related_patterns: ['environmental-patterns', 'audio-patterns', 'biome-patterns']
+related_docs: ['./03-day-night-cycle.md', './12-extended-biome-system.md', './14-particle-system.md']
 search_keywords:
-  primary: ["weather-system", "rain-effects", "thunderstorm", "dynamic-weather"]
-  secondary: ["minecraft-weather", "environmental-simulation", "climate-system"]
-  context: ["game-atmosphere", "immersive-experience", "environmental-design"]
+  primary: ['weather-system', 'rain-effects', 'thunderstorm', 'dynamic-weather']
+  secondary: ['minecraft-weather', 'environmental-simulation', 'climate-system']
+  context: ['game-atmosphere', 'immersive-experience', 'environmental-design']
 ---
 
 # Weather System - 動的天候システム
@@ -27,59 +27,39 @@ Weather Systemは、Minecraftの世界に動的で没入感のある天候体験
 天候状態を管理する包括的なシステムです。
 
 ```typescript
-import { Effect, Layer, Context, Stream, Signal, Schema, pipe } from "effect"
-import { Brand } from "effect"
+import { Effect, Layer, Context, Stream, Signal, Schema, pipe } from 'effect'
+import { Brand } from 'effect'
 
 // Domain Types
-export type Temperature = Brand.Brand<number, "Temperature"> // Celsius
-export const Temperature = pipe(
-  Schema.Number,
-  Schema.between(-50, 60),
-  Schema.brand("Temperature")
-)
+export type Temperature = Brand.Brand<number, 'Temperature'> // Celsius
+export const Temperature = pipe(Schema.Number, Schema.between(-50, 60), Schema.brand('Temperature'))
 
-export type Humidity = Brand.Brand<number, "Humidity"> // 0-100%
-export const Humidity = pipe(
-  Schema.Number,
-  Schema.between(0, 100),
-  Schema.brand("Humidity")
-)
+export type Humidity = Brand.Brand<number, 'Humidity'> // 0-100%
+export const Humidity = pipe(Schema.Number, Schema.between(0, 100), Schema.brand('Humidity'))
 
-export type Pressure = Brand.Brand<number, "Pressure"> // hPa
-export const Pressure = pipe(
-  Schema.Number,
-  Schema.between(950, 1050),
-  Schema.brand("Pressure")
-)
+export type Pressure = Brand.Brand<number, 'Pressure'> // hPa
+export const Pressure = pipe(Schema.Number, Schema.between(950, 1050), Schema.brand('Pressure'))
 
-export type WindSpeed = Brand.Brand<number, "WindSpeed"> // m/s
-export const WindSpeed = pipe(
-  Schema.Number,
-  Schema.between(0, 50),
-  Schema.brand("WindSpeed")
-)
+export type WindSpeed = Brand.Brand<number, 'WindSpeed'> // m/s
+export const WindSpeed = pipe(Schema.Number, Schema.between(0, 50), Schema.brand('WindSpeed'))
 
-export type CloudCoverage = Brand.Brand<number, "CloudCoverage"> // 0-100%
-export const CloudCoverage = pipe(
-  Schema.Number,
-  Schema.between(0, 100),
-  Schema.brand("CloudCoverage")
-)
+export type CloudCoverage = Brand.Brand<number, 'CloudCoverage'> // 0-100%
+export const CloudCoverage = pipe(Schema.Number, Schema.between(0, 100), Schema.brand('CloudCoverage'))
 
 // Weather States
 export const WeatherCondition = Schema.Literal(
-  "clear",
-  "partly_cloudy",
-  "overcast",
-  "light_rain",
-  "heavy_rain",
-  "drizzle",
-  "thunderstorm",
-  "light_snow",
-  "heavy_snow",
-  "blizzard",
-  "fog",
-  "sandstorm"
+  'clear',
+  'partly_cloudy',
+  'overcast',
+  'light_rain',
+  'heavy_rain',
+  'drizzle',
+  'thunderstorm',
+  'light_snow',
+  'heavy_snow',
+  'blizzard',
+  'fog',
+  'sandstorm'
 )
 
 export type WeatherCondition = Schema.Schema.Type<typeof WeatherCondition>
@@ -95,7 +75,7 @@ export const WeatherState = Schema.Struct({
   cloudCoverage: CloudCoverage,
   precipitationIntensity: pipe(Schema.Number, Schema.between(0, 1)),
   visibility: pipe(Schema.Number, Schema.between(0, 1000)), // meters
-  timestamp: Schema.DateTimeUtc
+  timestamp: Schema.DateTimeUtc,
 })
 
 export type WeatherState = Schema.Schema.Type<typeof WeatherState>
@@ -108,17 +88,17 @@ export const RegionalWeather = Schema.Struct({
   microclimate: Schema.Struct({
     temperature_modifier: Schema.Number,
     humidity_modifier: Schema.Number,
-    precipitation_modifier: Schema.Number
+    precipitation_modifier: Schema.Number,
   }),
   elevation: Schema.Number,
   latitude: pipe(Schema.Number, Schema.between(-90, 90)),
-  longitude: pipe(Schema.Number, Schema.between(-180, 180))
+  longitude: pipe(Schema.Number, Schema.between(-180, 180)),
 })
 
 export type RegionalWeather = Schema.Schema.Type<typeof RegionalWeather>
 
 // Seasonal Data
-export const Season = Schema.Literal("spring", "summer", "autumn", "winter")
+export const Season = Schema.Literal('spring', 'summer', 'autumn', 'winter')
 export type Season = Schema.Schema.Type<typeof Season>
 
 export const SeasonalModifiers = Schema.Struct({
@@ -127,7 +107,7 @@ export const SeasonalModifiers = Schema.Struct({
   humidityModifier: Schema.Number,
   precipitationModifier: Schema.Number,
   daylightModifier: Schema.Number,
-  stormFrequencyModifier: Schema.Number
+  stormFrequencyModifier: Schema.Number,
 })
 
 export type SeasonalModifiers = Schema.Schema.Type<typeof SeasonalModifiers>
@@ -390,7 +370,7 @@ export const WeatherGeneratorLive = Layer.effect(
 
 ```typescript
 // Precipitation Effects
-export const PrecipitationType = Schema.Literal("rain", "snow", "hail", "sleet")
+export const PrecipitationType = Schema.Literal('rain', 'snow', 'hail', 'sleet')
 export type PrecipitationType = Schema.Schema.Type<typeof PrecipitationType>
 
 export const Precipitation = Schema.Struct({
@@ -404,10 +384,10 @@ export const Precipitation = Schema.Struct({
   affectedArea: Schema.Struct({
     center: Schema.Struct({
       x: Schema.Number,
-      z: Schema.Number
+      z: Schema.Number,
     }),
-    radius: Schema.Number
-  })
+    radius: Schema.Number,
+  }),
 })
 
 export type Precipitation = Schema.Schema.Type<typeof Precipitation>
@@ -417,24 +397,16 @@ interface PrecipitationSystemInterface {
     precipitation: Precipitation,
     world: World
   ) => Effect.Effect<Fiber.RuntimeFiber<never, never>, never>
-  readonly updatePrecipitation: (
-    precipitationId: string,
-    intensity: number
-  ) => Effect.Effect<void, never>
-  readonly stopPrecipitation: (
-    precipitationId: string
-  ) => Effect.Effect<void, never>
+  readonly updatePrecipitation: (precipitationId: string, intensity: number) => Effect.Effect<void, never>
+  readonly stopPrecipitation: (precipitationId: string) => Effect.Effect<void, never>
   readonly calculateGroundAccumulation: (
     precipitation: Precipitation,
     terrain: TerrainData
   ) => Effect.Effect<AccumulationMap, never>
-  readonly simulateRunoff: (
-    accumulation: AccumulationMap,
-    terrain: TerrainData
-  ) => Effect.Effect<WaterFlow, never>
+  readonly simulateRunoff: (accumulation: AccumulationMap, terrain: TerrainData) => Effect.Effect<WaterFlow, never>
 }
 
-const PrecipitationSystem = Context.GenericTag<PrecipitationSystemInterface>("@app/PrecipitationSystem")
+const PrecipitationSystem = Context.GenericTag<PrecipitationSystemInterface>('@app/PrecipitationSystem')
 
 export const PrecipitationSystemLive = Layer.effect(
   PrecipitationSystem,
@@ -442,177 +414,157 @@ export const PrecipitationSystemLive = Layer.effect(
     const activePrecipitation = yield* Ref.make<Map<string, Precipitation>>(new Map())
     const particleSystem = yield* ParticleSystem
 
-    const startPrecipitation = (
-      precipitation: Precipitation,
-      world: World
-    ) => Effect.gen(function* () {
-      const precipitationId = crypto.randomUUID()
+    const startPrecipitation = (precipitation: Precipitation, world: World) =>
+      Effect.gen(function* () {
+        const precipitationId = crypto.randomUUID()
 
-      yield* Ref.update(activePrecipitation, map =>
-        map.set(precipitationId, precipitation)
-      )
+        yield* Ref.update(activePrecipitation, (map) => map.set(precipitationId, precipitation))
 
-      const simulationFiber = yield* Effect.fork(
-        precipitationSimulation(precipitationId, precipitation, world)
-      )
+        const simulationFiber = yield* Effect.fork(precipitationSimulation(precipitationId, precipitation, world))
 
-      return simulationFiber
-    })
+        return simulationFiber
+      })
 
-    const precipitationSimulation = (
-      precipitationId: string,
-      precipitation: Precipitation,
-      world: World
-    ) => Effect.gen(function* () {
-      const startTime = Date.now()
+    const precipitationSimulation = (precipitationId: string, precipitation: Precipitation, world: World) =>
+      Effect.gen(function* () {
+        const startTime = Date.now()
 
-      while (true) {
-        const elapsed = Date.now() - startTime
-        if (elapsed > precipitation.duration * 1000) {
-          yield* stopPrecipitation(precipitationId)
-          break
+        while (true) {
+          const elapsed = Date.now() - startTime
+          if (elapsed > precipitation.duration * 1000) {
+            yield* stopPrecipitation(precipitationId)
+            break
+          }
+
+          // Generate precipitation particles
+          const particles = yield* generatePrecipitationParticles(precipitation, world.currentTime)
+
+          // Add particles to rendering system
+          yield* Effect.forEach(particles, (particle) => particleSystem.addParticle(particle), {
+            concurrency: 'unbounded',
+          })
+
+          // Update ground moisture and accumulation
+          yield* updateGroundEffects(precipitation, world, elapsed)
+
+          // 50ms update interval
+          yield* Effect.sleep(50)
+        }
+      })
+
+    const generatePrecipitationParticles = (precipitation: Precipitation, currentTime: Date) =>
+      Effect.gen(function* () {
+        const particles: PrecipitationParticle[] = []
+        const { center, radius } = precipitation.affectedArea
+        const particleCount = Math.floor(precipitation.intensity * 1000)
+
+        for (let i = 0; i < particleCount; i++) {
+          const angle = Math.random() * 2 * Math.PI
+          const distance = Math.random() * radius
+          const x = center.x + Math.cos(angle) * distance
+          const z = center.z + Math.sin(angle) * distance
+
+          // Find ground level
+          const y = yield* getGroundLevel(x, z)
+
+          const particle: PrecipitationParticle = {
+            id: crypto.randomUUID(),
+            type: precipitation.type,
+            position: { x, y: y + 50, z },
+            velocity: {
+              x: Math.random() * 2 - 1, // Wind effect
+              y: -precipitation.fallVelocity,
+              z: Math.random() * 2 - 1,
+            },
+            size: precipitation.dropletSize,
+            lifespan: calculateDropletLifespan(precipitation),
+            createdAt: currentTime,
+          }
+
+          particles.push(particle)
         }
 
-        // Generate precipitation particles
-        const particles = yield* generatePrecipitationParticles(
-          precipitation,
-          world.currentTime
-        )
+        return particles
+      })
 
-        // Add particles to rendering system
-        yield* Effect.forEach(
-          particles,
-          particle => particleSystem.addParticle(particle),
-          { concurrency: "unbounded" }
-        )
+    const calculateGroundAccumulation = (precipitation: Precipitation, terrain: TerrainData) =>
+      Effect.gen(function* () {
+        const accumulationMap: AccumulationMap = new Map()
+        const { center, radius } = precipitation.affectedArea
 
-        // Update ground moisture and accumulation
-        yield* updateGroundEffects(precipitation, world, elapsed)
+        // Grid-based accumulation calculation
+        const gridSize = 1 // 1 block resolution
+        const steps = Math.ceil((radius * 2) / gridSize)
 
-        // 50ms update interval
-        yield* Effect.sleep(50)
-      }
-    })
+        for (let x = -steps; x <= steps; x++) {
+          for (let z = -steps; z <= steps; z++) {
+            const worldX = center.x + x * gridSize
+            const worldZ = center.z + z * gridSize
+            const distance = Math.sqrt(x * x + z * z) * gridSize
 
-    const generatePrecipitationParticles = (
-      precipitation: Precipitation,
-      currentTime: Date
-    ) => Effect.gen(function* () {
-      const particles: PrecipitationParticle[] = []
-      const { center, radius } = precipitation.affectedArea
-      const particleCount = Math.floor(precipitation.intensity * 1000)
+            if (distance <= radius) {
+              const elevation = terrain.getElevation(worldX, worldZ)
+              const slope = terrain.getSlope(worldX, worldZ)
 
-      for (let i = 0; i < particleCount; i++) {
-        const angle = Math.random() * 2 * Math.PI
-        const distance = Math.random() * radius
-        const x = center.x + Math.cos(angle) * distance
-        const z = center.z + Math.sin(angle) * distance
+              // Calculate accumulation based on intensity and terrain
+              const baseAccumulation = (precipitation.intensity * precipitation.duration) / 3600
+              const slopeModifier = Math.max(0.1, 1 - slope * 0.5) // Less accumulation on steep slopes
+              const finalAccumulation = baseAccumulation * slopeModifier
 
-        // Find ground level
-        const y = yield* getGroundLevel(x, z)
-
-        const particle: PrecipitationParticle = {
-          id: crypto.randomUUID(),
-          type: precipitation.type,
-          position: { x, y: y + 50, z },
-          velocity: {
-            x: Math.random() * 2 - 1, // Wind effect
-            y: -precipitation.fallVelocity,
-            z: Math.random() * 2 - 1
-          },
-          size: precipitation.dropletSize,
-          lifespan: calculateDropletLifespan(precipitation),
-          createdAt: currentTime
-        }
-
-        particles.push(particle)
-      }
-
-      return particles
-    })
-
-    const calculateGroundAccumulation = (
-      precipitation: Precipitation,
-      terrain: TerrainData
-    ) => Effect.gen(function* () {
-      const accumulationMap: AccumulationMap = new Map()
-      const { center, radius } = precipitation.affectedArea
-
-      // Grid-based accumulation calculation
-      const gridSize = 1 // 1 block resolution
-      const steps = Math.ceil(radius * 2 / gridSize)
-
-      for (let x = -steps; x <= steps; x++) {
-        for (let z = -steps; z <= steps; z++) {
-          const worldX = center.x + x * gridSize
-          const worldZ = center.z + z * gridSize
-          const distance = Math.sqrt(x * x + z * z) * gridSize
-
-          if (distance <= radius) {
-            const elevation = terrain.getElevation(worldX, worldZ)
-            const slope = terrain.getSlope(worldX, worldZ)
-
-            // Calculate accumulation based on intensity and terrain
-            const baseAccumulation = precipitation.intensity * precipitation.duration / 3600
-            const slopeModifier = Math.max(0.1, 1 - slope * 0.5) // Less accumulation on steep slopes
-            const finalAccumulation = baseAccumulation * slopeModifier
-
-            accumulationMap.set(`${worldX},${worldZ}`, finalAccumulation)
+              accumulationMap.set(`${worldX},${worldZ}`, finalAccumulation)
+            }
           }
         }
-      }
 
-      return accumulationMap
-    })
+        return accumulationMap
+      })
 
-    const simulateRunoff = (
-      accumulation: AccumulationMap,
-      terrain: TerrainData
-    ) => Effect.gen(function* () {
-      const waterFlow: WaterFlow = {
-        flowPaths: [],
-        ponding: new Map(),
-        drainage: new Map()
-      }
-
-      // Simple runoff simulation
-      for (const [positionKey, amount] of accumulation) {
-        const [x, z] = positionKey.split(',').map(Number)
-        const elevation = terrain.getElevation(x, z)
-
-        // Find steepest descent direction
-        const neighbors = [
-          { x: x + 1, z, elevation: terrain.getElevation(x + 1, z) },
-          { x: x - 1, z, elevation: terrain.getElevation(x - 1, z) },
-          { x, z: z + 1, elevation: terrain.getElevation(x, z + 1) },
-          { x, z: z - 1, elevation: terrain.getElevation(x, z - 1) }
-        ]
-
-        const lowestNeighbor = neighbors.reduce((min, neighbor) =>
-          neighbor.elevation < min.elevation ? neighbor : min
-        )
-
-        if (lowestNeighbor.elevation < elevation) {
-          // Water flows to lower elevation
-          const flowAmount = amount * 0.8 // 80% flows, 20% absorbed
-          waterFlow.flowPaths.push({
-            from: { x, z },
-            to: { x: lowestNeighbor.x, z: lowestNeighbor.z },
-            amount: flowAmount
-          })
-        } else {
-          // Water ponds at this location
-          waterFlow.ponding.set(positionKey, amount)
+    const simulateRunoff = (accumulation: AccumulationMap, terrain: TerrainData) =>
+      Effect.gen(function* () {
+        const waterFlow: WaterFlow = {
+          flowPaths: [],
+          ponding: new Map(),
+          drainage: new Map(),
         }
-      }
 
-      return waterFlow
-    })
+        // Simple runoff simulation
+        for (const [positionKey, amount] of accumulation) {
+          const [x, z] = positionKey.split(',').map(Number)
+          const elevation = terrain.getElevation(x, z)
+
+          // Find steepest descent direction
+          const neighbors = [
+            { x: x + 1, z, elevation: terrain.getElevation(x + 1, z) },
+            { x: x - 1, z, elevation: terrain.getElevation(x - 1, z) },
+            { x, z: z + 1, elevation: terrain.getElevation(x, z + 1) },
+            { x, z: z - 1, elevation: terrain.getElevation(x, z - 1) },
+          ]
+
+          const lowestNeighbor = neighbors.reduce((min, neighbor) =>
+            neighbor.elevation < min.elevation ? neighbor : min
+          )
+
+          if (lowestNeighbor.elevation < elevation) {
+            // Water flows to lower elevation
+            const flowAmount = amount * 0.8 // 80% flows, 20% absorbed
+            waterFlow.flowPaths.push({
+              from: { x, z },
+              to: { x: lowestNeighbor.x, z: lowestNeighbor.z },
+              amount: flowAmount,
+            })
+          } else {
+            // Water ponds at this location
+            waterFlow.ponding.set(positionKey, amount)
+          }
+        }
+
+        return waterFlow
+      })
 
     return {
       startPrecipitation,
       updatePrecipitation: (precipitationId, intensity) =>
-        Ref.update(activePrecipitation, map => {
+        Ref.update(activePrecipitation, (map) => {
           const precip = map.get(precipitationId)
           if (precip) {
             map.set(precipitationId, { ...precip, intensity })
@@ -620,12 +572,12 @@ export const PrecipitationSystemLive = Layer.effect(
           return map
         }),
       stopPrecipitation: (precipitationId) =>
-        Ref.update(activePrecipitation, map => {
+        Ref.update(activePrecipitation, (map) => {
           map.delete(precipitationId)
           return map
         }),
       calculateGroundAccumulation,
-      simulateRunoff
+      simulateRunoff,
     } as const
   })
 )
@@ -642,7 +594,7 @@ export const LightningStrike = Schema.Struct({
   position: Schema.Struct({
     x: Schema.Number,
     y: Schema.Number,
-    z: Schema.Number
+    z: Schema.Number,
   }),
   intensity: Schema.Number.pipe(Schema.between(0, 1)),
   duration: Schema.Number, // milliseconds
@@ -650,7 +602,7 @@ export const LightningStrike = Schema.Struct({
   groundStrike: Schema.Boolean,
   damage: Schema.Number,
   fireChance: Schema.Number.pipe(Schema.between(0, 1)),
-  timestamp: Schema.DateTimeUtc
+  timestamp: Schema.DateTimeUtc,
 })
 
 export type LightningStrike = Schema.Schema.Type<typeof LightningStrike>
@@ -668,172 +620,162 @@ interface LightningSystemInterface {
     startPosition: { x: number; y: number; z: number },
     targetPosition: { x: number; y: number; z: number }
   ) => Effect.Effect<ReadonlyArray<{ x: number; y: number; z: number }>, never>
-  readonly applyLightningEffects: (
-    strike: LightningStrike,
-    world: World
-  ) => Effect.Effect<World, LightningError>
+  readonly applyLightningEffects: (strike: LightningStrike, world: World) => Effect.Effect<World, LightningError>
 }
 
-const LightningSystem = Context.GenericTag<LightningSystemInterface>("@app/LightningSystem")
+const LightningSystem = Context.GenericTag<LightningSystemInterface>('@app/LightningSystem')
 
 export const LightningSystemLive = Layer.effect(
   LightningSystem,
   Effect.gen(function* () {
-    const generateLightning = (
-      thunderstormConditions: WeatherState,
-      world: World
-    ) => Effect.gen(function* () {
-      // 早期リターン: 雷雨でない場合は空配列を返す
-      if (thunderstormConditions.condition !== "thunderstorm") {
-        return []
-      }
+    const generateLightning = (thunderstormConditions: WeatherState, world: World) =>
+      Effect.gen(function* () {
+        // 早期リターン: 雷雨でない場合は空配列を返す
+        if (thunderstormConditions.condition !== 'thunderstorm') {
+          return []
+        }
 
-      const strikeCount = calculateLightningFrequency(thunderstormConditions)
+        const strikeCount = calculateLightningFrequency(thunderstormConditions)
 
-      // 早期リターン: 雷の発生がない場合
-      if (strikeCount === 0) {
-        return []
-      }
+        // 早期リターン: 雷の発生がない場合
+        if (strikeCount === 0) {
+          return []
+        }
 
-      const strikes = yield* Effect.forEach(
-        Array.from({ length: strikeCount }, (_, i) => i),
-        () => generateSingleLightningStrike(world, thunderstormConditions),
-        { concurrency: "unbounded" }
-      )
+        const strikes = yield* Effect.forEach(
+          Array.from({ length: strikeCount }, (_, i) => i),
+          () => generateSingleLightningStrike(world, thunderstormConditions),
+          { concurrency: 'unbounded' }
+        )
 
-      return strikes
-    })
+        return strikes
+      })
 
-    const generateSingleLightningStrike = (
-      world: World,
-      conditions: WeatherState
-    ) => Effect.gen(function* () {
-      // Find suitable strike location
-      const cloudHeight = 120 + Math.random() * 50
-      const strikeRange = 500 + Math.random() * 1000
+    const generateSingleLightningStrike = (world: World, conditions: WeatherState) =>
+      Effect.gen(function* () {
+        // Find suitable strike location
+        const cloudHeight = 120 + Math.random() * 50
+        const strikeRange = 500 + Math.random() * 1000
 
-      const targetX = (Math.random() - 0.5) * strikeRange
-      const targetZ = (Math.random() - 0.5) * strikeRange
-      const groundY = yield* getGroundLevel(targetX, targetZ)
+        const targetX = (Math.random() - 0.5) * strikeRange
+        const targetZ = (Math.random() - 0.5) * strikeRange
+        const groundY = yield* getGroundLevel(targetX, targetZ)
 
-      const strike: LightningStrike = {
-        id: crypto.randomUUID(),
-        position: {
-          x: targetX,
-          y: cloudHeight,
-          z: targetZ
-        },
-        intensity: 0.7 + Math.random() * 0.3,
-        duration: 100 + Math.random() * 200,
-        branchingFactor: Math.random() * 0.5,
-        groundStrike: Math.random() < 0.8, // 80% ground strikes
-        damage: calculateLightningDamage(conditions.windSpeed),
-        fireChance: calculateFireChance(conditions.humidity, conditions.precipitationIntensity),
-        timestamp: new Date()
-      }
+        const strike: LightningStrike = {
+          id: crypto.randomUUID(),
+          position: {
+            x: targetX,
+            y: cloudHeight,
+            z: targetZ,
+          },
+          intensity: 0.7 + Math.random() * 0.3,
+          duration: 100 + Math.random() * 200,
+          branchingFactor: Math.random() * 0.5,
+          groundStrike: Math.random() < 0.8, // 80% ground strikes
+          damage: calculateLightningDamage(conditions.windSpeed),
+          fireChance: calculateFireChance(conditions.humidity, conditions.precipitationIntensity),
+          timestamp: new Date(),
+        }
 
-      return strike
-    })
+        return strike
+      })
 
     const calculateThunderDelay = (
       lightningPosition: { x: number; y: number; z: number },
       observerPosition: { x: number; y: number; z: number }
-    ) => Effect.gen(function* () {
-      const distance = Math.sqrt(
-        Math.pow(lightningPosition.x - observerPosition.x, 2) +
-        Math.pow(lightningPosition.y - observerPosition.y, 2) +
-        Math.pow(lightningPosition.z - observerPosition.z, 2)
-      )
+    ) =>
+      Effect.gen(function* () {
+        const distance = Math.sqrt(
+          Math.pow(lightningPosition.x - observerPosition.x, 2) +
+            Math.pow(lightningPosition.y - observerPosition.y, 2) +
+            Math.pow(lightningPosition.z - observerPosition.z, 2)
+        )
 
-      // Sound travels at ~343 m/s
-      const soundSpeed = 343
-      const delay = distance / soundSpeed
+        // Sound travels at ~343 m/s
+        const soundSpeed = 343
+        const delay = distance / soundSpeed
 
-      return delay * 1000 // Convert to milliseconds
-    })
+        return delay * 1000 // Convert to milliseconds
+      })
 
     const simulateLightningPath = (
       startPosition: { x: number; y: number; z: number },
       targetPosition: { x: number; y: number; z: number }
-    ) => Effect.gen(function* () {
-      const path: { x: number; y: number; z: number }[] = []
-      const steps = 20
+    ) =>
+      Effect.gen(function* () {
+        const path: { x: number; y: number; z: number }[] = []
+        const steps = 20
 
-      for (let i = 0; i <= steps; i++) {
-        const progress = i / steps
+        for (let i = 0; i <= steps; i++) {
+          const progress = i / steps
 
-        // Add natural zigzag pattern
-        const deviation = (Math.random() - 0.5) * 5 * (1 - progress)
+          // Add natural zigzag pattern
+          const deviation = (Math.random() - 0.5) * 5 * (1 - progress)
 
-        const x = startPosition.x + (targetPosition.x - startPosition.x) * progress + deviation
-        const y = startPosition.y + (targetPosition.y - startPosition.y) * progress
-        const z = startPosition.z + (targetPosition.z - startPosition.z) * progress + deviation
+          const x = startPosition.x + (targetPosition.x - startPosition.x) * progress + deviation
+          const y = startPosition.y + (targetPosition.y - startPosition.y) * progress
+          const z = startPosition.z + (targetPosition.z - startPosition.z) * progress + deviation
 
-        path.push({ x, y, z })
-      }
-
-      return path
-    })
-
-    const applyLightningEffects = (
-      strike: LightningStrike,
-      world: World
-    ) => Effect.gen(function* () {
-      let updatedWorld = world
-
-      if (strike.groundStrike) {
-        // Apply damage to entities in range
-        const entities = yield* getEntitiesInRadius(
-          world,
-          strike.position,
-          5 // 5 block damage radius
-        )
-
-        for (const entity of entities) {
-          if (entity.type === "player" || entity.type === "mob") {
-            const damage = calculateEntityLightningDamage(strike, entity)
-            updatedWorld = yield* damageEntity(updatedWorld, entity.id, damage)
-          }
+          path.push({ x, y, z })
         }
 
-        // Start fires if conditions are right
-        if (Math.random() < strike.fireChance) {
-          const firePositions = yield* generateFireSpreadPositions(
+        return path
+      })
+
+    const applyLightningEffects = (strike: LightningStrike, world: World) =>
+      Effect.gen(function* () {
+        let updatedWorld = world
+
+        if (strike.groundStrike) {
+          // Apply damage to entities in range
+          const entities = yield* getEntitiesInRadius(
+            world,
             strike.position,
-            world
+            5 // 5 block damage radius
           )
 
-          for (const pos of firePositions) {
-            updatedWorld = yield* setBlockAt(updatedWorld, pos, FireBlock)
+          for (const entity of entities) {
+            if (entity.type === 'player' || entity.type === 'mob') {
+              const damage = calculateEntityLightningDamage(strike, entity)
+              updatedWorld = yield* damageEntity(updatedWorld, entity.id, damage)
+            }
+          }
+
+          // Start fires if conditions are right
+          if (Math.random() < strike.fireChance) {
+            const firePositions = yield* generateFireSpreadPositions(strike.position, world)
+
+            for (const pos of firePositions) {
+              updatedWorld = yield* setBlockAt(updatedWorld, pos, FireBlock)
+            }
+          }
+
+          // Create lightning rod effects
+          const nearbyLightningRods = yield* findNearbyLightningRods(
+            world,
+            strike.position,
+            30 // 30 block detection radius
+          )
+
+          if (nearbyLightningRods.length > 0) {
+            const closestRod = nearbyLightningRods[0]
+            // Redirect lightning to rod and power nearby redstone
+            updatedWorld = yield* activateRedstoneArea(
+              updatedWorld,
+              closestRod.position,
+              15 // 15 power level
+            )
           }
         }
 
-        // Create lightning rod effects
-        const nearbyLightningRods = yield* findNearbyLightningRods(
-          world,
-          strike.position,
-          30 // 30 block detection radius
-        )
-
-        if (nearbyLightningRods.length > 0) {
-          const closestRod = nearbyLightningRods[0]
-          // Redirect lightning to rod and power nearby redstone
-          updatedWorld = yield* activateRedstoneArea(
-            updatedWorld,
-            closestRod.position,
-            15 // 15 power level
-          )
-        }
-      }
-
-      return updatedWorld
-    })
+        return updatedWorld
+      })
 
     return {
       generateLightning,
       calculateThunderDelay,
       simulateLightningPath,
-      applyLightningEffects
+      applyLightningEffects,
     } as const
   })
 )
@@ -846,14 +788,14 @@ export const LightningSystemLive = Layer.effect(
 ```typescript
 // Climate System
 export const ClimateZone = Schema.Literal(
-  "tropical",
-  "subtropical",
-  "temperate",
-  "continental",
-  "polar",
-  "alpine",
-  "desert",
-  "mediterranean"
+  'tropical',
+  'subtropical',
+  'temperate',
+  'continental',
+  'polar',
+  'alpine',
+  'desert',
+  'mediterranean'
 )
 
 export type ClimateZone = Schema.Schema.Type<typeof ClimateZone>
@@ -865,10 +807,10 @@ export const ClimateData = Schema.Struct({
   annualPrecipitation: Schema.Number,
   humidityRange: Schema.Struct({
     min: Humidity,
-    max: Humidity
+    max: Humidity,
   }),
   seasonalVariation: Schema.Number.pipe(Schema.between(0, 1)),
-  extremeWeatherFrequency: Schema.Number.pipe(Schema.between(0, 1))
+  extremeWeatherFrequency: Schema.Number.pipe(Schema.between(0, 1)),
 })
 
 export type ClimateData = Schema.Schema.Type<typeof ClimateData>
@@ -890,41 +832,38 @@ interface ClimateSimulationInterface {
   readonly predictExtremeEvents: (
     climate: ClimateData,
     timeframe: number
-  ) => Effect.Effect<
-    ReadonlyArray<{ eventType: string; probability: number; severity: number }>,
-    never
-  >
+  ) => Effect.Effect<ReadonlyArray<{ eventType: string; probability: number; severity: number }>, never>
 }
 
-const ClimateSimulation = Context.GenericTag<ClimateSimulationInterface>("@app/ClimateSimulation")
+const ClimateSimulation = Context.GenericTag<ClimateSimulationInterface>('@app/ClimateSimulation')
 
 // Weather Front System
 export const WeatherFront = Schema.Struct({
   id: Schema.String,
-  type: Schema.Literal("cold", "warm", "occluded", "stationary"),
+  type: Schema.Literal('cold', 'warm', 'occluded', 'stationary'),
   position: Schema.Struct({
     centerX: Schema.Number,
-    centerZ: Schema.Number
+    centerZ: Schema.Number,
   }),
   extent: Schema.Struct({
     width: Schema.Number,
-    length: Schema.Number
+    length: Schema.Number,
   }),
   movementVector: Schema.Struct({
     speedX: Schema.Number,
-    speedZ: Schema.Number
+    speedZ: Schema.Number,
   }),
   intensity: Schema.Number.pipe(Schema.between(0, 1)),
   associatedWeather: WeatherCondition,
   duration: Schema.Number,
-  createdAt: Schema.DateTimeUtc
+  createdAt: Schema.DateTimeUtc,
 })
 
 export type WeatherFront = Schema.Schema.Type<typeof WeatherFront>
 
 interface WeatherFrontSystemInterface {
   readonly createFront: (
-    frontType: WeatherFront["type"],
+    frontType: WeatherFront['type'],
     position: { x: number; z: number },
     intensity: number
   ) => Effect.Effect<WeatherFront, never>
@@ -938,13 +877,10 @@ interface WeatherFrontSystemInterface {
   ) => Effect.Effect<WeatherState, never>
   readonly detectFrontCollisions: (
     fronts: ReadonlyArray<WeatherFront>
-  ) => Effect.Effect<
-    ReadonlyArray<{ frontA: string; frontB: string; collisionType: string }>,
-    never
-  >
+  ) => Effect.Effect<ReadonlyArray<{ frontA: string; frontB: string; collisionType: string }>, never>
 }
 
-const WeatherFrontSystem = Context.GenericTag<WeatherFrontSystemInterface>("@app/WeatherFrontSystem")
+const WeatherFrontSystem = Context.GenericTag<WeatherFrontSystemInterface>('@app/WeatherFrontSystem')
 ```
 
 ### Weather Impact System
@@ -958,10 +894,7 @@ interface WeatherImpactSystemInterface {
     weather: WeatherState,
     player: Player
   ) => Effect.Effect<VisibilityModifiers, never>
-  readonly applyMovementEffects: (
-    weather: WeatherState,
-    entity: Entity
-  ) => Effect.Effect<MovementModifiers, never>
+  readonly applyMovementEffects: (weather: WeatherState, entity: Entity) => Effect.Effect<MovementModifiers, never>
   readonly calculateCropGrowthModifiers: (
     weather: WeatherState,
     cropType: string
@@ -977,133 +910,124 @@ interface WeatherImpactSystemInterface {
   ) => Effect.Effect<BiomeTransition, never>
 }
 
-const WeatherImpactSystem = Context.GenericTag<WeatherImpactSystemInterface>("@app/WeatherImpactSystem")
+const WeatherImpactSystem = Context.GenericTag<WeatherImpactSystemInterface>('@app/WeatherImpactSystem')
 
 export const WeatherImpactSystemLive = Layer.effect(
   WeatherImpactSystem,
   Effect.gen(function* () {
-    const calculateVisibilityEffects = (
-      weather: WeatherState,
-      player: Player
-    ) => Effect.gen(function* () {
-      let viewDistance = player.settings.renderDistance
+    const calculateVisibilityEffects = (weather: WeatherState, player: Player) =>
+      Effect.gen(function* () {
+        let viewDistance = player.settings.renderDistance
 
-      // 天候による視界への影響を計算
-      const weatherMultiplier = Match.value(weather.condition).pipe(
-        Match.when("heavy_rain", () => 0.7),
-        Match.when("thunderstorm", () => 0.5),
-        Match.when("heavy_snow", () => 0.3),
-        Match.when("blizzard", () => 0.3),
-        Match.when("fog", () => 0.2),
-        Match.when("sandstorm", () => 0.1),
-        Match.orElse(() => 1.0)
-      )
+        // 天候による視界への影響を計算
+        const weatherMultiplier = Match.value(weather.condition).pipe(
+          Match.when('heavy_rain', () => 0.7),
+          Match.when('thunderstorm', () => 0.5),
+          Match.when('heavy_snow', () => 0.3),
+          Match.when('blizzard', () => 0.3),
+          Match.when('fog', () => 0.2),
+          Match.when('sandstorm', () => 0.1),
+          Match.orElse(() => 1.0)
+        )
 
-      // 追加の修正値
-      const humidityEffect = 1 - (weather.humidity / 100) * 0.2
-      const precipitationEffect = 1 - weather.precipitationIntensity * 0.3
+        // 追加の修正値
+        const humidityEffect = 1 - (weather.humidity / 100) * 0.2
+        const precipitationEffect = 1 - weather.precipitationIntensity * 0.3
 
-      viewDistance *= weatherMultiplier * humidityEffect * precipitationEffect
+        viewDistance *= weatherMultiplier * humidityEffect * precipitationEffect
 
-      return {
-        renderDistance: Math.max(viewDistance, 2), // 最低2チャンク
-        fogDensity: calculateFogDensity(weather),
-        tintColor: calculateWeatherTint(weather),
-        particleOpacity: calculateParticleOpacity(weather)
-      }
-    })
+        return {
+          renderDistance: Math.max(viewDistance, 2), // 最低2チャンク
+          fogDensity: calculateFogDensity(weather),
+          tintColor: calculateWeatherTint(weather),
+          particleOpacity: calculateParticleOpacity(weather),
+        }
+      })
 
-    const applyMovementEffects = (
-      weather: WeatherState,
-      entity: Entity
-    ) => Effect.gen(function* () {
-      let speedMultiplier = 1.0
-      let slipperyness = 0.0
-      let jumpModifier = 1.0
+    const applyMovementEffects = (weather: WeatherState, entity: Entity) =>
+      Effect.gen(function* () {
+        let speedMultiplier = 1.0
+        let slipperyness = 0.0
+        let jumpModifier = 1.0
 
-      // Temperature effects
-      if (weather.temperature < -10) {
-        speedMultiplier *= 0.8 // Slower movement in extreme cold
-      }
+        // Temperature effects
+        if (weather.temperature < -10) {
+          speedMultiplier *= 0.8 // Slower movement in extreme cold
+        }
 
-      // Wind effects
-      if (weather.windSpeed > 10) {
-        const windResistance = Math.min(0.3, weather.windSpeed / 50)
-        speedMultiplier *= (1 - windResistance)
-      }
+        // Wind effects
+        if (weather.windSpeed > 10) {
+          const windResistance = Math.min(0.3, weather.windSpeed / 50)
+          speedMultiplier *= 1 - windResistance
+        }
 
-      // Precipitation effects
-      if (weather.precipitationIntensity > 0.3) {
-        speedMultiplier *= 0.9
-        slipperyness += 0.1
-      }
+        // Precipitation effects
+        if (weather.precipitationIntensity > 0.3) {
+          speedMultiplier *= 0.9
+          slipperyness += 0.1
+        }
 
-      // Snow accumulation
-      if (weather.condition === "heavy_snow" || weather.condition === "blizzard") {
-        speedMultiplier *= 0.7
-        jumpModifier *= 0.8
-      }
+        // Snow accumulation
+        if (weather.condition === 'heavy_snow' || weather.condition === 'blizzard') {
+          speedMultiplier *= 0.7
+          jumpModifier *= 0.8
+        }
 
-      // Fog disorientation
-      if (weather.condition === "fog") {
-        // Reduce movement precision in fog
-        const disorientationFactor = 0.1
-        speedMultiplier *= (1 - disorientationFactor)
-      }
+        // Fog disorientation
+        if (weather.condition === 'fog') {
+          // Reduce movement precision in fog
+          const disorientationFactor = 0.1
+          speedMultiplier *= 1 - disorientationFactor
+        }
 
-      return {
-        speedMultiplier: Math.max(speedMultiplier, 0.1),
-        slipperyness,
-        jumpModifier,
-        staminaDrain: calculateStaminaDrain(weather)
-      }
-    })
+        return {
+          speedMultiplier: Math.max(speedMultiplier, 0.1),
+          slipperyness,
+          jumpModifier,
+          staminaDrain: calculateStaminaDrain(weather),
+        }
+      })
 
-    const calculateCropGrowthModifiers = (
-      weather: WeatherState,
-      cropType: string
-    ) => Effect.gen(function* () {
-      const cropProfile = getCropWeatherProfile(cropType)
+    const calculateCropGrowthModifiers = (weather: WeatherState, cropType: string) =>
+      Effect.gen(function* () {
+        const cropProfile = getCropWeatherProfile(cropType)
 
-      // Temperature effects
-      let temperatureModifier = 1.0
-      if (weather.temperature < cropProfile.minTemperature ||
-          weather.temperature > cropProfile.maxTemperature) {
-        temperatureModifier = 0.1 // Severe growth penalty
-      } else {
-        const optimalRange = cropProfile.optimalTemperatureRange
-        const distanceFromOptimal = Math.abs(weather.temperature - optimalRange.center)
-        temperatureModifier = Math.max(0.1, 1 - distanceFromOptimal / optimalRange.tolerance)
-      }
+        // Temperature effects
+        let temperatureModifier = 1.0
+        if (weather.temperature < cropProfile.minTemperature || weather.temperature > cropProfile.maxTemperature) {
+          temperatureModifier = 0.1 // Severe growth penalty
+        } else {
+          const optimalRange = cropProfile.optimalTemperatureRange
+          const distanceFromOptimal = Math.abs(weather.temperature - optimalRange.center)
+          temperatureModifier = Math.max(0.1, 1 - distanceFromOptimal / optimalRange.tolerance)
+        }
 
-      // Moisture effects
-      let moistureModifier = 1.0
-      if (weather.precipitationIntensity < cropProfile.minMoisture) {
-        moistureModifier = 0.3 // Drought stress
-      } else if (weather.precipitationIntensity > cropProfile.maxMoisture) {
-        moistureModifier = 0.5 // Waterlogging
-      } else {
-        moistureModifier = 1.2 // Optimal moisture boosts growth
-      }
+        // Moisture effects
+        let moistureModifier = 1.0
+        if (weather.precipitationIntensity < cropProfile.minMoisture) {
+          moistureModifier = 0.3 // Drought stress
+        } else if (weather.precipitationIntensity > cropProfile.maxMoisture) {
+          moistureModifier = 0.5 // Waterlogging
+        } else {
+          moistureModifier = 1.2 // Optimal moisture boosts growth
+        }
 
-      // Light effects (cloudy weather reduces photosynthesis)
-      const lightModifier = 1 - (weather.cloudCoverage / 100) * 0.3
+        // Light effects (cloudy weather reduces photosynthesis)
+        const lightModifier = 1 - (weather.cloudCoverage / 100) * 0.3
 
-      return {
-        growthRate: temperatureModifier * moistureModifier * lightModifier,
-        diseaseResistance: calculateDiseaseResistance(weather, cropProfile),
-        yieldModifier: calculateYieldModifier(weather, cropProfile)
-      }
-    })
+        return {
+          growthRate: temperatureModifier * moistureModifier * lightModifier,
+          diseaseResistance: calculateDiseaseResistance(weather, cropProfile),
+          yieldModifier: calculateYieldModifier(weather, cropProfile),
+        }
+      })
 
     return {
       calculateVisibilityEffects,
       applyMovementEffects,
       calculateCropGrowthModifiers,
-      simulateWeatherDamage: (weather, structures) =>
-        simulateWeatherDamageImpl(weather, structures),
-      updateBiomeTransitions: (weather, biome, duration) =>
-        updateBiomeTransitionsImpl(weather, biome, duration)
+      simulateWeatherDamage: (weather, structures) => simulateWeatherDamageImpl(weather, structures),
+      updateBiomeTransitions: (weather, biome, duration) => updateBiomeTransitionsImpl(weather, biome, duration),
     } as const
   })
 )
@@ -1120,11 +1044,7 @@ export const WeatherSystemLayer = Layer.mergeAll(
   Layer.effect(ClimateSimulation, ClimateSimulationLive),
   Layer.effect(WeatherFrontSystem, WeatherFrontSystemLive),
   WeatherImpactSystemLive
-).pipe(
-  Layer.provide(ParticleSystemLayer),
-  Layer.provide(WorldSystemLayer),
-  Layer.provide(EventBusLayer)
-)
+).pipe(Layer.provide(ParticleSystemLayer), Layer.provide(WorldSystemLayer), Layer.provide(EventBusLayer))
 ```
 
 ## 使用例
@@ -1138,10 +1058,10 @@ const exampleWeatherSimulation = Effect.gen(function* () {
 
   // リージョナル天候の設定
   const region: RegionalWeather = {
-    regionId: "plains_001",
-    biome: "plains",
+    regionId: 'plains_001',
+    biome: 'plains',
     weatherState: {
-      condition: "partly_cloudy",
+      condition: 'partly_cloudy',
       temperature: 20 as Temperature,
       humidity: 60 as Humidity,
       pressure: 1013 as Pressure,
@@ -1150,16 +1070,16 @@ const exampleWeatherSimulation = Effect.gen(function* () {
       cloudCoverage: 30 as CloudCoverage,
       precipitationIntensity: 0,
       visibility: 1000,
-      timestamp: new Date()
+      timestamp: new Date(),
     },
     microclimate: {
       temperature_modifier: 0,
       humidity_modifier: 0,
-      precipitation_modifier: 0
+      precipitation_modifier: 0,
     },
     elevation: 64,
     latitude: 45,
-    longitude: 0
+    longitude: 0,
   }
 
   // 24時間の天候パターン生成
@@ -1171,7 +1091,7 @@ const exampleWeatherSimulation = Effect.gen(function* () {
       console.log(`Weather update: ${weather.condition} at ${weather.timestamp}`)
 
       // 雷雨の場合は雷システムを起動
-      if (weather.condition === "thunderstorm") {
+      if (weather.condition === 'thunderstorm') {
         const world = yield* WorldSystem
         const lightningStrikes = yield* lightningSystem.generateLightning(weather, world)
 
@@ -1184,7 +1104,7 @@ const exampleWeatherSimulation = Effect.gen(function* () {
       // 降水の場合は降水システムを起動
       if (weather.precipitationIntensity > 0.3) {
         const precipitation: Precipitation = {
-          type: weather.temperature < 0 ? "snow" : "rain",
+          type: weather.temperature < 0 ? 'snow' : 'rain',
           intensity: weather.precipitationIntensity,
           dropletSize: 2,
           fallVelocity: 10,
@@ -1193,8 +1113,8 @@ const exampleWeatherSimulation = Effect.gen(function* () {
           startTime: weather.timestamp,
           affectedArea: {
             center: { x: 0, z: 0 },
-            radius: 500
-          }
+            radius: 500,
+          },
         }
 
         const world = yield* WorldSystem
@@ -1225,10 +1145,10 @@ export const createWeatherGrid = (worldSize: number, gridSize: number) =>
             minX: x * gridSize,
             maxX: (x + 1) * gridSize,
             minZ: z * gridSize,
-            maxZ: (z + 1) * gridSize
+            maxZ: (z + 1) * gridSize,
           },
           weather: createDefaultWeather(),
-          lastUpdate: 0
+          lastUpdate: 0,
         })
       }
     }
@@ -1245,7 +1165,7 @@ export const createWeatherGrid = (worldSize: number, gridSize: number) =>
         if (cell) {
           grid.set(cellId, { ...cell, weather, lastUpdate: Date.now() })
         }
-      }
+      },
     }
   })
 ```
@@ -1257,74 +1177,68 @@ export const createWeatherGrid = (worldSize: number, gridSize: number) =>
 export const adaptWeatherDetail = (
   playerPosition: { x: number; z: number },
   weatherCells: ReadonlyArray<WeatherCell>
-) => Effect.gen(function* () {
-  const adaptedCells = weatherCells.map(cell => {
-    const distance = calculateDistance(playerPosition, cell.bounds)
+) =>
+  Effect.gen(function* () {
+    const adaptedCells = weatherCells.map((cell) => {
+      const distance = calculateDistance(playerPosition, cell.bounds)
 
-    if (distance < 100) {
-      // 高詳細度 - フル天候シミュレーション
-      return {
-        ...cell,
-        detailLevel: "high" as const,
-        updateFrequency: 50 // 50ms
+      if (distance < 100) {
+        // 高詳細度 - フル天候シミュレーション
+        return {
+          ...cell,
+          detailLevel: 'high' as const,
+          updateFrequency: 50, // 50ms
+        }
+      } else if (distance < 500) {
+        // 中詳細度 - 基本的な天候効果のみ
+        return {
+          ...cell,
+          detailLevel: 'medium' as const,
+          updateFrequency: 200, // 200ms
+        }
+      } else {
+        // 低詳細度 - 静的な天候状態
+        return {
+          ...cell,
+          detailLevel: 'low' as const,
+          updateFrequency: 1000, // 1s
+        }
       }
-    } else if (distance < 500) {
-      // 中詳細度 - 基本的な天候効果のみ
-      return {
-        ...cell,
-        detailLevel: "medium" as const,
-        updateFrequency: 200 // 200ms
-      }
-    } else {
-      // 低詳細度 - 静的な天候状態
-      return {
-        ...cell,
-        detailLevel: "low" as const,
-        updateFrequency: 1000 // 1s
-      }
-    }
+    })
+
+    return adaptedCells
   })
-
-  return adaptedCells
-})
 ```
 
 ## テスト戦略
 
 ```typescript
-describe("Weather System", () => {
-  const TestWeatherLayer = Layer.mergeAll(
-    WeatherSystemLayer,
-    TestWorldLayer,
-    TestParticleSystemLayer
-  )
+describe('Weather System', () => {
+  const TestWeatherLayer = Layer.mergeAll(WeatherSystemLayer, TestWorldLayer, TestParticleSystemLayer)
 
-  it("should generate realistic weather transitions", () =>
+  it('should generate realistic weather transitions', () =>
     Effect.gen(function* () {
       const generator = yield* WeatherGenerator
 
-      const region = createTestRegion("temperate")
+      const region = createTestRegion('temperate')
       const weatherStream = yield* generator.generateWeatherPattern(region, 48)
 
       const states = yield* Stream.runCollect(weatherStream)
 
       // Verify temperature doesn't change too rapidly
       for (let i = 1; i < states.length; i++) {
-        const tempChange = Math.abs(states[i].temperature - states[i-1].temperature)
+        const tempChange = Math.abs(states[i].temperature - states[i - 1].temperature)
         expect(tempChange).toBeLessThan(10) // Max 10°C change per hour
       }
-    }).pipe(
-      Effect.provide(TestWeatherLayer),
-      Effect.runPromise
-    ))
+    }).pipe(Effect.provide(TestWeatherLayer), Effect.runPromise))
 
-  it("should apply correct lightning effects", () =>
+  it('should apply correct lightning effects', () =>
     Effect.gen(function* () {
       const lightningSystem = yield* LightningSystem
       const world = createTestWorld()
 
       const strike: LightningStrike = {
-        id: "test-strike",
+        id: 'test-strike',
         position: { x: 0, y: 100, z: 0 },
         intensity: 1,
         duration: 200,
@@ -1332,18 +1246,15 @@ describe("Weather System", () => {
         groundStrike: true,
         damage: 20,
         fireChance: 0.1,
-        timestamp: new Date()
+        timestamp: new Date(),
       }
 
       const updatedWorld = yield* lightningSystem.applyLightningEffects(strike, world)
 
       // Verify effects were applied
       const entities = getEntitiesAt(updatedWorld, strike.position, 5)
-      expect(entities.some(e => e.health < e.maxHealth)).toBe(true)
-    }).pipe(
-      Effect.provide(TestWeatherLayer),
-      Effect.runPromise
-    ))
+      expect(entities.some((e) => e.health < e.maxHealth)).toBe(true)
+    }).pipe(Effect.provide(TestWeatherLayer), Effect.runPromise))
 })
 ```
 

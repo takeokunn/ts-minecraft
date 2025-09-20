@@ -1,15 +1,14 @@
 ---
-title: "Effect-TS 3.17+ 最新テストパターン完全ガイド"
-description: "Effect-TS 3.17+ の最新APIと最新パターンに完全準拠したテスト実装ガイド。Schema統合、Property-Based Testing、Context.GenericTag、Match.valueなどの現代的パターンを網羅。"
-category: "guide"
-difficulty: "advanced"
-tags: ["effect-ts", "testing", "property-based-testing", "schema-validation", "fast-check", "modern-patterns"]
-prerequisites: ["effect-ts-fundamentals", "schema-basics", "vitest-basics", "development-conventions"]
-estimated_reading_time: "45分"
-related_patterns: ["effect-ts-test-patterns", "service-patterns-catalog", "error-handling-patterns"]
-related_docs: ["./testing-guide.md", "./comprehensive-testing-strategy.md"]
+title: 'Effect-TS 3.17+ 最新テストパターン完全ガイド'
+description: 'Effect-TS 3.17+ の最新APIと最新パターンに完全準拠したテスト実装ガイド。Schema統合、Property-Based Testing、Context.GenericTag、Match.valueなどの現代的パターンを網羅。'
+category: 'guide'
+difficulty: 'advanced'
+tags: ['effect-ts', 'testing', 'property-based-testing', 'schema-validation', 'fast-check', 'modern-patterns']
+prerequisites: ['effect-ts-fundamentals', 'schema-basics', 'vitest-basics', 'development-conventions']
+estimated_reading_time: '45分'
+related_patterns: ['effect-ts-test-patterns', 'service-patterns-catalog', 'error-handling-patterns']
+related_docs: ['./testing-guide.md', './comprehensive-testing-strategy.md']
 ---
-
 
 # Effect-TS 3.17+ 完全準拠テストパターンガイド
 
@@ -19,12 +18,12 @@ related_docs: ["./testing-guide.md", "./comprehensive-testing-strategy.md"]
 
 ### 問題解決マトリックス
 
-| 問題カテゴリ | 発生頻度 | 典型的症状 | 解決パターン |
-|------------|----------|------------|------------|
-| Schema デコードエラー | 85% | `ParseError: Expected string, received number` | Schema.decodeUnknown + Either |
-| Context 依存関係問題 | 70% | `Context not found: SomeService` | Layer.provide + TestService |
-| 非同期テスト失敗 | 45% | `Test timeout` / `Promise rejection` | TestClock + Effect.provide |
-| Property-based テストエラー | 30% | `Shrinking failed` / `Generator timeout` | Arbitrary最適化 |
+| 問題カテゴリ                | 発生頻度 | 典型的症状                                     | 解決パターン                  |
+| --------------------------- | -------- | ---------------------------------------------- | ----------------------------- |
+| Schema デコードエラー       | 85%      | `ParseError: Expected string, received number` | Schema.decodeUnknown + Either |
+| Context 依存関係問題        | 70%      | `Context not found: SomeService`               | Layer.provide + TestService   |
+| 非同期テスト失敗            | 45%      | `Test timeout` / `Promise rejection`           | TestClock + Effect.provide    |
+| Property-based テストエラー | 30%      | `Shrinking failed` / `Generator timeout`       | Arbitrary最適化               |
 
 ### 緊急時対応コマンド集
 
@@ -58,6 +57,7 @@ try {
 ## 📑 Table of Contents
 
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
+
 - [🚨 Effect-TS 3.17+ 特有問題解決パターン](#-effect-ts-317-特有問題解決パターン)
 - [🎯 最新Effect-TSテスト基礎](#-最新effect-tsテスト基礎)
 - [📊 Schema.Structベースのテストデータ定義](#-schemastructベースのテストデータ定義)
@@ -105,16 +105,15 @@ describe('Modern Effect-TS Vitest Pattern', () => {
       const quality = yield* getGraphicsQuality()
 
       const result = yield* Match.value(quality).pipe(
-        Match.when("high", () => Effect.succeed("Using high quality rendering")),
-        Match.when("medium", () => Effect.succeed("Using medium quality")),
-        Match.when("low", () => Effect.succeed("Using low quality")),
-        Match.orElse(() => Effect.fail(new ValidationError("Invalid quality setting")))
+        Match.when('high', () => Effect.succeed('Using high quality rendering')),
+        Match.when('medium', () => Effect.succeed('Using medium quality')),
+        Match.when('low', () => Effect.succeed('Using low quality')),
+        Match.orElse(() => Effect.fail(new ValidationError('Invalid quality setting')))
       )
 
-      expect(result).toContain("quality")
+      expect(result).toContain('quality')
       return result
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 })
 ```
 
@@ -122,33 +121,30 @@ describe('Modern Effect-TS Vitest Pattern', () => {
 
 ```typescript
 // タグ付きエラーの定義 - 関数型パターン
-const TestSetupError = Schema.TaggedError("TestSetupError")({
+const TestSetupError = Schema.TaggedError('TestSetupError')({
   reason: Schema.String,
-  timestamp: Schema.Number
+  timestamp: Schema.Number,
 })
 
-const ValidationError = Schema.TaggedError("ValidationError")({
+const ValidationError = Schema.TaggedError('ValidationError')({
   message: Schema.String,
-  field: Schema.optional(Schema.String)
+  field: Schema.optional(Schema.String),
 })
 
 describe('Error Handling Patterns', () => {
   it('handles tagged errors with type safety', () =>
     Effect.gen(function* () {
-      const result = yield* Effect.either(
-        setupComplexTestEnvironment()
-      )
+      const result = yield* Effect.either(setupComplexTestEnvironment())
 
-      if (result._tag === "Left") {
+      if (result._tag === 'Left') {
         // 型安全なエラー処理
-        expect(result.left._tag).toBe("TestSetupError")
-        return "Setup failed as expected"
+        expect(result.left._tag).toBe('TestSetupError')
+        return 'Setup failed as expected'
       }
 
       expect(result.right.world).toBeDefined()
-      return "Setup succeeded"
-    }).pipe(Effect.runPromise)
-  )
+      return 'Setup succeeded'
+    }).pipe(Effect.runPromise))
 })
 ```
 
@@ -161,41 +157,29 @@ import { Schema } from 'effect'
 
 // ✅ Schema.Structによるデータ構造定義
 const BlockSchema = Schema.Struct({
-  _tag: Schema.Literal("Block"),
-  id: Schema.String.pipe(Schema.brand("BlockId")),
-  type: Schema.Union(
-    Schema.Literal("stone"),
-    Schema.Literal("dirt"),
-    Schema.Literal("grass"),
-    Schema.Literal("water")
-  ),
+  _tag: Schema.Literal('Block'),
+  id: Schema.String.pipe(Schema.brand('BlockId')),
+  type: Schema.Union(Schema.Literal('stone'), Schema.Literal('dirt'), Schema.Literal('grass'), Schema.Literal('water')),
   position: Schema.Struct({
     x: Schema.Number.pipe(Schema.int()),
     y: Schema.Number.pipe(Schema.int(), Schema.between(0, 256)),
-    z: Schema.Number.pipe(Schema.int())
+    z: Schema.Number.pipe(Schema.int()),
   }),
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 })
 type Block = typeof BlockSchema.Type
 
 const PlayerSchema = Schema.Struct({
-  _tag: Schema.Literal("Player"),
-  id: Schema.String.pipe(Schema.uuid, Schema.brand("PlayerId")),
-  name: Schema.String.pipe(
-    Schema.minLength(3),
-    Schema.maxLength(16),
-    Schema.pattern(/^[a-zA-Z0-9_]+$/)
-  ),
+  _tag: Schema.Literal('Player'),
+  id: Schema.String.pipe(Schema.uuid, Schema.brand('PlayerId')),
+  name: Schema.String.pipe(Schema.minLength(3), Schema.maxLength(16), Schema.pattern(/^[a-zA-Z0-9_]+$/)),
   position: Schema.Struct({
     x: Schema.Number,
     y: Schema.Number.pipe(Schema.between(0, 256)),
-    z: Schema.Number
+    z: Schema.Number,
   }),
-  health: Schema.Number.pipe(
-    Schema.int(),
-    Schema.between(0, 100)
-  ),
-  inventory: Schema.Array(Schema.optional(Schema.Unknown))
+  health: Schema.Number.pipe(Schema.int(), Schema.between(0, 100)),
+  inventory: Schema.Array(Schema.optional(Schema.Unknown)),
 })
 type Player = typeof PlayerSchema.Type
 
@@ -203,33 +187,33 @@ type Player = typeof PlayerSchema.Type
 const TestDataFactory = {
   block: (overrides: Partial<Block> = {}): Block =>
     Schema.decodeUnknownSync(BlockSchema)({
-      _tag: "Block",
-      id: "block_" + Math.random().toString(36).substring(7),
-      type: "stone",
+      _tag: 'Block',
+      id: 'block_' + Math.random().toString(36).substring(7),
+      type: 'stone',
       position: { x: 0, y: 64, z: 0 },
       metadata: {},
-      ...overrides
+      ...overrides,
     }),
 
   player: (overrides: Partial<Player> = {}): Player =>
     Schema.decodeUnknownSync(PlayerSchema)({
-      _tag: "Player",
+      _tag: 'Player',
       id: crypto.randomUUID(),
-      name: "TestPlayer",
+      name: 'TestPlayer',
       position: { x: 0, y: 64, z: 0 },
       health: 100,
       inventory: [],
-      ...overrides
-    })
+      ...overrides,
+    }),
 }
 
 describe('Schema-based Test Data', () => {
   it('creates valid test data using schemas', () => {
-    const block = TestDataFactory.block({ type: "grass" })
-    const player = TestDataFactory.player({ name: "Steve" })
+    const block = TestDataFactory.block({ type: 'grass' })
+    const player = TestDataFactory.player({ name: 'Steve' })
 
-    expect(block.type).toBe("grass")
-    expect(player.name).toBe("Steve")
+    expect(block.type).toBe('grass')
+    expect(player.name).toBe('Steve')
     expect(() => Schema.decodeUnknownSync(BlockSchema)(block)).not.toThrow()
     expect(() => Schema.decodeUnknownSync(PlayerSchema)(player)).not.toThrow()
   })
@@ -243,18 +227,12 @@ describe('Schema Validation Integration', () => {
   it('validates complex game state', () =>
     Effect.gen(function* () {
       const gameState = {
-        players: [
-          TestDataFactory.player({ name: "Player1" }),
-          TestDataFactory.player({ name: "Player2" })
-        ],
+        players: [TestDataFactory.player({ name: 'Player1' }), TestDataFactory.player({ name: 'Player2' })],
         world: {
-          seed: "test-seed",
-          blocks: [
-            TestDataFactory.block({ type: "stone" }),
-            TestDataFactory.block({ type: "grass" })
-          ]
+          seed: 'test-seed',
+          blocks: [TestDataFactory.block({ type: 'stone' }), TestDataFactory.block({ type: 'grass' })],
         },
-        time: 6000 // 正午
+        time: 6000, // 正午
       }
 
       // バリデーション実行
@@ -262,9 +240,9 @@ describe('Schema Validation Integration', () => {
         players: Schema.Array(PlayerSchema),
         world: Schema.Struct({
           seed: Schema.String,
-          blocks: Schema.Array(BlockSchema)
+          blocks: Schema.Array(BlockSchema),
         }),
-        time: Schema.Number.pipe(Schema.int(), Schema.between(0, 24000))
+        time: Schema.Number.pipe(Schema.int(), Schema.between(0, 24000)),
       })
 
       const validated = yield* Schema.decode(GameStateSchema)(gameState)
@@ -272,8 +250,7 @@ describe('Schema Validation Integration', () => {
       expect(validated.players).toHaveLength(2)
       expect(validated.world.blocks).toHaveLength(2)
       expect(validated.time).toBe(6000)
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 })
 ```
 
@@ -285,9 +262,9 @@ describe('Schema Validation Integration', () => {
 import { Context, Layer, Effect, Ref } from 'effect'
 
 // ゲーム特化サービス定義（関数型パターン）
-const DatabaseError = Schema.TaggedError("DatabaseError")({
+const DatabaseError = Schema.TaggedError('DatabaseError')({
   message: Schema.String,
-  operation: Schema.String
+  operation: Schema.String,
 })
 
 interface WorldService {
@@ -296,7 +273,7 @@ interface WorldService {
   readonly generateChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, never>
 }
 
-export const WorldService = Context.GenericTag<WorldService>("@minecraft/WorldService")
+export const WorldService = Context.GenericTag<WorldService>('@minecraft/WorldService')
 
 interface PlayerService {
   readonly spawn: (name: string) => Effect.Effect<Player, ValidationError>
@@ -304,7 +281,7 @@ interface PlayerService {
   readonly getInventory: (playerId: string) => Effect.Effect<Inventory, PlayerNotFoundError>
 }
 
-export const PlayerService = Context.GenericTag<PlayerService>("@minecraft/PlayerService")
+export const PlayerService = Context.GenericTag<PlayerService>('@minecraft/PlayerService')
 
 // Layer.effectによる実装（最新パターン）
 const TestWorldServiceLayer = Layer.effect(
@@ -320,10 +297,12 @@ const TestWorldServiceLayer = Layer.effect(
           const chunk = chunks.get(key)
 
           if (!chunk) {
-            return yield* Effect.fail(new DatabaseError({
-              message: `Chunk not found at ${key}`,
-              operation: "getChunk"
-            }))
+            return yield* Effect.fail(
+              new DatabaseError({
+                message: `Chunk not found at ${key}`,
+                operation: 'getChunk',
+              })
+            )
           }
 
           return chunk
@@ -332,7 +311,7 @@ const TestWorldServiceLayer = Layer.effect(
       saveChunk: (chunk) =>
         Effect.gen(function* () {
           const key = `${chunk.coordinate.x},${chunk.coordinate.z}`
-          yield* Ref.update(chunksRef, chunks => chunks.set(key, chunk))
+          yield* Ref.update(chunksRef, (chunks) => chunks.set(key, chunk))
         }),
 
       generateChunk: (coord) =>
@@ -342,15 +321,13 @@ const TestWorldServiceLayer = Layer.effect(
             coordinate: coord,
             blocks: Array(16 * 16 * 256).fill(TestDataFactory.block()),
             entities: [],
-            generated: true
+            generated: true,
           }
 
-          yield* Ref.update(chunksRef, chunks =>
-            chunks.set(`${coord.x},${coord.z}`, chunk)
-          )
+          yield* Ref.update(chunksRef, (chunks) => chunks.set(`${coord.x},${coord.z}`, chunk))
 
           return chunk
-        })
+        }),
     }
   })
 )
@@ -370,29 +347,17 @@ describe('Context.Tag Service Testing', () => {
       const loadedChunk = yield* worldService.getChunk(coord)
 
       expect(loadedChunk).toEqual(generatedChunk)
-    }).pipe(
-      Effect.provide(TestWorldServiceLayer),
-      Effect.runPromise
-    )
-  )
+    }).pipe(Effect.provide(TestWorldServiceLayer), Effect.runPromise))
 })
 ```
 
 ### 2. 複数Layerの合成とDI
 
 ```typescript
-const TestGameLayer = Layer.mergeAll(
-  TestWorldServiceLayer,
-  TestPlayerServiceLayer,
-  TestPhysicsServiceLayer
-)
+const TestGameLayer = Layer.mergeAll(TestWorldServiceLayer, TestPlayerServiceLayer, TestPhysicsServiceLayer)
 
 // 設定可能なテストLayers
-const createTestEnvironment = (options: {
-  enablePhysics?: boolean
-  worldSize?: number
-  playerCapacity?: number
-}) =>
+const createTestEnvironment = (options: { enablePhysics?: boolean; worldSize?: number; playerCapacity?: number }) =>
   Layer.mergeAll(
     TestWorldServiceLayer,
     TestPlayerServiceLayer,
@@ -406,7 +371,7 @@ describe('Multi-Service Integration', () => {
       const player = yield* PlayerService
 
       // プレイヤーをスポーン
-      const steve = yield* player.spawn("Steve")
+      const steve = yield* player.spawn('Steve')
 
       // チャンクを生成
       const homeChunk = yield* world.generateChunk({ x: 0, z: 0 })
@@ -417,14 +382,10 @@ describe('Multi-Service Integration', () => {
       // インベントリをチェック
       const inventory = yield* player.getInventory(steve.id)
 
-      expect(steve.name).toBe("Steve")
+      expect(steve.name).toBe('Steve')
       expect(homeChunk.generated).toBe(true)
       expect(inventory).toBeDefined()
-    }).pipe(
-      Effect.provide(TestGameLayer),
-      Effect.runPromise
-    )
-  )
+    }).pipe(Effect.provide(TestGameLayer), Effect.runPromise))
 })
 ```
 
@@ -454,8 +415,7 @@ describe('Effect.gen Modern Patterns', () => {
       expect(interactionResult.type).toBe('greeting')
 
       return { world, players: [player1, player2], interaction: interactionResult }
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 
   it('handles conditional logic with early returns', () =>
     Effect.gen(function* () {
@@ -470,8 +430,7 @@ describe('Effect.gen Modern Patterns', () => {
       // 通常の処理パス
       const combatResult = yield* enterCombat(player.id)
       return combatResult
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 })
 ```
 
@@ -482,30 +441,28 @@ describe('Parallel Processing with Effect.gen', () => {
   it('processes multiple chunks concurrently', () =>
     Effect.gen(function* () {
       const coordinates = [
-        { x: 0, z: 0 }, { x: 1, z: 0 }, { x: 0, z: 1 }, { x: 1, z: 1 }
+        { x: 0, z: 0 },
+        { x: 1, z: 0 },
+        { x: 0, z: 1 },
+        { x: 1, z: 1 },
       ]
 
       // 並列でチャンク生成（最大2つ同時）
       const chunks = yield* Effect.all(
-        coordinates.map(coord => generateChunk(coord)),
+        coordinates.map((coord) => generateChunk(coord)),
         { concurrency: 2 }
       )
 
       // エラーハンドリング付き並列処理
-      const validationResults = yield* Effect.allSettled(
-        chunks.map(chunk => validateChunkIntegrity(chunk))
-      )
+      const validationResults = yield* Effect.allSettled(chunks.map((chunk) => validateChunkIntegrity(chunk)))
 
-      const successCount = validationResults.filter(result =>
-        result._tag === 'Success'
-      ).length
+      const successCount = validationResults.filter((result) => result._tag === 'Success').length
 
       expect(chunks).toHaveLength(4)
       expect(successCount).toBeGreaterThanOrEqual(3) // 最低3つは成功
 
       return chunks
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 })
 ```
 
@@ -519,19 +476,20 @@ import { it } from '@effect/vitest'
 
 // Effect-TS Genベースの自動テストデータ生成
 const coordinateGen = Gen.struct({
-  x: Gen.number.pipe(Gen.filter(n => n >= -1000 && n <= 1000)),
-  y: Gen.number.pipe(Gen.filter(n => n >= 0 && n <= 256)),
-  z: Gen.number.pipe(Gen.filter(n => n >= -1000 && n <= 1000))
+  x: Gen.number.pipe(Gen.filter((n) => n >= -1000 && n <= 1000)),
+  y: Gen.number.pipe(Gen.filter((n) => n >= 0 && n <= 256)),
+  z: Gen.number.pipe(Gen.filter((n) => n >= -1000 && n <= 1000)),
 })
 
 const itemStackGen = Gen.struct({
-  itemId: Gen.string.pipe(Gen.filter(s => s.length > 0)),
-  quantity: Gen.int.pipe(Gen.filter(n => n >= 1 && n <= 64)),
-  durability: Gen.option(Gen.int.pipe(Gen.filter(n => n >= 0 && n <= 100)))
+  itemId: Gen.string.pipe(Gen.filter((s) => s.length > 0)),
+  quantity: Gen.int.pipe(Gen.filter((n) => n >= 1 && n <= 64)),
+  durability: Gen.option(Gen.int.pipe(Gen.filter((n) => n >= 0 && n <= 100))),
 })
 
 describe('Property-Based Testing with @effect/vitest', () => {
-  it.prop('validates position calculations maintain invariants',
+  it.prop(
+    'validates position calculations maintain invariants',
     Gen.struct({ pos1: coordinateGen, pos2: coordinateGen }),
     ({ pos1, pos2 }) =>
       Effect.gen(function* () {
@@ -547,13 +505,13 @@ describe('Property-Based Testing with @effect/vitest', () => {
         const midPoint = {
           x: (pos1.x + pos2.x) / 2,
           y: (pos1.y + pos2.y) / 2,
-          z: (pos1.z + pos2.z) / 2
+          z: (pos1.z + pos2.z) / 2,
         }
 
         const dist1ToMid = yield* calculateDistance(pos1, midPoint)
         const dist2ToMid = yield* calculateDistance(pos2, midPoint)
 
-        return (dist1ToMid + dist2ToMid) >= distance * 0.99 // 浮動小数点誤差考慮
+        return dist1ToMid + dist2ToMid >= distance * 0.99 // 浮動小数点誤差考慮
       }),
     100 // numRuns
   )
@@ -574,11 +532,7 @@ describe('Property-Based Testing with @effect/vitest', () => {
                   const afterAdd = yield* addItemToInventory(inventory, itemToAdd)
 
                   // 同じアイテムを削除
-                  const afterRemove = yield* removeItemFromInventory(
-                    afterAdd,
-                    itemToAdd.itemId,
-                    itemToAdd.quantity
-                  )
+                  const afterRemove = yield* removeItemFromInventory(afterAdd, itemToAdd.itemId, itemToAdd.quantity)
 
                   // インベントリが元の状態に戻ることを確認
                   return inventoriesEqual(inventory, afterRemove)
@@ -591,8 +545,7 @@ describe('Property-Based Testing with @effect/vitest', () => {
           { numRuns: 500 }
         )
       })
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 })
 ```
 
@@ -605,18 +558,13 @@ const playerArbitrary = fc.record({
   name: fc.string({ minLength: 3, maxLength: 16 }),
   position: coordinateArbitrary,
   health: fc.integer({ min: 0, max: 100 }),
-  inventory: fc.array(itemStackArbitrary, { maxLength: 36 })
+  inventory: fc.array(itemStackArbitrary, { maxLength: 36 }),
 })
 
 const blockArbitrary = fc.record({
-  type: fc.oneof(
-    fc.constant("stone"),
-    fc.constant("dirt"),
-    fc.constant("grass"),
-    fc.constant("water")
-  ),
+  type: fc.oneof(fc.constant('stone'), fc.constant('dirt'), fc.constant('grass'), fc.constant('water')),
   position: coordinateArbitrary,
-  hardness: fc.float({ min: 0.1, max: 10.0 })
+  hardness: fc.float({ min: 0.1, max: 10.0 }),
 })
 
 describe('Game Logic Properties', () => {
@@ -644,8 +592,7 @@ describe('Game Logic Properties', () => {
           )
         )
       })
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 
   it('chunk generation is deterministic with same seed', () =>
     Effect.gen(function* () {
@@ -671,8 +618,7 @@ describe('Game Logic Properties', () => {
           )
         )
       })
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 
   it('physics simulation conserves energy', () =>
     Effect.gen(function* () {
@@ -684,8 +630,8 @@ describe('Game Logic Properties', () => {
               velocity: fc.record({
                 x: fc.float({ min: -50, max: 50 }),
                 y: fc.float({ min: -50, max: 50 }),
-                z: fc.float({ min: -50, max: 50 })
-              })
+                z: fc.float({ min: -50, max: 50 }),
+              }),
             }),
             (entity) => {
               const result = Effect.runSync(
@@ -696,11 +642,11 @@ describe('Game Logic Properties', () => {
                   const afterSimulation = yield* simulatePhysics(entity, {
                     duration: 1.0,
                     gravity: { x: 0, y: -9.81, z: 0 },
-                    friction: 0
+                    friction: 0,
                   })
 
-                  const finalEnergy = calculateKineticEnergy(afterSimulation) +
-                                    calculatePotentialEnergy(afterSimulation)
+                  const finalEnergy =
+                    calculateKineticEnergy(afterSimulation) + calculatePotentialEnergy(afterSimulation)
 
                   // エネルギー保存の確認（誤差5%以内）
                   return Math.abs(initialEnergy - finalEnergy) < initialEnergy * 0.05
@@ -712,8 +658,7 @@ describe('Game Logic Properties', () => {
           )
         )
       })
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 })
 ```
 
@@ -757,11 +702,7 @@ describe('Deterministic Time Testing', () => {
 
       expect(tickCount).toBe(10)
       expect(elapsed).toBe(167) // 正確に設定した時間が経過
-    }).pipe(
-      Effect.provide(TestServices),
-      Effect.runPromise
-    )
-  )
+    }).pipe(Effect.provide(TestServices), Effect.runPromise))
 
   it('tests scheduled tasks with complex timing', () =>
     Effect.gen(function* () {
@@ -784,11 +725,7 @@ describe('Deterministic Time Testing', () => {
       })
 
       // 全てのタスクを並行実行
-      const allTasks = Effect.all([
-        Effect.fork(hourlyTask),
-        Effect.fork(dailyTask),
-        Effect.fork(weeklyTask)
-      ])
+      const allTasks = Effect.all([Effect.fork(hourlyTask), Effect.fork(dailyTask), Effect.fork(weeklyTask)])
 
       const fibers = yield* allTasks
 
@@ -804,11 +741,7 @@ describe('Deterministic Time Testing', () => {
 
       // 全てのFiberが完了していることを確認
       yield* Effect.all(fibers.map(Fiber.join))
-    }).pipe(
-      Effect.provide(TestServices),
-      Effect.runPromise
-    )
-  )
+    }).pipe(Effect.provide(TestServices), Effect.runPromise))
 })
 ```
 
@@ -821,9 +754,7 @@ describe('Deterministic Random Testing', () => {
   it('generates predictable random world features', () =>
     Effect.gen(function* () {
       // 決定論的な乱数シーケンスを設定
-      yield* TestRandom.feedDoubles(
-        0.1, 0.3, 0.7, 0.2, 0.8, 0.5, 0.9, 0.4, 0.6, 0.15
-      )
+      yield* TestRandom.feedDoubles(0.1, 0.3, 0.7, 0.2, 0.8, 0.5, 0.9, 0.4, 0.6, 0.15)
 
       const worldFeatures: string[] = []
 
@@ -832,11 +763,23 @@ describe('Deterministic Random Testing', () => {
         const randomValue = yield* Random.next
 
         const feature = Match.value(randomValue).pipe(
-          Match.when((v) => v < 0.2, () => "plains"),
-          Match.when((v) => v < 0.4, () => "forest"),
-          Match.when((v) => v < 0.6, () => "hills"),
-          Match.when((v) => v < 0.8, () => "mountains"),
-          Match.orElse(() => "desert")
+          Match.when(
+            (v) => v < 0.2,
+            () => 'plains'
+          ),
+          Match.when(
+            (v) => v < 0.4,
+            () => 'forest'
+          ),
+          Match.when(
+            (v) => v < 0.6,
+            () => 'hills'
+          ),
+          Match.when(
+            (v) => v < 0.8,
+            () => 'mountains'
+          ),
+          Match.orElse(() => 'desert')
         )
 
         worldFeatures.push(feature)
@@ -844,36 +787,38 @@ describe('Deterministic Random Testing', () => {
 
       // 予測可能な結果をテスト
       const expectedFeatures = [
-        "plains",    // 0.1
-        "forest",    // 0.3
-        "mountains", // 0.7
-        "plains",    // 0.2
-        "desert",    // 0.8
-        "hills",     // 0.5
-        "desert",    // 0.9
-        "forest",    // 0.4
-        "hills",     // 0.6
-        "plains"     // 0.15
+        'plains', // 0.1
+        'forest', // 0.3
+        'mountains', // 0.7
+        'plains', // 0.2
+        'desert', // 0.8
+        'hills', // 0.5
+        'desert', // 0.9
+        'forest', // 0.4
+        'hills', // 0.6
+        'plains', // 0.15
       ]
 
       expect(worldFeatures).toEqual(expectedFeatures)
-    }).pipe(
-      Effect.provide(TestServices),
-      Effect.runPromise
-    )
-  )
+    }).pipe(Effect.provide(TestServices), Effect.runPromise))
 
   it('tests combat system with controlled randomness', () =>
     Effect.gen(function* () {
       // クリティカルヒット、命中率、ダメージ値の順で乱数を設定
       yield* TestRandom.feedDoubles(
-        0.05, 0.8, 0.7,  // 攻撃1: クリティカル, 命中, 高ダメージ
-        0.95, 0.2, 0.1,  // 攻撃2: 通常, ミス, 低ダメージ（使用されない）
-        0.1,  0.9, 0.5   // 攻撃3: クリティカル, 命中, 中ダメージ
+        0.05,
+        0.8,
+        0.7, // 攻撃1: クリティカル, 命中, 高ダメージ
+        0.95,
+        0.2,
+        0.1, // 攻撃2: 通常, ミス, 低ダメージ（使用されない）
+        0.1,
+        0.9,
+        0.5 // 攻撃3: クリティカル, 命中, 中ダメージ
       )
 
-      const attacker = TestDataFactory.player({ name: "Attacker" })
-      const defender = TestDataFactory.player({ name: "Defender", health: 100 })
+      const attacker = TestDataFactory.player({ name: 'Attacker' })
+      const defender = TestDataFactory.player({ name: 'Defender', health: 100 })
 
       const combatResults: CombatResult[] = []
 
@@ -887,25 +832,21 @@ describe('Deterministic Random Testing', () => {
       expect(combatResults[0]).toMatchObject({
         hit: true,
         critical: true,
-        damage: expect.any(Number)
+        damage: expect.any(Number),
       })
 
       expect(combatResults[1]).toMatchObject({
-        hit: false,  // 0.2 < 0.8（命中率80%）なのでミス
+        hit: false, // 0.2 < 0.8（命中率80%）なのでミス
         critical: false,
-        damage: 0
+        damage: 0,
       })
 
       expect(combatResults[2]).toMatchObject({
         hit: true,
         critical: true,
-        damage: expect.any(Number)
+        damage: expect.any(Number),
       })
-    }).pipe(
-      Effect.provide(TestServices),
-      Effect.runPromise
-    )
-  )
+    }).pipe(Effect.provide(TestServices), Effect.runPromise))
 })
 ```
 
@@ -927,24 +868,15 @@ describe('Game Event Stream Processing', () => {
 
       // イベント処理パイプライン
       const processedEvents = eventStream.pipe(
-        Stream.map(event =>
+        Stream.map((event) =>
           Match.value(event).pipe(
-            Match.when(
-              { type: 'PLAYER_JOIN' },
-              (e) => ({ ...e, timestamp: Date.now(), processed: true })
-            ),
-            Match.when(
-              { type: 'PLAYER_MOVE' },
-              (e) => validatePlayerMove(e)
-            ),
-            Match.when(
-              { type: 'BLOCK_PLACE' },
-              (e) => processBlockPlacement(e)
-            ),
+            Match.when({ type: 'PLAYER_JOIN' }, (e) => ({ ...e, timestamp: Date.now(), processed: true })),
+            Match.when({ type: 'PLAYER_MOVE' }, (e) => validatePlayerMove(e)),
+            Match.when({ type: 'BLOCK_PLACE' }, (e) => processBlockPlacement(e)),
             Match.orElse((e) => ({ ...e, processed: false }))
           )
         ),
-        Stream.filter(event => event.processed),
+        Stream.filter((event) => event.processed),
         Stream.take(5) // 最初の5つの処理済みイベントを取得
       )
 
@@ -953,11 +885,11 @@ describe('Game Event Stream Processing', () => {
         Effect.gen(function* () {
           const events: GameEvent[] = [
             { type: 'PLAYER_JOIN', playerId: '1', playerName: 'Alice' },
-            { type: 'PLAYER_MOVE', playerId: '1', from: {x: 0, y: 0, z: 0}, to: {x: 1, y: 0, z: 0} },
+            { type: 'PLAYER_MOVE', playerId: '1', from: { x: 0, y: 0, z: 0 }, to: { x: 1, y: 0, z: 0 } },
             { type: 'INVALID_EVENT' }, // フィルタされる
-            { type: 'BLOCK_PLACE', playerId: '1', position: {x: 5, y: 64, z: 3}, blockType: 'stone' },
+            { type: 'BLOCK_PLACE', playerId: '1', position: { x: 5, y: 64, z: 3 }, blockType: 'stone' },
             { type: 'PLAYER_JOIN', playerId: '2', playerName: 'Bob' },
-            { type: 'PLAYER_MOVE', playerId: '2', from: {x: 0, y: 0, z: 0}, to: {x: -1, y: 0, z: 0} }
+            { type: 'PLAYER_MOVE', playerId: '2', from: { x: 0, y: 0, z: 0 }, to: { x: -1, y: 0, z: 0 } },
           ]
 
           for (const event of events) {
@@ -979,8 +911,7 @@ describe('Game Event Stream Processing', () => {
       expect(resultsArray[1].type).toBe('PLAYER_MOVE')
       // INVALID_EVENTはフィルタされる
       expect(resultsArray[2].type).toBe('BLOCK_PLACE')
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 
   it('handles backpressure in high-throughput scenarios', () =>
     Effect.gen(function* () {
@@ -994,7 +925,7 @@ describe('Game Event Stream Processing', () => {
               type: 'PLAYER_MOVE',
               playerId: `player_${i}`,
               from: { x: 0, y: 0, z: 0 },
-              to: { x: i, y: 0, z: 0 }
+              to: { x: i, y: 0, z: 0 },
             }
 
             // バックプレッシャーで遅延が発生する可能性
@@ -1022,16 +953,12 @@ describe('Game Event Stream Processing', () => {
       )
 
       // 両方のFiberが完了することを確認
-      const [, processedEvents] = yield* Effect.all([
-        Fiber.join(producerFiber),
-        Fiber.join(consumerFiber)
-      ])
+      const [, processedEvents] = yield* Effect.all([Fiber.join(producerFiber), Fiber.join(consumerFiber)])
 
       expect(processedEvents).toHaveLength(100)
       expect(processedEvents[0].playerId).toBe('player_0')
       expect(processedEvents[99].playerId).toBe('player_99')
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 })
 ```
 
@@ -1043,14 +970,14 @@ describe('Concurrent Chunk Processing', () => {
     Effect.gen(function* () {
       const chunkCoordinates = Array.from({ length: 25 }, (_, i) => ({
         x: Math.floor(i / 5),
-        z: i % 5
+        z: i % 5,
       }))
 
       const startTime = yield* TestClock.currentTimeMillis
 
       // 並行度5でチャンク生成
       const chunks = yield* Effect.all(
-        chunkCoordinates.map(coord =>
+        chunkCoordinates.map((coord) =>
           Effect.gen(function* () {
             // 各チャンク生成に100ms必要と仮定
             yield* Effect.sleep(Duration.millis(100))
@@ -1068,45 +995,36 @@ describe('Concurrent Chunk Processing', () => {
 
       expect(chunks).toHaveLength(25)
       expect(elapsed).toBe(500) // 正確に500ms経過
-      expect(chunks.every(chunk => chunk.generated)).toBe(true)
-    }).pipe(
-      Effect.provide(TestServices),
-      Effect.runPromise
-    )
-  )
+      expect(chunks.every((chunk) => chunk.generated)).toBe(true)
+    }).pipe(Effect.provide(TestServices), Effect.runPromise))
 
   it('handles chunk dependency resolution', () =>
     Effect.gen(function* () {
       // チャンク間の依存関係をテスト（隣接チャンクの生成後に境界処理）
       const centerCoord = { x: 0, z: 0 }
       const adjacentCoords = [
-        { x: -1, z: 0 }, { x: 1, z: 0 },
-        { x: 0, z: -1 }, { x: 0, z: 1 }
+        { x: -1, z: 0 },
+        { x: 1, z: 0 },
+        { x: 0, z: -1 },
+        { x: 0, z: 1 },
       ]
 
       // 隣接チャンクを並行生成
       const adjacentChunks = yield* Effect.all(
-        adjacentCoords.map(coord => generateChunk(coord)),
+        adjacentCoords.map((coord) => generateChunk(coord)),
         { concurrency: 4 }
       )
 
       // 中央チャンクは隣接チャンク完了後に生成
-      const centerChunk = yield* generateChunkWithBoundaries(
-        centerCoord,
-        adjacentChunks
-      )
+      const centerChunk = yield* generateChunkWithBoundaries(centerCoord, adjacentChunks)
 
       // 境界の整合性をチェック
-      const boundaryValid = yield* validateChunkBoundaries(
-        centerChunk,
-        adjacentChunks
-      )
+      const boundaryValid = yield* validateChunkBoundaries(centerChunk, adjacentChunks)
 
       expect(boundaryValid).toBe(true)
       expect(centerChunk.boundaries).toBeDefined()
       expect(centerChunk.boundaries.north).toEqual(adjacentChunks[0].boundaries.south)
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 })
 ```
 
@@ -1128,25 +1046,22 @@ describe('Inventory System Tests', () => {
 
       // 容量を超える追加の試行
       const overflowItem = TestDataFactory.itemStack({ quantity: 100 })
-      const result2 = yield* Effect.either(
-        addItemToInventory(result1.inventory, overflowItem)
-      )
+      const result2 = yield* Effect.either(addItemToInventory(result1.inventory, overflowItem))
 
-      if (result2._tag === "Left") {
-        expect(result2.left._tag).toBe("InventoryFullError")
+      if (result2._tag === 'Left') {
+        expect(result2.left._tag).toBe('InventoryFullError')
       } else {
         // 部分的に追加される場合
         expect(result2.right.remainingQuantity).toBeGreaterThan(0)
       }
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 
   it('maintains item stack integrity during operations', () =>
     Effect.gen(function* () {
       const initialItems = [
-        TestDataFactory.itemStack({ itemId: "stone", quantity: 32 }),
-        TestDataFactory.itemStack({ itemId: "wood", quantity: 16 }),
-        TestDataFactory.itemStack({ itemId: "stone", quantity: 20 }) // 同じアイテム
+        TestDataFactory.itemStack({ itemId: 'stone', quantity: 32 }),
+        TestDataFactory.itemStack({ itemId: 'wood', quantity: 16 }),
+        TestDataFactory.itemStack({ itemId: 'stone', quantity: 20 }), // 同じアイテム
       ]
 
       const inventory = TestDataFactory.inventory(initialItems)
@@ -1155,14 +1070,11 @@ describe('Inventory System Tests', () => {
       const consolidated = yield* consolidateItemStacks(inventory)
 
       // 同じアイテムタイプが統合されることを確認
-      const stoneStacks = consolidated.slots.filter(slot =>
-        slot?.itemId === "stone"
-      )
+      const stoneStacks = consolidated.slots.filter((slot) => slot?.itemId === 'stone')
 
       expect(stoneStacks).toHaveLength(1) // 統合されて1つになる
       expect(stoneStacks[0]?.quantity).toBe(52) // 32 + 20
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 })
 ```
 
@@ -1187,9 +1099,9 @@ describe('Block Placement and Physics Tests', () => {
         placeBlock(world, player.id, validPosition, 'dirt') // 同じ位置
       )
 
-      expect(placeResult2._tag).toBe("Left")
-      if (placeResult2._tag === "Left") {
-        expect(placeResult2.left._tag).toBe("BlockCollisionError")
+      expect(placeResult2._tag).toBe('Left')
+      if (placeResult2._tag === 'Left') {
+        expect(placeResult2.left._tag).toBe('BlockCollisionError')
       }
 
       // 空中への配置（重力チェック）
@@ -1203,8 +1115,7 @@ describe('Block Placement and Physics Tests', () => {
       expect(finalBlock).toBeNull() // 元の位置にはない
       const fallenBlock = yield* findBlockBelow(world, floatingPosition)
       expect(fallenBlock).toBeDefined() // 下に落下している
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 
   it('tests collision detection system', () =>
     Effect.gen(function* () {
@@ -1215,21 +1126,18 @@ describe('Block Placement and Physics Tests', () => {
       yield* placeBlock(world, player.id, { x: 1, y: 64, z: 0 }, 'stone')
 
       // プレイヤーを障害物に向けて移動
-      const moveResult = yield* Effect.either(
-        movePlayer(player.id, { x: 1, y: 64, z: 0 })
-      )
+      const moveResult = yield* Effect.either(movePlayer(player.id, { x: 1, y: 64, z: 0 }))
 
       // 衝突が検出されることを確認
-      expect(moveResult._tag).toBe("Left")
-      if (moveResult._tag === "Left") {
-        expect(moveResult.left._tag).toBe("CollisionDetectedError")
+      expect(moveResult._tag).toBe('Left')
+      if (moveResult._tag === 'Left') {
+        expect(moveResult.left._tag).toBe('CollisionDetectedError')
       }
 
       // 有効な位置への移動は成功
       const validMoveResult = yield* movePlayer(player.id, { x: 0, y: 64, z: 1 })
       expect(validMoveResult.success).toBe(true)
-    }).pipe(Effect.runPromise)
-  )
+    }).pipe(Effect.runPromise))
 })
 ```
 
@@ -1243,36 +1151,33 @@ describe('ECS Component System Tests', () => {
       const entityId = yield* createEntity(world)
 
       // コンポーネントの追加
-      yield* addComponent(world, entityId, "Position", { x: 0, y: 64, z: 0 })
-      yield* addComponent(world, entityId, "Health", { current: 100, max: 100 })
-      yield* addComponent(world, entityId, "Velocity", { x: 0, y: 0, z: 0 })
+      yield* addComponent(world, entityId, 'Position', { x: 0, y: 64, z: 0 })
+      yield* addComponent(world, entityId, 'Health', { current: 100, max: 100 })
+      yield* addComponent(world, entityId, 'Velocity', { x: 0, y: 0, z: 0 })
 
       // コンポーネントの存在確認
-      const hasPosition = yield* hasComponent(world, entityId, "Position")
-      const hasHealth = yield* hasComponent(world, entityId, "Health")
-      const hasVelocity = yield* hasComponent(world, entityId, "Velocity")
+      const hasPosition = yield* hasComponent(world, entityId, 'Position')
+      const hasHealth = yield* hasComponent(world, entityId, 'Health')
+      const hasVelocity = yield* hasComponent(world, entityId, 'Velocity')
 
       expect(hasPosition).toBe(true)
       expect(hasHealth).toBe(true)
       expect(hasVelocity).toBe(true)
 
       // コンポーネントの取得と更新
-      const position = yield* getComponent(world, entityId, "Position")
+      const position = yield* getComponent(world, entityId, 'Position')
       expect(position).toEqual({ x: 0, y: 64, z: 0 })
 
-      yield* updateComponent(world, entityId, "Position", { x: 10, y: 64, z: 5 })
-      const updatedPosition = yield* getComponent(world, entityId, "Position")
+      yield* updateComponent(world, entityId, 'Position', { x: 10, y: 64, z: 5 })
+      const updatedPosition = yield* getComponent(world, entityId, 'Position')
       expect(updatedPosition).toEqual({ x: 10, y: 64, z: 5 })
 
       // エンティティの削除でコンポーネントもクリーンアップされる
       yield* removeEntity(world, entityId)
 
-      const hasAnyComponents = yield* Effect.either(
-        getComponent(world, entityId, "Position")
-      )
-      expect(hasAnyComponents._tag).toBe("Left") // エンティティが存在しない
-    }).pipe(Effect.runPromise)
-  )
+      const hasAnyComponents = yield* Effect.either(getComponent(world, entityId, 'Position'))
+      expect(hasAnyComponents._tag).toBe('Left') // エンティティが存在しない
+    }).pipe(Effect.runPromise))
 
   it('processes component systems in correct order', () =>
     Effect.gen(function* () {
@@ -1281,30 +1186,32 @@ describe('ECS Component System Tests', () => {
 
       // システムの実行順序を記録するためのモック
       const mockPositionSystem = Effect.gen(function* () {
-        systemExecutionOrder.push("Position")
+        systemExecutionOrder.push('Position')
         yield* processPositionUpdates(world)
       })
 
       const mockVelocitySystem = Effect.gen(function* () {
-        systemExecutionOrder.push("Velocity")
+        systemExecutionOrder.push('Velocity')
         yield* processVelocityUpdates(world)
       })
 
       const mockPhysicsSystem = Effect.gen(function* () {
-        systemExecutionOrder.push("Physics")
+        systemExecutionOrder.push('Physics')
         yield* processPhysicsUpdates(world)
       })
 
       // システムを順序通りに実行
-      yield* Effect.all([
-        mockVelocitySystem,    // 1. 速度更新
-        mockPositionSystem,    // 2. 位置更新
-        mockPhysicsSystem      // 3. 物理演算
-      ], { concurrency: 1 }) // 順次実行を保証
+      yield* Effect.all(
+        [
+          mockVelocitySystem, // 1. 速度更新
+          mockPositionSystem, // 2. 位置更新
+          mockPhysicsSystem, // 3. 物理演算
+        ],
+        { concurrency: 1 }
+      ) // 順次実行を保証
 
-      expect(systemExecutionOrder).toEqual(["Velocity", "Position", "Physics"])
-    }).pipe(Effect.runPromise)
-  )
+      expect(systemExecutionOrder).toEqual(['Velocity', 'Position', 'Physics'])
+    }).pipe(Effect.runPromise))
 })
 ```
 
@@ -1320,7 +1227,7 @@ const TestSetup = {
     Effect.gen(function* () {
       const world = yield* createTestWorld({
         seed: 'basic-test',
-        size: { width: 16, height: 256, depth: 16 }
+        size: { width: 16, height: 256, depth: 16 },
       })
       return world
     }),
@@ -1329,10 +1236,7 @@ const TestSetup = {
   gameEnvironment: () =>
     Effect.gen(function* () {
       const world = yield* TestSetup.basicWorld()
-      const players = yield* Effect.all([
-        spawnPlayer('Alice'),
-        spawnPlayer('Bob')
-      ])
+      const players = yield* Effect.all([spawnPlayer('Alice'), spawnPlayer('Bob')])
       const structures = yield* generateTestStructures(world, 5)
 
       return { world, players, structures }
@@ -1343,17 +1247,15 @@ const TestSetup = {
     Effect.gen(function* () {
       const world = yield* createTestWorld({
         seed: 'performance-test',
-        size: { width: 256, height: 256, depth: 256 }
+        size: { width: 256, height: 256, depth: 256 },
       })
       const entities = yield* Effect.all(
-        Array.from({ length: 1000 }, (_, i) =>
-          createTestEntity(world, `entity_${i}`)
-        ),
+        Array.from({ length: 1000 }, (_, i) => createTestEntity(world, `entity_${i}`)),
         { concurrency: 10 }
       )
 
       return { world, entities }
-    })
+    }),
 }
 
 // テストクリーンアップ
@@ -1361,16 +1263,14 @@ const TestCleanup = {
   world: (world: World) =>
     Effect.gen(function* () {
       // 全エンティティの削除
-      yield* Effect.all(
-        world.entities.map(entity => removeEntity(world, entity.id))
-      )
+      yield* Effect.all(world.entities.map((entity) => removeEntity(world, entity.id)))
 
       // チャンクデータのクリア
       yield* clearAllChunks(world)
 
       // イベントリスナーのクリーンアップ
       yield* unregisterAllEventListeners(world)
-    })
+    }),
 }
 
 describe('Test Suite Organization Example', () => {
@@ -1384,9 +1284,7 @@ describe('Test Suite Organization Example', () => {
       }).pipe(Effect.runPromise)
     )
 
-    afterEach(() =>
-      TestCleanup.world(testWorld).pipe(Effect.runPromise)
-    )
+    afterEach(() => TestCleanup.world(testWorld).pipe(Effect.runPromise))
 
     it('player spawning works correctly', () =>
       Effect.gen(function* () {
@@ -1395,8 +1293,7 @@ describe('Test Suite Organization Example', () => {
 
         expect(worldPlayer.id).toBe(player.id)
         expect(worldPlayer.position).toEqual(testWorld.spawnPoint)
-      }).pipe(Effect.runPromise)
-    )
+      }).pipe(Effect.runPromise))
 
     it('block placement system functions', () =>
       Effect.gen(function* () {
@@ -1408,8 +1305,7 @@ describe('Test Suite Organization Example', () => {
         expect(result.success).toBe(true)
         const placedBlock = yield* getBlockAt(testWorld, position)
         expect(placedBlock?.type).toBe('stone')
-      }).pipe(Effect.runPromise)
-    )
+      }).pipe(Effect.runPromise))
   })
 })
 ```
@@ -1443,8 +1339,7 @@ describe('Test Execution Control', () => {
       Effect.gen(function* () {
         sharedWorld = yield* createTestWorld({ seed: 'sequential' })
         expect(sharedWorld).toBeDefined()
-      }).pipe(Effect.runPromise)
-    )
+      }).pipe(Effect.runPromise))
 
     it('uses shared world state', () =>
       Effect.gen(function* () {
@@ -1452,18 +1347,15 @@ describe('Test Execution Control', () => {
         yield* addPlayerToWorld(sharedWorld, player)
 
         expect(sharedWorld.players).toContain(player)
-      }).pipe(Effect.runPromise)
-    )
+      }).pipe(Effect.runPromise))
 
     it('modifies shared world state', () =>
       Effect.gen(function* () {
-        yield* placeBlock(sharedWorld, sharedWorld.players[0].id,
-                         { x: 0, y: 65, z: 0 }, 'diamond')
+        yield* placeBlock(sharedWorld, sharedWorld.players[0].id, { x: 0, y: 65, z: 0 }, 'diamond')
 
         const placedBlock = yield* getBlockAt(sharedWorld, { x: 0, y: 65, z: 0 })
         expect(placedBlock?.type).toBe('diamond')
-      }).pipe(Effect.runPromise)
-    )
+      }).pipe(Effect.runPromise))
   })
 })
 ```
@@ -1479,7 +1371,7 @@ const MockServiceFactory = {
       Effect.gen(function* () {
         const state = yield* Ref.make({
           chunks: new Map<string, Chunk>(),
-          entities: new Map<string, Entity>()
+          entities: new Map<string, Entity>(),
         })
 
         return {
@@ -1495,14 +1387,14 @@ const MockServiceFactory = {
           saveChunk: (chunk) =>
             Effect.gen(function* () {
               const key = `${chunk.coordinate.x},${chunk.coordinate.z}`
-              yield* Ref.update(state, s => ({
+              yield* Ref.update(state, (s) => ({
                 ...s,
-                chunks: s.chunks.set(key, chunk)
+                chunks: s.chunks.set(key, chunk),
               }))
             }),
 
           // カスタム動作の適用
-          ...customBehavior
+          ...customBehavior,
         }
       })
     ),
@@ -1517,13 +1409,13 @@ const MockServiceFactory = {
           spawn: (name) =>
             Effect.gen(function* () {
               const player = TestDataFactory.player({ name })
-              yield* Ref.update(players, p => p.set(player.id, player))
+              yield* Ref.update(players, (p) => p.set(player.id, player))
               return player
             }),
 
           move: (playerId, position) =>
             Effect.gen(function* () {
-              yield* Ref.update(players, p => {
+              yield* Ref.update(players, (p) => {
                 const player = p.get(playerId)
                 if (player) {
                   p.set(playerId, { ...player, position })
@@ -1532,10 +1424,10 @@ const MockServiceFactory = {
               })
             }),
 
-          ...customBehavior
+          ...customBehavior,
         }
       })
-    )
+    ),
 }
 
 // 特定のテストケース用のカスタムモック
@@ -1543,23 +1435,20 @@ describe('Custom Mock Usage', () => {
   it('uses world service that always returns empty chunks', () =>
     Effect.gen(function* () {
       const customWorldService = MockServiceFactory.worldService({
-        getChunk: () => Effect.succeed({
-          coordinate: { x: 0, z: 0 },
-          blocks: [],
-          entities: [],
-          generated: true
-        })
+        getChunk: () =>
+          Effect.succeed({
+            coordinate: { x: 0, z: 0 },
+            blocks: [],
+            entities: [],
+            generated: true,
+          }),
       })
 
       const worldService = yield* WorldService
       const chunk = yield* worldService.getChunk({ x: 0, z: 0 })
 
       expect(chunk.blocks).toHaveLength(0)
-    }).pipe(
-      Effect.provide(customWorldService),
-      Effect.runPromise
-    )
-  )
+    }).pipe(Effect.provide(customWorldService), Effect.runPromise))
 })
 ```
 
@@ -1568,6 +1457,7 @@ describe('Custom Mock Usage', () => {
 この包括的なEffect-TS 3.17+テストパターンガイドでは、以下の最新パターンを確立しました：
 
 ### 🎯 **採用された最新技術**
+
 - **Schema.Struct**による型安全なテストデータ定義
 - **Context.Tag**を用いたサービス定義とDI
 - **Effect.gen**と`yield*`による直感的な非同期処理
@@ -1575,27 +1465,32 @@ describe('Custom Mock Usage', () => {
 - **Layer.effect**による現代的なレイヤー構築
 
 ### 🧪 **Property-Based Testing統合**
+
 - **fast-check**とEffect-TSの完全統合
 - ゲーム特化の自動テストデータ生成
 - 物理法則・ゲームルールの不変条件テスト
 - エッジケースの自動発見
 
 ### ⚡ **決定論的テスト制御**
+
 - **TestClock**による精密な時間制御
 - **TestRandom**による予測可能な乱数テスト
 - ゲームループ・戦闘システムの完全制御
 
 ### 🔄 **並行処理・ストリーミング**
+
 - **Queue**と**Stream**によるイベント処理テスト
 - **Fiber**を用いた並行処理の安全性確保
 - バックプレッシャー・リソース競合のテスト
 
 ### 🎮 **ゲーム特化テストパターン**
+
 - インベントリ・ブロック配置・物理システム
 - ECSコンポーネントライフサイクル
 - プレイヤーインタラクション・コリジョン検出
 
 ### 📋 **組織化・保守性**
+
 - 階層的なテストスイート構造
 - 再利用可能なモック・ファクトリ
 - セットアップ・クリーンアップの標準化

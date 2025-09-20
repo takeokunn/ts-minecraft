@@ -1,14 +1,16 @@
 ---
-title: "Core APIs - Effect-TS 3.17+完全リファレンス"
-description: "Effect-TS 3.17+コアAPI完全リファレンス。Schema、Context、Effect、パターンマッチングの詳細仕様とMinecraft Clone特化実装例。"
-category: "reference"
-difficulty: "advanced"
-tags: ["effect-ts", "schema-api", "context-api", "effect-api", "pattern-matching", "type-safety", "functional-programming"]
-prerequisites: ["typescript-advanced", "functional-programming-basics", "effect-ts-fundamentals"]
-estimated_reading_time: "30分"
+title: 'Core APIs - Effect-TS 3.17+完全リファレンス'
+description: 'Effect-TS 3.17+コアAPI完全リファレンス。Schema、Context、Effect、パターンマッチングの詳細仕様とMinecraft Clone特化実装例。'
+category: 'reference'
+difficulty: 'advanced'
+tags:
+  ['effect-ts', 'schema-api', 'context-api', 'effect-api', 'pattern-matching', 'type-safety', 'functional-programming']
+prerequisites: ['typescript-advanced', 'functional-programming-basics', 'effect-ts-fundamentals']
+estimated_reading_time: '30分'
 ---
 
 ## 内部リンク
+
     - path: "../../tutorials/effect-ts-fundamentals/06a-effect-ts-basics.md"
       relationship: "prerequisite-tutorial"
       relevance_score: 0.93
@@ -18,55 +20,43 @@ estimated_reading_time: "30分"
     - path: "../../how-to/development/00-development-conventions.md"
       relationship: "implementation-guide"
       relevance_score: 0.85
-  external_refs:
-    - url: "https://effect.website/docs/schema"
-      type: "official-api-docs"
-      relevance_score: 0.99
-      last_verified: "2025-01-15"
-      api_version: "3.17+"
-    - url: "https://effect.website/docs/context"
-      type: "official-api-docs"
-      relevance_score: 0.98
-      last_verified: "2025-01-15"
-    - url: "https://github.com/Effect-TS/effect/tree/main/packages/schema"
-      type: "source-code"
-      relevance_score: 0.94
-  code_repositories:
-    - name: "examples/core-api-usage"
-      type: "comprehensive-examples"
-      completeness: 0.97
-      test_coverage: 0.95
-    - name: "benchmarks/api-performance"
-      type: "performance-tests"
-      completeness: 0.89
+
+external_refs: - url: "https://effect.website/docs/schema"
+type: "official-api-docs"
+relevance_score: 0.99
+last_verified: "2025-01-15"
+api_version: "3.17+" - url: "https://effect.website/docs/context"
+type: "official-api-docs"
+relevance_score: 0.98
+last_verified: "2025-01-15" - url: "https://github.com/Effect-TS/effect/tree/main/packages/schema"
+type: "source-code"
+relevance_score: 0.94
+code_repositories: - name: "examples/core-api-usage"
+type: "comprehensive-examples"
+completeness: 0.97
+test_coverage: 0.95 - name: "benchmarks/api-performance"
+type: "performance-tests"
+completeness: 0.89
 machine_readable:
-  topics: ["api-reference", "effect-ts", "schema", "context", "type-safety", "enterprise-apis", "functional-programming", "typescript-advanced"]
-  skill_level: "advanced"
-  implementation_time: 90
-  confidence_score: 0.999
-  use_cases: ["api-implementation", "enterprise-development", "game-architecture", "type-safe-programming", "production-systems"]
-  api_maturity: "production-ready"
-  ai_agent_tags:
-    - "comprehensive-api-reference"
-    - "production-ready-patterns"
-    - "performance-optimized"
-    - "type-safety-focused"
-  search_keywords:
-    primary: ["effect-schema", "context-generictag", "effect-gen", "match-value", "brand-types"]
-    secondary: ["data-validation", "dependency-injection", "error-handling", "type-inference", "api-composition"]
-    contextual: ["minecraft-apis", "game-development", "production-ready", "enterprise-typescript"]
-  api_categories:
-    - "Data Modeling & Validation"
-    - "Dependency Management"
-    - "Effect Composition"
-    - "Pattern Matching"
-    - "Performance Optimization"
-  learning_effectiveness:
-    completion_rate_prediction: 0.78
-    concept_retention_score: 0.89
-    practical_application_success: 0.94
-    api_mastery_achievement: 0.91
+topics: ["api-reference", "effect-ts", "schema", "context", "type-safety", "enterprise-apis", "functional-programming", "typescript-advanced"]
+skill_level: "advanced"
+implementation_time: 90
+confidence_score: 0.999
+use_cases: ["api-implementation", "enterprise-development", "game-architecture", "type-safe-programming", "production-systems"]
+api_maturity: "production-ready"
+ai_agent_tags: - "comprehensive-api-reference" - "production-ready-patterns" - "performance-optimized" - "type-safety-focused"
+search_keywords:
+primary: ["effect-schema", "context-generictag", "effect-gen", "match-value", "brand-types"]
+secondary: ["data-validation", "dependency-injection", "error-handling", "type-inference", "api-composition"]
+contextual: ["minecraft-apis", "game-development", "production-ready", "enterprise-typescript"]
+api_categories: - "Data Modeling & Validation" - "Dependency Management" - "Effect Composition" - "Pattern Matching" - "Performance Optimization"
+learning_effectiveness:
+completion_rate_prediction: 0.78
+concept_retention_score: 0.89
+practical_application_success: 0.94
+api_mastery_achievement: 0.91
 learning_path: "Level 3-5 - Effect-TS完全マスタリー"
+
 ---
 
 # 🔌 Core APIs - Effect-TS 3.17+完全マスタリー
@@ -113,8 +103,8 @@ mindmap
 
 #### ✅ **基本型Schema**
 
-```typescript
-import { Schema, ParseResult } from "effect";
+````typescript
+import { Schema, ParseResult } from 'effect'
 
 /**
  * 基本プリミティブ型Schema定義
@@ -123,7 +113,7 @@ import { Schema, ParseResult } from "effect";
  */
 
 // 文字列型Schema
-export const StringSchema: Schema.Schema<string, string, never> = Schema.String;
+export const StringSchema: Schema.Schema<string, string, never> = Schema.String
 
 /**
  * 数値型Schema
@@ -134,7 +124,7 @@ export const StringSchema: Schema.Schema<string, string, never> = Schema.String;
  * const invalid = Schema.decodeSync(NumberSchema)("abc"); // throws ParseError
  * ```
  */
-export const NumberSchema: Schema.Schema<number, unknown, never> = Schema.Number;
+export const NumberSchema: Schema.Schema<number, unknown, never> = Schema.Number
 
 /**
  * 真偽値型Schema
@@ -145,7 +135,7 @@ export const NumberSchema: Schema.Schema<number, unknown, never> = Schema.Number
  * const fromString = Schema.decodeSync(BooleanSchema)("true"); // throws ParseError (strict)
  * ```
  */
-export const BooleanSchema: Schema.Schema<boolean, unknown, never> = Schema.Boolean;
+export const BooleanSchema: Schema.Schema<boolean, unknown, never> = Schema.Boolean
 
 /**
  * BigInt型Schema
@@ -156,7 +146,7 @@ export const BooleanSchema: Schema.Schema<boolean, unknown, never> = Schema.Bool
  * const fromNumber = Schema.decodeSync(BigIntSchema)(123); // 123n (auto-converted)
  * ```
  */
-export const BigIntSchema: Schema.Schema<bigint, unknown, never> = Schema.BigInt;
+export const BigIntSchema: Schema.Schema<bigint, unknown, never> = Schema.BigInt
 
 /**
  * Date型Schema
@@ -168,7 +158,7 @@ export const BigIntSchema: Schema.Schema<bigint, unknown, never> = Schema.BigInt
  * const fromTimestamp = Schema.decodeSync(DateSchema)(1704067200000); // Date object
  * ```
  */
-export const DateSchema: Schema.Schema<Date, unknown, never> = Schema.Date;
+export const DateSchema: Schema.Schema<Date, unknown, never> = Schema.Date
 
 /**
  * リテラル型Schema
@@ -179,16 +169,20 @@ export const DateSchema: Schema.Schema<Date, unknown, never> = Schema.Date;
  * const invalid = Schema.decodeSync(BlockType)("invalid"); // throws ParseError
  * ```
  */
-export const BlockType: Schema.Schema<"stone" | "grass" | "dirt" | "wood", unknown, never> =
-  Schema.Literal("stone", "grass", "dirt", "wood");
+export const BlockType: Schema.Schema<'stone' | 'grass' | 'dirt' | 'wood', unknown, never> = Schema.Literal(
+  'stone',
+  'grass',
+  'dirt',
+  'wood'
+)
 
-type BlockType = Schema.Schema.Type<typeof BlockType>;
-```
+type BlockType = Schema.Schema.Type<typeof BlockType>
+````
 
 #### ⭐ **Minecraft特化Schema実装例**
 
-```typescript
-import { Schema, Brand } from "effect";
+````typescript
+import { Schema, Brand } from 'effect'
 
 /**
  * 3D座標位置Schema
@@ -207,28 +201,22 @@ import { Schema, Brand } from "effect";
  * ```
  */
 export const PositionSchema: Schema.Schema<Position, unknown, never> = Schema.Struct({
-  x: Schema.Number.pipe(
-    Schema.int(),
-    Schema.annotations({ description: "X coordinate in world space" })
-  ),
+  x: Schema.Number.pipe(Schema.int(), Schema.annotations({ description: 'X coordinate in world space' })),
   y: Schema.Number.pipe(
     Schema.int(),
     Schema.between(0, 255),
-    Schema.annotations({ description: "Y coordinate with Minecraft height limits" })
+    Schema.annotations({ description: 'Y coordinate with Minecraft height limits' })
   ),
-  z: Schema.Number.pipe(
-    Schema.int(),
-    Schema.annotations({ description: "Z coordinate in world space" })
-  )
+  z: Schema.Number.pipe(Schema.int(), Schema.annotations({ description: 'Z coordinate in world space' })),
 }).pipe(
   Schema.annotations({
-    identifier: "Position",
-    title: "3D World Position",
-    description: "3D world position with Minecraft constraints"
+    identifier: 'Position',
+    title: '3D World Position',
+    description: '3D world position with Minecraft constraints',
   })
-);
+)
 
-export type Position = Schema.Schema.Type<typeof PositionSchema>;
+export type Position = Schema.Schema.Type<typeof PositionSchema>
 
 /**
  * チャンク座標Schema
@@ -245,23 +233,17 @@ export type Position = Schema.Schema.Type<typeof PositionSchema>;
  * ```
  */
 export const ChunkCoordinateSchema: Schema.Schema<ChunkCoordinate, unknown, never> = Schema.Struct({
-  chunkX: Schema.Number.pipe(
-    Schema.int(),
-    Schema.annotations({ description: "Chunk X coordinate" })
-  ),
-  chunkZ: Schema.Number.pipe(
-    Schema.int(),
-    Schema.annotations({ description: "Chunk Z coordinate" })
-  )
+  chunkX: Schema.Number.pipe(Schema.int(), Schema.annotations({ description: 'Chunk X coordinate' })),
+  chunkZ: Schema.Number.pipe(Schema.int(), Schema.annotations({ description: 'Chunk Z coordinate' })),
 }).pipe(
   Schema.annotations({
-    identifier: "ChunkCoordinate",
-    title: "Chunk Coordinate",
-    description: "Coordinate pair for chunk-based world management"
+    identifier: 'ChunkCoordinate',
+    title: 'Chunk Coordinate',
+    description: 'Coordinate pair for chunk-based world management',
   })
-);
+)
 
-export type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinateSchema>;
+export type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinateSchema>
 
 /**
  * プレイヤー状態Schema
@@ -290,35 +272,35 @@ export type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinateSchema>;
 export const PlayerStateSchema: Schema.Schema<PlayerState, unknown, never> = Schema.Struct({
   id: Schema.String.pipe(
     Schema.uuid(),
-    Schema.brand("PlayerId"),
-    Schema.annotations({ description: "Unique player identifier" })
+    Schema.brand('PlayerId'),
+    Schema.annotations({ description: 'Unique player identifier' })
   ),
   username: Schema.String.pipe(
     Schema.minLength(3),
     Schema.maxLength(16),
     Schema.pattern(/^[a-zA-Z0-9_]+$/),
-    Schema.annotations({ description: "Player username following Minecraft rules" })
+    Schema.annotations({ description: 'Player username following Minecraft rules' })
   ),
   position: PositionSchema,
   health: Schema.Number.pipe(
     Schema.between(0, 20),
     Schema.multipleOf(0.5),
-    Schema.brand("Health"),
-    Schema.annotations({ description: "Player health in half-hearts (0-20)" })
+    Schema.brand('Health'),
+    Schema.annotations({ description: 'Player health in half-hearts (0-20)' })
   ),
   inventory: Schema.Array(Schema.suspend(() => ItemStackSchema)),
-  gamemode: Schema.Literal("survival", "creative", "spectator").pipe(
-    Schema.annotations({ description: "Current game mode" })
-  )
+  gamemode: Schema.Literal('survival', 'creative', 'spectator').pipe(
+    Schema.annotations({ description: 'Current game mode' })
+  ),
 }).pipe(
   Schema.annotations({
-    identifier: "PlayerState",
-    title: "Player State",
-    description: "Complete player state representation"
+    identifier: 'PlayerState',
+    title: 'Player State',
+    description: 'Complete player state representation',
   })
-);
+)
 
-export type PlayerState = Schema.Schema.Type<typeof PlayerStateSchema>;
+export type PlayerState = Schema.Schema.Type<typeof PlayerStateSchema>
 
 /**
  * アイテムスタックSchema
@@ -343,39 +325,35 @@ export type PlayerState = Schema.Schema.Type<typeof PlayerStateSchema>;
  * ```
  */
 export const ItemStackSchema: Schema.Schema<ItemStack, unknown, never> = Schema.Struct({
-  itemType: Schema.String.pipe(
-    Schema.brand("ItemType"),
-    Schema.annotations({ description: "Item type identifier" })
-  ),
+  itemType: Schema.String.pipe(Schema.brand('ItemType'), Schema.annotations({ description: 'Item type identifier' })),
   quantity: Schema.Number.pipe(
     Schema.int(),
     Schema.between(1, 64),
-    Schema.annotations({ description: "Item quantity with Minecraft stack limits" })
+    Schema.annotations({ description: 'Item quantity with Minecraft stack limits' })
   ),
   metadata: Schema.optional(
     Schema.Record({
       key: Schema.String,
-      value: Schema.Unknown
-    }).pipe(
-      Schema.annotations({ description: "Optional item metadata" })
-    )
-  )
+      value: Schema.Unknown,
+    }).pipe(Schema.annotations({ description: 'Optional item metadata' }))
+  ),
 }).pipe(
   Schema.annotations({
-    identifier: "ItemStack",
-    title: "Item Stack",
-    description: "Item stack for inventory system"
+    identifier: 'ItemStack',
+    title: 'Item Stack',
+    description: 'Item stack for inventory system',
   })
-);
+)
 
-export type ItemStack = Schema.Schema.Type<typeof ItemStackSchema>;
-```
+export type ItemStack = Schema.Schema.Type<typeof ItemStackSchema>
+````
 
 ### 🔄 Schema変換・検証パターン
 
 #### ✅ **デコード・エンコード処理**
-```typescript
-import { Schema, Either, ParseResult, Effect } from "effect"
+
+````typescript
+import { Schema, Either, ParseResult, Effect } from 'effect'
 
 /**
  * プレイヤー状態の安全なデコード処理
@@ -412,7 +390,7 @@ const validatePositionWithConstraints = (position: unknown) => {
   if (Either.isLeft(result)) {
     const error = result.left
     // エラーの詳細分析
-    if (error.message.includes("y") && error.message.includes("between")) {
+    if (error.message.includes('y') && error.message.includes('between')) {
       throw new Error(`Y coordinate out of bounds: Must be 0-255, got ${(position as any).y}`)
     }
     throw new Error(`Position validation failed: ${error.message}`)
@@ -467,36 +445,36 @@ const processPlayerData = (apiResponse: unknown) =>
     Either.match({
       onLeft: (error) => {
         // エラーの詳細ログ出力
-        console.error("Player data validation failed:", {
+        console.error('Player data validation failed:', {
           input: apiResponse,
           error: error.message,
           path: error.path,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         })
 
         // 部分的復旧の試行
         if (typeof apiResponse === 'object' && apiResponse && 'id' in apiResponse) {
-          console.warn("Attempting partial recovery with minimal player data")
+          console.warn('Attempting partial recovery with minimal player data')
           return {
             id: (apiResponse as any).id,
-            username: "Unknown",
+            username: 'Unknown',
             position: { x: 0, y: 64, z: 0 },
             health: 20,
             inventory: { hotbar: [], main: [], armor: {}, offhand: null },
-            gamemode: "survival" as const
+            gamemode: 'survival' as const,
           }
         }
 
         return null
       },
       onRight: (playerState) => {
-        console.log("Player successfully loaded:", {
+        console.log('Player successfully loaded:', {
           username: playerState.username,
           position: playerState.position,
-          health: playerState.health
+          health: playerState.health,
         })
         return playerState
-      }
+      },
     })
   )
 
@@ -564,57 +542,60 @@ const encodePlayerState = (playerState: PlayerState): unknown => {
  * @param error - ParseResult.ParseError
  * @returns 人間が読みやすいエラー情報
  */
-const analyzeValidationError = (error: ParseResult.ParseError): {
-  field: string;
-  expectedType: string;
-  actualValue: unknown;
-  suggestion: string;
+const analyzeValidationError = (
+  error: ParseResult.ParseError
+): {
+  field: string
+  expectedType: string
+  actualValue: unknown
+  suggestion: string
 } => {
   const path = error.path.join('.')
-  let suggestion = "Check the input data format"
+  let suggestion = 'Check the input data format'
 
   if (path.includes('position.y')) {
-    suggestion = "Y coordinate must be between 0-255 (Minecraft height limit)"
+    suggestion = 'Y coordinate must be between 0-255 (Minecraft height limit)'
   } else if (path.includes('username')) {
-    suggestion = "Username must be 3-16 characters, alphanumeric and underscore only"
+    suggestion = 'Username must be 3-16 characters, alphanumeric and underscore only'
   } else if (path.includes('health')) {
-    suggestion = "Health must be between 0-20 in increments of 0.5"
+    suggestion = 'Health must be between 0-20 in increments of 0.5'
   } else if (path.includes('inventory')) {
-    suggestion = "Inventory structure must match the expected format"
+    suggestion = 'Inventory structure must match the expected format'
   }
 
   return {
     field: path,
     expectedType: error.message.split(',')[0] || 'Unknown',
     actualValue: error.actual,
-    suggestion
+    suggestion,
   }
 }
-```
+````
 
 #### 🎯 **高度なSchema合成パターンと制約**
+
 ```typescript
 // Union型Schema - 判別可能なUnion
 export const GameEventSchema = Schema.Union(
   Schema.Struct({
-    type: Schema.Literal("block_break"),
+    type: Schema.Literal('block_break'),
     position: PositionSchema,
     blockType: BlockType,
-    player: PlayerStateSchema
-  }),
-  Schema.Struct({
-    type: Schema.Literal("player_join"),
     player: PlayerStateSchema,
-    timestamp: Schema.Date
   }),
   Schema.Struct({
-    type: Schema.Literal("chat_message"),
+    type: Schema.Literal('player_join'),
+    player: PlayerStateSchema,
+    timestamp: Schema.Date,
+  }),
+  Schema.Struct({
+    type: Schema.Literal('chat_message'),
     player: PlayerStateSchema,
     message: Schema.String.pipe(Schema.maxLength(256)),
-    timestamp: Schema.Date
+    timestamp: Schema.Date,
   })
 ).annotations({
-  identifier: "GameEvent"
+  identifier: 'GameEvent',
 })
 
 // 再帰的Schema - ツリー構造
@@ -622,26 +603,26 @@ export const WorldRegionSchema: Schema.Schema<WorldRegion> = Schema.Struct({
   name: Schema.String,
   bounds: Schema.Struct({
     min: PositionSchema,
-    max: PositionSchema
+    max: PositionSchema,
   }),
   chunks: Schema.Array(ChunkCoordinateSchema),
-  subRegions: Schema.suspend(() => Schema.Array(WorldRegionSchema))  // 再帰
+  subRegions: Schema.suspend(() => Schema.Array(WorldRegionSchema)), // 再帰
 }).annotations({
-  identifier: "WorldRegion"
+  identifier: 'WorldRegion',
 })
 
 // 条件付きSchema - 複雑なバリデーション
 export const BlockPlacementSchema = Schema.Struct({
   position: PositionSchema,
   blockType: BlockType,
-  player: PlayerStateSchema
+  player: PlayerStateSchema,
 }).pipe(
-  Schema.filter(({ position, player }) =>
-    // プレイヤーから5ブロック以内の配置のみ許可
-    Math.abs(position.x - player.position.x) <= 5 &&
-    Math.abs(position.z - player.position.z) <= 5,
+  Schema.filter(
+    ({ position, player }) =>
+      // プレイヤーから5ブロック以内の配置のみ許可
+      Math.abs(position.x - player.position.x) <= 5 && Math.abs(position.z - player.position.z) <= 5,
     {
-      message: () => "Block placement too far from player"
+      message: () => 'Block placement too far from player',
     }
   )
 )
@@ -652,8 +633,9 @@ export const BlockPlacementSchema = Schema.Struct({
 ### 📋 Context基本パターン
 
 #### ✅ **サービス定義とTag作成**
+
 ```typescript
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer } from 'effect'
 
 // WorldService - ワールド管理の抽象化
 export interface WorldService {
@@ -663,7 +645,7 @@ export interface WorldService {
   readonly unloadChunk: (coord: ChunkCoordinate) => Effect.Effect<void, never>
 }
 
-export const WorldService = Context.GenericTag<WorldService>("WorldService")
+export const WorldService = Context.GenericTag<WorldService>('WorldService')
 
 // PlayerService - プレイヤー管理
 export interface PlayerService {
@@ -672,7 +654,7 @@ export interface PlayerService {
   readonly movePlayer: (id: string, position: Position) => Effect.Effect<void, MovementError>
 }
 
-export const PlayerService = Context.GenericTag<PlayerService>("PlayerService")
+export const PlayerService = Context.GenericTag<PlayerService>('PlayerService')
 
 // RenderService - レンダリングシステム
 export interface RenderService {
@@ -681,71 +663,76 @@ export interface RenderService {
   readonly loadTexture: (path: string) => Effect.Effect<Texture, AssetLoadError>
 }
 
-export const RenderService = Context.GenericTag<RenderService>("RenderService")
+export const RenderService = Context.GenericTag<RenderService>('RenderService')
 ```
 
 #### ⭐ **実装Layer定義**
+
 ```typescript
 // WorldService実装
 export const WorldServiceLive: Layer.Layer<WorldService, ConfigError> = Layer.effect(
   WorldService,
   Effect.gen(function* () {
     // 設定とリソース取得
-    const config = yield* Config.string("WORLD_PATH")
+    const config = yield* Config.string('WORLD_PATH')
     const fileSystem = yield* FileSystem
 
     // チャンクキャッシュ
     const chunkCache = new Map<string, Chunk>()
 
     return WorldService.of({
-      loadChunk: (coord) => Effect.gen(function* () {
-        const key = `${coord.chunkX},${coord.chunkZ}`
+      loadChunk: (coord) =>
+        Effect.gen(function* () {
+          const key = `${coord.chunkX},${coord.chunkZ}`
 
-        // キャッシュチェック
-        if (chunkCache.has(key)) {
-          return chunkCache.get(key)!
-        }
+          // キャッシュチェック
+          if (chunkCache.has(key)) {
+            return chunkCache.get(key)!
+          }
 
-        // ファイルから読み込み
-        const chunkPath = `${config}/chunks/${key}.chunk`
-        const exists = yield* fileSystem.exists(chunkPath)
+          // ファイルから読み込み
+          const chunkPath = `${config}/chunks/${key}.chunk`
+          const exists = yield* fileSystem.exists(chunkPath)
 
-        if (exists) {
-          const data = yield* fileSystem.readFile(chunkPath)
-          const chunk = yield* Schema.decodeUnknown(ChunkSchema)(JSON.parse(data))
+          if (exists) {
+            const data = yield* fileSystem.readFile(chunkPath)
+            const chunk = yield* Schema.decodeUnknown(ChunkSchema)(JSON.parse(data))
+            chunkCache.set(key, chunk)
+            return chunk
+          }
+
+          // 生成
+          return yield* generateChunk(coord)
+        }),
+
+      saveChunk: (chunk) =>
+        Effect.gen(function* () {
+          const key = `${chunk.coordinate.chunkX},${chunk.coordinate.chunkZ}`
+          const chunkPath = `${config}/chunks/${key}.chunk`
+          const data = Schema.encodeSync(ChunkSchema)(chunk)
+
+          yield* fileSystem.writeFile(chunkPath, JSON.stringify(data))
           chunkCache.set(key, chunk)
+        }),
+
+      generateChunk: (coord) =>
+        Effect.gen(function* () {
+          // 地形生成ロジック
+          const blocks = generateTerrain(coord)
+          const chunk: Chunk = {
+            coordinate: coord,
+            blocks,
+            generated: true,
+            modified: false,
+          }
           return chunk
-        }
+        }),
 
-        // 生成
-        return yield* generateChunk(coord)
-      }),
-
-      saveChunk: (chunk) => Effect.gen(function* () {
-        const key = `${chunk.coordinate.chunkX},${chunk.coordinate.chunkZ}`
-        const chunkPath = `${config}/chunks/${key}.chunk`
-        const data = Schema.encodeSync(ChunkSchema)(chunk)
-
-        yield* fileSystem.writeFile(chunkPath, JSON.stringify(data))
-        chunkCache.set(key, chunk)
-      }),
-
-      generateChunk: (coord) => Effect.gen(function* () {
-        // 地形生成ロジック
-        const blocks = generateTerrain(coord)
-        const chunk: Chunk = {
-          coordinate: coord,
-          blocks,
-          generated: true,
-          modified: false
-        }
-        return chunk
-      }),
-
-      unloadChunk: (coord) => Effect.sync(() => {
-        const key = `${coord.chunkX},${coord.chunkZ}`
-        chunkCache.delete(key)
-      })
+      unloadChunk: (coord) =>
+        Effect.sync(() => {
+          const key = `${coord.chunkX},${coord.chunkZ}`
+          chunkCache.delete(key)
+        }),
     })
   })
 )
@@ -757,33 +744,32 @@ export const PlayerServiceLive: Layer.Layer<PlayerService, never> = Layer.effect
     const players = new Map<string, PlayerState>()
 
     return PlayerService.of({
-      getPlayer: (id) => Effect.gen(function* () {
-        const player = players.get(id)
-        if (!player) {
-          return yield* Effect.fail(new PlayerNotFoundError({ playerId: id }))
-        }
-        return player
-      }),
+      getPlayer: (id) =>
+        Effect.gen(function* () {
+          const player = players.get(id)
+          if (!player) {
+            return yield* Effect.fail(new PlayerNotFoundError({ playerId: id }))
+          }
+          return player
+        }),
 
-      updatePlayer: (player) => Effect.sync(() => {
-        players.set(player.id, player)
-      }),
+      updatePlayer: (player) =>
+        Effect.sync(() => {
+          players.set(player.id, player)
+        }),
 
-      movePlayer: (id, position) => Effect.gen(function* () {
-        const player = yield* getPlayer(id)
-        const updatedPlayer = { ...player, position }
-        yield* updatePlayer(updatedPlayer)
-      })
+      movePlayer: (id, position) =>
+        Effect.gen(function* () {
+          const player = yield* getPlayer(id)
+          const updatedPlayer = { ...player, position }
+          yield* updatePlayer(updatedPlayer)
+        }),
     })
   })
 )
 
 // Layer合成 - 依存関係の組み立て
-export const GameLayer = Layer.mergeAll(
-  WorldServiceLive,
-  PlayerServiceLive,
-  RenderServiceLive
-).pipe(
+export const GameLayer = Layer.mergeAll(WorldServiceLive, PlayerServiceLive, RenderServiceLive).pipe(
   Layer.provide(FileSystemLive),
   Layer.provide(ConfigLive)
 )
@@ -792,6 +778,7 @@ export const GameLayer = Layer.mergeAll(
 ### 🔄 Context使用パターン
 
 #### ✅ **サービス利用の実装例**
+
 ```typescript
 // ゲームロジック実装 - Contextを活用
 export const processPlayerMovement = (
@@ -820,8 +807,8 @@ export const processPlayerMovement = (
   })
 
 // ゲームメインループ
-export const gameLoop: Effect.Effect<void, never, WorldService | PlayerService | RenderService> =
-  Effect.gen(function* () {
+export const gameLoop: Effect.Effect<void, never, WorldService | PlayerService | RenderService> = Effect.gen(
+  function* () {
     const renderService = yield* RenderService
 
     yield* Effect.forever(
@@ -830,17 +817,16 @@ export const gameLoop: Effect.Effect<void, never, WorldService | PlayerService |
         yield* renderService.renderFrame()
 
         // 16ms待機（60FPS）
-        yield* Effect.sleep("16 millis")
+        yield* Effect.sleep('16 millis')
       })
     )
-  })
+  }
+)
 
 // アプリケーション実行
 const runGame = gameLoop.pipe(
   Effect.provide(GameLayer),
-  Effect.catchAll((error) =>
-    Effect.sync(() => console.error("Game error:", error))
-  )
+  Effect.catchAll((error) => Effect.sync(() => console.error('Game error:', error)))
 )
 
 Effect.runPromise(runGame)
@@ -851,13 +837,14 @@ Effect.runPromise(runGame)
 ### 📋 Effect基本パターン
 
 #### ✅ **基本的なEffect操作**
+
 ```typescript
-import { Effect, pipe } from "effect"
+import { Effect, pipe } from 'effect'
 
 // 基本Effect作成
-const simpleEffect = Effect.sync(() => "Hello World")
-const asyncEffect = Effect.promise(() => fetch("/api/data"))
-const failingEffect = Effect.fail(new Error("Something went wrong"))
+const simpleEffect = Effect.sync(() => 'Hello World')
+const asyncEffect = Effect.promise(() => fetch('/api/data'))
+const failingEffect = Effect.fail(new Error('Something went wrong'))
 
 // Effect合成
 const composedEffect = Effect.gen(function* () {
@@ -870,7 +857,7 @@ const composedEffect = Effect.gen(function* () {
 const safeEffect = composedEffect.pipe(
   Effect.catchAll((error) =>
     Effect.sync(() => {
-      console.error("Error occurred:", error)
+      console.error('Error occurred:', error)
       return defaultValue
     })
   )
@@ -878,11 +865,10 @@ const safeEffect = composedEffect.pipe(
 ```
 
 #### ⭐ **Minecraft特化Effect実装**
+
 ```typescript
 // リソース安全な操作
-export const renderChunkSafely = (
-  chunk: Chunk
-): Effect.Effect<void, RenderError, RenderService> =>
+export const renderChunkSafely = (chunk: Chunk): Effect.Effect<void, RenderError, RenderService> =>
   Effect.gen(function* () {
     const renderService = yield* RenderService
 
@@ -891,10 +877,11 @@ export const renderChunkSafely = (
       Effect.sync(() => renderService.createMesh(chunk)),
 
       // 使用
-      (mesh) => Effect.gen(function* () {
-        yield* renderService.addToScene(mesh)
-        yield* renderService.renderFrame()
-      }),
+      (mesh) =>
+        Effect.gen(function* () {
+          yield* renderService.addToScene(mesh)
+          yield* renderService.renderFrame()
+        }),
 
       // リソース解放
       (mesh) => Effect.sync(() => renderService.disposeMesh(mesh))
@@ -909,11 +896,7 @@ export const loadChunksParallel = (
     const worldService = yield* WorldService
 
     // 最大4並行で処理
-    yield* Effect.forEach(
-      coordinates,
-      (coord) => worldService.loadChunk(coord),
-      { concurrency: 4 }
-    )
+    yield* Effect.forEach(coordinates, (coord) => worldService.loadChunk(coord), { concurrency: 4 })
   })
 
 // タイムアウト処理
@@ -924,11 +907,9 @@ export const loadChunkWithTimeout = (
     const worldService = yield* WorldService
 
     yield* worldService.loadChunk(coord).pipe(
-      Effect.timeout("5 seconds"),
+      Effect.timeout('5 seconds'),
       Effect.mapError((error) =>
-        error instanceof TimeoutException
-          ? new TimeoutError({ operation: "loadChunk", coordinate: coord })
-          : error
+        error instanceof TimeoutException ? new TimeoutError({ operation: 'loadChunk', coordinate: coord }) : error
       )
     )
   })
@@ -939,27 +920,28 @@ export const loadChunkWithTimeout = (
 ### 📋 Match基本パターン
 
 #### ✅ **基本的なパターンマッチング**
+
 ```typescript
-import { Match, pipe } from "effect"
+import { Match, pipe } from 'effect'
 
 // 値によるマッチング
 const processGameEvent = (event: GameEvent) =>
   pipe(
     event,
     Match.value,
-    Match.when({ type: "block_break" }, (e) =>
+    Match.when({ type: 'block_break' }, (e) =>
       Effect.gen(function* () {
         console.log(`Block broken at ${e.position.x}, ${e.position.y}, ${e.position.z}`)
         yield* updateWorldState(e)
       })
     ),
-    Match.when({ type: "player_join" }, (e) =>
+    Match.when({ type: 'player_join' }, (e) =>
       Effect.gen(function* () {
         console.log(`Player ${e.player.username} joined`)
         yield* notifyOtherPlayers(e.player)
       })
     ),
-    Match.when({ type: "chat_message" }, (e) =>
+    Match.when({ type: 'chat_message' }, (e) =>
       Effect.gen(function* () {
         console.log(`${e.player.username}: ${e.message}`)
         yield* broadcastMessage(e)
@@ -980,11 +962,10 @@ const processInput = (input: unknown) =>
 ```
 
 #### ⭐ **高度なパターンマッチング活用**
+
 ```typescript
 // Result/Errorパターン
-const handleChunkLoadResult = (
-  result: Either.Either<Chunk, ChunkLoadError>
-) =>
+const handleChunkLoadResult = (result: Either.Either<Chunk, ChunkLoadError>) =>
   pipe(
     result,
     Match.value,
@@ -997,18 +978,20 @@ const handleChunkLoadResult = (
     Match.when(Either.isLeft, ({ left: error }) =>
       Match.value(error).pipe(
         Match.when(
-          (err): err is ChunkNotFoundError => err._tag === "ChunkNotFoundError",
-          (err) => Effect.gen(function* () {
-            console.log("Chunk not found, generating new chunk")
-            yield* generateAndSaveChunk(err.coordinate)
-          })
+          (err): err is ChunkNotFoundError => err._tag === 'ChunkNotFoundError',
+          (err) =>
+            Effect.gen(function* () {
+              console.log('Chunk not found, generating new chunk')
+              yield* generateAndSaveChunk(err.coordinate)
+            })
         ),
         Match.when(
-          (err): err is ChunkCorruptedError => err._tag === "ChunkCorruptedError",
-          (err) => Effect.gen(function* () {
-            console.error("Chunk corrupted, regenerating")
-            yield* regenerateChunk(err.coordinate)
-          })
+          (err): err is ChunkCorruptedError => err._tag === 'ChunkCorruptedError',
+          (err) =>
+            Effect.gen(function* () {
+              console.error('Chunk corrupted, regenerating')
+              yield* regenerateChunk(err.coordinate)
+            })
         ),
         Match.orElse((err) => Effect.fail(err))
       )
@@ -1021,12 +1004,8 @@ const findPlayerAndUpdate = (playerId: string, update: PlayerUpdate) =>
   pipe(
     getPlayerOptional(playerId),
     Match.value,
-    Match.when(Option.isSome, ({ value: player }) =>
-      updatePlayer({ ...player, ...update })
-    ),
-    Match.when(Option.isNone, () =>
-      Effect.fail(new PlayerNotFoundError({ playerId }))
-    ),
+    Match.when(Option.isSome, ({ value: player }) => updatePlayer({ ...player, ...update })),
+    Match.when(Option.isNone, () => Effect.fail(new PlayerNotFoundError({ playerId }))),
     Match.exhaustive
   )
 ```
@@ -1102,6 +1081,7 @@ export const gameMain = Effect.gen(function* () {
 ### ⚡ **Schema最適化の実践**
 
 #### **1. 頻用Schemaのキャッシュ戦略**
+
 ```typescript
 // Schema検証結果のメモ化
 const PlayerStateSchemaCached = Schema.memoize(PlayerStateSchema)
@@ -1114,7 +1094,7 @@ const benchmarkValidation = Effect.gen(function* () {
   yield* Effect.forEach(
     Array.from({ length: 1000 }, (_, i) => ({ id: `player-${i}`, username: `user${i}` })),
     (data) => Schema.decodeUnknown(PlayerStateSchemaCached)(data),
-    { concurrency: "unbounded" }
+    { concurrency: 'unbounded' }
   )
 
   const end = performance.now()
@@ -1127,13 +1107,14 @@ const benchmarkValidation = Effect.gen(function* () {
 ```
 
 #### **2. 部分バリデーションの活用**
+
 ```typescript
 // 段階的バリデーション - 必須フィールドのみ先行検証
 const validatePlayerQuick = (input: unknown) =>
   Schema.decodeUnknown(
     Schema.Struct({
       id: Schema.String.pipe(Schema.uuid()),
-      username: Schema.String
+      username: Schema.String,
     })
   )(input)
 
@@ -1144,7 +1125,7 @@ const validatePlayerComplete = (partialPlayer: { id: string; username: string },
     const remaining = Schema.Struct({
       position: PositionSchema,
       health: Schema.Number.pipe(Schema.between(0, 20)),
-      inventory: InventorySchema
+      inventory: InventorySchema,
       // id, usernameは除外
     })
 
@@ -1158,15 +1139,14 @@ const validatePlayerComplete = (partialPlayer: { id: string; username: string },
 ```
 
 #### **3. バッチ処理最適化**
+
 ```typescript
 // 効率的なバッチバリデーション
-const validatePlayersBatch = (
-  players: unknown[]
-): Effect.Effect<PlayerState[], ParseResult.ParseError[]> =>
+const validatePlayersBatch = (players: unknown[]): Effect.Effect<PlayerState[], ParseResult.ParseError[]> =>
   Effect.gen(function* () {
     // 並列バリデーションでスループット向上
     const results = yield* Effect.all(
-      players.map(player =>
+      players.map((player) =>
         Schema.decodeUnknown(PlayerStateSchema)(player).pipe(
           Effect.either // エラーを値として扱う
         )
@@ -1177,7 +1157,7 @@ const validatePlayersBatch = (
     const successes: PlayerState[] = []
     const errors: ParseResult.ParseError[] = []
 
-    results.forEach(result => {
+    results.forEach((result) => {
       if (Either.isRight(result)) {
         successes.push(result.right)
       } else {
@@ -1200,6 +1180,7 @@ const validatePlayersBatch = (
 ### 🏗️ **Context管理の効率化**
 
 #### **1. Layer合成最適化**
+
 ```typescript
 // ❌ 非効率な依存関係
 const IneffientLayer = Layer.mergeAll(
@@ -1227,19 +1208,20 @@ const OptimizedLayer = Layer.mergeAll(
 ```
 
 #### **2. リソースプール実装**
+
 ```typescript
 // データベース接続プール
 export const DatabasePoolLive = Layer.scoped(
   DatabasePool,
   Effect.gen(function* () {
-    const config = yield* Config.nested("database")
+    const config = yield* Config.nested('database')
     const pool = new Map<string, DatabaseConnection>()
     const maxConnections = 20
     let activeConnections = 0
 
     const acquireConnection = Effect.gen(function* () {
       if (activeConnections >= maxConnections) {
-        yield* Effect.sleep("100 millis")
+        yield* Effect.sleep('100 millis')
         return yield* acquireConnection // リトライ
       }
 
@@ -1268,6 +1250,7 @@ export const DatabasePoolLive = Layer.scoped(
 ### ⚡ **Effect合成の最適化**
 
 #### **1. 中間値削減パターン**
+
 ```typescript
 // ❌ 非効率な中間値生成
 const inefficientProcessing = (playerId: string) =>
@@ -1288,9 +1271,9 @@ const optimizedProcessing = (playerId: string) =>
 
     return yield* pipe(
       Stream.fromIterable(getChunkCoordinatesAroundPlayer(player.position)),
-      Stream.mapEffect(coord => getChunk(coord)),
-      Stream.flatMap(chunk => Stream.fromIterable(chunk.blocks)),
-      Stream.filter(block => isBlockVisible(block, player.position)),
+      Stream.mapEffect((coord) => getChunk(coord)),
+      Stream.flatMap((chunk) => Stream.fromIterable(chunk.blocks)),
+      Stream.filter((block) => isBlockVisible(block, player.position)),
       Stream.runCollect
     )
   })
@@ -1301,25 +1284,22 @@ const optimizedProcessing = (playerId: string) =>
 ```
 
 #### **2. 並行処理の適切な活用**
+
 ```typescript
 // チャンク読み込みの最適化
 const loadChunksOptimized = (coordinates: ChunkCoordinate[]) =>
   Effect.gen(function* () {
     // CPU集約的タスクは制限を設ける
     const cpuBoundTasks = coordinates.filter(isGenerationRequired)
-    const ioBoundTasks = coordinates.filter(coord => !isGenerationRequired(coord))
+    const ioBoundTasks = coordinates.filter((coord) => !isGenerationRequired(coord))
 
     // I/Oバウンドタスクは高い並行度
-    const ioResults = yield* Effect.all(
-      ioBoundTasks.map(loadChunkFromDisk),
-      { concurrency: 20 }
-    )
+    const ioResults = yield* Effect.all(ioBoundTasks.map(loadChunkFromDisk), { concurrency: 20 })
 
     // CPU集約的タスクは並行度を制限
-    const cpuResults = yield* Effect.all(
-      cpuBoundTasks.map(generateChunk),
-      { concurrency: navigator.hardwareConcurrency || 4 }
-    )
+    const cpuResults = yield* Effect.all(cpuBoundTasks.map(generateChunk), {
+      concurrency: navigator.hardwareConcurrency || 4,
+    })
 
     return [...ioResults, ...cpuResults]
   })
@@ -1332,6 +1312,7 @@ const loadChunksOptimized = (coordinates: ChunkCoordinate[]) =>
 ### 📈 **メモリリーク防止策**
 
 #### **1. 自動リソース解放**
+
 ```typescript
 // WeakMapを使用した自動ガベージコレクション対応
 const chunkCache = new WeakMap<ChunkCoordinate, Chunk>()
@@ -1343,13 +1324,14 @@ const withTemporaryResources = <A>(operation: Effect.Effect<A>) =>
     Effect.gen(function* () {
       const tempTextures = yield* Effect.acquireRelease(
         Effect.sync(() => new Map<string, THREE.Texture>()),
-        (textures) => Effect.sync(() => {
-          textures.forEach(texture => texture.dispose())
-          textures.clear()
-        })
+        (textures) =>
+          Effect.sync(() => {
+            textures.forEach((texture) => texture.dispose())
+            textures.clear()
+          })
       )
 
-      yield* Effect.addFinalizer(() => Effect.log("Temporary resources cleaned up"))
+      yield* Effect.addFinalizer(() => Effect.log('Temporary resources cleaned up'))
 
       return yield* operation
     })
@@ -1360,15 +1342,16 @@ const monitorMemoryUsage = Effect.gen(function* () {
   yield* Effect.repeat(
     Effect.sync(() => {
       const usage = (performance as any).memory
-      if (usage && usage.usedJSHeapSize > 100 * 1024 * 1024) { // 100MB超過
+      if (usage && usage.usedJSHeapSize > 100 * 1024 * 1024) {
+        // 100MB超過
         console.warn(`High memory usage: ${usage.usedJSHeapSize / 1024 / 1024}MB`)
         // 強制ガベージコレクション (Chromium)
         if ('gc' in window) {
-          (window as any).gc()
+          ;(window as any).gc()
         }
       }
     }),
-    Schedule.fixed("30 seconds")
+    Schedule.fixed('30 seconds')
   )
 })
 ```
@@ -1377,10 +1360,7 @@ const monitorMemoryUsage = Effect.gen(function* () {
 
 ```typescript
 // 自動パフォーマンス測定
-const measurePerformance = <A, E, R>(
-  name: string,
-  effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, R> =>
+const measurePerformance = <A, E, R>(name: string, effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
   Effect.gen(function* () {
     const start = performance.now()
     const result = yield* effect
@@ -1397,16 +1377,13 @@ const measurePerformance = <A, E, R>(
   })
 
 // 使用例
-const measuredPlayerUpdate = measurePerformance(
-  "PlayerUpdate",
-  updatePlayerPosition(playerId, newPosition)
-)
+const measuredPlayerUpdate = measurePerformance('PlayerUpdate', updatePlayerPosition(playerId, newPosition))
 
 // メトリクス収集
 const performanceMetrics = {
   schemaValidation: new Map<string, number[]>(),
   contextCreation: new Map<string, number[]>(),
-  effectExecution: new Map<string, number[]>()
+  effectExecution: new Map<string, number[]>(),
 }
 
 // 統計レポート生成
@@ -1437,4 +1414,4 @@ const generatePerformanceReport = Effect.gen(function* () {
 
 ---
 
-*📍 現在のドキュメント階層*: **[Home](../../../README.md)** → **[Reference](../README.md)** → **[API Reference](./README.md)** → **Core APIs**
+_📍 現在のドキュメント階層_: **[Home](../../../README.md)** → **[Reference](../README.md)** → **[API Reference](./README.md)** → **Core APIs**

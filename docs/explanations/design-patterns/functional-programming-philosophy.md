@@ -1,13 +1,13 @@
 ---
-title: "関数型プログラミング哲学 - Effect-TS設計思想"
-description: "なぜEffect-TSによる関数型アプローチを選択したのか、その設計哲学と実装における恩恵を詳解"
-category: "architecture"
-difficulty: "advanced"
-tags: ["effect-ts", "functional-programming", "design-philosophy", "typescript"]
-prerequisites: ["effect-ts-fundamentals", "functional-concepts"]
-estimated_reading_time: "15分"
-related_patterns: ["service-patterns", "error-handling-patterns", "data-modeling-patterns"]
-related_docs: ["../architecture/overview.md", "./type-safety-philosophy.md"]
+title: '関数型プログラミング哲学 - Effect-TS設計思想'
+description: 'なぜEffect-TSによる関数型アプローチを選択したのか、その設計哲学と実装における恩恵を詳解'
+category: 'architecture'
+difficulty: 'advanced'
+tags: ['effect-ts', 'functional-programming', 'design-philosophy', 'typescript']
+prerequisites: ['effect-ts-fundamentals', 'functional-concepts']
+estimated_reading_time: '15分'
+related_patterns: ['service-patterns', 'error-handling-patterns', 'data-modeling-patterns']
+related_docs: ['../architecture/overview.md', './type-safety-philosophy.md']
 ---
 
 # 関数型プログラミング哲学 - Effect-TS設計思想
@@ -34,51 +34,54 @@ const chunks: Map<string, Chunk> = new Map()
 // 副作用が隠蔽されている - いつエラーが起きるかわからない
 function loadChunk(position: ChunkPosition): Chunk {
   const chunk = loadFromFile(position) // ファイルI/Oエラー？
-  chunks.set(position.key, chunk)      // メモリ不足？
-  notifyObservers(chunk)               // 通知エラー？
+  chunks.set(position.key, chunk) // メモリ不足？
+  notifyObservers(chunk) // 通知エラー？
   return chunk
 }
 
 // ✅ Effect-TS関数型アプローチによる改善
-const LoadChunkError = Schema.TaggedError("LoadChunkError")({
+const LoadChunkError = Schema.TaggedError('LoadChunkError')({
   position: ChunkPositionSchema,
-  reason: Schema.Literal("file_not_found", "parse_error", "memory_full", "notification_failed")
+  reason: Schema.Literal('file_not_found', 'parse_error', 'memory_full', 'notification_failed'),
 })
 
 interface WorldService {
-  readonly loadChunk: (position: ChunkPosition) => Effect.Effect<
-    Chunk,
-    typeof LoadChunkError.Type,
-    FileSystem | ChunkCache | EventBus
-  >
+  readonly loadChunk: (
+    position: ChunkPosition
+  ) => Effect.Effect<Chunk, typeof LoadChunkError.Type, FileSystem | ChunkCache | EventBus>
 }
 
-const WorldService = Context.GenericTag<WorldService>("@minecraft/WorldService")
+const WorldService = Context.GenericTag<WorldService>('@minecraft/WorldService')
 
 const makeWorldService = Effect.gen(function* () {
   const chunksRef = yield* Ref.make(new Map<string, Chunk>())
 
   return WorldService.of({
-    loadChunk: (position) => Effect.gen(function* () {
-      const fs = yield* FileSystem
-      const cache = yield* ChunkCache
-      const eventBus = yield* EventBus
+    loadChunk: (position) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem
+        const cache = yield* ChunkCache
+        const eventBus = yield* EventBus
 
-      // 各段階でのエラーを明示的に管理
-      const chunkData = yield* fs.readChunk(position)
-        .pipe(Effect.mapError(() => LoadChunkError({ position, reason: "file_not_found" })))
+        // 各段階でのエラーを明示的に管理
+        const chunkData = yield* fs
+          .readChunk(position)
+          .pipe(Effect.mapError(() => LoadChunkError({ position, reason: 'file_not_found' })))
 
-      const chunk = yield* parseChunkData(chunkData)
-        .pipe(Effect.mapError(() => LoadChunkError({ position, reason: "parse_error" })))
+        const chunk = yield* parseChunkData(chunkData).pipe(
+          Effect.mapError(() => LoadChunkError({ position, reason: 'parse_error' }))
+        )
 
-      yield* Ref.update(chunksRef, (chunks) => new Map(chunks).set(position.key, chunk))
-        .pipe(Effect.mapError(() => LoadChunkError({ position, reason: "memory_full" })))
+        yield* Ref.update(chunksRef, (chunks) => new Map(chunks).set(position.key, chunk)).pipe(
+          Effect.mapError(() => LoadChunkError({ position, reason: 'memory_full' }))
+        )
 
-      yield* eventBus.notify(ChunkLoadedEvent({ chunk, position }))
-        .pipe(Effect.mapError(() => LoadChunkError({ position, reason: "notification_failed" })))
+        yield* eventBus
+          .notify(ChunkLoadedEvent({ chunk, position }))
+          .pipe(Effect.mapError(() => LoadChunkError({ position, reason: 'notification_failed' })))
 
-      return chunk
-    })
+        return chunk
+      }),
   })
 })
 ```
@@ -90,24 +93,27 @@ Effect-TSは**副作用を型で表現**することで、これらの複雑性�
 ```typescript
 // Effect-TSによる明示的な副作用管理の型シグネチャ
 const loadChunk: (position: ChunkPosition) => Effect.Effect<
-  Chunk,                    // 成功時の結果型
-  LoadChunkError,          // 可能なエラー型
-  FileSystem | ChunkCache  // 必要な依存関係
+  Chunk, // 成功時の結果型
+  LoadChunkError, // 可能なエラー型
+  FileSystem | ChunkCache // 必要な依存関係
 >
 
 // 🔗 完全なAPI仕様と実装パターン: ../../reference/api/effect-ts-schema-api.md
 ```
 
 **設計哲学の核心:**
+
 - **型による制約**: 副作用を型シグネチャで明示することで、隠れた依存関係を排除
 - **合成可能性**: 小さな Effect を組み合わせて複雑なシステムを構築
 - **予測可能性**: 同じ入力に対して同じ結果を保証（参照透明性）
 
 > 💡 **学習パス**:
+>
 > - **実践学習**: [Effect-TS基礎チュートリアル](../../tutorials/effect-ts-fundamentals/effect-ts-basics.md) - ハンズオン形式で学習
 > - **API仕様**: [Schema APIリファレンス](../../reference/api/effect-ts-schema-api.md) - 完全な型定義と使用例
 > - **移行実務**: [Effect-TS移行ガイド](../../how-to/development/effect-ts-migration-guide.md) - 実プロジェクトでの適用
-```
+
+````
 
 ## 設計原則の比較
 
@@ -135,7 +141,7 @@ const createOldGameEngine = () => ({
     await audioSystem.update(deltaTime)       // 部分失敗の扱い困難
   }
 })
-```
+````
 
 **✅ Effect-TS 関数型アプローチ**:
 
@@ -146,16 +152,19 @@ Effect-TSでは型シグネチャ自体が契約となり、以下を保証し�
 - **予測可能な結果**: `A`型パラメータで成功時の戻り値を厳密に定義
 
 **設計哲学の実現:**
+
 - **型による契約**: すべての副作用が型レベルで表現される
 - **合成性**: 小さなEffectから複雑なシステムを安全に構築
 - **並行性制御**: 型システムによってレースコンディションを防止
 - **リソース管理**: acquire-release パターンによる確実なクリーンアップ
 
 > 🔗 **学習リソース**:
+>
 > - **実装例**: [Effect-TS Services](../../tutorials/effect-ts-fundamentals/effect-ts-services.md) - 完全なサービス実装
 > - **型定義**: [Schema APIリファレンス](../../reference/api/effect-ts-schema-api.md) - 型安全なデータ構造
 > - **エラーハンドリング**: [エラーハンドリングパターン](./error-handling-patterns.md) - 包括的なエラー戦略
-```
+
+````
 
 ### 3. 依存関係管理
 
@@ -186,7 +195,7 @@ const calculateDamage = (
     const damage = Math.max(1, attackPower - defense)
     return isCritical ? damage * 2 : damage
   })
-```
+````
 
 ### 2. 並行性の制御
 
@@ -196,11 +205,8 @@ const loadChunks = (positions: ChunkPosition[]) =>
   Effect.forEach(
     positions,
     loadChunk,
-    { concurrency: 4 }  // 並行数制御
-  ).pipe(
-    Effect.timeout("5s"),
-    Effect.retry({ times: 2 })
-  )
+    { concurrency: 4 } // 並行数制御
+  ).pipe(Effect.timeout('5s'), Effect.retry({ times: 2 }))
 ```
 
 ### 3. リソース管理の確実性
@@ -210,9 +216,8 @@ const loadChunks = (positions: ChunkPosition[]) =>
 const withGLContext = <A>(
   operation: Effect.Effect<A, GLError, GLContext>
 ): Effect.Effect<A, GLError | ResourceError, GLContext> =>
-  Effect.acquireRelease(
-    GLContext.pipe(Effect.map(ctx => ({ ...ctx, acquired: true }))),
-    (ctx) => Effect.sync(() => ctx.cleanup())
+  Effect.acquireRelease(GLContext.pipe(Effect.map((ctx) => ({ ...ctx, acquired: true }))), (ctx) =>
+    Effect.sync(() => ctx.cleanup())
   ).pipe(Effect.flatMap(operation))
 ```
 
@@ -222,44 +227,31 @@ const withGLContext = <A>(
 
 ```typescript
 // フレーム時間制約下でのEffect合成
-const gameLoop: Effect.Effect<void, never, GameServices> =
-  Effect.gen(function* () {
-    const startTime = yield* Clock.currentTimeMillis
+const gameLoop: Effect.Effect<void, never, GameServices> = Effect.gen(function* () {
+  const startTime = yield* Clock.currentTimeMillis
 
-    yield* Effect.all([
-      inputHandling,
-      physicsSimulation,
-      renderingPipeline
-    ], { concurrency: "unbounded" })
+  yield* Effect.all([inputHandling, physicsSimulation, renderingPipeline], { concurrency: 'unbounded' })
 
-    const elapsed = yield* Clock.currentTimeMillis.pipe(
-      Effect.map(now => now - startTime)
-    )
+  const elapsed = yield* Clock.currentTimeMillis.pipe(Effect.map((now) => now - startTime))
 
-    // フレーム時間調整
-    yield* elapsed < 16
-      ? Clock.sleep(`${16 - elapsed}ms`)
-      : Effect.unit
-  }).pipe(Effect.forever)
+  // フレーム時間調整
+  yield* elapsed < 16 ? Clock.sleep(`${16 - elapsed}ms`) : Effect.unit
+}).pipe(Effect.forever)
 ```
 
 ### メモリ効率の最適化
 
 ```typescript
 // Structure of Arrays パターンとEffect-TSの融合
-const processEntities = (
-  entities: EntityManager
-): Effect.Effect<void, ProcessingError, ComponentSystems> =>
+const processEntities = (entities: EntityManager): Effect.Effect<void, ProcessingError, ComponentSystems> =>
   Effect.gen(function* () {
-    const positions = yield* entities.getComponents("Position")
-    const velocities = yield* entities.getComponents("Velocity")
+    const positions = yield* entities.getComponents('Position')
+    const velocities = yield* entities.getComponents('Velocity')
 
     // バッチ処理による効率化
-    yield* Effect.forEach(
-      positions.zip(velocities),
-      ([pos, vel]) => updatePosition(pos, vel),
-      { concurrency: "inherit" }
-    )
+    yield* Effect.forEach(positions.zip(velocities), ([pos, vel]) => updatePosition(pos, vel), {
+      concurrency: 'inherit',
+    })
   })
 ```
 
@@ -271,19 +263,19 @@ const processEntities = (
 // ❌ 過度にネストしたモナド
 const badExample = Effect.gen(function* () {
   const maybeA = yield* someEffect
-  const maybeB = yield* Option.isSome(maybeA)
-    ? someOtherEffect(maybeA.value)
-    : Effect.succeed(Option.none())
+  const maybeB = yield* Option.isSome(maybeA) ? someOtherEffect(maybeA.value) : Effect.succeed(Option.none())
   // 複雑すぎる...
 })
 
 // ✅ 適切な抽象化
 const goodExample = pipe(
   someEffect,
-  Effect.flatMap(Option.match({
-    onSome: someOtherEffect,
-    onNone: () => Effect.succeed(Option.none())
-  }))
+  Effect.flatMap(
+    Option.match({
+      onSome: someOtherEffect,
+      onNone: () => Effect.succeed(Option.none()),
+    })
+  )
 )
 ```
 
@@ -324,11 +316,13 @@ const optimizedBatchUpdate = (entities: Entity[]) =>
 
 ```typescript
 // よく使用するパターンを名前付き関数として提供
-export const withRetry = <A, E>(times: number) =>
+export const withRetry =
+  <A, E>(times: number) =>
   (effect: Effect.Effect<A, E, never>): Effect.Effect<A, E, never> =>
     Effect.retry(effect, { times })
 
-export const withTimeout = <A, E, R>(duration: string) =>
+export const withTimeout =
+  <A, E, R>(duration: string) =>
   (effect: Effect.Effect<A, E, R>): Effect.Effect<A, E | TimeoutError, R> =>
     Effect.timeout(effect, duration)
 ```
@@ -349,14 +343,17 @@ Effect-TSベースの関数型プログラミングは、Minecraftクローン�
 ## 次のステップ
 
 ### 実践的な学習
+
 - **ハンズオン学習**: [Effect-TS 基礎](../../tutorials/effect-ts-fundamentals/effect-ts-basics.md) - 実行可能なサンプルコードで学習
 - **サービス設計**: [Effect-TS サービス](../../tutorials/effect-ts-fundamentals/effect-ts-services.md) - 依存性注入とLayer管理
 - **応用パターン**: [Effect-TS パターン集](../../tutorials/effect-ts-fundamentals/effect-ts-patterns.md) - 高度な実装パターン
 
 ### 実際の移行作業
+
 - **移行計画**: [Effect-TS移行ガイド](../../how-to/development/effect-ts-migration-guide.md) - 段階的な移行手順
 - **テスト戦略**: [Effect-TSテスト](../../tutorials/effect-ts-fundamentals/effect-ts-testing.md) - テスト環境構築
 
 ### アーキテクチャ理解
+
 - **設計パターン**: [サービスパターン](./service-patterns.md) - より広範な設計原則
 - **データモデリング**: [データモデリングパターン](./data-modeling-patterns.md) - Schema活用戦略

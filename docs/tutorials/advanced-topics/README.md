@@ -1,11 +1,11 @@
 ---
-title: "Advanced Topics - 上級開発者向けガイド"
-description: "TypeScript Minecraft Clone開発における高度な設計パターンと実装戦略。Effect-TS、DDD、ECS統合アーキテクチャの実践。"
-category: "tutorial"
-difficulty: "advanced"
-tags: ["advanced", "effect-ts", "ddd", "ecs", "architecture", "performance"]
-prerequisites: ["basic-game-development", "effect-ts-fundamentals"]
-estimated_reading_time: "25分"
+title: 'Advanced Topics - 上級開発者向けガイド'
+description: 'TypeScript Minecraft Clone開発における高度な設計パターンと実装戦略。Effect-TS、DDD、ECS統合アーキテクチャの実践。'
+category: 'tutorial'
+difficulty: 'advanced'
+tags: ['advanced', 'effect-ts', 'ddd', 'ecs', 'architecture', 'performance']
+prerequisites: ['basic-game-development', 'effect-ts-fundamentals']
+estimated_reading_time: '25分'
 ---
 
 # 🚀 Advanced Topics - 上級開発者向けガイド
@@ -63,11 +63,13 @@ graph TD
 ### 🏗️ アーキテクチャ設計
 
 #### Effect-TS × DDD × ECS 統合アーキテクチャ（準備中）
+
 **難易度**: 上級 | **所要時間**: 4-6時間
 
 関数型プログラミングとドメイン駆動設計、エンティティコンポーネントシステムの統合アーキテクチャ設計。
 
 **予定内容**:
+
 - Effect-TS 3.17+ 最新機能活用
 - ドメインモデルとECSの統合設計
 - Context.GenericTagによる依存注入
@@ -77,11 +79,13 @@ graph TD
 ### ⚡ パフォーマンス最適化
 
 #### Three.js × Effect-TS レンダリング最適化（準備中）
+
 **難易度**: 上級 | **所要時間**: 4-5時間
 
 関数型アプローチによる高性能3Dレンダリングシステムの構築。
 
 **予定内容**:
+
 - Effect-TSによる非同期レンダリング管理
 - フラスタムカリング実装パターン
 - チャンクベースレンダリング最適化
@@ -89,11 +93,13 @@ graph TD
 - パフォーマンス監視とボトルネック特定
 
 #### 型システム活用による最適化（準備中）
+
 **難易度**: 上級 | **所要時間**: 3-4時間
 
 TypeScript型システムとEffect-TSを活用した実行時パフォーマンス向上。
 
 **予定内容**:
+
 - Schema.Structによる効率的データ処理
 - 型レベル計算によるコンパイル時最適化
 - Effect.genのパフォーマンスベストプラクティス
@@ -103,11 +109,13 @@ TypeScript型システムとEffect-TSを活用した実行時パフォーマン�
 ### 🧪 品質保証・テスト戦略
 
 #### Effect-TS テスト設計パターン（準備中）
+
 **難易度**: 上級 | **所要時間**: 4-5時間
 
 関数型プログラミングに最適化されたテスト設計とエラーハンドリング戦略。
 
 **予定内容**:
+
 - Effect.genに対応したテストパターン
 - Schema.TaggedErrorによる型安全エラー処理
 - プロパティベーステスト実装
@@ -117,11 +125,13 @@ TypeScript型システムとEffect-TSを活用した実行時パフォーマン�
 ### 📚 ドキュメント駆動開発
 
 #### AIエージェント協調開発手法（準備中）
+
 **難易度**: 上級 | **所要時間**: 3-4時間
 
 Claude Code等のAIエージェントとの効率的な協調開発パターンの習得。
 
 **予定内容**:
+
 - 仕様書ベースの開発フロー
 - APIドキュメント自動生成
 - プロジェクトメモリ活用術
@@ -135,6 +145,7 @@ Claude Code等のAIエージェントとの効率的な協調開発パターン�
 上級チュートリアルの集大成として、以下の要件を満たすEffect-TSベースMinecraft Cloneを開発：
 
 **アーキテクチャ要件**:
+
 - [ ] Effect-TS 3.17+ 完全準拠（95%+採用率）
 - [ ] DDD × ECS 統合アーキテクチャ実装
 - [ ] Schema.Struct 100%型安全データモデル
@@ -142,6 +153,7 @@ Claude Code等のAIエージェントとの効率的な協調開発パターン�
 - [ ] 関数型プログラミング原則100%適用
 
 **品質要件**:
+
 - [ ] TypeScript strict 100%準拠
 - [ ] テストカバレッジ100%達成
 - [ ] 60FPS安定動作（FullHD解像度）
@@ -160,16 +172,19 @@ Claude Code等のAIエージェントとの効率的な協調開発パターン�
 ### 推奨学習リソース
 
 **公式ドキュメント**:
+
 - Effect-TS Official Documentation
 - Three.js Documentation
 - TypeScript Handbook
 
 **プロジェクト内リソース**:
+
 - `docs/specifications/` - 完全な機能仕様
 - `docs/guides/development-conventions.md` - 開発規約
 - `ROADMAP.md` - 段階的実装計画
 
 **コミュニティ**:
+
 - Effect-TS Discord Community
 - Three.js Community
 - TypeScript Community
@@ -177,6 +192,7 @@ Claude Code等のAIエージェントとの効率的な協調開発パターン�
 ## 📋 スキル評価チェックリスト
 
 ### Effect-TS マスタリー（必須）
+
 - [ ] Context.GenericTagによる依存注入ができる
 - [ ] Schema.Structで型安全なデータモデルを設計できる
 - [ ] Match.valueによる状態管理を実装できる
@@ -184,18 +200,21 @@ Claude Code等のAIエージェントとの効率的な協調開発パターン�
 - [ ] Schema.TaggedErrorで網羅的エラーハンドリングができる
 
 ### アーキテクチャ設計（必須）
+
 - [ ] DDD × ECS 統合アーキテクチャを設計できる
 - [ ] 完全関数型の設計パターンを適用できる
 - [ ] ドメインモデルとコンポーネントシステムを統合できる
 - [ ] 型システムを活用した設計ができる
 
 ### 品質保証（推奨）
+
 - [ ] テストカバレッジ100%を達成できる
 - [ ] プロパティベーステストを実装できる
 - [ ] 型安全なモックシステムを構築できる
 - [ ] パフォーマンス測定・改善ができる
 
 ### ドキュメント駆動開発（上級）
+
 - [ ] 仕様書ベースの実装ができる
 - [ ] AIエージェントと効率的に協調できる
 - [ ] APIドキュメントを自動生成できる

@@ -1,20 +1,26 @@
 ---
-title: "パフォーマンスデバッグ実践ガイド"
-description: "TypeScript Minecraft Cloneでの性能問題特定・解決のための実践的デバッグ手法"
-category: "development"
-difficulty: "advanced"
-tags: ["performance", "debugging", "profiling", "optimization", "three-js", "effect-ts"]
-prerequisites: ["typescript-intermediate", "effect-ts-basics", "browser-dev-tools", "three-js-basics"]
-estimated_reading_time: "30分"
-related_docs: ["./performance-optimization.md", "../troubleshooting/performance-issues.md", "../../explanations/architecture/performance-guidelines.md"]
+title: 'パフォーマンスデバッグ実践ガイド'
+description: 'TypeScript Minecraft Cloneでの性能問題特定・解決のための実践的デバッグ手法'
+category: 'development'
+difficulty: 'advanced'
+tags: ['performance', 'debugging', 'profiling', 'optimization', 'three-js', 'effect-ts']
+prerequisites: ['typescript-intermediate', 'effect-ts-basics', 'browser-dev-tools', 'three-js-basics']
+estimated_reading_time: '30分'
+related_docs:
+  [
+    './performance-optimization.md',
+    '../troubleshooting/performance-issues.md',
+    '../../explanations/architecture/performance-guidelines.md',
+  ]
 ai_context:
-  primary_concepts: ["performance-profiling", "bottleneck-identification", "memory-optimization", "rendering-performance"]
+  primary_concepts:
+    ['performance-profiling', 'bottleneck-identification', 'memory-optimization', 'rendering-performance']
   complexity_level: 4
-  learning_outcomes: ["問題特定技術", "プロファイリング手法", "最適化戦略", "監視システム構築"]
+  learning_outcomes: ['問題特定技術', 'プロファイリング手法', '最適化戦略', '監視システム構築']
 machine_readable:
   confidence_score: 0.96
-  api_maturity: "stable"
-  execution_time: "long"
+  api_maturity: 'stable'
+  execution_time: 'long'
 ---
 
 # パフォーマンスデバッグ実践ガイド
@@ -35,18 +41,18 @@ TypeScript Minecraft Cloneプロジェクトでの性能問題を体系的に特
 // パフォーマンス問題の分類システム
 const PerformanceIssueSchema = Schema.Struct({
   category: Schema.Literal(
-    "rendering",        // GPU/描画関連
-    "computation",      // CPU計算集約
-    "memory",          // メモリ使用量・GC
-    "network",         // 通信・ロード時間
-    "effect_chain"     // Effect-TS チェーン
+    'rendering', // GPU/描画関連
+    'computation', // CPU計算集約
+    'memory', // メモリ使用量・GC
+    'network', // 通信・ロード時間
+    'effect_chain' // Effect-TS チェーン
   ),
-  severity: Schema.Literal("critical", "high", "medium", "low"),
+  severity: Schema.Literal('critical', 'high', 'medium', 'low'),
   symptoms: Schema.Array(Schema.String),
-  affectedComponents: Schema.Array(Schema.String)
-});
+  affectedComponents: Schema.Array(Schema.String),
+})
 
-type PerformanceIssue = Schema.Schema.Type<typeof PerformanceIssueSchema>;
+type PerformanceIssue = Schema.Schema.Type<typeof PerformanceIssueSchema>
 ```
 
 ### 1.2 初期診断フローチャート
@@ -82,37 +88,28 @@ flowchart TD
 
 ```typescript
 // パフォーマンス計測用のEffect
-const measurePerformance = <A, E, R>(
-  label: string,
-  effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, R> =>
+const measurePerformance = <A, E, R>(label: string, effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
   Effect.gen(function* (_) {
-    const start = yield* _(Effect.sync(() => performance.now()));
+    const start = yield* _(Effect.sync(() => performance.now()))
 
-    const result = yield* _(effect);
+    const result = yield* _(effect)
 
-    const end = yield* _(Effect.sync(() => performance.now()));
-    const duration = end - start;
+    const end = yield* _(Effect.sync(() => performance.now()))
+    const duration = end - start
 
-    yield* _(Effect.sync(() =>
-      console.log(`⏱️ ${label}: ${duration.toFixed(2)}ms`)
-    ));
+    yield* _(Effect.sync(() => console.log(`⏱️ ${label}: ${duration.toFixed(2)}ms`)))
 
     // 閾値チェック
-    if (duration > 16.67) { // 60FPS threshold
-      yield* _(Effect.sync(() =>
-        console.warn(`🐌 Performance issue detected in ${label}: ${duration.toFixed(2)}ms`)
-      ));
+    if (duration > 16.67) {
+      // 60FPS threshold
+      yield* _(Effect.sync(() => console.warn(`🐌 Performance issue detected in ${label}: ${duration.toFixed(2)}ms`)))
     }
 
-    return result;
-  });
+    return result
+  })
 
 // 使用例
-const optimizedWorldUpdate = measurePerformance(
-  "World Update Cycle",
-  updateWorldState(deltaTime)
-);
+const optimizedWorldUpdate = measurePerformance('World Update Cycle', updateWorldState(deltaTime))
 ```
 
 ## 2. レンダリング性能のデバッグ
@@ -122,17 +119,17 @@ const optimizedWorldUpdate = measurePerformance(
 ```typescript
 // レンダリング統計の収集
 interface RenderingStats {
-  readonly frameRate: number;
-  readonly drawCalls: number;
-  readonly triangles: number;
-  readonly geometries: number;
-  readonly textures: number;
-  readonly materials: number;
-  readonly memoryUsage: number;
+  readonly frameRate: number
+  readonly drawCalls: number
+  readonly triangles: number
+  readonly geometries: number
+  readonly textures: number
+  readonly materials: number
+  readonly memoryUsage: number
 }
 
 const collectRenderingStats = (renderer: THREE.WebGLRenderer): RenderingStats => {
-  const info = renderer.info;
+  const info = renderer.info
 
   return {
     frameRate: 1000 / (performance.now() - lastFrameTime),
@@ -141,35 +138,33 @@ const collectRenderingStats = (renderer: THREE.WebGLRenderer): RenderingStats =>
     geometries: info.memory.geometries,
     textures: info.memory.textures,
     materials: info.programs?.length ?? 0,
-    memoryUsage: (performance as any).memory?.usedJSHeapSize ?? 0
-  };
-};
+    memoryUsage: (performance as any).memory?.usedJSHeapSize ?? 0,
+  }
+}
 
 // 閾値監視
 const monitorRenderingPerformance = (stats: RenderingStats) =>
   Effect.gen(function* (_) {
-    const warnings = [];
+    const warnings = []
 
     if (stats.frameRate < 30) {
-      warnings.push(`Low FPS: ${stats.frameRate.toFixed(1)}`);
+      warnings.push(`Low FPS: ${stats.frameRate.toFixed(1)}`)
     }
 
     if (stats.drawCalls > 200) {
-      warnings.push(`High draw calls: ${stats.drawCalls}`);
+      warnings.push(`High draw calls: ${stats.drawCalls}`)
     }
 
     if (stats.triangles > 100000) {
-      warnings.push(`High triangle count: ${stats.triangles}`);
+      warnings.push(`High triangle count: ${stats.triangles}`)
     }
 
     if (warnings.length > 0) {
-      yield* _(Effect.sync(() =>
-        console.warn("🎮 Rendering performance issues:", warnings)
-      ));
+      yield* _(Effect.sync(() => console.warn('🎮 Rendering performance issues:', warnings)))
     }
 
-    return stats;
-  });
+    return stats
+  })
 ```
 
 ### 2.2 描画ボトルネックの特定
@@ -178,45 +173,45 @@ const monitorRenderingPerformance = (stats: RenderingStats) =>
 // GPU性能測定
 const measureGPUPerformance = (renderer: THREE.WebGLRenderer) =>
   Effect.gen(function* (_) {
-    const gl = renderer.getContext();
+    const gl = renderer.getContext()
 
     // GPU timing extension の確認
-    const timerExt = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+    const timerExt = gl.getExtension('EXT_disjoint_timer_query_webgl2')
     if (!timerExt) {
-      return yield* _(Effect.succeed("GPU timing not supported"));
+      return yield* _(Effect.succeed('GPU timing not supported'))
     }
 
     // GPU時間の測定
-    const query = gl.createQuery();
-    gl.beginQuery(timerExt.TIME_ELAPSED_EXT, query);
+    const query = gl.createQuery()
+    gl.beginQuery(timerExt.TIME_ELAPSED_EXT, query)
 
     // ここで重い描画処理を実行
-    renderer.render(scene, camera);
+    renderer.render(scene, camera)
 
-    gl.endQuery(timerExt.TIME_ELAPSED_EXT);
+    gl.endQuery(timerExt.TIME_ELAPSED_EXT)
 
     // 結果の非同期取得
     const checkResult = () => {
       if (gl.getQueryParameter(query, gl.QUERY_RESULT_AVAILABLE)) {
-        const timeElapsed = gl.getQueryParameter(query, gl.QUERY_RESULT);
-        const timeInMs = timeElapsed / 1000000; // nanoseconds to milliseconds
+        const timeElapsed = gl.getQueryParameter(query, gl.QUERY_RESULT)
+        const timeInMs = timeElapsed / 1000000 // nanoseconds to milliseconds
 
-        console.log(`🖥️ GPU render time: ${timeInMs.toFixed(2)}ms`);
+        console.log(`🖥️ GPU render time: ${timeInMs.toFixed(2)}ms`)
 
         if (timeInMs > 16.67) {
-          console.warn(`🐌 GPU bottleneck detected: ${timeInMs.toFixed(2)}ms`);
+          console.warn(`🐌 GPU bottleneck detected: ${timeInMs.toFixed(2)}ms`)
         }
 
-        gl.deleteQuery(query);
-        return timeInMs;
+        gl.deleteQuery(query)
+        return timeInMs
       } else {
         // まだ結果が準備されていない
-        setTimeout(checkResult, 1);
+        setTimeout(checkResult, 1)
       }
-    };
+    }
 
-    checkResult();
-  });
+    checkResult()
+  })
 ```
 
 ### 2.3 頂点・フラグメントシェーダーの最適化
@@ -225,56 +220,62 @@ const measureGPUPerformance = (renderer: THREE.WebGLRenderer) =>
 // シェーダー複雑度の分析
 const analyzeShaderComplexity = (material: THREE.ShaderMaterial) =>
   Effect.gen(function* (_) {
-    const vertexShader = material.vertexShader;
-    const fragmentShader = material.fragmentShader;
+    const vertexShader = material.vertexShader
+    const fragmentShader = material.fragmentShader
 
     // 計算集約的な命令をカウント
     const expensiveOperations = [
-      'normalize', 'cross', 'reflect', 'sqrt', 'pow',
-      'sin', 'cos', 'tan', 'texture', 'texture2D'
-    ];
+      'normalize',
+      'cross',
+      'reflect',
+      'sqrt',
+      'pow',
+      'sin',
+      'cos',
+      'tan',
+      'texture',
+      'texture2D',
+    ]
 
     const vertexComplexity = expensiveOperations.reduce((count, op) => {
-      const regex = new RegExp(`\\b${op}\\b`, 'g');
-      return count + (vertexShader.match(regex)?.length ?? 0);
-    }, 0);
+      const regex = new RegExp(`\\b${op}\\b`, 'g')
+      return count + (vertexShader.match(regex)?.length ?? 0)
+    }, 0)
 
     const fragmentComplexity = expensiveOperations.reduce((count, op) => {
-      const regex = new RegExp(`\\b${op}\\b`, 'g');
-      return count + (fragmentShader.match(regex)?.length ?? 0);
-    }, 0);
+      const regex = new RegExp(`\\b${op}\\b`, 'g')
+      return count + (fragmentShader.match(regex)?.length ?? 0)
+    }, 0)
 
     const analysis = {
       vertexComplexity,
       fragmentComplexity,
-      totalComplexity: vertexComplexity + fragmentComplexity
-    };
-
-    if (analysis.totalComplexity > 20) {
-      yield* _(Effect.sync(() =>
-        console.warn(`🎨 Complex shader detected:`, analysis)
-      ));
+      totalComplexity: vertexComplexity + fragmentComplexity,
     }
 
-    return analysis;
-  });
+    if (analysis.totalComplexity > 20) {
+      yield* _(Effect.sync(() => console.warn(`🎨 Complex shader detected:`, analysis)))
+    }
+
+    return analysis
+  })
 
 // 最適化提案生成
 const suggestShaderOptimizations = (analysis: ShaderAnalysis) =>
   Effect.gen(function* (_) {
-    const suggestions = [];
+    const suggestions = []
 
     if (analysis.fragmentComplexity > 15) {
-      suggestions.push("Consider moving calculations to vertex shader");
-      suggestions.push("Use texture lookups instead of mathematical calculations");
+      suggestions.push('Consider moving calculations to vertex shader')
+      suggestions.push('Use texture lookups instead of mathematical calculations')
     }
 
     if (analysis.vertexComplexity > 10) {
-      suggestions.push("Precompute transformations on CPU when possible");
+      suggestions.push('Precompute transformations on CPU when possible')
     }
 
-    return suggestions;
-  });
+    return suggestions
+  })
 ```
 
 ## 3. CPU・計算性能のデバッグ
@@ -283,55 +284,40 @@ const suggestShaderOptimizations = (analysis: ShaderAnalysis) =>
 
 ```typescript
 // Effect実行時間の詳細分析
-const profileEffectChain = <A, E, R>(
-  name: string,
-  effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, R> =>
+const profileEffectChain = <A, E, R>(name: string, effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
   Effect.gen(function* (_) {
-    const tracer = yield* _(Effect.serviceFunctionEffect(
-      PerformanceTracerService,
-      s => s.startTrace(name)
-    ));
+    const tracer = yield* _(Effect.serviceFunctionEffect(PerformanceTracerService, (s) => s.startTrace(name)))
 
     const result = yield* _(
       effect.pipe(
-        Effect.tap(() => tracer.addMark("execution_complete")),
+        Effect.tap(() => tracer.addMark('execution_complete')),
         Effect.tapError((error) => tracer.addMark(`error_${error.constructor.name}`)),
         Effect.ensuring(tracer.endTrace())
       )
-    );
+    )
 
-    return result;
-  });
+    return result
+  })
 
 // チェーンの各ステップを分析
 const analyzeGameLoopPerformance = (deltaTime: number) =>
-  profileEffectChain("GameLoop",
+  profileEffectChain(
+    'GameLoop',
     Effect.gen(function* (_) {
       // 各段階の性能を個別測定
-      const input = yield* _(profileEffectChain("InputProcessing",
-        processPlayerInput()
-      ));
+      const input = yield* _(profileEffectChain('InputProcessing', processPlayerInput()))
 
-      const physics = yield* _(profileEffectChain("PhysicsUpdate",
-        updatePhysics(deltaTime)
-      ));
+      const physics = yield* _(profileEffectChain('PhysicsUpdate', updatePhysics(deltaTime)))
 
-      const entities = yield* _(profileEffectChain("EntityUpdate",
-        updateEntities(deltaTime)
-      ));
+      const entities = yield* _(profileEffectChain('EntityUpdate', updateEntities(deltaTime)))
 
-      const world = yield* _(profileEffectChain("WorldUpdate",
-        updateWorld(deltaTime)
-      ));
+      const world = yield* _(profileEffectChain('WorldUpdate', updateWorld(deltaTime)))
 
-      const render = yield* _(profileEffectChain("RenderUpdate",
-        prepareRenderData(world, entities)
-      ));
+      const render = yield* _(profileEffectChain('RenderUpdate', prepareRenderData(world, entities)))
 
-      return { input, physics, entities, world, render };
+      return { input, physics, entities, world, render }
     })
-  );
+  )
 ```
 
 ### 3.2 計算集約処理の最適化
@@ -340,70 +326,62 @@ const analyzeGameLoopPerformance = (deltaTime: number) =>
 // CPU集約的な処理の識別
 const identifyComputationalBottlenecks = (worldState: WorldState) =>
   Effect.gen(function* (_) {
-    const startTime = yield* _(Effect.sync(() => performance.now()));
+    const startTime = yield* _(Effect.sync(() => performance.now()))
 
     // チャンク生成の性能測定
-    const chunkGeneration = yield* _(measureAsync("ChunkGeneration", () =>
-      generateChunks(worldState.loadedRegion)
-    ));
+    const chunkGeneration = yield* _(measureAsync('ChunkGeneration', () => generateChunks(worldState.loadedRegion)))
 
     // 衝突判定の性能測定
-    const collisionDetection = yield* _(measureAsync("CollisionDetection", () =>
-      detectCollisions(worldState.entities)
-    ));
+    const collisionDetection = yield* _(measureAsync('CollisionDetection', () => detectCollisions(worldState.entities)))
 
     // パス探索の性能測定
-    const pathfinding = yield* _(measureAsync("Pathfinding", () =>
-      updateEntityPaths(worldState.entities)
-    ));
+    const pathfinding = yield* _(measureAsync('Pathfinding', () => updateEntityPaths(worldState.entities)))
 
-    const totalTime = yield* _(Effect.sync(() => performance.now() - startTime));
+    const totalTime = yield* _(Effect.sync(() => performance.now() - startTime))
 
     // ボトルネック特定
-    const measurements = { chunkGeneration, collisionDetection, pathfinding };
-    const bottleneck = Object.entries(measurements)
-      .sort(([, a], [, b]) => b - a)[0];
+    const measurements = { chunkGeneration, collisionDetection, pathfinding }
+    const bottleneck = Object.entries(measurements).sort(([, a], [, b]) => b - a)[0]
 
     if (bottleneck[1] > totalTime * 0.5) {
-      yield* _(Effect.sync(() =>
-        console.warn(`🔥 Major bottleneck in ${bottleneck[0]}: ${bottleneck[1].toFixed(2)}ms`)
-      ));
+      yield* _(
+        Effect.sync(() => console.warn(`🔥 Major bottleneck in ${bottleneck[0]}: ${bottleneck[1].toFixed(2)}ms`))
+      )
     }
 
-    return { totalTime, breakdown: measurements, bottleneck };
-  });
+    return { totalTime, breakdown: measurements, bottleneck }
+  })
 
 // Web Worker への処理移譲
-const offloadToWorker = <T>(
-  workerScript: string,
-  data: T
-): Effect.Effect<T, WorkerError, never> =>
+const offloadToWorker = <T>(workerScript: string, data: T): Effect.Effect<T, WorkerError, never> =>
   Effect.gen(function* (_) {
-    const worker = new Worker(workerScript);
+    const worker = new Worker(workerScript)
 
-    const result = yield* _(Effect.async<T, WorkerError>((resume) => {
-      const timeout = setTimeout(() => {
-        worker.terminate();
-        resume(Effect.fail(new WorkerError({ reason: "timeout" })));
-      }, 5000);
+    const result = yield* _(
+      Effect.async<T, WorkerError>((resume) => {
+        const timeout = setTimeout(() => {
+          worker.terminate()
+          resume(Effect.fail(new WorkerError({ reason: 'timeout' })))
+        }, 5000)
 
-      worker.onmessage = (event) => {
-        clearTimeout(timeout);
-        worker.terminate();
-        resume(Effect.succeed(event.data));
-      };
+        worker.onmessage = (event) => {
+          clearTimeout(timeout)
+          worker.terminate()
+          resume(Effect.succeed(event.data))
+        }
 
-      worker.onerror = (error) => {
-        clearTimeout(timeout);
-        worker.terminate();
-        resume(Effect.fail(new WorkerError({ reason: error.message })));
-      };
+        worker.onerror = (error) => {
+          clearTimeout(timeout)
+          worker.terminate()
+          resume(Effect.fail(new WorkerError({ reason: error.message })))
+        }
 
-      worker.postMessage(data);
-    }));
+        worker.postMessage(data)
+      })
+    )
 
-    return result;
-  });
+    return result
+  })
 ```
 
 ## 4. メモリ使用量のデバッグ
@@ -413,58 +391,54 @@ const offloadToWorker = <T>(
 ```typescript
 // メモリ使用量監視
 interface MemorySnapshot {
-  readonly timestamp: number;
-  readonly heapUsed: number;
-  readonly heapTotal: number;
-  readonly external: number;
-  readonly arrayBuffers: number;
+  readonly timestamp: number
+  readonly heapUsed: number
+  readonly heapTotal: number
+  readonly external: number
+  readonly arrayBuffers: number
 }
 
 const takeMemorySnapshot = (): Effect.Effect<MemorySnapshot, never, never> =>
   Effect.sync(() => {
-    const memory = (performance as any).memory;
+    const memory = (performance as any).memory
     return {
       timestamp: Date.now(),
       heapUsed: memory?.usedJSHeapSize ?? 0,
       heapTotal: memory?.totalJSHeapSize ?? 0,
       external: memory?.externalHeapSize ?? 0,
-      arrayBuffers: memory?.arrayBuffers ?? 0
-    };
-  });
+      arrayBuffers: memory?.arrayBuffers ?? 0,
+    }
+  })
 
 // リーク検出アルゴリズム
 const detectMemoryLeaks = (snapshots: readonly MemorySnapshot[]) =>
   Effect.gen(function* (_) {
     if (snapshots.length < 3) {
-      return { leakDetected: false, trend: "insufficient_data" };
+      return { leakDetected: false, trend: 'insufficient_data' }
     }
 
     // 直近5分間のトレンド分析
-    const recentSnapshots = snapshots.slice(-10);
-    const heapGrowthRate = calculateGrowthRate(
-      recentSnapshots.map(s => s.heapUsed)
-    );
+    const recentSnapshots = snapshots.slice(-10)
+    const heapGrowthRate = calculateGrowthRate(recentSnapshots.map((s) => s.heapUsed))
 
-    const leakThreshold = 1024 * 1024; // 1MB/min
-    const leakDetected = heapGrowthRate > leakThreshold;
+    const leakThreshold = 1024 * 1024 // 1MB/min
+    const leakDetected = heapGrowthRate > leakThreshold
 
     if (leakDetected) {
-      yield* _(Effect.sync(() =>
-        console.error(`🚨 Memory leak detected: ${(heapGrowthRate / 1024 / 1024).toFixed(2)}MB/min`)
-      ));
+      yield* _(
+        Effect.sync(() => console.error(`🚨 Memory leak detected: ${(heapGrowthRate / 1024 / 1024).toFixed(2)}MB/min`))
+      )
 
       // 詳細分析のためのスナップショット取得推奨
-      yield* _(Effect.sync(() =>
-        console.log("💡 Take heap snapshot in DevTools for detailed analysis")
-      ));
+      yield* _(Effect.sync(() => console.log('💡 Take heap snapshot in DevTools for detailed analysis')))
     }
 
     return {
       leakDetected,
       growthRate: heapGrowthRate,
-      trend: leakDetected ? "increasing" : "stable"
-    };
-  });
+      trend: leakDetected ? 'increasing' : 'stable',
+    }
+  })
 ```
 
 ### 4.2 Three.js オブジェクトの適切な破棄
@@ -473,64 +447,54 @@ const detectMemoryLeaks = (snapshots: readonly MemorySnapshot[]) =>
 // リソース管理のベストプラクティス
 const disposeThreeJSResources = (object: THREE.Object3D) =>
   Effect.gen(function* (_) {
-    let disposedCount = 0;
+    let disposedCount = 0
 
     object.traverse((child) => {
       // Geometry の破棄
       if ((child as any).geometry) {
-        (child as any).geometry.dispose();
-        disposedCount++;
+        ;(child as any).geometry.dispose()
+        disposedCount++
       }
 
       // Material の破棄
       if ((child as any).material) {
-        const materials = Array.isArray((child as any).material)
-          ? (child as any).material
-          : [(child as any).material];
+        const materials = Array.isArray((child as any).material) ? (child as any).material : [(child as any).material]
 
         materials.forEach((material: THREE.Material) => {
           // テクスチャの破棄
           Object.values(material).forEach((value) => {
             if (value && typeof value === 'object' && 'dispose' in value) {
-              (value as any).dispose();
+              ;(value as any).dispose()
             }
-          });
+          })
 
-          material.dispose();
-          disposedCount++;
-        });
+          material.dispose()
+          disposedCount++
+        })
       }
-    });
+    })
 
     // シーンから削除
-    object.parent?.remove(object);
+    object.parent?.remove(object)
 
-    yield* _(Effect.sync(() =>
-      console.log(`🗑️ Disposed ${disposedCount} Three.js resources`)
-    ));
+    yield* _(Effect.sync(() => console.log(`🗑️ Disposed ${disposedCount} Three.js resources`)))
 
-    return disposedCount;
-  });
+    return disposedCount
+  })
 
 // メモリ使用量監視付きのリソース管理
-const managedResource = <T extends { dispose(): void }>(
-  resource: T,
-  name: string
-): Effect.Effect<T, never, never> =>
+const managedResource = <T extends { dispose(): void }>(resource: T, name: string): Effect.Effect<T, never, never> =>
   Effect.acquireRelease(
     Effect.gen(function* (_) {
-      yield* _(Effect.sync(() =>
-        console.log(`🔄 Acquired resource: ${name}`)
-      ));
-      return resource;
+      yield* _(Effect.sync(() => console.log(`🔄 Acquired resource: ${name}`)))
+      return resource
     }),
-    (resource) => Effect.gen(function* (_) {
-      resource.dispose();
-      yield* _(Effect.sync(() =>
-        console.log(`🗑️ Disposed resource: ${name}`)
-      ));
-    })
-  );
+    (resource) =>
+      Effect.gen(function* (_) {
+        resource.dispose()
+        yield* _(Effect.sync(() => console.log(`🗑️ Disposed resource: ${name}`)))
+      })
+  )
 ```
 
 ## 5. プロファイリングツールの活用
@@ -539,46 +503,46 @@ const managedResource = <T extends { dispose(): void }>(
 
 ```typescript
 // パフォーマンスマークの活用
-const addPerformanceMarks = <A, E, R>(
-  name: string,
-  effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, R> =>
+const addPerformanceMarks = <A, E, R>(name: string, effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
   Effect.gen(function* (_) {
-    yield* _(Effect.sync(() => performance.mark(`${name}-start`)));
+    yield* _(Effect.sync(() => performance.mark(`${name}-start`)))
 
-    const result = yield* _(effect);
+    const result = yield* _(effect)
 
-    yield* _(Effect.sync(() => {
-      performance.mark(`${name}-end`);
-      performance.measure(name, `${name}-start`, `${name}-end`);
-    }));
+    yield* _(
+      Effect.sync(() => {
+        performance.mark(`${name}-end`)
+        performance.measure(name, `${name}-start`, `${name}-end`)
+      })
+    )
 
-    return result;
-  });
+    return result
+  })
 
 // User Timing API の活用
 const profileWithUserTiming = (gameLoop: () => void) => {
   const observer = new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) {
       if (entry.entryType === 'measure') {
-        console.log(`📊 ${entry.name}: ${entry.duration.toFixed(2)}ms`);
+        console.log(`📊 ${entry.name}: ${entry.duration.toFixed(2)}ms`)
 
         // 閾値チェック
-        if (entry.duration > 16.67) { // 60FPS threshold
-          console.warn(`⚠️ Performance issue: ${entry.name}`);
+        if (entry.duration > 16.67) {
+          // 60FPS threshold
+          console.warn(`⚠️ Performance issue: ${entry.name}`)
         }
       }
     }
-  });
+  })
 
-  observer.observe({ entryTypes: ['measure'] });
+  observer.observe({ entryTypes: ['measure'] })
 
   // ゲームループ実行
-  gameLoop();
+  gameLoop()
 
   // 監視停止
-  observer.disconnect();
-};
+  observer.disconnect()
+}
 ```
 
 ### 5.2 カスタムプロファイラーの実装
@@ -603,47 +567,47 @@ type ProfilerStatistics = {
 }
 
 const makeMinecraftProfiler = (): MinecraftProfilerInterface => {
-  const samples: Map<string, number[]> = new Map();
-  const currentSamples: Map<string, number> = new Map();
+  const samples: Map<string, number[]> = new Map()
+  const currentSamples: Map<string, number> = new Map()
 
   return {
     startSample: (name: string): void => {
-      currentSamples.set(name, performance.now());
+      currentSamples.set(name, performance.now())
     },
 
     endSample: (name: string): number => {
-      const start = currentSamples.get(name);
+      const start = currentSamples.get(name)
       if (!start) {
-        console.warn(`⚠️ Sample '${name}' was not started`);
-        return 0;
+        console.warn(`⚠️ Sample '${name}' was not started`)
+        return 0
       }
 
-      const duration = performance.now() - start;
-      currentSamples.delete(name);
+      const duration = performance.now() - start
+      currentSamples.delete(name)
 
       // サンプル保存
       if (!samples.has(name)) {
-        samples.set(name, []);
+        samples.set(name, [])
       }
-      samples.get(name)!.push(duration);
+      samples.get(name)!.push(duration)
 
       // 最大100サンプルまで保持
-      const sampleArray = samples.get(name)!;
+      const sampleArray = samples.get(name)!
       if (sampleArray.length > 100) {
-        sampleArray.shift();
+        sampleArray.shift()
       }
 
-      return duration;
+      return duration
     },
 
     getStatistics: (name: string) => {
-      const sampleArray = samples.get(name) ?? [];
+      const sampleArray = samples.get(name) ?? []
       if (sampleArray.length === 0) {
-        return null;
+        return null
       }
 
-      const sorted = [...sampleArray].sort((a, b) => a - b);
-      const sum = sampleArray.reduce((a, b) => a + b, 0);
+      const sorted = [...sampleArray].sort((a, b) => a - b)
+      const sum = sampleArray.reduce((a, b) => a + b, 0)
 
       return {
         count: sampleArray.length,
@@ -652,19 +616,19 @@ const makeMinecraftProfiler = (): MinecraftProfilerInterface => {
         max: sorted[sorted.length - 1],
         p50: sorted[Math.floor(sorted.length * 0.5)],
         p95: sorted[Math.floor(sorted.length * 0.95)],
-        p99: sorted[Math.floor(sorted.length * 0.99)]
-      };
+        p99: sorted[Math.floor(sorted.length * 0.99)],
+      }
     },
 
     generateReport: (): string => {
-      const report = ["📊 Performance Report", "=================="];
+      const report = ['📊 Performance Report', '==================']
 
       for (const [name, _] of samples) {
-        const sampleArray = samples.get(name) ?? [];
-        if (sampleArray.length === 0) continue;
+        const sampleArray = samples.get(name) ?? []
+        if (sampleArray.length === 0) continue
 
-        const sorted = [...sampleArray].sort((a, b) => a - b);
-        const sum = sampleArray.reduce((a, b) => a + b, 0);
+        const sorted = [...sampleArray].sort((a, b) => a - b)
+        const sum = sampleArray.reduce((a, b) => a + b, 0)
         const stats = {
           count: sampleArray.length,
           average: sum / sampleArray.length,
@@ -672,42 +636,42 @@ const makeMinecraftProfiler = (): MinecraftProfilerInterface => {
           max: sorted[sorted.length - 1],
           p50: sorted[Math.floor(sorted.length * 0.5)],
           p95: sorted[Math.floor(sorted.length * 0.95)],
-          p99: sorted[Math.floor(sorted.length * 0.99)]
-        };
+          p99: sorted[Math.floor(sorted.length * 0.99)],
+        }
 
         report.push(
           `\n${name}:`,
           `  Average: ${stats.average.toFixed(2)}ms`,
           `  Min/Max: ${stats.min.toFixed(2)}ms / ${stats.max.toFixed(2)}ms`,
           `  95th percentile: ${stats.p95.toFixed(2)}ms`
-        );
+        )
 
         if (stats.p95 > 16.67) {
-          report.push(`  ⚠️  Performance concern detected!`);
+          report.push(`  ⚠️  Performance concern detected!`)
         }
       }
 
-      return report.join('\n');
-    }
+      return report.join('\n')
+    },
   }
 }
 
 // Effect-TS との統合
-const ProfilerService = Context.GenericTag<MinecraftProfilerInterface>("ProfilerService");
+const ProfilerService = Context.GenericTag<MinecraftProfilerInterface>('ProfilerService')
 
 const profiledEffect = <A, E, R>(
   name: string,
   effect: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, R & ProfilerService> =>
   Effect.gen(function* (_) {
-    const profiler = yield* _(ProfilerService);
+    const profiler = yield* _(ProfilerService)
 
-    profiler.startSample(name);
-    const result = yield* _(effect);
-    profiler.endSample(name);
+    profiler.startSample(name)
+    const result = yield* _(effect)
+    profiler.endSample(name)
 
-    return result;
-  });
+    return result
+  })
 ```
 
 ## 6. 自動化された性能監視
@@ -717,12 +681,12 @@ const profiledEffect = <A, E, R>(
 ```typescript
 // パフォーマンス監視ダッシュボード
 interface PerformanceMetrics {
-  readonly fps: number;
-  readonly frameTime: number;
-  readonly memoryUsage: number;
-  readonly drawCalls: number;
-  readonly activePlayers: number;
-  readonly loadedChunks: number;
+  readonly fps: number
+  readonly frameTime: number
+  readonly memoryUsage: number
+  readonly drawCalls: number
+  readonly activePlayers: number
+  readonly loadedChunks: number
 }
 
 const createPerformanceMonitor = () =>
@@ -733,59 +697,62 @@ const createPerformanceMonitor = () =>
       memoryUsage: 0,
       drawCalls: 0,
       activePlayers: 0,
-      loadedChunks: 0
-    };
+      loadedChunks: 0,
+    }
 
-    let lastFrameTime = performance.now();
-    let frameCount = 0;
+    let lastFrameTime = performance.now()
+    let frameCount = 0
 
     const updateMetrics = () => {
-      const currentTime = performance.now();
-      const deltaTime = currentTime - lastFrameTime;
+      const currentTime = performance.now()
+      const deltaTime = currentTime - lastFrameTime
 
-      metrics.frameTime = deltaTime;
-      frameCount++;
+      metrics.frameTime = deltaTime
+      frameCount++
 
       // 1秒間隔でFPS計算
       if (frameCount >= 60) {
-        metrics.fps = 1000 / (deltaTime / frameCount);
-        frameCount = 0;
+        metrics.fps = 1000 / (deltaTime / frameCount)
+        frameCount = 0
       }
 
       // メモリ使用量
-      const memory = (performance as any).memory;
+      const memory = (performance as any).memory
       if (memory) {
-        metrics.memoryUsage = memory.usedJSHeapSize / (1024 * 1024); // MB
+        metrics.memoryUsage = memory.usedJSHeapSize / (1024 * 1024) // MB
       }
 
-      lastFrameTime = currentTime;
+      lastFrameTime = currentTime
 
       // アラート発生
       if (metrics.fps < 30) {
-        console.warn(`🚨 Low FPS detected: ${metrics.fps.toFixed(1)}`);
+        console.warn(`🚨 Low FPS detected: ${metrics.fps.toFixed(1)}`)
       }
 
-      if (metrics.memoryUsage > 512) { // 512MB threshold
-        console.warn(`🚨 High memory usage: ${metrics.memoryUsage.toFixed(1)}MB`);
+      if (metrics.memoryUsage > 512) {
+        // 512MB threshold
+        console.warn(`🚨 High memory usage: ${metrics.memoryUsage.toFixed(1)}MB`)
       }
-    };
+    }
 
-    return { metrics, updateMetrics };
-  });
+    return { metrics, updateMetrics }
+  })
 
 // Webソケット経由でのメトリクス送信
 const sendMetricsToServer = (metrics: PerformanceMetrics) =>
   Effect.gen(function* (_) {
-    const websocket = yield* _(WebSocketService);
+    const websocket = yield* _(WebSocketService)
 
     yield* _(
-      websocket.send(JSON.stringify({
-        type: "performance_metrics",
-        timestamp: Date.now(),
-        data: metrics
-      }))
-    );
-  });
+      websocket.send(
+        JSON.stringify({
+          type: 'performance_metrics',
+          timestamp: Date.now(),
+          data: metrics,
+        })
+      )
+    )
+  })
 ```
 
 ### 6.2 性能回帰検出
@@ -795,66 +762,65 @@ const sendMetricsToServer = (metrics: PerformanceMetrics) =>
 const runPerformanceBenchmark = () =>
   Effect.gen(function* (_) {
     const benchmarks = [
-      { name: "World Generation", test: () => generateTestWorld() },
-      { name: "Entity Updates", test: () => updateTestEntities() },
-      { name: "Collision Detection", test: () => runCollisionTest() },
-      { name: "Rendering", test: () => renderTestScene() }
-    ];
+      { name: 'World Generation', test: () => generateTestWorld() },
+      { name: 'Entity Updates', test: () => updateTestEntities() },
+      { name: 'Collision Detection', test: () => runCollisionTest() },
+      { name: 'Rendering', test: () => renderTestScene() },
+    ]
 
-    const results = [];
+    const results = []
 
     for (const benchmark of benchmarks) {
-      const times = [];
+      const times = []
 
       // 10回実行して平均値を取得
       for (let i = 0; i < 10; i++) {
-        const start = performance.now();
-        yield* _(Effect.promise(() => benchmark.test()));
-        const end = performance.now();
-        times.push(end - start);
+        const start = performance.now()
+        yield* _(Effect.promise(() => benchmark.test()))
+        const end = performance.now()
+        times.push(end - start)
       }
 
-      const average = times.reduce((a, b) => a + b) / times.length;
-      results.push({ name: benchmark.name, time: average });
+      const average = times.reduce((a, b) => a + b) / times.length
+      results.push({ name: benchmark.name, time: average })
     }
 
-    return results;
-  });
+    return results
+  })
 
 // 過去のベースラインとの比較
-const compareWithBaseline = (
-  currentResults: BenchmarkResult[],
-  baseline: BenchmarkResult[]
-) =>
+const compareWithBaseline = (currentResults: BenchmarkResult[], baseline: BenchmarkResult[]) =>
   Effect.gen(function* (_) {
-    const comparisons = currentResults.map(current => {
-      const base = baseline.find(b => b.name === current.name);
-      if (!base) return null;
+    const comparisons = currentResults
+      .map((current) => {
+        const base = baseline.find((b) => b.name === current.name)
+        if (!base) return null
 
-      const regression = ((current.time - base.time) / base.time) * 100;
+        const regression = ((current.time - base.time) / base.time) * 100
 
-      return {
-        name: current.name,
-        currentTime: current.time,
-        baselineTime: base.time,
-        regressionPercentage: regression,
-        isRegression: regression > 10 // 10%以上の劣化で回帰判定
-      };
-    }).filter(Boolean);
+        return {
+          name: current.name,
+          currentTime: current.time,
+          baselineTime: base.time,
+          regressionPercentage: regression,
+          isRegression: regression > 10, // 10%以上の劣化で回帰判定
+        }
+      })
+      .filter(Boolean)
 
     // 回帰があればアラート
-    const regressions = comparisons.filter(c => c.isRegression);
+    const regressions = comparisons.filter((c) => c.isRegression)
     if (regressions.length > 0) {
-      yield* _(Effect.sync(() => {
-        console.error("🚨 Performance regressions detected:");
-        regressions.forEach(r =>
-          console.error(`  ${r.name}: ${r.regressionPercentage.toFixed(1)}% slower`)
-        );
-      }));
+      yield* _(
+        Effect.sync(() => {
+          console.error('🚨 Performance regressions detected:')
+          regressions.forEach((r) => console.error(`  ${r.name}: ${r.regressionPercentage.toFixed(1)}% slower`))
+        })
+      )
     }
 
-    return comparisons;
-  });
+    return comparisons
+  })
 ```
 
 ## 7. 問題解決の実践例
@@ -868,39 +834,37 @@ const compareWithBaseline = (
 const loadChunk_Before = (coordinate: ChunkCoordinate) =>
   Effect.gen(function* (_) {
     // メインスレッドで重い計算を実行（問題）
-    const heightmap = generateHeightmap(coordinate); // 50-100ms
-    const blocks = generateBlocks(heightmap);        // 100-200ms
-    const lighting = calculateLighting(blocks);      // 50ms
+    const heightmap = generateHeightmap(coordinate) // 50-100ms
+    const blocks = generateBlocks(heightmap) // 100-200ms
+    const lighting = calculateLighting(blocks) // 50ms
 
-    return { coordinate, blocks, lighting };
-  });
+    return { coordinate, blocks, lighting }
+  })
 
 // After: 非同期 + Web Worker + Progressive Loading
 const loadChunk_After = (coordinate: ChunkCoordinate) =>
   Effect.gen(function* (_) {
     // 1. Web Worker で重い計算を実行
-    const chunkData = yield* _(offloadToWorker("chunk-generator.js", coordinate));
+    const chunkData = yield* _(offloadToWorker('chunk-generator.js', coordinate))
 
     // 2. Progressive Loading - 段階的に品質向上
-    const lowDetailChunk = yield* _(
-      generateLowDetailChunk(chunkData)
-    );
+    const lowDetailChunk = yield* _(generateLowDetailChunk(chunkData))
 
     // 3. 即座に低品質版を表示
-    yield* _(displayChunk(coordinate, lowDetailChunk));
+    yield* _(displayChunk(coordinate, lowDetailChunk))
 
     // 4. 背景で高品質版を生成
-    yield* _(Effect.fork(
-      Effect.gen(function* (_) {
-        const highDetailChunk = yield* _(
-          generateHighDetailChunk(chunkData)
-        );
-        yield* _(displayChunk(coordinate, highDetailChunk));
-      })
-    ));
+    yield* _(
+      Effect.fork(
+        Effect.gen(function* (_) {
+          const highDetailChunk = yield* _(generateHighDetailChunk(chunkData))
+          yield* _(displayChunk(coordinate, highDetailChunk))
+        })
+      )
+    )
 
-    return lowDetailChunk;
-  });
+    return lowDetailChunk
+  })
 
 // 結果: FPS低下を90%削減（16ms → 1.5ms）
 ```
@@ -917,24 +881,24 @@ interface ChunkManagerBeforeInterface {
 }
 
 const makeChunkManagerBefore = (): ChunkManagerBeforeInterface => {
-  const loadedChunks = new Map<string, THREE.Group>();
+  const loadedChunks = new Map<string, THREE.Group>()
 
   return {
     loadChunk: (coordinate: ChunkCoordinate): void => {
-      const chunkGroup = new THREE.Group();
+      const chunkGroup = new THREE.Group()
       // ... メッシュ生成 ...
 
-      loadedChunks.set(coordinate.toString(), chunkGroup);
+      loadedChunks.set(coordinate.toString(), chunkGroup)
       // 問題: 古いチャンクを削除する際にdispose()を呼んでいない
     },
 
     unloadChunk: (coordinate: ChunkCoordinate): void => {
-      const chunk = loadedChunks.get(coordinate.toString());
+      const chunk = loadedChunks.get(coordinate.toString())
       if (chunk) {
-        scene.remove(chunk); // ❌ メモリ上にジオメトリ・テクスチャが残る
-        loadedChunks.delete(coordinate.toString());
+        scene.remove(chunk) // ❌ メモリ上にジオメトリ・テクスチャが残る
+        loadedChunks.delete(coordinate.toString())
       }
-    }
+    },
   }
 }
 
@@ -943,50 +907,49 @@ const createManagedChunk = (coordinate: ChunkCoordinate) =>
   Effect.acquireRelease(
     // 取得: チャンクオブジェクト作成
     Effect.gen(function* (_) {
-      const chunkGroup = new THREE.Group();
+      const chunkGroup = new THREE.Group()
       // ... メッシュ生成 ...
 
-      yield* _(Effect.sync(() => scene.add(chunkGroup)));
+      yield* _(Effect.sync(() => scene.add(chunkGroup)))
 
-      return chunkGroup;
+      return chunkGroup
     }),
     // 解放: 適切なクリーンアップ
-    (chunkGroup) => Effect.gen(function* (_) {
-      yield* _(disposeThreeJSResources(chunkGroup));
-      yield* _(Effect.sync(() => scene.remove(chunkGroup)));
-    })
-  );
+    (chunkGroup) =>
+      Effect.gen(function* (_) {
+        yield* _(disposeThreeJSResources(chunkGroup))
+        yield* _(Effect.sync(() => scene.remove(chunkGroup)))
+      })
+  )
 
 const ChunkManagerService = Effect.gen(function* (_) {
-  const loadedChunks = new Map<string, Effect.Scope.Scope>();
+  const loadedChunks = new Map<string, Effect.Scope.Scope>()
 
   const loadChunk = (coordinate: ChunkCoordinate) =>
     Effect.gen(function* (_) {
       // 既存チャンクのアンロード
-      yield* _(unloadChunk(coordinate));
+      yield* _(unloadChunk(coordinate))
 
       // スコープ付きでチャンク作成
-      const scope = yield* _(Effect.scope);
-      const chunk = yield* _(
-        Effect.scoped(createManagedChunk(coordinate))
-      );
+      const scope = yield* _(Effect.scope)
+      const chunk = yield* _(Effect.scoped(createManagedChunk(coordinate)))
 
-      loadedChunks.set(coordinate.toString(), scope);
+      loadedChunks.set(coordinate.toString(), scope)
 
-      return chunk;
-    });
+      return chunk
+    })
 
   const unloadChunk = (coordinate: ChunkCoordinate) =>
     Effect.gen(function* (_) {
-      const scope = loadedChunks.get(coordinate.toString());
+      const scope = loadedChunks.get(coordinate.toString())
       if (scope) {
-        yield* _(Effect.scopeClose(scope, Exit.unit)); // 自動クリーンアップ
-        loadedChunks.delete(coordinate.toString());
+        yield* _(Effect.scopeClose(scope, Exit.unit)) // 自動クリーンアップ
+        loadedChunks.delete(coordinate.toString())
       }
-    });
+    })
 
-  return { loadChunk, unloadChunk };
-});
+  return { loadChunk, unloadChunk }
+})
 
 // 結果: メモリ使用量が時間に対して一定に保たれる
 ```
@@ -1004,68 +967,66 @@ const PerformanceBudget = {
   maxDrawCalls: 200,
   maxTriangles: 100000,
   maxChunkLoadTime: 50, // ms
-  maxEntityCount: 1000
-} as const;
+  maxEntityCount: 1000,
+} as const
 
 // 予算監視システム
 const monitorPerformanceBudget = (currentMetrics: PerformanceMetrics) =>
   Effect.gen(function* (_) {
-    const violations = [];
+    const violations = []
 
     if (currentMetrics.fps < PerformanceBudget.targetFPS * 0.9) {
       violations.push({
-        metric: "FPS",
+        metric: 'FPS',
         current: currentMetrics.fps,
         budget: PerformanceBudget.targetFPS,
-        severity: "high"
-      });
+        severity: 'high',
+      })
     }
 
     if (currentMetrics.memoryUsage > PerformanceBudget.maxMemoryUsage) {
       violations.push({
-        metric: "Memory Usage",
+        metric: 'Memory Usage',
         current: `${currentMetrics.memoryUsage}MB`,
         budget: `${PerformanceBudget.maxMemoryUsage}MB`,
-        severity: "critical"
-      });
+        severity: 'critical',
+      })
     }
 
     if (violations.length > 0) {
-      yield* _(Effect.sync(() => {
-        console.warn("💸 Performance budget violations detected:");
-        violations.forEach(v =>
-          console.warn(`  ${v.metric}: ${v.current} (budget: ${v.budget})`)
-        );
-      }));
+      yield* _(
+        Effect.sync(() => {
+          console.warn('💸 Performance budget violations detected:')
+          violations.forEach((v) => console.warn(`  ${v.metric}: ${v.current} (budget: ${v.budget})`))
+        })
+      )
 
       // 自動的な軽量化措置
-      if (violations.some(v => v.severity === "critical")) {
-        yield* _(activatePerformanceEmergencyMode());
+      if (violations.some((v) => v.severity === 'critical')) {
+        yield* _(activatePerformanceEmergencyMode())
       }
     }
 
-    return violations;
-  });
+    return violations
+  })
 
 // 緊急時の自動最適化
 const activatePerformanceEmergencyMode = () =>
   Effect.gen(function* (_) {
-    yield* _(Effect.sync(() =>
-      console.log("🚨 Activating emergency performance mode")
-    ));
+    yield* _(Effect.sync(() => console.log('🚨 Activating emergency performance mode')))
 
     // 描画品質の自動調整
-    yield* _(reduceRenderQuality(0.7));
+    yield* _(reduceRenderQuality(0.7))
 
     // エンティティ数の制限
-    yield* _(limitEntityCount(500));
+    yield* _(limitEntityCount(500))
 
     // チャンク読み込み距離の短縮
-    yield* _(reduceChunkLoadDistance(0.8));
+    yield* _(reduceChunkLoadDistance(0.8))
 
     // パーティクルエフェクトの削減
-    yield* _(disableNonEssentialEffects());
-  });
+    yield* _(disableNonEssentialEffects())
+  })
 ```
 
 ## 9. まとめとベストプラクティス
@@ -1074,6 +1035,7 @@ const activatePerformanceEmergencyMode = () =>
 
 `★ Insight ─────────────────────────────────────`
 成功するパフォーマンスデバッグの5原則：
+
 1. **測定ファースト**: 推測ではなく具体的な数値に基づく分析
 2. **段階的改善**: 一度に複数の最適化を行わず、効果を個別に確認
 3. **自動化重視**: 手動チェックではなく継続的な監視システム構築
@@ -1086,6 +1048,7 @@ Three.js + Effect-TS 環境での特殊な課題を理解し、適切なツー�
 ### 9.2 継続改善のためのチェックリスト
 
 **開発中の継続チェック:**
+
 - [ ] 新機能追加時の性能影響測定
 - [ ] メモリ使用量の定期監視
 - [ ] 描画統計の自動収集
@@ -1093,12 +1056,14 @@ Three.js + Effect-TS 環境での特殊な課題を理解し、適切なツー�
 - [ ] Web Worker 活用の検討
 
 **リリース前のパフォーマンス検証:**
+
 - [ ] ターゲットハードウェアでの動作確認
 - [ ] 長時間プレイでのメモリリーク検証
 - [ ] 最大負荷時の安定性確認
 - [ ] 性能予算の遵守確認
 
 **本番環境での監視:**
+
 - [ ] リアルタイムメトリクス収集
 - [ ] ユーザーからの性能レポート分析
 - [ ] A/Bテストによる最適化効果確認

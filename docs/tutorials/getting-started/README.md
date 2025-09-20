@@ -1,27 +1,27 @@
 ---
-title: "TypeScript Minecraft - 15分クイックスタート"
-description: "Effect-TS 3.17+とThree.jsを使用したMinecraftクローンプロジェクトへの超高速導入。5分でプロジェクト理解、10分で開発環境構築、即座に開発開始。"
-diataxis_type: "tutorial"
-category: "tutorial"
-difficulty: "beginner"
-tags: ["quick-start", "getting-started", "effect-ts", "typescript", "minecraft", "zero-wait-experience"]
+title: 'TypeScript Minecraft - 15分クイックスタート'
+description: 'Effect-TS 3.17+とThree.jsを使用したMinecraftクローンプロジェクトへの超高速導入。5分でプロジェクト理解、10分で開発環境構築、即座に開発開始。'
+diataxis_type: 'tutorial'
+category: 'tutorial'
+difficulty: 'beginner'
+tags: ['quick-start', 'getting-started', 'effect-ts', 'typescript', 'minecraft', 'zero-wait-experience']
 prerequisites:
-  - "basic-typescript"
-  - "nodejs-installed"
-  - "git-basics"
-estimated_reading_time: "5分"
-estimated_completion_time: "15分"
+  - 'basic-typescript'
+  - 'nodejs-installed'
+  - 'git-basics'
+estimated_reading_time: '5分'
+estimated_completion_time: '15分'
 learning_objectives:
-  - "プロジェクト技術スタック完全理解"
-  - "開発環境構築（5分以内）"
-  - "基本操作体験と理解"
-  - "Effect-TSの価値認識"
-  - "次学習ステップ明確化"
+  - 'プロジェクト技術スタック完全理解'
+  - '開発環境構築（5分以内）'
+  - '基本操作体験と理解'
+  - 'Effect-TSの価値認識'
+  - '次学習ステップ明確化'
 completion_criteria:
-  - "ブラウザでMinecraft世界表示"
-  - "WASD移動・マウス視点変更動作"
-  - "Effect-TSパターン理解"
-  - "学習パス全体像把握"
+  - 'ブラウザでMinecraft世界表示'
+  - 'WASD移動・マウス視点変更動作'
+  - 'Effect-TSパターン理解'
+  - '学習パス全体像把握'
 tutorial_structure:
   interactive_examples: true
   live_coding: true
@@ -33,18 +33,19 @@ code_examples:
   error_handling_demos: true
   debug_examples: true
 related_docs:
-  - "../effect-ts-fundamentals/effect-ts-basics.md"
-  - "../../how-to/development/entry-points.md"
-  - "../basic-game-development/README.md"
+  - '../effect-ts-fundamentals/effect-ts-basics.md'
+  - '../../how-to/development/entry-points.md'
+  - '../basic-game-development/README.md'
 ai_context:
-  purpose: "zero-wait-experience tutorial for rapid project onboarding"
-  audience: "developers new to Effect-TS and functional programming"
-  key_concepts: ["effect-ts basics", "project structure", "development workflow", "learning progression"]
-  learning_outcomes: ["immediate project understanding", "development environment mastery", "functional programming appreciation"]
-  interactive_elements: ["live code examples", "progressive exercises", "completion checklists"]
-  estimated_success_rate: "95%+"
+  purpose: 'zero-wait-experience tutorial for rapid project onboarding'
+  audience: 'developers new to Effect-TS and functional programming'
+  key_concepts: ['effect-ts basics', 'project structure', 'development workflow', 'learning progression']
+  learning_outcomes:
+    ['immediate project understanding', 'development environment mastery', 'functional programming appreciation']
+  interactive_elements: ['live code examples', 'progressive exercises', 'completion checklists']
+  estimated_success_rate: '95%+'
 machine_readable:
-  tutorial_type: "quick-start-onboarding"
+  tutorial_type: 'quick-start-onboarding'
   complexity_level: 1
   prerequisites_count: 3
   interactive_examples_count: 6
@@ -64,12 +65,14 @@ machine_readable:
 ### 📋 前提知識チェックリスト
 
 **✅ 必須項目（開始前に確認）**:
+
 - [ ] TypeScript基本文法（型定義、インターフェース、ジェネリクス）
 - [ ] Node.js環境がインストール済み（v18.0.0以上）
 - [ ] Gitコマンドの基本操作（clone, add, commit）
 - [ ] npm/pnpmパッケージマネージャーの使用経験
 
 **🟡 推奨項目（あると学習が加速）**:
+
 - [ ] 関数型プログラミングの概念知識
 - [ ] 非同期処理（Promise, async/await）経験
 - [ ] 3Dグラフィックスまたはゲーム開発経験
@@ -85,22 +88,22 @@ machine_readable:
 // [LIVE_EXAMPLE: project-overview]
 // 🎮 Core Tech Stack - すべて最新バージョン
 const ProjectStack = {
-  language: "TypeScript 5.0+",
-  functionalProgramming: "Effect-TS 3.17+",    // 副作用管理・型安全性
-  rendering: "Three.js + WebGL",                // 3Dレンダリング
-  architecture: "Clean Architecture + DDD",     // 設計原則
-  testing: "Vitest + Property-Based Testing",  // 品質保証
-  bundling: "Vite + Web Workers",              // 高速ビルド
-  deployment: "Vercel + Edge Functions"         // 現代的インフラ
-} as const;
+  language: 'TypeScript 5.0+',
+  functionalProgramming: 'Effect-TS 3.17+', // 副作用管理・型安全性
+  rendering: 'Three.js + WebGL', // 3Dレンダリング
+  architecture: 'Clean Architecture + DDD', // 設計原則
+  testing: 'Vitest + Property-Based Testing', // 品質保証
+  bundling: 'Vite + Web Workers', // 高速ビルド
+  deployment: 'Vercel + Edge Functions', // 現代的インフラ
+} as const
 
 // 🏗️ Project Structure - 単一責任原則
 const Architecture = {
-  domain: "ゲームロジック（純粋関数）",
-  application: "ユースケース（Effect合成）",
-  infrastructure: "外部依存（Layer提供）",
-  presentation: "UI・レンダリング（Three.js）"
-} as const;
+  domain: 'ゲームロジック（純粋関数）',
+  application: 'ユースケース（Effect合成）',
+  infrastructure: '外部依存（Layer提供）',
+  presentation: 'UI・レンダリング（Three.js）',
+} as const
 // [/LIVE_EXAMPLE]
 ```
 
@@ -199,6 +202,7 @@ npm run dev
 - [ ] **ブラウザ表示**: Minecraft風3D世界がレンダリング
 
 **🚨 トラブルシューティング**:
+
 - **エラーが発生**: [一般的問題解決](../../how-to/troubleshooting/common-getting-started-issues.md)を確認
 - **依存関係エラー**: `npm cache clean --force && npm install`を実行
 - **ポート競合**: `npx kill-port 5173 && npm run dev`で再起動
@@ -212,21 +216,21 @@ npm run dev
 // 🎮 基本操作テスト - ブラウザ内で即座に体験
 const BasicControls = {
   movement: {
-    W: "前進",
-    A: "左移動",
-    S: "後退",
-    D: "右移動",
-    Space: "ジャンプ"
+    W: '前進',
+    A: '左移動',
+    S: '後退',
+    D: '右移動',
+    Space: 'ジャンプ',
   },
   view: {
-    mouse: "視点変更",
-    scroll: "ズーム"
+    mouse: '視点変更',
+    scroll: 'ズーム',
   },
   interaction: {
-    leftClick: "ブロック破壊",
-    rightClick: "ブロック配置"
-  }
-} as const;
+    leftClick: 'ブロック破壊',
+    rightClick: 'ブロック配置',
+  },
+} as const
 
 // 🎯 Try it now: WASDキーを押して移動してみよう！
 // [/LIVE_EXAMPLE]
@@ -239,6 +243,7 @@ const BasicControls = {
 **実際に以下の操作を試してください**:
 
 #### ✅ 移動操作確認
+
 - [ ] **W**キー: 前進（画面内のキャラクターが前方移動）
 - [ ] **S**キー: 後退（画面内のキャラクターが後方移動）
 - [ ] **A**キー: 左移動（左方向への平行移動）
@@ -246,11 +251,13 @@ const BasicControls = {
 - [ ] **Space**キー: ジャンプ（上方向への移動とその後の落下）
 
 #### ✅ 視点操作確認
+
 - [ ] **マウス左右**: 水平方向の視点回転
 - [ ] **マウス上下**: 垂直方向の視点回転（上限・下限あり）
 - [ ] **マウスホイール**: ズーム調整（近づく・離れる）
 
 #### ✅ 基本相互作用
+
 - [ ] **左クリック**: ブロック選択・破壊準備
 - [ ] **右クリック**: ブロック配置準備
 - [ ] **ESCキー**: ポインターロック解除
@@ -264,24 +271,24 @@ const BasicControls = {
 ```typescript
 // [LIVE_EXAMPLE: code-structure]
 // 📁 src/main.ts - アプリケーションエントリーポイント
-import { Effect } from "effect";
-import { GameEngine } from "./domain/game/GameEngine";
-import { WebRenderer } from "./presentation/WebRenderer";
+import { Effect } from 'effect'
+import { GameEngine } from './domain/game/GameEngine'
+import { WebRenderer } from './presentation/WebRenderer'
 
 // 🎯 Effect-TS パターン: すべてが型安全なEffect
 const main = Effect.gen(function* () {
   // 1. ゲームエンジン初期化
-  const engine = yield* GameEngine.initialize();
+  const engine = yield* GameEngine.initialize()
 
   // 2. レンダラー起動
-  const renderer = yield* WebRenderer.create();
+  const renderer = yield* WebRenderer.create()
 
   // 3. ゲームループ開始
-  yield* engine.startGameLoop(renderer);
-});
+  yield* engine.startGameLoop(renderer)
+})
 
 // 🚀 実行: すべての副作用が管理された状態で起動
-Effect.runMain(main);
+Effect.runMain(main)
 // [/LIVE_EXAMPLE]
 ```
 
@@ -295,10 +302,10 @@ Effect.runMain(main);
 // [EXERCISE: code-comprehension]
 // 🧩 この関数は何をしているでしょうか？
 const main = Effect.gen(function* () {
-  const engine = yield* GameEngine.initialize();
-  const renderer = yield* WebRenderer.create();
-  yield* engine.startGameLoop(renderer);
-});
+  const engine = yield* GameEngine.initialize()
+  const renderer = yield* WebRenderer.create()
+  yield* engine.startGameLoop(renderer)
+})
 
 // 💭 Your Answer: ______________________
 // [/EXERCISE]
@@ -309,6 +316,7 @@ const main = Effect.gen(function* () {
 **正解**: アプリケーションのメイン処理フローを定義
 
 **詳細解説**:
+
 1. `GameEngine.initialize()`: ゲームエンジンを初期化
 2. `WebRenderer.create()`: レンダリングシステムを作成
 3. `engine.startGameLoop(renderer)`: ゲームループを開始
@@ -328,29 +336,29 @@ const main = Effect.gen(function* () {
 // 🔄 従来の問題のあるコード（アンチパターン）
 function traditionalApproach() {
   try {
-    const config = JSON.parse(localStorage.getItem("config") || "{}");
-    const player = createPlayer(config.playerName);
-    const world = generateWorld(config.seed);
-    startGame(player, world);
+    const config = JSON.parse(localStorage.getItem('config') || '{}')
+    const player = createPlayer(config.playerName)
+    const world = generateWorld(config.seed)
+    startGame(player, world)
   } catch (error) {
-    console.error("Game failed to start:", error);
+    console.error('Game failed to start:', error)
   }
 }
 
 // ✅ Effect-TSによる型安全で合成可能なアプローチ
 const modernApproach = Effect.gen(function* () {
   // すべての副作用が明示的に管理される
-  const config = yield* loadConfig();
-  const player = yield* createPlayerSafely(config.playerName);
-  const world = yield* generateWorldSafely(config.seed);
-  yield* startGameSafely(player, world);
+  const config = yield* loadConfig()
+  const player = yield* createPlayerSafely(config.playerName)
+  const world = yield* generateWorldSafely(config.seed)
+  yield* startGameSafely(player, world)
 
   // エラーハンドリングも型安全
 }).pipe(
-  Effect.catchTag("ConfigError", () => Effect.log("Configuration failed")),
-  Effect.catchTag("PlayerError", () => Effect.log("Player creation failed")),
-  Effect.retry({ times: 3, delay: "1 second" })
-);
+  Effect.catchTag('ConfigError', () => Effect.log('Configuration failed')),
+  Effect.catchTag('PlayerError', () => Effect.log('Player creation failed')),
+  Effect.retry({ times: 3, delay: '1 second' })
+)
 
 // 🎯 Try it: どちらが安全で分かりやすいか一目瞭然！
 // [/LIVE_EXAMPLE]
@@ -367,31 +375,31 @@ const modernApproach = Effect.gen(function* () {
 // 🔴 従来のPromiseベース（問題だらけ）
 async function badExample() {
   try {
-    const config = JSON.parse(localStorage.getItem("config") || "{}");
-    const player = await createPlayer(config.playerName);
-    const world = await generateWorld(config.seed);
-    await startGame(player, world);
+    const config = JSON.parse(localStorage.getItem('config') || '{}')
+    const player = await createPlayer(config.playerName)
+    const world = await generateWorld(config.seed)
+    await startGame(player, world)
   } catch (error) {
     // ❌ どのステップで失敗したか不明
     // ❌ エラーの型が不明
     // ❌ リトライやフォールバック困難
-    console.error("Something went wrong:", error);
+    console.error('Something went wrong:', error)
   }
 }
 
 // 🟢 Effect-TSベース（型安全・合成可能）
 const goodExample = Effect.gen(function* () {
-  const config = yield* loadConfig();
-  const player = yield* createPlayerSafely(config.playerName);
-  const world = yield* generateWorldSafely(config.seed);
-  yield* startGameSafely(player, world);
+  const config = yield* loadConfig()
+  const player = yield* createPlayerSafely(config.playerName)
+  const world = yield* generateWorldSafely(config.seed)
+  yield* startGameSafely(player, world)
 }).pipe(
   // ✅ エラーの種類別に適切な対応
-  Effect.catchTag("ConfigError", () => Effect.succeed(defaultConfig)),
-  Effect.catchTag("PlayerError", (error) => Effect.log(`Player creation failed: ${error.message}`)),
+  Effect.catchTag('ConfigError', () => Effect.succeed(defaultConfig)),
+  Effect.catchTag('PlayerError', (error) => Effect.log(`Player creation failed: ${error.message}`)),
   // ✅ 自動リトライ（3回、1秒間隔）
-  Effect.retry({ times: 3, delay: "1 second" })
-);
+  Effect.retry({ times: 3, delay: '1 second' })
+)
 
 // 💭 どちらを選びますか？ 理由は？
 // Your choice: [ ] 従来版 [ ] Effect-TS版
@@ -488,22 +496,17 @@ gitgraph
 // [LIVE_EXAMPLE: next-steps]
 // 🎯 Ready for Next Module - Effect-TS Fundamentals
 const NextModulePreview = {
-  module: "Effect-TS 3.17+ 基礎マスター",
-  duration: "30分",
+  module: 'Effect-TS 3.17+ 基礎マスター',
+  duration: '30分',
   keyTopics: [
-    "Effect.gen + yield* パターン",
-    "Schema.Struct による型安全性",
-    "Context.GenericTag 依存注入",
-    "Match.value パターンマッチング"
+    'Effect.gen + yield* パターン',
+    'Schema.Struct による型安全性',
+    'Context.GenericTag 依存注入',
+    'Match.value パターンマッチング',
   ],
-  practicalExamples: [
-    "プレイヤーデータ管理",
-    "ワールド状態管理",
-    "エラーハンドリング",
-    "非同期処理合成"
-  ],
-  immediateValue: "30分でTypeScript開発が根本的に変わります"
-} as const;
+  practicalExamples: ['プレイヤーデータ管理', 'ワールド状態管理', 'エラーハンドリング', '非同期処理合成'],
+  immediateValue: '30分でTypeScript開発が根本的に変わります',
+} as const
 
 // 🚀 Continue Learning Journey:
 // → docs/tutorials/effect-ts-fundamentals/06a-effect-ts-basics.md
@@ -513,6 +516,7 @@ const NextModulePreview = {
 ## ✅ 15分達成チェックリスト
 
 ### 環境構築（5分）
+
 - [ ] Node.js 18+ インストール確認
 - [ ] プロジェクトクローン完了
 - [ ] 依存関係インストール完了
@@ -521,6 +525,7 @@ const NextModulePreview = {
 **環境構築完了判定**: 上記4項目すべてチェック済み = ✅
 
 ### 初回体験（5分）
+
 - [ ] ブラウザでMinecraft世界表示
 - [ ] WASD キーでの移動体験
 - [ ] マウスでの視点変更体験
@@ -529,6 +534,7 @@ const NextModulePreview = {
 **初回体験完了判定**: 上記4項目すべてチェック済み = ✅
 
 ### 概念理解（5分）
+
 - [ ] プロジェクト技術スタック把握
 - [ ] Effect-TSの価値理解
 - [ ] アーキテクチャ概要把握
@@ -546,6 +552,7 @@ const NextModulePreview = {
 4. **学習準備**: 次に学ぶべきEffect-TS Fundamentalsの内容を把握していますか？ [ ] はい [ ] いいえ
 
 **🎉 Status判定**:
+
 - **全項目「はい」**: Quick Start 完全達成！ → [Effect-TS Fundamentals](../effect-ts-fundamentals/effect-ts-basics.md)へ進む
 - **「いいえ」あり**: 該当セクションを再確認してから次へ進む
 
@@ -558,15 +565,21 @@ const NextModulePreview = {
 **あなたの状況に最適な学習パスを選択してください**:
 
 #### 🟢 基礎固め重視（推奨）
+
 **こんな人におすすめ**: 関数型プログラミング初心者、確実に理解を深めたい人
+
 > 🔗 **Next**: [Effect-TS 3.17+ 基礎マスター](../effect-ts-fundamentals/effect-ts-basics.md) (30分)
 
 #### 🟡 実践優先
+
 **こんな人におすすめ**: 関数型プログラミング経験あり、早く実装したい人
+
 > 🔗 **Next**: [基本ゲーム開発](../basic-game-development/README.md) (90分)
 
 #### 🔴 アーキテクチャ理解優先
+
 **こんな人におすすめ**: 設計パターンマニア、大規模開発経験豊富
+
 > 🔗 **Next**: [Clean Architecture設計](../../explanations/architecture/domain-layer-design-principles.md) (45分)
 
 ### 💪 学習継続のコツ
@@ -605,6 +618,7 @@ echo '{
 **🎯 Learning Outcome Achieved**: TypeScript Minecraft プロジェクトに15分で完全導入 ✅
 
 **📊 学習効果指標**:
+
 - **理解度**: プロジェクト全体像の90%把握
 - **実行能力**: 開発環境での即座の作業開始可能
 - **次ステップ準備**: Effect-TS学習の基盤構築完了

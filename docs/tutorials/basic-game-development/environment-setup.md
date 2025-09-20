@@ -1,13 +1,13 @@
 ---
-title: "ゲーム開発環境セットアップ - TypeScript Minecraft開発準備"
-description: "Effect-TS 3.17+、Three.js、Viteを使用した最新ゲーム開発環境の構築手順。5分で完了する効率的セットアップガイド。"
-category: "tutorial"
-difficulty: "beginner"
-tags: ["environment-setup", "development-environment", "typescript", "effect-ts", "three.js", "vite"]
-prerequisites: ["nodejs-installed", "basic-typescript"]
-estimated_reading_time: "10分"
-estimated_setup_time: "5分"
-related_docs: ["../getting-started/README.md", "../../how-to/development/development-conventions.md"]
+title: 'ゲーム開発環境セットアップ - TypeScript Minecraft開発準備'
+description: 'Effect-TS 3.17+、Three.js、Viteを使用した最新ゲーム開発環境の構築手順。5分で完了する効率的セットアップガイド。'
+category: 'tutorial'
+difficulty: 'beginner'
+tags: ['environment-setup', 'development-environment', 'typescript', 'effect-ts', 'three.js', 'vite']
+prerequisites: ['nodejs-installed', 'basic-typescript']
+estimated_reading_time: '10分'
+estimated_setup_time: '5分'
+related_docs: ['../getting-started/README.md', '../../how-to/development/development-conventions.md']
 ---
 
 # 🛠️ ゲーム開発環境セットアップ
@@ -216,15 +216,15 @@ EOF
 
 ```typescript
 // src/main.ts
-import { Effect } from "effect"
-import * as THREE from "three"
+import { Effect } from 'effect'
+import * as THREE from 'three'
 
 // 簡易動作確認
 const main = Effect.gen(function* () {
   const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement
 
   if (!canvas) {
-    return yield* Effect.fail("Canvas not found")
+    return yield* Effect.fail('Canvas not found')
   }
 
   // WebGL基本セットアップ
@@ -251,14 +251,10 @@ const main = Effect.gen(function* () {
 
   animate()
 
-  console.log("🎮 Environment setup successful!")
+  console.log('🎮 Environment setup successful!')
 })
 
-Effect.runSync(main.pipe(
-  Effect.catchAll(error =>
-    Effect.sync(() => console.error("Setup failed:", error))
-  )
-))
+Effect.runSync(main.pipe(Effect.catchAll((error) => Effect.sync(() => console.error('Setup failed:', error)))))
 ```
 
 ```bash
@@ -313,24 +309,28 @@ npm run dev
 ## 🎯 セットアップ検証チェックリスト
 
 ### 基本環境（必須）
+
 - [x] Node.js 18+ インストール済み
 - [x] npm/yarn パッケージマネージャー動作
 - [x] TypeScript コンパイル成功
 - [x] Vite 開発サーバー起動成功
 
 ### Effect-TS環境（必須）
+
 - [x] Effect パッケージインポート成功
 - [x] Effect.gen パターン動作確認
 - [x] 型安全性チェック通過
 - [x] エラーハンドリング動作
 
 ### Three.js環境（必須）
+
 - [x] WebGL レンダリング成功
 - [x] 3Dオブジェクト表示
 - [x] アニメーションループ動作
 - [x] ブラウザ互換性確認
 
 ### 開発環境（推奨）
+
 - [x] Oxlint 高速リンター設定済み
 - [x] Prettier コードフォーマッター設定済み
 - [x] TypeScript 型チェック動作
@@ -340,6 +340,7 @@ npm run dev
 ## 🚨 トラブルシューティング
 
 ### Node.jsバージョン問題
+
 ```bash
 # バージョンが古い場合
 npm install -g n
@@ -351,6 +352,7 @@ nvm use node
 ```
 
 ### パッケージインストールエラー
+
 ```bash
 # キャッシュクリア
 npm cache clean --force
@@ -359,6 +361,7 @@ npm install
 ```
 
 ### TypeScript コンパイルエラー
+
 ```bash
 # 設定ファイル再確認
 npx tsc --showConfig
@@ -366,6 +369,7 @@ npm run type-check
 ```
 
 ### Three.js インポートエラー
+
 ```bash
 # 型定義確認
 npm ls @types/three
@@ -376,18 +380,24 @@ npm install --save-dev @types/three@latest
 ## 🔄 Learning Path
 
 ### ✅ Previous Step
+
 **New to the project?** Start here first:
+
 - **[Getting Started](../getting-started/README.md)** - Project overview and basic concepts
 - ⏱️ Recommended: ~15 minutes to understand the project goals
 
 ### ➡️ Next Step
+
 **[Basic Components](./basic-components.md)**
+
 - 🎯 Learning goal: Create foundational domain entities using Effect-TS patterns
 - ⏱️ Estimated time: ~25 minutes
 - 📋 Prerequisites: Environment setup completed successfully
 
 ### 📊 Progress in this Series
+
 **Basic Game Development (1/5 completed)**
+
 - [x] **Current: Environment Setup**
 - [ ] [Basic Components](./basic-components.md)
 - [ ] [Domain Layer Architecture](./domain-layer-architecture.md)
@@ -410,4 +420,4 @@ npm install --save-dev @types/three@latest
 
 ---
 
-*💡 このセットアップにより、プロダクションレベルのTypeScript Minecraft Clone開発基盤が完成しました。*
+_💡 このセットアップにより、プロダクションレベルのTypeScript Minecraft Clone開発基盤が完成しました。_

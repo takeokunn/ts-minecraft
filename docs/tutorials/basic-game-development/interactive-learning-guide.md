@@ -1,13 +1,14 @@
 ---
-title: "インタラクティブ学習ガイド - ハンズオンでマスターするゲーム開発"
-description: "実際にコードを書きながら学ぶMinecraft Clone開発。効果的な学習順序とトラブルシューティングを含む包括的ガイド。"
-category: "tutorial"
-difficulty: "intermediate"
-tags: ["interactive-learning", "hands-on", "practical", "step-by-step", "game-development"]
-prerequisites: ["basic-game-development-setup", "effect-ts-basics"]
-estimated_reading_time: "45分"
-estimated_coding_time: "2時間"
-related_docs: ["./environment-setup.md", "./domain-layer-architecture.md", "../effect-ts-fundamentals/effect-ts-basics.md"]
+title: 'インタラクティブ学習ガイド - ハンズオンでマスターするゲーム開発'
+description: '実際にコードを書きながら学ぶMinecraft Clone開発。効果的な学習順序とトラブルシューティングを含む包括的ガイド。'
+category: 'tutorial'
+difficulty: 'intermediate'
+tags: ['interactive-learning', 'hands-on', 'practical', 'step-by-step', 'game-development']
+prerequisites: ['basic-game-development-setup', 'effect-ts-basics']
+estimated_reading_time: '45分'
+estimated_coding_time: '2時間'
+related_docs:
+  ['./environment-setup.md', './domain-layer-architecture.md', '../effect-ts-fundamentals/effect-ts-basics.md']
 ---
 
 # 🎮 インタラクティブ学習ガイド - ハンズオンでマスターするゲーム開発
@@ -98,44 +99,40 @@ const performBlockOperation = (operation: BlockOperation) =>
 // [HANDS_ON] あなたが書くコード
 // src/domain/block/BlockOperations.ts
 
-import { Effect, Schema } from "effect"
+import { Effect, Schema } from 'effect'
 
 // まず、基本的な型定義から
-export const BlockType = Schema.Literal(
-  "air", "stone", "grass", "dirt", "wood"
-)
+export const BlockType = Schema.Literal('air', 'stone', 'grass', 'dirt', 'wood')
 
 export const BlockPosition = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
   y: Schema.Number.pipe(Schema.int(), Schema.between(0, 255)),
-  z: Schema.Number.pipe(Schema.int())
+  z: Schema.Number.pipe(Schema.int()),
 })
 
 export const Block = Schema.Struct({
   type: BlockType,
   position: BlockPosition,
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 })
 
 // 🎯 YOUR TURN: ここからあなたが実装してください
 export const placeBlock = (
   position: Schema.Schema.Type<typeof BlockPosition>,
   blockType: Schema.Schema.Type<typeof BlockType>
-) => Effect.gen(function* () {
-  // TODO: 1. 現在のブロックを取得
-  // const currentBlock = yield* ...
-
-  // TODO: 2. 配置可能かチェック
-  // if (currentBlock.type !== "air") {
-  //   return yield* Effect.fail(...)
-  // }
-
-  // TODO: 3. 新しいブロックを作成
-  // const newBlock = ...
-
-  // TODO: 4. ワールドに配置
-  // yield* setBlockAt(position, newBlock)
-})
+) =>
+  Effect.gen(function* () {
+    // TODO: 1. 現在のブロックを取得
+    // const currentBlock = yield* ...
+    // TODO: 2. 配置可能かチェック
+    // if (currentBlock.type !== "air") {
+    //   return yield* Effect.fail(...)
+    // }
+    // TODO: 3. 新しいブロックを作成
+    // const newBlock = ...
+    // TODO: 4. ワールドに配置
+    // yield* setBlockAt(position, newBlock)
+  })
 
 // 🎯 実装のヒント
 // - Effect.fail() でエラーを表現
@@ -152,32 +149,35 @@ export const placeBlock = (
 export const placeBlock = (
   position: Schema.Schema.Type<typeof BlockPosition>,
   blockType: Schema.Schema.Type<typeof BlockType>
-) => Effect.gen(function* () {
-  // 1. 現在のブロックを取得
-  const currentBlock = yield* getBlockAt(position)
+) =>
+  Effect.gen(function* () {
+    // 1. 現在のブロックを取得
+    const currentBlock = yield* getBlockAt(position)
 
-  // 2. 配置可能かチェック
-  if (currentBlock.type !== "air") {
-    return yield* Effect.fail(new BlockPlacementError({
-      reason: "位置が既に占有されています",
+    // 2. 配置可能かチェック
+    if (currentBlock.type !== 'air') {
+      return yield* Effect.fail(
+        new BlockPlacementError({
+          reason: '位置が既に占有されています',
+          position,
+          existingBlock: currentBlock.type,
+        })
+      )
+    }
+
+    // 3. 新しいブロックを作成
+    const newBlock = {
+      type: blockType,
       position,
-      existingBlock: currentBlock.type
-    }))
-  }
+      metadata: {},
+    }
 
-  // 3. 新しいブロックを作成
-  const newBlock = {
-    type: blockType,
-    position,
-    metadata: {}
-  }
+    // 4. ワールドに配置
+    yield* setBlockAt(position, newBlock)
 
-  // 4. ワールドに配置
-  yield* setBlockAt(position, newBlock)
-
-  // 5. 成功ログ
-  yield* Effect.log(`ブロック配置成功: ${blockType} at (${position.x}, ${position.y}, ${position.z})`)
-})
+    // 5. 成功ログ
+    yield* Effect.log(`ブロック配置成功: ${blockType} at (${position.x}, ${position.y}, ${position.z})`)
+  })
 ```
 
 </details>
@@ -188,34 +188,35 @@ export const placeBlock = (
 
 ```typescript
 // [VALIDATION] テストコード
-import { Effect } from "effect"
-import { placeBlock } from "./BlockOperations"
+import { Effect } from 'effect'
+import { placeBlock } from './BlockOperations'
 
 const testBlockPlacement = Effect.gen(function* () {
-  console.log("🧪 ブロック配置テスト開始")
+  console.log('🧪 ブロック配置テスト開始')
 
   // テストケース1: 正常な配置
-  yield* placeBlock({ x: 0, y: 64, z: 0 }, "stone")
-  console.log("✅ テスト1: 正常配置 - 成功")
+  yield* placeBlock({ x: 0, y: 64, z: 0 }, 'stone')
+  console.log('✅ テスト1: 正常配置 - 成功')
 
   // テストケース2: 同じ位置への重複配置
   try {
-    yield* placeBlock({ x: 0, y: 64, z: 0 }, "wood")
-    console.log("❌ テスト2: 重複配置検出されず")
+    yield* placeBlock({ x: 0, y: 64, z: 0 }, 'wood')
+    console.log('❌ テスト2: 重複配置検出されず')
   } catch (error) {
-    console.log("✅ テスト2: 重複配置エラー - 成功")
+    console.log('✅ テスト2: 重複配置エラー - 成功')
   }
 
-  console.log("🎉 すべてのテストが完了しました")
+  console.log('🎉 すべてのテストが完了しました')
 })
 
 // 実行
 Effect.runPromise(testBlockPlacement)
-  .then(() => console.log("テスト完了"))
+  .then(() => console.log('テスト完了'))
   .catch(console.error)
 ```
 
 **🔍 確認ポイント**:
+
 - [ ] コンパイルエラーなし
 - [ ] 正常な配置が成功する
 - [ ] 重複配置でエラーが発生する
@@ -230,20 +231,23 @@ Effect.runPromise(testBlockPlacement)
 const result = getBlockAt(position) // Effect型のまま
 
 // 正解
-const result = yield* getBlockAt(position) // Effect型を展開
+const result = yield * getBlockAt(position) // Effect型を展開
 ```
 
 **❌ 問題2**: エラーハンドリングの方法
 
 ```typescript
 // 間違い
-throw new Error("エラーが発生しました")
+throw new Error('エラーが発生しました')
 
 // 正解
-yield* Effect.fail(new BlockError({
-  message: "エラーが発生しました",
-  position
-}))
+yield *
+  Effect.fail(
+    new BlockError({
+      message: 'エラーが発生しました',
+      position,
+    })
+  )
 ```
 
 **❌ 問題3**: 型エラーが解決できない
@@ -269,16 +273,16 @@ Minecraftのようなブロックワールドをブラウザで表示するに�
 // [CONCEPT] 3Dレンダリングの基本要素
 interface RenderingConcepts {
   // 3D空間
-  readonly scene: THREE.Scene      // すべてのオブジェクトを含む3D空間
+  readonly scene: THREE.Scene // すべてのオブジェクトを含む3D空間
 
   // 視点
-  readonly camera: THREE.Camera    // プレイヤーの視点
+  readonly camera: THREE.Camera // プレイヤーの視点
 
   // 描画エンジン
   readonly renderer: THREE.WebGLRenderer // WebGLで描画
 
   // 3Dオブジェクト
-  readonly meshes: THREE.Mesh[]    // 表示される3Dオブジェクト群
+  readonly meshes: THREE.Mesh[] // 表示される3Dオブジェクト群
 }
 
 // Effect-TSで管理すると...
@@ -307,9 +311,9 @@ const createRenderingSystem = Effect.gen(function* () {
 // [HANDS_ON] 3Dブロック表示
 // src/infrastructure/rendering/BlockRenderer.ts
 
-import * as THREE from "three"
-import { Effect, Context } from "effect"
-import { Block } from "../../domain/block/Block"
+import * as THREE from 'three'
+import { Effect, Context } from 'effect'
+import { Block } from '../../domain/block/Block'
 
 // レンダリングサービスの定義
 export interface BlockRenderService {
@@ -333,23 +337,22 @@ export const createBlockRenderer = Effect.gen(function* () {
   // }))
 
   return {
-    renderBlock: (block: Block) => Effect.gen(function* () {
-      // TODO: 1. 適切なマテリアルを選択
-      // const material = materials.get(block.type)
+    renderBlock: (block: Block) =>
+      Effect.gen(function* () {
+        // TODO: 1. 適切なマテリアルを選択
+        // const material = materials.get(block.type)
+        // TODO: 2. メッシュを作成
+        // const mesh = new THREE.Mesh(geometry, material)
+        // TODO: 3. 位置を設定
+        // mesh.position.set(block.position.x, block.position.y, block.position.z)
+        // TODO: 4. メッシュを返す
+        // return mesh
+      }),
 
-      // TODO: 2. メッシュを作成
-      // const mesh = new THREE.Mesh(geometry, material)
-
-      // TODO: 3. 位置を設定
-      // mesh.position.set(block.position.x, block.position.y, block.position.z)
-
-      // TODO: 4. メッシュを返す
-      // return mesh
-    }),
-
-    removeBlock: (position: BlockPosition) => Effect.gen(function* () {
-      // TODO: シーンからメッシュを削除する処理
-    })
+    removeBlock: (position: BlockPosition) =>
+      Effect.gen(function* () {
+        // TODO: シーンからメッシュを削除する処理
+      }),
   }
 })
 
@@ -370,63 +373,76 @@ export const createBlockRenderer = Effect.gen(function* () {
   const textureLoader = new THREE.TextureLoader()
 
   // ブロックタイプ別マテリアル初期化
-  materials.set("stone", new THREE.MeshLambertMaterial({
-    map: textureLoader.load("/textures/stone.png")
-  }))
-  materials.set("grass", new THREE.MeshLambertMaterial({
-    map: textureLoader.load("/textures/grass.png")
-  }))
-  materials.set("dirt", new THREE.MeshLambertMaterial({
-    map: textureLoader.load("/textures/dirt.png")
-  }))
-  materials.set("wood", new THREE.MeshLambertMaterial({
-    map: textureLoader.load("/textures/wood.png")
-  }))
+  materials.set(
+    'stone',
+    new THREE.MeshLambertMaterial({
+      map: textureLoader.load('/textures/stone.png'),
+    })
+  )
+  materials.set(
+    'grass',
+    new THREE.MeshLambertMaterial({
+      map: textureLoader.load('/textures/grass.png'),
+    })
+  )
+  materials.set(
+    'dirt',
+    new THREE.MeshLambertMaterial({
+      map: textureLoader.load('/textures/dirt.png'),
+    })
+  )
+  materials.set(
+    'wood',
+    new THREE.MeshLambertMaterial({
+      map: textureLoader.load('/textures/wood.png'),
+    })
+  )
 
   return {
-    renderBlock: (block: Block) => Effect.gen(function* () {
-      const material = materials.get(block.type)
-      if (!material) {
-        return yield* Effect.fail(new RenderError({
-          reason: `未知のブロックタイプ: ${block.type}`
-        }))
-      }
-
-      const mesh = new THREE.Mesh(geometry, material)
-      mesh.position.set(
-        block.position.x,
-        block.position.y,
-        block.position.z
-      )
-
-      // メッシュにメタデータを付与（後でアクセス可能にするため）
-      mesh.userData = { blockType: block.type, position: block.position }
-
-      return mesh
-    }),
-
-    removeBlock: (position: BlockPosition) => Effect.gen(function* () {
-      // シーンから指定位置のメッシュを検索・削除
-      const scene = yield* getScene()
-      const meshToRemove = scene.children.find(child =>
-        child instanceof THREE.Mesh &&
-        child.userData.position &&
-        child.userData.position.x === position.x &&
-        child.userData.position.y === position.y &&
-        child.userData.position.z === position.z
-      ) as THREE.Mesh
-
-      if (meshToRemove) {
-        scene.remove(meshToRemove)
-        // ジオメトリとマテリアルのメモリ解放
-        meshToRemove.geometry.dispose()
-        if (Array.isArray(meshToRemove.material)) {
-          meshToRemove.material.forEach(mat => mat.dispose())
-        } else {
-          meshToRemove.material.dispose()
+    renderBlock: (block: Block) =>
+      Effect.gen(function* () {
+        const material = materials.get(block.type)
+        if (!material) {
+          return yield* Effect.fail(
+            new RenderError({
+              reason: `未知のブロックタイプ: ${block.type}`,
+            })
+          )
         }
-      }
-    })
+
+        const mesh = new THREE.Mesh(geometry, material)
+        mesh.position.set(block.position.x, block.position.y, block.position.z)
+
+        // メッシュにメタデータを付与（後でアクセス可能にするため）
+        mesh.userData = { blockType: block.type, position: block.position }
+
+        return mesh
+      }),
+
+    removeBlock: (position: BlockPosition) =>
+      Effect.gen(function* () {
+        // シーンから指定位置のメッシュを検索・削除
+        const scene = yield* getScene()
+        const meshToRemove = scene.children.find(
+          (child) =>
+            child instanceof THREE.Mesh &&
+            child.userData.position &&
+            child.userData.position.x === position.x &&
+            child.userData.position.y === position.y &&
+            child.userData.position.z === position.z
+        ) as THREE.Mesh
+
+        if (meshToRemove) {
+          scene.remove(meshToRemove)
+          // ジオメトリとマテリアルのメモリ解放
+          meshToRemove.geometry.dispose()
+          if (Array.isArray(meshToRemove.material)) {
+            meshToRemove.material.forEach((mat) => mat.dispose())
+          } else {
+            meshToRemove.material.dispose()
+          }
+        }
+      }),
   }
 })
 ```
@@ -438,7 +454,7 @@ export const createBlockRenderer = Effect.gen(function* () {
 ```typescript
 // [VALIDATION] レンダリングテスト
 const testBlockRendering = Effect.gen(function* () {
-  console.log("🎨 3Dレンダリングテスト開始")
+  console.log('🎨 3Dレンダリングテスト開始')
 
   // 1. レンダラー初期化
   const renderer = yield* createBlockRenderer()
@@ -446,22 +462,22 @@ const testBlockRendering = Effect.gen(function* () {
 
   // 2. テストブロック作成
   const testBlock: Block = {
-    type: "stone",
+    type: 'stone',
     position: { x: 0, y: 0, z: 0 },
-    metadata: {}
+    metadata: {},
   }
 
   // 3. レンダリングテスト
   const mesh = yield* renderer.renderBlock(testBlock)
   scene.add(mesh)
 
-  console.log("✅ ブロック表示成功")
+  console.log('✅ ブロック表示成功')
   console.log(`📍 位置: (${mesh.position.x}, ${mesh.position.y}, ${mesh.position.z})`)
   console.log(`🎨 マテリアル: ${testBlock.type}`)
 
   // 4. 削除テスト
   yield* renderer.removeBlock(testBlock.position)
-  console.log("✅ ブロック削除成功")
+  console.log('✅ ブロック削除成功')
 })
 
 Effect.runPromise(testBlockRendering)
@@ -478,7 +494,7 @@ Effect.runPromise(testBlockRendering)
 // src/examples/MiniMinecraftWorld.ts
 
 export const createMiniWorld = Effect.gen(function* () {
-  console.log("🌍 ミニワールド作成開始...")
+  console.log('🌍 ミニワールド作成開始...')
 
   // Phase 1: 基盤初期化
   const worldSize = 10 // 10x10のミニワールド
@@ -486,7 +502,7 @@ export const createMiniWorld = Effect.gen(function* () {
   const scene = new THREE.Scene()
 
   // Phase 2: 地形生成
-  console.log("🏔️ 地形生成中...")
+  console.log('🏔️ 地形生成中...')
   for (let x = 0; x < worldSize; x++) {
     for (let z = 0; z < worldSize; z++) {
       // シンプルな平地＋ランダムな山
@@ -495,8 +511,8 @@ export const createMiniWorld = Effect.gen(function* () {
 
       // 地面レイヤー
       const groundBlock: Block = {
-        type: "grass",
-        position: { x, y: groundHeight, z }
+        type: 'grass',
+        position: { x, y: groundHeight, z },
       }
 
       const groundMesh = yield* renderer.renderBlock(groundBlock)
@@ -505,8 +521,8 @@ export const createMiniWorld = Effect.gen(function* () {
       // 丘レイヤー
       for (let y = 1; y <= hillHeight; y++) {
         const hillBlock: Block = {
-          type: y === hillHeight ? "grass" : "dirt",
-          position: { x, y: groundHeight + y, z }
+          type: y === hillHeight ? 'grass' : 'dirt',
+          position: { x, y: groundHeight + y, z },
         }
 
         const hillMesh = yield* renderer.renderBlock(hillBlock)
@@ -516,7 +532,7 @@ export const createMiniWorld = Effect.gen(function* () {
   }
 
   // Phase 3: 装飾追加
-  console.log("🌲 装飾追加中...")
+  console.log('🌲 装飾追加中...')
   // ランダムに木を配置
   for (let i = 0; i < 5; i++) {
     const treeX = Math.floor(Math.random() * worldSize)
@@ -524,21 +540,21 @@ export const createMiniWorld = Effect.gen(function* () {
 
     // 木の幹
     const trunkBlock: Block = {
-      type: "wood",
-      position: { x: treeX, y: 1, z: treeZ }
+      type: 'wood',
+      position: { x: treeX, y: 1, z: treeZ },
     }
     const trunkMesh = yield* renderer.renderBlock(trunkBlock)
     scene.add(trunkMesh)
 
     // 木の葉
     const leavesBlock: Block = {
-      type: "leaves" as BlockType, // 新しいブロックタイプ
-      position: { x: treeX, y: 2, z: treeZ }
+      type: 'leaves' as BlockType, // 新しいブロックタイプ
+      position: { x: treeX, y: 2, z: treeZ },
     }
     // ※ leaves用のマテリアルも追加が必要
   }
 
-  console.log("🎉 ミニワールド完成！")
+  console.log('🎉 ミニワールド完成！')
   return scene
 })
 ```
@@ -549,12 +565,14 @@ export const createMiniWorld = Effect.gen(function* () {
 
 **Q: Effect-TSが複雑すぎて理解できません**
 **A**: まずは以下の3つのパターンだけ覚えてください：
+
 1. `Effect.gen(function* () { ... })` - 処理の流れを書く
 2. `yield*` - 副作用のある処理を実行
 3. `Effect.fail()` - エラーを表現
 
 **Q: Three.jsでブロックが表示されません**
 **A**: 以下をチェック：
+
 1. カメラの位置と向きは正しいか？
 2. ライティングは設定されているか？
 3. メッシュはシーンに追加されているか？
@@ -562,6 +580,7 @@ export const createMiniWorld = Effect.gen(function* () {
 
 **Q: パフォーマンスが悪いです**
 **A**: 最適化のポイント：
+
 1. インスタンスメッシュを使用
 2. 不要なメッシュは即座に削除
 3. テクスチャのサイズを最適化
@@ -571,19 +590,21 @@ export const createMiniWorld = Effect.gen(function* () {
 
 ```typescript
 // デバッグ用ヘルパー関数
-const debugLog = <T>(label: string) => (value: T): Effect.Effect<T, never> =>
-  Effect.gen(function* () {
-    console.log(`🐛 [DEBUG] ${label}:`, value)
-    return value
-  })
+const debugLog =
+  <T>(label: string) =>
+  (value: T): Effect.Effect<T, never> =>
+    Effect.gen(function* () {
+      console.log(`🐛 [DEBUG] ${label}:`, value)
+      return value
+    })
 
 // 使用例
 const processBlock = Effect.gen(function* () {
   const block = yield* getBlock(position)
-  yield* debugLog("取得したブロック")(block) // デバッグ出力
+  yield* debugLog('取得したブロック')(block) // デバッグ出力
 
   const mesh = yield* renderer.renderBlock(block)
-  yield* debugLog("生成されたメッシュ")(mesh) // デバッグ出力
+  yield* debugLog('生成されたメッシュ')(mesh) // デバッグ出力
 
   return mesh
 })
@@ -592,18 +613,21 @@ const processBlock = Effect.gen(function* () {
 ## 🎖️ 学習達成度チェック
 
 ### 基礎レベル（必須）
-- [ ] Effect-TSの基本パターン（gen、yield*、fail）を理解
+
+- [ ] Effect-TSの基本パターン（gen、yield\*、fail）を理解
 - [ ] ブロックの配置・削除ができる
 - [ ] Three.jsでブロックを表示できる
 - [ ] 基本的なエラーハンドリングができる
 
 ### 中級レベル（推奨）
+
 - [ ] 複数ブロックの効率的な管理
 - [ ] テクスチャとマテリアルの動的切り替え
 - [ ] パフォーマンスを意識したレンダリング
 - [ ] デバッグとトラブルシューティング
 
 ### 上級レベル（挑戦）
+
 - [ ] チャンクベースの世界管理
 - [ ] 動的レベル・オブ・ディテール（LOD）
 - [ ] マルチスレッド対応（Web Workers）

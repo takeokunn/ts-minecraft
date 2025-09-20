@@ -1,13 +1,13 @@
 ---
-title: "型安全性哲学 - 包括的型安全戦略"
-description: "Brand型、Schema検証、Effect型による型安全性の哲学的背景。静的型検査を超えた実行時安全性の実現"
-category: "architecture"
-difficulty: "advanced"
-tags: ["type-safety", "brand-types", "schema-validation", "effect-ts", "runtime-safety"]
-prerequisites: ["typescript-advanced", "effect-ts-fundamentals", "schema-basics"]
-estimated_reading_time: "18分"
-related_patterns: ["data-modeling-patterns", "error-handling-patterns", "functional-programming-philosophy"]
-related_docs: ["../architecture/overview.md", "./domain-integration-patterns.md"]
+title: '型安全性哲学 - 包括的型安全戦略'
+description: 'Brand型、Schema検証、Effect型による型安全性の哲学的背景。静的型検査を超えた実行時安全性の実現'
+category: 'architecture'
+difficulty: 'advanced'
+tags: ['type-safety', 'brand-types', 'schema-validation', 'effect-ts', 'runtime-safety']
+prerequisites: ['typescript-advanced', 'effect-ts-fundamentals', 'schema-basics']
+estimated_reading_time: '18分'
+related_patterns: ['data-modeling-patterns', 'error-handling-patterns', 'functional-programming-philosophy']
+related_docs: ['../architecture/overview.md', './domain-integration-patterns.md']
 ---
 
 # 型安全性哲学 - 包括的型安全戦略
@@ -25,22 +25,22 @@ TypeScript Minecraftプロジェクトでは、従来の「コンパイル時型
 interface Player {
   id: string
   health: number
-  position: { x: number, y: number, z: number }
+  position: { x: number; y: number; z: number }
 }
 
 function createPlayer(data: unknown): Player {
-  return data as Player  // ❌ 型アサーションは危険
+  return data as Player // ❌ 型アサーションは危険
 }
 
 // 実行時にはこんなデータが...
 const corruptedData = {
-  id: null,           // string のはずが null
-  health: "invalid",  // number のはずが string
-  position: { x: NaN, y: undefined, z: "0" }  // 不正な値
+  id: null, // string のはずが null
+  health: 'invalid', // number のはずが string
+  position: { x: NaN, y: undefined, z: '0' }, // 不正な値
 }
 
 const player = createPlayer(corruptedData)
-console.log(player.health + 10)  // 💥 "invalid10" - 実行時エラー
+console.log(player.health + 10) // 💥 "invalid10" - 実行時エラー
 ```
 
 ### ゲーム開発での特有リスク
@@ -75,7 +75,7 @@ async function loadWorld(filename: string): Promise<World> {
 // ❌ 意味的に異なるが型的には同じ
 function teleportPlayer(playerId: string, chunkId: string): void {
   // 引数を間違えても型エラーにならない
-  teleportPlayer(chunkId, playerId)  // 論理エラーだが型安全
+  teleportPlayer(chunkId, playerId) // 論理エラーだが型安全
 }
 ```
 
@@ -83,8 +83,8 @@ function teleportPlayer(playerId: string, chunkId: string): void {
 
 ```typescript
 // ✅ Brand型による意味的区別
-export type PlayerId = string & { readonly _brand: "PlayerId" }
-export type ChunkId = string & { readonly _brand: "ChunkId" }
+export type PlayerId = string & { readonly _brand: 'PlayerId' }
+export type ChunkId = string & { readonly _brand: 'ChunkId' }
 
 export const PlayerId = (id: string): PlayerId => id as PlayerId
 export const ChunkId = (id: string): ChunkId => id as ChunkId
@@ -95,23 +95,16 @@ function teleportPlayer(playerId: PlayerId, chunkId: ChunkId): void {
 }
 
 // より高度な Brand型の例
-export type Health = number & { readonly _brand: "Health", readonly _min: 0, readonly _max: 100 }
+export type Health = number & { readonly _brand: 'Health'; readonly _min: 0; readonly _max: 100 }
 
 export const Health = {
   create: (value: number): Option.Option<Health> =>
-    value >= 0 && value <= 100 && Number.isInteger(value)
-      ? Option.some(value as Health)
-      : Option.none(),
+    value >= 0 && value <= 100 && Number.isInteger(value) ? Option.some(value as Health) : Option.none(),
 
-  add: (health: Health, amount: number): Health =>
-    Health.create(health + amount).pipe(
-      Option.getOrElse(() => health)
-    ),
+  add: (health: Health, amount: number): Health => Health.create(health + amount).pipe(Option.getOrElse(() => health)),
 
   subtract: (health: Health, amount: number): Health =>
-    Health.create(health - amount).pipe(
-      Option.getOrElse(() => 0 as Health)
-    )
+    Health.create(health - amount).pipe(Option.getOrElse(() => 0 as Health)),
 }
 ```
 
@@ -124,47 +117,35 @@ export const Health = {
 const loadPlayerData = async (id: string) => {
   const response = await fetch(`/api/players/${id}`)
   const data = await response.json()
-  return data as Player  // 危険
+  return data as Player // 危険
 }
 ```
 
 **Solution**: Schemaによる包括的検証
 
 ```typescript
-import { Schema } from "@effect/schema"
+import { Schema } from '@effect/schema'
 
 // ✅ スキーマ定義による構造化検証
 const PlayerSchema = Schema.Struct({
-  id: Schema.String.pipe(
-    Schema.brand("PlayerId"),
-    Schema.minLength(1),
-    Schema.pattern(/^[a-zA-Z0-9-_]+$/)
-  ),
-  health: Schema.Number.pipe(
-    Schema.brand("Health"),
-    Schema.between(0, 100),
-    Schema.int()
-  ),
+  id: Schema.String.pipe(Schema.brand('PlayerId'), Schema.minLength(1), Schema.pattern(/^[a-zA-Z0-9-_]+$/)),
+  health: Schema.Number.pipe(Schema.brand('Health'), Schema.between(0, 100), Schema.int()),
   position: Schema.Struct({
     x: Schema.Number.pipe(Schema.between(-30000000, 30000000)),
     y: Schema.Number.pipe(Schema.between(-64, 384)),
-    z: Schema.Number.pipe(Schema.between(-30000000, 30000000))
+    z: Schema.Number.pipe(Schema.between(-30000000, 30000000)),
   }),
   lastSeen: Schema.Date,
-  inventory: Schema.Array(ItemSchema).pipe(Schema.maxItems(36))
+  inventory: Schema.Array(ItemSchema).pipe(Schema.maxItems(36)),
 }).annotations({
-  identifier: "Player",
-  description: "プレイヤーエンティティ"
+  identifier: 'Player',
+  description: 'プレイヤーエンティティ',
 })
 
 export type Player = Schema.Schema.Type<typeof PlayerSchema>
 
 // 安全なデータ読み込み
-const loadPlayerData = (id: string): Effect.Effect<
-  Player,
-  ParseError | NetworkError,
-  HttpClient
-> =>
+const loadPlayerData = (id: string): Effect.Effect<Player, ParseError | NetworkError, HttpClient> =>
   Effect.gen(function* () {
     const http = yield* HttpClient
     const response = yield* http.get(`/api/players/${id}`)
@@ -172,7 +153,7 @@ const loadPlayerData = (id: string): Effect.Effect<
     // スキーマによる検証
     const player = yield* Schema.decodeUnknown(PlayerSchema)(response.body)
 
-    return player  // 型安全かつ実行時安全
+    return player // 型安全かつ実行時安全
   })
 ```
 
@@ -184,38 +165,40 @@ const loadPlayerData = (id: string): Effect.Effect<
 // ❌ 副作用が隠蔽された危険な実装
 function saveWorld(world: World): World {
   // いつエラーが発生するかわからない
-  fs.writeFileSync('world.json', JSON.stringify(world))  // IOException?
-  notifyObservers(world)  // NetworkError?
-  updateCache(world)      // MemoryError?
+  fs.writeFileSync('world.json', JSON.stringify(world)) // IOException?
+  notifyObservers(world) // NetworkError?
+  updateCache(world) // MemoryError?
 
-  return world  // 成功を保証できない
+  return world // 成功を保証できない
 }
 
 // ✅ Effect-TS 関数型Serviceパターンによる完全置き換え
-const SaveError = Schema.TaggedError("SaveError")({
+const SaveError = Schema.TaggedError('SaveError')({
   reason: Schema.String,
-  filePath: Schema.String
+  filePath: Schema.String,
 })
 
-const NotificationError = Schema.TaggedError("NotificationError")({
+const NotificationError = Schema.TaggedError('NotificationError')({
   eventType: Schema.String,
-  details: Schema.String
+  details: Schema.String,
 })
 
-const CacheError = Schema.TaggedError("CacheError")({
+const CacheError = Schema.TaggedError('CacheError')({
   operation: Schema.String,
-  key: Schema.String
+  key: Schema.String,
 })
 
 interface WorldManager {
-  readonly saveWorld: (world: World) => Effect.Effect<
+  readonly saveWorld: (
+    world: World
+  ) => Effect.Effect<
     World,
     typeof SaveError.Type | typeof NotificationError.Type | typeof CacheError.Type,
     FileSystem | EventBus | Cache
   >
 }
 
-const WorldManager = Context.GenericTag<WorldManager>("@minecraft/WorldManager")
+const WorldManager = Context.GenericTag<WorldManager>('@minecraft/WorldManager')
 
 const makeWorldManager = Effect.gen(function* () {
   const fileSystem = yield* FileSystem
@@ -223,19 +206,23 @@ const makeWorldManager = Effect.gen(function* () {
   const cache = yield* Cache
 
   return WorldManager.of({
-    saveWorld: (world) => Effect.gen(function* () {
-      // Match.value による段階的処理パターン
-      const fileResult = yield* fileSystem.writeFile('world.json', JSON.stringify(world))
-        .pipe(Effect.mapError((err) => SaveError({ reason: "write_failed", filePath: 'world.json' })))
+    saveWorld: (world) =>
+      Effect.gen(function* () {
+        // Match.value による段階的処理パターン
+        const fileResult = yield* fileSystem
+          .writeFile('world.json', JSON.stringify(world))
+          .pipe(Effect.mapError((err) => SaveError({ reason: 'write_failed', filePath: 'world.json' })))
 
-      const notifyResult = yield* eventBus.notify(world)
-        .pipe(Effect.mapError((err) => NotificationError({ eventType: "world_saved", details: String(err) })))
+        const notifyResult = yield* eventBus
+          .notify(world)
+          .pipe(Effect.mapError((err) => NotificationError({ eventType: 'world_saved', details: String(err) })))
 
-      const cacheResult = yield* cache.update(world.id, world)
-        .pipe(Effect.mapError((err) => CacheError({ operation: "update", key: world.id })))
+        const cacheResult = yield* cache
+          .update(world.id, world)
+          .pipe(Effect.mapError((err) => CacheError({ operation: 'update', key: world.id })))
 
-      return world
-    })
+        return world
+      }),
   })
 })
 
@@ -246,10 +233,12 @@ const WorldManagerLive = Layer.effect(WorldManager, makeWorldManager)
 
 ```typescript
 // ✅ 副作用を型で表現
-const saveWorld = (world: World): Effect.Effect<
-  World,                           // 成功時の結果型
-  SaveError | NotificationError,   // 可能なエラー型
-  FileSystem | EventBus | Cache    // 必要な依存関係
+const saveWorld = (
+  world: World
+): Effect.Effect<
+  World, // 成功時の結果型
+  SaveError | NotificationError, // 可能なエラー型
+  FileSystem | EventBus | Cache // 必要な依存関係
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem
@@ -272,33 +261,26 @@ const saveWorld = (world: World): Effect.Effect<
 ```typescript
 // ゲームプレイヤーの状態を型で制御
 export type PlayerState =
-  | { readonly _tag: "Alive", readonly health: Health, readonly position: Position }
-  | { readonly _tag: "Dead", readonly deathTime: Date, readonly deathCause: DeathCause }
-  | { readonly _tag: "Respawning", readonly spawnPoint: Position, readonly countdown: number }
+  | { readonly _tag: 'Alive'; readonly health: Health; readonly position: Position }
+  | { readonly _tag: 'Dead'; readonly deathTime: Date; readonly deathCause: DeathCause }
+  | { readonly _tag: 'Respawning'; readonly spawnPoint: Position; readonly countdown: number }
 
 export const PlayerStateMachine = {
-  takeDamage: (
-    state: PlayerState,
-    damage: Damage
-  ): Effect.Effect<PlayerState, StateTransitionError, GameRules> =>
+  takeDamage: (state: PlayerState, damage: Damage): Effect.Effect<PlayerState, StateTransitionError, GameRules> =>
     Match.value(state).pipe(
-      Match.tag("Alive", (alive) =>
+      Match.tag('Alive', (alive) =>
         Effect.gen(function* () {
           const newHealth = Health.subtract(alive.health, damage.amount)
 
           return Health.value(newHealth) <= 0
-            ? { _tag: "Dead" as const, deathTime: new Date(), deathCause: damage.cause }
+            ? { _tag: 'Dead' as const, deathTime: new Date(), deathCause: damage.cause }
             : { ...alive, health: newHealth }
         })
       ),
-      Match.tag("Dead", () =>
-        Effect.fail(StateTransitionError.create("Cannot damage dead player"))
-      ),
-      Match.tag("Respawning", () =>
-        Effect.fail(StateTransitionError.create("Cannot damage respawning player"))
-      ),
+      Match.tag('Dead', () => Effect.fail(StateTransitionError.create('Cannot damage dead player'))),
+      Match.tag('Respawning', () => Effect.fail(StateTransitionError.create('Cannot damage respawning player'))),
       Match.exhaustive
-    )
+    ),
 }
 ```
 
@@ -307,14 +289,14 @@ export const PlayerStateMachine = {
 ```typescript
 // インベントリの制約を型で表現
 export type InventorySlot = number & {
-  readonly _brand: "InventorySlot"
+  readonly _brand: 'InventorySlot'
   readonly _min: 0
   readonly _max: 35
 }
 
 export type ItemStack = {
   readonly item: ItemType
-  readonly quantity: number & { readonly _min: 1, readonly _max: 64 }
+  readonly quantity: number & { readonly _min: 1; readonly _max: 64 }
   readonly slot: InventorySlot
 }
 
@@ -322,15 +304,18 @@ export const Inventory = Schema.Struct({
   items: Schema.Array(ItemStackSchema).pipe(
     Schema.maxItems(36),
     // カスタム検証: 同じスロットの重複なし
-    Schema.filter((items) => {
-      const slots = items.map(item => item.slot)
-      return slots.length === new Set(slots).size
-    }, {
-      message: () => "Duplicate slots found in inventory"
-    })
-  )
+    Schema.filter(
+      (items) => {
+        const slots = items.map((item) => item.slot)
+        return slots.length === new Set(slots).size
+      },
+      {
+        message: () => 'Duplicate slots found in inventory',
+      }
+    )
+  ),
 }).annotations({
-  identifier: "Inventory"
+  identifier: 'Inventory',
 })
 
 // 安全なアイテム追加
@@ -346,12 +331,10 @@ export const addItem = (
     return yield* Match.value(currentItems).pipe(
       Match.when(
         (count) => count >= 36,
-        () => Effect.fail(InventoryError.create("Inventory full"))
+        () => Effect.fail(InventoryError.create('Inventory full'))
       ),
       Match.orElse(() => {
-        const existingStack = inventory.items.find(stack =>
-          stack.item === item && stack.quantity < 64
-        )
+        const existingStack = inventory.items.find((stack) => stack.item === item && stack.quantity < 64)
 
         return Match.value(existingStack).pipe(
           Match.when(
@@ -359,9 +342,7 @@ export const addItem = (
             (stack) => {
               // 既存スタックに追加
               const newQuantity = Math.min(64, stack.quantity + quantity)
-              const updatedItems = inventory.items.map(s =>
-                s === stack ? { ...s, quantity: newQuantity } : s
-              )
+              const updatedItems = inventory.items.map((s) => (s === stack ? { ...s, quantity: newQuantity } : s))
               return Effect.succeed({ ...inventory, items: updatedItems })
             }
           ),
@@ -371,7 +352,7 @@ export const addItem = (
             const newStack = {
               item,
               quantity: Math.min(64, quantity),
-              slot: InventorySlot(availableSlot)
+              slot: InventorySlot(availableSlot),
             }
             return Effect.succeed({ ...inventory, items: [...inventory.items, newStack] })
           })
@@ -549,41 +530,40 @@ const ChunkManagerLive = Layer.effect(ChunkManager, makeChunkManager())
 ### Property-Based Testing による型制約検証
 
 ```typescript
-import fc from "fast-check"
+import fc from 'fast-check'
 
-describe("Health Brand Type", () => {
-  test("should only accept valid health values", () => {
-    fc.assert(fc.property(
-      fc.integer({ min: 0, max: 100 }),
-      (validValue) => {
+describe('Health Brand Type', () => {
+  test('should only accept valid health values', () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 100 }), (validValue) => {
         const health = Health.create(validValue)
         expect(Option.isSome(health)).toBe(true)
-      }
-    ))
+      })
+    )
   })
 
-  test("should reject invalid health values", () => {
-    fc.assert(fc.property(
-      fc.integer().filter(n => n < 0 || n > 100),
-      (invalidValue) => {
-        const health = Health.create(invalidValue)
-        expect(Option.isNone(health)).toBe(true)
-      }
-    ))
+  test('should reject invalid health values', () => {
+    fc.assert(
+      fc.property(
+        fc.integer().filter((n) => n < 0 || n > 100),
+        (invalidValue) => {
+          const health = Health.create(invalidValue)
+          expect(Option.isNone(health)).toBe(true)
+        }
+      )
+    )
   })
 
-  test("health arithmetic should maintain invariants", () => {
-    fc.assert(fc.property(
-      fc.integer({ min: 0, max: 100 }),
-      fc.integer({ min: 1, max: 50 }),
-      (initial, damage) => {
+  test('health arithmetic should maintain invariants', () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 100 }), fc.integer({ min: 1, max: 50 }), (initial, damage) => {
         const health = Health.create(initial).pipe(Option.getOrThrow)
         const afterDamage = Health.subtract(health, damage)
 
         // 不変条件: Health は常に 0-100 の範囲
         expect(afterDamage >= 0 && afterDamage <= 100).toBe(true)
-      }
-    ))
+      })
+    )
   })
 })
 ```
@@ -591,37 +571,31 @@ describe("Health Brand Type", () => {
 ### Schema検証のテスト
 
 ```typescript
-describe("Player Schema Validation", () => {
-  test("should validate correct player data", async () => {
+describe('Player Schema Validation', () => {
+  test('should validate correct player data', async () => {
     const validPlayer = {
-      id: "player-123",
+      id: 'player-123',
       health: 75,
       position: { x: 100, y: 64, z: -50 },
       lastSeen: new Date(),
-      inventory: []
+      inventory: [],
     }
 
-    const result = await Effect.runPromise(
-      Schema.decodeUnknown(PlayerSchema)(validPlayer)
-    )
+    const result = await Effect.runPromise(Schema.decodeUnknown(PlayerSchema)(validPlayer))
 
     expect(result).toEqual(validPlayer)
   })
 
-  test("should reject invalid player data", async () => {
+  test('should reject invalid player data', async () => {
     const invalidPlayer = {
-      id: "",  // 空文字列は無効
-      health: -10,  // 負の値は無効
-      position: { x: 50000000, y: 1000, z: 0 },  // 範囲外
-      lastSeen: "invalid-date",  // 不正な日付
-      inventory: new Array(50).fill({})  // 容量超過
+      id: '', // 空文字列は無効
+      health: -10, // 負の値は無効
+      position: { x: 50000000, y: 1000, z: 0 }, // 範囲外
+      lastSeen: 'invalid-date', // 不正な日付
+      inventory: new Array(50).fill({}), // 容量超過
     }
 
-    const result = Effect.runSync(
-      Schema.decodeUnknown(PlayerSchema)(invalidPlayer).pipe(
-        Effect.either
-      )
-    )
+    const result = Effect.runSync(Schema.decodeUnknown(PlayerSchema)(invalidPlayer).pipe(Effect.either))
 
     expect(Either.isLeft(result)).toBe(true)
   })
@@ -634,36 +608,35 @@ describe("Player Schema Validation", () => {
 
 ```typescript
 // 本番環境での検証最適化
-const PlayerSchemaOptimized = process.env.NODE_ENV === 'production'
-  ? PlayerSchema.pipe(Schema.annotations({ parseOptions: { errors: "first" } }))
-  : PlayerSchema  // 開発環境では詳細エラー
+const PlayerSchemaOptimized =
+  process.env.NODE_ENV === 'production'
+    ? PlayerSchema.pipe(Schema.annotations({ parseOptions: { errors: 'first' } }))
+    : PlayerSchema // 開発環境では詳細エラー
 
 // 段階的検証による高速化
 const quickPlayerValidation = Schema.Struct({
   id: Schema.String,
-  health: Schema.Number
-})  // 最小限の検証
+  health: Schema.Number,
+}) // 最小限の検証
 
-const fullPlayerValidation = PlayerSchema  // 完全検証
+const fullPlayerValidation = PlayerSchema // 完全検証
 
 export const validatePlayer = (data: unknown, quick = false) =>
-  quick
-    ? Schema.decodeUnknown(quickPlayerValidation)(data)
-    : Schema.decodeUnknown(fullPlayerValidation)(data)
+  quick ? Schema.decodeUnknown(quickPlayerValidation)(data) : Schema.decodeUnknown(fullPlayerValidation)(data)
 ```
 
 ### 2. Brand型のゼロコスト抽象化
 
 ```typescript
 // コンパイル後は通常の string/number に
-export type PlayerId = string & { readonly _brand: "PlayerId" }
+export type PlayerId = string & { readonly _brand: 'PlayerId' }
 
 // ランタイムでのオーバーヘッドなし
-const id1: PlayerId = "player-1" as PlayerId
-const id2: PlayerId = "player-2" as PlayerId
+const id1: PlayerId = 'player-1' as PlayerId
+const id2: PlayerId = 'player-2' as PlayerId
 
 // 比較処理も高速
-const isSame = id1 === id2  // 単純な文字列比較
+const isSame = id1 === id2 // 単純な文字列比較
 ```
 
 ## 結論

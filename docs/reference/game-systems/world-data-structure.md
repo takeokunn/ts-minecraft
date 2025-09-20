@@ -1,13 +1,13 @@
 ---
-title: "ワールドデータ構造仕様 - DDD設計による型安全な実装"
-description: "Effect-TS 3.17+とDDD原則に基づく包括的なワールドデータ構造設計。集約ルート、値オブジェクト、ドメインサービスを含むプロダクションレベルの実装仕様"
-category: "specification"
-difficulty: "advanced"
-tags: ["effect-ts", "ddd", "world-data", "aggregates", "domain-modeling", "performance"]
-prerequisites: ["ddd-concepts", "effect-ts-fundamentals", "schema-advanced"]
-estimated_reading_time: "35分"
-related_patterns: ["data-modeling-patterns", "service-patterns", "aggregate-patterns"]
-related_docs: ["./chunk-format.md", "../explanations/architecture/02-ddd-strategic-design.md"]
+title: 'ワールドデータ構造仕様 - DDD設計による型安全な実装'
+description: 'Effect-TS 3.17+とDDD原則に基づく包括的なワールドデータ構造設計。集約ルート、値オブジェクト、ドメインサービスを含むプロダクションレベルの実装仕様'
+category: 'specification'
+difficulty: 'advanced'
+tags: ['effect-ts', 'ddd', 'world-data', 'aggregates', 'domain-modeling', 'performance']
+prerequisites: ['ddd-concepts', 'effect-ts-fundamentals', 'schema-advanced']
+estimated_reading_time: '35分'
+related_patterns: ['data-modeling-patterns', 'service-patterns', 'aggregate-patterns']
+related_docs: ['./chunk-format.md', '../explanations/architecture/02-ddd-strategic-design.md']
 ---
 
 # ワールドデータ構造仕様
@@ -30,43 +30,43 @@ TypeScript Minecraft Cloneにおける、DDD（ドメイン駆動設計）原則
 ### ドメイン中心設計
 
 ```typescript
-import { Schema, Brand, Effect, Context, Match, pipe, Option } from "effect"
+import { Schema, Brand, Effect, Context, Match, pipe, Option } from 'effect'
 
 // すべての設計はドメインロジックを中心に構築
 export const DesignPrinciples = {
   // 1. ドメインの複雑性を型システムで表現
-  DomainComplexityInTypes: "複雑なビジネスルールを型レベルで強制",
+  DomainComplexityInTypes: '複雑なビジネスルールを型レベルで強制',
 
   // 2. 不変性によるデータ整合性
-  ImmutableDataIntegrity: "すべての状態変更は新しいインスタンス生成で表現",
+  ImmutableDataIntegrity: 'すべての状態変更は新しいインスタンス生成で表現',
 
   // 3. 明示的な副作用管理
-  ExplicitSideEffects: "Effect型による副作用の明示的な管理",
+  ExplicitSideEffects: 'Effect型による副作用の明示的な管理',
 
   // 4. コンポーザビリティ重視
-  ComposableDesign: "小さな関数を組み合わせた大きな機能の構築"
+  ComposableDesign: '小さな関数を組み合わせた大きな機能の構築',
 } as const
 
 // ドメインの普遍言語（Ubiquitous Language）の型定義
 export namespace UbiquitousLanguage {
   // ワールド関連用語
-  export type World = "ゲーム世界全体を表現する最上位の概念"
-  export type Dimension = "オーバーワールド、ネザー、エンドなどの次元"
-  export type Region = "32x32チャンクからなる管理単位"
-  export type Chunk = "16x16x256ブロックからなる最小読み込み単位"
-  export type Section = "チャンク内の16x16x16ブロック単位"
-  export type Block = "ワールドの最小構成要素"
+  export type World = 'ゲーム世界全体を表現する最上位の概念'
+  export type Dimension = 'オーバーワールド、ネザー、エンドなどの次元'
+  export type Region = '32x32チャンクからなる管理単位'
+  export type Chunk = '16x16x256ブロックからなる最小読み込み単位'
+  export type Section = 'チャンク内の16x16x16ブロック単位'
+  export type Block = 'ワールドの最小構成要素'
 
   // エンティティ関連用語
-  export type Entity = "ワールド内に存在する動的オブジェクト"
-  export type Player = "人間が操作するエンティティ"
-  export type Mob = "AI制御されるエンティティ"
-  export type Item = "拾得・使用可能なオブジェクト"
+  export type Entity = 'ワールド内に存在する動的オブジェクト'
+  export type Player = '人間が操作するエンティティ'
+  export type Mob = 'AI制御されるエンティティ'
+  export type Item = '拾得・使用可能なオブジェクト'
 
   // ゲーム機構関連用語
-  export type Biome = "環境特性を決定する地域分類"
-  export type Structure = "自然生成される建築物や地形"
-  export type WorldGeneration = "手続き的世界生成システム"
+  export type Biome = '環境特性を決定する地域分類'
+  export type Structure = '自然生成される建築物や地形'
+  export type WorldGeneration = '手続き的世界生成システム'
 }
 ```
 
@@ -78,10 +78,10 @@ export namespace UbiquitousLanguage {
 // ワールド管理境界づけられたコンテキスト
 export namespace WorldManagementContext {
   // ワールドID（Brand型による厳密な型区別）
-  export type WorldId = string & Brand.Brand<"WorldId">
-  export type DimensionId = string & Brand.Brand<"DimensionId">
-  export type RegionId = string & Brand.Brand<"RegionId">
-  export type ChunkCoordinate = string & Brand.Brand<"ChunkCoordinate">
+  export type WorldId = string & Brand.Brand<'WorldId'>
+  export type DimensionId = string & Brand.Brand<'DimensionId'>
+  export type RegionId = string & Brand.Brand<'RegionId'>
+  export type ChunkCoordinate = string & Brand.Brand<'ChunkCoordinate'>
 
   export const WorldId = Brand.nominal<WorldId>()
   export const DimensionId = Brand.nominal<DimensionId>()
@@ -93,40 +93,34 @@ export namespace WorldManagementContext {
     x: Schema.Number,
     y: Schema.Number.pipe(Schema.clamp(-64, 320)), // Y座標制限
     z: Schema.Number,
-    dimension: Schema.String.pipe(Schema.brand(DimensionId))
+    dimension: Schema.String.pipe(Schema.brand(DimensionId)),
   })
 
   export const ChunkCoordinateSchema = Schema.Struct({
     x: Schema.Int.pipe(Schema.between(-1875000, 1875000)), // ワールド境界
-    z: Schema.Int.pipe(Schema.between(-1875000, 1875000))
+    z: Schema.Int.pipe(Schema.between(-1875000, 1875000)),
   }).pipe(
-    Schema.transform(
-      Schema.String,
-      {
-        decode: (coord) => `${coord.x},${coord.z}`,
-        encode: (str) => {
-          const [x, z] = str.split(',').map(Number)
-          return { x, z }
-        }
-      }
-    ),
+    Schema.transform(Schema.String, {
+      decode: (coord) => `${coord.x},${coord.z}`,
+      encode: (str) => {
+        const [x, z] = str.split(',').map(Number)
+        return { x, z }
+      },
+    }),
     Schema.brand(ChunkCoordinate)
   )
 
   export const RegionCoordinateSchema = Schema.Struct({
     x: Schema.Int,
-    z: Schema.Int
+    z: Schema.Int,
   }).pipe(
-    Schema.transform(
-      Schema.String,
-      {
-        decode: (coord) => `r.${coord.x}.${coord.z}`,
-        encode: (str) => {
-          const parts = str.split('.')
-          return { x: parseInt(parts[1]), z: parseInt(parts[2]) }
-        }
-      }
-    ),
+    Schema.transform(Schema.String, {
+      decode: (coord) => `r.${coord.x}.${coord.z}`,
+      encode: (str) => {
+        const parts = str.split('.')
+        return { x: parseInt(parts[1]), z: parseInt(parts[2]) }
+      },
+    }),
     Schema.brand(RegionId)
   )
 
@@ -135,9 +129,7 @@ export namespace WorldManagementContext {
   // 座標変換ヘルパー関数
   export const CoordinateConversion = {
     worldToChunk: (pos: WorldPosition): Effect.Effect<ChunkCoordinate, never> =>
-      Effect.succeed(
-        ChunkCoordinate(`${Math.floor(pos.x / 16)},${Math.floor(pos.z / 16)}`)
-      ),
+      Effect.succeed(ChunkCoordinate(`${Math.floor(pos.x / 16)},${Math.floor(pos.z / 16)}`)),
 
     chunkToRegion: (chunk: ChunkCoordinate): Effect.Effect<RegionId, never> =>
       Effect.gen(function* () {
@@ -149,16 +141,16 @@ export namespace WorldManagementContext {
       Effect.succeed({
         x: ((worldPos.x % 16) + 16) % 16,
         y: worldPos.y,
-        z: ((worldPos.z % 16) + 16) % 16
-      })
+        z: ((worldPos.z % 16) + 16) % 16,
+      }),
   }
 }
 
 // 地形生成境界づけられたコンテキスト
 export namespace TerrainGenerationContext {
-  export type BiomeId = string & Brand.Brand<"BiomeId">
-  export type StructureId = string & Brand.Brand<"StructureId">
-  export type GeneratorSeed = bigint & Brand.Brand<"GeneratorSeed">
+  export type BiomeId = string & Brand.Brand<'BiomeId'>
+  export type StructureId = string & Brand.Brand<'StructureId'>
+  export type GeneratorSeed = bigint & Brand.Brand<'GeneratorSeed'>
 
   export const BiomeId = Brand.nominal<BiomeId>()
   export const StructureId = Brand.nominal<StructureId>()
@@ -167,27 +159,37 @@ export namespace TerrainGenerationContext {
   // バイオーム値オブジェクト
   export const BiomeSchema = Schema.Struct({
     id: Schema.String.pipe(Schema.brand(BiomeId)),
-    name: Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.maxLength(32)
-    ),
+    name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(32)),
     temperature: Schema.Number.pipe(Schema.between(-2.0, 2.0)),
     humidity: Schema.Number.pipe(Schema.between(0.0, 1.0)),
-    precipitation: Schema.Literal("none", "rain", "snow"),
+    precipitation: Schema.Literal('none', 'rain', 'snow'),
     category: Schema.Literal(
-      "ocean", "plains", "desert", "mountains", "forest", "taiga",
-      "swamp", "river", "nether", "the_end", "icy", "mushroom",
-      "beach", "jungle", "savanna", "mesa"
+      'ocean',
+      'plains',
+      'desert',
+      'mountains',
+      'forest',
+      'taiga',
+      'swamp',
+      'river',
+      'nether',
+      'the_end',
+      'icy',
+      'mushroom',
+      'beach',
+      'jungle',
+      'savanna',
+      'mesa'
     ),
     colors: Schema.Struct({
       grass: Schema.Number, // RGB値
       foliage: Schema.Number,
       water: Schema.Number,
       sky: Schema.Number,
-      fog: Schema.Number
+      fog: Schema.Number,
     }),
     features: Schema.Array(Schema.String), // 生成される地形特徴
-    structures: Schema.Array(Schema.String.pipe(Schema.brand(StructureId)))
+    structures: Schema.Array(Schema.String.pipe(Schema.brand(StructureId))),
   })
 
   export interface Biome extends Schema.Schema.Type<typeof BiomeSchema> {}
@@ -195,18 +197,20 @@ export namespace TerrainGenerationContext {
   // 地形生成パラメータ
   export const TerrainGenerationParametersSchema = Schema.Struct({
     seed: Schema.BigInt.pipe(Schema.brand(GeneratorSeed)),
-    generationType: Schema.Literal("default", "flat", "large_biomes", "amplified", "custom"),
+    generationType: Schema.Literal('default', 'flat', 'large_biomes', 'amplified', 'custom'),
     seaLevel: Schema.Number.pipe(Schema.clamp(0, 256)),
     biomeSize: Schema.Number.pipe(Schema.between(0.1, 4.0)),
     structureDensity: Schema.Number.pipe(Schema.between(0.0, 1.0)),
     oreDensity: Schema.Record({
       key: Schema.String, // 鉱石タイプ
-      value: Schema.Number.pipe(Schema.between(0.0, 1.0))
+      value: Schema.Number.pipe(Schema.between(0.0, 1.0)),
     }),
-    customSettings: Schema.optional(Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown
-    }))
+    customSettings: Schema.optional(
+      Schema.Record({
+        key: Schema.String,
+        value: Schema.Unknown,
+      })
+    ),
   })
 }
 ```
@@ -235,14 +239,14 @@ export const WorldAggregateSchema = Schema.Struct({
     version: Schema.Struct({
       game: Schema.String,
       format: Schema.Number,
-      features: Schema.Array(Schema.String)
+      features: Schema.Array(Schema.String),
     }),
     statistics: Schema.Struct({
       totalBlocks: Schema.Number.pipe(Schema.nonnegative()),
       totalEntities: Schema.Number.pipe(Schema.nonnegative()),
       loadedChunks: Schema.Number.pipe(Schema.nonnegative()),
-      savedChunks: Schema.Number.pipe(Schema.nonnegative())
-    })
+      savedChunks: Schema.Number.pipe(Schema.nonnegative()),
+    }),
   }),
 
   // 世界生成設定（不変）
@@ -251,13 +255,13 @@ export const WorldAggregateSchema = Schema.Struct({
   // ディメンション管理
   dimensions: Schema.Map({
     key: Schema.String.pipe(Schema.brand(DimensionId)),
-    value: DimensionReferenceSchema
+    value: DimensionReferenceSchema,
   }),
 
   // ゲームルール設定
   gameRules: Schema.Struct({
-    difficulty: Schema.Literal("peaceful", "easy", "normal", "hard"),
-    gameMode: Schema.Literal("survival", "creative", "adventure", "spectator"),
+    difficulty: Schema.Literal('peaceful', 'easy', 'normal', 'hard'),
+    gameMode: Schema.Literal('survival', 'creative', 'adventure', 'spectator'),
     pvp: Schema.Boolean,
     mobSpawning: Schema.Boolean,
     naturalRegeneration: Schema.Boolean,
@@ -266,7 +270,7 @@ export const WorldAggregateSchema = Schema.Struct({
     doWeatherCycle: Schema.Boolean,
     commandBlockOutput: Schema.Boolean,
     randomTickSpeed: Schema.Number.pipe(Schema.clamp(0, 4096)),
-    maxEntityCramming: Schema.Number.pipe(Schema.clamp(0, 100))
+    maxEntityCramming: Schema.Number.pipe(Schema.clamp(0, 100)),
   }),
 
   // ワールドボーダー
@@ -277,7 +281,7 @@ export const WorldAggregateSchema = Schema.Struct({
     safeZone: Schema.Number.pipe(Schema.nonnegative()),
     warningDistance: Schema.Number.pipe(Schema.nonnegative()),
     warningTime: Schema.Number.pipe(Schema.nonnegative()),
-    damagePerBlock: Schema.Number.pipe(Schema.nonnegative())
+    damagePerBlock: Schema.Number.pipe(Schema.nonnegative()),
   }),
 
   // グローバル時間状態
@@ -285,16 +289,16 @@ export const WorldAggregateSchema = Schema.Struct({
     dayTime: Schema.Number.pipe(Schema.clamp(0, 23999)), // 1日 = 24000 tick
     totalTime: Schema.BigInt.pipe(Schema.nonnegative()),
     moonPhase: Schema.Number.pipe(Schema.clamp(0, 7)),
-    doDaylightCycle: Schema.Boolean
+    doDaylightCycle: Schema.Boolean,
   }),
 
   // 天候状態
   weather: Schema.Struct({
-    current: Schema.Literal("clear", "rain", "thunder"),
+    current: Schema.Literal('clear', 'rain', 'thunder'),
     rainTime: Schema.Number.pipe(Schema.nonnegative()),
     thunderTime: Schema.Number.pipe(Schema.nonnegative()),
     rainLevel: Schema.Number.pipe(Schema.between(0, 1)),
-    thunderLevel: Schema.Number.pipe(Schema.between(0, 1))
+    thunderLevel: Schema.Number.pipe(Schema.between(0, 1)),
   }),
 
   // スポーン設定
@@ -302,8 +306,8 @@ export const WorldAggregateSchema = Schema.Struct({
     worldSpawn: WorldPositionSchema,
     spawnRadius: Schema.Number.pipe(Schema.clamp(0, 128)),
     randomizeSpawn: Schema.Boolean,
-    spawnProtection: Schema.Number.pipe(Schema.clamp(0, 16))
-  })
+    spawnProtection: Schema.Number.pipe(Schema.clamp(0, 16)),
+  }),
 })
 
 export interface WorldAggregate extends Schema.Schema.Type<typeof WorldAggregateSchema> {}
@@ -311,7 +315,7 @@ export interface WorldAggregate extends Schema.Schema.Type<typeof WorldAggregate
 // ディメンション参照エンティティ
 export const DimensionReferenceSchema = Schema.Struct({
   id: Schema.String.pipe(Schema.brand(DimensionId)),
-  type: Schema.Literal("overworld", "nether", "the_end", "custom"),
+  type: Schema.Literal('overworld', 'nether', 'the_end', 'custom'),
   name: Schema.String,
 
   // ディメンション固有設定
@@ -326,7 +330,7 @@ export const DimensionReferenceSchema = Schema.Struct({
     bedWorks: Schema.Boolean,
     respawnAnchorWorks: Schema.Boolean,
     ultraWarm: Schema.Boolean,
-    natural: Schema.Boolean
+    natural: Schema.Boolean,
   }),
 
   // チャンク管理情報
@@ -335,14 +339,14 @@ export const DimensionReferenceSchema = Schema.Struct({
     activeChunks: Schema.Set(Schema.String.pipe(Schema.brand(ChunkCoordinate))),
     dirtyChunks: Schema.Set(Schema.String.pipe(Schema.brand(ChunkCoordinate))),
     lastCleanup: Schema.Date,
-    memoryUsage: Schema.Number.pipe(Schema.nonnegative()) // bytes
+    memoryUsage: Schema.Number.pipe(Schema.nonnegative()), // bytes
   }),
 
   // バイオーム分布マップ
   biomeDistribution: Schema.Map({
     key: Schema.String.pipe(Schema.brand(BiomeId)),
-    value: Schema.Number.pipe(Schema.between(0, 1)) // 分布密度
-  })
+    value: Schema.Number.pipe(Schema.between(0, 1)), // 分布密度
+  }),
 })
 
 export interface DimensionReference extends Schema.Schema.Type<typeof DimensionReferenceSchema> {}
@@ -365,37 +369,40 @@ export namespace WorldAggregateOperations {
       const now = new Date()
 
       // デフォルトディメンション作成
-      const overworldId = DimensionId("overworld")
-      const netherDimensionId = DimensionId("nether")
-      const endDimensionId = DimensionId("the_end")
+      const overworldId = DimensionId('overworld')
+      const netherDimensionId = DimensionId('nether')
+      const endDimensionId = DimensionId('the_end')
 
       const defaultDimensions = new Map<DimensionId, DimensionReference>([
-        [overworldId, {
-          id: overworldId,
-          type: "overworld",
-          name: "Overworld",
-          settings: {
-            hasWeather: true,
-            hasSkylight: true,
-            hasCeiling: false,
-            ambientLight: 0,
-            logicalHeight: 384,
-            coordinateScale: 1,
-            piglinSafe: false,
-            bedWorks: true,
-            respawnAnchorWorks: false,
-            ultraWarm: false,
-            natural: true
+        [
+          overworldId,
+          {
+            id: overworldId,
+            type: 'overworld',
+            name: 'Overworld',
+            settings: {
+              hasWeather: true,
+              hasSkylight: true,
+              hasCeiling: false,
+              ambientLight: 0,
+              logicalHeight: 384,
+              coordinateScale: 1,
+              piglinSafe: false,
+              bedWorks: true,
+              respawnAnchorWorks: false,
+              ultraWarm: false,
+              natural: true,
+            },
+            chunkManagement: {
+              loadedRegions: new Set(),
+              activeChunks: new Set(),
+              dirtyChunks: new Set(),
+              lastCleanup: now,
+              memoryUsage: 0,
+            },
+            biomeDistribution: new Map(),
           },
-          chunkManagement: {
-            loadedRegions: new Set(),
-            activeChunks: new Set(),
-            dirtyChunks: new Set(),
-            lastCleanup: now,
-            memoryUsage: 0
-          },
-          biomeDistribution: new Map()
-        }]
+        ],
       ])
 
       return {
@@ -407,16 +414,16 @@ export namespace WorldAggregateOperations {
           lastPlayed: now,
           totalPlayTime: 0,
           version: {
-            game: "typescript-minecraft-3.0.0",
+            game: 'typescript-minecraft-3.0.0',
             format: 3,
-            features: ["effect-ts-3.17", "ddd-aggregates", "typed-data"]
+            features: ['effect-ts-3.17', 'ddd-aggregates', 'typed-data'],
           },
           statistics: {
             totalBlocks: 0,
             totalEntities: 0,
             loadedChunks: 0,
-            savedChunks: 0
-          }
+            savedChunks: 0,
+          },
         },
         generationSettings,
         dimensions: defaultDimensions,
@@ -426,83 +433,80 @@ export namespace WorldAggregateOperations {
           dayTime: 6000, // 正午からスタート
           totalTime: 0n,
           moonPhase: 0,
-          doDaylightCycle: true
+          doDaylightCycle: true,
         },
         weather: {
-          current: "clear",
+          current: 'clear',
           rainTime: 0,
           thunderTime: 0,
           rainLevel: 0,
-          thunderLevel: 0
+          thunderLevel: 0,
         },
         spawnSettings: {
           worldSpawn: {
             x: 0,
             y: 64,
             z: 0,
-            dimension: overworldId
+            dimension: overworldId,
           },
           spawnRadius: 10,
           randomizeSpawn: true,
-          spawnProtection: 16
-        }
+          spawnProtection: 16,
+        },
       }
     })
 
   // 時間進行（ドメインロジック）
-  export const advanceTime = (
-    world: WorldAggregate,
-    ticks: number
-  ): Effect.Effect<WorldAggregate, never> =>
+  export const advanceTime = (world: WorldAggregate, ticks: number): Effect.Effect<WorldAggregate, never> =>
     Effect.succeed({
       ...world,
       worldTime: {
         ...world.worldTime,
         dayTime: (world.worldTime.dayTime + ticks) % 24000,
-        totalTime: world.worldTime.totalTime + BigInt(ticks)
+        totalTime: world.worldTime.totalTime + BigInt(ticks),
       },
       metadata: {
         ...world.metadata,
-        lastModified: new Date()
-      }
+        lastModified: new Date(),
+      },
     })
 
   // 天候変更（ビジネスルール含む）
   export const changeWeather = (
     world: WorldAggregate,
-    newWeather: "clear" | "rain" | "thunder",
+    newWeather: 'clear' | 'rain' | 'thunder',
     duration: number
   ): Effect.Effect<WorldAggregate, WeatherChangeError> =>
     Effect.gen(function* () {
       // ビジネスルール: ネザーでは天候変更不可
-      const overworldDimension = world.dimensions.get(DimensionId("overworld"))
+      const overworldDimension = world.dimensions.get(DimensionId('overworld'))
       if (!overworldDimension || !overworldDimension.settings.hasWeather) {
-        return yield* Effect.fail(new WeatherChangeError("Weather not supported in this dimension"))
+        return yield* Effect.fail(new WeatherChangeError('Weather not supported in this dimension'))
       }
 
       const updatedWeather = pipe(
         newWeather,
         Match.value,
-        Match.when("clear", () => ({
-          current: "clear" as const,
+        Match.when('clear', () => ({
+          current: 'clear' as const,
           rainTime: 0,
           thunderTime: 0,
           rainLevel: 0,
-          thunderLevel: 0
+          thunderLevel: 0,
         })),
-        Match.when("rain", () => ({
-          current: "rain" as const,
+        Match.when('rain', () => ({
+          current: 'rain' as const,
           rainTime: duration,
           thunderTime: 0,
           rainLevel: 1,
-          thunderLevel: 0
+          thunderLevel: 0,
         })),
-        Match.when("thunder", () => ({
-          current: "thunder" as const,
+        Match.when('thunder', () => ({
+          current: 'thunder' as const,
           rainTime: duration,
           thunderTime: duration,
           rainLevel: 1,
-          thunderLevel: 1
+          thunderLevel: 1,
         })),
         Match.exhaustive
       )
@@ -512,8 +516,8 @@ export namespace WorldAggregateOperations {
         weather: updatedWeather,
         metadata: {
           ...world.metadata,
-          lastModified: new Date()
-        }
+          lastModified: new Date(),
+        },
       }
     })
 
@@ -532,12 +536,12 @@ export namespace WorldAggregateOperations {
       const updatedChunkManagement = {
         ...dimension.chunkManagement,
         activeChunks: new Set([...dimension.chunkManagement.activeChunks, chunkCoord]),
-        lastCleanup: new Date()
+        lastCleanup: new Date(),
       }
 
       const updatedDimension = {
         ...dimension,
-        chunkManagement: updatedChunkManagement
+        chunkManagement: updatedChunkManagement,
       }
 
       const updatedDimensions = new Map(world.dimensions)
@@ -551,9 +555,9 @@ export namespace WorldAggregateOperations {
           lastModified: new Date(),
           statistics: {
             ...world.metadata.statistics,
-            loadedChunks: world.metadata.statistics.loadedChunks + 1
-          }
-        }
+            loadedChunks: world.metadata.statistics.loadedChunks + 1,
+          },
+        },
       }
     })
 
@@ -576,16 +580,16 @@ export namespace WorldAggregateOperations {
           totalBlocks: world.metadata.statistics.totalBlocks + (delta.totalBlocks || 0),
           totalEntities: world.metadata.statistics.totalEntities + (delta.totalEntities || 0),
           loadedChunks: world.metadata.statistics.loadedChunks + (delta.loadedChunks || 0),
-          savedChunks: world.metadata.statistics.savedChunks + (delta.savedChunks || 0)
-        }
-      }
+          savedChunks: world.metadata.statistics.savedChunks + (delta.savedChunks || 0),
+        },
+      },
     })
 }
 
 // ヘルパー関数
 const createDefaultGameRules = () => ({
-  difficulty: "normal" as const,
-  gameMode: "survival" as const,
+  difficulty: 'normal' as const,
+  gameMode: 'survival' as const,
   pvp: true,
   mobSpawning: true,
   naturalRegeneration: true,
@@ -594,7 +598,7 @@ const createDefaultGameRules = () => ({
   doWeatherCycle: true,
   commandBlockOutput: true,
   randomTickSpeed: 3,
-  maxEntityCramming: 24
+  maxEntityCramming: 24,
 })
 
 const createDefaultWorldBorder = () => ({
@@ -604,7 +608,7 @@ const createDefaultWorldBorder = () => ({
   safeZone: 5,
   warningDistance: 5,
   warningTime: 15,
-  damagePerBlock: 0.2
+  damagePerBlock: 0.2,
 })
 ```
 
@@ -615,8 +619,8 @@ const createDefaultWorldBorder = () => ({
 ```typescript
 // ブロック状態値オブジェクト（Value Object Pattern）
 export namespace BlockValueObjects {
-  export type BlockId = string & Brand.Brand<"BlockId">
-  export type MaterialType = string & Brand.Brand<"MaterialType">
+  export type BlockId = string & Brand.Brand<'BlockId'>
+  export type MaterialType = string & Brand.Brand<'MaterialType'>
 
   export const BlockId = Brand.nominal<BlockId>()
   export const MaterialType = Brand.nominal<MaterialType>()
@@ -634,30 +638,24 @@ export namespace BlockValueObjects {
       hardness: Schema.Number.pipe(Schema.between(0, 50)),
       resistance: Schema.Number.pipe(Schema.between(0, 3600000)),
       lightLevel: Schema.Number.pipe(Schema.clamp(0, 15)),
-      lightOpacity: Schema.Number.pipe(Schema.clamp(0, 15))
+      lightOpacity: Schema.Number.pipe(Schema.clamp(0, 15)),
     }),
 
     // 状態プロパティ（ブロック種別固有）
     stateProperties: Schema.Record({
       key: Schema.String,
-      value: Schema.Union(
-        Schema.String,
-        Schema.Number,
-        Schema.Boolean
-      )
+      value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
     }),
 
     // レンダリング情報
     rendering: Schema.Struct({
       model: Schema.String,
       textures: Schema.Map({
-        key: Schema.Literal("top", "bottom", "north", "south", "east", "west", "all"),
-        value: Schema.String // テクスチャリソースパス
+        key: Schema.Literal('top', 'bottom', 'north', 'south', 'east', 'west', 'all'),
+        value: Schema.String, // テクスチャリソースパス
       }),
       tintIndex: Schema.optional(Schema.Number),
-      cullFaces: Schema.Array(
-        Schema.Literal("up", "down", "north", "south", "east", "west")
-      )
+      cullFaces: Schema.Array(Schema.Literal('up', 'down', 'north', 'south', 'east', 'west')),
     }),
 
     // ゲーム動作
@@ -667,8 +665,8 @@ export namespace BlockValueObjects {
       placeable: Schema.Boolean, // 設置可能か
       breakable: Schema.Boolean, // 破壊可能か
       waterloggable: Schema.Boolean, // 水没可能か
-      flammable: Schema.Boolean // 燃焼するか
-    })
+      flammable: Schema.Boolean, // 燃焼するか
+    }),
   })
 
   export interface BlockState extends Schema.Schema.Type<typeof BlockStateSchema> {}
@@ -692,13 +690,13 @@ export namespace BlockValueObjects {
           resistance: 6.0,
           lightLevel: 0,
           lightOpacity: 15,
-          ...properties
+          ...properties,
         },
         stateProperties: {},
         rendering: {
-          model: "block/cube_all",
-          textures: new Map([["all", `blocks/${id}`]]),
-          cullFaces: ["up", "down", "north", "south", "east", "west"]
+          model: 'block/cube_all',
+          textures: new Map([['all', `blocks/${id}`]]),
+          cullFaces: ['up', 'down', 'north', 'south', 'east', 'west'],
         },
         behavior: {
           tickable: false,
@@ -706,38 +704,29 @@ export namespace BlockValueObjects {
           placeable: true,
           breakable: true,
           waterloggable: false,
-          flammable: false
-        }
+          flammable: false,
+        },
       }),
 
     // 透明ブロック作成
-    createTransparentBlock: (
-      id: string,
-      lightOpacity: number = 0
-    ): Effect.Effect<BlockState, ValidationError> =>
-      BlockStateFactory.createBasicBlock(id, "glass", {
+    createTransparentBlock: (id: string, lightOpacity: number = 0): Effect.Effect<BlockState, ValidationError> =>
+      BlockStateFactory.createBasicBlock(id, 'glass', {
         transparent: true,
-        lightOpacity
+        lightOpacity,
       }),
 
     // 光源ブロック作成
-    createLightSource: (
-      id: string,
-      lightLevel: number
-    ): Effect.Effect<BlockState, ValidationError> =>
-      BlockStateFactory.createBasicBlock(id, "light_source", {
+    createLightSource: (id: string, lightLevel: number): Effect.Effect<BlockState, ValidationError> =>
+      BlockStateFactory.createBasicBlock(id, 'light_source', {
         luminous: true,
-        lightLevel
+        lightLevel,
       }),
 
     // 流体ブロック作成
-    createFluidBlock: (
-      id: string,
-      viscosity: number = 1
-    ): Effect.Effect<BlockState, ValidationError> =>
+    createFluidBlock: (id: string, viscosity: number = 1): Effect.Effect<BlockState, ValidationError> =>
       Schema.decode(BlockStateSchema)({
         id: BlockId(id),
-        material: MaterialType("fluid"),
+        material: MaterialType('fluid'),
         properties: {
           solid: false,
           transparent: true,
@@ -745,20 +734,20 @@ export namespace BlockValueObjects {
           hardness: 100,
           resistance: 100,
           lightLevel: 0,
-          lightOpacity: 3
+          lightOpacity: 3,
         },
         stateProperties: {
           level: 8, // 流体レベル (0-8)
           falling: false,
-          viscosity
+          viscosity,
         },
         rendering: {
-          model: "block/fluid",
+          model: 'block/fluid',
           textures: new Map([
-            ["still", `blocks/${id}_still`],
-            ["flowing", `blocks/${id}_flow`]
+            ['still', `blocks/${id}_still`],
+            ['flowing', `blocks/${id}_flow`],
           ]),
-          cullFaces: []
+          cullFaces: [],
         },
         behavior: {
           tickable: true,
@@ -766,9 +755,9 @@ export namespace BlockValueObjects {
           placeable: false,
           breakable: false,
           waterloggable: false,
-          flammable: false
-        }
-      })
+          flammable: false,
+        },
+      }),
   }
 
   // ブロック状態変更（不変更新）
@@ -789,14 +778,13 @@ export namespace BlockValueObjects {
 
       return {
         ...blockState,
-        stateProperties: Object.fromEntries(updatedProperties)
+        stateProperties: Object.fromEntries(updatedProperties),
       }
     })
 
   // ブロック状態比較
   export const blockStatesEqual = (a: BlockState, b: BlockState): boolean => {
-    return a.id === b.id &&
-           deepEqual(a.stateProperties, b.stateProperties)
+    return a.id === b.id && deepEqual(a.stateProperties, b.stateProperties)
   }
 
   // ブロック状態のハッシュ値計算（最適化用）
@@ -804,7 +792,7 @@ export namespace BlockValueObjects {
     Effect.gen(function* () {
       const stateString = JSON.stringify({
         id: blockState.id,
-        properties: blockState.stateProperties
+        properties: blockState.stateProperties,
       })
       return yield* hashString(stateString)
     })
@@ -821,39 +809,39 @@ export namespace CoordinateValueObjects {
     x: Schema.Number,
     y: Schema.Number.pipe(Schema.clamp(-64, 320)), // ワールド高度制限
     z: Schema.Number,
-    dimension: Schema.String.pipe(Schema.brand(DimensionId))
+    dimension: Schema.String.pipe(Schema.brand(DimensionId)),
   })
 
   // 相対座標（チャンク内座標）
   export const LocalPositionSchema = Schema.Struct({
     x: Schema.Number.pipe(Schema.clamp(0, 15)),
     y: Schema.Number.pipe(Schema.clamp(0, 255)),
-    z: Schema.Number.pipe(Schema.clamp(0, 15))
+    z: Schema.Number.pipe(Schema.clamp(0, 15)),
   })
 
   // 方向ベクトル
   export const DirectionVectorSchema = Schema.Struct({
     x: Schema.Number.pipe(Schema.between(-1, 1)),
     y: Schema.Number.pipe(Schema.between(-1, 1)),
-    z: Schema.Number.pipe(Schema.between(-1, 1))
+    z: Schema.Number.pipe(Schema.between(-1, 1)),
   }).pipe(
-    Schema.filter(
-      (vec) => Math.abs(Math.sqrt(vec.x ** 2 + vec.y ** 2 + vec.z ** 2) - 1) < 1e-6,
-      { message: "Direction vector must be normalized" }
-    )
+    Schema.filter((vec) => Math.abs(Math.sqrt(vec.x ** 2 + vec.y ** 2 + vec.z ** 2) - 1) < 1e-6, {
+      message: 'Direction vector must be normalized',
+    })
   )
 
   // 境界ボックス
   export const BoundingBoxSchema = Schema.Struct({
     min: AbsolutePositionSchema,
-    max: AbsolutePositionSchema
+    max: AbsolutePositionSchema,
   }).pipe(
     Schema.filter(
-      (box) => box.min.x <= box.max.x &&
-               box.min.y <= box.max.y &&
-               box.min.z <= box.max.z &&
-               box.min.dimension === box.max.dimension,
-      { message: "Invalid bounding box: min must be less than or equal to max" }
+      (box) =>
+        box.min.x <= box.max.x &&
+        box.min.y <= box.max.y &&
+        box.min.z <= box.max.z &&
+        box.min.dimension === box.max.dimension,
+      { message: 'Invalid bounding box: min must be less than or equal to max' }
     )
   )
 
@@ -871,11 +859,7 @@ export namespace CoordinateValueObjects {
           return yield* Effect.fail(new DimensionMismatchError())
         }
 
-        return Math.sqrt(
-          (a.x - b.x) ** 2 +
-          (a.y - b.y) ** 2 +
-          (a.z - b.z) ** 2
-        )
+        return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2)
       }),
 
     // マンハッタン距離
@@ -885,9 +869,7 @@ export namespace CoordinateValueObjects {
           return yield* Effect.fail(new DimensionMismatchError())
         }
 
-        return Math.abs(a.x - b.x) +
-               Math.abs(a.y - b.y) +
-               Math.abs(a.z - b.z)
+        return Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + Math.abs(a.z - b.z)
       }),
 
     // 座標加算
@@ -895,7 +877,7 @@ export namespace CoordinateValueObjects {
       ...pos,
       x: pos.x + offset.x,
       y: Math.max(-64, Math.min(320, pos.y + offset.y)), // Y座標クランプ
-      z: pos.z + offset.z
+      z: pos.z + offset.z,
     }),
 
     // 境界ボックス内判定
@@ -905,9 +887,14 @@ export namespace CoordinateValueObjects {
           return yield* Effect.fail(new DimensionMismatchError())
         }
 
-        return pos.x >= bounds.min.x && pos.x <= bounds.max.x &&
-               pos.y >= bounds.min.y && pos.y <= bounds.max.y &&
-               pos.z >= bounds.min.z && pos.z <= bounds.max.z
+        return (
+          pos.x >= bounds.min.x &&
+          pos.x <= bounds.max.x &&
+          pos.y >= bounds.min.y &&
+          pos.y <= bounds.max.y &&
+          pos.z >= bounds.min.z &&
+          pos.z <= bounds.max.z
+        )
       }),
 
     // 座標正規化（ブロック座標への丸め）
@@ -915,27 +902,24 @@ export namespace CoordinateValueObjects {
       ...pos,
       x: Math.floor(pos.x),
       y: Math.floor(pos.y),
-      z: Math.floor(pos.z)
+      z: Math.floor(pos.z),
     }),
 
     // 周辺座標生成
-    getNeighbors: (
-      pos: AbsolutePosition,
-      radius: number = 1
-    ): Effect.Effect<ReadonlyArray<AbsolutePosition>, never> =>
+    getNeighbors: (pos: AbsolutePosition, radius: number = 1): Effect.Effect<ReadonlyArray<AbsolutePosition>, never> =>
       Effect.succeed(
-        Range.make(-radius, radius).flatMap(dx =>
-          Range.make(-radius, radius).flatMap(dy =>
-            Range.make(-radius, radius).map(dz => ({
-              ...pos,
-              x: pos.x + dx,
-              y: Math.max(-64, Math.min(320, pos.y + dy)),
-              z: pos.z + dz
-            }))
+        Range.make(-radius, radius)
+          .flatMap((dx) =>
+            Range.make(-radius, radius).flatMap((dy) =>
+              Range.make(-radius, radius).map((dz) => ({
+                ...pos,
+                x: pos.x + dx,
+                y: Math.max(-64, Math.min(320, pos.y + dy)),
+                z: pos.z + dz,
+              }))
+            )
           )
-        ).filter(neighbor =>
-          !(neighbor.x === pos.x && neighbor.y === pos.y && neighbor.z === pos.z)
-        )
+          .filter((neighbor) => !(neighbor.x === pos.x && neighbor.y === pos.y && neighbor.z === pos.z))
       ),
 
     // チャンク座標への変換
@@ -946,8 +930,8 @@ export namespace CoordinateValueObjects {
     toLocalCoordinate: (pos: AbsolutePosition): LocalPosition => ({
       x: ((pos.x % 16) + 16) % 16,
       y: pos.y,
-      z: ((pos.z % 16) + 16) % 16
-    })
+      z: ((pos.z % 16) + 16) % 16,
+    }),
   }
 }
 ```
@@ -981,7 +965,7 @@ export interface WorldGenerationService {
   ) => Effect.Effect<PopulatedChunk, GenerationError>
 }
 
-export const WorldGenerationService = Context.GenericTag<WorldGenerationService>("@app/WorldGenerationService")
+export const WorldGenerationService = Context.GenericTag<WorldGenerationService>('@app/WorldGenerationService')
 
 // 実装例
 export const makeWorldGenerationService = Effect.gen(function* () {
@@ -1006,7 +990,7 @@ export const makeWorldGenerationService = Effect.gen(function* () {
           coordinate: coord,
           heightMap,
           geologicalFeatures,
-          generatedAt: new Date()
+          generatedAt: new Date(),
         }
       }),
 
@@ -1017,8 +1001,8 @@ export const makeWorldGenerationService = Effect.gen(function* () {
         const humidityMap = yield* noiseGenerator.generateHumidityMap(coord, settings.seed)
 
         // Whittaker biome分類法の適用
-        const biomes = Range.make(0, 16).flatMap(x =>
-          Range.make(0, 16).map(z => {
+        const biomes = Range.make(0, 16).flatMap((x) =>
+          Range.make(0, 16).map((z) => {
             const temp = temperatureMap[x][z]
             const humidity = humidityMap[x][z]
             return determineBiome(temp, humidity)
@@ -1027,9 +1011,9 @@ export const makeWorldGenerationService = Effect.gen(function* () {
 
         return {
           coordinate: coord,
-          biomes: new Uint8Array(biomes.map(biome => biome.id)),
+          biomes: new Uint8Array(biomes.map((biome) => biome.id)),
           temperatureMap,
-          humidityMap
+          humidityMap,
         }
       }),
 
@@ -1072,10 +1056,10 @@ export const makeWorldGenerationService = Effect.gen(function* () {
 
         return {
           ...chunkData,
-          generationStatus: "populated",
-          populatedAt: new Date()
+          generationStatus: 'populated',
+          populatedAt: new Date(),
         }
-      })
+      }),
   })
 })
 ```
@@ -1085,20 +1069,16 @@ export const makeWorldGenerationService = Effect.gen(function* () {
 ```typescript
 // データ整合性ドメインサービス
 export interface DataIntegrityService {
-  readonly validateWorldConsistency: (
-    world: WorldAggregate
-  ) => Effect.Effect<IntegrityReport, ValidationError>
+  readonly validateWorldConsistency: (world: WorldAggregate) => Effect.Effect<IntegrityReport, ValidationError>
 
   readonly validateChunkBoundaries: (
     chunks: ReadonlyMap<ChunkCoordinate, ChunkData>
   ) => Effect.Effect<BoundaryReport, ValidationError>
 
-  readonly repairCorruptedData: (
-    issues: ReadonlyArray<IntegrityIssue>
-  ) => Effect.Effect<RepairResult, RepairError>
+  readonly repairCorruptedData: (issues: ReadonlyArray<IntegrityIssue>) => Effect.Effect<RepairResult, RepairError>
 }
 
-export const DataIntegrityService = Context.GenericTag<DataIntegrityService>("@app/DataIntegrityService")
+export const DataIntegrityService = Context.GenericTag<DataIntegrityService>('@app/DataIntegrityService')
 
 export const makeDataIntegrityService = Effect.gen(function* () {
   const logger = yield* Logger
@@ -1112,20 +1092,21 @@ export const makeDataIntegrityService = Effect.gen(function* () {
         for (const [dimId, dimension] of world.dimensions) {
           if (dimension.id !== dimId) {
             issues.push({
-              type: "DimensionIdMismatch",
+              type: 'DimensionIdMismatch',
               dimensionId: dimId,
-              severity: "high"
+              severity: 'high',
             })
           }
 
           // チャンク管理データ整合性
           const activeChunkCount = dimension.chunkManagement.activeChunks.size
-          if (activeChunkCount > 1000) { // 閾値チェック
+          if (activeChunkCount > 1000) {
+            // 閾値チェック
             issues.push({
-              type: "ExcessiveLoadedChunks",
+              type: 'ExcessiveLoadedChunks',
               dimensionId: dimId,
               count: activeChunkCount,
-              severity: "medium"
+              severity: 'medium',
             })
           }
         }
@@ -1133,18 +1114,18 @@ export const makeDataIntegrityService = Effect.gen(function* () {
         // 世界時間整合性チェック
         if (world.worldTime.dayTime < 0 || world.worldTime.dayTime >= 24000) {
           issues.push({
-            type: "InvalidDayTime",
+            type: 'InvalidDayTime',
             value: world.worldTime.dayTime,
-            severity: "high"
+            severity: 'high',
           })
         }
 
         // ワールドボーダー整合性
         if (world.worldBorder.size <= 0 || world.worldBorder.size > 60000000) {
           issues.push({
-            type: "InvalidWorldBorderSize",
+            type: 'InvalidWorldBorderSize',
             size: world.worldBorder.size,
-            severity: "medium"
+            severity: 'medium',
           })
         }
 
@@ -1152,7 +1133,7 @@ export const makeDataIntegrityService = Effect.gen(function* () {
           worldId: world.id,
           issues,
           overallHealth: calculateHealthScore(issues),
-          checkedAt: new Date()
+          checkedAt: new Date(),
         }
       }),
 
@@ -1176,7 +1157,7 @@ export const makeDataIntegrityService = Effect.gen(function* () {
           totalChunks: chunks.size,
           boundaryIssues,
           severity: calculateBoundarySeverity(boundaryIssues),
-          validatedAt: new Date()
+          validatedAt: new Date(),
         }
       }),
 
@@ -1191,10 +1172,10 @@ export const makeDataIntegrityService = Effect.gen(function* () {
             const repairResult = yield* pipe(
               issue.type,
               Match.value,
-              Match.when("DimensionIdMismatch", () => repairDimensionIdMismatch(issue)),
-              Match.when("ExcessiveLoadedChunks", () => unloadExcessChunks(issue)),
-              Match.when("InvalidDayTime", () => fixDayTime(issue)),
-              Match.when("InvalidWorldBorderSize", () => resetWorldBorder(issue)),
+              Match.when('DimensionIdMismatch', () => repairDimensionIdMismatch(issue)),
+              Match.when('ExcessiveLoadedChunks', () => unloadExcessChunks(issue)),
+              Match.when('InvalidDayTime', () => fixDayTime(issue)),
+              Match.when('InvalidWorldBorderSize', () => resetWorldBorder(issue)),
               Match.orElse(() => Effect.fail(new UnrepairableIssueError(issue)))
             )
 
@@ -1216,9 +1197,9 @@ export const makeDataIntegrityService = Effect.gen(function* () {
           repairedCount,
           failedCount,
           repairLog,
-          repairedAt: new Date()
+          repairedAt: new Date(),
         }
-      })
+      }),
   })
 })
 ```
@@ -1230,84 +1211,104 @@ export const makeDataIntegrityService = Effect.gen(function* () {
 ```typescript
 // ドメインイベント基底型
 export const DomainEventSchema = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand(Brand.nominal<"EventId">())),
+  id: Schema.String.pipe(Schema.brand(Brand.nominal<'EventId'>())),
   aggregateId: Schema.String,
   aggregateType: Schema.String,
   eventType: Schema.String,
   eventVersion: Schema.Number.pipe(Schema.positive()),
   timestamp: Schema.Date,
-  metadata: Schema.optional(Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown
-  }))
+  metadata: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown,
+    })
+  ),
 })
 
 // ワールド関連ドメインイベント
-export const WorldDomainEventSchema = Schema.TaggedUnion("eventType", {
-  WorldCreated: Schema.extend(DomainEventSchema, Schema.Struct({
-    eventType: Schema.Literal("WorldCreated"),
-    data: Schema.Struct({
-      worldId: Schema.String.pipe(Schema.brand(WorldId)),
-      worldName: Schema.String,
-      generationSettings: TerrainGenerationParametersSchema,
-      createdBy: Schema.String // プレイヤーID
+export const WorldDomainEventSchema = Schema.TaggedUnion('eventType', {
+  WorldCreated: Schema.extend(
+    DomainEventSchema,
+    Schema.Struct({
+      eventType: Schema.Literal('WorldCreated'),
+      data: Schema.Struct({
+        worldId: Schema.String.pipe(Schema.brand(WorldId)),
+        worldName: Schema.String,
+        generationSettings: TerrainGenerationParametersSchema,
+        createdBy: Schema.String, // プレイヤーID
+      }),
     })
-  })),
+  ),
 
-  WorldTimeAdvanced: Schema.extend(DomainEventSchema, Schema.Struct({
-    eventType: Schema.Literal("WorldTimeAdvanced"),
-    data: Schema.Struct({
-      worldId: Schema.String.pipe(Schema.brand(WorldId)),
-      previousTime: Schema.Number,
-      newTime: Schema.Number,
-      ticksAdvanced: Schema.Number
+  WorldTimeAdvanced: Schema.extend(
+    DomainEventSchema,
+    Schema.Struct({
+      eventType: Schema.Literal('WorldTimeAdvanced'),
+      data: Schema.Struct({
+        worldId: Schema.String.pipe(Schema.brand(WorldId)),
+        previousTime: Schema.Number,
+        newTime: Schema.Number,
+        ticksAdvanced: Schema.Number,
+      }),
     })
-  })),
+  ),
 
-  WeatherChanged: Schema.extend(DomainEventSchema, Schema.Struct({
-    eventType: Schema.Literal("WeatherChanged"),
-    data: Schema.Struct({
-      worldId: Schema.String.pipe(Schema.brand(WorldId)),
-      dimensionId: Schema.String.pipe(Schema.brand(DimensionId)),
-      previousWeather: Schema.Literal("clear", "rain", "thunder"),
-      newWeather: Schema.Literal("clear", "rain", "thunder"),
-      duration: Schema.Number,
-      changedBy: Schema.optional(Schema.String) // プレイヤーID（コマンドの場合）
+  WeatherChanged: Schema.extend(
+    DomainEventSchema,
+    Schema.Struct({
+      eventType: Schema.Literal('WeatherChanged'),
+      data: Schema.Struct({
+        worldId: Schema.String.pipe(Schema.brand(WorldId)),
+        dimensionId: Schema.String.pipe(Schema.brand(DimensionId)),
+        previousWeather: Schema.Literal('clear', 'rain', 'thunder'),
+        newWeather: Schema.Literal('clear', 'rain', 'thunder'),
+        duration: Schema.Number,
+        changedBy: Schema.optional(Schema.String), // プレイヤーID（コマンドの場合）
+      }),
     })
-  })),
+  ),
 
-  ChunkLoaded: Schema.extend(DomainEventSchema, Schema.Struct({
-    eventType: Schema.Literal("ChunkLoaded"),
-    data: Schema.Struct({
-      worldId: Schema.String.pipe(Schema.brand(WorldId)),
-      dimensionId: Schema.String.pipe(Schema.brand(DimensionId)),
-      chunkCoordinate: Schema.String.pipe(Schema.brand(ChunkCoordinate)),
-      loadReason: Schema.Literal("player_proximity", "forced_load", "structure_generation"),
-      loadedBy: Schema.optional(Schema.String) // プレイヤーIDまたはシステム
+  ChunkLoaded: Schema.extend(
+    DomainEventSchema,
+    Schema.Struct({
+      eventType: Schema.Literal('ChunkLoaded'),
+      data: Schema.Struct({
+        worldId: Schema.String.pipe(Schema.brand(WorldId)),
+        dimensionId: Schema.String.pipe(Schema.brand(DimensionId)),
+        chunkCoordinate: Schema.String.pipe(Schema.brand(ChunkCoordinate)),
+        loadReason: Schema.Literal('player_proximity', 'forced_load', 'structure_generation'),
+        loadedBy: Schema.optional(Schema.String), // プレイヤーIDまたはシステム
+      }),
     })
-  })),
+  ),
 
-  ChunkUnloaded: Schema.extend(DomainEventSchema, Schema.Struct({
-    eventType: Schema.Literal("ChunkUnloaded"),
-    data: Schema.Struct({
-      worldId: Schema.String.pipe(Schema.brand(WorldId)),
-      dimensionId: Schema.String.pipe(Schema.brand(DimensionId)),
-      chunkCoordinate: Schema.String.pipe(Schema.brand(ChunkCoordinate)),
-      unloadReason: Schema.Literal("player_distance", "memory_pressure", "world_shutdown"),
-      wasDirty: Schema.Boolean // 保存されていない変更があったか
+  ChunkUnloaded: Schema.extend(
+    DomainEventSchema,
+    Schema.Struct({
+      eventType: Schema.Literal('ChunkUnloaded'),
+      data: Schema.Struct({
+        worldId: Schema.String.pipe(Schema.brand(WorldId)),
+        dimensionId: Schema.String.pipe(Schema.brand(DimensionId)),
+        chunkCoordinate: Schema.String.pipe(Schema.brand(ChunkCoordinate)),
+        unloadReason: Schema.Literal('player_distance', 'memory_pressure', 'world_shutdown'),
+        wasDirty: Schema.Boolean, // 保存されていない変更があったか
+      }),
     })
-  })),
+  ),
 
-  GameRuleChanged: Schema.extend(DomainEventSchema, Schema.Struct({
-    eventType: Schema.Literal("GameRuleChanged"),
-    data: Schema.Struct({
-      worldId: Schema.String.pipe(Schema.brand(WorldId)),
-      ruleName: Schema.String,
-      previousValue: Schema.Unknown,
-      newValue: Schema.Unknown,
-      changedBy: Schema.String // プレイヤーIDまたは管理者
+  GameRuleChanged: Schema.extend(
+    DomainEventSchema,
+    Schema.Struct({
+      eventType: Schema.Literal('GameRuleChanged'),
+      data: Schema.Struct({
+        worldId: Schema.String.pipe(Schema.brand(WorldId)),
+        ruleName: Schema.String,
+        previousValue: Schema.Unknown,
+        newValue: Schema.Unknown,
+        changedBy: Schema.String, // プレイヤーIDまたは管理者
+      }),
     })
-  }))
+  ),
 })
 
 export interface WorldDomainEvent extends Schema.Schema.Type<typeof WorldDomainEventSchema> {}
@@ -1327,12 +1328,10 @@ export interface EventStore {
 
   readonly readAllEvents: () => Stream.Stream<WorldDomainEvent, EventStoreError>
 
-  readonly getStreamVersion: (
-    streamId: string
-  ) => Effect.Effect<number, EventStoreError>
+  readonly getStreamVersion: (streamId: string) => Effect.Effect<number, EventStoreError>
 }
 
-export const EventStore = Context.GenericTag<EventStore>("@app/EventStore")
+export const EventStore = Context.GenericTag<EventStore>('@app/EventStore')
 ```
 
 ### イベントハンドラーとプロジェクション
@@ -1349,18 +1348,17 @@ export const makeStatisticsEventHandler = Effect.gen(function* () {
   const statisticsService = yield* StatisticsService
 
   return {
-    eventType: "ChunkLoaded" as const,
-    handle: (event: WorldDomainEvent & { eventType: "ChunkLoaded" }) =>
+    eventType: 'ChunkLoaded' as const,
+    handle: (event: WorldDomainEvent & { eventType: 'ChunkLoaded' }) =>
       Effect.gen(function* () {
-        yield* statisticsService.incrementCounter("chunks_loaded_total")
-        yield* statisticsService.recordHistogram("chunk_load_time", Date.now() - event.timestamp.getTime())
+        yield* statisticsService.incrementCounter('chunks_loaded_total')
+        yield* statisticsService.recordHistogram('chunk_load_time', Date.now() - event.timestamp.getTime())
 
         // ディメンション別統計
-        yield* statisticsService.incrementCounter(
-          `chunks_loaded_${event.data.dimensionId}`,
-          { dimension: event.data.dimensionId }
-        )
-      })
+        yield* statisticsService.incrementCounter(`chunks_loaded_${event.data.dimensionId}`, {
+          dimension: event.data.dimensionId,
+        })
+      }),
   }
 })
 
@@ -1370,23 +1368,23 @@ export const makePlayerActivityHandler = Effect.gen(function* () {
   const logger = yield* Logger
 
   return {
-    eventType: "WeatherChanged" as const,
-    handle: (event: WorldDomainEvent & { eventType: "WeatherChanged" }) =>
+    eventType: 'WeatherChanged' as const,
+    handle: (event: WorldDomainEvent & { eventType: 'WeatherChanged' }) =>
       Effect.gen(function* () {
         if (event.data.changedBy) {
           yield* logger.info(`Player ${event.data.changedBy} changed weather to ${event.data.newWeather}`)
 
           yield* playerService.recordActivity(event.data.changedBy, {
-            type: "weather_change",
+            type: 'weather_change',
             details: {
               from: event.data.previousWeather,
               to: event.data.newWeather,
-              dimension: event.data.dimensionId
+              dimension: event.data.dimensionId,
             },
-            timestamp: event.timestamp
+            timestamp: event.timestamp,
           })
         }
-      })
+      }),
   }
 })
 
@@ -1399,7 +1397,7 @@ export interface EventDispatcher {
   ) => Effect.Effect<Subscription, SubscriptionError>
 }
 
-export const EventDispatcher = Context.GenericTag<EventDispatcher>("@app/EventDispatcher")
+export const EventDispatcher = Context.GenericTag<EventDispatcher>('@app/EventDispatcher')
 
 export const makeEventDispatcher = Effect.gen(function* () {
   const handlers = yield* Ref.make(new Map<string, ReadonlyArray<EventHandler<any>>>())
@@ -1414,14 +1412,14 @@ export const makeEventDispatcher = Effect.gen(function* () {
           const eventHandlers = currentHandlers.get(event.eventType) || []
 
           yield* Effect.all(
-            eventHandlers.map(handler =>
+            eventHandlers.map((handler) =>
               pipe(
                 handler.handle(event),
-                Effect.catchAll(error =>
+                Effect.catchAll((error) =>
                   logger.error(`Event handler failed: ${error.message}`, {
                     eventType: event.eventType,
                     eventId: event.id,
-                    handlerName: handler.constructor.name
+                    handlerName: handler.constructor.name,
                   })
                 )
               )
@@ -1433,20 +1431,20 @@ export const makeEventDispatcher = Effect.gen(function* () {
 
     subscribe: (eventType, handler) =>
       Effect.gen(function* () {
-        yield* Ref.update(handlers, currentHandlers => {
+        yield* Ref.update(handlers, (currentHandlers) => {
           const existingHandlers = currentHandlers.get(eventType) || []
           return new Map(currentHandlers).set(eventType, [...existingHandlers, handler])
         })
 
         return {
           unsubscribe: () =>
-            Ref.update(handlers, currentHandlers => {
+            Ref.update(handlers, (currentHandlers) => {
               const existingHandlers = currentHandlers.get(eventType) || []
-              const filteredHandlers = existingHandlers.filter(h => h !== handler)
+              const filteredHandlers = existingHandlers.filter((h) => h !== handler)
               return new Map(currentHandlers).set(eventType, filteredHandlers)
-            })
+            }),
         }
-      })
+      }),
   })
 })
 ```
@@ -1468,11 +1466,11 @@ export namespace PerformanceOptimizations {
 
   // 最適化された Structure of Arrays (SoA) - キャッシュ効率が良い
   export interface BlockDataSoA {
-    readonly types: Uint16Array      // ブロックタイプ配列
-    readonly states: Uint32Array     // ブロック状態配列
+    readonly types: Uint16Array // ブロックタイプ配列
+    readonly states: Uint32Array // ブロック状態配列
     readonly lightLevels: Uint8Array // 光レベル配列（4ビット×2値パック）
-    readonly metadata: Uint8Array    // メタデータ配列
-    readonly count: number           // 有効ブロック数
+    readonly metadata: Uint8Array // メタデータ配列
+    readonly count: number // 有効ブロック数
   }
 
   // SoAデータ操作ユーティリティ
@@ -1483,7 +1481,7 @@ export namespace PerformanceOptimizations {
       states: new Uint32Array(capacity),
       lightLevels: new Uint8Array(Math.ceil(capacity / 2)), // 4ビット×2値パック
       metadata: new Uint8Array(capacity),
-      count: 0
+      count: 0,
     }),
 
     // ブロックデータ設定
@@ -1504,7 +1502,7 @@ export namespace PerformanceOptimizations {
         states: new Uint32Array(soa.states),
         lightLevels: new Uint8Array(soa.lightLevels),
         metadata: new Uint8Array(soa.metadata),
-        count: soa.count
+        count: soa.count,
       }
 
       newSoA.types[index] = type
@@ -1516,9 +1514,9 @@ export namespace PerformanceOptimizations {
       const isHighNibble = index % 2 === 1
 
       if (isHighNibble) {
-        newSoA.lightLevels[byteIndex] = (newSoA.lightLevels[byteIndex] & 0x0F) | ((light & 0x0F) << 4)
+        newSoA.lightLevels[byteIndex] = (newSoA.lightLevels[byteIndex] & 0x0f) | ((light & 0x0f) << 4)
       } else {
-        newSoA.lightLevels[byteIndex] = (newSoA.lightLevels[byteIndex] & 0xF0) | (light & 0x0F)
+        newSoA.lightLevels[byteIndex] = (newSoA.lightLevels[byteIndex] & 0xf0) | (light & 0x0f)
       }
 
       return newSoA
@@ -1532,15 +1530,13 @@ export namespace PerformanceOptimizations {
 
       const byteIndex = Math.floor(index / 2)
       const isHighNibble = index % 2 === 1
-      const light = isHighNibble
-        ? (soa.lightLevels[byteIndex] >> 4) & 0x0F
-        : soa.lightLevels[byteIndex] & 0x0F
+      const light = isHighNibble ? (soa.lightLevels[byteIndex] >> 4) & 0x0f : soa.lightLevels[byteIndex] & 0x0f
 
       return {
         type: soa.types[index],
         state: soa.states[index],
         light,
-        metadata: soa.metadata[index]
+        metadata: soa.metadata[index],
       }
     },
 
@@ -1557,39 +1553,25 @@ export namespace PerformanceOptimizations {
     ): BlockDataSoA => {
       let result = soa
       for (const op of operations) {
-        result = SoAOperations.setBlock(
-          result,
-          op.index,
-          op.type,
-          op.state || 0,
-          op.light || 0,
-          op.metadata || 0
-        )
+        result = SoAOperations.setBlock(result, op.index, op.type, op.state || 0, op.light || 0, op.metadata || 0)
       }
       return result
     },
 
     // メモリ使用量計算
     getMemoryUsage: (soa: BlockDataSoA): number => {
-      return soa.types.byteLength +
-             soa.states.byteLength +
-             soa.lightLevels.byteLength +
-             soa.metadata.byteLength
-    }
+      return soa.types.byteLength + soa.states.byteLength + soa.lightLevels.byteLength + soa.metadata.byteLength
+    },
   }
 
   // SIMD操作のサポート検出と活用
   export const SIMDOperations = {
     // SIMDサポート検出
     checkSIMDSupport: (): Effect.Effect<boolean, never> =>
-      Effect.succeed(typeof SharedArrayBuffer !== 'undefined' &&
-                    typeof WebAssembly !== 'undefined'),
+      Effect.succeed(typeof SharedArrayBuffer !== 'undefined' && typeof WebAssembly !== 'undefined'),
 
     // SIMD対応ブロック検索
-    findBlocksSIMD: (
-      soa: BlockDataSoA,
-      targetType: number
-    ): Effect.Effect<ReadonlyArray<number>, never> =>
+    findBlocksSIMD: (soa: BlockDataSoA, targetType: number): Effect.Effect<ReadonlyArray<number>, never> =>
       Effect.gen(function* () {
         const hasSIMD = yield* SIMDOperations.checkSIMDSupport()
 
@@ -1611,25 +1593,19 @@ export namespace PerformanceOptimizations {
         } else {
           return yield* calculateLightingScalar(soa)
         }
-      })
+      }),
   }
 }
 
 // ネイティブSIMD実装（WebAssemblyまたはWorker経由）
-const findBlocksSIMDNative = (
-  types: Uint16Array,
-  targetType: number
-): Effect.Effect<ReadonlyArray<number>, never> =>
+const findBlocksSIMDNative = (types: Uint16Array, targetType: number): Effect.Effect<ReadonlyArray<number>, never> =>
   Effect.succeed([]) // プレースホルダー実装
 
-const findBlocksScalar = (
-  types: Uint16Array,
-  targetType: number
-): Effect.Effect<ReadonlyArray<number>, never> =>
+const findBlocksScalar = (types: Uint16Array, targetType: number): Effect.Effect<ReadonlyArray<number>, never> =>
   Effect.succeed(
     Array.from(types)
-      .map((type, index) => type === targetType ? index : -1)
-      .filter(index => index >= 0)
+      .map((type, index) => (type === targetType ? index : -1))
+      .filter((index) => index >= 0)
   )
 ```
 
@@ -1665,7 +1641,7 @@ export const makeChunkMemoryPool = (
       totalReleased: 0,
       currentlyInUse: 0,
       peakUsage: 0,
-      memoryUsage: 0
+      memoryUsage: 0,
     })
 
     // プール初期化
@@ -1674,7 +1650,7 @@ export const makeChunkMemoryPool = (
       Effect.forEach(() =>
         pipe(
           chunkFactory(),
-          Effect.flatMap(chunk => availableChunks.offer(chunk))
+          Effect.flatMap((chunk) => availableChunks.offer(chunk))
         )
       )
     )
@@ -1685,23 +1661,23 @@ export const makeChunkMemoryPool = (
           // 利用可能なチャンクがあれば取得
           const chunk = yield* pipe(
             availableChunks.poll,
-            Effect.flatMap(option =>
+            Effect.flatMap((option) =>
               pipe(
                 option,
                 Option.match({
                   onNone: () => chunkFactory(), // プールが空なら新規作成
-                  onSome: (chunk) => Effect.succeed(chunk)
+                  onSome: (chunk) => Effect.succeed(chunk),
                 })
               )
             )
           )
 
           // 統計更新
-          yield* Ref.update(stats, currentStats => ({
+          yield* Ref.update(stats, (currentStats) => ({
             ...currentStats,
             totalAcquired: currentStats.totalAcquired + 1,
             currentlyInUse: currentStats.currentlyInUse + 1,
-            peakUsage: Math.max(currentStats.peakUsage, currentStats.currentlyInUse + 1)
+            peakUsage: Math.max(currentStats.peakUsage, currentStats.currentlyInUse + 1),
           }))
 
           return chunk
@@ -1716,10 +1692,10 @@ export const makeChunkMemoryPool = (
           const wasOffered = yield* availableChunks.offer(resetChunk)
 
           // 統計更新
-          yield* Ref.update(stats, currentStats => ({
+          yield* Ref.update(stats, (currentStats) => ({
             ...currentStats,
             totalReleased: currentStats.totalReleased + 1,
-            currentlyInUse: Math.max(0, currentStats.currentlyInUse - 1)
+            currentlyInUse: Math.max(0, currentStats.currentlyInUse - 1),
           }))
 
           if (!wasOffered) {
@@ -1728,14 +1704,11 @@ export const makeChunkMemoryPool = (
           }
         }),
 
-      size: () =>
-        availableChunks.size,
+      size: () => availableChunks.size,
 
-      capacity: () =>
-        Effect.succeed(maxSize),
+      capacity: () => Effect.succeed(maxSize),
 
-      stats: () =>
-        Ref.get(stats)
+      stats: () => Ref.get(stats),
     }
   })
 
@@ -1747,7 +1720,7 @@ const resetChunkData = (chunk: ChunkData): Effect.Effect<ChunkData, never> =>
     entities: new Map(),
     blockEntities: new Map(),
     isDirty: false,
-    lastModified: new Date()
+    lastModified: new Date(),
   })
 
 const cleanupChunkData = (chunk: ChunkData): Effect.Effect<void, never> =>
@@ -1767,20 +1740,13 @@ const cleanupChunkData = (chunk: ChunkData): Effect.Effect<void, never> =>
 
 ```typescript
 // 統合テストスイート
-describe("World Data Structure Integration Tests", () => {
+describe('World Data Structure Integration Tests', () => {
   const testLayer = Layer.provide(
-    Layer.merge(
-      TestWorldService,
-      TestEventStore,
-      TestMemoryPool
-    ),
-    Layer.provide(
-      TestLogger,
-      TestContext.TestContext
-    )
+    Layer.merge(TestWorldService, TestEventStore, TestMemoryPool),
+    Layer.provide(TestLogger, TestContext.TestContext)
   )
 
-  it("should create and manage world lifecycle correctly", () =>
+  it('should create and manage world lifecycle correctly', () =>
     Effect.gen(function* () {
       const worldService = yield* WorldService
       const eventStore = yield* EventStore
@@ -1788,26 +1754,23 @@ describe("World Data Structure Integration Tests", () => {
       // 1. ワールド作成
       const generationSettings = {
         seed: 12345n,
-        generationType: "default" as const,
+        generationType: 'default' as const,
         seaLevel: 64,
         biomeSize: 1.0,
         structureDensity: 0.5,
         oreDensity: {},
-        customSettings: undefined
+        customSettings: undefined,
       }
 
-      const world = yield* WorldAggregateOperations.createWorld(
-        "test-world",
-        generationSettings
-      )
+      const world = yield* WorldAggregateOperations.createWorld('test-world', generationSettings)
 
-      expect(world.name).toBe("test-world")
+      expect(world.name).toBe('test-world')
       expect(world.dimensions.size).toBe(1) // デフォルトでOverworldのみ
 
       // 2. イベント永続化確認
       const events = yield* eventStore.readEvents(world.id)
       expect(events).toHaveLength(1)
-      expect(events[0].eventType).toBe("WorldCreated")
+      expect(events[0].eventType).toBe('WorldCreated')
 
       // 3. 時間進行テスト
       const advancedWorld = yield* WorldAggregateOperations.advanceTime(world, 1000)
@@ -1815,47 +1778,41 @@ describe("World Data Structure Integration Tests", () => {
       expect(advancedWorld.worldTime.totalTime).toBe(1000n)
 
       // 4. チャンク管理テスト
-      const chunkCoord = ChunkCoordinate("0,0")
+      const chunkCoord = ChunkCoordinate('0,0')
       const trackedWorld = yield* WorldAggregateOperations.trackChunkLoading(
         advancedWorld,
-        DimensionId("overworld"),
+        DimensionId('overworld'),
         chunkCoord
       )
 
-      const dimension = trackedWorld.dimensions.get(DimensionId("overworld"))!
+      const dimension = trackedWorld.dimensions.get(DimensionId('overworld'))!
       expect(dimension.chunkManagement.activeChunks.has(chunkCoord)).toBe(true)
+    }).pipe(Effect.provide(testLayer), Effect.runPromise))
 
-    }).pipe(Effect.provide(testLayer), Effect.runPromise)
-  )
-
-  it("should handle concurrent world modifications safely", () =>
+  it('should handle concurrent world modifications safely', () =>
     Effect.gen(function* () {
       const world = yield* createTestWorld()
 
       // 100個の並列操作を実行
-      const concurrentOperations = Range.make(0, 100).map(i =>
+      const concurrentOperations = Range.make(0, 100).map((i) =>
         pipe(
           WorldAggregateOperations.advanceTime(world, i),
-          Effect.flatMap(w =>
-            WorldAggregateOperations.changeWeather(w, "rain", 1000 + i)
-          )
+          Effect.flatMap((w) => WorldAggregateOperations.changeWeather(w, 'rain', 1000 + i))
         )
       )
 
       const results = yield* Effect.all(concurrentOperations, {
-        concurrency: 10
+        concurrency: 10,
       })
 
       // すべての操作が成功し、最後の結果が期待される状態であることを確認
       expect(results).toHaveLength(100)
       const finalWorld = results[results.length - 1]
-      expect(finalWorld.weather.current).toBe("rain")
+      expect(finalWorld.weather.current).toBe('rain')
       expect(finalWorld.worldTime.totalTime).toBeGreaterThan(0n)
+    }).pipe(Effect.provide(testLayer), Effect.runPromise))
 
-    }).pipe(Effect.provide(testLayer), Effect.runPromise)
-  )
-
-  it("should maintain data integrity under stress conditions", () =>
+  it('should maintain data integrity under stress conditions', () =>
     Effect.gen(function* () {
       const integrityService = yield* DataIntegrityService
       const world = yield* createLargeTestWorld(1000) // 1000チャンク
@@ -1871,36 +1828,31 @@ describe("World Data Structure Integration Tests", () => {
       const integrityReport = yield* integrityService.validateWorldConsistency(modifiedWorld)
 
       expect(integrityReport.overallHealth).toBeGreaterThan(0.8) // 80%以上の健全性
-      expect(integrityReport.issues.filter(issue => issue.severity === "high")).toHaveLength(0)
-
-    }).pipe(Effect.provide(testLayer), Effect.runPromise)
-  )
+      expect(integrityReport.issues.filter((issue) => issue.severity === 'high')).toHaveLength(0)
+    }).pipe(Effect.provide(testLayer), Effect.runPromise))
 })
 
 // Property-Based Testing
-describe("World Data Structure Property Tests", () => {
+describe('World Data Structure Property Tests', () => {
   const worldGen = fc.record({
     name: fc.string({ minLength: 1, maxLength: 32 }),
     seed: fc.bigInt(),
-    gameMode: fc.constantFrom("survival", "creative", "adventure", "spectator")
+    gameMode: fc.constantFrom('survival', 'creative', 'adventure', 'spectator'),
   })
 
-  it("should preserve invariants across all valid world configurations", () =>
+  it('should preserve invariants across all valid world configurations', () =>
     fc.assert(
       fc.asyncProperty(worldGen, async (config) => {
         const result = await Effect.gen(function* () {
-          const world = yield* WorldAggregateOperations.createWorld(
-            config.name,
-            {
-              seed: config.seed,
-              generationType: "default",
-              seaLevel: 64,
-              biomeSize: 1.0,
-              structureDensity: 0.5,
-              oreDensity: {},
-              customSettings: undefined
-            }
-          )
+          const world = yield* WorldAggregateOperations.createWorld(config.name, {
+            seed: config.seed,
+            generationType: 'default',
+            seaLevel: 64,
+            biomeSize: 1.0,
+            structureDensity: 0.5,
+            oreDensity: {},
+            customSettings: undefined,
+          })
 
           // 不変条件のチェック
           expect(world.name).toBe(config.name)
@@ -1915,8 +1867,7 @@ describe("World Data Structure Property Tests", () => {
 
         return result
       })
-    )
-  )
+    ))
 })
 ```
 
@@ -1924,19 +1875,19 @@ describe("World Data Structure Property Tests", () => {
 
 ```typescript
 // パフォーマンスベンチマーク
-describe("Performance Benchmarks", () => {
-  it("should meet chunk loading performance targets", async () => {
+describe('Performance Benchmarks', () => {
+  it('should meet chunk loading performance targets', async () => {
     const benchmark = await Effect.gen(function* () {
       const memoryPool = yield* makeChunkMemoryPool(200)
       const startTime = performance.now()
       const targetLoadTime = 50 // ms
 
       // 100チャンクの並列読み込み
-      const loadOperations = Range.make(0, 100).map(i =>
+      const loadOperations = Range.make(0, 100).map((i) =>
         pipe(
           memoryPool.acquire(),
-          Effect.tap(chunk => simulateChunkData(chunk, i)),
-          Effect.tap(chunk => memoryPool.release(chunk))
+          Effect.tap((chunk) => simulateChunkData(chunk, i)),
+          Effect.tap((chunk) => memoryPool.release(chunk))
         )
       )
 
@@ -1953,15 +1904,12 @@ describe("Performance Benchmarks", () => {
       expect(stats.memoryUsage).toBeLessThan(1024 * 1024 * 100) // 100MB上限
 
       return { averageTime, memoryUsage: stats.memoryUsage }
-    }).pipe(
-      Effect.provide(TestMemoryPool),
-      Effect.runPromise
-    )
+    }).pipe(Effect.provide(TestMemoryPool), Effect.runPromise)
 
     console.log(`Benchmark results: ${JSON.stringify(benchmark, null, 2)}`)
   })
 
-  it("should efficiently handle SoA operations", async () => {
+  it('should efficiently handle SoA operations', async () => {
     const benchmark = await Effect.gen(function* () {
       const soa = PerformanceOptimizations.SoAOperations.create(65536) // 16x16x256
       const startTime = performance.now()
@@ -1973,9 +1921,9 @@ describe("Performance Benchmarks", () => {
           modifiedSoA,
           i,
           Math.floor(Math.random() * 256), // ランダムブロックタイプ
-          Math.floor(Math.random() * 16),  // ランダム状態
-          Math.floor(Math.random() * 16),  // ランダム光レベル
-          Math.floor(Math.random() * 256)  // ランダムメタデータ
+          Math.floor(Math.random() * 16), // ランダム状態
+          Math.floor(Math.random() * 16), // ランダム光レベル
+          Math.floor(Math.random() * 256) // ランダムメタデータ
         )
       }
 

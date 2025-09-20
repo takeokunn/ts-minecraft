@@ -1,13 +1,12 @@
 ---
-title: "Effect-TS 高度な機能リファレンス"
-description: "Effect-TS 3.17+の高度な機能とAPIの詳細仕様"
-category: "reference"
-difficulty: "advanced"
-tags: ["effect-ts", "advanced", "api-reference", "concurrency", "streams"]
-prerequisites: ["effect-ts-patterns", "effect-ts-basics", "effect-ts-services"]
-estimated_reading_time: "30分"
+title: 'Effect-TS 高度な機能リファレンス'
+description: 'Effect-TS 3.17+の高度な機能とAPIの詳細仕様'
+category: 'reference'
+difficulty: 'advanced'
+tags: ['effect-ts', 'advanced', 'api-reference', 'concurrency', 'streams']
+prerequisites: ['effect-ts-patterns', 'effect-ts-basics', 'effect-ts-services']
+estimated_reading_time: '30分'
 ---
-
 
 # Effect-TS 高度な機能リファレンス
 
@@ -22,6 +21,7 @@ estimated_reading_time: "30分"
 > **📚 前提知識**: [Effect-TSパターン](./06-effect-ts-patterns.md) → [サービス設計](./06b-effect-ts-services.md)
 
 ### 📋 関連ドキュメント
+
 - **基本概念**: [Effect-TSパターン](./06-effect-ts-patterns.md)
 - **実装ガイド**: [Effect-TS実装パターン](./06a-effect-ts-basics.md)
 - **APIリファレンス**: [Effect-TS Effect API](../reference/effect-ts-effect-api.md)
@@ -33,7 +33,7 @@ estimated_reading_time: "30分"
 ### 1.1 Stream基本API
 
 ```typescript
-import { Stream, Effect, Chunk } from "effect"
+import { Stream, Effect, Chunk } from 'effect'
 
 interface StreamAPI {
   // ストリーム生成
@@ -43,7 +43,9 @@ interface StreamAPI {
 
   // 変換操作
   map: <A, B>(f: (a: A) => B) => <R, E>(stream: Stream.Stream<A, E, R>) => Stream.Stream<B, E, R>
-  flatMap: <A, R2, E2, B>(f: (a: A) => Stream.Stream<B, E2, R2>) => <R, E>(stream: Stream.Stream<A, E, R>) => Stream.Stream<B, E | E2, R | R2>
+  flatMap: <A, R2, E2, B>(
+    f: (a: A) => Stream.Stream<B, E2, R2>
+  ) => <R, E>(stream: Stream.Stream<A, E, R>) => Stream.Stream<B, E | E2, R | R2>
   filter: <A>(predicate: (a: A) => boolean) => <R, E>(stream: Stream.Stream<A, E, R>) => Stream.Stream<A, E, R>
 
   // 集約操作
@@ -70,7 +72,7 @@ const processChunksWithBackpressure = pipe(
   Stream.mapConcurrent(4, processChunk), // 並行処理数制限
   Stream.throttle({
     elements: 10,
-    duration: "1 second"
+    duration: '1 second',
   })
 )
 ```
@@ -80,7 +82,7 @@ const processChunksWithBackpressure = pipe(
 ### 2.1 Fiber管理API
 
 ```typescript
-import { Fiber, Effect } from "effect"
+import { Fiber, Effect } from 'effect'
 
 interface FiberAPI {
   // Fiber生成
@@ -103,12 +105,7 @@ const raceTimeout = <R, E, A>(
   effect: Effect.Effect<R, E, A>,
   timeout: Duration
 ): Effect.Effect<R, E | TimeoutError, A> =>
-  Effect.race(
-    effect,
-    Effect.sleep(timeout).pipe(
-      Effect.andThen(Effect.fail(new TimeoutError()))
-    )
-  )
+  Effect.race(effect, Effect.sleep(timeout).pipe(Effect.andThen(Effect.fail(new TimeoutError()))))
 
 // フォーク・ジョインパターン
 const parallelChunkGeneration = Effect.gen(function* () {
@@ -120,7 +117,7 @@ const parallelChunkGeneration = Effect.gen(function* () {
   const [terrain, structures, entities] = yield* Effect.all([
     Fiber.join(fiber1),
     Fiber.join(fiber2),
-    Fiber.join(fiber3)
+    Fiber.join(fiber3),
   ])
 
   return combineChunkData(terrain, structures, entities)
@@ -163,7 +160,7 @@ interface GameStateManager {
 ### 3.2 STM（Software Transactional Memory）
 
 ```typescript
-import { STM, TRef } from "effect"
+import { STM, TRef } from 'effect'
 
 // トランザクショナルなインベントリ操作
 const transferItems = (
@@ -197,7 +194,7 @@ const transferItems = (
 ### 4.1 Schedule API
 
 ```typescript
-import { Schedule, Effect } from "effect"
+import { Schedule, Effect } from 'effect'
 
 interface ScheduleAPI {
   // 基本スケジュール
@@ -211,8 +208,12 @@ interface ScheduleAPI {
   fibonacci: (one: Duration) => Schedule.Schedule<any, never>
 
   // 組み合わせ
-  intersect: <Env2, In2, Out2>(that: Schedule<Env2, In2, Out2>) => <Env, In, Out>(self: Schedule<Env, In, Out>) => Schedule<Env | Env2, In & In2, [Out, Out2]>
-  union: <Env2, In2, Out2>(that: Schedule<Env2, In2, Out2>) => <Env, In, Out>(self: Schedule<Env, In, Out>) => Schedule<Env | Env2, In & In2, [Out, Out2]>
+  intersect: <Env2, In2, Out2>(
+    that: Schedule<Env2, In2, Out2>
+  ) => <Env, In, Out>(self: Schedule<Env, In, Out>) => Schedule<Env | Env2, In & In2, [Out, Out2]>
+  union: <Env2, In2, Out2>(
+    that: Schedule<Env2, In2, Out2>
+  ) => <Env, In, Out>(self: Schedule<Env, In, Out>) => Schedule<Env | Env2, In & In2, [Out, Out2]>
 }
 ```
 
@@ -223,7 +224,8 @@ interface ScheduleAPI {
 const gameLoop = pipe(
   updateGameState,
   Effect.repeat(
-    Schedule.fixed("16 millis").pipe( // 60 FPS
+    Schedule.fixed('16 millis').pipe(
+      // 60 FPS
       Schedule.compose(Schedule.recurWhile(() => isGameRunning))
     )
   )
@@ -233,9 +235,9 @@ const gameLoop = pipe(
 const adaptiveChunkUpdate = pipe(
   updateNearbyChunks,
   Effect.repeat(
-    Schedule.exponential("100 millis").pipe(
+    Schedule.exponential('100 millis').pipe(
       Schedule.intersect(Schedule.recurs(5)), // 最大5回リトライ
-      Schedule.resetAfter("5 seconds") // 5秒後にリセット
+      Schedule.resetAfter('5 seconds') // 5秒後にリセット
     )
   )
 )
@@ -246,7 +248,7 @@ const adaptiveChunkUpdate = pipe(
 ### 5.1 Scope API
 
 ```typescript
-import { Scope, Effect } from "effect"
+import { Scope, Effect } from 'effect'
 
 // スコープ付きリソース管理
 const withConnection = <R, E, A>(
@@ -258,10 +260,7 @@ const withConnection = <R, E, A>(
     // 使用
     use,
     // 解放
-    (conn, exit) =>
-      Exit.isSuccess(exit)
-        ? conn.close()
-        : conn.rollback().pipe(Effect.andThen(conn.close()))
+    (conn, exit) => (Exit.isSuccess(exit) ? conn.close() : conn.rollback().pipe(Effect.andThen(conn.close())))
   )
 
 // マルチリソース管理
@@ -307,7 +306,7 @@ interface EventQueueSystem {
 ### 6.2 PubSubパターン
 
 ```typescript
-import { PubSub, Effect } from "effect"
+import { PubSub, Effect } from 'effect'
 
 // マルチプレイヤーイベント配信
 const multiplayerEventSystem = Effect.gen(function* () {
@@ -328,7 +327,7 @@ const multiplayerEventSystem = Effect.gen(function* () {
 
   return {
     publish: (event: PlayerEvent) => PubSub.publish(pubsub, event),
-    subscribe: subscribePlayer
+    subscribe: subscribePlayer,
   }
 })
 ```

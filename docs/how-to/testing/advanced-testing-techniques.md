@@ -1,13 +1,14 @@
 ---
-title: "高度なテスト技法ガイド - Property-Based Testing、ビジュアルテスト、契約テストの実践"
-description: "Effect-TS 3.17+環境でのProperty-Based Testing、ビジュアルリグレッション、Contract Testing、ゴールデンファイルテストなど高度なテスト手法の包括的実装ガイド"
-category: "guide"
-difficulty: "advanced"
-tags: ["advanced-testing", "property-based-testing", "visual-testing", "contract-testing", "effect-ts", "security-testing"]
-prerequisites: ["comprehensive-testing-strategy", "effect-ts-fundamentals", "vitest-advanced"]
-estimated_reading_time: "30分"
-related_patterns: ["effect-ts-test-patterns", "optimization-patterns-latest"]
-related_docs: ["./comprehensive-testing-strategy.md", "../reference/troubleshooting/debugging-guide.md"]
+title: '高度なテスト技法ガイド - Property-Based Testing、ビジュアルテスト、契約テストの実践'
+description: 'Effect-TS 3.17+環境でのProperty-Based Testing、ビジュアルリグレッション、Contract Testing、ゴールデンファイルテストなど高度なテスト手法の包括的実装ガイド'
+category: 'guide'
+difficulty: 'advanced'
+tags:
+  ['advanced-testing', 'property-based-testing', 'visual-testing', 'contract-testing', 'effect-ts', 'security-testing']
+prerequisites: ['comprehensive-testing-strategy', 'effect-ts-fundamentals', 'vitest-advanced']
+estimated_reading_time: '30分'
+related_patterns: ['effect-ts-test-patterns', 'optimization-patterns-latest']
+related_docs: ['./comprehensive-testing-strategy.md', '../reference/troubleshooting/debugging-guide.md']
 ---
 
 # 高度なテスト技法ガイド - Property-Based Testing、ビジュアルテスト、契約テストの実践
@@ -15,6 +16,7 @@ related_docs: ["./comprehensive-testing-strategy.md", "../reference/troubleshoot
 ## 🎯 Quick Guide（10分で高度テスト技法理解）
 
 ### 高度テスト技法マップ
+
 ```mermaid
 mindmap
   root((高度テスト技法))
@@ -46,6 +48,7 @@ mindmap
 ```
 
 ### 緊急対応チェックリスト
+
 - [ ] **Property-Based実行**: `fc.assert(fc.property(...))`でエッジケース網羅
 - [ ] **ビジュアル検証**: `toMatchImageSnapshot()`で視覚的回帰確認
 - [ ] **契約テスト**: Schema検証でAPI/モジュール間整合性確認
@@ -59,6 +62,7 @@ mindmap
 Effect-TS 3.17+とDDDアーキテクチャを使用したTypeScript Minecraftプロジェクトでは、従来の単体・結合テストだけでは以下の課題をカバーできません。
 
 ### 主要課題
+
 1. **エッジケース網羅**: 手動テストケースでは発見困難な境界値・異常系
 2. **視覚的品質保証**: 3Dレンダリング・UI・エフェクトの視覚的回帰
 3. **モジュール間契約**: 複雑な依存関係での型安全性とバージョン互換性
@@ -70,6 +74,7 @@ Effect-TS 3.17+とDDDアーキテクチャを使用したTypeScript Minecraftプ
 ## 🔧 Solution Approach
 
 ### 1. 多層防御テスト戦略
+
 ```mermaid
 flowchart TD
     A[Property-Based Testing] --> B[エッジケース自動発見]
@@ -86,13 +91,14 @@ flowchart TD
 ```
 
 ### 2. 技法別適用領域
-| テスト技法 | 適用領域 | 検出内容 | 実行頻度 |
-|------------|----------|----------|----------|
-| **Property-Based** | ドメインロジック | 不変条件違反・エッジケース | 🔄 継続的 |
-| **ビジュアルテスト** | UI・レンダリング | 視覚的回帰・レイアウト崩れ | 📅 リリース前 |
-| **Contract Testing** | API・モジュール境界 | インターフェース変更・型不整合 | 🔄 継続的 |
-| **ゴールデンファイル** | 構造出力 | データ形式変更・処理結果変化 | 📅 機能変更時 |
-| **セキュリティテスト** | 入力・認証 | 脆弱性・権限昇格・攻撃耐性 | 🔒 定期的 |
+
+| テスト技法             | 適用領域            | 検出内容                       | 実行頻度      |
+| ---------------------- | ------------------- | ------------------------------ | ------------- |
+| **Property-Based**     | ドメインロジック    | 不変条件違反・エッジケース     | 🔄 継続的     |
+| **ビジュアルテスト**   | UI・レンダリング    | 視覚的回帰・レイアウト崩れ     | 📅 リリース前 |
+| **Contract Testing**   | API・モジュール境界 | インターフェース変更・型不整合 | 🔄 継続的     |
+| **ゴールデンファイル** | 構造出力            | データ形式変更・処理結果変化   | 📅 機能変更時 |
+| **セキュリティテスト** | 入力・認証          | 脆弱性・権限昇格・攻撃耐性     | 🔒 定期的     |
 
 ---
 
@@ -101,6 +107,7 @@ flowchart TD
 ### Phase 1: Property-Based Testing Mastery
 
 #### 1.1 Advanced Schema-Driven Generation
+
 ```typescript
 import * as fc from 'fast-check'
 import { Schema } from '@effect/schema'
@@ -110,35 +117,35 @@ import { Effect, pipe } from 'effect'
 const WorldCoordinateSchema = Schema.Struct({
   x: Schema.Number.pipe(Schema.int(), Schema.between(-30000000, 30000000)),
   y: Schema.Number.pipe(Schema.int(), Schema.between(-64, 320)),
-  z: Schema.Number.pipe(Schema.int(), Schema.between(-30000000, 30000000))
+  z: Schema.Number.pipe(Schema.int(), Schema.between(-30000000, 30000000)),
 })
 
 const PlayerActionSchema = Schema.Union(
   Schema.Struct({
-    _tag: Schema.Literal("Move"),
+    _tag: Schema.Literal('Move'),
     playerId: Schema.String.pipe(Schema.uuid()),
     from: WorldCoordinateSchema,
     to: WorldCoordinateSchema,
-    timestamp: Schema.Number.pipe(Schema.positive())
+    timestamp: Schema.Number.pipe(Schema.positive()),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("PlaceBlock"),
+    _tag: Schema.Literal('PlaceBlock'),
     playerId: Schema.String.pipe(Schema.uuid()),
     position: WorldCoordinateSchema,
     blockType: Schema.Union(
-      Schema.Literal("Stone"),
-      Schema.Literal("Wood"),
-      Schema.Literal("Iron"),
-      Schema.Literal("Diamond")
+      Schema.Literal('Stone'),
+      Schema.Literal('Wood'),
+      Schema.Literal('Iron'),
+      Schema.Literal('Diamond')
     ),
-    timestamp: Schema.Number.pipe(Schema.positive())
+    timestamp: Schema.Number.pipe(Schema.positive()),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("BreakBlock"),
+    _tag: Schema.Literal('BreakBlock'),
     playerId: Schema.String.pipe(Schema.uuid()),
     position: WorldCoordinateSchema,
     tool: Schema.optional(Schema.String),
-    timestamp: Schema.Number.pipe(Schema.positive())
+    timestamp: Schema.Number.pipe(Schema.positive()),
   })
 )
 
@@ -146,30 +153,30 @@ const PlayerActionSchema = Schema.Union(
 const worldCoordinateArbitrary = fc.record({
   x: fc.integer({ min: -30000000, max: 30000000 }),
   y: fc.integer({ min: -64, max: 320 }),
-  z: fc.integer({ min: -30000000, max: 30000000 })
+  z: fc.integer({ min: -30000000, max: 30000000 }),
 })
 
 const playerActionArbitrary = fc.oneof(
   fc.record({
-    _tag: fc.constant("Move" as const),
+    _tag: fc.constant('Move' as const),
     playerId: fc.uuid(),
     from: worldCoordinateArbitrary,
     to: worldCoordinateArbitrary,
-    timestamp: fc.integer({ min: 1, max: Date.now() })
+    timestamp: fc.integer({ min: 1, max: Date.now() }),
   }),
   fc.record({
-    _tag: fc.constant("PlaceBlock" as const),
+    _tag: fc.constant('PlaceBlock' as const),
     playerId: fc.uuid(),
     position: worldCoordinateArbitrary,
-    blockType: fc.constantFrom("Stone", "Wood", "Iron", "Diamond"),
-    timestamp: fc.integer({ min: 1, max: Date.now() })
+    blockType: fc.constantFrom('Stone', 'Wood', 'Iron', 'Diamond'),
+    timestamp: fc.integer({ min: 1, max: Date.now() }),
   }),
   fc.record({
-    _tag: fc.constant("BreakBlock" as const),
+    _tag: fc.constant('BreakBlock' as const),
     playerId: fc.uuid(),
     position: worldCoordinateArbitrary,
     tool: fc.option(fc.string()),
-    timestamp: fc.integer({ min: 1, max: Date.now() })
+    timestamp: fc.integer({ min: 1, max: Date.now() }),
   })
 )
 
@@ -177,55 +184,52 @@ describe('Advanced Property-Based World System Tests', () => {
   describe('World State Invariants', () => {
     it('任意のアクション実行後もワールドの整合性が保たれる', () => {
       fc.assert(
-        fc.property(
-          fc.array(playerActionArbitrary, { minLength: 1, maxLength: 100 }),
-          (actions) => {
-            const world = new WorldState()
+        fc.property(fc.array(playerActionArbitrary, { minLength: 1, maxLength: 100 }), (actions) => {
+          const world = new WorldState()
 
-            // 各アクションが有効であることを事前確認
-            actions.forEach(action => {
-              const validationResult = Schema.decodeUnknownSync(PlayerActionSchema)(action)
-              expect(validationResult).toBeDefined()
-            })
+          // 各アクションが有効であることを事前確認
+          actions.forEach((action) => {
+            const validationResult = Schema.decodeUnknownSync(PlayerActionSchema)(action)
+            expect(validationResult).toBeDefined()
+          })
 
-            // アクション実行
-            actions.forEach(action => world.processAction(action))
+          // アクション実行
+          actions.forEach((action) => world.processAction(action))
 
-            // 不変条件の検証
+          // 不変条件の検証
 
-            // 1. チャンク境界の一貫性
-            const loadedChunks = world.getLoadedChunks()
-            loadedChunks.forEach(chunk => {
-              expect(chunk.coordinate.x).toBeGreaterThanOrEqual(-1875000) // -30M / 16
-              expect(chunk.coordinate.x).toBeLessThanOrEqual(1875000)     // 30M / 16
-              expect(chunk.coordinate.z).toBeGreaterThanOrEqual(-1875000)
-              expect(chunk.coordinate.z).toBeLessThanOrEqual(1875000)
-            })
+          // 1. チャンク境界の一貫性
+          const loadedChunks = world.getLoadedChunks()
+          loadedChunks.forEach((chunk) => {
+            expect(chunk.coordinate.x).toBeGreaterThanOrEqual(-1875000) // -30M / 16
+            expect(chunk.coordinate.x).toBeLessThanOrEqual(1875000) // 30M / 16
+            expect(chunk.coordinate.z).toBeGreaterThanOrEqual(-1875000)
+            expect(chunk.coordinate.z).toBeLessThanOrEqual(1875000)
+          })
 
-            // 2. ブロック配置の整合性
-            const allBlocks = world.getAllBlocks()
-            allBlocks.forEach(block => {
-              const chunkCoord = world.getChunkCoordinateFor(block.position)
-              expect(world.isChunkLoaded(chunkCoord)).toBe(true)
-            })
+          // 2. ブロック配置の整合性
+          const allBlocks = world.getAllBlocks()
+          allBlocks.forEach((block) => {
+            const chunkCoord = world.getChunkCoordinateFor(block.position)
+            expect(world.isChunkLoaded(chunkCoord)).toBe(true)
+          })
 
-            // 3. プレイヤー位置の妥当性
-            const players = world.getAllPlayers()
-            players.forEach(player => {
-              expect(player.position.y).toBeGreaterThanOrEqual(-64)
-              expect(player.position.y).toBeLessThanOrEqual(320)
-            })
+          // 3. プレイヤー位置の妥当性
+          const players = world.getAllPlayers()
+          players.forEach((player) => {
+            expect(player.position.y).toBeGreaterThanOrEqual(-64)
+            expect(player.position.y).toBeLessThanOrEqual(320)
+          })
 
-            // 4. エンティティIDの一意性
-            const entities = world.getAllEntities()
-            const entityIds = entities.map(e => e.id)
-            expect(new Set(entityIds).size).toBe(entityIds.length)
-          }
-        ),
+          // 4. エンティティIDの一意性
+          const entities = world.getAllEntities()
+          const entityIds = entities.map((e) => e.id)
+          expect(new Set(entityIds).size).toBe(entityIds.length)
+        }),
         {
           numRuns: 500,
           verbose: true,
-          endOnFailure: true
+          endOnFailure: true,
         }
       )
     })
@@ -234,7 +238,7 @@ describe('Advanced Property-Based World System Tests', () => {
       fc.assert(
         fc.property(
           worldCoordinateArbitrary,
-          fc.constantFrom("Stone", "Wood", "Iron", "Diamond"),
+          fc.constantFrom('Stone', 'Wood', 'Iron', 'Diamond'),
           (position, blockType) => {
             const world = new WorldState()
             const originalBlock = world.getBlock(position)
@@ -259,15 +263,15 @@ describe('Advanced Property-Based World System Tests', () => {
 
   describe('Physics Simulation Properties', () => {
     const physicsEntityArbitrary = fc.record({
-      position: worldCoordinateArbitrary.map(pos => ({ ...pos, y: Math.max(pos.y, 0) })),
+      position: worldCoordinateArbitrary.map((pos) => ({ ...pos, y: Math.max(pos.y, 0) })),
       velocity: fc.record({
         x: fc.float({ min: -100, max: 100, noNaN: true }),
         y: fc.float({ min: -100, max: 100, noNaN: true }),
-        z: fc.float({ min: -100, max: 100, noNaN: true })
+        z: fc.float({ min: -100, max: 100, noNaN: true }),
       }),
       mass: fc.float({ min: 0.1, max: 1000, noNaN: true }),
       friction: fc.float({ min: 0, max: 1, noNaN: true }),
-      bounciness: fc.float({ min: 0, max: 1, noNaN: true })
+      bounciness: fc.float({ min: 0, max: 1, noNaN: true }),
     })
 
     it('物理法則の保存則検証', () => {
@@ -277,49 +281,53 @@ describe('Advanced Property-Based World System Tests', () => {
           fc.float({ min: 0.001, max: 0.1, noNaN: true }), // deltaTime
           (entities, deltaTime) => {
             const physicsWorld = new PhysicsWorld()
-            entities.forEach(e => physicsWorld.addEntity(e))
+            entities.forEach((e) => physicsWorld.addEntity(e))
 
             // 初期運動量の計算
-            const initialMomentum = entities.reduce((total, entity) => ({
-              x: total.x + entity.mass * entity.velocity.x,
-              y: total.y + entity.mass * entity.velocity.y,
-              z: total.z + entity.mass * entity.velocity.z
-            }), { x: 0, y: 0, z: 0 })
+            const initialMomentum = entities.reduce(
+              (total, entity) => ({
+                x: total.x + entity.mass * entity.velocity.x,
+                y: total.y + entity.mass * entity.velocity.y,
+                z: total.z + entity.mass * entity.velocity.z,
+              }),
+              { x: 0, y: 0, z: 0 }
+            )
 
-            const initialKineticEnergy = entities.reduce((total, entity) =>
-              total + 0.5 * entity.mass * (
-                entity.velocity.x ** 2 +
-                entity.velocity.y ** 2 +
-                entity.velocity.z ** 2
-              ), 0)
+            const initialKineticEnergy = entities.reduce(
+              (total, entity) =>
+                total + 0.5 * entity.mass * (entity.velocity.x ** 2 + entity.velocity.y ** 2 + entity.velocity.z ** 2),
+              0
+            )
 
             // 物理シミュレーション実行
             physicsWorld.simulate(deltaTime)
 
             // シミュレーション後の運動量
             const finalEntities = physicsWorld.getAllEntities()
-            const finalMomentum = finalEntities.reduce((total, entity) => ({
-              x: total.x + entity.mass * entity.velocity.x,
-              y: total.y + entity.mass * entity.velocity.y,
-              z: total.z + entity.mass * entity.velocity.z
-            }), { x: 0, y: 0, z: 0 })
+            const finalMomentum = finalEntities.reduce(
+              (total, entity) => ({
+                x: total.x + entity.mass * entity.velocity.x,
+                y: total.y + entity.mass * entity.velocity.y,
+                z: total.z + entity.mass * entity.velocity.z,
+              }),
+              { x: 0, y: 0, z: 0 }
+            )
 
             // 運動量保存の確認（重力を除くX, Z成分）
             expect(finalMomentum.x).toBeCloseTo(initialMomentum.x, 3)
             expect(finalMomentum.z).toBeCloseTo(initialMomentum.z, 3)
 
             // エネルギー散逸の確認（摩擦により減少するはず）
-            const finalKineticEnergy = finalEntities.reduce((total, entity) =>
-              total + 0.5 * entity.mass * (
-                entity.velocity.x ** 2 +
-                entity.velocity.y ** 2 +
-                entity.velocity.z ** 2
-              ), 0)
+            const finalKineticEnergy = finalEntities.reduce(
+              (total, entity) =>
+                total + 0.5 * entity.mass * (entity.velocity.x ** 2 + entity.velocity.y ** 2 + entity.velocity.z ** 2),
+              0
+            )
 
             expect(finalKineticEnergy).toBeLessThanOrEqual(initialKineticEnergy + 0.001)
 
             // 位置の妥当性確認
-            finalEntities.forEach(entity => {
+            finalEntities.forEach((entity) => {
               expect(entity.position.y).toBeGreaterThanOrEqual(-64)
               expect(Number.isFinite(entity.position.x)).toBe(true)
               expect(Number.isFinite(entity.position.y)).toBe(true)
@@ -339,7 +347,7 @@ describe('Advanced Property-Based World System Tests', () => {
           fc.array(
             fc.record({
               playerId: fc.uuid(),
-              actions: fc.array(playerActionArbitrary, { maxLength: 20 })
+              actions: fc.array(playerActionArbitrary, { maxLength: 20 }),
             }),
             { minLength: 2, maxLength: 5 }
           ),
@@ -348,23 +356,23 @@ describe('Advanced Property-Based World System Tests', () => {
             const masterWorld = new WorldState()
             const playerWorlds = new Map<string, WorldState>()
 
-            playerScenarios.forEach(scenario => {
+            playerScenarios.forEach((scenario) => {
               playerWorlds.set(scenario.playerId, new WorldState())
             })
 
             // 全アクションを時系列順にソート
             const allActions = playerScenarios
-              .flatMap(s => s.actions.map(a => ({ ...a, playerId: s.playerId })))
+              .flatMap((s) => s.actions.map((a) => ({ ...a, playerId: s.playerId })))
               .sort((a, b) => a.timestamp - b.timestamp)
 
             // マスターワールドで全アクションを実行
-            allActions.forEach(action => {
+            allActions.forEach((action) => {
               masterWorld.processAction(action)
             })
 
             // 各プレイヤーワールドでも同じアクションを実行
-            allActions.forEach(action => {
-              playerWorlds.forEach(world => {
+            allActions.forEach((action) => {
+              playerWorlds.forEach((world) => {
                 world.processAction(action)
               })
             })
@@ -376,7 +384,7 @@ describe('Advanced Property-Based World System Tests', () => {
 
               expect(playerBlocks.length).toBe(masterBlocks.length)
 
-              masterBlocks.forEach(masterBlock => {
+              masterBlocks.forEach((masterBlock) => {
                 const playerBlock = playerWorld.getBlock(masterBlock.position)
                 expect(playerBlock.type).toBe(masterBlock.type)
                 expect(playerBlock.metadata).toEqual(masterBlock.metadata)
@@ -392,28 +400,25 @@ describe('Advanced Property-Based World System Tests', () => {
 ```
 
 #### 1.2 Property-Based Performance Testing
+
 ```typescript
 describe('Property-Based Performance Tests', () => {
   it('チャンクロード性能のスケーラビリティ特性', () => {
     fc.assert(
       fc.property(
         fc.integer({ min: 1, max: 100 }), // チャンク数
-        fc.integer({ min: 1, max: 4 }),   // 並行度
+        fc.integer({ min: 1, max: 4 }), // 並行度
         async (chunkCount, concurrency) => {
           const world = new WorldState()
           const chunkCoords = Array.from({ length: chunkCount }, (_, i) => ({
             x: Math.floor(i / 10),
-            z: i % 10
+            z: i % 10,
           }))
 
           const startTime = performance.now()
 
           // 並行でチャンクロード
-          const chunks = await Promise.all(
-            chunkCoords.map(coord =>
-              world.loadChunk(coord, { concurrency })
-            )
-          )
+          const chunks = await Promise.all(chunkCoords.map((coord) => world.loadChunk(coord, { concurrency })))
 
           const endTime = performance.now()
           const duration = endTime - startTime
@@ -421,12 +426,12 @@ describe('Property-Based Performance Tests', () => {
           // 性能特性の検証
 
           // 1. 線形スケーラビリティ（理想的には）
-          const expectedMaxTime = chunkCount * 50 / concurrency // 50ms per chunk base
+          const expectedMaxTime = (chunkCount * 50) / concurrency // 50ms per chunk base
           expect(duration).toBeLessThan(expectedMaxTime * 2) // 2倍以内の許容
 
           // 2. 全チャンクが正常にロードされた
           expect(chunks).toHaveLength(chunkCount)
-          chunks.forEach(chunk => {
+          chunks.forEach((chunk) => {
             expect(chunk.isLoaded()).toBe(true)
             expect(chunk.blocks.length).toBeGreaterThan(0)
           })
@@ -441,7 +446,7 @@ describe('Property-Based Performance Tests', () => {
       ),
       {
         numRuns: 20,
-        timeout: 30000 // 30秒タイムアウト
+        timeout: 30000, // 30秒タイムアウト
       }
     )
   })
@@ -454,19 +459,21 @@ describe('Property-Based Performance Tests', () => {
           const world = new WorldState()
 
           // ランダム分布でエンティティ配置
-          const entities = Array.from({ length: entityCount }, (_, i) =>
-            new Entity({
-              id: `entity-${i}`,
-              position: {
-                x: Math.random() * 1000,
-                y: Math.random() * 100,
-                z: Math.random() * 1000
-              },
-              type: 'mob'
-            })
+          const entities = Array.from(
+            { length: entityCount },
+            (_, i) =>
+              new Entity({
+                id: `entity-${i}`,
+                position: {
+                  x: Math.random() * 1000,
+                  y: Math.random() * 100,
+                  z: Math.random() * 1000,
+                },
+                type: 'mob',
+              })
           )
 
-          entities.forEach(e => world.addEntity(e))
+          entities.forEach((e) => world.addEntity(e))
 
           const startTime = performance.now()
 
@@ -504,6 +511,7 @@ describe('Property-Based Performance Tests', () => {
 ### Phase 2: Visual Regression Testing
 
 #### 2.1 3D Rendering Visual Tests
+
 ```typescript
 import { test, expect } from '@playwright/test'
 import { compareImages } from './test-utils/image-comparison'
@@ -533,7 +541,7 @@ describe('3D Rendering Visual Tests', () => {
         timeOfDay: 'noon',
         weather: 'clear',
         cameraPosition: { x: 0, y: 100, z: 0 },
-        cameraTarget: { x: 0, y: 0, z: 0 }
+        cameraTarget: { x: 0, y: 0, z: 0 },
       })
     })
 
@@ -544,13 +552,13 @@ describe('3D Rendering Visual Tests', () => {
     const canvas = page.locator('canvas#game-viewport')
     const screenshot = await canvas.screenshot({
       type: 'png',
-      animations: 'disabled' // アニメーション無効化
+      animations: 'disabled', // アニメーション無効化
     })
 
     // ベースライン画像との比較
     expect(screenshot).toMatchSnapshot('terrain-flat-plains-noon.png', {
       threshold: 0.05, // 5%の差異まで許容
-      maxDiffPixels: 1000 // 最大1000ピクセルの差異
+      maxDiffPixels: 1000, // 最大1000ピクセルの差異
     })
   })
 
@@ -562,14 +570,14 @@ describe('3D Rendering Visual Tests', () => {
             type: 'castle',
             position: { x: 0, y: 0, z: 0 },
             rotation: 0,
-            materials: ['stone', 'wood', 'iron']
-          }
+            materials: ['stone', 'wood', 'iron'],
+          },
         ],
         lighting: {
           sun: { intensity: 1.0, position: [100, 100, 100] },
-          ambient: { intensity: 0.3 }
+          ambient: { intensity: 0.3 },
         },
-        cameraPosition: { x: 50, y: 30, z: 50 }
+        cameraPosition: { x: 50, y: 30, z: 50 },
       })
     })
 
@@ -579,7 +587,7 @@ describe('3D Rendering Visual Tests', () => {
     const angles = [
       { x: 50, y: 30, z: 50, name: 'front-view' },
       { x: -50, y: 30, z: 50, name: 'side-view' },
-      { x: 0, y: 60, z: 0, name: 'top-view' }
+      { x: 0, y: 60, z: 0, name: 'top-view' },
     ]
 
     for (const angle of angles) {
@@ -592,7 +600,7 @@ describe('3D Rendering Visual Tests', () => {
 
       const screenshot = await page.locator('canvas#game-viewport').screenshot()
       expect(screenshot).toMatchSnapshot(`castle-${angle.name}.png`, {
-        threshold: 0.08 // 複雑構造は少し緩い閾値
+        threshold: 0.08, // 複雑構造は少し緩い閾値
       })
     }
   })
@@ -604,7 +612,7 @@ describe('3D Rendering Visual Tests', () => {
         type: 'explosion',
         position: { x: 0, y: 10, z: 0 },
         particleCount: 100,
-        seed: 42 // 固定シード
+        seed: 42, // 固定シード
       })
     })
 
@@ -628,7 +636,7 @@ describe('3D Rendering Visual Tests', () => {
 
     // フレーム間の変化量検証
     for (let i = 1; i < frames.length; i++) {
-      const diff = await compareImages(frames[i-1], frames[i])
+      const diff = await compareImages(frames[i - 1], frames[i])
       expect(diff.differencePercentage).toBeGreaterThan(5) // 5%以上変化
       expect(diff.differencePercentage).toBeLessThan(50) // 50%未満変化
     }
@@ -637,6 +645,7 @@ describe('3D Rendering Visual Tests', () => {
 ```
 
 #### 2.2 Shader Visual Validation
+
 ```typescript
 describe('Shader Visual Validation Tests', () => {
   let renderer: THREE.WebGLRenderer
@@ -649,7 +658,7 @@ describe('Shader Visual Validation Tests', () => {
     renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: false, // 一貫性のためアンチエイリアス無効
-      preserveDrawingBuffer: true
+      preserveDrawingBuffer: true,
     })
 
     scene = new THREE.Scene()
@@ -663,7 +672,7 @@ describe('Shader Visual Validation Tests', () => {
       time: 0,
       waveAmplitude: 0.5,
       waveFrequency: 2.0,
-      waveSpeed: 1.0
+      waveSpeed: 1.0,
     })
 
     const waterMesh = new THREE.Mesh(waterGeometry, waterShader.material)
@@ -685,7 +694,7 @@ describe('Shader Visual Validation Tests', () => {
       expect(imageData).toMatchImageSnapshot(`water-shader-t${time}.png`, {
         customSnapshotIdentifier: `water-shader-time-${time}`,
         failureThresholdType: 'percent',
-        failureThreshold: 0.1
+        failureThreshold: 0.1,
       })
     }
 
@@ -710,21 +719,16 @@ describe('Shader Visual Validation Tests', () => {
       { x: 1, y: 1, z: 1, name: 'top-right' },
       { x: -1, y: 1, z: 1, name: 'top-left' },
       { x: 0, y: -1, z: 1, name: 'bottom' },
-      { x: 0, y: 0, z: -1, name: 'back' }
+      { x: 0, y: 0, z: -1, name: 'back' },
     ]
 
     for (const lightDir of lightDirections) {
-      lightingShader.uniforms.lightDirection.value = new THREE.Vector3(
-        lightDir.x, lightDir.y, lightDir.z
-      ).normalize()
+      lightingShader.uniforms.lightDirection.value = new THREE.Vector3(lightDir.x, lightDir.y, lightDir.z).normalize()
 
       renderer.render(scene, camera)
       const imageData = await getImageDataFromRenderer(renderer)
 
-      expect(imageData).toMatchImageSnapshot(
-        `lighting-${lightDir.name}.png`,
-        { threshold: 0.05 }
-      )
+      expect(imageData).toMatchImageSnapshot(`lighting-${lightDir.name}.png`, { threshold: 0.05 })
 
       // 明暗の方向性確認（光源方向の面が明るいはず）
       const brightness = analyzeBrightnessByRegion(imageData)
@@ -800,11 +804,10 @@ function compareImageData(imageData1: ImageData, imageData2: ImageData): { perce
     const b2 = imageData2.data[i + 2]
     const a2 = imageData2.data[i + 3]
 
-    const colorDistance = Math.sqrt(
-      (r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2 + (a1 - a2) ** 2
-    )
+    const colorDistance = Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2 + (a1 - a2) ** 2)
 
-    if (colorDistance > 30) { // 閾値
+    if (colorDistance > 30) {
+      // 閾値
       diffPixels++
     }
   }
@@ -816,6 +819,7 @@ function compareImageData(imageData1: ImageData, imageData2: ImageData): { perce
 ### Phase 3: Contract Testing Excellence
 
 #### 3.1 API Contract Verification
+
 ```typescript
 import { Schema } from '@effect/schema'
 import { Effect, Context, Layer } from 'effect'
@@ -825,12 +829,8 @@ const GameAPIContract = {
   player: {
     create: {
       request: Schema.Struct({
-        name: Schema.String.pipe(
-          Schema.minLength(3),
-          Schema.maxLength(20),
-          Schema.pattern(/^[a-zA-Z0-9_]+$/)
-        ),
-        initialPosition: Schema.optional(WorldCoordinateSchema)
+        name: Schema.String.pipe(Schema.minLength(3), Schema.maxLength(20), Schema.pattern(/^[a-zA-Z0-9_]+$/)),
+        initialPosition: Schema.optional(WorldCoordinateSchema),
       }),
       response: Schema.Struct({
         id: Schema.String.pipe(Schema.uuid()),
@@ -838,19 +838,19 @@ const GameAPIContract = {
         position: WorldCoordinateSchema,
         health: Schema.Number.pipe(Schema.between(0, 100)),
         level: Schema.Number.pipe(Schema.int(), Schema.positive()),
-        createdAt: Schema.String.pipe(Schema.datetime())
+        createdAt: Schema.String.pipe(Schema.datetime()),
       }),
       errors: Schema.Union(
         Schema.Struct({
-          _tag: Schema.Literal("ValidationError"),
+          _tag: Schema.Literal('ValidationError'),
           field: Schema.String,
-          message: Schema.String
+          message: Schema.String,
         }),
         Schema.Struct({
-          _tag: Schema.Literal("PlayerNameTakenError"),
-          name: Schema.String
+          _tag: Schema.Literal('PlayerNameTakenError'),
+          name: Schema.String,
         })
-      )
+      ),
     },
 
     update: {
@@ -858,28 +858,28 @@ const GameAPIContract = {
         playerId: Schema.String.pipe(Schema.uuid()),
         updates: Schema.Struct({
           position: Schema.optional(WorldCoordinateSchema),
-          health: Schema.optional(Schema.Number.pipe(Schema.between(0, 100)))
-        })
+          health: Schema.optional(Schema.Number.pipe(Schema.between(0, 100))),
+        }),
       }),
       response: Schema.Struct({
         id: Schema.String.pipe(Schema.uuid()),
         name: Schema.String,
         position: WorldCoordinateSchema,
         health: Schema.Number.pipe(Schema.between(0, 100)),
-        updatedAt: Schema.String.pipe(Schema.datetime())
+        updatedAt: Schema.String.pipe(Schema.datetime()),
       }),
       errors: Schema.Union(
         Schema.Struct({
-          _tag: Schema.Literal("PlayerNotFoundError"),
-          playerId: Schema.String
+          _tag: Schema.Literal('PlayerNotFoundError'),
+          playerId: Schema.String,
         }),
         Schema.Struct({
-          _tag: Schema.Literal("InvalidPositionError"),
+          _tag: Schema.Literal('InvalidPositionError'),
           position: WorldCoordinateSchema,
-          reason: Schema.String
+          reason: Schema.String,
         })
-      )
-    }
+      ),
+    },
   },
 
   world: {
@@ -887,26 +887,26 @@ const GameAPIContract = {
       request: Schema.Struct({
         coordinate: Schema.Struct({
           x: Schema.Number.pipe(Schema.int()),
-          z: Schema.Number.pipe(Schema.int())
-        })
+          z: Schema.Number.pipe(Schema.int()),
+        }),
       }),
       response: Schema.Struct({
         coordinate: Schema.Struct({
           x: Schema.Number.pipe(Schema.int()),
-          z: Schema.Number.pipe(Schema.int())
+          z: Schema.Number.pipe(Schema.int()),
         }),
         blocks: Schema.Array(
           Schema.Struct({
             position: WorldCoordinateSchema,
             type: BlockTypeSchema,
-            metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+            metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
           })
         ),
         entities: Schema.Array(EntitySchema),
-        lastModified: Schema.String.pipe(Schema.datetime())
-      })
-    }
-  }
+        lastModified: Schema.String.pipe(Schema.datetime()),
+      }),
+    },
+  },
 }
 
 describe('API Contract Tests', () => {
@@ -914,93 +914,82 @@ describe('API Contract Tests', () => {
     it('プレイヤー作成APIの完全契約検証', async () => {
       // モックサーバー実装（契約準拠）
       const mockPlayerService: PlayerAPIService = {
-        create: (request) => Effect.gen(function* () {
-          // リクエスト検証
-          const validatedRequest = yield* Schema.decodeUnknownEither(
-            GameAPIContract.player.create.request
-          )(request).pipe(
-            Effect.mapError(error => ({
-              _tag: "ValidationError" as const,
-              field: error.path?.toString() || "unknown",
-              message: error.message
-            }))
-          )
+        create: (request) =>
+          Effect.gen(function* () {
+            // リクエスト検証
+            const validatedRequest = yield* Schema.decodeUnknownEither(GameAPIContract.player.create.request)(
+              request
+            ).pipe(
+              Effect.mapError((error) => ({
+                _tag: 'ValidationError' as const,
+                field: error.path?.toString() || 'unknown',
+                message: error.message,
+              }))
+            )
 
-          // ビジネスロジック
-          const existingPlayer = yield* checkPlayerNameExists(validatedRequest.name)
-          if (existingPlayer) {
-            return yield* Effect.fail({
-              _tag: "PlayerNameTakenError" as const,
-              name: validatedRequest.name
-            })
-          }
+            // ビジネスロジック
+            const existingPlayer = yield* checkPlayerNameExists(validatedRequest.name)
+            if (existingPlayer) {
+              return yield* Effect.fail({
+                _tag: 'PlayerNameTakenError' as const,
+                name: validatedRequest.name,
+              })
+            }
 
-          const newPlayer = {
-            id: generateUUID(),
-            name: validatedRequest.name,
-            position: validatedRequest.initialPosition || { x: 0, y: 64, z: 0 },
-            health: 100,
-            level: 1,
-            createdAt: new Date().toISOString()
-          }
+            const newPlayer = {
+              id: generateUUID(),
+              name: validatedRequest.name,
+              position: validatedRequest.initialPosition || { x: 0, y: 64, z: 0 },
+              health: 100,
+              level: 1,
+              createdAt: new Date().toISOString(),
+            }
 
-          // レスポンス検証
-          return yield* Schema.decodeUnknownEither(
-            GameAPIContract.player.create.response
-          )(newPlayer).pipe(
-            Effect.mapError(() => new InternalServerError("Response validation failed"))
-          )
-        })
+            // レスポンス検証
+            return yield* Schema.decodeUnknownEither(GameAPIContract.player.create.response)(newPlayer).pipe(
+              Effect.mapError(() => new InternalServerError('Response validation failed'))
+            )
+          }),
       }
 
       // クライアント実装（契約準拠）
       const clientPlayerService = {
-        create: async (playerData: { name: string, initialPosition?: Position }) => {
+        create: async (playerData: { name: string; initialPosition?: Position }) => {
           // リクエスト準拠性確認
-          const validatedRequest = Schema.decodeUnknownSync(
-            GameAPIContract.player.create.request
-          )(playerData)
+          const validatedRequest = Schema.decodeUnknownSync(GameAPIContract.player.create.request)(playerData)
 
-          const result = await Effect.runPromise(
-            mockPlayerService.create(validatedRequest).pipe(
-              Effect.either
-            )
-          )
+          const result = await Effect.runPromise(mockPlayerService.create(validatedRequest).pipe(Effect.either))
 
           if (Either.isLeft(result)) {
             // エラーレスポンス検証
-            const validatedError = Schema.decodeUnknownSync(
-              GameAPIContract.player.create.errors
-            )(result.left)
+            const validatedError = Schema.decodeUnknownSync(GameAPIContract.player.create.errors)(result.left)
             throw validatedError
           }
 
           // 成功レスポンス検証
-          return Schema.decodeUnknownSync(
-            GameAPIContract.player.create.response
-          )(result.right)
-        }
+          return Schema.decodeUnknownSync(GameAPIContract.player.create.response)(result.right)
+        },
       }
 
       // 契約テスト実行
       const testScenarios = [
         {
-          name: "valid player creation",
-          input: { name: "TestPlayer" },
-          expectSuccess: true
+          name: 'valid player creation',
+          input: { name: 'TestPlayer' },
+          expectSuccess: true,
         },
         {
-          name: "invalid name (too short)",
-          input: { name: "ab" },
+          name: 'invalid name (too short)',
+          input: { name: 'ab' },
           expectSuccess: false,
-          expectedError: "ValidationError"
+          expectedError: 'ValidationError',
         },
         {
-          name: "invalid name (special chars)",
-          input: { name: "test@player!" },
+          name: 'invalid name (special chars)',
+          input: { name: 'test@player!' },
           expectSuccess: false,
-          expectedError: "ValidationError"
-        }
+          expectedError: 'ValidationError',
+        },
       ]
 
       for (const scenario of testScenarios) {
@@ -1010,8 +999,9 @@ describe('API Contract Tests', () => {
           expect(player.health).toBe(100)
           expect(player.level).toBe(1)
         } else {
-          await expect(clientPlayerService.create(scenario.input))
-            .rejects.toMatchObject({ _tag: scenario.expectedError })
+          await expect(clientPlayerService.create(scenario.input)).rejects.toMatchObject({
+            _tag: scenario.expectedError,
+          })
         }
       }
     })
@@ -1023,8 +1013,8 @@ describe('API Contract Tests', () => {
           id: Schema.String,
           name: Schema.String,
           position: WorldCoordinateSchema,
-          health: Schema.Number
-        })
+          health: Schema.Number,
+        }),
       }
 
       // バージョン2.0 API（後方互換性あり）
@@ -1035,17 +1025,17 @@ describe('API Contract Tests', () => {
           position: WorldCoordinateSchema,
           health: Schema.Number,
           level: Schema.Number, // 新フィールド
-          experience: Schema.optional(Schema.Number) // オプションフィールド
-        })
+          experience: Schema.optional(Schema.Number), // オプションフィールド
+        }),
       }
 
       const v2Response = {
-        id: "123e4567-e89b-12d3-a456-426614174000",
-        name: "TestPlayer",
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        name: 'TestPlayer',
         position: { x: 0, y: 64, z: 0 },
         health: 100,
         level: 5,
-        experience: 1500
+        experience: 1500,
       }
 
       // v2レスポンスがv1契約も満たすことを確認
@@ -1069,28 +1059,32 @@ describe('API Contract Tests', () => {
         getBlockAt: (position: Position) => Effect.Effect<Block, BlockNotFoundError>
       }
 
-      const WorldService = Context.GenericTag<WorldServiceContract>("@app/WorldService")
+      const WorldService = Context.GenericTag<WorldServiceContract>('@app/WorldService')
 
       // ワールドサービスの実装
       const worldServiceImpl: WorldServiceContract = {
-        isPositionValid: (position) => Effect.succeed(
-          position.y >= -64 && position.y <= 320 &&
-          Math.abs(position.x) <= 30000000 &&
-          Math.abs(position.z) <= 30000000
-        ),
+        isPositionValid: (position) =>
+          Effect.succeed(
+            position.y >= -64 &&
+              position.y <= 320 &&
+              Math.abs(position.x) <= 30000000 &&
+              Math.abs(position.z) <= 30000000
+          ),
 
-        isPositionSafe: (position) => Effect.gen(function* () {
-          const block = yield* worldServiceImpl.getBlockAt(position)
-          return block.type !== 'lava' && block.type !== 'void'
-        }),
+        isPositionSafe: (position) =>
+          Effect.gen(function* () {
+            const block = yield* worldServiceImpl.getBlockAt(position)
+            return block.type !== 'lava' && block.type !== 'void'
+          }),
 
-        getBlockAt: (position) => Effect.gen(function* () {
-          const isValid = yield* worldServiceImpl.isPositionValid(position)
-          if (!isValid) {
-            return yield* Effect.fail(new BlockNotFoundError(position))
-          }
-          return new Block('air', position) // 簡単な実装
-        })
+        getBlockAt: (position) =>
+          Effect.gen(function* () {
+            const isValid = yield* worldServiceImpl.isPositionValid(position)
+            if (!isValid) {
+              return yield* Effect.fail(new BlockNotFoundError(position))
+            }
+            return new Block('air', position) // 簡単な実装
+          }),
       }
 
       const WorldServiceLive = Layer.succeed(WorldService, worldServiceImpl)
@@ -1102,12 +1096,12 @@ describe('API Contract Tests', () => {
 
           const isValid = yield* worldService.isPositionValid(newPosition)
           if (!isValid) {
-            return yield* Effect.fail(new InvalidPositionError(newPosition, "Out of bounds"))
+            return yield* Effect.fail(new InvalidPositionError(newPosition, 'Out of bounds'))
           }
 
           const isSafe = yield* worldService.isPositionSafe(newPosition)
           if (!isSafe) {
-            return yield* Effect.fail(new UnsafePositionError(newPosition, "Dangerous location"))
+            return yield* Effect.fail(new UnsafePositionError(newPosition, 'Dangerous location'))
           }
 
           // プレイヤー移動処理...
@@ -1118,26 +1112,23 @@ describe('API Contract Tests', () => {
       const testCases = [
         {
           position: { x: 0, y: 64, z: 0 },
-          expectedSuccess: true
+          expectedSuccess: true,
         },
         {
           position: { x: 0, y: -100, z: 0 }, // 範囲外
           expectedSuccess: false,
-          expectedError: "InvalidPositionError"
+          expectedError: 'InvalidPositionError',
         },
         {
           position: { x: 50000000, y: 64, z: 0 }, // 範囲外
           expectedSuccess: false,
-          expectedError: "InvalidPositionError"
-        }
+          expectedError: 'InvalidPositionError',
+        },
       ]
 
       for (const testCase of testCases) {
         const result = await Effect.runPromise(
-          movePlayerSafely("test-player", testCase.position).pipe(
-            Effect.either,
-            Effect.provide(WorldServiceLive)
-          )
+          movePlayerSafely('test-player', testCase.position).pipe(Effect.either, Effect.provide(WorldServiceLive))
         )
 
         if (testCase.expectedSuccess) {
@@ -1157,6 +1148,7 @@ describe('API Contract Tests', () => {
 ### Phase 4: Golden File Testing
 
 #### 4.1 Comprehensive Output Verification
+
 ```typescript
 describe('Golden File Tests', () => {
   const GOLDEN_DIR = path.join(__dirname, '../golden')
@@ -1172,7 +1164,7 @@ describe('Golden File Tests', () => {
         size: { width: 64, height: 64 },
         biomes: ['plains', 'forest', 'mountains'],
         structures: ['village', 'dungeon'],
-        generateOres: true
+        generateOres: true,
       }
 
       const world = await generateWorld(worldConfig)
@@ -1184,7 +1176,7 @@ describe('Golden File Tests', () => {
           seed: world.seed,
           size: world.size,
           generationAlgorithmVersion: world.algorithmVersion,
-          biomes: world.biomes.map(b => b.type).sort()
+          biomes: world.biomes.map((b) => b.type).sort(),
         },
 
         // 地形の高さマップ（サンプリング）
@@ -1194,14 +1186,14 @@ describe('Golden File Tests', () => {
         biomeDistribution: analyzeBiomeDistribution(world),
 
         // 構造物の配置
-        structures: world.structures.map(s => ({
-          type: s.type,
-          position: s.position,
-          size: s.boundingBox,
-          orientation: s.rotation
-        })).sort((a, b) =>
-          a.position.x - b.position.x || a.position.z - b.position.z
-        ),
+        structures: world.structures
+          .map((s) => ({
+            type: s.type,
+            position: s.position,
+            size: s.boundingBox,
+            orientation: s.rotation,
+          }))
+          .sort((a, b) => a.position.x - b.position.x || a.position.z - b.position.z),
 
         // 鉱石の分布（統計）
         oreDistribution: analyzeOreDistribution(world),
@@ -1211,8 +1203,8 @@ describe('Golden File Tests', () => {
           totalBlocks: world.getTotalBlockCount(),
           blockTypeDistribution: world.getBlockTypeDistribution(),
           averageElevation: world.getAverageElevation(),
-          waterCoverage: world.getWaterCoveragePercentage()
-        }
+          waterCoverage: world.getWaterCoveragePercentage(),
+        },
       }
 
       await compareWithGolden('world-generation-comprehensive.json', goldenData)
@@ -1224,7 +1216,7 @@ describe('Golden File Tests', () => {
         size: 'medium',
         biome: 'plains',
         population: 'normal',
-        specialBuildings: ['blacksmith', 'library']
+        specialBuildings: ['blacksmith', 'library'],
       }
 
       const village = await generateVillage(villageConfig)
@@ -1233,49 +1225,52 @@ describe('Golden File Tests', () => {
         layout: {
           centerPosition: village.center,
           radius: village.radius,
-          roadNetwork: village.roads.map(road => ({
-            start: road.start,
-            end: road.end,
-            width: road.width,
-            material: road.material
-          })).sort((a, b) =>
-            (a.start.x + a.start.z) - (b.start.x + b.start.z)
-          )
+          roadNetwork: village.roads
+            .map((road) => ({
+              start: road.start,
+              end: road.end,
+              width: road.width,
+              material: road.material,
+            }))
+            .sort((a, b) => a.start.x + a.start.z - (b.start.x + b.start.z)),
         },
 
-        buildings: village.buildings.map(building => ({
-          type: building.type,
-          position: building.position,
-          size: building.size,
-          orientation: building.orientation,
-          materials: building.materials.sort(),
-          features: building.features.sort()
-        })).sort((a, b) =>
-          a.position.x - b.position.x || a.position.z - b.position.z
-        ),
+        buildings: village.buildings
+          .map((building) => ({
+            type: building.type,
+            position: building.position,
+            size: building.size,
+            orientation: building.orientation,
+            materials: building.materials.sort(),
+            features: building.features.sort(),
+          }))
+          .sort((a, b) => a.position.x - b.position.x || a.position.z - b.position.z),
 
         population: {
           totalVillagers: village.villagers.length,
           professions: village.villagers
-            .map(v => v.profession)
+            .map((v) => v.profession)
             .sort()
-            .reduce((acc, prof) => {
-              acc[prof] = (acc[prof] || 0) + 1
-              return acc
-            }, {} as Record<string, number>)
+            .reduce(
+              (acc, prof) => {
+                acc[prof] = (acc[prof] || 0) + 1
+                return acc
+              },
+              {} as Record<string, number>
+            ),
         },
 
         resources: {
           farmland: village.getFarmlandArea(),
           storage: village.getStorageCapacity(),
-          defense: village.getDefenseRating()
+          defense: village.getDefenseRating(),
         },
 
         connectivity: {
           entranceCount: village.entrances.length,
           roadConnectionCount: village.externalConnections.length,
-          internalConnectivity: calculateConnectivityScore(village)
-        }
+          internalConnectivity: calculateConnectivityScore(village),
+        },
       }
 
       await compareWithGolden('village-generation-structure.json', goldenVillageData)
@@ -1290,64 +1285,62 @@ describe('Golden File Tests', () => {
             id: 'iron_sword',
             ingredients: [
               { item: 'iron_ingot', quantity: 2 },
-              { item: 'stick', quantity: 1 }
+              { item: 'stick', quantity: 1 },
             ],
             output: { item: 'iron_sword', quantity: 1 },
-            craftingTime: 5
+            craftingTime: 5,
           },
           {
             id: 'iron_armor_set',
-            ingredients: [
-              { item: 'iron_ingot', quantity: 24 }
-            ],
+            ingredients: [{ item: 'iron_ingot', quantity: 24 }],
             output: [
               { item: 'iron_helmet', quantity: 1 },
               { item: 'iron_chestplate', quantity: 1 },
               { item: 'iron_leggings', quantity: 1 },
-              { item: 'iron_boots', quantity: 1 }
+              { item: 'iron_boots', quantity: 1 },
             ],
-            craftingTime: 30
-          }
+            craftingTime: 30,
+          },
         ],
         inventory: [
           { item: 'iron_ingot', quantity: 50 },
           { item: 'stick', quantity: 10 },
-          { item: 'coal', quantity: 20 }
-        ]
+          { item: 'coal', quantity: 20 },
+        ],
       }
 
       const craftingSystem = new CraftingSystem()
       craftingSystem.loadRecipes(craftingScenario.recipes)
 
       const player = new Player()
-      craftingScenario.inventory.forEach(item => {
+      craftingScenario.inventory.forEach((item) => {
         player.inventory.addItem(item.item, item.quantity)
       })
 
       // 最適化されたクラフティング計画の計算
-      const craftingPlan = await craftingSystem.calculateOptimalCraftingPlan(
-        player.inventory,
-        ['iron_sword', 'iron_armor_set']
-      )
+      const craftingPlan = await craftingSystem.calculateOptimalCraftingPlan(player.inventory, [
+        'iron_sword',
+        'iron_armor_set',
+      ])
 
       const goldenCraftingData = {
         originalInventory: craftingScenario.inventory,
         craftingPlan: {
-          steps: craftingPlan.steps.map(step => ({
+          steps: craftingPlan.steps.map((step) => ({
             recipeId: step.recipeId,
             quantity: step.quantity,
             requiredTime: step.totalTime,
-            materialCost: step.materialCost
+            materialCost: step.materialCost,
           })),
           totalTime: craftingPlan.totalTime,
           totalMaterialUsage: craftingPlan.materialUsage,
-          remainingInventory: craftingPlan.remainingInventory
+          remainingInventory: craftingPlan.remainingInventory,
         },
         optimizationResults: {
           efficiency: craftingPlan.efficiency,
           wastedMaterials: craftingPlan.wastedMaterials,
-          alternativeRecipes: craftingPlan.alternatives
-        }
+          alternativeRecipes: craftingPlan.alternatives,
+        },
       }
 
       await compareWithGolden('crafting-optimization.json', goldenCraftingData)
@@ -1360,28 +1353,28 @@ describe('Golden File Tests', () => {
             type: 'falling_block',
             position: { x: 0, y: 100, z: 0 },
             velocity: { x: 0, y: 0, z: 0 },
-            mass: 1.0
+            mass: 1.0,
           },
           {
             type: 'bouncing_ball',
             position: { x: 5, y: 50, z: 0 },
             velocity: { x: 2, y: -5, z: 1 },
             mass: 0.5,
-            bounciness: 0.8
-          }
+            bounciness: 0.8,
+          },
         ],
         environment: {
           gravity: -9.81,
           airResistance: 0.01,
-          groundFriction: 0.3
+          groundFriction: 0.3,
         },
         simulationTime: 10.0, // 10秒
-        timeStep: 0.016 // 60FPS
+        timeStep: 0.016, // 60FPS
       }
 
       const physics = new PhysicsEngine(physicsScenario.environment)
 
-      physicsScenario.entities.forEach(entityData => {
+      physicsScenario.entities.forEach((entityData) => {
         const entity = new PhysicsEntity(entityData)
         physics.addEntity(entity)
       })
@@ -1397,12 +1390,12 @@ describe('Golden File Tests', () => {
         if (step % 60 === 0) {
           snapshots.push({
             time: step * physicsScenario.timeStep,
-            entities: physics.getAllEntities().map(e => ({
+            entities: physics.getAllEntities().map((e) => ({
               type: e.type,
               position: { x: e.position.x, y: e.position.y, z: e.position.z },
               velocity: { x: e.velocity.x, y: e.velocity.y, z: e.velocity.z },
-              energy: e.getKineticEnergy()
-            }))
+              energy: e.getKineticEnergy(),
+            })),
           })
         }
       }
@@ -1411,15 +1404,15 @@ describe('Golden File Tests', () => {
         scenario: physicsScenario,
         snapshots,
         finalState: {
-          entities: physics.getAllEntities().map(e => ({
+          entities: physics.getAllEntities().map((e) => ({
             type: e.type,
             finalPosition: { x: e.position.x, y: e.position.y, z: e.position.z },
             finalVelocity: { x: e.velocity.x, y: e.velocity.y, z: e.velocity.z },
-            hasSettled: e.velocity.magnitude() < 0.01
+            hasSettled: e.velocity.magnitude() < 0.01,
           })),
           totalEnergyLoss: calculateEnergyLoss(snapshots[0], snapshots[snapshots.length - 1]),
-          simulationStability: checkSimulationStability(snapshots)
-        }
+          simulationStability: checkSimulationStability(snapshots),
+        },
       }
 
       await compareWithGolden('physics-simulation.json', goldenPhysicsData)
@@ -1447,8 +1440,8 @@ async function compareWithGolden(fileName: string, actual: any): Promise<void> {
     if (error.code === 'ENOENT') {
       throw new Error(
         `Golden file not found: ${fileName}\n` +
-        `Run with UPDATE_GOLDEN=true to create it.\n` +
-        `Example: UPDATE_GOLDEN=true npm test`
+          `Run with UPDATE_GOLDEN=true to create it.\n` +
+          `Example: UPDATE_GOLDEN=true npm test`
       )
     }
     throw error
@@ -1478,7 +1471,7 @@ function analyzeBiomeDistribution(world: World): Record<string, number> {
   const distribution: Record<string, number> = {}
   const totalArea = world.size.width * world.size.height
 
-  world.biomes.forEach(biome => {
+  world.biomes.forEach((biome) => {
     const percentage = Math.round((biome.area / totalArea) * 10000) / 100 // 小数点2桁
     distribution[biome.type] = percentage
   })
@@ -1490,6 +1483,7 @@ function analyzeBiomeDistribution(world: World): Record<string, number> {
 ### Phase 5: Security Testing Integration
 
 #### 5.1 Input Validation & Attack Prevention
+
 ```typescript
 describe('Security Testing Suite', () => {
   describe('Input Validation Security', () => {
@@ -1839,6 +1833,7 @@ const securityLogger = SecurityTestHelper.createSecurityLogger()
 この高度なテスト技法ガイドでは、TypeScript MinecraftプロジェクトでのEffect-TS 3.17+を活用した包括的なテスト戦略を提供しました。
 
 ### 実装した高度技法
+
 1. **Property-Based Testing**: Fast-Checkとシェマ統合による自動エッジケース発見
 2. **ビジュアルリグレッション**: 3Dレンダリング・シェーダーの視覚的品質保証
 3. **契約テスト**: API・モジュール間の型安全性とバージョン互換性検証
@@ -1846,6 +1841,7 @@ const securityLogger = SecurityTestHelper.createSecurityLogger()
 5. **セキュリティテスト**: 脆弱性・攻撃耐性・データ保護の包括的検証
 
 ### 品質保証レベルの向上
+
 - **信頼性**: Property-Basedテストによる想定外ケースの事前発見
 - **視覚的品質**: レンダリング回帰の自動検出と品質維持
 - **整合性**: モジュール間契約による安全なリファクタリング

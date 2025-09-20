@@ -9,24 +9,24 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, './src'),
       '@config': resolve(__dirname, './src/config'),
-      '@docs': resolve(__dirname, './docs')
-    }
+      '@docs': resolve(__dirname, './docs'),
+    },
   },
   server: {
     port: 3000,
     host: true,
-    open: true
+    open: true,
   },
   build: {
     outDir: 'dist',
     sourcemap: true,
     target: 'es2022',
-    minify: 'esbuild'
+    minify: 'esbuild',
   },
   test: {
     environment: 'node',
     globals: true,
     setupFiles: [],
-    testTimeout: 1000
-  }
+    testTimeout: 1000,
+  },
 })

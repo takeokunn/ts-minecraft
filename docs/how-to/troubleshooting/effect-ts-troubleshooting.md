@@ -1,14 +1,29 @@
 ---
-title: "Effect-TS 3.17+ トラブルシューティング完全ガイド - 最新パターン対応"
-description: "Effect-TS 3.17+ 最新版における30のエラーパターンと実践的解決策。Schema.Struct、Context.GenericTag、Match.value、早期リターン、Property-Based Testing統合エラー対応。"
-category: "troubleshooting"
-difficulty: "advanced"
-tags: ["troubleshooting", "effect-ts", "debugging", "error-handling", "performance", "schema", "context", "schema-struct", "context-generic-tag", "match-patterns", "early-return", "property-based-testing"]
-prerequisites: ["effect-ts-fundamentals", "schema-patterns", "context-patterns", "testing-patterns"]
-estimated_reading_time: "50分"
-related_patterns: ["error-handling-patterns", "service-patterns", "testing-patterns", "optimization-patterns"]
-related_docs: ["./debugging-guide.md", "./common-errors.md", "./error-resolution.md", "../testing/effect-ts-testing-patterns.md"]
-status: "complete"
+title: 'Effect-TS 3.17+ トラブルシューティング完全ガイド - 最新パターン対応'
+description: 'Effect-TS 3.17+ 最新版における30のエラーパターンと実践的解決策。Schema.Struct、Context.GenericTag、Match.value、早期リターン、Property-Based Testing統合エラー対応。'
+category: 'troubleshooting'
+difficulty: 'advanced'
+tags:
+  [
+    'troubleshooting',
+    'effect-ts',
+    'debugging',
+    'error-handling',
+    'performance',
+    'schema',
+    'context',
+    'schema-struct',
+    'context-generic-tag',
+    'match-patterns',
+    'early-return',
+    'property-based-testing',
+  ]
+prerequisites: ['effect-ts-fundamentals', 'schema-patterns', 'context-patterns', 'testing-patterns']
+estimated_reading_time: '50分'
+related_patterns: ['error-handling-patterns', 'service-patterns', 'testing-patterns', 'optimization-patterns']
+related_docs:
+  ['./debugging-guide.md', './common-errors.md', './error-resolution.md', '../testing/effect-ts-testing-patterns.md']
+status: 'complete'
 ---
 
 # Effect-TS トラブルシューティング
@@ -22,7 +37,9 @@ Effect-TS 3.17+の最新APIを使用したTypeScript Minecraftプロジェクト
 ### 症状別クイック検索
 
 #### Effect-TS インポートエラー
+
 **検索タグ**: `effect-ts` + `import` + `module-resolution`
+
 ```bash
 # 典型的エラーメッセージ
 "Cannot find module 'effect'"
@@ -31,7 +48,9 @@ Effect-TS 3.17+の最新APIを使用したTypeScript Minecraftプロジェクト
 ```
 
 #### Schema バリデーションエラー
+
 **検索タグ**: `schema` + `validation` + `decode`
+
 ```bash
 # 典型的エラーメッセージ
 "ParseError: Missing property"
@@ -40,7 +59,9 @@ Effect-TS 3.17+の最新APIを使用したTypeScript Minecraftプロジェクト
 ```
 
 #### Context 依存関係エラー
+
 **検索タグ**: `context` + `dependency-injection` + `layer`
+
 ```bash
 # 典型的エラーメッセージ
 "Context not found"
@@ -49,7 +70,9 @@ Effect-TS 3.17+の最新APIを使用したTypeScript Minecraftプロジェクト
 ```
 
 #### Match パターンエラー
+
 **検索タグ**: `match` + `pattern-matching` + `type-narrowing`
+
 ```bash
 # 典型的エラーメッセージ
 "Match.value is not a function"
@@ -59,12 +82,12 @@ Effect-TS 3.17+の最新APIを使用したTypeScript Minecraftプロジェクト
 
 ### エラー発生パターン予測
 
-| エラータイプ | 発生確率 | 典型的トリガー | 解決時間 |
-|------------|----------|----------------|----------|
-| Import/Module | 85% | バージョン更新時 | 2-5分 |
-| Schema設定 | 70% | 新規データ型作成時 | 5-15分 |
-| Context管理 | 45% | サービス追加時 | 10-30分 |
-| Match構文 | 25% | 複雑な分岐処理 | 15-45分 |
+| エラータイプ  | 発生確率 | 典型的トリガー     | 解決時間 |
+| ------------- | -------- | ------------------ | -------- |
+| Import/Module | 85%      | バージョン更新時   | 2-5分    |
+| Schema設定    | 70%      | 新規データ型作成時 | 5-15分   |
+| Context管理   | 45%      | サービス追加時     | 10-30分  |
+| Match構文     | 25%      | 複雑な分岐処理     | 15-45分  |
 
 ## Effect-TS 3.17+ 特有エラーパターン
 
@@ -73,12 +96,14 @@ Effect-TS 3.17+の最新APIを使用したTypeScript Minecraftプロジェクト
 #### 1. Schema.Struct 未定義エラー
 
 ##### 症状
+
 ```bash
 TS2339: Property 'Struct' does not exist on type 'typeof Schema'.
 TS2339: Property 'object' does not exist on type 'typeof Schema'.
 ```
 
 ##### 原因
+
 - Effect-TS 3.16以前からの移行時に発生
 - 古い`Schema.object`の使用継続
 - インポートパスの問題
@@ -86,6 +111,7 @@ TS2339: Property 'object' does not exist on type 'typeof Schema'.
 ##### 段階的解決手順
 
 1. **バージョン確認**
+
    ```bash
    # 現在のEffect-TSバージョン確認
    pnpm list effect @effect/schema
@@ -96,31 +122,33 @@ TS2339: Property 'object' does not exist on type 'typeof Schema'.
    ```
 
 2. **インポート修正**
+
    ```typescript
    // ❌ 古い書き方
-   import { Schema } from "@effect/schema"
+   import { Schema } from '@effect/schema'
    const PlayerSchema = Schema.object({
      id: Schema.string,
      position: Schema.object({
        x: Schema.number,
        y: Schema.number,
-       z: Schema.number
-     })
+       z: Schema.number,
+     }),
    })
 
    // ✅ 正しい書き方（3.17+）
-   import { Schema } from "@effect/schema"
+   import { Schema } from '@effect/schema'
    const PlayerSchema = Schema.Struct({
      id: Schema.String,
      position: Schema.Struct({
        x: Schema.Number,
        y: Schema.Number,
-       z: Schema.Number
-     })
+       z: Schema.Number,
+     }),
    })
    ```
 
 3. **型定義の確認**
+
    ```typescript
    // 型定義の生成確認
    type Player = Schema.Schema.Type<typeof PlayerSchema>
@@ -132,6 +160,7 @@ TS2339: Property 'object' does not exist on type 'typeof Schema'.
 #### 2. Schema.TaggedError の実装エラー
 
 ##### 症状
+
 ```bash
 TS2345: Argument of type '{ _tag: string; message: string; }' is not assignable to parameter of type 'never'.
 ```
@@ -139,34 +168,34 @@ TS2345: Argument of type '{ _tag: string; message: string; }' is not assignable 
 ##### 段階的解決手順
 
 1. **TaggedErrorクラスの定義**
+
    ```typescript
    // ✅ 正しいTaggedError実装 - 関数型パターン
-   export const PlayerNotFoundError = Schema.TaggedError("PlayerNotFoundError")({
+   export const PlayerNotFoundError = Schema.TaggedError('PlayerNotFoundError')({
      playerId: Schema.String,
-     timestamp: Schema.optional(Schema.Number)
+     timestamp: Schema.optional(Schema.Number),
    })
 
-   export const ChunkLoadError = Schema.TaggedError("ChunkLoadError")({
+   export const ChunkLoadError = Schema.TaggedError('ChunkLoadError')({
      coordinate: Schema.Struct({
        x: Schema.Number,
-       z: Schema.Number
+       z: Schema.Number,
      }),
-     reason: Schema.String
+     reason: Schema.String,
    })
    ```
 
 2. **Error使用パターン**
+
    ```typescript
    // Effect内でのエラー使用
    const loadPlayer = (id: string): Effect.Effect<Player, PlayerNotFoundError> =>
      Effect.gen(function* () {
        const players = yield* getStoredPlayers
-       const player = players.find(p => p.id === id)
+       const player = players.find((p) => p.id === id)
 
        if (!player) {
-         return yield* Effect.fail(
-           new PlayerNotFoundError({ playerId: id, timestamp: Date.now() })
-         )
+         return yield* Effect.fail(new PlayerNotFoundError({ playerId: id, timestamp: Date.now() }))
        }
 
        return player
@@ -176,18 +205,18 @@ TS2345: Argument of type '{ _tag: string; message: string; }' is not assignable 
 #### 3. Schema.Brand 型エラー
 
 ##### 症状
+
 ```bash
 TS2322: Type 'string' is not assignable to type 'PlayerId'.
 TS2345: Argument of type 'PlayerId' is not assignable to parameter of type 'string'.
 ```
 
 ##### 解決方法
+
 ```typescript
 // ブランド型の正しい定義
-export interface PlayerId extends Schema.Brand<string, "PlayerId"> {}
-export const PlayerId = Schema.String.pipe(
-  Schema.brand("PlayerId")
-)
+export interface PlayerId extends Schema.Brand<string, 'PlayerId'> {}
+export const PlayerId = Schema.String.pipe(Schema.brand('PlayerId'))
 
 // 使用例
 const createPlayerId = (value: string): Effect.Effect<PlayerId, ParseResult.ParseError> =>
@@ -195,7 +224,7 @@ const createPlayerId = (value: string): Effect.Effect<PlayerId, ParseResult.Pars
 
 // 実際の使用
 const processPlayer = Effect.gen(function* () {
-  const playerId = yield* createPlayerId("player-123")
+  const playerId = yield* createPlayerId('player-123')
   const player = yield* loadPlayer(playerId)
   return player
 })
@@ -206,31 +235,30 @@ const processPlayer = Effect.gen(function* () {
 #### 4. Context.Tag 廃止エラー
 
 ##### 症状
+
 ```bash
 TS2339: Property 'Tag' does not exist on type 'typeof Context'.
 ```
 
 ##### 解決手順
+
 ```typescript
 // ❌ 古い書き方
 const WorldService = Context.Tag<WorldService>()
 
 // ✅ 新しい書き方（3.17+）
 export interface WorldService {
-  readonly loadChunk: (
-    coordinate: ChunkCoordinate
-  ) => Effect.Effect<Chunk, ChunkError>
+  readonly loadChunk: (coordinate: ChunkCoordinate) => Effect.Effect<Chunk, ChunkError>
   readonly saveChunk: (chunk: Chunk) => Effect.Effect<void, ChunkError>
 }
 
-export const WorldService = Context.GenericTag<WorldService>(
-  "@minecraft/WorldService"
-)
+export const WorldService = Context.GenericTag<WorldService>('@minecraft/WorldService')
 ```
 
 #### 5. Layer提供エラー
 
 ##### 症状
+
 ```bash
 MissingService: Service not found: @minecraft/WorldService
 ```
@@ -238,6 +266,7 @@ MissingService: Service not found: @minecraft/WorldService
 ##### 段階的解決手順
 
 1. **Layerの実装**
+
    ```typescript
    export const WorldServiceLive = Layer.effect(
      WorldService,
@@ -249,18 +278,17 @@ MissingService: Service not found: @minecraft/WorldService
          loadChunk: (coordinate) =>
            pipe(
              chunkStorage.getChunk(coordinate),
-             Effect.catchTag("ChunkNotFoundError", () =>
-               chunkGenerator.generateChunk(coordinate)
-             )
+             Effect.catchTag('ChunkNotFoundError', () => chunkGenerator.generateChunk(coordinate))
            ),
 
-         saveChunk: (chunk) => chunkStorage.saveChunk(chunk)
+         saveChunk: (chunk) => chunkStorage.saveChunk(chunk),
        })
      })
    )
    ```
 
 2. **Layer組み合わせ**
+
    ```typescript
    export const MainLayer = Layer.mergeAll(
      WorldServiceLive,
@@ -271,6 +299,7 @@ MissingService: Service not found: @minecraft/WorldService
    ```
 
 3. **Effect実行時のLayer提供**
+
    ```typescript
    const program = Effect.gen(function* () {
      const worldService = yield* WorldService
@@ -287,11 +316,13 @@ MissingService: Service not found: @minecraft/WorldService
 #### 6. Match.value 型推論エラー
 
 ##### 症状
+
 ```bash
 TS2345: Argument of type 'unknown' is not assignable to parameter of type 'never'.
 ```
 
 ##### 解決方法
+
 ```typescript
 // ✅ 正しいMatch.value使用
 const processInput = (input: unknown) =>
@@ -306,49 +337,45 @@ const processInput = (input: unknown) =>
       (input): input is Chunk => Schema.is(ChunkSchema)(input),
       (chunk) => handleChunk(chunk)
     ),
-    Match.orElse(() =>
-      Effect.fail(new InvalidInputError({ input: JSON.stringify(input) }))
-    )
+    Match.orElse(() => Effect.fail(new InvalidInputError({ input: JSON.stringify(input) })))
   )
 ```
 
 #### 7. Match exhaustiveness エラー
 
 ##### 症状
+
 ```bash
 TS2345: Not all code paths return a value.
 ```
 
 ##### 解決方法
+
 ```typescript
 // 網羅性を保証するMatch
 const handleGameEvent = (event: GameEvent) =>
   pipe(
     event,
     Match.value,
-    Match.tag("PlayerJoined", (event) =>
-      Effect.log(`Player ${event.playerId} joined`)
-    ),
-    Match.tag("PlayerLeft", (event) =>
-      Effect.log(`Player ${event.playerId} left`)
-    ),
-    Match.tag("ChunkLoaded", (event) =>
-      Effect.log(`Chunk ${event.coordinate.x},${event.coordinate.z} loaded`)
-    ),
+    Match.tag('PlayerJoined', (event) => Effect.log(`Player ${event.playerId} joined`)),
+    Match.tag('PlayerLeft', (event) => Effect.log(`Player ${event.playerId} left`)),
+    Match.tag('ChunkLoaded', (event) => Effect.log(`Chunk ${event.coordinate.x},${event.coordinate.z} loaded`)),
     Match.exhaustive // 全パターンの網羅を強制
   )
 ```
 
 ### Effect 実行エラー（7パターン）
 
-#### 8. Effect.gen内でのyield*エラー
+#### 8. Effect.gen内でのyield\*エラー
 
 ##### 症状
+
 ```bash
 TS2345: Argument of type 'Generator<...>' is not assignable to parameter.
 ```
 
 ##### 解決方法
+
 ```typescript
 // ❌ 古い記法の混在
 const problematicEffect = Effect.gen(function* (_) {
@@ -367,6 +394,7 @@ const correctEffect = Effect.gen(function* () {
 #### 9. Fiber Interruption 予期しない中断
 
 ##### 症状
+
 ```bash
 FiberFailure: Interrupted
 Error: Effect was interrupted during execution
@@ -375,21 +403,19 @@ Error: Effect was interrupted during execution
 ##### 段階的解決手順
 
 1. **中断可能性の考慮**
+
    ```typescript
    // 中断に対して頑健な処理
    const robustChunkGeneration = Effect.gen(function* () {
      return yield* generateChunk(coordinate).pipe(
-       Effect.onInterrupt(() =>
-         Effect.log("Chunk generation interrupted, cleaning up...")
-       ),
-       Effect.ensuring(
-         Effect.sync(() => cleanupResources())
-       )
+       Effect.onInterrupt(() => Effect.log('Chunk generation interrupted, cleaning up...')),
+       Effect.ensuring(Effect.sync(() => cleanupResources()))
      )
    })
    ```
 
 2. **Scope による適切な管理**
+
    ```typescript
    const scopedProcessing = Effect.scoped(
      Effect.gen(function* () {
@@ -413,6 +439,7 @@ Error: Effect was interrupted during execution
 ##### 主要変更点と対策
 
 1. **Schema API の変更**
+
    ```bash
    # 一括置換コマンド
    find src -name "*.ts" -exec sed -i 's/Schema\.object(/Schema.Struct(/g' {} \;
@@ -432,11 +459,13 @@ Error: Effect was interrupted during execution
 #### 11. 依存関係バージョン競合
 
 ##### 症状
+
 ```bash
 npm ERR! peer dep missing: effect@^3.17.0, required by @effect/schema@^0.75.5
 ```
 
 ##### 解決手順
+
 ```bash
 # 1. 現在のバージョン確認
 pnpm list effect @effect/schema
@@ -463,15 +492,17 @@ pnpm add effect@3.17.13 @effect/schema@0.75.5 --save-exact
 #### 12. Schema.TaggedRequestを使用したリクエスト/レスポンスエラー
 
 ##### 症状
+
 ```bash
 TS2322: Type 'LoadPlayerRequest' is not assignable to type 'never'.
 ```
 
 ##### 解決方法
+
 ```typescript
 // リクエスト/レスポンスパターンの実装 - 関数型パターン
-export const LoadPlayerRequest = Schema.TaggedRequest("LoadPlayerRequest")({
-  playerId: Schema.String
+export const LoadPlayerRequest = Schema.TaggedRequest('LoadPlayerRequest')({
+  playerId: Schema.String,
 })(
   PlayerSchema, // Success型
   PlayerNotFoundError // Failure型
@@ -496,10 +527,12 @@ export const PlayerRequestResolverLive = Layer.effect(
 #### 13. Fiber メモリリーク
 
 ##### 症状
+
 - アプリケーションのメモリ使用量が徐々に増加
 - GCが実行されてもメモリが解放されない
 
 ##### 解決戦略
+
 ```typescript
 // ❌ メモリリークを引き起こすパターン
 const leakyBackground = Effect.gen(function* () {
@@ -542,19 +575,18 @@ const memoryEfficientBackground = Effect.scoped(
 #### 14. Schema validation パフォーマンス問題
 
 ##### 症状
+
 - 大量データのvalidation時にCPU使用率が急増
 - UI フリーズ
 
 ##### 最適化手法
+
 ```typescript
 // ✅ ストリーミングvalidation
 const optimizedValidation = <A>(schema: Schema.Schema<A>) => {
   return (data: unknown[]) =>
     Stream.fromIterable(data).pipe(
-      Stream.mapEffect(
-        (item) => Schema.decodeUnknown(schema)(item),
-        { concurrency: 5 }
-      ),
+      Stream.mapEffect((item) => Schema.decodeUnknown(schema)(item), { concurrency: 5 }),
       Stream.buffer({ capacity: 100 }),
       Stream.runCollect
     )
@@ -562,7 +594,7 @@ const optimizedValidation = <A>(schema: Schema.Schema<A>) => {
 
 // 使用例
 const validatePlayers = optimizedValidation(PlayerSchema)
-const validatedPlayers = yield* validatePlayers(rawPlayerData)
+const validatedPlayers = yield * validatePlayers(rawPlayerData)
 ```
 
 ## 実践的デバッグ技法
@@ -578,29 +610,26 @@ const createTracedEffect = <A, E>(name: string, effect: Effect.Effect<A, E>) =>
     effect,
     Effect.withSpan(name, {
       attributes: {
-        "service.name": "ts-minecraft",
-        "service.version": "1.0.0"
-      }
+        'service.name': 'ts-minecraft',
+        'service.version': '1.0.0',
+      },
     }),
     Effect.tap((result) =>
       Effect.logInfo(`Effect ${name} completed`, {
         result: JSON.stringify(result, null, 2),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       })
     ),
     Effect.tapError((error) =>
       Effect.logError(`Effect ${name} failed`, {
         error: String(error),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       })
     )
   )
 
 // 使用例
-const tracedChunkLoad = createTracedEffect(
-  "load-chunk",
-  loadChunk({ x: 0, z: 0 })
-)
+const tracedChunkLoad = createTracedEffect('load-chunk', loadChunk({ x: 0, z: 0 }))
 ```
 
 #### 16. Effect.gen のステップバイステップデバッグ
@@ -616,9 +645,7 @@ const debuggablePlayerLoad = (playerId: string) =>
 
     const player = yield* storage.getPlayer(playerId).pipe(
       Effect.tap(() => Effect.log(`Player found: ${playerId}`)),
-      Effect.tapError((error) =>
-        Effect.log(`Player load failed: ${playerId}, error: ${error}`)
-      )
+      Effect.tapError((error) => Effect.log(`Player load failed: ${playerId}, error: ${error}`))
     )
 
     yield* Effect.log(`Returning player: ${player.name}`)
@@ -631,61 +658,60 @@ const debuggablePlayerLoad = (playerId: string) =>
 #### 17. Fast-Check Schema.arbitrary 統合エラー
 
 ##### 症状
+
 ```bash
 TS2345: Argument of type 'Arbitrary<unknown>' is not assignable to parameter of type 'Arbitrary<Player>'.
 ```
 
 ##### 解決方法
+
 ```typescript
 // ✅ 正しいSchema.arbitrary統合
-import * as fc from "fast-check"
-import { Schema, Arbitrary } from "effect"
+import * as fc from 'fast-check'
+import { Schema, Arbitrary } from 'effect'
 
 const Player = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("PlayerId")),
+  id: Schema.String.pipe(Schema.brand('PlayerId')),
   name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(50)),
   level: Schema.Number.pipe(Schema.int(), Schema.between(1, 100)),
   position: Schema.Struct({
     x: Schema.Number,
     y: Schema.Number,
-    z: Schema.Number
-  })
+    z: Schema.Number,
+  }),
 })
 
 // Schema.arbitraryによる型安全なArbitrary生成
 const playerArbitrary = Arbitrary.make(Player)
 
 // Property-based test
-const testPlayerProperty = fc.property(
-  fc.array(playerArbitrary(fc), { minLength: 1, maxLength: 100 }),
-  (players) => {
-    return Effect.gen(function* () {
-      // 全プレイヤーがSchema通りであることをテスト
-      const validatedPlayers = yield* Effect.forEach(
-        players,
-        player => Schema.decodeUnknown(Player)(player),
-        { concurrency: 10 }
-      )
-
-      expect(validatedPlayers.length).toBe(players.length)
-      expect(validatedPlayers.every(p => p.level >= 1 && p.level <= 100)).toBe(true)
+const testPlayerProperty = fc.property(fc.array(playerArbitrary(fc), { minLength: 1, maxLength: 100 }), (players) => {
+  return Effect.gen(function* () {
+    // 全プレイヤーがSchema通りであることをテスト
+    const validatedPlayers = yield* Effect.forEach(players, (player) => Schema.decodeUnknown(Player)(player), {
+      concurrency: 10,
     })
-  }
-)
+
+    expect(validatedPlayers.length).toBe(players.length)
+    expect(validatedPlayers.every((p) => p.level >= 1 && p.level <= 100)).toBe(true)
+  })
+})
 ```
 
 #### 18. @effect/vitest Test.scoped エラー
 
 ##### 症状
+
 ```bash
 Error: Test.scoped is not available in current Effect version
 ```
 
 ##### 解決方法
+
 ```typescript
 // 現代的なEffect-TS テスト実装
-import { Effect, Layer, TestContext, TestClock, TestRandom } from "effect"
-import { it, expect, beforeEach } from "vitest"
+import { Effect, Layer, TestContext, TestClock, TestRandom } from 'effect'
+import { it, expect, beforeEach } from 'vitest'
 
 // テスト用Layer構成
 const TestLayer = Layer.mergeAll(
@@ -697,7 +723,7 @@ const TestLayer = Layer.mergeAll(
 )
 
 // Effect.genを使用したテスト
-it("should handle player operations correctly", async () => {
+it('should handle player operations correctly', async () => {
   const result = await Effect.runPromise(
     Effect.gen(function* () {
       // テスト用のクロックを進める
@@ -705,15 +731,15 @@ it("should handle player operations correctly", async () => {
 
       const playerService = yield* PlayerService
       const player = yield* playerService.create({
-        name: "TestPlayer",
-        email: "test@example.com"
+        name: 'TestPlayer',
+        email: 'test@example.com',
       })
 
       // 時間を進めてタイムアウト処理をテスト
       yield* testClock.adjust(Duration.minutes(5))
 
       const retrievedPlayer = yield* playerService.findById(player.id)
-      expect(retrievedPlayer.name).toBe("TestPlayer")
+      expect(retrievedPlayer.name).toBe('TestPlayer')
 
       return player
     }).pipe(Effect.provide(TestLayer))
@@ -728,34 +754,32 @@ it("should handle player operations correctly", async () => {
 #### 19. Vitest との統合エラー
 
 ##### 症状
+
 ```bash
 Error: Cannot find module 'effect/test' or its corresponding type declarations.
 ```
 
 ##### 解決方法
+
 ```typescript
 // test/setup.ts - Effect-TS テスト環境設定
-import { Effect, Layer, TestContext } from "effect"
-import { beforeEach } from "vitest"
+import { Effect, Layer, TestContext } from 'effect'
+import { beforeEach } from 'vitest'
 
 // テスト用Layer
-const TestLayer = Layer.mergeAll(
-  TestContext.TestContext,
-  TestPlayerServiceLive,
-  TestWorldServiceLive
-)
+const TestLayer = Layer.mergeAll(TestContext.TestContext, TestPlayerServiceLive, TestWorldServiceLive)
 
 // Effect実行ヘルパー
 export const runTestEffect = <A, E>(effect: Effect.Effect<A, E>): Promise<A> =>
   Effect.runPromise(Effect.provide(effect, TestLayer))
 
 // テスト例
-import { it, expect } from "@effect/vitest"
+import { it, expect } from '@effect/vitest'
 
-it.effect("should load player correctly", () =>
+it.effect('should load player correctly', () =>
   Effect.gen(function* () {
-    const player = yield* loadPlayer("test-player-id")
-    expect(player.name).toBe("TestPlayer")
+    const player = yield* loadPlayer('test-player-id')
+    expect(player.name).toBe('TestPlayer')
   })
 )
 ```
@@ -764,11 +788,7 @@ it.effect("should load player correctly", () =>
 
 ```typescript
 // Schemaテスト用ヘルパー
-const testSchema = <A, I>(
-  schema: Schema.Schema<A, I>,
-  validInput: I,
-  invalidInput: unknown
-) =>
+const testSchema = <A, I>(schema: Schema.Schema<A, I>, validInput: I, invalidInput: unknown) =>
   Effect.gen(function* () {
     // 正常なケース
     const validResult = yield* Schema.decodeUnknown(schema)(validInput)
@@ -808,9 +828,7 @@ const createSafeOperation = <A, E>(
   pipe(
     operation,
     Effect.catchAll((error) => Effect.succeed(fallback(error))),
-    Effect.tapError((error) =>
-      Effect.logError("Operation failed, using fallback", { error })
-    )
+    Effect.tapError((error) => Effect.logError('Operation failed, using fallback', { error }))
   )
 ```
 
@@ -818,10 +836,7 @@ const createSafeOperation = <A, E>(
 
 ```typescript
 // リソース効率的なStream処理
-const efficientDataProcessing = <A, B>(
-  data: A[],
-  processor: (item: A) => Effect.Effect<B, never>
-) =>
+const efficientDataProcessing = <A, B>(data: A[], processor: (item: A) => Effect.Effect<B, never>) =>
   Stream.fromIterable(data).pipe(
     Stream.grouped(100), // バッチサイズ制限
     Stream.mapEffect(
@@ -843,29 +858,24 @@ const DevLogger = Logger.make(({ logLevel, message, cause, spans }) => {
   if (spans.length > 0) {
     console.group(`🔍 ${spans[0].name}`)
     console.log(formattedMessage)
-    if (cause) console.error("Cause:", cause)
+    if (cause) console.error('Cause:', cause)
     console.groupEnd()
   } else {
     console.log(formattedMessage)
-    if (cause) console.error("Cause:", cause)
+    if (cause) console.error('Cause:', cause)
   }
 })
 
 // 開発専用Effect実行
 export const runWithDevLogging = <A, E>(effect: Effect.Effect<A, E>) =>
-  Effect.runPromise(
-    Effect.provide(effect, Layer.succeed(Logger.Logger, DevLogger))
-  )
+  Effect.runPromise(Effect.provide(effect, Layer.succeed(Logger.Logger, DevLogger)))
 ```
 
 ### 5. パフォーマンス監視
 
 ```typescript
 // Effect実行時間測定
-const measureEffect = <A, E>(
-  name: string,
-  effect: Effect.Effect<A, E>
-): Effect.Effect<A, E> =>
+const measureEffect = <A, E>(name: string, effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
   Effect.gen(function* () {
     const start = Date.now()
     const result = yield* effect
@@ -873,7 +883,7 @@ const measureEffect = <A, E>(
 
     yield* Effect.logInfo(`Performance: ${name}`, {
       duration: `${duration}ms`,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     })
 
     return result
@@ -883,6 +893,7 @@ const measureEffect = <A, E>(
 ## トラブルシューティング チェックリスト
 
 ### 緊急時対応（5分以内）
+
 - [ ] Effect-TS バージョン確認: `pnpm list effect @effect/schema`
 - [ ] TypeScript設定確認: `npx tsc --showConfig`
 - [ ] 依存関係の健全性: `pnpm doctor`
@@ -890,13 +901,15 @@ const measureEffect = <A, E>(
 - [ ] エラーログの確認: ブラウザDevToolsコンソール
 
 ### 詳細診断（15分以内）
+
 - [ ] Schema定義の検証: 正しいSchema.Struct使用
 - [ ] Context.GenericTagの適切な実装
 - [ ] Layer構成の確認: 必要なサービスが全て提供されているか
-- [ ] Effect.genの記法確認: yield*の正しい使用
+- [ ] Effect.genの記法確認: yield\*の正しい使用
 - [ ] メモリ使用量の確認: Chrome DevTools Memory タブ
 
 ### 根本原因解析（30分以内）
+
 - [ ] 型エラーの詳細分析: TypeScriptログの確認
 - [ ] Effect実行フローの追跡: withSpanによるトレース
 - [ ] パフォーマンスボトルネックの特定
@@ -906,6 +919,7 @@ const measureEffect = <A, E>(
 ## 関連リソース
 
 ### プロジェクト内ドキュメント
+
 - [よくあるエラー](./common-errors.md) - 一般的なエラーパターン
 - [デバッグガイド](./debugging-guide.md) - 高度なデバッグ技術
 - [ランタイムエラー](./runtime-errors.md) - 実行時エラー対処法
@@ -913,11 +927,13 @@ const measureEffect = <A, E>(
 - [開発ガイド](./error-resolution.md) - エラー解決プロセス
 
 ### Effect-TS 公式リソース
+
 - [Effect-TS 公式ドキュメント](https://effect.website/) - 最新API仕様
 - [Schema ガイド](https://effect.website/docs/guides/schema) - Schema使用方法
 - [Context ガイド](https://effect.website/docs/guides/context-management) - Context管理
 - [Testing ガイド](https://effect.website/docs/guides/testing) - テスト戦略
 
 ### デバッグツール
+
 - [Effect Inspector](https://github.com/Effect-TS/effect-inspector) - Effect実行の可視化
 - [Chrome DevTools Performance](https://developer.chrome.com/docs/devtools/performance/) - パフォーマンス分析

@@ -1,13 +1,12 @@
 ---
-title: "01 Infrastructure Apis"
-description: "01 Infrastructure Apisに関する詳細な説明とガイド。"
-category: "specification"
-difficulty: "intermediate"
-tags: ["typescript", "minecraft", "specification"]
-prerequisites: ["basic-typescript"]
-estimated_reading_time: "10分"
+title: '01 Infrastructure Apis'
+description: '01 Infrastructure Apisに関する詳細な説明とガイド。'
+category: 'specification'
+difficulty: 'intermediate'
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: '10分'
 ---
-
 
 # Infrastructure Layer API仕様
 
@@ -21,45 +20,30 @@ Infrastructure層の外部システム連携API仕様です。Effect-TSのAdapte
 
 ```typescript
 export const WorldStorageAdapter = Context.GenericTag<{
-  save: (params: {
-    worldId: string
-    data: WorldData
-  }) => Effect.Effect<void, StorageError>
+  save: (params: { worldId: string; data: WorldData }) => Effect.Effect<void, StorageError>
 
-  load: (
-    worldId: string
-  ) => Effect.Effect<WorldData, StorageError | NotFoundError>
+  load: (worldId: string) => Effect.Effect<WorldData, StorageError | NotFoundError>
 
-  delete: (
-    worldId: string
-  ) => Effect.Effect<void, StorageError>
+  delete: (worldId: string) => Effect.Effect<void, StorageError>
 
   list: () => Effect.Effect<ReadonlyArray<WorldMetadata>, StorageError>
 
-  exists: (
-    worldId: string
-  ) => Effect.Effect<boolean, StorageError>
-}>("@app/WorldStorageAdapter")
+  exists: (worldId: string) => Effect.Effect<boolean, StorageError>
+}>('@app/WorldStorageAdapter')
 ```
 
 ### Chunk Storage API
 
 ```typescript
 export const ChunkStorageAdapter = Context.GenericTag<{
-  saveChunk: (params: {
-    worldId: string
-    chunk: ChunkData
-  }) => Effect.Effect<void, StorageError>
+  saveChunk: (params: { worldId: string; chunk: ChunkData }) => Effect.Effect<void, StorageError>
 
   loadChunk: (params: {
     worldId: string
     position: ChunkPosition
   }) => Effect.Effect<Option.Option<ChunkData>, StorageError>
 
-  saveRegion: (params: {
-    worldId: string
-    region: RegionData
-  }) => Effect.Effect<void, StorageError>
+  saveRegion: (params: { worldId: string; region: RegionData }) => Effect.Effect<void, StorageError>
 
   loadRegion: (params: {
     worldId: string
@@ -67,37 +51,23 @@ export const ChunkStorageAdapter = Context.GenericTag<{
   }) => Effect.Effect<Option.Option<RegionData>, StorageError>
 
   // バッチ操作
-  saveBatch: (params: {
-    worldId: string
-    chunks: ReadonlyArray<ChunkData>
-  }) => Effect.Effect<void, StorageError>
-}>("@app/ChunkStorageAdapter")
+  saveBatch: (params: { worldId: string; chunks: ReadonlyArray<ChunkData> }) => Effect.Effect<void, StorageError>
+}>('@app/ChunkStorageAdapter')
 ```
 
 ### Player Data Storage API
 
 ```typescript
 export const PlayerStorageAdapter = Context.GenericTag<{
-  savePlayer: (
-    playerData: PlayerData
-  ) => Effect.Effect<void, StorageError>
+  savePlayer: (playerData: PlayerData) => Effect.Effect<void, StorageError>
 
-  loadPlayer: (
-    playerId: string
-  ) => Effect.Effect<Option.Option<PlayerData>, StorageError>
+  loadPlayer: (playerId: string) => Effect.Effect<Option.Option<PlayerData>, StorageError>
 
-  deletePlayer: (
-    playerId: string
-  ) => Effect.Effect<void, StorageError>
+  deletePlayer: (playerId: string) => Effect.Effect<void, StorageError>
 
-  saveStats: (params: {
-    playerId: string
-    stats: PlayerStats
-  }) => Effect.Effect<void, StorageError>
+  saveStats: (params: { playerId: string; stats: PlayerStats }) => Effect.Effect<void, StorageError>
 
-  loadStats: (
-    playerId: string
-  ) => Effect.Effect<Option.Option<PlayerStats>, StorageError>
+  loadStats: (playerId: string) => Effect.Effect<Option.Option<PlayerStats>, StorageError>
 }>('PlayerStorageAdapter')
 ```
 
@@ -110,37 +80,24 @@ export interface WebGLRendererAdapter {
   readonly _: unique symbol
 }
 
-export const WebGLRendererAdapter = Context.GenericTag<WebGLRendererAdapter, {
-  initialize: (params: {
-    canvas: HTMLCanvasElement
-    options?: RendererOptions
-  }) => Effect.Effect<void, RendererError>
+export const WebGLRendererAdapter = Context.GenericTag<
+  WebGLRendererAdapter,
+  {
+    initialize: (params: { canvas: HTMLCanvasElement; options?: RendererOptions }) => Effect.Effect<void, RendererError>
 
-  render: (params: {
-    scene: SceneData
-    camera: CameraData
-  }) => Effect.Effect<void, RendererError>
+    render: (params: { scene: SceneData; camera: CameraData }) => Effect.Effect<void, RendererError>
 
-  createMesh: (params: {
-    geometry: GeometryData
-    material: MaterialData
-  }) => Effect.Effect<MeshId, RendererError>
+    createMesh: (params: { geometry: GeometryData; material: MaterialData }) => Effect.Effect<MeshId, RendererError>
 
-  updateMesh: (params: {
-    meshId: MeshId
-    updates: MeshUpdate
-  }) => Effect.Effect<void, RendererError>
+    updateMesh: (params: { meshId: MeshId; updates: MeshUpdate }) => Effect.Effect<void, RendererError>
 
-  disposeMesh: (
-    meshId: MeshId
-  ) => Effect.Effect<void, RendererError>
+    disposeMesh: (meshId: MeshId) => Effect.Effect<void, RendererError>
 
-  setRenderTarget: (
-    target: RenderTarget | null
-  ) => Effect.Effect<void, RendererError>
+    setRenderTarget: (target: RenderTarget | null) => Effect.Effect<void, RendererError>
 
-  screenshot: () => Effect.Effect<Uint8Array, RendererError>
-}>('WebGLRendererAdapter')
+    screenshot: () => Effect.Effect<Uint8Array, RendererError>
+  }
+>('WebGLRendererAdapter')
 ```
 
 ### Texture Management API
@@ -150,33 +107,28 @@ export interface TextureAdapter {
   readonly _: unique symbol
 }
 
-export const TextureAdapter = Context.GenericTag<TextureAdapter, {
-  loadTexture: (params: {
-    url: string
-    options?: TextureOptions
-  }) => Effect.Effect<TextureId, TextureError>
+export const TextureAdapter = Context.GenericTag<
+  TextureAdapter,
+  {
+    loadTexture: (params: { url: string; options?: TextureOptions }) => Effect.Effect<TextureId, TextureError>
 
-  loadTextureAtlas: (params: {
-    url: string
-    mapping: AtlasMapping
-  }) => Effect.Effect<TextureAtlasId, TextureError>
+    loadTextureAtlas: (params: { url: string; mapping: AtlasMapping }) => Effect.Effect<TextureAtlasId, TextureError>
 
-  createTexture: (params: {
-    data: Uint8Array | ImageData
-    width: number
-    height: number
-  }) => Effect.Effect<TextureId, TextureError>
+    createTexture: (params: {
+      data: Uint8Array | ImageData
+      width: number
+      height: number
+    }) => Effect.Effect<TextureId, TextureError>
 
-  disposeTexture: (
-    textureId: TextureId
-  ) => Effect.Effect<void, TextureError>
+    disposeTexture: (textureId: TextureId) => Effect.Effect<void, TextureError>
 
-  updateTexture: (params: {
-    textureId: TextureId
-    data: Uint8Array | ImageData
-    offset?: { x: number; y: number }
-  }) => Effect.Effect<void, TextureError>
-}>('TextureAdapter')
+    updateTexture: (params: {
+      textureId: TextureId
+      data: Uint8Array | ImageData
+      offset?: { x: number; y: number }
+    }) => Effect.Effect<void, TextureError>
+  }
+>('TextureAdapter')
 ```
 
 ## Network APIs
@@ -188,29 +140,20 @@ export interface WebSocketAdapter {
   readonly _: unique symbol
 }
 
-export const WebSocketAdapter = Context.GenericTag<WebSocketAdapter, {
-  connect: (params: {
-    url: string
-    protocols?: string[]
-  }) => Effect.Effect<ConnectionId, NetworkError>
+export const WebSocketAdapter = Context.GenericTag<
+  WebSocketAdapter,
+  {
+    connect: (params: { url: string; protocols?: string[] }) => Effect.Effect<ConnectionId, NetworkError>
 
-  disconnect: (
-    connectionId: ConnectionId
-  ) => Effect.Effect<void, NetworkError>
+    disconnect: (connectionId: ConnectionId) => Effect.Effect<void, NetworkError>
 
-  send: (params: {
-    connectionId: ConnectionId
-    data: Uint8Array | string
-  }) => Effect.Effect<void, NetworkError>
+    send: (params: { connectionId: ConnectionId; data: Uint8Array | string }) => Effect.Effect<void, NetworkError>
 
-  receive: (
-    connectionId: ConnectionId
-  ) => Stream.Stream<MessageEvent, NetworkError>
+    receive: (connectionId: ConnectionId) => Stream.Stream<MessageEvent, NetworkError>
 
-  getState: (
-    connectionId: ConnectionId
-  ) => Effect.Effect<ConnectionState, NetworkError>
-}>('WebSocketAdapter')
+    getState: (connectionId: ConnectionId) => Effect.Effect<ConnectionState, NetworkError>
+  }
+>('WebSocketAdapter')
 ```
 
 ### HTTP Client API
@@ -220,31 +163,31 @@ export interface HttpClientAdapter {
   readonly _: unique symbol
 }
 
-export const HttpClientAdapter = Context.GenericTag<HttpClientAdapter, {
-  get: <T>(params: {
-    url: string
-    headers?: Record<string, string>
-    schema: Schema.Schema<T>
-  }) => Effect.Effect<T, HttpError | ParseError>
+export const HttpClientAdapter = Context.GenericTag<
+  HttpClientAdapter,
+  {
+    get: <T>(params: {
+      url: string
+      headers?: Record<string, string>
+      schema: Schema.Schema<T>
+    }) => Effect.Effect<T, HttpError | ParseError>
 
-  post: <T, B>(params: {
-    url: string
-    body: B
-    headers?: Record<string, string>
-    schema: Schema.Schema<T>
-  }) => Effect.Effect<T, HttpError | ParseError>
+    post: <T, B>(params: {
+      url: string
+      body: B
+      headers?: Record<string, string>
+      schema: Schema.Schema<T>
+    }) => Effect.Effect<T, HttpError | ParseError>
 
-  download: (params: {
-    url: string
-    onProgress?: (progress: number) => void
-  }) => Effect.Effect<Uint8Array, HttpError>
+    download: (params: { url: string; onProgress?: (progress: number) => void }) => Effect.Effect<Uint8Array, HttpError>
 
-  upload: (params: {
-    url: string
-    file: File
-    onProgress?: (progress: number) => void
-  }) => Effect.Effect<void, HttpError>
-}>('HttpClientAdapter')
+    upload: (params: {
+      url: string
+      file: File
+      onProgress?: (progress: number) => void
+    }) => Effect.Effect<void, HttpError>
+  }
+>('HttpClientAdapter')
 ```
 
 ## Audio APIs
@@ -256,39 +199,34 @@ export interface AudioEngineAdapter {
   readonly _: unique symbol
 }
 
-export const AudioEngineAdapter = Context.GenericTag<AudioEngineAdapter, {
-  initialize: () => Effect.Effect<void, AudioError>
+export const AudioEngineAdapter = Context.GenericTag<
+  AudioEngineAdapter,
+  {
+    initialize: () => Effect.Effect<void, AudioError>
 
-  loadSound: (params: {
-    url: string
-    type: 'effect' | 'music' | 'ambient'
-  }) => Effect.Effect<SoundId, AudioError>
+    loadSound: (params: { url: string; type: 'effect' | 'music' | 'ambient' }) => Effect.Effect<SoundId, AudioError>
 
-  playSound: (params: {
-    soundId: SoundId
-    options?: PlayOptions
-  }) => Effect.Effect<PlaybackId, AudioError>
+    playSound: (params: { soundId: SoundId; options?: PlayOptions }) => Effect.Effect<PlaybackId, AudioError>
 
-  stopSound: (
-    playbackId: PlaybackId
-  ) => Effect.Effect<void, AudioError>
+    stopSound: (playbackId: PlaybackId) => Effect.Effect<void, AudioError>
 
-  setVolume: (params: {
-    category: 'master' | 'effect' | 'music' | 'ambient'
-    volume: number
-  }) => Effect.Effect<void, AudioError>
+    setVolume: (params: {
+      category: 'master' | 'effect' | 'music' | 'ambient'
+      volume: number
+    }) => Effect.Effect<void, AudioError>
 
-  play3DSound: (params: {
-    soundId: SoundId
-    position: Position
-    options?: Play3DOptions
-  }) => Effect.Effect<PlaybackId, AudioError>
+    play3DSound: (params: {
+      soundId: SoundId
+      position: Position
+      options?: Play3DOptions
+    }) => Effect.Effect<PlaybackId, AudioError>
 
-  updateListenerPosition: (params: {
-    position: Position
-    orientation: Orientation
-  }) => Effect.Effect<void, AudioError>
-}>('AudioEngineAdapter')
+    updateListenerPosition: (params: {
+      position: Position
+      orientation: Orientation
+    }) => Effect.Effect<void, AudioError>
+  }
+>('AudioEngineAdapter')
 ```
 
 ## Input APIs
@@ -300,32 +238,28 @@ export interface InputAdapter {
   readonly _: unique symbol
 }
 
-export const InputAdapter = Context.GenericTag<InputAdapter, {
-  startCapture: (params: {
-    element: HTMLElement
-    options?: InputCaptureOptions
-  }) => Effect.Effect<void, InputError>
+export const InputAdapter = Context.GenericTag<
+  InputAdapter,
+  {
+    startCapture: (params: { element: HTMLElement; options?: InputCaptureOptions }) => Effect.Effect<void, InputError>
 
-  stopCapture: () => Effect.Effect<void, InputError>
+    stopCapture: () => Effect.Effect<void, InputError>
 
-  onKeyDown: () => Stream.Stream<KeyboardEvent, never>
-  onKeyUp: () => Stream.Stream<KeyboardEvent, never>
-  onMouseMove: () => Stream.Stream<MouseEvent, never>
-  onMouseDown: () => Stream.Stream<MouseEvent, never>
-  onMouseUp: () => Stream.Stream<MouseEvent, never>
-  onWheel: () => Stream.Stream<WheelEvent, never>
-  onTouchStart: () => Stream.Stream<TouchEvent, never>
-  onTouchMove: () => Stream.Stream<TouchEvent, never>
-  onTouchEnd: () => Stream.Stream<TouchEvent, never>
+    onKeyDown: () => Stream.Stream<KeyboardEvent, never>
+    onKeyUp: () => Stream.Stream<KeyboardEvent, never>
+    onMouseMove: () => Stream.Stream<MouseEvent, never>
+    onMouseDown: () => Stream.Stream<MouseEvent, never>
+    onMouseUp: () => Stream.Stream<MouseEvent, never>
+    onWheel: () => Stream.Stream<WheelEvent, never>
+    onTouchStart: () => Stream.Stream<TouchEvent, never>
+    onTouchMove: () => Stream.Stream<TouchEvent, never>
+    onTouchEnd: () => Stream.Stream<TouchEvent, never>
 
-  setPointerLock: (
-    locked: boolean
-  ) => Effect.Effect<void, InputError>
+    setPointerLock: (locked: boolean) => Effect.Effect<void, InputError>
 
-  vibrate: (params: {
-    pattern: number | number[]
-  }) => Effect.Effect<void, InputError>
-}>('InputAdapter')
+    vibrate: (params: { pattern: number | number[] }) => Effect.Effect<void, InputError>
+  }
+>('InputAdapter')
 ```
 
 ## Performance Monitoring APIs
@@ -337,40 +271,31 @@ export interface MetricsAdapter {
   readonly _: unique symbol
 }
 
-export const MetricsAdapter = Context.GenericTag<MetricsAdapter, {
-  recordMetric: (params: {
-    name: string
-    value: number
-    tags?: Record<string, string>
-  }) => Effect.Effect<void, MetricsError>
+export const MetricsAdapter = Context.GenericTag<
+  MetricsAdapter,
+  {
+    recordMetric: (params: {
+      name: string
+      value: number
+      tags?: Record<string, string>
+    }) => Effect.Effect<void, MetricsError>
 
-  startTimer: (
-    name: string
-  ) => Effect.Effect<TimerId, MetricsError>
+    startTimer: (name: string) => Effect.Effect<TimerId, MetricsError>
 
-  stopTimer: (
-    timerId: TimerId
-  ) => Effect.Effect<Duration, MetricsError>
+    stopTimer: (timerId: TimerId) => Effect.Effect<Duration, MetricsError>
 
-  recordFPS: (
-    fps: number
-  ) => Effect.Effect<void, MetricsError>
+    recordFPS: (fps: number) => Effect.Effect<void, MetricsError>
 
-  getMetrics: (params: {
-    name?: string
-    timeRange?: TimeRange
-  }) => Effect.Effect<ReadonlyArray<MetricData>, MetricsError>
+    getMetrics: (params: {
+      name?: string
+      timeRange?: TimeRange
+    }) => Effect.Effect<ReadonlyArray<MetricData>, MetricsError>
 
-  createHistogram: (params: {
-    name: string
-    buckets: number[]
-  }) => Effect.Effect<HistogramId, MetricsError>
+    createHistogram: (params: { name: string; buckets: number[] }) => Effect.Effect<HistogramId, MetricsError>
 
-  recordHistogramValue: (params: {
-    histogramId: HistogramId
-    value: number
-  }) => Effect.Effect<void, MetricsError>
-}>('MetricsAdapter')
+    recordHistogramValue: (params: { histogramId: HistogramId; value: number }) => Effect.Effect<void, MetricsError>
+  }
+>('MetricsAdapter')
 ```
 
 ## WebWorker APIs
@@ -382,32 +307,25 @@ export interface WorkerPoolAdapter {
   readonly _: unique symbol
 }
 
-export const WorkerPoolAdapter = Context.GenericTag<WorkerPoolAdapter, {
-  createPool: (params: {
-    workerScript: string
-    poolSize: number
-  }) => Effect.Effect<PoolId, WorkerError>
+export const WorkerPoolAdapter = Context.GenericTag<
+  WorkerPoolAdapter,
+  {
+    createPool: (params: { workerScript: string; poolSize: number }) => Effect.Effect<PoolId, WorkerError>
 
-  execute: <T, P>(params: {
-    poolId: PoolId
-    task: WorkerTask<P>
-    payload: P
-    schema: Schema.Schema<T>
-  }) => Effect.Effect<T, WorkerError | ParseError>
+    execute: <T, P>(params: {
+      poolId: PoolId
+      task: WorkerTask<P>
+      payload: P
+      schema: Schema.Schema<T>
+    }) => Effect.Effect<T, WorkerError | ParseError>
 
-  broadcast: <P>(params: {
-    poolId: PoolId
-    message: P
-  }) => Effect.Effect<void, WorkerError>
+    broadcast: <P>(params: { poolId: PoolId; message: P }) => Effect.Effect<void, WorkerError>
 
-  terminatePool: (
-    poolId: PoolId
-  ) => Effect.Effect<void, WorkerError>
+    terminatePool: (poolId: PoolId) => Effect.Effect<void, WorkerError>
 
-  getPoolStats: (
-    poolId: PoolId
-  ) => Effect.Effect<PoolStats, WorkerError>
-}>('WorkerPoolAdapter')
+    getPoolStats: (poolId: PoolId) => Effect.Effect<PoolStats, WorkerError>
+  }
+>('WorkerPoolAdapter')
 ```
 
 ## Cache APIs
@@ -419,30 +337,22 @@ export interface CacheAdapter {
   readonly _: unique symbol
 }
 
-export const CacheAdapter = Context.GenericTag<CacheAdapter, {
-  get: <T>(params: {
-    key: string
-    schema: Schema.Schema<T>
-  }) => Effect.Effect<Option.Option<T>, CacheError>
+export const CacheAdapter = Context.GenericTag<
+  CacheAdapter,
+  {
+    get: <T>(params: { key: string; schema: Schema.Schema<T> }) => Effect.Effect<Option.Option<T>, CacheError>
 
-  set: <T>(params: {
-    key: string
-    value: T
-    ttl?: Duration
-  }) => Effect.Effect<void, CacheError>
+    set: <T>(params: { key: string; value: T; ttl?: Duration }) => Effect.Effect<void, CacheError>
 
-  delete: (
-    key: string
-  ) => Effect.Effect<void, CacheError>
+    delete: (key: string) => Effect.Effect<void, CacheError>
 
-  clear: () => Effect.Effect<void, CacheError>
+    clear: () => Effect.Effect<void, CacheError>
 
-  has: (
-    key: string
-  ) => Effect.Effect<boolean, CacheError>
+    has: (key: string) => Effect.Effect<boolean, CacheError>
 
-  size: () => Effect.Effect<number, CacheError>
-}>('CacheAdapter')
+    size: () => Effect.Effect<number, CacheError>
+  }
+>('CacheAdapter')
 ```
 
 ## Advanced Storage Systems
@@ -467,7 +377,7 @@ export const StorageClusterAdapter = Context.GenericTag<{
     preferredNodes: ReadonlyArray<StorageNodeId>
   }) => Effect.Effect<unknown, StorageError>
   readonly getClusterHealth: () => Effect.Effect<ClusterHealth, HealthCheckError>
-}>()("StorageClusterAdapter")
+}>()('StorageClusterAdapter')
 
 export const StorageClusterAdapterLive = Layer.effect(
   StorageClusterAdapter,
@@ -476,87 +386,101 @@ export const StorageClusterAdapterLive = Layer.effect(
     const hashRing = yield* Ref.make<ConsistentHashRing>(new ConsistentHashRing())
 
     return {
-      selectNode: (key) => Effect.gen(function* () {
-        const ring = yield* Ref.get(hashRing)
-        const nodeId = ring.getNode(key)
+      selectNode: (key) =>
+        Effect.gen(function* () {
+          const ring = yield* Ref.get(hashRing)
+          const nodeId = ring.getNode(key)
 
-        if (!nodeId) {
-          yield* Effect.fail(new ClusterError({
-            message: "No available nodes in cluster",
-            key,
-            availableNodes: ring.getNodes()
-          }))
-        }
-
-        return nodeId
-      }),
-
-      replicateData: (params) => Effect.gen(function* () {
-        const ring = yield* Ref.get(hashRing)
-        const nodes = ring.getReplicationNodes(params.key, params.replicationFactor)
-
-        const replications = yield* Effect.all(
-          nodes.map(nodeId =>
-            StorageNodeClient.pipe(
-              Effect.flatMap(client => client.store({
-                nodeId,
-                key: params.key,
-                data: params.data
-              }))
+          if (!nodeId) {
+            yield* Effect.fail(
+              new ClusterError({
+                message: 'No available nodes in cluster',
+                key,
+                availableNodes: ring.getNodes(),
+              })
             )
-          ),
-          { concurrency: params.replicationFactor }
-        )
+          }
 
-        return nodes
-      }),
+          return nodeId
+        }),
 
-      readWithFallback: (params) => Effect.gen(function* () {
-        for (const nodeId of params.preferredNodes) {
-          const result = yield* StorageNodeClient.pipe(
-            Effect.flatMap(client => client.retrieve({
-              nodeId,
-              key: params.key
-            })),
-            Effect.option
+      replicateData: (params) =>
+        Effect.gen(function* () {
+          const ring = yield* Ref.get(hashRing)
+          const nodes = ring.getReplicationNodes(params.key, params.replicationFactor)
+
+          const replications = yield* Effect.all(
+            nodes.map((nodeId) =>
+              StorageNodeClient.pipe(
+                Effect.flatMap((client) =>
+                  client.store({
+                    nodeId,
+                    key: params.key,
+                    data: params.data,
+                  })
+                )
+              )
+            ),
+            { concurrency: params.replicationFactor }
           )
 
-          if (Option.isSome(result)) {
-            return result.value
-          }
-        }
+          return nodes
+        }),
 
-        yield* Effect.fail(new StorageError({
-          message: "Data not found in any preferred nodes",
-          key: params.key,
-          triedNodes: params.preferredNodes
-        }))
-      }),
-
-      getClusterHealth: () => Effect.gen(function* () {
-        const registry = yield* Ref.get(nodeRegistry)
-        const nodes = Array.from(registry.values())
-
-        const healthChecks = yield* Effect.all(
-          nodes.map(node =>
-            StorageNodeClient.pipe(
-              Effect.flatMap(client => client.healthCheck(node.id)),
-              Effect.map(health => ({ nodeId: node.id, health })),
-              Effect.catchAll(error => Effect.succeed({
-                nodeId: node.id,
-                health: { status: "unhealthy", error: error.message }
-              }))
+      readWithFallback: (params) =>
+        Effect.gen(function* () {
+          for (const nodeId of params.preferredNodes) {
+            const result = yield* StorageNodeClient.pipe(
+              Effect.flatMap((client) =>
+                client.retrieve({
+                  nodeId,
+                  key: params.key,
+                })
+              ),
+              Effect.option
             )
-          ),
-          { concurrency: 10 }
-        )
 
-        return {
-          totalNodes: nodes.length,
-          healthyNodes: healthChecks.filter(h => h.health.status === "healthy").length,
-          nodeStatuses: healthChecks
-        }
-      })
+            if (Option.isSome(result)) {
+              return result.value
+            }
+          }
+
+          yield* Effect.fail(
+            new StorageError({
+              message: 'Data not found in any preferred nodes',
+              key: params.key,
+              triedNodes: params.preferredNodes,
+            })
+          )
+        }),
+
+      getClusterHealth: () =>
+        Effect.gen(function* () {
+          const registry = yield* Ref.get(nodeRegistry)
+          const nodes = Array.from(registry.values())
+
+          const healthChecks = yield* Effect.all(
+            nodes.map((node) =>
+              StorageNodeClient.pipe(
+                Effect.flatMap((client) => client.healthCheck(node.id)),
+                Effect.map((health) => ({ nodeId: node.id, health })),
+                Effect.catchAll((error) =>
+                  Effect.succeed({
+                    nodeId: node.id,
+                    health: { status: 'unhealthy', error: error.message },
+                  })
+                )
+              )
+            ),
+            { concurrency: 10 }
+          )
+
+          return {
+            totalNodes: nodes.length,
+            healthyNodes: healthChecks.filter((h) => h.health.status === 'healthy').length,
+            nodeStatuses: healthChecks,
+          }
+        }),
     }
   })
 )
@@ -654,7 +578,7 @@ export const createConsistentHashRing = (virtualNodes: number = 150): Consistent
       return Array.from(nodes)
     },
 
-    getNodes: () => getUniqueNodes(ring)
+    getNodes: () => getUniqueNodes(ring),
   }
 }
 
@@ -670,7 +594,7 @@ const createConsistentHashRingFromState = (
   removeNode: createConsistentHashRing(virtualNodes).removeNode,
   getNode: createConsistentHashRing(virtualNodes).getNode,
   getReplicationNodes: createConsistentHashRing(virtualNodes).getReplicationNodes,
-  getNodes: createConsistentHashRing(virtualNodes).getNodes
+  getNodes: createConsistentHashRing(virtualNodes).getNodes,
 })
 ```
 
@@ -685,14 +609,10 @@ const createConsistentHashRingFromState = (
 export const DatabaseConnectionPool = Context.GenericTag<{
   readonly acquire: () => Effect.Effect<DatabaseConnection, ConnectionError>
   readonly release: (connection: DatabaseConnection) => Effect.Effect<void>
-  readonly execute: <T>(
-    query: DatabaseQuery<T>
-  ) => Effect.Effect<T, QueryError>
-  readonly transaction: <T>(
-    operations: ReadonlyArray<DatabaseOperation>
-  ) => Effect.Effect<T, TransactionError>
+  readonly execute: <T>(query: DatabaseQuery<T>) => Effect.Effect<T, QueryError>
+  readonly transaction: <T>(operations: ReadonlyArray<DatabaseOperation>) => Effect.Effect<T, TransactionError>
   readonly getPoolStats: () => Effect.Effect<PoolStats>
-}>()("DatabaseConnectionPool")
+}>()('DatabaseConnectionPool')
 
 export const DatabaseConnectionPoolLive = Layer.scoped(
   DatabaseConnectionPool,
@@ -702,7 +622,7 @@ export const DatabaseConnectionPoolLive = Layer.scoped(
       maxConnections: 20,
       acquireTimeoutMs: 30000,
       idleTimeoutMs: 300000,
-      maxLifetimeMs: 3600000
+      maxLifetimeMs: 3600000,
     }
 
     // 接続プールの実装
@@ -715,15 +635,15 @@ export const DatabaseConnectionPoolLive = Layer.scoped(
       busyConnections: 0,
       totalAcquired: 0,
       totalReleased: 0,
-      averageAcquireTime: 0
+      averageAcquireTime: 0,
     })
 
     // 初期接続を作成
     yield* Effect.all(
       Array.from({ length: poolConfig.minConnections }, () =>
         createConnection().pipe(
-          Effect.flatMap(conn => Queue.offer(availableConnections, conn)),
-          Effect.tap(() => Ref.update(connectionCount, c => c + 1))
+          Effect.flatMap((conn) => Queue.offer(availableConnections, conn)),
+          Effect.tap(() => Ref.update(connectionCount, (c) => c + 1))
         )
       )
     )
@@ -737,10 +657,8 @@ export const DatabaseConnectionPoolLive = Layer.scoped(
           // アイドル接続のヘルスチェック
           const connections = yield* Queue.takeAll(availableConnections)
           const healthyConnections = yield* Effect.all(
-            Array.fromIterable(connections).map(conn =>
-              healthCheckConnection(conn).pipe(
-                Effect.map(healthy => ({ connection: conn, healthy }))
-              )
+            Array.fromIterable(connections).map((conn) =>
+              healthCheckConnection(conn).pipe(Effect.map((healthy) => ({ connection: conn, healthy })))
             )
           )
 
@@ -750,7 +668,7 @@ export const DatabaseConnectionPoolLive = Layer.scoped(
               yield* Queue.offer(availableConnections, connection)
             } else {
               yield* closeConnection(connection)
-              yield* Ref.update(connectionCount, c => c - 1)
+              yield* Ref.update(connectionCount, (c) => c - 1)
             }
           }
 
@@ -761,8 +679,8 @@ export const DatabaseConnectionPoolLive = Layer.scoped(
             yield* Effect.all(
               Array.from({ length: needed }, () =>
                 createConnection().pipe(
-                  Effect.flatMap(conn => Queue.offer(availableConnections, conn)),
-                  Effect.tap(() => Ref.update(connectionCount, c => c + 1))
+                  Effect.flatMap((conn) => Queue.offer(availableConnections, conn)),
+                  Effect.tap(() => Ref.update(connectionCount, (c) => c + 1))
                 )
               )
             )
@@ -772,106 +690,102 @@ export const DatabaseConnectionPoolLive = Layer.scoped(
     )
 
     return {
-      acquire: () => Effect.gen(function* () {
-        const startTime = Date.now()
+      acquire: () =>
+        Effect.gen(function* () {
+          const startTime = Date.now()
 
-        const connection = yield* Queue.take(availableConnections).pipe(
-          Effect.timeout(Duration.millis(poolConfig.acquireTimeoutMs)),
-          Effect.catchTag("TimeoutException", () =>
-            Effect.fail(new ConnectionError({
-              message: "Connection acquire timeout",
-              timeoutMs: poolConfig.acquireTimeoutMs
-            }))
-          )
-        )
-
-        yield* Ref.update(busyConnections, busy => new Set([...busy, connection]))
-
-        // 統計情報更新
-        const acquireTime = Date.now() - startTime
-        yield* Ref.update(poolStats, stats => ({
-          ...stats,
-          totalAcquired: stats.totalAcquired + 1,
-          averageAcquireTime: (stats.averageAcquireTime * (stats.totalAcquired - 1) + acquireTime) / stats.totalAcquired
-        }))
-
-        return connection
-      }),
-
-      release: (connection) => Effect.gen(function* () {
-        yield* Ref.update(busyConnections, busy => {
-          const newBusy = new Set(busy)
-          newBusy.delete(connection)
-          return newBusy
-        })
-
-        yield* Queue.offer(availableConnections, connection)
-
-        yield* Ref.update(poolStats, stats => ({
-          ...stats,
-          totalReleased: stats.totalReleased + 1
-        }))
-      }),
-
-      execute: (query) => Effect.gen(function* () {
-        const connection = yield* DatabaseConnectionPool.pipe(
-          Effect.flatMap(pool => pool.acquire())
-        )
-
-        const result = yield* executeQuery(connection, query).pipe(
-          Effect.ensuring(
-            DatabaseConnectionPool.pipe(
-              Effect.flatMap(pool => pool.release(connection))
+          const connection = yield* Queue.take(availableConnections).pipe(
+            Effect.timeout(Duration.millis(poolConfig.acquireTimeoutMs)),
+            Effect.catchTag('TimeoutException', () =>
+              Effect.fail(
+                new ConnectionError({
+                  message: 'Connection acquire timeout',
+                  timeoutMs: poolConfig.acquireTimeoutMs,
+                })
+              )
             )
           )
-        )
 
-        return result
-      }),
+          yield* Ref.update(busyConnections, (busy) => new Set([...busy, connection]))
 
-      transaction: (operations) => Effect.gen(function* () {
-        const connection = yield* DatabaseConnectionPool.pipe(
-          Effect.flatMap(pool => pool.acquire())
-        )
+          // 統計情報更新
+          const acquireTime = Date.now() - startTime
+          yield* Ref.update(poolStats, (stats) => ({
+            ...stats,
+            totalAcquired: stats.totalAcquired + 1,
+            averageAcquireTime:
+              (stats.averageAcquireTime * (stats.totalAcquired - 1) + acquireTime) / stats.totalAcquired,
+          }))
 
-        const result = yield* Effect.gen(function* () {
-          yield* beginTransaction(connection)
+          return connection
+        }),
 
-          const results = yield* Effect.all(
-            operations.map(op => executeOperation(connection, op)),
-            { discard: true }
-          ).pipe(
-            Effect.catchAll(error => Effect.gen(function* () {
-              yield* rollbackTransaction(connection)
-              yield* Effect.fail(error)
-            }))
+      release: (connection) =>
+        Effect.gen(function* () {
+          yield* Ref.update(busyConnections, (busy) => {
+            const newBusy = new Set(busy)
+            newBusy.delete(connection)
+            return newBusy
+          })
+
+          yield* Queue.offer(availableConnections, connection)
+
+          yield* Ref.update(poolStats, (stats) => ({
+            ...stats,
+            totalReleased: stats.totalReleased + 1,
+          }))
+        }),
+
+      execute: (query) =>
+        Effect.gen(function* () {
+          const connection = yield* DatabaseConnectionPool.pipe(Effect.flatMap((pool) => pool.acquire()))
+
+          const result = yield* executeQuery(connection, query).pipe(
+            Effect.ensuring(DatabaseConnectionPool.pipe(Effect.flatMap((pool) => pool.release(connection))))
           )
 
-          yield* commitTransaction(connection)
-          return results
-        }).pipe(
-          Effect.ensuring(
-            DatabaseConnectionPool.pipe(
-              Effect.flatMap(pool => pool.release(connection))
+          return result
+        }),
+
+      transaction: (operations) =>
+        Effect.gen(function* () {
+          const connection = yield* DatabaseConnectionPool.pipe(Effect.flatMap((pool) => pool.acquire()))
+
+          const result = yield* Effect.gen(function* () {
+            yield* beginTransaction(connection)
+
+            const results = yield* Effect.all(
+              operations.map((op) => executeOperation(connection, op)),
+              { discard: true }
+            ).pipe(
+              Effect.catchAll((error) =>
+                Effect.gen(function* () {
+                  yield* rollbackTransaction(connection)
+                  yield* Effect.fail(error)
+                })
+              )
             )
-          )
-        )
 
-        return result
-      }),
+            yield* commitTransaction(connection)
+            return results
+          }).pipe(Effect.ensuring(DatabaseConnectionPool.pipe(Effect.flatMap((pool) => pool.release(connection)))))
 
-      getPoolStats: () => Effect.gen(function* () {
-        const stats = yield* Ref.get(poolStats)
-        const busy = yield* Ref.get(busyConnections)
-        const availableCount = yield* Queue.size(availableConnections)
+          return result
+        }),
 
-        return {
-          ...stats,
-          totalConnections: yield* Ref.get(connectionCount),
-          availableConnections: availableCount,
-          busyConnections: busy.size
-        }
-      })
+      getPoolStats: () =>
+        Effect.gen(function* () {
+          const stats = yield* Ref.get(poolStats)
+          const busy = yield* Ref.get(busyConnections)
+          const availableCount = yield* Queue.size(availableConnections)
+
+          return {
+            ...stats,
+            totalConnections: yield* Ref.get(connectionCount),
+            availableConnections: availableCount,
+            busyConnections: busy.size,
+          }
+        }),
     }
   })
 )
@@ -899,19 +813,12 @@ export const MessageQueueAdapter = Context.GenericTag<{
     options?: SubscribeOptions
   }) => Effect.Effect<SubscriptionId, SubscribeError>
 
-  readonly unsubscribe: (
-    subscriptionId: SubscriptionId
-  ) => Effect.Effect<void, UnsubscribeError>
+  readonly unsubscribe: (subscriptionId: SubscriptionId) => Effect.Effect<void, UnsubscribeError>
 
-  readonly createTopic: (params: {
-    name: string
-    config: TopicConfig
-  }) => Effect.Effect<void, TopicCreationError>
+  readonly createTopic: (params: { name: string; config: TopicConfig }) => Effect.Effect<void, TopicCreationError>
 
-  readonly getQueueStats: (
-    topic: string
-  ) => Effect.Effect<QueueStats, StatsError>
-}>()("MessageQueueAdapter")
+  readonly getQueueStats: (topic: string) => Effect.Effect<QueueStats, StatsError>
+}>()('MessageQueueAdapter')
 
 // Redis Streams実装
 export const RedisMessageQueueAdapterLive = Layer.effect(
@@ -921,170 +828,163 @@ export const RedisMessageQueueAdapterLive = Layer.effect(
     const subscriptions = yield* Ref.make(new Map<SubscriptionId, SubscriptionHandle>())
 
     return {
-      publish: (params) => Effect.gen(function* () {
-        const messageId = generateMessageId()
-        const serializedMessage = JSON.stringify({
-          id: messageId,
-          payload: params.message,
-          timestamp: Date.now(),
-          ...params.options?.metadata
-        })
+      publish: (params) =>
+        Effect.gen(function* () {
+          const messageId = generateMessageId()
+          const serializedMessage = JSON.stringify({
+            id: messageId,
+            payload: params.message,
+            timestamp: Date.now(),
+            ...params.options?.metadata,
+          })
 
-        yield* redis.xadd(
-          params.topic,
-          messageId,
-          'data',
-          serializedMessage
-        )
+          yield* redis.xadd(params.topic, messageId, 'data', serializedMessage)
 
-        return messageId
-      }),
+          return messageId
+        }),
 
-      subscribe: (params) => Effect.gen(function* () {
-        const subscriptionId = generateSubscriptionId()
+      subscribe: (params) =>
+        Effect.gen(function* () {
+          const subscriptionId = generateSubscriptionId()
 
-        // Consumer Group作成
-        yield* redis.xgroup(
-          'CREATE',
-          params.topic,
-          params.consumer,
-          '$',
-          'MKSTREAM'
-        ).pipe(
-          Effect.catchTag('RedisError', () => Effect.void) // グループが既に存在する場合
-        )
+          // Consumer Group作成
+          yield* redis.xgroup('CREATE', params.topic, params.consumer, '$', 'MKSTREAM').pipe(
+            Effect.catchTag('RedisError', () => Effect.void) // グループが既に存在する場合
+          )
 
-        // メッセージ処理ファイバー
-        const processingFiber = yield* Effect.forkDaemon(
-          Stream.repeatEffect(
-            redis.xreadgroup(
-              'GROUP',
-              params.consumer,
-              `consumer-${subscriptionId}`,
-              'COUNT',
-              '10',
-              'BLOCK',
-              '1000',
-              'STREAMS',
-              params.topic,
-              '>'
-            ).pipe(
-              Effect.flatMap(results =>
-                Effect.all(
-                  results.map(([topic, messages]) =>
+          // メッセージ処理ファイバー
+          const processingFiber = yield* Effect.forkDaemon(
+            Stream.repeatEffect(
+              redis
+                .xreadgroup(
+                  'GROUP',
+                  params.consumer,
+                  `consumer-${subscriptionId}`,
+                  'COUNT',
+                  '10',
+                  'BLOCK',
+                  '1000',
+                  'STREAMS',
+                  params.topic,
+                  '>'
+                )
+                .pipe(
+                  Effect.flatMap((results) =>
                     Effect.all(
-                      messages.map(([messageId, fields]) =>
-                        Effect.gen(function* () {
-                          const messageData = JSON.parse(fields.data)
+                      results.map(([topic, messages]) =>
+                        Effect.all(
+                          messages.map(([messageId, fields]) =>
+                            Effect.gen(function* () {
+                              const messageData = JSON.parse(fields.data)
 
-                          yield* params.handler({
-                            id: messageId,
-                            topic,
-                            payload: messageData.payload,
-                            timestamp: messageData.timestamp,
-                            metadata: messageData.metadata || {}
-                          }).pipe(
-                            Effect.catchAll(error => Effect.gen(function* () {
-                              // エラー処理: デッドレターキューまたはリトライ
-                              yield* Effect.logError(`Message handling failed: ${error.message}`)
+                              yield* params
+                                .handler({
+                                  id: messageId,
+                                  topic,
+                                  payload: messageData.payload,
+                                  timestamp: messageData.timestamp,
+                                  metadata: messageData.metadata || {},
+                                })
+                                .pipe(
+                                  Effect.catchAll((error) =>
+                                    Effect.gen(function* () {
+                                      // エラー処理: デッドレターキューまたはリトライ
+                                      yield* Effect.logError(`Message handling failed: ${error.message}`)
 
-                              if (shouldRetry(error, messageData)) {
-                                yield* scheduleRetry(params.topic, messageId, messageData)
-                              } else {
-                                yield* moveToDeadLetterQueue(params.topic, messageId, messageData, error)
-                              }
-                            })),
-                            Effect.tap(() =>
-                              // メッセージ確認
-                              redis.xack(params.topic, params.consumer, messageId)
-                            )
+                                      if (shouldRetry(error, messageData)) {
+                                        yield* scheduleRetry(params.topic, messageId, messageData)
+                                      } else {
+                                        yield* moveToDeadLetterQueue(params.topic, messageId, messageData, error)
+                                      }
+                                    })
+                                  ),
+                                  Effect.tap(() =>
+                                    // メッセージ確認
+                                    redis.xack(params.topic, params.consumer, messageId)
+                                  )
+                                )
+                            })
                           )
-                        })
+                        )
                       )
                     )
-                  )
+                  ),
+                  Effect.catchAll((error) => Effect.logError(`Message consumption error: ${error.message}`))
                 )
-              ),
-              Effect.catchAll(error =>
-                Effect.logError(`Message consumption error: ${error.message}`)
-              )
+            ).pipe(Stream.runDrain)
+          )
+
+          const handle: SubscriptionHandle = {
+            id: subscriptionId,
+            topic: params.topic,
+            consumer: params.consumer,
+            fiber: processingFiber,
+          }
+
+          yield* Ref.update(subscriptions, (subs) => new Map([...subs, [subscriptionId, handle]]))
+
+          return subscriptionId
+        }),
+
+      unsubscribe: (subscriptionId) =>
+        Effect.gen(function* () {
+          const subs = yield* Ref.get(subscriptions)
+          const handle = subs.get(subscriptionId)
+
+          if (!handle) {
+            yield* Effect.fail(
+              new UnsubscribeError({
+                message: 'Subscription not found',
+                subscriptionId,
+              })
             )
-          ).pipe(Stream.runDrain)
-        )
+          }
 
-        const handle: SubscriptionHandle = {
-          id: subscriptionId,
-          topic: params.topic,
-          consumer: params.consumer,
-          fiber: processingFiber
-        }
+          // ファイバーを停止
+          yield* Fiber.interrupt(handle.fiber)
 
-        yield* Ref.update(subscriptions, subs =>
-          new Map([...subs, [subscriptionId, handle]])
-        )
+          // 購読を削除
+          yield* Ref.update(subscriptions, (subs) => {
+            const newSubs = new Map(subs)
+            newSubs.delete(subscriptionId)
+            return newSubs
+          })
+        }),
 
-        return subscriptionId
-      }),
+      createTopic: (params) =>
+        Effect.gen(function* () {
+          // Redis Streamsでは明示的にトピック作成は不要だが、
+          // 設定に応じて初期化処理を行う
+          if (params.config.retentionMs) {
+            yield* redis.xtrim(params.name, 'MAXLEN', '~', params.config.maxMessages || 10000).pipe(
+              Effect.catchAll(() => Effect.void) // ストリームが存在しない場合
+            )
+          }
+        }),
 
-      unsubscribe: (subscriptionId) => Effect.gen(function* () {
-        const subs = yield* Ref.get(subscriptions)
-        const handle = subs.get(subscriptionId)
-
-        if (!handle) {
-          yield* Effect.fail(new UnsubscribeError({
-            message: "Subscription not found",
-            subscriptionId
-          }))
-        }
-
-        // ファイバーを停止
-        yield* Fiber.interrupt(handle.fiber)
-
-        // 購読を削除
-        yield* Ref.update(subscriptions, subs => {
-          const newSubs = new Map(subs)
-          newSubs.delete(subscriptionId)
-          return newSubs
-        })
-      }),
-
-      createTopic: (params) => Effect.gen(function* () {
-        // Redis Streamsでは明示的にトピック作成は不要だが、
-        // 設定に応じて初期化処理を行う
-        if (params.config.retentionMs) {
-          yield* redis.xtrim(
-            params.name,
-            'MAXLEN',
-            '~',
-            params.config.maxMessages || 10000
-          ).pipe(
-            Effect.catchAll(() => Effect.void) // ストリームが存在しない場合
+      getQueueStats: (topic) =>
+        Effect.gen(function* () {
+          const info = yield* redis.xinfo('STREAM', topic).pipe(
+            Effect.catchTag('RedisError', () =>
+              Effect.succeed({
+                length: 0,
+                'radix-tree-keys': 0,
+                'radix-tree-nodes': 0,
+                groups: 0,
+                'last-generated-id': '0-0',
+                'first-entry': null,
+                'last-entry': null,
+              })
+            )
           )
-        }
-      }),
 
-      getQueueStats: (topic) => Effect.gen(function* () {
-        const info = yield* redis.xinfo('STREAM', topic).pipe(
-          Effect.catchTag('RedisError', () =>
-            Effect.succeed({
-              length: 0,
-              'radix-tree-keys': 0,
-              'radix-tree-nodes': 0,
-              groups: 0,
-              'last-generated-id': '0-0',
-              'first-entry': null,
-              'last-entry': null
-            })
-          )
-        )
-
-        return {
-          messageCount: info.length,
-          consumerGroups: info.groups,
-          firstMessageId: info['first-entry']?.[0] || null,
-          lastMessageId: info['last-generated-id']
-        }
-      })
+          return {
+            messageCount: info.length,
+            consumerGroups: info.groups,
+            firstMessageId: info['first-entry']?.[0] || null,
+            lastMessageId: info['last-generated-id'],
+          }
+        }),
     }
   })
 )
@@ -1097,54 +997,57 @@ export const WebSocketMessageQueueAdapterLive = Layer.effect(
     const topicSubscribers = yield* Ref.make(new Map<string, Set<string>>())
 
     return {
-      publish: (params) => Effect.gen(function* () {
-        const messageId = generateMessageId()
-        const subscribers = yield* Ref.get(topicSubscribers)
-        const topicSubs = subscribers.get(params.topic) || new Set()
+      publish: (params) =>
+        Effect.gen(function* () {
+          const messageId = generateMessageId()
+          const subscribers = yield* Ref.get(topicSubscribers)
+          const topicSubs = subscribers.get(params.topic) || new Set()
 
-        const conns = yield* Ref.get(connections)
-        const message = {
-          id: messageId,
-          topic: params.topic,
-          payload: params.message,
-          timestamp: Date.now()
-        }
+          const conns = yield* Ref.get(connections)
+          const message = {
+            id: messageId,
+            topic: params.topic,
+            payload: params.message,
+            timestamp: Date.now(),
+          }
 
-        // 購読者にメッセージをプッシュ
-        yield* Effect.all(
-          Array.from(topicSubs).map(connectionId => {
-            const ws = conns.get(connectionId)
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              return Effect.promise(() => {
-                ws.send(JSON.stringify(message))
-                return Promise.resolve()
-              })
-            }
-            return Effect.void
-          })
-        )
+          // 購読者にメッセージをプッシュ
+          yield* Effect.all(
+            Array.from(topicSubs).map((connectionId) => {
+              const ws = conns.get(connectionId)
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                return Effect.promise(() => {
+                  ws.send(JSON.stringify(message))
+                  return Promise.resolve()
+                })
+              }
+              return Effect.void
+            })
+          )
 
-        return messageId
-      }),
+          return messageId
+        }),
 
-      subscribe: (params) => Effect.gen(function* () {
-        const subscriptionId = generateSubscriptionId()
+      subscribe: (params) =>
+        Effect.gen(function* () {
+          const subscriptionId = generateSubscriptionId()
 
-        // WebSocketハンドラーの設定は省略（実装依存）
-        // 実際の実装では、WebSocket接続管理とメッセージハンドリングを含める
+          // WebSocketハンドラーの設定は省略（実装依存）
+          // 実際の実装では、WebSocket接続管理とメッセージハンドリングを含める
 
-        return subscriptionId
-      }),
+          return subscriptionId
+        }),
 
       // 他のメソッドも実装...
       unsubscribe: (subscriptionId) => Effect.void,
       createTopic: (params) => Effect.void,
-      getQueueStats: (topic) => Effect.succeed({
-        messageCount: 0,
-        consumerGroups: 0,
-        firstMessageId: null,
-        lastMessageId: null
-      })
+      getQueueStats: (topic) =>
+        Effect.succeed({
+          messageCount: 0,
+          consumerGroups: 0,
+          firstMessageId: null,
+          lastMessageId: null,
+        }),
     }
   })
 )
@@ -1171,19 +1074,15 @@ export const ShaderManager = Context.GenericTag<{
     attributes?: Record<string, number>
   }) => Effect.Effect<ProgramId, ProgramLinkError>
 
-  readonly useProgram: (
-    programId: ProgramId
-  ) => Effect.Effect<void, RenderError>
+  readonly useProgram: (programId: ProgramId) => Effect.Effect<void, RenderError>
 
   readonly setUniforms: (params: {
     programId: ProgramId
     uniforms: Record<string, UniformValue>
   }) => Effect.Effect<void, RenderError>
 
-  readonly deleteShader: (
-    shaderId: ShaderId
-  ) => Effect.Effect<void>
-}>()("ShaderManager")
+  readonly deleteShader: (shaderId: ShaderId) => Effect.Effect<void>
+}>()('ShaderManager')
 
 export const ShaderManagerLive = Layer.effect(
   ShaderManager,
@@ -1193,152 +1092,159 @@ export const ShaderManagerLive = Layer.effect(
     const programCache = yield* Ref.make(new Map<string, ProgramId>())
 
     return {
-      compileShader: (params) => Effect.gen(function* () {
-        // シェーダーキャッシュをチェック
-        const cacheKey = `${params.type}-${params.source}-${JSON.stringify(params.defines || {})}`
-        const cache = yield* Ref.get(shaderCache)
-        const cached = cache.get(cacheKey)
+      compileShader: (params) =>
+        Effect.gen(function* () {
+          // シェーダーキャッシュをチェック
+          const cacheKey = `${params.type}-${params.source}-${JSON.stringify(params.defines || {})}`
+          const cache = yield* Ref.get(shaderCache)
+          const cached = cache.get(cacheKey)
 
-        if (cached) {
-          return cached
-        }
+          if (cached) {
+            return cached
+          }
 
-        // #defineマクロを適用
-        let processedSource = params.source
-        if (params.defines) {
-          const defineStatements = Object.entries(params.defines)
-            .map(([key, value]) => `#define ${key} ${value}`)
-            .join('\n')
-          processedSource = `${defineStatements}\n${params.source}`
-        }
+          // #defineマクロを適用
+          let processedSource = params.source
+          if (params.defines) {
+            const defineStatements = Object.entries(params.defines)
+              .map(([key, value]) => `#define ${key} ${value}`)
+              .join('\n')
+            processedSource = `${defineStatements}\n${params.source}`
+          }
 
-        const shaderType = params.type === 'vertex'
-          ? gl.VERTEX_SHADER
-          : gl.FRAGMENT_SHADER
+          const shaderType = params.type === 'vertex' ? gl.VERTEX_SHADER : gl.FRAGMENT_SHADER
 
-        const shader = gl.createShader(shaderType)
-        if (!shader) {
-          yield* Effect.fail(new ShaderCompilationError({
-            type: params.type,
-            message: "Failed to create shader object"
-          }))
-        }
+          const shader = gl.createShader(shaderType)
+          if (!shader) {
+            yield* Effect.fail(
+              new ShaderCompilationError({
+                type: params.type,
+                message: 'Failed to create shader object',
+              })
+            )
+          }
 
-        gl.shaderSource(shader, processedSource)
-        gl.compileShader(shader)
+          gl.shaderSource(shader, processedSource)
+          gl.compileShader(shader)
 
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-          const error = gl.getShaderInfoLog(shader)
-          gl.deleteShader(shader)
-          yield* Effect.fail(new ShaderCompilationError({
-            type: params.type,
-            message: error || "Unknown compilation error",
-            source: processedSource
-          }))
-        }
+          if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            const error = gl.getShaderInfoLog(shader)
+            gl.deleteShader(shader)
+            yield* Effect.fail(
+              new ShaderCompilationError({
+                type: params.type,
+                message: error || 'Unknown compilation error',
+                source: processedSource,
+              })
+            )
+          }
 
-        const shaderId = generateShaderId()
-        yield* Ref.update(shaderCache, cache =>
-          new Map([...cache, [cacheKey, shaderId]])
-        )
+          const shaderId = generateShaderId()
+          yield* Ref.update(shaderCache, (cache) => new Map([...cache, [cacheKey, shaderId]]))
 
-        return shaderId
-      }),
+          return shaderId
+        }),
 
-      createProgram: (params) => Effect.gen(function* () {
-        const cacheKey = `${params.vertexShaderId}-${params.fragmentShaderId}`
-        const cache = yield* Ref.get(programCache)
-        const cached = cache.get(cacheKey)
+      createProgram: (params) =>
+        Effect.gen(function* () {
+          const cacheKey = `${params.vertexShaderId}-${params.fragmentShaderId}`
+          const cache = yield* Ref.get(programCache)
+          const cached = cache.get(cacheKey)
 
-        if (cached) {
-          return cached
-        }
+          if (cached) {
+            return cached
+          }
 
-        const program = gl.createProgram()
-        if (!program) {
-          yield* Effect.fail(new ProgramLinkError({
-            message: "Failed to create program object"
-          }))
-        }
+          const program = gl.createProgram()
+          if (!program) {
+            yield* Effect.fail(
+              new ProgramLinkError({
+                message: 'Failed to create program object',
+              })
+            )
+          }
 
-        // シェーダーをアタッチ
-        const vertexShader = yield* getShaderById(params.vertexShaderId)
-        const fragmentShader = yield* getShaderById(params.fragmentShaderId)
+          // シェーダーをアタッチ
+          const vertexShader = yield* getShaderById(params.vertexShaderId)
+          const fragmentShader = yield* getShaderById(params.fragmentShaderId)
 
-        gl.attachShader(program, vertexShader)
-        gl.attachShader(program, fragmentShader)
+          gl.attachShader(program, vertexShader)
+          gl.attachShader(program, fragmentShader)
 
-        // 属性位置をバインド
-        if (params.attributes) {
-          Object.entries(params.attributes).forEach(([name, location]) => {
-            gl.bindAttribLocation(program, location, name)
+          // 属性位置をバインド
+          if (params.attributes) {
+            Object.entries(params.attributes).forEach(([name, location]) => {
+              gl.bindAttribLocation(program, location, name)
+            })
+          }
+
+          gl.linkProgram(program)
+
+          if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            const error = gl.getProgramInfoLog(program)
+            gl.deleteProgram(program)
+            yield* Effect.fail(
+              new ProgramLinkError({
+                message: error || 'Unknown linking error',
+                vertexShaderId: params.vertexShaderId,
+                fragmentShaderId: params.fragmentShaderId,
+              })
+            )
+          }
+
+          const programId = generateProgramId()
+          yield* Ref.update(programCache, (cache) => new Map([...cache, [cacheKey, programId]]))
+
+          return programId
+        }),
+
+      useProgram: (programId) =>
+        Effect.gen(function* () {
+          const program = yield* getProgramById(programId)
+          gl.useProgram(program)
+        }),
+
+      setUniforms: (params) =>
+        Effect.gen(function* () {
+          const program = yield* getProgramById(params.programId)
+
+          Object.entries(params.uniforms).forEach(([name, value]) => {
+            const location = gl.getUniformLocation(program, name)
+            if (location === null) return // ユニフォームが存在しない
+
+            // 型に応じてユニフォームを設定
+            if (typeof value === 'number') {
+              gl.uniform1f(location, value)
+            } else if (Array.isArray(value)) {
+              if (value.length === 2) {
+                gl.uniform2fv(location, value)
+              } else if (value.length === 3) {
+                gl.uniform3fv(location, value)
+              } else if (value.length === 4) {
+                gl.uniform4fv(location, value)
+              } else if (value.length === 16) {
+                gl.uniformMatrix4fv(location, false, value)
+              }
+            }
           })
-        }
+        }),
 
-        gl.linkProgram(program)
+      deleteShader: (shaderId) =>
+        Effect.gen(function* () {
+          const shader = yield* getShaderById(shaderId)
+          gl.deleteShader(shader)
 
-        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-          const error = gl.getProgramInfoLog(program)
-          gl.deleteProgram(program)
-          yield* Effect.fail(new ProgramLinkError({
-            message: error || "Unknown linking error",
-            vertexShaderId: params.vertexShaderId,
-            fragmentShaderId: params.fragmentShaderId
-          }))
-        }
-
-        const programId = generateProgramId()
-        yield* Ref.update(programCache, cache =>
-          new Map([...cache, [cacheKey, programId]])
-        )
-
-        return programId
-      }),
-
-      useProgram: (programId) => Effect.gen(function* () {
-        const program = yield* getProgramById(programId)
-        gl.useProgram(program)
-      }),
-
-      setUniforms: (params) => Effect.gen(function* () {
-        const program = yield* getProgramById(params.programId)
-
-        Object.entries(params.uniforms).forEach(([name, value]) => {
-          const location = gl.getUniformLocation(program, name)
-          if (location === null) return // ユニフォームが存在しない
-
-          // 型に応じてユニフォームを設定
-          if (typeof value === 'number') {
-            gl.uniform1f(location, value)
-          } else if (Array.isArray(value)) {
-            if (value.length === 2) {
-              gl.uniform2fv(location, value)
-            } else if (value.length === 3) {
-              gl.uniform3fv(location, value)
-            } else if (value.length === 4) {
-              gl.uniform4fv(location, value)
-            } else if (value.length === 16) {
-              gl.uniformMatrix4fv(location, false, value)
+          // キャッシュからも削除
+          yield* Ref.update(shaderCache, (cache) => {
+            const newCache = new Map(cache)
+            for (const [key, id] of cache.entries()) {
+              if (id === shaderId) {
+                newCache.delete(key)
+              }
             }
-          }
-        })
-      }),
-
-      deleteShader: (shaderId) => Effect.gen(function* () {
-        const shader = yield* getShaderById(shaderId)
-        gl.deleteShader(shader)
-
-        // キャッシュからも削除
-        yield* Ref.update(shaderCache, cache => {
-          const newCache = new Map(cache)
-          for (const [key, id] of cache.entries()) {
-            if (id === shaderId) {
-              newCache.delete(key)
-            }
-          }
-          return newCache
-        })
-      })
+            return newCache
+          })
+        }),
     }
   })
 )
@@ -1357,10 +1263,7 @@ export const GeometryBufferManager = Context.GenericTag<{
     offset?: number
   }) => Effect.Effect<void, BufferError>
 
-  readonly bindBuffer: (params: {
-    bufferId: BufferId
-    target: 'vertex' | 'index'
-  }) => Effect.Effect<void, BufferError>
+  readonly bindBuffer: (params: { bufferId: BufferId; target: 'vertex' | 'index' }) => Effect.Effect<void, BufferError>
 
   readonly createVertexArray: (params: {
     attributes: ReadonlyArray<{
@@ -1376,7 +1279,7 @@ export const GeometryBufferManager = Context.GenericTag<{
   }) => Effect.Effect<VertexArrayId, BufferError>
 
   readonly deleteBuffer: (bufferId: BufferId) => Effect.Effect<void>
-}>()("GeometryBufferManager")
+}>()('GeometryBufferManager')
 
 export const GeometryBufferManagerLive = Layer.effect(
   GeometryBufferManager,
@@ -1386,147 +1289,153 @@ export const GeometryBufferManagerLive = Layer.effect(
     const vertexArrayRegistry = yield* Ref.make(new Map<VertexArrayId, WebGLVertexArrayObject>())
 
     return {
-      createBuffer: (params) => Effect.gen(function* () {
-        const buffer = gl.createBuffer()
-        if (!buffer) {
-          yield* Effect.fail(new BufferError({
-            message: "Failed to create WebGL buffer"
-          }))
-        }
-
-        const target = params.type === 'vertex'
-          ? gl.ARRAY_BUFFER
-          : gl.ELEMENT_ARRAY_BUFFER
-
-        const usage = params.usage === 'static'
-          ? gl.STATIC_DRAW
-          : params.usage === 'dynamic'
-          ? gl.DYNAMIC_DRAW
-          : gl.STREAM_DRAW
-
-        gl.bindBuffer(target, buffer)
-        gl.bufferData(target, params.data, usage)
-        gl.bindBuffer(target, null)
-
-        const bufferId = generateBufferId()
-        yield* Ref.update(bufferRegistry, registry =>
-          new Map([...registry, [bufferId, buffer]])
-        )
-
-        return bufferId
-      }),
-
-      updateBuffer: (params) => Effect.gen(function* () {
-        const registry = yield* Ref.get(bufferRegistry)
-        const buffer = registry.get(params.bufferId)
-
-        if (!buffer) {
-          yield* Effect.fail(new BufferError({
-            message: "Buffer not found",
-            bufferId: params.bufferId
-          }))
-        }
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
-
-        if (params.offset !== undefined) {
-          gl.bufferSubData(gl.ARRAY_BUFFER, params.offset, params.data)
-        } else {
-          gl.bufferData(gl.ARRAY_BUFFER, params.data, gl.DYNAMIC_DRAW)
-        }
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, null)
-      }),
-
-      bindBuffer: (params) => Effect.gen(function* () {
-        const registry = yield* Ref.get(bufferRegistry)
-        const buffer = registry.get(params.bufferId)
-
-        if (!buffer) {
-          yield* Effect.fail(new BufferError({
-            message: "Buffer not found",
-            bufferId: params.bufferId
-          }))
-        }
-
-        const target = params.target === 'vertex'
-          ? gl.ARRAY_BUFFER
-          : gl.ELEMENT_ARRAY_BUFFER
-
-        gl.bindBuffer(target, buffer)
-      }),
-
-      createVertexArray: (params) => Effect.gen(function* () {
-        const vao = gl.createVertexArray()
-        if (!vao) {
-          yield* Effect.fail(new BufferError({
-            message: "Failed to create vertex array object"
-          }))
-        }
-
-        gl.bindVertexArray(vao)
-
-        const bufferRegistry = yield* Ref.get(bufferRegistry)
-
-        // 属性を設定
-        for (const attr of params.attributes) {
-          const buffer = bufferRegistry.get(attr.bufferId)
+      createBuffer: (params) =>
+        Effect.gen(function* () {
+          const buffer = gl.createBuffer()
           if (!buffer) {
-            yield* Effect.fail(new BufferError({
-              message: "Attribute buffer not found",
-              bufferId: attr.bufferId
-            }))
+            yield* Effect.fail(
+              new BufferError({
+                message: 'Failed to create WebGL buffer',
+              })
+            )
+          }
+
+          const target = params.type === 'vertex' ? gl.ARRAY_BUFFER : gl.ELEMENT_ARRAY_BUFFER
+
+          const usage =
+            params.usage === 'static' ? gl.STATIC_DRAW : params.usage === 'dynamic' ? gl.DYNAMIC_DRAW : gl.STREAM_DRAW
+
+          gl.bindBuffer(target, buffer)
+          gl.bufferData(target, params.data, usage)
+          gl.bindBuffer(target, null)
+
+          const bufferId = generateBufferId()
+          yield* Ref.update(bufferRegistry, (registry) => new Map([...registry, [bufferId, buffer]]))
+
+          return bufferId
+        }),
+
+      updateBuffer: (params) =>
+        Effect.gen(function* () {
+          const registry = yield* Ref.get(bufferRegistry)
+          const buffer = registry.get(params.bufferId)
+
+          if (!buffer) {
+            yield* Effect.fail(
+              new BufferError({
+                message: 'Buffer not found',
+                bufferId: params.bufferId,
+              })
+            )
           }
 
           gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
-          gl.enableVertexAttribArray(attr.index)
 
-          const type = attr.type === 'float' ? gl.FLOAT : gl.INT
-          gl.vertexAttribPointer(
-            attr.index,
-            attr.size,
-            type,
-            attr.normalized || false,
-            attr.stride || 0,
-            attr.offset || 0
-          )
-        }
-
-        // インデックスバッファを設定
-        if (params.indexBufferId) {
-          const indexBuffer = bufferRegistry.get(params.indexBufferId)
-          if (!indexBuffer) {
-            yield* Effect.fail(new BufferError({
-              message: "Index buffer not found",
-              bufferId: params.indexBufferId
-            }))
+          if (params.offset !== undefined) {
+            gl.bufferSubData(gl.ARRAY_BUFFER, params.offset, params.data)
+          } else {
+            gl.bufferData(gl.ARRAY_BUFFER, params.data, gl.DYNAMIC_DRAW)
           }
-          gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
-        }
 
-        gl.bindVertexArray(null)
+          gl.bindBuffer(gl.ARRAY_BUFFER, null)
+        }),
 
-        const vaoId = generateVertexArrayId()
-        yield* Ref.update(vertexArrayRegistry, registry =>
-          new Map([...registry, [vaoId, vao]])
-        )
+      bindBuffer: (params) =>
+        Effect.gen(function* () {
+          const registry = yield* Ref.get(bufferRegistry)
+          const buffer = registry.get(params.bufferId)
 
-        return vaoId
-      }),
+          if (!buffer) {
+            yield* Effect.fail(
+              new BufferError({
+                message: 'Buffer not found',
+                bufferId: params.bufferId,
+              })
+            )
+          }
 
-      deleteBuffer: (bufferId) => Effect.gen(function* () {
-        const registry = yield* Ref.get(bufferRegistry)
-        const buffer = registry.get(bufferId)
+          const target = params.target === 'vertex' ? gl.ARRAY_BUFFER : gl.ELEMENT_ARRAY_BUFFER
 
-        if (buffer) {
-          gl.deleteBuffer(buffer)
-          yield* Ref.update(bufferRegistry, registry => {
-            const newRegistry = new Map(registry)
-            newRegistry.delete(bufferId)
-            return newRegistry
-          })
-        }
-      })
+          gl.bindBuffer(target, buffer)
+        }),
+
+      createVertexArray: (params) =>
+        Effect.gen(function* () {
+          const vao = gl.createVertexArray()
+          if (!vao) {
+            yield* Effect.fail(
+              new BufferError({
+                message: 'Failed to create vertex array object',
+              })
+            )
+          }
+
+          gl.bindVertexArray(vao)
+
+          const bufferRegistry = yield* Ref.get(bufferRegistry)
+
+          // 属性を設定
+          for (const attr of params.attributes) {
+            const buffer = bufferRegistry.get(attr.bufferId)
+            if (!buffer) {
+              yield* Effect.fail(
+                new BufferError({
+                  message: 'Attribute buffer not found',
+                  bufferId: attr.bufferId,
+                })
+              )
+            }
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+            gl.enableVertexAttribArray(attr.index)
+
+            const type = attr.type === 'float' ? gl.FLOAT : gl.INT
+            gl.vertexAttribPointer(
+              attr.index,
+              attr.size,
+              type,
+              attr.normalized || false,
+              attr.stride || 0,
+              attr.offset || 0
+            )
+          }
+
+          // インデックスバッファを設定
+          if (params.indexBufferId) {
+            const indexBuffer = bufferRegistry.get(params.indexBufferId)
+            if (!indexBuffer) {
+              yield* Effect.fail(
+                new BufferError({
+                  message: 'Index buffer not found',
+                  bufferId: params.indexBufferId,
+                })
+              )
+            }
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
+          }
+
+          gl.bindVertexArray(null)
+
+          const vaoId = generateVertexArrayId()
+          yield* Ref.update(vertexArrayRegistry, (registry) => new Map([...registry, [vaoId, vao]]))
+
+          return vaoId
+        }),
+
+      deleteBuffer: (bufferId) =>
+        Effect.gen(function* () {
+          const registry = yield* Ref.get(bufferRegistry)
+          const buffer = registry.get(bufferId)
+
+          if (buffer) {
+            gl.deleteBuffer(buffer)
+            yield* Ref.update(bufferRegistry, (registry) => {
+              const newRegistry = new Map(registry)
+              newRegistry.delete(bufferId)
+              return newRegistry
+            })
+          }
+        }),
     }
   })
 )
@@ -1559,15 +1468,15 @@ export const InfrastructureLayer = Layer.mergeAll(
 )
 
 // IndexedDB実装例
-export const WorldStorageAdapterLive = Layer.succeed(
-  WorldStorageAdapter,
-  {
-    save: (params) => Effect.gen(function* () {
+export const WorldStorageAdapterLive = Layer.succeed(WorldStorageAdapter, {
+  save: (params) =>
+    Effect.gen(function* () {
       const db = yield* IndexedDBService
       yield* db.put('worlds', params.data, params.worldId)
     }),
 
-    load: (worldId) => Effect.gen(function* () {
+  load: (worldId) =>
+    Effect.gen(function* () {
       const db = yield* IndexedDBService
       const data = yield* db.get('worlds', worldId)
       if (!data) {
@@ -1576,27 +1485,27 @@ export const WorldStorageAdapterLive = Layer.succeed(
       return data
     }),
 
-    delete: (worldId) => Effect.gen(function* () {
+  delete: (worldId) =>
+    Effect.gen(function* () {
       const db = yield* IndexedDBService
       yield* db.delete('worlds', worldId)
     }),
 
-    list: () => Effect.gen(function* () {
+  list: () =>
+    Effect.gen(function* () {
       const db = yield* IndexedDBService
       const keys = yield* db.getAllKeys('worlds')
-      const metadataList = yield* Effect.all(
-        keys.map(key => db.get('world-metadata', key))
-      )
+      const metadataList = yield* Effect.all(keys.map((key) => db.get('world-metadata', key)))
       return metadataList.filter(Boolean)
     }),
 
-    exists: (worldId) => Effect.gen(function* () {
+  exists: (worldId) =>
+    Effect.gen(function* () {
       const db = yield* IndexedDBService
       const data = yield* db.get('worlds', worldId).pipe(Effect.option)
       return Option.isSome(data)
-    })
-  }
-)
+    }),
+})
 ```
 
 ### エラーリトライパターン
@@ -1617,8 +1526,8 @@ export const withRetry = <R, E, A>(
     maxAttempts: 3,
     baseDelay: Duration.millis(100),
     maxDelay: Duration.seconds(5),
-    retryableErrors: ["NetworkError", "StorageError", "RendererError"],
-    ...options
+    retryableErrors: ['NetworkError', 'StorageError', 'RendererError'],
+    ...options,
   }
 
   return pipe(
@@ -1642,9 +1551,7 @@ export const withRetry = <R, E, A>(
         )
       )
     ),
-    Effect.tapError(error =>
-      Effect.logError(`Retry exhausted for effect. Final error: ${JSON.stringify(error)}`)
-    )
+    Effect.tapError((error) => Effect.logError(`Retry exhausted for effect. Final error: ${JSON.stringify(error)}`))
   )
 }
 
@@ -1653,20 +1560,16 @@ export const saveWithRetry = (worldId: string, data: WorldData) =>
   Effect.gen(function* () {
     const adapter = yield* WorldStorageAdapter
 
-    return yield* withRetry(
-      adapter.save({ worldId, data }),
-      {
-        maxAttempts: 5,
-        baseDelay: Duration.millis(200),
-        maxDelay: Duration.seconds(10),
-        retryableErrors: ["StorageError", "FileSystemError"],
-        onRetry: (error, attempt) =>
-          Effect.logWarn(`World save retry ${attempt} for ${worldId}: ${error.message}`)
-      }
-    ).pipe(
+    return yield* withRetry(adapter.save({ worldId, data }), {
+      maxAttempts: 5,
+      baseDelay: Duration.millis(200),
+      maxDelay: Duration.seconds(10),
+      retryableErrors: ['StorageError', 'FileSystemError'],
+      onRetry: (error, attempt) => Effect.logWarn(`World save retry ${attempt} for ${worldId}: ${error.message}`),
+    }).pipe(
       Effect.tapBoth({
         onFailure: (error) => Effect.logError(`World save failed permanently: ${error.message}`),
-        onSuccess: () => Effect.logInfo(`World ${worldId} saved successfully after retry`)
+        onSuccess: () => Effect.logInfo(`World ${worldId} saved successfully after retry`),
       })
     )
   })
@@ -1676,31 +1579,26 @@ export const saveWithRetry = (worldId: string, data: WorldData) =>
 
 ```typescript
 // チャンクの効率的なバッチ保存
-export const saveChunksBatched = (
-  worldId: string,
-  chunks: ReadonlyArray<ChunkData>
-) => Effect.gen(function* () {
-  const adapter = yield* ChunkStorageAdapter
+export const saveChunksBatched = (worldId: string, chunks: ReadonlyArray<ChunkData>) =>
+  Effect.gen(function* () {
+    const adapter = yield* ChunkStorageAdapter
 
-  // チャンクを領域ごとにグループ化
-  const grouped = pipe(
-    chunks,
-    Array.groupBy(chunk =>
-      `${Math.floor(chunk.x / 32)}_${Math.floor(chunk.z / 32)}`
+    // チャンクを領域ごとにグループ化
+    const grouped = pipe(
+      chunks,
+      Array.groupBy((chunk) => `${Math.floor(chunk.x / 32)}_${Math.floor(chunk.z / 32)}`)
     )
-  )
 
-  // 並列保存（コンカレンシー制限付き）
-  yield* Effect.all(
-    Object.entries(grouped).map(([region, regionChunks]) =>
-      adapter.saveBatch({ worldId, chunks: regionChunks }).pipe(
-        Effect.retry(Schedule.recurs(3)),
-        Effect.timeout(Duration.seconds(30))
-      )
-    ),
-    { concurrency: 4, batching: true }
-  )
-})
+    // 並列保存（コンカレンシー制限付き）
+    yield* Effect.all(
+      Object.entries(grouped).map(([region, regionChunks]) =>
+        adapter
+          .saveBatch({ worldId, chunks: regionChunks })
+          .pipe(Effect.retry(Schedule.recurs(3)), Effect.timeout(Duration.seconds(30)))
+      ),
+      { concurrency: 4, batching: true }
+    )
+  })
 
 // ストリーミングバッチ処理
 export const streamBatchProcessor = <T, R>(params: {
@@ -1710,9 +1608,12 @@ export const streamBatchProcessor = <T, R>(params: {
 }) => {
   return params.source.pipe(
     Stream.grouped(params.batchSize),
-    Stream.mapEffect(batch => params.processor(Array.fromIterable(batch))),
+    Stream.mapEffect((batch) => params.processor(Array.fromIterable(batch))),
     Stream.runDrain
   )
 }
 ```
+
+```
+
 ```

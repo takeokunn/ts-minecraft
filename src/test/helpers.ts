@@ -11,10 +11,10 @@ import { expect } from 'vitest'
  * テスト用エラー型
  */
 export const TestErrorSchema = Schema.Struct({
-  _tag: Schema.Literal("TestError"),
+  _tag: Schema.Literal('TestError'),
   message: Schema.String,
   code: Schema.optional(Schema.String),
-  timestamp: Schema.optional(Schema.Number)
+  timestamp: Schema.optional(Schema.Number),
 })
 
 export interface TestError extends Schema.Schema.Type<typeof TestErrorSchema> {}
@@ -23,10 +23,10 @@ export interface TestError extends Schema.Schema.Type<typeof TestErrorSchema> {}
  * テストエラーを作成
  */
 export const createTestError = (message: string, code?: string): TestError => ({
-  _tag: "TestError",
+  _tag: 'TestError',
   message,
   code,
-  timestamp: Date.now()
+  timestamp: Date.now(),
 })
 
 /**
@@ -36,19 +36,13 @@ export const EffectTestHelpers = {
   /**
    * Effect実行用のラッパー（Promise化）
    */
-  runEffect: <E, A>(effect: Effect.Effect<A, E>) =>
-    Effect.runPromise(effect),
+  runEffect: <E, A>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect),
 
   /**
    * タイムアウト付きEffect実行
    */
-  runEffectWithTimeout: <E, A>(
-    effect: Effect.Effect<A, E>,
-    timeoutMs: number = 10000
-  ) =>
-    Effect.runPromise(
-      Effect.timeout(effect, Duration.millis(timeoutMs))
-    ),
+  runEffectWithTimeout: <E, A>(effect: Effect.Effect<A, E>, timeoutMs: number = 10000) =>
+    Effect.runPromise(Effect.timeout(effect, Duration.millis(timeoutMs))),
 
   /**
    * Either<E, A>をテスト用にアサート
@@ -83,22 +77,26 @@ export const EffectTestHelpers = {
   /**
    * Schema デコードのテスト用ヘルパー
    */
-  expectValidDecode: <A, I>(schema: Schema.Schema<A, I>) => (input: I) => {
-    const result = Schema.decodeUnknownSync(schema)(input)
-    return result
-  },
+  expectValidDecode:
+    <A, I>(schema: Schema.Schema<A, I>) =>
+    (input: I) => {
+      const result = Schema.decodeUnknownSync(schema)(input)
+      return result
+    },
 
   /**
    * Schema デコードエラーのテスト
    */
-  expectDecodeError: <A, I>(schema: Schema.Schema<A, I>) => async (input: unknown) => {
-    try {
-      Schema.decodeUnknownSync(schema)(input)
-      throw new Error('Expected decode error but decoding succeeded')
-    } catch (error) {
-      return error
-    }
-  }
+  expectDecodeError:
+    <A, I>(schema: Schema.Schema<A, I>) =>
+    async (input: unknown) => {
+      try {
+        Schema.decodeUnknownSync(schema)(input)
+        throw new Error('Expected decode error but decoding succeeded')
+      } catch (error) {
+        return error
+      }
+    },
 }
 
 /**
@@ -108,33 +106,25 @@ export const TestServiceFactory = {
   /**
    * 基本的なテストサービスの作成
    */
-  createMockService: <T>(tag: Context.Tag<T, T>, implementation: T) =>
-    Layer.succeed(tag, implementation),
+  createMockService: <T>(tag: Context.Tag<T, T>, implementation: T) => Layer.succeed(tag, implementation),
 
   /**
    * Effect-based サービスの作成
    */
-  createEffectService: <T>(
-    tag: Context.Tag<T, T>,
-    factory: Effect.Effect<T, never, never>
-  ) =>
+  createEffectService: <T>(tag: Context.Tag<T, T>, factory: Effect.Effect<T, never, never>) =>
     Layer.effect(tag, factory),
 
   /**
    * Ref-based ステートフルサービスの作成
    */
-  createStatefulService: <T, S>(
-    tag: Context.Tag<T, T>,
-    initialState: S,
-    serviceFactory: (ref: Ref.Ref<S>) => T
-  ) =>
+  createStatefulService: <T, S>(tag: Context.Tag<T, T>, initialState: S, serviceFactory: (ref: Ref.Ref<S>) => T) =>
     Layer.effect(
       tag,
       Effect.gen(function* () {
         const ref = yield* Ref.make(initialState)
         return serviceFactory(ref)
       })
-    )
+    ),
 }
 
 /**
@@ -145,13 +135,14 @@ export const TestDataFactory = {
    * ランダムな文字列の生成
    */
   randomString: (length: number = 8): string =>
-    Math.random().toString(36).substring(2, 2 + length),
+    Math.random()
+      .toString(36)
+      .substring(2, 2 + length),
 
   /**
    * ランダムな整数の生成
    */
-  randomInt: (min: number = 0, max: number = 100): number =>
-    Math.floor(Math.random() * (max - min + 1)) + min,
+  randomInt: (min: number = 0, max: number = 100): number => Math.floor(Math.random() * (max - min + 1)) + min,
 
   /**
    * 遅延のあるEffect（テスト用）
@@ -169,7 +160,7 @@ export const TestDataFactory = {
     Effect.gen(function* () {
       yield* Effect.sleep(Duration.millis(delayMs))
       return yield* Effect.fail(error)
-    })
+    }),
 }
 
 /**
@@ -179,10 +170,7 @@ export const DeterministicTestHelpers = {
   /**
    * 固定値でのテスト実行
    */
-  withFixedTime: <E, A>(
-    timeMs: number,
-    test: Effect.Effect<A, E>
-  ) =>
+  withFixedTime: <E, A>(timeMs: number, test: Effect.Effect<A, E>) =>
     Effect.gen(function* () {
       // 固定時刻でのテスト実行
       const originalNow = Date.now
@@ -197,10 +185,7 @@ export const DeterministicTestHelpers = {
   /**
    * 固定乱数でのテスト実行
    */
-  withFixedRandom: <E, A>(
-    value: number,
-    test: Effect.Effect<A, E>
-  ) =>
+  withFixedRandom: <E, A>(value: number, test: Effect.Effect<A, E>) =>
     Effect.gen(function* () {
       const originalRandom = Math.random
       Math.random = () => value
@@ -223,8 +208,7 @@ export const DeterministicTestHelpers = {
   /**
    * 現在時刻を取得
    */
-  getCurrentTime: () =>
-    Effect.sync(() => Date.now())
+  getCurrentTime: () => Effect.sync(() => Date.now()),
 }
 
 /**
@@ -256,11 +240,7 @@ export const AssertionHelpers = {
   /**
    * Schema バリデーションのアサート
    */
-  expectSchemaValidation: <A, I>(
-    schema: Schema.Schema<A, I>,
-    input: I,
-    expected: A
-  ) => {
+  expectSchemaValidation: <A, I>(schema: Schema.Schema<A, I>, input: I, expected: A) => {
     const result = Schema.decodeUnknownSync(schema)(input)
     expect(result).toEqual(expected)
     return result
@@ -277,7 +257,7 @@ export const AssertionHelpers = {
     const result = Match.value(input).pipe(pattern)
     expect(result).toEqual(expected)
     return result
-  }
+  },
 }
 
 /**
@@ -287,25 +267,27 @@ export const TestEnvironment = {
   /**
    * 基本テスト環境の設定
    */
-  setup: () => Effect.sync(() => {
-    // テスト用環境変数設定
-    process.env['NODE_ENV'] = 'test'
+  setup: () =>
+    Effect.sync(() => {
+      // テスト用環境変数設定
+      process.env['NODE_ENV'] = 'test'
 
-    return {
-      testStartTime: Date.now(),
-      environment: 'test'
-    }
-  }),
+      return {
+        testStartTime: Date.now(),
+        environment: 'test',
+      }
+    }),
 
   /**
    * テスト終了処理
    */
-  teardown: () => Effect.gen(function* () {
-    // クリーンアップ処理
-    yield* Effect.sync(() => {
-      // プロセス終了処理等
-    })
-  })
+  teardown: () =>
+    Effect.gen(function* () {
+      // クリーンアップ処理
+      yield* Effect.sync(() => {
+        // プロセス終了処理等
+      })
+    }),
 }
 
 /**
@@ -318,48 +300,44 @@ export const PropertyTestHelpers = {
    */
   randomString: (minLength: number = 1, maxLength: number = 10): string => {
     const length = Math.floor(Math.random() * (maxLength - minLength + 1)) + minLength
-    const generated = Math.random().toString(36).substring(2, 2 + length)
+    const generated = Math.random()
+      .toString(36)
+      .substring(2, 2 + length)
     return generated.length === 0 ? 'test' : generated
   },
 
   /**
    * ランダム整数生成
    */
-  randomInt: (min: number = 0, max: number = 100): number =>
-    Math.floor(Math.random() * (max - min + 1)) + min,
+  randomInt: (min: number = 0, max: number = 100): number => Math.floor(Math.random() * (max - min + 1)) + min,
 
   /**
    * ゲーム用座標生成
    */
   randomCoordinate: () => ({
     x: Math.random() * 2000 - 1000, // -1000 to 1000
-    y: Math.random() * 256,         // 0 to 256
-    z: Math.random() * 2000 - 1000  // -1000 to 1000
+    y: Math.random() * 256, // 0 to 256
+    z: Math.random() * 2000 - 1000, // -1000 to 1000
   }),
 
   /**
    * ランダムプレイヤーID生成
    */
-  randomPlayerId: (): string =>
-    `player_${PropertyTestHelpers.randomString(3, 16)}`,
+  randomPlayerId: (): string => `player_${PropertyTestHelpers.randomString(3, 16)}`,
 
   /**
    * ランダムブロックタイプ生成
    */
   randomBlockType: (): string => {
-    const types = ["air", "stone", "dirt", "grass", "wood", "water", "lava"]
+    const types = ['air', 'stone', 'dirt', 'grass', 'wood', 'water', 'lava']
     const index = Math.floor(Math.random() * types.length)
-    return types[index] || "stone"
+    return types[index] || 'stone'
   },
 
   /**
    * 複数の値をテストするヘルパー
    */
-  testMultipleValues: <T>(
-    generator: () => T,
-    predicate: (value: T) => boolean,
-    iterations: number = 100
-  ): boolean => {
+  testMultipleValues: <T>(generator: () => T, predicate: (value: T) => boolean, iterations: number = 100): boolean => {
     for (let i = 0; i < iterations; i++) {
       const value = generator()
       if (!predicate(value)) {
@@ -367,7 +345,7 @@ export const PropertyTestHelpers = {
       }
     }
     return true
-  }
+  },
 }
 
 /**
@@ -387,7 +365,7 @@ export const PerformanceTestHelpers = {
       return {
         result,
         duration,
-        durationMs: duration
+        durationMs: duration,
       }
     }),
 
@@ -405,26 +383,22 @@ export const PerformanceTestHelpers = {
         memoryDelta: {
           heapUsed: memAfter.heapUsed - memBefore.heapUsed,
           heapTotal: memAfter.heapTotal - memBefore.heapTotal,
-          rss: memAfter.rss - memBefore.rss
-        }
+          rss: memAfter.rss - memBefore.rss,
+        },
       }
     }),
 
   /**
    * it.effectでのパフォーマンステスト
    */
-  performanceTest: <E, A>(
-    description: string,
-    effect: Effect.Effect<A, E>,
-    maxTimeMs: number = 1000
-  ) =>
+  performanceTest: <E, A>(description: string, effect: Effect.Effect<A, E>, maxTimeMs: number = 1000) =>
     it.effect(description, () =>
       Effect.gen(function* () {
         const measured = yield* PerformanceTestHelpers.measureTime(effect)
         expect(measured.durationMs).toBeLessThan(maxTimeMs)
         return measured.result
       })
-    )
+    ),
 }
 
 // 型定義は上記でinterfaceとして定義済み
@@ -439,5 +413,5 @@ export default {
   TestEnvironment,
   PropertyTestHelpers,
   PerformanceTestHelpers,
-  createTestError
+  createTestError,
 }

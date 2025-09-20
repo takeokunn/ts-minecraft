@@ -4,84 +4,32 @@
  */
 
 import { Effect } from 'effect'
-import * as Schema from 'effect/Schema'
 
-export * from "./branded";
-export * from "../config/effect";
+export * from './branded'
+export * from '../config/effect'
+// エラー関連は errors/ モジュールからもエクスポート
+export * from '../errors'
 
 /**
  * 基本的な数値型
  */
-export type NumberValue = number;
+export type NumberValue = number
 
 /**
  * 基本的な文字列型
  */
-export type StringValue = string;
+export type StringValue = string
 
 /**
  * 基本的なブール型
  */
-export type BooleanValue = boolean;
+export type BooleanValue = boolean
 
 /**
  * Result型 - Effect-TSのEffect型のエイリアス
  * 成功値Aと失敗値Eを持つ計算を表現
  */
 export type Result<A, E = Error> = Effect.Effect<A, E>
-
-/**
- * GameError - ゲーム内で発生する一般的なエラー
- */
-export class GameError extends Schema.TaggedError<GameError>()(
-  "GameError",
-  {
-    message: Schema.String,
-    code: Schema.optional(Schema.String),
-    details: Schema.optional(Schema.Unknown)
-  }
-) {}
-
-/**
- * NetworkError - ネットワーク関連のエラー
- */
-export class NetworkError extends Schema.TaggedError<NetworkError>()(
-  "NetworkError",
-  {
-    message: Schema.String,
-    statusCode: Schema.optional(Schema.Number),
-    url: Schema.optional(Schema.String)
-  }
-) {}
-
-/**
- * ValidationError - バリデーションエラー
- */
-export class ValidationError extends Schema.TaggedError<ValidationError>()(
-  "ValidationError",
-  {
-    message: Schema.String,
-    field: Schema.optional(Schema.String),
-    value: Schema.optional(Schema.Unknown)
-  }
-) {}
-
-/**
- * ResourceNotFoundError - リソースが見つからないエラー
- */
-export class ResourceNotFoundError extends Schema.TaggedError<ResourceNotFoundError>()(
-  "ResourceNotFoundError",
-  {
-    message: Schema.String,
-    resourceType: Schema.String,
-    resourceId: Schema.String
-  }
-) {}
-
-/**
- * 共通エラー型のユニオン
- */
-export type CommonError = GameError | NetworkError | ValidationError | ResourceNotFoundError
 
 /**
  * Option型 - 値が存在するかどうかを表現

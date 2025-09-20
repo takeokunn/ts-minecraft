@@ -26,9 +26,7 @@ export default defineConfig({
     teardownTimeout: 10000,
 
     // セットアップファイル
-    setupFiles: [
-      './src/test/setup.ts'
-    ],
+    setupFiles: ['./src/test/setup.ts'],
 
     // 並行実行制御（安定性重視）
     pool: 'threads',
@@ -36,8 +34,8 @@ export default defineConfig({
       threads: {
         maxThreads: 1,
         minThreads: 1,
-        isolate: true
-      }
+        isolate: true,
+      },
     },
 
     // Effect-TS最適化
@@ -45,14 +43,9 @@ export default defineConfig({
       optimizer: {
         ssr: {
           enabled: true,
-          include: [
-            'effect',
-            '@effect/platform',
-            '@effect/schema',
-            '@effect/vitest'
-          ]
-        }
-      }
+          include: ['effect', '@effect/platform', '@effect/schema', '@effect/vitest'],
+        },
+      },
     },
 
     // カバレッジ設定
@@ -62,10 +55,7 @@ export default defineConfig({
       reporter: ['text', 'json', 'html', 'lcov'],
       reportsDirectory: './coverage',
 
-      include: [
-        'src/**/*.{ts,tsx}',
-        '!src/**/*.d.ts'
-      ],
+      include: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
       exclude: [
         'node_modules/**',
         'dist/**',
@@ -74,7 +64,7 @@ export default defineConfig({
         '*.config.js',
         '**/*.d.ts',
         'src/**/__test__/**',
-        'src/test/**'
+        'src/test/**',
       ],
 
       thresholds: {
@@ -82,13 +72,13 @@ export default defineConfig({
           branches: 80,
           functions: 80,
           lines: 80,
-          statements: 80
+          statements: 80,
         },
-        perFile: true
+        perFile: true,
       },
 
       clean: true,
-      reportOnFailure: true
+      reportOnFailure: true,
     },
 
     // レポート設定
@@ -97,21 +87,21 @@ export default defineConfig({
     // 並列実行設定
     sequence: {
       concurrent: false,
-      shuffle: false
+      shuffle: false,
     },
 
     // 最大同時実行数
     maxConcurrency: 5,
 
     // 遅いテストの閾値
-    slowTestThreshold: 300
+    slowTestThreshold: 300,
   },
 
   // パス解決
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
-      '@test': resolve(__dirname, 'src/test')
-    }
-  }
+      '@test': resolve(__dirname, 'src/test'),
+    },
+  },
 })

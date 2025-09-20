@@ -1,13 +1,13 @@
 ---
-title: "セキュリティガイドライン - 包括的セキュリティベストプラクティス"
-description: "TypeScript Minecraft開発における総合的なセキュリティ指針。Webアプリケーション、ブラウザ、データ保護、プライバシーの完全ガイドライン。"
-category: "reference"
-difficulty: "advanced"
-tags: ["security", "privacy", "web-security", "data-protection", "best-practices", "reference"]
-prerequisites: ["web-security-basics", "javascript-security", "browser-security"]
-estimated_reading_time: "40-55分"
-dependencies: ["./configuration/development-config.md", "../how-to/troubleshooting/security-issues.md"]
-status: "complete"
+title: 'セキュリティガイドライン - 包括的セキュリティベストプラクティス'
+description: 'TypeScript Minecraft開発における総合的なセキュリティ指針。Webアプリケーション、ブラウザ、データ保護、プライバシーの完全ガイドライン。'
+category: 'reference'
+difficulty: 'advanced'
+tags: ['security', 'privacy', 'web-security', 'data-protection', 'best-practices', 'reference']
+prerequisites: ['web-security-basics', 'javascript-security', 'browser-security']
+estimated_reading_time: '40-55分'
+dependencies: ['./configuration/development-config.md', '../how-to/troubleshooting/security-issues.md']
+status: 'complete'
 ---
 
 # セキュリティガイドライン
@@ -25,16 +25,16 @@ status: "complete"
 
 ### 🎯 **脅威レベル評価システム**
 
-| 脅威カテゴリ | 影響度 | 発生確率 | 検出難易度 | 対策優先度 | 実装コスト |
-|-------------|--------|----------|------------|------------|------------|
-| **XSS (Cross-Site Scripting)** | Critical | High | Medium | P0 | Low |
-| **データ漏洩** | Critical | Medium | High | P0 | Medium |
-| **不正アクセス** | High | Medium | Medium | P1 | Medium |
-| **サービス拒否 (DoS)** | High | High | Low | P1 | Low |
-| **コード注入** | Critical | Low | High | P0 | High |
-| **セッションハイジャック** | High | Low | High | P1 | Medium |
-| **CSRF攻撃** | Medium | Medium | Medium | P2 | Low |
-| **プライバシー侵害** | High | Medium | High | P1 | High |
+| 脅威カテゴリ                   | 影響度   | 発生確率 | 検出難易度 | 対策優先度 | 実装コスト |
+| ------------------------------ | -------- | -------- | ---------- | ---------- | ---------- |
+| **XSS (Cross-Site Scripting)** | Critical | High     | Medium     | P0         | Low        |
+| **データ漏洩**                 | Critical | Medium   | High       | P0         | Medium     |
+| **不正アクセス**               | High     | Medium   | Medium     | P1         | Medium     |
+| **サービス拒否 (DoS)**         | High     | High     | Low        | P1         | Low        |
+| **コード注入**                 | Critical | Low      | High       | P0         | High       |
+| **セッションハイジャック**     | High     | Low      | High       | P1         | Medium     |
+| **CSRF攻撃**                   | Medium   | Medium   | Medium     | P2         | Low        |
+| **プライバシー侵害**           | High     | Medium   | High       | P1         | High       |
 
 ### 🛡️ **防御戦略階層**
 
@@ -1869,7 +1869,7 @@ export const SECURITY_CHECKLIST = {
     'APIレート制限の実装',
     'エラーハンドリングの適切な実装',
     'ログ記録の実装',
-    'セキュリティテストの実施'
+    'セキュリティテストの実施',
   ],
   testing: [
     'XSS攻撃テスト',
@@ -1878,7 +1878,7 @@ export const SECURITY_CHECKLIST = {
     'データ漏洩テスト',
     '脆弱性スキャン',
     'パフォーマンステスト',
-    'ブラウザ互換性テスト'
+    'ブラウザ互換性テスト',
   ],
   production: [
     'セキュリティ監視システムの有効化',
@@ -1887,8 +1887,8 @@ export const SECURITY_CHECKLIST = {
     'インシデント対応手順の確立',
     'セキュリティ更新の定期実施',
     'アクセス制御の定期見直し',
-    '脆弱性評価の実施'
-  ]
+    '脆弱性評価の実施',
+  ],
 } as const
 
 // セキュリティ設定検証
@@ -1901,7 +1901,7 @@ export const validateSecurityConfiguration = (): Effect.Effect<SecurityValidatio
       rateLimiting: false,
       inputSanitization: false,
       monitoring: false,
-      score: 0
+      score: 0,
     }
 
     // CSP確認
@@ -1932,11 +1932,13 @@ interface SecurityValidationResult {
 ## 🔗 関連リソース
 
 ### **プロジェクト内ドキュメント**
+
 - [Development Configuration](./configuration/development-config.md) - 開発環境セキュリティ設定
 - [Troubleshooting Security](../how-to/troubleshooting/security-issues.md) - セキュリティ問題解決
 - [Performance Diagnostics](./troubleshooting/performance-diagnostics.md) - パフォーマンス関連セキュリティ
 
 ### **外部セキュリティリソース**
+
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/) - Webアプリケーション脆弱性
 - [MDN Web Security](https://developer.mozilla.org/en-US/docs/Web/Security) - Web標準セキュリティ
 - [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework) - サイバーセキュリティフレームワーク
@@ -1946,14 +1948,14 @@ interface SecurityValidationResult {
 
 ### **継続的セキュリティ評価指標**
 
-| メトリクス | 目標値 | 測定方法 | 頻度 |
-|-----------|--------|----------|------|
-| **脆弱性検出時間** | < 24時間 | 自動スキャン | 日次 |
-| **セキュリティアラート対応時間** | < 1時間 | 監視システム | リアルタイム |
-| **パスワード強度** | > 8文字 + 複雑性 | 認証システム | 登録時 |
-| **セッション有効期限** | < 30分 | セッション管理 | 継続 |
-| **データ暗号化率** | 100% | 暗号化監査 | 週次 |
-| **アクセスログ完全性** | 100% | ログ検証 | 日次 |
+| メトリクス                       | 目標値           | 測定方法       | 頻度         |
+| -------------------------------- | ---------------- | -------------- | ------------ |
+| **脆弱性検出時間**               | < 24時間         | 自動スキャン   | 日次         |
+| **セキュリティアラート対応時間** | < 1時間          | 監視システム   | リアルタイム |
+| **パスワード強度**               | > 8文字 + 複雑性 | 認証システム   | 登録時       |
+| **セッション有効期限**           | < 30分           | セッション管理 | 継続         |
+| **データ暗号化率**               | 100%             | 暗号化監査     | 週次         |
+| **アクセスログ完全性**           | 100%             | ログ検証       | 日次         |
 
 ---
 
@@ -1968,4 +1970,4 @@ interface SecurityValidationResult {
 
 ---
 
-*📍 ドキュメント階層*: **[Home](../../README.md)** → **[Reference](./README.md)** → **Security Guidelines**
+_📍 ドキュメント階層_: **[Home](../../README.md)** → **[Reference](./README.md)** → **Security Guidelines**

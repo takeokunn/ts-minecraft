@@ -1,13 +1,13 @@
 ---
-title: "プロジェクト設定 - 統合プロジェクト管理ガイド"
-description: "プロジェクトレベルの設定管理。環境変数、ワークフロー、エディター統合、Git設定の完全ガイド。"
-category: "reference"
-difficulty: "intermediate"
-tags: ["project-management", "environment-variables", "workflow", "git", "editor-integration"]
-prerequisites: ["basic-git", "environment-setup"]
-estimated_reading_time: "12分"
+title: 'プロジェクト設定 - 統合プロジェクト管理ガイド'
+description: 'プロジェクトレベルの設定管理。環境変数、ワークフロー、エディター統合、Git設定の完全ガイド。'
+category: 'reference'
+difficulty: 'intermediate'
+tags: ['project-management', 'environment-variables', 'workflow', 'git', 'editor-integration']
+prerequisites: ['basic-git', 'environment-setup']
+estimated_reading_time: '12分'
 dependencies: []
-status: "complete"
+status: 'complete'
 ---
 
 # Project Configuration
@@ -67,24 +67,10 @@ TypeScript Minecraftプロジェクトのプロジェクトレベル設定につ
   },
 
   // ファイル配布設定
-  "files": [
-    "dist",
-    "public",
-    "src",
-    "README.md",
-    "LICENSE"
-  ],
+  "files": ["dist", "public", "src", "README.md", "LICENSE"],
 
   // キーワード（検索性向上）
-  "keywords": [
-    "minecraft",
-    "typescript",
-    "three.js",
-    "effect-ts",
-    "voxel",
-    "game",
-    "webgl"
-  ]
+  "keywords": ["minecraft", "typescript", "three.js", "effect-ts", "voxel", "game", "webgl"]
 }
 ```
 
@@ -249,15 +235,11 @@ const EnvConfigSchema = Schema.Struct({
   cdnUrl: Schema.optional(Schema.String),
 
   // 機能フラグ
-  debugMode: Schema.transform(
-    Schema.String,
-    Schema.Boolean,
-    {
-      strict: true,
-      decode: (s) => s === 'true',
-      encode: (b) => String(b)
-    }
-  ),
+  debugMode: Schema.transform(Schema.String, Schema.Boolean, {
+    strict: true,
+    decode: (s) => s === 'true',
+    encode: (b) => String(b),
+  }),
   profilingEnabled: Schema.BooleanFromString,
   experimentalFeatures: Schema.BooleanFromString,
 
@@ -272,7 +254,7 @@ const EnvConfigSchema = Schema.Struct({
   // セキュリティ設定
   cspEnabled: Schema.BooleanFromString,
   corsOrigin: Schema.String,
-  rateLimitEnabled: Schema.optional(Schema.BooleanFromString)
+  rateLimitEnabled: Schema.optional(Schema.BooleanFromString),
 })
 
 type EnvConfig = Schema.Schema.Type<typeof EnvConfigSchema>
@@ -297,16 +279,11 @@ const loadEnvConfig = (): Effect.Effect<EnvConfig, Error> =>
     preloadChunks: import.meta.env.VITE_PRELOAD_CHUNKS || 'true',
     cspEnabled: import.meta.env.VITE_CSP_ENABLED || 'false',
     corsOrigin: import.meta.env.VITE_CORS_ORIGIN || '*',
-    rateLimitEnabled: import.meta.env.VITE_RATE_LIMIT_ENABLED
-  })).pipe(
-    Effect.flatMap(Schema.decodeUnknown(EnvConfigSchema))
-  )
+    rateLimitEnabled: import.meta.env.VITE_RATE_LIMIT_ENABLED,
+  })).pipe(Effect.flatMap(Schema.decodeUnknown(EnvConfigSchema)))
 
 // 環境設定Layer
-export const EnvConfigLive = Layer.effect(
-  EnvConfigService,
-  loadEnvConfig()
-)
+export const EnvConfigLive = Layer.effect(EnvConfigService, loadEnvConfig())
 
 // 使用例
 export const useEnvConfig = () =>
@@ -319,9 +296,7 @@ export const useEnvConfig = () =>
     }
 
     // API URL構築
-    const apiUrl = config.cdnUrl
-      ? `${config.cdnUrl}/api`
-      : `${config.apiBaseUrl}/api`
+    const apiUrl = config.cdnUrl ? `${config.cdnUrl}/api` : `${config.apiBaseUrl}/api`
 
     return { ...config, apiUrl }
   })
@@ -475,21 +450,21 @@ export const developmentConfig = {
     enabled: true,
     level: 'verbose',
     showWarnings: true,
-    enableSourceMaps: true
+    enableSourceMaps: true,
   },
 
   // ホットリロード設定
   hotReload: {
     enabled: true,
     overlay: true,
-    liveReload: false // HMRを優先
+    liveReload: false, // HMRを優先
   },
 
   // パフォーマンス設定（開発用）
   performance: {
     bundleAnalyzer: false,
     memoryLimit: '2048mb',
-    optimizeChunks: false // 開発速度を優先
+    optimizeChunks: false, // 開発速度を優先
   },
 
   // Three.js開発設定
@@ -497,22 +472,22 @@ export const developmentConfig = {
     enableStats: true,
     enableAxesHelper: true,
     enableGridHelper: true,
-    shadowMapType: 'BasicShadowMap' // 軽量版
+    shadowMapType: 'BasicShadowMap', // 軽量版
   },
 
   // Effect-TS開発設定
   effectTS: {
     enableTracing: true,
     logLevel: 'Debug',
-    enableFiberDump: true
+    enableFiberDump: true,
   },
 
   // Mock設定
   mocks: {
     enabled: true,
     apiDelay: 500, // レスポンス遅延シミュレーション
-    errorRate: 0.1 // 10%でエラー発生
-  }
+    errorRate: 0.1, // 10%でエラー発生
+  },
 }
 ```
 
@@ -526,7 +501,7 @@ export const productionConfig = {
     minify: true,
     treeshaking: true,
     codesplitting: true,
-    compression: 'gzip'
+    compression: 'gzip',
   },
 
   // セキュリティ設定
@@ -538,11 +513,11 @@ export const productionConfig = {
         scriptSrc: ["'self'", "'unsafe-eval'"], // Three.js用
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:', 'https:'],
-        connectSrc: ["'self'", 'wss:', 'https:']
-      }
+        connectSrc: ["'self'", 'wss:', 'https:'],
+      },
     },
     hsts: true,
-    noSniff: true
+    noSniff: true,
   },
 
   // パフォーマンス設定
@@ -550,7 +525,7 @@ export const productionConfig = {
     maxAssetSize: 512000, // 500KB
     maxEntrypointSize: 512000,
     assetOptimization: true,
-    preloadCriticalChunks: true
+    preloadCriticalChunks: true,
   },
 
   // Three.js本番設定
@@ -558,14 +533,14 @@ export const productionConfig = {
     enableStats: false,
     shadowMapType: 'PCFSoftShadowMap', // 高品質版
     powerPreference: 'high-performance',
-    antialias: true
+    antialias: true,
   },
 
   // Effect-TS本番設定
   effectTS: {
     enableTracing: false,
     logLevel: 'Error',
-    enableFiberDump: false
+    enableFiberDump: false,
   },
 
   // 監視設定
@@ -573,13 +548,13 @@ export const productionConfig = {
     sentry: {
       enabled: true,
       sampleRate: 0.1,
-      tracesSampleRate: 0.01
+      tracesSampleRate: 0.01,
     },
     analytics: {
       enabled: true,
-      anonymizeIp: true
-    }
-  }
+      anonymizeIp: true,
+    },
+  },
 }
 ```
 
@@ -596,19 +571,19 @@ export const ciConfig = {
           branches: 80,
           functions: 80,
           lines: 80,
-          statements: 80
-        }
-      }
+          statements: 80,
+        },
+      },
     },
     timeout: 60000,
-    retries: 3
+    retries: 3,
   },
 
   // ビルド設定
   build: {
     parallel: true,
     cacheEnabled: true,
-    nodeOptions: '--max-old-space-size=4096'
+    nodeOptions: '--max-old-space-size=4096',
   },
 
   // 品質ゲート
@@ -616,8 +591,8 @@ export const ciConfig = {
     typeCheck: true,
     lint: true,
     formatCheck: true,
-    securityScan: true
-  }
+    securityScan: true,
+  },
 }
 ```
 
@@ -635,7 +610,7 @@ export const bundleOptimization = {
       'effect-core': ['effect', '@effect/schema'],
       'three-core': ['three'],
       'three-extras': ['three/examples/jsm'],
-      'utils': ['lodash-es', 'date-fns']
+      utils: ['lodash-es', 'date-fns'],
     },
 
     // 機能別分割
@@ -643,15 +618,11 @@ export const bundleOptimization = {
       'game-core': ['./src/domain', './src/application/core'],
       'game-systems': ['./src/application/systems'],
       'game-ui': ['./src/presentation/components'],
-      'game-renderer': ['./src/infrastructure/rendering']
+      'game-renderer': ['./src/infrastructure/rendering'],
     },
 
     // 動的インポート対象
-    dynamic: [
-      './src/workers/*',
-      './src/assets/models/*',
-      './src/locales/*'
-    ]
+    dynamic: ['./src/workers/*', './src/assets/models/*', './src/locales/*'],
   },
 
   // Tree shaking設定
@@ -659,8 +630,8 @@ export const bundleOptimization = {
     sideEffects: false,
     usedExports: true,
     providedExports: true,
-    concatenateModules: true
-  }
+    concatenateModules: true,
+  },
 }
 ```
 
@@ -674,35 +645,35 @@ export const memoryManagement = {
     textureDisposal: {
       enabled: true,
       interval: 30000, // 30秒間隔
-      maxUnusedTime: 120000 // 2分未使用で破棄
+      maxUnusedTime: 120000, // 2分未使用で破棄
     },
     geometryPooling: {
       enabled: true,
-      maxPoolSize: 100
+      maxPoolSize: 100,
     },
     materialCaching: {
       enabled: true,
-      maxCacheSize: 50
-    }
+      maxCacheSize: 50,
+    },
   },
 
   // Effect-TS メモリ設定
   effectTS: {
     fiberCleaning: {
       enabled: true,
-      interval: 60000
+      interval: 60000,
     },
     contextPooling: {
       enabled: true,
-      maxPoolSize: 20
-    }
+      maxPoolSize: 20,
+    },
   },
 
   // ワーカー設定
   workers: {
     maxWorkers: navigator.hardwareConcurrency || 4,
-    workerTerminationTimeout: 10000
-  }
+    workerTerminationTimeout: 10000,
+  },
 }
 ```
 
@@ -718,11 +689,7 @@ export const testEnvironments = {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     testMatch: ['**/*.test.ts', '**/*.spec.ts'],
-    collectCoverageFrom: [
-      'src/**/*.ts',
-      '!src/**/*.d.ts',
-      '!src/test/**/*'
-    ]
+    collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/test/**/*'],
   },
 
   // 統合テスト環境
@@ -730,7 +697,7 @@ export const testEnvironments = {
     environment: 'jsdom',
     setupFiles: ['./src/test/integration-setup.ts'],
     testMatch: ['**/*.integration.test.ts'],
-    timeout: 30000
+    timeout: 30000,
   },
 
   // E2Eテスト環境
@@ -738,15 +705,15 @@ export const testEnvironments = {
     baseURL: 'http://localhost:3000',
     browsers: ['chromium', 'firefox'],
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure'
+    video: 'retain-on-failure',
   },
 
   // Effect-TSテスト設定
   effectTS: {
     testLayer: 'TestLayer',
     mockServices: true,
-    timeoutMultiplier: 2
-  }
+    timeoutMultiplier: 2,
+  },
 }
 ```
 
@@ -762,42 +729,42 @@ export const loggingConfig = {
     development: 'debug',
     test: 'warn',
     staging: 'info',
-    production: 'error'
+    production: 'error',
   },
 
   // ログフォーマット
   format: {
     timestamp: true,
     colorize: true,
-    errors: { stack: true }
+    errors: { stack: true },
   },
 
   // ログ出力先
   transports: {
     console: {
       enabled: true,
-      level: 'debug'
+      level: 'debug',
     },
     file: {
       enabled: false, // ブラウザでは無効
       filename: 'app.log',
       maxsize: 10485760, // 10MB
-      maxFiles: 5
+      maxFiles: 5,
     },
     remote: {
       enabled: true,
       endpoint: '/api/logs',
       batchSize: 10,
-      flushInterval: 5000
-    }
+      flushInterval: 5000,
+    },
   },
 
   // Effect-TS ログ統合
   effectTS: {
     enableFiberTracing: false,
     logSpans: true,
-    logLevel: 'Info'
-  }
+    logLevel: 'Info',
+  },
 }
 ```
 
@@ -810,6 +777,7 @@ export const loggingConfig = {
 **症状**: `import.meta.env.VITE_*` が undefined
 
 **解決策**:
+
 ```bash
 # 1. 環境変数ファイルの確認
 ls -la .env*
@@ -828,6 +796,7 @@ ls -la .env*
 **症状**: pre-commit、commit-msgが実行されない
 
 **解決策**:
+
 ```bash
 # Huskyの再インストール
 pnpm husky install
@@ -845,6 +814,7 @@ git config core.hooksPath
 **症状**: 開発サーバーが遅い、メモリ不足
 
 **解決策**:
+
 ```bash
 # Node.jsメモリ制限増加
 NODE_OPTIONS="--max-old-space-size=8192" pnpm dev
@@ -860,6 +830,7 @@ pnpm dev
 **症状**: TypeScript型エラーが環境間で異なる
 
 **解決策**:
+
 ```bash
 # TypeScriptキャッシュクリア
 pnpm tsc --build --clean
@@ -1329,57 +1300,58 @@ name: Nix CI/CD
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   nix-build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install Nix
-      uses: cachix/install-nix-action@v25
-      with:
-        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Nix
+        uses: cachix/install-nix-action@v25
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Setup Cachix
-      uses: cachix/cachix-action@v14
-      with:
-        name: devenv
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v14
+        with:
+          name: devenv
 
-    - name: Build with Nix
-      run: |
-        nix develop --command setup
-        nix develop --command build
+      - name: Build with Nix
+        run: |
+          nix develop --command setup
+          nix develop --command build
 
-    - name: Run tests with Nix
-      run: nix develop --command test
+      - name: Run tests with Nix
+        run: nix develop --command test
 
-    - name: Quality checks
-      run: nix develop --command check
+      - name: Quality checks
+        run: nix develop --command check
 
-    - name: Build Docker image
-      if: github.ref == 'refs/heads/main'
-      run: |
-        nix build .#dockerImage
-        docker load < result
-        echo "ts-minecraft:latest" > image-name.txt
+      - name: Build Docker image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          nix build .#dockerImage
+          docker load < result
+          echo "ts-minecraft:latest" > image-name.txt
 
-    - name: Upload Docker image
-      if: github.ref == 'refs/heads/main'
-      uses: actions/upload-artifact@v4
-      with:
-        name: docker-image
-        path: |
-          result
-          image-name.txt
+      - name: Upload Docker image
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: |
+            result
+            image-name.txt
 ```
 
 ## 📚 関連ドキュメント
 
 ### 設定ファイル関連
+
 - [Package.json設定](./package-json.md) - npm/pnpmパッケージ管理
 - [TypeScript設定](./typescript-config.md) - TypeScript compilerOptions
 - [Vite設定](./vite-config.md) - Vite開発・ビルド設定
@@ -1390,12 +1362,14 @@ jobs:
 - [flake.nix](../../../flake.nix) - Nixプロジェクト定義
 
 ### 外部リファレンス
+
 - [Node.js環境変数](https://nodejs.org/api/process.html#process_process_env)
 - [Vite環境変数](https://vitejs.dev/guide/env-and-mode.html)
 - [Git Hooks](https://git-scm.com/docs/githooks)
 - [EditorConfig](https://editorconfig.org/)
 
 ### プロジェクト固有
+
 - [開発ガイド](../../how-to/development/README.md)
 - [デプロイガイド](../../how-to/deployment/README.md)
 - [トラブルシューティング](../troubleshooting/README.md)

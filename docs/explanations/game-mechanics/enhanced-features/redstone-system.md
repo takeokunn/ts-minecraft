@@ -1,13 +1,13 @@
 ---
-title: "レッドストーンシステム仕様 - 論理回路・信号伝播・機械装置"
-description: "レッドストーン回路の完全シミュレーション、信号強度伝播、論理ゲート、ピストン機構の完全仕様。STMによる並行回路更新。"
-category: "specification"
-difficulty: "advanced"
-tags: ["redstone-system", "circuit-simulation", "logic-gates", "signal-propagation", "stm", "concurrent-processing"]
-prerequisites: ["effect-ts-fundamentals", "stm-concepts", "digital-logic"]
-estimated_reading_time: "20分"
-related_patterns: ["event-driven-patterns", "state-machine-patterns", "concurrent-patterns"]
-related_docs: ["../core-features/block-system.md", "../core-features/physics-system.md"]
+title: 'レッドストーンシステム仕様 - 論理回路・信号伝播・機械装置'
+description: 'レッドストーン回路の完全シミュレーション、信号強度伝播、論理ゲート、ピストン機構の完全仕様。STMによる並行回路更新。'
+category: 'specification'
+difficulty: 'advanced'
+tags: ['redstone-system', 'circuit-simulation', 'logic-gates', 'signal-propagation', 'stm', 'concurrent-processing']
+prerequisites: ['effect-ts-fundamentals', 'stm-concepts', 'digital-logic']
+estimated_reading_time: '20分'
+related_patterns: ['event-driven-patterns', 'state-machine-patterns', 'concurrent-patterns']
+related_docs: ['../core-features/block-system.md', '../core-features/physics-system.md']
 ---
 
 # Redstone System - レッドストーン回路システム
@@ -23,125 +23,120 @@ Redstone Systemは、Minecraftの象徴的な機能であるレッドストー�
 レッドストーン回路の動作をリアルタイムでシミュレートする高性能エンジンです。
 
 ```typescript
-import { Effect, Layer, Context, Stream, STM, Ref, Schema, Match, pipe } from "effect"
-import { Brand } from "effect"
+import { Effect, Layer, Context, Stream, STM, Ref, Schema, Match, pipe } from 'effect'
+import { Brand } from 'effect'
 
 // Domain Types
-export type RedstoneSignalStrength = Brand.Brand<number, "RedstoneSignalStrength">
+export type RedstoneSignalStrength = Brand.Brand<number, 'RedstoneSignalStrength'>
 export const RedstoneSignalStrength = pipe(
   Schema.Number,
   Schema.int(),
   Schema.between(0, 15),
-  Schema.brand("RedstoneSignalStrength")
+  Schema.brand('RedstoneSignalStrength')
 )
 
-export type TickCount = Brand.Brand<number, "TickCount">
-export const TickCount = pipe(
-  Schema.Number,
-  Schema.int(),
-  Schema.positive(),
-  Schema.brand("TickCount")
-)
+export type TickCount = Brand.Brand<number, 'TickCount'>
+export const TickCount = pipe(Schema.Number, Schema.int(), Schema.positive(), Schema.brand('TickCount'))
 
 // Circuit Components
 export const CircuitComponent = Schema.Union(
   // Basic Components
   Schema.Struct({
-    _tag: Schema.Literal("RedstoneDust"),
+    _tag: Schema.Literal('RedstoneDust'),
     position: BlockPosition,
     signalStrength: RedstoneSignalStrength,
     connections: Schema.Array(BlockPosition),
-    powered: Schema.Boolean
+    powered: Schema.Boolean,
   }),
 
   // Logic Gates
   Schema.Struct({
-    _tag: Schema.Literal("RedstoneRepeater"),
+    _tag: Schema.Literal('RedstoneRepeater'),
     position: BlockPosition,
     direction: Direction,
     delay: pipe(Schema.Number, Schema.int(), Schema.between(1, 4)),
     locked: Schema.Boolean,
     inputSignal: RedstoneSignalStrength,
-    outputSignal: RedstoneSignalStrength
+    outputSignal: RedstoneSignalStrength,
   }),
 
   Schema.Struct({
-    _tag: Schema.Literal("RedstoneComparator"),
+    _tag: Schema.Literal('RedstoneComparator'),
     position: BlockPosition,
     direction: Direction,
-    mode: Schema.Literal("compare", "subtract"),
+    mode: Schema.Literal('compare', 'subtract'),
     mainInput: RedstoneSignalStrength,
     sideInputs: Schema.Tuple(RedstoneSignalStrength, RedstoneSignalStrength),
-    outputSignal: RedstoneSignalStrength
+    outputSignal: RedstoneSignalStrength,
   }),
 
   // Power Sources
   Schema.Struct({
-    _tag: Schema.Literal("RedstoneBlock"),
+    _tag: Schema.Literal('RedstoneBlock'),
     position: BlockPosition,
-    signalStrength: Schema.Literal(15 as RedstoneSignalStrength)
+    signalStrength: Schema.Literal(15 as RedstoneSignalStrength),
   }),
 
   Schema.Struct({
-    _tag: Schema.Literal("RedstoneTorch"),
+    _tag: Schema.Literal('RedstoneTorch'),
     position: BlockPosition,
     burnedOut: Schema.Boolean,
     inverted: Schema.Boolean,
     attachedTo: BlockPosition,
-    signalStrength: RedstoneSignalStrength
+    signalStrength: RedstoneSignalStrength,
   }),
 
   // Interactive Components
   Schema.Struct({
-    _tag: Schema.Literal("Lever"),
+    _tag: Schema.Literal('Lever'),
     position: BlockPosition,
     powered: Schema.Boolean,
-    attachedTo: BlockPosition
+    attachedTo: BlockPosition,
   }),
 
   Schema.Struct({
-    _tag: Schema.Literal("Button"),
+    _tag: Schema.Literal('Button'),
     position: BlockPosition,
     powered: Schema.Boolean,
     remainingTicks: TickCount,
-    buttonType: Schema.Literal("stone", "wood")
+    buttonType: Schema.Literal('stone', 'wood'),
   }),
 
   Schema.Struct({
-    _tag: Schema.Literal("PressurePlate"),
+    _tag: Schema.Literal('PressurePlate'),
     position: BlockPosition,
     powered: Schema.Boolean,
     weight: Schema.Number,
-    plateType: Schema.Literal("stone", "wood", "light_weighted", "heavy_weighted")
+    plateType: Schema.Literal('stone', 'wood', 'light_weighted', 'heavy_weighted'),
   }),
 
   // Mechanical Components
   Schema.Struct({
-    _tag: Schema.Literal("Piston"),
+    _tag: Schema.Literal('Piston'),
     position: BlockPosition,
     direction: Direction,
     extended: Schema.Boolean,
     powered: Schema.Boolean,
     sticky: Schema.Boolean,
-    blocksToMove: Schema.Array(BlockPosition)
+    blocksToMove: Schema.Array(BlockPosition),
   }),
 
   Schema.Struct({
-    _tag: Schema.Literal("Dispenser"),
+    _tag: Schema.Literal('Dispenser'),
     position: BlockPosition,
     direction: Direction,
     powered: Schema.Boolean,
     inventory: Inventory,
-    lastTriggered: TickCount
+    lastTriggered: TickCount,
   }),
 
   Schema.Struct({
-    _tag: Schema.Literal("Dropper"),
+    _tag: Schema.Literal('Dropper'),
     position: BlockPosition,
     direction: Direction,
     powered: Schema.Boolean,
     inventory: Inventory,
-    lastTriggered: TickCount
+    lastTriggered: TickCount,
   })
 )
 
@@ -530,27 +525,24 @@ export const SignalPropagationEngineLive = Layer.effect(
 // Mechanical Systems Interface
 interface MechanicalSystemInterface {
   readonly activatePiston: (
-    piston: Extract<CircuitComponent, { _tag: "Piston" }>,
+    piston: Extract<CircuitComponent, { _tag: 'Piston' }>,
     world: World
   ) => Effect.Effect<World, MechanicalError>
 
   readonly retractPiston: (
-    piston: Extract<CircuitComponent, { _tag: "Piston" }>,
+    piston: Extract<CircuitComponent, { _tag: 'Piston' }>,
     world: World
   ) => Effect.Effect<World, MechanicalError>
 
   readonly activateDispenser: (
-    dispenser: Extract<CircuitComponent, { _tag: "Dispenser" }>,
+    dispenser: Extract<CircuitComponent, { _tag: 'Dispenser' }>,
     world: World
   ) => Effect.Effect<World, MechanicalError>
 
   readonly calculatePistonMovement: (
-    piston: Extract<CircuitComponent, { _tag: "Piston" }>,
+    piston: Extract<CircuitComponent, { _tag: 'Piston' }>,
     world: World
-  ) => Effect.Effect<
-    ReadonlyArray<BlockPosition>,
-    MechanicalError
-  >
+  ) => Effect.Effect<ReadonlyArray<BlockPosition>, MechanicalError>
 
   readonly checkMovementObstruction: (
     blocks: ReadonlyArray<BlockPosition>,
@@ -559,122 +551,111 @@ interface MechanicalSystemInterface {
   ) => Effect.Effect<boolean, never>
 }
 
-const MechanicalSystem = Context.GenericTag<MechanicalSystemInterface>("@app/MechanicalSystem")
+const MechanicalSystem = Context.GenericTag<MechanicalSystemInterface>('@app/MechanicalSystem')
 
 export const MechanicalSystemLive = Layer.effect(
   MechanicalSystem,
   Effect.gen(function* () {
-    const activatePiston = (
-      piston: Extract<CircuitComponent, { _tag: "Piston" }>,
-      world: World
-    ) => Effect.gen(function* () {
-      // 早期リターン: 既に展開済み
-      if (piston.extended) {
-        return world
-      }
-
-      const blocksToMove = yield* calculatePistonMovement(piston, world)
-      const canMove = yield* checkMovementObstruction(
-        blocksToMove,
-        piston.direction,
-        world
-      )
-
-      // 早期リターン: 移動不可
-      if (!canMove) {
-        return world
-      }
-
-      // Move blocks
-      let updatedWorld = world
-      for (const blockPos of blocksToMove.reverse()) {
-        const targetPos = addDirection(blockPos, piston.direction)
-        const block = yield* getBlockAt(updatedWorld, blockPos)
-
-        updatedWorld = yield* pipe(
-          setBlockAt(updatedWorld, targetPos, block),
-          Effect.flatMap(w => setBlockAt(w, blockPos, AirBlock))
-        )
-      }
-
-      // Extend piston arm
-      const armPosition = addDirection(piston.position, piston.direction)
-      const pistonArm = createPistonArmBlock(piston.sticky)
-
-      return yield* setBlockAt(updatedWorld, armPosition, pistonArm)
-    })
-
-    const calculatePistonMovement = (
-      piston: Extract<CircuitComponent, { _tag: "Piston" }>,
-      world: World
-    ) => Effect.gen(function* () {
-      const blocks: BlockPosition[] = []
-      let currentPos = addDirection(piston.position, piston.direction)
-
-      // Check up to 12 blocks (Minecraft limit)
-      for (let i = 0; i < 12; i++) {
-        const block = yield* getBlockAt(world, currentPos)
-
-        if (isAir(block)) {
-          break
+    const activatePiston = (piston: Extract<CircuitComponent, { _tag: 'Piston' }>, world: World) =>
+      Effect.gen(function* () {
+        // 早期リターン: 既に展開済み
+        if (piston.extended) {
+          return world
         }
 
-        if (isImmovable(block)) {
-          return yield* Effect.fail(new ImmovableBlockError(currentPos))
+        const blocksToMove = yield* calculatePistonMovement(piston, world)
+        const canMove = yield* checkMovementObstruction(blocksToMove, piston.direction, world)
+
+        // 早期リターン: 移動不可
+        if (!canMove) {
+          return world
         }
 
-        blocks.push(currentPos)
-        currentPos = addDirection(currentPos, piston.direction)
+        // Move blocks
+        let updatedWorld = world
+        for (const blockPos of blocksToMove.reverse()) {
+          const targetPos = addDirection(blockPos, piston.direction)
+          const block = yield* getBlockAt(updatedWorld, blockPos)
 
-        // For sticky pistons, check if we should stop
-        if (!piston.sticky && blocks.length >= 1) {
-          break
-        }
-      }
-
-      return blocks
-    })
-
-    const activateDispenser = (
-      dispenser: Extract<CircuitComponent, { _tag: "Dispenser" }>,
-      world: World
-    ) => Effect.gen(function* () {
-      const inventory = dispenser.inventory
-      const item = yield* getRandomItem(inventory)
-
-      if (!item) {
-        return world // No items to dispense
-      }
-
-      const dispenserPos = dispenser.position
-      const targetPos = addDirection(dispenserPos, dispenser.direction)
-
-      // Check if target position is valid
-      const targetBlock = yield* getBlockAt(world, targetPos)
-
-      if (isAir(targetBlock)) {
-        // Dispense item into world
-        const entity = yield* createItemEntity(item, targetPos)
-        return yield* addEntity(world, entity)
-      } else {
-        // Try to insert into container
-        const container = yield* getContainerAt(world, targetPos)
-        if (container) {
-          const updatedContainer = yield* insertItem(container, item)
-          return yield* updateContainer(world, targetPos, updatedContainer)
+          updatedWorld = yield* pipe(
+            setBlockAt(updatedWorld, targetPos, block),
+            Effect.flatMap((w) => setBlockAt(w, blockPos, AirBlock))
+          )
         }
 
-        return world // Cannot dispense
-      }
-    })
+        // Extend piston arm
+        const armPosition = addDirection(piston.position, piston.direction)
+        const pistonArm = createPistonArmBlock(piston.sticky)
+
+        return yield* setBlockAt(updatedWorld, armPosition, pistonArm)
+      })
+
+    const calculatePistonMovement = (piston: Extract<CircuitComponent, { _tag: 'Piston' }>, world: World) =>
+      Effect.gen(function* () {
+        const blocks: BlockPosition[] = []
+        let currentPos = addDirection(piston.position, piston.direction)
+
+        // Check up to 12 blocks (Minecraft limit)
+        for (let i = 0; i < 12; i++) {
+          const block = yield* getBlockAt(world, currentPos)
+
+          if (isAir(block)) {
+            break
+          }
+
+          if (isImmovable(block)) {
+            return yield* Effect.fail(new ImmovableBlockError(currentPos))
+          }
+
+          blocks.push(currentPos)
+          currentPos = addDirection(currentPos, piston.direction)
+
+          // For sticky pistons, check if we should stop
+          if (!piston.sticky && blocks.length >= 1) {
+            break
+          }
+        }
+
+        return blocks
+      })
+
+    const activateDispenser = (dispenser: Extract<CircuitComponent, { _tag: 'Dispenser' }>, world: World) =>
+      Effect.gen(function* () {
+        const inventory = dispenser.inventory
+        const item = yield* getRandomItem(inventory)
+
+        if (!item) {
+          return world // No items to dispense
+        }
+
+        const dispenserPos = dispenser.position
+        const targetPos = addDirection(dispenserPos, dispenser.direction)
+
+        // Check if target position is valid
+        const targetBlock = yield* getBlockAt(world, targetPos)
+
+        if (isAir(targetBlock)) {
+          // Dispense item into world
+          const entity = yield* createItemEntity(item, targetPos)
+          return yield* addEntity(world, entity)
+        } else {
+          // Try to insert into container
+          const container = yield* getContainerAt(world, targetPos)
+          if (container) {
+            const updatedContainer = yield* insertItem(container, item)
+            return yield* updateContainer(world, targetPos, updatedContainer)
+          }
+
+          return world // Cannot dispense
+        }
+      })
 
     return {
       activatePiston,
       retractPiston: (piston, world) => retractPistonImpl(piston, world),
       activateDispenser,
       calculatePistonMovement,
-      checkMovementObstruction: (blocks, direction, world) =>
-        checkMovementObstructionImpl(blocks, direction, world)
+      checkMovementObstruction: (blocks, direction, world) => checkMovementObstructionImpl(blocks, direction, world),
     } as const
   })
 )
@@ -687,131 +668,113 @@ export const MechanicalSystemLive = Layer.effect(
 ```typescript
 // Circuit Optimization Interface
 interface CircuitOptimizerInterface {
-  readonly optimizeCircuit: (
-    network: CircuitNetwork
-  ) => Effect.Effect<CircuitNetwork, OptimizationError>
+  readonly optimizeCircuit: (network: CircuitNetwork) => Effect.Effect<CircuitNetwork, OptimizationError>
 
   readonly groupRedstoneComponents: (
     network: CircuitNetwork
-  ) => Effect.Effect<
-    ReadonlyArray<ReadonlyArray<string>>,
-    OptimizationError
-  >
+  ) => Effect.Effect<ReadonlyArray<ReadonlyArray<string>>, OptimizationError>
 
-  readonly eliminateRedundantComponents: (
-    network: CircuitNetwork
-  ) => Effect.Effect<CircuitNetwork, OptimizationError>
+  readonly eliminateRedundantComponents: (network: CircuitNetwork) => Effect.Effect<CircuitNetwork, OptimizationError>
 
   readonly parallelizeIndependentCircuits: (
     network: CircuitNetwork
-  ) => Effect.Effect<
-    ReadonlyArray<CircuitNetwork>,
-    OptimizationError
-  >
+  ) => Effect.Effect<ReadonlyArray<CircuitNetwork>, OptimizationError>
 
-  readonly cacheFrequentCalculations: (
-    network: CircuitNetwork
-  ) => Effect.Effect<void, OptimizationError>
+  readonly cacheFrequentCalculations: (network: CircuitNetwork) => Effect.Effect<void, OptimizationError>
 }
 
-const CircuitOptimizer = Context.GenericTag<CircuitOptimizerInterface>("@app/CircuitOptimizer")
+const CircuitOptimizer = Context.GenericTag<CircuitOptimizerInterface>('@app/CircuitOptimizer')
 
 export const CircuitOptimizerLive = Layer.effect(
   CircuitOptimizer,
   Effect.gen(function* () {
-    const calculationCache = yield* Ref.make<
-      Map<string, RedstoneSignalStrength>
-    >(new Map())
+    const calculationCache = yield* Ref.make<Map<string, RedstoneSignalStrength>>(new Map())
 
-    const optimizeCircuit = (network: CircuitNetwork) => Effect.gen(function* () {
-      // Step 1: Identify connected components
-      const connectedComponents = yield* groupRedstoneComponents(network)
+    const optimizeCircuit = (network: CircuitNetwork) =>
+      Effect.gen(function* () {
+        // Step 1: Identify connected components
+        const connectedComponents = yield* groupRedstoneComponents(network)
 
-      // Step 2: Eliminate redundant components
-      let optimizedNetwork = yield* eliminateRedundantComponents(network)
+        // Step 2: Eliminate redundant components
+        let optimizedNetwork = yield* eliminateRedundantComponents(network)
 
-      // Step 3: Create optimized signal paths
-      optimizedNetwork = yield* optimizeSignalPaths(optimizedNetwork)
+        // Step 3: Create optimized signal paths
+        optimizedNetwork = yield* optimizeSignalPaths(optimizedNetwork)
 
-      // Step 4: Set up caching for frequent calculations
-      yield* cacheFrequentCalculations(optimizedNetwork)
+        // Step 4: Set up caching for frequent calculations
+        yield* cacheFrequentCalculations(optimizedNetwork)
 
-      return optimizedNetwork
-    })
+        return optimizedNetwork
+      })
 
-    const groupRedstoneComponents = (network: CircuitNetwork) => Effect.gen(function* () {
-      const visited = new Set<string>()
-      const groups: string[][] = []
+    const groupRedstoneComponents = (network: CircuitNetwork) =>
+      Effect.gen(function* () {
+        const visited = new Set<string>()
+        const groups: string[][] = []
 
-      for (const [componentId] of network.components) {
-        if (visited.has(componentId)) continue
+        for (const [componentId] of network.components) {
+          if (visited.has(componentId)) continue
 
-        const group = yield* traverseConnectedComponents(
-          network,
-          componentId,
-          visited
-        )
+          const group = yield* traverseConnectedComponents(network, componentId, visited)
 
-        if (group.length > 1) {
-          groups.push(group)
+          if (group.length > 1) {
+            groups.push(group)
+          }
         }
-      }
 
-      return groups
-    })
+        return groups
+      })
 
-    const eliminateRedundantComponents = (network: CircuitNetwork) => Effect.gen(function* () {
-      const redundantComponents = new Set<string>()
+    const eliminateRedundantComponents = (network: CircuitNetwork) =>
+      Effect.gen(function* () {
+        const redundantComponents = new Set<string>()
 
-      // Identify redundant redstone dust
-      for (const [componentId, component] of network.components) {
-        if (component._tag === "RedstoneDust") {
-          const connections = network.connections.get(componentId) ?? []
+        // Identify redundant redstone dust
+        for (const [componentId, component] of network.components) {
+          if (component._tag === 'RedstoneDust') {
+            const connections = network.connections.get(componentId) ?? []
 
-          // If dust is just passing signal through linearly
-          if (connections.length === 2) {
-            const [prev, next] = connections
-            const prevComponent = network.components.get(prev)
-            const nextComponent = network.components.get(next)
+            // If dust is just passing signal through linearly
+            if (connections.length === 2) {
+              const [prev, next] = connections
+              const prevComponent = network.components.get(prev)
+              const nextComponent = network.components.get(next)
 
-            if (prevComponent && nextComponent &&
-                canDirectConnect(prevComponent, nextComponent)) {
-              redundantComponents.add(componentId)
+              if (prevComponent && nextComponent && canDirectConnect(prevComponent, nextComponent)) {
+                redundantComponents.add(componentId)
+              }
             }
           }
         }
-      }
 
-      // Remove redundant components and update connections
-      let optimizedNetwork = network
-      for (const componentId of redundantComponents) {
-        optimizedNetwork = yield* removeComponentAndRewire(
-          optimizedNetwork,
-          componentId
-        )
-      }
+        // Remove redundant components and update connections
+        let optimizedNetwork = network
+        for (const componentId of redundantComponents) {
+          optimizedNetwork = yield* removeComponentAndRewire(optimizedNetwork, componentId)
+        }
 
-      return optimizedNetwork
-    })
+        return optimizedNetwork
+      })
 
-    const parallelizeIndependentCircuits = (network: CircuitNetwork) => Effect.gen(function* () {
-      const connectedComponents = yield* groupRedstoneComponents(network)
-      const independentNetworks: CircuitNetwork[] = []
+    const parallelizeIndependentCircuits = (network: CircuitNetwork) =>
+      Effect.gen(function* () {
+        const connectedComponents = yield* groupRedstoneComponents(network)
+        const independentNetworks: CircuitNetwork[] = []
 
-      for (const group of connectedComponents) {
-        const subNetwork = extractSubNetwork(network, group)
-        independentNetworks.push(subNetwork)
-      }
+        for (const group of connectedComponents) {
+          const subNetwork = extractSubNetwork(network, group)
+          independentNetworks.push(subNetwork)
+        }
 
-      return independentNetworks
-    })
+        return independentNetworks
+      })
 
     return {
       optimizeCircuit,
       groupRedstoneComponents,
       eliminateRedundantComponents,
       parallelizeIndependentCircuits,
-      cacheFrequentCalculations: (network) => cacheFrequentCalculationsImpl(network)
+      cacheFrequentCalculations: (network) => cacheFrequentCalculationsImpl(network),
     } as const
   })
 )
@@ -830,24 +793,16 @@ interface RedstoneSimulationEngineInterface {
 
   readonly stopSimulation: () => Effect.Effect<void, never>
 
-  readonly updateNetworks: (
-    tick: TickCount
-  ) => Effect.Effect<void, SimulationError>
+  readonly updateNetworks: (tick: TickCount) => Effect.Effect<void, SimulationError>
 
-  readonly addNetwork: (
-    network: CircuitNetwork
-  ) => Effect.Effect<void, never>
+  readonly addNetwork: (network: CircuitNetwork) => Effect.Effect<void, never>
 
-  readonly removeNetwork: (
-    networkId: string
-  ) => Effect.Effect<void, never>
+  readonly removeNetwork: (networkId: string) => Effect.Effect<void, never>
 
-  readonly getNetworkState: (
-    networkId: string
-  ) => Effect.Effect<CircuitNetwork | undefined, never>
+  readonly getNetworkState: (networkId: string) => Effect.Effect<CircuitNetwork | undefined, never>
 }
 
-const RedstoneSimulationEngine = Context.GenericTag<RedstoneSimulationEngineInterface>("@app/RedstoneSimulationEngine")
+const RedstoneSimulationEngine = Context.GenericTag<RedstoneSimulationEngineInterface>('@app/RedstoneSimulationEngine')
 
 export const RedstoneSimulationEngineLive = Layer.effect(
   RedstoneSimulationEngine,
@@ -858,7 +813,7 @@ export const RedstoneSimulationEngineLive = Layer.effect(
 
     const simulationLoop = Effect.gen(function* () {
       while (yield* Ref.get(isRunning)) {
-        const tick = yield* Ref.updateAndGet(currentTick, t => (t + 1) as TickCount)
+        const tick = yield* Ref.updateAndGet(currentTick, (t) => (t + 1) as TickCount)
 
         yield* updateNetworks(tick)
 
@@ -867,56 +822,55 @@ export const RedstoneSimulationEngineLive = Layer.effect(
       }
     })
 
-    const startSimulation = (initialNetworks: ReadonlyArray<CircuitNetwork>) => Effect.gen(function* () {
-      const networkMap = new Map(
-        initialNetworks.map(network => [network.id, network])
-      )
+    const startSimulation = (initialNetworks: ReadonlyArray<CircuitNetwork>) =>
+      Effect.gen(function* () {
+        const networkMap = new Map(initialNetworks.map((network) => [network.id, network]))
 
-      yield* Ref.set(networks, networkMap)
-      yield* Ref.set(isRunning, true)
+        yield* Ref.set(networks, networkMap)
+        yield* Ref.set(isRunning, true)
 
-      return yield* Effect.fork(simulationLoop)
-    })
+        return yield* Effect.fork(simulationLoop)
+      })
 
-    const stopSimulation = () => Effect.gen(function* () {
-      yield* Ref.set(isRunning, false)
-    })
+    const stopSimulation = () =>
+      Effect.gen(function* () {
+        yield* Ref.set(isRunning, false)
+      })
 
-    const updateNetworks = (tick: TickCount) => Effect.gen(function* () {
-      const networkMap = yield* Ref.get(networks)
+    const updateNetworks = (tick: TickCount) =>
+      Effect.gen(function* () {
+        const networkMap = yield* Ref.get(networks)
 
-      // Update all networks in parallel
-      const updatedNetworks = yield* Effect.forEach(
-        Array.from(networkMap.values()),
-        (network) => SignalPropagationEngine.pipe(
-          Effect.flatMap(engine => engine.propagateSignal(network, tick))
-        ),
-        { concurrency: "unbounded" }
-      )
+        // Update all networks in parallel
+        const updatedNetworks = yield* Effect.forEach(
+          Array.from(networkMap.values()),
+          (network) => SignalPropagationEngine.pipe(Effect.flatMap((engine) => engine.propagateSignal(network, tick))),
+          { concurrency: 'unbounded' }
+        )
 
-      const newNetworkMap = new Map()
-      for (const network of updatedNetworks) {
-        newNetworkMap.set(network.id, network)
-      }
+        const newNetworkMap = new Map()
+        for (const network of updatedNetworks) {
+          newNetworkMap.set(network.id, network)
+        }
 
-      yield* Ref.set(networks, newNetworkMap)
-    })
+        yield* Ref.set(networks, newNetworkMap)
+      })
 
     return {
       startSimulation,
       stopSimulation,
       updateNetworks,
-      addNetwork: (network) => Ref.update(networks, map =>
-        map.set(network.id, network)
-      ),
-      removeNetwork: (networkId) => Ref.update(networks, map => {
-        map.delete(networkId)
-        return map
-      }),
-      getNetworkState: (networkId) => Effect.gen(function* () {
-        const networkMap = yield* Ref.get(networks)
-        return networkMap.get(networkId)
-      })
+      addNetwork: (network) => Ref.update(networks, (map) => map.set(network.id, network)),
+      removeNetwork: (networkId) =>
+        Ref.update(networks, (map) => {
+          map.delete(networkId)
+          return map
+        }),
+      getNetworkState: (networkId) =>
+        Effect.gen(function* () {
+          const networkMap = yield* Ref.get(networks)
+          return networkMap.get(networkId)
+        }),
     } as const
   })
 )
@@ -930,104 +884,101 @@ export const RedstoneSimulationEngineLive = Layer.effect(
 // Circuit Patterns and Templates
 export const CircuitPatterns = {
   // Clock Circuits
-  createClock: (period: TickCount) => Effect.gen(function* () {
-    const clockId = yield* Effect.sync(() => crypto.randomUUID())
+  createClock: (period: TickCount) =>
+    Effect.gen(function* () {
+      const clockId = yield* Effect.sync(() => crypto.randomUUID())
 
-    return Schema.Struct({
-      id: Schema.Literal(clockId),
-      pattern: Schema.Literal("clock"),
-      period,
-      components: Schema.Array(CircuitComponent)
-    })
-  }),
+      return Schema.Struct({
+        id: Schema.Literal(clockId),
+        pattern: Schema.Literal('clock'),
+        period,
+        components: Schema.Array(CircuitComponent),
+      })
+    }),
 
   // Logic Gates
   createANDGate: (inputA: BlockPosition, inputB: BlockPosition, output: BlockPosition) =>
     Effect.succeed([
       {
-        _tag: "RedstoneDust" as const,
+        _tag: 'RedstoneDust' as const,
         position: inputA,
         signalStrength: 0 as RedstoneSignalStrength,
         connections: [inputB],
-        powered: false
+        powered: false,
       },
       {
-        _tag: "RedstoneDust" as const,
+        _tag: 'RedstoneDust' as const,
         position: inputB,
         signalStrength: 0 as RedstoneSignalStrength,
         connections: [output],
-        powered: false
+        powered: false,
       },
       {
-        _tag: "RedstoneDust" as const,
+        _tag: 'RedstoneDust' as const,
         position: output,
         signalStrength: 0 as RedstoneSignalStrength,
         connections: [],
-        powered: false
-      }
+        powered: false,
+      },
     ]),
 
   // Memory Circuits
   createRSLatch: (set: BlockPosition, reset: BlockPosition, output: BlockPosition) =>
     Effect.succeed([
       {
-        _tag: "RedstoneTorch" as const,
+        _tag: 'RedstoneTorch' as const,
         position: set,
         burnedOut: false,
         inverted: true,
         attachedTo: set,
-        signalStrength: 15 as RedstoneSignalStrength
+        signalStrength: 15 as RedstoneSignalStrength,
       },
       {
-        _tag: "RedstoneTorch" as const,
+        _tag: 'RedstoneTorch' as const,
         position: reset,
         burnedOut: false,
         inverted: true,
         attachedTo: reset,
-        signalStrength: 15 as RedstoneSignalStrength
-      }
+        signalStrength: 15 as RedstoneSignalStrength,
+      },
     ]),
 
   // Computational Circuits
-  createAdder: (bitWidth: number) => Effect.gen(function* () {
-    const components: CircuitComponent[] = []
+  createAdder: (bitWidth: number) =>
+    Effect.gen(function* () {
+      const components: CircuitComponent[] = []
 
-    for (let i = 0; i < bitWidth; i++) {
-      const fullAdder = yield* createFullAdder(i)
-      components.push(...fullAdder)
-    }
+      for (let i = 0; i < bitWidth; i++) {
+        const fullAdder = yield* createFullAdder(i)
+        components.push(...fullAdder)
+      }
 
-    return components
-  }),
+      return components
+    }),
 
-  createFullAdder: (bit: number) => Effect.succeed([
-    // XOR gate for sum
-    {
-      _tag: "RedstoneComparator" as const,
-      position: { x: bit * 3, y: 1, z: 0 } as BlockPosition,
-      direction: "north" as Direction,
-      mode: "compare" as const,
-      mainInput: 0 as RedstoneSignalStrength,
-      sideInputs: [0 as RedstoneSignalStrength, 0 as RedstoneSignalStrength],
-      outputSignal: 0 as RedstoneSignalStrength
-    }
-    // Additional components for carry logic...
-  ])
+  createFullAdder: (bit: number) =>
+    Effect.succeed([
+      // XOR gate for sum
+      {
+        _tag: 'RedstoneComparator' as const,
+        position: { x: bit * 3, y: 1, z: 0 } as BlockPosition,
+        direction: 'north' as Direction,
+        mode: 'compare' as const,
+        mainInput: 0 as RedstoneSignalStrength,
+        sideInputs: [0 as RedstoneSignalStrength, 0 as RedstoneSignalStrength],
+        outputSignal: 0 as RedstoneSignalStrength,
+      },
+      // Additional components for carry logic...
+    ]),
 }
 
 // Performance Monitoring Interface
 interface RedstonePerformanceMonitorInterface {
-  readonly measurePropagationTime: (
-    networkId: string
-  ) => Effect.Effect<number, never>
+  readonly measurePropagationTime: (networkId: string) => Effect.Effect<number, never>
 
-  readonly getComponentUpdateFrequency: (
-    componentId: string
-  ) => Effect.Effect<number, never>
+  readonly getComponentUpdateFrequency: (componentId: string) => Effect.Effect<number, never>
 
-  readonly detectPerformanceBottlenecks: (
-    network: CircuitNetwork
-  ) => Effect.Effect<
+  readonly detectPerformanceBottlenecks: (network: CircuitNetwork) => Effect.Effect<
     ReadonlyArray<{
       componentId: string
       bottleneckType: string
@@ -1036,15 +987,12 @@ interface RedstonePerformanceMonitorInterface {
     never
   >
 
-  readonly generateOptimizationSuggestions: (
-    network: CircuitNetwork
-  ) => Effect.Effect<
-    ReadonlyArray<string>,
-    never
-  >
+  readonly generateOptimizationSuggestions: (network: CircuitNetwork) => Effect.Effect<ReadonlyArray<string>, never>
 }
 
-const RedstonePerformanceMonitor = Context.GenericTag<RedstonePerformanceMonitorInterface>("@app/RedstonePerformanceMonitor")
+const RedstonePerformanceMonitor = Context.GenericTag<RedstonePerformanceMonitorInterface>(
+  '@app/RedstonePerformanceMonitor'
+)
 ```
 
 ## Layer構成
@@ -1058,11 +1006,7 @@ export const RedstoneSystemLayer = Layer.mergeAll(
   RedstoneSimulationEngineLive,
   Layer.effect(CircuitAnalyzer, CircuitAnalyzerLive),
   Layer.effect(RedstonePerformanceMonitor, RedstonePerformanceMonitorLive)
-).pipe(
-  Layer.provide(WorldSystemLayer),
-  Layer.provide(PhysicsSystemLayer),
-  Layer.provide(EventBusLayer)
-)
+).pipe(Layer.provide(WorldSystemLayer), Layer.provide(PhysicsSystemLayer), Layer.provide(EventBusLayer))
 ```
 
 ## 使用例
@@ -1077,32 +1021,41 @@ const exampleRedstoneCircuit = Effect.gen(function* () {
   const network: CircuitNetwork = {
     id: crypto.randomUUID(),
     components: new Map([
-      ["lever1", {
-        _tag: "Lever",
-        position: { x: 0, y: 1, z: 0 },
-        powered: false,
-        attachedTo: { x: 0, y: 0, z: 0 }
-      }],
-      ["dust1", {
-        _tag: "RedstoneDust",
-        position: { x: 1, y: 1, z: 0 },
-        signalStrength: 0 as RedstoneSignalStrength,
-        connections: [{ x: 2, y: 1, z: 0 }],
-        powered: false
-      }],
-      ["lamp1", {
-        _tag: "RedstoneBlock",
-        position: { x: 2, y: 1, z: 0 },
-        signalStrength: 15 as RedstoneSignalStrength
-      }]
+      [
+        'lever1',
+        {
+          _tag: 'Lever',
+          position: { x: 0, y: 1, z: 0 },
+          powered: false,
+          attachedTo: { x: 0, y: 0, z: 0 },
+        },
+      ],
+      [
+        'dust1',
+        {
+          _tag: 'RedstoneDust',
+          position: { x: 1, y: 1, z: 0 },
+          signalStrength: 0 as RedstoneSignalStrength,
+          connections: [{ x: 2, y: 1, z: 0 }],
+          powered: false,
+        },
+      ],
+      [
+        'lamp1',
+        {
+          _tag: 'RedstoneBlock',
+          position: { x: 2, y: 1, z: 0 },
+          signalStrength: 15 as RedstoneSignalStrength,
+        },
+      ],
     ]),
     connections: new Map([
-      ["lever1", ["dust1"]],
-      ["dust1", ["lamp1"]]
+      ['lever1', ['dust1']],
+      ['dust1', ['lamp1']],
     ]),
-    powerSources: new Set(["lever1"]),
+    powerSources: new Set(['lever1']),
     signalPropagationQueue: [],
-    lastUpdate: 0 as TickCount
+    lastUpdate: 0 as TickCount,
   }
 
   // 回路の最適化
@@ -1112,15 +1065,15 @@ const exampleRedstoneCircuit = Effect.gen(function* () {
   const simulationFiber = yield* engine.startSimulation([optimizedNetwork])
 
   // レバーの切り替え
-  const leverComponent = optimizedNetwork.components.get("lever1")!
+  const leverComponent = optimizedNetwork.components.get('lever1')!
   const activatedLever = {
     ...leverComponent,
-    powered: true
+    powered: true,
   }
 
   const updatedNetwork = {
     ...optimizedNetwork,
-    components: optimizedNetwork.components.set("lever1", activatedLever)
+    components: optimizedNetwork.components.set('lever1', activatedLever),
   }
 
   yield* engine.addNetwork(updatedNetwork)
@@ -1149,10 +1102,9 @@ export const processLargeCircuit = (network: CircuitNetwork) =>
     // 各セクションを並列処理
     const results = yield* Effect.forEach(
       independentCircuits,
-      (circuit) => SignalPropagationEngine.pipe(
-        Effect.flatMap(engine => engine.propagateSignal(circuit, getCurrentTick()))
-      ),
-      { concurrency: "unbounded" }
+      (circuit) =>
+        SignalPropagationEngine.pipe(Effect.flatMap((engine) => engine.propagateSignal(circuit, getCurrentTick()))),
+      { concurrency: 'unbounded' }
     )
 
     // 結果をマージ
@@ -1169,14 +1121,11 @@ export const createComponentPool = (size: number) =>
     const pool = yield* Queue.bounded<CircuitComponent>(size)
 
     // プール初期化
-    yield* Effect.forEach(
-      Array.from({ length: size }),
-      () => Queue.offer(pool, createDefaultComponent())
-    )
+    yield* Effect.forEach(Array.from({ length: size }), () => Queue.offer(pool, createDefaultComponent()))
 
     return {
       acquire: Queue.take(pool),
-      release: (component: CircuitComponent) => Queue.offer(pool, component)
+      release: (component: CircuitComponent) => Queue.offer(pool, component),
     }
   })
 ```
@@ -1184,27 +1133,20 @@ export const createComponentPool = (size: number) =>
 ## テスト戦略
 
 ```typescript
-describe("Redstone System", () => {
-  const TestRedstoneLayer = Layer.mergeAll(
-    RedstoneSystemLayer,
-    TestWorldLayer,
-    TestEventBusLayer
-  )
+describe('Redstone System', () => {
+  const TestRedstoneLayer = Layer.mergeAll(RedstoneSystemLayer, TestWorldLayer, TestEventBusLayer)
 
-  it("should propagate signal correctly through simple circuit", () =>
+  it('should propagate signal correctly through simple circuit', () =>
     Effect.gen(function* () {
       const engine = yield* SignalPropagationEngine
 
       const network = createTestCircuit()
       const result = yield* engine.propagateSignal(network, 1 as TickCount)
 
-      expect(result.components.get("output")?.signalStrength).toBe(15)
-    }).pipe(
-      Effect.provide(TestRedstoneLayer),
-      Effect.runPromise
-    ))
+      expect(result.components.get('output')?.signalStrength).toBe(15)
+    }).pipe(Effect.provide(TestRedstoneLayer), Effect.runPromise))
 
-  it("should optimize redundant components", () =>
+  it('should optimize redundant components', () =>
     Effect.gen(function* () {
       const optimizer = yield* CircuitOptimizer
 
@@ -1212,10 +1154,7 @@ describe("Redstone System", () => {
       const optimized = yield* optimizer.optimizeCircuit(redundantNetwork)
 
       expect(optimized.components.size).toBeLessThan(redundantNetwork.components.size)
-    }).pipe(
-      Effect.provide(TestRedstoneLayer),
-      Effect.runPromise
-    ))
+    }).pipe(Effect.provide(TestRedstoneLayer), Effect.runPromise))
 })
 ```
 
@@ -1228,9 +1167,7 @@ describe("Redstone System", () => {
 ```typescript
 // Circuit Debug Interface
 interface CircuitDebuggerInterface {
-  readonly visualizeCircuit: (
-    network: CircuitNetwork
-  ) => Effect.Effect<CircuitVisualization, VisualizationError>
+  readonly visualizeCircuit: (network: CircuitNetwork) => Effect.Effect<CircuitVisualization, VisualizationError>
 
   readonly traceSignalPath: (
     from: BlockPosition,
@@ -1238,16 +1175,12 @@ interface CircuitDebuggerInterface {
     network: CircuitNetwork
   ) => Effect.Effect<SignalTrace, TracingError>
 
-  readonly analyzePerformance: (
-    network: CircuitNetwork
-  ) => Effect.Effect<PerformanceReport, AnalysisError>
+  readonly analyzePerformance: (network: CircuitNetwork) => Effect.Effect<PerformanceReport, AnalysisError>
 
-  readonly generateCircuitDiagram: (
-    network: CircuitNetwork
-  ) => Effect.Effect<string, DiagramError>
+  readonly generateCircuitDiagram: (network: CircuitNetwork) => Effect.Effect<string, DiagramError>
 }
 
-const CircuitDebugger = Context.GenericTag<CircuitDebuggerInterface>("@app/CircuitDebugger")
+const CircuitDebugger = Context.GenericTag<CircuitDebuggerInterface>('@app/CircuitDebugger')
 
 // Visualization Types
 const CircuitVisualization = Schema.Struct({
@@ -1259,41 +1192,47 @@ const CircuitVisualization = Schema.Struct({
       position: BlockPosition,
       signalStrength: RedstoneSignalStrength,
       powered: Schema.Boolean,
-      connections: Schema.Array(Schema.String)
+      connections: Schema.Array(Schema.String),
     })
   ),
-  signalFlows: Schema.Array(Schema.Struct({
-    from: Schema.String,
-    to: Schema.String,
-    strength: RedstoneSignalStrength,
-    delay: TickCount
-  })),
+  signalFlows: Schema.Array(
+    Schema.Struct({
+      from: Schema.String,
+      to: Schema.String,
+      strength: RedstoneSignalStrength,
+      delay: TickCount,
+    })
+  ),
   performanceMetrics: Schema.Struct({
     propagationTime: Schema.Number,
     componentsProcessed: Schema.Number,
-    memoryUsage: Schema.Number
-  })
+    memoryUsage: Schema.Number,
+  }),
 })
 
 type CircuitVisualization = Schema.Schema.Type<typeof CircuitVisualization>
 
 // Signal Tracing System
 const SignalTrace = Schema.Struct({
-  path: Schema.Array(Schema.Struct({
-    componentId: Schema.String,
-    position: BlockPosition,
-    tickEntered: TickCount,
-    signalStrengthIn: RedstoneSignalStrength,
-    signalStrengthOut: RedstoneSignalStrength,
-    processingTime: Schema.Number
-  })),
+  path: Schema.Array(
+    Schema.Struct({
+      componentId: Schema.String,
+      position: BlockPosition,
+      tickEntered: TickCount,
+      signalStrengthIn: RedstoneSignalStrength,
+      signalStrengthOut: RedstoneSignalStrength,
+      processingTime: Schema.Number,
+    })
+  ),
   totalDelay: TickCount,
   signalLoss: RedstoneSignalStrength,
-  bottlenecks: Schema.Array(Schema.Struct({
-    componentId: Schema.String,
-    bottleneckType: Schema.Literal("delay", "signal_loss", "processing_time"),
-    severity: Schema.Number
-  }))
+  bottlenecks: Schema.Array(
+    Schema.Struct({
+      componentId: Schema.String,
+      bottleneckType: Schema.Literal('delay', 'signal_loss', 'processing_time'),
+      severity: Schema.Number,
+    })
+  ),
 })
 
 type SignalTrace = Schema.Schema.Type<typeof SignalTrace>
@@ -1303,130 +1242,127 @@ export const CircuitDebuggerLive = Layer.effect(
   Effect.gen(function* () {
     const visualizationCache = yield* Ref.make<Map<string, CircuitVisualization>>(new Map())
 
-    const visualizeCircuit = (network: CircuitNetwork) => Effect.gen(function* () {
-      const startTime = Date.now()
+    const visualizeCircuit = (network: CircuitNetwork) =>
+      Effect.gen(function* () {
+        const startTime = Date.now()
 
-      const componentStates = new Map<string, any>()
-      for (const [id, component] of network.components) {
-        const connections = network.connections.get(id) ?? []
-        componentStates.set(id, {
-          position: getComponentPosition(component),
-          signalStrength: getComponentSignalStrength(component),
-          powered: getComponentPowered(component),
-          connections: Array.from(connections)
-        })
-      }
-
-      const signalFlows = Array.from(network.signalPropagationQueue).map(update => ({
-        from: findSignalSource(network, update.componentId),
-        to: update.componentId,
-        strength: update.signalStrength,
-        delay: update.tick
-      }))
-
-      const visualization: CircuitVisualization = {
-        networkId: network.id,
-        timestamp: Date.now(),
-        componentStates,
-        signalFlows,
-        performanceMetrics: {
-          propagationTime: Date.now() - startTime,
-          componentsProcessed: network.components.size,
-          memoryUsage: calculateMemoryUsage(network)
+        const componentStates = new Map<string, any>()
+        for (const [id, component] of network.components) {
+          const connections = network.connections.get(id) ?? []
+          componentStates.set(id, {
+            position: getComponentPosition(component),
+            signalStrength: getComponentSignalStrength(component),
+            powered: getComponentPowered(component),
+            connections: Array.from(connections),
+          })
         }
-      }
 
-      yield* Ref.update(visualizationCache, cache =>
-        cache.set(network.id, visualization)
-      )
+        const signalFlows = Array.from(network.signalPropagationQueue).map((update) => ({
+          from: findSignalSource(network, update.componentId),
+          to: update.componentId,
+          strength: update.signalStrength,
+          delay: update.tick,
+        }))
 
-      return visualization
-    })
+        const visualization: CircuitVisualization = {
+          networkId: network.id,
+          timestamp: Date.now(),
+          componentStates,
+          signalFlows,
+          performanceMetrics: {
+            propagationTime: Date.now() - startTime,
+            componentsProcessed: network.components.size,
+            memoryUsage: calculateMemoryUsage(network),
+          },
+        }
 
-    const traceSignalPath = (
-      from: BlockPosition,
-      to: BlockPosition,
-      network: CircuitNetwork
-    ) => Effect.gen(function* () {
-      const pathfinder = yield* CircuitAnalyzer
-      const path = yield* pathfinder.calculateSignalPath(from, to, network)
+        yield* Ref.update(visualizationCache, (cache) => cache.set(network.id, visualization))
 
-      const trace: Array<any> = []
-      let currentSignal = 15 as RedstoneSignalStrength
-      let currentTick = 0 as TickCount
+        return visualization
+      })
 
-      for (let i = 0; i < path.length; i++) {
-        const position = path[i]
-        const componentId = findComponentAt(network, position)
+    const traceSignalPath = (from: BlockPosition, to: BlockPosition, network: CircuitNetwork) =>
+      Effect.gen(function* () {
+        const pathfinder = yield* CircuitAnalyzer
+        const path = yield* pathfinder.calculateSignalPath(from, to, network)
 
-        if (!componentId) continue
+        const trace: Array<any> = []
+        let currentSignal = 15 as RedstoneSignalStrength
+        let currentTick = 0 as TickCount
 
-        const component = network.components.get(componentId)
-        if (!component) continue
+        for (let i = 0; i < path.length; i++) {
+          const position = path[i]
+          const componentId = findComponentAt(network, position)
 
-        const processingStart = Date.now()
-        const engine = yield* SignalPropagationEngine
-        const outputSignal = yield* engine.calculateComponentOutput(component, [currentSignal])
-        const processingTime = Date.now() - processingStart
+          if (!componentId) continue
 
-        const delay = getComponentDelay(component)
-        currentTick = (currentTick + delay) as TickCount
+          const component = network.components.get(componentId)
+          if (!component) continue
 
-        trace.push({
-          componentId,
-          position,
-          tickEntered: currentTick,
-          signalStrengthIn: currentSignal,
-          signalStrengthOut: outputSignal,
-          processingTime
-        })
+          const processingStart = Date.now()
+          const engine = yield* SignalPropagationEngine
+          const outputSignal = yield* engine.calculateComponentOutput(component, [currentSignal])
+          const processingTime = Date.now() - processingStart
 
-        currentSignal = outputSignal
-      }
+          const delay = getComponentDelay(component)
+          currentTick = (currentTick + delay) as TickCount
 
-      const totalDelay = currentTick
-      const signalLoss = (15 - currentSignal) as RedstoneSignalStrength
-      const bottlenecks = identifyBottlenecks(trace)
+          trace.push({
+            componentId,
+            position,
+            tickEntered: currentTick,
+            signalStrengthIn: currentSignal,
+            signalStrengthOut: outputSignal,
+            processingTime,
+          })
 
-      return {
-        path: trace,
-        totalDelay,
-        signalLoss,
-        bottlenecks
-      } as SignalTrace
-    })
+          currentSignal = outputSignal
+        }
 
-    const analyzePerformance = (network: CircuitNetwork) => Effect.gen(function* () {
-      const startTime = Date.now()
+        const totalDelay = currentTick
+        const signalLoss = (15 - currentSignal) as RedstoneSignalStrength
+        const bottlenecks = identifyBottlenecks(trace)
 
-      // Analyze circuit complexity
-      const complexity = calculateCircuitComplexity(network)
+        return {
+          path: trace,
+          totalDelay,
+          signalLoss,
+          bottlenecks,
+        } as SignalTrace
+      })
 
-      // Memory usage analysis
-      const memoryUsage = calculateDetailedMemoryUsage(network)
+    const analyzePerformance = (network: CircuitNetwork) =>
+      Effect.gen(function* () {
+        const startTime = Date.now()
 
-      // Performance bottlenecks
-      const bottlenecks = yield* identifyPerformanceBottlenecks(network)
+        // Analyze circuit complexity
+        const complexity = calculateCircuitComplexity(network)
 
-      // Optimization suggestions
-      const optimizer = yield* CircuitOptimizer
-      const suggestions = yield* optimizer.generateOptimizationSuggestions(network)
+        // Memory usage analysis
+        const memoryUsage = calculateDetailedMemoryUsage(network)
 
-      return {
-        analysisTime: Date.now() - startTime,
-        complexity,
-        memoryUsage,
-        bottlenecks,
-        suggestions,
-        recommendedOptimizations: filterCriticalOptimizations(suggestions)
-      }
-    })
+        // Performance bottlenecks
+        const bottlenecks = yield* identifyPerformanceBottlenecks(network)
+
+        // Optimization suggestions
+        const optimizer = yield* CircuitOptimizer
+        const suggestions = yield* optimizer.generateOptimizationSuggestions(network)
+
+        return {
+          analysisTime: Date.now() - startTime,
+          complexity,
+          memoryUsage,
+          bottlenecks,
+          suggestions,
+          recommendedOptimizations: filterCriticalOptimizations(suggestions),
+        }
+      })
 
     return {
       visualizeCircuit,
       traceSignalPath,
       analyzePerformance,
-      generateCircuitDiagram: (network) => generateAsciiDiagram(network)
+      generateCircuitDiagram: (network) => generateAsciiDiagram(network),
     } as const
   })
 )
@@ -1437,24 +1373,16 @@ export const CircuitDebuggerLive = Layer.effect(
 ```typescript
 // Performance Profiling System
 interface CircuitProfilerInterface {
-  readonly startProfiling: (
-    networkId: string
-  ) => Effect.Effect<void, never>
+  readonly startProfiling: (networkId: string) => Effect.Effect<void, never>
 
-  readonly stopProfiling: (
-    networkId: string
-  ) => Effect.Effect<ProfilingReport, never>
+  readonly stopProfiling: (networkId: string) => Effect.Effect<ProfilingReport, never>
 
-  readonly getRealtimeMetrics: (
-    networkId: string
-  ) => Effect.Effect<RealtimeMetrics, never>
+  readonly getRealtimeMetrics: (networkId: string) => Effect.Effect<RealtimeMetrics, never>
 
-  readonly detectMemoryLeaks: (
-    networkId: string
-  ) => Effect.Effect<ReadonlyArray<MemoryLeak>, never>
+  readonly detectMemoryLeaks: (networkId: string) => Effect.Effect<ReadonlyArray<MemoryLeak>, never>
 }
 
-const CircuitProfiler = Context.GenericTag<CircuitProfilerInterface>("@app/CircuitProfiler")
+const CircuitProfiler = Context.GenericTag<CircuitProfilerInterface>('@app/CircuitProfiler')
 
 const ProfilingReport = Schema.Struct({
   networkId: Schema.String,
@@ -1464,13 +1392,15 @@ const ProfilingReport = Schema.Struct({
   peakMemoryUsage: Schema.Number,
   totalSignalsPropagated: Schema.Number,
   componentUpdateCounts: Schema.Map(Schema.String, Schema.Number),
-  performanceBottlenecks: Schema.Array(Schema.Struct({
-    componentId: Schema.String,
-    bottleneckType: Schema.String,
-    impactScore: Schema.Number,
-    suggestedFix: Schema.String
-  })),
-  optimizationOpportunities: Schema.Array(Schema.String)
+  performanceBottlenecks: Schema.Array(
+    Schema.Struct({
+      componentId: Schema.String,
+      bottleneckType: Schema.String,
+      impactScore: Schema.Number,
+      suggestedFix: Schema.String,
+    })
+  ),
+  optimizationOpportunities: Schema.Array(Schema.String),
 })
 
 type ProfilingReport = Schema.Schema.Type<typeof ProfilingReport>
@@ -1481,72 +1411,73 @@ export const CircuitProfilerLive = Layer.effect(
     const profilingSessions = yield* Ref.make<Map<string, ProfilingSession>>(new Map())
     const realtimeMetrics = yield* Ref.make<Map<string, RealtimeMetrics>>(new Map())
 
-    const startProfiling = (networkId: string) => Effect.gen(function* () {
-      const session: ProfilingSession = {
-        networkId,
-        startTime: Date.now(),
-        tickCount: 0,
-        memorySnapshots: [],
-        componentUpdateCounts: new Map(),
-        performanceEvents: []
-      }
-
-      yield* Ref.update(profilingSessions, sessions =>
-        sessions.set(networkId, session)
-      )
-    })
-
-    const stopProfiling = (networkId: string) => Effect.gen(function* () {
-      const sessions = yield* Ref.get(profilingSessions)
-      const session = sessions.get(networkId)
-
-      if (!session) {
-        return {
+    const startProfiling = (networkId: string) =>
+      Effect.gen(function* () {
+        const session: ProfilingSession = {
           networkId,
-          duration: 0,
-          ticksProcessed: 0,
-          averageTickTime: 0,
-          peakMemoryUsage: 0,
-          totalSignalsPropagated: 0,
+          startTime: Date.now(),
+          tickCount: 0,
+          memorySnapshots: [],
           componentUpdateCounts: new Map(),
-          performanceBottlenecks: [],
-          optimizationOpportunities: []
-        } as ProfilingReport
-      }
+          performanceEvents: [],
+        }
 
-      const duration = Date.now() - session.startTime
-      const averageTickTime = duration / session.tickCount
-      const peakMemory = Math.max(...session.memorySnapshots)
-
-      const report: ProfilingReport = {
-        networkId,
-        duration,
-        ticksProcessed: session.tickCount,
-        averageTickTime,
-        peakMemoryUsage: peakMemory,
-        totalSignalsPropagated: session.performanceEvents.length,
-        componentUpdateCounts: session.componentUpdateCounts,
-        performanceBottlenecks: analyzeBottlenecks(session),
-        optimizationOpportunities: generateOptimizationSuggestions(session)
-      }
-
-      // クリーンアップ
-      yield* Ref.update(profilingSessions, sessions => {
-        sessions.delete(networkId)
-        return sessions
+        yield* Ref.update(profilingSessions, (sessions) => sessions.set(networkId, session))
       })
 
-      return report
-    })
+    const stopProfiling = (networkId: string) =>
+      Effect.gen(function* () {
+        const sessions = yield* Ref.get(profilingSessions)
+        const session = sessions.get(networkId)
+
+        if (!session) {
+          return {
+            networkId,
+            duration: 0,
+            ticksProcessed: 0,
+            averageTickTime: 0,
+            peakMemoryUsage: 0,
+            totalSignalsPropagated: 0,
+            componentUpdateCounts: new Map(),
+            performanceBottlenecks: [],
+            optimizationOpportunities: [],
+          } as ProfilingReport
+        }
+
+        const duration = Date.now() - session.startTime
+        const averageTickTime = duration / session.tickCount
+        const peakMemory = Math.max(...session.memorySnapshots)
+
+        const report: ProfilingReport = {
+          networkId,
+          duration,
+          ticksProcessed: session.tickCount,
+          averageTickTime,
+          peakMemoryUsage: peakMemory,
+          totalSignalsPropagated: session.performanceEvents.length,
+          componentUpdateCounts: session.componentUpdateCounts,
+          performanceBottlenecks: analyzeBottlenecks(session),
+          optimizationOpportunities: generateOptimizationSuggestions(session),
+        }
+
+        // クリーンアップ
+        yield* Ref.update(profilingSessions, (sessions) => {
+          sessions.delete(networkId)
+          return sessions
+        })
+
+        return report
+      })
 
     return {
       startProfiling,
       stopProfiling,
-      getRealtimeMetrics: (networkId) => Effect.gen(function* () {
-        const metrics = yield* Ref.get(realtimeMetrics)
-        return metrics.get(networkId) ?? createDefaultMetrics()
-      }),
-      detectMemoryLeaks: (networkId) => detectMemoryLeaksImpl(networkId)
+      getRealtimeMetrics: (networkId) =>
+        Effect.gen(function* () {
+          const metrics = yield* Ref.get(realtimeMetrics)
+          return metrics.get(networkId) ?? createDefaultMetrics()
+        }),
+      detectMemoryLeaks: (networkId) => detectMemoryLeaksImpl(networkId),
     } as const
   })
 )
@@ -1569,17 +1500,12 @@ interface RedstonePluginInterface {
     processor: SignalProcessor
   ) => Effect.Effect<void, PluginError>
 
-  readonly addCircuitPattern: (
-    patternName: string,
-    pattern: CircuitPattern
-  ) => Effect.Effect<void, PluginError>
+  readonly addCircuitPattern: (patternName: string, pattern: CircuitPattern) => Effect.Effect<void, PluginError>
 
-  readonly createCustomMachine: (
-    machineDefinition: MachineDefinition
-  ) => Effect.Effect<CircuitComponent, PluginError>
+  readonly createCustomMachine: (machineDefinition: MachineDefinition) => Effect.Effect<CircuitComponent, PluginError>
 }
 
-const RedstonePlugin = Context.GenericTag<RedstonePluginInterface>("@app/RedstonePlugin")
+const RedstonePlugin = Context.GenericTag<RedstonePluginInterface>('@app/RedstonePlugin')
 
 // カスタムコンポーネントの定義
 const ComponentBehavior = Schema.Struct({
@@ -1588,93 +1514,90 @@ const ComponentBehavior = Schema.Struct({
     RedstoneSignalStrength
   ),
   getDelay: Schema.Function(Schema.Tuple(CircuitComponent), TickCount),
-  onActivate: Schema.optional(Schema.Function(
-    Schema.Tuple(CircuitComponent, World),
-    Effect.Schema(World, MechanicalError)
-  )),
-  canConnect: Schema.Function(
-    Schema.Tuple(CircuitComponent, Direction),
-    Schema.Boolean
+  onActivate: Schema.optional(
+    Schema.Function(Schema.Tuple(CircuitComponent, World), Effect.Schema(World, MechanicalError))
   ),
+  canConnect: Schema.Function(Schema.Tuple(CircuitComponent, Direction), Schema.Boolean),
   renderProperties: Schema.Struct({
     texture: Schema.String,
     model: Schema.String,
-    animations: Schema.Array(Schema.String)
-  })
+    animations: Schema.Array(Schema.String),
+  }),
 })
 
 // 高度なレッドストーン機器の例
 export const AdvancedRedstoneComponents = {
   // デジタル表示器
-  createSevenSegmentDisplay: () => Schema.Struct({
-    _tag: Schema.Literal("SevenSegmentDisplay"),
-    position: BlockPosition,
-    inputSignal: RedstoneSignalStrength,
-    displayValue: pipe(Schema.Number, Schema.int(), Schema.between(0, 9)),
-    segments: Schema.Array(Schema.Boolean) // 7セグメント状態
-  }),
+  createSevenSegmentDisplay: () =>
+    Schema.Struct({
+      _tag: Schema.Literal('SevenSegmentDisplay'),
+      position: BlockPosition,
+      inputSignal: RedstoneSignalStrength,
+      displayValue: pipe(Schema.Number, Schema.int(), Schema.between(0, 9)),
+      segments: Schema.Array(Schema.Boolean), // 7セグメント状態
+    }),
 
   // 周波数分析器
-  createFrequencyAnalyzer: () => Schema.Struct({
-    _tag: Schema.Literal("FrequencyAnalyzer"),
-    position: BlockPosition,
-    inputHistory: Schema.Array(RedstoneSignalStrength),
-    detectedFrequency: Schema.Number,
-    harmonics: Schema.Array(Schema.Number)
-  }),
+  createFrequencyAnalyzer: () =>
+    Schema.Struct({
+      _tag: Schema.Literal('FrequencyAnalyzer'),
+      position: BlockPosition,
+      inputHistory: Schema.Array(RedstoneSignalStrength),
+      detectedFrequency: Schema.Number,
+      harmonics: Schema.Array(Schema.Number),
+    }),
 
   // プログラマブル回路
-  createProgrammableCircuit: () => Schema.Struct({
-    _tag: Schema.Literal("ProgrammableCircuit"),
-    position: BlockPosition,
-    program: Schema.String, // Assembly-like language
-    memory: Schema.Array(RedstoneSignalStrength),
-    registers: Schema.Map(Schema.String, RedstoneSignalStrength),
-    executionState: Schema.Literal("running", "halted", "error")
-  })
+  createProgrammableCircuit: () =>
+    Schema.Struct({
+      _tag: Schema.Literal('ProgrammableCircuit'),
+      position: BlockPosition,
+      program: Schema.String, // Assembly-like language
+      memory: Schema.Array(RedstoneSignalStrength),
+      registers: Schema.Map(Schema.String, RedstoneSignalStrength),
+      executionState: Schema.Literal('running', 'halted', 'error'),
+    }),
 }
 
 // MOD互換レイヤー
 export const ModCompatibilityLayer = Layer.effect(
-  Context.GenericTag<ModCompatibilityInterface>("@app/ModCompatibility"),
+  Context.GenericTag<ModCompatibilityInterface>('@app/ModCompatibility'),
   Effect.gen(function* () {
     const loadedMods = yield* Ref.make<Map<string, ModInterface>>(new Map())
     const componentRegistry = yield* Ref.make<Map<string, ComponentBehavior>>(new Map())
 
-    const loadMod = (modId: string, modDefinition: ModDefinition) => Effect.gen(function* () {
-      // MODの検証
-      yield* validateModDefinition(modDefinition)
+    const loadMod = (modId: string, modDefinition: ModDefinition) =>
+      Effect.gen(function* () {
+        // MODの検証
+        yield* validateModDefinition(modDefinition)
 
-      // コンポーネントの登録
-      for (const [componentType, behavior] of modDefinition.components) {
-        yield* Ref.update(componentRegistry, registry =>
-          registry.set(`${modId}:${componentType}`, behavior)
-        )
-      }
+        // コンポーネントの登録
+        for (const [componentType, behavior] of modDefinition.components) {
+          yield* Ref.update(componentRegistry, (registry) => registry.set(`${modId}:${componentType}`, behavior))
+        }
 
-      // MODインターフェースの作成
-      const modInterface: ModInterface = {
-        id: modId,
-        version: modDefinition.version,
-        components: modDefinition.components,
-        circuits: modDefinition.circuits,
-        eventHandlers: modDefinition.eventHandlers
-      }
+        // MODインターフェースの作成
+        const modInterface: ModInterface = {
+          id: modId,
+          version: modDefinition.version,
+          components: modDefinition.components,
+          circuits: modDefinition.circuits,
+          eventHandlers: modDefinition.eventHandlers,
+        }
 
-      yield* Ref.update(loadedMods, mods => mods.set(modId, modInterface))
-    })
+        yield* Ref.update(loadedMods, (mods) => mods.set(modId, modInterface))
+      })
 
     return {
       loadMod,
-      unloadMod: (modId: string) => Ref.update(loadedMods, mods => {
-        mods.delete(modId)
-        return mods
-      }),
+      unloadMod: (modId: string) =>
+        Ref.update(loadedMods, (mods) => {
+          mods.delete(modId)
+          return mods
+        }),
       getLoadedMods: () => Ref.get(loadedMods),
       resolveComponent: (componentType: string) =>
-        Ref.get(componentRegistry).pipe(
-          Effect.map(registry => registry.get(componentType))
-        )
+        Ref.get(componentRegistry).pipe(Effect.map((registry) => registry.get(componentType))),
     } as const
   })
 )
@@ -1688,42 +1611,44 @@ export const ModCompatibilityLayer = Layer.effect(
 // 量子回路シミュレーション（理論的拡張）
 export const QuantumRedstoneSystem = {
   // 量子ビット状態
-  createQuantumBit: () => Schema.Struct({
-    _tag: Schema.Literal("QuantumBit"),
-    position: BlockPosition,
-    amplitude0: Schema.Number, // |0⟩状態の振幅
-    amplitude1: Schema.Number, // |1⟩状態の振幅
-    phase: Schema.Number,
-    entangled: Schema.Array(BlockPosition) // もつれ状態
-  }),
+  createQuantumBit: () =>
+    Schema.Struct({
+      _tag: Schema.Literal('QuantumBit'),
+      position: BlockPosition,
+      amplitude0: Schema.Number, // |0⟩状態の振幅
+      amplitude1: Schema.Number, // |1⟩状態の振幅
+      phase: Schema.Number,
+      entangled: Schema.Array(BlockPosition), // もつれ状態
+    }),
 
   // 量子ゲート
-  createQuantumGate: (gateType: "hadamard" | "pauli_x" | "pauli_z" | "cnot") =>
+  createQuantumGate: (gateType: 'hadamard' | 'pauli_x' | 'pauli_z' | 'cnot') =>
     Schema.Struct({
-      _tag: Schema.Literal("QuantumGate"),
+      _tag: Schema.Literal('QuantumGate'),
       position: BlockPosition,
       gateType: Schema.Literal(gateType),
       controlBits: Schema.Array(BlockPosition),
       targetBits: Schema.Array(BlockPosition),
-      matrix: Schema.Array(Schema.Array(Schema.Number)) // 2x2 または 4x4 行列
+      matrix: Schema.Array(Schema.Array(Schema.Number)), // 2x2 または 4x4 行列
     }),
 
   // 量子測定
-  performQuantumMeasurement: (qubit: QuantumBit) => Effect.gen(function* () {
-    const probability0 = Math.pow(qubit.amplitude0, 2)
-    const random = Math.random()
+  performQuantumMeasurement: (qubit: QuantumBit) =>
+    Effect.gen(function* () {
+      const probability0 = Math.pow(qubit.amplitude0, 2)
+      const random = Math.random()
 
-    const result = random < probability0 ? 0 : 1
+      const result = random < probability0 ? 0 : 1
 
-    // 波束の収縮
-    const collapsedQubit = {
-      ...qubit,
-      amplitude0: result === 0 ? 1 : 0,
-      amplitude1: result === 1 ? 1 : 0
-    }
+      // 波束の収縮
+      const collapsedQubit = {
+        ...qubit,
+        amplitude0: result === 0 ? 1 : 0,
+        amplitude1: result === 1 ? 1 : 0,
+      }
 
-    return { result: result as RedstoneSignalStrength, collapsedQubit }
-  })
+      return { result: result as RedstoneSignalStrength, collapsedQubit }
+    }),
 }
 ```
 
@@ -1732,52 +1657,51 @@ export const QuantumRedstoneSystem = {
 ```typescript
 // ニューラルネットワーク回路
 export const NeuralRedstoneNetwork = {
-  createNeuron: (weights: ReadonlyArray<number>, bias: number) => Schema.Struct({
-    _tag: Schema.Literal("RedstoneNeuron"),
-    position: BlockPosition,
-    weights: Schema.Array(Schema.Number),
-    bias: Schema.Number,
-    activationFunction: Schema.Literal("sigmoid", "relu", "tanh"),
-    inputs: Schema.Array(RedstoneSignalStrength),
-    output: RedstoneSignalStrength
-  }),
+  createNeuron: (weights: ReadonlyArray<number>, bias: number) =>
+    Schema.Struct({
+      _tag: Schema.Literal('RedstoneNeuron'),
+      position: BlockPosition,
+      weights: Schema.Array(Schema.Number),
+      bias: Schema.Number,
+      activationFunction: Schema.Literal('sigmoid', 'relu', 'tanh'),
+      inputs: Schema.Array(RedstoneSignalStrength),
+      output: RedstoneSignalStrength,
+    }),
 
-  calculateNeuronOutput: (
-    neuron: RedstoneNeuron,
-    inputs: ReadonlyArray<RedstoneSignalStrength>
-  ) => Effect.gen(function* () {
-    let weightedSum = neuron.bias
+  calculateNeuronOutput: (neuron: RedstoneNeuron, inputs: ReadonlyArray<RedstoneSignalStrength>) =>
+    Effect.gen(function* () {
+      let weightedSum = neuron.bias
 
-    for (let i = 0; i < inputs.length && i < neuron.weights.length; i++) {
-      weightedSum += (inputs[i] / 15) * neuron.weights[i] // 正規化
-    }
+      for (let i = 0; i < inputs.length && i < neuron.weights.length; i++) {
+        weightedSum += (inputs[i] / 15) * neuron.weights[i] // 正規化
+      }
 
-    const activated = yield* Match.value(neuron.activationFunction).pipe(
-      Match.when("sigmoid", () => Effect.succeed(1 / (1 + Math.exp(-weightedSum)))),
-      Match.when("relu", () => Effect.succeed(Math.max(0, weightedSum))),
-      Match.when("tanh", () => Effect.succeed(Math.tanh(weightedSum))),
-      Match.exhaustive
-    )
+      const activated = yield* Match.value(neuron.activationFunction).pipe(
+        Match.when('sigmoid', () => Effect.succeed(1 / (1 + Math.exp(-weightedSum)))),
+        Match.when('relu', () => Effect.succeed(Math.max(0, weightedSum))),
+        Match.when('tanh', () => Effect.succeed(Math.tanh(weightedSum))),
+        Match.exhaustive
+      )
 
-    return Math.round(activated * 15) as RedstoneSignalStrength
-  }),
+      return Math.round(activated * 15) as RedstoneSignalStrength
+    }),
 
-  createNeuralLayer: (neuronCount: number, inputSize: number) => Effect.gen(function* () {
-    const neurons = yield* Effect.forEach(
-      Array.from({ length: neuronCount }),
-      (_, i) => Effect.succeed({
-        _tag: "RedstoneNeuron" as const,
-        position: { x: i, y: 0, z: 0 } as BlockPosition,
-        weights: Array.from({ length: inputSize }, () => Math.random() * 2 - 1),
-        bias: Math.random() * 2 - 1,
-        activationFunction: "sigmoid" as const,
-        inputs: [],
-        output: 0 as RedstoneSignalStrength
-      })
-    )
+  createNeuralLayer: (neuronCount: number, inputSize: number) =>
+    Effect.gen(function* () {
+      const neurons = yield* Effect.forEach(Array.from({ length: neuronCount }), (_, i) =>
+        Effect.succeed({
+          _tag: 'RedstoneNeuron' as const,
+          position: { x: i, y: 0, z: 0 } as BlockPosition,
+          weights: Array.from({ length: inputSize }, () => Math.random() * 2 - 1),
+          bias: Math.random() * 2 - 1,
+          activationFunction: 'sigmoid' as const,
+          inputs: [],
+          output: 0 as RedstoneSignalStrength,
+        })
+      )
 
-    return neurons
-  })
+      return neurons
+    }),
 }
 ```
 
@@ -1810,38 +1734,33 @@ export const RedstoneDebugLayer = Layer.mergeAll(
   CompleteRedstoneSystemLayer,
   CircuitDebuggerLive,
   CircuitProfilerLive,
-  Layer.effect(
-    Context.GenericTag<LoggerInterface>("@app/RedstoneLogger"),
-    createRedstoneLogger
-  )
+  Layer.effect(Context.GenericTag<LoggerInterface>('@app/RedstoneLogger'), createRedstoneLogger)
 )
 
 // プロダクション用最適化レイヤー
 export const RedstoneProductionLayer = Layer.mergeAll(
   CompleteRedstoneSystemLayer,
-  Layer.effect(
-    Context.GenericTag<CacheInterface>("@app/RedstoneCache"),
-    createProductionCache
-  )
-).pipe(
-  Layer.provide(PerformanceMonitoringLayer)
-)
+  Layer.effect(Context.GenericTag<CacheInterface>('@app/RedstoneCache'), createProductionCache)
+).pipe(Layer.provide(PerformanceMonitoringLayer))
 ```
 
 ## Related Documents
 
 **Core System Dependencies**:
+
 - [Block System](../core-features/block-system.md) - レッドストーンブロックとワイヤ
 - [Physics System](../core-features/physics-system.md) - 信号伝播と電力計算
 - [World Management System](../core-features/world-management-system.md) - チャンク内回路保存
 - [Entity System](../core-features/entity-system.md) - 可動部品とメカニクス
 
 **Architecture Integration**:
+
 - [Effect-TS Patterns](../explanations/architecture/06-effect-ts-patterns.md) - STMとConcurrent処理
 - [ECS Integration](../explanations/architecture/05-ecs-integration.md) - レッドストーンコンポーネント
 - [Event Bus Specification](../02-api-design/02-event-bus-specification.md) - 回路イベント管理
 
 **Enhanced Features**:
+
 - [Structure Generation](./structure-generation.md) - レッドストーン構造物の自動生成
 - [Multiplayer Architecture](./multiplayer-architecture.md) - マルチプレイヤー回路同期
 

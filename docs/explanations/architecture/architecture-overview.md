@@ -1,20 +1,22 @@
 ---
-title: "TypeScript Minecraft - 統合アーキテクチャ概要"
-description: "DDD + ECS + Effect-TS 3.17+による統合アーキテクチャの完全ガイド。企業レベルの設計原則と実装パターンを包含した次世代ゲーム開発アーキテクチャ。"
-category: "architecture"
-difficulty: "advanced"
-tags: ["architecture-overview", "ddd", "ecs", "effect-ts", "game-architecture", "enterprise-patterns"]
-prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "functional-programming", "typescript-advanced"]
-estimated_reading_time: "25分"
-related_patterns: ["service-patterns", "data-modeling-patterns"]
-related_docs: ["./infrastructure-architecture.md", "../design-patterns/service-patterns.md"]
+title: 'TypeScript Minecraft - 統合アーキテクチャ概要'
+description: 'DDD + ECS + Effect-TS 3.17+による統合アーキテクチャの完全ガイド。企業レベルの設計原則と実装パターンを包含した次世代ゲーム開発アーキテクチャ。'
+category: 'architecture'
+difficulty: 'advanced'
+tags: ['architecture-overview', 'ddd', 'ecs', 'effect-ts', 'game-architecture', 'enterprise-patterns']
+prerequisites: ['effect-ts-fundamentals', 'ddd-concepts', 'functional-programming', 'typescript-advanced']
+estimated_reading_time: '25分'
+related_patterns: ['service-patterns', 'data-modeling-patterns']
+related_docs: ['./infrastructure-architecture.md', '../design-patterns/service-patterns.md']
 ---
-  topics: ["architecture", "ddd", "ecs", "effect-ts", "game-development", "enterprise-design"]
-  skill_level: "advanced"
-  implementation_time: 120
-  confidence_score: 0.98
-  use_cases: ["game-development", "enterprise-systems", "scalable-architecture", "real-time-systems"]
-  architectural_complexity: "high"
+
+topics: ["architecture", "ddd", "ecs", "effect-ts", "game-development", "enterprise-design"]
+skill_level: "advanced"
+implementation_time: 120
+confidence_score: 0.98
+use_cases: ["game-development", "enterprise-systems", "scalable-architecture", "real-time-systems"]
+architectural_complexity: "high"
+
 ---
 
 # 統合アーキテクチャ設計哲学
@@ -43,12 +45,14 @@ TypeScript MinecraftにおけるDDD + ECS + Effect-TS統合アーキテクチャ
 Minecraftクローンの開発では、相反する要求が存在します：
 
 **ビジネス要求**:
+
 - 複雑なゲームルールの正確な実装
 - 拡張性と保守性
 - チーム開発での理解しやすさ
 - バグ修正の容易さ
 
 **技術要求**:
+
 - 60FPS のリアルタイム性能
 - 大規模ワールドのメモリ効率
 - ネットワーク最適化
@@ -65,7 +69,7 @@ function updateWorld(deltaTime: number): void {
   pipe(
     Array.from(entities.values()),
     Array.forEach((entity) => {
-      entity.update(deltaTime)  // Cache miss 多発
+      entity.update(deltaTime) // Cache miss 多発
     })
   )
 }
@@ -93,11 +97,10 @@ function updateMovement(positions: Float32Array, velocities: Float32Array, delta
 
 // ドメイン層: ビジネスルールの明確な表現
 export const PlayerMovement = {
-  validateMove: (player: Player, newPosition: Position): Effect.Effect<
-    Position,
-    MovementError,
-    GameRules | CollisionSystem
-  > =>
+  validateMove: (
+    player: Player,
+    newPosition: Position
+  ): Effect.Effect<Position, MovementError, GameRules | CollisionSystem> =>
     Effect.gen(function* () {
       const rules = yield* GameRules
       const collision = yield* CollisionSystem
@@ -114,13 +117,15 @@ export const PlayerMovement = {
     Effect.gen(function* () {
       const updatedPlayer = { ...player, position }
       yield* PlayerRepository.save(updatedPlayer)
-      yield* EventBus.publish(PlayerMoved.create({
-        playerId: player.id,
-        oldPosition: player.position,
-        newPosition: position
-      }))
+      yield* EventBus.publish(
+        PlayerMoved.create({
+          playerId: player.id,
+          oldPosition: player.position,
+          newPosition: position,
+        })
+      )
       return updatedPlayer
-    })
+    }),
 }
 
 // インフラ層: 高速なECS実装
@@ -129,43 +134,44 @@ interface MovementECS {
   readonly updatePositions: (deltaTime: number) => void
 }
 
-const MovementECS = Context.GenericTag<MovementECS>("@minecraft/MovementECS")
+const MovementECS = Context.GenericTag<MovementECS>('@minecraft/MovementECS')
 
-export const makeMovementECS = (maxEntities: number = MAX_ENTITIES) => Effect.gen(function* () {
-  const positions = new Float32Array(maxEntities * 3)
-  const velocities = new Float32Array(maxEntities * 3)
-  const entityMap = new Map<PlayerId, number>()
-  let activeCount = 0
+export const makeMovementECS = (maxEntities: number = MAX_ENTITIES) =>
+  Effect.gen(function* () {
+    const positions = new Float32Array(maxEntities * 3)
+    const velocities = new Float32Array(maxEntities * 3)
+    const entityMap = new Map<PlayerId, number>()
+    let activeCount = 0
 
-  return MovementECS.of({
-    // ドメインイベントを受け取り、ECS状態を更新
-    handlePlayerMoved: (event: PlayerMoved) =>
-      Effect.sync(() => {
-        const index = entityMap.get(event.playerId)
-        if (index !== undefined) {
-          const baseIdx = index * 3
-          positions[baseIdx] = event.newPosition.x
-          positions[baseIdx + 1] = event.newPosition.y
-          positions[baseIdx + 2] = event.newPosition.z
-        }
-      }),
+    return MovementECS.of({
+      // ドメインイベントを受け取り、ECS状態を更新
+      handlePlayerMoved: (event: PlayerMoved) =>
+        Effect.sync(() => {
+          const index = entityMap.get(event.playerId)
+          if (index !== undefined) {
+            const baseIdx = index * 3
+            positions[baseIdx] = event.newPosition.x
+            positions[baseIdx + 1] = event.newPosition.y
+            positions[baseIdx + 2] = event.newPosition.z
+          }
+        }),
 
-    // 高速バッチ処理
-    updatePositions: (deltaTime: number) => {
-      // SIMD最適化可能な実装
-      // パフォーマンスクリティカルな部分は配列操作を使用
-      pipe(
-        Array.range(0, activeCount),
-        Array.forEach((idx) => {
-          const i = idx * 3
-          positions[i] += velocities[i] * deltaTime
-          positions[i + 1] += velocities[i + 1] * deltaTime
-          positions[i + 2] += velocities[i + 2] * deltaTime
-        })
-      )
-    }
+      // 高速バッチ処理
+      updatePositions: (deltaTime: number) => {
+        // SIMD最適化可能な実装
+        // パフォーマンスクリティカルな部分は配列操作を使用
+        pipe(
+          Array.range(0, activeCount),
+          Array.forEach((idx) => {
+            const i = idx * 3
+            positions[i] += velocities[i] * deltaTime
+            positions[i + 1] += velocities[i + 1] * deltaTime
+            positions[i + 2] += velocities[i + 2] * deltaTime
+          })
+        )
+      },
+    })
   })
-})
 
 const MovementECSLive = Layer.effect(MovementECS, makeMovementECS())
 ```
@@ -312,9 +318,8 @@ export const InventoryDomain = {
       // 1. 容量制限チェック
       if (inventory.items.length >= MAX_INVENTORY_SIZE) {
         // でも、同じアイテムがスタック可能な場合は例外
-        const existingStack = inventory.items.find(stack =>
-          stack.itemId === item.id &&
-          stack.quantity + quantity <= item.maxStackSize
+        const existingStack = inventory.items.find(
+          (stack) => stack.itemId === item.id && stack.quantity + quantity <= item.maxStackSize
         )
 
         if (!existingStack) {
@@ -323,10 +328,8 @@ export const InventoryDomain = {
       }
 
       // 2. アイテム固有の制約チェック
-      if (item.category === "tool" && quantity > 1) {
-        return yield* Effect.fail(
-          InvalidQuantityError.create("Tools cannot be stacked")
-        )
+      if (item.category === 'tool' && quantity > 1) {
+        return yield* Effect.fail(InvalidQuantityError.create('Tools cannot be stacked'))
       }
 
       // 3. プレイヤーレベル制約
@@ -335,21 +338,19 @@ export const InventoryDomain = {
         return yield* Effect.fail(
           InsufficientLevelError.create({
             required: item.requiredLevel,
-            current: player.level
+            current: player.level,
           })
         )
       }
 
       // 4. ゲームモード制約
-      if (player.gameMode === "adventure" && item.category === "creative_only") {
-        return yield* Effect.fail(
-          GameModeRestrictionError.create()
-        )
+      if (player.gameMode === 'adventure' && item.category === 'creative_only') {
+        return yield* Effect.fail(GameModeRestrictionError.create())
       }
 
       // ここまでクリアしたら、実際の追加処理
       return addItemToInventory(inventory, item, quantity)
-    })
+    }),
 }
 ```
 
@@ -384,18 +385,18 @@ export const PlayerUseCase = {
       return {
         success: true,
         spawnPosition: playerState.position,
-        serverInfo: server.publicInfo
+        serverInfo: server.publicInfo,
       }
     }).pipe(
       // 8. エラー時のクリーンアップ
-      Effect.catchAllCause(cause =>
+      Effect.catchAllCause((cause) =>
         Effect.gen(function* () {
-          yield* Logger.error("Failed to join server", { playerId, serverId, cause })
+          yield* Logger.error('Failed to join server', { playerId, serverId, cause })
           yield* GameSession.cleanup(playerId)
-          return { success: false, error: "Failed to join server" }
+          return { success: false, error: 'Failed to join server' }
         })
       )
-    )
+    ),
 }
 ```
 
@@ -516,7 +517,7 @@ export const createMemoryOptimizedChunkManager = () => {
 ### 1. 関数型ファースト設計
 
 ```typescript
-import { Effect, Schema } from "effect"
+import { Effect, Schema } from 'effect'
 
 // すべてのAPIはEffect型で統一
 export interface GameAPI {
@@ -531,27 +532,21 @@ export interface GameAPI {
 ```typescript
 // スキーマから自動でAPI型を生成
 export const CreatePlayerRequest = Schema.Struct({
-  name: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.maxLength(16),
-    Schema.pattern(/^[a-zA-Z0-9_]+$/)
-  ),
-  gameMode: Schema.Literal("survival", "creative", "adventure", "spectator")
+  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(16), Schema.pattern(/^[a-zA-Z0-9_]+$/)),
+  gameMode: Schema.Literal('survival', 'creative', 'adventure', 'spectator'),
 })
 
 export const CreatePlayerResponse = Schema.Struct({
   player: PlayerSchema,
   world: WorldSchema,
-  token: Schema.String
+  token: Schema.String,
 })
 
 // 自動生成される型
 export interface CreatePlayerAPI {
-  (request: Schema.Schema.Type<typeof CreatePlayerRequest>):
-    Effect.Effect<
-      Schema.Schema.Type<typeof CreatePlayerResponse>,
-      ValidationError | DatabaseError
-    >
+  (
+    request: Schema.Schema.Type<typeof CreatePlayerRequest>
+  ): Effect.Effect<Schema.Schema.Type<typeof CreatePlayerResponse>, ValidationError | DatabaseError>
 }
 ```
 
@@ -559,23 +554,21 @@ export interface CreatePlayerAPI {
 
 ```typescript
 // タグ付きエラー型
-export const PlayerNotFoundError = Schema.TaggedError("PlayerNotFoundError")({
+export const PlayerNotFoundError = Schema.TaggedError('PlayerNotFoundError')({
   playerId: Schema.String,
-  timestamp: Schema.Date
+  timestamp: Schema.Date,
 })
 
-export const WorldCorruptedError = Schema.TaggedError("WorldCorruptedError")({
+export const WorldCorruptedError = Schema.TaggedError('WorldCorruptedError')({
   worldId: Schema.String,
-  corruption: Schema.String
+  corruption: Schema.String,
 })
 
 // エラー境界での処理
 export const safePlayerOperation = (operation: Effect.Effect<Player, PlayerError>) =>
   pipe(
     operation,
-    Effect.catchTag("PlayerNotFoundError", () =>
-      Effect.succeed(DefaultPlayer)
-    ),
+    Effect.catchTag('PlayerNotFoundError', () => Effect.succeed(DefaultPlayer)),
     Effect.retry(Schedule.exponential(Duration.millis(100))),
     Effect.timeout(Duration.seconds(5))
   )
@@ -623,22 +616,20 @@ export const HttpApiLayer = Layer.effectContext(
     return {
       // RESTful エンドポイント
       routes: {
-        "GET /api/players/:id": (playerId: string) =>
+        'GET /api/players/:id': (playerId: string) =>
           pipe(
             PlayerId(playerId),
             app.getPlayer,
-            Effect.map(player => ({ success: true, data: player })),
-            Effect.catchAll(error =>
-              Effect.succeed({ success: false, error: error.message })
-            )
+            Effect.map((player) => ({ success: true, data: player })),
+            Effect.catchAll((error) => Effect.succeed({ success: false, error: error.message }))
           ),
 
-        "POST /api/players": (request: CreatePlayerRequest) =>
+        'POST /api/players': (request: CreatePlayerRequest) =>
           pipe(
             Schema.decode(CreatePlayerRequest)(request),
             Effect.flatMap(app.createPlayer),
-            Effect.map(response => ({ success: true, data: response }))
-          )
+            Effect.map((response) => ({ success: true, data: response }))
+          ),
       },
 
       // WebSocket ハンドラー
@@ -646,22 +637,16 @@ export const HttpApiLayer = Layer.effectContext(
         onConnect: (socket: WebSocket) =>
           pipe(
             AuthService.authenticate(socket),
-            Effect.flatMap(player =>
-              GameSession.create(player, socket)
-            ),
-            Effect.tap(() =>
-              Logger.info(`Player connected: ${player.id}`)
-            )
+            Effect.flatMap((player) => GameSession.create(player, socket)),
+            Effect.tap(() => Logger.info(`Player connected: ${player.id}`))
           ),
 
         onMessage: (socket: WebSocket, message: GameMessage) =>
           pipe(
             GameSession.getBySocket(socket),
-            Effect.flatMap(session =>
-              session.handleMessage(message)
-            )
-          )
-      }
+            Effect.flatMap((session) => session.handleMessage(message))
+          ),
+      },
     }
   })
 )
@@ -690,9 +675,7 @@ export const ApplicationLayer = Layer.effectContext(
           yield* repo.savePlayer(player)
 
           // イベント発行
-          yield* EventBus.publish(
-            PlayerCreatedEvent({ player, timestamp: new Date() })
-          )
+          yield* EventBus.publish(PlayerCreatedEvent({ player, timestamp: new Date() }))
 
           return { player, token: yield* AuthService.generateToken(player) }
         }),
@@ -701,10 +684,8 @@ export const ApplicationLayer = Layer.effectContext(
       getPlayer: (playerId: PlayerId) =>
         pipe(
           repo.getPlayer(playerId),
-          Effect.catchTag("PlayerNotFoundError", () =>
-            Effect.fail(new PlayerNotFoundError({ playerId }))
-          )
-        )
+          Effect.catchTag('PlayerNotFoundError', () => Effect.fail(new PlayerNotFoundError({ playerId })))
+        ),
     }
   })
 )
@@ -731,7 +712,7 @@ export const DomainLayer = Layer.effectContext(
             gameMode: data.gameMode,
             position: Vector3.zero(),
             health: 20,
-            createdAt: new Date()
+            createdAt: new Date(),
           })
 
           return player
@@ -747,13 +728,13 @@ export const DomainLayer = Layer.effectContext(
           }
 
           // 権限チェック
-          const hasPermission = yield* PermissionService.check(player, "block.place")
+          const hasPermission = yield* PermissionService.check(player, 'block.place')
           if (!hasPermission) {
-            yield* Effect.fail(new NoPermissionError({ playerId: player.id, action: "block.place" }))
+            yield* Effect.fail(new NoPermissionError({ playerId: player.id, action: 'block.place' }))
           }
 
           return true
-        })
+        }),
     }
   })
 )
@@ -763,20 +744,20 @@ export const DomainLayer = Layer.effectContext(
 
 ### 1. コマンドAPI（変更操作）
 
-| エンドポイント | メソッド | 説明 | レスポンス |
-|----------------|----------|------|------------|
-| `/api/players` | POST | プレイヤー作成 | PlayerResponse |
-| `/api/worlds` | POST | ワールド作成 | WorldResponse |
-| `/api/blocks` | PUT | ブロック配置 | BlockPlacementResponse |
-| `/api/inventory/move` | POST | アイテム移動 | InventoryResponse |
+| エンドポイント        | メソッド | 説明           | レスポンス             |
+| --------------------- | -------- | -------------- | ---------------------- |
+| `/api/players`        | POST     | プレイヤー作成 | PlayerResponse         |
+| `/api/worlds`         | POST     | ワールド作成   | WorldResponse          |
+| `/api/blocks`         | PUT      | ブロック配置   | BlockPlacementResponse |
+| `/api/inventory/move` | POST     | アイテム移動   | InventoryResponse      |
 
 ### 2. クエリAPI（参照操作）
 
-| エンドポイント | メソッド | 説明 | レスポンス |
-|----------------|----------|------|------------|
-| `/api/players/:id` | GET | プレイヤー情報取得 | Player |
-| `/api/worlds/:id/chunks` | GET | チャンク一覧取得 | ChunkList |
-| `/api/leaderboard` | GET | ランキング取得 | LeaderboardResponse |
+| エンドポイント           | メソッド | 説明               | レスポンス          |
+| ------------------------ | -------- | ------------------ | ------------------- |
+| `/api/players/:id`       | GET      | プレイヤー情報取得 | Player              |
+| `/api/worlds/:id/chunks` | GET      | チャンク一覧取得   | ChunkList           |
+| `/api/leaderboard`       | GET      | ランキング取得     | LeaderboardResponse |
 
 ### 3. WebSocket API（リアルタイム）
 
@@ -785,29 +766,29 @@ export const DomainLayer = Layer.effectContext(
 export const WebSocketMessage = Schema.Union(
   // プレイヤーアクション
   Schema.Struct({
-    type: Schema.Literal("player_move"),
+    type: Schema.Literal('player_move'),
     data: Schema.Struct({
       position: Vector3Schema,
-      rotation: RotationSchema
-    })
+      rotation: RotationSchema,
+    }),
   }),
 
   // ブロック操作
   Schema.Struct({
-    type: Schema.Literal("block_place"),
+    type: Schema.Literal('block_place'),
     data: Schema.Struct({
       position: BlockPositionSchema,
-      blockType: Schema.String
-    })
+      blockType: Schema.String,
+    }),
   }),
 
   // チャットメッセージ
   Schema.Struct({
-    type: Schema.Literal("chat_message"),
+    type: Schema.Literal('chat_message'),
     data: Schema.Struct({
       message: Schema.String,
-      recipients: Schema.optional(Schema.Array(Schema.String))
-    })
+      recipients: Schema.optional(Schema.Array(Schema.String)),
+    }),
   })
 )
 ```
@@ -824,7 +805,7 @@ interface PlayerServiceInterface {
   readonly update: (id: PlayerId, updates: PlayerUpdate) => Effect.Effect<Player, PlayerError>
 }
 
-export const PlayerService = Context.GenericTag<PlayerServiceInterface>("PlayerService")
+export const PlayerService = Context.GenericTag<PlayerServiceInterface>('PlayerService')
 
 // レイヤー構成
 export const AppLayer = Layer.mergeAll(
@@ -840,10 +821,8 @@ export const AppLayer = Layer.mergeAll(
 export const runApp = pipe(
   HttpServer.start(),
   Effect.provide(AppLayer),
-  Effect.tap(() => Logger.info("Application started")),
-  Effect.catchAllCause(cause =>
-    Logger.error("Application failed to start", { cause })
-  )
+  Effect.tap(() => Logger.info('Application started')),
+  Effect.catchAllCause((cause) => Logger.error('Application failed to start', { cause }))
 )
 ```
 
@@ -853,27 +832,24 @@ export const runApp = pipe(
 // APIスキーマ自動生成
 export const generateOpenAPI = (routes: ApiRoutes) =>
   Effect.gen(function* () {
-    const schemas = Object.values(routes).map(route => ({
+    const schemas = Object.values(routes).map((route) => ({
       path: route.path,
       method: route.method,
       requestSchema: route.requestSchema,
-      responseSchema: route.responseSchema
+      responseSchema: route.responseSchema,
     }))
 
     return OpenAPIGenerator.generate(schemas)
   })
 
 // ランタイム検証
-export const withValidation = <I, O>(
-  handler: (input: I) => Effect.Effect<O>,
-  inputSchema: Schema.Schema<I>,
-  outputSchema: Schema.Schema<O>
-) =>
+export const withValidation =
+  <I, O>(handler: (input: I) => Effect.Effect<O>, inputSchema: Schema.Schema<I>, outputSchema: Schema.Schema<O>) =>
   (rawInput: unknown) =>
     pipe(
       Schema.decode(inputSchema)(rawInput),
       Effect.flatMap(handler),
-      Effect.flatMap(output => Schema.encode(outputSchema)(output))
+      Effect.flatMap((output) => Schema.encode(outputSchema)(output))
     )
 ```
 
@@ -892,22 +868,18 @@ export const JWTAuth = Layer.effectContext(
       authenticate: (token: string) =>
         pipe(
           JWT.verify(token, config.jwtSecret),
-          Effect.flatMap(payload =>
-            PlayerService.get(PlayerId(payload.playerId))
-          ),
-          Effect.catchTag("JWTError", () =>
-            Effect.fail(new UnauthorizedError())
-          )
+          Effect.flatMap((payload) => PlayerService.get(PlayerId(payload.playerId))),
+          Effect.catchTag('JWTError', () => Effect.fail(new UnauthorizedError()))
         ),
 
       authorize: (player: Player, permission: Permission) =>
         pipe(
           PermissionService.check(player.id, permission),
           Effect.filterOrFail(
-            hasPermission => hasPermission,
+            (hasPermission) => hasPermission,
             () => new ForbiddenError({ permission })
           )
-        )
+        ),
     }
   })
 )
@@ -925,17 +897,11 @@ export const RateLimiter = Layer.effectContext(
       checkLimit: (key: string, limit: number, window: Duration) =>
         pipe(
           redis.incr(`rate_limit:${key}`),
-          Effect.tap(count =>
-            count === 1
-              ? redis.expire(`rate_limit:${key}`, window.seconds)
-              : Effect.void
-          ),
-          Effect.flatMap(count =>
-            count > limit
-              ? Effect.fail(new RateLimitExceededError({ key, limit, count }))
-              : Effect.succeed(count)
+          Effect.tap((count) => (count === 1 ? redis.expire(`rate_limit:${key}`, window.seconds) : Effect.void)),
+          Effect.flatMap((count) =>
+            count > limit ? Effect.fail(new RateLimitExceededError({ key, limit, count })) : Effect.succeed(count)
           )
-        )
+        ),
     }
   })
 )
@@ -955,25 +921,25 @@ export const MetricsCollector = Layer.effectContext(
     return {
       // ドメインレベルメトリクス
       recordDomainOperation: (operation: string, duration: number) =>
-        prometheus.histogram("domain_operation_duration", {
+        prometheus.histogram('domain_operation_duration', {
           operation,
-          duration
+          duration,
         }),
 
       // ECS パフォーマンスメトリクス
       recordECSSystemUpdate: (system: string, entityCount: number, duration: number) =>
-        prometheus.gauge("ecs_system_performance", {
+        prometheus.gauge('ecs_system_performance', {
           system,
           entity_count: entityCount,
-          frame_time: duration
+          frame_time: duration,
         }),
 
       // Effect-TS エラー追跡
       recordEffectError: (layer: string, errorType: string) =>
-        prometheus.counter("effect_errors_total", {
+        prometheus.counter('effect_errors_total', {
           layer,
-          error_type: errorType
-        })
+          error_type: errorType,
+        }),
     }
   })
 )
@@ -981,20 +947,20 @@ export const MetricsCollector = Layer.effectContext(
 // アラート設定
 export const alertingRules = [
   {
-    name: "high_domain_latency",
-    condition: "domain_operation_duration > 100ms",
-    action: "notify_dev_team"
+    name: 'high_domain_latency',
+    condition: 'domain_operation_duration > 100ms',
+    action: 'notify_dev_team',
   },
   {
-    name: "ecs_frame_drops",
-    condition: "ecs_system_performance > 16ms",
-    action: "auto_scale_processing"
+    name: 'ecs_frame_drops',
+    condition: 'ecs_system_performance > 16ms',
+    action: 'auto_scale_processing',
   },
   {
-    name: "effect_error_spike",
-    condition: "rate(effect_errors_total[5m]) > 10",
-    action: "trigger_incident_response"
-  }
+    name: 'effect_error_spike',
+    condition: 'rate(effect_errors_total[5m]) > 10',
+    action: 'trigger_incident_response',
+  },
 ]
 ```
 
@@ -1004,11 +970,9 @@ export const alertingRules = [
 // マルチプレイヤー環境での負荷分散
 export const DistributedGameArchitecture = {
   // プレイヤー負荷の分散
-  distributePlayerLoad: (players: Player[]): Effect.Effect<
-    ServerAssignment[],
-    LoadBalancingError,
-    LoadBalancer | ServerPool
-  > =>
+  distributePlayerLoad: (
+    players: Player[]
+  ): Effect.Effect<ServerAssignment[], LoadBalancingError, LoadBalancer | ServerPool> =>
     Effect.gen(function* () {
       const balancer = yield* LoadBalancer
       const serverPool = yield* ServerPool
@@ -1018,19 +982,17 @@ export const DistributedGameArchitecture = {
 
       const assignments = yield* Effect.forEach(
         regionalClusters,
-        cluster => balancer.assignToOptimalServer(cluster),
-        { concurrency: "unbounded" }
+        (cluster) => balancer.assignToOptimalServer(cluster),
+        { concurrency: 'unbounded' }
       )
 
       return assignments.flat()
     }),
 
   // チャンクベースの世界分割
-  distributeWorldChunks: (worldId: WorldId): Effect.Effect<
-    ChunkDistribution,
-    WorldDistributionError,
-    ChunkManager | ServerCluster
-  > =>
+  distributeWorldChunks: (
+    worldId: WorldId
+  ): Effect.Effect<ChunkDistribution, WorldDistributionError, ChunkManager | ServerCluster> =>
     Effect.gen(function* () {
       const chunkManager = yield* ChunkManager
       const cluster = yield* ServerCluster
@@ -1039,17 +1001,14 @@ export const DistributedGameArchitecture = {
       const activeChunks = yield* chunkManager.getActiveChunks(worldId)
 
       // サーバー間でのチャンク分散
-      const distribution = yield* cluster.distributeChunks(
-        activeChunks,
-        {
-          strategy: "proximity_based",
-          replicationFactor: 2,  // 可用性のための複製
-          migrationThreshold: 0.8  // 負荷しきい値
-        }
-      )
+      const distribution = yield* cluster.distributeChunks(activeChunks, {
+        strategy: 'proximity_based',
+        replicationFactor: 2, // 可用性のための複製
+        migrationThreshold: 0.8, // 負荷しきい値
+      })
 
       return distribution
-    })
+    }),
 }
 ```
 
@@ -1059,30 +1018,17 @@ export const DistributedGameArchitecture = {
 // 本番環境でのデバッグ支援
 export const ProductionDiagnostics = {
   // Effect Chain の可視化
-  traceEffectExecution: <A, E, R>(
-    effect: Effect.Effect<A, E, R>,
-    traceId: string
-  ): Effect.Effect<A, E, R> =>
+  traceEffectExecution: <A, E, R>(effect: Effect.Effect<A, E, R>, traceId: string): Effect.Effect<A, E, R> =>
     effect.pipe(
-      Effect.tap(result =>
-        Logger.debug("Effect success", { traceId, result })
-      ),
-      Effect.tapErrorCause(cause =>
-        Logger.error("Effect failure", { traceId, cause })
-      ),
+      Effect.tap((result) => Logger.debug('Effect success', { traceId, result })),
+      Effect.tapErrorCause((cause) => Logger.error('Effect failure', { traceId, cause })),
       Effect.timed,
-      Effect.tap(([duration]) =>
-        MetricsService.recordExecutionTime(traceId, duration)
-      ),
+      Effect.tap(([duration]) => MetricsService.recordExecutionTime(traceId, duration)),
       Effect.map(([, result]) => result)
     ),
 
   // ドメイン状態のスナップショット
-  captureGameStateSnapshot: (serverId: ServerId): Effect.Effect<
-    GameStateSnapshot,
-    SnapshotError,
-    GameStateService
-  > =>
+  captureGameStateSnapshot: (serverId: ServerId): Effect.Effect<GameStateSnapshot, SnapshotError, GameStateService> =>
     Effect.gen(function* () {
       const gameState = yield* GameStateService
 
@@ -1092,7 +1038,7 @@ export const ProductionDiagnostics = {
         playerStates: yield* gameState.getAllPlayerStates(),
         worldState: yield* gameState.getWorldState(),
         ecsMetrics: yield* gameState.getECSMetrics(),
-        memoryUsage: yield* gameState.getMemoryMetrics()
+        memoryUsage: yield* gameState.getMemoryMetrics(),
       }
 
       // 異常検知
@@ -1102,31 +1048,19 @@ export const ProductionDiagnostics = {
     }),
 
   // 自動復旧メカニズム
-  attemptAutoRecovery: (error: SystemError): Effect.Effect<
-    RecoveryResult,
-    RecoveryError,
-    RecoveryService
-  > =>
+  attemptAutoRecovery: (error: SystemError): Effect.Effect<RecoveryResult, RecoveryError, RecoveryService> =>
     Match.value(error).pipe(
-      Match.tag("MemoryLeakError", () =>
-        RecoveryService.forceGarbageCollection().pipe(
-          Effect.flatMap(() => RecoveryService.restartNonCriticalSystems())
-        )
+      Match.tag('MemoryLeakError', () =>
+        RecoveryService.forceGarbageCollection().pipe(Effect.flatMap(() => RecoveryService.restartNonCriticalSystems()))
       ),
-      Match.tag("ECSPerformanceError", () =>
-        RecoveryService.optimizeECSConfiguration().pipe(
-          Effect.flatMap(() => RecoveryService.redistributeEntityLoad())
-        )
+      Match.tag('ECSPerformanceError', () =>
+        RecoveryService.optimizeECSConfiguration().pipe(Effect.flatMap(() => RecoveryService.redistributeEntityLoad()))
       ),
-      Match.tag("DomainConsistencyError", () =>
-        RecoveryService.validateAndRepairDomainState().pipe(
-          Effect.flatMap(() => RecoveryService.resyncECSState())
-        )
+      Match.tag('DomainConsistencyError', () =>
+        RecoveryService.validateAndRepairDomainState().pipe(Effect.flatMap(() => RecoveryService.resyncECSState()))
       ),
-      Match.orElse(() =>
-        Effect.fail(RecoveryError.create("Unknown error type"))
-      )
-    )
+      Match.orElse(() => Effect.fail(RecoveryError.create('Unknown error type')))
+    ),
 }
 ```
 
@@ -1136,25 +1070,21 @@ export const ProductionDiagnostics = {
 // 統合アーキテクチャのプロファイリング
 export const PerformanceProfiler = {
   // レイヤー別パフォーマンス測定
-  profileLayerPerformance: (): Effect.Effect<
-    LayerPerformanceReport,
-    ProfilingError,
-    ProfilingService
-  > =>
+  profileLayerPerformance: (): Effect.Effect<LayerPerformanceReport, ProfilingError, ProfilingService> =>
     Effect.gen(function* () {
       const profiler = yield* ProfilingService
 
       const [domainPerf, ecsPerf, effectPerf] = yield* Effect.all([
         profiler.profileDomainOperations(),
         profiler.profileECSystems(),
-        profiler.profileEffectOverhead()
+        profiler.profileEffectOverhead(),
       ])
 
       // ボトルネック分析
       const bottlenecks = identifyBottlenecks({
         domain: domainPerf,
         ecs: ecsPerf,
-        effect: effectPerf
+        effect: effectPerf,
       })
 
       // 最適化提案の生成
@@ -1164,15 +1094,15 @@ export const PerformanceProfiler = {
         summary: {
           totalFrameTime: domainPerf.avgTime + ecsPerf.avgTime,
           memoryUsage: ecsPerf.memoryFootprint,
-          gcPressure: effectPerf.allocationRate
+          gcPressure: effectPerf.allocationRate,
         },
         bottlenecks,
         optimizations,
         detailedMetrics: {
           domain: domainPerf,
           ecs: ecsPerf,
-          effect: effectPerf
-        }
+          effect: effectPerf,
+        },
       }
     }),
 
@@ -1180,67 +1110,69 @@ export const PerformanceProfiler = {
   compareArchitectureVariants: (
     baselineConfig: ArchitectureConfig,
     testConfig: ArchitectureConfig
-  ): Effect.Effect<
-    PerformanceComparison,
-    ComparisonError,
-    TestEnvironment
-  > =>
+  ): Effect.Effect<PerformanceComparison, ComparisonError, TestEnvironment> =>
     Effect.gen(function* () {
       const testEnv = yield* TestEnvironment
 
       // 同じワークロードで両設定をテスト
       const [baselineResults, testResults] = yield* Effect.all([
         testEnv.runBenchmark(baselineConfig),
-        testEnv.runBenchmark(testConfig)
+        testEnv.runBenchmark(testConfig),
       ])
 
       return {
         framerate: {
           baseline: baselineResults.avgFPS,
           test: testResults.avgFPS,
-          improvement: (testResults.avgFPS - baselineResults.avgFPS) / baselineResults.avgFPS
+          improvement: (testResults.avgFPS - baselineResults.avgFPS) / baselineResults.avgFPS,
         },
         memory: {
           baseline: baselineResults.memoryUsage,
           test: testResults.memoryUsage,
-          reduction: (baselineResults.memoryUsage - testResults.memoryUsage) / baselineResults.memoryUsage
+          reduction: (baselineResults.memoryUsage - testResults.memoryUsage) / baselineResults.memoryUsage,
         },
         reliability: {
           baseline: baselineResults.errorRate,
           test: testResults.errorRate,
-          improvement: (baselineResults.errorRate - testResults.errorRate) / baselineResults.errorRate
-        }
+          improvement: (baselineResults.errorRate - testResults.errorRate) / baselineResults.errorRate,
+        },
       }
-    })
+    }),
 }
 ```
 
 `★ Insight ─────────────────────────────────────`
 統合アーキテクチャの真価は**運用時**に現れます：
+
 - **観測可能性**: 各レイヤーの状態が明確に分離されているため、問題の原因特定が容易
 - **段階的最適化**: ボトルネックを特定して、該当レイヤーのみを最適化可能
 - **障害隔離**: 一つのレイヤーの問題が他のレイヤーに波及しにくい設計
-`─────────────────────────────────────────────────`
+  `─────────────────────────────────────────────────`
 
 ## API一覧
 
 ### ドメイン・アプリケーション API
+
 - **ファイル**: `00-domain-application-apis.md`
 - **内容**: ドメインサービスとアプリケーションサービスの詳細API仕様
 
 ### インフラストラクチャ API
+
 - **ファイル**: `infrastructure-architecture.md`
 - **内容**: 永続化、外部システム統合、ネットワーク通信API
 
 ### イベントバス仕様
+
 - **ファイル**: `02-event-bus-specification.md`
 - **内容**: イベント駆動アーキテクチャとパブリッシュ/サブスクライブ
 
 ### HTTP/WebSocket API
+
 - **ファイル**: `03-http-api-specification.md`
 - **内容**: RESTful API、WebSocket、認証・認可
 
 ### 統合ガイド
+
 - **ファイル**: `README.md`
 - **内容**: 全API仕様の統合ガイドと使用方法
 

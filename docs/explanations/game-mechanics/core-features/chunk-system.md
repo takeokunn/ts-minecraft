@@ -1,13 +1,13 @@
 ---
-title: "チャンクシステム仕様 - 世界分割・ローディング・最適化"
-description: "16x16チャンクによる無限世界管理、動的ローディング、LODシステム、並行生成の完全仕様。高性能ワールドストリーミング。"
-category: "specification"
-difficulty: "advanced"
-tags: ["chunk-system", "world-streaming", "dynamic-loading", "lod-system", "concurrency", "memory-optimization"]
-prerequisites: ["effect-ts-fundamentals", "concurrency-concepts", "memory-management"]
-estimated_reading_time: "15分"
-related_patterns: ["concurrency-patterns", "optimization-patterns", "caching-patterns"]
-related_docs: ["./03-block-system.md", "./05-rendering-system.md", "../explanations/architecture/05-ecs-integration.md"]
+title: 'チャンクシステム仕様 - 世界分割・ローディング・最適化'
+description: '16x16チャンクによる無限世界管理、動的ローディング、LODシステム、並行生成の完全仕様。高性能ワールドストリーミング。'
+category: 'specification'
+difficulty: 'advanced'
+tags: ['chunk-system', 'world-streaming', 'dynamic-loading', 'lod-system', 'concurrency', 'memory-optimization']
+prerequisites: ['effect-ts-fundamentals', 'concurrency-concepts', 'memory-management']
+estimated_reading_time: '15分'
+related_patterns: ['concurrency-patterns', 'optimization-patterns', 'caching-patterns']
+related_docs: ['./03-block-system.md', './05-rendering-system.md', '../explanations/architecture/05-ecs-integration.md']
 ---
 
 # Chunk System - Effect-TS Implementation
@@ -17,56 +17,41 @@ related_docs: ["./03-block-system.md", "./05-rendering-system.md", "../explanati
 ### Branded Types and Schema Definitions
 
 ```typescript
-import { Schema, Brand, Effect, Cache, Stream, Match, pipe } from "effect"
-import * as Context from "effect/Context"
-import * as Layer from "effect/Layer"
-import * as Chunk from "effect/Chunk"
-import * as Queue from "effect/Queue"
-import * as Ref from "effect/Ref"
-import * as Schedule from "effect/Schedule"
-import * as Duration from "effect/Duration"
-import * as Semaphore from "effect/Semaphore"
-import * as Fiber from "effect/Fiber"
-import * as FiberMap from "effect/FiberMap"
-import * as FiberSet from "effect/FiberSet"
-import * as Deferred from "effect/Deferred"
-import * as Option from "effect/Option"
+import { Schema, Brand, Effect, Cache, Stream, Match, pipe } from 'effect'
+import * as Context from 'effect/Context'
+import * as Layer from 'effect/Layer'
+import * as Chunk from 'effect/Chunk'
+import * as Queue from 'effect/Queue'
+import * as Ref from 'effect/Ref'
+import * as Schedule from 'effect/Schedule'
+import * as Duration from 'effect/Duration'
+import * as Semaphore from 'effect/Semaphore'
+import * as Fiber from 'effect/Fiber'
+import * as FiberMap from 'effect/FiberMap'
+import * as FiberSet from 'effect/FiberSet'
+import * as Deferred from 'effect/Deferred'
+import * as Option from 'effect/Option'
 
 // Branded Types
-type ChunkId = string & Brand.Brand<"ChunkId">
-type ChunkCoordinate = { x: number; z: number } & Brand.Brand<"ChunkCoordinate">
-type BlockId = number & Brand.Brand<"BlockId">
-type ChunkHeight = number & Brand.Brand<"ChunkHeight">
-type LODLevel = number & Brand.Brand<"LODLevel">
+type ChunkId = string & Brand.Brand<'ChunkId'>
+type ChunkCoordinate = { x: number; z: number } & Brand.Brand<'ChunkCoordinate'>
+type BlockId = number & Brand.Brand<'BlockId'>
+type ChunkHeight = number & Brand.Brand<'ChunkHeight'>
+type LODLevel = number & Brand.Brand<'LODLevel'>
 
 // Schema Definitions
-const ChunkId = Schema.String.pipe(
-  Schema.brand("ChunkId"),
-  Schema.pattern(/^chunk_(-?\d+)_(-?\d+)$/)
-)
+const ChunkId = Schema.String.pipe(Schema.brand('ChunkId'), Schema.pattern(/^chunk_(-?\d+)_(-?\d+)$/))
 
 const ChunkCoordinate = Schema.Struct({
   x: Schema.Int,
-  z: Schema.Int
-}).pipe(Schema.brand("ChunkCoordinate"))
+  z: Schema.Int,
+}).pipe(Schema.brand('ChunkCoordinate'))
 
-const BlockId = Schema.Number.pipe(
-  Schema.brand("BlockId"),
-  Schema.int(),
-  Schema.between(0, 65535)
-)
+const BlockId = Schema.Number.pipe(Schema.brand('BlockId'), Schema.int(), Schema.between(0, 65535))
 
-const ChunkHeight = Schema.Number.pipe(
-  Schema.brand("ChunkHeight"),
-  Schema.int(),
-  Schema.between(-64, 320)
-)
+const ChunkHeight = Schema.Number.pipe(Schema.brand('ChunkHeight'), Schema.int(), Schema.between(-64, 320))
 
-const LODLevel = Schema.Number.pipe(
-  Schema.brand("LODLevel"),
-  Schema.int(),
-  Schema.between(0, 4)
-)
+const LODLevel = Schema.Number.pipe(Schema.brand('LODLevel'), Schema.int(), Schema.between(0, 4))
 ```
 
 ### Chunk Data Schema
@@ -77,7 +62,7 @@ const ChunkSection = Schema.Struct({
   palette: Schema.Array(BlockId),
   blockLight: Schema.NullOr(Schema.Uint8Array),
   skyLight: Schema.NullOr(Schema.Uint8Array),
-  biomes: Schema.Uint8Array
+  biomes: Schema.Uint8Array,
 })
 
 const ChunkData = Schema.Struct({
@@ -91,7 +76,7 @@ const ChunkData = Schema.Struct({
   isLoaded: Schema.Boolean,
   isDirty: Schema.Boolean,
   lodLevel: LODLevel,
-  generationStage: Schema.Literal("empty", "structure", "surface", "decoration", "complete")
+  generationStage: Schema.Literal('empty', 'structure', 'surface', 'decoration', 'complete'),
 })
 
 type ChunkData = Schema.Schema.Type<typeof ChunkData>
@@ -159,12 +144,12 @@ const createChunkCache = Effect.gen(function* () {
           return yield* Effect.fail(
             new ChunkLoadError({
               coordinate: coord,
-              reason: "Coordinate out of bounds"
+              reason: 'Coordinate out of bounds',
             })
           )
         }
         return yield* chunkService.loadChunk(coord)
-      })
+      }),
   })
 })
 
@@ -185,8 +170,8 @@ const createAdvancedChunkCache = Effect.gen(function* () {
           const chunkService = yield* ChunkService
           return yield* chunkService.loadChunk(coord)
         }),
-        Effect.withSpan("chunk-load", { attributes: { "chunk.x": coord.x, "chunk.z": coord.z } })
-      )
+        Effect.withSpan('chunk-load', { attributes: { 'chunk.x': coord.x, 'chunk.z': coord.z } })
+      ),
   })
 })
 ```
@@ -210,19 +195,15 @@ const ChunkServiceLive = Layer.effect(
           return yield* Effect.fail(
             new ChunkLoadError({
               coordinate: coord,
-              reason: "Coordinate exceeds world bounds"
+              reason: 'Coordinate exceeds world bounds',
             })
           )
         }
 
         return yield* pipe(
           chunkCache.get(coord),
-          Effect.tap(() =>
-            Ref.update(loadedChunks, chunks => new Set([...chunks, coord]))
-          ),
-          Effect.mapError(error =>
-            new ChunkLoadError({ coordinate: coord, reason: String(error) })
-          )
+          Effect.tap(() => Ref.update(loadedChunks, (chunks) => new Set([...chunks, coord]))),
+          Effect.mapError((error) => new ChunkLoadError({ coordinate: coord, reason: String(error) }))
         )
       })
 
@@ -234,7 +215,7 @@ const ChunkServiceLive = Layer.effect(
         const activeSet = yield* Ref.get(activeGenerations)
         if (activeSet.has(chunkKey)) {
           yield* FiberMap.remove(fiberMap, chunkKey)
-          yield* Ref.update(activeGenerations, set => {
+          yield* Ref.update(activeGenerations, (set) => {
             const newSet = new Set(set)
             newSet.delete(chunkKey)
             return newSet
@@ -242,7 +223,7 @@ const ChunkServiceLive = Layer.effect(
         }
 
         yield* chunkCache.invalidate(coord)
-        yield* Ref.update(loadedChunks, chunks => {
+        yield* Ref.update(loadedChunks, (chunks) => {
           const newSet = new Set(chunks)
           newSet.delete(coord)
           return newSet
@@ -260,11 +241,13 @@ const ChunkServiceLive = Layer.effect(
           return yield* Match.value(existingFiber).pipe(
             Match.when(Option.isSome, ({ value }) => Fiber.await(value)),
             Match.when(Option.isNone, () =>
-              Effect.fail(new ChunkGenerationError({
-                coordinate: coord,
-                stage: "generation",
-                reason: "Generation in progress but fiber not found"
-              }))
+              Effect.fail(
+                new ChunkGenerationError({
+                  coordinate: coord,
+                  stage: 'generation',
+                  reason: 'Generation in progress but fiber not found',
+                })
+              )
             ),
             Match.exhaustive
           )
@@ -273,7 +256,7 @@ const ChunkServiceLive = Layer.effect(
         const generationFiber = yield* pipe(
           generationSemaphore.withPermits(1)(
             Effect.gen(function* () {
-              yield* Ref.update(activeGenerations, set => new Set([...set, chunkKey]))
+              yield* Ref.update(activeGenerations, (set) => new Set([...set, chunkKey]))
 
               try {
                 // チャンク生成ロジック（非同期でメモリ効率的）
@@ -282,12 +265,12 @@ const ChunkServiceLive = Layer.effect(
 
                 // Stream-based section generation for better memory management
                 const sectionStream = Stream.range(-4, 20).pipe(
-                  Stream.map(y => ({
+                  Stream.map((y) => ({
                     blockStates: new Uint8Array(4096),
                     palette: [0] as BlockId[],
                     blockLight: null,
                     skyLight: null,
-                    biomes: new Uint8Array(64)
+                    biomes: new Uint8Array(64),
                   }))
                 )
 
@@ -305,10 +288,10 @@ const ChunkServiceLive = Layer.effect(
                   isLoaded: true,
                   isDirty: false,
                   lodLevel: 0 as LODLevel,
-                  generationStage: "complete" as const
+                  generationStage: 'complete' as const,
                 }
               } finally {
-                yield* Ref.update(activeGenerations, set => {
+                yield* Ref.update(activeGenerations, (set) => {
                   const newSet = new Set(set)
                   newSet.delete(chunkKey)
                   return newSet
@@ -334,14 +317,14 @@ const ChunkServiceLive = Layer.effect(
       getChunkCache: Effect.succeed(chunkCache),
       getLoadedChunks: pipe(
         Ref.get(loadedChunks),
-        Effect.map(set => Array.from(set))
+        Effect.map((set) => Array.from(set))
       ),
       setLODLevel: (coord, level) =>
         Effect.gen(function* () {
           const chunk = yield* loadChunk(coord)
           const updatedChunk = { ...chunk, lodLevel: level }
           yield* chunkCache.set(coord, updatedChunk)
-        })
+        }),
     })
   })
 )
@@ -361,13 +344,13 @@ const loadChunksInRadius = (center: ChunkCoordinate, radius: number) =>
       return yield* Effect.fail(
         new ChunkLoadError({
           coordinate: center,
-          reason: `Invalid radius: ${radius}. Must be between 0 and 32`
+          reason: `Invalid radius: ${radius}. Must be between 0 and 32`,
         })
       )
     }
 
     const coordinateStream = Stream.range(0, (radius * 2 + 1) ** 2).pipe(
-      Stream.map(i => {
+      Stream.map((i) => {
         const size = radius * 2 + 1
         const x = center.x - radius + (i % size)
         const z = center.z - radius + Math.floor(i / size)
@@ -378,11 +361,11 @@ const loadChunksInRadius = (center: ChunkCoordinate, radius: number) =>
     // Use FiberSet for managed concurrent loading
     const loadingFibers = yield* pipe(
       coordinateStream,
-      Stream.mapEffect(coord =>
+      Stream.mapEffect((coord) =>
         pipe(
           chunkService.loadChunk(coord),
           Effect.fork,
-          Effect.tap(fiber => FiberSet.add(fiberSet, fiber))
+          Effect.tap((fiber) => FiberSet.add(fiberSet, fiber))
         )
       ),
       Stream.buffer({ capacity: 16 }),
@@ -397,41 +380,40 @@ const loadChunksInRadius = (center: ChunkCoordinate, radius: number) =>
 const processChunkStream = (chunks: Stream.Stream<ChunkCoordinate, never>) =>
   pipe(
     chunks,
-    Stream.mapEffect(coord =>
-      Effect.gen(function* () {
-        const chunkService = yield* ChunkService
-        const chunk = yield* chunkService.loadChunk(coord)
-        return { coordinate: coord, chunk }
-      }),
+    Stream.mapEffect(
+      (coord) =>
+        Effect.gen(function* () {
+          const chunkService = yield* ChunkService
+          const chunk = yield* chunkService.loadChunk(coord)
+          return { coordinate: coord, chunk }
+        }),
       { concurrency: 8, unordered: false }
     ),
-    Stream.bufferChunks({ capacity: 32, strategy: "suspend" }),
-    Stream.groupByKey(
-      ({ coordinate }) => `${coordinate.x}_${coordinate.z}`,
-      { bufferSize: 16 }
-    ),
-    Stream.flatMap(groupBy =>
-      pipe(
-        groupBy,
-        Stream.mapEffect(({ chunk }) => processChunk(chunk), {
-          concurrency: 4
-        }),
-        Stream.buffer({ capacity: "unbounded" })
-      ),
-      { concurrency: "unbounded" }
+    Stream.bufferChunks({ capacity: 32, strategy: 'suspend' }),
+    Stream.groupByKey(({ coordinate }) => `${coordinate.x}_${coordinate.z}`, { bufferSize: 16 }),
+    Stream.flatMap(
+      (groupBy) =>
+        pipe(
+          groupBy,
+          Stream.mapEffect(({ chunk }) => processChunk(chunk), {
+            concurrency: 4,
+          }),
+          Stream.buffer({ capacity: 'unbounded' })
+        ),
+      { concurrency: 'unbounded' }
     )
   )
 
 const processChunk = (chunk: ChunkData) =>
   Effect.gen(function* () {
     // Early return for already processed chunks
-    if (chunk.generationStage === "complete" && !chunk.isDirty) {
+    if (chunk.generationStage === 'complete' && !chunk.isDirty) {
       return yield* Effect.succeed(chunk)
     }
 
     // Stream-based mesh generation for memory efficiency
     const meshStream = Stream.fromIterable(chunk.sections).pipe(
-      Stream.mapEffect(section =>
+      Stream.mapEffect((section) =>
         Effect.gen(function* () {
           // Process section in chunks to avoid blocking
           yield* Effect.yieldNow
@@ -494,21 +476,17 @@ const decompressBlockData = (compressed: Uint8Array) =>
 
     // Memory-efficient streaming decompression
     const pairStream = Stream.range(0, Math.floor(compressed.length / 2)).pipe(
-      Stream.map(i => ({
+      Stream.map((i) => ({
         blockId: compressed[i * 2] as BlockId,
-        count: compressed[i * 2 + 1]
+        count: compressed[i * 2 + 1],
       }))
     )
 
     return yield* pipe(
       pairStream,
-      Stream.flatMap(({ blockId, count }) =>
-        Stream.range(0, count).pipe(
-          Stream.map(() => blockId)
-        )
-      ),
+      Stream.flatMap(({ blockId, count }) => Stream.range(0, count).pipe(Stream.map(() => blockId))),
       Stream.runCollect,
-      Effect.map(chunk => Chunk.toReadonlyArray(chunk))
+      Effect.map((chunk) => Chunk.toReadonlyArray(chunk))
     )
   })
 ```
@@ -935,11 +913,7 @@ const calculateDistance = (pos1: ChunkCoordinate, pos2: ChunkCoordinate): number
 
 ```typescript
 // メインチャンクシステム
-const ChunkSystemLive = Layer.mergeAll(
-  ChunkServiceLive,
-  MeshGeneratorServiceLive,
-  LODManagerLive
-)
+const ChunkSystemLive = Layer.mergeAll(ChunkServiceLive, MeshGeneratorServiceLive, LODManagerLive)
 
 // プレイヤー位置に基づくチャンク管理 with enhanced concurrency
 const managePlayerChunks = (playerPos: ChunkCoordinate, viewDistance: number) =>
@@ -953,21 +927,21 @@ const managePlayerChunks = (playerPos: ChunkCoordinate, viewDistance: number) =>
       return yield* Effect.fail(
         new ChunkLoadError({
           coordinate: playerPos,
-          reason: `Invalid view distance: ${viewDistance}`
+          reason: `Invalid view distance: ${viewDistance}`,
         })
       )
     }
 
     // Concurrent chunk operations with fiber management
-    const [requiredChunks, loadedChunks] = yield* Effect.all([
-      getRequiredChunks(playerPos, viewDistance),
-      chunkService.getLoadedChunks
-    ], { concurrency: 2 })
+    const [requiredChunks, loadedChunks] = yield* Effect.all(
+      [getRequiredChunks(playerPos, viewDistance), chunkService.getLoadedChunks],
+      { concurrency: 2 }
+    )
 
     // Stream-based chunk management for better memory usage
     const managementStream = Stream.fromIterable([
-      { type: "lod-update" as const, chunks: requiredChunks },
-      { type: "unload" as const, chunks: getChunksToUnload(loadedChunks, requiredChunks) }
+      { type: 'lod-update' as const, chunks: requiredChunks },
+      { type: 'unload' as const, chunks: getChunksToUnload(loadedChunks, requiredChunks) },
     ])
 
     return yield* pipe(
@@ -975,30 +949,28 @@ const managePlayerChunks = (playerPos: ChunkCoordinate, viewDistance: number) =>
       Stream.mapEffect(({ type, chunks }) =>
         pipe(
           Match.value(type),
-          Match.when("lod-update", () =>
+          Match.when('lod-update', () =>
             Effect.gen(function* () {
               const lodUpdates = yield* lodManager.updateLOD(playerPos, chunks)
               const lodFiber = yield* pipe(
-                Effect.forEach(lodUpdates, ({ coordinate, lodLevel }) =>
-                  chunkService.setLODLevel(coordinate, lodLevel),
+                Effect.forEach(
+                  lodUpdates,
+                  ({ coordinate, lodLevel }) => chunkService.setLODLevel(coordinate, lodLevel),
                   { concurrency: 8 }
                 ),
                 Effect.fork
               )
-              yield* FiberMap.set(fiberMap, "lod-updates", lodFiber)
+              yield* FiberMap.set(fiberMap, 'lod-updates', lodFiber)
               return yield* Fiber.await(lodFiber)
             })
           ),
-          Match.when("unload", () =>
+          Match.when('unload', () =>
             Effect.gen(function* () {
               const unloadFiber = yield* pipe(
-                Effect.forEach(chunks, coord =>
-                  chunkService.unloadChunk(coord),
-                  { concurrency: 4 }
-                ),
+                Effect.forEach(chunks, (coord) => chunkService.unloadChunk(coord), { concurrency: 4 }),
                 Effect.fork
               )
-              yield* FiberMap.set(fiberMap, "unload-chunks", unloadFiber)
+              yield* FiberMap.set(fiberMap, 'unload-chunks', unloadFiber)
               return yield* Fiber.await(unloadFiber)
             })
           ),
@@ -1010,9 +982,7 @@ const managePlayerChunks = (playerPos: ChunkCoordinate, viewDistance: number) =>
   })
 
 const getChunksToUnload = (loaded: ReadonlyArray<ChunkCoordinate>, required: ReadonlyArray<ChunkCoordinate>) =>
-  loaded.filter(coord =>
-    !required.some(req => req.x === coord.x && req.z === coord.z)
-  )
+  loaded.filter((coord) => !required.some((req) => req.x === coord.x && req.z === coord.z))
 
 const getRequiredChunks = (center: ChunkCoordinate, radius: number) =>
   Effect.succeed(
@@ -1033,8 +1003,8 @@ const streamChunkUpdates = (playerMovement: Stream.Stream<ChunkCoordinate, never
     return yield* pipe(
       playerMovement,
       Stream.debounce(Duration.millis(100)), // 過度な更新を防ぐ
-      Stream.buffer({ capacity: 8, strategy: "sliding" }),
-      Stream.mapEffect(playerPos =>
+      Stream.buffer({ capacity: 8, strategy: 'sliding' }),
+      Stream.mapEffect((playerPos) =>
         pipe(
           updateSemaphore.withPermits(1)(
             Effect.gen(function* () {
@@ -1043,23 +1013,19 @@ const streamChunkUpdates = (playerMovement: Stream.Stream<ChunkCoordinate, never
             })
           ),
           Effect.fork,
-          Effect.tap(fiber => FiberSet.add(fiberSet, fiber))
+          Effect.tap((fiber) => FiberSet.add(fiberSet, fiber))
         )
       ),
       Stream.groupedWithin(4, Duration.millis(500)),
-      Stream.mapEffect(updateBatch =>
+      Stream.mapEffect((updateBatch) =>
         Effect.gen(function* () {
           yield* Effect.logDebug(`Processing ${updateBatch.length} chunk updates`)
-          return yield* Effect.all(updateBatch, { concurrency: "unbounded" })
+          return yield* Effect.all(updateBatch, { concurrency: 'unbounded' })
         })
       ),
-      Stream.tap(() => Effect.logDebug("Chunks updated successfully")),
-      Stream.catchAll(error =>
-        Stream.fromEffect(
-          Effect.logError(`Chunk update failed: ${error}`).pipe(
-            Effect.as(undefined)
-          )
-        )
+      Stream.tap(() => Effect.logDebug('Chunks updated successfully')),
+      Stream.catchAll((error) =>
+        Stream.fromEffect(Effect.logError(`Chunk update failed: ${error}`).pipe(Effect.as(undefined)))
       ),
       Stream.runDrain,
       Effect.ensuring(FiberSet.join(fiberSet)) // Cleanup fibers on completion
@@ -1083,13 +1049,16 @@ const collectChunkMetrics = Effect.gen(function* () {
   const cache = yield* chunkService.getChunkCache
 
   // Concurrent metrics collection
-  const [stats, loadedChunks, memoryUsage] = yield* Effect.all([
-    Effect.tryPromise(() => (cache as any).cacheStats).pipe(
-      Effect.orElse(() => Effect.succeed({ hits: 0, misses: 0, size: 0 }))
-    ),
-    chunkService.getLoadedChunks,
-    getMemoryUsage()
-  ], { concurrency: 3 })
+  const [stats, loadedChunks, memoryUsage] = yield* Effect.all(
+    [
+      Effect.tryPromise(() => (cache as any).cacheStats).pipe(
+        Effect.orElse(() => Effect.succeed({ hits: 0, misses: 0, size: 0 }))
+      ),
+      chunkService.getLoadedChunks,
+      getMemoryUsage(),
+    ],
+    { concurrency: 3 }
+  )
 
   // Early return if no statistics available
   if (!stats || (stats.hits === 0 && stats.misses === 0)) {
@@ -1098,7 +1067,7 @@ const collectChunkMetrics = Effect.gen(function* () {
       cacheHitRate: 0,
       averageLoadTime: 0,
       memoryUsage: memoryUsage,
-      generationQueueSize: 0
+      generationQueueSize: 0,
     }
   }
 
@@ -1107,7 +1076,7 @@ const collectChunkMetrics = Effect.gen(function* () {
     cacheHitRate: stats.hits / (stats.hits + stats.misses),
     averageLoadTime: yield* getAverageLoadTime(),
     memoryUsage: memoryUsage,
-    generationQueueSize: yield* getGenerationQueueSize()
+    generationQueueSize: yield* getGenerationQueueSize(),
   }
 })
 
@@ -1119,24 +1088,16 @@ const getMemoryUsage = () =>
     return 0
   })
 
-const getAverageLoadTime = () =>
-  Effect.succeed(15.5) // シミュレート値
+const getAverageLoadTime = () => Effect.succeed(15.5) // シミュレート値
 
-const getGenerationQueueSize = () =>
-  Effect.succeed(3) // シミュレート値
+const getGenerationQueueSize = () => Effect.succeed(3) // シミュレート値
 
 // メトリクス監視 with fiber-based scheduling and error handling
 const monitorChunkSystem = Effect.gen(function* () {
   const monitoringFiber = yield* pipe(
     collectChunkMetrics,
-    Effect.tap(metrics =>
-      Effect.logInfo(`Chunk System Metrics: ${JSON.stringify(metrics, null, 2)}`)
-    ),
-    Effect.catchAll(error =>
-      Effect.logError(`Failed to collect metrics: ${error}`).pipe(
-        Effect.as({})
-      )
-    ),
+    Effect.tap((metrics) => Effect.logInfo(`Chunk System Metrics: ${JSON.stringify(metrics, null, 2)}`)),
+    Effect.catchAll((error) => Effect.logError(`Failed to collect metrics: ${error}`).pipe(Effect.as({}))),
     Effect.repeat(
       Schedule.fixed(Duration.seconds(10)).pipe(
         Schedule.intersect(Schedule.recurs(100)) // 最大100回実行
@@ -1153,7 +1114,8 @@ const monitorChunkSystem = Effect.gen(function* () {
       const endTime = yield* Effect.sync(() => Date.now())
       const duration = endTime - startTime
 
-      if (duration > 5000) { // 5秒以上かかる場合は警告
+      if (duration > 5000) {
+        // 5秒以上かかる場合は警告
         yield* Effect.logWarning(`Metrics collection is slow: ${duration}ms`)
       }
     }),
@@ -1168,45 +1130,46 @@ const monitorChunkSystem = Effect.gen(function* () {
 ### Property-Based Testing Support
 
 ```typescript
-import * as Arbitrary from "fast-check"
+import * as Arbitrary from 'fast-check'
 
 const chunkCoordinateArbitrary = Arbitrary.record({
   x: Arbitrary.integer({ min: -1000000, max: 1000000 }),
-  z: Arbitrary.integer({ min: -1000000, max: 1000000 })
-}).map(coord => coord as ChunkCoordinate)
+  z: Arbitrary.integer({ min: -1000000, max: 1000000 }),
+}).map((coord) => coord as ChunkCoordinate)
 
 const chunkDataArbitrary = Arbitrary.record({
-  id: Arbitrary.string().map(s => `chunk_${s}` as ChunkId),
+  id: Arbitrary.string().map((s) => `chunk_${s}` as ChunkId),
   coordinate: chunkCoordinateArbitrary,
-  sections: Arbitrary.array(Arbitrary.record({
-    blockStates: Arbitrary.uint8Array({ minLength: 4096, maxLength: 4096 }),
-    palette: Arbitrary.array(Arbitrary.integer({ min: 0, max: 65535 }).map(n => n as BlockId)),
-    blockLight: Arbitrary.option(Arbitrary.uint8Array({ minLength: 2048, maxLength: 2048 })),
-    skyLight: Arbitrary.option(Arbitrary.uint8Array({ minLength: 2048, maxLength: 2048 })),
-    biomes: Arbitrary.uint8Array({ minLength: 64, maxLength: 64 })
-  }), { minLength: 1, maxLength: 24 }),
+  sections: Arbitrary.array(
+    Arbitrary.record({
+      blockStates: Arbitrary.uint8Array({ minLength: 4096, maxLength: 4096 }),
+      palette: Arbitrary.array(Arbitrary.integer({ min: 0, max: 65535 }).map((n) => n as BlockId)),
+      blockLight: Arbitrary.option(Arbitrary.uint8Array({ minLength: 2048, maxLength: 2048 })),
+      skyLight: Arbitrary.option(Arbitrary.uint8Array({ minLength: 2048, maxLength: 2048 })),
+      biomes: Arbitrary.uint8Array({ minLength: 64, maxLength: 64 }),
+    }),
+    { minLength: 1, maxLength: 24 }
+  ),
   heightMap: Arbitrary.uint16Array({ minLength: 256, maxLength: 256 }),
   entities: Arbitrary.array(Arbitrary.anything()),
   blockEntities: Arbitrary.dictionary(Arbitrary.string(), Arbitrary.anything()),
   lastModified: Arbitrary.date(),
   isLoaded: Arbitrary.boolean(),
   isDirty: Arbitrary.boolean(),
-  lodLevel: Arbitrary.integer({ min: 0, max: 4 }).map(n => n as LODLevel),
-  generationStage: Arbitrary.constantFrom("empty", "structure", "surface", "decoration", "complete")
-}).map(data => data as ChunkData)
+  lodLevel: Arbitrary.integer({ min: 0, max: 4 }).map((n) => n as LODLevel),
+  generationStage: Arbitrary.constantFrom('empty', 'structure', 'surface', 'decoration', 'complete'),
+}).map((data) => data as ChunkData)
 
 // Property-based test example
 const testChunkRoundtrip = Effect.gen(function* () {
-  const testData = yield* Effect.sync(() =>
-    Arbitrary.sample(chunkDataArbitrary, 100)
-  )
+  const testData = yield* Effect.sync(() => Arbitrary.sample(chunkDataArbitrary, 100))
 
   for (const chunk of testData) {
     const compressed = yield* compressBlockData(chunk.sections[0].palette)
     const decompressed = yield* decompressBlockData(compressed)
 
     if (decompressed.length !== chunk.sections[0].palette.length) {
-      yield* Effect.fail(new Error("Compression roundtrip failed"))
+      yield* Effect.fail(new Error('Compression roundtrip failed'))
     }
   }
 })
@@ -1215,76 +1178,81 @@ const testChunkRoundtrip = Effect.gen(function* () {
 ## 🚨 Common Issues & Solutions
 
 ### Error 1: Context not provided
+
 ```
 TypeError: Service not found: @minecraft/ChunkService
 ```
 
 **原因**: Layer.provide忘れ
 **解決**:
+
 ```typescript
 // ❌ 間違い
 Effect.runPromise(myProgram)
 
 // ✅ 正解
-Effect.runPromise(pipe(
-  myProgram,
-  Effect.provide(ChunkServiceLive),
-  Effect.provide(MeshGeneratorServiceLive),
-  Effect.provide(LODManagerLive)
-))
+Effect.runPromise(
+  pipe(
+    myProgram,
+    Effect.provide(ChunkServiceLive),
+    Effect.provide(MeshGeneratorServiceLive),
+    Effect.provide(LODManagerLive)
+  )
+)
 ```
 
 ### Error 2: Schema validation failed
+
 ```
 ParseError: Expected object, received string
 ```
 
 **原因**: データ形状の不一致
 **解決**: デバッグ用デコーダー使用
+
 ```typescript
 // デバッグ情報付きデコード
 const result = Schema.decodeEither(ChunkCoordinate)(data)
 Match.value(result).pipe(
-  Match.tag("Left", ({ left }) =>
-    Console.log("Validation error details:", left.message)
-  ),
-  Match.tag("Right", ({ right }) =>
-    Console.log("Successfully decoded:", right)
-  )
+  Match.tag('Left', ({ left }) => Console.log('Validation error details:', left.message)),
+  Match.tag('Right', ({ right }) => Console.log('Successfully decoded:', right))
 )
 ```
 
 ### Error 3: Chunk loading timeout
+
 ```
 ChunkLoadError: Chunk loading timed out
 ```
 
 **原因**: 大きなチャンクの生成に時間がかかる
 **解決**: タイムアウト時間の調整とリトライ戦略
+
 ```typescript
 const loadWithTimeout = (coord: ChunkCoordinate) =>
   pipe(
     chunkService.loadChunk(coord),
     Effect.timeout(Duration.seconds(30)),
-    Effect.retry(
-      Schedule.exponential("1 seconds").pipe(
-        Schedule.intersect(Schedule.recurs(3))
-      )
-    ),
-    Effect.mapError(error => new ChunkLoadError({
-      coordinate: coord,
-      reason: `Timeout after retries: ${error}`
-    }))
+    Effect.retry(Schedule.exponential('1 seconds').pipe(Schedule.intersect(Schedule.recurs(3)))),
+    Effect.mapError(
+      (error) =>
+        new ChunkLoadError({
+          coordinate: coord,
+          reason: `Timeout after retries: ${error}`,
+        })
+    )
   )
 ```
 
 ### Error 4: Memory leak in chunk cache
+
 ```
 Warning: High memory usage detected
 ```
 
 **原因**: アンロードされていないチャンクの蓄積
 **解決**: 定期的なキャッシュクリーンアップ
+
 ```typescript
 const cleanupOldChunks = Effect.gen(function* () {
   const chunkService = yield* ChunkService
@@ -1292,33 +1260,28 @@ const cleanupOldChunks = Effect.gen(function* () {
   const entries = yield* cache.entries
   const stats = yield* cache.cacheStats
 
-  if (stats.size > 512) { // 閾値チェック
-    const sorted = entries.sort(([,a], [,b]) =>
-      a.lastModified.getTime() - b.lastModified.getTime()
-    )
+  if (stats.size > 512) {
+    // 閾値チェック
+    const sorted = entries.sort(([, a], [, b]) => a.lastModified.getTime() - b.lastModified.getTime())
 
     const toRemove = sorted.slice(0, stats.size - 256)
-    yield* Effect.forEach(toRemove, ([coord]) =>
-      chunkService.unloadChunk(coord),
-      { concurrency: 4 }
-    )
+    yield* Effect.forEach(toRemove, ([coord]) => chunkService.unloadChunk(coord), { concurrency: 4 })
   }
 })
 
 // 定期実行
-const scheduleCleanup = pipe(
-  cleanupOldChunks,
-  Effect.repeat(Schedule.fixed(Duration.minutes(5)))
-)
+const scheduleCleanup = pipe(cleanupOldChunks, Effect.repeat(Schedule.fixed(Duration.minutes(5))))
 ```
 
 ### Error 5: Race condition in chunk generation
+
 ```
 ChunkGenerationError: Multiple generation attempts detected
 ```
 
 **原因**: 同じチャンクの並行生成
 **解決**: セマフォとキュー による排他制御
+
 ```typescript
 const createChunkGenerator = Effect.gen(function* () {
   const generationQueue = yield* Queue.bounded<{
@@ -1342,18 +1305,18 @@ const createChunkGenerator = Effect.gen(function* () {
             if (isActive.has(key)) {
               const error = new ChunkGenerationError({
                 coordinate,
-                stage: "validation",
-                reason: "Generation already in progress"
+                stage: 'validation',
+                reason: 'Generation already in progress',
               })
               return yield* Deferred.fail(deferred, error)
             }
 
-            yield* Ref.update(activeGenerations, set => new Set([...set, key]))
+            yield* Ref.update(activeGenerations, (set) => new Set([...set, key]))
 
             const generationFiber = yield* pipe(
               generateChunkInternal(coordinate),
               Effect.ensuring(
-                Ref.update(activeGenerations, set => {
+                Ref.update(activeGenerations, (set) => {
                   const newSet = new Set(set)
                   newSet.delete(key)
                   return newSet
@@ -1367,8 +1330,8 @@ const createChunkGenerator = Effect.gen(function* () {
             const result = yield* pipe(
               Fiber.await(generationFiber),
               Effect.matchEffect({
-                onFailure: error => Deferred.fail(deferred, error as ChunkGenerationError),
-                onSuccess: chunk => Deferred.succeed(deferred, chunk)
+                onFailure: (error) => Deferred.fail(deferred, error as ChunkGenerationError),
+                onSuccess: (chunk) => Deferred.succeed(deferred, chunk),
               })
             )
 
@@ -1376,9 +1339,7 @@ const createChunkGenerator = Effect.gen(function* () {
             return result
           })
         ),
-        Effect.catchAll(error =>
-          Deferred.fail(deferred, error as ChunkGenerationError)
-        )
+        Effect.catchAll((error) => Deferred.fail(deferred, error as ChunkGenerationError))
       )
     ),
     Stream.buffer({ capacity: 16 }),
@@ -1398,7 +1359,7 @@ const createChunkGenerator = Effect.gen(function* () {
     cleanup: Effect.gen(function* () {
       yield* FiberMap.join(fiberMap)
       yield* Queue.shutdown(generationQueue)
-    })
+    }),
   }
 })
 
@@ -1406,19 +1367,19 @@ const generateChunkInternal = (coordinate: ChunkCoordinate) =>
   Effect.gen(function* () {
     // Stream-based chunk generation for memory efficiency
     const sectionsStream = Stream.range(-4, 20).pipe(
-      Stream.map(y => ({
+      Stream.map((y) => ({
         blockStates: new Uint8Array(4096),
         palette: [0] as BlockId[],
         blockLight: null,
         skyLight: null,
-        biomes: new Uint8Array(64)
+        biomes: new Uint8Array(64),
       }))
     )
 
     const sections = yield* pipe(
       sectionsStream,
       Stream.runCollect,
-      Effect.map(chunk => Chunk.toReadonlyArray(chunk))
+      Effect.map((chunk) => Chunk.toReadonlyArray(chunk))
     )
 
     return {
@@ -1432,7 +1393,7 @@ const generateChunkInternal = (coordinate: ChunkCoordinate) =>
       isLoaded: true,
       isDirty: false,
       lodLevel: 0 as LODLevel,
-      generationStage: "complete" as const
+      generationStage: 'complete' as const,
     }
   })
 ```

@@ -1,13 +1,17 @@
 ---
-title: "データモデル仕様書 - TypeScript Minecraft Clone"
-description: "Effect-TS Schemaベースのデータ構造、永続化戦略、パフォーマンス最適化を含む包括的なデータモデル仕様"
-category: "specification"
-difficulty: "advanced"
-tags: ["effect-ts", "schema", "ddd", "data-modeling", "performance", "persistence"]
-prerequisites: ["effect-ts-fundamentals", "schema-basics", "ddd-concepts"]
-estimated_reading_time: "20分"
-related_patterns: ["data-modeling-patterns", "service-patterns", "error-handling-patterns"]
-related_docs: ["../../explanations/game-mechanics/core-features/chunk-system.md", "../explanations/architecture/02-ddd-strategic-design.md"]
+title: 'データモデル仕様書 - TypeScript Minecraft Clone'
+description: 'Effect-TS Schemaベースのデータ構造、永続化戦略、パフォーマンス最適化を含む包括的なデータモデル仕様'
+category: 'specification'
+difficulty: 'advanced'
+tags: ['effect-ts', 'schema', 'ddd', 'data-modeling', 'performance', 'persistence']
+prerequisites: ['effect-ts-fundamentals', 'schema-basics', 'ddd-concepts']
+estimated_reading_time: '20分'
+related_patterns: ['data-modeling-patterns', 'service-patterns', 'error-handling-patterns']
+related_docs:
+  [
+    '../../explanations/game-mechanics/core-features/chunk-system.md',
+    '../explanations/architecture/02-ddd-strategic-design.md',
+  ]
 ---
 
 # データモデル仕様書
@@ -17,6 +21,7 @@ TypeScript Minecraft Cloneにおける、Effect-TS Schemaベースの型安全�
 ## 📊 データアーキテクチャ概要
 
 ### 🏗️ **階層構造**
+
 ```mermaid
 graph TB
     World[World Data] --> Chunks[Chunk Collection]
@@ -44,6 +49,7 @@ graph TB
 ## 📋 データモデル仕様書一覧
 
 ### 🌍 **ワールドデータ**
+
 - **[ワールドデータ構造](world-data-structure.md)** - ゲーム世界全体のデータ構造設計
 - **[チャンク形式](chunk-format.md)** - 16x16x256ブロック単位のデータ形式
 - **[セーブファイル形式](save-file-format.md)** - ゲーム状態の永続化フォーマット
@@ -51,14 +57,15 @@ graph TB
 ## 🎯 設計原則
 
 ### 📐 **型安全性とスキーマ駆動設計**
+
 Effect-TS 3.17+ Schemaによる完全な型安全性とランタイム検証を実現:
 
 ```typescript
-import { Schema, Brand, Match, Effect, Context } from "effect"
+import { Schema, Brand, Match, Effect, Context } from 'effect'
 
 // Brand型による厳密な型区別
-export type BlockId = string & Brand.Brand<"BlockId">
-export type ChunkCoordinate = string & Brand.Brand<"ChunkCoordinate">
+export type BlockId = string & Brand.Brand<'BlockId'>
+export type ChunkCoordinate = string & Brand.Brand<'ChunkCoordinate'>
 
 export const BlockId = Brand.nominal<BlockId>()
 export const ChunkCoordinate = Brand.nominal<ChunkCoordinate>()
@@ -67,25 +74,21 @@ export const ChunkCoordinate = Brand.nominal<ChunkCoordinate>()
 export const PositionSchema = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number.pipe(Schema.clamp(-64, 320)), // ワールド高度制限
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 export const BlockStateSchema = Schema.Struct({
   id: Schema.String.pipe(Schema.brand(BlockId)),
-  material: Schema.Literal("stone", "wood", "dirt", "air", "water"),
+  material: Schema.Literal('stone', 'wood', 'dirt', 'air', 'water'),
   position: PositionSchema,
   properties: Schema.Record({
     key: Schema.String,
-    value: Schema.Union(
-      Schema.String,
-      Schema.Number,
-      Schema.Boolean
-    )
+    value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
   }),
   hardness: Schema.Number.pipe(Schema.between(0, 50)),
   lightLevel: Schema.Number.pipe(Schema.clamp(0, 15)),
   waterlogged: Schema.Boolean,
-  transparent: Schema.Boolean
+  transparent: Schema.Boolean,
 })
 
 // 型の自動導出
@@ -94,6 +97,7 @@ export interface BlockState extends Schema.Schema.Type<typeof BlockStateSchema> 
 ```
 
 ### 🔄 **関数型イミュータブル設計**
+
 すべてのデータ構造は不変性を保持し、Effect型による副作用管理と関数合成を活用:
 
 ```typescript
@@ -118,21 +122,15 @@ export const updateBlockState = (
     const chunkCoord = yield* calculateChunkCoordinate(position)
     const chunk = yield* WorldService.getChunk(chunkCoord)
 
-    const updatedChunk = yield* ChunkService.setBlockState(
-      chunk,
-      toLocalPosition(position),
-      newState
-    )
+    const updatedChunk = yield* ChunkService.setBlockState(chunk, toLocalPosition(position), newState)
 
     const updatedWorld = pipe(
       world,
-      updateDimension(DimensionId("overworld"), dimension =>
-        updateChunk(dimension, chunkCoord, updatedChunk)
-      ),
-      updateMetadata(metadata => ({
+      updateDimension(DimensionId('overworld'), (dimension) => updateChunk(dimension, chunkCoord, updatedChunk)),
+      updateMetadata((metadata) => ({
         ...metadata,
         lastModified: new Date(),
-        modificationCount: metadata.modificationCount + 1
+        modificationCount: metadata.modificationCount + 1,
       }))
     )
 
@@ -147,13 +145,12 @@ export const placeBlocksInArea = (
 ): Effect.Effect<WorldData, WorldError, WorldService> =>
   pipe(
     generatePositionsInArea(area),
-    Effect.reduce(world, (currentWorld, position) =>
-      updateBlockState(currentWorld, position, blockState)
-    )
+    Effect.reduce(world, (currentWorld, position) => updateBlockState(currentWorld, position, blockState))
   )
 ```
 
 ### ⚡ **パフォーマンス最適化**
+
 - **遅延読み込み**: 必要時のみデータロード
 - **効率的なシリアライゼーション**: バイナリ形式での高速I/O
 - **圧縮**: データサイズ削減と転送速度向上
@@ -162,25 +159,22 @@ export const placeBlocksInArea = (
 ## 🗂️ ドメイン駆動データ分類
 
 ### 🌐 **ワールド境界づけられたコンテキスト**
+
 地形生成と永続的な世界構造を管理:
 
 ```typescript
 // ワールドドメインの集約ルート
 export const WorldAggregateSchema = Schema.Struct({
   id: Schema.String.pipe(Schema.brand(WorldId)),
-  name: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.maxLength(32),
-    Schema.pattern(/^[\w\s-]+$/)
-  ),
+  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(32), Schema.pattern(/^[\w\s-]+$/)),
   seed: Schema.BigInt,
   dimensions: Schema.Map({
     key: Schema.String.pipe(Schema.brand(DimensionId)),
-    value: DimensionSchema
+    value: DimensionSchema,
   }),
   worldBorder: WorldBorderSchema,
   gameRules: GameRulesSchema,
-  generatorSettings: GeneratorSettingsSchema
+  generatorSettings: GeneratorSettingsSchema,
 })
 
 // 地形生成データ（不変）
@@ -189,20 +183,21 @@ export const TerrainDataSchema = Schema.Struct({
   biomeMap: Schema.Array(Schema.String.pipe(Schema.brand(BiomeId))),
   structureMap: Schema.Map({
     key: PositionSchema,
-    value: StructureReferenceSchema
+    value: StructureReferenceSchema,
   }),
   geologicalData: Schema.Struct({
     oreDistribution: Schema.Map({
       key: Schema.String.pipe(Schema.brand(OreTypeId)),
-      value: OreVeinSchema
+      value: OreVeinSchema,
     }),
     caveSystems: Schema.Array(CaveSystemSchema),
-    aquifers: Schema.Array(AquiferSchema)
-  })
+    aquifers: Schema.Array(AquiferSchema),
+  }),
 })
 ```
 
 ### 🏃 **ゲーム状態境界づけられたコンテキスト**
+
 リアルタイムで変化するゲーム実行時状態:
 
 ```typescript
@@ -213,13 +208,13 @@ export const GameStateAggregateSchema = Schema.Struct({
   weather: WeatherStateSchema,
   activeEntities: Schema.Map({
     key: Schema.String.pipe(Schema.brand(EntityId)),
-    value: EntityStateSchema
+    value: EntityStateSchema,
   }),
   chunkStates: Schema.Map({
     key: Schema.String.pipe(Schema.brand(ChunkCoordinate)),
-    value: ChunkStateSchema
+    value: ChunkStateSchema,
   }),
-  pendingUpdates: Schema.Array(WorldUpdateEventSchema)
+  pendingUpdates: Schema.Array(WorldUpdateEventSchema),
 })
 
 // エンティティ状態（ECSパターン）
@@ -227,14 +222,15 @@ export const EntityStateSchema = Schema.Struct({
   id: Schema.String.pipe(Schema.brand(EntityId)),
   components: Schema.Map({
     key: Schema.String.pipe(Schema.brand(ComponentTypeId)),
-    value: ComponentDataSchema
+    value: ComponentDataSchema,
   }),
   version: Schema.Number, // オプティミスティックロッキング用
-  lastUpdate: Schema.Date
+  lastUpdate: Schema.Date,
 })
 ```
 
 ### 👤 **プレイヤー境界づけられたコンテキスト**
+
 プレイヤー固有の状態と進行データ:
 
 ```typescript
@@ -246,29 +242,24 @@ export const PlayerAggregateSchema = Schema.Struct({
   inventory: InventoryAggregateSchema,
   statistics: PlayerStatisticsSchema,
   achievements: Schema.Set(Schema.String.pipe(Schema.brand(AchievementId))),
-  preferences: PlayerPreferencesSchema
+  preferences: PlayerPreferencesSchema,
 })
 
 // プレイヤーインベントリ集約
 export const InventoryAggregateSchema = Schema.Struct({
-  slots: Schema.Array(
-    Schema.nullable(ItemStackSchema)
-  ).pipe(Schema.itemsCount(36)), // メインインベントリ
-  armor: Schema.Array(
-    Schema.nullable(ItemStackSchema)
-  ).pipe(Schema.itemsCount(4)),
+  slots: Schema.Array(Schema.nullable(ItemStackSchema)).pipe(Schema.itemsCount(36)), // メインインベントリ
+  armor: Schema.Array(Schema.nullable(ItemStackSchema)).pipe(Schema.itemsCount(4)),
   offhand: Schema.nullable(ItemStackSchema),
-  enderChest: Schema.Array(
-    Schema.nullable(ItemStackSchema)
-  ).pipe(Schema.itemsCount(27)),
+  enderChest: Schema.Array(Schema.nullable(ItemStackSchema)).pipe(Schema.itemsCount(27)),
   selectedSlot: Schema.Number.pipe(Schema.clamp(0, 8)),
-  version: Schema.Number // 並行編集制御
+  version: Schema.Number, // 並行編集制御
 })
 ```
 
 ## 💾 ストレージ戦略
 
 ### 🗄️ **ファイルベースストレージ**
+
 ```
 saves/
 ├── world_name/
@@ -284,6 +275,7 @@ saves/
 ```
 
 ### ⚡ **Effect-TS多階層キャッシュシステム**
+
 ```typescript
 // Context駆動の階層化キャッシュサービス
 export interface CacheService {
@@ -293,14 +285,14 @@ export interface CacheService {
   readonly stats: () => Effect.Effect<CacheStats, never>
 }
 
-export const CacheService = Context.GenericTag<CacheService>("@app/CacheService")
+export const CacheService = Context.GenericTag<CacheService>('@app/CacheService')
 
 // 実装例：多段キャッシュ戦略
 export const makeCacheService = Effect.gen(function* () {
   // L1: インメモリ高速キャッシュ（LRU）
   const l1Cache = yield* Cache.make({
     capacity: 1000,
-    timeToLive: Duration.minutes(5)
+    timeToLive: Duration.minutes(5),
   })
 
   // L2: 永続化キャッシュ（IndexedDB/Redis）
@@ -310,35 +302,33 @@ export const makeCacheService = Effect.gen(function* () {
     get: <T>(key: string, schema: Schema.Schema<T, T>) =>
       pipe(
         l1Cache.get(key),
-        Effect.flatMap(Option.match({
-          onNone: () => pipe(
-            l2Cache.get(key),
-            Effect.flatMap(Option.match({
-              onNone: () => Effect.succeed(Option.none()),
-              onSome: (data) => pipe(
-                Schema.decode(schema)(data),
-                Effect.flatMap(decoded => pipe(
-                  l1Cache.set(key, decoded),
-                  Effect.as(Option.some(decoded))
-                ))
-              )
-            }))
-          ),
-          onSome: (cached) => Effect.succeed(Option.some(cached))
-        }))
+        Effect.flatMap(
+          Option.match({
+            onNone: () =>
+              pipe(
+                l2Cache.get(key),
+                Effect.flatMap(
+                  Option.match({
+                    onNone: () => Effect.succeed(Option.none()),
+                    onSome: (data) =>
+                      pipe(
+                        Schema.decode(schema)(data),
+                        Effect.flatMap((decoded) => pipe(l1Cache.set(key, decoded), Effect.as(Option.some(decoded))))
+                      ),
+                  })
+                )
+              ),
+            onSome: (cached) => Effect.succeed(Option.some(cached)),
+          })
+        )
       ),
 
     set: <T>(key: string, value: T, schema: Schema.Schema<T, T>) =>
       pipe(
         Schema.encode(schema)(value),
-        Effect.flatMap(encoded =>
-          Effect.all([
-            l1Cache.set(key, value),
-            l2Cache.set(key, encoded)
-          ])
-        ),
+        Effect.flatMap((encoded) => Effect.all([l1Cache.set(key, value), l2Cache.set(key, encoded)])),
         Effect.asVoid
-      )
+      ),
   })
 })
 
@@ -350,7 +340,7 @@ export interface ChunkCacheService {
   readonly flushDirty: () => Effect.Effect<number, CacheError>
 }
 
-export const ChunkCacheService = Context.GenericTag<ChunkCacheService>("@app/ChunkCacheService")
+export const ChunkCacheService = Context.GenericTag<ChunkCacheService>('@app/ChunkCacheService')
 
 // 使用例：キャッシュ駆動のチャンク管理
 export const loadChunkWithCache = (coord: ChunkCoordinate) =>
@@ -364,74 +354,77 @@ export const loadChunkWithCache = (coord: ChunkCoordinate) =>
       cached,
       Option.match({
         onSome: (chunk) => Effect.succeed(chunk),
-        onNone: () => pipe(
-          // ディスクから読み込み
-          ChunkPersistence.load(coord),
-          Effect.flatMap(chunk =>
-            // キャッシュに保存してから返す
-            pipe(
-              chunkCache.setChunk(coord, chunk),
-              Effect.as(chunk)
+        onNone: () =>
+          pipe(
+            // ディスクから読み込み
+            ChunkPersistence.load(coord),
+            Effect.flatMap((chunk) =>
+              // キャッシュに保存してから返す
+              pipe(chunkCache.setChunk(coord, chunk), Effect.as(chunk))
             )
-          )
-        )
+          ),
       })
     )
   })
 ```
 
 ### 🌐 **ネットワーク同期**
+
 ```typescript
 // 同期データ形式
 export const NetworkUpdate = Schema.Union(
-  BlockUpdate,        // ブロック変更
-  EntityUpdate,       // エンティティ状態
-  ChunkUnload,        // チャンク解除
-  PlayerSync          // プレイヤー同期
+  BlockUpdate, // ブロック変更
+  EntityUpdate, // エンティティ状態
+  ChunkUnload, // チャンク解除
+  PlayerSync // プレイヤー同期
 )
 ```
 
 ## 🔢 スキーマ進化・バージョニング戦略
 
 ### 📈 **段階的スキーママイグレーション**
+
 ```typescript
-import { Schema, Effect, Match, pipe } from "effect"
+import { Schema, Effect, Match, pipe } from 'effect'
 
 // バージョン付きスキーマパターン
 export const createVersionedSchema = <T>(
   currentVersion: number,
   currentSchema: Schema.Schema<T, T>,
   migrations: ReadonlyRecord<number, (data: unknown) => Effect.Effect<T, MigrationError>>
-) => Schema.transformOrFail(
-  Schema.Struct({
-    version: Schema.Number,
-    data: Schema.Unknown
-  }),
-  currentSchema,
-  {
-    decode: (input) => pipe(
-      input.version,
-      Match.value,
-      Match.when(currentVersion, () =>
-        Schema.decode(currentSchema)(input.data)
-      ),
-      Match.when(Match.number, (version) => pipe(
-        migrations[version] ?? Effect.fail(new UnsupportedVersionError(version)),
-        Effect.flatMap(migration => migration(input.data))
-      )),
-      Match.exhaustive
-    ),
-    encode: (value) => Effect.succeed({
-      version: currentVersion,
-      data: value
-    })
-  }
-)
+) =>
+  Schema.transformOrFail(
+    Schema.Struct({
+      version: Schema.Number,
+      data: Schema.Unknown,
+    }),
+    currentSchema,
+    {
+      decode: (input) =>
+        pipe(
+          input.version,
+          Match.value,
+          Match.when(currentVersion, () => Schema.decode(currentSchema)(input.data)),
+          Match.when(Match.number, (version) =>
+            pipe(
+              migrations[version] ?? Effect.fail(new UnsupportedVersionError(version)),
+              Effect.flatMap((migration) => migration(input.data))
+            )
+          ),
+          Match.exhaustive
+        ),
+      encode: (value) =>
+        Effect.succeed({
+          version: currentVersion,
+          data: value,
+        }),
+    }
+  )
 
 // 具体的な使用例：プレイヤーデータのスキーマ進化
 export const PlayerDataV3 = createVersionedSchema(3, PlayerSchema, {
   1: migratePlayerV1ToV3,
-  2: migratePlayerV2ToV3
+  2: migratePlayerV2ToV3,
 })
 
 // マイグレーション戦略の実装
@@ -458,7 +451,7 @@ export const safelyMigrateWorld = (
     // マイグレーション前のバックアップ作成
     const backupId = yield* backupService.createBackup(worldId, {
       reason: `Migration to version ${targetVersion}`,
-      timestamp: new Date()
+      timestamp: new Date(),
     })
 
     try {
@@ -479,32 +472,28 @@ export const safelyMigrateWorld = (
 ```
 
 ### 🔒 **下位互換性保証**
+
 ```typescript
 // 下位互換性を維持するスキーマ拡張パターン
 export const extendSchemaCompatibly = <T, U>(
   baseSchema: Schema.Schema<T, T>,
   extension: Schema.Schema<U, U>,
   defaultValues: U
-) => Schema.Struct({
-  ...baseSchema.fields,
-  ...extension.fields
-}).pipe(
-  Schema.attachPropertySignature("__compatibility_version", Schema.Number),
-  Schema.transform(
-    Schema.Struct(baseSchema.fields),
-    {
+) =>
+  Schema.Struct({
+    ...baseSchema.fields,
+    ...extension.fields,
+  }).pipe(
+    Schema.attachPropertySignature('__compatibility_version', Schema.Number),
+    Schema.transform(Schema.Struct(baseSchema.fields), {
       decode: (base) => ({ ...base, ...defaultValues }),
       encode: (extended) => {
         // 下位互換性のために基本フィールドのみを抽出
-        const base = Object.keys(baseSchema.fields).reduce(
-          (acc, key) => ({ ...acc, [key]: extended[key] }),
-          {} as T
-        )
+        const base = Object.keys(baseSchema.fields).reduce((acc, key) => ({ ...acc, [key]: extended[key] }), {} as T)
         return base
-      }
-    }
+      },
+    })
   )
-)
 
 // レガシーデータの自動修復
 export const repairLegacyData = <T>(
@@ -526,7 +515,7 @@ export const repairLegacyData = <T>(
         Effect.flatMap(
           Option.match({
             onNone: () => Effect.fail(new UnrepairableDataError()),
-            onSome: (repaired) => Effect.succeed(repaired)
+            onSome: (repaired) => Effect.succeed(repaired),
           })
         )
       )
@@ -537,15 +526,19 @@ export const repairLegacyData = <T>(
 ## 📊 データ検証・整合性保証
 
 ### ✅ **多段階バリデーション戦略**
+
 ```typescript
 // 包括的なデータ整合性検証
 export interface ValidationService {
   readonly validateSchema: <T>(data: unknown, schema: Schema.Schema<T, T>) => Effect.Effect<T, ValidationError>
-  readonly validateBusinessRules: <T>(data: T, rules: ReadonlyArray<BusinessRule<T>>) => Effect.Effect<T, BusinessRuleError>
+  readonly validateBusinessRules: <T>(
+    data: T,
+    rules: ReadonlyArray<BusinessRule<T>>
+  ) => Effect.Effect<T, BusinessRuleError>
   readonly validateDataIntegrity: (worldData: WorldData) => Effect.Effect<WorldData, IntegrityError>
 }
 
-export const ValidationService = Context.GenericTag<ValidationService>("@app/ValidationService")
+export const ValidationService = Context.GenericTag<ValidationService>('@app/ValidationService')
 
 // ビジネスルール定義
 export interface BusinessRule<T> {
@@ -557,36 +550,28 @@ export interface BusinessRule<T> {
 // プレイヤーデータのビジネスルール例
 const playerBusinessRules: ReadonlyArray<BusinessRule<PlayerData>> = [
   {
-    name: "ValidHealthRange",
-    validate: (player) =>
-      Effect.succeed(player.health >= 0 && player.health <= 20),
-    message: "プレイヤーの体力は0-20の範囲である必要があります"
+    name: 'ValidHealthRange',
+    validate: (player) => Effect.succeed(player.health >= 0 && player.health <= 20),
+    message: 'プレイヤーの体力は0-20の範囲である必要があります',
   },
   {
-    name: "ValidInventorySlots",
-    validate: (player) =>
-      Effect.succeed(player.inventory.slots.length === 36),
-    message: "インベントリスロット数は36である必要があります"
+    name: 'ValidInventorySlots',
+    validate: (player) => Effect.succeed(player.inventory.slots.length === 36),
+    message: 'インベントリスロット数は36である必要があります',
   },
   {
-    name: "UniqueItemIds",
+    name: 'UniqueItemIds',
     validate: (player) => {
-      const itemIds = player.inventory.slots
-        .filter(Option.isSome)
-        .map(slot => slot.value.id)
+      const itemIds = player.inventory.slots.filter(Option.isSome).map((slot) => slot.value.id)
       const uniqueIds = new Set(itemIds)
       return Effect.succeed(itemIds.length === uniqueIds.size)
     },
-    message: "インベントリ内のアイテムIDが重複しています"
-  }
+    message: 'インベントリ内のアイテムIDが重複しています',
+  },
 ]
 
 // 統合バリデーション関数
-export const validatePlayerData = (data: unknown): Effect.Effect<
-  PlayerData,
-  ValidationError,
-  ValidationService
-> =>
+export const validatePlayerData = (data: unknown): Effect.Effect<PlayerData, ValidationError, ValidationService> =>
   Effect.gen(function* () {
     const validationService = yield* ValidationService
 
@@ -594,20 +579,15 @@ export const validatePlayerData = (data: unknown): Effect.Effect<
     const playerData = yield* validationService.validateSchema(data, PlayerSchema)
 
     // 2. ビジネスルールバリデーション
-    const validatedPlayer = yield* validationService.validateBusinessRules(
-      playerData,
-      playerBusinessRules
-    )
+    const validatedPlayer = yield* validationService.validateBusinessRules(playerData, playerBusinessRules)
 
     return validatedPlayer
   })
 
 // ワールドデータ整合性チェック
-const validateWorldDataIntegrity = (worldData: WorldData): Effect.Effect<
-  WorldData,
-  IntegrityError,
-  ChunkService | PlayerService
-> =>
+const validateWorldDataIntegrity = (
+  worldData: WorldData
+): Effect.Effect<WorldData, IntegrityError, ChunkService | PlayerService> =>
   Effect.gen(function* () {
     const chunkService = yield* ChunkService
     const playerService = yield* PlayerService
@@ -629,6 +609,7 @@ const validateWorldDataIntegrity = (worldData: WorldData): Effect.Effect<
 ```
 
 ### 🔍 **リアルタイム整合性監視**
+
 ```typescript
 // リアルタイム整合性モニタリング
 export interface IntegrityMonitor {
@@ -637,33 +618,33 @@ export interface IntegrityMonitor {
   readonly repairCorruption: (issues: ReadonlyArray<IntegrityIssue>) => Effect.Effect<RepairResult, RepairError>
 }
 
-export const IntegrityMonitor = Context.GenericTag<IntegrityMonitor>("@app/IntegrityMonitor")
+export const IntegrityMonitor = Context.GenericTag<IntegrityMonitor>('@app/IntegrityMonitor')
 
 // 整合性問題の分類
-export const IntegrityIssueSchema = Schema.TaggedUnion("type", {
+export const IntegrityIssueSchema = Schema.TaggedUnion('type', {
   ChunkBoundaryMismatch: Schema.Struct({
-    type: Schema.Literal("ChunkBoundaryMismatch"),
+    type: Schema.Literal('ChunkBoundaryMismatch'),
     chunkA: ChunkCoordinateSchema,
     chunkB: ChunkCoordinateSchema,
-    severity: Schema.Literal("low", "medium", "high")
+    severity: Schema.Literal('low', 'medium', 'high'),
   }),
   OrphanedEntity: Schema.Struct({
-    type: Schema.Literal("OrphanedEntity"),
+    type: Schema.Literal('OrphanedEntity'),
     entityId: EntityIdSchema,
     position: PositionSchema,
-    severity: Schema.Literal("medium", "high")
+    severity: Schema.Literal('medium', 'high'),
   }),
   InvalidItemReference: Schema.Struct({
-    type: Schema.Literal("InvalidItemReference"),
+    type: Schema.Literal('InvalidItemReference'),
     itemId: ItemIdSchema,
     containerId: ContainerIdSchema,
-    severity: Schema.Literal("high")
+    severity: Schema.Literal('high'),
   }),
   DuplicatedEntity: Schema.Struct({
-    type: Schema.Literal("DuplicatedEntity"),
+    type: Schema.Literal('DuplicatedEntity'),
     entityIds: Schema.Array(EntityIdSchema),
-    severity: Schema.Literal("high")
-  })
+    severity: Schema.Literal('high'),
+  }),
 })
 
 export interface IntegrityIssue extends Schema.Schema.Type<typeof IntegrityIssueSchema> {}
@@ -680,14 +661,10 @@ export const makeIntegrityMonitor = Effect.gen(function* () {
         Stream.mapEffect(() =>
           pipe(
             IntegrityMonitor.checkIntegrity(),
-            Effect.tap(report =>
-              report.issues.length > 0
-                ? logger.warn(`Found ${report.issues.length} integrity issues`)
-                : Effect.void
+            Effect.tap((report) =>
+              report.issues.length > 0 ? logger.warn(`Found ${report.issues.length} integrity issues`) : Effect.void
             ),
-            Effect.catchAll(error =>
-              logger.error(`Integrity check failed: ${error.message}`)
-            )
+            Effect.catchAll((error) => logger.error(`Integrity check failed: ${error.message}`))
           )
         ),
         Stream.runDrain
@@ -698,40 +675,40 @@ export const makeIntegrityMonitor = Effect.gen(function* () {
         const issues: IntegrityIssue[] = []
 
         // 各種チェックを並列実行
-        const checkResults = yield* Effect.all([
-          checkChunkBoundaries(),
-          checkEntityReferences(),
-          checkItemReferences(),
-          checkDuplicatedEntities()
-        ], { concurrency: 4 })
+        const checkResults = yield* Effect.all(
+          [checkChunkBoundaries(), checkEntityReferences(), checkItemReferences(), checkDuplicatedEntities()],
+          { concurrency: 4 }
+        )
 
-        checkResults.forEach(result => issues.push(...result))
+        checkResults.forEach((result) => issues.push(...result))
 
         return {
           timestamp: new Date(),
           issues,
-          severity: calculateOverallSeverity(issues)
+          severity: calculateOverallSeverity(issues),
         }
       }),
 
     repairCorruption: (issues) =>
       pipe(
         issues,
-        Effect.reduce({
-          repaired: 0,
-          failed: 0,
-          details: []
-        }, (acc, issue) =>
-          pipe(
-            repairSingleIssue(issue),
-            Effect.map(result => ({
-              repaired: acc.repaired + (result.success ? 1 : 0),
-              failed: acc.failed + (result.success ? 0 : 1),
-              details: [...acc.details, result]
-            }))
-          )
+        Effect.reduce(
+          {
+            repaired: 0,
+            failed: 0,
+            details: [],
+          },
+          (acc, issue) =>
+            pipe(
+              repairSingleIssue(issue),
+              Effect.map((result) => ({
+                repaired: acc.repaired + (result.success ? 1 : 0),
+                failed: acc.failed + (result.success ? 0 : 1),
+                details: [...acc.details, result],
+              }))
+            )
         )
-      )
+      ),
   })
 })
 ```
@@ -739,24 +716,25 @@ export const makeIntegrityMonitor = Effect.gen(function* () {
 ## 🚀 高性能データ処理・最適化戦略
 
 ### 📈 **パフォーマンス目標値**
+
 ```typescript
 // パフォーマンス SLA 定義
 export const PerformanceTargets = {
   ChunkLoading: {
-    maxLatency: Duration.millis(50),     // チャンク読み込み < 50ms
-    maxThroughput: 100,                  // 100 chunks/second
-    cacheHitRate: 0.85                   // 85%以上のキャッシュヒット率
+    maxLatency: Duration.millis(50), // チャンク読み込み < 50ms
+    maxThroughput: 100, // 100 chunks/second
+    cacheHitRate: 0.85, // 85%以上のキャッシュヒット率
   },
   WorldSaving: {
-    maxLatency: Duration.millis(25),     // チャンク保存 < 25ms
-    batchSize: 50,                       // バッチ保存サイズ
-    compressionRatio: 0.4                // 60%以上の圧縮率
+    maxLatency: Duration.millis(25), // チャンク保存 < 25ms
+    batchSize: 50, // バッチ保存サイズ
+    compressionRatio: 0.4, // 60%以上の圧縮率
   },
   MemoryUsage: {
     maxHeapSize: 2 * 1024 * 1024 * 1024, // 2GB上限
-    maxActiveChunks: 400,                // 400チャンク同時保持
-    gcThreshold: 0.8                     // 80%でGC実行
-  }
+    maxActiveChunks: 400, // 400チャンク同時保持
+    gcThreshold: 0.8, // 80%でGC実行
+  },
 } as const
 
 // パフォーマンスメトリクス収集
@@ -768,7 +746,7 @@ export interface PerformanceMetrics {
   readonly errorRate: Counter
 }
 
-export const PerformanceMetrics = Context.GenericTag<PerformanceMetrics>("@app/PerformanceMetrics")
+export const PerformanceMetrics = Context.GenericTag<PerformanceMetrics>('@app/PerformanceMetrics')
 
 // メトリクス装飾付きサービス
 export const withPerformanceTracking = <R, E, A>(
@@ -796,6 +774,7 @@ export const withPerformanceTracking = <R, E, A>(
 ```
 
 ### ⚡ **高度なパフォーマンス最適化技法**
+
 ```typescript
 // SIMD対応の高速データ処理
 export const optimizedChunkProcessor = Effect.gen(function* () {
@@ -803,35 +782,23 @@ export const optimizedChunkProcessor = Effect.gen(function* () {
 
   return {
     // SIMD最適化されたブロック処理
-    processBlockBatch: simdSupport
-      ? processBlocksBatchSIMD
-      : processBlocksBatchScalar,
+    processBlockBatch: simdSupport ? processBlocksBatchSIMD : processBlocksBatchScalar,
 
     // 並列パイプライン処理
     loadChunksOptimized: (coordinates: ReadonlyArray<ChunkCoordinate>) =>
       pipe(
         coordinates,
         // ステージ1: 並列読み込み（I/O bound）
-        Effect.all(coord =>
-          pipe(
-            loadChunkFromDisk(coord),
-            withPerformanceTracking("chunk_load")
-          ),
-          { concurrency: 8, batching: true }
-        ),
+        Effect.all((coord) => pipe(loadChunkFromDisk(coord), withPerformanceTracking('chunk_load')), {
+          concurrency: 8,
+          batching: true,
+        }),
         // ステージ2: 並列解凍（CPU bound）
-        Effect.flatMap(compressedChunks =>
-          Effect.all(
-            compressedChunks.map(decompressChunk),
-            { concurrency: 4 }
-          )
-        ),
+        Effect.flatMap((compressedChunks) => Effect.all(compressedChunks.map(decompressChunk), { concurrency: 4 })),
         // ステージ3: 並列デシリアライズ
-        Effect.flatMap(rawChunks =>
+        Effect.flatMap((rawChunks) =>
           Effect.all(
-            rawChunks.map(chunk =>
-              Schema.decode(ChunkDataSchema)(chunk)
-            ),
+            rawChunks.map((chunk) => Schema.decode(ChunkDataSchema)(chunk)),
             { concurrency: 6 }
           )
         )
@@ -843,29 +810,32 @@ export const optimizedChunkProcessor = Effect.gen(function* () {
         // 定期的な最適化タスク実行
         Stream.periodic(Duration.seconds(30)),
         Stream.mapEffect(() =>
-          Effect.all([
-            compactMemoryFragmentation(),
-            optimizeCacheLayout(),
-            preloadPredictiveChunks(),
-            garbageCollectUnusedData()
-          ], { concurrency: 2 })
+          Effect.all(
+            [
+              compactMemoryFragmentation(),
+              optimizeCacheLayout(),
+              preloadPredictiveChunks(),
+              garbageCollectUnusedData(),
+            ],
+            { concurrency: 2 }
+          )
         ),
         Stream.runDrain,
         Effect.fork // バックグラウンド実行
-      )
+      ),
   }
 })
 
 // Structure of Arrays (SoA) 最適化
 export interface OptimizedChunkData {
   // ブロックデータをSoA形式で格納（キャッシュ効率向上）
-  readonly blockTypes: Uint16Array      // 連続メモリレイアウト
-  readonly blockStates: Uint32Array     // ビットパッキング
-  readonly lightLevels: Uint8Array      // 4ビット*2値パッキング
+  readonly blockTypes: Uint16Array // 連続メモリレイアウト
+  readonly blockStates: Uint32Array // ビットパッキング
+  readonly lightLevels: Uint8Array // 4ビット*2値パッキング
   readonly metadata: Map<number, unknown> // 疎な追加データ
 
   // インデックス構造
-  readonly spatialIndex: R3Tree         // 3D空間インデックス
+  readonly spatialIndex: R3Tree // 3D空間インデックス
   readonly materialIndex: Map<MaterialType, Set<number>> // マテリアル別インデックス
 }
 
@@ -887,7 +857,7 @@ export const makeChunkMemoryPool = (maxSize: number = 200) =>
       Effect.forEach(() =>
         pipe(
           createEmptyChunk(),
-          Effect.flatMap(chunk => availableChunks.offer(chunk))
+          Effect.flatMap((chunk) => availableChunks.offer(chunk))
         )
       )
     )
@@ -896,9 +866,7 @@ export const makeChunkMemoryPool = (maxSize: number = 200) =>
       acquire: () =>
         pipe(
           availableChunks.take,
-          Effect.tap(chunk =>
-            Ref.update(activeChunks, set => set.add(chunk))
-          )
+          Effect.tap((chunk) => Ref.update(activeChunks, (set) => set.add(chunk)))
         ),
 
       release: (chunk) =>
@@ -906,13 +874,13 @@ export const makeChunkMemoryPool = (maxSize: number = 200) =>
           resetChunk(chunk), // チャンクをリセット
           Effect.flatMap(() => availableChunks.offer(chunk)),
           Effect.tap(() =>
-            Ref.update(activeChunks, set => {
+            Ref.update(activeChunks, (set) => {
               set.delete(chunk)
               return set
             })
           ),
           Effect.asVoid
-        )
+        ),
     })
   })
 ```
@@ -920,11 +888,13 @@ export const makeChunkMemoryPool = (maxSize: number = 200) =>
 ## 🔐 セキュリティ考慮事項
 
 ### 🛡️ **データ保護**
+
 - セーブファイルの暗号化（オプション）
 - チート検知システム
 - データ改ざん防止
 
 ### 🔑 **アクセス制御**
+
 - ファイルシステム権限
 - プレイヤーデータ分離
 - 管理者権限管理
@@ -932,14 +902,15 @@ export const makeChunkMemoryPool = (maxSize: number = 200) =>
 ## 🧪 テスト戦略
 
 ### 🔬 **データテスト**
+
 ```typescript
-describe("World Data Persistence", () => {
-  it("should maintain data integrity across save/load cycles", () =>
+describe('World Data Persistence', () => {
+  it('should maintain data integrity across save/load cycles', () =>
     Effect.gen(function* () {
       const originalWorld = yield* generateTestWorld()
 
-      yield* saveWorld("test_world", originalWorld)
-      const loadedWorld = yield* loadWorld("test_world")
+      yield* saveWorld('test_world', originalWorld)
+      const loadedWorld = yield* loadWorld('test_world')
 
       expect(loadedWorld).toEqual(originalWorld)
     }))
@@ -947,6 +918,7 @@ describe("World Data Persistence", () => {
 ```
 
 ### 📊 **パフォーマンステスト**
+
 - 大量データのロード・セーブ時間測定
 - メモリリーク検出
 - 並行アクセステスト

@@ -1,13 +1,22 @@
 ---
-title: "Domain APIs - ゲームドメイン特化API完全集"
-description: "TypeScript Minecraft Cloneドメイン特化API完全リファレンス。World、Player、Block、EntityシステムのDDD実装とEffect-TS統合パターン。ゲームロジックの型安全実装ガイド。"
-category: "reference"
-difficulty: "advanced"
-tags: ["domain-apis", "minecraft-apis", "world-management", "player-system", "block-system", "entity-system", "ddd-implementation", "game-logic"]
-prerequisites: ["core-apis", "ddd-basics", "ecs-fundamentals", "effect-ts-intermediate"]
-estimated_reading_time: "45-60分"
+title: 'Domain APIs - ゲームドメイン特化API完全集'
+description: 'TypeScript Minecraft Cloneドメイン特化API完全リファレンス。World、Player、Block、EntityシステムのDDD実装とEffect-TS統合パターン。ゲームロジックの型安全実装ガイド。'
+category: 'reference'
+difficulty: 'advanced'
+tags:
+  [
+    'domain-apis',
+    'minecraft-apis',
+    'world-management',
+    'player-system',
+    'block-system',
+    'entity-system',
+    'ddd-implementation',
+    'game-logic',
+  ]
+prerequisites: ['core-apis', 'ddd-basics', 'ecs-fundamentals', 'effect-ts-intermediate']
+estimated_reading_time: '45-60分'
 ---
-
 
 # 🎮 Domain APIs - ゲームドメイン完全マスタリー
 
@@ -52,6 +61,7 @@ mindmap
 > **📚 参照元**: このAPIは複数のドキュメントに分散していたものを統合した完全仕様です
 >
 > **🔗 関連説明**:
+>
 > - **設計思想**: [Domain Layer Design Principles](../../explanations/architecture/domain-layer-design-principles.md)
 > - **実装方法**: [Application Services Tutorial](../../tutorials/basic-game-development/application-services.md)
 > - **ゲーム仕様**: [World Management System](../../explanations/game-mechanics/core-features/world-management-system.md)
@@ -60,7 +70,8 @@ mindmap
 ### ⚡ 高頻度使用API (60FPS対応)
 
 #### WorldService - メインワールド管理
-```typescript
+
+````typescript
 /**
  * ワールド管理の中核サービス
  * @description Minecraftワールドの包括的な管理機能を提供
@@ -358,10 +369,11 @@ export const BiomeSchema = Schema.Struct({
 }).annotations({
   identifier: "Biome"
 })
-```
+````
 
 #### ⭐ **WorldService実装**
-```typescript
+
+````typescript
 /**
  * ワールド管理サービス
  * @description Minecraftワールドの包括的な管理機能を提供するサービス
@@ -379,7 +391,7 @@ export interface WorldService {
    * console.log(`Loaded chunk with ${chunk.blocks.length} blocks`);
    * ```
    */
-  readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkLoadError>;
+  readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkLoadError>
 
   /**
    * チャンクの保存
@@ -392,7 +404,7 @@ export interface WorldService {
    * yield* worldService.saveChunk(modifiedChunk);
    * ```
    */
-  readonly saveChunk: (chunk: Chunk) => Effect.Effect<void, ChunkSaveError>;
+  readonly saveChunk: (chunk: Chunk) => Effect.Effect<void, ChunkSaveError>
 
   /**
    * チャンクのアンロード
@@ -403,7 +415,7 @@ export interface WorldService {
    * yield* worldService.unloadChunk({ chunkX: 5, chunkZ: 5 });
    * ```
    */
-  readonly unloadChunk: (coord: ChunkCoordinate) => Effect.Effect<void, never>;
+  readonly unloadChunk: (coord: ChunkCoordinate) => Effect.Effect<void, never>
 
   /**
    * チャンクの生成
@@ -416,7 +428,7 @@ export interface WorldService {
    * console.log(`Generated chunk with biome: ${newChunk.biome.type}`);
    * ```
    */
-  readonly generateChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, GenerationError>;
+  readonly generateChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, GenerationError>
 
   /**
    * 構造物の生成
@@ -429,7 +441,7 @@ export interface WorldService {
    * yield* worldService.generateStructure("village", { x: 100, y: 64, z: 200 });
    * ```
    */
-  readonly generateStructure: (type: StructureType, position: Position) => Effect.Effect<void, GenerationError>;
+  readonly generateStructure: (type: StructureType, position: Position) => Effect.Effect<void, GenerationError>
 
   /**
    * 指定座標のブロック取得
@@ -442,7 +454,7 @@ export interface WorldService {
    * console.log(`Block type: ${block.type}, Light level: ${block.lightLevel}`);
    * ```
    */
-  readonly getBlock: (position: Position) => Effect.Effect<Block, BlockNotFoundError>;
+  readonly getBlock: (position: Position) => Effect.Effect<Block, BlockNotFoundError>
 
   /**
    * 指定座標にブロック設置
@@ -456,7 +468,7 @@ export interface WorldService {
    * yield* worldService.setBlock({ x: 15, y: 65, z: 25 }, stoneBlock);
    * ```
    */
-  readonly setBlock: (position: Position, block: Block) => Effect.Effect<void, BlockUpdateError>;
+  readonly setBlock: (position: Position, block: Block) => Effect.Effect<void, BlockUpdateError>
 
   /**
    * ワールド情報の取得
@@ -467,7 +479,7 @@ export interface WorldService {
    * console.log(`World: ${worldInfo.name}, Seed: ${worldInfo.seed}`);
    * ```
    */
-  readonly getWorldInfo: () => Effect.Effect<WorldMetadata, never>;
+  readonly getWorldInfo: () => Effect.Effect<WorldMetadata, never>
 
   /**
    * ワールド情報の更新
@@ -481,17 +493,17 @@ export interface WorldService {
    * });
    * ```
    */
-  readonly updateWorldInfo: (metadata: Partial<WorldMetadata>) => Effect.Effect<void, never>;
+  readonly updateWorldInfo: (metadata: Partial<WorldMetadata>) => Effect.Effect<void, never>
 }
 
-export const WorldService = Context.GenericTag<WorldService>("@app/WorldService")
+export const WorldService = Context.GenericTag<WorldService>('@app/WorldService')
 
 // 実装例
 export const WorldServiceLive = Layer.effect(
   WorldService,
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem
-    const config = yield* Config.nested("world")
+    const config = yield* Config.nested('world')
 
     // チャンクキャッシュ (LRU)
     const chunkCache = new Map<string, Chunk>()
@@ -501,104 +513,105 @@ export const WorldServiceLive = Layer.effect(
     const terrainGenerator = createTerrainGenerator(config.seed)
 
     return WorldService.of({
-      loadChunk: (coord) => Effect.gen(function* () {
-        const key = coordToString(coord)
+      loadChunk: (coord) =>
+        Effect.gen(function* () {
+          const key = coordToString(coord)
 
-        // キャッシュ確認
-        if (chunkCache.has(key)) {
-          return chunkCache.get(key)!
-        }
+          // キャッシュ確認
+          if (chunkCache.has(key)) {
+            return chunkCache.get(key)!
+          }
 
-        // ディスクから読み込み
-        const chunkPath = `chunks/${key}.json`
-        const exists = yield* fileSystem.exists(chunkPath)
+          // ディスクから読み込み
+          const chunkPath = `chunks/${key}.json`
+          const exists = yield* fileSystem.exists(chunkPath)
 
-        if (exists) {
-          const data = yield* fileSystem.readFile(chunkPath)
-          const chunk = yield* Schema.decodeUnknown(ChunkSchema)(
-            JSON.parse(data)
-          )
+          if (exists) {
+            const data = yield* fileSystem.readFile(chunkPath)
+            const chunk = yield* Schema.decodeUnknown(ChunkSchema)(JSON.parse(data))
 
-          // キャッシュに追加
-          addToCache(chunkCache, key, chunk)
+            // キャッシュに追加
+            addToCache(chunkCache, key, chunk)
+            return chunk
+          }
+
+          // 生成が必要
+          return yield* generateChunk(coord)
+        }),
+
+      generateChunk: (coord) =>
+        Effect.gen(function* () {
+          // バイオーム決定
+          const biome = terrainGenerator.getBiome(coord)
+
+          // 地形生成
+          const blocks = terrainGenerator.generateTerrain(coord, biome)
+
+          // 構造物生成
+          const structures = terrainGenerator.generateStructures(coord, biome)
+
+          const chunk: Chunk = {
+            coordinate: coord,
+            blocks,
+            biome,
+            generated: true,
+            modified: false,
+            entities: [],
+            lastUpdated: new Date(),
+          }
+
+          // 構造物を配置
+          yield* Effect.forEach(structures, ({ type, position }) => generateStructure(type, position))
+
           return chunk
-        }
+        }),
 
-        // 生成が必要
-        return yield* generateChunk(coord)
-      }),
+      getBlock: (position) =>
+        Effect.gen(function* () {
+          const chunkCoord = positionToChunkCoord(position)
+          const chunk = yield* loadChunk(chunkCoord)
 
-      generateChunk: (coord) => Effect.gen(function* () {
-        // バイオーム決定
-        const biome = terrainGenerator.getBiome(coord)
+          const localPos = globalToLocalPosition(position)
+          const block = chunk.blocks[localPos.x]?.[localPos.y]?.[localPos.z]
 
-        // 地形生成
-        const blocks = terrainGenerator.generateTerrain(coord, biome)
+          if (!block) {
+            return yield* Effect.fail(new BlockNotFoundError({ position }))
+          }
 
-        // 構造物生成
-        const structures = terrainGenerator.generateStructures(coord, biome)
+          return block
+        }),
 
-        const chunk: Chunk = {
-          coordinate: coord,
-          blocks,
-          biome,
-          generated: true,
-          modified: false,
-          entities: [],
-          lastUpdated: new Date()
-        }
+      setBlock: (position, block) =>
+        Effect.gen(function* () {
+          const chunkCoord = positionToChunkCoord(position)
+          const chunk = yield* loadChunk(chunkCoord)
 
-        // 構造物を配置
-        yield* Effect.forEach(structures, ({ type, position }) =>
-          generateStructure(type, position)
-        )
+          const localPos = globalToLocalPosition(position)
 
-        return chunk
-      }),
+          // ブロック更新
+          const updatedChunk = {
+            ...chunk,
+            blocks: updateBlockArray(chunk.blocks, localPos, block),
+            modified: true,
+            lastUpdated: new Date(),
+          }
 
-      getBlock: (position) => Effect.gen(function* () {
-        const chunkCoord = positionToChunkCoord(position)
-        const chunk = yield* loadChunk(chunkCoord)
+          // キャッシュ更新
+          const key = coordToString(chunkCoord)
+          chunkCache.set(key, updatedChunk)
 
-        const localPos = globalToLocalPosition(position)
-        const block = chunk.blocks[localPos.x]?.[localPos.y]?.[localPos.z]
-
-        if (!block) {
-          return yield* Effect.fail(new BlockNotFoundError({ position }))
-        }
-
-        return block
-      }),
-
-      setBlock: (position, block) => Effect.gen(function* () {
-        const chunkCoord = positionToChunkCoord(position)
-        const chunk = yield* loadChunk(chunkCoord)
-
-        const localPos = globalToLocalPosition(position)
-
-        // ブロック更新
-        const updatedChunk = {
-          ...chunk,
-          blocks: updateBlockArray(chunk.blocks, localPos, block),
-          modified: true,
-          lastUpdated: new Date()
-        }
-
-        // キャッシュ更新
-        const key = coordToString(chunkCoord)
-        chunkCache.set(key, updatedChunk)
-
-        // 隣接チャンクの更新チェック
-        yield* updateAdjacentChunks(position, block)
-      })
+          // 隣接チャンクの更新チェック
+          yield* updateAdjacentChunks(position, block)
+        }),
     })
   })
 )
-```
+````
 
 ### 🔄 World高度な操作パターン
 
 #### ✅ **複雑なワールド操作**
+
 ```typescript
 // 範囲ブロック操作
 export const fillRegion = (
@@ -617,23 +630,24 @@ export const fillRegion = (
 
     yield* Effect.forEach(
       chunkGroups,
-      ({ chunk, positions }) => Effect.gen(function* () {
-        // チャンクを一度だけロード
-        const chunkData = yield* worldService.loadChunk(chunk)
+      ({ chunk, positions }) =>
+        Effect.gen(function* () {
+          // チャンクを一度だけロード
+          const chunkData = yield* worldService.loadChunk(chunk)
 
-        // バッチ更新
-        const updatedBlocks = positions.reduce((blocks, pos) => {
-          const local = globalToLocalPosition(pos)
-          return updateBlockArray(blocks, local, { type: blockType, lightLevel: 0 })
-        }, chunkData.blocks)
+          // バッチ更新
+          const updatedBlocks = positions.reduce((blocks, pos) => {
+            const local = globalToLocalPosition(pos)
+            return updateBlockArray(blocks, local, { type: blockType, lightLevel: 0 })
+          }, chunkData.blocks)
 
-        // チャンク保存
-        yield* worldService.saveChunk({
-          ...chunkData,
-          blocks: updatedBlocks,
-          modified: true
-        })
-      }),
+          // チャンク保存
+          yield* worldService.saveChunk({
+            ...chunkData,
+            blocks: updatedBlocks,
+            modified: true,
+          })
+        }),
       { concurrency: 4 } // 並列処理
     )
   })
@@ -658,28 +672,22 @@ export const placeStructure = (
         new StructurePlacementError({
           structure: structureType,
           position,
-          reason: "Invalid placement location"
+          reason: 'Invalid placement location',
         })
       )
     }
 
     // ブロック配置
-    yield* Effect.forEach(
-      rotatedTemplate.blocks,
-      ({ offset, block }) => {
-        const worldPos = addPositions(position, offset)
-        return worldService.setBlock(worldPos, block)
-      }
-    )
+    yield* Effect.forEach(rotatedTemplate.blocks, ({ offset, block }) => {
+      const worldPos = addPositions(position, offset)
+      return worldService.setBlock(worldPos, block)
+    })
 
     // エンティティ配置
-    yield* Effect.forEach(
-      rotatedTemplate.entities,
-      ({ offset, entity }) => {
-        const worldPos = addPositions(position, offset)
-        return spawnEntity(entity, worldPos)
-      }
-    )
+    yield* Effect.forEach(rotatedTemplate.entities, ({ offset, entity }) => {
+      const worldPos = addPositions(position, offset)
+      return spawnEntity(entity, worldPos)
+    })
   })
 ```
 
@@ -688,6 +696,7 @@ export const placeStructure = (
 ### 📋 Player基本データ構造
 
 #### ✅ **プレイヤー状態定義**
+
 ```typescript
 // プレイヤー基本状態
 export const PlayerStateSchema = Schema.Struct({
@@ -788,7 +797,8 @@ export const ItemStackSchema = Schema.Struct({
 ```
 
 #### ⭐ **PlayerService実装**
-```typescript
+
+````typescript
 /**
  * プレイヤー管理サービス（統合版）
  * @description プレイヤーの状態管理、移動、インベントリ、ステータス制御を行うサービス
@@ -808,7 +818,7 @@ export interface PlayerService {
    * console.log(`Player ${player.username} at ${player.position.x}, ${player.position.y}, ${player.position.z}`);
    * ```
    */
-  readonly getPlayer: (id: string) => Effect.Effect<PlayerState, PlayerNotFoundError>;
+  readonly getPlayer: (id: string) => Effect.Effect<PlayerState, PlayerNotFoundError>
 
   /**
    * プレイヤー状態の更新
@@ -821,7 +831,7 @@ export interface PlayerService {
    * yield* playerService.updatePlayer(updatedPlayer);
    * ```
    */
-  readonly updatePlayer: (player: PlayerState) => Effect.Effect<void, PlayerUpdateError>;
+  readonly updatePlayer: (player: PlayerState) => Effect.Effect<void, PlayerUpdateError>
 
   /**
    * プレイヤーの削除
@@ -832,7 +842,7 @@ export interface PlayerService {
    * yield* playerService.removePlayer("550e8400-e29b-41d4-a716-446655440000");
    * ```
    */
-  readonly removePlayer: (id: string) => Effect.Effect<void, never>;
+  readonly removePlayer: (id: string) => Effect.Effect<void, never>
 
   /**
    * プレイヤーの移動
@@ -846,7 +856,7 @@ export interface PlayerService {
    * yield* playerService.movePlayer("player-uuid", newPos);
    * ```
    */
-  readonly movePlayer: (id: string, position: Position) => Effect.Effect<void, MovementError>;
+  readonly movePlayer: (id: string, position: Position) => Effect.Effect<void, MovementError>
 
   /**
    * プレイヤーの速度設定
@@ -859,7 +869,7 @@ export interface PlayerService {
    * yield* playerService.setVelocity("player-uuid", jumpVelocity);
    * ```
    */
-  readonly setVelocity: (id: string, velocity: Velocity) => Effect.Effect<void, never>;
+  readonly setVelocity: (id: string, velocity: Velocity) => Effect.Effect<void, never>
 
   /**
    * プレイヤーのテレポート
@@ -873,7 +883,7 @@ export interface PlayerService {
    * yield* playerService.teleportPlayer("player-uuid", spawnPoint);
    * ```
    */
-  readonly teleportPlayer: (id: string, position: Position) => Effect.Effect<void, TeleportError>;
+  readonly teleportPlayer: (id: string, position: Position) => Effect.Effect<void, TeleportError>
 
   /**
    * インベントリへのアイテム追加
@@ -888,7 +898,7 @@ export interface PlayerService {
    * console.log(success ? "All items added" : "Inventory full or partial add");
    * ```
    */
-  readonly addItem: (id: string, item: ItemStack) => Effect.Effect<boolean, InventoryError>;
+  readonly addItem: (id: string, item: ItemStack) => Effect.Effect<boolean, InventoryError>
 
   /**
    * インベントリからのアイテム削除
@@ -905,7 +915,7 @@ export interface PlayerService {
    * }
    * ```
    */
-  readonly removeItem: (id: string, slot: number, quantity?: number) => Effect.Effect<ItemStack | null, InventoryError>;
+  readonly removeItem: (id: string, slot: number, quantity?: number) => Effect.Effect<ItemStack | null, InventoryError>
 
   /**
    * インベントリアイテムの交換
@@ -920,7 +930,7 @@ export interface PlayerService {
    * yield* playerService.swapItems("player-uuid", 0, 1);
    * ```
    */
-  readonly swapItems: (id: string, slot1: number, slot2: number) => Effect.Effect<void, InventoryError>;
+  readonly swapItems: (id: string, slot1: number, slot2: number) => Effect.Effect<void, InventoryError>
 
   /**
    * プレイヤーの回復
@@ -932,7 +942,7 @@ export interface PlayerService {
    * yield* playerService.heal("player-uuid", 2.5); // 2.5ハート回復
    * ```
    */
-  readonly heal: (id: string, amount: number) => Effect.Effect<void, never>;
+  readonly heal: (id: string, amount: number) => Effect.Effect<void, never>
 
   /**
    * プレイヤーへのダメージ適用
@@ -946,7 +956,7 @@ export interface PlayerService {
    * yield* playerService.damage("player-uuid", 5, fallDamage);
    * ```
    */
-  readonly damage: (id: string, amount: number, source?: DamageSource) => Effect.Effect<void, never>;
+  readonly damage: (id: string, amount: number, source?: DamageSource) => Effect.Effect<void, never>
 
   /**
    * プレイヤーのゲームモード設定
@@ -958,10 +968,10 @@ export interface PlayerService {
    * yield* playerService.setGamemode("player-uuid", "creative");
    * ```
    */
-  readonly setGamemode: (id: string, gamemode: GameMode) => Effect.Effect<void, never>;
+  readonly setGamemode: (id: string, gamemode: GameMode) => Effect.Effect<void, never>
 }
 
-export const PlayerService = Context.GenericTag<PlayerService>("@app/PlayerService")
+export const PlayerService = Context.GenericTag<PlayerService>('@app/PlayerService')
 
 // 実装
 export const PlayerServiceLive = Layer.effect(
@@ -971,143 +981,136 @@ export const PlayerServiceLive = Layer.effect(
     const worldService = yield* WorldService
 
     return PlayerService.of({
-      movePlayer: (id, newPosition) => Effect.gen(function* () {
-        const player = yield* getPlayer(id)
+      movePlayer: (id, newPosition) =>
+        Effect.gen(function* () {
+          const player = yield* getPlayer(id)
 
-        // 移動可能性チェック
-        const canMove = yield* checkMovement(player.position, newPosition)
-        if (!canMove) {
-          return yield* Effect.fail(
-            new MovementError({
-              playerId: id,
-              from: player.position,
-              to: newPosition
-            })
-          )
-        }
-
-        // 衝突検出
-        const collision = yield* checkCollision(newPosition, player)
-        if (collision) {
-          // 地面接触判定
-          const onGround = collision.type === "ground"
-          newPosition = collision.correctedPosition
-        }
-
-        // チャンク境界チェック
-        const oldChunk = positionToChunkCoord(player.position)
-        const newChunk = positionToChunkCoord(newPosition)
-
-        if (!isEqual(oldChunk, newChunk)) {
-          // 新チャンク読み込み
-          yield* worldService.loadChunk(newChunk)
-        }
-
-        // プレイヤー更新
-        const updatedPlayer = {
-          ...player,
-          position: newPosition,
-          onGround: collision?.type === "ground" ?? false,
-          lastActive: new Date()
-        }
-
-        yield* updatePlayer(updatedPlayer)
-      }),
-
-      addItem: (id, item) => Effect.gen(function* () {
-        const player = yield* getPlayer(id)
-        const inventory = player.inventory
-
-        // 既存スタックに追加試行
-        const existingSlot = findMatchingItemStack(inventory, item)
-        if (existingSlot !== -1) {
-          const existing = getInventoryItem(inventory, existingSlot)!
-          const maxStack = getMaxStackSize(item.itemType)
-          const canAdd = Math.min(
-            item.quantity,
-            maxStack - existing.quantity
-          )
-
-          if (canAdd > 0) {
-            const updatedStack = {
-              ...existing,
-              quantity: existing.quantity + canAdd
-            }
-
-            const updatedInventory = setInventoryItem(
-              inventory,
-              existingSlot,
-              updatedStack
+          // 移動可能性チェック
+          const canMove = yield* checkMovement(player.position, newPosition)
+          if (!canMove) {
+            return yield* Effect.fail(
+              new MovementError({
+                playerId: id,
+                from: player.position,
+                to: newPosition,
+              })
             )
+          }
+
+          // 衝突検出
+          const collision = yield* checkCollision(newPosition, player)
+          if (collision) {
+            // 地面接触判定
+            const onGround = collision.type === 'ground'
+            newPosition = collision.correctedPosition
+          }
+
+          // チャンク境界チェック
+          const oldChunk = positionToChunkCoord(player.position)
+          const newChunk = positionToChunkCoord(newPosition)
+
+          if (!isEqual(oldChunk, newChunk)) {
+            // 新チャンク読み込み
+            yield* worldService.loadChunk(newChunk)
+          }
+
+          // プレイヤー更新
+          const updatedPlayer = {
+            ...player,
+            position: newPosition,
+            onGround: collision?.type === 'ground' ?? false,
+            lastActive: new Date(),
+          }
+
+          yield* updatePlayer(updatedPlayer)
+        }),
+
+      addItem: (id, item) =>
+        Effect.gen(function* () {
+          const player = yield* getPlayer(id)
+          const inventory = player.inventory
+
+          // 既存スタックに追加試行
+          const existingSlot = findMatchingItemStack(inventory, item)
+          if (existingSlot !== -1) {
+            const existing = getInventoryItem(inventory, existingSlot)!
+            const maxStack = getMaxStackSize(item.itemType)
+            const canAdd = Math.min(item.quantity, maxStack - existing.quantity)
+
+            if (canAdd > 0) {
+              const updatedStack = {
+                ...existing,
+                quantity: existing.quantity + canAdd,
+              }
+
+              const updatedInventory = setInventoryItem(inventory, existingSlot, updatedStack)
+
+              yield* updatePlayer({
+                ...player,
+                inventory: updatedInventory,
+              })
+
+              return canAdd === item.quantity
+            }
+          }
+
+          // 空きスロット検索
+          const emptySlot = findEmptySlot(inventory)
+          if (emptySlot !== -1) {
+            const updatedInventory = setInventoryItem(inventory, emptySlot, item)
 
             yield* updatePlayer({
               ...player,
-              inventory: updatedInventory
+              inventory: updatedInventory,
             })
 
-            return canAdd === item.quantity
+            return true
           }
-        }
 
-        // 空きスロット検索
-        const emptySlot = findEmptySlot(inventory)
-        if (emptySlot !== -1) {
-          const updatedInventory = setInventoryItem(
-            inventory,
-            emptySlot,
-            item
-          )
+          // インベントリ満杯
+          return false
+        }),
 
-          yield* updatePlayer({
+      damage: (id, amount, source) =>
+        Effect.gen(function* () {
+          const player = yield* getPlayer(id)
+
+          // ダメージ軽減計算
+          const reducedDamage = calculateDamageReduction(amount, player.inventory.armor, source)
+
+          const newHealth = Math.max(0, player.health - reducedDamage)
+
+          const updatedPlayer = {
             ...player,
-            inventory: updatedInventory
-          })
+            health: newHealth,
+          }
 
-          return true
-        }
+          yield* updatePlayer(updatedPlayer)
 
-        // インベントリ満杯
-        return false
-      }),
-
-      damage: (id, amount, source) => Effect.gen(function* () {
-        const player = yield* getPlayer(id)
-
-        // ダメージ軽減計算
-        const reducedDamage = calculateDamageReduction(
-          amount,
-          player.inventory.armor,
-          source
-        )
-
-        const newHealth = Math.max(0, player.health - reducedDamage)
-
-        const updatedPlayer = {
-          ...player,
-          health: newHealth
-        }
-
-        yield* updatePlayer(updatedPlayer)
-
-        // 死亡処理
-        if (newHealth <= 0) {
-          yield* handlePlayerDeath(player, source)
-        }
-      })
+          // 死亡処理
+          if (newHealth <= 0) {
+            yield* handlePlayerDeath(player, source)
+          }
+        }),
     })
   })
 )
-```
+````
 
 ## 🧱 Block API - ブロックシステム
 
 ### 📋 Block物理・相互作用システム
 
 #### ✅ **高度なブロック操作**
+
 ```typescript
 export interface BlockService {
   // ブロック操作
-  readonly placeBlock: (position: Position, blockType: BlockType, placer?: string) => Effect.Effect<void, BlockPlacementError>
+  readonly placeBlock: (
+    position: Position,
+    blockType: BlockType,
+    placer?: string
+  ) => Effect.Effect<void, BlockPlacementError>
   readonly breakBlock: (position: Position, breaker?: string) => Effect.Effect<ItemStack[], BlockBreakError>
   readonly updateBlock: (position: Position, updates: Partial<Block>) => Effect.Effect<void, BlockUpdateError>
 
@@ -1117,7 +1120,11 @@ export interface BlockService {
   readonly triggerRedstone: (position: Position, power: number) => Effect.Effect<void, never>
 
   // 相互作用
-  readonly onBlockInteract: (position: Position, player: string, item?: ItemStack) => Effect.Effect<void, InteractionError>
+  readonly onBlockInteract: (
+    position: Position,
+    player: string,
+    item?: ItemStack
+  ) => Effect.Effect<void, InteractionError>
   readonly getBlockDrops: (position: Position, tool?: ItemStack) => Effect.Effect<ItemStack[], never>
 }
 
@@ -1142,20 +1149,20 @@ export const placeBlockAdvanced = (
         new BlockPlacementError({
           position,
           blockType,
-          reason: "Cannot replace current block"
+          reason: 'Cannot replace current block',
         })
       )
     }
 
     // 距離チェック
     const distance = calculateDistance(player.position, position)
-    const maxReach = player.gamemode === "creative" ? 6 : 4.5
+    const maxReach = player.gamemode === 'creative' ? 6 : 4.5
     if (distance > maxReach) {
       return yield* Effect.fail(
         new BlockPlacementError({
           position,
           blockType,
-          reason: "Out of reach"
+          reason: 'Out of reach',
         })
       )
     }
@@ -1168,7 +1175,7 @@ export const placeBlockAdvanced = (
         new BlockPlacementError({
           position,
           blockType,
-          reason: "Placement rules violation"
+          reason: 'Placement rules violation',
         })
       )
     }
@@ -1177,7 +1184,7 @@ export const placeBlockAdvanced = (
     const newBlock: Block = {
       type: blockType,
       lightLevel: calculateLightLevel(position, blockType),
-      metadata: createBlockMetadata(blockType, options)
+      metadata: createBlockMetadata(blockType, options),
     }
 
     yield* worldService.setBlock(position, newBlock)
@@ -1192,7 +1199,7 @@ export const placeBlockAdvanced = (
     yield* emitBlockPlacementEvent({
       position,
       block: newBlock,
-      placer
+      placer,
     })
   })
 
@@ -1214,7 +1221,7 @@ export const breakBlockAdvanced = (
       return yield* Effect.fail(
         new BlockBreakError({
           position,
-          reason: "Cannot break this block"
+          reason: 'Cannot break this block',
         })
       )
     }
@@ -1223,7 +1230,7 @@ export const breakBlockAdvanced = (
     const breakTime = calculateBreakTime(block, tool, player)
 
     // 即座破壊（クリエイティブ）または時間経過待ち
-    if (player.gamemode !== "creative") {
+    if (player.gamemode !== 'creative') {
       yield* Effect.sleep(`${breakTime} millis`)
     }
 
@@ -1232,8 +1239,8 @@ export const breakBlockAdvanced = (
 
     // ブロック除去
     const airBlock: Block = {
-      type: "air",
-      lightLevel: 0
+      type: 'air',
+      lightLevel: 0,
     }
     yield* worldService.setBlock(position, airBlock)
 
@@ -1248,7 +1255,7 @@ export const breakBlockAdvanced = (
       position,
       originalBlock: block,
       breaker,
-      drops
+      drops,
     })
 
     return drops
@@ -1260,32 +1267,33 @@ export const breakBlockAdvanced = (
 ### 📋 ECS統合パターン
 
 #### ✅ **エンティティ・コンポーネント・システム**
+
 ```typescript
 // コンポーネント定義
 export const PositionComponentSchema = Schema.Struct({
-  type: Schema.Literal("position"),
+  type: Schema.Literal('position'),
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
-}).annotations({ identifier: "PositionComponent" })
+  z: Schema.Number,
+}).annotations({ identifier: 'PositionComponent' })
 
 export const VelocityComponentSchema = Schema.Struct({
-  type: Schema.Literal("velocity"),
+  type: Schema.Literal('velocity'),
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
-}).annotations({ identifier: "VelocityComponent" })
+  z: Schema.Number,
+}).annotations({ identifier: 'VelocityComponent' })
 
 export const HealthComponentSchema = Schema.Struct({
-  type: Schema.Literal("health"),
+  type: Schema.Literal('health'),
   current: Schema.Number.pipe(Schema.nonNegative()),
-  maximum: Schema.Number.pipe(Schema.positive())
-}).annotations({ identifier: "HealthComponent" })
+  maximum: Schema.Number.pipe(Schema.positive()),
+}).annotations({ identifier: 'HealthComponent' })
 
 // エンティティ定義
 export const EntitySchema = Schema.Struct({
   id: Schema.String.pipe(Schema.uuid()),
-  type: Schema.Literal("player", "mob", "item", "projectile"),
+  type: Schema.Literal('player', 'mob', 'item', 'projectile'),
   components: Schema.Array(
     Schema.Union(
       PositionComponentSchema,
@@ -1296,9 +1304,9 @@ export const EntitySchema = Schema.Struct({
   ),
   active: Schema.Boolean,
   world: Schema.String,
-  chunk: ChunkCoordinateSchema
+  chunk: ChunkCoordinateSchema,
 }).annotations({
-  identifier: "Entity"
+  identifier: 'Entity',
 })
 
 // ECSサービス
@@ -1309,13 +1317,21 @@ export interface EntityService {
   readonly getEntity: (id: string) => Effect.Effect<Entity, EntityNotFoundError>
 
   // コンポーネント操作
-  readonly addComponent: <T extends Component>(entityId: string, component: T) => Effect.Effect<void, EntityNotFoundError>
+  readonly addComponent: <T extends Component>(
+    entityId: string,
+    component: T
+  ) => Effect.Effect<void, EntityNotFoundError>
   readonly removeComponent: (entityId: string, componentType: string) => Effect.Effect<void, EntityNotFoundError>
-  readonly getComponent: <T extends Component>(entityId: string, componentType: string) => Effect.Effect<T | null, never>
+  readonly getComponent: <T extends Component>(
+    entityId: string,
+    componentType: string
+  ) => Effect.Effect<T | null, never>
 
   // クエリシステム
   readonly queryEntities: (query: EntityQuery) => Effect.Effect<Entity[], never>
-  readonly queryComponents: <T extends Component>(componentType: string) => Effect.Effect<Array<{ entity: Entity, component: T }>, never>
+  readonly queryComponents: <T extends Component>(
+    componentType: string
+  ) => Effect.Effect<Array<{ entity: Entity; component: T }>, never>
 
   // システム実行
   readonly runSystems: () => Effect.Effect<void, SystemError>
@@ -1327,32 +1343,34 @@ export const MovementSystem = Effect.gen(function* () {
 
   // 位置と速度を持つエンティティを取得
   const entities = yield* entityService.queryEntities({
-    all: ["position", "velocity"]
+    all: ['position', 'velocity'],
   })
 
   // 各エンティティの移動処理
-  yield* Effect.forEach(entities, (entity) => Effect.gen(function* () {
-    const position = getComponent(entity, "position") as PositionComponent
-    const velocity = getComponent(entity, "velocity") as VelocityComponent
+  yield* Effect.forEach(entities, (entity) =>
+    Effect.gen(function* () {
+      const position = getComponent(entity, 'position') as PositionComponent
+      const velocity = getComponent(entity, 'velocity') as VelocityComponent
 
-    // 新しい位置計算
-    const newPosition: PositionComponent = {
-      type: "position",
-      x: position.x + velocity.x,
-      y: position.y + velocity.y,
-      z: position.z + velocity.z
-    }
+      // 新しい位置計算
+      const newPosition: PositionComponent = {
+        type: 'position',
+        x: position.x + velocity.x,
+        y: position.y + velocity.y,
+        z: position.z + velocity.z,
+      }
 
-    // 衝突検出
-    const collision = yield* checkEntityCollision(entity, newPosition)
-    if (collision) {
-      // 衝突処理
-      yield* handleCollision(entity, collision)
-    } else {
-      // 位置更新
-      yield* entityService.addComponent(entity.id, newPosition)
-    }
-  }))
+      // 衝突検出
+      const collision = yield* checkEntityCollision(entity, newPosition)
+      if (collision) {
+        // 衝突処理
+        yield* handleCollision(entity, collision)
+      } else {
+        // 位置更新
+        yield* entityService.addComponent(entity.id, newPosition)
+      }
+    })
+  )
 })
 
 // 物理システム
@@ -1361,44 +1379,47 @@ export const PhysicsSystem = Effect.gen(function* () {
   const worldService = yield* WorldService
 
   const entities = yield* entityService.queryEntities({
-    all: ["position", "velocity"],
-    none: ["static"]
+    all: ['position', 'velocity'],
+    none: ['static'],
   })
 
-  yield* Effect.forEach(entities, (entity) => Effect.gen(function* () {
-    const position = getComponent(entity, "position") as PositionComponent
-    const velocity = getComponent(entity, "velocity") as VelocityComponent
+  yield* Effect.forEach(entities, (entity) =>
+    Effect.gen(function* () {
+      const position = getComponent(entity, 'position') as PositionComponent
+      const velocity = getComponent(entity, 'velocity') as VelocityComponent
 
-    // 重力適用
-    const gravity = -0.08 // Minecraft gravity
-    const newVelocity: VelocityComponent = {
-      ...velocity,
-      y: velocity.y + gravity
-    }
+      // 重力適用
+      const gravity = -0.08 // Minecraft gravity
+      const newVelocity: VelocityComponent = {
+        ...velocity,
+        y: velocity.y + gravity,
+      }
 
-    // 地面衝突チェック
-    const groundY = yield* getGroundLevel(position.x, position.z)
-    if (position.y <= groundY) {
-      // 地面に着地
-      newVelocity.y = 0
-      position.y = groundY
-    }
+      // 地面衝突チェック
+      const groundY = yield* getGroundLevel(position.x, position.z)
+      if (position.y <= groundY) {
+        // 地面に着地
+        newVelocity.y = 0
+        position.y = groundY
+      }
 
-    yield* entityService.addComponent(entity.id, newVelocity)
-  }))
+      yield* entityService.addComponent(entity.id, newVelocity)
+    })
+  )
 })
 ```
 
 ## 🎯 実用的統合パターン
 
 ### 🚀 **ドメインサービス統合例**
+
 ```typescript
 // ゲーム統合サービス
 export const GameService = Context.GenericTag<{
   readonly processPlayerAction: (action: PlayerAction) => Effect.Effect<void, GameError>
   readonly processGameTick: () => Effect.Effect<void, GameError>
   readonly handlePlayerJoin: (player: PlayerState) => Effect.Effect<void, GameError>
-}>()("GameService")
+}>()('GameService')
 
 export const GameServiceLive = Layer.effect(
   GameService,
@@ -1413,54 +1434,40 @@ export const GameServiceLive = Layer.effect(
         pipe(
           action,
           Match.value,
-          Match.when(
-            { type: "move" },
-            (a) => playerService.movePlayer(a.playerId, a.position)
-          ),
-          Match.when(
-            { type: "place_block" },
-            (a) => blockService.placeBlock(a.position, a.blockType, a.playerId)
-          ),
-          Match.when(
-            { type: "break_block" },
-            (a) => blockService.breakBlock(a.position, a.playerId)
-          ),
+          Match.when({ type: 'move' }, (a) => playerService.movePlayer(a.playerId, a.position)),
+          Match.when({ type: 'place_block' }, (a) => blockService.placeBlock(a.position, a.blockType, a.playerId)),
+          Match.when({ type: 'break_block' }, (a) => blockService.breakBlock(a.position, a.playerId)),
           Match.exhaustive
         ),
 
-      processGameTick: () => Effect.gen(function* () {
-        // ECSシステム実行
-        yield* entityService.runSystems()
+      processGameTick: () =>
+        Effect.gen(function* () {
+          // ECSシステム実行
+          yield* entityService.runSystems()
 
-        // ワールド更新（物理、レッドストーンなど）
-        yield* processWorldTick()
+          // ワールド更新（物理、レッドストーンなど）
+          yield* processWorldTick()
 
-        // プレイヤー状態更新
-        yield* processPlayerTicks()
-      }),
+          // プレイヤー状態更新
+          yield* processPlayerTicks()
+        }),
 
-      handlePlayerJoin: (player) => Effect.gen(function* () {
-        // プレイヤー登録
-        yield* playerService.updatePlayer(player)
+      handlePlayerJoin: (player) =>
+        Effect.gen(function* () {
+          // プレイヤー登録
+          yield* playerService.updatePlayer(player)
 
-        // スポーン地点周辺チャンク読み込み
-        const spawnChunks = getChunksAroundPosition(
-          player.position,
-          RENDER_DISTANCE
-        )
+          // スポーン地点周辺チャンク読み込み
+          const spawnChunks = getChunksAroundPosition(player.position, RENDER_DISTANCE)
 
-        yield* Effect.forEach(
-          spawnChunks,
-          (coord) => worldService.loadChunk(coord),
-          { concurrency: 8 }
-        )
+          yield* Effect.forEach(spawnChunks, (coord) => worldService.loadChunk(coord), { concurrency: 8 })
 
-        // プレイヤーエンティティ作成
-        yield* entityService.createEntity("player", [
-          { type: "position", ...player.position },
-          { type: "health", current: player.health, maximum: 20 }
-        ])
-      })
+          // プレイヤーエンティティ作成
+          yield* entityService.createEntity('player', [
+            { type: 'position', ...player.position },
+            { type: 'health', current: player.health, maximum: 20 },
+          ])
+        }),
     })
   })
 )
@@ -1479,4 +1486,4 @@ export const GameServiceLive = Layer.effect(
 
 ---
 
-*📍 現在のドキュメント階層*: **[Home](../../../README.md)** → **[Reference](../README.md)** → **[API Reference](./README.md)** → **Domain APIs**
+_📍 現在のドキュメント階層_: **[Home](../../../README.md)** → **[Reference](../README.md)** → **[API Reference](./README.md)** → **Domain APIs**

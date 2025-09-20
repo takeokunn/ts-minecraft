@@ -1,13 +1,12 @@
 ---
-title: "04 Security Specification"
-description: "04 Security Specificationに関する詳細な説明とガイド。"
-category: "specification"
-difficulty: "intermediate"
-tags: ["typescript", "minecraft", "specification"]
-prerequisites: ["basic-typescript"]
-estimated_reading_time: "15分"
+title: '04 Security Specification'
+description: '04 Security Specificationに関する詳細な説明とガイド。'
+category: 'specification'
+difficulty: 'intermediate'
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: '15分'
 ---
-
 
 # セキュリティ仕様
 
@@ -20,7 +19,7 @@ TypeScript Minecraftのセキュリティ実装仕様です。入力検証、サ
 ### クライアント入力の検証
 
 ```typescript
-import { Schema, Effect, pipe } from "effect"
+import { Schema, Effect, pipe } from 'effect'
 
 // 入力検証スキーマ
 export const PlayerInputSchema = Schema.Struct({
@@ -29,54 +28,39 @@ export const PlayerInputSchema = Schema.Struct({
     x: Schema.Number.pipe(
       Schema.clamp(-1, 1) // 正規化された値のみ許可
     ),
-    y: Schema.Number.pipe(
-      Schema.clamp(-1, 1)
-    ),
-    z: Schema.Number.pipe(
-      Schema.clamp(-1, 1)
-    )
+    y: Schema.Number.pipe(Schema.clamp(-1, 1)),
+    z: Schema.Number.pipe(Schema.clamp(-1, 1)),
   }),
 
   // 回転入力
   rotation: Schema.Struct({
-    yaw: Schema.Number.pipe(
-      Schema.clamp(-180, 180)
-    ),
-    pitch: Schema.Number.pipe(
-      Schema.clamp(-90, 90)
-    )
+    yaw: Schema.Number.pipe(Schema.clamp(-180, 180)),
+    pitch: Schema.Number.pipe(Schema.clamp(-90, 90)),
   }),
 
   // アクション入力
-  action: Schema.optional(
-    Schema.Literal(
-      'attack',
-      'use',
-      'jump',
-      'sneak',
-      'sprint'
-    )
-  ),
+  action: Schema.optional(Schema.Literal('attack', 'use', 'jump', 'sneak', 'sprint')),
 
   // タイムスタンプ（リプレイ攻撃防止）
   timestamp: Schema.Number.pipe(
-    Schema.filter(ts => {
+    Schema.filter((ts) => {
       const now = Date.now()
       const diff = Math.abs(now - ts)
       return diff < 5000 // 5秒以内のみ有効
     })
-  )
+  ),
 })
 
 // 入力検証ミドルウェア
-export const validateInput = <T>(schema: Schema.Schema<T>) =>
+export const validateInput =
+  <T>(schema: Schema.Schema<T>) =>
   (input: unknown) =>
     pipe(
       Schema.decodeUnknownSync(schema)(input),
-      Effect.mapError(error => ({
+      Effect.mapError((error) => ({
         type: 'ValidationError',
         message: 'Invalid input',
-        details: error
+        details: error,
       }))
     )
 ```
@@ -90,32 +74,24 @@ export const CommandSchema = Schema.Struct({
     Schema.minLength(1),
     Schema.maxLength(256),
     // 危険な文字のエスケープ
-    Schema.transform(
-      Schema.String,
-      Schema.String,
-      {
-        decode: (str) => sanitizeCommand(str),
-        encode: (str) => str
-      }
-    )
+    Schema.transform(Schema.String, Schema.String, {
+      decode: (str) => sanitizeCommand(str),
+      encode: (str) => str,
+    })
   ),
 
   args: Schema.Array(
     Schema.String.pipe(
       Schema.maxLength(100),
       // 引数のサニタイゼーション
-      Schema.transform(
-        Schema.String,
-        Schema.String,
-        {
-          decode: (str) => sanitizeArgument(str),
-          encode: (str) => str
-        }
-      )
+      Schema.transform(Schema.String, Schema.String, {
+        decode: (str) => sanitizeArgument(str),
+        encode: (str) => str,
+      })
     )
   ).pipe(
     Schema.maxItems(10) // 最大引数数制限
-  )
+  ),
 })
 
 // サニタイゼーション関数
@@ -139,25 +115,27 @@ const sanitizeArgument = (input: string): string => {
 ### 移動速度検証
 
 ```typescript
-export const AntiCheatService = Context.GenericTag<AntiCheatService, {
-  validateMovement: (params: {
-    playerId: string
-    from: Position
-    to: Position
-    deltaTime: number
-  }) => Effect.Effect<boolean, CheatDetectionError>
-
-  validateAction: (params: {
-    playerId: string
-    action: PlayerAction
-    target?: Position
-  }) => Effect.Effect<boolean, CheatDetectionError>
-}>('AntiCheatService')
-
-export const AntiCheatServiceLive = Layer.succeed(
+export const AntiCheatService = Context.GenericTag<
   AntiCheatService,
   {
-    validateMovement: (params) => Effect.gen(function* () {
+    validateMovement: (params: {
+      playerId: string
+      from: Position
+      to: Position
+      deltaTime: number
+    }) => Effect.Effect<boolean, CheatDetectionError>
+
+    validateAction: (params: {
+      playerId: string
+      action: PlayerAction
+      target?: Position
+    }) => Effect.Effect<boolean, CheatDetectionError>
+  }
+>('AntiCheatService')
+
+export const AntiCheatServiceLive = Layer.succeed(AntiCheatService, {
+  validateMovement: (params) =>
+    Effect.gen(function* () {
       const { from, to, deltaTime } = params
 
       // 最大移動速度の計算
@@ -166,11 +144,12 @@ export const AntiCheatServiceLive = Layer.succeed(
       const maxDistance = maxSpeed * (deltaTime / 1000)
 
       // 速度違反チェック
-      if (distance > maxDistance * 1.1) { // 10%の余裕
+      if (distance > maxDistance * 1.1) {
+        // 10%の余裕
         yield* logCheatAttempt({
           playerId: params.playerId,
           type: 'SpeedHack',
-          details: { distance, maxDistance, deltaTime }
+          details: { distance, maxDistance, deltaTime },
         })
         return false
       }
@@ -183,7 +162,7 @@ export const AntiCheatServiceLive = Layer.succeed(
         yield* logCheatAttempt({
           playerId: params.playerId,
           type: 'NoClip',
-          details: { from, to, collision }
+          details: { from, to, collision },
         })
         return false
       }
@@ -198,7 +177,7 @@ export const AntiCheatServiceLive = Layer.succeed(
           yield* logCheatAttempt({
             playerId: params.playerId,
             type: 'Fly',
-            details: { jumpHeight, maxJumpHeight: MAX_JUMP_HEIGHT }
+            details: { jumpHeight, maxJumpHeight: MAX_JUMP_HEIGHT },
           })
           return false
         }
@@ -207,7 +186,8 @@ export const AntiCheatServiceLive = Layer.succeed(
       return true
     }),
 
-    validateAction: (params) => Effect.gen(function* () {
+  validateAction: (params) =>
+    Effect.gen(function* () {
       const { playerId, action, target } = params
 
       // リーチ距離チェック
@@ -220,7 +200,7 @@ export const AntiCheatServiceLive = Layer.succeed(
           yield* logCheatAttempt({
             playerId,
             type: 'Reach',
-            details: { distance, maxReach, action }
+            details: { distance, maxReach, action },
           })
           return false
         }
@@ -234,63 +214,61 @@ export const AntiCheatServiceLive = Layer.succeed(
         yield* logCheatAttempt({
           playerId,
           type: 'AutoClick',
-          details: { actionRate, maxRate, action }
+          details: { actionRate, maxRate, action },
         })
         return false
       }
 
       return true
-    })
-  }
-)
+    }),
+})
 ```
 
 ### インベントリ検証
 
 ```typescript
 // アイテム複製防止
-export const validateInventoryTransaction = (
-  transaction: InventoryTransaction
-) => Effect.gen(function* () {
-  const { from, to, item, amount } = transaction
+export const validateInventoryTransaction = (transaction: InventoryTransaction) =>
+  Effect.gen(function* () {
+    const { from, to, item, amount } = transaction
 
-  // アイテムの存在確認
-  const sourceItem = yield* getSlotItem(from)
-  if (!sourceItem || sourceItem.id !== item.id) {
-    yield* Effect.fail(new InvalidTransactionError('Item mismatch'))
-  }
+    // アイテムの存在確認
+    const sourceItem = yield* getSlotItem(from)
+    if (!sourceItem || sourceItem.id !== item.id) {
+      yield* Effect.fail(new InvalidTransactionError('Item mismatch'))
+    }
 
-  // 数量チェック
-  if (amount > sourceItem.count) {
-    yield* logCheatAttempt({
-      playerId: transaction.playerId,
-      type: 'ItemDupe',
-      details: { requested: amount, available: sourceItem.count }
-    })
-    yield* Effect.fail(new InvalidTransactionError('Insufficient items'))
-  }
+    // 数量チェック
+    if (amount > sourceItem.count) {
+      yield* logCheatAttempt({
+        playerId: transaction.playerId,
+        type: 'ItemDupe',
+        details: { requested: amount, available: sourceItem.count },
+      })
+      yield* Effect.fail(new InvalidTransactionError('Insufficient items'))
+    }
 
-  // スタック制限チェック
-  const maxStack = getMaxStackSize(item.id)
-  if (amount > maxStack) {
-    yield* Effect.fail(new InvalidTransactionError('Stack size exceeded'))
-  }
+    // スタック制限チェック
+    const maxStack = getMaxStackSize(item.id)
+    if (amount > maxStack) {
+      yield* Effect.fail(new InvalidTransactionError('Stack size exceeded'))
+    }
 
-  // トランザクションIDで重複防止
-  const transactionId = generateTransactionId(transaction)
-  const isDuplicate = yield* checkTransactionDuplicate(transactionId)
+    // トランザクションIDで重複防止
+    const transactionId = generateTransactionId(transaction)
+    const isDuplicate = yield* checkTransactionDuplicate(transactionId)
 
-  if (isDuplicate) {
-    yield* logCheatAttempt({
-      playerId: transaction.playerId,
-      type: 'TransactionReplay',
-      details: { transactionId }
-    })
-    yield* Effect.fail(new DuplicateTransactionError())
-  }
+    if (isDuplicate) {
+      yield* logCheatAttempt({
+        playerId: transaction.playerId,
+        type: 'TransactionReplay',
+        details: { transactionId },
+      })
+      yield* Effect.fail(new DuplicateTransactionError())
+    }
 
-  return true
-})
+    return true
+  })
 ```
 
 ## データ暗号化
@@ -298,22 +276,20 @@ export const validateInventoryTransaction = (
 ### ワールドデータ暗号化
 
 ```typescript
-export const EncryptionService = Context.GenericTag<EncryptionService, {
-  encryptWorld: (
-    data: WorldData
-  ) => Effect.Effect<EncryptedData, EncryptionError>
-
-  decryptWorld: (
-    encrypted: EncryptedData
-  ) => Effect.Effect<WorldData, DecryptionError>
-
-  generateKey: () => Effect.Effect<CryptoKey, KeyGenerationError>
-}>('EncryptionService')
-
-export const EncryptionServiceLive = Layer.succeed(
+export const EncryptionService = Context.GenericTag<
   EncryptionService,
   {
-    encryptWorld: (data) => Effect.gen(function* () {
+    encryptWorld: (data: WorldData) => Effect.Effect<EncryptedData, EncryptionError>
+
+    decryptWorld: (encrypted: EncryptedData) => Effect.Effect<WorldData, DecryptionError>
+
+    generateKey: () => Effect.Effect<CryptoKey, KeyGenerationError>
+  }
+>('EncryptionService')
+
+export const EncryptionServiceLive = Layer.succeed(EncryptionService, {
+  encryptWorld: (data) =>
+    Effect.gen(function* () {
       // データシリアライズ
       const serialized = yield* serializeWorldData(data)
 
@@ -326,7 +302,7 @@ export const EncryptionServiceLive = Layer.succeed(
         crypto.subtle.encrypt(
           {
             name: 'AES-GCM',
-            iv: iv
+            iv: iv,
           },
           key,
           serialized
@@ -341,11 +317,12 @@ export const EncryptionServiceLive = Layer.succeed(
         iv: iv,
         mac: mac,
         algorithm: 'AES-GCM',
-        version: 1
+        version: 1,
       }
     }),
 
-    decryptWorld: (encrypted) => Effect.gen(function* () {
+  decryptWorld: (encrypted) =>
+    Effect.gen(function* () {
       // MAC検証
       const calculatedMac = yield* calculateHMAC(encrypted.data)
       if (!timingSafeEqual(calculatedMac, encrypted.mac)) {
@@ -360,7 +337,7 @@ export const EncryptionServiceLive = Layer.succeed(
         crypto.subtle.decrypt(
           {
             name: 'AES-GCM',
-            iv: encrypted.iv
+            iv: encrypted.iv,
           },
           key,
           encrypted.data
@@ -371,18 +348,18 @@ export const EncryptionServiceLive = Layer.succeed(
       return yield* deserializeWorldData(new Uint8Array(decrypted))
     }),
 
-    generateKey: () => Effect.promise(() =>
+  generateKey: () =>
+    Effect.promise(() =>
       crypto.subtle.generateKey(
         {
           name: 'AES-GCM',
-          length: 256
+          length: 256,
         },
         true,
         ['encrypt', 'decrypt']
       )
-    )
-  }
-)
+    ),
+})
 ```
 
 ### 通信暗号化
@@ -390,37 +367,34 @@ export const EncryptionServiceLive = Layer.succeed(
 ```typescript
 // TLS/WebSocket Secure
 export const SecureWebSocketService = {
-  connect: (url: string) => Effect.gen(function* () {
-    // WSS接続強制
-    if (!url.startsWith('wss://')) {
-      yield* Effect.fail(new InsecureConnectionError())
-    }
+  connect: (url: string) =>
+    Effect.gen(function* () {
+      // WSS接続強制
+      if (!url.startsWith('wss://')) {
+        yield* Effect.fail(new InsecureConnectionError())
+      }
 
-    // 証明書検証
-    const ws = new WebSocket(url)
+      // 証明書検証
+      const ws = new WebSocket(url)
 
-    // ハンドシェイク
-    yield* performSecureHandshake(ws)
+      // ハンドシェイク
+      yield* performSecureHandshake(ws)
 
-    // セッション鍵交換
-    const sessionKey = yield* exchangeSessionKey(ws)
+      // セッション鍵交換
+      const sessionKey = yield* exchangeSessionKey(ws)
 
-    return {
-      send: (data: Uint8Array) =>
-        encryptAndSend(ws, data, sessionKey),
+      return {
+        send: (data: Uint8Array) => encryptAndSend(ws, data, sessionKey),
 
-      receive: () =>
-        Stream.async<Uint8Array>((emit) => {
-          ws.onmessage = async (event) => {
-            const decrypted = await decryptMessage(
-              event.data,
-              sessionKey
-            )
-            emit(Effect.succeed(Chunk.of(decrypted)))
-          }
-        })
-    }
-  })
+        receive: () =>
+          Stream.async<Uint8Array>((emit) => {
+            ws.onmessage = async (event) => {
+              const decrypted = await decryptMessage(event.data, sessionKey)
+              emit(Effect.succeed(Chunk.of(decrypted)))
+            }
+          }),
+      }
+    }),
 }
 ```
 
@@ -430,65 +404,67 @@ export const SecureWebSocketService = {
 
 ```typescript
 export const SessionManager = {
-  createSession: (playerId: string) => Effect.gen(function* () {
-    // セッショントークン生成
-    const token = yield* generateSecureToken()
-    const sessionId = yield* generateSessionId()
+  createSession: (playerId: string) =>
+    Effect.gen(function* () {
+      // セッショントークン生成
+      const token = yield* generateSecureToken()
+      const sessionId = yield* generateSessionId()
 
-    // セッション情報
-    const session: Session = {
-      id: sessionId,
-      playerId,
-      token,
-      createdAt: Date.now(),
-      expiresAt: Date.now() + SESSION_DURATION,
-      ipAddress: yield* getClientIP(),
-      userAgent: yield* getUserAgent()
-    }
+      // セッション情報
+      const session: Session = {
+        id: sessionId,
+        playerId,
+        token,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + SESSION_DURATION,
+        ipAddress: yield* getClientIP(),
+        userAgent: yield* getUserAgent(),
+      }
 
-    // セッション保存（メモリ + Redis）
-    yield* storeSession(session)
+      // セッション保存（メモリ + Redis）
+      yield* storeSession(session)
 
-    // セッション固定攻撃対策
-    yield* regenerateSessionId(session)
+      // セッション固定攻撃対策
+      yield* regenerateSessionId(session)
 
-    return {
-      sessionId,
-      token,
-      expiresIn: SESSION_DURATION
-    }
-  }),
+      return {
+        sessionId,
+        token,
+        expiresIn: SESSION_DURATION,
+      }
+    }),
 
-  validateSession: (token: string) => Effect.gen(function* () {
-    const session = yield* getSessionByToken(token)
+  validateSession: (token: string) =>
+    Effect.gen(function* () {
+      const session = yield* getSessionByToken(token)
 
-    if (!session) {
-      yield* Effect.fail(new InvalidSessionError())
-    }
+      if (!session) {
+        yield* Effect.fail(new InvalidSessionError())
+      }
 
-    // 有効期限チェック
-    if (session.expiresAt < Date.now()) {
-      yield* destroySession(session.id)
-      yield* Effect.fail(new SessionExpiredError())
-    }
+      // 有効期限チェック
+      if (session.expiresAt < Date.now()) {
+        yield* destroySession(session.id)
+        yield* Effect.fail(new SessionExpiredError())
+      }
 
-    // IPアドレス検証（セッションハイジャック対策）
-    const currentIP = yield* getClientIP()
-    if (session.ipAddress !== currentIP) {
-      yield* logSecurityEvent({
-        type: 'SessionHijackAttempt',
-        sessionId: session.id,
-        originalIP: session.ipAddress,
-        currentIP
-      })
-      yield* Effect.fail(new SessionHijackError())
-    }
+      // IPアドレス検証（セッションハイジャック対策）
+      const currentIP = yield* getClientIP()
+      if (session.ipAddress !== currentIP) {
+        yield* logSecurityEvent({
+          type: 'SessionHijackAttempt',
+          sessionId: session.id,
+          originalIP: session.ipAddress,
+          currentIP,
+        })
+        yield* Effect.fail(new SessionHijackError())
+      }
 
-    // セッション更新
-    yield* updateSessionActivity(session.id)
+      // セッション更新
+      yield* updateSessionActivity(session.id)
 
-    return session
-  })
+      return session
+    }),
 }
 ```
 
@@ -499,59 +475,59 @@ export const SessionManager = {
 ```typescript
 export const RateLimiter = {
   // トークンバケットアルゴリズム
-  createLimiter: (config: RateLimitConfig) => Effect.gen(function* () {
-    const buckets = new Map<string, TokenBucket>()
+  createLimiter: (config: RateLimitConfig) =>
+    Effect.gen(function* () {
+      const buckets = new Map<string, TokenBucket>()
 
-    return {
-      checkLimit: (clientId: string) => Effect.gen(function* () {
-        let bucket = buckets.get(clientId)
+      return {
+        checkLimit: (clientId: string) =>
+          Effect.gen(function* () {
+            let bucket = buckets.get(clientId)
 
-        if (!bucket) {
-          bucket = {
-            tokens: config.burstLimit,
-            lastRefill: Date.now()
-          }
-          buckets.set(clientId, bucket)
-        }
+            if (!bucket) {
+              bucket = {
+                tokens: config.burstLimit,
+                lastRefill: Date.now(),
+              }
+              buckets.set(clientId, bucket)
+            }
 
-        // トークン補充
-        const now = Date.now()
-        const timePassed = now - bucket.lastRefill
-        const tokensToAdd = Math.floor(
-          timePassed / 1000 * config.refillRate
-        )
+            // トークン補充
+            const now = Date.now()
+            const timePassed = now - bucket.lastRefill
+            const tokensToAdd = Math.floor((timePassed / 1000) * config.refillRate)
 
-        bucket.tokens = Math.min(
-          config.burstLimit,
-          bucket.tokens + tokensToAdd
-        )
-        bucket.lastRefill = now
+            bucket.tokens = Math.min(config.burstLimit, bucket.tokens + tokensToAdd)
+            bucket.lastRefill = now
 
-        // トークン消費
-        if (bucket.tokens < 1) {
-          yield* Effect.fail(new RateLimitExceededError({
-            retryAfter: Math.ceil(1000 / config.refillRate)
-          }))
-        }
+            // トークン消費
+            if (bucket.tokens < 1) {
+              yield* Effect.fail(
+                new RateLimitExceededError({
+                  retryAfter: Math.ceil(1000 / config.refillRate),
+                })
+              )
+            }
 
-        bucket.tokens--
-        return true
-      }),
+            bucket.tokens--
+            return true
+          }),
 
-      // DDoS対策
-      checkGlobalLimit: () => Effect.gen(function* () {
-        const globalRate = yield* getGlobalRequestRate()
+        // DDoS対策
+        checkGlobalLimit: () =>
+          Effect.gen(function* () {
+            const globalRate = yield* getGlobalRequestRate()
 
-        if (globalRate > config.globalMaxRate) {
-          // 緊急モード有効化
-          yield* enableEmergencyMode()
-          yield* Effect.fail(new GlobalRateLimitError())
-        }
+            if (globalRate > config.globalMaxRate) {
+              // 緊急モード有効化
+              yield* enableEmergencyMode()
+              yield* Effect.fail(new GlobalRateLimitError())
+            }
 
-        return true
-      })
-    }
-  })
+            return true
+          }),
+      }
+    }),
 }
 ```
 
@@ -561,56 +537,58 @@ export const RateLimiter = {
 
 ```typescript
 export const SecurityAuditor = {
-  logEvent: (event: SecurityEvent) => Effect.gen(function* () {
-    const enrichedEvent = {
-      ...event,
-      timestamp: Date.now(),
-      serverVersion: SERVER_VERSION,
-      environment: ENVIRONMENT
-    }
+  logEvent: (event: SecurityEvent) =>
+    Effect.gen(function* () {
+      const enrichedEvent = {
+        ...event,
+        timestamp: Date.now(),
+        serverVersion: SERVER_VERSION,
+        environment: ENVIRONMENT,
+      }
 
-    // ログ保存（複数の宛先）
-    yield* Effect.all([
-      writeToFile(enrichedEvent),
-      sendToSIEM(enrichedEvent),
-      storeInDatabase(enrichedEvent)
-    ], { concurrency: 3 })
-
-    // 重要度に応じてアラート
-    if (event.severity === 'critical') {
-      yield* sendAlert({
-        type: 'SecurityAlert',
-        event: enrichedEvent,
-        recipients: ['admin@example.com']
+      // ログ保存（複数の宛先）
+      yield* Effect.all([writeToFile(enrichedEvent), sendToSIEM(enrichedEvent), storeInDatabase(enrichedEvent)], {
+        concurrency: 3,
       })
-    }
 
-    // 統計更新
-    yield* updateSecurityMetrics(event.type)
-  }),
+      // 重要度に応じてアラート
+      if (event.severity === 'critical') {
+        yield* sendAlert({
+          type: 'SecurityAlert',
+          event: enrichedEvent,
+          recipients: ['admin@example.com'],
+        })
+      }
+
+      // 統計更新
+      yield* updateSecurityMetrics(event.type)
+    }),
 
   // 異常検知
-  detectAnomalies: () => Stream.periodic(Duration.minutes(1)).pipe(
-    Stream.mapEffect(() => Effect.gen(function* () {
-      const recentEvents = yield* getRecentSecurityEvents()
+  detectAnomalies: () =>
+    Stream.periodic(Duration.minutes(1)).pipe(
+      Stream.mapEffect(() =>
+        Effect.gen(function* () {
+          const recentEvents = yield* getRecentSecurityEvents()
 
-      // パターン分析
-      const patterns = analyzePatterns(recentEvents)
+          // パターン分析
+          const patterns = analyzePatterns(recentEvents)
 
-      for (const pattern of patterns) {
-        if (pattern.isAnomaly) {
-          yield* logEvent({
-            type: 'AnomalyDetected',
-            severity: 'high',
-            details: pattern
-          })
+          for (const pattern of patterns) {
+            if (pattern.isAnomaly) {
+              yield* logEvent({
+                type: 'AnomalyDetected',
+                severity: 'high',
+                details: pattern,
+              })
 
-          // 自動対応
-          yield* applySecurityPolicy(pattern)
-        }
-      }
-    }))
-  )
+              // 自動対応
+              yield* applySecurityPolicy(pattern)
+            }
+          }
+        })
+      )
+    ),
 }
 ```
 
@@ -622,13 +600,13 @@ export const contentSecurityPolicy = {
   'default-src': ["'self'"],
   'script-src': ["'self'", "'wasm-unsafe-eval'"],
   'style-src': ["'self'", "'unsafe-inline'"],
-  'img-src': ["'self'", "data:", "blob:"],
-  'connect-src': ["'self'", "wss://game.example.com"],
-  'worker-src': ["'self'", "blob:"],
+  'img-src': ["'self'", 'data:', 'blob:'],
+  'connect-src': ["'self'", 'wss://game.example.com'],
+  'worker-src': ["'self'", 'blob:'],
   'object-src': ["'none'"],
   'base-uri': ["'self'"],
   'form-action': ["'self'"],
   'frame-ancestors': ["'none'"],
-  'upgrade-insecure-requests': []
+  'upgrade-insecure-requests': [],
 }
 ```

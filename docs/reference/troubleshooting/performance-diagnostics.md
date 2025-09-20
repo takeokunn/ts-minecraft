@@ -1,13 +1,13 @@
 ---
-title: "パフォーマンス診断ガイド - 実践的問題解決リファレンス"
-description: "TypeScript Minecraft開発におけるパフォーマンス問題の完全診断ガイド。Three.js、Effect-TS、ブラウザ最適化の実践的なデバッグとチューニング手法。"
-category: "troubleshooting"
-difficulty: "advanced"
-tags: ["performance", "diagnostics", "three.js", "effect-ts", "optimization", "debugging", "profiling"]
-prerequisites: ["basic-performance-concepts", "browser-dev-tools", "three.js-basics", "effect-ts-fundamentals"]
-estimated_reading_time: "35-45分"
-dependencies: ["../configuration/development-config.md"]
-status: "complete"
+title: 'パフォーマンス診断ガイド - 実践的問題解決リファレンス'
+description: 'TypeScript Minecraft開発におけるパフォーマンス問題の完全診断ガイド。Three.js、Effect-TS、ブラウザ最適化の実践的なデバッグとチューニング手法。'
+category: 'troubleshooting'
+difficulty: 'advanced'
+tags: ['performance', 'diagnostics', 'three.js', 'effect-ts', 'optimization', 'debugging', 'profiling']
+prerequisites: ['basic-performance-concepts', 'browser-dev-tools', 'three.js-basics', 'effect-ts-fundamentals']
+estimated_reading_time: '35-45分'
+dependencies: ['../configuration/development-config.md']
+status: 'complete'
 ---
 
 # パフォーマンス診断ガイド - 実践的問題解決リファレンス
@@ -66,14 +66,14 @@ flowchart TD
 
 ### 🔍 **重要度・影響度マトリックス**
 
-| 問題タイプ | ユーザー影響度 | 開発効率影響度 | 診断優先度 | 解決時間目安 |
-|-----------|----------------|---------------|-------------|-------------|
-| **FPS 30未満** | 🔴 Critical | 🟡 Medium | P0 | 4-8時間 |
-| **初回読み込み5秒以上** | 🔴 Critical | 🟡 Medium | P0 | 2-4時間 |
-| **メモリ使用量1GB以上** | 🟠 High | 🟠 High | P1 | 6-12時間 |
-| **UI応答300ms以上** | 🟠 High | 🟡 Medium | P1 | 2-6時間 |
-| **開発サーバー起動遅延** | 🟡 Medium | 🔴 Critical | P1 | 1-3時間 |
-| **型チェック遅延** | 🟢 Low | 🟠 High | P2 | 2-4時間 |
+| 問題タイプ               | ユーザー影響度 | 開発効率影響度 | 診断優先度 | 解決時間目安 |
+| ------------------------ | -------------- | -------------- | ---------- | ------------ |
+| **FPS 30未満**           | 🔴 Critical    | 🟡 Medium      | P0         | 4-8時間      |
+| **初回読み込み5秒以上**  | 🔴 Critical    | 🟡 Medium      | P0         | 2-4時間      |
+| **メモリ使用量1GB以上**  | 🟠 High        | 🟠 High        | P1         | 6-12時間     |
+| **UI応答300ms以上**      | 🟠 High        | 🟡 Medium      | P1         | 2-6時間      |
+| **開発サーバー起動遅延** | 🟡 Medium      | 🔴 Critical    | P1         | 1-3時間      |
+| **型チェック遅延**       | 🟢 Low         | 🟠 High        | P2         | 2-4時間      |
 
 ## 🎮 レンダリングパフォーマンス診断
 
@@ -989,7 +989,7 @@ export const solveLowFPSProblem = Effect.gen(function* () {
     'occlusion_culling',
     'instanced_rendering',
     'texture_atlasing',
-    'geometry_merging'
+    'geometry_merging',
   ])
 
   // Step 3: 検証
@@ -1000,12 +1000,13 @@ export const solveLowFPSProblem = Effect.gen(function* () {
   return postOptimizationFPS
 })
 
-const runBasicFPSDiagnostics = () => Effect.succeed({
-  drawCalls: 1200, // Example value
-  triangleCount: 150000,
-  shaderComplexity: 0.9,
-  memoryUsage: 800 * 1024 * 1024
-})
+const runBasicFPSDiagnostics = () =>
+  Effect.succeed({
+    drawCalls: 1200, // Example value
+    triangleCount: 150000,
+    shaderComplexity: 0.9,
+    memoryUsage: 800 * 1024 * 1024,
+  })
 
 const optimizeDrawCalls = () =>
   Effect.gen(function* () {
@@ -1064,7 +1065,7 @@ const measureFPS = (durationMs: number) =>
   Effect.succeed({
     averageFPS: 58.5, // Example result
     minFPS: 45.2,
-    stability: 'good' as const
+    stability: 'good' as const,
   })
 ```
 
@@ -1110,16 +1111,17 @@ export const solveMemoryLeakProblem = Effect.gen(function* () {
   return postFixMemory
 })
 
-const analyzeMemoryUsage = () => Effect.succeed({
-  threeJsLeaks: {
-    geometries: 75,
-    textures: 15,
-    materials: 30
-  },
-  domLeaks: 150,
-  effectTsLeaks: 5,
-  totalLeakSize: 50 * 1024 * 1024 // 50MB
-})
+const analyzeMemoryUsage = () =>
+  Effect.succeed({
+    threeJsLeaks: {
+      geometries: 75,
+      textures: 15,
+      materials: 30,
+    },
+    domLeaks: 150,
+    effectTsLeaks: 5,
+    totalLeakSize: 50 * 1024 * 1024, // 50MB
+  })
 
 const fixGeometryLeaks = () =>
   Effect.gen(function* () {
@@ -1188,9 +1190,9 @@ const measureMemoryUsage = (durationMs: number) =>
     heapTotal: 250 * 1024 * 1024,
     objectCounts: {
       geometries: 25, // reduced
-      textures: 8,    // reduced
-      domNodes: 450   // reduced
-    }
+      textures: 8, // reduced
+      domNodes: 450, // reduced
+    },
   })
 ```
 
@@ -1493,6 +1495,7 @@ if (import.meta.env.PROD) {
 #### **Q1: ブラウザが頻繁にクラッシュする**
 
 **A1: メモリ不足が原因の可能性**
+
 ```bash
 # 即座の対処法
 1. ブラウザの他のタブを閉じる
@@ -1508,6 +1511,7 @@ if (import.meta.env.PROD) {
 #### **Q2: 開発サーバーのHMRが動作しない**
 
 **A2: ファイル監視の問題**
+
 ```bash
 # 即座の対処法
 1. rm -rf node_modules/.vite
@@ -1523,6 +1527,7 @@ if (import.meta.env.PROD) {
 #### **Q3: Effect-TSでのメモリリーク**
 
 **A3: Scope/Resource管理の問題**
+
 ```typescript
 // ❌ 問題のあるコード
 const badEffect = Effect.gen(function* () {
@@ -1545,10 +1550,11 @@ const goodEffect = Effect.gen(function* () {
 #### **Q4: Three.jsレンダリングが重い**
 
 **A4: 段階的最適化アプローチ**
+
 ```typescript
 // 1. フラスタムカリング
 camera.frustum.setFromProjectionMatrix(camera.projectionMatrix)
-objects.forEach(obj => {
+objects.forEach((obj) => {
   obj.visible = camera.frustum.intersectsBox(obj.boundingBox)
 })
 
@@ -1565,12 +1571,14 @@ const instancedMesh = new THREE.InstancedMesh(geometry, material, count)
 ## 📚 関連リソース
 
 ### **外部ツール・リファレンス**
+
 - [Chrome DevTools Performance](https://developers.google.com/web/tools/chrome-devtools/performance)
 - [Three.js Performance Tips](https://threejs.org/docs/index.html#manual/en/introduction/Performance-tips)
 - [Effect-TS Performance Guide](https://effect.website/docs/performance)
 - [WebGL Memory Management](https://webgl2fundamentals.org/webgl/lessons/webgl-memory.html)
 
 ### **プロジェクト内ドキュメント**
+
 - [Development Configuration](../configuration/development-config.md)
 - [Three.js Integration Guide](../integration/threejs-integration.md)
 - [Effect-TS Best Practices](../patterns/effect-ts-patterns.md)
@@ -1588,4 +1596,4 @@ const instancedMesh = new THREE.InstancedMesh(geometry, material, count)
 
 ---
 
-*📍 ドキュメント階層*: **[Home](../../../README.md)** → **[Reference](../README.md)** → **[Troubleshooting](./README.md)** → **Performance Diagnostics**
+_📍 ドキュメント階層_: **[Home](../../../README.md)** → **[Reference](../README.md)** → **[Troubleshooting](./README.md)** → **Performance Diagnostics**

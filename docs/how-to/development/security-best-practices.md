@@ -1,20 +1,26 @@
 ---
-title: "TypeScript Minecraft Clone セキュリティベストプラクティス"
-description: "Effect-TS・関数型プログラミングを活用したセキュアなゲーム開発のための実践ガイド"
-category: "development"
-difficulty: "intermediate"
-tags: ["security", "effect-ts", "input-validation", "xss-prevention", "data-protection"]
-prerequisites: ["typescript-intermediate", "effect-ts-basics", "web-security-basics"]
-estimated_reading_time: "25分"
-related_docs: ["./development-conventions.md", "../../explanations/architecture/security-specification.md", "../testing/comprehensive-testing-strategy.md"]
+title: 'TypeScript Minecraft Clone セキュリティベストプラクティス'
+description: 'Effect-TS・関数型プログラミングを活用したセキュアなゲーム開発のための実践ガイド'
+category: 'development'
+difficulty: 'intermediate'
+tags: ['security', 'effect-ts', 'input-validation', 'xss-prevention', 'data-protection']
+prerequisites: ['typescript-intermediate', 'effect-ts-basics', 'web-security-basics']
+estimated_reading_time: '25分'
+related_docs:
+  [
+    './development-conventions.md',
+    '../../explanations/architecture/security-specification.md',
+    '../testing/comprehensive-testing-strategy.md',
+  ]
 ai_context:
-  primary_concepts: ["secure-coding", "input-validation", "xss-prevention", "effect-ts-security", "client-side-security"]
+  primary_concepts:
+    ['secure-coding', 'input-validation', 'xss-prevention', 'effect-ts-security', 'client-side-security']
   complexity_level: 3
-  learning_outcomes: ["セキュア開発手法", "脆弱性対策", "Effect-TS安全パターン", "セキュリティテスト"]
+  learning_outcomes: ['セキュア開発手法', '脆弱性対策', 'Effect-TS安全パターン', 'セキュリティテスト']
 machine_readable:
   confidence_score: 0.93
-  api_maturity: "stable"
-  execution_time: "medium"
+  api_maturity: 'stable'
+  execution_time: 'medium'
 ---
 
 # TypeScript Minecraft Clone セキュリティベストプラクティス
@@ -37,22 +43,22 @@ TypeScript Minecraft Cloneプロジェクトでのセキュア開発のベスト
 // ゲーム固有の脅威分類
 const ThreatModelSchema = Schema.Struct({
   category: Schema.Literal(
-    "input_manipulation",    // 入力データの改竄
-    "client_tampering",     // クライアント改竄
-    "resource_abuse",       // リソース悪用
-    "data_exposure",        // 機密情報露出
-    "denial_of_service"     // サービス妨害
+    'input_manipulation', // 入力データの改竄
+    'client_tampering', // クライアント改竄
+    'resource_abuse', // リソース悪用
+    'data_exposure', // 機密情報露出
+    'denial_of_service' // サービス妨害
   ),
-  severity: Schema.Literal("critical", "high", "medium", "low"),
-  likelihood: Schema.Literal("very_high", "high", "medium", "low", "very_low"),
-  impact: Schema.Array(Schema.String)
-});
+  severity: Schema.Literal('critical', 'high', 'medium', 'low'),
+  likelihood: Schema.Literal('very_high', 'high', 'medium', 'low', 'very_low'),
+  impact: Schema.Array(Schema.String),
+})
 
 // セキュリティコントロールの定義
 interface SecurityControl {
-  readonly name: string;
-  readonly type: "preventive" | "detective" | "corrective";
-  readonly implementation: Effect.Effect<boolean, SecurityError>;
+  readonly name: string
+  readonly type: 'preventive' | 'detective' | 'corrective'
+  readonly implementation: Effect.Effect<boolean, SecurityError>
 }
 ```
 
@@ -63,34 +69,34 @@ interface SecurityControl {
 const TrustBoundary = {
   // ❌ 信頼してはいけない領域
   CLIENT_SIDE: {
-    userInput: "全ての入力は検証が必要",
-    gameState: "クライアント状態は改竄可能",
-    calculations: "計算結果は検証必須",
-    timings: "タイミングは操作可能"
+    userInput: '全ての入力は検証が必要',
+    gameState: 'クライアント状態は改竄可能',
+    calculations: '計算結果は検証必須',
+    timings: 'タイミングは操作可能',
   },
 
   // ✅ 信頼できる領域
   SERVER_SIDE: {
-    validation: "サーバー側での検証は信頼可能",
-    authoritative: "権威的なゲーム状態",
-    calculations: "サーバー計算は信頼可能",
-    audit: "監査ログは改竄困難"
-  }
-} as const;
+    validation: 'サーバー側での検証は信頼可能',
+    authoritative: '権威的なゲーム状態',
+    calculations: 'サーバー計算は信頼可能',
+    audit: '監査ログは改竄困難',
+  },
+} as const
 
 // 信頼境界を跨ぐデータの検証
-const validateCrossTrustBoundary = <T>(
-  data: unknown,
-  schema: Schema.Schema<T, unknown, never>
-) =>
+const validateCrossTrustBoundary = <T>(data: unknown, schema: Schema.Schema<T, unknown, never>) =>
   pipe(
     data,
     Schema.decodeUnknown(schema),
-    Effect.mapError(() => new SecurityError({
-      type: "trust_boundary_violation",
-      message: "Invalid data crossing trust boundary"
-    }))
-  );
+    Effect.mapError(
+      () =>
+        new SecurityError({
+          type: 'trust_boundary_violation',
+          message: 'Invalid data crossing trust boundary',
+        })
+    )
+  )
 ```
 
 ## 2. 入力検証とサニタイゼーション
@@ -100,69 +106,74 @@ const validateCrossTrustBoundary = <T>(
 ```typescript
 // セキュアな入力スキーマの定義
 const SecurePlayerInputSchema = Schema.Struct({
-  action: Schema.Literal("move", "place_block", "break_block", "use_item"),
+  action: Schema.Literal('move', 'place_block', 'break_block', 'use_item'),
   position: Schema.Struct({
     x: Schema.Number.pipe(
       Schema.between(-30_000_000, 30_000_000), // Minecraft世界境界
-      Schema.finite(), // NaN, Infinity を拒否
+      Schema.finite() // NaN, Infinity を拒否
     ),
     y: Schema.Number.pipe(
       Schema.between(-64, 320), // Y座標範囲
       Schema.finite()
     ),
-    z: Schema.Number.pipe(
-      Schema.between(-30_000_000, 30_000_000),
-      Schema.finite()
-    )
+    z: Schema.Number.pipe(Schema.between(-30_000_000, 30_000_000), Schema.finite()),
   }),
   timestamp: Schema.Number.pipe(
     Schema.positive(), // 負の値拒否
     Schema.finite()
-  )
-});
+  ),
+})
 
 // タイムスタンプの検証（リプレイ攻撃対策）
 const validateTimestamp = (timestamp: number, tolerance: number = 5000) =>
   Effect.gen(function* (_) {
-    const now = Date.now();
-    const diff = Math.abs(now - timestamp);
+    const now = Date.now()
+    const diff = Math.abs(now - timestamp)
 
     if (diff > tolerance) {
-      return yield* _(Effect.fail(new SecurityError({
-        type: "timestamp_validation_failed",
-        message: `Timestamp too old or in future: ${diff}ms difference`
-      })));
+      return yield* _(
+        Effect.fail(
+          new SecurityError({
+            type: 'timestamp_validation_failed',
+            message: `Timestamp too old or in future: ${diff}ms difference`,
+          })
+        )
+      )
     }
 
-    return timestamp;
-  });
+    return timestamp
+  })
 
 // レート制限の実装
 const createRateLimiter = (maxRequests: number, windowMs: number) => {
-  const requests = new Map<string, number[]>();
+  const requests = new Map<string, number[]>()
 
   return (clientId: string) =>
     Effect.gen(function* (_) {
-      const now = Date.now();
-      const windowStart = now - windowMs;
+      const now = Date.now()
+      const windowStart = now - windowMs
 
       // 古いリクエスト記録をクリーンアップ
-      const clientRequests = requests.get(clientId) ?? [];
-      const validRequests = clientRequests.filter(time => time > windowStart);
+      const clientRequests = requests.get(clientId) ?? []
+      const validRequests = clientRequests.filter((time) => time > windowStart)
 
       if (validRequests.length >= maxRequests) {
-        return yield* _(Effect.fail(new SecurityError({
-          type: "rate_limit_exceeded",
-          message: `Too many requests: ${validRequests.length}/${maxRequests}`
-        })));
+        return yield* _(
+          Effect.fail(
+            new SecurityError({
+              type: 'rate_limit_exceeded',
+              message: `Too many requests: ${validRequests.length}/${maxRequests}`,
+            })
+          )
+        )
       }
 
-      validRequests.push(now);
-      requests.set(clientId, validRequests);
+      validRequests.push(now)
+      requests.set(clientId, validRequests)
 
-      return true;
-    });
-};
+      return true
+    })
+}
 ```
 
 ### 2.2 XSS攻撃対策
@@ -171,13 +182,13 @@ const createRateLimiter = (maxRequests: number, windowMs: number) => {
 // HTML エスケープの実装
 const escapeHtml = (unsafe: string): string => {
   return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#x27;")
-    .replace(/\//g, "&#x2F;");
-};
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;')
+}
 
 // チャットメッセージのサニタイゼーション
 const ChatMessageSchema = Schema.Struct({
@@ -186,39 +197,46 @@ const ChatMessageSchema = Schema.Struct({
     Schema.maxLength(256), // 長すぎるメッセージを拒否
     Schema.nonEmpty()
   ),
-  timestamp: Schema.Number
-});
+  timestamp: Schema.Number,
+})
 
 const sanitizeChatMessage = (rawMessage: unknown) =>
   pipe(
     rawMessage,
     Schema.decodeUnknown(ChatMessageSchema),
-    Effect.map(message => ({
+    Effect.map((message) => ({
       ...message,
-      content: escapeHtml(message.content) // XSS対策
+      content: escapeHtml(message.content), // XSS対策
     })),
-    Effect.mapError(() => new SecurityError({
-      type: "chat_sanitization_failed",
-      message: "Invalid chat message format"
-    }))
-  );
+    Effect.mapError(
+      () =>
+        new SecurityError({
+          type: 'chat_sanitization_failed',
+          message: 'Invalid chat message format',
+        })
+    )
+  )
 
 // DOM操作の安全な実装
 const safeUpdateDOM = (elementId: string, content: string) =>
   Effect.gen(function* (_) {
-    const element = document.getElementById(elementId);
+    const element = document.getElementById(elementId)
     if (!element) {
-      return yield* _(Effect.fail(new SecurityError({
-        type: "dom_element_not_found",
-        message: `Element ${elementId} not found`
-      })));
+      return yield* _(
+        Effect.fail(
+          new SecurityError({
+            type: 'dom_element_not_found',
+            message: `Element ${elementId} not found`,
+          })
+        )
+      )
     }
 
     // innerHTML を使わず textContent で安全に更新
-    element.textContent = content;
+    element.textContent = content
 
-    return element;
-  });
+    return element
+  })
 ```
 
 ## 3. 認証・認可の実装
@@ -232,57 +250,59 @@ const SessionSchema = Schema.Struct({
   playerId: Schema.String.pipe(Schema.uuid()),
   createdAt: Schema.Number,
   expiresAt: Schema.Number,
-  permissions: Schema.Array(Schema.Literal(
-    "play", "chat", "build", "moderate", "admin"
-  ))
-});
+  permissions: Schema.Array(Schema.Literal('play', 'chat', 'build', 'moderate', 'admin')),
+})
 
-type Session = Schema.Schema.Type<typeof SessionSchema>;
+type Session = Schema.Schema.Type<typeof SessionSchema>
 
 // セッション検証サービス
 interface SessionService {
-  readonly validateSession: (sessionId: string) => Effect.Effect<Session, AuthError>;
-  readonly createSession: (playerId: string) => Effect.Effect<Session, AuthError>;
-  readonly revokeSession: (sessionId: string) => Effect.Effect<void, AuthError>;
+  readonly validateSession: (sessionId: string) => Effect.Effect<Session, AuthError>
+  readonly createSession: (playerId: string) => Effect.Effect<Session, AuthError>
+  readonly revokeSession: (sessionId: string) => Effect.Effect<void, AuthError>
 }
 
-const SessionService = Context.GenericTag<SessionService>("SessionService");
+const SessionService = Context.GenericTag<SessionService>('SessionService')
 
 // 権限チェックの実装
 const requirePermission = (permission: string) =>
   Effect.gen(function* (_) {
-    const sessionService = yield* _(SessionService);
-    const sessionId = yield* _(getCurrentSessionId());
-    const session = yield* _(sessionService.validateSession(sessionId));
+    const sessionService = yield* _(SessionService)
+    const sessionId = yield* _(getCurrentSessionId())
+    const session = yield* _(sessionService.validateSession(sessionId))
 
     if (!session.permissions.includes(permission)) {
-      return yield* _(Effect.fail(new AuthError({
-        type: "insufficient_permissions",
-        required: permission,
-        available: session.permissions
-      })));
+      return yield* _(
+        Effect.fail(
+          new AuthError({
+            type: 'insufficient_permissions',
+            required: permission,
+            available: session.permissions,
+          })
+        )
+      )
     }
 
-    return session;
-  });
+    return session
+  })
 
 // アクションの認可チェック
 const authorizePlayerAction = (action: PlayerAction) =>
   Effect.gen(function* (_) {
     // 基本的なプレイ権限チェック
-    yield* _(requirePermission("play"));
+    yield* _(requirePermission('play'))
 
     // アクション固有の権限チェック
-    if (action.type === "moderate_player") {
-      yield* _(requirePermission("moderate"));
+    if (action.type === 'moderate_player') {
+      yield* _(requirePermission('moderate'))
     }
 
-    if (action.type === "admin_command") {
-      yield* _(requirePermission("admin"));
+    if (action.type === 'admin_command') {
+      yield* _(requirePermission('admin'))
     }
 
-    return action;
-  });
+    return action
+  })
 ```
 
 ### 3.2 安全な通信の実装
@@ -292,29 +312,33 @@ const authorizePlayerAction = (action: PlayerAction) =>
 const createSecureWebSocket = (url: string, sessionId: string) =>
   Effect.gen(function* (_) {
     // HTTPS/WSS の強制
-    if (!url.startsWith("wss://")) {
-      return yield* _(Effect.fail(new SecurityError({
-        type: "insecure_connection",
-        message: "Only WSS connections are allowed"
-      })));
+    if (!url.startsWith('wss://')) {
+      return yield* _(
+        Effect.fail(
+          new SecurityError({
+            type: 'insecure_connection',
+            message: 'Only WSS connections are allowed',
+          })
+        )
+      )
     }
 
     // 接続時の認証
     const ws = new WebSocket(url, [], {
       headers: {
-        'Authorization': `Bearer ${sessionId}`
-      }
-    });
+        Authorization: `Bearer ${sessionId}`,
+      },
+    })
 
     // メッセージの暗号化（必要に応じて）
     const sendSecureMessage = (message: object) =>
       Effect.gen(function* (_) {
-        const encrypted = yield* _(encryptMessage(JSON.stringify(message)));
-        ws.send(encrypted);
-      });
+        const encrypted = yield* _(encryptMessage(JSON.stringify(message)))
+        ws.send(encrypted)
+      })
 
-    return { ws, sendSecureMessage };
-  });
+    return { ws, sendSecureMessage }
+  })
 
 // API リクエストのセキュリティヘッダー
 const createSecureRequest = (url: string, options: RequestInit = {}) =>
@@ -323,26 +347,26 @@ const createSecureRequest = (url: string, options: RequestInit = {}) =>
       'Content-Type': 'application/json',
       'X-Requested-With': 'XMLHttpRequest', // CSRF対策
       'Cache-Control': 'no-cache, no-store', // キャッシュ防止
-      ...options.headers
-    };
+      ...options.headers,
+    }
 
     const secureOptions: RequestInit = {
       ...options,
       headers: secureHeaders,
       credentials: 'same-origin', // CSRF対策
       mode: 'cors',
-      referrerPolicy: 'strict-origin-when-cross-origin'
-    };
+      referrerPolicy: 'strict-origin-when-cross-origin',
+    }
 
     const response = yield* _(
       Effect.tryPromise({
         try: () => fetch(url, secureOptions),
-        catch: (error) => new NetworkError({ cause: error })
+        catch: (error) => new NetworkError({ cause: error }),
       })
-    );
+    )
 
-    return response;
-  });
+    return response
+  })
 ```
 
 ## 4. データ保護とプライバシー
@@ -352,10 +376,10 @@ const createSecureRequest = (url: string, options: RequestInit = {}) =>
 ```typescript
 // 機密情報の分類
 const SensitiveDataSchema = Schema.Struct({
-  level: Schema.Literal("public", "internal", "confidential", "secret"),
+  level: Schema.Literal('public', 'internal', 'confidential', 'secret'),
   data: Schema.String,
-  encryptionRequired: Schema.Boolean
-});
+  encryptionRequired: Schema.Boolean,
+})
 
 // ローカルストレージの安全な使用
 const createSecureStorage = () => {
@@ -363,52 +387,50 @@ const createSecureStorage = () => {
   const setSecureItem = (key: string, value: string, isSecret = false) =>
     Effect.gen(function* (_) {
       if (isSecret) {
-        const encrypted = yield* _(encryptData(value));
-        localStorage.setItem(`secure_${key}`, encrypted);
+        const encrypted = yield* _(encryptData(value))
+        localStorage.setItem(`secure_${key}`, encrypted)
       } else {
-        localStorage.setItem(key, value);
+        localStorage.setItem(key, value)
       }
-    });
+    })
 
   const getSecureItem = (key: string, isSecret = false) =>
     Effect.gen(function* (_) {
-      const stored = isSecret
-        ? localStorage.getItem(`secure_${key}`)
-        : localStorage.getItem(key);
+      const stored = isSecret ? localStorage.getItem(`secure_${key}`) : localStorage.getItem(key)
 
-      if (!stored) return null;
+      if (!stored) return null
 
       if (isSecret) {
-        return yield* _(decryptData(stored));
+        return yield* _(decryptData(stored))
       }
 
-      return stored;
-    });
+      return stored
+    })
 
   // 機密情報の自動削除
   const clearExpiredSecrets = () =>
     Effect.gen(function* (_) {
-      const keys = Object.keys(localStorage);
-      const secureKeys = keys.filter(key => key.startsWith('secure_'));
+      const keys = Object.keys(localStorage)
+      const secureKeys = keys.filter((key) => key.startsWith('secure_'))
 
       for (const key of secureKeys) {
-        const data = localStorage.getItem(key);
+        const data = localStorage.getItem(key)
         if (data) {
           try {
-            const parsed = JSON.parse(data);
+            const parsed = JSON.parse(data)
             if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
-              localStorage.removeItem(key);
+              localStorage.removeItem(key)
             }
           } catch {
             // 無効なデータは削除
-            localStorage.removeItem(key);
+            localStorage.removeItem(key)
           }
         }
       }
-    });
+    })
 
-  return { setSecureItem, getSecureItem, clearExpiredSecrets };
-};
+  return { setSecureItem, getSecureItem, clearExpiredSecrets }
+}
 ```
 
 ### 4.2 ログとトラッキングのセキュリティ
@@ -416,42 +438,42 @@ const createSecureStorage = () => {
 ```typescript
 // セキュアなロギング
 interface SecureLogger {
-  readonly info: (message: string, context?: object) => Effect.Effect<void>;
-  readonly warn: (message: string, context?: object) => Effect.Effect<void>;
-  readonly error: (message: string, error: unknown, context?: object) => Effect.Effect<void>;
-  readonly security: (event: SecurityEvent) => Effect.Effect<void>;
+  readonly info: (message: string, context?: object) => Effect.Effect<void>
+  readonly warn: (message: string, context?: object) => Effect.Effect<void>
+  readonly error: (message: string, error: unknown, context?: object) => Effect.Effect<void>
+  readonly security: (event: SecurityEvent) => Effect.Effect<void>
 }
 
 const createSecureLogger = (): SecureLogger => {
   // 機密情報をフィルタリング
   const sanitizeContext = (context: object = {}) => {
-    const sanitized = { ...context };
+    const sanitized = { ...context }
 
     // パスワードやトークンを除去
-    const sensitiveKeys = ['password', 'token', 'sessionId', 'privateKey'];
+    const sensitiveKeys = ['password', 'token', 'sessionId', 'privateKey']
     for (const key of sensitiveKeys) {
       if (key in sanitized) {
-        (sanitized as any)[key] = '[REDACTED]';
+        ;(sanitized as any)[key] = '[REDACTED]'
       }
     }
 
-    return sanitized;
-  };
+    return sanitized
+  }
 
   const info = (message: string, context?: object) =>
     Effect.sync(() => {
-      console.log(message, sanitizeContext(context));
-    });
+      console.log(message, sanitizeContext(context))
+    })
 
   const warn = (message: string, context?: object) =>
     Effect.sync(() => {
-      console.warn(message, sanitizeContext(context));
-    });
+      console.warn(message, sanitizeContext(context))
+    })
 
   const error = (message: string, error: unknown, context?: object) =>
     Effect.sync(() => {
-      console.error(message, error, sanitizeContext(context));
-    });
+      console.error(message, error, sanitizeContext(context))
+    })
 
   const security = (event: SecurityEvent) =>
     Effect.gen(function* (_) {
@@ -461,19 +483,19 @@ const createSecureLogger = (): SecureLogger => {
         type: 'SECURITY_EVENT',
         severity: event.severity,
         event: event.type,
-        context: sanitizeContext(event.context)
-      };
+        context: sanitizeContext(event.context),
+      }
 
-      console.warn('🔒 SECURITY EVENT:', securityLog);
+      console.warn('🔒 SECURITY EVENT:', securityLog)
 
       // 重要なセキュリティイベントは外部に送信
       if (event.severity === 'critical' || event.severity === 'high') {
-        yield* _(sendSecurityAlert(securityLog));
+        yield* _(sendSecurityAlert(securityLog))
       }
-    });
+    })
 
-  return { info, warn, error, security };
-};
+  return { info, warn, error, security }
+}
 ```
 
 ## 5. セキュリティテストの実装
@@ -507,31 +529,26 @@ describe('Input Validation Security', () => {
     // Unicode攻撃
     '\u202e', // Right-to-left override
     '\ufeff', // BOM
-  ];
+  ]
 
   it.each(maliciousInputs)('rejects malicious input: %s', async (maliciousInput) => {
-    const result = await Effect.runPromise(
-      sanitizeChatMessage({ content: maliciousInput })
-        .pipe(Effect.flip)
-    );
+    const result = await Effect.runPromise(sanitizeChatMessage({ content: maliciousInput }).pipe(Effect.flip))
 
-    expect(result).toBeInstanceOf(SecurityError);
-  });
+    expect(result).toBeInstanceOf(SecurityError)
+  })
 
   it('allows legitimate input', async () => {
     const legitimateMessage = {
       playerId: '550e8400-e29b-41d4-a716-446655440000',
       content: 'Hello, world!',
-      timestamp: Date.now()
-    };
+      timestamp: Date.now(),
+    }
 
-    const result = await Effect.runPromise(
-      sanitizeChatMessage(legitimateMessage)
-    );
+    const result = await Effect.runPromise(sanitizeChatMessage(legitimateMessage))
 
-    expect(result.content).toBe('Hello, world!');
-  });
-});
+    expect(result.content).toBe('Hello, world!')
+  })
+})
 ```
 
 ### 5.2 認可テストの実装
@@ -542,19 +559,19 @@ describe('Authorization Security', () => {
     {
       permission: 'play',
       action: { type: 'move', position: { x: 0, y: 64, z: 0 } },
-      shouldAllow: true
+      shouldAllow: true,
     },
     {
       permission: 'play',
       action: { type: 'moderate_player', targetId: 'other-player' },
-      shouldAllow: false
+      shouldAllow: false,
     },
     {
       permission: 'moderate',
       action: { type: 'moderate_player', targetId: 'other-player' },
-      shouldAllow: true
-    }
-  ];
+      shouldAllow: true,
+    },
+  ]
 
   it.each(testCases)('enforces permissions correctly', async ({ permission, action, shouldAllow }) => {
     const mockSession = {
@@ -562,28 +579,27 @@ describe('Authorization Security', () => {
       playerId: 'test-player',
       permissions: [permission],
       createdAt: Date.now() - 1000,
-      expiresAt: Date.now() + 3600000
-    };
+      expiresAt: Date.now() + 3600000,
+    }
 
     const mockSessionService = {
-      validateSession: () => Effect.succeed(mockSession)
-    } as SessionService;
+      validateSession: () => Effect.succeed(mockSession),
+    } as SessionService
 
     const result = await Effect.runPromise(
-      authorizePlayerAction(action)
-        .pipe(
-          Effect.provide(Layer.succeed(SessionService, mockSessionService)),
-          shouldAllow ? Effect.identity : Effect.flip
-        )
-    );
+      authorizePlayerAction(action).pipe(
+        Effect.provide(Layer.succeed(SessionService, mockSessionService)),
+        shouldAllow ? Effect.identity : Effect.flip
+      )
+    )
 
     if (shouldAllow) {
-      expect(result).toEqual(action);
+      expect(result).toEqual(action)
     } else {
-      expect(result).toBeInstanceOf(AuthError);
+      expect(result).toBeInstanceOf(AuthError)
     }
-  });
-});
+  })
+})
 ```
 
 ## 6. セキュリティ監視と対応
@@ -593,68 +609,68 @@ describe('Authorization Security', () => {
 ```typescript
 // セキュリティイベントの検出
 interface SecurityEventDetector {
-  readonly detectAnomalies: (playerAction: PlayerAction) => Effect.Effect<SecurityEvent[]>;
-  readonly analyzePattern: (playerId: string) => Effect.Effect<ThreatAssessment>;
+  readonly detectAnomalies: (playerAction: PlayerAction) => Effect.Effect<SecurityEvent[]>
+  readonly analyzePattern: (playerId: string) => Effect.Effect<ThreatAssessment>
 }
 
 const createSecurityEventDetector = (): SecurityEventDetector => {
   // 異常な行動パターンの検出
   const detectAnomalies = (action: PlayerAction) =>
     Effect.gen(function* (_) {
-      const anomalies: SecurityEvent[] = [];
+      const anomalies: SecurityEvent[] = []
 
       // 移動速度の異常検出（スピードハック）
       if (action.type === 'move') {
-        const speed = calculateMovementSpeed(action);
+        const speed = calculateMovementSpeed(action)
         if (speed > MAX_LEGITIMATE_SPEED) {
           anomalies.push({
             type: 'suspicious_movement_speed',
             severity: 'high',
-            context: { playerId: action.playerId, speed, maxSpeed: MAX_LEGITIMATE_SPEED }
-          });
+            context: { playerId: action.playerId, speed, maxSpeed: MAX_LEGITIMATE_SPEED },
+          })
         }
       }
 
       // 短時間での大量アクション（ボット検出）
-      const recentActions = yield* _(getRecentPlayerActions(action.playerId, 1000));
+      const recentActions = yield* _(getRecentPlayerActions(action.playerId, 1000))
       if (recentActions.length > 20) {
         anomalies.push({
           type: 'excessive_actions',
           severity: 'medium',
-          context: { playerId: action.playerId, actionCount: recentActions.length }
-        });
+          context: { playerId: action.playerId, actionCount: recentActions.length },
+        })
       }
 
       // 物理法則違反の検出
       if (action.type === 'place_block') {
-        const canReach = yield* _(validateBlockReachability(action));
+        const canReach = yield* _(validateBlockReachability(action))
         if (!canReach) {
           anomalies.push({
             type: 'impossible_block_placement',
             severity: 'high',
-            context: { playerId: action.playerId, position: action.position }
-          });
+            context: { playerId: action.playerId, position: action.position },
+          })
         }
       }
 
-      return anomalies;
-    });
+      return anomalies
+    })
 
   const analyzePattern = (playerId: string) =>
     Effect.gen(function* (_) {
-      const actions = yield* _(getPlayerActionHistory(playerId, 3600000)); // 1時間
-      const riskScore = calculateRiskScore(actions);
+      const actions = yield* _(getPlayerActionHistory(playerId, 3600000)) // 1時間
+      const riskScore = calculateRiskScore(actions)
 
       return {
         playerId,
         riskScore,
         threatLevel: riskScore > 80 ? 'high' : riskScore > 50 ? 'medium' : 'low',
-        recommendations: generateSecurityRecommendations(actions)
-      };
-    });
+        recommendations: generateSecurityRecommendations(actions),
+      }
+    })
 
-  return { detectAnomalies, analyzePattern };
-};
+  return { detectAnomalies, analyzePattern }
+}
 ```
 
 ### 6.2 自動対応システム
@@ -662,14 +678,14 @@ const createSecurityEventDetector = (): SecurityEventDetector => {
 ```typescript
 // 自動セキュリティ対応
 interface AutomatedSecurityResponse {
-  readonly respondToThreat: (threat: SecurityEvent) => Effect.Effect<SecurityAction[]>;
-  readonly escalateThreat: (threat: SecurityEvent) => Effect.Effect<void>;
+  readonly respondToThreat: (threat: SecurityEvent) => Effect.Effect<SecurityAction[]>
+  readonly escalateThreat: (threat: SecurityEvent) => Effect.Effect<void>
 }
 
 const createAutomatedSecurityResponse = (): AutomatedSecurityResponse => {
   const respondToThreat = (threat: SecurityEvent) =>
     Effect.gen(function* (_) {
-      const actions: SecurityAction[] = [];
+      const actions: SecurityAction[] = []
 
       // 脅威レベルに応じた自動対応
       switch (threat.severity) {
@@ -678,38 +694,36 @@ const createAutomatedSecurityResponse = (): AutomatedSecurityResponse => {
             { type: 'suspend_player', playerId: threat.context.playerId },
             { type: 'notify_administrators', threat },
             { type: 'log_security_incident', threat }
-          );
-          break;
+          )
+          break
 
         case 'high':
           actions.push(
             { type: 'limit_player_actions', playerId: threat.context.playerId },
             { type: 'increase_monitoring', playerId: threat.context.playerId },
             { type: 'log_security_incident', threat }
-          );
-          break;
+          )
+          break
 
         case 'medium':
           actions.push(
             { type: 'flag_for_review', playerId: threat.context.playerId },
             { type: 'log_security_event', threat }
-          );
-          break;
+          )
+          break
 
         case 'low':
-          actions.push(
-            { type: 'log_security_event', threat }
-          );
-          break;
+          actions.push({ type: 'log_security_event', threat })
+          break
       }
 
       // アクションの実行
       for (const action of actions) {
-        yield* _(executeSecurityAction(action));
+        yield* _(executeSecurityAction(action))
       }
 
-      return actions;
-    });
+      return actions
+    })
 
   const escalateThreat = (threat: SecurityEvent) =>
     Effect.gen(function* (_) {
@@ -717,17 +731,17 @@ const createAutomatedSecurityResponse = (): AutomatedSecurityResponse => {
         threat.severity === 'critical',
         isRepeatedOffense(threat.context.playerId),
         affectsMultiplePlayers(threat),
-        indicatesAutomatedAttack(threat)
-      ];
+        indicatesAutomatedAttack(threat),
+      ]
 
       if (escalationCriteria.some(Boolean)) {
-        yield* _(notifySecurityTeam(threat));
-        yield* _(createSecurityIncidentTicket(threat));
+        yield* _(notifySecurityTeam(threat))
+        yield* _(createSecurityIncidentTicket(threat))
       }
-    });
+    })
 
-  return { respondToThreat, escalateThreat };
-};
+  return { respondToThreat, escalateThreat }
+}
 ```
 
 ## 7. コンプライアンスとプライバシー
@@ -737,9 +751,9 @@ const createAutomatedSecurityResponse = (): AutomatedSecurityResponse => {
 ```typescript
 // GDPR/プライバシー規制対応
 interface PrivacyService {
-  readonly anonymizePlayerData: (playerId: string) => Effect.Effect<void, PrivacyError>;
-  readonly exportPlayerData: (playerId: string) => Effect.Effect<PlayerDataExport, PrivacyError>;
-  readonly deletePlayerData: (playerId: string) => Effect.Effect<void, PrivacyError>;
+  readonly anonymizePlayerData: (playerId: string) => Effect.Effect<void, PrivacyError>
+  readonly exportPlayerData: (playerId: string) => Effect.Effect<PlayerDataExport, PrivacyError>
+  readonly deletePlayerData: (playerId: string) => Effect.Effect<void, PrivacyError>
 }
 
 const createPrivacyService = (): PrivacyService => {
@@ -752,57 +766,61 @@ const createPrivacyService = (): PrivacyService => {
         email: null,
         ipAddress: null,
         createdAt: null,
-        lastLoginAt: null
-      };
+        lastLoginAt: null,
+      }
 
-      yield* _(updatePlayerRecord(playerId, anonymizedData));
-      yield* _(logPrivacyAction('anonymize', playerId));
-    });
+      yield* _(updatePlayerRecord(playerId, anonymizedData))
+      yield* _(logPrivacyAction('anonymize', playerId))
+    })
 
   const exportPlayerData = (playerId: string) =>
     Effect.gen(function* (_) {
-      const playerData = yield* _(getCompletePlayerData(playerId));
+      const playerData = yield* _(getCompletePlayerData(playerId))
 
       const exportData: PlayerDataExport = {
         profile: playerData.profile,
         gameStats: playerData.stats,
         chatHistory: playerData.chatHistory,
         buildHistory: playerData.buildHistory,
-        loginHistory: playerData.loginHistory.map(entry => ({
+        loginHistory: playerData.loginHistory.map((entry) => ({
           timestamp: entry.timestamp,
           // IPアドレスは含めない
-          userAgent: entry.userAgent
-        }))
-      };
+          userAgent: entry.userAgent,
+        })),
+      }
 
-      yield* _(logPrivacyAction('export', playerId));
+      yield* _(logPrivacyAction('export', playerId))
 
-      return exportData;
-    });
+      return exportData
+    })
 
   const deletePlayerData = (playerId: string) =>
     Effect.gen(function* (_) {
       // カスケード削除の実行
-      yield* _(deletePlayerProfile(playerId));
-      yield* _(deletePlayerStats(playerId));
-      yield* _(deletePlayerChatHistory(playerId));
-      yield* _(deletePlayerBuildHistory(playerId));
-      yield* _(deletePlayerLoginHistory(playerId));
+      yield* _(deletePlayerProfile(playerId))
+      yield* _(deletePlayerStats(playerId))
+      yield* _(deletePlayerChatHistory(playerId))
+      yield* _(deletePlayerBuildHistory(playerId))
+      yield* _(deletePlayerLoginHistory(playerId))
 
-      yield* _(logPrivacyAction('delete', playerId));
+      yield* _(logPrivacyAction('delete', playerId))
 
       // 削除の確認
-      const remainingData = yield* _(searchPlayerData(playerId));
+      const remainingData = yield* _(searchPlayerData(playerId))
       if (remainingData.length > 0) {
-        return yield* _(Effect.fail(new PrivacyError({
-          type: 'incomplete_deletion',
-          remainingRecords: remainingData.length
-        })));
+        return yield* _(
+          Effect.fail(
+            new PrivacyError({
+              type: 'incomplete_deletion',
+              remainingRecords: remainingData.length,
+            })
+          )
+        )
       }
-    });
+    })
 
-  return { anonymizePlayerData, exportPlayerData, deletePlayerData };
-};
+  return { anonymizePlayerData, exportPlayerData, deletePlayerData }
+}
 ```
 
 ### 7.2 セキュリティ監査の実装
@@ -810,9 +828,9 @@ const createPrivacyService = (): PrivacyService => {
 ```typescript
 // セキュリティ監査ログ
 interface SecurityAuditService {
-  readonly logSecurityEvent: (event: SecurityEvent) => Effect.Effect<void>;
-  readonly generateAuditReport: (timeRange: TimeRange) => Effect.Effect<AuditReport>;
-  readonly verifyIntegrity: () => Effect.Effect<IntegrityReport>;
+  readonly logSecurityEvent: (event: SecurityEvent) => Effect.Effect<void>
+  readonly generateAuditReport: (timeRange: TimeRange) => Effect.Effect<AuditReport>
+  readonly verifyIntegrity: () => Effect.Effect<IntegrityReport>
 }
 
 const createSecurityAuditService = (): SecurityAuditService => {
@@ -826,15 +844,15 @@ const createSecurityAuditService = (): SecurityAuditService => {
         event: event.type,
         context: event.context,
         hash: generateHash(JSON.stringify(event)), // 改竄検出用
-        previousHash: yield* _(getLatestAuditHash())
-      };
+        previousHash: yield* _(getLatestAuditHash()),
+      }
 
-      yield* _(persistAuditEntry(auditEntry));
-    });
+      yield* _(persistAuditEntry(auditEntry))
+    })
 
   const generateAuditReport = (timeRange: TimeRange) =>
     Effect.gen(function* (_) {
-      const events = yield* _(getAuditEvents(timeRange));
+      const events = yield* _(getAuditEvents(timeRange))
 
       const report: AuditReport = {
         period: timeRange,
@@ -843,24 +861,24 @@ const createSecurityAuditService = (): SecurityAuditService => {
         eventsBySeverity: groupEventsBySeverity(events),
         topThreats: identifyTopThreats(events),
         securityTrends: analyzeSecurityTrends(events),
-        recommendations: generateSecurityRecommendations(events)
-      };
+        recommendations: generateSecurityRecommendations(events),
+      }
 
-      return report;
-    });
+      return report
+    })
 
   const verifyIntegrity = () =>
     Effect.gen(function* (_) {
-      const auditEntries = yield* _(getAllAuditEntries());
-      const corruptedEntries = [];
+      const auditEntries = yield* _(getAllAuditEntries())
+      const corruptedEntries = []
 
       // ハッシュチェーンの整合性確認
       for (let i = 1; i < auditEntries.length; i++) {
-        const current = auditEntries[i];
-        const previous = auditEntries[i - 1];
+        const current = auditEntries[i]
+        const previous = auditEntries[i - 1]
 
         if (current.previousHash !== previous.hash) {
-          corruptedEntries.push(current.id);
+          corruptedEntries.push(current.id)
         }
       }
 
@@ -868,12 +886,12 @@ const createSecurityAuditService = (): SecurityAuditService => {
         isIntegrityValid: corruptedEntries.length === 0,
         corruptedEntries,
         totalEntries: auditEntries.length,
-        verifiedAt: new Date().toISOString()
-      };
-    });
+        verifiedAt: new Date().toISOString(),
+      }
+    })
 
-  return { logSecurityEvent, generateAuditReport, verifyIntegrity };
-};
+  return { logSecurityEvent, generateAuditReport, verifyIntegrity }
+}
 ```
 
 ## 8. セキュリティ開発ライフサイクル
@@ -883,31 +901,26 @@ const createSecurityAuditService = (): SecurityAuditService => {
 ```typescript
 // セキュリティレビューチェックリスト
 const SecurityReviewChecklist = {
-  design: [
-    "脅威モデリングの実施",
-    "信頼境界の明確化",
-    "認証・認可方式の検討",
-    "データフローのセキュリティ分析"
-  ],
+  design: ['脅威モデリングの実施', '信頼境界の明確化', '認証・認可方式の検討', 'データフローのセキュリティ分析'],
   implementation: [
-    "入力検証の実装",
-    "出力エンコーディングの実装",
-    "エラーハンドリングの適切性",
-    "機密情報の適切な取り扱い"
+    '入力検証の実装',
+    '出力エンコーディングの実装',
+    'エラーハンドリングの適切性',
+    '機密情報の適切な取り扱い',
   ],
   testing: [
-    "セキュリティテストケースの実行",
-    "脆弱性スキャンの実行",
-    "ペネトレーションテストの実施",
-    "コードレビューの完了"
+    'セキュリティテストケースの実行',
+    '脆弱性スキャンの実行',
+    'ペネトレーションテストの実施',
+    'コードレビューの完了',
   ],
   deployment: [
-    "セキュリティ設定の確認",
-    "監視システムの動作確認",
-    "インシデント対応計画の準備",
-    "セキュリティドキュメントの更新"
-  ]
-} as const;
+    'セキュリティ設定の確認',
+    '監視システムの動作確認',
+    'インシデント対応計画の準備',
+    'セキュリティドキュメントの更新',
+  ],
+} as const
 
 // 自動セキュリティチェック
 const runSecurityChecks = () =>
@@ -919,29 +932,33 @@ const runSecurityChecks = () =>
       checkAuthorizationSecurity(),
       checkDataProtection(),
       checkLoggingSecurity(),
-      checkErrorHandlingSecurity()
-    ];
+      checkErrorHandlingSecurity(),
+    ]
 
-    const results = yield* _(Effect.all(checks));
+    const results = yield* _(Effect.all(checks))
 
-    const failedChecks = results.filter(result => !result.passed);
+    const failedChecks = results.filter((result) => !result.passed)
 
     if (failedChecks.length > 0) {
-      yield* _(Effect.sync(() => {
-        console.error("🚨 Security checks failed:");
-        failedChecks.forEach(check =>
-          console.error(`  - ${check.name}: ${check.error}`)
-        );
-      }));
+      yield* _(
+        Effect.sync(() => {
+          console.error('🚨 Security checks failed:')
+          failedChecks.forEach((check) => console.error(`  - ${check.name}: ${check.error}`))
+        })
+      )
 
-      return yield* _(Effect.fail(new SecurityError({
-        type: 'security_checks_failed',
-        failedChecks: failedChecks.map(c => c.name)
-      })));
+      return yield* _(
+        Effect.fail(
+          new SecurityError({
+            type: 'security_checks_failed',
+            failedChecks: failedChecks.map((c) => c.name),
+          })
+        )
+      )
     }
 
-    return results;
-  });
+    return results
+  })
 ```
 
 ## 9. まとめとベストプラクティス
@@ -950,6 +967,7 @@ const runSecurityChecks = () =>
 
 `★ Insight ─────────────────────────────────────`
 Effect-TSを活用したセキュア開発の5つの柱：
+
 1. **型安全性によるバグ予防**: Schema検証で不正入力を型レベルでブロック
 2. **Effect管理による副作用制御**: セキュリティ関連処理の明示的管理
 3. **Context による依存性分離**: テスト可能なセキュリティサービス設計
@@ -962,6 +980,7 @@ Effect-TSを活用したセキュア開発の5つの柱：
 ### 9.2 継続的セキュリティのチェックリスト
 
 **開発時の必須チェック:**
+
 - [ ] すべての外部入力にSchema検証を適用
 - [ ] XSS対策としてのHTMLエスケープ実装
 - [ ] 認証・認可の適切な実装
@@ -969,6 +988,7 @@ Effect-TSを活用したセキュア開発の5つの柱：
 - [ ] セキュリティテストの実行
 
 **運用時の継続監視:**
+
 - [ ] リアルタイム脅威検出システム
 - [ ] 自動セキュリティ対応の実装
 - [ ] セキュリティ監査ログの管理
@@ -976,6 +996,7 @@ Effect-TSを活用したセキュア開発の5つの柱：
 - [ ] セキュリティトレーニングの継続実施
 
 **コンプライアンス対応:**
+
 - [ ] データプライバシー保護の実装
 - [ ] セキュリティ監査の定期実行
 - [ ] 脆弱性管理プロセスの確立

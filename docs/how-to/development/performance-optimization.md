@@ -1,13 +1,13 @@
 ---
-title: "パフォーマンス最適化実践ガイド"
-description: "TypeScript MinecraftプロジェクトのEffect-TS 3.17+パターンによる包括的パフォーマンス最適化。プロファイリング、メモリ効率化、並列処理、リアルタイム性能最適化を実装"
-category: "guide"
-difficulty: "advanced"
-tags: ["performance", "optimization", "effect-ts", "profiling", "memory-management", "concurrency", "real-time"]
-prerequisites: ["development-conventions", "effect-ts-fundamentals", "testing-guide"]
-estimated_reading_time: "25分"
-related_patterns: ["optimization-patterns-latest", "service-patterns-catalog"]
-related_docs: ["./02-testing-guide.md", "../explanations/architecture/06-effect-ts-patterns.md"]
+title: 'パフォーマンス最適化実践ガイド'
+description: 'TypeScript MinecraftプロジェクトのEffect-TS 3.17+パターンによる包括的パフォーマンス最適化。プロファイリング、メモリ効率化、並列処理、リアルタイム性能最適化を実装'
+category: 'guide'
+difficulty: 'advanced'
+tags: ['performance', 'optimization', 'effect-ts', 'profiling', 'memory-management', 'concurrency', 'real-time']
+prerequisites: ['development-conventions', 'effect-ts-fundamentals', 'testing-guide']
+estimated_reading_time: '25分'
+related_patterns: ['optimization-patterns-latest', 'service-patterns-catalog']
+related_docs: ['./02-testing-guide.md', '../explanations/architecture/06-effect-ts-patterns.md']
 ---
 
 # パフォーマンス最適化実践ガイド
@@ -87,25 +87,25 @@ pnpx bundle-buddy dist/main.js
 
 ```typescript
 // 1. 高速な型安全チェック
-const isValidEntity = (obj: unknown): obj is Entity =>
-  typeof obj === 'object' && obj !== null && 'id' in obj
+const isValidEntity = (obj: unknown): obj is Entity => typeof obj === 'object' && obj !== null && 'id' in obj
 
 // 2. 効率的なバッチ処理
 const processBatch = <T, R>(
   items: ReadonlyArray<T>,
   processor: (batch: ReadonlyArray<T>) => Effect.Effect<ReadonlyArray<R>, Error>,
   batchSize: number = 100
-) => Effect.gen(function* () {
-  const results: R[] = []
+) =>
+  Effect.gen(function* () {
+    const results: R[] = []
 
-  for (let i = 0; i < items.length; i += batchSize) {
-    const batch = items.slice(i, i + batchSize)
-    const batchResults = yield* processor(batch)
-    results.push(...batchResults)
-  }
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize)
+      const batchResults = yield* processor(batch)
+      results.push(...batchResults)
+    }
 
-  return results
-})
+    return results
+  })
 
 // 3. メモリ効率的なSoA構造
 interface ComponentStore<T> {
@@ -642,16 +642,16 @@ CPU集約的処理の並列化：
 
 ```typescript
 // src/performance/worker-pool.ts
-import { Effect, Context, Layer, Queue } from "effect"
+import { Effect, Context, Layer, Queue } from 'effect'
 
 // Workerタスクの定義
 export const WorkerTask = Schema.Struct({
   id: Schema.String,
-  type: Schema.Literal("mesh-generation", "pathfinding", "physics", "lighting"),
+  type: Schema.Literal('mesh-generation', 'pathfinding', 'physics', 'lighting'),
   data: Schema.Unknown,
   priority: Schema.Number.pipe(Schema.between(0, 10)), // 0が最高優先度
   timeout: Schema.Number.pipe(Schema.positive()),
-  retryCount: Schema.Number.pipe(Schema.nonNegative())
+  retryCount: Schema.Number.pipe(Schema.nonNegative()),
 })
 
 export type WorkerTask = Schema.Schema.Type<typeof WorkerTask>
@@ -663,7 +663,7 @@ export const WorkerResult = Schema.Struct({
   result: Schema.optional(Schema.Unknown),
   error: Schema.optional(Schema.String),
   executionTime: Schema.Number,
-  workerId: Schema.String
+  workerId: Schema.String,
 })
 
 export type WorkerResult = Schema.Schema.Type<typeof WorkerResult>
@@ -677,7 +677,7 @@ export interface WorkerPoolService {
   readonly shutdown: Effect.Effect<void, never>
 }
 
-export const WorkerPoolService = Context.GenericTag<WorkerPoolService>("@minecraft/WorkerPoolService")
+export const WorkerPoolService = Context.GenericTag<WorkerPoolService>('@minecraft/WorkerPoolService')
 
 // Worker Pool の実装
 const makeWorkerPoolService = Effect.gen(function* () {
@@ -693,7 +693,7 @@ const makeWorkerPoolService = Effect.gen(function* () {
     completedTasks: 0,
     failedTasks: 0,
     averageExecutionTime: 0,
-    workerUtilization: new Map<string, number>()
+    workerUtilization: new Map<string, number>(),
   }
 
   // Workerの作成
@@ -703,7 +703,7 @@ const makeWorkerPoolService = Effect.gen(function* () {
 
       const worker = new Worker(workerScript, {
         type: 'module',
-        name: workerId
+        name: workerId,
       })
 
       // Worker初期化の待機
@@ -717,11 +717,15 @@ const makeWorkerPoolService = Effect.gen(function* () {
 
         const handleError = (error: ErrorEvent) => {
           worker.removeEventListener('error', handleError)
-          resolve(Effect.fail(new WorkerError({
-            operation: "createWorker",
-            workerId,
-            reason: error.message
-          })))
+          resolve(
+            Effect.fail(
+              new WorkerError({
+                operation: 'createWorker',
+                workerId,
+                reason: error.message,
+              })
+            )
+          )
         }
 
         worker.addEventListener('message', handleMessage)
@@ -747,11 +751,13 @@ const makeWorkerPoolService = Effect.gen(function* () {
 
       if (!worker) {
         yield* Queue.offer(availableWorkers, workerId) // Workerを戻す
-        return yield* Effect.fail(new WorkerError({
-          operation: "executeTask",
-          workerId,
-          reason: "Worker not found"
-        }))
+        return yield* Effect.fail(
+          new WorkerError({
+            operation: 'executeTask',
+            workerId,
+            reason: 'Worker not found',
+          })
+        )
       }
 
       const startTime = performance.now()
@@ -759,12 +765,16 @@ const makeWorkerPoolService = Effect.gen(function* () {
       // タスクをWorkerに送信し、結果を待機
       const result = yield* Effect.async<WorkerResult, WorkerError>((resolve) => {
         const timeout = setTimeout(() => {
-          resolve(Effect.fail(new WorkerError({
-            operation: "executeTask",
-            workerId,
-            reason: `Task timeout after ${task.timeout}ms`,
-            taskId: task.id
-          })))
+          resolve(
+            Effect.fail(
+              new WorkerError({
+                operation: 'executeTask',
+                workerId,
+                reason: `Task timeout after ${task.timeout}ms`,
+                taskId: task.id,
+              })
+            )
+          )
         }, task.timeout)
 
         const handleMessage = (event: MessageEvent) => {
@@ -776,7 +786,7 @@ const makeWorkerPoolService = Effect.gen(function* () {
             const result: WorkerResult = {
               ...event.data,
               executionTime,
-              workerId
+              workerId,
             }
 
             resolve(Effect.succeed(result))
@@ -786,12 +796,16 @@ const makeWorkerPoolService = Effect.gen(function* () {
         const handleError = (error: ErrorEvent) => {
           clearTimeout(timeout)
           worker.removeEventListener('error', handleError)
-          resolve(Effect.fail(new WorkerError({
-            operation: "executeTask",
-            workerId,
-            reason: error.message,
-            taskId: task.id
-          })))
+          resolve(
+            Effect.fail(
+              new WorkerError({
+                operation: 'executeTask',
+                workerId,
+                reason: error.message,
+                taskId: task.id,
+              })
+            )
+          )
         }
 
         worker.addEventListener('message', handleMessage)
@@ -800,7 +814,7 @@ const makeWorkerPoolService = Effect.gen(function* () {
         // タスクを送信
         worker.postMessage({
           type: 'task',
-          ...task
+          ...task,
         })
       })
 
@@ -823,34 +837,36 @@ const makeWorkerPoolService = Effect.gen(function* () {
     })
 
   return WorkerPoolService.of({
-    submitTask: (task) => Effect.gen(function* () {
-      stats.totalTasks++
+    submitTask: (task) =>
+      Effect.gen(function* () {
+        stats.totalTasks++
 
-      // 高優先度タスクの場合は即座に実行
-      if (task.priority <= 2) {
-        return yield* executeTask(task)
-      }
+        // 高優先度タスクの場合は即座に実行
+        if (task.priority <= 2) {
+          return yield* executeTask(task)
+        }
 
-      // 通常の優先度の場合はキューに追加
-      yield* Queue.offer(pendingTasks, task)
+        // 通常の優先度の場合はキューに追加
+        yield* Queue.offer(pendingTasks, task)
 
-      // キューからタスクを取得して実行
-      const queuedTask = yield* Queue.take(pendingTasks)
-      return yield* executeTask(queuedTask)
-    }),
+        // キューからタスクを取得して実行
+        const queuedTask = yield* Queue.take(pendingTasks)
+        return yield* executeTask(queuedTask)
+      }),
 
-    submitBatch: (tasks) => Effect.gen(function* () {
-      // 優先度でソート
-      const sortedTasks = [...tasks].sort((a, b) => a.priority - b.priority)
+    submitBatch: (tasks) =>
+      Effect.gen(function* () {
+        // 優先度でソート
+        const sortedTasks = [...tasks].sort((a, b) => a.priority - b.priority)
 
-      // 並列実行（利用可能なWorker数に制限）
-      const results = yield* Effect.all(
-        sortedTasks.map(task => executeTask(task)),
-        { concurrency: workers.size, batching: true }
-      )
+        // 並列実行（利用可能なWorker数に制限）
+        const results = yield* Effect.all(
+          sortedTasks.map((task) => executeTask(task)),
+          { concurrency: workers.size, batching: true }
+        )
 
-      return results
-    }),
+        return results
+      }),
 
     getPoolStatus: Effect.gen(function* () {
       const availableCount = yield* Queue.size(availableWorkers)
@@ -863,55 +879,55 @@ const makeWorkerPoolService = Effect.gen(function* () {
         pendingTasks: pendingCount,
         statistics: {
           ...stats,
-          workerUtilization: Object.fromEntries(stats.workerUtilization)
+          workerUtilization: Object.fromEntries(stats.workerUtilization),
+        },
+      }
+    }),
+
+    adjustPoolSize: (newSize) =>
+      Effect.gen(function* () {
+        const currentSize = workers.size
+
+        if (newSize > currentSize) {
+          // Workerを追加
+          const addCount = newSize - currentSize
+          yield* Effect.forEach(
+            Array.from({ length: addCount }, (_, i) => `worker-${currentSize + i}`),
+            (workerId) => createWorker(workerId, 'general'),
+            { concurrency: 3 }
+          )
+        } else if (newSize < currentSize) {
+          // Workerを削除
+          const removeCount = currentSize - newSize
+          const workersToRemove = Array.from(workers.keys()).slice(-removeCount)
+
+          yield* Effect.forEach(
+            workersToRemove,
+            (workerId) =>
+              Effect.gen(function* () {
+                const worker = workers.get(workerId)
+                if (worker) {
+                  worker.terminate()
+                  workers.delete(workerId)
+                  yield* Effect.logInfo(`Worker terminated: ${workerId}`)
+                }
+              }),
+            { concurrency: 'unbounded' }
+          )
         }
-      }
-    }),
 
-    adjustPoolSize: (newSize) => Effect.gen(function* () {
-      const currentSize = workers.size
-
-      if (newSize > currentSize) {
-        // Workerを追加
-        const addCount = newSize - currentSize
-        yield* Effect.forEach(
-          Array.from({ length: addCount }, (_, i) => `worker-${currentSize + i}`),
-          workerId => createWorker(workerId, "general"),
-          { concurrency: 3 }
-        )
-      } else if (newSize < currentSize) {
-        // Workerを削除
-        const removeCount = currentSize - newSize
-        const workersToRemove = Array.from(workers.keys()).slice(-removeCount)
-
-        yield* Effect.forEach(
-          workersToRemove,
-          workerId => Effect.gen(function* () {
-            const worker = workers.get(workerId)
-            if (worker) {
-              worker.terminate()
-              workers.delete(workerId)
-              yield* Effect.logInfo(`Worker terminated: ${workerId}`)
-            }
-          }),
-          { concurrency: "unbounded" }
-        )
-      }
-
-      yield* Effect.logInfo(`Worker pool size adjusted: ${currentSize} -> ${newSize}`)
-    }),
+        yield* Effect.logInfo(`Worker pool size adjusted: ${currentSize} -> ${newSize}`)
+      }),
 
     shutdown: Effect.gen(function* () {
       // すべてのWorkerを終了
-      yield* Effect.forEach(
-        Array.from(workers.values()),
-        worker => Effect.sync(() => worker.terminate()),
-        { concurrency: "unbounded" }
-      )
+      yield* Effect.forEach(Array.from(workers.values()), (worker) => Effect.sync(() => worker.terminate()), {
+        concurrency: 'unbounded',
+      })
 
       workers.clear()
-      yield* Effect.logInfo("Worker pool shutdown completed")
-    })
+      yield* Effect.logInfo('Worker pool shutdown completed')
+    }),
   })
 })
 
@@ -924,7 +940,7 @@ GC圧力の軽減とオブジェクト再利用：
 
 ```typescript
 // src/performance/memory-pool.ts
-import { Effect, Context, Layer, Ref } from "effect"
+import { Effect, Context, Layer, Ref } from 'effect'
 
 // メモリプールのインターフェース
 export interface MemoryPool<T> {
@@ -947,9 +963,7 @@ export interface MemoryPoolConfig<T> {
 }
 
 // メモリプールの作成関数
-export const makeMemoryPool = <T>(
-  config: MemoryPoolConfig<T>
-): Effect.Effect<MemoryPool<T>, never, never> =>
+export const makeMemoryPool = <T>(config: MemoryPoolConfig<T>): Effect.Effect<MemoryPool<T>, never, never> =>
   Effect.gen(function* () {
     const { factory, reset, initialSize = 10, maxSize = 1000 } = config
 
@@ -975,7 +989,7 @@ export const makeMemoryPool = <T>(
           yield* Ref.set(available, rest)
         } else {
           item = factory()
-          yield* Effect.logDebug("Memory pool: created new item (pool exhausted)")
+          yield* Effect.logDebug('Memory pool: created new item (pool exhausted)')
         }
 
         yield* Ref.update(inUse, (set) => new Set(set).add(item))
@@ -986,7 +1000,7 @@ export const makeMemoryPool = <T>(
       Effect.gen(function* () {
         const currentInUse = yield* Ref.get(inUse)
         if (!currentInUse.has(item)) {
-          yield* Effect.logWarning("Memory pool: attempted to release item not in use")
+          yield* Effect.logWarning('Memory pool: attempted to release item not in use')
           return
         }
 
@@ -1001,7 +1015,7 @@ export const makeMemoryPool = <T>(
           yield* Ref.update(available, (items) => [...items, item])
         } else {
           // プールが満杯の場合はGCに任せる
-          yield* Effect.logDebug("Memory pool: discarded item (pool full)")
+          yield* Effect.logDebug('Memory pool: discarded item (pool full)')
         }
       })
 
@@ -1012,14 +1026,14 @@ export const makeMemoryPool = <T>(
         return {
           available: availableItems.length,
           inUse: inUseItems.size,
-          total: availableItems.length + inUseItems.size
+          total: availableItems.length + inUseItems.size,
         }
       })
 
     return {
       acquire,
       release,
-      getStats
+      getStats,
     }
   })
 
@@ -1033,75 +1047,83 @@ export interface MemoryPoolService {
   readonly optimizeAllPools: Effect.Effect<void, never>
 }
 
-export const MemoryPoolService = Context.GenericTag<MemoryPoolService>("@minecraft/MemoryPoolService")
+export const MemoryPoolService = Context.GenericTag<MemoryPoolService>('@minecraft/MemoryPoolService')
 
 // Vector3プール（頻繁に使用される）
-const createVector3Pool = () => new MemoryPool<Vector3>(
-  () => ({ x: 0, y: 0, z: 0 }),
-  (v) => { v.x = 0; v.y = 0; v.z = 0 },
-  100,  // 初期サイズ
-  10000 // 最大サイズ
-)
+const createVector3Pool = () =>
+  new MemoryPool<Vector3>(
+    () => ({ x: 0, y: 0, z: 0 }),
+    (v) => {
+      v.x = 0
+      v.y = 0
+      v.z = 0
+    },
+    100, // 初期サイズ
+    10000 // 最大サイズ
+  )
 
 // エンティティプール
-const createEntityPool = () => new MemoryPool<Entity>(
-  () => ({
-    id: "",
-    components: new Map(),
-    active: false
-  }),
-  (entity) => {
-    entity.id = ""
-    entity.components.clear()
-    entity.active = false
-  },
-  50,
-  5000
-)
+const createEntityPool = () =>
+  new MemoryPool<Entity>(
+    () => ({
+      id: '',
+      components: new Map(),
+      active: false,
+    }),
+    (entity) => {
+      entity.id = ''
+      entity.components.clear()
+      entity.active = false
+    },
+    50,
+    5000
+  )
 
 // パーティクルプール
-const createParticlePool = () => new MemoryPool<Particle>(
-  () => ({
-    position: { x: 0, y: 0, z: 0 },
-    velocity: { x: 0, y: 0, z: 0 },
-    life: 0,
-    maxLife: 0,
-    size: 1,
-    color: { r: 1, g: 1, b: 1, a: 1 }
-  }),
-  (particle) => {
-    particle.position.x = particle.position.y = particle.position.z = 0
-    particle.velocity.x = particle.velocity.y = particle.velocity.z = 0
-    particle.life = particle.maxLife = 0
-    particle.size = 1
-    particle.color.r = particle.color.g = particle.color.b = particle.color.a = 1
-  },
-  200,
-  20000
-)
+const createParticlePool = () =>
+  new MemoryPool<Particle>(
+    () => ({
+      position: { x: 0, y: 0, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      life: 0,
+      maxLife: 0,
+      size: 1,
+      color: { r: 1, g: 1, b: 1, a: 1 },
+    }),
+    (particle) => {
+      particle.position.x = particle.position.y = particle.position.z = 0
+      particle.velocity.x = particle.velocity.y = particle.velocity.z = 0
+      particle.life = particle.maxLife = 0
+      particle.size = 1
+      particle.color.r = particle.color.g = particle.color.b = particle.color.a = 1
+    },
+    200,
+    20000
+  )
 
 // メッシュデータプール
-const createMeshDataPool = () => new MemoryPool<MeshData>(
-  () => ({
-    vertices: new Float32Array(0),
-    indices: new Uint32Array(0),
-    normals: new Float32Array(0),
-    uvs: new Float32Array(0),
-    vertexCount: 0,
-    indexCount: 0
-  }),
-  (meshData) => {
-    // TypedArrayは再利用のためにクリア
-    meshData.vertices.fill(0)
-    meshData.indices.fill(0)
-    meshData.normals.fill(0)
-    meshData.uvs.fill(0)
-    meshData.vertexCount = 0
-    meshData.indexCount = 0
-  },
-  10,
-  1000
-)
+const createMeshDataPool = () =>
+  new MemoryPool<MeshData>(
+    () => ({
+      vertices: new Float32Array(0),
+      indices: new Uint32Array(0),
+      normals: new Float32Array(0),
+      uvs: new Float32Array(0),
+      vertexCount: 0,
+      indexCount: 0,
+    }),
+    (meshData) => {
+      // TypedArrayは再利用のためにクリア
+      meshData.vertices.fill(0)
+      meshData.indices.fill(0)
+      meshData.normals.fill(0)
+      meshData.uvs.fill(0)
+      meshData.vertexCount = 0
+      meshData.indexCount = 0
+    },
+    10,
+    1000
+  )
 
 // メモリプールサービスの実装
 const makeMemoryPoolService = Effect.gen(function* () {
@@ -1121,7 +1143,7 @@ const makeMemoryPoolService = Effect.gen(function* () {
         vector3Pool.getStats(),
         entityPool.getStats(),
         particlePool.getStats(),
-        meshDataPool.getStats()
+        meshDataPool.getStats(),
       ])
 
       return {
@@ -1130,7 +1152,7 @@ const makeMemoryPoolService = Effect.gen(function* () {
         particle: particleStats,
         meshData: meshStats,
         totalInUse: vector3Stats.inUse + entityStats.inUse + particleStats.inUse + meshStats.inUse,
-        totalAvailable: vector3Stats.available + entityStats.available + particleStats.available + meshStats.available
+        totalAvailable: vector3Stats.available + entityStats.available + particleStats.available + meshStats.available,
       }
     }),
 
@@ -1139,56 +1161,54 @@ const makeMemoryPoolService = Effect.gen(function* () {
 
       // 使用率が低いプールを縮小
       if (stats.vector3.available > stats.vector3.inUse * 3) {
-        yield* Effect.logInfo("Optimizing Vector3 pool (high unused ratio)")
+        yield* Effect.logInfo('Optimizing Vector3 pool (high unused ratio)')
         // 実際の最適化ロジックをここに実装
       }
 
       if (stats.particle.available > stats.particle.inUse * 2) {
-        yield* Effect.logInfo("Optimizing Particle pool (high unused ratio)")
+        yield* Effect.logInfo('Optimizing Particle pool (high unused ratio)')
       }
 
-      yield* Effect.logInfo("Memory pool optimization completed")
-    })
+      yield* Effect.logInfo('Memory pool optimization completed')
+    }),
   })
 })
 
 export const MemoryPoolServiceLive = Layer.effect(MemoryPoolService, makeMemoryPoolService)
 
 // 使用例: スコープ付きリソース管理
-export const withPooledVector3 = <A, E>(
-  operation: (vector: Vector3) => Effect.Effect<A, E>
-): Effect.Effect<A, E> => Effect.gen(function* () {
-  const pools = yield* MemoryPoolService
-  const vector = yield* pools.vector3Pool.acquire()
+export const withPooledVector3 = <A, E>(operation: (vector: Vector3) => Effect.Effect<A, E>): Effect.Effect<A, E> =>
+  Effect.gen(function* () {
+    const pools = yield* MemoryPoolService
+    const vector = yield* pools.vector3Pool.acquire()
 
-  try {
-    const result = yield* operation(vector)
-    return result
-  } finally {
-    yield* pools.vector3Pool.release(vector)
-  }
-})
+    try {
+      const result = yield* operation(vector)
+      return result
+    } finally {
+      yield* pools.vector3Pool.release(vector)
+    }
+  })
 
 // バッチ処理用のヘルパー
 export const withPooledVectors = <A, E>(
   count: number,
   operation: (vectors: ReadonlyArray<Vector3>) => Effect.Effect<A, E>
-): Effect.Effect<A, E> => Effect.gen(function* () {
-  const pools = yield* MemoryPoolService
-  const vectors = yield* Effect.all(
-    Array.from({ length: count }, () => pools.vector3Pool.acquire())
-  )
+): Effect.Effect<A, E> =>
+  Effect.gen(function* () {
+    const pools = yield* MemoryPoolService
+    const vectors = yield* Effect.all(Array.from({ length: count }, () => pools.vector3Pool.acquire()))
 
-  try {
-    const result = yield* operation(vectors)
-    return result
-  } finally {
-    yield* Effect.all(
-      vectors.map(vector => pools.vector3Pool.release(vector)),
-      { concurrency: "unbounded" }
-    )
-  }
-})
+    try {
+      const result = yield* operation(vectors)
+      return result
+    } finally {
+      yield* Effect.all(
+        vectors.map((vector) => pools.vector3Pool.release(vector)),
+        { concurrency: 'unbounded' }
+      )
+    }
+  })
 ```
 
 ## 💡 Best Practices
@@ -1199,24 +1219,18 @@ export const withPooledVectors = <A, E>(
 // ✅ 推測ではなく計測に基づく最適化
 const optimizeWithProfiling = Effect.gen(function* () {
   const profiler = yield* ProfilerService
-  const session = yield* profiler.startProfiling("optimization-session")
+  const session = yield* profiler.startProfiling('optimization-session')
 
   // ベースライン測定
-  const baselineResult = yield* session.measure(
-    currentImplementation(),
-    "baseline-implementation"
-  )
+  const baselineResult = yield* session.measure(currentImplementation(), 'baseline-implementation')
 
   // 最適化版のテスト
-  const optimizedResult = yield* session.measure(
-    optimizedImplementation(),
-    "optimized-implementation"
-  )
+  const optimizedResult = yield* session.measure(optimizedImplementation(), 'optimized-implementation')
 
   const report = yield* profiler.stopProfiling(session.id)
 
   // 性能改善の検証
-  const improvement = (baselineResult.duration - optimizedResult.duration) / baselineResult.duration * 100
+  const improvement = ((baselineResult.duration - optimizedResult.duration) / baselineResult.duration) * 100
 
   if (improvement < 10) {
     yield* Effect.logWarning(`Optimization showed minimal improvement: ${improvement.toFixed(2)}%`)
@@ -1234,10 +1248,10 @@ const optimizeWithProfiling = Effect.gen(function* () {
 // ✅ 小さな改善を積み重ねる
 const incrementalOptimization = Effect.gen(function* () {
   const optimizations = [
-    { name: "data-structure", fn: optimizeDataStructures },
-    { name: "algorithm", fn: optimizeAlgorithms },
-    { name: "memory-allocation", fn: optimizeMemoryAllocation },
-    { name: "cache-efficiency", fn: optimizeCacheEfficiency }
+    { name: 'data-structure', fn: optimizeDataStructures },
+    { name: 'algorithm', fn: optimizeAlgorithms },
+    { name: 'memory-allocation', fn: optimizeMemoryAllocation },
+    { name: 'cache-efficiency', fn: optimizeCacheEfficiency },
   ]
 
   let cumulativeImprovement = 0
@@ -1247,7 +1261,7 @@ const incrementalOptimization = Effect.gen(function* () {
     yield* optimization.fn()
     const after = yield* measurePerformance()
 
-    const improvement = (before.duration - after.duration) / before.duration * 100
+    const improvement = ((before.duration - after.duration) / before.duration) * 100
     cumulativeImprovement += improvement
 
     yield* Effect.logInfo(`${optimization.name}: ${improvement.toFixed(2)}% improvement`)
@@ -1274,11 +1288,11 @@ const measuredOptimization = Effect.gen(function* () {
   const profiler = yield* ProfilerService
 
   // まず現状を計測
-  const baseline = yield* profiler.measure(simpleFunction(), "simple-version")
+  const baseline = yield* profiler.measure(simpleFunction(), 'simple-version')
 
   // ボトルネックが確認された場合のみ最適化
   if (baseline.duration > PERFORMANCE_THRESHOLD) {
-    return yield* profiler.measure(optimizedFunction(), "optimized-version")
+    return yield* profiler.measure(optimizedFunction(), 'optimized-version')
   }
 
   return baseline.result
@@ -1323,13 +1337,13 @@ const adaptivePerformanceControl = Effect.gen(function* () {
 
   if (currentFPS < TARGET_FPS * 0.8) {
     // パフォーマンスが低下している場合は品質を下げる
-    yield* Effect.logInfo("Reducing quality settings due to low FPS")
+    yield* Effect.logInfo('Reducing quality settings due to low FPS')
     yield* reduceRenderQuality()
     yield* decreaseParticleCount()
     yield* simplifyPhysicsCalculations()
   } else if (currentFPS > TARGET_FPS * 1.1) {
     // パフォーマンスに余裕がある場合は品質を上げる
-    yield* Effect.logInfo("Increasing quality settings due to high FPS")
+    yield* Effect.logInfo('Increasing quality settings due to high FPS')
     yield* increaseRenderQuality()
     yield* increaseParticleCount()
     yield* enhancePhysicsCalculations()
@@ -1344,7 +1358,7 @@ const adaptivePerformanceControl = Effect.gen(function* () {
 const predictiveOptimization = Effect.gen(function* () {
   const usagePattern = yield* analyzeUsagePattern()
 
-  if (usagePattern.indicates === "heavy-computation-ahead") {
+  if (usagePattern.indicates === 'heavy-computation-ahead') {
     // CPUワーカーを事前に増やす
     yield* WorkerPoolService.adjustPoolSize(usagePattern.recommendedWorkers)
 
@@ -1352,7 +1366,7 @@ const predictiveOptimization = Effect.gen(function* () {
     yield* MemoryPoolService.preAllocate(usagePattern.expectedMemoryUsage)
   }
 
-  if (usagePattern.indicates === "many-entities-spawning") {
+  if (usagePattern.indicates === 'many-entities-spawning') {
     // エンティティプールの拡張
     yield* expandEntityPools()
 

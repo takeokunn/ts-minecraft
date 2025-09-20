@@ -54,7 +54,7 @@ afterAll(() => {
 export const TestConfig = {
   timeout: 10000,
   maxRetries: 3,
-  logLevel: 'error' as const
+  logLevel: 'error' as const,
 }
 
 /**
@@ -64,25 +64,18 @@ export const TestUtils = {
   /**
    * Effect実行用のヘルパー
    */
-  runEffect: <E, A>(effect: Effect.Effect<A, E>) =>
-    Effect.runPromise(effect),
+  runEffect: <E, A>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect),
 
   /**
    * タイムアウト付きEffect実行
    */
-  runEffectWithTimeout: <E, A>(
-    effect: Effect.Effect<A, E>,
-    timeoutMs: number = TestConfig.timeout
-  ) =>
-    Effect.runPromise(
-      Effect.timeout(effect, `${timeoutMs} millis`)
-    ),
+  runEffectWithTimeout: <E, A>(effect: Effect.Effect<A, E>, timeoutMs: number = TestConfig.timeout) =>
+    Effect.runPromise(Effect.timeout(effect, `${timeoutMs} millis`)),
 
   /**
    * テスト用のConfigProvider
    */
-  createTestConfigProvider: (config: Record<string, string>) =>
-    ConfigProvider.fromMap(new Map(Object.entries(config)))
+  createTestConfigProvider: (config: Record<string, string>) => ConfigProvider.fromMap(new Map(Object.entries(config))),
 }
 
 // グローバルエラーハンドラー

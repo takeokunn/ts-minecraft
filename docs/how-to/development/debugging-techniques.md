@@ -1,15 +1,14 @@
 ---
-title: "デバッグ技法 - Effect-TS & Three.js開発の実践的トラブルシューティング"
-description: "TypeScript Minecraft Clone開発におけるデバッグ技法の完全ガイド。Effect-TSの高度なデバッグパターン、Three.js最適化、パフォーマンス分析、実時間デバッグツールの活用法。"
-category: "how-to"
-difficulty: "advanced"
-tags: ["debugging", "effect-ts", "three.js", "performance", "troubleshooting", "development-tools", "profiling"]
-prerequisites: ["basic-typescript", "effect-ts-fundamentals", "development-conventions"]
-estimated_reading_time: "30分"
-related_patterns: ["error-handling-patterns", "optimization-patterns", "testing-patterns"]
-related_docs: ["../troubleshooting/", "./00-development-conventions.md", "./03-performance-optimization.md"]
+title: 'デバッグ技法 - Effect-TS & Three.js開発の実践的トラブルシューティング'
+description: 'TypeScript Minecraft Clone開発におけるデバッグ技法の完全ガイド。Effect-TSの高度なデバッグパターン、Three.js最適化、パフォーマンス分析、実時間デバッグツールの活用法。'
+category: 'how-to'
+difficulty: 'advanced'
+tags: ['debugging', 'effect-ts', 'three.js', 'performance', 'troubleshooting', 'development-tools', 'profiling']
+prerequisites: ['basic-typescript', 'effect-ts-fundamentals', 'development-conventions']
+estimated_reading_time: '30分'
+related_patterns: ['error-handling-patterns', 'optimization-patterns', 'testing-patterns']
+related_docs: ['../troubleshooting/', './00-development-conventions.md', './03-performance-optimization.md']
 ---
-
 
 # 🐛 デバッグ技法 - 高度なトラブルシューティング実践ガイド
 
@@ -97,8 +96,8 @@ flowchart TD
 
 ```typescript
 // src/debugging/EffectTracer.ts
-import { Effect, Context, Layer, FiberRef, pipe } from "effect"
-import { Schema } from "@effect/schema"
+import { Effect, Context, Layer, FiberRef, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 
 // デバッグ情報のスキーマ
 const DebugInfo = Schema.Struct({
@@ -106,12 +105,14 @@ const DebugInfo = Schema.Struct({
   timestamp: Schema.Date,
   stackTrace: Schema.Array(Schema.String),
   context: Schema.Record(Schema.String, Schema.Unknown),
-  performance: Schema.optional(Schema.Struct({
-    startTime: Schema.Number,
-    endTime: Schema.Number,
-    duration: Schema.Number,
-    memoryUsage: Schema.Number
-  }))
+  performance: Schema.optional(
+    Schema.Struct({
+      startTime: Schema.Number,
+      endTime: Schema.Number,
+      duration: Schema.Number,
+      memoryUsage: Schema.Number,
+    })
+  ),
 })
 
 type DebugInfo = Schema.Schema.Type<typeof DebugInfo>
@@ -124,78 +125,81 @@ interface DebugContext {
   readonly getTrace: () => Effect.Effect<ReadonlyArray<DebugInfo>>
 }
 
-const DebugContext = Context.GenericTag<DebugContext>("DebugContext")
+const DebugContext = Context.GenericTag<DebugContext>('DebugContext')
 
 // 高度なEffect追跡システム
 const makeDebugContext = Effect.gen(function* () {
   const traces = new Map<string, DebugInfo>()
-  const operationStack = new Array<{id: string, name: string, startTime: number}>()
+  const operationStack = new Array<{ id: string; name: string; startTime: number }>()
 
   return DebugContext.of({
-    trace: (info) => Effect.sync(() => {
-      traces.set(info.operationId, info)
+    trace: (info) =>
+      Effect.sync(() => {
+        traces.set(info.operationId, info)
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`🔍 [DEBUG] ${info.operationId}:`, {
-          timestamp: info.timestamp,
-          context: info.context,
-          performance: info.performance
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🔍 [DEBUG] ${info.operationId}:`, {
+            timestamp: info.timestamp,
+            context: info.context,
+            performance: info.performance,
+          })
+        }
+      }),
+
+    startOperation: (operationName) =>
+      Effect.gen(function* () {
+        const operationId = `${operationName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        const startTime = performance.now()
+
+        operationStack.push({
+          id: operationId,
+          name: operationName,
+          startTime,
         })
-      }
-    }),
 
-    startOperation: (operationName) => Effect.gen(function* () {
-      const operationId = `${operationName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      const startTime = performance.now()
+        yield* DebugContext.trace({
+          operationId,
+          timestamp: new Date(),
+          stackTrace: new Error().stack?.split('\n') || [],
+          context: {
+            operation: operationName,
+            stackDepth: operationStack.length,
+          },
+        })
 
-      operationStack.push({
-        id: operationId,
-        name: operationName,
-        startTime
-      })
+        return operationId
+      }),
 
-      yield* DebugContext.trace({
-        operationId,
-        timestamp: new Date(),
-        stackTrace: new Error().stack?.split('\n') || [],
-        context: {
-          operation: operationName,
-          stackDepth: operationStack.length
-        }
-      })
+    endOperation: (operationId) =>
+      Effect.gen(function* () {
+        const operation = operationStack.find((op) => op.id === operationId)
+        if (!operation) return
 
-      return operationId
-    }),
+        const endTime = performance.now()
+        const duration = endTime - operation.startTime
 
-    endOperation: (operationId) => Effect.gen(function* () {
-      const operation = operationStack.find(op => op.id === operationId)
-      if (!operation) return
+        yield* DebugContext.trace({
+          operationId,
+          timestamp: new Date(),
+          stackTrace: [],
+          context: {
+            operation: operation.name,
+            completed: true,
+          },
+          performance: {
+            startTime: operation.startTime,
+            endTime,
+            duration,
+            memoryUsage: (performance as any).memory?.usedJSHeapSize || 0,
+          },
+        })
 
-      const endTime = performance.now()
-      const duration = endTime - operation.startTime
+        // スタックから削除
+        const index = operationStack.findIndex((op) => op.id === operationId)
+        if (index >= 0) operationStack.splice(index, 1)
+      }),
 
-      yield* DebugContext.trace({
-        operationId,
-        timestamp: new Date(),
-        stackTrace: [],
-        context: {
-          operation: operation.name,
-          completed: true
-        },
-        performance: {
-          startTime: operation.startTime,
-          endTime,
-          duration,
-          memoryUsage: (performance as any).memory?.usedJSHeapSize || 0
-        }
-      })
-
-      // スタックから削除
-      const index = operationStack.findIndex(op => op.id === operationId)
-      if (index >= 0) operationStack.splice(index, 1)
-    }),
-
-    getTrace: () => Effect.sync(() => Array.from(traces.values()))
+    getTrace: () => Effect.sync(() => Array.from(traces.values())),
   })
 })
 
@@ -220,8 +224,8 @@ export const withDebugTrace = <A, E, R>(
         context: {
           operation: operationName,
           error: error instanceof Error ? error.message : String(error),
-          failed: true
-        }
+          failed: true,
+        },
       })
       yield* debug.endOperation(operationId)
       throw error
@@ -275,19 +279,27 @@ export const createDebugDashboard = () => {
     updateTraces: (traces: ReadonlyArray<DebugInfo>) => {
       dashboard.innerHTML = `
         <h3>🔍 Effect Debug Traces</h3>
-        ${traces.map(trace => `
+        ${traces
+          .map(
+            (trace) => `
           <div style="margin-bottom: 10px; padding: 5px; border-left: 2px solid #00ff00;">
             <strong>${trace.operationId}</strong><br>
             <small>${trace.timestamp.toISOString()}</small><br>
-            ${trace.performance ? `
+            ${
+              trace.performance
+                ? `
               <span style="color: #ffff00;">⏱ ${trace.performance.duration.toFixed(2)}ms</span><br>
               <span style="color: #ff9800;">📊 ${(trace.performance.memoryUsage / 1024 / 1024).toFixed(2)}MB</span><br>
-            ` : ''}
+            `
+                : ''
+            }
             <pre style="color: #ccc; font-size: 10px;">${JSON.stringify(trace.context, null, 2)}</pre>
           </div>
-        `).join('')}
+        `
+          )
+          .join('')}
       `
-    }
+    },
   }
 }
 
@@ -298,18 +310,18 @@ export const DebugContextLive = Layer.effect(DebugContext, makeDebugContext)
 
 ```typescript
 // src/debugging/ErrorAnalyzer.ts
-import { Effect, Match, pipe } from "effect"
-import { Schema } from "@effect/schema"
+import { Effect, Match, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 
 // エラー分析結果のスキーマ
 const ErrorAnalysis = Schema.Struct({
   errorType: Schema.String,
-  severity: Schema.Literal("low", "medium", "high", "critical"),
+  severity: Schema.Literal('low', 'medium', 'high', 'critical'),
   rootCause: Schema.String,
   suggestedFix: Schema.String,
   affectedSystems: Schema.Array(Schema.String),
   reproductionSteps: Schema.Array(Schema.String),
-  relatedErrors: Schema.Array(Schema.String)
+  relatedErrors: Schema.Array(Schema.String),
 })
 
 type ErrorAnalysis = Schema.Schema.Type<typeof ErrorAnalysis>
@@ -326,132 +338,130 @@ export const analyzeEffectError = (error: unknown): Effect.Effect<ErrorAnalysis>
       Match.when(
         (e): e is Error => e instanceof Error && e.message.includes('Schema'),
         (e) => ({
-          errorType: "SchemaValidationError",
-          severity: "high" as const,
+          errorType: 'SchemaValidationError',
+          severity: 'high' as const,
           rootCause: "Data validation failed - input doesn't match expected schema",
-          suggestedFix: "Check input data format and schema definition alignment",
-          affectedSystems: ["Data Layer", "API Layer"],
+          suggestedFix: 'Check input data format and schema definition alignment',
+          affectedSystems: ['Data Layer', 'API Layer'],
           reproductionSteps: [
-            "1. Identify the failing schema validation",
-            "2. Compare input data with schema definition",
-            "3. Fix data format or adjust schema"
+            '1. Identify the failing schema validation',
+            '2. Compare input data with schema definition',
+            '3. Fix data format or adjust schema',
           ],
-          relatedErrors: ["ParseError", "DecodeError"]
+          relatedErrors: ['ParseError', 'DecodeError'],
         })
       ),
       Match.when(
         (e): e is Error => e instanceof Error && e.message.includes('Context'),
         (e) => ({
-          errorType: "ContextNotProvidedError",
-          severity: "critical" as const,
-          rootCause: "Required service not provided in Effect context",
-          suggestedFix: "Ensure all required services are provided via Layer.provide()",
-          affectedSystems: ["Service Layer", "Application Layer"],
+          errorType: 'ContextNotProvidedError',
+          severity: 'critical' as const,
+          rootCause: 'Required service not provided in Effect context',
+          suggestedFix: 'Ensure all required services are provided via Layer.provide()',
+          affectedSystems: ['Service Layer', 'Application Layer'],
           reproductionSteps: [
-            "1. Check missing service in error message",
-            "2. Verify Layer composition",
-            "3. Add missing service to Layer.mergeAll()"
+            '1. Check missing service in error message',
+            '2. Verify Layer composition',
+            '3. Add missing service to Layer.mergeAll()',
           ],
-          relatedErrors: ["LayerError", "DependencyError"]
+          relatedErrors: ['LayerError', 'DependencyError'],
         })
       ),
       Match.when(
         (e): e is Error => e instanceof Error && stackTrace.includes('Three'),
         (e) => ({
-          errorType: "ThreeJSRenderError",
-          severity: "medium" as const,
-          rootCause: "WebGL rendering or Three.js object manipulation issue",
-          suggestedFix: "Check WebGL context, geometry disposal, and material management",
-          affectedSystems: ["Rendering System", "GPU Resources"],
+          errorType: 'ThreeJSRenderError',
+          severity: 'medium' as const,
+          rootCause: 'WebGL rendering or Three.js object manipulation issue',
+          suggestedFix: 'Check WebGL context, geometry disposal, and material management',
+          affectedSystems: ['Rendering System', 'GPU Resources'],
           reproductionSteps: [
-            "1. Check WebGL context availability",
-            "2. Verify resource disposal patterns",
-            "3. Monitor GPU memory usage"
+            '1. Check WebGL context availability',
+            '2. Verify resource disposal patterns',
+            '3. Monitor GPU memory usage',
           ],
-          relatedErrors: ["WebGLError", "ResourceError", "MemoryError"]
+          relatedErrors: ['WebGLError', 'ResourceError', 'MemoryError'],
         })
       ),
       Match.when(
         (e): e is Error => e instanceof Error && e.message.includes('timeout'),
         (e) => ({
-          errorType: "TimeoutError",
-          severity: "medium" as const,
-          rootCause: "Operation exceeded specified timeout duration",
-          suggestedFix: "Increase timeout duration or optimize operation performance",
-          affectedSystems: ["Async Operations", "Network Layer"],
+          errorType: 'TimeoutError',
+          severity: 'medium' as const,
+          rootCause: 'Operation exceeded specified timeout duration',
+          suggestedFix: 'Increase timeout duration or optimize operation performance',
+          affectedSystems: ['Async Operations', 'Network Layer'],
           reproductionSteps: [
-            "1. Identify slow operation",
-            "2. Profile performance bottlenecks",
-            "3. Optimize or increase timeout"
+            '1. Identify slow operation',
+            '2. Profile performance bottlenecks',
+            '3. Optimize or increase timeout',
           ],
-          relatedErrors: ["NetworkError", "PerformanceError"]
+          relatedErrors: ['NetworkError', 'PerformanceError'],
         })
       ),
       Match.orElse((e) => ({
-        errorType: "UnknownError",
-        severity: "medium" as const,
+        errorType: 'UnknownError',
+        severity: 'medium' as const,
         rootCause: `Unclassified error: ${errorString}`,
-        suggestedFix: "Review error message and stack trace for clues",
-        affectedSystems: ["Unknown"],
-        reproductionSteps: [
-          "1. Review full error message",
-          "2. Analyze stack trace",
-          "3. Add specific error handling"
-        ],
-        relatedErrors: []
+        suggestedFix: 'Review error message and stack trace for clues',
+        affectedSystems: ['Unknown'],
+        reproductionSteps: ['1. Review full error message', '2. Analyze stack trace', '3. Add specific error handling'],
+        relatedErrors: [],
       }))
     )
   })
 
 // エラー発生パターンの自動検出
 export const createErrorPatternDetector = () => {
-  const errorHistory = new Map<string, Array<{timestamp: number, context: any}>>()
+  const errorHistory = new Map<string, Array<{ timestamp: number; context: any }>>()
 
   return {
-    recordError: (error: unknown, context: any = {}) => Effect.sync(() => {
-      const errorKey = error instanceof Error ? error.constructor.name : 'UnknownError'
+    recordError: (error: unknown, context: any = {}) =>
+      Effect.sync(() => {
+        const errorKey = error instanceof Error ? error.constructor.name : 'UnknownError'
 
-      if (!errorHistory.has(errorKey)) {
-        errorHistory.set(errorKey, [])
-      }
+        if (!errorHistory.has(errorKey)) {
+          errorHistory.set(errorKey, [])
+        }
 
-      errorHistory.get(errorKey)!.push({
-        timestamp: Date.now(),
-        context
-      })
-
-      // 過去1時間以内の同一エラーが5回以上発生していたら警告
-      const oneHourAgo = Date.now() - 60 * 60 * 1000
-      const recentErrors = errorHistory.get(errorKey)!.filter(e => e.timestamp > oneHourAgo)
-
-      if (recentErrors.length >= 5) {
-        console.warn(`🚨 Pattern Alert: ${errorKey} occurred ${recentErrors.length} times in the last hour`)
-
-        // パターン分析
-        const contexts = recentErrors.map(e => e.context)
-        console.log('🔍 Error Contexts:', contexts)
-      }
-    }),
-
-    getErrorPatterns: () => Effect.sync(() => {
-      const patterns: Array<{
-        errorType: string
-        frequency: number
-        lastOccurrence: number
-        contexts: Array<any>
-      }> = []
-
-      errorHistory.forEach((occurrences, errorType) => {
-        patterns.push({
-          errorType,
-          frequency: occurrences.length,
-          lastOccurrence: Math.max(...occurrences.map(o => o.timestamp)),
-          contexts: occurrences.map(o => o.context)
+        errorHistory.get(errorKey)!.push({
+          timestamp: Date.now(),
+          context,
         })
-      })
 
-      return patterns.sort((a, b) => b.frequency - a.frequency)
-    })
+        // 過去1時間以内の同一エラーが5回以上発生していたら警告
+        const oneHourAgo = Date.now() - 60 * 60 * 1000
+        const recentErrors = errorHistory.get(errorKey)!.filter((e) => e.timestamp > oneHourAgo)
+
+        if (recentErrors.length >= 5) {
+          console.warn(`🚨 Pattern Alert: ${errorKey} occurred ${recentErrors.length} times in the last hour`)
+
+          // パターン分析
+          const contexts = recentErrors.map((e) => e.context)
+          console.log('🔍 Error Contexts:', contexts)
+        }
+      }),
+
+    getErrorPatterns: () =>
+      Effect.sync(() => {
+        const patterns: Array<{
+          errorType: string
+          frequency: number
+          lastOccurrence: number
+          contexts: Array<any>
+        }> = []
+
+        errorHistory.forEach((occurrences, errorType) => {
+          patterns.push({
+            errorType,
+            frequency: occurrences.length,
+            lastOccurrence: Math.max(...occurrences.map((o) => o.timestamp)),
+            contexts: occurrences.map((o) => o.context),
+          })
+        })
+
+        return patterns.sort((a, b) => b.frequency - a.frequency)
+      }),
   }
 }
 ```
@@ -462,8 +472,8 @@ export const createErrorPatternDetector = () => {
 
 ```typescript
 // src/debugging/PerformanceMonitor.ts
-import * as THREE from "three"
-import { Effect, Context, Layer } from "effect"
+import * as THREE from 'three'
+import { Effect, Context, Layer } from 'effect'
 
 interface PerformanceMetrics {
   fps: number
@@ -487,7 +497,7 @@ interface PerformanceMonitor {
   readonly createStatsPanel: () => Effect.Effect<HTMLElement>
 }
 
-const PerformanceMonitor = Context.GenericTag<PerformanceMonitor>("PerformanceMonitor")
+const PerformanceMonitor = Context.GenericTag<PerformanceMonitor>('PerformanceMonitor')
 
 const makePerformanceMonitor = Effect.gen(function* () {
   let monitoring = false
@@ -503,8 +513,8 @@ const makePerformanceMonitor = Effect.gen(function* () {
     memoryUsage: {
       geometries: 0,
       textures: 0,
-      total: 0
-    }
+      total: 0,
+    },
   }
 
   // Three.js Info オブジェクトへの参照
@@ -548,30 +558,33 @@ const makePerformanceMonitor = Effect.gen(function* () {
   }
 
   return PerformanceMonitor.of({
-    startMonitoring: () => Effect.sync(() => {
-      monitoring = true
-      lastTime = performance.now()
+    startMonitoring: () =>
+      Effect.sync(() => {
+        monitoring = true
+        lastTime = performance.now()
 
-      const monitorLoop = () => {
-        if (monitoring) {
-          updateMetrics()
-          requestAnimationFrame(monitorLoop)
+        const monitorLoop = () => {
+          if (monitoring) {
+            updateMetrics()
+            requestAnimationFrame(monitorLoop)
+          }
         }
-      }
 
-      requestAnimationFrame(monitorLoop)
-    }),
+        requestAnimationFrame(monitorLoop)
+      }),
 
-    stopMonitoring: () => Effect.sync(() => {
-      monitoring = false
-    }),
+    stopMonitoring: () =>
+      Effect.sync(() => {
+        monitoring = false
+      }),
 
     getMetrics: () => Effect.sync(() => ({ ...metrics })),
 
-    createStatsPanel: () => Effect.sync(() => {
-      const panel = document.createElement('div')
-      panel.id = 'performance-stats'
-      panel.style.cssText = `
+    createStatsPanel: () =>
+      Effect.sync(() => {
+        const panel = document.createElement('div')
+        panel.id = 'performance-stats'
+        panel.style.cssText = `
         position: fixed;
         top: 10px;
         left: 10px;
@@ -585,13 +598,14 @@ const makePerformanceMonitor = Effect.gen(function* () {
         z-index: 10000;
       `
 
-      // 統計情報の更新ループ
-      const updatePanel = () => {
-        if (panel.parentNode) {
-          const fpsColor = metrics.fps > 55 ? '#00ff00' : metrics.fps > 30 ? '#ffff00' : '#ff0000'
-          const memoryColor = metrics.memoryUsage.total < 100 ? '#00ff00' : metrics.memoryUsage.total < 200 ? '#ffff00' : '#ff0000'
+        // 統計情報の更新ループ
+        const updatePanel = () => {
+          if (panel.parentNode) {
+            const fpsColor = metrics.fps > 55 ? '#00ff00' : metrics.fps > 30 ? '#ffff00' : '#ff0000'
+            const memoryColor =
+              metrics.memoryUsage.total < 100 ? '#00ff00' : metrics.memoryUsage.total < 200 ? '#ffff00' : '#ff0000'
 
-          panel.innerHTML = `
+            panel.innerHTML = `
             <div style="border-bottom: 1px solid #333; margin-bottom: 8px; padding-bottom: 5px;">
               <strong>🔥 Performance Monitor</strong>
             </div>
@@ -615,15 +629,15 @@ const makePerformanceMonitor = Effect.gen(function* () {
             </div>
           `
 
-          setTimeout(updatePanel, 100) // 10 FPS更新
+            setTimeout(updatePanel, 100) // 10 FPS更新
+          }
         }
-      }
 
-      updatePanel()
-      document.body.appendChild(panel)
+        updatePanel()
+        document.body.appendChild(panel)
 
-      return panel
-    })
+        return panel
+      }),
   })
 })
 
@@ -634,8 +648,8 @@ export const PerformanceMonitorLive = Layer.effect(PerformanceMonitor, makePerfo
 
 ```typescript
 // src/debugging/ThreeDebugger.ts
-import * as THREE from "three"
-import { Effect, Context, Layer } from "effect"
+import * as THREE from 'three'
+import { Effect, Context, Layer } from 'effect'
 
 interface ThreeDebugger {
   readonly enableWireframe: (scene: THREE.Scene) => Effect.Effect<void>
@@ -679,14 +693,14 @@ interface MemoryLeakReport {
   }>
 }
 
-const ThreeDebugger = Context.GenericTag<ThreeDebugger>("ThreeDebugger")
+const ThreeDebugger = Context.GenericTag<ThreeDebugger>('ThreeDebugger')
 
 const makeThreeDebugger = Effect.sync(() => {
   // リソース追跡用
   const resourceTracker = {
     geometries: new Set<THREE.BufferGeometry>(),
     materials: new Set<THREE.Material>(),
-    textures: new Set<THREE.Texture>()
+    textures: new Set<THREE.Texture>(),
   }
 
   // オリジナルのdisposeメソッドをフック
@@ -694,240 +708,247 @@ const makeThreeDebugger = Effect.sync(() => {
   const originalMaterialDispose = THREE.Material.prototype.dispose
   const originalTextureDispose = THREE.Texture.prototype.dispose
 
-  THREE.BufferGeometry.prototype.dispose = function() {
+  THREE.BufferGeometry.prototype.dispose = function () {
     resourceTracker.geometries.delete(this)
     return originalGeometryDispose.call(this)
   }
 
-  THREE.Material.prototype.dispose = function() {
+  THREE.Material.prototype.dispose = function () {
     resourceTracker.materials.delete(this)
     return originalMaterialDispose.call(this)
   }
 
-  THREE.Texture.prototype.dispose = function() {
+  THREE.Texture.prototype.dispose = function () {
     resourceTracker.textures.delete(this)
     return originalTextureDispose.call(this)
   }
 
   return ThreeDebugger.of({
-    enableWireframe: (scene) => Effect.sync(() => {
-      scene.traverse((object) => {
-        if (object instanceof THREE.Mesh && object.material) {
-          const material = Array.isArray(object.material) ? object.material[0] : object.material
-          if (material instanceof THREE.MeshBasicMaterial ||
+    enableWireframe: (scene) =>
+      Effect.sync(() => {
+        scene.traverse((object) => {
+          if (object instanceof THREE.Mesh && object.material) {
+            const material = Array.isArray(object.material) ? object.material[0] : object.material
+            if (
+              material instanceof THREE.MeshBasicMaterial ||
               material instanceof THREE.MeshLambertMaterial ||
-              material instanceof THREE.MeshPhongMaterial) {
-            material.wireframe = true
-          }
-        }
-      })
-    }),
-
-    showBoundingBoxes: (scene) => Effect.sync(() => {
-      scene.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          const box = new THREE.BoxHelper(object, 0xffff00)
-          scene.add(box)
-        }
-      })
-    }),
-
-    analyzeMaterials: (scene) => Effect.sync(() => {
-      const analyses: MaterialAnalysis[] = []
-      const materialMap = new Map<string, THREE.Material>()
-
-      scene.traverse((object) => {
-        if (object instanceof THREE.Mesh && object.material) {
-          const materials = Array.isArray(object.material) ? object.material : [object.material]
-
-          materials.forEach(material => {
-            if (!materialMap.has(material.uuid)) {
-              materialMap.set(material.uuid, material)
-            }
-          })
-        }
-      })
-
-      materialMap.forEach((material, uuid) => {
-        let textureCount = 0
-        let textureSize = 0
-        let complexity: 'low' | 'medium' | 'high' = 'low'
-        const recommendations: string[] = []
-
-        // テクスチャ分析
-        Object.values(material).forEach(value => {
-          if (value instanceof THREE.Texture) {
-            textureCount++
-            if (value.image) {
-              const size = value.image.width * value.image.height * 4 // RGBA
-              textureSize += size
+              material instanceof THREE.MeshPhongMaterial
+            ) {
+              material.wireframe = true
             }
           }
         })
+      }),
 
-        // 複雑性判定
-        if (textureCount > 5 || textureSize > 4 * 1024 * 1024) {
-          complexity = 'high'
-          recommendations.push('Consider texture atlasing or compression')
-        } else if (textureCount > 2 || textureSize > 1024 * 1024) {
-          complexity = 'medium'
-          recommendations.push('Monitor texture memory usage')
-        }
-
-        // シェーダー複雑性チェック
-        if ('vertexShader' in material && 'fragmentShader' in material) {
-          complexity = 'high'
-          recommendations.push('Custom shaders detected - profile GPU performance')
-        }
-
-        analyses.push({
-          materialId: uuid,
-          type: material.constructor.name,
-          textureCount,
-          textureSize: textureSize / 1024 / 1024, // MB
-          complexity,
-          recommendations
-        })
-      })
-
-      return analyses
-    }),
-
-    optimizeMeshes: (scene) => Effect.sync(() => {
-      let meshCount = 0
-      let triangleCount = 0
-      const materialSet = new Set<string>()
-      const textureSet = new Set<string>()
-      const suggestions: OptimizationReport['suggestions'] = []
-
-      scene.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          meshCount++
-
-          // 三角形数カウント
-          if (object.geometry) {
-            const geometry = object.geometry
-            if (geometry.index) {
-              triangleCount += geometry.index.count / 3
-            } else if (geometry.attributes.position) {
-              triangleCount += geometry.attributes.position.count / 3
-            }
+    showBoundingBoxes: (scene) =>
+      Effect.sync(() => {
+        scene.traverse((object) => {
+          if (object instanceof THREE.Mesh) {
+            const box = new THREE.BoxHelper(object, 0xffff00)
+            scene.add(box)
           }
+        })
+      }),
 
-          // マテリアル・テクスチャ収集
-          const materials = Array.isArray(object.material) ? object.material : [object.material]
-          materials.forEach(material => {
-            materialSet.add(material.uuid)
+    analyzeMaterials: (scene) =>
+      Effect.sync(() => {
+        const analyses: MaterialAnalysis[] = []
+        const materialMap = new Map<string, THREE.Material>()
 
-            Object.values(material).forEach(value => {
-              if (value instanceof THREE.Texture) {
-                textureSet.add(value.uuid)
+        scene.traverse((object) => {
+          if (object instanceof THREE.Mesh && object.material) {
+            const materials = Array.isArray(object.material) ? object.material : [object.material]
+
+            materials.forEach((material) => {
+              if (!materialMap.has(material.uuid)) {
+                materialMap.set(material.uuid, material)
               }
             })
+          }
+        })
+
+        materialMap.forEach((material, uuid) => {
+          let textureCount = 0
+          let textureSize = 0
+          let complexity: 'low' | 'medium' | 'high' = 'low'
+          const recommendations: string[] = []
+
+          // テクスチャ分析
+          Object.values(material).forEach((value) => {
+            if (value instanceof THREE.Texture) {
+              textureCount++
+              if (value.image) {
+                const size = value.image.width * value.image.height * 4 // RGBA
+                textureSize += size
+              }
+            }
+          })
+
+          // 複雑性判定
+          if (textureCount > 5 || textureSize > 4 * 1024 * 1024) {
+            complexity = 'high'
+            recommendations.push('Consider texture atlasing or compression')
+          } else if (textureCount > 2 || textureSize > 1024 * 1024) {
+            complexity = 'medium'
+            recommendations.push('Monitor texture memory usage')
+          }
+
+          // シェーダー複雑性チェック
+          if ('vertexShader' in material && 'fragmentShader' in material) {
+            complexity = 'high'
+            recommendations.push('Custom shaders detected - profile GPU performance')
+          }
+
+          analyses.push({
+            materialId: uuid,
+            type: material.constructor.name,
+            textureCount,
+            textureSize: textureSize / 1024 / 1024, // MB
+            complexity,
+            recommendations,
+          })
+        })
+
+        return analyses
+      }),
+
+    optimizeMeshes: (scene) =>
+      Effect.sync(() => {
+        let meshCount = 0
+        let triangleCount = 0
+        const materialSet = new Set<string>()
+        const textureSet = new Set<string>()
+        const suggestions: OptimizationReport['suggestions'] = []
+
+        scene.traverse((object) => {
+          if (object instanceof THREE.Mesh) {
+            meshCount++
+
+            // 三角形数カウント
+            if (object.geometry) {
+              const geometry = object.geometry
+              if (geometry.index) {
+                triangleCount += geometry.index.count / 3
+              } else if (geometry.attributes.position) {
+                triangleCount += geometry.attributes.position.count / 3
+              }
+            }
+
+            // マテリアル・テクスチャ収集
+            const materials = Array.isArray(object.material) ? object.material : [object.material]
+            materials.forEach((material) => {
+              materialSet.add(material.uuid)
+
+              Object.values(material).forEach((value) => {
+                if (value instanceof THREE.Texture) {
+                  textureSet.add(value.uuid)
+                }
+              })
+            })
+          }
+        })
+
+        // 最適化提案生成
+        if (meshCount > 1000) {
+          suggestions.push({
+            type: 'geometry',
+            description: `High mesh count (${meshCount}). Consider mesh instancing or LOD.`,
+            impact: 'high',
+            implementation: 'Use InstancedMesh for repeated objects',
           })
         }
-      })
 
-      // 最適化提案生成
-      if (meshCount > 1000) {
-        suggestions.push({
-          type: 'geometry',
-          description: `High mesh count (${meshCount}). Consider mesh instancing or LOD.`,
-          impact: 'high',
-          implementation: 'Use InstancedMesh for repeated objects'
-        })
-      }
-
-      if (triangleCount > 1000000) {
-        suggestions.push({
-          type: 'geometry',
-          description: `Very high triangle count (${triangleCount.toLocaleString()}). Reduce geometry complexity.`,
-          impact: 'high',
-          implementation: 'Use LOD system or geometry simplification'
-        })
-      }
-
-      if (textureSet.size > 50) {
-        suggestions.push({
-          type: 'texture',
-          description: `Many unique textures (${textureSet.size}). Consider texture atlasing.`,
-          impact: 'medium',
-          implementation: 'Combine textures into atlases to reduce draw calls'
-        })
-      }
-
-      return {
-        meshCount,
-        triangleCount,
-        materialCount: materialSet.size,
-        textureCount: textureSet.size,
-        suggestions
-      }
-    }),
-
-    detectMemoryLeaks: () => Effect.sync(() => {
-      const report: MemoryLeakReport = {
-        geometriesNotDisposed: resourceTracker.geometries.size,
-        materialsNotDisposed: resourceTracker.materials.size,
-        texturesNotDisposed: resourceTracker.textures.size,
-        totalMemoryLeak: 0,
-        leakSources: []
-      }
-
-      // ジオメトリのメモリ使用量推定
-      let geometryMemory = 0
-      resourceTracker.geometries.forEach(geometry => {
-        if (geometry.attributes.position) {
-          geometryMemory += geometry.attributes.position.array.byteLength
+        if (triangleCount > 1000000) {
+          suggestions.push({
+            type: 'geometry',
+            description: `Very high triangle count (${triangleCount.toLocaleString()}). Reduce geometry complexity.`,
+            impact: 'high',
+            implementation: 'Use LOD system or geometry simplification',
+          })
         }
-        if (geometry.attributes.normal) {
-          geometryMemory += geometry.attributes.normal.array.byteLength
-        }
-        if (geometry.attributes.uv) {
-          geometryMemory += geometry.attributes.uv.array.byteLength
-        }
-        if (geometry.index) {
-          geometryMemory += geometry.index.array.byteLength
-        }
-      })
 
-      // テクスチャのメモリ使用量推定
-      let textureMemory = 0
-      resourceTracker.textures.forEach(texture => {
-        if (texture.image) {
-          const size = texture.image.width * texture.image.height * 4 // RGBA
-          textureMemory += size
+        if (textureSet.size > 50) {
+          suggestions.push({
+            type: 'texture',
+            description: `Many unique textures (${textureSet.size}). Consider texture atlasing.`,
+            impact: 'medium',
+            implementation: 'Combine textures into atlases to reduce draw calls',
+          })
         }
-      })
 
-      report.totalMemoryLeak = (geometryMemory + textureMemory) / 1024 / 1024 // MB
+        return {
+          meshCount,
+          triangleCount,
+          materialCount: materialSet.size,
+          textureCount: textureSet.size,
+          suggestions,
+        }
+      }),
 
-      if (report.geometriesNotDisposed > 0) {
-        report.leakSources.push({
-          type: 'BufferGeometry',
-          count: report.geometriesNotDisposed,
-          estimatedSize: geometryMemory / 1024 / 1024
+    detectMemoryLeaks: () =>
+      Effect.sync(() => {
+        const report: MemoryLeakReport = {
+          geometriesNotDisposed: resourceTracker.geometries.size,
+          materialsNotDisposed: resourceTracker.materials.size,
+          texturesNotDisposed: resourceTracker.textures.size,
+          totalMemoryLeak: 0,
+          leakSources: [],
+        }
+
+        // ジオメトリのメモリ使用量推定
+        let geometryMemory = 0
+        resourceTracker.geometries.forEach((geometry) => {
+          if (geometry.attributes.position) {
+            geometryMemory += geometry.attributes.position.array.byteLength
+          }
+          if (geometry.attributes.normal) {
+            geometryMemory += geometry.attributes.normal.array.byteLength
+          }
+          if (geometry.attributes.uv) {
+            geometryMemory += geometry.attributes.uv.array.byteLength
+          }
+          if (geometry.index) {
+            geometryMemory += geometry.index.array.byteLength
+          }
         })
-      }
 
-      if (report.texturesNotDisposed > 0) {
-        report.leakSources.push({
-          type: 'Texture',
-          count: report.texturesNotDisposed,
-          estimatedSize: textureMemory / 1024 / 1024
+        // テクスチャのメモリ使用量推定
+        let textureMemory = 0
+        resourceTracker.textures.forEach((texture) => {
+          if (texture.image) {
+            const size = texture.image.width * texture.image.height * 4 // RGBA
+            textureMemory += size
+          }
         })
-      }
 
-      if (report.materialsNotDisposed > 0) {
-        report.leakSources.push({
-          type: 'Material',
-          count: report.materialsNotDisposed,
-          estimatedSize: 0.001 * report.materialsNotDisposed // 推定値
-        })
-      }
+        report.totalMemoryLeak = (geometryMemory + textureMemory) / 1024 / 1024 // MB
 
-      return report
-    })
+        if (report.geometriesNotDisposed > 0) {
+          report.leakSources.push({
+            type: 'BufferGeometry',
+            count: report.geometriesNotDisposed,
+            estimatedSize: geometryMemory / 1024 / 1024,
+          })
+        }
+
+        if (report.texturesNotDisposed > 0) {
+          report.leakSources.push({
+            type: 'Texture',
+            count: report.texturesNotDisposed,
+            estimatedSize: textureMemory / 1024 / 1024,
+          })
+        }
+
+        if (report.materialsNotDisposed > 0) {
+          report.leakSources.push({
+            type: 'Material',
+            count: report.materialsNotDisposed,
+            estimatedSize: 0.001 * report.materialsNotDisposed, // 推定値
+          })
+        }
+
+        return report
+      }),
   })
 })
 
@@ -940,7 +961,7 @@ export const ThreeDebuggerLive = Layer.effect(ThreeDebugger, makeThreeDebugger)
 
 ```typescript
 // src/debugging/DebugDashboard.ts
-import { Effect, Context, Layer } from "effect"
+import { Effect, Context, Layer } from 'effect'
 
 interface DebugDashboard {
   readonly initialize: () => Effect.Effect<void>
@@ -948,7 +969,7 @@ interface DebugDashboard {
   readonly addCustomPanel: (name: string, content: () => string) => Effect.Effect<void>
 }
 
-const DebugDashboard = Context.GenericTag<DebugDashboard>("DebugDashboard")
+const DebugDashboard = Context.GenericTag<DebugDashboard>('DebugDashboard')
 
 const makeDebugDashboard = Effect.gen(function* () {
   const debugContext = yield* DebugContext
@@ -960,10 +981,11 @@ const makeDebugDashboard = Effect.gen(function* () {
   const customPanels = new Map<string, () => string>()
 
   return DebugDashboard.of({
-    initialize: () => Effect.gen(function* () {
-      dashboard = document.createElement('div')
-      dashboard.id = 'debug-dashboard-main'
-      dashboard.style.cssText = `
+    initialize: () =>
+      Effect.gen(function* () {
+        dashboard = document.createElement('div')
+        dashboard.id = 'debug-dashboard-main'
+        dashboard.style.cssText = `
         position: fixed;
         top: 0;
         right: 0;
@@ -981,8 +1003,8 @@ const makeDebugDashboard = Effect.gen(function* () {
         box-shadow: -10px 0 20px rgba(0,0,0,0.5);
       `
 
-      const header = document.createElement('div')
-      header.style.cssText = `
+        const header = document.createElement('div')
+        header.style.cssText = `
         position: sticky;
         top: 0;
         background: rgba(0,0,0,0.9);
@@ -992,7 +1014,7 @@ const makeDebugDashboard = Effect.gen(function* () {
         justify-content: space-between;
         align-items: center;
       `
-      header.innerHTML = `
+        header.innerHTML = `
         <span style="font-weight: bold; font-size: 14px;">🐛 DEBUG CONSOLE</span>
         <button id="debug-close" style="
           background: #ff4444;
@@ -1005,50 +1027,52 @@ const makeDebugDashboard = Effect.gen(function* () {
         ">✕</button>
       `
 
-      const content = document.createElement('div')
-      content.id = 'debug-content'
-      content.style.padding = '10px'
+        const content = document.createElement('div')
+        content.id = 'debug-content'
+        content.style.padding = '10px'
 
-      dashboard.appendChild(header)
-      dashboard.appendChild(content)
-      document.body.appendChild(dashboard)
+        dashboard.appendChild(header)
+        dashboard.appendChild(content)
+        document.body.appendChild(dashboard)
 
-      // 閉じるボタンのイベント
-      document.getElementById('debug-close')?.addEventListener('click', () => {
-        Effect.runSync(DebugDashboard.toggleVisibility())
-      })
-
-      // キーボードショートカット (F12)
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'F12') {
-          e.preventDefault()
+        // 閉じるボタンのイベント
+        document.getElementById('debug-close')?.addEventListener('click', () => {
           Effect.runSync(DebugDashboard.toggleVisibility())
+        })
+
+        // キーボードショートカット (F12)
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'F12') {
+            e.preventDefault()
+            Effect.runSync(DebugDashboard.toggleVisibility())
+          }
+        })
+
+        // 定期更新
+        const updateLoop = () => {
+          if (isVisible && dashboard) {
+            Effect.runSync(updateDashboardContent())
+            setTimeout(updateLoop, 500) // 2 FPS更新
+          } else if (isVisible) {
+            setTimeout(updateLoop, 100)
+          }
         }
-      })
 
-      // 定期更新
-      const updateLoop = () => {
-        if (isVisible && dashboard) {
-          Effect.runSync(updateDashboardContent())
-          setTimeout(updateLoop, 500) // 2 FPS更新
-        } else if (isVisible) {
-          setTimeout(updateLoop, 100)
+        updateLoop()
+      }),
+
+    toggleVisibility: () =>
+      Effect.sync(() => {
+        if (dashboard) {
+          isVisible = !isVisible
+          dashboard.style.display = isVisible ? 'block' : 'none'
         }
-      }
+      }),
 
-      updateLoop()
-    }),
-
-    toggleVisibility: () => Effect.sync(() => {
-      if (dashboard) {
-        isVisible = !isVisible
-        dashboard.style.display = isVisible ? 'block' : 'none'
-      }
-    }),
-
-    addCustomPanel: (name, contentProvider) => Effect.sync(() => {
-      customPanels.set(name, contentProvider)
-    })
+    addCustomPanel: (name, contentProvider) =>
+      Effect.sync(() => {
+        customPanels.set(name, contentProvider)
+      }),
   })
 
   // ダッシュボード内容更新
@@ -1084,18 +1108,26 @@ const makeDebugDashboard = Effect.gen(function* () {
       <div style="margin-bottom: 15px; padding: 8px; background: rgba(65,105,225,0.1); border-radius: 4px;">
         <h4 style="margin: 0 0 8px 0; color: #4169e1; border-bottom: 1px solid #4169e1;">🔍 EFFECT TRACES</h4>
         <div style="max-height: 200px; overflow-y: auto; font-size: 9px;">
-          ${recentTraces.map(trace => `
+          ${recentTraces
+            .map(
+              (trace) => `
             <div style="margin-bottom: 5px; padding: 4px; background: rgba(0,0,0,0.3); border-radius: 2px;">
               <div style="color: #4169e1; font-weight: bold;">${trace.operationId.split('-')[0]}</div>
               <div style="color: #ccc; font-size: 8px;">${trace.timestamp.toLocaleTimeString()}</div>
-              ${trace.performance ? `
+              ${
+                trace.performance
+                  ? `
                 <div style="color: #ffff00;">⏱ ${trace.performance.duration.toFixed(2)}ms</div>
-              ` : ''}
+              `
+                  : ''
+              }
               <div style="color: #999; font-size: 8px; max-height: 30px; overflow: hidden;">
                 ${JSON.stringify(trace.context, null, 1).split('\n')[0]}...
               </div>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
       </div>
 
@@ -1104,19 +1136,23 @@ const makeDebugDashboard = Effect.gen(function* () {
         <h4 style="margin: 0 0 8px 0; color: #ff8c00; border-bottom: 1px solid #ff8c00;">🧠 MEMORY</h4>
         <div style="font-size: 10px;">
           <div>JS Heap: <strong>${metrics.memoryUsage.total.toFixed(1)}MB</strong></div>
-          <div>WebGL Resources: <strong>${(metrics.geometries + metrics.textures)} objects</strong></div>
+          <div>WebGL Resources: <strong>${metrics.geometries + metrics.textures} objects</strong></div>
         </div>
       </div>
 
       <!-- カスタムパネル -->
-      ${Array.from(customPanels.entries()).map(([name, provider]) => `
+      ${Array.from(customPanels.entries())
+        .map(
+          ([name, provider]) => `
         <div style="margin-bottom: 15px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px;">
           <h4 style="margin: 0 0 8px 0; color: #fff; border-bottom: 1px solid #666;">🔧 ${name.toUpperCase()}</h4>
           <div style="font-size: 10px;">
             ${provider()}
           </div>
         </div>
-      `).join('')}
+      `
+        )
+        .join('')}
 
       <!-- システム情報 -->
       <div style="margin-bottom: 15px; padding: 8px; background: rgba(128,128,128,0.1); border-radius: 4px;">
@@ -1220,6 +1256,6 @@ export const runWithDebug = <A, E, R>(
 
 ---
 
-*📍 現在のドキュメント階層*: **[Home](../../README.md)** → **[How-to](../README.md)** → **[Development](./README.md)** → **デバッグ技法**
+_📍 現在のドキュメント階層_: **[Home](../../README.md)** → **[How-to](../README.md)** → **[Development](./README.md)** → **デバッグ技法**
 
-*🔗 関連リソース*: [Performance Optimization](./03-performance-optimization.md) • [Development Conventions](./00-development-conventions.md) • [Troubleshooting](../troubleshooting/README.md) • [Testing Guide](../testing/README.md)
+_🔗 関連リソース_: [Performance Optimization](./03-performance-optimization.md) • [Development Conventions](./00-development-conventions.md) • [Troubleshooting](../troubleshooting/README.md) • [Testing Guide](../testing/README.md)
