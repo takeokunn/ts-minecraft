@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import * as Schema from "effect/Schema";
 
 /**
  * ブランド型定義
@@ -42,6 +42,79 @@ export const BlockTypeIdSchema = Schema.Number.pipe(
   Schema.brand("BlockTypeId")
 );
 export type BlockTypeId = Schema.Schema.Type<typeof BlockTypeIdSchema>;
+
+/**
+ * チャンク位置のブランド型
+ * チャンクのx,z座標を表現
+ */
+export const ChunkPosition = Schema.Struct({
+  x: Schema.Number.pipe(Schema.int()),
+  z: Schema.Number.pipe(Schema.int())
+}).pipe(Schema.brand("ChunkPosition"));
+export type ChunkPosition = Schema.Schema.Type<typeof ChunkPosition>;
+
+/**
+ * ブロック位置のブランド型
+ * ワールド内のブロック座標を表現
+ */
+export const BlockPosition = Schema.Struct({
+  x: Schema.Number.pipe(Schema.int()),
+  y: Schema.Number.pipe(Schema.int()),
+  z: Schema.Number.pipe(Schema.int())
+}).pipe(Schema.brand("BlockPosition"));
+export type BlockPosition = Schema.Schema.Type<typeof BlockPosition>;
+
+/**
+ * エンティティID用のブランド型
+ */
+export const EntityId = Schema.String.pipe(
+  Schema.brand("EntityId")
+);
+export type EntityId = Schema.Schema.Type<typeof EntityId>;
+
+/**
+ * アイテムID用のブランド型
+ */
+export const ItemId = Schema.String.pipe(
+  Schema.brand("ItemId")
+);
+export type ItemId = Schema.Schema.Type<typeof ItemId>;
+
+/**
+ * セッションID用のブランド型
+ */
+export const SessionId = Schema.String.pipe(
+  Schema.brand("SessionId")
+);
+export type SessionId = Schema.Schema.Type<typeof SessionId>;
+
+/**
+ * タイムスタンプ用のブランド型（Unix時間）
+ */
+export const Timestamp = Schema.Number.pipe(
+  Schema.int(),
+  Schema.positive(),
+  Schema.brand("Timestamp")
+);
+export type Timestamp = Schema.Schema.Type<typeof Timestamp>;
+
+/**
+ * バージョン番号用のブランド型
+ */
+export const Version = Schema.String.pipe(
+  Schema.pattern(/^\d+\.\d+\.\d+$/),
+  Schema.brand("Version")
+);
+export type Version = Schema.Schema.Type<typeof Version>;
+
+/**
+ * UUID用のブランド型
+ */
+export const UUID = Schema.String.pipe(
+  Schema.pattern(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i),
+  Schema.brand("UUID")
+);
+export type UUID = Schema.Schema.Type<typeof UUID>;
 
 /**
  * ブランド型を作成するためのヘルパー関数

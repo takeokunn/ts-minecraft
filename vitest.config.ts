@@ -7,9 +7,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
 
-    // テストファイルパターン（__test__/*.spec.ts）
+    // テストファイルパターン（__test__/*.spec.ts and *.test.ts）
     include: [
-      'src/**/__test__/*.spec.?(c|m)[jt]s?(x)'
+      'src/**/__test__/*.spec.?(c|m)[jt]s?(x)',
+      'src/**/*.test.?(c|m)[jt]s?(x)'
     ],
     exclude: [
       '**/node_modules/**',
