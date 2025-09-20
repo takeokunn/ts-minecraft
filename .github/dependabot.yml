@@ -1,0 +1,71 @@
+# Dependabot configuration
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # pnpm packages
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Asia/Tokyo'
+    open-pull-requests-limit: 10
+    groups:
+      # Development dependencies
+      dev-dependencies:
+        dependency-type: 'development'
+        patterns:
+          - '*'
+      # Production dependencies - Effect ecosystem
+      effect-ecosystem:
+        dependency-type: 'production'
+        patterns:
+          - 'effect'
+          - '@effect/*'
+      # Production dependencies - Three.js
+      three-ecosystem:
+        dependency-type: 'production'
+        patterns:
+          - 'three'
+          - '@types/three'
+      # Production dependencies - Others
+      production-others:
+        dependency-type: 'production'
+        exclude-patterns:
+          - 'effect'
+          - '@effect/*'
+          - 'three'
+          - '@types/three'
+    commit-message:
+      prefix: 'deps'
+      prefix-development: 'deps-dev'
+      include: 'scope'
+    labels:
+      - 'dependencies'
+      - 'automated'
+    reviewers:
+      - '@ts-minecraft/maintainers'
+    ignore:
+      # 基本的にメジャーバージョンのアップデートは手動で
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+
+  # GitHub Actions
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Asia/Tokyo'
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'ci'
+      include: 'scope'
+    labels:
+      - 'ci'
+      - 'automated'
+    reviewers:
+      - '@ts-minecraft/maintainers'
