@@ -2,7 +2,6 @@ import { Effect } from 'effect'
 import { describe, it, expect } from 'vitest'
 import { SceneManagerLive } from '../SceneManagerLive'
 import { SceneManager } from '../SceneManager'
-import { Scene } from '../Scene'
 
 describe('SceneManagerLive', () => {
   describe('初期化', () => {
@@ -81,11 +80,9 @@ describe('SceneManagerLive', () => {
 
     it('遷移中に別の遷移を開始するとエラーになる', () =>
       Effect.gen(function* () {
-        const manager = yield* SceneManager
-        const state = yield* manager.getState()
-
         // 注: 実際のテストではSceneManagerLiveの内部実装に応じた適切なモックが必要
         // ここでは概念的な実装例として記載
+        yield* SceneManager
       }).pipe(Effect.provide(SceneManagerLive), Effect.runPromise))
   })
 
