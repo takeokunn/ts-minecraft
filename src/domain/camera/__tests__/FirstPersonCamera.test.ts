@@ -555,4 +555,66 @@ describe('FirstPersonCamera', () => {
       expect(Exit.isFailure(result)).toBe(true)
     })
   })
+
+  describe('追加のエッジケーステスト', () => {
+    it('極端なヨー角の正規化が正しく動作する', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize(DEFAULT_CAMERA_CONFIG)
+
+        // 2πを超える回転
+        yield* service.rotate(10000, 0)
+        const state1 = yield* service.getState()
+
+        // リセット
+        yield* service.reset()
+
+        // -2πを超える回転
+        yield* service.rotate(-10000, 0)
+        const state2 = yield* service.getState()
+
+        return { state1, state2 }
+      }).pipe(Effect.provide(FirstPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+
+      if (Exit.isSuccess(result)) {
+        const { state1, state2 } = result.value
+        // ヨー角が -π から π の範囲に正規化される
+        expect(state1.rotation.yaw).toBeGreaterThanOrEqual(-Math.PI)
+        expect(state1.rotation.yaw).toBeLessThanOrEqual(Math.PI)
+        expect(state2.rotation.yaw).toBeGreaterThanOrEqual(-Math.PI)
+        expect(state2.rotation.yaw).toBeLessThanOrEqual(Math.PI)
+      }
+    })
+
+    it('極小値でのスムージング計算が正しく動作する', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize({
+          ...DEFAULT_CAMERA_CONFIG,
+          smoothing: 0.0001, // 極小のスムージング値
+        })
+
+        // 複数フレーム更新
+        for (let i = 0; i < 3; i++) {
+          yield* service.update(0.001, { x: 100, y: 0, z: 100 }) // 極小のデルタタイム
+        }
+
+        const state = yield* service.getState()
+        return state
+      }).pipe(Effect.provide(FirstPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+
+      if (Exit.isSuccess(result)) {
+        const state = result.value
+        // 位置が更新されている
+        expect(state.position.x).not.toBe(0)
+        expect(state.position.z).not.toBe(0)
+      }
+    })
+  })
 })
