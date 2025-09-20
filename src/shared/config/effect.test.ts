@@ -180,12 +180,12 @@ describe('Effect Configuration', () => {
     it('should retry failed effects', async () => {
       let attempts = 0
       const effect = EffectConfig.withRetry(
-        Effect.sync(() => {
+        Effect.suspend(() => {
           attempts++
           if (attempts < 3) {
-            throw new Error('not yet')
+            return Effect.fail(new Error('not yet'))
           }
-          return 'success'
+          return Effect.succeed('success')
         }),
         { times: 5, delay: 10 }
       )
