@@ -91,7 +91,11 @@ export const runSync = <A, E>(effect: Effect.Effect<A, E>): A => {
   const result = Effect.runSyncExit(effect)
 
   // Exit型のパターンマッチング
-  return Exit.isFailure(result) ? (() => { throw Cause.squash(result.cause) })() : result.value
+  return Exit.isFailure(result)
+    ? (() => {
+        throw Cause.squash(result.cause)
+      })()
+    : result.value
 }
 
 // Utility to run an effect as a promise

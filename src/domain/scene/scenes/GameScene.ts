@@ -88,9 +88,7 @@ export const GameScene = Layer.effect(
             tickCount: state.tickCount + 1,
           }))
 
-          yield* Effect.logDebug(
-            `GameScene update: deltaTime=${deltaTime}ms, tick=${gameState.tickCount}`
-          )
+          yield* Effect.logDebug(`GameScene update: deltaTime=${deltaTime}ms, tick=${gameState.tickCount}`)
         }),
 
       render: () =>

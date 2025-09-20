@@ -6,12 +6,7 @@ difficulty: 'intermediate'
 tags: ['testing', 'standards', 'pbt', 'effect-ts', 'coverage']
 prerequisites: ['testing-guide', 'effect-ts-patterns']
 estimated_reading_time: '15分'
-related_docs:
-  [
-    './testing-guide.md',
-    './comprehensive-testing-strategy.md',
-    '../development/development-conventions.md',
-  ]
+related_docs: ['./testing-guide.md', './comprehensive-testing-strategy.md', '../development/development-conventions.md']
 ---
 
 # TypeScript Minecraft テスティング標準規約
@@ -20,7 +15,7 @@ related_docs:
 
 ### 1. ファイル配置の絶対規則
 
-**すべてのテストは `src/**/__test__/*.spec.ts` に配置する**
+**すべてのテストは `src/**/**test**/\*.spec.ts` に配置する\*\*
 
 ```
 src/
@@ -64,47 +59,24 @@ import * as fc from 'fast-check'
 
 // 厳密な型定義（as anyを一切使用しない）
 const PlayerPositionSchema = Schema.Struct({
-  x: Schema.Number.pipe(
-    Schema.finite(),
-    Schema.between(-30_000_000, 30_000_000)
-  ),
-  y: Schema.Number.pipe(
-    Schema.int(),
-    Schema.between(-64, 320)
-  ),
-  z: Schema.Number.pipe(
-    Schema.finite(),
-    Schema.between(-30_000_000, 30_000_000)
-  ),
+  x: Schema.Number.pipe(Schema.finite(), Schema.between(-30_000_000, 30_000_000)),
+  y: Schema.Number.pipe(Schema.int(), Schema.between(-64, 320)),
+  z: Schema.Number.pipe(Schema.finite(), Schema.between(-30_000_000, 30_000_000)),
 })
 
-const PlayerHealthSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(0, 100),
-  Schema.brand('PlayerHealth')
-)
+const PlayerHealthSchema = Schema.Number.pipe(Schema.int(), Schema.between(0, 100), Schema.brand('PlayerHealth'))
 
 const PlayerSchema = Schema.Struct({
   _tag: Schema.Literal('Player'),
-  id: Schema.String.pipe(
-    Schema.pattern(/^player_[a-f0-9-]{36}$/),
-    Schema.brand('PlayerId')
-  ),
-  name: Schema.String.pipe(
-    Schema.minLength(3),
-    Schema.maxLength(16),
-    Schema.pattern(/^[a-zA-Z0-9_]+$/)
-  ),
+  id: Schema.String.pipe(Schema.pattern(/^player_[a-f0-9-]{36}$/), Schema.brand('PlayerId')),
+  name: Schema.String.pipe(Schema.minLength(3), Schema.maxLength(16), Schema.pattern(/^[a-zA-Z0-9_]+$/)),
   position: PlayerPositionSchema,
   health: PlayerHealthSchema,
   maxHealth: PlayerHealthSchema,
   inventory: Schema.Array(
     Schema.Struct({
       itemId: Schema.String.pipe(Schema.brand('ItemId')),
-      quantity: Schema.Number.pipe(
-        Schema.int(),
-        Schema.between(1, 64)
-      ),
+      quantity: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
     })
   ),
 })
@@ -120,22 +92,13 @@ type PlayerEncoded = Schema.Schema.Encoded<typeof PlayerSchema>
 import { Context, Layer, Effect } from 'effect'
 
 // サービスインターフェース定義
-class PlayerService extends Context.Tag("PlayerService")<
+class PlayerService extends Context.Tag('PlayerService')<
   PlayerService,
   {
-    readonly create: (
-      data: PlayerCreateData
-    ) => Effect.Effect<Player, PlayerServiceError>
-    readonly findById: (
-      id: PlayerId
-    ) => Effect.Effect<Player, PlayerNotFoundError>
-    readonly update: (
-      id: PlayerId,
-      data: Partial<PlayerUpdateData>
-    ) => Effect.Effect<Player, PlayerServiceError>
-    readonly delete: (
-      id: PlayerId
-    ) => Effect.Effect<void, PlayerNotFoundError>
+    readonly create: (data: PlayerCreateData) => Effect.Effect<Player, PlayerServiceError>
+    readonly findById: (id: PlayerId) => Effect.Effect<Player, PlayerNotFoundError>
+    readonly update: (id: PlayerId, data: Partial<PlayerUpdateData>) => Effect.Effect<Player, PlayerServiceError>
+    readonly delete: (id: PlayerId) => Effect.Effect<void, PlayerNotFoundError>
   }
 >() {}
 
@@ -146,16 +109,14 @@ const TestPlayerServiceLive = Layer.succeed(
     create: (data) =>
       Effect.gen(function* () {
         // Schema validationを必須で実行
-        const validated = yield* Schema.decodeUnknown(
-          PlayerCreateDataSchema
-        )(data)
+        const validated = yield* Schema.decodeUnknown(PlayerCreateDataSchema)(data)
 
         // エラーハンドリングは明示的に
         if (!validated.name) {
           return yield* Effect.fail(
             new PlayerServiceError({
-              message: "Name is required",
-              code: "INVALID_INPUT"
+              message: 'Name is required',
+              code: 'INVALID_INPUT',
             })
           )
         }
@@ -168,9 +129,7 @@ const TestPlayerServiceLive = Layer.succeed(
       Effect.gen(function* () {
         const player = playersMap.get(id)
         if (!player) {
-          return yield* Effect.fail(
-            new PlayerNotFoundError({ playerId: id })
-          )
+          return yield* Effect.fail(new PlayerNotFoundError({ playerId: id }))
         }
         return player
       }),
@@ -196,12 +155,14 @@ const playerNameArbitrary = fc.stringMatching(/^[a-zA-Z0-9_]{3,16}$/)
 
 const playerHealthArbitrary = fc.integer({ min: 0, max: 100 })
 
-const playerArbitrary = fc.record({
-  name: playerNameArbitrary,
-  position: positionArbitrary,
-  health: playerHealthArbitrary,
-  maxHealth: playerHealthArbitrary,
-}).filter(p => p.health <= p.maxHealth) // 不変条件の保証
+const playerArbitrary = fc
+  .record({
+    name: playerNameArbitrary,
+    position: positionArbitrary,
+    health: playerHealthArbitrary,
+    maxHealth: playerHealthArbitrary,
+  })
+  .filter((p) => p.health <= p.maxHealth) // 不変条件の保証
 
 // ItemのArbitrary
 const itemArbitrary = fc.record({
@@ -224,9 +185,7 @@ describe('Player Properties', () => {
           return yield* service.create(playerData)
         })
 
-        const result = await Effect.runPromise(
-          program.pipe(Effect.provide(TestPlayerServiceLive))
-        )
+        const result = await Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
 
         // 不変条件の検証
         expect(result.health).toBeGreaterThanOrEqual(0)
@@ -243,73 +202,63 @@ describe('Player Properties', () => {
       {
         numRuns: 1000,
         seed: 42,
-        endOnFailure: true
+        endOnFailure: true,
       }
     )
   })
 
   it('distance calculation properties', () => {
     fc.assert(
-      fc.property(
-        positionArbitrary,
-        positionArbitrary,
-        (pos1, pos2) => {
-          const distance = calculateDistance(pos1, pos2)
+      fc.property(positionArbitrary, positionArbitrary, (pos1, pos2) => {
+        const distance = calculateDistance(pos1, pos2)
 
-          // 距離の性質
-          expect(distance).toBeGreaterThanOrEqual(0)
+        // 距離の性質
+        expect(distance).toBeGreaterThanOrEqual(0)
 
-          // 交換法則
-          const reverseDistance = calculateDistance(pos2, pos1)
-          expect(distance).toBeCloseTo(reverseDistance, 10)
+        // 交換法則
+        const reverseDistance = calculateDistance(pos2, pos1)
+        expect(distance).toBeCloseTo(reverseDistance, 10)
 
-          // 三角不等式
-          const origin = { x: 0, y: 0, z: 0 }
-          const d1 = calculateDistance(origin, pos1)
-          const d2 = calculateDistance(origin, pos2)
-          const d12 = calculateDistance(pos1, pos2)
-          expect(d12).toBeLessThanOrEqual(d1 + d2 + 0.0001) // 浮動小数点誤差考慮
-        }
-      ),
+        // 三角不等式
+        const origin = { x: 0, y: 0, z: 0 }
+        const d1 = calculateDistance(origin, pos1)
+        const d2 = calculateDistance(origin, pos2)
+        const d12 = calculateDistance(pos1, pos2)
+        expect(d12).toBeLessThanOrEqual(d1 + d2 + 0.0001) // 浮動小数点誤差考慮
+      }),
       { numRuns: 1000 }
     )
   })
 
   it('inventory management properties', async () => {
     await fc.assert(
-      fc.asyncProperty(
-        inventoryArbitrary,
-        itemArbitrary,
-        async (initialInventory, newItem) => {
-          const program = Effect.gen(function* () {
-            const service = yield* InventoryService
+      fc.asyncProperty(inventoryArbitrary, itemArbitrary, async (initialInventory, newItem) => {
+        const program = Effect.gen(function* () {
+          const service = yield* InventoryService
 
-            // 初期インベントリ設定
-            yield* service.setInventory(initialInventory)
+          // 初期インベントリ設定
+          yield* service.setInventory(initialInventory)
 
-            // アイテム追加
-            const canAdd = yield* service.canAddItem(newItem)
-            if (canAdd) {
-              yield* service.addItem(newItem)
-            }
+          // アイテム追加
+          const canAdd = yield* service.canAddItem(newItem)
+          if (canAdd) {
+            yield* service.addItem(newItem)
+          }
 
-            return yield* service.getInventory()
-          })
+          return yield* service.getInventory()
+        })
 
-          const result = await Effect.runPromise(
-            program.pipe(Effect.provide(TestInventoryServiceLive))
-          )
+        const result = await Effect.runPromise(program.pipe(Effect.provide(TestInventoryServiceLive)))
 
-          // インベントリサイズ制限
-          expect(result.length).toBeLessThanOrEqual(36)
+        // インベントリサイズ制限
+        expect(result.length).toBeLessThanOrEqual(36)
 
-          // アイテムスタック制限
-          result.forEach(item => {
-            expect(item.quantity).toBeGreaterThanOrEqual(1)
-            expect(item.quantity).toBeLessThanOrEqual(64)
-          })
-        }
-      ),
+        // アイテムスタック制限
+        result.forEach((item) => {
+          expect(item.quantity).toBeGreaterThanOrEqual(1)
+          expect(item.quantity).toBeLessThanOrEqual(64)
+        })
+      }),
       { numRuns: 500 }
     )
   })
@@ -337,9 +286,7 @@ describe('Complete Coverage Testing', () => {
         return yield* service.create({ name: '' }) // 無効データ
       })
 
-      const exit = await Effect.runPromiseExit(
-        program.pipe(Effect.provide(TestPlayerServiceLive))
-      )
+      const exit = await Effect.runPromiseExit(program.pipe(Effect.provide(TestPlayerServiceLive)))
 
       expect(Exit.isFailure(exit)).toBe(true)
       if (Exit.isFailure(exit)) {
@@ -360,10 +307,10 @@ describe('Complete Coverage Testing', () => {
   // 3. 境界値
   describe('Boundary conditions', () => {
     it.each([
-      [-64, true],   // 最小値
-      [320, true],   // 最大値
-      [-65, false],  // 最小値-1
-      [321, false],  // 最大値+1
+      [-64, true], // 最小値
+      [320, true], // 最大値
+      [-65, false], // 最小値-1
+      [321, false], // 最大値+1
     ])('validates Y coordinate %i (valid: %s)', (y, isValid) => {
       const result = isValidYCoordinate(y)
       expect(result).toBe(isValid)
@@ -392,9 +339,7 @@ describe('Complete Coverage Testing', () => {
         expect(Either.isLeft(result)).toBe(true)
       })
 
-      await Effect.runPromise(
-        program.pipe(Effect.provide(TestPlayerServiceLive))
-      )
+      await Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
     })
   })
 })
@@ -413,13 +358,7 @@ export default defineConfig({
       enabled: true,
       all: true,
       include: ['src/**/*.ts'],
-      exclude: [
-        'src/**/__test__/**',
-        'src/**/*.spec.ts',
-        'src/**/*.test.ts',
-        'src/**/index.ts',
-        'src/types/**',
-      ],
+      exclude: ['src/**/__test__/**', 'src/**/*.spec.ts', 'src/**/*.test.ts', 'src/**/index.ts', 'src/types/**'],
       thresholds: {
         statements: 100,
         branches: 100,
