@@ -34,13 +34,9 @@ const handleContextRestored = (): void => {
  * WebGL2サポートをチェック
  */
 const checkWebGL2Support = (): boolean => {
-  try {
-    const canvas = document.createElement('canvas')
-    const context = canvas.getContext('webgl2')
-    return context !== null
-  } catch {
-    return false
-  }
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('webgl2')
+  return context !== null
 }
 
 /**
@@ -52,97 +48,126 @@ const createThreeRendererService = (
 ): ThreeRenderer => ({
   initialize: (canvas: HTMLCanvasElement): Effect.Effect<void, RenderError> =>
     Effect.gen(function* () {
-      try {
-        // WebGL2コンテキストを優先的に取得
-        const webgl2Supported = checkWebGL2Support()
-        const contextAttributes: WebGLContextAttributes = {
-          alpha: true,
-          antialias: true,
-          depth: true,
-          stencil: false,
-          preserveDrawingBuffer: false,
-          powerPreference: 'high-performance',
-          failIfMajorPerformanceCaveat: false,
-        }
-
-        let context: WebGLRenderingContext | WebGL2RenderingContext | null = null
-        if (webgl2Supported) {
-          context = canvas.getContext('webgl2', contextAttributes)
-        }
-        if (!context) {
-          context = canvas.getContext('webgl', contextAttributes)
-        }
-
-        if (!context) {
-          yield* Effect.fail(
-            RenderInitError({
-              message: 'WebGLコンテキストの取得に失敗しました',
-              canvas,
-              context: 'WebGL context creation failed',
-            })
-          )
-        }
-
-        // WebGLRendererの作成
-        const renderer = new THREE.WebGLRenderer({
-          canvas,
-          context: context!,
-          antialias: true,
-          alpha: true,
-          powerPreference: 'high-performance',
-          stencil: false,
-          depth: true,
-          premultipliedAlpha: true,
-          preserveDrawingBuffer: false,
-        })
-
-        // 基本設定の適用
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)) // ピクセル比制限でパフォーマンス向上
-        renderer.setSize(canvas.clientWidth, canvas.clientHeight)
-        renderer.setClearColor(0x87ceeb, 1.0) // スカイブルー
-
-        // 出力色空間設定
-        renderer.outputColorSpace = THREE.SRGBColorSpace
-
-        // シャドウマップ設定
-        renderer.shadowMap.enabled = true
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap
-        renderer.shadowMap.autoUpdate = true
-
-        // トーンマッピング設定
-        renderer.toneMapping = THREE.ACESFilmicToneMapping
-        renderer.toneMappingExposure = 1.0
-
-        // フラスタムカリング有効化
-        renderer.sortObjects = true
-
-        // WebGLコンテキストイベントハンドラー
-        canvas.addEventListener('webglcontextlost', handleContextLost, false)
-        canvas.addEventListener('webglcontextrestored', handleContextRestored, false)
-
-        // レンダラーの保存
-        yield* Ref.set(rendererRef, renderer)
-
-        // パフォーマンス統計の初期化
-        const initialStats: PerformanceStats = {
-          fps: 0,
-          frameTime: 0,
-          lastFrameTime: performance.now(),
-          frameCount: 0,
-          lastStatsUpdate: performance.now(),
-        }
-        yield* Ref.set(statsRef, initialStats)
-
-        console.log(`ThreeRenderer initialized successfully (WebGL${webgl2Supported ? '2' : '1'})`)
-      } catch (error) {
-        yield* Effect.fail(
+      // WebGL2サポート確認
+      const webgl2Supported = yield* Effect.try({
+        try: () => checkWebGL2Support(),
+        catch: (error) =>
           RenderInitError({
-            message: 'ThreeRendererの初期化に失敗しました',
+            message: 'WebGL2サポート確認に失敗しました',
             canvas,
             cause: error,
-          })
-        )
+          }),
+      })
+
+      // WebGLコンテキスト作成
+      const context = yield* Effect.try({
+        try: () => {
+          const contextAttributes: WebGLContextAttributes = {
+            alpha: true,
+            antialias: true,
+            depth: true,
+            stencil: false,
+            preserveDrawingBuffer: false,
+            powerPreference: 'high-performance',
+            failIfMajorPerformanceCaveat: false,
+          }
+
+          let context: WebGLRenderingContext | WebGL2RenderingContext | null = null
+          if (webgl2Supported) {
+            context = canvas.getContext('webgl2', contextAttributes)
+          }
+          if (!context) {
+            context = canvas.getContext('webgl', contextAttributes)
+          }
+
+          if (!context) {
+            throw new Error('WebGLコンテキストの取得に失敗しました')
+          }
+
+          return context
+        },
+        catch: (error) =>
+          RenderInitError({
+            message: 'WebGLコンテキストの取得に失敗しました',
+            canvas,
+            context: 'WebGL context creation failed',
+            cause: error,
+          }),
+      })
+
+      // WebGLRenderer作成
+      const renderer = yield* Effect.try({
+        try: () =>
+          new THREE.WebGLRenderer({
+            canvas,
+            context,
+            antialias: true,
+            alpha: true,
+            powerPreference: 'high-performance',
+            stencil: false,
+            depth: true,
+            premultipliedAlpha: true,
+            preserveDrawingBuffer: false,
+          }),
+        catch: (error) =>
+          RenderInitError({
+            message: 'WebGLRendererの作成に失敗しました',
+            canvas,
+            cause: error,
+          }),
+      })
+
+      // レンダラー設定の適用
+      yield* Effect.try({
+        try: () => {
+          // 基本設定の適用
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+          renderer.setSize(canvas.clientWidth, canvas.clientHeight)
+          renderer.setClearColor(0x87ceeb, 1.0)
+
+          // 出力色空間設定
+          renderer.outputColorSpace = THREE.SRGBColorSpace
+
+          // シャドウマップ設定
+          renderer.shadowMap.enabled = true
+          renderer.shadowMap.type = THREE.PCFSoftShadowMap
+          renderer.shadowMap.autoUpdate = true
+
+          // トーンマッピング設定
+          renderer.toneMapping = THREE.ACESFilmicToneMapping
+          renderer.toneMappingExposure = 1.0
+
+          // フラスタムカリング有効化
+          renderer.sortObjects = true
+
+          // WebGLコンテキストイベントハンドラー
+          canvas.addEventListener('webglcontextlost', handleContextLost, false)
+          canvas.addEventListener('webglcontextrestored', handleContextRestored, false)
+
+          return undefined
+        },
+        catch: (error) =>
+          RenderInitError({
+            message: 'レンダラー設定の適用に失敗しました',
+            canvas,
+            cause: error,
+          }),
+      })
+
+      // レンダラーの保存
+      yield* Ref.set(rendererRef, renderer)
+
+      // パフォーマンス統計の初期化
+      const initialStats: PerformanceStats = {
+        fps: 0,
+        frameTime: 0,
+        lastFrameTime: performance.now(),
+        frameCount: 0,
+        lastStatsUpdate: performance.now(),
       }
+      yield* Ref.set(statsRef, initialStats)
+
+      console.log(`ThreeRenderer initialized successfully (WebGL${webgl2Supported ? '2' : '1'})`)
     }),
 
   render: (scene: THREE.Scene, camera: THREE.Camera): Effect.Effect<void, RenderError> =>
@@ -159,59 +184,67 @@ const createThreeRendererService = (
         )
       }
 
-      try {
-        // WebGLコンテキストの状態確認
-        const gl = renderer!.getContext()
-        if (gl.isContextLost()) {
-          yield* Effect.fail(
-            ContextLostError({
+      // WebGLコンテキストの状態確認とレンダリング実行
+      yield* Effect.try({
+        try: () => {
+          // WebGLコンテキストの状態確認
+          const gl = renderer!.getContext()
+          if (gl.isContextLost()) {
+            throw new Error('WebGLコンテキストが失われています')
+          }
+
+          // フレームタイミング計測開始
+          const frameStart = performance.now()
+
+          // レンダリング実行
+          renderer!.render(scene, camera)
+
+          return { frameStart, frameEnd: performance.now() }
+        },
+        catch: (error) => {
+          if (error instanceof Error && error.message === 'WebGLコンテキストが失われています') {
+            return ContextLostError({
               message: 'WebGLコンテキストが失われています',
               canRestore: true,
               lostTime: Date.now(),
             })
-          )
-        }
-
-        // フレームタイミング計測開始
-        const frameStart = performance.now()
-
-        // レンダリング実行
-        renderer!.render(scene, camera)
-
-        // パフォーマンス統計更新
-        const frameEnd = performance.now()
-        const frameTime = frameEnd - frameStart
-        const newStats: PerformanceStats = {
-          ...stats,
-          frameTime,
-          frameCount: stats.frameCount + 1,
-          lastFrameTime: frameEnd,
-        }
-
-        // FPS計算（1秒ごと）
-        if (frameEnd - stats.lastStatsUpdate >= 1000) {
-          newStats.fps = Math.round((newStats.frameCount * 1000) / (frameEnd - stats.lastStatsUpdate))
-          newStats.frameCount = 0
-          newStats.lastStatsUpdate = frameEnd
-        }
-
-        yield* Ref.set(statsRef, newStats)
-
-        // 60FPS目標のパフォーマンス警告
-        if (frameTime > 16.67) {
-          console.warn(`Frame time exceeded 16.67ms: ${frameTime.toFixed(2)}ms`)
-        }
-      } catch (error) {
-        yield* Effect.fail(
-          RenderExecutionError({
+          }
+          return RenderExecutionError({
             message: 'レンダリング実行中にエラーが発生しました',
             operation: 'render',
             sceneId: scene.uuid,
             cameraType: camera.type,
             cause: error,
           })
+        },
+      }).pipe(
+        Effect.flatMap(({ frameStart, frameEnd }) =>
+          Effect.gen(function* () {
+            // パフォーマンス統計更新
+            const frameTime = frameEnd - frameStart
+            const newStats: PerformanceStats = {
+              ...stats,
+              frameTime,
+              frameCount: stats.frameCount + 1,
+              lastFrameTime: frameEnd,
+            }
+
+            // FPS計算（1秒ごと）
+            if (frameEnd - stats.lastStatsUpdate >= 1000) {
+              newStats.fps = Math.round((newStats.frameCount * 1000) / (frameEnd - stats.lastStatsUpdate))
+              newStats.frameCount = 0
+              newStats.lastStatsUpdate = frameEnd
+            }
+
+            yield* Ref.set(statsRef, newStats)
+
+            // 60FPS目標のパフォーマンス警告
+            if (frameTime > 16.67) {
+              console.warn(`Frame time exceeded 16.67ms: ${frameTime.toFixed(2)}ms`)
+            }
+          })
         )
-      }
+      )
     }),
 
   resize: (width: number, height: number): Effect.Effect<void, never> =>
@@ -305,27 +338,28 @@ const createThreeRendererService = (
         )
       }
 
-      try {
-        // ポストプロセシング用レンダーターゲットの準備
-        const canvas = renderer!.domElement
-        const renderTarget = new THREE.WebGLRenderTarget(canvas.width, canvas.height, {
-          minFilter: THREE.LinearFilter,
-          magFilter: THREE.LinearFilter,
-          format: THREE.RGBAFormat,
-          type: THREE.FloatType,
-          stencilBuffer: false,
-        })
+      yield* Effect.try({
+        try: () => {
+          // ポストプロセシング用レンダーターゲットの準備
+          const canvas = renderer!.domElement
+          const renderTarget = new THREE.WebGLRenderTarget(canvas.width, canvas.height, {
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+            format: THREE.RGBAFormat,
+            type: THREE.FloatType,
+            stencilBuffer: false,
+          })
 
-        console.log('Postprocessing render targets prepared')
-      } catch (error) {
-        yield* Effect.fail(
+          console.log('Postprocessing render targets prepared')
+          return undefined
+        },
+        catch: (error) =>
           RenderExecutionError({
             message: 'ポストプロセシング設定に失敗しました',
             operation: 'setupPostprocessing',
             cause: error,
-          })
-        )
-      }
+          }),
+      })
     }),
 
   getPerformanceStats: () =>
