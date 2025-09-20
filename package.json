@@ -21,9 +21,9 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
-    "@effect/platform": "^0.90.9",
+    "@effect/platform": "^0.90.10",
     "@effect/schema": "^0.75.5",
-    "effect": "^3.17.13",
+    "effect": "^3.17.14",
     "three": "^0.171.0"
   },
   "devDependencies": {
