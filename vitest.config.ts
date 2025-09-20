@@ -65,18 +65,10 @@ export default defineConfig({
 
       // 100%カバレッジを厳守
       thresholds: {
-        global: {
-          branches: 100,
-          functions: 100,
-          lines: 100,
-          statements: 100,
-        },
-        perFile: {
-          branches: 100,
-          functions: 100,
-          lines: 100,
-          statements: 100,
-        },
+        branches: 100,
+        functions: 100,
+        lines: 100,
+        statements: 100,
       },
 
       // カバレッジ未達成の閾値設定（警告レベル）
@@ -93,7 +85,6 @@ export default defineConfig({
 
       // istanbul ignore comments を無効化（100%を厳守するため）
       ignoreEmptyLines: false,
-      excludeNodeModules: true,
     },
 
     // レポート設定

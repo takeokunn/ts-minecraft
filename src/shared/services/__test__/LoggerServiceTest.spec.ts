@@ -151,7 +151,9 @@ describe('LoggerServiceTest', () => {
       const program = Effect.gen(function* () {
         const logger = yield* LoggerService
 
-        const failingOperation = Effect.fail(new Error('test-error'))
+        const failingOperation = Effect.gen(function* () {
+          throw new Error('test-error')
+        })
 
         return yield* logger.measurePerformance('failing-test', failingOperation)
       })
