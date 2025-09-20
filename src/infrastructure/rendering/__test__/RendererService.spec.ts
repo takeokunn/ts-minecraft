@@ -2,10 +2,9 @@
  * @vitest-environment happy-dom
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { Effect, TestContext } from 'effect'
+import { Effect } from 'effect'
 import * as THREE from 'three'
 import { RendererService, RendererServiceLive } from '../index'
-import { RenderInitError, RenderExecutionError, ContextLostError } from '../types'
 
 // Canvas要素のモック
 const createMockCanvas = () => {

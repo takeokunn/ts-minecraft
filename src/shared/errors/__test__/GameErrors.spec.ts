@@ -4,23 +4,14 @@ import {
   GameError,
   GameErrorSchema,
   InvalidStateError,
-  InvalidStateErrorSchema,
   ResourceNotFoundError,
-  ResourceNotFoundErrorSchema,
   ValidationError,
-  ValidationErrorSchema,
   PerformanceError,
-  PerformanceErrorSchema,
   ConfigError,
-  ConfigErrorSchema,
   RenderError,
-  RenderErrorSchema,
   WorldGenerationError,
-  WorldGenerationErrorSchema,
   EntityError,
-  EntityErrorSchema,
   PhysicsError,
-  PhysicsErrorSchema,
 } from '../GameErrors'
 
 describe('GameErrors', () => {
