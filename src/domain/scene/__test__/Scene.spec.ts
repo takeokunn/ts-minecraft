@@ -17,7 +17,7 @@ describe('Scene', () => {
     it('有効なシーンタイプを受け入れる', () => {
       const validTypes = ['MainMenu', 'Game', 'Loading', 'Pause', 'Settings'] as const
 
-      validTypes.forEach(type => {
+      validTypes.forEach((type) => {
         const result = Schema.decodeSync(SceneType)(type)
         expect(result).toBe(type)
       })

@@ -67,7 +67,7 @@ describe('MainMenuScene', () => {
         // 異なるフレームレートでの更新
         yield* scene.update(16.67) // ~60 FPS
         yield* scene.update(33.33) // ~30 FPS
-        yield* scene.update(8.33)  // ~120 FPS
+        yield* scene.update(8.33) // ~120 FPS
       }).pipe(Effect.runPromise))
   })
 
@@ -161,11 +161,7 @@ describe('MainMenuScene', () => {
     })
 
     it('メニューアイテムが設定される', () => {
-      expect(scene.data.metadata?.['menuItems']).toEqual([
-        '新しいゲーム',
-        '設定',
-        '終了',
-      ])
+      expect(scene.data.metadata?.['menuItems']).toEqual(['新しいゲーム', '設定', '終了'])
     })
 
     it('メニューアイテムが3つ存在する', () => {

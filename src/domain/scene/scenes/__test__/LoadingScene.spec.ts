@@ -84,7 +84,7 @@ describe('LoadingScene', () => {
         // 異なるフレームレートでの更新
         yield* scene.update(16.67) // ~60 FPS
         yield* scene.update(33.33) // ~30 FPS
-        yield* scene.update(8.33)  // ~120 FPS
+        yield* scene.update(8.33) // ~120 FPS
       }).pipe(Effect.runPromise))
   })
 
