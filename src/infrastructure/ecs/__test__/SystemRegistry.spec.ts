@@ -393,7 +393,7 @@ describe('SystemRegistry', () => {
           const registry = yield* SystemRegistryService
 
           const systemWithGenericError = createSystem('GenericErrorSystem', () =>
-            Effect.fail('Generic string error')
+            Effect.fail('Generic string error' as unknown as SystemError)
           )
 
           yield* registry.register(systemWithGenericError)
