@@ -6,5 +6,5 @@
  */
 
 export * from './types'
-export * from './config/index'
+export * from './config'
 export * from './errors'

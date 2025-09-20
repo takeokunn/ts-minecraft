@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest'
+import { Effect } from 'effect'
 import {
   LogLevel,
   LOG_LEVEL_PRIORITY,
   LogEntry,
   PerformanceMetrics,
+  LoggerService,
   getCurrentLogLevel,
   shouldLog,
   createTimestamp,
@@ -123,6 +125,21 @@ describe('LoggerService - Core Types and Utilities', () => {
         message: 'Test error',
         stack: 'Error stack trace',
       })
+    })
+  })
+
+  describe('Test Implementation Integration', () => {
+    it('should provide silent test implementation for LoggerServiceTest', async () => {
+      const { LoggerServiceTest } = await import('../LoggerServiceTest')
+      const program = Effect.gen(function* () {
+        const logger = yield* LoggerService
+        yield* logger.info('Test log message')
+        const result = yield* logger.measurePerformance('testFunction', Effect.succeed('result'))
+        return result
+      })
+
+      const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
+      expect(result).toBe('result')
     })
   })
 })
