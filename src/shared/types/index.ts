@@ -4,7 +4,8 @@
  */
 
 export * from './branded'
-export * from '../config/effect'
+// GameError系は errors/ から提供されるため、config/effect からは EffectConfig のみをエクスポート
+export { EffectConfig, createGameError, type GameResult } from '../config/effect'
 
 /**
  * 基本的な数値型

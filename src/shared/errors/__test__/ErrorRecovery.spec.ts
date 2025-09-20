@@ -19,7 +19,7 @@ describe("ErrorRecovery", () => {
         Effect.retry(ErrorRecovery.exponentialBackoff(5, Duration.millis(10)))
       )
 
-      const result = await Effect.runPromise(program)
+      const result = await Effect.runPromise(program as Effect.Effect<any, never, never>)
       expect(result).toBe("success")
       expect(attemptCount).toBe(3)
     })
@@ -40,7 +40,7 @@ describe("ErrorRecovery", () => {
         Effect.retry(ErrorRecovery.linearRetry(3, Duration.millis(10)))
       )
 
-      const result = await Effect.runPromise(program)
+      const result = await Effect.runPromise(program as Effect.Effect<any, never, never>)
       expect(result).toBe("success")
       expect(attemptCount).toBe(2)
     })
@@ -61,7 +61,7 @@ describe("ErrorRecovery", () => {
         Effect.retry(ErrorRecovery.immediateRetry(1))
       )
 
-      const result = await Effect.runPromise(program)
+      const result = await Effect.runPromise(program as Effect.Effect<any, never, never>)
       expect(result).toBe("success")
       expect(attemptCount).toBe(2)
     })
@@ -88,7 +88,7 @@ describe("ErrorRecovery", () => {
         )
       )
 
-      const result = await Effect.runPromise(program)
+      const result = await Effect.runPromise(program as Effect.Effect<any, never, never>)
       expect(result).toBe("success")
       expect(attemptCount).toBe(2)
     })
@@ -101,7 +101,7 @@ describe("ErrorRecovery", () => {
 
       const makeEffect = () => Effect.sync(() => {
         attemptCount++
-        throw new NetworkError({ message: "Network error" })
+        throw NetworkError({ message: "Network error" })
       })
 
       // 失敗を2回実行してサーキットを開く
@@ -129,7 +129,7 @@ describe("ErrorHandlers", () => {
         Effect.catchAll(ErrorHandlers.logAndFallback("fallback", logger))
       )
 
-      const result = await Effect.runPromise(program)
+      const result = await Effect.runPromise(program as Effect.Effect<any, never, never>)
       expect(result).toBe("fallback")
       expect(logger).toHaveBeenCalledWith(error)
     })
@@ -162,7 +162,7 @@ describe("ErrorHandlers", () => {
       ]
 
       const program = ErrorHandlers.partial(effects, 2)
-      const result = await Effect.runPromise(program)
+      const result = await Effect.runPromise(program as Effect.Effect<any, never, never>)
 
       expect(result).toEqual([1, 3])
     })
@@ -190,9 +190,9 @@ describe("ErrorHandlers", () => {
       const program = ErrorHandlers.withTimeout(
         Duration.millis(50),
         () => new Error("Timeout")
-      )(effect)
+      )(effect as Effect.Effect<any, any, any>)
 
-      const result = await Effect.runPromiseExit(program)
+      const result = await Effect.runPromiseExit(program as Effect.Effect<any, any, never>)
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result) && result.cause._tag === "Fail") {
         expect(result.cause.error).toEqual(new Error("Timeout"))
@@ -205,9 +205,9 @@ describe("ErrorHandlers", () => {
       const program = ErrorHandlers.withTimeout(
         Duration.seconds(1),
         () => new Error("Timeout")
-      )(effect)
+      )(effect as Effect.Effect<any, any, any>)
 
-      const result = await Effect.runPromise(program)
+      const result = await Effect.runPromise(program as Effect.Effect<any, never, never>)
       expect(result).toBe("success")
     })
   })
@@ -216,7 +216,7 @@ describe("ErrorHandlers", () => {
 describe("ErrorReporter", () => {
   describe("format", () => {
     it("should format tagged errors", () => {
-      const error = new NetworkError({
+      const error = NetworkError({
         message: "Test error",
         code: "NET_001"
       })
@@ -253,11 +253,11 @@ describe("ErrorReporter", () => {
   describe("getCauseChain", () => {
     it("should extract cause chain", () => {
       const rootCause = new Error("Root cause")
-      const middleError = new NetworkError({
+      const middleError = NetworkError({
         message: "Middle error",
         cause: rootCause
       })
-      const topError = new NetworkError({
+      const topError = NetworkError({
         message: "Top error",
         cause: middleError
       })
