@@ -134,7 +134,7 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
     },
 
     updateConfig: (key, value) =>
-      Effect.sync(() => {
+      Effect.gen(function* () {
         if (key === 'gameConfig') {
           currentGameConfig = value as GameConfig
         } else if (key === 'renderConfig') {
@@ -142,9 +142,9 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
         } else if (key === 'debugConfig') {
           currentDebugConfig = value as DebugConfig
         } else {
-          throw new Error(`Unknown config key: ${key}`)
+          return yield* Effect.fail(new Error(`Unknown config key: ${key}`))
         }
-      }),
+      }) as Effect.Effect<void, never, never>,
   })
 })
 

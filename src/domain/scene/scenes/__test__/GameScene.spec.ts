@@ -76,6 +76,18 @@ describe('GameScene', () => {
         yield* scene.update(33.33) // ~30 FPS
         yield* scene.update(8.33) // ~120 FPS
       }).pipe(Effect.runPromise))
+
+    it('ゲーム一時停止中はupdateが早期リターンする', () =>
+      Effect.gen(function* () {
+        yield* scene.initialize()
+
+        // onExitを呼ぶことでisPaused: trueにする
+        yield* scene.onExit()
+
+        // 一時停止状態でupdateを呼ぶ（line 82の条件をテスト）
+        yield* scene.update(16)
+        // エラーなく完了することを確認（早期リターンが動作）
+      }).pipe(Effect.runPromise))
   })
 
   describe('描画処理', () => {

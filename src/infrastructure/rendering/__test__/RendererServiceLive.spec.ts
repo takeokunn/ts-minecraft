@@ -475,4 +475,42 @@ describe('RendererServiceLive', () => {
       expect(result2).toBe(true)
     })
   })
+
+  describe('Event handler coverage', () => {
+    it('tests both webglcontextlost and webglcontextrestored event registration', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* RendererService
+        yield* service.initialize(mockCanvas)
+        return 'initialized'
+      })
+
+      const result = await Effect.runPromise(program.pipe(Effect.provide(RendererServiceLive)))
+
+      expect(result).toBe('initialized')
+      // Both event listeners should be registered
+      expect(mockCanvas.addEventListener).toHaveBeenCalledWith('webglcontextlost', expect.any(Function), false)
+      expect(mockCanvas.addEventListener).toHaveBeenCalledWith('webglcontextrestored', expect.any(Function), false)
+    })
+
+    it('handles operations on uninitialized renderer correctly', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* RendererService
+
+        // Test setClearColor on uninitialized renderer
+        yield* service.setClearColor(0xff0000, 1.0)
+
+        // Test setPixelRatio on uninitialized renderer
+        yield* service.setPixelRatio(2.0)
+
+        return 'completed'
+      })
+
+      const result = await Effect.runPromise(program.pipe(Effect.provide(RendererServiceLive)))
+      expect(result).toBe('completed')
+
+      // These methods should not be called since renderer is not initialized
+      expect(mockRenderer.setClearColor).not.toHaveBeenCalled()
+      expect(mockRenderer.setPixelRatio).not.toHaveBeenCalled()
+    })
+  })
 })
