@@ -1,4 +1,4 @@
-import { Effect, Schedule, Duration, pipe } from 'effect'
+import { Effect, Schedule, Duration } from 'effect'
 
 // ゲームエラー
 export * from './GameErrors'
@@ -52,7 +52,7 @@ export const ErrorRecovery = {
    * サーキットブレーカーパターン
    * 連続した失敗後に一定期間リクエストを遮断
    */
-  circuitBreaker: <R, E, A>(
+  circuitBreaker: (
     failureThreshold: number = 5,
     resetDelay: Duration.DurationInput = Duration.seconds(60)
   ) => {
