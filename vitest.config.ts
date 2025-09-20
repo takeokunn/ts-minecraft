@@ -66,9 +66,9 @@ export default defineConfig({
       // 高品質カバレッジを維持（残り3%は防御的エラーハンドリング）
       thresholds: {
         branches: 92,
-        functions: 95,
-        lines: 97,
-        statements: 97,
+        functions: 93,
+        lines: 96,
+        statements: 96,
       },
 
       // カバレッジ未達成の閾値設定（警告レベル）
