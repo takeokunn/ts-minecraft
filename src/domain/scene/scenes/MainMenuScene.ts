@@ -76,6 +76,7 @@ export const MainMenuScene = Layer.effect(
                 yield* Ref.set(selectedMenuItemRef, 0)
 
                 yield* Effect.logInfo('MainMenuSceneクリーンアップ完了')
+              })
             : Effect.fail(
                 SceneCleanupError({
                   message: 'MainMenuScene is not initialized, cannot cleanup',

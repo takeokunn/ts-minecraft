@@ -166,6 +166,7 @@ export const LoadingScene = Layer.effect(
                 yield* Ref.set(isInitializedRef, false)
 
                 yield* Effect.logInfo('LoadingSceneクリーンアップ完了')
+              })
             : Effect.fail(
                 SceneCleanupError({
                   message: 'LoadingScene is not initialized, cannot cleanup',
