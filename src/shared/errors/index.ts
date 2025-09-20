@@ -52,10 +52,7 @@ export const ErrorRecovery = {
    * サーキットブレーカーパターン
    * 連続した失敗後に一定期間リクエストを遮断
    */
-  circuitBreaker: (
-    failureThreshold: number = 5,
-    resetDelay: Duration.DurationInput = Duration.seconds(60)
-  ) => {
+  circuitBreaker: (failureThreshold: number = 5, resetDelay: Duration.DurationInput = Duration.seconds(60)) => {
     let failureCount = 0
     let lastFailureTime: number | null = null
     let circuitOpen = false
