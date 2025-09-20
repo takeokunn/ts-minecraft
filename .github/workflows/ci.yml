@@ -84,11 +84,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run linter
+      - name: Run Biome check
         run: pnpm lint
-
-      - name: Check formatting
-        run: pnpm format:check
 
       - name: Check EditorConfig compliance
         run: pnpm editorconfig
