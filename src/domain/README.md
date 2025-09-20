@@ -1,10 +1,12 @@
 # Domain Layer
 
 ## 概要
+
 Domain Layerは、アプリケーションのビジネスロジックとドメインモデルを含む層です。
 この層は技術的な詳細から独立しており、純粋なビジネスルールを表現します。
 
 ## 責務
+
 - エンティティ（Entities）の定義
 - 値オブジェクト（Value Objects）の定義
 - ドメインイベント（Domain Events）の管理
@@ -19,7 +21,7 @@ export const Block = Schema.Struct({
   id: Schema.String,
   type: BlockType,
   position: Position,
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 })
 
 // Service定義
@@ -32,6 +34,7 @@ export const BlockService = Context.GenericTag<BlockService>('@domain/BlockServi
 ```
 
 ## ディレクトリ構造（予定）
+
 ```
 domain/
 ├── entities/       # エンティティ
@@ -42,6 +45,7 @@ domain/
 ```
 
 ## 設計原則
+
 - **Pure Functions**: すべての関数は副作用を持たない
 - **Immutability**: すべてのデータ構造は不変
 - **Type Safety**: Schema.Struct による型安全性の保証

@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Schema } from "effect"
+import { Context, Effect, Layer, Schema } from 'effect'
 
 // 設定スキーマ定義
 export const GameConfig = Schema.Struct({
@@ -17,7 +17,7 @@ export const RenderConfig = Schema.Struct({
     width: Schema.Number.pipe(Schema.positive()),
     height: Schema.Number.pipe(Schema.positive()),
   }),
-  quality: Schema.Literal("low", "medium", "high", "ultra"),
+  quality: Schema.Literal('low', 'medium', 'high', 'ultra'),
   shadows: Schema.Boolean,
   antialiasing: Schema.Boolean,
   viewDistance: Schema.Number.pipe(Schema.between(2, 32)),
@@ -33,7 +33,7 @@ export const DebugConfig = Schema.Struct({
   showHitboxes: Schema.Boolean,
   showCoordinates: Schema.Boolean,
   wireframeMode: Schema.Boolean,
-  logLevel: Schema.Literal("debug", "info", "warn", "error"),
+  logLevel: Schema.Literal('debug', 'info', 'warn', 'error'),
 })
 export type DebugConfig = Schema.Schema.Type<typeof DebugConfig>
 
@@ -42,19 +42,17 @@ export interface ConfigService {
   readonly gameConfig: GameConfig
   readonly renderConfig: RenderConfig
   readonly debugConfig: DebugConfig
-  readonly getConfig: <K extends keyof Pick<ConfigService, "gameConfig" | "renderConfig" | "debugConfig">>(
+  readonly getConfig: <K extends keyof Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>>(
     key: K
-  ) => Effect.Effect<Pick<ConfigService, "gameConfig" | "renderConfig" | "debugConfig">[K]>
-  readonly updateConfig: <K extends keyof Pick<ConfigService, "gameConfig" | "renderConfig" | "debugConfig">>(
+  ) => Effect.Effect<Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>[K]>
+  readonly updateConfig: <K extends keyof Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>>(
     key: K,
-    value: Pick<ConfigService, "gameConfig" | "renderConfig" | "debugConfig">[K]
+    value: Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>[K]
   ) => Effect.Effect<void>
 }
 
 // Context定義
-export const ConfigService = Context.GenericTag<ConfigService>(
-  "@app/services/ConfigService"
-)
+export const ConfigService = Context.GenericTag<ConfigService>('@app/services/ConfigService')
 
 // デフォルト設定値
 const defaultGameConfig: GameConfig = {
@@ -72,7 +70,7 @@ const defaultRenderConfig: RenderConfig = {
     width: 1920,
     height: 1080,
   },
-  quality: "high",
+  quality: 'high',
   shadows: true,
   antialiasing: true,
   viewDistance: 8,
@@ -87,17 +85,13 @@ const defaultDebugConfig: DebugConfig = {
   showHitboxes: false,
   showCoordinates: false,
   wireframeMode: false,
-  logLevel: "info",
+  logLevel: 'info',
 }
 
 // Service実装（Live Layer）
 export const ConfigServiceLive = Layer.sync(ConfigService, () => {
   // 環境変数から設定を読み込む（実際のプロダクションでは環境変数やconfigファイルから読み込む）
-  const loadFromEnv = <T>(
-    envKey: string,
-    defaultValue: T,
-    schema: Schema.Schema<T>
-  ): T => {
+  const loadFromEnv = <T>(envKey: string, defaultValue: T, schema: Schema.Schema<T>): T => {
     const envValue = process.env[envKey]
     if (!envValue) return defaultValue
 
@@ -110,9 +104,9 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
   }
 
   // ミュータブルな設定ストア（実際のアプリケーションでは、RefやMutableRefを使用することを推奨）
-  let currentGameConfig = loadFromEnv("GAME_CONFIG", defaultGameConfig, GameConfig)
-  let currentRenderConfig = loadFromEnv("RENDER_CONFIG", defaultRenderConfig, RenderConfig)
-  let currentDebugConfig = loadFromEnv("DEBUG_CONFIG", defaultDebugConfig, DebugConfig)
+  let currentGameConfig = loadFromEnv('GAME_CONFIG', defaultGameConfig, GameConfig)
+  let currentRenderConfig = loadFromEnv('RENDER_CONFIG', defaultRenderConfig, RenderConfig)
+  let currentDebugConfig = loadFromEnv('DEBUG_CONFIG', defaultDebugConfig, DebugConfig)
 
   return ConfigService.of({
     gameConfig: currentGameConfig,
@@ -121,11 +115,11 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
 
     getConfig: (key) => {
       switch (key) {
-        case "gameConfig":
+        case 'gameConfig':
           return Effect.succeed(currentGameConfig) as any
-        case "renderConfig":
+        case 'renderConfig':
           return Effect.succeed(currentRenderConfig) as any
-        case "debugConfig":
+        case 'debugConfig':
           return Effect.succeed(currentDebugConfig) as any
         default:
           return Effect.die(new Error(`Unknown config key: ${key}`))
@@ -135,13 +129,13 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
     updateConfig: (key, value) => {
       return Effect.sync(() => {
         switch (key) {
-          case "gameConfig":
+          case 'gameConfig':
             currentGameConfig = value as GameConfig
             break
-          case "renderConfig":
+          case 'renderConfig':
             currentRenderConfig = value as RenderConfig
             break
-          case "debugConfig":
+          case 'debugConfig':
             currentDebugConfig = value as DebugConfig
             break
           default:

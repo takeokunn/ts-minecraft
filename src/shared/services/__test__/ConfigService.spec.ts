@@ -34,7 +34,7 @@ describe('ConfigService', () => {
 
         expect(config.resolution.width).toBe(1920)
         expect(config.resolution.height).toBe(1080)
-        expect(config.quality).toBe("high")
+        expect(config.quality).toBe('high')
         expect(config.shadows).toBe(true)
         expect(config.antialiasing).toBe(true)
         expect(config.viewDistance).toBe(8)
@@ -54,20 +54,20 @@ describe('ConfigService', () => {
         expect(config.showHitboxes).toBe(false)
         expect(config.showCoordinates).toBe(false)
         expect(config.wireframeMode).toBe(false)
-        expect(config.logLevel).toBe("info")
+        expect(config.logLevel).toBe('info')
       }).pipe(Effect.provide(ConfigServiceLive))
     )
 
     it.effect('should get configuration by key', () =>
       Effect.gen(function* () {
         const service = yield* ConfigService
-        const gameConfig = yield* service.getConfig("gameConfig")
-        const renderConfig = yield* service.getConfig("renderConfig")
-        const debugConfig = yield* service.getConfig("debugConfig")
+        const gameConfig = yield* service.getConfig('gameConfig')
+        const renderConfig = yield* service.getConfig('renderConfig')
+        const debugConfig = yield* service.getConfig('debugConfig')
 
         expect(gameConfig.fps).toBe(60)
-        expect(renderConfig.quality).toBe("high")
-        expect(debugConfig.logLevel).toBe("info")
+        expect(renderConfig.quality).toBe('high')
+        expect(debugConfig.logLevel).toBe('info')
       }).pipe(Effect.provide(ConfigServiceLive))
     )
 
@@ -85,8 +85,8 @@ describe('ConfigService', () => {
           jumpHeight: 2.0,
         }
 
-        yield* service.updateConfig("gameConfig", newGameConfig)
-        const updatedConfig = yield* service.getConfig("gameConfig")
+        yield* service.updateConfig('gameConfig', newGameConfig)
+        const updatedConfig = yield* service.getConfig('gameConfig')
 
         expect(updatedConfig.fps).toBe(144)
         expect(updatedConfig.tickRate).toBe(30)
@@ -100,7 +100,7 @@ describe('ConfigService', () => {
 
         const newRenderConfig: RenderConfig = {
           resolution: { width: 2560, height: 1440 },
-          quality: "ultra",
+          quality: 'ultra',
           shadows: false,
           antialiasing: false,
           viewDistance: 16,
@@ -108,11 +108,11 @@ describe('ConfigService', () => {
           vsync: false,
         }
 
-        yield* service.updateConfig("renderConfig", newRenderConfig)
-        const updatedConfig = yield* service.getConfig("renderConfig")
+        yield* service.updateConfig('renderConfig', newRenderConfig)
+        const updatedConfig = yield* service.getConfig('renderConfig')
 
         expect(updatedConfig.resolution.width).toBe(2560)
-        expect(updatedConfig.quality).toBe("ultra")
+        expect(updatedConfig.quality).toBe('ultra')
         expect(updatedConfig.shadows).toBe(false)
       }).pipe(Effect.provide(ConfigServiceLive))
     )
@@ -131,11 +131,11 @@ describe('ConfigService', () => {
     it.effect('should return configs via getConfig method', () =>
       Effect.gen(function* () {
         const service = yield* ConfigService
-        const gameConfig = yield* service.getConfig("gameConfig")
-        const renderConfig = yield* service.getConfig("renderConfig")
+        const gameConfig = yield* service.getConfig('gameConfig')
+        const renderConfig = yield* service.getConfig('renderConfig')
 
         expect(gameConfig.fps).toBe(60)
-        expect(renderConfig.quality).toBe("high")
+        expect(renderConfig.quality).toBe('high')
       }).pipe(Effect.provide(ConfigServiceTest))
     )
   })
@@ -174,7 +174,7 @@ describe('ConfigService', () => {
     it('should validate RenderConfig schema', () => {
       const validConfig = {
         resolution: { width: 1920, height: 1080 },
-        quality: "high" as const,
+        quality: 'high' as const,
         shadows: true,
         antialiasing: true,
         viewDistance: 8,
@@ -189,7 +189,7 @@ describe('ConfigService', () => {
     it('should reject invalid quality values', () => {
       const invalidConfig = {
         resolution: { width: 1920, height: 1080 },
-        quality: "invalid" as any, // "low", "medium", "high", "ultra"のみ有効
+        quality: 'invalid' as any, // "low", "medium", "high", "ultra"のみ有効
         shadows: true,
         antialiasing: true,
         viewDistance: 8,
@@ -209,7 +209,7 @@ describe('ConfigService', () => {
         showHitboxes: false,
         showCoordinates: true,
         wireframeMode: false,
-        logLevel: "debug" as const,
+        logLevel: 'debug' as const,
       }
 
       const result = Schema.decodeEither(DebugConfig)(validConfig)
@@ -224,7 +224,7 @@ describe('ConfigService', () => {
         showHitboxes: false,
         showCoordinates: true,
         wireframeMode: false,
-        logLevel: "verbose" as any, // "debug", "info", "warn", "error"のみ有効
+        logLevel: 'verbose' as any, // "debug", "info", "warn", "error"のみ有効
       }
 
       const result = Schema.decodeEither(DebugConfig)(invalidConfig)
@@ -234,7 +234,7 @@ describe('ConfigService', () => {
     it('should reject negative resolution values', () => {
       const invalidConfig = {
         resolution: { width: -1920, height: 1080 },
-        quality: "high" as const,
+        quality: 'high' as const,
         shadows: true,
         antialiasing: true,
         viewDistance: 8,
@@ -249,7 +249,7 @@ describe('ConfigService', () => {
     it('should validate FOV within bounds', () => {
       const validFov = {
         resolution: { width: 1920, height: 1080 },
-        quality: "high" as const,
+        quality: 'high' as const,
         shadows: true,
         antialiasing: true,
         viewDistance: 8,
