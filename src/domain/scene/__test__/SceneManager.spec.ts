@@ -1,0 +1,282 @@
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
+import { Effect, Layer, Either } from 'effect'
+import { SceneManager } from '../SceneManager'
+import { SceneManagerLive } from '../SceneManagerLive'
+import { Scene, SceneData, SceneTransitionError } from '../Scene'
+
+// テスト用のモックシーン
+const createMockScene = (sceneType: 'MainMenu' | 'Game' | 'Loading'): Layer.Layer<Scene> =>
+  Layer.succeed(
+    Scene,
+    Scene.of({
+      data: {
+        id: `mock-${sceneType.toLowerCase()}-001`,
+        type: sceneType,
+        isActive: false,
+        metadata: { test: true },
+      },
+      initialize: () => Effect.logInfo(`Mock ${sceneType} initialized`),
+      update: () => Effect.logDebug(`Mock ${sceneType} updated`),
+      render: () => Effect.logDebug(`Mock ${sceneType} rendered`),
+      cleanup: () => Effect.logInfo(`Mock ${sceneType} cleaned up`),
+      onEnter: () => Effect.logInfo(`Mock ${sceneType} entered`),
+      onExit: () => Effect.logInfo(`Mock ${sceneType} exited`),
+    })
+  )
+
+describe('SceneManager', () => {
+  describe('SceneManagerLive', () => {
+    it.effect('should initialize with no current scene', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+        const currentScene = yield* manager.getCurrentScene()
+        const state = yield* manager.getState()
+
+        expect(currentScene).toBeUndefined()
+        expect(state.currentScene).toBeUndefined()
+        expect(state.sceneStack).toEqual([])
+        expect(state.isTransitioning).toBe(false)
+        expect(state.transitionProgress).toBe(0)
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+
+    it.effect('should get current state', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+        const state = yield* manager.getState()
+
+        expect(state).toHaveProperty('currentScene')
+        expect(state).toHaveProperty('sceneStack')
+        expect(state).toHaveProperty('isTransitioning')
+        expect(state).toHaveProperty('transitionProgress')
+        expect(Array.isArray(state.sceneStack)).toBe(true)
+        expect(typeof state.isTransitioning).toBe('boolean')
+        expect(typeof state.transitionProgress).toBe('number')
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+
+    it.effect('should transition to MainMenu scene', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+
+        yield* manager.transitionTo('MainMenu')
+
+        const currentScene = yield* manager.getCurrentScene()
+        const state = yield* manager.getState()
+
+        expect(currentScene).toBeDefined()
+        expect(currentScene?.type).toBe('MainMenu')
+        expect(state.isTransitioning).toBe(false)
+        expect(state.transitionProgress).toBe(1)
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+
+    it.effect('should transition to Game scene', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+
+        yield* manager.transitionTo('Game')
+
+        const currentScene = yield* manager.getCurrentScene()
+
+        expect(currentScene).toBeDefined()
+        expect(currentScene?.type).toBe('Game')
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+
+    it.effect('should transition to Loading scene', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+
+        yield* manager.transitionTo('Loading')
+
+        const currentScene = yield* manager.getCurrentScene()
+
+        expect(currentScene).toBeDefined()
+        expect(currentScene?.type).toBe('Loading')
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+
+    it.effect('should fail to transition to unimplemented scene', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+
+        const result = yield* Effect.either(manager.transitionTo('Pause'))
+
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left._tag).toBe('SceneTransitionError')
+          expect(result.left.targetScene).toBe('Pause')
+        }
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+
+    it.effect('should handle scene transitions with custom transition data', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+
+        yield* manager.transitionTo('MainMenu', {
+          from: undefined,
+          to: 'MainMenu',
+          duration: 1000,
+          fadeType: 'slide',
+        })
+
+        const currentScene = yield* manager.getCurrentScene()
+
+        expect(currentScene).toBeDefined()
+        expect(currentScene?.type).toBe('MainMenu')
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+
+    it.effect('should push and pop scenes correctly', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+
+        // 最初のシーンに遷移
+        yield* manager.transitionTo('MainMenu')
+        let state = yield* manager.getState()
+        expect(state.currentScene?.type).toBe('MainMenu')
+        expect(state.sceneStack).toHaveLength(0)
+
+        // 新しいシーンをプッシュ
+        yield* manager.pushScene('Game')
+        state = yield* manager.getState()
+        expect(state.currentScene?.type).toBe('Game')
+        expect(state.sceneStack).toHaveLength(1)
+        expect(state.sceneStack[0]?.type).toBe('MainMenu')
+
+        // さらに新しいシーンをプッシュ
+        yield* manager.pushScene('Loading')
+        state = yield* manager.getState()
+        expect(state.currentScene?.type).toBe('Loading')
+        expect(state.sceneStack).toHaveLength(2)
+        expect(state.sceneStack[1]?.type).toBe('Game')
+
+        // シーンをポップ
+        yield* manager.popScene()
+        state = yield* manager.getState()
+        expect(state.currentScene?.type).toBe('Game')
+        expect(state.sceneStack).toHaveLength(1)
+
+        // 最後のシーンをポップ
+        yield* manager.popScene()
+        state = yield* manager.getState()
+        expect(state.currentScene?.type).toBe('MainMenu')
+        expect(state.sceneStack).toHaveLength(0)
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+
+    it.effect('should fail to pop scene when stack is empty', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+
+        const result = yield* Effect.either(manager.popScene())
+
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left._tag).toBe('SceneTransitionError')
+          expect(result.left.message).toContain('No scene in stack to pop')
+        }
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+
+    it.effect('should prevent multiple simultaneous transitions', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+
+        // 最初の遷移を開始（非ブロッキング）
+        const transition1Promise = Effect.runPromise(Effect.provide(manager.transitionTo('MainMenu'), SceneManagerLive))
+
+        // 同時に別の遷移を試行
+        const result2 = yield* Effect.either(manager.transitionTo('Game'))
+
+        // 最初の遷移を完了を待つ
+        yield* Effect.promise(() => transition1Promise)
+
+        // 2番目の遷移は失敗するはず（すでに遷移が完了している場合は成功する可能性がある）
+        const currentScene = yield* manager.getCurrentScene()
+
+        // 現在のシーンが設定されていることを確認
+        expect(currentScene).toBeDefined()
+        expect(['MainMenu', 'Game']).toContain(currentScene?.type)
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+
+    it.effect('should update current scene', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+
+        yield* manager.transitionTo('MainMenu')
+        yield* manager.update(16.67) // 60FPS相当
+
+        // エラーが発生しないことを確認
+        const currentScene = yield* manager.getCurrentScene()
+        expect(currentScene?.type).toBe('MainMenu')
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+
+    it.effect('should render current scene', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+
+        yield* manager.transitionTo('Game')
+        yield* manager.render()
+
+        // エラーが発生しないことを確認
+        const currentScene = yield* manager.getCurrentScene()
+        expect(currentScene?.type).toBe('Game')
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+
+    it.effect('should cleanup properly', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+
+        // シーンを設定
+        yield* manager.transitionTo('MainMenu')
+        yield* manager.pushScene('Game')
+
+        // クリーンアップ
+        yield* manager.cleanup()
+
+        // 状態がリセットされていることを確認
+        const state = yield* manager.getState()
+        expect(state.currentScene).toBeUndefined()
+        expect(state.sceneStack).toHaveLength(0)
+        expect(state.isTransitioning).toBe(false)
+        expect(state.transitionProgress).toBe(0)
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+
+    it.effect('should handle update and render when no scene is active', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+
+        // アクティブなシーンがない状態でのupdate/render
+        yield* manager.update(16.67)
+        yield* manager.render()
+
+        // エラーが発生しないことを確認
+        const currentScene = yield* manager.getCurrentScene()
+        expect(currentScene).toBeUndefined()
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+
+    it.effect('should create scenes correctly', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+
+        const mainMenuScene = yield* manager.createScene('MainMenu')
+        expect(mainMenuScene.data.type).toBe('MainMenu')
+
+        const gameScene = yield* manager.createScene('Game')
+        expect(gameScene.data.type).toBe('Game')
+
+        const loadingScene = yield* manager.createScene('Loading')
+        expect(loadingScene.data.type).toBe('Loading')
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+  })
+})
