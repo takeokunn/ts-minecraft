@@ -108,11 +108,17 @@ describe('FirstPersonCamera', () => {
         const positions = result.value
         // 徐々に目標位置に近づいていることを確認
         for (let i = 1; i < positions.length; i++) {
-          const prevDist = Math.sqrt(
-            Math.pow(100 - positions[i - 1].x, 2) + Math.pow(100 - positions[i - 1].z, 2)
-          )
-          const currDist = Math.sqrt(Math.pow(100 - positions[i].x, 2) + Math.pow(100 - positions[i].z, 2))
-          expect(currDist).toBeLessThanOrEqual(prevDist)
+          const prev = positions[i - 1]
+          const curr = positions[i]
+          expect(prev).toBeDefined()
+          expect(curr).toBeDefined()
+          if (prev && curr) {
+            const prevDist = Math.sqrt(
+              Math.pow(100 - prev.x, 2) + Math.pow(100 - prev.z, 2)
+            )
+            const currDist = Math.sqrt(Math.pow(100 - curr.x, 2) + Math.pow(100 - curr.z, 2))
+            expect(currDist).toBeLessThanOrEqual(prevDist)
+          }
         }
       }
     })
