@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer } from 'effect'
 import { it as effectIt } from '@effect/vitest'
-import { ThirdPersonCamera, ThirdPersonCameraTest, TargetState, defaultThirdPersonConfig } from './ThirdPersonCamera'
-import { CameraServiceTest } from './CameraService'
+import { ThirdPersonCamera, ThirdPersonCameraTest, TargetState, defaultThirdPersonConfig } from '../ThirdPersonCamera'
+import { CameraServiceTest } from '../CameraService'
 
 describe('ThirdPersonCamera', () => {
   const testLayer = Layer.mergeAll(CameraServiceTest, ThirdPersonCameraTest)
