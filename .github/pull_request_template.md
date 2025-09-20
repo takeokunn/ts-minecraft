@@ -20,7 +20,7 @@ Closes #xxx
 ### 品質チェック結果
 
 - [ ] pnpm typecheck - TypeScript型チェック
-- [ ] pnpm lint - ESLintチェック
+- [ ] pnpm format:check - フォーマットチェック
 - [ ] pnpm test - テスト実行
 - [ ] pnpm build - ビルド確認
 
@@ -38,7 +38,7 @@ pnpm dev
 # → http://localhost:3000 で確認
 
 # 4. 品質チェック実行
-pnpm typecheck && pnpm lint && pnpm test && pnpm build
+pnpm typecheck && pnpm format:check && pnpm test && pnpm build
 ```
 
 ### 動作確認ポイント

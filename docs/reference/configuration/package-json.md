@@ -79,18 +79,16 @@ npm test -- --coverage
 
 ### 品質管理スクリプト
 
-| スクリプト     | コマンド                                                      | 説明                             |
-| -------------- | ------------------------------------------------------------- | -------------------------------- |
-| `lint`         | `oxlint --deny-warnings --allow no-restricted-globals`        | OXLint による高速リント          |
-| `lint:fix`     | `oxlint --fix`                                                | 自動修正可能なリントエラーを修正 |
-| `format`       | `prettier --write . --ignore-path .gitignore && oxlint --fix` | コード整形 + リント修正          |
-| `format:check` | `prettier --check . --ignore-path .gitignore`                 | 整形チェック（修正なし）         |
+| スクリプト     | コマンド                                      | 説明                     |
+| -------------- | --------------------------------------------- | ------------------------ |
+| `format`       | `prettier --write . --ignore-path .gitignore` | コード整形               |
+| `format:check` | `prettier --check . --ignore-path .gitignore` | 整形チェック（修正なし） |
 
 **使用例**:
 
 ```bash
-# リントチェック
-npm run lint
+# TypeScript型チェック
+npm run typecheck
 
 # フォーマット実行
 npm run format
@@ -197,7 +195,6 @@ npm run format:check
 
 ```json
 {
-  "oxlint": "^1.15.0",
   "prettier": "^3.6.2",
   "madge": "^8.0.0"
 }
@@ -205,7 +202,6 @@ npm run format:check
 
 | パッケージ | バージョン | 用途                 |
 | ---------- | ---------- | -------------------- |
-| `oxlint`   | `^1.15.0`  | Rust製高速リンター   |
 | `prettier` | `^3.6.2`   | コードフォーマッター |
 | `madge`    | `^8.0.0`   | 依存関係分析ツール   |
 

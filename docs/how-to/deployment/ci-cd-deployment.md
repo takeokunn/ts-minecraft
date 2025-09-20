@@ -21,7 +21,7 @@ graph LR
     A[Push/PR] --> B[Node.js Setup]
     B --> C[Dependencies Install]
     C --> D[TypeScript Check]
-    D --> E[ESLint/oxlint]
+    D --> E[フォーマットチェック]
     E --> F[Prettier Format]
     F --> G[Vitest Tests]
     G --> H[Build Verification]
@@ -149,7 +149,6 @@ jobs:
       - name: Run CI checks
         run: |
           npm run type-check
-          npm run lint
           npm run test
 
       - name: Build Minecraft Clone
@@ -353,7 +352,7 @@ permissions:
 ### ✅ **CI 品質基準**
 
 - **TypeScript**: 型エラー 0件
-- **ESLint/oxlint**: 警告 0件
+- **TypeScriptコンパイラ**: 型エラー・警告 0件
 - **Prettier**: フォーマット準拠
 - **Vitest**: テストカバレッジ ≥90%
 - **Build**: 成功必須

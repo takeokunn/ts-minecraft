@@ -77,7 +77,6 @@ pnpm add -D \
   vite@latest \
   vitest@latest \
   @types/node@latest \
-  oxlint@latest \
   prettier@latest
 ```
 
@@ -134,17 +133,6 @@ export default defineConfig({
 })
 EOF
 
-# Oxlint設定（高速リンター）
-cat > oxlintrc.json << 'EOF'
-{
-  "rules": {
-    "no-var": "error",
-    "prefer-const": "error",
-    "no-unused-vars": "error",
-    "no-console": "off"
-  }
-}
-EOF
 
 # Prettier設定（コードフォーマッター）
 cat > .prettierrc << 'EOF'
@@ -269,7 +257,6 @@ cat > package.json << 'EOF'
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "lint": "oxlint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit"
@@ -286,7 +273,6 @@ cat > package.json << 'EOF'
     "vite": "latest",
     "vitest": "latest",
     "@types/node": "latest",
-    "oxlint": "latest",
     "prettier": "latest"
   }
 }
