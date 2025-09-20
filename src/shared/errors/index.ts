@@ -1,4 +1,4 @@
-import { Duration, Effect, Schedule } from 'effect'
+import { Duration, Effect, Either, Schedule } from 'effect'
 
 // ゲームエラー
 export * from './GameErrors'
@@ -68,7 +68,7 @@ export const ErrorRecovery = {
             circuitOpen = false
             failureCount = 0
           } else {
-            return yield* _(Effect.fail(new Error('Circuit breaker is open') as any))
+            return yield* _(Effect.fail(new Error('Circuit breaker is open')) as Effect.Effect<never, E>)
           }
         }
 
@@ -137,11 +137,11 @@ export const ErrorHandlers = {
       const successes = results.filter((r) => r._tag === 'Right')
 
       if (successes.length >= minSuccess) {
-        return successes.map((r) => (r as any).right)
+        return successes.map((r) => (Either.isRight(r) ? r.right : undefined)).filter((v): v is A => v !== undefined)
       } else {
         return yield* _(
-          Effect.fail(new Error(`Minimum success requirement not met: ${successes.length}/${minSuccess}`) as any)
-        )
+          Effect.fail(new Error(`Minimum success requirement not met: ${successes.length}/${minSuccess}`))
+        ) as Effect.Effect<never, E>
       }
     }),
 
@@ -166,7 +166,7 @@ export const ErrorReporter = {
    */
   format: (error: unknown): string => {
     if (error && typeof error === 'object' && '_tag' in error) {
-      const e = error as any
+      const e = error as { _tag: string; message?: string; [key: string]: unknown }
       return JSON.stringify(
         {
           type: e._tag,
@@ -202,7 +202,8 @@ export const ErrorReporter = {
     let current = error
 
     while (current && typeof current === 'object' && 'cause' in current) {
-      current = (current as any).cause
+      const withCause = current as { cause?: unknown }
+      current = withCause.cause
       if (current) {
         chain.push(current)
       }
@@ -231,7 +232,7 @@ export const ErrorGuards = {
       'WorldGenerationError',
       'EntityError',
       'PhysicsError',
-    ].includes((error as any)._tag),
+    ].includes((error as { _tag: string })._tag),
 
   isNetworkError: (error: unknown): error is AnyNetworkError =>
     error !== null &&
@@ -250,7 +251,7 @@ export const ErrorGuards = {
       'PacketError',
       'ServerError',
       'P2PError',
-    ].includes((error as any)._tag),
+    ].includes((error as { _tag: string })._tag),
 
   isRetryableError: (error: unknown): boolean => {
     if (!error || typeof error !== 'object' || !('_tag' in error)) {
@@ -259,6 +260,6 @@ export const ErrorGuards = {
 
     const retryableTags = ['NetworkError', 'ConnectionError', 'TimeoutError', 'ServerError']
 
-    return retryableTags.includes((error as any)._tag)
+    return retryableTags.includes((error as { _tag: string })._tag)
   },
 }

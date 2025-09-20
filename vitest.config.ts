@@ -7,8 +7,8 @@ export default defineConfig({
     globals: true,
     environment: 'node',
 
-    // テストファイルパターン（__test__/*.spec.ts）
-    include: ['src/**/__test__/*.spec.?(c|m)[jt]s?(x)'],
+    // テストファイルパターン（__test__/*.spec.ts and *.test.ts）
+    include: ['src/**/__test__/*.spec.?(c|m)[jt]s?(x)', 'src/**/*.test.?(c|m)[jt]s?(x)'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/docs/**'],
 
     // タイムアウト設定（無限ループ防止）
