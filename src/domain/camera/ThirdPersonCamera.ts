@@ -1,6 +1,13 @@
 import { Effect, Layer, Ref } from 'effect'
 import * as THREE from 'three'
-import { CameraService, CameraConfig, CameraState, CameraError, CameraMode, DEFAULT_CAMERA_CONFIG } from './CameraService.js'
+import {
+  CameraService,
+  CameraConfig,
+  CameraState,
+  CameraError,
+  CameraMode,
+  DEFAULT_CAMERA_CONFIG,
+} from './CameraService.js'
 
 /**
  * 三人称カメラの内部状態
@@ -14,8 +21,8 @@ interface ThirdPersonState {
   smoothedTarget: { x: number; y: number; z: number }
   spherical: {
     radius: number
-    theta: number  // 水平角度
-    phi: number    // 垂直角度
+    theta: number // 水平角度
+    phi: number // 垂直角度
   }
 }
 
@@ -182,16 +189,8 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       state.smoothedPosition = lerp3D(state.smoothedPosition, desiredPosition, smoothingFactor)
 
       // カメラの更新
-      state.camera!.position.set(
-        state.smoothedPosition.x,
-        state.smoothedPosition.y,
-        state.smoothedPosition.z
-      )
-      state.camera!.lookAt(
-        state.smoothedTarget.x,
-        state.smoothedTarget.y,
-        state.smoothedTarget.z
-      )
+      state.camera!.position.set(state.smoothedPosition.x, state.smoothedPosition.y, state.smoothedPosition.z)
+      state.camera!.lookAt(state.smoothedTarget.x, state.smoothedTarget.y, state.smoothedTarget.z)
 
       // 状態の更新
       const newState: ThirdPersonState = {
@@ -378,10 +377,7 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       }
 
       // カメラを初期状態にリセット
-      const initialPos = sphericalToCartesian(
-        state.spherical,
-        { x: 0, y: state.config.thirdPersonHeight, z: 0 }
-      )
+      const initialPos = sphericalToCartesian(state.spherical, { x: 0, y: state.config.thirdPersonHeight, z: 0 })
       state.camera!.position.set(initialPos.x, initialPos.y, initialPos.z)
       state.camera!.lookAt(0, state.config.thirdPersonHeight, 0)
 

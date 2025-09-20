@@ -113,9 +113,7 @@ describe('FirstPersonCamera', () => {
           expect(prev).toBeDefined()
           expect(curr).toBeDefined()
           if (prev && curr) {
-            const prevDist = Math.sqrt(
-              Math.pow(100 - prev.x, 2) + Math.pow(100 - prev.z, 2)
-            )
+            const prevDist = Math.sqrt(Math.pow(100 - prev.x, 2) + Math.pow(100 - prev.z, 2))
             const currDist = Math.sqrt(Math.pow(100 - curr.x, 2) + Math.pow(100 - curr.z, 2))
             expect(currDist).toBeLessThanOrEqual(prevDist)
           }
@@ -227,9 +225,7 @@ describe('FirstPersonCamera', () => {
 
       if (Exit.isSuccess(result)) {
         const { defaultRotation, highSensitivityRotation } = result.value
-        expect(Math.abs(highSensitivityRotation.rotation.yaw)).toBeGreaterThan(
-          Math.abs(defaultRotation.rotation.yaw)
-        )
+        expect(Math.abs(highSensitivityRotation.rotation.yaw)).toBeGreaterThan(Math.abs(defaultRotation.rotation.yaw))
       }
     })
   })

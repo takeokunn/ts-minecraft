@@ -1,6 +1,13 @@
 import { Effect, Layer, Ref } from 'effect'
 import * as THREE from 'three'
-import { CameraService, CameraConfig, CameraState, CameraError, CameraMode, DEFAULT_CAMERA_CONFIG } from './CameraService.js'
+import {
+  CameraService,
+  CameraConfig,
+  CameraState,
+  CameraError,
+  CameraMode,
+  DEFAULT_CAMERA_CONFIG,
+} from './CameraService.js'
 
 /**
  * 一人称カメラの内部状態
@@ -117,11 +124,7 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       state.smoothedPosition.z = lerp(state.smoothedPosition.z, targetPosition.z, smoothingFactor)
 
       // カメラ位置の更新
-      state.camera!.position.set(
-        state.smoothedPosition.x,
-        state.smoothedPosition.y,
-        state.smoothedPosition.z
-      )
+      state.camera!.position.set(state.smoothedPosition.x, state.smoothedPosition.y, state.smoothedPosition.z)
 
       // 状態の更新
       const newState: FirstPersonState = {

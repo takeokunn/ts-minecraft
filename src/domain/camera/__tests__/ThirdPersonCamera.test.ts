@@ -28,10 +28,7 @@ describe('ThirdPersonCamera', () => {
         expect(camera.near).toBe(0.1)
         expect(camera.far).toBe(1000)
         // 三人称視点は離れた位置から開始
-        const distance = Math.sqrt(
-          state.position.x * state.position.x +
-          state.position.z * state.position.z
-        )
+        const distance = Math.sqrt(state.position.x * state.position.x + state.position.z * state.position.z)
         expect(distance).toBeGreaterThan(0) // 原点から離れている
         expect(state.position.y).toBeGreaterThan(0)
       }
@@ -278,9 +275,7 @@ describe('ThirdPersonCamera', () => {
 
       if (Exit.isSuccess(result)) {
         const { defaultRotation, highSensitivityRotation } = result.value
-        expect(Math.abs(highSensitivityRotation.rotation.yaw)).toBeGreaterThan(
-          Math.abs(defaultRotation.rotation.yaw)
-        )
+        expect(Math.abs(highSensitivityRotation.rotation.yaw)).toBeGreaterThan(Math.abs(defaultRotation.rotation.yaw))
       }
     })
   })
