@@ -5,9 +5,8 @@ import { createSystem, SystemError } from '../System'
 import { PositionComponent, VelocityComponent } from '../Component'
 
 describe('World', () => {
-  const runWithWorld = <A, E>(
-    effect: Effect.Effect<A, E, World>
-  ): Promise<A> => Effect.runPromise(effect.pipe(Effect.provide(WorldLive)))
+  const runWithWorld = <A, E>(effect: Effect.Effect<A, E, World>): Promise<A> =>
+    Effect.runPromise(effect.pipe(Effect.provide(WorldLive)))
 
   describe('エンティティ管理', () => {
     it('エンティティを作成できる', async () => {
@@ -89,10 +88,7 @@ describe('World', () => {
           const position: PositionComponent = { x: 10, y: 20, z: 30 }
           yield* world.addComponent(entityId, 'Position', position)
 
-          const retrieved = yield* world.getComponent<PositionComponent>(
-            entityId,
-            'Position'
-          )
+          const retrieved = yield* world.getComponent<PositionComponent>(entityId, 'Position')
 
           expect(retrieved).toEqual(position)
         })
@@ -110,10 +106,7 @@ describe('World', () => {
 
           yield* world.removeComponent(entityId, 'Position')
 
-          const retrieved = yield* world.getComponent<PositionComponent>(
-            entityId,
-            'Position'
-          )
+          const retrieved = yield* world.getComponent<PositionComponent>(entityId, 'Position')
 
           expect(retrieved).toBeNull()
         })
@@ -142,11 +135,7 @@ describe('World', () => {
       const result = await Effect.runPromiseExit(
         Effect.gen(function* () {
           const world = yield* World
-          yield* world.addComponent(
-            'non_existent' as EntityId,
-            'Position',
-            { x: 0, y: 0, z: 0 }
-          )
+          yield* world.addComponent('non_existent' as EntityId, 'Position', { x: 0, y: 0, z: 0 })
         }).pipe(Effect.provide(WorldLive))
       )
 
@@ -302,17 +291,13 @@ describe('World', () => {
 
           const executionOrder: string[] = []
 
-          const highPrioritySystem = createSystem('HighPriority', () =>
-            Effect.sync(() => executionOrder.push('high'))
-          )
+          const highPrioritySystem = createSystem('HighPriority', () => Effect.sync(() => executionOrder.push('high')))
 
           const normalPrioritySystem = createSystem('NormalPriority', () =>
             Effect.sync(() => executionOrder.push('normal'))
           )
 
-          const lowPrioritySystem = createSystem('LowPriority', () =>
-            Effect.sync(() => executionOrder.push('low'))
-          )
+          const lowPrioritySystem = createSystem('LowPriority', () => Effect.sync(() => executionOrder.push('low')))
 
           // 登録順序と逆に登録
           yield* world.registerSystem(lowPrioritySystem, 'low')

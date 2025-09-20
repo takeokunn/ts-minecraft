@@ -88,49 +88,32 @@ export interface World {
   /**
    * エンティティにコンポーネントを追加
    */
-  readonly addComponent: <T>(
-    entityId: EntityId,
-    componentType: string,
-    component: T
-  ) => Effect.Effect<void, WorldError>
+  readonly addComponent: <T>(entityId: EntityId, componentType: string, component: T) => Effect.Effect<void, WorldError>
 
   /**
    * エンティティからコンポーネントを削除
    */
-  readonly removeComponent: (
-    entityId: EntityId,
-    componentType: string
-  ) => Effect.Effect<void, WorldError>
+  readonly removeComponent: (entityId: EntityId, componentType: string) => Effect.Effect<void, WorldError>
 
   /**
    * エンティティのコンポーネントを取得
    */
-  readonly getComponent: <T>(
-    entityId: EntityId,
-    componentType: string
-  ) => Effect.Effect<T | null, WorldError>
+  readonly getComponent: <T>(entityId: EntityId, componentType: string) => Effect.Effect<T | null, WorldError>
 
   /**
    * エンティティが特定のコンポーネントを持っているか確認
    */
-  readonly hasComponent: (
-    entityId: EntityId,
-    componentType: string
-  ) => Effect.Effect<boolean, never>
+  readonly hasComponent: (entityId: EntityId, componentType: string) => Effect.Effect<boolean, never>
 
   /**
    * 特定のコンポーネントを持つすべてのエンティティを取得
    */
-  readonly getEntitiesWithComponent: (
-    componentType: string
-  ) => Effect.Effect<readonly EntityId[], never>
+  readonly getEntitiesWithComponent: (componentType: string) => Effect.Effect<readonly EntityId[], never>
 
   /**
    * 複数のコンポーネントを持つエンティティを取得（AND検索）
    */
-  readonly getEntitiesWithComponents: (
-    componentTypes: readonly string[]
-  ) => Effect.Effect<readonly EntityId[], never>
+  readonly getEntitiesWithComponents: (componentTypes: readonly string[]) => Effect.Effect<readonly EntityId[], never>
 
   /**
    * タグでエンティティを検索
@@ -179,9 +162,7 @@ export interface World {
   /**
    * コンポーネントの一括取得（パフォーマンス最適化）
    */
-  readonly batchGetComponents: <T>(
-    componentType: string
-  ) => Effect.Effect<ReadonlyMap<EntityId, T>, never>
+  readonly batchGetComponents: <T>(componentType: string) => Effect.Effect<ReadonlyMap<EntityId, T>, never>
 
   /**
    * エンティティの有効/無効を切り替え
@@ -312,11 +293,7 @@ export const WorldLive = Layer.effect(
     /**
      * コンポーネントを追加
      */
-    const addComponent = <T>(
-      entityId: EntityId,
-      componentType: string,
-      component: T
-    ) =>
+    const addComponent = <T>(entityId: EntityId, componentType: string, component: T) =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
@@ -519,11 +496,7 @@ export const WorldLive = Layer.effect(
     /**
      * システムを登録
      */
-    const registerSystem = (
-      system: System,
-      priority?: SystemPriority,
-      order?: number
-    ) =>
+    const registerSystem = (system: System, priority?: SystemPriority, order?: number) =>
       Effect.gen(function* () {
         yield* systemRegistry.register(system, priority, order)
 

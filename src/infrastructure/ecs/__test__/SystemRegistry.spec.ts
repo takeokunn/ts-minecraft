@@ -1,17 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer, Cause, Chunk } from 'effect'
-import {
-  SystemRegistryService,
-  SystemRegistryServiceLive,
-  SystemRegistryError,
-} from '../SystemRegistry'
+import { SystemRegistryService, SystemRegistryServiceLive, SystemRegistryError } from '../SystemRegistry'
 import { createSystem, SystemError } from '../System'
 import type { World } from '../World'
 
 describe('SystemRegistry', () => {
-  const runWithRegistry = <A, E>(
-    effect: Effect.Effect<A, E, SystemRegistryService>
-  ): Promise<A> =>
+  const runWithRegistry = <A, E>(effect: Effect.Effect<A, E, SystemRegistryService>): Promise<A> =>
     Effect.runPromise(effect.pipe(Effect.provide(SystemRegistryServiceLive)))
 
   describe('システム登録', () => {
@@ -227,15 +221,9 @@ describe('SystemRegistry', () => {
 
           const executions: string[] = []
 
-          const system1 = createSystem('System1', () =>
-            Effect.sync(() => executions.push('System1'))
-          )
-          const system2 = createSystem('System2', () =>
-            Effect.sync(() => executions.push('System2'))
-          )
-          const system3 = createSystem('System3', () =>
-            Effect.sync(() => executions.push('System3'))
-          )
+          const system1 = createSystem('System1', () => Effect.sync(() => executions.push('System1')))
+          const system2 = createSystem('System2', () => Effect.sync(() => executions.push('System2')))
+          const system3 = createSystem('System3', () => Effect.sync(() => executions.push('System3')))
 
           yield* registry.register(system1)
           yield* registry.register(system2)

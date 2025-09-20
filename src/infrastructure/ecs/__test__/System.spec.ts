@@ -53,9 +53,7 @@ describe('System', () => {
         })
       )
 
-      await Effect.runPromise(
-        runSystems([system1, system2, system3], {} as World, 16)
-      )
+      await Effect.runPromise(runSystems([system1, system2, system3], {} as World, 16))
 
       expect(executionOrder).toEqual(['System1', 'System2', 'System3'])
     })
@@ -72,9 +70,7 @@ describe('System', () => {
         )
       )
 
-      const result = await Effect.runPromiseExit(
-        runSystems([system1, system2], {} as World, 16)
-      )
+      const result = await Effect.runPromiseExit(runSystems([system1, system2], {} as World, 16))
 
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
@@ -88,13 +84,9 @@ describe('System', () => {
     })
 
     it('未知のエラーをSystemErrorにラップする', async () => {
-      const system = createSystem('FailingSystem', () =>
-        Effect.fail('Unknown error' as unknown as SystemError)
-      )
+      const system = createSystem('FailingSystem', () => Effect.fail('Unknown error' as unknown as SystemError))
 
-      const result = await Effect.runPromiseExit(
-        runSystems([system], {} as World, 16)
-      )
+      const result = await Effect.runPromiseExit(runSystems([system], {} as World, 16))
 
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
@@ -120,9 +112,7 @@ describe('System', () => {
         })
       )
 
-      const result = await Effect.runPromise(
-        runSystemWithMetrics(system, {} as World, 16)
-      )
+      const result = await Effect.runPromise(runSystemWithMetrics(system, {} as World, 16))
 
       expect(result.duration).toBeGreaterThanOrEqual(5)
     })
@@ -146,9 +136,7 @@ describe('System', () => {
         })
       )
 
-      const result = await Effect.runPromise(
-        runSystemWithMetrics(system, {} as World, 16)
-      )
+      const result = await Effect.runPromise(runSystemWithMetrics(system, {} as World, 16))
 
       // console.warnを元に戻す
       console.warn = originalLogWarning
@@ -165,9 +153,7 @@ describe('System', () => {
 
       expect(mockSystem.name).toBe('MockSystem')
 
-      const result = await Effect.runPromise(
-        mockSystem.update({} as World, 16)
-      )
+      const result = await Effect.runPromise(mockSystem.update({} as World, 16))
 
       expect(result).toBeUndefined()
     })
@@ -194,9 +180,7 @@ describe('System', () => {
 
       const mockSystem = createMockSystem('MockSystem', Effect.fail(error))
 
-      const result = await Effect.runPromiseExit(
-        mockSystem.update({} as World, 16)
-      )
+      const result = await Effect.runPromiseExit(mockSystem.update({} as World, 16))
 
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {

@@ -125,10 +125,7 @@ export const runSystemWithMetrics = (
   system: System,
   world: World,
   deltaTime: number
-): Effect.Effect<
-  { readonly duration: number },
-  SystemError
-> =>
+): Effect.Effect<{ readonly duration: number }, SystemError> =>
   Effect.gen(function* () {
     const startTime = Date.now()
     yield* system.update(world, deltaTime)
@@ -136,9 +133,7 @@ export const runSystemWithMetrics = (
 
     // パフォーマンス警告（16ms = 60FPS基準）
     if (duration > 16) {
-      yield* Effect.logWarning(
-        `System ${system.name} took ${duration}ms (target: <16ms for 60FPS)`
-      )
+      yield* Effect.logWarning(`System ${system.name} took ${duration}ms (target: <16ms for 60FPS)`)
     }
 
     return { duration }
@@ -147,10 +142,7 @@ export const runSystemWithMetrics = (
 /**
  * テスト用のモックシステム作成
  */
-export const createMockSystem = (
-  name: string,
-  behavior: Effect.Effect<void, SystemError> = Effect.void
-): System => ({
+export const createMockSystem = (name: string, behavior: Effect.Effect<void, SystemError> = Effect.void): System => ({
   name,
   update: () => behavior,
 })

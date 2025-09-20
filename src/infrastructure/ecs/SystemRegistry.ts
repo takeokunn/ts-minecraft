@@ -103,16 +103,12 @@ export interface SystemRegistryService {
 /**
  * システムレジストリサービスタグ
  */
-export const SystemRegistryService = Context.GenericTag<SystemRegistryService>(
-  '@minecraft/ecs/SystemRegistryService'
-)
+export const SystemRegistryService = Context.GenericTag<SystemRegistryService>('@minecraft/ecs/SystemRegistryService')
 
 /**
  * 実行順序を計算
  */
-const calculateExecutionOrder = (
-  systems: Map<string, SystemEntry>
-): readonly string[] => {
+const calculateExecutionOrder = (systems: Map<string, SystemEntry>): readonly string[] => {
   const entries = Array.from(systems.entries())
 
   // 優先度と順序でソート
@@ -148,11 +144,7 @@ export const SystemRegistryServiceLive = Layer.effect(
     /**
      * システムを登録
      */
-    const register = (
-      system: System,
-      priority: SystemPriority = 'normal',
-      order = 500
-    ) =>
+    const register = (system: System, priority: SystemPriority = 'normal', order = 500) =>
       Effect.gen(function* () {
         yield* Ref.update(stateRef, (state) => {
           if (state.systems.has(system.name)) {
@@ -249,11 +241,7 @@ export const SystemRegistryServiceLive = Layer.effect(
     /**
      * システムの優先度を変更
      */
-    const setPriority = (
-      name: string,
-      priority: SystemPriority,
-      order?: number
-    ) =>
+    const setPriority = (name: string, priority: SystemPriority, order?: number) =>
       Effect.gen(function* () {
         yield* Ref.update(stateRef, (state) => {
           const entry = state.systems.get(name)
@@ -294,9 +282,7 @@ export const SystemRegistryServiceLive = Layer.effect(
       const state = yield* Ref.get(stateRef)
       return state.executionOrder
         .map((name) => state.systems.get(name))
-        .filter((entry): entry is SystemEntry =>
-          entry !== undefined && entry.metadata.enabled
-        )
+        .filter((entry): entry is SystemEntry => entry !== undefined && entry.metadata.enabled)
         .map((entry) => entry.system)
     })
 
@@ -357,9 +343,8 @@ export const SystemRegistryServiceLive = Layer.effect(
               const entry = s.systems.get(system.name)
               if (!entry) return s
 
-              const errorMessage = error instanceof SystemError
-                ? `${error.systemName}: ${error.message}`
-                : String(error)
+              const errorMessage =
+                error instanceof SystemError ? `${error.systemName}: ${error.message}` : String(error)
 
               const newExecutionState: SystemExecutionState = {
                 ...entry.executionState,
