@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     // テスト環境設定
     globals: true,
-    environment: 'node',
+    environment: 'happy-dom',
 
     // テストファイルパターン（__test__/*.spec.ts and *.test.ts）
     include: ['src/**/__test__/*.spec.?(c|m)[jt]s?(x)', 'src/**/*.test.?(c|m)[jt]s?(x)'],
