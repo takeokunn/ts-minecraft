@@ -254,4 +254,73 @@ describe('ThreeRendererLive', () => {
       await Effect.runPromise(runnable)
     })
   })
+
+  describe('高度な機能とエラーケース', () => {
+    it('初期化されていない状態でrenderを呼ぶとエラーが発生する', async () => {
+      const program = Effect.gen(function* () {
+        const renderer = yield* ThreeRenderer
+        yield* renderer.render(scene, camera)
+      })
+
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      await expect(Effect.runPromise(runnable)).rejects.toThrow()
+    })
+
+    it('WebGL2機能を有効化する', async () => {
+      const program = Effect.gen(function* () {
+        const renderer = yield* ThreeRenderer
+        yield* renderer.initialize(canvas)
+        yield* renderer.enableWebGL2Features()
+      })
+
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      await Effect.runPromise(runnable)
+    })
+
+    it('初期化されていない状態でWebGL2機能を有効化するとエラーが発生する', async () => {
+      const program = Effect.gen(function* () {
+        const renderer = yield* ThreeRenderer
+        yield* renderer.enableWebGL2Features()
+      })
+
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      await expect(Effect.runPromise(runnable)).rejects.toThrow()
+    })
+
+    it('ポストプロセシングの設定', async () => {
+      const program = Effect.gen(function* () {
+        const renderer = yield* ThreeRenderer
+        yield* renderer.initialize(canvas)
+        yield* renderer.setupPostprocessing()
+      })
+
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      await Effect.runPromise(runnable)
+    })
+
+    it('初期化されていない状態でポストプロセシングを設定するとエラーが発生する', async () => {
+      const program = Effect.gen(function* () {
+        const renderer = yield* ThreeRenderer
+        yield* renderer.setupPostprocessing()
+      })
+
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      await expect(Effect.runPromise(runnable)).rejects.toThrow()
+    })
+
+    it('初期化でエラーが発生した場合の適切なエラーハンドリング', async () => {
+      // WebGLRendererの作成でエラーが発生するケース
+      vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(() => {
+        throw new Error('Renderer creation failed')
+      })
+
+      const program = Effect.gen(function* () {
+        const renderer = yield* ThreeRenderer
+        yield* renderer.initialize(canvas)
+      })
+
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      await expect(Effect.runPromise(runnable)).rejects.toThrow()
+    })
+  })
 })
