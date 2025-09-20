@@ -44,14 +44,8 @@ export type PlayerState = typeof PlayerState.Type
 
 // 一人称カメラサービス
 export const FirstPersonCamera = Context.GenericTag<{
-  readonly updateFromPlayer: (
-    player: PlayerState,
-    deltaTime: number
-  ) => Effect.Effect<CameraState, CameraError>
-  readonly handleMouseInput: (
-    deltaX: number,
-    deltaY: number
-  ) => Effect.Effect<void, CameraError>
+  readonly updateFromPlayer: (player: PlayerState, deltaTime: number) => Effect.Effect<CameraState, CameraError>
+  readonly handleMouseInput: (deltaX: number, deltaY: number) => Effect.Effect<void, CameraError>
   readonly getConfig: () => Effect.Effect<FirstPersonConfig, never>
   readonly setConfig: (config: Partial<FirstPersonConfig>) => Effect.Effect<void, never>
 }>('@minecraft/FirstPersonCamera')
@@ -136,10 +130,7 @@ export const FirstPersonCameraLive = Layer.effect(
           if (currentRotation.yaw < 0) currentRotation.yaw += 360
 
           // Pitch（上下回転）の更新（-90〜90度に制限）
-          currentRotation.pitch = Math.max(
-            -90,
-            Math.min(90, currentRotation.pitch - deltaY * sensitivity)
-          )
+          currentRotation.pitch = Math.max(-90, Math.min(90, currentRotation.pitch - deltaY * sensitivity))
 
           // 即座に適用（一人称は即座に反応すべき）
           yield* cameraService.update({
@@ -160,41 +151,40 @@ export const FirstPersonCameraLive = Layer.effect(
 )
 
 // テスト用のMock実装
-export const FirstPersonCameraTest = Layer.sync(
-  FirstPersonCamera,
-  () => {
-    let config = defaultFirstPersonConfig
-    let rotation = { pitch: 0, yaw: 0 }
+export const FirstPersonCameraTest = Layer.sync(FirstPersonCamera, () => {
+  let config = defaultFirstPersonConfig
+  let rotation = { pitch: 0, yaw: 0 }
 
-    return FirstPersonCamera.of({
-      updateFromPlayer: (player) =>
-        Effect.succeed({
+  return FirstPersonCamera.of({
+    updateFromPlayer: (player) =>
+      Effect.succeed({
+        position: {
+          x:
+            player.position.x + (player.isWalking ? Math.sin(player.walkTime * config.bobSpeed) * config.bobAmount : 0),
+          y:
+            player.position.y +
+            config.eyeHeight * (player.isCrouching ? 0.7 : 1) +
+            (player.isWalking ? Math.abs(Math.cos(player.walkTime * config.bobSpeed * 2)) * config.bobAmount : 0),
+          z: player.position.z,
+        },
+        rotation: { ...rotation, roll: 0 },
+        mode: 'first-person' as const,
+        fov: player.isSprinting ? 75 * config.sprintFOVMultiplier : 75,
+        distance: 0,
+        smoothing: 0.15,
+      }),
 
-          position: {
-            x: player.position.x + (player.isWalking ? Math.sin(player.walkTime * config.bobSpeed) * config.bobAmount : 0),
-            y: player.position.y + config.eyeHeight * (player.isCrouching ? 0.7 : 1) +
-                (player.isWalking ? Math.abs(Math.cos(player.walkTime * config.bobSpeed * 2)) * config.bobAmount : 0),
-            z: player.position.z,
-          },
-          rotation: { ...rotation, roll: 0 },
-          mode: 'first-person' as const,
-          fov: player.isSprinting ? 75 * config.sprintFOVMultiplier : 75,
-          distance: 0,
-          smoothing: 0.15,
-        }),
+    handleMouseInput: (deltaX, deltaY) =>
+      Effect.sync(() => {
+        rotation.yaw = (rotation.yaw - deltaX * config.mouseSensitivity * 0.1) % 360
+        rotation.pitch = Math.max(-90, Math.min(90, rotation.pitch - deltaY * config.mouseSensitivity * 0.1))
+      }),
 
-      handleMouseInput: (deltaX, deltaY) =>
-        Effect.sync(() => {
-          rotation.yaw = (rotation.yaw - deltaX * config.mouseSensitivity * 0.1) % 360
-          rotation.pitch = Math.max(-90, Math.min(90, rotation.pitch - deltaY * config.mouseSensitivity * 0.1))
-        }),
+    getConfig: () => Effect.succeed(config),
 
-      getConfig: () => Effect.succeed(config),
-
-      setConfig: (newConfig) =>
-        Effect.sync(() => {
-          config = { ...config, ...newConfig }
-        }),
-    })
-  }
-)
+    setConfig: (newConfig) =>
+      Effect.sync(() => {
+        config = { ...config, ...newConfig }
+      }),
+  })
+})

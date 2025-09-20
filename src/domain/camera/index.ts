@@ -38,19 +38,11 @@ import { CameraServiceLive } from './CameraService'
 import { FirstPersonCameraLive } from './FirstPersonCamera'
 import { ThirdPersonCameraLive } from './ThirdPersonCamera'
 
-export const CameraSystemLive = Layer.mergeAll(
-  CameraServiceLive,
-  FirstPersonCameraLive,
-  ThirdPersonCameraLive
-)
+export const CameraSystemLive = Layer.mergeAll(CameraServiceLive, FirstPersonCameraLive, ThirdPersonCameraLive)
 
 // 統合Layer（テスト用）
 import { CameraServiceTest } from './CameraService'
 import { FirstPersonCameraTest } from './FirstPersonCamera'
 import { ThirdPersonCameraTest } from './ThirdPersonCamera'
 
-export const CameraSystemTest = Layer.mergeAll(
-  CameraServiceTest,
-  FirstPersonCameraTest,
-  ThirdPersonCameraTest
-)
+export const CameraSystemTest = Layer.mergeAll(CameraServiceTest, FirstPersonCameraTest, ThirdPersonCameraTest)

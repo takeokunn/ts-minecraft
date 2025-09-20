@@ -1,12 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer } from 'effect'
 import { it as effectIt } from '@effect/vitest'
-import {
-  ThirdPersonCamera,
-  ThirdPersonCameraTest,
-  TargetState,
-  defaultThirdPersonConfig,
-} from './ThirdPersonCamera'
+import { ThirdPersonCamera, ThirdPersonCameraTest, TargetState, defaultThirdPersonConfig } from './ThirdPersonCamera'
 import { CameraServiceTest } from './CameraService'
 
 describe('ThirdPersonCamera', () => {
@@ -38,7 +33,7 @@ describe('ThirdPersonCamera', () => {
         // rotation.yaw = 0, pitch = -20の場合、主にZ軸方向に離れる
         const dx = state.position.x - 10
         const dy = state.position.y - 5
-        const dz = state.position.z - (-3)
+        const dz = state.position.z - -3
         const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
         expect(distance).toBeGreaterThan(1) // 最低でも1ユニット以上離れている
       }).pipe(Effect.provide(testLayer))
@@ -164,10 +159,7 @@ describe('ThirdPersonCamera', () => {
       Effect.gen(function* () {
         const camera = yield* ThirdPersonCamera
 
-        const collision = yield* camera.checkCollision(
-          { x: 0, y: 0, z: 0 },
-          { x: 10, y: 0, z: 10 }
-        )
+        const collision = yield* camera.checkCollision({ x: 0, y: 0, z: 0 }, { x: 10, y: 0, z: 10 })
 
         expect(collision.hasCollision).toBe(false) // テスト実装では常にfalse
         expect(collision.adjustedDistance).toBeDefined()

@@ -1,13 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, pipe } from 'effect'
 import { it as effectIt } from '@effect/vitest'
-import {
-  CameraService,
-  CameraServiceTest,
-  CameraMode,
-  CameraState,
-  defaultCameraState,
-} from './CameraService'
+import { CameraService, CameraServiceTest, CameraMode, CameraState, defaultCameraState } from './CameraService'
 
 describe('CameraService', () => {
   describe('getState', () => {

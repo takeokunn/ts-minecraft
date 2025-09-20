@@ -66,14 +66,8 @@ export type TargetState = typeof TargetState.Type
 
 // 三人称カメラサービス
 export const ThirdPersonCamera = Context.GenericTag<{
-  readonly updateFromTarget: (
-    target: TargetState,
-    deltaTime: number
-  ) => Effect.Effect<CameraState, CameraError>
-  readonly handleMouseInput: (
-    deltaX: number,
-    deltaY: number
-  ) => Effect.Effect<void, CameraError>
+  readonly updateFromTarget: (target: TargetState, deltaTime: number) => Effect.Effect<CameraState, CameraError>
+  readonly handleMouseInput: (deltaX: number, deltaY: number) => Effect.Effect<void, CameraError>
   readonly handleZoom: (delta: number) => Effect.Effect<void, CameraError>
   readonly checkCollision: (
     from: { x: number; y: number; z: number },
@@ -155,7 +149,7 @@ export const ThirdPersonCameraLive = Layer.effect(
           // 衝突検出（簡易版 - 実際のゲームではレイキャストを使用）
           const collision: CollisionInfo = {
             hasCollision: false,
-            adjustedDistance: currentDistance
+            adjustedDistance: currentDistance,
           }
 
           let finalPosition = idealPosition
@@ -203,10 +197,7 @@ export const ThirdPersonCameraLive = Layer.effect(
           if (currentRotation.yaw < 0) currentRotation.yaw += 360
 
           // Pitch（垂直回転）の更新（-80〜80度に制限）
-          currentRotation.pitch = Math.max(
-            -80,
-            Math.min(80, currentRotation.pitch + deltaY * sensitivity)
-          )
+          currentRotation.pitch = Math.max(-80, Math.min(80, currentRotation.pitch + deltaY * sensitivity))
 
           // 回転を適用
           yield* cameraService.update({
@@ -221,10 +212,7 @@ export const ThirdPersonCameraLive = Layer.effect(
           if (!config.allowZoom) return
 
           // ズーム処理（マウスホイール）
-          currentDistance = Math.max(
-            config.minDistance,
-            Math.min(config.maxDistance, currentDistance - delta * 0.5)
-          )
+          currentDistance = Math.max(config.minDistance, Math.min(config.maxDistance, currentDistance - delta * 0.5))
 
           yield* cameraService.update({
             deltaTime: 0.016,
@@ -256,56 +244,57 @@ export const ThirdPersonCameraLive = Layer.effect(
 )
 
 // テスト用のMock実装
-export const ThirdPersonCameraTest = Layer.sync(
-  ThirdPersonCamera,
-  () => {
-    let config = defaultThirdPersonConfig
-    let distance = config.defaultDistance
-    let rotation = { pitch: -20, yaw: 0 }
+export const ThirdPersonCameraTest = Layer.sync(ThirdPersonCamera, () => {
+  let config = defaultThirdPersonConfig
+  let distance = config.defaultDistance
+  let rotation = { pitch: -20, yaw: 0 }
 
-    return ThirdPersonCamera.of({
-      updateFromTarget: (target) =>
-        Effect.succeed({
-          position: {
-            x: target.position.x - distance * Math.sin((rotation.yaw * Math.PI) / 180) * Math.cos((rotation.pitch * Math.PI) / 180),
-            y: target.position.y + config.heightOffset + distance * Math.sin((rotation.pitch * Math.PI) / 180),
-            z: target.position.z - distance * Math.cos((rotation.yaw * Math.PI) / 180) * Math.cos((rotation.pitch * Math.PI) / 180),
-          },
-          rotation: { ...rotation, roll: 0 },
-          mode: 'third-person' as const,
-          fov: 75,
-          distance,
-          smoothing: 0.15,
-        }),
+  return ThirdPersonCamera.of({
+    updateFromTarget: (target) =>
+      Effect.succeed({
+        position: {
+          x:
+            target.position.x -
+            distance * Math.sin((rotation.yaw * Math.PI) / 180) * Math.cos((rotation.pitch * Math.PI) / 180),
+          y: target.position.y + config.heightOffset + distance * Math.sin((rotation.pitch * Math.PI) / 180),
+          z:
+            target.position.z -
+            distance * Math.cos((rotation.yaw * Math.PI) / 180) * Math.cos((rotation.pitch * Math.PI) / 180),
+        },
+        rotation: { ...rotation, roll: 0 },
+        mode: 'third-person' as const,
+        fov: 75,
+        distance,
+        smoothing: 0.15,
+      }),
 
-      handleMouseInput: (deltaX, deltaY) =>
-        Effect.sync(() => {
-          rotation.yaw = (rotation.yaw - deltaX * config.mouseSensitivity * 0.1) % 360
-          rotation.pitch = Math.max(-80, Math.min(80, rotation.pitch + deltaY * config.mouseSensitivity * 0.1))
-        }),
+    handleMouseInput: (deltaX, deltaY) =>
+      Effect.sync(() => {
+        rotation.yaw = (rotation.yaw - deltaX * config.mouseSensitivity * 0.1) % 360
+        rotation.pitch = Math.max(-80, Math.min(80, rotation.pitch + deltaY * config.mouseSensitivity * 0.1))
+      }),
 
-      handleZoom: (delta) =>
-        Effect.sync(() => {
-          if (config.allowZoom) {
-            distance = Math.max(config.minDistance, Math.min(config.maxDistance, distance - delta * 0.5))
-          }
-        }),
+    handleZoom: (delta) =>
+      Effect.sync(() => {
+        if (config.allowZoom) {
+          distance = Math.max(config.minDistance, Math.min(config.maxDistance, distance - delta * 0.5))
+        }
+      }),
 
-      checkCollision: () =>
-        Effect.succeed({
-          hasCollision: false,
-          adjustedDistance: distance,
-        }),
+    checkCollision: () =>
+      Effect.succeed({
+        hasCollision: false,
+        adjustedDistance: distance,
+      }),
 
-      getConfig: () => Effect.succeed(config),
+    getConfig: () => Effect.succeed(config),
 
-      setConfig: (newConfig) =>
-        Effect.sync(() => {
-          config = { ...config, ...newConfig }
-          if (newConfig.defaultDistance !== undefined) {
-            distance = newConfig.defaultDistance
-          }
-        }),
-    })
-  }
-)
+    setConfig: (newConfig) =>
+      Effect.sync(() => {
+        config = { ...config, ...newConfig }
+        if (newConfig.defaultDistance !== undefined) {
+          distance = newConfig.defaultDistance
+        }
+      }),
+  })
+})

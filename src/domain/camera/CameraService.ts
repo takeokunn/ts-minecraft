@@ -66,10 +66,7 @@ export const CameraService = Context.GenericTag<{
   readonly setMode: (mode: CameraMode) => Effect.Effect<void, CameraError>
   readonly setFOV: (fov: number) => Effect.Effect<void, CameraError>
   readonly reset: () => Effect.Effect<void, CameraError>
-  readonly smoothTransition: (
-    target: Partial<CameraState>,
-    duration: number
-  ) => Effect.Effect<void, CameraError>
+  readonly smoothTransition: (target: Partial<CameraState>, duration: number) => Effect.Effect<void, CameraError>
 }>('@minecraft/CameraService')
 
 // デフォルトのカメラ状態
@@ -83,180 +80,187 @@ export const defaultCameraState: CameraState = {
 }
 
 // カメラサービスのLive実装
-export const CameraServiceLive = Layer.sync(
-  CameraService,
-  () => {
-    let state = defaultCameraState
+export const CameraServiceLive = Layer.sync(CameraService, () => {
+  let state = defaultCameraState
 
-    // スムーズ補間用の関数
-    const lerp = (start: number, end: number, factor: number): number => {
-      return start + (end - start) * factor
-    }
+  // スムーズ補間用の関数
+  const lerp = (start: number, end: number, factor: number): number => {
+    return start + (end - start) * factor
+  }
 
-    // 角度の補間（最短経路を考慮）
-    const lerpAngle = (start: number, end: number, factor: number): number => {
-      let diff = end - start
-      while (diff > 180) diff -= 360
-      while (diff < -180) diff += 360
-      return start + diff * factor
-    }
+  // 角度の補間（最短経路を考慮）
+  const lerpAngle = (start: number, end: number, factor: number): number => {
+    let diff = end - start
+    while (diff > 180) diff -= 360
+    while (diff < -180) diff += 360
+    return start + diff * factor
+  }
 
-    return CameraService.of({
-      getState: () => Effect.succeed(state),
+  return CameraService.of({
+    getState: () => Effect.succeed(state),
 
-      update: (params) =>
-        Effect.gen(function* () {
-          const smoothing = state.smoothing * (params.deltaTime * 60) // 60FPS基準で正規化
+    update: (params) =>
+      Effect.gen(function* () {
+        const smoothing = state.smoothing * (params.deltaTime * 60) // 60FPS基準で正規化
 
-          // モード更新
-          if (params.mode !== undefined) {
-            state = { ...state, mode: params.mode }
+        // モード更新
+        if (params.mode !== undefined) {
+          state = { ...state, mode: params.mode }
+        }
+
+        // FOV更新
+        if (params.fov !== undefined) {
+          state = {
+            ...state,
+            fov: Math.max(30, Math.min(120, params.fov)),
           }
+        }
 
-          // FOV更新
-          if (params.fov !== undefined) {
-            state = {
-              ...state,
-              fov: Math.max(30, Math.min(120, params.fov)),
-            }
+        // 距離更新（三人称モード用）
+        if (params.distance !== undefined) {
+          state = {
+            ...state,
+            distance: Math.max(1, Math.min(20, params.distance)),
           }
+        }
 
-          // 距離更新（三人称モード用）
-          if (params.distance !== undefined) {
-            state = {
-              ...state,
-              distance: Math.max(1, Math.min(20, params.distance)),
-            }
+        // 位置の更新（スムージング適用）
+        if (params.targetPosition) {
+          state = {
+            ...state,
+            position: {
+              x: lerp(state.position.x, params.targetPosition.x, smoothing),
+              y: lerp(state.position.y, params.targetPosition.y, smoothing),
+              z: lerp(state.position.z, params.targetPosition.z, smoothing),
+            },
           }
+        }
 
-          // 位置の更新（スムージング適用）
-          if (params.targetPosition) {
+        // 回転の更新（スムージング適用）
+        if (params.targetRotation) {
+          state = {
+            ...state,
+            rotation: {
+              pitch: Math.max(-90, Math.min(90, lerp(state.rotation.pitch, params.targetRotation.pitch, smoothing))),
+              yaw: lerpAngle(state.rotation.yaw, params.targetRotation.yaw, smoothing) % 360,
+              roll: state.rotation.roll, // 通常rollは変更しない
+            },
+          }
+        }
+
+        return state
+      }),
+
+    setMode: (mode) =>
+      Effect.sync(() => {
+        state = { ...state, mode }
+      }),
+
+    setFOV: (fov) =>
+      Effect.sync(() => {
+        state = {
+          ...state,
+          fov: Math.max(30, Math.min(120, fov)),
+        }
+      }),
+
+    reset: () =>
+      Effect.sync(() => {
+        state = defaultCameraState
+      }),
+
+    smoothTransition: (target, duration): Effect.Effect<void, CameraError> =>
+      Effect.gen(function* () {
+        const startState = { ...state }
+        const startTime = Date.now()
+
+        // トランジション実行
+        const transition: Effect.Effect<void, never> = Effect.gen(function* () {
+          const elapsed = (Date.now() - startTime) / 1000
+          const progress = Math.min(elapsed / duration, 1)
+          const eased = progress * progress * (3 - 2 * progress) // smoothstep
+
+          if (target.position) {
             state = {
               ...state,
               position: {
-                x: lerp(state.position.x, params.targetPosition.x, smoothing),
-                y: lerp(state.position.y, params.targetPosition.y, smoothing),
-                z: lerp(state.position.z, params.targetPosition.z, smoothing),
-              },
-            }
-          }
-
-          // 回転の更新（スムージング適用）
-          if (params.targetRotation) {
-            state = {
-              ...state,
-              rotation: {
-                pitch: Math.max(
-                  -90,
-                  Math.min(90, lerp(state.rotation.pitch, params.targetRotation.pitch, smoothing))
-                ),
-                yaw: lerpAngle(state.rotation.yaw, params.targetRotation.yaw, smoothing) % 360,
-                roll: state.rotation.roll, // 通常rollは変更しない
-              },
-            }
-          }
-
-          return state
-        }),
-
-      setMode: (mode) =>
-        Effect.sync(() => {
-          state = { ...state, mode }
-        }),
-
-      setFOV: (fov) =>
-        Effect.sync(() => {
-          state = {
-            ...state,
-            fov: Math.max(30, Math.min(120, fov)),
-          }
-        }),
-
-      reset: () =>
-        Effect.sync(() => {
-          state = defaultCameraState
-        }),
-
-      smoothTransition: (target, duration): Effect.Effect<void, CameraError> =>
-        Effect.gen(function* () {
-          const startState = { ...state }
-          const startTime = Date.now()
-
-          // トランジション実行
-          const transition: Effect.Effect<void, never> = Effect.gen(function* () {
-            const elapsed = (Date.now() - startTime) / 1000
-            const progress = Math.min(elapsed / duration, 1)
-            const eased = progress * progress * (3 - 2 * progress) // smoothstep
-
-            if (target.position) {
-              state = { ...state, position: {
                 x: lerp(startState.position.x, target.position.x, eased),
                 y: lerp(startState.position.y, target.position.y, eased),
                 z: lerp(startState.position.z, target.position.z, eased),
-              }}
+              },
             }
+          }
 
-            if (target.rotation) {
-              state = { ...state, rotation: {
+          if (target.rotation) {
+            state = {
+              ...state,
+              rotation: {
                 pitch: lerp(startState.rotation.pitch, target.rotation.pitch, eased),
                 yaw: lerpAngle(startState.rotation.yaw, target.rotation.yaw, eased),
                 roll: lerp(startState.rotation.roll, target.rotation.roll, eased),
-              }}
+              },
             }
+          }
 
-            if (target.fov !== undefined) {
-              state = { ...state, fov: lerp(startState.fov, target.fov, eased) }
-            }
+          if (target.fov !== undefined) {
+            state = { ...state, fov: lerp(startState.fov, target.fov, eased) }
+          }
 
-            if (target.distance !== undefined) {
-              state = { ...state, distance: lerp(startState.distance, target.distance, eased) }
-            }
+          if (target.distance !== undefined) {
+            state = { ...state, distance: lerp(startState.distance, target.distance, eased) }
+          }
 
-            if (progress < 1) {
-              yield* Effect.sleep('16 millis') // ~60fps
-              yield* transition
-            }
-          })
+          if (progress < 1) {
+            yield* Effect.sleep('16 millis') // ~60fps
+            yield* transition
+          }
+        })
 
-          yield* transition
-        }),
-    })
-  }
-)
+        yield* transition
+      }),
+  })
+})
 
 // テスト用のMockサービス
-export const CameraServiceTest = Layer.sync(
-  CameraService,
-  () => {
-    let state = defaultCameraState
+export const CameraServiceTest = Layer.sync(CameraService, () => {
+  let state = defaultCameraState
 
-    return CameraService.of({
-      getState: () => Effect.succeed(state),
-      update: (params) =>
-        Effect.sync(() => {
-          if (params.mode !== undefined) state = { ...state, mode: params.mode }
-          if (params.fov !== undefined) {
-            state = { ...state, fov: Math.max(30, Math.min(120, params.fov)) }
-          }
-          if (params.targetPosition) state = { ...state, position: params.targetPosition }
-          if (params.targetRotation) {
-            state = { ...state, rotation: {
+  return CameraService.of({
+    getState: () => Effect.succeed(state),
+    update: (params) =>
+      Effect.sync(() => {
+        if (params.mode !== undefined) state = { ...state, mode: params.mode }
+        if (params.fov !== undefined) {
+          state = { ...state, fov: Math.max(30, Math.min(120, params.fov)) }
+        }
+        if (params.targetPosition) state = { ...state, position: params.targetPosition }
+        if (params.targetRotation) {
+          state = {
+            ...state,
+            rotation: {
               ...state.rotation,
               pitch: Math.max(-90, Math.min(90, params.targetRotation.pitch)),
-              yaw: params.targetRotation.yaw
-            }}
+              yaw: params.targetRotation.yaw,
+            },
           }
-          if (params.distance !== undefined) {
-            state = { ...state, distance: Math.max(1, Math.min(20, params.distance)) }
-          }
-          return state
-        }),
-      setMode: (mode) => Effect.sync(() => { state = { ...state, mode } }),
-      setFOV: (fov) => Effect.sync(() => {
+        }
+        if (params.distance !== undefined) {
+          state = { ...state, distance: Math.max(1, Math.min(20, params.distance)) }
+        }
+        return state
+      }),
+    setMode: (mode) =>
+      Effect.sync(() => {
+        state = { ...state, mode }
+      }),
+    setFOV: (fov) =>
+      Effect.sync(() => {
         state = { ...state, fov: Math.max(30, Math.min(120, fov)) }
       }),
-      reset: () => Effect.sync(() => { state = defaultCameraState }),
-      smoothTransition: () => Effect.void,
-    })
-  }
-)
+    reset: () =>
+      Effect.sync(() => {
+        state = defaultCameraState
+      }),
+    smoothTransition: () => Effect.void,
+  })
+})

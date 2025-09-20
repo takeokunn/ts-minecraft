@@ -1,12 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer } from 'effect'
 import { it as effectIt } from '@effect/vitest'
-import {
-  FirstPersonCamera,
-  FirstPersonCameraTest,
-  PlayerState,
-  defaultFirstPersonConfig,
-} from './FirstPersonCamera'
+import { FirstPersonCamera, FirstPersonCameraTest, PlayerState, defaultFirstPersonConfig } from './FirstPersonCamera'
 import { CameraServiceTest } from './CameraService'
 
 describe('FirstPersonCamera', () => {
