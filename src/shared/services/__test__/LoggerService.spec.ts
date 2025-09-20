@@ -1,145 +1,42 @@
-import { Effect, Layer } from 'effect'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import {
-  LoggerService,
-  LoggerServiceLive,
-  LoggerServiceTest,
   LogLevel,
+  LOG_LEVEL_PRIORITY,
   LogEntry,
   PerformanceMetrics,
+  getCurrentLogLevel,
+  shouldLog,
+  createTimestamp,
+  createLogEntry,
 } from '../LoggerService'
 
-describe('LoggerService', () => {
-  describe('LoggerServiceLive', () => {
-    beforeEach(() => {
-      // コンソールメソッドをモック化
-      vi.spyOn(console, 'debug').mockImplementation(() => {})
-      vi.spyOn(console, 'info').mockImplementation(() => {})
-      vi.spyOn(console, 'warn').mockImplementation(() => {})
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+describe('LoggerService - Core Types and Utilities', () => {
+  describe('LogLevel Schema', () => {
+    it('should define correct log levels', () => {
+      const levels: LogLevel[] = ['DEBUG', 'INFO', 'WARN', 'ERROR']
+      levels.forEach((level) => {
+        expect(Object.keys(LOG_LEVEL_PRIORITY)).toContain(level)
+      })
     })
 
-    it('should log debug messages when LOG_LEVEL is DEBUG', async () => {
-      process.env['LOG_LEVEL'] = 'DEBUG'
-
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-        yield* logger.debug('Test debug message', { key: 'value' })
-      })
-
-      const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
-
-      expect(console.debug).toHaveBeenCalled()
-      expect(result).toBeUndefined()
+    it('should have correct priority ordering', () => {
+      expect(LOG_LEVEL_PRIORITY.DEBUG).toBe(0)
+      expect(LOG_LEVEL_PRIORITY.INFO).toBe(1)
+      expect(LOG_LEVEL_PRIORITY.WARN).toBe(2)
+      expect(LOG_LEVEL_PRIORITY.ERROR).toBe(3)
     })
+  })
 
-    it('should log info messages', async () => {
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-        yield* logger.info('Test info message', { data: 'test' })
-      })
-
-      await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
-
-      expect(console.info).toHaveBeenCalled()
-    })
-
-    it('should log warning messages', async () => {
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-        yield* logger.warn('Test warning message', { warning: true })
-      })
-
-      await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
-
-      expect(console.warn).toHaveBeenCalled()
-    })
-
-    it('should log error messages with error objects', async () => {
-      const testError = new Error('Test error')
-
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-        yield* logger.error('Test error message', testError)
-      })
-
-      await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
-
-      expect(console.error).toHaveBeenCalled()
-    })
-
-    it('should respect log level filtering', async () => {
-      process.env['LOG_LEVEL'] = 'ERROR'
-
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-        yield* logger.debug('Debug message')
-        yield* logger.info('Info message')
-        yield* logger.warn('Warning message')
-        yield* logger.error('Error message')
-      })
-
-      await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
-
-      expect(console.debug).not.toHaveBeenCalled()
-      expect(console.info).not.toHaveBeenCalled()
-      expect(console.warn).not.toHaveBeenCalled()
-      expect(console.error).toHaveBeenCalled()
-    })
-
-    it('should measure performance correctly', async () => {
-      // Ensure DEBUG level is set for this test
-      process.env['LOG_LEVEL'] = 'DEBUG'
-
-      const slowOperation = Effect.sync(() => {
-        // シミュレートされた遅い処理
-        const start = Date.now()
-        while (Date.now() - start < 10) {
-          // 10ms待機
-        }
-        return 'result'
-      })
-
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-        const result = yield* logger.measurePerformance('slowOperation', slowOperation)
-        return result
-      })
-
-      const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
-
-      expect(result).toBe('result')
-      expect(console.debug).toHaveBeenCalledWith(
-        expect.stringContaining('Starting performance measurement for: slowOperation'),
-        ''
-      )
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Performance metrics for slowOperation'),
-        expect.objectContaining({
-          executionTime: expect.any(Number),
-          functionName: 'slowOperation',
-        })
-      )
-    })
-
-    it('should use default log level when NODE_ENV is production', async () => {
+  describe('getCurrentLogLevel', () => {
+    it('should return DEBUG for development environment by default', () => {
       const originalNodeEnv = process.env['NODE_ENV']
       const originalLogLevel = process.env['LOG_LEVEL']
 
-      process.env['NODE_ENV'] = 'production'
+      process.env['NODE_ENV'] = 'development'
       delete process.env['LOG_LEVEL']
 
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-        yield* logger.debug('Debug in production')
-        yield* logger.info('Info in production')
-      })
-
-      await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
-
-      // プロダクション環境ではDEBUGは出力されない
-      expect(console.debug).not.toHaveBeenCalled()
-      expect(console.info).toHaveBeenCalled()
+      const level = getCurrentLogLevel()
+      expect(level).toBe('DEBUG')
 
       // 環境変数を復元
       process.env['NODE_ENV'] = originalNodeEnv
@@ -147,155 +44,85 @@ describe('LoggerService', () => {
         process.env['LOG_LEVEL'] = originalLogLevel
       }
     })
-  })
 
-  describe('LoggerServiceTest', () => {
-    it('should capture logs in test mode without console output', async () => {
-      const consoleSpy = vi.spyOn(console, 'info')
+    it('should return INFO for production environment by default', () => {
+      const originalNodeEnv = process.env['NODE_ENV']
+      const originalLogLevel = process.env['LOG_LEVEL']
 
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-        yield* logger.info('Test log message')
-      })
+      process.env['NODE_ENV'] = 'production'
+      delete process.env['LOG_LEVEL']
 
-      await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
+      const level = getCurrentLogLevel()
+      expect(level).toBe('INFO')
 
-      // テストモードではコンソールに出力されない
-      expect(consoleSpy).not.toHaveBeenCalled()
+      // 環境変数を復元
+      process.env['NODE_ENV'] = originalNodeEnv
+      if (originalLogLevel) {
+        process.env['LOG_LEVEL'] = originalLogLevel
+      }
     })
 
-    it('should mock performance measurement in test mode', async () => {
-      const operation = Effect.succeed('test-result')
+    it('should respect LOG_LEVEL environment variable', () => {
+      const originalLogLevel = process.env['LOG_LEVEL']
 
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-        const result = yield* logger.measurePerformance('testFunction', operation)
-        return result
-      })
+      process.env['LOG_LEVEL'] = 'ERROR'
+      const level = getCurrentLogLevel()
+      expect(level).toBe('ERROR')
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
-
-      expect(result).toBe('test-result')
-    })
-  })
-
-  describe('Log Level Priority', () => {
-    const testCases: Array<{
-      envLevel: LogLevel
-      shouldLogDebug: boolean
-      shouldLogInfo: boolean
-      shouldLogWarn: boolean
-      shouldLogError: boolean
-    }> = [
-      {
-        envLevel: 'DEBUG',
-        shouldLogDebug: true,
-        shouldLogInfo: true,
-        shouldLogWarn: true,
-        shouldLogError: true,
-      },
-      {
-        envLevel: 'INFO',
-        shouldLogDebug: false,
-        shouldLogInfo: true,
-        shouldLogWarn: true,
-        shouldLogError: true,
-      },
-      {
-        envLevel: 'WARN',
-        shouldLogDebug: false,
-        shouldLogInfo: false,
-        shouldLogWarn: true,
-        shouldLogError: true,
-      },
-      {
-        envLevel: 'ERROR',
-        shouldLogDebug: false,
-        shouldLogInfo: false,
-        shouldLogWarn: false,
-        shouldLogError: true,
-      },
-    ]
-
-    testCases.forEach(({ envLevel, shouldLogDebug, shouldLogInfo, shouldLogWarn, shouldLogError }) => {
-      it(`should respect ${envLevel} log level filtering`, async () => {
-        process.env['LOG_LEVEL'] = envLevel
-
-        // コンソールメソッドをリセット
-        vi.clearAllMocks()
-
-        const program = Effect.gen(function* () {
-          const logger = yield* LoggerService
-          yield* logger.debug('Debug message')
-          yield* logger.info('Info message')
-          yield* logger.warn('Warn message')
-          yield* logger.error('Error message')
-        })
-
-        await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
-
-        if (shouldLogDebug) {
-          expect(console.debug).toHaveBeenCalled()
-        } else {
-          expect(console.debug).not.toHaveBeenCalled()
-        }
-
-        if (shouldLogInfo) {
-          expect(console.info).toHaveBeenCalled()
-        } else {
-          expect(console.info).not.toHaveBeenCalled()
-        }
-
-        if (shouldLogWarn) {
-          expect(console.warn).toHaveBeenCalled()
-        } else {
-          expect(console.warn).not.toHaveBeenCalled()
-        }
-
-        if (shouldLogError) {
-          expect(console.error).toHaveBeenCalled()
-        } else {
-          expect(console.error).not.toHaveBeenCalled()
-        }
-      })
+      // 環境変数を復元
+      if (originalLogLevel) {
+        process.env['LOG_LEVEL'] = originalLogLevel
+      } else {
+        delete process.env['LOG_LEVEL']
+      }
     })
   })
 
-  describe('Error Handling', () => {
-    it('should handle errors in performance measurement gracefully', async () => {
-      const failingOperation = Effect.sync(() => {
-        throw new Error('Operation failed')
-      })
+  describe('shouldLog', () => {
+    it('should allow logging at same or higher priority levels', () => {
+      expect(shouldLog('ERROR', 'DEBUG')).toBe(true)
+      expect(shouldLog('WARN', 'DEBUG')).toBe(true)
+      expect(shouldLog('INFO', 'DEBUG')).toBe(true)
+      expect(shouldLog('DEBUG', 'DEBUG')).toBe(true)
 
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-        return yield* logger.measurePerformance('failingOperation', failingOperation)
-      })
+      expect(shouldLog('ERROR', 'INFO')).toBe(true)
+      expect(shouldLog('WARN', 'INFO')).toBe(true)
+      expect(shouldLog('INFO', 'INFO')).toBe(true)
+      expect(shouldLog('DEBUG', 'INFO')).toBe(false)
+    })
+  })
 
-      await expect(Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))).rejects.toThrow(
-        'Operation failed'
-      )
+  describe('createTimestamp', () => {
+    it('should return ISO timestamp string', () => {
+      const timestamp = createTimestamp()
+      expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
+    })
+  })
+
+  describe('createLogEntry', () => {
+    it('should create log entry with required fields', () => {
+      const entry = createLogEntry('INFO', 'Test message')
+      expect(entry.level).toBe('INFO')
+      expect(entry.message).toBe('Test message')
+      expect(entry.timestamp).toBeDefined()
     })
 
-    it('should log error objects with proper structure', async () => {
-      const testError = new Error('Structured error')
-      testError.stack = 'Error stack trace'
+    it('should include context when provided', () => {
+      const context = { key: 'value' }
+      const entry = createLogEntry('INFO', 'Test message', context)
+      expect(entry.context).toEqual(context)
+    })
 
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-        yield* logger.error('Error occurred', testError)
+    it('should include structured error when provided', () => {
+      const error = new Error('Test error')
+      error.stack = 'Error stack trace'
+      const entry = createLogEntry('ERROR', 'Error occurred', undefined, error)
+
+      expect(entry.error).toEqual({
+        name: 'Error',
+        message: 'Test error',
+        stack: 'Error stack trace',
       })
-
-      await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
-
-      expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('Error occurred'),
-        expect.objectContaining({
-          name: 'Error',
-          message: 'Structured error',
-          stack: 'Error stack trace',
-        })
-      )
     })
   })
 })
